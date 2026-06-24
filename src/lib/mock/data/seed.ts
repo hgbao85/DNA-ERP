@@ -1,0 +1,770 @@
+import type { Product, Promotion, Quotation, RetailCustomer, CareReminder, WholesaleCustomer, WholesaleCareReminder } from '../../../types';
+import type { PlanForm } from '../../../types/plan-form';
+import {
+  seedPhoiExecutions,
+  seedStageExec,
+  seedWeavingFinishedFrames,
+  seedWeavingManhSummary,
+  seedWeavingByPoint,
+  seedWeavingReceiptHistory,
+  seedWeavingAllocation,
+  seedWeavingReceivePending,
+  seedWeavingByWarehouse,
+  seedChuyenKiem,
+  seedPacking,
+  seedPackagingBOM,
+  seedPackagingByPI,
+  seedPiMaterialChecks,
+  seedMfgWarehouseTxns,
+  seedLaborCost,
+} from './seed-mfg-ops';
+
+const ISO = (d: string) => new Date(d).toISOString();
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CRM DATA: SALES & CUSTOMERS
+// ══════════════════════════════════════════════════════════════════════════════
+
+export const seedProducts: Product[] = [
+  // Ghế xuất khẩu
+  { id: 'JSE-55', name: 'Ghế J55 (Khung sắt)', materials: 'Sắt vuông 25×25, dây PE đen', price: 1200000, category: 'Ghế' },
+  { id: 'IEA-3', name: 'Ghế đan IEA-3 (Dây đan)', materials: 'Khung sắt Ø16, dây nhựa đan', price: 1500000, category: 'Ghế đan' },
+  { id: 'JSE-60', name: 'Ghế J60 (Khung sắt lớn)', materials: 'Sắt vuông 30×30, dây PE xám', price: 1800000, category: 'Ghế' },
+  // Bàn
+  { id: 'TB-45', name: 'Bàn TB-45 (Vuông)', materials: 'Sắt ống 25×25, mặt gỗ', price: 2500000, category: 'Bàn' },
+  { id: 'TB-50', name: 'Bàn TB-50 (Chữ nhật)', materials: 'Sắt ống 30×30, mặt nhôm', price: 3000000, category: 'Bàn' },
+  // Sofa/Phòng khách
+  { id: 'SF-10', name: 'Ghế sofa SF-10', materials: 'Khung gỗ, nệm', price: 4500000, category: 'Sofa' },
+  { id: 'SF-15', name: 'Ghế sofa SF-15 (2 chỗ)', materials: 'Khung sắt, nệm', price: 5500000, category: 'Sofa' },
+  // Ngoài trời
+  { id: 'OUT-25', name: 'Ghế ngoài trời OUT-25', materials: 'Thép không gỉ, dây PE', price: 2200000, category: 'Ngoài trời' },
+  { id: 'OUT-30', name: 'Bộ bàn ghế ngoài trời OUT-30', materials: 'Thép, mặt gỗ teak', price: 8000000, category: 'Ngoài trời' },
+];
+
+export const seedAgencyWarehouses = [
+  { id: 'A01', name: 'Kho Đại Lý Q7, TP.HCM', region: 'Miền Nam' },
+  { id: 'A02', name: 'Kho Đại Lý Hà Nội', region: 'Miền Bắc' },
+  { id: 'A03', name: 'Kho Đại Lý Đà Nẵng', region: 'Miền Trung' },
+];
+
+// Sales Users - Nhân viên bán hàng
+export const seedSalesUsers = [
+  { id: 2, name: 'Nguyễn Hải', email: 'hai@sales.com', salesType: 'RETAIL' },
+  { id: 3, name: 'Trương Vy', email: 'vy@sales.com', salesType: 'RETAIL' },
+  { id: 4, name: 'Lê Đức Trọng', email: 'duc.trong@sales.com', salesType: 'WHOLESALE' },
+  { id: 5, name: 'Phạm Minh Quân', email: 'quan@sales.com', salesType: 'WHOLESALE' },
+  { id: 6, name: 'Hoàng Thu Hà', email: 'ha@sales.com', salesType: 'RETAIL' },
+];
+
+// Retail Customers - Khách hàng lẻ
+export const seedRetailCustomers: RetailCustomer[] = [
+  {
+    id: 1, name: 'Nguyễn Văn Dũng', phone: '0901111111', email: 'dung@mail.com', address: 'Q7, TP.HCM',
+    debt: 0, createdAt: ISO('2026-01-10'), agencyWarehouseId: 'A01', assignedSalesId: 2,
+    agencyWarehouse: { id: 'A01', name: 'Kho Đại Lý Q7, TP.HCM', region: 'Miền Nam' },
+    assignedSales: { id: 2, name: 'Nguyễn Hải', email: 'hai@sales.com', salesType: 'RETAIL' },
+    orderCount: 4, totalRevenue: 48000000,
+  },
+  {
+    id: 2, name: 'Trần Thị Thủy', phone: '0902222222', debt: 1500000, createdAt: ISO('2026-02-01'),
+    agencyWarehouseId: 'A01', assignedSalesId: 2, orderCount: 2, totalRevenue: 13000000,
+    agencyWarehouse: { id: 'A01', name: 'Kho Đại Lý Q7, TP.HCM', region: 'Miền Nam' },
+    assignedSales: { id: 2, name: 'Nguyễn Hải', email: 'hai@sales.com', salesType: 'RETAIL' },
+  },
+  {
+    id: 3, name: 'Phạm Hoàng Nam', phone: '0903333444', email: 'nam@mail.com', address: 'Q1, TP.HCM',
+    debt: 0, createdAt: ISO('2026-03-15'), agencyWarehouseId: 'A01', assignedSalesId: 3,
+    agencyWarehouse: { id: 'A01', name: 'Kho Đại Lý Q7, TP.HCM', region: 'Miền Nam' },
+    assignedSales: { id: 3, name: 'Trương Vy', email: 'vy@sales.com', salesType: 'RETAIL' },
+    orderCount: 3, totalRevenue: 25500000,
+  },
+  {
+    id: 4, name: 'Bùi Minh Tuấn', phone: '0904444555', email: 'tuan@mail.com', address: 'Gò Vấp, TP.HCM',
+    debt: 3000000, createdAt: ISO('2026-01-20'), agencyWarehouseId: 'A01', assignedSalesId: 3,
+    agencyWarehouse: { id: 'A01', name: 'Kho Đại Lý Q7, TP.HCM', region: 'Miền Nam' },
+    assignedSales: { id: 3, name: 'Trương Vy', email: 'vy@sales.com', salesType: 'RETAIL' },
+    orderCount: 2, totalRevenue: 8500000,
+  },
+  {
+    id: 5, name: 'Võ Thị Liên', phone: '0905555666', email: 'lien@mail.com', address: 'Hà Nội',
+    debt: 0, createdAt: ISO('2026-02-10'), agencyWarehouseId: 'A02', assignedSalesId: 6,
+    agencyWarehouse: { id: 'A02', name: 'Kho Đại Lý Hà Nội', region: 'Miền Bắc' },
+    assignedSales: { id: 6, name: 'Hoàng Thu Hà', email: 'ha@sales.com', salesType: 'RETAIL' },
+    orderCount: 1, totalRevenue: 4500000,
+  },
+  {
+    id: 6, name: 'Dương Quốc Huy', phone: '0906666777', email: 'huy@mail.com', address: 'Biên Hòa, Đồng Nai',
+    debt: 2000000, createdAt: ISO('2026-03-05'), agencyWarehouseId: 'A01', assignedSalesId: 2,
+    agencyWarehouse: { id: 'A01', name: 'Kho Đại Lý Q7, TP.HCM', region: 'Miền Nam' },
+    assignedSales: { id: 2, name: 'Nguyễn Hải', email: 'hai@sales.com', salesType: 'RETAIL' },
+    orderCount: 2, totalRevenue: 11000000,
+  },
+  {
+    id: 7, name: 'Lê Thị Hương', phone: '0907777888', email: 'huong@mail.com', address: 'Đà Nẵng',
+    debt: 0, createdAt: ISO('2026-01-25'), agencyWarehouseId: 'A03', assignedSalesId: 6,
+    agencyWarehouse: { id: 'A03', name: 'Kho Đại Lý Đà Nẵng', region: 'Miền Trung' },
+    assignedSales: { id: 6, name: 'Hoàng Thu Hà', email: 'ha@sales.com', salesType: 'RETAIL' },
+    orderCount: 1, totalRevenue: 5500000,
+  },
+];
+
+// Wholesale Customers - Khách hàng sỉ
+export const seedWholesaleCustomers: WholesaleCustomer[] = [
+  {
+    id: 1, businessName: 'Minh Anh Trading Co.', representativeName: 'Lê Minh Anh', phone: '0913333333',
+    address: 'Hà Nội', debt: 5000000, createdAt: ISO('2026-01-05'), assignedSalesId: 4,
+    assignedSales: { id: 4, name: 'Lê Đức Trọng', salesType: 'WHOLESALE' }, orderCount: 5, totalRevenue: 245000000,
+  },
+  {
+    id: 2, businessName: 'Green Garden JSC', representativeName: 'Võ Thanh Bình', phone: '0914444555',
+    address: 'Đà Nẵng', debt: 0, createdAt: ISO('2026-02-20'), assignedSalesId: 4,
+    assignedSales: { id: 4, name: 'Lê Đức Trọng', salesType: 'WHOLESALE' }, orderCount: 3, totalRevenue: 95000000,
+  },
+  {
+    id: 3, businessName: 'Phú Hồng Furniture', representativeName: 'Ngô Hùng Anh', phone: '0915555666',
+    address: 'TP.HCM', debt: 8000000, createdAt: ISO('2026-01-15'), assignedSalesId: 5,
+    assignedSales: { id: 5, name: 'Phạm Minh Quân', salesType: 'WHOLESALE' }, orderCount: 4, totalRevenue: 180000000,
+  },
+  {
+    id: 4, businessName: 'Thiên Ân Construction', representativeName: 'Trần Quốc Huy', phone: '0916666777',
+    address: 'Biên Hòa', debt: 0, createdAt: ISO('2026-03-01'), assignedSalesId: 5,
+    assignedSales: { id: 5, name: 'Phạm Minh Quân', salesType: 'WHOLESALE' }, orderCount: 2, totalRevenue: 52000000,
+  },
+];
+
+// Promotions - Chương trình khuyến mãi
+export const seedPromotions: Promotion[] = [
+  {
+    id: 1, name: 'Giảm 5% khách lẻ T6/2026', description: 'Áp dụng cho đơn hàng lẻ từ 10 triệu VNĐ trở lên', orderType: 'RETAIL',
+    startDate: ISO('2026-06-01'), endDate: ISO('2026-06-30'), createdAt: ISO('2026-05-20'),
+  },
+  {
+    id: 2, name: 'Giảm 10% khách sỉ Q2/2026', description: 'Giảm cho tất cả khách sỉ, áp dụng từ 50M VNĐ', orderType: 'WHOLESALE',
+    startDate: ISO('2026-04-01'), endDate: ISO('2026-06-30'), createdAt: ISO('2026-03-25'),
+  },
+  {
+    id: 3, name: 'Miễn vận chuyển đơn từ 30M', description: 'Áp dụng cho cả lẻ và sỉ', orderType: 'RETAIL',
+    startDate: ISO('2026-05-15'), endDate: ISO('2026-07-31'), createdAt: ISO('2026-05-10'),
+  },
+];
+
+// Care Reminders - Nhắc nhở chăm sóc khách hàng lẻ
+export const seedCareReminders: CareReminder[] = [
+  // Customer 1
+  {
+    id: 1, dueDate: ISO('2026-06-25'), isCompleted: false, retailCustomerId: 1,
+    retailCustomer: { id: 1, name: 'Nguyễn Văn Dũng' }, createdAt: ISO('2026-06-10'),
+  },
+  {
+    id: 2, dueDate: ISO('2026-06-05'), isCompleted: true, retailCustomerId: 1,
+    retailCustomer: { id: 1, name: 'Nguyễn Văn Dũng' }, createdAt: ISO('2026-05-15'),
+  },
+  // Customer 2
+  {
+    id: 3, dueDate: ISO('2026-06-28'), isCompleted: false, retailCustomerId: 2,
+    retailCustomer: { id: 2, name: 'Trần Thị Thủy' }, createdAt: ISO('2026-06-08'),
+  },
+  // Customer 3
+  {
+    id: 4, dueDate: ISO('2026-06-22'), isCompleted: false, retailCustomerId: 3,
+    retailCustomer: { id: 3, name: 'Phạm Hoàng Nam' }, createdAt: ISO('2026-06-05'),
+  },
+  {
+    id: 5, dueDate: ISO('2026-06-10'), isCompleted: true, retailCustomerId: 3,
+    retailCustomer: { id: 3, name: 'Phạm Hoàng Nam' }, createdAt: ISO('2026-05-20'),
+  },
+  // Customer 4
+  {
+    id: 6, dueDate: ISO('2026-06-30'), isCompleted: false, retailCustomerId: 4,
+    retailCustomer: { id: 4, name: 'Bùi Minh Tuấn' }, createdAt: ISO('2026-06-12'),
+  },
+  // Customer 5
+  {
+    id: 7, dueDate: ISO('2026-07-05'), isCompleted: false, retailCustomerId: 5,
+    retailCustomer: { id: 5, name: 'Võ Thị Liên' }, createdAt: ISO('2026-06-15'),
+  },
+  // Customer 6
+  {
+    id: 8, dueDate: ISO('2026-06-29'), isCompleted: false, retailCustomerId: 6,
+    retailCustomer: { id: 6, name: 'Dương Quốc Huy' }, createdAt: ISO('2026-06-10'),
+  },
+];
+
+// Wholesale Care Reminders - Nhắc nhở chăm sóc khách hàng sỉ
+export const seedWholesaleCareReminders: WholesaleCareReminder[] = [
+  {
+    id: 1, dueDate: ISO('2026-06-25'), isCompleted: false, wholesaleCustomerId: 1,
+    wholesaleCustomer: { id: 1, businessName: 'Minh Anh Trading Co.' }, createdAt: ISO('2026-06-10'),
+  },
+  {
+    id: 2, dueDate: ISO('2026-06-10'), isCompleted: true, wholesaleCustomerId: 1,
+    wholesaleCustomer: { id: 1, businessName: 'Minh Anh Trading Co.' }, createdAt: ISO('2026-05-20'),
+  },
+  {
+    id: 3, dueDate: ISO('2026-06-28'), isCompleted: false, wholesaleCustomerId: 2,
+    wholesaleCustomer: { id: 2, businessName: 'Green Garden JSC' }, createdAt: ISO('2026-06-08'),
+  },
+  {
+    id: 4, dueDate: ISO('2026-06-22'), isCompleted: false, wholesaleCustomerId: 3,
+    wholesaleCustomer: { id: 3, businessName: 'Phú Hồng Furniture' }, createdAt: ISO('2026-06-05'),
+  },
+  {
+    id: 5, dueDate: ISO('2026-06-30'), isCompleted: false, wholesaleCustomerId: 4,
+    wholesaleCustomer: { id: 4, businessName: 'Thiên Ân Construction' }, createdAt: ISO('2026-06-12'),
+  },
+];
+
+// Quotations - Báo giá
+export const seedQuotations: Quotation[] = [
+  // Quotation 1 - For customer 1
+  {
+    id: 1, code: 'BG-2026-001', status: 'APPROVED', orderType: 'RETAIL',
+    customerName: 'Nguyễn Văn Dũng', customerPhone: '0901111111', customerAddress: 'Q7, TP.HCM',
+    quotationDate: ISO('2026-05-01'), items: [
+      { id: 1, productId: 'JSE-55', product: { id: 'JSE-55', name: 'Ghế J55 (Khung sắt)' }, quantity: 10, unitPrice: 1200000, subtotal: 12000000 },
+      { id: 2, productId: 'TB-45', product: { id: 'TB-45', name: 'Bàn TB-45 (Vuông)' }, quantity: 2, unitPrice: 2500000, subtotal: 5000000 },
+    ],
+    discountPercent: 0, discountAmount: 0, totalAmount: 17000000, createdById: 2,
+    createdBy: { id: 2, name: 'Nguyễn Hải' }, retailCustomerId: 1, retailCustomer: { id: 1, name: 'Nguyễn Văn Dũng' },
+    createdAt: ISO('2026-05-01'),
+  },
+  // Quotation 2 - For customer 2
+  {
+    id: 2, code: 'BG-2026-002', status: 'PENDING', orderType: 'RETAIL',
+    customerName: 'Trần Thị Thủy', customerPhone: '0902222222', customerAddress: 'Q7, TP.HCM',
+    quotationDate: ISO('2026-06-05'), items: [
+      { id: 3, productId: 'SF-10', product: { id: 'SF-10', name: 'Ghế sofa SF-10' }, quantity: 1, unitPrice: 4500000, subtotal: 4500000 },
+    ],
+    discountPercent: 0, discountAmount: 0, totalAmount: 4500000, createdById: 2,
+    createdBy: { id: 2, name: 'Nguyễn Hải' }, retailCustomerId: 2, retailCustomer: { id: 2, name: 'Trần Thị Thủy' },
+    createdAt: ISO('2026-06-05'),
+  },
+  // Quotation 3 - For wholesale customer 1
+  {
+    id: 3, code: 'BG-2026-003', status: 'APPROVED', orderType: 'WHOLESALE',
+    customerName: 'Minh Anh Trading Co.', customerPhone: '0913333333', customerAddress: 'Hà Nội',
+    quotationDate: ISO('2026-05-20'), items: [
+      { id: 4, productId: 'JSE-55', product: { id: 'JSE-55', name: 'Ghế J55 (Khung sắt)' }, quantity: 50, unitPrice: 1000000, subtotal: 50000000 },
+      { id: 5, productId: 'TB-45', product: { id: 'TB-45', name: 'Bàn TB-45 (Vuông)' }, quantity: 20, unitPrice: 2200000, subtotal: 44000000 },
+    ],
+    discountPercent: 10, discountAmount: 9400000, totalAmount: 84600000, createdById: 4,
+    createdBy: { id: 4, name: 'Lê Đức Trọng' }, wholesaleCustomerId: 1, wholesaleCustomer: { id: 1, businessName: 'Minh Anh Trading Co.' },
+    createdAt: ISO('2026-05-20'),
+  },
+  // Quotation 4 - For wholesale customer 3
+  {
+    id: 4, code: 'BG-2026-004', status: 'DRAFT', orderType: 'WHOLESALE',
+    customerName: 'Phú Hồng Furniture', customerPhone: '0915555666', customerAddress: 'TP.HCM',
+    quotationDate: ISO('2026-06-15'), items: [
+      { id: 6, productId: 'IEA-3', product: { id: 'IEA-3', name: 'Ghế đan IEA-3 (Dây đan)' }, quantity: 30, unitPrice: 1200000, subtotal: 36000000 },
+      { id: 7, productId: 'OUT-30', product: { id: 'OUT-30', name: 'Bộ bàn ghế ngoài trời OUT-30' }, quantity: 5, unitPrice: 7500000, subtotal: 37500000 },
+    ],
+    discountPercent: 5, discountAmount: 3675000, totalAmount: 69825000, createdById: 5,
+    createdBy: { id: 5, name: 'Phạm Minh Quân' }, wholesaleCustomerId: 3, wholesaleCustomer: { id: 3, businessName: 'Phú Hồng Furniture' },
+    createdAt: ISO('2026-06-15'),
+  },
+];
+
+// Orders - Đơn hàng bán
+export const seedOrders = [
+  // Retail orders
+  {
+    id: 'LE-001', customerName: 'Nguyễn Văn Dũng', phone: '0901111111', date: ISO('2026-05-05'),
+    details: 'JSE-55 × 10, TB-45 × 2', quantity: 12, total: 17000000, paymentPercent: 100, status: 'DONE', orderType: 'RETAIL',
+  },
+  {
+    id: 'LE-002', customerName: 'Trần Thị Thủy', phone: '0902222222', date: ISO('2026-06-10'),
+    details: 'SF-10 × 1', quantity: 1, total: 4500000, paymentPercent: 50, status: 'PROCESSING', orderType: 'RETAIL',
+  },
+  {
+    id: 'LE-003', customerName: 'Phạm Hoàng Nam', phone: '0903333444', date: ISO('2026-04-20'),
+    details: 'JSE-60 × 5, TB-50 × 3', quantity: 8, total: 18000000, paymentPercent: 100, status: 'DONE', orderType: 'RETAIL',
+  },
+  {
+    id: 'LE-004', customerName: 'Bùi Minh Tuấn', phone: '0904444555', date: ISO('2026-06-15'),
+    details: 'OUT-25 × 2', quantity: 2, total: 4400000, paymentPercent: 0, status: 'PENDING', orderType: 'RETAIL',
+  },
+  {
+    id: 'LE-005', customerName: 'Võ Thị Liên', phone: '0905555666', date: ISO('2026-02-10'),
+    details: 'SF-15 × 1', quantity: 1, total: 5500000, paymentPercent: 100, status: 'DONE', orderType: 'RETAIL',
+  },
+  {
+    id: 'LE-006', customerName: 'Dương Quốc Huy', phone: '0906666777', date: ISO('2026-05-30'),
+    details: 'IEA-3 × 4', quantity: 4, total: 6000000, paymentPercent: 50, status: 'PROCESSING', orderType: 'RETAIL',
+  },
+  {
+    id: 'LE-007', customerName: 'Lê Thị Hương', phone: '0907777888', date: ISO('2026-01-25'),
+    details: 'TB-45 × 2, JSE-55 × 1', quantity: 3, total: 5500000, paymentPercent: 100, status: 'DONE', orderType: 'RETAIL',
+  },
+  // Wholesale orders
+  {
+    id: 'WS-001', customerName: 'Minh Anh Trading Co.', phone: '0913333333', date: ISO('2026-05-25'),
+    details: 'JSE-55 × 50, TB-45 × 20', quantity: 70, total: 84600000, paymentPercent: 30, status: 'PROCESSING', orderType: 'WHOLESALE',
+  },
+  {
+    id: 'WS-002', customerName: 'Minh Anh Trading Co.', phone: '0913333333', date: ISO('2026-04-10'),
+    details: 'JSE-60 × 20, TB-50 × 10', quantity: 30, total: 66000000, paymentPercent: 100, status: 'DONE', orderType: 'WHOLESALE',
+  },
+  {
+    id: 'WS-003', customerName: 'Green Garden JSC', phone: '0914444555', date: ISO('2026-03-15'),
+    details: 'SF-15 × 8', quantity: 8, total: 44000000, paymentPercent: 100, status: 'DONE', orderType: 'WHOLESALE',
+  },
+  {
+    id: 'WS-004', customerName: 'Phú Hồng Furniture', phone: '0915555666', date: ISO('2026-06-01'),
+    details: 'IEA-3 × 30, OUT-30 × 5', quantity: 35, total: 69825000, paymentPercent: 40, status: 'PROCESSING', orderType: 'WHOLESALE',
+  },
+  {
+    id: 'WS-005', customerName: 'Phú Hồng Furniture', phone: '0915555666', date: ISO('2026-04-25'),
+    details: 'JSE-55 × 15', quantity: 15, total: 18000000, paymentPercent: 100, status: 'DONE', orderType: 'WHOLESALE',
+  },
+  {
+    id: 'WS-006', customerName: 'Thiên Ân Construction', phone: '0916666777', date: ISO('2026-05-10'),
+    details: 'OUT-25 × 10', quantity: 10, total: 22000000, paymentPercent: 50, status: 'PROCESSING', orderType: 'WHOLESALE',
+  },
+  {
+    id: 'WS-007', customerName: 'Thiên Ân Construction', phone: '0916666777', date: ISO('2026-02-20'),
+    details: 'TB-50 × 5', quantity: 5, total: 15000000, paymentPercent: 100, status: 'DONE', orderType: 'WHOLESALE',
+  },
+  {
+    id: 'WS-008', customerName: 'Minh Anh Trading Co.', phone: '0913333333', date: ISO('2026-02-05'),
+    details: 'SF-10 × 12', quantity: 12, total: 54000000, paymentPercent: 100, status: 'DONE', orderType: 'WHOLESALE',
+  },
+];
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MANUFACTURING DATA: PRODUCTION, MATERIALS, SUPPLIERS
+// ══════════════════════════════════════════════════════════════════════════════
+
+export const seedMfgExportCustomers = [
+  { id: 1, name: 'MEYING USA', country: 'US', market: 'Amazon.com', contactName: 'David Chen' },
+  { id: 2, name: 'GOPLUS USA', country: 'US', market: 'Amazon / Walmart', contactName: 'Mike Johnson' },
+  { id: 3, name: 'IKEA Supplier', country: 'Sweden', market: 'IKEA International', contactName: 'Anna Bergström' },
+];
+
+export const seedMfgProducts = [
+  { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55', description: 'Ghế khung sắt J55 xuất khẩu' },
+  { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3', description: 'Ghế dây đan hoàn toàn' },
+  { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60', description: 'Ghế khung sắt J60 kích cỡ lớn' },
+];
+
+export const seedProductVariants = [
+  { id: 101, mfgProductId: 1, exportCustomerId: 1, colorCode: 'BLACK', description: 'JSE-55 Đen — MEYING', isActive: true, mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' } },
+  { id: 102, mfgProductId: 2, exportCustomerId: 2, colorCode: 'BLACK', description: 'IEA-3 Đen — GOPLUS', isActive: true, mfgProduct: { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3' } },
+  { id: 103, mfgProductId: 1, exportCustomerId: 3, colorCode: 'GRAY', description: 'JSE-55 Xám — IKEA', isActive: true, mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' } },
+  { id: 104, mfgProductId: 3, exportCustomerId: 1, colorCode: 'BLACK', description: 'JSE-60 Đen — MEYING', isActive: true, mfgProduct: { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60' } },
+];
+
+export const seedExportOrders = [
+  {
+    id: 1, poNumber: 'PO-MY-001', exportCustomerId: 1, deliveryDate: ISO('2026-10-15'),
+    status: 'DRAFT', paymentStatus: 'DEPOSITED', totalValue: 290000, depositAmount: 50000,
+    exportCustomer: { id: 1, name: 'MEYING USA', country: 'US' },
+    items: [{ id: 1, quantity: 500, boxesPerSet: 1, productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế J55' } } }],
+    createdBy: { name: 'Sales NM Lan' },
+  },
+  {
+    id: 2, poNumber: 'PO-GP-002', exportCustomerId: 2, deliveryDate: ISO('2026-11-01'),
+    status: 'DRAFT', paymentStatus: 'UNPAID', totalValue: 350000, depositAmount: 0,
+    exportCustomer: { id: 2, name: 'GOPLUS USA', country: 'US' },
+    items: [
+      { id: 2, quantity: 300, boxesPerSet: 1, productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế đan IEA-3' } } },
+      { id: 3, quantity: 200, boxesPerSet: 2, productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế J55' } } },
+    ],
+    createdBy: { name: 'Sales NM Lan' },
+  },
+  {
+    id: 3, poNumber: 'PO-IK-003', exportCustomerId: 3, deliveryDate: ISO('2026-12-20'),
+    status: 'DRAFT', paymentStatus: 'UNPAID', totalValue: 420000, depositAmount: 0,
+    exportCustomer: { id: 3, name: 'IKEA Supplier', country: 'Sweden' },
+    items: [{ id: 4, quantity: 800, boxesPerSet: 2, productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế J55' } } }],
+    createdBy: { name: 'Sales NM Lan' },
+  },
+];
+
+export const seedProductionInvoices = [
+  {
+    id: 1, code: 'PI-2026-001', deadline: ISO('2026-08-01'), materialDeadline: ISO('2026-06-15'),
+    status: 'PRODUCING', exportOrderId: 1,
+    exportOrder: { poNumber: 'PO-MY-001', contractFileUrl: null },
+    items: [{ quantity: 500, productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } } }],
+    stages: [
+      { stageType: 'PHOI', progressPercent: 100, status: 'DONE', deadline: ISO('2026-06-01') },
+      { stageType: 'HAN', progressPercent: 60, status: 'IN_PROGRESS', deadline: ISO('2026-06-20') },
+      { stageType: 'SON', progressPercent: 0, status: 'PENDING', deadline: ISO('2026-07-01') },
+    ],
+    createdBy: { name: 'Quản lý SX Hùng' },
+  },
+  {
+    id: 2, code: 'PI-2026-002', deadline: ISO('2026-09-01'), materialDeadline: ISO('2026-07-01'),
+    status: 'PLANNING', exportOrderId: 2,
+    exportOrder: { poNumber: 'PO-GP-002', contractFileUrl: null },
+    items: [{ quantity: 300, productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } } }],
+    stages: [{ stageType: 'PHOI', progressPercent: 0, status: 'PENDING' }],
+    createdBy: { name: 'Quản lý SX Hùng' },
+  },
+  {
+    id: 3, code: 'PI-2026-003', deadline: ISO('2026-09-15'), materialDeadline: ISO('2026-06-20'),
+    status: 'PLANNING', exportOrderId: 2,
+    exportOrder: { poNumber: 'PO-GP-002', contractFileUrl: null },
+    items: [{ quantity: 200, productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } } }],
+    stages: [{ stageType: 'PHOI', progressPercent: 0, status: 'PENDING' }],
+    createdBy: { name: 'Quản lý SX Hùng' },
+  },
+  {
+    id: 4, code: 'PI-2026-004', deadline: ISO('2026-10-30'), materialDeadline: ISO('2026-08-15'),
+    status: 'PLANNING', exportOrderId: 3,
+    exportOrder: { poNumber: 'PO-IK-003', contractFileUrl: null },
+    items: [{ quantity: 800, productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } } }],
+    stages: [{ stageType: 'PHOI', progressPercent: 0, status: 'PENDING' }],
+    createdBy: { name: 'Quản lý SX Hùng' },
+  },
+];
+
+export const seedPlanningPIs = [
+  {
+    id: 2, code: 'PI-2026-002', poNumber: 'PO-GP-002', deadline: ISO('2026-09-01'), materialDeadline: ISO('2026-07-01'),
+    status: 'PLANNING', exportCustomerName: 'GOPLUS USA',
+    products: [{ name: 'Ghế đan IEA-3', factoryCode: 'IEA-3', colorCode: 'BLACK', quantity: 300 }],
+    lmh: { id: 1, code: 'LMH-2026-001', status: 'QUOTING', hasComputed: true, missingCount: 3, totalBuyQty: 1200 },
+    activeProposal: null,
+  },
+  {
+    id: 3, code: 'PI-2026-003', poNumber: 'PO-GP-002', deadline: ISO('2026-09-15'), materialDeadline: ISO('2026-06-20'),
+    status: 'PLANNING', exportCustomerName: 'GOPLUS USA',
+    products: [{ name: 'Ghế J55', factoryCode: 'JSE-55', colorCode: 'GRAY', quantity: 200 }],
+    lmh: { id: 2, code: 'LMH-2026-004', status: 'ORDERED', hasComputed: true, missingCount: 0, totalBuyQty: 2500 },
+    activeProposal: null,
+  },
+  {
+    id: 4, code: 'PI-2026-004', poNumber: 'PO-IK-003', deadline: ISO('2026-10-30'), materialDeadline: ISO('2026-08-15'),
+    status: 'PLANNING', exportCustomerName: 'IKEA Supplier',
+    products: [{ name: 'Ghế J55', factoryCode: 'JSE-55', colorCode: 'GRAY', quantity: 800 }],
+    lmh: { id: 3, code: 'LMH-2026-005', status: 'DRAFT', hasComputed: false, missingCount: 2, totalBuyQty: 0 },
+    activeProposal: null,
+  },
+];
+
+export const seedPlanForms: PlanForm[] = [
+  {
+    id: 1, exportOrderId: 1, mfgProductId: 1, status: 'APPROVED', note: 'PlanForm JSE-55 cho PO MEYING',
+    createdAt: ISO('2026-05-20'), proposedAt: ISO('2026-05-20'),
+    exportOrder: { id: 1, poNumber: 'PO-MY-001', deliveryDate: ISO('2026-10-15') },
+    mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' },
+    createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
+    quotaManagement: {
+      id: 1,
+      materialType: {
+        sat: { id: 1, type: 'Ống sắt vuông', specifications: '25×25×1.2mm', thickness: 1.2 },
+        daySon: { id: 1, kg: 2.8, specifications: 'Dây PE đen + sơn tĩnh điện' },
+        vatTuPhuKien: { id: 1, unit: 'bộ' },
+        baoBiDongGoi: { id: 1, unit: 'thùng' },
+      },
+    },
+  },
+  {
+    id: 2, exportOrderId: 2, mfgProductId: 2, status: 'DRAFT', note: 'PlanForm IEA-3 cho PO GOPLUS — nháp',
+    createdAt: ISO('2026-05-21'),
+    exportOrder: { id: 2, poNumber: 'PO-GP-002', deliveryDate: ISO('2026-11-01') },
+    mfgProduct: { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3' },
+    createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
+    quotaManagement: {
+      id: 2,
+      materialType: {
+        sat: { id: 2, type: 'Ống sắt tròn', specifications: 'Φ16×1.0mm', thickness: 1.0 },
+        daySon: { id: 2, kg: 3.2, specifications: 'Dây nhựa xanh + sơn xám' },
+        vatTuPhuKien: { id: 2, unit: 'cái' },
+        baoBiDongGoi: { id: 2, unit: 'thùng' },
+      },
+    },
+  },
+  {
+    id: 3, exportOrderId: 2, mfgProductId: 1, status: 'PROPOSED', note: 'PlanForm JSE-55 dòng 2 — chờ duyệt',
+    createdAt: ISO('2026-05-18'), proposedAt: ISO('2026-05-18'),
+    exportOrder: { id: 2, poNumber: 'PO-GP-002', deliveryDate: ISO('2026-11-01') },
+    mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' },
+    createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
+    quotaManagement: {
+      id: 3,
+      materialType: {
+        sat: { id: 3, type: 'Ống sắt vuông', specifications: '20×40×1.5mm', thickness: 1.5 },
+        daySon: { id: 3, kg: 2.5, specifications: 'Dây PE xám GSS' },
+        vatTuPhuKien: { id: 3, unit: 'bộ' },
+        baoBiDongGoi: { id: 3, unit: 'thùng' },
+      },
+    },
+  },
+  {
+    id: 4, exportOrderId: 3, mfgProductId: 1, status: 'DRAFT', note: 'PlanForm JSE-55 cho PO IKEA',
+    createdAt: ISO('2026-05-22'),
+    exportOrder: { id: 3, poNumber: 'PO-IK-003', deliveryDate: ISO('2026-12-20') },
+    mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' },
+    createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
+    quotaManagement: {
+      id: 4,
+      materialType: {
+        sat: { id: 4, type: 'Ống sắt vuông', specifications: '25×25×1.2mm', thickness: 1.2 },
+        daySon: { id: 4, kg: 2.8, specifications: 'Dây PE xám + sơn tĩnh điện' },
+        vatTuPhuKien: { id: 4, unit: 'bộ' },
+        baoBiDongGoi: { id: 4, unit: 'thùng' },
+      },
+    },
+  },
+];
+
+export const seedMaterialGroups = [
+  { id: 1, name: 'Sắt ống' },
+  { id: 2, name: 'Dây đan' },
+  { id: 3, name: 'Phụ kiện' },
+  { id: 4, name: 'Sơn' },
+  { id: 5, name: 'Bao bì' },
+];
+
+export const seedMaterials = [
+  { id: 1, code: 'SAT-25', name: 'Ống sắt 25×25', unit: 'cm', materialGroupId: 1, khoUnitFactor: 600 },
+  { id: 2, code: 'DAY-PE3', name: 'Dây PE Ø3mm', unit: 'kg', materialGroupId: 2, khoUnitFactor: 1 },
+  { id: 3, code: 'SAT-20', name: 'Ống sắt 20×40', unit: 'cm', materialGroupId: 1, khoUnitFactor: 500 },
+  { id: 4, code: 'DAY-PE4', name: 'Dây PE Ø4mm', unit: 'kg', materialGroupId: 2, khoUnitFactor: 1 },
+  { id: 5, code: 'SON-TRANG', name: 'Sơn trắng tĩnh điện', unit: 'kg', materialGroupId: 4, khoUnitFactor: 1 },
+  { id: 6, code: 'SON-DEN', name: 'Sơn đen tĩnh điện', unit: 'kg', materialGroupId: 4, khoUnitFactor: 1 },
+  { id: 7, code: 'TAN-M6', name: 'Tán M6×12', unit: 'cái', materialGroupId: 3, khoUnitFactor: 1 },
+  { id: 8, code: 'SAT-50X25', name: 'Ống sắt 25×50', unit: 'cm', materialGroupId: 1, khoUnitFactor: 600 },
+  { id: 9, code: 'CHOT-10', name: 'Chốt 10mm', unit: 'cái', materialGroupId: 3, khoUnitFactor: 1 },
+  { id: 10, code: 'PAT-V100', name: 'Pát V 100', unit: 'cái', materialGroupId: 3, khoUnitFactor: 1 },
+  { id: 11, code: 'O-TRON-LO-DU', name: 'Ô tròn lỗ dù', unit: 'cái', materialGroupId: 3, khoUnitFactor: 1 },
+  { id: 12, code: 'SAT-30X30', name: 'Ống sắt 30×30', unit: 'cm', materialGroupId: 1, khoUnitFactor: 600 },
+  { id: 13, code: 'SAT-16', name: 'Ống sắt Ø16', unit: 'cm', materialGroupId: 1, khoUnitFactor: 600 },
+  { id: 14, code: 'DAY-NHUA-DAN', name: 'Dây nhựa đan', unit: 'kg', materialGroupId: 2, khoUnitFactor: 1 },
+  { id: 15, code: 'DAY-PE-XAM', name: 'Dây PE xám', unit: 'kg', materialGroupId: 2, khoUnitFactor: 1 },
+  { id: 16, code: 'PAT-KINH', name: 'Pát kính', unit: 'cái', materialGroupId: 3, khoUnitFactor: 1 },
+  { id: 17, code: 'PAT-1-4', name: 'Pát 1-4', unit: 'cái', materialGroupId: 3, khoUnitFactor: 1 },
+];
+
+export const seedMfgWarehouses = [
+  { id: 1, name: 'Kho Mận', code: 'phu-kien', note: 'Phụ kiện' },
+  { id: 2, name: 'Kho Sắt', code: 'sat', note: 'Sắt ống' },
+  { id: 3, name: 'Kho Dây', code: 'day', note: 'Dây đan' },
+  { id: 4, name: 'Kho Bao bì', code: 'bao-bi', note: 'Bao bì đóng gói' },
+  { id: 5, name: 'Kho Thành phẩm', code: 'thanh-pham', note: 'Thành phẩm đan' },
+];
+
+export const seedMfgWarehouseItems = [
+  { id: 1, warehouseId: 2, materialId: 1, name: 'Ống sắt 25×25', unit: 'cây', quantity: 500, material: { id: 1, code: 'SAT-25', name: 'Ống sắt 25×25', unit: 'cm' } },
+  { id: 2, warehouseId: 1, materialId: null, name: 'Tán M6×12', unit: 'cái', quantity: 5000, material: null },
+  { id: 3, warehouseId: 3, materialId: 2, name: 'Dây PE Ø3mm', unit: 'kg', quantity: 250, material: { id: 2, code: 'DAY-PE3', name: 'Dây PE Ø3mm', unit: 'kg' } },
+  { id: 4, warehouseId: 4, materialId: null, name: 'Thùng carton JSE-55', unit: 'cái', quantity: 600, material: null },
+  { id: 5, warehouseId: 4, materialId: null, name: 'Bao nylon 68×105', unit: 'cái', quantity: 1200, material: null },
+  { id: 6, warehouseId: 5, materialId: null, name: 'Mặt ghế J55 (đan xong)', unit: 'cái', quantity: 200, material: null },
+  { id: 7, warehouseId: 2, materialId: 3, name: 'Ống sắt 20×40', unit: 'cây', quantity: 300, material: { id: 3, code: 'SAT-20', name: 'Ống sắt 20×40', unit: 'cm' } },
+  { id: 8, warehouseId: 3, materialId: 4, name: 'Dây PE Ø4mm', unit: 'kg', quantity: 180, material: { id: 4, code: 'DAY-PE4', name: 'Dây PE Ø4mm', unit: 'kg' } },
+  { id: 9, warehouseId: 2, materialId: 8, name: 'Ống sắt 25×50', unit: 'cây', quantity: 240, material: { id: 8, code: 'SAT-50X25', name: 'Ống sắt 25×50', unit: 'cm' } },
+  { id: 10, warehouseId: 2, materialId: 12, name: 'Ống sắt 30×30', unit: 'cây', quantity: 200, material: { id: 12, code: 'SAT-30X30', name: 'Ống sắt 30×30', unit: 'cm' } },
+  { id: 11, warehouseId: 2, materialId: 13, name: 'Ống sắt Ø16', unit: 'cây', quantity: 180, material: { id: 13, code: 'SAT-16', name: 'Ống sắt Ø16', unit: 'cm' } },
+  { id: 12, warehouseId: 3, materialId: 14, name: 'Dây nhựa đan', unit: 'kg', quantity: 320, material: { id: 14, code: 'DAY-NHUA-DAN', name: 'Dây nhựa đan', unit: 'kg' } },
+  { id: 13, warehouseId: 3, materialId: 15, name: 'Dây PE xám', unit: 'kg', quantity: 210, material: { id: 15, code: 'DAY-PE-XAM', name: 'Dây PE xám', unit: 'kg' } },
+  { id: 14, warehouseId: 1, materialId: 9, name: 'Chốt 10mm', unit: 'cái', quantity: 3000, material: { id: 9, code: 'CHOT-10', name: 'Chốt 10mm', unit: 'cái' } },
+  { id: 15, warehouseId: 1, materialId: 10, name: 'Pát V 100', unit: 'cái', quantity: 1200, material: { id: 10, code: 'PAT-V100', name: 'Pát V 100', unit: 'cái' } },
+  { id: 16, warehouseId: 1, materialId: 11, name: 'Ô tròn lỗ dù', unit: 'cái', quantity: 1500, material: { id: 11, code: 'O-TRON-LO-DU', name: 'Ô tròn lỗ dù', unit: 'cái' } },
+  { id: 17, warehouseId: 1, materialId: 16, name: 'Pát kính', unit: 'cái', quantity: 900, material: { id: 16, code: 'PAT-KINH', name: 'Pát kính', unit: 'cái' } },
+  { id: 18, warehouseId: 1, materialId: 17, name: 'Pát 1-4', unit: 'cái', quantity: 900, material: { id: 17, code: 'PAT-1-4', name: 'Pát 1-4', unit: 'cái' } },
+];
+
+export const seedSuppliers = [
+  { id: 1, name: 'Cty Thép Miền Nam', phone: '0281234567', isActive: true },
+  { id: 2, name: 'Công ty Dây nhựa TM', phone: '0282345678', isActive: true },
+  { id: 3, name: 'Sơn Thắng Phát', phone: '0283456789', isActive: true },
+];
+
+export const seedMaterialSuppliers = [
+  { id: 1, materialId: 1, supplierId: 1, price: 85000, material: { id: 1, code: 'SAT-25', name: 'Ống sắt 25×25' }, supplier: { id: 1, name: 'Cty Thép Miền Nam' } },
+  { id: 2, materialId: 2, supplierId: 2, price: 45000, material: { id: 2, code: 'DAY-PE3', name: 'Dây PE Ø3mm' }, supplier: { id: 2, name: 'Công ty Dây nhựa TM' } },
+  { id: 3, materialId: 3, supplierId: 1, price: 95000, material: { id: 3, code: 'SAT-20', name: 'Ống sắt 20×40' }, supplier: { id: 1, name: 'Cty Thép Miền Nam' } },
+  { id: 4, materialId: 5, supplierId: 3, price: 125000, material: { id: 5, code: 'SON-TRANG', name: 'Sơn trắng tĩnh điện' }, supplier: { id: 3, name: 'Sơn Thắng Phát' } },
+  { id: 5, materialId: 8, supplierId: 1, price: 90000, material: { id: 8, code: 'SAT-50X25', name: 'Ống sắt 25×50' }, supplier: { id: 1, name: 'Cty Thép Miền Nam' } },
+  { id: 6, materialId: 12, supplierId: 1, price: 98000, material: { id: 12, code: 'SAT-30X30', name: 'Ống sắt 30×30' }, supplier: { id: 1, name: 'Cty Thép Miền Nam' } },
+  { id: 7, materialId: 13, supplierId: 1, price: 86000, material: { id: 13, code: 'SAT-16', name: 'Ống sắt Ø16' }, supplier: { id: 1, name: 'Cty Thép Miền Nam' } },
+  { id: 8, materialId: 14, supplierId: 2, price: 42000, material: { id: 14, code: 'DAY-NHUA-DAN', name: 'Dây nhựa đan' }, supplier: { id: 2, name: 'Công ty Dây nhựa TM' } },
+  { id: 9, materialId: 15, supplierId: 2, price: 47000, material: { id: 15, code: 'DAY-PE-XAM', name: 'Dây PE xám' }, supplier: { id: 2, name: 'Công ty Dây nhựa TM' } },
+  { id: 10, materialId: 9, supplierId: 1, price: 7000, material: { id: 9, code: 'CHOT-10', name: 'Chốt 10mm' }, supplier: { id: 1, name: 'Cty Thép Miền Nam' } },
+  { id: 11, materialId: 10, supplierId: 1, price: 9500, material: { id: 10, code: 'PAT-V100', name: 'Pát V 100' }, supplier: { id: 1, name: 'Cty Thép Miền Nam' } },
+  { id: 12, materialId: 11, supplierId: 1, price: 9800, material: { id: 11, code: 'O-TRON-LO-DU', name: 'Ô tròn lỗ dù' }, supplier: { id: 1, name: 'Cty Thép Miền Nam' } },
+  { id: 13, materialId: 16, supplierId: 1, price: 9200, material: { id: 16, code: 'PAT-KINH', name: 'Pát kính' }, supplier: { id: 1, name: 'Cty Thép Miền Nam' } },
+  { id: 14, materialId: 17, supplierId: 1, price: 9100, material: { id: 17, code: 'PAT-1-4', name: 'Pát 1-4' }, supplier: { id: 1, name: 'Cty Thép Miền Nam' } },
+];
+
+export const seedPurchaseCommands = [
+  {
+    id: 1, code: 'LMH-2026-001', source: 'PI', status: 'QUOTING', piId: 2,
+    createdAt: ISO('2026-06-01'), piCode: 'PI-2026-002', poNumber: 'PO-GP-002', productLabel: 'Ghế IEA-3 × 300 bộ', itemCount: 3,
+    items: [
+      { id: 1, materialId: 1, requiredQty: 5000, stockQty: 500, buyQty: 4500, unit: 'cm', material: { name: 'Ống sắt 25×25' } },
+      { id: 2, materialId: 2, requiredQty: 300, stockQty: 250, buyQty: 50, unit: 'kg', material: { name: 'Dây PE Ø3mm' } },
+      { id: 3, materialId: null, requiredQty: 6000, stockQty: 5000, buyQty: 1000, unit: 'cái', material: { name: 'Tán M6×12' } },
+    ],
+  },
+  {
+    id: 2, code: 'LMH-2026-002', source: 'PI', status: 'ORDERED', piId: 3,
+    createdAt: ISO('2026-06-05'), piCode: 'PI-2026-003', poNumber: 'PO-GP-002', productLabel: 'Ghế J55 × 200 bộ', itemCount: 2,
+    items: [
+      { id: 4, materialId: 1, requiredQty: 3000, stockQty: 500, buyQty: 2500, unit: 'cm', material: { name: 'Ống sắt 25×25' } },
+      { id: 5, materialId: 5, requiredQty: 560, stockQty: 0, buyQty: 560, unit: 'kg', material: { name: 'Sơn trắng tĩnh điện' } },
+    ],
+  },
+  {
+    id: 3, code: 'LMH-2026-003', source: 'PI', status: 'DONE', piId: 1,
+    createdAt: ISO('2026-05-01'), piCode: 'PI-2026-001', poNumber: 'PO-MY-001', productLabel: 'Ghế J55 × 500 bộ', itemCount: 1,
+    items: [
+      { id: 6, materialId: 1, requiredQty: 6000, stockQty: 500, buyQty: 5500, unit: 'cm', material: { name: 'Ống sắt 25×25' } },
+    ],
+  },
+  {
+    id: 4, code: 'LMH-2026-004', source: 'PROPOSAL', status: 'DRAFT', piId: null,
+    createdAt: ISO('2026-06-10'), piCode: null, poNumber: null, productLabel: 'Vật tư phụ kiện chung', itemCount: 3,
+    items: [
+      { id: 7, materialId: 5, requiredQty: 800, stockQty: 0, buyQty: 800, unit: 'kg', material: { name: 'Sơn trắng tĩnh điện' } },
+      { id: 8, materialId: 6, requiredQty: 600, stockQty: 0, buyQty: 600, unit: 'kg', material: { name: 'Sơn đen tĩnh điện' } },
+      { id: 9, materialId: 7, requiredQty: 2000, stockQty: 0, buyQty: 2000, unit: 'cái', material: { name: 'Tán M6×12' } },
+    ],
+  },
+];
+
+export const seedPurchaseProposals = [
+  { id: 1, code: 'DX-2026-001', status: 'PENDING', proposedBy: { id: 5, name: 'Kho Minh' }, items: [{ id: 1, materialId: 1, quantity: 500, unit: 'cây' }] },
+  { id: 2, code: 'DX-2026-002', status: 'APPROVED', proposedBy: { id: 5, name: 'Kho Minh' }, items: [{ id: 2, materialId: 5, quantity: 200, unit: 'kg' }] },
+];
+
+// Spec Entry Proposals - Đề xuất nhập định mức từ kế hoạch SX
+export const seedSpecEntryProposals = [
+  {
+    id: 1,
+    code: 'DEF-2026-001',
+    piId: 2,
+    piCode: 'PI-2026-002',
+    exportOrderId: 2,
+    poNumber: 'PO-GP-002',
+    mfgProductId: 2,
+    productName: 'Ghế đan IEA-3',
+    status: 'PROPOSED',
+    createdAt: ISO('2026-06-15'),
+    tasks: [
+      { id: 1, specRole: 'SPEC_STEEL', status: 'PENDING', type: 'Ống sắt tròn', specifications: 'Φ16×1.0mm', thickness: 1.0 },
+      { id: 2, specRole: 'SPEC_WIRE_PAINT', status: 'PENDING', unit: 'kg', imageUrl: '', specifications: 'Dây nhựa xanh + sơn xám' },
+      { id: 3, specRole: 'SPEC_ACCESSORY', status: 'PENDING', unit: 'cái' },
+      { id: 4, specRole: 'SPEC_PACKAGING', status: 'PENDING', unit: 'thùng' },
+    ],
+  },
+  {
+    id: 2,
+    code: 'DEF-2026-002',
+    piId: 3,
+    piCode: 'PI-2026-003',
+    exportOrderId: 2,
+    poNumber: 'PO-GP-002',
+    mfgProductId: 1,
+    productName: 'Ghế J55',
+    status: 'APPROVED',
+    createdAt: ISO('2026-06-10'),
+    tasks: [
+      { id: 5, specRole: 'SPEC_STEEL', status: 'COMPLETED', type: 'Ống sắt vuông', specifications: '25×25×1.2mm', thickness: 1.2 },
+      { id: 6, specRole: 'SPEC_WIRE_PAINT', status: 'COMPLETED', unit: 'kg', imageUrl: '', specifications: 'Dây PE xám GSS' },
+      { id: 7, specRole: 'SPEC_ACCESSORY', status: 'IN_PROGRESS', unit: 'bộ' },
+      { id: 8, specRole: 'SPEC_PACKAGING', status: 'PENDING', unit: 'thùng' },
+    ],
+  },
+];
+
+export const seedExportPurposes = [
+  { id: 1, label: 'Xuất sản xuất' },
+  { id: 2, label: 'Xuất mẫu' },
+];
+
+export const seedDefectReasons = [
+  { id: 1, label: 'Cong méo', stageType: 'HAN' },
+  { id: 2, label: 'Sơn bong', stageType: 'SON' },
+  { id: 3, label: 'Hàn xấu', stageType: 'HAN' },
+  { id: 4, label: 'Màu sắc không đều', stageType: 'SON' },
+];
+
+export const seedWeavingPoints = [
+  { id: 1, code: 'DD-A', name: 'Điểm đan A', fullName: 'Anh Tuấn', phone: '0909123456', isActive: true, sortOrder: 1 },
+  { id: 2, code: 'DD-B', name: 'Điểm đan B', fullName: 'Chị Hà', phone: '0918765432', isActive: true, sortOrder: 2 },
+  { id: 3, code: 'DD-C', name: 'Điểm đan C', fullName: 'Anh Long', phone: '0932111222', isActive: true, sortOrder: 3 },
+];
+
+export const seedWeavingConfig = { minAllocationQty: 50 };
+
+export const seedKcsPending: Record<number, Record<string, number>> = {
+  1: { PHOI: 0, HAN: 2, SON: 0 },
+  2: { PHOI: 0, HAN: 0, SON: 0 },
+};
+
+export const seedFrameProducts = [
+  { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55', framePieceCount: 4 },
+  { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3', framePieceCount: 3 },
+  { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60', framePieceCount: 4 },
+];
+
+export const seedFramePieces = [
+  { id: 1, productId: 1, code: 'GHE-J55-1', name: 'Ghế J55 - Đế', groupNumber: 1, materials: [] },
+  { id: 2, productId: 1, code: 'GHE-J55-2', name: 'Ghế J55 - Lưng', groupNumber: 1, materials: [] },
+  { id: 3, productId: 2, code: 'IEA-3-1', name: 'Ghế IEA-3 - Khung', groupNumber: 1, materials: [] },
+];
+
+export function createInitialMockState() {
+  return {
+    products: structuredClone(seedProducts),
+    agencyWarehouses: structuredClone(seedAgencyWarehouses),
+    retailCustomers: structuredClone(seedRetailCustomers),
+    wholesaleCustomers: structuredClone(seedWholesaleCustomers),
+    promotions: structuredClone(seedPromotions),
+    careReminders: structuredClone(seedCareReminders),
+    wholesaleCareReminders: structuredClone(seedWholesaleCareReminders),
+    quotations: structuredClone(seedQuotations),
+    orders: structuredClone(seedOrders),
+    salesUsers: structuredClone(seedSalesUsers),
+    mfgExportCustomers: structuredClone(seedMfgExportCustomers),
+    mfgProducts: structuredClone(seedMfgProducts),
+    productVariants: structuredClone(seedProductVariants),
+    exportOrders: structuredClone(seedExportOrders),
+    productionInvoices: structuredClone(seedProductionInvoices),
+    planningPIs: structuredClone(seedPlanningPIs),
+    planForms: structuredClone(seedPlanForms),
+    materialGroups: structuredClone(seedMaterialGroups),
+    materials: structuredClone(seedMaterials),
+    mfgWarehouses: structuredClone(seedMfgWarehouses),
+    mfgWarehouseItems: structuredClone(seedMfgWarehouseItems),
+    mfgWarehouseTxns: structuredClone(seedMfgWarehouseTxns),
+    phoiExecutions: structuredClone(seedPhoiExecutions),
+    stageExec: structuredClone(seedStageExec),
+    weavingFinishedFrames: structuredClone(seedWeavingFinishedFrames),
+    weavingManhSummary: structuredClone(seedWeavingManhSummary),
+    weavingByPoint: structuredClone(seedWeavingByPoint),
+    weavingReceiptHistory: structuredClone(seedWeavingReceiptHistory),
+    weavingAllocation: structuredClone(seedWeavingAllocation),
+    weavingReceivePending: structuredClone(seedWeavingReceivePending),
+    weavingByWarehouse: structuredClone(seedWeavingByWarehouse),
+    chuyenKiem: structuredClone(seedChuyenKiem),
+    packing: structuredClone(seedPacking),
+    piMaterialChecks: structuredClone(seedPiMaterialChecks),
+    laborCost: structuredClone(seedLaborCost),
+    suppliers: structuredClone(seedSuppliers),
+    materialSuppliers: structuredClone(seedMaterialSuppliers),
+    purchaseCommands: structuredClone(seedPurchaseCommands),
+    purchaseProposals: structuredClone(seedPurchaseProposals),
+    specEntryProposals: structuredClone(seedSpecEntryProposals),
+    exportPurposes: structuredClone(seedExportPurposes),
+    defectReasons: structuredClone(seedDefectReasons),
+    weavingPoints: structuredClone(seedWeavingPoints),
+    weavingConfig: structuredClone(seedWeavingConfig),
+    kcsPending: structuredClone(seedKcsPending),
+    frameProducts: structuredClone(seedFrameProducts),
+    framePieces: structuredClone(seedFramePieces),
+    packagingBOM: structuredClone(seedPackagingBOM),
+    packagingByPI: structuredClone(seedPackagingByPI),
+    phoiReports: [] as unknown[],
+    stageReports: [] as unknown[],
+    weavingAllocations: [] as unknown[],
+    packingRecords: [] as unknown[],
+  };
+}
+
+export type MockState = ReturnType<typeof createInitialMockState>;
