@@ -454,10 +454,25 @@ export const seedPlanForms: PlanForm[] = [
     quotaManagement: {
       id: 1,
       materialType: {
-        sat: { id: 1, type: 'Ống sắt vuông', specifications: '25×25×1.2mm', thickness: 1.2 },
-        daySon: { id: 1, kg: 2.8, specifications: 'Dây PE đen + sơn tĩnh điện' },
-        vatTuPhuKien: { id: 1, unit: 'bộ' },
-        baoBiDongGoi: { id: 1, unit: 'thùng' },
+        sat: [
+          { id: 1, name: 'Sắt hộp 25×25', specifications: '25×25×1.2mm', thickness: 1.2, unit: 'cây', quantity: 20, createdAt: '2026-05-20T01:00:00.000Z' },
+          { id: 2, name: 'Sắt vuông 20×20', specifications: '20×20×1.0mm', thickness: 1.0, unit: 'cây', quantity: 8,  createdAt: '2026-05-20T01:18:00.000Z' },
+          { id: 3, name: 'Sắt tấm 3mm', specifications: '1200×600×3mm', thickness: 3.0, unit: 'tấm', quantity: 2,  createdAt: '2026-05-20T01:35:00.000Z' },
+        ],
+        daySon: [
+          { id: 1, name: 'Dây PE đen', specifications: 'Ø3mm, cuộn 500m', kg: 1.5, unit: 'cuộn', createdAt: '2026-05-20T01:52:00.000Z' },
+          { id: 2, name: 'Sơn tĩnh điện đen', specifications: 'RAL9005, bột mịn', kg: 0.8, unit: 'kg',    createdAt: '2026-05-20T02:10:00.000Z' },
+        ],
+        vatTuPhuKien: [
+          { id: 1, name: 'Ốc vít M6×20',   specifications: 'Inox 304',          unit: 'cái', quantity: 48, createdAt: '2026-05-20T02:28:00.000Z' },
+          { id: 2, name: 'Nắp nhựa đầu ống', specifications: '25×25mm, PP đen', unit: 'cái', quantity: 16, createdAt: '2026-05-20T02:45:00.000Z' },
+          { id: 3, name: 'Đệm cao su',       specifications: 'Dày 3mm',          unit: 'cái', quantity: 12, createdAt: '2026-05-20T03:02:00.000Z' },
+        ],
+        baoBiDongGoi: [
+          { id: 1, name: 'Thùng carton 5 lớp', specifications: '60×40×30cm',   unit: 'thùng', quantity: 1, createdAt: '2026-05-20T03:20:00.000Z' },
+          { id: 2, name: 'Xốp PE bảo vệ',      specifications: 'Dày 5mm',      unit: 'm²',    quantity: 2, createdAt: '2026-05-20T03:35:00.000Z' },
+          { id: 3, name: 'Dây đai nhựa',        specifications: 'Rộng 15mm',   unit: 'm',     quantity: 3, createdAt: '2026-05-20T03:48:00.000Z' },
+        ],
       },
     },
   },
@@ -470,10 +485,23 @@ export const seedPlanForms: PlanForm[] = [
     quotaManagement: {
       id: 2,
       materialType: {
-        sat: { id: 2, type: 'Ống sắt tròn', specifications: 'Φ16×1.0mm', thickness: 1.0 },
-        daySon: { id: 2, kg: 3.2, specifications: 'Dây nhựa xanh + sơn xám' },
-        vatTuPhuKien: { id: 2, unit: 'cái' },
-        baoBiDongGoi: { id: 2, unit: 'thùng' },
+        sat: [
+          { id: 4, name: 'Ống sắt tròn Φ16', specifications: 'Φ16×1.0mm', thickness: 1.0, unit: 'cây', quantity: 12, createdAt: '2026-05-21T01:05:00.000Z' },
+          { id: 5, name: 'Sắt dẹt 20×3',     specifications: '20×3mm',    thickness: 3.0, unit: 'cây', quantity: 4,  createdAt: '2026-05-21T01:22:00.000Z' },
+        ],
+        daySon: [
+          { id: 3, name: 'Dây nhựa xanh lá', specifications: 'Ø2.5mm, PE',          kg: 2.0, unit: 'cuộn', createdAt: '2026-05-21T01:40:00.000Z' },
+          { id: 4, name: 'Dây màu đỏ',        specifications: 'Ø2.5mm, PE điểm nhấn', kg: 0.5, unit: 'cuộn', createdAt: '2026-05-21T01:58:00.000Z' },
+          { id: 5, name: 'Sơn xám RAL7035',   specifications: 'Bột sơn tĩnh điện',    kg: 0.6, unit: 'kg',    createdAt: '2026-05-21T02:15:00.000Z' },
+        ],
+        vatTuPhuKien: [
+          { id: 4, name: 'Ốc vít M5×15',    specifications: 'Mạ kẽm trắng',   unit: 'cái', quantity: 32, createdAt: '2026-05-21T02:33:00.000Z' },
+          { id: 5, name: 'Nắp đầu ống tròn', specifications: 'Φ16mm, nhựa đen', unit: 'cái', quantity: 8,  createdAt: '2026-05-21T02:50:00.000Z' },
+        ],
+        baoBiDongGoi: [
+          { id: 4, name: 'Thùng carton 3 lớp', specifications: '50×50×25cm', unit: 'thùng', quantity: 1, createdAt: '2026-05-21T03:08:00.000Z' },
+          { id: 5, name: 'Xốp chèn góc',       specifications: '5×5cm, EPE', unit: 'bộ',    quantity: 4, createdAt: '2026-05-21T03:25:00.000Z' },
+        ],
       },
     },
   },
@@ -486,10 +514,24 @@ export const seedPlanForms: PlanForm[] = [
     quotaManagement: {
       id: 3,
       materialType: {
-        sat: { id: 3, type: 'Ống sắt vuông', specifications: '20×40×1.5mm', thickness: 1.5 },
-        daySon: { id: 3, kg: 2.5, specifications: 'Dây PE xám GSS' },
-        vatTuPhuKien: { id: 3, unit: 'bộ' },
-        baoBiDongGoi: { id: 3, unit: 'thùng' },
+        sat: [
+          { id: 6, name: 'Ống sắt hộp 20×40', specifications: '20×40×1.5mm', thickness: 1.5, unit: 'cây', quantity: 18, createdAt: '2026-05-18T02:00:00.000Z' },
+          { id: 7, name: 'Sắt tấm 2mm',        specifications: '1000×500×2mm', thickness: 2.0, unit: 'tấm', quantity: 3,  createdAt: '2026-05-18T02:20:00.000Z' },
+        ],
+        daySon: [
+          { id: 6, name: 'Dây PE xám GSS',    specifications: 'Ø3mm, màu xám ghi',  kg: 2.5, unit: 'cuộn', createdAt: '2026-05-18T02:40:00.000Z' },
+          { id: 7, name: 'Sơn lót epoxy',      specifications: 'Lót nền chống gỉ',   kg: 0.3, unit: 'kg',    createdAt: '2026-05-18T03:00:00.000Z' },
+          { id: 8, name: 'Sơn phủ xám nhạt',  specifications: 'RAL7047 tĩnh điện',   kg: 0.7, unit: 'kg',    createdAt: '2026-05-18T03:20:00.000Z' },
+        ],
+        vatTuPhuKien: [
+          { id: 6, name: 'Ốc vít M6×25',        specifications: 'Inox 304',       unit: 'cái', quantity: 36, createdAt: '2026-05-18T03:40:00.000Z' },
+          { id: 7, name: 'Tán đinh rivets 4×8',  specifications: 'Nhôm trắng',    unit: 'cái', quantity: 24, createdAt: '2026-05-18T03:58:00.000Z' },
+          { id: 8, name: 'Nắp nhựa 40mm',        specifications: 'PP đen, ống hộp', unit: 'cái', quantity: 8,  createdAt: '2026-05-18T04:15:00.000Z' },
+        ],
+        baoBiDongGoi: [
+          { id: 6, name: 'Thùng carton sóng kép', specifications: '70×50×35cm',          unit: 'thùng', quantity: 1, createdAt: '2026-05-18T04:32:00.000Z' },
+          { id: 7, name: 'Băng keo OPP',           specifications: 'Rộng 48mm, trong suốt', unit: 'cuộn',  quantity: 2, createdAt: '2026-05-18T04:48:00.000Z' },
+        ],
       },
     },
   },
@@ -502,10 +544,90 @@ export const seedPlanForms: PlanForm[] = [
     quotaManagement: {
       id: 4,
       materialType: {
-        sat: { id: 4, type: 'Ống sắt vuông', specifications: '25×25×1.2mm', thickness: 1.2 },
-        daySon: { id: 4, kg: 2.8, specifications: 'Dây PE xám + sơn tĩnh điện' },
-        vatTuPhuKien: { id: 4, unit: 'bộ' },
-        baoBiDongGoi: { id: 4, unit: 'thùng' },
+        sat: [
+          { id: 8,  name: 'Ống sắt hộp 25×25', specifications: '25×25×1.2mm',      thickness: 1.2, unit: 'cây', quantity: 22, createdAt: '2026-05-22T00:30:00.000Z' },
+          { id: 9,  name: 'Sắt chữ L 25×25',   specifications: '25×25×2mm',        thickness: 2.0, unit: 'cây', quantity: 6,  createdAt: '2026-05-22T00:52:00.000Z' },
+          { id: 10, name: 'Sắt tấm đục lỗ',    specifications: '800×600×1.5mm, lỗ Φ5', thickness: 1.5, unit: 'tấm', quantity: 1,  createdAt: '2026-05-22T01:12:00.000Z' },
+        ],
+        daySon: [
+          { id: 9,  name: 'Dây PE xám tro',     specifications: 'Ø3mm, màu xám IKEA spec', kg: 2.8, unit: 'cuộn', createdAt: '2026-05-22T01:30:00.000Z' },
+          { id: 10, name: 'Sơn tĩnh điện đen',  specifications: 'RAL9005, IKEA approved',   kg: 0.9, unit: 'kg',    createdAt: '2026-05-22T01:48:00.000Z' },
+        ],
+        vatTuPhuKien: [
+          { id: 9,  name: 'Ốc vít M6×20',   specifications: 'Mạ kẽm trắng',    unit: 'cái',   quantity: 48, createdAt: '2026-05-22T02:05:00.000Z' },
+          { id: 10, name: 'Chốt khóa nhựa', specifications: 'PP đen, snap-fit', unit: 'cái',   quantity: 4,  createdAt: '2026-05-22T02:22:00.000Z' },
+          { id: 11, name: 'Đệm vải nỉ',     specifications: '50×50mm, đen',    unit: 'miếng', quantity: 8,  createdAt: '2026-05-22T02:38:00.000Z' },
+          { id: 12, name: 'Bulong M8×30',    specifications: 'Inox, kèm đai ốc', unit: 'bộ',   quantity: 4,  createdAt: '2026-05-22T02:55:00.000Z' },
+        ],
+        baoBiDongGoi: [
+          { id: 8,  name: 'Thùng carton IKEA', specifications: '65×45×32cm, sóng kép', unit: 'thùng', quantity: 1, createdAt: '2026-05-22T03:10:00.000Z' },
+          { id: 9,  name: 'Xốp PE 8mm',        specifications: 'Bảo vệ góc cạnh',      unit: 'm²',    quantity: 3, createdAt: '2026-05-22T03:25:00.000Z' },
+          { id: 10, name: 'Túi PE bịt đầu',    specifications: 'Dày 0.05mm',           unit: 'túi',   quantity: 2, createdAt: '2026-05-22T03:40:00.000Z' },
+        ],
+      },
+    },
+  },
+  {
+    id: 5, exportOrderId: 1, mfgProductId: 2, status: 'APPROVED', note: 'PlanForm IEA-3 cho PO MEYING — phê duyệt',
+    createdAt: ISO('2026-05-25'), proposedAt: ISO('2026-05-25'),
+    exportOrder: { id: 1, poNumber: 'PO-MY-001', deliveryDate: ISO('2026-10-15') },
+    mfgProduct: { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3' },
+    createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
+    quotaManagement: {
+      id: 5,
+      materialType: {
+        sat: [
+          { id: 13, name: 'Ống sắt tròn Φ19', specifications: 'Φ19×1.2mm',          thickness: 1.2, unit: 'cây', quantity: 16, createdAt: '2026-05-25T01:00:00.000Z' },
+          { id: 14, name: 'Sắt dẹt 25×3',     specifications: '25×3mm',              thickness: 3.0, unit: 'cây', quantity: 5,  createdAt: '2026-05-25T01:20:00.000Z' },
+          { id: 15, name: 'Ống sắt tròn Φ12', specifications: 'Φ12×1.0mm, tay vịn', thickness: 1.0, unit: 'cây', quantity: 4,  createdAt: '2026-05-25T01:40:00.000Z' },
+        ],
+        daySon: [
+          { id: 11, name: 'Dây nhựa trắng kem', specifications: 'Ø3mm, PE chịu UV', kg: 3.5, unit: 'cuộn', createdAt: '2026-05-25T02:00:00.000Z' },
+          { id: 12, name: 'Dây màu be',          specifications: 'Ø3mm, phối màu',   kg: 1.2, unit: 'cuộn', createdAt: '2026-05-25T02:18:00.000Z' },
+          { id: 13, name: 'Sơn trắng sữa',       specifications: 'RAL9010 tĩnh điện', kg: 0.7, unit: 'kg',    createdAt: '2026-05-25T02:35:00.000Z' },
+        ],
+        vatTuPhuKien: [
+          { id: 13, name: 'Ốc vít M5×12',       specifications: 'Inox 304, đầu chìm', unit: 'cái', quantity: 40, createdAt: '2026-05-25T02:52:00.000Z' },
+          { id: 14, name: 'Nắp ống tròn Φ19',   specifications: 'Nhựa trắng PP',      unit: 'cái', quantity: 10, createdAt: '2026-05-25T03:08:00.000Z' },
+          { id: 15, name: 'Đệm cao su chân ghế', specifications: 'Φ19mm, chống trầy', unit: 'cái', quantity: 4,  createdAt: '2026-05-25T03:25:00.000Z' },
+        ],
+        baoBiDongGoi: [
+          { id: 11, name: 'Thùng carton 3 lớp', specifications: '55×55×30cm',      unit: 'thùng', quantity: 1, createdAt: '2026-05-25T03:42:00.000Z' },
+          { id: 12, name: 'Túi nilon bọc ngoài', specifications: 'PE trong, 80×60cm', unit: 'túi',   quantity: 1, createdAt: '2026-05-25T03:58:00.000Z' },
+          { id: 13, name: 'Xốp EPE góc',         specifications: '40×40×5cm',      unit: 'miếng', quantity: 4, createdAt: '2026-05-25T04:12:00.000Z' },
+        ],
+      },
+    },
+  },
+  {
+    id: 6, exportOrderId: 3, mfgProductId: 2, status: 'DRAFT', note: 'PlanForm IEA-3 cho PO IKEA — nháp mới',
+    createdAt: ISO('2026-06-01'),
+    exportOrder: { id: 3, poNumber: 'PO-IK-003', deliveryDate: ISO('2026-12-20') },
+    mfgProduct: { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3' },
+    createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
+    quotaManagement: {
+      id: 6,
+      materialType: {
+        sat: [
+          { id: 16, name: 'Ống sắt tròn Φ22', specifications: 'Φ22×1.5mm, khung chính',  thickness: 1.5, unit: 'cây', quantity: 14, createdAt: '2026-06-01T01:00:00.000Z' },
+          { id: 17, name: 'Sắt hộp 20×20',    specifications: '20×20×1.2mm, thanh ngang', thickness: 1.2, unit: 'cây', quantity: 6,  createdAt: '2026-06-01T01:25:00.000Z' },
+        ],
+        daySon: [
+          { id: 14, name: 'Dây PE đen IKEA',  specifications: 'Ø4mm, IKEA approved',  kg: 4.0, unit: 'cuộn', createdAt: '2026-06-01T01:48:00.000Z' },
+          { id: 15, name: 'Dây màu xám đậm',  specifications: 'Ø4mm, phối viền',     kg: 0.8, unit: 'cuộn', createdAt: '2026-06-01T02:05:00.000Z' },
+          { id: 16, name: 'Sơn đen bóng',     specifications: 'RAL9005 bóng, IKEA spec', kg: 1.0, unit: 'kg', createdAt: '2026-06-01T02:22:00.000Z' },
+        ],
+        vatTuPhuKien: [
+          { id: 16, name: 'Ốc vít M6×16',          specifications: 'Inox 316, biển mặn', unit: 'cái', quantity: 36, createdAt: '2026-06-01T02:40:00.000Z' },
+          { id: 17, name: 'Nắp ống tròn Φ22',       specifications: 'PP đen, chống bụi', unit: 'cái', quantity: 8,  createdAt: '2026-06-01T02:58:00.000Z' },
+          { id: 18, name: 'Chân nhựa chống trượt',  specifications: 'Φ22mm, TPR đen',    unit: 'cái', quantity: 4,  createdAt: '2026-06-01T03:15:00.000Z' },
+          { id: 19, name: 'Vít tự khoan 4×16',      specifications: 'Mạ kẽm',            unit: 'cái', quantity: 20, createdAt: '2026-06-01T03:32:00.000Z' },
+        ],
+        baoBiDongGoi: [
+          { id: 14, name: 'Thùng carton IKEA kép', specifications: '70×60×35cm, sóng kép', unit: 'thùng', quantity: 1, createdAt: '2026-06-01T03:50:00.000Z' },
+          { id: 15, name: 'Xốp PE cuộn',           specifications: 'Dày 10mm, bọc khung', unit: 'm',     quantity: 4, createdAt: '2026-06-01T04:05:00.000Z' },
+          { id: 16, name: 'Nhãn dán IKEA',          specifications: 'Barcode + thông số',  unit: 'tờ',    quantity: 2, createdAt: '2026-06-01T04:20:00.000Z' },
+        ],
       },
     },
   },

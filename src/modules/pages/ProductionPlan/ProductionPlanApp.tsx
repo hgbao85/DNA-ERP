@@ -1,12 +1,35 @@
 import { useState } from 'react'
-import { LayoutDashboard, LogOut, Grid } from 'lucide-react'
+import { LayoutDashboard, Package, LogOut, Grid } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import PlanFormDashboardPage from './PlanFormDashboardPage'
+import VatTuDashboardPage from './VatTuDashboardPage'
+
+type Page = 'planforms' | 'vattu'
 
 interface Props { onBack?: () => void }
 
 export default function ProductionPlanApp({ onBack }: Props) {
   const { user, logout } = useAuth()
+  const [activePage, setActivePage] = useState<Page>('planforms')
+
+  const navBtn = (page: Page, icon: React.ReactNode, label: string) => {
+    const active = activePage === page
+    return (
+      <button
+        onClick={() => setActivePage(page)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', marginBottom: 2,
+          border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer', textAlign: 'left', fontSize: 13,
+          background: active ? '#e8f5e9' : 'transparent',
+          color: active ? '#2e7d32' : 'var(--text)',
+          fontWeight: active ? 600 : 400,
+        }}
+      >
+        {icon}
+        {label}
+      </button>
+    )
+  }
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
@@ -24,13 +47,8 @@ export default function ProductionPlanApp({ onBack }: Props) {
         </div>
 
         <nav style={{ flex: 1, padding: '4px 8px' }}>
-          <button style={{
-            display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: '8px 10px', marginBottom: 2,
-            border: 'none', borderRadius: 'var(--radius)', background: '#e8f5e9', color: '#2e7d32', fontWeight: 600, fontSize: 13, textAlign: 'left', cursor: 'default',
-          }}>
-            <LayoutDashboard size={16} />
-            Dashboard PlanForm
-          </button>
+          {navBtn('planforms', <LayoutDashboard size={16} />, 'Danh sách định mức')}
+          {navBtn('vattu', <Package size={16} />, 'Danh sách vật tư')}
         </nav>
 
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
@@ -50,7 +68,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        <PlanFormDashboardPage />
+        {activePage === 'planforms' ? <PlanFormDashboardPage /> : <VatTuDashboardPage />}
       </div>
     </div>
   )

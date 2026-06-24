@@ -1,13 +1,12 @@
 import { useState, useMemo } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import { CheckCircle2 } from 'lucide-react'
+import { Loader2, ChevronLeft } from 'lucide-react'
 
 export default function SpecAccessoryPage() {
   const { data: allData, isLoading } = useFetch(() => api.getSpecEntryProposals(), [])
   const proposals = Array.isArray(allData) ? allData : []
-  
-  // Lọc tasks thuộc SPEC_ACCESSORY từ các proposal
+
   const specTasks = useMemo(() => {
     const tasks: any[] = []
     proposals.forEach((proposal: any) => {
@@ -15,100 +14,183 @@ export default function SpecAccessoryPage() {
         proposal.tasks
           .filter((t: any) => t.specRole === 'SPEC_ACCESSORY')
           .forEach((t: any) => {
-            tasks.push({ ...t, proposalId: proposal.id, proposalCode: proposal.code, piCode: proposal.piCode, productName: proposal.productName })
+            tasks.push({
+              ...t,
+              proposalId: proposal.id,
+              proposalCode: proposal.code,
+              piCode: proposal.piCode,
+              productName: proposal.productName,
+            })
           })
       }
     })
     return tasks
   }, [proposals])
 
-  const [activeTaskId, setActiveTaskId] = useState<number | null>(null)
+  const [activeTask, setActiveTask] = useState<any | null>(null)
   const [form, setForm] = useState<{ unit?: string }>({})
+  const [saving, setSaving] = useState(false)
 
   const handleSelectTask = (task: any) => {
-    setActiveTaskId(task.id)
+    setActiveTask(task)
     setForm({ unit: task.unit ?? '' })
   }
 
   const save = async () => {
+    if (!activeTask) return
+    setSaving(true)
     try {
-      const currentTask = specTasks.find(t => t.id === activeTaskId)
-      if (!currentTask) return
-      
-      await api.updateSpecEntryTask(currentTask.proposalId, activeTaskId, { unit: form.unit, status: 'COMPLETED' })
-      setActiveTaskId(null)
-      alert('Lưu thành công')
-    } catch (e) {
-      alert('Lỗi lưu')
+      await api.updateSpecEntryTask(activeTask.proposalId, activeTask.id, {
+        unit: form.unit,
+        status: 'COMPLETED',
+      })
+      setActiveTask(null)
+    } catch {
+      alert('Lỗi lưu dữ liệu')
+    } finally {
+      setSaving(false)
     }
+  }
+
+  /* ── Detail view ─────────────────────────────────────────── */
+  if (activeTask) {
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <button
+            onClick={() => setActiveTask(null)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, cursor: 'pointer', flexShrink: 0 }}
+          >
+            <ChevronLeft size={16} /> Danh sách
+          </button>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{activeTask.proposalCode}</h2>
+            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text3)' }}>
+              {activeTask.piCode} — {activeTask.productName}
+            </p>
+          </div>
+        </div>
+
+        {/* Thông tin chung */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 28px', padding: '10px 16px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 20, fontSize: 13 }}>
+          <span><span style={{ color: 'var(--text3)' }}>Mã đề xuất: </span><strong>{activeTask.proposalCode}</strong></span>
+          <span><span style={{ color: 'var(--text3)' }}>PI: </span><strong>{activeTask.piCode}</strong></span>
+          <span><span style={{ color: 'var(--text3)' }}>Sản phẩm: </span><strong>{activeTask.productName}</strong></span>
+          <span>
+            <span style={{ color: 'var(--text3)' }}>Trạng thái: </span>
+            <TaskStatusBadge status={activeTask.status} />
+          </span>
+        </div>
+
+        {/* Form */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 24, maxWidth: 560 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Nhập thông tin Phụ kiện</div>
+          <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text3)' }}>Điền đầy đủ thông tin bên dưới rồi nhấn Lưu.</p>
+
+          <label style={labelStyle}>Đơn vị tính</label>
+          <input
+            value={form.unit ?? ''}
+            onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+            placeholder="VD: cái, bộ, thùng"
+            style={inputStyle}
+          />
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+            <button onClick={() => setActiveTask(null)} style={btnSecondary}>Hủy</button>
+            <button onClick={save} disabled={saving} style={btnGreen}>
+              {saving ? 'Đang lưu...' : 'Lưu & Hoàn thành'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
     <div>
-      <h2>Nhập định mức — Phụ kiện</h2>
-      <p style={{ color: 'var(--text3)' }}>Nhập Đơn vị tính cho các task được gửi từ kế hoạch sản xuất.</p>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Nhập định mức — Phụ kiện</h2>
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text2)' }}>
+          Nhập Đơn vị tính cho các task gửi từ kế hoạch sản xuất.
+        </p>
+      </div>
 
-      {specTasks.length === 0 && (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
-          Không có task nào. Chờ kế hoạch sản xuất gửi đề xuất.
+      {isLoading ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text2)' }}>
+          <Loader2 size={18} /> Đang tải...
         </div>
-      )}
-
-      {specTasks.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: '360px 1fr', gap: 24, marginTop: 20 }}>
-          {/* Task list */}
-          <div>
-            <div style={{ fontWeight: 700, marginBottom: 12, fontSize: 13, color: 'var(--text3)' }}>CÁC TASK CẦN THỰC HIỆN</div>
-            <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-              {specTasks.map((task: any) => (
-                <div
+      ) : (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: 52 }} />
+              <col style={{ width: 150 }} />
+              <col />
+              <col style={{ width: 110 }} />
+            </colgroup>
+            <thead>
+              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                <th style={thStyle}>#</th>
+                <th style={thStyle}>Mã đề xuất</th>
+                <th style={thStyle}>Sản phẩm</th>
+                <th style={thStyle}>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              {specTasks.map((task: any, idx: number) => (
+                <tr
                   key={task.id}
                   onClick={() => handleSelectTask(task)}
-                  style={{
-                    padding: 12,
-                    borderBottom: '1px solid var(--border)',
-                    cursor: 'pointer',
-                    background: activeTaskId === task.id ? '#fff3e0' : 'transparent',
-                    borderLeft: task.status === 'COMPLETED' ? '4px solid #2e7d32' : 'none',
-                    paddingLeft: task.status === 'COMPLETED' ? 8 : 12,
-                  }}
+                  style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = '#f0fdf4')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                    {task.status === 'COMPLETED' ? (
-                      <CheckCircle2 size={16} color="#2e7d32" style={{ marginTop: 2, flexShrink: 0 }} />
-                    ) : (
-                      <div style={{ width: 16, height: 16, border: '2px solid #e65100', borderRadius: '50%', marginTop: 2, flexShrink: 0 }} />
-                    )}
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: 13 }}>{task.proposalCode}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text3)' }}>{task.piCode} — {task.productName}</div>
-                      <div style={{ fontSize: 11, color: task.status === 'COMPLETED' ? '#2e7d32' : '#e65100', fontWeight: 600, marginTop: 4 }}>
-                        {task.status === 'COMPLETED' ? 'Hoàn thành' : 'Chờ xử lý'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)' }}>{idx + 1}</td>
+                  <td style={{ ...tdStyle, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {task.proposalCode}
+                  </td>
+                  <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontWeight: 600 }}>{task.piCode}</span>
+                    <span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>
+                    {task.productName}
+                  </td>
+                  <td style={tdStyle}>
+                    <TaskStatusBadge status={task.status} />
+                  </td>
+                </tr>
               ))}
-            </div>
-          </div>
-
-          {/* Form */}
-          {activeTaskId && (
-            <div>
-              <div style={{ background: 'var(--surface)', padding: 16, borderRadius: 8 }}>
-                <div style={{ fontWeight: 700, marginBottom: 12 }}>Nhập thông tin</div>
-                <div style={{ marginBottom: 16 }}>
-                  <label>
-                    <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 4 }}>Đơn vị tính</div>
-                    <input value={form.unit ?? ''} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))} placeholder="VD: cái, bộ, thùng" style={{ padding: 8, border: '1px solid var(--border)', borderRadius: 6, width: '100%' }} />
-                  </label>
-                </div>
-                <button onClick={save} style={{ padding: '8px 16px', background: '#e65100', color: '#fff', border: 'none', borderRadius: 6, fontWeight: 600, cursor: 'pointer' }}>Lưu & Hoàn thành</button>
-              </div>
-            </div>
-          )}
+              {specTasks.length === 0 && (
+                <tr>
+                  <td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
+                    Không có task nào — chờ kế hoạch sản xuất gửi đề xuất
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
   )
 }
+
+function TaskStatusBadge({ status }: { status: string }) {
+  const completed = status === 'COMPLETED'
+  return (
+    <span style={{
+      display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 8px',
+      borderRadius: 20, whiteSpace: 'nowrap',
+      color: completed ? '#16a34a' : '#d97706',
+      background: completed ? '#dcfce7' : '#fef3c7',
+    }}>
+      {completed ? 'Hoàn thành' : 'Chờ xử lý'}
+    </span>
+  )
+}
+
+const thStyle: React.CSSProperties      = { padding: '12px 16px', fontWeight: 600, fontSize: 12, color: 'var(--text3)' }
+const tdStyle: React.CSSProperties      = { padding: '12px 16px' }
+const labelStyle: React.CSSProperties   = { display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, marginTop: 12 }
+const inputStyle: React.CSSProperties   = { width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, marginBottom: 8, boxSizing: 'border-box' }
+const btnGreen: React.CSSProperties     = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }
+const btnSecondary: React.CSSProperties = { padding: '10px 18px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }

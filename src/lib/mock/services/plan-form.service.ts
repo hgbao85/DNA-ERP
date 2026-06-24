@@ -4,17 +4,13 @@ import { nextId } from '../core/id';
 import type { CreatePlanFormPayload, PlanForm } from '../../../types/plan-form';
 
 function buildMaterialType(dto: CreatePlanFormPayload['materialType']) {
-  const satId = nextId();
-  const daySonId = nextId();
-  const vtpkId = nextId();
-  const bbdgId = nextId();
   return {
     id: nextId(),
     materialType: {
-      sat: { id: satId, ...dto.sat },
-      daySon: { id: daySonId, ...dto.daySon },
-      vatTuPhuKien: { id: vtpkId, ...dto.vatTuPhuKien },
-      baoBiDongGoi: { id: bbdgId, ...dto.baoBiDongGoi },
+      sat: [{ id: nextId(), name: dto.sat.type, specifications: dto.sat.specifications, thickness: dto.sat.thickness, unit: 'cây', quantity: 1 }],
+      daySon: [{ id: nextId(), name: dto.daySon.specifications ?? 'Dây/Sơn', specifications: dto.daySon.specifications, kg: dto.daySon.kg, unit: 'kg' }],
+      vatTuPhuKien: [{ id: nextId(), name: 'Phụ kiện', unit: dto.vatTuPhuKien.unit, quantity: 1 }],
+      baoBiDongGoi: [{ id: nextId(), name: 'Bao bì', unit: dto.baoBiDongGoi.unit, quantity: 1 }],
     },
   };
 }

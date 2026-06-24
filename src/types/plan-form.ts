@@ -1,34 +1,47 @@
 export type PlanFormStatus = 'DRAFT' | 'PROPOSED' | 'APPROVED' | 'REJECTED';
 
-export interface SatMaterial {
+export interface SatItem {
   id?: number;
-  type: string;
+  name: string;
   specifications?: string | null;
   thickness?: number | null;
+  unit?: string | null;
+  quantity?: number | null;
+  createdAt?: string | null;
 }
 
-export interface DaySonMaterial {
+export interface DaySonItem {
   id?: number;
-  kg?: number | null;
-  imageUrl?: string | null;
+  name: string;
   specifications?: string | null;
+  kg?: number | null;
+  unit?: string | null;
+  createdAt?: string | null;
 }
 
-export interface VatTuPhuKienMaterial {
+export interface VatTuPhuKienItem {
   id?: number;
-  unit: string;
+  name: string;
+  specifications?: string | null;
+  unit?: string | null;
+  quantity?: number | null;
+  createdAt?: string | null;
 }
 
-export interface BaoBiDongGoiMaterial {
+export interface BaoBiDongGoiItem {
   id?: number;
-  unit: string;
+  name: string;
+  specifications?: string | null;
+  unit?: string | null;
+  quantity?: number | null;
+  createdAt?: string | null;
 }
 
 export interface MaterialType {
-  sat: SatMaterial | null;
-  daySon: DaySonMaterial | null;
-  vatTuPhuKien: VatTuPhuKienMaterial | null;
-  baoBiDongGoi: BaoBiDongGoiMaterial | null;
+  sat: SatItem[];
+  daySon: DaySonItem[];
+  vatTuPhuKien: VatTuPhuKienItem[];
+  baoBiDongGoi: BaoBiDongGoiItem[];
 }
 
 export interface PlanForm {

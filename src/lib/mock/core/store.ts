@@ -1,6 +1,6 @@
 import { createInitialMockState, type MockState } from '../data/seed';
 
-const LS_KEY = 'sales_crm_mock_v2';
+const LS_KEY = 'sales_crm_mock_v3';
 
 let state: MockState = loadState();
 
