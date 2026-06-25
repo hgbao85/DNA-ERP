@@ -50,6 +50,7 @@ export interface PlanForm {
   mfgProductId: number;
   status: PlanFormStatus;
   note?: string | null;
+  customerName?: string | null;
   createdAt: string;
   proposedAt?: string | null;
   exportOrder?: { id: number; poNumber: string; deliveryDate?: string };
@@ -65,6 +66,7 @@ export interface CreatePlanFormPayload {
   exportOrderId: number;
   mfgProductId: number;
   note?: string;
+  customerName?: string;
   materialType: {
     sat: { type: string; specifications?: string; thickness?: number };
     daySon: { kg?: number; specifications?: string; imageUrl?: string };

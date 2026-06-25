@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Boxes, Warehouse, Settings } from 'lucide-react'
+import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Boxes, Warehouse, Settings, FilePlus } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import PlanFormDashboardPage from './PlanFormDashboardPage'
 import VatTuDashboardPage from './VatTuDashboardPage'
@@ -8,8 +8,9 @@ import PIListPage from '../Manufacturing/PIListPage'
 import MfgMaterialsAndSkuPage from '../Manufacturing/MfgMaterialsAndSkuPage'
 import WarehouseTabsPage from '../Manufacturing/WarehouseTabsPage'
 import MfgSetupPage from '../Manufacturing/MfgSetupPage'
+import CreateSkuPage from '../Manufacturing/CreateSkuPage'
 
-type Page = 'planforms' | 'vattu' | 'thongke' | 'pi-list' | 'materials' | 'warehouses' | 'setup'
+type Page = 'planforms' | 'tao-sku' | 'vattu' | 'thongke' | 'pi-list' | 'materials' | 'warehouses' | 'setup'
 
 interface Props { onBack?: () => void }
 
@@ -52,11 +53,12 @@ export default function ProductionPlanApp({ onBack }: Props) {
         </div>
 
         <nav style={{ flex: 1, padding: '4px 8px' }}>
-          {navBtn('thongke',    <CalendarClock size={16} />,  'Bảng thống kê')}
+          {navBtn('thongke',    <CalendarClock size={16} />,   'Bảng thống kê')}
           {navBtn('planforms',  <LayoutDashboard size={16} />, 'Danh sách SKU')}
-          {navBtn('vattu',      <Package size={16} />,        'Danh sách vật tư')}
+          {navBtn('tao-sku',    <FilePlus size={16} />,        'Tạo SKU')}
+          {navBtn('vattu',      <Package size={16} />,         'Danh sách vật tư')}
           {navBtn('pi-list',    <ClipboardList size={16} />,  'Lệnh sản xuất mới')}
-          {navBtn('setup',      <Settings size={16} />,       'Quản lý định mức')}
+          {/* {navBtn('setup',      <Settings size={16} />,       'Quản lý định mức')} */}
           {/* {navBtn('materials',  <Boxes size={16} />,          'Tổng hợp vật tư/SKU')} */}
           {navBtn('warehouses', <Warehouse size={16} />,      'Tổng hợp kho')}
         </nav>
@@ -80,6 +82,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
         {activePage === 'thongke'    && <ThongKePage />}
         {activePage === 'planforms'  && <PlanFormDashboardPage />}
+        {activePage === 'tao-sku'    && <CreateSkuPage />}
         {activePage === 'vattu'      && <VatTuDashboardPage />}
         {activePage === 'pi-list'    && <PIListPage />}
         {activePage === 'materials'  && <MfgMaterialsAndSkuPage />}

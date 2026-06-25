@@ -17,8 +17,8 @@ function buildMaterialType(dto: CreatePlanFormPayload['materialType']) {
 
 function enrichPlanForm(pf: PlanForm): PlanForm {
   const s = mockStore.get();
-  const exportOrder = s.exportOrders.find((o) => o.id === pf.exportOrderId);
-  const mfgProduct = s.mfgProducts.find((p) => p.id === pf.mfgProductId);
+  const exportOrder = s.exportOrders.find((o: any) => o.id === pf.exportOrderId);
+  const mfgProduct = s.mfgProducts.find((p: any) => p.id === pf.mfgProductId);
   return {
     ...pf,
     exportOrder: exportOrder
@@ -27,6 +27,7 @@ function enrichPlanForm(pf: PlanForm): PlanForm {
     mfgProduct: mfgProduct
       ? { id: mfgProduct.id, factoryCode: mfgProduct.factoryCode, name: mfgProduct.name }
       : pf.mfgProduct,
+    customerName: pf.customerName ?? exportOrder?.exportCustomer?.name ?? null,
     createdBy: pf.createdBy ?? { id: 39, name: 'NV Kế hoạch SX Linh' },
   };
 }
@@ -72,6 +73,7 @@ export async function createPlanForm(data: CreatePlanFormPayload) {
       mfgProductId: data.mfgProductId,
       status: 'DRAFT',
       note: data.note,
+      customerName: data.customerName ?? null,
       createdAt: new Date().toISOString(),
       createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
       quotaManagement: quota,
@@ -100,4 +102,11 @@ export async function proposePlanFormById(id: number) {
     s.planForms[idx] = updated;
   });
   return enrichPlanForm(updated);
+}
+
+export async function deletePlanForms(ids: number[]) {
+  await mockDelay();
+  mockStore.update((s) => {
+    s.planForms = s.planForms.filter((p) => !ids.includes(p.id));
+  });
 }
