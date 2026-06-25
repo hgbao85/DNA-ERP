@@ -335,7 +335,7 @@ export default function SpecSteelPage() {
         {([
           { id: 'dinh-muc', label: 'Định mức mảnh' },
           { id: 'vat-tu', label: 'Định mức chi tiết' },
-          { id: 'catalog', label: 'Catalog vật tư' },
+          { id: 'catalog', label: 'Danh sách vật tư' },
         ] as const).map(t => (
           <button key={t.id} onClick={() => setSubTab(t.id)} style={{
             padding: '8px 18px', border: 'none', cursor: 'pointer', background: 'transparent',
@@ -606,7 +606,6 @@ export default function SpecSteelPage() {
                     onClick={() => {
                       if (!selectedBom) return
                       setSubmittedBomIds(ids => [...ids, selectedBom.id])
-                      setSelectedBom(null)
                     }}
                     disabled={totalChildren === 0}
                     style={{
