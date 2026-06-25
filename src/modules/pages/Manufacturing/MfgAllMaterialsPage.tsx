@@ -33,8 +33,8 @@ export default function MfgAllMaterialsPage() {
 
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Tổng hợp vật tư</h2>
-      <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>Toàn bộ vật tư từ tất cả các kho — tìm kiếm nguyên liệu nhanh</div>
+      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Tổng hợp vật tư/SKU</h2>
+      <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>Toàn bộ vật tư/SKU từ tất cả các kho — tìm kiếm nguyên liệu nhanh</div>
 
       <div style={{ position: 'relative', maxWidth: 380, marginBottom: 16 }}>
         <Search size={15} style={{ position: 'absolute', left: 10, top: 10, color: 'var(--text3)' }} />

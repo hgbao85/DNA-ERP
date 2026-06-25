@@ -12,6 +12,7 @@ interface Wh {
   category?: string | null
   columns: string[]
   _count?: { items: number }
+  totalQty?: number
 }
 interface WhItem {
   id: number
@@ -52,11 +53,12 @@ const safeArr = <T,>(d: T[] | null | undefined): T[] => (Array.isArray(d) ? d : 
 // match chỉ dùng wh.name → nhận object tối thiểu { name } để tái dùng ở các màn khác.
 export interface WhGroup { key: string; label: string; desc: string; match: (wh: { name: string }) => boolean }
 export const WAREHOUSE_GROUPS: WhGroup[] = [
-  { key: 'phu-kien', label: 'Kho phụ kiện', desc: 'Phụ kiện', match: wh => /mận/i.test(wh.name) },
-  { key: 'bao-bi', label: 'Kho bao bì đóng gói', desc: 'Bao bì + phụ kiện phục vụ đóng gói', match: wh => /(hân|trinh|nghĩa)/i.test(wh.name) },
-  { key: 'day', label: 'Kho dây', desc: 'Dây phục vụ xuất đan', match: wh => /hồng/i.test(wh.name) },
-  { key: 'sat', label: 'Kho sắt', desc: 'Cập nhật khi mua sắt về', match: wh => /sắt/i.test(wh.name) },
-  { key: 'thanh-pham', label: 'Kho thành phẩm', desc: 'Sản phẩm đã đóng gói hoàn chỉnh', match: wh => /thành\s*phẩm/i.test(wh.name) },
+  { key: 'all',        label: 'Tất cả kho',         desc: 'Tổng hợp kho',                         match: wh => true },
+  { key: 'sat',        label: 'Kho sắt',           desc: 'Sắt ống, sắt tấm, sắt hộp',              match: wh => /sắt/i.test(wh.name) },
+  { key: 'vat-tu-sx', label: 'Vật tư sản xuất',   desc: 'Sơn, dây, vật tư tiêu hao sản xuất',     match: wh => /vật.*tư.*sx/i.test(wh.name) },
+  { key: 'phu-kien',  label: 'Kho phụ kiện',       desc: 'Phụ kiện lắp ráp sản phẩm',              match: wh => /phụ\s*kiện/i.test(wh.name) },
+  { key: 'thanh-pham', label: 'Kho Bao bì/Thành phẩm',    desc: 'Bao bì, sản phẩm đã đóng gói hoàn chỉnh',        match: wh => /thành\s*phẩm/i.test(wh.name) },
+  { key: 'day',       label: 'Kho khung/dây',       desc: 'Dây đan, khung bán thành phẩm',          match: wh => /khung|dây/i.test(wh.name) },
 ]
 
 // Lọc danh sách kho theo nhóm (dùng cho tài khoản kho bị giới hạn warehouseScope).
@@ -86,9 +88,6 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
       <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{group ? group.label : 'Tổng hợp kho'}</h2>
       <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 18 }}>
         {group ? group.desc : 'Chọn kho để xem tồn & nhập/xuất'}
-      </div>
-      <div style={{ color: 'var(--text3)', fontSize: 12, marginBottom: 18 }}>
-        {list.length} kho{list.length === 1 ? '' : 's'}{group ? ' trong nhóm này' : ''}
       </div>
 
       {isLoading && <div style={{ color: 'var(--text3)' }}>Đang tải…</div>}
@@ -123,9 +122,18 @@ function WhCard({ wh, onOpen }: { wh: Wh; onOpen: () => void }) {
         <span style={{ fontWeight: 700, fontSize: 15 }}>{wh.name}</span>
       </div>
       {wh.category && <div style={{ fontSize: 12, color: 'var(--text2)' }}>{wh.category}</div>}
-      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8, display: 'flex', justifyContent: 'space-between' }}>
-        <span>{wh.keeperName ? `Thủ kho: ${wh.keeperName}` : ' '}</span>
-        <span>{wh._count?.items ?? 0} vật tư</span>
+      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{wh.keeperName ? `Thủ kho: ${wh.keeperName}` : ' '}</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#e65100', lineHeight: 1 }}>
+            Tổng SL · {wh._count?.items ?? 0} mặt hàng
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+            Tồn kho {(wh.totalQty ?? 0).toLocaleString()}
+          </div>
+        </div>
       </div>
     </button>
   )

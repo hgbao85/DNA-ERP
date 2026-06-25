@@ -4,7 +4,7 @@ import * as api from '../../../services/api'
 import { Plus, X, ArrowDownToLine, PackagePlus } from 'lucide-react'
 
 // ── Bảng theo MẢNH đan: cần | đã thu | chưa xuất đan | chưa thu + nút Nhập mảnh ──
-// Dùng CHUNG cho thẻ "Đan" ở Bảng tiến độ + màn "Quản lý nhập mảnh" → số liệu không lệch.
+// Dùng CHUNG cho thẻ "Đan" ở Bảng tiến độ + → số liệu không lệch.
 // 3 cột (đã thu + chưa thu + chưa xuất đan) cộng lại = cần. % đan = Σ đã thu / Σ cần.
 
 export interface ManhPiece {

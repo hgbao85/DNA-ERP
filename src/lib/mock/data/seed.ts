@@ -348,10 +348,14 @@ export const seedMfgProducts = [
 ];
 
 export const seedProductVariants = [
-  { id: 101, mfgProductId: 1, exportCustomerId: 1, colorCode: 'BLACK', description: 'JSE-55 Đen — MEYING', isActive: true, mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' } },
-  { id: 102, mfgProductId: 2, exportCustomerId: 2, colorCode: 'BLACK', description: 'IEA-3 Đen — GOPLUS', isActive: true, mfgProduct: { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3' } },
-  { id: 103, mfgProductId: 1, exportCustomerId: 3, colorCode: 'GRAY', description: 'JSE-55 Xám — IKEA', isActive: true, mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' } },
-  { id: 104, mfgProductId: 3, exportCustomerId: 1, colorCode: 'BLACK', description: 'JSE-60 Đen — MEYING', isActive: true, mfgProduct: { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60' } },
+  { id: 101, mfgProductId: 1, exportCustomerId: 1, colorCode: 'BLACK', description: 'JSE-55 Đen — MEYING',  isActive: true,  mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' } },
+  { id: 102, mfgProductId: 2, exportCustomerId: 2, colorCode: 'BLACK', description: 'IEA-3 Đen — GOPLUS',  isActive: true,  mfgProduct: { id: 2, factoryCode: 'IEA-3',  name: 'Ghế đan IEA-3' } },
+  { id: 103, mfgProductId: 1, exportCustomerId: 3, colorCode: 'GRAY',  description: 'JSE-55 Xám — IKEA',   isActive: true,  mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' } },
+  { id: 104, mfgProductId: 3, exportCustomerId: 1, colorCode: 'BLACK', description: 'JSE-60 Đen — MEYING', isActive: true,  mfgProduct: { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60' } },
+  { id: 105, mfgProductId: 3, exportCustomerId: 2, colorCode: 'GRAY',  description: 'JSE-60 Xám — GOPLUS', isActive: true,  mfgProduct: { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60' } },
+  { id: 106, mfgProductId: 2, exportCustomerId: 3, colorCode: 'WHITE', description: 'IEA-3 Trắng — IKEA',  isActive: false, mfgProduct: { id: 2, factoryCode: 'IEA-3',  name: 'Ghế đan IEA-3' } },
+  { id: 107, mfgProductId: 1, exportCustomerId: 2, colorCode: 'BROWN', description: 'JSE-55 Nâu — GOPLUS', isActive: true,  mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' } },
+  { id: 108, mfgProductId: 3, exportCustomerId: 3, colorCode: 'BLACK', description: 'JSE-60 Đen — IKEA',   isActive: true,  mfgProduct: { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60' } },
 ];
 
 export const seedExportOrders = [
@@ -662,19 +666,19 @@ export const seedMaterials = [
 ];
 
 export const seedMfgWarehouses = [
-  { id: 1, name: 'Kho Mận', code: 'phu-kien', note: 'Phụ kiện' },
-  { id: 2, name: 'Kho Sắt', code: 'sat', note: 'Sắt ống' },
-  { id: 3, name: 'Kho Dây', code: 'day', note: 'Dây đan' },
-  { id: 4, name: 'Kho Bao bì', code: 'bao-bi', note: 'Bao bì đóng gói' },
-  { id: 5, name: 'Kho Thành phẩm', code: 'thanh-pham', note: 'Thành phẩm đan' },
+  { id: 1, name: 'Kho phụ kiện',          code: 'phu-kien',   note: 'Phụ kiện sản xuất' },
+  { id: 2, name: 'Kho Sắt',               code: 'sat',         note: 'Sắt ống, sắt tấm, sắt hộp' },
+  { id: 3, name: 'Kho Khung/Dây',         code: 'day',         note: 'Dây đan, khung bán thành phẩm' },
+  { id: 5, name: 'Kho Bao bì/Thành phẩm', code: 'thanh-pham',  note: 'Bao bì đóng gói & thành phẩm hoàn chỉnh' },
+  { id: 6, name: 'Kho Vật tư SX',         code: 'vat-tu-sx',  note: 'Sơn, dây, vật tư tiêu hao sản xuất' },
 ];
 
 export const seedMfgWarehouseItems = [
   { id: 1, warehouseId: 2, materialId: 1, name: 'Ống sắt 25×25', unit: 'cây', quantity: 500, material: { id: 1, code: 'SAT-25', name: 'Ống sắt 25×25', unit: 'cm' } },
   { id: 2, warehouseId: 1, materialId: null, name: 'Tán M6×12', unit: 'cái', quantity: 5000, material: null },
   { id: 3, warehouseId: 3, materialId: 2, name: 'Dây PE Ø3mm', unit: 'kg', quantity: 250, material: { id: 2, code: 'DAY-PE3', name: 'Dây PE Ø3mm', unit: 'kg' } },
-  { id: 4, warehouseId: 4, materialId: null, name: 'Thùng carton JSE-55', unit: 'cái', quantity: 600, material: null },
-  { id: 5, warehouseId: 4, materialId: null, name: 'Bao nylon 68×105', unit: 'cái', quantity: 1200, material: null },
+  { id: 4, warehouseId: 5, materialId: null, name: 'Thùng carton JSE-55', unit: 'cái', quantity: 600, material: null },
+  { id: 5, warehouseId: 5, materialId: null, name: 'Bao nylon 68×105', unit: 'cái', quantity: 1200, material: null },
   { id: 6, warehouseId: 5, materialId: null, name: 'Mặt ghế J55 (đan xong)', unit: 'cái', quantity: 200, material: null },
   { id: 7, warehouseId: 2, materialId: 3, name: 'Ống sắt 20×40', unit: 'cây', quantity: 300, material: { id: 3, code: 'SAT-20', name: 'Ống sắt 20×40', unit: 'cm' } },
   { id: 8, warehouseId: 3, materialId: 4, name: 'Dây PE Ø4mm', unit: 'kg', quantity: 180, material: { id: 4, code: 'DAY-PE4', name: 'Dây PE Ø4mm', unit: 'kg' } },
@@ -688,6 +692,81 @@ export const seedMfgWarehouseItems = [
   { id: 16, warehouseId: 1, materialId: 11, name: 'Ô tròn lỗ dù', unit: 'cái', quantity: 1500, material: { id: 11, code: 'O-TRON-LO-DU', name: 'Ô tròn lỗ dù', unit: 'cái' } },
   { id: 17, warehouseId: 1, materialId: 16, name: 'Pát kính', unit: 'cái', quantity: 900, material: { id: 16, code: 'PAT-KINH', name: 'Pát kính', unit: 'cái' } },
   { id: 18, warehouseId: 1, materialId: 17, name: 'Pát 1-4', unit: 'cái', quantity: 900, material: { id: 17, code: 'PAT-1-4', name: 'Pát 1-4', unit: 'cái' } },
+  // Kho Vật tư SX (id:6) — sơn + dây tiêu hao
+  { id: 19, warehouseId: 6, materialId: null, name: 'Sơn tĩnh điện đen RAL9005',  unit: 'kg',  quantity: 85,  material: null },
+  { id: 20, warehouseId: 6, materialId: null, name: 'Sơn tĩnh điện xám RAL7035',  unit: 'kg',  quantity: 42,  material: null },
+  { id: 21, warehouseId: 6, materialId: null, name: 'Sơn lót epoxy chống gỉ',      unit: 'kg',  quantity: 30,  material: null },
+  { id: 22, warehouseId: 6, materialId: 2,    name: 'Dây PE Ø3mm đen',             unit: 'kg',  quantity: 160, material: { id: 2, code: 'DAY-PE3', name: 'Dây PE Ø3mm', unit: 'kg' } },
+  { id: 23, warehouseId: 6, materialId: 4,    name: 'Dây PE Ø4mm xanh lá',         unit: 'kg',  quantity: 95,  material: { id: 4, code: 'DAY-PE4', name: 'Dây PE Ø4mm', unit: 'kg' } },
+  { id: 24, warehouseId: 6, materialId: null, name: 'Dung môi sơn',                 unit: 'lít', quantity: 20,  material: null },
+  { id: 25, warehouseId: 6, materialId: null, name: 'Primer kết dính',              unit: 'lít', quantity: 15,  material: null },
+  // ── Kho Sắt (id:2) — vật tư khớp định mức planForm ──────────────────
+  { id: 26, warehouseId: 2, materialId: null, name: 'Sắt hộp 25×25',       unit: 'cây', quantity: 5,   material: null }, // cần 20 → thiếu 15
+  { id: 27, warehouseId: 2, materialId: null, name: 'Sắt vuông 20×20',      unit: 'cây', quantity: 80,  material: null },
+  { id: 28, warehouseId: 2, materialId: null, name: 'Sắt tấm 3mm',          unit: 'tấm', quantity: 40,  material: null },
+  { id: 29, warehouseId: 2, materialId: null, name: 'Ống sắt tròn Φ16',     unit: 'cây', quantity: 90,  material: null },
+  { id: 30, warehouseId: 2, materialId: null, name: 'Sắt dẹt 20×3',         unit: 'cây', quantity: 60,  material: null },
+  { id: 31, warehouseId: 2, materialId: null, name: 'Ống sắt hộp 20×40',    unit: 'cây', quantity: 100, material: null },
+  { id: 32, warehouseId: 2, materialId: null, name: 'Sắt tấm 2mm',          unit: 'tấm', quantity: 35,  material: null },
+  { id: 33, warehouseId: 2, materialId: null, name: 'Ống sắt hộp 25×25',    unit: 'cây', quantity: 150, material: null },
+  { id: 34, warehouseId: 2, materialId: null, name: 'Sắt chữ L 25×25',      unit: 'cây', quantity: 70,  material: null },
+  { id: 35, warehouseId: 2, materialId: null, name: 'Sắt tấm đục lỗ',       unit: 'tấm', quantity: 20,  material: null },
+  { id: 36, warehouseId: 2, materialId: null, name: 'Ống sắt tròn Φ19',     unit: 'cây', quantity: 80,  material: null },
+  { id: 37, warehouseId: 2, materialId: null, name: 'Sắt dẹt 25×3',         unit: 'cây', quantity: 50,  material: null },
+  { id: 38, warehouseId: 2, materialId: null, name: 'Ống sắt tròn Φ12',     unit: 'cây', quantity: 45,  material: null },
+  { id: 39, warehouseId: 2, materialId: null, name: 'Ống sắt tròn Φ22',     unit: 'cây', quantity: 65,  material: null },
+  { id: 40, warehouseId: 2, materialId: null, name: 'Sắt hộp 20×20',        unit: 'cây', quantity: 55,  material: null },
+  // ── Kho Vật tư SX (id:6) — dây/sơn khớp định mức ───────────────────
+  { id: 41, warehouseId: 6, materialId: null, name: 'Dây PE đen',            unit: 'cuộn', quantity: 30,  material: null },
+  { id: 42, warehouseId: 6, materialId: null, name: 'Sơn tĩnh điện đen',     unit: 'kg',   quantity: 0,   material: null }, // cần 0.8–0.9 → hết hàng
+  { id: 43, warehouseId: 6, materialId: null, name: 'Dây nhựa xanh lá',      unit: 'cuộn', quantity: 20,  material: null },
+  { id: 44, warehouseId: 6, materialId: null, name: 'Dây màu đỏ',            unit: 'cuộn', quantity: 15,  material: null },
+  { id: 45, warehouseId: 6, materialId: null, name: 'Sơn xám RAL7035',       unit: 'kg',   quantity: 30,  material: null },
+  { id: 46, warehouseId: 6, materialId: null, name: 'Dây PE xám GSS',        unit: 'cuộn', quantity: 25,  material: null },
+  { id: 47, warehouseId: 6, materialId: null, name: 'Sơn lót epoxy',         unit: 'kg',   quantity: 25,  material: null },
+  { id: 48, warehouseId: 6, materialId: null, name: 'Sơn phủ xám nhạt',      unit: 'kg',   quantity: 20,  material: null },
+  { id: 49, warehouseId: 6, materialId: null, name: 'Dây PE xám tro',        unit: 'cuộn', quantity: 20,  material: null },
+  { id: 50, warehouseId: 6, materialId: null, name: 'Dây nhựa trắng kem',    unit: 'cuộn', quantity: 25,  material: null },
+  { id: 51, warehouseId: 6, materialId: null, name: 'Dây màu be',            unit: 'cuộn', quantity: 15,  material: null },
+  { id: 52, warehouseId: 6, materialId: null, name: 'Sơn trắng sữa',         unit: 'kg',   quantity: 20,  material: null },
+  { id: 53, warehouseId: 6, materialId: null, name: 'Dây PE đen IKEA',       unit: 'cuộn', quantity: 30,  material: null },
+  { id: 54, warehouseId: 6, materialId: null, name: 'Dây màu xám đậm',       unit: 'cuộn', quantity: 15,  material: null },
+  { id: 55, warehouseId: 6, materialId: null, name: 'Sơn đen bóng',          unit: 'kg',   quantity: 25,  material: null },
+  // ── Kho phụ kiện (id:1) — khớp định mức ─────────────────────────────
+  { id: 56, warehouseId: 1, materialId: null, name: 'Ốc vít M6×20',          unit: 'cái',   quantity: 12,   material: null }, // cần 48 → thiếu 36
+  { id: 57, warehouseId: 1, materialId: null, name: 'Nắp nhựa đầu ống',      unit: 'cái',   quantity: 200,  material: null },
+  { id: 58, warehouseId: 1, materialId: null, name: 'Đệm cao su',             unit: 'cái',   quantity: 150,  material: null },
+  { id: 59, warehouseId: 1, materialId: null, name: 'Ốc vít M5×15',          unit: 'cái',   quantity: 400,  material: null },
+  { id: 60, warehouseId: 1, materialId: null, name: 'Nắp đầu ống tròn',      unit: 'cái',   quantity: 120,  material: null },
+  { id: 61, warehouseId: 1, materialId: null, name: 'Ốc vít M6×25',          unit: 'cái',   quantity: 300,  material: null },
+  { id: 62, warehouseId: 1, materialId: null, name: 'Tán đinh rivets 4×8',   unit: 'cái',   quantity: 250,  material: null },
+  { id: 63, warehouseId: 1, materialId: null, name: 'Nắp nhựa 40mm',         unit: 'cái',   quantity: 100,  material: null },
+  { id: 64, warehouseId: 1, materialId: null, name: 'Chốt khóa nhựa',        unit: 'cái',   quantity: 80,   material: null },
+  { id: 65, warehouseId: 1, materialId: null, name: 'Đệm vải nỉ',            unit: 'miếng', quantity: 120,  material: null },
+  { id: 66, warehouseId: 1, materialId: null, name: 'Bulong M8×30',           unit: 'bộ',    quantity: 60,   material: null },
+  { id: 67, warehouseId: 1, materialId: null, name: 'Ốc vít M5×12',          unit: 'cái',   quantity: 400,  material: null },
+  { id: 68, warehouseId: 1, materialId: null, name: 'Nắp ống tròn Φ19',      unit: 'cái',   quantity: 100,  material: null },
+  { id: 69, warehouseId: 1, materialId: null, name: 'Đệm cao su chân ghế',   unit: 'cái',   quantity: 60,   material: null },
+  { id: 70, warehouseId: 1, materialId: null, name: 'Ốc vít M6×16',          unit: 'cái',   quantity: 300,  material: null },
+  { id: 71, warehouseId: 1, materialId: null, name: 'Nắp ống tròn Φ22',      unit: 'cái',   quantity: 80,   material: null },
+  { id: 72, warehouseId: 1, materialId: null, name: 'Chân nhựa chống trượt', unit: 'cái',   quantity: 60,   material: null },
+  { id: 73, warehouseId: 1, materialId: null, name: 'Vít tự khoan 4×16',     unit: 'cái',   quantity: 200,  material: null },
+  // ── Kho Bao bì/Thành phẩm (id:5) — khớp định mức ────────────────────
+  { id: 74, warehouseId: 5, materialId: null, name: 'Thùng carton 5 lớp',    unit: 'thùng', quantity: 150,  material: null },
+  { id: 75, warehouseId: 5, materialId: null, name: 'Xốp PE bảo vệ',         unit: 'm²',    quantity: 80,   material: null },
+  { id: 76, warehouseId: 5, materialId: null, name: 'Dây đai nhựa',          unit: 'm',     quantity: 200,  material: null },
+  { id: 77, warehouseId: 5, materialId: null, name: 'Thùng carton 3 lớp',    unit: 'thùng', quantity: 0,    material: null }, // cần 1 → hết hàng
+  { id: 78, warehouseId: 5, materialId: null, name: 'Xốp chèn góc',          unit: 'bộ',    quantity: 100,  material: null },
+  { id: 79, warehouseId: 5, materialId: null, name: 'Thùng carton sóng kép', unit: 'thùng', quantity: 80,   material: null },
+  { id: 80, warehouseId: 5, materialId: null, name: 'Băng keo OPP',          unit: 'cuộn',  quantity: 120,  material: null },
+  { id: 81, warehouseId: 5, materialId: null, name: 'Thùng carton IKEA',     unit: 'thùng', quantity: 60,   material: null },
+  { id: 82, warehouseId: 5, materialId: null, name: 'Xốp PE 8mm',            unit: 'm²',    quantity: 50,   material: null },
+  { id: 83, warehouseId: 5, materialId: null, name: 'Túi PE bịt đầu',        unit: 'túi',   quantity: 100,  material: null },
+  { id: 84, warehouseId: 5, materialId: null, name: 'Thùng carton IKEA kép', unit: 'thùng', quantity: 40,   material: null },
+  { id: 85, warehouseId: 5, materialId: null, name: 'Xốp PE cuộn',           unit: 'm',     quantity: 80,   material: null },
+  { id: 86, warehouseId: 5, materialId: null, name: 'Nhãn dán IKEA',         unit: 'tờ',    quantity: 500,  material: null },
+  { id: 87, warehouseId: 5, materialId: null, name: 'Túi nilon bọc ngoài',   unit: 'túi',   quantity: 150,  material: null },
+  { id: 88, warehouseId: 5, materialId: null, name: 'Xốp EPE góc',           unit: 'miếng', quantity: 120,  material: null },
 ];
 
 export const seedSuppliers = [

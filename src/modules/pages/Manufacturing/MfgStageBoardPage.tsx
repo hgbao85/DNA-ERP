@@ -55,7 +55,6 @@ export default function MfgStageBoardPage({ initialPiId, initialStage, onBack }:
   )
   const rawStages = Array.isArray(stagesRaw) ? stagesRaw : []
 
-  // Tổng hợp mảnh đan (dùng chung component với màn "Quản lý nhập mảnh")
   const { data: manhRaw, refetch: refetchManh } = useFetch(() => api.getWeavingManhSummary(), [])
   const manhList = Array.isArray(manhRaw) ? manhRaw : []
 

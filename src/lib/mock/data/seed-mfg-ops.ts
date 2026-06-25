@@ -428,7 +428,7 @@ export const seedMfgWarehouseTxns = [
     refCode: 'LMH-2026-001',
     warehouseId: 1,
     item: { name: 'Tán M6×12', unit: 'cái' },
-    createdBy: { name: 'Kho Mận' },
+    createdBy: { name: 'Kho phụ kiện' },
   },
 ];
 

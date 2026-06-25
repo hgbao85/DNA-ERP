@@ -15,15 +15,13 @@ import MfgWorkshopBoardPage from './MfgWorkshopBoardPage'
 import MfgWarehousesPage, { WAREHOUSE_GROUPS } from './MfgWarehousesPage'
 import MfgAllMaterialsPage from './MfgAllMaterialsPage'
 import DeXuatMuaVatTuPage from './DeXuatMuaVatTuPage'
-import KhungSonPage from './KhungSonPage'
 import DieuPhoiDanPage from './DieuPhoiDanPage'
 import ChuyenKiemPage from './ChuyenKiemPage'
 import DongGoiPage from './DongGoiPage'
 import WeavingPointsPage from './WeavingPointsPage'
-import QuanLyNhapManhPage from './QuanLyNhapManhPage'
 import LichSuNhapDanPage from './LichSuNhapDanPage'
 import QuanLyDiemDanPage from './QuanLyDiemDanPage'
-import KehHoachPage from './KehHoachPage'
+import ThongKePage from '../Manufacturing/ThongKePage'
 
 interface MfgAppProps {
   onBack?: () => void // chỉ truyền cho giám đốc (có nhiều phân hệ); prodmgr/thợ bị khóa trong MES
@@ -261,9 +259,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'tao-don-hang'  && isFactorySales && <TaoDonHangMoiPage onCreated={() => setTab('tong-don-hang')} />}
         {tab === 'danh-sach-khach-hang' && isFactorySales && <DanhSachKhachHangPage />}
         {tab === 'pi-list' && (isOtherWorker ? <MfgStageBoardPage /> : <PIListPage />)}
-        {tab === 'ke-hoach' && (isProdMgr || isDirector) && <KehHoachPage />}
-        {tab === 'khung-son' && canSeeKhungSon && <KhungSonPage readOnly={isDirector || isProdMgr} />}
-        {tab === 'quan-ly-nhap-manh' && canSeeDieuPhoi && <QuanLyNhapManhPage readOnly={isDirector || isProdMgr} />}
+        {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePage />}
         {tab === 'dieu-phoi-dan' && canSeeDieuPhoi && <DieuPhoiDanPage readOnly={isDirector || isProdMgr} />}
         {tab === 'lich-su-nhap-dan' && canSeeDieuPhoi && <LichSuNhapDanPage />}
         {tab === 'quan-ly-diem-dan' && canSeeDieuPhoi && <QuanLyDiemDanPage readOnly={isDirector} />}

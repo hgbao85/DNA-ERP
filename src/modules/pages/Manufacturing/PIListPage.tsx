@@ -191,7 +191,7 @@ export default function PIListPage() {
         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
           <thead>
             <tr style={{ background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
-              {['Mã PI','Deadline','Hạn vật tư','Sản phẩm','Kế hoạch SX','Trạng thái',''].map(h => (
+              {['Mã PI','Hạn giao','Mua hàng','Khung cơ khí','Đan','Đóng gói','Trạng thái',''].map(h => (
                 <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontWeight:600, color:'var(--text2)', whiteSpace:'nowrap' }}>{h}</th>
               ))}
             </tr>
@@ -200,6 +200,21 @@ export default function PIListPage() {
             {safeList.map((pi: any) => {
               const status = STATUS_COLOR[pi.status] ?? { bg:'#f5f5f5', color:'#616161' }
               const isOverdue = new Date(pi.deadline) < new Date() && pi.status !== 'DONE' && pi.status !== 'CANCELLED'
+              const deadline = new Date(pi.deadline)
+              const getStageDate = (type: string, fallbackDaysBack: number) => {
+                const s = Array.isArray(pi.stages) ? pi.stages.find((s: any) => s.stageType === type) : null
+                if (s?.deadline) return new Date(s.deadline)
+                const d = new Date(deadline)
+                d.setDate(d.getDate() - fallbackDaysBack)
+                return d
+              }
+              const fmt = (d: Date) => format(d, 'dd/MM/yy')
+              const milestoneCell = (d: Date, fromStage: boolean) => (
+                <td style={{ padding:'12px 14px', fontSize:12, whiteSpace:'nowrap', color: fromStage ? 'var(--text)' : 'var(--text3)' }}>{fmt(d)}</td>
+              )
+              const hanStage   = Array.isArray(pi.stages) ? pi.stages.find((s: any) => s.stageType === 'HAN')     : null
+              const weavStage  = Array.isArray(pi.stages) ? pi.stages.find((s: any) => s.stageType === 'WEAVING') : null
+              const sonStage   = Array.isArray(pi.stages) ? pi.stages.find((s: any) => s.stageType === 'SON')     : null
               return (
                 <tr
                   key={pi.id}
@@ -209,25 +224,14 @@ export default function PIListPage() {
                   onMouseLeave={e => e.currentTarget.style.background='transparent'}
                 >
                   <td style={{ padding:'12px 14px', fontWeight:600, fontFamily:'monospace' }}>{pi.code}</td>
-                  <td style={{ padding:'12px 14px', color: isOverdue ? '#c62828' : 'var(--text)' }}>
-                    {format(new Date(pi.deadline), 'dd/MM/yyyy')}
+                  <td style={{ padding:'12px 14px', color: isOverdue ? '#c62828' : 'var(--text)', whiteSpace:'nowrap' }}>
+                    {format(deadline, 'dd/MM/yy')}
                     {isOverdue && <span style={{ marginLeft:6, fontSize:11, background:'#ffebee', color:'#c62828', padding:'1px 6px', borderRadius:20 }}>Trễ</span>}
                   </td>
-                  <td style={{ padding:'12px 14px', color:'var(--text2)' }}>{format(new Date(pi.materialDeadline), 'dd/MM/yyyy')}</td>
-                  <td style={{ padding:'12px 14px', color:'var(--text2)' }}>
-                    {Array.isArray(pi.items) ? pi.items.map((i: any) => `${i.productVariant?.mfgProduct?.name} ×${i.quantity}`).join(', ') : '—'}
-                  </td>
-                  <td style={{ padding:'12px 14px', color:'var(--text2)', whiteSpace:'nowrap', fontSize:12 }}>
-                    {(() => {
-                      const weaving = Array.isArray(pi.stages) ? pi.stages.find((s: any) => s.stageType === 'WEAVING') : null
-                      return (
-                        <>
-                          <div>📦 Đóng gói: <strong>{weaving?.deadline ? format(new Date(weaving.deadline), 'dd/MM/yyyy') : '—'}</strong></div>
-                          <div style={{ color:'var(--text3)' }}>🚚 Giao: {format(new Date(pi.deadline), 'dd/MM/yyyy')}</div>
-                        </>
-                      )
-                    })()}
-                  </td>
+                  {milestoneCell(pi.materialDeadline ? new Date(pi.materialDeadline) : getStageDate('MATERIAL', 21), !!pi.materialDeadline)}
+                  {milestoneCell(getStageDate('HAN',     14), !!hanStage)}
+                  {milestoneCell(getStageDate('WEAVING',  8), !!weavStage)}
+                  {milestoneCell(getStageDate('SON',       3), !!sonStage)}
                   <td style={{ padding:'12px 14px' }}>
                     <span style={{ background:status.bg, color:status.color, padding:'3px 10px', borderRadius:20, fontSize:12, fontWeight:600 }}>
                       {STATUS_LABEL[pi.status] ?? pi.status}
@@ -241,7 +245,7 @@ export default function PIListPage() {
             })}
             {safeList.length === 0 && (
               <tr>
-                <td colSpan={7} style={{ padding:'40px', textAlign:'center', color:'var(--text3)' }}>
+                <td colSpan={8} style={{ padding:'40px', textAlign:'center', color:'var(--text3)' }}>
                   Chưa có lệnh sản xuất nào
                 </td>
               </tr>

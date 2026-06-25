@@ -22,6 +22,7 @@ export default function PlanFormDashboardPage() {
   const [selectedPf, setSelectedPf] = useState<PlanForm | null>(null)
   const [modalOpen,  setModalOpen]  = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [customerName, setCustomerName] = useState('')
   const [form, setForm] = useState<CreatePlanFormPayload>({
     exportOrderId: 0, mfgProductId: 0, note: '', materialType: emptyMaterialType(),
   })
@@ -78,12 +79,12 @@ export default function PlanFormDashboardPage() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh sách Định mức</h2>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh sách SKU</h2>
           <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text2)' }}>
             Quản lý kế hoạch sản xuất sản phẩm — định mức vật tư (Sắt, Dây/Sơn, Phụ kiện, Bao bì)
           </p>
         </div>
-        <button onClick={openModal} style={btnGreen}>Tạo định mức mới</button>
+        <button onClick={openModal} style={btnGreen}>Tạo SKU mới</button>
       </div>
 
       {isLoading ? (
@@ -94,17 +95,15 @@ export default function PlanFormDashboardPage() {
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: 52 }} />
-              <col style={{ width: 130 }} />
+              <col style={{ width: 48 }} />
               <col />
-              <col style={{ width: 110 }} />
-              <col style={{ width: 150 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 160 }} />
             </colgroup>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={thStyle}>#</th>
-                <th style={thStyle}>Mã nhà máy</th>
-                <th style={thStyle}>Sản phẩm</th>
+                <th style={thStyle}>SKU</th>
                 <th style={thStyle}>Trạng thái</th>
                 <th style={thStyle}>Thời gian tạo</th>
               </tr>
@@ -119,9 +118,6 @@ export default function PlanFormDashboardPage() {
                     onMouseLeave={e => (e.currentTarget.style.background = '')}
                   >
                     <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)' }}>{pf.id}</td>
-                    <td style={{ ...tdStyle, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`}
-                    </td>
                     <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
                       <span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>
@@ -152,26 +148,25 @@ export default function PlanFormDashboardPage() {
       {modalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 640, maxHeight: '90vh', overflow: 'auto', padding: 24 }}>
-            <h3 style={{ margin: '0 0 16px', fontSize: 18 }}>Tạo định mức mới</h3>
+            <h3 style={{ margin: '0 0 16px', fontSize: 18 }}>Tạo SKU mới</h3>
 
-            <label style={labelStyle}>Mã nhà máy</label>
+            <label style={labelStyle}>Tên khách hàng</label>
+            <input
+              type="text"
+              value={customerName}
+              onChange={(e) => setCustomerName(e.target.value)}
+              placeholder="Nhập tên khách hàng"
+              style={inputStyle}
+            />
+
+            <label style={labelStyle}>SKU</label>
             <input
               type="text"
               value={form.note}
               onChange={(e) => setForm({ ...form, note: e.target.value })}
-              placeholder="Nhập mã nhà máy"
+              placeholder="Nhập SKU"
               style={inputStyle}
             />
-
-            <label style={labelStyle}>Tên sản phẩm</label>
-            <input
-              type="text"
-              value={form.note}
-              onChange={(e) => setForm({ ...form, note: e.target.value })}
-              placeholder="Nhập tên sản phẩm"
-              style={inputStyle}
-            />
-
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
               <button onClick={() => setModalOpen(false)} style={btnSecondary}>Hủy</button>
               <button onClick={handleProposeNew} disabled={submitting} style={btnGreen}>
@@ -199,6 +194,8 @@ function PlanFormDetail({
     sat: null, daySon: null, vatTuPhuKien: null, baoBiDongGoi: null,
   })
   const approve = (k: keyof typeof secStatus) => setSecStatus(p => ({ ...p, [k]: { status: 'APPROVED', at: new Date() } }))
+  const approveAll = () => (['sat', 'daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as const).forEach(k => approve(k))
+  const allApproved = (['sat', 'daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as const).every(k => secStatus[k]?.status === 'APPROVED')
 
   type RejectModal = { key: keyof typeof secStatus; title: string } | null
   const [rejectModal, setRejectModal] = useState<RejectModal>(null)
@@ -207,6 +204,44 @@ function PlanFormDetail({
 
   type SecFilter = 'all' | 'sat' | 'daySon' | 'vatTuPhuKien' | 'baoBiDongGoi'
   const [filterSec, setFilterSec] = useState<SecFilter>('all')
+
+  type CheckState = 'idle' | 'checking' | 'ok' | 'missing'
+  const [checkState, setCheckState] = useState<CheckState>('idle')
+  const [missingMats, setMissingMats] = useState<{ name: string; required: number; unit: string; available: number }[]>([])
+  const [showBuyModal, setShowBuyModal] = useState(false)
+
+  const handleCheck = async () => {
+    setCheckState('checking')
+    try {
+      const warehouseItems: any[] = await (api as any).getAllMfgWarehouseItems()
+      const required: { name: string; required: number; unit: string }[] = []
+      ;(Array.isArray(mt?.sat) ? mt.sat : []).forEach((i: any) => {
+        if (i.name) required.push({ name: i.name, required: i.quantity ?? 1, unit: i.unit ?? '' })
+      })
+      ;(Array.isArray(mt?.daySon) ? mt.daySon : []).forEach((i: any) => {
+        if (i.name) required.push({ name: i.name, required: i.kg ?? i.quantity ?? 1, unit: i.unit ?? 'kg' })
+      })
+      ;(Array.isArray(mt?.vatTuPhuKien) ? mt.vatTuPhuKien : []).forEach((i: any) => {
+        if (i.name) required.push({ name: i.name, required: i.quantity ?? 1, unit: i.unit ?? 'cái' })
+      })
+      ;(Array.isArray(mt?.baoBiDongGoi) ? mt.baoBiDongGoi : []).forEach((i: any) => {
+        if (i.name) required.push({ name: i.name, required: i.quantity ?? 1, unit: i.unit ?? 'thùng' })
+      })
+
+      const missing: { name: string; required: number; unit: string; available: number }[] = []
+      for (const req of required) {
+        const wItem = warehouseItems.find((w: any) =>
+          w.name?.toLowerCase().trim() === req.name.toLowerCase().trim()
+        )
+        const available = wItem?.quantity ?? 0
+        if (available < req.required) missing.push({ ...req, available })
+      }
+      setMissingMats(missing)
+      setCheckState(missing.length === 0 ? 'ok' : 'missing')
+    } catch {
+      setCheckState('idle')
+    }
+  }
 
   const confirmReject = () => {
     if (!rejectModal) return
@@ -228,7 +263,6 @@ function PlanFormDetail({
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{pf.mfgProduct?.name}</h2>
           <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text3)' }}>
             Tạo lúc {format(new Date(pf.createdAt), 'HH:mm dd/MM/yyyy')}
-            {pf.createdBy && ` · ${pf.createdBy.name}`}
           </p>
         </div>
       </div>
@@ -315,6 +349,64 @@ function PlanFormDetail({
               />
             )}
           </div>
+
+          {/* Buttons góc dưới phải */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+            {checkState === 'ok' && (
+              <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đủ vật tư, sẵn sàng sản xuất</span>
+            )}
+            {!allApproved && (
+              <span style={{ fontSize: 12, color: '#d97706' }}>Cần duyệt đủ 4 loại vật tư trước</span>
+            )}
+            {!allApproved && filterSec === 'all' && (
+              <button
+                onClick={approveAll}
+                style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #16a34a', background: '#f0fdf4', color: '#16a34a', cursor: 'pointer' }}
+              >Duyệt tất cả</button>
+            )}
+            <button
+              onClick={handleCheck}
+              disabled={!allApproved || checkState === 'checking'}
+              style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #2563eb', background: allApproved ? '#eff6ff' : '#f3f4f6', color: allApproved ? '#2563eb' : '#9ca3af', cursor: allApproved ? 'pointer' : 'not-allowed', opacity: checkState === 'checking' ? 0.6 : 1 }}
+            >{checkState === 'checking' ? 'Đang kiểm...' : 'Kiểm vật tư'}</button>
+            <button
+              disabled={checkState !== 'ok'}
+              style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: checkState === 'ok' ? 'pointer' : 'not-allowed', background: checkState === 'ok' ? '#16a34a' : '#e5e7eb', color: checkState === 'ok' ? '#fff' : '#9ca3af' }}
+            >Sản xuất</button>
+          </div>
+
+          {/* Danh sách vật tư thiếu */}
+          {checkState === 'missing' && (
+            <div style={{ marginTop: 16, border: '1px solid #fca5a5', borderRadius: 10, overflow: 'hidden' }}>
+              <div style={{ background: '#fee2e2', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span style={{ fontWeight: 700, fontSize: 13, color: '#dc2626' }}>⚠ Thiếu {missingMats.length} loại vật tư</span>
+                <button
+                  onClick={() => setShowBuyModal(true)}
+                  style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: '#e65100', color: '#fff' }}
+                >Mua hàng</button>
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: '#fff5f5' }}>
+                    <th style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: '#6b7280', fontSize: 12 }}>Tên vật tư</th>
+                    <th style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 600, color: '#6b7280', fontSize: 12 }}>Cần</th>
+                    <th style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 600, color: '#6b7280', fontSize: 12 }}>Tồn kho</th>
+                    <th style={{ padding: '8px 14px', textAlign: 'right', fontWeight: 600, color: '#6b7280', fontSize: 12 }}>Thiếu</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {missingMats.map((m, i) => (
+                    <tr key={i} style={{ borderTop: '1px solid #fee2e2' }}>
+                      <td style={{ padding: '9px 14px', fontWeight: 500 }}>{m.name}</td>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: 'var(--text2)' }}>{m.required} {m.unit}</td>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', color: '#dc2626' }}>{m.available} {m.unit}</td>
+                      <td style={{ padding: '9px 14px', textAlign: 'right', fontWeight: 700, color: '#dc2626' }}>+{m.required - m.available} {m.unit}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ padding: 20, background: 'var(--surface2)', borderRadius: 8, color: 'var(--text3)', fontSize: 13, marginBottom: 24 }}>
@@ -323,6 +415,57 @@ function PlanFormDetail({
       )}
 
       {/* Popup nhập lý do từ chối */}
+      {/* Modal xác nhận mua hàng */}
+      {showBuyModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={e => { if (e.target === e.currentTarget) setShowBuyModal(false) }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 520, padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,.18)' }}>
+            <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700 }}>Xác nhận tạo đề xuất mua hàng</h3>
+
+            {/* Thông tin định mức */}
+            <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
+              <div style={{ fontWeight: 600, marginBottom: 4 }}>{pf.mfgProduct?.factoryCode} — {pf.mfgProduct?.name}</div>
+              <div style={{ color: 'var(--text3)' }}>Lệnh SX: <strong style={{ color: 'var(--text)' }}>{pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`}</strong>
+                {pf.exportOrder?.deliveryDate && <span> · Giao hàng: <strong style={{ color: 'var(--text)' }}>{format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy')}</strong></span>}
+              </div>
+            </div>
+
+            {/* Danh sách vật tư cần mua */}
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>
+              Vật tư cần mua ({missingMats.length} loại)
+            </div>
+            <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: 'var(--surface2)' }}>
+                    <th style={{ padding: '8px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--text3)', fontSize: 12 }}>Tên vật tư</th>
+                    <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--text3)', fontSize: 12 }}>Tồn kho</th>
+                    <th style={{ padding: '8px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--text3)', fontSize: 12 }}>Cần mua thêm</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {missingMats.map((m, i) => (
+                    <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ padding: '9px 12px', fontWeight: 500 }}>{m.name}</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', color: '#dc2626' }}>{m.available} {m.unit}</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', fontWeight: 700, color: '#e65100' }}>+{m.required - m.available} {m.unit}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowBuyModal(false)} style={btnSecondary}>Hủy</button>
+              <button
+                onClick={() => { alert('Đã tạo đề xuất mua hàng thành công!'); setShowBuyModal(false) }}
+                style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#e65100', color: '#fff' }}
+              >Xác nhận tạo đề xuất</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {rejectModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
           <div style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 420, padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,.18)' }}>

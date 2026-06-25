@@ -26,6 +26,13 @@ export const updateMfgExportCustomer = async (id: number, data: Record<string, u
 export const getMfgProducts = () => ok(clone(mockStore.get().mfgProducts));
 export const getMfgProductVariants = (productId: number) =>
   ok(clone(mockStore.get().productVariants.filter((v) => v.mfgProductId === productId)));
+export const getAllProductVariants = () => {
+  const s = mockStore.get();
+  return ok(clone(s.productVariants).map((v: any) => ({
+    ...v,
+    exportCustomer: s.mfgExportCustomers.find((c: any) => c.id === v.exportCustomerId) ?? null,
+  })));
+};
 export const createMfgProduct = async (data: Record<string, unknown>) => {
   await mockDelay();
   const row = { id: nextId(), ...data };
@@ -283,7 +290,18 @@ export const uploadContractFile = async (file: File) => {
 };
 
 // Warehouses
-export const getMfgWarehouses = () => ok(clone(mockStore.get().mfgWarehouses));
+export const getMfgWarehouses = () => {
+  const s = mockStore.get();
+  const warehouses = clone(s.mfgWarehouses).map((wh: any) => {
+    const items = s.mfgWarehouseItems.filter((i: any) => i.warehouseId === wh.id);
+    return {
+      ...wh,
+      _count: { items: items.length },
+      totalQty: items.reduce((sum: number, i: any) => sum + (i.quantity ?? 0), 0),
+    };
+  });
+  return ok(warehouses);
+};
 export const createMfgWarehouse = async (data: Record<string, unknown>) => ok({ id: nextId(), ...data });
 export const updateMfgWarehouse = async (id: number, data: Record<string, unknown>) => ok({ id, ...data });
 export const deleteMfgWarehouse = async (id: number) => ok({ id });

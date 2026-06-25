@@ -95,7 +95,6 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
 
         <nav style={{ flex: 1, padding: '4px 8px' }}>
           {TABS.map(t => {
-            // "Tổng hợp kho" → xổ menu con theo nhóm kho (CHỈ khi tài khoản không bị giới hạn).
             if (t.id === 'warehouses' && !scope) {
               const parentActive = tab === 'warehouses'
               return (
