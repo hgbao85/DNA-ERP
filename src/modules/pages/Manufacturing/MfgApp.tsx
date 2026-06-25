@@ -44,6 +44,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const isPhoi          = user?.mfgRole === 'PHOI'
   const isWeavingMgr    = user?.mfgRole === 'WEAVING_MANAGER' // bạn điều phối đan (thu về + chia kho)
   const isBomManager    = user?.mfgRole === 'BOM_MANAGER'     // NV Định mức: CRUD định mức (PM chỉ xem)
+  const isSpecSteel     = user?.mfgRole === 'SPEC_STEEL'
   const canEditBom      = isBomManager
   const SPEC_ROLES = ['SPEC_STEEL', 'SPEC_WIRE_PAINT', 'SPEC_ACCESSORY', 'SPEC_PACKAGING']
   const canSeeBom       = canManageBom || isBomManager || (user?.mfgRole ? SPEC_ROLES.includes(user.mfgRole) : false)        // PM/Giám đốc XEM, BOM_MANAGER SỬA, SPEC_* thao tác
@@ -67,7 +68,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isFactorySales ? [{ id: 'tong-don-hang' as TabId, label: 'Tổng đơn hàng', icon: <Package size={16}/> }] : []),
     ...(isFactorySales ? [{ id: 'tao-don-hang' as TabId, label: 'Tạo đơn hàng mới', icon: <FilePlus size={16}/> }] : []),
     ...(isFactorySales ? [{ id: 'danh-sach-khach-hang' as TabId, label: 'Danh sách khách hàng', icon: <Users size={16}/> }] : []),
-    ...(!isWarehouse && !isFactorySales && !isBomManager ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardList size={16}/> }] : []),
+    ...(!isWarehouse && !isFactorySales && !isBomManager && !isSpecSteel ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardList size={16}/> }] : []),
     ...(isProdMgr || isDirector ? [{ id: 'ke-hoach' as TabId, label: 'Kế hoạch SX', icon: <CalendarClock size={16}/> }] : []),
     // Thành phẩm khung sơn (xuất/cấp đan đi — Phôi) + Điều phối đan (thu về/chia kho — Đan Trưởng)
     ...(canSeeKhungSon ? [{ id: 'khung-son' as TabId, label: 'Thành phẩm khung sơn', icon: <PackageCheck size={16}/> }] : []),
@@ -87,10 +88,11 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(canSeeBom ? [{ id: 'setup' as TabId, label: 'Quản lý định mức', icon: <Settings size={16}/> }] : []),
   ]
 
-  const initialTab: TabId = canManageWorkshop ? 'workshop' : isFactorySales ? 'tong-don-hang' : isWeavingMgr ? 'dieu-phoi-dan' : isBomManager ? 'setup' : 'pi-list'
+  const initialTab: TabId = canManageWorkshop ? 'workshop' : isFactorySales ? 'tong-don-hang' : isWeavingMgr ? 'dieu-phoi-dan' : isBomManager ? 'setup' : isSpecSteel ? 'setup' : 'pi-list'
   const [tab, setTab] = useState<TabId>(initialTab)
-  const [whGroup, setWhGroup] = useState<string | null>(null)           // nhóm kho đang chọn ở sidebar
-  const [whExpanded, setWhExpanded] = useState(false) // xổ menu con nhóm kho (Tổng hợp kho)
+  const [whGroup, setWhGroup] = useState<string | null>(null)
+  const [whExpanded, setWhExpanded] = useState(false)
+  const [steelSubTab, setSteelSubTab] = useState<'vat-tu' | 'dinh-muc' | 'catalog'>('vat-tu')
 
   // ── Role label ───────────────────────────────────────────────────────
   const mfgRoleLabel: Record<string, string> = {
@@ -147,9 +149,13 @@ export default function MfgApp({ onBack }: MfgAppProps) {
                 <Grid size={16} color="var(--text)" />
               </button>
             )}
-            <div style={{ fontWeight: 700, fontSize: 14 }}>Sản xuất MES</div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>
+              {user?.mfgRole === 'SPEC_STEEL' ? 'Quản lý định mức' : 'Sản xuất MES'}
+            </div>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--text3)' }}>Đông Nam Á Corp</div>
+          <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+            {user?.mfgRole === 'SPEC_STEEL' ? 'Định mức sắt' : 'Đông Nam Á Corp'}
+          </div>
         </div>
 
         <nav style={{ flex: 1, padding: '4px 8px' }}>
@@ -187,6 +193,31 @@ export default function MfgApp({ onBack }: MfgAppProps) {
                 </div>
               )
             }
+            // Quản lý định mức SPEC_STEEL → 3 sub-items trong sidebar
+            if (t.id === 'setup' && user?.mfgRole === 'SPEC_STEEL') {
+              const isSetup = tab === 'setup'
+              const steelItems = [
+                { id: 'vat-tu'   as const, label: 'Định mức chi tiết', icon: <ClipboardCheck size={16}/> },
+                { id: 'dinh-muc' as const, label: 'Định mức mảnh',     icon: <Grid size={16}/>           },
+                { id: 'catalog'  as const, label: 'Danh sách vật tư',  icon: <Box size={16}/>            },
+              ]
+              return (
+                <div key={t.id}>
+                  {steelItems.map(s => {
+                    const subActive = isSetup && steelSubTab === s.id
+                    return (
+                      <button key={s.id}
+                        onClick={() => { setTab('setup'); setSteelSubTab(s.id) }}
+                        style={navBtn(subActive)}
+                        onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
+                        onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
+                      >{s.icon}{s.label}</button>
+                    )
+                  })}
+                </div>
+              )
+            }
+
             return (
               <button
                 key={t.id}
@@ -244,7 +275,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'warehouses' && canSeeWarehouses && <MfgWarehousesPage groupKey={whGroup} />}
         {tab === 'de-xuat' && isDirector && <DeXuatMuaVatTuPage />}
         {tab === 'setup'   && (canManageBom || isBomManager) && <MfgSetupPage />}
-        {tab === 'setup'   && user?.mfgRole === 'SPEC_STEEL' && <SpecSteelPage />}
+        {tab === 'setup'   && user?.mfgRole === 'SPEC_STEEL' && <SpecSteelPage subTab={steelSubTab} onSubTabChange={setSteelSubTab} />}
         {tab === 'setup'   && user?.mfgRole === 'SPEC_WIRE_PAINT' && <SpecWirePaintPage />}
         {tab === 'setup'   && user?.mfgRole === 'SPEC_ACCESSORY' && <SpecAccessoryPage />}
         {tab === 'setup'   && user?.mfgRole === 'SPEC_PACKAGING' && <SpecPackagingPage />}

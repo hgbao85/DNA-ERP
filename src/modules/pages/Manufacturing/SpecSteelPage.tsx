@@ -2,84 +2,100 @@ import { useState, useRef } from 'react'
 import { ChevronRight, ChevronLeft, Plus, X } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────
-type SteelItem = { name: string; specs: string; doDay?: string }
-type ManChild = { id: number; loaiSatName: string; soLuong: string }
-type Manh = { id: number; maNhaMay: string; tenManh: string; children: ManChild[] }
-type BomItem = { id: number; maNhaMay: string; ten: string; thoiGian: string }
-type DraftLine = { uid: number; name: string; unit: string; specs: string; doDay: string }
-type PendingReq = { uid: number; lines: DraftLine[]; submittedAt: string }
+type SteelItem = { name: string; specs: string; unit: string }
+type ManChild = { id: number; loaiSatName: string; specs: string; soLuong: string }
+type Manh = { id: number; tenManh: string; children: ManChild[] }
+type BomItem = { id: number; ten: string; thoiGian: string }
+type DraftLine = { uid: number; name: string; specs: string; soLuong: string; unit: string }
+type PendingReq = { uid: number; bomId: number; lines: DraftLine[]; submittedAt: string }
 type RejectedLine = DraftLine & { submittedAt: string }
 
 // ─── Mock data ────────────────────────────────────────────────────────
+// Đơn từ kế hoạch sản xuất → hiển thị ở Định mức chi tiết
 const MOCK_BOMS: BomItem[] = [
-  { id: 1, maNhaMay: 'JSE-55', ten: 'Ghế J55', thoiGian: '23/06/2026' },
-  { id: 2, maNhaMay: 'IEA-3', ten: 'Ghế IEA-3', thoiGian: '22/06/2026' },
-  { id: 3, maNhaMay: 'BAN-002', ten: 'Bàn mặt kính', thoiGian: '21/06/2026' },
+  { id: 1, ten: 'Ghế J55',      thoiGian: '23/06/2026' },
+  { id: 2, ten: 'Ghế IEA-3',    thoiGian: '22/06/2026' },
+  { id: 3, ten: 'Bàn mặt kính', thoiGian: '21/06/2026' },
+  { id: 4, ten: 'Ghế GoPlus',   thoiGian: '20/06/2026' },
+]
+
+// SKU đã được duyệt định mức chi tiết → hiển thị ở Định mức mảnh
+const MOCK_MANH_BOMS: BomItem[] = [
+  { id: 1, ten: 'Ghế J55',    thoiGian: '23/06/2026' },
+  { id: 4, ten: 'Ghế GoPlus', thoiGian: '20/06/2026' },
 ]
 
 const STEEL_CATALOG: SteelItem[] = [
-  { name: 'Sắt Vuông', specs: '18×18mm × 620cm', doDay: '—' },
-  { name: 'Sắt Hộp', specs: '25×50mm × 600cm', doDay: '0.8mm' },
-  { name: 'Sắt Phi', specs: 'Ø25mm × 600cm', doDay: '—' },
-  { name: 'Sắt Hộp', specs: '20×40mm × 600cm', doDay: '1.2mm' },
+  { name: 'Sắt Vuông 6 zem',  specs: '18x18',  unit: 'cm' },
+  { name: 'Sắt Hộp 6 zem',    specs: '25x50',  unit: 'cm' },
+  { name: 'Sắt Hộp 8 zem',    specs: '20x40',  unit: 'cm' },
 ]
 
+// bomId:2 = IEA-3 đang chờ duyệt, bomId:1 = JSE-55 đã duyệt xong
 const MOCK_PENDING: PendingReq[] = [
   {
-    uid: 1, submittedAt: '24/06/2026 09:15:22', lines: [
-      { uid: 1, name: 'Thép Phi', unit: 'cm', specs: 'Ø8mm × 600cm', doDay: '—' },
+    uid: 1, bomId: 2, submittedAt: '24/06/2026 09:15:22', lines: [
+      { uid: 1, name: 'Thép Phi 6', specs: 'Ø6', soLuong: '200', unit: 'cm' },
+      { uid: 2, name: 'PAT',        specs: '',   soLuong: '20',  unit: 'cái' },
     ]
   },
 ]
 
 const MOCK_REJECTED: RejectedLine[] = [
-  { uid: 2, name: 'PAT Kính', unit: 'cái', specs: '70×50mm', doDay: '—', submittedAt: '20/06/2026 14:22:10' },
+  { uid: 3, name: 'PAT Kính', specs: '70x50', soLuong: '10', unit: 'cái', submittedAt: '20/06/2026 14:22:10' },
 ]
 
-const MOCK_DRAFT: DraftLine[] = [
-  { uid: 3, name: 'Tán Rút', unit: 'con', specs: 'M4×10mm', doDay: '—' },
-]
+// bomId:3 = BAN-002 đang soạn nháp
+const MOCK_DRAFT: Record<number, DraftLine[]> = {
+  3: [{ uid: 4, name: 'Tán Rút', specs: 'M4x10', soLuong: '50', unit: 'con' }],
+}
+
+// bomId đã được duyệt định mức chi tiết
+const APPROVED_VT_BOM_IDS: number[] = [1, 4]
 
 const UNIT_OPTIONS = ['cm', 'cái', 'con', 'cây', 'kg', 'm', 'cuộn']
 
 const VAT_TU_PRESETS: { name: string; unit: string }[] = [
-  { name: 'Sắt Vuông', unit: 'cm' },
-  { name: 'Sắt Hộp', unit: 'cm' },
-  { name: 'Sắt Phi', unit: 'cm' },
-  { name: 'Thép Phi', unit: 'cm' },
-  { name: 'PAT', unit: 'cái' },
-  { name: 'Bánh đá cắt', unit: 'cái' },
-  { name: 'Tán Rút', unit: 'con' },
-  { name: 'Lỗ Dù', unit: 'cái' },
-  { name: 'PAT Kính', unit: 'cái' },
-  { name: 'PAT kính lỗ nhỏ', unit: 'cái' },
+  { name: 'Sắt Vuông 6 zem',  unit: 'cm'  },
+  { name: 'Sắt Vuông 8 zem',  unit: 'cm'  },
+  { name: 'Sắt Hộp 6 zem',    unit: 'cm'  },
+  { name: 'Sắt Hộp 8 zem',    unit: 'cm'  },
+  { name: 'Sắt Phi 6 zem',    unit: 'cm'  },
+  { name: 'Thép Phi 6',        unit: 'cm'  },
+  { name: 'Thép Phi 4',        unit: 'cm'  },
+  { name: 'PAT',               unit: 'cái' },
+  { name: 'Bánh đá cắt',      unit: 'cái' },
+  { name: 'Tán Rút',           unit: 'con' },
+  { name: 'Lỗ Dù',             unit: 'cái' },
+  { name: 'PAT Kính',          unit: 'cái' },
+  { name: 'PAT kính lỗ nhỏ',  unit: 'cái' },
 ]
 
 // ─── Mock mảnh data theo từng BOM ─────────────────────────────────────
 const MOCK_MANHS: Record<number, Manh[]> = {
-  1: [ // JSE-55 — Ghế J55
+  1: [ // Ghế J55
     {
-      id: 1, maNhaMay: 'JSE-55', tenManh: 'Mảnh tựa', children: [
-        { id: 11, loaiSatName: 'Sắt Hộp', soLuong: '2' },
-        { id: 12, loaiSatName: 'Sắt Phi', soLuong: '4' },
+      id: 1, tenManh: 'Mảnh tựa', children: [
+        { id: 11, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', soLuong: '2' },
+        { id: 12, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', soLuong: '4' },
       ],
     },
     {
-      id: 2, maNhaMay: 'JSE-55', tenManh: 'Mảnh ngồi', children: [
-        { id: 21, loaiSatName: 'Sắt Hộp', soLuong: '2' },
-        { id: 22, loaiSatName: 'Sắt Vuông', soLuong: '2' },
+      id: 2, tenManh: 'Mảnh ngồi', children: [
+        { id: 21, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', soLuong: '2' },
+        { id: 22, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', soLuong: '2' },
       ],
     },
     {
-      id: 3, maNhaMay: 'JSE-55', tenManh: 'Mảnh tay', children: [
-        { id: 31, loaiSatName: 'Sắt Phi', soLuong: '2' },
-        { id: 32, loaiSatName: 'Sắt Hộp', soLuong: '2' },
+      id: 3, tenManh: 'Mảnh tay', children: [
+        { id: 31, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', soLuong: '2' },
+        { id: 32, loaiSatName: 'Sắt Hộp 8 zem',   specs: '20x40', soLuong: '2' },
       ],
     },
     {
-      id: 4, maNhaMay: 'JSE-55', tenManh: 'Chân ghế', children: [
-        { id: 41, loaiSatName: 'Sắt Vuông', soLuong: '4' },
-        { id: 42, loaiSatName: 'Sắt Phi', soLuong: '2' },
+      id: 4, tenManh: 'Chân ghế', children: [
+        { id: 41, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', soLuong: '4' },
+        { id: 42, loaiSatName: 'Sắt Hộp 8 zem',   specs: '20x40', soLuong: '2' },
       ],
     },
   ],
@@ -221,6 +237,60 @@ function VatTuSearch({ value, onSelect }: {
   )
 }
 
+// ─── SpecsInput ───────────────────────────────────────────────────────
+function SpecsInput({ value, onChange, materialName, catalog }: {
+  value: string
+  onChange: (v: string) => void
+  materialName: string
+  catalog: SteelItem[]
+}) {
+  const [focused, setFocused] = useState(false)
+
+  const suggestions = catalog.filter(s => s.name === materialName && s.specs).map(s => s.specs)
+  const filtered = value.trim()
+    ? suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase()))
+    : suggestions
+  const showDropdown = focused && suggestions.length > 0
+
+  return (
+    <div style={{ position: 'relative', flex: 1, minWidth: 130 }}>
+      <input
+        value={value}
+        onChange={e => onChange(e.target.value)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 150)}
+        placeholder=""
+        style={inputStyle}
+      />
+      {showDropdown && filtered.length > 0 && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300,
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 20px rgba(0,0,0,.12)',
+          marginTop: 4, overflow: 'hidden',
+        }}>
+          {filtered.map(s => (
+            <div key={s}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => { onChange(s); setFocused(false) }}
+              style={{
+                padding: '8px 14px', cursor: 'pointer', fontSize: 13,
+                fontFamily: 'monospace', color: 'var(--text)',
+                borderBottom: '1px solid var(--border)',
+                background: s === value ? 'var(--surface2)' : 'transparent',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+              onMouseLeave={e => (e.currentTarget.style.background = s === value ? 'var(--surface2)' : 'transparent')}
+            >
+              {s}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── FieldLabel ───────────────────────────────────────────────────────
 function FL({ children }: { children: React.ReactNode }) {
   return (
@@ -238,8 +308,10 @@ const inputStyle: React.CSSProperties = {
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────
-export default function SpecSteelPage() {
-  const [subTab, setSubTab] = useState<'dinh-muc' | 'vat-tu' | 'catalog'>('dinh-muc')
+export default function SpecSteelPage({ subTab, onSubTabChange }: {
+  subTab: 'dinh-muc' | 'vat-tu' | 'catalog'
+  onSubTabChange: (t: 'dinh-muc' | 'vat-tu' | 'catalog') => void
+}) {
   const [catalog, setCatalog] = useState<SteelItem[]>(STEEL_CATALOG)
 
   // ── Định mức ──────────────────────────────────────────────────────────
@@ -251,20 +323,22 @@ export default function SpecSteelPage() {
   const [formTenManh, setFormTenManh] = useState('')
   const [addingTo, setAddingTo] = useState<number | null>(null)
   const [childSatName, setChildSatName] = useState('')
+  const [childSpecs, setChildSpecs] = useState('')
   const [childSoLuong, setChildSoLuong] = useState('')
 
   // ── Vật tư ────────────────────────────────────────────────────────────
-  const [vtCode, setVtCode] = useState('')
+  const [selectedVtBom, setSelectedVtBom] = useState<BomItem | null>(null)
   const [vtName, setVtName] = useState('')
   const [vtUnit, setVtUnit] = useState('cây')
   const [vtSpecs, setVtSpecs] = useState('')
-  const [vtDoDay, setVtDoDay] = useState('')
+  const [vtSoLuong, setVtSoLuong] = useState('')
   const [vtErr, setVtErr] = useState('')
-  const [draftLines, setDraftLines] = useState<DraftLine[]>(MOCK_DRAFT)
-  const [draftUid, setDraftUid] = useState(4)
+  const [draftsByBom, setDraftsByBom] = useState<Record<number, DraftLine[]>>(MOCK_DRAFT)
+  const [draftUid, setDraftUid] = useState(5)
   const [pendingReqs, setPendingReqs] = useState<PendingReq[]>(MOCK_PENDING)
   const [reqUid, setReqUid] = useState(2)
   const [rejectedLines, setRejectedLines] = useState<RejectedLine[]>(MOCK_REJECTED)
+  const [approvedVtBomIds, setApprovedVtBomIds] = useState<number[]>(APPROVED_VT_BOM_IDS)
   const [sentMsg, setSentMsg] = useState(false)
 
   // ── BOM helpers ───────────────────────────────────────────────────────
@@ -278,7 +352,7 @@ export default function SpecSteelPage() {
 
   const addManh = () => {
     if (!formTenManh.trim() || !selectedBom) return
-    setManhs(m => [...m, { id: nextId, maNhaMay: selectedBom.maNhaMay, tenManh: formTenManh.trim(), children: [] }])
+    setManhs(m => [...m, { id: nextId, tenManh: formTenManh.trim(), children: [] }])
     setNextId(n => n + 1)
     setShowManhForm(false); setFormTenManh('')
   }
@@ -287,11 +361,11 @@ export default function SpecSteelPage() {
     if (!childSatName) return
     setManhs(ms => ms.map(m =>
       m.id === manhId
-        ? { ...m, children: [...m.children, { id: nextId, loaiSatName: childSatName, soLuong: childSoLuong }] }
+        ? { ...m, children: [...m.children, { id: nextId, loaiSatName: childSatName, specs: childSpecs, soLuong: childSoLuong }] }
         : m
     ))
     setNextId(n => n + 1)
-    setChildSatName(''); setChildSoLuong('')
+    setChildSatName(''); setChildSpecs(''); setChildSoLuong('')
   }
 
   const deleteChild = (manhId: number, childId: number) =>
@@ -303,20 +377,35 @@ export default function SpecSteelPage() {
   }
 
   // ── Vật tư helpers ────────────────────────────────────────────────────
+  const currentDrafts = selectedVtBom ? (draftsByBom[selectedVtBom.id] ?? []) : []
+  const currentPending = selectedVtBom ? pendingReqs.filter(r => r.bomId === selectedVtBom.id) : []
+
   const addToDraft = () => {
     setVtErr('')
-    if (!vtName.trim()) { setVtErr('Vui lòng nhập Tên vật tư.'); return }
-    setDraftLines(p => [...p, { uid: draftUid, name: vtName.trim(), unit: vtUnit, specs: vtSpecs.trim(), doDay: vtDoDay.trim() }])
+    if (!vtName.trim() || !selectedVtBom) { setVtErr('Vui lòng chọn Tên vật tư.'); return }
+    const line: DraftLine = { uid: draftUid, name: vtName.trim(), specs: vtSpecs.trim(), soLuong: vtSoLuong.trim(), unit: vtUnit }
+    setDraftsByBom(d => ({ ...d, [selectedVtBom.id]: [...(d[selectedVtBom.id] ?? []), line] }))
     setDraftUid(n => n + 1)
-    setVtName(''); setVtSpecs(''); setVtDoDay('')
+    setVtName(''); setVtSpecs(''); setVtSoLuong('')
+  }
+
+  const removeDraft = (uid: number) => {
+    if (!selectedVtBom) return
+    setDraftsByBom(d => ({ ...d, [selectedVtBom.id]: (d[selectedVtBom.id] ?? []).filter(x => x.uid !== uid) }))
   }
 
   const submitAll = () => {
-    if (!draftLines.length) return
-    setPendingReqs(p => [...p, { uid: reqUid, lines: [...draftLines], submittedAt: new Date().toLocaleString('vi-VN') }])
-    setReqUid(n => n + 1); setDraftLines([])
+    if (!currentDrafts.length || !selectedVtBom) return
+    setPendingReqs(p => [...p, { uid: reqUid, bomId: selectedVtBom.id, lines: [...currentDrafts], submittedAt: new Date().toLocaleString('vi-VN') }])
+    setReqUid(n => n + 1)
+    setDraftsByBom(d => ({ ...d, [selectedVtBom.id]: [] }))
     setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
   }
+
+  const vtBomStatus = (bomId: number): 'approved' | 'pending' | 'canInput' =>
+    approvedVtBomIds.includes(bomId) ? 'approved'
+    : pendingReqs.some(r => r.bomId === bomId) ? 'pending'
+    : 'canInput'
 
   const totalChildren = manhs.reduce((s, m) => s + m.children.length, 0)
   const isSubmitted = !!selectedBom && submittedBomIds.includes(selectedBom.id)
@@ -330,30 +419,11 @@ export default function SpecSteelPage() {
         <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập định mức mảnh sắt theo SKU và đề xuất vật tư mới</p>
       </div>
 
-      {/* Sub-tabs */}
-      <div style={{ display: 'flex', gap: 2, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
-        {([
-          { id: 'dinh-muc', label: 'Định mức mảnh' },
-          { id: 'vat-tu', label: 'Định mức chi tiết' },
-          { id: 'catalog', label: 'Danh sách vật tư' },
-        ] as const).map(t => (
-          <button key={t.id} onClick={() => setSubTab(t.id)} style={{
-            padding: '8px 18px', border: 'none', cursor: 'pointer', background: 'transparent',
-            fontWeight: subTab === t.id ? 700 : 400,
-            color: subTab === t.id ? '#1565c0' : 'var(--text2)',
-            borderBottom: subTab === t.id ? '2px solid #1565c0' : '2px solid transparent',
-            marginBottom: -1, fontSize: 14,
-          }}>
-            {t.label}
-          </button>
-        ))}
-      </div>
-
       {/* ══ ĐỊNH MỨC: LIST ══ */}
       {subTab === 'dinh-muc' && !selectedBom && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <span style={{ fontSize: 13, color: 'var(--text3)' }}>{MOCK_BOMS.length} SKU</span>
+            <span style={{ fontSize: 13, color: 'var(--text3)' }}>{MOCK_MANH_BOMS.length} SKU</span>
           </div>
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -365,24 +435,19 @@ export default function SpecSteelPage() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_BOMS.map(item => (
+                {MOCK_MANH_BOMS.map(item => (
                   <tr key={item.id}
                     onClick={() => openBom(item)}
                     style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background .1s' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <td style={{ padding: '12px 14px' }}>
-                      <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 13, color: 'var(--text)', marginRight: 10 }}>{item.maNhaMay}</span>
-                      <span style={{ color: 'var(--text2)', fontSize: 13 }}>{item.ten}</span>
-                    </td>
+                    <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.ten}</td>
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
                     <td style={{ padding: '12px 14px' }}>
                       {submittedBomIds.includes(item.id)
                         ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
-                        : MOCK_MANHS[item.id]
-                          ? <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Đang nhập</span>
-                          : <span style={{ background: '#ede7f6', color: '#4527a0', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
+                        : <span style={{ background: '#fce4ec', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Cần nhập</span>
                       }
                     </td>
                     <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
@@ -405,10 +470,7 @@ export default function SpecSteelPage() {
               borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
             }}><ChevronLeft size={14} /> Quay lại</button>
             <div>
-              <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginRight: 6 }}>SKU</span>
-              <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 15 }}>{selectedBom.maNhaMay}</span>
-              <span style={{ margin: '0 8px', color: 'var(--text3)' }}>—</span>
-              <span style={{ fontWeight: 600, fontSize: 15 }}>{selectedBom.ten}</span>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>{selectedBom.ten}</span>
               <span style={{ marginLeft: 10, fontSize: 12, color: 'var(--text3)' }}>{selectedBom.thoiGian}</span>
             </div>
           </div>
@@ -420,8 +482,8 @@ export default function SpecSteelPage() {
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div>
                   <FL>SKU</FL>
-                  <div style={{ padding: '7px 12px', background: '#d6e8fb', border: '1px solid #90caf9', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 700, color: '#1565c0', fontFamily: 'monospace' }}>
-                    {selectedBom.maNhaMay}
+                  <div style={{ padding: '7px 12px', background: '#d6e8fb', border: '1px solid #90caf9', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 700, color: '#1565c0' }}>
+                    {selectedBom.ten}
                   </div>
                 </div>
                 <div style={{ flex: 1, minWidth: 200 }}>
@@ -467,15 +529,15 @@ export default function SpecSteelPage() {
                   background: 'var(--surface2)',
                   borderBottom: m.children.length > 0 || addingTo === m.id ? '1px solid var(--border)' : 'none',
                 }}>
-                  <span style={{ fontFamily: 'monospace', fontSize: 11, fontWeight: 700, color: '#1565c0', background: '#e3f2fd', borderRadius: 4, padding: '2px 7px' }}>
-                    {m.maNhaMay}
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#1565c0', background: '#e3f2fd', borderRadius: 4, padding: '2px 7px' }}>
+                    {selectedBom?.ten}
                   </span>
                   <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{m.tenManh}</span>
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>{m.children.length} loại sắt</span>
                   {!isSubmitted && (
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                       <button
-                        onClick={() => addingTo === m.id ? setAddingTo(null) : (setAddingTo(m.id), setChildSatName(''), setChildSoLuong(''))}
+                        onClick={() => addingTo === m.id ? setAddingTo(null) : (setAddingTo(m.id), setChildSatName(''), setChildSpecs(''), setChildSoLuong(''))}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
                           border: '1px solid var(--border)', borderRadius: 'var(--radius)',
@@ -507,12 +569,11 @@ export default function SpecSteelPage() {
                     </thead>
                     <tbody>
                       {m.children.map((c, i) => {
-                        const cat = catalog.find(s => s.name === c.loaiSatName)
                         return (
                           <tr key={c.id} style={{ borderTop: '1px solid var(--border)' }}>
                             <td style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 12, padding: '9px 7px' }}>{i + 1}</td>
                             <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>{c.loaiSatName}</td>
-                            <td style={{ padding: '9px 14px', color: 'var(--text3)', fontSize: 12 }}>{cat?.specs || '—'}</td>
+                            <td style={{ padding: '9px 14px', color: 'var(--text3)', fontSize: 12 }}>{c.specs || '—'}</td>
                             <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.soLuong || '—'}</td>
                             {!isSubmitted && (
                               <td style={{ textAlign: 'center', padding: '4px' }}>
@@ -531,18 +592,22 @@ export default function SpecSteelPage() {
                 {/* Add child inline */}
                 {addingTo === m.id && (
                   <div style={{
-                    display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap',
+                    display: 'flex', gap: 25, alignItems: 'flex-end', flexWrap: 'wrap',
                     padding: '12px 16px',
                     borderTop: m.children.length > 0 ? '1px dashed var(--border)' : 'none',
                   }}>
-                    <div style={{ flex: 1, minWidth: 200 }}>
+                    <div style={{ width: 200 }}>
                       <FL>Loại sắt</FL>
                       <SteelSearch selectedName={childSatName} catalog={catalog}
-                        onChange={item => setChildSatName(item.name)} />
+                        onChange={item => { setChildSatName(item.name); setChildSpecs('') }} />
                     </div>
-                    <div style={{ minWidth: 120 }}>
+                    <div style={{ width: 120 }}>
+                      <FL>Quy cách</FL>
+                      <SpecsInput value={childSpecs} onChange={setChildSpecs} materialName={childSatName} catalog={catalog} />
+                    </div>
+                    <div style={{ width: 120 }}>
                       <FL>Số lượng</FL>
-                      <input placeholder="1332" value={childSoLuong}
+                      <input placeholder="0" value={childSoLuong}
                         onChange={e => setChildSoLuong(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && addChild(m.id)}
                         style={inputStyle} />
@@ -622,14 +687,90 @@ export default function SpecSteelPage() {
         </div>
       )}
 
-      {/* ══ VẬT TƯ ══ */}
-      {subTab === 'vat-tu' && (
+      {/* ══ ĐỊNH MỨC CHI TIẾT: LIST SKU ══ */}
+      {subTab === 'vat-tu' && !selectedVtBom && (
         <div>
-          {/* Input form */}
+          <div style={{ marginBottom: 16 }}>
+            <span style={{ fontSize: 13, color: 'var(--text3)' }}>{MOCK_BOMS.length} SKU</span>
+          </div>
+          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+                  {['SKU', 'Thời gian', 'Trạng thái', ''].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {MOCK_BOMS.map(item => {
+                  const st = vtBomStatus(item.id)
+                  return (
+                    <tr key={item.id}
+                      onClick={() => { setSelectedVtBom(item); setVtName(''); setVtSpecs(''); setVtErr(''); setSentMsg(false) }}
+                      style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.ten}</td>
+                      <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
+                      <td style={{ padding: '12px 14px' }}>
+                        {st === 'approved'
+                          ? <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✓ Đã duyệt</span>
+                          : st === 'pending'
+                          ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
+                          : <span style={{ background: '#fce4ec', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Cần nhập</span>
+                        }
+                      </td>
+                      <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ══ ĐỊNH MỨC CHI TIẾT: DETAIL ══ */}
+      {subTab === 'vat-tu' && selectedVtBom && (
+        <div>
+          {/* Back */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+            <button onClick={() => setSelectedVtBom(null)} style={{
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+              background: 'var(--surface)', border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
+            }}><ChevronLeft size={14} /> Quay lại</button>
+            <div>
+              <span style={{ fontWeight: 700, fontSize: 15 }}>{selectedVtBom.ten}</span>
+            </div>
+          </div>
+
+          {/* Banner đã duyệt — ẩn form nhập */}
+          {vtBomStatus(selectedVtBom.id) === 'approved' && (
+            <div style={{ padding: '10px 16px', background: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: 'var(--radius-lg)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 16 }}>✓</span>
+              <span style={{ fontWeight: 600, color: '#2e7d32', fontSize: 13 }}>Đã duyệt lần trước</span>
+              <span style={{ fontSize: 12, color: '#388e3c' }}>— có thể gửi thêm đề xuất bổ sung nếu còn thiếu vật tư</span>
+            </div>
+          )}
+
+          {/* Input form — chỉ hiện khi chưa duyệt */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: 'var(--text)' }}>Thêm vật tư vào danh sách</div>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: 'var(--text)' }}>
+              {vtBomStatus(selectedVtBom.id) === 'approved' ? 'Gửi đề xuất bổ sung' : 'Thêm vật tư vào danh sách'}
+            </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              <div style={{ flex: 2, minWidth: 200 }}>
+              {/* SKU — read only */}
+              <div style={{ minWidth: 120 }}>
+                <FL>SKU</FL>
+                <div style={{ padding: '7px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
+                  {selectedVtBom.ten}
+                </div>
+              </div>
+              {/* Tên — chọn từ preset */}
+              <div style={{ flex: 2, minWidth: 180 }}>
                 <FL>Tên <span style={{ color: '#e53935' }}>*</span></FL>
                 <VatTuSearch
                   value={vtName}
@@ -640,29 +781,35 @@ export default function SpecSteelPage() {
                   }}
                 />
               </div>
-              <div style={{ minWidth: 100 }}>
-                <FL>Đơn vị</FL>
+              {/* Quy cách */}
+              <div style={{ flex: 1, minWidth: 130 }}>
+                <FL>Quy cách</FL>
+                <SpecsInput
+                  value={vtSpecs}
+                  onChange={setVtSpecs}
+                  materialName={vtName}
+                  catalog={catalog}
+                />
+              </div>
+              {/* SL */}
+              <div style={{ minWidth: 90 }}>
+                <FL>SL</FL>
+                <input value={vtSoLuong} onChange={e => setVtSoLuong(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addToDraft()}
+                  placeholder="100" style={inputStyle} />
+              </div>
+              {/* ĐVT */}
+              <div style={{ minWidth: 90 }}>
+                <FL>ĐVT</FL>
                 <select value={vtUnit} onChange={e => setVtUnit(e.target.value)}
                   style={{ ...inputStyle, background: 'var(--surface)' }}>
                   {UNIT_OPTIONS.map(u => <option key={u}>{u}</option>)}
                 </select>
               </div>
-              <div style={{ flex: 1, minWidth: 160 }}>
-                <FL>Quy cách</FL>
-                <input value={vtSpecs} onChange={e => setVtSpecs(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addToDraft()}
-                  placeholder="50×50×660" style={inputStyle} />
-              </div>
-              <div style={{ minWidth: 110 }}>
-                <FL>Độ dày</FL>
-                <input value={vtDoDay} onChange={e => setVtDoDay(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addToDraft()}
-                  placeholder="0.8mm" style={inputStyle} />
-              </div>
               <button onClick={addToDraft} style={{
                 padding: '7px 16px', border: 'none', borderRadius: 'var(--radius)',
                 background: '#1565c0', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
-              }}>+ Thêm vào danh sách</button>
+              }}>+ Thêm</button>
             </div>
             {vtErr && (
               <div style={{ marginTop: 10, padding: '8px 12px', background: '#ffebee', color: '#c62828', borderRadius: 'var(--radius)', fontSize: 13 }}>{vtErr}</div>
@@ -670,34 +817,32 @@ export default function SpecSteelPage() {
           </div>
 
           {/* Draft list */}
-          {draftLines.length > 0 && (
+          {currentDrafts.length > 0 && (
             <div style={{ background: 'var(--surface)', border: '1px solid #c5cae9', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 16 }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: '#e8eaf6', borderBottom: '1px solid #c5cae9' }}>
-                <div style={{ fontWeight: 700, fontSize: 14, color: '#1a237e' }}>
-                  Danh sách chờ gửi
-                  <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, background: '#c5cae9', color: '#1a237e', borderRadius: 20, padding: '2px 8px' }}>
-                    {draftLines.length} vật tư
-                  </span>
-                </div>
+              <div style={{ padding: '12px 16px', background: '#e8eaf6', borderBottom: '1px solid #c5cae9', fontWeight: 700, fontSize: 14, color: '#1a237e' }}>
+                Danh sách chờ gửi
+                <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, background: '#c5cae9', color: '#1a237e', borderRadius: 20, padding: '2px 8px' }}>
+                  {currentDrafts.length} vật tư
+                </span>
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                    {['#', 'Tên vật tư', 'ĐV', 'Quy cách', 'Độ dày', ''].map((h, i) => (
+                    {['SKU', 'Tên', 'Quy cách', 'SL', 'ĐVT', ''].map((h, i) => (
                       <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {draftLines.map((d, i) => (
+                  {currentDrafts.map(d => (
                     <tr key={d.uid} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 12 }}>{i + 1}</td>
+                      <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedVtBom?.ten}</td>
                       <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{d.name}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{d.unit}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{d.specs || '—'}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{d.doDay || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text)', fontFamily: 'monospace' }}>{d.soLuong || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{d.unit}</td>
                       <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                        <button onClick={() => setDraftLines(p => p.filter(x => x.uid !== d.uid))} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>
+                        <button onClick={() => removeDraft(d.uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>
                           <X size={14} />
                         </button>
                       </td>
@@ -712,7 +857,7 @@ export default function SpecSteelPage() {
                 }}
                   onMouseEnter={e => (e.currentTarget.style.background = '#0d47a1')}
                   onMouseLeave={e => (e.currentTarget.style.background = '#1565c0')}
-                >Gửi đề xuất ({draftLines.length} vật tư) →</button>
+                >Gửi đề xuất ({currentDrafts.length} vật tư) →</button>
               </div>
             </div>
           )}
@@ -724,29 +869,30 @@ export default function SpecSteelPage() {
           )}
 
           {/* Pending list */}
-          {pendingReqs.length > 0 && (
+          {currentPending.length > 0 && (
             <div style={{ background: 'var(--surface)', border: '1px solid #ffe082', borderLeft: '4px solid #f57c00', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
               <div style={{ padding: '12px 16px', background: '#fff8e1', borderBottom: '1px solid #ffe082', fontWeight: 700, fontSize: 14, color: '#e65100' }}>
                 Đang chờ duyệt
                 <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, background: '#ffe082', color: '#e65100', borderRadius: 20, padding: '2px 8px' }}>
-                  {pendingReqs.reduce((s, r) => s + r.lines.length, 0)} vật tư
+                  {currentPending.reduce((s, r) => s + r.lines.length, 0)} vật tư
                 </span>
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                    {['Tên vật tư', 'ĐV', 'Quy cách', 'Độ dày', 'Gửi lúc', 'Trạng thái'].map((h, i) => (
-                      <th key={i} style={{ padding: '8px 14px', textAlign: i === 5 ? 'right' : 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
+                    {['SKU', 'Tên', 'Quy cách', 'SL', 'ĐVT', 'Gửi lúc', 'Trạng thái'].map((h, i) => (
+                      <th key={i} style={{ padding: '8px 14px', textAlign: i === 6 ? 'right' : 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {pendingReqs.flatMap(req => req.lines.map(l => (
+                  {currentPending.flatMap(req => req.lines.map(l => (
                     <tr key={`${req.uid}-${l.uid}`} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedVtBom?.ten}</td>
                       <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{l.name}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{l.unit}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{l.specs || '—'}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{l.doDay || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text)', fontFamily: 'monospace' }}>{l.soLuong || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{l.unit}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 12 }}>{req.submittedAt}</td>
                       <td style={{ padding: '10px 14px', textAlign: 'right' }}>
                         <span style={{ background: '#fff8e1', color: '#f57c00', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
@@ -758,7 +904,7 @@ export default function SpecSteelPage() {
             </div>
           )}
 
-          {pendingReqs.length === 0 && draftLines.length === 0 && (
+          {currentDrafts.length === 0 && currentPending.length === 0 && !sentMsg && (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '40px', textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
               Chưa có đề xuất nào. Điền form phía trên để bắt đầu.
             </div>
@@ -781,7 +927,7 @@ export default function SpecSteelPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: '#ffebee', borderBottom: '1px solid #ffcdd2' }}>
-                      {['Tên vật tư', 'ĐV', 'Quy cách', 'Độ dày', 'Gửi lúc', 'Trạng thái'].map((h, i) => (
+                      {['Tên vật tư', 'Quy cách', 'SL', 'ĐVT', 'Gửi lúc', 'Trạng thái'].map((h, i) => (
                         <th key={i} style={{ padding: '8px 14px', textAlign: i === 5 ? 'right' : 'left', fontWeight: 600, color: '#b71c1c', fontSize: 11 }}>{h}</th>
                       ))}
                     </tr>
@@ -790,9 +936,9 @@ export default function SpecSteelPage() {
                     {rejectedLines.map(l => (
                       <tr key={l.uid} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text2)' }}>{l.name}</td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{l.unit}</td>
                         <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{l.specs || '—'}</td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{l.doDay || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: 'var(--text)', fontFamily: 'monospace' }}>{l.soLuong || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{l.unit}</td>
                         <td style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 12 }}>{l.submittedAt}</td>
                         <td style={{ padding: '10px 14px', textAlign: 'right' }}>
                           <span style={{ background: '#ffebee', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Từ chối</span>
@@ -815,7 +961,7 @@ export default function SpecSteelPage() {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                    {['Tên vật tư', 'Quy cách', 'Độ dày', 'Trạng thái'].map((h, i) => (
+                    {['Tên vật tư', 'Quy cách', 'ĐVT', 'Trạng thái'].map((h, i) => (
                       <th key={i} style={{ padding: '8px 14px', textAlign: i === 3 ? 'right' : 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                     ))}
                   </tr>
@@ -824,8 +970,8 @@ export default function SpecSteelPage() {
                   {catalog.map((s, i) => (
                     <tr key={i} style={{ borderBottom: i < catalog.length - 1 ? '1px solid var(--border)' : 'none' }}>
                       <td style={{ padding: '10px 14px', fontWeight: 500 }}>{s.name}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{s.specs}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{s.doDay || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{s.specs || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{s.unit}</td>
                       <td style={{ padding: '10px 14px', textAlign: 'right' }}>
                         <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✓ Đã duyệt</span>
                       </td>
