@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { CheckCircle2, Clock, Factory, PackageCheck, ShoppingCart, TrendingUp, Wrench, X } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Clock, Factory, PackageCheck, Search, ShoppingCart, TrendingUp, Wrench } from 'lucide-react'
 
 type OrderStatus = 'APPROVED' | 'PRODUCING' | 'DONE'
 type MfgStage = 'PURCHASING' | 'FRAME' | 'WEAVING' | 'PACKAGING'
@@ -106,106 +106,113 @@ function MfgStageTracker({ currentStage }: { currentStage: MfgStage }) {
   )
 }
 
-function DetailDrawer({ order, onClose }: { order: ApprovedOrder; onClose: () => void }) {
+function ThongKeDetailPage({ order, onBack }: { order: ApprovedOrder; onBack: () => void }) {
   const meta = STATUS_META[order.status]
   const isOverdue = new Date(order.deadline) < new Date() && order.status !== 'DONE'
 
   return (
-    <>
-      {/* Overlay */}
-      <div
-        onClick={onClose}
-        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.25)', zIndex: 40, backdropFilter: 'blur(2px)' }}
-      />
-      {/* Panel */}
-      <div style={{
-        position: 'fixed', top: 0, right: 0, bottom: 0, width: 440,
-        background: 'var(--surface)', boxShadow: '-4px 0 32px rgba(0,0,0,0.12)',
-        zIndex: 50, display: 'flex', flexDirection: 'column', overflow: 'hidden',
-      }}>
-        {/* Panel header */}
-        <div style={{ padding: '18px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <div>
-            <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 15, color: '#1d4ed8' }}>{order.code}</div>
-            <div style={{ fontSize: 13, fontWeight: 600, marginTop: 3 }}>{order.productName}</div>
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{order.sku} · {order.factoryCode}</div>
-          </div>
-          <button onClick={onClose} style={{ border: 'none', background: 'var(--surface2)', borderRadius: 8, padding: 6, cursor: 'pointer', color: 'var(--text2)', display: 'flex', marginTop: 2 }}>
-            <X size={16} />
-          </button>
-        </div>
+    <div>
+      {/* Back button + breadcrumb */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+        <button
+          onClick={onBack}
+          style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}
+        >
+          <ArrowLeft size={15} />
+          Quay lại danh sách
+        </button>
+        <span style={{ color: 'var(--text3)', fontSize: 13 }}>/</span>
+        <span style={{ fontSize: 13, color: 'var(--text3)' }}>Chi tiết lệnh</span>
+      </div>
 
-        {/* Panel body */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px 20px' }}>
-          {/* Status badge */}
-          <span style={{ display: 'inline-block', padding: '4px 12px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, marginBottom: 20 }}>
+      {/* Header card */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 20, color: '#1d4ed8', letterSpacing: '0.02em' }}>{order.code}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginTop: 6 }}>{order.productName}</div>
+            <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>{order.sku} &nbsp;·&nbsp; Mã xưởng: <span style={{ fontWeight: 600, color: 'var(--text2)' }}>{order.factoryCode}</span></div>
+          </div>
+          <span style={{ display: 'inline-block', padding: '5px 16px', borderRadius: 20, fontSize: 13, fontWeight: 700, background: meta.bg, color: meta.color, border: `1px solid ${meta.border}`, whiteSpace: 'nowrap' }}>
             {meta.label}
           </span>
+        </div>
 
-          {/* Production stage tracker */}
-          {order.status === 'PRODUCING' && order.mfgStage && (
-            <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 12, padding: '16px 16px 20px' }}>
-              <MfgStageTracker currentStage={order.mfgStage} />
-            </div>
-          )}
-
-          {order.status === 'APPROVED' && (
-            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 12, padding: '14px 16px', marginBottom: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#1d4ed8' }}>Chờ bắt đầu sản xuất</div>
-              <div style={{ fontSize: 12, color: '#3b82f6', marginTop: 4 }}>Lệnh đã được duyệt, chưa vào sản xuất.</div>
-            </div>
-          )}
-
-          {order.status === 'DONE' && (
-            <div style={{ background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 12, padding: '14px 16px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <CheckCircle2 size={18} color="#065f46" />
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#065f46' }}>Đã hoàn thành toàn bộ quy trình</div>
-              </div>
-              <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-                {MFG_STAGES.map(s => (
-                  <span key={s.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: '#dcfce7', color: '#166534' }}>
-                    <CheckCircle2 size={11} /> {s.label}
-                  </span>
-                ))}
+        {/* Info grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginTop: 20 }}>
+          {[
+            { label: 'Khách hàng',   value: order.customer },
+            { label: 'Số lượng',     value: `${order.qty.toLocaleString('vi-VN')} ${order.unit}` },
+            { label: 'Ngày duyệt',   value: format(new Date(order.approvedAt), 'dd/MM/yyyy') },
+            { label: 'Hạn giao hàng', value: format(new Date(order.deadline), 'dd/MM/yyyy'), warn: isOverdue },
+          ].map(row => (
+            <div key={row.label} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 14px' }}>
+              <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>{row.label}</div>
+              <div style={{ fontSize: 14, fontWeight: 700, color: row.warn ? '#dc2626' : 'var(--text)' }}>
+                {row.value}
+                {row.warn && <span style={{ fontSize: 11, marginLeft: 6, fontWeight: 600, color: '#dc2626' }}>Quá hạn</span>}
               </div>
             </div>
-          )}
-
-          {/* Info grid */}
-          <div style={{ marginTop: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            {[
-              { label: 'Khách hàng', value: order.customer },
-              { label: 'Số lượng', value: `${order.qty.toLocaleString('vi-VN')} ${order.unit}` },
-              { label: 'Ngày duyệt', value: format(new Date(order.approvedAt), 'dd/MM/yyyy') },
-              { label: 'Hạn giao hàng', value: format(new Date(order.deadline), 'dd/MM/yyyy'), warn: isOverdue },
-            ].map(row => (
-              <div key={row.label} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 12px' }}>
-                <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>{row.label}</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: row.warn ? '#dc2626' : 'var(--text)' }}>
-                  {row.value}
-                  {row.warn && <span style={{ fontSize: 11, marginLeft: 6, color: '#dc2626' }}>Quá hạn</span>}
-                </div>
-              </div>
-            ))}
-          </div>
+          ))}
         </div>
       </div>
-    </>
+
+      {/* Production stage section */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Trạng thái sản xuất</div>
+
+        {order.status === 'PRODUCING' && order.mfgStage && (
+          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '16px 20px 20px' }}>
+            <MfgStageTracker currentStage={order.mfgStage} />
+          </div>
+        )}
+
+        {order.status === 'APPROVED' && (
+          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '16px 18px' }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>Chờ bắt đầu sản xuất</div>
+            <div style={{ fontSize: 13, color: '#3b82f6', marginTop: 6 }}>Lệnh đã được duyệt, chưa đưa vào sản xuất.</div>
+          </div>
+        )}
+
+        {order.status === 'DONE' && (
+          <div style={{ background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 10, padding: '16px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+              <CheckCircle2 size={20} color="#065f46" />
+              <div style={{ fontSize: 14, fontWeight: 700, color: '#065f46' }}>Đã hoàn thành toàn bộ quy trình</div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              {MFG_STAGES.map(s => (
+                <span key={s.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20, background: '#dcfce7', color: '#166534' }}>
+                  <CheckCircle2 size={12} /> {s.label}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
   )
 }
 
 export default function ThongKePage() {
   const [filter, setFilter] = useState<FilterStatus>('all')
   const [selected, setSelected] = useState<ApprovedOrder | null>(null)
+  const [search, setSearch] = useState('')
 
-  const filtered = filter === 'all' ? MOCK_ORDERS : MOCK_ORDERS.filter(o => o.status === filter)
+  const q = search.trim().toLowerCase()
+  const filtered = MOCK_ORDERS
+    .filter(o => filter === 'all' || o.status === filter)
+    .filter(o => !q || [o.code, o.sku, o.productName, o.factoryCode, o.customer].some(v => v.toLowerCase().includes(q)))
 
   const counts = {
     all:       MOCK_ORDERS.length,
     APPROVED:  MOCK_ORDERS.filter(o => o.status === 'APPROVED').length,
     PRODUCING: MOCK_ORDERS.filter(o => o.status === 'PRODUCING').length,
     DONE:      MOCK_ORDERS.filter(o => o.status === 'DONE').length,
+  }
+
+  if (selected) {
+    return <ThongKeDetailPage order={selected} onBack={() => setSelected(null)} />
   }
 
   return (
@@ -221,7 +228,7 @@ export default function ThongKePage() {
       {/* Stat cards */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         {[
-          { label: 'Tổng lệnh duyệt', value: counts.all,       icon: <Factory size={20} color="#6b7280" />,   bg: '#f9fafb', color: '#374151', border: '#e5e7eb' },
+          { label: 'Đã duyệt', value: counts.all,       icon: <Factory size={20} color="#6b7280" />,   bg: '#f9fafb', color: '#374151', border: '#e5e7eb' },
           { label: 'Đang sản xuất',   value: counts.PRODUCING, icon: <TrendingUp size={20} color="#15803d" />,  bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
           { label: 'Hoàn thành',      value: counts.DONE,      icon: <Clock size={20} color="#065f46" />,       bg: '#ecfdf5', color: '#065f46', border: '#6ee7b7' },
         ].map(s => (
@@ -235,18 +242,30 @@ export default function ThongKePage() {
         ))}
       </div>
 
-      {/* Filter chips */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14 }}>
-        {([['all', 'Tất cả'], ['PRODUCING', 'Đang sản xuất'], ['DONE', 'Hoàn thành']] as [FilterStatus, string][]).map(([key, label]) => (
-          <button key={key} onClick={() => setFilter(key)}
-            style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, borderRadius: 20, border: 'none', cursor: 'pointer',
-              background: filter === key ? '#1d4ed8' : 'var(--surface2)',
-              color: filter === key ? '#fff' : 'var(--text)',
-            }}>
-            {label} {key !== 'all' && <span style={{ opacity: 0.75 }}>({counts[key as OrderStatus]})</span>}
-            {key === 'all' && <span style={{ opacity: 0.75 }}>({counts.all})</span>}
-          </button>
-        ))}
+      {/* Search + Filter row */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {([['all', 'Tất cả'], ['PRODUCING', 'Đang sản xuất'], ['DONE', 'Hoàn thành']] as [FilterStatus, string][]).map(([key, label]) => (
+            <button key={key} onClick={() => setFilter(key)}
+              style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, borderRadius: 20, border: 'none', cursor: 'pointer',
+                background: filter === key ? '#1d4ed8' : 'var(--surface2)',
+                color: filter === key ? '#fff' : 'var(--text)',
+              }}>
+              {label} {key !== 'all' && <span style={{ opacity: 0.75 }}>({counts[key as OrderStatus]})</span>}
+              {key === 'all' && <span style={{ opacity: 0.75 }}>({counts.all})</span>}
+            </button>
+          ))}
+        </div>
+        <div style={{ position: 'relative', width: 280 }}>
+          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+          <input
+            type="text"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Tìm mã PI, SKU, sản phẩm, khách hàng..."
+            style={{ width: '100%', paddingLeft: 32, paddingRight: 10, paddingTop: 6, paddingBottom: 6, fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box', outline: 'none' }}
+          />
+        </div>
       </div>
 
       {/* Table */}
@@ -268,19 +287,13 @@ export default function ThongKePage() {
             {filtered.map((o, i) => {
               const meta = STATUS_META[o.status]
               const isOverdue = new Date(o.deadline) < new Date() && o.status !== 'DONE'
-              const isSelected = selected?.id === o.id
               return (
                 <tr
                   key={o.id}
                   onClick={() => setSelected(o)}
-                  style={{
-                    background: isSelected ? '#f0fdf4' : i % 2 === 1 ? 'var(--surface2)' : undefined,
-                    cursor: 'pointer',
-                    outline: isSelected ? '2px solid #86efac' : undefined,
-                    outlineOffset: -2,
-                  }}
-                  onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = 'var(--surface2)' }}
-                  onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = i % 2 === 1 ? 'var(--surface2)' : '' }}
+                  style={{ background: i % 2 === 1 ? 'var(--surface2)' : undefined, cursor: 'pointer' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = i % 2 === 1 ? 'var(--surface2)' : '' }}
                 >
                   <td style={{ ...td, color: 'var(--text3)', fontWeight: 600, textAlign: 'center' }}>{o.id}</td>
                   <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}>{o.code}</td>
@@ -321,9 +334,6 @@ export default function ThongKePage() {
           </tbody>
         </table>
       </div>
-
-      {/* Detail drawer */}
-      {selected && <DetailDrawer order={selected} onClose={() => setSelected(null)} />}
     </div>
   )
 }

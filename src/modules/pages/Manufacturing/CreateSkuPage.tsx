@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import { Loader2, Plus, X } from 'lucide-react'
+import { Loader2, Plus, Search, X } from 'lucide-react'
 import type { PlanForm, CreatePlanFormPayload } from '../../../types/plan-form'
 
 const emptyForm = (): CreatePlanFormPayload => ({
@@ -40,7 +40,13 @@ export default function CreateSkuPage() {
     setPoCode('')
   }
 
-  const pending = ((planForms ?? []) as PlanForm[]).filter(p => p.status === 'PROPOSED' || p.status !== 'APPROVED')
+  const [search, setSearch] = useState('')
+
+  const allPending = ((planForms ?? []) as PlanForm[]).filter(p => p.status === 'PROPOSED' || p.status !== 'APPROVED')
+  const q = search.trim().toLowerCase()
+  const pending = q
+    ? allPending.filter(p => [p.mfgProduct?.factoryCode, p.mfgProduct?.name, p.customerName].some(v => v?.toLowerCase().includes(q)))
+    : allPending
 
   const handleSubmit = async () => {
     if (!form.note.trim()) {
@@ -74,9 +80,6 @@ export default function CreateSkuPage() {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Tạo SKU</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>
-            SKU mới sau khi tạo sẽ vào danh sách chờ duyệt
-          </p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {success && (
@@ -162,11 +165,23 @@ export default function CreateSkuPage() {
 
       {/* Pending list */}
       <div>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>
-          Danh sách chờ duyệt
-          <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: 'var(--text3)' }}>
-            {isLoading ? '...' : `${pending.length} SKU`}
-          </span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 12, flexWrap: 'wrap' }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>
+            Danh sách chờ duyệt
+            <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: 'var(--text3)' }}>
+              {isLoading ? '...' : `${allPending.length} SKU`}
+            </span>
+          </div>
+          <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: 320 }}>
+            <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Tìm SKU, sản phẩm, khách hàng..."
+              style={{ width: '100%', paddingLeft: 32, paddingRight: 10, paddingTop: 7, paddingBottom: 7, fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box', outline: 'none' }}
+            />
+          </div>
         </div>
 
         {isLoading ? (
@@ -179,7 +194,8 @@ export default function CreateSkuPage() {
               <colgroup>
                 <col style={{ width: 48 }} />
                 <col />
-                <col style={{ width: 150 }} />
+                <col style={{ width: 130 }} />
+                <col style={{ width: 120 }} />
                 <col style={{ width: 110 }} />
                 <col style={{ width: 150 }} />
               </colgroup>
@@ -188,6 +204,7 @@ export default function CreateSkuPage() {
                   <th style={thStyle}>#</th>
                   <th style={thStyle}>SKU</th>
                   <th style={thStyle}>Khách hàng</th>
+                  <th style={thStyle}>Mã PO</th>
                   <th style={thStyle}>Trạng thái</th>
                   <th style={thStyle}>Thời gian tạo</th>
                 </tr>
@@ -206,6 +223,9 @@ export default function CreateSkuPage() {
                       <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text2)' }}>
                         {pf.customerName ?? '—'}
                       </td>
+                      <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 600, whiteSpace: 'nowrap', color: 'var(--text2)' }}>
+                        {pf.exportOrder?.poNumber ?? '—'}
+                      </td>
                       <td style={tdStyle}>
                         <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, color: s.color, background: s.bg }}>
                           {s.label}
@@ -219,8 +239,8 @@ export default function CreateSkuPage() {
                 })}
                 {pending.length === 0 && (
                   <tr>
-                    <td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
-                      Không có SKU nào đang chờ duyệt
+                    <td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
+                      {q ? 'Không tìm thấy kết quả' : 'Không có SKU nào đang chờ duyệt'}
                     </td>
                   </tr>
                 )}

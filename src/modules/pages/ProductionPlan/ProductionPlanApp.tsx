@@ -2,12 +2,11 @@ import { useState } from 'react'
 import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Boxes, Warehouse, Settings, FilePlus } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import VatTuDashboardPage from './VatTuDashboardPage'
-import ThongKePage from '../Manufacturing/ThongKePage'
 import PIListPage from '../Manufacturing/PIListPage'
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
-import MfgSetupPage from '../Manufacturing/MfgSetupPage'
 import CreateSkuPage from '../Manufacturing/CreateSkuPage'
 import SKUListPage from './SKUListPage'
+import ThongKePage from '../Manufacturing/ThongKePage'
 
 type Page = 'planforms' | 'tao-sku' | 'vattu' | 'thongke' | 'pi-list' | 'materials' | 'warehouses' | 'setup'
 

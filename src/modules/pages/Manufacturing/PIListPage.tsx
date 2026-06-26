@@ -4,31 +4,35 @@ import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import ExportOrderDetailModal from './ExportOrderDetailModal'
 import { format } from 'date-fns'
-import { AlertCircle, CheckCircle2, FileText, Eye, X, CalendarClock, Pencil, Package, Play } from 'lucide-react'
+import { AlertCircle, CheckCircle2, FileText, Eye, X, CalendarClock, Pencil, Package, Play, ChevronRight, ChevronLeft, Search } from 'lucide-react'
 
 export default function PIListPage() {
   const { user } = useAuth()
   const [viewOrderId, setViewOrderId] = useState<number | null>(null)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
-  const [editingRowId, setEditingRowId] = useState<number | null>(null)
-  const [editingRowValues, setEditingRowValues] = useState<Record<string, string>>({})
-  const [savingRow, setSavingRow] = useState(false)
-  const [showSaveConfirm, setShowSaveConfirm] = useState(false)
   const [confirmingProdId, setConfirmingProdId] = useState<number | null>(null)
   const [confirmProdTarget, setConfirmProdTarget] = useState<any | null>(null)
   const [timeline, setTimeline] = useState<any | null>(null)
   const [timelineOrderId, setTimelineOrderId] = useState<number | null>(null)
   const [timelineLoading, setTimelineLoading] = useState(false)
-  // Chỉnh sửa timeline trước khi tạo PI
   const [editMode, setEditMode] = useState(false)
   const [editSteps, setEditSteps] = useState<{ key: string; label: string; startDate: string | null; deadline: string }[]>([])
   const [savingTimeline, setSavingTimeline] = useState(false)
+  const [editingPI, setEditingPI] = useState<any | null>(null)
+  const [editValues, setEditValues] = useState<{ deadline: string; items: { materialDeadline: string; HAN: string; WEAVING: string; SON: string }[] }>({ deadline: '', items: [] })
+  const [savingPI, setSavingPI] = useState(false)
+  const [viewingPIId, setViewingPIId] = useState<number | null>(null)
+  const [search, setSearch] = useState('')
 
   const { data: pis, isLoading, error, refetch } = useFetch(
     () => api.getProductionInvoices(),
     []
   )
   const safeList = (Array.isArray(pis) ? pis : []).filter((p: any) => p.status === 'PLANNING')
+  const filteredList = search.trim()
+    ? safeList.filter((p: any) => p.code?.toLowerCase().includes(search.trim().toLowerCase()))
+    : safeList
+  const viewingPI = viewingPIId ? (Array.isArray(pis) ? pis : []).find((p: any) => p.id === viewingPIId) ?? null : null
 
   // Giám đốc (MANAGER không mfgRole) chỉ XEM — không xác nhận đơn/tạo PI (đồng bộ backend).
   const isPlanner = user?.mfgRole === 'PRODUCTION_MANAGER'
@@ -101,7 +105,7 @@ export default function PIListPage() {
       closeTimeline()
       refetchOrders(); refetch()
     } catch (e: any) {
-      alert(e?.response?.data?.error ?? 'Lỗi lưu timeline')
+      alert(e?.response?.data?.error ?? 'Lỗi lưu thời hạn')
     } finally {
       setSavingTimeline(false)
     }
@@ -119,54 +123,6 @@ export default function PIListPage() {
     }
   }
 
-  const startRowEdit = (pi: any) => {
-    const piDeadline = new Date(pi.deadline)
-    const fallback = (daysBack: number) => {
-      const d = new Date(piDeadline); d.setDate(d.getDate() - daysBack); return format(d, 'yyyy-MM-dd')
-    }
-    const stageDate = (type: string) => {
-      const s = Array.isArray(pi.stages) ? pi.stages.find((s: any) => s.stageType === type) : null
-      return s?.deadline ? format(new Date(s.deadline), 'yyyy-MM-dd') : null
-    }
-    setEditingRowId(pi.id)
-    setEditingRowValues({
-      deadline:        format(piDeadline, 'yyyy-MM-dd'),
-      materialDeadline: pi.materialDeadline ? format(new Date(pi.materialDeadline), 'yyyy-MM-dd') : fallback(21),
-      HAN:     stageDate('HAN')     ?? fallback(14),
-      WEAVING: stageDate('WEAVING') ?? fallback(8),
-      SON:     stageDate('SON')     ?? fallback(3),
-    })
-  }
-
-  const handleSaveRow = async () => {
-    if (!editingRowId) return
-    setSavingRow(true)
-    try {
-      const pi = safeList.find((p: any) => p.id === editingRowId)
-      const stages: any[] = Array.isArray(pi?.stages) ? [...pi.stages] : []
-      for (const field of ['HAN', 'WEAVING', 'SON']) {
-        const val = editingRowValues[field]
-        if (!val) continue
-        const iso = new Date(val).toISOString()
-        const idx = stages.findIndex((s: any) => s.stageType === field)
-        if (idx >= 0) stages[idx] = { ...stages[idx], deadline: iso }
-        else stages.push({ stageType: field, deadline: iso, progressPercent: 0, status: 'PENDING' })
-      }
-      await api.updateProductionInvoice(editingRowId, {
-        deadline: new Date(editingRowValues.deadline).toISOString(),
-        materialDeadline: new Date(editingRowValues.materialDeadline).toISOString(),
-        stages,
-      })
-      refetch()
-      setEditingRowId(null)
-      setShowSaveConfirm(false)
-    } catch (e: any) {
-      alert(e?.response?.data?.error ?? 'Lỗi lưu')
-    } finally {
-      setSavingRow(false)
-    }
-  }
-
   const handleConfirmProduction = async (id: number) => {
     setConfirmingProdId(id)
     try {
@@ -180,6 +136,58 @@ export default function PIListPage() {
     }
   }
 
+  const openPIEdit = (pi: any) => {
+    const piDeadline = new Date(pi.deadline)
+    const fallback = (daysBack: number) => {
+      const d = new Date(piDeadline); d.setDate(d.getDate() - daysBack); return format(d, 'yyyy-MM-dd')
+    }
+    const stgDate = (item: any, type: string, fb: number) => {
+      const s = Array.isArray(item.stages) ? item.stages.find((x: any) => x.stageType === type) : null
+      return s?.deadline ? format(new Date(s.deadline), 'yyyy-MM-dd') : fallback(fb)
+    }
+    setEditingPI(pi)
+    setEditValues({
+      deadline: format(piDeadline, 'yyyy-MM-dd'),
+      items: (Array.isArray(pi.items) ? pi.items : []).map((item: any) => ({
+        materialDeadline: item.materialDeadline ? format(new Date(item.materialDeadline), 'yyyy-MM-dd') : fallback(21),
+        HAN:     stgDate(item, 'HAN',     14),
+        WEAVING: stgDate(item, 'WEAVING',  8),
+        SON:     stgDate(item, 'SON',       3),
+      })),
+    })
+  }
+
+  const handleSavePI = async () => {
+    if (!editingPI || !editValues.deadline) return
+    setSavingPI(true)
+    try {
+      const updatedItems = (Array.isArray(editingPI.items) ? editingPI.items : []).map((item: any, idx: number) => {
+        const vals = editValues.items[idx]
+        if (!vals) return item
+        const stages: any[] = Array.isArray(item.stages) ? [...item.stages] : []
+        for (const field of ['HAN', 'WEAVING', 'SON'] as const) {
+          const val = vals[field]
+          if (!val) continue
+          const iso = new Date(val).toISOString()
+          const si = stages.findIndex((s: any) => s.stageType === field)
+          if (si >= 0) stages[si] = { ...stages[si], deadline: iso }
+          else stages.push({ stageType: field, deadline: iso, progressPercent: 0, status: 'PENDING' })
+        }
+        return { ...item, materialDeadline: new Date(vals.materialDeadline).toISOString(), stages }
+      })
+      await api.updateProductionInvoice(editingPI.id, {
+        deadline: new Date(editValues.deadline).toISOString(),
+        items: updatedItems,
+      })
+      refetch()
+      setEditingPI(null)
+    } catch (e: any) {
+      alert(e?.response?.data?.error ?? 'Lỗi lưu thời hạn')
+    } finally {
+      setSavingPI(false)
+    }
+  }
+
   if (isLoading) return <div style={{ padding:40, color:'var(--text3)' }}>Đang tải...</div>
   if (error) return (
     <div style={{ padding:40, color:'#c62828', display:'flex', alignItems:'center', gap:8 }}>
@@ -189,179 +197,197 @@ export default function PIListPage() {
 
   return (
     <div>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-        <div>
-          <h2 style={{ margin:0, fontSize:20, fontWeight:700 }}>Lệnh sản xuất (PI)</h2>
-          <p style={{ margin:'4px 0 0', fontSize:13, color:'var(--text3)' }}>{safeList.length} lệnh</p>
-        </div>
-      </div>
 
-      {/* Đơn hàng chờ lên kế hoạch */}
-      {isPlanner && pendingOrders.length > 0 && (
-        <div style={{ marginBottom:20, background:'#fff8e1', border:'1px solid #ffe082', borderRadius:'var(--radius-lg)', padding:16 }}>
-          <div style={{ fontSize:14, fontWeight:700, color:'#e65100', marginBottom:10 }}>
-            📋 Đơn hàng chờ lên kế hoạch ({pendingOrders.length})
-          </div>
-          <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-            {pendingOrders.map((o: any) => (
-              <div key={o.id} style={{ display:'flex', alignItems:'center', gap:12, background:'var(--surface)', borderRadius:'var(--radius)', padding:'10px 14px', border:'1px solid var(--border)' }}>
-                <div style={{ fontWeight:600, fontFamily:'monospace', minWidth:90 }}>{o.poNumber}</div>
-                <div style={{ flex:1, fontSize:13 }}>
-                  <div>Giao {format(new Date(o.deliveryDate), 'dd/MM/yyyy')}</div>
-                  <div style={{ color:'var(--text3)', fontSize:12 }}>
-                    {(o.items ?? []).map((i: any) => `${i.productVariant?.mfgProduct?.name} ×${i.quantity}`).join(', ')}
-                  </div>
-                </div>
-                {o.contractFileUrl && (
-                  <a href={o.contractFileUrl} target="_blank" rel="noreferrer" style={{ color:'#1565c0', display:'inline-flex', alignItems:'center', gap:4, fontSize:13 }}>
-                    <FileText size={14}/> HĐ
-                  </a>
+      {viewingPI ? (
+        /* ── CHI TIẾT PI ─────────────────────────────────────────────────── */
+        (() => {
+          const pi = viewingPI
+          const deadline = new Date(pi.deadline)
+          const fmt = (d: Date) => format(d, 'dd/MM/yy')
+          const items = Array.isArray(pi.items) ? pi.items : []
+          const canConfirmProd = pi.status !== 'PRODUCING' && pi.status !== 'DONE' && pi.status !== 'CANCELLED'
+          const fb = (days: number) => { const d = new Date(deadline); d.setDate(d.getDate() - days); return d }
+          return (
+            <div>
+              {/* Back + actions */}
+              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20, flexWrap:'wrap', rowGap:8 }}>
+                <button onClick={() => setViewingPIId(null)}
+                  style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:13, cursor:'pointer', color:'var(--text2)', fontWeight:500 }}>
+                  <ChevronLeft size={15}/> Danh sách PI
+                </button>
+                <div style={{ flex:1 }} />
+                <button onClick={() => openPIEdit(pi)}
+                  style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'var(--text2)' }}>
+                  <Pencil size={13}/> Sửa thời hạn
+                </button>
+                {canConfirmProd && (
+                  <button onClick={() => setConfirmProdTarget(pi)}
+                    style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
+                    <Play size={13}/> Xác nhận SX
+                  </button>
                 )}
-                <button onClick={() => setViewOrderId(o.id)}
-                  title="Xem chi tiết đơn hàng của Sales"
-                  style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius)', color:'var(--text2)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                  <Package size={14}/> Xem đơn hàng
-                </button>
-                <button onClick={() => handleViewTimeline(o.id)} disabled={timelineLoading}
-                  title="Xem timeline dự kiến trước khi xác nhận"
-                  style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius)', color:'var(--text2)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                  <Eye size={14}/> Timeline
-                </button>
-                <button onClick={() => handleConfirm(o.id)} disabled={confirmingId === o.id}
-                  style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#2e7d32', border:'none', borderRadius:'var(--radius)', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                  <CheckCircle2 size={14}/> {confirmingId === o.id ? 'Đang tạo...' : 'Xác nhận → tạo PI'}
-                </button>
               </div>
-            ))}
+
+              {/* PI header info */}
+              <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20, padding:'14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)' }}>
+                <div>
+                  <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:18 }}>{pi.code}</div>
+                  <div style={{ fontSize:12, color:'var(--text3)', marginTop:3 }}>{pi.exportOrder?.poNumber ?? '—'}</div>
+                </div>
+                <div style={{ width:1, height:36, background:'var(--border)' }} />
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <CalendarClock size={14} color="var(--text3)"/>
+                  <span style={{ fontSize:13, color:'var(--text3)' }}>Hạn giao hàng:</span>
+                  <span style={{ fontWeight:700, fontSize:15 }}>{format(deadline, 'dd/MM/yyyy')}</span>
+                </div>
+                <div style={{ marginLeft:'auto', fontSize:12, color:'var(--text3)', background:'var(--surface2)', padding:'4px 12px', borderRadius:12, border:'1px solid var(--border)' }}>
+                  {items.length} SKU
+                </div>
+              </div>
+
+              {/* SKU timeline */}
+              <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 120px 120px 120px 120px', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
+                  <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>SKU</span>
+                  {['Mua hàng','Khung CK','Đan','Đóng gói'].map(h => (
+                    <span key={h} style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>{h}</span>
+                  ))}
+                </div>
+                {items.length === 0 ? (
+                  <div style={{ padding:40, textAlign:'center', color:'var(--text3)' }}>Không có SKU</div>
+                ) : items.map((item: any, idx: number) => {
+                  const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
+                  const name = item.productVariant?.mfgProduct?.name ?? ''
+                  const color = item.productVariant?.colorCode
+                  const qty  = item.quantity
+                  const isLast = idx === items.length - 1
+                  const iHan  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'HAN')     : null
+                  const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
+                  const iSon  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'SON')     : null
+                  const iMat      = item.materialDeadline ? new Date(item.materialDeadline) : fb(21)
+                  const iHanDate  = iHan  ? new Date(iHan.deadline)  : fb(14)
+                  const iWeavDate = iWeav ? new Date(iWeav.deadline) : fb(8)
+                  const iSonDate  = iSon  ? new Date(iSon.deadline)  : fb(3)
+                  const dc = (d: Date, own: boolean) => (
+                    <div style={{ textAlign:'center' }}>
+                      <div style={{ fontSize:14, fontWeight: own ? 700 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>{fmt(d)}</div>
+                      {!own && <div style={{ fontSize:10, color:'var(--text3)' }}>ước tính</div>}
+                    </div>
+                  )
+                  return (
+                    <div key={idx} style={{ display:'grid', gridTemplateColumns:'1fr 120px 120px 120px 120px', padding:'14px 18px', borderBottom: isLast ? 'none' : '1px solid var(--border)', alignItems:'center' }}>
+                      <div>
+                        <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>{code}</div>
+                        {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
+                        <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap' }}>
+                          {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
+                          {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
+                        </div>
+                      </div>
+                      {dc(iMat,      !!item.materialDeadline)}
+                      {dc(iHanDate,  !!iHan)}
+                      {dc(iWeavDate, !!iWeav)}
+                      {dc(iSonDate,  !!iSon)}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )
+        })()
+      ) : (
+        /* ── DANH SÁCH PI ────────────────────────────────────────────────── */
+        <div>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+            <div>
+              <h2 style={{ margin:0, fontSize:20, fontWeight:700 }}>Lệnh sản xuất (PI)</h2>
+              <p style={{ margin:'4px 0 0', fontSize:13, color:'var(--text3)' }}>{safeList.length} lệnh</p>
+            </div>
+            <div style={{ position:'relative' }}>
+              <Search size={14} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--text3)', pointerEvents:'none' }} />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Tìm mã PI..."
+                style={{ padding:'7px 10px 7px 32px', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, background:'var(--surface)', color:'var(--text)', width:200, outline:'none' }}
+              />
+            </div>
+          </div>
+
+          {/* Đơn hàng chờ lên kế hoạch */}
+          {isPlanner && pendingOrders.length > 0 && (
+            <div style={{ marginBottom:20, background:'#fff8e1', border:'1px solid #ffe082', borderRadius:'var(--radius-lg)', padding:16 }}>
+              <div style={{ fontSize:14, fontWeight:700, color:'#e65100', marginBottom:10 }}>
+                📋 Đơn hàng chờ lên kế hoạch ({pendingOrders.length})
+              </div>
+              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+                {pendingOrders.map((o: any) => (
+                  <div key={o.id} style={{ display:'flex', alignItems:'center', gap:12, background:'var(--surface)', borderRadius:'var(--radius)', padding:'10px 14px', border:'1px solid var(--border)' }}>
+                    <div style={{ fontWeight:600, fontFamily:'monospace', minWidth:90 }}>{o.poNumber}</div>
+                    <div style={{ flex:1, fontSize:13 }}>
+                      <div>Giao {format(new Date(o.deliveryDate), 'dd/MM/yyyy')}</div>
+                      <div style={{ color:'var(--text3)', fontSize:12 }}>
+                        {(o.items ?? []).map((i: any) => `${i.productVariant?.mfgProduct?.name} ×${i.quantity}`).join(', ')}
+                      </div>
+                    </div>
+                    {o.contractFileUrl && (
+                      <a href={o.contractFileUrl} target="_blank" rel="noreferrer" style={{ color:'#1565c0', display:'inline-flex', alignItems:'center', gap:4, fontSize:13 }}>
+                        <FileText size={14}/> HĐ
+                      </a>
+                    )}
+                    <button onClick={() => setViewOrderId(o.id)}
+                      style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius)', color:'var(--text2)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                      <Package size={14}/> Xem đơn hàng
+                    </button>
+                    <button onClick={() => handleViewTimeline(o.id)} disabled={timelineLoading}
+                      style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius)', color:'var(--text2)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                      <Eye size={14}/> Timeline
+                    </button>
+                    <button onClick={() => handleConfirm(o.id)} disabled={confirmingId === o.id}
+                      style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#2e7d32', border:'none', borderRadius:'var(--radius)', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer' }}>
+                      <CheckCircle2 size={14}/> {confirmingId === o.id ? 'Đang tạo...' : 'Xác nhận → tạo PI'}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* PI List */}
+          <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
+            {filteredList.length === 0 && (
+              <div style={{ padding:40, textAlign:'center', color:'var(--text3)', background:'var(--surface)' }}>
+                {search.trim() ? `Không tìm thấy PI khớp "${search.trim()}"` : 'Chưa có lệnh sản xuất nào'}
+              </div>
+            )}
+            {filteredList.map((pi: any, i: number) => {
+              const items = Array.isArray(pi.items) ? pi.items : []
+              const isLast = i === filteredList.length - 1
+              return (
+                <button key={pi.id} onClick={() => setViewingPIId(pi.id)}
+                  style={{ display:'flex', alignItems:'center', gap:14, padding:'13px 16px', width:'100%', background:'var(--surface)', border:'none', borderBottom: isLast ? 'none' : '1px solid var(--border)', cursor:'pointer', textAlign:'left', transition:'background .12s' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}>
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'var(--text)' }}>{pi.code}</div>
+                    <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{pi.exportOrder?.poNumber ?? '—'}</div>
+                  </div>
+                  <div style={{ flex:1 }} />
+                  <div style={{ display:'flex', alignItems:'center', gap:5 }}>
+                    <CalendarClock size={13} color="var(--text3)"/>
+                    <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn giao</span>
+                    <span style={{ fontWeight:700, fontSize:13, color:'var(--text)' }}>{format(new Date(pi.deadline), 'dd/MM/yy')}</span>
+                  </div>
+                  <span style={{ fontSize:12, color:'var(--text3)', background:'var(--surface2)', border:'1px solid var(--border)', padding:'3px 10px', borderRadius:12, whiteSpace:'nowrap' }}>
+                    {items.length} SKU
+                  </span>
+                  <ChevronRight size={16} color="var(--text3)"/>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
-
-      {/* Table */}
-      <div style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', border:'1px solid var(--border)', overflow:'hidden' }}>
-        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, tableLayout:'fixed' }}>
-          <colgroup>
-            <col style={{ width:110 }} />
-            <col />
-            <col style={{ width:98 }} />
-            <col style={{ width:98 }} />
-            <col style={{ width:98 }} />
-            <col style={{ width:98 }} />
-            <col style={{ width:98 }} />
-            <col style={{ width:124 }} />
-            <col style={{ width:112 }} />
-          </colgroup>
-          <thead>
-            <tr style={{ background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
-              <th style={{ padding:'10px 12px', textAlign:'left',   fontWeight:600, color:'var(--text2)', fontSize:12 }}>Mã PI</th>
-              <th style={{ padding:'10px 12px', textAlign:'left',   fontWeight:600, color:'var(--text2)', fontSize:12 }}>SKU</th>
-              <th style={{ padding:'10px 6px',  textAlign:'center', fontWeight:600, color:'var(--text2)', fontSize:12 }}>Hạn giao</th>
-              <th style={{ padding:'10px 6px',  textAlign:'center', fontWeight:600, color:'var(--text2)', fontSize:12 }}>Mua hàng</th>
-              <th style={{ padding:'10px 6px',  textAlign:'center', fontWeight:600, color:'var(--text2)', fontSize:12 }}>Khung cơ khí</th>
-              <th style={{ padding:'10px 6px',  textAlign:'center', fontWeight:600, color:'var(--text2)', fontSize:12 }}>Đan</th>
-              <th style={{ padding:'10px 6px',  textAlign:'center', fontWeight:600, color:'var(--text2)', fontSize:12 }}>Đóng gói</th>
-              <th style={{ padding:'10px 6px',  textAlign:'center', fontWeight:600, color:'var(--text2)', fontSize:12 }}>Cập nhật thời hạn</th>
-              <th style={{ padding:'10px 6px',  textAlign:'center', fontWeight:600, color:'var(--text2)', fontSize:12 }}>Xác nhận</th>
-            </tr>
-          </thead>
-          <tbody>
-            {safeList.map((pi: any) => {
-              const isOverdue = new Date(pi.deadline) < new Date() && pi.status !== 'DONE' && pi.status !== 'CANCELLED'
-              const deadline = new Date(pi.deadline)
-              const getStageDate = (type: string, fallbackDaysBack: number) => {
-                const s = Array.isArray(pi.stages) ? pi.stages.find((s: any) => s.stageType === type) : null
-                if (s?.deadline) return new Date(s.deadline)
-                const d = new Date(deadline)
-                d.setDate(d.getDate() - fallbackDaysBack)
-                return d
-              }
-              const fmt = (d: Date) => format(d, 'dd/MM/yy')
-              const hanStage   = Array.isArray(pi.stages) ? pi.stages.find((s: any) => s.stageType === 'HAN')     : null
-              const weavStage  = Array.isArray(pi.stages) ? pi.stages.find((s: any) => s.stageType === 'WEAVING') : null
-              const sonStage   = Array.isArray(pi.stages) ? pi.stages.find((s: any) => s.stageType === 'SON')     : null
-              const skuItem = Array.isArray(pi.items) ? pi.items[0] : null
-              const skuCode = skuItem?.productVariant?.mfgProduct?.factoryCode ?? '—'
-              const skuName = skuItem?.productVariant?.mfgProduct?.name ?? ''
-              const canConfirmProd = pi.status !== 'PRODUCING' && pi.status !== 'DONE' && pi.status !== 'CANCELLED'
-              const isEditingThis = editingRowId === pi.id
-              const dateInput = (field: string) => (
-                <td style={{ padding:'5px 4px', textAlign:'center' }}>
-                  <input
-                    type="date"
-                    value={editingRowValues[field] ?? ''}
-                    onChange={e => setEditingRowValues(prev => ({ ...prev, [field]: e.target.value }))}
-                    style={{ padding:'3px 4px', border:'1px solid #1976d2', borderRadius:4, fontSize:11, width:'100%', boxSizing:'border-box', background:'var(--surface)', color:'var(--text)' }}
-                  />
-                </td>
-              )
-              const dateDisplay = (date: Date, fromStage: boolean, extra?: React.ReactNode) => (
-                <td style={{ padding:'12px 6px', fontSize:12, whiteSpace:'nowrap', textAlign:'center', color: fromStage ? 'var(--text)' : 'var(--text3)' }}>
-                  {fmt(date)}{extra}
-                </td>
-              )
-              return (
-                <tr key={pi.id} style={{ borderBottom:'1px solid var(--border)', background: isEditingThis ? '#f0f7ff' : 'transparent' }}>
-                  <td style={{ padding:'12px 14px', fontWeight:600, fontFamily:'monospace' }}>{pi.code}</td>
-                  <td style={{ padding:'12px 14px' }}>
-                    <span style={{ fontWeight:600, fontFamily:'monospace', fontSize:12 }}>{skuCode}</span>
-                    {skuName && <span style={{ marginLeft:6, color:'var(--text3)', fontSize:12 }}>{skuName}</span>}
-                  </td>
-                  {isEditingThis ? dateInput('deadline') : dateDisplay(deadline, true,
-                    isOverdue ? <span style={{ marginLeft:6, fontSize:11, background:'#ffebee', color:'#c62828', padding:'1px 6px', borderRadius:20 }}>Trễ</span> : null
-                  )}
-                  {isEditingThis ? dateInput('materialDeadline') : dateDisplay(pi.materialDeadline ? new Date(pi.materialDeadline) : getStageDate('MATERIAL', 21), !!pi.materialDeadline)}
-                  {isEditingThis ? dateInput('HAN')     : dateDisplay(getStageDate('HAN',     14), !!hanStage)}
-                  {isEditingThis ? dateInput('WEAVING') : dateDisplay(getStageDate('WEAVING',  8), !!weavStage)}
-                  {isEditingThis ? dateInput('SON')     : dateDisplay(getStageDate('SON',       3), !!sonStage)}
-                  <td style={{ padding:'12px 14px' }}>
-                    {isEditingThis ? (
-                      <div style={{ display:'flex', gap:6 }}>
-                        <button
-                          onClick={() => setShowSaveConfirm(true)}
-                          style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'5px 12px', background:'#1976d2', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', color:'#fff', whiteSpace:'nowrap' }}
-                        >
-                          <CheckCircle2 size={13}/> Lưu
-                        </button>
-                        <button
-                          onClick={() => setEditingRowId(null)}
-                          style={{ padding:'5px 10px', background:'transparent', border:'1px solid var(--border)', borderRadius:6, fontSize:12, cursor:'pointer', color:'var(--text2)' }}
-                        >
-                          Hủy
-                        </button>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => startRowEdit(pi)}
-                        style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'5px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', color:'var(--text2)', whiteSpace:'nowrap' }}
-                      >
-                        Sửa
-                      </button>
-                    )}
-                  </td>
-                  <td style={{ padding:'12px 14px' }}>
-                    {!isEditingThis && canConfirmProd && (
-                      <button
-                        onClick={() => setConfirmProdTarget(pi)}
-                        disabled={confirmingProdId === pi.id}
-                        style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'5px 10px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor: confirmingProdId === pi.id ? 'not-allowed' : 'pointer', color:'#fff', opacity: confirmingProdId === pi.id ? 0.7 : 1, whiteSpace:'nowrap' }}
-                      >
-                      {confirmingProdId === pi.id ? '...' : 'Xác nhận'}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              )
-            })}
-            {safeList.length === 0 && (
-              <tr>
-                <td colSpan={9} style={{ padding:'40px', textAlign:'center', color:'var(--text3)' }}>
-                  Chưa có lệnh sản xuất nào
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
 
       {viewOrderId !== null && (
         <ExportOrderDetailModal orderId={viewOrderId} onClose={() => setViewOrderId(null)} />
@@ -420,32 +446,47 @@ export default function PIListPage() {
               </div>
             )}
 
-            {/* Thời gian */}
-            {(() => {
-              const pDl = new Date(confirmProdTarget.deadline)
-              const fb = (days: number) => { const d = new Date(pDl); d.setDate(d.getDate() - days); return d.toISOString() }
-              const stg = (type: string) => confirmProdTarget.stages?.find((s: any) => s.stageType === type)?.deadline ?? null
-              const rows = [
-                { label:'Hạn giao',     val: confirmProdTarget.deadline,                   explicit: true },
-                { label:'Mua hàng',     val: confirmProdTarget.materialDeadline ?? fb(21), explicit: !!confirmProdTarget.materialDeadline },
-                { label:'Khung cơ khí', val: stg('HAN')     ?? fb(14),                    explicit: !!stg('HAN') },
-                { label:'Đan',          val: stg('WEAVING')  ?? fb(8),                     explicit: !!stg('WEAVING') },
-                { label:'Đóng gói',     val: stg('SON')      ?? fb(3),                     explicit: !!stg('SON') },
-              ]
-              return (
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:20 }}>
-                  {rows.map(({ label, val, explicit }) => (
-                    <div key={label} style={{ background:'var(--surface2)', borderRadius:8, padding:'8px 12px' }}>
-                      <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>{label}</div>
-                      <div style={{ fontSize:13, fontWeight: explicit ? 600 : 400, color: explicit ? 'var(--text)' : 'var(--text3)' }}>
-                        {format(new Date(val), 'dd/MM/yyyy')}
-                        {!explicit && <span style={{ fontSize:10, marginLeft:4 }}>(ước tính)</span>}
-                      </div>
+            {/* Timeline per SKU */}
+            <div style={{ marginBottom:20 }}>
+              <div style={{ background:'var(--surface2)', borderRadius:8, padding:'8px 14px', marginBottom:8, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span style={{ fontSize:11, color:'var(--text3)', fontWeight:600 }}>Hạn giao hàng (PI)</span>
+                <span style={{ fontWeight:700, fontSize:13, color: new Date(confirmProdTarget.deadline) < new Date() ? '#c62828' : 'var(--text)' }}>
+                  {format(new Date(confirmProdTarget.deadline), 'dd/MM/yyyy')}
+                </span>
+              </div>
+              {(confirmProdTarget.items ?? []).map((item: any, i: number) => {
+                const pDl  = new Date(confirmProdTarget.deadline)
+                const fb   = (days: number) => { const d = new Date(pDl); d.setDate(d.getDate() - days); return d }
+                const iHan  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'HAN')     : null
+                const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
+                const iSon  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'SON')     : null
+                const cols = [
+                  { label:'Mua hàng',  val: item.materialDeadline ? new Date(item.materialDeadline) : fb(21), own: !!item.materialDeadline },
+                  { label:'Khung cơ khí',  val: iHan  ? new Date(iHan.deadline)  : fb(14), own: !!iHan },
+                  { label:'Đan',       val: iWeav ? new Date(iWeav.deadline) : fb(8),  own: !!iWeav },
+                  { label:'Đóng gói',  val: iSon  ? new Date(iSon.deadline)  : fb(3),  own: !!iSon },
+                ]
+                return (
+                  <div key={i} style={{ border:'1px solid var(--border)', borderRadius:8, overflow:'hidden', marginBottom: i < (confirmProdTarget.items.length - 1) ? 8 : 0 }}>
+                    <div style={{ background:'var(--surface2)', padding:'5px 12px', fontSize:11, fontWeight:700, color:'#0369a1', fontFamily:'monospace' }}>
+                      {item.productVariant?.mfgProduct?.factoryCode ?? '—'}
+                      <span style={{ fontFamily:'sans-serif', fontWeight:400, color:'var(--text3)', marginLeft:8 }}>{item.productVariant?.mfgProduct?.name}</span>
                     </div>
-                  ))}
-                </div>
-              )
-            })()}
+                    <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)' }}>
+                      {cols.map(({ label, val, own }, ci) => (
+                        <div key={label} style={{ padding:'8px 10px', borderRight: ci < 3 ? '1px solid var(--border)' : undefined }}>
+                          <div style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>{label}</div>
+                          <div style={{ fontSize:12, fontWeight: own ? 600 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>
+                            {format(val, 'dd/MM/yy')}
+                            {!own && <span style={{ fontSize:9, display:'block' }}>ước tính</span>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
 
             <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
               <button onClick={() => setConfirmProdTarget(null)} disabled={!!confirmingProdId}
@@ -461,40 +502,81 @@ export default function PIListPage() {
         </div>
       )}
 
-      {/* Xác nhận lưu deadline */}
-      {showSaveConfirm && editingRowId !== null && (
-        <div onClick={() => setShowSaveConfirm(false)}
-          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+      {/* Modal sửa timeline PI */}
+      {editingPI && (
+        <div onClick={() => { if (!savingPI) setEditingPI(null) }}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
           <div onClick={e => e.stopPropagation()}
-            style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:24, width:380, boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
-            <h3 style={{ margin:'0 0 8px', fontSize:15, fontWeight:700 }}>Xác nhận lưu thay đổi</h3>
-            <p style={{ margin:'0 0 16px', fontSize:13, color:'var(--text2)' }}>
-              Lưu tất cả thời hạn mới cho mã <strong style={{ fontFamily:'monospace' }}>{safeList.find((p: any) => p.id === editingRowId)?.code}</strong>?
-            </p>
-            <div style={{ display:'grid', gap:6, fontSize:12, color:'var(--text2)', marginBottom:20, padding:'10px 12px', background:'var(--surface2)', borderRadius:8 }}>
-              {[
-                ['Hạn giao',    'deadline'],
-                ['Hạn mua hàng',    'materialDeadline'],
-                ['Hạn khung cơ khí','HAN'],
-                ['Hạn đan',         'WEAVING'],
-                ['Hạn đóng gói',    'SON'],
-              ].map(([label, field]) => (
-                <div key={field} style={{ display:'flex', justifyContent:'space-between' }}>
-                  <span>{label}</span>
-                  <strong style={{ fontFamily:'monospace' }}>
-                    {editingRowValues[field] ? format(new Date(editingRowValues[field]), 'dd/MM/yyyy') : '—'}
-                  </strong>
-                </div>
-              ))}
+            style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:28, width:560, maxWidth:'95vw', maxHeight:'90vh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
+
+            {/* Header */}
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+              <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
+                <CalendarClock size={16} color="#1976d2"/> Sửa thời hạn — <span style={{ fontFamily:'monospace' }}>{editingPI.code}</span>
+              </h3>
+              <button onClick={() => setEditingPI(null)} disabled={savingPI}
+                style={{ padding:4, background:'transparent', border:'none', cursor:'pointer' }}>
+                <X size={18} color="var(--text3)"/>
+              </button>
             </div>
+
+            {/* Hạn giao PI */}
+            <div style={{ marginBottom:20, display:'flex', alignItems:'center', gap:12, background:'var(--surface2)', borderRadius:8, padding:'10px 14px' }}>
+              <span style={{ fontSize:13, fontWeight:600, flex:1 }}>Hạn giao hàng (PI)</span>
+              <input type="date" value={editValues.deadline}
+                onChange={e => setEditValues(prev => ({ ...prev, deadline: e.target.value }))}
+                style={{ padding:'5px 8px', border:'1px solid #1976d2', borderRadius:6, fontSize:13, background:'var(--surface)', color:'var(--text)' }}
+              />
+            </div>
+
+            {/* SKU timelines */}
+            <div style={{ display:'flex', flexDirection:'column', gap:12, marginBottom:24 }}>
+              {(Array.isArray(editingPI.items) ? editingPI.items : []).map((item: any, idx: number) => {
+                const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
+                const name = item.productVariant?.mfgProduct?.name ?? ''
+                const qty  = item.quantity
+                const vals = editValues.items[idx] ?? { materialDeadline:'', HAN:'', WEAVING:'', SON:'' }
+                const setField = (field: string, val: string) =>
+                  setEditValues(prev => ({
+                    ...prev,
+                    items: prev.items.map((it, i) => i === idx ? { ...it, [field]: val } : it),
+                  }))
+                const dateInput = (label: string, field: string) => (
+                  <div style={{ flex:1 }}>
+                    <div style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:4 }}>{label}</div>
+                    <input type="date" value={vals[field as keyof typeof vals] ?? ''}
+                      onChange={e => setField(field, e.target.value)}
+                      style={{ width:'100%', padding:'5px 6px', border:'1px solid var(--border)', borderRadius:5, fontSize:12, background:'var(--surface)', color:'var(--text)', boxSizing:'border-box' }}
+                    />
+                  </div>
+                )
+                return (
+                  <div key={idx} style={{ border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
+                    <div style={{ background:'var(--surface2)', padding:'7px 12px', display:'flex', alignItems:'center', gap:8 }}>
+                      <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1' }}>{code}</span>
+                      {name && <span style={{ fontSize:12, color:'var(--text2)' }}>{name}</span>}
+                      {qty != null && <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text3)', background:'var(--surface)', padding:'1px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
+                    </div>
+                    <div style={{ padding:'12px', display:'flex', gap:8 }}>
+                      {dateInput('Mua hàng',    'materialDeadline')}
+                      {dateInput('Khung cơ khí', 'HAN')}
+                      {dateInput('Đan',          'WEAVING')}
+                      {dateInput('Đóng gói',     'SON')}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Actions */}
             <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
-              <button onClick={() => setShowSaveConfirm(false)} disabled={savingRow}
-                style={{ padding:'8px 16px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor:'pointer', color:'var(--text2)' }}>
+              <button onClick={() => setEditingPI(null)} disabled={savingPI}
+                style={{ padding:'9px 18px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor: savingPI ? 'not-allowed' : 'pointer', color:'var(--text2)' }}>
                 Hủy
               </button>
-              <button onClick={handleSaveRow} disabled={savingRow}
-                style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 18px', background:'#1976d2', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:600, cursor: savingRow ? 'not-allowed' : 'pointer', color:'#fff', opacity: savingRow ? 0.7 : 1 }}>
-                <CheckCircle2 size={14}/> {savingRow ? 'Đang lưu...' : 'Xác nhận lưu'}
+              <button onClick={handleSavePI} disabled={savingPI}
+                style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background:'#1976d2', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: savingPI ? 'not-allowed' : 'pointer', color:'#fff', opacity: savingPI ? 0.7 : 1 }}>
+                {savingPI ? 'Đang lưu...' : 'Lưu'}
               </button>
             </div>
           </div>
@@ -509,7 +591,7 @@ export default function PIListPage() {
             style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:24, width:480, maxWidth:'92vw', maxHeight:'85vh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
               <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
-                <CalendarClock size={18} color="#e65100"/> {editMode ? 'Chỉnh sửa timeline' : 'Timeline dự kiến'}
+                <CalendarClock size={18} color="#e65100"/> {editMode ? 'Chỉnh sửa thời hạn' : 'Thời hạn dự kiến'}
               </h3>
               <button onClick={closeTimeline} style={{ padding:4, background:'transparent', border:'none', cursor:'pointer' }}>
                 <X size={18} color="var(--text3)"/>
@@ -594,7 +676,7 @@ export default function PIListPage() {
                   {isPlanner && (
                     <button onClick={startEditTimeline}
                       style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', background:'#e65100', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
-                      <Pencil size={14}/> Chỉnh sửa timeline
+                      <Pencil size={14}/> Chỉnh sửa thời hạn
                     </button>
                   )}
                 </>

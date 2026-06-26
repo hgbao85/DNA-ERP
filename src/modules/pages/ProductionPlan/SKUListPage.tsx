@@ -2,7 +2,7 @@ import { useState, Fragment } from 'react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import { ChevronLeft, Loader2, Trash2 } from 'lucide-react'
+import { ChevronLeft, Loader2, Search, Trash2 } from 'lucide-react'
 import type { PlanForm } from '../../../types/plan-form'
 
 export default function SKUListPage() {
@@ -14,13 +14,18 @@ export default function SKUListPage() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [showConfirm, setShowConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [search, setSearch] = useState('')
 
   const approved = ((planForms ?? []) as PlanForm[]).filter(pf => pf.status === 'APPROVED')
+  const q = search.trim().toLowerCase()
+  const displayed = q
+    ? approved.filter(pf => [pf.mfgProduct?.factoryCode, pf.mfgProduct?.name, pf.customerName].some(v => v?.toLowerCase().includes(q)))
+    : approved
 
   const toggleSelect = (id: number) =>
     setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   const toggleAll = () =>
-    setSelectedIds(prev => prev.size === approved.length ? new Set() : new Set(approved.map(p => p.id)))
+    setSelectedIds(prev => prev.size === displayed.length ? new Set() : new Set(displayed.map(p => p.id)))
 
   const exitDeleteMode = () => { setDeleteMode(false); setSelectedIds(new Set()); setShowConfirm(false) }
 
@@ -61,7 +66,7 @@ export default function SKUListPage() {
     )
   }
 
-  const allChecked = approved.length > 0 && selectedIds.size === approved.length
+  const allChecked = displayed.length > 0 && selectedIds.size === displayed.length
   const someChecked = selectedIds.size > 0 && !allChecked
 
   return (
@@ -100,6 +105,18 @@ export default function SKUListPage() {
         )}
       </div>
 
+      {/* Searchbar */}
+      <div style={{ position: 'relative', maxWidth: 360, marginBottom: 14 }}>
+        <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Tìm SKU, tên sản phẩm, khách hàng..."
+          style={{ width: '100%', paddingLeft: 32, paddingRight: 10, paddingTop: 7, paddingBottom: 7, fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box', outline: 'none' }}
+        />
+      </div>
+
       {isLoading ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text2)' }}>
           <Loader2 size={18} /> Đang tải...
@@ -136,7 +153,7 @@ export default function SKUListPage() {
               </tr>
             </thead>
             <tbody>
-              {approved.map((pf) => {
+              {displayed.map((pf) => {
                 const isChecked = selectedIds.has(pf.id)
                 return (
                   <Fragment key={pf.id}>
@@ -178,10 +195,10 @@ export default function SKUListPage() {
                   </Fragment>
                 )
               })}
-              {approved.length === 0 && (
+              {displayed.length === 0 && (
                 <tr>
                   <td colSpan={deleteMode ? 6 : 5} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
-                    Chưa có SKU nào được duyệt
+                    {q ? 'Không tìm thấy kết quả' : 'Chưa có SKU nào được duyệt'}
                   </td>
                 </tr>
               )}
@@ -270,6 +287,9 @@ function PlanFormDetail({
   const [checkState, setCheckState] = useState<CheckState>('idle')
   const [missingMats, setMissingMats] = useState<{ name: string; required: number; unit: string; available: number }[]>([])
   const [showBuyModal, setShowBuyModal] = useState(false)
+  const [showSendModal, setShowSendModal] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [sending, setSending] = useState(false)
 
   const handleCheck = async () => {
     setCheckState('checking')
@@ -308,6 +328,14 @@ function PlanFormDetail({
     if (!rejectModal) return
     setSecStatus(p => ({ ...p, [rejectModal.key]: { status: 'REJECTED', at: new Date(), reason: rejectReason.trim() || undefined } }))
     setRejectModal(null)
+  }
+
+  const handleSend = async () => {
+    setSending(true)
+    await new Promise(r => setTimeout(r, 700))
+    setSending(false)
+    setSent(true)
+    setShowSendModal(false)
   }
 
   return (
@@ -431,7 +459,10 @@ function PlanFormDetail({
 
           {/* Buttons góc dưới phải */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-            {checkState === 'ok' && (
+            {sent && (
+              <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã gửi đi nhập mảnh thành công</span>
+            )}
+            {checkState === 'ok' && !sent && (
               <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đủ vật tư, sẵn sàng sản xuất</span>
             )}
             {!allApproved && (
@@ -445,13 +476,14 @@ function PlanFormDetail({
             )}
             <button
               onClick={handleCheck}
-              disabled={!allApproved || checkState === 'checking'}
-              style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #2563eb', background: allApproved ? '#eff6ff' : '#f3f4f6', color: allApproved ? '#2563eb' : '#9ca3af', cursor: allApproved ? 'pointer' : 'not-allowed', opacity: checkState === 'checking' ? 0.6 : 1 }}
+              disabled={!allApproved || checkState === 'checking' || sent}
+              style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #2563eb', background: allApproved && !sent ? '#eff6ff' : '#f3f4f6', color: allApproved && !sent ? '#2563eb' : '#9ca3af', cursor: allApproved && !sent ? 'pointer' : 'not-allowed', opacity: checkState === 'checking' ? 0.6 : 1 }}
             >{checkState === 'checking' ? 'Đang kiểm...' : 'Kiểm vật tư'}</button>
             <button
-              disabled={checkState !== 'ok'}
-              style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: checkState === 'ok' ? 'pointer' : 'not-allowed', background: checkState === 'ok' ? '#16a34a' : '#e5e7eb', color: checkState === 'ok' ? '#fff' : '#9ca3af' }}
-            >Gửi đi nhập mảnh</button>
+              disabled={checkState !== 'ok' || sent}
+              onClick={() => setShowSendModal(true)}
+              style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: checkState === 'ok' && !sent ? 'pointer' : 'not-allowed', background: checkState === 'ok' && !sent ? '#16a34a' : '#e5e7eb', color: checkState === 'ok' && !sent ? '#fff' : '#9ca3af' }}
+            >{sent ? 'Đã gửi' : 'Gửi đi nhập mảnh'}</button>
           </div>
 
           {/* Danh sách vật tư thiếu */}
@@ -540,6 +572,129 @@ function PlanFormDetail({
                 onClick={() => { alert('Đã tạo đề xuất mua hàng thành công!'); setShowBuyModal(false) }}
                 style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#e65100', color: '#fff' }}
               >Xác nhận tạo đề xuất</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal xác nhận gửi đi nhập mảnh */}
+      <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>
+      {showSendModal && mt && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={e => { if (e.target === e.currentTarget && !sending) setShowSendModal(false) }}
+        >
+          <div style={{ background: 'var(--surface)', borderRadius: 14, width: '100%', maxWidth: 600, maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 12px 48px rgba(0,0,0,.24)', display: 'flex', flexDirection: 'column' }}>
+            {/* Header */}
+            <div style={{ padding: '18px 22px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#f0fdf4', borderRadius: '14px 14px 0 0' }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: '#15803d' }}>Xác nhận gửi đi nhập mảnh</div>
+                <div style={{ fontSize: 12, color: '#4ade80', marginTop: 2 }}>Kiểm tra lại toàn bộ thông tin trước khi gửi</div>
+              </div>
+              <button onClick={() => setShowSendModal(false)} disabled={sending}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text3)', display: 'flex' }}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Thông tin SKU */}
+              <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: '12px 16px' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>Thông tin định mức</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 24px', fontSize: 13 }}>
+                  <div><span style={{ color: 'var(--text3)' }}>Mã nhà máy: </span><strong style={{ fontFamily: 'monospace', color: '#0369a1' }}>{pf.mfgProduct?.factoryCode ?? '—'}</strong></div>
+                  <div><span style={{ color: 'var(--text3)' }}>Sản phẩm: </span><strong>{pf.mfgProduct?.name ?? '—'}</strong></div>
+                  <div><span style={{ color: 'var(--text3)' }}>Lệnh SX / PO: </span><strong style={{ fontFamily: 'monospace' }}>{pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`}</strong></div>
+                  {pf.exportOrder?.deliveryDate && (
+                    <div><span style={{ color: 'var(--text3)' }}>Hạn giao: </span><strong>{format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy')}</strong></div>
+                  )}
+                  <div><span style={{ color: 'var(--text3)' }}>Ngày tạo: </span><strong>{format(new Date(pf.createdAt), 'dd/MM/yyyy')}</strong></div>
+                  {pf.createdBy && <div><span style={{ color: 'var(--text3)' }}>Người tạo: </span><strong>{pf.createdBy.name}</strong></div>}
+                </div>
+              </div>
+
+              {/* Trạng thái duyệt */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>Trạng thái duyệt vật tư</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {([
+                    ['sat',          'Sắt',              '#b45309', '#fef3c7'],
+                    ['daySon',       'Dây / Sơn',        '#1d4ed8', '#eff6ff'],
+                    ['vatTuPhuKien', 'Vật tư phụ kiện',  '#6d28d9', '#ede9fe'],
+                    ['baoBiDongGoi', 'Bao bì đóng gói',  '#065f46', '#d1fae5'],
+                  ] as [keyof typeof secStatus, string, string, string][]).map(([k, label, color, bg]) => {
+                    const e = secStatus[k]
+                    return (
+                      <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: bg }}>
+                        <span style={{ fontSize: 14, color: '#16a34a' }}>✓</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color }}>{label}</div>
+                          {e?.at && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 1 }}>Duyệt lúc {format(e.at, 'HH:mm dd/MM/yy')}</div>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Danh sách vật tư */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                  Danh sách vật tư sẽ gửi nhập mảnh
+                </div>
+                <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                  {([
+                    ['sat',          'Sắt',              '#b45309', '#fef3c7', Array.isArray(mt.sat) ? mt.sat : []],
+                    ['daySon',       'Dây / Sơn',        '#1d4ed8', '#eff6ff', Array.isArray(mt.daySon) ? mt.daySon : []],
+                    ['vatTuPhuKien', 'Vật tư phụ kiện',  '#6d28d9', '#ede9fe', Array.isArray(mt.vatTuPhuKien) ? mt.vatTuPhuKien : []],
+                    ['baoBiDongGoi', 'Bao bì đóng gói',  '#065f46', '#d1fae5', Array.isArray(mt.baoBiDongGoi) ? mt.baoBiDongGoi : []],
+                  ] as [string, string, string, string, any[]][]).map(([key, label, color, bg, items], gi) => items.length === 0 ? null : (
+                    <div key={key} style={{ borderTop: gi === 0 ? 'none' : '1px solid var(--border)' }}>
+                      <div style={{ background: bg, padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color }}>{label}</span>
+                        <span style={{ fontSize: 11, color, opacity: 0.6 }}>({items.length} loại)</span>
+                      </div>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                        <tbody>
+                          {items.map((item: any, idx: number) => {
+                            const qty = key === 'daySon'
+                              ? (item.kg != null ? `${item.kg} kg` : (item.unit ?? '—'))
+                              : (item.quantity != null ? `${item.quantity} ${item.unit ?? ''}`.trim() : (item.unit ?? '—'))
+                            return (
+                              <tr key={idx} style={{ borderTop: '1px solid var(--border)' }}>
+                                <td style={{ padding: '7px 14px', fontWeight: 500, width: '40%' }}>{item.name}</td>
+                                <td style={{ padding: '7px 14px', color: 'var(--text3)', width: '45%', fontSize: 11 }}>
+                                  {[item.specifications, item.thickness != null ? `dày ${item.thickness}mm` : null].filter(Boolean).join(', ') || '—'}
+                                </td>
+                                <td style={{ padding: '7px 14px', textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap', color: '#0369a1' }}>{qty}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Ghi chú */}
+              <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#92400e' }}>
+                Sau khi xác nhận, yêu cầu nhập mảnh sẽ được chuyển đến bộ phận cơ khí để tiến hành cắt và uốn phôi theo định mức trên.
+              </div>
+            </div>
+
+            {/* Footer actions */}
+            <div style={{ padding: '14px 22px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface)' }}>
+              <button onClick={() => setShowSendModal(false)} disabled={sending} style={btnSecondary}>Hủy</button>
+              <button
+                onClick={handleSend}
+                disabled={sending}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '9px 22px', fontSize: 13, fontWeight: 700, borderRadius: 8, border: 'none', cursor: sending ? 'not-allowed' : 'pointer', background: sending ? '#86efac' : '#16a34a', color: '#fff', opacity: sending ? 0.8 : 1 }}
+              >
+                {sending
+                  ? <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ animation: 'spin 1s linear infinite' }}><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Đang gửi...</>
+                  : 'Xác nhận gửi đi nhập mảnh'}
+              </button>
             </div>
           </div>
         </div>

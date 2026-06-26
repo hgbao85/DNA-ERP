@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, FileText, PackageCheck, MapPin, ArrowDownToLine, ClipboardCheck, Box, PackagePlus, History, FilePlus, Users, CalendarClock } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import PIListPage from './PIListPage'
-import MfgStageBoardPage from './MfgStageBoardPage'
 import MfgSetupPage from './MfgSetupPage'
 import SpecSteelPage from './SpecSteelPage'
 import SpecWirePaintPage from './SpecWirePaintPage'
@@ -21,7 +20,8 @@ import DongGoiPage from './DongGoiPage'
 import WeavingPointsPage from './WeavingPointsPage'
 import LichSuNhapDanPage from './LichSuNhapDanPage'
 import QuanLyDiemDanPage from './QuanLyDiemDanPage'
-import ThongKePage from '../Manufacturing/ThongKePage'
+import ThongKePage from './ThongKePage'
+
 
 interface MfgAppProps {
   onBack?: () => void // chỉ truyền cho giám đốc (có nhiều phân hệ); prodmgr/thợ bị khóa trong MES

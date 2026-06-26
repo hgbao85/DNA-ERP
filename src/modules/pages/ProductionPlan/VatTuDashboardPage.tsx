@@ -165,24 +165,15 @@ export default function VatTuDashboardPage() {
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh sách Vật tư đăng ký</h2>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh sách chi tiết/vật tư đã được đăng ký</h2>
         <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text2)' }}>
-          Tổng hợp vật tư từ tất cả định mức — {items.length}/{allItems.length} mục
+          Tổng số lượng {allItems.length}
         </p>
       </div>
 
       <>
       {/* Search + filter */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 14, flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: '1 1 240px', maxWidth: 360 }}>
-          <Search size={14} style={{ position: 'absolute', left: 10, top: 10, color: 'var(--text3)' }} />
-          <input
-            value={q}
-            onChange={e => setQ(e.target.value)}
-            placeholder="Tìm tên vật tư, sản phẩm, PO…"
-            style={{ width: '100%', padding: '9px 12px 9px 32px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box' }}
-          />
-        </div>
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {FILTER_TABS.map(ft => {
             const active = filterCat === ft.id
@@ -201,6 +192,15 @@ export default function VatTuDashboardPage() {
               >{ft.label}</button>
             )
           })}
+        </div>
+        <div style={{ position: 'relative', width: 280 }}>
+          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
+          <input
+            value={q}
+            onChange={e => setQ(e.target.value)}
+            placeholder="Tìm tên vật tư, sản phẩm, PO…"
+            style={{ width: '100%', padding: '7px 12px 7px 32px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box', outline: 'none' }}
+          />
         </div>
       </div>
 

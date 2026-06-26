@@ -386,45 +386,136 @@ export const seedExportOrders = [
 ];
 
 export const seedProductionInvoices = [
+  // Đang sản xuất — lọc ra ở PIListPage (status PRODUCING), dùng để test các API khác
   {
-    id: 1, code: 'PI-2026-001', deadline: ISO('2026-08-01'), materialDeadline: ISO('2026-06-15'),
+    id: 1, code: 'PI-2026-001', deadline: ISO('2026-08-01'),
     status: 'PRODUCING', exportOrderId: 1,
     exportOrder: { poNumber: 'PO-MY-001', contractFileUrl: null },
-    items: [{ quantity: 500, productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } } }],
-    stages: [
-      { stageType: 'PHOI', progressPercent: 100, status: 'DONE', deadline: ISO('2026-06-01') },
-      { stageType: 'HAN', progressPercent: 60, status: 'IN_PROGRESS', deadline: ISO('2026-06-20') },
-      { stageType: 'SON', progressPercent: 0, status: 'PENDING', deadline: ISO('2026-07-01') },
-    ],
+    items: [{
+      quantity: 500, materialDeadline: ISO('2026-06-15'),
+      stages: [
+        { stageType: 'HAN', progressPercent: 60, status: 'IN_PROGRESS', deadline: ISO('2026-06-20') },
+        { stageType: 'SON', progressPercent: 0,  status: 'PENDING',     deadline: ISO('2026-07-01') },
+      ],
+      productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
+    }],
     createdBy: { name: 'Quản lý SX Hùng' },
   },
+  // 1 SKU — đủ stages tường minh
   {
-    id: 2, code: 'PI-2026-002', deadline: ISO('2026-09-01'), materialDeadline: ISO('2026-07-01'),
+    id: 2, code: 'PI-2026-002', deadline: ISO('2026-09-01'),
     status: 'PLANNING', exportOrderId: 2,
     exportOrder: { poNumber: 'PO-GP-002', contractFileUrl: null },
-    items: [{ quantity: 300, productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } } }],
-    stages: [
-      { stageType: 'PHOI',    progressPercent: 0, status: 'PENDING', deadline: ISO('2026-07-10') },
-      { stageType: 'HAN',     progressPercent: 0, status: 'PENDING', deadline: ISO('2026-07-28') },
-      { stageType: 'WEAVING', progressPercent: 0, status: 'PENDING', deadline: ISO('2026-08-15') },
-      { stageType: 'SON',     progressPercent: 0, status: 'PENDING', deadline: ISO('2026-08-25') },
-    ],
+    items: [{
+      quantity: 300, materialDeadline: ISO('2026-07-01'),
+      stages: [
+        { stageType: 'HAN',     deadline: ISO('2026-07-28') },
+        { stageType: 'WEAVING', deadline: ISO('2026-08-15') },
+        { stageType: 'SON',     deadline: ISO('2026-08-25') },
+      ],
+      productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } },
+    }],
     createdBy: { name: 'Quản lý SX Hùng' },
   },
+  // 1 SKU — chỉ có HAN + SON (không có WEAVING), ngày ước tính sẽ hiện nhạt
   {
-    id: 3, code: 'PI-2026-003', deadline: ISO('2026-09-15'), materialDeadline: ISO('2026-06-20'),
+    id: 3, code: 'PI-2026-003', deadline: ISO('2026-09-15'),
     status: 'PLANNING', exportOrderId: 2,
     exportOrder: { poNumber: 'PO-GP-002', contractFileUrl: null },
-    items: [{ quantity: 200, productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } } }],
-    stages: [{ stageType: 'PHOI', progressPercent: 0, status: 'PENDING' }],
+    items: [{
+      quantity: 200, materialDeadline: ISO('2026-07-10'),
+      stages: [
+        { stageType: 'HAN', deadline: ISO('2026-08-01') },
+        { stageType: 'SON', deadline: ISO('2026-09-05') },
+      ],
+      productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
+    }],
     createdBy: { name: 'Quản lý SX Hùng' },
   },
+  // 1 SKU — không set gì cả, tất cả hiện ước tính (nhạt)
   {
-    id: 4, code: 'PI-2026-004', deadline: ISO('2026-10-30'), materialDeadline: ISO('2026-08-15'),
+    id: 4, code: 'PI-2026-004', deadline: ISO('2026-10-30'),
     status: 'PLANNING', exportOrderId: 3,
     exportOrder: { poNumber: 'PO-IK-003', contractFileUrl: null },
-    items: [{ quantity: 800, productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } } }],
-    stages: [{ stageType: 'PHOI', progressPercent: 0, status: 'PENDING' }],
+    items: [{
+      quantity: 800,
+      stages: [],
+      productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
+    }],
+    createdBy: { name: 'Quản lý SX Hùng' },
+  },
+  // 3 SKU — mỗi SKU có timeline riêng, deadline PI là hạn giao chung
+  {
+    id: 5, code: 'PI-2026-005', deadline: ISO('2026-09-30'),
+    status: 'PLANNING', exportOrderId: 4,
+    exportOrder: { poNumber: 'PO-EU-005', contractFileUrl: null },
+    items: [
+      {
+        quantity: 400, materialDeadline: ISO('2026-07-10'),
+        stages: [
+          { stageType: 'HAN',     deadline: ISO('2026-07-28') },
+          { stageType: 'WEAVING', deadline: ISO('2026-08-20') },
+          { stageType: 'SON',     deadline: ISO('2026-09-10') },
+        ],
+        productVariant: { colorCode: 'BEIGE', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
+      },
+      {
+        quantity: 250, materialDeadline: ISO('2026-07-20'),
+        stages: [
+          { stageType: 'HAN',     deadline: ISO('2026-08-10') },
+          { stageType: 'WEAVING', deadline: ISO('2026-09-01') },
+          { stageType: 'SON',     deadline: ISO('2026-09-22') },
+        ],
+        productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } },
+      },
+      {
+        quantity: 150, materialDeadline: ISO('2026-06-30'),
+        stages: [
+          { stageType: 'HAN', deadline: ISO('2026-07-20') },
+          { stageType: 'SON', deadline: ISO('2026-08-25') },
+        ],
+        productVariant: { colorCode: 'WHITE', mfgProduct: { name: 'Bàn đan T-08', factoryCode: 'TBL-08' } },
+      },
+    ],
+    createdBy: { name: 'Quản lý SX Hùng' },
+  },
+  //
+  {
+    id: 6, code: 'PI-2026-006', deadline: ISO('2026-09-30'),
+    status: 'PLANNING', exportOrderId: 4,
+    exportOrder: { poNumber: 'PO-EU-005', contractFileUrl: null },
+    items: [
+      {
+        quantity: 400,
+        stages: [
+          { stageType: 'HAN',     deadline: ISO('2026-07-28') },
+          { stageType: 'WEAVING', deadline: ISO('2026-08-20') },
+          { stageType: 'SON',     deadline: ISO('2026-09-10') },
+        ],
+        productVariant: { colorCode: 'BEIGE', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
+      },
+      {
+        quantity: 250, materialDeadline: ISO('2026-07-20'),
+        stages: [
+          { stageType: 'HAN',     deadline: ISO('2026-08-10') },
+          { stageType: 'WEAVING', deadline: ISO('2026-09-01') },
+          { stageType: 'SON',     deadline: ISO('2026-09-22') },
+        ],
+        productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } },
+      },
+      {
+        quantity: 150, materialDeadline: ISO('2026-06-30'),
+        stages: [
+          { stageType: 'HAN', deadline: ISO('2026-07-20') },
+          { stageType: 'SON', deadline: ISO('2026-08-25') },
+        ],
+        productVariant: { colorCode: 'WHITE', mfgProduct: { name: 'Bàn đan T-08', factoryCode: 'TBL-08' } },
+      },
+            {
+        quantity: 600,
+        productVariant: { colorCode: 'WHITE', mfgProduct: { name: 'Bàn đan T-08', factoryCode: 'TBL-08' } },
+      },
+    ],
     createdBy: { name: 'Quản lý SX Hùng' },
   },
 ];
@@ -830,7 +921,7 @@ export const seedMfgWarehouseItems = [
   { id: 24, warehouseId: 6, materialId: null, name: 'Dung môi sơn',                 unit: 'lít', quantity: 20,  material: null },
   { id: 25, warehouseId: 6, materialId: null, name: 'Primer kết dính',              unit: 'lít', quantity: 15,  material: null },
   // ── Kho Sắt (id:2) — vật tư khớp định mức planForm ──────────────────
-  { id: 26, warehouseId: 2, materialId: null, name: 'Sắt hộp 25×25',       unit: 'cây', quantity: 5,   material: null }, // cần 20 → thiếu 15
+  { id: 26, warehouseId: 2, materialId: null, name: 'Sắt hộp 25×25',       unit: 'cây', quantity: 80,  material: null },
   { id: 27, warehouseId: 2, materialId: null, name: 'Sắt vuông 20×20',      unit: 'cây', quantity: 80,  material: null },
   { id: 28, warehouseId: 2, materialId: null, name: 'Sắt tấm 3mm',          unit: 'tấm', quantity: 40,  material: null },
   { id: 29, warehouseId: 2, materialId: null, name: 'Ống sắt tròn Φ16',     unit: 'cây', quantity: 90,  material: null },
@@ -847,7 +938,7 @@ export const seedMfgWarehouseItems = [
   { id: 40, warehouseId: 2, materialId: null, name: 'Sắt hộp 20×20',        unit: 'cây', quantity: 55,  material: null },
   // ── Kho Vật tư SX (id:6) — dây/sơn khớp định mức ───────────────────
   { id: 41, warehouseId: 6, materialId: null, name: 'Dây PE đen',            unit: 'cuộn', quantity: 30,  material: null },
-  { id: 42, warehouseId: 6, materialId: null, name: 'Sơn tĩnh điện đen',     unit: 'kg',   quantity: 0,   material: null }, // cần 0.8–0.9 → hết hàng
+  { id: 42, warehouseId: 6, materialId: null, name: 'Sơn tĩnh điện đen',     unit: 'kg',   quantity: 60,  material: null },
   { id: 43, warehouseId: 6, materialId: null, name: 'Dây nhựa xanh lá',      unit: 'cuộn', quantity: 20,  material: null },
   { id: 44, warehouseId: 6, materialId: null, name: 'Dây màu đỏ',            unit: 'cuộn', quantity: 15,  material: null },
   { id: 45, warehouseId: 6, materialId: null, name: 'Sơn xám RAL7035',       unit: 'kg',   quantity: 30,  material: null },
@@ -862,7 +953,7 @@ export const seedMfgWarehouseItems = [
   { id: 54, warehouseId: 6, materialId: null, name: 'Dây màu xám đậm',       unit: 'cuộn', quantity: 15,  material: null },
   { id: 55, warehouseId: 6, materialId: null, name: 'Sơn đen bóng',          unit: 'kg',   quantity: 25,  material: null },
   // ── Kho phụ kiện (id:1) — khớp định mức ─────────────────────────────
-  { id: 56, warehouseId: 1, materialId: null, name: 'Ốc vít M6×20',          unit: 'cái',   quantity: 12,   material: null }, // cần 48 → thiếu 36
+  { id: 56, warehouseId: 1, materialId: null, name: 'Ốc vít M6×20',          unit: 'cái',   quantity: 500,  material: null },
   { id: 57, warehouseId: 1, materialId: null, name: 'Nắp nhựa đầu ống',      unit: 'cái',   quantity: 200,  material: null },
   { id: 58, warehouseId: 1, materialId: null, name: 'Đệm cao su',             unit: 'cái',   quantity: 150,  material: null },
   { id: 59, warehouseId: 1, materialId: null, name: 'Ốc vít M5×15',          unit: 'cái',   quantity: 400,  material: null },
@@ -884,7 +975,7 @@ export const seedMfgWarehouseItems = [
   { id: 74, warehouseId: 5, materialId: null, name: 'Thùng carton 5 lớp',    unit: 'thùng', quantity: 150,  material: null },
   { id: 75, warehouseId: 5, materialId: null, name: 'Xốp PE bảo vệ',         unit: 'm²',    quantity: 80,   material: null },
   { id: 76, warehouseId: 5, materialId: null, name: 'Dây đai nhựa',          unit: 'm',     quantity: 200,  material: null },
-  { id: 77, warehouseId: 5, materialId: null, name: 'Thùng carton 3 lớp',    unit: 'thùng', quantity: 0,    material: null }, // cần 1 → hết hàng
+  { id: 77, warehouseId: 5, materialId: null, name: 'Thùng carton 3 lớp',    unit: 'thùng', quantity: 80,   material: null },
   { id: 78, warehouseId: 5, materialId: null, name: 'Xốp chèn góc',          unit: 'bộ',    quantity: 100,  material: null },
   { id: 79, warehouseId: 5, materialId: null, name: 'Thùng carton sóng kép', unit: 'thùng', quantity: 80,   material: null },
   { id: 80, warehouseId: 5, materialId: null, name: 'Băng keo OPP',          unit: 'cuộn',  quantity: 120,  material: null },

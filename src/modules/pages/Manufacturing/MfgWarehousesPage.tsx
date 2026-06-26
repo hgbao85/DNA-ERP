@@ -304,11 +304,18 @@ function WarehouseHistory({ wh }: { wh: Wh }) {
           })}
         </div>
 
-        {/* Divider */}
-        <div style={{ width: 1, height: 24, background: 'var(--border)', flexShrink: 0 }} />
-
-        {/* Date range */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        {/* Date range — căn phải */}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+          {hasFilter && (
+            <button
+              onClick={() => { setTypeFilter('ALL'); setDateFrom(''); setDateTo('') }}
+              style={{
+                fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6,
+                border: '1px solid var(--border)', background: 'var(--surface)',
+                color: 'red', cursor: 'pointer',
+              }}
+            >✕ Xóa bộ lọc</button>
+          )}
           <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, whiteSpace: 'nowrap' }}>Từ ngày</span>
           <input
             type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
@@ -319,23 +326,6 @@ function WarehouseHistory({ wh }: { wh: Wh }) {
             type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
             style={{ ...inp, width: 136, padding: '5px 8px', fontSize: 12 }}
           />
-        </div>
-        {/* Clear filter */}
-          {hasFilter && (
-            <button
-              onClick={() => { setTypeFilter('ALL'); setDateFrom(''); setDateTo('') }}
-              style={{
-                fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6,
-                border: '1px solid var(--border)', background: 'var(--surface)',
-                color: 'var(--text3)', cursor: 'pointer',
-              }}
-            >✕ Xóa bộ lọc</button>
-          )}
-        {/* Count */}
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 12, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
-            <strong style={{ color: 'var(--text)', fontWeight: 700 }}>{filtered.length}</strong> giao dịch
-          </span>
         </div>
       </div>
 
