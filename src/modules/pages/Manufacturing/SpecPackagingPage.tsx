@@ -1,197 +1,509 @@
-import { useState, useMemo } from 'react'
-import { useFetch } from '../../../hooks/useFetch'
-import * as api from '../../../services/api'
-import { Loader2, ChevronLeft } from 'lucide-react'
+import { useState } from 'react'
+import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react'
 
-export default function SpecPackagingPage() {
-  const { data: allData, isLoading } = useFetch(() => api.getSpecEntryProposals(), [])
-  const proposals = Array.isArray(allData) ? allData : []
+// ─── Types ────────────────────────────────────────────────────────────
+type BomItem = { id: number; ten: string; thoiGian: string }
+type PackagingLine = { uid: number; maBB: string; unit: string; moTa: string; imageUrl: string }
+type PendingReq = { uid: number; bomId: number; lines: PackagingLine[]; submittedAt: string }
 
-  const specTasks = useMemo(() => {
-    const tasks: any[] = []
-    proposals.forEach((proposal: any) => {
-      if (proposal.tasks) {
-        proposal.tasks
-          .filter((t: any) => t.specRole === 'SPEC_PACKAGING')
-          .forEach((t: any) => {
-            tasks.push({
-              ...t,
-              proposalId: proposal.id,
-              proposalCode: proposal.code,
-              piCode: proposal.piCode,
-              productName: proposal.productName,
-            })
-          })
-      }
-    })
-    return tasks
-  }, [proposals])
+// ─── Mock data ────────────────────────────────────────────────────────
+const MOCK_BOMS: BomItem[] = [
+  { id: 1, ten: 'Ghế J55',      thoiGian: '23/06/2026' },
+  { id: 2, ten: 'Ghế IEA-3',    thoiGian: '22/06/2026' },
+  { id: 3, ten: 'Bàn mặt kính', thoiGian: '21/06/2026' },
+  { id: 4, ten: 'Ghế GoPlus',   thoiGian: '20/06/2026' },
+]
 
-  const [activeTask, setActiveTask] = useState<any | null>(null)
-  const [form, setForm] = useState<{ unit?: string }>({})
-  const [saving, setSaving] = useState(false)
+const APPROVED_BOM_IDS: number[] = [1]
 
-  const handleSelectTask = (task: any) => {
-    setActiveTask(task)
-    setForm({ unit: task.unit ?? '' })
+const MOCK_PENDING: PendingReq[] = [
+  {
+    uid: 1, bomId: 2, submittedAt: '24/06/2026 09:15:22', lines: [
+      { uid: 1, maBB: 'BB-THUNG-01', unit: 'thùng', moTa: 'Thùng carton 5 lớp 60x40x40', imageUrl: '' },
+      { uid: 2, maBB: 'BB-XOP-001',  unit: 'tấm',   moTa: 'Xốp PE lót đáy 10mm',         imageUrl: '' },
+    ],
+  },
+]
+
+const MOCK_DRAFT: Record<number, PackagingLine[]> = {
+  3: [{ uid: 3, maBB: 'BB-DAY-001', unit: 'cuộn', moTa: 'Dây đai nhựa PP', imageUrl: '' }],
+}
+
+const APPROVED_CATALOG: PackagingLine[] = [
+  { uid: 10, maBB: 'BB-THUNG-01', unit: 'thùng', moTa: 'Thùng carton 5 lớp 60x40x40', imageUrl: '' },
+  { uid: 11, maBB: 'BB-NE-001',   unit: 'tờ',    moTa: 'Nhãn dán sản phẩm A5',        imageUrl: '' },
+]
+
+// ─── Main ─────────────────────────────────────────────────────────────
+export default function SpecPackagingPage({ subTab, onSubTabChange }: {
+  subTab: 'dinh-muc' | 'catalog'
+  onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
+}) {
+  const [approvedBomIds] = useState<number[]>(APPROVED_BOM_IDS)
+  const [pendingReqs, setPendingReqs] = useState<PendingReq[]>(MOCK_PENDING)
+  const [draftsByBom, setDraftsByBom] = useState<Record<number, PackagingLine[]>>(MOCK_DRAFT)
+  const [reqUid, setReqUid] = useState(2)
+  const [draftUid, setDraftUid] = useState(4)
+
+  const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)
+  const [fMaBB, setFMaBB] = useState('')
+  const [fUnit, setFUnit] = useState('')
+  const [fMoTa, setFMoTa] = useState('')
+  const [fImageUrl, setFImageUrl] = useState('')
+  const [showPreview, setShowPreview] = useState(false)
+  const [catalogPreviewUrl, setCatalogPreviewUrl] = useState<string | null>(null)
+  const [fErr, setFErr] = useState('')
+  const [sentMsg, setSentMsg] = useState(false)
+
+  const bomStatus = (bomId: number): 'approved' | 'pending' | 'canInput' =>
+    approvedBomIds.includes(bomId) ? 'approved'
+    : pendingReqs.some(r => r.bomId === bomId) ? 'pending'
+    : 'canInput'
+
+  const currentDrafts = selectedBom ? (draftsByBom[selectedBom.id] ?? []) : []
+  const currentPending = selectedBom ? pendingReqs.filter(r => r.bomId === selectedBom.id) : []
+
+  const openBom = (bom: BomItem) => {
+    setSelectedBom(bom)
+    setFMaBB(''); setFUnit(''); setFMoTa(''); setFImageUrl('')
+    setShowPreview(false); setFErr(''); setSentMsg(false)
   }
 
-  const save = async () => {
-    if (!activeTask) return
-    setSaving(true)
-    try {
-      await api.updateSpecEntryTask(activeTask.proposalId, activeTask.id, {
-        unit: form.unit,
-        status: 'COMPLETED',
-      })
-      setActiveTask(null)
-    } catch {
-      alert('Lỗi lưu dữ liệu')
-    } finally {
-      setSaving(false)
-    }
+  const addToDraft = () => {
+    setFErr('')
+    if (!fMaBB.trim() || !selectedBom) { setFErr('Vui lòng nhập Mã bao bì.'); return }
+    const line: PackagingLine = { uid: draftUid, maBB: fMaBB.trim(), unit: fUnit.trim(), moTa: fMoTa.trim(), imageUrl: fImageUrl.trim() }
+    setDraftsByBom(d => ({ ...d, [selectedBom.id]: [...(d[selectedBom.id] ?? []), line] }))
+    setDraftUid(n => n + 1)
+    setFMaBB(''); setFUnit(''); setFMoTa(''); setFImageUrl('')
   }
 
-  /* ── Detail view ─────────────────────────────────────────── */
-  if (activeTask) {
+  const removeDraft = (uid: number) => {
+    if (!selectedBom) return
+    setDraftsByBom(d => ({ ...d, [selectedBom.id]: (d[selectedBom.id] ?? []).filter(x => x.uid !== uid) }))
+  }
+
+  const submitAll = () => {
+    if (!currentDrafts.length || !selectedBom) return
+    setPendingReqs(p => [...p, { uid: reqUid, bomId: selectedBom.id, lines: [...currentDrafts], submittedAt: new Date().toLocaleString('vi-VN') }])
+    setReqUid(n => n + 1)
+    setDraftsByBom(d => ({ ...d, [selectedBom.id]: [] }))
+    setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
+  }
+
+  /* ══ ĐỊNH MỨC CHI TIẾT: DETAIL ══ */
+  if (subTab === 'dinh-muc' && selectedBom) {
+    const st = bomStatus(selectedBom.id)
     return (
       <div>
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức — Bao bì</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập thông tin bao bì theo SKU</p>
+        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-          <button
-            onClick={() => setActiveTask(null)}
-            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, cursor: 'pointer', flexShrink: 0 }}
-          >
-            <ChevronLeft size={16} /> Danh sách
+          <button onClick={() => setSelectedBom(null)} style={{
+            display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
+          }}>
+            <ChevronLeft size={14} /> Quay lại
           </button>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{activeTask.proposalCode}</h2>
-            <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text3)' }}>
-              {activeTask.piCode} — {activeTask.productName}
-            </p>
-          </div>
+          <span style={{ fontWeight: 700, fontSize: 15 }}>{selectedBom.ten}</span>
         </div>
 
-        {/* Thông tin chung */}
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 28px', padding: '10px 16px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 20, fontSize: 13 }}>
-          <span><span style={{ color: 'var(--text3)' }}>Mã đề xuất: </span><strong>{activeTask.proposalCode}</strong></span>
-          <span><span style={{ color: 'var(--text3)' }}>PI: </span><strong>{activeTask.piCode}</strong></span>
-          <span><span style={{ color: 'var(--text3)' }}>Sản phẩm: </span><strong>{activeTask.productName}</strong></span>
-          <span>
-            <span style={{ color: 'var(--text3)' }}>Trạng thái: </span>
-            <TaskStatusBadge status={activeTask.status} />
-          </span>
+        {st === 'approved' && (
+          <div style={{ padding: '10px 16px', background: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: 'var(--radius-lg)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 16 }}>✓</span>
+            <span style={{ fontWeight: 600, color: '#2e7d32', fontSize: 13 }}>Đã duyệt lần trước</span>
+            <span style={{ fontSize: 12, color: '#388e3c' }}>— có thể gửi thêm đề xuất bổ sung nếu còn thiếu</span>
+          </div>
+        )}
+
+        {/* Form thêm */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', marginBottom: 16 }}>
+          <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: 'var(--text)' }}>
+            {st === 'approved' ? 'Gửi đề xuất bổ sung' : 'Thêm vật tư vào danh sách'}
+          </div>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <div style={{ minWidth: 120 }}>
+              <FL>SKU</FL>
+              <div style={{ padding: '7px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
+                {selectedBom.ten}
+              </div>
+            </div>
+            <div style={{ flex: 1, minWidth: 150 }}>
+              <FL>Mã bao bì <span style={{ color: '#e53935' }}>*</span></FL>
+              <PackagingSearch
+                value={fMaBB}
+                catalog={APPROVED_CATALOG}
+                onChange={v => { setFMaBB(v); setFErr('') }}
+                onSelectFromCatalog={item => {
+                  setFMaBB(item.maBB)
+                  setFUnit(item.unit)
+                  setFMoTa(item.moTa)
+                  setFErr('')
+                }}
+              />
+            </div>
+            <div style={{ minWidth: 90 }}>
+              <FL>ĐVT</FL>
+              <input value={fUnit} onChange={e => setFUnit(e.target.value)}
+                placeholder="thùng" style={inputStyle} />
+            </div>
+            <div style={{ flex: 2, minWidth: 180 }}>
+              <FL>Mô tả</FL>
+              <input value={fMoTa} onChange={e => setFMoTa(e.target.value)}
+                placeholder="VD: Thùng carton 5 lớp 60x40x40" style={inputStyle} />
+            </div>
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <FL>Image URL</FL>
+              <div style={{ display: 'flex', gap: 6, position: 'relative' }}>
+                <input value={fImageUrl} onChange={e => { setFImageUrl(e.target.value); setShowPreview(false) }}
+                  placeholder="https://..." style={{ ...inputStyle, flex: 1 }} />
+                {fImageUrl.trim() && (
+                  <button onClick={() => setShowPreview(v => !v)} title="Xem ảnh" style={{
+                    padding: '0 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                    background: showPreview ? 'var(--surface2)' : 'var(--surface)',
+                    cursor: 'pointer', color: showPreview ? '#1565c0' : 'var(--text3)',
+                    display: 'flex', alignItems: 'center', flexShrink: 0,
+                  }}>
+                    <Eye size={15} />
+                  </button>
+                )}
+                {showPreview && fImageUrl.trim() && (
+                  <ImageModal url={fImageUrl.trim()} onClose={() => setShowPreview(false)} />
+                )}
+              </div>
+            </div>
+            <button onClick={addToDraft} style={{
+              padding: '7px 16px', border: 'none', borderRadius: 'var(--radius)',
+              background: '#1565c0', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
+            }}>+ Thêm</button>
+          </div>
+          {fErr && (
+            <div style={{ marginTop: 10, padding: '8px 12px', background: '#ffebee', color: '#c62828', borderRadius: 'var(--radius)', fontSize: 13 }}>{fErr}</div>
+          )}
         </div>
 
-        {/* Form */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 24, maxWidth: 560 }}>
-          <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Nhập thông tin Bao bì</div>
-          <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text3)' }}>Điền đầy đủ thông tin bên dưới rồi nhấn Lưu.</p>
-
-          <label style={labelStyle}>Đơn vị tính</label>
-          <input
-            value={form.unit ?? ''}
-            onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
-            placeholder="VD: thùng, bao, túi"
-            style={inputStyle}
-          />
-
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
-            <button onClick={() => setActiveTask(null)} style={btnSecondary}>Hủy</button>
-            <button onClick={save} disabled={saving} style={btnGreen}>
-              {saving ? 'Đang lưu...' : 'Lưu & Hoàn thành'}
-            </button>
+        {/* Draft list */}
+        {currentDrafts.length > 0 && (
+          <div style={{ background: 'var(--surface)', border: '1px solid #c5cae9', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 16 }}>
+            <div style={{ padding: '12px 16px', background: '#e8eaf6', borderBottom: '1px solid #c5cae9', fontWeight: 700, fontSize: 14, color: '#1a237e' }}>
+              Danh sách chờ gửi
+              <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, background: '#c5cae9', color: '#1a237e', borderRadius: 20, padding: '2px 8px' }}>
+                {currentDrafts.length} vật tư
+              </span>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+                  {['SKU', 'Mã bao bì', 'ĐVT', 'Mô tả', ''].map((h, i) => (
+                    <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {currentDrafts.map(d => (
+                  <tr key={d.uid} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedBom?.ten}</td>
+                    <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{d.maBB}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{d.unit || '—'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{d.moTa || '—'}</td>
+                    <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                      <button onClick={() => removeDraft(d.uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>
+                        <X size={14} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)' }}>
+              <button onClick={submitAll} style={{
+                padding: '8px 24px', border: 'none', borderRadius: 'var(--radius)',
+                background: '#1565c0', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer',
+              }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#0d47a1')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#1565c0')}
+              >Gửi đề xuất ({currentDrafts.length} vật tư) →</button>
+            </div>
           </div>
+        )}
+
+        {sentMsg && (
+          <div style={{ padding: '10px 16px', background: '#e8f5e9', color: '#2e7d32', borderRadius: 'var(--radius)', fontWeight: 600, fontSize: 13, marginBottom: 16 }}>
+            ✓ Đã gửi đề xuất thành công — đang chờ duyệt.
+          </div>
+        )}
+
+        {/* Pending list */}
+        {currentPending.length > 0 && (
+          <div style={{ background: 'var(--surface)', border: '1px solid #ffe082', borderLeft: '4px solid #f57c00', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px', background: '#fff8e1', borderBottom: '1px solid #ffe082', fontWeight: 700, fontSize: 14, color: '#e65100' }}>
+              Đang chờ duyệt
+              <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, background: '#ffe082', color: '#e65100', borderRadius: 20, padding: '2px 8px' }}>
+                {currentPending.reduce((s, r) => s + r.lines.length, 0)} vật tư
+              </span>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+                  {['SKU', 'Mã bao bì', 'ĐVT', 'Mô tả', 'Gửi lúc', 'Trạng thái'].map((h, i) => (
+                    <th key={i} style={{ padding: '8px 14px', textAlign: i === 5 ? 'right' : 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {currentPending.flatMap(req => req.lines.map(l => (
+                  <tr key={`${req.uid}-${l.uid}`} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedBom?.ten}</td>
+                    <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{l.maBB}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{l.unit || '—'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{l.moTa || '—'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 12 }}>{req.submittedAt}</td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right' }}>
+                      <span style={{ background: '#fff8e1', color: '#f57c00', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
+                    </td>
+                  </tr>
+                )))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {currentDrafts.length === 0 && currentPending.length === 0 && !sentMsg && (
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '40px', textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
+            Chưa có đề xuất nào. Điền form phía trên để bắt đầu.
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  /* ══ ĐỊNH MỨC CHI TIẾT: LIST ══ */
+  if (subTab === 'dinh-muc') {
+    return (
+      <div>
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức — Bao bì</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập thông tin bao bì theo SKU</p>
+        </div>
+        <div style={{ marginBottom: 16 }}>
+          <span style={{ fontSize: 13, color: 'var(--text3)' }}>{MOCK_BOMS.length} SKU</span>
+        </div>
+        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+                {['SKU', 'Thời gian', 'Trạng thái', ''].map((h, i) => (
+                  <th key={i} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {MOCK_BOMS.map(item => {
+                const st = bomStatus(item.id)
+                return (
+                  <tr key={item.id}
+                    onClick={() => openBom(item)}
+                    style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.ten}</td>
+                    <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
+                    <td style={{ padding: '12px 14px' }}>
+                      {st === 'approved'
+                        ? <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✓ Đã duyệt</span>
+                        : st === 'pending'
+                        ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
+                        : <span style={{ background: '#fce4ec', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Cần nhập</span>
+                      }
+                    </td>
+                    <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       </div>
     )
   }
 
-  /* ── List view ───────────────────────────────────────────── */
+  /* ══ DANH SÁCH VẬT TƯ ══ */
   return (
-    <div>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Nhập định mức — Bao bì</h2>
-        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text2)' }}>
-          Nhập Đơn vị tính cho các task gửi từ kế hoạch sản xuất.
-        </p>
-      </div>
-
-      {isLoading ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text2)' }}>
-          <Loader2 size={18} /> Đang tải...
+    <>
+      <div>
+        <div style={{ marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh sách vật tư — Bao bì</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Các mã bao bì đã được duyệt</p>
         </div>
-      ) : (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
-            <colgroup>
-              <col style={{ width: 52 }} />
-              <col style={{ width: 150 }} />
-              <col />
-              <col style={{ width: 110 }} />
-            </colgroup>
+        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
-              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                <th style={thStyle}>#</th>
-                <th style={thStyle}>Mã đề xuất</th>
-                <th style={thStyle}>Sản phẩm</th>
-                <th style={thStyle}>Trạng thái</th>
+              <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+                {['Mã bao bì', 'Mô tả', 'ĐVT', 'Image URL'].map((h, i) => (
+                  <th key={i} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {specTasks.map((task: any, idx: number) => (
-                <tr
-                  key={task.id}
-                  onClick={() => handleSelectTask(task)}
-                  style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#f0fdf4')}
-                  onMouseLeave={e => (e.currentTarget.style.background = '')}
-                >
-                  <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)' }}>{idx + 1}</td>
-                  <td style={{ ...tdStyle, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {task.proposalCode}
-                  </td>
-                  <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    <span style={{ fontWeight: 600 }}>{task.piCode}</span>
-                    <span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>
-                    {task.productName}
-                  </td>
-                  <td style={tdStyle}>
-                    <TaskStatusBadge status={task.status} />
+              {APPROVED_CATALOG.map((item, i) => (
+                <tr key={item.uid} style={{ borderBottom: i < APPROVED_CATALOG.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.maBB}</td>
+                  <td style={{ padding: '12px 14px', color: 'var(--text3)' }}>{item.moTa || '—'}</td>
+                  <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.unit || '—'}</td>
+                  <td style={{ padding: '12px 14px' }}>
+                    {item.imageUrl ? (
+                      <button onClick={() => setCatalogPreviewUrl(item.imageUrl)} title="Xem ảnh" style={{
+                        background: 'none', border: 'none', cursor: 'pointer',
+                        color: 'var(--text3)', display: 'flex', alignItems: 'center', padding: 2,
+                      }}>
+                        <Eye size={15} />
+                      </button>
+                    ) : <span style={{ color: 'var(--text3)' }}>—</span>}
                   </td>
                 </tr>
               ))}
-              {specTasks.length === 0 && (
+              {APPROVED_CATALOG.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
-                    Không có task nào — chờ kế hoạch sản xuất gửi đề xuất
+                  <td colSpan={4} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
+                    Chưa có vật tư nào được duyệt.
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+      </div>
+      {catalogPreviewUrl && (
+        <ImageModal url={catalogPreviewUrl} onClose={() => setCatalogPreviewUrl(null)} />
+      )}
+    </>
+  )
+}
+
+// ─── PackagingSearch ──────────────────────────────────────────────────
+// Nhập tự do được — dropdown chỉ là gợi ý từ catalog, không bắt buộc chọn
+function PackagingSearch({ value, onChange, onSelectFromCatalog, catalog }: {
+  value: string
+  onChange: (v: string) => void
+  onSelectFromCatalog: (item: PackagingLine) => void
+  catalog: PackagingLine[]
+}) {
+  const [focused, setFocused] = useState(false)
+
+  const filtered = value.trim() === ''
+    ? catalog
+    : catalog.filter(c =>
+        c.maBB.toLowerCase().includes(value.toLowerCase()) ||
+        c.moTa.toLowerCase().includes(value.toLowerCase())
+      )
+
+  const isNew = value.trim() !== '' && !catalog.some(c => c.maBB.toLowerCase() === value.trim().toLowerCase())
+
+  return (
+    <div style={{ position: 'relative', flex: 1, minWidth: 150 }}>
+      <input
+        value={value}
+        placeholder="Nhập hoặc chọn mã bao bì…"
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 150)}
+        onChange={e => onChange(e.target.value)}
+        style={{ ...inputStyle, paddingRight: value ? 28 : 10 }}
+      />
+      {value && (
+        <button
+          onMouseDown={e => e.preventDefault()}
+          onClick={() => onChange('')}
+          style={{
+            position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
+            background: 'none', border: 'none', cursor: 'pointer',
+            color: 'var(--text3)', display: 'flex', alignItems: 'center', padding: 2,
+          }}>
+          <X size={13} />
+        </button>
+      )}
+      {focused && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300,
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 20px rgba(0,0,0,.12)',
+          maxHeight: 240, overflowY: 'auto', marginTop: 4,
+        }}>
+          {isNew && (
+            <div style={{ padding: '8px 14px', fontSize: 12, color: '#1565c0', background: '#e3f2fd', borderBottom: '1px solid var(--border)' }}>
+              + Mã mới — sẽ thêm vào danh sách khi được duyệt
+            </div>
+          )}
+          {filtered.length === 0 && !isNew ? (
+            <div style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 13 }}>
+              Không tìm thấy gợi ý nào
+            </div>
+          ) : filtered.map(c => (
+            <div key={c.uid}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => { onSelectFromCatalog(c); setFocused(false) }}
+              style={{
+                padding: '9px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
+                background: c.maBB === value ? 'var(--surface2)' : 'transparent',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+              onMouseLeave={e => (e.currentTarget.style.background = c.maBB === value ? 'var(--surface2)' : 'transparent')}
+            >
+              <div style={{ fontSize: 13, fontWeight: c.maBB === value ? 700 : 500, color: 'var(--text)' }}>{c.maBB}</div>
+              {c.moTa && (
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{c.moTa}</div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
 }
 
-function TaskStatusBadge({ status }: { status: string }) {
-  const completed = status === 'COMPLETED'
+function ImageModal({ url, onClose }: { url: string; onClose: () => void }) {
   return (
-    <span style={{
-      display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 8px',
-      borderRadius: 20, whiteSpace: 'nowrap',
-      color: completed ? '#16a34a' : '#d97706',
-      background: completed ? '#dcfce7' : '#fef3c7',
-    }}>
-      {completed ? 'Hoàn thành' : 'Chờ xử lý'}
-    </span>
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 1000,
+        background: 'rgba(0,0,0,0.6)',
+        backdropFilter: 'blur(4px)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'zoom-out',
+      }}
+    >
+      <img
+        src={url}
+        alt="preview"
+        onClick={e => e.stopPropagation()}
+        style={{
+          maxWidth: '60vw', maxHeight: '70vh',
+          borderRadius: 'var(--radius-lg)',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
+          objectFit: 'contain',
+          cursor: 'default',
+        }}
+      />
+    </div>
   )
 }
 
-const thStyle: React.CSSProperties      = { padding: '12px 16px', fontWeight: 600, fontSize: 12, color: 'var(--text3)' }
-const tdStyle: React.CSSProperties      = { padding: '12px 16px' }
-const labelStyle: React.CSSProperties   = { display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6, marginTop: 12 }
-const inputStyle: React.CSSProperties   = { width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, marginBottom: 8, boxSizing: 'border-box' }
-const btnGreen: React.CSSProperties     = { display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 18px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }
-const btnSecondary: React.CSSProperties = { padding: '10px 18px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }
+function FL({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 4, textTransform: 'uppercase' as const }}>
+      {children}
+    </div>
+  )
+}
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', padding: '7px 10px', fontSize: 13,
+  border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+  background: 'var(--surface)', color: 'var(--text)',
+  outline: 'none', boxSizing: 'border-box',
+}

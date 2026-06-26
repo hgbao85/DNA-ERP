@@ -66,7 +66,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isFactorySales ? [{ id: 'tong-don-hang' as TabId, label: 'Tổng đơn hàng', icon: <Package size={16}/> }] : []),
     ...(isFactorySales ? [{ id: 'tao-don-hang' as TabId, label: 'Tạo đơn hàng mới', icon: <FilePlus size={16}/> }] : []),
     ...(isFactorySales ? [{ id: 'danh-sach-khach-hang' as TabId, label: 'Danh sách khách hàng', icon: <Users size={16}/> }] : []),
-    ...(!isWarehouse && !isFactorySales && !isBomManager && !isSpecSteel ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardList size={16}/> }] : []),
+    ...(isProdMgr || isDirector ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardList size={16}/> }] : []),
     ...(isProdMgr || isDirector ? [{ id: 'ke-hoach' as TabId, label: 'Kế hoạch SX', icon: <CalendarClock size={16}/> }] : []),
     // Thành phẩm khung sơn (xuất/cấp đan đi — Phôi) + Điều phối đan (thu về/chia kho — Đan Trưởng)
     ...(canSeeKhungSon ? [{ id: 'khung-son' as TabId, label: 'Thành phẩm khung sơn', icon: <PackageCheck size={16}/> }] : []),
@@ -86,10 +86,14 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(canSeeBom ? [{ id: 'setup' as TabId, label: 'Quản lý định mức', icon: <Settings size={16}/> }] : []),
   ]
 
-  const initialTab: TabId = canManageWorkshop ? 'workshop' : isFactorySales ? 'tong-don-hang' : isWeavingMgr ? 'dieu-phoi-dan' : isBomManager ? 'setup' : isSpecSteel ? 'setup' : 'pi-list'
+  const isSpecRole = user?.mfgRole ? ['SPEC_STEEL','SPEC_WIRE_PAINT','SPEC_ACCESSORY','SPEC_PACKAGING'].includes(user.mfgRole) : false
+  const initialTab: TabId = canManageWorkshop ? 'workshop' : isFactorySales ? 'tong-don-hang' : isWeavingMgr ? 'dieu-phoi-dan' : isBomManager ? 'setup' : isSpecRole ? 'setup' : 'pi-list'
   const [tab, setTab] = useState<TabId>(initialTab)
 
   const [steelSubTab, setSteelSubTab] = useState<'vat-tu' | 'dinh-muc' | 'catalog'>('vat-tu')
+  const [wirePaintSubTab, setWirePaintSubTab] = useState<'dinh-muc' | 'catalog'>('dinh-muc')
+  const [accessorySubTab, setAccessorySubTab] = useState<'dinh-muc' | 'catalog'>('dinh-muc')
+  const [packagingSubTab, setPackagingSubTab] = useState<'dinh-muc' | 'catalog'>('dinh-muc')
 
   // ── Role label ───────────────────────────────────────────────────────
   const mfgRoleLabel: Record<string, string> = {
@@ -139,11 +143,13 @@ export default function MfgApp({ onBack }: MfgAppProps) {
               </button>
             )}
             <div style={{ fontWeight: 700, fontSize: 14 }}>
-              {user?.mfgRole === 'SPEC_STEEL' ? 'Quản lý định mức' : 'Sản xuất MES'}
+              {user?.mfgRole === 'SPEC_STEEL' || user?.mfgRole === 'SPEC_WIRE_PAINT' ? 'Quản lý định mức' : 'Sản xuất MES'}
             </div>
           </div>
           <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-            {user?.mfgRole === 'SPEC_STEEL' ? 'Định mức sắt' : 'Đông Nam Á Corp'}
+            {user?.mfgRole === 'SPEC_STEEL' ? 'Định mức sắt'
+              : user?.mfgRole === 'SPEC_WIRE_PAINT' ? 'Định mức dây & sơn'
+              : 'Đông Nam Á Corp'}
           </div>
         </div>
 
@@ -165,6 +171,75 @@ export default function MfgApp({ onBack }: MfgAppProps) {
                     return (
                       <button key={s.id}
                         onClick={() => { setTab('setup'); setSteelSubTab(s.id) }}
+                        style={navBtn(subActive)}
+                        onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
+                        onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
+                      >{s.icon}{s.label}</button>
+                    )
+                  })}
+                </div>
+              )
+            }
+
+            if (t.id === 'setup' && user?.mfgRole === 'SPEC_WIRE_PAINT') {
+              const isSetup = tab === 'setup'
+              const items = [
+                { id: 'dinh-muc' as const, label: 'Định mức chi tiết', icon: <ClipboardCheck size={16}/> },
+                { id: 'catalog'  as const, label: 'Danh sách vật tư',  icon: <Box size={16}/>            },
+              ]
+              return (
+                <div key={t.id}>
+                  {items.map(s => {
+                    const subActive = isSetup && wirePaintSubTab === s.id
+                    return (
+                      <button key={s.id}
+                        onClick={() => { setTab('setup'); setWirePaintSubTab(s.id) }}
+                        style={navBtn(subActive)}
+                        onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
+                        onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
+                      >{s.icon}{s.label}</button>
+                    )
+                  })}
+                </div>
+              )
+            }
+
+            if (t.id === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY') {
+              const isSetup = tab === 'setup'
+              const items = [
+                { id: 'dinh-muc' as const, label: 'Định mức chi tiết', icon: <ClipboardCheck size={16}/> },
+                { id: 'catalog'  as const, label: 'Danh sách vật tư',  icon: <Box size={16}/>            },
+              ]
+              return (
+                <div key={t.id}>
+                  {items.map(s => {
+                    const subActive = isSetup && accessorySubTab === s.id
+                    return (
+                      <button key={s.id}
+                        onClick={() => { setTab('setup'); setAccessorySubTab(s.id) }}
+                        style={navBtn(subActive)}
+                        onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
+                        onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
+                      >{s.icon}{s.label}</button>
+                    )
+                  })}
+                </div>
+              )
+            }
+
+            if (t.id === 'setup' && user?.mfgRole === 'SPEC_PACKAGING') {
+              const isSetup = tab === 'setup'
+              const items = [
+                { id: 'dinh-muc' as const, label: 'Định mức chi tiết', icon: <ClipboardCheck size={16}/> },
+                { id: 'catalog'  as const, label: 'Danh sách vật tư',  icon: <Box size={16}/>            },
+              ]
+              return (
+                <div key={t.id}>
+                  {items.map(s => {
+                    const subActive = isSetup && packagingSubTab === s.id
+                    return (
+                      <button key={s.id}
+                        onClick={() => { setTab('setup'); setPackagingSubTab(s.id) }}
                         style={navBtn(subActive)}
                         onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
                         onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
@@ -217,7 +292,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'tong-don-hang' && isFactorySales && <TongDonHangPage onCreateNew={() => setTab('tao-don-hang')} />}
         {tab === 'tao-don-hang'  && isFactorySales && <TaoDonHangMoiPage onCreated={() => setTab('tong-don-hang')} />}
         {tab === 'danh-sach-khach-hang' && isFactorySales && <DanhSachKhachHangPage />}
-        {tab === 'pi-list' && (isOtherWorker ? <MfgStageBoardPage /> : <PIListPage />)}
+        {tab === 'pi-list' && (isProdMgr || isDirector) && <PIListPage />}
         {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePage />}
         {tab === 'dieu-phoi-dan' && canSeeDieuPhoi && <DieuPhoiDanPage readOnly={isDirector || isProdMgr} />}
         {tab === 'lich-su-nhap-dan' && canSeeDieuPhoi && <LichSuNhapDanPage />}
@@ -231,9 +306,9 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'de-xuat' && isDirector && <DeXuatMuaVatTuPage />}
         {tab === 'setup'   && (canManageBom || isBomManager) && <MfgSetupPage />}
         {tab === 'setup'   && user?.mfgRole === 'SPEC_STEEL' && <SpecSteelPage subTab={steelSubTab} onSubTabChange={setSteelSubTab} />}
-        {tab === 'setup'   && user?.mfgRole === 'SPEC_WIRE_PAINT' && <SpecWirePaintPage />}
-        {tab === 'setup'   && user?.mfgRole === 'SPEC_ACCESSORY' && <SpecAccessoryPage />}
-        {tab === 'setup'   && user?.mfgRole === 'SPEC_PACKAGING' && <SpecPackagingPage />}
+        {tab === 'setup'   && user?.mfgRole === 'SPEC_WIRE_PAINT' && <SpecWirePaintPage subTab={wirePaintSubTab} onSubTabChange={setWirePaintSubTab} />}
+        {tab === 'setup'   && user?.mfgRole === 'SPEC_ACCESSORY' && <SpecAccessoryPage subTab={accessorySubTab} onSubTabChange={setAccessorySubTab} />}
+        {tab === 'setup'   && user?.mfgRole === 'SPEC_PACKAGING' && <SpecPackagingPage subTab={packagingSubTab} onSubTabChange={setPackagingSubTab} />}
       </div>
     </div>
   )

@@ -2,11 +2,11 @@ import { useState, useRef } from 'react'
 import { ChevronRight, ChevronLeft, Plus, X } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────
-type SteelItem = { name: string; specs: string; unit: string }
-type ManChild = { id: number; loaiSatName: string; specs: string; soLuong: string }
+type SteelItem = { name: string; specs: string; unit: string; chieuDai: string }
+type ManChild = { id: number; loaiSatName: string; specs: string; chieuDai: string; soLuong: string }
 type Manh = { id: number; tenManh: string; children: ManChild[] }
 type BomItem = { id: number; ten: string; thoiGian: string }
-type DraftLine = { uid: number; name: string; specs: string; soLuong: string; unit: string }
+type DraftLine = { uid: number; name: string; specs: string; chieuDai: string; soLuong: string; unit: string }
 type PendingReq = { uid: number; bomId: number; lines: DraftLine[]; submittedAt: string }
 type RejectedLine = DraftLine & { submittedAt: string }
 
@@ -26,28 +26,28 @@ const MOCK_MANH_BOMS: BomItem[] = [
 ]
 
 const STEEL_CATALOG: SteelItem[] = [
-  { name: 'Sắt Vuông 6 zem',  specs: '18x18',  unit: 'cm' },
-  { name: 'Sắt Hộp 6 zem',    specs: '25x50',  unit: 'cm' },
-  { name: 'Sắt Hộp 8 zem',    specs: '20x40',  unit: 'cm' },
+  { name: 'Sắt Vuông 6 zem',  specs: '18x18',  unit: 'cm', chieuDai: '620' },
+  { name: 'Sắt Hộp 6 zem',    specs: '25x50',  unit: 'cm', chieuDai: '580' },
+  { name: 'Sắt Hộp 8 zem',    specs: '20x40',  unit: 'cm', chieuDai: '450' },
 ]
 
 // bomId:2 = IEA-3 đang chờ duyệt, bomId:1 = JSE-55 đã duyệt xong
 const MOCK_PENDING: PendingReq[] = [
   {
     uid: 1, bomId: 2, submittedAt: '24/06/2026 09:15:22', lines: [
-      { uid: 1, name: 'Thép Phi 6', specs: 'Ø6', soLuong: '200', unit: 'cm' },
-      { uid: 2, name: 'PAT',        specs: '',   soLuong: '20',  unit: 'cái' },
+      { uid: 1, name: 'Thép Phi 6', specs: 'Ø6', chieuDai: '600', soLuong: '200', unit: 'cm' },
+      { uid: 2, name: 'PAT',        specs: '',   chieuDai: '',    soLuong: '20',  unit: 'cái' },
     ]
   },
 ]
 
 const MOCK_REJECTED: RejectedLine[] = [
-  { uid: 3, name: 'PAT Kính', specs: '70x50', soLuong: '10', unit: 'cái', submittedAt: '20/06/2026 14:22:10' },
+  { uid: 3, name: 'PAT Kính', specs: '70x50', chieuDai: '', soLuong: '10', unit: 'cái', submittedAt: '20/06/2026 14:22:10' },
 ]
 
 // bomId:3 = BAN-002 đang soạn nháp
 const MOCK_DRAFT: Record<number, DraftLine[]> = {
-  3: [{ uid: 4, name: 'Tán Rút', specs: 'M4x10', soLuong: '50', unit: 'con' }],
+  3: [{ uid: 4, name: 'Tán Rút', specs: 'M4x10', chieuDai: '', soLuong: '50', unit: 'con' }],
 }
 
 // bomId đã được duyệt định mức chi tiết
@@ -76,52 +76,55 @@ const MOCK_MANHS: Record<number, Manh[]> = {
   1: [ // Ghế J55
     {
       id: 1, tenManh: 'Mảnh tựa', children: [
-        { id: 11, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', soLuong: '2' },
-        { id: 12, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', soLuong: '4' },
+        { id: 11, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', chieuDai: '580', soLuong: '2' },
+        { id: 12, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', chieuDai: '620', soLuong: '4' },
       ],
     },
     {
       id: 2, tenManh: 'Mảnh ngồi', children: [
-        { id: 21, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', soLuong: '2' },
-        { id: 22, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', soLuong: '2' },
+        { id: 21, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', chieuDai: '480', soLuong: '2' },
+        { id: 22, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', chieuDai: '520', soLuong: '2' },
       ],
     },
     {
       id: 3, tenManh: 'Mảnh tay', children: [
-        { id: 31, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', soLuong: '2' },
-        { id: 32, loaiSatName: 'Sắt Hộp 8 zem',   specs: '20x40', soLuong: '2' },
+        { id: 31, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', chieuDai: '350', soLuong: '2' },
+        { id: 32, loaiSatName: 'Sắt Hộp 8 zem',   specs: '20x40', chieuDai: '300', soLuong: '2' },
       ],
     },
     {
       id: 4, tenManh: 'Chân ghế', children: [
-        { id: 41, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', soLuong: '4' },
-        { id: 42, loaiSatName: 'Sắt Hộp 8 zem',   specs: '20x40', soLuong: '2' },
+        { id: 41, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', chieuDai: '700', soLuong: '4' },
+        { id: 42, loaiSatName: 'Sắt Hộp 8 zem',   specs: '20x40', chieuDai: '450', soLuong: '2' },
       ],
     },
   ],
 }
 
 // ─── SteelSearch ──────────────────────────────────────────────────────
-function SteelSearch({ selectedName, onChange, catalog }: {
+// Nhập tự do được — dropdown chỉ là gợi ý từ catalog, không bắt buộc chọn
+function SteelSearch({ selectedName, onChange, onSelectFromCatalog, catalog }: {
   selectedName: string
-  onChange: (item: SteelItem) => void
+  onChange: (name: string) => void
+  onSelectFromCatalog: (item: SteelItem) => void
   catalog: SteelItem[]
 }) {
-  const [search, setSearch] = useState('')
   const [focused, setFocused] = useState(false)
 
-  const selected = catalog.find(s => s.name === selectedName) ?? null
-  const filtered = catalog.filter(s => s.name.toLowerCase().includes(search.toLowerCase()))
-  const displayValue = selected ? selected.name : search
+  const filtered = selectedName.trim() === ''
+    ? catalog
+    : catalog.filter(s => s.name.toLowerCase().includes(selectedName.toLowerCase()))
+
+  const isNew = selectedName.trim() !== '' && !catalog.some(s => s.name.toLowerCase() === selectedName.trim().toLowerCase())
 
   return (
     <div style={{ position: 'relative', flex: 1 }}>
       <input
-        value={displayValue}
-        placeholder="Tìm tên sắt…"
-        onFocus={() => { setFocused(true); setSearch('') }}
-        onBlur={() => setFocused(false)}
-        onChange={e => { setSearch(e.target.value); onChange({ name: '', specs: '' }) }}
+        value={selectedName}
+        placeholder="Nhập hoặc chọn tên sắt…"
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 150)}
+        onChange={e => onChange(e.target.value)}
         style={{
           width: '100%', padding: '7px 10px', fontSize: 13,
           border: '1px solid var(--border)', borderRadius: 'var(--radius)',
@@ -136,15 +139,20 @@ function SteelSearch({ selectedName, onChange, catalog }: {
           borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 20px rgba(0,0,0,.12)',
           maxHeight: 220, overflowY: 'auto', marginTop: 4,
         }}>
-          {filtered.length === 0 && (
-            <div style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 13 }}>Không tìm thấy.</div>
+          {isNew && (
+            <div style={{ padding: '8px 14px', fontSize: 12, color: '#1565c0', background: '#e3f2fd', borderBottom: '1px solid var(--border)' }}>
+              + Loại mới — sẽ thêm vào danh sách khi được duyệt
+            </div>
+          )}
+          {filtered.length === 0 && !isNew && (
+            <div style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 13 }}>Không tìm thấy gợi ý nào.</div>
           )}
           {filtered.map((s, i) => {
             const isSel = s.name === selectedName
             return (
               <div key={`${s.name}-${i}`}
                 onMouseDown={e => e.preventDefault()}
-                onClick={() => { onChange(s); setSearch(''); setFocused(false) }}
+                onClick={() => { onSelectFromCatalog(s); setFocused(false) }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', cursor: 'pointer',
                   background: isSel ? 'var(--surface2)' : 'transparent',
@@ -165,38 +173,34 @@ function SteelSearch({ selectedName, onChange, catalog }: {
 }
 
 // ─── VatTuSearch ──────────────────────────────────────────────────────
-function VatTuSearch({ value, onSelect }: {
+// Nhập tự do được — dropdown chỉ là gợi ý từ preset, không bắt buộc chọn
+function VatTuSearch({ value, onChange, onSelectFromPreset }: {
   value: string
-  onSelect: (preset: { name: string; unit: string } | null) => void
+  onChange: (name: string) => void
+  onSelectFromPreset: (preset: { name: string; unit: string }) => void
 }) {
-  const [search, setSearch] = useState('')
   const [focused, setFocused] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
 
-  const filtered = search.trim() === ''
+  const filtered = value.trim() === ''
     ? VAT_TU_PRESETS
-    : VAT_TU_PRESETS.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+    : VAT_TU_PRESETS.filter(p => p.name.toLowerCase().includes(value.toLowerCase()))
+
+  const isNew = value.trim() !== '' && !VAT_TU_PRESETS.some(p => p.name.toLowerCase() === value.trim().toLowerCase())
 
   return (
     <div style={{ position: 'relative', flex: 2, minWidth: 200 }}>
       <input
-        ref={inputRef}
-        value={focused ? search : value}
-        placeholder="Chọn tên vật tư…"
-        onFocus={() => { setFocused(true); setSearch('') }}
-        onBlur={() => setTimeout(() => { setFocused(false); setSearch('') }, 150)}
-        onChange={e => setSearch(e.target.value)}
-        style={{ ...inputStyle, paddingRight: value && !focused ? 28 : 10 }}
+        value={value}
+        placeholder="Nhập hoặc chọn tên vật tư…"
+        onFocus={() => setFocused(true)}
+        onBlur={() => setTimeout(() => setFocused(false), 150)}
+        onChange={e => onChange(e.target.value)}
+        style={{ ...inputStyle, paddingRight: value ? 28 : 10 }}
       />
-      {value && !focused && (
+      {value && (
         <button
           onMouseDown={e => e.preventDefault()}
-          onClick={() => {
-            onSelect(null)
-            setSearch('')
-            setFocused(true)
-            inputRef.current?.focus()
-          }}
+          onClick={() => onChange('')}
           style={{
             position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
             background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)',
@@ -212,13 +216,18 @@ function VatTuSearch({ value, onSelect }: {
           borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 20px rgba(0,0,0,.12)',
           maxHeight: 240, overflowY: 'auto', marginTop: 4,
         }}>
-          {filtered.length === 0 && (
-            <div style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 13 }}>Không tìm thấy.</div>
+          {isNew && (
+            <div style={{ padding: '8px 14px', fontSize: 12, color: '#1565c0', background: '#e3f2fd', borderBottom: '1px solid var(--border)' }}>
+              + Vật tư mới — sẽ thêm vào danh sách khi được duyệt
+            </div>
+          )}
+          {filtered.length === 0 && !isNew && (
+            <div style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 13 }}>Không tìm thấy gợi ý nào.</div>
           )}
           {filtered.map(p => (
             <div key={p.name}
               onMouseDown={e => e.preventDefault()}
-              onClick={() => { onSelect(p); setFocused(false); setSearch('') }}
+              onClick={() => { onSelectFromPreset(p); setFocused(false) }}
               style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '9px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
@@ -238,15 +247,16 @@ function VatTuSearch({ value, onSelect }: {
 }
 
 // ─── SpecsInput ───────────────────────────────────────────────────────
-function SpecsInput({ value, onChange, materialName, catalog }: {
+function SpecsInput({ value, onChange, materialName, catalog, field = 'specs' }: {
   value: string
   onChange: (v: string) => void
   materialName: string
   catalog: SteelItem[]
+  field?: 'specs' | 'chieuDai'
 }) {
   const [focused, setFocused] = useState(false)
 
-  const suggestions = catalog.filter(s => s.name === materialName && s.specs).map(s => s.specs)
+  const suggestions = catalog.filter(s => s.name === materialName && s[field]).map(s => s[field])
   const filtered = value.trim()
     ? suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase()))
     : suggestions
@@ -319,11 +329,13 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [manhs, setManhs] = useState<Manh[]>([])
   const [nextId, setNextId] = useState(1)
   const [submittedBomIds, setSubmittedBomIds] = useState<number[]>([])
+  const [approvedManhBomIds] = useState<number[]>([1]) // Ghế J55 đã duyệt
   const [showManhForm, setShowManhForm] = useState(false)
   const [formTenManh, setFormTenManh] = useState('')
   const [addingTo, setAddingTo] = useState<number | null>(null)
   const [childSatName, setChildSatName] = useState('')
   const [childSpecs, setChildSpecs] = useState('')
+  const [childChieuDai, setChildChieuDai] = useState('')
   const [childSoLuong, setChildSoLuong] = useState('')
 
   // ── Vật tư ────────────────────────────────────────────────────────────
@@ -331,6 +343,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [vtName, setVtName] = useState('')
   const [vtUnit, setVtUnit] = useState('cây')
   const [vtSpecs, setVtSpecs] = useState('')
+  const [vtChieuDai, setVtChieuDai] = useState('')
   const [vtSoLuong, setVtSoLuong] = useState('')
   const [vtErr, setVtErr] = useState('')
   const [draftsByBom, setDraftsByBom] = useState<Record<number, DraftLine[]>>(MOCK_DRAFT)
@@ -347,7 +360,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     const maxId = preset.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
     setSelectedBom(item); setManhs(preset); setNextId(maxId + 1)
     setShowManhForm(false); setFormTenManh('')
-    setAddingTo(null); setChildSatName(''); setChildSoLuong('')
+    setAddingTo(null); setChildSatName(''); setChildSpecs(''); setChildChieuDai(''); setChildSoLuong('')
   }
 
   const addManh = () => {
@@ -361,11 +374,11 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     if (!childSatName) return
     setManhs(ms => ms.map(m =>
       m.id === manhId
-        ? { ...m, children: [...m.children, { id: nextId, loaiSatName: childSatName, specs: childSpecs, soLuong: childSoLuong }] }
+        ? { ...m, children: [...m.children, { id: nextId, loaiSatName: childSatName, specs: childSpecs, chieuDai: childChieuDai, soLuong: childSoLuong }] }
         : m
     ))
     setNextId(n => n + 1)
-    setChildSatName(''); setChildSpecs(''); setChildSoLuong('')
+    setChildSatName(''); setChildSpecs(''); setChildChieuDai(''); setChildSoLuong('')
   }
 
   const deleteChild = (manhId: number, childId: number) =>
@@ -383,10 +396,10 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const addToDraft = () => {
     setVtErr('')
     if (!vtName.trim() || !selectedVtBom) { setVtErr('Vui lòng chọn Tên vật tư.'); return }
-    const line: DraftLine = { uid: draftUid, name: vtName.trim(), specs: vtSpecs.trim(), soLuong: vtSoLuong.trim(), unit: vtUnit }
+    const line: DraftLine = { uid: draftUid, name: vtName.trim(), specs: vtSpecs.trim(), chieuDai: vtChieuDai.trim(), soLuong: vtSoLuong.trim(), unit: vtUnit }
     setDraftsByBom(d => ({ ...d, [selectedVtBom.id]: [...(d[selectedVtBom.id] ?? []), line] }))
     setDraftUid(n => n + 1)
-    setVtName(''); setVtSpecs(''); setVtSoLuong('')
+    setVtName(''); setVtSpecs(''); setVtChieuDai(''); setVtSoLuong('')
   }
 
   const removeDraft = (uid: number) => {
@@ -445,7 +458,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.ten}</td>
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
                     <td style={{ padding: '12px 14px' }}>
-                      {submittedBomIds.includes(item.id)
+                      {approvedManhBomIds.includes(item.id)
+                        ? <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✓ Đã duyệt</span>
+                        : submittedBomIds.includes(item.id)
                         ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
                         : <span style={{ background: '#fce4ec', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Cần nhập</span>
                       }
@@ -537,7 +552,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   {!isSubmitted && (
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                       <button
-                        onClick={() => addingTo === m.id ? setAddingTo(null) : (setAddingTo(m.id), setChildSatName(''), setChildSpecs(''), setChildSoLuong(''))}
+                        onClick={() => addingTo === m.id ? setAddingTo(null) : (setAddingTo(m.id), setChildSatName(''), setChildSpecs(''), setChildChieuDai(''), setChildSoLuong(''))}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
                           border: '1px solid var(--border)', borderRadius: 'var(--radius)',
@@ -563,7 +578,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         <th style={{ width: 36, padding: '7px', textAlign: 'center', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>#</th>
                         <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Loại sắt</th>
                         <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Quy cách</th>
-                        <th style={{ width: 120, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
+                        <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài</th>
+                        <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
                         {!isSubmitted && <th style={{ width: 44 }}></th>}
                       </tr>
                     </thead>
@@ -574,6 +590,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                             <td style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 12, padding: '9px 7px' }}>{i + 1}</td>
                             <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>{c.loaiSatName}</td>
                             <td style={{ padding: '9px 14px', color: 'var(--text3)', fontSize: 12 }}>{c.specs || '—'}</td>
+                            <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>{c.chieuDai || '—'}</td>
                             <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.soLuong || '—'}</td>
                             {!isSubmitted && (
                               <td style={{ textAlign: 'center', padding: '4px' }}>
@@ -599,13 +616,18 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     <div style={{ width: 200 }}>
                       <FL>Loại sắt</FL>
                       <SteelSearch selectedName={childSatName} catalog={catalog}
-                        onChange={item => { setChildSatName(item.name); setChildSpecs('') }} />
+                        onChange={name => { setChildSatName(name); setChildSpecs('') }}
+                        onSelectFromCatalog={item => { setChildSatName(item.name); setChildSpecs('') }} />
                     </div>
                     <div style={{ width: 120 }}>
                       <FL>Quy cách</FL>
                       <SpecsInput value={childSpecs} onChange={setChildSpecs} materialName={childSatName} catalog={catalog} />
                     </div>
-                    <div style={{ width: 120 }}>
+                    <div style={{ width: 100 }}>
+                      <FL>Chiều dài</FL>
+                      <SpecsInput value={childChieuDai} onChange={setChildChieuDai} materialName={childSatName} catalog={catalog} field="chieuDai" />
+                    </div>
+                    <div style={{ width: 100 }}>
                       <FL>Số lượng</FL>
                       <input placeholder="0" value={childSoLuong}
                         onChange={e => setChildSoLuong(e.target.value)}
@@ -649,10 +671,24 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
             <div style={{
               marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '12px 16px', background: 'var(--surface)',
-              border: `1px solid ${isSubmitted ? '#ffe082' : 'var(--border)'}`,
+              border: `1px solid ${
+                selectedBom && approvedManhBomIds.includes(selectedBom.id) ? '#a5d6a7'
+                : isSubmitted ? '#ffe082'
+                : 'var(--border)'
+              }`,
               borderRadius: 'var(--radius-lg)',
             }}>
-              {isSubmitted ? (
+              {selectedBom && approvedManhBomIds.includes(selectedBom.id) ? (
+                <>
+                  <span style={{ fontSize: 13, color: '#2e7d32', fontWeight: 600 }}>
+                    ✓ Đã được duyệt
+                  </span>
+                  <button onClick={() => setSelectedBom(null)} style={{
+                    padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                    background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
+                  }}>Quay lại danh sách</button>
+                </>
+              ) : isSubmitted ? (
                 <>
                   <span style={{ fontSize: 13, color: '#e65100', fontWeight: 600 }}>
                     ⏳ Đã gửi phê duyệt — đang chờ quản lý xác nhận
@@ -774,11 +810,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 <FL>Tên <span style={{ color: '#e53935' }}>*</span></FL>
                 <VatTuSearch
                   value={vtName}
-                  onSelect={p => {
-                    if (p) { setVtName(p.name); setVtUnit(p.unit) }
-                    else { setVtName(''); setVtUnit('cây') }
-                    setVtErr('')
-                  }}
+                  onChange={name => { setVtName(name); setVtErr('') }}
+                  onSelectFromPreset={p => { setVtName(p.name); setVtUnit(p.unit); setVtErr('') }}
                 />
               </div>
               {/* Quy cách */}
@@ -790,6 +823,11 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   materialName={vtName}
                   catalog={catalog}
                 />
+              </div>
+              {/* Chiều dài */}
+              <div style={{ minWidth: 90 }}>
+                <FL>Chiều dài</FL>
+                <SpecsInput value={vtChieuDai} onChange={setVtChieuDai} materialName={vtName} catalog={catalog} field="chieuDai" />
               </div>
               {/* SL */}
               <div style={{ minWidth: 90 }}>
@@ -828,7 +866,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                    {['SKU', 'Tên', 'Quy cách', 'SL', 'ĐVT', ''].map((h, i) => (
+                    {['SKU', 'Tên', 'Quy cách', 'Chiều dài', 'SL', 'ĐVT', ''].map((h, i) => (
                       <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                     ))}
                   </tr>
@@ -839,6 +877,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedVtBom?.ten}</td>
                       <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{d.name}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{d.specs || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text3)', fontFamily: 'monospace' }}>{d.chieuDai || '—'}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text)', fontFamily: 'monospace' }}>{d.soLuong || '—'}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{d.unit}</td>
                       <td style={{ padding: '10px 14px', textAlign: 'center' }}>
@@ -880,8 +919,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                    {['SKU', 'Tên', 'Quy cách', 'SL', 'ĐVT', 'Gửi lúc', 'Trạng thái'].map((h, i) => (
-                      <th key={i} style={{ padding: '8px 14px', textAlign: i === 6 ? 'right' : 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
+                    {['SKU', 'Tên', 'Quy cách', 'Chiều dài', 'SL', 'ĐVT', 'Gửi lúc', 'Trạng thái'].map((h, i) => (
+                      <th key={i} style={{ padding: '8px 14px', textAlign: i === 7 ? 'right' : 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -891,6 +930,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedVtBom?.ten}</td>
                       <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{l.name}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{l.specs || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text3)', fontFamily: 'monospace' }}>{l.chieuDai || '—'}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text)', fontFamily: 'monospace' }}>{l.soLuong || '—'}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{l.unit}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 12 }}>{req.submittedAt}</td>
@@ -927,8 +967,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: '#ffebee', borderBottom: '1px solid #ffcdd2' }}>
-                      {['Tên vật tư', 'Quy cách', 'SL', 'ĐVT', 'Gửi lúc', 'Trạng thái'].map((h, i) => (
-                        <th key={i} style={{ padding: '8px 14px', textAlign: i === 5 ? 'right' : 'left', fontWeight: 600, color: '#b71c1c', fontSize: 11 }}>{h}</th>
+                      {['Tên vật tư', 'Quy cách', 'Chiều dài', 'SL', 'ĐVT', 'Gửi lúc', 'Trạng thái'].map((h, i) => (
+                        <th key={i} style={{ padding: '8px 14px', textAlign: i === 6 ? 'right' : 'left', fontWeight: 600, color: '#b71c1c', fontSize: 11 }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -937,6 +977,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       <tr key={l.uid} style={{ borderBottom: '1px solid var(--border)' }}>
                         <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text2)' }}>{l.name}</td>
                         <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{l.specs || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: 'var(--text3)', fontFamily: 'monospace' }}>{l.chieuDai || '—'}</td>
                         <td style={{ padding: '10px 14px', color: 'var(--text)', fontFamily: 'monospace' }}>{l.soLuong || '—'}</td>
                         <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{l.unit}</td>
                         <td style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 12 }}>{l.submittedAt}</td>
@@ -951,18 +992,14 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
             </div>
           )}
 
-          {/* ── Đã duyệt / Catalog ── */}
+          {/* ── Catalog ── */}
           <div>
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#2e7d32', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ background: '#e8f5e9', color: '#2e7d32', borderRadius: 20, padding: '2px 10px', fontSize: 12 }}>✓ Đã duyệt</span>
-              <span style={{ color: 'var(--text3)', fontWeight: 400, fontSize: 12 }}>{catalog.length} loại</span>
-            </div>
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                    {['Tên vật tư', 'Quy cách', 'ĐVT', 'Trạng thái'].map((h, i) => (
-                      <th key={i} style={{ padding: '8px 14px', textAlign: i === 3 ? 'right' : 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
+                    {['Tên vật tư', 'Quy cách', 'Chiều dài', 'ĐVT'].map((h, i) => (
+                      <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -971,10 +1008,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     <tr key={i} style={{ borderBottom: i < catalog.length - 1 ? '1px solid var(--border)' : 'none' }}>
                       <td style={{ padding: '10px 14px', fontWeight: 500 }}>{s.name}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{s.specs || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text3)', fontFamily: 'monospace' }}>{s.chieuDai || '—'}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{s.unit}</td>
-                      <td style={{ padding: '10px 14px', textAlign: 'right' }}>
-                        <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✓ Đã duyệt</span>
-                      </td>
                     </tr>
                   ))}
                 </tbody>
