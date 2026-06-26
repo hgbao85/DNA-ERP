@@ -160,7 +160,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
             if (t.id === 'setup' && user?.mfgRole === 'SPEC_STEEL') {
               const isSetup = tab === 'setup'
               const steelItems = [
-                { id: 'vat-tu'   as const, label: 'Định mức chi tiết', icon: <ClipboardCheck size={16}/> },
+                { id: 'vat-tu'   as const, label: 'Định mức mới', icon: <ClipboardCheck size={16}/> },
                 { id: 'dinh-muc' as const, label: 'Định mức mảnh',     icon: <Grid size={16}/>           },
                 { id: 'catalog'  as const, label: 'Danh sách vật tư',  icon: <Box size={16}/>            },
               ]
@@ -184,7 +184,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
             if (t.id === 'setup' && user?.mfgRole === 'SPEC_WIRE_PAINT') {
               const isSetup = tab === 'setup'
               const items = [
-                { id: 'dinh-muc' as const, label: 'Định mức chi tiết', icon: <ClipboardCheck size={16}/> },
+                { id: 'dinh-muc' as const, label: 'Định mức mới', icon: <ClipboardCheck size={16}/> },
                 { id: 'catalog'  as const, label: 'Danh sách vật tư',  icon: <Box size={16}/>            },
               ]
               return (
@@ -207,7 +207,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
             if (t.id === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY') {
               const isSetup = tab === 'setup'
               const items = [
-                { id: 'dinh-muc' as const, label: 'Định mức chi tiết', icon: <ClipboardCheck size={16}/> },
+                { id: 'dinh-muc' as const, label: 'Định mức mới', icon: <ClipboardCheck size={16}/> },
                 { id: 'catalog'  as const, label: 'Danh sách vật tư',  icon: <Box size={16}/>            },
               ]
               return (
@@ -230,7 +230,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
             if (t.id === 'setup' && user?.mfgRole === 'SPEC_PACKAGING') {
               const isSetup = tab === 'setup'
               const items = [
-                { id: 'dinh-muc' as const, label: 'Định mức chi tiết', icon: <ClipboardCheck size={16}/> },
+                { id: 'dinh-muc' as const, label: 'Định mức mới', icon: <ClipboardCheck size={16}/> },
                 { id: 'catalog'  as const, label: 'Danh sách vật tư',  icon: <Box size={16}/>            },
               ]
               return (

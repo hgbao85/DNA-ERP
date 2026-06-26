@@ -353,6 +353,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [rejectedLines, setRejectedLines] = useState<RejectedLine[]>(MOCK_REJECTED)
   const [approvedVtBomIds, setApprovedVtBomIds] = useState<number[]>(APPROVED_VT_BOM_IDS)
   const [sentMsg, setSentMsg] = useState(false)
+  const [manhBomSearch, setManhBomSearch] = useState('')
+  const [vtBomSearch, setVtBomSearch] = useState('')
+  const [catalogSearch, setCatalogSearch] = useState('')
 
   // ── BOM helpers ───────────────────────────────────────────────────────
   const openBom = (item: BomItem) => {
@@ -435,8 +438,13 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
       {/* ══ ĐỊNH MỨC: LIST ══ */}
       {subTab === 'dinh-muc' && !selectedBom && (
         <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <span style={{ fontSize: 13, color: 'var(--text3)' }}>{MOCK_MANH_BOMS.length} SKU</span>
+          <div style={{ marginBottom: 16 }}>
+            <input
+              value={manhBomSearch}
+              onChange={e => setManhBomSearch(e.target.value)}
+              placeholder="Tìm theo tên SKU…"
+              style={{ maxWidth: 280, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+            />
           </div>
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -448,7 +456,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_MANH_BOMS.map(item => (
+                {MOCK_MANH_BOMS.filter(b => b.ten.toLowerCase().includes(manhBomSearch.toLowerCase())).map(item => (
                   <tr key={item.id}
                     onClick={() => openBom(item)}
                     style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background .1s' }}
@@ -727,7 +735,12 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
       {subTab === 'vat-tu' && !selectedVtBom && (
         <div>
           <div style={{ marginBottom: 16 }}>
-            <span style={{ fontSize: 13, color: 'var(--text3)' }}>{MOCK_BOMS.length} SKU</span>
+            <input
+              value={vtBomSearch}
+              onChange={e => setVtBomSearch(e.target.value)}
+              placeholder="Tìm theo tên SKU…"
+              style={{ maxWidth: 280, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+            />
           </div>
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -739,7 +752,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_BOMS.map(item => {
+                {MOCK_BOMS.filter(b => b.ten.toLowerCase().includes(vtBomSearch.toLowerCase())).map(item => {
                   const st = vtBomStatus(item.id)
                   return (
                     <tr key={item.id}
@@ -837,7 +850,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   placeholder="100" style={inputStyle} />
               </div>
               {/* ĐVT */}
-              <div style={{ minWidth: 90 }}>
+              <div style={{ width: 68 }}>
                 <FL>ĐVT</FL>
                 <select value={vtUnit} onChange={e => setVtUnit(e.target.value)}
                   style={{ ...inputStyle, background: 'var(--surface)' }}>
@@ -994,6 +1007,14 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
 
           {/* ── Catalog ── */}
           <div>
+            <div style={{ marginBottom: 16 }}>
+              <input
+                value={catalogSearch}
+                onChange={e => setCatalogSearch(e.target.value)}
+                placeholder="Tìm theo tên vật tư hoặc quy cách…"
+                style={{ maxWidth: 320, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+              />
+            </div>
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
@@ -1004,8 +1025,11 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   </tr>
                 </thead>
                 <tbody>
-                  {catalog.map((s, i) => (
-                    <tr key={i} style={{ borderBottom: i < catalog.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                  {catalog.filter(s => {
+                    const q = catalogSearch.toLowerCase()
+                    return s.name.toLowerCase().includes(q) || s.specs.toLowerCase().includes(q)
+                  }).map((s, i, arr) => (
+                    <tr key={i} style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
                       <td style={{ padding: '10px 14px', fontWeight: 500 }}>{s.name}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{s.specs || '—'}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text3)', fontFamily: 'monospace' }}>{s.chieuDai || '—'}</td>
