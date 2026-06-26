@@ -5,7 +5,7 @@ import * as api from '../../../services/api'
 import { ChevronLeft, Loader2, Trash2 } from 'lucide-react'
 import type { PlanForm } from '../../../types/plan-form'
 
-export default function PlanFormDashboardPage() {
+export default function SKUListPage() {
   const { data: planForms = [], isLoading, refetch } = useFetch(() => api.getPlanForms(), [])
 
   const [selectedPf, setSelectedPf] = useState<PlanForm | null>(null)
@@ -70,7 +70,7 @@ export default function PlanFormDashboardPage() {
         <div>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh sách SKU</h2>
           <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text2)' }}>
-            SKU đã được duyệt — định mức vật tư (Sắt, Dây/Sơn, Phụ kiện, Bao bì)
+            SKU đã được duyệt
           </p>
         </div>
         {!deleteMode ? (
@@ -78,7 +78,7 @@ export default function PlanFormDashboardPage() {
             onClick={() => setDeleteMode(true)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #fca5a5', background: '#fff5f5', color: '#dc2626', cursor: 'pointer' }}
           >
-            <Trash2 size={14} /> Xóa
+            <Trash2 size={14} /> Xóa SKU
           </button>
         ) : (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -108,31 +108,31 @@ export default function PlanFormDashboardPage() {
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
-              {deleteMode && <col style={{ width: 44 }} />}
               <col style={{ width: 48 }} />
               <col />
               <col style={{ width: 160 }} />
               <col style={{ width: 110 }} />
               <col style={{ width: 150 }} />
+              {deleteMode && <col style={{ width: 44 }} />}
             </colgroup>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                {deleteMode && (
-                  <th style={{ ...thStyle, padding: '10px 12px' }}>
-                    <input
-                      type="checkbox"
-                      checked={allChecked}
-                      ref={el => { if (el) el.indeterminate = someChecked }}
-                      onChange={toggleAll}
-                      style={{ cursor: 'pointer', width: 15, height: 15 }}
-                    />
-                  </th>
-                )}
                 <th style={thStyle}>#</th>
                 <th style={thStyle}>SKU</th>
                 <th style={thStyle}>Khách hàng</th>
                 <th style={thStyle}>Trạng thái</th>
                 <th style={thStyle}>Thời gian tạo</th>
+                {deleteMode && (
+                  <th style={{ ...thStyle, padding: '10px 12px', textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      checked={allChecked}
+                      ref={el => { if (el) el.indeterminate = someChecked }}
+                      onChange={toggleAll}
+                      style={{ cursor: 'pointer', width: 15, height: 15, display: 'block', margin: 'auto' }}
+                    />
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -149,16 +149,6 @@ export default function PlanFormDashboardPage() {
                       onMouseEnter={e => { if (!isChecked) e.currentTarget.style.background = deleteMode ? '#fff5f5' : '#f0fdf4' }}
                       onMouseLeave={e => { if (!isChecked) e.currentTarget.style.background = '' }}
                     >
-                      {deleteMode && (
-                        <td style={{ ...tdStyle, padding: '10px 12px' }} onClick={e => { e.stopPropagation(); toggleSelect(pf.id) }}>
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => toggleSelect(pf.id)}
-                            style={{ cursor: 'pointer', width: 15, height: 15 }}
-                          />
-                        </td>
-                      )}
                       <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)' }}>{pf.id}</td>
                       <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
@@ -174,6 +164,16 @@ export default function PlanFormDashboardPage() {
                       <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: 'var(--text3)', fontSize: 12 }}>
                         {format(new Date(pf.createdAt), 'HH:mm · dd/MM/yyyy')}
                       </td>
+                      {deleteMode && (
+                        <td style={{ ...tdStyle, padding: '10px 12px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => toggleSelect(pf.id)}
+                            style={{ cursor: 'pointer', width: 15, height: 15, display: 'block', margin: 'auto' }}
+                          />
+                        </td>
+                      )}
                     </tr>
                   </Fragment>
                 )
@@ -263,8 +263,8 @@ function PlanFormDetail({
   type SecFilter = 'all' | 'sat' | 'daySon' | 'vatTuPhuKien' | 'baoBiDongGoi'
   const [filterSec, setFilterSec] = useState<SecFilter>('all')
 
-  type DetailTab = 'vattu' | 'manh'
-  const [detailTab, setDetailTab] = useState<DetailTab>('vattu')
+  type DetailTab = 'chitiet' | 'manh'
+  const [detailTab, setDetailTab] = useState<DetailTab>('chitiet')
 
   type CheckState = 'idle' | 'checking' | 'ok' | 'missing'
   const [checkState, setCheckState] = useState<CheckState>('idle')
@@ -337,7 +337,7 @@ function PlanFormDetail({
 
       {/* Sub-tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
-        {([['vattu', 'Định mức vật tư'], ['manh', 'Định mức mảnh']] as [DetailTab, string][]).map(([id, label]) => (
+        {([['chitiet', 'Định mức chi tiết'], ['manh', 'Định mức mảnh']] as [DetailTab, string][]).map(([id, label]) => (
           <button key={id} onClick={() => setDetailTab(id)}
             style={{
               padding: '8px 20px', fontSize: 13, fontWeight: detailTab === id ? 700 : 500,
@@ -353,11 +353,11 @@ function PlanFormDetail({
       {/* Tab: Định mức mảnh */}
       {detailTab === 'manh' && <DinhMucManh pfId={pf.id} />}
 
-      {/* Tab: Định mức vật tư */}
-      {detailTab === 'vattu' && (mt ? (
+      {/* Tab: Định mức chi tiết */}
+      {detailTab === 'chitiet' && (mt ? (
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>Định mức vật tư</div>
+            <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>Danh sách định mức chi tiết</div>
             <div style={{ display: 'flex', gap: 5 }}>
               {([
                 ['all',          'Tất cả'],
@@ -451,7 +451,7 @@ function PlanFormDetail({
             <button
               disabled={checkState !== 'ok'}
               style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: checkState === 'ok' ? 'pointer' : 'not-allowed', background: checkState === 'ok' ? '#16a34a' : '#e5e7eb', color: checkState === 'ok' ? '#fff' : '#9ca3af' }}
-            >Sản xuất</button>
+            >Gửi đi nhập mảnh</button>
           </div>
 
           {/* Danh sách vật tư thiếu */}
@@ -489,7 +489,7 @@ function PlanFormDetail({
         </div>
       ) : (
         <div style={{ padding: 20, background: 'var(--surface2)', borderRadius: 8, color: 'var(--text3)', fontSize: 13, marginBottom: 24 }}>
-          Chưa có thông tin định mức vật tư
+          Chưa có thông tin định mức chi tiết
         </div>
       ))}
 
@@ -688,11 +688,76 @@ const MOCK_MANH_DEFAULT: ManhRow[] = [
   { id: 5, code: 'M-005', name: 'Tai móc treo',         material: 'Thép tấm 3mm',  thickness: 3.0, length: null, qty: 4, unit: 'cái',   note: 'Dập nguội, mạ kẽm' },
 ]
 
+type ManhApprovalEntry = { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
+
 function DinhMucManh({ pfId }: { pfId: number }) {
   const rows = MOCK_MANH_BY_PF[pfId] ?? MOCK_MANH_DEFAULT
+  const [approval, setApproval] = useState<ManhApprovalEntry>(null)
+  const [showRejectModal, setShowRejectModal] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+  const [showConfirmProd, setShowConfirmProd] = useState(false)
+  const [producing, setProducing] = useState(false)
+  const [produced, setProduced] = useState(false)
+
+  const handleApprove = () => setApproval({ status: 'APPROVED', at: new Date() })
+  const openReject = () => { setShowRejectModal(true); setRejectReason('') }
+  const confirmReject = () => {
+    setApproval({ status: 'REJECTED', at: new Date(), reason: rejectReason.trim() || undefined })
+    setShowRejectModal(false)
+  }
+  const handleConfirmProd = async () => {
+    setProducing(true)
+    await new Promise(r => setTimeout(r, 600))
+    setProducing(false)
+    setProduced(true)
+    setShowConfirmProd(false)
+  }
+
+  const isApproved = approval?.status === 'APPROVED'
+  const isRejected = approval?.status === 'REJECTED'
+
   return (
     <div style={{ marginBottom: 24 }}>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+      {/* Section header — duyệt */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', marginBottom: 16 }}>
+        <div style={{ background: isApproved ? '#f0fdf4' : isRejected ? '#fff5f5' : '#fafaf9', padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <span style={{ fontWeight: 700, fontSize: 13, color: isApproved ? '#15803d' : isRejected ? '#dc2626' : 'var(--text)' }}>
+              Danh sách mảnh phôi
+            </span>
+            <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text3)', marginLeft: 8 }}>
+              ({rows.length} mảnh · {rows.reduce((s, r) => s + r.qty, 0)} chi tiết)
+            </span>
+            {approval && (
+              <span style={{ marginLeft: 10, fontSize: 11, color: 'var(--text3)' }}>
+                · {format(approval.at, 'HH:mm dd/MM/yyyy')}
+              </span>
+            )}
+            {isRejected && approval?.reason && (
+              <div style={{ fontSize: 11, color: '#dc2626', fontStyle: 'italic', marginTop: 2 }}>{approval.reason}</div>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {approval && <StatusBadge status={approval.status} />}
+            <button
+              onClick={handleApprove}
+              style={{
+                padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer',
+                background: isApproved ? '#16a34a' : 'rgba(22,163,74,0.12)',
+                color: isApproved ? '#fff' : '#16a34a',
+              }}
+            >Duyệt</button>
+            <button
+              onClick={openReject}
+              style={{
+                padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer',
+                background: isRejected ? '#dc2626' : 'rgba(220,38,38,0.10)',
+                color: isRejected ? '#fff' : '#dc2626',
+              }}
+            >Từ chối</button>
+          </div>
+        </div>
+
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: 80 }} />
@@ -735,9 +800,107 @@ function DinhMucManh({ pfId }: { pfId: number }) {
           </tbody>
         </table>
       </div>
-      <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text3)' }}>
-        Tổng {rows.length} mảnh · {rows.reduce((s, r) => s + r.qty, 0)} chi tiết
+
+      {/* Action bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+        {produced && (
+          <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>Đã xác nhận bắt đầu sản xuất</span>
+        )}
+        {!isApproved && !produced && (
+          <span style={{ fontSize: 12, color: '#d97706' }}>Cần duyệt danh sách mảnh trước</span>
+        )}
+        <button
+          disabled={!isApproved || produced}
+          onClick={() => setShowConfirmProd(true)}
+          style={{
+            padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
+            cursor: isApproved && !produced ? 'pointer' : 'not-allowed',
+            background: isApproved && !produced ? '#16a34a' : '#e5e7eb',
+            color: isApproved && !produced ? '#fff' : '#9ca3af',
+          }}
+        >{produced ? 'Đã bắt đầu sản xuất' : 'Bắt đầu sản xuất'}</button>
       </div>
+
+      {/* Modal xác nhận bắt đầu cắt phôi */}
+      {showConfirmProd && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+          onClick={e => { if (e.target === e.currentTarget) setShowConfirmProd(false) }}
+        >
+          <div style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 480, padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,.18)' }}>
+            <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700 }}>Xác nhận bắt đầu sản xuất</h3>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text2)' }}>
+              Danh sách mảnh đã được duyệt. Xác nhận để chuyển sang giai đoạn sản xuất.
+            </p>
+            <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 14px', marginBottom: 16, fontSize: 13 }}>
+              <div style={{ fontWeight: 600, color: 'var(--text3)', fontSize: 11, marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Tóm tắt danh sách mảnh
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 24px' }}>
+                <div><span style={{ color: 'var(--text3)' }}>Tổng mảnh: </span><strong>{rows.length} loại</strong></div>
+                <div><span style={{ color: 'var(--text3)' }}>Chi tiết: </span><strong>{rows.reduce((s, r) => s + r.qty, 0)} cái</strong></div>
+                <div><span style={{ color: 'var(--text3)' }}>Duyệt lúc: </span><strong>{approval ? format(approval.at, 'HH:mm dd/MM/yyyy') : '—'}</strong></div>
+              </div>
+            </div>
+            <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', marginBottom: 20, maxHeight: 200, overflowY: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: 'var(--surface2)' }}>
+                    <th style={{ padding: '7px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--text3)' }}>Mã / Tên mảnh</th>
+                    <th style={{ padding: '7px 12px', textAlign: 'left', fontWeight: 600, color: 'var(--text3)' }}>Vật liệu</th>
+                    <th style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 600, color: 'var(--text3)' }}>SL</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => (
+                    <tr key={r.id} style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined }}>
+                      <td style={{ padding: '7px 12px' }}>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#2e7d32', marginRight: 6 }}>{r.code}</span>
+                        {r.name}
+                      </td>
+                      <td style={{ padding: '7px 12px', color: 'var(--text3)' }}>{r.material}</td>
+                      <td style={{ padding: '7px 12px', textAlign: 'right', fontWeight: 700 }}>{r.qty} {r.unit}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setShowConfirmProd(false)}
+                style={btnSecondary}
+              >Hủy</button>
+              <button
+                onClick={handleConfirmProd}
+                disabled={producing}
+                style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: producing ? 'not-allowed' : 'pointer', background: '#16a34a', color: '#fff', opacity: producing ? 0.7 : 1 }}
+              >{producing ? 'Đang xử lý...' : 'Xác nhận bắt đầu sản xuất'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal từ chối */}
+      {showRejectModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 420, padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,.18)' }}>
+            <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Từ chối — Danh sách mảnh phôi</h3>
+            <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text3)' }}>Nhập lý do từ chối (không bắt buộc)</p>
+            <textarea
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              placeholder="Vd: Sai kích thước, thiếu mảnh, cần bổ sung..."
+              rows={3}
+              autoFocus
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+            />
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button onClick={() => setShowRejectModal(false)} style={btnSecondary}>Hủy</button>
+              <button onClick={confirmReject} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#dc2626', color: '#fff' }}>Xác nhận từ chối</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

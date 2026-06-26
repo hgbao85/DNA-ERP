@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Boxes, Warehouse, Settings, FilePlus } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
-import PlanFormDashboardPage from './PlanFormDashboardPage'
 import VatTuDashboardPage from './VatTuDashboardPage'
 import ThongKePage from '../Manufacturing/ThongKePage'
 import PIListPage from '../Manufacturing/PIListPage'
-import MfgMaterialsAndSkuPage from '../Manufacturing/MfgMaterialsAndSkuPage'
-import WarehouseTabsPage from '../Manufacturing/WarehouseTabsPage'
+import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import MfgSetupPage from '../Manufacturing/MfgSetupPage'
 import CreateSkuPage from '../Manufacturing/CreateSkuPage'
+import SKUListPage from './SKUListPage'
 
 type Page = 'planforms' | 'tao-sku' | 'vattu' | 'thongke' | 'pi-list' | 'materials' | 'warehouses' | 'setup'
 
@@ -47,7 +46,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
                 <Grid size={16} color="var(--text)" />
               </button>
             )}
-            <div style={{ fontWeight: 700, fontSize: 14 }}>Kế hoạch SX</div>
+            <div style={{ fontWeight: 700, fontSize: 14 }}>Kế hoạch sản xuất</div>
           </div>
           <div style={{ fontSize: 11, color: 'var(--text3)' }}>Đông Nam Á Corp</div>
         </div>
@@ -58,8 +57,6 @@ export default function ProductionPlanApp({ onBack }: Props) {
           {navBtn('tao-sku',    <FilePlus size={16} />,        'Tạo SKU')}
           {navBtn('vattu',      <Package size={16} />,         'Danh sách vật tư')}
           {navBtn('pi-list',    <ClipboardList size={16} />,  'Lệnh sản xuất mới')}
-          {/* {navBtn('setup',      <Settings size={16} />,       'Quản lý định mức')} */}
-          {/* {navBtn('materials',  <Boxes size={16} />,          'Tổng hợp vật tư/SKU')} */}
           {navBtn('warehouses', <Warehouse size={16} />,      'Tổng hợp kho')}
         </nav>
 
@@ -81,13 +78,11 @@ export default function ProductionPlanApp({ onBack }: Props) {
 
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
         {activePage === 'thongke'    && <ThongKePage />}
-        {activePage === 'planforms'  && <PlanFormDashboardPage />}
+        {activePage === 'planforms'  && <SKUListPage />}
         {activePage === 'tao-sku'    && <CreateSkuPage />}
         {activePage === 'vattu'      && <VatTuDashboardPage />}
         {activePage === 'pi-list'    && <PIListPage />}
-        {activePage === 'materials'  && <MfgMaterialsAndSkuPage />}
-        {activePage === 'warehouses' && <WarehouseTabsPage />}
-        {activePage === 'setup'      && <MfgSetupPage />}
+        {activePage === 'warehouses' && <MfgWarehousesPage />}
       </div>
     </div>
   )

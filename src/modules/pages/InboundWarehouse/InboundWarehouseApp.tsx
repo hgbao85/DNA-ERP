@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, FileText, ChevronDown, ClipboardCheck, Box } from 'lucide-react'
+import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, FileText, ClipboardCheck, Box } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 // Tái dùng nguyên các màn kho đã có (trước đây nằm trong MES) — KHÔNG viết lại logic.
-import MfgWarehousesPage, { WAREHOUSE_GROUPS } from '../Manufacturing/MfgWarehousesPage'
+import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import MfgAllMaterialsPage from '../Manufacturing/MfgAllMaterialsPage'
 import NhapKhoPage from '../Manufacturing/NhapKhoPage'
 import XuatKhoPage from '../Manufacturing/XuatKhoPage'
@@ -24,7 +24,6 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
 
   // Tài khoản kho bị giới hạn vào 1 nhóm kho (warehouseScope). null = tổng kho / Giám đốc → thấy hết.
   const scope = user?.warehouseScope ?? null
-  const scopeGroup = scope ? WAREHOUSE_GROUPS.find(g => g.key === scope) ?? null : null
 
   // Chuyền kiểm + Đóng gói: kho thành phẩm + kho bao bì đóng gói + tổng kho (scope null). GĐ cũng thấy.
   const canSeePacking = scope === null || scope === 'thanh-pham' || scope === 'bao-bi'
@@ -32,7 +31,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   type TabId = 'materials' | 'warehouses' | 'nhap-kho' | 'xuat-kho' | 'de-xuat' | 'chuyen-kiem' | 'dong-goi'
   const ALL_TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
     { id: 'materials',  label: 'Tổng hợp vật tư',    icon: <Boxes size={16} /> },
-    { id: 'warehouses', label: scopeGroup ? scopeGroup.label : 'Tổng hợp kho', icon: <Warehouse size={16} /> },
+    { id: 'warehouses', label: 'Tổng hợp kho',        icon: <Warehouse size={16} /> },
     { id: 'nhap-kho',   label: 'Nhập kho',           icon: <ArrowDownToLine size={16} /> },
     { id: 'xuat-kho',   label: 'Xuất kho',           icon: <ArrowUpFromLine size={16} /> },
     { id: 'de-xuat',    label: 'Đề xuất mua vật tư', icon: <FileText size={16} /> },
@@ -45,9 +44,6 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   const TABS = scope ? ALL_TABS.filter(t => t.id !== 'materials') : ALL_TABS
 
   const [tab, setTab] = useState<TabId>(scope ? 'warehouses' : 'materials')
-  const [whGroup, setWhGroup] = useState<string | null>(null)
-  const [whExpanded, setWhExpanded] = useState(false)
-
   const navBtn = (active: boolean): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 9, width: '100%',
     padding: '8px 10px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
@@ -56,19 +52,10 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     fontWeight: active ? 600 : 400,
     fontSize: 13, textAlign: 'left', cursor: 'pointer', transition: 'background .1s',
   })
-  const subNavBtn = (active: boolean): React.CSSProperties => ({
-    display: 'flex', alignItems: 'center', width: '100%',
-    padding: '6px 10px 6px 35px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
-    background: active ? ACCENT_BG : 'transparent',
-    color: active ? ACCENT : 'var(--text3)',
-    fontWeight: active ? 600 : 400,
-    fontSize: 12, textAlign: 'left', cursor: 'pointer', transition: 'background .1s',
-  })
-
   // Nhãn chức vụ dưới chân sidebar
   const roleLabel = user?.role === 'MANAGER'
     ? 'Giám đốc'
-    : scopeGroup ? `Thủ kho · ${scopeGroup.label}` : 'Thủ kho (tổng)'
+    : scope ? `Thủ kho · ${scope}` : 'Thủ kho (tổng)'
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
@@ -95,37 +82,6 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
 
         <nav style={{ flex: 1, padding: '4px 8px' }}>
           {TABS.map(t => {
-            if (t.id === 'warehouses' && !scope) {
-              const parentActive = tab === 'warehouses'
-              return (
-                <div key={t.id}>
-                  <button
-                    onClick={() => { setTab('warehouses'); setWhGroup(null); setWhExpanded(e => !e) }}
-                    style={navBtn(parentActive)}
-                    onMouseEnter={e => { if (!parentActive) e.currentTarget.style.background = 'var(--surface2)' }}
-                    onMouseLeave={e => { if (!parentActive) e.currentTarget.style.background = 'transparent' }}
-                  >
-                    {t.icon}
-                    <span style={{ flex: 1 }}>{t.label}</span>
-                    <ChevronDown size={14} style={{ transform: whExpanded ? 'none' : 'rotate(-90deg)', transition: 'transform .15s' }} />
-                  </button>
-                  {whExpanded && WAREHOUSE_GROUPS.map(g => {
-                    const subActive = tab === 'warehouses' && whGroup === g.key
-                    return (
-                      <button
-                        key={g.key}
-                        onClick={() => { setTab('warehouses'); setWhGroup(g.key) }}
-                        style={subNavBtn(subActive)}
-                        onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
-                        onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
-                      >
-                        {g.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              )
-            }
             const active = tab === t.id
             return (
               <button
@@ -166,7 +122,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
       {/* ── Main content ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
         {tab === 'materials'  && !scope && <MfgAllMaterialsPage />}
-        {tab === 'warehouses' && <MfgWarehousesPage groupKey={scope ?? whGroup} />}
+        {tab === 'warehouses' && <MfgWarehousesPage groupKey={scope} />}
         {tab === 'nhap-kho'   && <NhapKhoPage lockedGroup={scope} />}
         {tab === 'xuat-kho'   && <XuatKhoPage lockedGroup={scope} />}
         {tab === 'de-xuat'    && <DeXuatMuaVatTuPage />}

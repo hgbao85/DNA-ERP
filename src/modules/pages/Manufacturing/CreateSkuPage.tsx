@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import { Loader2, Plus } from 'lucide-react'
+import { Loader2, Plus, X } from 'lucide-react'
 import type { PlanForm, CreatePlanFormPayload } from '../../../types/plan-form'
 
 const emptyForm = (): CreatePlanFormPayload => ({
@@ -26,11 +26,19 @@ export default function CreateSkuPage() {
   const exportOrders = (formOptions?.exportOrders ?? []) as { id: number }[]
   const mfgProducts  = (formOptions?.mfgProducts  ?? []) as { id: number }[]
 
+  const [showForm, setShowForm]       = useState(false)
   const [form, setForm]               = useState<CreatePlanFormPayload>(emptyForm)
   const [customerName, setCustomerName] = useState('')
   const [poCode, setPoCode]           = useState('')
   const [submitting, setSubmitting]   = useState(false)
   const [success, setSuccess]         = useState(false)
+
+  const closeForm = () => {
+    setShowForm(false)
+    setForm(emptyForm())
+    setCustomerName('')
+    setPoCode('')
+  }
 
   const pending = ((planForms ?? []) as PlanForm[]).filter(p => p.status === 'PROPOSED' || p.status !== 'APPROVED')
 
@@ -49,12 +57,10 @@ export default function CreateSkuPage() {
         mfgProductId:  form.mfgProductId  || firstProduct?.id || 0,
         customerName:  customerName.trim() || undefined,
       })
-      setForm(emptyForm())
-      setCustomerName('')
-      setPoCode('')
+      closeForm()
       setSuccess(true)
       refetch()
-      setTimeout(() => setSuccess(false), 3000)
+      setTimeout(() => setSuccess(false), 4000)
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Không thể tạo SKU')
     } finally {
@@ -64,58 +70,95 @@ export default function CreateSkuPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Tạo SKU mới</h2>
-        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>
-          Thêm SKU mới — sẽ vào danh sách chờ duyệt
-        </p>
-      </div>
-
-      {/* Create form */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', marginBottom: 28, maxWidth: 520 }}>
-        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 16 }}>Thông tin SKU</div>
-
-        <label style={labelStyle}>Tên khách hàng</label>
-        <input
-          type="text"
-          value={customerName}
-          onChange={e => setCustomerName(e.target.value)}
-          placeholder="Nhập tên khách hàng"
-          style={inputStyle}
-        />
-
-        <label style={labelStyle}>Mã PO</label>
-        <input
-          type="text"
-          value={poCode}
-          onChange={e => setPoCode(e.target.value)}
-          placeholder="Nhập mã PO"
-          style={inputStyle}
-        />
-
-        <label style={labelStyle}>Mã SKU</label>
-        <input
-          type="text"
-          value={form.note}
-          onChange={e => setForm({ ...form, note: e.target.value })}
-          placeholder="Nhập mã SKU"
-          style={inputStyle}
-        />
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginTop: 8 }}>
-          <button
-            onClick={handleSubmit}
-            disabled={submitting}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 20px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}
-          >
-            <Plus size={15} />
-            {submitting ? 'Đang lưu...' : 'Thêm SKU'}
-          </button>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Tạo SKU</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>
+            SKU mới sau khi tạo sẽ vào danh sách chờ duyệt
+          </p>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {success && (
-            <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600 }}>✓ Đã thêm, đang chờ duyệt</span>
+            <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600 }}>✓ Đã thêm thành công</span>
+          )}
+          {!showForm && (
+            <button
+              onClick={() => setShowForm(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 18px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+            >
+              <Plus size={15} /> Tạo SKU mới
+            </button>
           )}
         </div>
       </div>
+
+      {/* Create form — popup modal */}
+      {showForm && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget) closeForm() }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <div style={{ background: 'var(--surface)', borderRadius: 14, width: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
+            {/* Modal header */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#f0fdf4', borderBottom: '1px solid #bbf7d0' }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: '#15803d' }}>Thông tin SKU mới</span>
+              <button onClick={closeForm} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text3)', display: 'flex' }}>
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Fields */}
+            <div style={{ padding: '20px 20px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <div>
+                <label style={labelStyle}>Tên khách hàng</label>
+                <input
+                  type="text" value={customerName}
+                  onChange={e => setCustomerName(e.target.value)}
+                  placeholder="Nhập tên khách hàng"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Mã PO</label>
+                <input
+                  type="text" value={poCode}
+                  onChange={e => setPoCode(e.target.value)}
+                  placeholder="Nhập mã PO"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Mã SKU <span style={{ color: '#dc2626' }}>*</span></label>
+                <input
+                  autoFocus
+                  type="text" value={form.note}
+                  onChange={e => setForm({ ...form, note: e.target.value })}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSubmit() }}
+                  placeholder="Nhập mã SKU"
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '16px 20px', borderTop: '1px solid #e7f9ee', marginTop: 12 }}>
+              <button
+                onClick={closeForm}
+                style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
+              >Hủy</button>
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}
+              >
+                <Plus size={14} />
+                {submitting ? 'Đang lưu...' : 'Thêm SKU'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Pending list */}
       <div>

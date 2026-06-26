@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, ChevronDown, Warehouse, FileText, PackageCheck, MapPin, ArrowDownToLine, ClipboardCheck, Box, PackagePlus, History, FilePlus, Users, CalendarClock } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, FileText, PackageCheck, MapPin, ArrowDownToLine, ClipboardCheck, Box, PackagePlus, History, FilePlus, Users, CalendarClock } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import PIListPage from './PIListPage'
 import MfgStageBoardPage from './MfgStageBoardPage'
@@ -12,7 +12,7 @@ import TongDonHangPage from './TongDonHangPage'
 import TaoDonHangMoiPage from './TaoDonHangMoiPage'
 import DanhSachKhachHangPage from './DanhSachKhachHangPage'
 import MfgWorkshopBoardPage from './MfgWorkshopBoardPage'
-import MfgWarehousesPage, { WAREHOUSE_GROUPS } from './MfgWarehousesPage'
+import MfgWarehousesPage from './MfgWarehousesPage'
 import MfgAllMaterialsPage from './MfgAllMaterialsPage'
 import DeXuatMuaVatTuPage from './DeXuatMuaVatTuPage'
 import DieuPhoiDanPage from './DieuPhoiDanPage'
@@ -88,8 +88,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
 
   const initialTab: TabId = canManageWorkshop ? 'workshop' : isFactorySales ? 'tong-don-hang' : isWeavingMgr ? 'dieu-phoi-dan' : isBomManager ? 'setup' : isSpecSteel ? 'setup' : 'pi-list'
   const [tab, setTab] = useState<TabId>(initialTab)
-  const [whGroup, setWhGroup] = useState<string | null>(null)
-  const [whExpanded, setWhExpanded] = useState(false)
+
   const [steelSubTab, setSteelSubTab] = useState<'vat-tu' | 'dinh-muc' | 'catalog'>('vat-tu')
 
   // ── Role label ───────────────────────────────────────────────────────
@@ -119,14 +118,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     color: active ? '#e65100' : 'var(--text2)',
     fontWeight: active ? 600 : 400,
     fontSize: 13, textAlign: 'left', cursor: 'pointer', transition: 'background .1s',
-  })
-  const subNavBtn = (active: boolean): React.CSSProperties => ({
-    display: 'flex', alignItems: 'center', width: '100%',
-    padding: '6px 10px 6px 35px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
-    background: active ? '#fff3e0' : 'transparent',
-    color: active ? '#e65100' : 'var(--text3)',
-    fontWeight: active ? 600 : 400,
-    fontSize: 12, textAlign: 'left', cursor: 'pointer', transition: 'background .1s',
   })
 
   return (
@@ -159,38 +150,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         <nav style={{ flex: 1, padding: '4px 8px' }}>
           {TABS.map(t => {
             const active = tab === t.id
-            // Mục "Tổng hợp vật tư" → xổ menu con theo loại kho
-            if (t.id === 'warehouses') {
-              const parentActive = tab === 'warehouses'
-              return (
-                <div key={t.id}>
-                  <button
-                    onClick={() => { setTab('warehouses'); setWhGroup(null); setWhExpanded(e => !e) }}
-                    style={navBtn(parentActive)}
-                    onMouseEnter={e => { if (!parentActive) e.currentTarget.style.background = 'var(--surface2)' }}
-                    onMouseLeave={e => { if (!parentActive) e.currentTarget.style.background = 'transparent' }}
-                  >
-                    {t.icon}
-                    <span style={{ flex: 1 }}>{t.label}</span>
-                    <ChevronDown size={14} style={{ transform: whExpanded ? 'none' : 'rotate(-90deg)', transition: 'transform .15s' }} />
-                  </button>
-                  {whExpanded && WAREHOUSE_GROUPS.map(g => {
-                    const subActive = tab === 'warehouses' && whGroup === g.key
-                    return (
-                      <button
-                        key={g.key}
-                        onClick={() => { setTab('warehouses'); setWhGroup(g.key); }}
-                        style={subNavBtn(subActive)}
-                        onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
-                        onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
-                      >
-                        {g.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              )
-            }
             // Quản lý định mức SPEC_STEEL → 3 sub-items trong sidebar
             if (t.id === 'setup' && user?.mfgRole === 'SPEC_STEEL') {
               const isSetup = tab === 'setup'
@@ -268,7 +227,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {/* "Điểm đan" bên Quản lý SX: CHỈ XEM — thêm/sửa làm ở "Quản lý điểm đan" (khu Đan) */}
         {tab === 'weaving-points' && canManageBom && <WeavingPointsPage readOnly />}
         {tab === 'materials' && canSeeWarehouses && <MfgAllMaterialsPage />}
-        {tab === 'warehouses' && canSeeWarehouses && <MfgWarehousesPage groupKey={whGroup} />}
+        {tab === 'warehouses' && canSeeWarehouses && <MfgWarehousesPage />}
         {tab === 'de-xuat' && isDirector && <DeXuatMuaVatTuPage />}
         {tab === 'setup'   && (canManageBom || isBomManager) && <MfgSetupPage />}
         {tab === 'setup'   && user?.mfgRole === 'SPEC_STEEL' && <SpecSteelPage subTab={steelSubTab} onSubTabChange={setSteelSubTab} />}

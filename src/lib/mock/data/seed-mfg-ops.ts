@@ -398,37 +398,230 @@ export const seedPiMaterialChecks: Record<number, { piId: number; status: string
 };
 
 export const seedMfgWarehouseTxns = [
+  // ── Kho Sắt (id:2) ──────────────────────────────────────────────────
   {
-    id: 1,
-    type: 'IMPORT',
-    quantity: 50,
-    date: ISO('2026-06-15'),
-    refCode: 'LMH-2026-001',
-    warehouseId: 2,
+    id: 1, type: 'IMPORT', quantity: 50, warehouseId: 2,
+    date: ISO('2026-06-15'), refCode: 'LMH-2026-001',
     item: { name: 'Ống sắt 25×25', unit: 'cây' },
-    createdBy: { name: 'Kho Minh' },
-    note: 'Nhập từ lệnh mua hàng',
+    createdBy: { name: 'Kho Minh' }, note: 'Nhập từ lệnh mua hàng LMH-001',
   },
   {
-    id: 2,
-    type: 'EXPORT',
-    quantity: 10,
+    id: 2, type: 'EXPORT', quantity: 10, warehouseId: 2,
     date: ISO('2026-06-18'),
-    warehouseId: 2,
     item: { name: 'Ống sắt 25×25', unit: 'cây' },
-    createdBy: { name: 'Kho Minh' },
-    exportPurpose: { id: 1, label: 'Xuất sản xuất' },
-    note: 'Xuất cho PI-2026-001',
+    createdBy: { name: 'Kho Minh' }, note: 'Xuất cho PI-2026-001',
   },
   {
-    id: 3,
-    type: 'IMPORT',
-    quantity: 200,
-    date: ISO('2026-06-10'),
-    refCode: 'LMH-2026-001',
-    warehouseId: 1,
+    id: 4, type: 'IMPORT', quantity: 100, warehouseId: 2,
+    date: ISO('2026-05-10'), refCode: 'LMH-2026-002',
+    item: { name: 'Ống sắt 20×40', unit: 'cây' },
+    createdBy: { name: 'Kho Minh' }, note: 'Nhập bổ sung tháng 5',
+  },
+  {
+    id: 5, type: 'EXPORT', quantity: 22, warehouseId: 2,
+    date: ISO('2026-05-20'),
+    item: { name: 'Ống sắt 20×40', unit: 'cây' },
+    createdBy: { name: 'Kho Minh' }, note: 'Xuất xưởng hàn PI-2026-003',
+  },
+  {
+    id: 6, type: 'IMPORT', quantity: 80, warehouseId: 2,
+    date: ISO('2026-05-25'), refCode: 'LMH-2026-003',
+    item: { name: 'Ống sắt 30×30', unit: 'cây' },
+    createdBy: { name: 'Kho Minh' }, note: 'Nhập từ nhà cung cấp Thép Nam Đô',
+  },
+  {
+    id: 7, type: 'EXPORT', quantity: 30, warehouseId: 2,
+    date: ISO('2026-06-05'),
+    item: { name: 'Ống sắt 30×30', unit: 'cây' },
+    createdBy: { name: 'Kho Minh' }, note: 'Xuất cắt phôi lô JSE-60 x200',
+  },
+  {
+    id: 8, type: 'ADJUST', quantity: -5, warehouseId: 2,
+    date: ISO('2026-06-20'),
+    item: { name: 'Sắt hộp 25×25', unit: 'cây' },
+    createdBy: { name: 'Kho Minh' }, note: 'Điều chỉnh kiểm kê tháng 6 — phát hiện hao hụt cắt',
+  },
+  {
+    id: 9, type: 'IMPORT', quantity: 60, warehouseId: 2,
+    date: ISO('2026-06-22'), refCode: 'LMH-2026-005',
+    item: { name: 'Sắt dẹt 20×3', unit: 'cây' },
+    createdBy: { name: 'Kho Minh' }, note: 'Nhập phục vụ đơn IEA-3 GOPLUS',
+  },
+
+  // ── Kho Phụ kiện (id:1) ─────────────────────────────────────────────
+  {
+    id: 3, type: 'IMPORT', quantity: 2000, warehouseId: 1,
+    date: ISO('2026-06-10'), refCode: 'LMH-2026-001',
     item: { name: 'Tán M6×12', unit: 'cái' },
-    createdBy: { name: 'Kho phụ kiện' },
+    createdBy: { name: 'Kho Hoa' }, note: 'Nhập theo kế hoạch quý 2',
+  },
+  {
+    id: 10, type: 'EXPORT', quantity: 480, warehouseId: 1,
+    date: ISO('2026-06-12'),
+    item: { name: 'Tán M6×12', unit: 'cái' },
+    createdBy: { name: 'Kho Hoa' }, note: 'Xuất lắp ráp JSE-55 x10 bộ',
+  },
+  {
+    id: 11, type: 'IMPORT', quantity: 1500, warehouseId: 1,
+    date: ISO('2026-05-15'), refCode: 'LMH-2026-002',
+    item: { name: 'Chốt 10mm', unit: 'cái' },
+    createdBy: { name: 'Kho Hoa' }, note: 'Nhập từ NCC Phú Thịnh',
+  },
+  {
+    id: 12, type: 'EXPORT', quantity: 200, warehouseId: 1,
+    date: ISO('2026-05-28'),
+    item: { name: 'Chốt 10mm', unit: 'cái' },
+    createdBy: { name: 'Kho Hoa' }, note: 'Xuất lắp ráp IEA-3 lô MEYING',
+  },
+  {
+    id: 13, type: 'IMPORT', quantity: 600, warehouseId: 1,
+    date: ISO('2026-06-01'), refCode: 'LMH-2026-004',
+    item: { name: 'Pát V 100', unit: 'cái' },
+    createdBy: { name: 'Kho Hoa' }, note: 'Nhập tồn kho dự phòng',
+  },
+  {
+    id: 14, type: 'EXPORT', quantity: 120, warehouseId: 1,
+    date: ISO('2026-06-08'),
+    item: { name: 'Pát V 100', unit: 'cái' },
+    createdBy: { name: 'Kho Hoa' }, note: 'Xuất PI-2026-002 xưởng hàn',
+  },
+  {
+    id: 15, type: 'ADJUST', quantity: -30, warehouseId: 1,
+    date: ISO('2026-06-25'),
+    item: { name: 'Ô tròn lỗ dù', unit: 'cái' },
+    createdBy: { name: 'Kho Hoa' }, note: 'Kiểm kê — mất mát trong tháng',
+  },
+
+  // ── Kho Khung/Dây (id:3) ────────────────────────────────────────────
+  {
+    id: 16, type: 'IMPORT', quantity: 150, warehouseId: 3,
+    date: ISO('2026-05-05'), refCode: 'LMH-2026-003',
+    item: { name: 'Dây PE Ø3mm', unit: 'kg' },
+    createdBy: { name: 'Kho Nam' }, note: 'Nhập từ Nhựa Tiền Phong',
+  },
+  {
+    id: 17, type: 'EXPORT', quantity: 35, warehouseId: 3,
+    date: ISO('2026-05-12'),
+    item: { name: 'Dây PE Ø3mm', unit: 'kg' },
+    createdBy: { name: 'Kho Nam' }, note: 'Xuất tổ đan IEA-3 lô 1',
+  },
+  {
+    id: 18, type: 'EXPORT', quantity: 28, warehouseId: 3,
+    date: ISO('2026-05-22'),
+    item: { name: 'Dây PE Ø3mm', unit: 'kg' },
+    createdBy: { name: 'Kho Nam' }, note: 'Xuất tổ đan JSE-55 lô IKEA',
+  },
+  {
+    id: 19, type: 'IMPORT', quantity: 100, warehouseId: 3,
+    date: ISO('2026-06-02'), refCode: 'LMH-2026-005',
+    item: { name: 'Dây PE Ø4mm', unit: 'kg' },
+    createdBy: { name: 'Kho Nam' }, note: 'Nhập bổ sung — hàng về sớm hơn kế hoạch',
+  },
+  {
+    id: 20, type: 'EXPORT', quantity: 45, warehouseId: 3,
+    date: ISO('2026-06-10'),
+    item: { name: 'Dây PE Ø4mm', unit: 'kg' },
+    createdBy: { name: 'Kho Nam' }, note: 'Xuất đan JSE-60 lô GOPLUS x50',
+  },
+  {
+    id: 21, type: 'IMPORT', quantity: 80, warehouseId: 3,
+    date: ISO('2026-06-18'), refCode: 'LMH-2026-006',
+    item: { name: 'Dây nhựa đan', unit: 'kg' },
+    createdBy: { name: 'Kho Nam' }, note: 'Nhập hàng tháng 6',
+  },
+  {
+    id: 22, type: 'EXPORT', quantity: 60, warehouseId: 3,
+    date: ISO('2026-06-23'),
+    item: { name: 'Dây PE xám', unit: 'kg' },
+    createdBy: { name: 'Kho Nam' }, note: 'Xuất đan ghế IEA-3 xám IKEA',
+  },
+
+  // ── Kho Bao bì/Thành phẩm (id:5) ────────────────────────────────────
+  {
+    id: 23, type: 'IMPORT', quantity: 300, warehouseId: 5,
+    date: ISO('2026-05-08'), refCode: 'LMH-2026-002',
+    item: { name: 'Thùng carton JSE-55', unit: 'cái' },
+    createdBy: { name: 'Thủ kho Lan' }, note: 'Nhập thùng cho đơn MEYING Q3',
+  },
+  {
+    id: 24, type: 'EXPORT', quantity: 100, warehouseId: 5,
+    date: ISO('2026-05-18'),
+    item: { name: 'Thùng carton JSE-55', unit: 'cái' },
+    createdBy: { name: 'Thủ kho Lan' }, note: 'Xuất đóng gói lô PO-MY-001 đợt 1',
+  },
+  {
+    id: 25, type: 'EXPORT', quantity: 80, warehouseId: 5,
+    date: ISO('2026-06-05'),
+    item: { name: 'Thùng carton JSE-55', unit: 'cái' },
+    createdBy: { name: 'Thủ kho Lan' }, note: 'Xuất đóng gói lô PO-IK-003 đợt 1',
+  },
+  {
+    id: 26, type: 'IMPORT', quantity: 500, warehouseId: 5,
+    date: ISO('2026-05-15'), refCode: 'LMH-2026-003',
+    item: { name: 'Bao nylon 68×105', unit: 'cái' },
+    createdBy: { name: 'Thủ kho Lan' }, note: 'Nhập bao bọc sản phẩm Q2-Q3',
+  },
+  {
+    id: 27, type: 'EXPORT', quantity: 150, warehouseId: 5,
+    date: ISO('2026-05-25'),
+    item: { name: 'Bao nylon 68×105', unit: 'cái' },
+    createdBy: { name: 'Thủ kho Lan' }, note: 'Xuất bọc ghế trước khi đóng thùng',
+  },
+  {
+    id: 28, type: 'IMPORT', quantity: 120, warehouseId: 5,
+    date: ISO('2026-06-14'),
+    item: { name: 'Mặt ghế J55 (đan xong)', unit: 'cái' },
+    createdBy: { name: 'Thủ kho Lan' }, note: 'Nhận bán thành phẩm từ tổ đan',
+  },
+  {
+    id: 29, type: 'EXPORT', quantity: 80, warehouseId: 5,
+    date: ISO('2026-06-20'),
+    item: { name: 'Mặt ghế J55 (đan xong)', unit: 'cái' },
+    createdBy: { name: 'Thủ kho Lan' }, note: 'Chuyển sang xưởng lắp ráp PI-2026-001',
+  },
+
+  // ── Kho Vật tư SX (id:6) ────────────────────────────────────────────
+  {
+    id: 30, type: 'IMPORT', quantity: 50, warehouseId: 6,
+    date: ISO('2026-05-07'), refCode: 'LMH-2026-001',
+    item: { name: 'Sơn tĩnh điện đen RAL9005', unit: 'kg' },
+    createdBy: { name: 'Kho Tuấn' }, note: 'Nhập sơn quý 2',
+  },
+  {
+    id: 31, type: 'EXPORT', quantity: 12, warehouseId: 6,
+    date: ISO('2026-05-20'),
+    item: { name: 'Sơn tĩnh điện đen RAL9005', unit: 'kg' },
+    createdBy: { name: 'Kho Tuấn' }, note: 'Xuất sơn JSE-55 lô 1',
+  },
+  {
+    id: 32, type: 'IMPORT', quantity: 30, warehouseId: 6,
+    date: ISO('2026-06-03'), refCode: 'LMH-2026-004',
+    item: { name: 'Sơn tĩnh điện xám RAL7035', unit: 'kg' },
+    createdBy: { name: 'Kho Tuấn' }, note: 'Nhập theo kế hoạch sơn IKEA',
+  },
+  {
+    id: 33, type: 'EXPORT', quantity: 8, warehouseId: 6,
+    date: ISO('2026-06-10'),
+    item: { name: 'Sơn tĩnh điện xám RAL7035', unit: 'kg' },
+    createdBy: { name: 'Kho Tuấn' }, note: 'Xuất sơn IEA-3 xám lô IKEA',
+  },
+  {
+    id: 34, type: 'IMPORT', quantity: 80, warehouseId: 6,
+    date: ISO('2026-06-08'), refCode: 'LMH-2026-005',
+    item: { name: 'Dây PE Ø3mm đen', unit: 'kg' },
+    createdBy: { name: 'Kho Tuấn' }, note: 'Nhập dây đan tiêu hao sản xuất',
+  },
+  {
+    id: 35, type: 'EXPORT', quantity: 25, warehouseId: 6,
+    date: ISO('2026-06-15'),
+    item: { name: 'Dây PE Ø3mm đen', unit: 'kg' },
+    createdBy: { name: 'Kho Tuấn' }, note: 'Xuất tổ đan IEA-3 lô MEYING',
+  },
+  {
+    id: 36, type: 'ADJUST', quantity: -3, warehouseId: 6,
+    date: ISO('2026-06-24'),
+    item: { name: 'Dung môi sơn', unit: 'lít' },
+    createdBy: { name: 'Kho Tuấn' }, note: 'Điều chỉnh sau kiểm kê — bay hơi trong quá trình bảo quản',
   },
 ];
 

@@ -403,7 +403,12 @@ export const seedProductionInvoices = [
     status: 'PLANNING', exportOrderId: 2,
     exportOrder: { poNumber: 'PO-GP-002', contractFileUrl: null },
     items: [{ quantity: 300, productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } } }],
-    stages: [{ stageType: 'PHOI', progressPercent: 0, status: 'PENDING' }],
+    stages: [
+      { stageType: 'PHOI',    progressPercent: 0, status: 'PENDING', deadline: ISO('2026-07-10') },
+      { stageType: 'HAN',     progressPercent: 0, status: 'PENDING', deadline: ISO('2026-07-28') },
+      { stageType: 'WEAVING', progressPercent: 0, status: 'PENDING', deadline: ISO('2026-08-15') },
+      { stageType: 'SON',     progressPercent: 0, status: 'PENDING', deadline: ISO('2026-08-25') },
+    ],
     createdBy: { name: 'Quản lý SX Hùng' },
   },
   {
@@ -599,6 +604,130 @@ export const seedPlanForms: PlanForm[] = [
           { id: 11, name: 'Thùng carton 3 lớp', specifications: '55×55×30cm',      unit: 'thùng', quantity: 1, createdAt: '2026-05-25T03:42:00.000Z' },
           { id: 12, name: 'Túi nilon bọc ngoài', specifications: 'PE trong, 80×60cm', unit: 'túi',   quantity: 1, createdAt: '2026-05-25T03:58:00.000Z' },
           { id: 13, name: 'Xốp EPE góc',         specifications: '40×40×5cm',      unit: 'miếng', quantity: 4, createdAt: '2026-05-25T04:12:00.000Z' },
+        ],
+      },
+    },
+  },
+  {
+    id: 7, exportOrderId: 2, mfgProductId: 3, status: 'APPROVED', note: 'PlanForm JSE-60 cho PO GOPLUS — phê duyệt',
+    createdAt: ISO('2026-06-02'), proposedAt: ISO('2026-06-02'),
+    exportOrder: { id: 2, poNumber: 'PO-GP-002', deliveryDate: ISO('2026-11-01') },
+    mfgProduct: { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60' },
+    createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
+    quotaManagement: {
+      id: 7,
+      materialType: {
+        sat: [
+          { id: 20, name: 'Ống sắt hộp 30×30', specifications: '30×30×1.5mm', thickness: 1.5, unit: 'cây', quantity: 24, createdAt: '2026-06-02T01:00:00.000Z' },
+          { id: 21, name: 'Sắt vuông 25×25',   specifications: '25×25×1.2mm', thickness: 1.2, unit: 'cây', quantity: 10, createdAt: '2026-06-02T01:20:00.000Z' },
+          { id: 22, name: 'Sắt tấm 4mm',       specifications: '1200×600×4mm', thickness: 4.0, unit: 'tấm', quantity: 2,  createdAt: '2026-06-02T01:38:00.000Z' },
+        ],
+        daySon: [
+          { id: 17, name: 'Dây PE đen Ø4mm',   specifications: 'Ø4mm, cuộn 300m',           kg: 3.0, unit: 'cuộn', createdAt: '2026-06-02T01:55:00.000Z' },
+          { id: 18, name: 'Sơn đen bóng',       specifications: 'RAL9005, bột tĩnh điện',    kg: 1.0, unit: 'kg',    createdAt: '2026-06-02T02:12:00.000Z' },
+          { id: 19, name: 'Sơn lót chống gỉ',   specifications: 'Epoxy lót 1 lớp',           kg: 0.4, unit: 'kg',    createdAt: '2026-06-02T02:28:00.000Z' },
+        ],
+        vatTuPhuKien: [
+          { id: 20, name: 'Ốc vít M8×25',      specifications: 'Inox 304',           unit: 'cái', quantity: 32, createdAt: '2026-06-02T02:45:00.000Z' },
+          { id: 21, name: 'Nắp nhựa 30mm',     specifications: 'PP đen, hộp 30×30',  unit: 'cái', quantity: 12, createdAt: '2026-06-02T03:00:00.000Z' },
+          { id: 22, name: 'Bulong M8×40',       specifications: 'Inox + đai ốc',      unit: 'bộ',  quantity: 8,  createdAt: '2026-06-02T03:15:00.000Z' },
+        ],
+        baoBiDongGoi: [
+          { id: 17, name: 'Thùng carton 5 lớp', specifications: '75×55×40cm',          unit: 'thùng', quantity: 1, createdAt: '2026-06-02T03:30:00.000Z' },
+          { id: 18, name: 'Xốp PE 10mm',        specifications: 'Bọc khung lớn',       unit: 'm²',    quantity: 4, createdAt: '2026-06-02T03:45:00.000Z' },
+          { id: 19, name: 'Dây đai 20mm',       specifications: 'Nhựa PP, màu đen',   unit: 'm',     quantity: 6, createdAt: '2026-06-02T04:00:00.000Z' },
+        ],
+      },
+    },
+  },
+  {
+    id: 8, exportOrderId: 3, mfgProductId: 1, status: 'APPROVED', note: 'PlanForm JSE-55 cho PO IKEA — phê duyệt',
+    createdAt: ISO('2026-06-05'), proposedAt: ISO('2026-06-05'),
+    exportOrder: { id: 3, poNumber: 'PO-IK-003', deliveryDate: ISO('2026-12-20') },
+    mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' },
+    createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
+    quotaManagement: {
+      id: 8,
+      materialType: {
+        sat: [
+          { id: 23, name: 'Ống sắt hộp 25×25',  specifications: '25×25×1.2mm', thickness: 1.2, unit: 'cây', quantity: 20, createdAt: '2026-06-05T01:00:00.000Z' },
+          { id: 24, name: 'Thanh sắt dẹt 20×2', specifications: '20×2mm',      thickness: 2.0, unit: 'cây', quantity: 6,  createdAt: '2026-06-05T01:18:00.000Z' },
+        ],
+        daySon: [
+          { id: 20, name: 'Dây PE xám IKEA',    specifications: 'Ø3mm, IKEA approved',    kg: 2.5, unit: 'cuộn', createdAt: '2026-06-05T01:35:00.000Z' },
+          { id: 21, name: 'Sơn xám RAL7035',    specifications: 'Bột tĩnh điện, IKEA',    kg: 0.8, unit: 'kg',    createdAt: '2026-06-05T01:52:00.000Z' },
+        ],
+        vatTuPhuKien: [
+          { id: 23, name: 'Ốc vít M6×20',       specifications: 'Inox 304',            unit: 'cái', quantity: 48, createdAt: '2026-06-05T02:08:00.000Z' },
+          { id: 24, name: 'Đệm vải nỉ xám',     specifications: '50×50mm',             unit: 'miếng', quantity: 8, createdAt: '2026-06-05T02:25:00.000Z' },
+          { id: 25, name: 'Nắp nhựa đầu ống',   specifications: '25×25mm, PP xám',     unit: 'cái', quantity: 16, createdAt: '2026-06-05T02:42:00.000Z' },
+        ],
+        baoBiDongGoi: [
+          { id: 20, name: 'Thùng carton IKEA',  specifications: '65×45×32cm, sóng kép', unit: 'thùng', quantity: 1, createdAt: '2026-06-05T03:00:00.000Z' },
+          { id: 21, name: 'Nhãn dán thông số',  specifications: 'Barcode IKEA format',   unit: 'tờ',    quantity: 2, createdAt: '2026-06-05T03:15:00.000Z' },
+          { id: 22, name: 'Xốp PE góc 8mm',     specifications: 'Bảo vệ 4 góc',         unit: 'miếng', quantity: 4, createdAt: '2026-06-05T03:30:00.000Z' },
+        ],
+      },
+    },
+  },
+  {
+    id: 9, exportOrderId: 3, mfgProductId: 3, status: 'APPROVED', note: 'PlanForm JSE-60 cho PO IKEA — phê duyệt',
+    createdAt: ISO('2026-06-08'), proposedAt: ISO('2026-06-08'),
+    exportOrder: { id: 3, poNumber: 'PO-IK-003', deliveryDate: ISO('2026-12-20') },
+    mfgProduct: { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60' },
+    createdBy: { id: 40, name: 'NV Kế hoạch SX Tuấn' },
+    quotaManagement: {
+      id: 9,
+      materialType: {
+        sat: [
+          { id: 26, name: 'Ống sắt hộp 30×50', specifications: '30×50×2.0mm', thickness: 2.0, unit: 'cây', quantity: 18, createdAt: '2026-06-08T01:00:00.000Z' },
+          { id: 27, name: 'Sắt hộp 25×25',     specifications: '25×25×1.5mm', thickness: 1.5, unit: 'cây', quantity: 8,  createdAt: '2026-06-08T01:22:00.000Z' },
+          { id: 28, name: 'Tấm sắt 3mm',       specifications: '600×400×3mm', thickness: 3.0, unit: 'tấm', quantity: 2,  createdAt: '2026-06-08T01:42:00.000Z' },
+        ],
+        daySon: [
+          { id: 22, name: 'Dây PE đen Ø4mm IKEA', specifications: 'Ø4mm, IKEA certified', kg: 4.2, unit: 'cuộn', createdAt: '2026-06-08T02:00:00.000Z' },
+          { id: 23, name: 'Sơn đen bóng IKEA',    specifications: 'RAL9005, IKEA spec',   kg: 1.2, unit: 'kg',    createdAt: '2026-06-08T02:18:00.000Z' },
+        ],
+        vatTuPhuKien: [
+          { id: 26, name: 'Bulong M10×40',      specifications: 'Inox 304 + đai ốc', unit: 'bộ',  quantity: 8,  createdAt: '2026-06-08T02:35:00.000Z' },
+          { id: 27, name: 'Nắp ống hộp 30mm',   specifications: 'PP đen, ống 30×30', unit: 'cái', quantity: 12, createdAt: '2026-06-08T02:52:00.000Z' },
+          { id: 28, name: 'Chân nhựa chống trượt', specifications: 'TPR đen, Φ30mm',  unit: 'cái', quantity: 4,  createdAt: '2026-06-08T03:10:00.000Z' },
+        ],
+        baoBiDongGoi: [
+          { id: 23, name: 'Thùng carton kép 5L', specifications: '80×60×40cm',         unit: 'thùng', quantity: 1, createdAt: '2026-06-08T03:28:00.000Z' },
+          { id: 24, name: 'Xốp PE cuộn 12mm',   specifications: 'Bọc khung cỡ lớn',   unit: 'm',     quantity: 5, createdAt: '2026-06-08T03:45:00.000Z' },
+          { id: 25, name: 'Băng keo IKEA',       specifications: 'Logo seal chính hãng', unit: 'cuộn', quantity: 1, createdAt: '2026-06-08T04:00:00.000Z' },
+        ],
+      },
+    },
+  },
+  {
+    id: 10, exportOrderId: 2, mfgProductId: 2, status: 'APPROVED', note: 'PlanForm IEA-3 cho PO GOPLUS — phê duyệt',
+    createdAt: ISO('2026-06-10'), proposedAt: ISO('2026-06-10'),
+    exportOrder: { id: 2, poNumber: 'PO-GP-002', deliveryDate: ISO('2026-11-01') },
+    mfgProduct: { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3' },
+    createdBy: { id: 40, name: 'NV Kế hoạch SX Tuấn' },
+    quotaManagement: {
+      id: 10,
+      materialType: {
+        sat: [
+          { id: 29, name: 'Ống sắt tròn Φ19', specifications: 'Φ19×1.2mm',  thickness: 1.2, unit: 'cây', quantity: 14, createdAt: '2026-06-10T01:00:00.000Z' },
+          { id: 30, name: 'Sắt dẹt 20×3',     specifications: '20×3mm',      thickness: 3.0, unit: 'cây', quantity: 4,  createdAt: '2026-06-10T01:20:00.000Z' },
+        ],
+        daySon: [
+          { id: 24, name: 'Dây PE xanh lá',   specifications: 'Ø3mm, GOPLUS spec', kg: 2.8, unit: 'cuộn', createdAt: '2026-06-10T01:38:00.000Z' },
+          { id: 25, name: 'Dây PE điểm nhấn đỏ', specifications: 'Ø2.5mm, viền',  kg: 0.4, unit: 'cuộn', createdAt: '2026-06-10T01:55:00.000Z' },
+          { id: 26, name: 'Sơn trắng mờ',     specifications: 'RAL9002 tĩnh điện', kg: 0.6, unit: 'kg',    createdAt: '2026-06-10T02:12:00.000Z' },
+        ],
+        vatTuPhuKien: [
+          { id: 29, name: 'Ốc vít M5×15',      specifications: 'Mạ kẽm trắng',     unit: 'cái', quantity: 36, createdAt: '2026-06-10T02:30:00.000Z' },
+          { id: 30, name: 'Nắp ống tròn Φ19',  specifications: 'Nhựa trắng, PP',    unit: 'cái', quantity: 8,  createdAt: '2026-06-10T02:48:00.000Z' },
+          { id: 31, name: 'Đệm cao su Φ19',    specifications: 'Chân ghế chống trầy', unit: 'cái', quantity: 4, createdAt: '2026-06-10T03:05:00.000Z' },
+        ],
+        baoBiDongGoi: [
+          { id: 26, name: 'Thùng carton 3 lớp', specifications: '55×55×28cm',       unit: 'thùng', quantity: 1, createdAt: '2026-06-10T03:22:00.000Z' },
+          { id: 27, name: 'Xốp chèn góc EPE',   specifications: '5×5cm, góc vuông', unit: 'bộ',    quantity: 4, createdAt: '2026-06-10T03:38:00.000Z' },
+          { id: 28, name: 'Túi PE bọc sản phẩm', specifications: '80×60cm, trong',  unit: 'túi',   quantity: 1, createdAt: '2026-06-10T03:52:00.000Z' },
         ],
       },
     },

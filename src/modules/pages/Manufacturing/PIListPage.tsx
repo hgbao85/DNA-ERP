@@ -6,28 +6,16 @@ import ExportOrderDetailModal from './ExportOrderDetailModal'
 import { format } from 'date-fns'
 import { AlertCircle, CheckCircle2, FileText, Eye, X, CalendarClock, Pencil, Package, Play } from 'lucide-react'
 
-const STATUS_LABEL: Record<string, string> = {
-  NEW: 'Mới', PLANNING: 'Lên kế hoạch', PURCHASING: 'Mua hàng',
-  PRODUCING: 'Đang SX', QC_STAGE: 'QC', DONE: 'Hoàn thành', CANCELLED: 'Đã hủy'
-}
-const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
-  NEW:       { bg:'#e3f2fd', color:'#1565c0' },
-  PLANNING:  { bg:'#ede7f6', color:'#4527a0' },
-  PURCHASING:{ bg:'#fff3e0', color:'#e65100' },
-  PRODUCING: { bg:'#e8f5e9', color:'#2e7d32' },
-  QC_STAGE:  { bg:'#fce4ec', color:'#880e4f' },
-  DONE:      { bg:'#f1f8e9', color:'#33691e' },
-  CANCELLED: { bg:'#fafafa', color:'#757575' },
-}
-
 export default function PIListPage() {
   const { user } = useAuth()
   const [viewOrderId, setViewOrderId] = useState<number | null>(null)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
-  const [editingCell, setEditingCell] = useState<{ piId: number; field: string } | null>(null)
-  const [editingValue, setEditingValue] = useState('')
-  const [savingCell, setSavingCell] = useState(false)
+  const [editingRowId, setEditingRowId] = useState<number | null>(null)
+  const [editingRowValues, setEditingRowValues] = useState<Record<string, string>>({})
+  const [savingRow, setSavingRow] = useState(false)
+  const [showSaveConfirm, setShowSaveConfirm] = useState(false)
   const [confirmingProdId, setConfirmingProdId] = useState<number | null>(null)
+  const [confirmProdTarget, setConfirmProdTarget] = useState<any | null>(null)
   const [timeline, setTimeline] = useState<any | null>(null)
   const [timelineOrderId, setTimelineOrderId] = useState<number | null>(null)
   const [timelineLoading, setTimelineLoading] = useState(false)
@@ -40,7 +28,7 @@ export default function PIListPage() {
     () => api.getProductionInvoices(),
     []
   )
-  const safeList = Array.isArray(pis) ? pis : []
+  const safeList = (Array.isArray(pis) ? pis : []).filter((p: any) => p.status === 'PLANNING')
 
   // Giám đốc (MANAGER không mfgRole) chỉ XEM — không xác nhận đơn/tạo PI (đồng bộ backend).
   const isPlanner = user?.mfgRole === 'PRODUCTION_MANAGER'
@@ -131,33 +119,51 @@ export default function PIListPage() {
     }
   }
 
-  const startCellEdit = (piId: number, field: string, date: Date) => {
-    setEditingCell({ piId, field })
-    setEditingValue(format(date, 'yyyy-MM-dd'))
+  const startRowEdit = (pi: any) => {
+    const piDeadline = new Date(pi.deadline)
+    const fallback = (daysBack: number) => {
+      const d = new Date(piDeadline); d.setDate(d.getDate() - daysBack); return format(d, 'yyyy-MM-dd')
+    }
+    const stageDate = (type: string) => {
+      const s = Array.isArray(pi.stages) ? pi.stages.find((s: any) => s.stageType === type) : null
+      return s?.deadline ? format(new Date(s.deadline), 'yyyy-MM-dd') : null
+    }
+    setEditingRowId(pi.id)
+    setEditingRowValues({
+      deadline:        format(piDeadline, 'yyyy-MM-dd'),
+      materialDeadline: pi.materialDeadline ? format(new Date(pi.materialDeadline), 'yyyy-MM-dd') : fallback(21),
+      HAN:     stageDate('HAN')     ?? fallback(14),
+      WEAVING: stageDate('WEAVING') ?? fallback(8),
+      SON:     stageDate('SON')     ?? fallback(3),
+    })
   }
 
-  const handleCellSave = async () => {
-    if (!editingCell || !editingValue) { setEditingCell(null); return }
-    const { piId, field } = editingCell
-    setSavingCell(true)
+  const handleSaveRow = async () => {
+    if (!editingRowId) return
+    setSavingRow(true)
     try {
-      const iso = new Date(editingValue).toISOString()
-      if (field === 'deadline' || field === 'materialDeadline') {
-        await api.updateProductionInvoice(piId, { [field]: iso })
-      } else {
-        const pi = safeList.find((p: any) => p.id === piId)
-        const stages: any[] = Array.isArray(pi?.stages) ? [...pi.stages] : []
+      const pi = safeList.find((p: any) => p.id === editingRowId)
+      const stages: any[] = Array.isArray(pi?.stages) ? [...pi.stages] : []
+      for (const field of ['HAN', 'WEAVING', 'SON']) {
+        const val = editingRowValues[field]
+        if (!val) continue
+        const iso = new Date(val).toISOString()
         const idx = stages.findIndex((s: any) => s.stageType === field)
         if (idx >= 0) stages[idx] = { ...stages[idx], deadline: iso }
         else stages.push({ stageType: field, deadline: iso, progressPercent: 0, status: 'PENDING' })
-        await api.updateProductionInvoice(piId, { stages })
       }
+      await api.updateProductionInvoice(editingRowId, {
+        deadline: new Date(editingRowValues.deadline).toISOString(),
+        materialDeadline: new Date(editingRowValues.materialDeadline).toISOString(),
+        stages,
+      })
       refetch()
-      setEditingCell(null)
+      setEditingRowId(null)
+      setShowSaveConfirm(false)
     } catch (e: any) {
       alert(e?.response?.data?.error ?? 'Lỗi lưu')
     } finally {
-      setSavingCell(false)
+      setSavingRow(false)
     }
   }
 
@@ -166,6 +172,7 @@ export default function PIListPage() {
     try {
       await api.updateProductionInvoice(id, { status: 'PRODUCING' })
       refetch()
+      setConfirmProdTarget(null)
     } catch (e: any) {
       alert(e?.response?.data?.error ?? 'Lỗi xác nhận sản xuất')
     } finally {
@@ -232,17 +239,33 @@ export default function PIListPage() {
 
       {/* Table */}
       <div style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', border:'1px solid var(--border)', overflow:'hidden' }}>
-        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13, tableLayout:'fixed' }}>
+          <colgroup>
+            <col style={{ width:110 }} />
+            <col />
+            <col style={{ width:98 }} />
+            <col style={{ width:98 }} />
+            <col style={{ width:98 }} />
+            <col style={{ width:98 }} />
+            <col style={{ width:98 }} />
+            <col style={{ width:124 }} />
+            <col style={{ width:112 }} />
+          </colgroup>
           <thead>
             <tr style={{ background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
-              {['Mã PI','SKU','Hạn giao','Mua hàng','Khung cơ khí','Đan','Đóng gói','Trạng thái','Thao tác'].map(h => (
-                <th key={h} style={{ padding:'10px 14px', textAlign:'left', fontWeight:600, color:'var(--text2)', whiteSpace:'nowrap' }}>{h}</th>
-              ))}
+              <th style={{ padding:'10px 12px', textAlign:'left',   fontWeight:600, color:'var(--text2)', fontSize:12 }}>Mã PI</th>
+              <th style={{ padding:'10px 12px', textAlign:'left',   fontWeight:600, color:'var(--text2)', fontSize:12 }}>SKU</th>
+              <th style={{ padding:'10px 6px',  textAlign:'center', fontWeight:600, color:'var(--text2)', fontSize:12 }}>Hạn giao</th>
+              <th style={{ padding:'10px 6px',  textAlign:'center', fontWeight:600, color:'var(--text2)', fontSize:12 }}>Mua hàng</th>
+              <th style={{ padding:'10px 6px',  textAlign:'center', fontWeight:600, color:'var(--text2)', fontSize:12 }}>Khung cơ khí</th>
+              <th style={{ padding:'10px 6px',  textAlign:'center', fontWeight:600, color:'var(--text2)', fontSize:12 }}>Đan</th>
+              <th style={{ padding:'10px 6px',  textAlign:'center', fontWeight:600, color:'var(--text2)', fontSize:12 }}>Đóng gói</th>
+              <th style={{ padding:'10px 6px',  textAlign:'center', fontWeight:600, color:'var(--text2)', fontSize:12 }}>Cập nhật thời hạn</th>
+              <th style={{ padding:'10px 6px',  textAlign:'center', fontWeight:600, color:'var(--text2)', fontSize:12 }}>Xác nhận</th>
             </tr>
           </thead>
           <tbody>
             {safeList.map((pi: any) => {
-              const status = STATUS_COLOR[pi.status] ?? { bg:'#f5f5f5', color:'#616161' }
               const isOverdue = new Date(pi.deadline) < new Date() && pi.status !== 'DONE' && pi.status !== 'CANCELLED'
               const deadline = new Date(pi.deadline)
               const getStageDate = (type: string, fallbackDaysBack: number) => {
@@ -260,63 +283,69 @@ export default function PIListPage() {
               const skuCode = skuItem?.productVariant?.mfgProduct?.factoryCode ?? '—'
               const skuName = skuItem?.productVariant?.mfgProduct?.name ?? ''
               const canConfirmProd = pi.status !== 'PRODUCING' && pi.status !== 'DONE' && pi.status !== 'CANCELLED'
-              const editCell = (field: string, date: Date, fromStage: boolean, extra?: React.ReactNode) => {
-                const isEditing = editingCell?.piId === pi.id && editingCell?.field === field
-                if (isEditing) return (
-                  <td style={{ padding:'6px 14px', whiteSpace:'nowrap' }}>
-                    <input
-                      type="date"
-                      value={editingValue}
-                      onChange={e => setEditingValue(e.target.value)}
-                      onBlur={handleCellSave}
-                      onKeyDown={e => { if (e.key === 'Enter') handleCellSave(); if (e.key === 'Escape') setEditingCell(null) }}
-                      autoFocus
-                      disabled={savingCell}
-                      style={{ padding:'4px 6px', border:'2px solid #1976d2', borderRadius:4, fontSize:12, width:110, background:'var(--surface)', color:'var(--text)' }}
-                    />
-                  </td>
-                )
-                return (
-                  <td
-                    onClick={() => startCellEdit(pi.id, field, date)}
-                    title="Nhấn để sửa"
-                    style={{ padding:'12px 14px', fontSize:12, whiteSpace:'nowrap', cursor:'pointer', color: fromStage ? 'var(--text)' : 'var(--text3)', userSelect:'none' }}
-                    onMouseEnter={e => { (e.currentTarget.querySelector('.edit-hint') as HTMLElement | null)?.style && ((e.currentTarget.querySelector('.edit-hint') as HTMLElement).style.opacity = '1') }}
-                    onMouseLeave={e => { (e.currentTarget.querySelector('.edit-hint') as HTMLElement | null)?.style && ((e.currentTarget.querySelector('.edit-hint') as HTMLElement).style.opacity = '0') }}
-                  >
-                    {fmt(date)}{extra}
-                    <Pencil size={10} className="edit-hint" style={{ marginLeft:4, opacity:0, transition:'opacity .1s', verticalAlign:'middle' }} />
-                  </td>
-                )
-              }
+              const isEditingThis = editingRowId === pi.id
+              const dateInput = (field: string) => (
+                <td style={{ padding:'5px 4px', textAlign:'center' }}>
+                  <input
+                    type="date"
+                    value={editingRowValues[field] ?? ''}
+                    onChange={e => setEditingRowValues(prev => ({ ...prev, [field]: e.target.value }))}
+                    style={{ padding:'3px 4px', border:'1px solid #1976d2', borderRadius:4, fontSize:11, width:'100%', boxSizing:'border-box', background:'var(--surface)', color:'var(--text)' }}
+                  />
+                </td>
+              )
+              const dateDisplay = (date: Date, fromStage: boolean, extra?: React.ReactNode) => (
+                <td style={{ padding:'12px 6px', fontSize:12, whiteSpace:'nowrap', textAlign:'center', color: fromStage ? 'var(--text)' : 'var(--text3)' }}>
+                  {fmt(date)}{extra}
+                </td>
+              )
               return (
-                <tr key={pi.id} style={{ borderBottom:'1px solid var(--border)' }}>
+                <tr key={pi.id} style={{ borderBottom:'1px solid var(--border)', background: isEditingThis ? '#f0f7ff' : 'transparent' }}>
                   <td style={{ padding:'12px 14px', fontWeight:600, fontFamily:'monospace' }}>{pi.code}</td>
                   <td style={{ padding:'12px 14px' }}>
                     <span style={{ fontWeight:600, fontFamily:'monospace', fontSize:12 }}>{skuCode}</span>
                     {skuName && <span style={{ marginLeft:6, color:'var(--text3)', fontSize:12 }}>{skuName}</span>}
                   </td>
-                  {editCell('deadline', deadline, true,
+                  {isEditingThis ? dateInput('deadline') : dateDisplay(deadline, true,
                     isOverdue ? <span style={{ marginLeft:6, fontSize:11, background:'#ffebee', color:'#c62828', padding:'1px 6px', borderRadius:20 }}>Trễ</span> : null
                   )}
-                  {editCell('materialDeadline', pi.materialDeadline ? new Date(pi.materialDeadline) : getStageDate('MATERIAL', 21), !!pi.materialDeadline)}
-                  {editCell('HAN',     getStageDate('HAN',     14), !!hanStage)}
-                  {editCell('WEAVING', getStageDate('WEAVING',  8), !!weavStage)}
-                  {editCell('SON',     getStageDate('SON',       3), !!sonStage)}
+                  {isEditingThis ? dateInput('materialDeadline') : dateDisplay(pi.materialDeadline ? new Date(pi.materialDeadline) : getStageDate('MATERIAL', 21), !!pi.materialDeadline)}
+                  {isEditingThis ? dateInput('HAN')     : dateDisplay(getStageDate('HAN',     14), !!hanStage)}
+                  {isEditingThis ? dateInput('WEAVING') : dateDisplay(getStageDate('WEAVING',  8), !!weavStage)}
+                  {isEditingThis ? dateInput('SON')     : dateDisplay(getStageDate('SON',       3), !!sonStage)}
                   <td style={{ padding:'12px 14px' }}>
-                    <span style={{ background:status.bg, color:status.color, padding:'3px 10px', borderRadius:20, fontSize:12, fontWeight:600 }}>
-                      {STATUS_LABEL[pi.status] ?? pi.status}
-                    </span>
+                    {isEditingThis ? (
+                      <div style={{ display:'flex', gap:6 }}>
+                        <button
+                          onClick={() => setShowSaveConfirm(true)}
+                          style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'5px 12px', background:'#1976d2', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', color:'#fff', whiteSpace:'nowrap' }}
+                        >
+                          <CheckCircle2 size={13}/> Lưu
+                        </button>
+                        <button
+                          onClick={() => setEditingRowId(null)}
+                          style={{ padding:'5px 10px', background:'transparent', border:'1px solid var(--border)', borderRadius:6, fontSize:12, cursor:'pointer', color:'var(--text2)' }}
+                        >
+                          Hủy
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => startRowEdit(pi)}
+                        style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'5px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', color:'var(--text2)', whiteSpace:'nowrap' }}
+                      >
+                        Sửa
+                      </button>
+                    )}
                   </td>
                   <td style={{ padding:'12px 14px' }}>
-                    {canConfirmProd && (
+                    {!isEditingThis && canConfirmProd && (
                       <button
-                        onClick={() => handleConfirmProduction(pi.id)}
+                        onClick={() => setConfirmProdTarget(pi)}
                         disabled={confirmingProdId === pi.id}
-                        title="Xác nhận đưa vào sản xuất"
                         style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'5px 10px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor: confirmingProdId === pi.id ? 'not-allowed' : 'pointer', color:'#fff', opacity: confirmingProdId === pi.id ? 0.7 : 1, whiteSpace:'nowrap' }}
                       >
-                        <Play size={12}/> {confirmingProdId === pi.id ? '...' : 'Xác nhận SX'}
+                      {confirmingProdId === pi.id ? '...' : 'Xác nhận'}
                       </button>
                     )}
                   </td>
@@ -336,6 +365,140 @@ export default function PIListPage() {
 
       {viewOrderId !== null && (
         <ExportOrderDetailModal orderId={viewOrderId} onClose={() => setViewOrderId(null)} />
+      )}
+
+      {/* Xác nhận sản xuất */}
+      {confirmProdTarget && (
+        <div onClick={() => { if (!confirmingProdId) setConfirmProdTarget(null) }}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:28, width:460, maxWidth:'92vw', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
+              <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
+                <Play size={16} color="#2e7d32"/> Xác nhận sản xuất
+              </h3>
+              <button onClick={() => setConfirmProdTarget(null)} style={{ padding:4, background:'transparent', border:'none', cursor:'pointer' }}>
+                <X size={18} color="var(--text3)"/>
+              </button>
+            </div>
+
+            {/* PI & SKU */}
+            <div style={{ display:'flex', gap:12, marginBottom:16 }}>
+              <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'10px 14px' }}>
+                <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:3 }}>Mã lệnh</div>
+                <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:15 }}>{confirmProdTarget.code}</div>
+              </div>
+              <div style={{ flex:2, background:'var(--surface2)', borderRadius:8, padding:'10px 14px' }}>
+                <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:3 }}>SKU</div>
+                <div style={{ fontWeight:700, fontSize:13 }}>
+                  {confirmProdTarget.items?.[0]?.productVariant?.mfgProduct?.factoryCode ?? '—'}
+                  <span style={{ fontWeight:400, color:'var(--text2)', marginLeft:6 }}>
+                    {confirmProdTarget.items?.[0]?.productVariant?.mfgProduct?.name}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Chi tiết sản phẩm */}
+            {(confirmProdTarget.items ?? []).length > 0 && (
+              <div style={{ marginBottom:16, border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
+                <div style={{ background:'var(--surface2)', padding:'7px 14px', fontSize:11, fontWeight:700, color:'var(--text3)' }}>
+                  SẢN PHẨM
+                </div>
+                {(confirmProdTarget.items ?? []).map((item: any, i: number) => (
+                  <div key={i} style={{ padding:'10px 14px', borderTop: i > 0 ? '1px solid var(--border)' : undefined, display:'flex', gap:16, fontSize:13 }}>
+                    <div style={{ flex:2 }}>
+                      <span style={{ fontFamily:'monospace', fontWeight:600, fontSize:12 }}>{item.productVariant?.mfgProduct?.factoryCode}</span>
+                      <span style={{ color:'var(--text2)', marginLeft:6 }}>{item.productVariant?.mfgProduct?.name}</span>
+                    </div>
+                    {item.productVariant?.colorCode && (
+                      <div style={{ color:'var(--text3)', fontSize:12 }}>Màu: <strong>{item.productVariant.colorCode}</strong></div>
+                    )}
+                    <div style={{ color:'var(--text3)', fontSize:12 }}>SL: <strong>{item.quantity?.toLocaleString()}</strong></div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Thời gian */}
+            {(() => {
+              const pDl = new Date(confirmProdTarget.deadline)
+              const fb = (days: number) => { const d = new Date(pDl); d.setDate(d.getDate() - days); return d.toISOString() }
+              const stg = (type: string) => confirmProdTarget.stages?.find((s: any) => s.stageType === type)?.deadline ?? null
+              const rows = [
+                { label:'Hạn giao',     val: confirmProdTarget.deadline,                   explicit: true },
+                { label:'Mua hàng',     val: confirmProdTarget.materialDeadline ?? fb(21), explicit: !!confirmProdTarget.materialDeadline },
+                { label:'Khung cơ khí', val: stg('HAN')     ?? fb(14),                    explicit: !!stg('HAN') },
+                { label:'Đan',          val: stg('WEAVING')  ?? fb(8),                     explicit: !!stg('WEAVING') },
+                { label:'Đóng gói',     val: stg('SON')      ?? fb(3),                     explicit: !!stg('SON') },
+              ]
+              return (
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8, marginBottom:20 }}>
+                  {rows.map(({ label, val, explicit }) => (
+                    <div key={label} style={{ background:'var(--surface2)', borderRadius:8, padding:'8px 12px' }}>
+                      <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>{label}</div>
+                      <div style={{ fontSize:13, fontWeight: explicit ? 600 : 400, color: explicit ? 'var(--text)' : 'var(--text3)' }}>
+                        {format(new Date(val), 'dd/MM/yyyy')}
+                        {!explicit && <span style={{ fontSize:10, marginLeft:4 }}>(ước tính)</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <button onClick={() => setConfirmProdTarget(null)} disabled={!!confirmingProdId}
+                style={{ padding:'9px 18px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor:'pointer', color:'var(--text2)' }}>
+                Hủy
+              </button>
+              <button onClick={() => handleConfirmProduction(confirmProdTarget.id)} disabled={!!confirmingProdId}
+                style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background:'#2e7d32', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: confirmingProdId ? 'not-allowed' : 'pointer', color:'#fff', opacity: confirmingProdId ? 0.7 : 1 }}>
+                <CheckCircle2 size={15}/> {confirmingProdId ? 'Đang xử lý...' : 'Xác nhận sản xuất'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Xác nhận lưu deadline */}
+      {showSaveConfirm && editingRowId !== null && (
+        <div onClick={() => setShowSaveConfirm(false)}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:24, width:380, boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ margin:'0 0 8px', fontSize:15, fontWeight:700 }}>Xác nhận lưu thay đổi</h3>
+            <p style={{ margin:'0 0 16px', fontSize:13, color:'var(--text2)' }}>
+              Lưu tất cả thời hạn mới cho mã <strong style={{ fontFamily:'monospace' }}>{safeList.find((p: any) => p.id === editingRowId)?.code}</strong>?
+            </p>
+            <div style={{ display:'grid', gap:6, fontSize:12, color:'var(--text2)', marginBottom:20, padding:'10px 12px', background:'var(--surface2)', borderRadius:8 }}>
+              {[
+                ['Hạn giao',    'deadline'],
+                ['Hạn mua hàng',    'materialDeadline'],
+                ['Hạn khung cơ khí','HAN'],
+                ['Hạn đan',         'WEAVING'],
+                ['Hạn đóng gói',    'SON'],
+              ].map(([label, field]) => (
+                <div key={field} style={{ display:'flex', justifyContent:'space-between' }}>
+                  <span>{label}</span>
+                  <strong style={{ fontFamily:'monospace' }}>
+                    {editingRowValues[field] ? format(new Date(editingRowValues[field]), 'dd/MM/yyyy') : '—'}
+                  </strong>
+                </div>
+              ))}
+            </div>
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <button onClick={() => setShowSaveConfirm(false)} disabled={savingRow}
+                style={{ padding:'8px 16px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor:'pointer', color:'var(--text2)' }}>
+                Hủy
+              </button>
+              <button onClick={handleSaveRow} disabled={savingRow}
+                style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 18px', background:'#1976d2', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:600, cursor: savingRow ? 'not-allowed' : 'pointer', color:'#fff', opacity: savingRow ? 0.7 : 1 }}>
+                <CheckCircle2 size={14}/> {savingRow ? 'Đang lưu...' : 'Xác nhận lưu'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Modal timeline dự kiến */}
