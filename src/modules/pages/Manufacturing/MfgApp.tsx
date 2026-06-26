@@ -48,7 +48,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const canSeeBom       = canManageBom || isBomManager || (user?.mfgRole ? SPEC_ROLES.includes(user.mfgRole) : false)        // PM/Giám đốc XEM, BOM_MANAGER SỬA, SPEC_* thao tác
   const canSeeWarehouses = isDirector || isWarehouse || isProdMgr
   // Thành phẩm khung sơn = XUẤT/cấp đan đi: Thống kê Phôi + Quản lý SX (KHÔNG hiện với Giám đốc).
-  const canSeeKhungSon  = isPhoi || isProdMgr
+  const canSeeKhungSon  = isPhoi
   // Điều phối đan = THU mảnh về + chia kho: Đan Trưởng + Quản lý SX (KHÔNG hiện với Giám đốc).
   // Giám đốc vẫn xem tiến độ đan qua tab "Điều hành xưởng" (cột Đan).
   const canSeeDieuPhoi  = isWeavingMgr || isProdMgr
@@ -61,23 +61,23 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const canManageWorkshop = canManageBom // PRODUCTION_MANAGER hoặc MANAGER (giám đốc xem)
 
   const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    ...(canManageWorkshop ? [{ id: 'workshop' as TabId, label: 'Điều hành xưởng', icon: <LayoutGrid size={16}/> }] : []),
+    ...(canManageWorkshop ? [{ id: 'workshop' as TabId, label: 'Tổng hợp lệnh sản xuất', icon: <LayoutGrid size={16}/> }] : []),
     // Sales: chỉ thấy Tổng đơn hàng + Tạo đơn hàng mới (KHÔNG còn Lệnh SX). QLSX/Giám đốc/thợ giữ Lệnh SX.
     ...(isFactorySales ? [{ id: 'tong-don-hang' as TabId, label: 'Tổng đơn hàng', icon: <Package size={16}/> }] : []),
     ...(isFactorySales ? [{ id: 'tao-don-hang' as TabId, label: 'Tạo đơn hàng mới', icon: <FilePlus size={16}/> }] : []),
     ...(isFactorySales ? [{ id: 'danh-sach-khach-hang' as TabId, label: 'Danh sách khách hàng', icon: <Users size={16}/> }] : []),
-    ...(isProdMgr || isDirector ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardList size={16}/> }] : []),
-    ...(isProdMgr || isDirector ? [{ id: 'ke-hoach' as TabId, label: 'Kế hoạch SX', icon: <CalendarClock size={16}/> }] : []),
+    ...(isProdMgr || isDirector ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất mới', icon: <ClipboardList size={16}/> }] : []),
+    ...(isDirector ? [{ id: 'ke-hoach' as TabId, label: 'Kế hoạch SX', icon: <CalendarClock size={16}/> }] : []),
     // Thành phẩm khung sơn (xuất/cấp đan đi — Phôi) + Điều phối đan (thu về/chia kho — Đan Trưởng)
     ...(canSeeKhungSon ? [{ id: 'khung-son' as TabId, label: 'Thành phẩm khung sơn', icon: <PackageCheck size={16}/> }] : []),
     // Khu Đan (Đan Trưởng + Quản lý SX; Giám đốc xem): Quản lý nhập mảnh · Điều phối đan · Lịch sử nhập đan · Quản lý điểm đan
-    ...(canSeeDieuPhoi ? [{ id: 'quan-ly-nhap-manh' as TabId, label: 'Quản lý nhập mảnh', icon: <PackagePlus size={16}/> }] : []),
+    ...(isWeavingMgr ? [{ id: 'quan-ly-nhap-manh' as TabId, label: 'Quản lý nhập mảnh', icon: <PackagePlus size={16}/> }] : []),
     ...(canSeeDieuPhoi ? [{ id: 'dieu-phoi-dan' as TabId, label: 'Điều phối đan', icon: <ArrowDownToLine size={16}/> }] : []),
-    ...(canSeeDieuPhoi ? [{ id: 'lich-su-nhap-dan' as TabId, label: 'Lịch sử nhập đan', icon: <History size={16}/> }] : []),
+    ...(isWeavingMgr ? [{ id: 'lich-su-nhap-dan' as TabId, label: 'Lịch sử nhập đan', icon: <History size={16}/> }] : []),
     // "Quản lý điểm đan" chỉ Đan Trưởng (PM xem điểm đan trong "Điều hành xưởng", không thao tác).
     ...(isWeavingMgr ? [{ id: 'quan-ly-diem-dan' as TabId, label: 'Quản lý điểm đan', icon: <MapPin size={16}/> }] : []),
     // Chuyền kiểm / Đóng gói / Điểm đan: ĐÃ chuyển vào trong "Điều hành xưởng" (sub-tab) — không còn tab phẳng.
-    ...(canSeeWarehouses ? [{ id: 'materials' as TabId, label: 'Tổng hợp vật tư', icon: <Boxes size={16}/> }] : []),
+    ...(canSeeWarehouses ? [{ id: 'materials' as TabId, label: 'Tổng hợp vật tư/SKU', icon: <Boxes size={16}/> }] : []),
     ...(canSeeWarehouses ? [{ id: 'warehouses' as TabId, label: 'Tổng hợp kho', icon: <Warehouse size={16}/> }] : []),
     // Giám đốc: duyệt đề xuất mua vật tư của thủ kho (cùng màn DeXuatMuaVatTuPage, role-aware)
     // Lưu ý: Nhập/Xuất kho + tạo đề xuất của Thủ kho ĐÃ chuyển sang phân hệ "Kho đầu vào".

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { AlertCircle, Phone, Plus, X, ArrowDownToLine, CheckCircle2 } from 'lucide-react'
+import { format } from 'date-fns'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface ReceivePiece {
@@ -10,11 +11,52 @@ interface ReceivePiece {
 }
 interface ReceivePoint { id: number; code: string; fullName: string | null; phone: string | null; totalPending: number; pieces: ReceivePiece[] }
 interface Warehouse { id: number; name: string; isActive: boolean }
+interface ReceiptRow {
+  id: number; receivedDate: string; pointCode: string; pointName: string | null
+  pieceName: string; pieceCode: string; piCode: string; poNumber: string | null
+  productLabel: string; warehouseName: string; quantity: number; by: string | null; note: string | null
+}
 
 // ── Màn ĐIỀU PHỐI ĐAN: thu mảnh đã đan về + chia kho (Nghĩa/Trinh/Hân) ───────────
-// Dành cho Đan Trưởng (WEAVING_MANAGER) + Quản lý SX / Giám đốc. Mặc định chỉ hiện điểm
-// còn chưa thu (việc cần làm); bật "Hiện cả điểm đã thu đủ" để xem lại điểm đã xong.
 export default function DieuPhoiDanPage({ readOnly = false }: { readOnly?: boolean }) {
+  const [section, setSection] = useState<'list' | 'history'>('list')
+
+  return (
+    <div>
+      <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>Điều phối đan</h2>
+      <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text3)' }}>
+        Điểm đan giao hàng về → thu + chia cho các kho (Nghĩa / Trinh / Hân).
+      </p>
+
+      {/* Internal section switcher */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
+        {(['list', 'history'] as const).map(s => {
+          const labels = { list: 'Danh sách điều phối', history: 'Lịch sử' }
+          const active = section === s
+          return (
+            <button
+              key={s}
+              onClick={() => setSection(s)}
+              style={{
+                padding: '7px 16px', fontSize: 13, fontWeight: active ? 700 : 400,
+                border: 'none', background: 'none', cursor: 'pointer',
+                color: active ? '#e65100' : 'var(--text3)',
+                borderBottom: active ? '2px solid #e65100' : '2px solid transparent',
+                marginBottom: -1,
+              }}
+            >{labels[s]}</button>
+          )
+        })}
+      </div>
+
+      {section === 'list' && <DieuPhoiList readOnly={readOnly} />}
+      {section === 'history' && <LichSuSection />}
+    </div>
+  )
+}
+
+// ── Section: Danh sách điều phối ──────────────────────────────────────────────
+function DieuPhoiList({ readOnly }: { readOnly: boolean }) {
   const { data, isLoading, error, refetch } = useFetch<ReceivePoint[]>(() => api.getWeavingReceivePending(), [])
   const { data: whRaw } = useFetch<Warehouse[]>(() => api.getMfgWarehouses(), [])
   const [showDone, setShowDone] = useState(false)
@@ -30,67 +72,98 @@ export default function DieuPhoiDanPage({ readOnly = false }: { readOnly?: boole
   const pendingCount = points.filter((p) => p.totalPending > 0).length
   const visible = showDone ? points : points.filter((p) => p.totalPending > 0)
 
+  if (points.length === 0) return <div style={{ color: 'var(--text3)', fontSize: 13 }}>Chưa cấp mảnh nào ra điểm đan.</div>
+
   return (
-    <div>
-      <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>Điều phối đan (thu mảnh về)</h2>
-      <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text3)' }}>
-        Điểm đan giao hàng về → thu + chia cho các kho (Nghĩa / Trinh / Hân).
-      </p>
+    <>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 18 }}>
+        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 13 }}>
+          <span style={{ color: 'var(--text3)' }}>Điểm đang chờ thu: <strong style={{ color: pendingCount > 0 ? '#e65100' : '#2e7d32' }}>{pendingCount}</strong></span>
+          <span style={{ color: 'var(--text3)' }}>Đã giao: <strong style={{ color: 'var(--text)' }}>{totalGiao}</strong></span>
+          <span style={{ color: 'var(--text3)' }}>Đã thu: <strong style={{ color: '#2e7d32' }}>{totalThu}</strong></span>
+          <span style={{ color: 'var(--text3)' }}>Chưa thu: <strong style={{ color: '#e65100' }}>{totalChuaThu}</strong></span>
+        </div>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--text2)', cursor: 'pointer', userSelect: 'none' }}>
+          <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} style={{ cursor: 'pointer' }} />
+          Hiện cả điểm đã thu đủ
+        </label>
+      </div>
 
-      {points.length === 0 ? (
-        <div style={{ color: 'var(--text3)', fontSize: 13 }}>Chưa cấp mảnh nào ra điểm đan.</div>
-      ) : (
-        <>
-          {/* Thanh tổng + nút lọc */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginBottom: 18 }}>
-            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 13 }}>
-              <span style={{ color: 'var(--text3)' }}>Điểm đang chờ thu: <strong style={{ color: pendingCount > 0 ? '#e65100' : '#2e7d32' }}>{pendingCount}</strong></span>
-              <span style={{ color: 'var(--text3)' }}>Đã giao: <strong style={{ color: 'var(--text)' }}>{totalGiao}</strong></span>
-              <span style={{ color: 'var(--text3)' }}>Đã thu: <strong style={{ color: '#2e7d32' }}>{totalThu}</strong></span>
-              <span style={{ color: 'var(--text3)' }}>Chưa thu: <strong style={{ color: '#e65100' }}>{totalChuaThu}</strong></span>
-            </div>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--text2)', cursor: 'pointer', userSelect: 'none' }}>
-              <input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} style={{ cursor: 'pointer' }} />
-              Hiện cả điểm đã thu đủ
-            </label>
-          </div>
-
-          {visible.length === 0 && (
-            <div style={{ color: '#2e7d32', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <CheckCircle2 size={15} /> Tất cả mảnh đã thu về kho — không còn điểm nào chờ thu.
-            </div>
-          )}
-
-          {visible.map((pt) => {
-            const pending = pt.totalPending > 0
-            return (
-              <div key={pt.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', marginBottom: 18, overflow: 'hidden', opacity: pending ? 1 : 0.85 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 14 }}>{pt.code}
-                      {pt.fullName && <span style={{ color: 'var(--text3)', fontWeight: 400, marginLeft: 8 }}>· {pt.fullName}</span>}
-                    </div>
-                    {pt.phone && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 5 }}><Phone size={11} /> {pt.phone}</div>}
-                  </div>
-                  {pending ? (
-                    <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: '#fff3e0', color: '#e65100' }}>Chưa thu {pt.totalPending} mảnh</span>
-                  ) : (
-                    <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: '#e8f5e9', color: '#2e7d32', display: 'inline-flex', alignItems: 'center', gap: 5 }}><CheckCircle2 size={12} /> Đã thu đủ</span>
-                  )}
-                </div>
-                <div style={{ padding: 12 }}>
-                  {pt.pieces.map((pc) => (
-                    <NhapDanPieceCard key={pc.piFramePieceId} pointId={pt.id} piece={pc} warehouses={warehouses} onChanged={refetch} readOnly={readOnly} />
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </>
+      {visible.length === 0 && (
+        <div style={{ color: '#2e7d32', fontSize: 13, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <CheckCircle2 size={15} /> Tất cả mảnh đã thu về kho — không còn điểm nào chờ thu.
+        </div>
       )}
+
+      {visible.map((pt) => {
+        const pending = pt.totalPending > 0
+        return (
+          <div key={pt.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', marginBottom: 18, overflow: 'hidden', opacity: pending ? 1 : 0.85 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 16px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>{pt.code}
+                  {pt.fullName && <span style={{ color: 'var(--text3)', fontWeight: 400, marginLeft: 8 }}>· {pt.fullName}</span>}
+                </div>
+                {pt.phone && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2, display: 'inline-flex', alignItems: 'center', gap: 5 }}><Phone size={11} /> {pt.phone}</div>}
+              </div>
+              {pending ? (
+                <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: '#fff3e0', color: '#e65100' }}>Chưa thu {pt.totalPending} mảnh</span>
+              ) : (
+                <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: '#e8f5e9', color: '#2e7d32', display: 'inline-flex', alignItems: 'center', gap: 5 }}><CheckCircle2 size={12} /> Đã thu đủ</span>
+              )}
+            </div>
+            <div style={{ padding: 12 }}>
+              {pt.pieces.map((pc) => (
+                <NhapDanPieceCard key={pc.piFramePieceId} pointId={pt.id} piece={pc} warehouses={warehouses} onChanged={refetch} readOnly={readOnly} />
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </>
+  )
+}
+
+// ── Section: Lịch sử ──────────────────────────────────────────────────────────
+function LichSuSection() {
+  const { data, isLoading, error } = useFetch<ReceiptRow[]>(() => api.getWeavingReceiptHistory(), [])
+  const rows = Array.isArray(data) ? data : []
+
+  if (isLoading) return <div style={{ padding: 40, color: 'var(--text3)' }}>Đang tải...</div>
+  if (error) return <div style={{ color: '#c62828', display: 'flex', gap: 6 }}><AlertCircle size={16} />Lỗi tải dữ liệu</div>
+  if (rows.length === 0) return <div style={{ color: 'var(--text3)', fontSize: 13 }}>Chưa có lần nhập đan nào.</div>
+
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+      <div style={{ overflowX: 'auto' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              {['Ngày', 'Điểm đan', 'Mảnh', 'Lệnh SX / PO', 'Kho nhận', 'Số lượng', 'Người thu'].map((h, i) => (
+                <th key={h} style={{ textAlign: i === 5 ? 'right' : 'left', padding: '8px 12px', fontSize: 12, color: 'var(--text3)', fontWeight: 600, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td style={td}>{format(new Date(r.receivedDate), 'dd/MM/yyyy')}</td>
+                <td style={td}><strong>{r.pointCode}</strong>{r.pointName && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{r.pointName}</div>}</td>
+                <td style={td}><strong>{r.pieceName}</strong> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{r.pieceCode}</span></td>
+                <td style={{ ...td, fontSize: 12 }}>{r.poNumber ?? r.piCode}<div style={{ color: 'var(--text3)' }}>{r.productLabel}</div></td>
+                <td style={td}>{r.warehouseName}</td>
+                <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#2e7d32' }}>{r.quantity}</td>
+                <td style={{ ...td, fontSize: 12, color: 'var(--text2)' }}>{r.by ?? '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }
+
+const td: React.CSSProperties = { padding: '8px 12px', fontSize: 13, borderBottom: '1px solid var(--border)', verticalAlign: 'top', whiteSpace: 'nowrap' }
 
 function NhapDanPieceCard({ pointId, piece, warehouses, onChanged, readOnly = false }: { pointId: number; piece: ReceivePiece; warehouses: Warehouse[]; onChanged: () => void; readOnly?: boolean }) {
   type Row = { mfgWarehouseId: number | ''; quantity: string }
