@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react'
 type BomItem = { id: number; ten: string; thoiGian: string }
 type AccessoryLine = { uid: number; maPK: string; unit: string; moTa: string; imageUrl: string }
 type PendingReq = { uid: number; bomId: number; lines: AccessoryLine[]; submittedAt: string }
+type RejectedAccessoryLine = AccessoryLine & { submittedAt: string; lyDo: string }
 
 // ─── Mock data ────────────────────────────────────────────────────────
 const MOCK_BOMS: BomItem[] = [
@@ -27,6 +28,12 @@ const MOCK_PENDING: PendingReq[] = [
 
 const MOCK_DRAFT: Record<number, AccessoryLine[]> = {
   3: [{ uid: 3, maPK: 'PK-TAY-01', unit: 'bộ', moTa: 'Tay nắm nhựa đen', imageUrl: '' }],
+}
+
+const MOCK_REJECTED_LINES: Record<number, RejectedAccessoryLine[]> = {
+  4: [
+    { uid: 99, maPK: 'PK-TAY-02', unit: 'bộ', moTa: 'Tay nắm màu đỏ', imageUrl: '', submittedAt: '19/06/2026 10:30:00', lyDo: 'Màu tay nắm không theo tiêu chuẩn — cần xác nhận với bộ phận thiết kế trước khi đề xuất lại' },
+  ],
 }
 
 const APPROVED_CATALOG: AccessoryLine[] = [
@@ -54,10 +61,14 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
   const [catalogPreviewUrl, setCatalogPreviewUrl] = useState<string | null>(null)
   const [fErr, setFErr] = useState('')
   const [sentMsg, setSentMsg] = useState(false)
+  const [bomSearch, setBomSearch] = useState('')
+  const [catalogSearch, setCatalogSearch] = useState('')
+  const [rejectedLines] = useState<Record<number, RejectedAccessoryLine[]>>(MOCK_REJECTED_LINES)
 
-  const bomStatus = (bomId: number): 'approved' | 'pending' | 'canInput' =>
+  const bomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' =>
     approvedBomIds.includes(bomId) ? 'approved'
     : pendingReqs.some(r => r.bomId === bomId) ? 'pending'
+    : (rejectedLines[bomId] ?? []).length > 0 ? 'rejected'
     : 'canInput'
 
   const currentDrafts = selectedBom ? (draftsByBom[selectedBom.id] ?? []) : []
@@ -146,7 +157,7 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
                 }}
               />
             </div>
-            <div style={{ minWidth: 90 }}>
+            <div style={{ width: 68 }}>
               <FL>ĐVT</FL>
               <input value={fUnit} onChange={e => setFUnit(e.target.value)}
                 placeholder="cái" style={inputStyle} />
@@ -272,7 +283,40 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
           </div>
         )}
 
-        {currentDrafts.length === 0 && currentPending.length === 0 && !sentMsg && (
+        {/* Rejected section */}
+        {(rejectedLines[selectedBom.id] ?? []).length > 0 && (
+          <div style={{ background: 'var(--surface)', border: '1px solid #ffcdd2', borderLeft: '4px solid #c62828', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginTop: 16 }}>
+            <div style={{ padding: '12px 16px', background: '#ffebee', borderBottom: '1px solid #ffcdd2', fontWeight: 700, fontSize: 14, color: '#b71c1c', display: 'flex', alignItems: 'center', gap: 10 }}>
+              ✕ Bị từ chối
+              <span style={{ fontSize: 12, fontWeight: 600, background: '#ffcdd2', color: '#b71c1c', borderRadius: 20, padding: '2px 8px' }}>
+                {(rejectedLines[selectedBom.id] ?? []).length} vật tư
+              </span>
+              <span style={{ fontSize: 12, color: '#c62828', fontWeight: 400, marginLeft: 4 }}>— xem lý do và gửi lại đề xuất mới</span>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: '#fff5f5', borderBottom: '1px solid #ffcdd2' }}>
+                  {['Mã phụ kiện', 'ĐVT', 'Mô tả', 'Gửi lúc', 'Lý do từ chối'].map((h, i) => (
+                    <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: '#b71c1c', fontSize: 11 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(rejectedLines[selectedBom.id] ?? []).map(l => (
+                  <tr key={l.uid} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{l.maPK}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{l.unit || '—'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{l.moTa || '—'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 12, whiteSpace: 'nowrap' }}>{l.submittedAt}</td>
+                    <td style={{ padding: '10px 14px', color: '#c62828', fontSize: 13 }}>{l.lyDo}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {currentDrafts.length === 0 && currentPending.length === 0 && (rejectedLines[selectedBom.id] ?? []).length === 0 && !sentMsg && (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '40px', textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
             Chưa có đề xuất nào. Điền form phía trên để bắt đầu.
           </div>
@@ -290,7 +334,12 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
           <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập thông tin phụ kiện theo SKU</p>
         </div>
         <div style={{ marginBottom: 16 }}>
-          <span style={{ fontSize: 13, color: 'var(--text3)' }}>{MOCK_BOMS.length} SKU</span>
+          <input
+            value={bomSearch}
+            onChange={e => setBomSearch(e.target.value)}
+            placeholder="Tìm theo tên SKU…"
+            style={{ maxWidth: 280, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+          />
         </div>
         <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -302,7 +351,7 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
               </tr>
             </thead>
             <tbody>
-              {MOCK_BOMS.map(item => {
+              {MOCK_BOMS.filter(b => b.ten.toLowerCase().includes(bomSearch.toLowerCase())).map(item => {
                 const st = bomStatus(item.id)
                 return (
                   <tr key={item.id}
@@ -318,6 +367,8 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
                         ? <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✓ Đã duyệt</span>
                         : st === 'pending'
                         ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
+                        : st === 'rejected'
+                        ? <span style={{ background: '#ffebee', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
                         : <span style={{ background: '#fce4ec', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Cần nhập</span>
                       }
                     </td>
@@ -340,6 +391,14 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh sách vật tư — Phụ kiện</h2>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Các mã phụ kiện đã được duyệt</p>
         </div>
+        <div style={{ marginBottom: 16 }}>
+          <input
+            value={catalogSearch}
+            onChange={e => setCatalogSearch(e.target.value)}
+            placeholder="Tìm theo mã phụ kiện hoặc mô tả…"
+            style={{ maxWidth: 320, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+          />
+        </div>
         <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
@@ -350,8 +409,11 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
               </tr>
             </thead>
             <tbody>
-              {APPROVED_CATALOG.map((item, i) => (
-                <tr key={item.uid} style={{ borderBottom: i < APPROVED_CATALOG.length - 1 ? '1px solid var(--border)' : 'none' }}>
+              {APPROVED_CATALOG.filter(c => {
+                const q = catalogSearch.toLowerCase()
+                return c.maPK.toLowerCase().includes(q) || c.moTa.toLowerCase().includes(q)
+              }).map((item, i, arr) => (
+                <tr key={item.uid} style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
                   <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.maPK}</td>
                   <td style={{ padding: '12px 14px', color: 'var(--text3)' }}>{item.moTa || '—'}</td>
                   <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.unit || '—'}</td>
@@ -367,10 +429,13 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
                   </td>
                 </tr>
               ))}
-              {APPROVED_CATALOG.length === 0 && (
+              {APPROVED_CATALOG.filter(c => {
+                const q = catalogSearch.toLowerCase()
+                return c.maPK.toLowerCase().includes(q) || c.moTa.toLowerCase().includes(q)
+              }).length === 0 && (
                 <tr>
                   <td colSpan={4} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
-                    Chưa có vật tư nào được duyệt.
+                    {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư nào được duyệt.'}
                   </td>
                 </tr>
               )}
