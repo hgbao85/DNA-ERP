@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 // @ts-ignore
 import { SEED_CUSTOMERS, SEED_SETTINGS } from '../data/seed'
 import { differenceInDays, addDays, parseISO, format, isToday } from 'date-fns'
@@ -14,7 +14,7 @@ function load<T>(key: string, fallback: T): T {
     return raw ? JSON.parse(raw) : fallback
   } catch { return fallback }
 }
-function save(key: string, val: any) {
+function save(key: string, val: unknown) {
   localStorage.setItem(key, JSON.stringify(val))
 }
 
@@ -22,7 +22,6 @@ function save(key: string, val: any) {
 export function calcStatus(customer: Customer, remindDaysBefore: number = 3) {
   let last: Date;
   if (!customer.lastContact) {
-    // Nếu chưa từng liên hệ, đặt ngày cũ để tự động chuyển sang quá hạn
     last = new Date()
     last.setDate(last.getDate() - (customer.cycleDays || 30) - 1)
   } else {
@@ -43,9 +42,9 @@ export function calcStatus(customer: Customer, remindDaysBefore: number = 3) {
   const daysLeft = differenceInDays(nextDate, today)
 
   let status: 'ok' | 'overdue' | 'today' | 'soon' = 'ok'
-  if (daysLeft < 0)                          status = 'overdue'
-  else if (isToday(nextDate))                status = 'today'
-  else if (daysLeft <= remindDaysBefore)     status = 'soon'
+  if (daysLeft < 0)                      status = 'overdue'
+  else if (isToday(nextDate))            status = 'today'
+  else if (daysLeft <= remindDaysBefore) status = 'soon'
 
   return { nextDate, daysLeft, status }
 }
@@ -55,9 +54,13 @@ export function useStore() {
   const [settings, setSettingsRaw]   = useState<Settings>(() => load(LS_SETTINGS, SEED_SETTINGS))
   const [notifs, setNotifsRaw]       = useState<Notification[]>(() => load(LS_NOTIFS, []))
 
-  const setCustomers = useCallback((val: Customer[]) => {
-    setCustomersRaw(val)
-    save(LS_CUSTOMERS, val)
+  // Wrapper gộp setState + persist — dùng functional update để luôn có giá trị mới nhất
+  const setCustomers = useCallback((updater: (prev: Customer[]) => Customer[]) => {
+    setCustomersRaw(prev => {
+      const next = updater(prev)
+      save(LS_CUSTOMERS, next)
+      return next
+    })
   }, [])
 
   const setSettings = useCallback((val: Settings) => {
@@ -65,45 +68,36 @@ export function useStore() {
     save(LS_SETTINGS, val)
   }, [])
 
-  const setNotifs = useCallback((val: Notification[]) => {
-    setNotifsRaw(val)
-    save(LS_NOTIFS, val)
+  const setNotifs = useCallback((updater: (prev: Notification[]) => Notification[]) => {
+    setNotifsRaw(prev => {
+      const next = updater(prev)
+      save(LS_NOTIFS, next)
+      return next
+    })
   }, [])
 
-  // Thêm khách hàng mới
+  // Dùng functional update → không cần customers/notifs trong deps → callbacks ổn định
   const addCustomer = useCallback((data: Partial<Customer>) => {
-    const newC = {
-      ...data,
-      id: 'KH' + Date.now(),
-      history: [],
-    } as Customer
-    setCustomers([...customers, newC])
-  }, [customers, setCustomers])
+    const newC = { ...data, id: 'KH' + Date.now(), history: [] } as Customer
+    setCustomers(prev => [...prev, newC])
+  }, [setCustomers])
 
-  // Cập nhật khách hàng
   const updateCustomer = useCallback((id: string, data: Partial<Customer>) => {
-    setCustomers(customers.map(c => c.id === id ? { ...c, ...data } : c))
-  }, [customers, setCustomers])
+    setCustomers(prev => prev.map(c => c.id === id ? { ...c, ...data } : c))
+  }, [setCustomers])
 
-  // Xóa khách hàng
   const deleteCustomer = useCallback((id: string) => {
-    setCustomers(customers.filter(c => c.id !== id))
-  }, [customers, setCustomers])
+    setCustomers(prev => prev.filter(c => c.id !== id))
+  }, [setCustomers])
 
-  // Thêm lịch sử liên hệ + cập nhật lastContact
   const logContact = useCallback((id: string, note: string) => {
     const today = format(new Date(), 'yyyy-MM-dd')
-    setCustomers(customers.map(c => {
+    setCustomers(prev => prev.map(c => {
       if (c.id !== id) return c
-      return {
-        ...c,
-        lastContact: today,
-        history: [{ date: today, note }, ...(c.history || [])],
-      }
+      return { ...c, lastContact: today, history: [{ date: today, note }, ...(c.history || [])] }
     }))
-  }, [customers, setCustomers])
+  }, [setCustomers])
 
-  // Gửi thông báo (giả lập — lưu vào notifs log)
   const sendNotif = useCallback((customer: Customer) => {
     const msg = settings.messageTemplate
       .replace('[TÊN KH]', customer.name)
@@ -120,26 +114,26 @@ export function useStore() {
       message: msg,
       sentAt: new Date().toISOString(),
     }
-    setNotifs([newNotif, ...notifs])
+    setNotifs(prev => [newNotif, ...prev])
     return newNotif
-  }, [settings, notifs, setNotifs])
+  }, [settings, setNotifs])
 
-  // Import từ CSV/Excel (đã parse bởi PapaParse)
-  const importCustomers = useCallback((rows: any[]) => {
-    const imported: Customer[] = []
+  // importCustomers cần đọc customers hiện tại để kiểm tra duplicate
+  // → dùng customers trong closure (vẫn fresh vì customers là dep)
+  // → functional update cho phần mutation để đảm bảo không mất dữ liệu đồng thời
+  const importCustomers = useCallback((rows: Record<string, string>[]) => {
+    const toImport: Customer[] = []
     const skipped: string[] = []
 
     rows.forEach(row => {
       const name = row['ten_khach_hang'] || row['Tên khách hàng'] || ''
       if (!name) return
-
-      const existId = customers.find(c => c.name === name)?.id
-      if (existId) { skipped.push(name); return }
+      if (customers.find(c => c.name === name)) { skipped.push(name); return }
 
       const products = (row['ma_san_pham'] || row['Mã sản phẩm'] || '')
         .split(',').map((s: string) => s.trim()).filter(Boolean)
 
-      imported.push({
+      toImport.push({
         id: 'KH' + Date.now() + Math.random().toString(36).slice(2, 6),
         name,
         city:        row['thanh_pho'] || row['Thành phố'] || '',
@@ -154,11 +148,10 @@ export function useStore() {
       })
     })
 
-    setCustomers([...customers, ...imported])
-    return { imported: imported.length, skipped: skipped.length }
+    if (toImport.length > 0) setCustomers(prev => [...prev, ...toImport])
+    return { imported: toImport.length, skipped: skipped.length }
   }, [customers, setCustomers])
 
-  // Thống kê nhanh
   const stats = useCallback(() => {
     const rb = settings.remindDaysBefore
     let overdue = 0, today = 0, soon = 0, done = 0

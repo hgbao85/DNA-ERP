@@ -1,6 +1,6 @@
 let seq = 1000;
 
-export function nextId(prefix = ''): number {
+export function nextId(): number {
   seq += 1;
   return seq;
 }

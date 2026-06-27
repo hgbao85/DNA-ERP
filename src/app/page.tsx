@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
+import { vi } from 'date-fns/locale';
 import { useStore } from '../hooks/useStore';
 import { useFetch } from '../hooks/useFetch';
 import Dashboard from '../components/Dashboard';
@@ -74,7 +75,6 @@ function MainERP() {
   const { user, logout } = useAuth();
   const store = useStore();
   const isDirector = checkIsDirector(user);
-  const isPurchaser = !!user?.isPurchaser && !user?.mfgRole;
   const [activeModule, setActiveModule] = useState<string | null>(() => resolveDefaultModule(user));
   const [tab, setTab] = useState(() => {
     if (user?.role === 'SALES') return 'customers';
@@ -211,11 +211,7 @@ function MainERP() {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <span style={{ fontSize: 11, color: 'var(--text3)' }}>
-              {format(new Date(), 'EEEE, dd/MM/yyyy')
-                .replace('Monday', 'Thứ Hai').replace('Tuesday', 'Thứ Ba')
-                .replace('Wednesday', 'Thứ Tư').replace('Thursday', 'Thứ Năm')
-                .replace('Friday', 'Thứ Sáu').replace('Saturday', 'Thứ Bảy')
-                .replace('Sunday', 'Chủ Nhật')}
+              {format(new Date(), 'EEEE, dd/MM/yyyy', { locale: vi })}
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, borderLeft: '1px solid var(--border)', paddingLeft: 12 }}>
               <span style={{ fontSize: 12, color: 'var(--text2)' }}>

@@ -126,6 +126,35 @@ interface CKPI { piId: number; pieces: CKPiece[]; pendingReports: unknown[] }
 interface PKPI { piId: number; totalTarget: number; totalPacked: number; allDone: boolean }
 
 const fmtPct = (n: number) => `${n}%`
+const pctColor = (pct: number) => pct >= 100 ? '#2e7d32' : pct > 0 ? '#e65100' : 'var(--text3)'
+const pctBg    = (pct: number) => pct >= 100 ? '#e8f5e9' : pct > 0 ? '#fff3e0' : 'var(--surface2)'
+
+function PctCell({ pct, badge, onClick, title, muted }: {
+  pct: number | null; badge?: number; onClick: () => void; title: string; muted?: boolean
+}) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      style={{
+        position: 'relative', minWidth: 54, padding: '6px 8px', cursor: 'pointer',
+        border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+        background: muted ? 'var(--surface2)' : pctBg(pct ?? 0),
+        color: muted ? 'var(--text3)' : pctColor(pct ?? 0),
+        fontWeight: 700, fontSize: 12,
+      }}
+    >
+      {pct === null ? '—' : fmtPct(pct)}
+      {!!badge && badge > 0 && (
+        <span style={{
+          position: 'absolute', top: -6, right: -6, minWidth: 16, height: 16, padding: '0 4px',
+          borderRadius: 8, background: '#e65100', color: '#fff', fontSize: 10, fontWeight: 700,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>{badge}</span>
+      )}
+    </button>
+  )
+}
 
 // Drill-down: bấm ô để mở chi tiết công đoạn / chuyền kiểm / đóng gói
 type Detail =
@@ -212,32 +241,6 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
     const c = kcs[p.id]; return s + (c ? c.PHOI + c.HAN + c.SON : 0)
   }, 0)
   const lateCount = pis.filter(p => daysLeft(p.deadline) < 0 && p.status !== 'DONE').length
-
-  const pctColor = (pct: number) => pct >= 100 ? '#2e7d32' : pct > 0 ? '#e65100' : 'var(--text3)'
-  const pctBg = (pct: number) => pct >= 100 ? '#e8f5e9' : pct > 0 ? '#fff3e0' : 'var(--surface2)'
-
-  // Ô % bấm được (dùng chung cho mọi công đoạn)
-  const PctCell = ({ pct, badge, onClick, title, muted }: { pct: number | null; badge?: number; onClick: () => void; title: string; muted?: boolean }) => (
-    <button
-      onClick={onClick}
-      title={title}
-      style={{
-        position: 'relative', minWidth: 54, padding: '6px 8px', cursor: 'pointer',
-        border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-        background: muted ? 'var(--surface2)' : pctBg(pct ?? 0), color: muted ? 'var(--text3)' : pctColor(pct ?? 0),
-        fontWeight: 700, fontSize: 12,
-      }}
-    >
-      {pct === null ? '—' : fmtPct(pct)}
-      {!!badge && badge > 0 && (
-        <span style={{
-          position: 'absolute', top: -6, right: -6, minWidth: 16, height: 16, padding: '0 4px',
-          borderRadius: 8, background: '#e65100', color: '#fff', fontSize: 10, fontWeight: 700,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}>{badge}</span>
-      )}
-    </button>
-  )
 
   return (
     <div>

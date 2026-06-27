@@ -8,9 +8,7 @@ export function resolveDefaultModule(user: User | null): string | null {
   if (user.role === 'SALES') return 'crm';
   if (user.isPurchaser) return 'purchasing';
   if (user.role === 'WAREHOUSE_STAFF') return 'inbound_warehouse';
-  // Giám đốc: chọn phân hệ trên màn hình module
-  if (user.role === 'MANAGER') return null;
-  return null;
+  return null; // MANAGER: chọn phân hệ trên màn hình module
 }
 
 export function isDirector(user: User | null): boolean {

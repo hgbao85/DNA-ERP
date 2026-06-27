@@ -11,11 +11,8 @@ export async function getProducts() {
 
 export async function createProduct(data: Record<string, unknown>) {
   await mockDelay();
-  let created: Record<string, unknown> = {};
-  mockStore.update((s) => {
-    created = { id: data.id ?? `SP-${nextId()}`, ...data };
-    s.products.push(created as unknown as (typeof s.products)[0]);
-  });
+  const created = { id: data.id ?? `SP-${nextId()}`, ...data };
+  mockStore.update((s) => (s.products as any[]).push(created));
   return created;
 }
 

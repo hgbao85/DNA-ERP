@@ -9,7 +9,7 @@ export const getSuppliers = () => ok(clone(mockStore.get().suppliers));
 export const createSupplier = async (data: Record<string, unknown>) => {
   await mockDelay();
   const row = { id: nextId(), isActive: true, ...data };
-  mockStore.update((s) => s.suppliers.push(row as never));
+  mockStore.update((s) => (s.suppliers as any[]).push(row));
   return row;
 };
 export const updateSupplier = async (id: number, data: Record<string, unknown>) => ok({ id, ...data });

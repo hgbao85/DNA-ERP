@@ -106,7 +106,6 @@ interface MfgAppProps {
 export default function MfgApp({ onBack }: MfgAppProps) {
   const { user, logout } = useAuth()
 
-  const isOtherWorker   = !!user?.mfgRole && WORKER_ROLES.includes(user.mfgRole as typeof WORKER_ROLES[number])
   const isFactorySales  = user?.mfgRole === 'FACTORY_SALES'
   const canManageBom    = user?.mfgRole === 'PRODUCTION_MANAGER' || user?.role === 'MANAGER'
   // Tổng giám đốc = MANAGER không gắn mfgRole. Thủ kho = WAREHOUSE_STAFF không mfgRole.
