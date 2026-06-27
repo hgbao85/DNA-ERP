@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, FileText, PackageCheck, MapPin, ArrowDownToLine, ClipboardCheck, Box, PackagePlus, History, FilePlus, Users, CalendarClock } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, FileText, PackageCheck, MapPin, ArrowDownToLine, ClipboardCheck, Box, PackagePlus, History, FilePlus, Users, CalendarClock, ChevronDown } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import PIListPage from './PIListPage'
 import MfgSetupPage from './MfgSetupPage'
@@ -62,7 +62,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const canManageWorkshop = canManageBom // PRODUCTION_MANAGER hoặc MANAGER (giám đốc xem)
 
   const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    ...(canManageWorkshop ? [{ id: 'workshop' as TabId, label: 'Tổng hợp lệnh sản xuất', icon: <LayoutGrid size={16}/> }] : []),
+    ...(canManageWorkshop ? [{ id: 'workshop' as TabId, label: 'Tổng hợp lệnh SX', icon: <LayoutGrid size={16}/> }] : []),
     // Sales: chỉ thấy Tổng đơn hàng + Tạo đơn hàng mới (KHÔNG còn Lệnh SX). QLSX/Giám đốc/thợ giữ Lệnh SX.
     ...(isFactorySales ? [{ id: 'tong-don-hang' as TabId, label: 'Tổng đơn hàng', icon: <Package size={16}/> }] : []),
     ...(isFactorySales ? [{ id: 'tao-don-hang' as TabId, label: 'Tạo đơn hàng mới', icon: <FilePlus size={16}/> }] : []),
@@ -91,6 +91,9 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const isSpecRole = user?.mfgRole ? ['SPEC_STEEL','SPEC_WIRE_PAINT','SPEC_ACCESSORY','SPEC_PACKAGING'].includes(user.mfgRole) : false
   const initialTab: TabId = canManageWorkshop ? 'workshop' : isFactorySales ? 'tong-don-hang' : isWeavingMgr ? 'dieu-phoi-dan' : isBomManager ? 'setup' : isSpecRole ? 'setup' : 'pi-list'
   const [tab, setTab] = useState<TabId>(initialTab)
+
+  const [workshopStage, setWorkshopStage] = useState('ALL')
+  const [workshopExpanded, setWorkshopExpanded] = useState(true)
 
   const [steelSubTab, setSteelSubTab] = useState<'vat-tu' | 'dinh-muc' | 'catalog'>('vat-tu')
   const [wirePaintSubTab, setWirePaintSubTab] = useState<'dinh-muc' | 'catalog'>('dinh-muc')
@@ -158,6 +161,60 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         <nav style={{ flex: 1, padding: '4px 8px' }}>
           {TABS.map(t => {
             const active = tab === t.id
+            // Tab "Tổng hợp lệnh SX" → hiển thị sub-items lọc theo công đoạn khi active
+            if (t.id === 'workshop') {
+              const WORKSHOP_STAGES = [
+                { value: 'PHOI',        label: 'Phôi' },
+                { value: 'HAN',         label: 'Hàn' },
+                { value: 'SON',         label: 'Sơn' },
+                { value: 'WEAVING',     label: 'Đan' },
+                { value: 'CHUYEN_KIEM', label: 'Chuyền kiểm' },
+                { value: 'DONG_GOI',    label: 'Đóng gói' },
+              ]
+              return (
+                <div key={t.id} style={{ marginBottom: 2 }}>
+                  {/* Hàng chính: nút nav + chevron toggle chia sẻ chung background */}
+                  <div
+                    style={{ display: 'flex', alignItems: 'center', borderRadius: 'var(--radius)', background: active ? '#fff3e0' : 'transparent', transition: 'background .1s' }}
+                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
+                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
+                  >
+                    <button
+                      onClick={() => { setTab('workshop'); setWorkshopStage('ALL'); setWorkshopExpanded(v => !v) }}
+                      style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 9, padding: '8px 4px 8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', color: active ? '#e65100' : 'var(--text2)', fontWeight: active ? 600 : 400, fontSize: 13, textAlign: 'left' }}
+                    >{t.icon}{t.label}</button>
+                    <button
+                      onClick={e => { e.stopPropagation(); setWorkshopExpanded(v => !v) }}
+                      title={workshopExpanded ? 'Thu gọn' : 'Mở rộng'}
+                      style={{ flexShrink: 0, padding: '8px 8px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: active ? '#e65100' : 'var(--text3)' }}
+                    >
+                      <ChevronDown size={13} style={{ opacity: .65, transform: workshopExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform .2s' }} />
+                    </button>
+                  </div>
+
+                  {/* Sub-items với đường kẻ dọc */}
+                  {workshopExpanded && (
+                    <div style={{ margin: '3px 0 4px 18px', paddingLeft: 10, borderLeft: '2px solid #f5c89a' }}>
+                      {WORKSHOP_STAGES.map(s => {
+                        const subActive = tab === 'workshop' && workshopStage === s.value
+                        return (
+                          <button key={s.value}
+                            onClick={() => { setTab('workshop'); setWorkshopStage(s.value) }}
+                            style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', padding: '5px 8px', marginBottom: 1, border: 'none', borderRadius: 'var(--radius)', background: subActive ? '#fff3e0' : 'transparent', color: subActive ? '#e65100' : 'var(--text2)', fontWeight: subActive ? 600 : 400, fontSize: 12, textAlign: 'left', cursor: 'pointer' }}
+                            onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
+                            onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
+                          >
+                            <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, background: subActive ? '#e65100' : '#d1d5db', transition: 'background .15s' }} />
+                            {s.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            }
+
             // Quản lý định mức SPEC_STEEL → 3 sub-items trong sidebar
             if (t.id === 'setup' && user?.mfgRole === 'SPEC_STEEL') {
               const isSetup = tab === 'setup'
@@ -290,7 +347,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
 
       {/* ── Main content ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        {tab === 'workshop' && canManageWorkshop && <MfgWorkshopBoardPage />}
+        {tab === 'workshop' && canManageWorkshop && <MfgWorkshopBoardPage stageFilter={workshopStage} />}
         {tab === 'tong-don-hang' && isFactorySales && <TongDonHangPage onCreateNew={() => setTab('tao-don-hang')} />}
         {tab === 'tao-don-hang'  && isFactorySales && <TaoDonHangMoiPage onCreated={() => setTab('tong-don-hang')} />}
         {tab === 'danh-sach-khach-hang' && isFactorySales && <DanhSachKhachHangPage />}
