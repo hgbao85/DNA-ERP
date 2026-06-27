@@ -110,7 +110,15 @@ export default function MfgStageBoardPage({ initialPiId, initialStage, onBack }:
           <div style={{ background: 'var(--surface2)', borderRadius: 'var(--radius)', padding: '10px 16px', marginBottom: 20, fontSize: 13, display: 'flex', gap: 24 }}>
             <span><strong>{activePi.code}</strong></span>
             <span>Deadline: <strong>{format(new Date(activePi.deadline), 'dd/MM/yyyy')}</strong></span>
-            <span style={{ color: 'var(--text3)' }}>Hạn vật tư: {format(new Date(activePi.materialDeadline), 'dd/MM/yyyy')}</span>
+            {(() => {
+              const md = (activePi.items as any[])
+                ?.map((it: any) => it.materialDeadline)
+                .filter(Boolean)
+                .sort()[0]
+              return md
+                ? <span style={{ color: 'var(--text3)' }}>Hạn vật tư: {format(new Date(md), 'dd/MM/yyyy')}</span>
+                : null
+            })()}
           </div>
 
           {/* ── Stage sub-tabs ────────────────────────────────────────── */}

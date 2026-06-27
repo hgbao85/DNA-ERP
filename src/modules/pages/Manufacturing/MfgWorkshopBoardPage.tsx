@@ -29,6 +29,97 @@ interface PI {
 }
 type KcsCounts = Record<number, { PHOI: number; HAN: number; SON: number }>
 
+// ── Dropdown lọc theo công đoạn ───────────────────────────────────────────────
+type StageFilter = 'ALL' | 'PHOI' | 'HAN' | 'SON' | 'WEAVING' | 'CHUYEN_KIEM' | 'DONG_GOI'
+
+// ── Mock data bổ sung (≥2 item mỗi công đoạn) ────────────────────────────────
+const _ISO = (d: string) => new Date(d).toISOString()
+const MOCK_EXTRA_PIS: PI[] = [
+  {
+    id: 101, code: 'PI-2026-007', deadline: _ISO('2026-08-15'), status: 'PRODUCING',
+    items: [{ quantity: 350, productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế café C-01', factoryCode: 'CAF-01' } } }],
+    stages: [
+      { stageType: 'PHOI', progressPercent: 75, status: 'IN_PROGRESS' },
+      { stageType: 'HAN',  progressPercent: 40, status: 'IN_PROGRESS' },
+      { stageType: 'SON',  progressPercent: 0,  status: 'PENDING' },
+    ],
+  },
+  {
+    id: 102, code: 'PI-2026-008', deadline: _ISO('2026-09-10'), status: 'PRODUCING',
+    items: [{ quantity: 500, productVariant: { colorCode: 'BEIGE', mfgProduct: { name: 'Ghế đan IEA-5', factoryCode: 'IEA-5' } } }],
+    stages: [
+      { stageType: 'PHOI',    progressPercent: 100, status: 'DONE' },
+      { stageType: 'HAN',     progressPercent: 100, status: 'DONE' },
+      { stageType: 'WEAVING', progressPercent: 60,  status: 'IN_PROGRESS' },
+      { stageType: 'SON',     progressPercent: 0,   status: 'PENDING' },
+    ],
+  },
+  {
+    id: 103, code: 'PI-2026-009', deadline: _ISO('2026-07-20'), status: 'PRODUCING',
+    items: [{ quantity: 200, productVariant: { colorCode: 'WHITE', mfgProduct: { name: 'Bàn đan T-10', factoryCode: 'TBL-10' } } }],
+    stages: [
+      { stageType: 'PHOI', progressPercent: 90, status: 'IN_PROGRESS' },
+      { stageType: 'HAN',  progressPercent: 85, status: 'IN_PROGRESS' },
+      { stageType: 'SON',  progressPercent: 45, status: 'IN_PROGRESS' },
+    ],
+  },
+  {
+    id: 104, code: 'PI-2026-010', deadline: _ISO('2026-07-05'), status: 'PRODUCING',
+    items: [{ quantity: 300, productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế lounge L-03', factoryCode: 'LNG-03' } } }],
+    stages: [
+      { stageType: 'PHOI',    progressPercent: 100, status: 'DONE' },
+      { stageType: 'HAN',     progressPercent: 100, status: 'DONE' },
+      { stageType: 'WEAVING', progressPercent: 100, status: 'DONE' },
+      { stageType: 'SON',     progressPercent: 100, status: 'DONE' },
+    ],
+  },
+  {
+    id: 105, code: 'PI-2026-011', deadline: _ISO('2026-10-01'), status: 'PRODUCING',
+    items: [{ quantity: 420, productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế văn phòng VF-02', factoryCode: 'OFF-02' } } }],
+    stages: [
+      { stageType: 'PHOI', progressPercent: 30, status: 'IN_PROGRESS' },
+      { stageType: 'HAN',  progressPercent: 10, status: 'IN_PROGRESS' },
+      { stageType: 'SON',  progressPercent: 0,  status: 'PENDING' },
+    ],
+  },
+  {
+    id: 106, code: 'PI-2026-012', deadline: _ISO('2026-08-25'), status: 'PRODUCING',
+    items: [{ quantity: 180, productVariant: { colorCode: 'BEIGE', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } } }],
+    stages: [
+      { stageType: 'PHOI',    progressPercent: 100, status: 'DONE' },
+      { stageType: 'HAN',     progressPercent: 100, status: 'DONE' },
+      { stageType: 'WEAVING', progressPercent: 45,  status: 'IN_PROGRESS' },
+      { stageType: 'SON',     progressPercent: 0,   status: 'PENDING' },
+    ],
+  },
+  // PI đã xong SX → đang Chuyền kiểm + Đóng gói (item thứ 2 cho 2 công đoạn này)
+  {
+    id: 107, code: 'PI-2026-013', deadline: _ISO('2026-07-01'), status: 'PRODUCING',
+    items: [{ quantity: 250, productVariant: { colorCode: 'WHITE', mfgProduct: { name: 'Ghế ngoài trời OD-07', factoryCode: 'OD-07' } } }],
+    stages: [
+      { stageType: 'PHOI',    progressPercent: 100, status: 'DONE' },
+      { stageType: 'HAN',     progressPercent: 100, status: 'DONE' },
+      { stageType: 'WEAVING', progressPercent: 100, status: 'DONE' },
+      { stageType: 'SON',     progressPercent: 100, status: 'DONE' },
+    ],
+  },
+]
+const MOCK_KCS_EXTRA: KcsCounts = {
+  101: { PHOI: 5, HAN: 2, SON: 0 },
+  103: { PHOI: 3, HAN: 1, SON: 4 },
+  105: { PHOI: 8, HAN: 0, SON: 0 },
+}
+// Chuyền kiểm: PI-010 (80%) + PI-013 (65%) → ≥2 item
+const MOCK_CK_EXTRA: Record<number, { pct: number; pending: number }> = {
+  104: { pct: 80, pending: 3 },
+  107: { pct: 65, pending: 1 },
+}
+// Đóng gói: PI-010 (30%) + PI-013 (90%) → ≥2 item
+const MOCK_PK_EXTRA: Record<number, { pct: number; allDone: boolean }> = {
+  104: { pct: 30, allDone: false },
+  107: { pct: 90, allDone: false },
+}
+
 // Dữ liệu Chuyền kiểm / Đóng gói (lấy từ 2 endpoint riêng, map theo piId để hiện % trên bảng)
 interface CKPiece { target: number; inspected: number }
 interface CKPI { piId: number; pieces: CKPiece[]; pendingReports: unknown[] }
@@ -43,7 +134,7 @@ type Detail =
   | { kind: 'chuyen-kiem'; piId: number }
   | { kind: 'dong-goi'; piId: number }
 
-export default function MfgWorkshopBoardPage() {
+export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFilter?: string }) {
   const [showDone, setShowDone] = useState(false)
   const [detail, setDetail] = useState<Detail | null>(null)
   const { user } = useAuth()
@@ -92,21 +183,26 @@ export default function MfgWorkshopBoardPage() {
     )
   }
 
-  const all = Array.isArray(pisRaw) ? pisRaw : []
-  const kcs: KcsCounts = kcsRaw && typeof kcsRaw === 'object' ? kcsRaw : {}
-  const pis = all.filter(p => showDone || (p.status !== 'DONE' && p.status !== 'CANCELLED'))
+  const all = [...(Array.isArray(pisRaw) ? pisRaw : []), ...MOCK_EXTRA_PIS]
+  const kcs: KcsCounts = { ...(kcsRaw && typeof kcsRaw === 'object' ? kcsRaw : {}), ...MOCK_KCS_EXTRA }
 
   // Map Chuyền kiểm / Đóng gói theo piId
-  const ckMap: Record<number, { pct: number; pending: number }> = {}
+  const ckMap: Record<number, { pct: number; pending: number }> = { ...MOCK_CK_EXTRA }
   for (const c of (Array.isArray(ckRaw) ? ckRaw : [])) {
     const t = c.pieces.reduce((s, p) => s + p.target, 0)
     const ins = c.pieces.reduce((s, p) => s + p.inspected, 0)
     ckMap[c.piId] = { pct: t > 0 ? Math.round(ins / t * 100) : 0, pending: c.pendingReports?.length ?? 0 }
   }
-  const pkMap: Record<number, { pct: number; allDone: boolean }> = {}
+  const pkMap: Record<number, { pct: number; allDone: boolean }> = { ...MOCK_PK_EXTRA }
   for (const p of (Array.isArray(pkRaw) ? pkRaw : [])) {
     pkMap[p.piId] = { pct: p.totalTarget > 0 ? Math.round(p.totalPacked / p.totalTarget * 100) : 0, allDone: p.allDone }
   }
+
+  const afterDoneFilter = all.filter(p => showDone || (p.status !== 'DONE' && p.status !== 'CANCELLED'))
+  const pis = stageFilter === 'ALL'         ? afterDoneFilter
+    : stageFilter === 'CHUYEN_KIEM'         ? afterDoneFilter.filter(p => ckMap[p.id] !== undefined)
+    : stageFilter === 'DONG_GOI'            ? afterDoneFilter.filter(p => pkMap[p.id] !== undefined)
+    : afterDoneFilter.filter(p => p.stages?.some(s => s.stageType === stageFilter))
 
   const stageOf = (pi: PI, st: StageKey) => pi.stages?.find(s => s.stageType === st)
   const daysLeft = (d: string) => differenceInCalendarDays(new Date(d), new Date())
@@ -147,7 +243,7 @@ export default function MfgWorkshopBoardPage() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <LayoutGrid size={20} /> Điều hành xưởng
+          <LayoutGrid size={20} /> Tổng hợp lệnh sản xuất
         </h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
           <span style={{ color: 'var(--text3)' }}>{pis.length} lệnh</span>
