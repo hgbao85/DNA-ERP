@@ -19,7 +19,7 @@ export default function PIListPage() {
   const [editSteps, setEditSteps] = useState<{ key: string; label: string; startDate: string | null; deadline: string }[]>([])
   const [savingTimeline, setSavingTimeline] = useState(false)
   const [editingPI, setEditingPI] = useState<any | null>(null)
-  const [editValues, setEditValues] = useState<{ deadline: string; items: { materialDeadline: string; HAN: string; WEAVING: string; SON: string }[] }>({ deadline: '', items: [] })
+  const [editValues, setEditValues] = useState<{ deadline: string; items: { materialDeadline: string; deliveryDeadline: string; HAN: string; WEAVING: string; SON: string }[] }>({ deadline: '', items: [] })
   const [savingPI, setSavingPI] = useState(false)
   const [viewingPIId, setViewingPIId] = useState<number | null>(null)
   const [search, setSearch] = useState('')
@@ -138,21 +138,19 @@ export default function PIListPage() {
 
   const openPIEdit = (pi: any) => {
     const piDeadline = new Date(pi.deadline)
-    const fallback = (daysBack: number) => {
-      const d = new Date(piDeadline); d.setDate(d.getDate() - daysBack); return format(d, 'yyyy-MM-dd')
-    }
-    const stgDate = (item: any, type: string, fb: number) => {
+    const stgDate = (item: any, type: string) => {
       const s = Array.isArray(item.stages) ? item.stages.find((x: any) => x.stageType === type) : null
-      return s?.deadline ? format(new Date(s.deadline), 'yyyy-MM-dd') : fallback(fb)
+      return s?.deadline ? format(new Date(s.deadline), 'yyyy-MM-dd') : ''
     }
     setEditingPI(pi)
     setEditValues({
       deadline: format(piDeadline, 'yyyy-MM-dd'),
       items: (Array.isArray(pi.items) ? pi.items : []).map((item: any) => ({
-        materialDeadline: item.materialDeadline ? format(new Date(item.materialDeadline), 'yyyy-MM-dd') : fallback(21),
-        HAN:     stgDate(item, 'HAN',     14),
-        WEAVING: stgDate(item, 'WEAVING',  8),
-        SON:     stgDate(item, 'SON',       3),
+        materialDeadline: item.materialDeadline ? format(new Date(item.materialDeadline), 'yyyy-MM-dd') : '',
+        deliveryDeadline: item.deliveryDeadline  ? format(new Date(item.deliveryDeadline),  'yyyy-MM-dd') : '',
+        HAN:     stgDate(item, 'HAN'),
+        WEAVING: stgDate(item, 'WEAVING'),
+        SON:     stgDate(item, 'SON'),
       })),
     })
   }
@@ -173,10 +171,21 @@ export default function PIListPage() {
           if (si >= 0) stages[si] = { ...stages[si], deadline: iso }
           else stages.push({ stageType: field, deadline: iso, progressPercent: 0, status: 'PENDING' })
         }
-        return { ...item, materialDeadline: new Date(vals.materialDeadline).toISOString(), stages }
+        return {
+          ...item,
+          materialDeadline: vals.materialDeadline ? new Date(vals.materialDeadline).toISOString() : item.materialDeadline,
+          deliveryDeadline: vals.deliveryDeadline ? new Date(vals.deliveryDeadline).toISOString() : undefined,
+          stages,
+        }
       })
+      const itemDls = editValues.items
+        .map(it => it.deliveryDeadline ? new Date(it.deliveryDeadline) : null)
+        .filter(Boolean) as Date[]
+      const piDeadlineComputed = itemDls.length > 0
+        ? itemDls.reduce((max, d) => d > max ? d : max, itemDls[0])
+        : new Date(editValues.deadline)
       await api.updateProductionInvoice(editingPI.id, {
-        deadline: new Date(editValues.deadline).toISOString(),
+        deadline: piDeadlineComputed.toISOString(),
         items: updatedItems,
       })
       refetch()
@@ -202,11 +211,17 @@ export default function PIListPage() {
         /* ── CHI TIẾT PI ─────────────────────────────────────────────────── */
         (() => {
           const pi = viewingPI
-          const deadline = new Date(pi.deadline)
-          const fmt = (d: Date) => format(d, 'dd/MM/yy')
           const items = Array.isArray(pi.items) ? pi.items : []
+          // PI deadline = latest delivery deadline among SKUs (fallback to pi.deadline)
+          const computedDeadline = items.length > 0
+            ? items.reduce((max: Date, item: any) => {
+                const d = item.deliveryDeadline ? new Date(item.deliveryDeadline) : new Date(pi.deadline)
+                return d > max ? d : max
+              }, new Date(0))
+            : new Date(pi.deadline)
+          const fmt = (d: Date) => format(d, 'dd/MM/yy')
           const canConfirmProd = pi.status !== 'PRODUCING' && pi.status !== 'DONE' && pi.status !== 'CANCELLED'
-          const fb = (days: number) => { const d = new Date(deadline); d.setDate(d.getDate() - days); return d }
+          const fb = (days: number) => { const d = new Date(computedDeadline); d.setDate(d.getDate() - days); return d }
           return (
             <div>
               {/* Back + actions */}
@@ -232,13 +247,12 @@ export default function PIListPage() {
               <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20, padding:'14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)' }}>
                 <div>
                   <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:18 }}>{pi.code}</div>
-                  <div style={{ fontSize:12, color:'var(--text3)', marginTop:3 }}>{pi.exportOrder?.poNumber ?? '—'}</div>
                 </div>
                 <div style={{ width:1, height:36, background:'var(--border)' }} />
                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                   <CalendarClock size={14} color="var(--text3)"/>
-                  <span style={{ fontSize:13, color:'var(--text3)' }}>Hạn giao hàng:</span>
-                  <span style={{ fontWeight:700, fontSize:15 }}>{format(deadline, 'dd/MM/yyyy')}</span>
+                  <span style={{ fontSize:13, color:'var(--text3)' }}>Hạn hoàn thành:</span>
+                  <span style={{ fontWeight:700, fontSize:15 }}>{format(computedDeadline, 'dd/MM/yyyy')}</span>
                 </div>
                 <div style={{ marginLeft:'auto', fontSize:12, color:'var(--text3)', background:'var(--surface2)', padding:'4px 12px', borderRadius:12, border:'1px solid var(--border)' }}>
                   {items.length} SKU
@@ -247,11 +261,12 @@ export default function PIListPage() {
 
               {/* SKU timeline */}
               <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 120px 120px 120px 120px', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 110px', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
                   <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>SKU</span>
                   {['Mua hàng','Khung CK','Đan','Đóng gói'].map(h => (
                     <span key={h} style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>{h}</span>
                   ))}
+                  <span style={{ fontSize:11, fontWeight:700, color:'#1d4ed8', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>Hạn giao</span>
                 </div>
                 {items.length === 0 ? (
                   <div style={{ padding:40, textAlign:'center', color:'var(--text3)' }}>Không có SKU</div>
@@ -274,8 +289,9 @@ export default function PIListPage() {
                       {!own && <div style={{ fontSize:10, color:'var(--text3)' }}>ước tính</div>}
                     </div>
                   )
+                  const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                   return (
-                    <div key={idx} style={{ display:'grid', gridTemplateColumns:'1fr 120px 120px 120px 120px', padding:'14px 18px', borderBottom: isLast ? 'none' : '1px solid var(--border)', alignItems:'center' }}>
+                    <div key={idx} style={{ display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 110px', padding:'14px 18px', borderBottom: isLast ? 'none' : '1px solid var(--border)', alignItems:'center' }}>
                       <div>
                         <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>{code}</div>
                         {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
@@ -288,6 +304,12 @@ export default function PIListPage() {
                       {dc(iHanDate,  !!iHan)}
                       {dc(iWeavDate, !!iWeav)}
                       {dc(iSonDate,  !!iSon)}
+                      <div style={{ textAlign:'center' }}>
+                        <div style={{ fontSize:14, fontWeight:700, color: iDelivery ? '#1d4ed8' : 'var(--text3)' }}>
+                          {fmt(iDelivery ?? new Date(pi.deadline))}
+                        </div>
+                        {!iDelivery && <div style={{ fontSize:10, color:'var(--text3)' }}>từ PI</div>}
+                      </div>
                     </div>
                   )
                 })}
@@ -375,7 +397,7 @@ export default function PIListPage() {
                   <div style={{ flex:1 }} />
                   <div style={{ display:'flex', alignItems:'center', gap:5 }}>
                     <CalendarClock size={13} color="var(--text3)"/>
-                    <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn giao</span>
+                    <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>
                     <span style={{ fontWeight:700, fontSize:13, color:'var(--text)' }}>{format(new Date(pi.deadline), 'dd/MM/yy')}</span>
                   </div>
                   <span style={{ fontSize:12, color:'var(--text3)', background:'var(--surface2)', border:'1px solid var(--border)', padding:'3px 10px', borderRadius:12, whiteSpace:'nowrap' }}>
@@ -520,22 +542,13 @@ export default function PIListPage() {
               </button>
             </div>
 
-            {/* Hạn giao PI */}
-            <div style={{ marginBottom:20, display:'flex', alignItems:'center', gap:12, background:'var(--surface2)', borderRadius:8, padding:'10px 14px' }}>
-              <span style={{ fontSize:13, fontWeight:600, flex:1 }}>Hạn giao hàng (PI)</span>
-              <input type="date" value={editValues.deadline}
-                onChange={e => setEditValues(prev => ({ ...prev, deadline: e.target.value }))}
-                style={{ padding:'5px 8px', border:'1px solid #1976d2', borderRadius:6, fontSize:13, background:'var(--surface)', color:'var(--text)' }}
-              />
-            </div>
-
             {/* SKU timelines */}
             <div style={{ display:'flex', flexDirection:'column', gap:12, marginBottom:24 }}>
               {(Array.isArray(editingPI.items) ? editingPI.items : []).map((item: any, idx: number) => {
                 const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
                 const name = item.productVariant?.mfgProduct?.name ?? ''
                 const qty  = item.quantity
-                const vals = editValues.items[idx] ?? { materialDeadline:'', HAN:'', WEAVING:'', SON:'' }
+                const vals = editValues.items[idx] ?? { materialDeadline:'', deliveryDeadline:'', HAN:'', WEAVING:'', SON:'' }
                 const setField = (field: string, val: string) =>
                   setEditValues(prev => ({
                     ...prev,
@@ -557,11 +570,22 @@ export default function PIListPage() {
                       {name && <span style={{ fontSize:12, color:'var(--text2)' }}>{name}</span>}
                       {qty != null && <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text3)', background:'var(--surface)', padding:'1px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
                     </div>
-                    <div style={{ padding:'12px', display:'flex', gap:8 }}>
-                      {dateInput('Mua hàng',    'materialDeadline')}
-                      {dateInput('Khung cơ khí', 'HAN')}
-                      {dateInput('Đan',          'WEAVING')}
-                      {dateInput('Đóng gói',     'SON')}
+                    <div style={{ padding:'12px', display:'flex', flexDirection:'column', gap:10 }}>
+                      {/* Hạn giao hàng riêng cho SKU này */}
+                      <div>
+                        <div style={{ fontSize:10, color:'#1d4ed8', fontWeight:700, marginBottom:4 }}>Hạn giao hàng</div>
+                        <input type="date" value={vals.deliveryDeadline ?? ''}
+                          onChange={e => setField('deliveryDeadline', e.target.value)}
+                          style={{ width:'100%', padding:'5px 8px', border:'1px solid #1d4ed8', borderRadius:5, fontSize:12, background:'var(--surface)', color:'var(--text)', boxSizing:'border-box' }}
+                        />
+                      </div>
+                      {/* Các công đoạn sản xuất */}
+                      <div style={{ display:'flex', gap:8 }}>
+                        {dateInput('Mua hàng',    'materialDeadline')}
+                        {dateInput('Khung cơ khí', 'HAN')}
+                        {dateInput('Đan',          'WEAVING')}
+                        {dateInput('Đóng gói',     'SON')}
+                      </div>
                     </div>
                   </div>
                 )

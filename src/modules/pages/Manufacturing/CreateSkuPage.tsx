@@ -29,7 +29,6 @@ export default function CreateSkuPage() {
   const [showForm, setShowForm]       = useState(false)
   const [form, setForm]               = useState<CreatePlanFormPayload>(emptyForm)
   const [customerName, setCustomerName] = useState('')
-  const [poCode, setPoCode]           = useState('')
   const [submitting, setSubmitting]   = useState(false)
   const [success, setSuccess]         = useState(false)
 
@@ -37,7 +36,6 @@ export default function CreateSkuPage() {
     setShowForm(false)
     setForm(emptyForm())
     setCustomerName('')
-    setPoCode('')
   }
 
   const [search, setSearch] = useState('')
@@ -119,15 +117,6 @@ export default function CreateSkuPage() {
                   type="text" value={customerName}
                   onChange={e => setCustomerName(e.target.value)}
                   placeholder="Nhập tên khách hàng"
-                  style={inputStyle}
-                />
-              </div>
-              <div>
-                <label style={labelStyle}>Mã PO</label>
-                <input
-                  type="text" value={poCode}
-                  onChange={e => setPoCode(e.target.value)}
-                  placeholder="Nhập mã PO"
                   style={inputStyle}
                 />
               </div>
