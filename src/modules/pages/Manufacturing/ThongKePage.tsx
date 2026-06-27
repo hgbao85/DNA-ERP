@@ -2,8 +2,25 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { ArrowLeft, CheckCircle2, Clock, Factory, PackageCheck, Search, ShoppingCart, TrendingUp, Wrench } from 'lucide-react'
 
+// ─── Types ───────────────────────────────────────────────────────────────────
+
 type OrderStatus = 'APPROVED' | 'PRODUCING' | 'DONE'
 type MfgStage = 'PURCHASING' | 'FRAME' | 'WEAVING' | 'PACKAGING'
+type SubStatus = 'done' | 'in-progress' | 'pending'
+
+interface MaterialItem {
+  name: string
+  qty: number
+  unit: string
+  status: 'Đã nhận' | 'Đang đặt' | 'Chờ xác nhận'
+}
+
+interface StageDetails {
+  purchasing: { materials: MaterialItem[] }
+  frame: { phoi: SubStatus; han: SubStatus; son: SubStatus }
+  weaving: { nhapDan: SubStatus; xuatDan: SubStatus }
+  packaging: { dongGoi: SubStatus }
+}
 
 interface ApprovedOrder {
   id: number
@@ -20,25 +37,134 @@ interface ApprovedOrder {
   mfgStage?: MfgStage
 }
 
+// ─── Stage config ─────────────────────────────────────────────────────────────
+
 const MFG_STAGES: { key: MfgStage; label: string; icon: React.ReactNode }[] = [
-  { key: 'PURCHASING', label: 'Mua hàng',      icon: <ShoppingCart size={16} /> },
-  { key: 'FRAME',      label: 'Khung cơ khí',  icon: <Wrench size={16} /> },
-  { key: 'WEAVING',    label: 'Đan',           icon: <Factory size={16} /> },
-  { key: 'PACKAGING',  label: 'Đóng gói',      icon: <PackageCheck size={16} /> },
+  { key: 'PURCHASING', label: 'Mua hàng',     icon: <ShoppingCart size={16} /> },
+  { key: 'FRAME',      label: 'Khung cơ khí', icon: <Wrench size={16} /> },
+  { key: 'WEAVING',    label: 'Đan',          icon: <Factory size={16} /> },
+  { key: 'PACKAGING',  label: 'Đóng gói',     icon: <PackageCheck size={16} /> },
 ]
 
+// ─── Mock orders ──────────────────────────────────────────────────────────────
+
 const MOCK_ORDERS: ApprovedOrder[] = [
-  { id: 1,  code: 'PI-2026-001', sku: 'SKU-GDE-001', productName: 'Giá để đồ treo tường GDE-200',    factoryCode: 'GDE-200', customer: 'Cty TNHH Minh Phát',   qty: 200,  unit: 'bộ',   deadline: '2026-07-15', approvedAt: '2026-06-18', status: 'PRODUCING', mfgStage: 'PURCHASING' },
-  { id: 2,  code: 'PI-2026-002', sku: 'SKU-KS-300',  productName: 'Kệ sắt KS-300 4 tầng',           factoryCode: 'KS-300',  customer: 'Cty CP Đại Thành',     qty: 150,  unit: 'bộ',   deadline: '2026-07-20', approvedAt: '2026-06-19', status: 'APPROVED'  },
-  { id: 3,  code: 'PI-2026-003', sku: 'SKU-TB-100',  productName: 'Tủ bếp inox TB-100',             factoryCode: 'TB-100',  customer: 'Nội thất Hòa Phát',    qty:  80,  unit: 'cái',  deadline: '2026-07-10', approvedAt: '2026-06-15', status: 'DONE'      },
-  { id: 4,  code: 'PI-2026-004', sku: 'SKU-GK-050',  productName: 'Giường khung sắt GK-050',        factoryCode: 'GK-050',  customer: 'Khách sạn Nam Anh',    qty: 120,  unit: 'cái',  deadline: '2026-07-05', approvedAt: '2026-06-10', status: 'DONE'      },
-  { id: 5,  code: 'PI-2026-005', sku: 'SKU-BT-200',  productName: 'Bàn làm việc BT-200',            factoryCode: 'BT-200',  customer: 'Cty TNHH Sao Việt',    qty: 300,  unit: 'cái',  deadline: '2026-08-01', approvedAt: '2026-06-20', status: 'APPROVED'  },
-  { id: 6,  code: 'PI-2026-006', sku: 'SKU-KH-400',  productName: 'Khung nhà thép tiền chế KH-400', factoryCode: 'KH-400',  customer: 'BQL KCN Long Hậu',     qty:   5,  unit: 'bộ',   deadline: '2026-09-15', approvedAt: '2026-06-21', status: 'PRODUCING', mfgStage: 'FRAME'     },
-  { id: 7,  code: 'PI-2026-007', sku: 'SKU-LX-010',  productName: 'Lồng xe đạp LX-010',             factoryCode: 'LX-010',  customer: 'Tổng kho Phương Nam',  qty: 500,  unit: 'cái',  deadline: '2026-07-28', approvedAt: '2026-06-22', status: 'APPROVED'  },
-  { id: 8,  code: 'PI-2026-008', sku: 'SKU-CS-150',  productName: 'Cổng sắt nghệ thuật CS-150',     factoryCode: 'CS-150',  customer: 'Khu đô thị Vinhomes',  qty:  40,  unit: 'bộ',   deadline: '2026-07-30', approvedAt: '2026-06-23', status: 'PRODUCING', mfgStage: 'WEAVING'   },
-  { id: 9,  code: 'PI-2026-009', sku: 'SKU-HC-020',  productName: 'Hàng rào composite HC-020',      factoryCode: 'HC-020',  customer: 'Cty XD Phú Mỹ Hưng',  qty: 250,  unit: 'tấm',  deadline: '2026-06-30', approvedAt: '2026-06-12', status: 'DONE'      },
-  { id: 10, code: 'PI-2026-010', sku: 'SKU-DB-080',  productName: 'Đèn báo LED tích hợp DB-080',   factoryCode: 'DB-080',  customer: 'Cty Điện lực miền Nam', qty: 1000, unit: 'cái',  deadline: '2026-08-10', approvedAt: '2026-06-24', status: 'APPROVED'  },
+  { id: 1,  code: 'PI-2026-001', sku: 'SKU-GDE-001', productName: 'Giá để đồ treo tường GDE-200',    factoryCode: 'GDE-200', customer: 'Cty TNHH Minh Phát',    qty: 200,  unit: 'bộ',  deadline: '2026-07-15', approvedAt: '2026-06-18', status: 'PRODUCING', mfgStage: 'PURCHASING' },
+  { id: 2,  code: 'PI-2026-002', sku: 'SKU-KS-300',  productName: 'Kệ sắt KS-300 4 tầng',           factoryCode: 'KS-300',  customer: 'Cty CP Đại Thành',      qty: 150,  unit: 'bộ',  deadline: '2026-07-20', approvedAt: '2026-06-19', status: 'APPROVED'                         },
+  { id: 3,  code: 'PI-2026-003', sku: 'SKU-TB-100',  productName: 'Tủ bếp inox TB-100',             factoryCode: 'TB-100',  customer: 'Nội thất Hòa Phát',     qty:  80,  unit: 'cái', deadline: '2026-07-10', approvedAt: '2026-06-15', status: 'DONE'                              },
+  { id: 4,  code: 'PI-2026-004', sku: 'SKU-GK-050',  productName: 'Giường khung sắt GK-050',        factoryCode: 'GK-050',  customer: 'Khách sạn Nam Anh',     qty: 120,  unit: 'cái', deadline: '2026-07-05', approvedAt: '2026-06-10', status: 'DONE'                              },
+  { id: 5,  code: 'PI-2026-005', sku: 'SKU-BT-200',  productName: 'Bàn làm việc BT-200',            factoryCode: 'BT-200',  customer: 'Cty TNHH Sao Việt',     qty: 300,  unit: 'cái', deadline: '2026-08-01', approvedAt: '2026-06-20', status: 'APPROVED'                         },
+  { id: 6,  code: 'PI-2026-006', sku: 'SKU-KH-400',  productName: 'Khung nhà thép tiền chế KH-400', factoryCode: 'KH-400',  customer: 'BQL KCN Long Hậu',      qty:   5,  unit: 'bộ',  deadline: '2026-09-15', approvedAt: '2026-06-21', status: 'PRODUCING', mfgStage: 'FRAME'     },
+  { id: 7,  code: 'PI-2026-007', sku: 'SKU-LX-010',  productName: 'Lồng xe đạp LX-010',             factoryCode: 'LX-010',  customer: 'Tổng kho Phương Nam',   qty: 500,  unit: 'cái', deadline: '2026-07-28', approvedAt: '2026-06-22', status: 'APPROVED'                         },
+  { id: 8,  code: 'PI-2026-008', sku: 'SKU-CS-150',  productName: 'Cổng sắt nghệ thuật CS-150',     factoryCode: 'CS-150',  customer: 'Khu đô thị Vinhomes',   qty:  40,  unit: 'bộ',  deadline: '2026-07-30', approvedAt: '2026-06-23', status: 'PRODUCING', mfgStage: 'WEAVING'   },
+  { id: 9,  code: 'PI-2026-009', sku: 'SKU-HC-020',  productName: 'Hàng rào composite HC-020',      factoryCode: 'HC-020',  customer: 'Cty XD Phú Mỹ Hưng',   qty: 250,  unit: 'tấm', deadline: '2026-06-30', approvedAt: '2026-06-12', status: 'DONE'                              },
+  { id: 10, code: 'PI-2026-010', sku: 'SKU-DB-080',  productName: 'Đèn báo LED tích hợp DB-080',   factoryCode: 'DB-080',  customer: 'Cty Điện lực miền Nam', qty: 1000, unit: 'cái', deadline: '2026-08-10', approvedAt: '2026-06-24', status: 'APPROVED'                         },
 ]
+
+// ─── Mock stage details ───────────────────────────────────────────────────────
+
+const DONE_FRAME: StageDetails['frame']   = { phoi: 'done', han: 'done', son: 'done' }
+const DONE_WEAVING: StageDetails['weaving'] = { nhapDan: 'done', xuatDan: 'done' }
+
+const STAGE_DETAILS: Record<number, StageDetails> = {
+  // PI-2026-001 (GDE-200) — PRODUCING @ PURCHASING
+  1: {
+    purchasing: {
+      materials: [
+        { name: 'Thép hộp vuông 20×20×1.5mm L=6m',  qty: 800,  unit: 'm',   status: 'Đã nhận'      },
+        { name: 'Thép tấm 2mm (1000×2000mm)',         qty: 40,   unit: 'tấm', status: 'Đang đặt'     },
+        { name: 'Ốc vít lục giác M8×30mm',            qty: 2000, unit: 'cái', status: 'Đã nhận'      },
+        { name: 'Sơn tĩnh điện bột màu đen',          qty: 25,   unit: 'kg',  status: 'Chờ xác nhận' },
+        { name: 'Giá đỡ nhựa PVC Ø25mm',              qty: 400,  unit: 'cái', status: 'Đang đặt'     },
+      ],
+    },
+    frame:     { phoi: 'pending', han: 'pending', son: 'pending' },
+    weaving:   { nhapDan: 'pending', xuatDan: 'pending' },
+    packaging: { dongGoi: 'pending' },
+  },
+
+  // PI-2026-003 (TB-100) — DONE
+  3: {
+    purchasing: {
+      materials: [
+        { name: 'Tấm inox 201 #4 dày 1.5mm (1000×2000mm)', qty: 160, unit: 'tấm', status: 'Đã nhận' },
+        { name: 'Bản lề giảm chấn Blum 35mm',               qty: 480, unit: 'cái', status: 'Đã nhận' },
+        { name: 'Ray hộc tủ Hafele 400mm đầy tải',          qty: 320, unit: 'bộ',  status: 'Đã nhận' },
+        { name: 'Tay nắm inox mờ 128mm',                    qty: 240, unit: 'cái', status: 'Đã nhận' },
+        { name: 'Keo silicon trắng Dowsil 791',              qty: 30,  unit: 'hộp', status: 'Đã nhận' },
+      ],
+    },
+    frame:     DONE_FRAME,
+    weaving:   DONE_WEAVING,
+    packaging: { dongGoi: 'done' },
+  },
+
+  // PI-2026-004 (GK-050) — DONE
+  4: {
+    purchasing: {
+      materials: [
+        { name: 'Thép ống tròn Ø25×1.2mm L=6m',     qty: 360, unit: 'm',   status: 'Đã nhận' },
+        { name: 'Đầu chân giường nhựa ABS Ø25mm',    qty: 480, unit: 'cái', status: 'Đã nhận' },
+        { name: 'Bu lông M10×50mm đầu chìm',          qty: 960, unit: 'cái', status: 'Đã nhận' },
+        { name: 'Sơn epoxy 2 thành phần xanh đen',    qty: 40,  unit: 'kg',  status: 'Đã nhận' },
+        { name: 'Tấm đỡ lanh tô sắt dẹp 50×3mm',     qty: 200, unit: 'm',   status: 'Đã nhận' },
+      ],
+    },
+    frame:     DONE_FRAME,
+    weaving:   DONE_WEAVING,
+    packaging: { dongGoi: 'done' },
+  },
+
+  // PI-2026-006 (KH-400) — PRODUCING @ FRAME
+  6: {
+    purchasing: {
+      materials: [
+        { name: 'Thép hình H 200×200×8mm',           qty: 250,  unit: 'm',   status: 'Đã nhận' },
+        { name: 'Bu lông cường độ cao M16×60mm',      qty: 600,  unit: 'bộ',  status: 'Đã nhận' },
+        { name: 'Tôn sóng 0.42mm × 1150mm',          qty: 1500, unit: 'm²',  status: 'Đã nhận' },
+        { name: 'Sơn Jotun Primer chống gỉ',          qty: 100,  unit: 'kg',  status: 'Đã nhận' },
+        { name: 'Bộ kết nối thép mạ kẽm',             qty: 80,   unit: 'bộ',  status: 'Đã nhận' },
+      ],
+    },
+    frame:     { phoi: 'done', han: 'in-progress', son: 'pending' },
+    weaving:   { nhapDan: 'pending', xuatDan: 'pending' },
+    packaging: { dongGoi: 'pending' },
+  },
+
+  // PI-2026-008 (CS-150) — PRODUCING @ WEAVING
+  8: {
+    purchasing: {
+      materials: [
+        { name: 'Thép đặc tròn Ø16mm L=6m',          qty: 500, unit: 'm',    status: 'Đã nhận' },
+        { name: 'Mây nhựa PE đen tổng hợp',           qty: 80,  unit: 'cuộn', status: 'Đã nhận' },
+        { name: 'Bản lề cổng công nghiệp 100×100mm',  qty: 80,  unit: 'cái',  status: 'Đã nhận' },
+        { name: 'Khóa điện tử chống trộm',             qty: 40,  unit: 'bộ',   status: 'Đã nhận' },
+        { name: 'Sơn ngoại thất Kova N-A',             qty: 45,  unit: 'kg',   status: 'Đã nhận' },
+      ],
+    },
+    frame:     DONE_FRAME,
+    weaving:   { nhapDan: 'done', xuatDan: 'in-progress' },
+    packaging: { dongGoi: 'pending' },
+  },
+
+  // PI-2026-009 (HC-020) — DONE
+  9: {
+    purchasing: {
+      materials: [
+        { name: 'Thanh nhôm định hình 6063-T5 40×40mm', qty: 500,  unit: 'm',   status: 'Đã nhận' },
+        { name: 'Tấm GRC composite 2400×600×8mm',        qty: 250,  unit: 'tấm', status: 'Đã nhận' },
+        { name: 'Bu lông neo chân đế M12×100mm',         qty: 1000, unit: 'cái', status: 'Đã nhận' },
+        { name: 'Keo trám sealant Sikaflex-11FC',         qty: 50,   unit: 'hộp', status: 'Đã nhận' },
+        { name: 'Lưới đan inox 304 mắt 5×5mm',           qty: 150,  unit: 'm²',  status: 'Đã nhận' },
+      ],
+    },
+    frame:     DONE_FRAME,
+    weaving:   DONE_WEAVING,
+    packaging: { dongGoi: 'done' },
+  },
+}
+
+// ─── Status meta ──────────────────────────────────────────────────────────────
 
 const STATUS_META: Record<OrderStatus, { label: string; bg: string; color: string; border: string }> = {
   APPROVED:  { label: 'Đã duyệt',      bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
@@ -51,8 +177,145 @@ const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13, borderTop:
 
 type FilterStatus = 'all' | OrderStatus
 
-function MfgStageTracker({ currentStage }: { currentStage: MfgStage }) {
-  const currentIdx = MFG_STAGES.findIndex(s => s.key === currentStage)
+// ─── Sub-stage badge ──────────────────────────────────────────────────────────
+
+function SubStatusBadge({ status }: { status: SubStatus }) {
+  const conf: Record<SubStatus, { bg: string; color: string; border: string; label: string; icon: React.ReactNode }> = {
+    done:          { bg: '#dcfce7', color: '#166534', border: '#86efac', label: 'Hoàn thành',     icon: <CheckCircle2 size={11} /> },
+    'in-progress': { bg: '#fef3c7', color: '#92400e', border: '#fcd34d', label: 'Đang thực hiện', icon: <Clock size={11} /> },
+    pending:       { bg: 'var(--surface2)', color: 'var(--text3)', border: 'var(--border)', label: 'Chờ', icon: <span style={{ display: 'inline-block', width: 10, height: 10, border: '1.5px solid currentColor', borderRadius: '50%' }} /> },
+  }
+  const c = conf[status]
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: c.bg, color: c.color, border: `1px solid ${c.border}`, whiteSpace: 'nowrap' }}>
+      {c.icon} {c.label}
+    </span>
+  )
+}
+
+function MaterialStatusBadge({ status }: { status: MaterialItem['status'] }) {
+  const conf: Record<MaterialItem['status'], { bg: string; color: string; border: string }> = {
+    'Đã nhận':      { bg: '#dcfce7', color: '#166534', border: '#86efac' },
+    'Đang đặt':     { bg: '#fef3c7', color: '#92400e', border: '#fcd34d' },
+    'Chờ xác nhận': { bg: '#eff6ff', color: '#1e40af', border: '#bfdbfe' },
+  }
+  const c = conf[status]
+  return (
+    <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 12, fontSize: 11, fontWeight: 600, background: c.bg, color: c.color, border: `1px solid ${c.border}` }}>
+      {status}
+    </span>
+  )
+}
+
+// ─── Stage detail sub-components ──────────────────────────────────────────────
+
+function PurchasingContent({ materials }: { materials: MaterialItem[] }) {
+  const thS: React.CSSProperties = { padding: '6px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', textAlign: 'left', whiteSpace: 'nowrap' }
+  const tdS: React.CSSProperties = { padding: '7px 10px', fontSize: 12, borderBottom: '1px solid var(--border)' }
+  return (
+    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <thead>
+        <tr>
+          <th style={thS}>Tên vật tư</th>
+          <th style={{ ...thS, textAlign: 'right' }}>Số lượng</th>
+          <th style={thS}>ĐVT</th>
+          <th style={{ ...thS, textAlign: 'center' }}>Trạng thái</th>
+        </tr>
+      </thead>
+      <tbody>
+        {materials.map((m, i) => (
+          <tr key={i} style={{ background: i % 2 === 1 ? 'var(--surface2)' : undefined }}>
+            <td style={tdS}>{m.name}</td>
+            <td style={{ ...tdS, textAlign: 'right', fontWeight: 600 }}>{m.qty.toLocaleString('vi-VN')}</td>
+            <td style={{ ...tdS, color: 'var(--text3)' }}>{m.unit}</td>
+            <td style={{ ...tdS, textAlign: 'center' }}><MaterialStatusBadge status={m.status} /></td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  )
+}
+
+function SubStepList({ steps }: { steps: { label: string; status: SubStatus }[] }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      {steps.map((s, i) => (
+        <div key={s.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px', borderBottom: i < steps.length - 1 ? '1px solid var(--border)' : undefined }}>
+          <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{s.label}</span>
+          <SubStatusBadge status={s.status} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// ─── Stage detail card ────────────────────────────────────────────────────────
+
+function StageDetailCard({
+  stage,
+  isActive,
+  details,
+}: {
+  stage: typeof MFG_STAGES[number]
+  isActive: boolean
+  details: StageDetails
+}) {
+  const headerBg     = isActive ? '#fef9ec' : '#f0fdf4'
+  const headerBorder = isActive ? '#fcd34d' : '#86efac'
+  const headerColor  = isActive ? '#92400e' : '#166534'
+
+  return (
+    <div style={{ border: `1px solid ${headerBorder}`, borderRadius: 10, overflow: 'hidden' }}>
+      {/* Card header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 16px', background: headerBg }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: headerColor }}>
+          {stage.icon}
+          <span style={{ fontSize: 13, fontWeight: 700 }}>{stage.label}</span>
+        </div>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: headerColor }}>
+          {isActive
+            ? <><Clock size={11} /> Đang thực hiện</>
+            : <><CheckCircle2 size={11} /> Hoàn thành</>}
+        </span>
+      </div>
+
+      {/* Card body */}
+      <div style={{ padding: '12px 16px', background: 'var(--surface)' }}>
+        {stage.key === 'PURCHASING' && (
+          <PurchasingContent materials={details.purchasing.materials} />
+        )}
+        {stage.key === 'FRAME' && (
+          <SubStepList steps={[
+            { label: 'Phôi (cắt, dập, tạo hình)', status: details.frame.phoi },
+            { label: 'Hàn khung',                  status: details.frame.han  },
+            { label: 'Sơn phủ',                    status: details.frame.son  },
+          ]} />
+        )}
+        {stage.key === 'WEAVING' && (
+          <SubStepList steps={[
+            { label: 'Đã nhập đan (nhập kho nguyên liệu đan)', status: details.weaving.nhapDan },
+            { label: 'Đã xuất đan (xuất thành phẩm đan)',      status: details.weaving.xuatDan },
+          ]} />
+        )}
+        {stage.key === 'PACKAGING' && (
+          <SubStepList steps={[
+            { label: 'Đã đóng gói', status: details.packaging.dongGoi },
+          ]} />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Progress tracker ─────────────────────────────────────────────────────────
+
+function MfgStageTracker({ currentStage, allDone = false }: { currentStage?: MfgStage; allDone?: boolean }) {
+  const currentIdx = allDone
+    ? MFG_STAGES.length
+    : currentStage
+      ? MFG_STAGES.findIndex(s => s.key === currentStage)
+      : -1
+
   return (
     <div style={{ marginTop: 8 }}>
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -65,7 +328,6 @@ function MfgStageTracker({ currentStage }: { currentStage: MfgStage }) {
           const pending = idx > currentIdx
           return (
             <div key={stage.key} style={{ display: 'flex', alignItems: 'center', flex: idx < MFG_STAGES.length - 1 ? '1 1 0' : undefined }}>
-              {/* Node */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 72 }}>
                 <div style={{
                   width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -80,23 +342,13 @@ function MfgStageTracker({ currentStage }: { currentStage: MfgStage }) {
                   <div style={{ fontSize: 11, fontWeight: active ? 700 : 600, color: active ? '#15803d' : done ? '#374151' : 'var(--text3)', whiteSpace: 'nowrap' }}>
                     {stage.label}
                   </div>
-                  {active && (
-                    <div style={{ fontSize: 10, color: '#15803d', fontWeight: 600, marginTop: 2 }}>Đang thực hiện</div>
-                  )}
-                  {done && (
-                    <div style={{ fontSize: 10, color: '#86efac', fontWeight: 600, marginTop: 2 }}>Hoàn thành</div>
-                  )}
-                  {pending && (
-                    <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>Chờ</div>
-                  )}
+                  {active  && <div style={{ fontSize: 10, color: '#15803d', fontWeight: 600, marginTop: 2 }}>Đang thực hiện</div>}
+                  {done    && <div style={{ fontSize: 10, color: '#22c55e', fontWeight: 600, marginTop: 2 }}>Hoàn thành</div>}
+                  {pending && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>Chờ</div>}
                 </div>
               </div>
-              {/* Connector */}
               {idx < MFG_STAGES.length - 1 && (
-                <div style={{
-                  flex: 1, height: 2, marginBottom: 28,
-                  background: done ? '#86efac' : 'var(--border)',
-                }} />
+                <div style={{ flex: 1, height: 2, marginBottom: 28, background: done ? '#86efac' : 'var(--border)' }} />
               )}
             </div>
           )
@@ -106,13 +358,31 @@ function MfgStageTracker({ currentStage }: { currentStage: MfgStage }) {
   )
 }
 
+// ─── Detail page ──────────────────────────────────────────────────────────────
+
 function ThongKeDetailPage({ order, onBack }: { order: ApprovedOrder; onBack: () => void }) {
-  const meta = STATUS_META[order.status]
+  const meta      = STATUS_META[order.status]
   const isOverdue = new Date(order.deadline) < new Date() && order.status !== 'DONE'
+  const details   = STAGE_DETAILS[order.id]
+
+  // Determine which stage cards to show
+  const reachedCards: { stage: typeof MFG_STAGES[number]; isActive: boolean }[] = []
+
+  if (order.status === 'DONE' && details) {
+    // All stages shown as done
+    MFG_STAGES.forEach(stage => reachedCards.push({ stage, isActive: false }))
+  } else if (order.status === 'PRODUCING' && order.mfgStage && details) {
+    const currentIdx = MFG_STAGES.findIndex(s => s.key === order.mfgStage)
+    MFG_STAGES.forEach((stage, idx) => {
+      if (idx <= currentIdx) {
+        reachedCards.push({ stage, isActive: idx === currentIdx })
+      }
+    })
+  }
 
   return (
     <div>
-      {/* Back button + breadcrumb */}
+      {/* Back button */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
         <button
           onClick={onBack}
@@ -141,9 +411,9 @@ function ThongKeDetailPage({ order, onBack }: { order: ApprovedOrder; onBack: ()
         {/* Info grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginTop: 20 }}>
           {[
-            { label: 'Khách hàng',   value: order.customer },
-            { label: 'Số lượng',     value: `${order.qty.toLocaleString('vi-VN')} ${order.unit}` },
-            { label: 'Ngày duyệt',   value: format(new Date(order.approvedAt), 'dd/MM/yyyy') },
+            { label: 'Khách hàng',    value: order.customer },
+            { label: 'Số lượng',      value: `${order.qty.toLocaleString('vi-VN')} ${order.unit}` },
+            { label: 'Ngày duyệt',    value: format(new Date(order.approvedAt), 'dd/MM/yyyy') },
             { label: 'Hạn giao hàng', value: format(new Date(order.deadline), 'dd/MM/yyyy'), warn: isOverdue },
           ].map(row => (
             <div key={row.label} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 14px' }}>
@@ -157,15 +427,9 @@ function ThongKeDetailPage({ order, onBack }: { order: ApprovedOrder; onBack: ()
         </div>
       </div>
 
-      {/* Production stage section */}
+      {/* Production status section */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', marginBottom: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Trạng thái sản xuất</div>
-
-        {order.status === 'PRODUCING' && order.mfgStage && (
-          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '16px 20px 20px' }}>
-            <MfgStageTracker currentStage={order.mfgStage} />
-          </div>
-        )}
 
         {order.status === 'APPROVED' && (
           <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '16px 18px' }}>
@@ -174,19 +438,31 @@ function ThongKeDetailPage({ order, onBack }: { order: ApprovedOrder; onBack: ()
           </div>
         )}
 
+        {order.status === 'PRODUCING' && order.mfgStage && (
+          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '16px 20px 20px' }}>
+            <MfgStageTracker currentStage={order.mfgStage} />
+          </div>
+        )}
+
         {order.status === 'DONE' && (
-          <div style={{ background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 10, padding: '16px 18px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <div style={{ background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 10, padding: '16px 20px 20px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
               <CheckCircle2 size={20} color="#065f46" />
               <div style={{ fontSize: 14, fontWeight: 700, color: '#065f46' }}>Đã hoàn thành toàn bộ quy trình</div>
             </div>
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              {MFG_STAGES.map(s => (
-                <span key={s.key} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '4px 12px', borderRadius: 20, background: '#dcfce7', color: '#166534' }}>
-                  <CheckCircle2 size={12} /> {s.label}
-                </span>
-              ))}
+            <MfgStageTracker allDone />
+          </div>
+        )}
+
+        {/* Sub-stage detail cards */}
+        {reachedCards.length > 0 && details && (
+          <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              Chi tiết từng công đoạn
             </div>
+            {reachedCards.map(({ stage, isActive }) => (
+              <StageDetailCard key={stage.key} stage={stage} isActive={isActive} details={details} />
+            ))}
           </div>
         )}
       </div>
@@ -194,10 +470,12 @@ function ThongKeDetailPage({ order, onBack }: { order: ApprovedOrder; onBack: ()
   )
 }
 
+// ─── List page ────────────────────────────────────────────────────────────────
+
 export default function ThongKePage() {
-  const [filter, setFilter] = useState<FilterStatus>('all')
+  const [filter, setFilter]   = useState<FilterStatus>('all')
   const [selected, setSelected] = useState<ApprovedOrder | null>(null)
-  const [search, setSearch] = useState('')
+  const [search, setSearch]   = useState('')
 
   const q = search.trim().toLowerCase()
   const filtered = MOCK_ORDERS
@@ -228,9 +506,9 @@ export default function ThongKePage() {
       {/* Stat cards */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         {[
-          { label: 'Đã duyệt', value: counts.all,       icon: <Factory size={20} color="#6b7280" />,   bg: '#f9fafb', color: '#374151', border: '#e5e7eb' },
-          { label: 'Đang sản xuất',   value: counts.PRODUCING, icon: <TrendingUp size={20} color="#15803d" />,  bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
-          { label: 'Hoàn thành',      value: counts.DONE,      icon: <Clock size={20} color="#065f46" />,       bg: '#ecfdf5', color: '#065f46', border: '#6ee7b7' },
+          { label: 'Đã duyệt',      value: counts.all,       icon: <Factory size={20} color="#6b7280" />,  bg: '#f9fafb', color: '#374151', border: '#e5e7eb' },
+          { label: 'Đang sản xuất', value: counts.PRODUCING, icon: <TrendingUp size={20} color="#15803d" />, bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
+          { label: 'Hoàn thành',    value: counts.DONE,      icon: <Clock size={20} color="#065f46" />,     bg: '#ecfdf5', color: '#065f46', border: '#6ee7b7' },
         ].map(s => (
           <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', background: s.bg, border: `1px solid ${s.border}`, borderRadius: 12, minWidth: 160, flex: '1 1 0' }}>
             {s.icon}
@@ -251,8 +529,7 @@ export default function ThongKePage() {
                 background: filter === key ? '#1d4ed8' : 'var(--surface2)',
                 color: filter === key ? '#fff' : 'var(--text)',
               }}>
-              {label} {key !== 'all' && <span style={{ opacity: 0.75 }}>({counts[key as OrderStatus]})</span>}
-              {key === 'all' && <span style={{ opacity: 0.75 }}>({counts.all})</span>}
+              {label} <span style={{ opacity: 0.75 }}>({key === 'all' ? counts.all : counts[key as OrderStatus]})</span>
             </button>
           ))}
         </div>
@@ -285,7 +562,7 @@ export default function ThongKePage() {
           </thead>
           <tbody>
             {filtered.map((o, i) => {
-              const meta = STATUS_META[o.status]
+              const m = STATUS_META[o.status]
               const isOverdue = new Date(o.deadline) < new Date() && o.status !== 'DONE'
               return (
                 <tr
@@ -311,15 +588,11 @@ export default function ThongKePage() {
                     {format(new Date(o.approvedAt), 'dd/MM/yyyy')}
                   </td>
                   <td style={td}>
-                    {o.status === 'PRODUCING' && o.mfgStage ? (
-                      <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: meta.bg, color: meta.color, border: `1px solid ${meta.border}` }}>
-                        {MFG_STAGES.find(s => s.key === o.mfgStage)?.label}
-                      </span>
-                    ) : (
-                      <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: meta.bg, color: meta.color, border: `1px solid ${meta.border}` }}>
-                        {meta.label}
-                      </span>
-                    )}
+                    <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>
+                      {o.status === 'PRODUCING' && o.mfgStage
+                        ? MFG_STAGES.find(s => s.key === o.mfgStage)?.label
+                        : m.label}
+                    </span>
                   </td>
                 </tr>
               )

@@ -5,7 +5,7 @@ import * as api from '../../../services/api'
 import { ChevronLeft, Loader2, Search, Trash2 } from 'lucide-react'
 import type { PlanForm } from '../../../types/plan-form'
 
-export default function SKUListPage() {
+export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }) {
   const { data: planForms = [], isLoading, refetch } = useFetch(() => api.getPlanForms(), [])
 
   const [selectedPf, setSelectedPf] = useState<PlanForm | null>(null)
@@ -60,6 +60,7 @@ export default function SKUListPage() {
       <PlanFormDetail
         pf={selectedPf}
         submitting={submitting}
+        readOnly={readOnly}
         onBack={() => setSelectedPf(null)}
         onPropose={() => handleProposeExisting(selectedPf.id)}
       />
@@ -78,14 +79,14 @@ export default function SKUListPage() {
             SKU đã được duyệt
           </p>
         </div>
-        {!deleteMode ? (
+        {!readOnly && !deleteMode ? (
           <button
             onClick={() => setDeleteMode(true)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #fca5a5', background: '#fff5f5', color: '#dc2626', cursor: 'pointer' }}
           >
             <Trash2 size={14} /> Xóa SKU
           </button>
-        ) : (
+        ) : !readOnly && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
             {selectedIds.size > 0 && (
               <button
@@ -256,10 +257,11 @@ export default function SKUListPage() {
 }
 
 function PlanFormDetail({
-  pf, submitting, onBack, onPropose,
+  pf, submitting, readOnly = false, onBack, onPropose,
 }: {
   pf: PlanForm
   submitting: boolean
+  readOnly?: boolean
   onBack: () => void
   onPropose: () => void
 }) {
@@ -379,7 +381,7 @@ function PlanFormDetail({
       </div>
 
       {/* Tab: Định mức mảnh */}
-      {detailTab === 'manh' && <DinhMucManh pfId={pf.id} />}
+      {detailTab === 'manh' && <DinhMucManh pfId={pf.id} readOnly={readOnly} />}
 
       {/* Tab: Định mức chi tiết */}
       {detailTab === 'chitiet' && (mt ? (
@@ -409,7 +411,7 @@ function PlanFormDetail({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {(filterSec === 'all' || filterSec === 'sat') && (
               <MaterialSection
-                title="Sắt" color="#b45309" bg="#fef3c7"
+                title="Sắt" color="#b45309" bg="#fef3c7" readOnly={readOnly}
                 entry={secStatus.sat} onApprove={() => approve('sat')} onReject={() => openReject('sat', 'Sắt')}
                 items={(Array.isArray(mt.sat) ? mt.sat : []).map(i => ({
                   name: i.name,
@@ -421,7 +423,7 @@ function PlanFormDetail({
             )}
             {(filterSec === 'all' || filterSec === 'daySon') && (
               <MaterialSection
-                title="Dây / Sơn" color="#1d4ed8" bg="#eff6ff"
+                title="Dây / Sơn" color="#1d4ed8" bg="#eff6ff" readOnly={readOnly}
                 entry={secStatus.daySon} onApprove={() => approve('daySon')} onReject={() => openReject('daySon', 'Dây / Sơn')}
                 items={(Array.isArray(mt.daySon) ? mt.daySon : []).map(i => ({
                   name: i.name,
@@ -433,7 +435,7 @@ function PlanFormDetail({
             )}
             {(filterSec === 'all' || filterSec === 'vatTuPhuKien') && (
               <MaterialSection
-                title="Vật tư phụ kiện" color="#6d28d9" bg="#ede9fe"
+                title="Vật tư phụ kiện" color="#6d28d9" bg="#ede9fe" readOnly={readOnly}
                 entry={secStatus.vatTuPhuKien} onApprove={() => approve('vatTuPhuKien')} onReject={() => openReject('vatTuPhuKien', 'Vật tư phụ kiện')}
                 items={(Array.isArray(mt.vatTuPhuKien) ? mt.vatTuPhuKien : []).map(i => ({
                   name: i.name,
@@ -445,7 +447,7 @@ function PlanFormDetail({
             )}
             {(filterSec === 'all' || filterSec === 'baoBiDongGoi') && (
               <MaterialSection
-                title="Bao bì đóng gói" color="#065f46" bg="#d1fae5"
+                title="Bao bì đóng gói" color="#065f46" bg="#d1fae5" readOnly={readOnly}
                 entry={secStatus.baoBiDongGoi} onApprove={() => approve('baoBiDongGoi')} onReject={() => openReject('baoBiDongGoi', 'Bao bì đóng gói')}
                 items={(Array.isArray(mt.baoBiDongGoi) ? mt.baoBiDongGoi : []).map(i => ({
                   name: i.name,
@@ -458,7 +460,7 @@ function PlanFormDetail({
           </div>
 
           {/* Buttons góc dưới phải */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+          {!readOnly && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
             {sent && (
               <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã gửi đi nhập mảnh thành công</span>
             )}
@@ -484,7 +486,7 @@ function PlanFormDetail({
               onClick={() => setShowSendModal(true)}
               style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: checkState === 'ok' && !sent ? 'pointer' : 'not-allowed', background: checkState === 'ok' && !sent ? '#16a34a' : '#e5e7eb', color: checkState === 'ok' && !sent ? '#fff' : '#9ca3af' }}
             >{sent ? 'Đã gửi' : 'Gửi đi nhập mảnh'}</button>
-          </div>
+          </div>}
 
           {/* Danh sách vật tư thiếu */}
           {checkState === 'missing' && (
@@ -727,13 +729,14 @@ function PlanFormDetail({
 type MaterialRow = { name: string; spec: string | null; unitQty: string | null; createdAt: string | null }
 
 function MaterialSection({
-  title, color, bg, items, entry, onApprove, onReject,
+  title, color, bg, items, entry, readOnly = false, onApprove, onReject,
 }: {
   title: string
   color: string
   bg: string
   items: MaterialRow[]
   entry: { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
+  readOnly?: boolean
   onApprove: () => void
   onReject: () => void
 }) {
@@ -755,22 +758,22 @@ function MaterialSection({
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {status && <StatusBadge status={status} />}
-            <button
+            {!readOnly && <button
               onClick={onApprove}
               style={{
                 padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer',
                 background: status === 'APPROVED' ? '#16a34a' : 'rgba(22,163,74,0.12)',
                 color: status === 'APPROVED' ? '#fff' : '#16a34a',
               }}
-            >Duyệt</button>
-            <button
+            >Duyệt</button>}
+            {!readOnly && <button
               onClick={onReject}
               style={{
                 padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer',
                 background: status === 'REJECTED' ? '#dc2626' : 'rgba(220,38,38,0.10)',
                 color: status === 'REJECTED' ? '#fff' : '#dc2626',
               }}
-            >Từ chối</button>
+            >Từ chối</button>}
           </div>
         </div>
         {status === 'REJECTED' && entry?.reason && (
@@ -845,7 +848,7 @@ const MOCK_MANH_DEFAULT: ManhRow[] = [
 
 type ManhApprovalEntry = { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
 
-function DinhMucManh({ pfId }: { pfId: number }) {
+function DinhMucManh({ pfId, readOnly = false }: { pfId: number; readOnly?: boolean }) {
   const rows = MOCK_MANH_BY_PF[pfId] ?? MOCK_MANH_DEFAULT
   const [approval, setApproval] = useState<ManhApprovalEntry>(null)
   const [showRejectModal, setShowRejectModal] = useState(false)
@@ -894,22 +897,22 @@ function DinhMucManh({ pfId }: { pfId: number }) {
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {approval && <StatusBadge status={approval.status} />}
-            <button
+            {!readOnly && <button
               onClick={handleApprove}
               style={{
                 padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer',
                 background: isApproved ? '#16a34a' : 'rgba(22,163,74,0.12)',
                 color: isApproved ? '#fff' : '#16a34a',
               }}
-            >Duyệt</button>
-            <button
+            >Duyệt</button>}
+            {!readOnly && <button
               onClick={openReject}
               style={{
                 padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer',
                 background: isRejected ? '#dc2626' : 'rgba(220,38,38,0.10)',
                 color: isRejected ? '#fff' : '#dc2626',
               }}
-            >Từ chối</button>
+            >Từ chối</button>}
           </div>
         </div>
 
@@ -957,7 +960,7 @@ function DinhMucManh({ pfId }: { pfId: number }) {
       </div>
 
       {/* Action bar */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
+      {!readOnly && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10 }}>
         {produced && (
           <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>Đã xác nhận bắt đầu sản xuất</span>
         )}
@@ -974,7 +977,7 @@ function DinhMucManh({ pfId }: { pfId: number }) {
             color: isApproved && !produced ? '#fff' : '#9ca3af',
           }}
         >{produced ? 'Đã bắt đầu sản xuất' : 'Bắt đầu sản xuất'}</button>
-      </div>
+      </div>}
 
       {/* Modal xác nhận bắt đầu cắt phôi */}
       {showConfirmProd && (
