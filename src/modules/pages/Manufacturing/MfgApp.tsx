@@ -23,6 +23,81 @@ import QuanLyDiemDanPage from './QuanLyDiemDanPage'
 import ThongKePagePlan from './ThongKePagePlan'
 import SKUListPage from '../ProductionPlan/SKUListPage'
 
+// ── Module-level constants (không tạo lại mỗi render) ───────────────────────
+
+type TabId =
+  | 'workshop' | 'tong-don-hang' | 'tao-don-hang' | 'danh-sach-khach-hang'
+  | 'pi-list' | 'ke-hoach' | 'khung-son' | 'quan-ly-nhap-manh'
+  | 'dieu-phoi-dan' | 'lich-su-nhap-dan' | 'quan-ly-diem-dan'
+  | 'chuyen-kiem' | 'dong-goi' | 'weaving-points' | 'sku-list'
+  | 'materials' | 'warehouses' | 'de-xuat' | 'setup'
+
+type SetupSubTab = 'vat-tu' | 'dinh-muc' | 'catalog'
+
+const WORKER_ROLES = ['PHOI', 'HAN', 'SON', 'QC', 'WEAVING_MANAGER'] as const
+
+const SPEC_ROLES = ['SPEC_STEEL', 'SPEC_WIRE_PAINT', 'SPEC_ACCESSORY', 'SPEC_PACKAGING'] as const
+
+const MFG_ROLE_LABELS: Record<string, string> = {
+  PRODUCTION_MANAGER: 'Quản lý SX',
+  FACTORY_SALES:      'Sales nhà máy',
+  PHOI:               'Thống kê Cơ khí',
+  HAN:                'Bộ phận Hàn',
+  SON:                'Bộ phận Sơn',
+  QC:                 'Kiểm tra QC',
+  WEAVING_MANAGER:    'Quản lý Đan',
+  BOM_MANAGER:        'NV Định mức',
+  SPEC_STEEL:         'NV Định mức - Sắt',
+  SPEC_WIRE_PAINT:    'NV Định mức - Dây/Sơn',
+  SPEC_ACCESSORY:     'NV Định mức - Phụ kiện',
+  SPEC_PACKAGING:     'NV Định mức - Bao bì',
+}
+
+const WORKSHOP_STAGES = [
+  { value: 'PHOI',        label: 'Phôi' },
+  { value: 'HAN',         label: 'Hàn' },
+  { value: 'SON',         label: 'Sơn' },
+  { value: 'WEAVING',     label: 'Đan' },
+  { value: 'CHUYEN_KIEM', label: 'Chuyền kiểm' },
+  { value: 'DONG_GOI',    label: 'Đóng gói' },
+]
+
+const SPEC_SETUP_ITEMS: Record<string, { id: SetupSubTab; label: string; icon: 'clipboard' | 'grid' | 'box' }[]> = {
+  SPEC_STEEL: [
+    { id: 'vat-tu',   label: 'Định mức mới',     icon: 'clipboard' },
+    { id: 'dinh-muc', label: 'Định mức mảnh',    icon: 'grid'      },
+    { id: 'catalog',  label: 'Danh sách vật tư',  icon: 'box'       },
+  ],
+  SPEC_WIRE_PAINT: [
+    { id: 'dinh-muc', label: 'Định mức mới',     icon: 'clipboard' },
+    { id: 'catalog',  label: 'Danh sách vật tư',  icon: 'box'       },
+  ],
+  SPEC_ACCESSORY: [
+    { id: 'dinh-muc', label: 'Định mức mới',     icon: 'clipboard' },
+    { id: 'catalog',  label: 'Danh sách vật tư',  icon: 'box'       },
+  ],
+  SPEC_PACKAGING: [
+    { id: 'dinh-muc', label: 'Định mức mới',     icon: 'clipboard' },
+    { id: 'catalog',  label: 'Danh sách vật tư',  icon: 'box'       },
+  ],
+}
+
+const SPEC_ICON = {
+  clipboard: <ClipboardCheck size={16} />,
+  grid:      <Grid size={16} />,
+  box:       <Box size={16} />,
+} as const
+
+const navBtnStyle = (active: boolean): React.CSSProperties => ({
+  display: 'flex', alignItems: 'center', gap: 9, width: '100%',
+  padding: '8px 10px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
+  background: active ? '#fff3e0' : 'transparent',
+  color: active ? '#e65100' : 'var(--text2)',
+  fontWeight: active ? 600 : 400,
+  fontSize: 13, textAlign: 'left', cursor: 'pointer', transition: 'background .1s',
+})
+
+// ── Component ────────────────────────────────────────────────────────────────
 
 interface MfgAppProps {
   onBack?: () => void // chỉ truyền cho giám đốc (có nhiều phân hệ); prodmgr/thợ bị khóa trong MES
@@ -31,103 +106,59 @@ interface MfgAppProps {
 export default function MfgApp({ onBack }: MfgAppProps) {
   const { user, logout } = useAuth()
 
-  const workerRoles     = ['PHOI', 'HAN', 'SON', 'QC', 'WEAVING_MANAGER']
-  const isOtherWorker   = !!user?.mfgRole && workerRoles.includes(user.mfgRole)
+  const isOtherWorker   = !!user?.mfgRole && WORKER_ROLES.includes(user.mfgRole as typeof WORKER_ROLES[number])
   const isFactorySales  = user?.mfgRole === 'FACTORY_SALES'
   const canManageBom    = user?.mfgRole === 'PRODUCTION_MANAGER' || user?.role === 'MANAGER'
   // Tổng giám đốc = MANAGER không gắn mfgRole. Thủ kho = WAREHOUSE_STAFF không mfgRole.
-  // Màn "Tổng hợp vật tư/kho" cho TGĐ, Thủ kho và Quản lý SX (PRODUCTION_MANAGER).
   const isDirector      = user?.role === 'MANAGER' && !user?.mfgRole
   const isWarehouse     = user?.role === 'WAREHOUSE_STAFF' && !user?.mfgRole
   const isProdMgr       = user?.mfgRole === 'PRODUCTION_MANAGER'
   const isPhoi          = user?.mfgRole === 'PHOI'
-  const isWeavingMgr    = user?.mfgRole === 'WEAVING_MANAGER' // bạn điều phối đan (thu về + chia kho)
-  const isBomManager    = user?.mfgRole === 'BOM_MANAGER'     // NV Định mức: CRUD định mức (PM chỉ xem)
-  const isSpecSteel     = user?.mfgRole === 'SPEC_STEEL'
-  const canEditBom      = isBomManager
-  const SPEC_ROLES = ['SPEC_STEEL', 'SPEC_WIRE_PAINT', 'SPEC_ACCESSORY', 'SPEC_PACKAGING']
-  const canSeeBom       = isDirector || isBomManager || (user?.mfgRole ? SPEC_ROLES.includes(user.mfgRole) : false)          // Giám đốc XEM, BOM_MANAGER SỬA, SPEC_* thao tác
+  const isWeavingMgr    = user?.mfgRole === 'WEAVING_MANAGER'
+  const isBomManager    = user?.mfgRole === 'BOM_MANAGER'
+  const isSpecRole      = !!user?.mfgRole && SPEC_ROLES.includes(user.mfgRole as typeof SPEC_ROLES[number])
+  const canSeeBom       = isDirector || isBomManager || isSpecRole
   const canSeeWarehouses = isDirector || isWarehouse || isProdMgr
-  // Thành phẩm khung sơn = XUẤT/cấp đan đi: Thống kê Phôi + Quản lý SX (KHÔNG hiện với Giám đốc).
   const canSeeKhungSon  = isPhoi
-  // Điều phối đan = THU mảnh về + chia kho: Đan Trưởng + Quản lý SX (KHÔNG hiện với Giám đốc).
-  // Giám đốc vẫn xem tiến độ đan qua tab "Điều hành xưởng" (cột Đan).
   const canSeeDieuPhoi  = isWeavingMgr
-  // Chuyền kiểm + Đóng gói trong MES = Giám đốc + Quản lý SX (kho thành phẩm/bao bì xem ở "Kho đầu vào").
   const canSeePackingFlow = canManageBom
+  const canManageWorkshop = canManageBom
 
-  // ── Tabs theo role ───────────────────────────────────────────────────
-  type TabId = 'workshop' | 'tong-don-hang' | 'tao-don-hang' | 'danh-sach-khach-hang' | 'pi-list' | 'ke-hoach' | 'khung-son' | 'quan-ly-nhap-manh' | 'dieu-phoi-dan' | 'lich-su-nhap-dan' | 'quan-ly-diem-dan' | 'chuyen-kiem' | 'dong-goi' | 'weaving-points' | 'sku-list' | 'materials' | 'warehouses' | 'de-xuat' | 'setup'
+  // Readable if-else chain thay cho ternary lồng 6 cấp
+  let initialTab: TabId = 'pi-list'
+  if (canManageWorkshop)        initialTab = 'workshop'
+  else if (isFactorySales)      initialTab = 'tong-don-hang'
+  else if (isWeavingMgr)        initialTab = 'dieu-phoi-dan'
+  else if (isBomManager || isSpecRole) initialTab = 'setup'
 
-  const canManageWorkshop = canManageBom // PRODUCTION_MANAGER hoặc MANAGER (giám đốc xem)
+  const [tab, setTab] = useState<TabId>(initialTab)
+  const [workshopStage, setWorkshopStage] = useState('ALL')
+  const [workshopExpanded, setWorkshopExpanded] = useState(true)
+  // Một state duy nhất cho tất cả SPEC role sub-tabs
+  const [setupSubTab, setSetupSubTab] = useState<SetupSubTab>('dinh-muc')
+
+  const roleLabel = user?.mfgRole
+    ? (MFG_ROLE_LABELS[user.mfgRole] ?? user.mfgRole)
+    : user?.role === 'MANAGER' ? 'Giám đốc (xem)' : isWarehouse ? 'Thủ kho' : ''
 
   const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
     ...(canManageWorkshop ? [{ id: 'workshop' as TabId, label: 'Tổng hợp lệnh SX', icon: <LayoutGrid size={16}/> }] : []),
-    // Sales: chỉ thấy Tổng đơn hàng + Tạo đơn hàng mới (KHÔNG còn Lệnh SX). QLSX/Giám đốc/thợ giữ Lệnh SX.
     ...(isFactorySales ? [{ id: 'tong-don-hang' as TabId, label: 'Tổng đơn hàng', icon: <Package size={16}/> }] : []),
     ...(isFactorySales ? [{ id: 'tao-don-hang' as TabId, label: 'Tạo đơn hàng mới', icon: <FilePlus size={16}/> }] : []),
     ...(isFactorySales ? [{ id: 'danh-sach-khach-hang' as TabId, label: 'Danh sách khách hàng', icon: <Users size={16}/> }] : []),
     ...(isDirector ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất mới', icon: <ClipboardList size={16}/> }] : []),
     ...(isDirector ? [{ id: 'ke-hoach' as TabId, label: 'Kế hoạch SX', icon: <CalendarClock size={16}/> }] : []),
-    // Thành phẩm khung sơn (xuất/cấp đan đi — Phôi) + Điều phối đan (thu về/chia kho — Đan Trưởng)
     ...(canSeeKhungSon ? [{ id: 'khung-son' as TabId, label: 'Thành phẩm khung sơn', icon: <PackageCheck size={16}/> }] : []),
-    // Khu Đan (Đan Trưởng + Quản lý SX; Giám đốc xem): Quản lý nhập mảnh · Điều phối đan · Lịch sử nhập đan · Quản lý điểm đan
     ...(isWeavingMgr ? [{ id: 'quan-ly-nhap-manh' as TabId, label: 'Quản lý nhập mảnh', icon: <PackagePlus size={16}/> }] : []),
     ...(canSeeDieuPhoi ? [{ id: 'dieu-phoi-dan' as TabId, label: 'Điều phối đan', icon: <ArrowDownToLine size={16}/> }] : []),
     ...(isWeavingMgr ? [{ id: 'lich-su-nhap-dan' as TabId, label: 'Lịch sử nhập đan', icon: <History size={16}/> }] : []),
-    // "Quản lý điểm đan" chỉ Đan Trưởng (PM xem điểm đan trong "Điều hành xưởng", không thao tác).
     ...(isWeavingMgr ? [{ id: 'quan-ly-diem-dan' as TabId, label: 'Quản lý điểm đan', icon: <MapPin size={16}/> }] : []),
-    // Chuyền kiểm / Đóng gói / Điểm đan: ĐÃ chuyển vào trong "Điều hành xưởng" (sub-tab) — không còn tab phẳng.
     ...(isProdMgr ? [{ id: 'sku-list' as TabId, label: 'Danh sách SKU', icon: <Package size={16}/> }] : []),
     ...(canSeeWarehouses ? [{ id: 'materials' as TabId, label: 'Tổng hợp vật tư', icon: <Boxes size={16}/> }] : []),
     ...(canSeeWarehouses ? [{ id: 'warehouses' as TabId, label: 'Tổng hợp kho', icon: <Warehouse size={16}/> }] : []),
-    // Giám đốc: duyệt đề xuất mua vật tư của thủ kho (cùng màn DeXuatMuaVatTuPage, role-aware)
-    // Lưu ý: Nhập/Xuất kho + tạo đề xuất của Thủ kho ĐÃ chuyển sang phân hệ "Kho đầu vào".
     ...(isDirector ? [{ id: 'de-xuat' as TabId, label: 'Duyệt đề xuất', icon: <FileText size={16}/> }] : []),
-    // Quản lý định mức: PM/Giám đốc XEM; NV Định mức (BOM_MANAGER) SỬA.
     ...(canSeeBom ? [{ id: 'setup' as TabId, label: 'Quản lý định mức', icon: <Settings size={16}/> }] : []),
   ]
-
-  const isSpecRole = user?.mfgRole ? ['SPEC_STEEL','SPEC_WIRE_PAINT','SPEC_ACCESSORY','SPEC_PACKAGING'].includes(user.mfgRole) : false
-  const initialTab: TabId = canManageWorkshop ? 'workshop' : isFactorySales ? 'tong-don-hang' : isWeavingMgr ? 'dieu-phoi-dan' : isBomManager ? 'setup' : isSpecRole ? 'setup' : 'pi-list'
-  const [tab, setTab] = useState<TabId>(initialTab)
-
-  const [workshopStage, setWorkshopStage] = useState('ALL')
-  const [workshopExpanded, setWorkshopExpanded] = useState(true)
-
-  const [steelSubTab, setSteelSubTab] = useState<'vat-tu' | 'dinh-muc' | 'catalog'>('vat-tu')
-  const [wirePaintSubTab, setWirePaintSubTab] = useState<'dinh-muc' | 'catalog'>('dinh-muc')
-  const [accessorySubTab, setAccessorySubTab] = useState<'dinh-muc' | 'catalog'>('dinh-muc')
-  const [packagingSubTab, setPackagingSubTab] = useState<'dinh-muc' | 'catalog'>('dinh-muc')
-
-  // ── Role label ───────────────────────────────────────────────────────
-  const mfgRoleLabel: Record<string, string> = {
-    PRODUCTION_MANAGER: 'Quản lý SX',
-    FACTORY_SALES:      'Sales nhà máy',
-    PHOI:               'Thống kê Cơ khí',
-    HAN:                'Bộ phận Hàn',
-    SON:                'Bộ phận Sơn',
-    QC:                 'Kiểm tra QC',
-    WEAVING_MANAGER:    'Quản lý Đan',
-    BOM_MANAGER:        'NV Định mức',
-    SPEC_STEEL:         'NV Định mức - Sắt',
-    SPEC_WIRE_PAINT:    'NV Định mức - Dây/Sơn',
-    SPEC_ACCESSORY:     'NV Định mức - Phụ kiện',
-    SPEC_PACKAGING:     'NV Định mức - Bao bì',
-  }
-  const roleLabel = user?.mfgRole
-    ? (mfgRoleLabel[user.mfgRole] ?? user.mfgRole)
-    : user?.role === 'MANAGER' ? 'Giám đốc (xem)' : isWarehouse ? 'Thủ kho' : ''
-
-  // Style nút sidebar (mục chính / menu con)
-  const navBtn = (active: boolean): React.CSSProperties => ({
-    display: 'flex', alignItems: 'center', gap: 9, width: '100%',
-    padding: '8px 10px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
-    background: active ? '#fff3e0' : 'transparent',
-    color: active ? '#e65100' : 'var(--text2)',
-    fontWeight: active ? 600 : 400,
-    fontSize: 13, textAlign: 'left', cursor: 'pointer', transition: 'background .1s',
-  })
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
@@ -161,19 +192,11 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         <nav style={{ flex: 1, padding: '4px 8px' }}>
           {TABS.map(t => {
             const active = tab === t.id
-            // Tab "Tổng hợp lệnh SX" → hiển thị sub-items lọc theo công đoạn khi active
+
+            // Tab "Tổng hợp lệnh SX" → sub-items lọc theo công đoạn khi active
             if (t.id === 'workshop') {
-              const WORKSHOP_STAGES = [
-                { value: 'PHOI',        label: 'Phôi' },
-                { value: 'HAN',         label: 'Hàn' },
-                { value: 'SON',         label: 'Sơn' },
-                { value: 'WEAVING',     label: 'Đan' },
-                { value: 'CHUYEN_KIEM', label: 'Chuyền kiểm' },
-                { value: 'DONG_GOI',    label: 'Đóng gói' },
-              ]
               return (
                 <div key={t.id} style={{ marginBottom: 2 }}>
-                  {/* Hàng chính: nút nav + chevron toggle chia sẻ chung background */}
                   <div
                     style={{ display: 'flex', alignItems: 'center', borderRadius: 'var(--radius)', background: active ? '#fff3e0' : 'transparent', transition: 'background .1s' }}
                     onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
@@ -192,7 +215,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
                     </button>
                   </div>
 
-                  {/* Sub-items với đường kẻ dọc */}
                   {workshopExpanded && (
                     <div style={{ margin: '3px 0 4px 18px', paddingLeft: 10, borderLeft: '2px solid #f5c89a' }}>
                       {WORKSHOP_STAGES.map(s => {
@@ -215,94 +237,21 @@ export default function MfgApp({ onBack }: MfgAppProps) {
               )
             }
 
-            // Quản lý định mức SPEC_STEEL → 3 sub-items trong sidebar
-            if (t.id === 'setup' && user?.mfgRole === 'SPEC_STEEL') {
+            // Tab "Quản lý định mức" cho SPEC_* roles → sub-items từ config
+            if (t.id === 'setup' && user?.mfgRole && SPEC_SETUP_ITEMS[user.mfgRole]) {
+              const specItems = SPEC_SETUP_ITEMS[user.mfgRole]
               const isSetup = tab === 'setup'
-              const steelItems = [
-                { id: 'vat-tu'   as const, label: 'Định mức mới', icon: <ClipboardCheck size={16}/> },
-                { id: 'dinh-muc' as const, label: 'Định mức mảnh',     icon: <Grid size={16}/>           },
-                { id: 'catalog'  as const, label: 'Danh sách vật tư',  icon: <Box size={16}/>            },
-              ]
               return (
                 <div key={t.id}>
-                  {steelItems.map(s => {
-                    const subActive = isSetup && steelSubTab === s.id
+                  {specItems.map(s => {
+                    const subActive = isSetup && setupSubTab === s.id
                     return (
                       <button key={s.id}
-                        onClick={() => { setTab('setup'); setSteelSubTab(s.id) }}
-                        style={navBtn(subActive)}
+                        onClick={() => { setTab('setup'); setSetupSubTab(s.id) }}
+                        style={navBtnStyle(subActive)}
                         onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
                         onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
-                      >{s.icon}{s.label}</button>
-                    )
-                  })}
-                </div>
-              )
-            }
-
-            if (t.id === 'setup' && user?.mfgRole === 'SPEC_WIRE_PAINT') {
-              const isSetup = tab === 'setup'
-              const items = [
-                { id: 'dinh-muc' as const, label: 'Định mức mới', icon: <ClipboardCheck size={16}/> },
-                { id: 'catalog'  as const, label: 'Danh sách vật tư',  icon: <Box size={16}/>            },
-              ]
-              return (
-                <div key={t.id}>
-                  {items.map(s => {
-                    const subActive = isSetup && wirePaintSubTab === s.id
-                    return (
-                      <button key={s.id}
-                        onClick={() => { setTab('setup'); setWirePaintSubTab(s.id) }}
-                        style={navBtn(subActive)}
-                        onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
-                        onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
-                      >{s.icon}{s.label}</button>
-                    )
-                  })}
-                </div>
-              )
-            }
-
-            if (t.id === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY') {
-              const isSetup = tab === 'setup'
-              const items = [
-                { id: 'dinh-muc' as const, label: 'Định mức mới', icon: <ClipboardCheck size={16}/> },
-                { id: 'catalog'  as const, label: 'Danh sách vật tư',  icon: <Box size={16}/>            },
-              ]
-              return (
-                <div key={t.id}>
-                  {items.map(s => {
-                    const subActive = isSetup && accessorySubTab === s.id
-                    return (
-                      <button key={s.id}
-                        onClick={() => { setTab('setup'); setAccessorySubTab(s.id) }}
-                        style={navBtn(subActive)}
-                        onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
-                        onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
-                      >{s.icon}{s.label}</button>
-                    )
-                  })}
-                </div>
-              )
-            }
-
-            if (t.id === 'setup' && user?.mfgRole === 'SPEC_PACKAGING') {
-              const isSetup = tab === 'setup'
-              const items = [
-                { id: 'dinh-muc' as const, label: 'Định mức mới', icon: <ClipboardCheck size={16}/> },
-                { id: 'catalog'  as const, label: 'Danh sách vật tư',  icon: <Box size={16}/>            },
-              ]
-              return (
-                <div key={t.id}>
-                  {items.map(s => {
-                    const subActive = isSetup && packagingSubTab === s.id
-                    return (
-                      <button key={s.id}
-                        onClick={() => { setTab('setup'); setPackagingSubTab(s.id) }}
-                        style={navBtn(subActive)}
-                        onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
-                        onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
-                      >{s.icon}{s.label}</button>
+                      >{SPEC_ICON[s.icon]}{s.label}</button>
                     )
                   })}
                 </div>
@@ -313,7 +262,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                style={navBtn(active)}
+                style={navBtnStyle(active)}
                 onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
               >
@@ -347,28 +296,27 @@ export default function MfgApp({ onBack }: MfgAppProps) {
 
       {/* ── Main content ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        {tab === 'workshop' && canManageWorkshop && <MfgWorkshopBoardPage stageFilter={workshopStage} />}
-        {tab === 'tong-don-hang' && isFactorySales && <TongDonHangPage onCreateNew={() => setTab('tao-don-hang')} />}
-        {tab === 'tao-don-hang'  && isFactorySales && <TaoDonHangMoiPage onCreated={() => setTab('tong-don-hang')} />}
-        {tab === 'danh-sach-khach-hang' && isFactorySales && <DanhSachKhachHangPage />}
-        {tab === 'pi-list' && isDirector && <PIListPage />}
-        {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePagePlan />}
-        {tab === 'dieu-phoi-dan' && canSeeDieuPhoi && <DieuPhoiDanPage readOnly={isDirector} />}
-        {tab === 'lich-su-nhap-dan' && canSeeDieuPhoi && <LichSuNhapDanPage />}
-        {tab === 'quan-ly-diem-dan' && canSeeDieuPhoi && <QuanLyDiemDanPage readOnly={isDirector} />}
-        {tab === 'chuyen-kiem' && canSeePackingFlow && <ChuyenKiemPage readOnly={isDirector} />}
-        {tab === 'dong-goi' && canSeePackingFlow && <DongGoiPage readOnly={isDirector} />}
-        {/* "Điểm đan" bên Quản lý SX: CHỈ XEM — thêm/sửa làm ở "Quản lý điểm đan" (khu Đan) */}
-        {tab === 'weaving-points' && canManageBom && <WeavingPointsPage readOnly />}
-        {tab === 'sku-list' && isProdMgr && <SKUListPage readOnly />}
-        {tab === 'materials' && canSeeWarehouses && <MfgAllMaterialsPage />}
-        {tab === 'warehouses' && canSeeWarehouses && <MfgWarehousesPage />}
-        {tab === 'de-xuat' && isDirector && <DeXuatMuaVatTuPage />}
-        {tab === 'setup'   && (isDirector || isBomManager) && <MfgSetupPage />}
-        {tab === 'setup'   && user?.mfgRole === 'SPEC_STEEL' && <SpecSteelPage subTab={steelSubTab} onSubTabChange={setSteelSubTab} />}
-        {tab === 'setup'   && user?.mfgRole === 'SPEC_WIRE_PAINT' && <SpecWirePaintPage subTab={wirePaintSubTab} onSubTabChange={setWirePaintSubTab} />}
-        {tab === 'setup'   && user?.mfgRole === 'SPEC_ACCESSORY' && <SpecAccessoryPage subTab={accessorySubTab} onSubTabChange={setAccessorySubTab} />}
-        {tab === 'setup'   && user?.mfgRole === 'SPEC_PACKAGING' && <SpecPackagingPage subTab={packagingSubTab} onSubTabChange={setPackagingSubTab} />}
+        {tab === 'workshop'              && canManageWorkshop  && <MfgWorkshopBoardPage stageFilter={workshopStage} />}
+        {tab === 'tong-don-hang'         && isFactorySales     && <TongDonHangPage onCreateNew={() => setTab('tao-don-hang')} />}
+        {tab === 'tao-don-hang'          && isFactorySales     && <TaoDonHangMoiPage onCreated={() => setTab('tong-don-hang')} />}
+        {tab === 'danh-sach-khach-hang'  && isFactorySales     && <DanhSachKhachHangPage />}
+        {tab === 'pi-list'               && isDirector         && <PIListPage />}
+        {tab === 'ke-hoach'              && (isProdMgr || isDirector) && <ThongKePagePlan />}
+        {tab === 'dieu-phoi-dan'         && canSeeDieuPhoi     && <DieuPhoiDanPage readOnly={isDirector} />}
+        {tab === 'lich-su-nhap-dan'      && canSeeDieuPhoi     && <LichSuNhapDanPage />}
+        {tab === 'quan-ly-diem-dan'      && canSeeDieuPhoi     && <QuanLyDiemDanPage readOnly={isDirector} />}
+        {tab === 'chuyen-kiem'           && canSeePackingFlow  && <ChuyenKiemPage readOnly={isDirector} />}
+        {tab === 'dong-goi'              && canSeePackingFlow  && <DongGoiPage readOnly={isDirector} />}
+        {tab === 'weaving-points'        && canManageBom       && <WeavingPointsPage readOnly />}
+        {tab === 'sku-list'              && isProdMgr          && <SKUListPage readOnly />}
+        {tab === 'materials'             && canSeeWarehouses   && <MfgAllMaterialsPage />}
+        {tab === 'warehouses'            && canSeeWarehouses   && <MfgWarehousesPage />}
+        {tab === 'de-xuat'               && isDirector         && <DeXuatMuaVatTuPage />}
+        {tab === 'setup' && (isDirector || isBomManager)            && <MfgSetupPage />}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL'          && <SpecSteelPage subTab={setupSubTab} onSubTabChange={setSetupSubTab} />}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_WIRE_PAINT'     && <SpecWirePaintPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY'      && <SpecAccessoryPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_PACKAGING'      && <SpecPackagingPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
       </div>
     </div>
   )

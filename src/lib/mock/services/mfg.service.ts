@@ -10,14 +10,14 @@ export const getMfgExportCustomers = () => ok(clone(mockStore.get().mfgExportCus
 export const createMfgExportCustomer = async (data: Record<string, unknown>) => {
   await mockDelay();
   const row = { id: nextId(), ...data };
-  mockStore.update((s) => s.mfgExportCustomers.push(row as never));
+  mockStore.update((s) => (s.mfgExportCustomers as any[]).push(row));
   return row;
 };
 export const updateMfgExportCustomer = async (id: number, data: Record<string, unknown>) => {
   await mockDelay();
   mockStore.update((s) => {
     const i = s.mfgExportCustomers.findIndex((c) => c.id === id);
-    if (i >= 0) s.mfgExportCustomers[i] = { ...s.mfgExportCustomers[i], ...data } as never;
+    if (i >= 0) Object.assign(s.mfgExportCustomers[i], data);
   });
   return mockStore.get().mfgExportCustomers.find((c) => c.id === id);
 };
@@ -36,13 +36,13 @@ export const getAllProductVariants = () => {
 export const createMfgProduct = async (data: Record<string, unknown>) => {
   await mockDelay();
   const row = { id: nextId(), ...data };
-  mockStore.update((s) => s.mfgProducts.push(row as never));
+  mockStore.update((s) => (s.mfgProducts as any[]).push(row));
   return row;
 };
 export const createProductVariant = async (data: Record<string, unknown>) => {
   await mockDelay();
   const row = { id: nextId(), isActive: true, ...data };
-  mockStore.update((s) => s.productVariants.push(row as never));
+  mockStore.update((s) => (s.productVariants as any[]).push(row));
   return row;
 };
 
@@ -58,14 +58,14 @@ export const getMaterials = () => ok(clone(mockStore.get().materials));
 export const createMaterial = async (data: Record<string, unknown>) => {
   await mockDelay();
   const row = { id: nextId(), ...data };
-  mockStore.update((s) => s.materials.push(row as never));
+  mockStore.update((s) => (s.materials as any[]).push(row));
   return row;
 };
 export const updateMaterial = async (id: number, data: Record<string, unknown>) => {
   await mockDelay();
   mockStore.update((s) => {
     const i = s.materials.findIndex((m) => m.id === id);
-    if (i >= 0) s.materials[i] = { ...s.materials[i], ...data } as never;
+    if (i >= 0) Object.assign(s.materials[i], data);
   });
   return mockStore.get().materials.find((m) => m.id === id);
 };
@@ -77,14 +77,14 @@ export const getFramePieces = (productId: number) =>
 export const createFramePiece = async (data: Record<string, unknown>) => {
   await mockDelay();
   const row = { id: nextId(), materials: [], ...data };
-  mockStore.update((s) => s.framePieces.push(row as never));
+  mockStore.update((s) => (s.framePieces as any[]).push(row));
   return row;
 };
 export const updateFramePiece = async (id: number, data: Record<string, unknown>) => {
   await mockDelay();
   mockStore.update((s) => {
     const i = s.framePieces.findIndex((f) => f.id === id);
-    if (i >= 0) s.framePieces[i] = { ...s.framePieces[i], ...data } as never;
+    if (i >= 0) Object.assign(s.framePieces[i], data);
   });
   return mockStore.get().framePieces.find((f) => f.id === id);
 };
@@ -101,19 +101,22 @@ export const getPILaborCost = (piId: number) => {
 // Production invoices
 export const getProductionInvoices = () => ok(clone(mockStore.get().productionInvoices));
 export const getKcsPendingCounts = () => ok(clone(mockStore.get().kcsPending));
-export const getProductionInvoice = (id: number) =>
-  ok(clone(mockStore.get().productionInvoices.find((p) => p.id === id) ?? mockStore.get().productionInvoices[0]));
+export const getProductionInvoice = (id: number) => {
+  const pi = mockStore.get().productionInvoices.find((p) => p.id === id);
+  if (!pi) throw new Error(`Lệnh sản xuất #${id} không tồn tại`);
+  return ok(clone(pi));
+};
 export const createProductionInvoice = async (data: Record<string, unknown>) => {
   await mockDelay();
   const row = { id: nextId(), code: `PI-2026-${nextId()}`, status: 'NEW', items: [], stages: [], ...data };
-  mockStore.update((s) => s.productionInvoices.unshift(row as never));
+  mockStore.update((s) => (s.productionInvoices as any[]).unshift(row));
   return row;
 };
 export const updateProductionInvoice = async (id: number, data: Record<string, unknown>) => {
   await mockDelay();
   mockStore.update((s) => {
     const i = s.productionInvoices.findIndex((p) => p.id === id);
-    if (i >= 0) s.productionInvoices[i] = { ...s.productionInvoices[i], ...data } as never;
+    if (i >= 0) Object.assign(s.productionInvoices[i], data);
   });
   return mockStore.get().productionInvoices.find((p) => p.id === id);
 };
@@ -123,8 +126,26 @@ export const getStagesByPI = (piId: number) => {
   const pi = mockStore.get().productionInvoices.find((p) => p.id === piId);
   return ok(clone(pi?.stages ?? []));
 };
-export const updateStageProgress = async (id: number, data: Record<string, unknown>) => ok({ id, ...data });
-export const submitQCResult = async (id: number, data: Record<string, unknown>) => ok({ id, ...data });
+export const updateStageProgress = async (id: number, data: Record<string, unknown>) => {
+  await mockDelay();
+  mockStore.update((s) => {
+    for (const pi of s.productionInvoices) {
+      const stage = (pi.stages as any[])?.find((st: any) => st.id === id);
+      if (stage) { Object.assign(stage, data); break; }
+    }
+  });
+  return { id, ...data };
+};
+export const submitQCResult = async (id: number, data: Record<string, unknown>) => {
+  await mockDelay();
+  mockStore.update((s) => {
+    for (const pi of s.productionInvoices) {
+      const stage = (pi.stages as any[])?.find((st: any) => st.id === id);
+      if (stage) { Object.assign(stage, data); break; }
+    }
+  });
+  return { id, ...data };
+};
 
 const emptyPhoi = (piId: number) => {
   const pi = mockStore.get().productionInvoices.find((p) => p.id === piId);
@@ -216,7 +237,7 @@ export const getDefectReasons = (stageType?: string) => {
 export const createDefectReason = async (data: Record<string, unknown>) => {
   await mockDelay();
   const row = { id: nextId(), ...data };
-  mockStore.update((s) => s.defectReasons.push(row as never));
+  mockStore.update((s) => (s.defectReasons as any[]).push(row));
   return row;
 };
 export const updateDefectReason = async (id: number, data: Record<string, unknown>) => ok({ id, ...data });
@@ -248,7 +269,7 @@ export const createExportOrder = async (data: Record<string, unknown>) => {
     createdAt: new Date().toISOString(),
     ...data,
   };
-  mockStore.update((s) => s.exportOrders.unshift(row as never));
+  mockStore.update((s) => (s.exportOrders as any[]).unshift(row));
   return row;
 };
 export const deleteExportOrder = async (id: number) => {
@@ -284,9 +305,10 @@ export const updateOrderPayment = async (id: number, data: Record<string, unknow
   });
   return mockStore.get().exportOrders.find((o) => o.id === id);
 };
-export const uploadContractFile = async (file: File) => {
+export const uploadContractFile = async (_file: File) => {
   await mockDelay();
-  return URL.createObjectURL(file);
+  // Mock: trả về đường dẫn giả thay vì tạo blob URL (tránh memory leak)
+  return `/mock/contract-${Date.now()}.pdf`;
 };
 
 // Warehouses
@@ -383,14 +405,14 @@ export const getSpecEntryProposal = (id: number) =>
 export const createSpecEntryProposal = async (data: Record<string, unknown>) => {
   await mockDelay();
   const row = { id: nextId(), code: `DEF-2026-${nextId()}`, status: 'PROPOSED', tasks: [], createdAt: new Date().toISOString(), ...data };
-  mockStore.update((s) => s.specEntryProposals.unshift(row as never));
+  mockStore.update((s) => (s.specEntryProposals as any[]).unshift(row));
   return row;
 };
 export const updateSpecEntryProposal = async (id: number, data: Record<string, unknown>) => {
   await mockDelay();
   mockStore.update((s) => {
     const i = s.specEntryProposals.findIndex((p: { id: number }) => p.id === id);
-    if (i >= 0) s.specEntryProposals[i] = { ...s.specEntryProposals[i], ...data } as never;
+    if (i >= 0) Object.assign(s.specEntryProposals[i], data);
   });
   return mockStore.get().specEntryProposals.find((p: { id: number }) => p.id === id);
 };
