@@ -6,7 +6,7 @@ import PIListPage from '../Manufacturing/PIListPage'
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import CreateSkuPage from '../Manufacturing/CreateSkuPage'
 import SKUListPage from './SKUListPage'
-import ThongKePage from '../Manufacturing/ThongKePage'
+import ThongKePagePlan from '../Manufacturing/ThongKePagePlan'
 
 type Page = 'planforms' | 'tao-sku' | 'vattu' | 'thongke' | 'pi-list' | 'materials' | 'warehouses' | 'setup'
 
@@ -76,7 +76,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        {activePage === 'thongke'    && <ThongKePage />}
+        {activePage === 'thongke'    && <ThongKePagePlan />}
         {activePage === 'planforms'  && <SKUListPage />}
         {activePage === 'tao-sku'    && <CreateSkuPage />}
         {activePage === 'vattu'      && <VatTuDashboardPage />}

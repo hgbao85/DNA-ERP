@@ -4,7 +4,7 @@ import { ArrowLeft, CheckCircle2, Clock, Factory, PackageCheck, Search, Shopping
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-type OrderStatus = 'APPROVED' | 'PRODUCING' | 'DONE'
+type OrderStatus = 'PRODUCING' | 'DONE'
 type MfgStage = 'PURCHASING' | 'FRAME' | 'WEAVING' | 'PACKAGING'
 type SubStatus = 'done' | 'in-progress' | 'pending'
 
@@ -22,7 +22,7 @@ interface StageDetails {
   packaging: { dongGoi: SubStatus }
 }
 
-interface ApprovedOrder {
+interface MfgOrder {
   id: number
   code: string
   sku: string
@@ -48,34 +48,34 @@ const MFG_STAGES: { key: MfgStage; label: string; icon: React.ReactNode }[] = [
 
 // ─── Mock orders ──────────────────────────────────────────────────────────────
 
-const MOCK_ORDERS: ApprovedOrder[] = [
-  { id: 1,  code: 'PI-2026-001', sku: 'SKU-GDE-001', productName: 'Giá để đồ treo tường GDE-200',    factoryCode: 'GDE-200', customer: 'Cty TNHH Minh Phát',    qty: 200,  unit: 'bộ',  deadline: '2026-07-15', approvedAt: '2026-06-18', status: 'PRODUCING', mfgStage: 'PURCHASING' },
-  { id: 2,  code: 'PI-2026-002', sku: 'SKU-KS-300',  productName: 'Kệ sắt KS-300 4 tầng',           factoryCode: 'KS-300',  customer: 'Cty CP Đại Thành',      qty: 150,  unit: 'bộ',  deadline: '2026-07-20', approvedAt: '2026-06-19', status: 'APPROVED'                         },
-  { id: 3,  code: 'PI-2026-003', sku: 'SKU-TB-100',  productName: 'Tủ bếp inox TB-100',             factoryCode: 'TB-100',  customer: 'Nội thất Hòa Phát',     qty:  80,  unit: 'cái', deadline: '2026-07-10', approvedAt: '2026-06-15', status: 'DONE'                              },
-  { id: 4,  code: 'PI-2026-004', sku: 'SKU-GK-050',  productName: 'Giường khung sắt GK-050',        factoryCode: 'GK-050',  customer: 'Khách sạn Nam Anh',     qty: 120,  unit: 'cái', deadline: '2026-07-05', approvedAt: '2026-06-10', status: 'DONE'                              },
-  { id: 5,  code: 'PI-2026-005', sku: 'SKU-BT-200',  productName: 'Bàn làm việc BT-200',            factoryCode: 'BT-200',  customer: 'Cty TNHH Sao Việt',     qty: 300,  unit: 'cái', deadline: '2026-08-01', approvedAt: '2026-06-20', status: 'APPROVED'                         },
-  { id: 6,  code: 'PI-2026-006', sku: 'SKU-KH-400',  productName: 'Khung nhà thép tiền chế KH-400', factoryCode: 'KH-400',  customer: 'BQL KCN Long Hậu',      qty:   5,  unit: 'bộ',  deadline: '2026-09-15', approvedAt: '2026-06-21', status: 'PRODUCING', mfgStage: 'FRAME'     },
-  { id: 7,  code: 'PI-2026-007', sku: 'SKU-LX-010',  productName: 'Lồng xe đạp LX-010',             factoryCode: 'LX-010',  customer: 'Tổng kho Phương Nam',   qty: 500,  unit: 'cái', deadline: '2026-07-28', approvedAt: '2026-06-22', status: 'APPROVED'                         },
-  { id: 8,  code: 'PI-2026-008', sku: 'SKU-CS-150',  productName: 'Cổng sắt nghệ thuật CS-150',     factoryCode: 'CS-150',  customer: 'Khu đô thị Vinhomes',   qty:  40,  unit: 'bộ',  deadline: '2026-07-30', approvedAt: '2026-06-23', status: 'PRODUCING', mfgStage: 'WEAVING'   },
-  { id: 9,  code: 'PI-2026-009', sku: 'SKU-HC-020',  productName: 'Hàng rào composite HC-020',      factoryCode: 'HC-020',  customer: 'Cty XD Phú Mỹ Hưng',   qty: 250,  unit: 'tấm', deadline: '2026-06-30', approvedAt: '2026-06-12', status: 'DONE'                              },
-  { id: 10, code: 'PI-2026-010', sku: 'SKU-DB-080',  productName: 'Đèn báo LED tích hợp DB-080',   factoryCode: 'DB-080',  customer: 'Cty Điện lực miền Nam', qty: 1000, unit: 'cái', deadline: '2026-08-10', approvedAt: '2026-06-24', status: 'APPROVED'                         },
+const MOCK_ORDERS: MfgOrder[] = [
+  { id: 1,  code: 'PI-2026-001', sku: 'SKU-GDE-001', productName: 'Giá để đồ treo tường GDE-200',    factoryCode: 'GDE-200', customer: 'Cty TNHH Minh Phát',         qty: 200, unit: 'bộ',  deadline: '2026-07-15', approvedAt: '2026-06-18', status: 'PRODUCING', mfgStage: 'PURCHASING' },
+  { id: 2,  code: 'PI-2026-002', sku: 'SKU-KH-400',  productName: 'Khung nhà thép tiền chế KH-400', factoryCode: 'KH-400',  customer: 'BQL KCN Long Hậu',           qty:   5, unit: 'bộ',  deadline: '2026-09-15', approvedAt: '2026-06-21', status: 'PRODUCING', mfgStage: 'FRAME'     },
+  { id: 3,  code: 'PI-2026-003', sku: 'SKU-CS-150',  productName: 'Cổng sắt nghệ thuật CS-150',     factoryCode: 'CS-150',  customer: 'Khu đô thị Vinhomes',        qty:  40, unit: 'bộ',  deadline: '2026-07-30', approvedAt: '2026-06-23', status: 'PRODUCING', mfgStage: 'WEAVING'   },
+  { id: 4,  code: 'PI-2026-004', sku: 'SKU-THS-500', productName: 'Tủ hồ sơ văn phòng THS-500',    factoryCode: 'THS-500', customer: 'Cty CP Thanh Hưng',          qty:  50, unit: 'cái', deadline: '2026-08-10', approvedAt: '2026-06-25', status: 'PRODUCING', mfgStage: 'FRAME'     },
+  { id: 5,  code: 'PI-2026-005', sku: 'SKU-GVP-100', productName: 'Ghế văn phòng khung sắt GVP-100', factoryCode: 'GVP-100', customer: 'Văn phòng UBND Quận 7',    qty: 150, unit: 'cái', deadline: '2026-08-20', approvedAt: '2026-06-26', status: 'PRODUCING', mfgStage: 'WEAVING'   },
+  { id: 6,  code: 'PI-2026-006', sku: 'SKU-TB-100',  productName: 'Tủ bếp inox TB-100',             factoryCode: 'TB-100',  customer: 'Nội thất Hòa Phát',          qty:  80, unit: 'cái', deadline: '2026-07-10', approvedAt: '2026-06-15', status: 'DONE'                              },
+  { id: 7,  code: 'PI-2026-007', sku: 'SKU-GK-050',  productName: 'Giường khung sắt GK-050',        factoryCode: 'GK-050',  customer: 'Khách sạn Nam Anh',          qty: 120, unit: 'cái', deadline: '2026-07-05', approvedAt: '2026-06-10', status: 'DONE'                              },
+  { id: 8,  code: 'PI-2026-008', sku: 'SKU-HC-020',  productName: 'Hàng rào composite HC-020',      factoryCode: 'HC-020',  customer: 'Cty XD Phú Mỹ Hưng',        qty: 250, unit: 'tấm', deadline: '2026-06-30', approvedAt: '2026-06-12', status: 'DONE'                              },
+  { id: 9,  code: 'PI-2026-009', sku: 'SKU-KL-300',  productName: 'Kệ lưu trữ công nghiệp KL-300', factoryCode: 'KL-300',  customer: 'Kho lạnh Bình Dương',        qty:  30, unit: 'bộ',  deadline: '2026-07-25', approvedAt: '2026-05-20', status: 'DONE'                              },
+  { id: 10, code: 'PI-2026-010', sku: 'SKU-BD-080',  productName: 'Bàn inox bếp công nghiệp BD-080', factoryCode: 'BD-080', customer: 'Nhà hàng Bếp Vàng',         qty:  60, unit: 'cái', deadline: '2026-07-18', approvedAt: '2026-06-01', status: 'DONE'                              },
 ]
 
 // ─── Mock stage details ───────────────────────────────────────────────────────
 
-const DONE_FRAME: StageDetails['frame']   = { phoi: 'done', han: 'done', son: 'done' }
+const DONE_FRAME: StageDetails['frame']     = { phoi: 'done', han: 'done', son: 'done' }
 const DONE_WEAVING: StageDetails['weaving'] = { nhapDan: 'done', xuatDan: 'done' }
 
 const STAGE_DETAILS: Record<number, StageDetails> = {
-  // PI-2026-001 (GDE-200) — PRODUCING @ PURCHASING
+  // PI-2026-001 — PRODUCING @ PURCHASING
   1: {
     purchasing: {
       materials: [
-        { name: 'Thép hộp vuông 20×20×1.5mm L=6m',  qty: 800,  unit: 'm',   status: 'Đã nhận'      },
-        { name: 'Thép tấm 2mm (1000×2000mm)',         qty: 40,   unit: 'tấm', status: 'Đang đặt'     },
-        { name: 'Ốc vít lục giác M8×30mm',            qty: 2000, unit: 'cái', status: 'Đã nhận'      },
-        { name: 'Sơn tĩnh điện bột màu đen',          qty: 25,   unit: 'kg',  status: 'Chờ xác nhận' },
-        { name: 'Giá đỡ nhựa PVC Ø25mm',              qty: 400,  unit: 'cái', status: 'Đang đặt'     },
+        { name: 'Thép hộp vuông 20×20×1.5mm L=6m', qty: 800,  unit: 'm',   status: 'Đã nhận'      },
+        { name: 'Thép tấm 2mm (1000×2000mm)',        qty: 40,   unit: 'tấm', status: 'Đang đặt'     },
+        { name: 'Ốc vít lục giác M8×30mm',           qty: 2000, unit: 'cái', status: 'Đã nhận'      },
+        { name: 'Sơn tĩnh điện bột màu đen',         qty: 25,   unit: 'kg',  status: 'Chờ xác nhận' },
+        { name: 'Giá đỡ nhựa PVC Ø25mm',             qty: 400,  unit: 'cái', status: 'Đang đặt'     },
       ],
     },
     frame:     { phoi: 'pending', han: 'pending', son: 'pending' },
@@ -83,8 +83,72 @@ const STAGE_DETAILS: Record<number, StageDetails> = {
     packaging: { dongGoi: 'pending' },
   },
 
-  // PI-2026-003 (TB-100) — DONE
+  // PI-2026-002 — PRODUCING @ FRAME (50%) + WEAVING song song (25%)
+  2: {
+    purchasing: {
+      materials: [
+        { name: 'Thép hình H 200×200×8mm',      qty: 250,  unit: 'm',  status: 'Đã nhận' },
+        { name: 'Bu lông cường độ cao M16×60mm', qty: 600,  unit: 'bộ', status: 'Đã nhận' },
+        { name: 'Tôn sóng 0.42mm × 1150mm',     qty: 1500, unit: 'm²', status: 'Đã nhận' },
+        { name: 'Sơn Jotun Primer chống gỉ',     qty: 100,  unit: 'kg', status: 'Đã nhận' },
+        { name: 'Bộ kết nối thép mạ kẽm',        qty: 80,   unit: 'bộ', status: 'Đã nhận' },
+      ],
+    },
+    frame:     { phoi: 'done', han: 'in-progress', son: 'pending' },  // 50%
+    weaving:   { nhapDan: 'in-progress', xuatDan: 'pending' },         // 25%
+    packaging: { dongGoi: 'pending' },                                  // 0%
+  },
+
+  // PI-2026-003 — PRODUCING @ WEAVING (75%) + PACKAGING song song (50%)
   3: {
+    purchasing: {
+      materials: [
+        { name: 'Thép đặc tròn Ø16mm L=6m',         qty: 500, unit: 'm',    status: 'Đã nhận' },
+        { name: 'Mây nhựa PE đen tổng hợp',          qty: 80,  unit: 'cuộn', status: 'Đã nhận' },
+        { name: 'Bản lề cổng công nghiệp 100×100mm', qty: 80,  unit: 'cái',  status: 'Đã nhận' },
+        { name: 'Khóa điện tử chống trộm',            qty: 40,  unit: 'bộ',   status: 'Đã nhận' },
+        { name: 'Sơn ngoại thất Kova N-A',            qty: 45,  unit: 'kg',   status: 'Đã nhận' },
+      ],
+    },
+    frame:     DONE_FRAME,                                              // 100% → Hoàn thành
+    weaving:   { nhapDan: 'done', xuatDan: 'in-progress' },            // 75%
+    packaging: { dongGoi: 'in-progress' },                             // 50%
+  },
+
+  // PI-2026-004 — PRODUCING @ FRAME (83%) + WEAVING song song (25%)
+  4: {
+    purchasing: {
+      materials: [
+        { name: 'Thép hộp chữ nhật 40×20×1.2mm L=6m', qty: 200,  unit: 'm',   status: 'Đã nhận' },
+        { name: 'Tấm thép lạnh 1mm (1000×2000mm)',      qty: 25,   unit: 'tấm', status: 'Đã nhận' },
+        { name: 'Ốc vít M6×20mm mạ kẽm',               qty: 1500, unit: 'cái', status: 'Đã nhận' },
+        { name: 'Sơn tĩnh điện bột xám nhạt',           qty: 15,   unit: 'kg',  status: 'Đã nhận' },
+        { name: 'Tay nắm tủ inox 128mm',                qty: 200,  unit: 'cái', status: 'Đã nhận' },
+      ],
+    },
+    frame:     { phoi: 'done', han: 'done', son: 'in-progress' },  // 83%
+    weaving:   { nhapDan: 'in-progress', xuatDan: 'pending' },      // 25%
+    packaging: { dongGoi: 'pending' },                               // 0%
+  },
+
+  // PI-2026-005 — PRODUCING @ WEAVING (25%), FRAME done
+  5: {
+    purchasing: {
+      materials: [
+        { name: 'Thép ống tròn Ø32×1.5mm L=6m',  qty: 450, unit: 'm',   status: 'Đã nhận' },
+        { name: 'Vải bọc ghế polyester 160cm',     qty: 150, unit: 'm',   status: 'Đã nhận' },
+        { name: 'Đệm mút xốp 5cm (1×2m)',          qty: 150, unit: 'tấm', status: 'Đã nhận' },
+        { name: 'Sơn tĩnh điện bột đen mờ',        qty: 20,  unit: 'kg',  status: 'Đã nhận' },
+        { name: 'Bu lông lắp ráp M8×40mm',         qty: 600, unit: 'cái', status: 'Đã nhận' },
+      ],
+    },
+    frame:     DONE_FRAME,                                              // 100%
+    weaving:   { nhapDan: 'in-progress', xuatDan: 'pending' },         // 25%
+    packaging: { dongGoi: 'pending' },                                  // 0%
+  },
+
+  // PI-2026-006 — DONE
+  6: {
     purchasing: {
       materials: [
         { name: 'Tấm inox 201 #4 dày 1.5mm (1000×2000mm)', qty: 160, unit: 'tấm', status: 'Đã nhận' },
@@ -99,15 +163,15 @@ const STAGE_DETAILS: Record<number, StageDetails> = {
     packaging: { dongGoi: 'done' },
   },
 
-  // PI-2026-004 (GK-050) — DONE
-  4: {
+  // PI-2026-007 — DONE
+  7: {
     purchasing: {
       materials: [
-        { name: 'Thép ống tròn Ø25×1.2mm L=6m',     qty: 360, unit: 'm',   status: 'Đã nhận' },
-        { name: 'Đầu chân giường nhựa ABS Ø25mm',    qty: 480, unit: 'cái', status: 'Đã nhận' },
-        { name: 'Bu lông M10×50mm đầu chìm',          qty: 960, unit: 'cái', status: 'Đã nhận' },
-        { name: 'Sơn epoxy 2 thành phần xanh đen',    qty: 40,  unit: 'kg',  status: 'Đã nhận' },
-        { name: 'Tấm đỡ lanh tô sắt dẹp 50×3mm',     qty: 200, unit: 'm',   status: 'Đã nhận' },
+        { name: 'Thép ống tròn Ø25×1.2mm L=6m',  qty: 360, unit: 'm',   status: 'Đã nhận' },
+        { name: 'Đầu chân giường nhựa ABS Ø25mm', qty: 480, unit: 'cái', status: 'Đã nhận' },
+        { name: 'Bu lông M10×50mm đầu chìm',       qty: 960, unit: 'cái', status: 'Đã nhận' },
+        { name: 'Sơn epoxy 2 thành phần xanh đen', qty: 40,  unit: 'kg',  status: 'Đã nhận' },
+        { name: 'Tấm đỡ lanh tô sắt dẹp 50×3mm',  qty: 200, unit: 'm',   status: 'Đã nhận' },
       ],
     },
     frame:     DONE_FRAME,
@@ -115,40 +179,8 @@ const STAGE_DETAILS: Record<number, StageDetails> = {
     packaging: { dongGoi: 'done' },
   },
 
-  // PI-2026-006 (KH-400) — PRODUCING @ FRAME
-  6: {
-    purchasing: {
-      materials: [
-        { name: 'Thép hình H 200×200×8mm',           qty: 250,  unit: 'm',   status: 'Đã nhận' },
-        { name: 'Bu lông cường độ cao M16×60mm',      qty: 600,  unit: 'bộ',  status: 'Đã nhận' },
-        { name: 'Tôn sóng 0.42mm × 1150mm',          qty: 1500, unit: 'm²',  status: 'Đã nhận' },
-        { name: 'Sơn Jotun Primer chống gỉ',          qty: 100,  unit: 'kg',  status: 'Đã nhận' },
-        { name: 'Bộ kết nối thép mạ kẽm',             qty: 80,   unit: 'bộ',  status: 'Đã nhận' },
-      ],
-    },
-    frame:     { phoi: 'done', han: 'in-progress', son: 'pending' },
-    weaving:   { nhapDan: 'pending', xuatDan: 'pending' },
-    packaging: { dongGoi: 'pending' },
-  },
-
-  // PI-2026-008 (CS-150) — PRODUCING @ WEAVING
+  // PI-2026-008 — DONE
   8: {
-    purchasing: {
-      materials: [
-        { name: 'Thép đặc tròn Ø16mm L=6m',          qty: 500, unit: 'm',    status: 'Đã nhận' },
-        { name: 'Mây nhựa PE đen tổng hợp',           qty: 80,  unit: 'cuộn', status: 'Đã nhận' },
-        { name: 'Bản lề cổng công nghiệp 100×100mm',  qty: 80,  unit: 'cái',  status: 'Đã nhận' },
-        { name: 'Khóa điện tử chống trộm',             qty: 40,  unit: 'bộ',   status: 'Đã nhận' },
-        { name: 'Sơn ngoại thất Kova N-A',             qty: 45,  unit: 'kg',   status: 'Đã nhận' },
-      ],
-    },
-    frame:     DONE_FRAME,
-    weaving:   { nhapDan: 'done', xuatDan: 'in-progress' },
-    packaging: { dongGoi: 'pending' },
-  },
-
-  // PI-2026-009 (HC-020) — DONE
-  9: {
     purchasing: {
       materials: [
         { name: 'Thanh nhôm định hình 6063-T5 40×40mm', qty: 500,  unit: 'm',   status: 'Đã nhận' },
@@ -162,12 +194,41 @@ const STAGE_DETAILS: Record<number, StageDetails> = {
     weaving:   DONE_WEAVING,
     packaging: { dongGoi: 'done' },
   },
+
+  // PI-2026-009 — DONE
+  9: {
+    purchasing: {
+      materials: [
+        { name: 'Thép hộp vuông 40×40×2mm L=6m',    qty: 180, unit: 'm',   status: 'Đã nhận' },
+        { name: 'Tấm ván MDF 18mm (1200×2400mm)',    qty: 60,  unit: 'tấm', status: 'Đã nhận' },
+        { name: 'Vít tự khoan 4.2×38mm mạ kẽm',     qty: 800, unit: 'cái', status: 'Đã nhận' },
+        { name: 'Sơn tĩnh điện xanh công nghiệp',   qty: 12,  unit: 'kg',  status: 'Đã nhận' },
+      ],
+    },
+    frame:     DONE_FRAME,
+    weaving:   DONE_WEAVING,
+    packaging: { dongGoi: 'done' },
+  },
+
+  // PI-2026-010 — DONE
+  10: {
+    purchasing: {
+      materials: [
+        { name: 'Tấm inox 304 2B dày 2mm (1000×2000mm)', qty: 120, unit: 'tấm', status: 'Đã nhận' },
+        { name: 'Chân bàn inox tròn Ø50mm cao 850mm',     qty: 240, unit: 'cái', status: 'Đã nhận' },
+        { name: 'Bu lông M12×50mm đầu chìm inox',         qty: 480, unit: 'cái', status: 'Đã nhận' },
+        { name: 'Đệm cao su chân bàn Ø50mm',              qty: 240, unit: 'cái', status: 'Đã nhận' },
+      ],
+    },
+    frame:     DONE_FRAME,
+    weaving:   DONE_WEAVING,
+    packaging: { dongGoi: 'done' },
+  },
 }
 
 // ─── Status meta ──────────────────────────────────────────────────────────────
 
 const STATUS_META: Record<OrderStatus, { label: string; bg: string; color: string; border: string }> = {
-  APPROVED:  { label: 'Đã duyệt',      bg: '#eff6ff', color: '#1d4ed8', border: '#bfdbfe' },
   PRODUCING: { label: 'Đang sản xuất', bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
   DONE:      { label: 'Hoàn thành',    bg: '#ecfdf5', color: '#065f46', border: '#6ee7b7' },
 }
@@ -249,6 +310,37 @@ function SubStepList({ steps }: { steps: { label: string; status: SubStatus }[] 
   )
 }
 
+// ─── Parallel stage helpers ───────────────────────────────────────────────────
+
+const PARALLEL_STAGE_KEYS = new Set<MfgStage>(['FRAME', 'WEAVING', 'PACKAGING'])
+
+function getStagePercent(key: MfgStage, details: StageDetails): number {
+  const w = (s: SubStatus) => s === 'done' ? 1 : s === 'in-progress' ? 0.5 : 0
+  if (key === 'FRAME')     return Math.round((w(details.frame.phoi) + w(details.frame.han) + w(details.frame.son)) / 3 * 100)
+  if (key === 'WEAVING')   return Math.round((w(details.weaving.nhapDan) + w(details.weaving.xuatDan)) / 2 * 100)
+  if (key === 'PACKAGING') return Math.round(w(details.packaging.dongGoi) * 100)
+  return 0
+}
+
+function getOverallPercent(details: StageDetails): number {
+  const matW = (s: MaterialItem['status']) => s === 'Đã nhận' ? 1 : s === 'Đang đặt' ? 0.5 : 0
+  const mats = details.purchasing.materials
+  const purchPct = mats.length === 0 ? 0
+    : Math.round(mats.reduce((s, m) => s + matW(m.status), 0) / mats.length * 100)
+  const framePct    = getStagePercent('FRAME',     details)
+  const weavingPct  = getStagePercent('WEAVING',   details)
+  const packagingPct = getStagePercent('PACKAGING', details)
+  return Math.round((purchPct + framePct + weavingPct + packagingPct) / 4)
+}
+
+function isAllDone(details: StageDetails): boolean {
+  return (
+    details.frame.phoi === 'done' && details.frame.han === 'done' && details.frame.son === 'done' &&
+    details.weaving.nhapDan === 'done' && details.weaving.xuatDan === 'done' &&
+    details.packaging.dongGoi === 'done'
+  )
+}
+
 // ─── Stage detail card ────────────────────────────────────────────────────────
 
 function StageDetailCard({
@@ -266,7 +358,6 @@ function StageDetailCard({
 
   return (
     <div style={{ border: `1px solid ${headerBorder}`, borderRadius: 10, overflow: 'hidden' }}>
-      {/* Card header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 16px', background: headerBg }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: headerColor }}>
           {stage.icon}
@@ -274,12 +365,13 @@ function StageDetailCard({
         </div>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: headerColor }}>
           {isActive
-            ? <><Clock size={11} /> Đang thực hiện</>
+            ? PARALLEL_STAGE_KEYS.has(stage.key)
+              ? <><TrendingUp size={11} /> {getStagePercent(stage.key, details)}%</>
+              : <><Clock size={11} /> Đang thực hiện</>
             : <><CheckCircle2 size={11} /> Hoàn thành</>}
         </span>
       </div>
 
-      {/* Card body */}
       <div style={{ padding: '12px 16px', background: 'var(--surface)' }}>
         {stage.key === 'PURCHASING' && (
           <PurchasingContent materials={details.purchasing.materials} />
@@ -293,13 +385,13 @@ function StageDetailCard({
         )}
         {stage.key === 'WEAVING' && (
           <SubStepList steps={[
-            { label: 'Đã nhập đan (nhập kho nguyên liệu đan)', status: details.weaving.nhapDan },
-            { label: 'Đã xuất đan (xuất thành phẩm đan)',      status: details.weaving.xuatDan },
+            { label: 'Nhập đan (nguyên liệu đan vào)', status: details.weaving.nhapDan },
+            { label: 'Xuất đan (thành phẩm đan ra)',   status: details.weaving.xuatDan },
           ]} />
         )}
         {stage.key === 'PACKAGING' && (
           <SubStepList steps={[
-            { label: 'Đã đóng gói', status: details.packaging.dongGoi },
+            { label: 'Đóng gói', status: details.packaging.dongGoi },
           ]} />
         )}
       </div>
@@ -309,7 +401,15 @@ function StageDetailCard({
 
 // ─── Progress tracker ─────────────────────────────────────────────────────────
 
-function MfgStageTracker({ currentStage, allDone = false }: { currentStage?: MfgStage; allDone?: boolean }) {
+function MfgStageTracker({
+  currentStage,
+  allDone = false,
+  stagePercents,
+}: {
+  currentStage?: MfgStage
+  allDone?: boolean
+  stagePercents?: Partial<Record<MfgStage, number>>
+}) {
   const currentIdx = allDone
     ? MFG_STAGES.length
     : currentStage
@@ -323,9 +423,10 @@ function MfgStageTracker({ currentStage, allDone = false }: { currentStage?: Mfg
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
         {MFG_STAGES.map((stage, idx) => {
-          const done    = idx < currentIdx
-          const active  = idx === currentIdx
-          const pending = idx > currentIdx
+          const pct     = stagePercents?.[stage.key]
+          const done    = allDone || (pct !== undefined ? pct >= 100 : idx < currentIdx)
+          const active  = !done && (pct !== undefined ? pct > 0 : idx === currentIdx)
+          const pending = !done && !active
           return (
             <div key={stage.key} style={{ display: 'flex', alignItems: 'center', flex: idx < MFG_STAGES.length - 1 ? '1 1 0' : undefined }}>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 72 }}>
@@ -342,7 +443,11 @@ function MfgStageTracker({ currentStage, allDone = false }: { currentStage?: Mfg
                   <div style={{ fontSize: 11, fontWeight: active ? 700 : 600, color: active ? '#15803d' : done ? '#374151' : 'var(--text3)', whiteSpace: 'nowrap' }}>
                     {stage.label}
                   </div>
-                  {active  && <div style={{ fontSize: 10, color: '#15803d', fontWeight: 600, marginTop: 2 }}>Đang thực hiện</div>}
+                  {active  && (
+                    <div style={{ fontSize: 10, color: '#15803d', fontWeight: 600, marginTop: 2 }}>
+                      {pct !== undefined && PARALLEL_STAGE_KEYS.has(stage.key) ? `${pct}%` : 'Đang thực hiện'}
+                    </div>
+                  )}
                   {done    && <div style={{ fontSize: 10, color: '#22c55e', fontWeight: 600, marginTop: 2 }}>Hoàn thành</div>}
                   {pending && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>Chờ</div>}
                 </div>
@@ -360,29 +465,45 @@ function MfgStageTracker({ currentStage, allDone = false }: { currentStage?: Mfg
 
 // ─── Detail page ──────────────────────────────────────────────────────────────
 
-function ThongKeDetailPage({ order, onBack }: { order: ApprovedOrder; onBack: () => void }) {
-  const meta      = STATUS_META[order.status]
-  const isOverdue = new Date(order.deadline) < new Date() && order.status !== 'DONE'
+function ThongKeDetailPage({ order, onBack }: { order: MfgOrder; onBack: () => void }) {
   const details   = STAGE_DETAILS[order.id]
+  const allDone   = !!details && isAllDone(details)
+  const isDone    = order.status === 'DONE' || allDone
+  const isOverdue = new Date(order.deadline) < new Date() && !isDone
+  const meta      = STATUS_META[isDone ? 'DONE' : 'PRODUCING']
 
-  // Determine which stage cards to show
+  // Stage cards to show
   const reachedCards: { stage: typeof MFG_STAGES[number]; isActive: boolean }[] = []
 
-  if (order.status === 'DONE' && details) {
-    // All stages shown as done
+  if (isDone && details) {
     MFG_STAGES.forEach(stage => reachedCards.push({ stage, isActive: false }))
   } else if (order.status === 'PRODUCING' && order.mfgStage && details) {
-    const currentIdx = MFG_STAGES.findIndex(s => s.key === order.mfgStage)
-    MFG_STAGES.forEach((stage, idx) => {
-      if (idx <= currentIdx) {
-        reachedCards.push({ stage, isActive: idx === currentIdx })
+    if (PARALLEL_STAGE_KEYS.has(order.mfgStage)) {
+      reachedCards.push({ stage: MFG_STAGES.find(s => s.key === 'PURCHASING')!, isActive: false })
+      for (const stage of MFG_STAGES) {
+        if (!PARALLEL_STAGE_KEYS.has(stage.key)) continue
+        const pct = getStagePercent(stage.key, details)
+        if (pct > 0) reachedCards.push({ stage, isActive: pct < 100 })
       }
-    })
+    } else {
+      const currentIdx = MFG_STAGES.findIndex(s => s.key === order.mfgStage)
+      MFG_STAGES.forEach((stage, idx) => {
+        if (idx <= currentIdx) reachedCards.push({ stage, isActive: idx === currentIdx })
+      })
+    }
   }
+
+  const stagePercents: Partial<Record<MfgStage, number>> | undefined =
+    details && order.mfgStage && PARALLEL_STAGE_KEYS.has(order.mfgStage)
+      ? {
+          FRAME:     getStagePercent('FRAME',     details),
+          WEAVING:   getStagePercent('WEAVING',   details),
+          PACKAGING: getStagePercent('PACKAGING', details),
+        }
+      : undefined
 
   return (
     <div>
-      {/* Back button */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
         <button
           onClick={onBack}
@@ -408,7 +529,6 @@ function ThongKeDetailPage({ order, onBack }: { order: ApprovedOrder; onBack: ()
           </span>
         </div>
 
-        {/* Info grid */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginTop: 20 }}>
           {[
             { label: 'Khách hàng',    value: order.customer },
@@ -427,24 +547,11 @@ function ThongKeDetailPage({ order, onBack }: { order: ApprovedOrder; onBack: ()
         </div>
       </div>
 
-      {/* Production status section */}
+      {/* Production status */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', marginBottom: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Trạng thái sản xuất</div>
 
-        {order.status === 'APPROVED' && (
-          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 10, padding: '16px 18px' }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: '#1d4ed8' }}>Chờ bắt đầu sản xuất</div>
-            <div style={{ fontSize: 13, color: '#3b82f6', marginTop: 6 }}>Lệnh đã được duyệt, chưa đưa vào sản xuất.</div>
-          </div>
-        )}
-
-        {order.status === 'PRODUCING' && order.mfgStage && (
-          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '16px 20px 20px' }}>
-            <MfgStageTracker currentStage={order.mfgStage} />
-          </div>
-        )}
-
-        {order.status === 'DONE' && (
+        {isDone ? (
           <div style={{ background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 10, padding: '16px 20px 20px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
               <CheckCircle2 size={20} color="#065f46" />
@@ -452,9 +559,12 @@ function ThongKeDetailPage({ order, onBack }: { order: ApprovedOrder; onBack: ()
             </div>
             <MfgStageTracker allDone />
           </div>
+        ) : (
+          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '16px 20px 20px' }}>
+            <MfgStageTracker currentStage={order.mfgStage} stagePercents={stagePercents} />
+          </div>
         )}
 
-        {/* Sub-stage detail cards */}
         {reachedCards.length > 0 && details && (
           <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
@@ -472,10 +582,10 @@ function ThongKeDetailPage({ order, onBack }: { order: ApprovedOrder; onBack: ()
 
 // ─── List page ────────────────────────────────────────────────────────────────
 
-export default function ThongKePage() {
-  const [filter, setFilter]   = useState<FilterStatus>('all')
-  const [selected, setSelected] = useState<ApprovedOrder | null>(null)
-  const [search, setSearch]   = useState('')
+export default function ThongKePagePlan() {
+  const [filter, setFilter]     = useState<FilterStatus>('all')
+  const [selected, setSelected] = useState<MfgOrder | null>(null)
+  const [search, setSearch]     = useState('')
 
   const q = search.trim().toLowerCase()
   const filtered = MOCK_ORDERS
@@ -484,7 +594,6 @@ export default function ThongKePage() {
 
   const counts = {
     all:       MOCK_ORDERS.length,
-    APPROVED:  MOCK_ORDERS.filter(o => o.status === 'APPROVED').length,
     PRODUCING: MOCK_ORDERS.filter(o => o.status === 'PRODUCING').length,
     DONE:      MOCK_ORDERS.filter(o => o.status === 'DONE').length,
   }
@@ -495,20 +604,19 @@ export default function ThongKePage() {
 
   return (
     <div>
-      {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Bảng thống kê</h2>
         <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>
-          Danh sách lệnh sản xuất đã được duyệt — nhấn vào dòng để xem chi tiết
+          Danh sách lệnh sản xuất — nhấn vào dòng để xem chi tiết tiến độ
         </p>
       </div>
 
       {/* Stat cards */}
       <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
         {[
-          { label: 'Đã duyệt',      value: counts.all,       icon: <Factory size={20} color="#6b7280" />,  bg: '#f9fafb', color: '#374151', border: '#e5e7eb' },
-          { label: 'Đang sản xuất', value: counts.PRODUCING, icon: <TrendingUp size={20} color="#15803d" />, bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
-          { label: 'Hoàn thành',    value: counts.DONE,      icon: <Clock size={20} color="#065f46" />,     bg: '#ecfdf5', color: '#065f46', border: '#6ee7b7' },
+          { label: 'Tổng lệnh SX',  value: counts.all,       icon: <Factory size={20} color="#6b7280" />,       bg: '#f9fafb', color: '#374151', border: '#e5e7eb' },
+          { label: 'Đang sản xuất', value: counts.PRODUCING, icon: <TrendingUp size={20} color="#15803d" />,    bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
+          { label: 'Hoàn thành',    value: counts.DONE,      icon: <CheckCircle2 size={20} color="#065f46" />,  bg: '#ecfdf5', color: '#065f46', border: '#6ee7b7' },
         ].map(s => (
           <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', background: s.bg, border: `1px solid ${s.border}`, borderRadius: 12, minWidth: 160, flex: '1 1 0' }}>
             {s.icon}
@@ -520,7 +628,7 @@ export default function ThongKePage() {
         ))}
       </div>
 
-      {/* Search + Filter row */}
+      {/* Filter + Search */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 6 }}>
           {([['all', 'Tất cả'], ['PRODUCING', 'Đang sản xuất'], ['DONE', 'Hoàn thành']] as [FilterStatus, string][]).map(([key, label]) => (
@@ -552,18 +660,22 @@ export default function ThongKePage() {
             <tr>
               <th style={{ ...th, width: 42 }}>#</th>
               <th style={th}>Mã PI</th>
-              <th style={th}>SKU</th>
+              <th style={th}>Sản phẩm</th>
               <th style={th}>Khách hàng</th>
               <th style={{ ...th, textAlign: 'right' }}>SL</th>
               <th style={th}>Hạn giao</th>
               <th style={th}>Ngày duyệt</th>
               <th style={th}>Trạng thái</th>
+              <th style={{ ...th, width: 130 }}>Tiến độ</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((o, i) => {
-              const m = STATUS_META[o.status]
-              const isOverdue = new Date(o.deadline) < new Date() && o.status !== 'DONE'
+              const details   = STAGE_DETAILS[o.id]
+              const isDone    = o.status === 'DONE' || (!!details && isAllDone(details))
+              const m         = STATUS_META[isDone ? 'DONE' : 'PRODUCING']
+              const isOverdue = new Date(o.deadline) < new Date() && !isDone
+              const pct       = isDone ? 100 : details ? getOverallPercent(details) : 0
               return (
                 <tr
                   key={o.id}
@@ -589,17 +701,23 @@ export default function ThongKePage() {
                   </td>
                   <td style={td}>
                     <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>
-                      {o.status === 'PRODUCING' && o.mfgStage
-                        ? MFG_STAGES.find(s => s.key === o.mfgStage)?.label
-                        : m.label}
+                      {m.label}
                     </span>
+                  </td>
+                  <td style={{ ...td, width: 130 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <div style={{ flex: 1, height: 6, background: 'var(--surface2)', borderRadius: 3, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: isDone ? '#22c55e' : '#f59e0b', borderRadius: 3 }} />
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: isDone ? '#15803d' : 'var(--text2)', minWidth: 30, textAlign: 'right' }}>{pct}%</span>
+                    </div>
                   </td>
                 </tr>
               )
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
+                <td colSpan={9} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
                   Không có lệnh nào
                 </td>
               </tr>

@@ -20,7 +20,7 @@ import DongGoiPage from './DongGoiPage'
 import WeavingPointsPage from './WeavingPointsPage'
 import LichSuNhapDanPage from './LichSuNhapDanPage'
 import QuanLyDiemDanPage from './QuanLyDiemDanPage'
-import ThongKePage from './ThongKePage'
+import ThongKePagePlan from './ThongKePagePlan'
 import SKUListPage from '../ProductionPlan/SKUListPage'
 
 
@@ -352,7 +352,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'tao-don-hang'  && isFactorySales && <TaoDonHangMoiPage onCreated={() => setTab('tong-don-hang')} />}
         {tab === 'danh-sach-khach-hang' && isFactorySales && <DanhSachKhachHangPage />}
         {tab === 'pi-list' && isDirector && <PIListPage />}
-        {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePage />}
+        {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePagePlan />}
         {tab === 'dieu-phoi-dan' && canSeeDieuPhoi && <DieuPhoiDanPage readOnly={isDirector} />}
         {tab === 'lich-su-nhap-dan' && canSeeDieuPhoi && <LichSuNhapDanPage />}
         {tab === 'quan-ly-diem-dan' && canSeeDieuPhoi && <QuanLyDiemDanPage readOnly={isDirector} />}
