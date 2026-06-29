@@ -63,7 +63,6 @@ export default function WeavingPointsPage({ readOnly = false, embedded = false }
         </div>
         {!readOnly && (
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <ConfigBar />
             <button onClick={() => { setForm({}); setErr('') }} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', background: '#e65100', color: '#fff', border: 'none', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
               <Plus size={15} /> Thêm điểm đan
             </button>
@@ -137,32 +136,3 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-// Cấu hình tối thiểu cấp đan (inline ở header)
-function ConfigBar() {
-  const { data, refetch } = useFetch<{ minAllocationQty: number }>(() => api.getWeavingConfig(), [])
-  const [editing, setEditing] = useState(false)
-  const [val, setVal] = useState('')
-  const [busy, setBusy] = useState(false)
-  const min = data?.minAllocationQty ?? 200
-
-  const save = async () => {
-    try { setBusy(true); await api.updateWeavingConfig(Number(val)); setEditing(false); refetch() }
-    finally { setBusy(false) }
-  }
-
-  if (editing) {
-    return (
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        <span style={{ fontSize: 12, color: 'var(--text3)' }}>Tối thiểu cấp:</span>
-        <input type="number" min={1} value={val} onChange={(e) => setVal(e.target.value)} style={{ ...inp, width: 90 }} />
-        <button onClick={save} disabled={busy} style={{ padding: 6, background: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: 'var(--radius)', cursor: 'pointer', display: 'flex' }}><Save size={13} color="#2e7d32" /></button>
-        <button onClick={() => setEditing(false)} style={{ padding: 6, background: '#ffebee', border: '1px solid #ef9a9a', borderRadius: 'var(--radius)', cursor: 'pointer', display: 'flex' }}><X size={13} color="#c62828" /></button>
-      </div>
-    )
-  }
-  return (
-    <button onClick={() => { setVal(String(min)); setEditing(true) }} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 12, color: 'var(--text2)', cursor: 'pointer' }}>
-      Tối thiểu cấp: <strong>{min}</strong> <Pencil size={12} />
-    </button>
-  )
-}
