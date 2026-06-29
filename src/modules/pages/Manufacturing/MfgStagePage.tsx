@@ -71,7 +71,7 @@ export default function MfgStagePage({ piId, stageType, readOnly = false }: Prop
   const canReport = !readOnly && (user?.mfgRole === stageType || user?.mfgRole === 'PRODUCTION_MANAGER')
   const canReview = !readOnly && (user?.mfgRole === 'QC' || user?.mfgRole === 'PRODUCTION_MANAGER')
 
-  const { data, isLoading, error, refetch } = useFetch<StageData>(() => api.getStageExec(piId, stageType), [piId, stageType])
+  const { data, isLoading, error, refetch } = useFetch<StageData>(() => api.getStageExec(piId, stageType) as Promise<StageData>, [piId, stageType])
 
   const [busy, setBusy] = useState(false)
   const [formErr, setFormErr] = useState('')

@@ -1,29 +1,90 @@
 import { mockDelay } from '../core/delay';
 import { mockStore } from '../core/store';
 import { nextId } from '../core/id';
+import { BaseService } from '../core/base.service';
 
-const clone = <T>(v: T): T => structuredClone(v);
-const ok = async <T>(v: T) => { await mockDelay(); return v; };
+// ─── Service classes ──────────────────────────────────────────────────────────
 
-export const getSuppliers = () => ok(clone(mockStore.get().suppliers));
-export const createSupplier = async (data: Record<string, unknown>) => {
-  await mockDelay();
-  const row = { id: nextId(), isActive: true, ...data };
-  mockStore.update((s) => (s.suppliers as any[]).push(row));
-  return row;
-};
-export const updateSupplier = async (id: number, data: Record<string, unknown>) => ok({ id, ...data });
-export const deleteSupplier = async (id: number) => ok({ id });
+class SupplierService extends BaseService<any> {
+  constructor() { super('suppliers'); }
 
-export const getMaterialSuppliers = (_materialId?: number) =>
-  ok(clone(mockStore.get().materialSuppliers));
-export const createMaterialSupplier = async (data: Record<string, unknown>) => ok({ id: nextId(), ...data });
-export const updateMaterialSupplier = async (id: number, data: Record<string, unknown>) => ok({ id, ...data });
-export const deleteMaterialSupplier = async (id: number) => ok({ id });
+  async create(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    return super.create(data, { isActive: true });
+  }
 
-export const getPurchaseCommands = () => ok(clone(mockStore.get().purchaseCommands));
-export const getPurchaseCommand = (id: number) =>
-  ok(clone(mockStore.get().purchaseCommands.find((c) => c.id === id)));
-export const computePurchaseCommand = (id: number) => ok({ id, computed: true });
-export const updateCommandItem = async (itemId: number, data: Record<string, unknown>) =>
-  ok({ id: itemId, ...data });
+  async update(id: number, data: Record<string, unknown>) {
+    await mockDelay();
+    return { id, ...data };
+  }
+
+  async remove(id: number) {
+    await mockDelay();
+    return { id };
+  }
+}
+
+class MaterialSupplierService extends BaseService<any> {
+  constructor() { super('materialSuppliers'); }
+
+  async getByMaterial(_materialId?: number) {
+    await mockDelay();
+    return this.clone(this.collection());
+  }
+
+  async create(data: Record<string, unknown>): Promise<Record<string, unknown>> {
+    await mockDelay();
+    return { id: nextId(), ...data };
+  }
+
+  async update(id: number, data: Record<string, unknown>) {
+    await mockDelay();
+    return { id, ...data };
+  }
+
+  async remove(id: number) {
+    await mockDelay();
+    return { id };
+  }
+}
+
+class PurchaseCommandService extends BaseService<any> {
+  constructor() { super('purchaseCommands'); }
+
+  async findById(id: number | string): Promise<any> {
+    await mockDelay();
+    return this.clone(this.collection().find((c) => c.id === id));
+  }
+
+  async compute(id: number) {
+    await mockDelay();
+    return { id, computed: true };
+  }
+
+  async updateItem(itemId: number, data: Record<string, unknown>) {
+    await mockDelay();
+    return { id: itemId, ...data };
+  }
+}
+
+// ─── Service instances (singletons) ──────────────────────────────────────────
+
+const supplierSvc = new SupplierService();
+const materialSupplierSvc = new MaterialSupplierService();
+const purchaseCommandSvc = new PurchaseCommandService();
+
+// ─── Exports (API công khai, tương thích ngược hoàn toàn) ────────────────────
+
+export const getSuppliers = () => supplierSvc.getAll();
+export const createSupplier = (data: Record<string, unknown>) => supplierSvc.create(data);
+export const updateSupplier = (id: number, data: Record<string, unknown>) => supplierSvc.update(id, data);
+export const deleteSupplier = (id: number) => supplierSvc.remove(id);
+
+export const getMaterialSuppliers = (materialId?: number) => materialSupplierSvc.getByMaterial(materialId);
+export const createMaterialSupplier = (data: Record<string, unknown>) => materialSupplierSvc.create(data);
+export const updateMaterialSupplier = (id: number, data: Record<string, unknown>) => materialSupplierSvc.update(id, data);
+export const deleteMaterialSupplier = (id: number) => materialSupplierSvc.remove(id);
+
+export const getPurchaseCommands = () => purchaseCommandSvc.getAll();
+export const getPurchaseCommand = (id: number) => purchaseCommandSvc.findById(id);
+export const computePurchaseCommand = (id: number) => purchaseCommandSvc.compute(id);
+export const updateCommandItem = (itemId: number, data: Record<string, unknown>) => purchaseCommandSvc.updateItem(itemId, data);

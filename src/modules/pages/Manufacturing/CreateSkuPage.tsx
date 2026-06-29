@@ -47,7 +47,7 @@ export default function CreateSkuPage() {
     : allPending
 
   const handleSubmit = async () => {
-    if (!form.note.trim()) {
+    if (!(form.note ?? '').trim()) {
       alert('Vui lòng nhập SKU')
       return
     }
@@ -112,15 +112,6 @@ export default function CreateSkuPage() {
             {/* Fields */}
             <div style={{ padding: '20px 20px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div>
-                <label style={labelStyle}>Tên khách hàng</label>
-                <input
-                  type="text" value={customerName}
-                  onChange={e => setCustomerName(e.target.value)}
-                  placeholder="Nhập tên khách hàng"
-                  style={inputStyle}
-                />
-              </div>
-              <div>
                 <label style={labelStyle}>Mã SKU <span style={{ color: '#dc2626' }}>*</span></label>
                 <input
                   autoFocus
@@ -128,6 +119,15 @@ export default function CreateSkuPage() {
                   onChange={e => setForm({ ...form, note: e.target.value })}
                   onKeyDown={e => { if (e.key === 'Enter') handleSubmit() }}
                   placeholder="Nhập mã SKU"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={labelStyle}>Tên khách hàng</label>
+                <input
+                  type="text" value={customerName}
+                  onChange={e => setCustomerName(e.target.value)}
+                  placeholder="Nhập tên khách hàng"
                   style={inputStyle}
                 />
               </div>

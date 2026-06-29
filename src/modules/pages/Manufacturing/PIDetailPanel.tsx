@@ -24,7 +24,7 @@ interface Props {
 export default function PIDetailPanel({ piId, onClose }: Props) {
   const [showPhoi, setShowPhoi] = useState(false)
   const [viewOrder, setViewOrder] = useState(false)
-  const { data: pi, isLoading, error } = useFetch(
+  const { data: pi, isLoading, error } = useFetch<any>(
     () => api.getProductionInvoice(piId),
     [piId]
   )

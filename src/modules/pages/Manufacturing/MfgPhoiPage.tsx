@@ -31,7 +31,7 @@ interface PhoiPiece {
   groupNumber: number
   pieceNumber: number
   targetQuantity: number
-  requiredOps: PhoiOperation[]
+  requiredOps: PhoiOperation[] | string[]
   completedQuantity: number
   failedQuantity: number
   remaining: number
@@ -103,7 +103,7 @@ export default function MfgPhoiPage({ piId, subTab: subTabProp, readOnly = false
   const setSubTab = subTabProp ? (_: 'tong-hop' | 'chi-tiet') => {} : setSubTabLocal
   const showTabNav = !subTabProp
 
-  const { data, isLoading, error, refetch } = useFetch<PhoiData>(() => api.getPhoiExecutions(piId), [piId])
+  const { data, isLoading, error, refetch } = useFetch<PhoiData>(() => api.getPhoiExecutions(piId) as Promise<PhoiData>, [piId])
 
   const [busy, setBusy]     = useState(false)
   const [formErr, setFormErr] = useState('')

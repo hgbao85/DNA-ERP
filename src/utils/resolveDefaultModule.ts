@@ -1,14 +1,23 @@
 import type { User } from '../context/AuthContext';
 
+/** Mỗi strategy định nghĩa điều kiện khớp và module tương ứng. */
+interface ModuleStrategy {
+  matches: (user: User) => boolean;
+  module: string;
+}
+
+const MODULE_STRATEGIES: ModuleStrategy[] = [
+  { matches: (u) => !!u.mfgRole,               module: 'production' },
+  { matches: (u) => !!u.isProductPlanner,       module: 'production_plan' },
+  { matches: (u) => u.role === 'SALES',         module: 'crm' },
+  { matches: (u) => !!u.isPurchaser,            module: 'purchasing' },
+  { matches: (u) => u.role === 'WAREHOUSE_STAFF', module: 'inbound_warehouse' },
+];
+
 /** Phân hệ mặc định sau đăng nhập — tài khoản chuyên biệt bị khóa vào 1 phân hệ. */
 export function resolveDefaultModule(user: User | null): string | null {
   if (!user) return null;
-  if (user.mfgRole) return 'production';
-  if (user.isProductPlanner) return 'production_plan';
-  if (user.role === 'SALES') return 'crm';
-  if (user.isPurchaser) return 'purchasing';
-  if (user.role === 'WAREHOUSE_STAFF') return 'inbound_warehouse';
-  return null; // MANAGER: chọn phân hệ trên màn hình module
+  return MODULE_STRATEGIES.find((s) => s.matches(user))?.module ?? null;
 }
 
 export function isDirector(user: User | null): boolean {

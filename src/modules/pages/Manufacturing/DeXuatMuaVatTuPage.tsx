@@ -60,7 +60,7 @@ export default function DeXuatMuaVatTuPage() {
     setBusy(true)
     try {
       const result = await api.createPurchaseProposal({ note: note || undefined, items })
-      const lmhCode: string = result?.command?.code ?? ''
+      const lmhCode: string = (result as any)?.command?.code ?? ''
       setMsg(`✓ Đã gửi sang Mua hàng${lmhCode ? ` — ${lmhCode}` : ''}`)
       setLines([newLine()]); setNote(''); setLoadedFrom(null)
       refetch()

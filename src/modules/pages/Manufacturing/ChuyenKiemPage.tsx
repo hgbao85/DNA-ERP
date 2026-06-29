@@ -12,7 +12,7 @@ interface CKPiece {
 }
 interface CKPendingReport {
   id: number; piFramePieceId: number; pieceName: string; pieceCode: string; quantity: number
-  reportedBy: { id: number; name: string } | null; reportedAt: string; note: string | null
+  reportedBy: { id: number; name: string } | null; reportedAt: string; note?: string | null
 }
 interface CKFailedReport {
   id: number; pieceName: string; quantity: number

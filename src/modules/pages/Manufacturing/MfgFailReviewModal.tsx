@@ -10,6 +10,7 @@ export interface FailPayload {
   defectReasonId: number
   reviewNote?: string
   defectPhotoUrl?: string
+  [key: string]: unknown
 }
 
 interface Props {
@@ -37,7 +38,7 @@ export default function MfgFailReviewModal({ stageType, title, onClose, onSubmit
     if (!newLabel.trim()) return
     setAdding(true); setErr('')
     try {
-      const created: DefectReason = await api.createDefectReason({ label: newLabel.trim(), stageType })
+      const created = await api.createDefectReason({ label: newLabel.trim(), stageType }) as DefectReason
       setNewLabel('')
       await refetch()
       setReasonId(created.id)

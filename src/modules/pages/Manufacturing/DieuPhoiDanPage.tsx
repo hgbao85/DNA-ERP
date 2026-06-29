@@ -14,7 +14,7 @@ interface Warehouse { id: number; name: string; isActive: boolean }
 interface ReceiptRow {
   id: number; receivedDate: string; pointCode: string; pointName: string | null
   pieceName: string; pieceCode: string; piCode: string; poNumber: string | null
-  productLabel: string; warehouseName: string; quantity: number; by: string | null; note: string | null
+  productLabel: string; warehouseName: string; quantity: number; by: string | null; note?: string | null
 }
 
 // ── Màn ĐIỀU PHỐI ĐAN: thu mảnh đã đan về + chia kho (Nghĩa/Trinh/Hân) ───────────

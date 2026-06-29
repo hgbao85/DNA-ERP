@@ -1,299 +1,258 @@
 import { mockDelay } from '../core/delay';
 import { mockStore } from '../core/store';
 import { nextId } from '../core/id';
+import { BaseService } from '../core/base.service';
+import type {
+  Product,
+  RetailCustomer,
+  WholesaleCustomer,
+  CareReminder,
+  WholesaleCareReminder,
+  Promotion,
+  Quotation,
+  AgencyWarehouseSummary,
+  Order,
+  SalesUserSummary,
+} from '../../../types/index';
 
-const clone = <T>(v: T): T => structuredClone(v);
+// ─── Service classes ──────────────────────────────────────────────────────────
 
-export async function getProducts() {
-  await mockDelay();
-  return clone(mockStore.get().products);
+class ProductService extends BaseService<Product> {
+  constructor() { super('products'); }
+
+  async create(data: Record<string, unknown>): Promise<Product> {
+    await mockDelay();
+    let created: Record<string, unknown> = {};
+    mockStore.update((s) => {
+      created = { id: data.id ?? `SP-${nextId()}`, ...data };
+      (s.products as unknown as Record<string, unknown>[]).push(created);
+    });
+    return created as unknown as Product;
+  }
 }
 
-export async function createProduct(data: Record<string, unknown>) {
-  await mockDelay();
-  const created = { id: data.id ?? `SP-${nextId()}`, ...data };
-  mockStore.update((s) => (s.products as any[]).push(created));
-  return created;
+class AgencyWarehouseService extends BaseService<AgencyWarehouseSummary> {
+  constructor() { super('agencyWarehouses'); }
 }
 
-export async function updateProduct(id: string, data: Record<string, unknown>) {
-  await mockDelay();
-  mockStore.update((s) => {
-    const i = s.products.findIndex((p) => p.id === id);
-    if (i >= 0) s.products[i] = { ...s.products[i], ...data };
-  });
-  return mockStore.get().products.find((p) => p.id === id);
+class OrderService extends BaseService<Order> {
+  constructor() { super('orders'); }
 }
 
-export async function deleteProduct(id: string) {
-  await mockDelay();
-  mockStore.update((s) => {
-    s.products = s.products.filter((p) => p.id !== id);
-  });
-  return { id };
+class SalesUserService extends BaseService<SalesUserSummary> {
+  constructor() { super('salesUsers'); }
+
+  async create(data: Record<string, unknown>): Promise<SalesUserSummary> {
+    await mockDelay();
+    const user = { id: nextId(), ...data };
+    mockStore.update((s) => {
+      s.salesUsers.push(user as unknown as (typeof s.salesUsers)[0]);
+    });
+    return user as unknown as SalesUserSummary;
+  }
 }
 
-export async function getAgencyWarehouses() {
-  await mockDelay();
-  return clone(mockStore.get().agencyWarehouses);
+class RetailCustomerService extends BaseService<RetailCustomer> {
+  constructor() { super('retailCustomers'); }
+
+  async create(data: Record<string, unknown>): Promise<RetailCustomer> {
+    return super.create(data, { debt: 0, createdAt: new Date().toISOString() });
+  }
+
+  async detail(id: number): Promise<RetailCustomer> {
+    await mockDelay();
+    const c = mockStore.get().retailCustomers.find((x) => x.id === id);
+    if (!c) throw new Error('Not found');
+    return this.clone({ ...c, careHistory: c.careHistory ?? [], orders: c.orders ?? [] });
+  }
+
+  async assignSales(id: number, salesId: number): Promise<RetailCustomer> {
+    await mockDelay();
+    mockStore.update((s) => {
+      const c = s.retailCustomers.find((x) => x.id === id);
+      if (c) {
+        c.assignedSalesId = salesId;
+        c.assignedSales = s.salesUsers.find((u) => u.id === salesId);
+      }
+    });
+    return this.detail(id);
+  }
+
+  async addCareHistory(id: number, note: string): Promise<RetailCustomer> {
+    await mockDelay();
+    mockStore.update((s) => {
+      const c = s.retailCustomers.find((x) => x.id === id);
+      if (c) {
+        if (!c.careHistory) c.careHistory = [];
+        c.careHistory.unshift({ id: nextId(), note, createdAt: new Date().toISOString() });
+      }
+    });
+    return this.detail(id);
+  }
 }
 
-export async function getOrders() {
-  await mockDelay();
-  return clone(mockStore.get().orders);
+class CareReminderService extends BaseService<CareReminder> {
+  constructor() { super('careReminders'); }
 }
 
-export async function getSalesUsers() {
-  await mockDelay();
-  return clone(mockStore.get().salesUsers);
+class WholesaleCustomerService extends BaseService<WholesaleCustomer> {
+  constructor() { super('wholesaleCustomers'); }
+
+  async create(data: Record<string, unknown>): Promise<WholesaleCustomer> {
+    return super.create(data, { debt: 0, createdAt: new Date().toISOString() });
+  }
+
+  async detail(id: number): Promise<WholesaleCustomer> {
+    await mockDelay();
+    const c = mockStore.get().wholesaleCustomers.find((x) => x.id === id);
+    if (!c) throw new Error('Not found');
+    return this.clone(c);
+  }
+
+  async addCareHistory(id: number, note: string): Promise<WholesaleCustomer> {
+    await mockDelay();
+    mockStore.update((s) => {
+      const c = s.wholesaleCustomers.find((x) => x.id === id);
+      if (c) {
+        if (!c.careHistory) c.careHistory = [];
+        c.careHistory.unshift({ id: nextId(), note, createdAt: new Date().toISOString() });
+      }
+    });
+    return this.detail(id);
+  }
+
+  async assignSales(id: number, salesId: number): Promise<WholesaleCustomer> {
+    await mockDelay();
+    mockStore.update((s) => {
+      const c = s.wholesaleCustomers.find((x) => x.id === id);
+      if (c) {
+        c.assignedSalesId = salesId;
+        c.assignedSales = s.salesUsers.find((u) => u.id === salesId);
+      }
+    });
+    return this.detail(id);
+  }
 }
 
-export async function createUser(data: Record<string, unknown>) {
-  await mockDelay();
-  const user = { id: nextId(), ...data };
-  mockStore.update((s) => {
-    s.salesUsers.push(user as unknown as (typeof s.salesUsers)[0]);
-  });
-  return user;
+class WholesaleCareReminderService extends BaseService<WholesaleCareReminder> {
+  constructor() { super('wholesaleCareReminders'); }
 }
 
-export async function getRetailCustomers() {
-  await mockDelay();
-  return clone(mockStore.get().retailCustomers);
+class PromotionService extends BaseService<Promotion> {
+  constructor() { super('promotions'); }
+
+  async create(data: Record<string, unknown>): Promise<Promotion> {
+    return super.create(data, { createdAt: new Date().toISOString() });
+  }
 }
 
-export async function getRetailCustomerDetail(id: number) {
-  await mockDelay();
-  const c = mockStore.get().retailCustomers.find((x) => x.id === id);
-  if (!c) throw new Error('Not found');
-  return clone({ ...c, careHistory: c.careHistory ?? [], orders: c.orders ?? [] });
+class QuotationService extends BaseService<Quotation> {
+  constructor() { super('quotations'); }
+
+  async create(data: Record<string, unknown>): Promise<Quotation> {
+    await mockDelay();
+    let created: Record<string, unknown> = {};
+    mockStore.update((s) => {
+      created = {
+        id: nextId(),
+        code: `BG-2026-${String(s.quotations.length + 1).padStart(3, '0')}`,
+        status: 'DRAFT',
+        createdAt: new Date().toISOString(),
+        items: [],
+        discountPercent: 0,
+        discountAmount: 0,
+        totalAmount: 0,
+        ...data,
+      };
+      s.quotations.unshift(created as unknown as (typeof s.quotations)[0]);
+    });
+    return created as unknown as Quotation;
+  }
+
+  async submit(id: number): Promise<Quotation | undefined> {
+    await mockDelay();
+    mockStore.update((s) => {
+      const q = s.quotations.find((x) => x.id === id);
+      if (q) q.status = 'PENDING';
+    });
+    return mockStore.get().quotations.find((q) => q.id === id);
+  }
+
+  async approve(id: number): Promise<Quotation | undefined> {
+    await mockDelay();
+    mockStore.update((s) => {
+      const q = s.quotations.find((x) => x.id === id);
+      if (q) q.status = 'APPROVED';
+    });
+    return mockStore.get().quotations.find((q) => q.id === id);
+  }
+
+  async reject(id: number, rejectReason: string): Promise<Quotation | undefined> {
+    await mockDelay();
+    mockStore.update((s) => {
+      const q = s.quotations.find((x) => x.id === id);
+      if (q) { q.status = 'REJECTED'; q.rejectReason = rejectReason; }
+    });
+    return mockStore.get().quotations.find((q) => q.id === id);
+  }
 }
 
-export async function createRetailCustomer(data: Record<string, unknown>) {
-  await mockDelay();
-  let created: Record<string, unknown> = {};
-  mockStore.update((s) => {
-    created = { id: nextId(), createdAt: new Date().toISOString(), debt: 0, ...data };
-    s.retailCustomers.push(created as unknown as (typeof s.retailCustomers)[0]);
-  });
-  return created;
-}
+// ─── Service instances (singletons) ──────────────────────────────────────────
 
-export async function updateRetailCustomer(id: number, data: Record<string, unknown>) {
-  await mockDelay();
-  mockStore.update((s) => {
-    const i = s.retailCustomers.findIndex((c) => c.id === id);
-    if (i >= 0) s.retailCustomers[i] = { ...s.retailCustomers[i], ...data };
-  });
-  return mockStore.get().retailCustomers.find((c) => c.id === id);
-}
+const productSvc = new ProductService();
+const agencyWarehouseSvc = new AgencyWarehouseService();
+const orderSvc = new OrderService();
+const salesUserSvc = new SalesUserService();
+const retailSvc = new RetailCustomerService();
+const careReminderSvc = new CareReminderService();
+const wholesaleSvc = new WholesaleCustomerService();
+const wholesaleCareReminderSvc = new WholesaleCareReminderService();
+const promotionSvc = new PromotionService();
+const quotationSvc = new QuotationService();
 
-export async function deleteRetailCustomer(id: number) {
-  await mockDelay();
-  mockStore.update((s) => {
-    s.retailCustomers = s.retailCustomers.filter((c) => c.id !== id);
-  });
-  return { id };
-}
+// ─── Exports (API công khai, tương thích ngược hoàn toàn) ────────────────────
 
-export async function assignRetailCustomerSales(id: number, salesId: number) {
-  await mockDelay();
-  mockStore.update((s) => {
-    const c = s.retailCustomers.find((x) => x.id === id);
-    if (c) {
-      c.assignedSalesId = salesId;
-      c.assignedSales = s.salesUsers.find((u) => u.id === salesId);
-    }
-  });
-  return getRetailCustomerDetail(id);
-}
+export const getProducts = () => productSvc.getAll();
+export const createProduct = (data: Record<string, unknown>) => productSvc.create(data);
+export const updateProduct = (id: string, data: Record<string, unknown>) => productSvc.update(id, data);
+export const deleteProduct = (id: string) => productSvc.remove(id);
 
-export async function addRetailCareHistory(id: number, note: string) {
-  await mockDelay();
-  mockStore.update((s) => {
-    const c = s.retailCustomers.find((x) => x.id === id);
-    if (c) {
-      if (!c.careHistory) c.careHistory = [];
-      c.careHistory.unshift({ id: nextId(), note, createdAt: new Date().toISOString() });
-    }
-  });
-  return getRetailCustomerDetail(id);
-}
+export const getAgencyWarehouses = () => agencyWarehouseSvc.getAll();
 
-export async function getCareReminders() {
-  await mockDelay();
-  return clone(mockStore.get().careReminders);
-}
+export const getOrders = () => orderSvc.getAll();
 
-export async function updateCareReminder(id: number, data: Record<string, unknown>) {
-  await mockDelay();
-  mockStore.update((s) => {
-    const i = s.careReminders.findIndex((r) => r.id === id);
-    if (i >= 0) s.careReminders[i] = { ...s.careReminders[i], ...data };
-  });
-  return mockStore.get().careReminders.find((r) => r.id === id);
-}
+export const getSalesUsers = () => salesUserSvc.getAll();
+export const createUser = (data: Record<string, unknown>) => salesUserSvc.create(data);
 
-export async function getWholesaleCareReminders() {
-  await mockDelay();
-  return clone(mockStore.get().wholesaleCareReminders);
-}
+export const getRetailCustomers = () => retailSvc.getAll();
+export const getRetailCustomerDetail = (id: number) => retailSvc.detail(id);
+export const createRetailCustomer = (data: Record<string, unknown>) => retailSvc.create(data);
+export const updateRetailCustomer = (id: number, data: Record<string, unknown>) => retailSvc.update(id, data);
+export const deleteRetailCustomer = (id: number) => retailSvc.remove(id);
+export const assignRetailCustomerSales = (id: number, salesId: number) => retailSvc.assignSales(id, salesId);
+export const addRetailCareHistory = (id: number, note: string) => retailSvc.addCareHistory(id, note);
 
-export async function updateWholesaleCareReminder(id: number, data: Record<string, unknown>) {
-  await mockDelay();
-  mockStore.update((s) => {
-    const i = s.wholesaleCareReminders.findIndex((r) => r.id === id);
-    if (i >= 0) s.wholesaleCareReminders[i] = { ...s.wholesaleCareReminders[i], ...data };
-  });
-  return mockStore.get().wholesaleCareReminders.find((r) => r.id === id);
-}
+export const getCareReminders = () => careReminderSvc.getAll();
+export const updateCareReminder = (id: number, data: Record<string, unknown>) => careReminderSvc.update(id, data);
 
-export async function getPromotions() {
-  await mockDelay();
-  return clone(mockStore.get().promotions);
-}
+export const getWholesaleCustomers = () => wholesaleSvc.getAll();
+export const getWholesaleCustomerDetail = (id: number) => wholesaleSvc.detail(id);
+export const createWholesaleCustomer = (data: Record<string, unknown>) => wholesaleSvc.create(data);
+export const updateWholesaleCustomer = (id: number, data: Record<string, unknown>) => wholesaleSvc.update(id, data);
+export const deleteWholesaleCustomer = (id: number) => wholesaleSvc.remove(id);
+export const addWholesaleCareHistory = (id: number, note: string) => wholesaleSvc.addCareHistory(id, note);
+export const assignWholesaleCustomerSales = (id: number, salesId: number) => wholesaleSvc.assignSales(id, salesId);
 
-export async function createPromotion(data: Record<string, unknown>) {
-  await mockDelay();
-  let created: Record<string, unknown> = {};
-  mockStore.update((s) => {
-    created = { id: nextId(), createdAt: new Date().toISOString(), ...data };
-    s.promotions.push(created as unknown as (typeof s.promotions)[0]);
-  });
-  return created;
-}
+export const getWholesaleCareReminders = () => wholesaleCareReminderSvc.getAll();
+export const updateWholesaleCareReminder = (id: number, data: Record<string, unknown>) => wholesaleCareReminderSvc.update(id, data);
 
-export async function updatePromotion(id: number, data: Record<string, unknown>) {
-  await mockDelay();
-  mockStore.update((s) => {
-    const i = s.promotions.findIndex((p) => p.id === id);
-    if (i >= 0) s.promotions[i] = { ...s.promotions[i], ...data };
-  });
-  return mockStore.get().promotions.find((p) => p.id === id);
-}
+export const getPromotions = () => promotionSvc.getAll();
+export const createPromotion = (data: Record<string, unknown>) => promotionSvc.create(data);
+export const updatePromotion = (id: number, data: Record<string, unknown>) => promotionSvc.update(id, data);
+export const deletePromotion = (id: number) => promotionSvc.remove(id);
 
-export async function deletePromotion(id: number) {
-  await mockDelay();
-  mockStore.update((s) => {
-    s.promotions = s.promotions.filter((p) => p.id !== id);
-  });
-  return { id };
-}
-
-export async function getWholesaleCustomers() {
-  await mockDelay();
-  return clone(mockStore.get().wholesaleCustomers);
-}
-
-export async function getWholesaleCustomerDetail(id: number) {
-  await mockDelay();
-  const c = mockStore.get().wholesaleCustomers.find((x) => x.id === id);
-  if (!c) throw new Error('Not found');
-  return clone(c);
-}
-
-export async function createWholesaleCustomer(data: Record<string, unknown>) {
-  await mockDelay();
-  let created: Record<string, unknown> = {};
-  mockStore.update((s) => {
-    created = { id: nextId(), createdAt: new Date().toISOString(), debt: 0, ...data };
-    s.wholesaleCustomers.push(created as unknown as (typeof s.wholesaleCustomers)[0]);
-  });
-  return created;
-}
-
-export async function updateWholesaleCustomer(id: number, data: Record<string, unknown>) {
-  await mockDelay();
-  mockStore.update((s) => {
-    const i = s.wholesaleCustomers.findIndex((c) => c.id === id);
-    if (i >= 0) s.wholesaleCustomers[i] = { ...s.wholesaleCustomers[i], ...data };
-  });
-  return mockStore.get().wholesaleCustomers.find((c) => c.id === id);
-}
-
-export async function deleteWholesaleCustomer(id: number) {
-  await mockDelay();
-  mockStore.update((s) => {
-    s.wholesaleCustomers = s.wholesaleCustomers.filter((c) => c.id !== id);
-  });
-  return { id };
-}
-
-export async function addWholesaleCareHistory(id: number, note: string) {
-  await mockDelay();
-  mockStore.update((s) => {
-    const c = s.wholesaleCustomers.find((x) => x.id === id);
-    if (c) {
-      if (!c.careHistory) c.careHistory = [];
-      c.careHistory.unshift({ id: nextId(), note, createdAt: new Date().toISOString() });
-    }
-  });
-  return getWholesaleCustomerDetail(id);
-}
-
-export async function assignWholesaleCustomerSales(id: number, salesId: number) {
-  await mockDelay();
-  mockStore.update((s) => {
-    const c = s.wholesaleCustomers.find((x) => x.id === id);
-    if (c) {
-      c.assignedSalesId = salesId;
-      c.assignedSales = s.salesUsers.find((u) => u.id === salesId);
-    }
-  });
-  return getWholesaleCustomerDetail(id);
-}
-
-export async function getQuotations() {
-  await mockDelay();
-  return clone(mockStore.get().quotations);
-}
-
-export async function createQuotation(data: Record<string, unknown>) {
-  await mockDelay();
-  let created: Record<string, unknown> = {};
-  mockStore.update((s) => {
-    created = {
-      id: nextId(),
-      code: `BG-2026-${String(s.quotations.length + 1).padStart(3, '0')}`,
-      status: 'DRAFT',
-      createdAt: new Date().toISOString(),
-      items: [],
-      discountPercent: 0,
-      discountAmount: 0,
-      totalAmount: 0,
-      ...data,
-    };
-    s.quotations.unshift(created as unknown as (typeof s.quotations)[0]);
-  });
-  return created;
-}
-
-export async function submitQuotation(id: number) {
-  await mockDelay();
-  mockStore.update((s) => {
-    const q = s.quotations.find((x) => x.id === id);
-    if (q) q.status = 'PENDING';
-  });
-  return mockStore.get().quotations.find((q) => q.id === id);
-}
-
-export async function approveQuotation(id: number) {
-  await mockDelay();
-  mockStore.update((s) => {
-    const q = s.quotations.find((x) => x.id === id);
-    if (q) q.status = 'APPROVED';
-  });
-  return mockStore.get().quotations.find((q) => q.id === id);
-}
-
-export async function rejectQuotation(id: number, rejectReason: string) {
-  await mockDelay();
-  mockStore.update((s) => {
-    const q = s.quotations.find((x) => x.id === id);
-    if (q) {
-      q.status = 'REJECTED';
-      q.rejectReason = rejectReason;
-    }
-  });
-  return mockStore.get().quotations.find((q) => q.id === id);
-}
+export const getQuotations = () => quotationSvc.getAll();
+export const createQuotation = (data: Record<string, unknown>) => quotationSvc.create(data);
+export const submitQuotation = (id: number) => quotationSvc.submit(id);
+export const approveQuotation = (id: number) => quotationSvc.approve(id);
+export const rejectQuotation = (id: number, rejectReason: string) => quotationSvc.reject(id, rejectReason);

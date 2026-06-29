@@ -4,10 +4,10 @@ import * as api from '../../../services/api'
 import { AlertCircle, Plus, Pencil, Power, Save, X } from 'lucide-react'
 
 interface WeavingPoint {
-  id: number; code: string; fullName: string | null; aliasNote: string | null
-  phone: string | null; address: string | null
-  dayDaiPercent: number; ketThucPercent: number; hangQuanPercent: number
-  note: string | null; isActive: boolean
+  id: number; code: string; fullName: string | null; aliasNote?: string | null
+  phone: string | null; address?: string | null
+  dayDaiPercent?: number; ketThucPercent?: number; hangQuanPercent?: number
+  note?: string | null; isActive: boolean
 }
 type FormState = Partial<WeavingPoint>
 

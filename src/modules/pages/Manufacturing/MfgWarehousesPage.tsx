@@ -30,7 +30,7 @@ interface WhItem {
 }
 interface Txn {
   id: number
-  type: 'IMPORT' | 'EXPORT' | 'ADJUST'
+  type: string
   quantity: number
   note?: string | null
   date: string

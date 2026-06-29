@@ -43,11 +43,11 @@ interface FramePiece {
   id: number
   code: string
   groupNumber: number
-  pieceNumber: number
+  pieceNumber?: number
   name: string
-  quantityPerSet: number
-  isWoven: boolean
-  weavingPrice: number
+  quantityPerSet?: number
+  isWoven?: boolean
+  weavingPrice?: number
   materials: FPMaterial[]
 }
 

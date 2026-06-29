@@ -59,7 +59,7 @@ function DongGoiPICard({ pi, onChanged, readOnly = false }: { pi: PackPI; onChan
   const overallPct = pi.totalTarget > 0 ? Math.round(pi.totalPacked / pi.totalTarget * 100) : 0
 
   const setForm = (key: string, patch: Partial<{ qty: string; time: string }>) =>
-    setForms((m) => ({ ...m, [key]: { qty: '', time: '', ...m[key], ...patch } }))
+    setForms((m) => ({ ...m, [key]: { ...{ qty: '', time: '' }, ...m[key], ...patch } }))
 
   const submit = async (productVariantId: number, box: PackBox) => {
     const key = `${productVariantId}:${box.boxIndex}`

@@ -18,7 +18,7 @@ export default function PackagingMaterialPanel({ piId, isManager }: Props) {
   const [manualLoading, setManualLoading] = useState(false)
   const [manualError, setManualError] = useState('')
 
-  const { data, isLoading, error, refetch } = useFetch(
+  const { data, isLoading, error, refetch } = useFetch<any[]>(
     () => api.getPackagingByPI(piId),
     [piId]
   )

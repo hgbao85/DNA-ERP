@@ -8,6 +8,46 @@ export type MfgRole = 'PRODUCTION_MANAGER' | 'FACTORY_SALES' | 'PHOI' | 'HAN' | 
 
 export type PhoiOperation = 'CAT' | 'TOP_DAU' | 'UON' | 'DAP' | 'DUC_LO' | 'BAN_TAN';
 
+// 5 nhóm kho — tài khoản kho bị giới hạn vào đúng 1 nhóm (null = tổng kho, thấy hết)
+export type WarehouseScope = 'phu-kien' | 'bao-bi' | 'day' | 'sat' | 'thanh-pham';
+
+// ─── Interface segregation (documentation) ───────────────────────────────────
+// Các interface dưới đây mô tả từng nhóm role; dùng làm type hint khi cần
+// thu hẹp kiểu (type narrowing) trong code mới.
+
+export interface BaseUser {
+  id: number;
+  name: string;
+  email: string;
+}
+
+export interface ManagerUser extends BaseUser {
+  role: 'MANAGER';
+}
+
+export interface SalesUser extends BaseUser {
+  role: 'SALES';
+  salesType: 'RETAIL' | 'WHOLESALE' | null;
+}
+
+export interface MfgUser extends BaseUser {
+  role: 'WAREHOUSE_STAFF';
+  mfgRole: MfgRole;
+  phoiOperation?: PhoiOperation | null;
+}
+
+export interface WarehouseUser extends BaseUser {
+  role: 'WAREHOUSE_STAFF';
+  mfgRole?: null;
+  warehouseScope: WarehouseScope | null;
+  isPurchaser?: boolean;
+  isProductPlanner?: boolean;
+}
+
+/**
+ * Flat interface tương thích ngược với toàn bộ consumer code.
+ * Dùng ManagerUser / SalesUser / MfgUser / WarehouseUser khi muốn narrowing chặt hơn.
+ */
 export interface User {
   id: number;
   name: string;
@@ -20,9 +60,6 @@ export interface User {
   isPurchaser?: boolean;
   isProductPlanner?: boolean;
 }
-
-// 5 nhóm kho — tài khoản kho bị giới hạn vào đúng 1 nhóm (null = tổng kho, thấy hết)
-export type WarehouseScope = 'phu-kien' | 'bao-bi' | 'day' | 'sat' | 'thanh-pham';
 
 interface AuthContextType {
   user: User | null;

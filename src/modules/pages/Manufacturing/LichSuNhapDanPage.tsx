@@ -7,7 +7,7 @@ import { format } from 'date-fns'
 interface ReceiptRow {
   id: number; receivedDate: string; pointCode: string; pointName: string | null
   pieceName: string; pieceCode: string; piCode: string; poNumber: string | null
-  productLabel: string; warehouseName: string; quantity: number; by: string | null; note: string | null
+  productLabel: string; warehouseName: string; quantity: number; by: string | null; note?: string | null
 }
 
 const th: React.CSSProperties = { textAlign: 'left', padding: '8px 12px', fontSize: 12, color: 'var(--text3)', fontWeight: 600, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }

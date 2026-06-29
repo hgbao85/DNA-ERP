@@ -27,7 +27,7 @@ interface PI {
   id: number; code: string; deadline: string; status: string
   items: PIItem[]; stages: Stage[]
 }
-type KcsCounts = Record<number, { PHOI: number; HAN: number; SON: number }>
+type KcsCounts = Record<number, Record<string, number>>
 
 // ── Dropdown lọc theo công đoạn ───────────────────────────────────────────────
 type StageFilter = 'ALL' | 'PHOI' | 'HAN' | 'SON' | 'WEAVING' | 'CHUYEN_KIEM' | 'DONG_GOI'
