@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getProfile } from '../services/api';
 import { normalizeUser } from '../utils/normalizeUser';
 
-export type MfgRole = 'PRODUCTION_MANAGER' | 'FACTORY_SALES' | 'PHOI' | 'HAN' | 'SON' | 'QC' | 'WEAVING_MANAGER' | 'BOM_MANAGER' | 'SPEC_STEEL'| 'SPEC_WIRE_PAINT' | 'SPEC_ACCESSORY' | 'SPEC_PACKAGING';
+export type MfgRole = 'PRODUCTION_MANAGER' | 'FACTORY_SALES' | 'PHOI' | 'HAN' | 'SON' | 'QC' | 'WEAVING_MANAGER' | 'WEAVING_EXPORT' | 'BOM_MANAGER' | 'SPEC_STEEL'| 'SPEC_WIRE_PAINT' | 'SPEC_ACCESSORY' | 'SPEC_PACKAGING';
 
 export type PhoiOperation = 'CAT' | 'TOP_DAU' | 'UON' | 'DAP' | 'DUC_LO' | 'BAN_TAN';
 

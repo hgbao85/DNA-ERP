@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { AlertCircle, Phone, Plus, X, ArrowDownToLine, CheckCircle2 } from 'lucide-react'
-import { format } from 'date-fns'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface ReceivePiece {
@@ -11,16 +10,9 @@ interface ReceivePiece {
 }
 interface ReceivePoint { id: number; code: string; fullName: string | null; phone: string | null; totalPending: number; pieces: ReceivePiece[] }
 interface Warehouse { id: number; name: string; isActive: boolean }
-interface ReceiptRow {
-  id: number; receivedDate: string; pointCode: string; pointName: string | null
-  pieceName: string; pieceCode: string; piCode: string; poNumber: string | null
-  productLabel: string; warehouseName: string; quantity: number; by: string | null; note?: string | null
-}
 
 // ── Màn ĐIỀU PHỐI ĐAN: thu mảnh đã đan về + chia kho (Nghĩa/Trinh/Hân) ───────────
 export default function DieuPhoiDanPage({ readOnly = false }: { readOnly?: boolean }) {
-  const [section, setSection] = useState<'list' | 'history'>('list')
-
   return (
     <div>
       <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>Điều phối đan</h2>
@@ -28,29 +20,7 @@ export default function DieuPhoiDanPage({ readOnly = false }: { readOnly?: boole
         Điểm đan giao hàng về → thu + chia cho các kho (Nghĩa / Trinh / Hân).
       </p>
 
-      {/* Internal section switcher */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
-        {(['list', 'history'] as const).map(s => {
-          const labels = { list: 'Danh sách điều phối', history: 'Lịch sử' }
-          const active = section === s
-          return (
-            <button
-              key={s}
-              onClick={() => setSection(s)}
-              style={{
-                padding: '7px 16px', fontSize: 13, fontWeight: active ? 700 : 400,
-                border: 'none', background: 'none', cursor: 'pointer',
-                color: active ? '#e65100' : 'var(--text3)',
-                borderBottom: active ? '2px solid #e65100' : '2px solid transparent',
-                marginBottom: -1,
-              }}
-            >{labels[s]}</button>
-          )
-        })}
-      </div>
-
-      {section === 'list' && <DieuPhoiList readOnly={readOnly} />}
-      {section === 'history' && <LichSuSection />}
+      <DieuPhoiList readOnly={readOnly} />
     </div>
   )
 }
@@ -125,45 +95,6 @@ function DieuPhoiList({ readOnly }: { readOnly: boolean }) {
 }
 
 // ── Section: Lịch sử ──────────────────────────────────────────────────────────
-function LichSuSection() {
-  const { data, isLoading, error } = useFetch<ReceiptRow[]>(() => api.getWeavingReceiptHistory(), [])
-  const rows = Array.isArray(data) ? data : []
-
-  if (isLoading) return <div style={{ padding: 40, color: 'var(--text3)' }}>Đang tải...</div>
-  if (error) return <div style={{ color: '#c62828', display: 'flex', gap: 6 }}><AlertCircle size={16} />Lỗi tải dữ liệu</div>
-  if (rows.length === 0) return <div style={{ color: 'var(--text3)', fontSize: 13 }}>Chưa có lần nhập đan nào.</div>
-
-  return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              {['Ngày', 'Điểm đan', 'Mảnh', 'Lệnh SX / PO', 'Kho nhận', 'Số lượng', 'Người thu'].map((h, i) => (
-                <th key={h} style={{ textAlign: i === 5 ? 'right' : 'left', padding: '8px 12px', fontSize: 12, color: 'var(--text3)', fontWeight: 600, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td style={td}>{format(new Date(r.receivedDate), 'dd/MM/yyyy')}</td>
-                <td style={td}><strong>{r.pointCode}</strong>{r.pointName && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{r.pointName}</div>}</td>
-                <td style={td}><strong>{r.pieceName}</strong> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{r.pieceCode}</span></td>
-                <td style={{ ...td, fontSize: 12 }}>{r.poNumber ?? r.piCode}<div style={{ color: 'var(--text3)' }}>{r.productLabel}</div></td>
-                <td style={td}>{r.warehouseName}</td>
-                <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#2e7d32' }}>{r.quantity}</td>
-                <td style={{ ...td, fontSize: 12, color: 'var(--text2)' }}>{r.by ?? '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
-
-const td: React.CSSProperties = { padding: '8px 12px', fontSize: 13, borderBottom: '1px solid var(--border)', verticalAlign: 'top', whiteSpace: 'nowrap' }
 
 function NhapDanPieceCard({ pointId, piece, warehouses, onChanged, readOnly = false }: { pointId: number; piece: ReceivePiece; warehouses: Warehouse[]; onChanged: () => void; readOnly?: boolean }) {
   type Row = { mfgWarehouseId: number | ''; quantity: string }

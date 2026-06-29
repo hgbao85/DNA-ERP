@@ -886,11 +886,11 @@ export const seedMaterials = [
 ];
 
 export const seedMfgWarehouses = [
-  { id: 1, name: 'Kho phụ kiện',          code: 'phu-kien',   note: 'Phụ kiện sản xuất' },
-  { id: 2, name: 'Kho Sắt',               code: 'sat',         note: 'Sắt ống, sắt tấm, sắt hộp' },
-  { id: 3, name: 'Kho Khung/Dây',         code: 'day',         note: 'Dây đan, khung bán thành phẩm' },
-  { id: 5, name: 'Kho Bao bì/Thành phẩm', code: 'thanh-pham',  note: 'Bao bì đóng gói & thành phẩm hoàn chỉnh' },
-  { id: 6, name: 'Kho Vật tư SX',         code: 'vat-tu-sx',  note: 'Sơn, dây, vật tư tiêu hao sản xuất' },
+  { id: 1, name: 'Kho phụ kiện',          code: 'phu-kien',   note: 'Phụ kiện sản xuất', isActive: true },
+  { id: 2, name: 'Kho Sắt',               code: 'sat',         note: 'Sắt ống, sắt tấm, sắt hộp', isActive: true },
+  { id: 3, name: 'Kho Khung/Dây',         code: 'day',         note: 'Dây đan, khung bán thành phẩm', isActive: true },
+  { id: 5, name: 'Kho Bao bì/Thành phẩm', code: 'thanh-pham',  note: 'Bao bì đóng gói & thành phẩm hoàn chỉnh', isActive: true },
+  { id: 6, name: 'Kho Vật tư SX',         code: 'vat-tu-sx',  note: 'Sơn, dây, vật tư tiêu hao sản xuất', isActive: true },
 ];
 
 export const seedMfgWarehouseItems = [
