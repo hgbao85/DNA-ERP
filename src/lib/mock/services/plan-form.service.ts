@@ -2,7 +2,7 @@ import { mockDelay } from '../core/delay';
 import { mockStore } from '../core/store';
 import { nextId } from '../core/id';
 import { BaseService } from '../core/base.service';
-import type { CreatePlanFormPayload, PlanForm } from '../../../types/plan-form';
+import type { CreatePlanFormPayload, PlanForm, PlanFormStatus } from '../../../types/plan-form';
 
 // ─── Service class ────────────────────────────────────────────────────────────
 
@@ -100,11 +100,27 @@ class PlanFormService extends BaseService<PlanForm> {
     mockStore.update((s) => {
       const idx = s.planForms.findIndex((p) => p.id === id);
       if (idx < 0) throw new Error(`PlanForm #${id} not found`);
-      updated = { ...s.planForms[idx], status: 'PROPOSED', proposedAt: new Date().toISOString() };
+      updated = { ...s.planForms[idx], status: 'APPROVED_DETAIL', proposedAt: new Date().toISOString() };
       s.planForms[idx] = updated;
     });
     return this.enrich(updated);
   }
+
+  private async transition(id: number, newStatus: PlanFormStatus): Promise<PlanForm> {
+    await mockDelay();
+    let updated!: PlanForm;
+    mockStore.update((s) => {
+      const idx = s.planForms.findIndex((p) => p.id === id);
+      if (idx < 0) throw new Error(`PlanForm #${id} not found`);
+      updated = { ...s.planForms[idx], status: newStatus };
+      s.planForms[idx] = updated;
+    });
+    return this.enrich(updated);
+  }
+
+  async approveDetail(id: number): Promise<PlanForm> { return this.transition(id, 'APPROVED_DETAIL'); }
+  async approveParts(id: number):  Promise<PlanForm> { return this.transition(id, 'APPROVED_PARTS'); }
+  async approveFull(id: number):   Promise<PlanForm> { return this.transition(id, 'APPROVED'); }
 
   async deleteMany(ids: number[]): Promise<void> {
     await mockDelay();
@@ -120,10 +136,13 @@ const planFormSvc = new PlanFormService();
 
 // ─── Exports (API công khai, tương thích ngược hoàn toàn) ────────────────────
 
-export const getPlanForms = () => planFormSvc.getAll();
-export const getPlanFormOptions = () => planFormSvc.getOptions();
-export const getPlanForm = (id: number) => planFormSvc.findPlanForm(id);
-export const createPlanForm = (data: CreatePlanFormPayload) => planFormSvc.createForm(data);
-export const proposePlanForm = (data: CreatePlanFormPayload) => planFormSvc.propose(data);
-export const proposePlanFormById = (id: number) => planFormSvc.proposeById(id);
-export const deletePlanForms = (ids: number[]) => planFormSvc.deleteMany(ids);
+export const getPlanForms        = ()                          => planFormSvc.getAll();
+export const getPlanFormOptions  = ()                          => planFormSvc.getOptions();
+export const getPlanForm         = (id: number)                => planFormSvc.findPlanForm(id);
+export const createPlanForm      = (data: CreatePlanFormPayload) => planFormSvc.createForm(data);
+export const proposePlanForm     = (data: CreatePlanFormPayload) => planFormSvc.propose(data);
+export const proposePlanFormById = (id: number)                => planFormSvc.proposeById(id);
+export const approveDetailPlanForm = (id: number)              => planFormSvc.approveDetail(id);
+export const approvePartsPlanForm  = (id: number)              => planFormSvc.approveParts(id);
+export const approveFullPlanForm   = (id: number)              => planFormSvc.approveFull(id);
+export const deletePlanForms     = (ids: number[])             => planFormSvc.deleteMany(ids);

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
-import ExportOrderDetailModal from './ExportOrderDetailModal'
+import ExportOrderDetailModal from '../Manufacturing/ExportOrderDetailModal'
 import { format } from 'date-fns'
 import { AlertCircle, CheckCircle2, FileText, Eye, X, CalendarClock, Pencil, Package, Play, ChevronRight, ChevronLeft, Search } from 'lucide-react'
 
@@ -12,6 +12,7 @@ export default function PIListPage() {
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [confirmingProdId, setConfirmingProdId] = useState<number | null>(null)
   const [confirmProdTarget, setConfirmProdTarget] = useState<any | null>(null)
+  const [selectedItemIdx, setSelectedItemIdx] = useState<number | null>(null)
   const [timeline, setTimeline] = useState<any | null>(null)
   const [timelineOrderId, setTimelineOrderId] = useState<number | null>(null)
   const [timelineLoading, setTimelineLoading] = useState(false)
@@ -236,7 +237,7 @@ export default function PIListPage() {
                   <Pencil size={13}/> Sửa thời hạn
                 </button>
                 {canConfirmProd && (
-                  <button onClick={() => setConfirmProdTarget(pi)}
+                  <button onClick={() => { setConfirmProdTarget(pi); setSelectedItemIdx((pi.items ?? []).length > 0 ? 0 : null) }}
                     style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
                     <Play size={13}/> Xác nhận SX
                   </button>
@@ -416,113 +417,135 @@ export default function PIListPage() {
       )}
 
       {/* Xác nhận sản xuất */}
-      {confirmProdTarget && (
-        <div onClick={() => { if (!confirmingProdId) setConfirmProdTarget(null) }}
-          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:28, width:460, maxWidth:'92vw', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:18 }}>
-              <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
-                <Play size={16} color="#2e7d32"/> Xác nhận sản xuất
-              </h3>
-              <button onClick={() => setConfirmProdTarget(null)} style={{ padding:4, background:'transparent', border:'none', cursor:'pointer' }}>
-                <X size={18} color="var(--text3)"/>
-              </button>
-            </div>
+      {confirmProdTarget && (() => {
+        const items: any[] = confirmProdTarget.items ?? []
+        const selItem = selectedItemIdx !== null ? items[selectedItemIdx] : null
+        return (
+          <div onClick={() => { if (!confirmingProdId) setConfirmProdTarget(null) }}
+            style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
+            <div onClick={e => e.stopPropagation()}
+              style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:24, width:560, maxWidth:'95vw', maxHeight:'85vh', display:'flex', flexDirection:'column', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
 
-            {/* PI & SKU */}
-            <div style={{ display:'flex', gap:12, marginBottom:16 }}>
-              <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'10px 14px' }}>
-                <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:3 }}>Mã lệnh</div>
-                <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:15 }}>{confirmProdTarget.code}</div>
+              {/* Header */}
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexShrink:0 }}>
+                <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
+                  <Play size={16} color="#2e7d32"/> Xác nhận sản xuất
+                </h3>
+                <button onClick={() => setConfirmProdTarget(null)} style={{ padding:4, background:'transparent', border:'none', cursor:'pointer' }}>
+                  <X size={18} color="var(--text3)"/>
+                </button>
               </div>
-              <div style={{ flex:2, background:'var(--surface2)', borderRadius:8, padding:'10px 14px' }}>
-                <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:3 }}>SKU</div>
-                <div style={{ fontWeight:700, fontSize:13 }}>
-                  {confirmProdTarget.items?.[0]?.productVariant?.mfgProduct?.factoryCode ?? '—'}
-                  <span style={{ fontWeight:400, color:'var(--text2)', marginLeft:6 }}>
-                    {confirmProdTarget.items?.[0]?.productVariant?.mfgProduct?.name}
-                  </span>
+
+              {/* PI info strip */}
+              <div style={{ display:'flex', gap:10, marginBottom:14, flexShrink:0 }}>
+                <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Mã lệnh</div>
+                  <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14 }}>{confirmProdTarget.code}</div>
+                </div>
+                <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Hạn hoàn thành</div>
+                  <div style={{ fontWeight:700, fontSize:14 }}>{format(new Date(confirmProdTarget.deadline), 'dd/MM/yyyy')}</div>
                 </div>
               </div>
-            </div>
 
-            {/* Chi tiết sản phẩm */}
-            {(confirmProdTarget.items ?? []).length > 0 && (
-              <div style={{ marginBottom:16, border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
-                <div style={{ background:'var(--surface2)', padding:'7px 14px', fontSize:11, fontWeight:700, color:'var(--text3)' }}>
-                  SẢN PHẨM
-                </div>
-                {(confirmProdTarget.items ?? []).map((item: any, i: number) => (
-                  <div key={i} style={{ padding:'10px 14px', borderTop: i > 0 ? '1px solid var(--border)' : undefined, display:'flex', gap:16, fontSize:13 }}>
-                    <div style={{ flex:2 }}>
-                      <span style={{ fontFamily:'monospace', fontWeight:600, fontSize:12 }}>{item.productVariant?.mfgProduct?.factoryCode}</span>
-                      <span style={{ color:'var(--text2)', marginLeft:6 }}>{item.productVariant?.mfgProduct?.name}</span>
-                    </div>
-                    {item.productVariant?.colorCode && (
-                      <div style={{ color:'var(--text3)', fontSize:12 }}>Màu: <strong>{item.productVariant.colorCode}</strong></div>
-                    )}
-                    <div style={{ color:'var(--text3)', fontSize:12 }}>SL: <strong>{item.quantity?.toLocaleString()}</strong></div>
-                  </div>
-                ))}
+              {/* Section label */}
+              <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:0.5, marginBottom:8, flexShrink:0 }}>
+                Chọn SKU để sản xuất — {items.length} SKU trong lệnh
               </div>
-            )}
 
-            {/* Timeline per SKU */}
-            <div style={{ marginBottom:20 }}>
-              <div style={{ background:'var(--surface2)', borderRadius:8, padding:'8px 14px', marginBottom:8, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <span style={{ fontSize:11, color:'var(--text3)', fontWeight:600 }}>Hạn giao hàng (PI)</span>
-                <span style={{ fontWeight:700, fontSize:13, color: new Date(confirmProdTarget.deadline) < new Date() ? '#c62828' : 'var(--text)' }}>
-                  {format(new Date(confirmProdTarget.deadline), 'dd/MM/yyyy')}
-                </span>
-              </div>
-              {(confirmProdTarget.items ?? []).map((item: any, i: number) => {
-                const pDl  = new Date(confirmProdTarget.deadline)
-                const fb   = (days: number) => { const d = new Date(pDl); d.setDate(d.getDate() - days); return d }
-                const iHan  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'HAN')     : null
-                const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
-                const iSon  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'SON')     : null
-                const cols = [
-                  { label:'Mua hàng',  val: item.materialDeadline ? new Date(item.materialDeadline) : fb(21), own: !!item.materialDeadline },
-                  { label:'Khung cơ khí',  val: iHan  ? new Date(iHan.deadline)  : fb(14), own: !!iHan },
-                  { label:'Đan',       val: iWeav ? new Date(iWeav.deadline) : fb(8),  own: !!iWeav },
-                  { label:'Đóng gói',  val: iSon  ? new Date(iSon.deadline)  : fb(3),  own: !!iSon },
-                ]
-                return (
-                  <div key={i} style={{ border:'1px solid var(--border)', borderRadius:8, overflow:'hidden', marginBottom: i < (confirmProdTarget.items.length - 1) ? 8 : 0 }}>
-                    <div style={{ background:'var(--surface2)', padding:'5px 12px', fontSize:11, fontWeight:700, color:'#0369a1', fontFamily:'monospace' }}>
-                      {item.productVariant?.mfgProduct?.factoryCode ?? '—'}
-                      <span style={{ fontFamily:'sans-serif', fontWeight:400, color:'var(--text3)', marginLeft:8 }}>{item.productVariant?.mfgProduct?.name}</span>
-                    </div>
-                    <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)' }}>
-                      {cols.map(({ label, val, own }, ci) => (
-                        <div key={label} style={{ padding:'8px 10px', borderRight: ci < 3 ? '1px solid var(--border)' : undefined }}>
-                          <div style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>{label}</div>
-                          <div style={{ fontSize:12, fontWeight: own ? 600 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>
-                            {format(val, 'dd/MM/yy')}
-                            {!own && <span style={{ fontSize:9, display:'block' }}>ước tính</span>}
+              {/* SKU list — scrollable, radio style */}
+              <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:6 }}>
+                {items.map((item: any, i: number) => {
+                  const sel  = selectedItemIdx === i
+                  const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
+                  const name = item.productVariant?.mfgProduct?.name ?? ''
+                  const clr  = item.productVariant?.colorCode
+                  const qty  = item.quantity
+                  const pDl  = new Date(confirmProdTarget.deadline)
+                  const fb   = (days: number) => { const d = new Date(pDl); d.setDate(d.getDate() - days); return d }
+                  const iHan  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'HAN')     : null
+                  const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
+                  const iSon  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'SON')     : null
+                  const cols = [
+                    { label:'Mua hàng', val: item.materialDeadline ? new Date(item.materialDeadline) : fb(21), own: !!item.materialDeadline },
+                    { label:'Khung CK', val: iHan  ? new Date(iHan.deadline)  : fb(14), own: !!iHan },
+                    { label:'Đan',      val: iWeav ? new Date(iWeav.deadline) : fb(8),  own: !!iWeav },
+                    { label:'Đóng gói', val: iSon  ? new Date(iSon.deadline)  : fb(3),  own: !!iSon },
+                  ]
+                  const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
+                  return (
+                    <div key={i} onClick={() => setSelectedItemIdx(i)}
+                      style={{ border: sel ? '2px solid #2e7d32' : '1px solid var(--border)', borderRadius:8, overflow:'hidden', cursor:'pointer', background: sel ? '#f0fdf4' : 'var(--surface)', transition:'border-color .12s, background .12s', userSelect:'none' }}>
+                      {/* SKU info row */}
+                      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px' }}>
+                        {/* Radio indicator */}
+                        <div style={{ width:18, height:18, borderRadius:'50%', border:'2px solid', borderColor: sel ? '#2e7d32' : '#d1d5db', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color .12s' }}>
+                          {sel && <div style={{ width:9, height:9, borderRadius:'50%', background:'#2e7d32' }} />}
+                        </div>
+                        <div style={{ flex:1, minWidth:0 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:8, overflow:'hidden' }}>
+                            <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1', flexShrink:0 }}>{code}</span>
+                            {name && <span style={{ fontSize:13, color:'var(--text2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</span>}
+                          </div>
+                          <div style={{ display:'flex', gap:5, marginTop:3 }}>
+                            {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
+                            {clr && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>{clr}</span>}
                           </div>
                         </div>
-                      ))}
+                        {iDelivery && (
+                          <div style={{ textAlign:'right', flexShrink:0 }}>
+                            <div style={{ fontSize:10, color:'#1d4ed8', fontWeight:600 }}>Hạn giao</div>
+                            <div style={{ fontSize:12, fontWeight:700, color:'#1d4ed8' }}>{format(iDelivery, 'dd/MM/yy')}</div>
+                          </div>
+                        )}
+                      </div>
+                      {/* Timeline dates row */}
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', borderTop:'1px solid', borderColor: sel ? '#bbf7d0' : 'var(--border)', background: sel ? '#dcfce7' : 'var(--surface2)' }}>
+                        {cols.map(({ label, val, own }, ci) => (
+                          <div key={label} style={{ padding:'5px 10px', borderRight: ci < 3 ? '1px solid' : undefined, borderRightColor: sel ? '#bbf7d0' : 'var(--border)', textAlign:'center' }}>
+                            <div style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:1 }}>{label}</div>
+                            <div style={{ fontSize:11, fontWeight: own ? 600 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>
+                              {format(val, 'dd/MM/yy')}
+                              {!own && <span style={{ display:'block', fontSize:9 }}>ước tính</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
 
-            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
-              <button onClick={() => setConfirmProdTarget(null)} disabled={!!confirmingProdId}
-                style={{ padding:'9px 18px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor:'pointer', color:'var(--text2)' }}>
-                Hủy
-              </button>
-              <button onClick={() => handleConfirmProduction(confirmProdTarget.id)} disabled={!!confirmingProdId}
-                style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background:'#2e7d32', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: confirmingProdId ? 'not-allowed' : 'pointer', color:'#fff', opacity: confirmingProdId ? 0.7 : 1 }}>
-                <CheckCircle2 size={15}/> {confirmingProdId ? 'Đang xử lý...' : 'Xác nhận sản xuất'}
-              </button>
+              {/* Footer */}
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, marginTop:14, paddingTop:14, borderTop:'1px solid var(--border)', flexShrink:0 }}>
+                <div style={{ fontSize:13, minWidth:0, overflow:'hidden' }}>
+                  {selItem ? (
+                    <span style={{ color:'var(--text2)' }}>
+                      Đã chọn: <strong style={{ color:'#0369a1', fontFamily:'monospace' }}>{selItem.productVariant?.mfgProduct?.factoryCode ?? '—'}</strong>
+                      {selItem.productVariant?.mfgProduct?.name && <span style={{ marginLeft:6 }}>{selItem.productVariant.mfgProduct.name}</span>}
+                    </span>
+                  ) : (
+                    <span style={{ color:'#d97706', fontSize:12 }}>Chưa chọn SKU</span>
+                  )}
+                </div>
+                <div style={{ display:'flex', gap:8, flexShrink:0 }}>
+                  <button onClick={() => setConfirmProdTarget(null)} disabled={!!confirmingProdId}
+                    style={{ padding:'9px 18px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor:'pointer', color:'var(--text2)' }}>
+                    Hủy
+                  </button>
+                  <button
+                    onClick={() => handleConfirmProduction(confirmProdTarget.id)}
+                    disabled={!!confirmingProdId || selectedItemIdx === null}
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background: selectedItemIdx !== null ? '#2e7d32' : '#e5e7eb', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (confirmingProdId || selectedItemIdx === null) ? 'not-allowed' : 'pointer', color: selectedItemIdx !== null ? '#fff' : '#9ca3af', opacity: confirmingProdId ? 0.7 : 1 }}>
+                    <CheckCircle2 size={15}/>
+                    {confirmingProdId ? 'Đang xử lý...' : 'Xác nhận sản xuất'}
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Modal sửa timeline PI */}
       {editingPI && (

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, FileText, PackageCheck, MapPin, ArrowDownToLine, ClipboardCheck, Box, History, FilePlus, Users, CalendarClock, ChevronDown } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
-import PIListPage from './PIListPage'
+import PIListPage from '../ProductionPlan/PIListPage'
 import MfgSetupPage from './MfgSetupPage'
 import SpecSteelPage from './SpecSteelPage'
 import SpecWirePaintPage from './SpecWirePaintPage'
