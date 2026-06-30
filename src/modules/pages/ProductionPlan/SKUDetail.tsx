@@ -259,7 +259,7 @@ export function SKUDetail({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {(filterSec === 'all' || filterSec === 'sat') && (
               <MaterialSection
-                title="Sắt" color="#b45309" bg="#fef3c7" readOnly={!canEditDetail}
+                title="Sắt" color="#b45309" bg="#fef3c7" readOnly={!canEditDetail || hasPurchaseFlow}
                 entry={secStatus.sat}
                 onApprove={() => approveSection('sat')}
                 onReject={() => { setRejectModal({ key: 'sat', title: 'Sắt' }); setRejectReason('') }}
@@ -272,7 +272,7 @@ export function SKUDetail({
             )}
             {(filterSec === 'all' || filterSec === 'daySon') && (
               <MaterialSection
-                title="Dây / Sơn" color="#1d4ed8" bg="#eff6ff" readOnly={!canEditDetail}
+                title="Dây / Sơn" color="#1d4ed8" bg="#eff6ff" readOnly={!canEditDetail || hasPurchaseFlow}
                 entry={secStatus.daySon}
                 onApprove={() => approveSection('daySon')}
                 onReject={() => { setRejectModal({ key: 'daySon', title: 'Dây / Sơn' }); setRejectReason('') }}
@@ -285,7 +285,7 @@ export function SKUDetail({
             )}
             {(filterSec === 'all' || filterSec === 'vatTuPhuKien') && (
               <MaterialSection
-                title="Vật tư phụ kiện" color="#6d28d9" bg="#ede9fe" readOnly={!canEditDetail}
+                title="Vật tư phụ kiện" color="#6d28d9" bg="#ede9fe" readOnly={!canEditDetail || hasPurchaseFlow}
                 entry={secStatus.vatTuPhuKien}
                 onApprove={() => approveSection('vatTuPhuKien')}
                 onReject={() => { setRejectModal({ key: 'vatTuPhuKien', title: 'Vật tư phụ kiện' }); setRejectReason('') }}
@@ -297,7 +297,7 @@ export function SKUDetail({
             )}
             {(filterSec === 'all' || filterSec === 'baoBiDongGoi') && (
               <MaterialSection
-                title="Bao bì đóng gói" color="#065f46" bg="#d1fae5" readOnly={!canEditDetail}
+                title="Bao bì đóng gói" color="#065f46" bg="#d1fae5" readOnly={!canEditDetail || hasPurchaseFlow}
                 entry={secStatus.baoBiDongGoi}
                 onApprove={() => approveSection('baoBiDongGoi')}
                 onReject={() => { setRejectModal({ key: 'baoBiDongGoi', title: 'Bao bì đóng gói' }); setRejectReason('') }}
