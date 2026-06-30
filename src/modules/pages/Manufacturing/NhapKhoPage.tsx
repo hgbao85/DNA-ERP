@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
+import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
-import { ArrowDownToLine, Search, Check } from 'lucide-react'
+import { ArrowDownToLine, Search, Check, FileInput } from 'lucide-react'
 import { filterWarehousesByGroup } from './MfgWarehousesPage'
+import type { WarehouseReceipt } from '../../../types/purchase-order'
 
 interface Wh { id: number; name: string }
 interface Item { id: number; name: string; unit: string; quantity: number; code?: string | null }
@@ -12,6 +14,8 @@ const safeArr = <T,>(d: T[] | null | undefined): T[] => (Array.isArray(d) ? d : 
 const errMsg = (e: unknown) => (e as { response?: { data?: { error?: string } } })?.response?.data?.error
 
 export default function NhapKhoPage({ lockedGroup }: { lockedGroup?: string | null } = {}) {
+  const [nhapTab, setNhapTab] = useState<'manual' | 'receipts'>('manual')
+
   const { data: whs } = useFetch<Wh[]>(() => api.getMfgWarehouses())
   const whList = filterWarehousesByGroup(safeArr(whs), lockedGroup)
   const [whId, setWhId] = useState<number | ''>('')
@@ -54,6 +58,29 @@ export default function NhapKhoPage({ lockedGroup }: { lockedGroup?: string | nu
   return (
     <div>
       <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Nhập kho</h2>
+
+      {/* Tab switcher */}
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
+        {([
+          ['manual',   'Nhập thủ công',         ArrowDownToLine],
+          ['receipts', 'Phiếu nhập từ đơn mua', FileInput],
+        ] as const).map(([id, label, Icon]) => (
+          <button key={id} onClick={() => setNhapTab(id)} style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '8px 18px', fontSize: 13, fontWeight: nhapTab === id ? 700 : 500,
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: nhapTab === id ? '#2e7d32' : 'var(--text2)',
+            borderBottom: nhapTab === id ? '2px solid #2e7d32' : '2px solid transparent',
+            marginBottom: -1,
+          }}>
+            <Icon size={14} />{label}
+          </button>
+        ))}
+      </div>
+
+      {nhapTab === 'receipts' && <PhieuNhapSection whs={whList} />}
+
+      {nhapTab === 'manual' && <>
       <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 18 }}>Nhập vật tư về kho theo mã lệnh mua hàng</div>
 
       <div style={card}>
@@ -129,6 +156,162 @@ export default function NhapKhoPage({ lockedGroup }: { lockedGroup?: string | nu
           </div>
         </div>
       )}
+    </>}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────────────────────
+// PhieuNhapSection — Phiếu nhập từ đơn mua đã được GĐ duyệt
+// ──────────────────────────────────────────────────────────
+function PhieuNhapSection({ whs }: { whs: { id: number; name: string }[] }) {
+  const { data: receipts, refetch } = useFetch<WarehouseReceipt[]>(
+    () => (api as any).getWarehouseReceipts()
+  )
+
+  const pending = (receipts ?? []).filter(r => r.status === 'PENDING')
+
+  const [expanded, setExpanded] = useState<number | null>(null)
+  const [draftItems, setDraftItems] = useState<Record<number, { receivedQty: string; warehouseId: number | '' }[]>>({})
+  const [busy, setBusy] = useState<number | null>(null)
+  const [msgs, setMsgs] = useState<Record<number, string>>({})
+  const { ask, confirmModal } = useConfirm()
+
+  const initDraft = (r: WarehouseReceipt) => {
+    if (draftItems[r.id]) return
+    setDraftItems(prev => ({
+      ...prev,
+      [r.id]: r.items.map(it => ({ receivedQty: String(it.orderedQty), warehouseId: whs.length === 1 ? whs[0].id : '' })),
+    }))
+  }
+
+  const toggle = (r: WarehouseReceipt) => {
+    if (expanded === r.id) { setExpanded(null) } else { setExpanded(r.id); initDraft(r) }
+  }
+
+  const setField = (rid: number, idx: number, field: 'receivedQty' | 'warehouseId', val: string | number) => {
+    setDraftItems(prev => {
+      const rows = [...(prev[rid] ?? [])]
+      rows[idx] = { ...rows[idx], [field]: val }
+      return { ...prev, [rid]: rows }
+    })
+  }
+
+  const handleConfirmReceipt = (r: WarehouseReceipt) => {
+    const rows = draftItems[r.id] ?? []
+    for (let i = 0; i < rows.length; i++) {
+      if (!rows[i].warehouseId) { setMsgs(p => ({ ...p, [r.id]: `Chọn kho cho dòng ${i + 1}` })); return }
+      if (!rows[i].receivedQty || Number(rows[i].receivedQty) < 0) { setMsgs(p => ({ ...p, [r.id]: `Số lượng không hợp lệ dòng ${i + 1}` })); return }
+    }
+    ask(
+      { message: `Xác nhận đã nhận hàng cho phiếu ${r.code}? Tồn kho sẽ được cộng ngay sau khi xác nhận.` },
+      async () => {
+        setBusy(r.id)
+        setMsgs(p => ({ ...p, [r.id]: '' }))
+        try {
+          await (api as any).confirmWarehouseReceipt(r.id, rows.map((row, i) => ({
+            id: r.items[i].id,
+            receivedQty: Number(row.receivedQty),
+            warehouseId: Number(row.warehouseId),
+          })))
+          setMsgs(p => ({ ...p, [r.id]: '✓ Đã xác nhận nhập kho thành công!' }))
+          setExpanded(null)
+          refetch()
+        } catch { setMsgs(p => ({ ...p, [r.id]: 'Lỗi xác nhận' })) }
+        finally { setBusy(null) }
+      }
+    )
+  }
+
+  if (pending.length === 0) {
+    return (
+      <div style={{ textAlign: 'center', padding: '48px 0', color: 'var(--text3)', fontSize: 14 }}>
+        Không có phiếu nhập nào đang chờ xác nhận
+      </div>
+    )
+  }
+
+  return (
+    <div>
+      <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
+        {pending.length} phiếu nhập đang chờ xác nhận nhận hàng
+      </div>
+      {pending.map((r: WarehouseReceipt) => {
+        const open = expanded === r.id
+        const rows = draftItems[r.id] ?? []
+        const msg = msgs[r.id] ?? ''
+        return (
+          <div key={r.id} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginBottom: 12, overflow: 'hidden' }}>
+            <div
+              onClick={() => toggle(r)}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', cursor: 'pointer', background: open ? '#e8f5e9' : 'var(--surface)' }}
+            >
+              <div>
+                <span style={{ fontWeight: 700, fontSize: 14, color: '#2e7d32', marginRight: 10 }}>{r.code}</span>
+                {r.skuName && <span style={{ fontSize: 12, color: 'var(--text3)' }}>SKU: {r.skuName} · </span>}
+                <span style={{ fontSize: 12, color: 'var(--text3)' }}>Đơn mua: {r.purchaseOrderCode} · {r.items.length} vật tư</span>
+              </div>
+              <span style={{ fontSize: 18, color: 'var(--text3)' }}>{open ? '▲' : '▼'}</span>
+            </div>
+
+            {open && (
+              <div style={{ padding: '14px 16px', borderTop: '1px solid var(--border)' }}>
+                <div style={{ overflowX: 'auto', marginBottom: 12 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                        <th style={th}>Vật tư</th>
+                        <th style={{ ...th, textAlign: 'right' }}>SL đặt</th>
+                        <th style={{ ...th, textAlign: 'right' }}>SL thực nhận</th>
+                        <th style={th}>Kho nhập</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {r.items.map((it, idx) => (
+                        <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
+                          <td style={td}>{it.materialName} <span style={{ color: 'var(--text3)', fontSize: 11 }}>({it.unit})</span></td>
+                          <td style={{ ...td, textAlign: 'right' }}>{it.orderedQty}</td>
+                          <td style={{ ...td, textAlign: 'right' }}>
+                            <input
+                              type="number" min={0}
+                              value={rows[idx]?.receivedQty ?? ''}
+                              onChange={e => setField(r.id, idx, 'receivedQty', e.target.value)}
+                              style={{ ...inp, width: 80, textAlign: 'right' }}
+                            />
+                          </td>
+                          <td style={td}>
+                            <select
+                              value={rows[idx]?.warehouseId ?? ''}
+                              onChange={e => setField(r.id, idx, 'warehouseId', e.target.value ? Number(e.target.value) : '')}
+                              style={{ ...inp, width: 180 }}
+                            >
+                              <option value="">— chọn kho —</option>
+                              {whs.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                            </select>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {msg && (
+                  <div style={{ fontSize: 13, marginBottom: 10, color: msg.startsWith('✓') ? '#2e7d32' : '#c62828' }}>{msg}</div>
+                )}
+
+                <button
+                  onClick={() => handleConfirmReceipt(r)}
+                  disabled={busy === r.id}
+                  style={btnGreen}
+                >
+                  <Check size={15} /> {busy === r.id ? 'Đang xác nhận…' : 'Xác nhận đã nhận hàng'}
+                </button>
+              </div>
+            )}
+          </div>
+        )
+      })}
+      {confirmModal}
     </div>
   )
 }

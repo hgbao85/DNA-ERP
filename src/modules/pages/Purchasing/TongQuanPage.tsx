@@ -1,8 +1,12 @@
 import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
+import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
-import { ClipboardList, AlertCircle, RefreshCw } from 'lucide-react'
+import { ClipboardList, AlertCircle, RefreshCw, CheckCircle2, XCircle } from 'lucide-react'
 import VatTuCanMuaPage from './VatTuCanMuaPage'
+import { useAuth } from '../../../context/AuthContext'
+import type { PurchaseOrder } from '../../../types/purchase-order'
+import { PO_STATUS_MAP } from '../../../types/purchase-order'
 
 interface Command {
   id: number; code: string; source: string; status: string; createdAt: string
@@ -45,11 +49,65 @@ const sourceBadge = (src: string) => src === 'PI'
 const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
 const td: React.CSSProperties = { padding: '9px 12px', color: 'var(--text)' }
 
+const vnd = (n?: number | null) => (n == null ? '—' : n.toLocaleString('vi-VN') + 'đ')
+
 export default function TongQuanPage() {
+  const { isManager } = useAuth()
   const { data: commands, isLoading, refetch } = useFetch<Command[]>(() => api.getPurchaseCommands())
+  const { data: purchaseOrders, refetch: refetchPO } = useFetch<PurchaseOrder[]>(
+    () => (api as any).getPurchaseOrders(), []
+  )
   const list = safeArr(commands)
+  const pendingApproval = safeArr(purchaseOrders).filter(o => o.status === 'PENDING_APPROVAL')
 
   const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [rejectModal, setRejectModal] = useState<PurchaseOrder | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [busyPO, setBusyPO] = useState<number | null>(null)
+  // quoteChoice[poId][itemId] = quoteId được GĐ chọn
+  const [quoteChoice, setQuoteChoice] = useState<Record<number, Record<number, number>>>({})
+  const { ask, confirmModal } = useConfirm()
+
+  const cheapestQuoteId = (it: PurchaseOrder['items'][number]) =>
+    [...(it.quotes ?? [])].sort((a, b) => a.unitPrice - b.unitPrice)[0]?.id
+
+  const getChoice = (po: PurchaseOrder, it: PurchaseOrder['items'][number]) =>
+    quoteChoice[po.id]?.[it.id] ?? cheapestQuoteId(it)
+
+  const setChoice = (po: PurchaseOrder, itemId: number, quoteId: number) =>
+    setQuoteChoice(prev => ({ ...prev, [po.id]: { ...(prev[po.id] ?? {}), [itemId]: quoteId } }))
+
+  const handleApprovePO = (po: PurchaseOrder) => {
+    const selections = po.items.map(it => ({ itemId: it.id, quoteId: getChoice(po, it) as number }))
+    if (selections.some(s => !s.quoteId)) { alert('Còn vật tư chưa có báo giá NCC nào'); return }
+    const total = po.items.reduce((s, it) => {
+      const q = (it.quotes ?? []).find(q => q.id === getChoice(po, it))
+      return s + (q ? q.unitPrice * it.buyQty : 0)
+    }, 0)
+    ask(
+      { message: `Duyệt đơn mua ${po.code} với NCC đã chọn cho từng vật tư?\nTổng tiền: ${vnd(total || null)}` },
+      async () => {
+        setBusyPO(po.id)
+        try {
+          await (api as any).approvePurchaseOrder(po.id, selections)
+          refetchPO()
+        } catch { alert('Lỗi duyệt đơn') }
+        finally { setBusyPO(null) }
+      }
+    )
+  }
+
+  const handleRejectPO = async () => {
+    if (!rejectModal) return
+    setBusyPO(rejectModal.id)
+    try {
+      await (api as any).rejectPurchaseOrder(rejectModal.id, rejectReason.trim() || undefined)
+      setRejectModal(null)
+      setRejectReason('')
+      refetchPO()
+    } catch { alert('Lỗi từ chối') }
+    finally { setBusyPO(null) }
+  }
 
   // Phân loại: "Cần xử lý" = QUOTING có items (itemCount > 0); còn lại xếp sau
   const urgent   = list.filter(c => c.status === 'QUOTING' && c.itemCount > 0)
@@ -84,6 +142,119 @@ export default function TongQuanPage() {
         </button>
       </div>
 
+      {/* ── Section duyệt đơn mua KHSX (chỉ GĐ) ── */}
+      {isManager && pendingApproval.length > 0 && (
+        <div style={{ marginBottom: 24, border: '2px solid #7c3aed', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ background: '#ede7f6', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <AlertCircle size={16} color="#4527a0" />
+            <span style={{ fontWeight: 700, fontSize: 14, color: '#4527a0' }}>
+              {pendingApproval.length} đơn mua chờ duyệt
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {pendingApproval.map((po, i) => {
+              const st = PO_STATUS_MAP[po.status]
+              return (
+                <div key={po.id} style={{ padding: '14px 16px', borderTop: i > 0 ? '1px solid var(--border)' : undefined, background: 'var(--surface)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                    <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 14 }}>{po.code}</span>
+                    {po.skuName && <span style={{ fontSize: 13, color: 'var(--text2)' }}>{po.skuName}</span>}
+                    <span style={{ fontSize: 11, padding: '1px 7px', borderRadius: 12, background: st.bg, color: st.color, fontWeight: 600 }}>{st.label}</span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {po.items.map(it => {
+                      const quotes = [...(it.quotes ?? [])].sort((a, b) => a.unitPrice - b.unitPrice)
+                      const cheapest = quotes[0]
+                      const chosenId = getChoice(po, it)
+                      return (
+                        <div key={it.id} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+                          <div style={{ padding: '6px 12px', background: 'var(--surface2)', fontSize: 13, fontWeight: 700, display: 'flex', gap: 10 }}>
+                            <span>{it.materialName}</span>
+                            <span style={{ color: '#c62828', fontWeight: 600 }}>Cần mua: {it.buyQty} {it.unit}</span>
+                          </div>
+                          {quotes.length === 0 ? (
+                            <div style={{ padding: '8px 12px', fontSize: 12, color: '#e65100' }}>Chưa có báo giá NCC nào</div>
+                          ) : (
+                            <table style={{ width: '100%', fontSize: 12, borderCollapse: 'collapse' }}>
+                              <thead>
+                                <tr style={{ color: 'var(--text3)' }}>
+                                  <th style={{ padding: '4px 8px', width: 24 }}></th>
+                                  <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'left' }}>NCC</th>
+                                  <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'right' }}>Đơn giá</th>
+                                  <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'left' }}>Ngày dự kiến</th>
+                                  <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'left' }}>Ghi chú</th>
+                                  <th style={{ padding: '4px 8px', fontWeight: 600, textAlign: 'right' }}>Thành tiền</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {quotes.map(q => {
+                                  const isChosen = chosenId === q.id
+                                  const isCheapest = cheapest && q.id === cheapest.id
+                                  return (
+                                    <tr
+                                      key={q.id}
+                                      onClick={() => setChoice(po, it.id, q.id)}
+                                      style={{ borderTop: '1px solid var(--border)', cursor: 'pointer', background: isChosen ? '#f1f8e9' : undefined }}
+                                    >
+                                      <td style={{ padding: '4px 8px' }}>
+                                        <input type="radio" checked={isChosen} onChange={() => setChoice(po, it.id, q.id)} />
+                                      </td>
+                                      <td style={{ padding: '4px 8px', fontWeight: isChosen ? 700 : 500 }}>
+                                        {q.supplierName}
+                                        {isCheapest && <span style={{ marginLeft: 6, fontSize: 10, color: '#2e7d32', fontWeight: 700 }}>★ rẻ nhất</span>}
+                                      </td>
+                                      <td style={{ padding: '4px 8px', textAlign: 'right' }}>{vnd(q.unitPrice)}</td>
+                                      <td style={{ padding: '4px 8px', color: 'var(--text2)' }}>{q.expectedDate ? new Date(q.expectedDate).toLocaleDateString('vi-VN') : '—'}</td>
+                                      <td style={{ padding: '4px 8px', color: 'var(--text2)' }}>{q.note ?? '—'}</td>
+                                      <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 600, color: '#4527a0' }}>
+                                        {vnd(q.unitPrice * it.buyQty)}
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
+                    {po.items.length > 0 && (
+                      <span style={{ marginRight: 'auto', fontSize: 13 }}>
+                        Tổng theo lựa chọn:{' '}
+                        <strong style={{ color: '#4527a0' }}>
+                          {vnd(po.items.reduce((s, it) => {
+                            const q = (it.quotes ?? []).find(q => q.id === getChoice(po, it))
+                            return s + (q ? q.unitPrice * it.buyQty : 0)
+                          }, 0) || null)}
+                        </strong>
+                      </span>
+                    )}
+                    <button
+                      onClick={() => { setRejectModal(po); setRejectReason('') }}
+                      disabled={busyPO === po.id}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: '#fce4ec', border: '1px solid #ef9a9a', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#c62828', cursor: 'pointer' }}
+                    >
+                      <XCircle size={14} /> Từ chối
+                    </button>
+                    <button
+                      onClick={() => handleApprovePO(po)}
+                      disabled={busyPO === po.id}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 14px', background: '#2e7d32', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer', opacity: busyPO === po.id ? 0.7 : 1 }}
+                    >
+                      <CheckCircle2 size={14} /> {busyPO === po.id ? 'Đang duyệt...' : 'Duyệt'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Banner cần xử lý */}
       {urgent.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: '#fff3e0', border: '1px solid #ffcc80', borderRadius: 'var(--radius)', marginBottom: 16, fontSize: 13 }}>
@@ -107,6 +278,29 @@ export default function TongQuanPage() {
       <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
         <ClipboardList size={14} /> {isLoading ? 'Đang tải…' : `${list.length} mã lệnh`}
       </div>
+
+      {/* Modal từ chối đơn mua */}
+      {rejectModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 420, padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,.18)' }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Từ chối đơn mua — {rejectModal.code}</h3>
+            <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text3)' }}>Nhập lý do từ chối (không bắt buộc)</p>
+            <textarea
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              placeholder="VD: Giá quá cao, cần báo giá lại..."
+              rows={3} autoFocus
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+            />
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button onClick={() => setRejectModal(null)} style={{ padding: '8px 18px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Hủy</button>
+              <button onClick={handleRejectPO} disabled={!!busyPO} style={{ padding: '8px 18px', background: '#c62828', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
+                Xác nhận từ chối
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -163,6 +357,7 @@ export default function TongQuanPage() {
           </tbody>
         </table>
       </div>
+      {confirmModal}
     </div>
   )
 }

@@ -140,8 +140,11 @@ function WhCard({ wh, onOpen }: { wh: Wh; onOpen: () => void }) {
 }
 
 // ── Chi tiết 1 kho ────────────────────────────────────────────────────
+type DetailTab = 'stock' | 'stock-bao-bi' | 'stock-thanh-pham' | 'history'
+
 function WarehouseDetail({ wh, canWrite, onBack }: { wh: Wh; canWrite: boolean; onBack: () => void }) {
-  const [detailTab, setDetailTab] = useState<'stock' | 'history'>('stock')
+  const isPackagingFinishedWh = WAREHOUSE_GROUPS.find(g => g.key === 'thanh-pham')?.match(wh) ?? false
+  const [detailTab, setDetailTab] = useState<DetailTab>(isPackagingFinishedWh ? 'stock-bao-bi' : 'stock')
   const [search, setSearch] = useState('')
   const { data: items, isLoading, refetch } = useFetch<WhItem[]>(() => api.getMfgWarehouseItems(wh.id), [])
 
@@ -160,7 +163,49 @@ function WarehouseDetail({ wh, canWrite, onBack }: { wh: Wh; canWrite: boolean; 
     return v == null || v === '' ? '—' : String(v)
   }
 
-  const tabBtn = (id: 'stock' | 'history', label: string) => (
+  // Kho Bao bì/Thành phẩm gộp 2 loại tồn — tách hiển thị riêng theo classification.
+  const isFinishedItem = (it: WhItem) =>
+    (it.classification ?? '').toLowerCase().includes('thành phẩm') ||
+    (!it.classification && /thành\s*phẩm|đan xong/i.test(it.name))
+  const finishedItems = isPackagingFinishedWh ? filteredItems.filter(isFinishedItem) : []
+  const packagingItems = isPackagingFinishedWh ? filteredItems.filter(it => !isFinishedItem(it)) : []
+
+  const renderStockTable = (rows: WhItem[]) => (
+    <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead>
+          <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+            {cols.map(c => <th key={c} style={th}>{COL_LABEL[c] ?? c}</th>)}
+            {canWrite && <th style={{ ...th, textAlign: 'right' }}>Thao tác</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(it => (
+            <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
+              {cols.map(c => (
+                <td key={c} style={{ ...td, ...(c === 'quantity' ? { fontWeight: 700, textAlign: 'right' as const, color: it.quantity <= 0 ? '#c62828' : 'var(--text)' } : {}) }}>
+                  {cellVal(it, c)}
+                </td>
+              ))}
+              {canWrite && (
+                <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                  <button title="Nhập" onClick={() => setMoveItem({ item: it, mode: 'import' })} style={iconBtn}><ArrowDownToLine size={15} color="#2e7d32" /></button>
+                  <button title="Xuất" onClick={() => setMoveItem({ item: it, mode: 'export' })} style={iconBtn}><ArrowUpFromLine size={15} color="#e65100" /></button>
+                  <button title="Sửa" onClick={() => setEditItem(it)} style={iconBtn}><Pencil size={14} color="var(--text2)" /></button>
+                  <button title="Xóa" onClick={async () => { if (confirm(`Xóa "${it.name}"?`)) { await api.deleteMfgWarehouseItem(it.id); refetch() } }} style={iconBtn}><Trash2 size={14} color="#c62828" /></button>
+                </td>
+              )}
+            </tr>
+          ))}
+          {!isLoading && rows.length === 0 && (
+            <tr><td colSpan={cols.length + 1} style={{ ...td, color: 'var(--text3)', textAlign: 'center', padding: 20 }}>Không có vật tư</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+
+  const tabBtn = (id: DetailTab, label: string) => (
     <button
       key={id}
       onClick={() => setDetailTab(id)}
@@ -181,7 +226,7 @@ function WarehouseDetail({ wh, canWrite, onBack }: { wh: Wh; canWrite: boolean; 
         <button onClick={onBack} style={btnGhost}><ArrowLeft size={16} /> Kho</button>
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{wh.name}</h2>
         {wh.keeperName && <span style={{ fontSize: 12, color: 'var(--text3)' }}>Thủ kho: {wh.keeperName}</span>}
-        {detailTab === 'stock' && (
+        {detailTab !== 'history' && (
           <>
             <div style={{ flex: 1 }} />
             <div style={{ position: 'relative' }}>
@@ -199,46 +244,26 @@ function WarehouseDetail({ wh, canWrite, onBack }: { wh: Wh; canWrite: boolean; 
 
       {/* Subtabs */}
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 16 }}>
-        {tabBtn('stock',   'Tồn kho')}
+        {isPackagingFinishedWh ? (
+          <>
+            {tabBtn('stock-bao-bi',     'Tồn kho bao bì')}
+            {tabBtn('stock-thanh-pham', 'Tồn kho thành phẩm')}
+          </>
+        ) : (
+          tabBtn('stock', 'Tồn kho')
+        )}
         {tabBtn('history', 'Lịch sử Nhập/Xuất kho')}
       </div>
 
       {/* Tab: Tồn kho */}
-      {detailTab === 'stock' && (
+      {detailTab !== 'history' && (
         <>
           {isLoading && <div style={{ color: 'var(--text3)' }}>Đang tải…</div>}
-          <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                  {cols.map(c => <th key={c} style={th}>{COL_LABEL[c] ?? c}</th>)}
-                  {canWrite && <th style={{ ...th, textAlign: 'right' }}>Thao tác</th>}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredItems.map(it => (
-                  <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
-                    {cols.map(c => (
-                      <td key={c} style={{ ...td, ...(c === 'quantity' ? { fontWeight: 700, textAlign: 'right' as const, color: it.quantity <= 0 ? '#c62828' : 'var(--text)' } : {}) }}>
-                        {cellVal(it, c)}
-                      </td>
-                    ))}
-                    {canWrite && (
-                      <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-                        <button title="Nhập" onClick={() => setMoveItem({ item: it, mode: 'import' })} style={iconBtn}><ArrowDownToLine size={15} color="#2e7d32" /></button>
-                        <button title="Xuất" onClick={() => setMoveItem({ item: it, mode: 'export' })} style={iconBtn}><ArrowUpFromLine size={15} color="#e65100" /></button>
-                        <button title="Sửa" onClick={() => setEditItem(it)} style={iconBtn}><Pencil size={14} color="var(--text2)" /></button>
-                        <button title="Xóa" onClick={async () => { if (confirm(`Xóa "${it.name}"?`)) { await api.deleteMfgWarehouseItem(it.id); refetch() } }} style={iconBtn}><Trash2 size={14} color="#c62828" /></button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-                {!isLoading && filteredItems.length === 0 && (
-                  <tr><td colSpan={cols.length + 1} style={{ ...td, color: 'var(--text3)', textAlign: 'center', padding: 20 }}>Không có vật tư</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+          {renderStockTable(
+            detailTab === 'stock-bao-bi' ? packagingItems :
+            detailTab === 'stock-thanh-pham' ? finishedItems :
+            filteredItems
+          )}
         </>
       )}
 

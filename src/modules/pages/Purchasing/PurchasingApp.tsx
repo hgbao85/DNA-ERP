@@ -1,22 +1,24 @@
 import { useState } from 'react'
-import { LayoutList, ShoppingCart, Building2, LogOut, Grid } from 'lucide-react'
+import { LayoutList, ShoppingCart, Building2, LogOut, Grid, ClipboardList } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import VatTuNCCPage from './VatTuNCCPage'
 import TongQuanPage from './TongQuanPage'
 import VatTuCanMuaPage from './VatTuCanMuaPage'
+import LenhMuaNCCPage from './LenhMuaNCCPage'
 
 interface Props { onBack?: () => void }
 
-type TabId = 'overview' | 'need' | 'suppliers'
+type TabId = 'overview' | 'need' | 'suppliers' | 'lenh-mua-ncc'
 
 export default function PurchasingApp({ onBack }: Props) {
   const { user, logout } = useAuth()
   const [tab, setTab] = useState<TabId>('suppliers')
 
   const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    { id: 'overview', label: 'Tổng quan', icon: <LayoutList size={16} /> },
-    { id: 'need', label: 'Vật tư cần mua', icon: <ShoppingCart size={16} /> },
-    { id: 'suppliers', label: 'Vật tư – NCC', icon: <Building2 size={16} /> },
+    { id: 'overview',      label: 'Tổng quan',       icon: <LayoutList size={16} /> },
+    { id: 'lenh-mua-ncc', label: 'Lệnh mua KHSX',   icon: <ClipboardList size={16} /> },
+    { id: 'need',          label: 'Vật tư cần mua',  icon: <ShoppingCart size={16} /> },
+    { id: 'suppliers',     label: 'Vật tư – NCC',    icon: <Building2 size={16} /> },
   ]
 
   return (
@@ -65,9 +67,10 @@ export default function PurchasingApp({ onBack }: Props) {
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        {tab === 'suppliers' && <VatTuNCCPage />}
-        {tab === 'overview' && <TongQuanPage />}
-        {tab === 'need' && <VatTuCanMuaPage />}
+        {tab === 'suppliers'     && <VatTuNCCPage />}
+        {tab === 'overview'      && <TongQuanPage />}
+        {tab === 'need'          && <VatTuCanMuaPage />}
+        {tab === 'lenh-mua-ncc' && <LenhMuaNCCPage />}
       </div>
     </div>
   )

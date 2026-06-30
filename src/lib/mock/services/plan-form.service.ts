@@ -77,7 +77,7 @@ class PlanFormService extends BaseService<PlanForm> {
         id: nextId(),
         exportOrderId: data.exportOrderId,
         mfgProductId: data.mfgProductId,
-        status: 'DRAFT',
+        status: 'WAITING_DETAIL',
         note: data.note,
         customerName: data.customerName ?? null,
         createdAt: new Date().toISOString(),

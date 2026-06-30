@@ -2,11 +2,16 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft, Loader2 } from 'lucide-react'
 import * as api from '../../../services/api'
+import { useFetch } from '../../../hooks/useFetch'
 import type { PlanForm } from '../../../types/plan-form'
+import type { PurchaseOrder } from '../../../types/purchase-order'
+import { PO_STATUS_MAP } from '../../../types/purchase-order'
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
 export const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
+  WAITING_DETAIL:  { label: 'Chờ nhập định mức chi tiết', color: '#b45309', bg: '#fef3c7' },
+  WAITING_PARTS:   { label: 'Chờ nhập định mức mảnh',     color: '#c2410c', bg: '#ffedd5' },
   APPROVED_DETAIL: { label: 'Duyệt ĐM chi tiết', color: '#1d4ed8', bg: '#dbeafe' },
   APPROVED_PARTS:  { label: 'Duyệt mảnh',        color: '#7c3aed', bg: '#ede9fe' },
   APPROVED:        { label: 'Đã duyệt',           color: '#16a34a', bg: '#dcfce7' },
@@ -92,7 +97,10 @@ export function SKUDetail({
   const handleCheck = async () => {
     setCheckState('checking')
     try {
-      const warehouseItems: any[] = await (api as any).getAllMfgWarehouseItems()
+      const [warehouseItems, reservations]: [any[], any[]] = await Promise.all([
+        (api as any).getAllMfgWarehouseItems(),
+        (api as any).getWarehouseReservations(),
+      ])
       const required: { name: string; required: number; unit: string }[] = []
       ;(Array.isArray(mt?.sat) ? mt!.sat : []).forEach((i: any) => {
         if (i.name) required.push({ name: i.name, required: i.quantity ?? 1, unit: i.unit ?? '' })
@@ -106,10 +114,16 @@ export function SKUDetail({
       ;(Array.isArray(mt?.baoBiDongGoi) ? mt!.baoBiDongGoi : []).forEach((i: any) => {
         if (i.name) required.push({ name: i.name, required: i.quantity ?? 1, unit: i.unit ?? 'thùng' })
       })
+      // Tồn khả dụng = tồn thực tế - phần đã bị các lệnh mua khác giữ chỗ (ACTIVE)
       const missing = required.flatMap(req => {
-        const avail = warehouseItems.find((w: any) =>
-          w.name?.toLowerCase().trim() === req.name.toLowerCase().trim()
-        )?.quantity ?? 0
+        const norm = req.name.toLowerCase().trim()
+        const onHand = warehouseItems
+          .filter((w: any) => w.name?.toLowerCase().trim() === norm)
+          .reduce((sum: number, w: any) => sum + (w.quantity ?? 0), 0)
+        const reserved = reservations
+          .filter((r: any) => r.status === 'ACTIVE' && r.materialName?.toLowerCase().trim() === norm)
+          .reduce((sum: number, r: any) => sum + (r.quantity ?? 0), 0)
+        const avail = Math.max(0, onHand - reserved)
         return avail < req.required ? [{ ...req, available: avail }] : []
       })
       setMissingMats(missing)
@@ -122,6 +136,16 @@ export function SKUDetail({
   const [approvingDetail, setApprovingDetail] = useState(false)
   const [showSendConfirm, setShowSendConfirm] = useState(false)
   const [sendDone, setSendDone] = useState(false)
+  const [submittingBuy, setSubmittingBuy] = useState(false)
+  const [buyDone, setBuyDone] = useState<PurchaseOrder | null>(null)
+
+  // Theo dõi lệnh mua đã tạo từ SKU này — để KHSX biết khi nào vật tư đã về kho
+  const { data: allPOs, refetch: refetchPOs } = useFetch<PurchaseOrder[]>(() => (api as any).getPurchaseOrders(), [])
+  const relatedPOs = (allPOs ?? [])
+    .filter(po => po.source === 'KHSX' && po.sourceRef === String(pf.id))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  const latestPO = relatedPOs[0] ?? null
+  const materialsArrived = latestPO?.status === 'RECEIVED'
   const handleApproveDetail = async () => {
     if (!onApproveDetail) return
     setApprovingDetail(true)
@@ -134,7 +158,7 @@ export function SKUDetail({
   const defaultTab: DetailTab = detailAlreadyApproved ? 'manh' : 'chitiet'
   const [detailTab, setDetailTab] = useState<DetailTab>(defaultTab)
 
-  const canEditDetail = !readOnly && pf.status === 'APPROVED_DETAIL'
+  const canEditDetail = !readOnly && (pf.status === 'WAITING_DETAIL' || pf.status === 'APPROVED_DETAIL')
 
   return (
     <div>
@@ -362,6 +386,45 @@ export function SKUDetail({
           {checkState === 'ok' && (
             <div style={{ marginTop: 12, fontSize: 12, color: '#16a34a', fontWeight: 600, textAlign: 'right' }}>✓ Đủ vật tư trong kho</div>
           )}
+          {buyDone && !relatedPOs.some(po => po.id === buyDone.id) && (
+            <div style={{ marginTop: 12, padding: '8px 14px', background: '#fff3e0', border: '1px solid #ffcc80', borderRadius: 8, fontSize: 12, color: '#e65100', fontWeight: 600 }}>
+              ✓ Đã tạo lệnh mua <strong>{(buyDone as any).code}</strong> — Kho đang xác nhận nhu cầu
+            </div>
+          )}
+
+          {/* Theo dõi lệnh mua liên kết với SKU này */}
+          {latestPO && (
+            <div style={{ marginTop: 12 }}>
+              {materialsArrived ? (
+                <div style={{ padding: '10px 14px', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                  <span style={{ fontSize: 13, color: '#15803d', fontWeight: 700 }}>
+                    ✓ Vật tư từ <strong>{latestPO.code}</strong> đã về kho — hãy kiểm tra lại để gửi nhập mảnh
+                  </span>
+                  <button
+                    onClick={handleCheck}
+                    disabled={checkState === 'checking'}
+                    style={{ padding: '6px 14px', fontSize: 12, fontWeight: 700, borderRadius: 6, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff', whiteSpace: 'nowrap', opacity: checkState === 'checking' ? 0.6 : 1 }}
+                  >
+                    {checkState === 'checking' ? 'Đang kiểm...' : 'Kiểm tra lại'}
+                  </button>
+                </div>
+              ) : (
+                <div style={{ padding: '8px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12, color: 'var(--text2)', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span>Lệnh mua <strong>{latestPO.code}</strong>:</span>
+                  <span style={{
+                    padding: '2px 8px', borderRadius: 20, fontWeight: 700,
+                    background: PO_STATUS_MAP[latestPO.status].bg, color: PO_STATUS_MAP[latestPO.status].color,
+                  }}>
+                    {PO_STATUS_MAP[latestPO.status].label}
+                  </span>
+                  <button
+                    onClick={() => refetchPOs()}
+                    style={{ marginLeft: 'auto', padding: '4px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)' }}
+                  >Làm mới</button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         <div style={{ padding: 20, background: 'var(--surface2)', borderRadius: 8, color: 'var(--text3)', fontSize: 13, marginBottom: 24 }}>
@@ -412,9 +475,33 @@ export function SKUDetail({
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowBuyModal(false)} style={btnSecondary}>Hủy</button>
               <button
-                onClick={() => { alert('Đã tạo đề xuất mua hàng thành công!'); setShowBuyModal(false) }}
-                style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#e65100', color: '#fff' }}
-              >Xác nhận</button>
+                onClick={async () => {
+                  setSubmittingBuy(true)
+                  try {
+                    const po = await (api as any).createPurchaseOrder({
+                      source: 'KHSX',
+                      sourceRef: String(pf.id),
+                      skuName: pf.mfgProduct?.name ?? undefined,
+                      note: `Từ SKU ${pf.mfgProduct?.factoryCode ?? pf.id}`,
+                      items: missingMats.map(m => ({
+                        materialName: m.name,
+                        unit: m.unit,
+                        requiredQty: m.required,
+                        buyQty: m.required - m.available,
+                      })),
+                    })
+                    setBuyDone(po)
+                    setShowBuyModal(false)
+                    refetchPOs()
+                  } catch {
+                    alert('Không thể tạo lệnh mua hàng')
+                  } finally {
+                    setSubmittingBuy(false)
+                  }
+                }}
+                disabled={submittingBuy}
+                style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: submittingBuy ? 'not-allowed' : 'pointer', background: '#e65100', color: '#fff', opacity: submittingBuy ? 0.7 : 1 }}
+              >{submittingBuy ? 'Đang gửi...' : 'Xác nhận'}</button>
             </div>
           </div>
         </div>
@@ -620,76 +707,83 @@ function DinhMucManh({
 
   return (
     <div style={{ marginBottom: 24 }}>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', marginBottom: 16 }}>
-        {/* Section header */}
-        <div style={{
-          background: isLocallyApproved ? '#f0fdf4' : isLocallyRejected ? '#fff5f5' : 'var(--surface2)',
-          padding: '10px 14px', borderBottom: '1px solid var(--border)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <div>
-            <span style={{ fontWeight: 700, fontSize: 13 }}>
-              Danh sách mảnh phôi
-            </span>
-            <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text3)', marginLeft: 8 }}>
-              ({rows.length} mảnh · {rows.reduce((s, r) => s + r.qty, 0)} chi tiết)
-            </span>
-            {isLocallyRejected && approval?.reason && (
-              <div style={{ fontSize: 11, color: '#dc2626', fontStyle: 'italic', marginTop: 2 }}>{approval.reason}</div>
-            )}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {approval && <StatusBadge status={approval.status} />}
-            {showApproveRejectBtns && (
-              <>
-                <button
-                  onClick={() => setApproval({ status: 'APPROVED', at: new Date() })}
-                  style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: isLocallyApproved ? '#16a34a' : 'rgba(22,163,74,0.12)', color: isLocallyApproved ? '#fff' : '#16a34a' }}
-                >Duyệt</button>
-                <button
-                  onClick={() => { setShowRejectModal(true); setRejectReason('') }}
-                  style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: isLocallyRejected ? '#dc2626' : 'rgba(220,38,38,0.10)', color: isLocallyRejected ? '#fff' : '#dc2626' }}
-                >Từ chối</button>
-              </>
-            )}
-          </div>
+      {/* Section header */}
+      <div style={{
+        background: isLocallyApproved ? '#f0fdf4' : isLocallyRejected ? '#fff5f5' : 'var(--surface2)',
+        border: '1px solid var(--border)', borderRadius: 12,
+        padding: '10px 14px', marginBottom: 12,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <div>
+          <span style={{ fontWeight: 700, fontSize: 13 }}>
+            Danh sách mảnh phôi
+          </span>
+          <span style={{ fontWeight: 400, fontSize: 12, color: 'var(--text3)', marginLeft: 8 }}>
+            ({rows.length} mảnh · {rows.reduce((s, r) => s + r.qty, 0)} chi tiết)
+          </span>
+          {isLocallyRejected && approval?.reason && (
+            <div style={{ fontSize: 11, color: '#dc2626', fontStyle: 'italic', marginTop: 2 }}>{approval.reason}</div>
+          )}
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {approval && <StatusBadge status={approval.status} />}
+          {showApproveRejectBtns && (
+            <>
+              <button
+                onClick={() => setApproval({ status: 'APPROVED', at: new Date() })}
+                style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: isLocallyApproved ? '#16a34a' : 'rgba(22,163,74,0.12)', color: isLocallyApproved ? '#fff' : '#16a34a' }}
+              >Duyệt</button>
+              <button
+                onClick={() => { setShowRejectModal(true); setRejectReason('') }}
+                style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: isLocallyRejected ? '#dc2626' : 'rgba(220,38,38,0.10)', color: isLocallyRejected ? '#fff' : '#dc2626' }}
+              >Từ chối</button>
+            </>
+          )}
+        </div>
+      </div>
 
-        {/* Table */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
-          <colgroup>
-            <col style={{ width: 80 }} /><col /><col style={{ width: 140 }} />
-            <col style={{ width: 72 }} /><col style={{ width: 72 }} />
-            <col style={{ width: 60 }} /><col style={{ width: 56 }} /><col />
-          </colgroup>
-          <thead>
-            <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-              <th style={thStyle}>Mã mảnh</th><th style={thStyle}>Tên mảnh</th>
-              <th style={thStyle}>Vật liệu</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Dày</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>Dài</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>SL</th>
-              <th style={thStyle}>ĐVT</th><th style={thStyle}>Ghi chú</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(r => (
-              <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                onMouseLeave={e => (e.currentTarget.style.background = '')}
-              >
-                <td style={{ ...tdStyle, fontFamily: 'monospace', fontWeight: 700, color: '#2e7d32', fontSize: 12 }}>{r.code}</td>
-                <td style={{ ...tdStyle, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
-                <td style={{ ...tdStyle, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.material}</td>
-                <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{r.thickness}</td>
-                <td style={{ ...tdStyle, textAlign: 'right', color: 'var(--text2)' }}>{r.length ?? '—'}</td>
-                <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700 }}>{r.qty}</td>
-                <td style={{ ...tdStyle, color: 'var(--text3)' }}>{r.unit}</td>
-                <td style={{ ...tdStyle, color: 'var(--text3)', fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.note || '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Danh sách mảnh — mỗi mảnh một card, bố cục giống bên nhập chi tiết định mức mảnh */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
+        {rows.map(r => (
+          <div key={r.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px',
+              background: 'var(--surface2)', borderBottom: '1px solid var(--border)',
+            }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: '#2e7d32', background: '#e8f5e9', borderRadius: 4, padding: '2px 7px', fontFamily: 'monospace' }}>
+                {r.code}
+              </span>
+              <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{r.name}</span>
+              <span style={{ fontSize: 12, color: 'var(--text3)' }}>1 loại vật liệu</span>
+              {r.note && <span style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic', marginLeft: 'auto' }}>{r.note}</span>}
+            </div>
+
+            {/* Children table */}
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead>
+                <tr style={{ background: 'var(--surface2)' }}>
+                  <th style={{ width: 36, padding: '7px', textAlign: 'center', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>#</th>
+                  <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Vật liệu</th>
+                  <th style={{ width: 90, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Dày</th>
+                  <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Dài</th>
+                  <th style={{ width: 90, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
+                  <th style={{ width: 70, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>ĐVT</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 12, padding: '9px 7px' }}>1</td>
+                  <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>{r.material}</td>
+                  <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{r.thickness}</td>
+                  <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>{r.length ?? '—'}</td>
+                  <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{r.qty}</td>
+                  <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{r.unit}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        ))}
       </div>
 
       {/* Action bar — always show both buttons for APPROVED_DETAIL and APPROVED_PARTS */}
