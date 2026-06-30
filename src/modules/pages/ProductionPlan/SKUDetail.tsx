@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft, Loader2 } from 'lucide-react'
+import RefreshButton from '../../../components/RefreshButton'
 import * as api from '../../../services/api'
 import { useFetch } from '../../../hooks/useFetch'
 import type { PlanForm } from '../../../types/plan-form'
@@ -142,7 +143,7 @@ export function SKUDetail({
   const [buyDone, setBuyDone] = useState<PurchaseOrder | null>(null)
 
   // Theo dõi lệnh mua đã tạo từ SKU này — để KHSX biết khi nào vật tư đã về kho
-  const { data: allPOs, refetch: refetchPOs } = useFetch<PurchaseOrder[]>(() => (api as any).getPurchaseOrders(), [])
+  const { data: allPOs, isLoading: posLoading, refetch: refetchPOs } = useFetch<PurchaseOrder[]>(() => (api as any).getPurchaseOrders(), [])
   const relatedPOs = (allPOs ?? [])
     .filter(po => po.source === 'KHSX' && po.sourceRef === String(pf.id))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -429,10 +430,12 @@ export function SKUDetail({
                   }}>
                     {PO_STATUS_MAP[latestPO.status].label}
                   </span>
-                  <button
-                    onClick={() => refetchPOs()}
-                    style={{ marginLeft: 'auto', padding: '4px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)' }}
-                  >Làm mới</button>
+                  <RefreshButton
+                    onRefresh={() => refetchPOs()}
+                    loading={posLoading}
+                    size="sm"
+                    style={{ marginLeft: 'auto', background: 'var(--surface)' }}
+                  />
                 </div>
               )}
             </div>

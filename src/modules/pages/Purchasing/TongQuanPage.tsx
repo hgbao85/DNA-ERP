@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
-import { ClipboardList, AlertCircle, RefreshCw, CheckCircle2, XCircle } from 'lucide-react'
+import { ClipboardList, AlertCircle, CheckCircle2, XCircle } from 'lucide-react'
+import RefreshButton from '../../../components/RefreshButton'
 import VatTuCanMuaPage from './VatTuCanMuaPage'
 import { useAuth } from '../../../context/AuthContext'
 import type { PurchaseOrder } from '../../../types/purchase-order'
@@ -137,9 +138,7 @@ export default function TongQuanPage() {
             Tự sinh khi tạo PI, hoặc khi thủ kho / Kế hoạch SX gửi đề xuất mua.
           </div>
         </div>
-        <button onClick={refetch} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, cursor: 'pointer', color: 'var(--text2)' }}>
-          <RefreshCw size={14} /> Làm mới
-        </button>
+        <RefreshButton onRefresh={refetch} loading={isLoading} />
       </div>
 
       {/* ── Section duyệt đơn mua KHSX (chỉ GĐ) ── */}
