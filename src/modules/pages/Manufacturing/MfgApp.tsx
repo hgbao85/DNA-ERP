@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, FileText, PackageCheck, MapPin, ArrowDownToLine, ClipboardCheck, Box, History, FilePlus, Users, CalendarClock, ChevronDown } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, FileText, MapPin, ArrowDownToLine, ClipboardCheck, Box, History, FilePlus, Users, CalendarClock, ChevronDown } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import PIListPage from '../ProductionPlan/PIListPage'
 import MfgSetupPage from './MfgSetupPage'
@@ -17,7 +17,6 @@ import DeXuatMuaVatTuPage from './DeXuatMuaVatTuPage'
 import DieuPhoiDanPage from './DieuPhoiDanPage'
 import XuatDanPage from './XuatDanPage'
 import LichSuXuatDanPage from './LichSuXuatDanPage'
-import KhungSonPage from './KhungSonPage'
 import ChuyenKiemPage from './ChuyenKiemPage'
 import DongGoiPage from './DongGoiPage'
 import WeavingPointsPage from './WeavingPointsPage'
@@ -26,14 +25,13 @@ import QuanLyDiemDanPage from './QuanLyDiemDanPage'
 import ThongKePagePlan from './ThongKePagePlan'
 import PhoiThongKeCoKhiPage from './PhoiThongKeCoKhiPage'
 import PhoiDinhMucManhPage from './PhoiDinhMucManhPage'
-import HanSonDinhMucPage from './HanSonDinhMucPage'
 import SKUListPage from '../ProductionPlan/SKUListPage'
 
 // ── Module-level constants (không tạo lại mỗi render) ───────────────────────
 
 type TabId =
   | 'workshop' | 'tong-don-hang' | 'tao-don-hang' | 'danh-sach-khach-hang'
-  | 'pi-list' | 'ke-hoach' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh' | 'han-dinh-muc' | 'khung-son'
+  | 'pi-list' | 'ke-hoach' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh'
   | 'xuat-dan' | 'lich-su-xuat-dan' | 'dieu-phoi-dan' | 'lich-su-nhap-dan' | 'quan-ly-diem-dan'
   | 'chuyen-kiem' | 'dong-goi' | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'de-xuat' | 'setup'
@@ -121,13 +119,13 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const isProdMgr       = user?.mfgRole === 'PRODUCTION_MANAGER'
   const isPhoi          = user?.mfgRole === 'PHOI'
   const isHan           = user?.mfgRole === 'HAN'
+  const isSon           = user?.mfgRole === 'SON'
   const isWeavingMgr    = user?.mfgRole === 'WEAVING_MANAGER'
   const isWeavingExport = user?.mfgRole === 'WEAVING_EXPORT'
   const isBomManager    = user?.mfgRole === 'BOM_MANAGER'
   const isSpecRole      = !!user?.mfgRole && SPEC_ROLES.includes(user.mfgRole as typeof SPEC_ROLES[number])
   const canSeeBom       = isDirector || isBomManager || isSpecRole
   const canSeeWarehouses = isDirector || isWarehouse || isProdMgr
-  const canSeeKhungSon  = isPhoi
   const canSeeDieuPhoi  = isWeavingMgr
   const canSeeDiemDan   = isWeavingMgr || isWeavingExport
   const canSeePackingFlow = canManageBom
@@ -139,14 +137,16 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   else if (isFactorySales)      initialTab = 'tong-don-hang'
   else if (isWeavingMgr)        initialTab = 'dieu-phoi-dan'
   else if (isWeavingExport)     initialTab = 'xuat-dan'
-  else if (isPhoi || isHan)     initialTab = 'phoi-lenh-sx'
+  else if (isPhoi || isHan || isSon) initialTab = 'phoi-lenh-sx'
   else if (isBomManager || isSpecRole) initialTab = 'setup'
 
   const [tab, setTab] = useState<TabId>(initialTab)
   const [workshopStage, setWorkshopStage] = useState('ALL')
   const [workshopExpanded, setWorkshopExpanded] = useState(true)
-  // Một state duy nhất cho tất cả SPEC role sub-tabs
-  const [setupSubTab, setSetupSubTab] = useState<SetupSubTab>('dinh-muc')
+  // Một state duy nhất cho tất cả SPEC role sub-tabs — mặc định = mục đầu tiên của role
+  const [setupSubTab, setSetupSubTab] = useState<SetupSubTab>(
+    () => (user?.mfgRole && SPEC_SETUP_ITEMS[user.mfgRole]?.[0]?.id) || 'dinh-muc'
+  )
 
   const roleLabel = user?.mfgRole
     ? (MFG_ROLE_LABELS[user.mfgRole] ?? user.mfgRole)
@@ -159,10 +159,8 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isFactorySales ? [{ id: 'danh-sach-khach-hang' as TabId, label: 'Danh sách khách hàng', icon: <Users size={16}/> }] : []),
     ...(isDirector ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất mới', icon: <ClipboardList size={16}/> }] : []),
     ...(isDirector ? [{ id: 'ke-hoach' as TabId, label: 'Kế hoạch SX', icon: <CalendarClock size={16}/> }] : []),
-    ...((isPhoi || isHan) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16}/> }] : []),
-    ...(isPhoi ? [{ id: 'phoi-dinh-muc-manh' as TabId, label: 'Danh sách định mức mảnh', icon: <Box size={16}/> }] : []),
-    ...(isHan ? [{ id: 'han-dinh-muc' as TabId, label: 'Định mức Hàn Sơn', icon: <Box size={16}/> }] : []),
-    ...(canSeeKhungSon ? [{ id: 'khung-son' as TabId, label: 'Thành phẩm khung sơn', icon: <PackageCheck size={16}/> }] : []),
+    ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16}/> }] : []),
+    ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-dinh-muc-manh' as TabId, label: 'Danh sách định mức mảnh', icon: <Box size={16}/> }] : []),
     ...(isWeavingExport ? [{ id: 'xuat-dan' as TabId, label: 'Xuất đan', icon: <ArrowDownToLine size={16}/> }] : []),
     ...(isWeavingExport ? [{ id: 'lich-su-xuat-dan' as TabId, label: 'Lịch sử xuất đan', icon: <History size={16}/> }] : []),
     ...(canSeeDieuPhoi ? [{ id: 'dieu-phoi-dan' as TabId, label: 'Điều phối đan', icon: <ArrowDownToLine size={16}/> }] : []),
@@ -317,10 +315,8 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'danh-sach-khach-hang'  && isFactorySales     && <DanhSachKhachHangPage />}
         {tab === 'pi-list'               && isDirector         && <PIListPage />}
         {tab === 'ke-hoach'              && (isProdMgr || isDirector) && <ThongKePagePlan />}
-        {tab === 'phoi-lenh-sx'          && (isPhoi || isHan || isDirector) && <PhoiThongKeCoKhiPage readOnly={isDirector} stage={isHan ? 'HAN' : 'PHOI'} />}
-        {tab === 'phoi-dinh-muc-manh'    && (isPhoi || isDirector)    && <PhoiDinhMucManhPage />}
-        {tab === 'han-dinh-muc'          && (isHan || isDirector)     && <HanSonDinhMucPage />}
-        {tab === 'khung-son'             && canSeeKhungSon            && <KhungSonPage />}
+        {tab === 'phoi-lenh-sx'          && (isPhoi || isHan || isSon || isDirector) && <PhoiThongKeCoKhiPage readOnly={isDirector} stage={isHan ? 'HAN' : isSon ? 'SON' : 'PHOI'} />}
+        {tab === 'phoi-dinh-muc-manh'    && (isPhoi || isHan || isSon || isDirector) && <PhoiDinhMucManhPage stage={isSon ? 'SON' : isHan ? 'HAN' : 'PHOI'} />}
         {tab === 'xuat-dan'              && (isWeavingExport || isDirector) && <XuatDanPage readOnly={isDirector} />}
         {tab === 'lich-su-xuat-dan'      && (isWeavingExport || isDirector) && <LichSuXuatDanPage />}
         {tab === 'dieu-phoi-dan'         && canSeeDieuPhoi     && <DieuPhoiDanPage readOnly={isDirector} />}

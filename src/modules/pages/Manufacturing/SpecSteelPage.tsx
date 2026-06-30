@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { ChevronRight, ChevronLeft, Plus, X } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, X, Bell } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────
 type SteelItem = { name: string; specs: string; unit: string; chieuDai: string }
@@ -17,7 +17,11 @@ const MOCK_BOMS: BomItem[] = [
   { id: 2, ten: 'Ghế IEA-3',    thoiGian: '22/06/2026' },
   { id: 3, ten: 'Bàn mặt kính', thoiGian: '21/06/2026' },
   { id: 4, ten: 'Ghế GoPlus',   thoiGian: '20/06/2026' },
+  { id: 5, ten: 'Ghế Cafe',     thoiGian: '19/06/2026' },
 ]
+
+// bomId bị từ chối định mức mới
+const REJECTED_VT_BOM_IDS: number[] = [5]
 
 // SKU đã được duyệt định mức chi tiết → hiển thị ở Định mức mảnh
 const MOCK_MANH_BOMS: BomItem[] = [
@@ -352,6 +356,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [reqUid, setReqUid] = useState(2)
   const [rejectedLines, setRejectedLines] = useState<RejectedLine[]>(MOCK_REJECTED)
   const [approvedVtBomIds, setApprovedVtBomIds] = useState<number[]>(APPROVED_VT_BOM_IDS)
+  const [rejectedVtBomIds] = useState<number[]>(REJECTED_VT_BOM_IDS)
+  const [bellOpen, setBellOpen] = useState(false)
+  const [dismissedNotifs, setDismissedNotifs] = useState<number[]>([])
   const [sentMsg, setSentMsg] = useState(false)
   const [manhBomSearch, setManhBomSearch] = useState('')
   const [vtBomSearch, setVtBomSearch] = useState('')
@@ -418,9 +425,10 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
   }
 
-  const vtBomStatus = (bomId: number): 'approved' | 'pending' | 'canInput' =>
+  const vtBomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' =>
     approvedVtBomIds.includes(bomId) ? 'approved'
     : pendingReqs.some(r => r.bomId === bomId) ? 'pending'
+    : rejectedVtBomIds.includes(bomId) ? 'rejected'
     : 'canInput'
 
   const totalChildren = manhs.reduce((s, m) => s + m.children.length, 0)
@@ -430,9 +438,45 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   return (
     <div>
       {/* Page header */}
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức — Sắt</h2>
-        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập định mức mảnh sắt theo SKU và đề xuất vật tư mới</p>
+      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức — Sắt</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập định mức mảnh sắt theo SKU và đề xuất vật tư mới</p>
+        </div>
+        {(() => {
+          const notifs = MOCK_MANH_BOMS.filter(b => approvedManhBomIds.includes(b.id) && !dismissedNotifs.includes(b.id))
+          return (
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <button onClick={() => setBellOpen(o => !o)} title="Thông báo duyệt"
+                style={{ position: 'relative', padding: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', display: 'flex' }}>
+                <Bell size={18} color="var(--text2)" />
+                {notifs.length > 0 && (
+                  <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 17, height: 17, padding: '0 4px', background: '#c62828', color: '#fff', borderRadius: 99, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{notifs.length}</span>
+                )}
+              </button>
+              {bellOpen && (
+                <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', width: 290, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: '0 8px 30px rgba(0,0,0,.15)', zIndex: 50, overflow: 'hidden' }}>
+                  <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 13 }}>Thông báo duyệt</div>
+                  {notifs.length === 0 ? (
+                    <div style={{ padding: 16, fontSize: 13, color: 'var(--text3)' }}>Chưa có định mức nào được duyệt.</div>
+                  ) : notifs.map(n => (
+                    <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 30px 10px 14px', borderTop: '1px solid var(--border)', position: 'relative' }}>
+                      <span style={{ color: '#2e7d32', fontSize: 15 }}>✓</span>
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600 }}>{n.ten}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>Đã duyệt định mức mảnh · {n.thoiGian}</div>
+                      </div>
+                      <button onClick={() => setDismissedNotifs(d => [...d, n.id])} title="Đã xem — tắt thông báo"
+                        style={{ position: 'absolute', top: 6, right: 6, padding: 3, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex' }}>
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })()}
       </div>
 
       {/* ══ ĐỊNH MỨC: LIST ══ */}
@@ -456,7 +500,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_MANH_BOMS.filter(b => b.ten.toLowerCase().includes(manhBomSearch.toLowerCase())).map(item => (
+                {MOCK_MANH_BOMS.filter(b => b.ten.toLowerCase().includes(manhBomSearch.toLowerCase()) && !approvedManhBomIds.includes(b.id)).map(item => (
                   <tr key={item.id}
                     onClick={() => openBom(item)}
                     style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background .1s' }}
@@ -752,7 +796,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_BOMS.filter(b => b.ten.toLowerCase().includes(vtBomSearch.toLowerCase())).map(item => {
+                {MOCK_BOMS.filter(b => b.ten.toLowerCase().includes(vtBomSearch.toLowerCase()) && vtBomStatus(b.id) !== 'approved').map(item => {
                   const st = vtBomStatus(item.id)
                   return (
                     <tr key={item.id}
@@ -764,11 +808,11 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.ten}</td>
                       <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
                       <td style={{ padding: '12px 14px' }}>
-                        {st === 'approved'
-                          ? <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✓ Đã duyệt</span>
-                          : st === 'pending'
-                          ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
-                          : <span style={{ background: '#fce4ec', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Cần nhập</span>
+                        {st === 'pending'
+                          ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Đợi duyệt</span>
+                          : st === 'rejected'
+                          ? <span style={{ background: '#fce4ec', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
+                          : <span style={{ background: '#eef2ff', color: '#3949ab', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
                         }
                       </td>
                       <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
@@ -805,7 +849,16 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
             </div>
           )}
 
-          {/* Input form — chỉ hiện khi chưa duyệt */}
+          {vtBomStatus(selectedVtBom.id) === 'pending' && (
+            <div style={{ padding: '10px 16px', background: '#fff8e1', border: '1px solid #ffe082', borderRadius: 'var(--radius-lg)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{ fontSize: 16 }}>⏳</span>
+              <span style={{ fontWeight: 600, color: '#f57c00', fontSize: 13 }}>Đang chờ duyệt</span>
+              <span style={{ fontSize: 12, color: '#ef6c00' }}>— không thể nhập thêm vật tư cho SKU này cho đến khi được duyệt</span>
+            </div>
+          )}
+
+          {/* Input form — khoá khi đang chờ duyệt */}
+          {vtBomStatus(selectedVtBom.id) !== 'pending' && (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', marginBottom: 16 }}>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: 'var(--text)' }}>
               {vtBomStatus(selectedVtBom.id) === 'approved' ? 'Gửi đề xuất bổ sung' : 'Thêm vật tư vào danh sách'}
@@ -866,6 +919,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               <div style={{ marginTop: 10, padding: '8px 12px', background: '#ffebee', color: '#c62828', borderRadius: 'var(--radius)', fontSize: 13 }}>{vtErr}</div>
             )}
           </div>
+          )}
 
           {/* Draft list */}
           {currentDrafts.length > 0 && (
