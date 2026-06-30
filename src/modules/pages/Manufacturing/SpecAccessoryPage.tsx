@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, Eye, Bell } from 'lucide-react'
 
 // ─── Types ────────────────────────────────────────────────────────────
 type BomItem = { id: number; ten: string; thoiGian: string }
-type AccessoryLine = { uid: number; maPK: string; unit: string; moTa: string; imageUrl: string }
+type AccessoryLine = { uid: number; maPK: string; unit: string; soLuong?: string; moTa: string; imageUrl: string }
 type PendingReq = { uid: number; bomId: number; lines: AccessoryLine[]; submittedAt: string }
 type RejectedAccessoryLine = AccessoryLine & { submittedAt: string; lyDo: string }
 
@@ -20,19 +20,19 @@ const APPROVED_BOM_IDS: number[] = [1]
 const MOCK_PENDING: PendingReq[] = [
   {
     uid: 1, bomId: 2, submittedAt: '24/06/2026 09:15:22', lines: [
-      { uid: 1, maPK: 'PK-OC-001', unit: 'con',  moTa: 'Ốc lục giác M4x10',     imageUrl: '' },
-      { uid: 2, maPK: 'PK-NEM-01', unit: 'cái',  moTa: 'Nệm lót chân ghế cao su', imageUrl: '' },
+      { uid: 1, maPK: 'PK-OC-001', unit: 'con',  soLuong: '4000', moTa: 'Ốc lục giác M4x10',     imageUrl: '' },
+      { uid: 2, maPK: 'PK-NEM-01', unit: 'cái',  soLuong: '500',  moTa: 'Nệm lót chân ghế cao su', imageUrl: '' },
     ],
   },
 ]
 
 const MOCK_DRAFT: Record<number, AccessoryLine[]> = {
-  3: [{ uid: 3, maPK: 'PK-TAY-01', unit: 'bộ', moTa: 'Tay nắm nhựa đen', imageUrl: '' }],
+  3: [{ uid: 3, maPK: 'PK-TAY-01', unit: 'bộ', soLuong: '200', moTa: 'Tay nắm nhựa đen', imageUrl: '' }],
 }
 
 const MOCK_REJECTED_LINES: Record<number, RejectedAccessoryLine[]> = {
   4: [
-    { uid: 99, maPK: 'PK-TAY-02', unit: 'bộ', moTa: 'Tay nắm màu đỏ', imageUrl: '', submittedAt: '19/06/2026 10:30:00', lyDo: 'Màu tay nắm không theo tiêu chuẩn — cần xác nhận với bộ phận thiết kế trước khi đề xuất lại' },
+    { uid: 99, maPK: 'PK-TAY-02', unit: 'bộ', soLuong: '50', moTa: 'Tay nắm màu đỏ', imageUrl: '', submittedAt: '19/06/2026 10:30:00', lyDo: 'Màu tay nắm không theo tiêu chuẩn — cần xác nhận với bộ phận thiết kế trước khi đề xuất lại' },
   ],
 }
 
@@ -47,6 +47,8 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
   onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
 }) {
   const [approvedBomIds] = useState<number[]>(APPROVED_BOM_IDS)
+  const [bellOpen, setBellOpen] = useState(false)
+  const [dismissedNotifs, setDismissedNotifs] = useState<number[]>([])
   const [pendingReqs, setPendingReqs] = useState<PendingReq[]>(MOCK_PENDING)
   const [draftsByBom, setDraftsByBom] = useState<Record<number, AccessoryLine[]>>(MOCK_DRAFT)
   const [reqUid, setReqUid] = useState(2)
@@ -55,6 +57,7 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
   const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)
   const [fMaPK, setFMaPK] = useState('')
   const [fUnit, setFUnit] = useState('')
+  const [fSoLuong, setFSoLuong] = useState('')
   const [fMoTa, setFMoTa] = useState('')
   const [fImageUrl, setFImageUrl] = useState('')
   const [showPreview, setShowPreview] = useState(false)
@@ -76,17 +79,17 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
 
   const openBom = (bom: BomItem) => {
     setSelectedBom(bom)
-    setFMaPK(''); setFUnit(''); setFMoTa(''); setFImageUrl('')
+    setFMaPK(''); setFUnit(''); setFSoLuong(''); setFMoTa(''); setFImageUrl('')
     setShowPreview(false); setFErr(''); setSentMsg(false)
   }
 
   const addToDraft = () => {
     setFErr('')
     if (!fMaPK.trim() || !selectedBom) { setFErr('Vui lòng nhập Mã phụ kiện.'); return }
-    const line: AccessoryLine = { uid: draftUid, maPK: fMaPK.trim(), unit: fUnit.trim(), moTa: fMoTa.trim(), imageUrl: fImageUrl.trim() }
+    const line: AccessoryLine = { uid: draftUid, maPK: fMaPK.trim(), unit: fUnit.trim(), soLuong: fSoLuong.trim(), moTa: fMoTa.trim(), imageUrl: fImageUrl.trim() }
     setDraftsByBom(d => ({ ...d, [selectedBom.id]: [...(d[selectedBom.id] ?? []), line] }))
     setDraftUid(n => n + 1)
-    setFMaPK(''); setFUnit(''); setFMoTa(''); setFImageUrl('')
+    setFMaPK(''); setFUnit(''); setFSoLuong(''); setFMoTa(''); setFImageUrl('')
   }
 
   const removeDraft = (uid: number) => {
@@ -131,7 +134,16 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
           </div>
         )}
 
-        {/* Form thêm */}
+        {st === 'pending' && (
+          <div style={{ padding: '10px 16px', background: '#fff8e1', border: '1px solid #ffe082', borderRadius: 'var(--radius-lg)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <span style={{ fontSize: 16 }}>⏳</span>
+            <span style={{ fontWeight: 600, color: '#f57c00', fontSize: 13 }}>Đang chờ duyệt</span>
+            <span style={{ fontSize: 12, color: '#ef6c00' }}>— không thể nhập thêm vật tư cho SKU này cho đến khi được duyệt</span>
+          </div>
+        )}
+
+        {/* Form thêm — khoá khi đang chờ duyệt */}
+        {st !== 'pending' && (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', marginBottom: 16 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: 'var(--text)' }}>
             {st === 'approved' ? 'Gửi đề xuất bổ sung' : 'Thêm vật tư vào danh sách'}
@@ -161,6 +173,11 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
               <FL>ĐVT</FL>
               <input value={fUnit} onChange={e => setFUnit(e.target.value)}
                 placeholder="cái" style={inputStyle} />
+            </div>
+            <div style={{ width: 90 }}>
+              <FL>Số lượng</FL>
+              <input type="number" min={0} value={fSoLuong} onChange={e => setFSoLuong(e.target.value)}
+                placeholder="VD: 500" style={inputStyle} />
             </div>
             <div style={{ flex: 2, minWidth: 180 }}>
               <FL>Mô tả</FL>
@@ -196,6 +213,7 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
             <div style={{ marginTop: 10, padding: '8px 12px', background: '#ffebee', color: '#c62828', borderRadius: 'var(--radius)', fontSize: 13 }}>{fErr}</div>
           )}
         </div>
+        )}
 
         {/* Draft list */}
         {currentDrafts.length > 0 && (
@@ -209,7 +227,7 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['SKU', 'Mã phụ kiện', 'ĐVT', 'Mô tả', ''].map((h, i) => (
+                  {['SKU', 'Mã phụ kiện', 'ĐVT', 'Số lượng', 'Mô tả', ''].map((h, i) => (
                     <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>
@@ -220,6 +238,7 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
                     <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedBom?.ten}</td>
                     <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{d.maPK}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{d.unit || '—'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{d.soLuong || '—'}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{d.moTa || '—'}</td>
                     <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                       <button onClick={() => removeDraft(d.uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>
@@ -260,8 +279,8 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['SKU', 'Mã phụ kiện', 'ĐVT', 'Mô tả', 'Gửi lúc', 'Trạng thái'].map((h, i) => (
-                    <th key={i} style={{ padding: '8px 14px', textAlign: i === 5 ? 'right' : 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
+                  {['SKU', 'Mã phụ kiện', 'ĐVT', 'Số lượng', 'Mô tả', 'Gửi lúc', 'Trạng thái'].map((h, i) => (
+                    <th key={i} style={{ padding: '8px 14px', textAlign: i === 6 ? 'right' : 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -271,6 +290,7 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
                     <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedBom?.ten}</td>
                     <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{l.maPK}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{l.unit || '—'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{l.soLuong || '—'}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{l.moTa || '—'}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 12 }}>{req.submittedAt}</td>
                     <td style={{ padding: '10px 14px', textAlign: 'right' }}>
@@ -296,7 +316,7 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: '#fff5f5', borderBottom: '1px solid #ffcdd2' }}>
-                  {['Mã phụ kiện', 'ĐVT', 'Mô tả', 'Gửi lúc', 'Lý do từ chối'].map((h, i) => (
+                  {['Mã phụ kiện', 'ĐVT', 'Số lượng', 'Mô tả', 'Gửi lúc', 'Lý do từ chối'].map((h, i) => (
                     <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: '#b71c1c', fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>
@@ -306,6 +326,7 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
                   <tr key={l.uid} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{l.maPK}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{l.unit || '—'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{l.soLuong || '—'}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{l.moTa || '—'}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 12, whiteSpace: 'nowrap' }}>{l.submittedAt}</td>
                     <td style={{ padding: '10px 14px', color: '#c62828', fontSize: 13 }}>{l.lyDo}</td>
@@ -329,9 +350,45 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
   if (subTab === 'dinh-muc') {
     return (
       <div>
-        <div style={{ marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức — Phụ kiện</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập thông tin phụ kiện theo SKU</p>
+        <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức — Phụ kiện</h2>
+            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập thông tin phụ kiện theo SKU</p>
+          </div>
+          {(() => {
+            const notifs = MOCK_BOMS.filter(b => approvedBomIds.includes(b.id) && !dismissedNotifs.includes(b.id))
+            return (
+              <div style={{ position: 'relative', flexShrink: 0 }}>
+                <button onClick={() => setBellOpen(o => !o)} title="Thông báo duyệt"
+                  style={{ position: 'relative', padding: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', display: 'flex' }}>
+                  <Bell size={18} color="var(--text2)" />
+                  {notifs.length > 0 && (
+                    <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 17, height: 17, padding: '0 4px', background: '#c62828', color: '#fff', borderRadius: 99, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{notifs.length}</span>
+                  )}
+                </button>
+                {bellOpen && (
+                  <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', width: 290, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: '0 8px 30px rgba(0,0,0,.15)', zIndex: 50, overflow: 'hidden' }}>
+                    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 13 }}>Thông báo duyệt</div>
+                    {notifs.length === 0 ? (
+                      <div style={{ padding: 16, fontSize: 13, color: 'var(--text3)' }}>Chưa có định mức nào được duyệt.</div>
+                    ) : notifs.map(n => (
+                      <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 30px 10px 14px', borderTop: '1px solid var(--border)', position: 'relative' }}>
+                        <span style={{ color: '#2e7d32', fontSize: 15 }}>✓</span>
+                        <div>
+                          <div style={{ fontSize: 13, fontWeight: 600 }}>{n.ten}</div>
+                          <div style={{ fontSize: 11, color: 'var(--text3)' }}>Đã duyệt định mức phụ kiện · {n.thoiGian}</div>
+                        </div>
+                        <button onClick={() => setDismissedNotifs(d => [...d, n.id])} title="Đã xem — tắt thông báo"
+                          style={{ position: 'absolute', top: 6, right: 6, padding: 3, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex' }}>
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })()}
         </div>
         <div style={{ marginBottom: 16 }}>
           <input
@@ -351,7 +408,7 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
               </tr>
             </thead>
             <tbody>
-              {MOCK_BOMS.filter(b => b.ten.toLowerCase().includes(bomSearch.toLowerCase())).map(item => {
+              {MOCK_BOMS.filter(b => b.ten.toLowerCase().includes(bomSearch.toLowerCase()) && bomStatus(b.id) !== 'approved').map(item => {
                 const st = bomStatus(item.id)
                 return (
                   <tr key={item.id}
@@ -364,12 +421,12 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
                     <td style={{ padding: '12px 14px' }}>
                       {st === 'approved'
-                        ? <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✓ Đã duyệt</span>
+                        ? null
                         : st === 'pending'
-                        ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
+                        ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Đợi duyệt</span>
                         : st === 'rejected'
                         ? <span style={{ background: '#ffebee', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
-                        : <span style={{ background: '#fce4ec', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Cần nhập</span>
+                        : <span style={{ background: '#eef2ff', color: '#3949ab', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
                       }
                     </td>
                     <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
