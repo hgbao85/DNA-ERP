@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { ChevronLeft, ChevronRight, X, Eye, Bell } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react'
+import NotifBell from '../../../components/NotifBell'
 
 // ─── Types ────────────────────────────────────────────────────────────
 type BomItem = { id: number; ten: string; thoiGian: string }
@@ -47,8 +48,6 @@ export default function SpecPackagingPage({ subTab, onSubTabChange }: {
   onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
 }) {
   const [approvedBomIds] = useState<number[]>(APPROVED_BOM_IDS)
-  const [bellOpen, setBellOpen] = useState(false)
-  const [dismissedNotifs, setDismissedNotifs] = useState<number[]>([])
   const [pendingReqs, setPendingReqs] = useState<PendingReq[]>(MOCK_PENDING)
   const [draftsByBom, setDraftsByBom] = useState<Record<number, PackagingLine[]>>(MOCK_DRAFT)
   const [reqUid, setReqUid] = useState(2)
@@ -355,40 +354,10 @@ export default function SpecPackagingPage({ subTab, onSubTabChange }: {
             <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức — Bao bì</h2>
             <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập thông tin bao bì theo SKU</p>
           </div>
-          {(() => {
-            const notifs = MOCK_BOMS.filter(b => approvedBomIds.includes(b.id) && !dismissedNotifs.includes(b.id))
-            return (
-              <div style={{ position: 'relative', flexShrink: 0 }}>
-                <button onClick={() => setBellOpen(o => !o)} title="Thông báo duyệt"
-                  style={{ position: 'relative', padding: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', display: 'flex' }}>
-                  <Bell size={18} color="var(--text2)" />
-                  {notifs.length > 0 && (
-                    <span style={{ position: 'absolute', top: -5, right: -5, minWidth: 17, height: 17, padding: '0 4px', background: '#c62828', color: '#fff', borderRadius: 99, fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{notifs.length}</span>
-                  )}
-                </button>
-                {bellOpen && (
-                  <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 6px)', width: 290, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', boxShadow: '0 8px 30px rgba(0,0,0,.15)', zIndex: 50, overflow: 'hidden' }}>
-                    <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontWeight: 700, fontSize: 13 }}>Thông báo duyệt</div>
-                    {notifs.length === 0 ? (
-                      <div style={{ padding: 16, fontSize: 13, color: 'var(--text3)' }}>Chưa có định mức nào được duyệt.</div>
-                    ) : notifs.map(n => (
-                      <div key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '10px 30px 10px 14px', borderTop: '1px solid var(--border)', position: 'relative' }}>
-                        <span style={{ color: '#2e7d32', fontSize: 15 }}>✓</span>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 600 }}>{n.ten}</div>
-                          <div style={{ fontSize: 11, color: 'var(--text3)' }}>Đã duyệt định mức bao bì · {n.thoiGian}</div>
-                        </div>
-                        <button onClick={() => setDismissedNotifs(d => [...d, n.id])} title="Đã xem — tắt thông báo"
-                          style={{ position: 'absolute', top: 6, right: 6, padding: 3, background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', display: 'flex' }}>
-                          <X size={13} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          })()}
+          <NotifBell
+            items={MOCK_BOMS.filter(b => approvedBomIds.includes(b.id)).map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức bao bì · ${n.thoiGian}` }))}
+            emptyText="Chưa có định mức nào được duyệt."
+          />
         </div>
         <div style={{ marginBottom: 16 }}>
           <input
