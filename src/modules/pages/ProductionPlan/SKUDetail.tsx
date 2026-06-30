@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft, Loader2 } from 'lucide-react'
 import * as api from '../../../services/api'
@@ -114,14 +114,16 @@ export function SKUDetail({
       ;(Array.isArray(mt?.baoBiDongGoi) ? mt!.baoBiDongGoi : []).forEach((i: any) => {
         if (i.name) required.push({ name: i.name, required: i.quantity ?? 1, unit: i.unit ?? 'thùng' })
       })
-      // Tồn khả dụng = tồn thực tế - phần đã bị các lệnh mua khác giữ chỗ (ACTIVE)
+      // Tồn khả dụng = tồn thực tế - phần đã bị các lệnh mua khác (không phải của chính SKU này) giữ chỗ (ACTIVE)
+      // Bỏ qua giữ chỗ của các lệnh mua do chính SKU này tạo ra — đó là phần giữ cho chính nó, không phải nhu cầu cạnh tranh
+      const ownPOIds = new Set(relatedPOs.map(po => po.id))
       const missing = required.flatMap(req => {
         const norm = req.name.toLowerCase().trim()
         const onHand = warehouseItems
           .filter((w: any) => w.name?.toLowerCase().trim() === norm)
           .reduce((sum: number, w: any) => sum + (w.quantity ?? 0), 0)
         const reserved = reservations
-          .filter((r: any) => r.status === 'ACTIVE' && r.materialName?.toLowerCase().trim() === norm)
+          .filter((r: any) => r.status === 'ACTIVE' && !ownPOIds.has(r.sourcePOId) && r.materialName?.toLowerCase().trim() === norm)
           .reduce((sum: number, r: any) => sum + (r.quantity ?? 0), 0)
         const avail = Math.max(0, onHand - reserved)
         return avail < req.required ? [{ ...req, available: avail }] : []
@@ -146,6 +148,13 @@ export function SKUDetail({
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
   const latestPO = relatedPOs[0] ?? null
   const materialsArrived = latestPO?.status === 'RECEIVED'
+  // Đã từng có lệnh mua được gửi từ SKU này → bước duyệt + kiểm vật tư đầu tiên đã hoàn tất trước đó,
+  // không cần hiển thị lại (kể cả khi state cục bộ secStatus bị reset do rời trang rồi quay lại)
+  const hasPurchaseFlow = relatedPOs.length > 0
+  useEffect(() => {
+    if (hasPurchaseFlow && !allSectionsApproved && !anySectionRejected) approveAllSections()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasPurchaseFlow])
   const handleApproveDetail = async () => {
     if (!onApproveDetail) return
     setApprovingDetail(true)
@@ -303,25 +312,28 @@ export function SKUDetail({
           {/* Actions */}
           {canEditDetail && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              {!allSectionsApproved && !anySectionRejected && (
+              {hasPurchaseFlow && (
+                <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã duyệt &amp; kiểm vật tư trước đó — xem theo dõi lệnh mua bên dưới</span>
+              )}
+              {!hasPurchaseFlow && !allSectionsApproved && !anySectionRejected && (
                 <span style={{ fontSize: 12, color: '#d97706' }}>Cần duyệt đủ 4 loại vật tư chi tiết mới được chuyển đến công đoạn tiếp theo</span>
               )}
-              {!allSectionsApproved && filterSec === 'all' && !anySectionRejected && (
+              {!hasPurchaseFlow && !allSectionsApproved && filterSec === 'all' && !anySectionRejected && (
                 <button
                   onClick={approveAllSections}
                   style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #16a34a', background: '#f0fdf4', color: '#16a34a', cursor: 'pointer' }}
                 >Duyệt tất cả</button>
               )}
-              {anySectionRejected && !sendDone && (
+              {!hasPurchaseFlow && anySectionRejected && !sendDone && (
                 <button
                   onClick={() => setShowSendConfirm(true)}
                   style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #7c3aed', background: '#faf5ff', color: '#7c3aed', cursor: 'pointer' }}
                 >Gửi lại bộ phận Định mức chi tiết</button>
               )}
-              {sendDone && (
+              {!hasPurchaseFlow && sendDone && (
                 <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>✓ Đã gửi lại bộ phận Định mức chi tiết</span>
               )}
-              {allSectionsApproved && (
+              {!hasPurchaseFlow && allSectionsApproved && (
                 <button
                   onClick={handleCheck}
                   disabled={checkState === 'checking'}

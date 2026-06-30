@@ -138,6 +138,21 @@ export const createPurchaseOrder = async (data: {
   mockStore.update((s: any) => {
     if (!s.purchaseOrders) s.purchaseOrders = [];
     s.purchaseOrders.push(po);
+    // Giữ chỗ tồn kho ngay khi KHSX gửi đề xuất mua hàng — không chờ kho xác nhận mới cập nhật
+    if (!s.mfgWarehouseReservations) s.mfgWarehouseReservations = [];
+    po.items.forEach((it: any) => {
+      if (it.requiredQty > 0) {
+        s.mfgWarehouseReservations.push({
+          id: nextId(),
+          materialName: it.materialName,
+          quantity: it.requiredQty,
+          sourcePOId: po.id,
+          sourcePOCode: po.code,
+          status: 'ACTIVE',
+          createdAt: now,
+        });
+      }
+    });
   });
   return structuredClone(po);
 };
@@ -150,12 +165,13 @@ export const confirmPurchaseOrderByWarehouse = async (
   const now = new Date().toISOString();
   mockStore.update((s: any) => {
     const po = (s.purchaseOrders ?? []).find((p: any) => p.id === id);
-    // Chỉ xác nhận lệnh đang ở đúng trạng thái chờ kho — chặn double-submit tạo reservation trùng
+    // Chỉ xác nhận lệnh đang ở đúng trạng thái chờ kho — chặn double-submit
     if (!po || po.status !== 'PENDING_WAREHOUSE') return;
     if (!s.mfgWarehouseReservations) s.mfgWarehouseReservations = [];
 
-    // Tồn khả dụng thật tại thời điểm xác nhận (tồn kho - phần lệnh khác đang giữ chỗ),
-    // trừ dần khi xử lý từng dòng để không cho chính lệnh này tự giữ vượt quá tồn thật
+    // Tồn khả dụng thật tại thời điểm xác nhận (tồn kho - phần lệnh KHÁC đang giữ chỗ).
+    // Phần lệnh này tự giữ (đã tạo từ lúc KHSX gửi đề xuất) không bị trừ vào đây vì đó là
+    // chính phần đang được xác nhận, không phải đối thủ tranh chấp tồn kho.
     const availableByName = new Map<string, number>();
     const availFor = (norm: string) => {
       if (!availableByName.has(norm)) {
@@ -163,7 +179,7 @@ export const confirmPurchaseOrderByWarehouse = async (
           .filter((w: any) => w.name?.toLowerCase().trim() === norm)
           .reduce((sum: number, w: any) => sum + (w.quantity ?? 0), 0);
         const reserved = s.mfgWarehouseReservations
-          .filter((r: any) => r.status === 'ACTIVE' && r.materialName?.toLowerCase().trim() === norm)
+          .filter((r: any) => r.status === 'ACTIVE' && r.sourcePOId !== po.id && r.materialName?.toLowerCase().trim() === norm)
           .reduce((sum: number, r: any) => sum + (r.quantity ?? 0), 0);
         availableByName.set(norm, Math.max(0, onHand - reserved));
       }
@@ -184,21 +200,7 @@ export const confirmPurchaseOrderByWarehouse = async (
       const stockActual = Math.max(0, Math.min(safeInput, cap));
       it.stockActual = stockActual;
       it.buyQty = Math.max(0, it.requiredQty - stockActual);
-
-      // Giữ chỗ TOÀN BỘ nhu cầu (cả phần đã có sẵn lẫn phần sẽ đặt mua) cho lệnh này —
-      // để khi hàng đặt mua về kho sau này không bị một lệnh khác giành mất trước khi lệnh này dùng tới.
-      const claim = it.requiredQty;
-      if (claim > 0) {
-        s.mfgWarehouseReservations.push({
-          id: nextId(),
-          materialName: it.materialName,
-          quantity: claim,
-          sourcePOId: po.id,
-          sourcePOCode: po.code,
-          status: 'ACTIVE',
-          createdAt: now,
-        });
-      }
+      // Giữ chỗ đã được tạo sẵn từ lúc KHSX gửi đề xuất (createPurchaseOrder) — không tạo lại ở đây.
       // Chỉ trừ phần tồn sẵn có thật đã lấy ngay bây giờ cho dòng kế tiếp cùng tên trong chính lệnh này
       if (norm) availableByName.set(norm, cap - stockActual);
     });
@@ -324,8 +326,8 @@ export const rejectPurchaseOrder = async (id: number, reason?: string): Promise<
   await mockDelay();
   mockStore.update((s: any) => {
     const po = (s.purchaseOrders ?? []).find((p: any) => p.id === id);
-    // Chỉ cho từ chối khi đang chờ GĐ duyệt — đúng với luồng nghiệp vụ duy nhất hiện có (TongQuanPage)
-    if (!po || po.status !== 'PENDING_APPROVAL') return;
+    // Cho từ chối khi đang chờ GĐ duyệt (TongQuanPage) hoặc còn ở bước chờ kho xác nhận (LenhMuaKhoPage)
+    if (!po || (po.status !== 'PENDING_APPROVAL' && po.status !== 'PENDING_WAREHOUSE')) return;
     po.status = 'REJECTED';
     po.rejectionReason = reason ?? null;
     // Trả lại tồn kho đã giữ chỗ cho lệnh này vì lệnh bị từ chối
@@ -384,7 +386,13 @@ export const confirmWarehouseReceipt = async (
       });
     });
     const po = (s.purchaseOrders ?? []).find((p: any) => p.id === receipt.purchaseOrderId);
-    if (po) po.status = 'RECEIVED';
+    if (po) {
+      po.status = 'RECEIVED';
+      // Hàng đã về kho — giải phóng chỗ đã giữ cho lệnh này để không bị trừ trùng vào tồn khả dụng
+      (s.mfgWarehouseReservations ?? []).forEach((r: any) => {
+        if (r.sourcePOId === po.id && r.status === 'ACTIVE') r.status = 'RELEASED';
+      });
+    }
   });
   return structuredClone(((mockStore.get() as any).warehouseReceipts ?? []).find((r: any) => r.id === id));
 };

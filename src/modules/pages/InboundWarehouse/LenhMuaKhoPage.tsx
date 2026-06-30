@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
-import { CheckCircle2, ChevronDown, ChevronUp, PackageSearch } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronUp, PackageSearch, XCircle } from 'lucide-react'
 import type { PurchaseOrder } from '../../../types/purchase-order'
 import { PO_STATUS_MAP } from '../../../types/purchase-order'
 
@@ -20,16 +20,20 @@ export default function LenhMuaKhoPage() {
   const [stockEdits, setStockEdits] = useState<Record<number, string>>({})
   const [busy, setBusy] = useState<number | null>(null)
   const [done, setDone] = useState<Set<number>>(new Set())
+  const [rejectModal, setRejectModal] = useState<PurchaseOrder | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejecting, setRejecting] = useState(false)
   const { ask, confirmModal } = useConfirm()
 
-  // Tồn khả dụng = tồn thực tế trong kho - phần đã bị các lệnh mua khác giữ chỗ (ACTIVE)
-  const getActualStock = (materialName: string) => {
+  // Tồn khả dụng = tồn thực tế trong kho - phần đã bị các lệnh mua KHÁC giữ chỗ (ACTIVE)
+  // Bỏ qua chỗ mà chính lệnh đang xét (poId) đã giữ — vì đó là giữ chỗ tạm từ lúc tạo lệnh, không phải nhu cầu cạnh tranh
+  const getActualStock = (materialName: string, poId: number) => {
     const norm = materialName.toLowerCase().trim()
     const onHand = safeArr(warehouseItemsData)
       .filter((w: any) => w.name?.toLowerCase().trim() === norm)
       .reduce((sum: number, w: any) => sum + (w.quantity ?? 0), 0)
     const reserved = safeArr(reservationsData)
-      .filter((r: any) => r.status === 'ACTIVE' && r.materialName?.toLowerCase().trim() === norm)
+      .filter((r: any) => r.status === 'ACTIVE' && r.sourcePOId !== poId && r.materialName?.toLowerCase().trim() === norm)
       .reduce((sum: number, r: any) => sum + (r.quantity ?? 0), 0)
     return Math.max(0, onHand - reserved)
   }
@@ -43,7 +47,7 @@ export default function LenhMuaKhoPage() {
           setStockEdits(se => {
             const upd = { ...se }
             po.items.forEach(it => {
-              if (upd[it.id] === undefined) upd[it.id] = String(getActualStock(it.materialName))
+              if (upd[it.id] === undefined) upd[it.id] = String(getActualStock(it.materialName, po.id))
             })
             return upd
           })
@@ -88,6 +92,23 @@ export default function LenhMuaKhoPage() {
         }
       }
     )
+  }
+
+  const handleRejectPO = async () => {
+    if (!rejectModal) return
+    setRejecting(true)
+    try {
+      await (api as any).rejectPurchaseOrder(rejectModal.id, rejectReason.trim() || undefined)
+      setRejectModal(null)
+      setRejectReason('')
+      setExpandedId(null)
+      refetch()
+      refetchReservations()
+    } catch (e) {
+      alert(errMsg(e))
+    } finally {
+      setRejecting(false)
+    }
   }
 
   if (isLoading) return <div style={{ padding: 32, color: 'var(--text3)' }}>Đang tải...</div>
@@ -186,6 +207,13 @@ export default function LenhMuaKhoPage() {
                       Tồn thực tế đã lấy tự động từ kho — có thể chỉnh lại nếu cần, hệ thống tự tính số lượng cần mua
                     </span>
                     <button
+                      onClick={() => { setRejectModal(po); setRejectReason('') }}
+                      disabled={busy === po.id || isDone}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '8px 16px', background: '#fce4ec', border: '1px solid #ef9a9a', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#c62828', cursor: 'pointer' }}
+                    >
+                      <XCircle size={14} /> Từ chối
+                    </button>
+                    <button
                       onClick={() => handleConfirm(po)}
                       disabled={busy === po.id || isDone}
                       style={{
@@ -207,6 +235,34 @@ export default function LenhMuaKhoPage() {
         })}
       </div>
       {confirmModal}
+
+      {/* Modal từ chối lệnh mua */}
+      {rejectModal && (
+        <div
+          onClick={e => { if (e.target === e.currentTarget) setRejectModal(null) }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
+        >
+          <div style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 420, padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,.18)' }}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Từ chối lệnh mua — {rejectModal.code}</h3>
+            <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text3)' }}>
+              Lệnh sẽ chuyển sang trạng thái từ chối và phần tồn kho đã giữ chỗ cho lệnh này sẽ được giải phóng. Nhập lý do (không bắt buộc).
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              placeholder="VD: Sai thông tin vật tư, lệnh trùng lặp..."
+              rows={3} autoFocus
+              style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+            />
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+              <button onClick={() => setRejectModal(null)} style={{ padding: '8px 18px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Hủy</button>
+              <button onClick={handleRejectPO} disabled={rejecting} style={{ padding: '8px 18px', background: '#c62828', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', cursor: rejecting ? 'not-allowed' : 'pointer', opacity: rejecting ? 0.7 : 1 }}>
+                {rejecting ? 'Đang xử lý...' : 'Xác nhận từ chối'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
