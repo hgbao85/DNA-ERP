@@ -4,6 +4,7 @@ import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
 import { ClipboardList, AlertCircle, CheckCircle2, XCircle } from 'lucide-react'
 import RefreshButton from '../../../components/RefreshButton'
+import ReasonModal from '../../../components/ReasonModal'
 import VatTuCanMuaPage from './VatTuCanMuaPage'
 import { useAuth } from '../../../context/AuthContext'
 import type { PurchaseOrder } from '../../../types/purchase-order'
@@ -279,27 +280,18 @@ export default function TongQuanPage() {
       </div>
 
       {/* Modal từ chối đơn mua */}
-      {rejectModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 420, padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,.18)' }}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Từ chối đơn mua — {rejectModal.code}</h3>
-            <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text3)' }}>Nhập lý do từ chối (không bắt buộc)</p>
-            <textarea
-              value={rejectReason}
-              onChange={e => setRejectReason(e.target.value)}
-              placeholder="VD: Giá quá cao, cần báo giá lại..."
-              rows={3} autoFocus
-              style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
-            />
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-              <button onClick={() => setRejectModal(null)} style={{ padding: '8px 18px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>Hủy</button>
-              <button onClick={handleRejectPO} disabled={!!busyPO} style={{ padding: '8px 18px', background: '#c62828', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', cursor: 'pointer' }}>
-                Xác nhận từ chối
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ReasonModal
+        open={!!rejectModal}
+        title={`Từ chối đơn mua — ${rejectModal?.code ?? ''}`}
+        description="Nhập lý do từ chối (không bắt buộc)"
+        reason={rejectReason}
+        onReasonChange={setRejectReason}
+        placeholder="VD: Giá quá cao, cần báo giá lại..."
+        onCancel={() => setRejectModal(null)}
+        onConfirm={handleRejectPO}
+        busy={!!busyPO}
+        confirmColor="#c62828"
+      />
 
       <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>

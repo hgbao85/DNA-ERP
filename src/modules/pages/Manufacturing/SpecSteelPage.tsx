@@ -1,6 +1,8 @@
 import { useState, useRef } from 'react'
 import { ChevronRight, ChevronLeft, Plus, X } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
+import QuotaSkuEntryPanel from './QuotaSkuEntryPanel'
+import QuotaManhEntryPanel from './QuotaManhEntryPanel'
 
 // ─── Types ────────────────────────────────────────────────────────────
 type SteelItem = { name: string; specs: string; unit: string; chieuDai: string }
@@ -448,6 +450,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
         />
       </div>
 
+      {subTab === 'dinh-muc' && <QuotaManhEntryPanel />}
+
       {/* ══ ĐỊNH MỨC: LIST ══ */}
       {subTab === 'dinh-muc' && !selectedBom && (
         <div>
@@ -742,6 +746,19 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
             </div>
           )}
         </div>
+      )}
+
+      {subTab === 'vat-tu' && (
+        <QuotaSkuEntryPanel
+          group="sat"
+          groupLabel="Sắt"
+          fields={[
+            { key: 'specifications', label: 'Quy cách', type: 'text' },
+            { key: 'thickness', label: 'Độ dày', type: 'number' },
+            { key: 'unit', label: 'ĐVT', type: 'text' },
+            { key: 'quantity', label: 'SL', type: 'number' },
+          ]}
+        />
       )}
 
       {/* ══ ĐỊNH MỨC CHI TIẾT: LIST SKU ══ */}

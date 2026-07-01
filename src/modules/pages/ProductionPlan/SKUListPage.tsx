@@ -2,19 +2,23 @@ import { useState, Fragment } from 'react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import { Loader2, Search, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import type { PlanForm } from '../../../types/plan-form'
 import { SKUDetail, StatusBadge, STATUS_MAP } from './SKUDetail'
+import SearchInput from '../../../components/SearchInput'
+import FilterPills from '../../../components/FilterPills'
+import LoadingState from '../../../components/LoadingState'
+import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 
 type StatusFilter = 'all' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS' | 'APPROVED'
 
-const FILTERS: { key: StatusFilter; label: string }[] = [
+const FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }[] = [
   { key: 'all',             label: 'Tất cả' },
-  { key: 'WAITING_DETAIL',  label: STATUS_MAP.WAITING_DETAIL.label },
-  { key: 'WAITING_PARTS',   label: STATUS_MAP.WAITING_PARTS.label },
-  { key: 'APPROVED_DETAIL', label: STATUS_MAP.APPROVED_DETAIL.label },
-  { key: 'APPROVED_PARTS',  label: STATUS_MAP.APPROVED_PARTS.label },
-  { key: 'APPROVED',        label: STATUS_MAP.APPROVED.label },
+  { key: 'WAITING_DETAIL',  ...STATUS_MAP.WAITING_DETAIL },
+  { key: 'WAITING_PARTS',   ...STATUS_MAP.WAITING_PARTS },
+  { key: 'APPROVED_DETAIL', ...STATUS_MAP.APPROVED_DETAIL },
+  { key: 'APPROVED_PARTS',  ...STATUS_MAP.APPROVED_PARTS },
+  { key: 'APPROVED',        ...STATUS_MAP.APPROVED },
 ]
 
 export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }) {
@@ -114,50 +118,12 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
 
       {/* Status filter + search */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 6 }}>
-          {FILTERS.map(({ key, label }) => {
-            const active = statusFilter === key
-            const s = key !== 'all' ? STATUS_MAP[key] : null
-            const count = countByStatus(key)
-            return (
-              <button
-                key={key}
-                onClick={() => setStatusFilter(key)}
-                style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                  padding: '5px 12px', fontSize: 12, fontWeight: 600, borderRadius: 20,
-                  border: active ? 'none' : '1px solid var(--border)',
-                  cursor: 'pointer',
-                  background: active ? (s ? s.bg : '#1f2937') : 'var(--surface)',
-                  color: active ? (s ? s.color : '#fff') : 'var(--text2)',
-                  transition: 'all 0.15s',
-                }}
-              >
-                {label}
-                <span style={{
-                  fontSize: 11, fontWeight: 700, minWidth: 18, textAlign: 'center',
-                  padding: '1px 5px', borderRadius: 10,
-                  background: active ? 'rgba(0,0,0,0.12)' : 'var(--surface2)',
-                  color: 'inherit',
-                }}>{count}</span>
-              </button>
-            )
-          })}
-        </div>
-        <div style={{ position: 'relative' }}>
-          <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
-          <input
-            type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Tìm SKU, tên sản phẩm, khách hàng..."
-            style={{ paddingLeft: 32, paddingRight: 10, paddingTop: 7, paddingBottom: 7, fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', outline: 'none', width: 280 }}
-          />
-        </div>
+        <FilterPills options={FILTERS} active={statusFilter} onChange={setStatusFilter} countFor={countByStatus} />
+        <SearchInput value={search} onChange={setSearch} placeholder="Tìm SKU, tên sản phẩm, khách hàng..." />
       </div>
 
       {isLoading ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text2)', padding: 24 }}>
-          <Loader2 size={16} /> Đang tải...
-        </div>
+        <LoadingState />
       ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
@@ -277,6 +243,3 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
     </div>
   )
 }
-
-const thStyle: React.CSSProperties = { padding: '10px 14px', fontWeight: 600, fontSize: 12, color: 'var(--text3)' }
-const tdStyle: React.CSSProperties = { padding: '11px 14px' }

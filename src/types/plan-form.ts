@@ -44,6 +44,35 @@ export interface MaterialType {
   baoBiDongGoi: BaoBiDongGoiItem[];
 }
 
+/** Ai nhập 1 nhóm định mức (chi tiết hoặc mảnh) và khi nào — phục vụ luồng 4 account chuyên trách nhập liệu. */
+export interface QuotaEntryMeta {
+  enteredBy: string;
+  enteredAt: string;
+}
+
+/** Kết quả KHSX duyệt/từ chối 1 nhóm định mức chi tiết — để account chuyên trách biết cần nhập lại. */
+export interface QuotaReviewStatus {
+  status: 'APPROVED' | 'REJECTED';
+  reason?: string;
+  reviewedAt: string;
+}
+
+/** 1 loại sắt thuộc 1 mảnh — nhập sau bước "Tạo mảnh". */
+export interface ManhChildRow {
+  id: number;
+  name: string;
+  specs?: string | null;
+  length?: string | null;
+  qty?: string | null;
+}
+
+/** 1 mảnh phôi (vd "Mảnh tựa", "Chân ghế") gồm nhiều loại sắt con — do account Sắt nhập theo 2 bước: tạo mảnh -> nhập sắt. */
+export interface ManhRow {
+  id: number;
+  name: string;
+  children: ManhChildRow[];
+}
+
 export interface PlanForm {
   id: number;
   exportOrderId: number;
@@ -59,7 +88,13 @@ export interface PlanForm {
   quotaManagement?: {
     id: number;
     materialType: MaterialType;
+    /** Ai/khi nào nhập từng nhóm định mức chi tiết (sat/daySon/vatTuPhuKien/baoBiDongGoi) */
+    entryMeta?: Partial<Record<keyof MaterialType, QuotaEntryMeta>>;
+    /** KHSX duyệt/từ chối từng nhóm — account chuyên trách xem để biết cần sửa lại nhóm nào */
+    reviewStatus?: Partial<Record<keyof MaterialType, QuotaReviewStatus>>;
   };
+  manhItems?: ManhRow[];
+  manhEntryMeta?: QuotaEntryMeta;
 }
 
 export interface CreatePlanFormPayload {
@@ -67,10 +102,4 @@ export interface CreatePlanFormPayload {
   mfgProductId: number;
   note?: string;
   customerName?: string;
-  materialType: {
-    sat: { type: string; specifications?: string; thickness?: number };
-    daySon: { kg?: number; specifications?: string; imageUrl?: string };
-    vatTuPhuKien: { unit: string };
-    baoBiDongGoi: { unit: string };
-  };
 }

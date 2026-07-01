@@ -2,22 +2,18 @@ import { mockDelay } from '../core/delay';
 import { mockStore } from '../core/store';
 import { nextId } from '../core/id';
 import { BaseService } from '../core/base.service';
-import type { CreatePlanFormPayload, PlanForm, PlanFormStatus } from '../../../types/plan-form';
+import type { CreatePlanFormPayload, ManhRow, MaterialType, PlanForm, PlanFormStatus, QuotaEntryMeta, QuotaReviewStatus } from '../../../types/plan-form';
 
 // ─── Service class ────────────────────────────────────────────────────────────
 
 class PlanFormService extends BaseService<PlanForm> {
   constructor() { super('planForms'); }
 
-  private buildMaterialType(dto: CreatePlanFormPayload['materialType']) {
+  /** SKU mới tạo chưa có định mức nào — 4 account chuyên trách (Sắt/Dây-Sơn/Phụ kiện/Bao bì) sẽ tự nhập sau. */
+  private buildEmptyQuota(): NonNullable<PlanForm['quotaManagement']> {
     return {
       id: nextId(),
-      materialType: {
-        sat: [{ id: nextId(), name: dto.sat.type, specifications: dto.sat.specifications, thickness: dto.sat.thickness, unit: 'cây', quantity: 1 }],
-        daySon: [{ id: nextId(), name: dto.daySon.specifications ?? 'Dây/Sơn', specifications: dto.daySon.specifications, kg: dto.daySon.kg, unit: 'kg' }],
-        vatTuPhuKien: [{ id: nextId(), name: 'Phụ kiện', unit: dto.vatTuPhuKien.unit, quantity: 1 }],
-        baoBiDongGoi: [{ id: nextId(), name: 'Bao bì', unit: dto.baoBiDongGoi.unit, quantity: 1 }],
-      },
+      materialType: { sat: [], daySon: [], vatTuPhuKien: [], baoBiDongGoi: [] },
     };
   }
 
@@ -72,7 +68,7 @@ class PlanFormService extends BaseService<PlanForm> {
     await mockDelay();
     let created!: PlanForm;
     mockStore.update((s) => {
-      const quota = this.buildMaterialType(data.materialType);
+      const quota = this.buildEmptyQuota();
       created = {
         id: nextId(),
         exportOrderId: data.exportOrderId,
@@ -118,9 +114,91 @@ class PlanFormService extends BaseService<PlanForm> {
     return this.enrich(updated);
   }
 
-  async approveDetail(id: number): Promise<PlanForm> { return this.transition(id, 'APPROVED_DETAIL'); }
+  async approveDetail(id: number): Promise<PlanForm> { return this.transition(id, 'WAITING_PARTS'); }
   async approveParts(id: number):  Promise<PlanForm> { return this.transition(id, 'APPROVED_PARTS'); }
   async approveFull(id: number):   Promise<PlanForm> { return this.transition(id, 'APPROVED'); }
+
+  /**
+   * 1 trong 4 account chuyên trách (Sắt/Dây-Sơn/Phụ kiện/Bao bì) nhập định mức chi tiết cho nhóm vật tư của mình.
+   * Chỉ cần 1 trong 4 nhóm được nhập là đủ để chuyển status WAITING_DETAIL -> APPROVED_DETAIL (chờ KHSX duyệt);
+   * không chờ đủ cả 4 nhóm. Các lần nhập sau (sửa lại nhóm đã có) không đổi status đang ở giai đoạn xa hơn.
+   */
+  async updateDetailQuota<K extends keyof MaterialType>(
+    id: number,
+    group: K,
+    items: MaterialType[K],
+    enteredBy: string,
+  ): Promise<PlanForm> {
+    await mockDelay();
+    let updated!: PlanForm;
+    mockStore.update((s) => {
+      const idx = s.planForms.findIndex((p) => p.id === id);
+      if (idx < 0) throw new Error(`PlanForm #${id} not found`);
+      const pf = s.planForms[idx];
+      const quota = pf.quotaManagement ?? this.buildEmptyQuota();
+      const meta: QuotaEntryMeta = { enteredBy, enteredAt: new Date().toISOString() };
+      // Nhập lại sau khi bị từ chối coi như đã sửa xong — xóa cờ reviewStatus của nhóm này để KHSX duyệt lại từ đầu.
+      const { [group]: _clearedReview, ...restReview } = quota.reviewStatus ?? {};
+      updated = {
+        ...pf,
+        status: pf.status === 'WAITING_DETAIL' ? 'APPROVED_DETAIL' : pf.status,
+        quotaManagement: {
+          ...quota,
+          materialType: { ...quota.materialType, [group]: items },
+          entryMeta: { ...quota.entryMeta, [group]: meta },
+          reviewStatus: restReview,
+        },
+      };
+      s.planForms[idx] = updated;
+    });
+    return this.enrich(updated);
+  }
+
+  /** KHSX duyệt hoặc từ chối 1 nhóm định mức chi tiết — account chuyên trách sẽ thấy lý do từ chối ở trang nhập của mình. */
+  async reviewDetailQuota<K extends keyof MaterialType>(
+    id: number,
+    group: K,
+    status: 'APPROVED' | 'REJECTED',
+    reason?: string,
+  ): Promise<PlanForm> {
+    await mockDelay();
+    let updated!: PlanForm;
+    mockStore.update((s) => {
+      const idx = s.planForms.findIndex((p) => p.id === id);
+      if (idx < 0) throw new Error(`PlanForm #${id} not found`);
+      const pf = s.planForms[idx];
+      const quota = pf.quotaManagement ?? this.buildEmptyQuota();
+      const review: QuotaReviewStatus = { status, reason, reviewedAt: new Date().toISOString() };
+      updated = {
+        ...pf,
+        quotaManagement: {
+          ...quota,
+          reviewStatus: { ...quota.reviewStatus, [group]: review },
+        },
+      };
+      s.planForms[idx] = updated;
+    });
+    return this.enrich(updated);
+  }
+
+  /** Account Sắt nhập danh sách mảnh phôi. Chuyển status WAITING_PARTS -> APPROVED_PARTS (chờ duyệt mảnh). */
+  async updateManhQuota(id: number, rows: ManhRow[], enteredBy: string): Promise<PlanForm> {
+    await mockDelay();
+    let updated!: PlanForm;
+    mockStore.update((s) => {
+      const idx = s.planForms.findIndex((p) => p.id === id);
+      if (idx < 0) throw new Error(`PlanForm #${id} not found`);
+      const pf = s.planForms[idx];
+      updated = {
+        ...pf,
+        status: pf.status === 'WAITING_PARTS' ? 'APPROVED_PARTS' : pf.status,
+        manhItems: rows,
+        manhEntryMeta: { enteredBy, enteredAt: new Date().toISOString() },
+      };
+      s.planForms[idx] = updated;
+    });
+    return this.enrich(updated);
+  }
 
   async deleteMany(ids: number[]): Promise<void> {
     await mockDelay();
@@ -146,3 +224,9 @@ export const approveDetailPlanForm = (id: number)              => planFormSvc.ap
 export const approvePartsPlanForm  = (id: number)              => planFormSvc.approveParts(id);
 export const approveFullPlanForm   = (id: number)              => planFormSvc.approveFull(id);
 export const deletePlanForms     = (ids: number[])             => planFormSvc.deleteMany(ids);
+export const updatePlanFormDetailQuota = <K extends keyof MaterialType>(id: number, group: K, items: MaterialType[K], enteredBy: string) =>
+  planFormSvc.updateDetailQuota(id, group, items, enteredBy);
+export const updatePlanFormManhQuota = (id: number, rows: ManhRow[], enteredBy: string) =>
+  planFormSvc.updateManhQuota(id, rows, enteredBy);
+export const reviewPlanFormDetailQuota = <K extends keyof MaterialType>(id: number, group: K, status: 'APPROVED' | 'REJECTED', reason?: string) =>
+  planFormSvc.reviewDetailQuota(id, group, status, reason);

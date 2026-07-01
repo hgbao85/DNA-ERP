@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
+import QuotaSkuEntryPanel from './QuotaSkuEntryPanel'
 
 // ─── Types ────────────────────────────────────────────────────────────
 type BomItem = { id: number; ten: string; thoiGian: string }
@@ -363,6 +364,17 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
             emptyText="Chưa có định mức nào được duyệt."
           />
         </div>
+
+        <QuotaSkuEntryPanel
+          group="daySon"
+          groupLabel="Dây / Sơn"
+          fields={[
+            { key: 'specifications', label: 'Quy cách', type: 'text' },
+            { key: 'kg', label: 'Khối lượng (kg)', type: 'number' },
+            { key: 'unit', label: 'ĐVT', type: 'text' },
+          ]}
+        />
+
         <div style={{ marginBottom: 16 }}>
           <input
             value={bomSearch}

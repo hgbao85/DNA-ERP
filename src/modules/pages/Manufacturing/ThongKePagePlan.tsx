@@ -660,7 +660,7 @@ export default function ThongKePagePlan() {
             <tr>
               <th style={{ ...th, width: 42 }}>#</th>
               <th style={th}>Mã PI</th>
-              <th style={th}>Sản phẩm</th>
+              <th style={th}>SKU</th>
               <th style={th}>Khách hàng</th>
               <th style={{ ...th, textAlign: 'right' }}>SL</th>
               <th style={th}>Hạn giao</th>
