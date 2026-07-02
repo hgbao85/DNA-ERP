@@ -7,7 +7,7 @@ import QuotaManhEntryPanel from './QuotaManhEntryPanel'
 // ─── Types ────────────────────────────────────────────────────────────
 type SteelItem = { name: string; specs: string; unit: string; chieuDai: string }
 type ManChild = { id: number; loaiSatName: string; specs: string; chieuDai: string; soLuong: string }
-type Manh = { id: number; tenManh: string; children: ManChild[] }
+type Manh = { id: number; tenManh: string; soLuong: string; children: ManChild[] }
 type BomItem = { id: number; ten: string; thoiGian: string }
 type DraftLine = { uid: number; name: string; specs: string; chieuDai: string; soLuong: string; unit: string }
 type PendingReq = { uid: number; bomId: number; lines: DraftLine[]; submittedAt: string }
@@ -82,25 +82,25 @@ const VAT_TU_PRESETS: { name: string; unit: string }[] = [
 const MOCK_MANHS: Record<number, Manh[]> = {
   1: [ // Ghế J55
     {
-      id: 1, tenManh: 'Mảnh tựa', children: [
+      id: 1, tenManh: 'Mảnh tựa', soLuong: '1', children: [
         { id: 11, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', chieuDai: '580', soLuong: '2' },
         { id: 12, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', chieuDai: '620', soLuong: '4' },
       ],
     },
     {
-      id: 2, tenManh: 'Mảnh ngồi', children: [
+      id: 2, tenManh: 'Mảnh ngồi', soLuong: '1', children: [
         { id: 21, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', chieuDai: '480', soLuong: '2' },
         { id: 22, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', chieuDai: '520', soLuong: '2' },
       ],
     },
     {
-      id: 3, tenManh: 'Mảnh tay', children: [
+      id: 3, tenManh: 'Mảnh tay', soLuong: '2', children: [
         { id: 31, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', chieuDai: '350', soLuong: '2' },
         { id: 32, loaiSatName: 'Sắt Hộp 8 zem',   specs: '20x40', chieuDai: '300', soLuong: '2' },
       ],
     },
     {
-      id: 4, tenManh: 'Chân ghế', children: [
+      id: 4, tenManh: 'Chân ghế', soLuong: '1', children: [
         { id: 41, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', chieuDai: '700', soLuong: '4' },
         { id: 42, loaiSatName: 'Sắt Hộp 8 zem',   specs: '20x40', chieuDai: '450', soLuong: '2' },
       ],
@@ -339,6 +339,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [approvedManhBomIds] = useState<number[]>([1]) // Ghế J55 đã duyệt
   const [showManhForm, setShowManhForm] = useState(false)
   const [formTenManh, setFormTenManh] = useState('')
+  const [formSoLuong, setFormSoLuong] = useState('1')
   const [addingTo, setAddingTo] = useState<number | null>(null)
   const [childSatName, setChildSatName] = useState('')
   const [childSpecs, setChildSpecs] = useState('')
@@ -376,9 +377,10 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
 
   const addManh = () => {
     if (!formTenManh.trim() || !selectedBom) return
-    setManhs(m => [...m, { id: nextId, tenManh: formTenManh.trim(), children: [] }])
+    const sl = String(Math.max(1, Math.floor(Number(formSoLuong)) || 1))
+    setManhs(m => [...m, { id: nextId, tenManh: formTenManh.trim(), soLuong: sl, children: [] }])
     setNextId(n => n + 1)
-    setShowManhForm(false); setFormTenManh('')
+    setShowManhForm(false); setFormTenManh(''); setFormSoLuong('1')
   }
 
   const addChild = (manhId: number) => {
@@ -533,6 +535,13 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     onKeyDown={e => e.key === 'Enter' && addManh()}
                     style={inputStyle} />
                 </div>
+                <div style={{ width: 110 }}>
+                  <FL>Số lượng / SKU</FL>
+                  <input type="number" min={1} placeholder="1" value={formSoLuong}
+                    onChange={e => setFormSoLuong(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addManh()}
+                    style={inputStyle} />
+                </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={addManh} disabled={!formTenManh.trim()} style={{
                     padding: '7px 16px', border: 'none', borderRadius: 'var(--radius)',
@@ -540,7 +549,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     color: '#fff', fontWeight: 700, fontSize: 13,
                     cursor: formTenManh.trim() ? 'pointer' : 'not-allowed',
                   }}>Tạo mảnh</button>
-                  <button onClick={() => { setShowManhForm(false); setFormTenManh('') }} style={{
+                  <button onClick={() => { setShowManhForm(false); setFormTenManh(''); setFormSoLuong('1') }} style={{
                     padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
                     background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
                   }}>Hủy</button>
@@ -573,6 +582,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     {selectedBom?.ten}
                   </span>
                   <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{m.tenManh}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#e65100', background: '#fff3e0', borderRadius: 4, padding: '2px 7px' }}>×{m.soLuong} / SKU</span>
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>{m.children.length} loại sắt</span>
                   {!isSubmitted && (
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>

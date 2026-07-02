@@ -23,7 +23,9 @@ import WeavingPointsPage from './WeavingPointsPage'
 import LichSuNhapDanPage from './LichSuNhapDanPage'
 import QuanLyDiemDanPage from './QuanLyDiemDanPage'
 import ThongKePagePlan from './ThongKePagePlan'
-import PhoiThongKeCoKhiPage from './PhoiThongKeCoKhiPage'
+import LenhSanXuatPhoi from './Phoi/LenhSanXuatPhoi'
+import LenhSanXuatHan from './Han/LenhSanXuatHan'
+import LenhSanXuatSon from './Son/LenhSanXuatSon'
 import PhoiDinhMucManhPage from './PhoiDinhMucManhPage'
 import SKUListPage from '../ProductionPlan/SKUListPage'
 
@@ -315,7 +317,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'danh-sach-khach-hang'  && isFactorySales     && <DanhSachKhachHangPage />}
         {tab === 'pi-list'               && isDirector         && <PIListPage />}
         {tab === 'ke-hoach'              && (isProdMgr || isDirector) && <ThongKePagePlan />}
-        {tab === 'phoi-lenh-sx'          && (isPhoi || isHan || isSon || isDirector) && <PhoiThongKeCoKhiPage readOnly={isDirector} stage={isHan ? 'HAN' : isSon ? 'SON' : 'PHOI'} />}
+        {tab === 'phoi-lenh-sx'          && (isPhoi || isHan || isSon || isDirector) && (isHan ? <LenhSanXuatHan readOnly={isDirector} /> : isSon ? <LenhSanXuatSon readOnly={isDirector} /> : <LenhSanXuatPhoi readOnly={isDirector} />)}
         {tab === 'phoi-dinh-muc-manh'    && (isPhoi || isHan || isSon || isDirector) && <PhoiDinhMucManhPage stage={isSon ? 'SON' : isHan ? 'HAN' : 'PHOI'} />}
         {tab === 'xuat-dan'              && (isWeavingExport || isDirector) && <XuatDanPage readOnly={isDirector} />}
         {tab === 'lich-su-xuat-dan'      && (isWeavingExport || isDirector) && <LichSuXuatDanPage />}

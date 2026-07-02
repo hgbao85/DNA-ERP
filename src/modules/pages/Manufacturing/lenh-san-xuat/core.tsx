@@ -1,0 +1,423 @@
+'use client'
+
+/**
+ * CORE dùng chung cho các màn Lệnh sản xuất (Phôi / Hàn / Sơn).
+ * - types + helper đồng bộ (logic thuần)
+ * - 3 view dựng trên khung generic `LenhSanXuatBoard`: PO list · Mảnh list · Vật tư detail
+ * - 2 orchestrator: PhoiScreen (3 tầng, có mảnh) · TwoTierScreen (2 tầng, Hàn/Sơn)
+ *
+ * Mỗi màn (Phoi/Han/Son) chỉ cần cấp `cfg` + `seed` rồi gọi orchestrator tương ứng.
+ * ĐANG DÙNG DATA MOCK (state nội bộ) — chưa nối backend.
+ */
+
+import { useState } from 'react'
+import { ChevronRight, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Play, Square, Lock, Eye } from 'lucide-react'
+import LenhSanXuatBoard, { type BoardColumn } from '../../../../components/LenhSanXuatBoard'
+
+const ACCENT = '#e65100'
+const REMIND_MINUTES = 60
+
+// ── Types ──────────────────────────────────────────────────────────
+export interface ProcLine {
+  id: number
+  itemName: string
+  spec: string
+  needQty: number
+  doneQty: number
+  perManh?: number      // SL vật tư cần cho 1 mảnh/sản phẩm (định mức)
+  lastInputAt: string | null
+}
+export interface ProcManh {
+  id: number
+  tenManh: string
+  perSku?: number       // SL mảnh cần cho 1 SKU
+  lines: ProcLine[]
+}
+export interface ProcRow {
+  id: number
+  poNumber: string
+  sku: string
+  productName: string
+  soLuong: number
+  deadline: string
+  arrangedAt: string | null
+  startedAt?: string | null
+  cutAtStart?: number | null
+  lastSession?: { from: string; to: string; cut: number } | null
+  manhs?: ProcManh[]    // Phôi
+  lines?: ProcLine[]    // Hàn/Sơn
+}
+export interface StageCfg {
+  label: string
+  done: string
+  verb: string
+  itemLabel: string
+  unit: string
+  Icon: React.ComponentType<{ size?: number }>
+}
+
+// ── Helpers cho mock data (dùng ở các file seed) ───────────────────
+export const ISO = (daysFromNow: number, h = 17, m = 0) => {
+  const d = new Date(); d.setDate(d.getDate() + daysFromNow); d.setHours(h, m, 0, 0); return d.toISOString()
+}
+export const minsAgo = (mins: number) => new Date(Date.now() - mins * 60000).toISOString()
+
+// ── Helpers ────────────────────────────────────────────────────────
+export const fmt = (n: number) => n.toLocaleString('vi-VN')
+export const dateVN = (iso: string) => new Date(iso).toLocaleDateString('vi-VN')
+export const timeVN = (iso: string) => new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
+const minutesSince = (iso: string | null) => iso == null ? Infinity : Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+
+const lineStats = (lines: ProcLine[]) => {
+  const need = lines.reduce((s, x) => s + x.needQty, 0)
+  const done = lines.reduce((s, x) => s + x.doneQty, 0)
+  const pct = need > 0 ? Math.round((done / need) * 100) : 0
+  return { need, done, pct }
+}
+
+export const perManh = (l: ProcLine) => l.perManh && l.perManh > 0 ? l.perManh : 1
+export const perSku = (m: ProcManh) => m.perSku && m.perSku > 0 ? m.perSku : 1
+export const manhFromLine = (l: ProcLine) => Math.floor(l.doneQty / perManh(l))
+export const dongBoOf = (lines: ProcLine[]) => lines.length ? Math.min(...lines.map(manhFromLine)) : 0
+export const lechOf = (lines: ProcLine[]) => {
+  if (lines.length < 2) return false
+  const c = lines.map(manhFromLine)
+  return Math.max(...c) !== Math.min(...c)
+}
+const dongBoManh = (m: ProcManh) => dongBoOf(m.lines)
+const gheOfManh = (m: ProcManh) => Math.floor(dongBoManh(m) / perSku(m))
+
+const allLines = (r: ProcRow): ProcLine[] => r.manhs ? r.manhs.flatMap(m => m.lines) : (r.lines ?? [])
+const skuUnits = (r: ProcRow): number[] => r.manhs ? r.manhs.map(gheOfManh) : (r.lines ?? []).map(manhFromLine)
+export const skuDongBo = (r: ProcRow) => { const u = skuUnits(r); return u.length ? Math.min(...u) : 0 }
+export const skuLech = (r: ProcRow) => { const u = skuUnits(r); return u.length >= 2 && Math.max(...u) !== Math.min(...u) }
+const totalCut = (r: ProcRow) => allLines(r).reduce((s, l) => s + l.doneQty, 0)
+const poSummary = (r: ProcRow) => {
+  const daLam = skuDongBo(r)
+  const pct = r.soLuong > 0 ? Math.round((daLam / r.soLuong) * 100) : 0
+  return { pct, daLam, conLai: r.soLuong - daLam }
+}
+const durText = (fromISO: string, toISO: string) => {
+  const mins = Math.max(0, Math.round((new Date(toISO).getTime() - new Date(fromISO).getTime()) / 60000))
+  if (mins < 60) return `${mins} phút`
+  const h = Math.floor(mins / 60), m = mins % 60
+  return m ? `${h}h${m}p` : `${h}h`
+}
+
+function Progress({ pct }: { pct: number }) {
+  const color = pct >= 100 ? 'var(--green)' : pct >= 50 ? ACCENT : '#b45309'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ flex: 1, height: 7, borderRadius: 5, background: 'var(--surface2)', overflow: 'hidden' }}>
+        <div style={{ width: `${Math.min(pct, 100)}%`, height: '100%', background: color, transition: 'width .2s' }} />
+      </div>
+      <span style={{ fontSize: 12, fontWeight: 600, color, width: 34, textAlign: 'right' }}>{pct}%</span>
+    </div>
+  )
+}
+
+const td: React.CSSProperties = { padding: '10px 12px', color: 'var(--text)' }
+const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
+
+// ── Tầng 1: Danh sách lệnh (PO) ────────────────────────────────────
+interface PoView { r: ProcRow; s: ReturnType<typeof poSummary>; unlocked: boolean; running: boolean; canEnter: boolean; arranged: boolean; seqUnlocked: boolean; alert: boolean }
+
+function PoListBoard({ rows, cfg, isPhoi, onEnter, onStart, onEnd }: {
+  rows: ProcRow[]; cfg: StageCfg; isPhoi: boolean
+  onEnter: (poId: number) => void; onStart: (poId: number) => void; onEnd: (poId: number) => void
+}) {
+  const views: PoView[] = rows.map((r, i) => {
+    const s = poSummary(r)
+    const arranged = !!r.arrangedAt
+    const seqUnlocked = i === 0 || poSummary(rows[i - 1]).pct >= 100
+    const unlocked = arranged && seqUnlocked
+    const running = !!r.startedAt
+    return { r, s, arranged, seqUnlocked, unlocked, running, canEnter: unlocked && running, alert: unlocked && skuLech(r) }
+  })
+
+  const cols: BoardColumn<PoView>[] = [
+    { key: 'po', header: 'PO', cell: v => (
+      <span style={{ fontWeight: 700 }}>
+        {!v.seqUnlocked
+          ? <Lock size={13} style={{ verticalAlign: -2, marginRight: 5, color: 'var(--text3)' }} />
+          : v.alert && <AlertTriangle size={13} style={{ verticalAlign: -2, marginRight: 5, color: 'var(--red)' }} />}
+        {v.r.poNumber}
+      </span>
+    ) },
+    { key: 'sku', header: 'SKU', cell: v => v.r.sku },
+    { key: 'sl', header: 'Số lượng', align: 'right', cell: v => fmt(v.r.soLuong) },
+    { key: 'done', header: cfg.done, align: 'right', cell: v => <span style={{ fontWeight: 700, color: v.alert ? 'var(--red)' : 'var(--text)' }}>{fmt(v.s.daLam)}</span> },
+    { key: 'remain', header: 'Còn lại', align: 'right', cell: v => <span style={{ color: v.s.conLai > 0 ? ACCENT : 'var(--green)', fontWeight: 600 }}>{fmt(v.s.conLai)}</span> },
+    { key: 'progress', header: 'Tiến độ', width: 160, cell: v => <Progress pct={v.s.pct} /> },
+    { key: 'deadline', header: 'Deadline', cell: v => dateVN(v.r.deadline) },
+    { key: 'ca', header: `Ca ${cfg.verb}`, width: 180, cell: v => (
+      <div onClick={e => e.stopPropagation()}>
+        {!v.seqUnlocked
+          ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text3)' }}><Lock size={12} /> Chờ PO trước</span>
+          : !v.arranged
+            ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>—</span>
+            : v.s.pct >= 100
+              ? <span className="badge green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><CheckCircle2 size={12} /> Hoàn tất</span>
+              : v.running
+                ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
+                    <button onClick={() => onEnd(v.r.id)} className="primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 12, background: 'var(--red)', borderColor: 'var(--red)' }}>
+                      <Square size={12} /> Kết thúc
+                    </button>
+                    <span style={{ fontSize: 11, color: 'var(--text3)' }}>đang {cfg.verb} · từ {timeVN(v.r.startedAt!)}</span>
+                  </div>
+                : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
+                    <button onClick={() => onStart(v.r.id)} className="primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 12 }}>
+                      <Play size={12} /> Bắt đầu
+                    </button>
+                    {v.r.lastSession && <span style={{ fontSize: 11, color: 'var(--text3)' }}>ca trước: {fmt(v.r.lastSession.cut)} {cfg.unit} · {durText(v.r.lastSession.from, v.r.lastSession.to)}</span>}
+                  </div>}
+      </div>
+    ) },
+  ]
+
+  const Icon = cfg.Icon
+  return (
+    <LenhSanXuatBoard<PoView>
+      icon={<Icon size={18} />}
+      title={`Lệnh sản xuất — Công đoạn ${cfg.label}`}
+      subtitle={`Theo dõi tiến độ ${cfg.verb} theo PO/SKU · nhập sản lượng theo ${cfg.itemLabel.toLowerCase()}`}
+      columns={cols}
+      rows={views}
+      rowKey={v => v.r.id}
+      rowTone={v => !v.unlocked ? 'muted' : v.alert ? 'alert' : 'default'}
+      clickable={v => v.canEnter}
+      onRowClick={v => onEnter(v.r.id)}
+      rowTitle={v => !v.arranged ? 'Chủ chuyền chưa sắp xếp lệnh này' : !v.seqUnlocked ? 'Phải hoàn tất PO trước (đủ 100%) mới mở lệnh này' : !v.running ? 'Nhấn "Bắt đầu" để mở nhập sản lượng' : v.alert ? 'Chưa khớp đồng bộ — nhấn để xem' : isPhoi ? 'Nhấn để xem các mảnh của SKU' : 'Nhấn để nhập sản lượng theo vật tư'}
+      footer={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <CalendarClock size={14} /> Làm <b style={{ color: 'var(--text2)' }}>tuần tự</b>: PO sau chỉ mở khi PO trước đủ 100%. <b style={{ color: 'var(--text2)' }}>{cfg.done}</b> = số sản phẩm ráp được đủ mọi {isPhoi ? 'mảnh' : cfg.itemLabel.toLowerCase()} (đồng bộ); dòng đỏ = chưa khớp. Bấm <b style={{ color: 'var(--text2)' }}>Bắt đầu/Kết thúc</b> để đo sản lượng theo ca.
+      </span>}
+    />
+  )
+}
+
+// ── Tầng 2 (Phôi): Danh sách mảnh ──────────────────────────────────
+interface ManhView { m: ProcManh; db: number; need: number; ghe: number; lech: boolean; thieu: number; targetManh: number }
+
+function ManhListBoard({ po, cfg, onBack, onOpenManh }: { po: ProcRow; cfg: StageCfg; onBack: () => void; onOpenManh: (id: number) => void }) {
+  const [expandedIds, setExpandedIds] = useState<number[]>([])
+  const toggleExpand = (id: number) => setExpandedIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id])
+  const manhs = po.manhs ?? []
+  const maxGhe = manhs.length ? Math.max(...manhs.map(gheOfManh)) : 0
+
+  const views: ManhView[] = manhs.map(m => {
+    const ghe = gheOfManh(m)
+    return { m, db: dongBoManh(m), need: po.soLuong * perSku(m), ghe, lech: ghe < maxGhe, thieu: (maxGhe - ghe) * perSku(m), targetManh: maxGhe * perSku(m) }
+  })
+
+  const cols: BoardColumn<ManhView>[] = [
+    { key: 'manh', header: 'Mảnh', cell: v => <span style={{ fontWeight: 700 }}>{v.m.tenManh}</span> },
+    { key: 'perSku', header: 'SL/SKU', align: 'right', cell: v => `×${perSku(v.m)}` },
+    { key: 'dongbo', header: 'Đồng bộ', align: 'right', cell: v => (
+      <span style={{ fontWeight: 700, color: v.lech ? 'var(--red)' : 'var(--text)' }}>
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+          {v.lech && <AlertTriangle size={12} />}{fmt(v.db)} bộ
+          {v.lech && (
+            <button onClick={e => { e.stopPropagation(); toggleExpand(v.m.id) }} title="Xem loại sắt cần cắt thêm"
+              style={{ display: 'inline-flex', padding: 2, color: expandedIds.includes(v.m.id) ? 'var(--red)' : 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <Eye size={15} />
+            </button>
+          )}
+        </span>
+        {v.lech
+          ? <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--red)' }}>cần làm thêm {fmt(v.thieu)} mảnh</span>
+          : <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--text3)' }}>≈ {fmt(v.ghe)} sp</span>}
+      </span>
+    ) },
+    { key: 'need', header: 'Cần', align: 'right', cell: v => fmt(v.need) },
+    { key: 'chevron', header: '', width: 40, cell: () => <span style={{ color: 'var(--text3)' }}><ChevronRight size={16} /></span> },
+  ]
+
+  return (
+    <LenhSanXuatBoard<ManhView>
+      onBack={onBack} backLabel="Quay lại danh sách lệnh"
+      icon={<Layers size={18} />}
+      title={`Danh sách Mảnh của SKU — ${po.sku}`}
+      subtitle={`${po.poNumber} · ${po.productName} · SL ${fmt(po.soLuong)} · hạn ${dateVN(po.deadline)}`}
+      columns={cols}
+      rows={views}
+      rowKey={v => v.m.id}
+      rowTone={v => v.lech ? 'alert' : 'default'}
+      clickable={() => true}
+      onRowClick={v => onOpenManh(v.m.id)}
+      rowTitle={v => v.lech ? `${v.m.tenManh}: mới đủ ${fmt(v.ghe)} sp, kém mảnh dẫn đầu (${fmt(maxGhe)} sp) — cần làm thêm ${fmt(v.thieu)} mảnh` : `Xem vật tư chi tiết của ${v.m.tenManh}`}
+      expandedRow={v => expandedIds.includes(v.m.id)
+        ? <div style={{ padding: '10px 16px', background: 'var(--surface2)', borderTop: '1px solid var(--border)' }}>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8, fontWeight: 600 }}>Cần cắt thêm để {v.m.tenManh} bằng mảnh dẫn đầu ({fmt(maxGhe)} sp):</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {v.m.lines.map(l => {
+                const short = Math.max(0, (v.targetManh - manhFromLine(l)) * perManh(l))
+                return (
+                  <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '3px 0' }}>
+                    <span><b>{l.itemName}</b> <span style={{ color: 'var(--text3)' }}>({l.spec} · ×{perManh(l)}/mảnh · đã cắt {fmt(l.doneQty)})</span></span>
+                    <span style={{ fontWeight: 700, color: short > 0 ? 'var(--red)' : 'var(--green)' }}>{short > 0 ? `cần cắt thêm ${fmt(short)} ${cfg.unit}` : 'đã đủ'}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        : null}
+    />
+  )
+}
+
+// ── Tầng chi tiết vật tư (dùng chung Phôi/Hàn/Sơn) ─────────────────
+function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, backLabel, onBack, onUpdateLine }: {
+  lines: ProcLine[]; cfg: StageCfg; readOnly: boolean
+  title: string; subtitle: string; bannerLabel: string; backLabel: string
+  onBack: () => void; onUpdateLine: (l: ProcLine) => void
+}) {
+  const [draft, setDraft] = useState<Record<number, string>>({})
+  const db = dongBoOf(lines)
+  const lech = lechOf(lines)
+  const maxBo = lines.length ? Math.max(...lines.map(manhFromLine)) : 0
+  const shortOf = (l: ProcLine) => (maxBo - manhFromLine(l)) * perManh(l)
+  const needCut = lines.filter(l => shortOf(l) > 0).map(l => `${l.itemName} +${fmt(shortOf(l))}`)
+  const itemLabelLC = cfg.itemLabel.toLowerCase()
+
+  const submit = (line: ProcLine) => {
+    const add = Number(draft[line.id])
+    if (!add || add <= 0) return
+    onUpdateLine({ ...line, doneQty: Math.min(line.needQty, line.doneQty + add), lastInputAt: new Date().toISOString() })
+    setDraft(d => ({ ...d, [line.id]: '' }))
+  }
+
+  const cols: BoardColumn<ProcLine>[] = [
+    { key: 'item', header: cfg.itemLabel, cell: l => <span style={{ fontWeight: 600 }}>{l.itemName}</span> },
+    { key: 'spec', header: 'Quy cách', cell: l => <span style={{ color: 'var(--text3)' }}>{l.spec}</span> },
+    { key: 'perManh', header: 'SL/bộ', align: 'right', cell: l => `×${perManh(l)}` },
+    { key: 'need', header: `Định mức (${cfg.unit})`, align: 'right', cell: l => fmt(l.needQty) },
+    { key: 'done', header: `${cfg.done} (${cfg.unit})`, align: 'right', cell: l => {
+      const short = shortOf(l)
+      return <>
+        {fmt(l.doneQty)}
+        {short > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--red)' }}>cần {cfg.verb} thêm {fmt(short)} {cfg.unit}</span>}
+      </>
+    } },
+    { key: 'remain', header: 'Còn lại', align: 'right', cell: l => {
+      const remain = l.needQty - l.doneQty
+      return <span style={{ fontWeight: 600, color: remain <= 0 ? 'var(--green)' : ACCENT }}>{fmt(Math.max(remain, 0))}</span>
+    } },
+    { key: 'updated', header: 'Cập nhật lúc', cell: l => {
+      const stale = minutesSince(l.lastInputAt) >= REMIND_MINUTES
+      return l.lastInputAt
+        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: stale ? 'var(--amber)' : 'var(--text3)' }}><Clock size={12} /> {timeVN(l.lastInputAt)}</span>
+        : <span style={{ color: 'var(--text3)' }}>— chưa nhập —</span>
+    } },
+    ...(readOnly ? [] : [{ key: 'input', header: `Nhập số ${cfg.unit} vừa ${cfg.verb}`, width: 220, cell: (l: ProcLine) => {
+      const remain = l.needQty - l.doneQty
+      if (remain <= 0) return <span className="badge green">đủ định mức</span>
+      return (
+        <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+          <input
+            type="number" min={0} max={remain} placeholder={`tối đa ${fmt(remain)}`} value={draft[l.id] ?? ''}
+            onChange={e => {
+              const val = e.target.value
+              if (val === '') return setDraft(d => ({ ...d, [l.id]: '' }))
+              let n = Math.floor(Number(val))
+              if (isNaN(n)) return
+              if (n < 0) n = 0
+              if (n > remain) n = remain
+              setDraft(d => ({ ...d, [l.id]: String(n) }))
+            }}
+            onKeyDown={e => { if (e.key === 'Enter') submit(l) }}
+            style={{ width: 110 }}
+          />
+          <button className="primary" onClick={() => submit(l)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', fontSize: 12 }}>
+            <Plus size={13} /> Ghi nhận
+          </button>
+        </div>
+      )
+    } } as BoardColumn<ProcLine>]),
+  ]
+
+  const banner = (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', margin: '14px 0 0', borderRadius: 'var(--radius)', background: lech ? 'var(--red-bg)' : 'var(--green-bg, #e8f5e9)', color: lech ? 'var(--red)' : 'var(--green)', fontSize: 13 }}>
+      {lech ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
+      <span>
+        {bannerLabel}: <b>{fmt(db)} bộ</b>
+        {lech
+          ? <> — chưa cân đối. Cần {cfg.verb} thêm để đồng bộ: <b>{needCut.join(', ')}</b> ({cfg.unit}).</>
+          : <> — các {itemLabelLC} đang {cfg.verb} cân đối.</>}
+      </span>
+    </div>
+  )
+
+  return (
+    <LenhSanXuatBoard<ProcLine>
+      onBack={onBack} backLabel={backLabel}
+      title={title}
+      subtitle={<>{subtitle}<div style={{ marginTop: 2 }}>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} — hệ thống tự lưu mốc thời gian.</div></>}
+      beforeTable={banner}
+      columns={cols}
+      rows={lines}
+      rowKey={l => l.id}
+      rowTone={l => shortOf(l) > 0 ? 'alert' : 'default'}
+    />
+  )
+}
+
+// Bắt đầu/Kết thúc ca — dùng chung cho mọi orchestrator
+type SetRows = React.Dispatch<React.SetStateAction<ProcRow[]>>
+const caActions = (setRows: SetRows) => ({
+  startPo: (id: number) => setRows(rs => rs.map(r => r.id !== id ? r : { ...r, startedAt: new Date().toISOString(), cutAtStart: totalCut(r), lastSession: null })),
+  endPo: (id: number) => setRows(rs => rs.map(r => {
+    if (r.id !== id || !r.startedAt) return r
+    return { ...r, lastSession: { from: r.startedAt, to: new Date().toISOString(), cut: totalCut(r) - (r.cutAtStart ?? 0) }, startedAt: null, cutAtStart: null }
+  })),
+})
+
+// ── Orchestrator: Phôi (3 tầng) ────────────────────────────────────
+export function PhoiScreen({ cfg, seed, readOnly = false }: { cfg: StageCfg; seed: () => ProcRow[]; readOnly?: boolean }) {
+  const [rows, setRows] = useState<ProcRow[]>(seed)
+  const [selPoId, setSelPoId] = useState<number | null>(null)
+  const [selManhId, setSelManhId] = useState<number | null>(null)
+  const selPo = rows.find(r => r.id === selPoId) ?? null
+  const selManh = selPo?.manhs?.find(m => m.id === selManhId) ?? null
+  const { startPo, endPo } = caActions(setRows)
+
+  const updateLine = (poId: number, manhId: number, ul: ProcLine) =>
+    setRows(rs => rs.map(r => r.id !== poId ? r : { ...r, manhs: r.manhs?.map(m => m.id !== manhId ? m : { ...m, lines: m.lines.map(l => l.id === ul.id ? ul : l) }) }))
+
+  if (selPo && selManh) {
+    return <VatTuDetailBoard
+      lines={selManh.lines} cfg={cfg} readOnly={readOnly}
+      title={selManh.tenManh}
+      subtitle={`${selPo.poNumber} · ${selPo.sku} · SL ${fmt(selPo.soLuong)} · hạn ${dateVN(selPo.deadline)}`}
+      bannerLabel="Đồng bộ mảnh" backLabel="Quay lại danh sách mảnh"
+      onBack={() => setSelManhId(null)}
+      onUpdateLine={l => updateLine(selPo.id, selManh.id, l)}
+    />
+  }
+  if (selPo) {
+    return <ManhListBoard po={selPo} cfg={cfg} onBack={() => setSelPoId(null)} onOpenManh={id => setSelManhId(id)} />
+  }
+  return <PoListBoard rows={rows} cfg={cfg} isPhoi onEnter={id => { setSelPoId(id); setSelManhId(null) }} onStart={startPo} onEnd={endPo} />
+}
+
+// ── Orchestrator: Hàn/Sơn (2 tầng) ─────────────────────────────────
+export function TwoTierScreen({ cfg, seed, readOnly = false }: { cfg: StageCfg; seed: () => ProcRow[]; readOnly?: boolean }) {
+  const [rows, setRows] = useState<ProcRow[]>(seed)
+  const [selPoId, setSelPoId] = useState<number | null>(null)
+  const selPo = rows.find(r => r.id === selPoId) ?? null
+  const { startPo, endPo } = caActions(setRows)
+
+  const updateLineFlat = (poId: number, ul: ProcLine) =>
+    setRows(rs => rs.map(r => r.id !== poId ? r : { ...r, lines: r.lines?.map(l => l.id === ul.id ? ul : l) }))
+
+  if (selPo) {
+    return <VatTuDetailBoard
+      lines={selPo.lines ?? []} cfg={cfg} readOnly={readOnly}
+      title={`${selPo.poNumber} · ${selPo.sku}`}
+      subtitle={`${selPo.productName} · SL ${fmt(selPo.soLuong)} · hạn ${dateVN(selPo.deadline)}`}
+      bannerLabel="Đồng bộ" backLabel="Quay lại danh sách lệnh"
+      onBack={() => setSelPoId(null)}
+      onUpdateLine={l => updateLineFlat(selPo.id, l)}
+    />
+  }
+  return <PoListBoard rows={rows} cfg={cfg} isPhoi={false} onEnter={id => setSelPoId(id)} onStart={startPo} onEnd={endPo} />
+}
