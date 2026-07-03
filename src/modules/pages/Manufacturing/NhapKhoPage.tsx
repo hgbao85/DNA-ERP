@@ -1,59 +1,278 @@
+'use client'
 import { useState, useEffect } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
-import { ArrowDownToLine, Search, Check, FileInput } from 'lucide-react'
+import { ArrowDownToLine, Check, FileInput, ChevronLeft, Layers } from 'lucide-react'
+import { format } from 'date-fns'
 import { filterWarehousesByGroup } from './MfgWarehousesPage'
 import type { WarehouseReceipt } from '../../../types/purchase-order'
+import type { PlanForm } from '../../../types/plan-form'
+import LoadingState from '../../../components/LoadingState'
 
 interface Wh { id: number; name: string }
-interface Item { id: number; name: string; unit: string; quantity: number; code?: string | null }
-interface Txn { id: number; type: string; quantity: number; refCode?: string | null; note?: string | null; date: string; item?: { name: string; unit: string } | null; createdBy?: { name: string } | null }
-
 const safeArr = <T,>(d: T[] | null | undefined): T[] => (Array.isArray(d) ? d : [])
 const errMsg = (e: unknown) => (e as { response?: { data?: { error?: string } } })?.response?.data?.error
 
+// ── Nhập kho flow types ──────────────────────────────────────
+interface NhapLine {
+  id: string
+  name: string
+  spec: string | null
+  proposedQty: number
+  purchased: number
+  inputQty: string
+}
+
+type NhapStatus = 'cho-nhap' | 'dang-nhap' | 'da-nhap'
+
+const STATUS_NHAP: Record<NhapStatus, { label: string; color: string; bg: string }> = {
+  'cho-nhap':  { label: 'Chờ nhập',  color: '#92400e', bg: '#fef3c7' },
+  'dang-nhap': { label: 'Đang nhập', color: '#1e40af', bg: '#dbeafe' },
+  'da-nhap':   { label: 'Đã nhập',   color: '#166534', bg: '#dcfce7' },
+}
+
+function mockStock(name: string, required: number | null): number {
+  const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
+  const base = required ?? 10
+  return hash % 5 === 0 ? Math.floor(base * 0.6) : Math.ceil(base * (1.1 + (hash % 4) * 0.25))
+}
+
+function flattenNhapLines(pf: PlanForm): NhapLine[] {
+  const lines: NhapLine[] = []
+  const mt = pf.quotaManagement?.materialType
+  if (!mt) return lines
+  const push = (cat: string, arr: any[]) =>
+    arr.forEach((item: any, i: number) => {
+      const required = item.quantity != null ? Number(item.quantity) : item.kg != null ? Number(item.kg) : null
+      const stock = mockStock(item.name, required)
+      const proposedQty = required != null && stock < required ? required - stock : 0
+      lines.push({
+        id: `${pf.id}-${cat}-${i}`,
+        name: item.name,
+        spec: [item.specifications, item.thickness != null ? `dày ${item.thickness}mm` : null].filter(Boolean).join(', ') || null,
+        proposedQty,
+        purchased: 0,
+        inputQty: '',
+      })
+    })
+  if (Array.isArray(mt.sat))          push('sat',  mt.sat)
+  if (Array.isArray(mt.daySon))       push('day',  mt.daySon)
+  if (Array.isArray(mt.vatTuPhuKien)) push('vtpk', mt.vatTuPhuKien)
+  if (Array.isArray(mt.baoBiDongGoi)) push('bbdg', mt.baoBiDongGoi)
+  return lines.filter(l => l.proposedQty > 0)
+}
+
+function computeNhapStatus(lines: NhapLine[]): NhapStatus {
+  if (lines.length === 0 || lines.every(l => l.purchased === 0)) return 'cho-nhap'
+  if (lines.every(l => l.purchased >= l.proposedQty)) return 'da-nhap'
+  return 'dang-nhap'
+}
+
+// ── NhapKhoSection: list PO → detail nhập ───────────────────
+function NhapKhoSection() {
+  const { data: planForms = [], isLoading } = useFetch(() => api.getPlanForms(), [])
+  const [selectedPf, setSelectedPf] = useState<PlanForm | null>(null)
+  const [lines, setLines] = useState<NhapLine[]>([])
+  const [nhapStatus, setNhapStatus] = useState<Record<number, NhapStatus>>({})
+
+  const active = ((planForms ?? []) as PlanForm[]).filter(p => p.status !== 'DRAFT')
+
+  const openDetail = (pf: PlanForm) => {
+    setSelectedPf(pf)
+    setLines(flattenNhapLines(pf))
+  }
+
+  const confirmLine = (lineId: string) => {
+    setLines(prev => {
+      const updated = prev.map(l => {
+        if (l.id !== lineId) return l
+        const qty = Math.max(0, Number(l.inputQty) || 0)
+        return { ...l, purchased: l.purchased + qty, inputQty: '' }
+      })
+      if (selectedPf) setNhapStatus(p => ({ ...p, [selectedPf.id]: computeNhapStatus(updated) }))
+      return updated
+    })
+  }
+
+  // ── Detail view ──────────────────────────────────────────
+  if (selectedPf) {
+    const pfStatus = nhapStatus[selectedPf.id] ?? 'cho-nhap'
+    const cfg = STATUS_NHAP[pfStatus]
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              onClick={() => setSelectedPf(null)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
+            >
+              <ChevronLeft size={15} /> Quay lại
+            </button>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+                {selectedPf.mfgProduct?.factoryCode}
+                {selectedPf.mfgProduct?.name && (
+                  <span style={{ fontWeight: 400, color: 'var(--text2)', marginLeft: 6 }}>— {selectedPf.mfgProduct.name}</span>
+                )}
+              </h2>
+              <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
+                PO: {selectedPf.exportOrder?.poNumber ?? `#${selectedPf.exportOrderId}`}
+                {selectedPf.exportOrder?.deliveryDate && (
+                  <> · Hạn giao: {format(new Date(selectedPf.exportOrder.deliveryDate), 'dd/MM/yyyy')}</>
+                )}
+              </div>
+            </div>
+          </div>
+          <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 20, color: cfg.color, background: cfg.bg, alignSelf: 'center' }}>
+            {cfg.label}
+          </span>
+        </div>
+
+        {lines.length === 0 ? (
+          <div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }}>
+            Không có vật tư nào cần đặt mua cho SKU này
+          </div>
+        ) : (
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+              <colgroup>
+                <col />
+                <col style={{ width: 170 }} />
+                <col style={{ width: 110 }} />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 170 }} />
+              </colgroup>
+              <thead>
+                <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                  <th style={th}>Tên vật tư</th>
+                  <th style={th}>Quy cách</th>
+                  <th style={{ ...th, textAlign: 'right' }}>SL đề xuất mua</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Đã mua</th>
+                  <th style={th}>Nhập</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map(line => {
+                  const done = line.purchased >= line.proposedQty
+                  const partial = line.purchased > 0 && !done
+                  const canConfirm = !!line.inputQty && Number(line.inputQty) > 0
+                  return (
+                    <tr key={line.id} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ ...td, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {line.name}
+                      </td>
+                      <td style={{ ...td, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {line.spec ?? '—'}
+                      </td>
+                      <td style={{ ...td, textAlign: 'right' }}>{line.proposedQty}</td>
+                      <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: done ? '#16a34a' : partial ? '#d97706' : 'var(--text)' }}>
+                        {line.purchased}
+                      </td>
+                      <td style={td}>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <input
+                            type="number" min={1}
+                            value={line.inputQty}
+                            onChange={e => setLines(prev => prev.map(l => l.id === line.id ? { ...l, inputQty: e.target.value } : l))}
+                            placeholder="SL"
+                            style={{ width: 64, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                          />
+                          <button
+                            onClick={() => confirmLine(line.id)}
+                            disabled={!canConfirm}
+                            style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: canConfirm ? '#2e7d32' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
+                          >Xác nhận</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── List view ────────────────────────────────────────────
+  return (
+    <div>
+      <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
+        Chọn PO để ghi nhận vật tư đã mua vào kho
+      </div>
+      {isLoading ? <LoadingState /> : (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: 140 }} />
+              <col />
+              <col style={{ width: 160 }} />
+            </colgroup>
+            <thead>
+              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                <th style={th}>PO</th>
+                <th style={th}>SKU</th>
+                <th style={th}>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              {active.map(pf => {
+                const status = nhapStatus[pf.id] ?? 'cho-nhap'
+                const cfg = STATUS_NHAP[status]
+                return (
+                  <tr
+                    key={pf.id}
+                    onClick={() => openDetail(pf)}
+                    style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '')}
+                  >
+                    <td style={{ ...td, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`}
+                    </td>
+                    <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
+                      {pf.mfgProduct?.name && (
+                        <><span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>{pf.mfgProduct.name}</>
+                      )}
+                    </td>
+                    <td style={td}>
+                      <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20, color: cfg.color, background: cfg.bg }}>
+                        {cfg.label}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+              {active.length === 0 && (
+                <tr>
+                  <td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
+                    Không có PO nào
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Main page ────────────────────────────────────────────────
 export default function NhapKhoPage({ lockedGroup }: { lockedGroup?: string | null } = {}) {
-  const [nhapTab, setNhapTab] = useState<'manual' | 'receipts'>('manual')
+  const [nhapTab, setNhapTab] = useState<'nhap' | 'manh' | 'history'>('nhap')
 
   const { data: whs } = useFetch<Wh[]>(() => api.getMfgWarehouses())
   const whList = filterWarehousesByGroup(safeArr(whs), lockedGroup)
   const [whId, setWhId] = useState<number | ''>('')
 
-  // Tài khoản kho bị giới hạn 1 kho → tự chọn luôn
   useEffect(() => {
     const only = whList.length === 1 ? whList[0] : undefined
     if (lockedGroup && whId === '' && only) setWhId(only.id)
   }, [lockedGroup, whId, whList])
-  const [search, setSearch] = useState('')
-  const [q, setQ] = useState('')
-
-  const { data: items } = useFetch<Item[]>(() => (whId ? api.getMfgWarehouseItems(Number(whId), q || undefined) : Promise.resolve([])), [whId, q])
-  const { data: txns, refetch: refetchTxns } = useFetch<Txn[]>(() => (whId ? api.getMfgWarehouseTxns(Number(whId)) : Promise.resolve([])), [whId])
-
-  const [itemId, setItemId] = useState<number | ''>('')
-  const [qty, setQty] = useState('')
-  const [refCode, setRefCode] = useState('')
-  const [note, setNote] = useState('')
-  const [msg, setMsg] = useState('')
-  const [err, setErr] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  const submit = async () => {
-    setErr(''); setMsg('')
-    if (!itemId) { setErr('Chọn vật tư'); return }
-    const n = Number(qty); if (!n || n <= 0) { setErr('Số lượng phải > 0'); return }
-    if (!refCode.trim()) { setErr('Nhập mã lệnh mua hàng'); return }
-    setBusy(true)
-    try {
-      await api.importMfgStock({ itemId: Number(itemId), quantity: n, refCode: refCode.trim(), note: note || undefined })
-      setMsg('✓ Đã nhập kho thành công'); setQty(''); setNote(''); setItemId('')
-      refetchTxns()
-    } catch (e) { setErr(errMsg(e) ?? 'Lỗi nhập kho') }
-    finally { setBusy(false) }
-  }
-
-  const imports = safeArr(txns).filter(t => t.type === 'IMPORT')
 
   return (
     <div>
@@ -62,8 +281,9 @@ export default function NhapKhoPage({ lockedGroup }: { lockedGroup?: string | nu
       {/* Tab switcher */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
         {([
-          ['manual',   'Nhập thủ công',         ArrowDownToLine],
-          ['receipts', 'Phiếu nhập từ đơn mua', FileInput],
+          ['nhap',    'Nhập bao bì/thành phẩm',           ArrowDownToLine],
+          ['manh',    'Nhập mảnh',          Layers],
+          ['history', 'Lịch sử nhập kho',   FileInput],
         ] as const).map(([id, label, Icon]) => (
           <button key={id} onClick={() => setNhapTab(id)} style={{
             display: 'inline-flex', alignItems: 'center', gap: 6,
@@ -78,93 +298,217 @@ export default function NhapKhoPage({ lockedGroup }: { lockedGroup?: string | nu
         ))}
       </div>
 
-      {nhapTab === 'receipts' && <PhieuNhapSection whs={whList} />}
-
-      {nhapTab === 'manual' && <>
-      <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 18 }}>Nhập vật tư về kho theo mã lệnh mua hàng</div>
-
-      <div style={card}>
-        <div style={grid2}>
-          <div>
-            <label style={lbl}>Kho *</label>
-            <select value={whId} onChange={e => { setWhId(e.target.value ? Number(e.target.value) : ''); setItemId(''); setSearch(''); setQ('') }} style={inp}>
-              <option value="">— chọn kho —</option>
-              {whList.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label style={lbl}>Mã lệnh mua hàng *</label>
-            <input value={refCode} onChange={e => setRefCode(e.target.value)} placeholder="VD: PO-2026-001" style={inp} />
-          </div>
-        </div>
-
-        {whId && (
-          <>
-            <label style={lbl}>Tìm vật tư</label>
-            <div style={{ position: 'relative', marginBottom: 8 }}>
-              <Search size={14} style={{ position: 'absolute', left: 9, top: 10, color: 'var(--text3)' }} />
-              <input value={search} onChange={e => setSearch(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') setQ(search) }}
-                onBlur={() => setQ(search)} placeholder="Gõ tên/mã rồi Enter để lọc…" style={{ ...inp, paddingLeft: 30 }} />
-            </div>
-            <label style={lbl}>Vật tư *</label>
-            <select value={itemId} onChange={e => setItemId(e.target.value ? Number(e.target.value) : '')} style={inp}>
-              <option value="">— chọn vật tư ({safeArr(items).length}) —</option>
-              {safeArr(items).map(it => <option key={it.id} value={it.id}>{it.name} {it.code ? `(${it.code})` : ''} · tồn {it.quantity} {it.unit}</option>)}
-            </select>
-
-            <div style={grid2}>
-              <div>
-                <label style={lbl}>Số lượng nhập *</label>
-                <input type="number" value={qty} onChange={e => setQty(e.target.value)} style={inp} />
-              </div>
-              <div>
-                <label style={lbl}>Ghi chú</label>
-                <input value={note} onChange={e => setNote(e.target.value)} style={inp} />
-              </div>
-            </div>
-
-            {err && <div style={{ color: '#c62828', fontSize: 13, marginTop: 10 }}>{err}</div>}
-            {msg && <div style={{ color: '#2e7d32', fontSize: 13, marginTop: 10 }}>{msg}</div>}
-            <button onClick={submit} disabled={busy} style={{ ...btnGreen, marginTop: 14 }}>
-              <ArrowDownToLine size={15} /> {busy ? 'Đang nhập…' : 'Nhập kho'}
-            </button>
-          </>
-        )}
-      </div>
-
-      {whId && (
-        <div style={{ marginTop: 22 }}>
-          <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}><Check size={15} color="#2e7d32" /> Lịch sử nhập gần đây</div>
-          <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead><tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                <th style={th}>Ngày</th><th style={th}>Vật tư</th><th style={th}>Mã lệnh mua</th><th style={{ ...th, textAlign: 'right' }}>SL</th><th style={th}>Người nhập</th>
-              </tr></thead>
-              <tbody>
-                {imports.map(t => (
-                  <tr key={t.id} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={td}>{new Date(t.date).toLocaleDateString('vi-VN')}</td>
-                    <td style={td}>{t.item?.name ?? '—'}</td>
-                    <td style={{ ...td, fontWeight: 600 }}>{t.refCode || '—'}</td>
-                    <td style={{ ...td, textAlign: 'right', color: '#2e7d32', fontWeight: 700 }}>+{t.quantity}</td>
-                    <td style={td}>{t.createdBy?.name ?? '—'}</td>
-                  </tr>
-                ))}
-                {imports.length === 0 && <tr><td colSpan={5} style={{ ...td, textAlign: 'center', color: 'var(--text3)', padding: 18 }}>Chưa có lần nhập nào</td></tr>}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-    </>}
+      {nhapTab === 'nhap'    && <NhapKhoSection />}
+      {nhapTab === 'manh'    && <NhapManhSection />}
+      {nhapTab === 'history' && <LichSuNhapSection whs={whList} />}
     </div>
   )
 }
 
-// ──────────────────────────────────────────────────────────
-// PhieuNhapSection — Phiếu nhập từ đơn mua đã được GĐ duyệt
-// ──────────────────────────────────────────────────────────
-function PhieuNhapSection({ whs }: { whs: { id: number; name: string }[] }) {
+// ── NhapManhSection ──────────────────────────────────────────
+interface ManhLine { id: string; name: string; totalQty: number; imported: number; inputQty: string }
+
+const MANH_PARTS = ['thân trên', 'thân dưới', 'hông', 'đế', 'nắp', 'khung']
+
+function flattenManhLines(pf: PlanForm): ManhLine[] {
+  const code = pf.mfgProduct?.factoryCode ?? `#${pf.id}`
+  const realManh = (pf as any).manhItems
+  if (Array.isArray(realManh) && realManh.length > 0) {
+    return realManh.flatMap((m: any, mi: number) =>
+      (Array.isArray(m.children) ? m.children : []).map((c: any, ci: number) => ({
+        id: `${pf.id}-m${mi}-${ci}`,
+        name: [m.name, c.specs].filter(Boolean).join(' · '),
+        totalQty: Number(c.qty) || 0,
+        imported: 0,
+        inputQty: '',
+      }))
+    )
+  }
+  const hash = code.split('').reduce((a: number, c: string) => a + c.charCodeAt(0), 0)
+  const count = 3 + (hash % 3)
+  return Array.from({ length: count }, (_, i) => ({
+    id: `${pf.id}-manh-${i}`,
+    name: `Mảnh ${MANH_PARTS[i % MANH_PARTS.length]} ${code}`,
+    totalQty: 12 + ((hash + i * 7) % 36),
+    imported: 0,
+    inputQty: '',
+  }))
+}
+
+function NhapManhSection() {
+  const { data: planForms = [], isLoading } = useFetch(() => api.getPlanForms(), [])
+  const [selectedPf, setSelectedPf] = useState<PlanForm | null>(null)
+  const [lines, setLines] = useState<ManhLine[]>([])
+  const [manhStatus, setManhStatus] = useState<Record<number, NhapStatus>>({})
+
+  const active = ((planForms ?? []) as PlanForm[]).filter(p => p.status !== 'DRAFT')
+
+  const openDetail = (pf: PlanForm) => {
+    setSelectedPf(pf)
+    setLines(flattenManhLines(pf))
+  }
+
+  const confirmLine = (lineId: string) => {
+    setLines(prev => {
+      const updated = prev.map(l => {
+        if (l.id !== lineId) return l
+        const qty = Math.max(0, Number(l.inputQty) || 0)
+        return { ...l, imported: l.imported + qty, inputQty: '' }
+      })
+      if (selectedPf) {
+        const st: NhapStatus = updated.every(l => l.imported === 0) ? 'cho-nhap'
+          : updated.every(l => l.totalQty > 0 && l.imported >= l.totalQty) ? 'da-nhap'
+          : 'dang-nhap'
+        setManhStatus(p => ({ ...p, [selectedPf.id]: st }))
+      }
+      return updated
+    })
+  }
+
+  // ── Detail view ──────────────────────────────────────────
+  if (selectedPf) {
+    const pfStatus = manhStatus[selectedPf.id] ?? 'cho-nhap'
+    const cfg = STATUS_NHAP[pfStatus]
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              onClick={() => setSelectedPf(null)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
+            >
+              <ChevronLeft size={15} /> Quay lại
+            </button>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+                {selectedPf.mfgProduct?.factoryCode}
+                {selectedPf.mfgProduct?.name && <span style={{ fontWeight: 400, color: 'var(--text2)', marginLeft: 6 }}>— {selectedPf.mfgProduct.name}</span>}
+              </h2>
+              <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
+                PO: {selectedPf.exportOrder?.poNumber ?? `#${selectedPf.exportOrderId}`}
+                {selectedPf.exportOrder?.deliveryDate && <> · Hạn giao: {format(new Date(selectedPf.exportOrder.deliveryDate), 'dd/MM/yyyy')}</>}
+              </div>
+            </div>
+          </div>
+          <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 20, color: cfg.color, background: cfg.bg, alignSelf: 'center' }}>
+            {cfg.label}
+          </span>
+        </div>
+
+        {lines.length === 0 ? (
+          <div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }}>
+            Không có dữ liệu mảnh cho SKU này
+          </div>
+        ) : (
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+              <colgroup>
+                <col /><col style={{ width: 100 }} /><col style={{ width: 80 }} /><col style={{ width: 160 }} />
+              </colgroup>
+              <thead>
+                <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                  <th style={th}>Tên mảnh</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Tổng số lượng</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Đã nhập</th>
+                  <th style={th}>Nhập</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map(line => {
+                  const done = line.totalQty > 0 && line.imported >= line.totalQty
+                  const partial = line.imported > 0 && !done
+                  const canConfirm = !!line.inputQty && Number(line.inputQty) > 0
+                  return (
+                    <tr key={line.id} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ ...td, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{line.name}</td>
+                      <td style={{ ...td, textAlign: 'right' }}>{line.totalQty || '—'}</td>
+                      <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: done ? '#2e7d32' : partial ? '#d97706' : 'var(--text)' }}>
+                        {line.imported}
+                      </td>
+                      <td style={td}>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <input
+                            type="number" min={1}
+                            value={line.inputQty}
+                            onChange={e => setLines(prev => prev.map(l => l.id === line.id ? { ...l, inputQty: e.target.value } : l))}
+                            placeholder="SL"
+                            style={{ width: 64, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                          />
+                          <button
+                            onClick={() => confirmLine(line.id)}
+                            disabled={!canConfirm}
+                            style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: canConfirm ? '#2e7d32' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
+                          >Xác nhận</button>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── List view ────────────────────────────────────────────
+  return (
+    <div>
+      <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
+        Chọn PO để nhập mảnh về kho
+      </div>
+      {isLoading ? <LoadingState /> : (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: 140 }} /><col /><col style={{ width: 160 }} />
+            </colgroup>
+            <thead>
+              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                <th style={th}>PO</th>
+                <th style={th}>SKU</th>
+                <th style={th}>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              {active.map(pf => {
+                const status = manhStatus[pf.id] ?? 'cho-nhap'
+                const cfg = STATUS_NHAP[status]
+                return (
+                  <tr key={pf.id} onClick={() => openDetail(pf)}
+                    style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '')}
+                  >
+                    <td style={{ ...td, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`}
+                    </td>
+                    <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
+                      {pf.mfgProduct?.name && <><span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>{pf.mfgProduct.name}</>}
+                    </td>
+                    <td style={td}>
+                      <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20, color: cfg.color, background: cfg.bg }}>
+                        {cfg.label}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+              {active.length === 0 && (
+                <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có PO nào</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── LichSuNhapSection (formerly PhieuNhapSection) ───────────
+function LichSuNhapSection({ whs }: { whs: { id: number; name: string }[] }) {
   const { data: receipts, refetch } = useFetch<WarehouseReceipt[]>(
     () => (api as any).getWarehouseReceipts()
   )
@@ -316,9 +660,6 @@ function PhieuNhapSection({ whs }: { whs: { id: number; name: string }[] }) {
   )
 }
 
-const card: React.CSSProperties = { border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 18, maxWidth: 640, background: 'var(--surface)' }
-const grid2: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }
-const lbl: React.CSSProperties = { display: 'block', fontSize: 12, color: 'var(--text2)', margin: '10px 0 4px', fontWeight: 600 }
 const inp: React.CSSProperties = { width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box' }
 const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
 const td: React.CSSProperties = { padding: '8px 12px', color: 'var(--text)' }
