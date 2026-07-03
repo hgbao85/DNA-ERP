@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, FileText, ClipboardCheck, Box, ShoppingCart } from 'lucide-react'
+import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, FileText, ClipboardCheck, Box, ShoppingCart, ScanSearch } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 // Tái dùng nguyên các màn kho đã có (trước đây nằm trong MES) — KHÔNG viết lại logic.
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
@@ -10,6 +10,7 @@ import DeXuatMuaVatTuPage from '../Manufacturing/DeXuatMuaVatTuPage'
 import ChuyenKiemPage from '../Manufacturing/ChuyenKiemPage'
 import DongGoiPage from '../Manufacturing/DongGoiPage'
 import LenhMuaKhoPage from './LenhMuaKhoPage'
+import KiemTraVatTuPage from './KiemTraVatTuPage'
 
 interface InboundWarehouseAppProps {
   onBack?: () => void // chỉ truyền nếu user có nhiều phân hệ; thủ kho thuần → khóa trong card này
@@ -27,12 +28,13 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   const scope = user?.warehouseScope ?? null
 
   // Chuyền kiểm + Đóng gói: kho thành phẩm + kho bao bì đóng gói + tổng kho (scope null). GĐ cũng thấy.
-  const canSeePacking = scope === null || scope === 'thanh-pham' || scope === 'bao-bi'
+  const canSeePacking = scope === null || scope === 'thanh-pham' || scope === 'bao-bi' || scope === 'bao-bi-tp'
 
-  type TabId = 'materials' | 'warehouses' | 'nhap-kho' | 'xuat-kho' | 'de-xuat' | 'lenh-mua' | 'chuyen-kiem' | 'dong-goi'
+  type TabId = 'materials' | 'warehouses' | 'kiem-tra' | 'nhap-kho' | 'xuat-kho' | 'de-xuat' | 'lenh-mua' | 'chuyen-kiem' | 'dong-goi'
   const ALL_TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
     { id: 'materials',  label: 'Tổng hợp vật tư',    icon: <Boxes size={16} /> },
     { id: 'warehouses', label: 'Tổng hợp kho',        icon: <Warehouse size={16} /> },
+    { id: 'kiem-tra',   label: 'Kiểm tra vật tư',     icon: <ScanSearch size={16} /> },
     { id: 'nhap-kho',   label: 'Nhập kho',            icon: <ArrowDownToLine size={16} /> },
     { id: 'xuat-kho',   label: 'Xuất kho',            icon: <ArrowUpFromLine size={16} /> },
     { id: 'de-xuat',    label: 'Đề xuất mua vật tư',  icon: <FileText size={16} /> },
@@ -42,10 +44,16 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
       { id: 'dong-goi'    as TabId, label: 'Đóng gói',    icon: <Box size={16} /> },
     ] : []),
   ]
-  // Tài khoản bị giới hạn KHÔNG được xem "Tổng hợp vật tư" (gộp toàn bộ kho) — chỉ kho của mình.
-  const TABS = scope ? ALL_TABS.filter(t => t.id !== 'materials') : ALL_TABS
 
-  const [tab, setTab] = useState<TabId>(scope ? 'warehouses' : 'materials')
+  // bao-bi-tp: 6 tab cố định (tổng hợp vật tư, kiểm tra, nhập/xuất, chuyền kiểm, đóng gói)
+  // Scoped khác: ẩn materials + kiem-tra. Tổng kho (null): ẩn kiem-tra.
+  const TABS = (() => {
+    if (scope === 'bao-bi-tp') return ALL_TABS.filter(t => ['materials','kiem-tra','nhap-kho','xuat-kho','chuyen-kiem','dong-goi'].includes(t.id))
+    if (scope) return ALL_TABS.filter(t => t.id !== 'materials' && t.id !== 'kiem-tra')
+    return ALL_TABS.filter(t => t.id !== 'kiem-tra')
+  })()
+
+  const [tab, setTab] = useState<TabId>(scope === 'bao-bi-tp' ? 'materials' : scope ? 'warehouses' : 'materials')
   const navBtn = (active: boolean): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 9, width: '100%',
     padding: '8px 10px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
@@ -57,6 +65,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   // Nhãn chức vụ dưới chân sidebar
   const roleLabel = user?.role === 'MANAGER'
     ? 'Giám đốc'
+    : scope === 'bao-bi-tp' ? 'Thủ kho · Bao bì / TP'
     : scope ? `Thủ kho · ${scope}` : 'Thủ kho (tổng)'
 
   return (
@@ -123,8 +132,9 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
 
       {/* ── Main content ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        {tab === 'materials'  && !scope && <MfgAllMaterialsPage />}
+        {tab === 'materials'  && (scope === 'bao-bi-tp' || !scope) && <MfgAllMaterialsPage limitCats={scope === 'bao-bi-tp' ? ['baoBiDongGoi', 'thanhPham', 'manh'] : undefined} />}
         {tab === 'warehouses' && <MfgWarehousesPage groupKey={scope} />}
+        {tab === 'kiem-tra'   && <KiemTraVatTuPage />}
         {tab === 'nhap-kho'   && <NhapKhoPage lockedGroup={scope} />}
         {tab === 'xuat-kho'   && <XuatKhoPage lockedGroup={scope} />}
         {tab === 'de-xuat'    && <DeXuatMuaVatTuPage />}
