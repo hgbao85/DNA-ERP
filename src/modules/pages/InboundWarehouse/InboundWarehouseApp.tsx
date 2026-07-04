@@ -13,6 +13,7 @@ import LenhMuaKhoPage from './LenhMuaKhoPage'
 import KiemTraVatTuPage from './KiemTraVatTuPage'
 import WarehouseInOutPage from './WarehouseInOutPage'
 import KhoXuatDanPage from './KhoXuatDanPage'
+import KhoNhapDanPage from './KhoNhapDanPage'
 import QuanLyDiemDanPage from '../Manufacturing/QuanLyDiemDanPage'
 
 interface InboundWarehouseAppProps {
@@ -33,7 +34,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   // Chuyền kiểm + Đóng gói: kho thành phẩm + kho bao bì đóng gói + tổng kho (scope null). GĐ cũng thấy.
   const canSeePacking = scope === null || scope === 'thanh-pham' || scope === 'bao-bi' || scope === 'vat-tu-tp' || scope === 'phoi-son-han'
 
-  type TabId = 'materials' | 'warehouses' | 'kiem-tra' | 'nhap-kho' | 'xuat-kho' | 'de-xuat' | 'lenh-mua' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'diem-dan'
+  type TabId = 'materials' | 'warehouses' | 'kiem-tra' | 'nhap-kho' | 'xuat-kho' | 'de-xuat' | 'lenh-mua' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan'
   const ALL_TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
     { id: 'materials',  label: 'Tổng hợp vật tư',    icon: <Boxes size={16} /> },
     { id: 'warehouses', label: 'Tổng hợp kho',        icon: <Warehouse size={16} /> },
@@ -47,6 +48,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
       { id: 'dong-goi'    as TabId, label: 'Đóng gói',    icon: <Box size={16} /> },
     ] : []),
     { id: 'xuat-dan' as TabId, label: 'Theo dõi xuất đan',  icon: <BarChart3 size={16} /> },
+    { id: 'nhap-dan' as TabId, label: 'Theo dõi nhập đan',  icon: <ArrowDownToLine size={16} /> },
     { id: 'diem-dan' as TabId, label: 'Quản lý điểm đan',   icon: <MapPin size={16} /> },
   ]
 
@@ -55,7 +57,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   const TABS = (() => {
     if (scope === 'vat-tu-tp')    return ALL_TABS.filter(t => ['materials','kiem-tra','nhap-kho','xuat-kho','xuat-dan','diem-dan'].includes(t.id))
     if (scope === 'phoi-son-han') return ALL_TABS.filter(t => ['materials','kiem-tra','nhap-kho','xuat-kho'].includes(t.id))
-    if (scope === 'thanh-pham')   return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','chuyen-kiem','dong-goi'].includes(t.id))
+    if (scope === 'thanh-pham')   return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','chuyen-kiem','dong-goi','nhap-dan'].includes(t.id))
     if (scope) return ALL_TABS.filter(t => t.id !== 'materials' && t.id !== 'kiem-tra')
     return ALL_TABS.filter(t => t.id !== 'kiem-tra')
   })()
@@ -153,8 +155,9 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         {tab === 'lenh-mua'   && <LenhMuaKhoPage />}
         {tab === 'chuyen-kiem' && canSeePacking && <KhoChuyenKiemPage />}
         {tab === 'dong-goi'    && canSeePacking && <KhoDongGoiPage />}
-        {tab === 'xuat-dan'   && scope === 'vat-tu-tp' && <KhoXuatDanPage />}
-        {tab === 'diem-dan'   && scope === 'vat-tu-tp' && <QuanLyDiemDanPage />}
+        {tab === 'xuat-dan'   && scope === 'vat-tu-tp'   && <KhoXuatDanPage />}
+        {tab === 'nhap-dan'   && scope === 'thanh-pham'  && <KhoNhapDanPage />}
+        {tab === 'diem-dan'   && scope === 'vat-tu-tp'   && <QuanLyDiemDanPage />}
       </div>
     </div>
   )
