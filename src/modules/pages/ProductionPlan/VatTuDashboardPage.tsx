@@ -7,12 +7,13 @@ import { Loader2, X, Search, ChevronLeft } from 'lucide-react'
 import type { PlanForm } from '../../../types/plan-form'
 
 const CAT_META = {
-  sat:           { label: 'Sắt',           color: '#b45309', bg: '#fef3c7' },
-  daySon:        { label: 'Dây/Sơn',       color: '#0369a1', bg: '#e0f2fe' },
-  vatTuPhuKien:  { label: 'Phụ kiện',      color: '#7c3aed', bg: '#ede9fe' },
-  baoBiDongGoi:  { label: 'Bao bì',        color: '#be185d', bg: '#fce7f3' },
-  manh:          { label: 'Mảnh',          color: '#065f46', bg: '#d1fae5' },
-  thanhPham:     { label: 'Thành phẩm',    color: '#1e40af', bg: '#dbeafe' },
+  sat:              { label: 'Sắt',              color: '#b45309', bg: '#fef3c7' },
+  daySon:           { label: 'Dây/Sơn',          color: '#0369a1', bg: '#e0f2fe' },
+  vatTuPhuKien:     { label: 'Phụ kiện',         color: '#7c3aed', bg: '#ede9fe' },
+  baoBiDongGoi:     { label: 'Bao bì',           color: '#be185d', bg: '#fce7f3' },
+  manh:             { label: 'Mảnh',             color: '#065f46', bg: '#d1fae5' },
+  thanhPham:        { label: 'Thành phẩm',       color: '#1e40af', bg: '#dbeafe' },
+  vatTuThanhPham:   { label: 'VTTP', color: '#0f766e', bg: '#ccfbf1' },
 } as const
 
 export type Cat = keyof typeof CAT_META
@@ -139,13 +140,14 @@ function flattenItems(planForms: PlanForm[]): FlatItem[] {
 }
 
 const FILTER_TABS: { id: Cat | 'all'; label: string }[] = [
-  { id: 'all',          label: 'Tất cả' },
-  { id: 'sat',          label: 'Sắt' },
-  { id: 'daySon',       label: 'Dây/Sơn' },
-  { id: 'vatTuPhuKien', label: 'Phụ kiện' },
-  { id: 'baoBiDongGoi', label: 'Bao bì' },
-  { id: 'thanhPham',    label: 'Thành phẩm' },
-  { id: 'manh',         label: 'Mảnh' },
+  { id: 'all',            label: 'Tất cả' },
+  { id: 'sat',            label: 'Sắt' },
+  { id: 'daySon',         label: 'Dây/Sơn' },
+  { id: 'vatTuPhuKien',   label: 'Phụ kiện' },
+  { id: 'baoBiDongGoi',   label: 'Bao bì' },
+  { id: 'vatTuThanhPham', label: 'Vật tư thành phẩm' },
+  { id: 'thanhPham',      label: 'Thành phẩm' },
+  { id: 'manh',           label: 'Mảnh' },
 ]
 
 const MOCK_MANH: FlatItem[] = [
@@ -159,6 +161,16 @@ const MOCK_MANH: FlatItem[] = [
   { key: 'm-2-3', pfId: 0, pfStatus: 'APPROVED_PARTS', pfCreatedAt: '2025-12-04T00:00:00Z', productName: 'Ghế ăn cao cấp',       productCode: 'GA-004', poNumber: 'PO-2504', cat: 'manh', name: 'Sắt tấm 1.2mm',    spec: 'Mặt ngồi · 400×400×1.2mm',       unit: null, qty: '1',  createdAt: null },
   { key: 'm-3-1', pfId: 0, pfStatus: 'WAITING_PARTS',  pfCreatedAt: '2025-12-08T00:00:00Z', productName: 'Bàn làm việc L',       productCode: 'BV-003', poNumber: 'PO-2503', cat: 'manh', name: 'Sắt hộp 40×40',    spec: 'Chân bàn · 40×40×2mm dài 730mm', unit: null, qty: '4',  createdAt: null },
   { key: 'm-3-2', pfId: 0, pfStatus: 'WAITING_PARTS',  pfCreatedAt: '2025-12-08T00:00:00Z', productName: 'Bàn làm việc L',       productCode: 'BV-003', poNumber: 'PO-2503', cat: 'manh', name: 'Sắt hộp 30×60',    spec: 'Thanh dọc · 30×60×1.5mm',        unit: null, qty: '3',  createdAt: null },
+]
+
+const MOCK_VAT_TU_THANH_PHAM: FlatItem[] = [
+  { key: 'vttp-1', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-01T00:00:00Z', productName: 'Ghế xoay văn phòng',  productCode: 'GX-001', poNumber: 'PO-2501', cat: 'vatTuThanhPham', name: 'Tem nhãn sản phẩm',          spec: 'In offset 4 màu, 80×50mm',         unit: 'tờ',  qty: '50',  createdAt: '2025-12-01T08:00:00Z' },
+  { key: 'vttp-2', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-01T00:00:00Z', productName: 'Ghế xoay văn phòng',  productCode: 'GX-001', poNumber: 'PO-2501', cat: 'vatTuThanhPham', name: 'Màng PE bọc sản phẩm',      spec: 'PE trắng 0.06mm',                   unit: 'm',   qty: '150', createdAt: '2025-12-01T08:00:00Z' },
+  { key: 'vttp-3', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-03T00:00:00Z', productName: 'Ghế sofa phòng khách', productCode: 'SF-002', poNumber: 'PO-2502', cat: 'vatTuThanhPham', name: 'Tờ hướng dẫn sử dụng',      spec: 'In 2 mặt, A5, giấy couche 100g',    unit: 'tờ',  qty: '20',  createdAt: '2025-12-03T10:00:00Z' },
+  { key: 'vttp-4', pfId: 0, pfStatus: 'PROPOSED', pfCreatedAt: '2025-12-03T00:00:00Z', productName: 'Ghế sofa phòng khách', productCode: 'SF-002', poNumber: 'PO-2502', cat: 'vatTuThanhPham', name: 'Mút xốp lót bảo vệ',         spec: 'EPE trắng 20mm',                    unit: 'tấm', qty: '40',  createdAt: '2025-12-03T10:30:00Z' },
+  { key: 'vttp-5', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-05T00:00:00Z', productName: 'Bàn làm việc L',       productCode: 'BV-003', poNumber: 'PO-2503', cat: 'vatTuThanhPham', name: 'Túi zip linh kiện',           spec: 'PE trong, 15×20cm',                 unit: 'túi', qty: '60',  createdAt: '2025-12-05T09:00:00Z' },
+  { key: 'vttp-6', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-07T00:00:00Z', productName: 'Ghế ăn cao cấp',       productCode: 'GA-004', poNumber: 'PO-2504', cat: 'vatTuThanhPham', name: 'Thẻ kiểm tra chất lượng QC', spec: 'Giấy cứng 300g, in 1 màu',          unit: 'thẻ', qty: '100', createdAt: '2025-12-07T14:00:00Z' },
+  { key: 'vttp-7', pfId: 0, pfStatus: 'PROPOSED', pfCreatedAt: '2025-12-10T00:00:00Z', productName: 'Kệ đa năng',           productCode: 'KD-005', poNumber: 'PO-2505', cat: 'vatTuThanhPham', name: 'Băng keo dán thùng 5cm',    spec: 'OPP trong suốt, 45mic',             unit: 'cuộn', qty: '15', createdAt: '2025-12-10T11:00:00Z' },
 ]
 
 const MOCK_THANH_PHAM: FlatItem[] = [
@@ -180,7 +192,7 @@ export default function VatTuDashboardPage({ limitCats }: { limitCats?: Cat[] } 
   const [q, setQ] = useState('')
   const [selectedManhPo, setSelectedManhPo] = useState<string | null>(null)
 
-  const allItems = [...flattenItems((planForms ?? []) as PlanForm[]), ...MOCK_MANH, ...MOCK_THANH_PHAM]
+  const allItems = [...flattenItems((planForms ?? []) as PlanForm[]), ...MOCK_MANH, ...MOCK_THANH_PHAM, ...MOCK_VAT_TU_THANH_PHAM]
     .filter(it => !limitCats || limitCats.includes(it.cat))
 
   const [mockSeeded, setMockSeeded] = useState(false)
