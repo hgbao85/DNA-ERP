@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, FileText, MapPin, ArrowDownToLine, ClipboardCheck, Box, History, FilePlus, Users, CalendarClock, ChevronDown } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, FileText, MapPin, ArrowDownToLine, ClipboardCheck, Box, History, FilePlus, Users, CalendarClock, ChevronDown, ScanSearch } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import PIListPage from '../ProductionPlan/PIListPage'
 import MfgSetupPage from './MfgSetupPage'
@@ -28,6 +28,7 @@ import LenhSanXuatHan from './Han/LenhSanXuatHan'
 import LenhSanXuatSon from './Son/LenhSanXuatSon'
 import PhoiDinhMucManhPage from './PhoiDinhMucManhPage'
 import SKUListPage from '../ProductionPlan/SKUListPage'
+import LenhKiemTraPage from './LenhKiemTraPage'
 
 // ── Module-level constants (không tạo lại mỗi render) ───────────────────────
 
@@ -36,7 +37,7 @@ type TabId =
   | 'pi-list' | 'ke-hoach' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh'
   | 'xuat-dan' | 'lich-su-xuat-dan' | 'dieu-phoi-dan' | 'lich-su-nhap-dan' | 'quan-ly-diem-dan'
   | 'chuyen-kiem' | 'dong-goi' | 'weaving-points' | 'sku-list'
-  | 'materials' | 'warehouses' | 'de-xuat' | 'setup'
+  | 'materials' | 'warehouses' | 'de-xuat' | 'kiem-tra-vt' | 'setup'
 
 type SetupSubTab = 'vat-tu' | 'dinh-muc' | 'catalog'
 
@@ -168,6 +169,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(canSeeDieuPhoi ? [{ id: 'dieu-phoi-dan' as TabId, label: 'Điều phối đan', icon: <ArrowDownToLine size={16}/> }] : []),
     ...(isWeavingMgr ? [{ id: 'lich-su-nhap-dan' as TabId, label: 'Lịch sử nhập đan', icon: <History size={16}/> }] : []),
     ...(canSeeDiemDan ? [{ id: 'quan-ly-diem-dan' as TabId, label: 'Quản lý điểm đan', icon: <MapPin size={16}/> }] : []),
+    ...(isProdMgr ? [{ id: 'kiem-tra-vt' as TabId, label: 'Kiểm tra vật tư', icon: <ScanSearch size={16}/> }] : []),
     ...(isProdMgr ? [{ id: 'sku-list' as TabId, label: 'Danh sách SKU', icon: <Package size={16}/> }] : []),
     ...(canSeeWarehouses ? [{ id: 'materials' as TabId, label: 'Tổng hợp vật tư', icon: <Boxes size={16}/> }] : []),
     ...(canSeeWarehouses ? [{ id: 'warehouses' as TabId, label: 'Tổng hợp kho', icon: <Warehouse size={16}/> }] : []),
@@ -327,6 +329,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'chuyen-kiem'           && canSeePackingFlow  && <ChuyenKiemPage readOnly={isDirector} />}
         {tab === 'dong-goi'              && canSeePackingFlow  && <DongGoiPage readOnly={isDirector} />}
         {tab === 'weaving-points'        && canManageBom       && <WeavingPointsPage readOnly />}
+        {tab === 'kiem-tra-vt'           && isProdMgr          && <LenhKiemTraPage />}
         {tab === 'sku-list'              && isProdMgr          && <SKUListPage readOnly />}
         {tab === 'materials'             && canSeeWarehouses   && <MfgAllMaterialsPage />}
         {tab === 'warehouses'            && canSeeWarehouses   && <MfgWarehousesPage />}

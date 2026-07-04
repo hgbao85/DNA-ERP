@@ -34,9 +34,19 @@ export const MOCK_ACCOUNTS: MockAccount[] = [
     user: { id: 5, name: 'Kho Minh', email: 'warehouse@demo.com', role: 'WAREHOUSE_STAFF' },
   },
   {
-    email: 'khobaobitp@demo.com',
+    email: 'khovattutp@demo.com',
     password: 'demo1234',
-    user: { id: 6, name: 'Thủ kho Bao bì / TP', email: 'khobaobitp@demo.com', role: 'WAREHOUSE_STAFF', warehouseScope: 'bao-bi-tp' },
+    user: { id: 6, name: 'Thủ kho Vật tư / TP', email: 'khovattutp@demo.com', role: 'WAREHOUSE_STAFF', warehouseScope: 'vat-tu-tp' },
+  },
+  {
+    email: 'khophoisonhan@demo.com',
+    password: 'demo1234',
+    user: { id: 61, name: 'Thủ kho Phôi Sơn Hàn', email: 'khophoisonhan@demo.com', role: 'WAREHOUSE_STAFF', warehouseScope: 'phoi-son-han' },
+  },
+  {
+    email: 'khothanhpham@demo.com',
+    password: 'demo1234',
+    user: { id: 62, name: 'Thủ kho Thành Phẩm', email: 'khothanhpham@demo.com', role: 'WAREHOUSE_STAFF', warehouseScope: 'thanh-pham' },
   },
   {
     email: 'prodmgr@demo.com',

@@ -21,6 +21,7 @@ import MfgApp from '../modules/pages/Manufacturing/MfgApp';
 import PurchasingApp from '../modules/pages/Purchasing/PurchasingApp';
 import InboundWarehouseApp from '../modules/pages/InboundWarehouse/InboundWarehouseApp';
 import ProductionPlanApp from '../modules/pages/ProductionPlan/ProductionPlanApp';
+import ManagerApp from '../modules/pages/Manager/ManagerApp';
 import { resolveDefaultModule, isDirector as checkIsDirector } from '../utils/resolveDefaultModule';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -104,6 +105,10 @@ function MainERP() {
         }}
       />
     );
+  }
+
+  if (activeModule === 'manager') {
+    return <ManagerApp />;
   }
 
   if (activeModule === 'production') {

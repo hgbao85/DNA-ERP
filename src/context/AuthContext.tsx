@@ -9,7 +9,7 @@ export type MfgRole = 'PRODUCTION_MANAGER' | 'FACTORY_SALES' | 'PHOI' | 'HAN' | 
 export type PhoiOperation = 'CAT' | 'TOP_DAU' | 'UON' | 'DAP' | 'DUC_LO' | 'BAN_TAN';
 
 // 5 nhóm kho — tài khoản kho bị giới hạn vào đúng 1 nhóm (null = tổng kho, thấy hết)
-export type WarehouseScope = 'phu-kien' | 'bao-bi' | 'day' | 'sat' | 'thanh-pham' | 'bao-bi-tp';
+export type WarehouseScope = 'phu-kien' | 'bao-bi' | 'day' | 'sat' | 'thanh-pham' | 'vat-tu-tp' | 'phoi-son-han';
 
 // ─── Interface segregation (documentation) ───────────────────────────────────
 // Các interface dưới đây mô tả từng nhóm role; dùng làm type hint khi cần
