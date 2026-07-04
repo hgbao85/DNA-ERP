@@ -26,9 +26,10 @@ class SupplierService extends BaseService<any> {
 class MaterialSupplierService extends BaseService<any> {
   constructor() { super('materialSuppliers'); }
 
-  async getByMaterial(_materialId?: number) {
+  async getByMaterial(materialId?: number) {
     await mockDelay();
-    return this.clone(this.collection());
+    const all = this.clone(this.collection());
+    return materialId != null ? all.filter((x: any) => x.materialId === materialId) : all;
   }
 
   async create(data: Record<string, unknown>): Promise<Record<string, unknown>> {

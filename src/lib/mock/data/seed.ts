@@ -817,6 +817,15 @@ export const seedMaterials = [
   { id: 15, code: 'DAY-PE-XAM', name: 'Dây PE xám', unit: 'kg', materialGroupId: 2, khoUnitFactor: 1 },
   { id: 16, code: 'PAT-KINH', name: 'Pát kính', unit: 'cái', materialGroupId: 3, khoUnitFactor: 1 },
   { id: 17, code: 'PAT-1-4', name: 'Pát 1-4', unit: 'cái', materialGroupId: 3, khoUnitFactor: 1 },
+  // For inspection proposals
+  { id: 18, code: 'THEP-ONG-D25', name: 'Thép ống D25×1.5', unit: 'kg', materialGroupId: 1, khoUnitFactor: 1 },
+  { id: 19, code: 'SON-TD-DEN', name: 'Sơn tĩnh điện đen', unit: 'kg', materialGroupId: 4, khoUnitFactor: 1 },
+  { id: 20, code: 'DAY-PE-2MM', name: 'Dây đan PE 2mm', unit: 'm', materialGroupId: 2, khoUnitFactor: 1 },
+  { id: 21, code: 'CARTON-5L', name: 'Bao bì carton 5 lớp', unit: 'cái', materialGroupId: 5, khoUnitFactor: 1 },
+  { id: 22, code: 'THEP-TAM-2MM', name: 'Thép tấm 2mm', unit: 'kg', materialGroupId: 1, khoUnitFactor: 1 },
+  { id: 23, code: 'SON-LOT-EPOXY', name: 'Sơn lót epoxy', unit: 'kg', materialGroupId: 4, khoUnitFactor: 1 },
+  { id: 24, code: 'VIT-TK-M5', name: 'Vít tự khoan M5', unit: 'cái', materialGroupId: 3, khoUnitFactor: 1 },
+  { id: 25, code: 'TUI-PE-DG', name: 'Túi PE đóng gói', unit: 'cái', materialGroupId: 5, khoUnitFactor: 1 },
 ];
 
 export const seedMfgWarehouses = [
@@ -926,9 +935,19 @@ export const seedMfgWarehouseItems = [
 ];
 
 export const seedSuppliers = [
-  { id: 1, name: 'Cty Thép Miền Nam', phone: '0281234567', isActive: true },
-  { id: 2, name: 'Công ty Dây nhựa TM', phone: '0282345678', isActive: true },
-  { id: 3, name: 'Sơn Thắng Phát', phone: '0283456789', isActive: true },
+  { id: 1,  name: 'Cty Thép Miền Nam',     phone: '0281234567', isActive: true },
+  { id: 2,  name: 'Công ty Dây nhựa TM',   phone: '0282345678', isActive: true },
+  { id: 3,  name: 'Sơn Thắng Phát',        phone: '0283456789', isActive: true },
+  { id: 4,  name: 'Minh Thành Steel',      phone: '0284001001', isActive: true },
+  { id: 5,  name: 'An Phát',               phone: '0284002002', isActive: true },
+  { id: 6,  name: 'Long Sơn',              phone: '0284003003', isActive: true },
+  { id: 7,  name: 'Việt Thắng',            phone: '0284004004', isActive: true },
+  { id: 8,  name: 'Đại Hưng',             phone: '0284005005', isActive: true },
+  { id: 9,  name: 'Tiến Thịnh',            phone: '0284006006', isActive: true },
+  { id: 10, name: 'Bao bì Việt',           phone: '0284007007', isActive: true },
+  { id: 11, name: 'Tiến Long',             phone: '0284008008', isActive: true },
+  { id: 12, name: 'Hoàng Gia Steel',       phone: '0284009009', isActive: true },
+  { id: 13, name: 'Nam Phương Chemicals',  phone: '0284010010', isActive: true },
 ];
 
 export const seedMaterialSuppliers = [
@@ -945,7 +964,36 @@ export const seedMaterialSuppliers = [
   { id: 11, materialId: 10, supplierId: 1, price: 9500, material: { id: 10, code: 'PAT-V100', name: 'Pát V 100' }, supplier: { id: 1, name: 'Cty Thép Miền Nam' } },
   { id: 12, materialId: 11, supplierId: 1, price: 9800, material: { id: 11, code: 'O-TRON-LO-DU', name: 'Ô tròn lỗ dù' }, supplier: { id: 1, name: 'Cty Thép Miền Nam' } },
   { id: 13, materialId: 16, supplierId: 1, price: 9200, material: { id: 16, code: 'PAT-KINH', name: 'Pát kính' }, supplier: { id: 1, name: 'Cty Thép Miền Nam' } },
-  { id: 14, materialId: 17, supplierId: 1, price: 9100, material: { id: 17, code: 'PAT-1-4', name: 'Pát 1-4' }, supplier: { id: 1, name: 'Cty Thép Miền Nam' } },
+  { id: 14, materialId: 17, supplierId: 1,  price: 9100,  leadTimeDays: 2,  material: { id: 17, code: 'PAT-1-4',       name: 'Pát 1-4'             }, supplier: { id: 1,  name: 'Cty Thép Miền Nam'   } },
+  // Thép ống D25×1.5 (materialId 18)
+  { id: 15, materialId: 18, supplierId: 4,  price: 45000, leadTimeDays: 5,  material: { id: 18, code: 'THEP-ONG-D25',  name: 'Thép ống D25×1.5'    }, supplier: { id: 4,  name: 'Minh Thành Steel'    } },
+  { id: 16, materialId: 18, supplierId: 5,  price: 43500, leadTimeDays: 7,  material: { id: 18, code: 'THEP-ONG-D25',  name: 'Thép ống D25×1.5'    }, supplier: { id: 5,  name: 'An Phát'             } },
+  { id: 17, materialId: 18, supplierId: 6,  price: 46000, leadTimeDays: 4,  material: { id: 18, code: 'THEP-ONG-D25',  name: 'Thép ống D25×1.5'    }, supplier: { id: 6,  name: 'Long Sơn'            } },
+  // Sơn tĩnh điện đen (materialId 19)
+  { id: 18, materialId: 19, supplierId: 7,  price: 82000, leadTimeDays: 6,  material: { id: 19, code: 'SON-TD-DEN',    name: 'Sơn tĩnh điện đen'   }, supplier: { id: 7,  name: 'Việt Thắng'         } },
+  { id: 19, materialId: 19, supplierId: 8,  price: 85000, leadTimeDays: 5,  material: { id: 19, code: 'SON-TD-DEN',    name: 'Sơn tĩnh điện đen'   }, supplier: { id: 8,  name: 'Đại Hưng'           } },
+  { id: 20, materialId: 19, supplierId: 13, price: 80500, leadTimeDays: 8,  material: { id: 19, code: 'SON-TD-DEN',    name: 'Sơn tĩnh điện đen'   }, supplier: { id: 13, name: 'Nam Phương Chemicals'} },
+  // Dây đan PE 2mm (materialId 20)
+  { id: 21, materialId: 20, supplierId: 9,  price: 11500, leadTimeDays: 4,  material: { id: 20, code: 'DAY-PE-2MM',    name: 'Dây đan PE 2mm'      }, supplier: { id: 9,  name: 'Tiến Thịnh'         } },
+  { id: 22, materialId: 20, supplierId: 5,  price: 11800, leadTimeDays: 5,  material: { id: 20, code: 'DAY-PE-2MM',    name: 'Dây đan PE 2mm'      }, supplier: { id: 5,  name: 'An Phát'             } },
+  // Bao bì carton 5 lớp (materialId 21)
+  { id: 23, materialId: 21, supplierId: 10, price: 18000, leadTimeDays: 3,  material: { id: 21, code: 'CARTON-5L',     name: 'Bao bì carton 5 lớp' }, supplier: { id: 10, name: 'Bao bì Việt'         } },
+  { id: 24, materialId: 21, supplierId: 11, price: 17500, leadTimeDays: 4,  material: { id: 21, code: 'CARTON-5L',     name: 'Bao bì carton 5 lớp' }, supplier: { id: 11, name: 'Tiến Long'           } },
+  // Thép tấm 2mm (materialId 22)
+  { id: 25, materialId: 22, supplierId: 4,  price: 52000, leadTimeDays: 5,  material: { id: 22, code: 'THEP-TAM-2MM',  name: 'Thép tấm 2mm'        }, supplier: { id: 4,  name: 'Minh Thành Steel'    } },
+  { id: 26, materialId: 22, supplierId: 12, price: 50500, leadTimeDays: 6,  material: { id: 22, code: 'THEP-TAM-2MM',  name: 'Thép tấm 2mm'        }, supplier: { id: 12, name: 'Hoàng Gia Steel'      } },
+  { id: 27, materialId: 22, supplierId: 1,  price: 54000, leadTimeDays: 3,  material: { id: 22, code: 'THEP-TAM-2MM',  name: 'Thép tấm 2mm'        }, supplier: { id: 1,  name: 'Cty Thép Miền Nam'   } },
+  // Sơn lót epoxy (materialId 23)
+  { id: 28, materialId: 23, supplierId: 7,  price: 95000, leadTimeDays: 7,  material: { id: 23, code: 'SON-LOT-EPOXY', name: 'Sơn lót epoxy'       }, supplier: { id: 7,  name: 'Việt Thắng'         } },
+  { id: 29, materialId: 23, supplierId: 13, price: 91000, leadTimeDays: 8,  material: { id: 23, code: 'SON-LOT-EPOXY', name: 'Sơn lót epoxy'       }, supplier: { id: 13, name: 'Nam Phương Chemicals'} },
+  { id: 30, materialId: 23, supplierId: 3,  price: 98000, leadTimeDays: 5,  material: { id: 23, code: 'SON-LOT-EPOXY', name: 'Sơn lót epoxy'       }, supplier: { id: 3,  name: 'Sơn Thắng Phát'     } },
+  // Vít tự khoan M5 (materialId 24)
+  { id: 31, materialId: 24, supplierId: 5,  price: 320,   leadTimeDays: 3,  material: { id: 24, code: 'VIT-TK-M5',    name: 'Vít tự khoan M5'     }, supplier: { id: 5,  name: 'An Phát'             } },
+  { id: 32, materialId: 24, supplierId: 9,  price: 350,   leadTimeDays: 2,  material: { id: 24, code: 'VIT-TK-M5',    name: 'Vít tự khoan M5'     }, supplier: { id: 9,  name: 'Tiến Thịnh'         } },
+  // Túi PE đóng gói (materialId 25)
+  { id: 33, materialId: 25, supplierId: 10, price: 1200,  leadTimeDays: 3,  material: { id: 25, code: 'TUI-PE-DG',    name: 'Túi PE đóng gói'     }, supplier: { id: 10, name: 'Bao bì Việt'         } },
+  { id: 34, materialId: 25, supplierId: 11, price: 1100,  leadTimeDays: 4,  material: { id: 25, code: 'TUI-PE-DG',    name: 'Túi PE đóng gói'     }, supplier: { id: 11, name: 'Tiến Long'           } },
+  { id: 35, materialId: 25, supplierId: 5,  price: 1250,  leadTimeDays: 2,  material: { id: 25, code: 'TUI-PE-DG',    name: 'Túi PE đóng gói'     }, supplier: { id: 5,  name: 'An Phát'             } },
 ];
 
 export const seedPurchaseCommands = [

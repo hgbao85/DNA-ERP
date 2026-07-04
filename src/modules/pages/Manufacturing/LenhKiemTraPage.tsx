@@ -7,7 +7,7 @@ import * as api from '../../../services/api'
 import LoadingState from '../../../components/LoadingState'
 import { listTh, listTd } from '../../../styles/table'
 import type { PlanForm } from '../../../types/plan-form'
-import { useInspection, type KhoKey, type InspRequest } from '../../../context/InspectionContext'
+import { useInspection, type KhoKey, type InspRequest, type PurchaseProposalItem } from '../../../context/InspectionContext'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -314,7 +314,22 @@ export default function LenhKiemTraPage() {
                     style={{ padding: '7px 16px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
                   >Hủy</button>
                   <button
-                    onClick={() => { markProposalCreated(request!.id); setProposing(false) }}
+                    onClick={() => {
+                      const proposalItems: PurchaseProposalItem[] = missingItems.map(i => ({
+                        name: i.name, unit: i.unit, required: i.required,
+                        actualStock: i.actualStock ?? 0,
+                        buyQty: i.required - (i.actualStock ?? 0),
+                        khoLabel: i.khoLabel,
+                      }))
+                      markProposalCreated(request!.id, proposalItems, {
+                        planFormId: selected.id,
+                        poNumber:   selected.exportOrder?.poNumber ?? `#${selected.exportOrderId}`,
+                        skuCode:    selected.mfgProduct?.factoryCode ?? `#${selected.mfgProductId}`,
+                        skuName:    selected.mfgProduct?.name,
+                        deadline:   selected.exportOrder?.deliveryDate,
+                      })
+                      setProposing(false)
+                    }}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#d97706', color: '#fff', cursor: 'pointer' }}
                   >
                     <ShoppingCart size={13} /> Xác nhận tạo đề xuất
