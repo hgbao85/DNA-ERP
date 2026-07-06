@@ -143,7 +143,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
 
       {/* ── Main content ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        {tab === 'materials'  && (scope === 'vat-tu-tp' || scope === 'phoi-son-han' || scope === 'thanh-pham' || !scope) && <MfgAllMaterialsPage limitCats={scope === 'vat-tu-tp' ? ['baoBiDongGoi', 'thanhPham', 'vatTuThanhPham', 'manh'] : scope === 'phoi-son-han' ? ['sat'] : undefined} />}
+        {tab === 'materials'  && (scope === 'vat-tu-tp' || scope === 'phoi-son-han' || scope === 'thanh-pham' || !scope) && <MfgAllMaterialsPage limitCats={scope === 'vat-tu-tp' ? ['baoBiDongGoi', 'thanhPham', 'vatTuThanhPham', 'manh'] : scope === 'phoi-son-han' ? ['sat'] : undefined} combinedCats={scope === 'vat-tu-tp' ? [{ id: 'baoBiVTTP', label: 'Bao bì & VTTP', cats: ['baoBiDongGoi', 'vatTuThanhPham'] }] : undefined} />}
         {tab === 'warehouses' && <MfgWarehousesPage groupKey={scope} />}
         {tab === 'kiem-tra'   && <KiemTraVatTuPage
           limitCats={scope === 'phoi-son-han' ? ['sat', 'son'] : scope === 'vat-tu-tp' ? ['day', 'vatTuPhuKien', 'baoBiDongGoi'] : undefined}

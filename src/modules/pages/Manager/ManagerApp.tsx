@@ -32,9 +32,7 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
   const [chosen, setChosen] = useState<Record<string, string>>({})
   const fmt = (n: number) => n.toLocaleString('vi-VN')
 
-  const submittedProposals = proposals.filter(p =>
-    p.status === 'submitted' || p.status === 'approved' || p.status === 'rejected'
-  )
+  const submittedProposals = proposals.filter(p => p.status === 'submitted')
   const pendingCount = proposals.filter(p => p.status === 'submitted').length
   const selected = submittedProposals.find(p => p.id === selectedId) ?? null
 
@@ -63,7 +61,6 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
 
   const statusBadge = (p: PurchaseProposal) => {
     if (p.status === 'submitted') return <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', color: 'var(--text2)', background: 'var(--surface2)' }}>Chờ duyệt</span>
-    if (p.status === 'approved')  return <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, border: '1px solid #86efac', color: '#166534', background: '#f0fdf4' }}>Đã duyệt</span>
     return <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, border: '1px solid #fca5a5', color: '#dc2626', background: '#fff5f5' }}>Từ chối</span>
   }
 
@@ -71,7 +68,6 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
   if (selected) {
     const p = selected
     const isPending  = p.status === 'submitted'
-    const isApproved = p.status === 'approved'
 
     const totalChosen = p.items.reduce((sum, item) => {
       const suppName = chosen[item.name] ?? p.chosenSuppliers?.[item.name]
@@ -243,11 +239,6 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
           </div>
         )}
 
-        {isApproved && (
-          <div style={{ marginTop: 12, padding: '9px 14px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, color: 'var(--text3)' }}>
-            Đã duyệt lúc {p.approvedAt ? format(new Date(p.approvedAt), 'HH:mm dd/MM/yyyy') : '—'}
-          </div>
-        )}
         {p.status === 'rejected' && (
           <div style={{ marginTop: 12, padding: '9px 14px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, color: 'var(--text3)' }}>
             Từ chối: {p.rejectionReason}

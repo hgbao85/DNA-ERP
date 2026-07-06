@@ -182,15 +182,30 @@ const MOCK_THANH_PHAM: FlatItem[] = [
   { key: 'tp-6', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-12T00:00:00Z', productName: 'Giường ngủ đơn',       productCode: 'GN-006', poNumber: 'TP-2506', cat: 'thanhPham', name: 'Giường sắt đơn sơn tĩnh điện',    spec: 'Kích thước 90×200cm, trắng', unit: 'cái', qty: '25',  createdAt: '2025-12-12T08:30:00Z' },
 ]
 
-export default function VatTuDashboardPage({ limitCats }: { limitCats?: Cat[] } = {}) {
+export default function VatTuDashboardPage({ limitCats, combinedCats }: { limitCats?: Cat[]; combinedCats?: { id: string; label: string; cats: Cat[] }[] } = {}) {
   const { data: planForms = [], isLoading } = useFetch(() => api.getPlanForms(), [])
   const [approvals, setApprovals] = useState<Record<string, ApprovalEntry>>({})
   const [selected, setSelected] = useState<FlatItem | null>(null)
   const [showRejectInput, setShowRejectInput] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
-  const [filterCat, setFilterCat] = useState<Cat | 'all'>(limitCats?.[0] ?? 'all')
+  const [filterCat, setFilterCat] = useState<string>(() => {
+    if (combinedCats?.length) {
+      const first = limitCats?.[0]
+      const combined = first ? combinedCats.find(c => c.cats.includes(first)) : null
+      if (combined) return combined.id
+    }
+    return limitCats?.[0] ?? 'all'
+  })
   const [q, setQ] = useState('')
   const [selectedManhPo, setSelectedManhPo] = useState<string | null>(null)
+
+  const activeCats = (() => {
+    if (filterCat === 'all') return new Set<string>(limitCats ?? Object.keys(CAT_META))
+    const combined = combinedCats?.find(c => c.id === filterCat)
+    if (combined) return new Set<string>(combined.cats)
+    return new Set<string>([filterCat])
+  })()
+  const isOnlyManh = activeCats.size === 1 && activeCats.has('manh')
 
   const allItems = [...flattenItems((planForms ?? []) as PlanForm[]), ...MOCK_MANH, ...MOCK_THANH_PHAM, ...MOCK_VAT_TU_THANH_PHAM]
     .filter(it => !limitCats || limitCats.includes(it.cat))
@@ -220,7 +235,7 @@ export default function VatTuDashboardPage({ limitCats }: { limitCats?: Cat[] } 
   }, [allItems.length])
 
   const items = allItems.filter(it => {
-    const matchCat = filterCat === 'all' || it.cat === filterCat
+    const matchCat = activeCats.has(it.cat)
     const kw = q.trim().toLowerCase()
     const matchQ = !kw ||
       it.name.toLowerCase().includes(kw) ||
@@ -250,7 +265,7 @@ export default function VatTuDashboardPage({ limitCats }: { limitCats?: Cat[] } 
   const selectedApproval = selected ? (approvals[selected.key] ?? null) : null
 
   const manhGroups = (() => {
-    if (filterCat !== 'manh') return [] as { poNumber: string; productCode: string; productName: string; pfStatus: string; pfId: number }[]
+    if (!isOnlyManh) return [] as { poNumber: string; productCode: string; productName: string; pfStatus: string; pfId: number }[]
     const seen = new Map<string, { poNumber: string; productCode: string; productName: string; pfStatus: string; pfId: number }>()
     items.forEach(it => {
       if (!seen.has(it.poNumber)) seen.set(it.poNumber, { poNumber: it.poNumber, productCode: it.productCode, productName: it.productName, pfStatus: it.pfStatus, pfId: it.pfId })
@@ -273,13 +288,28 @@ export default function VatTuDashboardPage({ limitCats }: { limitCats?: Cat[] } 
       {/* Search + filter */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {FILTER_TABS.filter(ft => ft.id === 'all' ? !limitCats : (!limitCats || limitCats.includes(ft.id))).map(ft => {
+          {(() => {
+            // Build visible tabs: replace cats covered by combinedCats with the merged tab
+            const coveredCats = new Set(combinedCats?.flatMap(c => c.cats as string[]) ?? [])
+            const seenCombined = new Set<string>()
+            const tabs: { id: string; label: string }[] = []
+            FILTER_TABS.filter(ft => ft.id === 'all' ? !limitCats : (!limitCats || limitCats.includes(ft.id as Cat)))
+              .forEach(ft => {
+                if (coveredCats.has(ft.id)) {
+                  const combined = combinedCats!.find(c => c.cats.includes(ft.id as Cat))!
+                  if (!seenCombined.has(combined.id)) { tabs.push(combined); seenCombined.add(combined.id) }
+                } else {
+                  tabs.push(ft)
+                }
+              })
+            return tabs
+          })().map(ft => {
             const active = filterCat === ft.id
-            const meta = ft.id !== 'all' ? CAT_META[ft.id] : null
+            const meta = CAT_META[ft.id as Cat] ?? null
             return (
               <button
                 key={ft.id}
-                onClick={() => { setFilterCat(ft.id); setSelectedManhPo(null) }}
+                onClick={() => { setFilterCat(ft.id as string); setSelectedManhPo(null) }}
                 style={{
                   padding: '6px 14px', fontSize: 12, fontWeight: active ? 700 : 500,
                   borderRadius: 20, border: active ? 'none' : '1px solid var(--border)',
@@ -306,7 +336,7 @@ export default function VatTuDashboardPage({ limitCats }: { limitCats?: Cat[] } 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text2)' }}>
           <Loader2 size={18} /> Đang tải...
         </div>
-      ) : filterCat !== 'manh' ? (
+      ) : !isOnlyManh ? (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>

@@ -103,7 +103,7 @@ export default function KiemTraVatTuPage({ inspKhoKey }: Props = {}) {
                   <th style={thStyle}>ĐVT</th>
                   <th style={{ ...thStyle, textAlign: 'right' }}>Cần</th>
                   <th style={{ ...thStyle, textAlign: 'right' }}>Tồn thực</th>
-                  <th style={thStyle}>Tình trạng</th>
+                  <th style={thStyle}>Đề xuất mua</th>
                 </tr>
               </thead>
               <tbody>
@@ -125,8 +125,8 @@ export default function KiemTraVatTuPage({ inspKhoKey }: Props = {}) {
                         {stock == null
                           ? <span style={{ color: 'var(--text3)', fontSize: 11 }}>—</span>
                           : shortage > 0
-                            ? <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626' }}>⚠ Thiếu {shortage} {item.unit}</span>
-                            : <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a' }}>✓ Đủ</span>
+                            ? <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626' }}>{shortage} {item.unit}</span>
+                            : <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a' }}>Đủ</span>
                         }
                       </td>
                     </tr>

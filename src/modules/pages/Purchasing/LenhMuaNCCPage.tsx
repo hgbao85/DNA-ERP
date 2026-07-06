@@ -613,10 +613,10 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector }: {
   }
 
   const statusTag = (p: PurchaseProposal) => {
-    if (p.status === 'new')       return <span style={{ fontSize: 11, fontWeight: 700, color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, padding: '2px 8px' }}>Chưa tiếp nhận</span>
-    if (p.status === 'quoting')   return <span style={{ fontSize: 11, fontWeight: 700, color: '#1e40af', background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 6, padding: '2px 8px' }}>Đang báo giá</span>
-    if (p.status === 'submitted') return <span style={{ fontSize: 11, fontWeight: 700, color: '#166534', background: '#dcfce7', border: '1px solid #86efac', borderRadius: 6, padding: '2px 8px' }}>Đã gửi GĐ</span>
-    if (p.status === 'approved')  return <span style={{ fontSize: 11, fontWeight: 700, color: '#166534', background: '#bbf7d0', border: '1px solid #4ade80', borderRadius: 6, padding: '2px 8px' }}>Đã duyệt</span>
+    if (p.status === 'new')        return <span style={{ fontSize: 11, fontWeight: 700, color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, padding: '2px 8px' }}>Chờ báo giá</span>
+    if (p.status === 'quoting')    return <span style={{ fontSize: 11, fontWeight: 700, color: '#1e40af', background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 6, padding: '2px 8px' }}>Đang báo giá</span>
+    if (p.status === 'submitted')  return <span style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd', borderRadius: 6, padding: '2px 8px' }}>Chờ duyệt</span>
+    if (p.status === 'purchasing') return <span style={{ fontSize: 11, fontWeight: 700, color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, padding: '2px 8px' }}>Đang mua hàng</span>
     return <span style={{ fontSize: 11, fontWeight: 700, color: '#991b1b', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 6, padding: '2px 8px' }}>Từ chối</span>
   }
 
@@ -815,7 +815,7 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector }: {
           )}
 
           {/* ── SUBMITTED / APPROVED / REJECTED ── */}
-          {(p.status === 'submitted' || p.status === 'approved' || p.status === 'rejected') && (<>
+          {(p.status === 'submitted' || p.status === 'purchasing' || p.status === 'rejected') && (<>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
@@ -866,10 +866,17 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector }: {
                 </tbody>
               </table>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderTop: '1px solid #86efac', background: '#f0fdf4', fontSize: 13, color: '#166534' }}>
-              <CheckCircle2 size={15} />
-              <span>Đã gửi Giám đốc duyệt lúc {p.submittedAt ? format(new Date(p.submittedAt), 'HH:mm dd/MM/yyyy') : '—'}</span>
-            </div>
+            {p.status === 'purchasing' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderTop: '1px solid #fde68a', background: '#fffbeb', fontSize: 13, color: '#92400e' }}>
+                <CheckCircle2 size={15} />
+                <span>Giám đốc đã duyệt lúc {p.approvedAt ? format(new Date(p.approvedAt), 'HH:mm dd/MM/yyyy') : '—'} — <strong>Đang mua hàng</strong></span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderTop: '1px solid #86efac', background: '#f0fdf4', fontSize: 13, color: '#166534' }}>
+                <CheckCircle2 size={15} />
+                <span>Đã gửi Giám đốc duyệt lúc {p.submittedAt ? format(new Date(p.submittedAt), 'HH:mm dd/MM/yyyy') : '—'}</span>
+              </div>
+            )}
           </>)}
 
         </div>

@@ -39,16 +39,16 @@ function extractAllMaterials(pf: PlanForm): AllMat[] {
       return {
         group: s ? 'Sơn' : 'Dây',
         khoKey: (s ? 'phoiSonHan' : 'vatTuTP') as KhoKey,
-        khoLabel: s ? 'Kho PSH' : 'Kho VT/TP',
+        khoLabel: s ? 'Kho PSH' : 'Kho VTTP',
         name: x.name, unit: x.unit ?? (s ? 'kg' : 'm'), required: x.kg ?? 0,
       }
     }),
     ...(mt.vatTuPhuKien ?? []).map(x => ({
-      group: 'Phụ kiện', khoKey: 'vatTuTP' as KhoKey, khoLabel: 'Kho VT/TP',
+      group: 'Phụ kiện', khoKey: 'vatTuTP' as KhoKey, khoLabel: 'Kho VTTP',
       name: x.name, unit: x.unit ?? 'cái', required: x.quantity ?? 0,
     })),
     ...(mt.baoBiDongGoi ?? []).map(x => ({
-      group: 'Bao bì', khoKey: 'vatTuTP' as KhoKey, khoLabel: 'Kho VT/TP',
+      group: 'Bao bì', khoKey: 'vatTuTP' as KhoKey, khoLabel: 'Kho VTTP',
       name: x.name, unit: x.unit ?? 'cái', required: x.quantity ?? 0,
     })),
   ]
@@ -98,7 +98,7 @@ export default function LenhKiemTraPage() {
         .map(i => ({ ...i, khoLabel: 'Kho Phôi Sơn Hàn' })),
       ...request!.vatTuTP.items
         .filter(i => i.actualStock != null && i.required > 0 && i.actualStock < i.required)
-        .map(i => ({ ...i, khoLabel: 'Kho Vật tư / TP' })),
+        .map(i => ({ ...i, khoLabel: 'Kho Vật tư thành phẩm' })),
     ]
     const hasShortage = missingItems.length > 0
 
@@ -169,7 +169,7 @@ export default function LenhKiemTraPage() {
         {request && (
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
             {khoStatusBadge('phoiSonHan', 'Kho Phôi Sơn Hàn')}
-            {khoStatusBadge('vatTuTP', 'Kho Vật tư / TP')}
+            {khoStatusBadge('vatTuTP', 'Kho Vật tư thành phẩm')}
             <span style={{ fontSize: 12, color: 'var(--text3)' }}>
               · Đã gửi lúc {format(new Date(request.sentAt), 'HH:mm dd/MM/yyyy')}
             </span>
@@ -358,7 +358,7 @@ export default function LenhKiemTraPage() {
           <ScanSearch size={20} color="#4527a0" /> Lệnh kiểm tra vật tư
         </h2>
         <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>
-          Gửi yêu cầu kiểm tra tồn kho đến Kho Phôi Sơn Hàn và Kho Vật tư / TP
+          Gửi yêu cầu kiểm tra tồn kho đến Kho Phôi Sơn Hàn và Kho Vật tư thành phẩm
         </p>
       </div>
 

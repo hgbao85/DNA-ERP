@@ -57,7 +57,7 @@ export interface PurchaseProposal {
   skuName?: string
   createdAt: string
   items: PurchaseProposalItem[]
-  status: 'new' | 'quoting' | 'submitted' | 'approved' | 'rejected'
+  status: 'new' | 'quoting' | 'submitted' | 'purchasing' | 'rejected'
   quotes?: Record<string, ProposalQuote[]>  // keyed by item.name → multiple NCC offers
   chosenSuppliers?: Record<string, string>  // item.name → chosen supplierName (set by manager)
   deadline?: string
@@ -159,8 +159,8 @@ const SEED_PROPOSALS: PurchaseProposal[] = [
     items: [
       { name: 'Thép tấm 2mm',    unit: 'kg',  required: 300, actualStock: 150, buyQty: 150, khoLabel: 'Kho Phôi Sơn Hàn', materialId: 22 },
       { name: 'Sơn lót epoxy',   unit: 'kg',  required: 80,  actualStock: 20,  buyQty: 60,  khoLabel: 'Kho Phôi Sơn Hàn', materialId: 23 },
-      { name: 'Vít tự khoan M5', unit: 'cái', required: 500, actualStock: 200, buyQty: 300, khoLabel: 'Kho Vật tư / TP',   materialId: 24 },
-      { name: 'Túi PE đóng gói', unit: 'cái', required: 200, actualStock: 50,  buyQty: 150, khoLabel: 'Kho Vật tư / TP',   materialId: 25 },
+      { name: 'Vít tự khoan M5', unit: 'cái', required: 500, actualStock: 200, buyQty: 300, khoLabel: 'Kho Vật tư thành phẩm',   materialId: 24 },
+      { name: 'Túi PE đóng gói', unit: 'cái', required: 200, actualStock: 50,  buyQty: 150, khoLabel: 'Kho Vật tư thành phẩm',   materialId: 25 },
     ],
   },
   {
@@ -173,8 +173,8 @@ const SEED_PROPOSALS: PurchaseProposal[] = [
     items: [
       { name: 'Thép ống D25×1.5',   unit: 'kg',  required: 500,  actualStock: 320, buyQty: 180, khoLabel: 'Kho Phôi Sơn Hàn', materialId: 18 },
       { name: 'Sơn tĩnh điện đen',  unit: 'kg',  required: 200,  actualStock: 80,  buyQty: 120, khoLabel: 'Kho Phôi Sơn Hàn', materialId: 19 },
-      { name: 'Dây đan PE 2mm',      unit: 'm',   required: 1000, actualStock: 600, buyQty: 400, khoLabel: 'Kho Vật tư / TP',   materialId: 20 },
-      { name: 'Bao bì carton 5 lớp', unit: 'cái', required: 300,  actualStock: 120, buyQty: 180, khoLabel: 'Kho Vật tư / TP',   materialId: 21 },
+      { name: 'Dây đan PE 2mm',      unit: 'm',   required: 1000, actualStock: 600, buyQty: 400, khoLabel: 'Kho Vật tư thành phẩm',   materialId: 20 },
+      { name: 'Bao bì carton 5 lớp', unit: 'cái', required: 300,  actualStock: 120, buyQty: 180, khoLabel: 'Kho Vật tư thành phẩm',   materialId: 21 },
     ],
     quotes: {
       'Thép ống D25×1.5':   [{ supplierName: 'Minh Thành', unitPrice: 45000 }, { supplierName: 'An Phát',    unitPrice: 43500 }, { supplierName: 'Long Sơn',   unitPrice: 46000 }],
@@ -256,7 +256,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
 
   const approveProposal = useCallback((proposalId: string, chosenSuppliers: Record<string, string>) => {
     setProposals(prev => prev.map(p =>
-      p.id === proposalId ? { ...p, status: 'approved', chosenSuppliers, approvedAt: new Date().toISOString() } : p
+      p.id === proposalId ? { ...p, status: 'purchasing', chosenSuppliers, approvedAt: new Date().toISOString() } : p
     ))
   }, [])
 
