@@ -7,3 +7,4 @@ export * from './crm.service';
 export * from './mfg.service';
 export * from './purchasing.service';
 export * from './plan-form.service';
+export * from './spec-entry.service';

@@ -2,57 +2,52 @@ import { useState } from 'react'
 import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
 import QuotaSkuEntryPanel from './QuotaSkuEntryPanel'
+import { useFetch } from '../../../hooks/useFetch'
+import { safeArr } from '../../../utils/array'
+import * as api from '../../../services/api'
+import type { SpecLine, SpecRoleState } from '../../../types/spec-entry'
 
 // ─── Types ────────────────────────────────────────────────────────────
+// Alias tên trường theo domain (maDay/soLuong) cho dễ đọc trong JSX — quy đổi
+// sang/từ shape SpecLine dùng chung khi gọi service (xem toWireLine/toSpecLine).
 type BomItem = { id: number; ten: string; thoiGian: string }
 type WireLine = { uid: number; maDay: string; unit: string; soLuong?: string; specifications: string; imageUrl: string }
 type PendingReq = { uid: number; bomId: number; lines: WireLine[]; submittedAt: string }
 type RejectedWireLine = WireLine & { submittedAt: string; lyDo: string }
 
-// ─── Mock data ────────────────────────────────────────────────────────
-const MOCK_BOMS: BomItem[] = [
-  { id: 1, ten: 'Ghế J55',      thoiGian: '23/06/2026' },
-  { id: 2, ten: 'Ghế IEA-3',    thoiGian: '22/06/2026' },
-  { id: 3, ten: 'Bàn mặt kính', thoiGian: '21/06/2026' },
-  { id: 4, ten: 'Ghế GoPlus',   thoiGian: '20/06/2026' },
-]
+const ROLE = 'SPEC_WIRE_PAINT' as const
 
-const APPROVED_BOM_IDS: number[] = [1]
+const toWireLine = (l: SpecLine): WireLine => ({
+  uid: l.uid, maDay: l.code, unit: l.unit, soLuong: l.qty, specifications: l.specifications, imageUrl: l.imageUrl ?? '',
+})
+const toSpecLine = (l: Omit<WireLine, 'uid'>): Omit<SpecLine, 'uid'> => ({
+  code: l.maDay, unit: l.unit, qty: l.soLuong, specifications: l.specifications, imageUrl: l.imageUrl,
+})
 
-const MOCK_PENDING: PendingReq[] = [
-  {
-    uid: 1, bomId: 2, submittedAt: '24/06/2026 09:15:22', lines: [
-      { uid: 1, maDay: 'DY-NH-002', unit: 'kg',  soLuong: '120', specifications: 'Dây nhựa xanh + sơn xám', imageUrl: '' },
-      { uid: 2, maDay: 'SN-XM-001', unit: 'lít', soLuong: '60',  specifications: 'Sơn xám tĩnh điện',       imageUrl: '' },
-    ],
-  },
-]
-
-const MOCK_DRAFT: Record<number, WireLine[]> = {
-  3: [{ uid: 3, maDay: 'DY-PE-003', unit: 'kg', soLuong: '80', specifications: 'Dây PE trắng', imageUrl: '' }],
+const EMPTY_ROLE_STATE: SpecRoleState = {
+  approvedBomIds: [], pendingReqs: [], draftsByBom: {}, rejectedLines: {}, catalog: [], reqUid: 1, draftUid: 1,
 }
-
-const MOCK_REJECTED_LINES: Record<number, RejectedWireLine[]> = {
-  4: [
-    { uid: 99, maDay: 'DY-NH-999', unit: 'kg', soLuong: '10', specifications: 'Dây nhựa tím', imageUrl: '', submittedAt: '19/06/2026 10:30:00', lyDo: 'Màu dây không có trong bảng màu tiêu chuẩn — vui lòng chọn lại mã từ danh sách vật tư' },
-  ],
-}
-
-const APPROVED_CATALOG: WireLine[] = [
-  { uid: 10, maDay: 'DY-PE-001', unit: 'kg',  specifications: 'Dây PE xám GSS',       imageUrl: '' },
-  { uid: 11, maDay: 'SN-DEN-01', unit: 'lít', specifications: 'Sơn đen tĩnh điện',    imageUrl: '' },
-]
 
 // ─── Main ─────────────────────────────────────────────────────────────
 export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
   subTab: 'dinh-muc' | 'catalog'
   onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
 }) {
-  const [approvedBomIds] = useState<number[]>(APPROVED_BOM_IDS)
-  const [pendingReqs, setPendingReqs] = useState<PendingReq[]>(MOCK_PENDING)
-  const [draftsByBom, setDraftsByBom] = useState<Record<number, WireLine[]>>(MOCK_DRAFT)
-  const [reqUid, setReqUid] = useState(2)
-  const [draftUid, setDraftUid] = useState(4)
+  const { data: bomsData } = useFetch(() => api.getSpecBoms(), [])
+  const boms: BomItem[] = safeArr(bomsData)
+
+  const { data: roleStateData, refetch: refetchRole } = useFetch(() => api.getSpecRoleState(ROLE), [])
+  const roleState = roleStateData ?? EMPTY_ROLE_STATE
+
+  const approvedBomIds = roleState.approvedBomIds
+  const pendingReqs: PendingReq[] = roleState.pendingReqs.map(r => ({ ...r, lines: r.lines.map(toWireLine) }))
+  const draftsByBom: Record<number, WireLine[]> = Object.fromEntries(
+    Object.entries(roleState.draftsByBom).map(([bomId, lines]) => [bomId, lines.map(toWireLine)]),
+  )
+  const rejectedLines: Record<number, RejectedWireLine[]> = Object.fromEntries(
+    Object.entries(roleState.rejectedLines).map(([bomId, lines]) => [bomId, lines.map(l => ({ ...toWireLine(l), submittedAt: l.submittedAt, lyDo: l.lyDo }))]),
+  )
+  const APPROVED_CATALOG: WireLine[] = roleState.catalog.map(toWireLine)
 
   const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)
   const [fMaDay, setFMaDay] = useState('')
@@ -66,7 +61,6 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
   const [sentMsg, setSentMsg] = useState(false)
   const [bomSearch, setBomSearch] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
-  const [rejectedLines] = useState<Record<number, RejectedWireLine[]>>(MOCK_REJECTED_LINES)
 
   const bomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' =>
     approvedBomIds.includes(bomId) ? 'approved'
@@ -83,25 +77,26 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
     setShowPreview(false); setFErr(''); setSentMsg(false)
   }
 
-  const addToDraft = () => {
+  const addToDraft = async () => {
     setFErr('')
     if (!fMaDay.trim() || !selectedBom) { setFErr('Vui lòng nhập Mã dây.'); return }
-    const line: WireLine = { uid: draftUid, maDay: fMaDay.trim(), unit: fUnit.trim(), soLuong: fSoLuong.trim(), specifications: fSpecifications.trim(), imageUrl: fImageUrl.trim() }
-    setDraftsByBom(d => ({ ...d, [selectedBom.id]: [...(d[selectedBom.id] ?? []), line] }))
-    setDraftUid(n => n + 1)
+    await api.addSpecDraftLine(ROLE, selectedBom.id, toSpecLine({
+      maDay: fMaDay.trim(), unit: fUnit.trim(), soLuong: fSoLuong.trim(), specifications: fSpecifications.trim(), imageUrl: fImageUrl.trim(),
+    }))
+    refetchRole()
     setFMaDay(''); setFUnit(''); setFSoLuong(''); setFSpecifications(''); setFImageUrl('')
   }
 
-  const removeDraft = (uid: number) => {
+  const removeDraft = async (uid: number) => {
     if (!selectedBom) return
-    setDraftsByBom(d => ({ ...d, [selectedBom.id]: (d[selectedBom.id] ?? []).filter(x => x.uid !== uid) }))
+    await api.removeSpecDraftLine(ROLE, selectedBom.id, uid)
+    refetchRole()
   }
 
-  const submitAll = () => {
+  const submitAll = async () => {
     if (!currentDrafts.length || !selectedBom) return
-    setPendingReqs(p => [...p, { uid: reqUid, bomId: selectedBom.id, lines: [...currentDrafts], submittedAt: new Date().toLocaleString('vi-VN') }])
-    setReqUid(n => n + 1)
-    setDraftsByBom(d => ({ ...d, [selectedBom.id]: [] }))
+    await api.submitSpecDrafts(ROLE, selectedBom.id)
+    refetchRole()
     setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
   }
 
@@ -360,7 +355,7 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
             <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập thông tin dây và sơn theo SKU</p>
           </div>
           <NotifBell
-            items={MOCK_BOMS.filter(b => approvedBomIds.includes(b.id)).map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức dây & sơn · ${n.thoiGian}` }))}
+            items={boms.filter(b => approvedBomIds.includes(b.id)).map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức dây & sơn · ${n.thoiGian}` }))}
             emptyText="Chưa có định mức nào được duyệt."
           />
         </div>
@@ -393,7 +388,7 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
               </tr>
             </thead>
             <tbody>
-              {MOCK_BOMS.filter(b => b.ten.toLowerCase().includes(bomSearch.toLowerCase()) && bomStatus(b.id) !== 'approved').map(item => {
+              {boms.filter(b => b.ten.toLowerCase().includes(bomSearch.toLowerCase()) && bomStatus(b.id) !== 'approved').map(item => {
                 const st = bomStatus(item.id)
                 return (
                   <tr key={item.id}

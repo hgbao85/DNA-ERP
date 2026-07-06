@@ -2,57 +2,52 @@ import { useState } from 'react'
 import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
 import QuotaSkuEntryPanel from './QuotaSkuEntryPanel'
+import { useFetch } from '../../../hooks/useFetch'
+import { safeArr } from '../../../utils/array'
+import * as api from '../../../services/api'
+import type { SpecLine, SpecRoleState } from '../../../types/spec-entry'
 
 // ─── Types ────────────────────────────────────────────────────────────
+// Alias tên trường theo domain (maPK/soLuong/moTa) cho dễ đọc trong JSX — quy đổi
+// sang/từ shape SpecLine dùng chung khi gọi service (xem toAccessoryLine/toSpecLine).
 type BomItem = { id: number; ten: string; thoiGian: string }
 type AccessoryLine = { uid: number; maPK: string; unit: string; soLuong?: string; moTa: string; imageUrl: string }
 type PendingReq = { uid: number; bomId: number; lines: AccessoryLine[]; submittedAt: string }
 type RejectedAccessoryLine = AccessoryLine & { submittedAt: string; lyDo: string }
 
-// ─── Mock data ────────────────────────────────────────────────────────
-const MOCK_BOMS: BomItem[] = [
-  { id: 1, ten: 'Ghế J55',      thoiGian: '23/06/2026' },
-  { id: 2, ten: 'Ghế IEA-3',    thoiGian: '22/06/2026' },
-  { id: 3, ten: 'Bàn mặt kính', thoiGian: '21/06/2026' },
-  { id: 4, ten: 'Ghế GoPlus',   thoiGian: '20/06/2026' },
-]
+const ROLE = 'SPEC_ACCESSORY' as const
 
-const APPROVED_BOM_IDS: number[] = [1]
+const toAccessoryLine = (l: SpecLine): AccessoryLine => ({
+  uid: l.uid, maPK: l.code, unit: l.unit, soLuong: l.qty, moTa: l.specifications, imageUrl: l.imageUrl ?? '',
+})
+const toSpecLine = (l: Omit<AccessoryLine, 'uid'>): Omit<SpecLine, 'uid'> => ({
+  code: l.maPK, unit: l.unit, qty: l.soLuong, specifications: l.moTa, imageUrl: l.imageUrl,
+})
 
-const MOCK_PENDING: PendingReq[] = [
-  {
-    uid: 1, bomId: 2, submittedAt: '24/06/2026 09:15:22', lines: [
-      { uid: 1, maPK: 'PK-OC-001', unit: 'con',  soLuong: '4000', moTa: 'Ốc lục giác M4x10',     imageUrl: '' },
-      { uid: 2, maPK: 'PK-NEM-01', unit: 'cái',  soLuong: '500',  moTa: 'Nệm lót chân ghế cao su', imageUrl: '' },
-    ],
-  },
-]
-
-const MOCK_DRAFT: Record<number, AccessoryLine[]> = {
-  3: [{ uid: 3, maPK: 'PK-TAY-01', unit: 'bộ', soLuong: '200', moTa: 'Tay nắm nhựa đen', imageUrl: '' }],
+const EMPTY_ROLE_STATE: SpecRoleState = {
+  approvedBomIds: [], pendingReqs: [], draftsByBom: {}, rejectedLines: {}, catalog: [], reqUid: 1, draftUid: 1,
 }
-
-const MOCK_REJECTED_LINES: Record<number, RejectedAccessoryLine[]> = {
-  4: [
-    { uid: 99, maPK: 'PK-TAY-02', unit: 'bộ', soLuong: '50', moTa: 'Tay nắm màu đỏ', imageUrl: '', submittedAt: '19/06/2026 10:30:00', lyDo: 'Màu tay nắm không theo tiêu chuẩn — cần xác nhận với bộ phận thiết kế trước khi đề xuất lại' },
-  ],
-}
-
-const APPROVED_CATALOG: AccessoryLine[] = [
-  { uid: 10, maPK: 'PK-OC-001',  unit: 'con',  moTa: 'Ốc lục giác M4x10',        imageUrl: '' },
-  { uid: 11, maPK: 'PK-DEM-001', unit: 'cái',  moTa: 'Đệm cao su chống trơn',     imageUrl: '' },
-]
 
 // ─── Main ─────────────────────────────────────────────────────────────
 export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
   subTab: 'dinh-muc' | 'catalog'
   onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
 }) {
-  const [approvedBomIds] = useState<number[]>(APPROVED_BOM_IDS)
-  const [pendingReqs, setPendingReqs] = useState<PendingReq[]>(MOCK_PENDING)
-  const [draftsByBom, setDraftsByBom] = useState<Record<number, AccessoryLine[]>>(MOCK_DRAFT)
-  const [reqUid, setReqUid] = useState(2)
-  const [draftUid, setDraftUid] = useState(4)
+  const { data: bomsData } = useFetch(() => api.getSpecBoms(), [])
+  const boms: BomItem[] = safeArr(bomsData)
+
+  const { data: roleStateData, refetch: refetchRole } = useFetch(() => api.getSpecRoleState(ROLE), [])
+  const roleState = roleStateData ?? EMPTY_ROLE_STATE
+
+  const approvedBomIds = roleState.approvedBomIds
+  const pendingReqs: PendingReq[] = roleState.pendingReqs.map(r => ({ ...r, lines: r.lines.map(toAccessoryLine) }))
+  const draftsByBom: Record<number, AccessoryLine[]> = Object.fromEntries(
+    Object.entries(roleState.draftsByBom).map(([bomId, lines]) => [bomId, lines.map(toAccessoryLine)]),
+  )
+  const rejectedLines: Record<number, RejectedAccessoryLine[]> = Object.fromEntries(
+    Object.entries(roleState.rejectedLines).map(([bomId, lines]) => [bomId, lines.map(l => ({ ...toAccessoryLine(l), submittedAt: l.submittedAt, lyDo: l.lyDo }))]),
+  )
+  const APPROVED_CATALOG: AccessoryLine[] = roleState.catalog.map(toAccessoryLine)
 
   const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)
   const [fMaPK, setFMaPK] = useState('')
@@ -66,7 +61,6 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
   const [sentMsg, setSentMsg] = useState(false)
   const [bomSearch, setBomSearch] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
-  const [rejectedLines] = useState<Record<number, RejectedAccessoryLine[]>>(MOCK_REJECTED_LINES)
 
   const bomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' =>
     approvedBomIds.includes(bomId) ? 'approved'
@@ -83,25 +77,26 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
     setShowPreview(false); setFErr(''); setSentMsg(false)
   }
 
-  const addToDraft = () => {
+  const addToDraft = async () => {
     setFErr('')
     if (!fMaPK.trim() || !selectedBom) { setFErr('Vui lòng nhập Mã phụ kiện.'); return }
-    const line: AccessoryLine = { uid: draftUid, maPK: fMaPK.trim(), unit: fUnit.trim(), soLuong: fSoLuong.trim(), moTa: fMoTa.trim(), imageUrl: fImageUrl.trim() }
-    setDraftsByBom(d => ({ ...d, [selectedBom.id]: [...(d[selectedBom.id] ?? []), line] }))
-    setDraftUid(n => n + 1)
+    await api.addSpecDraftLine(ROLE, selectedBom.id, toSpecLine({
+      maPK: fMaPK.trim(), unit: fUnit.trim(), soLuong: fSoLuong.trim(), moTa: fMoTa.trim(), imageUrl: fImageUrl.trim(),
+    }))
+    refetchRole()
     setFMaPK(''); setFUnit(''); setFSoLuong(''); setFMoTa(''); setFImageUrl('')
   }
 
-  const removeDraft = (uid: number) => {
+  const removeDraft = async (uid: number) => {
     if (!selectedBom) return
-    setDraftsByBom(d => ({ ...d, [selectedBom.id]: (d[selectedBom.id] ?? []).filter(x => x.uid !== uid) }))
+    await api.removeSpecDraftLine(ROLE, selectedBom.id, uid)
+    refetchRole()
   }
 
-  const submitAll = () => {
+  const submitAll = async () => {
     if (!currentDrafts.length || !selectedBom) return
-    setPendingReqs(p => [...p, { uid: reqUid, bomId: selectedBom.id, lines: [...currentDrafts], submittedAt: new Date().toLocaleString('vi-VN') }])
-    setReqUid(n => n + 1)
-    setDraftsByBom(d => ({ ...d, [selectedBom.id]: [] }))
+    await api.submitSpecDrafts(ROLE, selectedBom.id)
+    refetchRole()
     setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
   }
 
@@ -356,7 +351,7 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
             <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập thông tin phụ kiện theo SKU</p>
           </div>
           <NotifBell
-            items={MOCK_BOMS.filter(b => approvedBomIds.includes(b.id)).map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức phụ kiện · ${n.thoiGian}` }))}
+            items={boms.filter(b => approvedBomIds.includes(b.id)).map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức phụ kiện · ${n.thoiGian}` }))}
             emptyText="Chưa có định mức nào được duyệt."
           />
         </div>
@@ -389,7 +384,7 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
               </tr>
             </thead>
             <tbody>
-              {MOCK_BOMS.filter(b => b.ten.toLowerCase().includes(bomSearch.toLowerCase()) && bomStatus(b.id) !== 'approved').map(item => {
+              {boms.filter(b => b.ten.toLowerCase().includes(bomSearch.toLowerCase()) && bomStatus(b.id) !== 'approved').map(item => {
                 const st = bomStatus(item.id)
                 return (
                   <tr key={item.id}

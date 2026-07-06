@@ -86,7 +86,7 @@ export default function DanhSachKhachHangPage() {
       )}
       {remindCount === 0 && <div style={{ height: 14 }} />}
 
-      {customers.length === 0 && <div style={{ color: 'var(--text3)', fontSize: 13 }}>Chưa có khách hàng nào. Bấm "+ Thêm khách".</div>}
+      {customers.length === 0 && <div style={{ color: 'var(--text3)', fontSize: 13 }}>Chưa có khách hàng nào. Bấm &quot;+ Thêm khách&quot;.</div>}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {customers.map((c) => {

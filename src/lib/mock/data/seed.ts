@@ -1,5 +1,6 @@
 import type { Product, Promotion, Quotation, RetailCustomer, CareReminder, WholesaleCustomer, WholesaleCareReminder } from '../../../types';
 import type { PlanForm } from '../../../types/plan-form';
+import type { SpecRole, SpecBom, SpecRoleState } from '../../../types/spec-entry';
 import {
   seedPhoiExecutions,
   seedStageExec,
@@ -1077,6 +1078,118 @@ export const seedSpecEntryProposals = [
   },
 ];
 
+// Định mức chi tiết theo role chuyên trách (Sắt / Dây-Sơn / Phụ kiện / Bao bì) —
+// 1 danh sách SKU dùng chung cho cả 4 role, mỗi role tự có trạng thái duyệt/nháp/từ chối riêng.
+export const seedSpecBoms: SpecBom[] = [
+  { id: 1, ten: 'Ghế J55', thoiGian: '23/06/2026' },
+  { id: 2, ten: 'Ghế IEA-3', thoiGian: '22/06/2026' },
+  { id: 3, ten: 'Bàn mặt kính', thoiGian: '21/06/2026' },
+  { id: 4, ten: 'Ghế GoPlus', thoiGian: '20/06/2026' },
+];
+
+export const seedSpecRoleEntries: Record<SpecRole, SpecRoleState> = {
+  // Chỉ phần "Vật tư" (định mức chi tiết) được gộp vào đây — phần "Định mức mảnh"
+  // (cây Manh > children) có shape khác hẳn, vẫn giữ là state cục bộ trong SpecSteelPage.
+  SPEC_STEEL: {
+    approvedBomIds: [1, 4],
+    pendingReqs: [
+      {
+        uid: 1, bomId: 2, submittedAt: '24/06/2026 09:15:22',
+        lines: [
+          { uid: 1, code: 'Thép Phi 6', unit: 'cm', qty: '200', specifications: 'Ø6', chieuDai: '600' },
+          { uid: 2, code: 'PAT', unit: 'cái', qty: '20', specifications: '', chieuDai: '' },
+        ],
+      },
+    ],
+    draftsByBom: {
+      3: [{ uid: 4, code: 'Tán Rút', unit: 'con', qty: '50', specifications: 'M4x10', chieuDai: '' }],
+    },
+    rejectedLines: {
+      // bomId 5 ("Ghế Cafe") chỉ tồn tại trong danh sách BOM cục bộ của SpecSteelPage (không dùng chung specBoms).
+      5: [{ uid: 99, code: 'PAT Kính', unit: 'cái', qty: '10', specifications: '70x50', chieuDai: '', submittedAt: '20/06/2026 14:22:10', lyDo: '' }],
+    },
+    catalog: [
+      { uid: 10, code: 'Sắt Vuông 6 zem', unit: 'cm', specifications: '18x18', chieuDai: '620' },
+      { uid: 11, code: 'Sắt Hộp 6 zem', unit: 'cm', specifications: '25x50', chieuDai: '580' },
+      { uid: 12, code: 'Sắt Hộp 8 zem', unit: 'cm', specifications: '20x40', chieuDai: '450' },
+    ],
+    reqUid: 2,
+    draftUid: 5,
+  },
+  SPEC_WIRE_PAINT: {
+    approvedBomIds: [1],
+    pendingReqs: [
+      {
+        uid: 1, bomId: 2, submittedAt: '24/06/2026 09:15:22',
+        lines: [
+          { uid: 1, code: 'DY-NH-002', unit: 'kg', qty: '120', specifications: 'Dây nhựa xanh + sơn xám', imageUrl: '' },
+          { uid: 2, code: 'SN-XM-001', unit: 'lít', qty: '60', specifications: 'Sơn xám tĩnh điện', imageUrl: '' },
+        ],
+      },
+    ],
+    draftsByBom: {
+      3: [{ uid: 3, code: 'DY-PE-003', unit: 'kg', qty: '80', specifications: 'Dây PE trắng', imageUrl: '' }],
+    },
+    rejectedLines: {
+      4: [{ uid: 99, code: 'DY-NH-999', unit: 'kg', qty: '10', specifications: 'Dây nhựa tím', imageUrl: '', submittedAt: '19/06/2026 10:30:00', lyDo: 'Màu dây không có trong bảng màu tiêu chuẩn — vui lòng chọn lại mã từ danh sách vật tư' }],
+    },
+    catalog: [
+      { uid: 10, code: 'DY-PE-001', unit: 'kg', specifications: 'Dây PE xám GSS', imageUrl: '' },
+      { uid: 11, code: 'SN-DEN-01', unit: 'lít', specifications: 'Sơn đen tĩnh điện', imageUrl: '' },
+    ],
+    reqUid: 2,
+    draftUid: 4,
+  },
+  SPEC_ACCESSORY: {
+    approvedBomIds: [1],
+    pendingReqs: [
+      {
+        uid: 1, bomId: 2, submittedAt: '24/06/2026 09:15:22',
+        lines: [
+          { uid: 1, code: 'PK-OC-001', unit: 'con', qty: '4000', specifications: 'Ốc lục giác M4x10', imageUrl: '' },
+          { uid: 2, code: 'PK-NEM-01', unit: 'cái', qty: '500', specifications: 'Nệm lót chân ghế cao su', imageUrl: '' },
+        ],
+      },
+    ],
+    draftsByBom: {
+      3: [{ uid: 3, code: 'PK-TAY-01', unit: 'bộ', qty: '200', specifications: 'Tay nắm nhựa đen', imageUrl: '' }],
+    },
+    rejectedLines: {
+      4: [{ uid: 99, code: 'PK-TAY-02', unit: 'bộ', qty: '50', specifications: 'Tay nắm màu đỏ', imageUrl: '', submittedAt: '19/06/2026 10:30:00', lyDo: 'Màu tay nắm không theo tiêu chuẩn — cần xác nhận với bộ phận thiết kế trước khi đề xuất lại' }],
+    },
+    catalog: [
+      { uid: 10, code: 'PK-OC-001', unit: 'con', specifications: 'Ốc lục giác M4x10', imageUrl: '' },
+      { uid: 11, code: 'PK-DEM-001', unit: 'cái', specifications: 'Đệm cao su chống trơn', imageUrl: '' },
+    ],
+    reqUid: 2,
+    draftUid: 4,
+  },
+  SPEC_PACKAGING: {
+    approvedBomIds: [1],
+    pendingReqs: [
+      {
+        uid: 1, bomId: 2, submittedAt: '24/06/2026 09:15:22',
+        lines: [
+          { uid: 1, code: 'BB-THUNG-01', unit: 'thùng', qty: '500', specifications: 'Thùng carton 5 lớp 60x40x40', imageUrl: '' },
+          { uid: 2, code: 'BB-XOP-001', unit: 'tấm', qty: '1000', specifications: 'Xốp PE lót đáy 10mm', imageUrl: '' },
+        ],
+      },
+    ],
+    draftsByBom: {
+      3: [{ uid: 3, code: 'BB-DAY-001', unit: 'cuộn', qty: '20', specifications: 'Dây đai nhựa PP', imageUrl: '' }],
+    },
+    rejectedLines: {
+      4: [{ uid: 99, code: 'BB-THUNG-99', unit: 'thùng', qty: '200', specifications: 'Thùng carton 3 lớp', imageUrl: '', submittedAt: '19/06/2026 10:30:00', lyDo: 'Thùng 3 lớp không đủ độ bền — theo quy định cần dùng thùng 5 lớp cho sản phẩm này' }],
+    },
+    catalog: [
+      { uid: 10, code: 'BB-THUNG-01', unit: 'thùng', specifications: 'Thùng carton 5 lớp 60x40x40', imageUrl: '' },
+      { uid: 11, code: 'BB-NE-001', unit: 'tờ', specifications: 'Nhãn dán sản phẩm A5', imageUrl: '' },
+    ],
+    reqUid: 2,
+    draftUid: 4,
+  },
+};
+
 export const seedExportPurposes = [
   { id: 1, label: 'Xuất sản xuất' },
   { id: 2, label: 'Xuất mẫu' },
@@ -1156,6 +1269,8 @@ export function createInitialMockState() {
     purchaseCommands: structuredClone(seedPurchaseCommands),
     purchaseProposals: structuredClone(seedPurchaseProposals),
     specEntryProposals: structuredClone(seedSpecEntryProposals),
+    specBoms: structuredClone(seedSpecBoms),
+    specRoleEntries: structuredClone(seedSpecRoleEntries),
     exportPurposes: structuredClone(seedExportPurposes),
     defectReasons: structuredClone(seedDefectReasons),
     weavingPoints: structuredClone(seedWeavingPoints),

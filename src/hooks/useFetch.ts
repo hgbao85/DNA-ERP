@@ -8,7 +8,9 @@ export function useFetch<T>(fetchFn: () => Promise<T>, deps?: unknown[]) {
 
   // Keep a ref to the latest fetchFn to avoid stale closures
   const fetchFnRef = useRef(fetchFn);
-  fetchFnRef.current = fetchFn;
+  useEffect(() => {
+    fetchFnRef.current = fetchFn;
+  });
 
   useEffect(() => {
     let isMounted = true;

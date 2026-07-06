@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import {
@@ -24,7 +24,7 @@ function markSeen(ids: number[]) {
 
 function NotificationBanner({ quotations }: { quotations: Quotation[] }) {
   const seenIds = getSeenIds()
-  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const sevenDaysAgo = useMemo(() => Date.now() - 7 * 24 * 60 * 60 * 1000, [])
 
   const fresh = quotations.filter(q =>
     (q.status === 'APPROVED' || q.status === 'REJECTED') &&

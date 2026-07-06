@@ -2,57 +2,52 @@ import { useState } from 'react'
 import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
 import QuotaSkuEntryPanel from './QuotaSkuEntryPanel'
+import { useFetch } from '../../../hooks/useFetch'
+import { safeArr } from '../../../utils/array'
+import * as api from '../../../services/api'
+import type { SpecLine, SpecRoleState } from '../../../types/spec-entry'
 
 // ─── Types ────────────────────────────────────────────────────────────
+// Alias tên trường theo domain (maBB/soLuong/moTa) cho dễ đọc trong JSX — quy đổi
+// sang/từ shape SpecLine dùng chung khi gọi service (xem toPackagingLine/toSpecLine).
 type BomItem = { id: number; ten: string; thoiGian: string }
 type PackagingLine = { uid: number; maBB: string; unit: string; soLuong?: string; moTa: string; imageUrl: string }
 type PendingReq = { uid: number; bomId: number; lines: PackagingLine[]; submittedAt: string }
 type RejectedPackagingLine = PackagingLine & { submittedAt: string; lyDo: string }
 
-// ─── Mock data ────────────────────────────────────────────────────────
-const MOCK_BOMS: BomItem[] = [
-  { id: 1, ten: 'Ghế J55',      thoiGian: '23/06/2026' },
-  { id: 2, ten: 'Ghế IEA-3',    thoiGian: '22/06/2026' },
-  { id: 3, ten: 'Bàn mặt kính', thoiGian: '21/06/2026' },
-  { id: 4, ten: 'Ghế GoPlus',   thoiGian: '20/06/2026' },
-]
+const ROLE = 'SPEC_PACKAGING' as const
 
-const APPROVED_BOM_IDS: number[] = [1]
+const toPackagingLine = (l: SpecLine): PackagingLine => ({
+  uid: l.uid, maBB: l.code, unit: l.unit, soLuong: l.qty, moTa: l.specifications, imageUrl: l.imageUrl ?? '',
+})
+const toSpecLine = (l: Omit<PackagingLine, 'uid'>): Omit<SpecLine, 'uid'> => ({
+  code: l.maBB, unit: l.unit, qty: l.soLuong, specifications: l.moTa, imageUrl: l.imageUrl,
+})
 
-const MOCK_PENDING: PendingReq[] = [
-  {
-    uid: 1, bomId: 2, submittedAt: '24/06/2026 09:15:22', lines: [
-      { uid: 1, maBB: 'BB-THUNG-01', unit: 'thùng', soLuong: '500',  moTa: 'Thùng carton 5 lớp 60x40x40', imageUrl: '' },
-      { uid: 2, maBB: 'BB-XOP-001',  unit: 'tấm',   soLuong: '1000', moTa: 'Xốp PE lót đáy 10mm',         imageUrl: '' },
-    ],
-  },
-]
-
-const MOCK_DRAFT: Record<number, PackagingLine[]> = {
-  3: [{ uid: 3, maBB: 'BB-DAY-001', unit: 'cuộn', soLuong: '20', moTa: 'Dây đai nhựa PP', imageUrl: '' }],
+const EMPTY_ROLE_STATE: SpecRoleState = {
+  approvedBomIds: [], pendingReqs: [], draftsByBom: {}, rejectedLines: {}, catalog: [], reqUid: 1, draftUid: 1,
 }
-
-const MOCK_REJECTED_LINES: Record<number, RejectedPackagingLine[]> = {
-  4: [
-    { uid: 99, maBB: 'BB-THUNG-99', unit: 'thùng', soLuong: '200', moTa: 'Thùng carton 3 lớp', imageUrl: '', submittedAt: '19/06/2026 10:30:00', lyDo: 'Thùng 3 lớp không đủ độ bền — theo quy định cần dùng thùng 5 lớp cho sản phẩm này' },
-  ],
-}
-
-const APPROVED_CATALOG: PackagingLine[] = [
-  { uid: 10, maBB: 'BB-THUNG-01', unit: 'thùng', moTa: 'Thùng carton 5 lớp 60x40x40', imageUrl: '' },
-  { uid: 11, maBB: 'BB-NE-001',   unit: 'tờ',    moTa: 'Nhãn dán sản phẩm A5',        imageUrl: '' },
-]
 
 // ─── Main ─────────────────────────────────────────────────────────────
 export default function SpecPackagingPage({ subTab, onSubTabChange }: {
   subTab: 'dinh-muc' | 'catalog'
   onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
 }) {
-  const [approvedBomIds] = useState<number[]>(APPROVED_BOM_IDS)
-  const [pendingReqs, setPendingReqs] = useState<PendingReq[]>(MOCK_PENDING)
-  const [draftsByBom, setDraftsByBom] = useState<Record<number, PackagingLine[]>>(MOCK_DRAFT)
-  const [reqUid, setReqUid] = useState(2)
-  const [draftUid, setDraftUid] = useState(4)
+  const { data: bomsData } = useFetch(() => api.getSpecBoms(), [])
+  const boms: BomItem[] = safeArr(bomsData)
+
+  const { data: roleStateData, refetch: refetchRole } = useFetch(() => api.getSpecRoleState(ROLE), [])
+  const roleState = roleStateData ?? EMPTY_ROLE_STATE
+
+  const approvedBomIds = roleState.approvedBomIds
+  const pendingReqs: PendingReq[] = roleState.pendingReqs.map(r => ({ ...r, lines: r.lines.map(toPackagingLine) }))
+  const draftsByBom: Record<number, PackagingLine[]> = Object.fromEntries(
+    Object.entries(roleState.draftsByBom).map(([bomId, lines]) => [bomId, lines.map(toPackagingLine)]),
+  )
+  const rejectedLines: Record<number, RejectedPackagingLine[]> = Object.fromEntries(
+    Object.entries(roleState.rejectedLines).map(([bomId, lines]) => [bomId, lines.map(l => ({ ...toPackagingLine(l), submittedAt: l.submittedAt, lyDo: l.lyDo }))]),
+  )
+  const APPROVED_CATALOG: PackagingLine[] = roleState.catalog.map(toPackagingLine)
 
   const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)
   const [fMaBB, setFMaBB] = useState('')
@@ -66,7 +61,6 @@ export default function SpecPackagingPage({ subTab, onSubTabChange }: {
   const [sentMsg, setSentMsg] = useState(false)
   const [bomSearch, setBomSearch] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
-  const [rejectedLines] = useState<Record<number, RejectedPackagingLine[]>>(MOCK_REJECTED_LINES)
 
   const bomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' =>
     approvedBomIds.includes(bomId) ? 'approved'
@@ -83,25 +77,26 @@ export default function SpecPackagingPage({ subTab, onSubTabChange }: {
     setShowPreview(false); setFErr(''); setSentMsg(false)
   }
 
-  const addToDraft = () => {
+  const addToDraft = async () => {
     setFErr('')
     if (!fMaBB.trim() || !selectedBom) { setFErr('Vui lòng nhập Mã bao bì.'); return }
-    const line: PackagingLine = { uid: draftUid, maBB: fMaBB.trim(), unit: fUnit.trim(), soLuong: fSoLuong.trim(), moTa: fMoTa.trim(), imageUrl: fImageUrl.trim() }
-    setDraftsByBom(d => ({ ...d, [selectedBom.id]: [...(d[selectedBom.id] ?? []), line] }))
-    setDraftUid(n => n + 1)
+    await api.addSpecDraftLine(ROLE, selectedBom.id, toSpecLine({
+      maBB: fMaBB.trim(), unit: fUnit.trim(), soLuong: fSoLuong.trim(), moTa: fMoTa.trim(), imageUrl: fImageUrl.trim(),
+    }))
+    refetchRole()
     setFMaBB(''); setFUnit(''); setFSoLuong(''); setFMoTa(''); setFImageUrl('')
   }
 
-  const removeDraft = (uid: number) => {
+  const removeDraft = async (uid: number) => {
     if (!selectedBom) return
-    setDraftsByBom(d => ({ ...d, [selectedBom.id]: (d[selectedBom.id] ?? []).filter(x => x.uid !== uid) }))
+    await api.removeSpecDraftLine(ROLE, selectedBom.id, uid)
+    refetchRole()
   }
 
-  const submitAll = () => {
+  const submitAll = async () => {
     if (!currentDrafts.length || !selectedBom) return
-    setPendingReqs(p => [...p, { uid: reqUid, bomId: selectedBom.id, lines: [...currentDrafts], submittedAt: new Date().toLocaleString('vi-VN') }])
-    setReqUid(n => n + 1)
-    setDraftsByBom(d => ({ ...d, [selectedBom.id]: [] }))
+    await api.submitSpecDrafts(ROLE, selectedBom.id)
+    refetchRole()
     setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
   }
 
@@ -356,7 +351,7 @@ export default function SpecPackagingPage({ subTab, onSubTabChange }: {
             <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập thông tin bao bì theo SKU</p>
           </div>
           <NotifBell
-            items={MOCK_BOMS.filter(b => approvedBomIds.includes(b.id)).map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức bao bì · ${n.thoiGian}` }))}
+            items={boms.filter(b => approvedBomIds.includes(b.id)).map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức bao bì · ${n.thoiGian}` }))}
             emptyText="Chưa có định mức nào được duyệt."
           />
         </div>
@@ -389,7 +384,7 @@ export default function SpecPackagingPage({ subTab, onSubTabChange }: {
               </tr>
             </thead>
             <tbody>
-              {MOCK_BOMS.filter(b => b.ten.toLowerCase().includes(bomSearch.toLowerCase()) && bomStatus(b.id) !== 'approved').map(item => {
+              {boms.filter(b => b.ten.toLowerCase().includes(bomSearch.toLowerCase()) && bomStatus(b.id) !== 'approved').map(item => {
                 const st = bomStatus(item.id)
                 return (
                   <tr key={item.id}

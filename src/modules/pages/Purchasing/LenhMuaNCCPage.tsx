@@ -472,7 +472,7 @@ function PurchasingStatusPanel({ po, receipt, busy, onUpdateStatus, onCreateRece
             <PackageCheck size={14} /> {busy ? 'Đang tạo...' : 'Tạo phiếu nhập'}
           </button>
           {!isPurchased && (
-            <span style={{ fontSize: 12, color: '#e65100' }}>Cần đánh dấu "Đã mua hàng" trước khi tạo phiếu nhập</span>
+            <span style={{ fontSize: 12, color: '#e65100' }}>Cần đánh dấu &quot;Đã mua hàng&quot; trước khi tạo phiếu nhập</span>
           )}
         </div>
       )}
@@ -508,7 +508,7 @@ function CompareModal({ item, suppliers, onClose, onChoose }: {
         </div>
         {list.length === 0 ? (
           <div style={{ color: '#e65100', fontSize: 13 }}>
-            Vật tư này chưa gắn NCC nào. Vào "Vật tư – NCC" để thêm.
+            Vật tư này chưa gắn NCC nào. Vào &quot;Vật tư – NCC&quot; để thêm.
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>

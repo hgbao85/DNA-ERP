@@ -118,7 +118,7 @@ export default function TongDonHangPage({ onCreateNew }: { onCreateNew?: () => v
       {/* Order table */}
       {safeOrders.length === 0 && !isLoading && (
         <div style={{ textAlign: 'center', padding: 48, color: 'var(--text3)', background: 'var(--surface2)', borderRadius: 'var(--radius)' }}>
-          Chưa có đơn hàng nào. Bấm "+ Tạo đơn mới" để bắt đầu.
+          Chưa có đơn hàng nào. Bấm &quot;+ Tạo đơn mới&quot; để bắt đầu.
         </div>
       )}
 

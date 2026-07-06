@@ -636,7 +636,7 @@ function DinhMucManh({
       <Modal open={confirmStartProduction} maxWidth={420} zIndex={2000}>
             <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận bắt đầu sản xuất</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
-              Xác nhận bắt đầu sản xuất? SKU này sẽ chuyển sang trạng thái "Đã duyệt".
+              Xác nhận bắt đầu sản xuất? SKU này sẽ chuyển sang trạng thái &quot;Đã duyệt&quot;.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setConfirmStartProduction(false)} style={btnSecondary}>Hủy</button>

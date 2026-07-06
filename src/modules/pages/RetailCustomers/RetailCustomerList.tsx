@@ -191,7 +191,10 @@ function DetailPanel({
 
           {/* Tabs */}
           <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 20px' }}>
-            {([['care', <MessageSquare size={13} />, 'Chăm sóc'], ['orders', <ClipboardList size={13} />, 'Đơn hàng']] as const).map(([id, icon, label]) => (
+            {([
+              { id: 'care',   icon: <MessageSquare size={13} />, label: 'Chăm sóc' },
+              { id: 'orders', icon: <ClipboardList size={13} />, label: 'Đơn hàng' },
+            ] as const).map(({ id, icon, label }) => (
               <button key={id} onClick={() => setActiveTab(id)}
                 style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '10px 14px', border: 'none', borderBottom: activeTab === id ? '2px solid var(--blue)' : '2px solid transparent', background: 'transparent', color: activeTab === id ? 'var(--blue)' : 'var(--text3)', fontWeight: activeTab === id ? 600 : 400, fontSize: 12, cursor: 'pointer' }}>
                 {icon}{label}

@@ -3,8 +3,14 @@ import { ChevronRight, ChevronLeft, Plus, X } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
 import QuotaSkuEntryPanel from './QuotaSkuEntryPanel'
 import QuotaManhEntryPanel from './QuotaManhEntryPanel'
+import { useFetch } from '../../../hooks/useFetch'
+import * as api from '../../../services/api'
+import type { SpecLine, SpecRoleState } from '../../../types/spec-entry'
 
 // ─── Types ────────────────────────────────────────────────────────────
+// "Định mức mảnh" (Manh/children) là cây lồng nhau riêng, vẫn giữ state cục bộ.
+// Phần "Vật tư" (DraftLine/PendingReq/RejectedLine) đã gộp vào specRoleEntries.SPEC_STEEL —
+// quy đổi sang/từ shape SpecLine dùng chung khi gọi service (xem toDraftLine/toSpecLine).
 type SteelItem = { name: string; specs: string; unit: string; chieuDai: string }
 type ManChild = { id: number; loaiSatName: string; specs: string; chieuDai: string; soLuong: string }
 type Manh = { id: number; tenManh: string; soLuong: string; children: ManChild[] }
@@ -12,6 +18,22 @@ type BomItem = { id: number; ten: string; thoiGian: string }
 type DraftLine = { uid: number; name: string; specs: string; chieuDai: string; soLuong: string; unit: string }
 type PendingReq = { uid: number; bomId: number; lines: DraftLine[]; submittedAt: string }
 type RejectedLine = DraftLine & { submittedAt: string }
+
+const ROLE = 'SPEC_STEEL' as const
+
+const toDraftLine = (l: SpecLine): DraftLine => ({
+  uid: l.uid, name: l.code, specs: l.specifications, chieuDai: l.chieuDai ?? '', soLuong: l.qty ?? '', unit: l.unit,
+})
+const toSpecLine = (l: Omit<DraftLine, 'uid'>): Omit<SpecLine, 'uid'> => ({
+  code: l.name, unit: l.unit, qty: l.soLuong, specifications: l.specs, chieuDai: l.chieuDai,
+})
+const toSteelItem = (l: SpecLine): SteelItem => ({
+  name: l.code, specs: l.specifications, unit: l.unit, chieuDai: l.chieuDai ?? '',
+})
+
+const EMPTY_ROLE_STATE: SpecRoleState = {
+  approvedBomIds: [], pendingReqs: [], draftsByBom: {}, rejectedLines: {}, catalog: [], reqUid: 1, draftUid: 1,
+}
 
 // ─── Mock data ────────────────────────────────────────────────────────
 // Đơn từ kế hoạch sản xuất → hiển thị ở Định mức chi tiết
@@ -23,42 +45,11 @@ const MOCK_BOMS: BomItem[] = [
   { id: 5, ten: 'Ghế Cafe',     thoiGian: '19/06/2026' },
 ]
 
-// bomId bị từ chối định mức mới
-const REJECTED_VT_BOM_IDS: number[] = [5]
-
 // SKU đã được duyệt định mức chi tiết → hiển thị ở Định mức mảnh
 const MOCK_MANH_BOMS: BomItem[] = [
   { id: 1, ten: 'Ghế J55',    thoiGian: '23/06/2026' },
   { id: 4, ten: 'Ghế GoPlus', thoiGian: '20/06/2026' },
 ]
-
-const STEEL_CATALOG: SteelItem[] = [
-  { name: 'Sắt Vuông 6 zem',  specs: '18x18',  unit: 'cm', chieuDai: '620' },
-  { name: 'Sắt Hộp 6 zem',    specs: '25x50',  unit: 'cm', chieuDai: '580' },
-  { name: 'Sắt Hộp 8 zem',    specs: '20x40',  unit: 'cm', chieuDai: '450' },
-]
-
-// bomId:2 = IEA-3 đang chờ duyệt, bomId:1 = JSE-55 đã duyệt xong
-const MOCK_PENDING: PendingReq[] = [
-  {
-    uid: 1, bomId: 2, submittedAt: '24/06/2026 09:15:22', lines: [
-      { uid: 1, name: 'Thép Phi 6', specs: 'Ø6', chieuDai: '600', soLuong: '200', unit: 'cm' },
-      { uid: 2, name: 'PAT',        specs: '',   chieuDai: '',    soLuong: '20',  unit: 'cái' },
-    ]
-  },
-]
-
-const MOCK_REJECTED: RejectedLine[] = [
-  { uid: 3, name: 'PAT Kính', specs: '70x50', chieuDai: '', soLuong: '10', unit: 'cái', submittedAt: '20/06/2026 14:22:10' },
-]
-
-// bomId:3 = BAN-002 đang soạn nháp
-const MOCK_DRAFT: Record<number, DraftLine[]> = {
-  3: [{ uid: 4, name: 'Tán Rút', specs: 'M4x10', chieuDai: '', soLuong: '50', unit: 'con' }],
-}
-
-// bomId đã được duyệt định mức chi tiết
-const APPROVED_VT_BOM_IDS: number[] = [1, 4]
 
 const UNIT_OPTIONS = ['cm', 'cái', 'con', 'cây', 'kg', 'm', 'cuộn']
 
@@ -329,7 +320,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   subTab: 'dinh-muc' | 'vat-tu' | 'catalog'
   onSubTabChange: (t: 'dinh-muc' | 'vat-tu' | 'catalog') => void
 }) {
-  const [catalog, setCatalog] = useState<SteelItem[]>(STEEL_CATALOG)
+  const { data: roleStateData, refetch: refetchRole } = useFetch(() => api.getSpecRoleState(ROLE), [])
+  const roleState = roleStateData ?? EMPTY_ROLE_STATE
+  const catalog: SteelItem[] = roleState.catalog.map(toSteelItem)
 
   // ── Định mức ──────────────────────────────────────────────────────────
   const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)
@@ -354,13 +347,12 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [vtChieuDai, setVtChieuDai] = useState('')
   const [vtSoLuong, setVtSoLuong] = useState('')
   const [vtErr, setVtErr] = useState('')
-  const [draftsByBom, setDraftsByBom] = useState<Record<number, DraftLine[]>>(MOCK_DRAFT)
-  const [draftUid, setDraftUid] = useState(5)
-  const [pendingReqs, setPendingReqs] = useState<PendingReq[]>(MOCK_PENDING)
-  const [reqUid, setReqUid] = useState(2)
-  const [rejectedLines, setRejectedLines] = useState<RejectedLine[]>(MOCK_REJECTED)
-  const [approvedVtBomIds, setApprovedVtBomIds] = useState<number[]>(APPROVED_VT_BOM_IDS)
-  const [rejectedVtBomIds] = useState<number[]>(REJECTED_VT_BOM_IDS)
+  const approvedVtBomIds = roleState.approvedBomIds
+  const pendingReqs: PendingReq[] = roleState.pendingReqs.map(r => ({ ...r, lines: r.lines.map(toDraftLine) }))
+  const draftsByBom: Record<number, DraftLine[]> = Object.fromEntries(
+    Object.entries(roleState.draftsByBom).map(([bomId, lines]) => [bomId, lines.map(toDraftLine)]),
+  )
+  const rejectedLines: RejectedLine[] = Object.values(roleState.rejectedLines).flat().map(l => ({ ...toDraftLine(l), submittedAt: l.submittedAt }))
   const [sentMsg, setSentMsg] = useState(false)
   const [manhBomSearch, setManhBomSearch] = useState('')
   const [vtBomSearch, setVtBomSearch] = useState('')
@@ -406,32 +398,33 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const currentDrafts = selectedVtBom ? (draftsByBom[selectedVtBom.id] ?? []) : []
   const currentPending = selectedVtBom ? pendingReqs.filter(r => r.bomId === selectedVtBom.id) : []
 
-  const addToDraft = () => {
+  const addToDraft = async () => {
     setVtErr('')
     if (!vtName.trim() || !selectedVtBom) { setVtErr('Vui lòng chọn Tên vật tư.'); return }
-    const line: DraftLine = { uid: draftUid, name: vtName.trim(), specs: vtSpecs.trim(), chieuDai: vtChieuDai.trim(), soLuong: vtSoLuong.trim(), unit: vtUnit }
-    setDraftsByBom(d => ({ ...d, [selectedVtBom.id]: [...(d[selectedVtBom.id] ?? []), line] }))
-    setDraftUid(n => n + 1)
+    await api.addSpecDraftLine(ROLE, selectedVtBom.id, toSpecLine({
+      name: vtName.trim(), specs: vtSpecs.trim(), chieuDai: vtChieuDai.trim(), soLuong: vtSoLuong.trim(), unit: vtUnit,
+    }))
+    refetchRole()
     setVtName(''); setVtSpecs(''); setVtChieuDai(''); setVtSoLuong('')
   }
 
-  const removeDraft = (uid: number) => {
+  const removeDraft = async (uid: number) => {
     if (!selectedVtBom) return
-    setDraftsByBom(d => ({ ...d, [selectedVtBom.id]: (d[selectedVtBom.id] ?? []).filter(x => x.uid !== uid) }))
+    await api.removeSpecDraftLine(ROLE, selectedVtBom.id, uid)
+    refetchRole()
   }
 
-  const submitAll = () => {
+  const submitAll = async () => {
     if (!currentDrafts.length || !selectedVtBom) return
-    setPendingReqs(p => [...p, { uid: reqUid, bomId: selectedVtBom.id, lines: [...currentDrafts], submittedAt: new Date().toLocaleString('vi-VN') }])
-    setReqUid(n => n + 1)
-    setDraftsByBom(d => ({ ...d, [selectedVtBom.id]: [] }))
+    await api.submitSpecDrafts(ROLE, selectedVtBom.id)
+    refetchRole()
     setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
   }
 
   const vtBomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' =>
     approvedVtBomIds.includes(bomId) ? 'approved'
     : pendingReqs.some(r => r.bomId === bomId) ? 'pending'
-    : rejectedVtBomIds.includes(bomId) ? 'rejected'
+    : (roleState.rejectedLines[bomId] ?? []).length > 0 ? 'rejected'
     : 'canInput'
 
   const totalChildren = manhs.reduce((s, m) => s + m.children.length, 0)

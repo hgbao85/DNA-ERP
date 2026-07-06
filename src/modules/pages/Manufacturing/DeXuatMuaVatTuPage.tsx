@@ -89,7 +89,7 @@ export default function DeXuatMuaVatTuPage() {
     <div>
       <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Đề xuất mua vật tư</h2>
       <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 18 }}>
-        Chọn vật tư từ danh mục, hoặc nhập "Khác" nếu chưa có — gửi thẳng sang Mua hàng để xử lý
+        Chọn vật tư từ danh mục, hoặc nhập &quot;Khác&quot; nếu chưa có — gửi thẳng sang Mua hàng để xử lý
       </div>
       <div style={{ color: 'var(--text3)', fontSize: 12, marginBottom: 18 }}>
         {list.length} đề xuất hiện có

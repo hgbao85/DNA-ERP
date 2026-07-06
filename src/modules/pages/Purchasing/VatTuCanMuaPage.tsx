@@ -123,9 +123,9 @@ function CompareModal({ item, onClose, onDone }: { item: Item; onClose: () => vo
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>So sánh giá — {item.material?.name}</h3>
           <button onClick={onClose} style={iconBtn}><X size={18} /></button>
         </div>
-        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>Cần mua {Math.ceil(item.buyQty)} {item.unit} · giá nhập ở màn "Vật tư – NCC"</div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>Cần mua {Math.ceil(item.buyQty)} {item.unit} · giá nhập ở màn &quot;Vật tư – NCC&quot;</div>
         {list.length === 0 ? (
-          <div style={{ color: '#e65100', fontSize: 13 }}>Vật tư này chưa gắn NCC nào. Vào "Vật tư – NCC" để thêm + nhập giá.</div>
+          <div style={{ color: '#e65100', fontSize: 13 }}>Vật tư này chưa gắn NCC nào. Vào &quot;Vật tư – NCC&quot; để thêm + nhập giá.</div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead><tr style={{ textAlign: 'left', color: 'var(--text3)' }}>

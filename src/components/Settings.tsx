@@ -27,7 +27,7 @@ export default function Settings({ settings, onSave }) {
             {[1,2,3,5,7,14].map(d => <option key={d} value={d}>{d} ngày</option>)}
           </select>
           <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>
-            Hệ thống sẽ hiển thị cảnh báo "sắp tới" trước hạn {form.remindDaysBefore} ngày
+            Hệ thống sẽ hiển thị cảnh báo &quot;sắp tới&quot; trước hạn {form.remindDaysBefore} ngày
           </div>
         </div>
 

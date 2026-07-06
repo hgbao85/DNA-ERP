@@ -137,7 +137,7 @@ function ConfirmDeleteModal({ name, onConfirm, onClose }: { name: string; onConf
       <div style={{ background: 'var(--surface)', borderRadius: 10, width: 380, padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
         <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 10 }}>Xác nhận xóa</div>
         <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 20 }}>
-          Bạn có chắc muốn xóa chương trình <strong>"{name}"</strong>? Hành động này không thể hoàn tác.
+          Bạn có chắc muốn xóa chương trình <strong>&quot;{name}&quot;</strong>? Hành động này không thể hoàn tác.
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
           <button onClick={onClose} style={{ padding: '8px 18px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer' }}>Hủy</button>

@@ -106,8 +106,8 @@ export default function VatTuNCCPage() {
                   <input value={linkLead} onChange={e => setLinkLead(e.target.value)} type="number" placeholder="Giao (ngày)" style={{ ...inp, flex: '0 1 100px' }} />
                   <button onClick={addLink} style={btnPrimary}><Plus size={14} /> Gắn</button>
                 </div>
-                {availSuppliers.length === 0 && safeArr(suppliers).length > 0 && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>Đã gắn hết NCC hiện có. Thêm NCC mới ở "Quản lý nhà cung cấp".</div>}
-                {safeArr(suppliers).length === 0 && <div style={{ fontSize: 12, color: '#e65100', marginTop: 6 }}>Chưa có NCC nào — bấm "Quản lý nhà cung cấp" để thêm.</div>}
+                {availSuppliers.length === 0 && safeArr(suppliers).length > 0 && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>Đã gắn hết NCC hiện có. Thêm NCC mới ở &quot;Quản lý nhà cung cấp&quot;.</div>}
+                {safeArr(suppliers).length === 0 && <div style={{ fontSize: 12, color: '#e65100', marginTop: 6 }}>Chưa có NCC nào — bấm &quot;Quản lý nhà cung cấp&quot; để thêm.</div>}
                 {err && <div style={{ color: '#c62828', fontSize: 12, marginTop: 6 }}>{err}</div>}
               </div>
             </>

@@ -41,7 +41,7 @@ export default function ChuyenKiemPage({ readOnly = false, filterPiId }: { readO
     <div>
       <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>Chuyền kiểm</h2>
       <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text3)' }}>
-        Mảnh đan đã thu về → kiểm KCS từng đợt (đạt/không đạt). Đạt → tính vào "đã kiểm".
+        Mảnh đan đã thu về → kiểm KCS từng đợt (đạt/không đạt). Đạt → tính vào &quot;đã kiểm&quot;.
       </p>
       {piCount > 0 && (
         <div style={{ color: 'var(--text3)', fontSize: 12, marginBottom: 16 }}>

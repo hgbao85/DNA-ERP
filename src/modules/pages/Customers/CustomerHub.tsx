@@ -18,9 +18,9 @@ export default function CustomerHub() {
     <div>
       <div style={{ display: 'flex', borderBottom: '2px solid var(--border)', marginBottom: 20 }}>
         {([
-          ['retail',     <Users size={14} />,    'Khách lẻ'],
-          ['wholesale',  <Building2 size={14} />, 'Khách sỉ'],
-        ] as const).map(([id, icon, label]) => (
+          { id: 'retail',     icon: <Users size={14} />,     label: 'Khách lẻ' },
+          { id: 'wholesale',  icon: <Building2 size={14} />, label: 'Khách sỉ' },
+        ] as const).map(({ id, icon, label }) => (
           <button key={id} onClick={() => setActiveTab(id)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6,
