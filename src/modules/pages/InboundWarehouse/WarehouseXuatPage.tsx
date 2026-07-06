@@ -1,8 +1,9 @@
 'use client'
 import { useState } from 'react'
-import type { CSSProperties } from 'react'
 import { ArrowUpFromLine, ChevronLeft, Clock } from 'lucide-react'
 import { format } from 'date-fns'
+import { compactTh as th, compactTd as td, tableWrap, tbl, row, badge, emptyBox } from '../../../styles/table'
+import { backBtn, tabBtn } from '../../../styles/buttons'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -362,19 +363,3 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   )
 }
 
-// ── Shared styles ──────────────────────────────────────────────────────────────
-
-const th: CSSProperties      = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
-const td: CSSProperties      = { padding: '8px 12px', color: 'var(--text)' }
-const tableWrap: CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
-const tbl: CSSProperties     = { width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }
-const row: CSSProperties     = { borderTop: '1px solid var(--border)', cursor: 'pointer' }
-const badge: CSSProperties   = { display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20 }
-const emptyBox: CSSProperties  = { padding: 48, textAlign: 'center', color: 'var(--text3)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }
-const backBtn: CSSProperties   = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }
-
-const tabBtn = (active: boolean, accent: string): CSSProperties => ({
-  display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 16px', fontSize: 13,
-  fontWeight: active ? 700 : 500, background: 'transparent', border: 'none', cursor: 'pointer',
-  color: active ? accent : 'var(--text2)', borderBottom: active ? `2px solid ${accent}` : '2px solid transparent', marginBottom: -1,
-})

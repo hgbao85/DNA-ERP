@@ -6,6 +6,8 @@ import { ArrowUpFromLine, Check, ChevronLeft, Package } from 'lucide-react'
 import { format } from 'date-fns'
 import type { PlanForm } from '../../../types/plan-form'
 import LoadingState from '../../../components/LoadingState'
+import { compactTh as th, compactTd as td } from '../../../styles/table'
+import { mockStock } from '../../../utils/warehouse'
 
 // ── Xuất kho flow types ──────────────────────────────────────
 interface XuatLine {
@@ -23,12 +25,6 @@ const STATUS_XUAT: Record<XuatStatus, { label: string; color: string; bg: string
   'cho-xuat':  { label: 'Chờ xuất',  color: '#92400e', bg: '#fef3c7' },
   'dang-xuat': { label: 'Đang xuất', color: '#1e40af', bg: '#dbeafe' },
   'da-xuat':   { label: 'Đã xuất',   color: '#166534', bg: '#dcfce7' },
-}
-
-function mockStock(name: string, required: number | null): number {
-  const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-  const base = required ?? 10
-  return hash % 5 === 0 ? Math.floor(base * 0.6) : Math.ceil(base * (1.1 + (hash % 4) * 0.25))
 }
 
 function flattenXuatLines(pf: PlanForm): XuatLine[] {
@@ -465,5 +461,3 @@ function LichSuXuatSection() {
   )
 }
 
-const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
-const td: React.CSSProperties = { padding: '8px 12px', color: 'var(--text)' }

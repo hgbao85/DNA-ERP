@@ -9,10 +9,11 @@ import { filterWarehousesByGroup } from './MfgWarehousesPage'
 import type { WarehouseReceipt } from '../../../types/purchase-order'
 import type { PlanForm } from '../../../types/plan-form'
 import LoadingState from '../../../components/LoadingState'
+import { safeArr } from '../../../utils/array'
+import { compactTh as th, compactTd as td } from '../../../styles/table'
+import { mockStock } from '../../../utils/warehouse'
 
 interface Wh { id: number; name: string }
-const safeArr = <T,>(d: T[] | null | undefined): T[] => (Array.isArray(d) ? d : [])
-const errMsg = (e: unknown) => (e as { response?: { data?: { error?: string } } })?.response?.data?.error
 
 // ── Nhập kho flow types ──────────────────────────────────────
 interface NhapLine {
@@ -30,12 +31,6 @@ const STATUS_NHAP: Record<NhapStatus, { label: string; color: string; bg: string
   'cho-nhap':  { label: 'Chờ nhập',  color: '#92400e', bg: '#fef3c7' },
   'dang-nhap': { label: 'Đang nhập', color: '#1e40af', bg: '#dbeafe' },
   'da-nhap':   { label: 'Đã nhập',   color: '#166534', bg: '#dcfce7' },
-}
-
-function mockStock(name: string, required: number | null): number {
-  const hash = name.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0)
-  const base = required ?? 10
-  return hash % 5 === 0 ? Math.floor(base * 0.6) : Math.ceil(base * (1.1 + (hash % 4) * 0.25))
 }
 
 function flattenNhapLines(pf: PlanForm): NhapLine[] {
@@ -661,6 +656,4 @@ function LichSuNhapSection({ whs }: { whs: { id: number; name: string }[] }) {
 }
 
 const inp: React.CSSProperties = { width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box' }
-const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
-const td: React.CSSProperties = { padding: '8px 12px', color: 'var(--text)' }
 const btnGreen: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 16px', border: 'none', borderRadius: 'var(--radius)', background: '#2e7d32', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }
