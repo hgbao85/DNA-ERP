@@ -11,7 +11,8 @@ import KhoChuyenKiemPage from './KhoChuyenKiemPage'
 import KhoDongGoiPage from './KhoDongGoiPage'
 import LenhMuaKhoPage from './LenhMuaKhoPage'
 import KiemTraVatTuPage from './KiemTraVatTuPage'
-import WarehouseInOutPage from './WarehouseInOutPage'
+import WarehouseNhapPage from './WarehouseNhapPage'
+import WarehouseXuatPage from './WarehouseXuatPage'
 import KhoXuatDanPage from './KhoXuatDanPage'
 import KhoNhapDanPage from './KhoNhapDanPage'
 import QuanLyDiemDanPage from '../Manufacturing/QuanLyDiemDanPage'
@@ -149,8 +150,8 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
           limitCats={scope === 'phoi-son-han' ? ['sat', 'son'] : scope === 'vat-tu-tp' ? ['day', 'vatTuPhuKien', 'baoBiDongGoi'] : undefined}
           inspKhoKey={scope === 'phoi-son-han' ? 'phoiSonHan' : scope === 'vat-tu-tp' ? 'vatTuTP' : undefined}
         />}
-        {tab === 'nhap-kho'   && (scope ? <WarehouseInOutPage mode="nhap" scope={scope} /> : <NhapKhoPage lockedGroup={scope} />)}
-        {tab === 'xuat-kho'   && (scope ? <WarehouseInOutPage mode="xuat" scope={scope} /> : <XuatKhoPage lockedGroup={scope} />)}
+        {tab === 'nhap-kho'   && (scope ? <WarehouseNhapPage scope={scope} /> : <NhapKhoPage lockedGroup={scope} />)}
+        {tab === 'xuat-kho'   && (scope ? <WarehouseXuatPage scope={scope} /> : <XuatKhoPage lockedGroup={scope} />)}
         {tab === 'de-xuat'    && <DeXuatMuaVatTuPage />}
         {tab === 'lenh-mua'   && <LenhMuaKhoPage />}
         {tab === 'chuyen-kiem' && canSeePacking && <KhoChuyenKiemPage />}

@@ -1,7 +1,8 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowDownToLine, ArrowUpFromLine, ChevronLeft, Clock } from 'lucide-react'
 import { format } from 'date-fns'
+import { useInspection, type PurchaseProposal } from '../../../context/InspectionContext'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -193,6 +194,41 @@ function makeMockOrders(mode: 'nhap' | 'xuat', scope: string): Order[] {
   return []
 }
 
+// ── Purchasing proposal → nhập kho order ──────────────────────────────────────
+
+const KHO_SCOPE: Record<string, string> = {
+  'Kho Phôi Sơn Hàn': 'phoi-son-han',
+  'Kho Vật tư thành phẩm': 'vat-tu-tp',
+  'Kho Thành Phẩm': 'thanh-pham',
+}
+
+function proposalToNhapOrder(p: PurchaseProposal, scope: string): Order | null {
+  const scopeItems = p.items.filter(item => KHO_SCOPE[item.khoLabel] === scope)
+  if (scopeItems.length === 0) return null
+  const suppliers = [...new Set(
+    scopeItems.map(item => p.chosenSuppliers?.[item.name]).filter((x): x is string => !!x)
+  )]
+  return {
+    id: `prop-order-${p.id}`,
+    ref: p.poNumber,
+    counterpart: suppliers.join(' · ') || '—',
+    date: (p.approvedAt ?? p.createdAt).slice(0, 10),
+    poNumber: p.poNumber,
+    skuCode: p.skuCode,
+    skuName: p.skuName,
+    deadline: p.deadline,
+    lines: scopeItems.map((item, i) => ({
+      id: `${p.id}-line-${i}`,
+      materialName: item.name,
+      unit: item.unit,
+      plannedQty: item.buyQty,
+      availableQty: item.buyQty,
+      confirmedQty: 0,
+      inputQty: '',
+    })),
+  }
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface Props {
@@ -201,10 +237,25 @@ interface Props {
 }
 
 export default function WarehouseInOutPage({ mode, scope }: Props) {
+  const { proposals } = useInspection()
   const [orders, setOrders]         = useState<Order[]>(() => makeMockOrders(mode, scope))
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [txns, setTxns]             = useState<Txn[]>([])
   const [view, setView]             = useState<'orders' | 'history'>('orders')
+
+  // When a proposal reaches 'purchasing', inject it as a nhập kho order for the relevant scope
+  useEffect(() => {
+    if (mode !== 'nhap') return
+    const propOrders = proposals
+      .filter(p => p.status === 'purchasing')
+      .map(p => proposalToNhapOrder(p, scope))
+      .filter((o): o is Order => o !== null)
+    if (propOrders.length === 0) return
+    setOrders(prev => {
+      const newOnes = propOrders.filter(po => !prev.some(o => o.id === po.id))
+      return newOnes.length > 0 ? [...prev, ...newOnes] : prev
+    })
+  }, [proposals, mode, scope])
 
   const accent  = mode === 'nhap' ? '#2e7d32' : '#e65100'
   const Icon    = mode === 'nhap' ? ArrowDownToLine : ArrowUpFromLine
