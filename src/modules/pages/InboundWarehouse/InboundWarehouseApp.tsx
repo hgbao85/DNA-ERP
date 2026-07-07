@@ -11,7 +11,6 @@ import KhoChuyenKiemPage from './KhoChuyenKiemPage'
 import KhoDongGoiPage from './KhoDongGoiPage'
 import LenhMuaKhoPage from './LenhMuaKhoPage'
 import KiemTraVatTuPage from './KiemTraVatTuPage'
-import WarehouseNhapPage from './WarehouseNhapPage'
 import WarehouseXuatPage from './WarehouseXuatPage'
 import KhoXuatDanPage from './KhoXuatDanPage'
 import KhoNhapDanPage from './KhoNhapDanPage'
@@ -144,13 +143,21 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
 
       {/* ── Main content ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        {tab === 'materials'  && (scope === 'vat-tu-tp' || scope === 'phoi-son-han' || scope === 'thanh-pham' || !scope) && <MfgAllMaterialsPage limitCats={scope === 'vat-tu-tp' ? ['baoBiDongGoi', 'thanhPham', 'vatTuThanhPham', 'manh'] : scope === 'phoi-son-han' ? ['sat'] : undefined} combinedCats={scope === 'vat-tu-tp' ? [{ id: 'baoBiVTTP', label: 'Bao bì & VTTP', cats: ['baoBiDongGoi', 'vatTuThanhPham'] }] : undefined} />}
+        {tab === 'materials'  && (scope === 'vat-tu-tp' || scope === 'phoi-son-han' || scope === 'thanh-pham' || !scope) && <MfgAllMaterialsPage
+          limitCats={
+            scope === 'vat-tu-tp'      ? ['thanhPham', 'vatTuThanhPham', 'manhChuaDan']
+            : scope === 'phoi-son-han' ? ['sat', 'vatTuThanhPham', 'manhChuaDan']
+            : scope === 'thanh-pham'   ? ['thanhPham', 'vatTuThanhPham', 'manhDaDan', 'baoBiDongGoi']
+            : undefined
+          }
+          manhWarehouseCode={scope ?? undefined}
+        />}
         {tab === 'warehouses' && <MfgWarehousesPage groupKey={scope} />}
         {tab === 'kiem-tra'   && <KiemTraVatTuPage
           limitCats={scope === 'phoi-son-han' ? ['sat', 'son'] : scope === 'vat-tu-tp' ? ['day', 'vatTuPhuKien', 'baoBiDongGoi'] : undefined}
           inspKhoKey={scope === 'phoi-son-han' ? 'phoiSonHan' : scope === 'vat-tu-tp' ? 'vatTuTP' : undefined}
         />}
-        {tab === 'nhap-kho'   && (scope ? <WarehouseNhapPage scope={scope} /> : <NhapKhoPage lockedGroup={scope} />)}
+        {tab === 'nhap-kho'   && <NhapKhoPage lockedGroup={scope} />}
         {tab === 'xuat-kho'   && (scope ? <WarehouseXuatPage scope={scope} /> : <XuatKhoPage lockedGroup={scope} />)}
         {tab === 'de-xuat'    && <DeXuatMuaVatTuPage />}
         {tab === 'lenh-mua'   && <LenhMuaKhoPage />}

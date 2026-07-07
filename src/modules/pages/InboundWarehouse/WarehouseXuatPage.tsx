@@ -2,8 +2,15 @@
 import { useState } from 'react'
 import { ArrowUpFromLine, ChevronLeft, Clock } from 'lucide-react'
 import { format } from 'date-fns'
+import { useFetch } from '../../../hooks/useFetch'
+import * as api from '../../../services/api'
+import { TRANSFER_ROUTES, canSendFrom } from '../../../types/warehouse-transfer'
+import { safeArr } from '../../../utils/array'
+import { errMsg } from '../../../utils/errors'
 import { compactTh as th, compactTd as td, tableWrap, tbl, row, badge, emptyBox } from '../../../styles/table'
 import { backBtn, tabBtn } from '../../../styles/buttons'
+
+interface Wh { id: number; name: string; code: string }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -27,6 +34,7 @@ interface Order {
   poNumber?: string
   skuCode?: string
   skuName?: string
+  piCode?: string
   lines: OrderLine[]
 }
 
@@ -55,46 +63,27 @@ const STATUS: Record<OrderStatus, { label: string; color: string; bg: string }> 
 const L = (id: string, materialName: string, unit: string, plannedQty: number, availableQty = plannedQty): OrderLine =>
   ({ id, materialName, unit, plannedQty, availableQty, confirmedQty: 0, inputQty: '' })
 
+// Kho phôi sơn hàn: "Lệnh SX (PO)" liệt kê KHUNG (mảnh vừa gia công/sơn xong theo từng PI) cần xuất
+// nội bộ sang kho vật tư thành phẩm. Số lượng khớp với tồn kho "Khung..." đã seed (id 95) để lúc xác
+// nhận, tồn kho khả dụng thật và số hiển thị ở đây khớp nhau.
+// Kho vật tư thành phẩm: KHÔNG còn xuất mảnh nội bộ (mảnh chưa đan giờ đi qua "Xuất đan" tới điểm đan
+// ngoài — xem KhoXuatDanPage.tsx) — "Lệnh SX (PO)" ở đây chỉ xuất vật tư thành phẩm cho kho thành phẩm.
 const MOCK: Record<string, Order[]> = {
   'phoi-son-han': [
     {
-      id: 'po-psh-1', ref: 'PO-2507-001', counterpart: 'LSX GX-001', date: '2025-07-01',
-      poNumber: 'PO-MY-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
+      id: 'pi-2026-001', ref: 'PI-2026-001', counterpart: 'Kho Vật tư thành phẩm', date: '2026-06-28',
+      poNumber: 'PI-2026-001', skuCode: 'JSE-55', skuName: 'Ghế J55', piCode: 'PI-2026-001',
       lines: [
-        L('l1', 'Thép ống D25×1.5',   'm',   300, 280),
-        L('l2', 'Thép tấm dày 1.5mm', 'm²',   80,  90),
-        L('l3', 'Sơn tĩnh điện đen',  'kg',   40,  35),
-        L('l4', 'Que hàn điện 3.2mm', 'hộp',  10,  15),
-      ],
-    },
-    {
-      id: 'po-psh-2', ref: 'PO-2507-002', counterpart: 'LSX GX-004', date: '2025-07-02',
-      poNumber: 'PO-GP-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
-      lines: [
-        L('l1', 'Thép hộp 25×25×1.2mm', 'm',  150, 120),
-        L('l2', 'Thép tấm dày 1.5mm',   'm²',  50,  60),
-        L('l3', 'Sơn tĩnh điện trắng',  'kg',  30,  25),
+        L('l1', 'Khung JSE-55 — PI-2026-001', 'cái', 80, 80),
       ],
     },
   ],
   'vat-tu-tp': [
     {
-      id: 'po-vt-1', ref: 'PO-2507-001', counterpart: 'LSX GX-001', date: '2025-07-01',
-      poNumber: 'LSX-GX-001', skuCode: 'GHE-PE', skuName: 'Ghế sắt PE trắng 100 cái',
+      id: 'pi-2026-002', ref: 'PI-2026-002', counterpart: 'Kho Thành phẩm', date: '2026-06-29',
+      poNumber: 'PI-2026-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3', piCode: 'PI-2026-002',
       lines: [
-        L('l1', 'Dây đan PE 2mm – trắng', 'm',   1500, 1800),
-        L('l2', 'Ốc vít M6×20',           'cái',  400,  500),
-        L('l3', 'Nhựa bịt đầu ống D25',  'cái',  200,  180),
-        L('l4', 'Vòng đệm M6',            'cái',  400,  450),
-      ],
-    },
-    {
-      id: 'po-vt-2', ref: 'PO-2507-002', counterpart: 'LSX GX-004', date: '2025-07-02',
-      poNumber: 'LSX-GX-004', skuCode: 'BAN-PE', skuName: 'Bàn sắt PE Ø80 50 cái',
-      lines: [
-        L('l1', 'Dây đan PE 2mm – ghi xám', 'm',   800, 700),
-        L('l2', 'Bu lông M8×30',             'cái', 200, 250),
-        L('l3', 'Đai ốc M6',                'cái', 200, 200),
+        L('l1', 'Tem nhãn sản phẩm — PI-2026-002', 'tờ', 500, 500),
       ],
     },
   ],
@@ -131,19 +120,54 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   const [txns, setTxns]             = useState<Txn[]>([])
   const [view, setView]             = useState<'orders' | 'history'>('orders')
 
+  // Kho này có nằm trong chuỗi chuyển kho nội bộ không (phôi sơn hàn, vật tư thành phẩm) —
+  // nếu có, nút "Xác nhận" ở bảng dưới sẽ tạo phiếu chuyển kho nội bộ thật thay vì chỉ cập nhật cục bộ.
+  const { data: warehouses } = useFetch<Wh[]>(() => (api as any).getMfgWarehouses(), [])
+  const myWarehouse = safeArr(warehouses).find(w => w.code === scope) ?? null
+  const nextHopCode = myWarehouse ? TRANSFER_ROUTES[myWarehouse.code] : undefined
+  const nextHopWh = safeArr(warehouses).find(w => w.code === nextHopCode) ?? null
+  const isInternalChain = canSendFrom(scope) && !!myWarehouse && !!nextHopWh
+
+  const [transferBusyLine, setTransferBusyLine] = useState<string | null>(null)
+  const [transferErrors, setTransferErrors] = useState<Record<string, string>>({})
+
   const selected = orders.find(o => o.id === selectedId) ?? null
 
-  const confirmLine = (orderId: string, lineId: string) => {
+  const confirmLine = async (orderId: string, lineId: string) => {
+    const order = orders.find(o => o.id === orderId)
+    const line = order?.lines.find(l => l.id === lineId)
+    if (!order || !line) return
+    const raw = Math.max(0, Number(line.inputQty) || 0)
+    if (raw <= 0) return
+    const qty = Math.min(raw, line.availableQty)
+    if (qty <= 0) return
+
+    // Kho thuộc chuỗi chuyển kho nội bộ: "Xác nhận" = tạo phiếu chuyển kho thật sang kho kế tiếp,
+    // tồn kho chỉ đổi sau khi kho nhận xác nhận (không phải xuất kho tức thì).
+    if (isInternalChain && myWarehouse && nextHopWh) {
+      setTransferBusyLine(lineId)
+      setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
+      try {
+        await (api as any).createWarehouseTransfer({
+          fromWarehouseId: myWarehouse.id,
+          toWarehouseId: nextHopWh.id,
+          items: [{ materialName: line.materialName, unit: line.unit, quantity: qty }],
+          piCode: order.piCode,
+        })
+      } catch (e) {
+        setTransferErrors(prev => ({ ...prev, [lineId]: errMsg(e, 'Không thể tạo phiếu chuyển kho nội bộ') }))
+        setTransferBusyLine(null)
+        return
+      }
+      setTransferBusyLine(null)
+    }
+
     setOrders(prev => prev.map(o => {
       if (o.id !== orderId) return o
       return {
         ...o,
         lines: o.lines.map(l => {
           if (l.id !== lineId) return l
-          const raw = Math.max(0, Number(l.inputQty) || 0)
-          if (raw <= 0) return l
-          const qty = Math.min(raw, l.availableQty)
-          if (qty <= 0) return l
           setTxns(t => [{
             id: `txn-${Date.now()}-${lineId}`, orderRef: o.ref,
             materialName: l.materialName, unit: l.unit, qty, date: new Date().toISOString(),
@@ -199,6 +223,12 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
           <span style={{ ...badge, fontSize: 12, padding: '4px 14px', alignSelf: 'center', color: cfg.color, background: cfg.bg }}>{cfg.label}</span>
         </div>
 
+        {isInternalChain && nextHopWh && (
+          <div style={{ marginBottom: 14, padding: '8px 14px', background: '#ede7f6', border: '1px solid #d1c4e9', borderRadius: 8, fontSize: 12, color: '#4527a0' }}>
+            Bấm "Xác nhận" sẽ tạo phiếu chuyển kho nội bộ sang <strong>{nextHopWh.name}</strong> — tồn kho chỉ cập nhật sau khi kho nhận xác nhận.
+          </div>
+        )}
+
         {/* 7-column xuất table */}
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
@@ -246,17 +276,23 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                       ) : noStock ? (
                         <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>Hết hàng</span>
                       ) : (
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <input
-                            type="number" min={1} max={l.availableQty} value={l.inputQty}
-                            onChange={e => updateInput(selected.id, l.id, e.target.value)}
-                            placeholder="SL"
-                            style={{ width: 72, padding: '4px 8px', border: `1px solid ${overAvail ? '#dc2626' : 'var(--border)'}`, borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
-                          />
-                          <button onClick={() => confirmLine(selected.id, l.id)} disabled={!can}
-                            style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: can ? ACCENT : 'var(--surface2)', color: can ? '#fff' : 'var(--text3)', cursor: can ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}>
-                            Xác nhận
-                          </button>
+                        <div>
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <input
+                              type="number" min={1} max={l.availableQty} value={l.inputQty}
+                              onChange={e => updateInput(selected.id, l.id, e.target.value)}
+                              placeholder="SL"
+                              disabled={transferBusyLine === l.id}
+                              style={{ width: 72, padding: '4px 8px', border: `1px solid ${overAvail ? '#dc2626' : 'var(--border)'}`, borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                            />
+                            <button onClick={() => confirmLine(selected.id, l.id)} disabled={!can || transferBusyLine === l.id}
+                              style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: can ? ACCENT : 'var(--surface2)', color: can ? '#fff' : 'var(--text3)', cursor: can && transferBusyLine !== l.id ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}>
+                              {transferBusyLine === l.id ? 'Đang gửi...' : 'Xác nhận'}
+                            </button>
+                          </div>
+                          {transferErrors[l.id] && (
+                            <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626' }}>{transferErrors[l.id]}</div>
+                          )}
                         </div>
                       )}
                     </td>

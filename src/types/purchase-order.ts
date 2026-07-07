@@ -7,6 +7,18 @@ export type PurchaseOrderStatus =
   | 'PURCHASED'
   | 'RECEIVED'
 
+// Loại vật tư — quyết định vật tư của PO này thuộc về kho nào khi tạo phiếu nhập.
+export type MaterialCategory = 'sat' | 'son' | 'day' | 'vatTuPhuKien' | 'baoBiDongGoi'
+
+// sat/son -> phôi sơn hàn (gia công + sơn); day/vatTuPhuKien -> vật tư thành phẩm; baoBiDongGoi -> thành phẩm (nơi đóng gói).
+export const CATEGORY_WAREHOUSE_CODE: Record<MaterialCategory, string> = {
+  sat: 'phoi-son-han',
+  son: 'phoi-son-han',
+  day: 'vat-tu-tp',
+  vatTuPhuKien: 'vat-tu-tp',
+  baoBiDongGoi: 'thanh-pham',
+}
+
 export interface SupplierQuote {
   id: number
   supplierId?: number | null
@@ -32,6 +44,8 @@ export interface PurchaseOrderItem {
   unitPrice?: number | null
   expectedDate?: string | null
   note?: string | null
+  // Loại vật tư — nếu có đủ ở mọi dòng, createWarehouseReceiptForPO tự tách phiếu nhập theo đúng kho.
+  category?: MaterialCategory | null
 }
 
 export interface PurchaseOrder {
@@ -39,6 +53,8 @@ export interface PurchaseOrder {
   code: string
   source: 'KHSX' | 'WAREHOUSE' | 'MANUAL'
   sourceRef?: string | null
+  // Mã PI (PlanForm/Lệnh sản xuất) mà PO này phục vụ — 1 PI có thể có nhiều PO.
+  piCode?: string | null
   skuName?: string | null
   status: PurchaseOrderStatus
   items: PurchaseOrderItem[]
@@ -60,6 +76,7 @@ export interface WarehouseReceiptItem {
   receivedQty?: number | null
   warehouseId?: number | null
   note?: string | null
+  category?: MaterialCategory | null
 }
 
 export interface WarehouseReceipt {
@@ -67,6 +84,7 @@ export interface WarehouseReceipt {
   code: string
   purchaseOrderId: number
   purchaseOrderCode: string
+  piCode?: string | null
   skuName?: string | null
   status: 'PENDING' | 'RECEIVED'
   items: WarehouseReceiptItem[]

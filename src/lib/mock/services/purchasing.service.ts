@@ -2,6 +2,7 @@ import { mockDelay } from '../core/delay';
 import { mockStore } from '../core/store';
 import { nextId } from '../core/id';
 import { BaseService } from '../core/base.service';
+import { CATEGORY_WAREHOUSE_CODE } from '../../../types/purchase-order';
 
 // ─── Service classes ──────────────────────────────────────────────────────────
 
@@ -100,9 +101,10 @@ export const getPurchaseOrders = async (): Promise<any[]> => {
 export const createPurchaseOrder = async (data: {
   source: 'KHSX' | 'WAREHOUSE' | 'MANUAL';
   sourceRef?: string;
+  piCode?: string;
   skuName?: string;
   note?: string;
-  items: Array<{ materialName: string; unit: string; requiredQty: number; buyQty: number }>;
+  items: Array<{ materialName: string; unit: string; requiredQty: number; buyQty: number; category?: string | null }>;
 }): Promise<any> => {
   await mockDelay();
   const now = new Date().toISOString();
@@ -113,6 +115,7 @@ export const createPurchaseOrder = async (data: {
     code,
     source: data.source,
     sourceRef: data.sourceRef ?? null,
+    piCode: data.piCode ?? null,
     skuName: data.skuName ?? null,
     status: 'PENDING_WAREHOUSE',
     items: data.items.map(it => ({
@@ -127,6 +130,7 @@ export const createPurchaseOrder = async (data: {
       unitPrice: null,
       expectedDate: null,
       note: null,
+      category: it.category ?? null,
     })),
     totalAmount: null,
     note: data.note ?? null,
@@ -290,37 +294,64 @@ export const updatePurchaseOrderPurchaseStatus = async (
 export const createWarehouseReceiptForPO = async (id: number): Promise<any> => {
   await mockDelay();
   const now = new Date().toISOString();
-  let receipt: any;
+  const created: any[] = [];
   mockStore.update((s: any) => {
     const po = (s.purchaseOrders ?? []).find((p: any) => p.id === id);
     if (!po || po.status !== 'PURCHASED') return;
     if (!s.warehouseReceipts) s.warehouseReceipts = [];
     if (s.warehouseReceipts.some((r: any) => r.purchaseOrderId === id)) return;
-    const count = s.warehouseReceipts.length + 1;
-    receipt = {
+
+    const nextCode = () => `NK-2026-${String(s.warehouseReceipts.length + 1).padStart(3, '0')}`;
+    const makeItem = (it: any, warehouseId: number | null) => ({
       id: nextId(),
-      code: `NK-2026-${String(count).padStart(3, '0')}`,
+      purchaseOrderItemId: it.id,
+      materialName: it.materialName,
+      unit: it.unit,
+      orderedQty: it.buyQty,
+      receivedQty: null,
+      warehouseId,
+      note: null,
+      category: it.category ?? null,
+    });
+    const makeReceipt = (items: any[], warehouseId: number | null) => ({
+      id: nextId(),
+      code: nextCode(),
       purchaseOrderId: id,
       purchaseOrderCode: po.code,
+      piCode: po.piCode ?? null,
       skuName: po.skuName ?? null,
       status: 'PENDING',
-      items: po.items.map((it: any) => ({
-        id: nextId(),
-        purchaseOrderItemId: it.id,
-        materialName: it.materialName,
-        unit: it.unit,
-        orderedQty: it.buyQty,
-        receivedQty: null,
-        warehouseId: null,
-        note: null,
-      })),
+      items: items.map((it: any) => makeItem(it, warehouseId)),
       note: null,
       createdAt: now,
       receivedAt: null,
-    };
-    s.warehouseReceipts.push(receipt);
+    });
+
+    // Nếu MỌI dòng của PO đều đã gắn category (sat/son/day/vatTuPhuKien/baoBiDongGoi) — tách thành
+    // nhiều phiếu nhập, mỗi phiếu đúng 1 kho, item đã gán sẵn warehouseId (không cần chọn tay).
+    // Nếu còn dòng chưa gắn category (PO tạo qua đường cũ) — giữ nguyên hành vi cũ: 1 phiếu, chọn kho thủ công.
+    const allCategorized = po.items.length > 0 && po.items.every((it: any) => !!it.category);
+
+    if (allCategorized) {
+      const groups = new Map<string, any[]>();
+      po.items.forEach((it: any) => {
+        const whCode = CATEGORY_WAREHOUSE_CODE[it.category as keyof typeof CATEGORY_WAREHOUSE_CODE];
+        if (!groups.has(whCode)) groups.set(whCode, []);
+        groups.get(whCode)!.push(it);
+      });
+      groups.forEach((items, whCode) => {
+        const wh = (s.mfgWarehouses ?? []).find((w: any) => w.code === whCode);
+        const receipt = makeReceipt(items, wh?.id ?? null);
+        s.warehouseReceipts.push(receipt);
+        created.push(receipt);
+      });
+    } else {
+      const receipt = makeReceipt(po.items, null);
+      s.warehouseReceipts.push(receipt);
+      created.push(receipt);
+    }
   });
-  return structuredClone(receipt);
+  return structuredClone(created);
 };
 
 export const rejectPurchaseOrder = async (id: number, reason?: string): Promise<any> => {
@@ -388,11 +419,17 @@ export const confirmWarehouseReceipt = async (
     });
     const po = (s.purchaseOrders ?? []).find((p: any) => p.id === receipt.purchaseOrderId);
     if (po) {
-      po.status = 'RECEIVED';
-      // Hàng đã về kho — giải phóng chỗ đã giữ cho lệnh này để không bị trừ trùng vào tồn khả dụng
-      (s.mfgWarehouseReservations ?? []).forEach((r: any) => {
-        if (r.sourcePOId === po.id && r.status === 'ACTIVE') r.status = 'RELEASED';
-      });
+      // 1 PO có thể bị tách thành nhiều phiếu nhập (mỗi kho 1 phiếu) — chỉ coi PO đã RECEIVED
+      // khi TẤT CẢ phiếu nhập của PO này đều đã RECEIVED, không phải khi phiếu đầu tiên xong.
+      const siblingReceipts = (s.warehouseReceipts ?? []).filter((r: any) => r.purchaseOrderId === po.id);
+      const allReceived = siblingReceipts.length > 0 && siblingReceipts.every((r: any) => r.status === 'RECEIVED');
+      if (allReceived) {
+        po.status = 'RECEIVED';
+        // Hàng đã về kho — giải phóng chỗ đã giữ cho lệnh này để không bị trừ trùng vào tồn khả dụng
+        (s.mfgWarehouseReservations ?? []).forEach((r: any) => {
+          if (r.sourcePOId === po.id && r.status === 'ACTIVE') r.status = 'RELEASED';
+        });
+      }
     }
   });
   return structuredClone(((mockStore.get() as any).warehouseReceipts ?? []).find((r: any) => r.id === id));

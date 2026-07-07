@@ -14,6 +14,10 @@ const CAT_META = {
   manh:             { label: 'Mảnh',             color: '#065f46', bg: '#d1fae5' },
   thanhPham:        { label: 'Thành phẩm',       color: '#1e40af', bg: '#dbeafe' },
   vatTuThanhPham:   { label: 'VTTP', color: '#0f766e', bg: '#ccfbf1' },
+  // Tồn kho khung THẬT (mfgWarehouseItems, tên "Khung ...") theo trạng thái đan — khác với 'manh'
+  // (là BOM/vật liệu cấu thành 1 mảnh, lấy từ PlanForm.manhItems) — không liên quan tới nhau.
+  manhChuaDan:      { label: 'Mảnh chưa đan',    color: '#92400e', bg: '#fef3c7' },
+  manhDaDan:        { label: 'Mảnh đã đan',      color: '#166534', bg: '#dcfce7' },
 } as const
 
 export type Cat = keyof typeof CAT_META
@@ -76,6 +80,40 @@ function InfoRow({ label, value }: { label: string; value: string }) {
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, gap: 8 }}>
       <span style={{ color: 'var(--text3)', flexShrink: 0 }}>{label}</span>
       <span style={{ fontWeight: 500, textAlign: 'right', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{value}</span>
+    </div>
+  )
+}
+
+/** Bảng tồn kho khung THẬT (mfgWarehouseItems) cho 2 tab "Mảnh chưa đan"/"Mảnh đã đan" — độc lập
+ * hoàn toàn với bảng FlatItem/PO-drilldown bên dưới (dùng cho tab 'manh' cũ, nguồn PlanForm.manhItems).
+ * Thuần hiển thị — việc chuyển trạng thái đan diễn ra qua Xuất đan/Nhập đan, không thao tác ở đây. */
+function ManhStockTable({ rows }: { rows: any[] }) {
+  return (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+        <colgroup>
+          <col /><col style={{ width: 100 }} /><col style={{ width: 90 }} />
+        </colgroup>
+        <thead>
+          <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+            <th style={thStyle}>Tên khung</th>
+            <th style={{ ...thStyle, textAlign: 'right' }}>Số lượng</th>
+            <th style={thStyle}>ĐVT</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r: any) => (
+            <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
+              <td style={{ ...tdStyle, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</td>
+              <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{r.quantity}</td>
+              <td style={{ ...tdStyle, color: 'var(--text3)' }}>{r.unit}</td>
+            </tr>
+          ))}
+          {rows.length === 0 && (
+            <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có mảnh nào</td></tr>
+          )}
+        </tbody>
+      </table>
     </div>
   )
 }
@@ -148,6 +186,8 @@ const FILTER_TABS: { id: Cat | 'all'; label: string }[] = [
   { id: 'vatTuThanhPham', label: 'Vật tư thành phẩm' },
   { id: 'thanhPham',      label: 'Thành phẩm' },
   { id: 'manh',           label: 'Mảnh' },
+  { id: 'manhChuaDan',    label: 'Mảnh chưa đan' },
+  { id: 'manhDaDan',      label: 'Mảnh đã đan' },
 ]
 
 const MOCK_MANH: FlatItem[] = [
@@ -182,7 +222,7 @@ const MOCK_THANH_PHAM: FlatItem[] = [
   { key: 'tp-6', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-12T00:00:00Z', productName: 'Giường ngủ đơn',       productCode: 'GN-006', poNumber: 'TP-2506', cat: 'thanhPham', name: 'Giường sắt đơn sơn tĩnh điện',    spec: 'Kích thước 90×200cm, trắng', unit: 'cái', qty: '25',  createdAt: '2025-12-12T08:30:00Z' },
 ]
 
-export default function VatTuDashboardPage({ limitCats, combinedCats }: { limitCats?: Cat[]; combinedCats?: { id: string; label: string; cats: Cat[] }[] } = {}) {
+export default function VatTuDashboardPage({ limitCats, combinedCats, manhWarehouseCode }: { limitCats?: Cat[]; combinedCats?: { id: string; label: string; cats: Cat[] }[]; manhWarehouseCode?: string } = {}) {
   const { data: planForms = [], isLoading } = useFetch(() => api.getPlanForms(), [])
   const [approvals, setApprovals] = useState<Record<string, ApprovalEntry>>({})
   const [selected, setSelected] = useState<FlatItem | null>(null)
@@ -199,6 +239,48 @@ export default function VatTuDashboardPage({ limitCats, combinedCats }: { limitC
   const [q, setQ] = useState('')
   const [selectedManhPo, setSelectedManhPo] = useState<string | null>(null)
 
+  // Kho phôi sơn hàn: "Mảnh chưa đan" = tồn kho khung THẬT (mfgWarehouseItems) vừa sản xuất xong,
+  // chưa chuyển nội bộ sang vật tư thành phẩm — đây là chuyển kho vật lý thật (WarehouseTransfer),
+  // không đi qua bảng theo dõi xuất/nhập đan nên vẫn đọc trực tiếp tồn kho như trước.
+  const { data: manhWarehouses } = useFetch<any[]>(() => manhWarehouseCode === 'phoi-son-han' ? (api as any).getMfgWarehouses() : Promise.resolve([]), [manhWarehouseCode])
+  const manhWarehouseId: number | null = manhWarehouseCode === 'phoi-son-han' ? ((manhWarehouses ?? []).find((w: any) => w.code === manhWarehouseCode)?.id ?? null) : null
+  const { data: manhStockItems } = useFetch<any[]>(
+    () => manhWarehouseId != null ? (api as any).getMfgWarehouseItems(manhWarehouseId) : Promise.resolve([]),
+    [manhWarehouseId]
+  )
+  const manhChuaDanRowsPhoiSonHan = (manhStockItems ?? [])
+    .filter((it: any) => /^khung\s/i.test(it.name ?? '') && (it.manhStatus ?? 'chua-dan') === 'chua-dan' && (it.quantity ?? 0) > 0)
+
+  // Vật tư thành phẩm ("Mảnh chưa đan" = còn lại chưa xuất đan) và kho thành phẩm ("Mảnh đã đan" =
+  // đã nhận qua nhập đan) — thống nhất đọc CHUNG nguồn với "Theo dõi xuất/nhập đan" (manhOrders) thay
+  // vì tồn kho rời rạc, để 2 màn hình luôn khớp số với nhau (đúng bản chất: đây không phải tồn kho
+  // vật lý riêng mà là luỹ kế xuất/nhập đan theo từng PO).
+  const { data: manhOrdersData } = useFetch<any[]>(
+    () => (manhWarehouseCode === 'vat-tu-tp' || manhWarehouseCode === 'thanh-pham') ? (api as any).getManhOrders() : Promise.resolve([]),
+    [manhWarehouseCode]
+  )
+  const { data: manhWeavingPoints } = useFetch<any[]>(
+    () => manhWarehouseCode === 'thanh-pham' ? (api as any).getWeavingPoints() : Promise.resolve([]),
+    [manhWarehouseCode]
+  )
+  const manhPointLabel = (id: number) => {
+    const p = (manhWeavingPoints ?? []).find((w: any) => w.id === id)
+    return p?.fullName ?? p?.name ?? `#${id}`
+  }
+  const manhChuaDanRowsVatTuTp = manhWarehouseCode === 'vat-tu-tp'
+    ? (manhOrdersData ?? []).flatMap((o: any) => o.lines
+        .filter((l: any) => l.tonThuc > 0)
+        .map((l: any) => ({ id: l.id, name: `${l.name} — ${o.poCode}`, unit: l.unit, quantity: l.tonThuc })))
+    : []
+  const manhDaDanRows = manhWarehouseCode === 'thanh-pham'
+    ? (manhOrdersData ?? []).flatMap((o: any) => o.lines.flatMap((l: any) =>
+        (l.allocations ?? [])
+          .filter((a: any) => a.nhapQty > 0)
+          .map((a: any) => ({ id: a.id, name: `${l.name} — ${o.poCode} (${manhPointLabel(a.weavingPointId)})`, unit: l.unit, quantity: a.nhapQty }))
+      ))
+    : []
+  const manhChuaDanRows = manhWarehouseCode === 'phoi-son-han' ? manhChuaDanRowsPhoiSonHan : manhChuaDanRowsVatTuTp
+
   const activeCats = (() => {
     if (filterCat === 'all') return new Set<string>(limitCats ?? Object.keys(CAT_META))
     const combined = combinedCats?.find(c => c.id === filterCat)
@@ -206,6 +288,8 @@ export default function VatTuDashboardPage({ limitCats, combinedCats }: { limitC
     return new Set<string>([filterCat])
   })()
   const isOnlyManh = activeCats.size === 1 && activeCats.has('manh')
+  const isManhChuaDan = activeCats.size === 1 && activeCats.has('manhChuaDan')
+  const isManhDaDan = activeCats.size === 1 && activeCats.has('manhDaDan')
 
   const allItems = [...flattenItems((planForms ?? []) as PlanForm[]), ...MOCK_MANH, ...MOCK_THANH_PHAM, ...MOCK_VAT_TU_THANH_PHAM]
     .filter(it => !limitCats || limitCats.includes(it.cat))
@@ -336,6 +420,10 @@ export default function VatTuDashboardPage({ limitCats, combinedCats }: { limitC
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text2)' }}>
           <Loader2 size={18} /> Đang tải...
         </div>
+      ) : isManhChuaDan || isManhDaDan ? (
+        <ManhStockTable
+          rows={isManhChuaDan ? manhChuaDanRows : manhDaDanRows}
+        />
       ) : !isOnlyManh ? (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
