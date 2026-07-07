@@ -6,7 +6,7 @@ import ExportOrderDetailModal from '../Manufacturing/ExportOrderDetailModal'
 import { format } from 'date-fns'
 import { AlertCircle, CheckCircle2, FileText, Eye, X, CalendarClock, Pencil, Package, Play, ChevronRight, ChevronLeft, Search } from 'lucide-react'
 
-export default function PIListPage() {
+export default function LenhSXPage() {
   const { user } = useAuth()
   const [viewOrderId, setViewOrderId] = useState<number | null>(null)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
@@ -31,9 +31,10 @@ export default function PIListPage() {
   )
   const safeList = (Array.isArray(pis) ? pis : []).filter((p: any) => p.status === 'PLANNING')
   const filteredList = search.trim()
-    ? safeList.filter((p: any) => p.code?.toLowerCase().includes(search.trim().toLowerCase()))
+    ? safeList.filter((p: any) => (p.code ?? '').toLowerCase().includes(search.trim().toLowerCase()) || (p.exportOrder?.poNumber ?? '').toLowerCase().includes(search.trim().toLowerCase()))
     : safeList
   const viewingPI = viewingPIId ? (Array.isArray(pis) ? pis : []).find((p: any) => p.id === viewingPIId) ?? null : null
+  const getDisplayCode = (item: any) => item?.exportOrder?.poNumber || item?.poNumber || item?.code || '—'
 
   // Giám đốc (MANAGER không mfgRole) chỉ XEM — không xác nhận đơn/tạo PI (đồng bộ backend).
   const isPlanner = user?.mfgRole === 'PRODUCTION_MANAGER'
@@ -229,7 +230,7 @@ export default function PIListPage() {
               <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20, flexWrap:'wrap', rowGap:8 }}>
                 <button onClick={() => setViewingPIId(null)}
                   style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:13, cursor:'pointer', color:'var(--text2)', fontWeight:500 }}>
-                  <ChevronLeft size={15}/> Danh sách PI
+                  <ChevronLeft size={15}/> Danh sách PO
                 </button>
                 <div style={{ flex:1 }} />
                 <button onClick={() => openPIEdit(pi)}
@@ -247,7 +248,7 @@ export default function PIListPage() {
               {/* PI header info */}
               <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20, padding:'14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)' }}>
                 <div>
-                  <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:18 }}>{pi.code}</div>
+                  <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:18 }}>{getDisplayCode(pi)}</div>
                 </div>
                 <div style={{ width:1, height:36, background:'var(--border)' }} />
                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -309,7 +310,7 @@ export default function PIListPage() {
                         <div style={{ fontSize:14, fontWeight:700, color: iDelivery ? '#1d4ed8' : 'var(--text3)' }}>
                           {fmt(iDelivery ?? new Date(pi.deadline))}
                         </div>
-                        {!iDelivery && <div style={{ fontSize:10, color:'var(--text3)' }}>từ PI</div>}
+                        {!iDelivery && <div style={{ fontSize:10, color:'var(--text3)' }}>từ PO</div>}
                       </div>
                     </div>
                   )
@@ -323,7 +324,7 @@ export default function PIListPage() {
         <div>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
             <div>
-              <h2 style={{ margin:0, fontSize:20, fontWeight:700 }}>Lệnh sản xuất (PI)</h2>
+              <h2 style={{ margin:0, fontSize:20, fontWeight:700 }}>Tạo lệnh sản xuất</h2>
               <p style={{ margin:'4px 0 0', fontSize:13, color:'var(--text3)' }}>{safeList.length} lệnh</p>
             </div>
             <div style={{ position:'relative' }}>
@@ -368,7 +369,7 @@ export default function PIListPage() {
                     </button>
                     <button onClick={() => handleConfirm(o.id)} disabled={confirmingId === o.id}
                       style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#2e7d32', border:'none', borderRadius:'var(--radius)', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                      <CheckCircle2 size={14}/> {confirmingId === o.id ? 'Đang tạo...' : 'Xác nhận → tạo PI'}
+                      <CheckCircle2 size={14}/> {confirmingId === o.id ? 'Đang tạo...' : 'Xác nhận → tạo PO'}
                     </button>
                   </div>
                 ))}
@@ -380,7 +381,7 @@ export default function PIListPage() {
           <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
             {filteredList.length === 0 && (
               <div style={{ padding:40, textAlign:'center', color:'var(--text3)', background:'var(--surface)' }}>
-                {search.trim() ? `Không tìm thấy PI khớp "${search.trim()}"` : 'Chưa có lệnh sản xuất nào'}
+                {search.trim() ? `Không tìm thấy lệnh sản xuất "${search.trim()}"` : 'Chưa có lệnh sản xuất nào'}
               </div>
             )}
             {filteredList.map((pi: any, i: number) => {
@@ -392,8 +393,7 @@ export default function PIListPage() {
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}>
                   <div style={{ minWidth:0 }}>
-                    <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'var(--text)' }}>{pi.code}</div>
-                    <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>{pi.exportOrder?.poNumber ?? '—'}</div>
+                    <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'var(--text)' }}>{getDisplayCode(pi)}</div>
                   </div>
                   <div style={{ flex:1 }} />
                   <div style={{ display:'flex', alignItems:'center', gap:5 }}>
@@ -439,8 +439,8 @@ export default function PIListPage() {
               {/* PI info strip */}
               <div style={{ display:'flex', gap:10, marginBottom:14, flexShrink:0 }}>
                 <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
-                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Mã lệnh</div>
-                  <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14 }}>{confirmProdTarget.code}</div>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Mã PO</div>
+                  <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14 }}>{getDisplayCode(confirmProdTarget)}</div>
                 </div>
                 <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
                   <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Hạn hoàn thành</div>
@@ -450,7 +450,7 @@ export default function PIListPage() {
 
               {/* Section label */}
               <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:0.5, marginBottom:8, flexShrink:0 }}>
-                Chọn SKU để sản xuất — {items.length} SKU trong lệnh
+                Chọn SKU để sản xuất — {items.length} SKU trong PO
               </div>
 
               {/* SKU list — scrollable, radio style */}
@@ -557,7 +557,7 @@ export default function PIListPage() {
             {/* Header */}
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
               <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
-                <CalendarClock size={16} color="#1976d2"/> Sửa thời hạn — <span style={{ fontFamily:'monospace' }}>{editingPI.code}</span>
+                <CalendarClock size={16} color="#1976d2"/> Sửa thời hạn — <span style={{ fontFamily:'monospace' }}>{getDisplayCode(editingPI)}</span>
               </h3>
               <button onClick={() => setEditingPI(null)} disabled={savingPI}
                 style={{ padding:4, background:'transparent', border:'none', cursor:'pointer' }}>
@@ -735,15 +735,15 @@ export default function PIListPage() {
                   </button>
                   <button onClick={handleSaveTimeline} disabled={savingTimeline}
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', background:'#2e7d32', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
-                    <CheckCircle2 size={14}/> {savingTimeline ? 'Đang lưu...' : 'Lưu & tạo PI'}
+                    <CheckCircle2 size={14}/> {savingTimeline ? 'Đang lưu...' : 'Lưu & tạo PO'}
                   </button>
                 </>
               )}
             </div>
             <div style={{ fontSize:11, color:'var(--text3)', marginTop:10 }}>
               {editMode
-                ? '* Sửa hạn từng công đoạn rồi bấm "Lưu & tạo PI" — Lệnh SX sẽ dùng đúng hạn này. Ngày giao cố định theo đơn.'
-                : '* Timeline mẫu tính lùi từ ngày giao. Bấm "Chỉnh sửa timeline" để đặt hạn riêng trước khi tạo PI; hoặc tạo PI luôn ở nút "Xác nhận" ngoài danh sách.'}
+                ? '* Sửa hạn từng công đoạn rồi bấm "Lưu & tạo PO" — Lệnh SX sẽ dùng đúng hạn này. Ngày giao cố định theo đơn.'
+                : '* Timeline mẫu tính lùi từ ngày giao. Bấm "Chỉnh sửa timeline" để đặt hạn riêng trước khi tạo PO; hoặc tạo PO luôn ở nút "Xác nhận" ngoài danh sách.'}
             </div>
           </div>
         </div>

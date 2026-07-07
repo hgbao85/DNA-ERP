@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, FileText, MapPin, ArrowDownToLine, ClipboardCheck, Box, History, FilePlus, Users, CalendarClock, ChevronDown, ScanSearch } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
-import PIListPage from '../ProductionPlan/LenhSXPage'
+import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import MfgSetupPage from './MfgSetupPage'
 import SpecSteelPage from './SpecSteelPage'
 import SpecWirePaintPage from './SpecWirePaintPage'
@@ -317,7 +317,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'tong-don-hang'         && isFactorySales     && <TongDonHangPage onCreateNew={() => setTab('tao-don-hang')} />}
         {tab === 'tao-don-hang'          && isFactorySales     && <TaoDonHangMoiPage onCreated={() => setTab('tong-don-hang')} />}
         {tab === 'danh-sach-khach-hang'  && isFactorySales     && <DanhSachKhachHangPage />}
-        {tab === 'lenh-sx'               && isDirector         && <PIListPage />}
+        {tab === 'lenh-sx'               && isDirector         && <LenhSXPage />}
         {tab === 'ke-hoach'              && (isProdMgr || isDirector) && <ThongKePagePlan />}
         {tab === 'phoi-lenh-sx'          && (isPhoi || isHan || isSon || isDirector) && (isHan ? <LenhSanXuatHan readOnly={isDirector} /> : isSon ? <LenhSanXuatSon readOnly={isDirector} /> : <LenhSanXuatPhoi readOnly={isDirector} />)}
         {tab === 'phoi-dinh-muc-manh'    && (isPhoi || isHan || isSon || isDirector) && <PhoiDinhMucManhPage stage={isSon ? 'SON' : isHan ? 'HAN' : 'PHOI'} />}
