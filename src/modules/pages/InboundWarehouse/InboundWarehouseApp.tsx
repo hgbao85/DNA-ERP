@@ -57,7 +57,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   const TABS = (() => {
     if (scope === 'vat-tu-tp')    return ALL_TABS.filter(t => ['materials','kiem-tra','nhap-kho','xuat-kho','xuat-dan','diem-dan'].includes(t.id))
     if (scope === 'phoi-son-han') return ALL_TABS.filter(t => ['materials','kiem-tra','nhap-kho','xuat-kho'].includes(t.id))
-    if (scope === 'thanh-pham')   return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','chuyen-kiem','dong-goi','nhap-dan'].includes(t.id))
+    if (scope === 'thanh-pham')   return ALL_TABS.filter(t => ['materials','kiem-tra','nhap-kho','xuat-kho','chuyen-kiem','dong-goi','nhap-dan'].includes(t.id))
     if (scope) return ALL_TABS.filter(t => t.id !== 'materials' && t.id !== 'kiem-tra')
     return ALL_TABS.filter(t => t.id !== 'kiem-tra')
   })()
@@ -119,7 +119,6 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
             )
           })}
         </nav>
-
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
@@ -154,8 +153,8 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         />}
         {tab === 'warehouses' && <MfgWarehousesPage groupKey={scope} />}
         {tab === 'kiem-tra'   && <KiemTraVatTuPage
-          limitCats={scope === 'phoi-son-han' ? ['sat', 'son'] : scope === 'vat-tu-tp' ? ['day', 'vatTuPhuKien', 'baoBiDongGoi'] : undefined}
-          inspKhoKey={scope === 'phoi-son-han' ? 'phoiSonHan' : scope === 'vat-tu-tp' ? 'vatTuTP' : undefined}
+          limitCats={scope === 'phoi-son-han' ? ['sat', 'son'] : scope === 'vat-tu-tp' ? ['day', 'vatTuPhuKien'] : scope === 'thanh-pham' ? ['baoBiDongGoi'] : undefined}
+          inspKhoKey={scope === 'phoi-son-han' ? 'phoiSonHan' : scope === 'vat-tu-tp' ? 'vatTuTP' : scope === 'thanh-pham' ? 'thanhPham' : undefined}
         />}
         {tab === 'nhap-kho'   && <NhapKhoPage lockedGroup={scope} />}
         {tab === 'xuat-kho'   && (scope ? <WarehouseXuatPage scope={scope} /> : <XuatKhoPage lockedGroup={scope} />)}

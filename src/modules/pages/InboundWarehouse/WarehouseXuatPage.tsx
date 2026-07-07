@@ -225,7 +225,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
 
         {isInternalChain && nextHopWh && (
           <div style={{ marginBottom: 14, padding: '8px 14px', background: '#ede7f6', border: '1px solid #d1c4e9', borderRadius: 8, fontSize: 12, color: '#4527a0' }}>
-            Bấm "Xác nhận" sẽ tạo phiếu chuyển kho nội bộ sang <strong>{nextHopWh.name}</strong> — tồn kho chỉ cập nhật sau khi kho nhận xác nhận.
+            Bấm &quot;Xác nhận&quot; sẽ tạo phiếu chuyển kho nội bộ sang <strong>{nextHopWh.name}</strong> — tồn kho chỉ cập nhật sau khi kho nhận xác nhận.
           </div>
         )}
 
@@ -317,7 +317,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
           {(['orders', 'history'] as const).map(v => (
             <button key={v} onClick={() => setView(v)} style={tabBtn(view === v, ACCENT)}>
               {v === 'history' && <Clock size={13} />}
-              {v === 'orders' ? 'Lệnh SX (PO)' : 'Lịch sử'}
+              {v === 'orders' ? 'Xuất kho' : 'Lịch sử'}
             </button>
           ))}
         </div>

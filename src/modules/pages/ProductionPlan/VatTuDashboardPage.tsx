@@ -268,16 +268,16 @@ export default function VatTuDashboardPage({ limitCats, combinedCats, manhWareho
     return p?.fullName ?? p?.name ?? `#${id}`
   }
   const manhChuaDanRowsVatTuTp = manhWarehouseCode === 'vat-tu-tp'
-    ? (manhOrdersData ?? []).flatMap((o: any) => o.lines
+    ? (manhOrdersData ?? []).flatMap((o: any) => o.skus.flatMap((sku: any) => sku.lines
         .filter((l: any) => l.tonThuc > 0)
-        .map((l: any) => ({ id: l.id, name: `${l.name} — ${o.poCode}`, unit: l.unit, quantity: l.tonThuc })))
+        .map((l: any) => ({ id: l.id, name: `${l.name} — ${o.poCode}/${sku.piCode}`, unit: l.unit, quantity: l.tonThuc }))))
     : []
   const manhDaDanRows = manhWarehouseCode === 'thanh-pham'
-    ? (manhOrdersData ?? []).flatMap((o: any) => o.lines.flatMap((l: any) =>
+    ? (manhOrdersData ?? []).flatMap((o: any) => o.skus.flatMap((sku: any) => sku.lines.flatMap((l: any) =>
         (l.allocations ?? [])
           .filter((a: any) => a.nhapQty > 0)
-          .map((a: any) => ({ id: a.id, name: `${l.name} — ${o.poCode} (${manhPointLabel(a.weavingPointId)})`, unit: l.unit, quantity: a.nhapQty }))
-      ))
+          .map((a: any) => ({ id: a.id, name: `${l.name} — ${o.poCode}/${sku.piCode} (${manhPointLabel(a.weavingPointId)})`, unit: l.unit, quantity: a.nhapQty }))
+      )))
     : []
   const manhChuaDanRows = manhWarehouseCode === 'phoi-son-han' ? manhChuaDanRowsPhoiSonHan : manhChuaDanRowsVatTuTp
 

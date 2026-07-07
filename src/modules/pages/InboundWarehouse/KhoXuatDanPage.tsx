@@ -8,17 +8,22 @@ import { safeArr } from '../../../utils/array'
 import { errMsg } from '../../../utils/errors'
 import { listTh as thStyle, listTd as tdStyle, emptyBox } from '../../../styles/table'
 import ProgressBar from '../../../components/ProgressBar'
-import type { ManhOrder } from '../../../types/manh'
+import type { ManhOrder, ManhSkuGroup } from '../../../types/manh'
 
 interface WeavingPoint { id: number; name: string; fullName?: string }
 
 const sumXuat = (line: { allocations: { xuatQty: number }[] }) => line.allocations.reduce((s, a) => s + a.xuatQty, 0)
+const skuLines = (sku: ManhSkuGroup) => sku.lines
+const orderLines = (order: ManhOrder) => order.skus.flatMap(skuLines)
 
 /**
- * Xuất đan = xuất mảnh chưa đan (của 1 PO, tại kho vật tư thành phẩm) cho điểm đan gia công bên
- * ngoài — bắt buộc chọn điểm đan vì 1 loại mảnh có thể xuất cho nhiều điểm đan khác nhau. Số lượng
- * xuất không được vượt quá tồn thực hiện có. Đồng bộ trực tiếp với "Theo dõi nhập đan" ở kho thành
- * phẩm — cùng đọc/ghi ManhAllocation qua manh.service.ts, không phải 2 danh sách độc lập.
+ * Xuất đan = xuất mảnh chưa đan (của 1 SKU trong 1 PO, tại kho vật tư thành phẩm) cho điểm đan gia
+ * công bên ngoài — bắt buộc chọn điểm đan vì 1 loại mảnh có thể xuất cho nhiều điểm đan khác nhau.
+ * Số lượng xuất không được vượt quá tồn thực hiện có. Đồng bộ trực tiếp với "Theo dõi nhập đan" ở
+ * kho thành phẩm — cùng đọc/ghi ManhAllocation qua manh.service.ts, không phải 2 danh sách độc lập.
+ *
+ * PO là cấp lớn nhất: 1 PO có thể có nhiều SKU, mỗi SKU ứng với 1 mã PI riêng — nên điều hướng có
+ * 3 cấp: danh sách PO → danh sách SKU trong PO → chi tiết mảnh của 1 SKU.
  */
 export default function KhoXuatDanPage() {
   const { data: orders, refetch } = useFetch<ManhOrder[]>(() => (api as any).getManhOrders(), [])
@@ -28,8 +33,10 @@ export default function KhoXuatDanPage() {
     return p?.fullName ?? p?.name ?? `#${id}`
   }
 
-  const [selectedId, setSelectedId] = useState<number | null>(null)
-  const selected = safeArr(orders).find(o => o.id === selectedId) ?? null
+  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null)
+  const [selectedSkuId, setSelectedSkuId] = useState<number | null>(null)
+  const selectedOrder = safeArr(orders).find(o => o.id === selectedOrderId) ?? null
+  const selectedSku = selectedOrder?.skus.find(s => s.id === selectedSkuId) ?? null
 
   const [qty, setQty] = useState<Record<number, string>>({})
   const [pointId, setPointId] = useState<Record<number, string>>({})
@@ -60,29 +67,29 @@ export default function KhoXuatDanPage() {
     )
   }
 
-  // ── Detail view ────────────────────────────────────────────────────────────
-  if (selected) {
-    const total  = selected.lines.reduce((s, l) => s + l.totalQty, 0)
-    const daXuat = selected.lines.reduce((s, l) => s + sumXuat(l), 0)
-    const tonThuc = selected.lines.reduce((s, l) => s + l.tonThuc, 0)
-    const allocRows = selected.lines.flatMap(l => l.allocations.map(a => ({ line: l, alloc: a })))
+  // ── Cấp 3: chi tiết mảnh của 1 SKU ──────────────────────────────────────────
+  if (selectedOrder && selectedSku) {
+    const total  = selectedSku.lines.reduce((s, l) => s + l.totalQty, 0)
+    const daXuat = selectedSku.lines.reduce((s, l) => s + sumXuat(l), 0)
+    const tonThuc = selectedSku.lines.reduce((s, l) => s + l.tonThuc, 0)
+    const allocRows = selectedSku.lines.flatMap(l => l.allocations.map(a => ({ line: l, alloc: a })))
 
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <button
-            onClick={() => setSelectedId(null)}
+            onClick={() => setSelectedSkuId(null)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
           >
             <ChevronLeft size={15} /> Quay lại
           </button>
           <div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-              {selected.skuCode}
-              <span style={{ fontWeight: 400, color: 'var(--text2)', marginLeft: 6 }}>— {selected.skuName}</span>
+              {selectedSku.skuCode}
+              <span style={{ fontWeight: 400, color: 'var(--text2)', marginLeft: 6 }}>— {selectedSku.skuName}</span>
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
-              PI: {selected.piCode} · PO: {selected.poCode}
+              PO: {selectedOrder.poCode} · PI: {selectedSku.piCode}
             </div>
           </div>
         </div>
@@ -117,7 +124,7 @@ export default function KhoXuatDanPage() {
               </tr>
             </thead>
             <tbody>
-              {selected.lines.map(line => {
+              {selectedSku.lines.map(line => {
                 const xuat = sumXuat(line)
                 const noStock = line.tonThuc <= 0
                 return (
@@ -203,13 +210,78 @@ export default function KhoXuatDanPage() {
     )
   }
 
-  // ── List view ────────────────────────────────────────────────────────────────
+  // ── Cấp 2: danh sách SKU trong 1 PO ─────────────────────────────────────────
+  if (selectedOrder) {
+    return (
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <button
+            onClick={() => setSelectedOrderId(null)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
+          >
+            <ChevronLeft size={15} /> Quay lại
+          </button>
+          <div>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{selectedOrder.poCode}</h2>
+            <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
+              {selectedOrder.skus.length} SKU trong PO này — mỗi SKU ứng với 1 mã PI riêng
+            </div>
+          </div>
+        </div>
+
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: 130 }} /><col /><col style={{ width: 80 }} /><col style={{ width: 90 }} /><col style={{ width: 150 }} />
+            </colgroup>
+            <thead>
+              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                <th style={thStyle}>PI</th>
+                <th style={thStyle}>SKU</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>SL</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Đã xuất</th>
+                <th style={thStyle}>Tiến độ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {selectedOrder.skus.map(sku => {
+                const total  = sku.lines.reduce((s, l) => s + l.totalQty, 0)
+                const daXuat = sku.lines.reduce((s, l) => s + sumXuat(l), 0)
+                return (
+                  <tr
+                    key={sku.id}
+                    onClick={() => setSelectedSkuId(sku.id)}
+                    style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '')}
+                  >
+                    <td style={{ ...tdStyle, color: 'var(--text3)' }}>{sku.piCode}</td>
+                    <td style={{ ...tdStyle, overflow: 'hidden' }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ fontWeight: 600 }}>{sku.skuCode}</span>
+                        <span style={{ color: 'var(--text3)', marginLeft: 6 }}>{sku.skuName}</span>
+                      </div>
+                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{total}</td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: daXuat > 0 ? '#d97706' : 'var(--text3)' }}>{daXuat}</td>
+                    <td style={tdStyle}><ProgressBar value={daXuat} max={total} /></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Cấp 1: danh sách PO ──────────────────────────────────────────────────────
   return (
     <div>
       <div style={{ marginBottom: 20 }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Theo dõi xuất đan</h2>
         <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>
-          Xuất mảnh chưa đan cho các điểm đan gia công bên ngoài, theo từng PO
+          Xuất mảnh chưa đan cho các điểm đan gia công bên ngoài, theo từng PO — 1 PO có thể có nhiều SKU
         </p>
       </div>
 
@@ -219,13 +291,12 @@ export default function KhoXuatDanPage() {
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: 130 }} /><col style={{ width: 130 }} /><col /><col style={{ width: 80 }} /><col style={{ width: 90 }} /><col style={{ width: 150 }} />
+              <col style={{ width: 150 }} /><col style={{ width: 80 }} /><col style={{ width: 80 }} /><col style={{ width: 90 }} /><col style={{ width: 150 }} />
             </colgroup>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                <th style={thStyle}>PI</th>
                 <th style={thStyle}>PO</th>
-                <th style={thStyle}>SKU</th>
+                <th style={{ ...thStyle, textAlign: 'right' }}>Số SKU</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>SL</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Đã xuất</th>
                 <th style={thStyle}>Tiến độ</th>
@@ -233,24 +304,19 @@ export default function KhoXuatDanPage() {
             </thead>
             <tbody>
               {safeArr(orders).map(order => {
-                const total  = order.lines.reduce((s, l) => s + l.totalQty, 0)
-                const daXuat = order.lines.reduce((s, l) => s + sumXuat(l), 0)
+                const lines = orderLines(order)
+                const total  = lines.reduce((s, l) => s + l.totalQty, 0)
+                const daXuat = lines.reduce((s, l) => s + sumXuat(l), 0)
                 return (
                   <tr
                     key={order.id}
-                    onClick={() => setSelectedId(order.id)}
+                    onClick={() => setSelectedOrderId(order.id)}
                     style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                     onMouseLeave={e => (e.currentTarget.style.background = '')}
                   >
-                    <td style={{ ...tdStyle, color: 'var(--text3)' }}>{order.piCode}</td>
                     <td style={{ ...tdStyle, fontWeight: 600 }}>{order.poCode}</td>
-                    <td style={{ ...tdStyle, overflow: 'hidden' }}>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <span style={{ fontWeight: 600 }}>{order.skuCode}</span>
-                        <span style={{ color: 'var(--text3)', marginLeft: 6 }}>{order.skuName}</span>
-                      </div>
-                    </td>
+                    <td style={{ ...tdStyle, textAlign: 'right' }}>{order.skus.length}</td>
                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{total}</td>
                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: daXuat > 0 ? '#d97706' : 'var(--text3)' }}>{daXuat}</td>
                     <td style={tdStyle}><ProgressBar value={daXuat} max={total} /></td>

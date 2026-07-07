@@ -331,7 +331,7 @@ export default function PIListPage() {
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Tìm mã PI..."
+                placeholder="Tìm mã PO..."
                 style={{ padding:'7px 10px 7px 32px', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, background:'var(--surface)', color:'var(--text)', width:200, outline:'none' }}
               />
             </div>

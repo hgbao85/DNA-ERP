@@ -7,7 +7,7 @@ import * as api from '../../../services/api'
 import LoadingState from '../../../components/LoadingState'
 import { listTh, listTd } from '../../../styles/table'
 import type { PlanForm } from '../../../types/plan-form'
-import { useInspection, type KhoKey, type InspRequest, type PurchaseProposalItem } from '../../../context/InspectionContext'
+import { useInspection, khoState, type KhoKey, type InspRequest, type PurchaseProposalItem } from '../../../context/InspectionContext'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -48,7 +48,7 @@ function extractAllMaterials(pf: PlanForm): AllMat[] {
       name: x.name, unit: x.unit ?? 'cái', required: x.quantity ?? 0,
     })),
     ...(mt.baoBiDongGoi ?? []).map(x => ({
-      group: 'Bao bì', khoKey: 'vatTuTP' as KhoKey, khoLabel: 'Kho VTTP',
+      group: 'Bao bì', khoKey: 'thanhPham' as KhoKey, khoLabel: 'Kho TP',
       name: x.name, unit: x.unit ?? 'cái', required: x.quantity ?? 0,
     })),
   ]
@@ -57,8 +57,8 @@ function extractAllMaterials(pf: PlanForm): AllMat[] {
 function overallStatus(req: InspRequest | undefined): OverallStatus {
   if (!req) return 'chua-gui'
   if (req.proposalCreated) return 'da-de-xuat'
-  if (req.phoiSonHan.status === 'pending' || req.vatTuTP.status === 'pending') return 'dang-kiem'
-  const hasShortage = [...req.phoiSonHan.items, ...req.vatTuTP.items]
+  if (req.phoiSonHan.status === 'pending' || req.vatTuTP.status === 'pending' || req.thanhPham.status === 'pending') return 'dang-kiem'
+  const hasShortage = [...req.phoiSonHan.items, ...req.vatTuTP.items, ...req.thanhPham.items]
     .some(i => i.actualStock != null && i.required > 0 && i.actualStock < i.required)
   return hasShortage ? 'co-thieu' : 'du-hang'
 }
@@ -90,7 +90,8 @@ export default function LenhKiemTraPage() {
     const allMats   = extractAllMaterials(selected)
     const phoiDone  = request?.phoiSonHan.status === 'done'
     const vattuDone = request?.vatTuTP.status === 'done'
-    const bothDone  = phoiDone && vattuDone
+    const tpDone    = request?.thanhPham.status === 'done'
+    const bothDone  = phoiDone && vattuDone && tpDone
 
     const missingItems = !bothDone ? [] : [
       ...request!.phoiSonHan.items
@@ -99,18 +100,20 @@ export default function LenhKiemTraPage() {
       ...request!.vatTuTP.items
         .filter(i => i.actualStock != null && i.required > 0 && i.actualStock < i.required)
         .map(i => ({ ...i, khoLabel: 'Kho Vật tư thành phẩm' })),
+      ...request!.thanhPham.items
+        .filter(i => i.actualStock != null && i.required > 0 && i.actualStock < i.required)
+        .map(i => ({ ...i, khoLabel: 'Kho Thành phẩm' })),
     ]
     const hasShortage = missingItems.length > 0
 
     const findInspItem = (name: string, khoKey: KhoKey) => {
       if (!request) return null
-      const state = khoKey === 'phoiSonHan' ? request.phoiSonHan : request.vatTuTP
-      return state.items.find(i => i.name === name) ?? null
+      return khoState(request, khoKey).items.find(i => i.name === name) ?? null
     }
 
     const khoStatusBadge = (khoKey: KhoKey, label: string) => {
       if (!request) return null
-      const state = khoKey === 'phoiSonHan' ? request.phoiSonHan : request.vatTuTP
+      const state = khoState(request, khoKey)
       if (state.status === 'pending') {
         return (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 20, color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a' }}>
@@ -170,6 +173,7 @@ export default function LenhKiemTraPage() {
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
             {khoStatusBadge('phoiSonHan', 'Kho Phôi Sơn Hàn')}
             {khoStatusBadge('vatTuTP', 'Kho Vật tư thành phẩm')}
+            {khoStatusBadge('thanhPham', 'Kho Thành phẩm')}
             <span style={{ fontSize: 12, color: 'var(--text3)' }}>
               · Đã gửi lúc {format(new Date(request.sentAt), 'HH:mm dd/MM/yyyy')}
             </span>
@@ -206,12 +210,12 @@ export default function LenhKiemTraPage() {
               </thead>
               <tbody>
                 {allMats.map((mat, idx) => {
-                  const khoState  = request ? (mat.khoKey === 'phoiSonHan' ? request.phoiSonHan : request.vatTuTP) : null
-                  const inspItem  = findInspItem(mat.name, mat.khoKey)
+                  const matKhoState = request ? khoState(request, mat.khoKey) : null
+                  const inspItem    = findInspItem(mat.name, mat.khoKey)
 
                   const stockCell = () => {
                     if (!request) return <span style={{ color: 'var(--text3)' }}>—</span>
-                    if (khoState?.status === 'pending') return <span style={{ color: '#92400e', fontSize: 11 }}>...</span>
+                    if (matKhoState?.status === 'pending') return <span style={{ color: '#92400e', fontSize: 11 }}>...</span>
                     if (inspItem?.actualStock == null) return <span style={{ color: 'var(--text3)' }}>—</span>
                     const ok = inspItem.actualStock >= mat.required
                     return <span style={{ fontWeight: 700, color: ok ? '#16a34a' : '#dc2626' }}>{inspItem.actualStock}</span>
@@ -220,7 +224,7 @@ export default function LenhKiemTraPage() {
                   const statusCell = () => {
                     if (!request)
                       return <span style={{ fontSize: 11, color: 'var(--text3)' }}>Chưa gửi</span>
-                    if (khoState?.status === 'pending')
+                    if (matKhoState?.status === 'pending')
                       return <span style={{ fontSize: 11, color: '#92400e' }}>⏳ Đang chờ</span>
                     if (inspItem?.actualStock == null)
                       return <span style={{ fontSize: 11, color: 'var(--text3)' }}>—</span>
@@ -250,7 +254,7 @@ export default function LenhKiemTraPage() {
         {/* "Chưa gửi" notice */}
         {!request && (
           <div style={{ padding: '12px 16px', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13, color: 'var(--text3)', textAlign: 'center' }}>
-            Nhấn &ldquo;Gửi đề xuất kiểm tra vật tư&rdquo; để yêu cầu hai kho kiểm tra tồn kho cho lệnh này
+            Nhấn &ldquo;Gửi đề xuất kiểm tra vật tư&rdquo; để yêu cầu ba kho kiểm tra tồn kho cho lệnh này
           </div>
         )}
 
@@ -358,7 +362,7 @@ export default function LenhKiemTraPage() {
           <ScanSearch size={20} color="#4527a0" /> Lệnh kiểm tra vật tư
         </h2>
         <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>
-          Gửi yêu cầu kiểm tra tồn kho đến Kho Phôi Sơn Hàn và Kho Vật tư thành phẩm
+          Gửi yêu cầu kiểm tra tồn kho đến Kho Phôi Sơn Hàn, Kho Vật tư thành phẩm và Kho Thành phẩm
         </p>
       </div>
 

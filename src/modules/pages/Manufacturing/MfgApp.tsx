@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, FileText, MapPin, ArrowDownToLine, ClipboardCheck, Box, History, FilePlus, Users, CalendarClock, ChevronDown, ScanSearch } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
-import PIListPage from '../ProductionPlan/PIListPage'
+import PIListPage from '../ProductionPlan/LenhSXPage'
 import MfgSetupPage from './MfgSetupPage'
 import SpecSteelPage from './SpecSteelPage'
 import SpecWirePaintPage from './SpecWirePaintPage'
@@ -34,7 +34,7 @@ import LenhKiemTraPage from './LenhKiemTraPage'
 
 type TabId =
   | 'workshop' | 'tong-don-hang' | 'tao-don-hang' | 'danh-sach-khach-hang'
-  | 'pi-list' | 'ke-hoach' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh'
+  | 'lenh-sx' | 'ke-hoach' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh'
   | 'xuat-dan' | 'lich-su-xuat-dan' | 'dieu-phoi-dan' | 'lich-su-nhap-dan' | 'quan-ly-diem-dan'
   | 'chuyen-kiem' | 'dong-goi' | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'de-xuat' | 'kiem-tra-vt' | 'setup'
@@ -135,7 +135,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const canManageWorkshop = canManageBom
 
   // Readable if-else chain thay cho ternary lồng 6 cấp
-  let initialTab: TabId = 'pi-list'
+  let initialTab: TabId = 'lenh-sx'
   if (canManageWorkshop)        initialTab = 'workshop'
   else if (isFactorySales)      initialTab = 'tong-don-hang'
   else if (isWeavingMgr)        initialTab = 'dieu-phoi-dan'
@@ -317,7 +317,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'tong-don-hang'         && isFactorySales     && <TongDonHangPage onCreateNew={() => setTab('tao-don-hang')} />}
         {tab === 'tao-don-hang'          && isFactorySales     && <TaoDonHangMoiPage onCreated={() => setTab('tong-don-hang')} />}
         {tab === 'danh-sach-khach-hang'  && isFactorySales     && <DanhSachKhachHangPage />}
-        {tab === 'pi-list'               && isDirector         && <PIListPage />}
+        {tab === 'lenh-sx'               && isDirector         && <PIListPage />}
         {tab === 'ke-hoach'              && (isProdMgr || isDirector) && <ThongKePagePlan />}
         {tab === 'phoi-lenh-sx'          && (isPhoi || isHan || isSon || isDirector) && (isHan ? <LenhSanXuatHan readOnly={isDirector} /> : isSon ? <LenhSanXuatSon readOnly={isDirector} /> : <LenhSanXuatPhoi readOnly={isDirector} />)}
         {tab === 'phoi-dinh-muc-manh'    && (isPhoi || isHan || isSon || isDirector) && <PhoiDinhMucManhPage stage={isSon ? 'SON' : isHan ? 'HAN' : 'PHOI'} />}

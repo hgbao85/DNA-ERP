@@ -4,7 +4,7 @@ import type { PlanForm } from '../types/plan-form'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-export type KhoKey = 'phoiSonHan' | 'vatTuTP'
+export type KhoKey = 'phoiSonHan' | 'vatTuTP' | 'thanhPham'
 
 export interface InspItem {
   name: string
@@ -28,7 +28,12 @@ export interface InspRequest {
   sentAt: string
   phoiSonHan: KhoState
   vatTuTP: KhoState
+  thanhPham: KhoState
   proposalCreated: boolean
+}
+
+export function khoState(req: InspRequest, kho: KhoKey): KhoState {
+  return kho === 'phoiSonHan' ? req.phoiSonHan : kho === 'vatTuTP' ? req.vatTuTP : req.thanhPham
 }
 
 export interface PurchaseProposalItem {
@@ -85,7 +90,9 @@ interface InspCtxType {
 
 const isSon = (name: string) => /sơn|son|primer|lót|phủ|hardener|thinner/i.test(name)
 
-function buildKhoItems(pf: PlanForm): { phoiSonHan: InspItem[]; vatTuTP: InspItem[] } {
+// Phân bổ theo đúng CATEGORY_WAREHOUSE_CODE (purchase-order.ts): sat/son -> phôi sơn hàn,
+// day/vatTuPhuKien -> vật tư thành phẩm, baoBiDongGoi -> kho thành phẩm (nơi đóng gói).
+function buildKhoItems(pf: PlanForm): { phoiSonHan: InspItem[]; vatTuTP: InspItem[]; thanhPham: InspItem[] } {
   const mt = pf.quotaManagement?.materialType
   const toItem = (name: string, unit: string, required: number): InspItem => ({
     name, unit, required: Math.max(0, required), actualStock: null,
@@ -98,6 +105,8 @@ function buildKhoItems(pf: PlanForm): { phoiSonHan: InspItem[]; vatTuTP: InspIte
     vatTuTP: [
       ...(mt?.daySon       ?? []).filter(x => !isSon(x.name)).map(x => toItem(x.name, x.unit ?? 'm',   x.kg       ?? 0)),
       ...(mt?.vatTuPhuKien ?? []).map(x => toItem(x.name, x.unit ?? 'cái', x.quantity ?? 0)),
+    ],
+    thanhPham: [
       ...(mt?.baoBiDongGoi ?? []).map(x => toItem(x.name, x.unit ?? 'cái', x.quantity ?? 0)),
     ],
   }
@@ -105,44 +114,72 @@ function buildKhoItems(pf: PlanForm): { phoiSonHan: InspItem[]; vatTuTP: InspIte
 
 // ── Mock seed data ─────────────────────────────────────────────────────────────
 
+// planFormId khớp đúng seedPlanForms (id 1 = JSE-55/PO-MY-001, id 2 = IEA-3/PO-GP-002) — trước đây
+// seed dùng planFormId 101/102 không khớp PlanForm thật nào nên 2 yêu cầu này không bao giờ hiện
+// trong "Lệnh kiểm tra vật tư" của QLSX (danh sách luôn lọc theo id PlanForm thật). Tên vật tư trong
+// từng items[] cũng phải khớp CHÍNH XÁC với seedPlanForms[].quotaManagement.materialType — màn hình
+// QLSX tra tồn thực bằng cách so tên (findInspItem), tên lệch thì mọi dòng hiện "—" dù badge kho báo
+// đã kiểm. Đồng thời tách bao bì đóng gói ra kho thành phẩm (thanhPham) thay vì gộp chung vatTuTP,
+// khớp CATEGORY_WAREHOUSE_CODE.
 const SEED_REQUESTS: InspRequest[] = [
   {
-    id: 'insp-102', planFormId: 102,
-    poNumber: 'PO-2602', skuCode: 'SF-011', skuName: 'Ghế sofa văn phòng',
+    id: 'insp-1', planFormId: 1,
+    poNumber: 'PO-MY-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
     sentAt: '2026-07-04T07:30:00.000Z',
     phoiSonHan: {
       status: 'done', submittedAt: '2026-07-04T08:00:00.000Z',
       items: [
-        { name: 'Thép tấm 2mm',  unit: 'kg',  required: 300, actualStock: 150 },
-        { name: 'Sơn lót epoxy', unit: 'kg',  required: 80,  actualStock: 20  },
+        { name: 'Sắt hộp 25×25',      unit: 'cây', required: 20,  actualStock: 12  },
+        { name: 'Sắt vuông 20×20',    unit: 'cây', required: 8,   actualStock: 8   },
+        { name: 'Sắt tấm 3mm',        unit: 'tấm', required: 2,   actualStock: 1   },
+        { name: 'Sơn tĩnh điện đen',  unit: 'kg',  required: 0.8, actualStock: 0.8 },
       ],
     },
     vatTuTP: {
       status: 'done', submittedAt: '2026-07-04T08:05:00.000Z',
       items: [
-        { name: 'Vít tự khoan M5', unit: 'cái', required: 500, actualStock: 200 },
-        { name: 'Túi PE đóng gói', unit: 'cái', required: 200, actualStock: 50  },
+        { name: 'Dây PE đen',         unit: 'cuộn', required: 1.5, actualStock: 1.5 },
+        { name: 'Ốc vít M6×20',       unit: 'cái',  required: 48,  actualStock: 30  },
+        { name: 'Nắp nhựa đầu ống',   unit: 'cái',  required: 16,  actualStock: 16  },
+        { name: 'Đệm cao su',         unit: 'cái',  required: 12,  actualStock: 12  },
+      ],
+    },
+    thanhPham: {
+      status: 'done', submittedAt: '2026-07-04T08:08:00.000Z',
+      items: [
+        { name: 'Thùng carton 5 lớp', unit: 'thùng', required: 1, actualStock: 1 },
+        { name: 'Xốp PE bảo vệ',      unit: 'm²',    required: 2, actualStock: 1 },
+        { name: 'Dây đai nhựa',       unit: 'm',     required: 3, actualStock: 3 },
       ],
     },
     proposalCreated: true,
   },
   {
-    id: 'insp-101', planFormId: 101,
-    poNumber: 'PO-2601', skuCode: 'GX-009', skuName: 'Ghế xoay cao cấp',
+    id: 'insp-2', planFormId: 2,
+    poNumber: 'PO-GP-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
     sentAt: '2026-07-03T08:15:00.000Z',
     phoiSonHan: {
       status: 'done', submittedAt: '2026-07-03T09:00:00.000Z',
       items: [
-        { name: 'Thép ống D25×1.5',  unit: 'kg', required: 500, actualStock: 320 },
-        { name: 'Sơn tĩnh điện đen', unit: 'kg', required: 200, actualStock: 80  },
+        { name: 'Ống sắt tròn Φ16', unit: 'cây', required: 12,  actualStock: 12  },
+        { name: 'Sắt dẹt 20×3',     unit: 'cây', required: 4,   actualStock: 3   },
+        { name: 'Sơn xám RAL7035',  unit: 'kg',  required: 0.6, actualStock: 0.6 },
       ],
     },
     vatTuTP: {
       status: 'done', submittedAt: '2026-07-03T09:10:00.000Z',
       items: [
-        { name: 'Dây đan PE 2mm',      unit: 'm',   required: 1000, actualStock: 600 },
-        { name: 'Ốc vít M6×20',         unit: 'cái', required: 800,  actualStock: 800 },
-        { name: 'Bao bì carton 5 lớp',  unit: 'cái', required: 300,  actualStock: 120 },
+        { name: 'Dây nhựa xanh lá',  unit: 'cuộn', required: 2.0, actualStock: 1.2 },
+        { name: 'Dây màu đỏ',        unit: 'cuộn', required: 0.5, actualStock: 0.5 },
+        { name: 'Ốc vít M5×15',      unit: 'cái',  required: 32,  actualStock: 32  },
+        { name: 'Nắp đầu ống tròn',  unit: 'cái',  required: 8,   actualStock: 8   },
+      ],
+    },
+    thanhPham: {
+      status: 'done', submittedAt: '2026-07-03T09:15:00.000Z',
+      items: [
+        { name: 'Thùng carton 3 lớp', unit: 'thùng', required: 1, actualStock: 1 },
+        { name: 'Xốp chèn góc',       unit: 'bộ',    required: 4, actualStock: 2 },
       ],
     },
     proposalCreated: true,
@@ -151,36 +188,34 @@ const SEED_REQUESTS: InspRequest[] = [
 
 const SEED_PROPOSALS: PurchaseProposal[] = [
   {
-    id: 'prop-insp-102', requestId: 'insp-102', planFormId: 102,
-    poNumber: 'PO-2602', skuCode: 'SF-011', skuName: 'Ghế sofa văn phòng',
+    id: 'prop-insp-1', requestId: 'insp-1', planFormId: 1,
+    poNumber: 'PO-MY-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
     createdAt: '2026-07-04T08:10:00.000Z',
     deadline: '2026-07-25T00:00:00.000Z',
     status: 'new',
     items: [
-      { name: 'Thép tấm 2mm',    unit: 'kg',  required: 300, actualStock: 150, buyQty: 150, khoLabel: 'Kho Phôi Sơn Hàn', materialId: 22 },
-      { name: 'Sơn lót epoxy',   unit: 'kg',  required: 80,  actualStock: 20,  buyQty: 60,  khoLabel: 'Kho Phôi Sơn Hàn', materialId: 23 },
-      { name: 'Vít tự khoan M5', unit: 'cái', required: 500, actualStock: 200, buyQty: 300, khoLabel: 'Kho Vật tư thành phẩm',   materialId: 24 },
-      { name: 'Túi PE đóng gói', unit: 'cái', required: 200, actualStock: 50,  buyQty: 150, khoLabel: 'Kho Vật tư thành phẩm',   materialId: 25 },
+      { name: 'Sắt hộp 25×25', unit: 'cây', required: 20, actualStock: 12, buyQty: 8, khoLabel: 'Kho Phôi Sơn Hàn', materialId: 1 },
+      { name: 'Sắt tấm 3mm',   unit: 'tấm', required: 2,  actualStock: 1,  buyQty: 1, khoLabel: 'Kho Phôi Sơn Hàn', materialId: 3 },
+      { name: 'Ốc vít M6×20',  unit: 'cái', required: 48, actualStock: 30, buyQty: 18, khoLabel: 'Kho Vật tư thành phẩm', materialId: 1 },
+      { name: 'Xốp PE bảo vệ', unit: 'm²',  required: 2,  actualStock: 1,  buyQty: 1, khoLabel: 'Kho Thành phẩm', materialId: 2 },
     ],
   },
   {
-    id: 'prop-insp-101', requestId: 'insp-101', planFormId: 101,
-    poNumber: 'PO-2601', skuCode: 'GX-009', skuName: 'Ghế xoay cao cấp',
+    id: 'prop-insp-2', requestId: 'insp-2', planFormId: 2,
+    poNumber: 'PO-GP-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
     createdAt: '2026-07-03T09:20:00.000Z',
     deadline: '2026-07-20T00:00:00.000Z',
     submittedAt: '2026-07-03T09:45:00.000Z',
     status: 'submitted',
     items: [
-      { name: 'Thép ống D25×1.5',   unit: 'kg',  required: 500,  actualStock: 320, buyQty: 180, khoLabel: 'Kho Phôi Sơn Hàn', materialId: 18 },
-      { name: 'Sơn tĩnh điện đen',  unit: 'kg',  required: 200,  actualStock: 80,  buyQty: 120, khoLabel: 'Kho Phôi Sơn Hàn', materialId: 19 },
-      { name: 'Dây đan PE 2mm',      unit: 'm',   required: 1000, actualStock: 600, buyQty: 400, khoLabel: 'Kho Vật tư thành phẩm',   materialId: 20 },
-      { name: 'Bao bì carton 5 lớp', unit: 'cái', required: 300,  actualStock: 120, buyQty: 180, khoLabel: 'Kho Vật tư thành phẩm',   materialId: 21 },
+      { name: 'Sắt dẹt 20×3',      unit: 'cây',  required: 4,   actualStock: 3,   buyQty: 1,   khoLabel: 'Kho Phôi Sơn Hàn', materialId: 5 },
+      { name: 'Dây nhựa xanh lá',  unit: 'cuộn', required: 2.0, actualStock: 1.2, buyQty: 0.8, khoLabel: 'Kho Vật tư thành phẩm', materialId: 3 },
+      { name: 'Xốp chèn góc',      unit: 'bộ',   required: 4,   actualStock: 2,   buyQty: 2,   khoLabel: 'Kho Thành phẩm', materialId: 5 },
     ],
     quotes: {
-      'Thép ống D25×1.5':   [{ supplierName: 'Minh Thành', unitPrice: 45000 }, { supplierName: 'An Phát',    unitPrice: 43500 }, { supplierName: 'Long Sơn',   unitPrice: 46000 }],
-      'Sơn tĩnh điện đen':  [{ supplierName: 'Việt Thắng', unitPrice: 82000 }, { supplierName: 'Đại Hưng',  unitPrice: 85000 }],
-      'Dây đan PE 2mm':     [{ supplierName: 'Tiến Thịnh', unitPrice: 11500 }, { supplierName: 'An Phát',   unitPrice: 11800 }],
-      'Bao bì carton 5 lớp':[{ supplierName: 'Bao bì Việt',unitPrice: 18000 }, { supplierName: 'Tiến Long', unitPrice: 17500 }],
+      'Sắt dẹt 20×3':     [{ supplierName: 'Minh Thành', unitPrice: 45000 }, { supplierName: 'An Phát',    unitPrice: 43500 }, { supplierName: 'Long Sơn',   unitPrice: 46000 }],
+      'Dây nhựa xanh lá': [{ supplierName: 'Tiến Thịnh', unitPrice: 11500 }, { supplierName: 'An Phát',    unitPrice: 11800 }],
+      'Xốp chèn góc':     [{ supplierName: 'Bao bì Việt', unitPrice: 18000 }, { supplierName: 'Tiến Long', unitPrice: 17500 }],
     },
   },
 ]
@@ -196,7 +231,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
   const sendRequest = useCallback((pf: PlanForm) => {
     setRequests(prev => {
       if (prev.some(r => r.planFormId === pf.id)) return prev
-      const { phoiSonHan, vatTuTP } = buildKhoItems(pf)
+      const { phoiSonHan, vatTuTP, thanhPham } = buildKhoItems(pf)
       const newReq: InspRequest = {
         id:               `insp-${pf.id}`,
         planFormId:       pf.id,
@@ -206,6 +241,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
         sentAt:           new Date().toISOString(),
         phoiSonHan:       { status: 'pending', items: phoiSonHan },
         vatTuTP:          { status: 'pending', items: vatTuTP },
+        thanhPham:        { status: 'pending', items: thanhPham },
         proposalCreated:  false,
       }
       return [...prev, newReq]
@@ -216,7 +252,9 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     setRequests(prev => prev.map(r => {
       if (r.id !== requestId) return r
       const updated: KhoState = { status: 'done', items, submittedAt: new Date().toISOString() }
-      return kho === 'phoiSonHan' ? { ...r, phoiSonHan: updated } : { ...r, vatTuTP: updated }
+      return kho === 'phoiSonHan' ? { ...r, phoiSonHan: updated }
+        : kho === 'vatTuTP' ? { ...r, vatTuTP: updated }
+        : { ...r, thanhPham: updated }
     }))
   }, [])
 

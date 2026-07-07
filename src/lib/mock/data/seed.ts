@@ -951,50 +951,62 @@ export const seedMfgWarehouseItems = [
 ];
 
 // ── Mảnh theo PO — theo dõi xuất đan (vật tư TP → điểm đan) / nhập đan (điểm đan → kho thành phẩm) ──
-// 1 PI có thể có nhiều PO (PI-2026-001 có 2 PO dưới đây); mỗi PO có nhiều dòng mảnh. Mỗi dòng mảnh có
-// tonThuc (tồn thực tại vật tư TP, giảm dần khi xuất) và 1 danh sách allocations theo từng điểm đan
-// (weavingPointId khớp seedWeavingPoints: 1=Điểm đan A/Anh Tuấn, 2=Điểm đan B/Chị Hà, 3=Điểm đan C/Anh Long) —
-// "Mảnh tựa lưng A" cố tình seed 2 điểm đan khác nhau để demo rõ trường hợp 1 mảnh nhiều điểm đan.
+// PO là cấp LỚN NHẤT — 1 PO có thể có nhiều SKU (PO-2026-001 có 2 SKU dưới đây: JSE-55 và IEA-3),
+// mỗi SKU ứng với 1 mã PI RIÊNG của nó (không dùng chung PI giữa các SKU cùng 1 PO). Mỗi SKU có
+// nhiều dòng mảnh. Mỗi dòng mảnh có tonThuc (tồn thực tại vật tư TP, giảm dần khi xuất) và 1 danh
+// sách allocations theo từng điểm đan (weavingPointId khớp seedWeavingPoints: 1=Điểm đan A/Anh Tuấn,
+// 2=Điểm đan B/Chị Hà, 3=Điểm đan C/Anh Long) — "Mảnh tựa lưng A" cố tình seed 2 điểm đan khác nhau
+// để demo rõ trường hợp 1 mảnh nhiều điểm đan.
 export const seedManhOrders: ManhOrder[] = [
   {
-    id: 1, poCode: 'PO-2026-001-A', piCode: 'PI-2026-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
-    lines: [
+    id: 1, poCode: 'PO-2026-001',
+    skus: [
       {
-        id: 1, name: 'Mảnh tựa lưng A', unit: 'cái', totalQty: 50, tonThuc: 15,
-        allocations: [
-          { id: 1, weavingPointId: 1, xuatQty: 20, nhapQty: 20 },
-          { id: 2, weavingPointId: 2, xuatQty: 10, nhapQty: 0 },
+        id: 1, piCode: 'PI-2026-001-A', skuCode: 'JSE-55', skuName: 'Ghế J55',
+        lines: [
+          {
+            id: 1, name: 'Mảnh tựa lưng A', unit: 'cái', totalQty: 50, tonThuc: 15,
+            allocations: [
+              { id: 1, weavingPointId: 1, xuatQty: 20, nhapQty: 20 },
+              { id: 2, weavingPointId: 2, xuatQty: 10, nhapQty: 0 },
+            ],
+          },
+          {
+            id: 2, name: 'Mảnh ngồi chính', unit: 'cái', totalQty: 50, tonThuc: 0,
+            allocations: [{ id: 3, weavingPointId: 1, xuatQty: 50, nhapQty: 40 }],
+          },
+          {
+            id: 3, name: 'Mảnh tay vịn', unit: 'cái', totalQty: 50, tonThuc: 35,
+            allocations: [],
+          },
         ],
       },
       {
-        id: 2, name: 'Mảnh ngồi chính', unit: 'cái', totalQty: 50, tonThuc: 0,
-        allocations: [{ id: 3, weavingPointId: 1, xuatQty: 50, nhapQty: 40 }],
-      },
-      {
-        id: 3, name: 'Mảnh tay vịn', unit: 'cái', totalQty: 50, tonThuc: 35,
-        allocations: [],
-      },
-    ],
-  },
-  {
-    id: 2, poCode: 'PO-2026-001-B', piCode: 'PI-2026-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
-    lines: [
-      {
-        id: 4, name: 'Mảnh chân ghế', unit: 'cái', totalQty: 40, tonThuc: 0,
-        allocations: [{ id: 4, weavingPointId: 3, xuatQty: 40, nhapQty: 40 }],
+        id: 2, piCode: 'PI-2026-001-B', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
+        lines: [
+          {
+            id: 5, name: 'Mảnh lưng ghế', unit: 'cái', totalQty: 20, tonThuc: 10,
+            allocations: [{ id: 5, weavingPointId: 1, xuatQty: 5, nhapQty: 0 }],
+          },
+          {
+            id: 6, name: 'Mảnh chỗ ngồi', unit: 'cái', totalQty: 20, tonThuc: 20,
+            allocations: [],
+          },
+        ],
       },
     ],
   },
   {
-    id: 3, poCode: 'PO-2026-002-A', piCode: 'PI-2026-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
-    lines: [
+    id: 2, poCode: 'PO-2026-002',
+    skus: [
       {
-        id: 5, name: 'Mảnh lưng ghế', unit: 'cái', totalQty: 20, tonThuc: 10,
-        allocations: [{ id: 5, weavingPointId: 1, xuatQty: 5, nhapQty: 0 }],
-      },
-      {
-        id: 6, name: 'Mảnh chỗ ngồi', unit: 'cái', totalQty: 20, tonThuc: 20,
-        allocations: [],
+        id: 3, piCode: 'PI-2026-002-A', skuCode: 'JSE-55', skuName: 'Ghế J55',
+        lines: [
+          {
+            id: 4, name: 'Mảnh chân ghế', unit: 'cái', totalQty: 40, tonThuc: 0,
+            allocations: [{ id: 4, weavingPointId: 3, xuatQty: 40, nhapQty: 40 }],
+          },
+        ],
       },
     ],
   },

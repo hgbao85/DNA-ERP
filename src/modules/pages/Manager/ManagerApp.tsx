@@ -9,7 +9,8 @@ import SKUListPage from '../ProductionPlan/SKUListPage'
 import VatTuDashboardPage from '../ProductionPlan/VatTuDashboardPage'
 import ThongKePagePlan from '../Manufacturing/ThongKePagePlan'
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
-import PIListPage from '../ProductionPlan/PIListPage'
+import LenhSXPage from '../ProductionPlan/LenhSXPage'
+
 
 const ACCENT    = '#2e7d32'
 const ACCENT_BG = '#e8f5e9'
@@ -364,7 +365,7 @@ function ChoDuyetSection({ proposals, onApprove, onReject }: {
 
       {filter === 'dinh-muc'    && <SKUReviewPage />}
       {filter === 'so-sanh-gia' && <SoSanhGiaSection proposals={proposals} onApprove={onApprove} onReject={onReject} />}
-      {filter === 'lenh-sx'     && <PIListPage />}
+      {filter === 'lenh-sx'     && <LenhSXPage />}
     </div>
   )
 }

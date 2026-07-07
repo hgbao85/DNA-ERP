@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { ChevronLeft, CheckCircle2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
-import { useInspection, type KhoKey, type InspItem } from '../../../context/InspectionContext'
+import { useInspection, khoState, type KhoKey, type InspItem } from '../../../context/InspectionContext'
 
 interface Props {
   limitCats?: string[]   // kept for compat, unused
@@ -31,9 +31,9 @@ export default function KiemTraVatTuPage({ inspKhoKey }: Props = {}) {
 
   if (selectedInspId && inspKhoKey) {
     const inspReq  = requests.find(r => r.id === selectedInspId)
-    const khoState = inspReq ? (inspKhoKey === 'phoiSonHan' ? inspReq.phoiSonHan : inspReq.vatTuTP) : null
-    const isDone   = khoState?.status === 'done'
-    const items    = khoState?.items ?? []
+    const inspKho  = inspReq ? khoState(inspReq, inspKhoKey) : null
+    const isDone   = inspKho?.status === 'done'
+    const items    = inspKho?.items ?? []
 
     const handleCheck = () => {
       const result: Record<string, number> = {}
@@ -198,8 +198,8 @@ export default function KiemTraVatTuPage({ inspKhoKey }: Props = {}) {
             </thead>
             <tbody>
               {myRequests.map(req => {
-                const khoState = inspKhoKey ? (inspKhoKey === 'phoiSonHan' ? req.phoiSonHan : req.vatTuTP) : req.phoiSonHan
-                const isDone   = khoState.status === 'done'
+                const inspKho = inspKhoKey ? khoState(req, inspKhoKey) : req.phoiSonHan
+                const isDone  = inspKho.status === 'done'
                 return (
                   <tr
                     key={req.id}
