@@ -4,7 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getProfile } from '../services/api';
 import { normalizeUser } from '../utils/normalizeUser';
 
-export type MfgRole = 'PRODUCTION_MANAGER' | 'FACTORY_SALES' | 'PHOI' | 'HAN' | 'SON' | 'QC' | 'WEAVING_MANAGER' | 'WEAVING_EXPORT' | 'BOM_MANAGER' | 'SPEC_STEEL'| 'SPEC_WIRE_PAINT' | 'SPEC_ACCESSORY' | 'SPEC_PACKAGING';
+export type MfgRole = 'PRODUCTION_MANAGER' | 'PHOI' | 'HAN' | 'SON' | 'QC' | 'WEAVING_MANAGER' | 'WEAVING_EXPORT' | 'BOM_MANAGER' | 'SPEC_STEEL'| 'SPEC_WIRE_PAINT' | 'SPEC_ACCESSORY' | 'SPEC_PACKAGING';
 
 export type PhoiOperation = 'CAT' | 'TOP_DAU' | 'UON' | 'DAP' | 'DUC_LO' | 'BAN_TAN';
 
@@ -25,11 +25,6 @@ export interface ManagerUser extends BaseUser {
   role: 'MANAGER';
 }
 
-export interface SalesUser extends BaseUser {
-  role: 'SALES';
-  salesType: 'RETAIL' | 'WHOLESALE' | null;
-}
-
 export interface MfgUser extends BaseUser {
   role: 'WAREHOUSE_STAFF';
   mfgRole: MfgRole;
@@ -46,14 +41,13 @@ export interface WarehouseUser extends BaseUser {
 
 /**
  * Flat interface tương thích ngược với toàn bộ consumer code.
- * Dùng ManagerUser / SalesUser / MfgUser / WarehouseUser khi muốn narrowing chặt hơn.
+ * Dùng ManagerUser / MfgUser / WarehouseUser khi muốn narrowing chặt hơn.
  */
 export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'MANAGER' | 'SALES' | 'WAREHOUSE_STAFF';
-  salesType?: 'RETAIL' | 'WHOLESALE' | null;
+  role: 'MANAGER' | 'WAREHOUSE_STAFF';
   mfgRole?: MfgRole | null;
   phoiOperation?: PhoiOperation | null;
   warehouseScope?: WarehouseScope | null;

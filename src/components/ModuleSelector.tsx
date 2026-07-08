@@ -1,7 +1,6 @@
-import { LayoutDashboard, Users, Package, ShoppingCart, Truck, Factory, DollarSign, Wallet, CheckSquare, LogOut } from 'lucide-react'
+import { LayoutDashboard, Package, ShoppingCart, Truck, Factory, DollarSign, Wallet, CheckSquare, LogOut } from 'lucide-react'
 
 const ALL_MODULES = [
-  { id: 'crm', name: 'Bán hàng / CRM', desc: 'Đơn hàng MTO, booking, lệnh giao hàng', icon: <Users size={32} />, color: '#E8F5E9', textColor: '#2E7D32' },
   { id: 'production_plan', name: 'Kế hoạch SX', desc: 'Tổng nhu cầu NVL, lệnh sản xuất', icon: <LayoutDashboard size={32} />, color: '#E8F5E9', textColor: '#2E7D32' },
   { id: 'purchasing', name: 'Mua hàng', desc: 'RFQ, so sánh giá, PO, gửi NCC', icon: <ShoppingCart size={32} />, color: '#EDE7F6', textColor: '#4527A0' },
   { id: 'inbound_warehouse', name: 'Kho đầu vào', desc: 'Theo dõi vật tư về, nhập kho NVL', icon: <Package size={32} />, color: '#EDE7F6', textColor: '#4527A0' },
@@ -37,11 +36,11 @@ export default function ModuleSelector({ user, onLogout, onSelectModule }: Modul
               </span>
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                background: user.role === 'MANAGER' ? '#eff6ff' : user.role === 'SALES' ? '#f0fdf4' : '#fef3c7',
-                color: user.role === 'MANAGER' ? '#1d4ed8' : user.role === 'SALES' ? '#15803d' : '#b45309',
-                border: user.role === 'MANAGER' ? '1px solid #bfdbfe' : user.role === 'SALES' ? '1px solid #bbf7d0' : '1px solid #fde68a'
+                background: user.role === 'MANAGER' ? '#eff6ff' : '#fef3c7',
+                color: user.role === 'MANAGER' ? '#1d4ed8' : '#b45309',
+                border: user.role === 'MANAGER' ? '1px solid #bfdbfe' : '1px solid #fde68a'
               }}>
-                {user.role === 'MANAGER' ? 'Giám đốc' : user.role === 'SALES' ? 'Sales' : 'Thủ kho'}
+                {user.role === 'MANAGER' ? 'Giám đốc' : 'Thủ kho'}
               </span>
               <button 
                 onClick={onLogout} 
@@ -60,12 +59,11 @@ export default function ModuleSelector({ user, onLogout, onSelectModule }: Modul
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 20 }}>
           {ALL_MODULES.map(mod => {
-            const isImplemented = mod.id === 'crm' || mod.id === 'production' || mod.id === 'purchasing' || mod.id === 'inbound_warehouse' || mod.id === 'production_plan';
+            const isImplemented = mod.id === 'production' || mod.id === 'purchasing' || mod.id === 'inbound_warehouse' || mod.id === 'production_plan';
 
             // Quyền truy cập theo role
             const isAccessible = (() => {
               if (!isImplemented) return false;
-              if (mod.id === 'crm')        return user?.role === 'MANAGER' || user?.role === 'SALES';
               if (mod.id === 'production') return user?.role === 'MANAGER' || !!user?.mfgRole;
               if (mod.id === 'purchasing') return (user?.role === 'MANAGER' && !user?.mfgRole) || !!user?.isPurchaser;
               if (mod.id === 'inbound_warehouse') {
