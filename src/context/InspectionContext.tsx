@@ -64,7 +64,7 @@ export interface PurchaseProposal {
   items: PurchaseProposalItem[]
   status: 'new' | 'quoting' | 'submitted' | 'purchasing' | 'rejected'
   quotes?: Record<string, ProposalQuote[]>  // keyed by item.name → multiple NCC offers
-  chosenSuppliers?: Record<string, string>  // item.name → chosen supplierName (set by manager)
+  chosenSuppliers?: Record<string, string>  // item.name → chosen supplierName (set by boss)
   deadline?: string
   submittedAt?: string
   approvedAt?: string

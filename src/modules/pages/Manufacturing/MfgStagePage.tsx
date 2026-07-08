@@ -67,7 +67,7 @@ interface Row {
 
 export default function MfgStagePage({ piId, stageType, readOnly = false }: Props) {
   const { user } = useAuth()
-  // Giám đốc (MANAGER không mfgRole) chỉ XEM — không báo/duyệt (đồng bộ MfgRolesGuard backend).
+  // Giám đốc (BOSS không mfgRole) chỉ XEM — không báo/duyệt (đồng bộ MfgRolesGuard backend).
   const canReport = !readOnly && (user?.mfgRole === stageType || user?.mfgRole === 'PRODUCTION_MANAGER')
   const canReview = !readOnly && (user?.mfgRole === 'QC' || user?.mfgRole === 'PRODUCTION_MANAGER')
 

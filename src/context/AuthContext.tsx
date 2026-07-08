@@ -21,8 +21,8 @@ export interface BaseUser {
   email: string;
 }
 
-export interface ManagerUser extends BaseUser {
-  role: 'MANAGER';
+export interface BossUser extends BaseUser {
+  role: 'BOSS';
 }
 
 export interface MfgUser extends BaseUser {
@@ -42,13 +42,13 @@ export interface WarehouseUser extends BaseUser {
 
 /**
  * Flat interface tương thích ngược với toàn bộ consumer code.
- * Dùng ManagerUser / MfgUser / WarehouseUser khi muốn narrowing chặt hơn.
+ * Dùng BossUser / MfgUser / WarehouseUser khi muốn narrowing chặt hơn.
  */
 export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'MANAGER' | 'WAREHOUSE_STAFF';
+  role: 'BOSS' | 'WAREHOUSE_STAFF';
   mfgRole?: MfgRole | null;
   phoiOperation?: PhoiOperation | null;
   warehouseScope?: WarehouseScope | null;
@@ -62,7 +62,7 @@ interface AuthContextType {
   token: string | null;
   login: (token: string, user: User) => void;
   logout: () => void;
-  isManager: boolean;
+  isBoss: boolean;
   loading: boolean;
 }
 
@@ -116,10 +116,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
-  const isManager = user?.role === 'MANAGER';
+  const isBoss = user?.role === 'BOSS';
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isManager, loading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, isBoss, loading }}>
       {children}
     </AuthContext.Provider>
   );

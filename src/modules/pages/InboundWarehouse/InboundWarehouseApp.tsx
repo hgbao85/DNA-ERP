@@ -72,7 +72,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     fontSize: 13, textAlign: 'left', cursor: 'pointer', transition: 'background .1s',
   })
   // Nhãn chức vụ dưới chân sidebar
-  const roleLabel = user?.role === 'MANAGER'
+  const roleLabel = user?.role === 'BOSS'
     ? 'Giám đốc'
     : scope === 'vat-tu-tp'    ? 'Thủ kho · Vật tư / TP'
     : scope === 'phoi-son-han' ? 'Thủ kho · Phôi Sơn Hàn'

@@ -12,7 +12,7 @@ const MODULE_STRATEGIES: ModuleStrategy[] = [
   { matches: (u) => !!u.isSale,                              module: 'sales'             },
   { matches: (u) => !!u.isPurchaser,                         module: 'purchasing'        },
   { matches: (u) => u.role === 'WAREHOUSE_STAFF',            module: 'inbound_warehouse' },
-  { matches: (u) => u.role === 'MANAGER' && !u.mfgRole,     module: 'manager'           },
+  { matches: (u) => u.role === 'BOSS' && !u.mfgRole,        module: 'boss'              },
 ];
 
 /** Phân hệ mặc định sau đăng nhập — tài khoản chuyên biệt bị khóa vào 1 phân hệ. */
@@ -22,5 +22,5 @@ export function resolveDefaultModule(user: User | null): string | null {
 }
 
 export function isDirector(user: User | null): boolean {
-  return user?.role === 'MANAGER' && !user?.mfgRole;
+  return user?.role === 'BOSS' && !user?.mfgRole;
 }

@@ -4,7 +4,7 @@ export const STATUS_MAP: Record<string, { label: string; color: string; bg: stri
   WAITING_PARTS:   { label: 'Chờ nhập định mức mảnh',     color: '#c2410c', bg: '#ffedd5' },
   APPROVED_DETAIL: { label: 'Duyệt ĐM chi tiết', color: '#1d4ed8', bg: '#dbeafe' },
   APPROVED_PARTS:  { label: 'Duyệt mảnh',        color: '#7c3aed', bg: '#ede9fe' },
-  WAITING_MANAGER_APPROVAL: { label: 'Chờ sếp duyệt', color: '#0369a1', bg: '#e0f2fe' },
+  WAITING_BOSS_APPROVAL: { label: 'Chờ sếp duyệt', color: '#0369a1', bg: '#e0f2fe' },
   APPROVED:        { label: 'Đã duyệt',           color: '#16a34a', bg: '#dcfce7' },
   REJECTED:        { label: 'Từ chối',            color: '#dc2626', bg: '#fee2e2' },
 }

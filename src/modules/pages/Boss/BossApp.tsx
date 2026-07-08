@@ -29,7 +29,7 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
   const [selectedId,   setSelectedId]   = useState<string | null>(null)
   const [rejectMode,   setRejectMode]   = useState(false)
   const [rejectReason, setRejectReason] = useState('')
-  // chosen[itemName] = supplierName selected by manager
+  // chosen[itemName] = supplierName selected by boss
   const [chosen, setChosen] = useState<Record<string, string>>({})
   const fmt = (n: number) => n.toLocaleString('vi-VN')
 
@@ -380,7 +380,7 @@ const NAV_ITEMS: { id: Page; label: string; icon: React.ReactNode }[] = [
   { id: 'kho',       label: 'Tổng hợp kho',        icon: <Warehouse       size={16} /> },
 ]
 
-export default function ManagerApp() {
+export default function BossApp() {
   const { user, logout } = useAuth()
   const { proposals, approveProposal, rejectProposal } = useInspection()
   const [page, setPage]  = useState<Page>('cho-duyet')

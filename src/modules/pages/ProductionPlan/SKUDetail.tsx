@@ -23,8 +23,8 @@ export function SKUDetail({
   onBack,
   onApproveDetail,
   onApproveParts,
-  onSendForManagerApproval,
-  onApproveManagerRequest,
+  onSendForBossApproval,
+  onApproveBossRequest,
   onRefresh,
   refreshing = false,
 }: {
@@ -33,12 +33,12 @@ export function SKUDetail({
   onBack: () => void
   onApproveDetail?: () => Promise<void>
   onApproveParts?: () => Promise<void>
-  onSendForManagerApproval?: () => Promise<void>
-  onApproveManagerRequest?: () => Promise<void>
+  onSendForBossApproval?: () => Promise<void>
+  onApproveBossRequest?: () => Promise<void>
   onRefresh?: () => void
   refreshing?: boolean
 }) {
-  const { isManager } = useAuth()
+  const { isBoss } = useAuth()
   const mt = pf.quotaManagement?.materialType
 
   // Chi tiết đã được duyệt khi status vượt qua giai đoạn APPROVED_DETAIL (đã gửi bộ phận nhập mảnh)
@@ -135,8 +135,8 @@ export function SKUDetail({
         {pf.proposedAt && <span><span style={{ color: 'var(--text3)' }}>Đề xuất: </span><strong>{format(new Date(pf.proposedAt), 'dd/MM/yyyy')}</strong></span>}
       </div>
 
-      {isManager ? (
-        <ManagerReviewView pf={pf} readOnly={readOnly} onApproveManagerRequest={onApproveManagerRequest} />
+      {isBoss ? (
+        <BossReviewView pf={pf} readOnly={readOnly} onApproveBossRequest={onApproveBossRequest} />
       ) : (
       <>
       {/* Sub-tabs */}
@@ -169,7 +169,7 @@ export function SKUDetail({
           readOnly={readOnly}
           manhItems={pf.manhItems}
           onApproveParts={onApproveParts}
-          onSendForManagerApproval={onSendForManagerApproval}
+          onSendForBossApproval={onSendForBossApproval}
         />
       )}
 
@@ -344,16 +344,16 @@ export function SKUDetail({
   )
 }
 
-// ─── ManagerReviewView ────────────────────────────────────────────────────────
+// ─── BossReviewView ───────────────────────────────────────────────────────────
 // Sếp duyệt lần cuối: xem gộp cả định mức chi tiết + định mức mảnh trong 1 màn hình
 // (không tách tab như luồng KHSX), rồi duyệt 1 lần để chính thức bắt đầu sản xuất.
 
-function ManagerReviewView({
-  pf, readOnly = false, onApproveManagerRequest,
+function BossReviewView({
+  pf, readOnly = false, onApproveBossRequest,
 }: {
   pf: PlanForm
   readOnly?: boolean
-  onApproveManagerRequest?: () => Promise<void>
+  onApproveBossRequest?: () => Promise<void>
 }) {
   const mt = pf.quotaManagement?.materialType
   const [processing, setProcessing] = useState(false)
@@ -368,9 +368,9 @@ function ManagerReviewView({
   }
 
   const handleApprove = async () => {
-    if (!onApproveManagerRequest) return
+    if (!onApproveBossRequest) return
     setProcessing(true)
-    try { await onApproveManagerRequest() } finally { setProcessing(false) }
+    try { await onApproveBossRequest() } finally { setProcessing(false) }
   }
 
   return (
@@ -427,7 +427,7 @@ function ManagerReviewView({
       <DinhMucManh status={pf.status} readOnly manhItems={pf.manhItems} />
 
       {/* Action bar — duyệt gộp cả 2 phần để chính thức bắt đầu sản xuất */}
-      {!readOnly && pf.status === 'WAITING_MANAGER_APPROVAL' && (
+      {!readOnly && pf.status === 'WAITING_BOSS_APPROVAL' && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
           <button
             onClick={() => setConfirmApprove(true)}
@@ -539,19 +539,19 @@ function MaterialSection({
 type ManhApprovalEntry = { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
 
 function DinhMucManh({
-  status, readOnly = false, manhItems, onApproveParts, onSendForManagerApproval,
+  status, readOnly = false, manhItems, onApproveParts, onSendForBossApproval,
 }: {
   status: string
   readOnly?: boolean
   manhItems?: ManhRow[]
   onApproveParts?: () => Promise<void>
-  onSendForManagerApproval?: () => Promise<void>
+  onSendForBossApproval?: () => Promise<void>
 }) {
-  const { isManager } = useAuth()
+  const { isBoss } = useAuth()
   // Dữ liệu mảnh thật do account Sắt nhập (qua updatePlanFormManhQuota); trống cho tới khi có người nhập.
   const rows = manhItems ?? []
   // Mảnh coi như đã duyệt xong khi SKU đã qua giai đoạn APPROVED_PARTS (đang chờ sếp duyệt hoặc đã duyệt xong).
-  const partsAlreadyApproved = status === 'WAITING_MANAGER_APPROVAL' || status === 'APPROVED'
+  const partsAlreadyApproved = status === 'WAITING_BOSS_APPROVAL' || status === 'APPROVED'
 
   const [approval, setApproval] = useState<ManhApprovalEntry>(() =>
     partsAlreadyApproved ? { status: 'APPROVED', at: new Date() } : null
@@ -560,7 +560,7 @@ function DinhMucManh({
   const [rejectReason, setRejectReason] = useState('')
   const [processing, setProcessing] = useState(false)
   const [confirmApproveParts, setConfirmApproveParts] = useState(false)
-  const [confirmSendForManagerApproval, setConfirmSendForManagerApproval] = useState(false)
+  const [confirmSendForBossApproval, setConfirmSendForBossApproval] = useState(false)
   const [showSendBackModal, setShowSendBackModal] = useState(false)
   const [sendBackDone, setSendBackDone] = useState(false)
 
@@ -578,10 +578,10 @@ function DinhMucManh({
     try { await onApproveParts() } finally { setProcessing(false) }
   }
 
-  const handleSendForManagerApproval = async () => {
-    if (!onSendForManagerApproval) return
+  const handleSendForBossApproval = async () => {
+    if (!onSendForBossApproval) return
     setProcessing(true)
-    try { await onSendForManagerApproval() } finally { setProcessing(false) }
+    try { await onSendForBossApproval() } finally { setProcessing(false) }
   }
 
   // Chỉ duyệt được khi đã có dữ liệu mảnh thật (status APPROVED_PARTS = account Sắt đã nhập xong)
@@ -674,7 +674,7 @@ function DinhMucManh({
       )}
 
       {/* Action bar — KHSX: chỉ hiện khi đã có dữ liệu mảnh thật chờ duyệt (APPROVED_PARTS) */}
-      {!readOnly && !isManager && status === 'APPROVED_PARTS' && (
+      {!readOnly && !isBoss && status === 'APPROVED_PARTS' && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
           {!isLocallyApproved && !isLocallyRejected && (
             <span style={{ fontSize: 12, color: '#d97706' }}>Cần duyệt danh sách mảnh mới chuyển đến công đoạn tiếp theo</span>
@@ -689,7 +689,7 @@ function DinhMucManh({
             <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>✓ Đã gửi lại bộ phận định mức mảnh</span>
           )}
           <button
-            onClick={() => setConfirmSendForManagerApproval(true)}
+            onClick={() => setConfirmSendForBossApproval(true)}
             disabled={!isLocallyApproved || processing}
             style={{
               padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
@@ -702,7 +702,7 @@ function DinhMucManh({
         </div>
       )}
       {/* KHSX: đã gửi, đang chờ sếp duyệt */}
-      {!isManager && status === 'WAITING_MANAGER_APPROVAL' && (
+      {!isBoss && status === 'WAITING_BOSS_APPROVAL' && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
           <span style={{ fontSize: 12, color: '#0369a1', fontWeight: 600 }}>✓ Đã gửi sếp duyệt — đang chờ phê duyệt</span>
         </div>
@@ -773,15 +773,15 @@ function DinhMucManh({
       </Modal>
 
       {/* Modal xác nhận gửi sếp duyệt (KHSX) */}
-      <Modal open={confirmSendForManagerApproval} maxWidth={420} zIndex={2000}>
+      <Modal open={confirmSendForBossApproval} maxWidth={420} zIndex={2000}>
             <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận gửi sếp duyệt</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
               Xác nhận gửi danh sách mảnh phôi cho sếp phê duyệt? SKU này sẽ chuyển sang trạng thái &quot;Chờ sếp duyệt&quot;.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setConfirmSendForManagerApproval(false)} style={btnSecondary}>Hủy</button>
+              <button onClick={() => setConfirmSendForBossApproval(false)} style={btnSecondary}>Hủy</button>
               <button
-                onClick={async () => { setConfirmSendForManagerApproval(false); await handleSendForManagerApproval() }}
+                onClick={async () => { setConfirmSendForBossApproval(false); await handleSendForBossApproval() }}
                 disabled={processing}
                 style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff' }}
               >Gửi sếp duyệt</button>

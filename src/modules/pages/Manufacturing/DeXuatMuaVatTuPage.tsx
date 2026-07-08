@@ -29,7 +29,7 @@ const CMD_STATUS: Record<string, { label: string; bg: string; fg: string }> = {
 const NO_CMD = { label: 'Chờ xử lý', bg: '#fff3e0', fg: '#e65100' }
 
 export default function DeXuatMuaVatTuPage() {
-  const { isManager } = useAuth()
+  const { isBoss } = useAuth()
   const { data: materials } = useFetch<Material[]>(() => api.getMaterials())
   const { data: proposals, refetch } = useFetch<Proposal[]>(() => api.getPurchaseProposals())
 
@@ -96,7 +96,7 @@ export default function DeXuatMuaVatTuPage() {
       </div>
 
       {/* Form tạo — chỉ thủ kho (không phải giám đốc) */}
-      {!isManager && (
+      {!isBoss && (
         <div style={card}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
             <div style={{ fontWeight: 600, fontSize: 13 }}>Tạo đề xuất mới</div>
@@ -158,7 +158,7 @@ export default function DeXuatMuaVatTuPage() {
                 <span style={{ fontSize: 12, color: 'var(--text3)' }}>{p.proposedBy?.name} · {new Date(p.createdAt).toLocaleDateString('vi-VN')}</span>
                 <div style={{ flex: 1 }} />
                 {/* Tải vào form — chỉ thủ kho, đề xuất chưa hoàn thành */}
-                {!isManager && p.command?.status !== 'DONE' && (
+                {!isBoss && p.command?.status !== 'DONE' && (
                   <button
                     onClick={() => loadFromProposal(p)}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px solid #b39ddb', borderRadius: 'var(--radius)', background: '#ede7f6', color: '#4527a0', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}

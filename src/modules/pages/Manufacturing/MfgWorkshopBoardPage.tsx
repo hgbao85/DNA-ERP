@@ -167,7 +167,7 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
   const [showDone, setShowDone] = useState(false)
   const [detail, setDetail] = useState<Detail | null>(null)
   const { user } = useAuth()
-  const isDirector = user?.role === 'MANAGER' && !user?.mfgRole
+  const isDirector = user?.role === 'BOSS' && !user?.mfgRole
   // prodmgr chỉ XEM chuyền kiểm/đóng gói để quản lý — thao tác do Thủ kho thành phẩm.
   const isProdMgr = user?.mfgRole === 'PRODUCTION_MANAGER'
   const packingReadOnly = isDirector || isProdMgr

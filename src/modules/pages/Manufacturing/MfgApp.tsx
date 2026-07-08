@@ -110,9 +110,9 @@ interface MfgAppProps {
 export default function MfgApp({ onBack }: MfgAppProps) {
   const { user, logout } = useAuth()
 
-  const canManageBom    = user?.mfgRole === 'PRODUCTION_MANAGER' || user?.role === 'MANAGER'
-  // Tổng giám đốc = MANAGER không gắn mfgRole. Thủ kho = WAREHOUSE_STAFF không mfgRole.
-  const isDirector      = user?.role === 'MANAGER' && !user?.mfgRole
+  const canManageBom    = user?.mfgRole === 'PRODUCTION_MANAGER' || user?.role === 'BOSS'
+  // Tổng giám đốc = BOSS không gắn mfgRole. Thủ kho = WAREHOUSE_STAFF không mfgRole.
+  const isDirector      = user?.role === 'BOSS' && !user?.mfgRole
   const isWarehouse     = user?.role === 'WAREHOUSE_STAFF' && !user?.mfgRole
   const isProdMgr       = user?.mfgRole === 'PRODUCTION_MANAGER'
   const isPhoi          = user?.mfgRole === 'PHOI'
@@ -147,7 +147,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
 
   const roleLabel = user?.mfgRole
     ? (MFG_ROLE_LABELS[user.mfgRole] ?? user.mfgRole)
-    : user?.role === 'MANAGER' ? 'Giám đốc (xem)' : isWarehouse ? 'Thủ kho' : ''
+    : user?.role === 'BOSS' ? 'Giám đốc (xem)' : isWarehouse ? 'Thủ kho' : ''
 
   const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
     ...(canManageWorkshop ? [{ id: 'workshop' as TabId, label: 'Tổng hợp lệnh SX', icon: <LayoutGrid size={16}/> }] : []),

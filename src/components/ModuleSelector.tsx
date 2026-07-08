@@ -37,11 +37,11 @@ export default function ModuleSelector({ user, onLogout, onSelectModule }: Modul
               </span>
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                background: user.role === 'MANAGER' ? '#eff6ff' : '#fef3c7',
-                color: user.role === 'MANAGER' ? '#1d4ed8' : '#b45309',
-                border: user.role === 'MANAGER' ? '1px solid #bfdbfe' : '1px solid #fde68a'
+                background: user.role === 'BOSS' ? '#eff6ff' : '#fef3c7',
+                color: user.role === 'BOSS' ? '#1d4ed8' : '#b45309',
+                border: user.role === 'BOSS' ? '1px solid #bfdbfe' : '1px solid #fde68a'
               }}>
-                {user.role === 'MANAGER' ? 'Giám đốc' : 'Thủ kho'}
+                {user.role === 'BOSS' ? 'Giám đốc' : 'Thủ kho'}
               </span>
               <button 
                 onClick={onLogout} 
@@ -65,14 +65,14 @@ export default function ModuleSelector({ user, onLogout, onSelectModule }: Modul
             // Quyền truy cập theo role
             const isAccessible = (() => {
               if (!isImplemented) return false;
-              if (mod.id === 'sales')      return (user?.role === 'MANAGER' && !user?.mfgRole) || !!user?.isSale;
-              if (mod.id === 'production') return user?.role === 'MANAGER' || !!user?.mfgRole;
-              if (mod.id === 'purchasing') return (user?.role === 'MANAGER' && !user?.mfgRole) || !!user?.isPurchaser;
+              if (mod.id === 'sales')      return (user?.role === 'BOSS' && !user?.mfgRole) || !!user?.isSale;
+              if (mod.id === 'production') return user?.role === 'BOSS' || !!user?.mfgRole;
+              if (mod.id === 'purchasing') return (user?.role === 'BOSS' && !user?.mfgRole) || !!user?.isPurchaser;
               if (mod.id === 'inbound_warehouse') {
                 if (user?.mfgRole || user?.isProductPlanner || user?.isPurchaser || user?.isSale) return false;
-                return user?.role === 'WAREHOUSE_STAFF' || user?.role === 'MANAGER';
+                return user?.role === 'WAREHOUSE_STAFF' || user?.role === 'BOSS';
               }
-              if (mod.id === 'production_plan') return (user?.role === 'MANAGER' && !user?.mfgRole) || !!user?.isProductPlanner;
+              if (mod.id === 'production_plan') return (user?.role === 'BOSS' && !user?.mfgRole) || !!user?.isProductPlanner;
               return false;
             })();
 

@@ -84,7 +84,7 @@ const inputStyle: React.CSSProperties = {
 
 export default function MfgFramePiecePage() {
   const { user } = useAuth()
-  // Giám đốc (MANAGER không mfgRole) và Quản lý SX (PRODUCTION_MANAGER) chỉ XEM, BOM_MANAGER được phép CRUD.
+  // Giám đốc (BOSS không mfgRole) và Quản lý SX (PRODUCTION_MANAGER) chỉ XEM, BOM_MANAGER được phép CRUD.
   const canEdit = user?.mfgRole === 'BOM_MANAGER'
 
   const [productId, setProductId] = useState<number | ''>('')

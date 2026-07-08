@@ -90,7 +90,7 @@ interface Props {
 
 export default function MfgPhoiPage({ piId, subTab: subTabProp, readOnly = false, stageProgress, stageStatus }: Props) {
   const { user } = useAuth()
-  // Giám đốc (MANAGER không mfgRole) chỉ XEM — không báo/duyệt (đồng bộ MfgRolesGuard backend).
+  // Giám đốc (BOSS không mfgRole) chỉ XEM — không báo/duyệt (đồng bộ MfgRolesGuard backend).
   // Tài khoản phôi = nhân viên thống kê xưởng: 1 người ghi nhận MỌI công đoạn (không khóa 1 công đoạn).
   const isPhoiStaff = user?.mfgRole === 'PHOI' || !!user?.phoiOperation
   const canReport = !readOnly && (isPhoiStaff || user?.mfgRole === 'PRODUCTION_MANAGER')

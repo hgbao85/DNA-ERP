@@ -54,7 +54,7 @@ const td: React.CSSProperties = { padding: '9px 12px', color: 'var(--text)' }
 const vnd = (n?: number | null) => (n == null ? '—' : n.toLocaleString('vi-VN') + 'đ')
 
 export default function TongQuanPage() {
-  const { isManager } = useAuth()
+  const { isBoss } = useAuth()
   const { data: commands, isLoading, refetch } = useFetch<Command[]>(() => api.getPurchaseCommands())
   const { data: purchaseOrders, refetch: refetchPO } = useFetch<PurchaseOrder[]>(
     () => (api as any).getPurchaseOrders(), []
@@ -143,7 +143,7 @@ export default function TongQuanPage() {
       </div>
 
       {/* ── Section duyệt đơn mua KHSX (chỉ GĐ) ── */}
-      {isManager && pendingApproval.length > 0 && (
+      {isBoss && pendingApproval.length > 0 && (
         <div style={{ marginBottom: 24, border: '2px solid #7c3aed', borderRadius: 10, overflow: 'hidden' }}>
           <div style={{ background: '#ede7f6', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 8 }}>
             <AlertCircle size={16} color="#4527a0" />

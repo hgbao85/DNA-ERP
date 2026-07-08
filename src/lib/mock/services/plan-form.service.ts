@@ -117,7 +117,7 @@ class PlanFormService extends BaseService<PlanForm> {
   async approveDetail(id: number): Promise<PlanForm> { return this.transition(id, 'WAITING_PARTS'); }
   async approveParts(id: number):  Promise<PlanForm> { return this.transition(id, 'APPROVED_PARTS'); }
   /** KHSX gửi danh sách mảnh đã duyệt cho sếp (Giám đốc) phê duyệt lần cuối trước khi bắt đầu sản xuất. */
-  async requestManagerApproval(id: number): Promise<PlanForm> { return this.transition(id, 'WAITING_MANAGER_APPROVAL'); }
+  async requestBossApproval(id: number): Promise<PlanForm> { return this.transition(id, 'WAITING_BOSS_APPROVAL'); }
   async approveFull(id: number):   Promise<PlanForm> { return this.transition(id, 'APPROVED'); }
 
   /**
@@ -224,7 +224,7 @@ export const proposePlanForm     = (data: CreatePlanFormPayload) => planFormSvc.
 export const proposePlanFormById = (id: number)                => planFormSvc.proposeById(id);
 export const approveDetailPlanForm = (id: number)              => planFormSvc.approveDetail(id);
 export const approvePartsPlanForm  = (id: number)              => planFormSvc.approveParts(id);
-export const requestManagerApprovalPlanForm = (id: number)     => planFormSvc.requestManagerApproval(id);
+export const requestBossApprovalPlanForm = (id: number)        => planFormSvc.requestBossApproval(id);
 export const approveFullPlanForm   = (id: number)              => planFormSvc.approveFull(id);
 export const deletePlanForms     = (ids: number[])             => planFormSvc.deleteMany(ids);
 export const updatePlanFormDetailQuota = <K extends keyof MaterialType>(id: number, group: K, items: MaterialType[K], enteredBy: string) =>

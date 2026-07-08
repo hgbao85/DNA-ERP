@@ -36,7 +36,7 @@ export default function LenhSXPage() {
   const viewingPI = viewingPIId ? (Array.isArray(pis) ? pis : []).find((p: any) => p.id === viewingPIId) ?? null : null
   const getDisplayCode = (item: any) => item?.exportOrder?.poNumber || item?.poNumber || item?.code || '—'
 
-  // Giám đốc (MANAGER không mfgRole) chỉ XEM — không xác nhận đơn/tạo PI (đồng bộ backend).
+  // Giám đốc (BOSS không mfgRole) chỉ XEM — không xác nhận đơn/tạo PI (đồng bộ backend).
   const isPlanner = user?.mfgRole === 'PRODUCTION_MANAGER'
 
   // Đơn hàng chờ lên kế hoạch (chỉ planner thấy)
