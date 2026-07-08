@@ -1,6 +1,7 @@
 import type { PlanForm } from '../../../types/plan-form';
 import type { SpecRole, SpecBom, SpecRoleState } from '../../../types/spec-entry';
 import type { ManhOrder } from '../../../types/manh';
+import { seedSalesCustomers, seedSalesPOs } from './seed-sales';
 import {
   seedPhoiExecutions,
   seedStageExec,
@@ -1057,6 +1058,8 @@ export const seedWarehouseReceipts = [
 
 export function createInitialMockState() {
   return {
+    salesCustomers: structuredClone(seedSalesCustomers),
+    salesPOs: structuredClone(seedSalesPOs),
     mfgExportCustomers: structuredClone(seedMfgExportCustomers),
     mfgProducts: structuredClone(seedMfgProducts),
     productVariants: structuredClone(seedProductVariants),

@@ -1,6 +1,7 @@
-import { LayoutDashboard, Package, ShoppingCart, Truck, Factory, DollarSign, Wallet, CheckSquare, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, Package, ShoppingCart, Truck, Factory, DollarSign, Wallet, CheckSquare, LogOut } from 'lucide-react'
 
 const ALL_MODULES = [
+  { id: 'sales', name: 'Bán hàng', desc: 'Quản lý đơn hàng, quản lý khách hàng', icon: <Users size={32} />, color: '#E8F5E9', textColor: '#2E7D32' },
   { id: 'production_plan', name: 'Kế hoạch SX', desc: 'Tổng nhu cầu NVL, lệnh sản xuất', icon: <LayoutDashboard size={32} />, color: '#E8F5E9', textColor: '#2E7D32' },
   { id: 'purchasing', name: 'Mua hàng', desc: 'RFQ, so sánh giá, PO, gửi NCC', icon: <ShoppingCart size={32} />, color: '#EDE7F6', textColor: '#4527A0' },
   { id: 'inbound_warehouse', name: 'Kho đầu vào', desc: 'Theo dõi vật tư về, nhập kho NVL', icon: <Package size={32} />, color: '#EDE7F6', textColor: '#4527A0' },
@@ -59,15 +60,16 @@ export default function ModuleSelector({ user, onLogout, onSelectModule }: Modul
         
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 20 }}>
           {ALL_MODULES.map(mod => {
-            const isImplemented = mod.id === 'production' || mod.id === 'purchasing' || mod.id === 'inbound_warehouse' || mod.id === 'production_plan';
+            const isImplemented = mod.id === 'sales' || mod.id === 'production' || mod.id === 'purchasing' || mod.id === 'inbound_warehouse' || mod.id === 'production_plan';
 
             // Quyền truy cập theo role
             const isAccessible = (() => {
               if (!isImplemented) return false;
+              if (mod.id === 'sales')      return (user?.role === 'MANAGER' && !user?.mfgRole) || !!user?.isSale;
               if (mod.id === 'production') return user?.role === 'MANAGER' || !!user?.mfgRole;
               if (mod.id === 'purchasing') return (user?.role === 'MANAGER' && !user?.mfgRole) || !!user?.isPurchaser;
               if (mod.id === 'inbound_warehouse') {
-                if (user?.mfgRole || user?.isProductPlanner || user?.isPurchaser) return false;
+                if (user?.mfgRole || user?.isProductPlanner || user?.isPurchaser || user?.isSale) return false;
                 return user?.role === 'WAREHOUSE_STAFF' || user?.role === 'MANAGER';
               }
               if (mod.id === 'production_plan') return (user?.role === 'MANAGER' && !user?.mfgRole) || !!user?.isProductPlanner;

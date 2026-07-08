@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ModuleSelector from '../components/ModuleSelector';
+import SalesApp from '../modules/pages/Sales/SalesApp';
 import MfgApp from '../modules/pages/Manufacturing/MfgApp';
 import PurchasingApp from '../modules/pages/Purchasing/PurchasingApp';
 import InboundWarehouseApp from '../modules/pages/InboundWarehouse/InboundWarehouseApp';
@@ -43,7 +44,7 @@ function MainERP() {
   useEffect(() => {
     if (!user || isDirector) return;
     setActiveModule(resolveDefaultModule(user));
-  }, [user?.id, user?.isProductPlanner, user?.isPurchaser, user?.mfgRole, user?.role, isDirector]);
+  }, [user?.id, user?.isProductPlanner, user?.isPurchaser, user?.isSale, user?.mfgRole, user?.role, isDirector]);
 
   if (!activeModule) {
     return (
@@ -57,6 +58,10 @@ function MainERP() {
 
   if (activeModule === 'manager') {
     return <ManagerApp />;
+  }
+
+  if (activeModule === 'sales') {
+    return <SalesApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
   }
 
   if (activeModule === 'production') {

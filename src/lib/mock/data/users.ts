@@ -14,6 +14,11 @@ export const MOCK_ACCOUNTS: MockAccount[] = [
     user: { id: 1, name: 'Manager Tuấn', email: 'manager@demo.com', role: 'MANAGER' },
   },
   {
+    email: 'sales@demo.com',
+    password: 'demo1234',
+    user: { id: 70, name: 'NV Sales Minh', email: 'sales@demo.com', role: 'WAREHOUSE_STAFF', isSale: true },
+  },
+  {
     email: 'khovattutp@demo.com',
     password: 'demo1234',
     user: { id: 6, name: 'Thủ kho Vật tư thành phẩm', email: 'khovattutp@demo.com', role: 'WAREHOUSE_STAFF', warehouseScope: 'vat-tu-tp' },
