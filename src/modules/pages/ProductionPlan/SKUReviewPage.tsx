@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { Plus, X } from 'lucide-react'
+import { useAuth } from '../../../context/AuthContext'
 import type { PlanForm, CreatePlanFormPayload } from '../../../types/plan-form'
 import { SKUDetail, StatusBadge, STATUS_MAP } from './SKUDetail'
 import SearchInput from '../../../components/SearchInput'
@@ -11,15 +12,22 @@ import LoadingState from '../../../components/LoadingState'
 import RefreshButton from '../../../components/RefreshButton'
 import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 
-const PENDING_STATUSES = new Set(['WAITING_DETAIL', 'WAITING_PARTS', 'APPROVED_DETAIL', 'APPROVED_PARTS'])
-type StatusFilter = 'all' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS'
+// KHSX theo dõi toàn bộ vòng đời SKU; Sếp (Giám đốc) chỉ cần thấy các item đang chờ mình duyệt lần cuối.
+const PLANNER_PENDING_STATUSES = new Set(['WAITING_DETAIL', 'WAITING_PARTS', 'APPROVED_DETAIL', 'APPROVED_PARTS', 'WAITING_MANAGER_APPROVAL'])
+const MANAGER_PENDING_STATUSES = new Set(['WAITING_MANAGER_APPROVAL'])
+type StatusFilter = 'all' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS' | 'WAITING_MANAGER_APPROVAL'
 
-const FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }[] = [
+const PLANNER_FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }[] = [
   { key: 'all',             label: 'Tất cả' },
   { key: 'WAITING_DETAIL',  ...STATUS_MAP.WAITING_DETAIL },
   { key: 'WAITING_PARTS',   ...STATUS_MAP.WAITING_PARTS },
   { key: 'APPROVED_DETAIL', ...STATUS_MAP.APPROVED_DETAIL },
   { key: 'APPROVED_PARTS',  ...STATUS_MAP.APPROVED_PARTS },
+  { key: 'WAITING_MANAGER_APPROVAL', ...STATUS_MAP.WAITING_MANAGER_APPROVAL },
+]
+const MANAGER_FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }[] = [
+  { key: 'all',             label: 'Tất cả' },
+  { key: 'WAITING_MANAGER_APPROVAL', ...STATUS_MAP.WAITING_MANAGER_APPROVAL },
 ]
 
 const emptyForm = (): CreatePlanFormPayload => ({
@@ -27,6 +35,9 @@ const emptyForm = (): CreatePlanFormPayload => ({
 })
 
 export default function SKUReviewPage() {
+  const { isManager } = useAuth()
+  const PENDING_STATUSES = isManager ? MANAGER_PENDING_STATUSES : PLANNER_PENDING_STATUSES
+  const FILTERS = isManager ? MANAGER_FILTERS : PLANNER_FILTERS
   const { data: planForms = [], isLoading, refetch } = useFetch(() => api.getPlanForms(), [])
   const { data: formOptions } = useFetch(() => api.getPlanFormOptions(), [])
   const exportOrders = (formOptions?.exportOrders ?? []) as { id: number }[]
@@ -93,7 +104,16 @@ export default function SKUReviewPage() {
     setSelectedPf(updated)
   }
 
-  const handleStartProduction = async () => {
+  // KHSX gửi danh sách mảnh đã duyệt cho sếp phê duyệt lần cuối (thay vì tự bắt đầu sản xuất).
+  const handleSendForManagerApproval = async () => {
+    if (!selectedPf) return
+    const updated = await api.requestManagerApprovalPlanForm(selectedPf.id)
+    refetch()
+    setSelectedPf(updated)
+  }
+
+  // Sếp duyệt lần cuối — SKU chính thức bắt đầu sản xuất.
+  const handleApproveManagerRequest = async () => {
     if (!selectedPf) return
     await api.approveFullPlanForm(selectedPf.id)
     refetch()
@@ -122,7 +142,8 @@ export default function SKUReviewPage() {
         onBack={() => setSelectedPf(null)}
         onApproveDetail={handleApproveDetail}
         onApproveParts={handleApproveParts}
-        onStartProduction={handleStartProduction}
+        onSendForManagerApproval={handleSendForManagerApproval}
+        onApproveManagerRequest={handleApproveManagerRequest}
         onRefresh={handleRefreshSelected}
         refreshing={refreshingSelected}
       />

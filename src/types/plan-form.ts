@@ -1,4 +1,4 @@
-export type PlanFormStatus = 'DRAFT' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS' | 'APPROVED' | 'REJECTED';
+export type PlanFormStatus = 'DRAFT' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS' | 'WAITING_MANAGER_APPROVAL' | 'APPROVED' | 'REJECTED';
 
 export interface SatItem {
   id?: number;

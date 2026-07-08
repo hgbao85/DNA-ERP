@@ -5,6 +5,7 @@ import GenericStatusBadge from '../../../components/StatusBadge'
 import Modal from '../../../components/Modal'
 import RefreshButton from '../../../components/RefreshButton'
 import * as api from '../../../services/api'
+import { useAuth } from '../../../context/AuthContext'
 import type { ManhRow, PlanForm } from '../../../types/plan-form'
 import { STATUS_MAP } from '../../../constants/planFormStatus'
 
@@ -22,7 +23,8 @@ export function SKUDetail({
   onBack,
   onApproveDetail,
   onApproveParts,
-  onStartProduction,
+  onSendForManagerApproval,
+  onApproveManagerRequest,
   onRefresh,
   refreshing = false,
 }: {
@@ -31,10 +33,12 @@ export function SKUDetail({
   onBack: () => void
   onApproveDetail?: () => Promise<void>
   onApproveParts?: () => Promise<void>
-  onStartProduction?: () => Promise<void>
+  onSendForManagerApproval?: () => Promise<void>
+  onApproveManagerRequest?: () => Promise<void>
   onRefresh?: () => void
   refreshing?: boolean
 }) {
+  const { isManager } = useAuth()
   const mt = pf.quotaManagement?.materialType
 
   // Chi tiết đã được duyệt khi status vượt qua giai đoạn APPROVED_DETAIL (đã gửi bộ phận nhập mảnh)
@@ -131,6 +135,10 @@ export function SKUDetail({
         {pf.proposedAt && <span><span style={{ color: 'var(--text3)' }}>Đề xuất: </span><strong>{format(new Date(pf.proposedAt), 'dd/MM/yyyy')}</strong></span>}
       </div>
 
+      {isManager ? (
+        <ManagerReviewView pf={pf} readOnly={readOnly} onApproveManagerRequest={onApproveManagerRequest} />
+      ) : (
+      <>
       {/* Sub-tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
         {([
@@ -161,7 +169,7 @@ export function SKUDetail({
           readOnly={readOnly}
           manhItems={pf.manhItems}
           onApproveParts={onApproveParts}
-          onStartProduction={onStartProduction}
+          onSendForManagerApproval={onSendForManagerApproval}
         />
       )}
 
@@ -330,6 +338,129 @@ export function SKUDetail({
               <button onClick={confirmSectionReject} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#dc2626', color: '#fff' }}>Xác nhận từ chối</button>
             </div>
       </Modal>
+      </>
+      )}
+    </div>
+  )
+}
+
+// ─── ManagerReviewView ────────────────────────────────────────────────────────
+// Sếp duyệt lần cuối: xem gộp cả định mức chi tiết + định mức mảnh trong 1 màn hình
+// (không tách tab như luồng KHSX), rồi duyệt 1 lần để chính thức bắt đầu sản xuất.
+
+function ManagerReviewView({
+  pf, readOnly = false, onApproveManagerRequest,
+}: {
+  pf: PlanForm
+  readOnly?: boolean
+  onApproveManagerRequest?: () => Promise<void>
+}) {
+  const mt = pf.quotaManagement?.materialType
+  const [processing, setProcessing] = useState(false)
+  const [confirmApprove, setConfirmApprove] = useState(false)
+  const noop = () => {}
+
+  const reviewEntry = (k: 'sat' | 'daySon' | 'vatTuPhuKien' | 'baoBiDongGoi') => {
+    const r = pf.quotaManagement?.reviewStatus?.[k]
+    return r
+      ? { status: r.status, at: new Date(r.reviewedAt), reason: r.reason }
+      : { status: 'APPROVED' as const, at: new Date(pf.proposedAt ?? pf.createdAt) }
+  }
+
+  const handleApprove = async () => {
+    if (!onApproveManagerRequest) return
+    setProcessing(true)
+    try { await onApproveManagerRequest() } finally { setProcessing(false) }
+  }
+
+  return (
+    <div>
+      {/* Định mức chi tiết */}
+      <div style={{ marginBottom: 24 }}>
+        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>Định mức chi tiết</div>
+        {mt ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <MaterialSection
+              title="Sắt" color="#b45309" bg="#fef3c7" readOnly
+              entry={reviewEntry('sat')} onApprove={noop} onReject={noop}
+              items={(Array.isArray(mt.sat) ? mt.sat : []).map(i => ({
+                name: i.name,
+                spec: [i.specifications, i.thickness != null ? `dày ${i.thickness}mm` : null].filter(Boolean).join(', ') || null,
+                unitQty: i.quantity != null ? `${i.quantity} ${i.unit ?? ''}`.trim() : (i.unit ?? null),
+              }))}
+            />
+            <MaterialSection
+              title="Dây / Sơn" color="#1d4ed8" bg="#eff6ff" readOnly
+              entry={reviewEntry('daySon')} onApprove={noop} onReject={noop}
+              items={(Array.isArray(mt.daySon) ? mt.daySon : []).map(i => ({
+                name: i.name,
+                spec: i.specifications || null,
+                unitQty: i.kg != null ? `${i.kg} kg` : (i.unit ?? null),
+              }))}
+            />
+            <MaterialSection
+              title="Vật tư phụ kiện" color="#6d28d9" bg="#ede9fe" readOnly
+              entry={reviewEntry('vatTuPhuKien')} onApprove={noop} onReject={noop}
+              items={(Array.isArray(mt.vatTuPhuKien) ? mt.vatTuPhuKien : []).map(i => ({
+                name: i.name, spec: i.specifications || null,
+                unitQty: i.quantity != null ? `${i.quantity} ${i.unit ?? ''}`.trim() : (i.unit ?? null),
+              }))}
+            />
+            <MaterialSection
+              title="Bao bì đóng gói" color="#065f46" bg="#d1fae5" readOnly
+              entry={reviewEntry('baoBiDongGoi')} onApprove={noop} onReject={noop}
+              items={(Array.isArray(mt.baoBiDongGoi) ? mt.baoBiDongGoi : []).map(i => ({
+                name: i.name, spec: i.specifications || null,
+                unitQty: i.quantity != null ? `${i.quantity} ${i.unit ?? ''}`.trim() : (i.unit ?? null),
+              }))}
+            />
+          </div>
+        ) : (
+          <div style={{ padding: 20, background: 'var(--surface2)', borderRadius: 8, color: 'var(--text3)', fontSize: 13 }}>
+            Chưa có thông tin định mức chi tiết
+          </div>
+        )}
+      </div>
+
+      {/* Định mức mảnh */}
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>Định mức mảnh</div>
+      <DinhMucManh status={pf.status} readOnly manhItems={pf.manhItems} />
+
+      {/* Action bar — duyệt gộp cả 2 phần để chính thức bắt đầu sản xuất */}
+      {!readOnly && pf.status === 'WAITING_MANAGER_APPROVAL' && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
+          <button
+            onClick={() => setConfirmApprove(true)}
+            disabled={processing}
+            style={{
+              padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
+              cursor: processing ? 'default' : 'pointer',
+              background: '#16a34a', color: '#fff', opacity: processing ? 0.7 : 1,
+            }}
+          >{processing ? 'Đang xử lý...' : 'Duyệt'}</button>
+        </div>
+      )}
+      {pf.status === 'APPROVED' && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã duyệt</span>
+        </div>
+      )}
+
+      {/* Modal xác nhận duyệt */}
+      <Modal open={confirmApprove} maxWidth={420} zIndex={2000}>
+        <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận duyệt</h3>
+        <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
+          Xác nhận duyệt định mức chi tiết và định mức mảnh của SKU này? Sau khi duyệt, SKU sẽ được thêm vào danh sách.
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={() => setConfirmApprove(false)} style={btnSecondary}>Hủy</button>
+          <button
+            onClick={async () => { setConfirmApprove(false); await handleApprove() }}
+            disabled={processing}
+            style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff' }}
+          >Duyệt</button>
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -408,17 +539,19 @@ function MaterialSection({
 type ManhApprovalEntry = { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
 
 function DinhMucManh({
-  status, readOnly = false, manhItems, onApproveParts, onStartProduction,
+  status, readOnly = false, manhItems, onApproveParts, onSendForManagerApproval,
 }: {
   status: string
   readOnly?: boolean
   manhItems?: ManhRow[]
   onApproveParts?: () => Promise<void>
-  onStartProduction?: () => Promise<void>
+  onSendForManagerApproval?: () => Promise<void>
 }) {
+  const { isManager } = useAuth()
   // Dữ liệu mảnh thật do account Sắt nhập (qua updatePlanFormManhQuota); trống cho tới khi có người nhập.
   const rows = manhItems ?? []
-  const partsAlreadyApproved = status === 'APPROVED'
+  // Mảnh coi như đã duyệt xong khi SKU đã qua giai đoạn APPROVED_PARTS (đang chờ sếp duyệt hoặc đã duyệt xong).
+  const partsAlreadyApproved = status === 'WAITING_MANAGER_APPROVAL' || status === 'APPROVED'
 
   const [approval, setApproval] = useState<ManhApprovalEntry>(() =>
     partsAlreadyApproved ? { status: 'APPROVED', at: new Date() } : null
@@ -427,7 +560,7 @@ function DinhMucManh({
   const [rejectReason, setRejectReason] = useState('')
   const [processing, setProcessing] = useState(false)
   const [confirmApproveParts, setConfirmApproveParts] = useState(false)
-  const [confirmStartProduction, setConfirmStartProduction] = useState(false)
+  const [confirmSendForManagerApproval, setConfirmSendForManagerApproval] = useState(false)
   const [showSendBackModal, setShowSendBackModal] = useState(false)
   const [sendBackDone, setSendBackDone] = useState(false)
 
@@ -445,10 +578,10 @@ function DinhMucManh({
     try { await onApproveParts() } finally { setProcessing(false) }
   }
 
-  const handleStartProduction = async () => {
-    if (!onStartProduction) return
+  const handleSendForManagerApproval = async () => {
+    if (!onSendForManagerApproval) return
     setProcessing(true)
-    try { await onStartProduction() } finally { setProcessing(false) }
+    try { await onSendForManagerApproval() } finally { setProcessing(false) }
   }
 
   // Chỉ duyệt được khi đã có dữ liệu mảnh thật (status APPROVED_PARTS = account Sắt đã nhập xong)
@@ -540,8 +673,8 @@ function DinhMucManh({
       </div>
       )}
 
-      {/* Action bar — chỉ hiện khi đã có dữ liệu mảnh thật chờ duyệt (APPROVED_PARTS) */}
-      {!readOnly && status === 'APPROVED_PARTS' && (
+      {/* Action bar — KHSX: chỉ hiện khi đã có dữ liệu mảnh thật chờ duyệt (APPROVED_PARTS) */}
+      {!readOnly && !isManager && status === 'APPROVED_PARTS' && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
           {!isLocallyApproved && !isLocallyRejected && (
             <span style={{ fontSize: 12, color: '#d97706' }}>Cần duyệt danh sách mảnh mới chuyển đến công đoạn tiếp theo</span>
@@ -556,18 +689,25 @@ function DinhMucManh({
             <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>✓ Đã gửi lại bộ phận định mức mảnh</span>
           )}
           <button
-            onClick={() => setConfirmStartProduction(true)}
-            disabled={!isLocallyApproved || status !== 'APPROVED_PARTS' || processing}
+            onClick={() => setConfirmSendForManagerApproval(true)}
+            disabled={!isLocallyApproved || processing}
             style={{
               padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
-              cursor: isLocallyApproved && status === 'APPROVED_PARTS' && !processing ? 'pointer' : 'default',
-              background: isLocallyApproved && status === 'APPROVED_PARTS' && !processing ? '#16a34a' : '#e5e7eb',
-              color: isLocallyApproved && status === 'APPROVED_PARTS' ? '#fff' : '#9ca3af',
+              cursor: isLocallyApproved && !processing ? 'pointer' : 'default',
+              background: isLocallyApproved && !processing ? '#16a34a' : '#e5e7eb',
+              color: isLocallyApproved ? '#fff' : '#9ca3af',
               opacity: processing ? 0.7 : 1,
             }}
-          >{processing ? 'Đang xử lý...' : 'Bắt đầu sản xuất'}</button>
+          >{processing ? 'Đang xử lý...' : 'Gửi sếp duyệt'}</button>
         </div>
       )}
+      {/* KHSX: đã gửi, đang chờ sếp duyệt */}
+      {!isManager && status === 'WAITING_MANAGER_APPROVAL' && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <span style={{ fontSize: 12, color: '#0369a1', fontWeight: 600 }}>✓ Đã gửi sếp duyệt — đang chờ phê duyệt</span>
+        </div>
+      )}
+
       {partsAlreadyApproved && status === 'APPROVED' && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
           <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã bắt đầu sản xuất</span>
@@ -616,7 +756,7 @@ function DinhMucManh({
       <Modal open={confirmApproveParts} maxWidth={420} zIndex={2000}>
             <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận duyệt mảnh</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
-              Xác nhận duyệt định mức mảnh phôi? Sau khi duyệt, đơn hàng sẽ sẵn sàng để bắt đầu sản xuất.
+              Xác nhận duyệt định mức mảnh phôi? Sau khi duyệt, đơn hàng sẽ sẵn sàng để gửi sếp duyệt.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setConfirmApproveParts(false)} style={btnSecondary}>Hủy</button>
@@ -632,19 +772,19 @@ function DinhMucManh({
             </div>
       </Modal>
 
-      {/* Modal xác nhận bắt đầu sản xuất */}
-      <Modal open={confirmStartProduction} maxWidth={420} zIndex={2000}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận bắt đầu sản xuất</h3>
+      {/* Modal xác nhận gửi sếp duyệt (KHSX) */}
+      <Modal open={confirmSendForManagerApproval} maxWidth={420} zIndex={2000}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận gửi sếp duyệt</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
-              Xác nhận bắt đầu sản xuất? SKU này sẽ chuyển sang trạng thái &quot;Đã duyệt&quot;.
+              Xác nhận gửi danh sách mảnh phôi cho sếp phê duyệt? SKU này sẽ chuyển sang trạng thái &quot;Chờ sếp duyệt&quot;.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setConfirmStartProduction(false)} style={btnSecondary}>Hủy</button>
+              <button onClick={() => setConfirmSendForManagerApproval(false)} style={btnSecondary}>Hủy</button>
               <button
-                onClick={async () => { setConfirmStartProduction(false); await handleStartProduction() }}
+                onClick={async () => { setConfirmSendForManagerApproval(false); await handleSendForManagerApproval() }}
                 disabled={processing}
                 style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff' }}
-              >Bắt đầu sản xuất</button>
+              >Gửi sếp duyệt</button>
             </div>
       </Modal>
     </div>
