@@ -4,22 +4,42 @@ import * as api from '../../../services/api'
 import { format } from 'date-fns'
 import { Plus, Trash2, X, Check, ChevronLeft, Paperclip } from 'lucide-react'
 import type { SalesPO, SalesPOStatus, SalesCustomer } from '../../../types/sales'
-import { SALES_PO_STATUS_LABEL, SALES_PO_STATUS_ORDER, SALES_PRODUCTION_STAGES } from '../../../types/sales'
+import { SALES_PO_STATUS_LABEL, SALES_PRODUCTION_STAGES } from '../../../types/sales'
 import type { PlanForm } from '../../../types/plan-form'
 import { StatusBadge } from './StatusBadge'
 
 const fmtMoney = (n: number) => n.toLocaleString('vi-VN')
 
-type ItemDraft = { skuCode: string; skuName: string; totalQty: string; shippedQty: string; status: SalesPOStatus }
-const EMPTY_ITEM: ItemDraft = { skuCode: '', skuName: '', totalQty: '', shippedQty: '0', status: 'MUA_HANG' }
+/**
+ * Đồng bộ PO vừa tạo sang "Lệnh sản xuất mới" (LenhSXPage) của productplan@demo.com.
+ * Màn hình đó đọc api.getProductionInvoices() và chỉ hiển thị các bản ghi status
+ * 'PLANNING' — map đúng shape items[].productVariant.mfgProduct + quantity +
+ * deliveryDeadline là đủ để nó tự hiển thị (kể cả ước tính các mốc còn thiếu).
+ */
+function createProductionInvoiceFromPO(po: SalesPO) {
+  return api.createProductionInvoice({
+    status: 'PLANNING',
+    deadline: po.deliveryDate || new Date().toISOString(),
+    exportOrder: { poNumber: po.code },
+    items: po.items.map((it) => ({
+      quantity: it.totalQty,
+      deliveryDeadline: it.deliveryDate || undefined,
+      status: it.status,
+      productVariant: { colorCode: null, mfgProduct: { factoryCode: it.skuCode, name: it.skuName ?? '' } },
+    })),
+  })
+}
+
+type ItemDraft = { skuCode: string; skuName: string; totalQty: string; deliveryDate: string }
+const EMPTY_ITEM: ItemDraft = { skuCode: '', skuName: '', totalQty: '', deliveryDate: '' }
 type FormState = {
-  customerId: string; orderDate: string; deliveryDate: string; note: string
-  totalValue: string; attachmentName: string; attachmentUrl: string
+  customerId: string; orderDate: string; note: string
+  attachmentName: string; attachmentUrl: string
   items: ItemDraft[]
 }
 const emptyForm = (): FormState => ({
-  customerId: '', orderDate: new Date().toISOString().slice(0, 10), deliveryDate: '', note: '',
-  totalValue: '', attachmentName: '', attachmentUrl: '',
+  customerId: '', orderDate: new Date().toISOString().slice(0, 10), note: '',
+  attachmentName: '', attachmentUrl: '',
   items: [{ ...EMPTY_ITEM }],
 })
 
@@ -56,26 +76,32 @@ export default function OrderManagementPage() {
     setSaving(true)
     try {
       const customer = (customers ?? []).find((c) => c.id === Number(form.customerId))
+      const items = form.items
+        .filter((it) => it.skuCode.trim())
+        .map((it) => ({
+          skuCode: it.skuCode.trim(),
+          skuName: it.skuName.trim() || undefined,
+          totalQty: Number(it.totalQty) || 0,
+          shippedQty: 0,
+          status: 'LEN_KE_HOACH' as SalesPOStatus,
+          deliveryDate: it.deliveryDate ? new Date(it.deliveryDate).toISOString() : '',
+        }))
+      // Hạn giao PO = hạn giao xa nhất trong các SKU
+      const deliveryDate = items.reduce((latest, it) => (
+        it.deliveryDate && (!latest || it.deliveryDate > latest) ? it.deliveryDate : latest
+      ), '')
       const payload = {
         customerId: Number(form.customerId),
         customerName: customer?.name ?? '',
         orderDate: new Date(form.orderDate).toISOString(),
-        deliveryDate: form.deliveryDate ? new Date(form.deliveryDate).toISOString() : '',
-        totalValue: Number(form.totalValue) || 0,
+        deliveryDate,
         attachmentName: form.attachmentName || undefined,
         attachmentUrl: form.attachmentUrl || undefined,
         note: form.note.trim() || undefined,
-        items: form.items
-          .filter((it) => it.skuCode.trim())
-          .map((it) => ({
-            skuCode: it.skuCode.trim(),
-            skuName: it.skuName.trim() || undefined,
-            totalQty: Number(it.totalQty) || 0,
-            shippedQty: Number(it.shippedQty) || 0,
-            status: it.status,
-          })),
+        items,
       }
-      await api.createSalesPO(payload)
+      const createdPO = await api.createSalesPO(payload)
+      await createProductionInvoiceFromPO(createdPO)
       await refetch()
       setShowCreate(false)
     } finally {
@@ -121,8 +147,7 @@ export default function OrderManagementPage() {
             {(pos ?? []).map((po) => {
               const totalQty = po.items.reduce((s, it) => s + it.totalQty, 0)
               const doneCount = po.items.filter((it) => it.status === 'HOAN_THANH').length
-              const allDone = doneCount === po.items.length && po.items.length > 0
-              const activeStatus = allDone ? 'HOAN_THANH' : po.items.map((it) => it.status).sort((a, b) => SALES_PO_STATUS_ORDER.indexOf(a) - SALES_PO_STATUS_ORDER.indexOf(b))[0]
+              const notDoneCount = po.items.length - doneCount
               return (
                 <tr
                   key={po.id}
@@ -136,9 +161,12 @@ export default function OrderManagementPage() {
                   <td style={{ padding: '10px 12px', fontSize: 13 }}>{po.items.length} SKU</td>
                   <td style={{ padding: '10px 12px', fontWeight: 600, fontSize: 13 }}>{totalQty.toLocaleString()}</td>
                   <td style={{ padding: '10px 12px', fontSize: 12 }}>{po.deliveryDate ? format(new Date(po.deliveryDate), 'dd/MM/yyyy') : '—'}</td>
-                  <td style={{ padding: '10px 12px' }}>
-                    <StatusBadge status={activeStatus} />
-                    {!allDone && <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 6 }}>({doneCount}/{po.items.length} SKU xong)</span>}
+                  <td style={{ padding: '10px 12px', fontSize: 12 }}>
+                    <span style={{ fontWeight: 700, color: '#15803d' }}>{doneCount}</span>
+                    <span style={{ color: 'var(--text3)' }}> xong</span>
+                    <span style={{ color: 'var(--text3)' }}> · </span>
+                    <span style={{ fontWeight: 700, color: notDoneCount > 0 ? '#b45309' : 'var(--text3)' }}>{notDoneCount}</span>
+                    <span style={{ color: 'var(--text3)' }}> chưa xong</span>
                   </td>
                   <td style={{ padding: '10px 12px' }}>
                     <button
@@ -186,12 +214,6 @@ export default function OrderManagementPage() {
               <Field label="Ngày đặt">
                 <input type="date" value={form.orderDate} onChange={e => setForm(f => ({ ...f, orderDate: e.target.value }))} />
               </Field>
-              <Field label="Hạn giao">
-                <input type="date" value={form.deliveryDate} onChange={e => setForm(f => ({ ...f, deliveryDate: e.target.value }))} />
-              </Field>
-              <Field label="Tổng giá trị PO (VNĐ)">
-                <input type="number" value={form.totalValue} onChange={e => setForm(f => ({ ...f, totalValue: e.target.value }))} placeholder="0" />
-              </Field>
             </div>
 
             <div style={{ marginBottom: 20 }}>
@@ -212,9 +234,14 @@ export default function OrderManagementPage() {
             </div>
 
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 8 }}>SKU trong PO</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 135px 100px 28px', gap: 6, marginBottom: 6 }}>
+              {['SKU', 'Hạn giao', 'Tổng số', ''].map(h => (
+                <div key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)' }}>{h}</div>
+              ))}
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
               {form.items.map((it, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.6fr 80px 80px 1fr 28px', gap: 6, alignItems: 'center' }}>
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.6fr 135px 100px 28px', gap: 6, alignItems: 'center' }}>
                   <SearchableSelect
                     displayValue={it.skuCode ? `${it.skuCode} — ${it.skuName}` : ''}
                     options={skuOptions}
@@ -225,11 +252,8 @@ export default function OrderManagementPage() {
                     placeholder="Tìm hoặc chọn SKU đã duyệt *"
                     emptyText="Không tìm thấy SKU đã duyệt"
                   />
+                  <input type="date" value={it.deliveryDate} onChange={e => setItem(i, { deliveryDate: e.target.value })} title="Hạn giao" />
                   <input type="number" value={it.totalQty} onChange={e => setItem(i, { totalQty: e.target.value })} placeholder="Tổng số" />
-                  <input type="number" value={it.shippedQty} onChange={e => setItem(i, { shippedQty: e.target.value })} placeholder="Đã xuất" />
-                  <select value={it.status} onChange={e => setItem(i, { status: e.target.value as SalesPOStatus })}>
-                    {SALES_PO_STATUS_ORDER.map(s => <option key={s} value={s}>{SALES_PO_STATUS_LABEL[s]}</option>)}
-                  </select>
                   <button onClick={() => removeItem(i)} disabled={form.items.length === 1} style={{ padding: 4, background: 'transparent', border: 'none', cursor: form.items.length === 1 ? 'not-allowed' : 'pointer', opacity: form.items.length === 1 ? 0.3 : 1, display: 'flex' }}>
                     <Trash2 size={13} color="#E24B4A" />
                   </button>
@@ -321,8 +345,9 @@ function PODetailView({ po, onBack }: { po: SalesPO; onBack: () => void }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {po.items.map((item) => (
               <div key={item.id}>
-                <div style={{ fontSize: 12, marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 10 }}>
                   <strong>{item.skuCode}</strong>{item.skuName ? <span style={{ color: 'var(--text3)' }}> — {item.skuName}</span> : ''}
+                  <StatusBadge status={item.status} />
                 </div>
                 <ProductionStepper status={item.status} />
               </div>

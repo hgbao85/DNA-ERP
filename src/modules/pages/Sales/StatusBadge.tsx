@@ -2,6 +2,7 @@ import type { SalesPOStatus } from '../../../types/sales'
 import { SALES_PO_STATUS_LABEL } from '../../../types/sales'
 
 export const SALES_PO_STATUS_COLOR: Record<SalesPOStatus, { bg: string; color: string }> = {
+  LEN_KE_HOACH: { bg: '#f1f5f9', color: '#475569' },
   MUA_HANG: { bg: '#f3e5f5', color: '#7b1fa2' },
   KHUNG_CO_KHI: { bg: '#fff3e0', color: '#e65100' },
   DAN: { bg: '#ede7f6', color: '#4527a0' },

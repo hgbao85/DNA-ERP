@@ -8,7 +8,7 @@ export interface SalesCustomer {
   createdAt: string;
 }
 
-export type SalesPOStatus = 'MUA_HANG' | 'KHUNG_CO_KHI' | 'DAN' | 'CHUYEN_KIEM' | 'DONG_GOI' | 'HOAN_THANH';
+export type SalesPOStatus = 'LEN_KE_HOACH' | 'MUA_HANG' | 'KHUNG_CO_KHI' | 'DAN' | 'CHUYEN_KIEM' | 'DONG_GOI' | 'HOAN_THANH';
 
 export interface SalesPOItem {
   id: number;
@@ -17,6 +17,7 @@ export interface SalesPOItem {
   totalQty: number;
   shippedQty: number;
   status: SalesPOStatus;
+  deliveryDate: string;
 }
 
 export interface SalesPO {
@@ -25,6 +26,7 @@ export interface SalesPO {
   customerId: number;
   customerName: string;
   orderDate: string;
+  /** Hạn giao xa nhất trong các SKU của PO — suy ra từ items, không nhập trực tiếp. */
   deliveryDate: string;
   items: SalesPOItem[];
   totalValue: number;
@@ -38,6 +40,7 @@ export interface SalesPO {
 }
 
 export const SALES_PO_STATUS_LABEL: Record<SalesPOStatus, string> = {
+  LEN_KE_HOACH: 'Lên kế hoạch',
   MUA_HANG: 'Mua hàng',
   KHUNG_CO_KHI: 'Khung cơ khí',
   DAN: 'Đan',
@@ -46,7 +49,7 @@ export const SALES_PO_STATUS_LABEL: Record<SalesPOStatus, string> = {
   HOAN_THANH: 'Hoàn thành',
 };
 
-export const SALES_PO_STATUS_ORDER: SalesPOStatus[] = ['MUA_HANG', 'KHUNG_CO_KHI', 'DAN', 'CHUYEN_KIEM', 'DONG_GOI', 'HOAN_THANH'];
+export const SALES_PO_STATUS_ORDER: SalesPOStatus[] = ['LEN_KE_HOACH', 'MUA_HANG', 'KHUNG_CO_KHI', 'DAN', 'CHUYEN_KIEM', 'DONG_GOI', 'HOAN_THANH'];
 
 /** Các mốc chi tiết sản xuất — không gồm HOAN_THANH (đạt được khi xong hết Đóng gói). */
-export const SALES_PRODUCTION_STAGES: SalesPOStatus[] = ['MUA_HANG', 'KHUNG_CO_KHI', 'DAN', 'CHUYEN_KIEM', 'DONG_GOI'];
+export const SALES_PRODUCTION_STAGES: SalesPOStatus[] = ['LEN_KE_HOACH', 'MUA_HANG', 'KHUNG_CO_KHI', 'DAN', 'CHUYEN_KIEM', 'DONG_GOI'];

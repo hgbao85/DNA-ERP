@@ -3,8 +3,54 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import ExportOrderDetailModal from '../Manufacturing/ExportOrderDetailModal'
+import { StatusBadge } from '../Sales/StatusBadge'
+import type { SalesPOStatus } from '../../../types/sales'
 import { format } from 'date-fns'
 import { AlertCircle, CheckCircle2, FileText, Eye, X, CalendarClock, Pencil, Package, Play, ChevronRight, ChevronLeft, Search } from 'lucide-react'
+
+/**
+ * Khi PM xác nhận sản xuất 1 SKU cụ thể trong PI, tạo (hoặc tái dùng) 1 PlanForm
+ * cho đúng SKU đó — đây là dữ liệu duy nhất mà "Lệnh kiểm tra vật tư" của
+ * prodmgr@demo.com đọc (api.getPlanForms(), lọc status !== 'DRAFT'). PlanForm
+ * cần exportOrderId/mfgProductId trỏ tới bản ghi thật để enrich() ra đúng
+ * mã PO/SKU, nên tìm bản ghi đã có theo mã, không có thì tạo mới.
+ */
+async function ensurePlanFormForConfirmedItem(pi: any, item: any) {
+  const factoryCode = item.productVariant?.mfgProduct?.factoryCode
+  const productName = item.productVariant?.mfgProduct?.name ?? ''
+  const poNumber = pi.exportOrder?.poNumber ?? pi.code
+  const deliveryDate = item.deliveryDeadline ?? pi.deadline
+
+  const mfgProducts = (await api.getMfgProducts()) as any[]
+  const mfgProduct = mfgProducts.find((p) => p.factoryCode === factoryCode)
+    ?? await api.createMfgProduct({ factoryCode, name: productName })
+
+  const exportOrders = (await api.getExportOrders()) as any[]
+  const exportOrder = exportOrders.find((o) => o.poNumber === poNumber)
+    ?? await api.createExportOrder({ poNumber, deliveryDate, status: 'PLANNED' })
+
+  const created = await api.createPlanForm({
+    exportOrderId: exportOrder.id,
+    mfgProductId: mfgProduct.id,
+    customerName: pi.exportOrder?.customerName,
+  })
+
+  // Định mức chi tiết (BOM) là thuộc tính của SKU (mfgProduct), không đổi theo
+  // từng PO — PlanForm mới tạo mặc định trống, nên tái dùng định mức đã có sẵn
+  // của cùng SKU này (nếu có) thay vì để trống, để "kiểm tra vật tư" có dữ liệu.
+  const existingPlanForms = (await api.getPlanForms()) as any[]
+  const sourceMaterialType = existingPlanForms.find(
+    (pf) => pf.id !== created.id && pf.mfgProductId === mfgProduct.id && pf.quotaManagement?.materialType,
+  )?.quotaManagement?.materialType
+  if (sourceMaterialType) {
+    for (const group of ['sat', 'daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as const) {
+      const groupItems = sourceMaterialType[group]
+      if (Array.isArray(groupItems) && groupItems.length > 0) {
+        await api.updatePlanFormDetailQuota(created.id, group, groupItems, 'Hệ thống')
+      }
+    }
+  }
+}
 
 export default function LenhSXPage() {
   const { user } = useAuth()
@@ -128,6 +174,10 @@ export default function LenhSXPage() {
   const handleConfirmProduction = async (id: number) => {
     setConfirmingProdId(id)
     try {
+      if (selectedItemIdx !== null && confirmProdTarget) {
+        const item = (confirmProdTarget.items ?? [])[selectedItemIdx]
+        if (item) await ensurePlanFormForConfirmedItem(confirmProdTarget, item)
+      }
       await api.updateProductionInvoice(id, { status: 'PRODUCING' })
       refetch()
       setConfirmProdTarget(null)
@@ -295,7 +345,10 @@ export default function LenhSXPage() {
                   return (
                     <div key={idx} style={{ display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 110px', padding:'14px 18px', borderBottom: isLast ? 'none' : '1px solid var(--border)', alignItems:'center' }}>
                       <div>
-                        <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>{code}</div>
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>{code}</span>
+                          {item.status && <StatusBadge status={item.status as SalesPOStatus} />}
+                        </div>
                         {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
                         <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap' }}>
                           {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
