@@ -24,6 +24,9 @@ class SalesPOService extends BaseService<SalesPO> {
         id: nextId(),
         code: `PO-${String(s.salesPOs.length + 1).padStart(3, '0')}`,
         createdAt: new Date().toISOString(),
+        depositAmount: 0,
+        depositConfirmed: false,
+        paidAmount: 0,
         ...data,
         items,
       };

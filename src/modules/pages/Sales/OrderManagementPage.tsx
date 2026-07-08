@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { format } from 'date-fns'
-import { Plus, Trash2, X, Check, ChevronLeft } from 'lucide-react'
+import { Plus, Trash2, X, Check, ChevronLeft, Paperclip } from 'lucide-react'
 import type { SalesPO, SalesPOStatus, SalesCustomer } from '../../../types/sales'
 import { SALES_PO_STATUS_LABEL, SALES_PO_STATUS_ORDER, SALES_PRODUCTION_STAGES } from '../../../types/sales'
+import type { PlanForm } from '../../../types/plan-form'
 import { StatusBadge } from './StatusBadge'
 
 const fmtMoney = (n: number) => n.toLocaleString('vi-VN')
@@ -13,22 +14,34 @@ type ItemDraft = { skuCode: string; skuName: string; totalQty: string; shippedQt
 const EMPTY_ITEM: ItemDraft = { skuCode: '', skuName: '', totalQty: '', shippedQty: '0', status: 'MUA_HANG' }
 type FormState = {
   customerId: string; orderDate: string; deliveryDate: string; note: string
-  totalValue: string; depositAmount: string; depositConfirmed: boolean; paidAmount: string
+  totalValue: string; attachmentName: string; attachmentUrl: string
   items: ItemDraft[]
 }
 const emptyForm = (): FormState => ({
   customerId: '', orderDate: new Date().toISOString().slice(0, 10), deliveryDate: '', note: '',
-  totalValue: '', depositAmount: '', depositConfirmed: false, paidAmount: '',
+  totalValue: '', attachmentName: '', attachmentUrl: '',
   items: [{ ...EMPTY_ITEM }],
 })
 
 export default function OrderManagementPage() {
   const { data: pos, isLoading, error, refetch } = useFetch<SalesPO[]>(() => api.getSalesPOs())
   const { data: customers } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers())
+  const { data: planForms } = useFetch<PlanForm[]>(() => api.getPlanForms())
   const [showCreate, setShowCreate] = useState(false)
   const [detailPO, setDetailPO] = useState<SalesPO | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
   const [saving, setSaving] = useState(false)
+
+  // SKU đã duyệt (danh sách SKU của productplan@demo.com) — nguồn chọn SKU khi tạo PO
+  const skuOptions = (() => {
+    const byCode = new Map<string, { code: string; name: string }>()
+    for (const pf of planForms ?? []) {
+      if (pf.status === 'APPROVED' && pf.mfgProduct) {
+        byCode.set(pf.mfgProduct.factoryCode, { code: pf.mfgProduct.factoryCode, name: pf.mfgProduct.name })
+      }
+    }
+    return [...byCode.values()]
+  })()
 
   const openNew = () => { setForm(emptyForm()); setShowCreate(true) }
 
@@ -49,9 +62,8 @@ export default function OrderManagementPage() {
         orderDate: new Date(form.orderDate).toISOString(),
         deliveryDate: form.deliveryDate ? new Date(form.deliveryDate).toISOString() : '',
         totalValue: Number(form.totalValue) || 0,
-        depositAmount: Number(form.depositAmount) || 0,
-        depositConfirmed: form.depositConfirmed,
-        paidAmount: Number(form.paidAmount) || 0,
+        attachmentName: form.attachmentName || undefined,
+        attachmentUrl: form.attachmentUrl || undefined,
         note: form.note.trim() || undefined,
         items: form.items
           .filter((it) => it.skuCode.trim())
@@ -160,10 +172,16 @@ export default function OrderManagementPage() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
               <Field label="Khách hàng *">
-                <select value={form.customerId} onChange={e => setForm(f => ({ ...f, customerId: e.target.value }))}>
-                  <option value="">— Chọn khách hàng —</option>
-                  {(customers ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
+                <SearchableSelect
+                  displayValue={(customers ?? []).find(c => String(c.id) === form.customerId)?.name ?? ''}
+                  options={customers ?? []}
+                  getKey={c => String(c.id)}
+                  getSearchText={c => `${c.name} ${c.phone}`}
+                  renderOption={c => <><strong>{c.name}</strong> <span style={{ color: 'var(--text3)' }}>— {c.phone}</span></>}
+                  onSelect={c => setForm(f => ({ ...f, customerId: String(c.id) }))}
+                  placeholder="Tìm hoặc chọn khách hàng *"
+                  emptyText="Không tìm thấy khách hàng"
+                />
               </Field>
               <Field label="Ngày đặt">
                 <input type="date" value={form.orderDate} onChange={e => setForm(f => ({ ...f, orderDate: e.target.value }))} />
@@ -174,25 +192,39 @@ export default function OrderManagementPage() {
               <Field label="Tổng giá trị PO (VNĐ)">
                 <input type="number" value={form.totalValue} onChange={e => setForm(f => ({ ...f, totalValue: e.target.value }))} placeholder="0" />
               </Field>
-              <Field label="Tiền cọc (VNĐ)">
-                <input type="number" value={form.depositAmount} onChange={e => setForm(f => ({ ...f, depositAmount: e.target.value }))} placeholder="0" />
-              </Field>
-              <Field label="Đã thanh toán (VNĐ, gồm cọc)">
-                <input type="number" value={form.paidAmount} onChange={e => setForm(f => ({ ...f, paidAmount: e.target.value }))} placeholder="0" />
-              </Field>
             </div>
 
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, marginBottom: 20, cursor: 'pointer' }}>
-              <input type="checkbox" checked={form.depositConfirmed} onChange={e => setForm(f => ({ ...f, depositConfirmed: e.target.checked }))} />
-              Đã xác nhận cọc
-            </label>
+            <div style={{ marginBottom: 20 }}>
+              <Field label="File đính kèm (PO, hợp đồng...)">
+                <input
+                  type="file"
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    setForm(f => ({ ...f, attachmentName: file?.name ?? '', attachmentUrl: file ? URL.createObjectURL(file) : '' }))
+                  }}
+                />
+              </Field>
+              {form.attachmentName && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text2)', marginTop: 6 }}>
+                  <Paperclip size={12} /> {form.attachmentName}
+                </div>
+              )}
+            </div>
 
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 8 }}>SKU trong PO</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
               {form.items.map((it, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px 80px 1fr 28px', gap: 6, alignItems: 'center' }}>
-                  <input value={it.skuCode} onChange={e => setItem(i, { skuCode: e.target.value })} placeholder="Mã SKU *" />
-                  <input value={it.skuName} onChange={e => setItem(i, { skuName: e.target.value })} placeholder="Tên SKU" />
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.6fr 80px 80px 1fr 28px', gap: 6, alignItems: 'center' }}>
+                  <SearchableSelect
+                    displayValue={it.skuCode ? `${it.skuCode} — ${it.skuName}` : ''}
+                    options={skuOptions}
+                    getKey={o => o.code}
+                    getSearchText={o => `${o.code} ${o.name}`}
+                    renderOption={o => <><strong>{o.code}</strong> <span style={{ color: 'var(--text3)' }}>— {o.name}</span></>}
+                    onSelect={o => setItem(i, { skuCode: o.code, skuName: o.name })}
+                    placeholder="Tìm hoặc chọn SKU đã duyệt *"
+                    emptyText="Không tìm thấy SKU đã duyệt"
+                  />
                   <input type="number" value={it.totalQty} onChange={e => setItem(i, { totalQty: e.target.value })} placeholder="Tổng số" />
                   <input type="number" value={it.shippedQty} onChange={e => setItem(i, { shippedQty: e.target.value })} placeholder="Đã xuất" />
                   <select value={it.status} onChange={e => setItem(i, { status: e.target.value as SalesPOStatus })}>
@@ -257,6 +289,11 @@ function PODetailView({ po, onBack }: { po: SalesPO; onBack: () => void }) {
           Ngày đặt {format(new Date(po.orderDate), 'dd/MM/yyyy')}
           {po.deliveryDate && <> · Hạn giao {format(new Date(po.deliveryDate), 'dd/MM/yyyy')}</>}
         </div>
+        {po.attachmentUrl && (
+          <a href={po.attachmentUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--blue)', textDecoration: 'none', marginTop: 6 }}>
+            <Paperclip size={12} /> {po.attachmentName || 'File đính kèm'}
+          </a>
+        )}
       </div>
 
       <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
@@ -347,6 +384,63 @@ function ProductionStepper({ status }: { status: SalesPOStatus }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+// ── Combobox tìm kiếm dùng chung: nhập để tìm hoặc mở dropdown để chọn ───────
+function SearchableSelect<T>({ displayValue, options, getKey, getSearchText, renderOption, onSelect, placeholder, emptyText }: {
+  displayValue: string
+  options: T[]
+  getKey: (o: T) => string
+  getSearchText: (o: T) => string
+  renderOption: (o: T) => React.ReactNode
+  onSelect: (o: T) => void
+  placeholder: string
+  emptyText: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [query, setQuery] = useState(displayValue)
+
+  useEffect(() => {
+    if (!open) setQuery(displayValue)
+  }, [displayValue, open])
+
+  const q = query.trim().toLowerCase()
+  const filtered = q ? options.filter(o => getSearchText(o).toLowerCase().includes(q)) : options
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <input
+        value={query}
+        onChange={e => { setQuery(e.target.value); setOpen(true) }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 120)}
+        placeholder={placeholder}
+      />
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, marginTop: 2, zIndex: 20,
+          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6,
+          maxHeight: 220, overflowY: 'auto', boxShadow: '0 4px 14px rgba(0,0,0,.12)',
+        }}>
+          {filtered.length === 0 && (
+            <div style={{ padding: '8px 10px', fontSize: 12, color: 'var(--text3)' }}>{emptyText}</div>
+          )}
+          {filtered.map(o => (
+            <button
+              key={getKey(o)}
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => { onSelect(o); setOpen(false) }}
+              style={{ display: 'block', width: '100%', textAlign: 'left', padding: '7px 10px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: 12 }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+            >
+              {renderOption(o)}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

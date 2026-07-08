@@ -31,6 +31,8 @@ export interface SalesPO {
   depositAmount: number;
   depositConfirmed: boolean;
   paidAmount: number;
+  attachmentName?: string;
+  attachmentUrl?: string;
   note?: string;
   createdAt: string;
 }

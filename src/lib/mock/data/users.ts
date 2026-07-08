@@ -40,7 +40,7 @@ export const MOCK_ACCOUNTS: MockAccount[] = [
       id: 10,
       name: 'Quản lý SX Hùng',
       email: 'prodmgr@demo.com',
-      role: 'BOSS',
+      role: 'WAREHOUSE_STAFF',
       mfgRole: 'PRODUCTION_MANAGER',
     },
   },
