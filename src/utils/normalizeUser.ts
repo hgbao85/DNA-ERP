@@ -7,7 +7,6 @@ export function normalizeUser(raw: Record<string, unknown>): User {
     name: raw.name as string,
     email: raw.email as string,
     role: raw.role as User['role'],
-    salesType: (raw.salesType as User['salesType']) ?? null,
     mfgRole: (raw.mfgRole as User['mfgRole']) ?? null,
     phoiOperation: (raw.phoiOperation as User['phoiOperation']) ?? null,
     warehouseScope: (raw.warehouseScope as User['warehouseScope']) ?? null,

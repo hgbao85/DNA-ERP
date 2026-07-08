@@ -14,21 +14,6 @@ export const MOCK_ACCOUNTS: MockAccount[] = [
     user: { id: 1, name: 'Manager Tuấn', email: 'manager@demo.com', role: 'MANAGER' },
   },
   {
-    email: 'sale1@demo.com',
-    password: 'demo1234',
-    user: { id: 2, name: 'Sales Hải', email: 'sale1@demo.com', role: 'SALES', salesType: 'RETAIL' },
-  },
-  {
-    email: 'sale2@demo.com',
-    password: 'demo1234',
-    user: { id: 3, name: 'Sales Vy', email: 'sale2@demo.com', role: 'SALES', salesType: 'RETAIL' },
-  },
-  {
-    email: 'sale3@demo.com',
-    password: 'demo1234',
-    user: { id: 4, name: 'Sales Đức', email: 'sale3@demo.com', role: 'SALES', salesType: 'WHOLESALE' },
-  },
-  {
     email: 'khovattutp@demo.com',
     password: 'demo1234',
     user: { id: 6, name: 'Thủ kho Vật tư thành phẩm', email: 'khovattutp@demo.com', role: 'WAREHOUSE_STAFF', warehouseScope: 'vat-tu-tp' },
@@ -52,18 +37,6 @@ export const MOCK_ACCOUNTS: MockAccount[] = [
       email: 'prodmgr@demo.com',
       role: 'MANAGER',
       mfgRole: 'PRODUCTION_MANAGER',
-    },
-  },
-  {
-    email: 'factorysales@demo.com',
-    password: 'demo1234',
-    user: {
-      id: 11,
-      name: 'Sales NM Lan',
-      email: 'factorysales@demo.com',
-      role: 'SALES',
-      salesType: 'WHOLESALE',
-      mfgRole: 'FACTORY_SALES',
     },
   },
   {

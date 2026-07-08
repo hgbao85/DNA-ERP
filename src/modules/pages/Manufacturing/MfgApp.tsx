@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, FileText, MapPin, ArrowDownToLine, ClipboardCheck, Box, History, FilePlus, Users, CalendarClock, ChevronDown, ScanSearch } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, FileText, MapPin, ArrowDownToLine, ClipboardCheck, Box, History, CalendarClock, ChevronDown, ScanSearch } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import MfgSetupPage from './MfgSetupPage'
@@ -7,9 +7,6 @@ import SpecSteelPage from './SpecSteelPage'
 import SpecWirePaintPage from './SpecWirePaintPage'
 import SpecAccessoryPage from './SpecAccessoryPage'
 import SpecPackagingPage from './SpecPackagingPage'
-import TongDonHangPage from './TongDonHangPage'
-import TaoDonHangMoiPage from './TaoDonHangMoiPage'
-import DanhSachKhachHangPage from './DanhSachKhachHangPage'
 import MfgWorkshopBoardPage from './MfgWorkshopBoardPage'
 import MfgWarehousesPage from './MfgWarehousesPage'
 import MfgAllMaterialsPage from './MfgAllMaterialsPage'
@@ -33,7 +30,7 @@ import LenhKiemTraPage from './LenhKiemTraPage'
 // ── Module-level constants (không tạo lại mỗi render) ───────────────────────
 
 type TabId =
-  | 'workshop' | 'tong-don-hang' | 'tao-don-hang' | 'danh-sach-khach-hang'
+  | 'workshop'
   | 'lenh-sx' | 'ke-hoach' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh'
   | 'xuat-dan' | 'lich-su-xuat-dan' | 'dieu-phoi-dan' | 'lich-su-nhap-dan' | 'quan-ly-diem-dan'
   | 'chuyen-kiem' | 'dong-goi' | 'weaving-points' | 'sku-list'
@@ -47,7 +44,6 @@ const SPEC_ROLES = ['SPEC_STEEL', 'SPEC_WIRE_PAINT', 'SPEC_ACCESSORY', 'SPEC_PAC
 
 const MFG_ROLE_LABELS: Record<string, string> = {
   PRODUCTION_MANAGER: 'Quản lý SX',
-  FACTORY_SALES:      'Sales nhà máy',
   PHOI:               'Thống kê Cơ khí',
   HAN:                'Bộ phận Hàn',
   SON:                'Bộ phận Sơn',
@@ -114,7 +110,6 @@ interface MfgAppProps {
 export default function MfgApp({ onBack }: MfgAppProps) {
   const { user, logout } = useAuth()
 
-  const isFactorySales  = user?.mfgRole === 'FACTORY_SALES'
   const canManageBom    = user?.mfgRole === 'PRODUCTION_MANAGER' || user?.role === 'MANAGER'
   // Tổng giám đốc = MANAGER không gắn mfgRole. Thủ kho = WAREHOUSE_STAFF không mfgRole.
   const isDirector      = user?.role === 'MANAGER' && !user?.mfgRole
@@ -137,7 +132,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   // Readable if-else chain thay cho ternary lồng 6 cấp
   let initialTab: TabId = 'lenh-sx'
   if (canManageWorkshop)        initialTab = 'workshop'
-  else if (isFactorySales)      initialTab = 'tong-don-hang'
   else if (isWeavingMgr)        initialTab = 'dieu-phoi-dan'
   else if (isWeavingExport)     initialTab = 'xuat-dan'
   else if (isPhoi || isHan || isSon) initialTab = 'phoi-lenh-sx'
@@ -157,9 +151,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
 
   const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
     ...(canManageWorkshop ? [{ id: 'workshop' as TabId, label: 'Tổng hợp lệnh SX', icon: <LayoutGrid size={16}/> }] : []),
-    ...(isFactorySales ? [{ id: 'tong-don-hang' as TabId, label: 'Tổng đơn hàng', icon: <Package size={16}/> }] : []),
-    ...(isFactorySales ? [{ id: 'tao-don-hang' as TabId, label: 'Tạo đơn hàng mới', icon: <FilePlus size={16}/> }] : []),
-    ...(isFactorySales ? [{ id: 'danh-sach-khach-hang' as TabId, label: 'Danh sách khách hàng', icon: <Users size={16}/> }] : []),
     ...(isDirector ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất mới', icon: <ClipboardList size={16}/> }] : []),
     ...(isDirector ? [{ id: 'ke-hoach' as TabId, label: 'Kế hoạch SX', icon: <CalendarClock size={16}/> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16}/> }] : []),
@@ -314,9 +305,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
       {/* ── Main content ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
         {tab === 'workshop'              && canManageWorkshop  && <MfgWorkshopBoardPage stageFilter={workshopStage} />}
-        {tab === 'tong-don-hang'         && isFactorySales     && <TongDonHangPage onCreateNew={() => setTab('tao-don-hang')} />}
-        {tab === 'tao-don-hang'          && isFactorySales     && <TaoDonHangMoiPage onCreated={() => setTab('tong-don-hang')} />}
-        {tab === 'danh-sach-khach-hang'  && isFactorySales     && <DanhSachKhachHangPage />}
         {tab === 'lenh-sx'               && isDirector         && <LenhSXPage />}
         {tab === 'ke-hoach'              && (isProdMgr || isDirector) && <ThongKePagePlan />}
         {tab === 'phoi-lenh-sx'          && (isPhoi || isHan || isSon || isDirector) && (isHan ? <LenhSanXuatHan readOnly={isDirector} /> : isSon ? <LenhSanXuatSon readOnly={isDirector} /> : <LenhSanXuatPhoi readOnly={isDirector} />)}

@@ -23,7 +23,6 @@ const ROLE_ALLOWED: Record<string, StageKey[]> = {
   WEAVING_MANAGER:   ['WEAVING'],
   QC:                ['PHOI', 'HAN', 'SON'], // QC duyệt KCS cả Phôi/Hàn/Sơn
   PRODUCTION_MANAGER: [...STAGE_ORDER],
-  FACTORY_SALES:     [...STAGE_ORDER],
 }
 
 interface BoardProps {

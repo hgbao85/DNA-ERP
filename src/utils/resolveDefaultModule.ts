@@ -9,7 +9,6 @@ interface ModuleStrategy {
 const MODULE_STRATEGIES: ModuleStrategy[] = [
   { matches: (u) => !!u.mfgRole,                             module: 'production'        },
   { matches: (u) => !!u.isProductPlanner,                    module: 'production_plan'   },
-  { matches: (u) => u.role === 'SALES',                      module: 'crm'               },
   { matches: (u) => !!u.isPurchaser,                         module: 'purchasing'        },
   { matches: (u) => u.role === 'WAREHOUSE_STAFF',            module: 'inbound_warehouse' },
   { matches: (u) => u.role === 'MANAGER' && !u.mfgRole,     module: 'manager'           },
