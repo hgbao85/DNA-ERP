@@ -12,5 +12,6 @@ export function normalizeUser(raw: Record<string, unknown>): User {
     warehouseScope: (raw.warehouseScope as User['warehouseScope']) ?? null,
     isPurchaser: !!raw.isPurchaser,
     isProductPlanner: !!raw.isProductPlanner,
+    isSale: !!raw.isSale,
   };
 }
