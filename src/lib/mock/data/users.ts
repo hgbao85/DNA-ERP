@@ -125,14 +125,14 @@ export const MOCK_ACCOUNTS: MockAccount[] = [
     },
   },
   {
-    email: 'qc@demo.com',
+    email: 'kcs@demo.com',
     password: 'demo1234',
     user: {
-      id: 15,
-      name: 'QC Kiều',
-      email: 'qc@demo.com',
+      id: 71,
+      name: 'KCS Kiều',
+      email: 'kcs@demo.com',
       role: 'WAREHOUSE_STAFF',
-      mfgRole: 'QC',
+      mfgRole: 'KCS',
     },
   },
   {

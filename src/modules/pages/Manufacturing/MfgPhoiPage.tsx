@@ -94,7 +94,7 @@ export default function MfgPhoiPage({ piId, subTab: subTabProp, readOnly = false
   // Tài khoản phôi = nhân viên thống kê xưởng: 1 người ghi nhận MỌI công đoạn (không khóa 1 công đoạn).
   const isPhoiStaff = user?.mfgRole === 'PHOI' || !!user?.phoiOperation
   const canReport = !readOnly && (isPhoiStaff || user?.mfgRole === 'PRODUCTION_MANAGER')
-  const canReview = !readOnly && (user?.mfgRole === 'QC' || user?.mfgRole === 'PRODUCTION_MANAGER')
+  const canReview = !readOnly && user?.mfgRole === 'PRODUCTION_MANAGER'
   const canSeed   = !readOnly && (user?.mfgRole === 'PRODUCTION_MANAGER')
 
   // Nếu subTab được điều khiển từ ngoài → dùng prop; ngược lại dùng state nội bộ

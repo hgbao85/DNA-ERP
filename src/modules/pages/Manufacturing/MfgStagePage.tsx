@@ -69,7 +69,7 @@ export default function MfgStagePage({ piId, stageType, readOnly = false }: Prop
   const { user } = useAuth()
   // Giám đốc (BOSS không mfgRole) chỉ XEM — không báo/duyệt (đồng bộ MfgRolesGuard backend).
   const canReport = !readOnly && (user?.mfgRole === stageType || user?.mfgRole === 'PRODUCTION_MANAGER')
-  const canReview = !readOnly && (user?.mfgRole === 'QC' || user?.mfgRole === 'PRODUCTION_MANAGER')
+  const canReview = !readOnly && user?.mfgRole === 'PRODUCTION_MANAGER'
 
   const { data, isLoading, error, refetch } = useFetch<StageData>(() => api.getStageExec(piId, stageType) as Promise<StageData>, [piId, stageType])
 

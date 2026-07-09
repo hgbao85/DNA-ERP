@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, History, CalendarClock, ChevronDown, ScanSearch } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, History, CalendarClock, ChevronDown, ScanSearch, Wrench, Flame, SprayCan } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import MfgSetupPage from './MfgSetupPage'
@@ -26,6 +26,9 @@ import LenhSanXuatSon from '../Son/LenhSanXuatSon'
 import PhoiDinhMucManhPage from './PhoiDinhMucManhPage'
 import SKUListPage from '../ProductionPlan/SKUListPage'
 import LenhKiemTraPage from './LenhKiemTraPage'
+import KcsPhoiPage from '../Kcs/KcsPhoiPage'
+import KcsHanPage from '../Kcs/KcsHanPage'
+import KcsSonPage from '../Kcs/KcsSonPage'
 
 // ── Module-level constants (không tạo lại mỗi render) ───────────────────────
 
@@ -35,10 +38,11 @@ type TabId =
   | 'xuat-dan' | 'lich-su-xuat-dan' | 'dieu-phoi-dan' | 'lich-su-nhap-dan' | 'quan-ly-diem-dan'
   | 'chuyen-kiem' | 'dong-goi' | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'kiem-tra-vt' | 'setup'
+  | 'kcs-phoi' | 'kcs-han' | 'kcs-son'
 
 type SetupSubTab = 'vat-tu' | 'dinh-muc' | 'catalog'
 
-const WORKER_ROLES = ['PHOI', 'HAN', 'SON', 'QC', 'WEAVING_MANAGER', 'WEAVING_EXPORT'] as const
+const WORKER_ROLES = ['PHOI', 'HAN', 'SON', 'WEAVING_MANAGER', 'WEAVING_EXPORT'] as const
 
 const SPEC_ROLES = ['SPEC_STEEL', 'SPEC_WIRE_PAINT', 'SPEC_ACCESSORY', 'SPEC_PACKAGING'] as const
 
@@ -47,7 +51,7 @@ const MFG_ROLE_LABELS: Record<string, string> = {
   PHOI: 'Thống kê Phôi',
   HAN: 'Bộ phận Hàn',
   SON: 'Bộ phận Sơn',
-  QC: 'Kiểm tra QC',
+  KCS: 'KCS — Kiểm tra chất lượng',
   WEAVING_MANAGER: 'Quản lý nhập đan',
   WEAVING_EXPORT: 'Quản lý xuất đan',
   BOM_MANAGER: 'NV Định mức',
@@ -118,6 +122,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const isPhoi = user?.mfgRole === 'PHOI'
   const isHan = user?.mfgRole === 'HAN'
   const isSon = user?.mfgRole === 'SON'
+  const isKcs = user?.mfgRole === 'KCS'
   const isWeavingMgr = user?.mfgRole === 'WEAVING_MANAGER'
   const isWeavingExport = user?.mfgRole === 'WEAVING_EXPORT'
   const isBomManager = user?.mfgRole === 'BOM_MANAGER'
@@ -135,6 +140,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   else if (isWeavingMgr) initialTab = 'dieu-phoi-dan'
   else if (isWeavingExport) initialTab = 'xuat-dan'
   else if (isPhoi || isHan || isSon) initialTab = 'phoi-lenh-sx'
+  else if (isKcs)                initialTab = 'kcs-phoi'
   else if (isBomManager || isSpecRole) initialTab = 'setup'
 
   const [tab, setTab] = useState<TabId>(initialTab)
@@ -156,6 +162,9 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-dinh-muc-manh' as TabId, label: 'Danh sách định mức mảnh', icon: <Box size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-lich-su-nhan-sat' as TabId, label: 'Lịch sử nhận sắt', icon: <ArrowDownToLine size={16} /> }] : []),
+    ...(isKcs ? [{ id: 'kcs-phoi' as TabId, label: 'Phôi', icon: <Wrench size={16} /> }] : []),
+    ...(isKcs ? [{ id: 'kcs-han' as TabId, label: 'Hàn', icon: <Flame size={16} /> }] : []),
+    ...(isKcs ? [{ id: 'kcs-son' as TabId, label: 'Sơn', icon: <SprayCan size={16} /> }] : []),
     ...(isWeavingExport ? [{ id: 'xuat-dan' as TabId, label: 'Xuất đan', icon: <ArrowDownToLine size={16} /> }] : []),
     ...(isWeavingExport ? [{ id: 'lich-su-xuat-dan' as TabId, label: 'Lịch sử xuất đan', icon: <History size={16} /> }] : []),
     ...(canSeeDieuPhoi ? [{ id: 'dieu-phoi-dan' as TabId, label: 'Điều phối đan', icon: <ArrowDownToLine size={16} /> }] : []),
@@ -310,6 +319,9 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'phoi-lenh-sx' && (isPhoi || isHan || isSon || isDirector) && (isHan ? <LenhSanXuatHan readOnly={isDirector} /> : isSon ? <LenhSanXuatSon readOnly={isDirector} /> : <LenhSanXuatPhoi readOnly={isDirector} />)}
         {tab === 'phoi-dinh-muc-manh' && (isPhoi || isHan || isSon || isDirector) && <PhoiDinhMucManhPage stage={isSon ? 'SON' : isHan ? 'HAN' : 'PHOI'} />}
         {tab === 'phoi-lich-su-nhan-sat' && (isPhoi || isDirector) && <LichSuNhanSatPage />}
+        {tab === 'kcs-phoi' && isKcs && <KcsPhoiPage />}
+        {tab === 'kcs-han' && isKcs && <KcsHanPage />}
+        {tab === 'kcs-son' && isKcs && <KcsSonPage />}
         {tab === 'xuat-dan' && (isWeavingExport || isDirector) && <XuatDanPage readOnly={isDirector} />}
         {tab === 'lich-su-xuat-dan' && (isWeavingExport || isDirector) && <LichSuXuatDanPage />}
         {tab === 'dieu-phoi-dan' && canSeeDieuPhoi && <DieuPhoiDanPage readOnly={isDirector} />}

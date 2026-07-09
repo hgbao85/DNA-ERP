@@ -21,7 +21,6 @@ const ROLE_ALLOWED: Record<string, StageKey[]> = {
   HAN:               ['HAN'],
   SON:               ['SON'],
   WEAVING_MANAGER:   ['WEAVING'],
-  QC:                ['PHOI', 'HAN', 'SON'], // QC duyệt KCS cả Phôi/Hàn/Sơn
   PRODUCTION_MANAGER: [...STAGE_ORDER],
 }
 
