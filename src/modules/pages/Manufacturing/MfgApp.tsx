@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, FileText, MapPin, ArrowDownToLine, ClipboardCheck, Box, History, CalendarClock, ChevronDown, ScanSearch } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, History, CalendarClock, ChevronDown, ScanSearch } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import MfgSetupPage from './MfgSetupPage'
@@ -10,7 +10,6 @@ import SpecPackagingPage from './SpecPackagingPage'
 import MfgWorkshopBoardPage from './MfgWorkshopBoardPage'
 import MfgWarehousesPage from './MfgWarehousesPage'
 import MfgAllMaterialsPage from './MfgAllMaterialsPage'
-import DeXuatMuaVatTuPage from './DeXuatMuaVatTuPage'
 import DieuPhoiDanPage from './DieuPhoiDanPage'
 import XuatDanPage from './XuatDanPage'
 import LichSuXuatDanPage from './LichSuXuatDanPage'
@@ -34,7 +33,7 @@ type TabId =
   | 'lenh-sx' | 'ke-hoach' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh'
   | 'xuat-dan' | 'lich-su-xuat-dan' | 'dieu-phoi-dan' | 'lich-su-nhap-dan' | 'quan-ly-diem-dan'
   | 'chuyen-kiem' | 'dong-goi' | 'weaving-points' | 'sku-list'
-  | 'materials' | 'warehouses' | 'de-xuat' | 'kiem-tra-vt' | 'setup'
+  | 'materials' | 'warehouses' | 'kiem-tra-vt' | 'setup'
 
 type SetupSubTab = 'vat-tu' | 'dinh-muc' | 'catalog'
 
@@ -164,7 +163,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isProdMgr ? [{ id: 'sku-list' as TabId, label: 'Danh sách SKU', icon: <Package size={16}/> }] : []),
     ...(canSeeWarehouses ? [{ id: 'materials' as TabId, label: 'Tổng hợp vật tư', icon: <Boxes size={16}/> }] : []),
     ...(canSeeWarehouses ? [{ id: 'warehouses' as TabId, label: 'Tổng hợp kho', icon: <Warehouse size={16}/> }] : []),
-    ...(isDirector ? [{ id: 'de-xuat' as TabId, label: 'Duyệt đề xuất', icon: <FileText size={16}/> }] : []),
     ...(canSeeBom ? [{ id: 'setup' as TabId, label: 'Quản lý định mức', icon: <Settings size={16}/> }] : []),
   ]
 
@@ -321,7 +319,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'sku-list'              && isProdMgr          && <SKUListPage readOnly />}
         {tab === 'materials'             && canSeeWarehouses   && <MfgAllMaterialsPage />}
         {tab === 'warehouses'            && canSeeWarehouses   && <MfgWarehousesPage />}
-        {tab === 'de-xuat'               && isDirector         && <DeXuatMuaVatTuPage />}
         {tab === 'setup' && (isDirector || isBomManager)            && <MfgSetupPage />}
         {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL'          && <SpecSteelPage subTab={setupSubTab} onSubTabChange={setSetupSubTab} />}
         {tab === 'setup' && user?.mfgRole === 'SPEC_WIRE_PAINT'     && <SpecWirePaintPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}

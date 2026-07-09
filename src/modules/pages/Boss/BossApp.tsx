@@ -2,7 +2,9 @@
 import { useState } from 'react'
 import { LayoutDashboard, Package, LogOut, CalendarClock, Warehouse, ClipboardCheck, Check, X, ChevronLeft } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
-import { useInspection, type PurchaseProposal, type ProposalQuote } from '../../../context/InspectionContext'
+import { useInspection, PROPOSAL_ENTITY, type PurchaseProposal, type ProposalQuote } from '../../../context/InspectionContext'
+import { useAuditLog } from '../../../context/AuditLogContext'
+import AuditLogTimeline from '../../../components/AuditLogTimeline'
 import { format } from 'date-fns'
 import SKUReviewPage from '../ProductionPlan/SKUReviewPage'
 import SKUListPage from '../ProductionPlan/SKUListPage'
@@ -21,91 +23,139 @@ type ChoDuyetFilter = 'dinh-muc' | 'so-sanh-gia' | 'lenh-sx'
 
 // ── So sánh giá section ───────────────────────────────────────────────────────
 
+// Các PurchaseProposal con của cùng 1 đơn gốc (do QLSX tạo) chia sẻ chung requestId
+// (xem markProposalCreated, InspectionContext.tsx) — nhóm lại để Boss duyệt 1 lần/đơn.
+function groupByRequestId(proposals: PurchaseProposal[]): PurchaseProposal[][] {
+  const map = new Map<string, PurchaseProposal[]>()
+  proposals.forEach(p => {
+    if (!map.has(p.requestId)) map.set(p.requestId, [])
+    map.get(p.requestId)!.push(p)
+  })
+  return [...map.values()]
+}
+
 function SoSanhGiaSection({ proposals, onApprove, onReject }: {
   proposals: PurchaseProposal[]
   onApprove: (id: string, chosen: Record<string, string>) => void
   onReject:  (id: string, reason: string) => void
 }) {
-  const [selectedId,   setSelectedId]   = useState<string | null>(null)
+  const { getLogsFor } = useAuditLog()
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
   const [rejectMode,   setRejectMode]   = useState(false)
   const [rejectReason, setRejectReason] = useState('')
-  // chosen[itemName] = supplierName selected by boss
+  // chosen[itemName] = supplierName selected by boss (gộp item của mọi kho trong đơn)
   const [chosen, setChosen] = useState<Record<string, string>>({})
   const fmt = (n: number) => n.toLocaleString('vi-VN')
 
-  const submittedProposals = proposals.filter(p => p.status === 'submitted')
-  const pendingCount = proposals.filter(p => p.status === 'submitted').length
-  const selected = submittedProposals.find(p => p.id === selectedId) ?? null
+  const groups = groupByRequestId(proposals)
+  // Đơn hiện trong hàng chờ duyệt ngay khi có ít nhất 1 kho báo giá xong — không cần chờ đủ mới thấy.
+  const visibleGroups = groups.filter(g => g.some(p => p.status === 'submitted'))
+  const pendingCount = visibleGroups.length
+  const selectedGroup = visibleGroups.find(g => g[0].requestId === selectedRequestId) ?? null
 
-  const openDetail = (p: PurchaseProposal) => {
-    setSelectedId(p.id)
+  const openDetail = (group: PurchaseProposal[]) => {
+    setSelectedRequestId(group[0].requestId)
     setRejectMode(false)
     setRejectReason('')
-    // Pre-fill chosen from existing chosenSuppliers or cheapest per item
+    // Pre-fill chosen từ chosenSuppliers cũ hoặc NCC rẻ nhất, gộp item của mọi kho trong đơn
     const init: Record<string, string> = {}
-    p.items.forEach(item => {
-      if (p.chosenSuppliers?.[item.name]) {
-        init[item.name] = p.chosenSuppliers[item.name]
-      } else {
-        const offers: ProposalQuote[] = p.quotes?.[item.name] ?? []
-        const cheapest = offers
-          .filter(q => q.unitPrice != null && q.unitPrice > 0)
-          .sort((a, b) => (a.unitPrice ?? 0) - (b.unitPrice ?? 0))[0]
-        if (cheapest) init[item.name] = cheapest.supplierName
-      }
+    group.forEach(p => {
+      p.items.forEach(item => {
+        if (p.chosenSuppliers?.[item.name]) {
+          init[item.name] = p.chosenSuppliers[item.name]
+        } else {
+          const offers: ProposalQuote[] = p.quotes?.[item.name] ?? []
+          const cheapest = offers
+            .filter(q => q.unitPrice != null && q.unitPrice > 0)
+            .sort((a, b) => (a.unitPrice ?? 0) - (b.unitPrice ?? 0))[0]
+          if (cheapest) init[item.name] = cheapest.supplierName
+        }
+      })
     })
     setChosen(init)
   }
 
-  const allChosen = (p: PurchaseProposal) =>
-    p.items.every(item => !!chosen[item.name])
+  const allChosen = (group: PurchaseProposal[]) =>
+    group.every(p => p.items.every(item => !!chosen[item.name]))
 
-  const statusBadge = (p: PurchaseProposal) => {
-    if (p.status === 'submitted') return <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)', color: 'var(--text2)', background: 'var(--surface2)' }}>Chờ duyệt</span>
-    return <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4, border: '1px solid #fca5a5', color: '#dc2626', background: '#fff5f5' }}>Từ chối</span>
+  // Duyệt chỉ mở khoá khi TẤT CẢ kho liên quan đến đơn đã báo giá xong — không duyệt lẻ từng kho.
+  const allSubmitted = (group: PurchaseProposal[]) =>
+    group.every(p => p.status === 'submitted')
+
+  const quotedCount = (group: PurchaseProposal[]) =>
+    group.filter(p => p.status !== 'new' && p.status !== 'quoting').length
+
+  const handleApprove = (group: PurchaseProposal[]) => {
+    group.forEach(p => {
+      const chosenForP: Record<string, string> = {}
+      p.items.forEach(item => { if (chosen[item.name]) chosenForP[item.name] = chosen[item.name] })
+      onApprove(p.id, chosenForP)
+    })
+    setSelectedRequestId(null)
+  }
+
+  const handleReject = (group: PurchaseProposal[]) => {
+    const reason = rejectReason || 'Không có lý do'
+    // Từ chối áp dụng cho cả đơn — kể cả kho chưa kịp báo giá xong.
+    group.forEach(p => onReject(p.id, reason))
+    setSelectedRequestId(null)
   }
 
   // ── Detail view ──────────────────────────────────────────────────────────────
-  if (selected) {
-    const p = selected
-    const isPending  = p.status === 'submitted'
+  if (selectedGroup) {
+    const group = selectedGroup
+    const meta = group[0]
+    const items = group.flatMap(p => p.items)
+    const mergedQuotes: Record<string, ProposalQuote[]> = {}
+    group.forEach(p => { Object.entries(p.quotes ?? {}).forEach(([name, offers]) => { mergedQuotes[name] = offers }) })
+    const submittedAts = group.map(p => p.submittedAt).filter((d): d is string => !!d).sort()
+    const latestSubmittedAt = submittedAts[submittedAts.length - 1]
+    const ready = allSubmitted(group)
 
-    const totalChosen = p.items.reduce((sum, item) => {
-      const suppName = chosen[item.name] ?? p.chosenSuppliers?.[item.name]
-      const offer = (p.quotes?.[item.name] ?? []).find(q => q.supplierName === suppName)
+    const totalChosen = items.reduce((sum, item) => {
+      const suppName = chosen[item.name]
+      const offer = (mergedQuotes[item.name] ?? []).find(q => q.supplierName === suppName)
       return sum + (offer?.unitPrice ?? 0) * item.buyQty
     }, 0)
 
     return (
-      <div>
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
         {/* Header */}
         <div style={{ marginBottom: 16 }}>
           <button
-            onClick={() => setSelectedId(null)}
+            onClick={() => setSelectedRequestId(null)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', fontSize: 12, fontWeight: 500, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)', marginBottom: 10 }}
           >
             <ChevronLeft size={13} /> Danh sách
           </button>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>{p.poNumber}</h2>
-            <span style={{ fontSize: 14, color: 'var(--text2)' }}>{p.skuCode}{p.skuName ? ` — ${p.skuName}` : ''}</span>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>{meta.poNumber}</h2>
+            <span style={{ fontSize: 14, color: 'var(--text2)' }}>{meta.skuCode}{meta.skuName ? ` — ${meta.skuName}` : ''}</span>
             <div style={{ flex: 1 }} />
-            {statusBadge(p)}
+            <span style={{
+              fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4,
+              border: `1px solid ${ready ? 'var(--border)' : '#fde68a'}`,
+              color: ready ? 'var(--text2)' : '#92400e',
+              background: ready ? 'var(--surface2)' : '#fffbeb',
+            }}>
+              {ready ? 'Chờ duyệt' : `${quotedCount(group)}/${group.length} kho đã báo giá`}
+            </span>
           </div>
           <div style={{ marginTop: 4, fontSize: 12, color: 'var(--text3)', display: 'flex', gap: 16 }}>
-            {p.deadline && <span>Deadline: <strong style={{ color: 'var(--text2)' }}>{new Date(p.deadline).toLocaleDateString('vi-VN')}</strong></span>}
-            <span>Gửi lúc {p.submittedAt ? format(new Date(p.submittedAt), 'HH:mm dd/MM/yyyy') : '—'}</span>
+            {meta.deadline && <span>Deadline: <strong style={{ color: 'var(--text2)' }}>{new Date(meta.deadline).toLocaleDateString('vi-VN')}</strong></span>}
+            <span>Gửi lúc {latestSubmittedAt ? format(new Date(latestSubmittedAt), 'HH:mm dd/MM/yyyy') : '—'}</span>
             {totalChosen > 0 && <span>Tổng dự kiến: <strong style={{ color: 'var(--text)' }}>{fmt(totalChosen)}đ</strong></span>}
           </div>
         </div>
 
         {/* Per-item NCC selection */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {p.items.map((item, idx) => {
-            const offers: ProposalQuote[] = p.quotes?.[item.name] ?? []
+          {items.map((item, idx) => {
+            const offers: ProposalQuote[] = mergedQuotes[item.name] ?? []
             const prices = offers.map(q => q.unitPrice).filter((x): x is number => x != null && x > 0)
             const cheapestPrice = prices.length > 0 ? Math.min(...prices) : null
-            const chosenName = isPending ? chosen[item.name] : (p.chosenSuppliers?.[item.name] ?? chosen[item.name])
+            const chosenName = chosen[item.name]
 
             return (
               <div key={idx} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface)' }}>
@@ -124,7 +174,7 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
                 </div>
 
                 {offers.length === 0 ? (
-                  <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--text3)' }}>Không có báo giá</div>
+                  <div style={{ padding: '12px 14px', fontSize: 13, color: 'var(--text3)' }}>Chưa có báo giá — kho phụ trách chưa gửi</div>
                 ) : (
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
@@ -145,13 +195,13 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
                         return (
                           <tr
                             key={qi}
-                            onClick={() => isPending && setChosen(prev => ({ ...prev, [item.name]: q.supplierName }))}
+                            onClick={() => setChosen(prev => ({ ...prev, [item.name]: q.supplierName }))}
                             style={{
                               borderTop: '1px solid var(--border)',
-                              cursor: isPending ? 'pointer' : 'default',
+                              cursor: 'pointer',
                               background: isChosen ? 'var(--surface2)' : undefined,
                             }}
-                            onMouseEnter={e => { if (isPending && !isChosen) e.currentTarget.style.background = 'var(--surface2)' }}
+                            onMouseEnter={e => { if (!isChosen) e.currentTarget.style.background = 'var(--surface2)' }}
                             onMouseLeave={e => { if (!isChosen) e.currentTarget.style.background = '' }}
                           >
                             <td style={{ ...td, width: 36, paddingRight: 0 }}>
@@ -190,67 +240,65 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
         </div>
 
         {/* Footer actions */}
-        {isPending && (
-          <div style={{ marginTop: 14 }}>
-            {!rejectMode ? (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+        <div style={{ marginTop: 14 }}>
+          {!rejectMode ? (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                onClick={() => setRejectMode(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '7px 16px', fontSize: 13, fontWeight: 500, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}
+              >
+                <X size={13} /> Từ chối
+              </button>
+              <button
+                onClick={() => handleApprove(group)}
+                disabled={!ready || !allChosen(group)}
+                title={!ready ? 'Cần tất cả các kho báo giá xong mới duyệt được' : undefined}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '7px 20px', fontSize: 13, fontWeight: 600,
+                  border: 'none', borderRadius: 6,
+                  background: ready && allChosen(group) ? '#18181b' : 'var(--surface2)',
+                  color: ready && allChosen(group) ? '#fff' : 'var(--text3)',
+                  cursor: ready && allChosen(group) ? 'pointer' : 'not-allowed',
+                }}
+              >
+                <Check size={13} /> Duyệt{!ready ? ' (chờ đủ kho báo giá)' : !allChosen(group) ? ' (chọn đủ NCC)' : ''}
+              </button>
+            </div>
+          ) : (
+            <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14, background: 'var(--surface)' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Lý do từ chối</div>
+              <textarea
+                value={rejectReason}
+                onChange={e => setRejectReason(e.target.value)}
+                placeholder="Nhập lý do..."
+                rows={2}
+                style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', background: 'var(--surface)', color: 'var(--text)' }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
                 <button
-                  onClick={() => setRejectMode(true)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '7px 16px', fontSize: 13, fontWeight: 500, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}
-                >
-                  <X size={13} /> Từ chối
-                </button>
+                  onClick={() => { setRejectMode(false); setRejectReason('') }}
+                  style={{ padding: '6px 14px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)' }}
+                >Hủy</button>
                 <button
-                  onClick={() => { onApprove(p.id, chosen); setSelectedId(null) }}
-                  disabled={!allChosen(p)}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 5,
-                    padding: '7px 20px', fontSize: 13, fontWeight: 600,
-                    border: 'none', borderRadius: 6,
-                    background: allChosen(p) ? '#18181b' : 'var(--surface2)',
-                    color: allChosen(p) ? '#fff' : 'var(--text3)',
-                    cursor: allChosen(p) ? 'pointer' : 'not-allowed',
-                  }}
-                >
-                  <Check size={13} /> Duyệt{!allChosen(p) && ' (chọn đủ NCC)'}
-                </button>
+                  onClick={() => handleReject(group)}
+                  style={{ padding: '6px 16px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 6, background: '#dc2626', color: '#fff', cursor: 'pointer' }}
+                >Xác nhận từ chối</button>
               </div>
-            ) : (
-              <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 14, background: 'var(--surface)' }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Lý do từ chối</div>
-                <textarea
-                  value={rejectReason}
-                  onChange={e => setRejectReason(e.target.value)}
-                  placeholder="Nhập lý do..."
-                  rows={2}
-                  style={{ width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit', background: 'var(--surface)', color: 'var(--text)' }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-                  <button
-                    onClick={() => { setRejectMode(false); setRejectReason('') }}
-                    style={{ padding: '6px 14px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)' }}
-                  >Hủy</button>
-                  <button
-                    onClick={() => { onReject(p.id, rejectReason || 'Không có lý do'); setSelectedId(null) }}
-                    style={{ padding: '6px 16px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 6, background: '#dc2626', color: '#fff', cursor: 'pointer' }}
-                  >Xác nhận từ chối</button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+        </div>
+      </div>
 
-        {p.status === 'rejected' && (
-          <div style={{ marginTop: 12, padding: '9px 14px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, color: 'var(--text3)' }}>
-            Từ chối: {p.rejectionReason}
-          </div>
-        )}
+      <div style={{ width: 300, flexShrink: 0, position: 'sticky', top: 20 }}>
+        <AuditLogTimeline entries={group.flatMap(p => getLogsFor(PROPOSAL_ENTITY, p.id)).sort((a, b) => a.at.localeCompare(b.at))} />
+      </div>
       </div>
     )
   }
 
   // ── List view ────────────────────────────────────────────────────────────────
-  if (submittedProposals.length === 0) {
+  if (visibleGroups.length === 0) {
     return (
       <div>
         <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>So sánh giá</h2>
@@ -266,7 +314,7 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
       <div style={{ marginBottom: 16 }}>
         <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>So sánh giá</h2>
         <p style={{ margin: 0, fontSize: 13, color: 'var(--text3)' }}>
-          {pendingCount > 0 ? `${pendingCount} đề xuất chờ phê duyệt` : 'Tất cả đã được xử lý'}
+          {pendingCount > 0 ? `${pendingCount} đơn chờ phê duyệt` : 'Tất cả đã được xử lý'}
         </p>
       </div>
 
@@ -278,34 +326,45 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
               <th style={th}>Mã nhà máy</th>
               <th style={{ ...th, textAlign: 'right' }}>Vật tư</th>
               <th style={th}>Deadline</th>
-              <th style={th}>Gửi lúc</th>
+              <th style={th}>Kho đã báo giá</th>
               <th style={th}>Trạng thái</th>
             </tr>
           </thead>
           <tbody>
-            {submittedProposals.map(p => (
-              <tr
-                key={p.id}
-                onClick={() => openDetail(p)}
-                style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                onMouseLeave={e => (e.currentTarget.style.background = '')}
-              >
-                <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{p.poNumber}</td>
-                <td style={td}>
-                  <span style={{ fontWeight: 600 }}>{p.skuCode}</span>
-                  {p.skuName && <span style={{ marginLeft: 6, color: 'var(--text3)', fontSize: 12 }}>{p.skuName}</span>}
-                </td>
-                <td style={{ ...td, textAlign: 'right', color: 'var(--text3)' }}>{p.items.length}</td>
-                <td style={{ ...td, fontSize: 12, color: p.deadline ? 'var(--text2)' : 'var(--text3)' }}>
-                  {p.deadline ? new Date(p.deadline).toLocaleDateString('vi-VN') : '—'}
-                </td>
-                <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>
-                  {p.submittedAt ? format(new Date(p.submittedAt), 'HH:mm dd/MM/yyyy') : '—'}
-                </td>
-                <td style={td}>{statusBadge(p)}</td>
-              </tr>
-            ))}
+            {visibleGroups.map(group => {
+              const meta = group[0]
+              const ready = allSubmitted(group)
+              return (
+                <tr
+                  key={meta.requestId}
+                  onClick={() => openDetail(group)}
+                  style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '')}
+                >
+                  <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{meta.poNumber}</td>
+                  <td style={td}>
+                    <span style={{ fontWeight: 600 }}>{meta.skuCode}</span>
+                    {meta.skuName && <span style={{ marginLeft: 6, color: 'var(--text3)', fontSize: 12 }}>{meta.skuName}</span>}
+                  </td>
+                  <td style={{ ...td, textAlign: 'right', color: 'var(--text3)' }}>{group.reduce((n, p) => n + p.items.length, 0)}</td>
+                  <td style={{ ...td, fontSize: 12, color: meta.deadline ? 'var(--text2)' : 'var(--text3)' }}>
+                    {meta.deadline ? new Date(meta.deadline).toLocaleDateString('vi-VN') : '—'}
+                  </td>
+                  <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{quotedCount(group)}/{group.length}</td>
+                  <td style={td}>
+                    <span style={{
+                      fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 4,
+                      border: `1px solid ${ready ? 'var(--border)' : '#fde68a'}`,
+                      color: ready ? 'var(--text2)' : '#92400e',
+                      background: ready ? 'var(--surface2)' : '#fffbeb',
+                    }}>
+                      {ready ? 'Chờ duyệt' : 'Đang chờ kho báo giá'}
+                    </span>
+                  </td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
