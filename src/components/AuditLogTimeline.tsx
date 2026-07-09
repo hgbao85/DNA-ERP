@@ -1,18 +1,20 @@
 'use client'
 import type { LucideIcon } from 'lucide-react'
-import { FilePlus, Inbox, Send, RotateCcw, Check, X, History } from 'lucide-react'
+import { FilePlus, Inbox, Send, RotateCcw, Check, X, History, PackageCheck, Factory } from 'lucide-react'
 import { format } from 'date-fns'
 import { AUDIT_ACTIONS, type AuditAction, type AuditLogEntry } from '../context/AuditLogContext'
 
 // Icon theo action chỉ là mối quan tâm hiển thị (UI) — cố tình để ở đây thay vì trong
 // AuditLogContext.tsx để context không phải phụ thuộc lucide-react.
 const ACTION_ICON: Record<AuditAction, LucideIcon> = {
-  'proposal.created':         FilePlus,
-  'proposal.acknowledged':    Inbox,
-  'proposal.quote_submitted': Send,
-  'proposal.requoted':        RotateCcw,
-  'proposal.approved':        Check,
-  'proposal.rejected':        X,
+  'proposal.created':            FilePlus,
+  'proposal.acknowledged':       Inbox,
+  'proposal.quote_submitted':    Send,
+  'proposal.requoted':           RotateCcw,
+  'proposal.approved':           Check,
+  'proposal.rejected':           X,
+  'proposal.purchased':          PackageCheck,
+  'request.production_started':  Factory,
 }
 
 // Panel "Hoạt động" dạng timeline dọc, dùng chung cho mọi entity có audit log — chỉ cần

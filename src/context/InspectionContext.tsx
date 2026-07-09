@@ -43,6 +43,8 @@ export interface InspRequest {
   vatTuTP: KhoState
   thanhPham: KhoState
   proposalCreated: boolean
+  productionStarted?: boolean
+  productionStartedAt?: string
 }
 
 export function khoState(req: InspRequest, kho: KhoKey): KhoState {
@@ -58,6 +60,7 @@ export interface PurchaseProposalItem {
   khoKey: KhoKey
   khoLabel: string
   materialId?: number
+  receivedQty?: number // luỹ kế thủ kho đã xác nhận nhận về, so với buyQty để biết đã đủ chưa
 }
 
 export interface ProposalQuote {
@@ -79,7 +82,7 @@ export interface PurchaseProposal {
   // (so khớp với user.warehouseScope, xem src/utils/purchasingRouting.ts).
   warehouseScope: WarehouseScope
   items: PurchaseProposalItem[]
-  status: 'new' | 'quoting' | 'submitted' | 'purchasing' | 'rejected'
+  status: 'new' | 'quoting' | 'submitted' | 'purchasing' | 'purchased' | 'rejected'
   quotes?: Record<string, ProposalQuote[]>  // keyed by item.name → multiple NCC offers
   chosenSuppliers?: Record<string, string>  // item.name → chosen supplierName (set by boss)
   deadline?: string
@@ -87,6 +90,18 @@ export interface PurchaseProposal {
   approvedAt?: string
   rejectedAt?: string
   rejectionReason?: string
+  purchasedAt?: string // lúc mọi item đã nhận đủ (receivedQty >= buyQty)
+}
+
+// Nhãn + màu hiển thị theo status — cấu hình dùng chung cho mọi màn đọc PurchaseProposal.status
+// (ProposalSection, màn theo dõi của QLSX...), tránh mỗi nơi tự hardcode 1 bảng if-chain riêng.
+export const PROPOSAL_STATUS_LABELS: Record<PurchaseProposal['status'], { label: string; color: string; bg: string; border: string }> = {
+  new:        { label: 'Chờ báo giá',   color: '#92400e', bg: '#fef3c7', border: '#fde68a' },
+  quoting:    { label: 'Đang báo giá',  color: '#1e40af', bg: '#dbeafe', border: '#93c5fd' },
+  submitted:  { label: 'Chờ duyệt',     color: '#7c3aed', bg: '#ede9fe', border: '#c4b5fd' },
+  purchasing: { label: 'Đang mua hàng', color: '#92400e', bg: '#fef3c7', border: '#fde68a' },
+  purchased:  { label: 'Đã mua',        color: '#166534', bg: '#dcfce7', border: '#86efac' },
+  rejected:   { label: 'Từ chối',       color: '#991b1b', bg: '#fee2e2', border: '#fca5a5' },
 }
 
 interface ProposalMeta { planFormId: number; poNumber: string; skuCode: string; skuName?: string; deadline?: string }
@@ -102,6 +117,8 @@ interface InspCtxType {
   approveProposal:         (proposalId: string, chosenSuppliers: Record<string, string>) => void
   rejectProposal:          (proposalId: string, reason: string) => void
   requoteProposal:         (proposalId: string) => void
+  receiveProposalItem:     (proposalId: string, itemName: string, qty: number) => void
+  startProduction:         (requestId: string) => void
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -407,8 +424,35 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     logAction(PROPOSAL_ENTITY, proposalId, 'proposal.requoted')
   }, [logAction])
 
+  // Thủ kho xác nhận đã nhận hàng — cộng dồn qua nhiều lần nhập (hàng có thể về nhiều đợt).
+  // Khi mọi item của proposal đã nhận đủ buyQty thì tự chuyển 'purchasing' -> 'purchased'.
+  const receiveProposalItem = useCallback((proposalId: string, itemName: string, qty: number) => {
+    let justCompleted = false
+    const now = new Date().toISOString()
+    setProposals(prev => prev.map(p => {
+      if (p.id !== proposalId) return p
+      const items = p.items.map(it => it.name === itemName
+        ? { ...it, receivedQty: Math.min(it.buyQty, (it.receivedQty ?? 0) + Math.max(0, qty)) }
+        : it)
+      const allReceived = items.every(it => (it.receivedQty ?? 0) >= it.buyQty)
+      if (allReceived && p.status !== 'purchased') justCompleted = true
+      return allReceived
+        ? { ...p, items, status: 'purchased', purchasedAt: now }
+        : { ...p, items }
+    }))
+    if (justCompleted) logAction(PROPOSAL_ENTITY, proposalId, 'proposal.purchased')
+  }, [logAction])
+
+  // QLSX chốt bắt đầu sản xuất khi mọi kho liên quan đến đơn đã "Đã mua".
+  const startProduction = useCallback((requestId: string) => {
+    setRequests(prev => prev.map(r =>
+      r.id === requestId ? { ...r, productionStarted: true, productionStartedAt: new Date().toISOString() } : r
+    ))
+    logAction('InspRequest', requestId, 'request.production_started')
+  }, [logAction])
+
   return (
-    <InspCtx.Provider value={{ requests, proposals, sendRequest, submitKho, markProposalCreated, acknowledgeProposal, submitProposalToDirector, approveProposal, rejectProposal, requoteProposal }}>
+    <InspCtx.Provider value={{ requests, proposals, sendRequest, submitKho, markProposalCreated, acknowledgeProposal, submitProposalToDirector, approveProposal, rejectProposal, requoteProposal, receiveProposalItem, startProduction }}>
       {children}
     </InspCtx.Provider>
   )

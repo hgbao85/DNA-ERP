@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import { Award, ChevronLeft, Send, ClipboardList, CheckCircle2, Plus, X } from 'lucide-react'
-import { useInspection, PROPOSAL_ENTITY, type PurchaseProposal, type ProposalQuote } from '../../../context/InspectionContext'
+import { useInspection, PROPOSAL_ENTITY, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type ProposalQuote } from '../../../context/InspectionContext'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import { visibleProposalsFor } from '../../../utils/purchasingRouting'
@@ -186,11 +186,8 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
   }
 
   const statusTag = (p: PurchaseProposal) => {
-    if (p.status === 'new')        return <span style={{ fontSize: 11, fontWeight: 700, color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, padding: '2px 8px' }}>Chờ báo giá</span>
-    if (p.status === 'quoting')    return <span style={{ fontSize: 11, fontWeight: 700, color: '#1e40af', background: '#dbeafe', border: '1px solid #93c5fd', borderRadius: 6, padding: '2px 8px' }}>Đang báo giá</span>
-    if (p.status === 'submitted')  return <span style={{ fontSize: 11, fontWeight: 700, color: '#7c3aed', background: '#ede9fe', border: '1px solid #c4b5fd', borderRadius: 6, padding: '2px 8px' }}>Chờ duyệt</span>
-    if (p.status === 'purchasing') return <span style={{ fontSize: 11, fontWeight: 700, color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a', borderRadius: 6, padding: '2px 8px' }}>Đang mua hàng</span>
-    return <span style={{ fontSize: 11, fontWeight: 700, color: '#991b1b', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 6, padding: '2px 8px' }}>Từ chối</span>
+    const cfg = PROPOSAL_STATUS_LABELS[p.status]
+    return <span style={{ fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 6, padding: '2px 8px' }}>{cfg.label}</span>
   }
 
   // ── Detail view ──────────────────────────────────────────────────────────────
@@ -388,8 +385,8 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
             </div>
           )}
 
-          {/* ── SUBMITTED / APPROVED / REJECTED ── */}
-          {(p.status === 'submitted' || p.status === 'purchasing' || p.status === 'rejected') && (<>
+          {/* ── SUBMITTED / APPROVED / PURCHASED / REJECTED ── */}
+          {(p.status === 'submitted' || p.status === 'purchasing' || p.status === 'purchased' || p.status === 'rejected') && (<>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
@@ -444,6 +441,11 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderTop: '1px solid #fde68a', background: '#fffbeb', fontSize: 13, color: '#92400e' }}>
                 <CheckCircle2 size={15} />
                 <span>Giám đốc đã duyệt lúc {p.approvedAt ? format(new Date(p.approvedAt), 'HH:mm dd/MM/yyyy') : '—'} — <strong>Đang mua hàng</strong></span>
+              </div>
+            ) : p.status === 'purchased' ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderTop: '1px solid #86efac', background: '#dcfce7', fontSize: 13, color: '#166534' }}>
+                <CheckCircle2 size={15} />
+                <span>Đã nhận đủ hàng lúc {p.purchasedAt ? format(new Date(p.purchasedAt), 'HH:mm dd/MM/yyyy') : '—'} — <strong>Hoàn tất mua vật tư</strong></span>
               </div>
             ) : p.status === 'rejected' ? (
               <div style={{ padding: '10px 14px', borderTop: '1px solid #f48fb1', background: '#fce4ec' }}>

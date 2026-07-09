@@ -1,13 +1,14 @@
 'use client'
 import { useState } from 'react'
-import { ChevronLeft, ScanSearch, Send, ShoppingCart, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { ChevronLeft, ScanSearch, Send, ShoppingCart, CheckCircle2, AlertTriangle, Factory } from 'lucide-react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import LoadingState from '../../../components/LoadingState'
+import { useConfirm } from '../../../hooks/useConfirm'
 import { listTh, listTd } from '../../../styles/table'
 import type { PlanForm } from '../../../types/plan-form'
-import { useInspection, khoState, type KhoKey, type InspRequest, type PurchaseProposalItem } from '../../../context/InspectionContext'
+import { useInspection, khoState, PROPOSAL_STATUS_LABELS, type KhoKey, type InspRequest, type PurchaseProposalItem } from '../../../context/InspectionContext'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -77,9 +78,10 @@ export default function LenhKiemTraPage() {
   const { data: planForms = [], isLoading } = useFetch(() => api.getPlanForms(), [])
   const active = ((planForms ?? []) as PlanForm[]).filter(p => p.status !== 'DRAFT')
 
-  const { requests, sendRequest, markProposalCreated } = useInspection()
+  const { requests, proposals, sendRequest, markProposalCreated, startProduction } = useInspection()
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [proposing,  setProposing]  = useState(false)
+  const { ask, confirmModal } = useConfirm()
 
   const selected = active.find(p => p.id === selectedId) ?? null
   const request  = selected ? requests.find(r => r.planFormId === selected.id) ?? null : null
@@ -105,6 +107,11 @@ export default function LenhKiemTraPage() {
         .map(i => ({ ...i, khoKey: 'thanhPham' as KhoKey, khoLabel: 'Kho Thành phẩm' })),
     ]
     const hasShortage = missingItems.length > 0
+
+    // Tiến độ mua vật tư theo từng kho — mỗi kho liên quan có đúng 1 PurchaseProposal
+    // (xem markProposalCreated, InspectionContext.tsx), theo dõi độc lập nhau tại đây.
+    const requestProposals = request ? proposals.filter(p => p.requestId === request.id) : []
+    const allPurchased = requestProposals.length > 0 && requestProposals.every(p => p.status === 'purchased')
 
     const findInspItem = (name: string, khoKey: KhoKey) => {
       if (!request) return null
@@ -258,10 +265,29 @@ export default function LenhKiemTraPage() {
           </div>
         )}
 
-        {/* All sufficient */}
+        {/* All sufficient — đủ hàng ngay từ đầu, không cần qua đề xuất mua hàng */}
         {bothDone && !hasShortage && !request?.proposalCreated && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', border: '1px solid #86efac', borderRadius: 10, background: '#f0fdf4', fontSize: 13, fontWeight: 600, color: '#166534' }}>
-            <CheckCircle2 size={16} /> Tất cả vật tư đủ hàng — có thể tiến hành sản xuất
+          <div style={{ border: '1px solid #86efac', borderRadius: 10, overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', background: '#f0fdf4', fontSize: 13, fontWeight: 600, color: '#166534' }}>
+              <CheckCircle2 size={16} /> Tất cả vật tư đủ hàng — có thể tiến hành sản xuất
+            </div>
+            {request?.productionStarted ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderTop: '1px solid #86efac', fontSize: 13, fontWeight: 600, color: '#166534' }}>
+                <Factory size={16} /> Đã bắt đầu sản xuất lúc {request.productionStartedAt ? format(new Date(request.productionStartedAt), 'HH:mm dd/MM/yyyy') : '—'}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px', borderTop: '1px solid #86efac' }}>
+                <button
+                  onClick={() => ask(
+                    { message: `Toàn bộ vật tư của lệnh ${selected.mfgProduct?.factoryCode ?? ''} đã đủ hàng. Xác nhận bắt đầu sản xuất?` },
+                    () => startProduction(request!.id)
+                  )}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#2563eb', color: '#fff', cursor: 'pointer' }}
+                >
+                  <Factory size={14} /> Bắt đầu sản xuất
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -350,6 +376,51 @@ export default function LenhKiemTraPage() {
             <CheckCircle2 size={16} /> Đã tạo đề xuất mua hàng cho {missingItems.length} vật tư thiếu
           </div>
         )}
+
+        {/* Tiến độ mua vật tư theo từng kho + chốt bắt đầu sản xuất */}
+        {requestProposals.length > 0 && (
+          <div style={{ marginTop: 16, border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ padding: '10px 16px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 700, color: 'var(--text2)' }}>
+              Tiến độ mua vật tư
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {requestProposals.map(p => {
+                const cfg = PROPOSAL_STATUS_LABELS[p.status]
+                const khoLabel = p.items[0]?.khoLabel ?? p.warehouseScope
+                return (
+                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{khoLabel}</span>
+                    <span style={{ fontSize: 12, color: 'var(--text3)' }}>{p.items.length} vật tư</span>
+                    <div style={{ flex: 1 }} />
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20, color: cfg.color, background: cfg.bg }}>
+                      {cfg.label}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+
+            {request?.productionStarted ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderTop: '1px solid #86efac', background: '#f0fdf4', fontSize: 13, fontWeight: 600, color: '#166534' }}>
+                <Factory size={16} /> Đã bắt đầu sản xuất lúc {request.productionStartedAt ? format(new Date(request.productionStartedAt), 'HH:mm dd/MM/yyyy') : '—'}
+              </div>
+            ) : allPurchased && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
+                <button
+                  onClick={() => ask(
+                    { message: `Mọi vật tư của lệnh ${selected.mfgProduct?.factoryCode ?? ''} đã về đủ. Xác nhận bắt đầu sản xuất?` },
+                    () => startProduction(request!.id)
+                  )}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#2563eb', color: '#fff', cursor: 'pointer' }}
+                >
+                  <Factory size={14} /> Bắt đầu sản xuất
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {confirmModal}
       </div>
     )
   }
