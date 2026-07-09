@@ -45,14 +45,39 @@ export const MOCK_ACCOUNTS: MockAccount[] = [
     },
   },
   {
-    email: 'purchasing@demo.com',
+    email: 'muapsh@demo.com',
     password: 'demo1234',
     user: {
-      id: 20,
-      name: 'NV Mua hàng Lan',
-      email: 'purchasing@demo.com',
+      id: 21,
+      name: 'NV Mua hàng - Phôi Sơn Hàn',
+      email: 'muapsh@demo.com',
       role: 'WAREHOUSE_STAFF',
       isPurchaser: true,
+      warehouseScope: 'phoi-son-han',
+    },
+  },
+  {
+    email: 'muavttp@demo.com',
+    password: 'demo1234',
+    user: {
+      id: 22,
+      name: 'NV Mua hàng - Vật tư thành phẩm',
+      email: 'muavttp@demo.com',
+      role: 'WAREHOUSE_STAFF',
+      isPurchaser: true,
+      warehouseScope: 'vat-tu-tp',
+    },
+  },
+  {
+    email: 'muatp@demo.com',
+    password: 'demo1234',
+    user: {
+      id: 23,
+      name: 'NV Mua hàng - Thành phẩm',
+      email: 'muatp@demo.com',
+      role: 'WAREHOUSE_STAFF',
+      isPurchaser: true,
+      warehouseScope: 'thanh-pham',
     },
   },
   {

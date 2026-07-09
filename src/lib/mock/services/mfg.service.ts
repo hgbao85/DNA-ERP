@@ -371,17 +371,6 @@ class ExportPurposeService extends BaseService<any> {
   }
 }
 
-class PurchaseProposalService extends BaseService<any> {
-  constructor() { super('purchaseProposals'); }
-
-  async create(data: Record<string, unknown>) {
-    return ok({ id: nextId(), code: 'DX-2026-NEW', status: 'PENDING', ...data });
-  }
-
-  async review(id: number, data: Record<string, unknown>) { return ok({ id, ...data }); }
-  async remove(id: number) { return ok({ id }); }
-}
-
 class WeavingService extends BaseService<any> {
   constructor() { super('weavingPoints'); }
 
@@ -506,7 +495,6 @@ const piSvc = new ProductionInvoiceService();
 const exportOrderSvc = new ExportOrderService();
 const warehouseSvc = new MfgWarehouseService();
 const exportPurposeSvc = new ExportPurposeService();
-const purchaseProposalSvc = new PurchaseProposalService();
 const weavingSvc = new WeavingService();
 const defectReasonSvc = new DefectReasonService();
 const packagingSvc = new PackagingService();
@@ -599,11 +587,6 @@ export const getMfgWarehouseTxns = (warehouseId?: number) => warehouseSvc.getTra
 
 export const getExportPurposes = () => exportPurposeSvc.getAll();
 export const createExportPurpose = (label: string) => exportPurposeSvc.createWithLabel(label);
-
-export const getPurchaseProposals = () => purchaseProposalSvc.getAll();
-export const createPurchaseProposal = (data: Record<string, unknown>) => purchaseProposalSvc.create(data);
-export const reviewPurchaseProposal = (id: number, data: Record<string, unknown>) => purchaseProposalSvc.review(id, data);
-export const deletePurchaseProposal = (id: number) => purchaseProposalSvc.remove(id);
 
 export const getWeavingPoints = (_all?: boolean) => weavingSvc.getPoints(_all);
 export const createWeavingPoint = (data: Record<string, unknown>) => weavingSvc.createPoint(data);

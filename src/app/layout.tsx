@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { AuthProvider } from '../context/AuthContext';
+import { AuditLogProvider } from '../context/AuditLogContext';
 import { InspectionProvider } from '../context/InspectionContext';
 import './globals.css';
 
@@ -12,7 +13,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="vi">
       <body>
         <AuthProvider>
-          <InspectionProvider>{children}</InspectionProvider>
+          <AuditLogProvider>
+            <InspectionProvider>{children}</InspectionProvider>
+          </AuditLogProvider>
         </AuthProvider>
       </body>
     </html>
