@@ -3,8 +3,8 @@
 /** Màn hình KCS — Công đoạn PHÔI (3 tầng: PO → Mảnh → Vật tư, chỉ xem + duyệt). */
 
 import { Wrench } from 'lucide-react'
-import { KcsPhoiScreen, type KcsRow } from '../../../components/lenh-san-xuat/kcsCore'
-import { ISO, minsAgo, type StageCfg } from '../../../components/lenh-san-xuat/core'
+import { KcsPhoiScreen, type KcsRow } from '../../../components/sanxuat/kcsCore'
+import { ISO, minsAgo, type StageCfg } from '../../../components/sanxuat/core'
 
 const CFG: StageCfg = { label: 'Phôi', done: 'Đã cắt', verb: 'cắt', itemLabel: 'Loại sắt', unit: 'cây', Icon: Wrench }
 

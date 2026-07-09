@@ -3,7 +3,7 @@
 /** Lệnh sản xuất — Công đoạn HÀN (2 tầng: PO → Vật tư/chi tiết). */
 
 import { Flame } from 'lucide-react'
-import { TwoTierScreen, ISO, minsAgo, type ProcRow, type StageCfg } from '../../../components/lenh-san-xuat/core'
+import { TwoTierScreen, ISO, minsAgo, type ProcRow, type StageCfg } from '../../../components/sanxuat/core'
 
 const CFG: StageCfg = { label: 'Hàn', done: 'Đã hàn', verb: 'hàn', itemLabel: 'Chi tiết', unit: 'cái', Icon: Flame }
 

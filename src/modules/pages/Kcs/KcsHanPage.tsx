@@ -3,8 +3,8 @@
 /** Màn hình KCS — Công đoạn HÀN (2 tầng: PO → Vật tư, chỉ xem + duyệt). */
 
 import { Flame } from 'lucide-react'
-import { KcsTwoTierScreen, type KcsRow } from '../../../components/lenh-san-xuat/kcsCore'
-import { ISO, minsAgo, type StageCfg } from '../../../components/lenh-san-xuat/core'
+import { KcsTwoTierScreen, type KcsRow } from '../../../components/sanxuat/kcsCore'
+import { ISO, minsAgo, type StageCfg } from '../../../components/sanxuat/core'
 
 const CFG: StageCfg = { label: 'Hàn', done: 'Đã hàn', verb: 'hàn', itemLabel: 'Chi tiết', unit: 'cái', Icon: Flame }
 

@@ -10,8 +10,8 @@
  * ĐANG DÙNG DATA MOCK (state nội bộ) — chưa nối backend.
  */
 
-import { useState } from 'react'
-import { ChevronRight, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Play, Square, Lock, Eye, Scissors } from 'lucide-react'
+import { useState, useMemo } from 'react'
+import { ChevronRight, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Play, Square, Lock, Scissors } from 'lucide-react'
 import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
 import { useFetch } from '../../hooks/useFetch'
 import * as api from '../../services/api'
@@ -100,6 +100,14 @@ const poSummary = (r: ProcRow) => {
   const pct = r.soLuong > 0 ? Math.round((daLam / r.soLuong) * 100) : 0
   return { pct, daLam, conLai: r.soLuong - daLam }
 }
+// Phôi: tiến độ theo tổng CÂY (đã cắt / cần) — không dùng đồng bộ mảnh→bộ.
+const poSummaryCay = (r: ProcRow) => {
+  const lines = allLines(r)
+  const need = lines.reduce((s, l) => s + l.needQty, 0)
+  const done = lines.reduce((s, l) => s + l.doneQty, 0)
+  const pct = need > 0 ? Math.round((done / need) * 100) : 0
+  return { pct, daLam: done, conLai: Math.max(0, need - done) }
+}
 const durText = (fromISO: string, toISO: string) => {
   const mins = Math.max(0, Math.round((new Date(toISO).getTime() - new Date(fromISO).getTime()) / 60000))
   if (mins < 60) return `${mins} phút`
@@ -129,14 +137,15 @@ function PoListBoard({ rows, cfg, isPhoi, onEnter, onStart, onEnd }: {
   rows: ProcRow[]; cfg: StageCfg; isPhoi: boolean
   onEnter: (poId: number) => void; onStart: (poId: number) => void; onEnd: (poId: number) => void
 }) {
+  const sumOf = (r: ProcRow) => isPhoi ? poSummaryCay(r) : poSummary(r)
   const views: PoView[] = rows.map((r, i) => {
-    const s = poSummary(r)
+    const s = sumOf(r)
     const arranged = !!r.arrangedAt
-    const seqUnlocked = i === 0 || poSummary(rows[i - 1]).pct >= 100
+    const seqUnlocked = i === 0 || sumOf(rows[i - 1]).pct >= 100
     const unlocked = arranged && seqUnlocked
     const running = !!r.startedAt
-    // Phôi: bấm thẳng vào PO (không cần Bắt đầu ca). Hàn/Sơn: vẫn cần chạy ca.
-    return { r, s, arranged, seqUnlocked, unlocked, running, canEnter: isPhoi ? unlocked : unlocked && running, alert: unlocked && skuLech(r) }
+    // Phôi: bấm thẳng vào PO (không cần Bắt đầu ca) · không đồng bộ mảnh nên không báo lệch.
+    return { r, s, arranged, seqUnlocked, unlocked, running, canEnter: isPhoi ? unlocked : unlocked && running, alert: !isPhoi && unlocked && skuLech(r) }
   })
 
   const cols: BoardColumn<PoView>[] = [
@@ -150,8 +159,8 @@ function PoListBoard({ rows, cfg, isPhoi, onEnter, onStart, onEnd }: {
     ) },
     { key: 'sku', header: 'SKU', cell: v => v.r.sku },
     { key: 'sl', header: 'Số lượng', align: 'right', cell: v => fmt(v.r.soLuong) },
-    { key: 'done', header: cfg.done, align: 'right', cell: v => <span style={{ fontWeight: 700, color: v.alert ? 'var(--red)' : 'var(--text)' }}>{fmt(v.s.daLam)}</span> },
-    { key: 'remain', header: 'Còn lại', align: 'right', cell: v => <span style={{ color: v.s.conLai > 0 ? ACCENT : 'var(--green)', fontWeight: 600 }}>{fmt(v.s.conLai)}</span> },
+    { key: 'done', header: isPhoi ? `${cfg.done} (${cfg.unit})` : cfg.done, align: 'right', cell: v => <span style={{ fontWeight: 700, color: v.alert ? 'var(--red)' : 'var(--text)' }}>{fmt(v.s.daLam)}</span> },
+    { key: 'remain', header: isPhoi ? `Còn lại (${cfg.unit})` : 'Còn lại', align: 'right', cell: v => <span style={{ color: v.s.conLai > 0 ? ACCENT : 'var(--green)', fontWeight: 600 }}>{fmt(v.s.conLai)}</span> },
     { key: 'progress', header: 'Tiến độ', width: 160, cell: v => <Progress pct={v.s.pct} /> },
     { key: 'deadline', header: 'Deadline', cell: v => dateVN(v.r.deadline) },
     // Cột "Ca" (Bắt đầu/Kết thúc) chỉ cho Hàn/Sơn. Phôi bấm thẳng vào PO.
@@ -196,46 +205,32 @@ function PoListBoard({ rows, cfg, isPhoi, onEnter, onStart, onEnd }: {
       onRowClick={v => onEnter(v.r.id)}
       rowTitle={v => !v.arranged ? 'Chủ chuyền chưa sắp xếp lệnh này' : !v.seqUnlocked ? 'Phải hoàn tất PO trước (đủ 100%) mới mở lệnh này' : v.alert ? 'Chưa khớp đồng bộ — nhấn để xem' : isPhoi ? 'Nhấn để xem các mảnh của SKU' : !v.running ? 'Nhấn "Bắt đầu" để mở nhập sản lượng' : 'Nhấn để nhập sản lượng theo vật tư'}
       footer={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        <CalendarClock size={14} /> Làm <b style={{ color: 'var(--text2)' }}>tuần tự</b>: PO sau chỉ mở khi PO trước đủ 100%. <b style={{ color: 'var(--text2)' }}>{cfg.done}</b> = số sản phẩm ráp được đủ mọi {isPhoi ? 'mảnh' : cfg.itemLabel.toLowerCase()} (đồng bộ); dòng đỏ = chưa khớp.{!isPhoi && <> Bấm <b style={{ color: 'var(--text2)' }}>Bắt đầu/Kết thúc</b> để đo sản lượng theo ca.</>}
+        <CalendarClock size={14} /> Làm <b style={{ color: 'var(--text2)' }}>tuần tự</b>: PO sau chỉ mở khi PO trước đủ 100%. {isPhoi
+          ? <>Tiến độ theo <b style={{ color: 'var(--text2)' }}>tổng cây đã cắt / cần</b>; <b style={{ color: 'var(--text2)' }}>đồng bộ sắt</b> (điểm nghẽn loại sắt) xem trong từng mảnh.</>
+          : <><b style={{ color: 'var(--text2)' }}>{cfg.done}</b> = số sản phẩm ráp được đủ mọi {cfg.itemLabel.toLowerCase()} (đồng bộ); dòng đỏ = chưa khớp. Bấm <b style={{ color: 'var(--text2)' }}>Bắt đầu/Kết thúc</b> để đo sản lượng theo ca.</>}
       </span>}
     />
   )
 }
 
-// ── Tầng 2 (Phôi): Danh sách mảnh ──────────────────────────────────
-interface ManhView { m: ProcManh; db: number; need: number; ghe: number; lech: boolean; thieu: number; targetManh: number }
+// ── Tầng 2 (Phôi): Danh sách mảnh — số lượng cây theo từng mảnh ─────────────
+// Không đồng bộ ở đây; điểm nghẽn loại sắt xem trong màn vật tư (bấm vào mảnh).
+interface ManhView { m: ProcManh; tong: number; done: number; remain: number }
 
-function ManhListBoard({ po, cfg, onBack, onOpenManh }: { po: ProcRow; cfg: StageCfg; onBack: () => void; onOpenManh: (id: number) => void }) {
-  const [expandedIds, setExpandedIds] = useState<number[]>([])
-  const toggleExpand = (id: number) => setExpandedIds(ids => ids.includes(id) ? ids.filter(x => x !== id) : [...ids, id])
+function ManhListBoard({ po, onBack, onOpenManh }: { po: ProcRow; cfg: StageCfg; onBack: () => void; onOpenManh: (id: number) => void }) {
   const manhs = po.manhs ?? []
-  const maxGhe = manhs.length ? Math.max(...manhs.map(gheOfManh)) : 0
-
   const views: ManhView[] = manhs.map(m => {
-    const ghe = gheOfManh(m)
-    return { m, db: dongBoManh(m), need: po.soLuong * perSku(m), ghe, lech: ghe < maxGhe, thieu: (maxGhe - ghe) * perSku(m), targetManh: maxGhe * perSku(m) }
+    const tong = m.lines.reduce((s, l) => s + l.needQty, 0)
+    const done = m.lines.reduce((s, l) => s + l.doneQty, 0)
+    return { m, tong, done, remain: Math.max(0, tong - done) }
   })
 
   const cols: BoardColumn<ManhView>[] = [
     { key: 'manh', header: 'Mảnh', cell: v => <span style={{ fontWeight: 700 }}>{v.m.tenManh}</span> },
     { key: 'perSku', header: 'SL/SKU', align: 'right', cell: v => `×${perSku(v.m)}` },
-    { key: 'dongbo', header: 'Đồng bộ', align: 'right', cell: v => (
-      <span style={{ fontWeight: 700, color: v.lech ? 'var(--red)' : 'var(--text)' }}>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
-          {v.lech && <AlertTriangle size={12} />}{fmt(v.db)} bộ
-          {v.lech && (
-            <button onClick={e => { e.stopPropagation(); toggleExpand(v.m.id) }} title="Xem loại sắt cần cắt thêm"
-              style={{ display: 'inline-flex', padding: 2, color: expandedIds.includes(v.m.id) ? 'var(--red)' : 'var(--text3)', background: 'none', border: 'none', cursor: 'pointer' }}>
-              <Eye size={15} />
-            </button>
-          )}
-        </span>
-        {v.lech
-          ? <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--red)' }}>cần làm thêm {fmt(v.thieu)} mảnh</span>
-          : <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--text3)' }}>≈ {fmt(v.ghe)} sp</span>}
-      </span>
-    ) },
-    { key: 'need', header: 'Cần', align: 'right', cell: v => fmt(v.need) },
+    { key: 'tong', header: 'Số lượng (cây)', align: 'right', cell: v => fmt(v.tong) },
+    { key: 'done', header: 'Đã cắt (cây)', align: 'right', cell: v => <span style={{ fontWeight: 700 }}>{fmt(v.done)}</span> },
+    { key: 'remain', header: 'Còn lại (cây)', align: 'right', cell: v => <span style={{ color: v.remain > 0 ? ACCENT : 'var(--green)', fontWeight: 600 }}>{fmt(v.remain)}</span> },
     { key: 'chevron', header: '', width: 40, cell: () => <span style={{ color: 'var(--text3)' }}><ChevronRight size={16} /></span> },
   ]
 
@@ -248,39 +243,26 @@ function ManhListBoard({ po, cfg, onBack, onOpenManh }: { po: ProcRow; cfg: Stag
       columns={cols}
       rows={views}
       rowKey={v => v.m.id}
-      rowTone={v => v.lech ? 'alert' : 'default'}
       clickable={() => true}
       onRowClick={v => onOpenManh(v.m.id)}
-      rowTitle={v => v.lech ? `${v.m.tenManh}: mới đủ ${fmt(v.ghe)} sp, kém mảnh dẫn đầu (${fmt(maxGhe)} sp) — cần làm thêm ${fmt(v.thieu)} mảnh` : `Xem vật tư chi tiết của ${v.m.tenManh}`}
-      expandedRow={v => expandedIds.includes(v.m.id)
-        ? <div style={{ padding: '10px 16px', background: 'var(--surface2)', borderTop: '1px solid var(--border)' }}>
-            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8, fontWeight: 600 }}>Cần cắt thêm để {v.m.tenManh} bằng mảnh dẫn đầu ({fmt(maxGhe)} sp):</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              {v.m.lines.map(l => {
-                const short = Math.max(0, (v.targetManh - manhFromLine(l)) * perManh(l))
-                return (
-                  <div key={l.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '3px 0' }}>
-                    <span><b>{l.itemName}</b> <span style={{ color: 'var(--text3)' }}>({l.spec} · ×{perManh(l)}/mảnh · đã cắt {fmt(l.doneQty)})</span></span>
-                    <span style={{ fontWeight: 700, color: short > 0 ? 'var(--red)' : 'var(--green)' }}>{short > 0 ? `cần cắt thêm ${fmt(short)} ${cfg.unit}` : 'đã đủ'}</span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        : null}
+      rowTitle={v => `Xem vật tư chi tiết của ${v.m.tenManh}`}
     />
   )
 }
 
 // ── Tầng chi tiết vật tư (dùng chung Phôi/Hàn/Sơn) ─────────────────
-function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, backLabel, onBack, onUpdateLine, pendingFor, onConfirmCut }: {
+function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, pendingFor, onConfirmCut, manualInput }: {
   lines: ProcLine[]; cfg: StageCfg; readOnly: boolean
   title: string; subtitle: string; bannerLabel: string; backLabel: string
-  onBack: () => void; onUpdateLine: (l: ProcLine) => void
-  /** Phôi mode: đợt đã nhận đang chờ cắt của 1 dòng vật tư. */
+  /** Đơn vị của số đồng bộ: Phôi = "mảnh", Hàn/Sơn = "bộ". */
+  dbUnit?: string
+  onBack: () => void; onUpdateLine?: (l: ProcLine) => void
+  /** (không dùng cho Phôi nữa) đợt đã nhận đang chờ cắt của 1 dòng vật tư. */
   pendingFor?: (lineId: number) => SatIssueView[]
-  /** Phôi mode: xác nhận cắt xong 1 đợt → cộng vào doneQty. */
+  /** (không dùng cho Phôi nữa) xác nhận cắt xong 1 đợt → cộng vào doneQty. */
   onConfirmCut?: (line: ProcLine, issue: SatIssueView, soCayThuc?: number) => void
+  /** Hàn/Sơn: cho nhập tay sản lượng. Phôi = false (số lượng tự cập nhật từ màn Xác nhận sản lượng). */
+  manualInput?: boolean
 }) {
   const phoiMode = !!onConfirmCut
   const [draft, setDraft] = useState<Record<number, string>>({})
@@ -294,7 +276,7 @@ function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, 
   const submit = (line: ProcLine) => {
     const add = Number(draft[line.id])
     if (!add || add <= 0) return
-    onUpdateLine({ ...line, doneQty: Math.min(line.needQty, line.doneQty + add), lastInputAt: new Date().toISOString() })
+    onUpdateLine?.({ ...line, doneQty: Math.min(line.needQty, line.doneQty + add), lastInputAt: new Date().toISOString() })
     setDraft(d => ({ ...d, [line.id]: '' }))
   }
 
@@ -325,7 +307,7 @@ function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, 
           <ConfirmCell line={l} issues={pendingFor!(l.id)} unit={cfg.unit}
             onConfirm={(issue, soCay) => onConfirmCut!(l, issue, soCay)} />
         ) } as BoardColumn<ProcLine>]
-      : readOnly ? [] : [{ key: 'input', header: `Nhập số ${cfg.unit} vừa ${cfg.verb}`, width: 220, cell: (l: ProcLine) => {
+      : (manualInput && !readOnly) ? [{ key: 'input', header: `Nhập số ${cfg.unit} vừa ${cfg.verb}`, width: 220, cell: (l: ProcLine) => {
       const remain = l.needQty - l.doneQty
       if (remain <= 0) return <span className="badge green">đủ định mức</span>
       return (
@@ -349,14 +331,14 @@ function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, 
           </button>
         </div>
       )
-    } } as BoardColumn<ProcLine>]),
+    } } as BoardColumn<ProcLine>] : []),
   ]
 
   const banner = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', margin: '14px 0 0', borderRadius: 'var(--radius)', background: lech ? 'var(--red-bg)' : 'var(--green-bg, #e8f5e9)', color: lech ? 'var(--red)' : 'var(--green)', fontSize: 13 }}>
       {lech ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
       <span>
-        {bannerLabel}: <b>{fmt(db)} bộ</b>
+        {bannerLabel}: <b>{fmt(db)} {dbUnit}</b>
         {lech
           ? <> — chưa cân đối. Cần {cfg.verb} thêm để đồng bộ: <b>{needCut.join(', ')}</b> ({cfg.unit}).</>
           : <> — các {itemLabelLC} đang {cfg.verb} cân đối.</>}
@@ -370,7 +352,9 @@ function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, 
       title={title}
       subtitle={<>{subtitle}<div style={{ marginTop: 2 }}>{phoiMode
         ? <>Xác nhận các <b>đợt sắt đã nhận từ kho</b> theo từng {itemLabelLC} — hệ thống tự cộng vào tiến độ.</>
-        : <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} — hệ thống tự lưu mốc thời gian.</>}</div></>}
+        : manualInput
+          ? <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} — hệ thống tự lưu mốc thời gian.</>
+          : <>Số lượng <b>đã {cfg.verb}</b> tự cập nhật từ màn <b>Xác nhận sản lượng</b> — màn này chỉ theo dõi đồng bộ.</>}</div></>}
       beforeTable={banner}
       columns={cols}
       rows={lines}
@@ -441,8 +425,8 @@ const caActions = (setRows: SetRows) => ({
 })
 
 // ── Orchestrator: Phôi (3 tầng) ────────────────────────────────────
-// Controlled: rows/setRows do LenhSanXuatPhoi giữ (bền khi đổi tab).
-// Đợt sắt lấy từ mock API; "Đã cắt" cộng lên khi xác nhận đợt (không nhập tay).
+// "Đã cắt" của mỗi dòng = base(seed) + Σ cây các đợt ĐÃ XÁC NHẬN (DA_CAT) theo lineId.
+// Xác nhận sản lượng làm ở màn riêng "Xác nhận sản lượng"; màn này chỉ theo dõi đồng bộ.
 export function PhoiScreen({ cfg, rows, setRows, readOnly = false }: {
   cfg: StageCfg
   rows: ProcRow[]
@@ -451,37 +435,38 @@ export function PhoiScreen({ cfg, rows, setRows, readOnly = false }: {
 }) {
   const [selPoId, setSelPoId] = useState<number | null>(null)
   const [selManhId, setSelManhId] = useState<number | null>(null)
-  const selPo = rows.find(r => r.id === selPoId) ?? null
-  const selManh = selPo?.manhs?.find(m => m.id === selManhId) ?? null
   const { startPo, endPo } = caActions(setRows)
-  const { data: issues, refetch: refetchIssues } = useFetch<SatIssueView[]>(() => api.getDotXuatSat(), [])
+  const { data: issues } = useFetch<SatIssueView[]>(() => api.getDotXuatSat(), [])
 
-  const updateLine = (poId: number, manhId: number, ul: ProcLine) =>
-    setRows(rs => rs.map(r => r.id !== poId ? r : { ...r, manhs: r.manhs?.map(m => m.id !== manhId ? m : { ...m, lines: m.lines.map(l => l.id === ul.id ? ul : l) }) }))
+  // Số cây đã xác nhận cắt xong theo từng dòng vật tư (lineId).
+  const confirmedByLine = useMemo(() => {
+    const m = new Map<number, number>()
+    for (const i of issues ?? []) if (i.status === 'DA_CAT') m.set(i.lineId, (m.get(i.lineId) ?? 0) + (i.soCayThuc ?? i.soCay))
+    return m
+  }, [issues])
 
-  const confirmCut = async (poId: number, manhId: number, line: ProcLine, issue: SatIssueView, soCayThuc?: number) => {
-    const add = soCayThuc ?? issue.soCay
-    updateLine(poId, manhId, { ...line, doneQty: Math.min(line.needQty, line.doneQty + add), lastInputAt: new Date().toISOString() })
-    await api.xacNhanCatXong(issue.id, soCayThuc)
-    refetchIssues()
-  }
+  // Rows hiển thị = base + đã xác nhận (cộng vào doneQty đúng dòng).
+  const view = useMemo(() => rows.map(r => ({
+    ...r,
+    manhs: r.manhs?.map(mn => ({ ...mn, lines: mn.lines.map(l => ({ ...l, doneQty: Math.min(l.needQty, l.doneQty + (confirmedByLine.get(l.id) ?? 0)) })) })),
+  })), [rows, confirmedByLine])
+
+  const selPo = view.find(r => r.id === selPoId) ?? null
+  const selManh = selPo?.manhs?.find(m => m.id === selManhId) ?? null
 
   if (selPo && selManh) {
     return <VatTuDetailBoard
       lines={selManh.lines} cfg={cfg} readOnly={readOnly}
       title={selManh.tenManh}
       subtitle={`${selPo.poNumber} · ${selPo.sku} · SL ${fmt(selPo.soLuong)} · hạn ${dateVN(selPo.deadline)}`}
-      bannerLabel="Đồng bộ mảnh" backLabel="Quay lại danh sách mảnh"
+      bannerLabel="Đồng bộ sắt" dbUnit="mảnh" backLabel="Quay lại danh sách mảnh"
       onBack={() => setSelManhId(null)}
-      onUpdateLine={l => updateLine(selPo.id, selManh.id, l)}
-      pendingFor={readOnly ? undefined : lineId => (issues ?? []).filter(i => i.lineId === lineId && i.status === 'DA_NHAN')}
-      onConfirmCut={readOnly ? undefined : (line, issue, soCayThuc) => confirmCut(selPo.id, selManh.id, line, issue, soCayThuc)}
     />
   }
   if (selPo) {
     return <ManhListBoard po={selPo} cfg={cfg} onBack={() => setSelPoId(null)} onOpenManh={id => setSelManhId(id)} />
   }
-  return <PoListBoard rows={rows} cfg={cfg} isPhoi onEnter={id => { setSelPoId(id); setSelManhId(null) }} onStart={startPo} onEnd={endPo} />
+  return <PoListBoard rows={view} cfg={cfg} isPhoi onEnter={id => { setSelPoId(id); setSelManhId(null) }} onStart={startPo} onEnd={endPo} />
 }
 
 // ── Orchestrator: Hàn/Sơn (2 tầng) ─────────────────────────────────
@@ -502,6 +487,7 @@ export function TwoTierScreen({ cfg, seed, readOnly = false }: { cfg: StageCfg; 
       bannerLabel="Đồng bộ" backLabel="Quay lại danh sách lệnh"
       onBack={() => setSelPoId(null)}
       onUpdateLine={l => updateLineFlat(selPo.id, l)}
+      manualInput
     />
   }
   return <PoListBoard rows={rows} cfg={cfg} isPhoi={false} onEnter={id => setSelPoId(id)} onStart={startPo} onEnd={endPo} />
