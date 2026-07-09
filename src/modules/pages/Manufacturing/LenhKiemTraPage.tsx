@@ -96,13 +96,13 @@ export default function LenhKiemTraPage() {
     const missingItems = !bothDone ? [] : [
       ...request!.phoiSonHan.items
         .filter(i => i.actualStock != null && i.required > 0 && i.actualStock < i.required)
-        .map(i => ({ ...i, khoKey: 'phoiSonHan' as KhoKey, khoLabel: 'Kho Phôi Sơn Hàn' })),
+        .map(i => ({ ...i, khoLabel: 'Kho Phôi Sơn Hàn' })),
       ...request!.vatTuTP.items
         .filter(i => i.actualStock != null && i.required > 0 && i.actualStock < i.required)
-        .map(i => ({ ...i, khoKey: 'vatTuTP' as KhoKey, khoLabel: 'Kho Vật tư thành phẩm' })),
+        .map(i => ({ ...i, khoLabel: 'Kho Vật tư thành phẩm' })),
       ...request!.thanhPham.items
         .filter(i => i.actualStock != null && i.required > 0 && i.actualStock < i.required)
-        .map(i => ({ ...i, khoKey: 'thanhPham' as KhoKey, khoLabel: 'Kho Thành phẩm' })),
+        .map(i => ({ ...i, khoLabel: 'Kho Thành phẩm' })),
     ]
     const hasShortage = missingItems.length > 0
 
@@ -323,7 +323,6 @@ export default function LenhKiemTraPage() {
                         name: i.name, unit: i.unit, required: i.required,
                         actualStock: i.actualStock ?? 0,
                         buyQty: i.required - (i.actualStock ?? 0),
-                        khoKey: i.khoKey,
                         khoLabel: i.khoLabel,
                       }))
                       markProposalCreated(request!.id, proposalItems, {

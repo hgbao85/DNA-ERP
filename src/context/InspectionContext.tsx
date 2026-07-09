@@ -1,23 +1,10 @@
 'use client'
 import { createContext, useContext, useState, useCallback } from 'react'
 import type { PlanForm } from '../types/plan-form'
-import type { WarehouseScope } from './AuthContext'
-import { useAuditLog } from './AuditLogContext'
-
-export const PROPOSAL_ENTITY = 'PurchaseProposal'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 export type KhoKey = 'phoiSonHan' | 'vatTuTP' | 'thanhPham'
-
-// Kho phụ trách của từng nhóm vật tư — dùng để tách đề xuất mua theo kho và route
-// tới đúng tài khoản Purchasing (user.warehouseScope) phụ trách kho đó. Thêm kho mới
-// chỉ cần thêm 1 dòng ở đây, không phải sửa logic tách/route ở nơi khác.
-export const KHO_KEY_TO_WAREHOUSE_SCOPE: Record<KhoKey, WarehouseScope> = {
-  phoiSonHan: 'phoi-son-han',
-  vatTuTP: 'vat-tu-tp',
-  thanhPham: 'thanh-pham',
-}
 
 export interface InspItem {
   name: string
@@ -55,7 +42,6 @@ export interface PurchaseProposalItem {
   required: number
   actualStock: number
   buyQty: number
-  khoKey: KhoKey
   khoLabel: string
   materialId?: number
 }
@@ -68,16 +54,13 @@ export interface ProposalQuote {
 }
 
 export interface PurchaseProposal {
-  id: string           // `prop-${requestId}-${khoKey}`
+  id: string           // `prop-${requestId}`
   requestId: string
   planFormId: number
   poNumber: string
   skuCode: string
   skuName?: string
   createdAt: string
-  // 1 đề xuất chỉ thuộc đúng 1 kho — dùng để route tới Purchasing phụ trách kho đó
-  // (so khớp với user.warehouseScope, xem src/utils/purchasingRouting.ts).
-  warehouseScope: WarehouseScope
   items: PurchaseProposalItem[]
   status: 'new' | 'quoting' | 'submitted' | 'purchasing' | 'rejected'
   quotes?: Record<string, ProposalQuote[]>  // keyed by item.name → multiple NCC offers
@@ -101,7 +84,6 @@ interface InspCtxType {
   submitProposalToDirector:(proposalId: string, quotes: Record<string, ProposalQuote[]>) => void
   approveProposal:         (proposalId: string, chosenSuppliers: Record<string, string>) => void
   rejectProposal:          (proposalId: string, reason: string) => void
-  requoteProposal:         (proposalId: string) => void
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -204,86 +186,36 @@ const SEED_REQUESTS: InspRequest[] = [
   },
 ]
 
-// Mỗi PlanForm thiếu hàng ở nhiều kho trước đây gộp chung 1 proposal — nay tách thành
-// 1 proposal/kho (id `prop-${requestId}-${khoKey}`) để route đúng Purchasing phụ trách kho đó.
 const SEED_PROPOSALS: PurchaseProposal[] = [
   {
-    id: 'prop-insp-1-phoiSonHan', requestId: 'insp-1', planFormId: 1,
+    id: 'prop-insp-1', requestId: 'insp-1', planFormId: 1,
     poNumber: 'PO-MY-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
     createdAt: '2026-07-04T08:10:00.000Z',
     deadline: '2026-07-25T00:00:00.000Z',
     status: 'new',
-    warehouseScope: 'phoi-son-han',
     items: [
-      { name: 'Sắt hộp 25×25', unit: 'cây', required: 20, actualStock: 12, buyQty: 8, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 1 },
-      { name: 'Sắt tấm 3mm',   unit: 'tấm', required: 2,  actualStock: 1,  buyQty: 1, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 3 },
+      { name: 'Sắt hộp 25×25', unit: 'cây', required: 20, actualStock: 12, buyQty: 8, khoLabel: 'Kho Phôi Sơn Hàn', materialId: 1 },
+      { name: 'Sắt tấm 3mm',   unit: 'tấm', required: 2,  actualStock: 1,  buyQty: 1, khoLabel: 'Kho Phôi Sơn Hàn', materialId: 3 },
+      { name: 'Ốc vít M6×20',  unit: 'cái', required: 48, actualStock: 30, buyQty: 18, khoLabel: 'Kho Vật tư thành phẩm', materialId: 1 },
+      { name: 'Xốp PE bảo vệ', unit: 'm²',  required: 2,  actualStock: 1,  buyQty: 1, khoLabel: 'Kho Thành phẩm', materialId: 2 },
     ],
   },
   {
-    id: 'prop-insp-1-vatTuTP', requestId: 'insp-1', planFormId: 1,
-    poNumber: 'PO-MY-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
-    createdAt: '2026-07-04T08:10:00.000Z',
-    deadline: '2026-07-25T00:00:00.000Z',
-    status: 'new',
-    warehouseScope: 'vat-tu-tp',
-    items: [
-      { name: 'Ốc vít M6×20',  unit: 'cái', required: 48, actualStock: 30, buyQty: 18, khoKey: 'vatTuTP', khoLabel: 'Kho Vật tư thành phẩm', materialId: 1 },
-    ],
-  },
-  {
-    id: 'prop-insp-1-thanhPham', requestId: 'insp-1', planFormId: 1,
-    poNumber: 'PO-MY-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
-    createdAt: '2026-07-04T08:10:00.000Z',
-    deadline: '2026-07-25T00:00:00.000Z',
-    status: 'new',
-    warehouseScope: 'thanh-pham',
-    items: [
-      { name: 'Xốp PE bảo vệ', unit: 'm²',  required: 2,  actualStock: 1,  buyQty: 1, khoKey: 'thanhPham', khoLabel: 'Kho Thành phẩm', materialId: 2 },
-    ],
-  },
-  {
-    id: 'prop-insp-2-phoiSonHan', requestId: 'insp-2', planFormId: 2,
+    id: 'prop-insp-2', requestId: 'insp-2', planFormId: 2,
     poNumber: 'PO-GP-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
     createdAt: '2026-07-03T09:20:00.000Z',
     deadline: '2026-07-20T00:00:00.000Z',
     submittedAt: '2026-07-03T09:45:00.000Z',
     status: 'submitted',
-    warehouseScope: 'phoi-son-han',
     items: [
-      { name: 'Sắt dẹt 20×3', unit: 'cây', required: 4, actualStock: 3, buyQty: 1, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 5 },
+      { name: 'Sắt dẹt 20×3',      unit: 'cây',  required: 4,   actualStock: 3,   buyQty: 1,   khoLabel: 'Kho Phôi Sơn Hàn', materialId: 5 },
+      { name: 'Dây nhựa xanh lá',  unit: 'cuộn', required: 2.0, actualStock: 1.2, buyQty: 0.8, khoLabel: 'Kho Vật tư thành phẩm', materialId: 3 },
+      { name: 'Xốp chèn góc',      unit: 'bộ',   required: 4,   actualStock: 2,   buyQty: 2,   khoLabel: 'Kho Thành phẩm', materialId: 5 },
     ],
     quotes: {
-      'Sắt dẹt 20×3': [{ supplierName: 'Minh Thành', unitPrice: 45000 }, { supplierName: 'An Phát', unitPrice: 43500 }, { supplierName: 'Long Sơn', unitPrice: 46000 }],
-    },
-  },
-  {
-    id: 'prop-insp-2-vatTuTP', requestId: 'insp-2', planFormId: 2,
-    poNumber: 'PO-GP-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
-    createdAt: '2026-07-03T09:20:00.000Z',
-    deadline: '2026-07-20T00:00:00.000Z',
-    submittedAt: '2026-07-03T09:45:00.000Z',
-    status: 'submitted',
-    warehouseScope: 'vat-tu-tp',
-    items: [
-      { name: 'Dây nhựa xanh lá', unit: 'cuộn', required: 2.0, actualStock: 1.2, buyQty: 0.8, khoKey: 'vatTuTP', khoLabel: 'Kho Vật tư thành phẩm', materialId: 3 },
-    ],
-    quotes: {
-      'Dây nhựa xanh lá': [{ supplierName: 'Tiến Thịnh', unitPrice: 11500 }, { supplierName: 'An Phát', unitPrice: 11800 }],
-    },
-  },
-  {
-    id: 'prop-insp-2-thanhPham', requestId: 'insp-2', planFormId: 2,
-    poNumber: 'PO-GP-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
-    createdAt: '2026-07-03T09:20:00.000Z',
-    deadline: '2026-07-20T00:00:00.000Z',
-    submittedAt: '2026-07-03T09:45:00.000Z',
-    status: 'submitted',
-    warehouseScope: 'thanh-pham',
-    items: [
-      { name: 'Xốp chèn góc', unit: 'bộ', required: 4, actualStock: 2, buyQty: 2, khoKey: 'thanhPham', khoLabel: 'Kho Thành phẩm', materialId: 5 },
-    ],
-    quotes: {
-      'Xốp chèn góc': [{ supplierName: 'Bao bì Việt', unitPrice: 18000 }, { supplierName: 'Tiến Long', unitPrice: 17500 }],
+      'Sắt dẹt 20×3':     [{ supplierName: 'Minh Thành', unitPrice: 45000 }, { supplierName: 'An Phát',    unitPrice: 43500 }, { supplierName: 'Long Sơn',   unitPrice: 46000 }],
+      'Dây nhựa xanh lá': [{ supplierName: 'Tiến Thịnh', unitPrice: 11500 }, { supplierName: 'An Phát',    unitPrice: 11800 }],
+      'Xốp chèn góc':     [{ supplierName: 'Bao bì Việt', unitPrice: 18000 }, { supplierName: 'Tiến Long', unitPrice: 17500 }],
     },
   },
 ]
@@ -293,7 +225,6 @@ const SEED_PROPOSALS: PurchaseProposal[] = [
 const InspCtx = createContext<InspCtxType | undefined>(undefined)
 
 export function InspectionProvider({ children }: { children: React.ReactNode }) {
-  const { logAction } = useAuditLog()
   const [requests,  setRequests]  = useState<InspRequest[]>(SEED_REQUESTS)
   const [proposals, setProposals] = useState<PurchaseProposal[]>(SEED_PROPOSALS)
 
@@ -333,82 +264,48 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     meta: ProposalMeta,
   ) => {
     setRequests(prev => prev.map(r => r.id === requestId ? { ...r, proposalCreated: true } : r))
-    // setProposals chỉ tính toán state mới (phải "pure") — created được lấy ra ngoài để
-    // ghi audit log sau khi cập nhật xong, không gọi logAction (side effect) trong updater.
-    let created: PurchaseProposal[] = []
     setProposals(prev => {
-      const now = new Date().toISOString()
-      // 1 lần "Tạo đề xuất mua hàng" của QLSX có thể gồm vật tư của nhiều kho — tách
-      // thành 1 PurchaseProposal riêng cho mỗi kho để route đúng Purchasing phụ trách.
-      const itemsByKho = new Map<KhoKey, PurchaseProposalItem[]>()
-      items.forEach(item => {
-        if (!itemsByKho.has(item.khoKey)) itemsByKho.set(item.khoKey, [])
-        itemsByKho.get(item.khoKey)!.push(item)
-      })
-
-      const next: PurchaseProposal[] = []
-      itemsByKho.forEach((khoItems, khoKey) => {
-        const id = `prop-${requestId}-${khoKey}`
-        // Guard chống tạo trùng theo từng kho (không phải theo cả requestId) — nếu không,
-        // sau khi tạo xong kho đầu tiên thì các kho còn lại của cùng request sẽ bị chặn.
-        if (prev.some(p => p.id === id) || next.some(p => p.id === id)) return
-        next.push({
-          id,
-          requestId,
-          planFormId: meta.planFormId,
-          poNumber:   meta.poNumber,
-          skuCode:    meta.skuCode,
-          skuName:    meta.skuName,
-          deadline:   meta.deadline,
-          createdAt:  now,
-          warehouseScope: KHO_KEY_TO_WAREHOUSE_SCOPE[khoKey],
-          items: khoItems,
-          status: 'new',
-        })
-      })
-      created = next
-      return next.length > 0 ? [...prev, ...next] : prev
+      if (prev.some(p => p.requestId === requestId)) return prev
+      const proposal: PurchaseProposal = {
+        id:         `prop-${requestId}`,
+        requestId,
+        planFormId: meta.planFormId,
+        poNumber:   meta.poNumber,
+        skuCode:    meta.skuCode,
+        skuName:    meta.skuName,
+        deadline:   meta.deadline,
+        createdAt:  new Date().toISOString(),
+        items,
+        status:     'new',
+      }
+      return [...prev, proposal]
     })
-    created.forEach(p => logAction(PROPOSAL_ENTITY, p.id, 'proposal.created'))
-  }, [logAction])
+  }, [])
 
   const acknowledgeProposal = useCallback((proposalId: string) => {
     setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: 'quoting' } : p))
-    logAction(PROPOSAL_ENTITY, proposalId, 'proposal.acknowledged')
-  }, [logAction])
+  }, [])
 
   const submitProposalToDirector = useCallback((proposalId: string, quotes: Record<string, ProposalQuote[]>) => {
     setProposals(prev => prev.map(p =>
       p.id === proposalId ? { ...p, status: 'submitted', quotes, submittedAt: new Date().toISOString() } : p
     ))
-    logAction(PROPOSAL_ENTITY, proposalId, 'proposal.quote_submitted')
-  }, [logAction])
+  }, [])
 
   const approveProposal = useCallback((proposalId: string, chosenSuppliers: Record<string, string>) => {
     setProposals(prev => prev.map(p =>
       p.id === proposalId ? { ...p, status: 'purchasing', chosenSuppliers, approvedAt: new Date().toISOString() } : p
     ))
-    logAction(PROPOSAL_ENTITY, proposalId, 'proposal.approved')
-  }, [logAction])
+  }, [])
 
   const rejectProposal = useCallback((proposalId: string, reason: string) => {
     setProposals(prev => prev.map(p =>
       p.id === proposalId ? { ...p, status: 'rejected', rejectedAt: new Date().toISOString(), rejectionReason: reason } : p
     ))
-    logAction(PROPOSAL_ENTITY, proposalId, 'proposal.rejected', reason)
-  }, [logAction])
-
-  // Mở lại luồng báo giá sau khi bị từ chối — giữ nguyên quotes/rejectionReason cũ làm lịch sử,
-  // chỉ đổi status để Purchasing sửa tiếp và gửi lại.
-  const requoteProposal = useCallback((proposalId: string) => {
-    setProposals(prev => prev.map(p =>
-      p.id === proposalId && p.status === 'rejected' ? { ...p, status: 'quoting' } : p
-    ))
-    logAction(PROPOSAL_ENTITY, proposalId, 'proposal.requoted')
-  }, [logAction])
+  }, [])
 
   return (
-    <InspCtx.Provider value={{ requests, proposals, sendRequest, submitKho, markProposalCreated, acknowledgeProposal, submitProposalToDirector, approveProposal, rejectProposal, requoteProposal }}>
+    <InspCtx.Provider value={{ requests, proposals, sendRequest, submitKho, markProposalCreated, acknowledgeProposal, submitProposalToDirector, approveProposal, rejectProposal }}>
       {children}
     </InspCtx.Provider>
   )

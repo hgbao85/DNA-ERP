@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, ScanSearch, BarChart3, MapPin } from 'lucide-react'
+import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, FileText, ClipboardCheck, Box, ShoppingCart, ScanSearch, BarChart3, MapPin } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 // Tái dùng nguyên các màn kho đã có (trước đây nằm trong MES) — KHÔNG viết lại logic.
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import MfgAllMaterialsPage from '../Manufacturing/MfgAllMaterialsPage'
 import NhapKhoPage from '../Manufacturing/NhapKhoPage'
 import XuatKhoPage from '../Manufacturing/XuatKhoPage'
+import DeXuatMuaVatTuPage from '../Manufacturing/DeXuatMuaVatTuPage'
 import KhoChuyenKiemPage from './KhoChuyenKiemPage'
 import KhoDongGoiPage from './KhoDongGoiPage'
+import LenhMuaKhoPage from './LenhMuaKhoPage'
 import KiemTraVatTuPage from './KiemTraVatTuPage'
 import WarehouseXuatPage from './WarehouseXuatPage'
 import KhoXuatDanPage from './KhoXuatDanPage'
@@ -32,13 +34,15 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   // Chuyền kiểm + Đóng gói: kho thành phẩm + kho bao bì đóng gói + tổng kho (scope null). GĐ cũng thấy.
   const canSeePacking = scope === null || scope === 'thanh-pham' || scope === 'bao-bi' || scope === 'vat-tu-tp' || scope === 'phoi-son-han'
 
-  type TabId = 'materials' | 'warehouses' | 'kiem-tra' | 'nhap-kho' | 'xuat-kho' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan'
+  type TabId = 'materials' | 'warehouses' | 'kiem-tra' | 'nhap-kho' | 'xuat-kho' | 'de-xuat' | 'lenh-mua' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan'
   const ALL_TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
     { id: 'materials',  label: 'Tổng hợp vật tư',    icon: <Boxes size={16} /> },
     { id: 'warehouses', label: 'Tổng hợp kho',        icon: <Warehouse size={16} /> },
     { id: 'kiem-tra',   label: 'Kiểm tra vật tư',     icon: <ScanSearch size={16} /> },
     { id: 'nhap-kho',   label: 'Nhập kho',            icon: <ArrowDownToLine size={16} /> },
     { id: 'xuat-kho',   label: 'Xuất kho',            icon: <ArrowUpFromLine size={16} /> },
+    { id: 'de-xuat',    label: 'Đề xuất mua vật tư',  icon: <FileText size={16} /> },
+    { id: 'lenh-mua',   label: 'Lệnh mua KHSX',       icon: <ShoppingCart size={16} /> },
     ...(canSeePacking ? [
       { id: 'chuyen-kiem' as TabId, label: 'Chuyền kiểm', icon: <ClipboardCheck size={16} /> },
       { id: 'dong-goi'    as TabId, label: 'Đóng gói',    icon: <Box size={16} /> },
@@ -154,6 +158,8 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         />}
         {tab === 'nhap-kho'   && <NhapKhoPage lockedGroup={scope} />}
         {tab === 'xuat-kho'   && (scope ? <WarehouseXuatPage scope={scope} /> : <XuatKhoPage lockedGroup={scope} />)}
+        {tab === 'de-xuat'    && <DeXuatMuaVatTuPage />}
+        {tab === 'lenh-mua'   && <LenhMuaKhoPage />}
         {tab === 'chuyen-kiem' && canSeePacking && <KhoChuyenKiemPage />}
         {tab === 'dong-goi'    && canSeePacking && <KhoDongGoiPage />}
         {tab === 'xuat-dan'   && scope === 'vat-tu-tp'   && <KhoXuatDanPage />}
