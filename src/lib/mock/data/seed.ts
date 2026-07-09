@@ -764,47 +764,6 @@ export const seedMaterialSuppliers = [
   { id: 35, materialId: 25, supplierId: 5,  price: 1250,  leadTimeDays: 2,  material: { id: 25, code: 'TUI-PE-DG',    name: 'Túi PE đóng gói'     }, supplier: { id: 5,  name: 'An Phát'             } },
 ];
 
-export const seedPurchaseCommands = [
-  {
-    id: 1, code: 'LMH-2026-001', source: 'PI', status: 'QUOTING', piId: 2,
-    createdAt: ISO('2026-06-01'), piCode: 'PI-2026-002', poNumber: 'PO-GP-002', productLabel: 'Ghế IEA-3 × 300 bộ', itemCount: 3,
-    items: [
-      { id: 1, materialId: 1, requiredQty: 5000, stockQty: 500, buyQty: 4500, unit: 'cm', material: { name: 'Ống sắt 25×25' } },
-      { id: 2, materialId: 2, requiredQty: 300, stockQty: 250, buyQty: 50, unit: 'kg', material: { name: 'Dây PE Ø3mm' } },
-      { id: 3, materialId: null, requiredQty: 6000, stockQty: 5000, buyQty: 1000, unit: 'cái', material: { name: 'Tán M6×12' } },
-    ],
-  },
-  {
-    id: 2, code: 'LMH-2026-002', source: 'PI', status: 'ORDERED', piId: 3,
-    createdAt: ISO('2026-06-05'), piCode: 'PI-2026-003', poNumber: 'PO-GP-002', productLabel: 'Ghế J55 × 200 bộ', itemCount: 2,
-    items: [
-      { id: 4, materialId: 1, requiredQty: 3000, stockQty: 500, buyQty: 2500, unit: 'cm', material: { name: 'Ống sắt 25×25' } },
-      { id: 5, materialId: 5, requiredQty: 560, stockQty: 0, buyQty: 560, unit: 'kg', material: { name: 'Sơn trắng tĩnh điện' } },
-    ],
-  },
-  {
-    id: 3, code: 'LMH-2026-003', source: 'PI', status: 'DONE', piId: 1,
-    createdAt: ISO('2026-05-01'), piCode: 'PI-2026-001', poNumber: 'PO-MY-001', productLabel: 'Ghế J55 × 500 bộ', itemCount: 1,
-    items: [
-      { id: 6, materialId: 1, requiredQty: 6000, stockQty: 500, buyQty: 5500, unit: 'cm', material: { name: 'Ống sắt 25×25' } },
-    ],
-  },
-  {
-    id: 4, code: 'LMH-2026-004', source: 'PROPOSAL', status: 'DRAFT', piId: null,
-    createdAt: ISO('2026-06-10'), piCode: null, poNumber: null, productLabel: 'Vật tư phụ kiện chung', itemCount: 3,
-    items: [
-      { id: 7, materialId: 5, requiredQty: 800, stockQty: 0, buyQty: 800, unit: 'kg', material: { name: 'Sơn trắng tĩnh điện' } },
-      { id: 8, materialId: 6, requiredQty: 600, stockQty: 0, buyQty: 600, unit: 'kg', material: { name: 'Sơn đen tĩnh điện' } },
-      { id: 9, materialId: 7, requiredQty: 2000, stockQty: 0, buyQty: 2000, unit: 'cái', material: { name: 'Tán M6×12' } },
-    ],
-  },
-];
-
-export const seedPurchaseProposals = [
-  { id: 1, code: 'DX-2026-001', status: 'PENDING', proposedBy: { id: 5, name: 'Kho Minh' }, items: [{ id: 1, materialId: 1, quantity: 500, unit: 'cây' }] },
-  { id: 2, code: 'DX-2026-002', status: 'APPROVED', proposedBy: { id: 5, name: 'Kho Minh' }, items: [{ id: 2, materialId: 5, quantity: 200, unit: 'kg' }] },
-];
-
 // Spec Entry Proposals - Đề xuất nhập định mức từ kế hoạch SX
 export const seedSpecEntryProposals = [
   {
@@ -994,68 +953,6 @@ export const seedFramePieces = [
   { id: 3, productId: 2, code: 'IEA-3-1', name: 'Ghế IEA-3 - Khung', groupNumber: 1, materials: [] },
 ];
 
-// ── Đơn mua hàng (PO) mẫu — gắn PI, mỗi dòng vật tư đã gán category để test
-// nhập kho theo đúng 3 kho (sat/son → phôi sơn hàn, day/vatTuPhuKien → vật tư TP, baoBiDongGoi → thành phẩm) ──
-export const seedPurchaseOrders = [
-  {
-    id: 201, code: 'MH-2026-001', source: 'KHSX', sourceRef: '1', piCode: 'PI-2026-001',
-    skuName: 'Ghế J55', status: 'PURCHASED',
-    items: [
-      { id: 1, materialId: null, materialName: 'Sắt hộp 25×25',      unit: 'cây', requiredQty: 500,  stockActual: 0, buyQty: 500,  category: 'sat' },
-      { id: 2, materialId: null, materialName: 'Sắt vuông 20×20',     unit: 'cây', requiredQty: 200,  stockActual: 0, buyQty: 200,  category: 'sat' },
-      { id: 3, materialId: null, materialName: 'Sắt tấm 3mm',         unit: 'tấm', requiredQty: 50,   stockActual: 0, buyQty: 50,   category: 'sat' },
-      { id: 4, materialId: null, materialName: 'Sơn tĩnh điện đen',   unit: 'kg',  requiredQty: 60,   stockActual: 0, buyQty: 60,   category: 'son' },
-      { id: 5, materialId: null, materialName: 'Dây PE đen',          unit: 'cuộn',requiredQty: 40,   stockActual: 0, buyQty: 40,   category: 'day' },
-      { id: 6, materialId: null, materialName: 'Ốc vít M6×20',        unit: 'cái', requiredQty: 1000, stockActual: 0, buyQty: 1000, category: 'vatTuPhuKien' },
-      { id: 7, materialId: null, materialName: 'Nắp nhựa đầu ống',    unit: 'cái', requiredQty: 300,  stockActual: 0, buyQty: 300,  category: 'vatTuPhuKien' },
-      { id: 8, materialId: null, materialName: 'Đệm cao su',          unit: 'cái', requiredQty: 200,  stockActual: 0, buyQty: 200,  category: 'vatTuPhuKien' },
-      { id: 9, materialId: null, materialName: 'Thùng carton 5 lớp',  unit: 'thùng', requiredQty: 150, stockActual: 0, buyQty: 150, category: 'baoBiDongGoi' },
-      { id: 10, materialId: null, materialName: 'Xốp PE bảo vệ',      unit: 'm²',  requiredQty: 80,   stockActual: 0, buyQty: 80,   category: 'baoBiDongGoi' },
-      { id: 11, materialId: null, materialName: 'Dây đai nhựa',       unit: 'm',   requiredQty: 100,  stockActual: 0, buyQty: 100,  category: 'baoBiDongGoi' },
-    ],
-    totalAmount: null, note: 'PO mẫu cho PI-2026-001 — vật tư trải đủ 3 kho', rejectionReason: null,
-    createdAt: '2026-06-25T02:00:00.000Z', confirmedAt: '2026-06-25T03:00:00.000Z',
-    submittedAt: '2026-06-25T04:00:00.000Z', approvedAt: '2026-06-26T01:00:00.000Z',
-  },
-];
-
-// ── Phiếu nhập kho mẫu — đã tách sẵn theo kho (giống kết quả thật của createWarehouseReceiptForPO)
-// để 3 tài khoản thủ kho có thể vào "Lịch sử nhập kho" xác nhận ngay, không cần đi lại từ đầu quy trình mua hàng.
-export const seedWarehouseReceipts = [
-  {
-    id: 301, code: 'NK-2026-001', purchaseOrderId: 201, purchaseOrderCode: 'MH-2026-001', piCode: 'PI-2026-001',
-    skuName: 'Ghế J55', status: 'PENDING',
-    items: [
-      { id: 1, purchaseOrderItemId: 1, materialName: 'Sắt hộp 25×25',    unit: 'cây', orderedQty: 500, receivedQty: null, warehouseId: 7, note: null, category: 'sat' },
-      { id: 2, purchaseOrderItemId: 2, materialName: 'Sắt vuông 20×20',   unit: 'cây', orderedQty: 200, receivedQty: null, warehouseId: 7, note: null, category: 'sat' },
-      { id: 3, purchaseOrderItemId: 3, materialName: 'Sắt tấm 3mm',       unit: 'tấm', orderedQty: 50,  receivedQty: null, warehouseId: 7, note: null, category: 'sat' },
-      { id: 4, purchaseOrderItemId: 4, materialName: 'Sơn tĩnh điện đen', unit: 'kg',  orderedQty: 60,  receivedQty: null, warehouseId: 7, note: null, category: 'son' },
-    ],
-    note: null, createdAt: '2026-06-27T01:00:00.000Z', receivedAt: null,
-  },
-  {
-    id: 302, code: 'NK-2026-002', purchaseOrderId: 201, purchaseOrderCode: 'MH-2026-001', piCode: 'PI-2026-001',
-    skuName: 'Ghế J55', status: 'PENDING',
-    items: [
-      { id: 5, purchaseOrderItemId: 5, materialName: 'Dây PE đen',       unit: 'cuộn', orderedQty: 40,   receivedQty: null, warehouseId: 6, note: null, category: 'day' },
-      { id: 6, purchaseOrderItemId: 6, materialName: 'Ốc vít M6×20',     unit: 'cái',  orderedQty: 1000, receivedQty: null, warehouseId: 6, note: null, category: 'vatTuPhuKien' },
-      { id: 7, purchaseOrderItemId: 7, materialName: 'Nắp nhựa đầu ống', unit: 'cái',  orderedQty: 300,  receivedQty: null, warehouseId: 6, note: null, category: 'vatTuPhuKien' },
-      { id: 8, purchaseOrderItemId: 8, materialName: 'Đệm cao su',       unit: 'cái',  orderedQty: 200,  receivedQty: null, warehouseId: 6, note: null, category: 'vatTuPhuKien' },
-    ],
-    note: null, createdAt: '2026-06-27T01:00:00.000Z', receivedAt: null,
-  },
-  {
-    id: 303, code: 'NK-2026-003', purchaseOrderId: 201, purchaseOrderCode: 'MH-2026-001', piCode: 'PI-2026-001',
-    skuName: 'Ghế J55', status: 'PENDING',
-    items: [
-      { id: 9,  purchaseOrderItemId: 9,  materialName: 'Thùng carton 5 lớp', unit: 'thùng', orderedQty: 150, receivedQty: null, warehouseId: 5, note: null, category: 'baoBiDongGoi' },
-      { id: 10, purchaseOrderItemId: 10, materialName: 'Xốp PE bảo vệ',      unit: 'm²',    orderedQty: 80,  receivedQty: null, warehouseId: 5, note: null, category: 'baoBiDongGoi' },
-      { id: 11, purchaseOrderItemId: 11, materialName: 'Dây đai nhựa',      unit: 'm',     orderedQty: 100, receivedQty: null, warehouseId: 5, note: null, category: 'baoBiDongGoi' },
-    ],
-    note: null, createdAt: '2026-06-27T01:00:00.000Z', receivedAt: null,
-  },
-];
-
 export function createInitialMockState() {
   return {
     salesCustomers: structuredClone(seedSalesCustomers),
@@ -1087,8 +984,6 @@ export function createInitialMockState() {
     laborCost: structuredClone(seedLaborCost),
     suppliers: structuredClone(seedSuppliers),
     materialSuppliers: structuredClone(seedMaterialSuppliers),
-    purchaseCommands: structuredClone(seedPurchaseCommands),
-    purchaseProposals: structuredClone(seedPurchaseProposals),
     specEntryProposals: structuredClone(seedSpecEntryProposals),
     specBoms: structuredClone(seedSpecBoms),
     specRoleEntries: structuredClone(seedSpecRoleEntries),
@@ -1105,9 +1000,6 @@ export function createInitialMockState() {
     stageReports: [] as unknown[],
     weavingAllocations: [] as unknown[],
     packingRecords: [] as unknown[],
-    purchaseOrders: structuredClone(seedPurchaseOrders),
-    warehouseReceipts: structuredClone(seedWarehouseReceipts),
-    mfgWarehouseReservations: [] as unknown[],
     warehouseTransfers: [] as unknown[],
     mfgTransferReservations: [] as unknown[],
     manhOrders: structuredClone(seedManhOrders),
