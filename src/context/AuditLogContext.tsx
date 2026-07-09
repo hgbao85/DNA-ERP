@@ -14,6 +14,8 @@ export const AUDIT_ACTIONS = {
   'proposal.requoted':        { label: 'Báo giá lại sau từ chối',     color: '#d97706' },
   'proposal.approved':        { label: 'Giám đốc duyệt',              color: '#2e7d32' },
   'proposal.rejected':        { label: 'Giám đốc từ chối',            color: '#c62828' },
+  'proposal.purchased':       { label: 'Đã nhận đủ hàng',             color: '#166534' },
+  'request.production_started': { label: 'Bắt đầu sản xuất',          color: '#2563eb' },
 } as const
 
 export type AuditAction = keyof typeof AUDIT_ACTIONS
