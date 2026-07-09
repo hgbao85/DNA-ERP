@@ -3,8 +3,8 @@
 /** Màn hình KCS — Công đoạn SƠN (2 tầng: PO → Vật tư, chỉ xem + duyệt). */
 
 import { SprayCan } from 'lucide-react'
-import { KcsTwoTierScreen, type KcsRow } from '../../../components/lenh-san-xuat/kcsCore'
-import { ISO, minsAgo, type StageCfg } from '../../../components/lenh-san-xuat/core'
+import { KcsTwoTierScreen, type KcsRow } from '../../../components/sanxuat/kcsCore'
+import { ISO, minsAgo, type StageCfg } from '../../../components/sanxuat/core'
 
 const CFG: StageCfg = { label: 'Sơn', done: 'Đã sơn', verb: 'sơn', itemLabel: 'Loại sơn', unit: 'lít', Icon: SprayCan }
 

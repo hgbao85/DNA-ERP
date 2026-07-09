@@ -8,7 +8,7 @@
 
 import { useState } from 'react'
 import { Wrench } from 'lucide-react'
-import { PhoiScreen, ISO, minsAgo, type ProcRow, type StageCfg } from '../../../components/lenh-san-xuat/core'
+import { PhoiScreen, ISO, minsAgo, type ProcRow, type StageCfg } from '../../../components/sanxuat/core'
 
 const CFG: StageCfg = { label: 'Phôi', done: 'Đã cắt', verb: 'cắt', itemLabel: 'Loại sắt', unit: 'cây', Icon: Wrench }
 
