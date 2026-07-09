@@ -11,8 +11,11 @@
  */
 
 import { useState } from 'react'
-import { ChevronRight, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Play, Square, Lock, Eye } from 'lucide-react'
-import LenhSanXuatBoard, { type BoardColumn } from '../../../../components/LenhSanXuatBoard'
+import { ChevronRight, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Play, Square, Lock, Eye, Scissors } from 'lucide-react'
+import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
+import { useFetch } from '../../hooks/useFetch'
+import * as api from '../../services/api'
+import type { SatIssueView } from '../../services/api'
 
 const ACCENT = '#e65100'
 const REMIND_MINUTES = 60
@@ -132,7 +135,8 @@ function PoListBoard({ rows, cfg, isPhoi, onEnter, onStart, onEnd }: {
     const seqUnlocked = i === 0 || poSummary(rows[i - 1]).pct >= 100
     const unlocked = arranged && seqUnlocked
     const running = !!r.startedAt
-    return { r, s, arranged, seqUnlocked, unlocked, running, canEnter: unlocked && running, alert: unlocked && skuLech(r) }
+    // Phôi: bấm thẳng vào PO (không cần Bắt đầu ca). Hàn/Sơn: vẫn cần chạy ca.
+    return { r, s, arranged, seqUnlocked, unlocked, running, canEnter: isPhoi ? unlocked : unlocked && running, alert: unlocked && skuLech(r) }
   })
 
   const cols: BoardColumn<PoView>[] = [
@@ -150,7 +154,8 @@ function PoListBoard({ rows, cfg, isPhoi, onEnter, onStart, onEnd }: {
     { key: 'remain', header: 'Còn lại', align: 'right', cell: v => <span style={{ color: v.s.conLai > 0 ? ACCENT : 'var(--green)', fontWeight: 600 }}>{fmt(v.s.conLai)}</span> },
     { key: 'progress', header: 'Tiến độ', width: 160, cell: v => <Progress pct={v.s.pct} /> },
     { key: 'deadline', header: 'Deadline', cell: v => dateVN(v.r.deadline) },
-    { key: 'ca', header: `Ca ${cfg.verb}`, width: 180, cell: v => (
+    // Cột "Ca" (Bắt đầu/Kết thúc) chỉ cho Hàn/Sơn. Phôi bấm thẳng vào PO.
+    ...((isPhoi ? [] : [{ key: 'ca', header: `Ca ${cfg.verb}`, width: 180, cell: (v: PoView) => (
       <div onClick={e => e.stopPropagation()}>
         {!v.seqUnlocked
           ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text3)' }}><Lock size={12} /> Chờ PO trước</span>
@@ -172,7 +177,7 @@ function PoListBoard({ rows, cfg, isPhoi, onEnter, onStart, onEnd }: {
                     {v.r.lastSession && <span style={{ fontSize: 11, color: 'var(--text3)' }}>ca trước: {fmt(v.r.lastSession.cut)} {cfg.unit} · {durText(v.r.lastSession.from, v.r.lastSession.to)}</span>}
                   </div>}
       </div>
-    ) },
+    ) }]) as BoardColumn<PoView>[]),
   ]
 
   const Icon = cfg.Icon
@@ -180,16 +185,18 @@ function PoListBoard({ rows, cfg, isPhoi, onEnter, onStart, onEnd }: {
     <LenhSanXuatBoard<PoView>
       icon={<Icon size={18} />}
       title={`Lệnh sản xuất — Công đoạn ${cfg.label}`}
-      subtitle={`Theo dõi tiến độ ${cfg.verb} theo PO/SKU · nhập sản lượng theo ${cfg.itemLabel.toLowerCase()}`}
+      subtitle={isPhoi
+        ? `Theo dõi tiến độ ${cfg.verb} theo PO/SKU · bấm PO để xem mảnh & xác nhận cắt theo đợt`
+        : `Theo dõi tiến độ ${cfg.verb} theo PO/SKU · nhập sản lượng theo ${cfg.itemLabel.toLowerCase()}`}
       columns={cols}
       rows={views}
       rowKey={v => v.r.id}
       rowTone={v => !v.unlocked ? 'muted' : v.alert ? 'alert' : 'default'}
       clickable={v => v.canEnter}
       onRowClick={v => onEnter(v.r.id)}
-      rowTitle={v => !v.arranged ? 'Chủ chuyền chưa sắp xếp lệnh này' : !v.seqUnlocked ? 'Phải hoàn tất PO trước (đủ 100%) mới mở lệnh này' : !v.running ? 'Nhấn "Bắt đầu" để mở nhập sản lượng' : v.alert ? 'Chưa khớp đồng bộ — nhấn để xem' : isPhoi ? 'Nhấn để xem các mảnh của SKU' : 'Nhấn để nhập sản lượng theo vật tư'}
+      rowTitle={v => !v.arranged ? 'Chủ chuyền chưa sắp xếp lệnh này' : !v.seqUnlocked ? 'Phải hoàn tất PO trước (đủ 100%) mới mở lệnh này' : v.alert ? 'Chưa khớp đồng bộ — nhấn để xem' : isPhoi ? 'Nhấn để xem các mảnh của SKU' : !v.running ? 'Nhấn "Bắt đầu" để mở nhập sản lượng' : 'Nhấn để nhập sản lượng theo vật tư'}
       footer={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        <CalendarClock size={14} /> Làm <b style={{ color: 'var(--text2)' }}>tuần tự</b>: PO sau chỉ mở khi PO trước đủ 100%. <b style={{ color: 'var(--text2)' }}>{cfg.done}</b> = số sản phẩm ráp được đủ mọi {isPhoi ? 'mảnh' : cfg.itemLabel.toLowerCase()} (đồng bộ); dòng đỏ = chưa khớp. Bấm <b style={{ color: 'var(--text2)' }}>Bắt đầu/Kết thúc</b> để đo sản lượng theo ca.
+        <CalendarClock size={14} /> Làm <b style={{ color: 'var(--text2)' }}>tuần tự</b>: PO sau chỉ mở khi PO trước đủ 100%. <b style={{ color: 'var(--text2)' }}>{cfg.done}</b> = số sản phẩm ráp được đủ mọi {isPhoi ? 'mảnh' : cfg.itemLabel.toLowerCase()} (đồng bộ); dòng đỏ = chưa khớp.{!isPhoi && <> Bấm <b style={{ color: 'var(--text2)' }}>Bắt đầu/Kết thúc</b> để đo sản lượng theo ca.</>}
       </span>}
     />
   )
@@ -266,11 +273,16 @@ function ManhListBoard({ po, cfg, onBack, onOpenManh }: { po: ProcRow; cfg: Stag
 }
 
 // ── Tầng chi tiết vật tư (dùng chung Phôi/Hàn/Sơn) ─────────────────
-function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, backLabel, onBack, onUpdateLine }: {
+function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, backLabel, onBack, onUpdateLine, pendingFor, onConfirmCut }: {
   lines: ProcLine[]; cfg: StageCfg; readOnly: boolean
   title: string; subtitle: string; bannerLabel: string; backLabel: string
   onBack: () => void; onUpdateLine: (l: ProcLine) => void
+  /** Phôi mode: đợt đã nhận đang chờ cắt của 1 dòng vật tư. */
+  pendingFor?: (lineId: number) => SatIssueView[]
+  /** Phôi mode: xác nhận cắt xong 1 đợt → cộng vào doneQty. */
+  onConfirmCut?: (line: ProcLine, issue: SatIssueView, soCayThuc?: number) => void
 }) {
+  const phoiMode = !!onConfirmCut
   const [draft, setDraft] = useState<Record<number, string>>({})
   const db = dongBoOf(lines)
   const lech = lechOf(lines)
@@ -308,7 +320,12 @@ function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, 
         ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: stale ? 'var(--amber)' : 'var(--text3)' }}><Clock size={12} /> {timeVN(l.lastInputAt)}</span>
         : <span style={{ color: 'var(--text3)' }}>— chưa nhập —</span>
     } },
-    ...(readOnly ? [] : [{ key: 'input', header: `Nhập số ${cfg.unit} vừa ${cfg.verb}`, width: 220, cell: (l: ProcLine) => {
+    ...(phoiMode
+      ? [{ key: 'confirm', header: 'Xác nhận cắt', width: 340, cell: (l: ProcLine) => (
+          <ConfirmCell line={l} issues={pendingFor!(l.id)} unit={cfg.unit}
+            onConfirm={(issue, soCay) => onConfirmCut!(l, issue, soCay)} />
+        ) } as BoardColumn<ProcLine>]
+      : readOnly ? [] : [{ key: 'input', header: `Nhập số ${cfg.unit} vừa ${cfg.verb}`, width: 220, cell: (l: ProcLine) => {
       const remain = l.needQty - l.doneQty
       if (remain <= 0) return <span className="badge green">đủ định mức</span>
       return (
@@ -351,13 +368,65 @@ function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, 
     <LenhSanXuatBoard<ProcLine>
       onBack={onBack} backLabel={backLabel}
       title={title}
-      subtitle={<>{subtitle}<div style={{ marginTop: 2 }}>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} — hệ thống tự lưu mốc thời gian.</div></>}
+      subtitle={<>{subtitle}<div style={{ marginTop: 2 }}>{phoiMode
+        ? <>Xác nhận các <b>đợt sắt đã nhận từ kho</b> theo từng {itemLabelLC} — hệ thống tự cộng vào tiến độ.</>
+        : <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} — hệ thống tự lưu mốc thời gian.</>}</div></>}
       beforeTable={banner}
       columns={cols}
       rows={lines}
       rowKey={l => l.id}
       rowTone={l => shortOf(l) > 0 ? 'alert' : 'default'}
     />
+  )
+}
+
+// ── Ô "Xác nhận cắt" (Phôi) — các đợt đã nhận chờ cắt của 1 dòng vật tư ──────
+function ConfirmCell({ line, issues, unit, onConfirm }: {
+  line: ProcLine; issues: SatIssueView[]; unit: string
+  onConfirm: (issue: SatIssueView, soCayThuc?: number) => void
+}) {
+  if (issues.length === 0) {
+    const remain = line.needQty - line.doneQty
+    return remain <= 0
+      ? <span className="badge green">đủ định mức</span>
+      : <span style={{ fontSize: 12, color: 'var(--text3)' }}>— chưa có đợt chờ cắt —</span>
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }} onClick={e => e.stopPropagation()}>
+      {issues.map(i => <ConfirmMini key={i.id} issue={i} unit={unit} onConfirm={s => onConfirm(i, s)} />)}
+    </div>
+  )
+}
+
+function ConfirmMini({ issue, unit, onConfirm }: {
+  issue: SatIssueView; unit: string; onConfirm: (soCayThuc?: number) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [val, setVal] = useState(String(issue.soCay))
+  const gio = issue.dotThoiGian.slice(11)
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '7px 9px', background: 'var(--surface2)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 12, color: 'var(--text2)' }}>Đợt {gio} · <b style={{ color: 'var(--text)' }}>{fmt(issue.soCay)} {unit}</b></span>
+        <button className="primary" onClick={() => onConfirm()}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 9px', fontSize: 12 }}>
+          <Scissors size={12} /> Xác nhận cắt xong
+        </button>
+        <button onClick={() => setEditing(v => !v)}
+          style={{ padding: '4px 8px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
+          Báo sai lệch
+        </button>
+      </div>
+      {editing && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 7 }}>
+          <span style={{ fontSize: 11, color: 'var(--text3)' }}>Thực cắt:</span>
+          <input type="number" min={0} value={val} onChange={e => setVal(e.target.value)} style={{ width: 64 }} />
+          <span style={{ fontSize: 11, color: 'var(--text3)' }}>/ {fmt(issue.soCay)} {unit}</span>
+          <button className="primary" onClick={() => onConfirm(Math.max(0, Number(val) || 0))}
+            style={{ padding: '4px 9px', fontSize: 12 }}>Lưu</button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -372,16 +441,30 @@ const caActions = (setRows: SetRows) => ({
 })
 
 // ── Orchestrator: Phôi (3 tầng) ────────────────────────────────────
-export function PhoiScreen({ cfg, seed, readOnly = false }: { cfg: StageCfg; seed: () => ProcRow[]; readOnly?: boolean }) {
-  const [rows, setRows] = useState<ProcRow[]>(seed)
+// Controlled: rows/setRows do LenhSanXuatPhoi giữ (bền khi đổi tab).
+// Đợt sắt lấy từ mock API; "Đã cắt" cộng lên khi xác nhận đợt (không nhập tay).
+export function PhoiScreen({ cfg, rows, setRows, readOnly = false }: {
+  cfg: StageCfg
+  rows: ProcRow[]
+  setRows: React.Dispatch<React.SetStateAction<ProcRow[]>>
+  readOnly?: boolean
+}) {
   const [selPoId, setSelPoId] = useState<number | null>(null)
   const [selManhId, setSelManhId] = useState<number | null>(null)
   const selPo = rows.find(r => r.id === selPoId) ?? null
   const selManh = selPo?.manhs?.find(m => m.id === selManhId) ?? null
   const { startPo, endPo } = caActions(setRows)
+  const { data: issues, refetch: refetchIssues } = useFetch<SatIssueView[]>(() => api.getDotXuatSat(), [])
 
   const updateLine = (poId: number, manhId: number, ul: ProcLine) =>
     setRows(rs => rs.map(r => r.id !== poId ? r : { ...r, manhs: r.manhs?.map(m => m.id !== manhId ? m : { ...m, lines: m.lines.map(l => l.id === ul.id ? ul : l) }) }))
+
+  const confirmCut = async (poId: number, manhId: number, line: ProcLine, issue: SatIssueView, soCayThuc?: number) => {
+    const add = soCayThuc ?? issue.soCay
+    updateLine(poId, manhId, { ...line, doneQty: Math.min(line.needQty, line.doneQty + add), lastInputAt: new Date().toISOString() })
+    await api.xacNhanCatXong(issue.id, soCayThuc)
+    refetchIssues()
+  }
 
   if (selPo && selManh) {
     return <VatTuDetailBoard
@@ -391,6 +474,8 @@ export function PhoiScreen({ cfg, seed, readOnly = false }: { cfg: StageCfg; see
       bannerLabel="Đồng bộ mảnh" backLabel="Quay lại danh sách mảnh"
       onBack={() => setSelManhId(null)}
       onUpdateLine={l => updateLine(selPo.id, selManh.id, l)}
+      pendingFor={readOnly ? undefined : lineId => (issues ?? []).filter(i => i.lineId === lineId && i.status === 'DA_NHAN')}
+      onConfirmCut={readOnly ? undefined : (line, issue, soCayThuc) => confirmCut(selPo.id, selManh.id, line, issue, soCayThuc)}
     />
   }
   if (selPo) {

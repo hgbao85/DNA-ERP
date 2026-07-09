@@ -96,7 +96,7 @@ export const MOCK_ACCOUNTS: MockAccount[] = [
     password: 'demo1234',
     user: {
       id: 12,
-      name: 'Thống kê Cơ khí',
+      name: 'Thống kê Phôi',
       email: 'phoi@demo.com',
       role: 'WAREHOUSE_STAFF',
       mfgRole: 'PHOI',

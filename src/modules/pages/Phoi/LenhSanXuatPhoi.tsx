@@ -1,9 +1,14 @@
 'use client'
 
-/** Lệnh sản xuất — Công đoạn PHÔI (3 tầng: PO → Mảnh → Vật tư). */
+/**
+ * Lệnh sản xuất — Công đoạn PHÔI (3 tầng: PO → Mảnh → Vật tư).
+ * Nhận sắt là tự động (kho gửi = nhận) — xem "Lịch sử nhận sắt" trên sidebar.
+ * Màn này: bấm thẳng vào PO → mảnh → loại sắt, xác nhận cắt xong theo từng đợt.
+ */
 
+import { useState } from 'react'
 import { Wrench } from 'lucide-react'
-import { PhoiScreen, ISO, minsAgo, type ProcRow, type StageCfg } from '../lenh-san-xuat/core'
+import { PhoiScreen, ISO, minsAgo, type ProcRow, type StageCfg } from '../../../components/lenh-san-xuat/core'
 
 const CFG: StageCfg = { label: 'Phôi', done: 'Đã cắt', verb: 'cắt', itemLabel: 'Loại sắt', unit: 'cây', Icon: Wrench }
 
@@ -53,5 +58,7 @@ function seed(): ProcRow[] {
 }
 
 export default function LenhSanXuatPhoi({ readOnly = false }: { readOnly?: boolean }) {
-  return <PhoiScreen cfg={CFG} seed={seed} readOnly={readOnly} />
+  // rows giữ ở đây để tiến độ bền khi rời/quay lại màn (PhoiScreen là controlled)
+  const [rows, setRows] = useState<ProcRow[]>(seed)
+  return <PhoiScreen cfg={CFG} rows={rows} setRows={setRows} readOnly={readOnly} />
 }
