@@ -139,7 +139,6 @@ function Detail({ g, onBack }: { g: PoGroup; onBack: () => void }) {
               <th style={thR}>Chiều dài (mm)</th>
               <th style={thR}>Số cây</th>
               <th style={th}>Thời gian xuất</th>
-              <th style={th}>Trạng thái</th>
             </tr>
           </thead>
           <tbody>
@@ -150,11 +149,6 @@ function Detail({ g, onBack }: { g: PoGroup; onBack: () => void }) {
                 <td style={tdR}>{l.barLen.toLocaleString('vi-VN')}</td>
                 <td style={{ ...tdR, fontWeight: 700 }}>{l.soCay}</td>
                 <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{l.dotThoiGian}</td>
-                <td style={td}>
-                  {l.status === 'DA_CAT'
-                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#16a34a' }}><Check size={13} /> Đã cắt xong</span>
-                    : <span style={{ fontSize: 12, fontWeight: 600, color: '#1e40af' }}>Đang cắt</span>}
-                </td>
               </tr>
             ))}
           </tbody>

@@ -26,7 +26,8 @@ export interface ProcLine {
   itemName: string
   spec: string
   needQty: number
-  doneQty: number
+  doneQty: number       // đã cắt (đã KCS duyệt)
+  choDuyet?: number     // đã xác nhận sản lượng, đang chờ KCS duyệt (Phôi)
   perManh?: number      // SL vật tư cần cho 1 mảnh/sản phẩm (định mức)
   lastInputAt: string | null
 }
@@ -251,7 +252,7 @@ function ManhListBoard({ po, onBack, onOpenManh }: { po: ProcRow; cfg: StageCfg;
 }
 
 // ── Tầng chi tiết vật tư (dùng chung Phôi/Hàn/Sơn) ─────────────────
-function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, pendingFor, onConfirmCut, manualInput }: {
+function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, pendingFor, onConfirmCut, manualInput, showChoDuyet, showBanner = true }: {
   lines: ProcLine[]; cfg: StageCfg; readOnly: boolean
   title: string; subtitle: string; bannerLabel: string; backLabel: string
   /** Đơn vị của số đồng bộ: Phôi = "mảnh", Hàn/Sơn = "bộ". */
@@ -263,6 +264,10 @@ function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, 
   onConfirmCut?: (line: ProcLine, issue: SatIssueView, soCayThuc?: number) => void
   /** Hàn/Sơn: cho nhập tay sản lượng. Phôi = false (số lượng tự cập nhật từ màn Xác nhận sản lượng). */
   manualInput?: boolean
+  /** Phôi: hiện cột "Chờ duyệt" (đã xác nhận, chờ KCS duyệt). */
+  showChoDuyet?: boolean
+  /** Hiện banner đồng bộ. Phôi = false (đồng bộ đã chuyển qua màn kho "Xuất sắt cho Phôi"). */
+  showBanner?: boolean
 }) {
   const phoiMode = !!onConfirmCut
   const [draft, setDraft] = useState<Record<number, string>>({})
@@ -292,8 +297,14 @@ function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, 
         {short > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--red)' }}>cần {cfg.verb} thêm {fmt(short)} {cfg.unit}</span>}
       </>
     } },
+    ...(showChoDuyet ? [{ key: 'choduyet', header: `Chờ duyệt (${cfg.unit})`, align: 'right', cell: (l: ProcLine) => {
+      const c = l.choDuyet ?? 0
+      return c > 0
+        ? <span style={{ fontWeight: 700, color: '#d97706' }} title="Đã xác nhận, chờ KCS duyệt">{fmt(c)}</span>
+        : <span style={{ color: 'var(--text3)' }}>—</span>
+    } } as BoardColumn<ProcLine>] : []),
     { key: 'remain', header: 'Còn lại', align: 'right', cell: l => {
-      const remain = l.needQty - l.doneQty
+      const remain = l.needQty - l.doneQty - (l.choDuyet ?? 0)
       return <span style={{ fontWeight: 600, color: remain <= 0 ? 'var(--green)' : ACCENT }}>{fmt(Math.max(remain, 0))}</span>
     } },
     { key: 'updated', header: 'Cập nhật lúc', cell: l => {
@@ -354,8 +365,8 @@ function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, 
         ? <>Xác nhận các <b>đợt sắt đã nhận từ kho</b> theo từng {itemLabelLC} — hệ thống tự cộng vào tiến độ.</>
         : manualInput
           ? <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} — hệ thống tự lưu mốc thời gian.</>
-          : <>Số lượng <b>đã {cfg.verb}</b> tự cập nhật từ màn <b>Xác nhận sản lượng</b> — màn này chỉ theo dõi đồng bộ.</>}</div></>}
-      beforeTable={banner}
+          : <>Số lượng <b>đã {cfg.verb}</b> tự cập nhật từ màn <b>Xác nhận sản lượng</b> — màn này chỉ theo dõi tiến độ.</>}</div></>}
+      beforeTable={showBanner ? banner : undefined}
       columns={cols}
       rows={lines}
       rowKey={l => l.id}
@@ -438,18 +449,27 @@ export function PhoiScreen({ cfg, rows, setRows, readOnly = false }: {
   const { startPo, endPo } = caActions(setRows)
   const { data: issues } = useFetch<SatIssueView[]>(() => api.getDotXuatSat(), [])
 
-  // Số cây đã xác nhận cắt xong theo từng dòng vật tư (lineId).
-  const confirmedByLine = useMemo(() => {
-    const m = new Map<number, number>()
-    for (const i of issues ?? []) if (i.status === 'DA_CAT') m.set(i.lineId, (m.get(i.lineId) ?? 0) + (i.soCayThuc ?? i.soCay))
-    return m
+  // Theo từng dòng vật tư (lineId): đã cắt = đã KCS duyệt (DA_CAT); chờ duyệt = CHO_DUYET.
+  const byLine = useMemo(() => {
+    const done = new Map<number, number>()
+    const cho = new Map<number, number>()
+    for (const i of issues ?? []) {
+      const cay = i.soCayThuc ?? i.soCay
+      if (i.status === 'DA_CAT') done.set(i.lineId, (done.get(i.lineId) ?? 0) + cay)
+      else if (i.status === 'CHO_DUYET') cho.set(i.lineId, (cho.get(i.lineId) ?? 0) + cay)
+    }
+    return { done, cho }
   }, [issues])
 
-  // Rows hiển thị = base + đã xác nhận (cộng vào doneQty đúng dòng).
+  // Rows hiển thị = base + đã duyệt (doneQty) + chờ duyệt (choDuyet) theo đúng dòng.
   const view = useMemo(() => rows.map(r => ({
     ...r,
-    manhs: r.manhs?.map(mn => ({ ...mn, lines: mn.lines.map(l => ({ ...l, doneQty: Math.min(l.needQty, l.doneQty + (confirmedByLine.get(l.id) ?? 0)) })) })),
-  })), [rows, confirmedByLine])
+    manhs: r.manhs?.map(mn => ({ ...mn, lines: mn.lines.map(l => ({
+      ...l,
+      doneQty: Math.min(l.needQty, l.doneQty + (byLine.done.get(l.id) ?? 0)),
+      choDuyet: byLine.cho.get(l.id) ?? 0,
+    })) })),
+  })), [rows, byLine])
 
   const selPo = view.find(r => r.id === selPoId) ?? null
   const selManh = selPo?.manhs?.find(m => m.id === selManhId) ?? null
@@ -460,6 +480,7 @@ export function PhoiScreen({ cfg, rows, setRows, readOnly = false }: {
       title={selManh.tenManh}
       subtitle={`${selPo.poNumber} · ${selPo.sku} · SL ${fmt(selPo.soLuong)} · hạn ${dateVN(selPo.deadline)}`}
       bannerLabel="Đồng bộ sắt" dbUnit="mảnh" backLabel="Quay lại danh sách mảnh"
+      showChoDuyet showBanner={false}
       onBack={() => setSelManhId(null)}
     />
   }

@@ -9,7 +9,7 @@
  */
 
 import { Fragment, useState } from 'react'
-import { Check, CircleAlert, ChevronRight, ChevronDown } from 'lucide-react'
+import { Check, CircleAlert, ChevronRight, ChevronDown, Clock } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { SatIssueView } from '../../../services/api'
@@ -46,7 +46,7 @@ export default function XacNhanSanLuongPage({ readOnly = false }: { readOnly?: b
     <div>
       <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Xác nhận sản lượng</h2>
       <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
-        Đối chiếu số cây với output cắt sắt rồi bấm <b>Xác nhận</b>. Máy cắt sai → <b>Báo sai lệch</b> để sửa số cây thực.
+        Đối chiếu số cây với output cắt sắt rồi bấm <b>Xác nhận</b> → chuyển <b>KCS duyệt</b>. Máy cắt sai → <b>Báo sai lệch</b> để sửa số cây thực.
         {choXacNhan > 0 && <> · <b style={{ color: '#e65100' }}>{choXacNhan}</b> đợt chờ xác nhận.</>}
       </div>
 
@@ -65,13 +65,14 @@ export default function XacNhanSanLuongPage({ readOnly = false }: { readOnly?: b
           </thead>
           <tbody>
             {rows.map(l => {
-              const done = l.status === 'DA_CAT'
+              const confirmed = l.status !== 'DA_NHAN'   // đã xác nhận (chờ KCS hoặc đã duyệt)
+              const duyet = l.status === 'DA_CAT'         // KCS đã duyệt
               const editing = edit[l.id] != null
-              const sai = done && l.soCayThuc != null && l.soCayThuc !== l.soCay
+              const sai = confirmed && l.soCayThuc != null && l.soCayThuc !== l.soCay
               const isOpen = open.has(l.id)
               return (
                 <Fragment key={l.id}>
-                <tr style={{ borderTop: '1px solid var(--border)', opacity: done ? 0.7 : 1 }}>
+                <tr style={{ borderTop: '1px solid var(--border)', opacity: confirmed ? 0.7 : 1 }}>
                   <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
                     <button onClick={() => toggle(l.id)} title="Xem cắt ra được gì"
                       style={{ display: 'inline-flex', verticalAlign: -3, marginRight: 4, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 0 }}>
@@ -88,14 +89,14 @@ export default function XacNhanSanLuongPage({ readOnly = false }: { readOnly?: b
                         onChange={e => setEdit(prev => ({ ...prev, [l.id]: e.target.value }))}
                         style={{ width: 72, padding: '4px 8px', border: '1px solid #e65100', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }} />
                     ) : (
-                      <span style={{ fontWeight: 700 }}>{done ? (l.soCayThuc ?? l.soCay) : l.soCay}</span>
+                      <span style={{ fontWeight: 700 }}>{confirmed ? (l.soCayThuc ?? l.soCay) : l.soCay}</span>
                     )}
                   </td>
                   <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{l.dotThoiGian}</td>
                   <td style={{ ...td, textAlign: 'center' }}>
-                    {done ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>
-                        <Check size={14} /> Đã xác nhận
+                    {confirmed ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: duyet ? '#16a34a' : '#d97706' }}>
+                        {duyet ? <><Check size={14} /> KCS đã duyệt</> : <><Clock size={13} /> Chờ KCS duyệt</>}
                         {sai && (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, color: '#d97706', marginLeft: 4 }}>
                             <CircleAlert size={11} /> lệch {l.soCayThuc! - l.soCay > 0 ? '+' : ''}{l.soCayThuc! - l.soCay}
