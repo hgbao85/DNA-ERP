@@ -26,10 +26,8 @@ const toItem = (l: Omit<AccessoryLine, 'uid'>): VatTuPhuKienItem => ({
 })
 
 // ─── Main ─────────────────────────────────────────────────────────────
-export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
-  subTab: 'dinh-muc' | 'catalog'
-  onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
-}) {
+// Chỉ còn luồng "Định mức mới" — tab "Danh sách vật tư" đã gộp sang SpecAccessoryCatalogPage.
+export default function SpecAccessoryPage() {
   const { user } = useAuth()
   const { logAction } = useAuditLog()
   const { data: planFormsData, refetch: refetchPlanForms } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
@@ -76,12 +74,10 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
   const [fMoTa, setFMoTa] = useState('')
   const [fImageUrl, setFImageUrl] = useState('')
   const [showPreview, setShowPreview] = useState(false)
-  const [catalogPreviewUrl, setCatalogPreviewUrl] = useState<string | null>(null)
   const [fErr, setFErr] = useState('')
   const [sentMsg, setSentMsg] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [bomSearch, setBomSearch] = useState('')
-  const [catalogSearch, setCatalogSearch] = useState('')
 
   const openBom = (bom: BomItem) => {
     setSelectedBom(bom)
@@ -117,7 +113,7 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
   }
 
   /* ══ ĐỊNH MỨC CHI TIẾT: DETAIL ══ */
-  if (subTab === 'dinh-muc' && selectedBom) {
+  if (selectedBom) {
     const pf = findPf(selectedBom.id)
     const st = bomStatus(selectedBom.id)
     const review = reviewOf(pf)
@@ -305,173 +301,64 @@ export default function SpecAccessoryPage({ subTab, onSubTabChange }: {
   }
 
   /* ══ ĐỊNH MỨC CHI TIẾT: LIST ══ */
-  if (subTab === 'dinh-muc') {
-    return (
-      <div>
-        <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức — Phụ kiện</h2>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập thông tin phụ kiện theo SKU</p>
-          </div>
-          <NotifBell
-            items={boms.filter(b => bomStatus(b.id) === 'approved').map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức phụ kiện · ${n.thoiGian}` }))}
-            emptyText="Chưa có định mức nào được duyệt."
-          />
-        </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <input
-            value={bomSearch}
-            onChange={e => setBomSearch(e.target.value)}
-            placeholder="Tìm theo tên SKU…"
-            style={{ maxWidth: 280, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
-          />
-        </div>
-        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                {['SKU', 'Thời gian', 'Trạng thái', ''].map((h, i) => (
-                  <th key={i} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {boms.filter(b => b.ten.toLowerCase().includes(bomSearch.toLowerCase()) && bomStatus(b.id) !== 'approved').map(item => {
-                const st = bomStatus(item.id)
-                return (
-                  <tr key={item.id}
-                    onClick={() => openBom(item)}
-                    style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.ten}</td>
-                    <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
-                    <td style={{ padding: '12px 14px' }}>
-                      {st === 'pending'
-                        ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Đợi duyệt</span>
-                        : st === 'rejected'
-                        ? <span style={{ background: '#ffebee', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
-                        : <span style={{ background: '#eef2ff', color: '#3949ab', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
-                      }
-                    </td>
-                    <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    )
-  }
-
-  /* ══ DANH SÁCH VẬT TƯ ══ */
-  const rejectedGroups = planForms
-    .filter(pf => reviewOf(pf)?.status === 'REJECTED')
-    .map(pf => ({
-      ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
-      items: itemsOf(pf),
-      reason: reviewOf(pf)?.reason,
-      reviewedAt: reviewOf(pf)?.reviewedAt ?? '',
-    }))
-
   return (
-    <>
-      <div>
-        <div style={{ marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh sách vật tư — Phụ kiện</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Các mã phụ kiện đã từng nhập, dùng làm gợi ý khi thêm mới</p>
+    <div>
+      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức — Phụ kiện</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập thông tin phụ kiện theo SKU</p>
         </div>
-
-        {rejectedGroups.length > 0 && (
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#c62828', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ background: '#ffebee', color: '#c62828', borderRadius: 20, padding: '2px 10px', fontSize: 12 }}>✕ Từ chối</span>
-              <span style={{ color: 'var(--text3)', fontWeight: 400, fontSize: 12 }}>{rejectedGroups.length} SKU</span>
-            </div>
-            <div style={{ background: 'var(--surface)', border: '1px solid #ffcdd2', borderLeft: '4px solid #c62828', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: '#ffebee', borderBottom: '1px solid #ffcdd2' }}>
-                    {['SKU', 'Mã phụ kiện', 'Số lượng', 'Mô tả', 'Lý do từ chối'].map((h, i) => (
-                      <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: '#b71c1c', fontSize: 11 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rejectedGroups.flatMap((g, gi) => g.items.map((it, i) => (
-                    <tr key={`${gi}-${i}`} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text2)' }}>{g.ten}</td>
-                      <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{it.name}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{it.quantity ?? '—'}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{it.specifications || '—'}</td>
-                      <td style={{ padding: '10px 14px', color: '#c62828', fontSize: 13 }}>{g.reason || '—'}</td>
-                    </tr>
-                  )))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        <div style={{ marginBottom: 16 }}>
-          <input
-            value={catalogSearch}
-            onChange={e => setCatalogSearch(e.target.value)}
-            placeholder="Tìm theo mã phụ kiện hoặc mô tả…"
-            style={{ maxWidth: 320, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
-          />
-        </div>
-        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                {['Mã phụ kiện', 'Mô tả', 'ĐVT', 'Image URL'].map((h, i) => (
-                  <th key={i} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {APPROVED_CATALOG.filter(c => {
-                const q = catalogSearch.toLowerCase()
-                return c.maPK.toLowerCase().includes(q) || c.moTa.toLowerCase().includes(q)
-              }).map((item, i, arr) => (
-                <tr key={item.uid} style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.maPK}</td>
-                  <td style={{ padding: '12px 14px', color: 'var(--text3)' }}>{item.moTa || '—'}</td>
-                  <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.unit || '—'}</td>
-                  <td style={{ padding: '12px 14px' }}>
-                    {item.imageUrl ? (
-                      <button onClick={() => setCatalogPreviewUrl(item.imageUrl)} title="Xem ảnh" style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        color: 'var(--text3)', display: 'flex', alignItems: 'center', padding: 2,
-                      }}>
-                        <Eye size={15} />
-                      </button>
-                    ) : <span style={{ color: 'var(--text3)' }}>—</span>}
-                  </td>
-                </tr>
-              ))}
-              {APPROVED_CATALOG.filter(c => {
-                const q = catalogSearch.toLowerCase()
-                return c.maPK.toLowerCase().includes(q) || c.moTa.toLowerCase().includes(q)
-              }).length === 0 && (
-                <tr>
-                  <td colSpan={4} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
-                    {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư nào được nhập.'}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        <NotifBell
+          items={boms.filter(b => bomStatus(b.id) === 'approved').map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức phụ kiện · ${n.thoiGian}` }))}
+          emptyText="Chưa có định mức nào được duyệt."
+        />
       </div>
-      {catalogPreviewUrl && (
-        <ImageModal url={catalogPreviewUrl} onClose={() => setCatalogPreviewUrl(null)} />
-      )}
-    </>
+
+      <div style={{ marginBottom: 16 }}>
+        <input
+          value={bomSearch}
+          onChange={e => setBomSearch(e.target.value)}
+          placeholder="Tìm theo tên SKU…"
+          style={{ maxWidth: 280, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+        />
+      </div>
+      <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+              {['SKU', 'Thời gian', 'Trạng thái', ''].map((h, i) => (
+                <th key={i} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {boms.filter(b => b.ten.toLowerCase().includes(bomSearch.toLowerCase()) && bomStatus(b.id) !== 'approved').map(item => {
+              const st = bomStatus(item.id)
+              return (
+                <tr key={item.id}
+                  onClick={() => openBom(item)}
+                  style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.ten}</td>
+                  <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
+                  <td style={{ padding: '12px 14px' }}>
+                    {st === 'pending'
+                      ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Đợi duyệt</span>
+                      : st === 'rejected'
+                      ? <span style={{ background: '#ffebee', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
+                      : <span style={{ background: '#eef2ff', color: '#3949ab', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
+                    }
+                  </td>
+                  <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
   )
 }
 

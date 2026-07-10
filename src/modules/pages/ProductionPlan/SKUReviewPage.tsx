@@ -67,12 +67,15 @@ export default function SKUReviewPage() {
       // không được tự ý gắn vào sản phẩm đầu tiên trong danh sách như trước.
       const existingProduct = mfgProducts.find(p => p.factoryCode?.toLowerCase() === skuCode.toLowerCase())
       const product = existingProduct ?? await api.createMfgProduct({ factoryCode: skuCode, name: skuCode })
-      await api.createPlanForm({
+      const createdPlanForm = await api.createPlanForm({
         exportOrderId: form.exportOrderId || exportOrders[0]?.id || 0,
         mfgProductId:  product.id,
         note: skuCode,
         customerName:  customerName.trim() || undefined,
       })
+      if (createdPlanForm?.id != null) {
+        logAction(PLANFORM_ENTITY, String(createdPlanForm.id), 'planform.created', skuCode)
+      }
       closeForm()
       setSuccess(true)
       refetch()
