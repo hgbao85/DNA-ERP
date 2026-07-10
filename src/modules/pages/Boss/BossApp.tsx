@@ -388,7 +388,6 @@ function ChoDuyetSection({ proposals, onApprove, onReject }: {
   onApprove: (id: string, chosen: Record<string, string>) => void
   onReject:  (id: string, reason: string) => void
 }) {
-  const pendingCount = proposals.filter(p => p.status === 'submitted').length
   const [filter, setFilter] = useState<ChoDuyetFilter>('so-sanh-gia')
 
   return (
@@ -396,7 +395,6 @@ function ChoDuyetSection({ proposals, onApprove, onReject }: {
       <div style={{ display: 'flex', gap: 6, marginBottom: 20 }}>
         {CHO_DUYET_FILTERS.map(f => {
           const active = filter === f.key
-          const badge  = f.key === 'so-sanh-gia' && pendingCount > 0 ? pendingCount : 0
           return (
             <button
               key={f.key}
@@ -412,11 +410,6 @@ function ChoDuyetSection({ proposals, onApprove, onReject }: {
               }}
             >
               {f.label}
-              {badge > 0 && (
-                <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 10, background: '#dc2626', color: '#fff' }}>
-                  {badge}
-                </span>
-              )}
             </button>
           )
         })}

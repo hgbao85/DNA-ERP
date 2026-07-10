@@ -80,7 +80,9 @@ export default function LenhSXPage() {
     () => api.getProductionInvoices(),
     []
   )
-  const safeList = (Array.isArray(pis) ? pis : []).filter((p: any) => p.status === 'PLANNING')
+  const hasPendingItem = (p: any) => (Array.isArray(p.items) ? p.items : []).some((it: any) => it.prodApproval?.status === 'PENDING')
+  // Boss chỉ cần thấy PO có SKU đang chờ mình duyệt — không quan tâm PO chưa gửi/đã xử lý xong.
+  const safeList = (Array.isArray(pis) ? pis : []).filter((p: any) => p.status === 'PLANNING' && (!isBoss || hasPendingItem(p)))
   const filteredList = search.trim()
     ? safeList.filter((p: any) => (p.code ?? '').toLowerCase().includes(search.trim().toLowerCase()) || (p.exportOrder?.poNumber ?? '').toLowerCase().includes(search.trim().toLowerCase()))
     : safeList
@@ -334,6 +336,11 @@ export default function LenhSXPage() {
           const canConfirmProd = pi.status !== 'PRODUCING' && pi.status !== 'DONE' && pi.status !== 'CANCELLED'
           // Còn SKU nào chưa gửi duyệt / bị từ chối (có thể gửi lại) — chỉ KHSX mới gửi duyệt.
           const hasSendableItems = items.some((it: any) => !it.prodApproval || it.prodApproval.status === 'REJECTED')
+          // Boss chỉ cần thấy SKU đang chờ mình duyệt — giữ nguyên vị trí (idx) trong pi.items để
+          // handleApproveItem/handleRejectItem cập nhật đúng phần tử.
+          const displayItems = items
+            .map((item: any, idx: number) => ({ item, idx }))
+            .filter(({ item }) => !isBoss || item.prodApproval?.status === 'PENDING')
           const fb = (days: number) => { const d = new Date(computedDeadline); d.setDate(d.getDate() - days); return d }
           return (
             <div>
@@ -375,7 +382,7 @@ export default function LenhSXPage() {
                   <span style={{ fontWeight:700, fontSize:15 }}>{format(computedDeadline, 'dd/MM/yyyy')}</span>
                 </div>
                 <div style={{ marginLeft:'auto', fontSize:12, color:'var(--text3)', background:'var(--surface2)', padding:'4px 12px', borderRadius:12, border:'1px solid var(--border)' }}>
-                  {items.length} SKU
+                  {isBoss ? `${displayItems.length} SKU chờ duyệt` : `${items.length} SKU`}
                 </div>
               </div>
 
@@ -388,14 +395,14 @@ export default function LenhSXPage() {
                   ))}
                   <span style={{ fontSize:11, fontWeight:700, color:'#1d4ed8', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>Hạn giao</span>
                 </div>
-                {items.length === 0 ? (
-                  <div style={{ padding:40, textAlign:'center', color:'var(--text3)' }}>Không có SKU</div>
-                ) : items.map((item: any, idx: number) => {
+                {displayItems.length === 0 ? (
+                  <div style={{ padding:40, textAlign:'center', color:'var(--text3)' }}>{isBoss ? 'Không có SKU chờ duyệt' : 'Không có SKU'}</div>
+                ) : displayItems.map(({ item, idx }, i) => {
                   const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
                   const name = item.productVariant?.mfgProduct?.name ?? ''
                   const color = item.productVariant?.colorCode
                   const qty  = item.quantity
-                  const isLast = idx === items.length - 1
+                  const isLast = i === displayItems.length - 1
                   const iHan  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'HAN')     : null
                   const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
                   const iSon  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'SON')     : null
@@ -659,7 +666,7 @@ export default function LenhSXPage() {
                             {clr && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>{clr}</span>}
                             {approvalStatus === 'APPROVED' && <span style={{ fontSize:11, color:'#2e7d32', fontWeight:600, background:'#dcfce7', padding:'1px 7px', borderRadius:10 }}>Đang sản xuất</span>}
                             {approvalStatus === 'PENDING' && <span style={{ fontSize:11, color:'#b45309', fontWeight:600, background:'#fef3c7', padding:'1px 7px', borderRadius:10 }}>Chờ sếp duyệt</span>}
-                            {approvalStatus === 'REJECTED' && <span style={{ fontSize:11, color:'#b91c1c', fontWeight:600, background:'#fee2e2', padding:'1px 7px', borderRadius:10 }}>Bị từ chối — gửi lại được</span>}
+                            {approvalStatus === 'REJECTED' && <span style={{ fontSize:11, color:'#b91c1c', fontWeight:600, background:'#fee2e2', padding:'1px 7px', borderRadius:10 }}>Bị từ chối - Cập nhật thông tin để gửi lại</span>}
                           </div>
                         </div>
                         {iDelivery && (
