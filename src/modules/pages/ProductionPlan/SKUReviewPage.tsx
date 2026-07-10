@@ -4,12 +4,12 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { Plus, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
+import { useAuditLog } from '../../../context/AuditLogContext'
 import type { PlanForm, CreatePlanFormPayload } from '../../../types/plan-form'
-import { SKUDetail, StatusBadge, STATUS_MAP } from './SKUDetail'
+import { SKUDetail, StatusBadge, STATUS_MAP, PLANFORM_ENTITY } from './SKUDetail'
 import SearchInput from '../../../components/SearchInput'
 import FilterPills from '../../../components/FilterPills'
 import LoadingState from '../../../components/LoadingState'
-import RefreshButton from '../../../components/RefreshButton'
 import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 
 // KHSX theo dõi toàn bộ vòng đời SKU; Sếp (Giám đốc) chỉ cần thấy các item đang chờ mình duyệt lần cuối.
@@ -36,12 +36,13 @@ const emptyForm = (): CreatePlanFormPayload => ({
 
 export default function SKUReviewPage() {
   const { isBoss } = useAuth()
+  const { logAction } = useAuditLog()
   const PENDING_STATUSES = isBoss ? BOSS_PENDING_STATUSES : PLANNER_PENDING_STATUSES
   const FILTERS = isBoss ? BOSS_FILTERS : PLANNER_FILTERS
   const { data: planForms = [], isLoading, refetch } = useFetch(() => api.getPlanForms(), [])
   const { data: formOptions } = useFetch(() => api.getPlanFormOptions(), [])
   const exportOrders = (formOptions?.exportOrders ?? []) as { id: number }[]
-  const mfgProducts  = (formOptions?.mfgProducts  ?? []) as { id: number }[]
+  const mfgProducts  = (formOptions?.mfgProducts  ?? []) as { id: number; factoryCode: string; name: string }[]
 
   const [search, setSearch]             = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -58,13 +59,18 @@ export default function SKUReviewPage() {
   const closeForm = () => { setShowForm(false); setForm(emptyForm()); setCustomerName('') }
 
   const handleSubmit = async () => {
-    if (!(form.note ?? '').trim()) { alert('Vui lòng nhập SKU'); return }
+    const skuCode = (form.note ?? '').trim()
+    if (!skuCode) { alert('Vui lòng nhập SKU'); return }
     setSubmitting(true)
     try {
+      // Mã SKU người dùng nhập là mã sản phẩm thật (factoryCode) — tái dùng nếu đã tồn tại,
+      // không được tự ý gắn vào sản phẩm đầu tiên trong danh sách như trước.
+      const existingProduct = mfgProducts.find(p => p.factoryCode?.toLowerCase() === skuCode.toLowerCase())
+      const product = existingProduct ?? await api.createMfgProduct({ factoryCode: skuCode, name: skuCode })
       await api.createPlanForm({
-        ...form,
         exportOrderId: form.exportOrderId || exportOrders[0]?.id || 0,
-        mfgProductId:  form.mfgProductId  || mfgProducts[0]?.id  || 0,
+        mfgProductId:  product.id,
+        note: skuCode,
         customerName:  customerName.trim() || undefined,
       })
       closeForm()
@@ -93,10 +99,14 @@ export default function SKUReviewPage() {
   const handleApproveDetail = async () => {
     if (!selectedPf) return
     const updated = await api.approveDetailPlanForm(selectedPf.id)
+    logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.detail_approved')
     refetch()
     setSelectedPf(updated)
   }
 
+  // Việc duyệt mảnh (và ghi log) đã xảy ra ngay trong DinhMucManh (SKUDetail) trước khi gọi callback này —
+  // ở đây chỉ cần chuyển trạng thái APPROVED_PARTS (không đổi, đã được set từ lúc account Sắt nhập xong)
+  // và làm mới dữ liệu.
   const handleApproveParts = async () => {
     if (!selectedPf) return
     const updated = await api.approvePartsPlanForm(selectedPf.id)
@@ -108,6 +118,7 @@ export default function SKUReviewPage() {
   const handleSendForBossApproval = async () => {
     if (!selectedPf) return
     const updated = await api.requestBossApprovalPlanForm(selectedPf.id)
+    logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.sent_for_boss_approval')
     refetch()
     setSelectedPf(updated)
   }
@@ -115,9 +126,31 @@ export default function SKUReviewPage() {
   // Sếp duyệt lần cuối — SKU chính thức bắt đầu sản xuất.
   const handleApproveBossRequest = async () => {
     if (!selectedPf) return
-    await api.approveFullPlanForm(selectedPf.id)
+    try {
+      await api.approveFullPlanForm(selectedPf.id)
+      logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.boss_approved')
+      refetch()
+      setSelectedPf(null)
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Không thể duyệt')
+    }
+  }
+
+  // KHSX từ chối định mức chi tiết/mảnh rồi gửi lại cho bộ phận chuyên trách nhập lại từ đầu.
+  const handleSendBackDetail = async () => {
+    if (!selectedPf) return
+    const updated = await api.sendBackDetailPlanForm(selectedPf.id)
+    logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.detail_sent_back')
     refetch()
-    setSelectedPf(null)
+    setSelectedPf(updated)
+  }
+
+  const handleSendBackManh = async () => {
+    if (!selectedPf) return
+    const updated = await api.sendBackManhPlanForm(selectedPf.id)
+    logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.parts_sent_back')
+    refetch()
+    setSelectedPf(updated)
   }
 
   // Lấy lại đúng SKU đang xem — cần khi 1 trong 4 account chuyên trách vừa nhập/duyệt định mức
@@ -144,6 +177,8 @@ export default function SKUReviewPage() {
         onApproveParts={handleApproveParts}
         onSendForBossApproval={handleSendForBossApproval}
         onApproveBossRequest={handleApproveBossRequest}
+        onSendBackDetail={handleSendBackDetail}
+        onSendBackManh={handleSendBackManh}
         onRefresh={handleRefreshSelected}
         refreshing={refreshingSelected}
       />
@@ -158,7 +193,6 @@ export default function SKUReviewPage() {
           {success && <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, display: 'block', marginTop: 4 }}>✓ Đã thêm thành công</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <RefreshButton onRefresh={refetch} loading={isLoading} />
           <button
             onClick={() => setShowForm(true)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: '#2e7d32', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}

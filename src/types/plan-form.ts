@@ -5,6 +5,7 @@ export interface SatItem {
   name: string;
   specifications?: string | null;
   thickness?: number | null;
+  chieuDai?: string | null;
   unit?: string | null;
   quantity?: number | null;
   createdAt?: string | null;
@@ -16,6 +17,7 @@ export interface DaySonItem {
   specifications?: string | null;
   kg?: number | null;
   unit?: string | null;
+  imageUrl?: string | null;
   createdAt?: string | null;
 }
 
@@ -25,6 +27,7 @@ export interface VatTuPhuKienItem {
   specifications?: string | null;
   unit?: string | null;
   quantity?: number | null;
+  imageUrl?: string | null;
   createdAt?: string | null;
 }
 
@@ -34,6 +37,7 @@ export interface BaoBiDongGoiItem {
   specifications?: string | null;
   unit?: string | null;
   quantity?: number | null;
+  imageUrl?: string | null;
   createdAt?: string | null;
 }
 
@@ -70,6 +74,8 @@ export interface ManhChildRow {
 export interface ManhRow {
   id: number;
   name: string;
+  /** Số lượng mảnh này trên 1 SKU (vd 1 SKU cần 2 "Mảnh tay") */
+  qtyPerSku?: string | null;
   children: ManhChildRow[];
 }
 
@@ -95,6 +101,10 @@ export interface PlanForm {
   };
   manhItems?: ManhRow[];
   manhEntryMeta?: QuotaEntryMeta;
+  /** KHSX duyệt/từ chối danh sách mảnh phôi — tách biệt khỏi status vì APPROVED_PARTS còn được set
+   *  ngay khi account Sắt nhập xong (trước khi KHSX kịp xem), nên không thể dùng status để suy ra
+   *  KHSX đã duyệt hay chưa. */
+  manhReviewStatus?: QuotaReviewStatus;
 }
 
 export interface CreatePlanFormPayload {

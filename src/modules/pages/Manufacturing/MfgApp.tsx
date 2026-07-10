@@ -21,7 +21,6 @@ import QuanLyDiemDanPage from './QuanLyDiemDanPage'
 import ThongKePagePlan from './ThongKePagePlan'
 import LenhSanXuatPhoi from '../Phoi/LenhSanXuatPhoi'
 import LichSuNhanSatPage from '../Phoi/LichSuNhanSatPage'
-import XacNhanSanLuongPage from '../Phoi/XacNhanSanLuongPage'
 import LenhSanXuatHan from '../Han/LenhSanXuatHan'
 import LenhSanXuatSon from '../Son/LenhSanXuatSon'
 import PhoiDinhMucManhPage from './PhoiDinhMucManhPage'
@@ -35,17 +34,18 @@ import KcsSonPage from '../Kcs/KcsSonPage'
 
 type TabId =
   | 'workshop'
-  | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-san-luong' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh' | 'phoi-lich-su-nhan-sat'
+  | 'lenh-sx' | 'ke-hoach' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh' | 'phoi-lich-su-nhan-sat'
   | 'xuat-dan' | 'lich-su-xuat-dan' | 'dieu-phoi-dan' | 'lich-su-nhap-dan' | 'quan-ly-diem-dan'
   | 'chuyen-kiem' | 'dong-goi' | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'kiem-tra-vt' | 'setup'
   | 'kcs-phoi' | 'kcs-han' | 'kcs-son'
 
-type SetupSubTab = 'vat-tu' | 'dinh-muc' | 'catalog'
+// pk/bb hậu tố = trang con Phụ kiện / Bao bì — dùng chung role SPEC_ACCESSORY (1 account nhập cả 2 nhóm)
+type SetupSubTab = 'vat-tu' | 'dinh-muc' | 'catalog' | 'dinh-muc-pk' | 'catalog-pk' | 'dinh-muc-bb' | 'catalog-bb'
 
 const WORKER_ROLES = ['PHOI', 'HAN', 'SON', 'WEAVING_MANAGER', 'WEAVING_EXPORT'] as const
 
-const SPEC_ROLES = ['SPEC_STEEL', 'SPEC_WIRE_PAINT', 'SPEC_ACCESSORY', 'SPEC_PACKAGING'] as const
+const SPEC_ROLES = ['SPEC_STEEL', 'SPEC_WIRE_PAINT', 'SPEC_ACCESSORY'] as const
 
 const MFG_ROLE_LABELS: Record<string, string> = {
   PRODUCTION_MANAGER: 'Quản lý SX',
@@ -58,8 +58,7 @@ const MFG_ROLE_LABELS: Record<string, string> = {
   BOM_MANAGER: 'NV Định mức',
   SPEC_STEEL: 'NV Định mức - Sắt',
   SPEC_WIRE_PAINT: 'NV Định mức - Dây/Sơn',
-  SPEC_ACCESSORY: 'NV Định mức - Phụ kiện',
-  SPEC_PACKAGING: 'NV Định mức - Bao bì',
+  SPEC_ACCESSORY: 'NV Định mức - Phụ kiện/Bao bì',
 }
 
 const WORKSHOP_STAGES = [
@@ -81,13 +80,12 @@ const SPEC_SETUP_ITEMS: Record<string, { id: SetupSubTab; label: string; icon: '
     { id: 'dinh-muc', label: 'Định mức mới', icon: 'clipboard' },
     { id: 'catalog', label: 'Danh sách vật tư', icon: 'box' },
   ],
+  // 1 account phụ trách cả Phụ kiện và Bao bì — 4 mục thay vì 2, hậu tố -pk/-bb phân biệt trang con.
   SPEC_ACCESSORY: [
-    { id: 'dinh-muc', label: 'Định mức mới', icon: 'clipboard' },
-    { id: 'catalog', label: 'Danh sách vật tư', icon: 'box' },
-  ],
-  SPEC_PACKAGING: [
-    { id: 'dinh-muc', label: 'Định mức mới', icon: 'clipboard' },
-    { id: 'catalog', label: 'Danh sách vật tư', icon: 'box' },
+    { id: 'dinh-muc-pk', label: 'Phụ kiện — Định mức mới', icon: 'clipboard' },
+    { id: 'catalog-pk', label: 'Phụ kiện — Danh sách vật tư', icon: 'box' },
+    { id: 'dinh-muc-bb', label: 'Bao bì — Định mức mới', icon: 'clipboard' },
+    { id: 'catalog-bb', label: 'Bao bì — Danh sách vật tư', icon: 'box' },
   ],
 }
 
@@ -160,8 +158,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(canManageWorkshop ? [{ id: 'workshop' as TabId, label: 'Tổng hợp lệnh SX', icon: <LayoutGrid size={16} /> }] : []),
     ...(isDirector ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất mới', icon: <ClipboardList size={16} /> }] : []),
     ...(isDirector ? [{ id: 'ke-hoach' as TabId, label: 'Kế hoạch SX', icon: <CalendarClock size={16} /> }] : []),
-    ...(isPhoi ? [{ id: 'phoi-xac-nhan-san-luong' as TabId, label: 'Xác nhận sản lượng', icon: <ClipboardCheck size={16} /> }] : []),
-    ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardList size={16} /> }] : []),
+    ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-dinh-muc-manh' as TabId, label: 'Danh sách định mức mảnh', icon: <Box size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-lich-su-nhan-sat' as TabId, label: 'Lịch sử nhận sắt', icon: <ArrowDownToLine size={16} /> }] : []),
     ...(isKcs ? [{ id: 'kcs-phoi' as TabId, label: 'Phôi', icon: <Wrench size={16} /> }] : []),
@@ -318,7 +315,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'workshop' && canManageWorkshop && <MfgWorkshopBoardPage stageFilter={workshopStage} />}
         {tab === 'lenh-sx' && isDirector && <LenhSXPage />}
         {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePagePlan />}
-        {tab === 'phoi-xac-nhan-san-luong' && (isPhoi || isDirector) && <XacNhanSanLuongPage readOnly={isDirector} />}
         {tab === 'phoi-lenh-sx' && (isPhoi || isHan || isSon || isDirector) && (isHan ? <LenhSanXuatHan readOnly={isDirector} /> : isSon ? <LenhSanXuatSon readOnly={isDirector} /> : <LenhSanXuatPhoi readOnly={isDirector} />)}
         {tab === 'phoi-dinh-muc-manh' && (isPhoi || isHan || isSon || isDirector) && <PhoiDinhMucManhPage stage={isSon ? 'SON' : isHan ? 'HAN' : 'PHOI'} />}
         {tab === 'phoi-lich-su-nhan-sat' && (isPhoi || isDirector) && <LichSuNhanSatPage />}
@@ -338,10 +334,23 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'materials' && canSeeWarehouses && <MfgAllMaterialsPage />}
         {tab === 'warehouses' && canSeeWarehouses && <MfgWarehousesPage />}
         {tab === 'setup' && (isDirector || isBomManager) && <MfgSetupPage />}
-        {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL' && <SpecSteelPage subTab={setupSubTab} onSubTabChange={setSetupSubTab} />}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL' && <SpecSteelPage subTab={setupSubTab as 'vat-tu' | 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
         {tab === 'setup' && user?.mfgRole === 'SPEC_WIRE_PAINT' && <SpecWirePaintPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
-        {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && <SpecAccessoryPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
-        {tab === 'setup' && user?.mfgRole === 'SPEC_PACKAGING' && <SpecPackagingPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && (
+          setupSubTab === 'dinh-muc-bb' || setupSubTab === 'catalog-bb'
+            ? (
+              <SpecPackagingPage
+                subTab={setupSubTab === 'dinh-muc-bb' ? 'dinh-muc' : 'catalog'}
+                onSubTabChange={t => setSetupSubTab(t === 'dinh-muc' ? 'dinh-muc-bb' : 'catalog-bb')}
+              />
+            )
+            : (
+              <SpecAccessoryPage
+                subTab={setupSubTab === 'catalog-pk' ? 'catalog' : 'dinh-muc'}
+                onSubTabChange={t => setSetupSubTab(t === 'dinh-muc' ? 'dinh-muc-pk' : 'catalog-pk')}
+              />
+            )
+        )}
       </div>
     </div>
   )
