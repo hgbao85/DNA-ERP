@@ -1,55 +1,42 @@
-import { useState, useRef } from 'react'
+import { useState } from 'react'
+import { format } from 'date-fns'
 import { ChevronRight, ChevronLeft, Plus, X } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
-import QuotaSkuEntryPanel from './QuotaSkuEntryPanel'
-import QuotaManhEntryPanel from './QuotaManhEntryPanel'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import type { SpecLine, SpecRoleState } from '../../../types/spec-entry'
+import { useAuth } from '../../../context/AuthContext'
+import { useAuditLog } from '../../../context/AuditLogContext'
+import { PLANFORM_ENTITY } from '../../../constants/planFormStatus'
+import type { PlanForm, SatItem, ManhRow, ManhChildRow } from '../../../types/plan-form'
 
 // ─── Types ────────────────────────────────────────────────────────────
-// "Định mức mảnh" (Manh/children) là cây lồng nhau riêng, vẫn giữ state cục bộ.
-// Phần "Vật tư" (DraftLine/PendingReq/RejectedLine) đã gộp vào specRoleEntries.SPEC_STEEL —
-// quy đổi sang/từ shape SpecLine dùng chung khi gọi service (xem toDraftLine/toSpecLine).
+// "Định mức mảnh" (Manh/children) và "Vật tư" (DraftLine) đều đọc/ghi thẳng PlanForm thật
+// (manhItems và quotaManagement.materialType.sat) — quy đổi sang/từ shape domain dễ đọc trong JSX
+// khi đọc/ghi (xem toManh/toManhRow, toDraftLine/toItem).
 type SteelItem = { name: string; specs: string; unit: string; chieuDai: string }
 type ManChild = { id: number; loaiSatName: string; specs: string; chieuDai: string; soLuong: string }
 type Manh = { id: number; tenManh: string; soLuong: string; children: ManChild[] }
 type BomItem = { id: number; ten: string; thoiGian: string }
 type DraftLine = { uid: number; name: string; specs: string; chieuDai: string; soLuong: string; unit: string }
-type PendingReq = { uid: number; bomId: number; lines: DraftLine[]; submittedAt: string }
-type RejectedLine = DraftLine & { submittedAt: string }
 
-const ROLE = 'SPEC_STEEL' as const
+const GROUP = 'sat' as const
 
-const toDraftLine = (l: SpecLine): DraftLine => ({
-  uid: l.uid, name: l.code, specs: l.specifications, chieuDai: l.chieuDai ?? '', soLuong: l.qty ?? '', unit: l.unit,
+const toDraftLine = (it: SatItem, uid: number): DraftLine => ({
+  uid, name: it.name, specs: it.specifications ?? '', chieuDai: it.chieuDai ?? '', soLuong: it.quantity != null ? String(it.quantity) : '', unit: it.unit ?? '',
 })
-const toSpecLine = (l: Omit<DraftLine, 'uid'>): Omit<SpecLine, 'uid'> => ({
-  code: l.name, unit: l.unit, qty: l.soLuong, specifications: l.specs, chieuDai: l.chieuDai,
-})
-const toSteelItem = (l: SpecLine): SteelItem => ({
-  name: l.code, specs: l.specifications, unit: l.unit, chieuDai: l.chieuDai ?? '',
+const toItem = (l: Omit<DraftLine, 'uid'>): SatItem => ({
+  name: l.name, specifications: l.specs || undefined, chieuDai: l.chieuDai || undefined,
+  quantity: l.soLuong.trim() !== '' ? Number(l.soLuong) : undefined, unit: l.unit || undefined,
 })
 
-const EMPTY_ROLE_STATE: SpecRoleState = {
-  approvedBomIds: [], pendingReqs: [], draftsByBom: {}, rejectedLines: {}, catalog: [], reqUid: 1, draftUid: 1,
-}
-
-// ─── Mock data ────────────────────────────────────────────────────────
-// Đơn từ kế hoạch sản xuất → hiển thị ở Định mức chi tiết
-const MOCK_BOMS: BomItem[] = [
-  { id: 1, ten: 'Ghế J55',      thoiGian: '23/06/2026' },
-  { id: 2, ten: 'Ghế IEA-3',    thoiGian: '22/06/2026' },
-  { id: 3, ten: 'Bàn mặt kính', thoiGian: '21/06/2026' },
-  { id: 4, ten: 'Ghế GoPlus',   thoiGian: '20/06/2026' },
-  { id: 5, ten: 'Ghế Cafe',     thoiGian: '19/06/2026' },
-]
-
-// SKU đã được duyệt định mức chi tiết → hiển thị ở Định mức mảnh
-const MOCK_MANH_BOMS: BomItem[] = [
-  { id: 1, ten: 'Ghế J55',    thoiGian: '23/06/2026' },
-  { id: 4, ten: 'Ghế GoPlus', thoiGian: '20/06/2026' },
-]
+const toManh = (r: ManhRow): Manh => ({
+  id: r.id, tenManh: r.name, soLuong: r.qtyPerSku ?? '1',
+  children: r.children.map(c => ({ id: c.id, loaiSatName: c.name, specs: c.specs ?? '', chieuDai: c.length ?? '', soLuong: c.qty ?? '' })),
+})
+const toManhRow = (m: Manh): ManhRow => ({
+  id: m.id, name: m.tenManh, qtyPerSku: m.soLuong,
+  children: m.children.map((c): ManhChildRow => ({ id: c.id, name: c.loaiSatName, specs: c.specs || undefined, length: c.chieuDai || undefined, qty: c.soLuong || undefined })),
+})
 
 const UNIT_OPTIONS = ['cm', 'cái', 'con', 'cây', 'kg', 'm', 'cuộn']
 
@@ -68,36 +55,6 @@ const VAT_TU_PRESETS: { name: string; unit: string }[] = [
   { name: 'PAT Kính',          unit: 'cái' },
   { name: 'PAT kính lỗ nhỏ',  unit: 'cái' },
 ]
-
-// ─── Mock mảnh data theo từng BOM ─────────────────────────────────────
-const MOCK_MANHS: Record<number, Manh[]> = {
-  1: [ // Ghế J55
-    {
-      id: 1, tenManh: 'Mảnh tựa', soLuong: '1', children: [
-        { id: 11, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', chieuDai: '580', soLuong: '2' },
-        { id: 12, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', chieuDai: '620', soLuong: '4' },
-      ],
-    },
-    {
-      id: 2, tenManh: 'Mảnh ngồi', soLuong: '1', children: [
-        { id: 21, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', chieuDai: '480', soLuong: '2' },
-        { id: 22, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', chieuDai: '520', soLuong: '2' },
-      ],
-    },
-    {
-      id: 3, tenManh: 'Mảnh tay', soLuong: '2', children: [
-        { id: 31, loaiSatName: 'Sắt Hộp 6 zem',   specs: '25x50', chieuDai: '350', soLuong: '2' },
-        { id: 32, loaiSatName: 'Sắt Hộp 8 zem',   specs: '20x40', chieuDai: '300', soLuong: '2' },
-      ],
-    },
-    {
-      id: 4, tenManh: 'Chân ghế', soLuong: '1', children: [
-        { id: 41, loaiSatName: 'Sắt Vuông 6 zem', specs: '18x18', chieuDai: '700', soLuong: '4' },
-        { id: 42, loaiSatName: 'Sắt Hộp 8 zem',   specs: '20x40', chieuDai: '450', soLuong: '2' },
-      ],
-    },
-  ],
-}
 
 // ─── SteelSearch ──────────────────────────────────────────────────────
 // Nhập tự do được — dropdown chỉ là gợi ý từ catalog, không bắt buộc chọn
@@ -320,16 +277,48 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   subTab: 'dinh-muc' | 'vat-tu' | 'catalog'
   onSubTabChange: (t: 'dinh-muc' | 'vat-tu' | 'catalog') => void
 }) {
-  const { data: roleStateData, refetch: refetchRole } = useFetch(() => api.getSpecRoleState(ROLE), [])
-  const roleState = roleStateData ?? EMPTY_ROLE_STATE
-  const catalog: SteelItem[] = roleState.catalog.map(toSteelItem)
+  const { user } = useAuth()
+  const { logAction } = useAuditLog()
+  const { data: planFormsData, refetch: refetchPlanForms } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
+  const planForms = (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT')
 
-  // ── Định mức ──────────────────────────────────────────────────────────
+  const findPf = (id: number) => planForms.find(pf => pf.id === id)
+  const itemsOf = (pf?: PlanForm) => pf?.quotaManagement?.materialType?.[GROUP] ?? []
+  const reviewOf = (pf?: PlanForm) => pf?.quotaManagement?.reviewStatus?.[GROUP]
+  const entryMetaOf = (pf?: PlanForm) => pf?.quotaManagement?.entryMeta?.[GROUP]
+
+  // Danh mục tên/quy cách sắt đã từng nhập trên mọi SKU thật — dùng gợi ý autocomplete
+  // cho cả tab "Định mức" (mảnh, mock cục bộ) lẫn tab "Vật tư"/"Catalog" (PlanForm thật).
+  const catalog: SteelItem[] = (() => {
+    const seen = new Map<string, SteelItem>()
+    for (const pf of planForms) {
+      for (const it of itemsOf(pf)) {
+        const key = it.name.trim().toLowerCase()
+        if (!key || seen.has(key)) continue
+        seen.set(key, { name: it.name, specs: it.specifications ?? '', unit: it.unit ?? '', chieuDai: it.chieuDai ?? '' })
+      }
+    }
+    return Array.from(seen.values())
+  })()
+
+  // ── Định mức (mảnh) — PlanForm thật (manhItems/manhEntryMeta) ─────────
+  const manhBoms: BomItem[] = planForms
+    .filter(pf => (['WAITING_PARTS', 'APPROVED_PARTS', 'WAITING_BOSS_APPROVAL', 'APPROVED'] as string[]).includes(pf.status))
+    .map(pf => ({
+      id: pf.id,
+      ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
+      thoiGian: format(new Date(pf.createdAt), 'dd/MM/yyyy'),
+    }))
+  const manhBomStatus = (bomId: number): 'approved' | 'pending' | 'canInput' => {
+    const pf = findPf(bomId)
+    if (pf?.status === 'WAITING_BOSS_APPROVAL' || pf?.status === 'APPROVED') return 'approved'
+    if (pf?.status === 'APPROVED_PARTS') return 'pending'
+    return 'canInput'
+  }
   const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)
   const [manhs, setManhs] = useState<Manh[]>([])
   const [nextId, setNextId] = useState(1)
-  const [submittedBomIds, setSubmittedBomIds] = useState<number[]>([])
-  const [approvedManhBomIds] = useState<number[]>([1]) // Ghế J55 đã duyệt
+  const [savingManh, setSavingManh] = useState(false)
   const [showManhForm, setShowManhForm] = useState(false)
   const [formTenManh, setFormTenManh] = useState('')
   const [formSoLuong, setFormSoLuong] = useState('1')
@@ -339,32 +328,46 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [childChieuDai, setChildChieuDai] = useState('')
   const [childSoLuong, setChildSoLuong] = useState('')
 
-  // ── Vật tư ────────────────────────────────────────────────────────────
+  // ── Vật tư (Sắt) — PlanForm thật ───────────────────────────────────────
+  const boms: BomItem[] = planForms.map(pf => ({
+    id: pf.id,
+    ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
+    thoiGian: format(new Date(pf.createdAt), 'dd/MM/yyyy'),
+  }))
   const [selectedVtBom, setSelectedVtBom] = useState<BomItem | null>(null)
+  const [rows, setRows] = useState<DraftLine[]>([])
+  const [nextRowUid, setNextRowUid] = useState(1)
   const [vtName, setVtName] = useState('')
   const [vtUnit, setVtUnit] = useState('cây')
   const [vtSpecs, setVtSpecs] = useState('')
   const [vtChieuDai, setVtChieuDai] = useState('')
   const [vtSoLuong, setVtSoLuong] = useState('')
   const [vtErr, setVtErr] = useState('')
-  const approvedVtBomIds = roleState.approvedBomIds
-  const pendingReqs: PendingReq[] = roleState.pendingReqs.map(r => ({ ...r, lines: r.lines.map(toDraftLine) }))
-  const draftsByBom: Record<number, DraftLine[]> = Object.fromEntries(
-    Object.entries(roleState.draftsByBom).map(([bomId, lines]) => [bomId, lines.map(toDraftLine)]),
-  )
-  const rejectedLines: RejectedLine[] = Object.values(roleState.rejectedLines).flat().map(l => ({ ...toDraftLine(l), submittedAt: l.submittedAt }))
   const [sentMsg, setSentMsg] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [manhBomSearch, setManhBomSearch] = useState('')
   const [vtBomSearch, setVtBomSearch] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
 
-  // ── BOM helpers ───────────────────────────────────────────────────────
+  // ── BOM helpers (mảnh) ─────────────────────────────────────────────────
   const openBom = (item: BomItem) => {
-    const preset = MOCK_MANHS[item.id] ?? []
-    const maxId = preset.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
-    setSelectedBom(item); setManhs(preset); setNextId(maxId + 1)
+    const existing = (findPf(item.id)?.manhItems ?? []).map(toManh)
+    const maxId = existing.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
+    setSelectedBom(item); setManhs(existing); setNextId(maxId + 1)
     setShowManhForm(false); setFormTenManh('')
     setAddingTo(null); setChildSatName(''); setChildSpecs(''); setChildChieuDai(''); setChildSoLuong('')
+  }
+
+  const submitManh = async () => {
+    if (!selectedBom || totalChildren === 0) return
+    setSavingManh(true)
+    try {
+      await api.updatePlanFormManhQuota(selectedBom.id, manhs.map(toManhRow), user?.name ?? 'Không rõ')
+      logAction(PLANFORM_ENTITY, String(selectedBom.id), 'planform.manh_submitted', `${manhs.length} mảnh · ${totalChildren} loại sắt`)
+      await refetchPlanForms()
+    } finally {
+      setSavingManh(false)
+    }
   }
 
   const addManh = () => {
@@ -395,40 +398,49 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   }
 
   // ── Vật tư helpers ────────────────────────────────────────────────────
-  const currentDrafts = selectedVtBom ? (draftsByBom[selectedVtBom.id] ?? []) : []
-  const currentPending = selectedVtBom ? pendingReqs.filter(r => r.bomId === selectedVtBom.id) : []
+  const vtBomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' => {
+    const pf = findPf(bomId)
+    const review = reviewOf(pf)
+    if (review?.status === 'APPROVED') return 'approved'
+    if (review?.status === 'REJECTED') return 'rejected'
+    return itemsOf(pf).length > 0 ? 'pending' : 'canInput'
+  }
 
-  const addToDraft = async () => {
+  const openVtBom = (bom: BomItem) => {
+    setSelectedVtBom(bom)
+    const existing = itemsOf(findPf(bom.id))
+    setRows(existing.map((it, i) => toDraftLine(it, i + 1)))
+    setNextRowUid(existing.length + 1)
+    setVtName(''); setVtSpecs(''); setVtChieuDai(''); setVtSoLuong(''); setVtErr(''); setSentMsg(false)
+  }
+
+  const addToDraft = () => {
     setVtErr('')
-    if (!vtName.trim() || !selectedVtBom) { setVtErr('Vui lòng chọn Tên vật tư.'); return }
-    await api.addSpecDraftLine(ROLE, selectedVtBom.id, toSpecLine({
-      name: vtName.trim(), specs: vtSpecs.trim(), chieuDai: vtChieuDai.trim(), soLuong: vtSoLuong.trim(), unit: vtUnit,
-    }))
-    refetchRole()
+    if (!vtName.trim()) { setVtErr('Vui lòng chọn Tên vật tư.'); return }
+    setRows(r => [...r, { uid: nextRowUid, name: vtName.trim(), specs: vtSpecs.trim(), chieuDai: vtChieuDai.trim(), soLuong: vtSoLuong.trim(), unit: vtUnit }])
+    setNextRowUid(n => n + 1)
     setVtName(''); setVtSpecs(''); setVtChieuDai(''); setVtSoLuong('')
   }
 
-  const removeDraft = async (uid: number) => {
-    if (!selectedVtBom) return
-    await api.removeSpecDraftLine(ROLE, selectedVtBom.id, uid)
-    refetchRole()
-  }
+  const removeDraft = (uid: number) => setRows(r => r.filter(x => x.uid !== uid))
 
   const submitAll = async () => {
-    if (!currentDrafts.length || !selectedVtBom) return
-    await api.submitSpecDrafts(ROLE, selectedVtBom.id)
-    refetchRole()
-    setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
+    if (!rows.length || !selectedVtBom) return
+    setSubmitting(true)
+    try {
+      const items = rows.map(r => toItem(r))
+      await api.updatePlanFormDetailQuota(selectedVtBom.id, GROUP, items, user?.name ?? 'Không rõ')
+      logAction(PLANFORM_ENTITY, String(selectedVtBom.id), 'planform.detail_submitted', `Sắt (${items.length} vật tư)`)
+      await refetchPlanForms()
+      setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  const vtBomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' =>
-    approvedVtBomIds.includes(bomId) ? 'approved'
-    : pendingReqs.some(r => r.bomId === bomId) ? 'pending'
-    : (roleState.rejectedLines[bomId] ?? []).length > 0 ? 'rejected'
-    : 'canInput'
-
   const totalChildren = manhs.reduce((s, m) => s + m.children.length, 0)
-  const isSubmitted = !!selectedBom && submittedBomIds.includes(selectedBom.id)
+  const manhSt = selectedBom ? manhBomStatus(selectedBom.id) : 'canInput'
+  const isSubmitted = manhSt !== 'canInput'
 
   // ─── Render ────────────────────────────────────────────────────────────
   return (
@@ -440,12 +452,10 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
           <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập định mức mảnh sắt theo SKU và đề xuất vật tư mới</p>
         </div>
         <NotifBell
-          items={MOCK_MANH_BOMS.filter(b => approvedManhBomIds.includes(b.id)).map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức mảnh · ${n.thoiGian}` }))}
+          items={manhBoms.filter(b => manhBomStatus(b.id) === 'approved').map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức mảnh · ${n.thoiGian}` }))}
           emptyText="Chưa có định mức nào được duyệt."
         />
       </div>
-
-      {subTab === 'dinh-muc' && <QuotaManhEntryPanel />}
 
       {/* ══ ĐỊNH MỨC: LIST ══ */}
       {subTab === 'dinh-muc' && !selectedBom && (
@@ -468,7 +478,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_MANH_BOMS.filter(b => b.ten.toLowerCase().includes(manhBomSearch.toLowerCase()) && !approvedManhBomIds.includes(b.id)).map(item => (
+                {manhBoms.filter(b => b.ten.toLowerCase().includes(manhBomSearch.toLowerCase()) && manhBomStatus(b.id) !== 'approved').map(item => {
+                  const st = manhBomStatus(item.id)
+                  return (
                   <tr key={item.id}
                     onClick={() => openBom(item)}
                     style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background .1s' }}
@@ -478,16 +490,15 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.ten}</td>
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
                     <td style={{ padding: '12px 14px' }}>
-                      {approvedManhBomIds.includes(item.id)
-                        ? <span style={{ background: '#e8f5e9', color: '#2e7d32', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✓ Đã duyệt</span>
-                        : submittedBomIds.includes(item.id)
+                      {st === 'pending'
                         ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
                         : <span style={{ background: '#fce4ec', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Cần nhập</span>
                       }
                     </td>
                     <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -509,6 +520,12 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               <span style={{ marginLeft: 10, fontSize: 12, color: 'var(--text3)' }}>{selectedBom.thoiGian}</span>
             </div>
           </div>
+
+          {findPf(selectedBom.id)?.manhEntryMeta && (
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>
+              Đã nhập bởi <strong>{findPf(selectedBom.id)!.manhEntryMeta!.enteredBy}</strong> lúc {new Date(findPf(selectedBom.id)!.manhEntryMeta!.enteredAt).toLocaleString('vi-VN')}
+            </div>
+          )}
 
           {/* Form tạo mảnh */}
           {showManhForm && (
@@ -700,13 +717,13 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
               padding: '12px 16px', background: 'var(--surface)',
               border: `1px solid ${
-                selectedBom && approvedManhBomIds.includes(selectedBom.id) ? '#a5d6a7'
-                : isSubmitted ? '#ffe082'
+                manhSt === 'approved' ? '#a5d6a7'
+                : manhSt === 'pending' ? '#ffe082'
                 : 'var(--border)'
               }`,
               borderRadius: 'var(--radius-lg)',
             }}>
-              {selectedBom && approvedManhBomIds.includes(selectedBom.id) ? (
+              {manhSt === 'approved' ? (
                 <>
                   <span style={{ fontSize: 13, color: '#2e7d32', fontWeight: 600 }}>
                     ✓ Đã được duyệt
@@ -716,7 +733,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
                   }}>Quay lại danh sách</button>
                 </>
-              ) : isSubmitted ? (
+              ) : manhSt === 'pending' ? (
                 <>
                   <span style={{ fontSize: 13, color: '#e65100', fontWeight: 600 }}>
                     ⏳ Đã gửi phê duyệt — đang chờ quản lý xác nhận
@@ -732,36 +749,21 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     {manhs.length} mảnh · {totalChildren} loại sắt
                   </span>
                   <button
-                    onClick={() => {
-                      if (!selectedBom) return
-                      setSubmittedBomIds(ids => [...ids, selectedBom.id])
-                    }}
-                    disabled={totalChildren === 0}
+                    onClick={submitManh}
+                    disabled={totalChildren === 0 || savingManh}
                     style={{
                       padding: '7px 20px', border: 'none', borderRadius: 'var(--radius)',
                       background: totalChildren > 0 ? '#1565c0' : '#ccc',
                       color: '#fff', fontWeight: 700, fontSize: 13,
-                      cursor: totalChildren > 0 ? 'pointer' : 'not-allowed',
+                      cursor: totalChildren > 0 && !savingManh ? 'pointer' : 'not-allowed',
+                      opacity: savingManh ? 0.7 : 1,
                     }}
-                  >Gửi phê duyệt →</button>
+                  >{savingManh ? 'Đang gửi...' : 'Gửi phê duyệt →'}</button>
                 </>
               )}
             </div>
           )}
         </div>
-      )}
-
-      {subTab === 'vat-tu' && (
-        <QuotaSkuEntryPanel
-          group="sat"
-          groupLabel="Sắt"
-          fields={[
-            { key: 'specifications', label: 'Quy cách', type: 'text' },
-            { key: 'thickness', label: 'Độ dày', type: 'number' },
-            { key: 'unit', label: 'ĐVT', type: 'text' },
-            { key: 'quantity', label: 'SL', type: 'number' },
-          ]}
-        />
       )}
 
       {/* ══ ĐỊNH MỨC CHI TIẾT: LIST SKU ══ */}
@@ -785,11 +787,11 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_BOMS.filter(b => b.ten.toLowerCase().includes(vtBomSearch.toLowerCase()) && vtBomStatus(b.id) !== 'approved').map(item => {
+                {boms.filter(b => b.ten.toLowerCase().includes(vtBomSearch.toLowerCase()) && vtBomStatus(b.id) !== 'approved').map(item => {
                   const st = vtBomStatus(item.id)
                   return (
                     <tr key={item.id}
-                      onClick={() => { setSelectedVtBom(item); setVtName(''); setVtSpecs(''); setVtErr(''); setSentMsg(false) }}
+                      onClick={() => openVtBom(item)}
                       style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                       onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -815,7 +817,12 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
       )}
 
       {/* ══ ĐỊNH MỨC CHI TIẾT: DETAIL ══ */}
-      {subTab === 'vat-tu' && selectedVtBom && (
+      {subTab === 'vat-tu' && selectedVtBom && (() => {
+        const pf = findPf(selectedVtBom.id)
+        const st = vtBomStatus(selectedVtBom.id)
+        const review = reviewOf(pf)
+        const meta = entryMetaOf(pf)
+        return (
         <div>
           {/* Back */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -829,8 +836,14 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
             </div>
           </div>
 
+          {meta && (
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>
+              Đã nhập bởi <strong>{meta.enteredBy}</strong> lúc {new Date(meta.enteredAt).toLocaleString('vi-VN')}
+            </div>
+          )}
+
           {/* Banner đã duyệt — ẩn form nhập */}
-          {vtBomStatus(selectedVtBom.id) === 'approved' && (
+          {st === 'approved' && (
             <div style={{ padding: '10px 16px', background: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: 'var(--radius-lg)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 16 }}>✓</span>
               <span style={{ fontWeight: 600, color: '#2e7d32', fontSize: 13 }}>Đã duyệt lần trước</span>
@@ -838,7 +851,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
             </div>
           )}
 
-          {vtBomStatus(selectedVtBom.id) === 'pending' && (
+          {st === 'pending' && (
             <div style={{ padding: '10px 16px', background: '#fff8e1', border: '1px solid #ffe082', borderRadius: 'var(--radius-lg)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 16 }}>⏳</span>
               <span style={{ fontWeight: 600, color: '#f57c00', fontSize: 13 }}>Đang chờ duyệt</span>
@@ -846,11 +859,18 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
             </div>
           )}
 
+          {st === 'rejected' && (
+            <div style={{ padding: '10px 16px', background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 'var(--radius-lg)', marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>⚠ KHSX đã từ chối — vui lòng chỉnh sửa và gửi lại</div>
+              {review?.reason && <div style={{ fontSize: 12, color: '#dc2626', fontStyle: 'italic', marginTop: 2 }}>{review.reason}</div>}
+            </div>
+          )}
+
           {/* Input form — khoá khi đang chờ duyệt */}
-          {vtBomStatus(selectedVtBom.id) !== 'pending' && (
+          {st !== 'pending' && (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', marginBottom: 16 }}>
             <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: 'var(--text)' }}>
-              {vtBomStatus(selectedVtBom.id) === 'approved' ? 'Gửi đề xuất bổ sung' : 'Thêm vật tư vào danh sách'}
+              {st === 'approved' || st === 'rejected' ? 'Gửi đề xuất bổ sung' : 'Thêm vật tư vào danh sách'}
             </div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
               {/* SKU — read only */}
@@ -910,25 +930,25 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
           </div>
           )}
 
-          {/* Draft list */}
-          {currentDrafts.length > 0 && (
-            <div style={{ background: 'var(--surface)', border: '1px solid #c5cae9', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 16 }}>
-              <div style={{ padding: '12px 16px', background: '#e8eaf6', borderBottom: '1px solid #c5cae9', fontWeight: 700, fontSize: 14, color: '#1a237e' }}>
-                Danh sách chờ gửi
-                <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, background: '#c5cae9', color: '#1a237e', borderRadius: 20, padding: '2px 8px' }}>
-                  {currentDrafts.length} vật tư
+          {/* Draft/current list */}
+          {rows.length > 0 && (
+            <div style={{ background: 'var(--surface)', border: st === 'pending' ? '1px solid #ffe082' : '1px solid #c5cae9', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 16 }}>
+              <div style={{ padding: '12px 16px', background: st === 'pending' ? '#fff8e1' : '#e8eaf6', borderBottom: st === 'pending' ? '1px solid #ffe082' : '1px solid #c5cae9', fontWeight: 700, fontSize: 14, color: st === 'pending' ? '#e65100' : '#1a237e' }}>
+                {st === 'pending' ? 'Đang chờ duyệt' : 'Danh sách chờ gửi'}
+                <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, background: st === 'pending' ? '#ffe082' : '#c5cae9', color: st === 'pending' ? '#e65100' : '#1a237e', borderRadius: 20, padding: '2px 8px' }}>
+                  {rows.length} vật tư
                 </span>
               </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                    {['SKU', 'Tên', 'Quy cách', 'Chiều dài', 'SL', 'ĐVT', ''].map((h, i) => (
+                    {['SKU', 'Tên', 'Quy cách', 'Chiều dài', 'SL', 'ĐVT', ...(st === 'pending' ? [] : [''])].map((h, i) => (
                       <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {currentDrafts.map(d => (
+                  {rows.map(d => (
                     <tr key={d.uid} style={{ borderBottom: '1px solid var(--border)' }}>
                       <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedVtBom?.ten}</td>
                       <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{d.name}</td>
@@ -936,24 +956,25 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       <td style={{ padding: '10px 14px', color: 'var(--text3)', fontFamily: 'monospace' }}>{d.chieuDai || '—'}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text)', fontFamily: 'monospace' }}>{d.soLuong || '—'}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{d.unit}</td>
-                      <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                        <button onClick={() => removeDraft(d.uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>
-                          <X size={14} />
-                        </button>
-                      </td>
+                      {st !== 'pending' && (
+                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                          <button onClick={() => removeDraft(d.uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>
+                            <X size={14} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)' }}>
-                <button onClick={submitAll} style={{
-                  padding: '8px 24px', border: 'none', borderRadius: 'var(--radius)',
-                  background: '#1565c0', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer',
-                }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#0d47a1')}
-                  onMouseLeave={e => (e.currentTarget.style.background = '#1565c0')}
-                >Gửi đề xuất ({currentDrafts.length} vật tư) →</button>
-              </div>
+              {st !== 'pending' && (
+                <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)' }}>
+                  <button onClick={submitAll} disabled={submitting} style={{
+                    padding: '8px 24px', border: 'none', borderRadius: 'var(--radius)',
+                    background: '#1565c0', color: '#fff', fontWeight: 700, fontSize: 14, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1,
+                  }}>{submitting ? 'Đang gửi...' : `Gửi đề xuất (${rows.length} vật tư) →`}</button>
+                </div>
+              )}
             </div>
           )}
 
@@ -963,85 +984,54 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
             </div>
           )}
 
-          {/* Pending list */}
-          {currentPending.length > 0 && (
-            <div style={{ background: 'var(--surface)', border: '1px solid #ffe082', borderLeft: '4px solid #f57c00', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-              <div style={{ padding: '12px 16px', background: '#fff8e1', borderBottom: '1px solid #ffe082', fontWeight: 700, fontSize: 14, color: '#e65100' }}>
-                Đang chờ duyệt
-                <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, background: '#ffe082', color: '#e65100', borderRadius: 20, padding: '2px 8px' }}>
-                  {currentPending.reduce((s, r) => s + r.lines.length, 0)} vật tư
-                </span>
-              </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                    {['SKU', 'Tên', 'Quy cách', 'Chiều dài', 'SL', 'ĐVT', 'Gửi lúc', 'Trạng thái'].map((h, i) => (
-                      <th key={i} style={{ padding: '8px 14px', textAlign: i === 7 ? 'right' : 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {currentPending.flatMap(req => req.lines.map(l => (
-                    <tr key={`${req.uid}-${l.uid}`} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedVtBom?.ten}</td>
-                      <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{l.name}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{l.specs || '—'}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text3)', fontFamily: 'monospace' }}>{l.chieuDai || '—'}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text)', fontFamily: 'monospace' }}>{l.soLuong || '—'}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{l.unit}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 12 }}>{req.submittedAt}</td>
-                      <td style={{ padding: '10px 14px', textAlign: 'right' }}>
-                        <span style={{ background: '#fff8e1', color: '#f57c00', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
-                      </td>
-                    </tr>
-                  )))}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {currentDrafts.length === 0 && currentPending.length === 0 && !sentMsg && (
+          {rows.length === 0 && (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '40px', textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
               Chưa có đề xuất nào. Điền form phía trên để bắt đầu.
             </div>
           )}
         </div>
-      )}
+        )
+      })()}
 
       {/* ══ CATALOG VẬT TƯ ══ */}
-      {subTab === 'catalog' && (
+      {subTab === 'catalog' && (() => {
+        const rejectedGroups = planForms
+          .filter(pf => reviewOf(pf)?.status === 'REJECTED')
+          .map(pf => ({
+            ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
+            items: itemsOf(pf),
+            reason: reviewOf(pf)?.reason,
+          }))
+        return (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
           {/* ── Từ chối ── */}
-          {rejectedLines.length > 0 && (
+          {rejectedGroups.length > 0 && (
             <div>
               <div style={{ fontWeight: 700, fontSize: 13, color: '#c62828', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <span style={{ background: '#ffebee', color: '#c62828', borderRadius: 20, padding: '2px 10px', fontSize: 12 }}>✕ Từ chối</span>
-                <span style={{ color: 'var(--text3)', fontWeight: 400, fontSize: 12 }}>{rejectedLines.length} vật tư</span>
+                <span style={{ color: 'var(--text3)', fontWeight: 400, fontSize: 12 }}>{rejectedGroups.length} SKU</span>
               </div>
               <div style={{ background: 'var(--surface)', border: '1px solid #ffcdd2', borderLeft: '4px solid #c62828', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: '#ffebee', borderBottom: '1px solid #ffcdd2' }}>
-                      {['Tên vật tư', 'Quy cách', 'Chiều dài', 'SL', 'ĐVT', 'Gửi lúc', 'Trạng thái'].map((h, i) => (
-                        <th key={i} style={{ padding: '8px 14px', textAlign: i === 6 ? 'right' : 'left', fontWeight: 600, color: '#b71c1c', fontSize: 11 }}>{h}</th>
+                      {['SKU', 'Tên vật tư', 'Quy cách', 'Chiều dài', 'SL', 'Lý do từ chối'].map((h, i) => (
+                        <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: '#b71c1c', fontSize: 11 }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {rejectedLines.map(l => (
-                      <tr key={l.uid} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text2)' }}>{l.name}</td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{l.specs || '—'}</td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text3)', fontFamily: 'monospace' }}>{l.chieuDai || '—'}</td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text)', fontFamily: 'monospace' }}>{l.soLuong || '—'}</td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{l.unit}</td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 12 }}>{l.submittedAt}</td>
-                        <td style={{ padding: '10px 14px', textAlign: 'right' }}>
-                          <span style={{ background: '#ffebee', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Từ chối</span>
-                        </td>
+                    {rejectedGroups.flatMap((g, gi) => g.items.map((it, i) => (
+                      <tr key={`${gi}-${i}`} style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text2)' }}>{g.ten}</td>
+                        <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{it.name}</td>
+                        <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{it.specifications || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: 'var(--text3)', fontFamily: 'monospace' }}>{it.chieuDai || '—'}</td>
+                        <td style={{ padding: '10px 14px', color: 'var(--text)', fontFamily: 'monospace' }}>{it.quantity ?? '—'}</td>
+                        <td style={{ padding: '10px 14px', color: '#c62828', fontSize: 13 }}>{g.reason || '—'}</td>
                       </tr>
-                    ))}
+                    )))}
                   </tbody>
                 </table>
               </div>
@@ -1079,13 +1069,24 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{s.unit}</td>
                     </tr>
                   ))}
+                  {catalog.filter(s => {
+                    const q = catalogSearch.toLowerCase()
+                    return s.name.toLowerCase().includes(q) || s.specs.toLowerCase().includes(q)
+                  }).length === 0 && (
+                    <tr>
+                      <td colSpan={4} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
+                        {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư nào được nhập.'}
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
 
         </div>
-      )}
+        )
+      })()}
     </div>
   )
 }

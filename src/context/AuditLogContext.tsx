@@ -16,6 +16,19 @@ export const AUDIT_ACTIONS = {
   'proposal.rejected':        { label: 'Giám đốc từ chối',            color: '#c62828' },
   'proposal.purchased':       { label: 'Đã nhận đủ hàng',             color: '#166534' },
   'request.production_started': { label: 'Bắt đầu sản xuất',          color: '#2563eb' },
+
+  // ─── PlanForm (SKU) — nhập định mức (4 account chuyên trách) + duyệt (KHSX/Sếp) ─────────
+  'planform.detail_submitted':        { label: 'Nhập định mức chi tiết',                          color: '#2563eb' },
+  'planform.manh_submitted':          { label: 'Nhập định mức mảnh',                               color: '#2563eb' },
+  'planform.detail_section_approved': { label: 'Duyệt 1 nhóm định mức chi tiết',                  color: '#2e7d32' },
+  'planform.detail_section_rejected': { label: 'Từ chối 1 nhóm định mức chi tiết',                color: '#c62828' },
+  'planform.detail_approved':         { label: 'Duyệt định mức chi tiết — chuyển bộ phận nhập mảnh', color: '#2e7d32' },
+  'planform.detail_sent_back':        { label: 'Gửi lại bộ phận Định mức chi tiết',                color: '#d97706' },
+  'planform.parts_approved':          { label: 'Duyệt định mức mảnh',                              color: '#2e7d32' },
+  'planform.parts_rejected':          { label: 'Từ chối định mức mảnh',                            color: '#c62828' },
+  'planform.parts_sent_back':         { label: 'Gửi lại bộ phận Định mức mảnh',                    color: '#d97706' },
+  'planform.sent_for_boss_approval':  { label: 'Gửi sếp duyệt',                                    color: '#7c3aed' },
+  'planform.boss_approved':           { label: 'Giám đốc duyệt — bắt đầu sản xuất',                 color: '#2e7d32' },
 } as const
 
 export type AuditAction = keyof typeof AUDIT_ACTIONS

@@ -1,55 +1,75 @@
 import { useState } from 'react'
+import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
-import QuotaSkuEntryPanel from './QuotaSkuEntryPanel'
 import { useFetch } from '../../../hooks/useFetch'
-import { safeArr } from '../../../utils/array'
 import * as api from '../../../services/api'
-import type { SpecLine, SpecRoleState } from '../../../types/spec-entry'
+import { useAuth } from '../../../context/AuthContext'
+import { useAuditLog } from '../../../context/AuditLogContext'
+import { PLANFORM_ENTITY } from '../../../constants/planFormStatus'
+import type { PlanForm, DaySonItem } from '../../../types/plan-form'
 
 // ─── Types ────────────────────────────────────────────────────────────
-// Alias tên trường theo domain (maDay/soLuong) cho dễ đọc trong JSX — quy đổi
-// sang/từ shape SpecLine dùng chung khi gọi service (xem toWireLine/toSpecLine).
+// Alias tên trường theo domain (maDay/kg) cho dễ đọc trong JSX — quy đổi
+// sang/từ DaySonItem thật khi đọc/ghi PlanForm.quotaManagement (xem toWireLine/toItem).
 type BomItem = { id: number; ten: string; thoiGian: string }
 type WireLine = { uid: number; maDay: string; unit: string; soLuong?: string; specifications: string; imageUrl: string }
-type PendingReq = { uid: number; bomId: number; lines: WireLine[]; submittedAt: string }
-type RejectedWireLine = WireLine & { submittedAt: string; lyDo: string }
 
-const ROLE = 'SPEC_WIRE_PAINT' as const
+const GROUP = 'daySon' as const
 
-const toWireLine = (l: SpecLine): WireLine => ({
-  uid: l.uid, maDay: l.code, unit: l.unit, soLuong: l.qty, specifications: l.specifications, imageUrl: l.imageUrl ?? '',
+const toWireLine = (it: DaySonItem, uid: number): WireLine => ({
+  uid, maDay: it.name, unit: it.unit ?? '', soLuong: it.kg != null ? String(it.kg) : '', specifications: it.specifications ?? '', imageUrl: it.imageUrl ?? '',
 })
-const toSpecLine = (l: Omit<WireLine, 'uid'>): Omit<SpecLine, 'uid'> => ({
-  code: l.maDay, unit: l.unit, qty: l.soLuong, specifications: l.specifications, imageUrl: l.imageUrl,
+const toItem = (l: Omit<WireLine, 'uid'>): DaySonItem => ({
+  name: l.maDay, unit: l.unit || undefined, specifications: l.specifications || undefined,
+  kg: (l.soLuong ?? '').trim() !== '' ? Number(l.soLuong) : undefined, imageUrl: l.imageUrl || undefined,
 })
-
-const EMPTY_ROLE_STATE: SpecRoleState = {
-  approvedBomIds: [], pendingReqs: [], draftsByBom: {}, rejectedLines: {}, catalog: [], reqUid: 1, draftUid: 1,
-}
 
 // ─── Main ─────────────────────────────────────────────────────────────
 export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
   subTab: 'dinh-muc' | 'catalog'
   onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
 }) {
-  const { data: bomsData } = useFetch(() => api.getSpecBoms(), [])
-  const boms: BomItem[] = safeArr(bomsData)
+  const { user } = useAuth()
+  const { logAction } = useAuditLog()
+  const { data: planFormsData, refetch: refetchPlanForms } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
+  const planForms = (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT')
 
-  const { data: roleStateData, refetch: refetchRole } = useFetch(() => api.getSpecRoleState(ROLE), [])
-  const roleState = roleStateData ?? EMPTY_ROLE_STATE
+  const boms: BomItem[] = planForms.map(pf => ({
+    id: pf.id,
+    ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
+    thoiGian: format(new Date(pf.createdAt), 'dd/MM/yyyy'),
+  }))
+  const findPf = (id: number) => planForms.find(pf => pf.id === id)
+  const itemsOf = (pf?: PlanForm) => pf?.quotaManagement?.materialType?.[GROUP] ?? []
+  const reviewOf = (pf?: PlanForm) => pf?.quotaManagement?.reviewStatus?.[GROUP]
+  const entryMetaOf = (pf?: PlanForm) => pf?.quotaManagement?.entryMeta?.[GROUP]
 
-  const approvedBomIds = roleState.approvedBomIds
-  const pendingReqs: PendingReq[] = roleState.pendingReqs.map(r => ({ ...r, lines: r.lines.map(toWireLine) }))
-  const draftsByBom: Record<number, WireLine[]> = Object.fromEntries(
-    Object.entries(roleState.draftsByBom).map(([bomId, lines]) => [bomId, lines.map(toWireLine)]),
-  )
-  const rejectedLines: Record<number, RejectedWireLine[]> = Object.fromEntries(
-    Object.entries(roleState.rejectedLines).map(([bomId, lines]) => [bomId, lines.map(l => ({ ...toWireLine(l), submittedAt: l.submittedAt, lyDo: l.lyDo }))]),
-  )
-  const APPROVED_CATALOG: WireLine[] = roleState.catalog.map(toWireLine)
+  const bomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' => {
+    const pf = findPf(bomId)
+    const review = reviewOf(pf)
+    if (review?.status === 'APPROVED') return 'approved'
+    if (review?.status === 'REJECTED') return 'rejected'
+    return itemsOf(pf).length > 0 ? 'pending' : 'canInput'
+  }
+
+  // Danh mục mã dây/sơn đã từng nhập trên mọi SKU thật — dùng gợi ý autocomplete + tab "Danh sách vật tư".
+  const APPROVED_CATALOG: WireLine[] = (() => {
+    const seen = new Map<string, WireLine>()
+    let uid = 1
+    for (const pf of planForms) {
+      for (const it of itemsOf(pf)) {
+        const key = it.name.trim().toLowerCase()
+        if (!key || seen.has(key)) continue
+        seen.set(key, toWireLine(it, uid++))
+      }
+    }
+    return Array.from(seen.values())
+  })()
 
   const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)
+  const [rows, setRows] = useState<WireLine[]>([])
+  const [nextUid, setNextUid] = useState(1)
   const [fMaDay, setFMaDay] = useState('')
   const [fUnit, setFUnit] = useState('')
   const [fSoLuong, setFSoLuong] = useState('')
@@ -59,50 +79,49 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
   const [catalogPreviewUrl, setCatalogPreviewUrl] = useState<string | null>(null)
   const [fErr, setFErr] = useState('')
   const [sentMsg, setSentMsg] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [bomSearch, setBomSearch] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
 
-  const bomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' =>
-    approvedBomIds.includes(bomId) ? 'approved'
-    : pendingReqs.some(r => r.bomId === bomId) ? 'pending'
-    : (rejectedLines[bomId] ?? []).length > 0 ? 'rejected'
-    : 'canInput'
-
-  const currentDrafts = selectedBom ? (draftsByBom[selectedBom.id] ?? []) : []
-  const currentPending = selectedBom ? pendingReqs.filter(r => r.bomId === selectedBom.id) : []
-
   const openBom = (bom: BomItem) => {
     setSelectedBom(bom)
+    const existing = itemsOf(findPf(bom.id))
+    setRows(existing.map((it, i) => toWireLine(it, i + 1)))
+    setNextUid(existing.length + 1)
     setFMaDay(''); setFUnit(''); setFSoLuong(''); setFSpecifications(''); setFImageUrl('')
     setShowPreview(false); setFErr(''); setSentMsg(false)
   }
 
-  const addToDraft = async () => {
+  const addToDraft = () => {
     setFErr('')
-    if (!fMaDay.trim() || !selectedBom) { setFErr('Vui lòng nhập Mã dây.'); return }
-    await api.addSpecDraftLine(ROLE, selectedBom.id, toSpecLine({
-      maDay: fMaDay.trim(), unit: fUnit.trim(), soLuong: fSoLuong.trim(), specifications: fSpecifications.trim(), imageUrl: fImageUrl.trim(),
-    }))
-    refetchRole()
+    if (!fMaDay.trim()) { setFErr('Vui lòng nhập Mã dây.'); return }
+    setRows(r => [...r, { uid: nextUid, maDay: fMaDay.trim(), unit: fUnit.trim(), soLuong: fSoLuong.trim(), specifications: fSpecifications.trim(), imageUrl: fImageUrl.trim() }])
+    setNextUid(n => n + 1)
     setFMaDay(''); setFUnit(''); setFSoLuong(''); setFSpecifications(''); setFImageUrl('')
   }
 
-  const removeDraft = async (uid: number) => {
-    if (!selectedBom) return
-    await api.removeSpecDraftLine(ROLE, selectedBom.id, uid)
-    refetchRole()
-  }
+  const removeDraft = (uid: number) => setRows(r => r.filter(x => x.uid !== uid))
 
   const submitAll = async () => {
-    if (!currentDrafts.length || !selectedBom) return
-    await api.submitSpecDrafts(ROLE, selectedBom.id)
-    refetchRole()
-    setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
+    if (!rows.length || !selectedBom) return
+    setSubmitting(true)
+    try {
+      const items = rows.map(r => toItem(r))
+      await api.updatePlanFormDetailQuota(selectedBom.id, GROUP, items, user?.name ?? 'Không rõ')
+      logAction(PLANFORM_ENTITY, String(selectedBom.id), 'planform.detail_submitted', `Dây / Sơn (${items.length} vật tư)`)
+      await refetchPlanForms()
+      setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   /* ══ ĐỊNH MỨC CHI TIẾT: DETAIL ══ */
   if (subTab === 'dinh-muc' && selectedBom) {
+    const pf = findPf(selectedBom.id)
     const st = bomStatus(selectedBom.id)
+    const review = reviewOf(pf)
+    const meta = entryMetaOf(pf)
     return (
       <div>
         <div style={{ marginBottom: 20 }}>
@@ -121,6 +140,12 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
           <span style={{ fontWeight: 700, fontSize: 15 }}>{selectedBom.ten}</span>
         </div>
 
+        {meta && (
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>
+            Đã nhập bởi <strong>{meta.enteredBy}</strong> lúc {new Date(meta.enteredAt).toLocaleString('vi-VN')}
+          </div>
+        )}
+
         {st === 'approved' && (
           <div style={{ padding: '10px 16px', background: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: 'var(--radius-lg)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
             <span style={{ fontSize: 16 }}>✓</span>
@@ -137,11 +162,18 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
           </div>
         )}
 
+        {st === 'rejected' && (
+          <div style={{ padding: '10px 16px', background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 'var(--radius-lg)', marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>⚠ KHSX đã từ chối — vui lòng chỉnh sửa và gửi lại</div>
+            {review?.reason && <div style={{ fontSize: 12, color: '#dc2626', fontStyle: 'italic', marginTop: 2 }}>{review.reason}</div>}
+          </div>
+        )}
+
         {/* Form thêm — khoá khi đang chờ duyệt */}
         {st !== 'pending' && (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', marginBottom: 16 }}>
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: 'var(--text)' }}>
-            {st === 'approved' ? 'Gửi đề xuất bổ sung' : 'Thêm vật tư vào danh sách'}
+            {st === 'approved' || st === 'rejected' ? 'Gửi đề xuất bổ sung' : 'Thêm vật tư vào danh sách'}
           </div>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ minWidth: 120 }}>
@@ -173,8 +205,8 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
               <input value={fUnit} onChange={e => setFUnit(e.target.value)}
                 placeholder="kg" style={inputStyle} />
             </div>
-            <div style={{ width: 90 }}>
-              <FL>Số lượng</FL>
+            <div style={{ width: 100 }}>
+              <FL>Khối lượng (kg)</FL>
               <input type="number" min={0} value={fSoLuong} onChange={e => setFSoLuong(e.target.value)}
                 placeholder="VD: 120" style={inputStyle} />
             </div>
@@ -214,49 +246,50 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
         </div>
         )}
 
-        {/* Draft list */}
-        {currentDrafts.length > 0 && (
-          <div style={{ background: 'var(--surface)', border: '1px solid #c5cae9', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 16 }}>
-            <div style={{ padding: '12px 16px', background: '#e8eaf6', borderBottom: '1px solid #c5cae9', fontWeight: 700, fontSize: 14, color: '#1a237e' }}>
-              Danh sách chờ gửi
-              <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, background: '#c5cae9', color: '#1a237e', borderRadius: 20, padding: '2px 8px' }}>
-                {currentDrafts.length} vật tư
+        {/* Draft/current list */}
+        {rows.length > 0 && (
+          <div style={{ background: 'var(--surface)', border: st === 'pending' ? '1px solid #ffe082' : '1px solid #c5cae9', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 16 }}>
+            <div style={{ padding: '12px 16px', background: st === 'pending' ? '#fff8e1' : '#e8eaf6', borderBottom: st === 'pending' ? '1px solid #ffe082' : '1px solid #c5cae9', fontWeight: 700, fontSize: 14, color: st === 'pending' ? '#e65100' : '#1a237e' }}>
+              {st === 'pending' ? 'Đang chờ duyệt' : 'Danh sách chờ gửi'}
+              <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, background: st === 'pending' ? '#ffe082' : '#c5cae9', color: st === 'pending' ? '#e65100' : '#1a237e', borderRadius: 20, padding: '2px 8px' }}>
+                {rows.length} vật tư
               </span>
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['SKU', 'Mã dây', 'ĐVT', 'Số lượng', 'Mô tả', ''].map((h, i) => (
+                  {['SKU', 'Mã dây', 'ĐVT', 'Khối lượng (kg)', 'Mô tả', ...(st === 'pending' ? [] : [''])].map((h, i) => (
                     <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {currentDrafts.map(d => (
+                {rows.map(d => (
                   <tr key={d.uid} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedBom?.ten}</td>
                     <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{d.maDay}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{d.unit || '—'}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{d.soLuong || '—'}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{d.specifications || '—'}</td>
-                    <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                      <button onClick={() => removeDraft(d.uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>
-                        <X size={14} />
-                      </button>
-                    </td>
+                    {st !== 'pending' && (
+                      <td style={{ padding: '10px 14px', textAlign: 'center' }}>
+                        <button onClick={() => removeDraft(d.uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>
+                          <X size={14} />
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
-            <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)' }}>
-              <button onClick={submitAll} style={{
-                padding: '8px 24px', border: 'none', borderRadius: 'var(--radius)',
-                background: '#1565c0', color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer',
-              }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#0d47a1')}
-                onMouseLeave={e => (e.currentTarget.style.background = '#1565c0')}
-              >Gửi đề xuất ({currentDrafts.length} vật tư) →</button>
-            </div>
+            {st !== 'pending' && (
+              <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)' }}>
+                <button onClick={submitAll} disabled={submitting} style={{
+                  padding: '8px 24px', border: 'none', borderRadius: 'var(--radius)',
+                  background: '#1565c0', color: '#fff', fontWeight: 700, fontSize: 14, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1,
+                }}>{submitting ? 'Đang gửi...' : `Gửi đề xuất (${rows.length} vật tư) →`}</button>
+              </div>
+            )}
           </div>
         )}
 
@@ -266,77 +299,7 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
           </div>
         )}
 
-        {/* Pending list */}
-        {currentPending.length > 0 && (
-          <div style={{ background: 'var(--surface)', border: '1px solid #ffe082', borderLeft: '4px solid #f57c00', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-            <div style={{ padding: '12px 16px', background: '#fff8e1', borderBottom: '1px solid #ffe082', fontWeight: 700, fontSize: 14, color: '#e65100' }}>
-              Đang chờ duyệt
-              <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, background: '#ffe082', color: '#e65100', borderRadius: 20, padding: '2px 8px' }}>
-                {currentPending.reduce((s, r) => s + r.lines.length, 0)} vật tư
-              </span>
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['SKU', 'Mã dây', 'ĐVT', 'Số lượng', 'Mô tả', 'Gửi lúc', 'Trạng thái'].map((h, i) => (
-                    <th key={i} style={{ padding: '8px 14px', textAlign: i === 6 ? 'right' : 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {currentPending.flatMap(req => req.lines.map(l => (
-                  <tr key={`${req.uid}-${l.uid}`} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedBom?.ten}</td>
-                    <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{l.maDay}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{l.unit || '—'}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{l.soLuong || '—'}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{l.specifications || '—'}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 12 }}>{req.submittedAt}</td>
-                    <td style={{ padding: '10px 14px', textAlign: 'right' }}>
-                      <span style={{ background: '#fff8e1', color: '#f57c00', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
-                    </td>
-                  </tr>
-                )))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Rejected section */}
-        {(rejectedLines[selectedBom.id] ?? []).length > 0 && (
-          <div style={{ background: 'var(--surface)', border: '1px solid #ffcdd2', borderLeft: '4px solid #c62828', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginTop: 16 }}>
-            <div style={{ padding: '12px 16px', background: '#ffebee', borderBottom: '1px solid #ffcdd2', fontWeight: 700, fontSize: 14, color: '#b71c1c', display: 'flex', alignItems: 'center', gap: 10 }}>
-              ✕ Bị từ chối
-              <span style={{ fontSize: 12, fontWeight: 600, background: '#ffcdd2', color: '#b71c1c', borderRadius: 20, padding: '2px 8px' }}>
-                {(rejectedLines[selectedBom.id] ?? []).length} vật tư
-              </span>
-              <span style={{ fontSize: 12, color: '#c62828', fontWeight: 400, marginLeft: 4 }}>— xem lý do và gửi lại đề xuất mới</span>
-            </div>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: '#fff5f5', borderBottom: '1px solid #ffcdd2' }}>
-                  {['Mã dây', 'ĐVT', 'Số lượng', 'Mô tả', 'Gửi lúc', 'Lý do từ chối'].map((h, i) => (
-                    <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: '#b71c1c', fontSize: 11 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(rejectedLines[selectedBom.id] ?? []).map(l => (
-                  <tr key={l.uid} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{l.maDay}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{l.unit || '—'}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{l.soLuong || '—'}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{l.specifications || '—'}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 12, whiteSpace: 'nowrap' }}>{l.submittedAt}</td>
-                    <td style={{ padding: '10px 14px', color: '#c62828', fontSize: 13 }}>{l.lyDo}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {currentDrafts.length === 0 && currentPending.length === 0 && (rejectedLines[selectedBom.id] ?? []).length === 0 && !sentMsg && (
+        {rows.length === 0 && (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '40px', textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
             Chưa có đề xuất nào. Điền form phía trên để bắt đầu.
           </div>
@@ -355,20 +318,10 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
             <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập thông tin dây và sơn theo SKU</p>
           </div>
           <NotifBell
-            items={boms.filter(b => approvedBomIds.includes(b.id)).map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức dây & sơn · ${n.thoiGian}` }))}
+            items={boms.filter(b => bomStatus(b.id) === 'approved').map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức dây & sơn · ${n.thoiGian}` }))}
             emptyText="Chưa có định mức nào được duyệt."
           />
         </div>
-
-        <QuotaSkuEntryPanel
-          group="daySon"
-          groupLabel="Dây / Sơn"
-          fields={[
-            { key: 'specifications', label: 'Quy cách', type: 'text' },
-            { key: 'kg', label: 'Khối lượng (kg)', type: 'number' },
-            { key: 'unit', label: 'ĐVT', type: 'text' },
-          ]}
-        />
 
         <div style={{ marginBottom: 16 }}>
           <input
@@ -419,13 +372,53 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
   }
 
   /* ══ DANH SÁCH VẬT TƯ ══ */
+  const rejectedGroups = planForms
+    .filter(pf => reviewOf(pf)?.status === 'REJECTED')
+    .map(pf => ({
+      ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
+      items: itemsOf(pf),
+      reason: reviewOf(pf)?.reason,
+    }))
+
   return (
     <>
       <div>
         <div style={{ marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh sách vật tư — Dây & Sơn</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Các mã dây & sơn đã được duyệt</p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Các mã dây & sơn đã từng nhập, dùng làm gợi ý khi thêm mới</p>
         </div>
+
+        {rejectedGroups.length > 0 && (
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, color: '#c62828', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ background: '#ffebee', color: '#c62828', borderRadius: 20, padding: '2px 10px', fontSize: 12 }}>✕ Từ chối</span>
+              <span style={{ color: 'var(--text3)', fontWeight: 400, fontSize: 12 }}>{rejectedGroups.length} SKU</span>
+            </div>
+            <div style={{ background: 'var(--surface)', border: '1px solid #ffcdd2', borderLeft: '4px solid #c62828', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: '#ffebee', borderBottom: '1px solid #ffcdd2' }}>
+                    {['SKU', 'Mã dây', 'Khối lượng (kg)', 'Mô tả', 'Lý do từ chối'].map((h, i) => (
+                      <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: '#b71c1c', fontSize: 11 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rejectedGroups.flatMap((g, gi) => g.items.map((it, i) => (
+                    <tr key={`${gi}-${i}`} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text2)' }}>{g.ten}</td>
+                      <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{it.name}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{it.kg ?? '—'}</td>
+                      <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{it.specifications || '—'}</td>
+                      <td style={{ padding: '10px 14px', color: '#c62828', fontSize: 13 }}>{g.reason || '—'}</td>
+                    </tr>
+                  )))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         <div style={{ marginBottom: 16 }}>
           <input
             value={catalogSearch}
@@ -470,7 +463,7 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
               }).length === 0 && (
                 <tr>
                   <td colSpan={4} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
-                    {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư nào được duyệt.'}
+                    {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư nào được nhập.'}
                   </td>
                 </tr>
               )}
@@ -580,38 +573,6 @@ function ImageModal({ url, onClose }: { url: string; onClose: () => void }) {
           cursor: 'default',
         }}
       />
-    </div>
-  )
-}
-
-function ImagePreview({ url }: { url: string }) {
-  const [status, setStatus] = useState<'loading' | 'ok' | 'error'>('loading')
-  return (
-    <div style={{ marginTop: 8 }}>
-      {status !== 'error' && (
-        <img
-          src={url}
-          alt="preview"
-          onLoad={() => setStatus('ok')}
-          onError={() => setStatus('error')}
-          style={{
-            maxWidth: 160, maxHeight: 120, borderRadius: 'var(--radius)',
-            border: '1px solid var(--border)', objectFit: 'contain',
-            display: status === 'loading' ? 'none' : 'block',
-            background: 'var(--surface2)',
-          }}
-        />
-      )}
-      {status === 'loading' && (
-        <div style={{ width: 160, height: 60, borderRadius: 'var(--radius)', border: '1px solid var(--border)', background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, color: 'var(--text3)' }}>
-          Đang tải…
-        </div>
-      )}
-      {status === 'error' && (
-        <div style={{ padding: '5px 8px', background: '#ffebee', color: '#c62828', borderRadius: 'var(--radius)', fontSize: 11 }}>
-          Không tải được ảnh
-        </div>
-      )}
     </div>
   )
 }

@@ -191,25 +191,14 @@ export const MOCK_ACCOUNTS: MockAccount[] = [
     },
   },
   {
-    email: 'dinhmucphukien@demo.com',
+    email: 'dinhmucpkbb@demo.com',
     password: 'demo1234',
     user: {
       id: 52,
-      name: 'NV Định mức - Vật tư/Phụ kiện',
-      email: 'dinhmucphukien@demo.com',
+      name: 'NV Định mức - Phụ kiện/Bao bì',
+      email: 'dinhmucpkbb@demo.com',
       role: 'WAREHOUSE_STAFF',
       mfgRole: 'SPEC_ACCESSORY',
-    },
-  },
-  {
-    email: 'dinhmucbaobi@demo.com',
-    password: 'demo1234',
-    user: {
-      id: 53,
-      name: 'NV Định mức - Bao bì/Đóng gói',
-      email: 'dinhmucbaobi@demo.com',
-      role: 'WAREHOUSE_STAFF',
-      mfgRole: 'SPEC_PACKAGING',
     },
   },
 ];

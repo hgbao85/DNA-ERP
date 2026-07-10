@@ -1,3 +1,7 @@
+// Entity dùng cho AuditLogTimeline — mọi thao tác nhập/duyệt/từ chối/gửi lại trên 1 SKU (PlanForm),
+// từ cả 4 account chuyên trách nhập liệu lẫn KHSX/Sếp duyệt.
+export const PLANFORM_ENTITY = 'PlanForm'
+
 /** Trạng thái vòng đời của một SKU (PlanForm) trong luồng Kế hoạch sản xuất. */
 export const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   WAITING_DETAIL:  { label: 'Chờ nhập định mức chi tiết', color: '#b45309', bg: '#fef3c7' },

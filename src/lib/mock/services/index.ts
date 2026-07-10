@@ -7,7 +7,6 @@ export * from './sales.service';
 export * from './mfg.service';
 export * from './purchasing.service';
 export * from './plan-form.service';
-export * from './spec-entry.service';
 export * from './warehouse-transfer.service';
 export * from './manh.service';
 export * from './phoi-sat.service';

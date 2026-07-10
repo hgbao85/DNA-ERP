@@ -3,15 +3,16 @@ import { format } from 'date-fns'
 import { ChevronLeft } from 'lucide-react'
 import GenericStatusBadge from '../../../components/StatusBadge'
 import Modal from '../../../components/Modal'
-import RefreshButton from '../../../components/RefreshButton'
+import AuditLogTimeline from '../../../components/AuditLogTimeline'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
-import type { ManhRow, PlanForm } from '../../../types/plan-form'
-import { STATUS_MAP } from '../../../constants/planFormStatus'
+import { useAuditLog } from '../../../context/AuditLogContext'
+import type { ManhRow, PlanForm, QuotaReviewStatus } from '../../../types/plan-form'
+import { STATUS_MAP, PLANFORM_ENTITY } from '../../../constants/planFormStatus'
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
-export { STATUS_MAP }
+export { STATUS_MAP, PLANFORM_ENTITY }
 
 export function StatusBadge({ status }: { status: string }) {
   return <GenericStatusBadge {...(STATUS_MAP[status] ?? STATUS_MAP.APPROVED_DETAIL)} />
@@ -25,6 +26,8 @@ export function SKUDetail({
   onApproveParts,
   onSendForBossApproval,
   onApproveBossRequest,
+  onSendBackDetail,
+  onSendBackManh,
   onRefresh,
   refreshing = false,
 }: {
@@ -35,14 +38,17 @@ export function SKUDetail({
   onApproveParts?: () => Promise<void>
   onSendForBossApproval?: () => Promise<void>
   onApproveBossRequest?: () => Promise<void>
+  onSendBackDetail?: () => Promise<void>
+  onSendBackManh?: () => Promise<void>
   onRefresh?: () => void
   refreshing?: boolean
 }) {
   const { isBoss } = useAuth()
+  const { logAction, getLogsFor } = useAuditLog()
   const mt = pf.quotaManagement?.materialType
 
   // Chi tiết đã được duyệt khi status vượt qua giai đoạn APPROVED_DETAIL (đã gửi bộ phận nhập mảnh)
-  const detailAlreadyApproved = ['WAITING_PARTS', 'APPROVED_PARTS', 'APPROVED'].includes(pf.status)
+  const detailAlreadyApproved = ['WAITING_PARTS', 'APPROVED_PARTS', 'WAITING_BOSS_APPROVAL', 'APPROVED'].includes(pf.status)
   const approvedEntry = (at?: string) => ({ status: 'APPROVED' as const, at: new Date(at ?? pf.createdAt) })
 
   type SecEntry = { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
@@ -66,13 +72,21 @@ export function SKUDetail({
     .map(k => ({ key: k, title: SEC_LABELS[k], reason: secStatus[k]?.reason }))
   const anySectionRejected = rejectedSections.length > 0
 
-  const approveSection = (k: SecKey) => {
-    setSecStatus(p => ({ ...p, [k]: { status: 'APPROVED', at: new Date() } }))
-    ;(api as any).reviewPlanFormDetailQuota(pf.id, k, 'APPROVED').catch(() => {})
+  // Duyệt/từ chối 1 nhóm định mức chi tiết đều phải qua modal xác nhận, và một khi đã có quyết định
+  // (secStatus[k] khác null) thì MaterialSection tự ẩn 2 nút này — không cho bấm lại/đổi ý ngoài luồng
+  // "Gửi lại bộ phận Định mức chi tiết" chính thức.
+  type SecModal = { key: SecKey; title: string } | null
+  const [approveModal, setApproveModal] = useState<SecModal>(null)
+  const confirmSectionApprove = () => {
+    if (!approveModal) return
+    const { key, title } = approveModal
+    setSecStatus(p => ({ ...p, [key]: { status: 'APPROVED', at: new Date() } }))
+    ;(api as any).reviewPlanFormDetailQuota(pf.id, key, 'APPROVED').catch(() => {})
+    logAction(PLANFORM_ENTITY, String(pf.id), 'planform.detail_section_approved', title)
+    setApproveModal(null)
   }
 
-  type RejectModal = { key: SecKey; title: string } | null
-  const [rejectModal, setRejectModal] = useState<RejectModal>(null)
+  const [rejectModal, setRejectModal] = useState<SecModal>(null)
   const [rejectReason, setRejectReason] = useState('')
   const confirmSectionReject = () => {
     if (!rejectModal) return
@@ -82,6 +96,7 @@ export function SKUDetail({
       [rejectModal.key]: { status: 'REJECTED', at: new Date(), reason },
     }))
     ;(api as any).reviewPlanFormDetailQuota(pf.id, rejectModal.key, 'REJECTED', reason).catch(() => {})
+    logAction(PLANFORM_ENTITY, String(pf.id), 'planform.detail_section_rejected', reason ? `${rejectModal.title} — ${reason}` : rejectModal.title)
     setRejectModal(null)
   }
 
@@ -90,12 +105,18 @@ export function SKUDetail({
 
   const [approvingDetail, setApprovingDetail] = useState(false)
   const [showSendConfirm, setShowSendConfirm] = useState(false)
-  const [sendDone, setSendDone] = useState(false)
+  const [sendingBackDetail, setSendingBackDetail] = useState(false)
 
   const handleApproveDetail = async () => {
     if (!onApproveDetail) return
     setApprovingDetail(true)
     try { await onApproveDetail() } finally { setApprovingDetail(false) }
+  }
+
+  const handleSendBackDetail = async () => {
+    if (!onSendBackDetail) return
+    setSendingBackDetail(true)
+    try { await onSendBackDetail() } finally { setSendingBackDetail(false) }
   }
 
   type DetailTab = 'chitiet' | 'manh'
@@ -104,7 +125,19 @@ export function SKUDetail({
   const defaultTab: DetailTab = detailAlreadyApproved ? 'manh' : 'chitiet'
   const [detailTab, setDetailTab] = useState<DetailTab>(defaultTab)
 
-  const canEditDetail = !readOnly && pf.status === 'APPROVED_DETAIL'
+  const canEditDetail = !readOnly && !isBoss && pf.status === 'APPROVED_DETAIL'
+  const noop = () => {}
+
+  // Sếp duyệt lần cuối: xem gộp cả chi tiết + mảnh trên 1 màn hình (không cần chuyển tab) cho tiện duyệt.
+  // "Danh sách SKU" của sếp (readOnly, chỉ xem lại) vẫn dùng layout tab giống KHSX như bình thường.
+  const bossFinalReview = isBoss && !readOnly
+  const [confirmBossApprove, setConfirmBossApprove] = useState(false)
+  const [approvingBoss, setApprovingBoss] = useState(false)
+  const handleApproveBossRequest = async () => {
+    if (!onApproveBossRequest) return
+    setApprovingBoss(true)
+    try { await onApproveBossRequest() } finally { setApprovingBoss(false) }
+  }
 
   return (
     <div>
@@ -123,7 +156,6 @@ export function SKUDetail({
           </p>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-          {onRefresh && <RefreshButton onRefresh={onRefresh} loading={refreshing} size="sm" />}
           <StatusBadge status={pf.status} />
         </div>
       </div>
@@ -135,8 +167,60 @@ export function SKUDetail({
         {pf.proposedAt && <span><span style={{ color: 'var(--text3)' }}>Đề xuất: </span><strong>{format(new Date(pf.proposedAt), 'dd/MM/yyyy')}</strong></span>}
       </div>
 
-      {isBoss ? (
-        <BossReviewView pf={pf} readOnly={readOnly} onApproveBossRequest={onApproveBossRequest} />
+      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+      {bossFinalReview ? (
+        <>
+          {/* Sếp duyệt cuối — xem gộp cả 2 phần trên 1 màn hình, không cần chuyển tab */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>Định mức chi tiết</div>
+            {mt ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <MaterialSection
+                  title="Sắt" color="#b45309" bg="#fef3c7" readOnly hideStatusBadge
+                  entry={secStatus.sat} onApprove={noop} onReject={noop}
+                  items={(Array.isArray(mt.sat) ? mt.sat : []).map(i => ({
+                    name: i.name,
+                    spec: [i.specifications, i.chieuDai ? `dài ${i.chieuDai}` : null, i.thickness != null ? `dày ${i.thickness}mm` : null].filter(Boolean).join(', ') || null,
+                    unitQty: i.quantity != null ? `${i.quantity} ${i.unit ?? ''}`.trim() : (i.unit ?? null),
+                  }))}
+                />
+                <MaterialSection
+                  title="Dây / Sơn" color="#1d4ed8" bg="#eff6ff" readOnly hideStatusBadge
+                  entry={secStatus.daySon} onApprove={noop} onReject={noop}
+                  items={(Array.isArray(mt.daySon) ? mt.daySon : []).map(i => ({
+                    name: i.name,
+                    spec: i.specifications || null,
+                    unitQty: i.kg != null ? `${i.kg} kg` : (i.unit ?? null),
+                  }))}
+                />
+                <MaterialSection
+                  title="Vật tư phụ kiện" color="#6d28d9" bg="#ede9fe" readOnly hideStatusBadge
+                  entry={secStatus.vatTuPhuKien} onApprove={noop} onReject={noop}
+                  items={(Array.isArray(mt.vatTuPhuKien) ? mt.vatTuPhuKien : []).map(i => ({
+                    name: i.name, spec: i.specifications || null,
+                    unitQty: i.quantity != null ? `${i.quantity} ${i.unit ?? ''}`.trim() : (i.unit ?? null),
+                  }))}
+                />
+                <MaterialSection
+                  title="Bao bì đóng gói" color="#065f46" bg="#d1fae5" readOnly hideStatusBadge
+                  entry={secStatus.baoBiDongGoi} onApprove={noop} onReject={noop}
+                  items={(Array.isArray(mt.baoBiDongGoi) ? mt.baoBiDongGoi : []).map(i => ({
+                    name: i.name, spec: i.specifications || null,
+                    unitQty: i.quantity != null ? `${i.quantity} ${i.unit ?? ''}`.trim() : (i.unit ?? null),
+                  }))}
+                />
+              </div>
+            ) : (
+              <div style={{ padding: 20, background: 'var(--surface2)', borderRadius: 8, color: 'var(--text3)', fontSize: 13 }}>
+                Chưa có thông tin định mức chi tiết
+              </div>
+            )}
+          </div>
+
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>Định mức mảnh</div>
+          <DinhMucManh planFormId={pf.id} status={pf.status} readOnly hideStatusBadge manhItems={pf.manhItems} manhReviewStatus={pf.manhReviewStatus} />
+        </>
       ) : (
       <>
       {/* Sub-tabs */}
@@ -165,11 +249,14 @@ export function SKUDetail({
       {/* Tab: Định mức mảnh */}
       {detailTab === 'manh' && (
         <DinhMucManh
+          planFormId={pf.id}
           status={pf.status}
           readOnly={readOnly}
           manhItems={pf.manhItems}
+          manhReviewStatus={pf.manhReviewStatus}
           onApproveParts={onApproveParts}
           onSendForBossApproval={onSendForBossApproval}
+          onSendBackManh={onSendBackManh}
         />
       )}
 
@@ -203,11 +290,11 @@ export function SKUDetail({
               <MaterialSection
                 title="Sắt" color="#b45309" bg="#fef3c7" readOnly={!canEditDetail}
                 entry={secStatus.sat}
-                onApprove={() => approveSection('sat')}
+                onApprove={() => setApproveModal({ key: 'sat', title: 'Sắt' })}
                 onReject={() => { setRejectModal({ key: 'sat', title: 'Sắt' }); setRejectReason('') }}
                 items={(Array.isArray(mt.sat) ? mt.sat : []).map(i => ({
                   name: i.name,
-                  spec: [i.specifications, i.thickness != null ? `dày ${i.thickness}mm` : null].filter(Boolean).join(', ') || null,
+                  spec: [i.specifications, i.chieuDai ? `dài ${i.chieuDai}` : null, i.thickness != null ? `dày ${i.thickness}mm` : null].filter(Boolean).join(', ') || null,
                   unitQty: i.quantity != null ? `${i.quantity} ${i.unit ?? ''}`.trim() : (i.unit ?? null),
                 }))}
               />
@@ -216,7 +303,7 @@ export function SKUDetail({
               <MaterialSection
                 title="Dây / Sơn" color="#1d4ed8" bg="#eff6ff" readOnly={!canEditDetail}
                 entry={secStatus.daySon}
-                onApprove={() => approveSection('daySon')}
+                onApprove={() => setApproveModal({ key: 'daySon', title: 'Dây / Sơn' })}
                 onReject={() => { setRejectModal({ key: 'daySon', title: 'Dây / Sơn' }); setRejectReason('') }}
                 items={(Array.isArray(mt.daySon) ? mt.daySon : []).map(i => ({
                   name: i.name,
@@ -229,7 +316,7 @@ export function SKUDetail({
               <MaterialSection
                 title="Vật tư phụ kiện" color="#6d28d9" bg="#ede9fe" readOnly={!canEditDetail}
                 entry={secStatus.vatTuPhuKien}
-                onApprove={() => approveSection('vatTuPhuKien')}
+                onApprove={() => setApproveModal({ key: 'vatTuPhuKien', title: 'Vật tư phụ kiện' })}
                 onReject={() => { setRejectModal({ key: 'vatTuPhuKien', title: 'Vật tư phụ kiện' }); setRejectReason('') }}
                 items={(Array.isArray(mt.vatTuPhuKien) ? mt.vatTuPhuKien : []).map(i => ({
                   name: i.name, spec: i.specifications || null,
@@ -241,7 +328,7 @@ export function SKUDetail({
               <MaterialSection
                 title="Bao bì đóng gói" color="#065f46" bg="#d1fae5" readOnly={!canEditDetail}
                 entry={secStatus.baoBiDongGoi}
-                onApprove={() => approveSection('baoBiDongGoi')}
+                onApprove={() => setApproveModal({ key: 'baoBiDongGoi', title: 'Bao bì đóng gói' })}
                 onReject={() => { setRejectModal({ key: 'baoBiDongGoi', title: 'Bao bì đóng gói' }); setRejectReason('') }}
                 items={(Array.isArray(mt.baoBiDongGoi) ? mt.baoBiDongGoi : []).map(i => ({
                   name: i.name, spec: i.specifications || null,
@@ -257,14 +344,12 @@ export function SKUDetail({
               {!allSectionsApproved && !anySectionRejected && (
                 <span style={{ fontSize: 12, color: '#d97706' }}>Cần duyệt đủ 4 loại vật tư chi tiết mới được chuyển đến công đoạn tiếp theo</span>
               )}
-              {anySectionRejected && !sendDone && (
+              {anySectionRejected && (
                 <button
                   onClick={() => setShowSendConfirm(true)}
-                  style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #7c3aed', background: '#faf5ff', color: '#7c3aed', cursor: 'pointer' }}
-                >Gửi lại bộ phận Định mức chi tiết</button>
-              )}
-              {sendDone && (
-                <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>✓ Đã gửi lại bộ phận Định mức chi tiết</span>
+                  disabled={sendingBackDetail}
+                  style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #7c3aed', background: '#faf5ff', color: '#7c3aed', cursor: sendingBackDetail ? 'not-allowed' : 'pointer', opacity: sendingBackDetail ? 0.7 : 1 }}
+                >{sendingBackDetail ? 'Đang gửi...' : 'Gửi lại bộ phận Định mức chi tiết'}</button>
               )}
               <button
                 onClick={handleApproveDetail}
@@ -281,7 +366,7 @@ export function SKUDetail({
               </button>
             </div>
           )}
-          {detailAlreadyApproved && (
+          {detailAlreadyApproved && !isBoss && (
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
               <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã gửi đến bộ phận nhập mảnh</span>
             </div>
@@ -292,6 +377,52 @@ export function SKUDetail({
           Chưa có thông tin định mức chi tiết
         </div>
       ))}
+      </>
+      )}
+
+      {/* Sếp duyệt lần cuối — gộp cả chi tiết + mảnh, không phụ thuộc tab đang xem */}
+      {isBoss && !readOnly && pf.status === 'WAITING_BOSS_APPROVAL' && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+          <button
+            onClick={() => setConfirmBossApprove(true)}
+            disabled={approvingBoss}
+            style={{
+              padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
+              cursor: approvingBoss ? 'default' : 'pointer',
+              background: '#16a34a', color: '#fff', opacity: approvingBoss ? 0.7 : 1,
+            }}
+          >{approvingBoss ? 'Đang xử lý...' : 'Duyệt'}</button>
+        </div>
+      )}
+      {isBoss && pf.status === 'APPROVED' && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+          <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã duyệt</span>
+        </div>
+      )}
+      </div>
+
+      {!readOnly && (
+        <div style={{ width: 300, flexShrink: 0, position: 'sticky', top: 20 }}>
+          <AuditLogTimeline entries={getLogsFor(PLANFORM_ENTITY, String(pf.id))} />
+        </div>
+      )}
+      </div>
+
+      {/* Modal xác nhận duyệt (Sếp) */}
+      <Modal open={confirmBossApprove} maxWidth={420} zIndex={2000}>
+        <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận duyệt</h3>
+        <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
+          Xác nhận duyệt định mức chi tiết và định mức mảnh của SKU này? Sau khi duyệt, SKU sẽ được thêm vào danh sách.
+        </p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={() => setConfirmBossApprove(false)} style={btnSecondary}>Hủy</button>
+          <button
+            onClick={async () => { setConfirmBossApprove(false); await handleApproveBossRequest() }}
+            disabled={approvingBoss}
+            style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff' }}
+          >Duyệt</button>
+        </div>
+      </Modal>
 
       {/* Modal xác nhận gửi lại bộ phận Định mức chi tiết */}
       <Modal open={showSendConfirm} maxWidth={440} zIndex={2000}>
@@ -315,9 +446,22 @@ export function SKUDetail({
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowSendConfirm(false)} style={btnSecondary}>Hủy</button>
               <button
-                onClick={() => { setShowSendConfirm(false); setSendDone(true) }}
-                style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#7c3aed', color: '#fff' }}
-              >Xác nhận gửi lại</button>
+                onClick={async () => { setShowSendConfirm(false); await handleSendBackDetail() }}
+                disabled={sendingBackDetail}
+                style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#7c3aed', color: '#fff', opacity: sendingBackDetail ? 0.7 : 1 }}
+              >{sendingBackDetail ? 'Đang gửi...' : 'Xác nhận gửi lại'}</button>
+            </div>
+      </Modal>
+
+      {/* Modal xác nhận duyệt section */}
+      <Modal open={!!approveModal} maxWidth={420} zIndex={2000}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận duyệt — {approveModal?.title}</h3>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
+              Xác nhận duyệt định mức {approveModal?.title}? Không thể sửa lại quyết định này sau khi xác nhận.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setApproveModal(null)} style={btnSecondary}>Hủy</button>
+              <button onClick={confirmSectionApprove} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff' }}>Xác nhận duyệt</button>
             </div>
       </Modal>
 
@@ -338,129 +482,6 @@ export function SKUDetail({
               <button onClick={confirmSectionReject} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#dc2626', color: '#fff' }}>Xác nhận từ chối</button>
             </div>
       </Modal>
-      </>
-      )}
-    </div>
-  )
-}
-
-// ─── BossReviewView ───────────────────────────────────────────────────────────
-// Sếp duyệt lần cuối: xem gộp cả định mức chi tiết + định mức mảnh trong 1 màn hình
-// (không tách tab như luồng KHSX), rồi duyệt 1 lần để chính thức bắt đầu sản xuất.
-
-function BossReviewView({
-  pf, readOnly = false, onApproveBossRequest,
-}: {
-  pf: PlanForm
-  readOnly?: boolean
-  onApproveBossRequest?: () => Promise<void>
-}) {
-  const mt = pf.quotaManagement?.materialType
-  const [processing, setProcessing] = useState(false)
-  const [confirmApprove, setConfirmApprove] = useState(false)
-  const noop = () => {}
-
-  const reviewEntry = (k: 'sat' | 'daySon' | 'vatTuPhuKien' | 'baoBiDongGoi') => {
-    const r = pf.quotaManagement?.reviewStatus?.[k]
-    return r
-      ? { status: r.status, at: new Date(r.reviewedAt), reason: r.reason }
-      : { status: 'APPROVED' as const, at: new Date(pf.proposedAt ?? pf.createdAt) }
-  }
-
-  const handleApprove = async () => {
-    if (!onApproveBossRequest) return
-    setProcessing(true)
-    try { await onApproveBossRequest() } finally { setProcessing(false) }
-  }
-
-  return (
-    <div>
-      {/* Định mức chi tiết */}
-      <div style={{ marginBottom: 24 }}>
-        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>Định mức chi tiết</div>
-        {mt ? (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <MaterialSection
-              title="Sắt" color="#b45309" bg="#fef3c7" readOnly
-              entry={reviewEntry('sat')} onApprove={noop} onReject={noop}
-              items={(Array.isArray(mt.sat) ? mt.sat : []).map(i => ({
-                name: i.name,
-                spec: [i.specifications, i.thickness != null ? `dày ${i.thickness}mm` : null].filter(Boolean).join(', ') || null,
-                unitQty: i.quantity != null ? `${i.quantity} ${i.unit ?? ''}`.trim() : (i.unit ?? null),
-              }))}
-            />
-            <MaterialSection
-              title="Dây / Sơn" color="#1d4ed8" bg="#eff6ff" readOnly
-              entry={reviewEntry('daySon')} onApprove={noop} onReject={noop}
-              items={(Array.isArray(mt.daySon) ? mt.daySon : []).map(i => ({
-                name: i.name,
-                spec: i.specifications || null,
-                unitQty: i.kg != null ? `${i.kg} kg` : (i.unit ?? null),
-              }))}
-            />
-            <MaterialSection
-              title="Vật tư phụ kiện" color="#6d28d9" bg="#ede9fe" readOnly
-              entry={reviewEntry('vatTuPhuKien')} onApprove={noop} onReject={noop}
-              items={(Array.isArray(mt.vatTuPhuKien) ? mt.vatTuPhuKien : []).map(i => ({
-                name: i.name, spec: i.specifications || null,
-                unitQty: i.quantity != null ? `${i.quantity} ${i.unit ?? ''}`.trim() : (i.unit ?? null),
-              }))}
-            />
-            <MaterialSection
-              title="Bao bì đóng gói" color="#065f46" bg="#d1fae5" readOnly
-              entry={reviewEntry('baoBiDongGoi')} onApprove={noop} onReject={noop}
-              items={(Array.isArray(mt.baoBiDongGoi) ? mt.baoBiDongGoi : []).map(i => ({
-                name: i.name, spec: i.specifications || null,
-                unitQty: i.quantity != null ? `${i.quantity} ${i.unit ?? ''}`.trim() : (i.unit ?? null),
-              }))}
-            />
-          </div>
-        ) : (
-          <div style={{ padding: 20, background: 'var(--surface2)', borderRadius: 8, color: 'var(--text3)', fontSize: 13 }}>
-            Chưa có thông tin định mức chi tiết
-          </div>
-        )}
-      </div>
-
-      {/* Định mức mảnh */}
-      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>Định mức mảnh</div>
-      <DinhMucManh status={pf.status} readOnly manhItems={pf.manhItems} />
-
-      {/* Action bar — duyệt gộp cả 2 phần để chính thức bắt đầu sản xuất */}
-      {!readOnly && pf.status === 'WAITING_BOSS_APPROVAL' && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 4 }}>
-          <button
-            onClick={() => setConfirmApprove(true)}
-            disabled={processing}
-            style={{
-              padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
-              cursor: processing ? 'default' : 'pointer',
-              background: '#16a34a', color: '#fff', opacity: processing ? 0.7 : 1,
-            }}
-          >{processing ? 'Đang xử lý...' : 'Duyệt'}</button>
-        </div>
-      )}
-      {pf.status === 'APPROVED' && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-          <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã duyệt</span>
-        </div>
-      )}
-
-      {/* Modal xác nhận duyệt */}
-      <Modal open={confirmApprove} maxWidth={420} zIndex={2000}>
-        <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận duyệt</h3>
-        <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
-          Xác nhận duyệt định mức chi tiết và định mức mảnh của SKU này? Sau khi duyệt, SKU sẽ được thêm vào danh sách.
-        </p>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={() => setConfirmApprove(false)} style={btnSecondary}>Hủy</button>
-          <button
-            onClick={async () => { setConfirmApprove(false); await handleApprove() }}
-            disabled={processing}
-            style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff' }}
-          >Duyệt</button>
-        </div>
-      </Modal>
     </div>
   )
 }
@@ -470,12 +491,13 @@ function BossReviewView({
 type MaterialRow = { name: string; spec: string | null; unitQty: string | null }
 
 function MaterialSection({
-  title, color, bg, items, entry, readOnly = false, onApprove, onReject,
+  title, color, bg, items, entry, readOnly = false, hideStatusBadge = false, onApprove, onReject,
 }: {
   title: string; color: string; bg: string
   items: MaterialRow[]
   entry: { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
   readOnly?: boolean
+  hideStatusBadge?: boolean
   onApprove: () => void
   onReject: () => void
 }) {
@@ -488,16 +510,17 @@ function MaterialSection({
             {title} <span style={{ fontWeight: 400, opacity: 0.7 }}>({items.length} loại)</span>
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {status && <StatusBadge status={status} />}
-            {!readOnly && (
+            {status && !hideStatusBadge && <StatusBadge status={status} />}
+            {/* Đã có quyết định (duyệt/từ chối) thì khoá 2 nút này — chỉ đổi được qua luồng "Gửi lại". */}
+            {!readOnly && !status && (
               <>
                 <button
                   onClick={onApprove}
-                  style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: status === 'APPROVED' ? '#16a34a' : 'rgba(22,163,74,0.12)', color: status === 'APPROVED' ? '#fff' : '#16a34a' }}
+                  style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(22,163,74,0.12)', color: '#16a34a' }}
                 >Duyệt</button>
                 <button
                   onClick={onReject}
-                  style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: status === 'REJECTED' ? '#dc2626' : 'rgba(220,38,38,0.10)', color: status === 'REJECTED' ? '#fff' : '#dc2626' }}
+                  style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(220,38,38,0.10)', color: '#dc2626' }}
                 >Từ chối</button>
               </>
             )}
@@ -539,43 +562,66 @@ function MaterialSection({
 type ManhApprovalEntry = { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
 
 function DinhMucManh({
-  status, readOnly = false, manhItems, onApproveParts, onSendForBossApproval,
+  planFormId, status, readOnly = false, hideStatusBadge = false, manhItems, manhReviewStatus, onApproveParts, onSendForBossApproval, onSendBackManh,
 }: {
+  planFormId: number
   status: string
   readOnly?: boolean
+  hideStatusBadge?: boolean
   manhItems?: ManhRow[]
+  manhReviewStatus?: QuotaReviewStatus
   onApproveParts?: () => Promise<void>
   onSendForBossApproval?: () => Promise<void>
+  onSendBackManh?: () => Promise<void>
 }) {
   const { isBoss } = useAuth()
+  const { logAction } = useAuditLog()
   // Dữ liệu mảnh thật do account Sắt nhập (qua updatePlanFormManhQuota); trống cho tới khi có người nhập.
   const rows = manhItems ?? []
-  // Mảnh coi như đã duyệt xong khi SKU đã qua giai đoạn APPROVED_PARTS (đang chờ sếp duyệt hoặc đã duyệt xong).
+  // Mảnh coi như đã duyệt xong khi SKU đã qua giai đoạn APPROVED_BOSS trở đi — dùng làm fallback cho
+  // các SKU cũ chưa có manhReviewStatus (trước khi trường này tồn tại).
   const partsAlreadyApproved = status === 'WAITING_BOSS_APPROVAL' || status === 'APPROVED'
 
-  const [approval, setApproval] = useState<ManhApprovalEntry>(() =>
-    partsAlreadyApproved ? { status: 'APPROVED', at: new Date() } : null
-  )
+  // Quyết định duyệt/từ chối mảnh phải đọc từ manhReviewStatus (đã lưu ở PlanForm) — KHÔNG được suy ra
+  // từ status, vì APPROVED_PARTS được set ngay khi account Sắt nhập xong, trước khi KHSX kịp duyệt.
+  const [approval, setApproval] = useState<ManhApprovalEntry>(() => {
+    if (manhReviewStatus) return { status: manhReviewStatus.status, at: new Date(manhReviewStatus.reviewedAt), reason: manhReviewStatus.reason }
+    return partsAlreadyApproved ? { status: 'APPROVED', at: new Date() } : null
+  })
   const [showRejectModal, setShowRejectModal] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const [processing, setProcessing] = useState(false)
   const [confirmApproveParts, setConfirmApproveParts] = useState(false)
   const [confirmSendForBossApproval, setConfirmSendForBossApproval] = useState(false)
   const [showSendBackModal, setShowSendBackModal] = useState(false)
-  const [sendBackDone, setSendBackDone] = useState(false)
+  const [sendingBackManh, setSendingBackManh] = useState(false)
 
   const isLocallyApproved = approval?.status === 'APPROVED'
   const isLocallyRejected = approval?.status === 'REJECTED'
 
-  const confirmReject = () => {
-    setApproval({ status: 'REJECTED', at: new Date(), reason: rejectReason.trim() || undefined })
+  const confirmReject = async () => {
+    const reason = rejectReason.trim() || undefined
     setShowRejectModal(false)
+    setProcessing(true)
+    try {
+      await (api as any).reviewPlanFormManhQuota(planFormId, 'REJECTED', reason)
+      logAction(PLANFORM_ENTITY, String(planFormId), 'planform.parts_rejected', reason)
+      setApproval({ status: 'REJECTED', at: new Date(), reason })
+    } finally {
+      setProcessing(false)
+    }
   }
 
   const handleApproveParts = async () => {
-    if (!onApproveParts) return
     setProcessing(true)
-    try { await onApproveParts() } finally { setProcessing(false) }
+    try {
+      await (api as any).reviewPlanFormManhQuota(planFormId, 'APPROVED')
+      logAction(PLANFORM_ENTITY, String(planFormId), 'planform.parts_approved')
+      setApproval({ status: 'APPROVED', at: new Date() })
+      if (onApproveParts) await onApproveParts()
+    } finally {
+      setProcessing(false)
+    }
   }
 
   const handleSendForBossApproval = async () => {
@@ -584,8 +630,15 @@ function DinhMucManh({
     try { await onSendForBossApproval() } finally { setProcessing(false) }
   }
 
-  // Chỉ duyệt được khi đã có dữ liệu mảnh thật (status APPROVED_PARTS = account Sắt đã nhập xong)
-  const showApproveRejectBtns = !readOnly && status === 'APPROVED_PARTS'
+  const handleSendBackManh = async () => {
+    if (!onSendBackManh) return
+    setSendingBackManh(true)
+    try { await onSendBackManh() } finally { setSendingBackManh(false) }
+  }
+
+  // Chỉ duyệt được khi đã có dữ liệu mảnh thật (status APPROVED_PARTS = account Sắt đã nhập xong) và
+  // chưa có quyết định — đã duyệt/từ chối rồi thì khoá, chỉ đổi được qua luồng "Gửi lại".
+  const showApproveRejectBtns = !readOnly && !isBoss && status === 'APPROVED_PARTS' && !approval
 
   return (
     <div style={{ marginBottom: 24 }}>
@@ -608,17 +661,19 @@ function DinhMucManh({
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          {approval && <StatusBadge status={approval.status} />}
+          {approval && !hideStatusBadge && <StatusBadge status={approval.status} />}
+          {/* Đã có quyết định thì khoá 2 nút này — chỉ đổi được qua luồng "Gửi lại". */}
           {showApproveRejectBtns && (
             <>
               <button
                 onClick={() => setConfirmApproveParts(true)}
-                disabled={isLocallyApproved || processing}
-                style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: isLocallyApproved ? 'default' : 'pointer', background: isLocallyApproved ? '#16a34a' : 'rgba(22,163,74,0.12)', color: isLocallyApproved ? '#fff' : '#16a34a' }}
+                disabled={processing}
+                style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(22,163,74,0.12)', color: '#16a34a' }}
               >Duyệt</button>
               <button
                 onClick={() => { setShowRejectModal(true); setRejectReason('') }}
-                style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: isLocallyRejected ? '#dc2626' : 'rgba(220,38,38,0.10)', color: isLocallyRejected ? '#fff' : '#dc2626' }}
+                disabled={processing}
+                style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(220,38,38,0.10)', color: '#dc2626' }}
               >Từ chối</button>
             </>
           )}
@@ -640,6 +695,9 @@ function DinhMucManh({
               background: 'var(--surface2)', borderBottom: r.children.length > 0 ? '1px solid var(--border)' : 'none',
             }}>
               <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{r.name}</span>
+              {r.qtyPerSku && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#e65100', background: '#fff3e0', borderRadius: 4, padding: '2px 7px' }}>×{r.qtyPerSku} / SKU</span>
+              )}
               <span style={{ fontSize: 12, color: 'var(--text3)' }}>{r.children.length} loại sắt</span>
             </div>
 
@@ -679,14 +737,12 @@ function DinhMucManh({
           {!isLocallyApproved && !isLocallyRejected && (
             <span style={{ fontSize: 12, color: '#d97706' }}>Cần duyệt danh sách mảnh mới chuyển đến công đoạn tiếp theo</span>
           )}
-          {isLocallyRejected && !sendBackDone && (
+          {isLocallyRejected && (
             <button
               onClick={() => setShowSendBackModal(true)}
-              style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #7c3aed', background: '#faf5ff', color: '#7c3aed', cursor: 'pointer' }}
-            >Gửi lại bộ phận định mức mảnh</button>
-          )}
-          {sendBackDone && (
-            <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>✓ Đã gửi lại bộ phận định mức mảnh</span>
+              disabled={sendingBackManh}
+              style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #7c3aed', background: '#faf5ff', color: '#7c3aed', cursor: sendingBackManh ? 'not-allowed' : 'pointer', opacity: sendingBackManh ? 0.7 : 1 }}
+            >{sendingBackManh ? 'Đang gửi...' : 'Gửi lại bộ phận định mức mảnh'}</button>
           )}
           <button
             onClick={() => setConfirmSendForBossApproval(true)}
@@ -746,9 +802,10 @@ function DinhMucManh({
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setShowSendBackModal(false)} style={btnSecondary}>Hủy</button>
               <button
-                onClick={() => { setShowSendBackModal(false); setSendBackDone(true) }}
-                style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#7c3aed', color: '#fff' }}
-              >Xác nhận gửi lại</button>
+                onClick={async () => { setShowSendBackModal(false); await handleSendBackManh() }}
+                disabled={sendingBackManh}
+                style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#7c3aed', color: '#fff', opacity: sendingBackManh ? 0.7 : 1 }}
+              >{sendingBackManh ? 'Đang gửi...' : 'Xác nhận gửi lại'}</button>
             </div>
       </Modal>
 
@@ -761,11 +818,7 @@ function DinhMucManh({
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setConfirmApproveParts(false)} style={btnSecondary}>Hủy</button>
               <button
-                onClick={async () => {
-                  setConfirmApproveParts(false)
-                  await handleApproveParts()
-                  setApproval({ status: 'APPROVED', at: new Date() })
-                }}
+                onClick={async () => { setConfirmApproveParts(false); await handleApproveParts() }}
                 disabled={processing}
                 style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#7c3aed', color: '#fff' }}
               >Xác nhận duyệt mảnh</button>
