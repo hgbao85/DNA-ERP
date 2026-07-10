@@ -13,7 +13,7 @@ type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'thongke' | 'lenh-sx' | 'mater
 interface Props { onBack?: () => void }
 
 export default function ProductionPlanApp({ onBack }: Props) {
-  const { user, logout } = useAuth()
+  const { user, logout, isBoss } = useAuth()
   const [activePage, setActivePage] = useState<Page>('thongke')
 
   const navBtn = (page: Page, icon: React.ReactNode, label: string) => {
@@ -55,7 +55,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
           {navBtn('planforms',  <LayoutDashboard size={16} />, 'Danh sách SKU')}
           {navBtn('duyet-sku',    <FilePlus size={16} />,        'Duyệt SKU')}
           {navBtn('vattu',      <Package size={16} />,         'Danh sách vật tư')}
-          {navBtn('lenh-sx',    <ClipboardList size={16} />,  'Lệnh sản xuất mới')}
+          {navBtn('lenh-sx',    <ClipboardList size={16} />,  isBoss ? 'Duyệt lệnh SX' : 'Lệnh sản xuất mới')}
           {navBtn('warehouses', <Warehouse size={16} />,      'Tổng hợp kho')}
         </nav>
 

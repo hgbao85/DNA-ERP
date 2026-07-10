@@ -6,13 +6,13 @@ import ExportOrderDetailModal from '../Manufacturing/ExportOrderDetailModal'
 import { StatusBadge } from '../Sales/StatusBadge'
 import type { SalesPOStatus } from '../../../types/sales'
 import { format } from 'date-fns'
-import { AlertCircle, CheckCircle2, FileText, Eye, X, CalendarClock, Pencil, Package, Play, ChevronRight, ChevronLeft, Search } from 'lucide-react'
+import { AlertCircle, CheckCircle2, FileText, Eye, X, CalendarClock, Pencil, Package, Play, ChevronRight, ChevronLeft, Search, Clock, XCircle, ThumbsUp, ThumbsDown } from 'lucide-react'
 
 /**
- * Khi PM xác nhận sản xuất 1 SKU cụ thể trong PI, tạo (hoặc tái dùng) 1 PlanForm
- * cho đúng SKU đó — đây là dữ liệu duy nhất mà "Lệnh kiểm tra vật tư" của
- * prodmgr@demo.com đọc (api.getPlanForms(), lọc status !== 'DRAFT'). PlanForm
- * cần exportOrderId/mfgProductId trỏ tới bản ghi thật để enrich() ra đúng
+ * Khi Sếp (boss@demo.com) DUYỆT 1 SKU cụ thể trong PI (sau khi KHSX gửi duyệt), tạo
+ * (hoặc tái dùng) 1 PlanForm cho đúng SKU đó — đây là dữ liệu duy nhất mà "Lệnh kiểm
+ * tra vật tư" của prodmgr@demo.com đọc (api.getPlanForms(), lọc status !== 'DRAFT').
+ * PlanForm cần exportOrderId/mfgProductId trỏ tới bản ghi thật để enrich() ra đúng
  * mã PO/SKU, nên tìm bản ghi đã có theo mã, không có thì tạo mới.
  */
 async function ensurePlanFormForConfirmedItem(pi: any, item: any) {
@@ -54,12 +54,16 @@ async function ensurePlanFormForConfirmedItem(pi: any, item: any) {
 }
 
 export default function LenhSXPage() {
-  const { user } = useAuth()
+  const { user, isBoss } = useAuth()
   const [viewOrderId, setViewOrderId] = useState<number | null>(null)
   const [confirmingId, setConfirmingId] = useState<number | null>(null)
   const [confirmingProdId, setConfirmingProdId] = useState<number | null>(null)
   const [confirmProdTarget, setConfirmProdTarget] = useState<any | null>(null)
   const [selectedItemIdx, setSelectedItemIdx] = useState<number | null>(null)
+  const [approvingKey, setApprovingKey] = useState<string | null>(null)
+  const [rejectTarget, setRejectTarget] = useState<{ pi: any; idx: number } | null>(null)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejecting, setRejecting] = useState(false)
   const [timeline, setTimeline] = useState<any | null>(null)
   const [timelineOrderId, setTimelineOrderId] = useState<number | null>(null)
   const [timelineLoading, setTimelineLoading] = useState(false)
@@ -172,27 +176,74 @@ export default function LenhSXPage() {
     }
   }
 
-  const handleConfirmProduction = async (id: number) => {
+  // KHSX gửi 1 SKU cho Sếp duyệt — chưa cho sản xuất, chỉ đánh dấu "chờ duyệt".
+  const handleSendForApproval = async (id: number) => {
     setConfirmingProdId(id)
     try {
       const items: any[] = confirmProdTarget?.items ?? []
       if (selectedItemIdx === null || !items[selectedItemIdx]) return
-      const item = items[selectedItemIdx]
-      await ensurePlanFormForConfirmedItem(confirmProdTarget, item)
-      // Chỉ SKU được chọn chuyển sang sản xuất — các SKU khác trong PO vẫn chờ, nên PO
-      // chỉ rời khỏi danh sách "Tạo lệnh sản xuất" khi TẤT CẢ SKU đã được xác nhận.
-      const updatedItems = items.map((it, idx) => idx === selectedItemIdx ? { ...it, confirmedProdAt: new Date().toISOString() } : it)
-      const allConfirmed = updatedItems.every(it => !!it.confirmedProdAt)
-      await api.updateProductionInvoice(id, {
-        items: updatedItems,
-        ...(allConfirmed ? { status: 'PRODUCING' } : {}),
-      })
+      const now = new Date().toISOString()
+      const updatedItems = items.map((it, idx) => idx === selectedItemIdx
+        ? { ...it, prodApproval: { status: 'PENDING', requestedAt: now, requestedBy: user?.name } }
+        : it)
+      await api.updateProductionInvoice(id, { items: updatedItems })
       refetch()
       setConfirmProdTarget(null)
     } catch (e: any) {
-      alert(e?.response?.data?.error ?? 'Lỗi xác nhận sản xuất')
+      alert(e?.response?.data?.error ?? 'Lỗi gửi duyệt sản xuất')
     } finally {
       setConfirmingProdId(null)
+    }
+  }
+
+  // Sếp duyệt 1 SKU đang chờ — SKU đó mới thực sự bắt đầu sản xuất (hiện ở "Lệnh kiểm tra vật tư").
+  const handleApproveItem = async (pi: any, idx: number) => {
+    const items: any[] = pi.items ?? []
+    const item = items[idx]
+    if (!item) return
+    setApprovingKey(`${pi.id}-${idx}`)
+    try {
+      await ensurePlanFormForConfirmedItem(pi, item)
+      const now = new Date().toISOString()
+      const updatedItems = items.map((it, i) => i === idx
+        ? { ...it, prodApproval: { ...it.prodApproval, status: 'APPROVED', decidedAt: now, decidedBy: user?.name } }
+        : it)
+      // Chỉ SKU được duyệt chuyển sang sản xuất — các SKU khác trong PO vẫn chờ, nên PO
+      // chỉ rời khỏi danh sách khi TẤT CẢ SKU đã được duyệt.
+      const allApproved = updatedItems.every((it: any) => it.prodApproval?.status === 'APPROVED')
+      await api.updateProductionInvoice(pi.id, {
+        items: updatedItems,
+        ...(allApproved ? { status: 'PRODUCING' } : {}),
+      })
+      refetch()
+    } catch (e: any) {
+      alert(e?.response?.data?.error ?? 'Lỗi duyệt sản xuất')
+    } finally {
+      setApprovingKey(null)
+    }
+  }
+
+  // Sếp từ chối 1 SKU đang chờ — KHSX sẽ sửa lại thời hạn rồi gửi duyệt lại.
+  const handleRejectItem = async () => {
+    if (!rejectTarget) return
+    const reason = rejectReason.trim()
+    if (!reason) { alert('Vui lòng nhập lý do từ chối'); return }
+    const { pi, idx } = rejectTarget
+    setRejecting(true)
+    try {
+      const items: any[] = pi.items ?? []
+      const now = new Date().toISOString()
+      const updatedItems = items.map((it, i) => i === idx
+        ? { ...it, prodApproval: { ...it.prodApproval, status: 'REJECTED', decidedAt: now, decidedBy: user?.name, reason } }
+        : it)
+      await api.updateProductionInvoice(pi.id, { items: updatedItems })
+      refetch()
+      setRejectTarget(null)
+      setRejectReason('')
+    } catch (e: any) {
+      alert(e?.response?.data?.error ?? 'Lỗi từ chối sản xuất')
+    } finally {
+      setRejecting(false)
     }
   }
 
@@ -281,6 +332,8 @@ export default function LenhSXPage() {
             : new Date(pi.deadline)
           const fmt = (d: Date) => format(d, 'dd/MM/yy')
           const canConfirmProd = pi.status !== 'PRODUCING' && pi.status !== 'DONE' && pi.status !== 'CANCELLED'
+          // Còn SKU nào chưa gửi duyệt / bị từ chối (có thể gửi lại) — chỉ KHSX mới gửi duyệt.
+          const hasSendableItems = items.some((it: any) => !it.prodApproval || it.prodApproval.status === 'REJECTED')
           const fb = (days: number) => { const d = new Date(computedDeadline); d.setDate(d.getDate() - days); return d }
           return (
             <div>
@@ -291,19 +344,21 @@ export default function LenhSXPage() {
                   <ChevronLeft size={15}/> Danh sách PO
                 </button>
                 <div style={{ flex:1 }} />
-                <button onClick={() => openPIEdit(pi)}
-                  style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'var(--text2)' }}>
-                  <Pencil size={13}/> Sửa thời hạn
-                </button>
-                {canConfirmProd && (
+                {!isBoss && (
+                  <button onClick={() => openPIEdit(pi)}
+                    style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'var(--text2)' }}>
+                    <Pencil size={13}/> Sửa thời hạn
+                  </button>
+                )}
+                {!isBoss && canConfirmProd && hasSendableItems && (
                   <button onClick={() => {
                     setConfirmProdTarget(pi)
                     const piItems: any[] = pi.items ?? []
-                    const firstUnconfirmed = piItems.findIndex((it: any) => !it.confirmedProdAt)
-                    setSelectedItemIdx(firstUnconfirmed >= 0 ? firstUnconfirmed : null)
+                    const firstSendable = piItems.findIndex((it: any) => !it.prodApproval || it.prodApproval.status === 'REJECTED')
+                    setSelectedItemIdx(firstSendable >= 0 ? firstSendable : null)
                   }}
                     style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
-                    <Play size={13}/> Xác nhận SX
+                    <Play size={13}/> Gửi sếp duyệt
                   </button>
                 )}
               </div>
@@ -356,33 +411,62 @@ export default function LenhSXPage() {
                   )
                   const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                   return (
-                    <div key={idx} style={{ display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 110px', padding:'14px 18px', borderBottom: isLast ? 'none' : '1px solid var(--border)', alignItems:'center' }}>
-                      <div>
-                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                          <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>{code}</span>
-                          {item.status && <StatusBadge status={item.status as SalesPOStatus} />}
-                          {item.confirmedProdAt && (
-                            <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#2e7d32', background:'#dcfce7', padding:'2px 8px', borderRadius:10 }}>
-                              <Play size={10}/> Đang sản xuất
-                            </span>
-                          )}
+                    <div key={idx} style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
+                      <div style={{ display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 110px', padding:'14px 18px', alignItems:'center' }}>
+                        <div>
+                          <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                            <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>{code}</span>
+                            {item.status && <StatusBadge status={item.status as SalesPOStatus} />}
+                            {item.prodApproval?.status === 'APPROVED' && (
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#2e7d32', background:'#dcfce7', padding:'2px 8px', borderRadius:10 }}>
+                                <Play size={10}/> Đang sản xuất
+                              </span>
+                            )}
+                            {item.prodApproval?.status === 'PENDING' && (
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#b45309', background:'#fef3c7', padding:'2px 8px', borderRadius:10 }}>
+                                <Clock size={10}/> Chờ sếp duyệt
+                              </span>
+                            )}
+                            {item.prodApproval?.status === 'REJECTED' && (
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#b91c1c', background:'#fee2e2', padding:'2px 8px', borderRadius:10 }}>
+                                <XCircle size={10}/> Bị từ chối
+                              </span>
+                            )}
+                          </div>
+                          {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
+                          <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap' }}>
+                            {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
+                            {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
+                          </div>
                         </div>
-                        {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
-                        <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap' }}>
-                          {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
-                          {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
+                        {dc(iMat,      !!item.materialDeadline)}
+                        {dc(iHanDate,  !!iHan)}
+                        {dc(iWeavDate, !!iWeav)}
+                        {dc(iSonDate,  !!iSon)}
+                        <div style={{ textAlign:'center' }}>
+                          <div style={{ fontSize:14, fontWeight:700, color: iDelivery ? '#1d4ed8' : 'var(--text3)' }}>
+                            {fmt(iDelivery ?? new Date(pi.deadline))}
+                          </div>
+                          {!iDelivery && <div style={{ fontSize:10, color:'var(--text3)' }}>từ PO</div>}
                         </div>
                       </div>
-                      {dc(iMat,      !!item.materialDeadline)}
-                      {dc(iHanDate,  !!iHan)}
-                      {dc(iWeavDate, !!iWeav)}
-                      {dc(iSonDate,  !!iSon)}
-                      <div style={{ textAlign:'center' }}>
-                        <div style={{ fontSize:14, fontWeight:700, color: iDelivery ? '#1d4ed8' : 'var(--text3)' }}>
-                          {fmt(iDelivery ?? new Date(pi.deadline))}
+                      {item.prodApproval?.status === 'REJECTED' && item.prodApproval.reason && (
+                        <div style={{ margin:'0 18px 12px', fontSize:12, color:'#b91c1c', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:6, padding:'6px 10px' }}>
+                          Lý do từ chối: {item.prodApproval.reason}
                         </div>
-                        {!iDelivery && <div style={{ fontSize:10, color:'var(--text3)' }}>từ PO</div>}
-                      </div>
+                      )}
+                      {isBoss && item.prodApproval?.status === 'PENDING' && (
+                        <div style={{ display:'flex', gap:8, margin:'0 18px 14px' }}>
+                          <button onClick={() => handleApproveItem(pi, idx)} disabled={approvingKey === `${pi.id}-${idx}`}
+                            style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor: approvingKey === `${pi.id}-${idx}` ? 'not-allowed' : 'pointer', color:'#fff', opacity: approvingKey === `${pi.id}-${idx}` ? 0.7 : 1 }}>
+                            <ThumbsUp size={12}/> {approvingKey === `${pi.id}-${idx}` ? 'Đang duyệt...' : 'Duyệt'}
+                          </button>
+                          <button onClick={() => { setRejectTarget({ pi, idx }); setRejectReason('') }} disabled={approvingKey === `${pi.id}-${idx}`}
+                            style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'transparent', border:'1px solid #fca5a5', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', color:'#b91c1c' }}>
+                            <ThumbsDown size={12}/> Từ chối
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
@@ -395,7 +479,7 @@ export default function LenhSXPage() {
         <div>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
             <div>
-              <h2 style={{ margin:0, fontSize:20, fontWeight:700 }}>Tạo lệnh sản xuất</h2>
+              <h2 style={{ margin:0, fontSize:20, fontWeight:700 }}>{isBoss ? 'Duyệt lệnh sản xuất' : 'Tạo lệnh sản xuất'}</h2>
               <p style={{ margin:'4px 0 0', fontSize:13, color:'var(--text3)' }}>{safeList.length} lệnh</p>
             </div>
             <div style={{ position:'relative' }}>
@@ -457,6 +541,7 @@ export default function LenhSXPage() {
             )}
             {filteredList.map((pi: any, i: number) => {
               const items = Array.isArray(pi.items) ? pi.items : []
+              const pendingCount = items.filter((it: any) => it.prodApproval?.status === 'PENDING').length
               const isLast = i === filteredList.length - 1
               return (
                 <button key={pi.id} onClick={() => setViewingPIId(pi.id)}
@@ -467,6 +552,11 @@ export default function LenhSXPage() {
                     <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'var(--text)' }}>{getDisplayCode(pi)}</div>
                   </div>
                   <div style={{ flex:1 }} />
+                  {isBoss && pendingCount > 0 && (
+                    <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#b45309', background:'#fef3c7', padding:'3px 10px', borderRadius:12, whiteSpace:'nowrap' }}>
+                      <Clock size={11}/> {pendingCount} chờ duyệt
+                    </span>
+                  )}
                   <div style={{ display:'flex', alignItems:'center', gap:5 }}>
                     <CalendarClock size={13} color="var(--text3)"/>
                     <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>
@@ -487,7 +577,7 @@ export default function LenhSXPage() {
         <ExportOrderDetailModal orderId={viewOrderId} onClose={() => setViewOrderId(null)} />
       )}
 
-      {/* Xác nhận sản xuất */}
+      {/* Gửi duyệt sản xuất */}
       {confirmProdTarget && (() => {
         const items: any[] = confirmProdTarget.items ?? []
         const selItem = selectedItemIdx !== null ? items[selectedItemIdx] : null
@@ -500,7 +590,7 @@ export default function LenhSXPage() {
               {/* Header */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexShrink:0 }}>
                 <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
-                  <Play size={16} color="#2e7d32"/> Xác nhận sản xuất
+                  <Play size={16} color="#2e7d32"/> Gửi duyệt sản xuất
                 </h3>
                 <button onClick={() => setConfirmProdTarget(null)} style={{ padding:4, background:'transparent', border:'none', cursor:'pointer' }}>
                   <X size={18} color="var(--text3)"/>
@@ -527,7 +617,8 @@ export default function LenhSXPage() {
               {/* SKU list — scrollable, radio style */}
               <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:6 }}>
                 {items.map((item: any, i: number) => {
-                  const confirmed = !!item.confirmedProdAt
+                  const approvalStatus: 'PENDING' | 'REJECTED' | 'APPROVED' | undefined = item.prodApproval?.status
+                  const locked = approvalStatus === 'PENDING' || approvalStatus === 'APPROVED'
                   const sel  = selectedItemIdx === i
                   const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
                   const name = item.productVariant?.mfgProduct?.name ?? ''
@@ -546,13 +637,13 @@ export default function LenhSXPage() {
                   ]
                   const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                   return (
-                    <div key={i} onClick={() => { if (!confirmed) setSelectedItemIdx(i) }}
-                      style={{ border: sel ? '2px solid #2e7d32' : '1px solid var(--border)', borderRadius:8, overflow:'hidden', cursor: confirmed ? 'default' : 'pointer', background: confirmed ? 'var(--surface2)' : sel ? '#f0fdf4' : 'var(--surface)', opacity: confirmed ? 0.6 : 1, transition:'border-color .12s, background .12s', userSelect:'none' }}>
+                    <div key={i} onClick={() => { if (!locked) setSelectedItemIdx(i) }}
+                      style={{ border: sel ? '2px solid #2e7d32' : '1px solid var(--border)', borderRadius:8, overflow:'hidden', cursor: locked ? 'default' : 'pointer', background: locked ? 'var(--surface2)' : sel ? '#f0fdf4' : 'var(--surface)', opacity: locked ? 0.6 : 1, transition:'border-color .12s, background .12s', userSelect:'none' }}>
                       {/* SKU info row */}
                       <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px' }}>
                         {/* Radio indicator */}
-                        {confirmed ? (
-                          <CheckCircle2 size={18} color="#2e7d32" style={{ flexShrink:0 }} />
+                        {locked ? (
+                          <CheckCircle2 size={18} color={approvalStatus === 'APPROVED' ? '#2e7d32' : '#b45309'} style={{ flexShrink:0 }} />
                         ) : (
                           <div style={{ width:18, height:18, borderRadius:'50%', border:'2px solid', borderColor: sel ? '#2e7d32' : '#d1d5db', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color .12s' }}>
                             {sel && <div style={{ width:9, height:9, borderRadius:'50%', background:'#2e7d32' }} />}
@@ -566,7 +657,9 @@ export default function LenhSXPage() {
                           <div style={{ display:'flex', gap:5, marginTop:3 }}>
                             {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
                             {clr && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>{clr}</span>}
-                            {confirmed && <span style={{ fontSize:11, color:'#2e7d32', fontWeight:600, background:'#dcfce7', padding:'1px 7px', borderRadius:10 }}>Đã xác nhận SX</span>}
+                            {approvalStatus === 'APPROVED' && <span style={{ fontSize:11, color:'#2e7d32', fontWeight:600, background:'#dcfce7', padding:'1px 7px', borderRadius:10 }}>Đang sản xuất</span>}
+                            {approvalStatus === 'PENDING' && <span style={{ fontSize:11, color:'#b45309', fontWeight:600, background:'#fef3c7', padding:'1px 7px', borderRadius:10 }}>Chờ sếp duyệt</span>}
+                            {approvalStatus === 'REJECTED' && <span style={{ fontSize:11, color:'#b91c1c', fontWeight:600, background:'#fee2e2', padding:'1px 7px', borderRadius:10 }}>Bị từ chối — gửi lại được</span>}
                           </div>
                         </div>
                         {iDelivery && (
@@ -611,11 +704,11 @@ export default function LenhSXPage() {
                     Hủy
                   </button>
                   <button
-                    onClick={() => handleConfirmProduction(confirmProdTarget.id)}
+                    onClick={() => handleSendForApproval(confirmProdTarget.id)}
                     disabled={!!confirmingProdId || selectedItemIdx === null}
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background: selectedItemIdx !== null ? '#2e7d32' : '#e5e7eb', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (confirmingProdId || selectedItemIdx === null) ? 'not-allowed' : 'pointer', color: selectedItemIdx !== null ? '#fff' : '#9ca3af', opacity: confirmingProdId ? 0.7 : 1 }}>
                     <CheckCircle2 size={15}/>
-                    {confirmingProdId ? 'Đang xử lý...' : 'Xác nhận sản xuất'}
+                    {confirmingProdId ? 'Đang gửi...' : 'Gửi sếp duyệt'}
                   </button>
                 </div>
               </div>
@@ -623,6 +716,48 @@ export default function LenhSXPage() {
           </div>
         )
       })()}
+
+      {/* Từ chối SKU */}
+      {rejectTarget && (
+        <div onClick={() => { if (!rejecting) { setRejectTarget(null); setRejectReason('') } }}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1100, padding:16 }}>
+          <div onClick={e => e.stopPropagation()}
+            style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:24, width:420, maxWidth:'95vw', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+              <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
+                <ThumbsDown size={16} color="#b91c1c"/> Từ chối sản xuất
+              </h3>
+              <button onClick={() => { setRejectTarget(null); setRejectReason('') }} disabled={rejecting}
+                style={{ padding:4, background:'transparent', border:'none', cursor:'pointer' }}>
+                <X size={18} color="var(--text3)"/>
+              </button>
+            </div>
+            <div style={{ fontSize:13, color:'var(--text2)', marginBottom:10 }}>
+              SKU <strong style={{ fontFamily:'monospace', color:'#0369a1' }}>
+                {rejectTarget.pi.items?.[rejectTarget.idx]?.productVariant?.mfgProduct?.factoryCode ?? '—'}
+              </strong> sẽ được gửi lại cho KHSX sửa thời hạn.
+            </div>
+            <textarea
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              placeholder="Nhập lý do từ chối..."
+              rows={3}
+              autoFocus
+              style={{ width:'100%', padding:'8px 10px', border:'1px solid var(--border)', borderRadius:6, fontSize:13, background:'var(--surface)', color:'var(--text)', boxSizing:'border-box', resize:'vertical' }}
+            />
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:16 }}>
+              <button onClick={() => { setRejectTarget(null); setRejectReason('') }} disabled={rejecting}
+                style={{ padding:'9px 18px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor:'pointer', color:'var(--text2)' }}>
+                Hủy
+              </button>
+              <button onClick={handleRejectItem} disabled={rejecting || !rejectReason.trim()}
+                style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background:'#b91c1c', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (rejecting || !rejectReason.trim()) ? 'not-allowed' : 'pointer', color:'#fff', opacity: (rejecting || !rejectReason.trim()) ? 0.6 : 1 }}>
+                <ThumbsDown size={15}/> {rejecting ? 'Đang gửi...' : 'Từ chối'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal sửa timeline PI */}
       {editingPI && (
