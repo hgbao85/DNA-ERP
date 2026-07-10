@@ -87,7 +87,9 @@ export default function SKUReviewPage() {
     }
   }
 
-  const pending = ((planForms ?? []) as PlanForm[]).filter(p => PENDING_STATUSES.has(p.status))
+  // Trừ PlanForm sinh tự động khi PM "xác nhận sản xuất" (LenhSXPage) — không phải SKU do KHSX tạo,
+  // chỉ phục vụ "Lệnh kiểm tra vật tư".
+  const pending = ((planForms ?? []) as PlanForm[]).filter(p => PENDING_STATUSES.has(p.status) && p.origin !== 'PRODUCTION_CONFIRM')
   const countByStatus = (s: StatusFilter) => s === 'all' ? pending.length : pending.filter(p => p.status === s).length
 
   const afterFilter = statusFilter === 'all' ? pending : pending.filter(p => p.status === statusFilter)

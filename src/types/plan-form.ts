@@ -86,6 +86,10 @@ export interface PlanForm {
   status: PlanFormStatus;
   note?: string | null;
   customerName?: string | null;
+  /** PlanForm tạo tự động khi PM xác nhận sản xuất 1 SKU trong PI (LenhSXPage) — chỉ phục vụ
+   *  "Lệnh kiểm tra vật tư" (prodmgr@demo.com), không phải SKU do KHSX tạo nên phải ẩn khỏi
+   *  "Danh sách SKU" / "Duyệt SKU". */
+  origin?: 'PRODUCTION_CONFIRM';
   createdAt: string;
   proposedAt?: string | null;
   exportOrder?: { id: number; poNumber: string; deliveryDate?: string };
@@ -112,4 +116,5 @@ export interface CreatePlanFormPayload {
   mfgProductId: number;
   note?: string;
   customerName?: string;
+  origin?: 'PRODUCTION_CONFIRM';
 }

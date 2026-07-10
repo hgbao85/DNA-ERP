@@ -33,6 +33,7 @@ async function ensurePlanFormForConfirmedItem(pi: any, item: any) {
     exportOrderId: exportOrder.id,
     mfgProductId: mfgProduct.id,
     customerName: pi.exportOrder?.customerName,
+    origin: 'PRODUCTION_CONFIRM',
   })
 
   // Định mức chi tiết (BOM) là thuộc tính của SKU (mfgProduct), không đổi theo
@@ -174,11 +175,18 @@ export default function LenhSXPage() {
   const handleConfirmProduction = async (id: number) => {
     setConfirmingProdId(id)
     try {
-      if (selectedItemIdx !== null && confirmProdTarget) {
-        const item = (confirmProdTarget.items ?? [])[selectedItemIdx]
-        if (item) await ensurePlanFormForConfirmedItem(confirmProdTarget, item)
-      }
-      await api.updateProductionInvoice(id, { status: 'PRODUCING' })
+      const items: any[] = confirmProdTarget?.items ?? []
+      if (selectedItemIdx === null || !items[selectedItemIdx]) return
+      const item = items[selectedItemIdx]
+      await ensurePlanFormForConfirmedItem(confirmProdTarget, item)
+      // Chỉ SKU được chọn chuyển sang sản xuất — các SKU khác trong PO vẫn chờ, nên PO
+      // chỉ rời khỏi danh sách "Tạo lệnh sản xuất" khi TẤT CẢ SKU đã được xác nhận.
+      const updatedItems = items.map((it, idx) => idx === selectedItemIdx ? { ...it, confirmedProdAt: new Date().toISOString() } : it)
+      const allConfirmed = updatedItems.every(it => !!it.confirmedProdAt)
+      await api.updateProductionInvoice(id, {
+        items: updatedItems,
+        ...(allConfirmed ? { status: 'PRODUCING' } : {}),
+      })
       refetch()
       setConfirmProdTarget(null)
     } catch (e: any) {
@@ -288,7 +296,12 @@ export default function LenhSXPage() {
                   <Pencil size={13}/> Sửa thời hạn
                 </button>
                 {canConfirmProd && (
-                  <button onClick={() => { setConfirmProdTarget(pi); setSelectedItemIdx((pi.items ?? []).length > 0 ? 0 : null) }}
+                  <button onClick={() => {
+                    setConfirmProdTarget(pi)
+                    const piItems: any[] = pi.items ?? []
+                    const firstUnconfirmed = piItems.findIndex((it: any) => !it.confirmedProdAt)
+                    setSelectedItemIdx(firstUnconfirmed >= 0 ? firstUnconfirmed : null)
+                  }}
                     style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
                     <Play size={13}/> Xác nhận SX
                   </button>
@@ -348,6 +361,11 @@ export default function LenhSXPage() {
                         <div style={{ display:'flex', alignItems:'center', gap:8 }}>
                           <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>{code}</span>
                           {item.status && <StatusBadge status={item.status as SalesPOStatus} />}
+                          {item.confirmedProdAt && (
+                            <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#2e7d32', background:'#dcfce7', padding:'2px 8px', borderRadius:10 }}>
+                              <Play size={10}/> Đang sản xuất
+                            </span>
+                          )}
                         </div>
                         {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
                         <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap' }}>
@@ -509,6 +527,7 @@ export default function LenhSXPage() {
               {/* SKU list — scrollable, radio style */}
               <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:6 }}>
                 {items.map((item: any, i: number) => {
+                  const confirmed = !!item.confirmedProdAt
                   const sel  = selectedItemIdx === i
                   const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
                   const name = item.productVariant?.mfgProduct?.name ?? ''
@@ -527,14 +546,18 @@ export default function LenhSXPage() {
                   ]
                   const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                   return (
-                    <div key={i} onClick={() => setSelectedItemIdx(i)}
-                      style={{ border: sel ? '2px solid #2e7d32' : '1px solid var(--border)', borderRadius:8, overflow:'hidden', cursor:'pointer', background: sel ? '#f0fdf4' : 'var(--surface)', transition:'border-color .12s, background .12s', userSelect:'none' }}>
+                    <div key={i} onClick={() => { if (!confirmed) setSelectedItemIdx(i) }}
+                      style={{ border: sel ? '2px solid #2e7d32' : '1px solid var(--border)', borderRadius:8, overflow:'hidden', cursor: confirmed ? 'default' : 'pointer', background: confirmed ? 'var(--surface2)' : sel ? '#f0fdf4' : 'var(--surface)', opacity: confirmed ? 0.6 : 1, transition:'border-color .12s, background .12s', userSelect:'none' }}>
                       {/* SKU info row */}
                       <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px' }}>
                         {/* Radio indicator */}
-                        <div style={{ width:18, height:18, borderRadius:'50%', border:'2px solid', borderColor: sel ? '#2e7d32' : '#d1d5db', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color .12s' }}>
-                          {sel && <div style={{ width:9, height:9, borderRadius:'50%', background:'#2e7d32' }} />}
-                        </div>
+                        {confirmed ? (
+                          <CheckCircle2 size={18} color="#2e7d32" style={{ flexShrink:0 }} />
+                        ) : (
+                          <div style={{ width:18, height:18, borderRadius:'50%', border:'2px solid', borderColor: sel ? '#2e7d32' : '#d1d5db', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color .12s' }}>
+                            {sel && <div style={{ width:9, height:9, borderRadius:'50%', background:'#2e7d32' }} />}
+                          </div>
+                        )}
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ display:'flex', alignItems:'center', gap:8, overflow:'hidden' }}>
                             <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1', flexShrink:0 }}>{code}</span>
@@ -543,6 +566,7 @@ export default function LenhSXPage() {
                           <div style={{ display:'flex', gap:5, marginTop:3 }}>
                             {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
                             {clr && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>{clr}</span>}
+                            {confirmed && <span style={{ fontSize:11, color:'#2e7d32', fontWeight:600, background:'#dcfce7', padding:'1px 7px', borderRadius:10 }}>Đã xác nhận SX</span>}
                           </div>
                         </div>
                         {iDelivery && (

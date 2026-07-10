@@ -76,6 +76,7 @@ class PlanFormService extends BaseService<PlanForm> {
         status: 'WAITING_DETAIL',
         note: data.note,
         customerName: data.customerName ?? null,
+        origin: data.origin,
         createdAt: new Date().toISOString(),
         createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
         quotaManagement: quota,
