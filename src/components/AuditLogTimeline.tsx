@@ -16,6 +16,7 @@ const ACTION_ICON: Record<AuditAction, LucideIcon> = {
   'proposal.purchased':          PackageCheck,
   'request.production_started':  Factory,
 
+  'planform.created':                FilePlus,
   'planform.detail_submitted':        FilePlus,
   'planform.manh_submitted':          FilePlus,
   'planform.detail_section_approved': Check,

@@ -7,6 +7,7 @@ import SpecSteelPage from './SpecSteelPage'
 import SpecWirePaintPage from './SpecWirePaintPage'
 import SpecAccessoryPage from './SpecAccessoryPage'
 import SpecPackagingPage from './SpecPackagingPage'
+import SpecAccessoryCatalogPage from './SpecAccessoryCatalogPage'
 import MfgWorkshopBoardPage from './MfgWorkshopBoardPage'
 import MfgWarehousesPage from './MfgWarehousesPage'
 import MfgAllMaterialsPage from './MfgAllMaterialsPage'
@@ -40,8 +41,9 @@ type TabId =
   | 'materials' | 'warehouses' | 'kiem-tra-vt' | 'setup'
   | 'kcs-phoi' | 'kcs-han' | 'kcs-son'
 
-// pk/bb hậu tố = trang con Phụ kiện / Bao bì — dùng chung role SPEC_ACCESSORY (1 account nhập cả 2 nhóm)
-type SetupSubTab = 'vat-tu' | 'dinh-muc' | 'catalog' | 'dinh-muc-pk' | 'catalog-pk' | 'dinh-muc-bb' | 'catalog-bb'
+// pk/bb hậu tố = trang con Phụ kiện / Bao bì — dùng chung role SPEC_ACCESSORY (1 account nhập cả 2 nhóm).
+// 'catalog' của SPEC_ACCESSORY gộp chung Phụ kiện + Bao bì (tab bên trong SpecAccessoryCatalogPage).
+type SetupSubTab = 'vat-tu' | 'dinh-muc' | 'catalog' | 'dinh-muc-pk' | 'dinh-muc-bb'
 
 const WORKER_ROLES = ['PHOI', 'HAN', 'SON', 'WEAVING_MANAGER', 'WEAVING_EXPORT'] as const
 
@@ -80,12 +82,12 @@ const SPEC_SETUP_ITEMS: Record<string, { id: SetupSubTab; label: string; icon: '
     { id: 'dinh-muc', label: 'Định mức mới', icon: 'clipboard' },
     { id: 'catalog', label: 'Danh sách vật tư', icon: 'box' },
   ],
-  // 1 account phụ trách cả Phụ kiện và Bao bì — 4 mục thay vì 2, hậu tố -pk/-bb phân biệt trang con.
+  // 1 account phụ trách cả Phụ kiện và Bao bì — 2 mục "Định mức mới" riêng (luồng nhập/duyệt độc lập theo nhóm)
+  // + 1 mục "Danh sách vật tư" gộp chung, chuyển nhóm bằng tab bên trong SpecAccessoryCatalogPage.
   SPEC_ACCESSORY: [
-    { id: 'dinh-muc-pk', label: 'Phụ kiện — Định mức mới', icon: 'clipboard' },
-    { id: 'catalog-pk', label: 'Phụ kiện — Danh sách vật tư', icon: 'box' },
-    { id: 'dinh-muc-bb', label: 'Bao bì — Định mức mới', icon: 'clipboard' },
-    { id: 'catalog-bb', label: 'Bao bì — Danh sách vật tư', icon: 'box' },
+    { id: 'dinh-muc-pk', label: 'Định mức mới (Phụ kiện)', icon: 'clipboard' },
+    { id: 'dinh-muc-bb', label: 'Định mức mới (Bao bì)', icon: 'clipboard' },
+    { id: 'catalog', label: 'Danh sách vật tư', icon: 'box' },
   ],
 }
 
@@ -336,21 +338,9 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'setup' && (isDirector || isBomManager) && <MfgSetupPage />}
         {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL' && <SpecSteelPage subTab={setupSubTab as 'vat-tu' | 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
         {tab === 'setup' && user?.mfgRole === 'SPEC_WIRE_PAINT' && <SpecWirePaintPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
-        {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && (
-          setupSubTab === 'dinh-muc-bb' || setupSubTab === 'catalog-bb'
-            ? (
-              <SpecPackagingPage
-                subTab={setupSubTab === 'dinh-muc-bb' ? 'dinh-muc' : 'catalog'}
-                onSubTabChange={t => setSetupSubTab(t === 'dinh-muc' ? 'dinh-muc-bb' : 'catalog-bb')}
-              />
-            )
-            : (
-              <SpecAccessoryPage
-                subTab={setupSubTab === 'catalog-pk' ? 'catalog' : 'dinh-muc'}
-                onSubTabChange={t => setSetupSubTab(t === 'dinh-muc' ? 'dinh-muc-pk' : 'catalog-pk')}
-              />
-            )
-        )}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && setupSubTab === 'catalog' && <SpecAccessoryCatalogPage />}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && setupSubTab === 'dinh-muc-bb' && <SpecPackagingPage />}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && setupSubTab === 'dinh-muc-pk' && <SpecAccessoryPage />}
       </div>
     </div>
   )

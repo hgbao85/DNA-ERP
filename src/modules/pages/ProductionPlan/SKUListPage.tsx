@@ -33,8 +33,9 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
-  // Show all non-DRAFT items
-  const allItems = ((planForms ?? []) as PlanForm[]).filter(pf => pf.status !== 'DRAFT')
+  // Show all non-DRAFT items, trừ PlanForm sinh tự động khi PM "xác nhận sản xuất" (LenhSXPage) —
+  // đó không phải SKU do KHSX tạo/quản lý, chỉ phục vụ "Lệnh kiểm tra vật tư".
+  const allItems = ((planForms ?? []) as PlanForm[]).filter(pf => pf.status !== 'DRAFT' && pf.origin !== 'PRODUCTION_CONFIRM')
   const countByStatus = (s: StatusFilter) => s === 'all' ? allItems.length : allItems.filter(pf => pf.status === s).length
 
   const afterFilter = statusFilter === 'all' ? allItems : allItems.filter(pf => pf.status === statusFilter)

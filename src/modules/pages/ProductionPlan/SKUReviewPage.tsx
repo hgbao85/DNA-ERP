@@ -67,12 +67,15 @@ export default function SKUReviewPage() {
       // không được tự ý gắn vào sản phẩm đầu tiên trong danh sách như trước.
       const existingProduct = mfgProducts.find(p => p.factoryCode?.toLowerCase() === skuCode.toLowerCase())
       const product = existingProduct ?? await api.createMfgProduct({ factoryCode: skuCode, name: skuCode })
-      await api.createPlanForm({
+      const createdPlanForm = await api.createPlanForm({
         exportOrderId: form.exportOrderId || exportOrders[0]?.id || 0,
         mfgProductId:  product.id,
         note: skuCode,
         customerName:  customerName.trim() || undefined,
       })
+      if (createdPlanForm?.id != null) {
+        logAction(PLANFORM_ENTITY, String(createdPlanForm.id), 'planform.created', skuCode)
+      }
       closeForm()
       setSuccess(true)
       refetch()
@@ -84,7 +87,9 @@ export default function SKUReviewPage() {
     }
   }
 
-  const pending = ((planForms ?? []) as PlanForm[]).filter(p => PENDING_STATUSES.has(p.status))
+  // Trừ PlanForm sinh tự động khi PM "xác nhận sản xuất" (LenhSXPage) — không phải SKU do KHSX tạo,
+  // chỉ phục vụ "Lệnh kiểm tra vật tư".
+  const pending = ((planForms ?? []) as PlanForm[]).filter(p => PENDING_STATUSES.has(p.status) && p.origin !== 'PRODUCTION_CONFIRM')
   const countByStatus = (s: StatusFilter) => s === 'all' ? pending.length : pending.filter(p => p.status === s).length
 
   const afterFilter = statusFilter === 'all' ? pending : pending.filter(p => p.status === statusFilter)
