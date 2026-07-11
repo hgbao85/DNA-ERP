@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, CalendarClock, ChevronDown, ScanSearch, Wrench, Flame, SprayCan } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, CalendarClock, ChevronDown, ScanSearch, Wrench, Flame, SprayCan, Check } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import MfgSetupPage from './MfgSetupPage'
@@ -18,6 +18,7 @@ import QuanLyDiemDanPage from './QuanLyDiemDanPage'
 import ThongKePagePlan from './ThongKePagePlan'
 import LenhSanXuatPhoi from '../Phoi/LenhSanXuatPhoi'
 import LichSuNhanSatPage from '../Phoi/LichSuNhanSatPage'
+import XacNhanSanLuongPage from '../Phoi/XacNhanSanLuongPage'
 import LenhSanXuatHan from '../Han/LenhSanXuatHan'
 import LenhSanXuatSon from '../Son/LenhSanXuatSon'
 import PhoiDinhMucManhPage from './PhoiDinhMucManhPage'
@@ -31,7 +32,7 @@ import KcsSonPage from '../Kcs/KcsSonPage'
 
 type TabId =
   | 'workshop'
-  | 'lenh-sx' | 'ke-hoach' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh' | 'phoi-lich-su-nhan-sat'
+  | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-san-luong' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh' | 'phoi-lich-su-nhan-sat'
   | 'quan-ly-diem-dan'
   | 'chuyen-kiem' | 'dong-goi' | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'kiem-tra-vt' | 'setup'
@@ -154,6 +155,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(canManageWorkshop ? [{ id: 'workshop' as TabId, label: 'Tổng hợp lệnh SX', icon: <LayoutGrid size={16} /> }] : []),
     ...(isDirector ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất mới', icon: <ClipboardList size={16} /> }] : []),
     ...(isDirector ? [{ id: 'ke-hoach' as TabId, label: 'Kế hoạch SX', icon: <CalendarClock size={16} /> }] : []),
+    ...(isPhoi ? [{ id: 'phoi-xac-nhan-san-luong' as TabId, label: 'Xác nhận sản lượng', icon: <Check size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-dinh-muc-manh' as TabId, label: 'Danh sách định mức mảnh', icon: <Box size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-lich-su-nhan-sat' as TabId, label: 'Lịch sử nhận sắt', icon: <ArrowDownToLine size={16} /> }] : []),
@@ -307,6 +309,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'workshop' && canManageWorkshop && <MfgWorkshopBoardPage stageFilter={workshopStage} />}
         {tab === 'lenh-sx' && isDirector && <LenhSXPage />}
         {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePagePlan />}
+        {tab === 'phoi-xac-nhan-san-luong' && (isPhoi || isDirector) && <XacNhanSanLuongPage readOnly={isDirector} />}
         {tab === 'phoi-lenh-sx' && (isPhoi || isHan || isSon || isDirector) && (isHan ? <LenhSanXuatHan readOnly={isDirector} /> : isSon ? <LenhSanXuatSon readOnly={isDirector} /> : <LenhSanXuatPhoi readOnly={isDirector} />)}
         {tab === 'phoi-dinh-muc-manh' && (isPhoi || isHan || isSon || isDirector) && <PhoiDinhMucManhPage stage={isSon ? 'SON' : isHan ? 'HAN' : 'PHOI'} />}
         {tab === 'phoi-lich-su-nhan-sat' && (isPhoi || isDirector) && <LichSuNhanSatPage />}

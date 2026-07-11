@@ -28,6 +28,7 @@ export interface ProcLine {
   needQty: number
   doneQty: number
   perManh?: number      // SL vật tư cần cho 1 mảnh/sản phẩm (định mức)
+  thucCoQty?: number     // SL thực tế đang có sẵn để làm ngay (tồn đầu vào) — Hàn/Sơn
   lastInputAt: string | null
 }
 export interface ProcManh {
@@ -292,6 +293,9 @@ function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, 
         {short > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--red)' }}>cần {cfg.verb} thêm {fmt(short)} {cfg.unit}</span>}
       </>
     } },
+    ...(!phoiMode ? [{ key: 'thucCo', header: 'Thực có', align: 'right', cell: (l: ProcLine) => (
+      <span style={{ fontWeight: 600 }}>{fmt(l.thucCoQty ?? 0)}</span>
+    ) } as BoardColumn<ProcLine>] : []),
     { key: 'remain', header: 'Còn lại', align: 'right', cell: l => {
       const remain = l.needQty - l.doneQty
       return <span style={{ fontWeight: 600, color: remain <= 0 ? 'var(--green)' : ACCENT }}>{fmt(Math.max(remain, 0))}</span>
