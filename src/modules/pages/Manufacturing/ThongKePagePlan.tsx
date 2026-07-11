@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { ArrowLeft, CheckCircle2, Clock, Factory, PackageCheck, Search, ShoppingCart, TrendingUp, Wrench } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Clock, ClipboardCheck, Factory, PackageCheck, Search, ShoppingCart, TrendingUp, Wrench } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useInspection, type PurchaseProposal } from '../../../context/InspectionContext'
@@ -9,7 +9,7 @@ import type { PlanForm } from '../../../types/plan-form'
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type OrderStatus = 'PRODUCING' | 'DONE'
-type MfgStage = 'PURCHASING' | 'FRAME' | 'WEAVING' | 'PACKAGING'
+type MfgStage = 'PURCHASING' | 'FRAME' | 'WEAVING' | 'CHUYEN_KIEM' | 'PACKAGING'
 type SubStatus = 'done' | 'in-progress' | 'pending'
 
 interface MaterialItem {
@@ -25,6 +25,7 @@ interface StageDetails {
   purchasing: { materials: MaterialItem[] }
   frame: { phoi: SubStatus; han: SubStatus; son: SubStatus }
   weaving: { nhapDan: SubStatus; xuatDan: SubStatus }
+  chuyenKiem: { daKiem: SubStatus }
   packaging: { dongGoi: SubStatus }
 }
 
@@ -43,10 +44,11 @@ interface MfgOrder {
 // ─── Stage config ─────────────────────────────────────────────────────────────
 
 const MFG_STAGES: { key: MfgStage; label: string; icon: React.ReactNode }[] = [
-  { key: 'PURCHASING', label: 'Mua hàng',     icon: <ShoppingCart size={16} /> },
-  { key: 'FRAME',      label: 'Khung cơ khí', icon: <Wrench size={16} /> },
-  { key: 'WEAVING',    label: 'Đan',          icon: <Factory size={16} /> },
-  { key: 'PACKAGING',  label: 'Đóng gói',     icon: <PackageCheck size={16} /> },
+  { key: 'PURCHASING',  label: 'Mua hàng',     icon: <ShoppingCart size={16} /> },
+  { key: 'FRAME',       label: 'Khung cơ khí', icon: <Wrench size={16} /> },
+  { key: 'WEAVING',     label: 'Đan',          icon: <Factory size={16} /> },
+  { key: 'CHUYEN_KIEM', label: 'Chuyền kiểm',  icon: <ClipboardCheck size={16} /> },
+  { key: 'PACKAGING',   label: 'Đóng gói',     icon: <PackageCheck size={16} /> },
 ]
 
 // ─── Dữ liệu thật: PlanForm + PurchaseProposal ───────────────────────────────
@@ -85,11 +87,12 @@ function getPurchasingPercent(materials: MaterialItem[]): number {
 
 // Khung/Đan/Đóng gói phải tuần tự (đan chỉ bắt đầu khi khung xong, đóng gói khi đan xong) —
 // tạo pseudo-random ổn định theo PO để demo có nhịp độ hợp lý, không đổi giữa các lần render.
-function genExecutionStages(pf: PlanForm, purchasingDone: boolean): Pick<StageDetails, 'frame' | 'weaving' | 'packaging'> {
+function genExecutionStages(pf: PlanForm, purchasingDone: boolean): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
   if (!purchasingDone) {
     return {
       frame: { phoi: 'pending', han: 'pending', son: 'pending' },
       weaving: { nhapDan: 'pending', xuatDan: 'pending' },
+      chuyenKiem: { daKiem: 'pending' },
       packaging: { dongGoi: 'pending' },
     }
   }
@@ -110,17 +113,21 @@ function genExecutionStages(pf: PlanForm, purchasingDone: boolean): Pick<StageDe
     xuatDan: pick(5, [[4, 'done'], [7, 'in-progress'], [10, 'pending']]),
   } : { nhapDan: 'pending', xuatDan: 'pending' }
   const weavingDone = weaving.nhapDan === 'done' && weaving.xuatDan === 'done'
-  const packaging: StageDetails['packaging'] = weavingDone ? {
-    dongGoi: pick(6, [[5, 'done'], [8, 'in-progress'], [10, 'pending']]),
+  const chuyenKiem: StageDetails['chuyenKiem'] = weavingDone ? {
+    daKiem: pick(6, [[6, 'done'], [8, 'in-progress'], [10, 'pending']]),
+  } : { daKiem: 'pending' }
+  const chuyenKiemDone = chuyenKiem.daKiem === 'done'
+  const packaging: StageDetails['packaging'] = chuyenKiemDone ? {
+    dongGoi: pick(7, [[5, 'done'], [8, 'in-progress'], [10, 'pending']]),
   } : { dongGoi: 'pending' }
-  return { frame, weaving, packaging }
+  return { frame, weaving, chuyenKiem, packaging }
 }
 
 function buildOrderRow(pf: PlanForm, proposals: PurchaseProposal[]): { order: MfgOrder; details: StageDetails } {
   const materials = getPurchasingRows(pf, proposals)
   const purchPct = getPurchasingPercent(materials)
-  const { frame, weaving, packaging } = genExecutionStages(pf, purchPct >= 100)
-  const details: StageDetails = { purchasing: { materials }, frame, weaving, packaging }
+  const { frame, weaving, chuyenKiem, packaging } = genExecutionStages(pf, purchPct >= 100)
+  const details: StageDetails = { purchasing: { materials }, frame, weaving, chuyenKiem, packaging }
   const done = isAllDone(details)
   const order: MfgOrder = {
     id: pf.id,
@@ -224,28 +231,31 @@ function SubStepList({ steps }: { steps: { label: string; status: SubStatus }[] 
 
 // ─── Parallel stage helpers ───────────────────────────────────────────────────
 
-const PARALLEL_STAGE_KEYS = new Set<MfgStage>(['FRAME', 'WEAVING', 'PACKAGING'])
+const PARALLEL_STAGE_KEYS = new Set<MfgStage>(['FRAME', 'WEAVING', 'CHUYEN_KIEM', 'PACKAGING'])
 
 function getStagePercent(key: MfgStage, details: StageDetails): number {
   const w = (s: SubStatus) => s === 'done' ? 1 : s === 'in-progress' ? 0.5 : 0
-  if (key === 'FRAME')     return Math.round((w(details.frame.phoi) + w(details.frame.han) + w(details.frame.son)) / 3 * 100)
-  if (key === 'WEAVING')   return Math.round((w(details.weaving.nhapDan) + w(details.weaving.xuatDan)) / 2 * 100)
-  if (key === 'PACKAGING') return Math.round(w(details.packaging.dongGoi) * 100)
+  if (key === 'FRAME')       return Math.round((w(details.frame.phoi) + w(details.frame.han) + w(details.frame.son)) / 3 * 100)
+  if (key === 'WEAVING')     return Math.round((w(details.weaving.nhapDan) + w(details.weaving.xuatDan)) / 2 * 100)
+  if (key === 'CHUYEN_KIEM') return Math.round(w(details.chuyenKiem.daKiem) * 100)
+  if (key === 'PACKAGING')   return Math.round(w(details.packaging.dongGoi) * 100)
   return 0
 }
 
 function getOverallPercent(details: StageDetails): number {
   const purchPct = getPurchasingPercent(details.purchasing.materials)
-  const framePct    = getStagePercent('FRAME',     details)
-  const weavingPct  = getStagePercent('WEAVING',   details)
-  const packagingPct = getStagePercent('PACKAGING', details)
-  return Math.round((purchPct + framePct + weavingPct + packagingPct) / 4)
+  const framePct      = getStagePercent('FRAME',       details)
+  const weavingPct     = getStagePercent('WEAVING',     details)
+  const chuyenKiemPct  = getStagePercent('CHUYEN_KIEM', details)
+  const packagingPct   = getStagePercent('PACKAGING',   details)
+  return Math.round((purchPct + framePct + weavingPct + chuyenKiemPct + packagingPct) / 5)
 }
 
 function isAllDone(details: StageDetails): boolean {
   return (
     details.frame.phoi === 'done' && details.frame.han === 'done' && details.frame.son === 'done' &&
     details.weaving.nhapDan === 'done' && details.weaving.xuatDan === 'done' &&
+    details.chuyenKiem.daKiem === 'done' &&
     details.packaging.dongGoi === 'done'
   )
 }
@@ -298,6 +308,11 @@ function StageDetailCard({
           <SubStepList steps={[
             { label: 'Nhập đan (nguyên liệu đan vào)', status: details.weaving.nhapDan },
             { label: 'Xuất đan (thành phẩm đan ra)',   status: details.weaving.xuatDan },
+          ]} />
+        )}
+        {stage.key === 'CHUYEN_KIEM' && (
+          <SubStepList steps={[
+            { label: 'Chuyền kiểm (kiểm tra chất lượng thành phẩm đan)', status: details.chuyenKiem.daKiem },
           ]} />
         )}
         {stage.key === 'PACKAGING' && (
@@ -406,9 +421,10 @@ function ThongKeDetailPage({ order, details, onBack }: { order: MfgOrder; detail
   const stagePercents: Partial<Record<MfgStage, number>> | undefined =
     order.mfgStage && PARALLEL_STAGE_KEYS.has(order.mfgStage)
       ? {
-          FRAME:     getStagePercent('FRAME',     details),
-          WEAVING:   getStagePercent('WEAVING',   details),
-          PACKAGING: getStagePercent('PACKAGING', details),
+          FRAME:       getStagePercent('FRAME',       details),
+          WEAVING:     getStagePercent('WEAVING',     details),
+          CHUYEN_KIEM: getStagePercent('CHUYEN_KIEM', details),
+          PACKAGING:   getStagePercent('PACKAGING',   details),
         }
       : undefined
 
