@@ -25,7 +25,10 @@ export default function KiemTraVatTuPage({ inspKhoKey }: Props = {}) {
   const [autoStock, setAutoStock]           = useState<Record<string, number> | null>(null)
   const [submitDone, setSubmitDone]         = useState(false)
 
-  const myRequests = inspKhoKey ? requests : []
+  const myRequests = (inspKhoKey ? requests : []).filter(req => {
+    const inspKho = inspKhoKey ? khoState(req, inspKhoKey) : req.phoiSonHan
+    return inspKho.status !== 'done'
+  })
 
   // ── Detail view ─────────────────────────────────────────────────────────────
 

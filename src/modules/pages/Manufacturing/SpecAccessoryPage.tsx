@@ -192,15 +192,15 @@ export default function SpecAccessoryPage() {
                 }}
               />
             </div>
-            <div style={{ width: 68 }}>
-              <FL>ĐVT</FL>
-              <input value={fUnit} onChange={e => setFUnit(e.target.value)}
-                placeholder="cái" style={inputStyle} />
-            </div>
             <div style={{ width: 90 }}>
               <FL>Số lượng</FL>
               <input type="number" min={0} value={fSoLuong} onChange={e => setFSoLuong(e.target.value)}
                 placeholder="VD: 500" style={inputStyle} />
+            </div>
+            <div style={{ width: 68 }}>
+              <FL>ĐVT</FL>
+              <input value={fUnit} onChange={e => setFUnit(e.target.value)}
+                placeholder="cái" style={inputStyle} />
             </div>
             <div style={{ flex: 2, minWidth: 180 }}>
               <FL>Mô tả</FL>
@@ -250,7 +250,7 @@ export default function SpecAccessoryPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['SKU', 'Mã phụ kiện', 'ĐVT', 'Số lượng', 'Mô tả', ...(st === 'pending' ? [] : [''])].map((h, i) => (
+                  {['SKU', 'Mã phụ kiện', 'Số lượng', 'ĐVT', 'Mô tả', ...(st === 'pending' ? [] : [''])].map((h, i) => (
                     <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>
