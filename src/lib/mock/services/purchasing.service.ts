@@ -1,6 +1,7 @@
 ﻿import { mockDelay } from '../core/delay';
 import { nextId } from '../core/id';
 import { BaseService } from '../core/base.service';
+import { mockStore } from '../core/store';
 
 // ─── Service classes ──────────────────────────────────────────────────────────
 
@@ -28,7 +29,9 @@ class MaterialSupplierService extends BaseService<any> {
   async getByMaterial(materialId?: number) {
     await mockDelay();
     const all = this.clone(this.collection());
-    return materialId != null ? all.filter((x: any) => x.materialId === materialId) : all;
+    const suppliersById = new Map(mockStore.get().suppliers.map((s: any) => [s.id, s]));
+    const withSupplier = all.map((x: any) => ({ ...x, supplier: suppliersById.get(x.supplierId) ?? x.supplier }));
+    return materialId != null ? withSupplier.filter((x: any) => x.materialId === materialId) : withSupplier;
   }
 
   async create(data: Record<string, unknown>): Promise<Record<string, unknown>> {

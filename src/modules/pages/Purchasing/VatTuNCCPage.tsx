@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import { Search, Plus, Trash2, Pencil, X, Building2, Check } from 'lucide-react'
+import { Search, Plus, Trash2, Pencil, X, Building2 } from 'lucide-react'
 
 interface Material { id: number; code: string; name: string; unit: string }
 interface Supplier { id: number; name: string; phone?: string | null; address?: string | null; _count?: { materials: number } }
-interface Link { id: number; price?: number | null; leadTimeDays?: number | null; quotedAt?: string | null; note?: string | null; supplier?: { id: number; name: string; phone?: string | null } | null }
+interface Link { id: number; supplier?: { id: number; name: string; phone?: string | null; address?: string | null } | null }
 
 const safeArr = <T,>(d: T[] | null | undefined): T[] => (Array.isArray(d) ? d : [])
 const errMsg = (e: unknown) => (e as { response?: { data?: { error?: string } } })?.response?.data?.error
@@ -19,8 +19,6 @@ export default function VatTuNCCPage() {
 
   const [showSupplierMgr, setShowSupplierMgr] = useState(false)
   const [linkSup, setLinkSup] = useState<number | ''>('')
-  const [linkPrice, setLinkPrice] = useState('')
-  const [linkLead, setLinkLead] = useState('')
   const [err, setErr] = useState('')
 
   const matList = safeArr(materials).filter(m => {
@@ -35,13 +33,9 @@ export default function VatTuNCCPage() {
     setErr('')
     if (!linkSup) { setErr('Chọn nhà cung cấp'); return }
     try {
-      await api.createMaterialSupplier({ materialId: selMat, supplierId: Number(linkSup), price: linkPrice ? Number(linkPrice) : undefined, leadTimeDays: linkLead ? Number(linkLead) : undefined })
-      setLinkSup(''); setLinkPrice(''); setLinkLead(''); refetchLinks()
+      await api.createMaterialSupplier({ materialId: selMat, supplierId: Number(linkSup) })
+      setLinkSup(''); refetchLinks()
     } catch (e) { setErr(errMsg(e) ?? 'Lỗi gắn NCC') }
-  }
-  const saveLink = async (id: number, price: string, lead: string) => {
-    try { await api.updateMaterialSupplier(id, { price: price ? Number(price) : undefined, leadTimeDays: lead ? Number(lead) : undefined }); refetchLinks() }
-    catch (e) { alert(errMsg(e) ?? 'Lỗi lưu') }
   }
   const delLink = async (id: number) => { if (confirm('Bỏ gắn NCC này?')) { await api.deleteMaterialSupplier(id); refetchLinks() } }
 
@@ -51,7 +45,7 @@ export default function VatTuNCCPage() {
         <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Vật tư – Nhà cung cấp</h2>
         <button onClick={() => setShowSupplierMgr(true)} style={btnGhost}><Building2 size={15} /> Quản lý nhà cung cấp ({safeArr(suppliers).length})</button>
       </div>
-      <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>Mỗi vật tư mua từ NCC nào — kèm giá tham khảo & thời gian giao</div>
+      <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>Mỗi vật tư mua từ NCC nào — kèm địa chỉ & số điện thoại liên hệ</div>
       <div style={{ color: 'var(--text3)', fontSize: 12, marginBottom: 16 }}>
         {safeArr(materials).length} vật tư · {safeArr(suppliers).length} NCC hiện có
       </div>
@@ -86,11 +80,11 @@ export default function VatTuNCCPage() {
               <div style={{ fontWeight: 700, marginBottom: 12 }}>{selMatObj?.name} <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 400 }}>({selMatObj?.unit})</span></div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead><tr style={{ textAlign: 'left', color: 'var(--text3)' }}>
-                  <th style={th}>Nhà cung cấp</th><th style={th}>Giá (đ)</th><th style={th}>Giao (ngày)</th><th style={th}>Báo giá</th><th style={th}></th>
+                  <th style={th}>Nhà cung cấp</th><th style={th}>Địa chỉ</th><th style={th}>SĐT</th><th style={th}></th>
                 </tr></thead>
                 <tbody>
-                  {safeArr(links).map(l => <LinkRow key={l.id} link={l} onSave={saveLink} onDel={delLink} />)}
-                  {safeArr(links).length === 0 && <tr><td colSpan={5} style={{ ...td, color: 'var(--text3)', padding: 14 }}>Chưa gắn NCC nào</td></tr>}
+                  {safeArr(links).map(l => <LinkRow key={l.id} link={l} onDel={delLink} />)}
+                  {safeArr(links).length === 0 && <tr><td colSpan={4} style={{ ...td, color: 'var(--text3)', padding: 14 }}>Chưa gắn NCC nào</td></tr>}
                 </tbody>
               </table>
 
@@ -102,8 +96,6 @@ export default function VatTuNCCPage() {
                     <option value="">— chọn NCC —</option>
                     {availSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
-                  <input value={linkPrice} onChange={e => setLinkPrice(e.target.value)} type="number" placeholder="Giá (đ)" style={{ ...inp, flex: '1 1 100px' }} />
-                  <input value={linkLead} onChange={e => setLinkLead(e.target.value)} type="number" placeholder="Giao (ngày)" style={{ ...inp, flex: '0 1 100px' }} />
                   <button onClick={addLink} style={btnPrimary}><Plus size={14} /> Gắn</button>
                 </div>
                 {availSuppliers.length === 0 && safeArr(suppliers).length > 0 && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>Đã gắn hết NCC hiện có. Thêm NCC mới ở &quot;Quản lý nhà cung cấp&quot;.</div>}
@@ -120,19 +112,14 @@ export default function VatTuNCCPage() {
   )
 }
 
-// ── Dòng NCC (sửa giá/lead inline) ───────────────────────────────────────
-function LinkRow({ link, onSave, onDel }: { link: Link; onSave: (id: number, price: string, lead: string) => void; onDel: (id: number) => void }) {
-  const [price, setPrice] = useState(link.price?.toString() ?? '')
-  const [lead, setLead] = useState(link.leadTimeDays?.toString() ?? '')
-  const dirty = price !== (link.price?.toString() ?? '') || lead !== (link.leadTimeDays?.toString() ?? '')
+// ── Dòng NCC ───────────────────────────────────────────────────────────
+function LinkRow({ link, onDel }: { link: Link; onDel: (id: number) => void }) {
   return (
     <tr style={{ borderTop: '1px solid var(--border)' }}>
-      <td style={td}>{link.supplier?.name}{link.supplier?.phone ? <span style={{ fontSize: 11, color: 'var(--text3)' }}> · {link.supplier.phone}</span> : ''}</td>
-      <td style={td}><input value={price} onChange={e => setPrice(e.target.value)} type="number" style={{ ...inp, width: 90, padding: '4px 6px' }} /></td>
-      <td style={td}><input value={lead} onChange={e => setLead(e.target.value)} type="number" style={{ ...inp, width: 60, padding: '4px 6px' }} /></td>
-      <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{link.quotedAt ? new Date(link.quotedAt).toLocaleDateString('vi-VN') : '—'}</td>
+      <td style={td}>{link.supplier?.name}</td>
+      <td style={{ ...td, color: 'var(--text3)' }}>{link.supplier?.address || '—'}</td>
+      <td style={td}>{link.supplier?.phone || '—'}</td>
       <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
-        {dirty && <button title="Lưu" onClick={() => onSave(link.id, price, lead)} style={iconBtn}><Check size={15} color="#2e7d32" /></button>}
         <button title="Bỏ gắn" onClick={() => onDel(link.id)} style={iconBtn}><Trash2 size={14} color="#c62828" /></button>
       </td>
     </tr>
@@ -158,8 +145,8 @@ function SupplierManager({ suppliers, onClose, onChange }: { suppliers: Supplier
         </div>
         <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
           <input value={name} onChange={e => setName(e.target.value)} placeholder="Tên NCC *" style={{ ...inp, flex: '2 1 140px' }} />
-          <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="SĐT" style={{ ...inp, flex: '1 1 100px' }} />
           <input value={address} onChange={e => setAddress(e.target.value)} placeholder="Địa chỉ" style={{ ...inp, flex: '2 1 140px' }} />
+          <input value={phone} onChange={e => setPhone(e.target.value)} placeholder="SĐT" style={{ ...inp, flex: '1 1 100px' }} />
           <button onClick={add} style={btnPrimary}><Plus size={14} /> Thêm</button>
         </div>
         {err && <div style={{ color: '#c62828', fontSize: 13, marginBottom: 8 }}>{err}</div>}

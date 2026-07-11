@@ -200,11 +200,6 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
                 }}
               />
             </div>
-            <div style={{ width: 68 }}>
-              <FL>ĐVT</FL>
-              <input value={fUnit} onChange={e => setFUnit(e.target.value)}
-                placeholder="kg" style={inputStyle} />
-            </div>
             <div style={{ width: 100 }}>
               <FL>Khối lượng (kg)</FL>
               <input type="number" min={0} value={fSoLuong} onChange={e => setFSoLuong(e.target.value)}
@@ -258,7 +253,7 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['SKU', 'Mã dây', 'ĐVT', 'Khối lượng (kg)', 'Mô tả', ...(st === 'pending' ? [] : [''])].map((h, i) => (
+                  {['SKU', 'Mã dây', 'Khối lượng (kg)', 'Mô tả', ...(st === 'pending' ? [] : [''])].map((h, i) => (
                     <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>
@@ -268,7 +263,6 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
                   <tr key={d.uid} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedBom?.ten}</td>
                     <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{d.maDay}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{d.unit || '—'}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{d.soLuong || '—'}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{d.specifications || '—'}</td>
                     {st !== 'pending' && (

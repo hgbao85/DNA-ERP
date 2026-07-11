@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import { Loader2, X, Search } from 'lucide-react'
+import { Loader2, X, Search, ChevronLeft } from 'lucide-react'
 import type { PlanForm } from '../../../types/plan-form'
 
 const CAT_META = {
@@ -11,9 +11,11 @@ const CAT_META = {
   daySon:           { label: 'Dây/Sơn',          color: '#0369a1', bg: '#e0f2fe' },
   vatTuPhuKien:     { label: 'Phụ kiện',         color: '#7c3aed', bg: '#ede9fe' },
   baoBiDongGoi:     { label: 'Bao bì',           color: '#be185d', bg: '#fce7f3' },
+  manh:             { label: 'Mảnh',             color: '#065f46', bg: '#d1fae5' },
   thanhPham:        { label: 'Thành phẩm',       color: '#1e40af', bg: '#dbeafe' },
   vatTuThanhPham:   { label: 'VTTP', color: '#0f766e', bg: '#ccfbf1' },
-  // Tồn kho khung THẬT (mfgWarehouseItems, tên "Khung ...") theo trạng thái đan.
+  // Tồn kho khung THẬT (mfgWarehouseItems, tên "Khung ...") theo trạng thái đan — khác với 'manh'
+  // (là BOM/vật liệu cấu thành 1 mảnh, lấy từ PlanForm.manhItems) — không liên quan tới nhau.
   manhChuaDan:      { label: 'Mảnh chưa đan',    color: '#92400e', bg: '#fef3c7' },
   manhDaDan:        { label: 'Mảnh đã đan',      color: '#166534', bg: '#dcfce7' },
 } as const
@@ -44,6 +46,26 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   REJECTED: { label: 'Từ chối',   color: '#dc2626', bg: '#fee2e2' },
 }
 
+const MANH_STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
+  APPROVED_PARTS: { label: 'Có mảnh',   color: '#065f46', bg: '#d1fae5' },
+  WAITING_PARTS:  { label: 'Chờ mảnh',  color: '#92400e', bg: '#fef3c7' },
+  APPROVED:       { label: 'Đã duyệt',  color: '#16a34a', bg: '#dcfce7' },
+  PROPOSED:       { label: 'Chờ duyệt', color: '#d97706', bg: '#fef3c7' },
+  REJECTED:       { label: 'Từ chối',   color: '#dc2626', bg: '#fee2e2' },
+}
+
+const MOCK_MANH_DELIVERY: Record<string, string> = {
+  'PO-2501': '2026-01-15',
+  'PO-2504': '2026-01-20',
+  'PO-2503': '2026-02-01',
+}
+
+function mockChuaChuyenKiem(key: string, total: number): number {
+  let h = 0
+  for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0
+  return Math.round(total * (h % 5) / 4)
+}
+
 function StatusBadge({ status }: { status: string }) {
   const s = STATUS_MAP[status] ?? STATUS_MAP.PROPOSED
   return (
@@ -62,7 +84,8 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-/** Bảng tồn kho khung THẬT (mfgWarehouseItems) cho 2 tab "Mảnh chưa đan"/"Mảnh đã đan".
+/** Bảng tồn kho khung THẬT (mfgWarehouseItems) cho 2 tab "Mảnh chưa đan"/"Mảnh đã đan" — độc lập
+ * hoàn toàn với bảng FlatItem/PO-drilldown bên dưới (dùng cho tab 'manh' cũ, nguồn PlanForm.manhItems).
  * Thuần hiển thị — việc chuyển trạng thái đan diễn ra qua Xuất đan/Nhập đan, không thao tác ở đây. */
 function ManhStockTable({ rows }: { rows: any[] }) {
   return (
@@ -134,6 +157,22 @@ function flattenItems(planForms: PlanForm[]): FlatItem[] {
       if (Array.isArray(mt.vatTuPhuKien))  pushItems(items, pf, 'vatTuPhuKien', mt.vatTuPhuKien)
       if (Array.isArray(mt.baoBiDongGoi))  pushItems(items, pf, 'baoBiDongGoi', mt.baoBiDongGoi)
     }
+    if (Array.isArray(pf.manhItems)) {
+      for (const manh of pf.manhItems) {
+        for (const child of manh.children) {
+          items.push({
+            ...base,
+            key: `${pf.id}-manh-${manh.id}-${child.id}`,
+            cat: 'manh',
+            name: child.name,
+            spec: [manh.name, child.specs].filter(Boolean).join(' · ') || null,
+            unit: null,
+            qty: child.qty ?? null,
+            createdAt: null,
+          })
+        }
+      }
+    }
   }
   return items
 }
@@ -146,8 +185,22 @@ const FILTER_TABS: { id: Cat | 'all'; label: string }[] = [
   { id: 'baoBiDongGoi',   label: 'Bao bì' },
   { id: 'vatTuThanhPham', label: 'Vật tư thành phẩm' },
   { id: 'thanhPham',      label: 'Thành phẩm' },
+  { id: 'manh',           label: 'Mảnh' },
   { id: 'manhChuaDan',    label: 'Mảnh chưa đan' },
   { id: 'manhDaDan',      label: 'Mảnh đã đan' },
+]
+
+const MOCK_MANH: FlatItem[] = [
+  { key: 'm-1-1', pfId: 0, pfStatus: 'APPROVED_PARTS', pfCreatedAt: '2025-12-02T00:00:00Z', productName: 'Ghế xoay văn phòng',  productCode: 'GX-001', poNumber: 'PO-2501', cat: 'manh', name: 'Sắt hộp 20×20',    spec: 'Mảnh tựa lưng · 20×20×1.2mm',   unit: null, qty: '4',  createdAt: null },
+  { key: 'm-1-2', pfId: 0, pfStatus: 'APPROVED_PARTS', pfCreatedAt: '2025-12-02T00:00:00Z', productName: 'Ghế xoay văn phòng',  productCode: 'GX-001', poNumber: 'PO-2501', cat: 'manh', name: 'Sắt tấm 1.5mm',    spec: 'Mảnh tựa lưng · 300×500×1.5mm',  unit: null, qty: '2',  createdAt: null },
+  { key: 'm-1-3', pfId: 0, pfStatus: 'APPROVED_PARTS', pfCreatedAt: '2025-12-02T00:00:00Z', productName: 'Ghế xoay văn phòng',  productCode: 'GX-001', poNumber: 'PO-2501', cat: 'manh', name: 'Sắt hộp 25×25',    spec: 'Mảnh ngồi · 25×25×1.5mm',        unit: null, qty: '4',  createdAt: null },
+  { key: 'm-1-4', pfId: 0, pfStatus: 'APPROVED_PARTS', pfCreatedAt: '2025-12-02T00:00:00Z', productName: 'Ghế xoay văn phòng',  productCode: 'GX-001', poNumber: 'PO-2501', cat: 'manh', name: 'Sắt tấm 2mm',      spec: 'Mảnh ngồi · 450×450×2mm',        unit: null, qty: '1',  createdAt: null },
+  { key: 'm-1-5', pfId: 0, pfStatus: 'APPROVED_PARTS', pfCreatedAt: '2025-12-02T00:00:00Z', productName: 'Ghế xoay văn phòng',  productCode: 'GX-001', poNumber: 'PO-2501', cat: 'manh', name: 'Sắt ống fi 32',     spec: 'Chân ghế · fi32×1.5mm dài 450mm',unit: null, qty: '5',  createdAt: null },
+  { key: 'm-2-1', pfId: 0, pfStatus: 'APPROVED_PARTS', pfCreatedAt: '2025-12-04T00:00:00Z', productName: 'Ghế ăn cao cấp',       productCode: 'GA-004', poNumber: 'PO-2504', cat: 'manh', name: 'Sắt hộp 30×30',    spec: 'Khung ghế · 30×30×1.5mm',        unit: null, qty: '4',  createdAt: null },
+  { key: 'm-2-2', pfId: 0, pfStatus: 'APPROVED_PARTS', pfCreatedAt: '2025-12-04T00:00:00Z', productName: 'Ghế ăn cao cấp',       productCode: 'GA-004', poNumber: 'PO-2504', cat: 'manh', name: 'Thanh ngang fi 20', spec: 'Khung ghế · fi20×1.2mm dài 380mm',unit: null, qty: '6',  createdAt: null },
+  { key: 'm-2-3', pfId: 0, pfStatus: 'APPROVED_PARTS', pfCreatedAt: '2025-12-04T00:00:00Z', productName: 'Ghế ăn cao cấp',       productCode: 'GA-004', poNumber: 'PO-2504', cat: 'manh', name: 'Sắt tấm 1.2mm',    spec: 'Mặt ngồi · 400×400×1.2mm',       unit: null, qty: '1',  createdAt: null },
+  { key: 'm-3-1', pfId: 0, pfStatus: 'WAITING_PARTS',  pfCreatedAt: '2025-12-08T00:00:00Z', productName: 'Bàn làm việc L',       productCode: 'BV-003', poNumber: 'PO-2503', cat: 'manh', name: 'Sắt hộp 40×40',    spec: 'Chân bàn · 40×40×2mm dài 730mm', unit: null, qty: '4',  createdAt: null },
+  { key: 'm-3-2', pfId: 0, pfStatus: 'WAITING_PARTS',  pfCreatedAt: '2025-12-08T00:00:00Z', productName: 'Bàn làm việc L',       productCode: 'BV-003', poNumber: 'PO-2503', cat: 'manh', name: 'Sắt hộp 30×60',    spec: 'Thanh dọc · 30×60×1.5mm',        unit: null, qty: '3',  createdAt: null },
 ]
 
 const MOCK_VAT_TU_THANH_PHAM: FlatItem[] = [
@@ -184,6 +237,7 @@ export default function VatTuDashboardPage({ limitCats, combinedCats, manhWareho
     return limitCats?.[0] ?? 'all'
   })
   const [q, setQ] = useState('')
+  const [selectedManhPo, setSelectedManhPo] = useState<string | null>(null)
 
   // Kho phôi sơn hàn: "Mảnh chưa đan" = tồn kho khung THẬT (mfgWarehouseItems) vừa sản xuất xong,
   // chưa chuyển nội bộ sang vật tư thành phẩm — đây là chuyển kho vật lý thật (WarehouseTransfer),
@@ -233,10 +287,11 @@ export default function VatTuDashboardPage({ limitCats, combinedCats, manhWareho
     if (combined) return new Set<string>(combined.cats)
     return new Set<string>([filterCat])
   })()
+  const isOnlyManh = activeCats.size === 1 && activeCats.has('manh')
   const isManhChuaDan = activeCats.size === 1 && activeCats.has('manhChuaDan')
   const isManhDaDan = activeCats.size === 1 && activeCats.has('manhDaDan')
 
-  const allItems = [...flattenItems((planForms ?? []) as PlanForm[]), ...MOCK_THANH_PHAM, ...MOCK_VAT_TU_THANH_PHAM]
+  const allItems = [...flattenItems((planForms ?? []) as PlanForm[]), ...MOCK_MANH, ...MOCK_THANH_PHAM, ...MOCK_VAT_TU_THANH_PHAM]
     .filter(it => !limitCats || limitCats.includes(it.cat))
 
   const [mockSeeded, setMockSeeded] = useState(false)
@@ -293,6 +348,17 @@ export default function VatTuDashboardPage({ limitCats, combinedCats, manhWareho
 
   const selectedApproval = selected ? (approvals[selected.key] ?? null) : null
 
+  const manhGroups = (() => {
+    if (!isOnlyManh) return [] as { poNumber: string; productCode: string; productName: string; pfStatus: string; pfId: number }[]
+    const seen = new Map<string, { poNumber: string; productCode: string; productName: string; pfStatus: string; pfId: number }>()
+    items.forEach(it => {
+      if (!seen.has(it.poNumber)) seen.set(it.poNumber, { poNumber: it.poNumber, productCode: it.productCode, productName: it.productName, pfStatus: it.pfStatus, pfId: it.pfId })
+    })
+    return Array.from(seen.values())
+  })()
+  const manhDetailItems = selectedManhPo ? items.filter(it => it.poNumber === selectedManhPo) : []
+  const manhGroupInfo = selectedManhPo ? (manhGroups.find(g => g.poNumber === selectedManhPo) ?? null) : null
+
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
@@ -327,7 +393,7 @@ export default function VatTuDashboardPage({ limitCats, combinedCats, manhWareho
             return (
               <button
                 key={ft.id}
-                onClick={() => setFilterCat(ft.id as string)}
+                onClick={() => { setFilterCat(ft.id as string); setSelectedManhPo(null) }}
                 style={{
                   padding: '6px 14px', fontSize: 12, fontWeight: active ? 700 : 500,
                   borderRadius: 20, border: active ? 'none' : '1px solid var(--border)',
@@ -358,7 +424,7 @@ export default function VatTuDashboardPage({ limitCats, combinedCats, manhWareho
         <ManhStockTable
           rows={isManhChuaDan ? manhChuaDanRows : manhDaDanRows}
         />
-      ) : (
+      ) : !isOnlyManh ? (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
@@ -404,6 +470,121 @@ export default function VatTuDashboardPage({ limitCats, combinedCats, manhWareho
             </tbody>
           </table>
         </div>
+      ) : selectedManhPo === null ? (
+        /* ── Mảnh: PO list ─────────────────────────────────────────────── */
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+            <colgroup>
+              <col style={{ width: 110 }} />
+              <col />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 130 }} />
+            </colgroup>
+            <thead>
+              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                <th style={thStyle}>PO</th>
+                <th style={thStyle}>SKU</th>
+                <th style={thStyle}>Hạn giao</th>
+                <th style={thStyle}>Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody>
+              {manhGroups.map(g => {
+                const deliveryDate = g.pfId === 0
+                  ? (MOCK_MANH_DELIVERY[g.poNumber] ?? null)
+                  : ((planForms ?? []) as PlanForm[]).find(pf => pf.id === g.pfId)?.exportOrder?.deliveryDate ?? null
+                const st = MANH_STATUS_MAP[g.pfStatus] ?? MANH_STATUS_MAP.PROPOSED
+                return (
+                  <tr
+                    key={g.poNumber}
+                    onClick={() => setSelectedManhPo(g.poNumber)}
+                    style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '')}
+                  >
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{g.poNumber}</td>
+                    <td style={tdStyle}>
+                      <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.productCode}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.productName}</div>
+                    </td>
+                    <td style={{ ...tdStyle, color: deliveryDate ? 'var(--text)' : 'var(--text3)' }}>
+                      {deliveryDate ? format(new Date(deliveryDate), 'dd/MM/yyyy') : '—'}
+                    </td>
+                    <td style={tdStyle}>
+                      <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, color: st.color, background: st.bg }}>
+                        {st.label}
+                      </span>
+                    </td>
+                  </tr>
+                )
+              })}
+              {manhGroups.length === 0 && (
+                <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không tìm thấy dữ liệu mảnh</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        /* ── Mảnh: detail items for selected PO ────────────────────────── */
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <button
+              onClick={() => setSelectedManhPo(null)}
+              style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)' }}
+            >
+              <ChevronLeft size={14} /> Quay lại
+            </button>
+            <div>
+              <span style={{ fontWeight: 700 }}>{manhGroupInfo?.productCode}</span>
+              <span style={{ color: 'var(--text3)', marginLeft: 6 }}>{manhGroupInfo?.productName}</span>
+              <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text3)' }}>· PO: {selectedManhPo}</span>
+            </div>
+          </div>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+              <colgroup>
+                <col style={{ width: 90 }} />
+                <col />
+                <col style={{ width: 75 }} />
+                <col style={{ width: 120 }} />
+                <col style={{ width: 125 }} />
+              </colgroup>
+              <thead>
+                <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                  <th style={thStyle}>Loại</th>
+                  <th style={thStyle}>Tên mảnh</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Số lượng</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Đã chuyền kiểm</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Chưa chuyền kiểm</th>
+                </tr>
+              </thead>
+              <tbody>
+                {manhDetailItems.map(item => {
+                  const meta = CAT_META[item.cat]
+                  const qtyNum = parseInt(item.qty ?? '0', 10) || 0
+                  const chua = mockChuaChuyenKiem(item.key, qtyNum)
+                  const da = qtyNum - chua
+                  return (
+                    <tr key={item.key} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={tdStyle}>
+                        <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, color: meta.color, background: meta.bg, whiteSpace: 'nowrap' }}>
+                          {meta.label}
+                        </span>
+                      </td>
+                      <td style={{ ...tdStyle, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</td>
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap', textAlign: 'right', fontWeight: 600 }}>{item.qty ?? '—'}</td>
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap', textAlign: 'right', fontWeight: 600, color: '#16a34a' }}>{da}</td>
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap', textAlign: 'right', fontWeight: 600, color: chua > 0 ? '#d97706' : 'var(--text3)' }}>{chua}</td>
+                    </tr>
+                  )
+                })}
+                {manhDetailItems.length === 0 && (
+                  <tr><td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có mảnh nào</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
 
       </>

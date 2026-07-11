@@ -1,19 +1,11 @@
 import { useState } from 'react'
-import { useFetch } from '../../../hooks/useFetch'
-import { Award, ChevronLeft, Send, ClipboardList, CheckCircle2, Plus, X } from 'lucide-react'
+import { ChevronLeft, Send, ClipboardList, CheckCircle2, Plus, X } from 'lucide-react'
 import { useInspection, PROPOSAL_ENTITY, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type ProposalQuote } from '../../../context/InspectionContext'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import { visibleProposalsFor } from '../../../utils/purchasingRouting'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
-import * as api from '../../../services/api'
 import { format } from 'date-fns'
-
-const safeArr = <T,>(d: T[] | null | undefined): T[] => (Array.isArray(d) ? d : [])
-const vnd = (n?: number | null) => (n == null ? '—' : n.toLocaleString('vi-VN') + 'đ')
-
-interface Supplier { id: number; name: string }
-interface SupplierLink { id: number; price?: number | null; leadTimeDays?: number | null; supplier?: Supplier | null }
 
 export default function LenhMuaNCCPage() {
   const { user } = useAuth()
@@ -44,85 +36,6 @@ export default function LenhMuaNCCPage() {
   )
 }
 
-// ─── Modal gợi ý NCC ─────────────────────────────────────────────────────────
-
-function CompareModal({ item, suppliers, onClose, onChoose }: {
-  item: { materialId?: number | null; materialName?: string | null; name?: string; buyQty: number; unit?: string | null }
-  suppliers?: Supplier[]
-  onClose: () => void
-  onChoose: (suppId: number, suppName: string, price: number | null, days: number | null) => void
-}) {
-  const displayName = item.materialName ?? item.name ?? ''
-  const { data: links } = useFetch<SupplierLink[]>(
-    () => api.getMaterialSuppliers(item.materialId ?? undefined),
-    [item.materialId]
-  )
-  const list = safeArr(links).filter(l => l.supplier)
-  const cheapest = list.filter(l => l.price != null).sort((a, b) => (a.price ?? 0) - (b.price ?? 0))[0]
-
-  return (
-    <div
-      onClick={onClose}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
-    >
-      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 560, padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,.2)' }}>
-        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Gợi ý NCC — {displayName}</h3>
-        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
-          Cần mua {item.buyQty} {item.unit ?? ''} · Chọn NCC từ danh sách (giá & ngày tự điền)
-        </div>
-        {list.length === 0 ? (
-          <div style={{ color: '#e65100', fontSize: 13 }}>
-            Vật tư này chưa gắn NCC nào. Vào &quot;Vật tư – NCC&quot; để thêm.
-          </div>
-        ) : (
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ textAlign: 'left', background: 'var(--surface2)' }}>
-                <th style={th}>NCC</th>
-                <th style={{ ...th, textAlign: 'right' }}>Đơn giá</th>
-                <th style={{ ...th, textAlign: 'right' }}>Giao (ngày)</th>
-                <th style={{ ...th, textAlign: 'right' }}>Thành tiền</th>
-                <th style={th}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.map(l => {
-                const isCheap = cheapest && l.id === cheapest.id
-                return (
-                  <tr key={l.id} style={{ borderTop: '1px solid var(--border)', background: isCheap ? '#f1f8e9' : undefined }}>
-                    <td style={{ ...td, fontWeight: 600 }}>
-                      {l.supplier?.name}
-                      {isCheap && <span style={{ marginLeft: 6, fontSize: 10, color: '#2e7d32', fontWeight: 700 }}>★ rẻ nhất</span>}
-                    </td>
-                    <td style={{ ...td, textAlign: 'right' }}>{vnd(l.price)}</td>
-                    <td style={{ ...td, textAlign: 'right' }}>{l.leadTimeDays ?? '—'}</td>
-                    <td style={{ ...td, textAlign: 'right', color: 'var(--text3)' }}>
-                      {l.price != null ? vnd(l.price * item.buyQty) : '—'}
-                    </td>
-                    <td style={td}>
-                      <button
-                        onClick={() => onChoose(l.supplier!.id, l.supplier!.name, l.price ?? null, l.leadTimeDays ?? null)}
-                        style={{ padding: '4px 12px', background: '#4527a0', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, color: '#fff', cursor: 'pointer' }}
-                      >
-                        Chọn
-                      </button>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        )}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-          <button onClick={onClose} style={{ padding: '7px 16px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
-            Đóng
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
 const td: React.CSSProperties = { padding: '9px 12px' }
 const inp: React.CSSProperties = { padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box', width: '100%' }
@@ -138,7 +51,6 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
   const { getLogsFor } = useAuditLog()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [quoteEdits, setQuoteEdits] = useState<Record<string, Record<string, ProposalQuote[]>>>({})
-  const [nccPanel, setNccPanel] = useState<{ proposalId: string; itemName: string; materialId?: number } | null>(null)
 
   const newCount = proposals.filter(p => p.status === 'new').length
   const selected = proposals.find(p => p.id === selectedId) ?? null
@@ -267,13 +179,6 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                       <span style={{ fontWeight: 700, fontSize: 13 }}>{item.name}</span>
                       <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.khoLabel}</span>
                       <span style={{ fontSize: 12, color: '#c62828', fontWeight: 600 }}>Cần mua: {item.buyQty} {item.unit}</span>
-                      <div style={{ flex: 1 }} />
-                      <button
-                        onClick={() => setNccPanel({ proposalId: p.id, itemName: item.name, materialId: item.materialId })}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', fontSize: 11, cursor: 'pointer', color: 'var(--text2)', whiteSpace: 'nowrap' }}
-                      >
-                        <Award size={11} /> Gợi ý NCC
-                      </button>
                     </div>
                     {rows.length > 0 && (
                       <div style={{ overflowX: 'auto' }}>
@@ -473,21 +378,6 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
       <div style={{ width: 300, flexShrink: 0, position: 'sticky', top: 20 }}>
         <AuditLogTimeline entries={getLogsFor(PROPOSAL_ENTITY, p.id)} />
       </div>
-
-      {nccPanel && (() => {
-        const prop = proposals.find(pr => pr.id === nccPanel.proposalId)
-        const item = prop?.items.find(i => i.name === nccPanel.itemName)
-        return (
-          <CompareModal
-            item={{ name: nccPanel.itemName, materialId: nccPanel.materialId, buyQty: item?.buyQty ?? 0, unit: item?.unit }}
-            onClose={() => setNccPanel(null)}
-            onChoose={(_, suppName, price, days) => {
-              addRow(nccPanel.proposalId, nccPanel.itemName, suppName, price, days)
-              setNccPanel(null)
-            }}
-          />
-        )
-      })()}
       </div>
     )
   }
