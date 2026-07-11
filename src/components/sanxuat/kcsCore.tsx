@@ -1,18 +1,19 @@
 'use client'
 
 /**
- * CORE dùng chung cho màn KCS duyệt (Phôi / Hàn / Sơn) — chỉ xem + duyệt, không nhập sản lượng.
+ * CORE dùng chung cho màn KCS duyệt (Phôi / Hàn / Sơn, đều 2 tầng: PO → Vật liệu) — chỉ xem + duyệt, không nhập sản lượng.
+ * Phôi chưa có "mảnh" (mảnh chỉ hình thành từ công đoạn Hàn trở đi) nên dùng chung orchestrator 2 tầng với Hàn/Sơn.
  * Tái dùng types/helpers/orchestrator-shell từ `core.tsx`; thêm "chờ kiểm" + duyệt đạt/không đạt (số lượng + nguyên nhân + ảnh).
  * ĐANG DÙNG DATA MOCK (state nội bộ) — chưa nối backend, giống các màn Lệnh sản xuất khác.
  */
 
 import { useState } from 'react'
-import { ChevronRight, Layers, ClipboardCheck, AlertTriangle, Upload, X, Plus } from 'lucide-react'
+import { ClipboardCheck, AlertTriangle, Upload, X, Plus } from 'lucide-react'
 import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
 import { useFetch } from '../../hooks/useFetch'
 import * as api from '../../services/api'
 import {
-  type ProcLine, type ProcManh, type ProcRow, type StageCfg,
+  type ProcLine, type ProcRow, type StageCfg,
   fmt, dateVN, lechOf, skuDongBo,
 } from './core'
 
@@ -26,14 +27,13 @@ export interface KcsLine extends ProcLine {
   reviewNote?: string
   defectPhotoUrl?: string
 }
-export interface KcsManh extends Omit<ProcManh, 'lines'> { lines: KcsLine[] }
-export interface KcsRow extends Omit<ProcRow, 'manhs' | 'lines'> { manhs?: KcsManh[]; lines?: KcsLine[] }
+export interface KcsRow extends Omit<ProcRow, 'manhs' | 'lines'> { lines?: KcsLine[] }
 
 interface DefectReason { id: number; label: string; stageType?: string | null }
 
 export interface ReviewPayload { failedQty: number; defectReasonId?: number; reviewNote?: string; defectPhotoUrl?: string }
 
-const allKcsLines = (r: KcsRow): KcsLine[] => r.manhs ? r.manhs.flatMap(m => m.lines) : (r.lines ?? [])
+const allKcsLines = (r: KcsRow): KcsLine[] => r.lines ?? []
 const pendingOf = (lines: KcsLine[]) => lines.reduce((s, l) => s + l.pendingQty, 0)
 
 function Progress({ pct }: { pct: number }) {
@@ -199,32 +199,6 @@ function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, onBack, o
   )
 }
 
-// ── Tầng 2 (Phôi): danh sách mảnh — điều hướng, không nhập liệu ─────
-function KcsManhListBoard({ po, onBack, onOpenManh }: { po: KcsRow; onBack: () => void; onOpenManh: (id: number) => void }) {
-  const manhs = po.manhs ?? []
-  const cols: BoardColumn<KcsManh>[] = [
-    { key: 'manh', header: 'Mảnh', cell: m => <span style={{ fontWeight: 700 }}>{m.tenManh}</span> },
-    { key: 'pending', header: 'Chờ kiểm', align: 'right', cell: m => {
-      const p = pendingOf(m.lines)
-      return <span style={{ fontWeight: 700, color: p > 0 ? ACCENT : 'var(--text3)' }}>{fmt(p)}</span>
-    } },
-    { key: 'chevron', header: '', width: 40, cell: () => <span style={{ color: 'var(--text3)' }}><ChevronRight size={16} /></span> },
-  ]
-  return (
-    <LenhSanXuatBoard<KcsManh>
-      onBack={onBack} backLabel="Quay lại danh sách lệnh"
-      icon={<Layers size={18} />}
-      title={`Danh sách Mảnh của SKU — ${po.sku}`}
-      subtitle={`${po.poNumber} · ${po.productName} · SL ${fmt(po.soLuong)} · hạn ${dateVN(po.deadline)}`}
-      columns={cols}
-      rows={manhs}
-      rowKey={m => m.id}
-      clickable={() => true}
-      onRowClick={m => onOpenManh(m.id)}
-    />
-  )
-}
-
 // ── Tầng 1: danh sách lệnh (PO) — xem tiến độ + chờ kiểm ────────────
 interface KcsPoView { r: KcsRow; daLam: number; conLai: number; pct: number; choKiem: number }
 
@@ -265,42 +239,7 @@ function KcsPoListBoard({ rows, cfg, onEnter }: { rows: KcsRow[]; cfg: StageCfg;
   )
 }
 
-// ── Orchestrator: KCS Phôi (3 tầng) ─────────────────────────────────
-export function KcsPhoiScreen({ cfg, seed }: { cfg: StageCfg; seed: () => KcsRow[] }) {
-  const [rows, setRows] = useState<KcsRow[]>(seed)
-  const [selPoId, setSelPoId] = useState<number | null>(null)
-  const [selManhId, setSelManhId] = useState<number | null>(null)
-  const selPo = rows.find(r => r.id === selPoId) ?? null
-  const selManh = selPo?.manhs?.find(m => m.id === selManhId) ?? null
-
-  const review = (poId: number, manhId: number, lineId: number, p: ReviewPayload) =>
-    setRows(rs => rs.map(r => r.id !== poId ? r : {
-      ...r, manhs: r.manhs?.map(m => m.id !== manhId ? m : {
-        ...m, lines: m.lines.map(l => l.id !== lineId ? l : {
-          ...l, pendingQty: 0, failedQty: (l.failedQty ?? 0) + p.failedQty,
-          defectReason: p.defectReasonId ? String(p.defectReasonId) : l.defectReason,
-          reviewNote: p.reviewNote ?? l.reviewNote, defectPhotoUrl: p.defectPhotoUrl ?? l.defectPhotoUrl,
-        }),
-      }),
-    }))
-
-  if (selPo && selManh) {
-    return <KcsVatTuReviewBoard
-      lines={selManh.lines} cfg={cfg}
-      title={selManh.tenManh}
-      subtitle={`${selPo.poNumber} · ${selPo.sku} · SL ${fmt(selPo.soLuong)} · hạn ${dateVN(selPo.deadline)}`}
-      backLabel="Quay lại danh sách mảnh"
-      onBack={() => setSelManhId(null)}
-      onReview={(lineId, p) => review(selPo.id, selManh.id, lineId, p)}
-    />
-  }
-  if (selPo) {
-    return <KcsManhListBoard po={selPo} onBack={() => setSelPoId(null)} onOpenManh={id => setSelManhId(id)} />
-  }
-  return <KcsPoListBoard rows={rows} cfg={cfg} onEnter={id => { setSelPoId(id); setSelManhId(null) }} />
-}
-
-// ── Orchestrator: KCS Hàn/Sơn (2 tầng) ──────────────────────────────
+// ── Orchestrator: KCS Phôi/Hàn/Sơn (2 tầng) ─────────────────────────
 export function KcsTwoTierScreen({ cfg, seed }: { cfg: StageCfg; seed: () => KcsRow[] }) {
   const [rows, setRows] = useState<KcsRow[]>(seed)
   const [selPoId, setSelPoId] = useState<number | null>(null)
