@@ -389,7 +389,6 @@ class WeavingService extends BaseService<any> {
   async getFinishedFrames() { return ok(clone(mockStore.get().weavingFinishedFrames)); }
   async getByPoint() { return ok(clone(mockStore.get().weavingByPoint)); }
   async getManhSummary() { return ok(clone(mockStore.get().weavingManhSummary)); }
-  async getReceiptHistory() { return ok(clone(mockStore.get().weavingReceiptHistory)); }
 
   async getAllocation(piId: number) {
     const row = mockStore.get().weavingAllocation.find((a: { piId: number }) => a.piId === piId);
@@ -597,7 +596,6 @@ export const updateWeavingConfig = (minAllocationQty: number) => weavingSvc.upda
 export const getFinishedFrames = () => weavingSvc.getFinishedFrames();
 export const getWeavingByPoint = () => weavingSvc.getByPoint();
 export const getWeavingManhSummary = () => weavingSvc.getManhSummary();
-export const getWeavingReceiptHistory = () => weavingSvc.getReceiptHistory();
 export const getWeavingAllocation = (piId: number) => weavingSvc.getAllocation(piId);
 export const allocateWeaving = (data: Record<string, unknown>) => weavingSvc.allocate(data);
 export const allocateWeavingBulk = (data: Record<string, unknown>) => weavingSvc.allocateBulk(data);

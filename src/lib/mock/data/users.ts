@@ -136,28 +136,6 @@ export const MOCK_ACCOUNTS: MockAccount[] = [
     },
   },
   {
-    email: 'weaving@demo.com',
-    password: 'demo1234',
-    user: {
-      id: 16,
-      name: 'Nhập đan - Hà',
-      email: 'weaving@demo.com',
-      role: 'WAREHOUSE_STAFF',
-      mfgRole: 'WEAVING_MANAGER',
-    },
-  },
-  {
-    email: 'xuatdan@demo.com',
-    password: 'demo1234',
-    user: {
-      id: 17,
-      name: 'Xuất đan - Nam',
-      email: 'xuatdan@demo.com',
-      role: 'WAREHOUSE_STAFF',
-      mfgRole: 'WEAVING_EXPORT',
-    },
-  },
-  {
     email: 'dinhmuc@demo.com',
     password: 'demo1234',
     user: {

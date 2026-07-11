@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, History, CalendarClock, ChevronDown, ScanSearch, Wrench, Flame, SprayCan } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, CalendarClock, ChevronDown, ScanSearch, Wrench, Flame, SprayCan } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import MfgSetupPage from './MfgSetupPage'
@@ -11,13 +11,9 @@ import SpecAccessoryCatalogPage from './SpecAccessoryCatalogPage'
 import MfgWorkshopBoardPage from './MfgWorkshopBoardPage'
 import MfgWarehousesPage from './MfgWarehousesPage'
 import MfgAllMaterialsPage from './MfgAllMaterialsPage'
-import DieuPhoiDanPage from './DieuPhoiDanPage'
-import XuatDanPage from './XuatDanPage'
-import LichSuXuatDanPage from './LichSuXuatDanPage'
 import ChuyenKiemPage from './ChuyenKiemPage'
 import DongGoiPage from './DongGoiPage'
 import WeavingPointsPage from './WeavingPointsPage'
-import LichSuNhapDanPage from './LichSuNhapDanPage'
 import QuanLyDiemDanPage from './QuanLyDiemDanPage'
 import ThongKePagePlan from './ThongKePagePlan'
 import LenhSanXuatPhoi from '../Phoi/LenhSanXuatPhoi'
@@ -36,7 +32,7 @@ import KcsSonPage from '../Kcs/KcsSonPage'
 type TabId =
   | 'workshop'
   | 'lenh-sx' | 'ke-hoach' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh' | 'phoi-lich-su-nhan-sat'
-  | 'xuat-dan' | 'lich-su-xuat-dan' | 'dieu-phoi-dan' | 'lich-su-nhap-dan' | 'quan-ly-diem-dan'
+  | 'quan-ly-diem-dan'
   | 'chuyen-kiem' | 'dong-goi' | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'kiem-tra-vt' | 'setup'
   | 'kcs-phoi' | 'kcs-han' | 'kcs-son'
@@ -130,7 +126,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const isSpecRole = !!user?.mfgRole && SPEC_ROLES.includes(user.mfgRole as typeof SPEC_ROLES[number])
   const canSeeBom = isDirector || isBomManager || isSpecRole
   const canSeeWarehouses = isDirector || isWarehouse || isProdMgr
-  const canSeeDieuPhoi = isWeavingMgr
   const canSeeDiemDan = isWeavingMgr || isWeavingExport
   const canSeePackingFlow = canManageBom
   const canManageWorkshop = canManageBom
@@ -138,8 +133,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   // Readable if-else chain thay cho ternary lồng 6 cấp
   let initialTab: TabId = 'lenh-sx'
   if (canManageWorkshop) initialTab = 'workshop'
-  else if (isWeavingMgr) initialTab = 'dieu-phoi-dan'
-  else if (isWeavingExport) initialTab = 'xuat-dan'
+  else if (isWeavingMgr || isWeavingExport) initialTab = 'quan-ly-diem-dan'
   else if (isPhoi || isHan || isSon) initialTab = 'phoi-lenh-sx'
   else if (isKcs)                initialTab = 'kcs-phoi'
   else if (isBomManager || isSpecRole) initialTab = 'setup'
@@ -166,10 +160,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isKcs ? [{ id: 'kcs-phoi' as TabId, label: 'Phôi', icon: <Wrench size={16} /> }] : []),
     ...(isKcs ? [{ id: 'kcs-han' as TabId, label: 'Hàn', icon: <Flame size={16} /> }] : []),
     ...(isKcs ? [{ id: 'kcs-son' as TabId, label: 'Sơn', icon: <SprayCan size={16} /> }] : []),
-    ...(isWeavingExport ? [{ id: 'xuat-dan' as TabId, label: 'Xuất đan', icon: <ArrowDownToLine size={16} /> }] : []),
-    ...(isWeavingExport ? [{ id: 'lich-su-xuat-dan' as TabId, label: 'Lịch sử xuất đan', icon: <History size={16} /> }] : []),
-    ...(canSeeDieuPhoi ? [{ id: 'dieu-phoi-dan' as TabId, label: 'Điều phối đan', icon: <ArrowDownToLine size={16} /> }] : []),
-    ...(isWeavingMgr ? [{ id: 'lich-su-nhap-dan' as TabId, label: 'Lịch sử nhập đan', icon: <History size={16} /> }] : []),
     ...(canSeeDiemDan ? [{ id: 'quan-ly-diem-dan' as TabId, label: 'Quản lý điểm đan', icon: <MapPin size={16} /> }] : []),
     ...(isProdMgr ? [{ id: 'kiem-tra-vt' as TabId, label: 'Kiểm tra vật tư', icon: <ScanSearch size={16} /> }] : []),
     ...(isProdMgr ? [{ id: 'sku-list' as TabId, label: 'Danh sách SKU', icon: <Package size={16} /> }] : []),
@@ -323,10 +313,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'kcs-phoi' && isKcs && <KcsPhoiPage />}
         {tab === 'kcs-han' && isKcs && <KcsHanPage />}
         {tab === 'kcs-son' && isKcs && <KcsSonPage />}
-        {tab === 'xuat-dan' && (isWeavingExport || isDirector) && <XuatDanPage readOnly={isDirector} />}
-        {tab === 'lich-su-xuat-dan' && (isWeavingExport || isDirector) && <LichSuXuatDanPage />}
-        {tab === 'dieu-phoi-dan' && canSeeDieuPhoi && <DieuPhoiDanPage readOnly={isDirector} />}
-        {tab === 'lich-su-nhap-dan' && canSeeDieuPhoi && <LichSuNhapDanPage />}
         {tab === 'quan-ly-diem-dan' && canSeeDiemDan && <QuanLyDiemDanPage readOnly={!isWeavingExport} />}
         {tab === 'chuyen-kiem' && canSeePackingFlow && <ChuyenKiemPage readOnly={isDirector} />}
         {tab === 'dong-goi' && canSeePackingFlow && <DongGoiPage readOnly={isDirector} />}

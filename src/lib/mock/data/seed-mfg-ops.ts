@@ -212,38 +212,6 @@ export const seedWeavingByPoint = [
   },
 ];
 
-export const seedWeavingReceiptHistory = [
-  {
-    id: 1,
-    receivedDate: ISO('2026-06-18'),
-    pointCode: 'DD-A',
-    pointName: 'Anh Tuấn',
-    pieceName: 'Mặt ghế',
-    pieceCode: 'MAT-GHE',
-    piCode: 'PI-2026-001',
-    poNumber: 'PO-MY-001',
-    productLabel: 'Ghế J55',
-    warehouseName: 'Kho Nghĩa',
-    quantity: 30,
-    by: 'Đan Trưởng Hà',
-    note: 'Nhập đan về kho thành phẩm',
-  },
-  {
-    id: 2,
-    receivedDate: ISO('2026-06-15'),
-    pointCode: 'DD-B',
-    pointName: 'Chị Hà',
-    pieceName: 'Mặt ghế',
-    pieceCode: 'MAT-GHE',
-    piCode: 'PI-2026-001',
-    poNumber: 'PO-MY-001',
-    productLabel: 'Ghế J55',
-    warehouseName: 'Kho Nghĩa',
-    quantity: 25,
-    by: 'Đan Trưởng Hà',
-  },
-];
-
 export const seedWeavingAllocation = [
   {
     ...PI1,
