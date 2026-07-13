@@ -7,10 +7,9 @@
  */
 
 import { useState } from 'react'
-import { Wrench } from 'lucide-react'
-import { PhoiScreen, ISO, minsAgo, type ProcRow, type StageCfg } from '../../../components/sanxuat/core'
+import { PhoiScreen, PHOI_CFG, ISO, minsAgo, type ProcRow } from '../../../components/sanxuat/core'
 
-const CFG: StageCfg = { label: 'Phôi', done: 'Đã cắt', verb: 'cắt', itemLabel: 'Loại sắt', unit: 'cây', Icon: Wrench }
+const CFG = PHOI_CFG
 
 function seed(): ProcRow[] {
   return [

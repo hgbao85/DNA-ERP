@@ -2,10 +2,9 @@
 
 /** Lệnh sản xuất — Công đoạn HÀN (2 tầng: PO → Vật tư/chi tiết). */
 
-import { Flame } from 'lucide-react'
-import { TwoTierScreen, ISO, minsAgo, type ProcRow, type StageCfg } from '../../../components/sanxuat/core'
+import { TwoTierScreen, HAN_CFG, ISO, minsAgo, type ProcRow } from '../../../components/sanxuat/core'
 
-const CFG: StageCfg = { label: 'Hàn', done: 'Đã hàn', verb: 'hàn', itemLabel: 'Chi tiết', unit: 'cái', Icon: Flame }
+const CFG = HAN_CFG
 
 function seed(): ProcRow[] {
   return [

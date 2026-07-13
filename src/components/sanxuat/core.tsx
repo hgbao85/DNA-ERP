@@ -11,7 +11,7 @@
  */
 
 import { useState, useMemo } from 'react'
-import { ChevronRight, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Play, Square, Lock, Scissors } from 'lucide-react'
+import { ChevronRight, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Play, Square, Lock, Scissors, Wrench, Flame, SprayCan } from 'lucide-react'
 import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
 import { useFetch } from '../../hooks/useFetch'
 import * as api from '../../services/api'
@@ -59,6 +59,12 @@ export interface StageCfg {
   unit: string
   Icon: React.ComponentType<{ size?: number }>
 }
+
+// Cấu hình dùng chung cho công đoạn Phôi/Hàn/Sơn — dùng lại ở màn Lệnh sản xuất riêng
+// (Phoi/Han/Son@demo.com) lẫn ở màn chi tiết Khung cơ khí bên KHSX (xem ThongKePagePlan.tsx).
+export const PHOI_CFG: StageCfg = { label: 'Phôi', done: 'Đã cắt', verb: 'cắt', itemLabel: 'Loại sắt', unit: 'cây', Icon: Wrench }
+export const HAN_CFG: StageCfg  = { label: 'Hàn',  done: 'Đã hàn', verb: 'hàn', itemLabel: 'Chi tiết',  unit: 'cái', Icon: Flame }
+export const SON_CFG: StageCfg  = { label: 'Sơn',  done: 'Đã sơn', verb: 'sơn', itemLabel: 'Loại sơn',  unit: 'lít', Icon: SprayCan }
 
 // ── Helpers cho mock data (dùng ở các file seed) ───────────────────
 export const ISO = (daysFromNow: number, h = 17, m = 0) => {
@@ -252,18 +258,22 @@ function ManhListBoard({ po, onBack, onOpenManh }: { po: ProcRow; cfg: StageCfg;
 }
 
 // ── Tầng chi tiết vật tư (dùng chung Phôi/Hàn/Sơn) ─────────────────
-function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, pendingFor, onConfirmCut, manualInput }: {
+export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, pendingFor, onConfirmCut, manualInput, showThucCo }: {
   lines: ProcLine[]; cfg: StageCfg; readOnly: boolean
-  title: string; subtitle: string; bannerLabel: string; backLabel: string
+  title: string; subtitle: string; bannerLabel: string
+  /** Bỏ trống khi board được nhúng làm 1 tab con (vd chi tiết Khung cơ khí bên KHSX) — không cần điều hướng "quay lại". */
+  backLabel?: string; onBack?: () => void
   /** Đơn vị của số đồng bộ: Phôi = "mảnh", Hàn/Sơn = "bộ". */
   dbUnit?: string
-  onBack: () => void; onUpdateLine?: (l: ProcLine) => void
+  onUpdateLine?: (l: ProcLine) => void
   /** (không dùng cho Phôi nữa) đợt đã nhận đang chờ cắt của 1 dòng vật tư. */
   pendingFor?: (lineId: number) => SatIssueView[]
   /** (không dùng cho Phôi nữa) xác nhận cắt xong 1 đợt → cộng vào doneQty. */
   onConfirmCut?: (line: ProcLine, issue: SatIssueView, soCayThuc?: number) => void
   /** Hàn/Sơn: cho nhập tay sản lượng. Phôi = false (số lượng tự cập nhật từ màn Xác nhận sản lượng). */
   manualInput?: boolean
+  /** Ép hiện/ẩn cột "Thực có" bất kể phoiMode — dùng khi nhúng chế độ chỉ xem không có cột Xác nhận cắt. */
+  showThucCo?: boolean
 }) {
   const phoiMode = !!onConfirmCut
   const [draft, setDraft] = useState<Record<number, string>>({})
@@ -293,7 +303,7 @@ function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, 
         {short > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--red)' }}>cần {cfg.verb} thêm {fmt(short)} {cfg.unit}</span>}
       </>
     } },
-    ...(!phoiMode ? [{ key: 'thucCo', header: 'Thực có', align: 'right', cell: (l: ProcLine) => (
+    ...((showThucCo ?? !phoiMode) ? [{ key: 'thucCo', header: 'Thực có', align: 'right', cell: (l: ProcLine) => (
       <span style={{ fontWeight: 600 }}>{fmt(l.thucCoQty ?? 0)}</span>
     ) } as BoardColumn<ProcLine>] : []),
     { key: 'remain', header: 'Còn lại', align: 'right', cell: l => {

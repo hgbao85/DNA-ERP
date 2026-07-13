@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { ArrowLeft, CheckCircle2, Clock, ClipboardCheck, Factory, PackageCheck, Search, ShoppingCart, TrendingUp, Wrench } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, ChevronRight, Clock, ClipboardCheck, Factory, PackageCheck, Search, ShoppingCart, TrendingUp, Wrench } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useInspection, type PurchaseProposal } from '../../../context/InspectionContext'
 import type { PlanForm } from '../../../types/plan-form'
+import LenhSanXuatBoard, { type BoardColumn } from '../../../components/sanxuat/LenhSanXuatBoard'
+import { VatTuDetailBoard, PHOI_CFG, HAN_CFG, SON_CFG, perSku, type ProcManh, type ProcLine } from '../../../components/sanxuat/core'
+import ProgressBar from '../../../components/ProgressBar'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -21,10 +24,23 @@ interface MaterialItem {
   boughtQty: number // Đã mua
 }
 
+// 1 mảnh có thể xuất cho nhiều điểm đan khác nhau — cùng hình dạng ManhLine/ManhAllocation dùng ở
+// "Theo dõi xuất đan" (khovttp@demo.com) / "Theo dõi nhập đan" (khotp@demo.com), xem WeavingSubStages.
+interface WeavingPointLite { id: number; name: string; fullName?: string }
+interface WeavingAlloc { id: number; pointName: string; xuatQty: number; nhapQty: number }
+interface WeavingLine { id: number; name: string; totalQty: number; allocations: WeavingAlloc[] }
+
 interface StageDetails {
   purchasing: { materials: MaterialItem[] }
-  frame: { phoi: SubStatus; han: SubStatus; son: SubStatus }
-  weaving: { nhapDan: SubStatus; xuatDan: SubStatus }
+  frame: {
+    phoi: SubStatus; han: SubStatus; son: SubStatus
+    // Dữ liệu chi tiết từng công đoạn nhỏ — cùng cấu trúc ProcManh/ProcLine dùng ở màn
+    // Lệnh sản xuất Phôi/Hàn/Sơn, để hiển thị lại y hệt cho KHSX xem (xem FrameSubStages).
+    phoiManhs: ProcManh[]
+    hanLines: ProcLine[]
+    sonLines: ProcLine[]
+  }
+  weaving: { nhapDan: SubStatus; xuatDan: SubStatus; lines: WeavingLine[] }
   chuyenKiem: { daKiem: SubStatus }
   packaging: { dongGoi: SubStatus }
 }
@@ -85,13 +101,121 @@ function getPurchasingPercent(materials: MaterialItem[]): number {
   return Math.round(materials.reduce((s, m) => s + w(m), 0) / materials.length * 100)
 }
 
+// ─── Dữ liệu chi tiết Khung cơ khí (Phôi/Hàn/Sơn) ─────────────────────────────
+// Ưu tiên dùng định mức mảnh/sắt/sơn THẬT do các account chuyên trách đã nhập trên PlanForm
+// (manhItems, quotaManagement.materialType.daySon) — cùng cấu trúc ProcManh/ProcLine dùng ở màn
+// Lệnh sản xuất Phôi/Hàn/Sơn. Nếu PlanForm chưa có (chưa tới bước nhập định mức) thì vẫn tạo mock
+// ổn định theo PO để KHSX luôn xem được giao diện chi tiết. Số lượng "đã làm" mock theo đúng
+// SubStatus đã chọn ở trên để nhất quán với thanh tiến độ.
+const doneFracOf = (status: SubStatus, h: number, salt: number): number => {
+  if (status === 'done') return 1
+  if (status === 'pending') return 0
+  return 0.25 + ((h + salt * 31) % 45) / 100
+}
+
+const FALLBACK_MANH = ['Mảnh Tựa', 'Mảnh Tay', 'Mảnh Chân']
+const FALLBACK_SAT = ['Sắt Vuông 6 zem', 'Sắt Hộp 8 zem']
+
+function buildPhoiManhs(pf: PlanForm, status: SubStatus, h: number): ProcManh[] {
+  const doneFrac = doneFracOf(status, h, 1)
+  const src = pf.manhItems && pf.manhItems.length > 0 ? pf.manhItems : null
+  const manhList = src ?? FALLBACK_MANH.map((name, i) => ({ id: i + 1, name, qtyPerSku: '1', children: [] as { id: number; name: string; specs?: string | null; length?: string | null; qty?: string | null }[] }))
+  return manhList.map((m, mi) => {
+    const children = m.children.length > 0 ? m.children : [{ id: mi * 10 + 1, name: FALLBACK_SAT[mi % FALLBACK_SAT.length], specs: null, length: null, qty: null }]
+    return {
+      id: m.id,
+      tenManh: m.name,
+      perSku: m.qtyPerSku ? Number(m.qtyPerSku) || 1 : 1,
+      lines: children.map((c, ci) => {
+        const need = Math.max(1, Number(c.qty) || (80 + ((h + mi * 23 + ci * 11) % 150)))
+        const frac = Math.min(1, doneFrac * (0.85 + ((h + mi * 7 + ci * 13) % 30) / 100))
+        const done = Math.round(need * frac)
+        return {
+          id: mi * 1000 + c.id,
+          itemName: c.name,
+          spec: [c.specs, c.length ? `dài ${c.length}` : null].filter(Boolean).join(' · ') || '—',
+          needQty: need,
+          doneQty: done,
+          perManh: 1,
+          lastInputAt: done > 0 ? new Date(Date.now() - ((h + mi * 11 + ci * 17) % 180) * 60000).toISOString() : null,
+        }
+      }),
+    }
+  })
+}
+
+function buildHanLines(phoiManhs: ProcManh[], status: SubStatus, h: number): ProcLine[] {
+  const doneFrac = doneFracOf(status, h, 2)
+  return phoiManhs.map((m, i) => {
+    const need = 60 + ((h + i * 23) % 200)
+    const frac = Math.min(1, doneFrac * (0.8 + (i % 4) / 10))
+    const done = Math.round(need * frac)
+    return {
+      id: 5000 + i,
+      itemName: `Hàn ráp ${m.tenManh}`,
+      spec: `×${perSku(m)} / SKU`,
+      needQty: need,
+      doneQty: done,
+      thucCoQty: Math.min(need, done + ((h + i * 9) % 15)),
+      lastInputAt: done > 0 ? new Date(Date.now() - ((h + i * 7) % 150) * 60000).toISOString() : null,
+    }
+  })
+}
+
+function buildSonLines(pf: PlanForm, status: SubStatus, h: number): ProcLine[] {
+  const doneFrac = doneFracOf(status, h, 3)
+  const items = pf.quotaManagement?.materialType.daySon ?? []
+  const src = items.length > 0 ? items : [{ name: 'Sơn tĩnh điện', specifications: null as string | null, kg: null as number | null }]
+  return src.map((it, i) => {
+    const need = Math.max(1, Math.round(Number(it.kg) || (40 + ((h + i * 31) % 100))))
+    const frac = Math.min(1, doneFrac * (0.85 + (i % 3) / 10))
+    const done = Math.round(need * frac)
+    return {
+      id: 7000 + i,
+      itemName: it.name,
+      spec: it.specifications || '—',
+      needQty: need,
+      doneQty: done,
+      thucCoQty: Math.min(need, done + ((h + i * 5) % 10)),
+      lastInputAt: done > 0 ? new Date(Date.now() - ((h + i * 13) % 150) * 60000).toISOString() : null,
+    }
+  })
+}
+
+// Đan: "Xuất đan" (kho vật tư thành phẩm giao mảnh cho điểm đan gia công) luôn xảy ra trước
+// "Nhập đan" (kho thành phẩm nhận lại mảnh đã đan) — mock vài mảnh giao cho 1-2 điểm đan (lấy tên
+// điểm đan thật từ getWeavingPoints), theo đúng cấu trúc dòng/điểm đan dùng ở 2 màn thủ kho.
+const DAN_LINE_NAMES = ['Mảnh tựa lưng', 'Mảnh ngồi chính', 'Mảnh tay vịn']
+
+function buildWeavingLines(xuatStatus: SubStatus, nhapStatus: SubStatus, h: number, points: WeavingPointLite[]): WeavingLine[] {
+  const xuatFrac = doneFracOf(xuatStatus, h, 4)
+  const nhapFrac = doneFracOf(nhapStatus, h, 5)
+  const pool = points.length > 0 ? points : [{ id: 1, name: 'Điểm đan A' }, { id: 2, name: 'Điểm đan B' }]
+  const pointLabel = (p: WeavingPointLite) => p.fullName ? `${p.name} (${p.fullName})` : p.name
+
+  return DAN_LINE_NAMES.map((name, i) => {
+    const total = 20 + ((h + i * 17) % 60)
+    const xuatTotal = Math.round(total * xuatFrac)
+    const twoPoints = pool.length > 1 && xuatTotal > 0 && (h + i) % 2 === 0
+    const splitA = twoPoints ? Math.ceil(xuatTotal * 0.6) : xuatTotal
+    const splits = twoPoints ? [splitA, xuatTotal - splitA] : [splitA]
+    const allocations: WeavingAlloc[] = splits
+      .filter(q => q > 0)
+      .map((q, ai) => {
+        const point = pool[(i + ai) % pool.length]
+        return { id: i * 10 + ai + 1, pointName: pointLabel(point), xuatQty: q, nhapQty: Math.min(q, Math.round(q * nhapFrac)) }
+      })
+    return { id: i + 1, name, totalQty: total, allocations }
+  })
+}
+
 // Khung/Đan/Đóng gói phải tuần tự (đan chỉ bắt đầu khi khung xong, đóng gói khi đan xong) —
 // tạo pseudo-random ổn định theo PO để demo có nhịp độ hợp lý, không đổi giữa các lần render.
-function genExecutionStages(pf: PlanForm, purchasingDone: boolean): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
+function genExecutionStages(pf: PlanForm, purchasingDone: boolean, weavingPoints: WeavingPointLite[]): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
   if (!purchasingDone) {
     return {
-      frame: { phoi: 'pending', han: 'pending', son: 'pending' },
-      weaving: { nhapDan: 'pending', xuatDan: 'pending' },
+      frame: { phoi: 'pending', han: 'pending', son: 'pending', phoiManhs: [], hanLines: [], sonLines: [] },
+      weaving: { nhapDan: 'pending', xuatDan: 'pending', lines: [] },
       chuyenKiem: { daKiem: 'pending' },
       packaging: { dongGoi: 'pending' },
     }
@@ -102,16 +226,21 @@ function genExecutionStages(pf: PlanForm, purchasingDone: boolean): Pick<StageDe
     for (const [t, s] of thresholds) if (v < t) return s
     return thresholds[thresholds.length - 1][1]
   }
+  const phoiStatus = pick(1, [[8, 'done'], [9, 'in-progress'], [10, 'pending']])
+  const hanStatus  = pick(2, [[6, 'done'], [8, 'in-progress'], [10, 'pending']])
+  const sonStatus  = pick(3, [[5, 'done'], [7, 'in-progress'], [10, 'pending']])
+  const phoiManhs = buildPhoiManhs(pf, phoiStatus, h)
   const frame: StageDetails['frame'] = {
-    phoi: pick(1, [[8, 'done'], [9, 'in-progress'], [10, 'pending']]),
-    han:  pick(2, [[6, 'done'], [8, 'in-progress'], [10, 'pending']]),
-    son:  pick(3, [[5, 'done'], [7, 'in-progress'], [10, 'pending']]),
+    phoi: phoiStatus, han: hanStatus, son: sonStatus,
+    phoiManhs,
+    hanLines: buildHanLines(phoiManhs, hanStatus, h),
+    sonLines: buildSonLines(pf, sonStatus, h),
   }
   const frameDone = frame.phoi === 'done' && frame.han === 'done' && frame.son === 'done'
-  const weaving: StageDetails['weaving'] = frameDone ? {
-    nhapDan: pick(4, [[6, 'done'], [8, 'in-progress'], [10, 'pending']]),
-    xuatDan: pick(5, [[4, 'done'], [7, 'in-progress'], [10, 'pending']]),
-  } : { nhapDan: 'pending', xuatDan: 'pending' }
+  // xuatDan quyết định trước — nhapDan không thể vượt tiến độ xuatDan (chưa xuất thì chưa có gì để nhập về).
+  const xuatDan = frameDone ? pick(4, [[6, 'done'], [8, 'in-progress'], [10, 'pending']]) : 'pending'
+  const nhapDan = xuatDan === 'pending' ? 'pending' : pick(5, [[4, 'done'], [7, 'in-progress'], [10, 'pending']])
+  const weaving: StageDetails['weaving'] = { xuatDan, nhapDan, lines: buildWeavingLines(xuatDan, nhapDan, h, weavingPoints) }
   const weavingDone = weaving.nhapDan === 'done' && weaving.xuatDan === 'done'
   const chuyenKiem: StageDetails['chuyenKiem'] = weavingDone ? {
     daKiem: pick(6, [[6, 'done'], [8, 'in-progress'], [10, 'pending']]),
@@ -123,10 +252,10 @@ function genExecutionStages(pf: PlanForm, purchasingDone: boolean): Pick<StageDe
   return { frame, weaving, chuyenKiem, packaging }
 }
 
-function buildOrderRow(pf: PlanForm, proposals: PurchaseProposal[]): { order: MfgOrder; details: StageDetails } {
+function buildOrderRow(pf: PlanForm, proposals: PurchaseProposal[], weavingPoints: WeavingPointLite[]): { order: MfgOrder; details: StageDetails } {
   const materials = getPurchasingRows(pf, proposals)
   const purchPct = getPurchasingPercent(materials)
-  const { frame, weaving, chuyenKiem, packaging } = genExecutionStages(pf, purchPct >= 100)
+  const { frame, weaving, chuyenKiem, packaging } = genExecutionStages(pf, purchPct >= 100, weavingPoints)
   const details: StageDetails = { purchasing: { materials }, frame, weaving, chuyenKiem, packaging }
   const done = isAllDone(details)
   const order: MfgOrder = {
@@ -229,6 +358,166 @@ function SubStepList({ steps }: { steps: { label: string; status: SubStatus }[] 
   )
 }
 
+// ─── Khung cơ khí: 3 tab con Phôi/Hàn/Sơn ─────────────────────────────────────
+// Nhúng lại đúng bảng chi tiết (VatTuDetailBoard) dùng ở màn Lệnh sản xuất của phoi@/han@/son@demo.com,
+// ở chế độ chỉ xem (không có cột nhập/xác nhận) — để KHSX xem được thông tin chi tiết như 3 account đó.
+
+type FrameSubTab = 'PHOI' | 'HAN' | 'SON'
+
+const FRAME_SUB_TABS: { key: FrameSubTab; label: string; status: (f: StageDetails['frame']) => SubStatus }[] = [
+  { key: 'PHOI', label: 'Phôi (cắt, dập, tạo hình)', status: f => f.phoi },
+  { key: 'HAN',  label: 'Hàn khung',                  status: f => f.han  },
+  { key: 'SON',  label: 'Sơn phủ',                     status: f => f.son  },
+]
+
+function PhoiManhMiniBoard({ manhs, onOpen }: { manhs: ProcManh[]; onOpen: (id: number) => void }) {
+  const views = manhs.map(m => {
+    const tong = m.lines.reduce((s, l) => s + l.needQty, 0)
+    const done = m.lines.reduce((s, l) => s + l.doneQty, 0)
+    return { m, tong, done, remain: Math.max(0, tong - done) }
+  })
+  const cols: BoardColumn<typeof views[number]>[] = [
+    { key: 'manh', header: 'Mảnh', cell: v => <span style={{ fontWeight: 700 }}>{v.m.tenManh}</span> },
+    { key: 'perSku', header: 'SL/SKU', align: 'right', cell: v => `×${perSku(v.m)}` },
+    { key: 'tong', header: 'Định mức (cây)', align: 'right', cell: v => v.tong.toLocaleString('vi-VN') },
+    { key: 'done', header: 'Đã cắt (cây)', align: 'right', cell: v => <span style={{ fontWeight: 700 }}>{v.done.toLocaleString('vi-VN')}</span> },
+    { key: 'remain', header: 'Còn lại (cây)', align: 'right', cell: v => <span style={{ color: v.remain > 0 ? '#e65100' : '#16a34a', fontWeight: 600 }}>{v.remain.toLocaleString('vi-VN')}</span> },
+    { key: 'chevron', header: '', width: 36, cell: () => <span style={{ color: 'var(--text3)' }}><ChevronRight size={16} /></span> },
+  ]
+  return (
+    <LenhSanXuatBoard
+      title="Danh sách mảnh" subtitle="Bấm vào một mảnh để xem chi tiết loại sắt"
+      columns={cols} rows={views} rowKey={v => v.m.id}
+      clickable={() => true} onRowClick={v => onOpen(v.m.id)}
+      rowTitle={() => 'Xem chi tiết loại sắt của mảnh này'}
+    />
+  )
+}
+
+function FrameSubStages({ frame }: { frame: StageDetails['frame'] }) {
+  const [tab, setTab] = useState<FrameSubTab>('PHOI')
+  const [selManhId, setSelManhId] = useState<number | null>(null)
+
+  return (
+    <div>
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+        {FRAME_SUB_TABS.map(t => (
+          <button
+            key={t.key}
+            onClick={() => { setTab(t.key); setSelManhId(null) }}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px', fontSize: 12, fontWeight: 600,
+              borderRadius: 20, border: 'none', cursor: 'pointer',
+              background: tab === t.key ? '#1d4ed8' : 'var(--surface2)', color: tab === t.key ? '#fff' : 'var(--text)',
+            }}
+          >
+            {t.label}
+            <SubStatusBadge status={t.status(frame)} />
+          </button>
+        ))}
+      </div>
+
+      {tab === 'PHOI' && (
+        selManhId == null ? (
+          <PhoiManhMiniBoard manhs={frame.phoiManhs} onOpen={setSelManhId} />
+        ) : (
+          <VatTuDetailBoard
+            lines={frame.phoiManhs.find(m => m.id === selManhId)?.lines ?? []}
+            cfg={PHOI_CFG} readOnly showThucCo={false}
+            title={frame.phoiManhs.find(m => m.id === selManhId)?.tenManh ?? ''}
+            subtitle="Chi tiết từng loại sắt của mảnh — chỉ xem"
+            bannerLabel="Đồng bộ sắt" dbUnit="mảnh"
+            onBack={() => setSelManhId(null)} backLabel="Quay lại danh sách mảnh"
+          />
+        )
+      )}
+      {tab === 'HAN' && (
+        <VatTuDetailBoard
+          lines={frame.hanLines} cfg={HAN_CFG} readOnly
+          title="Chi tiết hàn khung" subtitle="Tiến độ hàn ráp theo từng mảnh — chỉ xem"
+          bannerLabel="Đồng bộ"
+        />
+      )}
+      {tab === 'SON' && (
+        <VatTuDetailBoard
+          lines={frame.sonLines} cfg={SON_CFG} readOnly
+          title="Chi tiết sơn phủ" subtitle="Tiến độ sơn theo loại sơn — chỉ xem"
+          bannerLabel="Đồng bộ"
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── Đan: chỉ hiện "Nhập đan" ──────────────────────────────────────────────────
+// Nhúng lại đúng nội dung "Theo dõi nhập đan" (khotp@demo.com) ở chế độ chỉ xem (bỏ ô nhập số
+// lượng/nút xác nhận), đã lược bỏ 2 cấp PO/SKU vì đã ở đúng 1 lệnh. Không hiện "Xuất đan" riêng —
+// theo yêu cầu, chỉ "Nhập đan" là đủ để KHSX theo dõi công đoạn Đan.
+
+const weavingThS: React.CSSProperties = { padding: '6px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', textAlign: 'left', whiteSpace: 'nowrap' }
+const weavingTdS: React.CSSProperties = { padding: '7px 10px', fontSize: 12, borderBottom: '1px solid var(--border)' }
+
+function WeavingTile({ label, value, color }: { label: string; value: number; color?: string }) {
+  return (
+    <div style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8, textAlign: 'center' }}>
+      <div style={{ fontSize: 20, fontWeight: 700, color: color ?? 'var(--text)' }}>{value.toLocaleString('vi-VN')}</div>
+      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{label}</div>
+    </div>
+  )
+}
+
+function WeavingSubStages({ weaving }: { weaving: StageDetails['weaving'] }) {
+  const lines = weaving.lines
+  const total  = lines.reduce((s, l) => s + l.totalQty, 0)
+  const daXuat = lines.reduce((s, l) => s + l.allocations.reduce((a, x) => a + x.xuatQty, 0), 0)
+  const daNhap = lines.reduce((s, l) => s + l.allocations.reduce((a, x) => a + x.nhapQty, 0), 0)
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+        {/* <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Nhập đan (nhận mảnh đã đan về)</span> */}
+        <SubStatusBadge status={weaving.nhapDan} />
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
+        <WeavingTile label="Tổng" value={total} />
+        <WeavingTile label="Đã xuất" value={daXuat} color="#d97706" />
+        <WeavingTile label="Đã nhập" value={daNhap} color="#16a34a" />
+      </div>
+      {daXuat === 0 ? (
+        <div style={{ fontSize: 12, color: 'var(--text3)' }}>Chưa có mảnh nào được xuất đan</div>
+      ) : (
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              <th style={weavingThS}>Tên mảnh</th>
+              <th style={weavingThS}>Điểm đan</th>
+              <th style={{ ...weavingThS, textAlign: 'right' }}>SL đã xuất</th>
+              <th style={{ ...weavingThS, textAlign: 'right' }}>SL đã nhập</th>
+              <th style={weavingThS}>Tiến độ nhận</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lines.flatMap(l => l.allocations.filter(a => a.xuatQty > 0).map(a => (
+              <tr key={`${l.id}-${a.id}`}>
+                <td style={{ ...weavingTdS, fontWeight: 600 }}>{l.name}</td>
+                <td style={weavingTdS}>{a.pointName}</td>
+                <td style={{ ...weavingTdS, textAlign: 'right', fontWeight: 600, color: '#d97706' }}>{a.xuatQty.toLocaleString('vi-VN')}</td>
+                <td style={{ ...weavingTdS, textAlign: 'right', fontWeight: 600, color: a.nhapQty > 0 ? '#16a34a' : 'var(--text3)' }}>{a.nhapQty.toLocaleString('vi-VN')}</td>
+                <td style={weavingTdS}>
+                  {a.nhapQty >= a.xuatQty
+                    ? <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>Đã nhận đủ</span>
+                    : <ProgressBar value={a.nhapQty} max={a.xuatQty} />}
+                </td>
+              </tr>
+            )))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
 // ─── Parallel stage helpers ───────────────────────────────────────────────────
 
 const PARALLEL_STAGE_KEYS = new Set<MfgStage>(['FRAME', 'WEAVING', 'CHUYEN_KIEM', 'PACKAGING'])
@@ -298,17 +587,10 @@ function StageDetailCard({
           <PurchasingContent materials={details.purchasing.materials} deadline={orderDeadline} />
         )}
         {stage.key === 'FRAME' && (
-          <SubStepList steps={[
-            { label: 'Phôi (cắt, dập, tạo hình)', status: details.frame.phoi },
-            { label: 'Hàn khung',                  status: details.frame.han  },
-            { label: 'Sơn phủ',                    status: details.frame.son  },
-          ]} />
+          <FrameSubStages frame={details.frame} />
         )}
         {stage.key === 'WEAVING' && (
-          <SubStepList steps={[
-            { label: 'Nhập đan (nguyên liệu đan vào)', status: details.weaving.nhapDan },
-            { label: 'Xuất đan (thành phẩm đan ra)',   status: details.weaving.xuatDan },
-          ]} />
+          <WeavingSubStages weaving={details.weaving} />
         )}
         {stage.key === 'CHUYEN_KIEM' && (
           <SubStepList steps={[
@@ -509,10 +791,12 @@ function ThongKeDetailPage({ order, details, onBack }: { order: MfgOrder; detail
 
 export default function ThongKePagePlan() {
   const { data: planFormsData, isLoading } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
+  const { data: weavingPointsData } = useFetch<WeavingPointLite[]>(() => (api as any).getWeavingPoints(), [])
   const { proposals } = useInspection()
   const planForms = (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT')
+  const weavingPoints = weavingPointsData ?? []
 
-  const orderRows = planForms.map(pf => buildOrderRow(pf, proposals))
+  const orderRows = planForms.map(pf => buildOrderRow(pf, proposals, weavingPoints))
 
   const [filter, setFilter]         = useState<FilterStatus>('all')
   const [selectedId, setSelectedId] = useState<number | null>(null)

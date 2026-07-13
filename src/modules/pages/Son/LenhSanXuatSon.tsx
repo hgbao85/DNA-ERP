@@ -2,10 +2,9 @@
 
 /** Lệnh sản xuất — Công đoạn SƠN (2 tầng: PO → Vật tư/loại sơn). */
 
-import { SprayCan } from 'lucide-react'
-import { TwoTierScreen, ISO, minsAgo, type ProcRow, type StageCfg } from '../../../components/sanxuat/core'
+import { TwoTierScreen, SON_CFG, ISO, minsAgo, type ProcRow } from '../../../components/sanxuat/core'
 
-const CFG: StageCfg = { label: 'Sơn', done: 'Đã sơn', verb: 'sơn', itemLabel: 'Loại sơn', unit: 'lít', Icon: SprayCan }
+const CFG = SON_CFG
 
 function seed(): ProcRow[] {
   return [
