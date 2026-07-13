@@ -11,7 +11,8 @@ export default function LenhMuaNCCPage() {
   const { user } = useAuth()
   const { proposals: allProposals, acknowledgeProposal, submitProposalToDirector, requoteProposal } = useInspection()
   // Purchasing chỉ thấy đề xuất của đúng kho mình phụ trách (user.warehouseScope) — xem purchasingRouting.ts
-  const proposals = visibleProposalsFor(user, allProposals)
+  // Status 'purchasing' (đang mua hàng, chờ nhận) đã chuyển sang màn "Theo dõi mua hàng" riêng.
+  const proposals = visibleProposalsFor(user, allProposals).filter(p => p.status !== 'purchasing')
 
   return (
     <div>
@@ -290,8 +291,8 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
             </div>
           )}
 
-          {/* ── SUBMITTED / APPROVED / PURCHASED / REJECTED ── */}
-          {(p.status === 'submitted' || p.status === 'purchasing' || p.status === 'purchased' || p.status === 'rejected') && (<>
+          {/* ── SUBMITTED / PURCHASED / REJECTED ── */}
+          {(p.status === 'submitted' || p.status === 'purchased' || p.status === 'rejected') && (<>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
@@ -342,12 +343,7 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                 </tbody>
               </table>
             </div>
-            {p.status === 'purchasing' ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderTop: '1px solid #fde68a', background: '#fffbeb', fontSize: 13, color: '#92400e' }}>
-                <CheckCircle2 size={15} />
-                <span>Giám đốc đã duyệt lúc {p.approvedAt ? format(new Date(p.approvedAt), 'HH:mm dd/MM/yyyy') : '—'} — <strong>Đang mua hàng</strong></span>
-              </div>
-            ) : p.status === 'purchased' ? (
+            {p.status === 'purchased' ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderTop: '1px solid #86efac', background: '#dcfce7', fontSize: 13, color: '#166534' }}>
                 <CheckCircle2 size={15} />
                 <span>Đã nhận đủ hàng lúc {p.purchasedAt ? format(new Date(p.purchasedAt), 'HH:mm dd/MM/yyyy') : '—'} — <strong>Hoàn tất mua vật tư</strong></span>

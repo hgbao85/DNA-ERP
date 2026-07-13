@@ -1,20 +1,22 @@
 import { useState } from 'react'
-import { Building2, LogOut, Grid, ClipboardList } from 'lucide-react'
+import { Building2, LogOut, Grid, ClipboardList, Truck } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import VatTuNCCPage from './VatTuNCCPage'
 import LenhMuaNCCPage from './LenhMuaNCCPage'
+import TheoDoiMuaHangPage from './TheoDoiMuaHangPage'
 
 interface Props { onBack?: () => void }
 
-type TabId = 'suppliers' | 'lenh-mua-ncc'
+type TabId = 'suppliers' | 'lenh-mua-ncc' | 'theo-doi-mua-hang'
 
 export default function PurchasingApp({ onBack }: Props) {
   const { user, logout } = useAuth()
   const [tab, setTab] = useState<TabId>('lenh-mua-ncc')
 
   const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    { id: 'lenh-mua-ncc', label: 'Lệnh mua vật tư', icon: <ClipboardList size={16} /> },
-    { id: 'suppliers',    label: 'Vật tư – NCC',    icon: <Building2 size={16} /> },
+    { id: 'lenh-mua-ncc',      label: 'Lệnh mua vật tư',   icon: <ClipboardList size={16} /> },
+    { id: 'theo-doi-mua-hang', label: 'Theo dõi mua hàng', icon: <Truck size={16} /> },
+    { id: 'suppliers',         label: 'Vật tư – NCC',      icon: <Building2 size={16} /> },
   ]
 
   return (
@@ -63,8 +65,9 @@ export default function PurchasingApp({ onBack }: Props) {
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        {tab === 'suppliers'    && <VatTuNCCPage />}
-        {tab === 'lenh-mua-ncc' && <LenhMuaNCCPage />}
+        {tab === 'suppliers'         && <VatTuNCCPage />}
+        {tab === 'lenh-mua-ncc'      && <LenhMuaNCCPage />}
+        {tab === 'theo-doi-mua-hang' && <TheoDoiMuaHangPage />}
       </div>
     </div>
   )
