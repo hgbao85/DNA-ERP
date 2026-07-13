@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, CalendarClock, ChevronDown, ScanSearch, Wrench, Flame, SprayCan, Check } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, CalendarClock, ChevronDown, ScanSearch, Wrench, Flame, SprayCan, Check, Frame, Layers } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import MfgSetupPage from './MfgSetupPage'
@@ -18,9 +18,12 @@ import QuanLyDiemDanPage from './QuanLyDiemDanPage'
 import ThongKePagePlan from './ThongKePagePlan'
 import LenhSanXuatPhoi from '../Phoi/LenhSanXuatPhoi'
 import LichSuNhanSatPage from '../Phoi/LichSuNhanSatPage'
+import KhoPhoiPage from '../Phoi/KhoPhoiPage'
 import XacNhanSanLuongPage from '../Phoi/XacNhanSanLuongPage'
 import LenhSanXuatHan from '../Han/LenhSanXuatHan'
+import KhungHanPage from '../Han/KhungHanPage'
 import LenhSanXuatSon from '../Son/LenhSanXuatSon'
+import ManhChoDanPage from '../Son/ManhChoDanPage'
 import PhoiDinhMucManhPage from './PhoiDinhMucManhPage'
 import SKUListPage from '../ProductionPlan/SKUListPage'
 import LenhKiemTraPage from './LenhKiemTraPage'
@@ -32,7 +35,8 @@ import KcsSonPage from '../Kcs/KcsSonPage'
 
 type TabId =
   | 'workshop'
-  | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-san-luong' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh' | 'phoi-lich-su-nhan-sat'
+  | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-san-luong' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh' | 'phoi-lich-su-nhan-sat' | 'phoi-kho-phoi'
+  | 'han-khung-han' | 'son-manh-cho-dan'
   | 'quan-ly-diem-dan'
   | 'chuyen-kiem' | 'dong-goi' | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'kiem-tra-vt' | 'setup'
@@ -159,6 +163,9 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-dinh-muc-manh' as TabId, label: 'Danh sách định mức mảnh', icon: <Box size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-lich-su-nhan-sat' as TabId, label: 'Lịch sử nhận sắt', icon: <ArrowDownToLine size={16} /> }] : []),
+    ...(isPhoi ? [{ id: 'phoi-kho-phoi' as TabId, label: 'Kho phôi', icon: <Warehouse size={16} /> }] : []),
+    ...(isHan ? [{ id: 'han-khung-han' as TabId, label: 'Khung hàn', icon: <Frame size={16} /> }] : []),
+    ...(isSon ? [{ id: 'son-manh-cho-dan' as TabId, label: 'Mảnh chờ đan', icon: <Layers size={16} /> }] : []),
     ...(isKcs ? [{ id: 'kcs-phoi' as TabId, label: 'Phôi', icon: <Wrench size={16} /> }] : []),
     ...(isKcs ? [{ id: 'kcs-han' as TabId, label: 'Hàn', icon: <Flame size={16} /> }] : []),
     ...(isKcs ? [{ id: 'kcs-son' as TabId, label: 'Sơn', icon: <SprayCan size={16} /> }] : []),
@@ -313,6 +320,9 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'phoi-lenh-sx' && (isPhoi || isHan || isSon || isDirector) && (isHan ? <LenhSanXuatHan readOnly={isDirector} /> : isSon ? <LenhSanXuatSon readOnly={isDirector} /> : <LenhSanXuatPhoi readOnly={isDirector} />)}
         {tab === 'phoi-dinh-muc-manh' && (isPhoi || isHan || isSon || isDirector) && <PhoiDinhMucManhPage stage={isSon ? 'SON' : isHan ? 'HAN' : 'PHOI'} />}
         {tab === 'phoi-lich-su-nhan-sat' && (isPhoi || isDirector) && <LichSuNhanSatPage />}
+        {tab === 'phoi-kho-phoi' && (isPhoi || isDirector) && <KhoPhoiPage />}
+        {tab === 'han-khung-han' && (isHan || isDirector) && <KhungHanPage />}
+        {tab === 'son-manh-cho-dan' && (isSon || isDirector) && <ManhChoDanPage />}
         {tab === 'kcs-phoi' && isKcs && <KcsPhoiPage />}
         {tab === 'kcs-han' && isKcs && <KcsHanPage />}
         {tab === 'kcs-son' && isKcs && <KcsSonPage />}
