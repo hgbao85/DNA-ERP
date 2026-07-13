@@ -108,3 +108,64 @@ export async function xacNhanCatXong(id: string, soCayThuc?: number) {
   }
   return { id, status: it?.status };
 }
+
+// ── Kế hoạch xuất sắt (kho sắt) — cắt sắt tính sẵn cần xuất bao nhiêu cây mỗi loại ──
+const now = () => new Date().toISOString().slice(0, 16).replace('T', ' ');
+
+export interface KeHoachSatItem {
+  id: string;
+  poNumber: string;
+  sku: string;
+  lineId: number;                    // khớp ProcLine.id — đợt xuất rơi đúng dòng bên Phôi
+  manhTen: string;                   // mảnh cấu thành — để tính đồng bộ trong 1 mảnh
+  loaiSat: string;
+  quyCach: string;
+  barLen: number;
+  planCay: number;                   // tổng cây cần xuất (cắt sắt tính)
+  seg: Record<number, number>;       // đoạn/cây của kiểu cắt đại diện
+  hhPerCay: number;
+}
+export interface KeHoachSatView extends KeHoachSatItem {
+  daXuat: number;                    // Σ cây đã xuất (mọi đợt của line)
+  daCat: number;                     // Σ cây đã cắt xong (đã KCS duyệt)
+  conXuat: number;                   // planCay − daXuat
+}
+
+const S25 = { 930: 4, 765: 1, 695: 1, 200: 4 };  // kiểu cắt đại diện 25×50
+const catPlan: KeHoachSatItem[] = [
+  { id: 'kh-111', poNumber: 'PO-2026-001', sku: 'GHE-J55', lineId: 111, manhTen: 'Mảnh Tựa', loaiSat: 'Sắt Vuông 6 zem', quyCach: '18×18', barLen: 6000, planCay: 84, seg: { 745: 8 }, hhPerCay: 40 },
+  { id: 'kh-112', poNumber: 'PO-2026-001', sku: 'GHE-J55', lineId: 112, manhTen: 'Mảnh Tựa', loaiSat: 'Sắt Hộp 8 zem', quyCach: '20×40', barLen: 6000, planCay: 56, seg: { 1180: 5 }, hhPerCay: 100 },
+  { id: 'kh-113', poNumber: 'PO-2026-001', sku: 'GHE-J55', lineId: 113, manhTen: 'Mảnh Tựa', loaiSat: 'Sắt Hộp 6 zem', quyCach: '25×50', barLen: 6000, planCay: 84, seg: S25, hhPerCay: 20 },
+  { id: 'kh-121', poNumber: 'PO-2026-001', sku: 'GHE-J55', lineId: 121, manhTen: 'Mảnh Tay', loaiSat: 'Sắt Hộp 6 zem', quyCach: '25×50', barLen: 6000, planCay: 42, seg: S25, hhPerCay: 20 },
+  { id: 'kh-122', poNumber: 'PO-2026-001', sku: 'GHE-J55', lineId: 122, manhTen: 'Mảnh Tay', loaiSat: 'Sắt Vuông 6 zem', quyCach: '18×18', barLen: 6000, planCay: 42, seg: { 745: 8 }, hhPerCay: 40 },
+];
+
+const daXuatOf = (lineId: number) =>
+  issues.filter((i) => i.lineId === lineId).reduce((s, i) => s + tongCay(i.bundles), 0);
+const daCatOf = (lineId: number) =>
+  issues.filter((i) => i.lineId === lineId && i.status === 'DA_CAT').reduce((s, i) => s + (i.soCayThuc ?? tongCay(i.bundles)), 0);
+
+export async function getKeHoachXuatSat(poNumber?: string): Promise<KeHoachSatView[]> {
+  await mockDelay();
+  const src = poNumber ? catPlan.filter((p) => p.poNumber === poNumber) : catPlan;
+  return src.map((p) => {
+    const daXuat = daXuatOf(p.lineId);
+    return { ...p, daXuat, daCat: daCatOf(p.lineId), conXuat: Math.max(0, p.planCay - daXuat) };
+  });
+}
+
+// Kho xuất sắt cho Phôi → tạo đợt DA_NHAN (hiện ngay bên Phôi qua getDotXuatSat).
+export async function xuatSatChoPhoi(planId: string, soCay: number) {
+  await mockDelay();
+  const p = catPlan.find((x) => x.id === planId);
+  if (!p || soCay <= 0) return null;
+  const issue: SatIssue = {
+    id: 'x' + Date.now(),
+    poNumber: p.poNumber, sku: p.sku, lineId: p.lineId,
+    loaiSat: p.loaiSat, quyCach: p.quyCach, barLen: p.barLen,
+    bundles: [{ segments: p.seg, soCay, hhPerCay: p.hhPerCay }],
+    dotThoiGian: now(), nguoiXuat: KHO, status: 'DA_NHAN',
+  };
+  issues.push(issue);
+  return enrich(issue);
+}
