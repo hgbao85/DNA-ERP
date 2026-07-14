@@ -34,6 +34,7 @@ async function ensurePlanFormForConfirmedItem(pi: any, item: any) {
     mfgProductId: mfgProduct.id,
     customerName: pi.exportOrder?.customerName,
     origin: 'PRODUCTION_CONFIRM',
+    productionInvoiceId: pi.id,
   })
 
   // Định mức chi tiết (BOM) là thuộc tính của SKU (mfgProduct), không đổi theo
@@ -61,6 +62,7 @@ export default function LenhSXPage() {
   const [confirmProdTarget, setConfirmProdTarget] = useState<any | null>(null)
   const [selectedItemIdx, setSelectedItemIdx] = useState<number | null>(null)
   const [approvingKey, setApprovingKey] = useState<string | null>(null)
+  const [approveTarget, setApproveTarget] = useState<{ pi: any; idx: number } | null>(null)
   const [rejectTarget, setRejectTarget] = useState<{ pi: any; idx: number } | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [rejecting, setRejecting] = useState(false)
@@ -218,6 +220,7 @@ export default function LenhSXPage() {
         ...(allApproved ? { status: 'PRODUCING' } : {}),
       })
       refetch()
+      setApproveTarget(null)
     } catch (e: any) {
       alert(e?.response?.data?.error ?? 'Lỗi duyệt sản xuất')
     } finally {
@@ -464,7 +467,7 @@ export default function LenhSXPage() {
                       )}
                       {isBoss && item.prodApproval?.status === 'PENDING' && (
                         <div style={{ display:'flex', gap:8, margin:'0 18px 14px' }}>
-                          <button onClick={() => handleApproveItem(pi, idx)} disabled={approvingKey === `${pi.id}-${idx}`}
+                          <button onClick={() => setApproveTarget({ pi, idx })} disabled={approvingKey === `${pi.id}-${idx}`}
                             style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor: approvingKey === `${pi.id}-${idx}` ? 'not-allowed' : 'pointer', color:'#fff', opacity: approvingKey === `${pi.id}-${idx}` ? 0.7 : 1 }}>
                             <ThumbsUp size={12}/> {approvingKey === `${pi.id}-${idx}` ? 'Đang duyệt...' : 'Duyệt'}
                           </button>
@@ -718,6 +721,111 @@ export default function LenhSXPage() {
                     {confirmingProdId ? 'Đang gửi...' : 'Gửi sếp duyệt'}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* Duyệt SKU — xác nhận trước khi tạo lệnh sản xuất (PI) */}
+      {approveTarget && (() => {
+        const { pi, idx } = approveTarget
+        const items: any[] = pi.items ?? []
+        const item = items[idx]
+        if (!item) return null
+        const code  = item.productVariant?.mfgProduct?.factoryCode ?? '—'
+        const name  = item.productVariant?.mfgProduct?.name ?? ''
+        const color = item.productVariant?.colorCode
+        const qty   = item.quantity
+        const piDeadline = new Date(pi.deadline)
+        const fb = (days: number) => { const d = new Date(piDeadline); d.setDate(d.getDate() - days); return d }
+        const iHan  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'HAN')     : null
+        const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
+        const iSon  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'SON')     : null
+        const cols = [
+          { label:'Mua hàng', val: item.materialDeadline ? new Date(item.materialDeadline) : fb(21), own: !!item.materialDeadline },
+          { label:'Khung CK', val: iHan  ? new Date(iHan.deadline)  : fb(14), own: !!iHan },
+          { label:'Đan',      val: iWeav ? new Date(iWeav.deadline) : fb(8),  own: !!iWeav },
+          { label:'Đóng gói', val: iSon  ? new Date(iSon.deadline)  : fb(3),  own: !!iSon },
+        ]
+        const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
+        const busy = approvingKey === `${pi.id}-${idx}`
+        // Boss cần biết trước nếu đây là SKU cuối — duyệt xong PO sẽ tự chuyển "Đang sản xuất" (đúng logic allApproved ở handleApproveItem).
+        const willCompletePI = items.every((it: any, i: number) => i === idx || it.prodApproval?.status === 'APPROVED')
+
+        return (
+          <div onClick={() => { if (!busy) setApproveTarget(null) }}
+            style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1100, padding:16 }}>
+            <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="approve-sku-title"
+              style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:24, width:480, maxWidth:'95vw', maxHeight:'85vh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
+
+              {/* Header */}
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+                <h3 id="approve-sku-title" style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
+                  <ThumbsUp size={16} color="#2e7d32"/> Duyệt sản xuất — Tạo lệnh sản xuất
+                </h3>
+                <button onClick={() => setApproveTarget(null)} disabled={busy} aria-label="Đóng"
+                  style={{ padding:4, background:'transparent', border:'none', cursor: busy ? 'not-allowed' : 'pointer' }}>
+                  <X size={18} color="var(--text3)"/>
+                </button>
+              </div>
+
+              {/* PO + hạn giao */}
+              <div style={{ display:'flex', gap:10, marginBottom:14 }}>
+                <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Mã PO</div>
+                  <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14 }}>{getDisplayCode(pi)}</div>
+                </div>
+                <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Hạn giao</div>
+                  <div style={{ fontWeight:700, fontSize:14, color:'#1d4ed8' }}>{format(iDelivery ?? piDeadline, 'dd/MM/yyyy')}</div>
+                </div>
+              </div>
+
+              {/* SKU + timeline */}
+              <div style={{ border:'1px solid var(--border)', borderRadius:8, overflow:'hidden', marginBottom:14 }}>
+                <div style={{ padding:'10px 12px' }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                    <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>{code}</span>
+                    {name && <span style={{ fontSize:13, color:'var(--text2)' }}>{name}</span>}
+                  </div>
+                  <div style={{ display:'flex', gap:6, marginTop:5 }}>
+                    {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
+                    {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
+                  </div>
+                </div>
+                <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', borderTop:'1px solid var(--border)', background:'var(--surface2)' }}>
+                  {cols.map(({ label, val, own }, ci) => (
+                    <div key={label} style={{ padding:'6px 10px', borderRight: ci < 3 ? '1px solid var(--border)' : undefined, textAlign:'center' }}>
+                      <div style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:1 }}>{label}</div>
+                      <div style={{ fontSize:11, fontWeight: own ? 600 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>
+                        {format(val, 'dd/MM/yy')}
+                        {!own && <span style={{ display:'block', fontSize:9 }}>ước tính</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Hệ quả của hành động */}
+              <div style={{ display:'flex', gap:8, alignItems:'flex-start', background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:'10px 12px', fontSize:12, color:'#166534' }}>
+                <CheckCircle2 size={14} style={{ flexShrink:0, marginTop:1 }}/>
+                <span>
+                  Duyệt sẽ tạo lệnh sản xuất (PI) cho SKU này và bắt đầu sản xuất ngay — không thể hoàn tác.
+                  {willCompletePI && ' Đây là SKU cuối cùng của PO — PO sẽ chuyển sang trạng thái "Đang sản xuất".'}
+                </span>
+              </div>
+
+              {/* Actions */}
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:8, marginTop:16 }}>
+                <button onClick={() => setApproveTarget(null)} disabled={busy}
+                  style={{ padding:'9px 18px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor: busy ? 'not-allowed' : 'pointer', color:'var(--text2)' }}>
+                  Hủy
+                </button>
+                <button onClick={() => handleApproveItem(pi, idx)} disabled={busy}
+                  style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background:'#2e7d32', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: busy ? 'not-allowed' : 'pointer', color:'#fff', opacity: busy ? 0.7 : 1 }}>
+                  <ThumbsUp size={15}/> {busy ? 'Đang duyệt...' : 'Xác nhận duyệt'}
+                </button>
               </div>
             </div>
           </div>

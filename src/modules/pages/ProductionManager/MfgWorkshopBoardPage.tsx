@@ -7,6 +7,7 @@ import { PhoiScreen, TwoTierScreen, PHOI_CFG, HAN_CFG, SON_CFG, type ProcRow, ty
 import KhoChuyenKiemPage from '../InboundWarehouse/KhoChuyenKiemPage'
 import KhoDongGoiPage from '../InboundWarehouse/KhoDongGoiPage'
 import KhoNhapDanPage from '../InboundWarehouse/KhoNhapDanPage'
+import type { PlanForm } from '../../../types/plan-form'
 
 // 4 công đoạn SX + 2 công đoạn sau-đan (Chuyền kiểm, Đóng gói) — tất cả mở bằng cách bấm vào ô.
 const STAGES = ['PHOI', 'HAN', 'SON', 'WEAVING'] as const
@@ -16,109 +17,22 @@ const STAGE_LABEL: Record<StageKey, string> = { PHOI: 'Phôi', HAN: 'Hàn', SON:
 const KCS_STAGES: Record<string, 'PHOI' | 'HAN' | 'SON' | null> = { PHOI: 'PHOI', HAN: 'HAN', SON: 'SON', WEAVING: null }
 
 const PI_STATUS_LABEL: Record<string, string> = {
-  NEW: 'Mới', PLANNING: 'Lên kế hoạch', PURCHASING: 'Mua hàng',
+  NEW: 'Mới', PURCHASING: 'Mua hàng',
   PRODUCING: 'Đang SX', QC_STAGE: 'QC', DONE: 'Hoàn thành', CANCELLED: 'Đã hủy',
 }
 
 interface Stage { stageType: string; progressPercent: number; status: string }
-interface PIItem { quantity: number; productVariant?: { colorCode?: string | null; mfgProduct?: { name: string; factoryCode: string } } }
+interface PIItem { quantity: number; productVariant?: { colorCode?: string | null; mfgProduct?: { name: string; factoryCode: string } }; prodApproval?: { status?: string } }
 interface PI {
   id: number; code: string; deadline: string; status: string
   exportOrderId?: number
+  exportOrder?: { poNumber?: string }
   items: PIItem[]; stages: Stage[]
 }
 type KcsCounts = Record<number, Record<string, number>>
 
 // ── Dropdown lọc theo công đoạn ───────────────────────────────────────────────
 type StageFilter = 'ALL' | 'PHOI' | 'HAN' | 'SON' | 'WEAVING' | 'CHUYEN_KIEM' | 'DONG_GOI'
-
-// ── Mock data bổ sung (≥2 item mỗi công đoạn) ────────────────────────────────
-const _ISO = (d: string) => new Date(d).toISOString()
-const MOCK_EXTRA_PIS: PI[] = [
-  {
-    id: 101, code: 'PI-2026-007', deadline: _ISO('2026-08-15'), status: 'PRODUCING',
-    items: [{ quantity: 350, productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế café C-01', factoryCode: 'CAF-01' } } }],
-    stages: [
-      { stageType: 'PHOI', progressPercent: 75, status: 'IN_PROGRESS' },
-      { stageType: 'HAN',  progressPercent: 40, status: 'IN_PROGRESS' },
-      { stageType: 'SON',  progressPercent: 0,  status: 'PENDING' },
-    ],
-  },
-  {
-    id: 102, code: 'PI-2026-008', deadline: _ISO('2026-09-10'), status: 'PRODUCING',
-    items: [{ quantity: 500, productVariant: { colorCode: 'BEIGE', mfgProduct: { name: 'Ghế đan IEA-5', factoryCode: 'IEA-5' } } }],
-    stages: [
-      { stageType: 'PHOI',    progressPercent: 100, status: 'DONE' },
-      { stageType: 'HAN',     progressPercent: 100, status: 'DONE' },
-      { stageType: 'WEAVING', progressPercent: 60,  status: 'IN_PROGRESS' },
-      { stageType: 'SON',     progressPercent: 0,   status: 'PENDING' },
-    ],
-  },
-  {
-    id: 103, code: 'PI-2026-009', deadline: _ISO('2026-07-20'), status: 'PRODUCING',
-    items: [{ quantity: 200, productVariant: { colorCode: 'WHITE', mfgProduct: { name: 'Bàn đan T-10', factoryCode: 'TBL-10' } } }],
-    stages: [
-      { stageType: 'PHOI', progressPercent: 90, status: 'IN_PROGRESS' },
-      { stageType: 'HAN',  progressPercent: 85, status: 'IN_PROGRESS' },
-      { stageType: 'SON',  progressPercent: 45, status: 'IN_PROGRESS' },
-    ],
-  },
-  {
-    id: 104, code: 'PI-2026-010', deadline: _ISO('2026-07-05'), status: 'PRODUCING',
-    items: [{ quantity: 300, productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế lounge L-03', factoryCode: 'LNG-03' } } }],
-    stages: [
-      { stageType: 'PHOI',    progressPercent: 100, status: 'DONE' },
-      { stageType: 'HAN',     progressPercent: 100, status: 'DONE' },
-      { stageType: 'WEAVING', progressPercent: 100, status: 'DONE' },
-      { stageType: 'SON',     progressPercent: 100, status: 'DONE' },
-    ],
-  },
-  {
-    id: 105, code: 'PI-2026-011', deadline: _ISO('2026-10-01'), status: 'PRODUCING',
-    items: [{ quantity: 420, productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế văn phòng VF-02', factoryCode: 'OFF-02' } } }],
-    stages: [
-      { stageType: 'PHOI', progressPercent: 30, status: 'IN_PROGRESS' },
-      { stageType: 'HAN',  progressPercent: 10, status: 'IN_PROGRESS' },
-      { stageType: 'SON',  progressPercent: 0,  status: 'PENDING' },
-    ],
-  },
-  {
-    id: 106, code: 'PI-2026-012', deadline: _ISO('2026-08-25'), status: 'PRODUCING',
-    items: [{ quantity: 180, productVariant: { colorCode: 'BEIGE', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } } }],
-    stages: [
-      { stageType: 'PHOI',    progressPercent: 100, status: 'DONE' },
-      { stageType: 'HAN',     progressPercent: 100, status: 'DONE' },
-      { stageType: 'WEAVING', progressPercent: 45,  status: 'IN_PROGRESS' },
-      { stageType: 'SON',     progressPercent: 0,   status: 'PENDING' },
-    ],
-  },
-  // PI đã xong SX → đang Chuyền kiểm + Đóng gói (item thứ 2 cho 2 công đoạn này)
-  {
-    id: 107, code: 'PI-2026-013', deadline: _ISO('2026-07-01'), status: 'PRODUCING',
-    items: [{ quantity: 250, productVariant: { colorCode: 'WHITE', mfgProduct: { name: 'Ghế ngoài trời OD-07', factoryCode: 'OD-07' } } }],
-    stages: [
-      { stageType: 'PHOI',    progressPercent: 100, status: 'DONE' },
-      { stageType: 'HAN',     progressPercent: 100, status: 'DONE' },
-      { stageType: 'WEAVING', progressPercent: 100, status: 'DONE' },
-      { stageType: 'SON',     progressPercent: 100, status: 'DONE' },
-    ],
-  },
-]
-const MOCK_KCS_EXTRA: KcsCounts = {
-  101: { PHOI: 5, HAN: 2, SON: 0 },
-  103: { PHOI: 3, HAN: 1, SON: 4 },
-  105: { PHOI: 8, HAN: 0, SON: 0 },
-}
-// Chuyền kiểm: PI-010 (80%) + PI-013 (65%) → ≥2 item
-const MOCK_CK_EXTRA: Record<number, { pct: number; pending: number }> = {
-  104: { pct: 80, pending: 3 },
-  107: { pct: 65, pending: 1 },
-}
-// Đóng gói: PI-010 (30%) + PI-013 (90%) → ≥2 item
-const MOCK_PK_EXTRA: Record<number, { pct: number; allDone: boolean }> = {
-  104: { pct: 30, allDone: false },
-  107: { pct: 90, allDone: false },
-}
 
 // Dữ liệu Chuyền kiểm / Đóng gói (lấy từ 2 endpoint riêng, map theo piId để hiện % trên bảng)
 interface CKPiece { target: number; inspected: number }
@@ -239,9 +153,10 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
   const { data: kcsRaw, refetch: refetchKcs } = useFetch<KcsCounts>(() => api.getKcsPendingCounts(), [])
   const { data: ckRaw, refetch: refetchCk } = useFetch<CKPI[]>(() => api.getChuyenKiem(), [])
   const { data: pkRaw, refetch: refetchPk } = useFetch<PKPI[]>(() => api.getPacking(), [])
+  const { data: planFormsRaw, refetch: refetchPlanForms } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
 
   // Khi quay lại từ drill-down, làm mới mọi số liệu
-  const handleBack = () => { setDetail(null); refetch(); refetchKcs(); refetchCk(); refetchPk() }
+  const handleBack = () => { setDetail(null); refetch(); refetchKcs(); refetchCk(); refetchPk(); refetchPlanForms() }
 
   // ── Drill-down views: mở đúng giao diện mà phoi@/han@/son@/khotp@ đang thấy, ở chế độ chỉ xem
   // (qlsx@ chỉ quản lý/theo dõi — thao tác thật do đúng tài khoản chuyên trách thực hiện) ─────────
@@ -275,35 +190,60 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
     )
   }
 
-  const all = [...(Array.isArray(pisRaw) ? pisRaw : []), ...MOCK_EXTRA_PIS]
-  const kcs: KcsCounts = { ...(kcsRaw && typeof kcsRaw === 'object' ? kcsRaw : {}), ...MOCK_KCS_EXTRA }
+  const all = Array.isArray(pisRaw) ? pisRaw : []
+  const kcs: KcsCounts = kcsRaw && typeof kcsRaw === 'object' ? kcsRaw : {}
 
   // Map Chuyền kiểm / Đóng gói theo piId
-  const ckMap: Record<number, { pct: number; pending: number }> = { ...MOCK_CK_EXTRA }
+  const ckMap: Record<number, { pct: number; pending: number }> = {}
   for (const c of (Array.isArray(ckRaw) ? ckRaw : [])) {
     const t = c.pieces.reduce((s, p) => s + p.target, 0)
     const ins = c.pieces.reduce((s, p) => s + p.inspected, 0)
     ckMap[c.piId] = { pct: t > 0 ? Math.round(ins / t * 100) : 0, pending: c.pendingReports?.length ?? 0 }
   }
-  const pkMap: Record<number, { pct: number; allDone: boolean }> = { ...MOCK_PK_EXTRA }
+  const pkMap: Record<number, { pct: number; allDone: boolean }> = {}
   for (const p of (Array.isArray(pkRaw) ? pkRaw : [])) {
     pkMap[p.piId] = { pct: p.totalTarget > 0 ? Math.round(p.totalPacked / p.totalTarget * 100) : 0, allDone: p.allDone }
   }
 
-  const afterDoneFilter = all.filter(p => showDone || (p.status !== 'DONE' && p.status !== 'CANCELLED'))
-  const pis = stageFilter === 'ALL'         ? afterDoneFilter
-    : stageFilter === 'CHUYEN_KIEM'         ? afterDoneFilter.filter(p => ckMap[p.id] !== undefined)
-    : stageFilter === 'DONG_GOI'            ? afterDoneFilter.filter(p => pkMap[p.id] !== undefined)
-    : afterDoneFilter.filter(p => p.stages?.some(s => s.stageType === stageFilter))
+  const piMap = new Map(all.map(p => [p.id, p]))
+  const planForms = Array.isArray(planFormsRaw) ? planFormsRaw : []
+
+  // Lệnh nhiều SKU: Sếp duyệt từng SKU riêng lẻ, pi.status chỉ chuyển khỏi PLANNING khi TẤT CẢ SKU
+  // đã duyệt (xem LenhSXPage.tsx handleApproveItem) — nên phải hiện lệnh ngay khi có SKU đã duyệt,
+  // không chờ pi.status đổi, để SKU đó lên bảng tổng hợp đúng lúc Sếp vừa duyệt xong.
+  const hasApprovedItem = (p: PI) => (p.items ?? []).some(it => it.prodApproval?.status === 'APPROVED')
+  // Lên kế hoạch (PLANNING) chưa vào sản xuất — không hiện ở "Tổng hợp lệnh sản xuất", trừ khi đã
+  // có SKU được duyệt (đã thật sự bắt đầu sản xuất dù pi.status còn PLANNING).
+  const isVisible = (p: PI) =>
+    (p.status !== 'PLANNING' || hasApprovedItem(p)) &&
+    (showDone || (p.status !== 'DONE' && p.status !== 'CANCELLED'))
+
+  // 1 dòng = 1 SKU. Với SKU do khsx@demo.com quản lý (PlanForm khác DRAFT), lấy đúng 1 dòng cho mỗi
+  // PlanForm — kể cả khi nhiều PlanForm dùng chung 1 PI — để số dòng/dữ liệu luôn khớp 1-1 với "Bảng
+  // thống kê" bên khsx (không gộp lại theo PI như trước, gây lệch số lượng item giữa 2 màn).
+  const linkedPiIds = new Set(planForms.map(pf => pf.productionInvoiceId).filter((id): id is number => id != null))
+  const planFormRows = planForms
+    .filter(pf => pf.status !== 'DRAFT' && pf.productionInvoiceId != null)
+    .map(pf => ({ key: `pf-${pf.id}`, pi: piMap.get(pf.productionInvoiceId as number) }))
+    .filter((r): r is { key: string; pi: PI } => !!r.pi && isVisible(r.pi))
+
+  // Lệnh SX do qlsx tự tạo, chưa từng qua khsx (không có PlanForm nào trỏ tới) — cùng 1 quy tắc hiện.
+  const standaloneRows = all
+    .filter(p => !linkedPiIds.has(p.id))
+    .filter(isVisible)
+    .map(p => ({ key: `pi-${p.id}`, pi: p }))
+
+  const allRows = [...planFormRows, ...standaloneRows]
+  const rows = stageFilter === 'ALL'         ? allRows
+    : stageFilter === 'CHUYEN_KIEM'         ? allRows.filter(r => ckMap[r.pi.id] !== undefined)
+    : stageFilter === 'DONG_GOI'            ? allRows.filter(r => pkMap[r.pi.id] !== undefined)
+    : allRows.filter(r => r.pi.stages?.some(s => s.stageType === stageFilter))
 
   const stageOf = (pi: PI, st: StageKey) => pi.stages?.find(s => s.stageType === st)
   const daysLeft = (d: string) => differenceInCalendarDays(new Date(d), new Date())
 
   // Tổng hợp đầu trang
-  const totalKcs = pis.reduce((s, p) => {
-    const c = kcs[p.id]; return s + (c ? c.PHOI + c.HAN + c.SON : 0)
-  }, 0)
-  const lateCount = pis.filter(p => daysLeft(p.deadline) < 0 && p.status !== 'DONE').length
+  const lateCount = rows.filter(r => daysLeft(r.pi.deadline) < 0 && r.pi.status !== 'DONE').length
 
   return (
     <div>
@@ -312,9 +252,8 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
           <LayoutGrid size={20} /> Tổng hợp lệnh sản xuất
         </h2>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13 }}>
-          <span style={{ color: 'var(--text3)' }}>{pis.length} lệnh</span>
+          <span style={{ color: 'var(--text3)' }}>{rows.length} lệnh</span>
           {lateCount > 0 && <span style={{ padding: '3px 10px', borderRadius: 12, background: '#ffebee', color: '#c62828', fontWeight: 700 }}>🔴 {lateCount} trễ hạn</span>}
-          {totalKcs > 0 && <span style={{ padding: '3px 10px', borderRadius: 12, background: '#fff3e0', color: '#e65100', fontWeight: 700 }}>⏳ {totalKcs} chờ KCS</span>}
           <label style={{ display: 'flex', alignItems: 'center', gap: 5, color: 'var(--text2)', cursor: 'pointer' }}>
             <input type="checkbox" checked={showDone} onChange={e => setShowDone(e.target.checked)} /> Hiện cả đã xong
           </label>
@@ -331,6 +270,7 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 920 }}>
           <thead>
             <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)', color: 'var(--text3)' }}>
+              <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600 }}>Mã PO</th>
               <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600 }}>Lệnh SX</th>
               <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600 }}>Sản phẩm</th>
               <th style={{ textAlign: 'left', padding: '10px 14px', fontWeight: 600 }}>Hạn giao</th>
@@ -343,22 +283,27 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
             </tr>
           </thead>
           <tbody>
-            {pis.length === 0 && (
-              <tr><td colSpan={10} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có lệnh SX nào</td></tr>
+            {rows.length === 0 && (
+              <tr><td colSpan={11} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có lệnh SX nào</td></tr>
             )}
-            {pis.map(pi => {
+            {rows.map(({ key, pi }) => {
               const dl = daysLeft(pi.deadline)
               const isDone = pi.status === 'DONE'
               const dlColor = isDone ? '#2e7d32' : dl < 0 ? '#c62828' : dl <= 7 ? '#e65100' : '#2e7d32'
               const dlBg = isDone ? '#e8f5e9' : dl < 0 ? '#ffebee' : dl <= 7 ? '#fff3e0' : '#e8f5e9'
               const dlText = isDone ? 'Xong' : dl < 0 ? `Trễ ${-dl}n` : dl === 0 ? 'Hôm nay' : `còn ${dl}n`
               const products = (pi.items ?? []).map(it => `${it.productVariant?.mfgProduct?.name ?? '—'} ×${it.quantity}`).join(', ')
+              const skus = (pi.items ?? []).map(it => it.productVariant?.mfgProduct?.factoryCode).filter(Boolean).join(', ')
               const ck = ckMap[pi.id]
               const pk = pkMap[pi.id]
               return (
-                <tr key={pi.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                <tr key={key} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: '8px 14px', fontFamily: 'monospace', color: 'var(--text2)' }}>{pi.exportOrder?.poNumber ?? '—'}</td>
                   <td style={{ padding: '8px 14px', fontFamily: 'monospace', fontWeight: 700 }}>{pi.code}</td>
-                  <td style={{ padding: '8px 14px', maxWidth: 240 }}>{products}</td>
+                  <td style={{ padding: '8px 14px', maxWidth: 240 }}>
+                    <div>{products}</div>
+                    {skus && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{skus}</div>}
+                  </td>
                   <td style={{ padding: '8px 14px', whiteSpace: 'nowrap' }}>
                     <span style={{ color: 'var(--text2)' }}>{format(new Date(pi.deadline), 'dd/MM')}</span>
                     <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: dlBg, color: dlColor }}>{dlText}</span>
@@ -402,10 +347,6 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
             })}
           </tbody>
         </table>
-      </div>
-
-      <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text3)' }}>
-        Bấm ô công đoạn để mở chi tiết &amp; duyệt KCS. Ô <strong>Đan</strong> mở tiến độ nhập đan; ô <strong>Chuyền kiểm</strong> / <strong>Đóng gói</strong> mở màn thao tác. Số cam = báo cáo đang chờ duyệt.
       </div>
         </>
       )}
