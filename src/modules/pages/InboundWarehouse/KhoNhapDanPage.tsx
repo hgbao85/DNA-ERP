@@ -8,6 +8,7 @@ import { safeArr } from '../../../utils/array'
 import { errMsg } from '../../../utils/errors'
 import { listTh as thStyle, listTd as tdStyle, emptyBox } from '../../../styles/table'
 import ProgressBar from '../../../components/ProgressBar'
+import ManhSkuDetail from './ManhSkuDetail'
 import type { ManhOrder, ManhSkuGroup } from '../../../types/manh'
 
 interface WeavingPoint { id: number; name: string; fullName?: string }
@@ -44,14 +45,11 @@ export default function KhoNhapDanPage() {
   const selectedOrder = orders.find(o => o.id === selectedOrderId) ?? null
   const selectedSku = selectedOrder?.skus.find(s => s.id === selectedSkuId) ?? null
 
-  const [qty, setQty] = useState<Record<number, string>>({})
   const [busy, setBusy] = useState<number | null>(null)
   const [msgs, setMsgs] = useState<Record<number, string>>({})
   const { ask, confirmModal } = useConfirm()
 
-  const handleNhap = (lineId: number, weavingPointId: number, allocId: number, max: number) => {
-    const q = Number(qty[allocId])
-    if (!q || q <= 0 || q > max) { setMsgs(p => ({ ...p, [allocId]: 'Số lượng không hợp lệ' })); return }
+  const handleNhap = (lineId: number, weavingPointId: number, allocId: number, q: number) => {
     ask(
       { message: `Xác nhận đã nhận ${q} mảnh này từ ${pointLabel(weavingPointId)}? Tồn kho thành phẩm sẽ được cộng ngay.` },
       async () => {
@@ -59,7 +57,6 @@ export default function KhoNhapDanPage() {
         setMsgs(p => ({ ...p, [allocId]: '' }))
         try {
           await (api as any).nhapManh(lineId, weavingPointId, q)
-          setQty(p => ({ ...p, [allocId]: '' }))
           refetch()
         } catch (e) {
           setMsgs(p => ({ ...p, [allocId]: errMsg(e, 'Không thể xác nhận nhập đan') }))
@@ -72,11 +69,6 @@ export default function KhoNhapDanPage() {
 
   // ── Cấp 3: chi tiết nhập của 1 SKU ───────────────────────────────────────────
   if (selectedOrder && selectedSku) {
-    const total  = selectedSku.lines.reduce((s, l) => s + l.totalQty, 0)
-    const daXuat = selectedSku.lines.reduce((s, l) => s + sumXuat(l), 0)
-    const daNhap = selectedSku.lines.reduce((s, l) => s + sumNhap(l), 0)
-    const rows = selectedSku.lines.flatMap(l => l.allocations.filter(a => a.xuatQty > 0).map(a => ({ line: l, alloc: a })))
-
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -97,79 +89,17 @@ export default function KhoNhapDanPage() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
-          <div style={{ padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 24, fontWeight: 700 }}>{total}</div>
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Tổng</div>
-          </div>
-          <div style={{ padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 24, fontWeight: 700, color: '#d97706' }}>{daXuat}</div>
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Đã xuất</div>
-          </div>
-          <div style={{ padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 24, fontWeight: 700, color: '#16a34a' }}>{daNhap}</div>
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Đã nhập</div>
-          </div>
-        </div>
-
         <div style={{ color: 'var(--text3)', fontSize: 12, marginBottom: 10 }}>
           Mỗi dòng ứng với 1 điểm đan — 1 loại mảnh có thể xuất hiện nhiều lần nếu đã xuất cho nhiều điểm đan khác nhau.
         </div>
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
-            <colgroup>
-              <col /><col /><col style={{ width: 90 }} /><col style={{ width: 90 }} /><col style={{ width: 190 }} />
-            </colgroup>
-            <thead>
-              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                <th style={thStyle}>Tên mảnh</th>
-                <th style={thStyle}>Điểm đan</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>SL đã xuất</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>SL đã nhập</th>
-                <th style={thStyle}>Nhập</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map(({ line, alloc }) => {
-                const remaining = alloc.xuatQty - alloc.nhapQty
-                const done = remaining <= 0
-                return (
-                  <tr key={alloc.id} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={{ ...tdStyle, fontWeight: 500 }}>{line.name}</td>
-                    <td style={tdStyle}>{pointLabel(alloc.weavingPointId)}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: '#d97706' }}>{alloc.xuatQty}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: alloc.nhapQty > 0 ? '#16a34a' : 'var(--text3)' }}>{alloc.nhapQty}</td>
-                    <td style={tdStyle}>
-                      {done ? (
-                        <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>Đã nhận đủ</span>
-                      ) : (
-                        <div>
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                            <input
-                              type="number" min={1} max={remaining}
-                              value={qty[alloc.id] ?? ''}
-                              onChange={e => setQty(p => ({ ...p, [alloc.id]: e.target.value }))}
-                              placeholder="SL"
-                              style={{ width: 64, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
-                            />
-                            <button
-                              onClick={() => handleNhap(line.id, alloc.weavingPointId, alloc.id, remaining)}
-                              disabled={busy === alloc.id}
-                              style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#166534', color: '#fff', cursor: busy === alloc.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
-                            >
-                              {busy === alloc.id ? 'Đang lưu...' : 'Nhập'}
-                            </button>
-                          </div>
-                          {msgs[alloc.id] && <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626' }}>{msgs[alloc.id]}</div>}
-                        </div>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <ManhSkuDetail
+          lines={selectedSku.lines}
+          pointLabel={pointLabel}
+          variant="nhap"
+          onNhap={handleNhap}
+          busyAllocId={busy}
+          msgFor={id => msgs[id]}
+        />
         {confirmModal}
       </div>
     )
