@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
@@ -27,7 +27,7 @@ const orderLines = (order: ManhOrder) => order.skus.flatMap(skuLines)
  * PO là cấp lớn nhất: 1 PO có thể có nhiều SKU, mỗi SKU ứng với 1 mã PI riêng — nên điều hướng có
  * 3 cấp: danh sách PO → danh sách SKU trong PO → chi tiết nhập của 1 SKU.
  */
-export default function KhoNhapDanPage() {
+export default function KhoNhapDanPage({ readOnly = false, filterPiCode }: { readOnly?: boolean; filterPiCode?: string } = {}) {
   const { data: allOrders, refetch } = useFetch<ManhOrder[]>(() => (api as any).getManhOrders(), [])
   const { data: weavingPoints } = useFetch<WeavingPoint[]>(() => (api as any).getWeavingPoints(), [])
   const pointLabel = (id: number) => {
@@ -36,14 +36,25 @@ export default function KhoNhapDanPage() {
   }
 
   // Chỉ giữ lại các PO có ít nhất 1 SKU đã xuất đan (còn SKU chưa xuất gì thì lọc bỏ khỏi SKU list bên dưới)
+  // — và nếu drill-down từ bảng tổng hợp SX (qlsx@) truyền filterPiCode, chỉ giữ đúng SKU của lệnh đó
+  // (piCode luôn có tiền tố là mã PI thật, vd "PI-2026-001-A" ứng với PI "PI-2026-001").
   const orders = safeArr(allOrders)
-    .map(o => ({ ...o, skus: o.skus.filter(sku => sku.lines.some(l => sumXuat(l) > 0)) }))
+    .map(o => ({ ...o, skus: o.skus.filter(sku => sku.lines.some(l => sumXuat(l) > 0) && (!filterPiCode || sku.piCode.startsWith(filterPiCode))) }))
     .filter(o => o.skus.length > 0)
 
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null)
   const [selectedSkuId, setSelectedSkuId] = useState<number | null>(null)
   const selectedOrder = orders.find(o => o.id === selectedOrderId) ?? null
   const selectedSku = selectedOrder?.skus.find(s => s.id === selectedSkuId) ?? null
+
+  const autoSelectedRef = useRef(false)
+  useEffect(() => {
+    if (!autoSelectedRef.current && filterPiCode && orders.length > 0) {
+      setSelectedOrderId(orders[0].id)
+      if (orders[0].skus.length === 1) setSelectedSkuId(orders[0].skus[0].id)
+      autoSelectedRef.current = true
+    }
+  }, [orders, filterPiCode])
 
   const [busy, setBusy] = useState<number | null>(null)
   const [msgs, setMsgs] = useState<Record<number, string>>({})
@@ -95,12 +106,12 @@ export default function KhoNhapDanPage() {
         <ManhSkuDetail
           lines={selectedSku.lines}
           pointLabel={pointLabel}
-          variant="nhap"
-          onNhap={handleNhap}
+          variant={readOnly ? 'view' : 'nhap'}
+          onNhap={readOnly ? undefined : handleNhap}
           busyAllocId={busy}
           msgFor={id => msgs[id]}
         />
-        {confirmModal}
+        {!readOnly && confirmModal}
       </div>
     )
   }

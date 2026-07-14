@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, CalendarClock, ChevronDown, ScanSearch, Wrench, Flame, SprayCan, Check, Frame, Layers } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, CalendarClock, ScanSearch, Wrench, Flame, SprayCan, Check, Frame, Layers } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import MfgSetupPage from './MfgSetupPage'
@@ -8,11 +8,9 @@ import SpecWirePaintPage from './SpecWirePaintPage'
 import SpecAccessoryPage from './SpecAccessoryPage'
 import SpecPackagingPage from './SpecPackagingPage'
 import SpecAccessoryCatalogPage from './SpecAccessoryCatalogPage'
-import MfgWorkshopBoardPage from './MfgWorkshopBoardPage'
+import MfgWorkshopBoardPage from '../ProductionManager/MfgWorkshopBoardPage'
 import MfgWarehousesPage from './MfgWarehousesPage'
 import MfgAllMaterialsPage from './MfgAllMaterialsPage'
-import ChuyenKiemPage from './ChuyenKiemPage'
-import DongGoiPage from './DongGoiPage'
 import WeavingPointsPage from './WeavingPointsPage'
 import QuanLyDiemDanPage from './QuanLyDiemDanPage'
 import ThongKePagePlan from './ThongKePagePlan'
@@ -38,7 +36,7 @@ type TabId =
   | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-san-luong' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh' | 'phoi-lich-su-nhan-sat' | 'phoi-kho-phoi'
   | 'han-khung-han' | 'son-manh-cho-dan'
   | 'quan-ly-diem-dan'
-  | 'chuyen-kiem' | 'dong-goi' | 'weaving-points' | 'sku-list'
+  | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'kiem-tra-vt' | 'setup'
   | 'kcs-phoi' | 'kcs-han' | 'kcs-son'
 
@@ -63,15 +61,6 @@ const MFG_ROLE_LABELS: Record<string, string> = {
   SPEC_WIRE_PAINT: 'NV Định mức - Dây/Sơn',
   SPEC_ACCESSORY: 'NV Định mức - Phụ kiện/Bao bì',
 }
-
-const WORKSHOP_STAGES = [
-  { value: 'PHOI', label: 'Phôi' },
-  { value: 'HAN', label: 'Hàn' },
-  { value: 'SON', label: 'Sơn' },
-  { value: 'WEAVING', label: 'Đan' },
-  { value: 'CHUYEN_KIEM', label: 'Chuyền kiểm' },
-  { value: 'DONG_GOI', label: 'Đóng gói' },
-]
 
 const SPEC_SETUP_ITEMS: Record<string, { id: SetupSubTab; label: string; icon: 'clipboard' | 'grid' | 'box' }[]> = {
   SPEC_STEEL: [
@@ -132,7 +121,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const canSeeBom = isDirector || isBomManager || isSpecRole
   const canSeeWarehouses = isDirector || isWarehouse || isProdMgr
   const canSeeDiemDan = isWeavingMgr || isWeavingExport
-  const canSeePackingFlow = canManageBom
   const canManageWorkshop = canManageBom
 
   // Readable if-else chain thay cho ternary lồng 6 cấp
@@ -144,8 +132,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   else if (isBomManager || isSpecRole) initialTab = 'setup'
 
   const [tab, setTab] = useState<TabId>(initialTab)
-  const [workshopStage, setWorkshopStage] = useState('ALL')
-  const [workshopExpanded, setWorkshopExpanded] = useState(true)
   // Một state duy nhất cho tất cả SPEC role sub-tabs — mặc định = mục đầu tiên của role
   const [setupSubTab, setSetupSubTab] = useState<SetupSubTab>(
     () => (user?.mfgRole && SPEC_SETUP_ITEMS[user.mfgRole]?.[0]?.id) || 'dinh-muc'
@@ -210,50 +196,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
           {TABS.map(t => {
             const active = tab === t.id
 
-            // Tab "Tổng hợp lệnh SX" → sub-items lọc theo công đoạn khi active
-            if (t.id === 'workshop') {
-              return (
-                <div key={t.id} style={{ marginBottom: 2 }}>
-                  <div
-                    style={{ display: 'flex', alignItems: 'center', borderRadius: 'var(--radius)', background: active ? '#fff3e0' : 'transparent', transition: 'background .1s' }}
-                    onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
-                    onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
-                  >
-                    <button
-                      onClick={() => { setTab('workshop'); setWorkshopStage('ALL'); setWorkshopExpanded(v => !v) }}
-                      style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 9, padding: '8px 4px 8px 10px', border: 'none', background: 'transparent', cursor: 'pointer', color: active ? '#e65100' : 'var(--text2)', fontWeight: active ? 600 : 400, fontSize: 13, textAlign: 'left' }}
-                    >{t.icon}{t.label}</button>
-                    <button
-                      onClick={e => { e.stopPropagation(); setWorkshopExpanded(v => !v) }}
-                      title={workshopExpanded ? 'Thu gọn' : 'Mở rộng'}
-                      style={{ flexShrink: 0, padding: '8px 8px', border: 'none', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: active ? '#e65100' : 'var(--text3)' }}
-                    >
-                      <ChevronDown size={13} style={{ opacity: .65, transform: workshopExpanded ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform .2s' }} />
-                    </button>
-                  </div>
-
-                  {workshopExpanded && (
-                    <div style={{ margin: '3px 0 4px 18px', paddingLeft: 10, borderLeft: '2px solid #f5c89a' }}>
-                      {WORKSHOP_STAGES.map(s => {
-                        const subActive = tab === 'workshop' && workshopStage === s.value
-                        return (
-                          <button key={s.value}
-                            onClick={() => { setTab('workshop'); setWorkshopStage(s.value) }}
-                            style={{ display: 'flex', alignItems: 'center', gap: 7, width: '100%', padding: '5px 8px', marginBottom: 1, border: 'none', borderRadius: 'var(--radius)', background: subActive ? '#fff3e0' : 'transparent', color: subActive ? '#e65100' : 'var(--text2)', fontWeight: subActive ? 600 : 400, fontSize: 12, textAlign: 'left', cursor: 'pointer' }}
-                            onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
-                            onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
-                          >
-                            <span style={{ width: 5, height: 5, borderRadius: '50%', flexShrink: 0, background: subActive ? '#e65100' : '#d1d5db', transition: 'background .15s' }} />
-                            {s.label}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
-              )
-            }
-
             // Tab "Quản lý định mức" cho SPEC_* roles → sub-items từ config
             if (t.id === 'setup' && user?.mfgRole && SPEC_SETUP_ITEMS[user.mfgRole]) {
               const specItems = SPEC_SETUP_ITEMS[user.mfgRole]
@@ -313,7 +255,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
 
       {/* ── Main content ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        {tab === 'workshop' && canManageWorkshop && <MfgWorkshopBoardPage stageFilter={workshopStage} />}
+        {tab === 'workshop' && canManageWorkshop && <MfgWorkshopBoardPage />}
         {tab === 'lenh-sx' && isDirector && <LenhSXPage />}
         {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePagePlan />}
         {tab === 'phoi-xac-nhan-san-luong' && (isPhoi || isDirector) && <XacNhanSanLuongPage readOnly={isDirector} />}
@@ -327,8 +269,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'kcs-han' && isKcs && <KcsHanPage />}
         {tab === 'kcs-son' && isKcs && <KcsSonPage />}
         {tab === 'quan-ly-diem-dan' && canSeeDiemDan && <QuanLyDiemDanPage readOnly={!isWeavingExport} />}
-        {tab === 'chuyen-kiem' && canSeePackingFlow && <ChuyenKiemPage readOnly={isDirector} />}
-        {tab === 'dong-goi' && canSeePackingFlow && <DongGoiPage readOnly={isDirector} />}
         {tab === 'weaving-points' && canManageBom && <WeavingPointsPage readOnly />}
         {tab === 'kiem-tra-vt' && isProdMgr && <LenhKiemTraPage />}
         {tab === 'sku-list' && isProdMgr && <SKUListPage readOnly />}

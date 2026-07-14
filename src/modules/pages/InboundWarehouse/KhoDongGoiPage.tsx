@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { format } from 'date-fns'
@@ -32,14 +32,24 @@ function getStatus(daDong: number, total: number): DGStatus {
   return 'dang-dong'
 }
 
-export default function KhoDongGoiPage() {
+export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: number } = {}) {
   const { data: planForms = [], isLoading } = useFetch(() => api.getPlanForms(), [])
   const [selectedPf, setSelectedPf] = useState<PlanForm | null>(null)
   const [daDongMap, setDaDongMap]   = useState<Record<number, number>>({})
   const [inputQty, setInputQty]     = useState('')
   const [showConfirm, setShowConfirm] = useState(false)
 
-  const active = ((planForms ?? []) as PlanForm[]).filter(p => p.status !== 'DRAFT')
+  const active = ((planForms ?? []) as PlanForm[]).filter(p => p.status !== 'DRAFT' && (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId))
+
+  // Drill-down từ bảng tổng hợp SX (qlsx@) truyền sẵn filterExportOrderId → nhảy thẳng vào chi
+  // tiết đúng lệnh đó thay vì bắt bấm lại vào 1 danh sách chỉ có 1 dòng.
+  const autoSelectedRef = useRef(false)
+  useEffect(() => {
+    if (!autoSelectedRef.current && filterExportOrderId !== undefined && active.length > 0) {
+      setSelectedPf(active[0])
+      autoSelectedRef.current = true
+    }
+  }, [active, filterExportOrderId])
 
   const commitConfirm = () => {
     if (!selectedPf) return
@@ -126,33 +136,35 @@ export default function KhoDongGoiPage() {
           </div>
 
           {/* Input section */}
-          <div style={{ padding: '20px 24px' }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', marginBottom: 12 }}>
-              Nhập số lượng đã đóng
+          {!readOnly && (
+            <div style={{ padding: '20px 24px' }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', marginBottom: 12 }}>
+                Nhập số lượng đã đóng
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <input
+                  type="number" min={1}
+                  value={inputQty}
+                  onChange={e => setInputQty(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && canConfirm && setShowConfirm(true)}
+                  placeholder="Nhập số thùng..."
+                  style={{ flex: 1, padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 9, fontSize: 15, background: 'var(--surface)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
+                  autoFocus
+                />
+                <button
+                  onClick={() => canConfirm && setShowConfirm(true)}
+                  disabled={!canConfirm}
+                  style={{ padding: '10px 22px', fontSize: 14, fontWeight: 700, border: 'none', borderRadius: 9, background: canConfirm ? '#e65100' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
+                >
+                  Xác nhận
+                </button>
+              </div>
             </div>
-            <div style={{ display: 'flex', gap: 10 }}>
-              <input
-                type="number" min={1}
-                value={inputQty}
-                onChange={e => setInputQty(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && canConfirm && setShowConfirm(true)}
-                placeholder="Nhập số thùng..."
-                style={{ flex: 1, padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 9, fontSize: 15, background: 'var(--surface)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
-                autoFocus
-              />
-              <button
-                onClick={() => canConfirm && setShowConfirm(true)}
-                disabled={!canConfirm}
-                style={{ padding: '10px 22px', fontSize: 14, fontWeight: 700, border: 'none', borderRadius: 9, background: canConfirm ? '#e65100' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
-              >
-                Xác nhận
-              </button>
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Confirmation dialog */}
-        {showConfirm && (
+        {!readOnly && showConfirm && (
           <div
             onClick={e => { if (e.target === e.currentTarget) setShowConfirm(false) }}
             style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}

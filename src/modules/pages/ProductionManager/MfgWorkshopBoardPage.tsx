@@ -1,13 +1,12 @@
 import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import { useAuth } from '../../../context/AuthContext'
 import { format, differenceInCalendarDays } from 'date-fns'
-import { AlertCircle, LayoutGrid, MapPin, ArrowLeft } from 'lucide-react'
-import MfgStageBoardPage from './MfgStageBoardPage'
-import ChuyenKiemPage from './ChuyenKiemPage'
-import DongGoiPage from './DongGoiPage'
-import WeavingPointsPage from './WeavingPointsPage'
+import { AlertCircle, LayoutGrid, ArrowLeft } from 'lucide-react'
+import { PhoiScreen, TwoTierScreen, PHOI_CFG, HAN_CFG, SON_CFG, type ProcRow, type ProcManh, type ProcLine } from '../../../components/sanxuat/core'
+import KhoChuyenKiemPage from '../InboundWarehouse/KhoChuyenKiemPage'
+import KhoDongGoiPage from '../InboundWarehouse/KhoDongGoiPage'
+import KhoNhapDanPage from '../InboundWarehouse/KhoNhapDanPage'
 
 // 4 công đoạn SX + 2 công đoạn sau-đan (Chuyền kiểm, Đóng gói) — tất cả mở bằng cách bấm vào ô.
 const STAGES = ['PHOI', 'HAN', 'SON', 'WEAVING'] as const
@@ -25,6 +24,7 @@ interface Stage { stageType: string; progressPercent: number; status: string }
 interface PIItem { quantity: number; productVariant?: { colorCode?: string | null; mfgProduct?: { name: string; factoryCode: string } } }
 interface PI {
   id: number; code: string; deadline: string; status: string
+  exportOrderId?: number
   items: PIItem[]; stages: Stage[]
 }
 type KcsCounts = Record<number, Record<string, number>>
@@ -156,21 +156,84 @@ function PctCell({ pct, badge, onClick, title, muted }: {
   )
 }
 
+// Thanh "Quay lại" dùng chung cho mọi nhánh drill-down (Phôi/Hàn/Sơn/Đan/Chuyền kiểm/Đóng gói).
+function DetailBackBar({ onBack, label }: { onBack: () => void; label: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+      <button
+        onClick={onBack}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface2)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}
+      >
+        <ArrowLeft size={15} /> Quay lại bảng điều hành
+      </button>
+      <span style={{ color: 'var(--text3)', fontSize: 13 }}>·</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>{label}</span>
+    </div>
+  )
+}
+
+function strHash(s: string): number {
+  return s.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+}
+
+const FALLBACK_MANH = ['Mảnh Tựa', 'Mảnh Tay', 'Mảnh Chân']
+const FALLBACK_SAT = ['Sắt Vuông 6 zem', 'Sắt Hộp 8 zem']
+
+// 1 PO ngoài bảng tổng hợp ứng với đúng 1 PI — nên khi mở chi tiết Phôi/Hàn/Sơn của 1 lệnh, màn
+// dưới PHẢI chỉ hiện đúng 1 dòng (lệnh vừa bấm), không phải cả danh sách nhiều PO như seed tĩnh của
+// LenhSanXuatPhoi/Han/Son (dùng cho phoi@/han@/son@ khi họ tự vào màn "Lệnh sản xuất" xem hết việc
+// của mình). Ở đây sinh đúng 1 ProcRow: phần đầu (PO/SKU/sản phẩm/SL/hạn giao) lấy từ dữ liệu PI
+// thật; phần vật tư/mảnh bên trong vẫn phải mock ổn định theo mã PI vì Phôi/Hàn/Sơn chưa có nguồn dữ
+// liệu tổng hợp thật trong hệ thống — cùng kỹ thuật với ThongKePagePlan.tsx (buildPhoiManhs/buildHanLines/buildSonLines).
+function buildStageRows(pi: PI, stage: 'PHOI' | 'HAN' | 'SON'): ProcRow[] {
+  const h = strHash(pi.code)
+  // 1 PO chỉ có đúng 1 SKU (số lượng lớn) — lấy số lượng của riêng SKU đó, không cộng dồn qua các
+  // item khác (PI có thể seed nhiều item/SKU cho mục đích demo khác, không đại diện cho 1 PO thật).
+  const item = pi.items?.[0]
+  const sku = item?.productVariant?.mfgProduct?.factoryCode ?? pi.code
+  const productName = item?.productVariant?.mfgProduct?.name ?? '—'
+  const soLuong = item?.quantity ?? 0
+  const base = { id: pi.id, poNumber: pi.code, sku, productName, soLuong, deadline: pi.deadline, arrangedAt: null as string | null }
+
+  if (stage === 'PHOI') {
+    const manhs: ProcManh[] = FALLBACK_MANH.map((name, mi) => {
+      const need = 80 + ((h + mi * 23) % 150)
+      const done = Math.round(need * (0.2 + ((h + mi * 7) % 60) / 100))
+      return {
+        id: mi + 1, tenManh: name, perSku: 1,
+        lines: [{ id: mi * 10 + 1, itemName: FALLBACK_SAT[mi % FALLBACK_SAT.length], spec: '—', needQty: need, doneQty: done, perManh: 1, lastInputAt: null }],
+      }
+    })
+    return [{ ...base, manhs }]
+  }
+
+  const need = 60 + (h % 200)
+  const done = Math.round(need * (0.2 + (h % 60) / 100))
+  const lines: ProcLine[] = [{
+    id: 1, itemName: stage === 'HAN' ? 'Hàn ráp khung' : 'Sơn tĩnh điện', spec: '—',
+    needQty: need, doneQty: done, thucCoQty: Math.min(need, done + (h % 15)), lastInputAt: null,
+  }]
+  return [{ ...base, lines }]
+}
+
+// Nhúng đúng giao diện Lệnh sản xuất của phoi@/han@/son@ (PhoiScreen/TwoTierScreen từ core.tsx)
+// nhưng chỉ với 1 dòng dữ liệu của đúng lệnh SX đang xem — xem buildStageRows ở trên.
+function StageDrillDown({ pi, stage, readOnly }: { pi: PI; stage: 'PHOI' | 'HAN' | 'SON'; readOnly: boolean }) {
+  const [rows, setRows] = useState<ProcRow[]>(() => buildStageRows(pi, stage))
+  if (stage === 'PHOI') return <PhoiScreen cfg={PHOI_CFG} rows={rows} setRows={setRows} readOnly={readOnly} />
+  return <TwoTierScreen cfg={stage === 'HAN' ? HAN_CFG : SON_CFG} seed={() => rows} readOnly={readOnly} />
+}
+
 // Drill-down: bấm ô để mở chi tiết công đoạn / chuyền kiểm / đóng gói
 type Detail =
-  | { kind: 'stage'; piId: number; stage: StageKey }   // Phôi / Hàn / Sơn
-  | { kind: 'weaving'; piId: number }                  // Đan: tiến độ + điểm đan
-  | { kind: 'chuyen-kiem'; piId: number }
-  | { kind: 'dong-goi'; piId: number }
+  | { kind: 'stage'; pi: PI; stage: 'PHOI' | 'HAN' | 'SON' }
+  | { kind: 'weaving'; pi: PI }                        // Đan
+  | { kind: 'chuyen-kiem'; pi: PI }
+  | { kind: 'dong-goi'; pi: PI }
 
 export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFilter?: string }) {
   const [showDone, setShowDone] = useState(false)
   const [detail, setDetail] = useState<Detail | null>(null)
-  const { user } = useAuth()
-  const isDirector = user?.role === 'BOSS' && !user?.mfgRole
-  // prodmgr chỉ XEM chuyền kiểm/đóng gói để quản lý — thao tác do Thủ kho thành phẩm.
-  const isProdMgr = user?.mfgRole === 'PRODUCTION_MANAGER'
-  const packingReadOnly = isDirector || isProdMgr
 
   const { data: pisRaw, isLoading, error, refetch } = useFetch<PI[]>(() => api.getProductionInvoices(), [])
   const { data: kcsRaw, refetch: refetchKcs } = useFetch<KcsCounts>(() => api.getKcsPendingCounts(), [])
@@ -180,34 +243,34 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
   // Khi quay lại từ drill-down, làm mới mọi số liệu
   const handleBack = () => { setDetail(null); refetch(); refetchKcs(); refetchCk(); refetchPk() }
 
-  // ── Drill-down views ──────────────────────────────────────────────────
+  // ── Drill-down views: mở đúng giao diện mà phoi@/han@/son@/khotp@ đang thấy, ở chế độ chỉ xem
+  // (qlsx@ chỉ quản lý/theo dõi — thao tác thật do đúng tài khoản chuyên trách thực hiện) ─────────
   if (detail?.kind === 'stage') {
-    return <MfgStageBoardPage initialPiId={detail.piId} initialStage={detail.stage} onBack={handleBack} />
-  }
-  if (detail?.kind === 'weaving') {
-    // Phương án B: tiến độ đan (KCS) + danh sách điểm đan ngay bên dưới
     return (
       <div>
-        <MfgStageBoardPage initialPiId={detail.piId} initialStage="WEAVING" onBack={handleBack} />
-        <div style={{ marginTop: 28, paddingTop: 20, borderTop: '2px solid var(--border)' }}>
-          <h3 style={{ margin: '0 0 12px', fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <MapPin size={18} /> Điểm đan
-          </h3>
-          <WeavingPointsPage readOnly embedded />
-        </div>
+        <DetailBackBar onBack={handleBack} label={`${STAGE_LABEL[detail.stage]} — ${detail.pi.code}`} />
+        <StageDrillDown pi={detail.pi} stage={detail.stage} readOnly />
+      </div>
+    )
+  }
+  if (detail?.kind === 'weaving') {
+    return (
+      <div>
+        <DetailBackBar onBack={handleBack} label={`Đan — ${detail.pi.code}`} />
+        <KhoNhapDanPage readOnly filterPiCode={detail.pi.code} />
       </div>
     )
   }
   if (detail?.kind === 'chuyen-kiem' || detail?.kind === 'dong-goi') {
     return (
       <div>
-        <button onClick={handleBack}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14, padding: '7px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 600, color: 'var(--text2)', cursor: 'pointer' }}>
-          <ArrowLeft size={15} /> Quay lại bảng điều hành
-        </button>
+        <DetailBackBar
+          onBack={handleBack}
+          label={`${detail.kind === 'chuyen-kiem' ? 'Chuyền kiểm' : 'Đóng gói'} — ${detail.pi.code}`}
+        />
         {detail.kind === 'chuyen-kiem'
-          ? <ChuyenKiemPage readOnly={packingReadOnly} filterPiId={detail.piId} />
-          : <DongGoiPage readOnly={packingReadOnly} filterPiId={detail.piId} />}
+          ? <KhoChuyenKiemPage readOnly filterExportOrderId={detail.pi.exportOrderId} />
+          : <KhoDongGoiPage readOnly filterExportOrderId={detail.pi.exportOrderId} />}
       </div>
     )
   }
@@ -310,7 +373,7 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
                         <PctCell
                           pct={pct} badge={kcsN}
                           title={st === 'WEAVING' ? `Tiến độ đan + điểm đan — ${pi.code}` : `Mở ${STAGE_LABEL[st]} — ${pi.code}`}
-                          onClick={() => setDetail(st === 'WEAVING' ? { kind: 'weaving', piId: pi.id } : { kind: 'stage', piId: pi.id, stage: st })}
+                          onClick={() => setDetail(st === 'WEAVING' ? { kind: 'weaving', pi } : { kind: 'stage', pi, stage: st })}
                         />
                       </td>
                     )
@@ -320,7 +383,7 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
                     <PctCell
                       pct={ck ? ck.pct : null} badge={ck?.pending} muted={!ck}
                       title={ck ? `Mở Chuyền kiểm — ${pi.code}` : 'Chưa có mảnh đan thu về'}
-                      onClick={() => setDetail({ kind: 'chuyen-kiem', piId: pi.id })}
+                      onClick={() => setDetail({ kind: 'chuyen-kiem', pi })}
                     />
                   </td>
                   {/* Đóng gói */}
@@ -328,7 +391,7 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
                     <PctCell
                       pct={pk ? pk.pct : null} muted={!pk}
                       title={pk ? `Mở Đóng gói — ${pi.code}` : 'Chưa sẵn sàng đóng gói'}
-                      onClick={() => setDetail({ kind: 'dong-goi', piId: pi.id })}
+                      onClick={() => setDetail({ kind: 'dong-goi', pi })}
                     />
                   </td>
                   <td style={{ padding: '8px 14px', textAlign: 'center', whiteSpace: 'nowrap' }}>
@@ -342,7 +405,7 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
       </div>
 
       <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text3)' }}>
-        Bấm ô công đoạn để mở chi tiết &amp; duyệt KCS. Ô <strong>Đan</strong> mở tiến độ đan + điểm đan; ô <strong>Chuyền kiểm</strong> / <strong>Đóng gói</strong> mở màn thao tác. Số cam = báo cáo đang chờ duyệt.
+        Bấm ô công đoạn để mở chi tiết &amp; duyệt KCS. Ô <strong>Đan</strong> mở tiến độ nhập đan; ô <strong>Chuyền kiểm</strong> / <strong>Đóng gói</strong> mở màn thao tác. Số cam = báo cáo đang chờ duyệt.
       </div>
         </>
       )}

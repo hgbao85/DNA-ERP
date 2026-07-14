@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { format } from 'date-fns'
@@ -53,7 +53,7 @@ function mockChoDoyet(pf: PlanForm): number {
   return Math.floor(total * (strHash(code) % 4) / 22)
 }
 
-export default function KhoChuyenKiemPage() {
+export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: number } = {}) {
   const { data: planForms = [], isLoading } = useFetch(() => api.getPlanForms(), [])
   const [selectedPf, setSelectedPf]         = useState<PlanForm | null>(null)
   const [pieceState, setPieceState]          = useState<Record<string, PieceState>>({})
@@ -63,7 +63,17 @@ export default function KhoChuyenKiemPage() {
   const [popupQty, setPopupQty]             = useState('')
   const [loiEntries, setLoiEntries]         = useState<LoiEntry[]>([])
 
-  const active = ((planForms ?? []) as PlanForm[]).filter(p => p.status !== 'DRAFT')
+  const active = ((planForms ?? []) as PlanForm[]).filter(p => p.status !== 'DRAFT' && (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId))
+
+  // Drill-down từ bảng tổng hợp SX (qlsx@) truyền sẵn filterExportOrderId → nhảy thẳng vào chi
+  // tiết đúng lệnh đó thay vì bắt bấm lại vào 1 danh sách chỉ có 1 dòng.
+  const autoSelectedRef = useRef(false)
+  useEffect(() => {
+    if (!autoSelectedRef.current && filterExportOrderId !== undefined && active.length > 0) {
+      setSelectedPf(active[0])
+      autoSelectedRef.current = true
+    }
+  }, [active, filterExportOrderId])
 
   const openPopup = (piece: MockPiece) => {
     setCheckingPiece(piece)
@@ -153,12 +163,16 @@ export default function KhoChuyenKiemPage() {
                     <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: conLai > 0 ? '#d97706' : '#16a34a' }}>{conLai}</td>
                     <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: loi > 0 ? '#dc2626' : 'var(--text3)' }}>{loi}</td>
                     <td style={td}>
-                      <button
-                        onClick={() => openPopup(piece)}
-                        style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#e65100', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                      >
-                        Kiểm
-                      </button>
+                      {readOnly ? (
+                        <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>
+                      ) : (
+                        <button
+                          onClick={() => openPopup(piece)}
+                          style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#e65100', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                        >
+                          Kiểm
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )
