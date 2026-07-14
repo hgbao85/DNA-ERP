@@ -34,6 +34,7 @@ async function ensurePlanFormForConfirmedItem(pi: any, item: any) {
     mfgProductId: mfgProduct.id,
     customerName: pi.exportOrder?.customerName,
     origin: 'PRODUCTION_CONFIRM',
+    productionInvoiceId: pi.id,
   })
 
   // Định mức chi tiết (BOM) là thuộc tính của SKU (mfgProduct), không đổi theo

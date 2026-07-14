@@ -54,6 +54,7 @@ interface StageDetails {
 interface MfgOrder {
   id: number
   code: string        // Mã PO — lấy từ exportOrder.poNumber (dữ liệu thật)
+  piCode: string       // Mã PI — 1 SKU trong 1 PO chỉ có đúng 1 PI (xem plan-form.service.ts)
   sku: string
   productName: string
   customer: string
@@ -312,6 +313,7 @@ function buildOrderRow(pf: PlanForm, proposals: PurchaseProposal[], weavingPoint
   const order: MfgOrder = {
     id: pf.id,
     code: pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`,
+    piCode: pf.piCode,
     sku: pf.mfgProduct?.factoryCode ?? '—',
     productName: pf.mfgProduct?.name ?? '',
     customer: pf.customerName ?? '—',
@@ -825,7 +827,10 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 24px', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 20, color: '#1d4ed8', letterSpacing: '0.02em' }}>{order.code}</div>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 20, color: '#1d4ed8', letterSpacing: '0.02em' }}>{order.code}</div>
+              <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, color: 'var(--text3)' }}>PI: {order.piCode}</div>
+            </div>
             <div style={{ fontSize: 16, fontWeight: 700, marginTop: 6 }}>{order.productName}</div>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>Mã xưởng: <span style={{ fontWeight: 600, color: 'var(--text2)' }}>{order.sku}</span></div>
           </div>
@@ -882,11 +887,27 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
 
 // ─── List page ────────────────────────────────────────────────────────────────
 
+// Trạng thái lệnh sản xuất (PI) tối thiểu cần để quyết định 1 SKU đã "vào sản xuất" hay còn "lên kế
+// hoạch" — dùng chung 1 quy tắc hiện với "Tổng hợp lệnh sản xuất" (qlsx@demo.com, xem
+// MfgWorkshopBoardPage.tsx) để 2 màn không lệch nhau.
+interface PIApprovalItem { prodApproval?: { status?: string } }
+interface PIStatusRow { id: number; status: string; items?: PIApprovalItem[] }
+
 export default function ThongKePagePlan() {
   const { data: planFormsData, isLoading } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
+  const { data: pisData } = useFetch<PIStatusRow[]>(() => api.getProductionInvoices(), [])
   const { data: weavingPointsData } = useFetch<WeavingPointLite[]>(() => (api as any).getWeavingPoints(), [])
   const { proposals } = useInspection()
-  const planForms = useMemo(() => (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT'), [planFormsData])
+  const piMap = useMemo(() => new Map((pisData ?? []).map(p => [p.id, p])), [pisData])
+  // Lên kế hoạch (PLANNING) chưa vào sản xuất — ẩn khỏi "Bảng thống kê", trừ khi đã có SKU được
+  // duyệt (đã thật sự bắt đầu sản xuất dù pi.status còn PLANNING).
+  const planForms = useMemo(() => (planFormsData ?? []).filter(pf => {
+    if (pf.status === 'DRAFT') return false
+    const pi = pf.productionInvoiceId != null ? piMap.get(pf.productionInvoiceId) : undefined
+    if (!pi) return false
+    const hasApprovedItem = (pi.items ?? []).some(it => it.prodApproval?.status === 'APPROVED')
+    return pi.status !== 'PLANNING' || hasApprovedItem
+  }), [planFormsData, piMap])
   const weavingPoints = useMemo(() => weavingPointsData ?? [], [weavingPointsData])
   const pointLabel = (id: number) => {
     const p = weavingPoints.find(w => w.id === id)
@@ -967,6 +988,7 @@ export default function ThongKePagePlan() {
           <thead>
             <tr>
               <th style={th}>Mã PO</th>
+              <th style={th}>Mã PI</th>
               <th style={th}>SKU / Sản phẩm</th>
               <th style={th}>Khách hàng</th>
               <th style={{ ...th, width: 220 }}>Công đoạn hiện tại</th>
@@ -975,7 +997,7 @@ export default function ThongKePagePlan() {
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</td></tr>
+              <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</td></tr>
             ) : pageItems.map(({ order: o, details }) => {
               const isDone     = o.status === 'DONE'
               const isOverdue  = isOrderOverdue(o.deadline, isDone)
@@ -992,6 +1014,7 @@ export default function ThongKePagePlan() {
                   onMouseLeave={e => { e.currentTarget.style.background = '' }}
                 >
                   <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}>{o.code}</td>
+                  <td style={{ ...td, fontFamily: 'monospace', color: 'var(--text2)' }}>{o.piCode}</td>
                   <td style={td}>
                     <div style={{ fontWeight: 600 }}>{o.productName}</div>
                     <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{o.sku}</div>

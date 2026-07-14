@@ -134,78 +134,103 @@ export const seedProductionInvoices = [
     }],
     createdBy: { name: 'Quản lý SX Hùng' },
   },
-  // 3 SKU — mỗi SKU có timeline riêng, deadline PI là hạn giao chung
+  // PO-EU-005 có 3 SKU — mỗi SKU 1 PI riêng (1 SKU chỉ có đúng 1 PI, không gộp chung 1 PI như trước).
   {
     id: 5, code: 'PI-2026-005', deadline: ISO('2026-09-30'),
     status: 'PLANNING', exportOrderId: 4,
     exportOrder: { poNumber: 'PO-EU-005', contractFileUrl: null },
-    items: [
-      {
-        quantity: 400, materialDeadline: ISO('2026-07-10'),
-        stages: [
-          { stageType: 'HAN',     deadline: ISO('2026-07-28') },
-          { stageType: 'WEAVING', deadline: ISO('2026-08-20') },
-          { stageType: 'SON',     deadline: ISO('2026-09-10') },
-        ],
-        productVariant: { colorCode: 'BEIGE', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
-      },
-      {
-        quantity: 250, materialDeadline: ISO('2026-07-20'),
-        stages: [
-          { stageType: 'HAN',     deadline: ISO('2026-08-10') },
-          { stageType: 'WEAVING', deadline: ISO('2026-09-01') },
-          { stageType: 'SON',     deadline: ISO('2026-09-22') },
-        ],
-        productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } },
-      },
-      {
-        quantity: 150, materialDeadline: ISO('2026-06-30'),
-        stages: [
-          { stageType: 'HAN', deadline: ISO('2026-07-20') },
-          { stageType: 'SON', deadline: ISO('2026-08-25') },
-        ],
-        productVariant: { colorCode: 'WHITE', mfgProduct: { name: 'Bàn đan T-08', factoryCode: 'TBL-08' } },
-      },
-    ],
+    items: [{
+      quantity: 400, materialDeadline: ISO('2026-07-10'),
+      stages: [
+        { stageType: 'HAN',     deadline: ISO('2026-07-28') },
+        { stageType: 'WEAVING', deadline: ISO('2026-08-20') },
+        { stageType: 'SON',     deadline: ISO('2026-09-10') },
+      ],
+      productVariant: { colorCode: 'BEIGE', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
+    }],
     createdBy: { name: 'Quản lý SX Hùng' },
   },
-  //
   {
     id: 6, code: 'PI-2026-006', deadline: ISO('2026-09-30'),
     status: 'PLANNING', exportOrderId: 4,
     exportOrder: { poNumber: 'PO-EU-005', contractFileUrl: null },
-    items: [
-      {
-        quantity: 400,
-        stages: [
-          { stageType: 'HAN',     deadline: ISO('2026-07-28') },
-          { stageType: 'WEAVING', deadline: ISO('2026-08-20') },
-          { stageType: 'SON',     deadline: ISO('2026-09-10') },
-        ],
-        productVariant: { colorCode: 'BEIGE', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
-      },
-      {
-        quantity: 250, materialDeadline: ISO('2026-07-20'),
-        stages: [
-          { stageType: 'HAN',     deadline: ISO('2026-08-10') },
-          { stageType: 'WEAVING', deadline: ISO('2026-09-01') },
-          { stageType: 'SON',     deadline: ISO('2026-09-22') },
-        ],
-        productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } },
-      },
-      {
-        quantity: 150, materialDeadline: ISO('2026-06-30'),
-        stages: [
-          { stageType: 'HAN', deadline: ISO('2026-07-20') },
-          { stageType: 'SON', deadline: ISO('2026-08-25') },
-        ],
-        productVariant: { colorCode: 'WHITE', mfgProduct: { name: 'Bàn đan T-08', factoryCode: 'TBL-08' } },
-      },
-            {
-        quantity: 600,
-        productVariant: { colorCode: 'WHITE', mfgProduct: { name: 'Bàn đan T-08', factoryCode: 'TBL-08' } },
-      },
-    ],
+    items: [{
+      quantity: 250, materialDeadline: ISO('2026-07-20'),
+      stages: [
+        { stageType: 'HAN',     deadline: ISO('2026-08-10') },
+        { stageType: 'WEAVING', deadline: ISO('2026-09-01') },
+        { stageType: 'SON',     deadline: ISO('2026-09-22') },
+      ],
+      productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } },
+    }],
+    createdBy: { name: 'Quản lý SX Hùng' },
+  },
+  {
+    id: 7, code: 'PI-2026-007', deadline: ISO('2026-09-30'),
+    status: 'PLANNING', exportOrderId: 4,
+    exportOrder: { poNumber: 'PO-EU-005', contractFileUrl: null },
+    items: [{
+      quantity: 150, materialDeadline: ISO('2026-06-30'),
+      stages: [
+        { stageType: 'HAN', deadline: ISO('2026-07-20') },
+        { stageType: 'SON', deadline: ISO('2026-08-25') },
+      ],
+      productVariant: { colorCode: 'WHITE', mfgProduct: { name: 'Bàn đan T-08', factoryCode: 'TBL-08' } },
+    }],
+    createdBy: { name: 'Quản lý SX Hùng' },
+  },
+  // id 8-11: PI ứng với các SKU do KHSX quản lý (seedPlanForms 5/6/9/10) — mỗi PlanForm 1 SKU 1 PI
+  // riêng, để "Tổng hợp lệnh sản xuất" (qlsx@demo.com) hiện đúng dữ liệu của "Bảng thống kê" (khsx).
+  {
+    id: 8, code: 'PI-2026-008', deadline: ISO('2026-10-15'),
+    status: 'PRODUCING', exportOrderId: 1,
+    exportOrder: { poNumber: 'PO-MY-001', contractFileUrl: null },
+    items: [{
+      quantity: 150,
+      stages: [{ stageType: 'HAN', progressPercent: 40, status: 'IN_PROGRESS', deadline: ISO('2026-08-01') }],
+      productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } },
+    }],
+    createdBy: { name: 'Quản lý SX Hùng' },
+  },
+  {
+    id: 9, code: 'PI-2026-009', deadline: ISO('2026-12-20'),
+    status: 'PLANNING', exportOrderId: 3,
+    exportOrder: { poNumber: 'PO-IK-003', contractFileUrl: null },
+    items: [{
+      quantity: 200,
+      stages: [],
+      productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } },
+    }],
+    createdBy: { name: 'Quản lý SX Hùng' },
+  },
+  {
+    id: 10, code: 'PI-2026-010', deadline: ISO('2026-09-20'),
+    status: 'PRODUCING', exportOrderId: 9,
+    exportOrder: { poNumber: 'PO-MY-009', contractFileUrl: null },
+    items: [{
+      quantity: 300,
+      stages: [
+        { stageType: 'PHOI', progressPercent: 100, status: 'DONE' },
+        { stageType: 'HAN',  progressPercent: 100, status: 'DONE' },
+        { stageType: 'SON',  progressPercent: 100, status: 'DONE' },
+      ],
+      productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế J60', factoryCode: 'JSE-60' } },
+    }],
+    createdBy: { name: 'Quản lý SX Hùng' },
+  },
+  {
+    id: 11, code: 'PI-2026-011', deadline: ISO('2026-09-25'),
+    status: 'PRODUCING', exportOrderId: 10,
+    exportOrder: { poNumber: 'PO-IK-010', contractFileUrl: null },
+    items: [{
+      quantity: 250,
+      stages: [
+        { stageType: 'PHOI', progressPercent: 100, status: 'DONE' },
+        { stageType: 'HAN',  progressPercent: 100, status: 'DONE' },
+        { stageType: 'SON',  progressPercent: 100, status: 'DONE' },
+      ],
+      productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
+    }],
     createdBy: { name: 'Quản lý SX Hùng' },
   },
 ];
@@ -237,6 +262,7 @@ export const seedPlanningPIs = [
 export const seedPlanForms: PlanForm[] = [
   {
     id: 1, exportOrderId: 1, mfgProductId: 1, status: 'APPROVED', note: 'PlanForm JSE-55 cho PO MEYING',
+    piCode: 'PI-2026-001', productionInvoiceId: 1,
     createdAt: ISO('2026-05-20'), proposedAt: ISO('2026-05-20'),
     exportOrder: { id: 1, poNumber: 'PO-MY-001', deliveryDate: ISO('2026-10-15') },
     mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' },
@@ -268,6 +294,7 @@ export const seedPlanForms: PlanForm[] = [
   },
   {
     id: 2, exportOrderId: 2, mfgProductId: 2, status: 'APPROVED_DETAIL', note: 'PlanForm IEA-3 cho PO GOPLUS',
+    piCode: 'PI-2026-002', productionInvoiceId: 2,
     createdAt: ISO('2026-05-21'), proposedAt: ISO('2026-05-21'),
     exportOrder: { id: 2, poNumber: 'PO-GP-002', deliveryDate: ISO('2026-11-01') },
     mfgProduct: { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3' },
@@ -297,6 +324,7 @@ export const seedPlanForms: PlanForm[] = [
   },
   {
     id: 3, exportOrderId: 2, mfgProductId: 1, status: 'APPROVED_DETAIL', note: 'PlanForm JSE-55 cho PO GOPLUS',
+    piCode: 'PI-2026-003', productionInvoiceId: 3,
     createdAt: ISO('2026-05-18'), proposedAt: ISO('2026-05-18'),
     exportOrder: { id: 2, poNumber: 'PO-GP-002', deliveryDate: ISO('2026-11-01') },
     mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' },
@@ -327,6 +355,7 @@ export const seedPlanForms: PlanForm[] = [
   },
   {
     id: 4, exportOrderId: 3, mfgProductId: 1, status: 'APPROVED_PARTS', note: 'PlanForm JSE-55 cho PO IKEA',
+    piCode: 'PI-2026-004', productionInvoiceId: 4,
     createdAt: ISO('2026-05-22'), proposedAt: ISO('2026-05-22'),
     exportOrder: { id: 3, poNumber: 'PO-IK-003', deliveryDate: ISO('2026-12-20') },
     mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' },
@@ -359,6 +388,7 @@ export const seedPlanForms: PlanForm[] = [
   },
   {
     id: 5, exportOrderId: 1, mfgProductId: 2, status: 'APPROVED', note: 'PlanForm IEA-3 cho PO MEYING — phê duyệt',
+    piCode: 'PI-2026-008', productionInvoiceId: 8,
     createdAt: ISO('2026-05-25'), proposedAt: ISO('2026-05-25'),
     exportOrder: { id: 1, poNumber: 'PO-MY-001', deliveryDate: ISO('2026-10-15') },
     mfgProduct: { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3' },
@@ -391,6 +421,7 @@ export const seedPlanForms: PlanForm[] = [
   },
   {
     id: 6, exportOrderId: 3, mfgProductId: 2, status: 'APPROVED_PARTS', note: 'PlanForm IEA-3 cho PO IKEA',
+    piCode: 'PI-2026-009', productionInvoiceId: 9,
     createdAt: ISO('2026-06-01'), proposedAt: ISO('2026-06-01'),
     exportOrder: { id: 3, poNumber: 'PO-IK-003', deliveryDate: ISO('2026-12-20') },
     mfgProduct: { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3' },
@@ -423,6 +454,8 @@ export const seedPlanForms: PlanForm[] = [
   },
   {
     id: 7, exportOrderId: 2, mfgProductId: 2, status: 'APPROVED_DETAIL', note: 'PlanForm IEA-3 cho PO GOPLUS (bản sao 1)',
+    // Cùng SKU (IEA-3) + cùng PO (GP-002) với PlanForm #2 — 1 SKU chỉ có 1 PI nên dùng chung, không tạo PI mới.
+    piCode: 'PI-2026-002', productionInvoiceId: 2,
     createdAt: ISO('2026-06-15'), proposedAt: ISO('2026-06-15'),
     exportOrder: { id: 2, poNumber: 'PO-GP-002', deliveryDate: ISO('2026-11-01') },
     mfgProduct: { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3' },
@@ -452,6 +485,7 @@ export const seedPlanForms: PlanForm[] = [
   },
   {
     id: 8, exportOrderId: 2, mfgProductId: 2, status: 'APPROVED_DETAIL', note: 'PlanForm IEA-3 cho PO GOPLUS (bản sao 2)',
+    piCode: 'PI-2026-002', productionInvoiceId: 2,
     createdAt: ISO('2026-06-16'), proposedAt: ISO('2026-06-16'),
     exportOrder: { id: 2, poNumber: 'PO-GP-002', deliveryDate: ISO('2026-11-01') },
     mfgProduct: { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3' },
@@ -483,6 +517,7 @@ export const seedPlanForms: PlanForm[] = [
   // xem ghi chú ở genExecutionStages trong ThongKePagePlan.tsx.
   {
     id: 9, exportOrderId: 9, mfgProductId: 3, status: 'APPROVED', note: 'PlanForm JSE-60 cho PO MEYING — đang Chuyền kiểm',
+    piCode: 'PI-2026-010', productionInvoiceId: 10,
     createdAt: ISO('2026-06-05'), proposedAt: ISO('2026-06-05'),
     exportOrder: { id: 9, poNumber: 'PO-MY-009', deliveryDate: ISO('2026-09-20') },
     mfgProduct: { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60' },
@@ -492,6 +527,7 @@ export const seedPlanForms: PlanForm[] = [
   },
   {
     id: 10, exportOrderId: 10, mfgProductId: 1, status: 'APPROVED', note: 'PlanForm JSE-55 cho PO IKEA — đang Đóng gói',
+    piCode: 'PI-2026-011', productionInvoiceId: 11,
     createdAt: ISO('2026-06-08'), proposedAt: ISO('2026-06-08'),
     exportOrder: { id: 10, poNumber: 'PO-IK-010', deliveryDate: ISO('2026-09-25') },
     mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' },

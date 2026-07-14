@@ -86,6 +86,11 @@ export interface PlanForm {
   status: PlanFormStatus;
   note?: string | null;
   customerName?: string | null;
+  /** Mã lệnh sản xuất (PI) — 1 SKU trong 1 PO chỉ có đúng 1 PI, luôn trỏ tới ProductionInvoice
+   *  cùng exportOrderId+mfgProductId (xem plan-form.service.ts createForm) để "Tổng hợp lệnh sản
+   *  xuất" (qlsx@demo.com) hiện đúng dữ liệu của "Bảng thống kê" (khsx@demo.com). */
+  piCode: string;
+  productionInvoiceId?: number;
   /** PlanForm tạo tự động khi PM xác nhận sản xuất 1 SKU trong PI (LenhSXPage) — chỉ phục vụ
    *  "Lệnh kiểm tra vật tư" (prodmgr@demo.com), không phải SKU do KHSX tạo nên phải ẩn khỏi
    *  "Danh sách SKU" / "Duyệt SKU". */
@@ -117,4 +122,7 @@ export interface CreatePlanFormPayload {
   note?: string;
   customerName?: string;
   origin?: 'PRODUCTION_CONFIRM';
+  /** Khi đã biết chắc PI nào ứng với SKU này (vd LenhSXPage duyệt xong 1 SKU), truyền thẳng id để
+   *  tái dùng đúng PI đó thay vì service phải dò theo exportOrderId+SKU. */
+  productionInvoiceId?: number;
 }

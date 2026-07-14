@@ -64,11 +64,48 @@ class PlanFormService extends BaseService<PlanForm> {
     return this.enrich(pf);
   }
 
+  /** 1 SKU (exportOrderId+mfgProductId) chỉ có đúng 1 PI — tái dùng PI đã có (theo id truyền vào
+   *  hoặc theo cùng exportOrderId+SKU), không tạo trùng. Nếu chưa có PI nào thì tạo mới để "Tổng
+   *  hợp lệnh sản xuất" (qlsx@demo.com) luôn có dữ liệu khớp với "Bảng thống kê" (khsx@demo.com). */
+  private resolveProductionInvoice(s: { mfgProducts: any[]; productionInvoices: any[]; exportOrders: any[] }, data: CreatePlanFormPayload): { id: number; code: string } {
+    const mfgProduct = s.mfgProducts.find((p: any) => p.id === data.mfgProductId);
+    let pi: any = data.productionInvoiceId
+      ? s.productionInvoices.find((p: any) => p.id === data.productionInvoiceId)
+      : s.productionInvoices.find((p: any) =>
+          p.exportOrderId === data.exportOrderId &&
+          (p.items ?? []).some((it: any) => it.productVariant?.mfgProduct?.factoryCode === mfgProduct?.factoryCode),
+        );
+    if (!pi) {
+      const exportOrder = s.exportOrders.find((o: any) => o.id === data.exportOrderId);
+      const orderItem = exportOrder?.items?.find((it: any) => it.productVariant?.mfgProduct?.name === mfgProduct?.name);
+      const id = nextId();
+      pi = {
+        id,
+        code: `PI-2026-${id}`,
+        status: 'PLANNING',
+        deadline: exportOrder?.deliveryDate ?? new Date().toISOString(),
+        exportOrderId: data.exportOrderId,
+        exportOrder: exportOrder ? { poNumber: exportOrder.poNumber } : undefined,
+        items: [{
+          quantity: orderItem?.quantity ?? 0,
+          productVariant: {
+            colorCode: orderItem?.productVariant?.colorCode ?? null,
+            mfgProduct: { name: mfgProduct?.name ?? '', factoryCode: mfgProduct?.factoryCode ?? '' },
+          },
+        }],
+        stages: [],
+      };
+      (s.productionInvoices as any[]).unshift(pi);
+    }
+    return pi;
+  }
+
   async createForm(data: CreatePlanFormPayload): Promise<PlanForm> {
     await mockDelay();
     let created!: PlanForm;
     mockStore.update((s) => {
       const quota = this.buildEmptyQuota();
+      const pi = this.resolveProductionInvoice(s, data);
       created = {
         id: nextId(),
         exportOrderId: data.exportOrderId,
@@ -80,6 +117,8 @@ class PlanFormService extends BaseService<PlanForm> {
         createdAt: new Date().toISOString(),
         createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
         quotaManagement: quota,
+        piCode: pi.code,
+        productionInvoiceId: pi.id,
       };
       s.planForms.unshift(created);
     });
