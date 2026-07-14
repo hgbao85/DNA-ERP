@@ -16,7 +16,7 @@ const STAGE_LABEL: Record<StageKey, string> = { PHOI: 'Phôi', HAN: 'Hàn', SON:
 const KCS_STAGES: Record<string, 'PHOI' | 'HAN' | 'SON' | null> = { PHOI: 'PHOI', HAN: 'HAN', SON: 'SON', WEAVING: null }
 
 const PI_STATUS_LABEL: Record<string, string> = {
-  NEW: 'Mới', PLANNING: 'Lên kế hoạch', PURCHASING: 'Mua hàng',
+  NEW: 'Mới', PURCHASING: 'Mua hàng',
   PRODUCING: 'Đang SX', QC_STAGE: 'QC', DONE: 'Hoàn thành', CANCELLED: 'Đã hủy',
 }
 
@@ -290,7 +290,7 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
     pkMap[p.piId] = { pct: p.totalTarget > 0 ? Math.round(p.totalPacked / p.totalTarget * 100) : 0, allDone: p.allDone }
   }
 
-  const afterDoneFilter = all.filter(p => showDone || (p.status !== 'DONE' && p.status !== 'CANCELLED'))
+  const afterDoneFilter = all.filter(p => p.status !== 'PLANNING' && (showDone || (p.status !== 'DONE' && p.status !== 'CANCELLED')))
   const pis = stageFilter === 'ALL'         ? afterDoneFilter
     : stageFilter === 'CHUYEN_KIEM'         ? afterDoneFilter.filter(p => ckMap[p.id] !== undefined)
     : stageFilter === 'DONG_GOI'            ? afterDoneFilter.filter(p => pkMap[p.id] !== undefined)
@@ -402,10 +402,6 @@ export default function MfgWorkshopBoardPage({ stageFilter = 'ALL' }: { stageFil
             })}
           </tbody>
         </table>
-      </div>
-
-      <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text3)' }}>
-        Bấm ô công đoạn để mở chi tiết &amp; duyệt KCS. Ô <strong>Đan</strong> mở tiến độ nhập đan; ô <strong>Chuyền kiểm</strong> / <strong>Đóng gói</strong> mở màn thao tác. Số cam = báo cáo đang chờ duyệt.
       </div>
         </>
       )}
