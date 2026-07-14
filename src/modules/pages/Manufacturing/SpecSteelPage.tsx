@@ -38,7 +38,8 @@ const toManhRow = (m: Manh): ManhRow => ({
   children: m.children.map((c): ManhChildRow => ({ id: c.id, name: c.loaiSatName, specs: c.specs || undefined, length: c.chieuDai || undefined, qty: c.soLuong || undefined })),
 })
 
-const UNIT_OPTIONS = ['cm', 'cái', 'con', 'cây', 'kg', 'm', 'cuộn']
+// Sắt: sắt ống đo bằng mm (chiều dài), sắt tấm đếm bằng tấm — theo định mức sếp chốt.
+const UNIT_OPTIONS = ['mm', 'tấm']
 
 const VAT_TU_PRESETS: { name: string; unit: string }[] = [
   { name: 'Sắt Vuông 6 zem',  unit: 'cm'  },
@@ -338,7 +339,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [rows, setRows] = useState<DraftLine[]>([])
   const [nextRowUid, setNextRowUid] = useState(1)
   const [vtName, setVtName] = useState('')
-  const [vtUnit, setVtUnit] = useState('cây')
+  const [vtUnit, setVtUnit] = useState('mm')
   const [vtSpecs, setVtSpecs] = useState('')
   const [vtChieuDai, setVtChieuDai] = useState('')
   const [vtSoLuong, setVtSoLuong] = useState('')
@@ -886,7 +887,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 <VatTuSearch
                   value={vtName}
                   onChange={name => { setVtName(name); setVtErr('') }}
-                  onSelectFromPreset={p => { setVtName(p.name); setVtUnit(p.unit); setVtErr('') }}
+                  onSelectFromPreset={p => { setVtName(p.name); setVtErr('') }}
                 />
               </div>
               {/* Quy cách */}
@@ -899,20 +900,15 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   catalog={catalog}
                 />
               </div>
-              {/* Chiều dài */}
-              <div style={{ minWidth: 90 }}>
-                <FL>Chiều dài</FL>
-                <SpecsInput value={vtChieuDai} onChange={setVtChieuDai} materialName={vtName} catalog={catalog} field="chieuDai" />
-              </div>
-              {/* SL */}
-              <div style={{ minWidth: 90 }}>
-                <FL>SL</FL>
+              {/* Số lượng — sắt ống nhập mm (chiều dài), sắt tấm đếm số tấm */}
+              <div style={{ minWidth: 110 }}>
+                <FL>Số lượng</FL>
                 <input value={vtSoLuong} onChange={e => setVtSoLuong(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && addToDraft()}
-                  placeholder="100" style={inputStyle} />
+                  placeholder={vtUnit === 'tấm' ? '1' : '9000'} style={inputStyle} />
               </div>
-              {/* ĐVT */}
-              <div style={{ width: 68 }}>
+              {/* ĐVT — mm (sắt ống) / tấm (sắt tấm) */}
+              <div style={{ width: 84 }}>
                 <FL>ĐVT</FL>
                 <select value={vtUnit} onChange={e => setVtUnit(e.target.value)}
                   style={{ ...inputStyle, background: 'var(--surface)' }}>
@@ -942,7 +938,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                    {['SKU', 'Tên', 'Quy cách', 'Chiều dài', 'SL', 'ĐVT', ...(st === 'pending' ? [] : [''])].map((h, i) => (
+                    {['SKU', 'Tên', 'Quy cách', 'Số lượng', 'ĐVT', ...(st === 'pending' ? [] : [''])].map((h, i) => (
                       <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                     ))}
                   </tr>
@@ -953,7 +949,6 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedVtBom?.ten}</td>
                       <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{d.name}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{d.specs || '—'}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text3)', fontFamily: 'monospace' }}>{d.chieuDai || '—'}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text)', fontFamily: 'monospace' }}>{d.soLuong || '—'}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{d.unit}</td>
                       {st !== 'pending' && (
@@ -1016,7 +1011,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: '#ffebee', borderBottom: '1px solid #ffcdd2' }}>
-                      {['SKU', 'Tên vật tư', 'Quy cách', 'Chiều dài', 'SL', 'Lý do từ chối'].map((h, i) => (
+                      {['SKU', 'Tên vật tư', 'Quy cách', 'Số lượng', 'Lý do từ chối'].map((h, i) => (
                         <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: '#b71c1c', fontSize: 11 }}>{h}</th>
                       ))}
                     </tr>
@@ -1027,7 +1022,6 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text2)' }}>{g.ten}</td>
                         <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{it.name}</td>
                         <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{it.specifications || '—'}</td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text3)', fontFamily: 'monospace' }}>{it.chieuDai || '—'}</td>
                         <td style={{ padding: '10px 14px', color: 'var(--text)', fontFamily: 'monospace' }}>{it.quantity ?? '—'}</td>
                         <td style={{ padding: '10px 14px', color: '#c62828', fontSize: 13 }}>{g.reason || '—'}</td>
                       </tr>
@@ -1052,7 +1046,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                    {['Tên vật tư', 'Quy cách', 'Chiều dài', 'ĐVT'].map((h, i) => (
+                    {['Tên vật tư', 'Quy cách', 'ĐVT'].map((h, i) => (
                       <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                     ))}
                   </tr>
@@ -1065,7 +1059,6 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     <tr key={i} style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
                       <td style={{ padding: '10px 14px', fontWeight: 500 }}>{s.name}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{s.specs || '—'}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text3)', fontFamily: 'monospace' }}>{s.chieuDai || '—'}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{s.unit}</td>
                     </tr>
                   ))}
@@ -1074,7 +1067,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     return s.name.toLowerCase().includes(q) || s.specs.toLowerCase().includes(q)
                   }).length === 0 && (
                     <tr>
-                      <td colSpan={4} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
+                      <td colSpan={3} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
                         {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư nào được nhập.'}
                       </td>
                     </tr>
