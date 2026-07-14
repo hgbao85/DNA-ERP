@@ -19,7 +19,9 @@ function strHash(s: string): number {
   return s.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
 }
 
-function mockTotalBoxes(pf: PlanForm): number {
+// Dùng chung với "Chi tiết từng công đoạn" bên Bảng thống kê KHSX (xem ThongKePagePlan.tsx) để số
+// liệu "tổng thùng" luôn khớp với đúng những gì thủ kho thành phẩm (khotp@demo.com) đang thấy ở đây.
+export function mockTotalBoxes(pf: PlanForm): number {
   const code = pf.mfgProduct?.factoryCode ?? `#${pf.id}`
   return 20 + (strHash(code) % 60)
 }

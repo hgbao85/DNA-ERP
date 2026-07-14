@@ -1,12 +1,18 @@
-import { useState } from 'react'
-import { format } from 'date-fns'
-import { ArrowLeft, CheckCircle2, ChevronRight, Clock, ClipboardCheck, Factory, PackageCheck, Search, ShoppingCart, TrendingUp, Wrench } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { format, formatDistanceToNow } from 'date-fns'
+import { vi } from 'date-fns/locale'
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Factory, PackageCheck, Search, ShoppingCart, Wrench } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useInspection, type PurchaseProposal } from '../../../context/InspectionContext'
 import type { PlanForm } from '../../../types/plan-form'
 import LenhSanXuatBoard, { type BoardColumn } from '../../../components/sanxuat/LenhSanXuatBoard'
-import { VatTuDetailBoard, PHOI_CFG, HAN_CFG, SON_CFG, perSku, type ProcManh, type ProcLine } from '../../../components/sanxuat/core'
+import { VatTuDetailBoard, PHOI_CFG, HAN_CFG, SON_CFG, perSku, lechOf, type ProcManh, type ProcLine, type StageCfg } from '../../../components/sanxuat/core'
+import type { ManhLine, ManhAllocation } from '../../../types/manh'
+import ManhSkuDetail from '../InboundWarehouse/ManhSkuDetail'
+import { mockPieces, type MockPiece } from '../InboundWarehouse/KhoChuyenKiemPage'
+import { mockTotalBoxes } from '../InboundWarehouse/KhoDongGoiPage'
+import { tabBtn, btnSecondary } from '../../../styles/buttons'
 import ProgressBar from '../../../components/ProgressBar'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -24,11 +30,9 @@ interface MaterialItem {
   boughtQty: number // Đã mua
 }
 
-// 1 mảnh có thể xuất cho nhiều điểm đan khác nhau — cùng hình dạng ManhLine/ManhAllocation dùng ở
-// "Theo dõi xuất đan" (khovttp@demo.com) / "Theo dõi nhập đan" (khotp@demo.com), xem WeavingSubStages.
+// Công đoạn Đan dùng chung cấu trúc ManhLine/ManhAllocation + component ManhSkuDetail với "Theo dõi
+// xuất đan" (khovttp@demo.com) và "Theo dõi nhập đan" (khotp@demo.com) — xem StageDetailCard.
 interface WeavingPointLite { id: number; name: string; fullName?: string }
-interface WeavingAlloc { id: number; pointName: string; xuatQty: number; nhapQty: number }
-interface WeavingLine { id: number; name: string; totalQty: number; allocations: WeavingAlloc[] }
 
 interface StageDetails {
   purchasing: { materials: MaterialItem[] }
@@ -40,9 +44,11 @@ interface StageDetails {
     hanLines: ProcLine[]
     sonLines: ProcLine[]
   }
-  weaving: { nhapDan: SubStatus; xuatDan: SubStatus; lines: WeavingLine[] }
-  chuyenKiem: { daKiem: SubStatus }
-  packaging: { dongGoi: SubStatus }
+  weaving: { nhapDan: SubStatus; xuatDan: SubStatus; lines: ManhLine[] }
+  // Chuyền kiểm/Đóng gói dùng chung số liệu "cần làm" (mockPieces/mockTotalBoxes) với đúng trang
+  // Chuyền kiểm/Đóng gói thật của thủ kho thành phẩm (khotp@demo.com) — xem ChuyenKiemContent/PackagingContent.
+  chuyenKiem: { daKiem: SubStatus; pieces: (MockPiece & { daKiemQty: number })[] }
+  packaging: { dongGoi: SubStatus; totalBoxes: number; daDongQty: number }
 }
 
 interface MfgOrder {
@@ -55,6 +61,7 @@ interface MfgOrder {
   approvedAt: string
   status: OrderStatus
   mfgStage?: MfgStage
+  hasVariance: boolean // lệch định mức ở công đoạn Khung cơ khí (Phôi/Hàn/Sơn) — xem phoiStageStats/aggLineStats
 }
 
 // ─── Stage config ─────────────────────────────────────────────────────────────
@@ -187,11 +194,10 @@ function buildSonLines(pf: PlanForm, status: SubStatus, h: number): ProcLine[] {
 // điểm đan thật từ getWeavingPoints), theo đúng cấu trúc dòng/điểm đan dùng ở 2 màn thủ kho.
 const DAN_LINE_NAMES = ['Mảnh tựa lưng', 'Mảnh ngồi chính', 'Mảnh tay vịn']
 
-function buildWeavingLines(xuatStatus: SubStatus, nhapStatus: SubStatus, h: number, points: WeavingPointLite[]): WeavingLine[] {
+function buildWeavingLines(xuatStatus: SubStatus, nhapStatus: SubStatus, h: number, points: WeavingPointLite[]): ManhLine[] {
   const xuatFrac = doneFracOf(xuatStatus, h, 4)
   const nhapFrac = doneFracOf(nhapStatus, h, 5)
   const pool = points.length > 0 ? points : [{ id: 1, name: 'Điểm đan A' }, { id: 2, name: 'Điểm đan B' }]
-  const pointLabel = (p: WeavingPointLite) => p.fullName ? `${p.name} (${p.fullName})` : p.name
 
   return DAN_LINE_NAMES.map((name, i) => {
     const total = 20 + ((h + i * 17) % 60)
@@ -199,13 +205,26 @@ function buildWeavingLines(xuatStatus: SubStatus, nhapStatus: SubStatus, h: numb
     const twoPoints = pool.length > 1 && xuatTotal > 0 && (h + i) % 2 === 0
     const splitA = twoPoints ? Math.ceil(xuatTotal * 0.6) : xuatTotal
     const splits = twoPoints ? [splitA, xuatTotal - splitA] : [splitA]
-    const allocations: WeavingAlloc[] = splits
+    const allocations: ManhAllocation[] = splits
       .filter(q => q > 0)
       .map((q, ai) => {
         const point = pool[(i + ai) % pool.length]
-        return { id: i * 10 + ai + 1, pointName: pointLabel(point), xuatQty: q, nhapQty: Math.min(q, Math.round(q * nhapFrac)) }
+        return { id: i * 10 + ai + 1, weavingPointId: point.id, xuatQty: q, nhapQty: Math.min(q, Math.round(q * nhapFrac)) }
       })
-    return { id: i + 1, name, totalQty: total, allocations }
+    return { id: i + 1, name, unit: 'cái', totalQty: total, tonThuc: 0, allocations }
+  })
+}
+
+// Chuyền kiểm: lấy đúng danh sách mảnh + số lượng "cần kiểm"/"chờ thực thi" từ mockPieces (cùng hàm
+// dùng ở trang Chuyền kiểm thật của thủ kho thành phẩm khotp@demo.com) — chỉ suy ra riêng "đã kiểm"
+// theo SubStatus để có tiến độ hiển thị, vì số đã kiểm thật do thủ kho nhập tại chỗ (state riêng
+// của trang đó), KHSX không có quyền chỉnh nên không cần đồng bộ hai chiều.
+function buildChuyenKiemPieces(pf: PlanForm, status: SubStatus, h: number): (MockPiece & { daKiemQty: number })[] {
+  const doneFrac = doneFracOf(status, h, 6)
+  return mockPieces(pf).map((p, i) => {
+    const remain = Math.max(0, p.totalQty - p.choThucThi)
+    const frac = Math.min(1, doneFrac * (0.85 + ((h + i * 7) % 30) / 100))
+    return { ...p, daKiemQty: Math.round(remain * frac) }
   })
 }
 
@@ -216,16 +235,49 @@ function genExecutionStages(pf: PlanForm, purchasingDone: boolean, weavingPoints
     return {
       frame: { phoi: 'pending', han: 'pending', son: 'pending', phoiManhs: [], hanLines: [], sonLines: [] },
       weaving: { nhapDan: 'pending', xuatDan: 'pending', lines: [] },
-      chuyenKiem: { daKiem: 'pending' },
-      packaging: { dongGoi: 'pending' },
+      chuyenKiem: { daKiem: 'pending', pieces: [] },
+      packaging: { dongGoi: 'pending', totalBoxes: 0, daDongQty: 0 },
     }
   }
   const h = strHash(pf.exportOrder?.poNumber ?? String(pf.id)) + pf.id
+
+  // id 9-10: 2 lệnh minh hoạ cố định luôn ở Chuyền kiểm/Đóng gói (PO-MY-009, PO-IK-010 — xem seed.ts)
+  // để demo luôn có sẵn ví dụ cho 2 công đoạn cuối, không phụ thuộc may rủi của hash PO; vẫn tái dùng
+  // đúng các hàm buildPhoiManhs/buildHanLines/buildSonLines/buildWeavingLines ở trên để có dữ liệu chi
+  // tiết hiển thị bình thường như mọi lệnh khác.
+  if (pf.id === 9 || pf.id === 10) {
+    const phoiManhs = buildPhoiManhs(pf, 'done', h)
+    const frame: StageDetails['frame'] = {
+      phoi: 'done', han: 'done', son: 'done', phoiManhs,
+      hanLines: buildHanLines(phoiManhs, 'done', h),
+      sonLines: buildSonLines(pf, 'done', h),
+    }
+    const weaving: StageDetails['weaving'] = { xuatDan: 'done', nhapDan: 'done', lines: buildWeavingLines('done', 'done', h, weavingPoints) }
+    const daKiem: SubStatus  = pf.id === 9 ? 'in-progress' : 'done'
+    const dongGoi: SubStatus = pf.id === 9 ? 'pending'      : 'in-progress'
+    const totalBoxes = mockTotalBoxes(pf)
+    return {
+      frame, weaving,
+      chuyenKiem: { daKiem, pieces: buildChuyenKiemPieces(pf, daKiem, h) },
+      packaging: { dongGoi, totalBoxes, daDongQty: Math.round(totalBoxes * doneFracOf(dongGoi, h, 7)) },
+    }
+  }
+
   const pick = (offset: number, thresholds: [number, SubStatus][]): SubStatus => {
     const v = (h + offset * 7) % 10
     for (const [t, s] of thresholds) if (v < t) return s
     return thresholds[thresholds.length - 1][1]
   }
+
+  // Khung cơ khí → Đan → Chuyền kiểm → Đóng gói chạy theo mô hình pipeline, không phải hàng đợi tuần
+  // tự: PO số lượng lớn nên hễ công đoạn trước đã có SẢN LƯỢNG XONG (không còn 'pending') là công đoạn
+  // sau đã có việc để làm, không cần đợi công đoạn trước xong 100%. Nhưng công đoạn sau không thể XONG
+  // HẲN trước khi công đoạn ngay trước nó xong hẳn (chưa qua hết Đan thì Chuyền kiểm không thể xong) —
+  // pipelineNext "chặn trần" trạng thái công đoạn sau ở đúng mức của bottleneck phía trước.
+  const SUB_STATUSES: SubStatus[] = ['pending', 'in-progress', 'done']
+  const rankOf = (s: SubStatus) => SUB_STATUSES.indexOf(s)
+  const pipelineNext = (upstream: SubStatus, roll: SubStatus): SubStatus => SUB_STATUSES[Math.min(rankOf(upstream), rankOf(roll))]
+
   const phoiStatus = pick(1, [[8, 'done'], [9, 'in-progress'], [10, 'pending']])
   const hanStatus  = pick(2, [[6, 'done'], [8, 'in-progress'], [10, 'pending']])
   const sonStatus  = pick(3, [[5, 'done'], [7, 'in-progress'], [10, 'pending']])
@@ -236,19 +288,17 @@ function genExecutionStages(pf: PlanForm, purchasingDone: boolean, weavingPoints
     hanLines: buildHanLines(phoiManhs, hanStatus, h),
     sonLines: buildSonLines(pf, sonStatus, h),
   }
-  const frameDone = frame.phoi === 'done' && frame.han === 'done' && frame.son === 'done'
-  // xuatDan quyết định trước — nhapDan không thể vượt tiến độ xuatDan (chưa xuất thì chưa có gì để nhập về).
-  const xuatDan = frameDone ? pick(4, [[6, 'done'], [8, 'in-progress'], [10, 'pending']]) : 'pending'
-  const nhapDan = xuatDan === 'pending' ? 'pending' : pick(5, [[4, 'done'], [7, 'in-progress'], [10, 'pending']])
+  // Đan cần mảnh đã qua đủ cả Phôi lẫn Hàn lẫn Sơn — bottleneck của khung là công đoạn con chậm nhất.
+  const frameBottleneck = SUB_STATUSES[Math.min(rankOf(phoiStatus), rankOf(hanStatus), rankOf(sonStatus))]
+  const xuatDan = pipelineNext(frameBottleneck, pick(4, [[6, 'done'], [8, 'in-progress'], [10, 'pending']]))
+  // nhapDan không thể vượt tiến độ xuatDan (chưa xuất thì chưa có gì để nhập về).
+  const nhapDan = pipelineNext(xuatDan, pick(5, [[4, 'done'], [7, 'in-progress'], [10, 'pending']]))
   const weaving: StageDetails['weaving'] = { xuatDan, nhapDan, lines: buildWeavingLines(xuatDan, nhapDan, h, weavingPoints) }
-  const weavingDone = weaving.nhapDan === 'done' && weaving.xuatDan === 'done'
-  const chuyenKiem: StageDetails['chuyenKiem'] = weavingDone ? {
-    daKiem: pick(6, [[6, 'done'], [8, 'in-progress'], [10, 'pending']]),
-  } : { daKiem: 'pending' }
-  const chuyenKiemDone = chuyenKiem.daKiem === 'done'
-  const packaging: StageDetails['packaging'] = chuyenKiemDone ? {
-    dongGoi: pick(7, [[5, 'done'], [8, 'in-progress'], [10, 'pending']]),
-  } : { dongGoi: 'pending' }
+  const daKiem = pipelineNext(nhapDan, pick(6, [[6, 'done'], [8, 'in-progress'], [10, 'pending']]))
+  const chuyenKiem: StageDetails['chuyenKiem'] = { daKiem, pieces: buildChuyenKiemPieces(pf, daKiem, h) }
+  const dongGoi = pipelineNext(daKiem, pick(7, [[5, 'done'], [8, 'in-progress'], [10, 'pending']]))
+  const totalBoxes = mockTotalBoxes(pf)
+  const packaging: StageDetails['packaging'] = { dongGoi, totalBoxes, daDongQty: Math.round(totalBoxes * doneFracOf(dongGoi, h, 7)) }
   return { frame, weaving, chuyenKiem, packaging }
 }
 
@@ -258,6 +308,7 @@ function buildOrderRow(pf: PlanForm, proposals: PurchaseProposal[], weavingPoint
   const { frame, weaving, chuyenKiem, packaging } = genExecutionStages(pf, purchPct >= 100, weavingPoints)
   const details: StageDetails = { purchasing: { materials }, frame, weaving, chuyenKiem, packaging }
   const done = isAllDone(details)
+  const hasVariance = phoiStageStats(frame.phoiManhs).lech || aggLineStats(frame.hanLines).lech || aggLineStats(frame.sonLines).lech
   const order: MfgOrder = {
     id: pf.id,
     code: pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`,
@@ -268,6 +319,7 @@ function buildOrderRow(pf: PlanForm, proposals: PurchaseProposal[], weavingPoint
     approvedAt: pf.createdAt,
     status: done ? 'DONE' : 'PRODUCING',
     mfgStage: done ? undefined : (purchPct < 100 ? 'PURCHASING' : 'FRAME'),
+    hasVariance,
   }
   return { order, details }
 }
@@ -275,30 +327,21 @@ function buildOrderRow(pf: PlanForm, proposals: PurchaseProposal[], weavingPoint
 // ─── Status meta ──────────────────────────────────────────────────────────────
 
 const STATUS_META: Record<OrderStatus, { label: string; bg: string; color: string; border: string }> = {
-  PRODUCING: { label: 'Đang sản xuất', bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
-  DONE:      { label: 'Hoàn thành',    bg: '#ecfdf5', color: '#065f46', border: '#6ee7b7' },
+  PRODUCING: { label: 'Đang sản xuất', bg: 'var(--amber-bg)', color: 'var(--amber)', border: 'var(--amber)' },
+  DONE:      { label: 'Hoàn thành',    bg: 'var(--green-bg)', color: 'var(--green)', border: 'var(--green)' },
+}
+
+// Đơn lệnh quá hạn khi có deadline, đã qua hạn, và chưa hoàn thành — dùng chung cho bảng danh sách + trang chi tiết
+// để tránh 2 cài đặt độc lập của cùng 1 quy tắc nghiệp vụ lệch nhau.
+function isOrderOverdue(deadline: string | undefined, isDone: boolean): boolean {
+  return !!deadline && new Date(deadline) < new Date() && !isDone
 }
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', background: 'var(--surface2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13, borderTop: '1px solid var(--border)', verticalAlign: 'middle' }
 
 type FilterStatus = 'all' | OrderStatus
-
-// ─── Sub-stage badge ──────────────────────────────────────────────────────────
-
-function SubStatusBadge({ status }: { status: SubStatus }) {
-  const conf: Record<SubStatus, { bg: string; color: string; border: string; label: string; icon: React.ReactNode }> = {
-    done:          { bg: '#dcfce7', color: '#166534', border: '#86efac', label: 'Hoàn thành',     icon: <CheckCircle2 size={11} /> },
-    'in-progress': { bg: '#fef3c7', color: '#92400e', border: '#fcd34d', label: 'Đang thực hiện', icon: <Clock size={11} /> },
-    pending:       { bg: 'var(--surface2)', color: 'var(--text3)', border: 'var(--border)', label: 'Chờ', icon: <span style={{ display: 'inline-block', width: 10, height: 10, border: '1.5px solid currentColor', borderRadius: '50%' }} /> },
-  }
-  const c = conf[status]
-  return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 9px', borderRadius: 20, fontSize: 11, fontWeight: 600, background: c.bg, color: c.color, border: `1px solid ${c.border}`, whiteSpace: 'nowrap' }}>
-      {c.icon} {c.label}
-    </span>
-  )
-}
+const PAGE_SIZE = 20
 
 // ─── Stage detail sub-components ──────────────────────────────────────────────
 
@@ -311,6 +354,13 @@ function PurchasingContent({ materials, deadline }: { materials: MaterialItem[];
     return <div style={{ padding: '10px 4px', fontSize: 12, color: 'var(--text3)' }}>Chưa có đề xuất mua vật tư nào cho lệnh này</div>
   }
   return (
+    <div>
+    {deadline && (
+      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>
+        Hạn giao vật tư: <span style={{ fontWeight: 600, color: 'var(--text2)' }}>{format(new Date(deadline), 'dd/MM/yyyy')}</span>
+      </div>
+    )}
+    <div style={{ overflowX: 'auto' }}>
     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
       <thead>
         <tr>
@@ -321,7 +371,6 @@ function PurchasingContent({ materials, deadline }: { materials: MaterialItem[];
           <th style={thS}>ĐVT</th>
           <th style={{ ...thS, textAlign: 'right' }}>Đã mua</th>
           <th style={{ ...thS, textAlign: 'right' }}>Còn lại</th>
-          <th style={thS}>Hạn giao</th>
         </tr>
       </thead>
       <tbody>
@@ -336,22 +385,70 @@ function PurchasingContent({ materials, deadline }: { materials: MaterialItem[];
               <td style={{ ...tdS, color: 'var(--text3)' }}>{m.unit}</td>
               <td style={{ ...tdS, textAlign: 'right', fontWeight: 700, color: m.boughtQty > 0 ? '#16a34a' : 'var(--text3)' }}>{m.boughtQty.toLocaleString('vi-VN')}</td>
               <td style={{ ...tdS, textAlign: 'right', fontWeight: 700, color: remaining > 0 ? '#d97706' : '#16a34a' }}>{remaining.toLocaleString('vi-VN')}</td>
-              <td style={{ ...tdS, whiteSpace: 'nowrap' }}>{deadline ? format(new Date(deadline), 'dd/MM/yyyy') : '—'}</td>
             </tr>
           )
         })}
       </tbody>
     </table>
+    </div>
+    </div>
   )
 }
 
-function SubStepList({ steps }: { steps: { label: string; status: SubStatus }[] }) {
+// Bảng mảnh chờ kiểm/đã kiểm — cùng cột với trang Chuyền kiểm thật của thủ kho thành phẩm
+// (khotp@demo.com), chỉ xem (không có nút "Kiểm").
+function ChuyenKiemContent({ chuyenKiem }: { chuyenKiem: StageDetails['chuyenKiem'] }) {
+  const thS: React.CSSProperties = { padding: '6px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', textAlign: 'left', whiteSpace: 'nowrap' }
+  const tdS: React.CSSProperties = { padding: '7px 10px', fontSize: 12, borderBottom: '1px solid var(--border)' }
+  if (chuyenKiem.pieces.length === 0) {
+    return <div style={{ padding: '10px 4px', fontSize: 12, color: 'var(--text3)' }}>Chưa tới lượt kiểm — đợi công đoạn Đan hoàn tất</div>
+  }
   return (
-    <div style={{ display: 'flex', flexDirection: 'column' }}>
-      {steps.map((s, i) => (
-        <div key={s.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 4px', borderBottom: i < steps.length - 1 ? '1px solid var(--border)' : undefined }}>
-          <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{s.label}</span>
-          <SubStatusBadge status={s.status} />
+    <div style={{ overflowX: 'auto' }}>
+    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+      <thead>
+        <tr>
+          <th style={thS}>Mảnh</th>
+          <th style={{ ...thS, textAlign: 'right' }}>Chờ thực thi</th>
+          <th style={{ ...thS, textAlign: 'right' }}>Đã kiểm</th>
+          <th style={{ ...thS, textAlign: 'right' }}>Còn lại</th>
+        </tr>
+      </thead>
+      <tbody>
+        {chuyenKiem.pieces.map(p => {
+          const remaining = Math.max(0, p.totalQty - p.choThucThi - p.daKiemQty)
+          return (
+            <tr key={p.id}>
+              <td style={{ ...tdS, fontWeight: 600 }}>{p.name}</td>
+              <td style={{ ...tdS, textAlign: 'right', color: 'var(--text3)' }}>{p.choThucThi.toLocaleString('vi-VN')}</td>
+              <td style={{ ...tdS, textAlign: 'right', fontWeight: 700, color: p.daKiemQty > 0 ? '#16a34a' : 'var(--text3)' }}>{p.daKiemQty.toLocaleString('vi-VN')}</td>
+              <td style={{ ...tdS, textAlign: 'right', fontWeight: 700, color: remaining > 0 ? '#d97706' : '#16a34a' }}>{remaining.toLocaleString('vi-VN')}</td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+    </div>
+  )
+}
+
+// 3 số tổng thùng — cùng số liệu với trang Đóng gói thật của thủ kho thành phẩm, chỉ xem.
+function PackagingContent({ packaging }: { packaging: StageDetails['packaging'] }) {
+  if (packaging.totalBoxes === 0) {
+    return <div style={{ padding: '10px 4px', fontSize: 12, color: 'var(--text3)' }}>Chưa tới lượt đóng gói — đợi công đoạn Chuyền kiểm hoàn tất</div>
+  }
+  const remaining = Math.max(0, packaging.totalBoxes - packaging.daDongQty)
+  const stats: { label: string; value: number; color: string }[] = [
+    { label: 'Tổng thùng',   value: packaging.totalBoxes, color: 'var(--text)' },
+    { label: 'Đã đóng gói',  value: packaging.daDongQty,  color: packaging.daDongQty > 0 ? '#16a34a' : 'var(--text3)' },
+    { label: 'Còn lại',      value: remaining,             color: remaining > 0 ? '#d97706' : '#16a34a' },
+  ]
+  return (
+    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      {stats.map(s => (
+        <div key={s.label} style={{ flex: '1 1 140px', minWidth: 140, border: '1px solid var(--border)', borderRadius: 10, padding: '10px 14px', textAlign: 'center' }}>
+          <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '.04em', marginBottom: 6 }}>{s.label}</div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: s.color }}>{s.value.toLocaleString('vi-VN')}</div>
         </div>
       ))}
     </div>
@@ -364,72 +461,121 @@ function SubStepList({ steps }: { steps: { label: string; status: SubStatus }[] 
 
 type FrameSubTab = 'PHOI' | 'HAN' | 'SON'
 
-const FRAME_SUB_TABS: { key: FrameSubTab; label: string; status: (f: StageDetails['frame']) => SubStatus }[] = [
-  { key: 'PHOI', label: 'Phôi (cắt, dập, tạo hình)', status: f => f.phoi },
-  { key: 'HAN',  label: 'Hàn khung',                  status: f => f.han  },
-  { key: 'SON',  label: 'Sơn phủ',                     status: f => f.son  },
-]
+// Thời điểm nhập gần nhất trong 1 tập dòng vật tư — dùng để KHSX biết dữ liệu còn "nóng" hay không.
+function latestInputAt(lines: ProcLine[]): string | null {
+  return lines.reduce<string | null>((latest, l) => (l.lastInputAt && (!latest || l.lastInputAt > latest)) ? l.lastInputAt : latest, null)
+}
 
-function PhoiManhMiniBoard({ manhs, onOpen }: { manhs: ProcManh[]; onOpen: (id: number) => void }) {
+function timeAgo(iso: string | null): string {
+  return iso ? formatDistanceToNow(new Date(iso), { addSuffix: true, locale: vi }) : 'chưa cập nhật'
+}
+
+interface StageLineStats { need: number; done: number; pct: number; lech: boolean; lastInputAt: string | null }
+
+function aggLineStats(lines: ProcLine[]): StageLineStats {
+  const need = lines.reduce((s, l) => s + l.needQty, 0)
+  const done = lines.reduce((s, l) => s + l.doneQty, 0)
+  return { need, done, pct: need > 0 ? Math.round(done / need * 100) : 0, lech: lechOf(lines), lastInputAt: latestInputAt(lines) }
+}
+
+// Phôi không đồng bộ theo cả lệnh (mỗi mảnh dùng loại sắt riêng, không so sánh chéo được — xem
+// PoListBoard trong core.tsx): % tính trên tổng cây (gộp mọi mảnh) nhưng lệch xét riêng từng mảnh
+// (có ít nhất 1 mảnh tự lệch giữa các loại sắt của chính nó). Hàn/Sơn dùng chung 1 tập vật tư cho
+// cả lệnh nên so sánh trực tiếp trên toàn bộ dòng (xem aggLineStats).
+function phoiStageStats(manhs: ProcManh[]): StageLineStats {
+  const lines = manhs.flatMap(m => m.lines)
+  const need = lines.reduce((s, l) => s + l.needQty, 0)
+  const done = lines.reduce((s, l) => s + l.doneQty, 0)
+  return { need, done, pct: need > 0 ? Math.round(done / need * 100) : 0, lech: manhs.some(m => lechOf(m.lines)), lastInputAt: latestInputAt(lines) }
+}
+
+// ─── Tab chuyển Phôi/Hàn/Sơn ──────────────────────────────────────────────────
+// Trước đây là 3 card to (viền + progress bar + mô tả riêng từng thẻ) — trùng lặp với thanh tiến độ
+// tổng ở trên. Giờ chỉ còn 1 hàng tab gọn (icon + nhãn + % + cờ lệch định mức nếu có), giống hệt
+// pattern tab công đoạn chính (tabBtn) để nhất quán trong toàn trang.
+function FrameStageTab({ cfg, stats, active, onClick }: {
+  cfg: StageCfg; stats: StageLineStats; active: boolean; onClick: () => void
+}) {
+  const Icon = cfg.Icon
+  const accent = stats.lech ? 'var(--red)' : stats.pct >= 100 ? 'var(--green)' : stats.pct > 0 ? 'var(--amber)' : 'var(--text3)'
+  return (
+    <button
+      onClick={onClick}
+      title={stats.lech ? `${cfg.label}: vật tư chưa cân đối — bấm để xem chi tiết` : `Xem chi tiết công đoạn ${cfg.label}`}
+      style={tabBtn(active, accent)}
+    >
+      <Icon size={14} /> {cfg.label}
+      {stats.lech && <AlertTriangle size={12} />}
+      <span>{stats.pct}%</span>
+    </button>
+  )
+}
+
+// Chi tiết từng loại sắt hiện thẳng dưới mỗi mảnh (dùng expandedRow của LenhSanXuatBoard) —
+// KHSX xem được ngay, khỏi phải bấm vào từng dòng như trước.
+function PhoiManhMiniBoard({ manhs }: { manhs: ProcManh[] }) {
   const views = manhs.map(m => {
     const tong = m.lines.reduce((s, l) => s + l.needQty, 0)
     const done = m.lines.reduce((s, l) => s + l.doneQty, 0)
-    return { m, tong, done, remain: Math.max(0, tong - done) }
+    return { m, tong, done, remain: Math.max(0, tong - done), lech: lechOf(m.lines), lastInputAt: latestInputAt(m.lines) }
   })
   const cols: BoardColumn<typeof views[number]>[] = [
-    { key: 'manh', header: 'Mảnh', cell: v => <span style={{ fontWeight: 700 }}>{v.m.tenManh}</span> },
+    { key: 'manh', header: 'Mảnh', cell: v => (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}>
+        {v.lech && <AlertTriangle size={13} color="var(--red)" />}
+        {v.m.tenManh}
+      </span>
+    ) },
     { key: 'perSku', header: 'SL/SKU', align: 'right', cell: v => `×${perSku(v.m)}` },
     { key: 'tong', header: 'Định mức (cây)', align: 'right', cell: v => v.tong.toLocaleString('vi-VN') },
     { key: 'done', header: 'Đã cắt (cây)', align: 'right', cell: v => <span style={{ fontWeight: 700 }}>{v.done.toLocaleString('vi-VN')}</span> },
-    { key: 'remain', header: 'Còn lại (cây)', align: 'right', cell: v => <span style={{ color: v.remain > 0 ? '#e65100' : '#16a34a', fontWeight: 600 }}>{v.remain.toLocaleString('vi-VN')}</span> },
-    { key: 'chevron', header: '', width: 36, cell: () => <span style={{ color: 'var(--text3)' }}><ChevronRight size={16} /></span> },
+    { key: 'remain', header: 'Còn lại (cây)', align: 'right', cell: v => <span style={{ color: v.remain > 0 ? 'var(--amber)' : 'var(--green)', fontWeight: 600 }}>{v.remain.toLocaleString('vi-VN')}</span> },
+    { key: 'updated', header: 'Cập nhật', cell: v => <span style={{ fontSize: 11, color: 'var(--text3)' }}>{timeAgo(v.lastInputAt)}</span> },
   ]
   return (
     <LenhSanXuatBoard
-      title="Danh sách mảnh" subtitle="Bấm vào một mảnh để xem chi tiết loại sắt"
+      title="Danh sách mảnh" subtitle="Chi tiết từng loại sắt hiện sẵn bên dưới mỗi mảnh — mảnh có ⚠ đang lệch định mức giữa các loại sắt, cần kiểm tra"
       columns={cols} rows={views} rowKey={v => v.m.id}
-      clickable={() => true} onRowClick={v => onOpen(v.m.id)}
-      rowTitle={() => 'Xem chi tiết loại sắt của mảnh này'}
+      rowTone={v => v.lech ? 'alert' : 'default'}
+      expandedRow={v => (
+        <div style={{ padding: '4px 14px 16px', background: 'var(--surface2)' }}>
+          <VatTuDetailBoard
+            lines={v.m.lines} cfg={PHOI_CFG} readOnly showThucCo={false}
+            title={v.m.tenManh} subtitle="Chi tiết từng loại sắt của mảnh — chỉ xem"
+            bannerLabel="Đồng bộ sắt" dbUnit="mảnh"
+          />
+        </div>
+      )}
     />
   )
 }
 
 function FrameSubStages({ frame }: { frame: StageDetails['frame'] }) {
   const [tab, setTab] = useState<FrameSubTab>('PHOI')
-  const [selManhId, setSelManhId] = useState<number | null>(null)
+
+  const tabs: { key: FrameSubTab; cfg: StageCfg; stats: StageLineStats }[] = [
+    { key: 'PHOI', cfg: PHOI_CFG, stats: phoiStageStats(frame.phoiManhs) },
+    { key: 'HAN',  cfg: HAN_CFG,  stats: aggLineStats(frame.hanLines) },
+    { key: 'SON',  cfg: SON_CFG,  stats: aggLineStats(frame.sonLines) },
+  ]
+  const activeTab = tabs.find(t => t.key === tab)!
 
   return (
     <div>
-      <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
-        {FRAME_SUB_TABS.map(t => (
-          <button
-            key={t.key}
-            onClick={() => { setTab(t.key); setSelManhId(null) }}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 7, padding: '6px 12px', fontSize: 12, fontWeight: 600,
-              borderRadius: 20, border: 'none', cursor: 'pointer',
-              background: tab === t.key ? '#1d4ed8' : 'var(--surface2)', color: tab === t.key ? '#fff' : 'var(--text)',
-            }}
-          >
-            {t.label}
-            <SubStatusBadge status={t.status(frame)} />
-          </button>
+      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', marginBottom: 14 }}>
+        {tabs.map(t => (
+          <FrameStageTab key={t.key} cfg={t.cfg} stats={t.stats} active={tab === t.key} onClick={() => setTab(t.key)} />
         ))}
       </div>
 
+      {activeTab.stats.lech && (
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--red)', marginBottom: 12 }}>
+          <AlertTriangle size={13} /> {activeTab.cfg.label}: vật tư chưa cân đối, cần kiểm tra
+        </div>
+      )}
+
       {tab === 'PHOI' && (
-        selManhId == null ? (
-          <PhoiManhMiniBoard manhs={frame.phoiManhs} onOpen={setSelManhId} />
-        ) : (
-          <VatTuDetailBoard
-            lines={frame.phoiManhs.find(m => m.id === selManhId)?.lines ?? []}
-            cfg={PHOI_CFG} readOnly showThucCo={false}
-            title={frame.phoiManhs.find(m => m.id === selManhId)?.tenManh ?? ''}
-            subtitle="Chi tiết từng loại sắt của mảnh — chỉ xem"
-            bannerLabel="Đồng bộ sắt" dbUnit="mảnh"
-            onBack={() => setSelManhId(null)} backLabel="Quay lại danh sách mảnh"
-          />
-        )
+        <PhoiManhMiniBoard manhs={frame.phoiManhs} />
       )}
       {tab === 'HAN' && (
         <VatTuDetailBoard
@@ -450,70 +596,16 @@ function FrameSubStages({ frame }: { frame: StageDetails['frame'] }) {
 }
 
 // ─── Đan: chỉ hiện "Nhập đan" ──────────────────────────────────────────────────
-// Nhúng lại đúng nội dung "Theo dõi nhập đan" (khotp@demo.com) ở chế độ chỉ xem (bỏ ô nhập số
-// lượng/nút xác nhận), đã lược bỏ 2 cấp PO/SKU vì đã ở đúng 1 lệnh. Không hiện "Xuất đan" riêng —
-// theo yêu cầu, chỉ "Nhập đan" là đủ để KHSX theo dõi công đoạn Đan.
-
-const weavingThS: React.CSSProperties = { padding: '6px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em', borderBottom: '1px solid var(--border)', textAlign: 'left', whiteSpace: 'nowrap' }
-const weavingTdS: React.CSSProperties = { padding: '7px 10px', fontSize: 12, borderBottom: '1px solid var(--border)' }
-
-function WeavingTile({ label, value, color }: { label: string; value: number; color?: string }) {
-  return (
-    <div style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: 8, textAlign: 'center' }}>
-      <div style={{ fontSize: 20, fontWeight: 700, color: color ?? 'var(--text)' }}>{value.toLocaleString('vi-VN')}</div>
-      <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{label}</div>
-    </div>
-  )
-}
-
-function WeavingSubStages({ weaving }: { weaving: StageDetails['weaving'] }) {
-  const lines = weaving.lines
-  const total  = lines.reduce((s, l) => s + l.totalQty, 0)
-  const daXuat = lines.reduce((s, l) => s + l.allocations.reduce((a, x) => a + x.xuatQty, 0), 0)
-  const daNhap = lines.reduce((s, l) => s + l.allocations.reduce((a, x) => a + x.nhapQty, 0), 0)
-
+// Dùng lại đúng component ManhSkuDetail (chế độ 'view') như "Theo dõi xuất đan"/"Theo dõi nhập đan"
+// bên kho — đã lược bỏ 2 cấp PO/SKU vì đã ở đúng 1 lệnh. Không hiện "Xuất đan" riêng — chỉ "Nhập
+// đan" là đủ để KHSX theo dõi công đoạn Đan.
+function WeavingSubStages({ weaving, pointLabel }: { weaving: StageDetails['weaving']; pointLabel: (id: number) => string }) {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-        {/* <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Nhập đan (nhận mảnh đã đan về)</span> */}
-        <SubStatusBadge status={weaving.nhapDan} />
+        <span style={{ fontSize: 12, fontWeight: 600 }}>Thống kê đan</span>
       </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10, marginBottom: 16 }}>
-        <WeavingTile label="Tổng" value={total} />
-        <WeavingTile label="Đã xuất" value={daXuat} color="#d97706" />
-        <WeavingTile label="Đã nhập" value={daNhap} color="#16a34a" />
-      </div>
-      {daXuat === 0 ? (
-        <div style={{ fontSize: 12, color: 'var(--text3)' }}>Chưa có mảnh nào được xuất đan</div>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr>
-              <th style={weavingThS}>Tên mảnh</th>
-              <th style={weavingThS}>Điểm đan</th>
-              <th style={{ ...weavingThS, textAlign: 'right' }}>SL đã xuất</th>
-              <th style={{ ...weavingThS, textAlign: 'right' }}>SL đã nhập</th>
-              <th style={weavingThS}>Tiến độ nhận</th>
-            </tr>
-          </thead>
-          <tbody>
-            {lines.flatMap(l => l.allocations.filter(a => a.xuatQty > 0).map(a => (
-              <tr key={`${l.id}-${a.id}`}>
-                <td style={{ ...weavingTdS, fontWeight: 600 }}>{l.name}</td>
-                <td style={weavingTdS}>{a.pointName}</td>
-                <td style={{ ...weavingTdS, textAlign: 'right', fontWeight: 600, color: '#d97706' }}>{a.xuatQty.toLocaleString('vi-VN')}</td>
-                <td style={{ ...weavingTdS, textAlign: 'right', fontWeight: 600, color: a.nhapQty > 0 ? '#16a34a' : 'var(--text3)' }}>{a.nhapQty.toLocaleString('vi-VN')}</td>
-                <td style={weavingTdS}>
-                  {a.nhapQty >= a.xuatQty
-                    ? <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>Đã nhận đủ</span>
-                    : <ProgressBar value={a.nhapQty} max={a.xuatQty} />}
-                </td>
-              </tr>
-            )))}
-          </tbody>
-        </table>
-      )}
+      <ManhSkuDetail lines={weaving.lines} pointLabel={pointLabel} variant="view" />
     </div>
   )
 }
@@ -531,15 +623,6 @@ function getStagePercent(key: MfgStage, details: StageDetails): number {
   return 0
 }
 
-function getOverallPercent(details: StageDetails): number {
-  const purchPct = getPurchasingPercent(details.purchasing.materials)
-  const framePct      = getStagePercent('FRAME',       details)
-  const weavingPct     = getStagePercent('WEAVING',     details)
-  const chuyenKiemPct  = getStagePercent('CHUYEN_KIEM', details)
-  const packagingPct   = getStagePercent('PACKAGING',   details)
-  return Math.round((purchPct + framePct + weavingPct + chuyenKiemPct + packagingPct) / 5)
-}
-
 function isAllDone(details: StageDetails): boolean {
   return (
     details.frame.phoi === 'done' && details.frame.han === 'done' && details.frame.son === 'done' &&
@@ -549,6 +632,33 @@ function isAllDone(details: StageDetails): boolean {
   )
 }
 
+// Công đoạn song song (Frame/Weaving/ChuyenKiem/Packaging) đang là "điểm nghẽn" hiện tại của lệnh —
+// công đoạn đầu tiên (theo thứ tự MFG_STAGES) có % > 0 và < 100; nếu không có công đoạn nào dở dang
+// thì trả về công đoạn cuối cùng đã có tiến độ (đã xong, công đoạn kế tiếp chưa bắt đầu).
+function getCurrentParallelStage(details: StageDetails): { stage: MfgStage; pct: number } | null {
+  let last: { stage: MfgStage; pct: number } | null = null
+  for (const s of MFG_STAGES) {
+    if (!PARALLEL_STAGE_KEYS.has(s.key)) continue
+    const pct = getStagePercent(s.key, details)
+    if (pct > 0) last = { stage: s.key, pct }
+    if (pct > 0 && pct < 100) return { stage: s.key, pct }
+  }
+  return last
+}
+
+// Dùng cho cột "Công đoạn hiện tại" ở bảng danh sách — 1 nhãn + % duy nhất thay vì 2 cột
+// Trạng thái/Tiến độ tách rời như trước.
+function currentStageLabel(order: MfgOrder, details: StageDetails): { label: string; icon: React.ReactNode; pct: number } {
+  if (order.status === 'DONE') return { label: 'Hoàn thành', icon: <CheckCircle2 size={14} />, pct: 100 }
+  if (order.mfgStage === 'PURCHASING') {
+    const stage = MFG_STAGES.find(s => s.key === 'PURCHASING')!
+    return { label: stage.label, icon: stage.icon, pct: getPurchasingPercent(details.purchasing.materials) }
+  }
+  const active = getCurrentParallelStage(details)
+  const stage = MFG_STAGES.find(s => s.key === (active?.stage ?? 'FRAME'))!
+  return { label: stage.label, icon: stage.icon, pct: active?.pct ?? 0 }
+}
+
 // ─── Stage detail card ────────────────────────────────────────────────────────
 
 function StageDetailCard({
@@ -556,29 +666,27 @@ function StageDetailCard({
   isActive,
   details,
   orderDeadline,
+  pointLabel,
 }: {
   stage: typeof MFG_STAGES[number]
   isActive: boolean
   details: StageDetails
   orderDeadline?: string
+  pointLabel: (id: number) => string
 }) {
-  const headerBg     = isActive ? '#fef9ec' : '#f0fdf4'
-  const headerBorder = isActive ? '#fcd34d' : '#86efac'
-  const headerColor  = isActive ? '#92400e' : '#166534'
+  const statusColor = isActive ? 'var(--amber)' : 'var(--green)'
 
   return (
-    <div style={{ border: `1px solid ${headerBorder}`, borderRadius: 10, overflow: 'hidden' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 16px', background: headerBg }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: headerColor }}>
+    <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 16px', borderBottom: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, color: 'var(--text2)' }}>
           {stage.icon}
           <span style={{ fontSize: 13, fontWeight: 700 }}>{stage.label}</span>
         </div>
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: headerColor }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: statusColor }}>
           {isActive
-            ? PARALLEL_STAGE_KEYS.has(stage.key)
-              ? <><TrendingUp size={11} /> {getStagePercent(stage.key, details)}%</>
-              : <><Clock size={11} /> Đang thực hiện</>
-            : <><CheckCircle2 size={11} /> Hoàn thành</>}
+            ? PARALLEL_STAGE_KEYS.has(stage.key) ? `${getStagePercent(stage.key, details)}%` : 'Đang thực hiện'
+            : 'Hoàn thành'}
         </span>
       </div>
 
@@ -590,17 +698,13 @@ function StageDetailCard({
           <FrameSubStages frame={details.frame} />
         )}
         {stage.key === 'WEAVING' && (
-          <WeavingSubStages weaving={details.weaving} />
+          <WeavingSubStages weaving={details.weaving} pointLabel={pointLabel} />
         )}
         {stage.key === 'CHUYEN_KIEM' && (
-          <SubStepList steps={[
-            { label: 'Chuyền kiểm (kiểm tra chất lượng thành phẩm đan)', status: details.chuyenKiem.daKiem },
-          ]} />
+          <ChuyenKiemContent chuyenKiem={details.chuyenKiem} />
         )}
         {stage.key === 'PACKAGING' && (
-          <SubStepList steps={[
-            { label: 'Đóng gói', status: details.packaging.dongGoi },
-          ]} />
+          <PackagingContent packaging={details.packaging} />
         )}
       </div>
     </div>
@@ -625,58 +729,42 @@ function MfgStageTracker({
       : -1
 
   return (
-    <div style={{ marginTop: 8 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 12, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-        Tiến độ sản xuất
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
-        {MFG_STAGES.map((stage, idx) => {
-          const pct     = stagePercents?.[stage.key]
-          const done    = allDone || (pct !== undefined ? pct >= 100 : idx < currentIdx)
-          const active  = !done && (pct !== undefined ? pct > 0 : idx === currentIdx)
-          const pending = !done && !active
-          return (
-            <div key={stage.key} style={{ display: 'flex', alignItems: 'center', flex: idx < MFG_STAGES.length - 1 ? '1 1 0' : undefined }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 72 }}>
-                <div style={{
-                  width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: done ? '#dcfce7' : active ? '#15803d' : 'var(--surface2)',
-                  border: `2px solid ${done ? '#86efac' : active ? '#15803d' : 'var(--border)'}`,
-                  color: done ? '#15803d' : active ? '#fff' : 'var(--text3)',
-                  transition: 'all 0.2s',
-                }}>
-                  {done ? <CheckCircle2 size={18} /> : stage.icon}
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: 11, fontWeight: active ? 700 : 600, color: active ? '#15803d' : done ? '#374151' : 'var(--text3)', whiteSpace: 'nowrap' }}>
-                    {stage.label}
-                  </div>
-                  {active  && (
-                    <div style={{ fontSize: 10, color: '#15803d', fontWeight: 600, marginTop: 2 }}>
-                      {pct !== undefined && PARALLEL_STAGE_KEYS.has(stage.key) ? `${pct}%` : 'Đang thực hiện'}
-                    </div>
-                  )}
-                  {done    && <div style={{ fontSize: 10, color: '#22c55e', fontWeight: 600, marginTop: 2 }}>Hoàn thành</div>}
-                  {pending && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>Chờ</div>}
-                </div>
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      {MFG_STAGES.map((stage, idx) => {
+        const pct    = stagePercents?.[stage.key]
+        const done   = allDone || (pct !== undefined ? pct >= 100 : idx < currentIdx)
+        const active = !done && (pct !== undefined ? pct > 0 : idx === currentIdx)
+        const color  = done ? 'var(--green)' : active ? 'var(--amber)' : 'var(--border)'
+
+        return (
+          <div key={stage.key} style={{ display: 'flex', alignItems: 'center', flex: idx < MFG_STAGES.length - 1 ? '1 1 0' : undefined }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 64 }}>
+              <div style={{
+                width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: color, color: done || active ? '#fff' : 'var(--text3)',
+              }}>
+                {done ? <CheckCircle2 size={13} /> : <span style={{ fontSize: 10, fontWeight: 700 }}>{idx + 1}</span>}
               </div>
-              {idx < MFG_STAGES.length - 1 && (
-                <div style={{ flex: 1, height: 2, marginBottom: 28, background: done ? '#86efac' : 'var(--border)' }} />
-              )}
+              <div style={{ fontSize: 11, fontWeight: active ? 700 : 600, color: active ? 'var(--amber)' : done ? 'var(--text2)' : 'var(--text3)', whiteSpace: 'nowrap' }}>
+                {stage.label}{active && pct !== undefined && PARALLEL_STAGE_KEYS.has(stage.key) ? ` · ${pct}%` : ''}
+              </div>
             </div>
-          )
-        })}
-      </div>
+            {idx < MFG_STAGES.length - 1 && (
+              <div style={{ flex: 1, height: 2, marginBottom: 16, background: done ? 'var(--green)' : 'var(--border)' }} />
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
 
 // ─── Detail page ──────────────────────────────────────────────────────────────
 
-function ThongKeDetailPage({ order, details, onBack }: { order: MfgOrder; details: StageDetails; onBack: () => void }) {
+function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgOrder; details: StageDetails; onBack: () => void; pointLabel: (id: number) => string }) {
   const allDone   = isAllDone(details)
   const isDone    = order.status === 'DONE' || allDone
-  const isOverdue = !!order.deadline && new Date(order.deadline) < new Date() && !isDone
+  const isOverdue = isOrderOverdue(order.deadline, isDone)
   const meta      = STATUS_META[isDone ? 'DONE' : 'PRODUCING']
 
   // Stage cards to show
@@ -699,6 +787,15 @@ function ThongKeDetailPage({ order, details, onBack }: { order: MfgOrder; detail
       })
     }
   }
+
+  // "Chi tiết từng công đoạn" hiện dưới dạng tab — luôn đúng 1 công đoạn được xem tại một thời điểm
+  // (thay vì xếp chồng mọi card công đoạn đã tới, có thể rất dài khi PO đã Hoàn thành). Mặc định chọn
+  // công đoạn đang thực hiện; nếu đã xong hết thì mặc định chọn công đoạn cuối cùng. Bấm vào 1 công
+  // đoạn ở "Tiến độ sản xuất" phía trên cũng chuyển sang đúng tab đó — 2 điều khiển dùng chung 1 state.
+  const [selectedStage, setSelectedStage] = useState<MfgStage | null>(
+    reachedCards.find(c => c.isActive)?.stage.key ?? reachedCards[reachedCards.length - 1]?.stage.key ?? null,
+  )
+  const selectedCard = reachedCards.find(c => c.stage.key === selectedStage) ?? null
 
   const stagePercents: Partial<Record<MfgStage, number>> | undefined =
     order.mfgStage && PARALLEL_STAGE_KEYS.has(order.mfgStage)
@@ -725,7 +822,7 @@ function ThongKeDetailPage({ order, details, onBack }: { order: MfgOrder; detail
       </div>
 
       {/* Header card */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', marginBottom: 20 }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 24px', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div>
             <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 20, color: '#1d4ed8', letterSpacing: '0.02em' }}>{order.code}</div>
@@ -737,49 +834,45 @@ function ThongKeDetailPage({ order, details, onBack }: { order: MfgOrder; detail
           </span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginTop: 20 }}>
-          {[
-            { label: 'Khách hàng',    value: order.customer },
-            { label: 'Ngày tạo lệnh', value: format(new Date(order.approvedAt), 'dd/MM/yyyy') },
-            { label: 'Hạn giao hàng', value: order.deadline ? format(new Date(order.deadline), 'dd/MM/yyyy') : '—', warn: isOverdue },
-          ].map(row => (
-            <div key={row.label} style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 14px' }}>
-              <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 4 }}>{row.label}</div>
-              <div style={{ fontSize: 14, fontWeight: 700, color: row.warn ? '#dc2626' : 'var(--text)' }}>
-                {row.value}
-                {row.warn && <span style={{ fontSize: 11, marginLeft: 6, fontWeight: 600, color: '#dc2626' }}>Quá hạn</span>}
-              </div>
-            </div>
-          ))}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 28px', marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)', fontSize: 13, color: 'var(--text3)' }}>
+          <span>Khách hàng: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{order.customer}</span></span>
+          <span>Ngày tạo: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{format(new Date(order.approvedAt), 'dd/MM/yyyy')}</span></span>
+          <span>
+            Hạn giao: <span style={{ fontWeight: 600, color: isOverdue ? '#dc2626' : 'var(--text)' }}>
+              {order.deadline ? format(new Date(order.deadline), 'dd/MM/yyyy') : '—'}{isOverdue ? ' · Quá hạn' : ''}
+            </span>
+          </span>
         </div>
       </div>
 
       {/* Production status */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', marginBottom: 20 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 16 }}>Trạng thái sản xuất</div>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 24px', marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Trạng thái sản xuất</div>
 
-        {isDone ? (
-          <div style={{ background: '#ecfdf5', border: '1px solid #6ee7b7', borderRadius: 10, padding: '16px 20px 20px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-              <CheckCircle2 size={20} color="#065f46" />
-              <div style={{ fontSize: 14, fontWeight: 700, color: '#065f46' }}>Đã hoàn thành toàn bộ quy trình</div>
-            </div>
-            <MfgStageTracker allDone />
-          </div>
-        ) : (
-          <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '16px 20px 20px' }}>
-            <MfgStageTracker currentStage={order.mfgStage} stagePercents={stagePercents} />
-          </div>
-        )}
+        {isDone ? <MfgStageTracker allDone /> : <MfgStageTracker currentStage={order.mfgStage} stagePercents={stagePercents} />}
 
         {reachedCards.length > 0 && (
-          <div style={{ marginTop: 20, display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ marginTop: 20 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
               Chi tiết từng công đoạn
             </div>
-            {reachedCards.map(({ stage, isActive }) => (
-              <StageDetailCard key={stage.key} stage={stage} isActive={isActive} details={details} orderDeadline={order.deadline} />
-            ))}
+            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid var(--border)' }}>
+              {reachedCards.map(({ stage, isActive }) => {
+                const accent = isActive ? 'var(--amber)' : 'var(--green)'
+                const active = selectedStage === stage.key
+                return (
+                  <button key={stage.key} onClick={() => setSelectedStage(stage.key)} style={tabBtn(active, accent)}>
+                    {stage.icon} {stage.label}
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: accent, opacity: active ? 1 : 0.4 }} />
+                  </button>
+                )
+              })}
+            </div>
+            {selectedCard && (
+              <div style={{ marginTop: 14 }}>
+                <StageDetailCard stage={selectedCard.stage} isActive={selectedCard.isActive} details={details} orderDeadline={order.deadline} pointLabel={pointLabel} />
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -793,14 +886,24 @@ export default function ThongKePagePlan() {
   const { data: planFormsData, isLoading } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
   const { data: weavingPointsData } = useFetch<WeavingPointLite[]>(() => (api as any).getWeavingPoints(), [])
   const { proposals } = useInspection()
-  const planForms = (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT')
-  const weavingPoints = weavingPointsData ?? []
+  const planForms = useMemo(() => (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT'), [planFormsData])
+  const weavingPoints = useMemo(() => weavingPointsData ?? [], [weavingPointsData])
+  const pointLabel = (id: number) => {
+    const p = weavingPoints.find(w => w.id === id)
+    return p?.fullName ? `${p.name} (${p.fullName})` : (p?.name ?? `#${id}`)
+  }
 
-  const orderRows = planForms.map(pf => buildOrderRow(pf, proposals, weavingPoints))
+  // Sinh dữ liệu mock nhiều tầng (buildOrderRow → genExecutionStages → buildPhoiManhs/...) khá nặng —
+  // memo hoá để gõ tìm kiếm (search) không kích hoạt tính lại toàn bộ danh sách PO.
+  const orderRows = useMemo(
+    () => planForms.map(pf => buildOrderRow(pf, proposals, weavingPoints)),
+    [planForms, proposals, weavingPoints],
+  )
 
   const [filter, setFilter]         = useState<FilterStatus>('all')
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [search, setSearch]         = useState('')
+  const [page, setPage]             = useState(1)
 
   const q = search.trim().toLowerCase()
   const filtered = orderRows
@@ -811,44 +914,33 @@ export default function ThongKePagePlan() {
     all:       orderRows.length,
     PRODUCING: orderRows.filter(({ order }) => order.status === 'PRODUCING').length,
     DONE:      orderRows.filter(({ order }) => order.status === 'DONE').length,
+    OVERDUE:   orderRows.filter(({ order }) => isOrderOverdue(order.deadline, order.status === 'DONE')).length,
   }
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const pageSafe  = Math.min(page, pageCount)
+  const pageItems = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE)
 
   const selectedRow = selectedId != null ? orderRows.find(({ order }) => order.id === selectedId) ?? null : null
   if (selectedRow) {
-    return <ThongKeDetailPage order={selectedRow.order} details={selectedRow.details} onBack={() => setSelectedId(null)} />
+    return <ThongKeDetailPage order={selectedRow.order} details={selectedRow.details} onBack={() => setSelectedId(null)} pointLabel={pointLabel} />
   }
 
   return (
     <div>
-      <div style={{ marginBottom: 24 }}>
+      <div style={{ marginBottom: 20 }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Bảng thống kê</h2>
-        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>
-          Danh sách lệnh sản xuất — nhấn vào dòng để xem chi tiết tiến độ
+        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text3)' }}>
+          Tổng {counts.all} · Đang sản xuất {counts.PRODUCING} · Hoàn thành {counts.DONE}
+          {counts.OVERDUE > 0 && <span style={{ color: '#dc2626', fontWeight: 700 }}> · ⚠ Quá hạn {counts.OVERDUE}</span>}
         </p>
-      </div>
-
-      {/* Stat cards */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
-        {[
-          { label: 'Tổng lệnh SX',  value: counts.all,       icon: <Factory size={20} color="#6b7280" />,       bg: '#f9fafb', color: '#374151', border: '#e5e7eb' },
-          { label: 'Đang sản xuất', value: counts.PRODUCING, icon: <TrendingUp size={20} color="#15803d" />,    bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
-          { label: 'Hoàn thành',    value: counts.DONE,      icon: <CheckCircle2 size={20} color="#065f46" />,  bg: '#ecfdf5', color: '#065f46', border: '#6ee7b7' },
-        ].map(s => (
-          <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 14, padding: '14px 20px', background: s.bg, border: `1px solid ${s.border}`, borderRadius: 12, minWidth: 160, flex: '1 1 0' }}>
-            {s.icon}
-            <div>
-              <div style={{ fontSize: 26, fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
-              <div style={{ fontSize: 11, color: s.color, opacity: 0.8, marginTop: 3, fontWeight: 600 }}>{s.label}</div>
-            </div>
-          </div>
-        ))}
       </div>
 
       {/* Filter + Search */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', gap: 6 }}>
           {([['all', 'Tất cả'], ['PRODUCING', 'Đang sản xuất'], ['DONE', 'Hoàn thành']] as [FilterStatus, string][]).map(([key, label]) => (
-            <button key={key} onClick={() => setFilter(key)}
+            <button key={key} onClick={() => { setFilter(key); setPage(1) }}
               style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, borderRadius: 20, border: 'none', cursor: 'pointer',
                 background: filter === key ? '#1d4ed8' : 'var(--surface2)',
                 color: filter === key ? '#fff' : 'var(--text)',
@@ -862,7 +954,7 @@ export default function ThongKePagePlan() {
           <input
             type="text"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => { setSearch(e.target.value); setPage(1) }}
             placeholder="Tìm mã PO, SKU, sản phẩm, khách hàng..."
             style={{ width: '100%', paddingLeft: 32, paddingRight: 10, paddingTop: 6, paddingBottom: 6, fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box', outline: 'none' }}
           />
@@ -870,69 +962,58 @@ export default function ThongKePagePlan() {
       </div>
 
       {/* Table */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr>
-              <th style={{ ...th, width: 42 }}>#</th>
               <th style={th}>Mã PO</th>
-              <th style={th}>SKU</th>
+              <th style={th}>SKU / Sản phẩm</th>
               <th style={th}>Khách hàng</th>
+              <th style={{ ...th, width: 220 }}>Công đoạn hiện tại</th>
               <th style={th}>Hạn giao</th>
-              <th style={th}>Ngày tạo</th>
-              <th style={th}>Trạng thái</th>
-              <th style={{ ...th, width: 130 }}>Tiến độ</th>
             </tr>
           </thead>
           <tbody>
             {isLoading ? (
-              <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</td></tr>
-            ) : filtered.map(({ order: o, details }) => {
-              const isDone    = o.status === 'DONE'
-              const m         = STATUS_META[isDone ? 'DONE' : 'PRODUCING']
-              const isOverdue = !!o.deadline && new Date(o.deadline) < new Date() && !isDone
-              const pct       = isDone ? 100 : getOverallPercent(details)
+              <tr><td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</td></tr>
+            ) : pageItems.map(({ order: o, details }) => {
+              const isDone     = o.status === 'DONE'
+              const isOverdue  = isOrderOverdue(o.deadline, isDone)
+              const stageInfo  = currentStageLabel(o, details)
               return (
                 <tr
                   key={o.id}
                   onClick={() => setSelectedId(o.id)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(o.id) } }}
                   style={{ cursor: 'pointer' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = '' }}
                 >
-                  <td style={{ ...td, color: 'var(--text3)', fontWeight: 600, textAlign: 'center' }}>{o.id}</td>
                   <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}>{o.code}</td>
                   <td style={td}>
                     <div style={{ fontWeight: 600 }}>{o.productName}</div>
                     <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{o.sku}</div>
                   </td>
                   <td style={{ ...td, color: 'var(--text2)' }}>{o.customer}</td>
+                  <td style={{ ...td, width: 220 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
+                      {stageInfo.icon} {stageInfo.label}
+                      {o.hasVariance && <AlertTriangle size={12} color="var(--red)" />}
+                    </div>
+                    <ProgressBar value={stageInfo.pct} max={100} />
+                  </td>
                   <td style={{ ...td, whiteSpace: 'nowrap', color: isOverdue ? '#dc2626' : undefined, fontWeight: isOverdue ? 700 : undefined }}>
                     {o.deadline ? format(new Date(o.deadline), 'dd/MM/yyyy') : '—'}
                     {isOverdue && <div style={{ fontSize: 11, color: '#dc2626' }}>Quá hạn</div>}
-                  </td>
-                  <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--text3)', fontSize: 12 }}>
-                    {format(new Date(o.approvedAt), 'dd/MM/yyyy')}
-                  </td>
-                  <td style={td}>
-                    <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600, background: m.bg, color: m.color, border: `1px solid ${m.border}` }}>
-                      {m.label}
-                    </span>
-                  </td>
-                  <td style={{ ...td, width: 130 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <div style={{ flex: 1, height: 6, background: 'var(--surface2)', borderRadius: 3, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${pct}%`, background: isDone ? '#22c55e' : '#f59e0b', borderRadius: 3 }} />
-                      </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: isDone ? '#15803d' : 'var(--text2)', minWidth: 30, textAlign: 'right' }}>{pct}%</span>
-                    </div>
                   </td>
                 </tr>
               )
             })}
             {!isLoading && filtered.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
+                <td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
                   Không có lệnh nào
                 </td>
               </tr>
@@ -940,6 +1021,29 @@ export default function ThongKePagePlan() {
           </tbody>
         </table>
       </div>
+
+      {!isLoading && filtered.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, fontSize: 12, color: 'var(--text3)' }}>
+          <span>Hiển thị {pageItems.length}/{filtered.length} dòng</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={pageSafe <= 1}
+              style={{ ...btnSecondary, padding: '5px 8px', display: 'flex', opacity: pageSafe <= 1 ? 0.5 : 1, cursor: pageSafe <= 1 ? 'default' : 'pointer' }}
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <span>Trang {pageSafe}/{pageCount}</span>
+            <button
+              onClick={() => setPage(p => Math.min(pageCount, p + 1))}
+              disabled={pageSafe >= pageCount}
+              style={{ ...btnSecondary, padding: '5px 8px', display: 'flex', opacity: pageSafe >= pageCount ? 0.5 : 1, cursor: pageSafe >= pageCount ? 'default' : 'pointer' }}
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

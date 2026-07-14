@@ -8,6 +8,7 @@ import { safeArr } from '../../../utils/array'
 import { errMsg } from '../../../utils/errors'
 import { listTh as thStyle, listTd as tdStyle, emptyBox } from '../../../styles/table'
 import ProgressBar from '../../../components/ProgressBar'
+import ManhSkuDetail, { ManhSkuTiles } from './ManhSkuDetail'
 import type { ManhOrder, ManhSkuGroup } from '../../../types/manh'
 
 interface WeavingPoint { id: number; name: string; fullName?: string }
@@ -69,10 +70,7 @@ export default function KhoXuatDanPage() {
 
   // ── Cấp 3: chi tiết mảnh của 1 SKU ──────────────────────────────────────────
   if (selectedOrder && selectedSku) {
-    const total  = selectedSku.lines.reduce((s, l) => s + l.totalQty, 0)
-    const daXuat = selectedSku.lines.reduce((s, l) => s + sumXuat(l), 0)
     const tonThuc = selectedSku.lines.reduce((s, l) => s + l.tonThuc, 0)
-    const allocRows = selectedSku.lines.flatMap(l => l.allocations.map(a => ({ line: l, alloc: a })))
 
     return (
       <div>
@@ -94,19 +92,11 @@ export default function KhoXuatDanPage() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
-          <div style={{ padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 24, fontWeight: 700 }}>{total}</div>
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Tổng</div>
-          </div>
-          <div style={{ padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 24, fontWeight: 700, color: '#2563eb' }}>{tonThuc}</div>
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Tồn thực</div>
-          </div>
-          <div style={{ padding: '12px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, textAlign: 'center' }}>
-            <div style={{ fontSize: 24, fontWeight: 700, color: '#d97706' }}>{daXuat}</div>
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Đã xuất</div>
-          </div>
+        <ManhSkuTiles lines={selectedSku.lines} />
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+          <span style={{ fontSize: 13, color: 'var(--text3)' }}>Tồn thực còn lại: </span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: tonThuc > 0 ? '#2563eb' : 'var(--text3)' }}>{tonThuc.toLocaleString('vi-VN')}</span>
         </div>
 
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', marginBottom: 24 }}>
@@ -174,37 +164,7 @@ export default function KhoXuatDanPage() {
         </div>
 
         <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Chi tiết theo điểm đan</h3>
-        {allocRows.length === 0 ? (
-          <div style={emptyBox}>Chưa xuất đan cho điểm đan nào</div>
-        ) : (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
-              <colgroup>
-                <col /><col /><col style={{ width: 90 }} /><col style={{ width: 90 }} /><col style={{ width: 150 }} />
-              </colgroup>
-              <thead>
-                <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                  <th style={thStyle}>Tên mảnh</th>
-                  <th style={thStyle}>Điểm đan</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>Đã xuất</th>
-                  <th style={{ ...thStyle, textAlign: 'right' }}>Đã nhập</th>
-                  <th style={thStyle}>Tiến độ nhận</th>
-                </tr>
-              </thead>
-              <tbody>
-                {allocRows.map(({ line, alloc }) => (
-                  <tr key={alloc.id} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={{ ...tdStyle, fontWeight: 500 }}>{line.name}</td>
-                    <td style={tdStyle}>{pointLabel(alloc.weavingPointId)}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: '#d97706' }}>{alloc.xuatQty}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: alloc.nhapQty > 0 ? '#16a34a' : 'var(--text3)' }}>{alloc.nhapQty}</td>
-                    <td style={tdStyle}><ProgressBar value={alloc.nhapQty} max={alloc.xuatQty} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <ManhSkuDetail lines={selectedSku.lines} pointLabel={pointLabel} variant="view" hideTiles />
         {confirmModal}
       </div>
     )

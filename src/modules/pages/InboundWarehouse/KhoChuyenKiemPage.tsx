@@ -10,7 +10,7 @@ import LoadingState from '../../../components/LoadingState'
 interface LoiEntry { id: number; lyDo: string; file: File | null }
 interface PieceState { daKiem: number; loi: number }
 
-interface MockPiece {
+export interface MockPiece {
   id: string
   name: string
   totalQty: number
@@ -23,12 +23,14 @@ function strHash(s: string): number {
   return s.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
 }
 
-function mockTotalQty(pf: PlanForm): number {
+// Dùng chung với "Chi tiết từng công đoạn" bên Bảng thống kê KHSX (xem ThongKePagePlan.tsx) để số
+// liệu "cần kiểm" luôn khớp với đúng những gì thủ kho thành phẩm (khotp@demo.com) đang thấy ở đây.
+export function mockTotalQty(pf: PlanForm): number {
   const code = pf.mfgProduct?.factoryCode ?? `#${pf.id}`
   return 50 + (strHash(code) % 100)
 }
 
-function mockPieces(pf: PlanForm): MockPiece[] {
+export function mockPieces(pf: PlanForm): MockPiece[] {
   const code = pf.mfgProduct?.factoryCode ?? `#${pf.id}`
   const h = strHash(code)
   const count = 3 + (h % 3)

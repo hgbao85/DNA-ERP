@@ -479,6 +479,26 @@ export const seedPlanForms: PlanForm[] = [
       },
     },
   },
+  // id 9-10: dùng riêng để demo 2 công đoạn cuối (Chuyền kiểm/Đóng gói) ở "Bảng thống kê" (KHSX) —
+  // xem ghi chú ở genExecutionStages trong ThongKePagePlan.tsx.
+  {
+    id: 9, exportOrderId: 9, mfgProductId: 3, status: 'APPROVED', note: 'PlanForm JSE-60 cho PO MEYING — đang Chuyền kiểm',
+    createdAt: ISO('2026-06-05'), proposedAt: ISO('2026-06-05'),
+    exportOrder: { id: 9, poNumber: 'PO-MY-009', deliveryDate: ISO('2026-09-20') },
+    mfgProduct: { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60' },
+    customerName: 'MEYING USA',
+    createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
+    quotaManagement: { id: 9, materialType: { sat: [], daySon: [], vatTuPhuKien: [], baoBiDongGoi: [] } },
+  },
+  {
+    id: 10, exportOrderId: 10, mfgProductId: 1, status: 'APPROVED', note: 'PlanForm JSE-55 cho PO IKEA — đang Đóng gói',
+    createdAt: ISO('2026-06-08'), proposedAt: ISO('2026-06-08'),
+    exportOrder: { id: 10, poNumber: 'PO-IK-010', deliveryDate: ISO('2026-09-25') },
+    mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' },
+    customerName: 'IKEA Supplier',
+    createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
+    quotaManagement: { id: 10, materialType: { sat: [], daySon: [], vatTuPhuKien: [], baoBiDongGoi: [] } },
+  },
 ];
 
 export const seedMaterialGroups = [
