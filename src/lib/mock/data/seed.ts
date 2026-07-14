@@ -245,8 +245,8 @@ export const seedPlanForms: PlanForm[] = [
       id: 1,
       materialType: {
         sat: [
-          { id: 1, name: 'Sắt hộp 25×25', specifications: '25×25×1.2mm', thickness: 1.2, unit: 'cây', quantity: 20, createdAt: '2026-05-20T01:00:00.000Z' },
-          { id: 2, name: 'Sắt vuông 20×20', specifications: '20×20×1.0mm', thickness: 1.0, unit: 'cây', quantity: 8,  createdAt: '2026-05-20T01:18:00.000Z' },
+          { id: 1, name: 'Sắt hộp 25×25', specifications: '25×25×1.2mm', thickness: 1.2, unit: 'mm', quantity: 9000, createdAt: '2026-05-20T01:00:00.000Z' },
+          { id: 2, name: 'Sắt vuông 20×20', specifications: '20×20×1.0mm', thickness: 1.0, unit: 'mm', quantity: 3600, createdAt: '2026-05-20T01:18:00.000Z' },
           { id: 3, name: 'Sắt tấm 3mm', specifications: '1200×600×3mm', thickness: 3.0, unit: 'tấm', quantity: 2,  createdAt: '2026-05-20T01:35:00.000Z' },
         ],
         daySon: [
