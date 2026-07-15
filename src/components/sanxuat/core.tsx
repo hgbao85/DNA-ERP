@@ -15,7 +15,7 @@ import { ChevronRight, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckC
 import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
 import { useFetch } from '../../hooks/useFetch'
 import * as api from '../../services/api'
-import type { SatIssueView } from '../../services/api'
+import type { SatIssueView, SanLuongStage, SanLuongBatch } from '../../services/api'
 
 const ACCENT = '#e65100'
 const REMIND_MINUTES = 60
@@ -258,7 +258,7 @@ function ManhListBoard({ po, onBack, onOpenManh }: { po: ProcRow; cfg: StageCfg;
 }
 
 // ── Tầng chi tiết vật tư (dùng chung Phôi/Hàn/Sơn) ─────────────────
-export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, pendingFor, onConfirmCut, manualInput, showThucCo }: {
+export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, pendingFor, onConfirmCut, manualInput, showThucCo, onReport, choKcsFor }: {
   lines: ProcLine[]; cfg: StageCfg; readOnly: boolean
   title: string; subtitle: string; bannerLabel: string
   /** Bỏ trống khi board được nhúng làm 1 tab con (vd chi tiết Khung cơ khí bên KHSX) — không cần điều hướng "quay lại". */
@@ -274,6 +274,10 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
   manualInput?: boolean
   /** Ép hiện/ẩn cột "Thực có" bất kể phoiMode — dùng khi nhúng chế độ chỉ xem không có cột Xác nhận cắt. */
   showThucCo?: boolean
+  /** KCS-gated (Hàn/Sơn): báo sản lượng → tạo lô CHỜ KCS (thay vì cộng thẳng done). */
+  onReport?: (line: ProcLine, qty: number) => void
+  /** KCS-gated: SL đang chờ KCS duyệt của 1 dòng (để hiện gợi ý + trừ khi nhập). */
+  choKcsFor?: (lineId: number) => number
 }) {
   const phoiMode = !!onConfirmCut
   const [draft, setDraft] = useState<Record<number, string>>({})
@@ -287,7 +291,8 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
   const submit = (line: ProcLine) => {
     const add = Number(draft[line.id])
     if (!add || add <= 0) return
-    onUpdateLine?.({ ...line, doneQty: Math.min(line.needQty, line.doneQty + add), lastInputAt: new Date().toISOString() })
+    if (onReport) onReport(line, add) // KCS-gated: đẩy sang chờ KCS
+    else onUpdateLine?.({ ...line, doneQty: Math.min(line.needQty, line.doneQty + add), lastInputAt: new Date().toISOString() })
     setDraft(d => ({ ...d, [line.id]: '' }))
   }
 
@@ -298,8 +303,10 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
     { key: 'need', header: `Định mức (${cfg.unit})`, align: 'right', cell: l => fmt(l.needQty) },
     { key: 'done', header: `${cfg.done} (${cfg.unit})`, align: 'right', cell: l => {
       const short = shortOf(l)
+      const pend = choKcsFor?.(l.id) ?? 0
       return <>
         {fmt(l.doneQty)}
+        {pend > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--amber)' }}>chờ KCS: {fmt(pend)} {cfg.unit}</span>}
         {short > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--red)' }}>cần {cfg.verb} thêm {fmt(short)} {cfg.unit}</span>}
       </>
     } },
@@ -322,8 +329,9 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
             onConfirm={(issue, soCay) => onConfirmCut!(l, issue, soCay)} />
         ) } as BoardColumn<ProcLine>]
       : (manualInput && !readOnly) ? [{ key: 'input', header: `Nhập số ${cfg.unit} vừa ${cfg.verb}`, width: 220, cell: (l: ProcLine) => {
-      const remain = l.needQty - l.doneQty
-      if (remain <= 0) return <span className="badge green">đủ định mức</span>
+      const pend = choKcsFor?.(l.id) ?? 0
+      const remain = l.needQty - l.doneQty - pend
+      if (remain <= 0) return <span className="badge green">{pend > 0 ? 'chờ KCS duyệt' : 'đủ định mức'}</span>
       return (
         <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
           <input
@@ -367,7 +375,9 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
       subtitle={<>{subtitle}<div style={{ marginTop: 2 }}>{phoiMode
         ? <>Xác nhận các <b>đợt sắt đã nhận từ kho</b> theo từng {itemLabelLC} — hệ thống tự cộng vào tiến độ.</>
         : manualInput
-          ? <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} — hệ thống tự lưu mốc thời gian.</>
+          ? (onReport
+            ? <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} → chuyển <b>chờ KCS duyệt</b>; chỉ SL KCS đạt mới tính tiến độ.</>
+            : <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} — hệ thống tự lưu mốc thời gian.</>)
           : <>Số lượng <b>đã {cfg.verb}</b> tự cập nhật từ màn <b>Xác nhận sản lượng</b> — màn này chỉ theo dõi đồng bộ.</>}</div></>}
       beforeTable={banner}
       columns={cols}
@@ -484,14 +494,43 @@ export function PhoiScreen({ cfg, rows, setRows, readOnly = false }: {
 }
 
 // ── Orchestrator: Hàn/Sơn (2 tầng) ─────────────────────────────────
-export function TwoTierScreen({ cfg, seed, readOnly = false }: { cfg: StageCfg; seed: () => ProcRow[]; readOnly?: boolean }) {
+// `stage` (HAN/SON) → bật KCS-gated: done derive từ san-luong.service (Σ DA_CAT),
+// báo sản lượng tạo lô CHỜ KCS. Không truyền stage → giữ hành vi cũ (bump done cục bộ)
+// cho các nơi nhúng read-only (KHSX / chủ chuyền).
+export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
+  cfg: StageCfg; seed: () => ProcRow[]; readOnly?: boolean; stage?: SanLuongStage
+}) {
   const [rows, setRows] = useState<ProcRow[]>(seed)
   const [selPoId, setSelPoId] = useState<number | null>(null)
-  const selPo = rows.find(r => r.id === selPoId) ?? null
   const { startPo, endPo } = caActions(setRows)
+
+  const { data: batches, refetch } = useFetch<SanLuongBatch[]>(
+    () => stage ? api.getSanLuongByStage(stage) : Promise.resolve([]), [stage])
+
+  // done (Σ DA_CAT) & chờ-KCS (Σ CHO_KCS) theo từng dòng — chỉ khi KCS-gated.
+  const { doneByLine, choKcsByLine } = useMemo(() => {
+    const done = new Map<number, number>(), cho = new Map<number, number>()
+    for (const b of batches ?? []) {
+      if (b.status === 'DA_CAT') done.set(b.lineId, (done.get(b.lineId) ?? 0) + b.qty)
+      else if (b.status === 'CHO_KCS') cho.set(b.lineId, (cho.get(b.lineId) ?? 0) + b.qty)
+    }
+    return { doneByLine: done, choKcsByLine: cho }
+  }, [batches])
+
+  const view = useMemo(() => !stage ? rows : rows.map(r => ({
+    ...r, lines: r.lines?.map(l => ({ ...l, doneQty: Math.min(l.needQty, l.doneQty + (doneByLine.get(l.id) ?? 0)) })),
+  })), [rows, doneByLine, stage])
+
+  const selPo = view.find(r => r.id === selPoId) ?? null
 
   const updateLineFlat = (poId: number, ul: ProcLine) =>
     setRows(rs => rs.map(r => r.id !== poId ? r : { ...r, lines: r.lines?.map(l => l.id === ul.id ? ul : l) }))
+
+  const report = async (po: ProcRow, line: ProcLine, qty: number) => {
+    if (!stage) return
+    await api.baoSanLuong(stage, { poNumber: po.poNumber, sku: po.sku, lineId: line.id, itemName: line.itemName, spec: line.spec, qty })
+    refetch()
+  }
 
   if (selPo) {
     return <VatTuDetailBoard
@@ -500,9 +539,11 @@ export function TwoTierScreen({ cfg, seed, readOnly = false }: { cfg: StageCfg; 
       subtitle={`${selPo.productName} · SL ${fmt(selPo.soLuong)} · hạn ${dateVN(selPo.deadline)}`}
       bannerLabel="Đồng bộ" backLabel="Quay lại danh sách lệnh"
       onBack={() => setSelPoId(null)}
-      onUpdateLine={l => updateLineFlat(selPo.id, l)}
+      onUpdateLine={stage ? undefined : l => updateLineFlat(selPo.id, l)}
+      onReport={stage && !readOnly ? (l, qty) => report(selPo, l, qty) : undefined}
+      choKcsFor={stage ? (id => choKcsByLine.get(id) ?? 0) : undefined}
       manualInput
     />
   }
-  return <PoListBoard rows={rows} cfg={cfg} isPhoi={false} onEnter={id => setSelPoId(id)} onStart={startPo} onEnd={endPo} />
+  return <PoListBoard rows={view} cfg={cfg} isPhoi={false} onEnter={id => setSelPoId(id)} onStart={startPo} onEnd={endPo} />
 }

@@ -1,46 +1,99 @@
 'use client'
 
-/** Màn hình KCS — Công đoạn PHÔI (2 tầng: PO → Vật liệu, chỉ xem + duyệt). */
+/**
+ * Màn hình KCS — Công đoạn PHÔI (2 tầng: PO → các đợt chờ kiểm).
+ *
+ * ĐỌC DATA THẬT từ phoi-sat.service (dùng chung với Phôi):
+ *  - Phôi "Xác nhận sản lượng" → đợt chuyển sang CHO_KCS → hiện ở đây.
+ *  - KCS duyệt (đạt / sửa được / cấp lại sắt) → gọi kcsDuyetPhoi → đợt sang DA_CAT
+ *    (chỉ phần ĐẠT mới tính "đã cắt" bên Lệnh sản xuất & chảy xuống Hàn).
+ * Mỗi ĐỢT chờ kiểm = 1 dòng để KCS duyệt độc lập.
+ */
 
+import { useMemo } from 'react'
 import { Wrench } from 'lucide-react'
-import { KcsTwoTierScreen, type KcsRow } from '../../../components/sanxuat/kcsCore'
-import { ISO, minsAgo, type StageCfg } from '../../../components/sanxuat/core'
+import { KcsTwoTierScreen, type KcsRow, type KcsLine, type ReviewPayload } from '../../../components/sanxuat/kcsCore'
+import type { StageCfg } from '../../../components/sanxuat/core'
+import { useFetch } from '../../../hooks/useFetch'
+import * as api from '../../../services/api'
+import type { SatIssueView } from '../../../services/api'
+import type { AuditLogEntry } from '../../../context/AuditLogContext'
+import LoadingState from '../../../components/LoadingState'
 
 const CFG: StageCfg = { label: 'Phôi', done: 'Đã cắt', verb: 'cắt', itemLabel: 'Loại sắt', unit: 'cây', Icon: Wrench }
 
-function seed(): KcsRow[] {
-  return [
-    {
-      id: 1, poNumber: 'PO-2026-001', sku: 'GHE-J55', productName: 'Ghế J55 (khung 40×40)',
-      soLuong: 500, deadline: ISO(5), arrangedAt: minsAgo(190),
-      lines: [
-        { id: 111, itemName: 'Sắt Vuông 6 zem', spec: '18×18', needQty: 1000, doneQty: 180, perManh: 2, lastInputAt: minsAgo(95), pendingQty: 40 },
-        { id: 112, itemName: 'Sắt Hộp 8 zem', spec: '20×40', needQty: 500, doneQty: 95, perManh: 1, lastInputAt: minsAgo(50), pendingQty: 0, failedQty: 5 },
-        { id: 113, itemName: 'Sắt Hộp 6 zem', spec: '25×50', needQty: 500, doneQty: 90, perManh: 1, lastInputAt: minsAgo(30), pendingQty: 20 },
-        { id: 121, itemName: 'Sắt Hộp 6 zem', spec: '25×50', needQty: 2000, doneQty: 400, perManh: 2, lastInputAt: minsAgo(40), pendingQty: 60 },
-        { id: 122, itemName: 'Sắt Vuông 6 zem', spec: '18×18', needQty: 1000, doneQty: 200, perManh: 1, lastInputAt: minsAgo(20), pendingQty: 0 },
-        { id: 131, itemName: 'Sắt Hộp 8 zem', spec: '20×40', needQty: 500, doneQty: 20, perManh: 1, lastInputAt: minsAgo(25), pendingQty: 0 },
-        { id: 132, itemName: 'Sắt dẹt', spec: '20×3', needQty: 500, doneQty: 0, perManh: 1, lastInputAt: null, pendingQty: 0 },
-      ],
-    },
-    {
-      id: 2, poNumber: 'PO-2026-002', sku: 'GHE-IEA3', productName: 'Ghế IEA-3 (khung 30×30)',
-      soLuong: 200, deadline: ISO(8), arrangedAt: minsAgo(30),
-      lines: [
-        { id: 211, itemName: 'Sắt Vuông 6 zem', spec: '30×30', needQty: 80, doneQty: 0, lastInputAt: null, pendingQty: 0 },
-        { id: 221, itemName: 'Ống sắt tròn', spec: 'Φ16', needQty: 40, doneQty: 0, lastInputAt: null, pendingQty: 0 },
-      ],
-    },
-    {
-      id: 3, poNumber: 'PO-2026-003', sku: 'BAN-TB45', productName: 'Bàn TB-45 (vuông)',
-      soLuong: 120, deadline: ISO(3), arrangedAt: null,
-      lines: [
-        { id: 311, itemName: 'Sắt Vuông 6 zem', spec: '50×50', needQty: 60, doneQty: 0, lastInputAt: null, pendingQty: 0 },
-      ],
-    },
-  ]
-}
-
 export default function KcsPhoiPage() {
-  return <KcsTwoTierScreen cfg={CFG} seed={seed} />
+  const { data: issues, isLoading, refetch } = useFetch<SatIssueView[]>(() => api.getKcsIssues(), [])
+
+  // Gom lô theo PO (chỉ PO còn hàng chờ); mỗi đợt = 1 dòng: chờ / đã duyệt / lỗi.
+  // map: id dòng (số) → id đợt (chuỗi) — chỉ lô CHO_KCS mới duyệt được.
+  const { rows, map } = useMemo(() => {
+    const map = new Map<number, string>()
+    const byPo = new Map<string, SatIssueView[]>()
+    const order: string[] = []
+    for (const i of issues ?? []) {
+      if (!byPo.has(i.poNumber)) { byPo.set(i.poNumber, []); order.push(i.poNumber) }
+      byPo.get(i.poNumber)!.push(i)
+    }
+    let seq = 1
+    const rows: KcsRow[] = []
+    for (const po of order) {
+      const list = byPo.get(po)!
+      if (!list.some(i => i.status === 'CHO_KCS')) continue   // chỉ PO còn hàng chờ
+      const lines: KcsLine[] = list.map(i => {
+        const lineId = seq++
+        const pending = i.status === 'CHO_KCS'
+        if (pending) map.set(lineId, i.id)
+        const qty = i.soCayThuc ?? i.soCay          // CHO_KCS: báo · DA_CAT: đạt
+        const failed = i.kcsFailedQty ?? 0
+        const baoCat = qty + (i.status === 'DA_CAT' ? failed : 0)
+        const history: AuditLogEntry[] = [{
+          id: `${i.id}-iss`, entityType: 'kcs-lo', entityId: i.id, action: 'kcs.issued',
+          actorName: i.nguoiXuat, at: i.dotThoiGian,
+          note: i.reworkOf ? `Tạo lại do KCS bắt làm lại · ${i.soCay} cây` : `Kho xuất ${i.soCay} cây ${i.loaiSat} ${i.quyCach}`,
+        }]
+        if (i.hoanThanhAt) history.push({
+          id: `${i.id}-rep`, entityType: 'kcs-lo', entityId: i.id, action: 'kcs.reported',
+          actorName: 'Tổ Phôi', at: i.hoanThanhAt, note: `Xác nhận cắt xong ${baoCat} cây`,
+        })
+        if (i.status === 'DA_CAT' && i.kcsAt) history.push({
+          id: `${i.id}-kcs`, entityType: 'kcs-lo', entityId: i.id, action: 'kcs.approved',
+          actorName: 'KCS', at: i.kcsAt, note: `Duyệt: ${qty} đạt${failed > 0 ? ` · ${failed} lỗi` : ''}`,
+        })
+        return {
+          id: lineId,
+          itemName: `${i.loaiSat} ${i.quyCach}`,
+          spec: `đợt ${i.hoanThanhAt ?? i.dotThoiGian} · ${i.barLen.toLocaleString('vi-VN')}mm`,
+          needQty: baoCat, doneQty: 0,
+          pendingQty: pending ? qty : 0,
+          approvedQty: i.status === 'DA_CAT' ? qty : 0,
+          failedQty: i.status === 'DA_CAT' ? failed : 0,
+          lastInputAt: i.hoanThanhAt ?? i.dotThoiGian, history,
+        }
+      })
+      const pendList = list.filter(i => i.status === 'CHO_KCS')
+      const baoLuc = pendList.map(i => i.hoanThanhAt ?? i.dotThoiGian).sort()[0] ?? list[0].dotThoiGian
+      rows.push({
+        id: rows.length + 1, poNumber: po, sku: list[0].sku, productName: list[0].sku,
+        soLuong: lines.reduce((s, l) => s + l.pendingQty, 0), deadline: baoLuc, arrangedAt: baoLuc, lines,
+      })
+    }
+    return { rows, map }
+  }, [issues])
+
+  if (isLoading || !issues) return <LoadingState />
+
+  const onReview = async (_poId: number, lineId: number, p: ReviewPayload) => {
+    const issueId = map.get(lineId)
+    if (!issueId) return
+    await api.kcsDuyetPhoi(issueId, {
+      failedQty: p.failedQty,
+      scrapQty: p.scrapQty,
+      reason: p.reviewNote,
+      photoUrl: p.defectPhotoUrl,
+    })
+    refetch()
+  }
+
+  return <KcsTwoTierScreen cfg={CFG} rows={rows} onReview={onReview} showFailMode />
 }

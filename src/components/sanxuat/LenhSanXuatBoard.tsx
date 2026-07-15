@@ -31,6 +31,7 @@ export interface LenhSanXuatBoardProps<T> {
   icon?: ReactNode
   onBack?: () => void
   backLabel?: string
+  headerRight?: ReactNode          // slot góc trên phải (vd nút Lịch sử)
   beforeTable?: ReactNode          // slot phía trên bảng (vd banner đồng bộ)
   columns: BoardColumn<T>[]
   rows: T[]
@@ -65,6 +66,7 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
           <h2 style={{ fontSize: 19, fontWeight: 800 }}>{p.title}</h2>
           {p.subtitle && <div style={{ fontSize: 12, color: 'var(--text3)' }}>{p.subtitle}</div>}
         </div>
+        {p.headerRight && <div style={{ marginLeft: 'auto' }}>{p.headerRight}</div>}
       </div>
 
       {p.beforeTable}
