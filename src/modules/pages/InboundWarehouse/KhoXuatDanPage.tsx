@@ -92,7 +92,7 @@ export default function KhoXuatDanPage() {
           </div>
         </div>
 
-        <ManhSkuTiles lines={selectedSku.lines} />
+        <ManhSkuTiles lines={selectedSku.lines} skuQty={selectedSku.quantity} />
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
           <span style={{ fontSize: 13, color: 'var(--text3)' }}>Tồn thực còn lại: </span>
