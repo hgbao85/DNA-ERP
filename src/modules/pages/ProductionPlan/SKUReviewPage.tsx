@@ -8,9 +8,11 @@ import { useAuditLog } from '../../../context/AuditLogContext'
 import type { PlanForm, CreatePlanFormPayload } from '../../../types/plan-form'
 import { SKUDetail, StatusBadge, STATUS_MAP, PLANFORM_ENTITY } from './SKUDetail'
 import SearchInput from '../../../components/SearchInput'
+import SearchableSelect from '../../../components/SearchableSelect'
 import FilterPills from '../../../components/FilterPills'
 import LoadingState from '../../../components/LoadingState'
 import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
+import type { SalesCustomer } from '../../../types/sales'
 
 // KHSX theo dõi toàn bộ vòng đời SKU; QLSX/Sếp chỉ cần thấy các item đang chờ mình duyệt.
 const PLANNER_PENDING_STATUSES = new Set(['WAITING_DETAIL', 'WAITING_PARTS', 'APPROVED_DETAIL', 'APPROVED_PARTS', 'WAITING_QLSX_APPROVAL', 'WAITING_BOSS_APPROVAL'])
@@ -50,6 +52,7 @@ export default function SKUReviewPage() {
   const { data: formOptions } = useFetch(() => api.getPlanFormOptions(), [])
   const exportOrders = (formOptions?.exportOrders ?? []) as { id: number }[]
   const mfgProducts  = (formOptions?.mfgProducts  ?? []) as { id: number; factoryCode: string; name: string }[]
+  const { data: customers } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers(), [])
 
   const [search, setSearch]             = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -275,8 +278,8 @@ export default function SKUReviewPage() {
           onClick={e => { if (e.target === e.currentTarget) closeForm() }}
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          <div style={{ background: 'var(--surface)', borderRadius: 14, width: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.18)', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#f0fdf4', borderBottom: '1px solid #bbf7d0' }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 14, width: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#f0fdf4', borderBottom: '1px solid #bbf7d0', borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: '#15803d' }}>Thông tin SKU mới</span>
               <button onClick={closeForm} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text3)', display: 'flex' }}>
                 <X size={18} />
@@ -295,11 +298,16 @@ export default function SKUReviewPage() {
               </div>
               <div>
                 <label style={labelStyle}>Tên khách hàng</label>
-                <input
-                  type="text" value={customerName}
-                  onChange={e => setCustomerName(e.target.value)}
-                  placeholder="Nhập tên khách hàng"
-                  style={inputStyle}
+                <SearchableSelect
+                  displayValue={customerName}
+                  options={customers ?? []}
+                  getKey={c => String(c.id)}
+                  getSearchText={c => `${c.name} ${c.phone}`}
+                  renderOption={c => <><strong>{c.name}</strong> <span style={{ color: 'var(--text3)' }}>— {c.phone}</span></>}
+                  onSelect={c => setCustomerName(c.name)}
+                  onQueryChange={setCustomerName}
+                  placeholder="Tìm hoặc nhập tên khách hàng"
+                  emptyText="Không tìm thấy — có thể nhập tên mới"
                 />
               </div>
             </div>
