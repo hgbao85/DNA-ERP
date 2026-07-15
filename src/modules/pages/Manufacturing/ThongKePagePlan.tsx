@@ -888,8 +888,7 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
 // ─── List page ────────────────────────────────────────────────────────────────
 
 // Trạng thái lệnh sản xuất (PI) tối thiểu cần để quyết định 1 SKU đã "vào sản xuất" hay còn "lên kế
-// hoạch" — dùng chung 1 quy tắc hiện với "Tổng hợp lệnh sản xuất" (qlsx@demo.com, xem
-// MfgWorkshopBoardPage.tsx) để 2 màn không lệch nhau.
+// hoạch".
 interface PIApprovalItem { prodApproval?: { status?: string } }
 interface PIStatusRow { id: number; status: string; items?: PIApprovalItem[] }
 

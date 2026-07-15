@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, LayoutGrid, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, CalendarClock, ScanSearch, Wrench, Flame, SprayCan, Check, Frame, Layers } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, CalendarClock, ScanSearch, Wrench, Flame, SprayCan, Check, Frame, Layers } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import MfgSetupPage from './MfgSetupPage'
@@ -8,7 +8,6 @@ import SpecWirePaintPage from './SpecWirePaintPage'
 import SpecAccessoryPage from './SpecAccessoryPage'
 import SpecPackagingPage from './SpecPackagingPage'
 import SpecAccessoryCatalogPage from './SpecAccessoryCatalogPage'
-import MfgWorkshopBoardPage from '../ProductionManager/MfgWorkshopBoardPage'
 import MfgWarehousesPage from './MfgWarehousesPage'
 import MfgAllMaterialsPage from './MfgAllMaterialsPage'
 import WeavingPointsPage from './WeavingPointsPage'
@@ -32,7 +31,6 @@ import KcsSonPage from '../Kcs/KcsSonPage'
 // ── Module-level constants (không tạo lại mỗi render) ───────────────────────
 
 type TabId =
-  | 'workshop'
   | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-san-luong' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh' | 'phoi-lich-su-nhan-sat' | 'phoi-kho-phoi'
   | 'han-khung-han' | 'son-manh-cho-dan'
   | 'quan-ly-diem-dan'
@@ -121,11 +119,11 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const canSeeBom = isDirector || isBomManager || isSpecRole
   const canSeeWarehouses = isDirector || isWarehouse || isProdMgr
   const canSeeDiemDan = isWeavingMgr || isWeavingExport
-  const canManageWorkshop = canManageBom
 
   // Readable if-else chain thay cho ternary lồng 6 cấp
   let initialTab: TabId = 'lenh-sx'
-  if (canManageWorkshop) initialTab = 'workshop'
+  if (isDirector) initialTab = 'ke-hoach'
+  else if (isProdMgr) initialTab = 'ke-hoach'
   else if (isWeavingMgr || isWeavingExport) initialTab = 'quan-ly-diem-dan'
   else if (isPhoi || isHan || isSon) initialTab = 'phoi-lenh-sx'
   else if (isKcs)                initialTab = 'kcs-phoi'
@@ -142,9 +140,9 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     : user?.role === 'BOSS' ? 'Giám đốc (xem)' : isWarehouse ? 'Thủ kho' : ''
 
   const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
-    ...(canManageWorkshop ? [{ id: 'workshop' as TabId, label: 'Tổng hợp lệnh SX', icon: <LayoutGrid size={16} /> }] : []),
     ...(isDirector ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất mới', icon: <ClipboardList size={16} /> }] : []),
     ...(isDirector ? [{ id: 'ke-hoach' as TabId, label: 'Kế hoạch SX', icon: <CalendarClock size={16} /> }] : []),
+    ...(isProdMgr ? [{ id: 'ke-hoach' as TabId, label: 'Bảng thống kê', icon: <CalendarClock size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-xac-nhan-san-luong' as TabId, label: 'Xác nhận sản lượng', icon: <Check size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-dinh-muc-manh' as TabId, label: 'Danh sách định mức mảnh', icon: <Box size={16} /> }] : []),
@@ -255,7 +253,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
 
       {/* ── Main content ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        {tab === 'workshop' && canManageWorkshop && <MfgWorkshopBoardPage />}
         {tab === 'lenh-sx' && isDirector && <LenhSXPage />}
         {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePagePlan />}
         {tab === 'phoi-xac-nhan-san-luong' && (isPhoi || isDirector) && <XacNhanSanLuongPage readOnly={isDirector} />}
