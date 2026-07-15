@@ -759,32 +759,34 @@ function MfgStageTracker({
         const clickable   = !!onSelectStage && !!reachedStages?.has(stage.key)
         const isSelected  = selectedStage === stage.key
         // Không dùng thêm màu nào — vòng tròn giữ nguyên màu trạng thái (xanh lá/cam/xám).
-        // Bước đang chọn chỉ to hơn (26px thay vì 22px) + đổ bóng nhẹ để tạo cảm giác "nổi" lên,
-        // tách biệt khỏi trạng thái xong/đang làm mà không thêm ngữ nghĩa màu sắc mới.
+        // Bước đang chọn "nổi" lên bằng transform: scale + đổ bóng, KHÔNG đổi width/height thật
+        // (transform không chiếm thêm chỗ trong layout) — tránh làm dịch layout các bước còn lại
+        // khi alignItems:'center' của hàng cha canh lại theo chiều cao (từng bị lỗi khi đổi
+        // width/height trực tiếp).
         const color       = done ? 'var(--green)' : active ? 'var(--amber)' : 'var(--border)'
         const Icon        = STAGE_TRACKER_ICONS[stage.key]
-        const size        = isSelected ? 32 : 24
 
         return (
           <div key={stage.key} style={{ display: 'flex', alignItems: 'center', flex: idx < MFG_STAGES.length - 1 ? '1 1 0' : undefined }}>
             <div
               onClick={clickable ? () => onSelectStage!(stage.key) : undefined}
-              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 64, cursor: clickable ? 'pointer' : 'default' }}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, minWidth: 64, cursor: clickable ? 'pointer' : 'default' }}
             >
               <div style={{
-                width: size, height: size, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: color, color: done || active ? '#fff' : 'var(--text3)',
+                transform: isSelected ? 'scale(1.3)' : 'scale(1)',
                 boxShadow: isSelected ? '0 3px 8px rgba(0,0,0,0.28)' : undefined,
-                transition: 'width 0.15s, height 0.15s, box-shadow 0.15s',
+                transition: 'transform 0.15s, box-shadow 0.15s',
               }}>
-                {done ? <CheckCircle2 size={isSelected ? 15 : 13} /> : <Icon size={isSelected ? 15 : 13} />}
+                {done ? <CheckCircle2 size={13} /> : <Icon size={13} />}
               </div>
               <div style={{ fontSize: 11, fontWeight: active || isSelected ? 700 : 600, color: active ? 'var(--amber)' : done ? 'var(--text2)' : 'var(--text3)', whiteSpace: 'nowrap' }}>
                 {stage.label}{active && pct !== undefined && PARALLEL_STAGE_KEYS.has(stage.key) ? ` · ${pct}%` : ''}
               </div>
             </div>
             {idx < MFG_STAGES.length - 1 && (
-              <div style={{ flex: 1, height: 2, marginBottom: 16, background: done ? 'var(--green)' : 'var(--border)' }} />
+              <div style={{ flex: 1, height: 2, marginBottom: 18, background: done ? 'var(--green)' : 'var(--border)' }} />
             )}
           </div>
         )
