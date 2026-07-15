@@ -10,7 +10,7 @@ import FilterPills from '../../../components/FilterPills'
 import LoadingState from '../../../components/LoadingState'
 import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 
-type StatusFilter = 'all' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS' | 'WAITING_BOSS_APPROVAL' | 'APPROVED'
+type StatusFilter = 'all' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS' | 'WAITING_QLSX_APPROVAL' | 'WAITING_BOSS_APPROVAL' | 'APPROVED'
 
 const FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }[] = [
   { key: 'all',             label: 'Tất cả' },
@@ -18,6 +18,7 @@ const FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }
   { key: 'WAITING_PARTS',   ...STATUS_MAP.WAITING_PARTS },
   { key: 'APPROVED_DETAIL', ...STATUS_MAP.APPROVED_DETAIL },
   { key: 'APPROVED_PARTS',  ...STATUS_MAP.APPROVED_PARTS },
+  { key: 'WAITING_QLSX_APPROVAL', ...STATUS_MAP.WAITING_QLSX_APPROVAL },
   { key: 'WAITING_BOSS_APPROVAL', ...STATUS_MAP.WAITING_BOSS_APPROVAL },
   { key: 'APPROVED',        ...STATUS_MAP.APPROVED },
 ]

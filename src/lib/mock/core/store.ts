@@ -22,6 +22,24 @@ function persist() {
   }
 }
 
+// `state` sống trong bộ nhớ của từng tab — mockStore.get() không tự đọc lại localStorage mỗi lần
+// (tốn kém nếu làm vậy). Nếu 1 tab khác ghi đè localStorage (vd nhân viên khác duyệt/từ chối ở tab
+// riêng), tab này sẽ không thấy thay đổi cho tới khi tải lại trang, dù người dùng có bấm "Làm mới"
+// (Làm mới chỉ gọi lại API — mà API đọc từ `state` trong bộ nhớ, đang cũ). Sự kiện "storage" của
+// trình duyệt chỉ bắn ở các tab KHÁC tab vừa ghi — dùng đúng để đồng bộ `state` khi có thay đổi từ
+// nơi khác, mà không phải đọc lại localStorage ở mọi lần get().
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === LS_KEY && e.newValue) {
+      try {
+        state = JSON.parse(e.newValue) as MockState;
+      } catch {
+        /* ignore */
+      }
+    }
+  });
+}
+
 export const mockStore = {
   get(): MockState {
     return state;

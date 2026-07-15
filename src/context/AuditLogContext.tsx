@@ -28,8 +28,12 @@ export const AUDIT_ACTIONS = {
   'planform.parts_approved':          { label: 'Duyệt định mức mảnh',                              color: '#2e7d32' },
   'planform.parts_rejected':          { label: 'Từ chối định mức mảnh',                            color: '#c62828' },
   'planform.parts_sent_back':         { label: 'Gửi lại bộ phận Định mức mảnh',                    color: '#d97706' },
+  'planform.sent_for_qlsx_approval':  { label: 'Gửi Quản lý sản xuất duyệt',                       color: '#7c3aed' },
+  'planform.qlsx_approved':           { label: 'Quản lý sản xuất duyệt',                            color: '#2e7d32' },
   'planform.sent_for_boss_approval':  { label: 'Gửi sếp duyệt',                                    color: '#7c3aed' },
+  'planform.qlsx_rejected':           { label: 'QLSX từ chối — gửi lại nhập định mức từ đầu',      color: '#c62828' },
   'planform.boss_approved':           { label: 'Giám đốc duyệt — bắt đầu sản xuất',                 color: '#2e7d32' },
+  'planform.boss_rejected':           { label: 'Giám đốc từ chối — gửi lại nhập định mức từ đầu',   color: '#c62828' },
 } as const
 
 export type AuditAction = keyof typeof AUDIT_ACTIONS

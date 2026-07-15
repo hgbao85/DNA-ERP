@@ -94,7 +94,7 @@ export interface PurchaseProposal {
 }
 
 // Nhãn + màu hiển thị theo status — cấu hình dùng chung cho mọi màn đọc PurchaseProposal.status
-// (ProposalSection, màn theo dõi của QLSX...), tránh mỗi nơi tự hardcode 1 bảng if-chain riêng.
+// (ProposalSection, màn theo dõi của KHSX...), tránh mỗi nơi tự hardcode 1 bảng if-chain riêng.
 export const PROPOSAL_STATUS_LABELS: Record<PurchaseProposal['status'], { label: string; color: string; bg: string; border: string }> = {
   new:        { label: 'Chờ báo giá',   color: '#92400e', bg: '#fef3c7', border: '#fde68a' },
   quoting:    { label: 'Đang báo giá',  color: '#1e40af', bg: '#dbeafe', border: '#93c5fd' },
@@ -151,9 +151,9 @@ function buildKhoItems(pf: PlanForm): { phoiSonHan: InspItem[]; vatTuTP: InspIte
 
 // planFormId khớp đúng seedPlanForms (id 1 = JSE-55/PO-MY-001, id 2 = IEA-3/PO-GP-002) — trước đây
 // seed dùng planFormId 101/102 không khớp PlanForm thật nào nên 2 yêu cầu này không bao giờ hiện
-// trong "Lệnh kiểm tra vật tư" của QLSX (danh sách luôn lọc theo id PlanForm thật). Tên vật tư trong
+// trong "Lệnh kiểm tra vật tư" của KHSX (danh sách luôn lọc theo id PlanForm thật). Tên vật tư trong
 // từng items[] cũng phải khớp CHÍNH XÁC với seedPlanForms[].quotaManagement.materialType — màn hình
-// QLSX tra tồn thực bằng cách so tên (findInspItem), tên lệch thì mọi dòng hiện "—" dù badge kho báo
+// KHSX tra tồn thực bằng cách so tên (findInspItem), tên lệch thì mọi dòng hiện "—" dù badge kho báo
 // đã kiểm. Đồng thời tách bao bì đóng gói ra kho thành phẩm (thanhPham) thay vì gộp chung vatTuTP,
 // khớp CATEGORY_WAREHOUSE_CODE.
 const SEED_REQUESTS: InspRequest[] = [
@@ -355,7 +355,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     let created: PurchaseProposal[] = []
     setProposals(prev => {
       const now = new Date().toISOString()
-      // 1 lần "Tạo đề xuất mua hàng" của QLSX có thể gồm vật tư của nhiều kho — tách
+      // 1 lần "Tạo đề xuất mua hàng" của KHSX có thể gồm vật tư của nhiều kho — tách
       // thành 1 PurchaseProposal riêng cho mỗi kho để route đúng Purchasing phụ trách.
       const itemsByKho = new Map<KhoKey, PurchaseProposalItem[]>()
       items.forEach(item => {
@@ -443,7 +443,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     if (justCompleted) logAction(PROPOSAL_ENTITY, proposalId, 'proposal.purchased')
   }, [logAction])
 
-  // QLSX chốt bắt đầu sản xuất khi mọi kho liên quan đến đơn đã "Đã mua".
+  // KHSX chốt bắt đầu sản xuất khi mọi kho liên quan đến đơn đã "Đã mua".
   const startProduction = useCallback((requestId: string) => {
     setRequests(prev => prev.map(r =>
       r.id === requestId ? { ...r, productionStarted: true, productionStartedAt: new Date().toISOString() } : r

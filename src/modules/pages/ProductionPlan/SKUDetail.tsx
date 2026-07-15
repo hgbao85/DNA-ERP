@@ -4,6 +4,7 @@ import { ChevronLeft } from 'lucide-react'
 import GenericStatusBadge from '../../../components/StatusBadge'
 import Modal from '../../../components/Modal'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
+import RefreshButton from '../../../components/RefreshButton'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
@@ -24,8 +25,12 @@ export function SKUDetail({
   onBack,
   onApproveDetail,
   onApproveParts,
-  onSendForBossApproval,
+  onSendForQlsxApproval,
   onApproveBossRequest,
+  onQlsxApproveLocal,
+  onQlsxSendBoss,
+  onQlsxReject,
+  onBossReject,
   onSendBackDetail,
   onSendBackManh,
   onRefresh,
@@ -36,19 +41,24 @@ export function SKUDetail({
   onBack: () => void
   onApproveDetail?: () => Promise<void>
   onApproveParts?: () => Promise<void>
-  onSendForBossApproval?: () => Promise<void>
+  onSendForQlsxApproval?: () => Promise<void>
   onApproveBossRequest?: () => Promise<void>
+  onQlsxApproveLocal?: () => Promise<void>
+  onQlsxSendBoss?: () => Promise<void>
+  onQlsxReject?: (reason?: string) => Promise<void>
+  onBossReject?: (reason?: string) => Promise<void>
   onSendBackDetail?: () => Promise<void>
   onSendBackManh?: () => Promise<void>
   onRefresh?: () => void
   refreshing?: boolean
 }) {
-  const { isBoss } = useAuth()
+  const { user, isBoss } = useAuth()
+  const isProdMgr = user?.mfgRole === 'PRODUCTION_MANAGER'
   const { logAction, getLogsFor } = useAuditLog()
   const mt = pf.quotaManagement?.materialType
 
   // Chi tiết đã được duyệt khi status vượt qua giai đoạn APPROVED_DETAIL (đã gửi bộ phận nhập mảnh)
-  const detailAlreadyApproved = ['WAITING_PARTS', 'APPROVED_PARTS', 'WAITING_BOSS_APPROVAL', 'APPROVED'].includes(pf.status)
+  const detailAlreadyApproved = ['WAITING_PARTS', 'APPROVED_PARTS', 'WAITING_QLSX_APPROVAL', 'WAITING_BOSS_APPROVAL', 'APPROVED'].includes(pf.status)
   const approvedEntry = (at?: string) => ({ status: 'APPROVED' as const, at: new Date(at ?? pf.createdAt) })
 
   type SecEntry = { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
@@ -120,23 +130,26 @@ export function SKUDetail({
   }
 
   type DetailTab = 'chitiet' | 'manh'
-  // Manh tab chỉ hiển thị khi chi tiết đã qua duyệt
-  const showManhTab = detailAlreadyApproved
+  // Manh tab hiển thị khi chi tiết đã qua duyệt, HOẶC khi đã có dữ liệu mảnh từ trước (vd SKU bị
+  // QLSX/Sếp từ chối nên status quay về WAITING_DETAIL, nhưng manhItems vẫn còn — vẫn cần xem lại được).
+  const showManhTab = detailAlreadyApproved || (pf.manhItems?.length ?? 0) > 0
   const defaultTab: DetailTab = detailAlreadyApproved ? 'manh' : 'chitiet'
   const [detailTab, setDetailTab] = useState<DetailTab>(defaultTab)
 
   const canEditDetail = !readOnly && !isBoss && pf.status === 'APPROVED_DETAIL'
   const noop = () => {}
 
-  // Sếp duyệt lần cuối: xem gộp cả chi tiết + mảnh trên 1 màn hình (không cần chuyển tab) cho tiện duyệt.
-  // "Danh sách SKU" của sếp (readOnly, chỉ xem lại) vẫn dùng layout tab giống KHSX như bình thường.
-  const bossFinalReview = isBoss && !readOnly
-  const [confirmBossApprove, setConfirmBossApprove] = useState(false)
-  const [approvingBoss, setApprovingBoss] = useState(false)
-  const handleApproveBossRequest = async () => {
-    if (!onApproveBossRequest) return
-    setApprovingBoss(true)
-    try { await onApproveBossRequest() } finally { setApprovingBoss(false) }
+  // Sếp/QLSX duyệt: xem gộp cả chi tiết + mảnh trên 1 màn hình (không cần chuyển tab) cho tiện duyệt.
+  // "Danh sách SKU" (readOnly, chỉ xem lại) vẫn dùng layout tab giống KHSX như bình thường.
+  const finalReviewMode = (isBoss || isProdMgr) && !readOnly
+
+  // QLSX duyệt cục bộ (qlsxReviewStatus) trước, rồi nút "Gửi sếp duyệt" mới hiện ra — 2 bước, giống
+  // hệt cơ chế duyệt mảnh của KHSX (xem DinhMucManh bên dưới), chỉ khác là áp dụng cho cả màn gộp.
+  const [qlsxApproved, setQlsxApproved] = useState(!!pf.qlsxReviewStatus)
+  const handleQlsxApproveLocal = async () => {
+    if (!onQlsxApproveLocal) return
+    await onQlsxApproveLocal()
+    setQlsxApproved(true)
   }
 
   return (
@@ -156,6 +169,9 @@ export function SKUDetail({
           </p>
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+          {/* Trạng thái/dữ liệu có thể đã đổi ở phiên đăng nhập khác (vd bộ phận nhập định mức vừa
+              gửi lại sau khi bị từ chối) — cho phép lấy lại bản mới nhất mà không cần tải lại cả trang. */}
+          {onRefresh && <RefreshButton onRefresh={onRefresh} loading={refreshing} size="sm" />}
           <StatusBadge status={pf.status} />
         </div>
       </div>
@@ -169,9 +185,9 @@ export function SKUDetail({
 
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
-      {bossFinalReview ? (
+      {finalReviewMode ? (
         <>
-          {/* Sếp duyệt cuối — xem gộp cả 2 phần trên 1 màn hình, không cần chuyển tab */}
+          {/* Sếp/QLSX duyệt — xem gộp cả 2 phần trên 1 màn hình, không cần chuyển tab */}
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>Định mức chi tiết</div>
             {mt ? (
@@ -255,7 +271,7 @@ export function SKUDetail({
           manhItems={pf.manhItems}
           manhReviewStatus={pf.manhReviewStatus}
           onApproveParts={onApproveParts}
-          onSendForBossApproval={onSendForBossApproval}
+          onSendForQlsxApproval={onSendForQlsxApproval}
           onSendBackManh={onSendBackManh}
         />
       )}
@@ -381,23 +397,45 @@ export function SKUDetail({
       )}
 
       {/* Sếp duyệt lần cuối — gộp cả chi tiết + mảnh, không phụ thuộc tab đang xem */}
-      {isBoss && !readOnly && pf.status === 'WAITING_BOSS_APPROVAL' && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-          <button
-            onClick={() => setConfirmBossApprove(true)}
-            disabled={approvingBoss}
-            style={{
-              padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
-              cursor: approvingBoss ? 'default' : 'pointer',
-              background: '#16a34a', color: '#fff', opacity: approvingBoss ? 0.7 : 1,
-            }}
-          >{approvingBoss ? 'Đang xử lý...' : 'Duyệt'}</button>
-        </div>
+      {isBoss && !readOnly && (
+        <FinalReviewAction
+          active={pf.status === 'WAITING_BOSS_APPROVAL'}
+          buttonLabel="Duyệt"
+          confirmTitle="Xác nhận duyệt"
+          confirmText="Xác nhận duyệt định mức chi tiết và định mức mảnh của SKU này? Sau khi duyệt, SKU sẽ được thêm vào danh sách."
+          confirmLabel="Duyệt"
+          onConfirm={onApproveBossRequest}
+          doneActive={pf.status === 'APPROVED'}
+          doneLabel="✓ Đã duyệt"
+          onReject={onBossReject}
+          rejectConfirmText='Từ chối SKU này? Toàn bộ định mức sẽ được gửi lại cho các bộ phận nhập liệu làm lại từ đầu (định mức chi tiết). Dữ liệu đã nhập vẫn được giữ nguyên để sửa tiếp.'
+        />
       )}
-      {isBoss && pf.status === 'APPROVED' && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-          <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã duyệt</span>
-        </div>
+
+      {/* QLSX duyệt — 2 bước: Duyệt (cục bộ) rồi mới Gửi sếp duyệt (chuyển status thật) */}
+      {isProdMgr && !readOnly && (
+        <>
+          <FinalReviewAction
+            active={pf.status === 'WAITING_QLSX_APPROVAL' && !qlsxApproved}
+            buttonLabel="Duyệt"
+            confirmTitle="Xác nhận duyệt"
+            confirmText="Xác nhận duyệt định mức chi tiết và định mức mảnh của SKU này?"
+            confirmLabel="Duyệt"
+            onConfirm={handleQlsxApproveLocal}
+            onReject={onQlsxReject}
+            rejectConfirmText='Từ chối SKU này? Toàn bộ định mức sẽ được gửi lại cho các bộ phận nhập liệu làm lại từ đầu (định mức chi tiết). Dữ liệu đã nhập vẫn được giữ nguyên để sửa tiếp.'
+          />
+          <FinalReviewAction
+            active={pf.status === 'WAITING_QLSX_APPROVAL' && qlsxApproved}
+            buttonLabel="Gửi sếp duyệt"
+            confirmTitle="Xác nhận gửi sếp duyệt"
+            confirmText='Xác nhận gửi SKU này cho sếp phê duyệt lần cuối? SKU sẽ chuyển sang trạng thái "Chờ sếp duyệt".'
+            confirmLabel="Gửi sếp duyệt"
+            onConfirm={onQlsxSendBoss}
+            doneActive={pf.status === 'WAITING_BOSS_APPROVAL' || pf.status === 'APPROVED'}
+            doneLabel="✓ Đã gửi sếp duyệt"
+          />
+        </>
       )}
       </div>
 
@@ -407,22 +445,6 @@ export function SKUDetail({
         </div>
       )}
       </div>
-
-      {/* Modal xác nhận duyệt (Sếp) */}
-      <Modal open={confirmBossApprove} maxWidth={420} zIndex={2000}>
-        <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận duyệt</h3>
-        <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
-          Xác nhận duyệt định mức chi tiết và định mức mảnh của SKU này? Sau khi duyệt, SKU sẽ được thêm vào danh sách.
-        </p>
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={() => setConfirmBossApprove(false)} style={btnSecondary}>Hủy</button>
-          <button
-            onClick={async () => { setConfirmBossApprove(false); await handleApproveBossRequest() }}
-            disabled={approvingBoss}
-            style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff' }}
-          >Duyệt</button>
-        </div>
-      </Modal>
 
       {/* Modal xác nhận gửi lại bộ phận Định mức chi tiết */}
       <Modal open={showSendConfirm} maxWidth={440} zIndex={2000}>
@@ -483,6 +505,114 @@ export function SKUDetail({
             </div>
       </Modal>
     </div>
+  )
+}
+
+// ─── FinalReviewAction ────────────────────────────────────────────────────────
+// Nút hành động + modal xác nhận dùng chung cho các bước duyệt gộp (Sếp duyệt cuối, QLSX duyệt/gửi
+// sếp) — cùng 1 cơ chế: hiện nút khi active, xác nhận qua modal, gọi onConfirm, rồi (tuỳ chỗ dùng)
+// hiện nhãn "đã xong" khi doneActive. Khác nhau chỉ ở label/text/handler do nơi gọi truyền vào.
+// Truyền thêm onReject để hiện kèm nút "Từ chối" (modal riêng, có ô nhập lý do) — dùng chung cho cả
+// Sếp và QLSX vì 2 bên từ chối giống hệt nhau: trả SKU về bước nhập định mức chi tiết từ đầu.
+
+function FinalReviewAction({
+  active, buttonLabel, confirmTitle, confirmText, confirmLabel, onConfirm, doneActive = false, doneLabel,
+  onReject, rejectConfirmText,
+}: {
+  active: boolean
+  buttonLabel: string
+  confirmTitle: string
+  confirmText: string
+  confirmLabel: string
+  onConfirm?: () => Promise<void>
+  doneActive?: boolean
+  doneLabel?: string
+  onReject?: (reason?: string) => Promise<void>
+  rejectConfirmText?: string
+}) {
+  const [confirming, setConfirming] = useState(false)
+  const [processing, setProcessing] = useState(false)
+  const [rejecting, setRejecting] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+  const [rejectProcessing, setRejectProcessing] = useState(false)
+
+  const handleConfirm = async () => {
+    if (!onConfirm) return
+    setProcessing(true)
+    try { await onConfirm() } finally { setProcessing(false) }
+  }
+
+  const handleReject = async () => {
+    if (!onReject) return
+    setRejectProcessing(true)
+    try { await onReject(rejectReason.trim() || undefined) } finally { setRejectProcessing(false); setRejectReason('') }
+  }
+
+  return (
+    <>
+      {active && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+          {onReject && (
+            <button
+              onClick={() => setRejecting(true)}
+              disabled={rejectProcessing}
+              style={{
+                padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8,
+                border: '1px solid #dc2626', background: '#fff5f5', color: '#dc2626',
+                cursor: rejectProcessing ? 'default' : 'pointer', opacity: rejectProcessing ? 0.7 : 1,
+              }}
+            >{rejectProcessing ? 'Đang xử lý...' : 'Từ chối'}</button>
+          )}
+          <button
+            onClick={() => setConfirming(true)}
+            disabled={processing}
+            style={{
+              padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
+              cursor: processing ? 'default' : 'pointer',
+              background: '#16a34a', color: '#fff', opacity: processing ? 0.7 : 1,
+            }}
+          >{processing ? 'Đang xử lý...' : buttonLabel}</button>
+        </div>
+      )}
+      {doneActive && doneLabel && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+          <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>{doneLabel}</span>
+        </div>
+      )}
+      <Modal open={confirming} maxWidth={420} zIndex={2000}>
+        <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>{confirmTitle}</h3>
+        <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>{confirmText}</p>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={() => setConfirming(false)} style={btnSecondary}>Hủy</button>
+          <button
+            onClick={async () => { setConfirming(false); await handleConfirm() }}
+            disabled={processing}
+            style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff' }}
+          >{confirmLabel}</button>
+        </div>
+      </Modal>
+      {onReject && (
+        <Modal open={rejecting} maxWidth={420} zIndex={2000}>
+          <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Từ chối SKU</h3>
+          <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text2)' }}>{rejectConfirmText}</p>
+          <textarea
+            value={rejectReason}
+            onChange={e => setRejectReason(e.target.value)}
+            placeholder="Lý do từ chối (không bắt buộc)"
+            rows={3}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
+          />
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+            <button onClick={() => setRejecting(false)} style={btnSecondary}>Hủy</button>
+            <button
+              onClick={async () => { setRejecting(false); await handleReject() }}
+              disabled={rejectProcessing}
+              style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#dc2626', color: '#fff' }}
+            >Xác nhận từ chối</button>
+          </div>
+        </Modal>
+      )}
+    </>
   )
 }
 
@@ -562,7 +692,7 @@ function MaterialSection({
 type ManhApprovalEntry = { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
 
 function DinhMucManh({
-  planFormId, status, readOnly = false, hideStatusBadge = false, manhItems, manhReviewStatus, onApproveParts, onSendForBossApproval, onSendBackManh,
+  planFormId, status, readOnly = false, hideStatusBadge = false, manhItems, manhReviewStatus, onApproveParts, onSendForQlsxApproval, onSendBackManh,
 }: {
   planFormId: number
   status: string
@@ -571,16 +701,17 @@ function DinhMucManh({
   manhItems?: ManhRow[]
   manhReviewStatus?: QuotaReviewStatus
   onApproveParts?: () => Promise<void>
-  onSendForBossApproval?: () => Promise<void>
+  onSendForQlsxApproval?: () => Promise<void>
   onSendBackManh?: () => Promise<void>
 }) {
-  const { isBoss } = useAuth()
+  const { isBoss, user } = useAuth()
+  const isProdMgr = user?.mfgRole === 'PRODUCTION_MANAGER'
   const { logAction } = useAuditLog()
   // Dữ liệu mảnh thật do account Sắt nhập (qua updatePlanFormManhQuota); trống cho tới khi có người nhập.
   const rows = manhItems ?? []
-  // Mảnh coi như đã duyệt xong khi SKU đã qua giai đoạn APPROVED_BOSS trở đi — dùng làm fallback cho
-  // các SKU cũ chưa có manhReviewStatus (trước khi trường này tồn tại).
-  const partsAlreadyApproved = status === 'WAITING_BOSS_APPROVAL' || status === 'APPROVED'
+  // Mảnh coi như đã duyệt xong khi SKU đã qua giai đoạn WAITING_QLSX_APPROVAL trở đi — dùng làm fallback
+  // cho các SKU cũ chưa có manhReviewStatus (trước khi trường này tồn tại).
+  const partsAlreadyApproved = ['WAITING_QLSX_APPROVAL', 'WAITING_BOSS_APPROVAL', 'APPROVED'].includes(status)
 
   // Quyết định duyệt/từ chối mảnh phải đọc từ manhReviewStatus (đã lưu ở PlanForm) — KHÔNG được suy ra
   // từ status, vì APPROVED_PARTS được set ngay khi account Sắt nhập xong, trước khi KHSX kịp duyệt.
@@ -592,7 +723,7 @@ function DinhMucManh({
   const [rejectReason, setRejectReason] = useState('')
   const [processing, setProcessing] = useState(false)
   const [confirmApproveParts, setConfirmApproveParts] = useState(false)
-  const [confirmSendForBossApproval, setConfirmSendForBossApproval] = useState(false)
+  const [confirmSendForQlsxApproval, setConfirmSendForQlsxApproval] = useState(false)
   const [showSendBackModal, setShowSendBackModal] = useState(false)
   const [sendingBackManh, setSendingBackManh] = useState(false)
 
@@ -624,10 +755,10 @@ function DinhMucManh({
     }
   }
 
-  const handleSendForBossApproval = async () => {
-    if (!onSendForBossApproval) return
+  const handleSendForQlsxApproval = async () => {
+    if (!onSendForQlsxApproval) return
     setProcessing(true)
-    try { await onSendForBossApproval() } finally { setProcessing(false) }
+    try { await onSendForQlsxApproval() } finally { setProcessing(false) }
   }
 
   const handleSendBackManh = async () => {
@@ -732,7 +863,7 @@ function DinhMucManh({
       )}
 
       {/* Action bar — KHSX: chỉ hiện khi đã có dữ liệu mảnh thật chờ duyệt (APPROVED_PARTS) */}
-      {!readOnly && !isBoss && status === 'APPROVED_PARTS' && (
+      {!readOnly && !isBoss && !isProdMgr && status === 'APPROVED_PARTS' && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 4 }}>
           {!isLocallyApproved && !isLocallyRejected && (
             <span style={{ fontSize: 12, color: '#d97706' }}>Cần duyệt danh sách mảnh mới chuyển đến công đoạn tiếp theo</span>
@@ -745,7 +876,7 @@ function DinhMucManh({
             >{sendingBackManh ? 'Đang gửi...' : 'Gửi lại bộ phận định mức mảnh'}</button>
           )}
           <button
-            onClick={() => setConfirmSendForBossApproval(true)}
+            onClick={() => setConfirmSendForQlsxApproval(true)}
             disabled={!isLocallyApproved || processing}
             style={{
               padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
@@ -754,11 +885,17 @@ function DinhMucManh({
               color: isLocallyApproved ? '#fff' : '#9ca3af',
               opacity: processing ? 0.7 : 1,
             }}
-          >{processing ? 'Đang xử lý...' : 'Gửi sếp duyệt'}</button>
+          >{processing ? 'Đang xử lý...' : 'Gửi Quản lý sản xuất duyệt'}</button>
         </div>
       )}
-      {/* KHSX: đã gửi, đang chờ sếp duyệt */}
-      {!isBoss && status === 'WAITING_BOSS_APPROVAL' && (
+      {/* KHSX: đã gửi QLSX duyệt, đang chờ phê duyệt */}
+      {!isBoss && !isProdMgr && status === 'WAITING_QLSX_APPROVAL' && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+          <span style={{ fontSize: 12, color: '#0369a1', fontWeight: 600 }}>✓ Đã gửi Quản lý sản xuất duyệt — đang chờ phê duyệt</span>
+        </div>
+      )}
+      {/* KHSX: QLSX đã duyệt và gửi sếp, đang chờ sếp duyệt lần cuối */}
+      {!isBoss && !isProdMgr && status === 'WAITING_BOSS_APPROVAL' && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
           <span style={{ fontSize: 12, color: '#0369a1', fontWeight: 600 }}>✓ Đã gửi sếp duyệt — đang chờ phê duyệt</span>
         </div>
@@ -825,19 +962,19 @@ function DinhMucManh({
             </div>
       </Modal>
 
-      {/* Modal xác nhận gửi sếp duyệt (KHSX) */}
-      <Modal open={confirmSendForBossApproval} maxWidth={420} zIndex={2000}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận gửi sếp duyệt</h3>
+      {/* Modal xác nhận gửi Quản lý sản xuất duyệt (KHSX) */}
+      <Modal open={confirmSendForQlsxApproval} maxWidth={420} zIndex={2000}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận gửi Quản lý sản xuất duyệt</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
-              Xác nhận gửi danh sách mảnh phôi cho sếp phê duyệt? SKU này sẽ chuyển sang trạng thái &quot;Chờ sếp duyệt&quot;.
+              Xác nhận gửi danh sách mảnh phôi cho Quản lý sản xuất phê duyệt? SKU này sẽ chuyển sang trạng thái &quot;Chờ QLSX duyệt&quot;.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setConfirmSendForBossApproval(false)} style={btnSecondary}>Hủy</button>
+              <button onClick={() => setConfirmSendForQlsxApproval(false)} style={btnSecondary}>Hủy</button>
               <button
-                onClick={async () => { setConfirmSendForBossApproval(false); await handleSendForBossApproval() }}
+                onClick={async () => { setConfirmSendForQlsxApproval(false); await handleSendForQlsxApproval() }}
                 disabled={processing}
                 style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff' }}
-              >Gửi sếp duyệt</button>
+              >Gửi Quản lý sản xuất duyệt</button>
             </div>
       </Modal>
     </div>

@@ -304,7 +304,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
 
   // ── Định mức (mảnh) — PlanForm thật (manhItems/manhEntryMeta) ─────────
   const manhBoms: BomItem[] = planForms
-    .filter(pf => (['WAITING_PARTS', 'APPROVED_PARTS', 'WAITING_BOSS_APPROVAL', 'APPROVED'] as string[]).includes(pf.status))
+    .filter(pf => (['WAITING_PARTS', 'APPROVED_PARTS', 'WAITING_QLSX_APPROVAL', 'WAITING_BOSS_APPROVAL', 'APPROVED'] as string[]).includes(pf.status))
     .map(pf => ({
       id: pf.id,
       ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
@@ -312,7 +312,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     }))
   const manhBomStatus = (bomId: number): 'approved' | 'pending' | 'canInput' => {
     const pf = findPf(bomId)
-    if (pf?.status === 'WAITING_BOSS_APPROVAL' || pf?.status === 'APPROVED') return 'approved'
+    if (pf?.status === 'WAITING_QLSX_APPROVAL' || pf?.status === 'WAITING_BOSS_APPROVAL' || pf?.status === 'APPROVED') return 'approved'
     if (pf?.status === 'APPROVED_PARTS') return 'pending'
     return 'canInput'
   }
