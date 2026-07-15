@@ -30,7 +30,6 @@ export interface ManhSkuGroup {
   piCode: string
   skuCode: string
   skuName: string
-  quantity: number // số lượng SKU (thành phẩm) đặt hàng, vd 50 cái ghế — khác totalQty của từng ManhLine (số mảnh)
   lines: ManhLine[]
 }
 

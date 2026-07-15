@@ -3,7 +3,7 @@
 /**
  * Cấp 3 (chi tiết mảnh của 1 SKU) — dùng chung cho "Theo dõi xuất đan" (khovttp@demo.com, phần
  * "Chi tiết theo điểm đan"), "Theo dõi nhập đan" (khotp@demo.com) và công đoạn "Đan" bên KHSX
- * (ThongKePagePlan.tsx). 3 ô tổng quan (Tổng/Đã hoàn thành/Còn lại) + bảng theo từng (mảnh, điểm đan).
+ * (ThongKePagePlan.tsx). 4 ô tổng quan (Tổng/Đã xuất/Đang đan/Đã nhập) + bảng theo từng (mảnh, điểm đan).
  *
  * variant='view'  → chỉ xem, cột cuối là thanh tiến độ nhận (dùng cho trang xuất đan + KHSX).
  * variant='nhap'  → có ô nhập số lượng + nút xác nhận nhận hàng (dùng cho trang nhập đan).
@@ -23,40 +23,34 @@ function Tile({ label, value, color }: { label: string; value: number; color?: s
   )
 }
 
-/**
- * 3 ô tổng quan (Tổng/Đã hoàn thành/Còn lại) — tách riêng để đặt ở đầu trang, tách khỏi bảng chi
- * tiết bên dưới. "Tổng" là số lượng SKU (thành phẩm) đặt hàng, KHÔNG phải số lượng mảnh (1 SKU cấu
- * tạo từ nhiều loại mảnh, mỗi loại x số lượng riêng — cộng dồn totalQty các mảnh không ra số SKU).
- * "Đã hoàn thành"/"Còn lại" suy ra từ tỉ lệ mảnh đã nhận về trên tổng số mảnh cần, áp vào số lượng SKU.
- */
-export function ManhSkuTiles({ lines, skuQty }: { lines: ManhLine[]; skuQty: number }) {
-  const totalPieces    = lines.reduce((s, l) => s + l.totalQty, 0)
-  const receivedPieces = lines.reduce((s, l) => s + l.allocations.reduce((a, x) => a + x.nhapQty, 0), 0)
-  const hoanThanh = totalPieces > 0 ? Math.round(skuQty * receivedPieces / totalPieces) : 0
-  const conLai    = Math.max(0, skuQty - hoanThanh)
+/** 4 ô tổng quan (Tổng/Đã xuất/Đang đan/Đã nhập) — tách riêng để đặt ở đầu trang, tách khỏi bảng chi tiết bên dưới. */
+export function ManhSkuTiles({ lines }: { lines: ManhLine[] }) {
+  const total   = lines.reduce((s, l) => s + l.totalQty, 0)
+  const daXuat  = lines.reduce((s, l) => s + l.allocations.reduce((a, x) => a + x.xuatQty, 0), 0)
+  const daNhap  = lines.reduce((s, l) => s + l.allocations.reduce((a, x) => a + x.nhapQty, 0), 0)
+  const dangDan = Math.max(0, daXuat - daNhap)
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
-      <Tile label="Tổng" value={skuQty} />
-      <Tile label="Đã hoàn thành" value={hoanThanh} color="#16a34a" />
-      <Tile label="Còn lại" value={conLai} color="#d97706" />
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
+      <Tile label="Tổng" value={total} />
+      <Tile label="Đã xuất" value={daXuat} color="#d97706" />
+      <Tile label="Đang đan" value={dangDan} color="#7c3aed" />
+      <Tile label="Đã nhập" value={daNhap} color="#16a34a" />
     </div>
   )
 }
 
 export default function ManhSkuDetail({
-  lines, skuQty, pointLabel, variant, onNhap, busyAllocId, msgFor, hideTiles,
+  lines, pointLabel, variant, onNhap, busyAllocId, msgFor, hideTiles,
 }: {
   lines: ManhLine[]
-  /** Số lượng SKU đặt hàng — dùng cho ô "Tổng" của `ManhSkuTiles`. Bỏ qua khi `hideTiles`. */
-  skuQty?: number
   pointLabel: (id: number) => string
   variant: 'view' | 'nhap'
   /** variant='nhap': xác nhận đã nhận `qty` mảnh của dòng `lineId` từ điểm đan `weavingPointId` (ứng với allocation `allocId`). */
   onNhap?: (lineId: number, weavingPointId: number, allocId: number, qty: number) => void
   busyAllocId?: number | null
   msgFor?: (allocId: number) => string | undefined
-  /** Bỏ 3 ô tổng quan khi trang đã tự hiện `ManhSkuTiles` riêng ở vị trí khác (vd đầu trang). */
+  /** Bỏ 4 ô tổng quan khi trang đã tự hiện `ManhSkuTiles` riêng ở vị trí khác (vd đầu trang). */
   hideTiles?: boolean
 }) {
   const [qty, setQty] = useState<Record<number, string>>({})
@@ -72,7 +66,7 @@ export default function ManhSkuDetail({
 
   return (
     <div>
-      {!hideTiles && <ManhSkuTiles lines={lines} skuQty={skuQty ?? 0} />}
+      {!hideTiles && <ManhSkuTiles lines={lines} />}
 
       {rows.length === 0 ? (
         <div style={emptyBox}>Chưa xuất đan cho điểm đan nào</div>
@@ -80,16 +74,14 @@ export default function ManhSkuDetail({
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
-              <col /><col /><col style={{ width: 80 }} /><col style={{ width: 90 }} /><col style={{ width: 90 }} /><col style={{ width: 80 }} /><col style={{ width: variant === 'nhap' ? 190 : 150 }} />
+              <col /><col /><col style={{ width: 90 }} /><col style={{ width: 90 }} /><col style={{ width: variant === 'nhap' ? 190 : 150 }} />
             </colgroup>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={thStyle}>Tên mảnh</th>
                 <th style={thStyle}>Điểm đan</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>SL tổng</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Đã xuất</th>
                 <th style={{ ...thStyle, textAlign: 'right' }}>Đã nhập</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Còn lại</th>
                 <th style={thStyle}>{variant === 'nhap' ? 'Nhập' : 'Tiến độ nhận'}</th>
               </tr>
             </thead>
@@ -101,10 +93,8 @@ export default function ManhSkuDetail({
                   <tr key={alloc.id} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={{ ...tdStyle, fontWeight: 500 }}>{line.name}</td>
                     <td style={tdStyle}>{pointLabel(alloc.weavingPointId)}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{line.totalQty}</td>
                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: '#d97706' }}>{alloc.xuatQty}</td>
                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: alloc.nhapQty > 0 ? '#16a34a' : 'var(--text3)' }}>{alloc.nhapQty}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: done ? 'var(--text3)' : '#d97706' }}>{remaining}</td>
                     <td style={tdStyle}>
                       {variant === 'view' ? (
                         <ProgressBar value={alloc.nhapQty} max={alloc.xuatQty} />

@@ -94,7 +94,6 @@ export default function KhoNhapDanPage() {
         </div>
         <ManhSkuDetail
           lines={selectedSku.lines}
-          skuQty={selectedSku.quantity}
           pointLabel={pointLabel}
           variant="nhap"
           onNhap={handleNhap}
