@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Boxes, Warehouse, Settings, FilePlus } from 'lucide-react'
+import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Boxes, Warehouse, Settings, FilePlus, ScanSearch } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import VatTuDashboardPage from './VatTuDashboardPage'
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
@@ -7,8 +7,9 @@ import SKUReviewPage from './SKUReviewPage'
 import SKUListPage from './SKUListPage'
 import ThongKePagePlan from '../Manufacturing/ThongKePagePlan'
 import LenhSXPage from './LenhSXPage'
+import LenhKiemTraPage from '../Manufacturing/LenhKiemTraPage'
 
-type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'thongke' | 'lenh-sx' | 'materials' | 'warehouses' | 'setup'
+type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'kiem-tra-vt' | 'thongke' | 'lenh-sx' | 'materials' | 'warehouses' | 'setup'
 
 interface Props { onBack?: () => void }
 
@@ -54,8 +55,9 @@ export default function ProductionPlanApp({ onBack }: Props) {
           {navBtn('thongke',    <CalendarClock size={16} />,   'Bảng thống kê')}
           {navBtn('planforms',  <LayoutDashboard size={16} />, 'Danh sách SKU')}
           {navBtn('duyet-sku',    <FilePlus size={16} />,        'Duyệt SKU')}
-          {navBtn('vattu',      <Package size={16} />,         'Danh sách vật tư')}
-          {navBtn('lenh-sx',    <ClipboardList size={16} />,  isBoss ? 'Duyệt lệnh SX' : 'Lệnh sản xuất mới')}
+            {navBtn('lenh-sx',    <ClipboardList size={16} />,  isBoss ? 'Duyệt lệnh SX' : 'Lệnh sản xuất mới')}
+          {navBtn('kiem-tra-vt', <ScanSearch size={16} />,     'Kiểm tra vật tư')}
+                    {navBtn('vattu',      <Package size={16} />,         'Danh sách vật tư')}
           {navBtn('warehouses', <Warehouse size={16} />,      'Tổng hợp kho')}
         </nav>
 
@@ -80,6 +82,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
         {activePage === 'planforms'  && <SKUListPage />}
         {activePage === 'duyet-sku'    && <SKUReviewPage />}
         {activePage === 'vattu'      && <VatTuDashboardPage />}
+        {activePage === 'kiem-tra-vt' && <LenhKiemTraPage />}
         {activePage === 'lenh-sx'    && <LenhSXPage />}
         {activePage === 'warehouses' && <MfgWarehousesPage />}
       </div>

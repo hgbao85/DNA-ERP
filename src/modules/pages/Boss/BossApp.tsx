@@ -18,12 +18,12 @@ const ACCENT    = '#2e7d32'
 const ACCENT_BG = '#e8f5e9'
 
 type Page           = 'cho-duyet' | 'thong-ke' | 'sku-list' | 'vat-tu' | 'kho'
-type ChoDuyetFilter = 'dinh-muc' | 'so-sanh-gia' | 'lenh-sx'
+type ChoDuyetFilter = 'sku-moi' | 'so-sanh-gia' | 'lenh-sx'
 
 
 // ── So sánh giá section ───────────────────────────────────────────────────────
 
-// Các PurchaseProposal con của cùng 1 đơn gốc (do QLSX tạo) chia sẻ chung requestId
+// Các PurchaseProposal con của cùng 1 đơn gốc (do KHSX tạo) chia sẻ chung requestId
 // (xem markProposalCreated, InspectionContext.tsx) — nhóm lại để Boss duyệt 1 lần/đơn.
 function groupByRequestId(proposals: PurchaseProposal[]): PurchaseProposal[][] {
   const map = new Map<string, PurchaseProposal[]>()
@@ -378,7 +378,7 @@ const td: React.CSSProperties = { padding: '9px 14px' }
 // ── Tổng hợp chờ duyệt section ────────────────────────────────────────────────
 
 const CHO_DUYET_FILTERS: { key: ChoDuyetFilter; label: string }[] = [
-  { key: 'dinh-muc',    label: 'Định mức'       },
+  { key: 'sku-moi',    label: 'SKU mới'       },
   { key: 'so-sanh-gia', label: 'So sánh giá'    },
   { key: 'lenh-sx',     label: 'Lệnh sản xuất'  },
 ]
@@ -415,7 +415,7 @@ function ChoDuyetSection({ proposals, onApprove, onReject }: {
         })}
       </div>
 
-      {filter === 'dinh-muc'    && <SKUReviewPage />}
+      {filter === 'sku-moi'    && <SKUReviewPage />}
       {filter === 'so-sanh-gia' && <SoSanhGiaSection proposals={proposals} onApprove={onApprove} onReject={onReject} />}
       {filter === 'lenh-sx'     && <LenhSXPage />}
     </div>

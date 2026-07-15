@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, CalendarClock, ScanSearch, Wrench, Flame, SprayCan, Check, Frame, Layers } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, MapPin, ArrowDownToLine, ClipboardCheck, Box, CalendarClock, Wrench, Flame, SprayCan, Check, Frame, Layers } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import MfgSetupPage from './MfgSetupPage'
@@ -23,7 +23,7 @@ import LenhSanXuatSon from '../Son/LenhSanXuatSon'
 import ManhChoDanPage from '../Son/ManhChoDanPage'
 import PhoiDinhMucManhPage from './PhoiDinhMucManhPage'
 import SKUListPage from '../ProductionPlan/SKUListPage'
-import LenhKiemTraPage from './LenhKiemTraPage'
+import SKUReviewPage from '../ProductionPlan/SKUReviewPage'
 import KcsPhoiPage from '../Kcs/KcsPhoiPage'
 import KcsHanPage from '../Kcs/KcsHanPage'
 import KcsSonPage from '../Kcs/KcsSonPage'
@@ -34,8 +34,8 @@ type TabId =
   | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-san-luong' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh' | 'phoi-lich-su-nhan-sat' | 'phoi-kho-phoi'
   | 'han-khung-han' | 'son-manh-cho-dan'
   | 'quan-ly-diem-dan'
-  | 'weaving-points' | 'sku-list'
-  | 'materials' | 'warehouses' | 'kiem-tra-vt' | 'setup'
+  | 'weaving-points' | 'duyet-sku' | 'sku-list'
+  | 'materials' | 'warehouses' | 'setup'
   | 'kcs-phoi' | 'kcs-han' | 'kcs-son'
 
 // pk/bb hậu tố = trang con Phụ kiện / Bao bì — dùng chung role SPEC_ACCESSORY (1 account nhập cả 2 nhóm).
@@ -143,6 +143,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isDirector ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất mới', icon: <ClipboardList size={16} /> }] : []),
     ...(isDirector ? [{ id: 'ke-hoach' as TabId, label: 'Kế hoạch SX', icon: <CalendarClock size={16} /> }] : []),
     ...(isProdMgr ? [{ id: 'ke-hoach' as TabId, label: 'Bảng thống kê', icon: <CalendarClock size={16} /> }] : []),
+    ...(isProdMgr ? [{ id: 'duyet-sku' as TabId, label: 'Duyệt SKU mới', icon: <ClipboardCheck size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-xac-nhan-san-luong' as TabId, label: 'Xác nhận sản lượng', icon: <Check size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-dinh-muc-manh' as TabId, label: 'Danh sách định mức mảnh', icon: <Box size={16} /> }] : []),
@@ -154,7 +155,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isKcs ? [{ id: 'kcs-han' as TabId, label: 'Hàn', icon: <Flame size={16} /> }] : []),
     ...(isKcs ? [{ id: 'kcs-son' as TabId, label: 'Sơn', icon: <SprayCan size={16} /> }] : []),
     ...(canSeeDiemDan ? [{ id: 'quan-ly-diem-dan' as TabId, label: 'Quản lý điểm đan', icon: <MapPin size={16} /> }] : []),
-    ...(isProdMgr ? [{ id: 'kiem-tra-vt' as TabId, label: 'Kiểm tra vật tư', icon: <ScanSearch size={16} /> }] : []),
     ...(isProdMgr ? [{ id: 'sku-list' as TabId, label: 'Danh sách SKU', icon: <Package size={16} /> }] : []),
     ...(canSeeWarehouses ? [{ id: 'materials' as TabId, label: 'Tổng hợp vật tư', icon: <Boxes size={16} /> }] : []),
     ...(canSeeWarehouses ? [{ id: 'warehouses' as TabId, label: 'Tổng hợp kho', icon: <Warehouse size={16} /> }] : []),
@@ -267,7 +267,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'kcs-son' && isKcs && <KcsSonPage />}
         {tab === 'quan-ly-diem-dan' && canSeeDiemDan && <QuanLyDiemDanPage readOnly={!isWeavingExport} />}
         {tab === 'weaving-points' && canManageBom && <WeavingPointsPage readOnly />}
-        {tab === 'kiem-tra-vt' && isProdMgr && <LenhKiemTraPage />}
+        {tab === 'duyet-sku' && isProdMgr && <SKUReviewPage />}
         {tab === 'sku-list' && isProdMgr && <SKUListPage readOnly />}
         {tab === 'materials' && canSeeWarehouses && <MfgAllMaterialsPage />}
         {tab === 'warehouses' && canSeeWarehouses && <MfgWarehousesPage />}

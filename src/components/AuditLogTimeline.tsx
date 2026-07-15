@@ -26,8 +26,12 @@ const ACTION_ICON: Record<AuditAction, LucideIcon> = {
   'planform.parts_approved':          Check,
   'planform.parts_rejected':          X,
   'planform.parts_sent_back':         RotateCcw,
+  'planform.sent_for_qlsx_approval':  Send,
+  'planform.qlsx_approved':           Check,
   'planform.sent_for_boss_approval':  Send,
+  'planform.qlsx_rejected':           X,
   'planform.boss_approved':           Factory,
+  'planform.boss_rejected':           X,
 }
 
 // Panel "Hoạt động" dạng timeline dọc, dùng chung cho mọi entity có audit log — chỉ cần

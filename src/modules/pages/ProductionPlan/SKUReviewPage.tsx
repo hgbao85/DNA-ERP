@@ -12,10 +12,11 @@ import FilterPills from '../../../components/FilterPills'
 import LoadingState from '../../../components/LoadingState'
 import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 
-// KHSX theo dõi toàn bộ vòng đời SKU; Sếp (Giám đốc) chỉ cần thấy các item đang chờ mình duyệt lần cuối.
-const PLANNER_PENDING_STATUSES = new Set(['WAITING_DETAIL', 'WAITING_PARTS', 'APPROVED_DETAIL', 'APPROVED_PARTS', 'WAITING_BOSS_APPROVAL'])
+// KHSX theo dõi toàn bộ vòng đời SKU; QLSX/Sếp chỉ cần thấy các item đang chờ mình duyệt.
+const PLANNER_PENDING_STATUSES = new Set(['WAITING_DETAIL', 'WAITING_PARTS', 'APPROVED_DETAIL', 'APPROVED_PARTS', 'WAITING_QLSX_APPROVAL', 'WAITING_BOSS_APPROVAL'])
+const QLSX_PENDING_STATUSES = new Set(['WAITING_QLSX_APPROVAL'])
 const BOSS_PENDING_STATUSES = new Set(['WAITING_BOSS_APPROVAL'])
-type StatusFilter = 'all' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS' | 'WAITING_BOSS_APPROVAL'
+type StatusFilter = 'all' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS' | 'WAITING_QLSX_APPROVAL' | 'WAITING_BOSS_APPROVAL'
 
 const PLANNER_FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }[] = [
   { key: 'all',             label: 'Tất cả' },
@@ -23,7 +24,12 @@ const PLANNER_FILTERS: { key: StatusFilter; label: string; color?: string; bg?: 
   { key: 'WAITING_PARTS',   ...STATUS_MAP.WAITING_PARTS },
   { key: 'APPROVED_DETAIL', ...STATUS_MAP.APPROVED_DETAIL },
   { key: 'APPROVED_PARTS',  ...STATUS_MAP.APPROVED_PARTS },
+  { key: 'WAITING_QLSX_APPROVAL', ...STATUS_MAP.WAITING_QLSX_APPROVAL },
   { key: 'WAITING_BOSS_APPROVAL', ...STATUS_MAP.WAITING_BOSS_APPROVAL },
+]
+const QLSX_FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }[] = [
+  { key: 'all',             label: 'Tất cả' },
+  { key: 'WAITING_QLSX_APPROVAL', ...STATUS_MAP.WAITING_QLSX_APPROVAL },
 ]
 const BOSS_FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }[] = [
   { key: 'all',             label: 'Tất cả' },
@@ -35,10 +41,11 @@ const emptyForm = (): CreatePlanFormPayload => ({
 })
 
 export default function SKUReviewPage() {
-  const { isBoss } = useAuth()
+  const { isBoss, user } = useAuth()
+  const isProdMgr = user?.mfgRole === 'PRODUCTION_MANAGER'
   const { logAction } = useAuditLog()
-  const PENDING_STATUSES = isBoss ? BOSS_PENDING_STATUSES : PLANNER_PENDING_STATUSES
-  const FILTERS = isBoss ? BOSS_FILTERS : PLANNER_FILTERS
+  const PENDING_STATUSES = isBoss ? BOSS_PENDING_STATUSES : isProdMgr ? QLSX_PENDING_STATUSES : PLANNER_PENDING_STATUSES
+  const FILTERS = isBoss ? BOSS_FILTERS : isProdMgr ? QLSX_FILTERS : PLANNER_FILTERS
   const { data: planForms = [], isLoading, refetch } = useFetch(() => api.getPlanForms(), [])
   const { data: formOptions } = useFetch(() => api.getPlanFormOptions(), [])
   const exportOrders = (formOptions?.exportOrders ?? []) as { id: number }[]
@@ -119,13 +126,35 @@ export default function SKUReviewPage() {
     setSelectedPf(updated)
   }
 
-  // KHSX gửi danh sách mảnh đã duyệt cho sếp phê duyệt lần cuối (thay vì tự bắt đầu sản xuất).
-  const handleSendForBossApproval = async () => {
+  // KHSX gửi danh sách mảnh đã duyệt cho Quản lý sản xuất (QLSX) duyệt trước, trước khi tới sếp.
+  const handleSendForQlsxApproval = async () => {
     if (!selectedPf) return
-    const updated = await api.requestBossApprovalPlanForm(selectedPf.id)
-    logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.sent_for_boss_approval')
+    const updated = await api.requestQlsxApprovalPlanForm(selectedPf.id)
+    logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.sent_for_qlsx_approval')
     refetch()
     setSelectedPf(updated)
+  }
+
+  // QLSX duyệt cục bộ — chưa gửi sếp, chỉ mở khóa nút "Gửi sếp duyệt" trên UI.
+  const handleQlsxApproveLocal = async () => {
+    if (!selectedPf) return
+    const updated = await api.reviewQlsxPlanForm(selectedPf.id)
+    logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.qlsx_approved')
+    refetch()
+    setSelectedPf(updated)
+  }
+
+  // QLSX gửi cho sếp phê duyệt lần cuối — SKU rời khỏi danh sách chờ QLSX duyệt.
+  const handleQlsxSendBoss = async () => {
+    if (!selectedPf) return
+    try {
+      await api.requestBossApprovalPlanForm(selectedPf.id)
+      logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.sent_for_boss_approval')
+      refetch()
+      setSelectedPf(null)
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Không thể gửi sếp duyệt')
+    }
   }
 
   // Sếp duyệt lần cuối — SKU chính thức bắt đầu sản xuất.
@@ -138,6 +167,32 @@ export default function SKUReviewPage() {
       setSelectedPf(null)
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Không thể duyệt')
+    }
+  }
+
+  // QLSX từ chối toàn bộ SKU — trả về bước nhập định mức chi tiết cho các bộ phận chuyên trách sửa lại.
+  const handleQlsxReject = async (reason?: string) => {
+    if (!selectedPf) return
+    try {
+      await api.rejectPlanFormByQlsx(selectedPf.id, reason)
+      logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.qlsx_rejected', reason)
+      refetch()
+      setSelectedPf(null)
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Không thể từ chối')
+    }
+  }
+
+  // Sếp từ chối toàn bộ SKU — trả về bước nhập định mức chi tiết cho các bộ phận chuyên trách sửa lại.
+  const handleBossReject = async (reason?: string) => {
+    if (!selectedPf) return
+    try {
+      await api.rejectPlanFormByBoss(selectedPf.id, reason)
+      logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.boss_rejected', reason)
+      refetch()
+      setSelectedPf(null)
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Không thể từ chối')
     }
   }
 
@@ -177,11 +232,15 @@ export default function SKUReviewPage() {
       <SKUDetail
         key={`${selectedPf.id}-${selectedPf.status}`}
         pf={selectedPf}
-        onBack={() => setSelectedPf(null)}
+        onBack={() => { setSelectedPf(null); refetch() }}
         onApproveDetail={handleApproveDetail}
         onApproveParts={handleApproveParts}
-        onSendForBossApproval={handleSendForBossApproval}
+        onSendForQlsxApproval={handleSendForQlsxApproval}
         onApproveBossRequest={handleApproveBossRequest}
+        onQlsxApproveLocal={handleQlsxApproveLocal}
+        onQlsxSendBoss={handleQlsxSendBoss}
+        onQlsxReject={handleQlsxReject}
+        onBossReject={handleBossReject}
         onSendBackDetail={handleSendBackDetail}
         onSendBackManh={handleSendBackManh}
         onRefresh={handleRefreshSelected}
@@ -197,14 +256,17 @@ export default function SKUReviewPage() {
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Duyệt SKU</h2>
           {success && <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, display: 'block', marginTop: 4 }}>✓ Đã thêm thành công</span>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button
-            onClick={() => setShowForm(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: '#2e7d32', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
-          >
-            <Plus size={14} /> Tạo SKU mới
-          </button>
-        </div>
+        {/* Chỉ KHSX mới được tạo SKU mới — QLSX/Sếp chỉ duyệt. */}
+        {!isBoss && !isProdMgr && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button
+              onClick={() => setShowForm(true)}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: '#2e7d32', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
+            >
+              <Plus size={14} /> Tạo SKU mới
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Create form modal */}

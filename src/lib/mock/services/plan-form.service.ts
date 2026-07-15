@@ -156,8 +156,29 @@ class PlanFormService extends BaseService<PlanForm> {
 
   async approveDetail(id: number): Promise<PlanForm> { return this.transition(id, 'WAITING_PARTS'); }
   async approveParts(id: number):  Promise<PlanForm> { return this.transition(id, 'APPROVED_PARTS'); }
-  /** KHSX gửi danh sách mảnh đã duyệt cho sếp (Giám đốc) phê duyệt lần cuối trước khi bắt đầu sản xuất. */
-  async requestBossApproval(id: number): Promise<PlanForm> { return this.transition(id, 'WAITING_BOSS_APPROVAL'); }
+  /** KHSX gửi danh sách mảnh đã duyệt cho Quản lý sản xuất (QLSX) duyệt trước, trước khi tới sếp. */
+  async requestQlsxApproval(id: number): Promise<PlanForm> { return this.transition(id, 'WAITING_QLSX_APPROVAL'); }
+
+  /** QLSX duyệt cục bộ — chưa chuyển status, chỉ mở khóa nút "Gửi sếp duyệt" (xem requestBossApproval). */
+  async reviewQlsx(id: number): Promise<PlanForm> {
+    this.assertProdMgrRole();
+    await mockDelay();
+    let updated!: PlanForm;
+    mockStore.update((s) => {
+      const idx = s.planForms.findIndex((p) => p.id === id);
+      if (idx < 0) throw new Error(`PlanForm #${id} not found`);
+      const pf = s.planForms[idx];
+      updated = { ...pf, qlsxReviewStatus: { status: 'APPROVED', reviewedAt: new Date().toISOString() } };
+      s.planForms[idx] = updated;
+    });
+    return this.enrich(updated);
+  }
+
+  /** QLSX gửi cho sếp (Giám đốc) phê duyệt lần cuối trước khi bắt đầu sản xuất. */
+  async requestBossApproval(id: number): Promise<PlanForm> {
+    this.assertProdMgrRole();
+    return this.transition(id, 'WAITING_BOSS_APPROVAL');
+  }
 
   /** Chỉ Sếp (role BOSS) mới được duyệt lần cuối — chặn ở tầng service, không chỉ ẩn nút ở UI. */
   async approveFull(id: number): Promise<PlanForm> {
@@ -165,10 +186,61 @@ class PlanFormService extends BaseService<PlanForm> {
     return this.transition(id, 'APPROVED');
   }
 
+  /** QLSX hoặc Sếp từ chối toàn bộ SKU — trả về bước nhập định mức chi tiết cho các bộ phận chuyên
+   *  trách sửa lại. Dữ liệu đã nhập (materialType/manhItems) vẫn giữ nguyên để sửa tiếp, không xóa
+   *  trắng. Mỗi nhóm định mức chi tiết ĐÃ CÓ dữ liệu bị đánh dấu REJECTED (kèm lý do) thay vì xóa
+   *  trắng cờ duyệt — vì các trang nhập liệu (Spec*Page) suy ra trạng thái "pending" (khóa sửa, đang
+   *  chờ KHSX duyệt) chỉ từ việc có dữ liệu + không có quyết định; nếu chỉ xóa reviewStatus mà không
+   *  đánh REJECTED, 3 account chuyên trách sẽ bị khóa không sửa lại được dù SKU vừa bị từ chối. Nhóm
+   *  chưa từng có dữ liệu thì để trống — tự suy ra "canInput" như bình thường. manhReviewStatus/
+   *  qlsxReviewStatus xóa hẳn (không có cơ chế "pending" khóa sửa tương tự ở phía nhập mảnh).
+   */
+  private async rejectToDetail(id: number, reason?: string): Promise<PlanForm> {
+    await mockDelay();
+    let updated!: PlanForm;
+    mockStore.update((s) => {
+      const idx = s.planForms.findIndex((p) => p.id === id);
+      if (idx < 0) throw new Error(`PlanForm #${id} not found`);
+      const pf = s.planForms[idx];
+      const materialType = pf.quotaManagement?.materialType;
+      const rejectedEntry: QuotaReviewStatus = { status: 'REJECTED', reason, reviewedAt: new Date().toISOString() };
+      const reviewStatus: Partial<Record<keyof MaterialType, QuotaReviewStatus>> = {};
+      (['sat', 'daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as (keyof MaterialType)[]).forEach((group) => {
+        if (materialType?.[group]?.length) reviewStatus[group] = rejectedEntry;
+      });
+      updated = {
+        ...pf,
+        status: 'WAITING_DETAIL',
+        quotaManagement: pf.quotaManagement ? { ...pf.quotaManagement, reviewStatus } : pf.quotaManagement,
+        manhReviewStatus: undefined,
+        qlsxReviewStatus: undefined,
+      };
+      s.planForms[idx] = updated;
+    });
+    return this.enrich(updated);
+  }
+
+  async rejectByQlsx(id: number, reason?: string): Promise<PlanForm> {
+    this.assertProdMgrRole();
+    return this.rejectToDetail(id, reason);
+  }
+
+  async rejectByBoss(id: number, reason?: string): Promise<PlanForm> {
+    this.assertBossRole();
+    return this.rejectToDetail(id, reason);
+  }
+
   private assertBossRole(): void {
     const raw = localStorage.getItem('user_info');
     const role = raw ? (JSON.parse(raw) as { role?: string }).role : null;
     if (role !== 'BOSS') throw new Error('Chỉ Giám đốc (Sếp) mới có quyền duyệt bước này');
+  }
+
+  /** Chỉ QLSX (mfgRole PRODUCTION_MANAGER) mới được duyệt bước trung gian trước khi gửi sếp. */
+  private assertProdMgrRole(): void {
+    const raw = localStorage.getItem('user_info');
+    const mfgRole = raw ? (JSON.parse(raw) as { mfgRole?: string }).mfgRole : null;
+    if (mfgRole !== 'PRODUCTION_MANAGER') throw new Error('Chỉ Quản lý sản xuất mới có quyền duyệt bước này');
   }
 
   /** KHSX từ chối 1+ nhóm định mức chi tiết rồi gửi lại cho bộ phận chuyên trách nhập lại từ đầu. */
@@ -300,7 +372,11 @@ export const proposePlanForm     = (data: CreatePlanFormPayload) => planFormSvc.
 export const proposePlanFormById = (id: number)                => planFormSvc.proposeById(id);
 export const approveDetailPlanForm = (id: number)              => planFormSvc.approveDetail(id);
 export const approvePartsPlanForm  = (id: number)              => planFormSvc.approveParts(id);
+export const requestQlsxApprovalPlanForm = (id: number)        => planFormSvc.requestQlsxApproval(id);
+export const reviewQlsxPlanForm    = (id: number)              => planFormSvc.reviewQlsx(id);
 export const requestBossApprovalPlanForm = (id: number)        => planFormSvc.requestBossApproval(id);
+export const rejectPlanFormByQlsx  = (id: number, reason?: string) => planFormSvc.rejectByQlsx(id, reason);
+export const rejectPlanFormByBoss  = (id: number, reason?: string) => planFormSvc.rejectByBoss(id, reason);
 export const approveFullPlanForm   = (id: number)              => planFormSvc.approveFull(id);
 export const sendBackDetailPlanForm = (id: number)             => planFormSvc.sendBackDetailQuota(id);
 export const sendBackManhPlanForm   = (id: number)              => planFormSvc.sendBackManhQuota(id);
