@@ -44,7 +44,7 @@ interface StageDetails {
     hanLines: ProcLine[]
     sonLines: ProcLine[]
   }
-  weaving: { nhapDan: SubStatus; xuatDan: SubStatus; lines: ManhLine[] }
+  weaving: { nhapDan: SubStatus; xuatDan: SubStatus; lines: ManhLine[]; skuQty: number }
   // Chuyền kiểm/Đóng gói dùng chung số liệu "cần làm" (mockPieces/mockTotalBoxes) với đúng trang
   // Chuyền kiểm/Đóng gói thật của thủ kho thành phẩm (khotp@demo.com) — xem ChuyenKiemContent/PackagingContent.
   chuyenKiem: { daKiem: SubStatus; pieces: (MockPiece & { daKiemQty: number })[] }
@@ -231,11 +231,11 @@ function buildChuyenKiemPieces(pf: PlanForm, status: SubStatus, h: number): (Moc
 
 // Khung/Đan/Đóng gói phải tuần tự (đan chỉ bắt đầu khi khung xong, đóng gói khi đan xong) —
 // tạo pseudo-random ổn định theo PO để demo có nhịp độ hợp lý, không đổi giữa các lần render.
-function genExecutionStages(pf: PlanForm, purchasingDone: boolean, weavingPoints: WeavingPointLite[]): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
+function genExecutionStages(pf: PlanForm, purchasingDone: boolean, weavingPoints: WeavingPointLite[], skuQty: number): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
   if (!purchasingDone) {
     return {
       frame: { phoi: 'pending', han: 'pending', son: 'pending', phoiManhs: [], hanLines: [], sonLines: [] },
-      weaving: { nhapDan: 'pending', xuatDan: 'pending', lines: [] },
+      weaving: { nhapDan: 'pending', xuatDan: 'pending', lines: [], skuQty },
       chuyenKiem: { daKiem: 'pending', pieces: [] },
       packaging: { dongGoi: 'pending', totalBoxes: 0, daDongQty: 0 },
     }
@@ -253,7 +253,7 @@ function genExecutionStages(pf: PlanForm, purchasingDone: boolean, weavingPoints
       hanLines: buildHanLines(phoiManhs, 'done', h),
       sonLines: buildSonLines(pf, 'done', h),
     }
-    const weaving: StageDetails['weaving'] = { xuatDan: 'done', nhapDan: 'done', lines: buildWeavingLines('done', 'done', h, weavingPoints) }
+    const weaving: StageDetails['weaving'] = { xuatDan: 'done', nhapDan: 'done', lines: buildWeavingLines('done', 'done', h, weavingPoints), skuQty }
     const daKiem: SubStatus  = pf.id === 9 ? 'in-progress' : 'done'
     const dongGoi: SubStatus = pf.id === 9 ? 'pending'      : 'in-progress'
     const totalBoxes = mockTotalBoxes(pf)
@@ -294,7 +294,7 @@ function genExecutionStages(pf: PlanForm, purchasingDone: boolean, weavingPoints
   const xuatDan = pipelineNext(frameBottleneck, pick(4, [[6, 'done'], [8, 'in-progress'], [10, 'pending']]))
   // nhapDan không thể vượt tiến độ xuatDan (chưa xuất thì chưa có gì để nhập về).
   const nhapDan = pipelineNext(xuatDan, pick(5, [[4, 'done'], [7, 'in-progress'], [10, 'pending']]))
-  const weaving: StageDetails['weaving'] = { xuatDan, nhapDan, lines: buildWeavingLines(xuatDan, nhapDan, h, weavingPoints) }
+  const weaving: StageDetails['weaving'] = { xuatDan, nhapDan, lines: buildWeavingLines(xuatDan, nhapDan, h, weavingPoints), skuQty }
   const daKiem = pipelineNext(nhapDan, pick(6, [[6, 'done'], [8, 'in-progress'], [10, 'pending']]))
   const chuyenKiem: StageDetails['chuyenKiem'] = { daKiem, pieces: buildChuyenKiemPieces(pf, daKiem, h) }
   const dongGoi = pipelineNext(daKiem, pick(7, [[5, 'done'], [8, 'in-progress'], [10, 'pending']]))
@@ -303,10 +303,10 @@ function genExecutionStages(pf: PlanForm, purchasingDone: boolean, weavingPoints
   return { frame, weaving, chuyenKiem, packaging }
 }
 
-function buildOrderRow(pf: PlanForm, proposals: PurchaseProposal[], weavingPoints: WeavingPointLite[]): { order: MfgOrder; details: StageDetails } {
+function buildOrderRow(pf: PlanForm, proposals: PurchaseProposal[], weavingPoints: WeavingPointLite[], skuQty: number): { order: MfgOrder; details: StageDetails } {
   const materials = getPurchasingRows(pf, proposals)
   const purchPct = getPurchasingPercent(materials)
-  const { frame, weaving, chuyenKiem, packaging } = genExecutionStages(pf, purchPct >= 100, weavingPoints)
+  const { frame, weaving, chuyenKiem, packaging } = genExecutionStages(pf, purchPct >= 100, weavingPoints, skuQty)
   const details: StageDetails = { purchasing: { materials }, frame, weaving, chuyenKiem, packaging }
   const done = isAllDone(details)
   const hasVariance = phoiStageStats(frame.phoiManhs).lech || aggLineStats(frame.hanLines).lech || aggLineStats(frame.sonLines).lech
@@ -607,7 +607,7 @@ function WeavingSubStages({ weaving, pointLabel }: { weaving: StageDetails['weav
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <span style={{ fontSize: 12, fontWeight: 600 }}>Thống kê đan</span>
       </div>
-      <ManhSkuDetail lines={weaving.lines} pointLabel={pointLabel} variant="view" />
+      <ManhSkuDetail lines={weaving.lines} skuQty={weaving.skuQty} pointLabel={pointLabel} variant="view" />
     </div>
   )
 }
@@ -889,7 +889,7 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
 
 // Trạng thái lệnh sản xuất (PI) tối thiểu cần để quyết định 1 SKU đã "vào sản xuất" hay còn "lên kế
 // hoạch".
-interface PIApprovalItem { prodApproval?: { status?: string } }
+interface PIApprovalItem { prodApproval?: { status?: string }; quantity?: number }
 interface PIStatusRow { id: number; status: string; items?: PIApprovalItem[] }
 
 export default function ThongKePagePlan() {
@@ -916,8 +916,12 @@ export default function ThongKePagePlan() {
   // Sinh dữ liệu mock nhiều tầng (buildOrderRow → genExecutionStages → buildPhoiManhs/...) khá nặng —
   // memo hoá để gõ tìm kiếm (search) không kích hoạt tính lại toàn bộ danh sách PO.
   const orderRows = useMemo(
-    () => planForms.map(pf => buildOrderRow(pf, proposals, weavingPoints)),
-    [planForms, proposals, weavingPoints],
+    () => planForms.map(pf => {
+      const pi = pf.productionInvoiceId != null ? piMap.get(pf.productionInvoiceId) : undefined
+      const skuQty = pi?.items?.[0]?.quantity ?? 0
+      return buildOrderRow(pf, proposals, weavingPoints, skuQty)
+    }),
+    [planForms, proposals, weavingPoints, piMap],
   )
 
   const [filter, setFilter]         = useState<FilterStatus>('all')

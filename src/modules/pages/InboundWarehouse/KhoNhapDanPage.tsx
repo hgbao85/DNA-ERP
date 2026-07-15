@@ -105,6 +105,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterPiCode }: { rea
         </div>
         <ManhSkuDetail
           lines={selectedSku.lines}
+          skuQty={selectedSku.quantity}
           pointLabel={pointLabel}
           variant={readOnly ? 'view' : 'nhap'}
           onNhap={readOnly ? undefined : handleNhap}

@@ -706,7 +706,7 @@ export const seedManhOrders: ManhOrder[] = [
     id: 1, poCode: 'PO-2026-001',
     skus: [
       {
-        id: 1, piCode: 'PI-2026-001-A', skuCode: 'JSE-55', skuName: 'Ghế J55',
+        id: 1, piCode: 'PI-2026-001-A', skuCode: 'JSE-55', skuName: 'Ghế J55', quantity: 50,
         lines: [
           {
             id: 1, name: 'Mảnh tựa lưng A', unit: 'cái', totalQty: 50, tonThuc: 15,
@@ -726,7 +726,7 @@ export const seedManhOrders: ManhOrder[] = [
         ],
       },
       {
-        id: 2, piCode: 'PI-2026-001-B', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
+        id: 2, piCode: 'PI-2026-001-B', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3', quantity: 20,
         lines: [
           {
             id: 5, name: 'Mảnh lưng ghế', unit: 'cái', totalQty: 20, tonThuc: 10,
@@ -744,7 +744,7 @@ export const seedManhOrders: ManhOrder[] = [
     id: 2, poCode: 'PO-2026-002',
     skus: [
       {
-        id: 3, piCode: 'PI-2026-002-A', skuCode: 'JSE-55', skuName: 'Ghế J55',
+        id: 3, piCode: 'PI-2026-002-A', skuCode: 'JSE-55', skuName: 'Ghế J55', quantity: 40,
         lines: [
           {
             id: 4, name: 'Mảnh chân ghế', unit: 'cái', totalQty: 40, tonThuc: 0,
