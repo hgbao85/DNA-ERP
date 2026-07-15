@@ -75,6 +75,16 @@ const MFG_STAGES: { key: MfgStage; label: string; icon: React.ReactNode }[] = [
   { key: 'PACKAGING',   label: 'Đóng gói',     icon: <PackageCheck size={16} /> },
 ]
 
+// Icon riêng cho MfgStageTracker (size nhỏ hơn để vừa vòng tròn 22px) — dùng component thay vì
+// element đã dựng sẵn ở MFG_STAGES.icon để tự chọn size khi render.
+const STAGE_TRACKER_ICONS: Record<MfgStage, React.ComponentType<{ size?: number }>> = {
+  PURCHASING: ShoppingCart,
+  FRAME: Wrench,
+  WEAVING: Factory,
+  CHUYEN_KIEM: ClipboardCheck,
+  PACKAGING: PackageCheck,
+}
+
 // ─── Dữ liệu thật: PlanForm + PurchaseProposal ───────────────────────────────
 // "Danh sách" và "Nội dung mua hàng" đọc trực tiếp từ PlanForm/PurchaseProposal thật
 // (giống TheoDoiMuaHangPage.tsx). Khung cơ khí/Đan/Đóng gói chưa có nguồn dữ liệu tổng
@@ -715,14 +725,24 @@ function StageDetailCard({
 
 // ─── Progress tracker ─────────────────────────────────────────────────────────
 
+// Tracker vừa hiển thị tiến độ vừa đóng vai trò "filter" chọn công đoạn xem chi tiết (thay cho
+// dãy tab riêng "Chi tiết từng công đoạn" trước đây) — bấm vào 1 công đoạn đã tới (có trong
+// reachedStages) để chuyển selectedStage. Công đoạn đang chọn không dùng thêm màu nào (tránh
+// đụng ngữ nghĩa xanh lá/cam/xám của trạng thái) — chỉ to hơn + đổ bóng nhẹ để nổi lên.
 function MfgStageTracker({
   currentStage,
   allDone = false,
   stagePercents,
+  reachedStages,
+  selectedStage,
+  onSelectStage,
 }: {
   currentStage?: MfgStage
   allDone?: boolean
   stagePercents?: Partial<Record<MfgStage, number>>
+  reachedStages?: Set<MfgStage>
+  selectedStage?: MfgStage | null
+  onSelectStage?: (stage: MfgStage) => void
 }) {
   const currentIdx = allDone
     ? MFG_STAGES.length
@@ -733,21 +753,33 @@ function MfgStageTracker({
   return (
     <div style={{ display: 'flex', alignItems: 'center' }}>
       {MFG_STAGES.map((stage, idx) => {
-        const pct    = stagePercents?.[stage.key]
-        const done   = allDone || (pct !== undefined ? pct >= 100 : idx < currentIdx)
-        const active = !done && (pct !== undefined ? pct > 0 : idx === currentIdx)
-        const color  = done ? 'var(--green)' : active ? 'var(--amber)' : 'var(--border)'
+        const pct        = stagePercents?.[stage.key]
+        const done        = allDone || (pct !== undefined ? pct >= 100 : idx < currentIdx)
+        const active      = !done && (pct !== undefined ? pct > 0 : idx === currentIdx)
+        const clickable   = !!onSelectStage && !!reachedStages?.has(stage.key)
+        const isSelected  = selectedStage === stage.key
+        // Không dùng thêm màu nào — vòng tròn giữ nguyên màu trạng thái (xanh lá/cam/xám).
+        // Bước đang chọn chỉ to hơn (26px thay vì 22px) + đổ bóng nhẹ để tạo cảm giác "nổi" lên,
+        // tách biệt khỏi trạng thái xong/đang làm mà không thêm ngữ nghĩa màu sắc mới.
+        const color       = done ? 'var(--green)' : active ? 'var(--amber)' : 'var(--border)'
+        const Icon        = STAGE_TRACKER_ICONS[stage.key]
+        const size        = isSelected ? 32 : 24
 
         return (
           <div key={stage.key} style={{ display: 'flex', alignItems: 'center', flex: idx < MFG_STAGES.length - 1 ? '1 1 0' : undefined }}>
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 64 }}>
+            <div
+              onClick={clickable ? () => onSelectStage!(stage.key) : undefined}
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, minWidth: 64, cursor: clickable ? 'pointer' : 'default' }}
+            >
               <div style={{
-                width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: size, height: size, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 background: color, color: done || active ? '#fff' : 'var(--text3)',
+                boxShadow: isSelected ? '0 3px 8px rgba(0,0,0,0.28)' : undefined,
+                transition: 'width 0.15s, height 0.15s, box-shadow 0.15s',
               }}>
-                {done ? <CheckCircle2 size={13} /> : <span style={{ fontSize: 10, fontWeight: 700 }}>{idx + 1}</span>}
+                {done ? <CheckCircle2 size={isSelected ? 15 : 13} /> : <Icon size={isSelected ? 15 : 13} />}
               </div>
-              <div style={{ fontSize: 11, fontWeight: active ? 700 : 600, color: active ? 'var(--amber)' : done ? 'var(--text2)' : 'var(--text3)', whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: 11, fontWeight: active || isSelected ? 700 : 600, color: active ? 'var(--amber)' : done ? 'var(--text2)' : 'var(--text3)', whiteSpace: 'nowrap' }}>
                 {stage.label}{active && pct !== undefined && PARALLEL_STAGE_KEYS.has(stage.key) ? ` · ${pct}%` : ''}
               </div>
             </div>
@@ -790,14 +822,15 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
     }
   }
 
-  // "Chi tiết từng công đoạn" hiện dưới dạng tab — luôn đúng 1 công đoạn được xem tại một thời điểm
-  // (thay vì xếp chồng mọi card công đoạn đã tới, có thể rất dài khi PO đã Hoàn thành). Mặc định chọn
-  // công đoạn đang thực hiện; nếu đã xong hết thì mặc định chọn công đoạn cuối cùng. Bấm vào 1 công
-  // đoạn ở "Tiến độ sản xuất" phía trên cũng chuyển sang đúng tab đó — 2 điều khiển dùng chung 1 state.
+  // Luôn đúng 1 công đoạn được xem chi tiết tại một thời điểm (thay vì xếp chồng mọi card công đoạn
+  // đã tới, có thể rất dài khi PO đã Hoàn thành) — chọn bằng cách bấm thẳng vào công đoạn đã tới trên
+  // thanh "Trạng thái sản xuất" (MfgStageTracker), không còn dãy tab riêng bên dưới. Mặc định chọn
+  // công đoạn đang thực hiện; nếu đã xong hết thì mặc định chọn công đoạn cuối cùng.
   const [selectedStage, setSelectedStage] = useState<MfgStage | null>(
     reachedCards.find(c => c.isActive)?.stage.key ?? reachedCards[reachedCards.length - 1]?.stage.key ?? null,
   )
   const selectedCard = reachedCards.find(c => c.stage.key === selectedStage) ?? null
+  const reachedStages = new Set(reachedCards.map(c => c.stage.key))
 
   const stagePercents: Partial<Record<MfgStage, number>> | undefined =
     order.mfgStage && PARALLEL_STAGE_KEYS.has(order.mfgStage)
@@ -854,30 +887,13 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 24px', marginBottom: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Trạng thái sản xuất</div>
 
-        {isDone ? <MfgStageTracker allDone /> : <MfgStageTracker currentStage={order.mfgStage} stagePercents={stagePercents} />}
+        {isDone
+          ? <MfgStageTracker allDone reachedStages={reachedStages} selectedStage={selectedStage} onSelectStage={setSelectedStage} />
+          : <MfgStageTracker currentStage={order.mfgStage} stagePercents={stagePercents} reachedStages={reachedStages} selectedStage={selectedStage} onSelectStage={setSelectedStage} />}
 
-        {reachedCards.length > 0 && (
+        {selectedCard && (
           <div style={{ marginTop: 20 }}>
-            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
-              Chi tiết từng công đoạn
-            </div>
-            <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', borderBottom: '1px solid var(--border)' }}>
-              {reachedCards.map(({ stage, isActive }) => {
-                const accent = isActive ? 'var(--amber)' : 'var(--green)'
-                const active = selectedStage === stage.key
-                return (
-                  <button key={stage.key} onClick={() => setSelectedStage(stage.key)} style={tabBtn(active, accent)}>
-                    {stage.icon} {stage.label}
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: accent, opacity: active ? 1 : 0.4 }} />
-                  </button>
-                )
-              })}
-            </div>
-            {selectedCard && (
-              <div style={{ marginTop: 14 }}>
-                <StageDetailCard stage={selectedCard.stage} isActive={selectedCard.isActive} details={details} orderDeadline={order.deadline} pointLabel={pointLabel} />
-              </div>
-            )}
+            <StageDetailCard stage={selectedCard.stage} isActive={selectedCard.isActive} details={details} orderDeadline={order.deadline} pointLabel={pointLabel} />
           </div>
         )}
       </div>
