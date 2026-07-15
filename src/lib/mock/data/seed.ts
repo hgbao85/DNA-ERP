@@ -180,7 +180,7 @@ export const seedProductionInvoices = [
     createdBy: { name: 'Quản lý SX Hùng' },
   },
   // id 8-11: PI ứng với các SKU do KHSX quản lý (seedPlanForms 5/6/9/10) — mỗi PlanForm 1 SKU 1 PI
-  // riêng, để "Tổng hợp lệnh sản xuất" (qlsx@demo.com) hiện đúng dữ liệu của "Bảng thống kê" (khsx).
+  // riêng, để "Bảng thống kê" hiện đúng dữ liệu theo từng SKU.
   {
     id: 8, code: 'PI-2026-008', deadline: ISO('2026-10-15'),
     status: 'PRODUCING', exportOrderId: 1,

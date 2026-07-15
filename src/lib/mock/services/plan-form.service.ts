@@ -65,8 +65,8 @@ class PlanFormService extends BaseService<PlanForm> {
   }
 
   /** 1 SKU (exportOrderId+mfgProductId) chỉ có đúng 1 PI — tái dùng PI đã có (theo id truyền vào
-   *  hoặc theo cùng exportOrderId+SKU), không tạo trùng. Nếu chưa có PI nào thì tạo mới để "Tổng
-   *  hợp lệnh sản xuất" (qlsx@demo.com) luôn có dữ liệu khớp với "Bảng thống kê" (khsx@demo.com). */
+   *  hoặc theo cùng exportOrderId+SKU), không tạo trùng. Nếu chưa có PI nào thì tạo mới để "Bảng
+   *  thống kê" luôn có dữ liệu đúng cho từng SKU. */
   private resolveProductionInvoice(s: { mfgProducts: any[]; productionInvoices: any[]; exportOrders: any[] }, data: CreatePlanFormPayload): { id: number; code: string } {
     const mfgProduct = s.mfgProducts.find((p: any) => p.id === data.mfgProductId);
     let pi: any = data.productionInvoiceId
