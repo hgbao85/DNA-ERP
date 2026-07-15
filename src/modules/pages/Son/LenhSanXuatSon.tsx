@@ -27,5 +27,5 @@ function seed(): ProcRow[] {
 }
 
 export default function LenhSanXuatSon({ readOnly = false }: { readOnly?: boolean }) {
-  return <TwoTierScreen cfg={CFG} seed={seed} readOnly={readOnly} />
+  return <TwoTierScreen cfg={CFG} seed={seed} readOnly={readOnly} stage="SON" />
 }

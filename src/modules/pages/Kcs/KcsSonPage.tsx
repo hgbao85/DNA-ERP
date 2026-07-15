@@ -1,33 +1,13 @@
 'use client'
 
-/** Màn hình KCS — Công đoạn SƠN (2 tầng: PO → Vật tư, chỉ xem + duyệt). */
+/** Màn hình KCS — Công đoạn SƠN. Đọc/ghi san-luong.service (stage SON) qua KcsStagePage. */
 
 import { SprayCan } from 'lucide-react'
-import { KcsTwoTierScreen, type KcsRow } from '../../../components/sanxuat/kcsCore'
-import { ISO, minsAgo, type StageCfg } from '../../../components/sanxuat/core'
+import type { StageCfg } from '../../../components/sanxuat/core'
+import KcsStagePage from './KcsStagePage'
 
 const CFG: StageCfg = { label: 'Sơn', done: 'Đã sơn', verb: 'sơn', itemLabel: 'Loại sơn', unit: 'lít', Icon: SprayCan }
 
-function seed(): KcsRow[] {
-  return [
-    {
-      id: 1, poNumber: 'PO-2026-001', sku: 'GHE-J55', productName: 'Ghế J55 (khung 40×40)',
-      soLuong: 500, deadline: ISO(7), arrangedAt: minsAgo(140),
-      lines: [{ id: 111, itemName: 'Sơn đen tĩnh điện', spec: 'SN-DEN-01', needQty: 120, doneQty: 60, lastInputAt: minsAgo(70), pendingQty: 15 }],
-    },
-    {
-      id: 2, poNumber: 'PO-2026-002', sku: 'GHE-IEA3', productName: 'Ghế IEA-3 (khung 30×30)',
-      soLuong: 200, deadline: ISO(10), arrangedAt: minsAgo(25),
-      lines: [{ id: 211, itemName: 'Sơn xám tĩnh điện', spec: 'SN-XM-001', needQty: 60, doneQty: 0, lastInputAt: null, pendingQty: 0 }],
-    },
-    {
-      id: 3, poNumber: 'PO-2026-003', sku: 'BAN-TB45', productName: 'Bàn TB-45 (vuông)',
-      soLuong: 120, deadline: ISO(5), arrangedAt: null,
-      lines: [{ id: 311, itemName: 'Sơn đen tĩnh điện', spec: 'SN-DEN-01', needQty: 40, doneQty: 0, lastInputAt: null, pendingQty: 0 }],
-    },
-  ]
-}
-
 export default function KcsSonPage() {
-  return <KcsTwoTierScreen cfg={CFG} seed={seed} />
+  return <KcsStagePage cfg={CFG} stage="SON" />
 }

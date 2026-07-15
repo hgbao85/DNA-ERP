@@ -34,6 +34,11 @@ export const AUDIT_ACTIONS = {
   'planform.qlsx_rejected':           { label: 'QLSX từ chối — gửi lại nhập định mức từ đầu',      color: '#c62828' },
   'planform.boss_approved':           { label: 'Giám đốc duyệt — bắt đầu sản xuất',                 color: '#2e7d32' },
   'planform.boss_rejected':           { label: 'Giám đốc từ chối — gửi lại nhập định mức từ đầu',   color: '#c62828' },
+
+  // ─── KCS (Phôi/Hàn/Sơn) — lịch sử một lô: xuất → báo sản lượng → KCS duyệt ─────
+  'kcs.issued':   { label: 'Kho xuất',                color: '#2563eb' },
+  'kcs.reported': { label: 'Báo sản lượng — chờ KCS', color: '#7c3aed' },
+  'kcs.approved': { label: 'KCS duyệt',               color: '#2e7d32' },
 } as const
 
 export type AuditAction = keyof typeof AUDIT_ACTIONS
