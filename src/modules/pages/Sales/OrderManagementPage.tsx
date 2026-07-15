@@ -287,9 +287,6 @@ type DetailTab = 'production' | 'shipping'
 function PODetailView({ po, onBack }: { po: SalesPO; onBack: () => void }) {
   const [tab, setTab] = useState<DetailTab>('production')
 
-  const totalQty = po.items.reduce((s, it) => s + it.totalQty, 0)
-  const shippedQty = po.items.reduce((s, it) => s + it.shippedQty, 0)
-  const remainingQty = totalQty - shippedQty
   const paidExcludingDeposit = po.paidAmount - po.depositAmount
   const remainingAmount = po.totalValue - po.paidAmount
 
@@ -358,10 +355,25 @@ function PODetailView({ po, onBack }: { po: SalesPO; onBack: () => void }) {
 
       {tab === 'shipping' && (
         <div className="card" style={{ padding: 20 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10 }}>
-            <StatTile label="Tổng số lượng" value={totalQty.toLocaleString()} />
-            <StatTile label="Đã xuất hàng" value={shippedQty.toLocaleString()} />
-            <StatTile label="Còn lại" value={remainingQty.toLocaleString()} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 18 }}>
+            {po.items.map((item) => {
+              const itemRemaining = item.totalQty - item.shippedQty
+              return (
+                <div key={item.id}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 8 }}>
+                    <strong>{item.skuCode}</strong>{item.skuName ? <span style={{ color: 'var(--text3)' }}> — {item.skuName}</span> : ''}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                    <StatTile label="Tổng số lượng" value={item.totalQty.toLocaleString()} />
+                    <StatTile label="Đã xuất hàng" value={item.shippedQty.toLocaleString()} />
+                    <StatTile label="Còn lại" value={itemRemaining.toLocaleString()} />
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
             <StatTile label="Đã thanh toán (trừ cọc)" value={`${fmtMoney(paidExcludingDeposit)}đ`} />
             <StatTile label="Số tiền còn lại" value={`${fmtMoney(remainingAmount)}đ`} color={remainingAmount > 0 ? '#A32D2D' : '#3B6D11'} />
           </div>
