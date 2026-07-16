@@ -1,13 +1,10 @@
 import { mockDelay } from '../core/delay';
-import { MOCK_ACCOUNTS } from '../data/users';
+import { verifyUserCredentials } from './users.service';
 import { normalizeUser } from '../../../utils/normalizeUser';
 import type { User } from '../../../context/AuthContext';
 
 export async function loginUser(data: { email: string; password: string }) {
-  await mockDelay();
-  const account = MOCK_ACCOUNTS.find(
-    (a) => a.email === data.email && a.password === data.password,
-  );
+  const account = await verifyUserCredentials(data.email, data.password);
   if (!account) {
     const err = new Error('Email hoặc mật khẩu không đúng') as Error & {
       response?: { status: number; data: { message: string } };
@@ -16,8 +13,8 @@ export async function loginUser(data: { email: string; password: string }) {
     throw err;
   }
   return {
-    accessToken: `mock-token-${account.user.id}`,
-    user: normalizeUser(account.user as unknown as Record<string, unknown>),
+    accessToken: `mock-token-${account.id}`,
+    user: normalizeUser(account as unknown as Record<string, unknown>),
   };
 }
 

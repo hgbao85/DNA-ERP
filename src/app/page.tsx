@@ -9,6 +9,7 @@ import PurchasingApp from '../modules/pages/Purchasing/PurchasingApp';
 import InboundWarehouseApp from '../modules/pages/InboundWarehouse/InboundWarehouseApp';
 import ProductionPlanApp from '../modules/pages/ProductionPlan/ProductionPlanApp';
 import BossApp from '../modules/pages/Boss/BossApp';
+import AdminApp from '../modules/pages/Admin/AdminApp';
 import { resolveDefaultModule, isDirector as checkIsDirector } from '../utils/resolveDefaultModule';
 import { useAuth } from '../context/AuthContext';
 
@@ -58,6 +59,10 @@ function MainERP() {
 
   if (activeModule === 'boss') {
     return <BossApp />;
+  }
+
+  if (activeModule === 'admin') {
+    return <AdminApp />;
   }
 
   if (activeModule === 'sales') {

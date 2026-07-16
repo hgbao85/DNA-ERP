@@ -1,6 +1,6 @@
 'use client'
 import type { LucideIcon } from 'lucide-react'
-import { FilePlus, Inbox, Send, RotateCcw, Check, X, History, PackageCheck, Factory } from 'lucide-react'
+import { FilePlus, Inbox, Send, RotateCcw, Check, X, History, PackageCheck, Factory, UserPlus, UserCog, Trash2, Pencil, Bell, Settings, RefreshCcw } from 'lucide-react'
 import { format } from 'date-fns'
 import { AUDIT_ACTIONS, type AuditAction, type AuditLogEntry } from '../context/AuditLogContext'
 
@@ -36,6 +36,21 @@ const ACTION_ICON: Record<AuditAction, LucideIcon> = {
   'kcs.issued':   Send,
   'kcs.reported': Inbox,
   'kcs.approved': Check,
+
+  'user.created':      UserPlus,
+  'user.updated':      UserCog,
+  'user.role_changed': UserCog,
+  'user.deleted':      Trash2,
+
+  'masterdata.created': FilePlus,
+  'masterdata.updated': Pencil,
+  'masterdata.deleted': Trash2,
+
+  'notification.created': Bell,
+  'notification.updated': Pencil,
+  'notification.deleted': Trash2,
+  'system_config.updated': Settings,
+  'system.data_reset':     RefreshCcw,
 }
 
 function TimelineList({ entries }: { entries: AuditLogEntry[] }) {

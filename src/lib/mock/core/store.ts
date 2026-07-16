@@ -7,7 +7,14 @@ let state: MockState = loadState();
 function loadState(): MockState {
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw) as MockState;
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<MockState>;
+      // Backfill các field mới thêm sau này (vd `users`, `auditLogs`) mà state cũ
+      // trong localStorage của người dùng chưa có — tránh crash do đọc field
+      // undefined. Field nào đã có dữ liệu cũ thì giữ nguyên, không ghi đè.
+      const fresh = createInitialMockState();
+      return { ...fresh, ...parsed };
+    }
   } catch {
     /* ignore */
   }

@@ -1,5 +1,7 @@
 import type { PlanForm } from '../../../types/plan-form';
 import type { ManhOrder } from '../../../types/manh';
+import type { SystemUser, AuditLogEntry, SystemConfig, Notification } from '../../../types/admin';
+import { MOCK_ACCOUNTS } from './users';
 import { seedSalesCustomers, seedSalesPOs } from './seed-sales';
 import {
   seedPhoiExecutions,
@@ -895,6 +897,27 @@ export const seedFramePieces = [
   { id: 3, productId: 2, code: 'IEA-3-1', name: 'Ghế IEA-3 - Khung', groupNumber: 1, materials: [] },
 ];
 
+// Danh sách tài khoản demo (MOCK_ACCOUNTS) được đưa vào mockStore dưới dạng
+// collection `users` để Admin CRUD được — cùng id/email/password/role, chỉ đổi
+// nơi lưu trữ (từ mảng tĩnh sang mockStore), không đổi cơ chế đăng nhập.
+export const seedUsers: SystemUser[] = MOCK_ACCOUNTS.map((a) => ({
+  ...a.user,
+  password: a.password,
+  isActive: true,
+  createdAt: ISO('2026-01-01'),
+}));
+
+export const seedSystemConfig: SystemConfig = {
+  companyName: 'Công ty TNHH Dịch vụ Xuất Nhập Khẩu Đông Nam Á',
+  companyAddress: '',
+  companyPhone: '',
+  companyEmail: '',
+  taxCode: '',
+  defaultCurrency: 'VND',
+};
+
+export const seedNotifications: Notification[] = [];
+
 export function createInitialMockState() {
   return {
     salesCustomers: structuredClone(seedSalesCustomers),
@@ -942,6 +965,10 @@ export function createInitialMockState() {
     warehouseTransfers: [] as unknown[],
     mfgTransferReservations: [] as unknown[],
     manhOrders: structuredClone(seedManhOrders),
+    users: structuredClone(seedUsers),
+    auditLogs: [] as AuditLogEntry[],
+    systemConfig: structuredClone(seedSystemConfig),
+    notifications: structuredClone(seedNotifications),
   };
 }
 
