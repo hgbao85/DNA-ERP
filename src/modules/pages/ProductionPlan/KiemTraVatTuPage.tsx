@@ -123,7 +123,7 @@ function ProposalStepper({ status }: { status: PurchaseProposalStatus }) {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export default function LenhKiemTraPage() {
+export default function KiemTraVatTuPage() {
   const { data: planForms = [], isLoading } = useFetch(() => api.getPlanForms(), [])
   const active = ((planForms ?? []) as PlanForm[]).filter(p => p.status !== 'DRAFT')
 

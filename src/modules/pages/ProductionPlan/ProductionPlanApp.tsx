@@ -7,7 +7,7 @@ import SKUReviewPage from './SKUReviewPage'
 import SKUListPage from './SKUListPage'
 import ThongKePagePlan from '../Manufacturing/ThongKePagePlan'
 import LenhSXPage from './LenhSXPage'
-import LenhKiemTraPage from '../Manufacturing/LenhKiemTraPage'
+import KiemTraVatTuPage from './KiemTraVatTuPage'
 
 type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'kiem-tra-vt' | 'thongke' | 'lenh-sx' | 'materials' | 'warehouses' | 'setup'
 
@@ -82,7 +82,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
         {activePage === 'planforms'  && <SKUListPage />}
         {activePage === 'duyet-sku'    && <SKUReviewPage />}
         {activePage === 'vattu'      && <VatTuDashboardPage />}
-        {activePage === 'kiem-tra-vt' && <LenhKiemTraPage />}
+        {activePage === 'kiem-tra-vt' && <KiemTraVatTuPage />}
         {activePage === 'lenh-sx'    && <LenhSXPage />}
         {activePage === 'warehouses' && <MfgWarehousesPage />}
       </div>
