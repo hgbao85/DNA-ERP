@@ -11,8 +11,9 @@ export default function LenhMuaNCCPage() {
   const { user } = useAuth()
   const { proposals: allProposals, acknowledgeProposal, submitProposalToDirector, requoteProposal } = useInspection()
   // Purchasing chỉ thấy đề xuất của đúng kho mình phụ trách (user.warehouseScope) — xem purchasingRouting.ts
-  // Status 'purchasing' (đang mua hàng, chờ nhận) đã chuyển sang màn "Theo dõi mua hàng" riêng.
-  const proposals = visibleProposalsFor(user, allProposals).filter(p => p.status !== 'purchasing')
+  // Status 'purchasing' (đang mua hàng, chờ nhận) đã chuyển sang màn "Theo dõi mua hàng", còn 'purchased'
+  // (đã nhận đủ hàng) đã chuyển sang màn "Lịch sử đã mua" — cả 2 không còn hiển thị ở đây.
+  const proposals = visibleProposalsFor(user, allProposals).filter(p => p.status !== 'purchasing' && p.status !== 'purchased')
 
   return (
     <div>
@@ -291,8 +292,8 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
             </div>
           )}
 
-          {/* ── SUBMITTED / PURCHASED / REJECTED ── */}
-          {(p.status === 'submitted' || p.status === 'purchased' || p.status === 'rejected') && (<>
+          {/* ── SUBMITTED / REJECTED ── */}
+          {(p.status === 'submitted' || p.status === 'rejected') && (<>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
@@ -343,12 +344,7 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                 </tbody>
               </table>
             </div>
-            {p.status === 'purchased' ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderTop: '1px solid #86efac', background: '#dcfce7', fontSize: 13, color: '#166534' }}>
-                <CheckCircle2 size={15} />
-                <span>Đã nhận đủ hàng lúc {p.purchasedAt ? format(new Date(p.purchasedAt), 'HH:mm dd/MM/yyyy') : '—'} — <strong>Hoàn tất mua vật tư</strong></span>
-              </div>
-            ) : p.status === 'rejected' ? (
+            {p.status === 'rejected' ? (
               <div style={{ padding: '10px 14px', borderTop: '1px solid #f48fb1', background: '#fce4ec' }}>
                 <div style={{ fontSize: 13, color: '#c62828', marginBottom: 8 }}>
                   <strong>Giám đốc từ chối</strong> lúc {p.rejectedAt ? format(new Date(p.rejectedAt), 'HH:mm dd/MM/yyyy') : '—'}: {p.rejectionReason || 'Không có lý do'}

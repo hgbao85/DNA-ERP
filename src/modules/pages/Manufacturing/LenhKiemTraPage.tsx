@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { ChevronLeft, ScanSearch, Send, ShoppingCart, CheckCircle2, AlertTriangle, Factory } from 'lucide-react'
+import { ChevronLeft, ChevronDown, ScanSearch, Send, ShoppingCart, CheckCircle2, AlertTriangle, Factory, Warehouse, Clock, Truck } from 'lucide-react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
@@ -8,11 +8,14 @@ import LoadingState from '../../../components/LoadingState'
 import { useConfirm } from '../../../hooks/useConfirm'
 import { listTh, listTd } from '../../../styles/table'
 import type { PlanForm } from '../../../types/plan-form'
-import { useInspection, khoState, PROPOSAL_STATUS_LABELS, type KhoKey, type InspRequest, type PurchaseProposalItem } from '../../../context/InspectionContext'
+import { useInspection, khoState, PROPOSAL_ENTITY, PROPOSAL_STATUS_LABELS, type KhoKey, type InspRequest, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
+import { useAuditLog } from '../../../context/AuditLogContext'
+import AuditLogTimeline from '../../../components/AuditLogTimeline'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type OverallStatus = 'chua-gui' | 'dang-kiem' | 'du-hang' | 'co-thieu' | 'da-de-xuat'
+type PurchaseProposalStatus = PurchaseProposal['status']
 
 type AllMat = {
   group: string
@@ -72,6 +75,52 @@ const OVERALL_CFG: Record<OverallStatus, { label: string; color: string; bg: str
   'da-de-xuat': { label: 'Đã đề xuất mua', color: '#1e40af', bg: '#dbeafe' },
 }
 
+// Các mốc tiến độ mua hàng — quy đổi từ PurchaseProposal.status sang vị trí trên thanh bước,
+// giúp KHSX nhìn thoáng qua là biết lệnh đang ở giai đoạn nào (thay vì chỉ 1 badge trạng thái).
+const PROGRESS_STEPS = ['Báo giá NCC', 'Giám đốc duyệt', 'Đang mua hàng', 'Đã nhận hàng'] as const
+function doneStepCount(status: PurchaseProposalStatus): number {
+  return { new: 0, quoting: 0, submitted: 1, purchasing: 2, purchased: 4, rejected: 1 }[status]
+}
+
+function ProposalStepper({ status }: { status: PurchaseProposalStatus }) {
+  const done = doneStepCount(status)
+  const rejected = status === 'rejected'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center' }}>
+      {PROGRESS_STEPS.map((label, i) => {
+        const isRejectedStep = rejected && i === 1
+        const isDone = !isRejectedStep && i < done
+        const isCurrent = !isRejectedStep && i === done && done < 4
+        const color = isRejectedStep ? '#dc2626' : isDone || isCurrent ? '#2563eb' : 'var(--border)'
+        return (
+          <div key={label} style={{ display: 'flex', alignItems: 'center', flex: i < PROGRESS_STEPS.length - 1 ? 1 : undefined }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+              <div style={{
+                width: 18, height: 18, borderRadius: '50%', flexShrink: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: isRejectedStep ? '#fee2e2' : isDone ? '#2563eb' : isCurrent ? '#dbeafe' : 'var(--surface2)',
+                border: `2px solid ${color}`,
+              }}>
+                {isRejectedStep ? (
+                  <span style={{ fontSize: 10, fontWeight: 800, color: '#dc2626', lineHeight: 1 }}>✕</span>
+                ) : isDone ? (
+                  <CheckCircle2 size={11} color="#fff" />
+                ) : null}
+              </div>
+              <span style={{ fontSize: 10, fontWeight: isCurrent || isRejectedStep ? 700 : 500, color: isRejectedStep ? '#dc2626' : isDone || isCurrent ? 'var(--text)' : 'var(--text3)', whiteSpace: 'nowrap' }}>
+                {isRejectedStep ? 'Từ chối' : label}
+              </span>
+            </div>
+            {i < PROGRESS_STEPS.length - 1 && (
+              <div style={{ flex: 1, height: 2, marginBottom: 15, background: i < done && !rejected ? '#2563eb' : 'var(--border)' }} />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function LenhKiemTraPage() {
@@ -79,8 +128,10 @@ export default function LenhKiemTraPage() {
   const active = ((planForms ?? []) as PlanForm[]).filter(p => p.status !== 'DRAFT')
 
   const { requests, proposals, sendRequest, markProposalCreated, startProduction } = useInspection()
+  const { getLogsFor } = useAuditLog()
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [proposing,  setProposing]  = useState(false)
+  const [expandedProposalId, setExpandedProposalId] = useState<string | null>(null)
   const { ask, confirmModal } = useConfirm()
 
   const selected = active.find(p => p.id === selectedId) ?? null
@@ -118,24 +169,29 @@ export default function LenhKiemTraPage() {
       return khoState(request, khoKey).items.find(i => i.name === name) ?? null
     }
 
-    const khoStatusBadge = (khoKey: KhoKey, label: string) => {
+    const khoStatusCard = (khoKey: KhoKey, label: string) => {
       if (!request) return null
       const state = khoState(request, khoKey)
+
+      let cfg: { color: string; bg: string; border: string; icon: React.ReactNode; text: string }
       if (state.status === 'pending') {
-        return (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 20, color: '#92400e', background: '#fef3c7', border: '1px solid #fde68a' }}>
-            ⏳ {label}: Đang chờ
-          </span>
-        )
+        cfg = { color: '#92400e', bg: '#fffbeb', border: '#fde68a', icon: <Clock size={15} />, text: 'Đang chờ kho phản hồi' }
+      } else {
+        const shortCount = state.items.filter(i => i.actualStock != null && i.required > 0 && i.actualStock < i.required).length
+        cfg = shortCount > 0
+          ? { color: '#991b1b', bg: '#fef2f2', border: '#fca5a5', icon: <AlertTriangle size={15} />, text: `Thiếu ${shortCount} mặt hàng` }
+          : { color: '#166534', bg: '#f0fdf4', border: '#86efac', icon: <CheckCircle2 size={15} />, text: 'Đủ hàng' }
       }
-      const shortCount = state.items.filter(i => i.actualStock != null && i.required > 0 && i.actualStock < i.required).length
-      return shortCount > 0
-        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 20, color: '#991b1b', background: '#fee2e2', border: '1px solid #fca5a5' }}>
-            ⚠ {label}: Thiếu {shortCount} mặt hàng
-          </span>
-        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, padding: '4px 10px', borderRadius: 20, color: '#166534', background: '#dcfce7', border: '1px solid #86efac' }}>
-            ✓ {label}: Đủ hàng
-          </span>
+
+      return (
+        <div style={{ flex: '1 1 200px', display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, background: cfg.bg, border: `1px solid ${cfg.border}` }}>
+          <div style={{ color: cfg.color, flexShrink: 0 }}>{cfg.icon}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: cfg.color }}>{cfg.text}</div>
+          </div>
+        </div>
+      )
     }
 
     return (
@@ -175,15 +231,17 @@ export default function LenhKiemTraPage() {
           )}
         </div>
 
-        {/* Kho status badges */}
+        {/* Kho status cards */}
         {request && (
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16, alignItems: 'center' }}>
-            {khoStatusBadge('phoiSonHan', 'Kho Phôi Sơn Hàn')}
-            {khoStatusBadge('vatTuTP', 'Kho Vật tư thành phẩm')}
-            {khoStatusBadge('thanhPham', 'Kho Thành phẩm')}
-            <span style={{ fontSize: 12, color: 'var(--text3)' }}>
-              · Đã gửi lúc {format(new Date(request.sentAt), 'HH:mm dd/MM/yyyy')}
-            </span>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {khoStatusCard('phoiSonHan', 'Kho Phôi Sơn Hàn')}
+              {khoStatusCard('vatTuTP', 'Kho Vật tư thành phẩm')}
+              {khoStatusCard('thanhPham', 'Kho Thành phẩm')}
+            </div>
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>
+              Đã gửi yêu cầu kiểm tra lúc {format(new Date(request.sentAt), 'HH:mm dd/MM/yyyy')}
+            </div>
           </div>
         )}
 
@@ -219,10 +277,14 @@ export default function LenhKiemTraPage() {
                 {allMats.map((mat, idx) => {
                   const matKhoState = request ? khoState(request, mat.khoKey) : null
                   const inspItem    = findInspItem(mat.name, mat.khoKey)
+                  const pending     = matKhoState?.status === 'pending'
+                  const unknown     = !request || pending || inspItem?.actualStock == null
+                  const shortage    = !unknown && mat.required > 0 ? mat.required - inspItem!.actualStock! : 0
+                  const accentColor = unknown ? 'transparent' : shortage > 0 ? '#dc2626' : '#16a34a'
 
                   const stockCell = () => {
                     if (!request) return <span style={{ color: 'var(--text3)' }}>—</span>
-                    if (matKhoState?.status === 'pending') return <span style={{ color: '#92400e', fontSize: 11 }}>...</span>
+                    if (pending) return <span style={{ color: '#92400e', fontSize: 11 }}>...</span>
                     if (inspItem?.actualStock == null) return <span style={{ color: 'var(--text3)' }}>—</span>
                     const ok = inspItem.actualStock >= mat.required
                     return <span style={{ fontWeight: 700, color: ok ? '#16a34a' : '#dc2626' }}>{inspItem.actualStock}</span>
@@ -230,19 +292,18 @@ export default function LenhKiemTraPage() {
 
                   const statusCell = () => {
                     if (!request)
-                      return <span style={{ fontSize: 11, color: 'var(--text3)' }}>Chưa gửi</span>
-                    if (matKhoState?.status === 'pending')
-                      return <span style={{ fontSize: 11, color: '#92400e' }}>⏳ Đang chờ</span>
+                      return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text3)' }}>Chưa gửi</span>
+                    if (pending)
+                      return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#92400e' }}><Clock size={12} /> Đang chờ</span>
                     if (inspItem?.actualStock == null)
                       return <span style={{ fontSize: 11, color: 'var(--text3)' }}>—</span>
-                    const shortage = mat.required > 0 ? mat.required - inspItem.actualStock : 0
                     return shortage > 0
-                      ? <span style={{ fontSize: 11, fontWeight: 700, color: '#dc2626' }}>⚠ Thiếu {shortage} {mat.unit}</span>
-                      : <span style={{ fontSize: 11, fontWeight: 700, color: '#16a34a' }}>✓ Đủ</span>
+                      ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#dc2626' }}><AlertTriangle size={12} /> Thiếu {shortage} {mat.unit}</span>
+                      : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#16a34a' }}><CheckCircle2 size={12} /> Đủ</span>
                   }
 
                   return (
-                    <tr key={idx} style={{ borderTop: '1px solid var(--border)' }}>
+                    <tr key={idx} style={{ borderTop: '1px solid var(--border)', boxShadow: `inset 3px 0 0 ${accentColor}` }}>
                       <td style={{ ...listTd, fontSize: 11, color: 'var(--text3)' }}>{mat.group}</td>
                       <td style={{ ...listTd, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{mat.name}</td>
                       <td style={{ ...listTd, color: 'var(--text3)' }}>{mat.unit}</td>
@@ -380,21 +441,50 @@ export default function LenhKiemTraPage() {
         {/* Tiến độ mua vật tư theo từng kho + chốt bắt đầu sản xuất */}
         {requestProposals.length > 0 && (
           <div style={{ marginTop: 16, border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-            <div style={{ padding: '10px 16px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', fontSize: 13, fontWeight: 700, color: 'var(--text2)' }}>
-              Tiến độ mua vật tư
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+              <Truck size={14} color="var(--text2)" />
+              <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)' }}>Tiến độ mua vật tư</span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 20, color: allPurchased ? '#166534' : '#1e40af', background: allPurchased ? '#dcfce7' : '#dbeafe' }}>
+                {requestProposals.filter(p => p.status === 'purchased').length}/{requestProposals.length} kho đã nhận hàng
+              </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {requestProposals.map(p => {
                 const cfg = PROPOSAL_STATUS_LABELS[p.status]
                 const khoLabel = p.items[0]?.khoLabel ?? p.warehouseScope
+                const expanded = expandedProposalId === p.id
+                const logEntries = getLogsFor(PROPOSAL_ENTITY, p.id)
                 return (
-                  <div key={p.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 16px', borderTop: '1px solid var(--border)' }}>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{khoLabel}</span>
-                    <span style={{ fontSize: 12, color: 'var(--text3)' }}>{p.items.length} vật tư</span>
-                    <div style={{ flex: 1 }} />
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20, color: cfg.color, background: cfg.bg }}>
-                      {cfg.label}
-                    </span>
+                  <div key={p.id} style={{ borderTop: '1px solid var(--border)' }}>
+                    <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <Warehouse size={14} color="var(--text3)" />
+                        <span style={{ fontSize: 13, fontWeight: 600 }}>{khoLabel}</span>
+                        <span style={{ fontSize: 12, color: 'var(--text3)' }}>{p.items.length} vật tư</span>
+                        <div style={{ flex: 1 }} />
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20, color: cfg.color, background: cfg.bg }}>
+                          {cfg.label}
+                        </span>
+                      </div>
+
+                      <div style={{ padding: '2px 4px 0' }}>
+                        <ProposalStepper status={p.status} />
+                      </div>
+
+                      <button
+                        onClick={() => setExpandedProposalId(expanded ? null : p.id)}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', padding: 0, border: 'none', background: 'none', fontSize: 12, fontWeight: 600, color: 'var(--text3)', cursor: 'pointer' }}
+                      >
+                        <ChevronDown size={13} style={{ transform: expanded ? 'rotate(180deg)' : undefined, transition: 'transform .15s' }} />
+                        {expanded ? 'Ẩn lịch sử hoạt động' : `Xem lịch sử hoạt động${logEntries.length > 0 ? ` (${logEntries.length})` : ''}`}
+                      </button>
+
+                      {expanded && (
+                        <div style={{ paddingTop: 4, borderTop: '1px dashed var(--border)' }}>
+                          <AuditLogTimeline entries={logEntries} bare />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )
               })}
