@@ -9,6 +9,11 @@ export interface MockAccount {
 /** Tài khoản demo — mật khẩu chung demo1234 */
 export const MOCK_ACCOUNTS: MockAccount[] = [
   {
+    email: 'admin@demo.com',
+    password: 'demo1234',
+    user: { id: 2, name: 'Quản trị viên hệ thống', email: 'admin@demo.com', role: 'ADMIN' },
+  },
+  {
     email: 'boss@demo.com',
     password: 'demo1234',
     user: { id: 1, name: 'Boss Tuấn', email: 'boss@demo.com', role: 'BOSS' },
@@ -139,7 +144,7 @@ export const MOCK_ACCOUNTS: MockAccount[] = [
     email: 'dinhmuc@demo.com',
     password: 'demo1234',
     user: {
-      id: 14,
+      id: 15,
       name: 'NV Định mức',
       email: 'dinhmuc@demo.com',
       role: 'WAREHOUSE_STAFF',

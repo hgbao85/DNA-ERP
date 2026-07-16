@@ -1,6 +1,8 @@
 'use client'
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import { useAuth } from './AuthContext'
+import { logAuditAction, getAllAuditLogs } from '../services/api'
+import type { AuditLogEntry as PersistedAuditLogEntry } from '../types/admin'
 
 // Cấu hình mapping action -> nhãn + màu hiển thị. Đây là điểm mở rộng duy nhất:
 // nghiệp vụ mới (không chỉ PurchaseProposal) chỉ cần thêm 1 dòng ở đây rồi gọi logAction(),
@@ -39,20 +41,32 @@ export const AUDIT_ACTIONS = {
   'kcs.issued':   { label: 'Kho xuất',                color: '#2563eb' },
   'kcs.reported': { label: 'Báo sản lượng — chờ KCS', color: '#7c3aed' },
   'kcs.approved': { label: 'KCS duyệt',               color: '#2e7d32' },
+
+  // ─── Admin — Người dùng ─────────────────────────────────────────────────────
+  'user.created':      { label: 'Tạo tài khoản',       color: '#2563eb' },
+  'user.updated':      { label: 'Cập nhật tài khoản',  color: '#d97706' },
+  'user.role_changed': { label: 'Đổi vai trò/quyền',   color: '#7c3aed' },
+  'user.deleted':      { label: 'Xóa tài khoản',       color: '#c62828' },
+
+  // ─── Admin — Danh mục hệ thống (dùng chung cho mọi entity danh mục) ──────────
+  'masterdata.created': { label: 'Tạo bản ghi danh mục',      color: '#2563eb' },
+  'masterdata.updated': { label: 'Cập nhật danh mục',         color: '#d97706' },
+  'masterdata.deleted': { label: 'Xóa danh mục',              color: '#c62828' },
+
+  // ─── Admin — Thông báo & Cấu hình hệ thống ───────────────────────────────────
+  'notification.created': { label: 'Tạo thông báo',        color: '#2563eb' },
+  'notification.updated': { label: 'Cập nhật thông báo',   color: '#d97706' },
+  'notification.deleted': { label: 'Xóa thông báo',        color: '#c62828' },
+  'system_config.updated': { label: 'Cập nhật cấu hình hệ thống', color: '#d97706' },
+  'system.data_reset':    { label: 'Reset dữ liệu demo',    color: '#c62828' },
 } as const
 
 export type AuditAction = keyof typeof AUDIT_ACTIONS
 
-export interface AuditLogEntry {
-  id: string
-  entityType: string
-  entityId: string
-  action: AuditAction
-  actorId?: number
-  actorName: string
-  at: string // ISO timestamp
-  note?: string
-}
+// Shape lưu trữ (persisted) định nghĩa ở tầng data — src/types/admin.ts — để
+// src/lib/mock/* không phải import ngược từ src/context/*. Ở đây thu hẹp lại
+// `action` về đúng AuditAction cho các consumer trong app (AuditLogTimeline...).
+export type AuditLogEntry = Omit<PersistedAuditLogEntry, 'action'> & { action: AuditAction }
 
 interface AuditLogCtxType {
   logs: AuditLogEntry[]
@@ -66,17 +80,32 @@ export function AuditLogProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   const [logs, setLogs] = useState<AuditLogEntry[]>([])
 
+  // Nạp lịch sử đã persist trong mockStore khi provider mount — trước đây log
+  // chỉ sống trong React state nên mất khi F5, giờ đọc lại từ auditLogs collection.
+  useEffect(() => {
+    getAllAuditLogs().then(entries => setLogs(entries as AuditLogEntry[])).catch(() => {})
+  }, [])
+
   const logAction = useCallback((entityType: string, entityId: string, action: AuditAction, note?: string) => {
-    setLogs(prev => [...prev, {
-      id: `log-${prev.length + 1}-${Date.now()}`,
+    const actorId = user?.id
+    const actorName = user?.name ?? 'Hệ thống'
+    // Ghi optimistic vào state trước (không đổi UX/độ trễ cảm nhận so với trước),
+    // đồng thời gọi service lưu xuống mockStore ở nền — logAction() vẫn là hàm
+    // đồng bộ (void) như cũ nên toàn bộ call site hiện có không cần sửa.
+    const optimistic: AuditLogEntry = {
+      id: `log-pending-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       entityType,
       entityId,
       action,
-      actorId: user?.id,
-      actorName: user?.name ?? 'Hệ thống',
+      actorId,
+      actorName,
       at: new Date().toISOString(),
       note,
-    }])
+    }
+    setLogs(prev => [...prev, optimistic])
+    void logAuditAction(entityType, entityId, action, actorId, actorName, note).then(saved => {
+      setLogs(prev => prev.map(l => (l.id === optimistic.id ? (saved as AuditLogEntry) : l)))
+    })
   }, [user])
 
   const getLogsFor = useCallback((entityType: string, entityId: string) =>

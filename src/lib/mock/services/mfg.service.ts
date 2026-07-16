@@ -375,9 +375,28 @@ class WeavingService extends BaseService<any> {
   constructor() { super('weavingPoints'); }
 
   async getPoints(_all?: boolean) { return ok(clone(mockStore.get().weavingPoints)); }
-  async createPoint(data: Record<string, unknown>) { return ok({ id: nextId(), isActive: true, ...data }); }
-  async updatePoint(id: number, data: Record<string, unknown>) { return ok({ id, ...data }); }
-  async deletePoint(id: number) { return ok({ id }); }
+
+  async createPoint(data: Record<string, unknown>) {
+    await mockDelay();
+    const row = { id: nextId(), isActive: true, ...data };
+    mockStore.update((s) => (s.weavingPoints as any[]).push(row));
+    return row;
+  }
+
+  async updatePoint(id: number, data: Record<string, unknown>) {
+    await mockDelay();
+    mockStore.update((s) => {
+      const i = s.weavingPoints.findIndex((p) => p.id === id);
+      if (i >= 0) Object.assign(s.weavingPoints[i], data);
+    });
+    return mockStore.get().weavingPoints.find((p) => p.id === id);
+  }
+
+  async deletePoint(id: number) {
+    await mockDelay();
+    mockStore.update((s) => { s.weavingPoints = s.weavingPoints.filter((p) => p.id !== id); });
+    return { id };
+  }
 
   async getConfig() { return ok(clone(mockStore.get().weavingConfig)); }
   async updateConfig(minAllocationQty: number) {
@@ -421,8 +440,20 @@ class DefectReasonService extends BaseService<any> {
     return row;
   }
 
-  async update(id: number, data: Record<string, unknown>) { return ok({ id, ...data }); }
-  async remove(id: number) { return ok({ id }); }
+  async update(id: number, data: Record<string, unknown>) {
+    await mockDelay();
+    mockStore.update((s) => {
+      const i = s.defectReasons.findIndex((d) => d.id === id);
+      if (i >= 0) Object.assign(s.defectReasons[i], data);
+    });
+    return mockStore.get().defectReasons.find((d) => d.id === id);
+  }
+
+  async remove(id: number) {
+    await mockDelay();
+    mockStore.update((s) => { s.defectReasons = s.defectReasons.filter((d) => d.id !== id); });
+    return { id };
+  }
 }
 
 class PackagingService extends BaseService<any> {
@@ -504,6 +535,7 @@ const specEntryProposalSvc = new SpecEntryProposalService();
 export const getMfgExportCustomers = () => exportCustomerSvc.getAll();
 export const createMfgExportCustomer = (data: Record<string, unknown>) => exportCustomerSvc.create(data);
 export const updateMfgExportCustomer = (id: number, data: Record<string, unknown>) => exportCustomerSvc.update(id, data);
+export const deleteMfgExportCustomer = (id: number) => exportCustomerSvc.remove(id);
 
 export const getMfgProducts = () => mfgProductSvc.getAll();
 export const getMfgProductVariants = (productId: number) => mfgProductSvc.getVariantsByProduct(productId);
@@ -513,9 +545,12 @@ export const createProductVariant = (data: Record<string, unknown>) => mfgProduc
 
 export const getMaterialGroups = () => materialGroupSvc.getAll();
 export const createMaterialGroup = (name: string) => materialGroupSvc.createGroup(name);
+export const updateMaterialGroup = (id: number, data: Record<string, unknown>) => materialGroupSvc.update(id, data);
+export const deleteMaterialGroup = (id: number) => materialGroupSvc.remove(id);
 export const getMaterials = () => materialSvc.getAll();
 export const createMaterial = (data: Record<string, unknown>) => materialSvc.create(data);
 export const updateMaterial = (id: number, data: Record<string, unknown>) => materialSvc.update(id, data);
+export const deleteMaterial = (id: number) => materialSvc.remove(id);
 
 export const getFrameProducts = () => framePieceSvc.getFrameProducts();
 export const getFramePieces = (productId: number) => framePieceSvc.getByProduct(productId);
@@ -586,6 +621,8 @@ export const getMfgWarehouseTxns = (warehouseId?: number) => warehouseSvc.getTra
 
 export const getExportPurposes = () => exportPurposeSvc.getAll();
 export const createExportPurpose = (label: string) => exportPurposeSvc.createWithLabel(label);
+export const updateExportPurpose = (id: number, data: Record<string, unknown>) => exportPurposeSvc.update(id, data);
+export const deleteExportPurpose = (id: number) => exportPurposeSvc.remove(id);
 
 export const getWeavingPoints = (_all?: boolean) => weavingSvc.getPoints(_all);
 export const createWeavingPoint = (data: Record<string, unknown>) => weavingSvc.createPoint(data);

@@ -7,6 +7,7 @@ interface ModuleStrategy {
 }
 
 const MODULE_STRATEGIES: ModuleStrategy[] = [
+  { matches: (u) => u.role === 'ADMIN',                       module: 'admin'             },
   { matches: (u) => !!u.mfgRole,                             module: 'production'        },
   { matches: (u) => !!u.isProductPlanner,                    module: 'production_plan'   },
   { matches: (u) => !!u.isSale,                              module: 'sales'             },
@@ -23,4 +24,9 @@ export function resolveDefaultModule(user: User | null): string | null {
 
 export function isDirector(user: User | null): boolean {
   return user?.role === 'BOSS' && !user?.mfgRole;
+}
+
+/** Quản trị hệ thống — role riêng, không phải Giám đốc/nghiệp vụ. */
+export function isSystemAdmin(user: User | null): boolean {
+  return user?.role === 'ADMIN';
 }

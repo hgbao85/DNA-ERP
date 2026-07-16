@@ -14,11 +14,16 @@ class SupplierService extends BaseService<any> {
 
   async update(id: number, data: Record<string, unknown>) {
     await mockDelay();
-    return { id, ...data };
+    mockStore.update((s) => {
+      const i = s.suppliers.findIndex((x) => x.id === id);
+      if (i >= 0) Object.assign(s.suppliers[i], data);
+    });
+    return mockStore.get().suppliers.find((x) => x.id === id);
   }
 
   async remove(id: number) {
     await mockDelay();
+    mockStore.update((s) => { s.suppliers = s.suppliers.filter((x) => x.id !== id); });
     return { id };
   }
 }

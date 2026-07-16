@@ -25,6 +25,11 @@ export interface BossUser extends BaseUser {
   role: 'BOSS';
 }
 
+/** Quản trị hệ thống — tách biệt khỏi Giám đốc, chỉ quản trị (không duyệt nghiệp vụ). */
+export interface AdminUser extends BaseUser {
+  role: 'ADMIN';
+}
+
 export interface MfgUser extends BaseUser {
   role: 'WAREHOUSE_STAFF';
   mfgRole: MfgRole;
@@ -48,7 +53,7 @@ export interface User {
   id: number;
   name: string;
   email: string;
-  role: 'BOSS' | 'WAREHOUSE_STAFF';
+  role: 'BOSS' | 'WAREHOUSE_STAFF' | 'ADMIN';
   mfgRole?: MfgRole | null;
   phoiOperation?: PhoiOperation | null;
   warehouseScope?: WarehouseScope | null;
