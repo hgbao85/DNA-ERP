@@ -319,6 +319,27 @@ export default function KiemTraVatTuPage() {
           )}
         </div>
 
+        {/* Bắt đầu sản xuất — luôn hiển thị, không phụ thuộc điều kiện kiểm tra vật tư */}
+        {request && (
+          request.productionStarted ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', border: '1px solid #86efac', borderRadius: 10, background: '#f0fdf4', fontSize: 13, fontWeight: 600, color: '#166534', marginBottom: 16 }}>
+              <Factory size={16} /> Đã bắt đầu sản xuất lúc {request.productionStartedAt ? format(new Date(request.productionStartedAt), 'HH:mm dd/MM/yyyy') : '—'}
+            </div>
+          ) : (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+              <button
+                onClick={() => ask(
+                  { message: `Xác nhận bắt đầu sản xuất cho lệnh ${selected.mfgProduct?.factoryCode ?? ''}?` },
+                  () => startProduction(request!.id)
+                )}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#2563eb', color: '#fff', cursor: 'pointer' }}
+              >
+                <Factory size={14} /> Bắt đầu sản xuất
+              </button>
+            </div>
+          )
+        )}
+
         {/* "Chưa gửi" notice */}
         {!request && (
           <div style={{ padding: '12px 16px', border: '1px solid var(--border)', borderRadius: 10, fontSize: 13, color: 'var(--text3)', textAlign: 'center' }}>
@@ -332,23 +353,6 @@ export default function KiemTraVatTuPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', background: '#f0fdf4', fontSize: 13, fontWeight: 600, color: '#166534' }}>
               <CheckCircle2 size={16} /> Tất cả vật tư đủ hàng — có thể tiến hành sản xuất
             </div>
-            {request?.productionStarted ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderTop: '1px solid #86efac', fontSize: 13, fontWeight: 600, color: '#166534' }}>
-                <Factory size={16} /> Đã bắt đầu sản xuất lúc {request.productionStartedAt ? format(new Date(request.productionStartedAt), 'HH:mm dd/MM/yyyy') : '—'}
-              </div>
-            ) : (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px', borderTop: '1px solid #86efac' }}>
-                <button
-                  onClick={() => ask(
-                    { message: `Toàn bộ vật tư của lệnh ${selected.mfgProduct?.factoryCode ?? ''} đã đủ hàng. Xác nhận bắt đầu sản xuất?` },
-                    () => startProduction(request!.id)
-                  )}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#2563eb', color: '#fff', cursor: 'pointer' }}
-                >
-                  <Factory size={14} /> Bắt đầu sản xuất
-                </button>
-              </div>
-            )}
           </div>
         )}
 
@@ -489,24 +493,6 @@ export default function KiemTraVatTuPage() {
                 )
               })}
             </div>
-
-            {request?.productionStarted ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', borderTop: '1px solid #86efac', background: '#f0fdf4', fontSize: 13, fontWeight: 600, color: '#166534' }}>
-                <Factory size={16} /> Đã bắt đầu sản xuất lúc {request.productionStartedAt ? format(new Date(request.productionStartedAt), 'HH:mm dd/MM/yyyy') : '—'}
-              </div>
-            ) : allPurchased && (
-              <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
-                <button
-                  onClick={() => ask(
-                    { message: `Mọi vật tư của lệnh ${selected.mfgProduct?.factoryCode ?? ''} đã về đủ. Xác nhận bắt đầu sản xuất?` },
-                    () => startProduction(request!.id)
-                  )}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#2563eb', color: '#fff', cursor: 'pointer' }}
-                >
-                  <Factory size={14} /> Bắt đầu sản xuất
-                </button>
-              </div>
-            )}
           </div>
         )}
 
