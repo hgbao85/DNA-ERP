@@ -903,7 +903,7 @@ function DinhMucManh({
 
       {partsAlreadyApproved && status === 'APPROVED' && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-          <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã bắt đầu sản xuất</span>
+          <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>Đã thêm vào danh sách SKU</span>
         </div>
       )}
 

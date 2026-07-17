@@ -1,8 +1,9 @@
 'use client'
 import { createContext, useContext, useState, useCallback } from 'react'
-import type { PlanForm } from '../types/plan-form'
+import type { PlanForm, ManhRow } from '../types/plan-form'
 import type { WarehouseScope } from './AuthContext'
 import { useAuditLog } from './AuditLogContext'
+import { syncDinhMucSatVaoKeHoach, syncDinhMucSatVaoLenhPhoi, type DinhMucSatSyncItem } from '../services/api'
 
 export const PROPOSAL_ENTITY = 'PurchaseProposal'
 
@@ -39,6 +40,10 @@ export interface InspRequest {
   skuCode: string
   skuName?: string
   sentAt: string
+  deadline?: string
+  /** Snapshot định mức mảnh (nếu account Sắt đã nhập cho SKU này) — dùng để "Bắt đầu sản xuất"
+   *  đồng bộ vật tư sắt sang Phôi theo đúng từng mảnh (xem startProduction) thay vì gộp chung. */
+  manhItems?: ManhRow[]
   phoiSonHan: KhoState
   vatTuTP: KhoState
   thanhPham: KhoState
@@ -325,6 +330,8 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
         skuCode:          pf.mfgProduct?.factoryCode ?? `#${pf.mfgProductId}`,
         skuName:          pf.mfgProduct?.name,
         sentAt:           new Date().toISOString(),
+        deadline:         pf.exportOrder?.deliveryDate,
+        manhItems:        pf.manhItems,
         phoiSonHan:       { status: 'pending', items: phoiSonHan },
         vatTuTP:          { status: 'pending', items: vatTuTP },
         thanhPham:        { status: 'pending', items: thanhPham },
@@ -443,13 +450,53 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     if (justCompleted) logAction(PROPOSAL_ENTITY, proposalId, 'proposal.purchased')
   }, [logAction])
 
-  // KHSX chốt bắt đầu sản xuất khi mọi kho liên quan đến đơn đã "Đã mua".
+  // KHSX chốt bắt đầu sản xuất — đồng thời đẩy vật tư sắt trong định mức (kho PSH) sang
+  // "Xuất sắt cho Phôi" + "Lệnh sản xuất Phôi" để kho bắt đầu xuất sắt cho Phôi cắt.
+  // Dùng cùng 1 lineId cho cả 2 bên (xem 2 hàm sync) để sau này Phôi xác nhận cắt xong
+  // cộng đúng dòng vật tư.
   const startProduction = useCallback((requestId: string) => {
+    const req = requests.find(r => r.id === requestId)
+    if (req) {
+      // Có định mức mảnh thật (account Sắt đã nhập, xem "Định mức mảnh" ở Duyệt SKU) → đồng bộ
+      // theo đúng từng mảnh (Mảnh Tựa, Mảnh Mê...) để "Xuất sắt cho Phôi"/"Lệnh sản xuất Phôi"
+      // nhóm giống các PO đã có sẵn (vd PO-2026-002 nhóm theo "Mảnh Tựa"/"Mảnh Chân"). Chưa có
+      // (đa số SKU cũ) thì rơi về cách cũ: gộp chung 1 mảnh mặc định "Vật tư sắt định mức".
+      let syncItems: DinhMucSatSyncItem[] = []
+      if (req.manhItems && req.manhItems.length > 0) {
+        let idx = 0
+        for (const manh of req.manhItems) {
+          for (const child of manh.children) {
+            const required = Number(child.qty) || 0
+            if (required <= 0) continue
+            syncItems.push({
+              lineId: 9000 + req.planFormId * 20 + idx,
+              name: child.name, unit: 'cây', required, manhTen: manh.name,
+            })
+            idx++
+          }
+        }
+      } else {
+        syncItems = req.phoiSonHan.items
+          .filter(i => !isSon(i.name) && i.required > 0)
+          .map((it, idx) => ({
+            lineId: 9000 + req.planFormId * 20 + idx,
+            name: it.name, unit: it.unit, required: it.required,
+          }))
+      }
+      if (syncItems.length > 0) {
+        syncDinhMucSatVaoKeHoach(req.poNumber, req.skuCode, req.sentAt.slice(0, 10), syncItems)
+        syncDinhMucSatVaoLenhPhoi({
+          poNumber: req.poNumber, sku: req.skuCode,
+          productName: req.skuName ?? req.skuCode, deadline: req.deadline,
+          items: syncItems,
+        })
+      }
+    }
     setRequests(prev => prev.map(r =>
       r.id === requestId ? { ...r, productionStarted: true, productionStartedAt: new Date().toISOString() } : r
     ))
     logAction('InspRequest', requestId, 'request.production_started')
-  }, [logAction])
+  }, [requests, logAction])
 
   return (
     <InspCtx.Provider value={{ requests, proposals, sendRequest, submitKho, markProposalCreated, acknowledgeProposal, submitProposalToDirector, approveProposal, rejectProposal, requoteProposal, receiveProposalItem, startProduction }}>

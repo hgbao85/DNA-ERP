@@ -246,9 +246,23 @@ export interface KeHoachSatView extends KeHoachSatItem {
 }
 
 const S25 = { 930: 4, 765: 1, 695: 1, 200: 4 };  // kiểu cắt đại diện 25×50
+const LS_CATPLAN = 'phoi_sat_catplan_v1';
 // Thứ tự PO trong mảng = thứ tự thực hiện (tuần tự). Kho chỉ thao tác PO "đang thực
 // hiện" — PO trước đã xuất đủ (Đã xong), PO sau bị khóa (Chờ) tới khi PO này xong.
-const catPlan: KeHoachSatItem[] = [
+function seedCatPlan(): KeHoachSatItem[] {
+  return [
+  // ── PO-TEST-001 · TEST-01 — đặt lên ĐẦU hàng đợi để test ngay, khỏi chờ các PO demo
+  // bên dưới xuất đủ. lineId (9220-9225) khớp đúng scheme mà InspectionContext.
+  // startProduction sinh ra khi đồng bộ qua "Bắt đầu sản xuất" (planFormId 11) — nếu SKU
+  // này sau đó THẬT SỰ đi qua luồng Kiểm tra vật tư → Bắt đầu sản xuất, hàm sync sẽ thấy
+  // PO đã có (guard theo poNumber) và bỏ qua, không tạo trùng.
+  { id: 'kh-sync-PO-TEST-001-9220', poNumber: 'PO-TEST-001', sku: 'TEST-01', lineId: 9220, ngayLenh: '2026-07-16', manhTen: 'Mảnh Tựa',     loaiSat: 'Ống sắt 25×25', quyCach: 'cây', barLen: 6000, planCay: 20, seg: { 6000: 1 }, hhPerCay: 0 },
+  { id: 'kh-sync-PO-TEST-001-9221', poNumber: 'PO-TEST-001', sku: 'TEST-01', lineId: 9221, ngayLenh: '2026-07-16', manhTen: 'Mảnh Tựa',     loaiSat: 'Ống sắt Ø16',   quyCach: 'cây', barLen: 6000, planCay: 20, seg: { 6000: 1 }, hhPerCay: 0 },
+  { id: 'kh-sync-PO-TEST-001-9222', poNumber: 'PO-TEST-001', sku: 'TEST-01', lineId: 9222, ngayLenh: '2026-07-16', manhTen: 'Mảnh Mê',      loaiSat: 'Ống sắt 25×50', quyCach: 'cây', barLen: 6000, planCay: 15, seg: { 6000: 1 }, hhPerCay: 0 },
+  { id: 'kh-sync-PO-TEST-001-9223', poNumber: 'PO-TEST-001', sku: 'TEST-01', lineId: 9223, ngayLenh: '2026-07-16', manhTen: 'Mảnh Mê',      loaiSat: 'Ống sắt 20×40', quyCach: 'cây', barLen: 6000, planCay: 15, seg: { 6000: 1 }, hhPerCay: 0 },
+  { id: 'kh-sync-PO-TEST-001-9224', poNumber: 'PO-TEST-001', sku: 'TEST-01', lineId: 9224, ngayLenh: '2026-07-16', manhTen: 'Mảnh Tay Trái', loaiSat: 'Ống sắt Ø16',   quyCach: 'cây', barLen: 6000, planCay: 10, seg: { 6000: 1 }, hhPerCay: 0 },
+  { id: 'kh-sync-PO-TEST-001-9225', poNumber: 'PO-TEST-001', sku: 'TEST-01', lineId: 9225, ngayLenh: '2026-07-16', manhTen: 'Mảnh Tay Phải', loaiSat: 'Ống sắt Ø16',   quyCach: 'cây', barLen: 6000, planCay: 10, seg: { 6000: 1 }, hhPerCay: 0 },
+
   // ── PO-2026-000 · GHE-J40 — đã xuất đủ (Đã xong) ──
   { id: 'kh-011', poNumber: 'PO-2026-000', sku: 'GHE-J40', lineId: 11, ngayLenh: '2026-07-08', manhTen: 'Mảnh Tựa', loaiSat: 'Sắt Vuông 6 zem', quyCach: '18×18', barLen: 6000, planCay: 30, seg: { 745: 8 }, hhPerCay: 40 },
   { id: 'kh-012', poNumber: 'PO-2026-000', sku: 'GHE-J40', lineId: 12, ngayLenh: '2026-07-08', manhTen: 'Mảnh Chân', loaiSat: 'Sắt Hộp 6 zem', quyCach: '25×50', barLen: 6000, planCay: 20, seg: S25, hhPerCay: 20 },
@@ -268,7 +282,11 @@ const catPlan: KeHoachSatItem[] = [
   // ── PO-2026-003 · BAN-B20 — chờ ──
   { id: 'kh-311', poNumber: 'PO-2026-003', sku: 'BAN-B20', lineId: 311, ngayLenh: '2026-07-14', manhTen: 'Mảnh Mặt', loaiSat: 'Sắt Hộp 6 zem', quyCach: '25×50', barLen: 6000, planCay: 40, seg: S25, hhPerCay: 20 },
   { id: 'kh-312', poNumber: 'PO-2026-003', sku: 'BAN-B20', lineId: 312, ngayLenh: '2026-07-14', manhTen: 'Mảnh Chân', loaiSat: 'Sắt Hộp 8 zem', quyCach: '20×40', barLen: 6000, planCay: 32, seg: { 1180: 5 }, hhPerCay: 100 },
-];
+  ];
+}
+
+const catPlan: KeHoachSatItem[] = loadJSON(LS_CATPLAN, seedCatPlan);
+const persistCatPlan = () => saveJSON(LS_CATPLAN, catPlan);
 
 const daXuatOf = (lineId: number) =>
   issues.filter((i) => i.lineId === lineId).reduce((s, i) => s + tongCay(i.bundles), 0);
@@ -285,6 +303,33 @@ export async function getKeHoachXuatSat(poNumber?: string): Promise<KeHoachSatVi
     const daXuat = daXuatOf(p.lineId);
     return { ...p, daXuat, daCat: daCatOf(p.lineId), conXuat: Math.max(0, p.planCay - daXuat) };
   });
+}
+
+export interface DinhMucSatSyncItem { lineId: number; name: string; unit?: string; required: number; manhTen?: string }
+
+// KHSX bấm "Bắt đầu sản xuất" (KiemTraVatTuPage) → đẩy vật tư sắt trong định mức thành
+// kế hoạch xuất sắt mới cho PO đó, hiện ngay ở "Xuất sắt cho Phôi". Có định mức mảnh thật
+// (manhTen, xem InspectionContext.startProduction) thì nhóm đúng theo từng mảnh, giống các
+// PO khác (vd "Mảnh Tựa"/"Mảnh Chân"); không có thì gom vào 1 mảnh mặc định. Chưa có kiểu
+// cắt thật nên seg = nguyên cây, hao hụt = 0. lineId phải khớp ProcLine.id bên "Lệnh sản
+// xuất Phôi" (xem syncDinhMucSatVaoLenhPhoi trong phoi-lenh-sx.service) để Phôi xác nhận
+// cắt xong sau này cộng đúng dòng.
+export function syncDinhMucSatVaoKeHoach(
+  poNumber: string, sku: string, ngayLenh: string, items: DinhMucSatSyncItem[],
+) {
+  if (catPlan.some((p) => p.poNumber === poNumber)) return; // đã sync trước đó
+  const additions: KeHoachSatItem[] = items
+    .filter((it) => it.required > 0)
+    .map((it) => ({
+      id: `kh-sync-${poNumber}-${it.lineId}`,
+      poNumber, sku, lineId: it.lineId, ngayLenh,
+      manhTen: it.manhTen ?? 'Vật tư sắt định mức',
+      loaiSat: it.name, quyCach: it.unit ?? '', barLen: 6000,
+      planCay: Math.ceil(it.required), seg: { 6000: 1 }, hhPerCay: 0,
+    }));
+  if (additions.length === 0) return;
+  catPlan.push(...additions);
+  persistCatPlan();
 }
 
 // Kho xuất sắt cho Phôi → tạo đợt DA_NHAN (hiện ngay bên Phôi qua getDotXuatSat).

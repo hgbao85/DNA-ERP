@@ -31,12 +31,18 @@ export const seedMfgExportCustomers = [
   { id: 1, name: 'MEYING USA', country: 'US', market: 'Amazon.com', contactName: 'David Chen' },
   { id: 2, name: 'GOPLUS USA', country: 'US', market: 'Amazon / Walmart', contactName: 'Mike Johnson' },
   { id: 3, name: 'IKEA Supplier', country: 'Sweden', market: 'IKEA International', contactName: 'Anna Bergström' },
+  // id 4: khách hàng mock dùng riêng cho SKU test TEST-01 (xem seedMfgProducts id 4) — chạy thử
+  // toàn bộ luồng Sales → KHSX → Sản xuất mà không đụng dữ liệu demo có sẵn.
+  { id: 4, name: 'DNA TEST CO', country: 'VN', market: 'Nội bộ / QA', contactName: 'QA Tester' },
 ];
 
 export const seedMfgProducts = [
   { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55', description: 'Ghế khung sắt J55 xuất khẩu' },
   { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3', description: 'Ghế dây đan hoàn toàn' },
   { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60', description: 'Ghế khung sắt J60 kích cỡ lớn' },
+  // SKU mock đầy đủ để test toàn bộ luồng: Sales tạo đơn → KHSX duyệt SKU/kiểm tra vật tư →
+  // Phôi/Hàn/Sơn/KCS. Xem seedPlanForms id 11 (đã APPROVED, đủ định mức 4 nhóm vật tư).
+  { id: 4, factoryCode: 'TEST-01', name: 'Ghế Test Đầy Đủ', description: 'SKU mock dùng để test toàn bộ hệ thống — không phải dữ liệu demo thật' },
 ];
 
 export const seedProductVariants = [
@@ -48,6 +54,7 @@ export const seedProductVariants = [
   { id: 106, mfgProductId: 2, exportCustomerId: 3, colorCode: 'WHITE', description: 'IEA-3 Trắng — IKEA',  isActive: false, mfgProduct: { id: 2, factoryCode: 'IEA-3',  name: 'Ghế đan IEA-3' } },
   { id: 107, mfgProductId: 1, exportCustomerId: 2, colorCode: 'BROWN', description: 'JSE-55 Nâu — GOPLUS', isActive: true,  mfgProduct: { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55' } },
   { id: 108, mfgProductId: 3, exportCustomerId: 3, colorCode: 'BLACK', description: 'JSE-60 Đen — IKEA',   isActive: true,  mfgProduct: { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60' } },
+  { id: 109, mfgProductId: 4, exportCustomerId: 4, colorCode: 'BLACK', description: 'TEST-01 Đen — DNA TEST', isActive: true, mfgProduct: { id: 4, factoryCode: 'TEST-01', name: 'Ghế Test Đầy Đủ' } },
 ];
 
 export const seedExportOrders = [
@@ -74,6 +81,16 @@ export const seedExportOrders = [
     exportCustomer: { id: 3, name: 'IKEA Supplier', country: 'Sweden' },
     items: [{ id: 4, quantity: 800, boxesPerSet: 2, productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế J55' } } }],
     createdBy: { name: 'Sales NM Lan' },
+  },
+  // id 100: PO gốc đứng sau PlanForm TEST-01 (id 11) — dùng id lệch hẳn khỏi dải 1-10 để không
+  // vô tình khớp exportOrderId của các PI/PlanForm demo khác đang tham chiếu lỏng lẻo (vd id 4/9/10
+  // chỉ tồn tại dưới dạng exportOrder nhúng trong seedProductionInvoices, không có bản ghi thật ở đây).
+  {
+    id: 100, poNumber: 'PO-TEST-001', exportCustomerId: 4, deliveryDate: ISO('2026-12-31'),
+    status: 'DRAFT', paymentStatus: 'UNPAID', totalValue: 50000, depositAmount: 0,
+    exportCustomer: { id: 4, name: 'DNA TEST CO', country: 'VN' },
+    items: [{ id: 100, quantity: 100, boxesPerSet: 1, productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế Test Đầy Đủ' } } }],
+    createdBy: { name: 'QA Tester' },
   },
 ];
 
@@ -234,6 +251,22 @@ export const seedProductionInvoices = [
       productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
     }],
     createdBy: { name: 'Quản lý SX Hùng' },
+  },
+  // id 12: PI đứng sau PlanForm TEST-01 (id 11, đã APPROVED) — chưa có đơn Sales nào dùng SKU
+  // này nên PI còn ở PLANNING, sẵn sàng để test luồng Sales tạo đơn hàng từ đầu.
+  {
+    id: 12, code: 'PI-2026-012', deadline: ISO('2026-12-15'),
+    status: 'PLANNING', exportOrderId: 100,
+    exportOrder: { poNumber: 'PO-TEST-001', contractFileUrl: null },
+    items: [{
+      quantity: 100, materialDeadline: ISO('2026-10-01'),
+      stages: [
+        { stageType: 'HAN', deadline: ISO('2026-10-20') },
+        { stageType: 'SON', deadline: ISO('2026-11-05') },
+      ],
+      productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế Test Đầy Đủ', factoryCode: 'TEST-01' } },
+    }],
+    createdBy: { name: 'QA Tester' },
   },
 ];
 
@@ -536,6 +569,71 @@ export const seedPlanForms: PlanForm[] = [
     customerName: 'IKEA Supplier',
     createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
     quotaManagement: { id: 10, materialType: { sat: [], daySon: [], vatTuPhuKien: [], baoBiDongGoi: [] } },
+  },
+  // id 11 — SKU MOCK ĐẦY ĐỦ ĐỂ TEST TOÀN BỘ HỆ THỐNG (TEST-01 / PO-TEST-001 / PI-2026-012).
+  // Đã APPROVED sẵn (bỏ qua chuỗi duyệt) + đủ 4 nhóm định mức vật tư để "Lệnh kiểm tra vật tư"
+  // (KiemTraVatTuPage) có dữ liệu thật ngay khi gửi yêu cầu. Chưa có SalesPO nào dùng SKU này —
+  // vào Sales > Đơn hàng > Tạo đơn để chọn "TEST-01" và chạy tiếp toàn bộ luồng từ đầu.
+  {
+    id: 11, exportOrderId: 100, mfgProductId: 4, status: 'APPROVED', note: 'SKU mock TEST-01 — dùng để test toàn bộ hệ thống',
+    piCode: 'PI-2026-012', productionInvoiceId: 12,
+    createdAt: ISO('2026-07-01'), proposedAt: ISO('2026-07-01'),
+    exportOrder: { id: 100, poNumber: 'PO-TEST-001', deliveryDate: ISO('2026-12-31') },
+    mfgProduct: { id: 4, factoryCode: 'TEST-01', name: 'Ghế Test Đầy Đủ' },
+    createdBy: { id: 39, name: 'NV Kế hoạch SX Linh' },
+    quotaManagement: {
+      id: 11,
+      materialType: {
+        // Khớp tên + tổng số lượng với manhItems bên dưới (20 = 20 Mảnh Tựa; 40 = 20 Tựa +
+        // 10 Tay Trái + 10 Tay Phải; 15/15 = Mảnh Mê) — để lúc "Bắt đầu sản xuất" đồng bộ
+        // sang "Xuất sắt cho Phôi" theo đúng mảnh mà tổng vẫn khớp với vật tư đã kiểm ở đây.
+        sat: [
+          { id: 24, name: 'Ống sắt 25×25', specifications: '25×25×1.2mm', thickness: 1.2, unit: 'cây', quantity: 20, createdAt: '2026-07-01T01:00:00.000Z' },
+          { id: 25, name: 'Ống sắt Ø16',   specifications: 'Φ16×1.0mm',    thickness: 1.0, unit: 'cây', quantity: 40, createdAt: '2026-07-01T01:10:00.000Z' },
+          { id: 26, name: 'Ống sắt 25×50', specifications: '25×50×1.2mm', thickness: 1.2, unit: 'cây', quantity: 15, createdAt: '2026-07-01T01:20:00.000Z' },
+          { id: 27, name: 'Ống sắt 20×40', specifications: '20×40×1.5mm', thickness: 1.5, unit: 'cây', quantity: 15, createdAt: '2026-07-01T01:30:00.000Z' },
+        ],
+        daySon: [
+          { id: 23, name: 'Dây PE đen test',      specifications: 'Ø3mm, cuộn 500m',  kg: 3.0, unit: 'cuộn', createdAt: '2026-07-01T01:45:00.000Z' },
+          { id: 24, name: 'Sơn tĩnh điện đen test', specifications: 'RAL9005, bột mịn', kg: 1.5, unit: 'kg',    createdAt: '2026-07-01T02:00:00.000Z' },
+        ],
+        vatTuPhuKien: [
+          { id: 24, name: 'Ốc vít M6×20',        specifications: 'Inox 304',       unit: 'cái', quantity: 60, createdAt: '2026-07-01T02:15:00.000Z' },
+          { id: 25, name: 'Nắp nhựa đầu ống',     specifications: '25×25mm, PP đen', unit: 'cái', quantity: 20, createdAt: '2026-07-01T02:30:00.000Z' },
+          { id: 26, name: 'Đệm cao su chân ghế',  specifications: 'Dày 3mm',         unit: 'cái', quantity: 16, createdAt: '2026-07-01T02:45:00.000Z' },
+        ],
+        baoBiDongGoi: [
+          { id: 21, name: 'Thùng carton 5 lớp', specifications: '60×40×30cm', unit: 'thùng', quantity: 1, createdAt: '2026-07-01T03:00:00.000Z' },
+          { id: 22, name: 'Xốp PE bảo vệ',       specifications: 'Dày 5mm',    unit: 'm²',    quantity: 2, createdAt: '2026-07-01T03:15:00.000Z' },
+          { id: 23, name: 'Dây đai nhựa',        specifications: 'Rộng 15mm',  unit: 'm',     quantity: 3, createdAt: '2026-07-01T03:30:00.000Z' },
+        ],
+      },
+    },
+    // Định mức mảnh (tab "Định mức mảnh" ở Duyệt SKU/Danh sách SKU) — khác với seedFramePieces
+    // (BOM gốc theo sản phẩm, dùng ở "Quản lý định mức"): đây là dữ liệu account Sắt nhập riêng
+    // cho SKU/PO này. 4 mảnh, mỗi mảnh chỉ liệt kê loại SẮT (không gồm phụ kiện hàn như Pát/Chốt —
+    // ManhChildRow chỉ dành cho sắt, xem comment ManhChildRow trong types/plan-form.ts).
+    // qty ở đây là TỔNG số cây cần cho cả PO (100 ghế) theo từng mảnh — do account Sắt tính
+    // sẵn từ định mức/mảnh (FramePiece) nhân số lượng PO, không phải số cây cho 1 ghế. Tổng
+    // theo từng loại sắt phải khớp quotaManagement.sat ở trên.
+    manhItems: [
+      { id: 1, name: 'Mảnh Tựa', qtyPerSku: '1', children: [
+        { id: 1, name: 'Ống sắt 25×25', specs: '25×25×1.2mm', length: '680', qty: '20' },
+        { id: 2, name: 'Ống sắt Ø16',   specs: 'Φ16×1.0mm',    length: '450', qty: '20' },
+      ]},
+      { id: 2, name: 'Mảnh Mê', qtyPerSku: '1', children: [
+        { id: 3, name: 'Ống sắt 25×50', specs: '25×50×1.2mm', length: '500', qty: '15' },
+        { id: 4, name: 'Ống sắt 20×40', specs: '20×40×1.5mm', length: '480', qty: '15' },
+      ]},
+      { id: 3, name: 'Mảnh Tay Trái', qtyPerSku: '1', children: [
+        { id: 5, name: 'Ống sắt Ø16', specs: 'Φ16×1.0mm', length: '550', qty: '10' },
+      ]},
+      { id: 4, name: 'Mảnh Tay Phải', qtyPerSku: '1', children: [
+        { id: 6, name: 'Ống sắt Ø16', specs: 'Φ16×1.0mm', length: '550', qty: '10' },
+      ]},
+    ],
+    manhEntryMeta: { enteredBy: 'NV Sắt Đức', enteredAt: '2026-07-01T04:00:00.000Z' },
+    manhReviewStatus: { status: 'APPROVED', reviewedAt: '2026-07-01T04:30:00.000Z' },
   },
 ];
 
@@ -889,12 +987,55 @@ export const seedFrameProducts = [
   { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55', framePieceCount: 4 },
   { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3', framePieceCount: 3 },
   { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60', framePieceCount: 4 },
+  // id 4: TEST-01 — cùng id với seedMfgProducts (không bắt buộc, nhưng để dễ đối chiếu vì
+  // 2 danh sách này KHÔNG liên kết với nhau qua id, chỉ trùng ngẫu nhiên ở 3 dòng trên).
+  { id: 4, factoryCode: 'TEST-01', name: 'Ghế Test Đầy Đủ', framePieceCount: 4 },
 ];
 
+// Định mức mảnh của TEST-01 — 4 mảnh ghép thành 1 ghế: Tựa, Mê, Tay trái, Tay phải. Mảnh
+// nào cũng có thể đan được (isWoven không cố định theo loại mảnh, tùy sản phẩm) — cả 4 mảnh
+// đều đánh dấu isWoven ở đây. Mỗi mảnh có vật tư sắt riêng, cắt (Phôi) → hàn (Hàn) → sơn (Sơn)
+// thành "khung hàn" rồi "mảnh chưa đan"; xuất đan/nhập đan xong thành "mảnh đã đan" (thành
+// phẩm). Vật tư khung: nhóm Sắt ống + phụ kiện hàn-vào-khung (Pát/Ô tròn lỗ dù) — không gồm
+// phụ kiện lắp ráp (bulong, ốc...) do Mua hàng lo riêng.
 export const seedFramePieces = [
   { id: 1, productId: 1, code: 'GHE-J55-1', name: 'Ghế J55 - Đế', groupNumber: 1, materials: [] },
   { id: 2, productId: 1, code: 'GHE-J55-2', name: 'Ghế J55 - Lưng', groupNumber: 1, materials: [] },
   { id: 3, productId: 2, code: 'IEA-3-1', name: 'Ghế IEA-3 - Khung', groupNumber: 1, materials: [] },
+  {
+    id: 10, productId: 4, code: 'TEST-01.1.1', name: 'Mảnh Tựa', groupNumber: 1, pieceNumber: 1,
+    quantityPerSet: 1, isWoven: true, weavingPrice: 15000,
+    materials: [
+      { id: 101, materialId: 1,  material: { id: 1,  code: 'SAT-25',      name: 'Ống sắt 25×25', unit: 'cm',  materialGroupId: 1, materialGroup: { name: 'Sắt ống' } }, quantity: 136, spec: '25×25×1.2mm',   cutLengthMm: 680, piecesPerFrame: 2, operations: ['CAT', 'UON'], needsHan: true, needsSon: true },
+      { id: 102, materialId: 13, material: { id: 13, code: 'SAT-16',      name: 'Ống sắt Ø16',   unit: 'cm',  materialGroupId: 1, materialGroup: { name: 'Sắt ống' } }, quantity: 90,  spec: 'Φ16×1.0mm',      cutLengthMm: 450, piecesPerFrame: 2, operations: ['CAT'],        needsHan: true, needsSon: true },
+      { id: 103, materialId: 16, material: { id: 16, code: 'PAT-KINH',    name: 'Pát kính',      unit: 'cái', materialGroupId: 3, materialGroup: { name: 'Phụ kiện' } }, quantity: 2,   spec: 'Pát kính 3 lỗ',   cutLengthMm: null, piecesPerFrame: 2, operations: ['DUC_LO'],     needsHan: true, needsSon: false },
+    ],
+  },
+  {
+    id: 11, productId: 4, code: 'TEST-01.1.2', name: 'Mảnh Mê', groupNumber: 1, pieceNumber: 2,
+    quantityPerSet: 1, isWoven: true, weavingPrice: 20000,
+    materials: [
+      { id: 104, materialId: 8,  material: { id: 8,  code: 'SAT-50X25',   name: 'Ống sắt 25×50',    unit: 'cm',  materialGroupId: 1, materialGroup: { name: 'Sắt ống' } }, quantity: 100, spec: '25×50×1.2mm', cutLengthMm: 500, piecesPerFrame: 2, operations: ['CAT', 'DUC_LO'], needsHan: true, needsSon: true },
+      { id: 105, materialId: 3,  material: { id: 3,  code: 'SAT-20',      name: 'Ống sắt 20×40',    unit: 'cm',  materialGroupId: 1, materialGroup: { name: 'Sắt ống' } }, quantity: 96,  spec: '20×40×1.5mm', cutLengthMm: 480, piecesPerFrame: 2, operations: ['CAT'],            needsHan: true, needsSon: true },
+      { id: 106, materialId: 11, material: { id: 11, code: 'O-TRON-LO-DU', name: 'Ô tròn lỗ dù',    unit: 'cái', materialGroupId: 3, materialGroup: { name: 'Phụ kiện' } }, quantity: 4,   spec: 'Φ25mm',       cutLengthMm: null, piecesPerFrame: 4, operations: ['DUC_LO'],         needsHan: true, needsSon: false },
+    ],
+  },
+  {
+    id: 12, productId: 4, code: 'TEST-01.2.1', name: 'Mảnh Tay Trái', groupNumber: 2, pieceNumber: 1,
+    quantityPerSet: 1, isWoven: true, weavingPrice: 10000,
+    materials: [
+      { id: 107, materialId: 13, material: { id: 13, code: 'SAT-16',  name: 'Ống sắt Ø16', unit: 'cm',  materialGroupId: 1, materialGroup: { name: 'Sắt ống' } }, quantity: 55, spec: 'Φ16×1.0mm',         cutLengthMm: 550, piecesPerFrame: 1, operations: ['CAT', 'UON'], needsHan: true, needsSon: true },
+      { id: 108, materialId: 9,  material: { id: 9,  code: 'CHOT-10', name: 'Chốt 10mm',   unit: 'cái', materialGroupId: 3, materialGroup: { name: 'Phụ kiện' } }, quantity: 2,  spec: 'Chốt định vị 10mm', cutLengthMm: null, piecesPerFrame: 2, operations: [],             needsHan: true, needsSon: false },
+    ],
+  },
+  {
+    id: 13, productId: 4, code: 'TEST-01.2.2', name: 'Mảnh Tay Phải', groupNumber: 2, pieceNumber: 2,
+    quantityPerSet: 1, isWoven: true, weavingPrice: 10000,
+    materials: [
+      { id: 109, materialId: 13, material: { id: 13, code: 'SAT-16',  name: 'Ống sắt Ø16', unit: 'cm',  materialGroupId: 1, materialGroup: { name: 'Sắt ống' } }, quantity: 55, spec: 'Φ16×1.0mm',         cutLengthMm: 550, piecesPerFrame: 1, operations: ['CAT', 'UON'], needsHan: true, needsSon: true },
+      { id: 110, materialId: 9,  material: { id: 9,  code: 'CHOT-10', name: 'Chốt 10mm',   unit: 'cái', materialGroupId: 3, materialGroup: { name: 'Phụ kiện' } }, quantity: 2,  spec: 'Chốt định vị 10mm', cutLengthMm: null, piecesPerFrame: 2, operations: [],             needsHan: true, needsSon: false },
+    ],
+  },
 ];
 
 // Danh sách tài khoản demo (MOCK_ACCOUNTS) được đưa vào mockStore dưới dạng
