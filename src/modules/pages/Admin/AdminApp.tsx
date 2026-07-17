@@ -1,6 +1,6 @@
 'use client'
 import { useState } from 'react'
-import { LayoutDashboard, Users, History, Database, Bell, Settings, Briefcase, Activity, LogOut } from 'lucide-react'
+import { LayoutDashboard, Users, History, Database, Bell, Settings, Briefcase, Activity, LogOut, Warehouse } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import DashboardPage from './DashboardPage'
 import UsersPage from './UsersPage'
@@ -10,15 +10,17 @@ import BusinessDataPage from './BusinessDataPage'
 import NotificationsPage from './NotificationsPage'
 import SystemConfigPage from './SystemConfigPage'
 import SystemStatusPage from './SystemStatusPage'
+import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 
 const ACCENT    = '#3949ab'
 const ACCENT_BG = '#e8eaf6'
 
-type AdminPage = 'dashboard' | 'users' | 'audit-log' | 'master-data' | 'business-data' | 'notifications' | 'system-config' | 'system-status'
+type AdminPage = 'dashboard' | 'users' | 'warehouses' | 'audit-log' | 'master-data' | 'business-data' | 'notifications' | 'system-config' | 'system-status'
 
 const NAV_ITEMS: { id: AdminPage; label: string; icon: React.ReactNode; enabled: boolean }[] = [
   { id: 'dashboard',      label: 'Tổng quan',               icon: <LayoutDashboard size={16} />, enabled: true },
   { id: 'users',          label: 'Người dùng & Phân quyền', icon: <Users size={16} />,           enabled: true },
+  { id: 'warehouses',     label: 'Quản lý kho thành phẩm',           icon: <Warehouse size={16} />,       enabled: true },
   { id: 'audit-log',      label: 'Nhật ký hoạt động',        icon: <History size={16} />,         enabled: true },
   { id: 'master-data',    label: 'Danh mục hệ thống',        icon: <Database size={16} />,        enabled: true },
   { id: 'business-data',  label: 'Module nghiệp vụ',         icon: <Briefcase size={16} />,       enabled: true },
@@ -94,6 +96,7 @@ export default function AdminApp() {
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
         {page === 'dashboard'      && <DashboardPage onViewAuditLog={() => setPage('audit-log')} />}
         {page === 'users'          && <UsersPage />}
+        {page === 'warehouses'     && <MfgWarehousesPage />}
         {page === 'audit-log'      && <AuditLogPage />}
         {page === 'master-data'    && <MasterDataPage />}
         {page === 'business-data'  && <BusinessDataPage />}

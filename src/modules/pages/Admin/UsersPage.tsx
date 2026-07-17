@@ -39,6 +39,8 @@ const WAREHOUSE_SCOPE_LABEL: Record<string, string> = {
   'day': 'Dây',
   'sat': 'Sắt',
   'thanh-pham': 'Thành phẩm',
+  'thanh-pham-2': 'Thành phẩm 2',
+  'thanh-pham-3': 'Thành phẩm 3',
   'vat-tu-tp': 'Vật tư / Thành phẩm',
   'phoi-son-han': 'Phôi Sơn Hàn',
 }

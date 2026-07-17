@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, ScanSearch, BarChart3, MapPin, Scissors } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 // Tái dùng nguyên các màn kho đã có (trước đây nằm trong MES) — KHÔNG viết lại logic.
-import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
+import MfgWarehousesPage, { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 import MfgAllMaterialsPage from '../Manufacturing/MfgAllMaterialsPage'
 import NhapKhoPage from '../Manufacturing/NhapKhoPage'
 import XuatKhoPage from '../Manufacturing/XuatKhoPage'
@@ -31,7 +31,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   const scope = user?.warehouseScope ?? null
 
   // Chuyền kiểm + Đóng gói: kho thành phẩm + kho bao bì đóng gói + tổng kho (scope null). GĐ cũng thấy.
-  const canSeePacking = scope === null || scope === 'thanh-pham' || scope === 'bao-bi' || scope === 'vat-tu-tp' || scope === 'phoi-son-han'
+  const canSeePacking = scope === null || isThanhPhamScope(scope) || scope === 'bao-bi' || scope === 'vat-tu-tp' || scope === 'phoi-son-han'
 
   type TabId = 'materials' | 'warehouses' | 'kiem-tra' | 'nhap-kho' | 'xuat-kho' | 'xuat-sat' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan'
   const ALL_TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
@@ -55,12 +55,12 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   const TABS = (() => {
     if (scope === 'vat-tu-tp')    return ALL_TABS.filter(t => ['materials','kiem-tra','nhap-kho','xuat-kho','xuat-dan','diem-dan'].includes(t.id))
     if (scope === 'phoi-son-han') return ALL_TABS.filter(t => ['materials','kiem-tra','nhap-kho','xuat-kho','xuat-sat'].includes(t.id))
-    if (scope === 'thanh-pham')   return ALL_TABS.filter(t => ['materials','kiem-tra','nhap-kho','xuat-kho','chuyen-kiem','dong-goi','nhap-dan'].includes(t.id))
+    if (isThanhPhamScope(scope)) return ALL_TABS.filter(t => ['materials','kiem-tra','nhap-kho','xuat-kho','chuyen-kiem','dong-goi','nhap-dan'].includes(t.id))
     if (scope) return ALL_TABS.filter(t => t.id !== 'materials' && t.id !== 'kiem-tra')
     return ALL_TABS.filter(t => t.id !== 'kiem-tra')
   })()
 
-  const [tab, setTab] = useState<TabId>(scope === 'vat-tu-tp' || scope === 'phoi-son-han' || scope === 'thanh-pham' ? 'materials' : scope ? 'warehouses' : 'materials')
+  const [tab, setTab] = useState<TabId>(scope === 'vat-tu-tp' || scope === 'phoi-son-han' || isThanhPhamScope(scope) ? 'materials' : scope ? 'warehouses' : 'materials')
   const navBtn = (active: boolean): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 9, width: '100%',
     padding: '8px 10px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
@@ -74,7 +74,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     ? 'Giám đốc'
     : scope === 'vat-tu-tp'    ? 'Thủ kho · Vật tư / TP'
     : scope === 'phoi-son-han' ? 'Thủ kho · Phôi Sơn Hàn'
-    : scope === 'thanh-pham'   ? 'Thủ kho · Thành Phẩm'
+    : isThanhPhamScope(scope) ? 'Thủ kho · Thành Phẩm'
     : scope ? `Thủ kho · ${scope}` : 'Thủ kho (tổng)'
 
   return (
@@ -140,19 +140,19 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
 
       {/* ── Main content ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        {tab === 'materials'  && (scope === 'vat-tu-tp' || scope === 'phoi-son-han' || scope === 'thanh-pham' || !scope) && <MfgAllMaterialsPage
+        {tab === 'materials'  && (scope === 'vat-tu-tp' || scope === 'phoi-son-han' || isThanhPhamScope(scope) || !scope) && <MfgAllMaterialsPage
           limitCats={
             scope === 'vat-tu-tp'      ? ['thanhPham', 'vatTuThanhPham', 'manhChuaDan']
             : scope === 'phoi-son-han' ? ['sat', 'vatTuThanhPham', 'manhChuaDan']
-            : scope === 'thanh-pham'   ? ['thanhPham', 'vatTuThanhPham', 'manhDaDan', 'baoBiDongGoi']
+            : isThanhPhamScope(scope)  ? ['thanhPham', 'vatTuThanhPham', 'manhDaDan', 'baoBiDongGoi']
             : undefined
           }
-          manhWarehouseCode={scope ?? undefined}
+          manhWarehouseCode={isThanhPhamScope(scope) ? 'thanh-pham' : (scope ?? undefined)}
         />}
         {tab === 'warehouses' && <MfgWarehousesPage groupKey={scope} />}
         {tab === 'kiem-tra'   && <KiemTraVatTuPage
-          limitCats={scope === 'phoi-son-han' ? ['sat', 'son'] : scope === 'vat-tu-tp' ? ['day', 'vatTuPhuKien'] : scope === 'thanh-pham' ? ['baoBiDongGoi'] : undefined}
-          inspKhoKey={scope === 'phoi-son-han' ? 'phoiSonHan' : scope === 'vat-tu-tp' ? 'vatTuTP' : scope === 'thanh-pham' ? 'thanhPham' : undefined}
+          limitCats={scope === 'phoi-son-han' ? ['sat', 'son'] : scope === 'vat-tu-tp' ? ['day', 'vatTuPhuKien'] : isThanhPhamScope(scope) ? ['baoBiDongGoi'] : undefined}
+          inspKhoKey={scope === 'phoi-son-han' ? 'phoiSonHan' : scope === 'vat-tu-tp' ? 'vatTuTP' : isThanhPhamScope(scope) ? 'thanhPham' : undefined}
         />}
         {tab === 'nhap-kho'   && <NhapKhoPage lockedGroup={scope} />}
         {tab === 'xuat-kho'   && (scope ? <WarehouseXuatPage scope={scope} /> : <XuatKhoPage lockedGroup={scope} />)}
@@ -160,7 +160,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         {tab === 'chuyen-kiem' && canSeePacking && <KhoChuyenKiemPage />}
         {tab === 'dong-goi'    && canSeePacking && <KhoDongGoiPage />}
         {tab === 'xuat-dan'   && scope === 'vat-tu-tp'   && <KhoXuatDanPage />}
-        {tab === 'nhap-dan'   && scope === 'thanh-pham'  && <KhoNhapDanPage />}
+        {tab === 'nhap-dan'   && isThanhPhamScope(scope) && <KhoNhapDanPage />}
         {tab === 'diem-dan'   && scope === 'vat-tu-tp'   && <QuanLyDiemDanPage />}
       </div>
     </div>

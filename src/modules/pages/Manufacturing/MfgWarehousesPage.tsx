@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useAuth } from '../../../context/AuthContext'
+import { createUser } from '../../../services/api'
 import { Plus, Trash2, X, ArrowLeft, Warehouse, Search } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -95,6 +96,42 @@ export const INITIAL_WAREHOUSES: Wh[] = [
       { id: 311, name: 'Màng PE bọc sản phẩm',            unit: 'cuộn',quantity:  24 },
     ],
   },
+  {
+    id: 'thanh-pham-2',
+    name: 'Kho thành phẩm 2',
+    category: 'Thành phẩm nhựa và nội thất ngoài trời',
+    txns: [],
+    items: [
+      { id: 401, name: 'Ghế nhựa đúc liền khối – trắng',   unit: 'cái',  quantity: 220 },
+      { id: 402, name: 'Ghế nhựa đúc liền khối – xanh rêu', unit: 'cái', quantity: 156 },
+      { id: 403, name: 'Bàn nhựa tròn Ø70',                unit: 'cái',  quantity:  98 },
+      { id: 404, name: 'Kệ sắt 3 tầng đa năng',            unit: 'cái',  quantity:  54 },
+      { id: 405, name: 'Kệ sắt 5 tầng đa năng',            unit: 'cái',  quantity:  32 },
+      { id: 406, name: 'Xe đẩy hàng mini',                 unit: 'cái',  quantity:  40 },
+      { id: 407, name: 'Ghế bố xếp gọn',                   unit: 'cái',  quantity: 210 },
+      { id: 408, name: 'Dù che nắng lệch tâm',              unit: 'cái',  quantity:  15 },
+      { id: 409, name: 'Bao bì carton 3 lớp',              unit: 'cái',  quantity: 400 },
+      { id: 410, name: 'Túi PE đóng gói lớn',               unit: 'cái',  quantity: 180 },
+    ],
+  },
+  {
+    id: 'thanh-pham-3',
+    name: 'Kho thành phẩm 3',
+    category: 'Thành phẩm dã ngoại và đồ gia dụng',
+    txns: [],
+    items: [
+      { id: 501, name: 'Giường lưới xếp gọn',              unit: 'cái',  quantity:  60 },
+      { id: 502, name: 'Võng xếp khung thép',              unit: 'cái',  quantity:  85 },
+      { id: 503, name: 'Ghế xích đu đôi',                  unit: 'cái',  quantity:  22 },
+      { id: 504, name: 'Bàn xếp dã ngoại',                 unit: 'cái',  quantity:  48 },
+      { id: 505, name: 'Ô dù sân vườn lớn',                unit: 'cái',  quantity:  12 },
+      { id: 506, name: 'Kệ giày nhựa 4 tầng',              unit: 'cái',  quantity: 130 },
+      { id: 507, name: 'Thùng nhựa đựng đồ 50L',           unit: 'cái',  quantity:  90 },
+      { id: 508, name: 'Rổ nhựa công nghiệp',              unit: 'cái',  quantity: 260 },
+      { id: 509, name: 'Màng co bọc hàng',                 unit: 'cuộn', quantity:  35 },
+      { id: 510, name: 'Nhãn mác đóng gói',                unit: 'tờ',   quantity: 500 },
+    ],
+  },
 ]
 
 // ── Config nhóm (dùng cho WarehouseTabsPage & filterWarehousesByGroup) ────────
@@ -115,14 +152,22 @@ export function filterWarehousesByGroup<T extends { name: string }>(list: T[], g
 
 const BASE_IDS = new Set(['phoi-son-han', 'vat-tu-tp', 'thanh-pham'])
 
+/** true nếu scope thuộc "họ" kho thành phẩm — kho gốc 'thanh-pham' hoặc kho phụ 'thanh-pham-{n}'. */
+export function isThanhPhamScope(scope?: string | null): boolean {
+  return scope === 'thanh-pham' || !!scope?.startsWith('thanh-pham-')
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | null }) {
   const { user } = useAuth()
   const canWrite = user?.mfgRole === 'PRODUCTION_MANAGER'
+  const isAdmin  = user?.role === 'ADMIN'
 
   const [warehouses, setWarehouses] = useState<Wh[]>(INITIAL_WAREHOUSES)
   const [openId, setOpenId]         = useState<string | null>(null)
+  const [newAccount, setNewAccount] = useState<{ whName: string; email: string; password: string } | null>(null)
+  const [creating, setCreating]     = useState(false)
 
   const group = groupKey ? WAREHOUSE_GROUPS.find(g => g.key === groupKey) : null
 
@@ -133,17 +178,43 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
 
   const isThanhPhamContext = !group || group.key === 'all' || group.key === 'thanh-pham'
 
-  const createThanhPham = () => {
-    const template = warehouses.find(w => w.id === 'thanh-pham')!
-    const count    = warehouses.filter(w => w.id.startsWith('thanh-pham')).length
-    const newWh: Wh = {
-      id:       `thanh-pham-${Date.now()}`,
-      name:     `Kho thành phẩm ${count + 1}`,
-      category: template.category,
-      items:    template.items.map(it => ({ ...it, quantity: 0 })),
-      txns:     [],
+  // Tạo kho thành phẩm mới + tài khoản thủ kho riêng, hoạt động độc lập với các kho
+  // thành phẩm khác (chỉ quản lý đúng kho vừa tạo) nhưng có đầy đủ chức năng như
+  // khotp@demo.com (xem generalize scope 'thanh-pham-{n}' trong InboundWarehouseApp).
+  const createThanhPham = async () => {
+    if (creating) return
+    setCreating(true)
+    try {
+      const template = warehouses.find(w => w.id === 'thanh-pham')!
+      const count    = warehouses.filter(w => w.id === 'thanh-pham' || w.id.startsWith('thanh-pham-')).length
+      const n        = count + 1
+      const whId     = `thanh-pham-${Date.now()}`
+      const whName   = `Kho thành phẩm ${n}`
+
+      const newWh: Wh = {
+        id:       whId,
+        name:     whName,
+        category: template.category,
+        items:    [],
+        txns:     [],
+      }
+
+      const name  = `Thủ kho Thành Phẩm ${n}`
+      let   email = `khotp${n}@demo.com`
+      const password = 'demo1234'
+      try {
+        await createUser({ name, email, password, role: 'WAREHOUSE_STAFF', warehouseScope: whId })
+      } catch {
+        // email trùng (vd. đã có khotp{n}@demo.com từ trước) — fallback email duy nhất theo timestamp
+        email = `khotp${n}.${Date.now()}@demo.com`
+        await createUser({ name, email, password, role: 'WAREHOUSE_STAFF', warehouseScope: whId })
+      }
+
+      setWarehouses(prev => [...prev, newWh])
+      setNewAccount({ whName, email, password })
+    } finally {
+      setCreating(false)
     }
-    setWarehouses(prev => [...prev, newWh])
   }
 
   const updateWh  = (updated: Wh) => setWarehouses(prev => prev.map(w => w.id === updated.id ? updated : w))
@@ -166,9 +237,9 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
     <div>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
         <h2 style={{ fontSize: 20, fontWeight: 700 }}>{group ? group.label : 'Tổng hợp kho'}</h2>
-        {isThanhPhamContext && (
-          <button onClick={createThanhPham} style={btnPrimary}>
-            <Plus size={14} /> Tạo kho thành phẩm mới
+        {isThanhPhamContext && isAdmin && (
+          <button onClick={createThanhPham} disabled={creating} style={{ ...btnPrimary, opacity: creating ? 0.6 : 1, cursor: creating ? 'wait' : 'pointer' }}>
+            <Plus size={14} /> {creating ? 'Đang tạo...' : 'Tạo kho thành phẩm mới'}
           </button>
         )}
       </div>
@@ -181,7 +252,6 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
           <WhCard
             key={wh.id}
             wh={wh}
-            isExtra={!BASE_IDS.has(wh.id)}
             onOpen={() => setOpenId(wh.id)}
           />
         ))}
@@ -190,34 +260,67 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
       {visibleWhs.length === 0 && (
         <div style={{ color: 'var(--text3)', marginTop: 12 }}>Nhóm này chưa có kho.</div>
       )}
+
+      {newAccount && (
+        <NewAccountModal account={newAccount} onClose={() => setNewAccount(null)} />
+      )}
     </div>
+  )
+}
+
+// ── Modal thông báo tài khoản thủ kho vừa tạo ─────────────────────────────────
+
+function NewAccountModal({ account, onClose }: {
+  account: { whName: string; email: string; password: string }
+  onClose: () => void
+}) {
+  return (
+    <Overlay onClose={onClose}>
+      <div style={modalCard}>
+        <ModalHead title="Đã tạo kho + tài khoản thủ kho" onClose={onClose} />
+        <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>
+          Đã tạo <strong>{account.whName}</strong> và một tài khoản thủ kho riêng, hoạt động độc lập,
+          chỉ quản lý đúng kho này (đầy đủ chức năng như các thủ kho thành phẩm khác).
+        </div>
+        <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 12, fontSize: 13 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+            <span style={{ color: 'var(--text3)' }}>Email đăng nhập</span>
+            <strong>{account.email}</strong>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'var(--text3)' }}>Mật khẩu</span>
+            <strong>{account.password}</strong>
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+          <button onClick={onClose} style={btnPrimary}>Đã hiểu</button>
+        </div>
+      </div>
+    </Overlay>
   )
 }
 
 // ── Thẻ kho ───────────────────────────────────────────────────────────────────
 
-function WhCard({ wh, isExtra, onOpen }: { wh: Wh; isExtra: boolean; onOpen: () => void }) {
+function WhCard({ wh, onOpen }: { wh: Wh; onOpen: () => void }) {
   return (
     <button
       onClick={onOpen}
       style={{
         textAlign: 'left', cursor: 'pointer', padding: 16, borderRadius: 'var(--radius)',
-        border: `1px solid ${isExtra ? '#fdba74' : 'var(--border)'}`,
-        background: isExtra ? '#fff7ed' : 'var(--surface)',
+        border: '1px solid var(--border)',
+        background: 'var(--surface)',
         transition: 'box-shadow .1s',
       }}
       onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,.08)' }}
       onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none' }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <Warehouse size={18} color={isExtra ? '#ea580c' : '#e65100'} />
+        <Warehouse size={18} color="#e65100" />
         <span style={{ fontWeight: 700, fontSize: 15 }}>{wh.name}</span>
       </div>
       <div style={{ fontSize: 12, color: 'var(--text2)' }}>{wh.category}</div>
-      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-          {isExtra ? 'Kho phụ (nội bộ)' : ' '}
-        </div>
+      <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end' }}>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#e65100', lineHeight: 1 }}>
             {wh.items.length} mặt hàng
@@ -277,11 +380,6 @@ function WarehouseDetail({ wh, canWrite, isDeletable, onBack, onUpdate, onDelete
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap' }}>
         <button onClick={onBack} style={btnGhost}><ArrowLeft size={16} /> Kho</button>
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{wh.name}</h2>
-        {isDeletable && (
-          <span style={{ fontSize: 11, color: '#ea580c', fontWeight: 600, padding: '2px 8px', background: '#fff7ed', borderRadius: 10, border: '1px solid #fdba74' }}>
-            Kho phụ
-          </span>
-        )}
         {tab === 'stock' && (
           <>
             <div style={{ flex: 1 }} />
