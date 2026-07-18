@@ -4,6 +4,7 @@ import type { PlanForm, ManhRow } from '../types/plan-form'
 import type { WarehouseScope } from './AuthContext'
 import { useAuditLog } from './AuditLogContext'
 import { syncDinhMucSatVaoKeHoach, syncDinhMucSatVaoLenhPhoi, type DinhMucSatSyncItem } from '../services/api'
+import { flattenManhSteel, combinedDaySon } from '../utils/manhMaterials'
 
 export const PROPOSAL_ENTITY = 'PurchaseProposal'
 
@@ -134,16 +135,17 @@ const isSon = (name: string) => /sơn|son|primer|lót|phủ|hardener|thinner/i.t
 // day/vatTuPhuKien -> vật tư thành phẩm, baoBiDongGoi -> kho thành phẩm (nơi đóng gói).
 function buildKhoItems(pf: PlanForm): { phoiSonHan: InspItem[]; vatTuTP: InspItem[]; thanhPham: InspItem[] } {
   const mt = pf.quotaManagement?.materialType
+  const daySon = combinedDaySon(pf)
   const toItem = (name: string, unit: string, required: number): InspItem => ({
     name, unit, required: Math.max(0, required), actualStock: null,
   })
   return {
     phoiSonHan: [
-      ...(mt?.sat    ?? []).map(x => toItem(x.name, x.unit ?? 'kg', x.quantity ?? 0)),
-      ...(mt?.daySon ?? []).filter(x => isSon(x.name)).map(x => toItem(x.name, x.unit ?? 'kg', x.kg ?? 0)),
+      ...flattenManhSteel(pf).map(x => toItem(x.name, x.unit ?? 'kg', x.quantity ?? 0)),
+      ...daySon.filter(x => isSon(x.name)).map(x => toItem(x.name, x.unit ?? 'kg', x.kg ?? 0)),
     ],
     vatTuTP: [
-      ...(mt?.daySon       ?? []).filter(x => !isSon(x.name)).map(x => toItem(x.name, x.unit ?? 'm',   x.kg       ?? 0)),
+      ...daySon.filter(x => !isSon(x.name)).map(x => toItem(x.name, x.unit ?? 'm', x.kg ?? 0)),
       ...(mt?.vatTuPhuKien ?? []).map(x => toItem(x.name, x.unit ?? 'cái', x.quantity ?? 0)),
     ],
     thanhPham: [
@@ -331,7 +333,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
         skuName:          pf.mfgProduct?.name,
         sentAt:           new Date().toISOString(),
         deadline:         pf.exportOrder?.deliveryDate,
-        manhItems:        pf.manhItems,
+        manhItems:        pf.manhData?.sat,
         phoiSonHan:       { status: 'pending', items: phoiSonHan },
         vatTuTP:          { status: 'pending', items: vatTuTP },
         thanhPham:        { status: 'pending', items: thanhPham },

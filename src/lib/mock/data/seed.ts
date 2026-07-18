@@ -584,9 +584,10 @@ export const seedPlanForms: PlanForm[] = [
     quotaManagement: {
       id: 11,
       materialType: {
-        // Khớp tên + tổng số lượng với manhItems bên dưới (20 = 20 Mảnh Tựa; 40 = 20 Tựa +
+        // Khớp tên + tổng số lượng với manhData.sat bên dưới (20 = 20 Mảnh Tựa; 40 = 20 Tựa +
         // 10 Tay Trái + 10 Tay Phải; 15/15 = Mảnh Mê) — để lúc "Bắt đầu sản xuất" đồng bộ
         // sang "Xuất sắt cho Phôi" theo đúng mảnh mà tổng vẫn khớp với vật tư đã kiểm ở đây.
+        // Nhóm sat này chỉ còn là dữ liệu lịch sử — định mức chi tiết không còn nhập/hiển thị Sắt nữa.
         sat: [
           { id: 24, name: 'Ống sắt 25×25', specifications: '25×25×1.2mm', thickness: 1.2, unit: 'cây', quantity: 20, createdAt: '2026-07-01T01:00:00.000Z' },
           { id: 25, name: 'Ống sắt Ø16',   specifications: 'Φ16×1.0mm',    thickness: 1.0, unit: 'cây', quantity: 40, createdAt: '2026-07-01T01:10:00.000Z' },
@@ -616,24 +617,36 @@ export const seedPlanForms: PlanForm[] = [
     // qty ở đây là TỔNG số cây cần cho cả PO (100 ghế) theo từng mảnh — do account Sắt tính
     // sẵn từ định mức/mảnh (FramePiece) nhân số lượng PO, không phải số cây cho 1 ghế. Tổng
     // theo từng loại sắt phải khớp quotaManagement.sat ở trên.
-    manhItems: [
-      { id: 1, name: 'Mảnh Tựa', qtyPerSku: '1', children: [
-        { id: 1, name: 'Ống sắt 25×25', specs: '25×25×1.2mm', length: '680', qty: '20' },
-        { id: 2, name: 'Ống sắt Ø16',   specs: 'Φ16×1.0mm',    length: '450', qty: '20' },
-      ]},
-      { id: 2, name: 'Mảnh Mê', qtyPerSku: '1', children: [
-        { id: 3, name: 'Ống sắt 25×50', specs: '25×50×1.2mm', length: '500', qty: '15' },
-        { id: 4, name: 'Ống sắt 20×40', specs: '20×40×1.5mm', length: '480', qty: '15' },
-      ]},
-      { id: 3, name: 'Mảnh Tay Trái', qtyPerSku: '1', children: [
-        { id: 5, name: 'Ống sắt Ø16', specs: 'Φ16×1.0mm', length: '550', qty: '10' },
-      ]},
-      { id: 4, name: 'Mảnh Tay Phải', qtyPerSku: '1', children: [
-        { id: 6, name: 'Ống sắt Ø16', specs: 'Φ16×1.0mm', length: '550', qty: '10' },
-      ]},
-    ],
-    manhEntryMeta: { enteredBy: 'NV Sắt Đức', enteredAt: '2026-07-01T04:00:00.000Z' },
-    manhReviewStatus: { status: 'APPROVED', reviewedAt: '2026-07-01T04:30:00.000Z' },
+    manhData: {
+      sat: [
+        { id: 1, name: 'Mảnh Tựa', qtyPerSku: '1', children: [
+          { id: 1, name: 'Ống sắt 25×25', specs: '25×25×1.2mm', length: '680', qty: '20' },
+          { id: 2, name: 'Ống sắt Ø16',   specs: 'Φ16×1.0mm',    length: '450', qty: '20' },
+        ]},
+        { id: 2, name: 'Mảnh Mê', qtyPerSku: '1', children: [
+          { id: 3, name: 'Ống sắt 25×50', specs: '25×50×1.2mm', length: '500', qty: '15' },
+          { id: 4, name: 'Ống sắt 20×40', specs: '20×40×1.5mm', length: '480', qty: '15' },
+        ]},
+        { id: 3, name: 'Mảnh Tay Trái', qtyPerSku: '1', children: [
+          { id: 5, name: 'Ống sắt Ø16', specs: 'Φ16×1.0mm', length: '550', qty: '10' },
+        ]},
+        { id: 4, name: 'Mảnh Tay Phải', qtyPerSku: '1', children: [
+          { id: 6, name: 'Ống sắt Ø16', specs: 'Φ16×1.0mm', length: '550', qty: '10' },
+        ]},
+      ],
+      // Mảnh dây — tách ra từ "Dây/Sơn" chi tiết cũ, do NV Dây/Sơn nhập ở bước định mức mảnh.
+      daySon: [
+        { id: 100, name: 'Dây PE đen test', specifications: 'Ø3mm, cuộn 500m', kg: 3.0, unit: 'cuộn', createdAt: '2026-07-01T01:45:00.000Z' },
+      ],
+    },
+    manhEntryMeta: {
+      sat: { enteredBy: 'NV Sắt Đức', enteredAt: '2026-07-01T04:00:00.000Z' },
+      daySon: { enteredBy: 'NV Dây/Sơn Hà', enteredAt: '2026-07-01T04:10:00.000Z' },
+    },
+    manhReviewStatus: {
+      sat: { status: 'APPROVED', reviewedAt: '2026-07-01T04:30:00.000Z' },
+      daySon: { status: 'APPROVED', reviewedAt: '2026-07-01T04:35:00.000Z' },
+    },
   },
 ];
 

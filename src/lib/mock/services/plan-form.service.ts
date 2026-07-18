@@ -3,7 +3,9 @@ import { mockStore } from '../core/store';
 import { nextId } from '../core/id';
 import { BaseService } from '../core/base.service';
 import { assertBossRole, assertProdMgrRole } from '../core/auth-guard';
-import type { CreatePlanFormPayload, ManhRow, MaterialType, PlanForm, PlanFormStatus, QuotaEntryMeta, QuotaReviewStatus } from '../../../types/plan-form';
+import type { CreatePlanFormPayload, ManhGroup, MaterialType, PlanForm, PlanFormStatus, QuotaEntryMeta, QuotaReviewStatus } from '../../../types/plan-form';
+
+type ManhData = NonNullable<PlanForm['manhData']>;
 
 // ─── Service class ────────────────────────────────────────────────────────────
 
@@ -111,7 +113,7 @@ class PlanFormService extends BaseService<PlanForm> {
         id: nextId(),
         exportOrderId: data.exportOrderId,
         mfgProductId: data.mfgProductId,
-        status: 'WAITING_DETAIL',
+        status: 'WAITING_PARTS',
         note: data.note,
         customerName: data.customerName ?? null,
         origin: data.origin,
@@ -155,10 +157,11 @@ class PlanFormService extends BaseService<PlanForm> {
     return this.enrich(updated);
   }
 
-  async approveDetail(id: number): Promise<PlanForm> { return this.transition(id, 'WAITING_PARTS'); }
-  async approveParts(id: number):  Promise<PlanForm> { return this.transition(id, 'APPROVED_PARTS'); }
-  /** KHSX gửi danh sách mảnh đã duyệt cho Quản lý sản xuất (QLSX) duyệt trước, trước khi tới sếp. */
-  async requestQlsxApproval(id: number): Promise<PlanForm> { return this.transition(id, 'WAITING_QLSX_APPROVAL'); }
+  /** KHSX duyệt xong toàn bộ nhóm định mức chi tiết (Sơn/Đinh, Phụ kiện, Bao bì) → gửi thẳng
+   *  Quản lý sản xuất (QLSX) duyệt, vì định mức mảnh đã xong ở bước trước đó rồi. */
+  async approveDetail(id: number): Promise<PlanForm> { return this.transition(id, 'WAITING_QLSX_APPROVAL'); }
+  /** KHSX duyệt xong toàn bộ nhóm định mức mảnh (Sắt, Dây) → gửi bộ phận nhập định mức chi tiết. */
+  async approveParts(id: number):  Promise<PlanForm> { return this.transition(id, 'WAITING_DETAIL'); }
 
   /** QLSX duyệt cục bộ — chưa chuyển status, chỉ mở khóa nút "Gửi sếp duyệt" (xem requestBossApproval). */
   async reviewQlsx(id: number): Promise<PlanForm> {
@@ -187,33 +190,33 @@ class PlanFormService extends BaseService<PlanForm> {
     return this.transition(id, 'APPROVED');
   }
 
-  /** QLSX hoặc Sếp từ chối toàn bộ SKU — trả về bước nhập định mức chi tiết cho các bộ phận chuyên
-   *  trách sửa lại. Dữ liệu đã nhập (materialType/manhItems) vẫn giữ nguyên để sửa tiếp, không xóa
-   *  trắng. Mỗi nhóm định mức chi tiết ĐÃ CÓ dữ liệu bị đánh dấu REJECTED (kèm lý do) thay vì xóa
-   *  trắng cờ duyệt — vì các trang nhập liệu (Spec*Page) suy ra trạng thái "pending" (khóa sửa, đang
-   *  chờ KHSX duyệt) chỉ từ việc có dữ liệu + không có quyết định; nếu chỉ xóa reviewStatus mà không
-   *  đánh REJECTED, 3 account chuyên trách sẽ bị khóa không sửa lại được dù SKU vừa bị từ chối. Nhóm
-   *  chưa từng có dữ liệu thì để trống — tự suy ra "canInput" như bình thường. manhReviewStatus/
-   *  qlsxReviewStatus xóa hẳn (không có cơ chế "pending" khóa sửa tương tự ở phía nhập mảnh).
+  /** QLSX hoặc Sếp từ chối toàn bộ SKU — trả về bước nhập định mức mảnh (bước đầu tiên) cho các
+   *  bộ phận chuyên trách sửa lại. Dữ liệu đã nhập (manhData/materialType) vẫn giữ nguyên để sửa
+   *  tiếp, không xóa trắng. Mỗi nhóm định mức mảnh ĐÃ CÓ dữ liệu bị đánh dấu REJECTED (kèm lý do)
+   *  thay vì xóa trắng cờ duyệt — vì các trang nhập liệu (Spec*Page) suy ra trạng thái "pending"
+   *  (khóa sửa, đang chờ KHSX duyệt) chỉ từ việc có dữ liệu + không có quyết định; nếu chỉ xóa
+   *  manhReviewStatus mà không đánh REJECTED, account chuyên trách sẽ bị khóa không sửa lại được
+   *  dù SKU vừa bị từ chối. quotaManagement.reviewStatus xóa hẳn (chi tiết sẽ duyệt lại từ đầu sau
+   *  khi mảnh xong lại) — cùng qlsxReviewStatus (không có cơ chế "pending" khóa sửa tương tự).
    */
-  private async rejectToDetail(id: number, reason?: string): Promise<PlanForm> {
+  private async rejectToFirstStage(id: number, reason?: string): Promise<PlanForm> {
     await mockDelay();
     let updated!: PlanForm;
     mockStore.update((s) => {
       const idx = s.planForms.findIndex((p) => p.id === id);
       if (idx < 0) throw new Error(`PlanForm #${id} not found`);
       const pf = s.planForms[idx];
-      const materialType = pf.quotaManagement?.materialType;
+      const manhData = pf.manhData;
       const rejectedEntry: QuotaReviewStatus = { status: 'REJECTED', reason, reviewedAt: new Date().toISOString() };
-      const reviewStatus: Partial<Record<keyof MaterialType, QuotaReviewStatus>> = {};
-      (['sat', 'daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as (keyof MaterialType)[]).forEach((group) => {
-        if (materialType?.[group]?.length) reviewStatus[group] = rejectedEntry;
+      const manhReviewStatus: Partial<Record<ManhGroup, QuotaReviewStatus>> = {};
+      (['sat', 'daySon'] as ManhGroup[]).forEach((group) => {
+        if (manhData?.[group]?.length) manhReviewStatus[group] = rejectedEntry;
       });
       updated = {
         ...pf,
-        status: 'WAITING_DETAIL',
-        quotaManagement: pf.quotaManagement ? { ...pf.quotaManagement, reviewStatus } : pf.quotaManagement,
-        manhReviewStatus: undefined,
+        status: 'WAITING_PARTS',
+        quotaManagement: pf.quotaManagement ? { ...pf.quotaManagement, reviewStatus: {} } : pf.quotaManagement,
+        manhReviewStatus,
         qlsxReviewStatus: undefined,
       };
       s.planForms[idx] = updated;
@@ -223,18 +226,13 @@ class PlanFormService extends BaseService<PlanForm> {
 
   async rejectByQlsx(id: number, reason?: string): Promise<PlanForm> {
     assertProdMgrRole();
-    return this.rejectToDetail(id, reason);
+    return this.rejectToFirstStage(id, reason);
   }
 
   async rejectByBoss(id: number, reason?: string): Promise<PlanForm> {
     assertBossRole();
-    return this.rejectToDetail(id, reason);
+    return this.rejectToFirstStage(id, reason);
   }
-
-  /** KHSX từ chối 1+ nhóm định mức chi tiết rồi gửi lại cho bộ phận chuyên trách nhập lại từ đầu. */
-  async sendBackDetailQuota(id: number): Promise<PlanForm> { return this.transition(id, 'WAITING_DETAIL'); }
-  /** KHSX từ chối danh sách mảnh phôi rồi gửi lại cho account Sắt nhập lại. */
-  async sendBackManhQuota(id: number): Promise<PlanForm> { return this.transition(id, 'WAITING_PARTS'); }
 
   /**
    * 1 trong 4 account chuyên trách (Sắt/Dây-Sơn/Phụ kiện/Bao bì) nhập định mức chi tiết cho nhóm vật tư của mình.
@@ -299,39 +297,58 @@ class PlanFormService extends BaseService<PlanForm> {
     return this.enrich(updated);
   }
 
-  /** Account Sắt nhập danh sách mảnh phôi. Chuyển status WAITING_PARTS -> APPROVED_PARTS (chờ duyệt mảnh). */
-  async updateManhQuota(id: number, rows: ManhRow[], enteredBy: string): Promise<PlanForm> {
+  /**
+   * 1 trong 2 account chuyên trách (Sắt/Dây) nhập định mức mảnh cho nhóm của mình. Chỉ cần 1 trong
+   * 2 nhóm được nhập là đủ để chuyển status WAITING_PARTS -> APPROVED_PARTS (chờ KHSX duyệt); không
+   * chờ đủ cả 2 nhóm. Mirror y hệt updateDetailQuota (xem bên dưới) cho định mức chi tiết.
+   */
+  async updateManhQuota<K extends ManhGroup>(
+    id: number,
+    group: K,
+    items: ManhData[K],
+    enteredBy: string,
+  ): Promise<PlanForm> {
     await mockDelay();
     let updated!: PlanForm;
     mockStore.update((s) => {
       const idx = s.planForms.findIndex((p) => p.id === id);
       if (idx < 0) throw new Error(`PlanForm #${id} not found`);
       const pf = s.planForms[idx];
+      const data: ManhData = pf.manhData ?? { sat: [], daySon: [] };
+      const meta: QuotaEntryMeta = { enteredBy, enteredAt: new Date().toISOString() };
+      // Nhập lại sau khi bị từ chối coi như đã sửa xong — xóa cờ reviewStatus của nhóm này để KHSX duyệt lại từ đầu.
+      const { [group]: _clearedReview, ...restReview } = pf.manhReviewStatus ?? {};
       updated = {
         ...pf,
         status: pf.status === 'WAITING_PARTS' ? 'APPROVED_PARTS' : pf.status,
-        manhItems: rows,
-        manhEntryMeta: { enteredBy, enteredAt: new Date().toISOString() },
-        // Nhập lại sau khi bị từ chối coi như đã sửa xong — xóa quyết định cũ để KHSX duyệt lại từ đầu.
-        manhReviewStatus: undefined,
+        manhData: { ...data, [group]: items },
+        manhEntryMeta: { ...pf.manhEntryMeta, [group]: meta },
+        manhReviewStatus: restReview,
       };
       s.planForms[idx] = updated;
     });
     return this.enrich(updated);
   }
 
-  /** KHSX duyệt hoặc từ chối danh sách mảnh phôi — tách biệt khỏi status vì APPROVED_PARTS đã được
-   *  set ngay khi account Sắt nhập xong, không phản ánh việc KHSX đã xem/duyệt hay chưa. */
-  async reviewManhQuota(id: number, status: 'APPROVED' | 'REJECTED', reason?: string): Promise<PlanForm> {
+  /** KHSX duyệt hoặc từ chối 1 nhóm định mức mảnh — account chuyên trách sẽ thấy lý do từ chối ở
+   *  trang nhập của mình. Tách biệt khỏi status vì APPROVED_PARTS đã được set ngay khi account
+   *  chuyên trách nhập xong, không phản ánh việc KHSX đã xem/duyệt hay chưa. */
+  async reviewManhQuota<K extends ManhGroup>(
+    id: number,
+    group: K,
+    status: 'APPROVED' | 'REJECTED',
+    reason?: string,
+  ): Promise<PlanForm> {
     await mockDelay();
     let updated!: PlanForm;
     mockStore.update((s) => {
       const idx = s.planForms.findIndex((p) => p.id === id);
       if (idx < 0) throw new Error(`PlanForm #${id} not found`);
       const pf = s.planForms[idx];
+      const review: QuotaReviewStatus = { status, reason, reviewedAt: new Date().toISOString() };
       updated = {
         ...pf,
-        manhReviewStatus: { status, reason, reviewedAt: new Date().toISOString() },
+        manhReviewStatus: { ...pf.manhReviewStatus, [group]: review },
       };
       s.planForms[idx] = updated;
     });
@@ -360,20 +377,17 @@ export const proposePlanForm     = (data: CreatePlanFormPayload) => planFormSvc.
 export const proposePlanFormById = (id: number)                => planFormSvc.proposeById(id);
 export const approveDetailPlanForm = (id: number)              => planFormSvc.approveDetail(id);
 export const approvePartsPlanForm  = (id: number)              => planFormSvc.approveParts(id);
-export const requestQlsxApprovalPlanForm = (id: number)        => planFormSvc.requestQlsxApproval(id);
 export const reviewQlsxPlanForm    = (id: number)              => planFormSvc.reviewQlsx(id);
 export const requestBossApprovalPlanForm = (id: number)        => planFormSvc.requestBossApproval(id);
 export const rejectPlanFormByQlsx  = (id: number, reason?: string) => planFormSvc.rejectByQlsx(id, reason);
 export const rejectPlanFormByBoss  = (id: number, reason?: string) => planFormSvc.rejectByBoss(id, reason);
 export const approveFullPlanForm   = (id: number)              => planFormSvc.approveFull(id);
-export const sendBackDetailPlanForm = (id: number)             => planFormSvc.sendBackDetailQuota(id);
-export const sendBackManhPlanForm   = (id: number)              => planFormSvc.sendBackManhQuota(id);
 export const deletePlanForms     = (ids: number[])             => planFormSvc.deleteMany(ids);
 export const updatePlanFormDetailQuota = <K extends keyof MaterialType>(id: number, group: K, items: MaterialType[K], enteredBy: string) =>
   planFormSvc.updateDetailQuota(id, group, items, enteredBy);
-export const updatePlanFormManhQuota = (id: number, rows: ManhRow[], enteredBy: string) =>
-  planFormSvc.updateManhQuota(id, rows, enteredBy);
+export const updatePlanFormManhQuota = <K extends ManhGroup>(id: number, group: K, items: ManhData[K], enteredBy: string) =>
+  planFormSvc.updateManhQuota(id, group, items, enteredBy);
 export const reviewPlanFormDetailQuota = <K extends keyof MaterialType>(id: number, group: K, status: 'APPROVED' | 'REJECTED', reason?: string) =>
   planFormSvc.reviewDetailQuota(id, group, status, reason);
-export const reviewPlanFormManhQuota = (id: number, status: 'APPROVED' | 'REJECTED', reason?: string) =>
-  planFormSvc.reviewManhQuota(id, status, reason);
+export const reviewPlanFormManhQuota = <K extends ManhGroup>(id: number, group: K, status: 'APPROVED' | 'REJECTED', reason?: string) =>
+  planFormSvc.reviewManhQuota(id, group, status, reason);

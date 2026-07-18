@@ -6,7 +6,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
-import { PLANFORM_ENTITY } from '../../../constants/planFormStatus'
+import { PLANFORM_ENTITY, isPartsApproved } from '../../../constants/planFormStatus'
 import type { PlanForm, VatTuPhuKienItem } from '../../../types/plan-form'
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -33,11 +33,15 @@ export default function SpecAccessoryPage() {
   const { data: planFormsData, refetch: refetchPlanForms } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
   const planForms = (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT')
 
-  const boms: BomItem[] = planForms.map(pf => ({
-    id: pf.id,
-    ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
-    thoiGian: format(new Date(pf.createdAt), 'dd/MM/yyyy'),
-  }))
+  // Chỉ hiện SKU đã qua giai đoạn định mức mảnh (KHSX đã duyệt & gửi bộ phận chi tiết) — đúng
+  // thứ tự flow hiện tại (mảnh trước, chi tiết sau).
+  const boms: BomItem[] = planForms
+    .filter(pf => isPartsApproved(pf.status))
+    .map(pf => ({
+      id: pf.id,
+      ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
+      thoiGian: format(new Date(pf.createdAt), 'dd/MM/yyyy'),
+    }))
   const findPf = (id: number) => planForms.find(pf => pf.id === id)
   const itemsOf = (pf?: PlanForm) => pf?.quotaManagement?.materialType?.[GROUP] ?? []
   const reviewOf = (pf?: PlanForm) => pf?.quotaManagement?.reviewStatus?.[GROUP]

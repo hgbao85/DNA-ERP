@@ -121,7 +121,7 @@ function getPurchasingPercent(materials: MaterialItem[]): number {
 
 // ─── Dữ liệu chi tiết Khung cơ khí (Phôi/Hàn/Sơn) ─────────────────────────────
 // Ưu tiên dùng định mức mảnh/sắt/sơn THẬT do các account chuyên trách đã nhập trên PlanForm
-// (manhItems, quotaManagement.materialType.daySon) — cùng cấu trúc ProcManh/ProcLine dùng ở màn
+// (manhData.sat, quotaManagement.materialType.daySon) — cùng cấu trúc ProcManh/ProcLine dùng ở màn
 // Lệnh sản xuất Phôi/Hàn/Sơn. Nếu PlanForm chưa có (chưa tới bước nhập định mức) thì vẫn tạo mock
 // ổn định theo PO để KHSX luôn xem được giao diện chi tiết. Số lượng "đã làm" mock theo đúng
 // SubStatus đã chọn ở trên để nhất quán với thanh tiến độ.
@@ -136,7 +136,7 @@ const FALLBACK_SAT = ['Sắt Vuông 6 zem', 'Sắt Hộp 8 zem']
 
 function buildPhoiManhs(pf: PlanForm, status: SubStatus, h: number): ProcManh[] {
   const doneFrac = doneFracOf(status, h, 1)
-  const src = pf.manhItems && pf.manhItems.length > 0 ? pf.manhItems : null
+  const src = pf.manhData?.sat && pf.manhData.sat.length > 0 ? pf.manhData.sat : null
   const manhList = src ?? FALLBACK_MANH.map((name, i) => ({ id: i + 1, name, qtyPerSku: '1', children: [] as { id: number; name: string; specs?: string | null; length?: string | null; qty?: string | null }[] }))
   return manhList.map((m, mi) => {
     const children = m.children.length > 0 ? m.children : [{ id: mi * 10 + 1, name: FALLBACK_SAT[mi % FALLBACK_SAT.length], specs: null, length: null, qty: null }]

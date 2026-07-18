@@ -38,18 +38,27 @@ async function ensurePlanFormForConfirmedItem(pi: any, item: any) {
     productionInvoiceId: pi.id,
   })
 
-  // Định mức chi tiết (BOM) là thuộc tính của SKU (mfgProduct), không đổi theo
+  // Định mức (mảnh + chi tiết) là thuộc tính của SKU (mfgProduct), không đổi theo
   // từng PO — PlanForm mới tạo mặc định trống, nên tái dùng định mức đã có sẵn
   // của cùng SKU này (nếu có) thay vì để trống, để "kiểm tra vật tư" có dữ liệu.
   const existingPlanForms = (await api.getPlanForms()) as any[]
-  const sourceMaterialType = existingPlanForms.find(
-    (pf) => pf.id !== created.id && pf.mfgProductId === mfgProduct.id && pf.quotaManagement?.materialType,
-  )?.quotaManagement?.materialType
+  const sourcePf = existingPlanForms.find((pf) => pf.id !== created.id && pf.mfgProductId === mfgProduct.id)
+  const sourceMaterialType = sourcePf?.quotaManagement?.materialType
   if (sourceMaterialType) {
-    for (const group of ['sat', 'daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as const) {
+    // Sắt không còn nhập ở định mức chi tiết (đã chuyển sang định mức mảnh) — chỉ còn 3 nhóm.
+    for (const group of ['daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as const) {
       const groupItems = sourceMaterialType[group]
       if (Array.isArray(groupItems) && groupItems.length > 0) {
         await api.updatePlanFormDetailQuota(created.id, group, groupItems, 'Hệ thống')
+      }
+    }
+  }
+  const sourceManhData = sourcePf?.manhData
+  if (sourceManhData) {
+    for (const group of ['sat', 'daySon'] as const) {
+      const groupItems = sourceManhData[group]
+      if (Array.isArray(groupItems) && groupItems.length > 0) {
+        await api.updatePlanFormManhQuota(created.id, group, groupItems, 'Hệ thống')
       }
     }
   }
