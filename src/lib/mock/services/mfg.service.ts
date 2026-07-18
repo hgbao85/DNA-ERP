@@ -2,6 +2,7 @@ import { mockDelay } from '../core/delay';
 import { mockStore } from '../core/store';
 import { nextId } from '../core/id';
 import { BaseService } from '../core/base.service';
+import { assertBossRole, assertProdMgrRole } from '../core/auth-guard';
 
 const clone = <T>(v: T): T => structuredClone(v);
 const ok = async <T>(v: T) => { await mockDelay(); return v; };
@@ -127,6 +128,64 @@ class ProductionInvoiceService extends BaseService<any> {
       if (i >= 0) Object.assign(s.productionInvoices[i], data);
     });
     return mockStore.get().productionInvoices.find((p) => p.id === id);
+  }
+
+  private findItem(piId: number, itemIdx: number) {
+    const pi = mockStore.get().productionInvoices.find((p) => p.id === piId) as any;
+    return { pi, item: pi?.items?.[itemIdx] };
+  }
+
+  /** KHSX gửi 1 SKU cho QLSX xử lý — QLSX sẽ chọn kho thành phẩm làm điểm cuối trước khi trình sếp duyệt. */
+  async sendItemToQlsx(piId: number, itemIdx: number, requestedBy?: string) {
+    await mockDelay();
+    mockStore.update(() => {
+      const { item } = this.findItem(piId, itemIdx);
+      if (item) item.prodApproval = { status: 'WAITING_QLSX', requestedAt: new Date().toISOString(), requestedBy };
+    });
+    return mockStore.get().productionInvoices.find((p) => p.id === piId);
+  }
+
+  /** QLSX chọn kho thành phẩm (warehouseScope, vd 'thanh-pham-2') làm điểm cuối rồi gửi sếp duyệt lần cuối — chặn ở tầng service. */
+  async sendItemToBoss(piId: number, itemIdx: number, warehouse: { code: string; name: string }, sentBy?: string) {
+    assertProdMgrRole();
+    await mockDelay();
+    mockStore.update(() => {
+      const { item } = this.findItem(piId, itemIdx);
+      if (item) item.prodApproval = {
+        ...item.prodApproval,
+        status: 'WAITING_BOSS',
+        warehouseCode: warehouse.code,
+        warehouseName: warehouse.name,
+        qlsxAt: new Date().toISOString(),
+        qlsxBy: sentBy,
+      };
+    });
+    return mockStore.get().productionInvoices.find((p) => p.id === piId);
+  }
+
+  /** Sếp duyệt cuối — SKU bắt đầu sản xuất; PO tự chuyển "Đang sản xuất" khi mọi SKU đã duyệt. */
+  async approveItemByBoss(piId: number, itemIdx: number, decidedBy?: string) {
+    assertBossRole();
+    await mockDelay();
+    mockStore.update(() => {
+      const { pi, item } = this.findItem(piId, itemIdx);
+      if (item) item.prodApproval = { ...item.prodApproval, status: 'APPROVED', decidedAt: new Date().toISOString(), decidedBy };
+      if (pi && Array.isArray(pi.items) && pi.items.every((it: any) => it.prodApproval?.status === 'APPROVED')) {
+        pi.status = 'PRODUCING';
+      }
+    });
+    return mockStore.get().productionInvoices.find((p) => p.id === piId);
+  }
+
+  /** Sếp từ chối — SKU quay về cho KHSX sửa thời hạn và gửi lại từ đầu. */
+  async rejectItem(piId: number, itemIdx: number, reason: string, decidedBy?: string) {
+    assertBossRole();
+    await mockDelay();
+    mockStore.update(() => {
+      const { item } = this.findItem(piId, itemIdx);
+      if (item) item.prodApproval = { ...item.prodApproval, status: 'REJECTED', reason, decidedAt: new Date().toISOString(), decidedBy };
+    });
+    return mockStore.get().productionInvoices.find((p) => p.id === piId);
   }
 
   async getKcsPendingCounts() {
@@ -274,15 +333,6 @@ class ExportOrderService extends BaseService<any> {
     return { id };
   }
 
-  async confirm(id: number) {
-    await mockDelay();
-    mockStore.update((s) => {
-      const o = s.exportOrders.find((x) => x.id === id);
-      if (o) o.status = 'PLANNED';
-    });
-    return { id, status: 'PLANNED' };
-  }
-
   async updatePayment(id: number, data: Record<string, unknown>) {
     await mockDelay();
     mockStore.update((s) => {
@@ -290,19 +340,6 @@ class ExportOrderService extends BaseService<any> {
       if (o) Object.assign(o, data);
     });
     return mockStore.get().exportOrders.find((o) => o.id === id);
-  }
-
-  async getTimeline(id: number) {
-    const o = mockStore.get().exportOrders.find((x) => x.id === id);
-    return ok({
-      poNumber: o?.poNumber ?? 'PO-???',
-      deliveryDate: o?.deliveryDate ?? new Date().toISOString(),
-      steps: [
-        { key: 'MATERIAL', label: 'Vật tư', deadline: '2026-06-01' },
-        { key: 'PHOI', label: 'Phôi', startDate: '2026-06-02', deadline: '2026-06-10' },
-        { key: 'DELIVERY', label: 'Giao hàng', deadline: o?.deliveryDate },
-      ],
-    });
   }
 
   async uploadContract(_file: File) {
@@ -565,6 +602,11 @@ export const getProductionInvoice = (id: number) => piSvc.findById(id);
 export const createProductionInvoice = (data: Record<string, unknown>) => piSvc.create(data);
 export const updateProductionInvoice = (id: number, data: Record<string, unknown>) => piSvc.update(id, data);
 
+export const sendItemToQlsx = (piId: number, itemIdx: number, requestedBy?: string) => piSvc.sendItemToQlsx(piId, itemIdx, requestedBy);
+export const sendItemToBoss = (piId: number, itemIdx: number, warehouse: { code: string; name: string }, sentBy?: string) => piSvc.sendItemToBoss(piId, itemIdx, warehouse, sentBy);
+export const approveItemByBoss = (piId: number, itemIdx: number, decidedBy?: string) => piSvc.approveItemByBoss(piId, itemIdx, decidedBy);
+export const rejectProdItem = (piId: number, itemIdx: number, reason: string, decidedBy?: string) => piSvc.rejectItem(piId, itemIdx, reason, decidedBy);
+
 export const getStagesByPI = (piId: number) => piSvc.getStagesByPI(piId);
 export const updateStageProgress = (id: number, data: Record<string, unknown>) => piSvc.updateStageProgress(id, data);
 export const submitQCResult = (id: number, data: Record<string, unknown>) => piSvc.submitQCResult(id, data);
@@ -601,8 +643,6 @@ export const getExportOrders = () => exportOrderSvc.getAll();
 export const getExportOrder = (id: number) => exportOrderSvc.findById(id);
 export const createExportOrder = (data: Record<string, unknown>) => exportOrderSvc.create(data);
 export const deleteExportOrder = (id: number) => exportOrderSvc.remove(id);
-export const confirmExportOrder = (id: number, _data?: unknown) => exportOrderSvc.confirm(id);
-export const getExportOrderTimeline = (id: number) => exportOrderSvc.getTimeline(id);
 export const updateOrderPayment = (id: number, data: Record<string, unknown>) => exportOrderSvc.updatePayment(id, data);
 export const uploadContractFile = (file: File) => exportOrderSvc.uploadContract(file);
 

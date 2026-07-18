@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
-import ExportOrderDetailModal from '../Manufacturing/ExportOrderDetailModal'
 import { StatusBadge } from '../Sales/StatusBadge'
 import type { SalesPOStatus } from '../../../types/sales'
 import { format } from 'date-fns'
-import { AlertCircle, CheckCircle2, FileText, Eye, X, CalendarClock, Pencil, Package, Play, ChevronRight, ChevronLeft, Search, Clock, XCircle, ThumbsUp, ThumbsDown } from 'lucide-react'
+import { AlertCircle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse } from 'lucide-react'
+import SearchableSelect from '../../../components/SearchableSelect'
+import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 
 /**
  * Khi Sếp (boss@demo.com) DUYỆT 1 SKU cụ thể trong PI (sau khi KHSX gửi duyệt), tạo
@@ -56,8 +57,7 @@ async function ensurePlanFormForConfirmedItem(pi: any, item: any) {
 
 export default function LenhSXPage() {
   const { user, isBoss } = useAuth()
-  const [viewOrderId, setViewOrderId] = useState<number | null>(null)
-  const [confirmingId, setConfirmingId] = useState<number | null>(null)
+  const isQlsx = user?.mfgRole === 'PRODUCTION_MANAGER'
   const [confirmingProdId, setConfirmingProdId] = useState<number | null>(null)
   const [confirmProdTarget, setConfirmProdTarget] = useState<any | null>(null)
   const [selectedItemIdx, setSelectedItemIdx] = useState<number | null>(null)
@@ -66,12 +66,9 @@ export default function LenhSXPage() {
   const [rejectTarget, setRejectTarget] = useState<{ pi: any; idx: number } | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [rejecting, setRejecting] = useState(false)
-  const [timeline, setTimeline] = useState<any | null>(null)
-  const [timelineOrderId, setTimelineOrderId] = useState<number | null>(null)
-  const [timelineLoading, setTimelineLoading] = useState(false)
-  const [editMode, setEditMode] = useState(false)
-  const [editSteps, setEditSteps] = useState<{ key: string; label: string; startDate: string | null; deadline: string }[]>([])
-  const [savingTimeline, setSavingTimeline] = useState(false)
+  const [qlsxTarget, setQlsxTarget] = useState<{ pi: any; idx: number } | null>(null)
+  const [qlsxWarehouseCode, setQlsxWarehouseCode] = useState<string | null>(null)
+  const [sendingToBoss, setSendingToBoss] = useState(false)
   const [editingPI, setEditingPI] = useState<any | null>(null)
   const [editValues, setEditValues] = useState<{ deadline: string; items: { materialDeadline: string; deliveryDeadline: string; HAN: string; WEAVING: string; SON: string }[] }>({ deadline: '', items: [] })
   const [savingPI, setSavingPI] = useState(false)
@@ -82,121 +79,70 @@ export default function LenhSXPage() {
     () => api.getProductionInvoices(),
     []
   )
-  const hasPendingItem = (p: any) => (Array.isArray(p.items) ? p.items : []).some((it: any) => it.prodApproval?.status === 'PENDING')
-  // Boss chỉ cần thấy PO có SKU đang chờ mình duyệt — không quan tâm PO chưa gửi/đã xử lý xong.
-  const safeList = (Array.isArray(pis) ? pis : []).filter((p: any) => p.status === 'PLANNING' && (!isBoss || hasPendingItem(p)))
+  const hasItemWithStatus = (p: any, status: string) => (Array.isArray(p.items) ? p.items : []).some((it: any) => it.prodApproval?.status === status)
+  // Boss/QLSX chỉ cần thấy PO có SKU đang chờ mình xử lý — không quan tâm PO chưa gửi/đã xử lý xong.
+  const safeList = (Array.isArray(pis) ? pis : []).filter((p: any) => p.status === 'PLANNING' && (
+    isBoss ? hasItemWithStatus(p, 'WAITING_BOSS') : isQlsx ? hasItemWithStatus(p, 'WAITING_QLSX') : true
+  ))
   const filteredList = search.trim()
     ? safeList.filter((p: any) => (p.code ?? '').toLowerCase().includes(search.trim().toLowerCase()) || (p.exportOrder?.poNumber ?? '').toLowerCase().includes(search.trim().toLowerCase()))
     : safeList
   const viewingPI = viewingPIId ? (Array.isArray(pis) ? pis : []).find((p: any) => p.id === viewingPIId) ?? null : null
   const getDisplayCode = (item: any) => item?.exportOrder?.poNumber || item?.poNumber || item?.code || '—'
 
-  // Giám đốc (BOSS không mfgRole) chỉ XEM — không xác nhận đơn/tạo PI (đồng bộ backend).
-  const isPlanner = user?.mfgRole === 'PRODUCTION_MANAGER'
+  // Boss/QLSX xử lý thẳng theo SKU, không cần chui vào từng PO — gộp phẳng tất cả SKU đang chờ
+  // mình xử lý từ mọi PO thành 1 bảng duy nhất.
+  const relevantStatus = isBoss ? 'WAITING_BOSS' : 'WAITING_QLSX'
+  const flatRows = (isBoss || isQlsx)
+    ? filteredList.flatMap((pi: any) => (Array.isArray(pi.items) ? pi.items : [])
+        .map((item: any, idx: number) => ({ pi, item, idx }))
+        .filter(({ item }: any) => item.prodApproval?.status === relevantStatus))
+    : []
 
-  // Đơn hàng chờ lên kế hoạch (chỉ planner thấy)
-  const { data: orders, refetch: refetchOrders } = useFetch(
-    () => (isPlanner ? api.getExportOrders() : Promise.resolve([])),
+  // Kho thành phẩm — QLSX chọn làm điểm cuối trước khi gửi sếp duyệt. Mỗi kho thành phẩm (1, 2, 3...)
+  // gắn với 1 tài khoản thủ kho riêng (warehouseScope) — đây mới là danh sách kho thành phẩm thật
+  // (có thể tạo thêm ở trang "Tổng hợp kho"), khác với `getMfgWarehouses()` chỉ có đúng 1 bản ghi cố định.
+  const { data: warehouseUsers } = useFetch(
+    () => (isQlsx ? api.getUsers() : Promise.resolve([])),
     []
   )
-  const pendingOrders = (Array.isArray(orders) ? orders : []).filter((o: any) => o.status === 'DRAFT')
+  const finishedGoodsWarehouses = (Array.isArray(warehouseUsers) ? warehouseUsers : [])
+    // Nhân viên mua hàng (isPurchaser) cũng được gán warehouseScope 'thanh-pham' để theo dõi mua hàng
+    // theo phạm vi kho — không phải thủ kho, phải loại ra khỏi danh sách kho thành phẩm thật.
+    .filter((u: any) => u.role === 'WAREHOUSE_STAFF' && !u.isPurchaser && isThanhPhamScope(u.warehouseScope))
+    .map((u: any) => ({ code: u.warehouseScope as string, name: (u.name as string).replace(/^Thủ kho /, 'Kho ') }))
 
-  const handleViewTimeline = async (id: number) => {
-    try {
-      setTimelineLoading(true)
-      const data = await api.getExportOrderTimeline(id)
-      setTimeline(data)
-      setTimelineOrderId(id)
-      setEditMode(false)
-    } catch (e: any) {
-      alert(e?.response?.data?.error ?? 'Lỗi tải timeline')
-    } finally {
-      setTimelineLoading(false)
-    }
-  }
-
-  const closeTimeline = () => {
-    setTimeline(null); setTimelineOrderId(null); setEditMode(false); setEditSteps([])
-  }
-
-  const PROD_STAGES = ['PHOI', 'HAN', 'SON', 'WEAVING']
-
-  const startEditTimeline = () => {
-    const steps = (timeline?.steps ?? []).map((s: any) => ({
-      key: s.key,
-      label: s.label,
-      startDate: s.startDate ? format(new Date(s.startDate), 'yyyy-MM-dd') : null,
-      deadline: format(new Date(s.deadline), 'yyyy-MM-dd'),
-    }))
-    setEditSteps(steps)
-    setEditMode(true)
-  }
-
-  const patchEditStep = (key: string, field: 'startDate' | 'deadline', value: string) => {
-    setEditSteps(prev => prev.map(s => s.key === key ? { ...s, [field]: value } : s))
-  }
-
-  const handleSaveTimeline = async () => {
-    if (timelineOrderId === null) return
-    // Validate: với công đoạn SX, ngày bắt đầu không được sau hạn xong
-    for (const s of editSteps) {
-      if (PROD_STAGES.includes(s.key) && s.startDate && s.startDate > s.deadline) {
-        alert(`Công đoạn "${s.label}": ngày bắt đầu không được sau ngày xong`)
-        return
-      }
-    }
-    const material = editSteps.find(s => s.key === 'MATERIAL')
-    const stages = editSteps
-      .filter(s => PROD_STAGES.includes(s.key))
-      .map(s => ({
-        stageType: s.key,
-        startDate: new Date(s.startDate as string).toISOString(),
-        deadline: new Date(s.deadline).toISOString(),
-      }))
-    try {
-      setSavingTimeline(true)
-      await api.confirmExportOrder(timelineOrderId, {
-        materialDeadline: material ? new Date(material.deadline).toISOString() : undefined,
-        stages,
-      })
-      closeTimeline()
-      refetchOrders(); refetch()
-    } catch (e: any) {
-      alert(e?.response?.data?.error ?? 'Lỗi lưu thời hạn')
-    } finally {
-      setSavingTimeline(false)
-    }
-  }
-
-  const handleConfirm = async (id: number) => {
-    try {
-      setConfirmingId(id)
-      await api.confirmExportOrder(id)
-      refetchOrders(); refetch()
-    } catch (e: any) {
-      alert(e?.response?.data?.error ?? 'Lỗi xác nhận đơn')
-    } finally {
-      setConfirmingId(null)
-    }
-  }
-
-  // KHSX gửi 1 SKU cho Sếp duyệt — chưa cho sản xuất, chỉ đánh dấu "chờ duyệt".
+  // KHSX gửi 1 SKU cho QLSX xử lý — chưa cho sản xuất, QLSX sẽ chọn kho thành phẩm rồi mới trình sếp.
   const handleSendForApproval = async (id: number) => {
     setConfirmingProdId(id)
     try {
       const items: any[] = confirmProdTarget?.items ?? []
       if (selectedItemIdx === null || !items[selectedItemIdx]) return
-      const now = new Date().toISOString()
-      const updatedItems = items.map((it, idx) => idx === selectedItemIdx
-        ? { ...it, prodApproval: { status: 'PENDING', requestedAt: now, requestedBy: user?.name } }
-        : it)
-      await api.updateProductionInvoice(id, { items: updatedItems })
+      await api.sendItemToQlsx(id, selectedItemIdx, user?.name)
       refetch()
       setConfirmProdTarget(null)
     } catch (e: any) {
-      alert(e?.response?.data?.error ?? 'Lỗi gửi duyệt sản xuất')
+      alert(e?.response?.data?.error ?? e?.message ?? 'Lỗi gửi QLSX')
     } finally {
       setConfirmingProdId(null)
+    }
+  }
+
+  // QLSX chọn kho thành phẩm làm điểm cuối rồi gửi sếp duyệt lần cuối.
+  const handleQlsxSendToBoss = async () => {
+    if (!qlsxTarget || qlsxWarehouseCode === null) return
+    const wh = finishedGoodsWarehouses.find((w: any) => w.code === qlsxWarehouseCode)
+    if (!wh) return
+    setSendingToBoss(true)
+    try {
+      await api.sendItemToBoss(qlsxTarget.pi.id, qlsxTarget.idx, { code: wh.code, name: wh.name }, user?.name)
+      refetch()
+      setQlsxTarget(null)
+      setQlsxWarehouseCode(null)
+    } catch (e: any) {
+      alert(e?.response?.data?.error ?? e?.message ?? 'Lỗi gửi sếp duyệt')
+    } finally {
+      setSendingToBoss(false)
     }
   }
 
@@ -208,27 +154,17 @@ export default function LenhSXPage() {
     setApprovingKey(`${pi.id}-${idx}`)
     try {
       await ensurePlanFormForConfirmedItem(pi, item)
-      const now = new Date().toISOString()
-      const updatedItems = items.map((it, i) => i === idx
-        ? { ...it, prodApproval: { ...it.prodApproval, status: 'APPROVED', decidedAt: now, decidedBy: user?.name } }
-        : it)
-      // Chỉ SKU được duyệt chuyển sang sản xuất — các SKU khác trong PO vẫn chờ, nên PO
-      // chỉ rời khỏi danh sách khi TẤT CẢ SKU đã được duyệt.
-      const allApproved = updatedItems.every((it: any) => it.prodApproval?.status === 'APPROVED')
-      await api.updateProductionInvoice(pi.id, {
-        items: updatedItems,
-        ...(allApproved ? { status: 'PRODUCING' } : {}),
-      })
+      await api.approveItemByBoss(pi.id, idx, user?.name)
       refetch()
       setApproveTarget(null)
     } catch (e: any) {
-      alert(e?.response?.data?.error ?? 'Lỗi duyệt sản xuất')
+      alert(e?.response?.data?.error ?? e?.message ?? 'Lỗi duyệt sản xuất')
     } finally {
       setApprovingKey(null)
     }
   }
 
-  // Sếp từ chối 1 SKU đang chờ — KHSX sẽ sửa lại thời hạn rồi gửi duyệt lại.
+  // Sếp từ chối 1 SKU đang chờ — KHSX sẽ sửa lại thời hạn rồi gửi lại.
   const handleRejectItem = async () => {
     if (!rejectTarget) return
     const reason = rejectReason.trim()
@@ -236,12 +172,7 @@ export default function LenhSXPage() {
     const { pi, idx } = rejectTarget
     setRejecting(true)
     try {
-      const items: any[] = pi.items ?? []
-      const now = new Date().toISOString()
-      const updatedItems = items.map((it, i) => i === idx
-        ? { ...it, prodApproval: { ...it.prodApproval, status: 'REJECTED', decidedAt: now, decidedBy: user?.name, reason } }
-        : it)
-      await api.updateProductionInvoice(pi.id, { items: updatedItems })
+      await api.rejectProdItem(pi.id, idx, reason, user?.name)
       refetch()
       setRejectTarget(null)
       setRejectReason('')
@@ -323,8 +254,115 @@ export default function LenhSXPage() {
   return (
     <div>
 
-      {viewingPI ? (
-        /* ── CHI TIẾT PI ─────────────────────────────────────────────────── */
+      {isBoss || isQlsx ? (
+        /* ── DUYỆT/XỬ LÝ SKU (bảng phẳng — hiện thẳng SKU của mọi PO, không cần chui vào từng PO) ── */
+        <div>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+            <div>
+              <h2 style={{ margin:0, fontSize:20, fontWeight:700 }}>{isBoss ? 'Duyệt lệnh sản xuất' : 'Xử lý lệnh sản xuất'}</h2>
+              <p style={{ margin:'4px 0 0', fontSize:13, color:'var(--text3)' }}>{flatRows.length} SKU chờ {isBoss ? 'duyệt' : 'xử lý'}</p>
+            </div>
+            <div style={{ position:'relative' }}>
+              <Search size={14} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--text3)', pointerEvents:'none' }} />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Tìm mã PO..."
+                style={{ padding:'7px 10px 7px 32px', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, background:'var(--surface)', color:'var(--text)', width:200, outline:'none' }}
+              />
+            </div>
+          </div>
+
+          <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
+            <div style={{ display:'grid', gridTemplateColumns:'100px 1fr 95px 95px 95px 95px 100px 200px', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
+              <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>PO</span>
+              <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>SKU</span>
+              {['Mua hàng','Khung CK','Đan','Đóng gói'].map(h => (
+                <span key={h} style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>{h}</span>
+              ))}
+              <span style={{ fontSize:11, fontWeight:700, color:'#1d4ed8', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>Hạn giao</span>
+              <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>Thao tác</span>
+            </div>
+            {flatRows.length === 0 ? (
+              <div style={{ padding:40, textAlign:'center', color:'var(--text3)' }}>Không có SKU chờ {isBoss ? 'duyệt' : 'xử lý'}</div>
+            ) : flatRows.map(({ pi, item, idx }: any, i: number) => {
+              const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
+              const name = item.productVariant?.mfgProduct?.name ?? ''
+              const color = item.productVariant?.colorCode
+              const qty  = item.quantity
+              const isLast = i === flatRows.length - 1
+              const piDeadline = new Date(pi.deadline)
+              const fb = (days: number) => { const d = new Date(piDeadline); d.setDate(d.getDate() - days); return d }
+              const iHan  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'HAN')     : null
+              const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
+              const iSon  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'SON')     : null
+              const iMat      = item.materialDeadline ? new Date(item.materialDeadline) : fb(21)
+              const iHanDate  = iHan  ? new Date(iHan.deadline)  : fb(14)
+              const iWeavDate = iWeav ? new Date(iWeav.deadline) : fb(8)
+              const iSonDate  = iSon  ? new Date(iSon.deadline)  : fb(3)
+              const dc = (d: Date, own: boolean) => (
+                <div style={{ textAlign:'center' }}>
+                  <div style={{ fontSize:13, fontWeight: own ? 700 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>{format(d, 'dd/MM/yy')}</div>
+                  {!own && <div style={{ fontSize:10, color:'var(--text3)' }}>ước tính</div>}
+                </div>
+              )
+              const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
+              const busy = approvingKey === `${pi.id}-${idx}`
+              return (
+                <div key={`${pi.id}-${idx}`} style={{ display:'grid', gridTemplateColumns:'100px 1fr 95px 95px 95px 95px 100px 200px', padding:'12px 18px', alignItems:'center', borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
+                  <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1' }}>{getDisplayCode(pi)}</span>
+                  <div>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                      <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14 }}>{code}</span>
+                      {item.status && <StatusBadge status={item.status as SalesPOStatus} />}
+                    </div>
+                    {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
+                    <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap' }}>
+                      {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
+                      {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
+                      {item.prodApproval?.warehouseName && (
+                        <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, color:'#0369a1', background:'#e0f2fe', padding:'2px 8px', borderRadius:10 }}>
+                          <Warehouse size={10}/> {item.prodApproval.warehouseName}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {dc(iMat,      !!item.materialDeadline)}
+                  {dc(iHanDate,  !!iHan)}
+                  {dc(iWeavDate, !!iWeav)}
+                  {dc(iSonDate,  !!iSon)}
+                  <div style={{ textAlign:'center' }}>
+                    <div style={{ fontSize:13, fontWeight:700, color: iDelivery ? '#1d4ed8' : 'var(--text3)' }}>
+                      {format(iDelivery ?? piDeadline, 'dd/MM/yy')}
+                    </div>
+                    {!iDelivery && <div style={{ fontSize:10, color:'var(--text3)' }}>từ PO</div>}
+                  </div>
+                  <div style={{ display:'flex', gap:8, justifyContent:'center', flexWrap:'wrap' }}>
+                    {isBoss ? (
+                      <>
+                        <button onClick={() => setApproveTarget({ pi, idx })} disabled={busy}
+                          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor: busy ? 'not-allowed' : 'pointer', color:'#fff', opacity: busy ? 0.7 : 1 }}>
+                          <ThumbsUp size={12}/> {busy ? 'Đang duyệt...' : 'Duyệt'}
+                        </button>
+                        <button onClick={() => { setRejectTarget({ pi, idx }); setRejectReason('') }} disabled={busy}
+                          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'transparent', border:'1px solid #fca5a5', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', color:'#b91c1c' }}>
+                          <ThumbsDown size={12}/> Từ chối
+                        </button>
+                      </>
+                    ) : (
+                      <button onClick={() => { setQlsxTarget({ pi, idx }); setQlsxWarehouseCode(null) }}
+                        style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', color:'#fff' }}>
+                        <Warehouse size={12}/>  Chọn kho sản xuất
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      ) : viewingPI ? (
+        /* ── CHI TIẾT PI (KHSX) ─────────────────────────────────────────── */
         (() => {
           const pi = viewingPI
           const items = Array.isArray(pi.items) ? pi.items : []
@@ -337,13 +375,8 @@ export default function LenhSXPage() {
             : new Date(pi.deadline)
           const fmt = (d: Date) => format(d, 'dd/MM/yy')
           const canConfirmProd = pi.status !== 'PRODUCING' && pi.status !== 'DONE' && pi.status !== 'CANCELLED'
-          // Còn SKU nào chưa gửi duyệt / bị từ chối (có thể gửi lại) — chỉ KHSX mới gửi duyệt.
+          // Còn SKU nào chưa gửi duyệt / bị từ chối (có thể gửi lại).
           const hasSendableItems = items.some((it: any) => !it.prodApproval || it.prodApproval.status === 'REJECTED')
-          // Boss chỉ cần thấy SKU đang chờ mình duyệt — giữ nguyên vị trí (idx) trong pi.items để
-          // handleApproveItem/handleRejectItem cập nhật đúng phần tử.
-          const displayItems = items
-            .map((item: any, idx: number) => ({ item, idx }))
-            .filter(({ item }) => !isBoss || item.prodApproval?.status === 'PENDING')
           const fb = (days: number) => { const d = new Date(computedDeadline); d.setDate(d.getDate() - days); return d }
           return (
             <div>
@@ -354,13 +387,11 @@ export default function LenhSXPage() {
                   <ChevronLeft size={15}/> Danh sách PO
                 </button>
                 <div style={{ flex:1 }} />
-                {!isBoss && (
-                  <button onClick={() => openPIEdit(pi)}
-                    style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'var(--text2)' }}>
-                    <Pencil size={13}/> Sửa thời hạn
-                  </button>
-                )}
-                {!isBoss && canConfirmProd && hasSendableItems && (
+                <button onClick={() => openPIEdit(pi)}
+                  style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'var(--text2)' }}>
+                  <Pencil size={13}/> Sửa thời hạn
+                </button>
+                {canConfirmProd && hasSendableItems && (
                   <button onClick={() => {
                     setConfirmProdTarget(pi)
                     const piItems: any[] = pi.items ?? []
@@ -368,7 +399,7 @@ export default function LenhSXPage() {
                     setSelectedItemIdx(firstSendable >= 0 ? firstSendable : null)
                   }}
                     style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
-                    <Play size={13}/> Gửi sếp duyệt
+                    <Play size={13}/> Gửi QLSX
                   </button>
                 )}
               </div>
@@ -385,7 +416,7 @@ export default function LenhSXPage() {
                   <span style={{ fontWeight:700, fontSize:15 }}>{format(computedDeadline, 'dd/MM/yyyy')}</span>
                 </div>
                 <div style={{ marginLeft:'auto', fontSize:12, color:'var(--text3)', background:'var(--surface2)', padding:'4px 12px', borderRadius:12, border:'1px solid var(--border)' }}>
-                  {isBoss ? `${displayItems.length} SKU chờ duyệt` : `${items.length} SKU`}
+                  {items.length} SKU
                 </div>
               </div>
 
@@ -398,14 +429,14 @@ export default function LenhSXPage() {
                   ))}
                   <span style={{ fontSize:11, fontWeight:700, color:'#1d4ed8', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>Hạn giao</span>
                 </div>
-                {displayItems.length === 0 ? (
-                  <div style={{ padding:40, textAlign:'center', color:'var(--text3)' }}>{isBoss ? 'Không có SKU chờ duyệt' : 'Không có SKU'}</div>
-                ) : displayItems.map(({ item, idx }, i) => {
+                {items.length === 0 ? (
+                  <div style={{ padding:40, textAlign:'center', color:'var(--text3)' }}>Không có SKU</div>
+                ) : items.map((item: any, idx: number) => {
                   const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
                   const name = item.productVariant?.mfgProduct?.name ?? ''
                   const color = item.productVariant?.colorCode
                   const qty  = item.quantity
-                  const isLast = i === displayItems.length - 1
+                  const isLast = idx === items.length - 1
                   const iHan  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'HAN')     : null
                   const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
                   const iSon  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'SON')     : null
@@ -432,8 +463,13 @@ export default function LenhSXPage() {
                                 <Play size={10}/> Đang sản xuất
                               </span>
                             )}
-                            {item.prodApproval?.status === 'PENDING' && (
+                            {item.prodApproval?.status === 'WAITING_QLSX' && (
                               <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#b45309', background:'#fef3c7', padding:'2px 8px', borderRadius:10 }}>
+                                <Clock size={10}/> Chờ QLSX xử lý
+                              </span>
+                            )}
+                            {item.prodApproval?.status === 'WAITING_BOSS' && (
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#0369a1', background:'#e0f2fe', padding:'2px 8px', borderRadius:10 }}>
                                 <Clock size={10}/> Chờ sếp duyệt
                               </span>
                             )}
@@ -447,6 +483,11 @@ export default function LenhSXPage() {
                           <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap' }}>
                             {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
                             {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
+                            {item.prodApproval?.warehouseName && (
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, color:'#0369a1', background:'#e0f2fe', padding:'2px 8px', borderRadius:10 }}>
+                                <Warehouse size={10}/> {item.prodApproval.warehouseName}
+                              </span>
+                            )}
                           </div>
                         </div>
                         {dc(iMat,      !!item.materialDeadline)}
@@ -465,18 +506,6 @@ export default function LenhSXPage() {
                           Lý do từ chối: {item.prodApproval.reason}
                         </div>
                       )}
-                      {isBoss && item.prodApproval?.status === 'PENDING' && (
-                        <div style={{ display:'flex', gap:8, margin:'0 18px 14px' }}>
-                          <button onClick={() => setApproveTarget({ pi, idx })} disabled={approvingKey === `${pi.id}-${idx}`}
-                            style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor: approvingKey === `${pi.id}-${idx}` ? 'not-allowed' : 'pointer', color:'#fff', opacity: approvingKey === `${pi.id}-${idx}` ? 0.7 : 1 }}>
-                            <ThumbsUp size={12}/> {approvingKey === `${pi.id}-${idx}` ? 'Đang duyệt...' : 'Duyệt'}
-                          </button>
-                          <button onClick={() => { setRejectTarget({ pi, idx }); setRejectReason('') }} disabled={approvingKey === `${pi.id}-${idx}`}
-                            style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'transparent', border:'1px solid #fca5a5', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', color:'#b91c1c' }}>
-                            <ThumbsDown size={12}/> Từ chối
-                          </button>
-                        </div>
-                      )}
                     </div>
                   )
                 })}
@@ -485,11 +514,11 @@ export default function LenhSXPage() {
           )
         })()
       ) : (
-        /* ── DANH SÁCH PI ────────────────────────────────────────────────── */
+        /* ── DANH SÁCH PI (KHSX) ────────────────────────────────────────── */
         <div>
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
             <div>
-              <h2 style={{ margin:0, fontSize:20, fontWeight:700 }}>{isBoss ? 'Duyệt lệnh sản xuất' : 'Tạo lệnh sản xuất'}</h2>
+              <h2 style={{ margin:0, fontSize:20, fontWeight:700 }}>Tạo lệnh sản xuất</h2>
               <p style={{ margin:'4px 0 0', fontSize:13, color:'var(--text3)' }}>{safeList.length} lệnh</p>
             </div>
             <div style={{ position:'relative' }}>
@@ -503,45 +532,6 @@ export default function LenhSXPage() {
             </div>
           </div>
 
-          {/* Đơn hàng chờ lên kế hoạch */}
-          {isPlanner && pendingOrders.length > 0 && (
-            <div style={{ marginBottom:20, background:'#fff8e1', border:'1px solid #ffe082', borderRadius:'var(--radius-lg)', padding:16 }}>
-              <div style={{ fontSize:14, fontWeight:700, color:'#e65100', marginBottom:10 }}>
-                📋 Đơn hàng chờ lên kế hoạch ({pendingOrders.length})
-              </div>
-              <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
-                {pendingOrders.map((o: any) => (
-                  <div key={o.id} style={{ display:'flex', alignItems:'center', gap:12, background:'var(--surface)', borderRadius:'var(--radius)', padding:'10px 14px', border:'1px solid var(--border)' }}>
-                    <div style={{ fontWeight:600, fontFamily:'monospace', minWidth:90 }}>{o.poNumber}</div>
-                    <div style={{ flex:1, fontSize:13 }}>
-                      <div>Giao {format(new Date(o.deliveryDate), 'dd/MM/yyyy')}</div>
-                      <div style={{ color:'var(--text3)', fontSize:12 }}>
-                        {(o.items ?? []).map((i: any) => `${i.productVariant?.mfgProduct?.name} ×${i.quantity}`).join(', ')}
-                      </div>
-                    </div>
-                    {o.contractFileUrl && (
-                      <a href={o.contractFileUrl} target="_blank" rel="noreferrer" style={{ color:'#1565c0', display:'inline-flex', alignItems:'center', gap:4, fontSize:13 }}>
-                        <FileText size={14}/> HĐ
-                      </a>
-                    )}
-                    <button onClick={() => setViewOrderId(o.id)}
-                      style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius)', color:'var(--text2)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                      <Package size={14}/> Xem đơn hàng
-                    </button>
-                    <button onClick={() => handleViewTimeline(o.id)} disabled={timelineLoading}
-                      style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 10px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius)', color:'var(--text2)', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                      <Eye size={14}/> Timeline
-                    </button>
-                    <button onClick={() => handleConfirm(o.id)} disabled={confirmingId === o.id}
-                      style={{ display:'flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#2e7d32', border:'none', borderRadius:'var(--radius)', color:'#fff', fontSize:12, fontWeight:600, cursor:'pointer' }}>
-                      <CheckCircle2 size={14}/> {confirmingId === o.id ? 'Đang tạo...' : 'Xác nhận → tạo PO'}
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* PI List */}
           <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
             {filteredList.length === 0 && (
@@ -551,7 +541,6 @@ export default function LenhSXPage() {
             )}
             {filteredList.map((pi: any, i: number) => {
               const items = Array.isArray(pi.items) ? pi.items : []
-              const pendingCount = items.filter((it: any) => it.prodApproval?.status === 'PENDING').length
               const isLast = i === filteredList.length - 1
               return (
                 <button key={pi.id} onClick={() => setViewingPIId(pi.id)}
@@ -562,11 +551,6 @@ export default function LenhSXPage() {
                     <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'var(--text)' }}>{getDisplayCode(pi)}</div>
                   </div>
                   <div style={{ flex:1 }} />
-                  {isBoss && pendingCount > 0 && (
-                    <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#b45309', background:'#fef3c7', padding:'3px 10px', borderRadius:12, whiteSpace:'nowrap' }}>
-                      <Clock size={11}/> {pendingCount} chờ duyệt
-                    </span>
-                  )}
                   <div style={{ display:'flex', alignItems:'center', gap:5 }}>
                     <CalendarClock size={13} color="var(--text3)"/>
                     <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>
@@ -583,11 +567,7 @@ export default function LenhSXPage() {
         </div>
       )}
 
-      {viewOrderId !== null && (
-        <ExportOrderDetailModal orderId={viewOrderId} onClose={() => setViewOrderId(null)} />
-      )}
-
-      {/* Gửi duyệt sản xuất */}
+      {/* Gửi QLSX xử lý */}
       {confirmProdTarget && (() => {
         const items: any[] = confirmProdTarget.items ?? []
         const selItem = selectedItemIdx !== null ? items[selectedItemIdx] : null
@@ -600,7 +580,7 @@ export default function LenhSXPage() {
               {/* Header */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexShrink:0 }}>
                 <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
-                  <Play size={16} color="#2e7d32"/> Gửi duyệt sản xuất
+                  <Play size={16} color="#2e7d32"/> Gửi QLSX xử lý
                 </h3>
                 <button onClick={() => setConfirmProdTarget(null)} style={{ padding:4, background:'transparent', border:'none', cursor:'pointer' }}>
                   <X size={18} color="var(--text3)"/>
@@ -627,8 +607,8 @@ export default function LenhSXPage() {
               {/* SKU list — scrollable, radio style */}
               <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:6 }}>
                 {items.map((item: any, i: number) => {
-                  const approvalStatus: 'PENDING' | 'REJECTED' | 'APPROVED' | undefined = item.prodApproval?.status
-                  const locked = approvalStatus === 'PENDING' || approvalStatus === 'APPROVED'
+                  const approvalStatus: 'WAITING_QLSX' | 'WAITING_BOSS' | 'REJECTED' | 'APPROVED' | undefined = item.prodApproval?.status
+                  const locked = approvalStatus === 'WAITING_QLSX' || approvalStatus === 'WAITING_BOSS' || approvalStatus === 'APPROVED'
                   const sel  = selectedItemIdx === i
                   const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
                   const name = item.productVariant?.mfgProduct?.name ?? ''
@@ -653,7 +633,7 @@ export default function LenhSXPage() {
                       <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px' }}>
                         {/* Radio indicator */}
                         {locked ? (
-                          <CheckCircle2 size={18} color={approvalStatus === 'APPROVED' ? '#2e7d32' : '#b45309'} style={{ flexShrink:0 }} />
+                          <CheckCircle2 size={18} color={approvalStatus === 'APPROVED' ? '#2e7d32' : approvalStatus === 'WAITING_BOSS' ? '#0369a1' : '#b45309'} style={{ flexShrink:0 }} />
                         ) : (
                           <div style={{ width:18, height:18, borderRadius:'50%', border:'2px solid', borderColor: sel ? '#2e7d32' : '#d1d5db', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color .12s' }}>
                             {sel && <div style={{ width:9, height:9, borderRadius:'50%', background:'#2e7d32' }} />}
@@ -668,7 +648,8 @@ export default function LenhSXPage() {
                             {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
                             {clr && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>{clr}</span>}
                             {approvalStatus === 'APPROVED' && <span style={{ fontSize:11, color:'#2e7d32', fontWeight:600, background:'#dcfce7', padding:'1px 7px', borderRadius:10 }}>Đang sản xuất</span>}
-                            {approvalStatus === 'PENDING' && <span style={{ fontSize:11, color:'#b45309', fontWeight:600, background:'#fef3c7', padding:'1px 7px', borderRadius:10 }}>Chờ sếp duyệt</span>}
+                            {approvalStatus === 'WAITING_QLSX' && <span style={{ fontSize:11, color:'#b45309', fontWeight:600, background:'#fef3c7', padding:'1px 7px', borderRadius:10 }}>Chờ QLSX xử lý</span>}
+                            {approvalStatus === 'WAITING_BOSS' && <span style={{ fontSize:11, color:'#0369a1', fontWeight:600, background:'#e0f2fe', padding:'1px 7px', borderRadius:10 }}>Chờ sếp duyệt</span>}
                             {approvalStatus === 'REJECTED' && <span style={{ fontSize:11, color:'#b91c1c', fontWeight:600, background:'#fee2e2', padding:'1px 7px', borderRadius:10 }}>Bị từ chối - Cập nhật thông tin để gửi lại</span>}
                           </div>
                         </div>
@@ -718,9 +699,96 @@ export default function LenhSXPage() {
                     disabled={!!confirmingProdId || selectedItemIdx === null}
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background: selectedItemIdx !== null ? '#2e7d32' : '#e5e7eb', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (confirmingProdId || selectedItemIdx === null) ? 'not-allowed' : 'pointer', color: selectedItemIdx !== null ? '#fff' : '#9ca3af', opacity: confirmingProdId ? 0.7 : 1 }}>
                     <CheckCircle2 size={15}/>
-                    {confirmingProdId ? 'Đang gửi...' : 'Gửi sếp duyệt'}
+                    {confirmingProdId ? 'Đang gửi...' : 'Gửi QLSX'}
                   </button>
                 </div>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
+      {/* QLSX chọn kho thành phẩm & gửi sếp duyệt */}
+      {qlsxTarget && (() => {
+        const { pi, idx } = qlsxTarget
+        const items: any[] = pi.items ?? []
+        const item = items[idx]
+        if (!item) return null
+        const code  = item.productVariant?.mfgProduct?.factoryCode ?? '—'
+        const name  = item.productVariant?.mfgProduct?.name ?? ''
+        const color = item.productVariant?.colorCode
+        const qty   = item.quantity
+        const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
+        const selectedWh = finishedGoodsWarehouses.find((w: any) => w.code === qlsxWarehouseCode) ?? null
+        const closeModal = () => { setQlsxTarget(null); setQlsxWarehouseCode(null) }
+        return (
+          <div onClick={() => { if (!sendingToBoss) closeModal() }}
+            style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1100, padding:16 }}>
+            <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="qlsx-send-boss-title"
+              style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:24, width:460, maxWidth:'95vw', maxHeight:'85vh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
+
+              {/* Header */}
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+                <h3 id="qlsx-send-boss-title" style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
+                  <Warehouse size={16} color="#2e7d32"/> Chọn kho thành phẩm
+                </h3>
+                <button onClick={closeModal} disabled={sendingToBoss} aria-label="Đóng"
+                  style={{ padding:4, background:'transparent', border:'none', cursor: sendingToBoss ? 'not-allowed' : 'pointer' }}>
+                  <X size={18} color="var(--text3)"/>
+                </button>
+              </div>
+
+              {/* PO + hạn giao */}
+              <div style={{ display:'flex', gap:10, marginBottom:14 }}>
+                <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Mã PO</div>
+                  <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14 }}>{getDisplayCode(pi)}</div>
+                </div>
+                <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Hạn giao</div>
+                  <div style={{ fontWeight:700, fontSize:14, color:'#1d4ed8' }}>{format(iDelivery ?? new Date(pi.deadline), 'dd/MM/yyyy')}</div>
+                </div>
+              </div>
+
+              {/* SKU info */}
+              <div style={{ border:'1px solid var(--border)', borderRadius:8, padding:'10px 12px', marginBottom:14 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                  <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>{code}</span>
+                  {name && <span style={{ fontSize:13, color:'var(--text2)' }}>{name}</span>}
+                </div>
+                <div style={{ display:'flex', gap:6, marginTop:5 }}>
+                  {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
+                  {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
+                </div>
+              </div>
+
+              {/* Chọn kho thành phẩm */}
+              <div style={{ marginBottom:14 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:0.5, marginBottom:6 }}>
+                  Kho thành phẩm — điểm cuối sau khi hoàn thành
+                </div>
+                <SearchableSelect
+                  displayValue={selectedWh?.name ?? ''}
+                  options={finishedGoodsWarehouses}
+                  getKey={(w: any) => w.code}
+                  getSearchText={(w: any) => `${w.name} ${w.code ?? ''}`}
+                  renderOption={(w: any) => <span>{w.name}</span>}
+                  onSelect={(w: any) => setQlsxWarehouseCode(w.code)}
+                  placeholder="Chọn kho thành phẩm..."
+                  emptyText="Không có kho thành phẩm"
+                />
+              </div>
+
+              {/* Actions */}
+              <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+                <button onClick={closeModal} disabled={sendingToBoss}
+                  style={{ padding:'9px 18px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor: sendingToBoss ? 'not-allowed' : 'pointer', color:'var(--text2)' }}>
+                  Hủy
+                </button>
+                <button onClick={handleQlsxSendToBoss} disabled={sendingToBoss || qlsxWarehouseCode === null}
+                  style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background: qlsxWarehouseCode !== null ? '#2e7d32' : '#e5e7eb', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (sendingToBoss || qlsxWarehouseCode === null) ? 'not-allowed' : 'pointer', color: qlsxWarehouseCode !== null ? '#fff' : '#9ca3af', opacity: sendingToBoss ? 0.7 : 1 }}>
+                  <CheckCircle2 size={15}/> {sendingToBoss ? 'Đang gửi...' : 'Gửi sếp duyệt'}
+                </button>
               </div>
             </div>
           </div>
@@ -957,124 +1025,6 @@ export default function LenhSXPage() {
         </div>
       )}
 
-      {/* Modal timeline dự kiến */}
-      {timeline && (
-        <div onClick={closeTimeline}
-          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
-          <div onClick={e => e.stopPropagation()}
-            style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:24, width:480, maxWidth:'92vw', maxHeight:'85vh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.2)' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
-              <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
-                <CalendarClock size={18} color="#e65100"/> {editMode ? 'Chỉnh sửa thời hạn' : 'Thời hạn dự kiến'}
-              </h3>
-              <button onClick={closeTimeline} style={{ padding:4, background:'transparent', border:'none', cursor:'pointer' }}>
-                <X size={18} color="var(--text3)"/>
-              </button>
-            </div>
-            <div style={{ fontSize:13, color:'var(--text3)', marginBottom:16 }}>
-              <strong style={{ fontFamily:'monospace', color:'var(--text)' }}>{timeline.poNumber}</strong>
-              {' · '}Giao: <strong style={{ color:'var(--text)' }}>{format(new Date(timeline.deliveryDate), 'dd/MM/yyyy')}</strong>
-            </div>
-
-            {!editMode ? (
-              <div style={{ position:'relative' }}>
-                {(timeline.steps ?? []).map((s: any, i: number) => {
-                  const isEnd = s.key === 'DELIVERY'
-                  const isMat = s.key === 'MATERIAL'
-                  const color = isEnd ? '#2e7d32' : isMat ? '#1565c0' : '#e65100'
-                  return (
-                    <div key={s.key} style={{ display:'flex', gap:12, paddingBottom: i < timeline.steps.length-1 ? 16 : 0 }}>
-                      {/* cột mốc + đường nối */}
-                      <div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}>
-                        <div style={{ width:12, height:12, borderRadius:'50%', background:color, flexShrink:0, marginTop:3 }} />
-                        {i < timeline.steps.length-1 && <div style={{ flex:1, width:2, background:'var(--border)', marginTop:2 }} />}
-                      </div>
-                      {/* nội dung */}
-                      <div style={{ flex:1, paddingBottom:4 }}>
-                        <div style={{ fontWeight:600, fontSize:14, color }}>{s.label}</div>
-                        <div style={{ fontSize:12, color:'var(--text2)', marginTop:2 }}>
-                          {s.startDate
-                            ? <>Từ {format(new Date(s.startDate), 'dd/MM')} → <strong>xong {format(new Date(s.deadline), 'dd/MM/yyyy')}</strong></>
-                            : <>{isEnd ? 'Ngày giao: ' : 'Xong trước: '}<strong>{format(new Date(s.deadline), 'dd/MM/yyyy')}</strong></>}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                {editSteps.map((s) => {
-                  const isEnd = s.key === 'DELIVERY'
-                  const isMat = s.key === 'MATERIAL'
-                  const color = isEnd ? '#2e7d32' : isMat ? '#1565c0' : '#e65100'
-                  const isProd = PROD_STAGES.includes(s.key)
-                  return (
-                    <div key={s.key} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', border:'1px solid var(--border)', borderRadius:'var(--radius)', background: isEnd ? 'var(--surface2)' : 'var(--surface)' }}>
-                      <div style={{ width:10, height:10, borderRadius:'50%', background:color, flexShrink:0 }} />
-                      <div style={{ fontWeight:600, fontSize:13, color, minWidth:110 }}>{s.label}</div>
-                      {isEnd ? (
-                        <div style={{ flex:1, fontSize:12, color:'var(--text3)', textAlign:'right' }}>
-                          Ngày giao: <strong>{format(new Date(s.deadline), 'dd/MM/yyyy')}</strong> (cố định)
-                        </div>
-                      ) : (
-                        <div style={{ flex:1, display:'flex', alignItems:'center', gap:6, justifyContent:'flex-end', flexWrap:'wrap' }}>
-                          {isProd && (
-                            <>
-                              <span style={{ fontSize:11, color:'var(--text3)' }}>Từ</span>
-                              <input type="date" value={s.startDate ?? ''}
-                                onChange={e => patchEditStep(s.key, 'startDate', e.target.value)}
-                                style={{ padding:'4px 6px', border:'1px solid var(--border)', borderRadius:6, fontSize:12, background:'var(--surface)', color:'var(--text)' }} />
-                              <span style={{ fontSize:11, color:'var(--text3)' }}>→ xong</span>
-                            </>
-                          )}
-                          {isMat && <span style={{ fontSize:11, color:'var(--text3)' }}>Xong trước</span>}
-                          <input type="date" value={s.deadline}
-                            onChange={e => patchEditStep(s.key, 'deadline', e.target.value)}
-                            style={{ padding:'4px 6px', border:'1px solid var(--border)', borderRadius:6, fontSize:12, background:'var(--surface)', color:'var(--text)' }} />
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
-            <div style={{ marginTop:18, paddingTop:14, borderTop:'1px solid var(--border)', display:'flex', justifyContent:'flex-end', gap:8 }}>
-              {!editMode ? (
-                <>
-                  <button onClick={closeTimeline}
-                    style={{ padding:'8px 16px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor:'pointer', color:'var(--text2)' }}>
-                    Đóng
-                  </button>
-                  {isPlanner && (
-                    <button onClick={startEditTimeline}
-                      style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', background:'#e65100', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
-                      <Pencil size={14}/> Chỉnh sửa thời hạn
-                    </button>
-                  )}
-                </>
-              ) : (
-                <>
-                  <button onClick={() => setEditMode(false)} disabled={savingTimeline}
-                    style={{ padding:'8px 16px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor:'pointer', color:'var(--text2)' }}>
-                    Hủy
-                  </button>
-                  <button onClick={handleSaveTimeline} disabled={savingTimeline}
-                    style={{ display:'flex', alignItems:'center', gap:6, padding:'8px 16px', background:'#2e7d32', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
-                    <CheckCircle2 size={14}/> {savingTimeline ? 'Đang lưu...' : 'Lưu & tạo PO'}
-                  </button>
-                </>
-              )}
-            </div>
-            <div style={{ fontSize:11, color:'var(--text3)', marginTop:10 }}>
-              {editMode
-                ? '* Sửa hạn từng công đoạn rồi bấm "Lưu & tạo PO" — Lệnh SX sẽ dùng đúng hạn này. Ngày giao cố định theo đơn.'
-                : '* Timeline mẫu tính lùi từ ngày giao. Bấm "Chỉnh sửa timeline" để đặt hạn riêng trước khi tạo PO; hoặc tạo PO luôn ở nút "Xác nhận" ngoài danh sách.'}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
