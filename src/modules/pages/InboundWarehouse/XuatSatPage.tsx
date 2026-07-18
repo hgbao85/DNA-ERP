@@ -60,7 +60,7 @@ interface PoRow {
   state: PoState
 }
 
-export default function XuatSatPage() {
+export default function XuatSatPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { data: plan, isLoading, refetch } = useFetch<KeHoachSatView[]>(() => api.getKeHoachXuatSat(), [])
   const { data: capLai, refetch: refetchCap } = useFetch<CapLaiSatItem[]>(() => api.getDeXuatCapLaiSat(), [])
   const [qty, setQty] = useState<Record<string, string>>({})
@@ -297,9 +297,11 @@ export default function XuatSatPage() {
 
   return (
     <div style={{ position: 'relative', maxWidth: 1280, margin: '0 auto' }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-        <ArrowUpFromLine size={20} /> Xuất sắt cho Phôi
-      </h2>
+      {!embedded && (
+        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+          <ArrowUpFromLine size={20} /> Xuất sắt cho Phôi
+        </h2>
+      )}
       <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>
         Kho xuất sắt <b>tuần tự</b> theo PO. Chỉ PO <b style={{ color: ACCENT }}>đang thực hiện</b> mới bấm được — <b>click để mở chi tiết xuất sắt</b>. PO sau bị khóa tới khi PO này xuất đủ.
       </div>

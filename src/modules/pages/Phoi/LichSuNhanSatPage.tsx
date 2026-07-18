@@ -82,7 +82,7 @@ export default function LichSuNhanSatPage() {
                 <td style={{ ...td, whiteSpace: 'nowrap' }}>
                   {g.hoanThanh
                     ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#16a34a', fontWeight: 600 }}><Check size={14} />{g.hoanThanh}</span>
-                    : <span style={{ color: '#e65100', fontWeight: 600 }}>Đang cắt</span>}
+                    : <span style={{ color: '#e65100', fontWeight: 600 }}>Đang tiến hành</span>}
                 </td>
               </tr>
             ))}
@@ -115,7 +115,7 @@ function Detail({ g, onBack }: { g: PoGroup; onBack: () => void }) {
         </h2>
       </div>
       <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16, marginLeft: 2 }}>
-        Thời gian nhận: {g.thoiGianNhan} · Hoàn thành: {g.hoanThanh ?? 'đang cắt'}
+        Thời gian nhận: {g.thoiGianNhan} · Hoàn thành: {g.hoanThanh ?? 'đang tiến hành'}
       </div>
 
       {/* Tổng cây theo chiều dài — kho xuất qua bao nhiêu cây 6m / 5m */}
@@ -153,7 +153,7 @@ function Detail({ g, onBack }: { g: PoGroup; onBack: () => void }) {
                 <td style={td}>
                   {l.status === 'DA_CAT'
                     ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#16a34a' }}><Check size={13} /> Đã cắt xong</span>
-                    : <span style={{ fontSize: 12, fontWeight: 600, color: '#1e40af' }}>Đang cắt</span>}
+                    : <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)' }}>Chưa cắt</span>}
                 </td>
               </tr>
             ))}

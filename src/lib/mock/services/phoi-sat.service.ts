@@ -63,7 +63,7 @@ const KHO = 'Thủ kho — Lê C';
 //   111 Sắt Vuông 18×18 (Mảnh Tựa) · 112 Sắt Hộp 20×40 (Tựa) · 113 Sắt Hộp 25×50 (Tựa)
 //   121 Sắt Hộp 25×50 (Mảnh Tay)  · 122 Sắt Vuông 18×18 (Tay)
 // Đổi *_v* khi sửa seed để ép nạp lại (tránh dính data cũ trong localStorage).
-const LS_ISSUES = 'phoi_sat_issues_v1';
+const LS_ISSUES = 'phoi_sat_issues_v2';
 const LS_CAPLAI = 'phoi_sat_caplai_v1';
 
 function loadJSON<T>(key: string, fallback: () => T): T {
@@ -71,7 +71,10 @@ function loadJSON<T>(key: string, fallback: () => T): T {
   return fallback();
 }
 function saveJSON(key: string, val: unknown) {
-  try { localStorage.setItem(key, JSON.stringify(val)); } catch { /* SSR / quota */ }
+  try {
+    localStorage.setItem(key, JSON.stringify(val));
+    window.dispatchEvent(new Event('mock-data-changed')); // báo realtime cùng tab
+  } catch { /* SSR / quota */ }
 }
 
 let issues: SatIssue[] = loadJSON(LS_ISSUES, seed);
@@ -87,13 +90,16 @@ function seed(): SatIssue[] {
     { ...J40, id: 'p0b', lineId: 12, loaiSat: 'Sắt Hộp 6 zem', quyCach: '25×50',
       bundles: [P25_A(20)], dotThoiGian: '2026-07-08 08:00', status: 'DA_CAT', soCayThuc: 20, hoanThanhAt: '2026-07-08 11:15' },
 
-    // ── PO-2026-001 · đợt 08:15 (đã cắt xong) — có cả cây 6m và 5m ──
+    // ── PO-2026-001 · đợt 08:15 (đã cắt xong, KCS ĐẠT) ──
+    // Số cây cấp ĐỦ nuôi phần đã hàn + còn lại của Hàn (xem san-luong.service HAN):
+    //   18×18 P18(250) → 745: 2000   ·   20×40 P20b(100) → 1150: 500
+    //   25×50 P25_A(100)+P25_B(100)+P25_C(50) → 930:500 · 765:500 · 695:600 · 200:1150
     { ...J55, id: 's1', lineId: 111, loaiSat: 'Sắt Vuông 6 zem', quyCach: '18×18',
-      bundles: [P18(30)], dotThoiGian: '2026-07-09 08:15', status: 'DA_CAT', soCayThuc: 30, hoanThanhAt: '2026-07-09 11:20' },
+      bundles: [P18(250)], dotThoiGian: '2026-07-09 08:15', status: 'DA_CAT', soCayThuc: 250, hoanThanhAt: '2026-07-09 11:20' },
     { ...J55, id: 's2', lineId: 113, loaiSat: 'Sắt Hộp 6 zem', quyCach: '25×50',
-      bundles: [P25_A(10), P25_B(10)], dotThoiGian: '2026-07-09 08:15', status: 'DA_CAT', soCayThuc: 19, hoanThanhAt: '2026-07-09 12:05' },
+      bundles: [P25_A(100), P25_B(100), P25_C(50)], dotThoiGian: '2026-07-09 08:15', status: 'DA_CAT', soCayThuc: 250, hoanThanhAt: '2026-07-09 12:05' },
     { ...J55, id: 's8', lineId: 112, loaiSat: 'Sắt Hộp 8 zem', quyCach: '20×40', barLen: 5850,
-      bundles: [P20b(12)], dotThoiGian: '2026-07-09 08:15', status: 'DA_CAT', soCayThuc: 12, hoanThanhAt: '2026-07-09 10:40' },
+      bundles: [P20b(100)], dotThoiGian: '2026-07-09 08:15', status: 'DA_CAT', soCayThuc: 100, hoanThanhAt: '2026-07-09 10:40' },
 
     // ── PO-2026-001 · đợt 10:40 (đã nhận, đang cắt) ──
     { ...J55, id: 's3', lineId: 113, loaiSat: 'Sắt Hộp 6 zem', quyCach: '25×50',
@@ -130,6 +136,29 @@ export async function getDotXuatSat(poNumber?: string): Promise<SatIssueView[]> 
   await mockDelay();
   const src = poNumber ? issues.filter((i) => i.poNumber === poNumber) : issues;
   return src.map(enrich);
+}
+
+// Tồn ĐOẠN sẵn sàng cho Hàn = đoạn từ các đợt Phôi ĐÃ KCS ĐẠT (DA_CAT), quy đổi
+// cây→đoạn (quyDoiDoan) rồi nhân tỷ lệ KCS đạt. Khóa theo (PO, loại sắt, quy cách, chiều dài).
+export interface DoanTon { poNumber: string; loaiSat: string; quyCach: string; len: number; soDoan: number }
+export async function getDoanTonKho(poNumber?: string): Promise<DoanTon[]> {
+  await mockDelay();
+  const acc = new Map<string, DoanTon>();
+  for (const i of issues) {
+    if (i.status !== 'DA_CAT') continue;               // chỉ tính đợt KCS đã duyệt PASS
+    if (poNumber && i.poNumber !== poNumber) continue;
+    const total = tongCay(i.bundles);
+    const ratio = total > 0 ? (i.soCayThuc ?? total) / total : 0; // phần KCS đạt / tổng cắt
+    for (const d of quyDoiDoan(i.bundles)) {
+      const soDoan = Math.floor(d.count * ratio);
+      if (soDoan <= 0) continue;
+      const key = `${i.poNumber}|${i.loaiSat}|${i.quyCach}|${d.len}`;
+      const ex = acc.get(key);
+      if (ex) ex.soDoan += soDoan;
+      else acc.set(key, { poNumber: i.poNumber, loaiSat: i.loaiSat, quyCach: i.quyCach, len: d.len, soDoan });
+    }
+  }
+  return [...acc.values()];
 }
 
 // Phôi xác nhận cắt xong 1 đợt → KHÔNG tính "đã cắt" ngay mà chuyển sang CHỜ KCS.

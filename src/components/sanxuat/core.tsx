@@ -11,16 +11,19 @@
  */
 
 import { useState, useMemo } from 'react'
-import { ChevronRight, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Play, Square, Lock, Scissors, Wrench, Flame, SprayCan } from 'lucide-react'
+import { ChevronRight, ChevronDown, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Play, Square, Lock, Scissors, Wrench, Flame, SprayCan } from 'lucide-react'
 import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
 import { useFetch } from '../../hooks/useFetch'
 import * as api from '../../services/api'
-import type { SatIssueView, SanLuongStage, SanLuongBatch } from '../../services/api'
+import type { SatIssueView, SanLuongStage, SanLuongBatch, DoanTon } from '../../services/api'
 
 const ACCENT = '#e65100'
 const REMIND_MINUTES = 60
 
 // ── Types ──────────────────────────────────────────────────────────
+// Thanh sắt cấu thành 1 chi tiết Hàn (vd khung tựa gồm những loại sắt nào) — để xổ ra xem.
+// 1 đoạn = quy cách (tiết diện) + chiều dài cắt (len, mm). thucCo có thể sync từ Phôi.
+export interface ProcPart { loaiSat: string; quyCach: string; len: number; perChiTiet: number; thucCo?: number }
 export interface ProcLine {
   id: number
   itemName: string
@@ -29,6 +32,7 @@ export interface ProcLine {
   doneQty: number
   perManh?: number      // SL vật tư cần cho 1 mảnh/sản phẩm (định mức)
   thucCoQty?: number     // SL thực tế đang có sẵn để làm ngay (tồn đầu vào) — Hàn/Sơn
+  parts?: ProcPart[]     // Hàn/Sơn: các thanh sắt cấu thành 1 chi tiết (bấm xổ để xem)
   lastInputAt: string | null
 }
 export interface ProcManh {
@@ -63,8 +67,8 @@ export interface StageCfg {
 // Cấu hình dùng chung cho công đoạn Phôi/Hàn/Sơn — dùng lại ở màn Lệnh sản xuất riêng
 // (Phoi/Han/Son@demo.com) lẫn ở màn chi tiết Khung cơ khí bên KHSX (xem ThongKePagePlan.tsx).
 export const PHOI_CFG: StageCfg = { label: 'Phôi', done: 'Đã cắt', verb: 'cắt', itemLabel: 'Loại sắt', unit: 'cây', Icon: Wrench }
-export const HAN_CFG: StageCfg  = { label: 'Hàn',  done: 'Đã hàn', verb: 'hàn', itemLabel: 'Chi tiết',  unit: 'cái', Icon: Flame }
-export const SON_CFG: StageCfg  = { label: 'Sơn',  done: 'Đã sơn', verb: 'sơn', itemLabel: 'Loại sơn',  unit: 'lít', Icon: SprayCan }
+export const HAN_CFG: StageCfg = { label: 'Hàn', done: 'Đã hàn', verb: 'hàn', itemLabel: 'Chi tiết', unit: 'cái', Icon: Flame }
+export const SON_CFG: StageCfg = { label: 'Sơn', done: 'Đã sơn', verb: 'sơn', itemLabel: 'Loại sơn', unit: 'lít', Icon: SprayCan }
 
 // ── Helpers cho mock data (dùng ở các file seed) ───────────────────
 export const ISO = (daysFromNow: number, h = 17, m = 0) => {
@@ -156,14 +160,16 @@ function PoListBoard({ rows, cfg, isPhoi, onEnter, onStart, onEnd }: {
   })
 
   const cols: BoardColumn<PoView>[] = [
-    { key: 'po', header: 'PO', cell: v => (
-      <span style={{ fontWeight: 700 }}>
-        {!v.seqUnlocked
-          ? <Lock size={13} style={{ verticalAlign: -2, marginRight: 5, color: 'var(--text3)' }} />
-          : v.alert && <AlertTriangle size={13} style={{ verticalAlign: -2, marginRight: 5, color: 'var(--red)' }} />}
-        {v.r.poNumber}
-      </span>
-    ) },
+    {
+      key: 'po', header: 'PO', cell: v => (
+        <span style={{ fontWeight: 700 }}>
+          {!v.seqUnlocked
+            ? <Lock size={13} style={{ verticalAlign: -2, marginRight: 5, color: 'var(--text3)' }} />
+            : v.alert && <AlertTriangle size={13} style={{ verticalAlign: -2, marginRight: 5, color: 'var(--red)' }} />}
+          {v.r.poNumber}
+        </span>
+      )
+    },
     { key: 'sku', header: 'SKU', cell: v => v.r.sku },
     { key: 'sl', header: 'Số lượng', align: 'right', cell: v => fmt(v.r.soLuong) },
     { key: 'done', header: isPhoi ? `${cfg.done} (${cfg.unit})` : cfg.done, align: 'right', cell: v => <span style={{ fontWeight: 700, color: v.alert ? 'var(--red)' : 'var(--text)' }}>{fmt(v.s.daLam)}</span> },
@@ -171,29 +177,31 @@ function PoListBoard({ rows, cfg, isPhoi, onEnter, onStart, onEnd }: {
     { key: 'progress', header: 'Tiến độ', width: 160, cell: v => <Progress pct={v.s.pct} /> },
     { key: 'deadline', header: 'Deadline', cell: v => dateVN(v.r.deadline) },
     // Cột "Ca" (Bắt đầu/Kết thúc) chỉ cho Hàn/Sơn. Phôi bấm thẳng vào PO.
-    ...((isPhoi ? [] : [{ key: 'ca', header: `Ca ${cfg.verb}`, width: 180, cell: (v: PoView) => (
-      <div onClick={e => e.stopPropagation()}>
-        {!v.seqUnlocked
-          ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text3)' }}><Lock size={12} /> Chờ PO trước</span>
-          : !v.arranged
-            ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>—</span>
-            : v.s.pct >= 100
-              ? <span className="badge green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><CheckCircle2 size={12} /> Hoàn tất</span>
-              : v.running
-                ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
+    ...((isPhoi ? [] : [{
+      key: 'ca', header: `Ca ${cfg.verb}`, width: 180, cell: (v: PoView) => (
+        <div onClick={e => e.stopPropagation()}>
+          {!v.seqUnlocked
+            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text3)' }}><Lock size={12} /> Chờ PO trước</span>
+            : !v.arranged
+              ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>—</span>
+              : v.s.pct >= 100
+                ? <span className="badge green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><CheckCircle2 size={12} /> Hoàn tất</span>
+                : v.running
+                  ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
                     <button onClick={() => onEnd(v.r.id)} className="primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 12, background: 'var(--red)', borderColor: 'var(--red)' }}>
                       <Square size={12} /> Kết thúc
                     </button>
                     <span style={{ fontSize: 11, color: 'var(--text3)' }}>đang {cfg.verb} · từ {timeVN(v.r.startedAt!)}</span>
                   </div>
-                : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
+                  : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
                     <button onClick={() => onStart(v.r.id)} className="primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 12 }}>
                       <Play size={12} /> Bắt đầu
                     </button>
                     {v.r.lastSession && <span style={{ fontSize: 11, color: 'var(--text3)' }}>ca trước: {fmt(v.r.lastSession.cut)} {cfg.unit} · {durText(v.r.lastSession.from, v.r.lastSession.to)}</span>}
                   </div>}
-      </div>
-    ) }]) as BoardColumn<PoView>[]),
+        </div>
+      )
+    }]) as BoardColumn<PoView>[]),
   ]
 
   const Icon = cfg.Icon
@@ -258,7 +266,7 @@ function ManhListBoard({ po, onBack, onOpenManh }: { po: ProcRow; cfg: StageCfg;
 }
 
 // ── Tầng chi tiết vật tư (dùng chung Phôi/Hàn/Sơn) ─────────────────
-export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, pendingFor, onConfirmCut, manualInput, showThucCo, onReport, choKcsFor }: {
+export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, pendingFor, onConfirmCut, manualInput, showThucCo, onReport, choKcsFor, partStock }: {
   lines: ProcLine[]; cfg: StageCfg; readOnly: boolean
   title: string; subtitle: string; bannerLabel: string
   /** Bỏ trống khi board được nhúng làm 1 tab con (vd chi tiết Khung cơ khí bên KHSX) — không cần điều hướng "quay lại". */
@@ -278,9 +286,13 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
   onReport?: (line: ProcLine, qty: number) => void
   /** KCS-gated: SL đang chờ KCS duyệt của 1 dòng (để hiện gợi ý + trừ khi nhập). */
   choKcsFor?: (lineId: number) => number
+  /** Sync đoạn từ Phôi: trả số ĐOẠN tồn (KCS đạt) cho 1 thanh sắt cấu thành. Có → dùng thay thucCo tĩnh. */
+  partStock?: (part: ProcPart) => number
 }) {
   const phoiMode = !!onConfirmCut
   const [draft, setDraft] = useState<Record<number, string>>({})
+  const [openParts, setOpenParts] = useState<Set<number>>(new Set())
+  const toggleParts = (id: number) => setOpenParts(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   const db = dongBoOf(lines)
   const lech = lechOf(lines)
   const maxBo = lines.length ? Math.max(...lines.map(manhFromLine)) : 0
@@ -297,63 +309,87 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
   }
 
   const cols: BoardColumn<ProcLine>[] = [
-    { key: 'item', header: cfg.itemLabel, cell: l => <span style={{ fontWeight: 600 }}>{l.itemName}</span> },
+    {
+      key: 'item', header: cfg.itemLabel, cell: l => (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+          {l.parts?.length
+            ? <button onClick={e => { e.stopPropagation(); toggleParts(l.id) }} title="Xem thanh sắt cấu thành"
+              style={{ display: 'inline-flex', padding: 0, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text3)' }}>
+              {openParts.has(l.id) ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+            </button>
+            : null}
+          <span style={{ fontWeight: 600 }}>{l.itemName}</span>
+        </span>
+      )
+    },
     { key: 'spec', header: 'Quy cách', cell: l => <span style={{ color: 'var(--text3)' }}>{l.spec}</span> },
     { key: 'perManh', header: 'SL/bộ', align: 'right', cell: l => `×${perManh(l)}` },
     { key: 'need', header: `Định mức (${cfg.unit})`, align: 'right', cell: l => fmt(l.needQty) },
-    { key: 'done', header: `${cfg.done} (${cfg.unit})`, align: 'right', cell: l => {
-      const short = shortOf(l)
-      const pend = choKcsFor?.(l.id) ?? 0
-      return <>
-        {fmt(l.doneQty)}
-        {pend > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--amber)' }}>chờ KCS: {fmt(pend)} {cfg.unit}</span>}
-        {short > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--red)' }}>cần {cfg.verb} thêm {fmt(short)} {cfg.unit}</span>}
-      </>
-    } },
-    ...((showThucCo ?? !phoiMode) ? [{ key: 'thucCo', header: 'Thực có', align: 'right', cell: (l: ProcLine) => (
-      <span style={{ fontWeight: 600 }}>{fmt(l.thucCoQty ?? 0)}</span>
-    ) } as BoardColumn<ProcLine>] : []),
-    { key: 'remain', header: 'Còn lại', align: 'right', cell: l => {
-      const remain = l.needQty - l.doneQty
-      return <span style={{ fontWeight: 600, color: remain <= 0 ? 'var(--green)' : ACCENT }}>{fmt(Math.max(remain, 0))}</span>
-    } },
-    { key: 'updated', header: 'Cập nhật lúc', cell: l => {
-      const stale = minutesSince(l.lastInputAt) >= REMIND_MINUTES
-      return l.lastInputAt
-        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: stale ? 'var(--amber)' : 'var(--text3)' }}><Clock size={12} /> {timeVN(l.lastInputAt)}</span>
-        : <span style={{ color: 'var(--text3)' }}>— chưa nhập —</span>
-    } },
+    {
+      key: 'done', header: `${cfg.done} (${cfg.unit})`, align: 'right', cell: l => {
+        const short = shortOf(l)
+        const pend = choKcsFor?.(l.id) ?? 0
+        return <>
+          {fmt(l.doneQty)}
+          {pend > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--amber)' }}>chờ KCS: {fmt(pend)} {cfg.unit}</span>}
+          {short > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--red)' }}>cần {cfg.verb} thêm {fmt(short)} {cfg.unit}</span>}
+        </>
+      }
+    },
+    ...((showThucCo ?? !phoiMode) ? [{
+      key: 'thucCo', header: 'Thực có', align: 'right', cell: (l: ProcLine) => (
+        <span style={{ fontWeight: 600 }}>{fmt(l.thucCoQty ?? 0)}</span>
+      )
+    } as BoardColumn<ProcLine>] : []),
+    {
+      key: 'remain', header: 'Còn lại', align: 'right', cell: l => {
+        const remain = l.needQty - l.doneQty
+        return <span style={{ fontWeight: 600, color: remain <= 0 ? 'var(--green)' : ACCENT }}>{fmt(Math.max(remain, 0))}</span>
+      }
+    },
+    {
+      key: 'updated', header: 'Cập nhật lúc', cell: l => {
+        const stale = minutesSince(l.lastInputAt) >= REMIND_MINUTES
+        return l.lastInputAt
+          ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: stale ? 'var(--amber)' : 'var(--text3)' }}><Clock size={12} /> {timeVN(l.lastInputAt)}</span>
+          : <span style={{ color: 'var(--text3)' }}>— chưa nhập —</span>
+      }
+    },
     ...(phoiMode
-      ? [{ key: 'confirm', header: 'Xác nhận cắt', width: 340, cell: (l: ProcLine) => (
+      ? [{
+        key: 'confirm', header: 'Xác nhận cắt', width: 340, cell: (l: ProcLine) => (
           <ConfirmCell line={l} issues={pendingFor!(l.id)} unit={cfg.unit}
             onConfirm={(issue, soCay) => onConfirmCut!(l, issue, soCay)} />
-        ) } as BoardColumn<ProcLine>]
-      : (manualInput && !readOnly) ? [{ key: 'input', header: `Nhập số ${cfg.unit} vừa ${cfg.verb}`, width: 220, cell: (l: ProcLine) => {
-      const pend = choKcsFor?.(l.id) ?? 0
-      const remain = l.needQty - l.doneQty - pend
-      if (remain <= 0) return <span className="badge green">{pend > 0 ? 'chờ KCS duyệt' : 'đủ định mức'}</span>
-      return (
-        <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
-          <input
-            type="number" min={0} max={remain} placeholder={`tối đa ${fmt(remain)}`} value={draft[l.id] ?? ''}
-            onChange={e => {
-              const val = e.target.value
-              if (val === '') return setDraft(d => ({ ...d, [l.id]: '' }))
-              let n = Math.floor(Number(val))
-              if (isNaN(n)) return
-              if (n < 0) n = 0
-              if (n > remain) n = remain
-              setDraft(d => ({ ...d, [l.id]: String(n) }))
-            }}
-            onKeyDown={e => { if (e.key === 'Enter') submit(l) }}
-            style={{ width: 110 }}
-          />
-          <button className="primary" onClick={() => submit(l)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', fontSize: 12 }}>
-            <Plus size={13} /> Ghi nhận
-          </button>
-        </div>
-      )
-    } } as BoardColumn<ProcLine>] : []),
+        )
+      } as BoardColumn<ProcLine>]
+      : (manualInput && !readOnly) ? [{
+        key: 'input', header: `Nhập số ${cfg.unit} vừa ${cfg.verb}`, width: 220, cell: (l: ProcLine) => {
+          const pend = choKcsFor?.(l.id) ?? 0
+          const remain = l.needQty - l.doneQty - pend
+          if (remain <= 0) return <span className="badge green">{pend > 0 ? 'chờ KCS duyệt' : 'đủ định mức'}</span>
+          return (
+            <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+              <input
+                type="number" min={0} max={remain} placeholder={`tối đa ${fmt(remain)}`} value={draft[l.id] ?? ''}
+                onChange={e => {
+                  const val = e.target.value
+                  if (val === '') return setDraft(d => ({ ...d, [l.id]: '' }))
+                  let n = Math.floor(Number(val))
+                  if (isNaN(n)) return
+                  if (n < 0) n = 0
+                  if (n > remain) n = remain
+                  setDraft(d => ({ ...d, [l.id]: String(n) }))
+                }}
+                onKeyDown={e => { if (e.key === 'Enter') submit(l) }}
+                style={{ width: 110 }}
+              />
+              <button className="primary" onClick={() => submit(l)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', fontSize: 12 }}>
+                <Plus size={13} /> Ghi nhận
+              </button>
+            </div>
+          )
+        }
+      } as BoardColumn<ProcLine>] : []),
   ]
 
   const banner = (
@@ -384,6 +420,54 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
       rows={lines}
       rowKey={l => l.id}
       rowTone={l => shortOf(l) > 0 ? 'alert' : 'default'}
+      expandedRow={l => {
+        if (!(l.parts && openParts.has(l.id))) return null
+        const thucCoOf = (pt: ProcPart) => partStock ? partStock(pt) : (pt.thucCo ?? 0) // sync từ Phôi nếu có
+        const rapDuocOf = (pt: ProcPart) => pt.perChiTiet > 0 ? Math.floor(thucCoOf(pt) / pt.perChiTiet) : 0
+        const rapMin = l.parts.length ? Math.min(...l.parts.map(rapDuocOf)) : 0
+        const thR2: React.CSSProperties = { ...td, fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
+        return (
+          <div style={{ padding: '10px 16px 14px', background: 'var(--surface2)' }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>
+              Đoạn sắt cấu thành 1 {itemLabelLC} <span style={{ fontWeight: 400, color: 'var(--text3)' }}>{partStock ? '(thực có = đoạn Phôi KCS đạt − đã hàn)' : '(theo mảnh bên Phôi)'}</span>:
+            </div>
+            <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface)' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ background: 'var(--surface)' }}>
+                    <th style={thR2}>Loại sắt</th>
+                    <th style={thR2}>Quy cách · Dài</th>
+                    <th style={{ ...thR2, textAlign: 'right' }}>SL / {itemLabelLC}</th>
+                    <th style={{ ...thR2, textAlign: 'right' }}>Thực có (đoạn)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {l.parts!.map((pt, i) => {
+                    const nghen = rapDuocOf(pt) === rapMin
+                    return (
+                      <tr key={i} style={{ borderTop: '1px solid var(--border)', background: nghen ? 'var(--red-bg)' : undefined }}>
+                        <td style={{ ...td, fontWeight: 600, borderLeft: `3px solid ${nghen ? 'var(--red)' : 'transparent'}` }}>
+                          {pt.loaiSat}
+                          {nghen && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)', marginLeft: 6 }}>· thiếu nhất</span>}
+                        </td>
+                        <td style={{ ...td, color: 'var(--text3)' }}>{pt.quyCach} · <b style={{ color: 'var(--text2)' }}>{fmt(pt.len)}mm</b></td>
+                        <td style={{ ...tdR, fontWeight: 600 }}>×{pt.perChiTiet}</td>
+                        <td style={{ ...tdR, fontWeight: nghen ? 700 : 400, color: nghen ? 'var(--red)' : 'var(--text)' }}>{fmt(thucCoOf(pt))}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--surface)' }}>
+                    <td style={{ ...td, fontWeight: 700 }} colSpan={3}>Đủ ráp (theo đoạn thiếu nhất)</td>
+                    <td style={{ ...tdR, fontWeight: 800, color: 'var(--green)' }}>{fmt(rapMin)} {itemLabelLC}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        )
+      }}
     />
   )
 }
@@ -507,6 +591,33 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   const { data: batches, refetch } = useFetch<SanLuongBatch[]>(
     () => stage ? api.getSanLuongByStage(stage) : Promise.resolve([]), [stage])
 
+  // Tồn ĐOẠN từ Phôi (KCS đạt) — để đồng bộ "thực có" thanh sắt cấu thành chi tiết.
+  const { data: doanTon } = useFetch<DoanTon[]>(
+    () => stage ? api.getDoanTonKho() : Promise.resolve([]), [stage])
+
+  const doanMap = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const d of doanTon ?? []) m.set(`${d.poNumber}|${d.loaiSat}|${d.quyCach}|${d.len}`, d.soDoan)
+    return m
+  }, [doanTon])
+
+  // ĐOẠN đã TIÊU HAO = Σ (số khung đã báo hàn) × (SL đoạn / khung) theo từng đoạn.
+  // 1 đoạn có thể dùng cho nhiều chi tiết → cộng dồn qua mọi lô báo sản lượng.
+  const consumedMap = useMemo(() => {
+    const partsByPoLine = new Map<string, ProcPart[]>()
+    for (const r of rows) for (const l of r.lines ?? []) if (l.parts) partsByPoLine.set(`${r.poNumber}|${l.id}`, l.parts)
+    const m = new Map<string, number>()
+    for (const b of batches ?? []) {
+      const parts = partsByPoLine.get(`${b.poNumber}|${b.lineId}`)
+      if (!parts) continue
+      for (const pt of parts) {
+        const k = `${b.poNumber}|${pt.loaiSat}|${pt.quyCach}|${pt.len}`
+        m.set(k, (m.get(k) ?? 0) + b.qty * pt.perChiTiet)
+      }
+    }
+    return m
+  }, [batches, rows])
+
   // done (Σ DA_CAT) & chờ-KCS (Σ CHO_KCS) theo từng dòng — chỉ khi KCS-gated.
   const { doneByLine, choKcsByLine } = useMemo(() => {
     const done = new Map<number, number>(), cho = new Map<number, number>()
@@ -542,6 +653,10 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
       onUpdateLine={stage ? undefined : l => updateLineFlat(selPo.id, l)}
       onReport={stage && !readOnly ? (l, qty) => report(selPo, l, qty) : undefined}
       choKcsFor={stage ? (id => choKcsByLine.get(id) ?? 0) : undefined}
+      partStock={stage ? (pt => {
+        const k = `${selPo.poNumber}|${pt.loaiSat}|${pt.quyCach}|${pt.len}`
+        return Math.max(0, (doanMap.get(k) ?? 0) - (consumedMap.get(k) ?? 0)) // KCS đạt − đã hàn
+      }) : undefined}
       manualInput
     />
   }
