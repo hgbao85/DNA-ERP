@@ -2,7 +2,6 @@ import { mockDelay } from '../core/delay';
 import { mockStore } from '../core/store';
 import { nextId } from '../core/id';
 import { BaseService } from '../core/base.service';
-import { assertBossRole, assertProdMgrRole } from '../core/auth-guard';
 import type { CreatePlanFormPayload, ManhRow, MaterialType, PlanForm, PlanFormStatus, QuotaEntryMeta, QuotaReviewStatus } from '../../../types/plan-form';
 
 // ─── Service class ────────────────────────────────────────────────────────────
@@ -162,7 +161,7 @@ class PlanFormService extends BaseService<PlanForm> {
 
   /** QLSX duyệt cục bộ — chưa chuyển status, chỉ mở khóa nút "Gửi sếp duyệt" (xem requestBossApproval). */
   async reviewQlsx(id: number): Promise<PlanForm> {
-    assertProdMgrRole();
+    this.assertProdMgrRole();
     await mockDelay();
     let updated!: PlanForm;
     mockStore.update((s) => {
@@ -177,13 +176,13 @@ class PlanFormService extends BaseService<PlanForm> {
 
   /** QLSX gửi cho sếp (Giám đốc) phê duyệt lần cuối trước khi bắt đầu sản xuất. */
   async requestBossApproval(id: number): Promise<PlanForm> {
-    assertProdMgrRole();
+    this.assertProdMgrRole();
     return this.transition(id, 'WAITING_BOSS_APPROVAL');
   }
 
   /** Chỉ Sếp (role BOSS) mới được duyệt lần cuối — chặn ở tầng service, không chỉ ẩn nút ở UI. */
   async approveFull(id: number): Promise<PlanForm> {
-    assertBossRole();
+    this.assertBossRole();
     return this.transition(id, 'APPROVED');
   }
 
@@ -222,13 +221,26 @@ class PlanFormService extends BaseService<PlanForm> {
   }
 
   async rejectByQlsx(id: number, reason?: string): Promise<PlanForm> {
-    assertProdMgrRole();
+    this.assertProdMgrRole();
     return this.rejectToDetail(id, reason);
   }
 
   async rejectByBoss(id: number, reason?: string): Promise<PlanForm> {
-    assertBossRole();
+    this.assertBossRole();
     return this.rejectToDetail(id, reason);
+  }
+
+  private assertBossRole(): void {
+    const raw = localStorage.getItem('user_info');
+    const role = raw ? (JSON.parse(raw) as { role?: string }).role : null;
+    if (role !== 'BOSS') throw new Error('Chỉ Giám đốc (Sếp) mới có quyền duyệt bước này');
+  }
+
+  /** Chỉ QLSX (mfgRole PRODUCTION_MANAGER) mới được duyệt bước trung gian trước khi gửi sếp. */
+  private assertProdMgrRole(): void {
+    const raw = localStorage.getItem('user_info');
+    const mfgRole = raw ? (JSON.parse(raw) as { mfgRole?: string }).mfgRole : null;
+    if (mfgRole !== 'PRODUCTION_MANAGER') throw new Error('Chỉ Quản lý sản xuất mới có quyền duyệt bước này');
   }
 
   /** KHSX từ chối 1+ nhóm định mức chi tiết rồi gửi lại cho bộ phận chuyên trách nhập lại từ đầu. */
