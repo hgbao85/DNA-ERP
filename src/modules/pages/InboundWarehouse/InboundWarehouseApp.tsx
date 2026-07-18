@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, ScanSearch, BarChart3, MapPin, Scissors } from 'lucide-react'
+import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, ScanSearch, BarChart3, MapPin, Share2 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 // Tái dùng nguyên các màn kho đã có (trước đây nằm trong MES) — KHÔNG viết lại logic.
 import MfgWarehousesPage, { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
@@ -10,7 +10,7 @@ import KhoChuyenKiemPage from './KhoChuyenKiemPage'
 import KhoDongGoiPage from './KhoDongGoiPage'
 import KiemTraVatTuPage from './KiemTraVatTuPage'
 import WarehouseXuatPage from './WarehouseXuatPage'
-import XuatSatPage from './XuatSatPage'
+import PhanPhoiNoiBoPage from './PhanPhoiNoiBoPage'
 import KhoXuatDanPage from './KhoXuatDanPage'
 import KhoNhapDanPage from './KhoNhapDanPage'
 import QuanLyDiemDanPage from '../Manufacturing/QuanLyDiemDanPage'
@@ -40,7 +40,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     { id: 'kiem-tra',   label: 'Kiểm tra vật tư',     icon: <ScanSearch size={16} /> },
     { id: 'nhap-kho',   label: 'Nhập kho',            icon: <ArrowDownToLine size={16} /> },
     { id: 'xuat-kho',   label: 'Xuất kho',            icon: <ArrowUpFromLine size={16} /> },
-    ...(scope === 'phoi-son-han' ? [{ id: 'xuat-sat' as TabId, label: 'Xuất sắt cho Phôi', icon: <Scissors size={16} /> }] : []),
+    ...(scope === 'phoi-son-han' ? [{ id: 'xuat-sat' as TabId, label: 'Phân phối nội bộ', icon: <Share2 size={16} /> }] : []),
     ...(canSeePacking ? [
       { id: 'chuyen-kiem' as TabId, label: 'Chuyền kiểm', icon: <ClipboardCheck size={16} /> },
       { id: 'dong-goi'    as TabId, label: 'Đóng gói',    icon: <Box size={16} /> },
@@ -156,7 +156,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         />}
         {tab === 'nhap-kho'   && <NhapKhoPage lockedGroup={scope} />}
         {tab === 'xuat-kho'   && (scope ? <WarehouseXuatPage scope={scope} /> : <XuatKhoPage lockedGroup={scope} />)}
-        {tab === 'xuat-sat'   && scope === 'phoi-son-han' && <XuatSatPage />}
+        {tab === 'xuat-sat'   && scope === 'phoi-son-han' && <PhanPhoiNoiBoPage />}
         {tab === 'chuyen-kiem' && canSeePacking && <KhoChuyenKiemPage />}
         {tab === 'dong-goi'    && canSeePacking && <KhoDongGoiPage />}
         {tab === 'xuat-dan'   && scope === 'vat-tu-tp'   && <KhoXuatDanPage />}

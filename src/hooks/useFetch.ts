@@ -12,9 +12,12 @@ export function useFetch<T>(fetchFn: () => Promise<T>, deps?: unknown[]) {
     fetchFnRef.current = fetchFn;
   });
 
+  // Chỉ hiện loading ở lần tải ĐẦU. Refetch sau (đổi deps / gọi tay sau thao tác) giữ data cũ,
+  // KHÔNG nháy sang LoadingState → tránh màn hình giật.
+  const hasLoaded = useRef(false);
   useEffect(() => {
     let isMounted = true;
-    setIsLoading(true);
+    if (!hasLoaded.current) setIsLoading(true);
 
     fetchFnRef.current()
       .then((resData) => {
@@ -28,7 +31,10 @@ export function useFetch<T>(fetchFn: () => Promise<T>, deps?: unknown[]) {
         if (isMounted) setError('Không thể tải dữ liệu');
       })
       .finally(() => {
-        if (isMounted) setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+          hasLoaded.current = true;
+        }
       });
 
     return () => {
