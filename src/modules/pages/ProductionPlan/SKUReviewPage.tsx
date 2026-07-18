@@ -165,7 +165,8 @@ export default function SKUReviewPage() {
     }
   }
 
-  // QLSX từ chối toàn bộ SKU — trả về bước nhập định mức chi tiết cho các bộ phận chuyên trách sửa lại.
+  // QLSX từ chối toàn bộ SKU — trả về cho KHSX duyệt lại từng mục (không bắt bộ phận chuyên trách
+  // nào nhập lại, xem rejectToDetailReview ở service).
   const handleQlsxReject = async (reason?: string) => {
     if (!selectedPf) return
     try {
@@ -178,7 +179,8 @@ export default function SKUReviewPage() {
     }
   }
 
-  // Sếp từ chối toàn bộ SKU — trả về bước nhập định mức chi tiết cho các bộ phận chuyên trách sửa lại.
+  // Sếp từ chối toàn bộ SKU — trả về cho KHSX duyệt lại từng mục (không bắt bộ phận chuyên trách
+  // nào nhập lại, xem rejectToDetailReview ở service).
   const handleBossReject = async (reason?: string) => {
     if (!selectedPf) return
     try {

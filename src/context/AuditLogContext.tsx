@@ -31,9 +31,9 @@ export const AUDIT_ACTIONS = {
   'planform.parts_approved':          { label: 'Duyệt định mức mảnh — chuyển bộ phận nhập chi tiết', color: '#2e7d32' },
   'planform.qlsx_approved':           { label: 'Quản lý sản xuất duyệt',                            color: '#2e7d32' },
   'planform.sent_for_boss_approval':  { label: 'Gửi sếp duyệt',                                    color: '#7c3aed' },
-  'planform.qlsx_rejected':           { label: 'QLSX từ chối — gửi lại nhập định mức từ đầu',      color: '#c62828' },
+  'planform.qlsx_rejected':           { label: 'QLSX từ chối — trả về cho KHSX duyệt lại',         color: '#c62828' },
   'planform.boss_approved':           { label: 'Giám đốc duyệt — bắt đầu sản xuất',                 color: '#2e7d32' },
-  'planform.boss_rejected':           { label: 'Giám đốc từ chối — gửi lại nhập định mức từ đầu',   color: '#c62828' },
+  'planform.boss_rejected':           { label: 'Giám đốc từ chối — trả về cho KHSX duyệt lại',      color: '#c62828' },
 
   // ─── KCS (Phôi/Hàn/Sơn) — lịch sử một lô: xuất → báo sản lượng → KCS duyệt ─────
   'kcs.issued':   { label: 'Kho xuất',                color: '#2563eb' },
