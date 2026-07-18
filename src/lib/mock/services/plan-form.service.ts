@@ -190,33 +190,27 @@ class PlanFormService extends BaseService<PlanForm> {
     return this.transition(id, 'APPROVED');
   }
 
-  /** QLSX hoặc Sếp từ chối toàn bộ SKU — trả về bước nhập định mức mảnh (bước đầu tiên) cho các
-   *  bộ phận chuyên trách sửa lại. Dữ liệu đã nhập (manhData/materialType) vẫn giữ nguyên để sửa
-   *  tiếp, không xóa trắng. Mỗi nhóm định mức mảnh ĐÃ CÓ dữ liệu bị đánh dấu REJECTED (kèm lý do)
-   *  thay vì xóa trắng cờ duyệt — vì các trang nhập liệu (Spec*Page) suy ra trạng thái "pending"
-   *  (khóa sửa, đang chờ KHSX duyệt) chỉ từ việc có dữ liệu + không có quyết định; nếu chỉ xóa
-   *  manhReviewStatus mà không đánh REJECTED, account chuyên trách sẽ bị khóa không sửa lại được
-   *  dù SKU vừa bị từ chối. quotaManagement.reviewStatus xóa hẳn (chi tiết sẽ duyệt lại từ đầu sau
-   *  khi mảnh xong lại) — cùng qlsxReviewStatus (không có cơ chế "pending" khóa sửa tương tự).
+  /** QLSX hoặc Sếp từ chối toàn bộ SKU — trả về đúng bước "duyệt định mức chi tiết" (APPROVED_DETAIL)
+   *  để KHSX xem và duyệt/từ chối lại TỪNG mục (mảnh: Sắt/Dây, chi tiết: Sơn/Đinh, Phụ kiện, Bao bì).
+   *  Không đánh REJECTED cho bất kỳ nhóm nào và KHÔNG đụng tới manhData/materialType — dữ liệu các
+   *  bộ phận chuyên trách đã nhập vẫn giữ nguyên, không ai phải nhập lại từ đầu. Chỉ xóa trắng các
+   *  quyết định duyệt cũ (reviewStatus/manhReviewStatus về {}) để nút Duyệt/Từ chối của từng mục hiện
+   *  lại (SKUDetail chỉ ẩn nút khi mục đã có quyết định) — KHSX duyệt lại xong, nút "Gửi QLSX duyệt"
+   *  tự bật lại vì status đã quay về APPROVED_DETAIL, không phải đi lại từ đầu qua bước mảnh.
+   *  qlsxReviewStatus cũng xóa vì lần duyệt cục bộ trước đó không còn hiệu lực.
    */
-  private async rejectToFirstStage(id: number, reason?: string): Promise<PlanForm> {
+  private async rejectToDetailReview(id: number): Promise<PlanForm> {
     await mockDelay();
     let updated!: PlanForm;
     mockStore.update((s) => {
       const idx = s.planForms.findIndex((p) => p.id === id);
       if (idx < 0) throw new Error(`PlanForm #${id} not found`);
       const pf = s.planForms[idx];
-      const manhData = pf.manhData;
-      const rejectedEntry: QuotaReviewStatus = { status: 'REJECTED', reason, reviewedAt: new Date().toISOString() };
-      const manhReviewStatus: Partial<Record<ManhGroup, QuotaReviewStatus>> = {};
-      (['sat', 'daySon'] as ManhGroup[]).forEach((group) => {
-        if (manhData?.[group]?.length) manhReviewStatus[group] = rejectedEntry;
-      });
       updated = {
         ...pf,
-        status: 'WAITING_PARTS',
+        status: 'APPROVED_DETAIL',
         quotaManagement: pf.quotaManagement ? { ...pf.quotaManagement, reviewStatus: {} } : pf.quotaManagement,
-        manhReviewStatus,
+        manhReviewStatus: {},
         qlsxReviewStatus: undefined,
       };
       s.planForms[idx] = updated;
@@ -224,14 +218,18 @@ class PlanFormService extends BaseService<PlanForm> {
     return this.enrich(updated);
   }
 
+  // reason chỉ dùng để ghi audit log ở UI (xem SKUReviewPage) — không lưu trên PlanForm vì đây là
+  // từ chối cấp toàn SKU, khác với reject theo từng mục (có field reason riêng trên mỗi mục).
   async rejectByQlsx(id: number, reason?: string): Promise<PlanForm> {
     assertProdMgrRole();
-    return this.rejectToFirstStage(id, reason);
+    void reason;
+    return this.rejectToDetailReview(id);
   }
 
   async rejectByBoss(id: number, reason?: string): Promise<PlanForm> {
     assertBossRole();
-    return this.rejectToFirstStage(id, reason);
+    void reason;
+    return this.rejectToDetailReview(id);
   }
 
   /**

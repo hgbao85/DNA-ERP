@@ -64,15 +64,22 @@ export function SKUDetail({
 
   // ── Định mức mảnh (2 nhóm: Sắt, Dây) ────────────────────────────────────────
   const [manhSecStatus, setManhSecStatus] = useState<Record<ManhGroup, SecEntry>>(() => {
-    const fallback = partsAlreadyApproved ? approvedEntry(pf.proposedAt ?? undefined) : null
     const review = pf.manhReviewStatus
+    // Fallback "coi như đã duyệt" chỉ áp dụng cho SKU cũ CHƯA TỪNG có manhReviewStatus (trước khi
+    // field này tồn tại) — không áp dụng khi field đã tồn tại nhưng rỗng (vd QLSX/Sếp vừa từ chối,
+    // xóa trắng quyết định cũ để KHSX duyệt lại từng mục dù mảnh đã từng qua giai đoạn APPROVED_PARTS).
+    const fallback = review === undefined && partsAlreadyApproved ? approvedEntry(pf.proposedAt ?? undefined) : null
     const fromReview = (k: ManhGroup): SecEntry => {
       const r = review?.[k]
       return r ? { status: r.status, at: new Date(r.reviewedAt), reason: r.reason } : fallback
     }
     return { sat: fromReview('sat'), daySon: fromReview('daySon') }
   })
-  const manhAllApproved = (['sat', 'daySon'] as ManhGroup[]).every(k => manhSecStatus[k]?.status === 'APPROVED')
+  // Mục chưa có nội dung thì nút Duyệt/Từ chối bị disable (xem ManhSteelSection/MaterialSection) —
+  // vẫn phải chờ bộ phận chuyên trách nhập dữ liệu thật rồi KHSX mới duyệt được, không có đường tắt
+  // nào để coi mục rỗng là "đã xong".
+  const manhAllApproved = (['sat', 'daySon'] as ManhGroup[])
+    .every(k => manhSecStatus[k]?.status === 'APPROVED')
   const manhAnyRejected = (['sat', 'daySon'] as ManhGroup[]).some(k => manhSecStatus[k]?.status === 'REJECTED')
 
   type ManhSecModal = { key: ManhGroup; title: string } | null
@@ -112,18 +119,29 @@ export function SKUDetail({
   type SecKey = 'daySon' | 'vatTuPhuKien' | 'baoBiDongGoi'
 
   const [secStatus, setSecStatus] = useState<Record<SecKey, SecEntry>>(() => {
-    const fallback = detailAlreadyApproved ? approvedEntry(pf.proposedAt ?? undefined) : null
     const review = pf.quotaManagement?.reviewStatus
+    // Cùng lý do với fallback của manhSecStatus ở trên — chỉ áp dụng cho SKU cũ chưa từng có
+    // reviewStatus, không áp dụng khi field tồn tại nhưng rỗng (vừa bị QLSX/Sếp từ chối).
+    const fallback = review === undefined && detailAlreadyApproved ? approvedEntry(pf.proposedAt ?? undefined) : null
     const fromReview = (k: SecKey): SecEntry => {
       const r = review?.[k]
       return r ? { status: r.status, at: new Date(r.reviewedAt), reason: r.reason } : fallback
     }
     return { daySon: fromReview('daySon'), vatTuPhuKien: fromReview('vatTuPhuKien'), baoBiDongGoi: fromReview('baoBiDongGoi') }
   })
+  // Cùng nguyên tắc với manhAllApproved — mục rỗng không được coi là "đã xong", phải có dữ liệu +
+  // được duyệt thật thì mới tính.
   const allSectionsApproved = (['daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as SecKey[])
     .every(k => secStatus[k]?.status === 'APPROVED')
 
   const anySectionRejected = (['daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as SecKey[]).some(k => secStatus[k]?.status === 'REJECTED')
+
+  // Nút "Gửi QLSX duyệt" phải chờ TẤT CẢ mục được duyệt — cả định mức mảnh lẫn chi tiết. Bình thường
+  // mảnh đã được duyệt xong xuôi trước khi tới bước chi tiết nên manhAllApproved luôn đúng ở đây;
+  // riêng trường hợp QLSX/Sếp từ chối (rejectToDetailReview xóa trắng cả reviewStatus lẫn
+  // manhReviewStatus) thì KHSX phải duyệt lại cả 2 phần mới được gửi lại, không chỉ phần chi tiết.
+  const readyForQlsx = allSectionsApproved && manhAllApproved
+  const qlsxBlockedByRejection = anySectionRejected || manhAnyRejected
 
   // Duyệt/từ chối 1 nhóm định mức chi tiết đều phải qua modal xác nhận, và một khi đã có quyết định
   // (secStatus[k] khác null) thì MaterialSection tự ẩn 2 nút này — account chuyên trách tự thấy trạng
@@ -158,6 +176,7 @@ export function SKUDetail({
   const [filterSec, setFilterSec] = useState<SecFilter>('all')
 
   const [approvingDetail, setApprovingDetail] = useState(false)
+  const [confirmApproveDetail, setConfirmApproveDetail] = useState(false)
 
   const handleApproveDetail = async () => {
     if (!onApproveDetail) return
@@ -169,11 +188,24 @@ export function SKUDetail({
   // Tab chi tiết hiển thị khi mảnh đã qua duyệt, HOẶC khi đã có dữ liệu chi tiết từ trước (vd SKU bị
   // QLSX/Sếp từ chối nên status quay về WAITING_PARTS, nhưng dữ liệu chi tiết vẫn còn — vẫn cần xem lại được).
   const showDetailTab = partsAlreadyApproved || (['daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as SecKey[]).some(k => (mt?.[k]?.length ?? 0) > 0)
-  const defaultTab: DetailTab = partsAlreadyApproved ? 'chitiet' : 'manh'
+  // Ưu tiên mở tab "Định mức mảnh" nếu nó CHƯA duyệt xong — kể cả khi status đã ở giai đoạn chi tiết
+  // (vd QLSX/Sếp vừa từ chối: rejectToDetailReview xóa trắng cả manhReviewStatus lẫn reviewStatus,
+  // nên Sắt/Dây cũng cần duyệt lại). Không làm vậy thì KHSX mở SKU lên sẽ rơi thẳng vào tab chi tiết,
+  // dễ tưởng chỉ cần duyệt lại chi tiết mà không biết mảnh cũng đang chờ.
+  const defaultTab: DetailTab = partsAlreadyApproved && manhAllApproved ? 'chitiet' : 'manh'
   const [detailTab, setDetailTab] = useState<DetailTab>(defaultTab)
 
-  const canEditManh = !readOnly && !isBoss && !isProdMgr && pf.status === 'APPROVED_PARTS'
-  const canEditDetail = !readOnly && !isBoss && pf.status === 'APPROVED_DETAIL'
+  // KHSX được duyệt/từ chối từng mục (mảnh: Sắt/Dây; chi tiết: Sơn/Đinh, Phụ kiện, Bao bì) bất kể
+  // đang ở giai đoạn pipeline nào — MaterialSection/ManhSteelSection tự ẩn nút khi mục đã có quyết
+  // định hoặc chưa có nội dung, nên không cần khóa cứng theo status ở đây. Nhờ vậy khi QLSX/Sếp từ
+  // chối (xem rejectToDetailReview), nút Duyệt/Từ chối của TẤT CẢ mục tự hiện lại ngay mà không cần
+  // chờ đi lại từ đầu qua từng bước, và không bộ phận chuyên trách nào phải nhập lại dữ liệu.
+  const canReview = !readOnly && !isBoss && !isProdMgr
+  // Thanh "chuyển tiếp công đoạn" (Gửi bộ phận chi tiết / Gửi QLSX duyệt) chỉ hiện đúng lúc pipeline
+  // đang ở giai đoạn tương ứng — khác với canReview, đây là hành động chuyển trạng thái nên vẫn cần
+  // khóa theo status.
+  const showManhActionBar = canReview && pf.status === 'APPROVED_PARTS'
+  const showDetailActionBar = canReview && pf.status === 'APPROVED_DETAIL'
   const noop = () => {}
 
   // Sếp/QLSX duyệt: xem gộp cả chi tiết + mảnh trên 1 màn hình (không cần chuyển tab) cho tiện duyệt.
@@ -333,7 +365,7 @@ export function SKUDetail({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {(filterManhSec === 'all' || filterManhSec === 'sat') && (
               <ManhSteelSection
-                readOnly={!canEditManh} entry={manhSecStatus.sat}
+                readOnly={!canReview} entry={manhSecStatus.sat}
                 onApprove={() => setManhApproveModal({ key: 'sat', title: 'Sắt' })}
                 onReject={() => { setManhRejectModal({ key: 'sat', title: 'Sắt' }); setManhRejectReason('') }}
                 rows={manh?.sat ?? []}
@@ -341,7 +373,7 @@ export function SKUDetail({
             )}
             {(filterManhSec === 'all' || filterManhSec === 'daySon') && (
               <MaterialSection
-                title="Dây" color="#1d4ed8" bg="#eff6ff" readOnly={!canEditManh}
+                title="Dây" color="#1d4ed8" bg="#eff6ff" readOnly={!canReview}
                 entry={manhSecStatus.daySon}
                 onApprove={() => setManhApproveModal({ key: 'daySon', title: 'Dây' })}
                 onReject={() => { setManhRejectModal({ key: 'daySon', title: 'Dây' }); setManhRejectReason('') }}
@@ -355,10 +387,10 @@ export function SKUDetail({
           </div>
 
           {/* Actions */}
-          {canEditManh && (
+          {showManhActionBar && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
               {!manhAllApproved && !manhAnyRejected && (
-                <span style={{ fontSize: 12, color: '#d97706' }}>Cần duyệt đủ 2 loại định mức mảnh mới được chuyển đến công đoạn tiếp theo</span>
+                <span style={{ fontSize: 12, color: '#d97706' }}>Cần nhập và duyệt đủ tất cả các mục mới được chuyển đến công đoạn tiếp theo</span>
               )}
               {manhAnyRejected && (
                 <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>Có nhóm bị từ chối — đang chờ bộ phận nhập lại</span>
@@ -376,11 +408,6 @@ export function SKUDetail({
               >
                 {approvingParts ? 'Đang gửi...' : 'Gửi bộ phận Định mức chi tiết'}
               </button>
-            </div>
-          )}
-          {partsAlreadyApproved && !isBoss && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-              <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã gửi đến bộ phận Định mức chi tiết</span>
             </div>
           )}
         </div>
@@ -414,7 +441,7 @@ export function SKUDetail({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {(filterSec === 'all' || filterSec === 'daySon') && (
               <MaterialSection
-                title="Sơn / Đinh" color="#1d4ed8" bg="#eff6ff" readOnly={!canEditDetail}
+                title="Sơn / Đinh" color="#1d4ed8" bg="#eff6ff" readOnly={!canReview}
                 entry={secStatus.daySon}
                 onApprove={() => setApproveModal({ key: 'daySon', title: 'Sơn / Đinh' })}
                 onReject={() => { setRejectModal({ key: 'daySon', title: 'Sơn / Đinh' }); setRejectReason('') }}
@@ -427,7 +454,7 @@ export function SKUDetail({
             )}
             {(filterSec === 'all' || filterSec === 'vatTuPhuKien') && (
               <MaterialSection
-                title="Vật tư phụ kiện" color="#6d28d9" bg="#ede9fe" readOnly={!canEditDetail}
+                title="Vật tư phụ kiện" color="#6d28d9" bg="#ede9fe" readOnly={!canReview}
                 entry={secStatus.vatTuPhuKien}
                 onApprove={() => setApproveModal({ key: 'vatTuPhuKien', title: 'Vật tư phụ kiện' })}
                 onReject={() => { setRejectModal({ key: 'vatTuPhuKien', title: 'Vật tư phụ kiện' }); setRejectReason('') }}
@@ -439,7 +466,7 @@ export function SKUDetail({
             )}
             {(filterSec === 'all' || filterSec === 'baoBiDongGoi') && (
               <MaterialSection
-                title="Bao bì đóng gói" color="#065f46" bg="#d1fae5" readOnly={!canEditDetail}
+                title="Bao bì đóng gói" color="#065f46" bg="#d1fae5" readOnly={!canReview}
                 entry={secStatus.baoBiDongGoi}
                 onApprove={() => setApproveModal({ key: 'baoBiDongGoi', title: 'Bao bì đóng gói' })}
                 onReject={() => { setRejectModal({ key: 'baoBiDongGoi', title: 'Bao bì đóng gói' }); setRejectReason('') }}
@@ -452,32 +479,33 @@ export function SKUDetail({
           </div>
 
           {/* Actions */}
-          {canEditDetail && (
+          {showDetailActionBar && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              {!allSectionsApproved && !anySectionRejected && (
-                <span style={{ fontSize: 12, color: '#d97706' }}>Cần duyệt đủ 3 loại vật tư chi tiết mới được chuyển đến công đoạn tiếp theo</span>
+              {/* allSectionsApproved xong nhưng vẫn chưa readyForQlsx nghĩa là mảnh (tab khác) đang
+                  chặn — chỉ xảy ra khi QLSX/Sếp vừa từ chối. Nói rõ ra để KHSX không tưởng nhầm mục
+                  nào trên chính tab này còn thiếu. */}
+              {!readyForQlsx && !qlsxBlockedByRejection && allSectionsApproved && !manhAllApproved && (
+                <span style={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>⚠ Định mức mảnh (tab bên cạnh) cũng cần được duyệt lại</span>
               )}
-              {anySectionRejected && (
+              {!readyForQlsx && !qlsxBlockedByRejection && !allSectionsApproved && (
+                <span style={{ fontSize: 12, color: '#d97706' }}>Cần nhập và duyệt đủ tất cả các mục mới được chuyển đến công đoạn tiếp theo</span>
+              )}
+              {qlsxBlockedByRejection && (
                 <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>Có nhóm bị từ chối — đang chờ bộ phận nhập lại</span>
               )}
               <button
-                onClick={handleApproveDetail}
-                disabled={!allSectionsApproved || approvingDetail}
+                onClick={() => setConfirmApproveDetail(true)}
+                disabled={!readyForQlsx || approvingDetail}
                 style={{
                   padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
-                  cursor: allSectionsApproved && !approvingDetail ? 'pointer' : 'not-allowed',
-                  background: allSectionsApproved ? '#2e7d32' : '#e5e7eb',
-                  color: allSectionsApproved ? '#fff' : '#9ca3af',
+                  cursor: readyForQlsx && !approvingDetail ? 'pointer' : 'not-allowed',
+                  background: readyForQlsx ? '#2e7d32' : '#e5e7eb',
+                  color: readyForQlsx ? '#fff' : '#9ca3af',
                   opacity: approvingDetail ? 0.7 : 1,
                 }}
               >
                 {approvingDetail ? 'Đang gửi...' : 'Gửi QLSX duyệt'}
               </button>
-            </div>
-          )}
-          {detailAlreadyApproved && !isBoss && (
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-              <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã gửi QLSX duyệt</span>
             </div>
           )}
         </div>
@@ -501,7 +529,7 @@ export function SKUDetail({
           doneActive={pf.status === 'APPROVED'}
           doneLabel="✓ Đã duyệt"
           onReject={onBossReject}
-          rejectConfirmText='Từ chối SKU này? Toàn bộ định mức sẽ được gửi lại cho các bộ phận nhập liệu làm lại từ đầu (định mức chi tiết). Dữ liệu đã nhập vẫn được giữ nguyên để sửa tiếp.'
+          rejectConfirmText='Từ chối SKU này? SKU sẽ quay lại cho KHSX duyệt lại từng mục định mức (mảnh + chi tiết). Dữ liệu đã nhập vẫn được giữ nguyên, không bộ phận nào phải nhập lại.'
         />
       )}
 
@@ -516,7 +544,7 @@ export function SKUDetail({
             confirmLabel="Duyệt"
             onConfirm={handleQlsxApproveLocal}
             onReject={onQlsxReject}
-            rejectConfirmText='Từ chối SKU này? Toàn bộ định mức sẽ được gửi lại cho các bộ phận nhập liệu làm lại từ đầu (định mức chi tiết). Dữ liệu đã nhập vẫn được giữ nguyên để sửa tiếp.'
+            rejectConfirmText='Từ chối SKU này? SKU sẽ quay lại cho KHSX duyệt lại từng mục định mức (mảnh + chi tiết). Dữ liệu đã nhập vẫn được giữ nguyên, không bộ phận nào phải nhập lại.'
           />
           <FinalReviewAction
             active={pf.status === 'WAITING_QLSX_APPROVAL' && qlsxApproved}
@@ -596,6 +624,22 @@ export function SKUDetail({
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
               <button onClick={() => setRejectModal(null)} style={btnSecondary}>Hủy</button>
               <button onClick={confirmSectionReject} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#dc2626', color: '#fff' }}>Xác nhận từ chối</button>
+            </div>
+      </Modal>
+
+      {/* Modal xác nhận gửi QLSX duyệt */}
+      <Modal open={confirmApproveDetail} maxWidth={420} zIndex={2000}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận gửi QLSX duyệt</h3>
+            <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
+              Toàn bộ định mức mảnh và định mức chi tiết đã được duyệt. Xác nhận gửi Quản lý sản xuất duyệt?
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={() => setConfirmApproveDetail(false)} style={btnSecondary}>Hủy</button>
+              <button
+                onClick={async () => { setConfirmApproveDetail(false); await handleApproveDetail() }}
+                disabled={approvingDetail}
+                style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#2e7d32', color: '#fff' }}
+              >Xác nhận gửi</button>
             </div>
       </Modal>
     </div>
@@ -735,16 +779,32 @@ function MaterialSection({
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {status && !hideStatusBadge && <StatusBadge status={status} />}
-            {/* Đã có quyết định (duyệt/từ chối) thì khoá 2 nút này — chỉ đổi được qua luồng "Gửi lại". */}
+            {/* Đã có quyết định (duyệt/từ chối) thì khoá 2 nút này. Chưa có nội dung thì vẫn hiện
+                nút nhưng disable — để KHSX thấy rõ đang bị chặn vì thiếu dữ liệu, không phải vì
+                mục này "coi như xong". */}
             {!readOnly && !status && (
               <>
                 <button
                   onClick={onApprove}
-                  style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(22,163,74,0.12)', color: '#16a34a' }}
+                  disabled={items.length === 0}
+                  title={items.length === 0 ? 'Chưa có dữ liệu để duyệt' : undefined}
+                  style={{
+                    padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none',
+                    cursor: items.length === 0 ? 'not-allowed' : 'pointer',
+                    background: 'rgba(22,163,74,0.12)', color: '#16a34a',
+                    opacity: items.length === 0 ? 0.45 : 1,
+                  }}
                 >Duyệt</button>
                 <button
                   onClick={onReject}
-                  style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(220,38,38,0.10)', color: '#dc2626' }}
+                  disabled={items.length === 0}
+                  title={items.length === 0 ? 'Chưa có dữ liệu để từ chối' : undefined}
+                  style={{
+                    padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none',
+                    cursor: items.length === 0 ? 'not-allowed' : 'pointer',
+                    background: 'rgba(220,38,38,0.10)', color: '#dc2626',
+                    opacity: items.length === 0 ? 0.45 : 1,
+                  }}
                 >Từ chối</button>
               </>
             )}
@@ -806,15 +866,31 @@ function ManhSteelSection({
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {status && !hideStatusBadge && <StatusBadge status={status} />}
+            {/* Chưa có loại sắt con nào thì vẫn hiện nút nhưng disable — báo rõ đang chặn vì thiếu
+                dữ liệu, thay vì âm thầm coi mục này là "đã xong". */}
             {!readOnly && !status && (
               <>
                 <button
                   onClick={onApprove}
-                  style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(22,163,74,0.12)', color: '#16a34a' }}
+                  disabled={totalChildren === 0}
+                  title={totalChildren === 0 ? 'Chưa có dữ liệu để duyệt' : undefined}
+                  style={{
+                    padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none',
+                    cursor: totalChildren === 0 ? 'not-allowed' : 'pointer',
+                    background: 'rgba(22,163,74,0.12)', color: '#16a34a',
+                    opacity: totalChildren === 0 ? 0.45 : 1,
+                  }}
                 >Duyệt</button>
                 <button
                   onClick={onReject}
-                  style={{ padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none', cursor: 'pointer', background: 'rgba(220,38,38,0.10)', color: '#dc2626' }}
+                  disabled={totalChildren === 0}
+                  title={totalChildren === 0 ? 'Chưa có dữ liệu để từ chối' : undefined}
+                  style={{
+                    padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none',
+                    cursor: totalChildren === 0 ? 'not-allowed' : 'pointer',
+                    background: 'rgba(220,38,38,0.10)', color: '#dc2626',
+                    opacity: totalChildren === 0 ? 0.45 : 1,
+                  }}
                 >Từ chối</button>
               </>
             )}
