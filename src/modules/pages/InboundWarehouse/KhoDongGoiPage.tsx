@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { format } from 'date-fns'
-import { ChevronLeft, Package } from 'lucide-react'
+import { ChevronLeft, X } from 'lucide-react'
 import type { PlanForm } from '../../../types/plan-form'
 import LoadingState from '../../../components/LoadingState'
 
@@ -36,8 +36,8 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }
   const { data: planForms = [], isLoading } = useFetch(() => api.getPlanForms(), [])
   const [selectedPf, setSelectedPf] = useState<PlanForm | null>(null)
   const [daDongMap, setDaDongMap]   = useState<Record<number, number>>({})
-  const [inputQty, setInputQty]     = useState('')
-  const [showConfirm, setShowConfirm] = useState(false)
+  const [popupOpen, setPopupOpen]   = useState(false)
+  const [popupQty, setPopupQty]     = useState('')
 
   const active = ((planForms ?? []) as PlanForm[]).filter(p => p.status !== 'DRAFT' && (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId))
 
@@ -51,33 +51,30 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }
     }
   }, [active, filterExportOrderId])
 
-  const commitConfirm = () => {
+  const openPopup = () => { setPopupQty(''); setPopupOpen(true) }
+
+  const handleConfirm = () => {
     if (!selectedPf) return
-    const qty = Math.max(0, Number(inputQty) || 0)
+    const qty = Math.max(0, Number(popupQty) || 0)
     if (!qty) return
     setDaDongMap(prev => ({ ...prev, [selectedPf.id]: (prev[selectedPf.id] ?? 0) + qty }))
-    setInputQty('')
-    setShowConfirm(false)
+    setPopupOpen(false)
   }
 
-  const goBack = () => { setSelectedPf(null); setInputQty(''); setShowConfirm(false) }
+  const canConfirm = !!popupQty && Number(popupQty) > 0
 
   // ── Detail view ───────────────────────────────────────────────────────────────
   if (selectedPf) {
-    const total      = mockTotalBoxes(selectedPf)
-    const daDong     = daDongMap[selectedPf.id] ?? 0
-    const conLai     = Math.max(0, total - daDong)
-    const inputNum   = Math.max(0, Number(inputQty) || 0)
-    const canConfirm = inputNum > 0
-    const pct        = Math.min(100, Math.round(daDong / total * 100))
-    const isDone     = conLai === 0 && daDong > 0
+    const total  = mockTotalBoxes(selectedPf)
+    const daDong = daDongMap[selectedPf.id] ?? 0
+    const conLai = Math.max(0, total - daDong)
 
     return (
       <div>
-        {/* Page header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+        {/* Header */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <button
-            onClick={goBack}
+            onClick={() => setSelectedPf(null)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
           >
             <ChevronLeft size={15} /> Quay lại
@@ -98,114 +95,87 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }
           </div>
         </div>
 
-        {/* Main card */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden', maxWidth: 580 }}>
-
-          {/* Progress section */}
-          <div style={{ padding: '22px 24px 20px', borderBottom: '1px solid var(--border)', background: isDone ? '#f0fdf4' : 'var(--surface)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                <Package size={16} color={isDone ? '#16a34a' : 'var(--text3)'} />
-                <span style={{ fontSize: 14, fontWeight: 600, color: isDone ? '#16a34a' : 'var(--text2)' }}>
-                  {isDone ? 'Đã đóng gói hoàn tất' : 'Tiến độ đóng gói'}
-                </span>
-              </div>
-              <span style={{ fontSize: 26, fontWeight: 800, lineHeight: 1, color: isDone ? '#16a34a' : pct > 0 ? '#e65100' : 'var(--text3)' }}>
-                {pct}%
-              </span>
-            </div>
-            <div style={{ height: 10, background: 'var(--border)', borderRadius: 5, overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${pct}%`, background: isDone ? '#16a34a' : '#e65100', borderRadius: 5, transition: 'width .4s ease' }} />
-            </div>
-          </div>
-
-          {/* Stats row */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', borderBottom: '1px solid var(--border)' }}>
-            <div style={{ padding: '18px 20px', borderRight: '1px solid var(--border)', textAlign: 'center' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>Tổng thùng</div>
-              <div style={{ fontSize: 30, fontWeight: 800, color: 'var(--text)' }}>{total}</div>
-            </div>
-            <div style={{ padding: '18px 20px', borderRight: '1px solid var(--border)', textAlign: 'center' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>Đã đóng gói</div>
-              <div style={{ fontSize: 30, fontWeight: 800, color: daDong > 0 ? '#16a34a' : 'var(--text3)' }}>{daDong}</div>
-            </div>
-            <div style={{ padding: '18px 20px', textAlign: 'center' }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.5px', marginBottom: 8 }}>Còn lại</div>
-              <div style={{ fontSize: 30, fontWeight: 800, color: conLai > 0 ? '#d97706' : '#16a34a' }}>{conLai}</div>
-            </div>
-          </div>
-
-          {/* Input section */}
-          {!readOnly && (
-            <div style={{ padding: '20px 24px' }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', marginBottom: 12 }}>
-                Nhập số lượng đã đóng
-              </div>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <input
-                  type="number" min={1}
-                  value={inputQty}
-                  onChange={e => setInputQty(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && canConfirm && setShowConfirm(true)}
-                  placeholder="Nhập số thùng..."
-                  style={{ flex: 1, padding: '10px 14px', border: '1px solid var(--border)', borderRadius: 9, fontSize: 15, background: 'var(--surface)', color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }}
-                  autoFocus
-                />
-                <button
-                  onClick={() => canConfirm && setShowConfirm(true)}
-                  disabled={!canConfirm}
-                  style={{ padding: '10px 22px', fontSize: 14, fontWeight: 700, border: 'none', borderRadius: 9, background: canConfirm ? '#e65100' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
-                >
-                  Xác nhận
-                </button>
-              </div>
-            </div>
-          )}
+        {/* Detail table */}
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+            <colgroup>
+              <col />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 100 }} />
+            </colgroup>
+            <thead>
+              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                <th style={th}>Hạng mục</th>
+                <th style={{ ...th, textAlign: 'right' }}>Tổng thùng</th>
+                <th style={{ ...th, textAlign: 'right' }}>Đã đóng gói</th>
+                <th style={{ ...th, textAlign: 'right' }}>Còn lại</th>
+                <th style={th}></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ ...td, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  Thùng thành phẩm
+                </td>
+                <td style={{ ...td, textAlign: 'right', color: 'var(--text2)' }}>{total}</td>
+                <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: daDong > 0 ? '#16a34a' : 'var(--text)' }}>{daDong}</td>
+                <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: conLai > 0 ? '#d97706' : '#16a34a' }}>{conLai}</td>
+                <td style={td}>
+                  {readOnly ? (
+                    <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>
+                  ) : (
+                    <button
+                      onClick={openPopup}
+                      style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#e65100', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                    >
+                      Đóng gói
+                    </button>
+                  )}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
 
-        {/* Confirmation dialog */}
-        {!readOnly && showConfirm && (
+        {/* Popup */}
+        {popupOpen && (
           <div
-            onClick={e => { if (e.target === e.currentTarget) setShowConfirm(false) }}
+            onClick={e => { if (e.target === e.currentTarget) setPopupOpen(false) }}
             style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
-            <div style={{ background: 'var(--surface)', borderRadius: 14, width: 380, boxShadow: '0 8px 40px rgba(0,0,0,.25)', overflow: 'hidden' }}>
-              <div style={{ padding: '22px 24px 18px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 10, background: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Package size={20} color="#e65100" />
-                  </div>
-                  <div style={{ fontSize: 16, fontWeight: 700 }}>Xác nhận đóng gói</div>
-                </div>
-                <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.6 }}>
-                  Xác nhận đã đóng thêm{' '}
-                  <span style={{ fontWeight: 700, color: '#e65100', fontSize: 16 }}>{inputNum} thùng</span>?
-                </div>
-                <div style={{ marginTop: 14, padding: '12px 14px', background: 'var(--surface2)', borderRadius: 9, display: 'flex', gap: 20 }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginBottom: 3 }}>TRƯỚC</div>
-                    <div style={{ fontSize: 15, fontWeight: 700 }}>{daDong} / {total}</div>
-                  </div>
-                  <div style={{ color: 'var(--text3)', alignSelf: 'center', fontSize: 18 }}>→</div>
-                  <div>
-                    <div style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, marginBottom: 3 }}>SAU</div>
-                    <div style={{ fontSize: 15, fontWeight: 700, color: '#16a34a' }}>{Math.min(daDong + inputNum, total)} / {total}</div>
-                  </div>
-                </div>
+            <div style={{ background: 'var(--surface)', borderRadius: 14, width: 380, boxShadow: '0 8px 40px rgba(0,0,0,.2)' }}>
+              <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>Nhập số lượng đã đóng</div>
+                <button onClick={() => setPopupOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                  <X size={16} color="var(--text3)" />
+                </button>
               </div>
-              <div style={{ padding: '14px 24px 20px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+
+              <div style={{ padding: '16px 18px' }}>
+                <label style={lbl}>Số thùng đã đóng *</label>
+                <input
+                  type="number" min={1}
+                  value={popupQty}
+                  onChange={e => setPopupQty(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && canConfirm && handleConfirm()}
+                  placeholder="Nhập số thùng"
+                  style={inp}
+                  autoFocus
+                />
+              </div>
+
+              <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <button
-                  onClick={() => setShowConfirm(false)}
-                  style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
-                >
-                  Hủy
-                </button>
+                  onClick={() => setPopupOpen(false)}
+                  style={{ padding: '7px 18px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
+                >Hủy</button>
                 <button
-                  onClick={commitConfirm}
-                  style={{ padding: '8px 20px', fontSize: 13, fontWeight: 700, border: 'none', borderRadius: 8, background: '#e65100', color: '#fff', cursor: 'pointer' }}
-                >
-                  Xác nhận đóng gói
-                </button>
+                  onClick={handleConfirm}
+                  disabled={!canConfirm}
+                  style={{ padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: canConfirm ? '#e65100' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed' }}
+                >Xác nhận</button>
               </div>
             </div>
           </div>
@@ -290,5 +260,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }
   )
 }
 
-const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
-const td: React.CSSProperties = { padding: '8px 12px', color: 'var(--text)' }
+const th:  React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
+const td:  React.CSSProperties = { padding: '8px 12px', color: 'var(--text)' }
+const lbl: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }
+const inp: React.CSSProperties = { width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box' }
