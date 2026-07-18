@@ -5,17 +5,19 @@ import NotifBell from '../../../components/NotifBell'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
-import { useAuditLog } from '../../../context/AuditLogContext'
-import { PLANFORM_ENTITY } from '../../../constants/planFormStatus'
-import type { PlanForm, DaySonItem } from '../../../types/plan-form'
+import { useAuditLog, type AuditAction } from '../../../context/AuditLogContext'
+import { PLANFORM_ENTITY, isPartsApproved } from '../../../constants/planFormStatus'
+import { combinedDaySon } from '../../../utils/manhMaterials'
+import type { PlanForm, DaySonItem, QuotaEntryMeta, QuotaReviewStatus } from '../../../types/plan-form'
 
 // ─── Types ────────────────────────────────────────────────────────────
 // Alias tên trường theo domain (maDay/kg) cho dễ đọc trong JSX — quy đổi
-// sang/từ DaySonItem thật khi đọc/ghi PlanForm.quotaManagement (xem toWireLine/toItem).
+// sang/từ DaySonItem thật khi đọc/ghi PlanForm (xem toWireLine/toItem). Dùng chung cho cả
+// "Định mức mảnh" (manhData.daySon) lẫn "Định mức chi tiết — Sơn/Đinh" (quotaManagement.materialType.daySon),
+// vì 2 nhóm này cùng shape dữ liệu, chỉ khác nơi lưu/API ghi.
 type BomItem = { id: number; ten: string; thoiGian: string }
 type WireLine = { uid: number; maDay: string; unit: string; soLuong?: string; specifications: string; imageUrl: string }
-
-const GROUP = 'daySon' as const
+type BomStatus = 'approved' | 'pending' | 'rejected' | 'canInput'
 
 const toWireLine = (it: DaySonItem, uid: number): WireLine => ({
   uid, maDay: it.name, unit: it.unit ?? '', soLuong: it.kg != null ? String(it.kg) : '', specifications: it.specifications ?? '', imageUrl: it.imageUrl ?? '',
@@ -27,38 +29,30 @@ const toItem = (l: Omit<WireLine, 'uid'>): DaySonItem => ({
 
 // ─── Main ─────────────────────────────────────────────────────────────
 export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
-  subTab: 'dinh-muc' | 'catalog'
-  onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
+  subTab: 'dinh-muc' | 'vat-tu' | 'catalog'
+  onSubTabChange: (t: 'dinh-muc' | 'vat-tu' | 'catalog') => void
 }) {
-  const { user } = useAuth()
-  const { logAction } = useAuditLog()
   const { data: planFormsData, refetch: refetchPlanForms } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
   const planForms = (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT')
+  const findPf = (id: number) => planForms.find(pf => pf.id === id)
 
-  const boms: BomItem[] = planForms.map(pf => ({
+  const toBom = (pf: PlanForm): BomItem => ({
     id: pf.id,
     ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
     thoiGian: format(new Date(pf.createdAt), 'dd/MM/yyyy'),
-  }))
-  const findPf = (id: number) => planForms.find(pf => pf.id === id)
-  const itemsOf = (pf?: PlanForm) => pf?.quotaManagement?.materialType?.[GROUP] ?? []
-  const reviewOf = (pf?: PlanForm) => pf?.quotaManagement?.reviewStatus?.[GROUP]
-  const entryMetaOf = (pf?: PlanForm) => pf?.quotaManagement?.entryMeta?.[GROUP]
+  })
+  // Mảnh là bước nhập đầu tiên nên hiện cho mọi SKU chưa DRAFT; chi tiết (Sơn/Đinh) chỉ hiện SKU
+  // đã qua giai đoạn mảnh (KHSX đã duyệt & gửi bộ phận chi tiết) — đúng thứ tự flow hiện tại.
+  const manhBoms: BomItem[] = planForms.map(toBom)
+  const detailBoms: BomItem[] = planForms.filter(pf => isPartsApproved(pf.status)).map(toBom)
 
-  const bomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' => {
-    const pf = findPf(bomId)
-    const review = reviewOf(pf)
-    if (review?.status === 'APPROVED') return 'approved'
-    if (review?.status === 'REJECTED') return 'rejected'
-    return itemsOf(pf).length > 0 ? 'pending' : 'canInput'
-  }
-
-  // Danh mục mã dây/sơn đã từng nhập trên mọi SKU thật — dùng gợi ý autocomplete + tab "Danh sách vật tư".
+  // Danh mục mã dây/sơn đã từng nhập trên mọi SKU thật — gộp cả 2 nguồn (mảnh dây + chi tiết
+  // Sơn/Đinh) vì cùng shape DaySonItem, dùng chung cho gợi ý autocomplete lẫn tab "Danh sách vật tư".
   const APPROVED_CATALOG: WireLine[] = (() => {
     const seen = new Map<string, WireLine>()
     let uid = 1
     for (const pf of planForms) {
-      for (const it of itemsOf(pf)) {
+      for (const it of combinedDaySon(pf)) {
         const key = it.name.trim().toLowerCase()
         if (!key || seen.has(key)) continue
         seen.set(key, toWireLine(it, uid++))
@@ -66,6 +60,108 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
     }
     return Array.from(seen.values())
   })()
+
+  // ── Định mức mảnh — Dây (manhData.daySon/manhEntryMeta.daySon/manhReviewStatus.daySon) ──────
+  const manhItemsOf = (pf?: PlanForm) => pf?.manhData?.daySon ?? []
+  const manhEntryMetaOf = (pf?: PlanForm) => pf?.manhEntryMeta?.daySon
+  const manhReviewOf = (pf?: PlanForm) => pf?.manhReviewStatus?.daySon
+  // Trạng thái phải suy theo riêng nhóm "daySon" (manhReviewStatus.daySon / manhData.daySon),
+  // KHÔNG được suy từ pf.status chung — pf.status chỉ đổi 1 lần khi 1 trong 2 nhóm (Sắt/Dây) nộp
+  // trước, nên nếu dùng chung sẽ khóa luôn nhóm còn lại (vd Sắt nộp trước thì Dây bị coi như
+  // "đang chờ duyệt" dù chưa nhập gì).
+  const manhBomStatus = (bomId: number): BomStatus => {
+    const pf = findPf(bomId)
+    const review = manhReviewOf(pf)
+    if (review?.status === 'APPROVED') return 'approved'
+    if (review?.status === 'REJECTED') return 'rejected'
+    // SKU cũ đã qua hẳn giai đoạn mảnh nhưng chưa có quyết định riêng cho nhóm này — coi như đã duyệt.
+    if (pf && isPartsApproved(pf.status)) return 'approved'
+    return manhItemsOf(pf).length > 0 ? 'pending' : 'canInput'
+  }
+
+  // ── Định mức chi tiết — Sơn/Đinh (quotaManagement.materialType.daySon) ─────────────────────
+  const detailItemsOf = (pf?: PlanForm) => pf?.quotaManagement?.materialType?.daySon ?? []
+  const detailReviewOf = (pf?: PlanForm) => pf?.quotaManagement?.reviewStatus?.daySon
+  const detailEntryMetaOf = (pf?: PlanForm) => pf?.quotaManagement?.entryMeta?.daySon
+  const detailBomStatus = (bomId: number): BomStatus => {
+    const pf = findPf(bomId)
+    const review = detailReviewOf(pf)
+    if (review?.status === 'APPROVED') return 'approved'
+    if (review?.status === 'REJECTED') return 'rejected'
+    return detailItemsOf(pf).length > 0 ? 'pending' : 'canInput'
+  }
+
+  if (subTab === 'dinh-muc') {
+    return (
+      <WireGroupPanel
+        key="manh"
+        pageTitle="Quản lý định mức — Mảnh dây"
+        pageDesc="Nhập định mức mảnh dây theo SKU (bước nhập đầu tiên, trước định mức chi tiết)"
+        notifSubtitle="Đã duyệt định mức mảnh dây"
+        boms={manhBoms}
+        itemsOf={id => manhItemsOf(findPf(id))}
+        entryMetaOf={id => manhEntryMetaOf(findPf(id))}
+        reviewOf={id => manhReviewOf(findPf(id))}
+        bomStatus={manhBomStatus}
+        catalog={APPROVED_CATALOG}
+        onSubmit={(bomId, items, enteredBy) => api.updatePlanFormManhQuota(bomId, 'daySon', items, enteredBy)}
+        submitLogAction="planform.manh_submitted"
+        submitLogLabel="Mảnh dây"
+        refetchPlanForms={refetchPlanForms}
+      />
+    )
+  }
+
+  if (subTab === 'vat-tu') {
+    return (
+      <WireGroupPanel
+        key="detail"
+        pageTitle="Quản lý định mức — Sơn / Đinh"
+        pageDesc="Nhập thông tin sơn và đinh theo SKU"
+        notifSubtitle="Đã duyệt định mức Sơn / Đinh"
+        boms={detailBoms}
+        itemsOf={id => detailItemsOf(findPf(id))}
+        entryMetaOf={id => detailEntryMetaOf(findPf(id))}
+        reviewOf={id => detailReviewOf(findPf(id))}
+        bomStatus={detailBomStatus}
+        catalog={APPROVED_CATALOG}
+        onSubmit={(bomId, items, enteredBy) => api.updatePlanFormDetailQuota(bomId, 'daySon', items, enteredBy)}
+        submitLogAction="planform.detail_submitted"
+        submitLogLabel="Sơn / Đinh"
+        refetchPlanForms={refetchPlanForms}
+      />
+    )
+  }
+
+  /* ══ DANH SÁCH VẬT TƯ ══ */
+  return <WireCatalogTab planForms={planForms} catalog={APPROVED_CATALOG} />
+}
+
+// ─── WireGroupPanel ───────────────────────────────────────────────────
+// Dùng chung cho cả "Định mức mảnh — Dây" và "Định mức chi tiết — Sơn/Đinh": cùng 1 form nhập
+// (mã dây, khối lượng, mô tả, ảnh) + danh sách BOM theo trạng thái — chỉ khác nơi đọc/ghi dữ liệu
+// (truyền qua props). Tự quản lý state riêng, mount/unmount theo subTab nên không lẫn dữ liệu 2 bên.
+
+function WireGroupPanel({
+  pageTitle, pageDesc, notifSubtitle, boms, itemsOf, entryMetaOf, reviewOf, bomStatus, catalog,
+  onSubmit, submitLogAction, submitLogLabel, refetchPlanForms,
+}: {
+  pageTitle: string
+  pageDesc: string
+  notifSubtitle: string
+  boms: BomItem[]
+  itemsOf: (bomId: number) => DaySonItem[]
+  entryMetaOf: (bomId: number) => QuotaEntryMeta | undefined
+  reviewOf?: (bomId: number) => QuotaReviewStatus | undefined
+  bomStatus: (bomId: number) => BomStatus
+  catalog: WireLine[]
+  onSubmit: (bomId: number, items: DaySonItem[], enteredBy: string) => Promise<PlanForm>
+  submitLogAction: AuditAction
+  submitLogLabel: string
+  refetchPlanForms: () => Promise<unknown> | void
+}) {
+  const { user } = useAuth()
+  const { logAction } = useAuditLog()
 
   const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)
   const [rows, setRows] = useState<WireLine[]>([])
@@ -76,16 +172,14 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
   const [fSpecifications, setFSpecifications] = useState('')
   const [fImageUrl, setFImageUrl] = useState('')
   const [showPreview, setShowPreview] = useState(false)
-  const [catalogPreviewUrl, setCatalogPreviewUrl] = useState<string | null>(null)
   const [fErr, setFErr] = useState('')
   const [sentMsg, setSentMsg] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [bomSearch, setBomSearch] = useState('')
-  const [catalogSearch, setCatalogSearch] = useState('')
 
   const openBom = (bom: BomItem) => {
     setSelectedBom(bom)
-    const existing = itemsOf(findPf(bom.id))
+    const existing = itemsOf(bom.id)
     setRows(existing.map((it, i) => toWireLine(it, i + 1)))
     setNextUid(existing.length + 1)
     setFMaDay(''); setFUnit(''); setFSoLuong(''); setFSpecifications(''); setFImageUrl('')
@@ -107,8 +201,8 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
     setSubmitting(true)
     try {
       const items = rows.map(r => toItem(r))
-      await api.updatePlanFormDetailQuota(selectedBom.id, GROUP, items, user?.name ?? 'Không rõ')
-      logAction(PLANFORM_ENTITY, String(selectedBom.id), 'planform.detail_submitted', `Dây / Sơn (${items.length} vật tư)`)
+      await onSubmit(selectedBom.id, items, user?.name ?? 'Không rõ')
+      logAction(PLANFORM_ENTITY, String(selectedBom.id), submitLogAction, `${submitLogLabel} (${items.length} vật tư)`)
       await refetchPlanForms()
       setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
     } finally {
@@ -116,17 +210,16 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
     }
   }
 
-  /* ══ ĐỊNH MỨC CHI TIẾT: DETAIL ══ */
-  if (subTab === 'dinh-muc' && selectedBom) {
-    const pf = findPf(selectedBom.id)
+  /* ══ DETAIL ══ */
+  if (selectedBom) {
     const st = bomStatus(selectedBom.id)
-    const review = reviewOf(pf)
-    const meta = entryMetaOf(pf)
+    const review = reviewOf?.(selectedBom.id)
+    const meta = entryMetaOf(selectedBom.id)
     return (
       <div>
         <div style={{ marginBottom: 20 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức — Dây & Sơn</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập thông tin dây và sơn theo SKU</p>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{pageTitle}</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>{pageDesc}</p>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
@@ -186,7 +279,7 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
               <FL>Mã dây <span style={{ color: '#e53935' }}>*</span></FL>
               <MaDaySearch
                 value={fMaDay}
-                catalog={APPROVED_CATALOG}
+                catalog={catalog}
                 onSelect={item => {
                   if (item) {
                     setFMaDay(item.maDay)
@@ -302,84 +395,93 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
     )
   }
 
-  /* ══ ĐỊNH MỨC CHI TIẾT: LIST ══ */
-  if (subTab === 'dinh-muc') {
-    return (
-      <div>
-        <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức — Dây & Sơn</h2>
-            <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập thông tin dây và sơn theo SKU</p>
-          </div>
-          <NotifBell
-            items={boms.filter(b => bomStatus(b.id) === 'approved').map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức dây & sơn · ${n.thoiGian}` }))}
-            emptyText="Chưa có định mức nào được duyệt."
-          />
+  /* ══ LIST ══ */
+  return (
+    <div>
+      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{pageTitle}</h2>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>{pageDesc}</p>
         </div>
-
-        <div style={{ marginBottom: 16 }}>
-          <input
-            value={bomSearch}
-            onChange={e => setBomSearch(e.target.value)}
-            placeholder="Tìm theo tên SKU…"
-            style={{ maxWidth: 280, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
-          />
-        </div>
-        <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                {['SKU', 'Thời gian', 'Trạng thái', ''].map((h, i) => (
-                  <th key={i} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {boms.filter(b => b.ten.toLowerCase().includes(bomSearch.toLowerCase()) && bomStatus(b.id) !== 'approved').map(item => {
-                const st = bomStatus(item.id)
-                return (
-                  <tr key={item.id}
-                    onClick={() => openBom(item)}
-                    style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
-                    <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.ten}</td>
-                    <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
-                    <td style={{ padding: '12px 14px' }}>
-                      {st === 'pending'
-                        ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Đợi duyệt</span>
-                        : st === 'rejected'
-                        ? <span style={{ background: '#ffebee', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
-                        : <span style={{ background: '#eef2ff', color: '#3949ab', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
-                      }
-                    </td>
-                    <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        <NotifBell
+          items={boms.filter(b => bomStatus(b.id) === 'approved').map(n => ({ id: n.id, title: n.ten, subtitle: `${notifSubtitle} · ${n.thoiGian}` }))}
+          emptyText="Chưa có định mức nào được duyệt."
+        />
       </div>
-    )
-  }
 
-  /* ══ DANH SÁCH VẬT TƯ ══ */
-  const rejectedGroups = planForms
-    .filter(pf => reviewOf(pf)?.status === 'REJECTED')
-    .map(pf => ({
-      ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
-      items: itemsOf(pf),
-      reason: reviewOf(pf)?.reason,
-    }))
+      <div style={{ marginBottom: 16 }}>
+        <input
+          value={bomSearch}
+          onChange={e => setBomSearch(e.target.value)}
+          placeholder="Tìm theo tên SKU…"
+          style={{ maxWidth: 280, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+        />
+      </div>
+      <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+              {['SKU', 'Thời gian', 'Trạng thái', ''].map((h, i) => (
+                <th key={i} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {boms.filter(b => b.ten.toLowerCase().includes(bomSearch.toLowerCase()) && bomStatus(b.id) !== 'approved').map(item => {
+              const st = bomStatus(item.id)
+              return (
+                <tr key={item.id}
+                  onClick={() => openBom(item)}
+                  style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.ten}</td>
+                  <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
+                  <td style={{ padding: '12px 14px' }}>
+                    {st === 'pending'
+                      ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Đợi duyệt</span>
+                      : st === 'rejected'
+                      ? <span style={{ background: '#ffebee', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
+                      : <span style={{ background: '#eef2ff', color: '#3949ab', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
+                    }
+                  </td>
+                  <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── WireCatalogTab ───────────────────────────────────────────────────
+
+function WireCatalogTab({ planForms, catalog }: { planForms: PlanForm[]; catalog: WireLine[] }) {
+  const [catalogPreviewUrl, setCatalogPreviewUrl] = useState<string | null>(null)
+  const [catalogSearch, setCatalogSearch] = useState('')
+
+  // Từ chối ở cả 2 nguồn (mảnh dây + chi tiết Sơn/Đinh) — cùng shape DaySonItem nên gộp chung 1 bảng.
+  const rejectedGroups = planForms.flatMap(pf => {
+    const groups: { ten: string; items: DaySonItem[]; reason?: string }[] = []
+    const ten = `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, '')
+    if (pf.manhReviewStatus?.daySon?.status === 'REJECTED') {
+      groups.push({ ten, items: pf.manhData?.daySon ?? [], reason: pf.manhReviewStatus.daySon.reason })
+    }
+    if (pf.quotaManagement?.reviewStatus?.daySon?.status === 'REJECTED') {
+      groups.push({ ten, items: pf.quotaManagement.materialType?.daySon ?? [], reason: pf.quotaManagement.reviewStatus.daySon.reason })
+    }
+    return groups
+  })
 
   return (
     <>
       <div>
         <div style={{ marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh sách vật tư — Dây & Sơn</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Các mã dây & sơn đã từng nhập, dùng làm gợi ý khi thêm mới</p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Các mã dây & sơn đã từng nhập (mảnh dây + Sơn/Đinh chi tiết), dùng làm gợi ý khi thêm mới</p>
         </div>
 
         {rejectedGroups.length > 0 && (
@@ -431,7 +533,7 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
               </tr>
             </thead>
             <tbody>
-              {APPROVED_CATALOG.filter(c => {
+              {catalog.filter(c => {
                 const q = catalogSearch.toLowerCase()
                 return c.maDay.toLowerCase().includes(q) || c.specifications.toLowerCase().includes(q)
               }).map((item, i, arr) => (
@@ -451,7 +553,7 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
                   </td>
                 </tr>
               ))}
-              {APPROVED_CATALOG.filter(c => {
+              {catalog.filter(c => {
                 const q = catalogSearch.toLowerCase()
                 return c.maDay.toLowerCase().includes(q) || c.specifications.toLowerCase().includes(q)
               }).length === 0 && (

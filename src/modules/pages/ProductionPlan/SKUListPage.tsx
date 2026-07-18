@@ -15,10 +15,10 @@ type StatusFilter = 'all' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAI
 const FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }[] = [
   { key: 'all',             label: 'Tất cả' },
   { key: 'APPROVED',        ...STATUS_MAP.APPROVED },
-  { key: 'WAITING_DETAIL',  ...STATUS_MAP.WAITING_DETAIL },
   { key: 'WAITING_PARTS',   ...STATUS_MAP.WAITING_PARTS },
-  { key: 'APPROVED_DETAIL', ...STATUS_MAP.APPROVED_DETAIL },
   { key: 'APPROVED_PARTS',  ...STATUS_MAP.APPROVED_PARTS },
+  { key: 'WAITING_DETAIL',  ...STATUS_MAP.WAITING_DETAIL },
+  { key: 'APPROVED_DETAIL', ...STATUS_MAP.APPROVED_DETAIL },
   { key: 'WAITING_QLSX_APPROVAL', ...STATUS_MAP.WAITING_QLSX_APPROVAL },
   { key: 'WAITING_BOSS_APPROVAL', ...STATUS_MAP.WAITING_BOSS_APPROVAL },
 ]

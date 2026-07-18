@@ -22,10 +22,10 @@ type StatusFilter = 'all' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAI
 
 const PLANNER_FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }[] = [
   { key: 'all',             label: 'Tất cả' },
-  { key: 'WAITING_DETAIL',  ...STATUS_MAP.WAITING_DETAIL },
   { key: 'WAITING_PARTS',   ...STATUS_MAP.WAITING_PARTS },
-  { key: 'APPROVED_DETAIL', ...STATUS_MAP.APPROVED_DETAIL },
   { key: 'APPROVED_PARTS',  ...STATUS_MAP.APPROVED_PARTS },
+  { key: 'WAITING_DETAIL',  ...STATUS_MAP.WAITING_DETAIL },
+  { key: 'APPROVED_DETAIL', ...STATUS_MAP.APPROVED_DETAIL },
   { key: 'WAITING_QLSX_APPROVAL', ...STATUS_MAP.WAITING_QLSX_APPROVAL },
   { key: 'WAITING_BOSS_APPROVAL', ...STATUS_MAP.WAITING_BOSS_APPROVAL },
 ]
@@ -119,21 +119,13 @@ export default function SKUReviewPage() {
     setSelectedPf(updated)
   }
 
-  // Việc duyệt mảnh (và ghi log) đã xảy ra ngay trong DinhMucManh (SKUDetail) trước khi gọi callback này —
-  // ở đây chỉ cần chuyển trạng thái APPROVED_PARTS (không đổi, đã được set từ lúc account Sắt nhập xong)
-  // và làm mới dữ liệu.
+  // Việc duyệt từng nhóm định mức mảnh (và ghi log) đã xảy ra ngay trong SKUDetail trước khi gọi
+  // callback này — ở đây chỉ cần chuyển status APPROVED_PARTS -> WAITING_DETAIL (gửi bộ phận nhập
+  // định mức chi tiết) và làm mới dữ liệu.
   const handleApproveParts = async () => {
     if (!selectedPf) return
     const updated = await api.approvePartsPlanForm(selectedPf.id)
-    refetch()
-    setSelectedPf(updated)
-  }
-
-  // KHSX gửi danh sách mảnh đã duyệt cho Quản lý sản xuất (QLSX) duyệt trước, trước khi tới sếp.
-  const handleSendForQlsxApproval = async () => {
-    if (!selectedPf) return
-    const updated = await api.requestQlsxApprovalPlanForm(selectedPf.id)
-    logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.sent_for_qlsx_approval')
+    logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.parts_approved')
     refetch()
     setSelectedPf(updated)
   }
@@ -199,23 +191,6 @@ export default function SKUReviewPage() {
     }
   }
 
-  // KHSX từ chối định mức chi tiết/mảnh rồi gửi lại cho bộ phận chuyên trách nhập lại từ đầu.
-  const handleSendBackDetail = async () => {
-    if (!selectedPf) return
-    const updated = await api.sendBackDetailPlanForm(selectedPf.id)
-    logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.detail_sent_back')
-    refetch()
-    setSelectedPf(updated)
-  }
-
-  const handleSendBackManh = async () => {
-    if (!selectedPf) return
-    const updated = await api.sendBackManhPlanForm(selectedPf.id)
-    logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.parts_sent_back')
-    refetch()
-    setSelectedPf(updated)
-  }
-
   // Lấy lại đúng SKU đang xem — cần khi 1 trong 4 account chuyên trách vừa nhập/duyệt định mức
   // ở phiên đăng nhập khác, để cập nhật trạng thái + dữ liệu mới nhất mà không phải tải lại cả trang.
   const handleRefreshSelected = async () => {
@@ -238,14 +213,11 @@ export default function SKUReviewPage() {
         onBack={() => { setSelectedPf(null); refetch() }}
         onApproveDetail={handleApproveDetail}
         onApproveParts={handleApproveParts}
-        onSendForQlsxApproval={handleSendForQlsxApproval}
         onApproveBossRequest={handleApproveBossRequest}
         onQlsxApproveLocal={handleQlsxApproveLocal}
         onQlsxSendBoss={handleQlsxSendBoss}
         onQlsxReject={handleQlsxReject}
         onBossReject={handleBossReject}
-        onSendBackDetail={handleSendBackDetail}
-        onSendBackManh={handleSendBackManh}
         onRefresh={handleRefreshSelected}
         refreshing={refreshingSelected}
       />

@@ -6,28 +6,17 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
-import { PLANFORM_ENTITY } from '../../../constants/planFormStatus'
-import type { PlanForm, SatItem, ManhRow, ManhChildRow } from '../../../types/plan-form'
+import { PLANFORM_ENTITY, isPartsApproved } from '../../../constants/planFormStatus'
+import { flattenManhSteel } from '../../../utils/manhMaterials'
+import type { PlanForm, ManhRow, ManhChildRow } from '../../../types/plan-form'
 
 // ─── Types ────────────────────────────────────────────────────────────
-// "Định mức mảnh" (Manh/children) và "Vật tư" (DraftLine) đều đọc/ghi thẳng PlanForm thật
-// (manhItems và quotaManagement.materialType.sat) — quy đổi sang/từ shape domain dễ đọc trong JSX
-// khi đọc/ghi (xem toManh/toManhRow, toDraftLine/toItem).
+// "Định mức mảnh" (Manh/children) đọc/ghi thẳng PlanForm thật (manhData.sat) — quy đổi sang/từ
+// shape domain dễ đọc trong JSX khi đọc/ghi (xem toManh/toManhRow).
 type SteelItem = { name: string; specs: string; unit: string; chieuDai: string }
 type ManChild = { id: number; loaiSatName: string; specs: string; chieuDai: string; soLuong: string }
 type Manh = { id: number; tenManh: string; soLuong: string; children: ManChild[] }
 type BomItem = { id: number; ten: string; thoiGian: string }
-type DraftLine = { uid: number; name: string; specs: string; chieuDai: string; soLuong: string; unit: string }
-
-const GROUP = 'sat' as const
-
-const toDraftLine = (it: SatItem, uid: number): DraftLine => ({
-  uid, name: it.name, specs: it.specifications ?? '', chieuDai: it.chieuDai ?? '', soLuong: it.quantity != null ? String(it.quantity) : '', unit: it.unit ?? '',
-})
-const toItem = (l: Omit<DraftLine, 'uid'>): SatItem => ({
-  name: l.name, specifications: l.specs || undefined, chieuDai: l.chieuDai || undefined,
-  quantity: l.soLuong.trim() !== '' ? Number(l.soLuong) : undefined, unit: l.unit || undefined,
-})
 
 const toManh = (r: ManhRow): Manh => ({
   id: r.id, tenManh: r.name, soLuong: r.qtyPerSku ?? '1',
@@ -37,25 +26,6 @@ const toManhRow = (m: Manh): ManhRow => ({
   id: m.id, name: m.tenManh, qtyPerSku: m.soLuong,
   children: m.children.map((c): ManhChildRow => ({ id: c.id, name: c.loaiSatName, specs: c.specs || undefined, length: c.chieuDai || undefined, qty: c.soLuong || undefined })),
 })
-
-// Sắt: sắt ống đo bằng mm (chiều dài), sắt tấm đếm bằng tấm — theo định mức sếp chốt.
-const UNIT_OPTIONS = ['mm', 'tấm']
-
-const VAT_TU_PRESETS: { name: string; unit: string }[] = [
-  { name: 'Sắt Vuông 6 zem',  unit: 'cm'  },
-  { name: 'Sắt Vuông 8 zem',  unit: 'cm'  },
-  { name: 'Sắt Hộp 6 zem',    unit: 'cm'  },
-  { name: 'Sắt Hộp 8 zem',    unit: 'cm'  },
-  { name: 'Sắt Phi 6 zem',    unit: 'cm'  },
-  { name: 'Thép Phi 6',        unit: 'cm'  },
-  { name: 'Thép Phi 4',        unit: 'cm'  },
-  { name: 'PAT',               unit: 'cái' },
-  { name: 'Bánh đá cắt',      unit: 'cái' },
-  { name: 'Tán Rút',           unit: 'con' },
-  { name: 'Lỗ Dù',             unit: 'cái' },
-  { name: 'PAT Kính',          unit: 'cái' },
-  { name: 'PAT kính lỗ nhỏ',  unit: 'cái' },
-]
 
 // ─── SteelSearch ──────────────────────────────────────────────────────
 // Nhập tự do được — dropdown chỉ là gợi ý từ catalog, không bắt buộc chọn
@@ -122,80 +92,6 @@ function SteelSearch({ selectedName, onChange, onSelectFromCatalog, catalog }: {
               </div>
             )
           })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── VatTuSearch ──────────────────────────────────────────────────────
-// Nhập tự do được — dropdown chỉ là gợi ý từ preset, không bắt buộc chọn
-function VatTuSearch({ value, onChange, onSelectFromPreset }: {
-  value: string
-  onChange: (name: string) => void
-  onSelectFromPreset: (preset: { name: string; unit: string }) => void
-}) {
-  const [focused, setFocused] = useState(false)
-
-  const filtered = value.trim() === ''
-    ? VAT_TU_PRESETS
-    : VAT_TU_PRESETS.filter(p => p.name.toLowerCase().includes(value.toLowerCase()))
-
-  const isNew = value.trim() !== '' && !VAT_TU_PRESETS.some(p => p.name.toLowerCase() === value.trim().toLowerCase())
-
-  return (
-    <div style={{ position: 'relative', flex: 2, minWidth: 200 }}>
-      <input
-        value={value}
-        placeholder="Nhập hoặc chọn tên vật tư…"
-        onFocus={() => setFocused(true)}
-        onBlur={() => setTimeout(() => setFocused(false), 150)}
-        onChange={e => onChange(e.target.value)}
-        style={{ ...inputStyle, paddingRight: value ? 28 : 10 }}
-      />
-      {value && (
-        <button
-          onMouseDown={e => e.preventDefault()}
-          onClick={() => onChange('')}
-          style={{
-            position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
-            background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)',
-            display: 'flex', alignItems: 'center', padding: 2,
-          }}>
-          <X size={13} />
-        </button>
-      )}
-      {focused && (
-        <div style={{
-          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 20px rgba(0,0,0,.12)',
-          maxHeight: 240, overflowY: 'auto', marginTop: 4,
-        }}>
-          {isNew && (
-            <div style={{ padding: '8px 14px', fontSize: 12, color: '#1565c0', background: '#e3f2fd', borderBottom: '1px solid var(--border)' }}>
-              + Vật tư mới — sẽ thêm vào danh sách khi được duyệt
-            </div>
-          )}
-          {filtered.length === 0 && !isNew && (
-            <div style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 13 }}>Không tìm thấy gợi ý nào.</div>
-          )}
-          {filtered.map(p => (
-            <div key={p.name}
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => { onSelectFromPreset(p); setFocused(false) }}
-              style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                padding: '9px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
-                background: p.name === value ? 'var(--surface2)' : 'transparent',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-              onMouseLeave={e => (e.currentTarget.style.background = p.name === value ? 'var(--surface2)' : 'transparent')}
-            >
-              <span style={{ fontSize: 13, color: 'var(--text)', fontWeight: p.name === value ? 700 : 400 }}>{p.name}</span>
-              <span style={{ fontSize: 11, color: 'var(--text3)', background: 'var(--surface2)', borderRadius: 4, padding: '2px 7px', fontFamily: 'monospace' }}>ĐVT: {p.unit}</span>
-            </div>
-          ))}
         </div>
       )}
     </div>
@@ -275,8 +171,8 @@ const inputStyle: React.CSSProperties = {
 
 // ─── Main ─────────────────────────────────────────────────────────────
 export default function SpecSteelPage({ subTab, onSubTabChange }: {
-  subTab: 'dinh-muc' | 'vat-tu' | 'catalog'
-  onSubTabChange: (t: 'dinh-muc' | 'vat-tu' | 'catalog') => void
+  subTab: 'dinh-muc' | 'catalog'
+  onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
 }) {
   const { user } = useAuth()
   const { logAction } = useAuditLog()
@@ -284,16 +180,13 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const planForms = (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT')
 
   const findPf = (id: number) => planForms.find(pf => pf.id === id)
-  const itemsOf = (pf?: PlanForm) => pf?.quotaManagement?.materialType?.[GROUP] ?? []
-  const reviewOf = (pf?: PlanForm) => pf?.quotaManagement?.reviewStatus?.[GROUP]
-  const entryMetaOf = (pf?: PlanForm) => pf?.quotaManagement?.entryMeta?.[GROUP]
 
-  // Danh mục tên/quy cách sắt đã từng nhập trên mọi SKU thật — dùng gợi ý autocomplete
-  // cho cả tab "Định mức" (mảnh, mock cục bộ) lẫn tab "Vật tư"/"Catalog" (PlanForm thật).
+  // Danh mục tên/quy cách sắt đã từng nhập trên mọi SKU thật (từ định mức mảnh) — dùng gợi ý
+  // autocomplete cho tab "Định mức" lẫn tab "Catalog".
   const catalog: SteelItem[] = (() => {
     const seen = new Map<string, SteelItem>()
     for (const pf of planForms) {
-      for (const it of itemsOf(pf)) {
+      for (const it of flattenManhSteel(pf)) {
         const key = it.name.trim().toLowerCase()
         if (!key || seen.has(key)) continue
         seen.set(key, { name: it.name, specs: it.specifications ?? '', unit: it.unit ?? '', chieuDai: it.chieuDai ?? '' })
@@ -302,19 +195,25 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     return Array.from(seen.values())
   })()
 
-  // ── Định mức (mảnh) — PlanForm thật (manhItems/manhEntryMeta) ─────────
-  const manhBoms: BomItem[] = planForms
-    .filter(pf => (['WAITING_PARTS', 'APPROVED_PARTS', 'WAITING_QLSX_APPROVAL', 'WAITING_BOSS_APPROVAL', 'APPROVED'] as string[]).includes(pf.status))
-    .map(pf => ({
-      id: pf.id,
-      ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
-      thoiGian: format(new Date(pf.createdAt), 'dd/MM/yyyy'),
-    }))
-  const manhBomStatus = (bomId: number): 'approved' | 'pending' | 'canInput' => {
+  // ── Định mức (mảnh) — PlanForm thật (manhData.sat / manhEntryMeta.sat) ─────────
+  // Mảnh là bước nhập đầu tiên trong flow hiện tại nên hiện luôn cho mọi SKU chưa DRAFT.
+  const manhBoms: BomItem[] = planForms.map(pf => ({
+    id: pf.id,
+    ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
+    thoiGian: format(new Date(pf.createdAt), 'dd/MM/yyyy'),
+  }))
+  // Trạng thái phải suy theo riêng nhóm "sat" (manhReviewStatus.sat / manhData.sat), KHÔNG được
+  // suy từ pf.status chung — pf.status chỉ đổi 1 lần khi 1 trong 2 nhóm (Sắt/Dây) nộp trước, nên
+  // nếu dùng chung sẽ khóa luôn nhóm còn lại (vd Dây nộp trước thì Sắt bị coi như "đang chờ duyệt"
+  // dù chưa nhập gì).
+  const manhBomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' => {
     const pf = findPf(bomId)
-    if (pf?.status === 'WAITING_QLSX_APPROVAL' || pf?.status === 'WAITING_BOSS_APPROVAL' || pf?.status === 'APPROVED') return 'approved'
-    if (pf?.status === 'APPROVED_PARTS') return 'pending'
-    return 'canInput'
+    const review = pf?.manhReviewStatus?.sat
+    if (review?.status === 'APPROVED') return 'approved'
+    if (review?.status === 'REJECTED') return 'rejected'
+    // SKU cũ đã qua hẳn giai đoạn mảnh nhưng chưa có quyết định riêng cho nhóm này — coi như đã duyệt.
+    if (pf && isPartsApproved(pf.status)) return 'approved'
+    return (pf?.manhData?.sat?.length ?? 0) > 0 ? 'pending' : 'canInput'
   }
   const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)
   const [manhs, setManhs] = useState<Manh[]>([])
@@ -328,31 +227,12 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [childSpecs, setChildSpecs] = useState('')
   const [childChieuDai, setChildChieuDai] = useState('')
   const [childSoLuong, setChildSoLuong] = useState('')
-
-  // ── Vật tư (Sắt) — PlanForm thật ───────────────────────────────────────
-  const boms: BomItem[] = planForms.map(pf => ({
-    id: pf.id,
-    ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
-    thoiGian: format(new Date(pf.createdAt), 'dd/MM/yyyy'),
-  }))
-  const [selectedVtBom, setSelectedVtBom] = useState<BomItem | null>(null)
-  const [rows, setRows] = useState<DraftLine[]>([])
-  const [nextRowUid, setNextRowUid] = useState(1)
-  const [vtName, setVtName] = useState('')
-  const [vtUnit, setVtUnit] = useState('mm')
-  const [vtSpecs, setVtSpecs] = useState('')
-  const [vtChieuDai, setVtChieuDai] = useState('')
-  const [vtSoLuong, setVtSoLuong] = useState('')
-  const [vtErr, setVtErr] = useState('')
-  const [sentMsg, setSentMsg] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
   const [manhBomSearch, setManhBomSearch] = useState('')
-  const [vtBomSearch, setVtBomSearch] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
 
   // ── BOM helpers (mảnh) ─────────────────────────────────────────────────
   const openBom = (item: BomItem) => {
-    const existing = (findPf(item.id)?.manhItems ?? []).map(toManh)
+    const existing = (findPf(item.id)?.manhData?.sat ?? []).map(toManh)
     const maxId = existing.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
     setSelectedBom(item); setManhs(existing); setNextId(maxId + 1)
     setShowManhForm(false); setFormTenManh('')
@@ -363,7 +243,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     if (!selectedBom || totalChildren === 0) return
     setSavingManh(true)
     try {
-      await api.updatePlanFormManhQuota(selectedBom.id, manhs.map(toManhRow), user?.name ?? 'Không rõ')
+      await api.updatePlanFormManhQuota(selectedBom.id, 'sat', manhs.map(toManhRow), user?.name ?? 'Không rõ')
       logAction(PLANFORM_ENTITY, String(selectedBom.id), 'planform.manh_submitted', `${manhs.length} mảnh · ${totalChildren} loại sắt`)
       await refetchPlanForms()
     } finally {
@@ -398,50 +278,10 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     if (addingTo === manhId) setAddingTo(null)
   }
 
-  // ── Vật tư helpers ────────────────────────────────────────────────────
-  const vtBomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' => {
-    const pf = findPf(bomId)
-    const review = reviewOf(pf)
-    if (review?.status === 'APPROVED') return 'approved'
-    if (review?.status === 'REJECTED') return 'rejected'
-    return itemsOf(pf).length > 0 ? 'pending' : 'canInput'
-  }
-
-  const openVtBom = (bom: BomItem) => {
-    setSelectedVtBom(bom)
-    const existing = itemsOf(findPf(bom.id))
-    setRows(existing.map((it, i) => toDraftLine(it, i + 1)))
-    setNextRowUid(existing.length + 1)
-    setVtName(''); setVtSpecs(''); setVtChieuDai(''); setVtSoLuong(''); setVtErr(''); setSentMsg(false)
-  }
-
-  const addToDraft = () => {
-    setVtErr('')
-    if (!vtName.trim()) { setVtErr('Vui lòng chọn Tên vật tư.'); return }
-    setRows(r => [...r, { uid: nextRowUid, name: vtName.trim(), specs: vtSpecs.trim(), chieuDai: vtChieuDai.trim(), soLuong: vtSoLuong.trim(), unit: vtUnit }])
-    setNextRowUid(n => n + 1)
-    setVtName(''); setVtSpecs(''); setVtChieuDai(''); setVtSoLuong('')
-  }
-
-  const removeDraft = (uid: number) => setRows(r => r.filter(x => x.uid !== uid))
-
-  const submitAll = async () => {
-    if (!rows.length || !selectedVtBom) return
-    setSubmitting(true)
-    try {
-      const items = rows.map(r => toItem(r))
-      await api.updatePlanFormDetailQuota(selectedVtBom.id, GROUP, items, user?.name ?? 'Không rõ')
-      logAction(PLANFORM_ENTITY, String(selectedVtBom.id), 'planform.detail_submitted', `Sắt (${items.length} vật tư)`)
-      await refetchPlanForms()
-      setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
   const totalChildren = manhs.reduce((s, m) => s + m.children.length, 0)
   const manhSt = selectedBom ? manhBomStatus(selectedBom.id) : 'canInput'
-  const isSubmitted = manhSt !== 'canInput'
+  // Bị từ chối vẫn phải cho sửa/nộp lại — chỉ khoá khi đã nộp và đang chờ duyệt hoặc đã duyệt.
+  const isSubmitted = manhSt === 'pending' || manhSt === 'approved'
 
   // ─── Render ────────────────────────────────────────────────────────────
   return (
@@ -450,7 +290,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
       <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức — Sắt</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập định mức mảnh sắt theo SKU và đề xuất vật tư mới</p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập định mức mảnh sắt theo SKU</p>
         </div>
         <NotifBell
           items={manhBoms.filter(b => manhBomStatus(b.id) === 'approved').map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức mảnh · ${n.thoiGian}` }))}
@@ -481,6 +321,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               <tbody>
                 {manhBoms.filter(b => b.ten.toLowerCase().includes(manhBomSearch.toLowerCase()) && manhBomStatus(b.id) !== 'approved').map(item => {
                   const st = manhBomStatus(item.id)
+                  const rejectReason = st === 'rejected' ? findPf(item.id)?.manhReviewStatus?.sat?.reason : undefined
                   return (
                   <tr key={item.id}
                     onClick={() => openBom(item)}
@@ -488,12 +329,19 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
-                    <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.ten}</td>
+                    <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>
+                      {item.ten}
+                      {rejectReason && (
+                        <div style={{ marginTop: 2, fontSize: 11, fontWeight: 400, color: '#c62828', fontStyle: 'italic' }}>{rejectReason}</div>
+                      )}
+                    </td>
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
                     <td style={{ padding: '12px 14px' }}>
                       {st === 'pending'
                         ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
-                        : <span style={{ background: '#fce4ec', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Cần nhập</span>
+                        : st === 'rejected'
+                        ? <span style={{ background: '#ffebee', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
+                        : <span style={{ background: '#eef2ff', color: '#3949ab', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
                       }
                     </td>
                     <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
@@ -522,9 +370,18 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
             </div>
           </div>
 
-          {findPf(selectedBom.id)?.manhEntryMeta && (
+          {findPf(selectedBom.id)?.manhEntryMeta?.sat && (
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>
-              Đã nhập bởi <strong>{findPf(selectedBom.id)!.manhEntryMeta!.enteredBy}</strong> lúc {new Date(findPf(selectedBom.id)!.manhEntryMeta!.enteredAt).toLocaleString('vi-VN')}
+              Đã nhập bởi <strong>{findPf(selectedBom.id)!.manhEntryMeta!.sat!.enteredBy}</strong> lúc {new Date(findPf(selectedBom.id)!.manhEntryMeta!.sat!.enteredAt).toLocaleString('vi-VN')}
+            </div>
+          )}
+
+          {manhSt === 'rejected' && (
+            <div style={{ padding: '10px 16px', background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 'var(--radius-lg)', marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>⚠ KHSX đã từ chối — vui lòng chỉnh sửa và gửi lại</div>
+              {findPf(selectedBom.id)?.manhReviewStatus?.sat?.reason && (
+                <div style={{ fontSize: 12, color: '#dc2626', fontStyle: 'italic', marginTop: 2 }}>{findPf(selectedBom.id)!.manhReviewStatus!.sat!.reason}</div>
+              )}
             </div>
           )}
 
@@ -767,319 +624,52 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
         </div>
       )}
 
-      {/* ══ ĐỊNH MỨC CHI TIẾT: LIST SKU ══ */}
-      {subTab === 'vat-tu' && !selectedVtBom && (
+      {/* ══ CATALOG VẬT TƯ ══ */}
+      {subTab === 'catalog' && (
         <div>
           <div style={{ marginBottom: 16 }}>
             <input
-              value={vtBomSearch}
-              onChange={e => setVtBomSearch(e.target.value)}
-              placeholder="Tìm theo tên SKU…"
-              style={{ maxWidth: 280, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+              value={catalogSearch}
+              onChange={e => setCatalogSearch(e.target.value)}
+              placeholder="Tìm theo tên vật tư hoặc quy cách…"
+              style={{ maxWidth: 320, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
             />
           </div>
-          <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['SKU', 'Thời gian', 'Trạng thái', ''].map(h => (
-                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{h}</th>
+                  {['Tên vật tư', 'Quy cách', 'ĐVT'].map((h, i) => (
+                    <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {boms.filter(b => b.ten.toLowerCase().includes(vtBomSearch.toLowerCase()) && vtBomStatus(b.id) !== 'approved').map(item => {
-                  const st = vtBomStatus(item.id)
-                  return (
-                    <tr key={item.id}
-                      onClick={() => openVtBom(item)}
-                      style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                    >
-                      <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.ten}</td>
-                      <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
-                      <td style={{ padding: '12px 14px' }}>
-                        {st === 'pending'
-                          ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Đợi duyệt</span>
-                          : st === 'rejected'
-                          ? <span style={{ background: '#fce4ec', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
-                          : <span style={{ background: '#eef2ff', color: '#3949ab', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
-                        }
-                      </td>
-                      <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
-                    </tr>
-                  )
-                })}
+                {catalog.filter(s => {
+                  const q = catalogSearch.toLowerCase()
+                  return s.name.toLowerCase().includes(q) || s.specs.toLowerCase().includes(q)
+                }).map((s, i, arr) => (
+                  <tr key={i} style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 500 }}>{s.name}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{s.specs || '—'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{s.unit}</td>
+                  </tr>
+                ))}
+                {catalog.filter(s => {
+                  const q = catalogSearch.toLowerCase()
+                  return s.name.toLowerCase().includes(q) || s.specs.toLowerCase().includes(q)
+                }).length === 0 && (
+                  <tr>
+                    <td colSpan={3} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
+                      {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư nào được nhập.'}
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>
         </div>
       )}
-
-      {/* ══ ĐỊNH MỨC CHI TIẾT: DETAIL ══ */}
-      {subTab === 'vat-tu' && selectedVtBom && (() => {
-        const pf = findPf(selectedVtBom.id)
-        const st = vtBomStatus(selectedVtBom.id)
-        const review = reviewOf(pf)
-        const meta = entryMetaOf(pf)
-        return (
-        <div>
-          {/* Back */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-            <button onClick={() => setSelectedVtBom(null)} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
-              background: 'var(--surface)', border: '1px solid var(--border)',
-              borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
-            }}><ChevronLeft size={14} /> Quay lại</button>
-            <div>
-              <span style={{ fontWeight: 700, fontSize: 15 }}>{selectedVtBom.ten}</span>
-            </div>
-          </div>
-
-          {meta && (
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>
-              Đã nhập bởi <strong>{meta.enteredBy}</strong> lúc {new Date(meta.enteredAt).toLocaleString('vi-VN')}
-            </div>
-          )}
-
-          {/* Banner đã duyệt — ẩn form nhập */}
-          {st === 'approved' && (
-            <div style={{ padding: '10px 16px', background: '#e8f5e9', border: '1px solid #a5d6a7', borderRadius: 'var(--radius-lg)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 16 }}>✓</span>
-              <span style={{ fontWeight: 600, color: '#2e7d32', fontSize: 13 }}>Đã duyệt lần trước</span>
-              <span style={{ fontSize: 12, color: '#388e3c' }}>— có thể gửi thêm đề xuất bổ sung nếu còn thiếu vật tư</span>
-            </div>
-          )}
-
-          {st === 'pending' && (
-            <div style={{ padding: '10px 16px', background: '#fff8e1', border: '1px solid #ffe082', borderRadius: 'var(--radius-lg)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span style={{ fontSize: 16 }}>⏳</span>
-              <span style={{ fontWeight: 600, color: '#f57c00', fontSize: 13 }}>Đang chờ duyệt</span>
-              <span style={{ fontSize: 12, color: '#ef6c00' }}>— không thể nhập thêm vật tư cho SKU này cho đến khi được duyệt</span>
-            </div>
-          )}
-
-          {st === 'rejected' && (
-            <div style={{ padding: '10px 16px', background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 'var(--radius-lg)', marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>⚠ KHSX đã từ chối — vui lòng chỉnh sửa và gửi lại</div>
-              {review?.reason && <div style={{ fontSize: 12, color: '#dc2626', fontStyle: 'italic', marginTop: 2 }}>{review.reason}</div>}
-            </div>
-          )}
-
-          {/* Input form — khoá khi đang chờ duyệt */}
-          {st !== 'pending' && (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '18px 20px', marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14, color: 'var(--text)' }}>
-              {st === 'approved' || st === 'rejected' ? 'Gửi đề xuất bổ sung' : 'Thêm vật tư vào danh sách'}
-            </div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              {/* SKU — read only */}
-              <div style={{ minWidth: 120 }}>
-                <FL>SKU</FL>
-                <div style={{ padding: '7px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
-                  {selectedVtBom.ten}
-                </div>
-              </div>
-              {/* Tên — chọn từ preset */}
-              <div style={{ flex: 2, minWidth: 180 }}>
-                <FL>Tên <span style={{ color: '#e53935' }}>*</span></FL>
-                <VatTuSearch
-                  value={vtName}
-                  onChange={name => { setVtName(name); setVtErr('') }}
-                  onSelectFromPreset={p => { setVtName(p.name); setVtErr('') }}
-                />
-              </div>
-              {/* Quy cách */}
-              <div style={{ flex: 1, minWidth: 130 }}>
-                <FL>Quy cách</FL>
-                <SpecsInput
-                  value={vtSpecs}
-                  onChange={setVtSpecs}
-                  materialName={vtName}
-                  catalog={catalog}
-                />
-              </div>
-              {/* Số lượng — sắt ống nhập mm (chiều dài), sắt tấm đếm số tấm */}
-              <div style={{ minWidth: 110 }}>
-                <FL>Số lượng</FL>
-                <input value={vtSoLuong} onChange={e => setVtSoLuong(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addToDraft()}
-                  placeholder={vtUnit === 'tấm' ? '1' : '9000'} style={inputStyle} />
-              </div>
-              {/* ĐVT — mm (sắt ống) / tấm (sắt tấm) */}
-              <div style={{ width: 84 }}>
-                <FL>ĐVT</FL>
-                <select value={vtUnit} onChange={e => setVtUnit(e.target.value)}
-                  style={{ ...inputStyle, background: 'var(--surface)' }}>
-                  {UNIT_OPTIONS.map(u => <option key={u}>{u}</option>)}
-                </select>
-              </div>
-              <button onClick={addToDraft} style={{
-                padding: '7px 16px', border: 'none', borderRadius: 'var(--radius)',
-                background: '#1565c0', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
-              }}>+ Thêm</button>
-            </div>
-            {vtErr && (
-              <div style={{ marginTop: 10, padding: '8px 12px', background: '#ffebee', color: '#c62828', borderRadius: 'var(--radius)', fontSize: 13 }}>{vtErr}</div>
-            )}
-          </div>
-          )}
-
-          {/* Draft/current list */}
-          {rows.length > 0 && (
-            <div style={{ background: 'var(--surface)', border: st === 'pending' ? '1px solid #ffe082' : '1px solid #c5cae9', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 16 }}>
-              <div style={{ padding: '12px 16px', background: st === 'pending' ? '#fff8e1' : '#e8eaf6', borderBottom: st === 'pending' ? '1px solid #ffe082' : '1px solid #c5cae9', fontWeight: 700, fontSize: 14, color: st === 'pending' ? '#e65100' : '#1a237e' }}>
-                {st === 'pending' ? 'Đang chờ duyệt' : 'Danh sách chờ gửi'}
-                <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 600, background: st === 'pending' ? '#ffe082' : '#c5cae9', color: st === 'pending' ? '#e65100' : '#1a237e', borderRadius: 20, padding: '2px 8px' }}>
-                  {rows.length} vật tư
-                </span>
-              </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                    {['SKU', 'Tên', 'Quy cách', 'Số lượng', 'ĐVT', ...(st === 'pending' ? [] : [''])].map((h, i) => (
-                      <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {rows.map(d => (
-                    <tr key={d.uid} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedVtBom?.ten}</td>
-                      <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{d.name}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{d.specs || '—'}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text)', fontFamily: 'monospace' }}>{d.soLuong || '—'}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{d.unit}</td>
-                      {st !== 'pending' && (
-                        <td style={{ padding: '10px 14px', textAlign: 'center' }}>
-                          <button onClick={() => removeDraft(d.uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>
-                            <X size={14} />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {st !== 'pending' && (
-                <div style={{ padding: '12px 16px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid var(--border)' }}>
-                  <button onClick={submitAll} disabled={submitting} style={{
-                    padding: '8px 24px', border: 'none', borderRadius: 'var(--radius)',
-                    background: '#1565c0', color: '#fff', fontWeight: 700, fontSize: 14, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1,
-                  }}>{submitting ? 'Đang gửi...' : `Gửi đề xuất (${rows.length} vật tư) →`}</button>
-                </div>
-              )}
-            </div>
-          )}
-
-          {sentMsg && (
-            <div style={{ padding: '10px 16px', background: '#e8f5e9', color: '#2e7d32', borderRadius: 'var(--radius)', fontWeight: 600, fontSize: 13, marginBottom: 16 }}>
-              ✓ Đã gửi đề xuất thành công — đang chờ duyệt.
-            </div>
-          )}
-
-          {rows.length === 0 && (
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '40px', textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
-              Chưa có đề xuất nào. Điền form phía trên để bắt đầu.
-            </div>
-          )}
-        </div>
-        )
-      })()}
-
-      {/* ══ CATALOG VẬT TƯ ══ */}
-      {subTab === 'catalog' && (() => {
-        const rejectedGroups = planForms
-          .filter(pf => reviewOf(pf)?.status === 'REJECTED')
-          .map(pf => ({
-            ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
-            items: itemsOf(pf),
-            reason: reviewOf(pf)?.reason,
-          }))
-        return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-
-          {/* ── Từ chối ── */}
-          {rejectedGroups.length > 0 && (
-            <div>
-              <div style={{ fontWeight: 700, fontSize: 13, color: '#c62828', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ background: '#ffebee', color: '#c62828', borderRadius: 20, padding: '2px 10px', fontSize: 12 }}>✕ Từ chối</span>
-                <span style={{ color: 'var(--text3)', fontWeight: 400, fontSize: 12 }}>{rejectedGroups.length} SKU</span>
-              </div>
-              <div style={{ background: 'var(--surface)', border: '1px solid #ffcdd2', borderLeft: '4px solid #c62828', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                  <thead>
-                    <tr style={{ background: '#ffebee', borderBottom: '1px solid #ffcdd2' }}>
-                      {['SKU', 'Tên vật tư', 'Quy cách', 'Số lượng', 'Lý do từ chối'].map((h, i) => (
-                        <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: '#b71c1c', fontSize: 11 }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rejectedGroups.flatMap((g, gi) => g.items.map((it, i) => (
-                      <tr key={`${gi}-${i}`} style={{ borderBottom: '1px solid var(--border)' }}>
-                        <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text2)' }}>{g.ten}</td>
-                        <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{it.name}</td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{it.specifications || '—'}</td>
-                        <td style={{ padding: '10px 14px', color: 'var(--text)', fontFamily: 'monospace' }}>{it.quantity ?? '—'}</td>
-                        <td style={{ padding: '10px 14px', color: '#c62828', fontSize: 13 }}>{g.reason || '—'}</td>
-                      </tr>
-                    )))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* ── Catalog ── */}
-          <div>
-            <div style={{ marginBottom: 16 }}>
-              <input
-                value={catalogSearch}
-                onChange={e => setCatalogSearch(e.target.value)}
-                placeholder="Tìm theo tên vật tư hoặc quy cách…"
-                style={{ maxWidth: 320, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
-              />
-            </div>
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                    {['Tên vật tư', 'Quy cách', 'ĐVT'].map((h, i) => (
-                      <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {catalog.filter(s => {
-                    const q = catalogSearch.toLowerCase()
-                    return s.name.toLowerCase().includes(q) || s.specs.toLowerCase().includes(q)
-                  }).map((s, i, arr) => (
-                    <tr key={i} style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                      <td style={{ padding: '10px 14px', fontWeight: 500 }}>{s.name}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{s.specs || '—'}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{s.unit}</td>
-                    </tr>
-                  ))}
-                  {catalog.filter(s => {
-                    const q = catalogSearch.toLowerCase()
-                    return s.name.toLowerCase().includes(q) || s.specs.toLowerCase().includes(q)
-                  }).length === 0 && (
-                    <tr>
-                      <td colSpan={3} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
-                        {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư nào được nhập.'}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-        </div>
-        )
-      })()}
     </div>
   )
 }

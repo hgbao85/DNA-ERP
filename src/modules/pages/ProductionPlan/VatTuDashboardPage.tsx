@@ -5,6 +5,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { Loader2, X, Search } from 'lucide-react'
 import type { PlanForm } from '../../../types/plan-form'
+import { flattenManhSteel, combinedDaySon } from '../../../utils/manhMaterials'
 
 const CAT_META = {
   sat:              { label: 'Sắt',              color: '#b45309', bg: '#fef3c7' },
@@ -128,9 +129,9 @@ function flattenItems(planForms: PlanForm[]): FlatItem[] {
       poNumber: pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`,
     }
     const mt = pf.quotaManagement?.materialType
+    pushItems(items, pf, 'sat', flattenManhSteel(pf))
+    pushItems(items, pf, 'daySon', combinedDaySon(pf))
     if (mt) {
-      if (Array.isArray(mt.sat))           pushItems(items, pf, 'sat',          mt.sat)
-      if (Array.isArray(mt.daySon))        pushItems(items, pf, 'daySon',       mt.daySon)
       if (Array.isArray(mt.vatTuPhuKien))  pushItems(items, pf, 'vatTuPhuKien', mt.vatTuPhuKien)
       if (Array.isArray(mt.baoBiDongGoi))  pushItems(items, pf, 'baoBiDongGoi', mt.baoBiDongGoi)
     }

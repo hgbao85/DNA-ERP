@@ -63,12 +63,13 @@ const MFG_ROLE_LABELS: Record<string, string> = {
 
 const SPEC_SETUP_ITEMS: Record<string, { id: SetupSubTab; label: string; icon: 'clipboard' | 'grid' | 'box' }[]> = {
   SPEC_STEEL: [
-    { id: 'vat-tu', label: 'Định mức mới', icon: 'clipboard' },
     { id: 'dinh-muc', label: 'Định mức mảnh', icon: 'grid' },
     { id: 'catalog', label: 'Danh sách vật tư', icon: 'box' },
   ],
+  // dinh-muc = Định mức mảnh (Dây, nhập trước) — vat-tu = Định mức chi tiết (Sơn/Đinh, nhập sau).
   SPEC_WIRE_PAINT: [
-    { id: 'dinh-muc', label: 'Định mức mới', icon: 'clipboard' },
+    { id: 'dinh-muc', label: 'Định mức mảnh', icon: 'grid' },
+    { id: 'vat-tu', label: 'Định mức mới (Sơn/Đinh)', icon: 'clipboard' },
     { id: 'catalog', label: 'Danh sách vật tư', icon: 'box' },
   ],
   // 1 account phụ trách cả Phụ kiện và Bao bì — 2 mục "Định mức mới" riêng (luồng nhập/duyệt độc lập theo nhóm)
@@ -276,8 +277,8 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'materials' && canSeeWarehouses && <MfgAllMaterialsPage />}
         {tab === 'warehouses' && canSeeWarehouses && <MfgWarehousesPage />}
         {tab === 'setup' && (isDirector || isBomManager) && <MfgSetupPage />}
-        {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL' && <SpecSteelPage subTab={setupSubTab as 'vat-tu' | 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
-        {tab === 'setup' && user?.mfgRole === 'SPEC_WIRE_PAINT' && <SpecWirePaintPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL' && <SpecSteelPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_WIRE_PAINT' && <SpecWirePaintPage subTab={setupSubTab as 'dinh-muc' | 'vat-tu' | 'catalog'} onSubTabChange={setSetupSubTab} />}
         {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && setupSubTab === 'catalog' && <SpecAccessoryCatalogPage />}
         {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && setupSubTab === 'dinh-muc-bb' && <SpecPackagingPage />}
         {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && setupSubTab === 'dinh-muc-pk' && <SpecAccessoryPage />}
