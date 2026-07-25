@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, type User } from '../context/AuthContext';
 import { loginUser } from '../services/api';
 import { useRouter } from 'next/navigation';
 import { Shield, Mail, Lock, Ship, ArrowRight } from 'lucide-react';
@@ -9,14 +9,14 @@ import { Shield, Mail, Lock, Ship, ArrowRight } from 'lucide-react';
 export default function LoginPage() {
   const { login } = useAuth();
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email || !password) {
+    if (!username || !password) {
       setError('Vui lòng điền đầy đủ thông tin');
       return;
     }
@@ -25,13 +25,13 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const data = await loginUser({ email, password });
-      login(data.accessToken, data.user);
+      const data = await loginUser({ username, password });
+      login(data.accessToken, data.user as User);
       router.push('/');
     } catch (err: unknown) {
       console.error('Đăng nhập thất bại:', err);
-      const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message ?? 'Email hoặc mật khẩu không đúng');
+      const e = err as { message?: string; response?: { data?: { message?: string } } };
+      setError(e.response?.data?.message ?? e.message ?? 'Tên đăng nhập hoặc mật khẩu không đúng');
     } finally {
       setLoading(false);
     }
@@ -129,14 +129,14 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-              <label style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>Email Công Việc</label>
+              <label style={{ fontSize: 13, fontWeight: 600, color: '#94a3b8' }}>Tên đăng nhập</label>
               <div style={{ position: 'relative' }}>
                 <Mail size={18} style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: '#475569' }} />
                 <input
-                  type="email"
-                  placeholder="name@dongnama.com"
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
+                  type="text"
+                  placeholder="Tên đăng nhập"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
                   disabled={loading}
                   style={{
                     width: '100%', padding: '14px 14px 14px 44px',

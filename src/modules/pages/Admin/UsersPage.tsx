@@ -78,6 +78,7 @@ export default function UsersPage() {
           </div>
         ),
       },
+      { key: 'username', label: 'Tên đăng nhập', render: (u) => u.username ?? '—' },
       { key: 'email', label: 'Email' },
       {
         key: 'role', label: 'Vai trò', render: (u) => (
@@ -116,13 +117,22 @@ export default function UsersPage() {
     formFields: [
       { name: 'name', label: 'Họ tên', type: 'text', required: true },
       {
+        // Dùng để đăng nhập (BE thật). Không sửa được sau khi tạo — BE PATCH không nhận username.
+        name: 'username', label: 'Tên đăng nhập', type: 'text', placeholder: 'chỉ chữ/số . _ -',
+        validate: (v, all) =>
+          (!all.id && !v) ? 'Bắt buộc khi tạo mới'
+          : (v && !/^[a-zA-Z0-9._-]{3,}$/.test(String(v))) ? 'Tối thiểu 3 ký tự, chỉ chữ/số . _ -'
+          : undefined,
+      },
+      {
         name: 'email', label: 'Email', type: 'email', required: true,
         validate: (v) => (!v || !/^\S+@\S+\.\S+$/.test(String(v))) ? 'Email không hợp lệ' : undefined,
       },
       {
         name: 'password', label: 'Mật khẩu', type: 'password', placeholder: 'Để trống nếu không đổi',
         skipIfBlankOnEdit: true,
-        validate: (v, all) => (!all.id && !v) ? 'Bắt buộc khi tạo mới' : (v && String(v).length < 6) ? 'Tối thiểu 6 ký tự' : undefined,
+        // BE yêu cầu tối thiểu 8 ký tự (đổi từ 6 khi cắt sang API thật).
+        validate: (v, all) => (!all.id && !v) ? 'Bắt buộc khi tạo mới' : (v && String(v).length < 8) ? 'Tối thiểu 8 ký tự' : undefined,
       },
       {
         name: 'role', label: 'Vai trò', type: 'select', required: true,
@@ -135,7 +145,10 @@ export default function UsersPage() {
       {
         name: 'mfgRole', label: 'Vai trò sản xuất', type: 'select',
         showIf: (v) => v.role === 'WAREHOUSE_STAFF',
-        options: Object.entries(MFG_ROLE_LABEL).map(([value, label]) => ({ value, label })),
+        // Ẩn WEAVING_EXPORT & BOM_MANAGER: BE chưa có business role tương ứng (sẽ có mfgRole nhưng không quyền).
+        options: Object.entries(MFG_ROLE_LABEL)
+          .filter(([value]) => value !== 'WEAVING_EXPORT' && value !== 'BOM_MANAGER')
+          .map(([value, label]) => ({ value, label })),
       },
       {
         name: 'warehouseScope', label: 'Nhóm kho phụ trách', type: 'select',
