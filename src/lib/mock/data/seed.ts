@@ -687,33 +687,15 @@ export const seedMaterials = [
 ];
 
 export const seedMfgWarehouses = [
-  { id: 1, name: 'Kho phụ kiện',          code: 'phu-kien',     note: 'Phụ kiện sản xuất', isActive: true },
-  { id: 2, name: 'Kho Sắt',               code: 'sat',           note: 'Sắt ống, sắt tấm, sắt hộp', isActive: true },
-  { id: 3, name: 'Kho Khung/Dây',         code: 'day',           note: 'Dây đan, khung bán thành phẩm', isActive: true },
   { id: 5, name: 'Kho Bao bì/Thành phẩm', code: 'thanh-pham',    note: 'Bao bì đóng gói & thành phẩm hoàn chỉnh — cuối chuỗi chuyển kho nội bộ', isActive: true },
   { id: 6, name: 'Kho Vật tư thành phẩm', code: 'vat-tu-tp',     note: 'Sơn, dây, vật tư tiêu hao sản xuất', isActive: true },
   { id: 7, name: 'Kho Phôi Sơn Hàn',      code: 'phoi-son-han', note: 'Phôi kim loại, sơn, vật tư hàn — đầu chuỗi chuyển kho nội bộ', isActive: true },
 ];
 
 export const seedMfgWarehouseItems = [
-  { id: 1, warehouseId: 2, materialId: 1, name: 'Ống sắt 25×25', unit: 'cây', quantity: 500, material: { id: 1, code: 'SAT-25', name: 'Ống sắt 25×25', unit: 'cm' } },
-  { id: 2, warehouseId: 1, materialId: null, name: 'Tán M6×12', unit: 'cái', quantity: 5000, material: null },
-  { id: 3, warehouseId: 3, materialId: 2, name: 'Dây PE Ø3mm', unit: 'kg', quantity: 250, material: { id: 2, code: 'DAY-PE3', name: 'Dây PE Ø3mm', unit: 'kg' } },
   { id: 4, warehouseId: 5, materialId: null, classification: 'Bao bì', name: 'Thùng carton JSE-55', unit: 'cái', quantity: 600, material: null },
   { id: 5, warehouseId: 5, materialId: null, classification: 'Bao bì', name: 'Bao nylon 68×105', unit: 'cái', quantity: 1200, material: null },
   { id: 6, warehouseId: 5, materialId: null, classification: 'Thành phẩm', name: 'Mặt ghế J55 (đan xong)', unit: 'cái', quantity: 200, material: null },
-  { id: 7, warehouseId: 2, materialId: 3, name: 'Ống sắt 20×40', unit: 'cây', quantity: 300, material: { id: 3, code: 'SAT-20', name: 'Ống sắt 20×40', unit: 'cm' } },
-  { id: 8, warehouseId: 3, materialId: 4, name: 'Dây PE Ø4mm', unit: 'kg', quantity: 180, material: { id: 4, code: 'DAY-PE4', name: 'Dây PE Ø4mm', unit: 'kg' } },
-  { id: 9, warehouseId: 2, materialId: 8, name: 'Ống sắt 25×50', unit: 'cây', quantity: 240, material: { id: 8, code: 'SAT-50X25', name: 'Ống sắt 25×50', unit: 'cm' } },
-  { id: 10, warehouseId: 2, materialId: 12, name: 'Ống sắt 30×30', unit: 'cây', quantity: 200, material: { id: 12, code: 'SAT-30X30', name: 'Ống sắt 30×30', unit: 'cm' } },
-  { id: 11, warehouseId: 2, materialId: 13, name: 'Ống sắt Ø16', unit: 'cây', quantity: 180, material: { id: 13, code: 'SAT-16', name: 'Ống sắt Ø16', unit: 'cm' } },
-  { id: 12, warehouseId: 3, materialId: 14, name: 'Dây nhựa đan', unit: 'kg', quantity: 320, material: { id: 14, code: 'DAY-NHUA-DAN', name: 'Dây nhựa đan', unit: 'kg' } },
-  { id: 13, warehouseId: 3, materialId: 15, name: 'Dây PE xám', unit: 'kg', quantity: 210, material: { id: 15, code: 'DAY-PE-XAM', name: 'Dây PE xám', unit: 'kg' } },
-  { id: 14, warehouseId: 1, materialId: 9, name: 'Chốt 10mm', unit: 'cái', quantity: 3000, material: { id: 9, code: 'CHOT-10', name: 'Chốt 10mm', unit: 'cái' } },
-  { id: 15, warehouseId: 1, materialId: 10, name: 'Pát V 100', unit: 'cái', quantity: 1200, material: { id: 10, code: 'PAT-V100', name: 'Pát V 100', unit: 'cái' } },
-  { id: 16, warehouseId: 1, materialId: 11, name: 'Ô tròn lỗ dù', unit: 'cái', quantity: 1500, material: { id: 11, code: 'O-TRON-LO-DU', name: 'Ô tròn lỗ dù', unit: 'cái' } },
-  { id: 17, warehouseId: 1, materialId: 16, name: 'Pát kính', unit: 'cái', quantity: 900, material: { id: 16, code: 'PAT-KINH', name: 'Pát kính', unit: 'cái' } },
-  { id: 18, warehouseId: 1, materialId: 17, name: 'Pát 1-4', unit: 'cái', quantity: 900, material: { id: 17, code: 'PAT-1-4', name: 'Pát 1-4', unit: 'cái' } },
   // Kho Vật tư thành phẩm (id:6) — sơn + dây tiêu hao
   { id: 19, warehouseId: 6, materialId: null, name: 'Sơn tĩnh điện đen RAL9005',  unit: 'kg',  quantity: 85,  material: null },
   { id: 20, warehouseId: 6, materialId: null, name: 'Sơn tĩnh điện xám RAL7035',  unit: 'kg',  quantity: 42,  material: null },

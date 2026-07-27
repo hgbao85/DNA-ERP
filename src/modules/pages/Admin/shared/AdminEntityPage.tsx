@@ -1,5 +1,5 @@
 'use client'
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ComponentType, type ReactNode } from 'react'
 import { Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import { useFetch } from '../../../../hooks/useFetch'
 import { useConfirm } from '../../../../hooks/useConfirm'
@@ -21,9 +21,11 @@ export interface AdminColumn<T> {
 }
 
 export interface AdminFormField<T> {
-  name: keyof T & string
+  /** Field ảo (không có trong T) được cho phép — dùng cho khối UI thuần điều khiển nhiều field
+      khác cùng lúc (vd "Loại nhân viên"), kết hợp với excludeFromPayload + type 'custom'. */
+  name: (keyof T & string) | (string & {})
   label: string
-  type: 'text' | 'email' | 'password' | 'number' | 'select' | 'checkbox'
+  type: 'text' | 'email' | 'password' | 'number' | 'select' | 'checkbox' | 'hidden' | 'custom'
   options?: { value: string; label: string }[]
   required?: boolean
   placeholder?: string
@@ -36,6 +38,13 @@ export interface AdminFormField<T> {
   /** Khi sửa (không phải tạo mới) và người dùng để trống — bỏ field này khỏi payload thay vì
       gửi chuỗi rỗng (vd mật khẩu: để trống nghĩa là "giữ nguyên", không phải "xóa mật khẩu"). */
   skipIfBlankOnEdit?: boolean
+  /** type: 'hidden' — field vẫn tham gia showIf/validate/payload như bình thường nhưng không
+      render dòng nào trong modal (dùng khi 1 field 'custom' khác đã tự vẽ UI điều khiển nó). */
+  /** type: 'custom' — Render tự vẽ toàn bộ khối (không có label mặc định), nhận thẳng setField
+      để điều khiển cả field khác cùng lúc (vd 1 khối chọn "Loại nhân viên" set lại mfgRole/warehouseScope). */
+  Render?: ComponentType<{ value: unknown; values: Partial<T>; setField: (name: string, value: unknown) => void }>
+  /** Không đưa field này vào payload lưu — dùng cho field UI thuần không map tới cột dữ liệu nào. */
+  excludeFromPayload?: boolean
 }
 
 export interface AdminFilterDef<T> {
@@ -195,6 +204,7 @@ export default function AdminEntityPage<T extends { id: number | string }>({ con
       // optional mà người dùng chủ động để trống (vd bỏ chọn nhóm kho phụ trách).
       const payload = Object.fromEntries(
         config.formFields
+          .filter(f => !f.excludeFromPayload)
           .filter(f => !(f.skipIfBlankOnEdit && !isNew && !(values as Record<string, unknown>)[f.name]))
           .map(f => {
             const visible = fields.includes(f)
@@ -337,8 +347,12 @@ export default function AdminEntityPage<T extends { id: number | string }>({ con
         </h3>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '60vh', overflowY: 'auto', paddingRight: 4 }}>
-          {visibleFields(values).map(f => (
+          {visibleFields(values).filter(f => f.type !== 'hidden').map(f => (
             <div key={f.name}>
+              {f.type === 'custom' ? (
+                f.Render && <f.Render value={(values as Record<string, unknown>)[f.name]} values={values} setField={setField} />
+              ) : (
+              <>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
                 {f.label}{f.required && <span style={{ color: '#c62828' }}> *</span>}
               </label>
@@ -377,6 +391,8 @@ export default function AdminEntityPage<T extends { id: number | string }>({ con
                   placeholder={f.placeholder}
                   style={{ width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)' }}
                 />
+              )}
+              </>
               )}
 
               {errors[f.name] && <div style={{ color: '#c62828', fontSize: 11, marginTop: 4 }}>{errors[f.name]}</div>}
