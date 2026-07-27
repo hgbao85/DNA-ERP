@@ -1,7 +1,10 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getProfile } from '../services/api';
+import { useRouter } from 'next/navigation';
+import { getProfile, logoutUser } from '../services/api';
+import { SESSION_EXPIRED_EVENT } from '../services/core/http';
+import { tokenStorage } from '../services/core/tokenStorage';
 import { normalizeUser } from '../utils/normalizeUser';
 
 export type MfgRole = 'PRODUCTION_MANAGER' | 'PHOI' | 'HAN' | 'SON' | 'KCS' | 'WEAVING_MANAGER' | 'WEAVING_EXPORT' | 'BOM_MANAGER' | 'SPEC_STEEL'| 'SPEC_WIRE_PAINT' | 'SPEC_ACCESSORY' | 'SPEC_PACKAGING';
@@ -79,10 +82,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
   useEffect(() => {
     const init = async () => {
-      const storedToken = localStorage.getItem('access_token');
+      const storedToken = tokenStorage.getAccessToken();
       if (!storedToken) {
         setLoading(false);
         return;
@@ -91,13 +95,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setToken(storedToken);
       try {
         const profile = await getProfile();
-        const freshUser = normalizeUser(profile as unknown as Record<string, unknown>);
+        const freshUser = normalizeUser(profile);
         setUser(freshUser);
-        localStorage.setItem('user_info', JSON.stringify(freshUser));
+        tokenStorage.setUser(freshUser);
       } catch (e) {
         console.error('Không thể khôi phục phiên đăng nhập', e);
-        localStorage.removeItem('access_token');
-        localStorage.removeItem('user_info');
+        tokenStorage.clear();
         setToken(null);
         setUser(null);
       } finally {
@@ -108,17 +111,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     void init();
   }, []);
 
+  // core/http.ts phát event này khi access token hết hạn VÀ refresh cũng thất bại
+  // (refresh token hết hạn/không hợp lệ) — tự đăng xuất + điều hướng về /login.
+  useEffect(() => {
+    const onSessionExpired = () => {
+      setToken(null);
+      setUser(null);
+      router.replace('/login');
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
+  }, [router]);
+
   const login = (newToken: string, newUser: User) => {
-    const normalized = normalizeUser(newUser as unknown as Record<string, unknown>);
-    localStorage.setItem('access_token', newToken);
-    localStorage.setItem('user_info', JSON.stringify(normalized));
+    const normalized = normalizeUser(newUser);
+    tokenStorage.setAccessToken(newToken);
+    tokenStorage.setUser(normalized);
     setToken(newToken);
     setUser(normalized);
   };
 
   const logout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('user_info');
+    // Best-effort: thu hồi refresh token ở BE, không chặn UI chờ kết quả — refreshToken
+    // được đọc đồng bộ ngay khi gọi (trước dòng tokenStorage.clear() dưới đây) nên không
+    // có race giữa việc đọc token và việc xoá token.
+    void logoutUser().catch(() => {});
+    tokenStorage.clear();
     setToken(null);
     setUser(null);
   };

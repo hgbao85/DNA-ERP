@@ -6,8 +6,8 @@ import type { User } from '../context/AuthContext';
  * phân quyền mới) và thêm các field chỉ Admin cần (không đưa vào session `User`).
  */
 export interface SystemUser extends User {
-  username?: string; // dùng để đăng nhập (BE thật); mock cũ không có
-  password: string; // mock-only, plaintext — cùng convention với MOCK_ACCOUNTS cũ
+  username?: string; // dùng để đăng nhập (BE thật)
+  password: string; // write-only cho form tạo/sửa — BE không trả password nên list/get luôn để rỗng
   isActive: boolean;
   createdAt: string; // ISO
   updatedAt?: string; // ISO

@@ -8,6 +8,8 @@ interface ConfirmModalProps {
   cancelLabel?: string
   danger?: boolean
   busy?: boolean
+  /** Lỗi từ action (vd BE từ chối xóa) — hiện inline, modal vẫn mở để người dùng thấy và Hủy/thử lại. */
+  error?: string | null
   onConfirm: () => void
   onCancel: () => void
 }
@@ -20,6 +22,7 @@ export default function ConfirmModal({
   cancelLabel = 'Hủy',
   danger = false,
   busy = false,
+  error = null,
   onConfirm,
   onCancel,
 }: ConfirmModalProps) {
@@ -37,6 +40,17 @@ export default function ConfirmModal({
             <p style={{ margin: 0, fontSize: 13, color: 'var(--text2)', whiteSpace: 'pre-line', lineHeight: 1.5 }}>{message}</p>
           </div>
         </div>
+        {error && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: 'rgba(198, 40, 40, 0.08)', border: '1px solid rgba(198, 40, 40, 0.3)',
+            borderRadius: 8, padding: '8px 12px', marginBottom: 14,
+            color: '#c62828', fontSize: 12.5, fontWeight: 500,
+          }}>
+            <AlertTriangle size={15} style={{ flexShrink: 0 }} />
+            <span>{error}</span>
+          </div>
+        )}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button
             onClick={onCancel}

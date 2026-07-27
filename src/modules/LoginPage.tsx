@@ -26,12 +26,11 @@ export default function LoginPage() {
 
     try {
       const data = await loginUser({ username, password });
-      login(data.accessToken, data.user as User);
+      login(data.accessToken, data.user as unknown as User);
       router.push('/');
     } catch (err: unknown) {
       console.error('Đăng nhập thất bại:', err);
-      const e = err as { message?: string; response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message ?? e.message ?? 'Tên đăng nhập hoặc mật khẩu không đúng');
+      setError(err instanceof Error ? err.message : 'Tên đăng nhập hoặc mật khẩu không đúng');
     } finally {
       setLoading(false);
     }
