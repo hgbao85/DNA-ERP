@@ -7,14 +7,14 @@ import { SESSION_EXPIRED_EVENT } from '../services/core/http';
 import { tokenStorage } from '../services/core/tokenStorage';
 import { normalizeUser } from '../utils/normalizeUser';
 
-export type MfgRole = 'PRODUCTION_MANAGER' | 'PHOI' | 'HAN' | 'SON' | 'KCS' | 'WEAVING_MANAGER' | 'WEAVING_EXPORT' | 'BOM_MANAGER' | 'SPEC_STEEL'| 'SPEC_WIRE_PAINT' | 'SPEC_ACCESSORY' | 'SPEC_PACKAGING';
+export type MfgRole = 'PRODUCTION_MANAGER' | 'PHOI' | 'HAN' | 'SON' | 'KCS' | 'SPEC_STEEL'| 'SPEC_WIRE_PAINT' | 'SPEC_ACCESSORY' | 'SPEC_PACKAGING';
 
 export type PhoiOperation = 'CAT' | 'TOP_DAU' | 'UON' | 'DAP' | 'DUC_LO' | 'BAN_TAN';
 
-// 5 nhóm kho cố định + kho thành phẩm phụ tạo động (id dạng 'thanh-pham-{n}') —
+// 3 nhóm kho thật + kho thành phẩm phụ tạo động (id dạng 'thanh-pham-{n}') —
 // tài khoản kho bị giới hạn vào đúng 1 nhóm (null = tổng kho, thấy hết). Giữ literal
 // union cho gợi ý IDE nhưng vẫn nhận mọi chuỗi để hỗ trợ kho thành phẩm tạo thêm.
-export type WarehouseScope = 'phu-kien' | 'bao-bi' | 'day' | 'sat' | 'thanh-pham' | 'vat-tu-tp' | 'phoi-son-han' | (string & {});
+export type WarehouseScope = 'phoi-son-han' | 'vat-tu-tp' | 'thanh-pham' | (string & {});
 
 // ─── Interface segregation (documentation) ───────────────────────────────────
 // Các interface dưới đây mô tả từng nhóm role; dùng làm type hint khi cần

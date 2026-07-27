@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Nhật ký thay đổi: Form Thêm người dùng &amp; dọn phân quyền sản xuất</title>
+<style>
+:root{
+  --ground:#EEF0F0; --paper:#FFFFFF; --ink:#1B2023; --ink-soft:#565F66;
+  --line:#D8DCDD; --line-strong:#C3C9CA;
+  --accent:#C4501E; --accent-bg:#FBE9DE; --accent-ink:#9C3E17;
+  --add:#1E7A4C; --add-bg:#E1F1E7;
+  --chg:#B7791B; --chg-bg:#FBF0DA;
+  --del:#B0332B; --del-bg:#FAE4E2;
+  --fe:#2B6CB0; --fe-bg:#E3EDF7;
+  --be:#6B4FA0; --be-bg:#EDE7F6;
+  --db:#1E7A4C; --db-bg:#E1F1E7;
+  --code-bg:#F4F5F5; --shadow:0 1px 2px rgba(20,24,26,.05),0 6px 20px rgba(20,24,26,.06);
+  --serif: ui-serif,"Iowan Old Style","Palatino Linotype","URW Palladio",Georgia,serif;
+  --sans: -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono: ui-monospace,"SF Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --ground:#14181A; --paper:#1B2124; --ink:#E7EAEA; --ink-soft:#9AA3A8;
+    --line:#2B3235; --line-strong:#3A4348;
+    --accent:#E08350; --accent-bg:#3A2416; --accent-ink:#F0A472;
+    --add:#5FBB8B; --add-bg:#173226;
+    --chg:#D9A441; --chg-bg:#332609;
+    --del:#E0776D; --del-bg:#3A1E1B;
+    --fe:#6FA3D8; --fe-bg:#1B2C3D;
+    --be:#B39DDB; --be-bg:#2A2140;
+    --db:#5FBB8B; --db-bg:#173226;
+    --code-bg:#20272A; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#14181A; --paper:#1B2124; --ink:#E7EAEA; --ink-soft:#9AA3A8;
+  --line:#2B3235; --line-strong:#3A4348;
+  --accent:#E08350; --accent-bg:#3A2416; --accent-ink:#F0A472;
+  --add:#5FBB8B; --add-bg:#173226;
+  --chg:#D9A441; --chg-bg:#332609;
+  --del:#E0776D; --del-bg:#3A1E1B;
+  --fe:#6FA3D8; --fe-bg:#1B2C3D;
+  --be:#B39DDB; --be-bg:#2A2140;
+  --db:#5FBB8B; --db-bg:#173226;
+  --code-bg:#20272A; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+}
+:root[data-theme="light"]{
+  --ground:#EEF0F0; --paper:#FFFFFF; --ink:#1B2023; --ink-soft:#565F66;
+  --line:#D8DCDD; --line-strong:#C3C9CA;
+  --accent:#C4501E; --accent-bg:#FBE9DE; --accent-ink:#9C3E17;
+  --add:#1E7A4C; --add-bg:#E1F1E7;
+  --chg:#B7791B; --chg-bg:#FBF0DA;
+  --del:#B0332B; --del-bg:#FAE4E2;
+  --fe:#2B6CB0; --fe-bg:#E3EDF7;
+  --be:#6B4FA0; --be-bg:#EDE7F6;
+  --db:#1E7A4C; --db-bg:#E1F1E7;
+  --code-bg:#F4F5F5; --shadow:0 1px 2px rgba(20,24,26,.05),0 6px 20px rgba(20,24,26,.06);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--ground); color:var(--ink); font-family:var(--sans);
+  line-height:1.6; font-size:15.5px; -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent-bg)}
+a{color:var(--accent-ink)}
+code, pre, .mono{font-family:var(--mono)}
+code{background:var(--code-bg); padding:.1em .4em; border-radius:4px; font-size:.88em}
+
+.topbar{
+  position:sticky; top:0; z-index:30; display:flex; align-items:center; justify-content:space-between;
+  gap:1rem; padding:.7rem 1.4rem; background:var(--paper); border-bottom:1px solid var(--line);
+  box-shadow:var(--shadow);
+}
+.topbar .brand{font-family:var(--serif); font-weight:600; font-size:1.05rem; display:flex; align-items:baseline; gap:.55rem}
+.topbar .brand small{font-family:var(--mono); font-weight:400; color:var(--ink-soft); font-size:.72rem; letter-spacing:.02em}
+.topbar button{
+  border:1px solid var(--line); background:var(--paper); color:var(--ink); border-radius:7px;
+  padding:.42rem .8rem; font-size:.83rem; font-family:var(--sans); cursor:pointer;
+}
+.topbar button:hover{background:var(--accent-bg); border-color:var(--accent)}
+.topbar button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+.wrap{max-width:56rem; margin:0 auto; padding:2.6rem 1.6rem 6rem}
+@media (max-width:640px){ .wrap{padding:1.6rem 1.1rem 4rem} }
+
+.masthead{max-width:52rem; margin-bottom:2.2rem}
+.eyebrow{font-family:var(--mono); font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; color:var(--accent-ink)}
+h1{font-family:var(--serif); font-size:2rem; font-weight:600; margin:.5rem 0 .7rem; text-wrap:balance; letter-spacing:-.01em}
+.lede{color:var(--ink-soft); font-size:1.02rem; max-width:62ch}
+.meta{display:flex; gap:1.2rem; flex-wrap:wrap; margin-top:1rem; font-size:.82rem; color:var(--ink-soft); font-family:var(--mono)}
+
+.tldr{
+  background:var(--paper); border:1px solid var(--line); border-radius:11px; box-shadow:var(--shadow);
+  padding:1.2rem 1.4rem; margin:1.6rem 0 2.6rem;
+}
+.tldr h2{margin:0 0 .7rem; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; font-family:var(--mono); color:var(--ink-soft)}
+.tldr ul{margin:0; padding-left:1.2rem; display:flex; flex-direction:column; gap:.45rem}
+.tldr li{font-size:.94rem}
+
+.module{margin-top:3rem; scroll-margin-top:1.2rem}
+.module > h2{
+  font-family:var(--serif); font-size:1.4rem; font-weight:600; margin:0 0 .3rem; display:flex; align-items:center; gap:.6rem;
+}
+.module-note{color:var(--ink-soft); font-size:.92rem; margin:.4rem 0 1.3rem; max-width:64ch}
+
+.badge{
+  display:inline-flex; align-items:center; font-family:var(--mono); font-size:.68rem; font-weight:700;
+  letter-spacing:.03em; padding:.18rem .5rem; border-radius:5px; text-transform:uppercase;
+}
+.b-fe{background:var(--fe-bg); color:var(--fe)}
+.b-be{background:var(--be-bg); color:var(--be)}
+.b-db{background:var(--db-bg); color:var(--db)}
+
+.pill{
+  display:inline-flex; align-items:center; font-size:.72rem; font-weight:700; padding:.12rem .55rem;
+  border-radius:20px; font-family:var(--sans);
+}
+.p-add{background:var(--add-bg); color:var(--add)}
+.p-chg{background:var(--chg-bg); color:var(--chg)}
+.p-del{background:var(--del-bg); color:var(--del)}
+
+.card{
+  background:var(--paper); border:1px solid var(--line); border-radius:11px; box-shadow:var(--shadow);
+  padding:1.1rem 1.3rem; margin-bottom:.9rem;
+}
+.card h3{margin:0 0 .35rem; font-size:1rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap}
+.card p{margin:.3rem 0 0; color:var(--ink-soft); font-size:.92rem; max-width:66ch}
+.card .path{font-family:var(--mono); font-size:.82rem}
+
+.callout{
+  border:1px solid var(--line); background:var(--paper); border-left:3px solid var(--accent);
+  border-radius:8px; padding:.85rem 1.1rem; margin:1rem 0; font-size:.92rem; max-width:66ch;
+}
+.callout b{color:var(--accent-ink)}
+.callout.warn{border-left-color:var(--chg); background:var(--chg-bg)}
+.callout.warn b{color:var(--chg)}
+.callout.ok{border-left-color:var(--add); background:var(--add-bg)}
+.callout.ok b{color:var(--add)}
+
+.tbl-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:9px; margin:1rem 0 0; box-shadow:var(--shadow)}
+table{width:100%; border-collapse:collapse; font-size:.86rem; background:var(--paper)}
+th, td{text-align:left; padding:.6rem .8rem; border-bottom:1px solid var(--line); vertical-align:top}
+thead th{font-family:var(--mono); font-size:.68rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); background:var(--code-bg)}
+tbody tr:last-child td{border-bottom:none}
+td.path{font-family:var(--mono); font-size:.8rem; white-space:nowrap}
+
+.timeline{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:1.1rem}
+.timeline li{padding-left:1.6rem; position:relative; font-size:.94rem}
+.timeline li::before{
+  content:''; position:absolute; left:0; top:.42em; width:.55rem; height:.55rem; border-radius:50%;
+  background:var(--accent);
+}
+.timeline b{display:block; margin-bottom:.1rem}
+.timeline span{color:var(--ink-soft)}
+
+footer{margin-top:3.5rem; padding-top:1.4rem; border-top:1px solid var(--line); color:var(--ink-soft); font-size:.85rem; max-width:64ch}
+
+.back-to-top{
+  position:fixed; bottom:1.4rem; right:1.4rem; width:2.6rem; height:2.6rem; border-radius:50%;
+  border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:1.1rem; cursor:pointer;
+  box-shadow:var(--shadow); opacity:.85;
+}
+.back-to-top:hover{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">DNA-ERP <small>NHẬT KÝ THAY ĐỔI</small></div>
+  <button id="theme-toggle" type="button">◐ Theme</button>
+</div>
+
+<div class="wrap">
+  <div class="masthead">
+    <div class="eyebrow">Admin · Người dùng &amp; Phân quyền sản xuất</div>
+    <h1>Redesign form "Thêm người dùng" &amp; dọn 3 role sản xuất không còn dùng</h1>
+    <p class="lede">
+      Tổng hợp toàn bộ thay đổi trong phiên làm việc này: từ đề xuất UX ban đầu, triển khai vào code thật
+      ở Frontend, rà soát &amp; đồng bộ Backend, cho tới xoá hẳn 3 role sản xuất legacy khỏi cả 2 phía
+      (kể cả migration database thật).
+    </p>
+    <div class="meta">
+      <span>27/07/2026</span>
+      <span>2 repo: <code>DNA-ERP</code> (FE) · <code>DNA-ERP-BE</code> (BE)</span>
+      <span>1 migration DB đã áp dụng</span>
+    </div>
+  </div>
+
+  <div class="tldr">
+    <h2>Tóm tắt nhanh</h2>
+    <ul>
+      <li>Form "Thêm người dùng" đổi từ danh sách field phẳng sang <b>4 loại nhân viên tường minh</b>: Văn phòng / Kho / Định mức / Sản xuất — chỉ hiện khi Vai trò = Nhân viên.</li>
+      <li>Framework <code>AdminEntityPage.tsx</code> (dùng chung cho mọi trang Admin) được mở rộng thêm loại field <code>hidden</code> và <code>custom</code> — bổ sung thuần, không phá các trang Admin khác.</li>
+      <li>Rút gọn danh sách kho phụ trách còn đúng 3 loại thật (Phôi-Sơn-Hàn / Vật tư-Thành phẩm / Thành phẩm), bỏ 4 kho mock mồ côi.</li>
+      <li>Xoá hẳn 3 role sản xuất không còn dùng — <code>WEAVING_MANAGER</code>, <code>WEAVING_EXPORT</code>, <code>BOM_MANAGER</code> — khỏi enum DB thật, RBAC, và toàn bộ FE (kể cả xoá 2 trang không dùng nữa).</li>
+      <li>Kiểm thử bằng <code>tsc</code> + <code>eslint</code> sạch ở cả 2 repo, cộng với 1 lượt test thật trên trình duyệt (Playwright, đăng nhập admin thật) — phát hiện và sửa 1 bug trước khi bàn giao.</li>
+    </ul>
+  </div>
+
+  <!-- ───────────────────────── 1. UX ───────────────────────── -->
+  <div class="module">
+    <h2><span class="badge b-fe">FE</span> 1. Thiết kế lại UX form Thêm người dùng</h2>
+    <p class="module-note">
+      Vấn đề ban đầu: 11 field xếp phẳng trong 1 modal, việc phân biệt "nhân viên sản xuất" hay "nhân viên
+      kho/văn phòng" chỉ được suy luận ngầm qua việc có chọn <code>mfgRole</code> hay không — không có UI
+      tường minh nào thể hiện 4 nhóm nghiệp vụ thật của công ty.
+    </p>
+
+    <div class="card">
+      <h3>Chốt mô hình 4 loại nhân viên (qua nhiều vòng trao đổi)</h3>
+      <p>
+        <b>Văn phòng</b> → chọn 1 chức năng: Sales / KHSX / QLSX / Mua hàng — riêng Mua hàng bắt buộc chọn
+        thêm 1 Kho phụ trách. <b>Kho</b> → chọn 1 trong 3 kho thật. <b>Định mức</b> → 3 vị trí: Sắt · Vật
+        tư/Phụ kiện (mảnh Dây + chi tiết Sơn/Đinh) · Bao bì/Đóng gói (Vật tư/Phụ kiện + Bao bì). <b>Sản
+        xuất</b> → 4 công đoạn: Phôi / Hàn / Sơn / KCS. QLSX được chuyển từ nhóm Sản xuất sang nhóm Văn
+        phòng theo đúng thực tế tổ chức.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3>Bỏ "Quản lý nhập đan" khỏi lựa chọn sản xuất</h3>
+      <p>
+        Nghiệp vụ nhập/xuất đan thực tế đã thuộc về thủ kho (<code>warehouseScope</code>, qua
+        <code>InboundWarehouseApp</code>) — có mfgRole "Quản lý nhập đan" thực chất còn khoá tài khoản khỏi
+        module Kho thật do routing ưu tiên mfgRole trước warehouseScope. Vòng sau trong phiên, quyết định
+        này được đẩy xa hơn: xoá hẳn role này (xem mục 3).
+      </p>
+    </div>
+
+    <div class="callout">
+      Đề xuất UX được dựng thành 1 artifact mockup tương tác (bấm thử 4 nhánh trực tiếp) để duyệt trước khi
+      đụng vào code thật — qua 4 vòng chỉnh sửa theo phản hồi trước khi chốt thiết kế cuối.
+    </div>
+  </div>
+
+  <!-- ───────────────────────── 2. Triển khai FE ───────────────────────── -->
+  <div class="module">
+    <h2><span class="badge b-fe">FE</span> 2. Triển khai vào code thật</h2>
+    <p class="module-note">Giữ nguyên 4 field gốc (Họ tên / Tên đăng nhập / Email / Mật khẩu), chỉ thay phần chọn vai trò/phân loại.</p>
+
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">src/modules/pages/Admin/shared/AdminEntityPage.tsx</span></h3>
+      <p>
+        Thêm 2 loại field mới cho <code>AdminFormField</code>: <code>'hidden'</code> (vẫn theo
+        showIf/payload/validate nhưng không tự vẽ dòng — dùng cho <code>mfgRole</code>/<code>warehouseScope</code>/3
+        cờ boolean, giờ được 1 field khác điều khiển) và <code>'custom'</code> (tự vẽ toàn bộ khối UI, nhận
+        thẳng <code>setField</code> để điều khiển nhiều field khác cùng lúc). Thêm <code>excludeFromPayload</code>
+        cho field UI thuần không map cột dữ liệu nào. Toàn bộ thay đổi optional — các trang Admin khác
+        (Roles, Notification…) không khai báo thì render y hệt trước.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">src/modules/pages/Admin/UsersPage.tsx</span></h3>
+      <p>
+        Component <code>EmployeeTypeField</code> mới quản lý toàn bộ khối "Loại nhân viên" — segmented
+        control 4 nút, các field con theo từng nhánh, và state cục bộ nhớ nhánh đang chọn (phát hiện &amp;
+        sửa 1 bug thật ở đây — xem mục 4). Nhãn <code>MFG_ROLE_LABEL</code>/<code>WAREHOUSE_SCOPE_LABEL</code>
+        cập nhật theo tên mới; filter pills đổi từ Mua hàng/KH Sản xuất/Sales/Kho sang đúng 4 nhóm Văn
+        phòng/Kho/Định mức/Sản xuất.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">src/context/AuthContext.tsx</span>, <span class="path">InboundWarehouseApp.tsx</span>, <span class="path">lib/mock/data/seed.ts</span></h3>
+      <p>
+        Rút <code>WarehouseScope</code> từ 9 xuống 5 giá trị thật (bỏ <code>phu-kien/bao-bi/day/sat</code> —
+        đã rà toàn bộ FE, xác nhận là dữ liệu mock mồ côi không tính năng nào dùng). Xoá dòng check chết
+        <code>scope === 'bao-bi'</code> trong <code>canSeePacking</code>. Dọn 3 dòng catalog kho mock tương ứng.
+      </p>
+    </div>
+  </div>
+
+  <!-- ───────────────────────── 3. Kiểm thử ───────────────────────── -->
+  <div class="module">
+    <h2><span class="badge b-fe">FE</span> 3. Kiểm thử</h2>
+    <ul class="timeline">
+      <li><b><code>tsc --noEmit</code> + <code>eslint</code></b><span> — sạch trên toàn bộ file sửa, mọi vòng chỉnh sửa.</span></li>
+      <li><b>Playwright, đăng nhập thật (admin / DB thật)</b><span> — mở modal, bấm qua 4 nhánh, kiểm tra Mua hàng → hiện Kho phụ trách, đổi Vai trò → khối "Loại nhân viên" ẩn/hiện đúng, lưu thiếu dữ liệu → báo lỗi validate thay vì crash.</span></li>
+      <li><b>Bug phát hiện khi test thật</b><span> — bấm nút "Loại nhân viên" ban đầu không hiện field con, vì component suy category thuần từ dữ liệu vừa bị xoá trắng khi đổi nhánh. Sửa bằng cách thêm <code>useState</code> cục bộ nhớ nhánh đang chọn, tách khỏi việc suy luận từ dữ liệu đã lưu.</span></li>
+      <li><b>Console errors</b><span> — 0 lỗi sau khi sửa, trên toàn bộ luồng test.</span></li>
+    </ul>
+  </div>
+
+  <!-- ───────────────────────── 4. Audit BE ───────────────────────── -->
+  <div class="module">
+    <h2><span class="badge b-be">BE</span> 4. Rà soát Backend có cần đổi gì không</h2>
+    <p class="module-note">Kết luận: không cần sửa logic nào để khớp mô hình mới — chỉ 2 chỗ đặt tên/comment lệch nghĩa.</p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Hạng mục</th><th>Kết luận</th><th>Ghi chú</th></tr></thead>
+        <tbody>
+          <tr><td>Enum <code>MfgRole</code> / <code>warehouseScope</code></td><td><span class="pill p-add">Không cần sửa</span></td><td><code>warehouseScope</code> vốn là string tự do, không ràng buộc.</td></tr>
+          <tr><td><code>MFG_ROLE_TO_BUSINESS_ROLE</code></td><td><span class="pill p-add">Không cần sửa</span></td><td>PRODUCTION_MANAGER (QLSX), PHOI/HAN/SON/KCS, SPEC_* đã map đúng sẵn.</td></tr>
+          <tr><td>DTO validate (create/update-mfg-attributes)</td><td><span class="pill p-add">Không cần sửa</span></td><td><code>warehouseScope</code> chỉ <code>@IsString()</code>, nhận mọi giá trị mới.</td></tr>
+          <tr><td><code>users.service.ts</code> (updateMfgAttributes)</td><td><span class="pill p-add">Không cần sửa</span></td><td>Không có ràng buộc XOR giữa mfgRole/warehouseScope/cờ boolean.</td></tr>
+          <tr><td>Guard/permission theo warehouseScope</td><td><span class="pill p-add">Không cần sửa</span></td><td>Không route nào hard-code theo giá trị scope cụ thể.</td></tr>
+          <tr><td>Seed demo</td><td><span class="pill p-add">Không cần sửa</span></td><td>17 account demo chỉ dùng giá trị vẫn còn hỗ trợ.</td></tr>
+          <tr><td>Comment/tên hiển thị</td><td><span class="pill p-chg">Đã sửa</span></td><td><code>roles.constant.ts</code> + tên account demo — xem thẻ dưới.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:1rem">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">roles.constant.ts</span>, <span class="path">seed-demo.ts</span></h3>
+      <p>
+        FE giờ gọi <code>SPEC_WIRE_PAINT</code> là "Vật tư/Phụ kiện" và <code>SPEC_ACCESSORY</code> là
+        "Bao bì/Đóng gói" — ngược thứ tự với comment BE gốc ("dây/sơn/đinh" / "phụ kiện/bao bì"). Thêm chú
+        thích <code>(FE: "...")</code> vào comment, và đổi tên hiển thị 2 account demo cho khớp — không đổi
+        logic, chỉ đổi chữ.
+      </p>
+    </div>
+
+    <div class="callout warn">
+      <b>Phát hiện ngoài phạm vi:</b> <code>ROLE_GRANTS</code> ở <code>role-permissions.constant.ts</code>
+      hiện toàn bộ đang bị comment — mọi business role (kể cả các role đang dùng) chưa có quyền chi tiết
+      thật nào ngoài xem thông báo. Đây là trạng thái Phase-1 có chủ đích từ trước, không phải do các thay
+      đổi trong phiên này gây ra.
+    </div>
+  </div>
+
+  <!-- ───────────────────────── 5. Xoá role legacy ───────────────────────── -->
+  <div class="module">
+    <h2><span class="badge b-fe">FE</span><span class="badge b-be">BE</span><span class="badge b-db">DB</span> 5. Xoá hẳn 3 role sản xuất không còn dùng</h2>
+    <p class="module-note">
+      <code>WEAVING_MANAGER</code>, <code>WEAVING_EXPORT</code>, <code>BOM_MANAGER</code> — xoá thật (không
+      chỉ ẩn khỏi dropdown), cả FE lẫn BE, kể cả enum trong database thật.
+    </p>
+
+    <div class="card">
+      <h3>Kiểm tra dữ liệu thật trước khi xoá</h3>
+      <p>
+        Query trực tiếp DB thật (Prisma + driver adapter, read-only) trước khi động vào enum:
+        <code>0</code> tài khoản đang mang 1 trong 3 giá trị này → migration xoá an toàn, không cần bước dọn
+        dữ liệu.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3><span class="pill p-del">Xoá</span> <span class="path">MfgSetupPage.tsx</span>, <span class="path">MfgFramePiecePage.tsx</span></h3>
+      <p>
+        Theo quyết định nghiệp vụ (không còn dùng 2 trang Quản lý định mức kiểu cũ). Tab "Quản lý định mức"
+        trong <code>MfgApp.tsx</code> vốn dùng chung cho cả BOM_MANAGER/Director (2 trang này) <i>và</i> các
+        vai trò Định mức SPEC_* (trang hoàn toàn khác, không liên quan) — đã tách đúng: bỏ nhánh
+        BOM_MANAGER/Director, giữ nguyên nhánh SPEC_* hoạt động như cũ.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3><span class="pill p-del">Xoá</span> Tab "Quản lý điểm đan" khỏi module Sản xuất</h3>
+      <p>
+        Đường truy cập qua <code>WEAVING_MANAGER</code>/<code>WEAVING_EXPORT</code> trong
+        <code>MfgApp.tsx</code> bị xoá hẳn theo quyết định của bạn. Component <code>QuanLyDiemDanPage</code>
+        và đường truy cập độc lập qua <code>InboundWarehouseApp.tsx</code> (thủ kho <code>vat-tu-tp</code>)
+        <b>giữ nguyên</b>, không đụng tới.
+      </p>
+    </div>
+
+    <div class="card">
+      <h3><span class="pill p-del">Xoá</span> <span class="path">prisma/schema.prisma</span> — enum <code>MfgRole</code></h3>
+      <p>
+        Bỏ 3 giá trị khỏi enum. Tạo migration thủ công (<code>prisma migrate dev</code> yêu cầu tương tác,
+        không chạy được ở môi trường non-interactive) theo đúng pattern Prisma sinh ra: tạo type mới, chuyển
+        cột sang type mới, đổi tên, xoá type cũ — rồi áp dụng bằng <code>prisma migrate deploy</code> lên
+        database thật.
+      </p>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Repo</th><th>File</th><th>Thay đổi</th></tr></thead>
+        <tbody>
+          <tr><td><span class="badge b-fe">FE</span></td><td class="path">src/context/AuthContext.tsx</td><td>Bỏ 3 literal khỏi type <code>MfgRole</code></td></tr>
+          <tr><td><span class="badge b-fe">FE</span></td><td class="path">src/modules/pages/Manufacturing/MfgApp.tsx</td><td>Bỏ <code>WORKER_ROLES</code>, 3 biến <code>isWeavingMgr/isWeavingExport/isBomManager</code>, nhánh "Quản lý điểm đan" + <code>MfgSetupPage</code></td></tr>
+          <tr><td><span class="badge b-fe">FE</span></td><td class="path">.../Manufacturing/MfgSetupPage.tsx</td><td><span class="pill p-del">Xoá file</span></td></tr>
+          <tr><td><span class="badge b-fe">FE</span></td><td class="path">.../Manufacturing/MfgFramePiecePage.tsx</td><td><span class="pill p-del">Xoá file</span></td></tr>
+          <tr><td><span class="badge b-fe">FE</span></td><td class="path">src/modules/pages/Admin/UsersPage.tsx</td><td>Dọn 3 label legacy khỏi <code>MFG_ROLE_LABEL</code></td></tr>
+          <tr><td><span class="badge b-be">BE</span></td><td class="path">prisma/schema.prisma</td><td>Bỏ 3 giá trị khỏi enum <code>MfgRole</code></td></tr>
+          <tr><td><span class="badge b-db">DB</span></td><td class="path">prisma/migrations/20260727120000_remove_legacy_mfg_roles/</td><td><span class="pill p-add">Migration mới</span> — đã áp dụng lên DB thật</td></tr>
+          <tr><td><span class="badge b-be">BE</span></td><td class="path">src/common/constants/role-permissions.constant.ts</td><td>Bỏ dòng map <code>WEAVING_MANAGER</code></td></tr>
+          <tr><td><span class="badge b-be">BE</span></td><td class="path">src/common/constants/roles.constant.ts</td><td>Bỏ business role <code>WEAVING_MANAGER</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout ok">
+      <b>Kết quả:</b> <code>tsc --noEmit</code> + <code>eslint</code> sạch ở cả 2 repo sau toàn bộ thay đổi;
+      <code>prisma migrate status</code> xác nhận database đã khớp schema.
+    </div>
+  </div>
+
+  <!-- ───────────────────────── 6. Còn để ngỏ ───────────────────────── -->
+  <div class="module">
+    <h2>6. Việc còn để ngỏ</h2>
+    <ul class="timeline">
+      <li><b>Chưa test trực quan module Sản xuất (MfgApp.tsx)</b><span> — chỉ có tài khoản admin để test (vào thẳng AdminApp), không có tài khoản Giám đốc/Phôi/Hàn/Sơn/KCS/Định mức để tự đăng nhập kiểm tra tab "Quản lý định mức" sau khi sửa. Đã lần theo từng nhánh logic kỹ, nhưng nên thử tay bằng 1 tài khoản Director hoặc SPEC_* thật nếu có.</span></li>
+      <li><b>ROLE_GRANTS rỗng quyền (Phase 1, có sẵn từ trước)</b><span> — phân quyền chi tiết theo permission chưa thật sự bật cho role nào ở BE, không phải hệ quả của các thay đổi trong phiên này.</span></li>
+    </ul>
+  </div>
+
+  <footer>
+    Nguồn: toàn bộ nội dung trên tổng hợp trực tiếp từ phiên làm việc trong Claude Code — không suy diễn
+    thêm. Code thật nằm ở <code>d:\DNA-ERP</code> (frontend) và <code>D:\DNA-ERP-BE</code> (backend).
+  </footer>
+</div>
+
+<button class="back-to-top" id="back-to-top" title="Về đầu trang" type="button">↑</button>
+
+<script>
+(function(){
+  var KEY = 'dna-erp-changelog-theme';
+  var root = document.documentElement;
+  var btn = document.getElementById('theme-toggle');
+  var saved = localStorage.getItem(KEY);
+  if (saved) root.setAttribute('data-theme', saved);
+  btn.addEventListener('click', function(){
+    var current = root.getAttribute('data-theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var effectiveCurrent = current || (prefersDark ? 'dark' : 'light');
+    var next = effectiveCurrent === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem(KEY, next);
+  });
+})();
+(function(){
+  document.getElementById('back-to-top').addEventListener('click', function(){
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>

@@ -30,8 +30,8 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   // Tài khoản kho bị giới hạn vào 1 nhóm kho (warehouseScope). null = tổng kho / Giám đốc → thấy hết.
   const scope = user?.warehouseScope ?? null
 
-  // Chuyền kiểm + Đóng gói: kho thành phẩm + kho bao bì đóng gói + tổng kho (scope null). GĐ cũng thấy.
-  const canSeePacking = scope === null || isThanhPhamScope(scope) || scope === 'bao-bi' || scope === 'vat-tu-tp' || scope === 'phoi-son-han'
+  // Chuyền kiểm + Đóng gói: kho thành phẩm + tổng kho (scope null). GĐ cũng thấy.
+  const canSeePacking = scope === null || isThanhPhamScope(scope) || scope === 'vat-tu-tp' || scope === 'phoi-son-han'
 
   type TabId = 'materials' | 'warehouses' | 'kiem-tra' | 'nhap-kho' | 'xuat-kho' | 'xuat-sat' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan'
   const ALL_TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
