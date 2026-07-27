@@ -1,7 +1,8 @@
+import { tokenStorage } from '../../../services/core/tokenStorage';
+
 /** Đọc role/mfgRole của user đang đăng nhập để chặn thao tác trái quyền ở tầng service — không chỉ ẩn nút ở UI. */
 function currentUser(): { role?: string; mfgRole?: string } {
-  const raw = localStorage.getItem('user_info');
-  return raw ? (JSON.parse(raw) as { role?: string; mfgRole?: string }) : {};
+  return tokenStorage.getUser<{ role?: string; mfgRole?: string }>() ?? {};
 }
 
 export function assertBossRole(): void {

@@ -1,20 +1,37 @@
 import type { User } from '../context/AuthContext';
 
 /**
- * Chuẩn hoá user về model phẳng của FE. Nhận được CẢ 2 shape:
- *  - BE thật (GET /auth/me): { roles: string[], firstName, lastName, ... }
- *  - Đã phẳng (restore từ localStorage): { role, name, ... }
- * Suy `role` phẳng từ roles[] (RBAC N-N) và gộp name từ firstName/lastName khi cần.
+ * Shape linh hoạt mà normalizeUser thực nhận được — CẢ 2 trường hợp:
+ *  - BE thật (GET /auth/me, kiểu `BeUserProfile`): { roles: string[], firstName, lastName, ... }
+ *  - Đã phẳng (restore từ localStorage, kiểu `User`): { role, name, ... }
+ * Khai báo riêng thay vì union `BeUserProfile | User` vì 2 type lệch kiểu `id` (string vs number).
  */
-export function normalizeUser(raw: Record<string, unknown>): User {
-  const roles = Array.isArray(raw.roles) ? (raw.roles as string[]) : [];
-  const role: User['role'] =
-    (raw.role as User['role']) ??
-    (roles.includes('ADMIN') ? 'ADMIN' : roles.includes('BOSS') ? 'BOSS' : 'WAREHOUSE_STAFF');
+interface NormalizableUser {
+  id?: string | number;
+  name?: string;
+  email?: string;
+  role?: User['role'];
+  roles?: string[];
+  firstName?: string;
+  lastName?: string;
+  mfgRole?: string | null;
+  phoiOperation?: string | null;
+  warehouseScope?: string | null;
+  isPurchaser?: boolean;
+  isProductPlanner?: boolean;
+  isSale?: boolean;
+}
 
-  const name =
-    (raw.name as string) ??
-    `${(raw.firstName as string) ?? ''} ${(raw.lastName as string) ?? ''}`.trim();
+/**
+ * Chuẩn hoá user về model phẳng của FE. Suy `role` phẳng từ roles[] (RBAC N-N) và gộp
+ * name từ firstName/lastName khi cần.
+ */
+export function normalizeUser(raw: NormalizableUser): User {
+  const roles = Array.isArray(raw.roles) ? raw.roles : [];
+  const role: User['role'] =
+    raw.role ?? (roles.includes('ADMIN') ? 'ADMIN' : roles.includes('BOSS') ? 'BOSS' : 'WAREHOUSE_STAFF');
+
+  const name = raw.name ?? `${raw.firstName ?? ''} ${raw.lastName ?? ''}`.trim();
 
   return {
     id: raw.id as number,

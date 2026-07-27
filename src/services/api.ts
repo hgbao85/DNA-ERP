@@ -10,5 +10,5 @@ export * from '../lib/mock/services';
 // Ghi đè users bằng API BE thật. Explicit named export thắng `export *` khi trùng tên.
 export { getUsers, createUser, updateUser, deleteUser } from './users-api';
 
-// Ghi đè auth: login bằng username → BE, getProfile → GET /auth/me.
-export { loginUser, getProfile } from './auth-api';
+// Ghi đè auth: login bằng username → BE, getProfile → GET /auth/me, logoutUser → thu hồi refresh token.
+export { loginUser, getProfile, logoutUser } from './auth-api';
