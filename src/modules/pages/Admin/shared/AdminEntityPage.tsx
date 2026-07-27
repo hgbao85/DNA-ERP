@@ -1,6 +1,6 @@
 'use client'
 import { useMemo, useState, type ReactNode } from 'react'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import { useFetch } from '../../../../hooks/useFetch'
 import { useConfirm } from '../../../../hooks/useConfirm'
 import Modal from '../../../../components/Modal'
@@ -84,7 +84,7 @@ function defaultCell<T>(row: T, key: string): ReactNode {
 }
 
 export default function AdminEntityPage<T extends { id: number | string }>({ config }: { config: AdminEntityConfig<T> }) {
-  const { data, isLoading, refetch } = useFetch<T[]>(config.api.list)
+  const { data, isLoading, error: loadError, refetch } = useFetch<T[]>(config.api.list)
   const items = useMemo(() => data ?? [], [data])
 
   const [search, setSearch] = useState('')
@@ -252,10 +252,30 @@ export default function AdminEntityPage<T extends { id: number | string }>({ con
         </div>
       )}
 
+      {loadError && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: 'rgba(198, 40, 40, 0.08)', border: '1px solid rgba(198, 40, 40, 0.3)',
+          borderRadius: 8, padding: '10px 14px', marginBottom: 14,
+          color: '#c62828', fontSize: 13, fontWeight: 500,
+        }}>
+          <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+          <span style={{ flex: 1 }}>Không tải được dữ liệu: {loadError}</span>
+          <button
+            onClick={refetch}
+            style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, color: '#c62828', background: 'transparent', border: '1px solid rgba(198, 40, 40, 0.4)', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+
       {isLoading ? (
         <LoadingState />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={config.icon} message={config.emptyMessage ?? 'Chưa có dữ liệu'} />
+        loadError
+          ? null // đã báo lỗi ở banner trên — tránh vừa hiện lỗi vừa hiện "chưa có dữ liệu" gây hiểu lầm
+          : <EmptyState icon={config.icon} message={config.emptyMessage ?? 'Chưa có dữ liệu'} />
       ) : (
         <div style={tableWrap}>
           <div style={{ overflowX: 'auto' }}>

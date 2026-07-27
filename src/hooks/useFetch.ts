@@ -28,7 +28,7 @@ export function useFetch<T>(fetchFn: () => Promise<T>, deps?: unknown[]) {
       })
       .catch((err) => {
         console.error('Fetch error:', err);
-        if (isMounted) setError('Không thể tải dữ liệu');
+        if (isMounted) setError(err instanceof Error ? err.message : 'Không thể tải dữ liệu');
       })
       .finally(() => {
         if (isMounted) {
