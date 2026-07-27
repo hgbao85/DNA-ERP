@@ -4,7 +4,7 @@ import type { PlanForm, ManhRow } from '../types/plan-form'
 import type { WarehouseScope } from './AuthContext'
 import { useAuditLog } from './AuditLogContext'
 import { syncDinhMucSatVaoKeHoach, syncDinhMucSatVaoLenhPhoi, type DinhMucSatSyncItem } from '../services/api'
-import { flattenManhSteel, combinedDaySon } from '../utils/manhMaterials'
+import { flattenManhSteel, combinedDaySon, dinhItems } from '../utils/manhMaterials'
 
 export const PROPOSAL_ENTITY = 'PurchaseProposal'
 
@@ -132,7 +132,7 @@ interface InspCtxType {
 const isSon = (name: string) => /sơn|son|primer|lót|phủ|hardener|thinner/i.test(name)
 
 // Phân bổ theo đúng CATEGORY_WAREHOUSE_CODE (purchase-order.ts): sat/son -> phôi sơn hàn,
-// day/vatTuPhuKien -> vật tư thành phẩm, baoBiDongGoi -> kho thành phẩm (nơi đóng gói).
+// day/dinh/vatTuPhuKien -> vật tư thành phẩm, baoBiDongGoi -> kho thành phẩm (nơi đóng gói).
 function buildKhoItems(pf: PlanForm): { phoiSonHan: InspItem[]; vatTuTP: InspItem[]; thanhPham: InspItem[] } {
   const mt = pf.quotaManagement?.materialType
   const daySon = combinedDaySon(pf)
@@ -146,6 +146,7 @@ function buildKhoItems(pf: PlanForm): { phoiSonHan: InspItem[]; vatTuTP: InspIte
     ],
     vatTuTP: [
       ...daySon.filter(x => !isSon(x.name)).map(x => toItem(x.name, x.unit ?? 'm', x.kg ?? 0)),
+      ...dinhItems(pf).map(x => toItem(x.name, x.unit ?? 'cây', x.kg ?? 0)),
       ...(mt?.vatTuPhuKien ?? []).map(x => toItem(x.name, x.unit ?? 'cái', x.quantity ?? 0)),
     ],
     thanhPham: [

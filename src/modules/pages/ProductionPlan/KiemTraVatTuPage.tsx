@@ -8,7 +8,7 @@ import LoadingState from '../../../components/LoadingState'
 import { useConfirm } from '../../../hooks/useConfirm'
 import { listTh, listTd } from '../../../styles/table'
 import type { PlanForm } from '../../../types/plan-form'
-import { flattenManhSteel, combinedDaySon } from '../../../utils/manhMaterials'
+import { flattenManhSteel, combinedDaySon, dinhItems } from '../../../utils/manhMaterials'
 import { useInspection, khoState, PROPOSAL_ENTITY, PROPOSAL_STATUS_LABELS, type KhoKey, type InspRequest, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
@@ -47,6 +47,10 @@ function extractAllMaterials(pf: PlanForm): AllMat[] {
         name: x.name, unit: x.unit ?? (s ? 'kg' : 'm'), required: x.kg ?? 0,
       }
     }),
+    ...dinhItems(pf).map(x => ({
+      group: 'Đinh', khoKey: 'vatTuTP' as KhoKey, khoLabel: 'Kho VTTP',
+      name: x.name, unit: x.unit ?? 'cây', required: x.kg ?? 0,
+    })),
     ...(mt?.vatTuPhuKien ?? []).map(x => ({
       group: 'Phụ kiện', khoKey: 'vatTuTP' as KhoKey, khoLabel: 'Kho VTTP',
       name: x.name, unit: x.unit ?? 'cái', required: x.quantity ?? 0,

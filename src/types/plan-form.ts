@@ -48,9 +48,10 @@ export interface MaterialType {
   baoBiDongGoi: BaoBiDongGoiItem[];
 }
 
-/** 2 nhóm thuộc "định mức mảnh" — Sắt (phân cấp mảnh -> loại sắt con) và Dây (danh sách phẳng,
- *  tách ra từ nhóm "Dây/Sơn" chi tiết cũ). Nhập trước định mức chi tiết trong flow hiện tại. */
-export type ManhGroup = 'sat' | 'daySon';
+/** 3 nhóm thuộc "định mức mảnh" — Sắt (phân cấp mảnh -> loại sắt con), Dây và Đinh (2 danh sách
+ *  phẳng riêng, cùng shape DaySonItem nhưng khác đơn vị: Dây tính kg, Đinh tính cây). Dây/Đinh
+ *  tách ra từ nhóm "Dây/Sơn/Đinh" chi tiết cũ. Nhập trước định mức chi tiết trong flow hiện tại. */
+export type ManhGroup = 'sat' | 'day' | 'dinh';
 
 /** Ai nhập 1 nhóm định mức (chi tiết hoặc mảnh) và khi nào — phục vụ luồng 4 account chuyên trách nhập liệu. */
 export interface QuotaEntryMeta {
@@ -112,13 +113,15 @@ export interface PlanForm {
     /** KHSX duyệt/từ chối từng nhóm — account chuyên trách xem để biết cần sửa lại nhóm nào */
     reviewStatus?: Partial<Record<keyof MaterialType, QuotaReviewStatus>>;
   };
-  /** Định mức mảnh — nhập TRƯỚC định mức chi tiết (xem quotaManagement). 2 nhóm độc lập, mỗi
-   *  nhóm do 1 account chuyên trách nhập (Sắt: phân cấp mảnh -> loại sắt con; Dây: danh sách phẳng). */
+  /** Định mức mảnh — nhập TRƯỚC định mức chi tiết (xem quotaManagement). 3 nhóm độc lập: Sắt
+   *  (phân cấp mảnh -> loại sắt con, do account Sắt nhập) và Dây/Đinh (2 danh sách phẳng riêng,
+   *  cùng do account Dây/Sơn nhập, chỉ khác đơn vị: Dây kg, Đinh cây). */
   manhData?: {
     sat: ManhRow[];
-    daySon: DaySonItem[];
+    day: DaySonItem[];
+    dinh: DaySonItem[];
   };
-  /** Ai/khi nào nhập từng nhóm định mức mảnh (sat/daySon) */
+  /** Ai/khi nào nhập từng nhóm định mức mảnh (sat/day/dinh) */
   manhEntryMeta?: Partial<Record<ManhGroup, QuotaEntryMeta>>;
   /** KHSX duyệt/từ chối từng nhóm định mức mảnh — tách biệt khỏi status vì APPROVED_PARTS còn được
    *  set ngay khi account chuyên trách nhập xong (trước khi KHSX kịp xem), nên không thể dùng status

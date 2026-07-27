@@ -2,8 +2,8 @@
 // từ cả 4 account chuyên trách nhập liệu lẫn KHSX/Sếp duyệt.
 export const PLANFORM_ENTITY = 'PlanForm'
 
-/** Định mức mảnh (Sắt/Dây) đã được KHSX duyệt xong và gửi bộ phận nhập định mức chi tiết — tức
- *  SKU đã rời khỏi WAITING_PARTS/APPROVED_PARTS. Các trang nhập định mức chi tiết (Sơn/Đinh, Phụ
+/** Định mức mảnh (Sắt/Dây/Đinh) đã được KHSX duyệt xong và gửi bộ phận nhập định mức chi tiết — tức
+ *  SKU đã rời khỏi WAITING_PARTS/APPROVED_PARTS. Các trang nhập định mức chi tiết (Sơn, Phụ
  *  kiện, Bao bì) chỉ được liệt kê/nhập cho những SKU thỏa điều kiện này — nếu không sẽ cho nhập
  *  chi tiết ngay từ khi mảnh còn chưa xong, sai thứ tự flow hiện tại (mảnh trước, chi tiết sau). */
 export function isPartsApproved(status: string): boolean {

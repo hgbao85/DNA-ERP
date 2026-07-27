@@ -55,7 +55,7 @@ async function ensurePlanFormForConfirmedItem(pi: any, item: any) {
   }
   const sourceManhData = sourcePf?.manhData
   if (sourceManhData) {
-    for (const group of ['sat', 'daySon'] as const) {
+    for (const group of ['sat', 'day', 'dinh'] as const) {
       const groupItems = sourceManhData[group]
       if (Array.isArray(groupItems) && groupItems.length > 0) {
         await api.updatePlanFormManhQuota(created.id, group, groupItems, 'Hệ thống')

@@ -5,11 +5,12 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { Loader2, X, Search } from 'lucide-react'
 import type { PlanForm } from '../../../types/plan-form'
-import { flattenManhSteel, combinedDaySon } from '../../../utils/manhMaterials'
+import { flattenManhSteel, combinedDaySon, dinhItems } from '../../../utils/manhMaterials'
 
 const CAT_META = {
   sat:              { label: 'Sắt',              color: '#b45309', bg: '#fef3c7' },
   daySon:           { label: 'Dây/Sơn',          color: '#0369a1', bg: '#e0f2fe' },
+  dinh:             { label: 'Đinh',             color: '#0e7490', bg: '#cffafe' },
   vatTuPhuKien:     { label: 'Phụ kiện',         color: '#7c3aed', bg: '#ede9fe' },
   baoBiDongGoi:     { label: 'Bao bì',           color: '#be185d', bg: '#fce7f3' },
   thanhPham:        { label: 'Thành phẩm',       color: '#1e40af', bg: '#dbeafe' },
@@ -131,6 +132,7 @@ function flattenItems(planForms: PlanForm[]): FlatItem[] {
     const mt = pf.quotaManagement?.materialType
     pushItems(items, pf, 'sat', flattenManhSteel(pf))
     pushItems(items, pf, 'daySon', combinedDaySon(pf))
+    pushItems(items, pf, 'dinh', dinhItems(pf))
     if (mt) {
       if (Array.isArray(mt.vatTuPhuKien))  pushItems(items, pf, 'vatTuPhuKien', mt.vatTuPhuKien)
       if (Array.isArray(mt.baoBiDongGoi))  pushItems(items, pf, 'baoBiDongGoi', mt.baoBiDongGoi)
@@ -143,6 +145,7 @@ const FILTER_TABS: { id: Cat | 'all'; label: string }[] = [
   { id: 'all',            label: 'Tất cả' },
   { id: 'sat',            label: 'Sắt' },
   { id: 'daySon',         label: 'Dây/Sơn' },
+  { id: 'dinh',           label: 'Đinh' },
   { id: 'vatTuPhuKien',   label: 'Phụ kiện' },
   { id: 'baoBiDongGoi',   label: 'Bao bì' },
   { id: 'vatTuThanhPham', label: 'Vật tư thành phẩm' },

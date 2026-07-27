@@ -633,18 +633,23 @@ export const seedPlanForms: PlanForm[] = [
           { id: 6, name: 'Ống sắt Ø16', specs: 'Φ16×1.0mm', length: '550', qty: '10' },
         ]},
       ],
-      // Mảnh dây — tách ra từ "Dây/Sơn" chi tiết cũ, do NV Dây/Sơn nhập ở bước định mức mảnh.
-      daySon: [
+      // Mảnh dây/đinh — tách ra từ "Dây/Sơn/Đinh" chi tiết cũ, do NV Dây/Sơn nhập ở bước định mức mảnh.
+      day: [
         { id: 100, name: 'Dây PE đen test', specifications: 'Ø3mm, cuộn 500m', kg: 3.0, unit: 'cuộn', createdAt: '2026-07-01T01:45:00.000Z' },
+      ],
+      dinh: [
+        { id: 101, name: 'Đinh vít gỗ 30mm', specifications: 'Thép mạ kẽm', kg: 50, unit: 'cây', createdAt: '2026-07-01T01:50:00.000Z' },
       ],
     },
     manhEntryMeta: {
       sat: { enteredBy: 'NV Sắt Đức', enteredAt: '2026-07-01T04:00:00.000Z' },
-      daySon: { enteredBy: 'NV Dây/Sơn Hà', enteredAt: '2026-07-01T04:10:00.000Z' },
+      day: { enteredBy: 'NV Dây/Sơn Hà', enteredAt: '2026-07-01T04:10:00.000Z' },
+      dinh: { enteredBy: 'NV Dây/Sơn Hà', enteredAt: '2026-07-01T04:12:00.000Z' },
     },
     manhReviewStatus: {
       sat: { status: 'APPROVED', reviewedAt: '2026-07-01T04:30:00.000Z' },
-      daySon: { status: 'APPROVED', reviewedAt: '2026-07-01T04:35:00.000Z' },
+      day: { status: 'APPROVED', reviewedAt: '2026-07-01T04:35:00.000Z' },
+      dinh: { status: 'APPROVED', reviewedAt: '2026-07-01T04:36:00.000Z' },
     },
   },
 ];

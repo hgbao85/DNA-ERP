@@ -157,10 +157,10 @@ class PlanFormService extends BaseService<PlanForm> {
     return this.enrich(updated);
   }
 
-  /** KHSX duyệt xong toàn bộ nhóm định mức chi tiết (Sơn/Đinh, Phụ kiện, Bao bì) → gửi thẳng
+  /** KHSX duyệt xong toàn bộ nhóm định mức chi tiết (Sơn, Phụ kiện, Bao bì) → gửi thẳng
    *  Quản lý sản xuất (QLSX) duyệt, vì định mức mảnh đã xong ở bước trước đó rồi. */
   async approveDetail(id: number): Promise<PlanForm> { return this.transition(id, 'WAITING_QLSX_APPROVAL'); }
-  /** KHSX duyệt xong toàn bộ nhóm định mức mảnh (Sắt, Dây) → gửi bộ phận nhập định mức chi tiết. */
+  /** KHSX duyệt xong toàn bộ nhóm định mức mảnh (Sắt, Dây/Đinh) → gửi bộ phận nhập định mức chi tiết. */
   async approveParts(id: number):  Promise<PlanForm> { return this.transition(id, 'WAITING_DETAIL'); }
 
   /** QLSX duyệt cục bộ — chưa chuyển status, chỉ mở khóa nút "Gửi sếp duyệt" (xem requestBossApproval). */
@@ -191,7 +191,7 @@ class PlanFormService extends BaseService<PlanForm> {
   }
 
   /** QLSX hoặc Sếp từ chối toàn bộ SKU — trả về đúng bước "duyệt định mức chi tiết" (APPROVED_DETAIL)
-   *  để KHSX xem và duyệt/từ chối lại TỪNG mục (mảnh: Sắt/Dây, chi tiết: Sơn/Đinh, Phụ kiện, Bao bì).
+   *  để KHSX xem và duyệt/từ chối lại TỪNG mục (mảnh: Sắt/Dây/Đinh, chi tiết: Sơn, Phụ kiện, Bao bì).
    *  Không đánh REJECTED cho bất kỳ nhóm nào và KHÔNG đụng tới manhData/materialType — dữ liệu các
    *  bộ phận chuyên trách đã nhập vẫn giữ nguyên, không ai phải nhập lại từ đầu. Chỉ xóa trắng các
    *  quyết định duyệt cũ (reviewStatus/manhReviewStatus về {}) để nút Duyệt/Từ chối của từng mục hiện
@@ -296,9 +296,9 @@ class PlanFormService extends BaseService<PlanForm> {
   }
 
   /**
-   * 1 trong 2 account chuyên trách (Sắt/Dây) nhập định mức mảnh cho nhóm của mình. Chỉ cần 1 trong
-   * 2 nhóm được nhập là đủ để chuyển status WAITING_PARTS -> APPROVED_PARTS (chờ KHSX duyệt); không
-   * chờ đủ cả 2 nhóm. Mirror y hệt updateDetailQuota (xem bên dưới) cho định mức chi tiết.
+   * 1 trong 2 account chuyên trách (Sắt/Dây-Đinh) nhập định mức mảnh cho nhóm của mình. Chỉ cần 1
+   * trong 3 nhóm (sat/day/dinh) được nhập là đủ để chuyển status WAITING_PARTS -> APPROVED_PARTS
+   * (chờ KHSX duyệt); không chờ đủ cả 3 nhóm. Mirror y hệt updateDetailQuota (xem bên dưới) cho định mức chi tiết.
    */
   async updateManhQuota<K extends ManhGroup>(
     id: number,
@@ -312,7 +312,7 @@ class PlanFormService extends BaseService<PlanForm> {
       const idx = s.planForms.findIndex((p) => p.id === id);
       if (idx < 0) throw new Error(`PlanForm #${id} not found`);
       const pf = s.planForms[idx];
-      const data: ManhData = pf.manhData ?? { sat: [], daySon: [] };
+      const data: ManhData = pf.manhData ?? { sat: [], day: [], dinh: [] };
       const meta: QuotaEntryMeta = { enteredBy, enteredAt: new Date().toISOString() };
       // Nhập lại sau khi bị từ chối coi như đã sửa xong — xóa cờ reviewStatus của nhóm này để KHSX duyệt lại từ đầu.
       const { [group]: _clearedReview, ...restReview } = pf.manhReviewStatus ?? {};

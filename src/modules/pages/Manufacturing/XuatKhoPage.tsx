@@ -8,7 +8,7 @@ import type { PlanForm } from '../../../types/plan-form'
 import LoadingState from '../../../components/LoadingState'
 import { compactTh as th, compactTd as td } from '../../../styles/table'
 import { mockStock } from '../../../utils/warehouse'
-import { flattenManhSteel, combinedDaySon } from '../../../utils/manhMaterials'
+import { flattenManhSteel, combinedDaySon, dinhItems } from '../../../utils/manhMaterials'
 
 // ── Xuất kho flow types ──────────────────────────────────────
 interface XuatLine {
@@ -48,6 +48,7 @@ function flattenXuatLines(pf: PlanForm): XuatLine[] {
     })
   push('sat',  flattenManhSteel(pf))
   push('day',  combinedDaySon(pf))
+  push('dinh', dinhItems(pf))
   if (Array.isArray(mt.vatTuPhuKien)) push('vtpk', mt.vatTuPhuKien)
   if (Array.isArray(mt.baoBiDongGoi)) push('bbdg', mt.baoBiDongGoi)
   return lines.filter(l => l.purchased > 0)

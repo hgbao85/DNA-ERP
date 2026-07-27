@@ -19,10 +19,21 @@ export function flattenManhSteel(pf: PlanForm): SatItem[] {
 }
 
 /**
- * Nhu cầu Dây/Sơn thật của 1 SKU nằm ở 2 nguồn từ khi tách "định mức mảnh dây": mảnh dây
- * (manhData.daySon, do account Dây/Sơn nhập ở bước định mức mảnh) và Sơn/Đinh chi tiết
- * (quotaManagement.materialType.daySon) — gộp cả 2 để các màn hình tổng hợp không thiếu dây.
+ * Nhu cầu Dây/Sơn thật (tính theo kg) của 1 SKU nằm ở 2 nguồn: mảnh dây (manhData.day, do account
+ * Dây/Sơn nhập ở bước định mức mảnh) và Sơn chi tiết (quotaManagement.materialType.daySon) — gộp
+ * cả 2 để các màn hình tổng hợp không thiếu dây. KHÔNG gồm Đinh (manhData.dinh) vì Đinh tính theo
+ * cây (đếm), không cùng đơn vị kg với dây/sơn — trộn chung sẽ sai số liệu tổng hợp.
  */
 export function combinedDaySon(pf: PlanForm): DaySonItem[] {
-  return [...(pf.quotaManagement?.materialType?.daySon ?? []), ...(pf.manhData?.daySon ?? [])];
+  return [...(pf.quotaManagement?.materialType?.daySon ?? []), ...(pf.manhData?.day ?? [])];
+}
+
+/**
+ * Nhu cầu Đinh (tính theo cây, đếm) của 1 SKU — chỉ 1 nguồn duy nhất (manhData.dinh, do account
+ * Dây/Sơn nhập ở bước định mức mảnh, không có nhóm chi tiết tương ứng như Dây/Sơn). Tách hàm riêng
+ * khỏi combinedDaySon vì khác đơn vị (cây, không phải kg) — các màn hình tổng hợp phải hiển thị
+ * Đinh thành dòng/nhóm riêng, không được cộng chung số lượng với Dây/Sơn.
+ */
+export function dinhItems(pf: PlanForm): DaySonItem[] {
+  return pf.manhData?.dinh ?? [];
 }

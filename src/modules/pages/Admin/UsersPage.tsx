@@ -40,7 +40,7 @@ const SPEC_VALUES: NonNullable<SystemUser['mfgRole']>[] = ['SPEC_STEEL', 'SPEC_W
 
 const SPEC_HINT: Record<string, string> = {
   SPEC_STEEL: 'Nhập định mức mảnh Sắt.',
-  SPEC_WIRE_PAINT: 'Nhập định mức mảnh Dây, định mức chi tiết Sơn/Đinh.',
+  SPEC_WIRE_PAINT: 'Nhập định mức mảnh Dây/Đinh, định mức chi tiết Sơn.',
   SPEC_ACCESSORY: 'Nhập định mức Vật tư/Phụ kiện và định mức Bao bì/Đóng gói.',
 }
 

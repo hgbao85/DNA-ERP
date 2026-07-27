@@ -73,14 +73,14 @@ export function SKUDetail({
       const r = review?.[k]
       return r ? { status: r.status, at: new Date(r.reviewedAt), reason: r.reason } : fallback
     }
-    return { sat: fromReview('sat'), daySon: fromReview('daySon') }
+    return { sat: fromReview('sat'), day: fromReview('day'), dinh: fromReview('dinh') }
   })
   // Mục chưa có nội dung thì nút Duyệt/Từ chối bị disable (xem ManhSteelSection/MaterialSection) —
   // vẫn phải chờ bộ phận chuyên trách nhập dữ liệu thật rồi KHSX mới duyệt được, không có đường tắt
   // nào để coi mục rỗng là "đã xong".
-  const manhAllApproved = (['sat', 'daySon'] as ManhGroup[])
+  const manhAllApproved = (['sat', 'day', 'dinh'] as ManhGroup[])
     .every(k => manhSecStatus[k]?.status === 'APPROVED')
-  const manhAnyRejected = (['sat', 'daySon'] as ManhGroup[]).some(k => manhSecStatus[k]?.status === 'REJECTED')
+  const manhAnyRejected = (['sat', 'day', 'dinh'] as ManhGroup[]).some(k => manhSecStatus[k]?.status === 'REJECTED')
 
   type ManhSecModal = { key: ManhGroup; title: string } | null
   const [manhApproveModal, setManhApproveModal] = useState<ManhSecModal>(null)
@@ -115,7 +115,7 @@ export function SKUDetail({
     try { await onApproveParts() } finally { setApprovingParts(false) }
   }
 
-  // ── Định mức chi tiết (3 nhóm: Sơn/Đinh, Phụ kiện, Bao bì — Sắt đã chuyển sang định mức mảnh) ──
+  // ── Định mức chi tiết (3 nhóm: Sơn, Phụ kiện, Bao bì — Sắt/Đinh đã chuyển sang định mức mảnh) ──
   type SecKey = 'daySon' | 'vatTuPhuKien' | 'baoBiDongGoi'
 
   const [secStatus, setSecStatus] = useState<Record<SecKey, SecEntry>>(() => {
@@ -195,7 +195,7 @@ export function SKUDetail({
   const defaultTab: DetailTab = partsAlreadyApproved && manhAllApproved ? 'chitiet' : 'manh'
   const [detailTab, setDetailTab] = useState<DetailTab>(defaultTab)
 
-  // KHSX được duyệt/từ chối từng mục (mảnh: Sắt/Dây; chi tiết: Sơn/Đinh, Phụ kiện, Bao bì) bất kể
+  // KHSX được duyệt/từ chối từng mục (mảnh: Sắt/Dây/Đinh; chi tiết: Sơn, Phụ kiện, Bao bì) bất kể
   // đang ở giai đoạn pipeline nào — MaterialSection/ManhSteelSection tự ẩn nút khi mục đã có quyết
   // định hoặc chưa có nội dung, nên không cần khóa cứng theo status ở đây. Nhờ vậy khi QLSX/Sếp từ
   // chối (xem rejectToDetailReview), nút Duyệt/Từ chối của TẤT CẢ mục tự hiện lại ngay mà không cần
@@ -268,11 +268,20 @@ export function SKUDetail({
               />
               <MaterialSection
                 title="Dây" color="#1d4ed8" bg="#eff6ff" readOnly hideStatusBadge
-                entry={manhSecStatus.daySon} onApprove={noop} onReject={noop}
-                items={(manh?.daySon ?? []).map(i => ({
+                entry={manhSecStatus.day} onApprove={noop} onReject={noop}
+                items={(manh?.day ?? []).map(i => ({
                   name: i.name,
                   spec: i.specifications || null,
-                  unitQty: i.kg != null ? `${i.kg} kg` : (i.unit ?? null),
+                  unitQty: qtyOf(i),
+                }))}
+              />
+              <MaterialSection
+                title="Đinh" color="#1d4ed8" bg="#eff6ff" readOnly hideStatusBadge
+                entry={manhSecStatus.dinh} onApprove={noop} onReject={noop}
+                items={(manh?.dinh ?? []).map(i => ({
+                  name: i.name,
+                  spec: i.specifications || null,
+                  unitQty: qtyOf(i),
                 }))}
               />
             </div>
@@ -282,7 +291,7 @@ export function SKUDetail({
           {mt ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               <MaterialSection
-                title="Sơn / Đinh" color="#1d4ed8" bg="#eff6ff" readOnly hideStatusBadge
+                title="Sơn" color="#1d4ed8" bg="#eff6ff" readOnly hideStatusBadge
                 entry={secStatus.daySon} onApprove={noop} onReject={noop}
                 items={(Array.isArray(mt.daySon) ? mt.daySon : []).map(i => ({
                   name: i.name,
@@ -346,7 +355,7 @@ export function SKUDetail({
             <div style={{ fontWeight: 700, fontSize: 13 }}>Danh sách định mức mảnh</div>
             <div style={{ display: 'flex', gap: 5 }}>
               {([
-                ['all', 'Tất cả'], ['sat', 'Sắt'], ['daySon', 'Dây'],
+                ['all', 'Tất cả'], ['sat', 'Sắt'], ['day', 'Dây'], ['dinh', 'Đinh'],
               ] as [ManhSecFilter, string][]).map(([key, label]) => (
                 <button
                   key={key}
@@ -371,16 +380,29 @@ export function SKUDetail({
                 rows={manh?.sat ?? []}
               />
             )}
-            {(filterManhSec === 'all' || filterManhSec === 'daySon') && (
+            {(filterManhSec === 'all' || filterManhSec === 'day') && (
               <MaterialSection
                 title="Dây" color="#1d4ed8" bg="#eff6ff" readOnly={!canReview}
-                entry={manhSecStatus.daySon}
-                onApprove={() => setManhApproveModal({ key: 'daySon', title: 'Dây' })}
-                onReject={() => { setManhRejectModal({ key: 'daySon', title: 'Dây' }); setManhRejectReason('') }}
-                items={(manh?.daySon ?? []).map(i => ({
+                entry={manhSecStatus.day}
+                onApprove={() => setManhApproveModal({ key: 'day', title: 'Dây' })}
+                onReject={() => { setManhRejectModal({ key: 'day', title: 'Dây' }); setManhRejectReason('') }}
+                items={(manh?.day ?? []).map(i => ({
                   name: i.name,
                   spec: i.specifications || null,
-                  unitQty: i.kg != null ? `${i.kg} kg` : (i.unit ?? null),
+                  unitQty: qtyOf(i),
+                }))}
+              />
+            )}
+            {(filterManhSec === 'all' || filterManhSec === 'dinh') && (
+              <MaterialSection
+                title="Đinh" color="#1d4ed8" bg="#eff6ff" readOnly={!canReview}
+                entry={manhSecStatus.dinh}
+                onApprove={() => setManhApproveModal({ key: 'dinh', title: 'Đinh' })}
+                onReject={() => { setManhRejectModal({ key: 'dinh', title: 'Đinh' }); setManhRejectReason('') }}
+                items={(manh?.dinh ?? []).map(i => ({
+                  name: i.name,
+                  spec: i.specifications || null,
+                  unitQty: qtyOf(i),
                 }))}
               />
             )}
@@ -421,7 +443,7 @@ export function SKUDetail({
             <div style={{ fontWeight: 700, fontSize: 13 }}>Danh sách định mức chi tiết</div>
             <div style={{ display: 'flex', gap: 5 }}>
               {([
-                ['all', 'Tất cả'], ['daySon', 'Sơn / Đinh'],
+                ['all', 'Tất cả'], ['daySon', 'Sơn'],
                 ['vatTuPhuKien', 'Phụ kiện'], ['baoBiDongGoi', 'Bao bì'],
               ] as [SecFilter, string][]).map(([key, label]) => (
                 <button
@@ -441,10 +463,10 @@ export function SKUDetail({
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {(filterSec === 'all' || filterSec === 'daySon') && (
               <MaterialSection
-                title="Sơn / Đinh" color="#1d4ed8" bg="#eff6ff" readOnly={!canReview}
+                title="Sơn" color="#1d4ed8" bg="#eff6ff" readOnly={!canReview}
                 entry={secStatus.daySon}
-                onApprove={() => setApproveModal({ key: 'daySon', title: 'Sơn / Đinh' })}
-                onReject={() => { setRejectModal({ key: 'daySon', title: 'Sơn / Đinh' }); setRejectReason('') }}
+                onApprove={() => setApproveModal({ key: 'daySon', title: 'Sơn' })}
+                onReject={() => { setRejectModal({ key: 'daySon', title: 'Sơn' }); setRejectReason('') }}
                 items={(Array.isArray(mt.daySon) ? mt.daySon : []).map(i => ({
                   name: i.name,
                   spec: i.specifications || null,
@@ -757,6 +779,12 @@ function FinalReviewAction({
 // ─── MaterialSection ──────────────────────────────────────────────────────────
 
 type MaterialRow = { name: string; spec: string | null; unitQty: string | null }
+
+// Hiển thị số lượng + đơn vị thật của item (kg cho Dây/Sơn, cây cho Đinh...) — không hard-code
+// "kg" vì Đinh dùng đơn vị khác, dựa vào field `unit` của chính item để hiện đúng.
+function qtyOf(i: { kg?: number | null; unit?: string | null }): string | null {
+  return i.kg != null ? `${i.kg}${i.unit ? ` ${i.unit}` : ''}` : (i.unit ?? null)
+}
 
 function MaterialSection({
   title, color, bg, items, entry, readOnly = false, hideStatusBadge = false, onApprove, onReject,
