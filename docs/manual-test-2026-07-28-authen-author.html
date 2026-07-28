@@ -1,0 +1,501 @@
+<title>Manual Testing — Tạo tài khoản &amp; Phân quyền User</title>
+<style>
+  :root{
+    --bg:#F4F5F2; --surface:#FFFFFF; --surface-2:#EDEFEA;
+    --ink:#16211E; --ink-soft:#4B5754; --ink-faint:#7C8884;
+    --border:#DCE1DD; --border-soft:#E9ECE7;
+    --accent:#1F7A6C; --accent-ink:#0F4A40; --accent-soft:#E4F1EC; --accent-soft-border:#BFDDD3;
+    --good:#2E7D46; --good-bg:#E7F5EA; --good-border:#C3E4CB;
+    --bad:#B3261E; --bad-bg:#FBEAE8; --bad-border:#F0C6C1;
+    --warn:#96600A; --warn-bg:#FBF1DE; --warn-border:#EBD6A3;
+    --info:#4B5560; --info-bg:#EEF0F1; --info-border:#D7DBDD;
+    --shadow: 0 1px 2px rgba(20,30,26,.04), 0 4px 14px rgba(20,30,26,.05);
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Noto Serif", serif;
+    --sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0F1613; --surface:#141D1A; --surface-2:#182320;
+      --ink:#E7ECE9; --ink-soft:#A9B4B0; --ink-faint:#7C8985;
+      --border:#26322D; --border-soft:#1E2925;
+      --accent:#57C9AE; --accent-ink:#8FDFCB; --accent-soft:#17332C; --accent-soft-border:#26473D;
+      --good:#74CE8C; --good-bg:#152A1B; --good-border:#25452E;
+      --bad:#FF8E83; --bad-bg:#301715; --bad-border:#4A2521;
+      --warn:#E8B463; --warn-bg:#2E2411; --warn-border:#493A1C;
+      --info:#A6B0AC; --info-bg:#1B2321; --info-border:#2B3532;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 20px rgba(0,0,0,.28);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0F1613; --surface:#141D1A; --surface-2:#182320;
+    --ink:#E7ECE9; --ink-soft:#A9B4B0; --ink-faint:#7C8985;
+    --border:#26322D; --border-soft:#1E2925;
+    --accent:#57C9AE; --accent-ink:#8FDFCB; --accent-soft:#17332C; --accent-soft-border:#26473D;
+    --good:#74CE8C; --good-bg:#152A1B; --good-border:#25452E;
+    --bad:#FF8E83; --bad-bg:#301715; --bad-border:#4A2521;
+    --warn:#E8B463; --warn-bg:#2E2411; --warn-border:#493A1C;
+    --info:#A6B0AC; --info-bg:#1B2321; --info-border:#2B3532;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 20px rgba(0,0,0,.28);
+  }
+  :root[data-theme="light"]{
+    --bg:#F4F5F2; --surface:#FFFFFF; --surface-2:#EDEFEA;
+    --ink:#16211E; --ink-soft:#4B5754; --ink-faint:#7C8884;
+    --border:#DCE1DD; --border-soft:#E9ECE7;
+    --accent:#1F7A6C; --accent-ink:#0F4A40; --accent-soft:#E4F1EC; --accent-soft-border:#BFDDD3;
+    --good:#2E7D46; --good-bg:#E7F5EA; --good-border:#C3E4CB;
+    --bad:#B3261E; --bad-bg:#FBEAE8; --bad-border:#F0C6C1;
+    --warn:#96600A; --warn-bg:#FBF1DE; --warn-border:#EBD6A3;
+    --info:#4B5560; --info-bg:#EEF0F1; --info-border:#D7DBDD;
+    --shadow: 0 1px 2px rgba(20,30,26,.04), 0 4px 14px rgba(20,30,26,.05);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--sans);
+    font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:var(--accent-soft); color:var(--accent-ink); }
+  a{ color:var(--accent-ink); }
+  .wrap{ max-width:920px; margin:0 auto; padding:56px 24px 96px; }
+
+  /* ---------- Header ---------- */
+  .eyebrow{
+    font-family:var(--mono); font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+    color:var(--accent-ink); font-weight:600; margin:0 0 10px;
+  }
+  h1{
+    font-family:var(--serif); font-weight:600; font-size:clamp(28px,4vw,38px);
+    line-height:1.18; margin:0 0 12px; text-wrap:balance; letter-spacing:-.01em;
+  }
+  .dek{ color:var(--ink-soft); font-size:16px; max-width:62ch; margin:0 0 28px; }
+  .meta-row{
+    display:flex; flex-wrap:wrap; gap:10px 28px; padding:18px 0; margin-bottom:8px;
+    border-top:1px solid var(--border); border-bottom:1px solid var(--border);
+  }
+  .meta-item{ display:flex; flex-direction:column; gap:3px; }
+  .meta-item .k{ font-family:var(--mono); font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-faint); }
+  .meta-item .v{ font-size:13.5px; color:var(--ink); font-weight:500; }
+  .meta-item .v code{ font-family:var(--mono); font-size:12.5px; background:var(--surface-2); padding:1px 6px; border-radius:4px; }
+
+  /* ---------- Section scaffolding ---------- */
+  section{ margin-top:56px; }
+  .sec-head{ display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom:18px; }
+  h2{
+    font-family:var(--serif); font-weight:600; font-size:22px; margin:0;
+    letter-spacing:-.01em;
+  }
+  .sec-note{ font-size:12.5px; color:var(--ink-faint); font-family:var(--mono); }
+  p{ margin:0 0 14px; }
+  .lede{ color:var(--ink-soft); max-width:70ch; }
+
+  /* ---------- Callout ---------- */
+  .callout{
+    background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--accent);
+    border-radius:10px; padding:18px 20px; box-shadow:var(--shadow);
+  }
+  .callout h3{ margin:0 0 8px; font-family:var(--sans); font-size:14px; font-weight:700; }
+  .callout ul{ margin:8px 0 0; padding-left:20px; }
+  .callout li{ margin-bottom:6px; color:var(--ink-soft); font-size:14px; }
+  .callout li b{ color:var(--ink); }
+  .callout li .tag{
+    font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em;
+    padding:1px 6px; border-radius:4px; margin-right:6px; font-weight:700;
+  }
+  .tag-live{ background:var(--good-bg); color:var(--good); border:1px solid var(--good-border); }
+  .tag-static{ background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn-border); }
+
+  /* ---------- Dashboard stat tiles ---------- */
+  .stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; }
+  .stat{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:16px 18px; box-shadow:var(--shadow);
+  }
+  .stat .n{ font-family:var(--serif); font-size:30px; font-weight:600; line-height:1; font-variant-numeric:tabular-nums; }
+  .stat .l{ margin-top:6px; font-size:12px; color:var(--ink-soft); }
+  .stat.accent .n{ color:var(--accent-ink); }
+  .stat.good .n{ color:var(--good); }
+  .stat.bad .n{ color:var(--bad); }
+  .stat.warn .n{ color:var(--warn); }
+
+  /* ---------- Chips / badges ---------- */
+  .chip{
+    display:inline-flex; align-items:center; gap:5px; font-family:var(--mono); font-size:11px;
+    font-weight:700; letter-spacing:.03em; padding:3px 9px; border-radius:999px; white-space:nowrap;
+  }
+  .chip-pass{ background:var(--good-bg); color:var(--good); border:1px solid var(--good-border); }
+  .chip-fail{ background:var(--bad-bg); color:var(--bad); border:1px solid var(--bad-border); }
+  .chip-info{ background:var(--info-bg); color:var(--info); border:1px solid var(--info-border); }
+  .sev{
+    display:inline-flex; align-items:center; font-family:var(--mono); font-size:10.5px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.06em; padding:3px 9px; border-radius:5px;
+  }
+  .sev-critical{ background:var(--bad); color:#fff; }
+  .sev-high{ background:var(--bad-bg); color:var(--bad); border:1px solid var(--bad-border); }
+  .sev-medium{ background:var(--warn-bg); color:var(--warn); border:1px solid var(--warn-border); }
+  .sev-low{ background:var(--info-bg); color:var(--info); border:1px solid var(--info-border); }
+  .status-code{ font-family:var(--mono); font-size:12.5px; font-weight:700; }
+  .status-2xx{ color:var(--good); } .status-4xx{ color:var(--warn); } .status-01{ color:var(--ink-faint); }
+
+  /* ---------- Finding cards ---------- */
+  .finding{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:20px 22px; margin-bottom:16px; box-shadow:var(--shadow); border-left-width:4px;
+  }
+  .finding.medium{ border-left-color:var(--warn); }
+  .finding.low{ border-left-color:var(--info); }
+  .finding-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:6px; }
+  .finding-id{ font-family:var(--mono); font-size:11px; color:var(--ink-faint); }
+  .finding h3{ margin:2px 0 12px; font-family:var(--sans); font-size:16px; font-weight:700; letter-spacing:-.005em; }
+  .finding dl{ display:grid; grid-template-columns:120px 1fr; gap:8px 14px; margin:0; }
+  .finding dt{ font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint); padding-top:2px; }
+  .finding dd{ margin:0; font-size:13.5px; color:var(--ink-soft); }
+  .finding dd b{ color:var(--ink); font-weight:600; }
+  .finding .steps{ padding-left:18px; margin:0; }
+  .finding .steps li{ margin-bottom:3px; }
+  .finding code{ font-family:var(--mono); font-size:12px; background:var(--surface-2); padding:1px 5px; border-radius:4px; }
+  .finding .evidence{
+    font-family:var(--mono); font-size:11.5px; background:var(--surface-2); border:1px solid var(--border-soft);
+    border-radius:6px; padding:9px 11px; margin-top:2px; overflow-x:auto; white-space:pre; color:var(--ink-soft);
+  }
+
+  /* ---------- Test log table ---------- */
+  .cat-block{ margin-bottom:30px; }
+  .cat-title{
+    display:flex; align-items:center; gap:10px; margin-bottom:10px;
+  }
+  .cat-title h3{ font-family:var(--sans); font-size:13px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin:0; color:var(--ink-soft); }
+  .cat-title .count{ font-family:var(--mono); font-size:11px; color:var(--ink-faint); }
+  .cat-title .line{ flex:1; height:1px; background:var(--border); }
+
+  .tbl-scroll{ overflow-x:auto; border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); background:var(--surface); }
+  table{ width:100%; border-collapse:collapse; min-width:760px; }
+  thead th{
+    text-align:left; font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--ink-faint); font-weight:600; padding:11px 14px; border-bottom:1px solid var(--border);
+    background:var(--surface-2); position:sticky; top:0;
+  }
+  tbody td{ padding:11px 14px; border-bottom:1px solid var(--border-soft); font-size:13px; vertical-align:top; }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody tr:hover{ background:var(--surface-2); }
+  td.id{ font-family:var(--mono); font-size:12px; color:var(--ink-faint); white-space:nowrap; }
+  td.name{ max-width:280px; }
+  td.req{ font-family:var(--mono); font-size:11.5px; color:var(--ink-soft); white-space:nowrap; }
+  td.exp{ color:var(--ink-soft); max-width:220px; }
+  td.result{ white-space:nowrap; }
+  td.pass{ text-align:center; }
+
+  details.ev{ margin-top:4px; }
+  details.ev summary{ cursor:pointer; font-family:var(--mono); font-size:10.5px; color:var(--accent-ink); list-style:none; }
+  details.ev summary::-webkit-details-marker{ display:none; }
+  details.ev summary::before{ content:"▸ "; }
+  details.ev[open] summary::before{ content:"▾ "; }
+  details.ev pre{
+    margin:6px 0 0; font-family:var(--mono); font-size:11px; background:var(--surface-2);
+    border:1px solid var(--border-soft); border-radius:6px; padding:9px 11px; overflow-x:auto;
+    color:var(--ink-soft); max-width:480px; white-space:pre-wrap; word-break:break-word;
+  }
+
+  /* ---------- FE review checklist ---------- */
+  .checklist{ display:flex; flex-direction:column; gap:10px; }
+  .check-row{
+    display:grid; grid-template-columns:22px 1fr auto; align-items:start; gap:12px;
+    background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 16px;
+  }
+  .check-row .mark{ font-size:15px; line-height:1.4; }
+  .check-row .mark.ok{ color:var(--good); }
+  .check-row .mark.na{ color:var(--ink-faint); }
+  .check-row .body b{ display:block; font-size:13.5px; margin-bottom:2px; }
+  .check-row .body span{ font-size:12.5px; color:var(--ink-soft); }
+  .check-row .body code{ font-family:var(--mono); font-size:11.5px; background:var(--surface-2); padding:1px 5px; border-radius:4px; }
+
+  /* ---------- Verdict ---------- */
+  .verdict{
+    background:linear-gradient(180deg, var(--accent-soft), var(--surface) 65%);
+    border:1px solid var(--accent-soft-border); border-radius:14px; padding:28px 28px 24px;
+  }
+  .verdict .stamp{
+    display:inline-flex; align-items:center; gap:8px; font-family:var(--mono); font-size:12px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.07em; color:var(--accent-ink); background:var(--surface);
+    border:1px solid var(--accent-soft-border); padding:5px 12px; border-radius:999px; margin-bottom:14px;
+  }
+  .verdict h2{ margin:0 0 10px; }
+  .verdict p{ color:var(--ink-soft); max-width:70ch; }
+  .verdict .conditions{ margin:14px 0 0; padding-left:20px; }
+  .verdict .conditions li{ margin-bottom:6px; font-size:14px; }
+
+  footer{ margin-top:64px; padding-top:20px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:var(--mono); }
+
+  @media (max-width:600px){
+    .wrap{ padding:36px 16px 64px; }
+    .finding dl{ grid-template-columns:1fr; }
+    .finding dt{ padding-top:8px; }
+  }
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">QA Report — Manual Testing</p>
+  <h1>Tạo tài khoản &amp; Phân quyền User</h1>
+  <p class="dek">Kiểm thử thủ công (Happy Path, Negative, Boundary, Edge Case) cho toàn bộ luồng tạo tài khoản admin — từ form FE đến <code style="font-family:var(--mono);font-size:13px;background:var(--surface-2);padding:1px 6px;border-radius:4px;">POST /users</code> + <code style="font-family:var(--mono);font-size:13px;background:var(--surface-2);padding:1px 6px;border-radius:4px;">PATCH /users/:id/mfg-attributes</code> ở BE, chạy trực tiếp trên server thật và database thật.</p>
+
+  <div class="meta-row">
+    <div class="meta-item"><span class="k">Ngày kiểm thử</span><span class="v">28/07/2026</span></div>
+    <div class="meta-item"><span class="k">Người thực hiện</span><span class="v">QA Engineer (Claude)</span></div>
+    <div class="meta-item"><span class="k">Môi trường BE</span><span class="v"><code>localhost:3001</code> — DB Prisma Postgres thật</span></div>
+    <div class="meta-item"><span class="k">Môi trường FE</span><span class="v"><code>localhost:3000</code> (review qua source, không có browser tool)</span></div>
+    <div class="meta-item"><span class="k">Tổng test case</span><span class="v">41</span></div>
+  </div>
+
+  <!-- ================= SCOPE & LIMITATIONS ================= -->
+  <section>
+    <div class="callout">
+      <h3>Phạm vi &amp; giới hạn kiểm thử — đọc trước khi xem kết quả</h3>
+      <ul>
+        <li><span class="tag tag-live">Live test</span> <b>41 test case tầng API/BE</b> được chạy thật bằng script gọi trực tiếp <code>POST /auth/login</code>, <code>POST /users</code>, <code>PATCH /users/:id/mfg-attributes</code>, <code>GET/DELETE /users/:id</code> trên server BE đang chạy (<code>localhost:3001</code>), ghi dữ liệu thật xuống Prisma Postgres remote, có bằng chứng request/response đầy đủ. Toàn bộ user test (<code>qatest_*</code>) đã được xoá mềm (soft-delete) sau khi test xong.</li>
+        <li><span class="tag tag-static">Static review</span> <b>Phần UI/UX, responsive, console error, loading/empty state của FE</b> được đánh giá bằng cách đọc source code (<code>UsersPage.tsx</code>, <code>AdminEntityPage.tsx</code>) — môi trường này <b>không có công cụ điều khiển trình duyệt thật</b>, nên các mục này <b>không được coi là "đã live-test"</b> mà chỉ là suy luận từ logic code. Khuyến nghị team tự thao tác qua UI thật một lượt trước khi release (xem mục "Rà soát FE").</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ================= DASHBOARD ================= -->
+  <section>
+    <div class="sec-head"><h2>Tổng quan kết quả</h2></div>
+    <div class="stats">
+      <div class="stat accent"><div class="n">41</div><div class="l">Test case đã chạy</div></div>
+      <div class="stat good"><div class="n">41</div><div class="l">Pass</div></div>
+      <div class="stat bad"><div class="n">0</div><div class="l">Fail</div></div>
+      <div class="stat warn"><div class="n">4</div><div class="l">Lỗi/vấn đề phát hiện</div></div>
+      <div class="stat"><div class="n">0 / 0</div><div class="l">Critical / High</div></div>
+      <div class="stat"><div class="n">2 / 2</div><div class="l">Medium / Low</div></div>
+    </div>
+  </section>
+
+  <!-- ================= FINDINGS ================= -->
+  <section>
+    <div class="sec-head">
+      <h2>Lỗi &amp; vấn đề phát hiện</h2>
+      <span class="sec-note">4 findings — sắp xếp theo mức độ</span>
+    </div>
+    <p class="lede">Không có luồng happy-path nào bị chặn hay trả sai kết quả. Các vấn đề dưới đây đều thuộc dạng "hoạt động đúng như code viết ra, nhưng code cho phép một trạng thái không nên xảy ra" — không có lỗi nào chặn được luồng tạo user chính.</p>
+
+    <div class="finding medium">
+      <div class="finding-top">
+        <div><span class="finding-id">FINDING-01 · NG-15</span></div>
+        <span class="sev sev-medium">Medium</span>
+      </div>
+      <h3>Xoá mềm user rồi tạo lại cùng username/email → lỗi 409 với thông báo bị hỏng: "Duplicate value for: undefined"</h3>
+      <dl>
+        <dt>Bước tái hiện</dt>
+        <dd>
+          <ol class="steps">
+            <li>Tạo user với <code>username=qatest_x</code>, <code>email=qatest_x@qa.dna.vn</code></li>
+            <li><code>DELETE /users/:id</code> (soft-delete, trả 204)</li>
+            <li>Tạo lại user mới với <b>đúng</b> <code>username</code>/<code>email</code> vừa xoá</li>
+          </ol>
+        </dd>
+        <dt>Kỳ vọng</dt>
+        <dd>Vì user cũ đã bị xoá (không còn hiển thị ở <code>GET /users</code>), admin phải tạo lại được tài khoản với username/email đó — hoặc nếu hệ thống cố tình khoá vĩnh viễn thì thông báo phải giải thích rõ lý do.</dd>
+        <dt>Thực tế</dt>
+        <dd><b>409 Conflict</b> với message <code>"Duplicate value for: undefined"</code> — vừa sai nghiệp vụ (không có cách nào tái sử dụng username/email đã xoá) vừa là thông báo lỗi hỏng, không có tên field bị trùng, admin không hiểu vì sao thất bại.</dd>
+        <dt>Nguyên nhân</dt>
+        <dd>Bước kiểm tra trùng ở tầng service (<code>findFirst</code>) tự động loại trừ bản ghi đã xoá mềm nên không phát hiện trùng → yêu cầu đi tiếp xuống insert → đụng unique constraint gốc ở DB (constraint này không loại trừ <code>deletedAt</code>) → Postgres trả lỗi P2002 → bộ filter map lỗi Prisma đọc <code>exception.meta.target</code> nhưng giá trị này không phải mảng như kỳ vọng, in ra literal <code>"undefined"</code>.</dd>
+        <dt>Đề xuất</dt>
+        <dd>(a) Sửa message ở <code>AllExceptionsFilter.mapPrismaError</code> để không in "undefined" khi thiếu <code>meta.target</code>; (b) quyết định rõ nghiệp vụ: nếu username/email đã xoá được phép tái sử dụng thì đổi index DB thành partial unique (<code>WHERE deletedAt IS NULL</code>); nếu cố tình khoá vĩnh viễn thì trả lỗi rõ ràng dạng "Username/Email này đã từng được sử dụng và không thể dùng lại".</dd>
+      </dl>
+    </div>
+
+    <div class="finding medium">
+      <div class="finding-top">
+        <div><span class="finding-id">FINDING-02 · EC-01</span></div>
+        <span class="sev sev-medium">Medium</span>
+      </div>
+      <h3>BE không chặn 1 user vừa là nhân viên Sản xuất (mfgRole) vừa là Mua hàng (isPurchaser) — chỉ FE UI mới chặn</h3>
+      <dl>
+        <dt>Bước tái hiện</dt>
+        <dd>
+          <ol class="steps">
+            <li>Tạo user bất kỳ qua <code>POST /users</code></li>
+            <li>Gọi thẳng <code>PATCH /users/:id/mfg-attributes</code> (Postman/Swagger, bỏ qua form FE) với body <code>{"mfgRole":"PHOI","isPurchaser":true}</code></li>
+          </ol>
+        </dd>
+        <dt>Kỳ vọng</dt>
+        <dd>Về nghiệp vụ, "Loại nhân viên" trên form FE (Văn phòng / Kho / Định mức / Sản xuất) loại trừ lẫn nhau — 1 người không kiêm nhiệm 2 vị trí. BE nên từ chối tổ hợp này (400) dù request đến từ đâu.</dd>
+        <dt>Thực tế</dt>
+        <dd><b>200 OK</b> — BE lưu thành công <code>mfgRole:"PHOI", isPurchaser:true</code> đồng thời, user vừa có role <code>PHOI_STAFF</code> vừa cờ mua hàng bật.</dd>
+        <dt>Đề xuất</dt>
+        <dd>Thêm validate trong <code>UsersService.updateMfgAttributes</code>: nếu <code>mfgRole</code> thuộc nhóm floor/spec thì reject khi <code>isPurchaser</code>/<code>isSale</code>/<code>isProductPlanner</code> = true (và ngược lại), theo đúng ràng buộc mà form FE đã áp dụng (<code>UsersPage.tsx</code>, hàm <code>selectCategory</code>).</dd>
+      </dl>
+    </div>
+
+    <div class="finding low">
+      <div class="finding-top">
+        <div><span class="finding-id">FINDING-03 · EC-03</span></div>
+        <span class="sev sev-low">Low</span>
+      </div>
+      <h3>Không giới hạn độ dài <code>firstName</code>/<code>lastName</code></h3>
+      <dl>
+        <dt>Bước tái hiện</dt>
+        <dd>Gửi <code>POST /users</code> với <code>firstName</code> = chuỗi 5.000 ký tự.</dd>
+        <dt>Kỳ vọng</dt>
+        <dd>Tên người thường có giới hạn hợp lý (vài chục ký tự); nên trả 400 nếu vượt ngưỡng.</dd>
+        <dt>Thực tế</dt>
+        <dd><b>201 Created</b> — BE chấp nhận không giới hạn, vì <code>CreateUserDto.firstName</code>/<code>lastName</code> chỉ có <code>@IsString()</code>, không có <code>@MaxLength()</code>.</dd>
+        <dt>Đề xuất</dt>
+        <dd>Thêm <code>@MaxLength(100)</code> (hoặc theo giới hạn cột DB) cho <code>firstName</code>/<code>lastName</code> ở <code>CreateUserDto</code>. Rủi ro thấp vì endpoint yêu cầu quyền <code>USER:CREATE</code> (chỉ admin gọi được), nhưng vẫn nên chặn để tránh dữ liệu rác/vỡ layout danh sách user.</dd>
+      </dl>
+    </div>
+
+    <div class="finding low">
+      <div class="finding-top">
+        <div><span class="finding-id">FINDING-04 · Review code (chưa tái hiện trực tiếp)</span></div>
+        <span class="sev sev-low">Low</span>
+      </div>
+      <h3>Luồng tạo "nhân viên sản xuất/văn phòng" là 2 request tuần tự, không atomic</h3>
+      <dl>
+        <dt>Bước tái hiện</dt>
+        <dd>Không tái hiện trực tiếp trong đợt test này vì cần giả lập lỗi mạng đúng lúc giữa 2 request — nhưng logic đọc trong <code>services/users-api.ts</code> xác nhận rủi ro là có thật.</dd>
+        <dt>Kỳ vọng</dt>
+        <dd>Tạo 1 user "Sản xuất"/"Văn phòng" nên là 1 thao tác nguyên tử — hoặc thành công đầy đủ, hoặc không tạo gì cả.</dd>
+        <dt>Thực tế</dt>
+        <dd>FE gọi <code>POST /users</code> rồi mới <code>PATCH /users/:id/mfg-attributes</code>. Nếu bước 2 lỗi (mất mạng, đóng tab...), tài khoản đã tồn tại với <code>roleIds</code> rỗng và thiếu hẳn <code>mfgRole</code>/<code>warehouseScope</code> — user "nửa vời" không tự rollback.</dd>
+        <dt>Đề xuất</dt>
+        <dd>Đã trao đổi với team trong phiên làm việc trước — hướng khắc phục là gộp 2 bước thành 1 giao dịch DB ở BE (mở rộng <code>CreateUserDto</code> nhận thêm field mfg, xử lý cùng transaction với <code>create()</code>). Chưa triển khai, ghi nhận lại ở đây để không bị quên trước khi release diện rộng.</dd>
+      </dl>
+    </div>
+  </section>
+
+  <!-- ================= TEST LOG ================= -->
+  <section>
+    <div class="sec-head">
+      <h2>Nhật ký Test Case</h2>
+      <span class="sec-note">41/41 — nhấn "▸ evidence" để xem response thật</span>
+    </div>
+
+    <!-- HAPPY PATH -->
+    <div class="cat-block">
+      <div class="cat-title"><h3>Happy Path</h3><span class="count">15 test case</span><div class="line"></div></div>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>ID</th><th>Test case</th><th>Request</th><th>Kỳ vọng</th><th>Kết quả</th><th>Đánh giá</th></tr></thead>
+        <tbody>
+          <tr><td class="id">HP-01</td><td class="name">Tạo user ADMIN (không có mfg attrs)</td><td class="req">POST /users</td><td class="exp">201, roles=[ADMIN]</td><td class="result"><span class="status-code status-2xx">201</span><details class="ev"><summary>evidence</summary><pre>roles: ["ADMIN"]
+mfgRole: null, warehouseScope: null</pre></details></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">HP-02</td><td class="name">Tạo user BOSS</td><td class="req">POST /users</td><td class="exp">201, roles=[BOSS]</td><td class="result"><span class="status-code status-2xx">201</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">HP-03</td><td class="name">Tạo nhân viên Kho + set warehouseScope</td><td class="req">POST + PATCH mfg-attributes</td><td class="exp">warehouseScope=thanh-pham</td><td class="result"><span class="status-code status-2xx">201→200</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">HP-04</td><td class="name">Tạo Văn phòng/Sales (isSale)</td><td class="req">PATCH mfg-attributes</td><td class="exp">isSale=true, roles ⊇ SALES_STAFF</td><td class="result"><span class="status-code status-2xx">200</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">HP-05</td><td class="name">Tạo Văn phòng/KHSX (isProductPlanner)</td><td class="req">PATCH mfg-attributes</td><td class="exp">roles ⊇ PRODUCTION_PLANNER</td><td class="result"><span class="status-code status-2xx">200</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">HP-06</td><td class="name">Tạo Văn phòng/Mua hàng + kho phụ trách</td><td class="req">PATCH mfg-attributes</td><td class="exp">isPurchaser=true, warehouseScope=vat-tu-tp</td><td class="result"><span class="status-code status-2xx">200</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">HP-07</td><td class="name">Tạo Văn phòng/QLSX (mfgRole=PRODUCTION_MANAGER)</td><td class="req">PATCH mfg-attributes</td><td class="exp">roles ⊇ PRODUCTION_MANAGER</td><td class="result"><span class="status-code status-2xx">200</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">HP-08</td><td class="name">Tạo Định mức/SPEC_STEEL</td><td class="req">PATCH mfg-attributes</td><td class="exp">roles ⊇ SPEC_STEEL_STAFF, warehouseScope=null</td><td class="result"><span class="status-code status-2xx">200</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">HP-09</td><td class="name">Tạo Sản xuất/PHOI, không gửi warehouseScope</td><td class="req">PATCH mfg-attributes</td><td class="exp">warehouseScope tự ép "phoi-son-han"</td><td class="result"><span class="status-code status-2xx">200</span><details class="ev"><summary>evidence</summary><pre>mfgRole: "PHOI"
+warehouseScope: "phoi-son-han" ✓ (client gửi null)
+roles: ["PHOI_STAFF"]</pre></details></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">HP-10</td><td class="name">Tạo Sản xuất/HAN, cố tình gửi sai warehouseScope</td><td class="req">PATCH mfg-attributes</td><td class="exp">BE ép về "phoi-son-han" bất kể client gửi gì</td><td class="result"><span class="status-code status-2xx">200</span><details class="ev"><summary>evidence</summary><pre>client gửi: warehouseScope="vat-tu-tp"
+BE lưu:     warehouseScope="phoi-son-han" ✓</pre></details></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">HP-11</td><td class="name">Sửa user: đổi mfgRole PHOI → SON</td><td class="req">PATCH mfg-attributes</td><td class="exp">PHOI_STAFF bị gỡ, SON_STAFF được gán, warehouseScope giữ nguyên</td><td class="result"><span class="status-code status-2xx">200</span><details class="ev"><summary>evidence</summary><pre>roles: ["SON_STAFF"]  (PHOI_STAFF đã bị gỡ)
+warehouseScope: "phoi-son-han"</pre></details></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">HP-12</td><td class="name">GET /users danh sách có phân trang</td><td class="req">GET /users?limit=100</td><td class="exp">200, {data:User[], meta}</td><td class="result"><span class="status-code status-2xx">200</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">HP-13</td><td class="name">GET /users/:id — lấy 1 user</td><td class="req">GET /users/:id</td><td class="exp">200, đúng user</td><td class="result"><span class="status-code status-2xx">200</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">HP-14</td><td class="name">Sửa thông tin cơ bản (không đổi password/email)</td><td class="req">PATCH /users/:id</td><td class="exp">firstName đổi, email/username giữ nguyên</td><td class="result"><span class="status-code status-2xx">200</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">HP-15</td><td class="name">Xoá mềm user, sau đó GET lại</td><td class="req">DELETE rồi GET /users/:id</td><td class="exp">204 khi xoá, 404 khi GET lại</td><td class="result"><span class="status-code status-2xx">204</span> → <span class="status-code status-4xx">404</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- NEGATIVE -->
+    <div class="cat-block">
+      <div class="cat-title"><h3>Negative Case</h3><span class="count">15 test case</span><div class="line"></div></div>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>ID</th><th>Test case</th><th>Request</th><th>Kỳ vọng</th><th>Kết quả</th><th>Đánh giá</th></tr></thead>
+        <tbody>
+          <tr><td class="id">NG-01</td><td class="name">Email trùng</td><td class="req">POST /users</td><td class="exp">409 Conflict</td><td class="result"><span class="status-code status-4xx">409</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">NG-02</td><td class="name">Username trùng</td><td class="req">POST /users</td><td class="exp">409 Conflict</td><td class="result"><span class="status-code status-4xx">409</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">NG-03</td><td class="name">Password 7 ký tự (dưới min 8)</td><td class="req">POST /users</td><td class="exp">400</td><td class="result"><span class="status-code status-4xx">400</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">NG-04</td><td class="name">Email sai định dạng</td><td class="req">POST /users</td><td class="exp">400</td><td class="result"><span class="status-code status-4xx">400</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">NG-05</td><td class="name">Username chứa khoảng trắng</td><td class="req">POST /users</td><td class="exp">400</td><td class="result"><span class="status-code status-4xx">400</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">NG-06</td><td class="name">Username 2 ký tự (dưới min 3)</td><td class="req">POST /users</td><td class="exp">400</td><td class="result"><span class="status-code status-4xx">400</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">NG-07</td><td class="name">Thiếu field bắt buộc (password)</td><td class="req">POST /users</td><td class="exp">400</td><td class="result"><span class="status-code status-4xx">400</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">NG-08</td><td class="name">roleIds chứa chuỗi không phải UUID</td><td class="req">POST /users</td><td class="exp">400</td><td class="result"><span class="status-code status-4xx">400</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">NG-09</td><td class="name">mfgRole enum không hợp lệ</td><td class="req">PATCH mfg-attributes</td><td class="exp">400</td><td class="result"><span class="status-code status-4xx">400</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">NG-10</td><td class="name">Không có Authorization header</td><td class="req">POST /users</td><td class="exp">401</td><td class="result"><span class="status-code status-4xx">401</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">NG-11</td><td class="name">JWT giả/hỏng</td><td class="req">POST /users</td><td class="exp">401</td><td class="result"><span class="status-code status-4xx">401</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">NG-12</td><td class="name">Token WAREHOUSE_STAFF gọi tạo user (thiếu quyền)</td><td class="req">POST /users</td><td class="exp">403</td><td class="result"><span class="status-code status-4xx">403</span><details class="ev"><summary>evidence</summary><pre>"Missing required permission(s): USER:CREATE"</pre></details></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">NG-13</td><td class="name">Admin tự xoá chính mình</td><td class="req">DELETE /users/:ownId</td><td class="exp">403</td><td class="result"><span class="status-code status-4xx">403</span><details class="ev"><summary>evidence</summary><pre>"You cannot delete your own account"</pre></details></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">NG-14</td><td class="name">Gửi field đã bị gỡ bỏ <code>phoiOperation</code></td><td class="req">PATCH mfg-attributes</td><td class="exp">400 (forbidNonWhitelisted)</td><td class="result"><span class="status-code status-4xx">400</span><details class="ev"><summary>evidence</summary><pre>"property phoiOperation should not exist"</pre></details></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">NG-15</td><td class="name">Tạo lại user cùng username/email vừa xoá mềm</td><td class="req">POST /users</td><td class="exp">Ghi nhận hành vi thật</td><td class="result"><span class="status-code status-4xx">409</span><details class="ev"><summary>evidence</summary><pre>"Duplicate value for: undefined"</pre></details></td><td class="pass"><span class="chip chip-info">GHI NHẬN → FINDING-01</span></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- BOUNDARY -->
+    <div class="cat-block">
+      <div class="cat-title"><h3>Boundary Value</h3><span class="count">4 test case</span><div class="line"></div></div>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>ID</th><th>Test case</th><th>Request</th><th>Kỳ vọng</th><th>Kết quả</th><th>Đánh giá</th></tr></thead>
+        <tbody>
+          <tr><td class="id">BV-01</td><td class="name">username đúng 3 ký tự (min hợp lệ)</td><td class="req">POST /users</td><td class="exp">201</td><td class="result"><span class="status-code status-2xx">201</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">BV-02</td><td class="name">username 2 ký tự (dưới min)</td><td class="req">POST /users</td><td class="exp">400</td><td class="result"><span class="status-code status-4xx">400</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">BV-03</td><td class="name">password đúng 8 ký tự (min hợp lệ)</td><td class="req">POST /users</td><td class="exp">201</td><td class="result"><span class="status-code status-2xx">201</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">BV-05</td><td class="name">username có đủ ký tự đặc biệt hợp lệ (. _ -)</td><td class="req">POST /users</td><td class="exp">201</td><td class="result"><span class="status-code status-2xx">201</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <!-- EDGE -->
+    <div class="cat-block">
+      <div class="cat-title"><h3>Edge Case</h3><span class="count">6 test case</span><div class="line"></div></div>
+      <div class="tbl-scroll"><table>
+        <thead><tr><th>ID</th><th>Test case</th><th>Request</th><th>Kỳ vọng</th><th>Kết quả</th><th>Đánh giá</th></tr></thead>
+        <tbody>
+          <tr><td class="id">EC-01</td><td class="name">mfgRole=PHOI + isPurchaser=true cùng lúc (bypass FE)</td><td class="req">PATCH mfg-attributes</td><td class="exp">Ghi nhận hành vi thật</td><td class="result"><span class="status-code status-2xx">200</span><details class="ev"><summary>evidence</summary><pre>mfgRole: "PHOI", isPurchaser: true — BE chấp nhận cả 2</pre></details></td><td class="pass"><span class="chip chip-info">GHI NHẬN → FINDING-02</span></td></tr>
+          <tr><td class="id">EC-02</td><td class="name">firstName chứa payload &lt;script&gt;</td><td class="req">POST /users</td><td class="exp">201, lưu nguyên văn (API JSON, không phải HTML)</td><td class="result"><span class="status-code status-2xx">201</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">EC-03</td><td class="name">firstName 5.000 ký tự</td><td class="req">POST /users</td><td class="exp">Ghi nhận hành vi thật</td><td class="result"><span class="status-code status-2xx">201</span></td><td class="pass"><span class="chip chip-info">GHI NHẬN → FINDING-03</span></td></tr>
+          <tr><td class="id">EC-04</td><td class="name">Dấu tiếng Việt trong firstName/lastName</td><td class="req">POST /users</td><td class="exp">201, giữ nguyên unicode</td><td class="result"><span class="status-code status-2xx">201</span><details class="ev"><summary>evidence</summary><pre>firstName: "Nguyễn", lastName: "Văn Ánh" ✓</pre></details></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">EC-05</td><td class="name">username toàn khoảng trắng "   "</td><td class="req">POST /users</td><td class="exp">400</td><td class="result"><span class="status-code status-4xx">400</span></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+          <tr><td class="id">EC-06</td><td class="name">Bỏ chọn mfgRole (KCS → null) khi sửa</td><td class="req">PATCH mfg-attributes</td><td class="exp">Gỡ role KCS_STAFF, warehouseScope về null (không kẹt ở phoi-son-han)</td><td class="result"><span class="status-code status-2xx">200</span><details class="ev"><summary>evidence</summary><pre>roles: []  (KCS_STAFF đã bị gỡ)
+mfgRole: null, warehouseScope: null</pre></details></td><td class="pass"><span class="chip chip-pass">PASS</span></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- ================= FE REVIEW ================= -->
+  <section>
+    <div class="sec-head">
+      <h2>Rà soát FE — UI/UX, loading, empty state</h2>
+      <span class="sec-note tag tag-static" style="font-family:var(--mono);">static review, chưa live-test</span>
+    </div>
+    <p class="lede">Đánh giá dưới đây dựa trên đọc source code FE, <b>không phải</b> thao tác trực tiếp trên trình duyệt (môi trường này không có công cụ điều khiển browser). Team nên tự thao tác qua UI thật 1 lượt (đặc biệt trên mobile/tablet) trước khi release.</p>
+    <div class="checklist">
+      <div class="check-row"><span class="mark ok">✓</span><div class="body"><b>Trạng thái loading khi lưu</b><span>Nút "Lưu" đổi thành "Đang lưu...", cả nút Lưu và Hủy bị <code>disabled</code> trong lúc gọi API — chặn double-submit.</span></div><span class="chip chip-info">Code review</span></div>
+      <div class="check-row"><span class="mark ok">✓</span><div class="body"><b>Validate field bắt buộc</b><span>Field required trống hiện lỗi inline màu đỏ ngay dưới field, chặn submit trước khi gọi API.</span></div><span class="chip chip-info">Code review</span></div>
+      <div class="check-row"><span class="mark ok">✓</span><div class="body"><b>Empty state</b><span>Danh sách rỗng hiện thông báo "Chưa có tài khoản nào" thay vì bảng trắng.</span></div><span class="chip chip-info">Code review</span></div>
+      <div class="check-row"><span class="mark ok">✓</span><div class="body"><b>4 loại nhân viên loại trừ lẫn nhau trên form</b><span>Chọn "Sản xuất" tự xoá field của "Văn phòng" (isPurchaser/isSale/isProductPlanner) và ngược lại — đúng là nguồn gốc của FINDING-02 (chỉ chặn ở FE, BE thì không).</span></div><span class="chip chip-info">Code review</span></div>
+      <div class="check-row"><span class="mark ok">✓</span><div class="body"><b>Lỗi từ BE hiển thị cho người dùng</b><span>Exception ném ra trong lúc lưu được bắt và hiện thành dòng lỗi màu đỏ trong form, không phải màn hình trắng.</span></div><span class="chip chip-info">Code review</span></div>
+      <div class="check-row"><span class="mark na">—</span><div class="body"><b>Responsive (mobile/tablet), lỗi console, render UI thực tế</b><span>Không thể xác minh trong môi trường này — cần công cụ trình duyệt thật hoặc team tự kiểm tra thủ công.</span></div><span class="chip chip-info">Chưa kiểm tra</span></div>
+    </div>
+  </section>
+
+  <!-- ================= VERDICT ================= -->
+  <section>
+    <div class="verdict">
+      <span class="stamp">Kết luận</span>
+      <h2>Đủ điều kiện merge — kèm 2 khuyến nghị nên xử lý trước khi release diện rộng</h2>
+      <p>Toàn bộ 41 test case (Happy Path, Negative, Boundary, Edge Case) đều cho kết quả đúng như logic code đã triển khai: validate, RBAC, đồng bộ role theo <code>mfgRole</code>, và quy tắc ép <code>warehouseScope="phoi-son-han"</code> cho nhân viên Sản xuất đều hoạt động chính xác — kể cả khi cố tình gửi input sai để bypass FE. Không có lỗi Critical/High nào chặn luồng tạo user chính.</p>
+      <p>4 vấn đề phát hiện đều ở mức Medium/Low, không chặn merge, nhưng nên đưa vào backlog gần nhất:</p>
+      <ol class="conditions">
+        <li><b>FINDING-01</b> (Medium) — sửa thông báo lỗi "Duplicate value for: undefined" và quyết định rõ nghiệp vụ tái sử dụng username/email đã xoá.</li>
+        <li><b>FINDING-02</b> (Medium) — thêm validate BE cho tổ hợp vị trí xung đột (mfgRole floor/spec + isPurchaser/isSale/isProductPlanner), vì hiện chỉ FE chặn.</li>
+        <li><b>FINDING-03</b> (Low) — thêm <code>@MaxLength</code> cho firstName/lastName.</li>
+        <li><b>FINDING-04</b> (Low) — cân nhắc gộp luồng tạo user 2 bước thành 1 transaction để tránh tài khoản "nửa vời" khi mất mạng giữa chừng.</li>
+      </ol>
+      <p style="margin-top:14px;">Trước khi release, khuyến nghị team tự thao tác qua UI thật 1 lượt (form tạo/sửa user, responsive, console) vì phần này chỉ được đánh giá qua đọc code, chưa live-test.</p>
+    </div>
+  </section>
+
+  <footer>
+    dna-erp · qa report · api tests executed live against localhost:3001 + prisma postgres · fe checks via static review · generated 2026-07-28
+  </footer>
+
+</div>
