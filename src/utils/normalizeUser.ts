@@ -15,7 +15,6 @@ interface NormalizableUser {
   firstName?: string;
   lastName?: string;
   mfgRole?: string | null;
-  phoiOperation?: string | null;
   warehouseScope?: string | null;
   isPurchaser?: boolean;
   isProductPlanner?: boolean;
@@ -39,7 +38,6 @@ export function normalizeUser(raw: NormalizableUser): User {
     email: raw.email as string,
     role,
     mfgRole: (raw.mfgRole as User['mfgRole']) ?? null,
-    phoiOperation: (raw.phoiOperation as User['phoiOperation']) ?? null,
     warehouseScope: (raw.warehouseScope as User['warehouseScope']) ?? null,
     isPurchaser: !!raw.isPurchaser,
     isProductPlanner: !!raw.isProductPlanner,

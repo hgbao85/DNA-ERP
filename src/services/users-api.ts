@@ -11,14 +11,13 @@ import type { SystemUser } from '../types/admin';
 import type { BeRole, BeUserProfile } from '../types/auth';
 import { deriveRoleIds, hasMfgAttrs, mapBeToFe, mfgAttrsPayload, splitName } from './users-mapper';
 
-// ─── Cache map tên role → UUID (gọi GET /roles 1 lần) ────────────────────────
-let roleMapCache: Record<string, string> | null = null;
+// ─── Map tên role → UUID ──────────────────────────────────────────────────
+// Gọi lại GET /roles mỗi lần (không cache): tạo/sửa user là thao tác tần suất thấp,
+// nên tránh cache để không phải lo bug đọc phải dữ liệu cũ khi role vừa bị đổi/xoá.
 async function getRoleMap(): Promise<Record<string, string>> {
-  if (roleMapCache) return roleMapCache;
   // GET /roles có phân trang: envelope.data = { data: BeRole[], meta }. limit đủ lớn để lấy hết 15 role 1 lần.
   const page = await http.get<{ data: BeRole[] }>('/roles?limit=100');
-  roleMapCache = Object.fromEntries(page.data.map((r) => [r.name, r.id]));
-  return roleMapCache;
+  return Object.fromEntries(page.data.map((r) => [r.name, r.id]));
 }
 
 // ─── API công khai (ghi đè hàm mock cùng tên trong facade services/api) ───────

@@ -23,7 +23,6 @@ export interface BeUserProfile {
   updatedAt: string;
   roles: string[]; // RBAC N-N — tên role, không phải UUID
   mfgRole: string | null;
-  phoiOperation: string | null;
   warehouseScope: string | null;
   isPurchaser: boolean;
   isProductPlanner: boolean;

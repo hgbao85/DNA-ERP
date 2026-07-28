@@ -63,10 +63,18 @@ export function hasMfgAttrs(v: Record<string, unknown>): boolean {
   return !!(v.mfgRole || v.warehouseScope || v.isPurchaser || v.isProductPlanner || v.isSale);
 }
 
+// Công đoạn chuyền (Phôi/Hàn/Sơn/KCS) chỉ tồn tại trong 1 kho vật lý duy nhất —
+// ép cứng warehouseScope, không để form (hoặc dữ liệu cũ) gửi sai/thiếu.
+const MFG_FLOOR_WAREHOUSE_SCOPE = 'phoi-son-han';
+const MFG_FLOOR_ROLES = new Set(['PHOI', 'HAN', 'SON', 'KCS']);
+
 export function mfgAttrsPayload(v: Record<string, unknown>) {
+  const mfgRole = (v.mfgRole as string) || null;
   return {
-    mfgRole: (v.mfgRole as string) || null,
-    warehouseScope: (v.warehouseScope as string) || null,
+    mfgRole,
+    warehouseScope: mfgRole && MFG_FLOOR_ROLES.has(mfgRole)
+      ? MFG_FLOOR_WAREHOUSE_SCOPE
+      : (v.warehouseScope as string) || null,
     isPurchaser: !!v.isPurchaser,
     isProductPlanner: !!v.isProductPlanner,
     isSale: !!v.isSale,

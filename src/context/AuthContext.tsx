@@ -9,8 +9,6 @@ import { normalizeUser } from '../utils/normalizeUser';
 
 export type MfgRole = 'PRODUCTION_MANAGER' | 'PHOI' | 'HAN' | 'SON' | 'KCS' | 'SPEC_STEEL'| 'SPEC_WIRE_PAINT' | 'SPEC_ACCESSORY' | 'SPEC_PACKAGING';
 
-export type PhoiOperation = 'CAT' | 'TOP_DAU' | 'UON' | 'DAP' | 'DUC_LO' | 'BAN_TAN';
-
 // 3 nhóm kho thật + kho thành phẩm phụ tạo động (id dạng 'thanh-pham-{n}') —
 // tài khoản kho bị giới hạn vào đúng 1 nhóm (null = tổng kho, thấy hết). Giữ literal
 // union cho gợi ý IDE nhưng vẫn nhận mọi chuỗi để hỗ trợ kho thành phẩm tạo thêm.
@@ -38,7 +36,6 @@ export interface AdminUser extends BaseUser {
 export interface MfgUser extends BaseUser {
   role: 'WAREHOUSE_STAFF';
   mfgRole: MfgRole;
-  phoiOperation?: PhoiOperation | null;
 }
 
 export interface WarehouseUser extends BaseUser {
@@ -60,7 +57,6 @@ export interface User {
   email: string;
   role: 'BOSS' | 'WAREHOUSE_STAFF' | 'ADMIN';
   mfgRole?: MfgRole | null;
-  phoiOperation?: PhoiOperation | null;
   warehouseScope?: WarehouseScope | null;
   isPurchaser?: boolean;
   isProductPlanner?: boolean;
