@@ -61,6 +61,12 @@ export async function updateUser(id: number | string, data: Record<string, unkno
   if (hasMfgAttrs(data)) {
     user = await http.patch<BeUserProfile>(`/users/${id}/mfg-attributes`, mfgAttrsPayload(data));
   }
+  // Admin cấp lại mật khẩu: chỉ khi ô "Mật khẩu" được điền (để trống = giữ nguyên). Endpoint
+  // riêng /reset-password (chỉ ADMIN, KHÔNG cần mật khẩu cũ), trả 204. Việc user tự đổi mật
+  // khẩu (cần mật khẩu cũ) là POST /auth/change-password — chưa nối, làm sau khi cần.
+  if (data.password) {
+    await http.patch<void>(`/users/${id}/reset-password`, { newPassword: data.password });
+  }
   return mapBeToFe(user);
 }
 
