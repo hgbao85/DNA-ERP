@@ -247,7 +247,7 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                                     {rows.length > 1 && (
                                       <button
                                         onClick={() => removeRow(p.id, item.name, ri)}
-                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', cursor: 'pointer', color: '#c62828' }}
+                                        style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, padding: 0, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', cursor: 'pointer', color: '#c62828' }}
                                       >
                                         <X size={13} />
                                       </button>

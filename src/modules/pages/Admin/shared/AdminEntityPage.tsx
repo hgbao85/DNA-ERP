@@ -73,6 +73,8 @@ export interface AdminEntityConfig<T extends { id: number | string }> {
     update: (id: number | string, data: Record<string, unknown>) => Promise<T | undefined>
     remove: (id: number | string) => Promise<{ id: number | string }>
   }
+  /** Nút thao tác thêm cho mỗi dòng, chèn trước nút Sửa/Xóa (vd "Đặt lại mật khẩu" ở Users). */
+  rowActions?: (row: T) => ReactNode
   /** Chặn xóa — trả về thông báo lỗi để hiển thị, undefined để cho phép. */
   guardDelete?: (row: T) => string | undefined
   /** Chặn lưu (tạo/sửa) — trả về thông báo lỗi để hiển thị, undefined để cho phép. */
@@ -295,7 +297,7 @@ export default function AdminEntityPage<T extends { id: number | string }>({ con
                   {config.columns.map(col => (
                     <th key={col.key} style={{ ...th, textAlign: col.align ?? 'left', width: col.width }}>{col.label}</th>
                   ))}
-                  <th style={{ ...th, width: 90, textAlign: 'right' }}>Thao tác</th>
+                  <th style={{ ...th, width: config.rowActions ? 120 : 90, textAlign: 'right' }}>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -314,19 +316,20 @@ export default function AdminEntityPage<T extends { id: number | string }>({ con
                     ))}
                     <td style={{ ...td, textAlign: 'right' }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'inline-flex', gap: 4 }}>
+                        {config.rowActions?.(item)}
                         <button
                           onClick={() => openEdit(item)}
                           title="Sửa"
-                          style={{ width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}
+                          style={{ width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}
                         >
-                          <Pencil size={12} />
+                          <Pencil size={14} strokeWidth={2.25} />
                         </button>
                         <button
                           onClick={() => handleDelete(item)}
                           title="Xóa"
-                          style={{ width: 26, height: 26, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: '#c62828', cursor: 'pointer' }}
+                          style={{ width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: '#c62828', cursor: 'pointer' }}
                         >
-                          <Trash2 size={12} />
+                          <Trash2 size={14} strokeWidth={2.25} />
                         </button>
                       </div>
                     </td>

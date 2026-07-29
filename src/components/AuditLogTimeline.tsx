@@ -1,6 +1,6 @@
 'use client'
 import type { LucideIcon } from 'lucide-react'
-import { FilePlus, Inbox, Send, RotateCcw, Check, X, History, PackageCheck, Factory, UserPlus, UserCog, Trash2, Pencil, Bell, Settings, RefreshCcw } from 'lucide-react'
+import { FilePlus, Inbox, Send, RotateCcw, Check, X, History, PackageCheck, Factory, UserPlus, UserCog, Trash2, Pencil, Bell, Settings, RefreshCcw, KeyRound } from 'lucide-react'
 import { format } from 'date-fns'
 import { AUDIT_ACTIONS, type AuditAction, type AuditLogEntry } from '../context/AuditLogContext'
 
@@ -38,6 +38,7 @@ const ACTION_ICON: Record<AuditAction, LucideIcon> = {
   'user.created':      UserPlus,
   'user.updated':      UserCog,
   'user.role_changed': UserCog,
+  'user.password_reset': KeyRound,
   'user.deleted':      Trash2,
 
   'masterdata.created': FilePlus,

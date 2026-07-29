@@ -44,6 +44,7 @@ export const AUDIT_ACTIONS = {
   'user.created':      { label: 'Tạo tài khoản',       color: '#2563eb' },
   'user.updated':      { label: 'Cập nhật tài khoản',  color: '#d97706' },
   'user.role_changed': { label: 'Đổi vai trò/quyền',   color: '#7c3aed' },
+  'user.password_reset': { label: 'Đặt lại mật khẩu',  color: '#7c3aed' },
   'user.deleted':      { label: 'Xóa tài khoản',       color: '#c62828' },
 
   // ─── Admin — Danh mục hệ thống (dùng chung cho mọi entity danh mục) ──────────

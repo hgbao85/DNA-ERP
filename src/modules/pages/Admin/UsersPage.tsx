@@ -1,11 +1,13 @@
 'use client'
 import { useState } from 'react'
-import { Users } from 'lucide-react'
+import { Users, KeyRound } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
-import { getUsers, createUser, updateUser, deleteUser } from '../../../services/api'
+import { getUsers, createUser, updateUser, deleteUser, resetUserPassword } from '../../../services/api'
 import type { SystemUser } from '../../../types/admin'
 import AdminEntityPage, { type AdminEntityConfig } from './shared/AdminEntityPage'
+import Modal from '../../../components/Modal'
+import { btnSecondary } from '../../../styles/buttons'
 
 const ROLE_LABEL: Record<SystemUser['role'], string> = {
   ADMIN: 'Quản trị viên',
@@ -213,9 +215,85 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
   )
 }
 
+function ResetPasswordModal({ user, onClose, onDone }: { user: SystemUser | null; onClose: () => void; onDone: (u: SystemUser) => void }) {
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  const close = () => {
+    if (saving) return
+    setNewPassword('')
+    setConfirmPassword('')
+    setError(null)
+    onClose()
+  }
+
+  const handleSubmit = async () => {
+    if (newPassword.length < 8) { setError('Tối thiểu 8 ký tự'); return }
+    if (newPassword !== confirmPassword) { setError('Mật khẩu xác nhận không khớp'); return }
+    if (!user) return
+    setSaving(true)
+    setError(null)
+    try {
+      await resetUserPassword(user.id, newPassword)
+      onDone(user)
+      close()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không thể đặt lại mật khẩu')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Modal open={!!user} onClose={close} maxWidth={400}>
+      <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Đặt lại mật khẩu</h3>
+      {user && (
+        <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text2)' }}>
+          Cho tài khoản <strong>{user.name}</strong> ({user.email})
+        </p>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <div>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>Mật khẩu mới</label>
+          <input
+            type="password" autoFocus value={newPassword} placeholder="Tối thiểu 8 ký tự"
+            onChange={e => setNewPassword(e.target.value)}
+            style={{ width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)' }}
+          />
+        </div>
+        <div>
+          <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>Xác nhận mật khẩu</label>
+          <input
+            type="password" value={confirmPassword} placeholder="Nhập lại mật khẩu mới"
+            onChange={e => setConfirmPassword(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleSubmit() }}
+            style={{ width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)' }}
+          />
+        </div>
+      </div>
+
+      {error && <div style={{ color: '#c62828', fontSize: 12, marginTop: 12 }}>{error}</div>}
+
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+        <button onClick={close} disabled={saving} style={btnSecondary}>Hủy</button>
+        <button
+          onClick={handleSubmit}
+          disabled={saving}
+          style={{ padding: '8px 18px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', background: '#3949ab', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
+        >
+          {saving ? 'Đang lưu...' : 'Đặt lại mật khẩu'}
+        </button>
+      </div>
+    </Modal>
+  )
+}
+
 export default function UsersPage() {
   const { user: currentUser } = useAuth()
   const { logAction } = useAuditLog()
+  const [pwUser, setPwUser] = useState<SystemUser | null>(null)
 
   const config: AdminEntityConfig<SystemUser> = {
     title: 'Người dùng',
@@ -286,10 +364,12 @@ export default function UsersPage() {
         validate: (v) => (!v || !/^\S+@\S+\.\S+$/.test(String(v))) ? 'Email không hợp lệ' : undefined,
       },
       {
-        name: 'password', label: 'Mật khẩu', type: 'password', placeholder: 'Để trống nếu không đổi',
-        skipIfBlankOnEdit: true,
-        // BE yêu cầu tối thiểu 8 ký tự (đổi từ 6 khi cắt sang API thật).
-        validate: (v, all) => (!all.id && !v) ? 'Bắt buộc khi tạo mới' : (v && String(v).length < 8) ? 'Tối thiểu 8 ký tự' : undefined,
+        // Chỉ hiện khi TẠO MỚI — đổi mật khẩu cho user có sẵn dùng nút "Đặt lại mật khẩu" riêng
+        // (rowActions bên dưới), tách khỏi form sửa thông tin để tránh gộp 2 thao tác khác bản
+        // chất (sửa hồ sơ vs cấp lại mật khẩu) vào chung 1 form, dễ đổi nhầm/quên đổi.
+        name: 'password', label: 'Mật khẩu', type: 'password', placeholder: 'Tối thiểu 8 ký tự', required: true,
+        showIf: (v) => !v.id,
+        validate: (v) => (v && String(v).length < 8) ? 'Tối thiểu 8 ký tự' : undefined,
       },
       {
         name: 'role', label: 'Vai trò', type: 'select', required: true,
@@ -330,6 +410,16 @@ export default function UsersPage() {
       title: 'Xóa tài khoản',
       message: `Xóa tài khoản "${u.name}" (${u.email})? Người dùng sẽ không thể đăng nhập nữa. Hành động này không thể hoàn tác.`,
     }),
+    rowActions: (u) => (
+      <button
+        key="reset-password"
+        onClick={() => setPwUser(u)}
+        title="Đặt lại mật khẩu"
+        style={{ width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}
+      >
+        <KeyRound size={14} strokeWidth={2.25} />
+      </button>
+    ),
     guardDelete: (u) => (u.id === currentUser?.id ? 'Không thể xóa chính tài khoản đang đăng nhập' : undefined),
     guardSave: (values, isNew) =>
       (!isNew && values.id === currentUser?.id && values.role !== currentUser?.role)
@@ -344,5 +434,14 @@ export default function UsersPage() {
     api: { list: getUsers, create: createUser, update: updateUser, remove: deleteUser },
   }
 
-  return <AdminEntityPage config={config} />
+  return (
+    <>
+      <AdminEntityPage config={config} />
+      <ResetPasswordModal
+        user={pwUser}
+        onClose={() => setPwUser(null)}
+        onDone={(u) => logAction('user', String(u.id), 'user.password_reset', `${u.name} (${u.email})`)}
+      />
+    </>
+  )
 }

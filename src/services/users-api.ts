@@ -61,16 +61,18 @@ export async function updateUser(id: number | string, data: Record<string, unkno
   if (hasMfgAttrs(data)) {
     user = await http.patch<BeUserProfile>(`/users/${id}/mfg-attributes`, mfgAttrsPayload(data));
   }
-  // Admin cấp lại mật khẩu: chỉ khi ô "Mật khẩu" được điền (để trống = giữ nguyên). Endpoint
-  // riêng /reset-password (chỉ ADMIN, KHÔNG cần mật khẩu cũ), trả 204. Việc user tự đổi mật
-  // khẩu (cần mật khẩu cũ) là POST /auth/change-password — chưa nối, làm sau khi cần.
-  if (data.password) {
-    await http.patch<void>(`/users/${id}/reset-password`, { newPassword: data.password });
-  }
   return mapBeToFe(user);
 }
 
 export async function deleteUser(id: number | string): Promise<{ id: number | string }> {
   await http.del(`/users/${id}`); // 204, soft delete
   return { id };
+}
+
+// Admin cấp lại mật khẩu cho user khác — tách riêng khỏi updateUser để không còn gộp chung
+// với form sửa thông tin (UX cũ: 1 ô mật khẩu nằm lẫn trong form, dễ đổi nhầm/quên đổi).
+// Endpoint riêng /reset-password (chỉ ADMIN, KHÔNG cần mật khẩu cũ), trả 204. Việc user tự đổi
+// mật khẩu (cần mật khẩu cũ) là POST /auth/change-password — chưa nối, làm sau khi cần.
+export async function resetUserPassword(id: number | string, newPassword: string): Promise<void> {
+  await http.patch<void>(`/users/${id}/reset-password`, { newPassword });
 }
