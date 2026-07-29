@@ -8,5 +8,5 @@
  * Các module khác vẫn chạy mock cho tới khi module tương ứng được cắt sang BE.
  */
 export * from '../lib/mock/services';
-export { getUsers, createUser, updateUser, deleteUser, resetUserPassword } from './users-api';
+export { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive } from './users-api';
 export { loginUser, getProfile, logoutUser } from './auth-api';

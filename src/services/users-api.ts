@@ -76,3 +76,10 @@ export async function deleteUser(id: number | string): Promise<{ id: number | st
 export async function resetUserPassword(id: number | string, newPassword: string): Promise<void> {
   await http.patch<void>(`/users/${id}/reset-password`, { newPassword });
 }
+
+// Khóa/mở khóa tài khoản: PATCH có chủ đích CHỈ gửi `isActive` — KHÔNG dùng lại updateUser (vốn
+// cần name/roleIds; gọi thiếu sẽ xóa trắng tên + vai trò). BE nhận isActive, tự chặn tự-khóa và
+// tự ghi audit (old→new). Trả về user đã cập nhật để UI đồng bộ.
+export async function setUserActive(id: number | string, isActive: boolean): Promise<SystemUser> {
+  return mapBeToFe(await http.patch<BeUserProfile>(`/users/${id}`, { isActive }));
+}

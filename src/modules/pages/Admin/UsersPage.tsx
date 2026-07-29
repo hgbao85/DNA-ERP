@@ -1,9 +1,9 @@
 'use client'
 import { useState } from 'react'
-import { Users, KeyRound } from 'lucide-react'
+import { Users, KeyRound, Lock, LockOpen } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
-import { getUsers, createUser, updateUser, deleteUser, resetUserPassword } from '../../../services/api'
+import { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive } from '../../../services/api'
 import type { SystemUser } from '../../../types/admin'
 import AdminEntityPage, { type AdminEntityConfig } from './shared/AdminEntityPage'
 import Modal from '../../../components/Modal'
@@ -107,6 +107,7 @@ function deriveOfficeFn(v: Partial<SystemUser>): OfficeFn | undefined {
 
 const fieldLabel: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }
 const fieldSelect: React.CSSProperties = { width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)' }
+const rowIconBtn: React.CSSProperties = { width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', cursor: 'pointer' }
 
 function EmployeeTypeField({ values, setField }: { value: unknown; values: Partial<SystemUser>; setField: (name: string, value: unknown) => void }) {
   // Suy ra nhánh ban đầu từ dữ liệu đã lưu (sửa user có sẵn) — nhưng sau đó phải tự nhớ nhánh
@@ -404,21 +405,51 @@ export default function UsersPage() {
       { name: 'isPurchaser', label: 'Mua hàng', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
       { name: 'isProductPlanner', label: 'KH Sản xuất', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
       { name: 'isSale', label: 'Sales', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
-      { name: 'isActive', label: 'Trạng thái', type: 'checkbox', placeholder: 'Tài khoản đang hoạt động', defaultValue: true },
+      // KHÔNG có field "Trạng thái" trong form: khóa/mở tài khoản làm bằng nút ổ khóa ở dòng (qua
+      // setUserActive). Tạo mới: BE luôn tạo active. Sửa: form không đụng isActive để tránh 2 nơi
+      // cùng điều khiển 1 giá trị (checkbox form vs nút ổ khóa) gây rối/ghi đè nhau.
     ],
     deleteConfirm: (u) => ({
       title: 'Xóa tài khoản',
       message: `Xóa tài khoản "${u.name}" (${u.email})? Người dùng sẽ không thể đăng nhập nữa. Hành động này không thể hoàn tác.`,
     }),
-    rowActions: (u) => (
-      <button
-        key="reset-password"
-        onClick={() => setPwUser(u)}
-        title="Đặt lại mật khẩu"
-        style={{ width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}
-      >
-        <KeyRound size={14} strokeWidth={2.25} />
-      </button>
+    rowActions: (u, { refetch, ask }) => (
+      <>
+        {/* Khóa/mở khóa — ẩn ở dòng chính mình (BE cũng chặn tự-khóa). Khóa = chặn đăng nhập nên
+            hỏi xác nhận; mở khóa = khôi phục truy cập nên làm ngay. */}
+        {u.id !== currentUser?.id && (
+          <button
+            key="toggle-active"
+            onClick={() => {
+              const doToggle = async () => {
+                await setUserActive(u.id, !u.isActive)
+                logAction('user', String(u.id), u.isActive ? 'user.locked' : 'user.unlocked', `${u.name} (${u.email})`)
+                refetch()
+              }
+              if (u.isActive) {
+                ask(
+                  { title: 'Khóa tài khoản', message: `Khóa tài khoản "${u.name}" (${u.email})? Người dùng sẽ không đăng nhập được cho tới khi được mở khóa.`, danger: true, confirmLabel: 'Khóa' },
+                  doToggle,
+                )
+              } else {
+                doToggle().catch(e => alert(e instanceof Error ? e.message : 'Không thể mở khóa tài khoản'))
+              }
+            }}
+            title={u.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+            style={{ ...rowIconBtn, color: u.isActive ? 'var(--text2)' : '#e65100' }}
+          >
+            {u.isActive ? <Lock size={14} strokeWidth={2.25} /> : <LockOpen size={14} strokeWidth={2.25} />}
+          </button>
+        )}
+        <button
+          key="reset-password"
+          onClick={() => setPwUser(u)}
+          title="Đặt lại mật khẩu"
+          style={{ ...rowIconBtn, color: 'var(--text2)' }}
+        >
+          <KeyRound size={14} strokeWidth={2.25} />
+        </button>
+      </>
     ),
     guardDelete: (u) => (u.id === currentUser?.id ? 'Không thể xóa chính tài khoản đang đăng nhập' : undefined),
     guardSave: (values, isNew) =>

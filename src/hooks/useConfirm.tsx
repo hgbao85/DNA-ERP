@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import ConfirmModal from '../components/ConfirmModal'
 
-interface ConfirmOptions {
+export interface ConfirmOptions {
   title?: string
   message: string
   confirmLabel?: string

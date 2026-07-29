@@ -2,7 +2,7 @@
 import { useMemo, useState, type ComponentType, type ReactNode } from 'react'
 import { Plus, Pencil, Trash2, AlertTriangle } from 'lucide-react'
 import { useFetch } from '../../../../hooks/useFetch'
-import { useConfirm } from '../../../../hooks/useConfirm'
+import { useConfirm, type ConfirmOptions } from '../../../../hooks/useConfirm'
 import Modal from '../../../../components/Modal'
 import SearchInput from '../../../../components/SearchInput'
 import FilterPills from '../../../../components/FilterPills'
@@ -55,6 +55,13 @@ export interface AdminFilterDef<T> {
   predicate: (row: T) => boolean
 }
 
+/** Helper truyền cho rowActions: tự làm mới danh sách (refetch) và mở hộp xác nhận dùng chung
+ *  (cùng modal với nút Xóa — lỗi từ action sẽ hiện ngay trong modal). */
+export interface AdminRowActionHelpers {
+  refetch: () => void
+  ask: (opts: ConfirmOptions, action: () => void | Promise<void>) => void
+}
+
 export interface AdminEntityConfig<T extends { id: number | string }> {
   title: string
   icon: ReactNode
@@ -73,8 +80,9 @@ export interface AdminEntityConfig<T extends { id: number | string }> {
     update: (id: number | string, data: Record<string, unknown>) => Promise<T | undefined>
     remove: (id: number | string) => Promise<{ id: number | string }>
   }
-  /** Nút thao tác thêm cho mỗi dòng, chèn trước nút Sửa/Xóa (vd "Đặt lại mật khẩu" ở Users). */
-  rowActions?: (row: T) => ReactNode
+  /** Nút thao tác thêm cho mỗi dòng, chèn trước nút Sửa/Xóa (vd "Đặt lại mật khẩu"/"Khóa" ở Users).
+   *  Nhận helper { refetch, ask } để tự làm mới danh sách + hỏi xác nhận sau khi gọi API. */
+  rowActions?: (row: T, helpers: AdminRowActionHelpers) => ReactNode
   /** Chặn xóa — trả về thông báo lỗi để hiển thị, undefined để cho phép. */
   guardDelete?: (row: T) => string | undefined
   /** Chặn lưu (tạo/sửa) — trả về thông báo lỗi để hiển thị, undefined để cho phép. */
@@ -316,7 +324,7 @@ export default function AdminEntityPage<T extends { id: number | string }>({ con
                     ))}
                     <td style={{ ...td, textAlign: 'right' }} onClick={e => e.stopPropagation()}>
                       <div style={{ display: 'inline-flex', gap: 4 }}>
-                        {config.rowActions?.(item)}
+                        {config.rowActions?.(item, { refetch, ask })}
                         <button
                           onClick={() => openEdit(item)}
                           title="Sửa"
