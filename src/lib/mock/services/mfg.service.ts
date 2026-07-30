@@ -71,40 +71,6 @@ class MaterialGroupService extends BaseService<any> {
   }
 }
 
-class FramePieceService extends BaseService<any> {
-  constructor() { super('framePieces'); }
-
-  async getFrameProducts() {
-    return ok(clone(mockStore.get().frameProducts));
-  }
-
-  async getByProduct(productId: number) {
-    return ok(clone(mockStore.get().framePieces.filter((f) => f.productId === productId)));
-  }
-
-  async create(data: Record<string, unknown>) {
-    await mockDelay();
-    const row = { id: nextId(), materials: [], ...data };
-    mockStore.update((s) => (s.framePieces as any[]).push(row));
-    return row;
-  }
-
-  async update(id: number, data: Record<string, unknown>) {
-    await mockDelay();
-    mockStore.update((s) => {
-      const i = s.framePieces.findIndex((f) => f.id === id);
-      if (i >= 0) Object.assign(s.framePieces[i], data);
-    });
-    return mockStore.get().framePieces.find((f) => f.id === id);
-  }
-
-  async remove(id: number) {
-    await mockDelay();
-    mockStore.update((s) => { s.framePieces = s.framePieces.filter((f) => f.id !== id); });
-    return { id };
-  }
-}
-
 class ProductionInvoiceService extends BaseService<any> {
   constructor() { super('productionInvoices'); }
 
@@ -557,7 +523,6 @@ const exportCustomerSvc = new ExportCustomerService();
 const mfgProductSvc = new MfgProductService();
 const materialSvc = new MaterialService();
 const materialGroupSvc = new MaterialGroupService();
-const framePieceSvc = new FramePieceService();
 const piSvc = new ProductionInvoiceService();
 const exportOrderSvc = new ExportOrderService();
 const warehouseSvc = new MfgWarehouseService();
@@ -589,11 +554,6 @@ export const createMaterial = (data: Record<string, unknown>) => materialSvc.cre
 export const updateMaterial = (id: number, data: Record<string, unknown>) => materialSvc.update(id, data);
 export const deleteMaterial = (id: number) => materialSvc.remove(id);
 
-export const getFrameProducts = () => framePieceSvc.getFrameProducts();
-export const getFramePieces = (productId: number) => framePieceSvc.getByProduct(productId);
-export const createFramePiece = (data: Record<string, unknown>) => framePieceSvc.create(data);
-export const updateFramePiece = (id: number, data: Record<string, unknown>) => framePieceSvc.update(id, data);
-export const deleteFramePiece = (id: number) => framePieceSvc.remove(id);
 export const getPILaborCost = (piId: number) => piSvc.getLaborCost(piId);
 
 export const getProductionInvoices = () => piSvc.getAll();

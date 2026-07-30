@@ -609,12 +609,12 @@ export const seedPlanForms: PlanForm[] = [
         ],
       },
     },
-    // Định mức mảnh (tab "Định mức mảnh" ở Duyệt SKU/Danh sách SKU) — khác với seedFramePieces
-    // (BOM gốc theo sản phẩm, dùng ở "Quản lý định mức"): đây là dữ liệu account Sắt nhập riêng
-    // cho SKU/PO này. 4 mảnh, mỗi mảnh chỉ liệt kê loại SẮT (không gồm phụ kiện hàn như Pát/Chốt —
-    // ManhChildRow chỉ dành cho sắt, xem comment ManhChildRow trong types/plan-form.ts).
+    // Định mức mảnh (tab "Định mức mảnh" ở Duyệt SKU/Danh sách SKU): đây là dữ liệu account
+    // Sắt nhập riêng cho SKU/PO này. 4 mảnh, mỗi mảnh chỉ liệt kê loại SẮT (không gồm phụ
+    // kiện hàn như Pát/Chốt — ManhChildRow chỉ dành cho sắt, xem comment ManhChildRow trong
+    // types/plan-form.ts).
     // qty ở đây là TỔNG số cây cần cho cả PO (100 ghế) theo từng mảnh — do account Sắt tính
-    // sẵn từ định mức/mảnh (FramePiece) nhân số lượng PO, không phải số cây cho 1 ghế. Tổng
+    // sẵn từ định mức/mảnh nhân số lượng PO, không phải số cây cho 1 ghế. Tổng
     // theo từng loại sắt phải khớp quotaManagement.sat ở trên.
     manhData: {
       sat: [
@@ -982,61 +982,6 @@ export const seedKcsPending: Record<number, Record<string, number>> = {
   2: { PHOI: 0, HAN: 0, SON: 0 },
 };
 
-export const seedFrameProducts = [
-  { id: 1, factoryCode: 'JSE-55', name: 'Ghế J55', framePieceCount: 4 },
-  { id: 2, factoryCode: 'IEA-3', name: 'Ghế đan IEA-3', framePieceCount: 3 },
-  { id: 3, factoryCode: 'JSE-60', name: 'Ghế J60', framePieceCount: 4 },
-  // id 4: TEST-01 — cùng id với seedMfgProducts (không bắt buộc, nhưng để dễ đối chiếu vì
-  // 2 danh sách này KHÔNG liên kết với nhau qua id, chỉ trùng ngẫu nhiên ở 3 dòng trên).
-  { id: 4, factoryCode: 'TEST-01', name: 'Ghế Test Đầy Đủ', framePieceCount: 4 },
-];
-
-// Định mức mảnh của TEST-01 — 4 mảnh ghép thành 1 ghế: Tựa, Mê, Tay trái, Tay phải. Mảnh
-// nào cũng có thể đan được (isWoven không cố định theo loại mảnh, tùy sản phẩm) — cả 4 mảnh
-// đều đánh dấu isWoven ở đây. Mỗi mảnh có vật tư sắt riêng, cắt (Phôi) → hàn (Hàn) → sơn (Sơn)
-// thành "khung hàn" rồi "mảnh chưa đan"; xuất đan/nhập đan xong thành "mảnh đã đan" (thành
-// phẩm). Vật tư khung: nhóm Sắt ống + phụ kiện hàn-vào-khung (Pát/Ô tròn lỗ dù) — không gồm
-// phụ kiện lắp ráp (bulong, ốc...) do Mua hàng lo riêng.
-export const seedFramePieces = [
-  { id: 1, productId: 1, code: 'GHE-J55-1', name: 'Ghế J55 - Đế', groupNumber: 1, materials: [] },
-  { id: 2, productId: 1, code: 'GHE-J55-2', name: 'Ghế J55 - Lưng', groupNumber: 1, materials: [] },
-  { id: 3, productId: 2, code: 'IEA-3-1', name: 'Ghế IEA-3 - Khung', groupNumber: 1, materials: [] },
-  {
-    id: 10, productId: 4, code: 'TEST-01.1.1', name: 'Mảnh Tựa', groupNumber: 1, pieceNumber: 1,
-    quantityPerSet: 1, isWoven: true, weavingPrice: 15000,
-    materials: [
-      { id: 101, materialId: 1,  material: { id: 1,  code: 'SAT-25',      name: 'Ống sắt 25×25', unit: 'cm',  materialGroupId: 1, materialGroup: { name: 'Sắt ống' } }, quantity: 136, spec: '25×25×1.2mm',   cutLengthMm: 680, piecesPerFrame: 2, operations: ['CAT', 'UON'], needsHan: true, needsSon: true },
-      { id: 102, materialId: 13, material: { id: 13, code: 'SAT-16',      name: 'Ống sắt Ø16',   unit: 'cm',  materialGroupId: 1, materialGroup: { name: 'Sắt ống' } }, quantity: 90,  spec: 'Φ16×1.0mm',      cutLengthMm: 450, piecesPerFrame: 2, operations: ['CAT'],        needsHan: true, needsSon: true },
-      { id: 103, materialId: 16, material: { id: 16, code: 'PAT-KINH',    name: 'Pát kính',      unit: 'cái', materialGroupId: 3, materialGroup: { name: 'Phụ kiện' } }, quantity: 2,   spec: 'Pát kính 3 lỗ',   cutLengthMm: null, piecesPerFrame: 2, operations: ['DUC_LO'],     needsHan: true, needsSon: false },
-    ],
-  },
-  {
-    id: 11, productId: 4, code: 'TEST-01.1.2', name: 'Mảnh Mê', groupNumber: 1, pieceNumber: 2,
-    quantityPerSet: 1, isWoven: true, weavingPrice: 20000,
-    materials: [
-      { id: 104, materialId: 8,  material: { id: 8,  code: 'SAT-50X25',   name: 'Ống sắt 25×50',    unit: 'cm',  materialGroupId: 1, materialGroup: { name: 'Sắt ống' } }, quantity: 100, spec: '25×50×1.2mm', cutLengthMm: 500, piecesPerFrame: 2, operations: ['CAT', 'DUC_LO'], needsHan: true, needsSon: true },
-      { id: 105, materialId: 3,  material: { id: 3,  code: 'SAT-20',      name: 'Ống sắt 20×40',    unit: 'cm',  materialGroupId: 1, materialGroup: { name: 'Sắt ống' } }, quantity: 96,  spec: '20×40×1.5mm', cutLengthMm: 480, piecesPerFrame: 2, operations: ['CAT'],            needsHan: true, needsSon: true },
-      { id: 106, materialId: 11, material: { id: 11, code: 'O-TRON-LO-DU', name: 'Ô tròn lỗ dù',    unit: 'cái', materialGroupId: 3, materialGroup: { name: 'Phụ kiện' } }, quantity: 4,   spec: 'Φ25mm',       cutLengthMm: null, piecesPerFrame: 4, operations: ['DUC_LO'],         needsHan: true, needsSon: false },
-    ],
-  },
-  {
-    id: 12, productId: 4, code: 'TEST-01.2.1', name: 'Mảnh Tay Trái', groupNumber: 2, pieceNumber: 1,
-    quantityPerSet: 1, isWoven: true, weavingPrice: 10000,
-    materials: [
-      { id: 107, materialId: 13, material: { id: 13, code: 'SAT-16',  name: 'Ống sắt Ø16', unit: 'cm',  materialGroupId: 1, materialGroup: { name: 'Sắt ống' } }, quantity: 55, spec: 'Φ16×1.0mm',         cutLengthMm: 550, piecesPerFrame: 1, operations: ['CAT', 'UON'], needsHan: true, needsSon: true },
-      { id: 108, materialId: 9,  material: { id: 9,  code: 'CHOT-10', name: 'Chốt 10mm',   unit: 'cái', materialGroupId: 3, materialGroup: { name: 'Phụ kiện' } }, quantity: 2,  spec: 'Chốt định vị 10mm', cutLengthMm: null, piecesPerFrame: 2, operations: [],             needsHan: true, needsSon: false },
-    ],
-  },
-  {
-    id: 13, productId: 4, code: 'TEST-01.2.2', name: 'Mảnh Tay Phải', groupNumber: 2, pieceNumber: 2,
-    quantityPerSet: 1, isWoven: true, weavingPrice: 10000,
-    materials: [
-      { id: 109, materialId: 13, material: { id: 13, code: 'SAT-16',  name: 'Ống sắt Ø16', unit: 'cm',  materialGroupId: 1, materialGroup: { name: 'Sắt ống' } }, quantity: 55, spec: 'Φ16×1.0mm',         cutLengthMm: 550, piecesPerFrame: 1, operations: ['CAT', 'UON'], needsHan: true, needsSon: true },
-      { id: 110, materialId: 9,  material: { id: 9,  code: 'CHOT-10', name: 'Chốt 10mm',   unit: 'cái', materialGroupId: 3, materialGroup: { name: 'Phụ kiện' } }, quantity: 2,  spec: 'Chốt định vị 10mm', cutLengthMm: null, piecesPerFrame: 2, operations: [],             needsHan: true, needsSon: false },
-    ],
-  },
-];
-
 export const seedSystemConfig: SystemConfig = {
   companyName: 'Công ty TNHH Dịch vụ Xuất Nhập Khẩu Đông Nam Á',
   companyAddress: '',
@@ -1084,8 +1029,6 @@ export function createInitialMockState() {
     weavingPoints: structuredClone(seedWeavingPoints),
     weavingConfig: structuredClone(seedWeavingConfig),
     kcsPending: structuredClone(seedKcsPending),
-    frameProducts: structuredClone(seedFrameProducts),
-    framePieces: structuredClone(seedFramePieces),
     packagingBOM: structuredClone(seedPackagingBOM),
     packagingByPI: structuredClone(seedPackagingByPI),
     phoiReports: [] as unknown[],
