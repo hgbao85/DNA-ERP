@@ -13,6 +13,8 @@ export interface SatItem {
 
 export interface DaySonItem {
   id?: number;
+  /** Việc 2: id thật của Material đứng sau dòng này (BE quan hệ thật, không còn JSON tự do). */
+  materialId?: string;
   name: string;
   specifications?: string | null;
   kg?: number | null;
@@ -23,6 +25,7 @@ export interface DaySonItem {
 
 export interface VatTuPhuKienItem {
   id?: number;
+  materialId?: string;
   name: string;
   specifications?: string | null;
   unit?: string | null;
@@ -33,6 +36,7 @@ export interface VatTuPhuKienItem {
 
 export interface BaoBiDongGoiItem {
   id?: number;
+  materialId?: string;
   name: string;
   specifications?: string | null;
   unit?: string | null;
@@ -69,6 +73,9 @@ export interface QuotaReviewStatus {
 /** 1 loại sắt thuộc 1 mảnh — nhập sau bước "Tạo mảnh". */
 export interface ManhChildRow {
   id: number;
+  /** Việc 2: id thật của SegmentSpec (Material kind=STEEL_BAR + chiều dài cắt) đứng sau dòng này. */
+  segmentSpecId?: string;
+  materialId?: string;
   name: string;
   specs?: string | null;
   length?: string | null;
@@ -78,6 +85,8 @@ export interface ManhChildRow {
 /** 1 mảnh phôi (vd "Mảnh tựa", "Chân ghế") gồm nhiều loại sắt con — do account Sắt nhập theo 2 bước: tạo mảnh -> nhập sắt. */
 export interface ManhRow {
   id: number;
+  /** Việc 2: id thật của Piece đứng sau mảnh này. */
+  pieceId?: string;
   name: string;
   /** Số lượng mảnh này trên 1 SKU (vd 1 SKU cần 2 "Mảnh tay") */
   qtyPerSku?: string | null;

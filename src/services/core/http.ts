@@ -135,6 +135,7 @@ async function unwrap<T>(promise: Promise<{ data: T }>): Promise<T> {
 export const http = {
   get: <T>(path: string, config?: AxiosRequestConfig) => unwrap<T>(client.get(path, config)),
   post: <T>(path: string, body?: unknown, config?: AxiosRequestConfig) => unwrap<T>(client.post(path, body, config)),
+  put: <T>(path: string, body?: unknown, config?: AxiosRequestConfig) => unwrap<T>(client.put(path, body, config)),
   patch: <T>(path: string, body?: unknown, config?: AxiosRequestConfig) => unwrap<T>(client.patch(path, body, config)),
   del: <T>(path: string, config?: AxiosRequestConfig) => unwrap<T>(client.delete(path, config)),
 };

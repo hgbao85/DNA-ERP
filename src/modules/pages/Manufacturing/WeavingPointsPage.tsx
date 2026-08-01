@@ -6,7 +6,7 @@ import { AlertCircle, Plus, Pencil, Power, Save, X } from 'lucide-react'
 interface WeavingPoint {
   id: number; code: string; fullName: string | null; aliasNote?: string | null
   phone: string | null; address?: string | null
-  dayDaiPercent?: number; ketThucPercent?: number; hangQuanPercent?: number
+  dayDaiPercent?: number | null; ketThucPercent?: number | null; hangQuanPercent?: number | null
   note?: string | null; isActive: boolean
 }
 type FormState = Partial<WeavingPoint>
@@ -18,7 +18,7 @@ const inp: React.CSSProperties = { padding: '7px 10px', border: '1px solid var(-
 // readOnly: chỉ xem (tab "Điểm đan" bên Quản lý SX). embedded: ẩn tiêu đề riêng (dùng trong
 // tab con "Thông tin điểm đan" của màn "Quản lý điểm đan" — tiêu đề do màn cha cung cấp).
 export default function WeavingPointsPage({ readOnly = false, embedded = false }: { readOnly?: boolean; embedded?: boolean } = {}) {
-  const { data, isLoading, error, refetch } = useFetch<WeavingPoint[]>(() => api.getWeavingPoints(true), [])
+  const { data, isLoading, error, refetch } = useFetch<WeavingPoint[]>(() => api.getWeavingPoints(), [])
   const points = Array.isArray(data) ? data : []
   const [form, setForm] = useState<FormState | null>(null) // null = đóng; {} = thêm mới; {id} = sửa
   const [busy, setBusy] = useState(false)

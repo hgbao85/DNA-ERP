@@ -55,8 +55,8 @@ export default function DefectReasonsPage() {
     api: {
       list: () => getDefectReasons() as Promise<DefectReason[]>,
       create: (data) => createDefectReason(data) as Promise<DefectReason>,
-      update: (id, data) => updateDefectReason(Number(id), data) as Promise<DefectReason | undefined>,
-      remove: (id) => deleteDefectReason(Number(id)),
+      update: (id, data) => updateDefectReason(id, data) as Promise<DefectReason | undefined>,
+      remove: (id) => deleteDefectReason(id),
     },
   }
 

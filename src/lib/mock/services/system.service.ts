@@ -1,17 +1,5 @@
 import { mockDelay } from '../core/delay';
 import { mockStore } from '../core/store';
-import type { SystemConfig } from '../../../types/admin';
-
-export async function getSystemConfig(): Promise<SystemConfig> {
-  await mockDelay();
-  return structuredClone(mockStore.get().systemConfig);
-}
-
-export async function updateSystemConfig(data: Partial<SystemConfig>): Promise<SystemConfig> {
-  await mockDelay();
-  mockStore.update((s) => { Object.assign(s.systemConfig, data); });
-  return structuredClone(mockStore.get().systemConfig);
-}
 
 export interface SystemStats {
   collectionCounts: { key: string; count: number }[];

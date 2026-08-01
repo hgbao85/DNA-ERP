@@ -58,8 +58,8 @@ export default function SuppliersPage() {
     api: {
       list: getSuppliers as () => Promise<Supplier[]>,
       create: (data) => createSupplier(data) as unknown as Promise<Supplier>,
-      update: (id, data) => updateSupplier(Number(id), data) as Promise<Supplier | undefined>,
-      remove: (id) => deleteSupplier(Number(id)),
+      update: (id, data) => updateSupplier(id, data) as Promise<Supplier | undefined>,
+      remove: (id) => deleteSupplier(id),
     },
   }
 

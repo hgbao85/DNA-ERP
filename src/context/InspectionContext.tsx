@@ -157,13 +157,12 @@ function buildKhoItems(pf: PlanForm): { phoiSonHan: InspItem[]; vatTuTP: InspIte
 
 // ── Mock seed data ─────────────────────────────────────────────────────────────
 
-// planFormId khớp đúng seedPlanForms (id 1 = JSE-55/PO-MY-001, id 2 = IEA-3/PO-GP-002) — trước đây
-// seed dùng planFormId 101/102 không khớp PlanForm thật nào nên 2 yêu cầu này không bao giờ hiện
-// trong "Lệnh kiểm tra vật tư" của KHSX (danh sách luôn lọc theo id PlanForm thật). Tên vật tư trong
-// từng items[] cũng phải khớp CHÍNH XÁC với seedPlanForms[].quotaManagement.materialType — màn hình
-// KHSX tra tồn thực bằng cách so tên (findInspItem), tên lệch thì mọi dòng hiện "—" dù badge kho báo
-// đã kiểm. Đồng thời tách bao bì đóng gói ra kho thành phẩm (thanhPham) thay vì gộp chung vatTuTP,
-// khớp CATEGORY_WAREHOUSE_CODE.
+// planFormId phải khớp đúng 1 PlanForm thật (API /plan-forms — không còn mock) — planFormId lệch
+// thì yêu cầu này không bao giờ hiện trong "Lệnh kiểm tra vật tư" của KHSX (danh sách luôn lọc
+// theo id PlanForm thật). Tên vật tư trong từng items[] cũng phải khớp CHÍNH XÁC với
+// quotaManagement.materialType của PlanForm thật đó — màn hình KHSX tra tồn thực bằng cách so tên
+// (findInspItem), tên lệch thì mọi dòng hiện "—" dù badge kho báo đã kiểm. Đồng thời tách bao bì
+// đóng gói ra kho thành phẩm (thanhPham) thay vì gộp chung vatTuTP, khớp CATEGORY_WAREHOUSE_CODE.
 const SEED_REQUESTS: InspRequest[] = [
   {
     id: 'insp-1', planFormId: 1,

@@ -32,7 +32,8 @@ interface MaterialItem {
 
 // Công đoạn Đan dùng chung cấu trúc ManhLine/ManhAllocation + component ManhSkuDetail với "Theo dõi
 // xuất đan" (khovttp@demo.com) và "Theo dõi nhập đan" (khotp@demo.com) — xem StageDetailCard.
-interface WeavingPointLite { id: number; name: string; fullName?: string }
+// BE weaving-points không có field `name` riêng — `code` đóng vai trò tên/định danh chính.
+interface WeavingPointLite { id: number; code: string; fullName?: string }
 
 interface StageDetails {
   purchasing: { materials: MaterialItem[] }
@@ -208,7 +209,7 @@ const DAN_LINE_NAMES = ['Mảnh tựa lưng', 'Mảnh ngồi chính', 'Mảnh ta
 function buildWeavingLines(xuatStatus: SubStatus, nhapStatus: SubStatus, h: number, points: WeavingPointLite[]): ManhLine[] {
   const xuatFrac = doneFracOf(xuatStatus, h, 4)
   const nhapFrac = doneFracOf(nhapStatus, h, 5)
-  const pool = points.length > 0 ? points : [{ id: 1, name: 'Điểm đan A' }, { id: 2, name: 'Điểm đan B' }]
+  const pool = points.length > 0 ? points : [{ id: 1, code: 'Điểm đan A' }, { id: 2, code: 'Điểm đan B' }]
 
   return DAN_LINE_NAMES.map((name, i) => {
     const total = 20 + ((h + i * 17) % 60)
@@ -928,7 +929,7 @@ export default function ThongKePagePlan() {
   const weavingPoints = useMemo(() => weavingPointsData ?? [], [weavingPointsData])
   const pointLabel = (id: number) => {
     const p = weavingPoints.find(w => w.id === id)
-    return p?.fullName ? `${p.name} (${p.fullName})` : (p?.name ?? `#${id}`)
+    return p?.fullName ? `${p.code} (${p.fullName})` : (p?.code ?? `#${id}`)
   }
 
   // Sinh dữ liệu mock nhiều tầng (buildOrderRow → genExecutionStages → buildPhoiManhs/...) khá nặng —

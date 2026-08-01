@@ -9,61 +9,6 @@ import { AlertCircle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight
 import SearchableSelect from '../../../components/SearchableSelect'
 import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 
-/**
- * Khi Sếp (boss@demo.com) DUYỆT 1 SKU cụ thể trong PI (sau khi KHSX gửi duyệt), tạo
- * (hoặc tái dùng) 1 PlanForm cho đúng SKU đó — đây là dữ liệu duy nhất mà "Lệnh kiểm
- * tra vật tư" của prodmgr@demo.com đọc (api.getPlanForms(), lọc status !== 'DRAFT').
- * PlanForm cần exportOrderId/mfgProductId trỏ tới bản ghi thật để enrich() ra đúng
- * mã PO/SKU, nên tìm bản ghi đã có theo mã, không có thì tạo mới.
- */
-async function ensurePlanFormForConfirmedItem(pi: any, item: any) {
-  const factoryCode = item.productVariant?.mfgProduct?.factoryCode
-  const productName = item.productVariant?.mfgProduct?.name ?? ''
-  const poNumber = pi.exportOrder?.poNumber ?? pi.code
-  const deliveryDate = item.deliveryDeadline ?? pi.deadline
-
-  const mfgProducts = (await api.getMfgProducts()) as any[]
-  const mfgProduct = mfgProducts.find((p) => p.factoryCode === factoryCode)
-    ?? await api.createMfgProduct({ factoryCode, name: productName })
-
-  const exportOrders = (await api.getExportOrders()) as any[]
-  const exportOrder = exportOrders.find((o) => o.poNumber === poNumber)
-    ?? await api.createExportOrder({ poNumber, deliveryDate, status: 'PLANNED' })
-
-  const created = await api.createPlanForm({
-    exportOrderId: exportOrder.id,
-    mfgProductId: mfgProduct.id,
-    customerName: pi.exportOrder?.customerName,
-    origin: 'PRODUCTION_CONFIRM',
-    productionInvoiceId: pi.id,
-  })
-
-  // Định mức (mảnh + chi tiết) là thuộc tính của SKU (mfgProduct), không đổi theo
-  // từng PO — PlanForm mới tạo mặc định trống, nên tái dùng định mức đã có sẵn
-  // của cùng SKU này (nếu có) thay vì để trống, để "kiểm tra vật tư" có dữ liệu.
-  const existingPlanForms = (await api.getPlanForms()) as any[]
-  const sourcePf = existingPlanForms.find((pf) => pf.id !== created.id && pf.mfgProductId === mfgProduct.id)
-  const sourceMaterialType = sourcePf?.quotaManagement?.materialType
-  if (sourceMaterialType) {
-    // Sắt không còn nhập ở định mức chi tiết (đã chuyển sang định mức mảnh) — chỉ còn 3 nhóm.
-    for (const group of ['daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as const) {
-      const groupItems = sourceMaterialType[group]
-      if (Array.isArray(groupItems) && groupItems.length > 0) {
-        await api.updatePlanFormDetailQuota(created.id, group, groupItems, 'Hệ thống')
-      }
-    }
-  }
-  const sourceManhData = sourcePf?.manhData
-  if (sourceManhData) {
-    for (const group of ['sat', 'day', 'dinh'] as const) {
-      const groupItems = sourceManhData[group]
-      if (Array.isArray(groupItems) && groupItems.length > 0) {
-        await api.updatePlanFormManhQuota(created.id, group, groupItems, 'Hệ thống')
-      }
-    }
-  }
-}
-
 export default function LenhSXPage() {
   const { user, isBoss } = useAuth()
   const isQlsx = user?.mfgRole === 'PRODUCTION_MANAGER'
@@ -127,7 +72,7 @@ export default function LenhSXPage() {
     try {
       const items: any[] = confirmProdTarget?.items ?? []
       if (selectedItemIdx === null || !items[selectedItemIdx]) return
-      await api.sendItemToQlsx(id, selectedItemIdx, user?.name)
+      await api.sendItemToQlsx(id, items[selectedItemIdx].id, user?.name)
       refetch()
       setConfirmProdTarget(null)
     } catch (e: any) {
@@ -142,9 +87,11 @@ export default function LenhSXPage() {
     if (!qlsxTarget || qlsxWarehouseCode === null) return
     const wh = finishedGoodsWarehouses.find((w: any) => w.code === qlsxWarehouseCode)
     if (!wh) return
+    const item = (qlsxTarget.pi.items ?? [])[qlsxTarget.idx]
+    if (!item) return
     setSendingToBoss(true)
     try {
-      await api.sendItemToBoss(qlsxTarget.pi.id, qlsxTarget.idx, { code: wh.code, name: wh.name }, user?.name)
+      await api.sendItemToBoss(qlsxTarget.pi.id, item.id, { code: wh.code, name: wh.name }, user?.name)
       refetch()
       setQlsxTarget(null)
       setQlsxWarehouseCode(null)
@@ -162,8 +109,7 @@ export default function LenhSXPage() {
     if (!item) return
     setApprovingKey(`${pi.id}-${idx}`)
     try {
-      await ensurePlanFormForConfirmedItem(pi, item)
-      await api.approveItemByBoss(pi.id, idx, user?.name)
+      await api.approveItemByBoss(pi.id, item.id, user?.name)
       refetch()
       setApproveTarget(null)
     } catch (e: any) {
@@ -179,9 +125,11 @@ export default function LenhSXPage() {
     const reason = rejectReason.trim()
     if (!reason) { alert('Vui lòng nhập lý do từ chối'); return }
     const { pi, idx } = rejectTarget
+    const item = (pi.items ?? [])[idx]
+    if (!item) return
     setRejecting(true)
     try {
-      await api.rejectProdItem(pi.id, idx, reason, user?.name)
+      await api.rejectProdItem(pi.id, item.id, reason, user?.name)
       refetch()
       setRejectTarget(null)
       setRejectReason('')

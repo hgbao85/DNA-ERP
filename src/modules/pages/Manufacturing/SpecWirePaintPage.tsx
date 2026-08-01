@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
+import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
@@ -10,21 +11,21 @@ import { PLANFORM_ENTITY, isPartsApproved } from '../../../constants/planFormSta
 import type { PlanForm, DaySonItem, QuotaEntryMeta, QuotaReviewStatus } from '../../../types/plan-form'
 
 // ─── Types ────────────────────────────────────────────────────────────
-// MaterialLine = alias tên trường trung lập (code/soLuong) cho dễ đọc trong JSX — quy đổi sang/từ
+// MaterialLine = alias tên trường trung lập (uid/soLuong) cho dễ đọc trong JSX — quy đổi sang/từ
 // DaySonItem thật khi đọc/ghi PlanForm (xem toMaterialLine/toItem). Dùng chung cho cả 3 nhóm:
 // "Định mức mảnh — Dây" (manhData.day), "Định mức mảnh — Đinh" (manhData.dinh) và "Định mức chi
-// tiết — Sơn" (quotaManagement.materialType.daySon), vì cả 3 cùng shape dữ liệu (DaySonItem), chỉ
-// khác nơi lưu/API ghi + đơn vị số lượng (kg cho Dây/Sơn, cây cho Đinh).
+// tiết — Sơn" (quotaManagement.materialType.daySon). Việc 2: mỗi dòng gắn với 1 Material thật qua
+// materialId (chọn từ MaterialPicker), không còn gõ mã tự do — tên hiển thị = tên Material.
 type BomItem = { id: number; ten: string; thoiGian: string }
-type MaterialLine = { uid: number; code: string; unit: string; soLuong?: string; specifications: string; imageUrl: string }
+type MaterialLine = { uid: number; materialId: number; code: string; unit: string; soLuong?: string }
 type BomStatus = 'approved' | 'pending' | 'rejected' | 'canInput'
 
 const toMaterialLine = (it: DaySonItem, uid: number): MaterialLine => ({
-  uid, code: it.name, unit: it.unit ?? '', soLuong: it.kg != null ? String(it.kg) : '', specifications: it.specifications ?? '', imageUrl: it.imageUrl ?? '',
+  uid, materialId: Number(it.materialId) || 0, code: it.name, unit: it.unit ?? '', soLuong: it.kg != null ? String(it.kg) : '',
 })
 const toItem = (l: Omit<MaterialLine, 'uid'>): DaySonItem => ({
-  name: l.code, unit: l.unit || undefined, specifications: l.specifications || undefined,
-  kg: (l.soLuong ?? '').trim() !== '' ? Number(l.soLuong) : undefined, imageUrl: l.imageUrl || undefined,
+  name: l.code, materialId: String(l.materialId), unit: l.unit || undefined,
+  kg: (l.soLuong ?? '').trim() !== '' ? Number(l.soLuong) : undefined,
 })
 
 // ─── Main ─────────────────────────────────────────────────────────────
@@ -36,6 +37,14 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
   const planForms = (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT')
   const findPf = (id: number) => planForms.find(pf => pf.id === id)
 
+  // "Dây"/"Đinh" cùng kind=CONSUMABLE ở BE (phân biệt qua materialGroupId, xem
+  // plan-forms.service.ts) — cần tra id của 2 nhóm vật tư này để lọc đúng trong picker. Nếu
+  // nhóm chưa tồn tại (chưa từng nhập lần nào), picker tạm hiện mọi vật tư CONSUMABLE — BE sẽ
+  // tự tạo nhóm + gán khi nhập lần đầu (xem MaterialPicker/plan-forms.service.ts).
+  const { data: materialGroups } = useFetch(() => api.getMaterialGroups(), [])
+  const dayGroupId = (materialGroups ?? []).find((g: { name: string }) => g.name === 'Dây')?.id
+  const dinhGroupId = (materialGroups ?? []).find((g: { name: string }) => g.name === 'Đinh')?.id
+
   const toBom = (pf: PlanForm): BomItem => ({
     id: pf.id,
     ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
@@ -45,26 +54,6 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
   // SKU đã qua giai đoạn mảnh (KHSX đã duyệt & gửi bộ phận chi tiết) — đúng thứ tự flow hiện tại.
   const manhBoms: BomItem[] = planForms.map(toBom)
   const detailBoms: BomItem[] = planForms.filter(pf => isPartsApproved(pf.status)).map(toBom)
-
-  // Danh mục mã đã từng nhập, tách riêng theo từng nhóm (Dây/Đinh/Sơn) để gợi ý autocomplete không
-  // lẫn mã của nhóm khác (vd gõ mã đinh không bị gợi ý nhầm mã dây). Catalog gộp cả 3 chỉ dùng cho
-  // tab "Danh sách vật tư" (xem toàn bộ để tra cứu, không dùng để chọn khi nhập).
-  const buildCatalog = (getItems: (pf: PlanForm) => DaySonItem[]): MaterialLine[] => {
-    const seen = new Map<string, MaterialLine>()
-    let uid = 1
-    for (const pf of planForms) {
-      for (const it of getItems(pf)) {
-        const key = it.name.trim().toLowerCase()
-        if (!key || seen.has(key)) continue
-        seen.set(key, toMaterialLine(it, uid++))
-      }
-    }
-    return Array.from(seen.values())
-  }
-  const dayCatalog = buildCatalog(pf => pf.manhData?.day ?? [])
-  const dinhCatalog = buildCatalog(pf => pf.manhData?.dinh ?? [])
-  const sonCatalog = buildCatalog(pf => pf.quotaManagement?.materialType?.daySon ?? [])
-  const allCatalog = buildCatalog(pf => [...(pf.manhData?.day ?? []), ...(pf.manhData?.dinh ?? []), ...(pf.quotaManagement?.materialType?.daySon ?? [])])
 
   // ── Định mức mảnh — Dây/Đinh (manhData.day|dinh, manhEntryMeta, manhReviewStatus) ────────────
   // Trạng thái phải suy theo riêng từng nhóm (manhReviewStatus.<key> / manhData.<key>), KHÔNG được
@@ -113,12 +102,13 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
         notifSubtitle="Đã duyệt định mức mảnh dây"
         codeLabel="Mã dây"
         qtyLabel="Khối lượng (kg)"
+        pickerKind="CONSUMABLE"
+        pickerGroupId={dayGroupId}
         boms={manhBoms}
         itemsOf={id => dayItemsOf(findPf(id))}
         entryMetaOf={id => dayEntryMetaOf(findPf(id))}
         reviewOf={id => dayReviewOf(findPf(id))}
         bomStatus={dayBomStatus}
-        catalog={dayCatalog}
         onSubmit={(bomId, items, enteredBy) => api.updatePlanFormManhQuota(bomId, 'day', items, enteredBy)}
         submitLogAction="planform.manh_submitted"
         submitLogLabel="Mảnh dây"
@@ -136,12 +126,13 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
         notifSubtitle="Đã duyệt định mức mảnh đinh"
         codeLabel="Mã đinh"
         qtyLabel="Số lượng (cây)"
+        pickerKind="CONSUMABLE"
+        pickerGroupId={dinhGroupId}
         boms={manhBoms}
         itemsOf={id => dinhItemsOf(findPf(id))}
         entryMetaOf={id => dinhEntryMetaOf(findPf(id))}
         reviewOf={id => dinhReviewOf(findPf(id))}
         bomStatus={dinhBomStatus}
-        catalog={dinhCatalog}
         onSubmit={(bomId, items, enteredBy) => api.updatePlanFormManhQuota(bomId, 'dinh', items, enteredBy)}
         submitLogAction="planform.manh_submitted"
         submitLogLabel="Mảnh đinh"
@@ -159,12 +150,12 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
         notifSubtitle="Đã duyệt định mức Sơn"
         codeLabel="Mã sơn"
         qtyLabel="Khối lượng (kg)"
+        pickerKind="PAINT"
         boms={detailBoms}
         itemsOf={id => detailItemsOf(findPf(id))}
         entryMetaOf={id => detailEntryMetaOf(findPf(id))}
         reviewOf={id => detailReviewOf(findPf(id))}
         bomStatus={detailBomStatus}
-        catalog={sonCatalog}
         onSubmit={(bomId, items, enteredBy) => api.updatePlanFormDetailQuota(bomId, 'daySon', items, enteredBy)}
         submitLogAction="planform.detail_submitted"
         submitLogLabel="Sơn"
@@ -173,18 +164,18 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
     )
   }
 
-  /* ══ DANH SÁCH VẬT TƯ ══ */
-  return <WireCatalogTab planForms={planForms} catalog={allCatalog} />
+  /* ══ DANH SÁCH VẬT TƯ (Material thật, quản lý ở Admin > Vật tư) ══ */
+  return <WireCatalogTab planForms={planForms} dayGroupId={dayGroupId} dinhGroupId={dinhGroupId} />
 }
 
 // ─── WireGroupPanel ───────────────────────────────────────────────────
 // Dùng chung cho cả 3 nhóm ("Định mức mảnh — Dây", "Định mức mảnh — Đinh", "Định mức chi tiết —
-// Sơn"): cùng 1 form nhập (mã, số lượng, mô tả, ảnh) + danh sách BOM theo trạng thái — chỉ khác nơi
-// đọc/ghi dữ liệu và nhãn mã/đơn vị (truyền qua props codeLabel/qtyLabel). Tự quản lý state riêng,
-// mount/unmount theo subTab nên không lẫn dữ liệu giữa các nhóm.
+// Sơn"): cùng 1 form nhập (vật tư, số lượng) + danh sách BOM theo trạng thái — chỉ khác nơi
+// đọc/ghi dữ liệu + nhãn + loại/nhóm vật tư lọc trong picker (truyền qua props). Tự quản lý state
+// riêng, mount/unmount theo subTab nên không lẫn dữ liệu giữa các nhóm.
 
 function WireGroupPanel({
-  pageTitle, pageDesc, notifSubtitle, codeLabel, qtyLabel, boms, itemsOf, entryMetaOf, reviewOf, bomStatus, catalog,
+  pageTitle, pageDesc, notifSubtitle, codeLabel, qtyLabel, pickerKind, pickerGroupId, boms, itemsOf, entryMetaOf, reviewOf, bomStatus,
   onSubmit, submitLogAction, submitLogLabel, refetchPlanForms,
 }: {
   pageTitle: string
@@ -192,12 +183,13 @@ function WireGroupPanel({
   notifSubtitle: string
   codeLabel: string
   qtyLabel: string
+  pickerKind: string
+  pickerGroupId?: number
   boms: BomItem[]
   itemsOf: (bomId: number) => DaySonItem[]
   entryMetaOf: (bomId: number) => QuotaEntryMeta | undefined
   reviewOf?: (bomId: number) => QuotaReviewStatus | undefined
   bomStatus: (bomId: number) => BomStatus
-  catalog: MaterialLine[]
   onSubmit: (bomId: number, items: DaySonItem[], enteredBy: string) => Promise<PlanForm>
   submitLogAction: AuditAction
   submitLogLabel: string
@@ -209,12 +201,8 @@ function WireGroupPanel({
   const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)
   const [rows, setRows] = useState<MaterialLine[]>([])
   const [nextUid, setNextUid] = useState(1)
-  const [fCode, setFCode] = useState('')
-  const [fUnit, setFUnit] = useState('')
+  const [fMaterial, setFMaterial] = useState<PickedMaterial | null>(null)
   const [fSoLuong, setFSoLuong] = useState('')
-  const [fSpecifications, setFSpecifications] = useState('')
-  const [fImageUrl, setFImageUrl] = useState('')
-  const [showPreview, setShowPreview] = useState(false)
   const [fErr, setFErr] = useState('')
   const [sentMsg, setSentMsg] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -225,16 +213,16 @@ function WireGroupPanel({
     const existing = itemsOf(bom.id)
     setRows(existing.map((it, i) => toMaterialLine(it, i + 1)))
     setNextUid(existing.length + 1)
-    setFCode(''); setFUnit(''); setFSoLuong(''); setFSpecifications(''); setFImageUrl('')
-    setShowPreview(false); setFErr(''); setSentMsg(false)
+    setFMaterial(null); setFSoLuong('')
+    setFErr(''); setSentMsg(false)
   }
 
   const addToDraft = () => {
     setFErr('')
-    if (!fCode.trim()) { setFErr(`Vui lòng nhập ${codeLabel}.`); return }
-    setRows(r => [...r, { uid: nextUid, code: fCode.trim(), unit: fUnit.trim(), soLuong: fSoLuong.trim(), specifications: fSpecifications.trim(), imageUrl: fImageUrl.trim() }])
+    if (!fMaterial) { setFErr(`Vui lòng chọn ${codeLabel}.`); return }
+    setRows(r => [...r, { uid: nextUid, materialId: fMaterial.id, code: `${fMaterial.code} — ${fMaterial.name}`, unit: fMaterial.unit, soLuong: fSoLuong.trim() }])
     setNextUid(n => n + 1)
-    setFCode(''); setFUnit(''); setFSoLuong(''); setFSpecifications(''); setFImageUrl('')
+    setFMaterial(null); setFSoLuong('')
   }
 
   const removeDraft = (uid: number) => setRows(r => r.filter(x => x.uid !== uid))
@@ -318,54 +306,14 @@ function WireGroupPanel({
                 {selectedBom.ten}
               </div>
             </div>
-            <div style={{ flex: 1, minWidth: 130 }}>
+            <div style={{ flex: 1, minWidth: 200 }}>
               <FL>{codeLabel} <span style={{ color: '#e53935' }}>*</span></FL>
-              <MaterialCodeSearch
-                value={fCode}
-                codeLabel={codeLabel}
-                catalog={catalog}
-                onSelect={item => {
-                  if (item) {
-                    setFCode(item.code)
-                    setFUnit(item.unit)
-                    setFSpecifications(item.specifications)
-                  } else {
-                    setFCode(''); setFUnit(''); setFSpecifications('')
-                    setFSoLuong('')
-                  }
-                  setFErr('')
-                }}
-              />
+              <MaterialPicker value={fMaterial} onSelect={m => { setFMaterial(m); setFErr('') }} kind={pickerKind} materialGroupId={pickerGroupId} placeholder={`Chọn ${codeLabel.toLowerCase()}…`} />
             </div>
             <div style={{ width: 120 }}>
               <FL>{qtyLabel}</FL>
               <input type="number" min={0} value={fSoLuong} onChange={e => setFSoLuong(e.target.value)}
                 placeholder="VD: 120" style={inputStyle} />
-            </div>
-            <div style={{ flex: 2, minWidth: 180 }}>
-              <FL>Mô tả</FL>
-              <input value={fSpecifications} onChange={e => setFSpecifications(e.target.value)}
-                placeholder="VD: Dây PE xám + sơn tĩnh điện" style={inputStyle} />
-            </div>
-            <div style={{ flex: 1, minWidth: 160 }}>
-              <FL>Image URL</FL>
-              <div style={{ display: 'flex', gap: 6, position: 'relative' }}>
-                <input value={fImageUrl} onChange={e => { setFImageUrl(e.target.value); setShowPreview(false) }}
-                  placeholder="https://..." style={{ ...inputStyle, flex: 1 }} />
-                {fImageUrl.trim() && (
-                  <button onClick={() => setShowPreview(v => !v)} title="Xem ảnh" style={{
-                    padding: '0 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-                    background: showPreview ? 'var(--surface2)' : 'var(--surface)',
-                    cursor: 'pointer', color: showPreview ? '#1565c0' : 'var(--text3)',
-                    display: 'flex', alignItems: 'center', flexShrink: 0,
-                  }}>
-                    <Eye size={15} />
-                  </button>
-                )}
-                {showPreview && fImageUrl.trim() && (
-                  <ImageModal url={fImageUrl.trim()} onClose={() => setShowPreview(false)} />
-                )}
-              </div>
             </div>
             <button onClick={addToDraft} style={{
               padding: '7px 16px', border: 'none', borderRadius: 'var(--radius)',
@@ -390,7 +338,7 @@ function WireGroupPanel({
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['SKU', codeLabel, qtyLabel, 'Mô tả', ...(st === 'pending' ? [] : [''])].map((h, i) => (
+                  {['SKU', codeLabel, qtyLabel, ...(st === 'pending' ? [] : [''])].map((h, i) => (
                     <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>
@@ -400,8 +348,7 @@ function WireGroupPanel({
                   <tr key={d.uid} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedBom?.ten}</td>
                     <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{d.code}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{d.soLuong || '—'}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{d.specifications || '—'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{d.soLuong || '—'}{d.unit ? ` ${d.unit}` : ''}</td>
                     {st !== 'pending' && (
                       <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                         <button onClick={() => removeDraft(d.uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>
@@ -501,10 +448,14 @@ function WireGroupPanel({
   )
 }
 
-// ─── WireCatalogTab ───────────────────────────────────────────────────
+// ─── WireCatalogTab (Material thật, quản lý ở Admin > Vật tư) ────────
 
-function WireCatalogTab({ planForms, catalog }: { planForms: PlanForm[]; catalog: MaterialLine[] }) {
-  const [catalogPreviewUrl, setCatalogPreviewUrl] = useState<string | null>(null)
+function WireCatalogTab({ planForms, dayGroupId, dinhGroupId }: { planForms: PlanForm[]; dayGroupId?: number; dinhGroupId?: number }) {
+  const { data: materialsData } = useFetch(() => api.getMaterials(), [])
+  const materials = materialsData ?? []
+  const wireMaterials = materials.filter(m => m.kind === 'CONSUMABLE' && (dayGroupId == null || m.materialGroupId === dayGroupId))
+  const nailMaterials = materials.filter(m => m.kind === 'CONSUMABLE' && (dinhGroupId == null || m.materialGroupId === dinhGroupId))
+  const paintMaterials = materials.filter(m => m.kind === 'PAINT')
   const [catalogSearch, setCatalogSearch] = useState('')
 
   // Từ chối ở cả 3 nguồn (mảnh dây, mảnh đinh, chi tiết Sơn) — cùng shape DaySonItem nên gộp chung 1 bảng.
@@ -523,12 +474,17 @@ function WireCatalogTab({ planForms, catalog }: { planForms: PlanForm[]; catalog
     return groups
   })
 
+  const allCatalog = [...wireMaterials, ...nailMaterials, ...paintMaterials].filter(m => {
+    const q = catalogSearch.toLowerCase()
+    return m.code.toLowerCase().includes(q) || m.name.toLowerCase().includes(q)
+  })
+
   return (
     <>
       <div>
         <div style={{ marginBottom: 20 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh sách vật tư — Dây, Đinh & Sơn</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Các mã dây, đinh & sơn đã từng nhập (mảnh dây/đinh + Sơn chi tiết), dùng để tra cứu</p>
+          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Vật tư thật (Admin &gt; Vật tư) đã gán đúng loại/nhóm — dùng để chọn khi nhập định mức</p>
         </div>
 
         {rejectedGroups.length > 0 && (
@@ -541,7 +497,7 @@ function WireCatalogTab({ planForms, catalog }: { planForms: PlanForm[]; catalog
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: '#ffebee', borderBottom: '1px solid #ffcdd2' }}>
-                    {['SKU', 'Mã', 'Số lượng', 'Mô tả', 'Lý do từ chối'].map((h, i) => (
+                    {['SKU', 'Vật tư', 'Số lượng', 'Lý do từ chối'].map((h, i) => (
                       <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: '#b71c1c', fontSize: 11 }}>{h}</th>
                     ))}
                   </tr>
@@ -552,7 +508,6 @@ function WireCatalogTab({ planForms, catalog }: { planForms: PlanForm[]; catalog
                       <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text2)' }}>{g.ten}</td>
                       <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{it.name}</td>
                       <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{it.kg != null ? `${it.kg}${it.unit ? ` ${it.unit}` : ''}` : '—'}</td>
-                      <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{it.specifications || '—'}</td>
                       <td style={{ padding: '10px 14px', color: '#c62828', fontSize: 13 }}>{g.reason || '—'}</td>
                     </tr>
                   )))}
@@ -566,7 +521,7 @@ function WireCatalogTab({ planForms, catalog }: { planForms: PlanForm[]; catalog
           <input
             value={catalogSearch}
             onChange={e => setCatalogSearch(e.target.value)}
-            placeholder="Tìm theo mã hoặc mô tả…"
+            placeholder="Tìm theo mã hoặc tên vật tư…"
             style={{ maxWidth: 320, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
           />
         </div>
@@ -574,39 +529,23 @@ function WireCatalogTab({ planForms, catalog }: { planForms: PlanForm[]; catalog
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                {['Mã', 'Mô tả', 'ĐVT', 'Image URL'].map((h, i) => (
+                {['Mã', 'Tên vật tư', 'ĐVT'].map((h, i) => (
                   <th key={i} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {catalog.filter(c => {
-                const q = catalogSearch.toLowerCase()
-                return c.code.toLowerCase().includes(q) || c.specifications.toLowerCase().includes(q)
-              }).map((item, i, arr) => (
-                <tr key={item.uid} style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
+              {allCatalog.map((item, i, arr) => (
+                <tr key={item.id} style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
                   <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>{item.code}</td>
-                  <td style={{ padding: '12px 14px', color: 'var(--text3)' }}>{item.specifications || '—'}</td>
+                  <td style={{ padding: '12px 14px', color: 'var(--text3)' }}>{item.name}</td>
                   <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.unit || '—'}</td>
-                  <td style={{ padding: '12px 14px' }}>
-                    {item.imageUrl ? (
-                      <button onClick={() => setCatalogPreviewUrl(item.imageUrl)} title="Xem ảnh" style={{
-                        background: 'none', border: 'none', cursor: 'pointer',
-                        color: 'var(--text3)', display: 'flex', alignItems: 'center', padding: 2,
-                      }}>
-                        <Eye size={15} />
-                      </button>
-                    ) : <span style={{ color: 'var(--text3)' }}>—</span>}
-                  </td>
                 </tr>
               ))}
-              {catalog.filter(c => {
-                const q = catalogSearch.toLowerCase()
-                return c.code.toLowerCase().includes(q) || c.specifications.toLowerCase().includes(q)
-              }).length === 0 && (
+              {allCatalog.length === 0 && (
                 <tr>
-                  <td colSpan={4} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
-                    {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư nào được nhập.'}
+                  <td colSpan={3} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
+                    {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư nào — thêm ở Admin > Vật tư.'}
                   </td>
                 </tr>
               )}
@@ -614,110 +553,7 @@ function WireCatalogTab({ planForms, catalog }: { planForms: PlanForm[]; catalog
           </table>
         </div>
       </div>
-      {catalogPreviewUrl && (
-        <ImageModal url={catalogPreviewUrl} onClose={() => setCatalogPreviewUrl(null)} />
-      )}
     </>
-  )
-}
-
-function MaterialCodeSearch({ value, onSelect, catalog, codeLabel }: {
-  value: string
-  onSelect: (item: MaterialLine | null) => void
-  catalog: MaterialLine[]
-  codeLabel: string
-}) {
-  const [search, setSearch] = useState('')
-  const [focused, setFocused] = useState(false)
-
-  const filtered = search.trim() === ''
-    ? catalog
-    : catalog.filter(c =>
-        c.code.toLowerCase().includes(search.toLowerCase()) ||
-        c.specifications.toLowerCase().includes(search.toLowerCase())
-      )
-
-  return (
-    <div style={{ position: 'relative', flex: 1, minWidth: 130 }}>
-      <input
-        value={focused ? search : value}
-        placeholder={`Chọn hoặc nhập ${codeLabel.toLowerCase()}…`}
-        onFocus={() => { setFocused(true); setSearch('') }}
-        onBlur={() => setTimeout(() => { setFocused(false); setSearch('') }, 150)}
-        onChange={e => { setSearch(e.target.value); onSelect(null) }}
-        style={{ ...inputStyle, paddingRight: value && !focused ? 28 : 10 }}
-      />
-      {value && !focused && (
-        <button
-          onMouseDown={e => e.preventDefault()}
-          onClick={() => onSelect(null)}
-          style={{
-            position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--text3)', display: 'flex', alignItems: 'center', padding: 2,
-          }}>
-          <X size={13} />
-        </button>
-      )}
-      {focused && (
-        <div style={{
-          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 20px rgba(0,0,0,.12)',
-          maxHeight: 240, overflowY: 'auto', marginTop: 4,
-        }}>
-          {filtered.length === 0 ? (
-            <div style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 13 }}>
-              Không tìm thấy — {codeLabel.toLowerCase()} phải được cấu hình sẵn trong danh sách
-            </div>
-          ) : filtered.map(c => (
-            <div key={c.uid}
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => { onSelect(c); setFocused(false); setSearch('') }}
-              style={{
-                padding: '9px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
-                background: c.code === value ? 'var(--surface2)' : 'transparent',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-              onMouseLeave={e => (e.currentTarget.style.background = c.code === value ? 'var(--surface2)' : 'transparent')}
-            >
-              <div style={{ fontSize: 13, fontWeight: c.code === value ? 700 : 500, color: 'var(--text)' }}>{c.code}</div>
-              {c.specifications && (
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{c.specifications}</div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ImageModal({ url, onClose }: { url: string; onClose: () => void }) {
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(0,0,0,0.6)',
-        backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        cursor: 'zoom-out',
-      }}
-    >
-      <img
-        src={url}
-        alt="preview"
-        onClick={e => e.stopPropagation()}
-        style={{
-          maxWidth: '60vw', maxHeight: '70vh',
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
-          objectFit: 'contain',
-          cursor: 'default',
-        }}
-      />
-    </div>
   )
 }
 
