@@ -16,17 +16,17 @@ import type { Sku, ManhRow, ManhChildRow } from '../../../types/sku'
 // shape domain dễ đọc trong JSX khi đọc/ghi (xem toManh/toManhRow). Việc 2: mỗi đoạn sắt (child)
 // nay gắn với 1 Material (nhóm vật tư Sắt) thật qua materialId, chiều dài cắt (cutLengthMm) là số
 // nguyên thật — không còn gõ tên/quy cách/chiều dài tự do như trước.
-type ManChild = { id: number; materialId: number; loaiSatName: string; cutLengthMm: string; soLuong: string }
+type ManChild = { id: number; materialId: number; loaiSatName: string; specs: string; cutLengthMm: string; soLuong: string }
 type Manh = { id: number; tenManh: string; soLuong: string; children: ManChild[] }
 type BomItem = { id: number; ten: string; thoiGian: string }
 
 const toManh = (r: ManhRow): Manh => ({
   id: r.id, tenManh: r.name, soLuong: r.qtyPerSku ?? '1',
-  children: r.children.map(c => ({ id: c.id, materialId: Number(c.materialId) || 0, loaiSatName: c.name, cutLengthMm: c.length ?? '', soLuong: c.qty ?? '' })),
+  children: r.children.map(c => ({ id: c.id, materialId: Number(c.materialId) || 0, loaiSatName: c.name, specs: c.specs ?? '', cutLengthMm: c.length ?? '', soLuong: c.qty ?? '' })),
 })
 const toManhRow = (m: Manh): ManhRow => ({
   id: m.id, name: m.tenManh, qtyPerSku: m.soLuong,
-  children: m.children.map((c): ManhChildRow => ({ id: c.id, materialId: String(c.materialId), name: c.loaiSatName, length: c.cutLengthMm || undefined, qty: c.soLuong || undefined })),
+  children: m.children.map((c): ManhChildRow => ({ id: c.id, materialId: String(c.materialId), name: c.loaiSatName, specs: c.specs || undefined, length: c.cutLengthMm || undefined, qty: c.soLuong || undefined })),
 })
 
 // ─── FieldLabel ───────────────────────────────────────────────────────
@@ -89,6 +89,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [formSoLuong, setFormSoLuong] = useState('1')
   const [addingTo, setAddingTo] = useState<number | null>(null)
   const [childMaterial, setChildMaterial] = useState<PickedMaterial | null>(null)
+  const [childSpec, setChildSpec] = useState('')
   const [childCutLengthMm, setChildCutLengthMm] = useState('')
   const [childSoLuong, setChildSoLuong] = useState('')
   const [manhBomSearch, setManhBomSearch] = useState('')
@@ -100,7 +101,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     const maxId = existing.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
     setSelectedBom(item); setManhs(existing); setNextId(maxId + 1)
     setShowManhForm(false); setFormTenManh('')
-    setAddingTo(null); setChildMaterial(null); setChildCutLengthMm(''); setChildSoLuong('')
+    setAddingTo(null); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildSoLuong('')
   }
 
   const submitManh = async () => {
@@ -127,11 +128,11 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     if (!childMaterial || !childCutLengthMm.trim()) return
     setManhs(ms => ms.map(m =>
       m.id === manhId
-        ? { ...m, children: [...m.children, { id: nextId, materialId: childMaterial.id, loaiSatName: `${childMaterial.code} — ${childMaterial.name}`, cutLengthMm: childCutLengthMm, soLuong: childSoLuong }] }
+        ? { ...m, children: [...m.children, { id: nextId, materialId: childMaterial.id, loaiSatName: `${childMaterial.code} — ${childMaterial.name}`, specs: childSpec, cutLengthMm: childCutLengthMm, soLuong: childSoLuong }] }
         : m
     ))
     setNextId(n => n + 1)
-    setChildMaterial(null); setChildCutLengthMm(''); setChildSoLuong('')
+    setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildSoLuong('')
   }
 
   const deleteChild = (manhId: number, childId: number) =>
@@ -319,7 +320,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   {!isSubmitted && (
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                       <button
-                        onClick={() => addingTo === m.id ? setAddingTo(null) : (setAddingTo(m.id), setChildMaterial(null), setChildCutLengthMm(''), setChildSoLuong(''))}
+                        onClick={() => addingTo === m.id ? setAddingTo(null) : (setAddingTo(m.id), setChildMaterial(null), setChildSpec(''), setChildCutLengthMm(''), setChildSoLuong(''))}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
                           border: '1px solid var(--border)', borderRadius: 'var(--radius)',
@@ -344,6 +345,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       <tr style={{ background: 'var(--surface2)' }}>
                         <th style={{ width: 36, padding: '7px', textAlign: 'center', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>#</th>
                         <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Vật tư</th>
+                        <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Quy cách</th>
                         <th style={{ width: 110, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài (mm)</th>
                         <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
                         {!isSubmitted && <th style={{ width: 44 }}></th>}
@@ -355,6 +357,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                           <tr key={c.id} style={{ borderTop: '1px solid var(--border)' }}>
                             <td style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 12, padding: '9px 7px' }}>{i + 1}</td>
                             <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>{c.loaiSatName}</td>
+                            <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{c.specs || '—'}</td>
                             <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>{c.cutLengthMm || '—'}</td>
                             <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.soLuong || '—'}</td>
                             {!isSubmitted && (
@@ -380,7 +383,19 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   }}>
                     <div style={{ width: 240 }}>
                       <FL>Vật tư (nhóm Sắt)</FL>
-                      <MaterialPicker value={childMaterial} onSelect={setChildMaterial} materialGroupId={steelGroupId} placeholder="Chọn loại sắt…" />
+                      <MaterialPicker
+                        value={childMaterial}
+                        onSelect={m => { setChildMaterial(m); setChildSpec(m?.spec ?? '') }}
+                        materialGroupId={steelGroupId}
+                        placeholder="Chọn loại sắt…"
+                      />
+                    </div>
+                    <div style={{ width: 150 }}>
+                      <FL>Quy cách</FL>
+                      <input placeholder="VD: 10x29x0.8" value={childSpec}
+                        onChange={e => setChildSpec(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && addChild(m.id)}
+                        style={inputStyle} />
                     </div>
                     <div style={{ width: 120 }}>
                       <FL>Chiều dài cắt (mm)</FL>
@@ -498,7 +513,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['Mã vật tư', 'Tên vật tư', 'ĐVT'].map((h, i) => (
+                  {['Mã vật tư', 'Tên vật tư', 'Quy cách', 'ĐVT'].map((h, i) => (
                     <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>
@@ -511,6 +526,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   <tr key={s.id} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px 14px', fontWeight: 600 }}>{s.code}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{s.name}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{s.spec || '—'}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{s.unit}</td>
                   </tr>
                 ))}
@@ -519,7 +535,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   return s.code.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)
                 }).length === 0 && (
                   <tr>
-                    <td colSpan={3} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
+                    <td colSpan={4} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
                       {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư nhóm Sắt nào — thêm ở Admin > Vật tư.'}
                     </td>
                   </tr>

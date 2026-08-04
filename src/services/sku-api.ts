@@ -44,6 +44,7 @@ interface BeSteelSegment {
   materialId: string;
   materialCode: string;
   materialName: string;
+  materialSpec: string | null;
   cutLengthMm: number;
   qtyPerPiece: number;
   needsHan: boolean;
@@ -111,6 +112,7 @@ function toManhRow(p: BeSteelPiece): ManhRow {
         segmentSpecId: s.segmentSpecId,
         materialId: s.materialId,
         name: s.materialName,
+        specs: s.materialSpec ?? undefined,
         length: String(s.cutLengthMm),
         qty: String(s.qtyPerPiece),
       }),

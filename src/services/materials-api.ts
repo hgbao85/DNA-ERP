@@ -12,6 +12,7 @@ export interface BeMaterial {
   code: string;
   name: string;
   unit: string;
+  spec: string | null;
   materialGroupId: number | null;
   khoUnitFactor: number | null;
   isActive: boolean;
@@ -38,6 +39,7 @@ export async function createMaterial(data: Record<string, unknown>): Promise<BeM
     code: data.code,
     name: data.name,
     unit: data.unit,
+    spec: data.spec,
     materialGroupId: data.materialGroupId || undefined,
     khoUnitFactor: data.khoUnitFactor,
   });
@@ -48,6 +50,7 @@ export async function updateMaterial(id: number | string, data: Record<string, u
     code: data.code,
     name: data.name,
     unit: data.unit,
+    spec: data.spec,
     materialGroupId: data.materialGroupId || undefined,
     khoUnitFactor: data.khoUnitFactor,
     isActive: data.isActive,

@@ -10,6 +10,7 @@ interface Material {
   code: string
   name: string
   unit: string
+  spec?: string | null
   materialGroupId?: number | null
   khoUnitFactor?: number | null
 }
@@ -37,6 +38,7 @@ export default function MaterialsPage() {
       { key: 'code', label: 'Mã vật tư' },
       { key: 'name', label: 'Tên vật tư' },
       { key: 'unit', label: 'Đơn vị' },
+      { key: 'spec', label: 'Quy cách', render: (m) => m.spec || '—' },
       { key: 'materialGroupId', label: 'Nhóm vật tư', render: (m) => groupName(m.materialGroupId) },
       { key: 'khoUnitFactor', label: 'Hệ số quy đổi kho', align: 'right' },
     ],
@@ -48,6 +50,7 @@ export default function MaterialsPage() {
       { name: 'code', label: 'Mã vật tư', type: 'text' },
       { name: 'name', label: 'Tên vật tư', type: 'text' },
       { name: 'unit', label: 'Đơn vị tính', type: 'text' },
+      { name: 'spec', label: 'Quy cách', type: 'text', placeholder: 'VD: 10x29x0.8' },
       {
         name: 'materialGroupId', label: 'Nhóm vật tư', type: 'select',
         options: groupList.map((g) => ({ value: String(g.id), label: g.name })),
