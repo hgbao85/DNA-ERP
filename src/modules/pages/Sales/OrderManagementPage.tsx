@@ -11,26 +11,6 @@ import SearchableSelect from '../../../components/SearchableSelect'
 
 const fmtMoney = (n: number) => n.toLocaleString('vi-VN')
 
-/**
- * Đồng bộ PO vừa tạo sang "Lệnh sản xuất mới" (LenhSXPage) của productplan@demo.com.
- * Màn hình đó đọc api.getProductionInvoices() và chỉ hiển thị các bản ghi status
- * 'PLANNING' — map đúng shape items[].productVariant.mfgProduct + quantity +
- * deliveryDeadline là đủ để nó tự hiển thị (kể cả ước tính các mốc còn thiếu).
- */
-function createProductionInvoiceFromPO(po: SalesPO) {
-  return api.createProductionInvoice({
-    status: 'PLANNING',
-    deadline: po.deliveryDate || new Date().toISOString(),
-    exportOrder: { poNumber: po.code },
-    items: po.items.map((it) => ({
-      quantity: it.totalQty,
-      deliveryDeadline: it.deliveryDate || undefined,
-      status: it.status,
-      productVariant: { colorCode: null, mfgProduct: { factoryCode: it.skuCode, name: it.skuName ?? '' } },
-    })),
-  })
-}
-
 type ItemDraft = { skuCode: string; skuName: string; totalQty: string; deliveryDate: string }
 const EMPTY_ITEM: ItemDraft = { skuCode: '', skuName: '', totalQty: '', deliveryDate: '' }
 type FormState = {
@@ -76,7 +56,7 @@ export default function OrderManagementPage() {
     if (!form.customerId || form.items.length === 0) return
     setSaving(true)
     try {
-      const customer = (customers ?? []).find((c) => c.id === Number(form.customerId))
+      const customer = (customers ?? []).find((c) => String(c.id) === form.customerId)
       const items = form.items
         .filter((it) => it.skuCode.trim())
         .map((it) => ({
@@ -92,7 +72,7 @@ export default function OrderManagementPage() {
         it.deliveryDate && (!latest || it.deliveryDate > latest) ? it.deliveryDate : latest
       ), '')
       const payload = {
-        customerId: Number(form.customerId),
+        customerId: form.customerId,
         customerName: customer?.name ?? '',
         orderDate: new Date(form.orderDate).toISOString(),
         deliveryDate,
@@ -101,8 +81,7 @@ export default function OrderManagementPage() {
         note: form.note.trim() || undefined,
         items,
       }
-      const createdPO = await api.createSalesPO(payload)
-      await createProductionInvoiceFromPO(createdPO)
+      await api.createSalesPO(payload)
       await refetch()
       setShowCreate(false)
     } finally {

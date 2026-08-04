@@ -1,10 +1,10 @@
 export interface SalesCustomer {
   id: number;
   name: string;
-  phone: string;
-  email?: string;
-  address?: string;
-  note?: string;
+  phone: string | null;
+  email?: string | null;
+  address?: string | null;
+  note?: string | null;
   createdAt: string;
 }
 

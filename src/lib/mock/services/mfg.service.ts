@@ -2,157 +2,20 @@ import { mockDelay } from '../core/delay';
 import { mockStore } from '../core/store';
 import { nextId } from '../core/id';
 import { BaseService } from '../core/base.service';
-import { assertBossRole, assertProdMgrRole } from '../core/auth-guard';
 
 const clone = <T>(v: T): T => structuredClone(v);
 const ok = async <T>(v: T) => { await mockDelay(); return v; };
 
 // ─── Service classes ──────────────────────────────────────────────────────────
 
-class ExportCustomerService extends BaseService<any> {
-  constructor() { super('mfgExportCustomers'); }
-
-  async update(id: number, data: Record<string, unknown>) {
-    await mockDelay();
-    mockStore.update((s) => {
-      const i = s.mfgExportCustomers.findIndex((c) => c.id === id);
-      if (i >= 0) Object.assign(s.mfgExportCustomers[i], data);
-    });
-    return mockStore.get().mfgExportCustomers.find((c) => c.id === id);
-  }
-}
-
-class MfgProductService extends BaseService<any> {
-  constructor() { super('mfgProducts'); }
-
-  async getVariantsByProduct(productId: number) {
-    return ok(clone(mockStore.get().productVariants.filter((v) => v.mfgProductId === productId)));
-  }
-
-  async getAllVariants() {
-    const s = mockStore.get();
-    return ok(
-      clone(s.productVariants).map((v: any) => ({
-        ...v,
-        exportCustomer: s.mfgExportCustomers.find((c: any) => c.id === v.exportCustomerId) ?? null,
-      })),
-    );
-  }
-
-  async createVariant(data: Record<string, unknown>) {
-    await mockDelay();
-    const row = { id: nextId(), isActive: true, ...data };
-    mockStore.update((s) => (s.productVariants as any[]).push(row));
-    return row;
-  }
-}
-
-class MaterialService extends BaseService<any> {
-  constructor() { super('materials'); }
-
-  async update(id: number, data: Record<string, unknown>) {
-    await mockDelay();
-    mockStore.update((s) => {
-      const i = s.materials.findIndex((m) => m.id === id);
-      if (i >= 0) Object.assign(s.materials[i], data);
-    });
-    return mockStore.get().materials.find((m) => m.id === id);
-  }
-}
-
-class MaterialGroupService extends BaseService<any> {
-  constructor() { super('materialGroups'); }
-
-  async createGroup(name: string) {
-    await mockDelay();
-    const row = { id: nextId(), name };
-    mockStore.update((s) => s.materialGroups.push(row));
-    return row;
-  }
-}
-
+// ProductionInvoiceService: CHỈ còn phần "thực thi" (Phôi/Hàn/Sơn/KCS demo — stages, labor
+// cost, planning, material check) — phần CRUD + duyệt sản xuất theo item (findById/create/
+// update/sendItemToQlsx/sendItemToBoss/approveItemByBoss/rejectItem/startProducing) đã thay
+// bằng BE thật (services/production-invoices-api.ts). Các hàm còn lại ở đây tiếp tục đọc
+// mockStore.productionInvoices (dữ liệu seed cũ) — nằm ngoài phạm vi domain Sales/Production
+// Order vừa nối, để dành phase riêng (thực thi Phôi/Hàn/Sơn/KCS).
 class ProductionInvoiceService extends BaseService<any> {
   constructor() { super('productionInvoices'); }
-
-  async findById(id: number) {
-    const pi = mockStore.get().productionInvoices.find((p) => p.id === id);
-    if (!pi) throw new Error(`Lệnh sản xuất #${id} không tồn tại`);
-    return ok(clone(pi));
-  }
-
-  async create(data: Record<string, unknown>) {
-    await mockDelay();
-    const row = { id: nextId(), code: `PI-2026-${nextId()}`, status: 'NEW', items: [], stages: [], ...data };
-    mockStore.update((s) => (s.productionInvoices as any[]).unshift(row));
-    return row;
-  }
-
-  async update(id: number, data: Record<string, unknown>) {
-    await mockDelay();
-    mockStore.update((s) => {
-      const i = s.productionInvoices.findIndex((p) => p.id === id);
-      if (i >= 0) Object.assign(s.productionInvoices[i], data);
-    });
-    return mockStore.get().productionInvoices.find((p) => p.id === id);
-  }
-
-  private findItem(piId: number, itemIdx: number) {
-    const pi = mockStore.get().productionInvoices.find((p) => p.id === piId) as any;
-    return { pi, item: pi?.items?.[itemIdx] };
-  }
-
-  /** KHSX gửi 1 SKU cho QLSX xử lý — QLSX sẽ chọn kho thành phẩm làm điểm cuối trước khi trình sếp duyệt. */
-  async sendItemToQlsx(piId: number, itemIdx: number, requestedBy?: string) {
-    await mockDelay();
-    mockStore.update(() => {
-      const { item } = this.findItem(piId, itemIdx);
-      if (item) item.prodApproval = { status: 'WAITING_QLSX', requestedAt: new Date().toISOString(), requestedBy };
-    });
-    return mockStore.get().productionInvoices.find((p) => p.id === piId);
-  }
-
-  /** QLSX chọn kho thành phẩm (warehouseScope, vd 'thanh-pham-2') làm điểm cuối rồi gửi sếp duyệt lần cuối — chặn ở tầng service. */
-  async sendItemToBoss(piId: number, itemIdx: number, warehouse: { code: string; name: string }, sentBy?: string) {
-    assertProdMgrRole();
-    await mockDelay();
-    mockStore.update(() => {
-      const { item } = this.findItem(piId, itemIdx);
-      if (item) item.prodApproval = {
-        ...item.prodApproval,
-        status: 'WAITING_BOSS',
-        warehouseCode: warehouse.code,
-        warehouseName: warehouse.name,
-        qlsxAt: new Date().toISOString(),
-        qlsxBy: sentBy,
-      };
-    });
-    return mockStore.get().productionInvoices.find((p) => p.id === piId);
-  }
-
-  /** Sếp duyệt cuối — SKU bắt đầu sản xuất; PO tự chuyển "Đang sản xuất" khi mọi SKU đã duyệt. */
-  async approveItemByBoss(piId: number, itemIdx: number, decidedBy?: string) {
-    assertBossRole();
-    await mockDelay();
-    mockStore.update(() => {
-      const { pi, item } = this.findItem(piId, itemIdx);
-      if (item) item.prodApproval = { ...item.prodApproval, status: 'APPROVED', decidedAt: new Date().toISOString(), decidedBy };
-      if (pi && Array.isArray(pi.items) && pi.items.every((it: any) => it.prodApproval?.status === 'APPROVED')) {
-        pi.status = 'PRODUCING';
-      }
-    });
-    return mockStore.get().productionInvoices.find((p) => p.id === piId);
-  }
-
-  /** Sếp từ chối — SKU quay về cho KHSX sửa thời hạn và gửi lại từ đầu. */
-  async rejectItem(piId: number, itemIdx: number, reason: string, decidedBy?: string) {
-    assertBossRole();
-    await mockDelay();
-    mockStore.update(() => {
-      const { item } = this.findItem(piId, itemIdx);
-      if (item) item.prodApproval = { ...item.prodApproval, status: 'REJECTED', reason, decidedAt: new Date().toISOString(), decidedBy };
-    });
-    return mockStore.get().productionInvoices.find((p) => p.id === piId);
-  }
 
   async getKcsPendingCounts() {
     return ok(clone(mockStore.get().kcsPending));
@@ -271,49 +134,6 @@ class ProductionInvoiceService extends BaseService<any> {
   }
 }
 
-class ExportOrderService extends BaseService<any> {
-  constructor() { super('exportOrders'); }
-
-  async findById(id: number | string): Promise<any> {
-    await mockDelay();
-    return clone(mockStore.get().exportOrders.find((o) => o.id === id));
-  }
-
-  async create(data: Record<string, unknown>) {
-    await mockDelay();
-    const row = {
-      id: nextId(),
-      status: 'DRAFT',
-      paymentStatus: 'UNPAID',
-      items: [],
-      createdAt: new Date().toISOString(),
-      ...data,
-    };
-    mockStore.update((s) => (s.exportOrders as any[]).unshift(row));
-    return row;
-  }
-
-  async remove(id: number) {
-    await mockDelay();
-    mockStore.update((s) => { s.exportOrders = s.exportOrders.filter((o) => o.id !== id); });
-    return { id };
-  }
-
-  async updatePayment(id: number, data: Record<string, unknown>) {
-    await mockDelay();
-    mockStore.update((s) => {
-      const o = s.exportOrders.find((x) => x.id === id);
-      if (o) Object.assign(o, data);
-    });
-    return mockStore.get().exportOrders.find((o) => o.id === id);
-  }
-
-  async uploadContract(_file: File) {
-    await mockDelay();
-    return `/mock/contract-${Date.now()}.pdf`;
-  }
-}
-
 class MfgWarehouseService extends BaseService<any> {
   constructor() { super('mfgWarehouses'); }
 
@@ -377,30 +197,6 @@ class ExportPurposeService extends BaseService<any> {
 class WeavingService extends BaseService<any> {
   constructor() { super('weavingPoints'); }
 
-  async getPoints(_all?: boolean) { return ok(clone(mockStore.get().weavingPoints)); }
-
-  async createPoint(data: Record<string, unknown>) {
-    await mockDelay();
-    const row = { id: nextId(), isActive: true, ...data };
-    mockStore.update((s) => (s.weavingPoints as any[]).push(row));
-    return row;
-  }
-
-  async updatePoint(id: number, data: Record<string, unknown>) {
-    await mockDelay();
-    mockStore.update((s) => {
-      const i = s.weavingPoints.findIndex((p) => p.id === id);
-      if (i >= 0) Object.assign(s.weavingPoints[i], data);
-    });
-    return mockStore.get().weavingPoints.find((p) => p.id === id);
-  }
-
-  async deletePoint(id: number) {
-    await mockDelay();
-    mockStore.update((s) => { s.weavingPoints = s.weavingPoints.filter((p) => p.id !== id); });
-    return { id };
-  }
-
   async getConfig() { return ok(clone(mockStore.get().weavingConfig)); }
   async updateConfig(minAllocationQty: number) {
     await mockDelay();
@@ -426,37 +222,6 @@ class WeavingService extends BaseService<any> {
   async getChuyenKiem() { return ok(clone(mockStore.get().chuyenKiem)); }
   async reportChuyenKiem(data: Record<string, unknown>) { return ok({ id: nextId(), status: 'PENDING', ...data }); }
   async reviewChuyenKiem(reportId: number, data: Record<string, unknown>) { return ok({ reportId, ...data }); }
-}
-
-class DefectReasonService extends BaseService<any> {
-  constructor() { super('defectReasons'); }
-
-  async getAll(stageType?: string) {
-    const all = mockStore.get().defectReasons;
-    return ok(clone(stageType ? all.filter((d) => d.stageType === stageType) : all));
-  }
-
-  async create(data: Record<string, unknown>) {
-    await mockDelay();
-    const row = { id: nextId(), ...data };
-    mockStore.update((s) => (s.defectReasons as any[]).push(row));
-    return row;
-  }
-
-  async update(id: number, data: Record<string, unknown>) {
-    await mockDelay();
-    mockStore.update((s) => {
-      const i = s.defectReasons.findIndex((d) => d.id === id);
-      if (i >= 0) Object.assign(s.defectReasons[i], data);
-    });
-    return mockStore.get().defectReasons.find((d) => d.id === id);
-  }
-
-  async remove(id: number) {
-    await mockDelay();
-    mockStore.update((s) => { s.defectReasons = s.defectReasons.filter((d) => d.id !== id); });
-    return { id };
-  }
 }
 
 class PackagingService extends BaseService<any> {
@@ -519,53 +284,18 @@ class SpecEntryProposalService extends BaseService<any> {
 
 // ─── Service instances (singletons) ──────────────────────────────────────────
 
-const exportCustomerSvc = new ExportCustomerService();
-const mfgProductSvc = new MfgProductService();
-const materialSvc = new MaterialService();
-const materialGroupSvc = new MaterialGroupService();
 const piSvc = new ProductionInvoiceService();
-const exportOrderSvc = new ExportOrderService();
 const warehouseSvc = new MfgWarehouseService();
 const exportPurposeSvc = new ExportPurposeService();
 const weavingSvc = new WeavingService();
-const defectReasonSvc = new DefectReasonService();
 const packagingSvc = new PackagingService();
 const specEntryProposalSvc = new SpecEntryProposalService();
 
 // ─── Exports (API công khai, tương thích ngược hoàn toàn) ────────────────────
 
-export const getMfgExportCustomers = () => exportCustomerSvc.getAll();
-export const createMfgExportCustomer = (data: Record<string, unknown>) => exportCustomerSvc.create(data);
-export const updateMfgExportCustomer = (id: number, data: Record<string, unknown>) => exportCustomerSvc.update(id, data);
-export const deleteMfgExportCustomer = (id: number) => exportCustomerSvc.remove(id);
-
-export const getMfgProducts = () => mfgProductSvc.getAll();
-export const getMfgProductVariants = (productId: number) => mfgProductSvc.getVariantsByProduct(productId);
-export const getAllProductVariants = () => mfgProductSvc.getAllVariants();
-export const createMfgProduct = (data: Record<string, unknown>) => mfgProductSvc.create(data);
-export const createProductVariant = (data: Record<string, unknown>) => mfgProductSvc.createVariant(data);
-
-export const getMaterialGroups = () => materialGroupSvc.getAll();
-export const createMaterialGroup = (name: string) => materialGroupSvc.createGroup(name);
-export const updateMaterialGroup = (id: number, data: Record<string, unknown>) => materialGroupSvc.update(id, data);
-export const deleteMaterialGroup = (id: number) => materialGroupSvc.remove(id);
-export const getMaterials = () => materialSvc.getAll();
-export const createMaterial = (data: Record<string, unknown>) => materialSvc.create(data);
-export const updateMaterial = (id: number, data: Record<string, unknown>) => materialSvc.update(id, data);
-export const deleteMaterial = (id: number) => materialSvc.remove(id);
-
 export const getPILaborCost = (piId: number) => piSvc.getLaborCost(piId);
 
-export const getProductionInvoices = () => piSvc.getAll();
 export const getKcsPendingCounts = () => piSvc.getKcsPendingCounts();
-export const getProductionInvoice = (id: number) => piSvc.findById(id);
-export const createProductionInvoice = (data: Record<string, unknown>) => piSvc.create(data);
-export const updateProductionInvoice = (id: number, data: Record<string, unknown>) => piSvc.update(id, data);
-
-export const sendItemToQlsx = (piId: number, itemIdx: number, requestedBy?: string) => piSvc.sendItemToQlsx(piId, itemIdx, requestedBy);
-export const sendItemToBoss = (piId: number, itemIdx: number, warehouse: { code: string; name: string }, sentBy?: string) => piSvc.sendItemToBoss(piId, itemIdx, warehouse, sentBy);
-export const approveItemByBoss = (piId: number, itemIdx: number, decidedBy?: string) => piSvc.approveItemByBoss(piId, itemIdx, decidedBy);
-export const rejectProdItem = (piId: number, itemIdx: number, reason: string, decidedBy?: string) => piSvc.rejectItem(piId, itemIdx, reason, decidedBy);
 
 export const getStagesByPI = (piId: number) => piSvc.getStagesByPI(piId);
 export const updateStageProgress = (id: number, data: Record<string, unknown>) => piSvc.updateStageProgress(id, data);
@@ -577,17 +307,11 @@ export const reviewPhoiReport = async (id: number, data: Record<string, unknown>
 export const seedPhoi = (_piId: number) => ok({ ok: true });
 export const getPlanningPIs = () => piSvc.getPlanningPIs();
 export const checkPIMaterials = (piId: number) => piSvc.checkMaterials(piId);
-export const startProducingPI = (piId: number) => piSvc.startProducing(piId);
 export const createProposalFromPI = (_piId: number) => ok({ id: nextId(), code: 'DX-2026-NEW', status: 'PENDING' });
 
 export const getStageExec = (piId: number, stageType: string) => piSvc.getStageExec(piId, stageType);
 export const submitStageReport = async (data: Record<string, unknown>) => ok({ id: nextId(), status: 'PENDING', ...data });
 export const reviewStageReport = async (id: number, data: Record<string, unknown>) => ok({ id, ...data });
-
-export const getDefectReasons = (stageType?: string) => defectReasonSvc.getAll(stageType);
-export const createDefectReason = (data: Record<string, unknown>) => defectReasonSvc.create(data);
-export const updateDefectReason = (id: number, data: Record<string, unknown>) => defectReasonSvc.update(id, data);
-export const deleteDefectReason = (id: number) => defectReasonSvc.remove(id);
 
 export const getPackagingBOM = (variantId: number) => packagingSvc.getBOM(variantId);
 export const createPackagingBOMItem = (data: Record<string, unknown>) => packagingSvc.createBOMItem(data);
@@ -599,12 +323,12 @@ export const addManualPackaging = (_piId: number, data: Record<string, unknown>)
 export const updatePackagingReceived = (id: number, qtyReceived: number) => packagingSvc.updateReceived(id, qtyReceived);
 export const deletePackagingItem = (id: number) => packagingSvc.deleteItem(id);
 
-export const getExportOrders = () => exportOrderSvc.getAll();
-export const getExportOrder = (id: number) => exportOrderSvc.findById(id);
-export const createExportOrder = (data: Record<string, unknown>) => exportOrderSvc.create(data);
-export const deleteExportOrder = (id: number) => exportOrderSvc.remove(id);
-export const updateOrderPayment = (id: number, data: Record<string, unknown>) => exportOrderSvc.updatePayment(id, data);
-export const uploadContractFile = (file: File) => exportOrderSvc.uploadContract(file);
+// Upload file demo (ảnh KCS, hợp đồng...) — không có backend lưu file thật ở phase này,
+// vẫn giữ mock cho mọi nơi cần 1 URL giả (kcsCore.tsx, đính kèm PO...).
+export const uploadContractFile = async (_file: File) => {
+  await mockDelay();
+  return `/mock/contract-${Date.now()}.pdf`;
+};
 
 export const getMfgWarehouses = () => warehouseSvc.getAll();
 export const createMfgWarehouse = (data: Record<string, unknown>) => warehouseSvc.create(data);
@@ -624,10 +348,6 @@ export const createExportPurpose = (label: string) => exportPurposeSvc.createWit
 export const updateExportPurpose = (id: number, data: Record<string, unknown>) => exportPurposeSvc.update(id, data);
 export const deleteExportPurpose = (id: number) => exportPurposeSvc.remove(id);
 
-export const getWeavingPoints = (_all?: boolean) => weavingSvc.getPoints(_all);
-export const createWeavingPoint = (data: Record<string, unknown>) => weavingSvc.createPoint(data);
-export const updateWeavingPoint = (id: number, data: Record<string, unknown>) => weavingSvc.updatePoint(id, data);
-export const deleteWeavingPoint = (id: number) => weavingSvc.deletePoint(id);
 export const getWeavingConfig = () => weavingSvc.getConfig();
 export const updateWeavingConfig = (minAllocationQty: number) => weavingSvc.updateConfig(minAllocationQty);
 export const getFinishedFrames = () => weavingSvc.getFinishedFrames();

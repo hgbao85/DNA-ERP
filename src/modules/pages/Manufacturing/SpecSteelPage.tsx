@@ -2,156 +2,31 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { ChevronRight, ChevronLeft, Plus, X } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
+import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import { PLANFORM_ENTITY, isPartsApproved } from '../../../constants/planFormStatus'
-import { flattenManhSteel } from '../../../utils/manhMaterials'
 import type { PlanForm, ManhRow, ManhChildRow } from '../../../types/plan-form'
 
 // ─── Types ────────────────────────────────────────────────────────────
 // "Định mức mảnh" (Manh/children) đọc/ghi thẳng PlanForm thật (manhData.sat) — quy đổi sang/từ
-// shape domain dễ đọc trong JSX khi đọc/ghi (xem toManh/toManhRow).
-type SteelItem = { name: string; specs: string; unit: string; chieuDai: string }
-type ManChild = { id: number; loaiSatName: string; specs: string; chieuDai: string; soLuong: string }
+// shape domain dễ đọc trong JSX khi đọc/ghi (xem toManh/toManhRow). Việc 2: mỗi đoạn sắt (child)
+// nay gắn với 1 Material (kind=STEEL_BAR) thật qua materialId, chiều dài cắt (cutLengthMm) là số
+// nguyên thật — không còn gõ tên/quy cách/chiều dài tự do như trước.
+type ManChild = { id: number; materialId: number; loaiSatName: string; cutLengthMm: string; soLuong: string }
 type Manh = { id: number; tenManh: string; soLuong: string; children: ManChild[] }
 type BomItem = { id: number; ten: string; thoiGian: string }
 
 const toManh = (r: ManhRow): Manh => ({
   id: r.id, tenManh: r.name, soLuong: r.qtyPerSku ?? '1',
-  children: r.children.map(c => ({ id: c.id, loaiSatName: c.name, specs: c.specs ?? '', chieuDai: c.length ?? '', soLuong: c.qty ?? '' })),
+  children: r.children.map(c => ({ id: c.id, materialId: Number(c.materialId) || 0, loaiSatName: c.name, cutLengthMm: c.length ?? '', soLuong: c.qty ?? '' })),
 })
 const toManhRow = (m: Manh): ManhRow => ({
   id: m.id, name: m.tenManh, qtyPerSku: m.soLuong,
-  children: m.children.map((c): ManhChildRow => ({ id: c.id, name: c.loaiSatName, specs: c.specs || undefined, length: c.chieuDai || undefined, qty: c.soLuong || undefined })),
+  children: m.children.map((c): ManhChildRow => ({ id: c.id, materialId: String(c.materialId), name: c.loaiSatName, length: c.cutLengthMm || undefined, qty: c.soLuong || undefined })),
 })
-
-// ─── SteelSearch ──────────────────────────────────────────────────────
-// Nhập tự do được — dropdown chỉ là gợi ý từ catalog, không bắt buộc chọn
-function SteelSearch({ selectedName, onChange, onSelectFromCatalog, catalog }: {
-  selectedName: string
-  onChange: (name: string) => void
-  onSelectFromCatalog: (item: SteelItem) => void
-  catalog: SteelItem[]
-}) {
-  const [focused, setFocused] = useState(false)
-
-  const filtered = selectedName.trim() === ''
-    ? catalog
-    : catalog.filter(s => s.name.toLowerCase().includes(selectedName.toLowerCase()))
-
-  const isNew = selectedName.trim() !== '' && !catalog.some(s => s.name.toLowerCase() === selectedName.trim().toLowerCase())
-
-  return (
-    <div style={{ position: 'relative', flex: 1 }}>
-      <input
-        value={selectedName}
-        placeholder="Nhập hoặc chọn tên sắt…"
-        onFocus={() => setFocused(true)}
-        onBlur={() => setTimeout(() => setFocused(false), 150)}
-        onChange={e => onChange(e.target.value)}
-        style={{
-          width: '100%', padding: '7px 10px', fontSize: 13,
-          border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-          background: 'var(--surface)', color: 'var(--text)',
-          outline: 'none', boxSizing: 'border-box',
-        }}
-      />
-      {focused && (
-        <div style={{
-          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 20px rgba(0,0,0,.12)',
-          maxHeight: 220, overflowY: 'auto', marginTop: 4,
-        }}>
-          {isNew && (
-            <div style={{ padding: '8px 14px', fontSize: 12, color: '#1565c0', background: '#e3f2fd', borderBottom: '1px solid var(--border)' }}>
-              + Loại mới — sẽ thêm vào danh sách khi được duyệt
-            </div>
-          )}
-          {filtered.length === 0 && !isNew && (
-            <div style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 13 }}>Không tìm thấy gợi ý nào.</div>
-          )}
-          {filtered.map((s, i) => {
-            const isSel = s.name === selectedName
-            return (
-              <div key={`${s.name}-${i}`}
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => { onSelectFromCatalog(s); setFocused(false) }}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '9px 14px', cursor: 'pointer',
-                  background: isSel ? 'var(--surface2)' : 'transparent',
-                  borderBottom: '1px solid var(--border)',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                onMouseLeave={e => (e.currentTarget.style.background = isSel ? 'var(--surface2)' : 'transparent')}
-              >
-                <span style={{ fontSize: 13, fontWeight: isSel ? 700 : 400, color: 'var(--text)' }}>{s.name}</span>
-                <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 'auto' }}>{s.specs}</span>
-              </div>
-            )
-          })}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ─── SpecsInput ───────────────────────────────────────────────────────
-function SpecsInput({ value, onChange, materialName, catalog, field = 'specs' }: {
-  value: string
-  onChange: (v: string) => void
-  materialName: string
-  catalog: SteelItem[]
-  field?: 'specs' | 'chieuDai'
-}) {
-  const [focused, setFocused] = useState(false)
-
-  const suggestions = catalog.filter(s => s.name === materialName && s[field]).map(s => s[field])
-  const filtered = value.trim()
-    ? suggestions.filter(s => s.toLowerCase().includes(value.toLowerCase()))
-    : suggestions
-  const showDropdown = focused && suggestions.length > 0
-
-  return (
-    <div style={{ position: 'relative', flex: 1, minWidth: 130 }}>
-      <input
-        value={value}
-        onChange={e => onChange(e.target.value)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => setTimeout(() => setFocused(false), 150)}
-        placeholder=""
-        style={inputStyle}
-      />
-      {showDropdown && filtered.length > 0 && (
-        <div style={{
-          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 20px rgba(0,0,0,.12)',
-          marginTop: 4, overflow: 'hidden',
-        }}>
-          {filtered.map(s => (
-            <div key={s}
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => { onChange(s); setFocused(false) }}
-              style={{
-                padding: '8px 14px', cursor: 'pointer', fontSize: 13,
-                fontFamily: 'monospace', color: 'var(--text)',
-                borderBottom: '1px solid var(--border)',
-                background: s === value ? 'var(--surface2)' : 'transparent',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-              onMouseLeave={e => (e.currentTarget.style.background = s === value ? 'var(--surface2)' : 'transparent')}
-            >
-              {s}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 // ─── FieldLabel ───────────────────────────────────────────────────────
 function FL({ children }: { children: React.ReactNode }) {
@@ -178,22 +53,10 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const { logAction } = useAuditLog()
   const { data: planFormsData, refetch: refetchPlanForms } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
   const planForms = (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT')
+  const { data: materialsData } = useFetch(() => api.getMaterials(), [])
+  const steelMaterials = (materialsData ?? []).filter(m => m.kind === 'STEEL_BAR')
 
   const findPf = (id: number) => planForms.find(pf => pf.id === id)
-
-  // Danh mục tên/quy cách sắt đã từng nhập trên mọi SKU thật (từ định mức mảnh) — dùng gợi ý
-  // autocomplete cho tab "Định mức" lẫn tab "Catalog".
-  const catalog: SteelItem[] = (() => {
-    const seen = new Map<string, SteelItem>()
-    for (const pf of planForms) {
-      for (const it of flattenManhSteel(pf)) {
-        const key = it.name.trim().toLowerCase()
-        if (!key || seen.has(key)) continue
-        seen.set(key, { name: it.name, specs: it.specifications ?? '', unit: it.unit ?? '', chieuDai: it.chieuDai ?? '' })
-      }
-    }
-    return Array.from(seen.values())
-  })()
 
   // ── Định mức (mảnh) — PlanForm thật (manhData.sat / manhEntryMeta.sat) ─────────
   // Mảnh là bước nhập đầu tiên trong flow hiện tại nên hiện luôn cho mọi SKU chưa DRAFT.
@@ -223,9 +86,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [formTenManh, setFormTenManh] = useState('')
   const [formSoLuong, setFormSoLuong] = useState('1')
   const [addingTo, setAddingTo] = useState<number | null>(null)
-  const [childSatName, setChildSatName] = useState('')
-  const [childSpecs, setChildSpecs] = useState('')
-  const [childChieuDai, setChildChieuDai] = useState('')
+  const [childMaterial, setChildMaterial] = useState<PickedMaterial | null>(null)
+  const [childCutLengthMm, setChildCutLengthMm] = useState('')
   const [childSoLuong, setChildSoLuong] = useState('')
   const [manhBomSearch, setManhBomSearch] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
@@ -236,7 +98,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     const maxId = existing.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
     setSelectedBom(item); setManhs(existing); setNextId(maxId + 1)
     setShowManhForm(false); setFormTenManh('')
-    setAddingTo(null); setChildSatName(''); setChildSpecs(''); setChildChieuDai(''); setChildSoLuong('')
+    setAddingTo(null); setChildMaterial(null); setChildCutLengthMm(''); setChildSoLuong('')
   }
 
   const submitManh = async () => {
@@ -260,14 +122,14 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   }
 
   const addChild = (manhId: number) => {
-    if (!childSatName) return
+    if (!childMaterial || !childCutLengthMm.trim()) return
     setManhs(ms => ms.map(m =>
       m.id === manhId
-        ? { ...m, children: [...m.children, { id: nextId, loaiSatName: childSatName, specs: childSpecs, chieuDai: childChieuDai, soLuong: childSoLuong }] }
+        ? { ...m, children: [...m.children, { id: nextId, materialId: childMaterial.id, loaiSatName: `${childMaterial.code} — ${childMaterial.name}`, cutLengthMm: childCutLengthMm, soLuong: childSoLuong }] }
         : m
     ))
     setNextId(n => n + 1)
-    setChildSatName(''); setChildSpecs(''); setChildChieuDai(''); setChildSoLuong('')
+    setChildMaterial(null); setChildCutLengthMm(''); setChildSoLuong('')
   }
 
   const deleteChild = (manhId: number, childId: number) =>
@@ -455,7 +317,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   {!isSubmitted && (
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                       <button
-                        onClick={() => addingTo === m.id ? setAddingTo(null) : (setAddingTo(m.id), setChildSatName(''), setChildSpecs(''), setChildChieuDai(''), setChildSoLuong(''))}
+                        onClick={() => addingTo === m.id ? setAddingTo(null) : (setAddingTo(m.id), setChildMaterial(null), setChildCutLengthMm(''), setChildSoLuong(''))}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
                           border: '1px solid var(--border)', borderRadius: 'var(--radius)',
@@ -479,9 +341,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     <thead>
                       <tr style={{ background: 'var(--surface2)' }}>
                         <th style={{ width: 36, padding: '7px', textAlign: 'center', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>#</th>
-                        <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Loại sắt</th>
-                        <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Quy cách</th>
-                        <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài</th>
+                        <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Vật tư</th>
+                        <th style={{ width: 110, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài (mm)</th>
                         <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
                         {!isSubmitted && <th style={{ width: 44 }}></th>}
                       </tr>
@@ -492,8 +353,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                           <tr key={c.id} style={{ borderTop: '1px solid var(--border)' }}>
                             <td style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 12, padding: '9px 7px' }}>{i + 1}</td>
                             <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>{c.loaiSatName}</td>
-                            <td style={{ padding: '9px 14px', color: 'var(--text3)', fontSize: 12 }}>{c.specs || '—'}</td>
-                            <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>{c.chieuDai || '—'}</td>
+                            <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>{c.cutLengthMm || '—'}</td>
                             <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.soLuong || '—'}</td>
                             {!isSubmitted && (
                               <td style={{ textAlign: 'center', padding: '4px' }}>
@@ -516,19 +376,16 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     padding: '12px 16px',
                     borderTop: m.children.length > 0 ? '1px dashed var(--border)' : 'none',
                   }}>
-                    <div style={{ width: 200 }}>
-                      <FL>Loại sắt</FL>
-                      <SteelSearch selectedName={childSatName} catalog={catalog}
-                        onChange={name => { setChildSatName(name); setChildSpecs('') }}
-                        onSelectFromCatalog={item => { setChildSatName(item.name); setChildSpecs('') }} />
+                    <div style={{ width: 240 }}>
+                      <FL>Vật tư (kind=STEEL_BAR)</FL>
+                      <MaterialPicker value={childMaterial} onSelect={setChildMaterial} kind="STEEL_BAR" placeholder="Chọn loại sắt…" />
                     </div>
                     <div style={{ width: 120 }}>
-                      <FL>Quy cách</FL>
-                      <SpecsInput value={childSpecs} onChange={setChildSpecs} materialName={childSatName} catalog={catalog} />
-                    </div>
-                    <div style={{ width: 100 }}>
-                      <FL>Chiều dài</FL>
-                      <SpecsInput value={childChieuDai} onChange={setChildChieuDai} materialName={childSatName} catalog={catalog} field="chieuDai" />
+                      <FL>Chiều dài cắt (mm)</FL>
+                      <input type="number" min={1} placeholder="930" value={childCutLengthMm}
+                        onChange={e => setChildCutLengthMm(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && addChild(m.id)}
+                        style={inputStyle} />
                     </div>
                     <div style={{ width: 100 }}>
                       <FL>Số lượng</FL>
@@ -538,11 +395,11 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         style={inputStyle} />
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={() => addChild(m.id)} disabled={!childSatName} style={{
+                      <button onClick={() => addChild(m.id)} disabled={!childMaterial || !childCutLengthMm.trim()} style={{
                         padding: '7px 14px', border: 'none', borderRadius: 'var(--radius)',
-                        background: childSatName ? '#1565c0' : '#ccc',
+                        background: childMaterial && childCutLengthMm.trim() ? '#1565c0' : '#ccc',
                         color: '#fff', fontWeight: 600, fontSize: 13,
-                        cursor: childSatName ? 'pointer' : 'not-allowed',
+                        cursor: childMaterial && childCutLengthMm.trim() ? 'pointer' : 'not-allowed',
                       }}>+ Thêm</button>
                       <button onClick={() => setAddingTo(null)} style={{
                         padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
@@ -624,14 +481,14 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
         </div>
       )}
 
-      {/* ══ CATALOG VẬT TƯ ══ */}
+      {/* ══ CATALOG VẬT TƯ (Material thật, kind=STEEL_BAR — quản lý ở Admin > Vật tư) ══ */}
       {subTab === 'catalog' && (
         <div>
           <div style={{ marginBottom: 16 }}>
             <input
               value={catalogSearch}
               onChange={e => setCatalogSearch(e.target.value)}
-              placeholder="Tìm theo tên vật tư hoặc quy cách…"
+              placeholder="Tìm theo mã hoặc tên vật tư…"
               style={{ maxWidth: 320, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
             />
           </div>
@@ -639,29 +496,29 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['Tên vật tư', 'Quy cách', 'ĐVT'].map((h, i) => (
+                  {['Mã vật tư', 'Tên vật tư', 'ĐVT'].map((h, i) => (
                     <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {catalog.filter(s => {
+                {steelMaterials.filter(s => {
                   const q = catalogSearch.toLowerCase()
-                  return s.name.toLowerCase().includes(q) || s.specs.toLowerCase().includes(q)
-                }).map((s, i, arr) => (
-                  <tr key={i} style={{ borderBottom: i < arr.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                    <td style={{ padding: '10px 14px', fontWeight: 500 }}>{s.name}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{s.specs || '—'}</td>
+                  return s.code.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)
+                }).map((s) => (
+                  <tr key={s.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>{s.code}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{s.name}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{s.unit}</td>
                   </tr>
                 ))}
-                {catalog.filter(s => {
+                {steelMaterials.filter(s => {
                   const q = catalogSearch.toLowerCase()
-                  return s.name.toLowerCase().includes(q) || s.specs.toLowerCase().includes(q)
+                  return s.code.toLowerCase().includes(q) || s.name.toLowerCase().includes(q)
                 }).length === 0 && (
                   <tr>
                     <td colSpan={3} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
-                      {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư nào được nhập.'}
+                      {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư kind=STEEL_BAR nào — thêm ở Admin > Vật tư.'}
                     </td>
                   </tr>
                 )}

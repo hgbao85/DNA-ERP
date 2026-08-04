@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Nhật ký thay đổi: Sales/Production Order thật &amp; định mức SKU sang BOM quan hệ</title>
+<style>
+:root{
+  --ground:#EEF0F0; --paper:#FFFFFF; --ink:#1B2023; --ink-soft:#565F66;
+  --line:#D8DCDD; --line-strong:#C3C9CA;
+  --accent:#C4501E; --accent-bg:#FBE9DE; --accent-ink:#9C3E17;
+  --add:#1E7A4C; --add-bg:#E1F1E7;
+  --chg:#B7791B; --chg-bg:#FBF0DA;
+  --del:#B0332B; --del-bg:#FAE4E2;
+  --fe:#2B6CB0; --fe-bg:#E3EDF7;
+  --be:#6B4FA0; --be-bg:#EDE7F6;
+  --db:#1E7A4C; --db-bg:#E1F1E7;
+  --code-bg:#F4F5F5; --shadow:0 1px 2px rgba(20,24,26,.05),0 6px 20px rgba(20,24,26,.06);
+  --serif: ui-serif,"Iowan Old Style","Palatino Linotype","URW Palladio",Georgia,serif;
+  --sans: -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono: ui-monospace,"SF Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --ground:#14181A; --paper:#1B2124; --ink:#E7EAEA; --ink-soft:#9AA3A8;
+    --line:#2B3235; --line-strong:#3A4348;
+    --accent:#E08350; --accent-bg:#3A2416; --accent-ink:#F0A472;
+    --add:#5FBB8B; --add-bg:#173226;
+    --chg:#D9A441; --chg-bg:#332609;
+    --del:#E0776D; --del-bg:#3A1E1B;
+    --fe:#6FA3D8; --fe-bg:#1B2C3D;
+    --be:#B39DDB; --be-bg:#2A2140;
+    --db:#5FBB8B; --db-bg:#173226;
+    --code-bg:#20272A; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#14181A; --paper:#1B2124; --ink:#E7EAEA; --ink-soft:#9AA3A8;
+  --line:#2B3235; --line-strong:#3A4348;
+  --accent:#E08350; --accent-bg:#3A2416; --accent-ink:#F0A472;
+  --add:#5FBB8B; --add-bg:#173226;
+  --chg:#D9A441; --chg-bg:#332609;
+  --del:#E0776D; --del-bg:#3A1E1B;
+  --fe:#6FA3D8; --fe-bg:#1B2C3D;
+  --be:#B39DDB; --be-bg:#2A2140;
+  --db:#5FBB8B; --db-bg:#173226;
+  --code-bg:#20272A; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+}
+:root[data-theme="light"]{
+  --ground:#EEF0F0; --paper:#FFFFFF; --ink:#1B2023; --ink-soft:#565F66;
+  --line:#D8DCDD; --line-strong:#C3C9CA;
+  --accent:#C4501E; --accent-bg:#FBE9DE; --accent-ink:#9C3E17;
+  --add:#1E7A4C; --add-bg:#E1F1E7;
+  --chg:#B7791B; --chg-bg:#FBF0DA;
+  --del:#B0332B; --del-bg:#FAE4E2;
+  --fe:#2B6CB0; --fe-bg:#E3EDF7;
+  --be:#6B4FA0; --be-bg:#EDE7F6;
+  --db:#1E7A4C; --db-bg:#E1F1E7;
+  --code-bg:#F4F5F5; --shadow:0 1px 2px rgba(20,24,26,.05),0 6px 20px rgba(20,24,26,.06);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--ground); color:var(--ink); font-family:var(--sans);
+  line-height:1.6; font-size:15.5px; -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent-bg)}
+a{color:var(--accent-ink)}
+code, pre, .mono{font-family:var(--mono)}
+code{background:var(--code-bg); padding:.1em .4em; border-radius:4px; font-size:.88em}
+
+.topbar{
+  position:sticky; top:0; z-index:30; display:flex; align-items:center; justify-content:space-between;
+  gap:1rem; padding:.7rem 1.4rem; background:var(--paper); border-bottom:1px solid var(--line);
+  box-shadow:var(--shadow);
+}
+.topbar .brand{font-family:var(--serif); font-weight:600; font-size:1.05rem; display:flex; align-items:baseline; gap:.55rem}
+.topbar .brand small{font-family:var(--mono); font-weight:400; color:var(--ink-soft); font-size:.72rem; letter-spacing:.02em}
+.topbar button{
+  border:1px solid var(--line); background:var(--paper); color:var(--ink); border-radius:7px;
+  padding:.42rem .8rem; font-size:.83rem; font-family:var(--sans); cursor:pointer;
+}
+.topbar button:hover{background:var(--accent-bg); border-color:var(--accent)}
+.topbar button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+.wrap{max-width:56rem; margin:0 auto; padding:2.6rem 1.6rem 6rem}
+@media (max-width:640px){ .wrap{padding:1.6rem 1.1rem 4rem} }
+
+.masthead{max-width:52rem; margin-bottom:2.2rem}
+.eyebrow{font-family:var(--mono); font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; color:var(--accent-ink)}
+h1{font-family:var(--serif); font-size:2rem; font-weight:600; margin:.5rem 0 .7rem; text-wrap:balance; letter-spacing:-.01em}
+.lede{color:var(--ink-soft); font-size:1.02rem; max-width:62ch}
+.meta{display:flex; gap:1.2rem; flex-wrap:wrap; margin-top:1rem; font-size:.82rem; color:var(--ink-soft); font-family:var(--mono)}
+
+.tldr{
+  background:var(--paper); border:1px solid var(--line); border-radius:11px; box-shadow:var(--shadow);
+  padding:1.2rem 1.4rem; margin:1.6rem 0 2.6rem;
+}
+.tldr h2{margin:0 0 .7rem; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; font-family:var(--mono); color:var(--ink-soft)}
+.tldr ul{margin:0; padding-left:1.2rem; display:flex; flex-direction:column; gap:.45rem}
+.tldr li{font-size:.94rem}
+
+.module{margin-top:3rem; scroll-margin-top:1.2rem}
+.module > h2{
+  font-family:var(--serif); font-size:1.4rem; font-weight:600; margin:0 0 .3rem; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+}
+.module-note{color:var(--ink-soft); font-size:.92rem; margin:.4rem 0 1.3rem; max-width:64ch}
+
+.badge{
+  display:inline-flex; align-items:center; font-family:var(--mono); font-size:.68rem; font-weight:700;
+  letter-spacing:.03em; padding:.18rem .5rem; border-radius:5px; text-transform:uppercase;
+}
+.b-fe{background:var(--fe-bg); color:var(--fe)}
+.b-be{background:var(--be-bg); color:var(--be)}
+.b-db{background:var(--db-bg); color:var(--db)}
+
+.pill{
+  display:inline-flex; align-items:center; font-size:.72rem; font-weight:700; padding:.12rem .55rem;
+  border-radius:20px; font-family:var(--sans);
+}
+.p-add{background:var(--add-bg); color:var(--add)}
+.p-chg{background:var(--chg-bg); color:var(--chg)}
+.p-del{background:var(--del-bg); color:var(--del)}
+
+.card{
+  background:var(--paper); border:1px solid var(--line); border-radius:11px; box-shadow:var(--shadow);
+  padding:1.1rem 1.3rem; margin-bottom:.9rem;
+}
+.card h3{margin:0 0 .35rem; font-size:1rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap}
+.card p{margin:.3rem 0 0; color:var(--ink-soft); font-size:.92rem; max-width:66ch}
+.card .path{font-family:var(--mono); font-size:.82rem}
+
+.callout{
+  border:1px solid var(--line); background:var(--paper); border-left:3px solid var(--accent);
+  border-radius:8px; padding:.85rem 1.1rem; margin:1rem 0; font-size:.92rem; max-width:66ch;
+}
+.callout b{color:var(--accent-ink)}
+.callout.warn{border-left-color:var(--chg); background:var(--chg-bg)}
+.callout.warn b{color:var(--chg)}
+.callout.ok{border-left-color:var(--add); background:var(--add-bg)}
+.callout.ok b{color:var(--add)}
+
+.tbl-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:9px; margin:1rem 0 0; box-shadow:var(--shadow)}
+table{width:100%; border-collapse:collapse; font-size:.86rem; background:var(--paper)}
+th, td{text-align:left; padding:.6rem .8rem; border-bottom:1px solid var(--line); vertical-align:top}
+thead th{font-family:var(--mono); font-size:.68rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); background:var(--code-bg)}
+tbody tr:last-child td{border-bottom:none}
+td.path{font-family:var(--mono); font-size:.8rem; white-space:nowrap}
+
+.timeline{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:1.1rem}
+.timeline li{padding-left:1.6rem; position:relative; font-size:.94rem}
+.timeline li::before{
+  content:''; position:absolute; left:0; top:.42em; width:.55rem; height:.55rem; border-radius:50%;
+  background:var(--accent);
+}
+.timeline b{display:block; margin-bottom:.1rem}
+.timeline span{color:var(--ink-soft)}
+
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:9px; overflow:hidden; margin:1rem 0}
+.stat{background:var(--paper); padding:.9rem 1rem}
+.stat .n{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:1.5rem; font-weight:700; color:var(--accent-ink); line-height:1.1}
+.stat .l{margin-top:.2rem; font-size:.72rem; color:var(--ink-soft)}
+
+footer{margin-top:3.5rem; padding-top:1.4rem; border-top:1px solid var(--line); color:var(--ink-soft); font-size:.85rem; max-width:64ch}
+
+.back-to-top{
+  position:fixed; bottom:1.4rem; right:1.4rem; width:2.6rem; height:2.6rem; border-radius:50%;
+  border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:1.1rem; cursor:pointer;
+  box-shadow:var(--shadow); opacity:.85;
+}
+.back-to-top:hover{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">DNA-ERP <small>NHẬT KÝ THAY ĐỔI</small></div>
+  <button id="theme-toggle" type="button">◐ Theme</button>
+</div>
+
+<div class="wrap">
+  <div class="masthead">
+    <div class="eyebrow">Sales · Production Plan · Định mức SKU</div>
+    <h1>Từ mock data đến Sales/Production Order thật, rồi tới BOM quan hệ cho định mức SKU</h1>
+    <p class="lede">
+      Hai việc nối tiếp trong cùng phiên làm việc: (1) dựng domain Sales Order + Production Order
+      thật ở Backend rồi cắt toàn bộ Frontend khỏi mock, và (2) nối 4 trang nhập định mức SKU
+      (Sắt/Dây-Đinh-Sơn/Phụ kiện/Bao bì) sang ghi thẳng vào model BOM quan hệ thật thay vì JSON
+      tự do — giữ nguyên 100% luồng duyệt đã có.
+    </p>
+    <div class="meta">
+      <span>01/08/2026</span>
+      <span>2 repo: <code>DNA-ERP</code> (FE) · <code>DNA-ERP-BE</code> (BE)</span>
+      <span>2 migration DB mới — <b>chưa áp dụng</b></span>
+    </div>
+  </div>
+
+  <div class="tldr">
+    <h2>Tóm tắt nhanh</h2>
+    <ul>
+      <li><b>Việc 1</b> — hợp nhất 2 khái niệm "PO" trùng lặp trong mock (Sales &amp; Mfg, chỉ khớp qua so chuỗi) thành 1 domain thật: <code>SalesOrder</code>, <code>PlanForm</code> (8-trạng-thái duyệt định mức), <code>ProductionInvoice</code> — 7 model Prisma mới, 3 module NestJS, cắt toàn bộ FE liên quan sang gọi API thật.</li>
+      <li><b>Việc 2</b> — 4 trang Spec (Sắt/Dây-Đinh-Sơn/Phụ kiện/Bao bì) chuyển từ ghi JSON tự do trên <code>PlanForm</code> sang ghi thật vào <code>Piece</code>/<code>SegmentSpec</code>/<code>BomRevision</code> (+ bảng mới <code>BomAccessoryItem</code>) — người dùng chọn vật tư từ catalog thật (<code>MaterialPicker</code>) thay vì gõ tên tự do.</li>
+      <li>Phát hiện &amp; sửa <b>7 lỗ hổng</b> trong lúc làm — 1 bug runtime thật ở Việc 1 (do agent rà soát toàn repo bắt được), 2 lỗ hổng thiết kế quyền hạn, và 4 lỗ hổng logic ở Việc 2 (race condition, regression khi đọc, xoá nhầm dữ liệu chéo nhóm, sửa dữ liệu đã chốt).</li>
+      <li>1 quyết định domain quan trọng do người dùng chỉnh: Dây/Đinh thực ra dùng chung ở công đoạn <b>xuất đan</b>, không phải Hàn/Phôi như suy đoán ban đầu — dẫn tới thêm giá trị <code>DAN</code> vào enum <code>MfgStage</code>.</li>
+      <li>Kiểm thử: <b>100 unit test</b> (16 suite) + <code>tsc</code>/eslint/build sạch ở cả 2 repo. <b>Chưa</b> áp dụng migration lên DB thật, <b>chưa</b> test tay trên trình duyệt.</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════════════ VIỆC 1 ═══════════════════════ -->
+
+  <div class="module">
+    <h2><span class="badge b-be">BE</span> 1. Domain Sales Order + Production Order</h2>
+    <p class="module-note">
+      FE trước đó chạy hoàn toàn trên mockStore cho luồng bán hàng và duyệt sản xuất — không có
+      bảng thật, không có state machine thật được BE enforce. Việc 1 dịch ngược đúng 2 state
+      machine "thật" mà mock từng enforce ở tầng service (duyệt định mức SKU và duyệt sản xuất
+      theo item) thành domain BE thật.
+    </p>
+
+    <div class="stats">
+      <div class="stat"><div class="n">7</div><div class="l">model Prisma mới</div></div>
+      <div class="stat"><div class="n">3</div><div class="l">module NestJS mới</div></div>
+      <div class="stat"><div class="n">83</div><div class="l">unit test (15 suite)</div></div>
+    </div>
+
+    <div class="card">
+      <h3><span class="pill p-add">Mới</span> <span class="path">SalesOrder</span> / <span class="path">SalesOrderItem</span></h3>
+      <p>Hợp nhất "salesPOs" (module Sales) và "exportOrders" (module Mfg) của mock — 2 bảng vốn chỉ khớp nhau qua so sánh chuỗi <code>poNumber</code>/<code>code</code>, không FK thật — thành 1 bảng <code>sales_orders</code> duy nhất. Tạo Sales Order tự động sinh kèm 1 <code>ProductionInvoice</code> liên kết ngay trong service (không qua controller riêng).</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-add">Mới</span> <span class="path">PlanForm</span> + <span class="path">PlanFormManhReview</span> / <span class="path">PlanFormDetailReview</span></h3>
+      <p>State machine 8 trạng thái: <code>WAITING_PARTS → APPROVED_PARTS → WAITING_DETAIL → APPROVED_DETAIL → WAITING_QLSX_APPROVAL → WAITING_BOSS_APPROVAL → APPROVED</code> (rewind về <code>APPROVED_DETAIL</code> khi QLSX/Sếp từ chối). Mirror đúng quy tắc mock: nhập lại 1 nhóm sau khi bị từ chối chỉ xoá quyết định duyệt của nhóm đó, không xoá dữ liệu đã nhập.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-add">Mới</span> <span class="path">ProductionInvoice</span> / <span class="path">ProductionInvoiceItem</span></h3>
+      <p>Duyệt sản xuất theo từng SKU trong lệnh: <code>WAITING_QLSX → WAITING_BOSS → APPROVED/REJECTED</code>. Khi Sếp duyệt item cuối cùng, PI tự chuyển <code>PRODUCING</code>.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-add">Mới</span> Cơ chế phân quyền <span class="path">RequireRole</span> / <span class="path">RoleGuard</span></h3>
+      <p>QLSX và Sếp cùng có quyền <code>APPROVE</code> trên module <code>PLAN_FORM</code>/<code>PRODUCTION_INVOICE</code> (permission thô chỉ phân biệt theo module+action) — cần lớp thứ 2 để tách route duyệt cuối (chỉ Sếp) khỏi route duyệt cục bộ (QLSX). Decorator/guard mới mirror đúng <code>RequireMfgRole</code>/<code>MfgRoleGuard</code> có sẵn nhưng theo Role kinh doanh thay vì mfgRole.</p>
+    </div>
+  </div>
+
+  <div class="module">
+    <h2><span class="badge b-fe">FE</span> 2. Cắt Frontend sang API thật</h2>
+    <p class="module-note">4 adapter mới (<code>products-api.ts</code>, <code>sales-orders-api.ts</code>, <code>plan-forms-api.ts</code>, <code>production-invoices-api.ts</code>) — mock <code>sales.service.ts</code>/<code>plan-form.service.ts</code> xoá hẳn, <code>mfg.service.ts</code> chỉ giữ lại phần thực thi Phôi/Hàn/Sơn/KCS (ngoài phạm vi domain này).</p>
+
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">LenhSXPage.tsx</span></h3>
+      <p>Xoá hẳn <code>ensurePlanFormForConfirmedItem</code> (BE giờ tự lo khi Sếp duyệt PI item). Mọi lời gọi <code>sendItemToQlsx</code>/<code>sendItemToBoss</code>/<code>approveItemByBoss</code>/<code>rejectProdItem</code> đổi từ truyền array-index sang truyền <code>item.id</code> thật.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">OrderManagementPage.tsx</span></h3>
+      <p>Xoá logic tạo Production Invoice thủ công sau khi tạo PO — BE tự tạo PI liên kết ngay trong <code>SalesOrdersService.create()</code>.</p>
+    </div>
+    <div class="card">
+      <h3>Rà soát 21 file liên quan, xác nhận tương thích sẵn</h3>
+      <p><code>CustomerManagementPage</code>, <code>PurchaseHistoryPage</code>, <code>SKUListPage</code>/<code>SKUDetail</code>/<code>SKUReviewPage</code>, <code>Admin/DashboardPage</code>, 2 trang <code>Admin/businessData</code>, và các trang InboundWarehouse/Spec/VatTuDashboard/KiemTraVatTu — adapter dựng đúng shape cũ nên không cần sửa gì.</p>
+    </div>
+  </div>
+
+  <div class="module">
+    <h2><span class="badge b-fe">FE</span><span class="badge b-be">BE</span> 3. Lỗi phát hiện &amp; sửa trong lúc làm</h2>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Vấn đề</th><th>Loại</th><th>Cách sửa</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>Nút "Từ chối" ở <code>LenhSXPage</code> gửi array-index thay vì <code>item.id</code> thật</td>
+            <td><span class="pill p-del">Bug runtime</span></td>
+            <td>Phát hiện bởi agent rà soát toàn repo sau khi <code>tsc</code>/build đã sạch (cả 2 giá trị hợp lệ kiểu <code>number</code> nên type-check không bắt được) — sửa theo đúng pattern 3 hành động còn lại đã dùng.</td>
+          </tr>
+          <tr>
+            <td>Sales staff tạo PO không đủ quyền tự tạo Production Invoice liên kết</td>
+            <td><span class="pill p-chg">Thiết kế lại</span></td>
+            <td>Chuyển việc tạo PI vào thẳng <code>SalesOrdersService.create()</code> (server-side), bỏ nhu cầu FE gọi 2 API với 2 quyền khác nhau.</td>
+          </tr>
+          <tr>
+            <td>Module quyền <code>PRODUCT</code> chưa từng được gán cho role nào</td>
+            <td><span class="pill p-chg">Thiết kế lại</span></td>
+            <td>Cả Sales lẫn KHSX đều cần resolve-or-create SKU theo mã — bổ sung grant <code>VIEW</code>/<code>CREATE</code> cho cả 2 role.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ VIỆC 2 ═══════════════════════ -->
+
+  <div class="module">
+    <h2><span class="badge b-be">BE</span> 4. Định mức SKU → BOM quan hệ thật</h2>
+    <p class="module-note">
+      <code>PlanForm.manhData</code>/<code>detailQuota</code> ở Việc 1 vẫn là JSON tự do — mirror
+      đúng shape mock, một lựa chọn có chủ đích để không nổ phạm vi lúc đó. Việc 2 nối 4 trang
+      chuyên trách sang ghi thẳng vào bảng quan hệ thật, <b>giữ nguyên 100% luồng duyệt đã có</b> —
+      chỉ đổi nơi lưu dữ liệu, không đổi state machine <code>PlanFormStatus</code>.
+    </p>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Nhóm FE</th><th>Model quan hệ thật</th><th>Phân biệt qua</th></tr></thead>
+        <tbody>
+          <tr><td>Sắt (mảnh → đoạn sắt)</td><td><code>Piece</code> + <code>BomPiece</code> + <code>PieceBom</code></td><td>bảng riêng, phân cấp</td></tr>
+          <tr><td>Dây</td><td><code>ConsumableBom</code></td><td>stage=<code>DAN</code>, materialGroup="Dây"</td></tr>
+          <tr><td>Đinh</td><td><code>ConsumableBom</code></td><td>stage=<code>DAN</code>, materialGroup="Đinh"</td></tr>
+          <tr><td>Sơn</td><td><code>ConsumableBom</code></td><td>stage=<code>SON</code>, kind=PAINT</td></tr>
+          <tr><td>Phụ kiện</td><td><code>BomAccessoryItem</code> <span class="pill p-add">bảng mới</span></td><td>kind=ACCESSORY</td></tr>
+          <tr><td>Bao bì</td><td><code>BomAccessoryItem</code></td><td>kind=PACKAGING</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      <b>Điều chỉnh domain giữa chừng:</b> giả định ban đầu gắn Dây→Hàn, Đinh→Phôi theo trực giác kỹ
+      thuật. Người dùng xác nhận cả hai thực ra dùng chung ở công đoạn <b>xuất đan</b> (kho vật tư
+      thành phẩm gộp đinh+dây+khung chưa đan rồi đưa tới điểm đan) — dẫn tới thêm giá trị
+      <code>DAN</code> vào enum <code>MfgStage</code> (trước chỉ có PHOI/HAN/SON) thay vì đoán sai.
+    </div>
+
+    <div class="card">
+      <h3><span class="pill p-add">Mới</span> <span class="path">BomAccessoryItem</span>, <span class="path">MfgStage.DAN</span>, <span class="path">BomRevision.sourcePlanFormId @unique</span></h3>
+      <p>1 <code>PlanForm</code> sở hữu đúng 1 <code>BomRevision</code> (tạo lười ở lần ghi định mức đầu tiên). Sếp duyệt cuối (<code>approve()</code>) tự activate revision DRAFT→ACTIVE — bản ACTIVE trước đó của cùng SKU tự chuyển RETIRED.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-del">Xoá</span> stub <span class="path">materializeBomRevision()</span></h3>
+      <p>Hook P5 cũ chưa từng implement (luôn throw <code>NotImplementedException</code>) có shape "materialize 1 lần khi xong" không khớp thiết kế mới (ghi tăng dần theo từng nhóm) — xoá thay vì cố "hoàn thiện" một interface sai hình dạng.</p>
+    </div>
+
+    <h3 style="font-family:var(--mono);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin:1.6rem 0 .8rem">Lỗ hổng bắt được khi rà lại thiết kế &amp; khi viết code thật</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Vấn đề</th><th>Khi nào bắt được</th><th>Cách sửa</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>2 request ghi định mức gần như đồng thời có thể tạo 2 <code>BomRevision</code> mồ côi cho cùng 1 PlanForm</td>
+            <td>Rà lại thiết kế (Plan agent)</td>
+            <td>Thêm <code>sourcePlanFormId @unique</code>; resolve-or-create bắt lỗi P2002 và fetch lại thay vì để lộ 409 giả.</td>
+          </tr>
+          <tr>
+            <td>PlanForm mới tạo suýt "mượn" dữ liệu của bản đã duyệt trước đó cùng SKU</td>
+            <td>Rà lại thiết kế (Plan agent)</td>
+            <td>Chỉ fallback sang BomRevision ACTIVE khi PlanForm có <code>origin=PRODUCTION_CONFIRM</code>; PlanForm bình thường chưa nhập gì luôn trả <code>null</code>.</td>
+          </tr>
+          <tr>
+            <td>Xoá-ghi-lại nhóm Dây có thể xoá nhầm dữ liệu nhóm Đinh (cùng stage <code>DAN</code>)</td>
+            <td>Viết code thật</td>
+            <td>Lọc theo <code>materialGroupId</code> khi xoá, không chỉ theo <code>stage</code>; vật tư tự gán vào đúng nhóm ở lần dùng đầu, từ chối nếu đã thuộc nhóm khác.</td>
+          </tr>
+          <tr>
+            <td>Sửa định mức sau khi PlanForm đã duyệt xong (revision đã ACTIVE) sẽ âm thầm mutate lịch sử đã chốt</td>
+            <td>Viết code thật</td>
+            <td>Từ chối rõ ràng (409) nếu revision đang sở hữu không còn ở trạng thái DRAFT.</td>
+          </tr>
+          <tr>
+            <td>N+1 query khi liệt kê tới 100 PlanForm/trang (mỗi trang Spec quét toàn bộ list)</td>
+            <td>Rà lại thiết kế (Plan agent)</td>
+            <td><code>reconstructQuotaBatch()</code> — 1 query <code>WHERE bomRevisionId IN (...)</code> mỗi bảng dòng con, gom nhóm trong bộ nhớ.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="module">
+    <h2><span class="badge b-fe">FE</span> 5. Cắt 4 trang Spec sang API thật</h2>
+    <p class="module-note">Component mới <code>MaterialPicker</code> (tái dùng <code>SearchableSelect</code> có sẵn) — chọn vật tư từ catalog Material thật, lọc theo <code>kind</code> (+ <code>materialGroupId</code> cho Dây/Đinh), thay cho gõ tên/quy cách tự do.</p>
+
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">SpecSteelPage.tsx</span></h3>
+      <p>"Thêm loại sắt" đổi từ 3 ô tự do (tên/quy cách/chiều dài) sang <code>MaterialPicker</code> (kind=STEEL_BAR) + ô số <code>cutLengthMm</code> thật. Tab Catalog đổi từ quét lịch sử PlanForm sang hiển thị Material thật.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">SpecWirePaintPage.tsx</span></h3>
+      <p>3 subtab (Dây/Đinh/Sơn) dùng chung <code>MaterialPicker</code>, lọc <code>kind</code>/<code>materialGroupId</code> theo từng nhóm — tự tra id nhóm "Dây"/"Đinh" qua <code>getMaterialGroups()</code>.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">SpecAccessoryPage.tsx</span>, <span class="path">SpecPackagingPage.tsx</span>, <span class="path">SpecAccessoryCatalogPage.tsx</span></h3>
+      <p>Cùng pattern picker (kind=ACCESSORY/PACKAGING); catalog đổi sang hiển thị Material thật thay vì quét PlanForm.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">Admin/masterData/MaterialsPage.tsx</span></h3>
+      <p><b>Lỗ hổng vận hành phát hiện khi viết FE:</b> trang Admin "Vật tư" chưa từng có ô chọn <code>kind</code> — nếu không sửa, không vật tư nào khớp filter của picker (mọi vật tư mặc định <code>OTHER</code>). Thêm dropdown 6 giá trị + cột hiển thị.</p>
+    </div>
+
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Khu vực</th><th>Kết luận</th></tr></thead>
+        <tbody>
+          <tr><td><code>SKUDetail.tsx</code></td><td><span class="pill p-add">Không cần sửa</span> — chỉ đọc shape <code>pf.manhData</code>/<code>quotaManagement.materialType</code> cũ, adapter dựng lại đúng y hệt.</td></tr>
+          <tr><td><code>ThongKePagePlan</code>, <code>VatTuDashboardPage</code>, <code>XuatKhoPage</code>, <code>KiemTraVatTuPage</code>, <code>InspectionContext</code></td><td><span class="pill p-add">Không cần sửa</span> — ngoài phạm vi Việc 2, tiếp tục đọc đúng shape JSON adapter dựng lại.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="module">
+    <h2><span class="badge b-fe">FE</span> 6. Dọn mock data mồ côi (sau khi cắt xong 2 việc trên)</h2>
+    <p class="module-note">
+      Sau khi <code>sales.service.ts</code>/<code>plan-form.service.ts</code> bị xoá ở Việc 1, phần
+      dữ liệu seed từng nuôi 2 file đó vẫn còn nằm trong <code>seed.ts</code> — không ai gọi tới
+      nhưng vẫn tồn tại trong bundle. Rà lại bằng cách grep từng field <code>mockStore</code> xem
+      còn service nào đọc không, rồi xoá đúng phần đã xác nhận mồ côi.
+    </p>
+
+    <div class="card">
+      <h3><span class="pill p-del">Xoá file</span> <span class="path">src/lib/mock/data/seed-sales.ts</span></h3>
+      <p>Cả <code>seedSalesCustomers</code> lẫn <code>seedSalesPOs</code> bên trong đều mồ côi — Sales Customer/PO đã là API thật từ Phase 2/Việc 1.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-del">Xoá</span> 5 mảng seed mồ côi trong <span class="path">seed.ts</span></h3>
+      <p><code>seedPlanForms</code>, <code>seedExportOrders</code> — phát hiện ban đầu khi trả lời câu hỏi của người dùng; rà thêm phát hiện <code>seedMfgExportCustomers</code>, <code>seedMfgProducts</code>, <code>seedProductVariants</code> cũng mồ côi theo (dữ liệu phụ trợ cho <code>ExportOrderService</code>/<code>MfgProductService</code> đã xoá ở Việc 1) — dọn luôn cả 5 vì cùng 1 tiêu chí xác minh (grep 0 nơi đọc).</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">createInitialMockState()</span></h3>
+      <p>Bỏ 7 field tương ứng (<code>salesCustomers</code>, <code>salesPOs</code>, <code>mfgExportCustomers</code>, <code>mfgProducts</code>, <code>productVariants</code>, <code>exportOrders</code>, <code>planForms</code>) khỏi state khởi tạo. Type <code>MockState</code> tự suy theo <code>ReturnType&lt;typeof createInitialMockState&gt;</code> nên không cần sửa type thủ công ở đâu khác.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> comment lệch nghĩa ở <span class="path">seed.ts</span> &amp; <span class="path">InspectionContext.tsx</span></h3>
+      <p>2 chỗ comment còn nhắc tên <code>seedPlanForms</code> (mảng đã xoá) — cập nhật lại chữ, không đổi logic.</p>
+    </div>
+
+    <div class="callout ok">
+      <b>Giữ nguyên, không đụng:</b> <code>seedProductionInvoices</code>, <code>seedPlanningPIs</code> — vẫn có người đọc thật (<code>mfg.service.ts</code>'s phần thực thi Phôi/Hàn/Sơn/KCS, ngoài phạm vi 2 việc trên). <code>tsc --noEmit</code>, eslint, <code>next build</code> sạch sau khi dọn.
+    </div>
+  </div>
+
+  <div class="module">
+    <h2>7. Kiểm thử</h2>
+    <ul class="timeline">
+      <li><b>Backend</b><span> — 16 test suite / 100 test pass, <code>tsc --noEmit</code>, eslint, <code>nest build</code> sạch trên toàn bộ file sửa cả 2 việc.</span></li>
+      <li><b>Frontend</b><span> — <code>tsc --noEmit</code> + <code>next build</code> sạch sau mọi vòng sửa, kể cả sau khi dọn mock mồ côi (mục 6).</span></li>
+      <li><b>Chưa làm</b><span> — chưa áp dụng 2 migration mới lên database thật (theo đúng cảnh báo CONTRIBUTING.md: không chạy <code>prisma migrate dev</code> lên Postgres pooled dùng chung mà không xác nhận trước với team); chưa test thao tác tay trên trình duyệt cho cả 2 việc.</span></li>
+    </ul>
+  </div>
+
+  <div class="module">
+    <h2>8. Việc còn để ngỏ</h2>
+    <ul class="timeline">
+      <li><b>Migration DB thật</b><span> — 2 file migration (<code>20260731160000_add_sales_and_production_orders</code>, <code>20260801100000_add_bom_accessory_items_and_dan_stage</code>) đã viết tay theo đúng convention Prisma sinh ra nhưng chưa apply — cần xác nhận với team trước khi chạy lên Postgres pooled dùng chung.</span></li>
+      <li><b>Vận hành ban đầu</b><span> — vật tư dùng cho các trang Spec phải được gán đúng <code>kind</code> ở Admin &gt; Vật tư trước; Dây/Đinh cần 2 nhóm vật tư tên đúng "Dây"/"Đinh" (Admin &gt; Nhóm vật tư) để picker lọc phân biệt được ngay từ lần đầu (BE vẫn ghi đúng nếu chưa có, tự gán nhóm khi nhập lần đầu).</span></li>
+      <li><b>Trường mô tả/ảnh tự do đã bỏ</b><span> — "Quy cách" (specs) và ảnh minh hoạ trên các dòng Dây/Đinh/Sơn/Phụ kiện/Bao bì không còn, thay bằng chọn đúng Material — thay đổi UX có chủ đích, cần thông báo trước cho người dùng cuối.</span></li>
+    </ul>
+  </div>
+
+  <footer>
+    Nguồn: toàn bộ nội dung trên tổng hợp trực tiếp từ phiên làm việc trong Claude Code — không suy
+    diễn thêm. Code thật nằm ở <code>d:\DNA-ERP</code> (frontend) và <code>D:\DNA-ERP-BE</code> (backend).
+  </footer>
+</div>
+
+<button class="back-to-top" id="back-to-top" title="Về đầu trang" type="button">↑</button>
+
+<script>
+(function(){
+  var KEY = 'dna-erp-changelog-theme';
+  var root = document.documentElement;
+  var btn = document.getElementById('theme-toggle');
+  var saved = localStorage.getItem(KEY);
+  if (saved) root.setAttribute('data-theme', saved);
+  btn.addEventListener('click', function(){
+    var current = root.getAttribute('data-theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var effectiveCurrent = current || (prefersDark ? 'dark' : 'light');
+    var next = effectiveCurrent === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem(KEY, next);
+  });
+})();
+(function(){
+  document.getElementById('back-to-top').addEventListener('click', function(){
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>

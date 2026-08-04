@@ -1,0 +1,420 @@
+<title>Hướng dẫn test tay — Sales/Production Order &amp; Định mức BOM</title>
+<style>
+  :root{
+    --bg:#F4F5F2; --surface:#FFFFFF; --surface-2:#EDEFEA;
+    --ink:#16211E; --ink-soft:#4B5754; --ink-faint:#7C8884;
+    --border:#DCE1DD; --border-soft:#E9ECE7;
+    --accent:#1F7A6C; --accent-ink:#0F4A40; --accent-soft:#E4F1EC; --accent-soft-border:#BFDDD3;
+    --good:#2E7D46; --good-bg:#E7F5EA; --good-border:#C3E4CB;
+    --bad:#B3261E; --bad-bg:#FBEAE8; --bad-border:#F0C6C1;
+    --warn:#96600A; --warn-bg:#FBF1DE; --warn-border:#EBD6A3;
+    --info:#4B5560; --info-bg:#EEF0F1; --info-border:#D7DBDD;
+    --role-sales:#2B6CB0; --role-sales-bg:#E3EDF7;
+    --role-khsx:#6B4FA0; --role-khsx-bg:#EDE7F6;
+    --role-spec:#B7791B; --role-spec-bg:#FBF0DA;
+    --role-qlsx:#1F7A6C; --role-qlsx-bg:#E4F1EC;
+    --role-boss:#B0332B; --role-boss-bg:#FAE4E2;
+    --role-admin:#4B5560; --role-admin-bg:#EEF0F1;
+    --shadow: 0 1px 2px rgba(20,30,26,.04), 0 4px 14px rgba(20,30,26,.05);
+    --serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Book Antiqua", "Noto Serif", serif;
+    --sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", "Liberation Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --bg:#0F1613; --surface:#141D1A; --surface-2:#182320;
+      --ink:#E7ECE9; --ink-soft:#A9B4B0; --ink-faint:#7C8985;
+      --border:#26322D; --border-soft:#1E2925;
+      --accent:#57C9AE; --accent-ink:#8FDFCB; --accent-soft:#17332C; --accent-soft-border:#26473D;
+      --good:#74CE8C; --good-bg:#152A1B; --good-border:#25452E;
+      --bad:#FF8E83; --bad-bg:#301715; --bad-border:#4A2521;
+      --warn:#E8B463; --warn-bg:#2E2411; --warn-border:#493A1C;
+      --info:#A6B0AC; --info-bg:#1B2321; --info-border:#2B3532;
+      --role-sales:#6FA3D8; --role-sales-bg:#1B2C3D;
+      --role-khsx:#B39DDB; --role-khsx-bg:#2A2140;
+      --role-spec:#D9A441; --role-spec-bg:#332609;
+      --role-qlsx:#57C9AE; --role-qlsx-bg:#17332C;
+      --role-boss:#E0776D; --role-boss-bg:#3A1E1B;
+      --role-admin:#A6B0AC; --role-admin-bg:#1B2321;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 20px rgba(0,0,0,.28);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0F1613; --surface:#141D1A; --surface-2:#182320;
+    --ink:#E7ECE9; --ink-soft:#A9B4B0; --ink-faint:#7C8985;
+    --border:#26322D; --border-soft:#1E2925;
+    --accent:#57C9AE; --accent-ink:#8FDFCB; --accent-soft:#17332C; --accent-soft-border:#26473D;
+    --good:#74CE8C; --good-bg:#152A1B; --good-border:#25452E;
+    --bad:#FF8E83; --bad-bg:#301715; --bad-border:#4A2521;
+    --warn:#E8B463; --warn-bg:#2E2411; --warn-border:#493A1C;
+    --info:#A6B0AC; --info-bg:#1B2321; --info-border:#2B3532;
+    --role-sales:#6FA3D8; --role-sales-bg:#1B2C3D;
+    --role-khsx:#B39DDB; --role-khsx-bg:#2A2140;
+    --role-spec:#D9A441; --role-spec-bg:#332609;
+    --role-qlsx:#57C9AE; --role-qlsx-bg:#17332C;
+    --role-boss:#E0776D; --role-boss-bg:#3A1E1B;
+    --role-admin:#A6B0AC; --role-admin-bg:#1B2321;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 20px rgba(0,0,0,.28);
+  }
+  :root[data-theme="light"]{
+    --bg:#F4F5F2; --surface:#FFFFFF; --surface-2:#EDEFEA;
+    --ink:#16211E; --ink-soft:#4B5754; --ink-faint:#7C8884;
+    --border:#DCE1DD; --border-soft:#E9ECE7;
+    --accent:#1F7A6C; --accent-ink:#0F4A40; --accent-soft:#E4F1EC; --accent-soft-border:#BFDDD3;
+    --good:#2E7D46; --good-bg:#E7F5EA; --good-border:#C3E4CB;
+    --bad:#B3261E; --bad-bg:#FBEAE8; --bad-border:#F0C6C1;
+    --warn:#96600A; --warn-bg:#FBF1DE; --warn-border:#EBD6A3;
+    --info:#4B5560; --info-bg:#EEF0F1; --info-border:#D7DBDD;
+    --role-sales:#2B6CB0; --role-sales-bg:#E3EDF7;
+    --role-khsx:#6B4FA0; --role-khsx-bg:#EDE7F6;
+    --role-spec:#B7791B; --role-spec-bg:#FBF0DA;
+    --role-qlsx:#1F7A6C; --role-qlsx-bg:#E4F1EC;
+    --role-boss:#B0332B; --role-boss-bg:#FAE4E2;
+    --role-admin:#4B5560; --role-admin-bg:#EEF0F1;
+    --shadow: 0 1px 2px rgba(20,30,26,.04), 0 4px 14px rgba(20,30,26,.05);
+  }
+
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg); color:var(--ink); font-family:var(--sans);
+    font-size:15px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  ::selection{ background:var(--accent-soft); color:var(--accent-ink); }
+  a{ color:var(--accent-ink); }
+  code{ font-family:var(--mono); font-size:.88em; background:var(--surface-2); padding:1px 6px; border-radius:4px; }
+  .wrap{ max-width:900px; margin:0 auto; padding:56px 24px 96px; }
+
+  .eyebrow{
+    font-family:var(--mono); font-size:11px; letter-spacing:.09em; text-transform:uppercase;
+    color:var(--accent-ink); font-weight:600; margin:0 0 10px;
+  }
+  h1{
+    font-family:var(--serif); font-weight:600; font-size:clamp(26px,4vw,36px);
+    line-height:1.18; margin:0 0 12px; text-wrap:balance; letter-spacing:-.01em;
+  }
+  .dek{ color:var(--ink-soft); font-size:16px; max-width:64ch; margin:0 0 28px; }
+  .meta-row{
+    display:flex; flex-wrap:wrap; gap:10px 28px; padding:18px 0; margin-bottom:8px;
+    border-top:1px solid var(--border); border-bottom:1px solid var(--border);
+  }
+  .meta-item{ display:flex; flex-direction:column; gap:3px; }
+  .meta-item .k{ font-family:var(--mono); font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-faint); }
+  .meta-item .v{ font-size:13.5px; color:var(--ink); font-weight:500; }
+
+  section{ margin-top:52px; }
+  .sec-head{ display:flex; align-items:baseline; justify-content:space-between; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+  h2{ font-family:var(--serif); font-weight:600; font-size:22px; margin:0; letter-spacing:-.01em; }
+  .sec-note{ font-size:12.5px; color:var(--ink-faint); font-family:var(--mono); }
+  p{ margin:0 0 14px; }
+  .lede{ color:var(--ink-soft); max-width:70ch; }
+
+  /* Role badges — mỗi bước gắn đúng vai trò cần đăng nhập để thực hiện */
+  .role{
+    display:inline-flex; align-items:center; font-family:var(--mono); font-size:10.5px; font-weight:700;
+    text-transform:uppercase; letter-spacing:.04em; padding:3px 9px; border-radius:5px; white-space:nowrap;
+  }
+  .role-sales{ background:var(--role-sales-bg); color:var(--role-sales); }
+  .role-khsx{ background:var(--role-khsx-bg); color:var(--role-khsx); }
+  .role-spec{ background:var(--role-spec-bg); color:var(--role-spec); }
+  .role-qlsx{ background:var(--role-qlsx-bg); color:var(--role-qlsx); }
+  .role-boss{ background:var(--role-boss-bg); color:var(--role-boss); }
+  .role-admin{ background:var(--role-admin-bg); color:var(--role-admin); }
+
+  /* Prerequisites callout */
+  .callout{
+    background:var(--surface); border:1px solid var(--border); border-left:3px solid var(--accent);
+    border-radius:10px; padding:18px 20px; box-shadow:var(--shadow);
+  }
+  .callout.warn{ border-left-color:var(--warn); background:var(--warn-bg); }
+  .callout.warn h3{ color:var(--warn); }
+  .callout h3{ margin:0 0 8px; font-family:var(--sans); font-size:14px; font-weight:700; }
+  .callout ul, .callout ol{ margin:8px 0 0; padding-left:20px; }
+  .callout li{ margin-bottom:6px; color:var(--ink-soft); font-size:14px; }
+  .callout li b{ color:var(--ink); }
+
+  /* Scenario cards — 1 kịch bản = 1 thẻ, các bước đánh số vì đúng là quy trình có thứ tự */
+  .scenario{
+    background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:22px 24px; margin-bottom:18px; box-shadow:var(--shadow);
+  }
+  .scenario-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; margin-bottom:4px; flex-wrap:wrap; }
+  .scenario-id{ font-family:var(--mono); font-size:11px; color:var(--ink-faint); }
+  .scenario h3{ margin:2px 0 6px; font-family:var(--sans); font-size:16.5px; font-weight:700; letter-spacing:-.005em; }
+  .scenario .goal{ color:var(--ink-soft); font-size:13.5px; margin-bottom:14px; }
+  .scenario .pre{
+    font-size:12.5px; color:var(--ink-faint); background:var(--surface-2); border-radius:6px;
+    padding:8px 12px; margin-bottom:14px;
+  }
+  .scenario .pre b{ color:var(--ink-soft); }
+  ol.steps{ margin:0; padding-left:0; list-style:none; counter-reset:step; }
+  ol.steps li{
+    counter-increment:step; padding:8px 0 8px 34px; position:relative; font-size:14px; color:var(--ink);
+    border-top:1px solid var(--border-soft);
+  }
+  ol.steps li:first-child{ border-top:none; }
+  ol.steps li::before{
+    content:counter(step); position:absolute; left:0; top:8px; width:22px; height:22px; border-radius:50%;
+    background:var(--accent-soft); color:var(--accent-ink); font-family:var(--mono); font-size:11px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+  }
+  ol.steps .expect{
+    display:block; margin-top:4px; font-size:12.5px; color:var(--accent-ink); background:var(--accent-soft);
+    border-radius:6px; padding:6px 10px;
+  }
+  ol.steps .expect b{ font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.05em; margin-right:6px; }
+
+  /* Checklist rows dùng cho phần regression / edge case — không có thứ tự bắt buộc */
+  .checklist{ display:flex; flex-direction:column; gap:10px; }
+  .check-row{
+    display:grid; grid-template-columns:22px 1fr; align-items:start; gap:12px;
+    background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:12px 16px;
+  }
+  .check-row .box{
+    width:18px; height:18px; border:2px solid var(--border-soft); border-radius:4px; margin-top:1px;
+  }
+  .check-row .body b{ display:block; font-size:13.5px; margin-bottom:2px; }
+  .check-row .body span{ font-size:12.5px; color:var(--ink-soft); }
+
+  /* DB verification table */
+  .tbl-scroll{ overflow-x:auto; border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow); background:var(--surface); }
+  table{ width:100%; border-collapse:collapse; min-width:640px; }
+  thead th{
+    text-align:left; font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--ink-faint); font-weight:600; padding:10px 14px; border-bottom:1px solid var(--border);
+    background:var(--surface-2);
+  }
+  tbody td{ padding:10px 14px; border-bottom:1px solid var(--border-soft); font-size:13px; vertical-align:top; }
+  tbody tr:last-child td{ border-bottom:none; }
+
+  footer{ margin-top:64px; padding-top:20px; border-top:1px solid var(--border); font-size:12px; color:var(--ink-faint); font-family:var(--mono); }
+
+  @media (max-width:600px){
+    .wrap{ padding:36px 16px 64px; }
+  }
+</style>
+
+<div class="wrap">
+
+  <p class="eyebrow">Hướng dẫn kiểm thử thủ công</p>
+  <h1>Sales/Production Order &amp; Định mức BOM — tự test trên web</h1>
+  <p class="dek">
+    Các bước làm tay trên trình duyệt để xác nhận 2 việc vừa hoàn thành hoạt động đúng: tạo đơn
+    hàng → duyệt định mức SKU (Sắt/Dây/Đinh/Sơn/Phụ kiện/Bao bì) → duyệt sản xuất theo từng SKU.
+    Chưa có ai chạy các bước này trên trình duyệt thật — tài liệu này để <b>bạn</b> tự làm.
+  </p>
+
+  <div class="meta-row">
+    <div class="meta-item"><span class="k">Phạm vi</span><span class="v">Sales Order + Production Order (Việc 1), Định mức BOM (Việc 2)</span></div>
+    <div class="meta-item"><span class="k">Vai trò cần</span><span class="v">6 tài khoản (xem bên dưới)</span></div>
+    <div class="meta-item"><span class="k">Trạng thái</span><span class="v">Chưa test tay lần nào — hướng dẫn cho lần đầu</span></div>
+  </div>
+
+  <!-- ================= PREREQUISITES ================= -->
+  <section>
+    <div class="callout warn">
+      <h3>⚠ Bắt buộc làm trước — nếu bỏ qua, mọi bước dưới đều lỗi ngay từ đầu</h3>
+      <ol>
+        <li><b>Áp dụng 2 migration còn treo ở BE</b> — <code>20260731160000_add_sales_and_production_orders</code> và <code>20260801100000_add_bom_accessory_items_and_dan_stage</code> chưa từng chạy lên database nào. Xác nhận với team trước khi chạy (DB dùng chung), sau đó chạy migration deploy đúng quy trình repo đang dùng.</li>
+        <li><b>Chuẩn bị 6 tài khoản</b> (có thể dùng lại tài khoản demo có sẵn nếu đã gán đúng vai trò) — xem bảng vai trò ngay dưới.</li>
+        <li><b>Gán <code>kind</code> cho ít nhất 5 vật tư</b> ở <code>Admin &gt; Vật tư</code>: 1 vật tư <code>STEEL_BAR</code>, 1 <code>CONSUMABLE</code> (đặt vào nhóm vật tư tên đúng <code>Dây</code>), 1 <code>CONSUMABLE</code> khác (nhóm <code>Đinh</code>), 1 <code>PAINT</code>, 1 <code>ACCESSORY</code>, 1 <code>PACKAGING</code>. Nếu chưa có nhóm "Dây"/"Đinh", tạo trước ở <code>Admin &gt; Nhóm vật tư</code>.</li>
+        <li><b>Có sẵn 1 khách hàng</b> ở <code>Sales &gt; Khách hàng</code> (hoặc tạo mới ngay trong lúc test Kịch bản A).</li>
+      </ol>
+    </div>
+
+    <div class="tbl-scroll" style="margin-top:16px">
+      <table>
+        <thead><tr><th>Vai trò</th><th>Cần gì để có quyền</th><th>Dùng ở kịch bản</th></tr></thead>
+        <tbody>
+          <tr><td><span class="role role-sales">Sales</span></td><td>Role <code>SALES_STAFF</code> (<code>isSale</code>)</td><td>A</td></tr>
+          <tr><td><span class="role role-khsx">KHSX</span></td><td>Role <code>PRODUCTION_PLANNER</code> (<code>isProductPlanner</code>)</td><td>A, B, C</td></tr>
+          <tr><td><span class="role role-spec">4 tài khoản Định mức</span></td><td><code>mfgRole</code> = <code>SPEC_STEEL</code> / <code>SPEC_WIRE_PAINT</code> / <code>SPEC_ACCESSORY</code> / <code>SPEC_PACKAGING</code></td><td>B</td></tr>
+          <tr><td><span class="role role-qlsx">QLSX</span></td><td><code>mfgRole</code> = <code>PRODUCTION_MANAGER</code></td><td>B, C</td></tr>
+          <tr><td><span class="role role-boss">Sếp</span></td><td>Role <code>BOSS</code></td><td>B, C</td></tr>
+          <tr><td><span class="role role-admin">Admin</span></td><td>Role <code>ADMIN</code></td><td>Chuẩn bị vật tư, xem Prisma Studio</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= KỊCH BẢN A ================= -->
+  <section>
+    <div class="sec-head">
+      <h2>Kịch bản A — Tạo đơn hàng, xác nhận lệnh sản xuất tự sinh</h2>
+      <span class="sec-note">Việc 1</span>
+    </div>
+    <p class="lede">Xác nhận <code>SalesOrder</code> hợp nhất đúng "PO" và tự tạo <code>ProductionInvoice</code> liên kết — không cần thao tác nào thêm.</p>
+
+    <div class="scenario">
+      <div class="scenario-top">
+        <div><span class="scenario-id">A1</span> <span class="role role-sales">Sales</span></div>
+      </div>
+      <h3>Tạo PO mới với 1 SKU</h3>
+      <div class="goal">Vào <code>Sales &gt; Quản lí đơn hàng</code> → "Tạo PO"</div>
+      <ol class="steps">
+        <li>Chọn khách hàng có sẵn (hoặc gõ tên mới nếu ô cho phép).<span class="expect"><b>Kỳ vọng</b>Ô chọn khách hàng hiện gợi ý đúng danh sách thật.</span></li>
+        <li>Thêm 1 dòng SKU — gõ mã SKU mới hoàn toàn (chưa từng tồn tại), nhập số lượng và hạn giao.<span class="expect"><b>Kỳ vọng</b>Không báo lỗi "SKU không tồn tại" — hệ thống tự tạo SKU mới theo mã vừa gõ.</span></li>
+        <li>Bấm "Lưu".<span class="expect"><b>Kỳ vọng</b>PO xuất hiện ngay trong danh sách, không có lỗi 403/500.</span></li>
+      </ol>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-top">
+        <div><span class="scenario-id">A2</span> <span class="role role-khsx">KHSX</span></div>
+      </div>
+      <h3>Xác nhận lệnh sản xuất tự sinh, không cần tạo tay</h3>
+      <div class="goal">Vào <code>Kế hoạch sản xuất &gt; Tạo lệnh sản xuất</code></div>
+      <ol class="steps">
+        <li>Tìm đúng mã PO vừa tạo ở bước A1.<span class="expect"><b>Kỳ vọng</b>1 lệnh sản xuất (PI) đã tồn tại sẵn cho PO này — <b>không</b> cần bấm nút tạo nào cả (đây chính là hành vi mới: PO tự sinh PI ngay khi lưu, không còn bước riêng).</span></li>
+        <li>Mở chi tiết lệnh sản xuất.<span class="expect"><b>Kỳ vọng</b>Đúng SKU, đúng số lượng, đúng hạn giao đã nhập ở bước A1.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ================= KỊCH BẢN B ================= -->
+  <section>
+    <div class="sec-head">
+      <h2>Kịch bản B — Duyệt định mức SKU (BOM quan hệ thật)</h2>
+      <span class="sec-note">Việc 2 — trọng tâm</span>
+    </div>
+    <p class="lede">Đi hết 1 vòng: tạo SKU → nhập đủ 6 nhóm định mức (chọn vật tư từ catalog thật) → KHSX duyệt từng nhóm → QLSX duyệt → Sếp duyệt cuối. Dùng đúng SKU vừa tạo ở Kịch bản A, hoặc tạo SKU mới ở bước B1.</p>
+
+    <div class="scenario">
+      <div class="scenario-top"><div><span class="scenario-id">B1</span> <span class="role role-khsx">KHSX</span></div></div>
+      <h3>Tạo SKU chờ duyệt định mức</h3>
+      <div class="goal">Vào <code>Kế hoạch sản xuất &gt; Duyệt SKU</code> → "Tạo SKU mới"</div>
+      <ol class="steps">
+        <li>Nhập mã SKU (dùng lại mã ở Kịch bản A hoặc mã mới), chọn/gõ tên khách hàng.<span class="expect"><b>Kỳ vọng</b>Tạo thành công, SKU hiện ở trạng thái "Chờ nhập" trong danh sách.</span></li>
+      </ol>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-top"><div><span class="scenario-id">B2</span> <span class="role role-spec">Định mức — Sắt</span></div></div>
+      <h3>Nhập định mức Sắt bằng picker vật tư thật</h3>
+      <div class="goal">Vào <code>Định mức &gt; Sắt</code> → mở SKU vừa tạo</div>
+      <ol class="steps">
+        <li>Bấm "Nhập mảnh đầu tiên" → đặt tên mảnh (vd "Mảnh tựa"), số lượng/SKU → "Tạo mảnh".<span class="expect"><b>Kỳ vọng</b>Mảnh xuất hiện ngay trong danh sách, chưa cần lưu gì thêm.</span></li>
+        <li>Bấm "Thêm loại sắt" trong mảnh vừa tạo → ô "Vật tư" gõ tìm, chỉ nên thấy vật tư <code>kind=STEEL_BAR</code> đã chuẩn bị.<span class="expect"><b>Kỳ vọng</b>Vật tư không phải STEEL_BAR <b>không</b> xuất hiện trong gợi ý.</span></li>
+        <li>Chọn vật tư, nhập chiều dài cắt (mm) và số lượng → "+ Thêm".<span class="expect"><b>Kỳ vọng</b>Dòng mới hiện trong bảng, cột "Chiều dài (mm)" đúng số vừa nhập.</span></li>
+        <li>Bấm "Gửi phê duyệt".<span class="expect"><b>Kỳ vọng</b>Trạng thái chuyển "Đã gửi phê duyệt — đang chờ quản lý xác nhận", form nhập bị khoá lại.</span></li>
+      </ol>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-top"><div><span class="scenario-id">B3</span> <span class="role role-spec">Định mức — Dây/Sơn</span></div></div>
+      <h3>Nhập Dây, Đinh (định mức mảnh) + Sơn (định mức chi tiết)</h3>
+      <div class="goal">Vào <code>Định mức &gt; Dây/Đinh/Sơn</code> → lần lượt 3 tab con</div>
+      <ol class="steps">
+        <li>Tab "Mảnh dây" → mở SKU → picker vật tư chỉ hiện vật tư <code>CONSUMABLE</code> thuộc nhóm "Dây" → chọn, nhập khối lượng (kg) → "+ Thêm" → "Gửi đề xuất".<span class="expect"><b>Kỳ vọng</b>Không thấy vật tư thuộc nhóm "Đinh" trong gợi ý (nếu cả 2 nhóm đã có vật tư từ trước).</span></li>
+        <li>Tab "Mảnh đinh" → lặp lại tương tự, picker chỉ hiện vật tư nhóm "Đinh", đơn vị nhập là "cây".<span class="expect"><b>Kỳ vọng</b>Danh sách vừa gửi ở bước Dây (bước trên) <b>không</b> bị mất/đè khi gửi Đinh — đây là phép thử trực tiếp cho lỗi "xoá nhầm dữ liệu chéo nhóm" đã sửa.</span></li>
+        <li>Sau khi SKU đã qua bước Sắt (B2) và ở trạng thái đã qua định mức mảnh, tab "Sơn" mới hiện SKU này trong danh sách — mở SKU, picker chỉ hiện vật tư <code>kind=PAINT</code> → chọn, nhập khối lượng → gửi.<span class="expect"><b>Kỳ vọng</b>SKU chỉ xuất hiện ở tab Sơn sau khi mảnh đã qua giai đoạn duyệt (xem bước B5) — nếu chưa duyệt mảnh mà đã thấy SKU ở đây thì báo lại, đây là điểm cần soát kỹ.</span></li>
+      </ol>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-top"><div><span class="scenario-id">B4</span> <span class="role role-spec">Định mức — Phụ kiện/Bao bì</span></div></div>
+      <h3>Nhập Phụ kiện, Bao bì</h3>
+      <div class="goal">Vào <code>Định mức &gt; Phụ kiện</code> và <code>Định mức &gt; Bao bì</code></div>
+      <ol class="steps">
+        <li>Mở SKU (chỉ hiện nếu đã qua giai đoạn mảnh) → picker chỉ hiện vật tư <code>kind=ACCESSORY</code> → chọn, nhập số lượng → gửi.<span class="expect"><b>Kỳ vọng</b>Không thấy vật tư Bao bì (<code>PACKAGING</code>) lẫn vào gợi ý Phụ kiện.</span></li>
+        <li>Lặp lại tương tự ở trang Bao bì, picker chỉ hiện <code>kind=PACKAGING</code>.<span class="expect"></span></li>
+        <li>Mở <code>Định mức &gt; Danh sách vật tư</code> (trang catalog) → chuyển 2 tab Phụ kiện/Bao bì.<span class="expect"><b>Kỳ vọng</b>Hiện đúng danh mục Vật tư thật (Admin &gt; Vật tư), không phải danh sách quét lịch sử cũ.</span></li>
+      </ol>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-top"><div><span class="scenario-id">B5</span> <span class="role role-khsx">KHSX</span></div></div>
+      <h3>Duyệt từng nhóm định mức mảnh + chi tiết</h3>
+      <div class="goal">Vào <code>Kế hoạch sản xuất &gt; Duyệt SKU</code> → mở SKU đang test</div>
+      <ol class="steps">
+        <li>Tab "Định mức mảnh" → lần lượt bấm "Duyệt" cho cả 3 nhóm Sắt/Dây/Đinh.<span class="expect"><b>Kỳ vọng</b>Nút Duyệt/Từ chối biến mất sau khi bấm, không undo được — đúng thiết kế.</span></li>
+        <li>Bấm "Gửi bộ phận Định mức chi tiết" (chỉ bật khi cả 3 nhóm mảnh đã duyệt).<span class="expect"></span></li>
+        <li>Tab "Định mức chi tiết" → duyệt cả 3 nhóm Sơn/Phụ kiện/Bao bì → "Gửi QLSX duyệt".<span class="expect"></span></li>
+      </ol>
+    </div>
+
+    <div class="scenario">
+      <div class="scenario-top"><div><span class="scenario-id">B6</span> <span class="role role-qlsx">QLSX</span> → <span class="role role-boss">Sếp</span></div></div>
+      <h3>Duyệt cục bộ, gửi Sếp, duyệt cuối</h3>
+      <ol class="steps">
+        <li><span class="role role-qlsx">QLSX</span> mở SKU, bấm "Duyệt" (cục bộ) → "Gửi sếp duyệt".<span class="expect"></span></li>
+        <li><span class="role role-boss">Sếp</span> mở SKU, bấm "Duyệt".<span class="expect"><b>Kỳ vọng</b>SKU chuyển hẳn sang trạng thái đã duyệt, không còn hiện trong danh sách chờ của Sếp/QLSX nữa.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ================= KỊCH BẢN C ================= -->
+  <section>
+    <div class="sec-head">
+      <h2>Kịch bản C — Duyệt sản xuất theo item (Lệnh sản xuất)</h2>
+      <span class="sec-note">Việc 1</span>
+    </div>
+    <div class="scenario">
+      <div class="scenario-top"><div><span class="scenario-id">C1</span> <span class="role role-khsx">KHSX</span> → <span class="role role-qlsx">QLSX</span> → <span class="role role-boss">Sếp</span></div></div>
+      <h3>Gửi QLSX → chọn kho → Sếp duyệt/từ chối</h3>
+      <div class="goal">Dùng lệnh sản xuất tạo ở Kịch bản A</div>
+      <ol class="steps">
+        <li><span class="role role-khsx">KHSX</span> mở lệnh sản xuất → chọn SKU → "Gửi QLSX".<span class="expect"></span></li>
+        <li><span class="role role-qlsx">QLSX</span> vào "Xử lý lệnh sản xuất" → chọn SKU → chọn 1 kho thành phẩm → "Gửi sếp duyệt".<span class="expect"></span></li>
+        <li><span class="role role-boss">Sếp</span> vào "Duyệt lệnh sản xuất" → bấm "Duyệt" cho SKU.<span class="expect"><b>Kỳ vọng</b>Nếu đây là SKU cuối cùng của PO, PO tự chuyển "Đang sản xuất".</span></li>
+        <li>Thử lại từ bước 1 với 1 SKU khác, lần này <span class="role role-boss">Sếp</span> bấm "Từ chối" thay vì Duyệt, nhập lý do.<span class="expect"><b>Kỳ vọng</b>SKU quay lại danh sách của KHSX để gửi lại, có hiện lý do từ chối.</span></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ================= EDGE CASES ================= -->
+  <section>
+    <div class="sec-head">
+      <h2>Trường hợp nên cố tình thử — để lộ đúng lỗi đã sửa</h2>
+      <span class="sec-note">không bắt buộc thứ tự</span>
+    </div>
+    <p class="lede">4 lỗ hổng đã sửa trong lúc code — các bước dưới đây tái hiện đúng tình huống từng gây lỗi, để xác nhận bản sửa hoạt động thật trên UI (không chỉ đúng ở unit test).</p>
+    <div class="checklist">
+      <div class="check-row"><span class="box"></span><div class="body"><b>Sửa định mức của 1 SKU đã được Sếp duyệt xong</b><span>Mở lại đúng SKU đã duyệt ở Kịch bản B, thử nhập thêm 1 dòng định mức Sắt và gửi lại. Kỳ vọng: hệ thống từ chối rõ ràng (không phải lỗi trắng trang) — nếu UI vẫn cho gửi thành công, đây là lỗi cần báo lại ngay.</span></div></div>
+      <div class="check-row"><span class="box"></span><div class="body"><b>Tạo SKU mới thứ 2 cho CÙNG mã sản phẩm đã duyệt ở B6</b><span>Ở bước B1, tạo thêm 1 SKU khác nhưng dùng lại đúng mã sản phẩm (factoryCode) đã đi hết Kịch bản B. Mở form nhập định mức Sắt của SKU mới này. Kỳ vọng: form trống hoàn toàn (chưa "mượn" định mức của bản đã duyệt trước) — nếu thấy sẵn dữ liệu dù chưa ai nhập gì, đây là lỗi cần báo lại.</span></div></div>
+      <div class="check-row"><span class="box"></span><div class="body"><b>Gửi lại nhóm Dây sau khi đã gửi Đinh</b><span>Đã thử ở bước B3 — xác nhận lại 1 lần nữa: mở tab Dây, thêm 1 dòng mới rồi gửi. Sau đó kiểm tra tab Đinh vẫn còn nguyên dữ liệu cũ, không bị xoá theo.</span></div></div>
+      <div class="check-row"><span class="box"></span><div class="body"><b>Thêm vật tư mới ở Admin &gt; Vật tư mà quên chọn "Loại vật tư"</b><span>Tạo 1 vật tư mới, để trống ô "Loại vật tư" (mặc định OTHER). Quay lại bất kỳ trang Định mức nào, xác nhận vật tư này <b>không</b> hiện trong picker của bất kỳ nhóm nào — đúng hành vi mong đợi, không phải lỗi.</span></div></div>
+    </div>
+  </section>
+
+  <!-- ================= DB VERIFICATION ================= -->
+  <section>
+    <div class="sec-head">
+      <h2>Kiểm tra dữ liệu qua Prisma Studio (không có màn hình riêng trên web)</h2>
+      <span class="sec-note tag" style="font-family:var(--mono); color:var(--ink-faint);">tuỳ chọn — cho ai muốn soát sâu hơn</span>
+    </div>
+    <p class="lede">Chạy <code>npx prisma studio</code> trong <code>D:\DNA-ERP-BE</code> để mở giao diện xem trực tiếp bảng dữ liệu, đối chiếu với thao tác vừa làm ở trên.</p>
+    <div class="tbl-scroll">
+      <table>
+        <thead><tr><th>Sau bước</th><th>Bảng cần xem</th><th>Kiểm tra gì</th></tr></thead>
+        <tbody>
+          <tr><td>B2 (gửi định mức Sắt)</td><td><code>bom_revision</code></td><td>1 dòng mới, <code>status=DRAFT</code>, <code>sourcePlanFormId</code> trỏ đúng SKU đang test.</td></tr>
+          <tr><td>B2</td><td><code>piece</code>, <code>bom_piece</code>, <code>piece_bom</code></td><td><code>piece</code> có 1 dòng tên đúng mảnh vừa tạo; <code>piece_bom</code> có <code>segmentSpecId</code> trỏ tới <code>segment_spec</code> đúng vật tư + chiều dài đã chọn.</td></tr>
+          <tr><td>B3 (Dây/Đinh)</td><td><code>consumable_bom</code></td><td>Các dòng <code>stage=DAN</code> — join sang <code>materials.materialGroupId</code> để phân biệt Dây/Đinh.</td></tr>
+          <tr><td>B3 (Sơn)</td><td><code>consumable_bom</code></td><td>Dòng <code>stage=SON</code>.</td></tr>
+          <tr><td>B4 (Phụ kiện/Bao bì)</td><td><code>bom_accessory_items</code></td><td>Join sang <code>materials.kind</code> để phân biệt ACCESSORY/PACKAGING.</td></tr>
+          <tr><td>B6 (Sếp duyệt cuối)</td><td><code>bom_revision</code></td><td><code>status</code> chuyển từ <code>DRAFT</code> → <code>ACTIVE</code>. Nếu SKU cùng sản phẩm từng có revision ACTIVE trước đó, dòng cũ phải chuyển <code>RETIRED</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= REGRESSION ================= -->
+  <section>
+    <div class="sec-head">
+      <h2>Trang không đổi — chỉ cần lướt qua xác nhận chưa vỡ</h2>
+    </div>
+    <p class="lede">Các trang này không bị sửa ở Việc 2, chỉ cần mở thử để chắc chắn dữ liệu vẫn hiện đúng (không trắng trang, không lỗi console).</p>
+    <div class="checklist">
+      <div class="check-row"><span class="box"></span><div class="body"><b>SKUDetail — màn hình duyệt SKU</b><span>Mở lại SKU đã đi hết Kịch bản B, xác nhận toàn bộ định mức Sắt/Dây/Đinh/Sơn/Phụ kiện/Bao bì hiện đúng (tên vật tư, số lượng, chiều dài).</span></div></div>
+      <div class="check-row"><span class="box"></span><div class="body"><b>Bảng thống kê (ThongKePagePlan)</b><span>Mở trang, xác nhận SKU vừa test hiện trong bảng, không lỗi trắng trang.</span></div></div>
+      <div class="check-row"><span class="box"></span><div class="body"><b>Vật tư / Kiểm tra vật tư (VatTuDashboardPage, KiemTraVatTuPage)</b><span>Mở 2 trang, xác nhận vẫn liệt kê dữ liệu như trước, không crash.</span></div></div>
+      <div class="check-row"><span class="box"></span><div class="body"><b>Admin &gt; Dashboard</b><span>Số liệu tổng PO/PI trên dashboard tăng đúng theo dữ liệu vừa tạo ở Kịch bản A.</span></div></div>
+    </div>
+  </section>
+
+  <footer>
+    dna-erp · hướng dẫn test tay · chưa có kết quả live-test đính kèm — điền lại checklist khi tự chạy · viết 2026-08-01
+  </footer>
+
+</div>

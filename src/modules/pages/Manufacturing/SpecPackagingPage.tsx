@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
+import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
@@ -10,19 +11,21 @@ import { PLANFORM_ENTITY, isPartsApproved } from '../../../constants/planFormSta
 import type { PlanForm, BaoBiDongGoiItem } from '../../../types/plan-form'
 
 // ─── Types ────────────────────────────────────────────────────────────
-// Alias tên trường theo domain (maBB/soLuong/moTa) cho dễ đọc trong JSX — quy đổi
-// sang/từ BaoBiDongGoiItem thật khi đọc/ghi PlanForm.quotaManagement (xem toPackagingLine/toItem).
+// Alias tên trường theo domain (maBB/soLuong) cho dễ đọc trong JSX — quy đổi sang/từ
+// BaoBiDongGoiItem thật khi đọc/ghi PlanForm.quotaManagement (xem toPackagingLine/toItem).
+// Việc 2: mỗi dòng gắn với 1 Material thật (kind=PACKAGING) qua materialId, chọn từ
+// MaterialPicker — không còn gõ mã/mô tả tự do.
 type BomItem = { id: number; ten: string; thoiGian: string }
-type PackagingLine = { uid: number; maBB: string; unit: string; soLuong?: string; moTa: string; imageUrl: string }
+type PackagingLine = { uid: number; materialId: number; maBB: string; unit: string; soLuong?: string }
 
 const GROUP = 'baoBiDongGoi' as const
 
 const toPackagingLine = (it: BaoBiDongGoiItem, uid: number): PackagingLine => ({
-  uid, maBB: it.name, unit: it.unit ?? '', soLuong: it.quantity != null ? String(it.quantity) : '', moTa: it.specifications ?? '', imageUrl: it.imageUrl ?? '',
+  uid, materialId: Number(it.materialId) || 0, maBB: it.name, unit: it.unit ?? '', soLuong: it.quantity != null ? String(it.quantity) : '',
 })
 const toItem = (l: Omit<PackagingLine, 'uid'>): BaoBiDongGoiItem => ({
-  name: l.maBB, unit: l.unit || undefined, specifications: l.moTa || undefined,
-  quantity: (l.soLuong ?? '').trim() !== '' ? Number(l.soLuong) : undefined, imageUrl: l.imageUrl || undefined,
+  name: l.maBB, materialId: String(l.materialId), unit: l.unit || undefined,
+  quantity: (l.soLuong ?? '').trim() !== '' ? Number(l.soLuong) : undefined,
 })
 
 // ─── Main ─────────────────────────────────────────────────────────────
@@ -55,29 +58,11 @@ export default function SpecPackagingPage() {
     return itemsOf(pf).length > 0 ? 'pending' : 'canInput'
   }
 
-  // Danh mục mã bao bì đã từng nhập trên mọi SKU thật — dùng gợi ý autocomplete + tab "Danh sách vật tư".
-  const APPROVED_CATALOG: PackagingLine[] = (() => {
-    const seen = new Map<string, PackagingLine>()
-    let uid = 1
-    for (const pf of planForms) {
-      for (const it of itemsOf(pf)) {
-        const key = it.name.trim().toLowerCase()
-        if (!key || seen.has(key)) continue
-        seen.set(key, toPackagingLine(it, uid++))
-      }
-    }
-    return Array.from(seen.values())
-  })()
-
   const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)
   const [rows, setRows] = useState<PackagingLine[]>([])
   const [nextUid, setNextUid] = useState(1)
-  const [fMaBB, setFMaBB] = useState('')
-  const [fUnit, setFUnit] = useState('')
+  const [fMaterial, setFMaterial] = useState<PickedMaterial | null>(null)
   const [fSoLuong, setFSoLuong] = useState('')
-  const [fMoTa, setFMoTa] = useState('')
-  const [fImageUrl, setFImageUrl] = useState('')
-  const [showPreview, setShowPreview] = useState(false)
   const [fErr, setFErr] = useState('')
   const [sentMsg, setSentMsg] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -88,16 +73,16 @@ export default function SpecPackagingPage() {
     const existing = itemsOf(findPf(bom.id))
     setRows(existing.map((it, i) => toPackagingLine(it, i + 1)))
     setNextUid(existing.length + 1)
-    setFMaBB(''); setFUnit(''); setFSoLuong(''); setFMoTa(''); setFImageUrl('')
-    setShowPreview(false); setFErr(''); setSentMsg(false)
+    setFMaterial(null); setFSoLuong('')
+    setFErr(''); setSentMsg(false)
   }
 
   const addToDraft = () => {
     setFErr('')
-    if (!fMaBB.trim()) { setFErr('Vui lòng nhập Mã bao bì.'); return }
-    setRows(r => [...r, { uid: nextUid, maBB: fMaBB.trim(), unit: fUnit.trim(), soLuong: fSoLuong.trim(), moTa: fMoTa.trim(), imageUrl: fImageUrl.trim() }])
+    if (!fMaterial) { setFErr('Vui lòng chọn Mã bao bì.'); return }
+    setRows(r => [...r, { uid: nextUid, materialId: fMaterial.id, maBB: `${fMaterial.code} — ${fMaterial.name}`, unit: fMaterial.unit, soLuong: fSoLuong.trim() }])
     setNextUid(n => n + 1)
-    setFMaBB(''); setFUnit(''); setFSoLuong(''); setFMoTa(''); setFImageUrl('')
+    setFMaterial(null); setFSoLuong('')
   }
 
   const removeDraft = (uid: number) => setRows(r => r.filter(x => x.uid !== uid))
@@ -108,7 +93,7 @@ export default function SpecPackagingPage() {
     try {
       const items = rows.map(r => toItem(r))
       await api.updatePlanFormDetailQuota(selectedBom.id, GROUP, items, user?.name ?? 'Không rõ')
-      logAction(PLANFORM_ENTITY, String(selectedBom.id), 'planform.detail_submitted', `Bao bì đóng gói (${items.length} vật tư)`)
+      logAction(PLANFORM_ENTITY, String(selectedBom.id), 'planform.detail_submitted', `Vật tư bao bì (${items.length} vật tư)`)
       await refetchPlanForms()
       setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
     } finally {
@@ -182,54 +167,14 @@ export default function SpecPackagingPage() {
                 {selectedBom.ten}
               </div>
             </div>
-            <div style={{ flex: 1, minWidth: 150 }}>
+            <div style={{ flex: 1, minWidth: 220 }}>
               <FL>Mã bao bì <span style={{ color: '#e53935' }}>*</span></FL>
-              <PackagingSearch
-                value={fMaBB}
-                catalog={APPROVED_CATALOG}
-                onChange={v => { setFMaBB(v); setFErr('') }}
-                onSelectFromCatalog={item => {
-                  setFMaBB(item.maBB)
-                  setFUnit(item.unit)
-                  setFMoTa(item.moTa)
-                  setFErr('')
-                }}
-              />
-            </div>
-            <div style={{ width: 68 }}>
-              <FL>ĐVT</FL>
-              <input value={fUnit} onChange={e => setFUnit(e.target.value)}
-                placeholder="thùng" style={inputStyle} />
+              <MaterialPicker value={fMaterial} onSelect={m => { setFMaterial(m); setFErr('') }} kind="PACKAGING" placeholder="Chọn bao bì…" />
             </div>
             <div style={{ width: 90 }}>
               <FL>Số lượng</FL>
               <input type="number" min={0} value={fSoLuong} onChange={e => setFSoLuong(e.target.value)}
                 placeholder="VD: 500" style={inputStyle} />
-            </div>
-            <div style={{ flex: 2, minWidth: 180 }}>
-              <FL>Mô tả</FL>
-              <input value={fMoTa} onChange={e => setFMoTa(e.target.value)}
-                placeholder="VD: Thùng carton 5 lớp 60x40x40" style={inputStyle} />
-            </div>
-            <div style={{ flex: 1, minWidth: 160 }}>
-              <FL>Image URL</FL>
-              <div style={{ display: 'flex', gap: 6, position: 'relative' }}>
-                <input value={fImageUrl} onChange={e => { setFImageUrl(e.target.value); setShowPreview(false) }}
-                  placeholder="https://..." style={{ ...inputStyle, flex: 1 }} />
-                {fImageUrl.trim() && (
-                  <button onClick={() => setShowPreview(v => !v)} title="Xem ảnh" style={{
-                    padding: '0 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-                    background: showPreview ? 'var(--surface2)' : 'var(--surface)',
-                    cursor: 'pointer', color: showPreview ? '#1565c0' : 'var(--text3)',
-                    display: 'flex', alignItems: 'center', flexShrink: 0,
-                  }}>
-                    <Eye size={15} />
-                  </button>
-                )}
-                {showPreview && fImageUrl.trim() && (
-                  <ImageModal url={fImageUrl.trim()} onClose={() => setShowPreview(false)} />
-                )}
-              </div>
             </div>
             <button onClick={addToDraft} style={{
               padding: '7px 16px', border: 'none', borderRadius: 'var(--radius)',
@@ -254,7 +199,7 @@ export default function SpecPackagingPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['SKU', 'Mã bao bì', 'ĐVT', 'Số lượng', 'Mô tả', ...(st === 'pending' ? [] : [''])].map((h, i) => (
+                  {['SKU', 'Mã bao bì', 'Số lượng', ...(st === 'pending' ? [] : [''])].map((h, i) => (
                     <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>
@@ -264,9 +209,7 @@ export default function SpecPackagingPage() {
                   <tr key={d.uid} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px 14px', fontWeight: 600, fontSize: 13, color: 'var(--text2)' }}>{selectedBom?.ten}</td>
                     <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{d.maBB}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{d.unit || '—'}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{d.soLuong || '—'}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{d.moTa || '—'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{d.soLuong || '—'}{d.unit ? ` ${d.unit}` : ''}</td>
                     {st !== 'pending' && (
                       <td style={{ padding: '10px 14px', textAlign: 'center' }}>
                         <button onClick={() => removeDraft(d.uid)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 2 }}>
@@ -362,114 +305,6 @@ export default function SpecPackagingPage() {
           </tbody>
         </table>
       </div>
-    </div>
-  )
-}
-
-// ─── PackagingSearch ──────────────────────────────────────────────────
-// Nhập tự do được — dropdown chỉ là gợi ý từ catalog, không bắt buộc chọn
-function PackagingSearch({ value, onChange, onSelectFromCatalog, catalog }: {
-  value: string
-  onChange: (v: string) => void
-  onSelectFromCatalog: (item: PackagingLine) => void
-  catalog: PackagingLine[]
-}) {
-  const [focused, setFocused] = useState(false)
-
-  const filtered = value.trim() === ''
-    ? catalog
-    : catalog.filter(c =>
-        c.maBB.toLowerCase().includes(value.toLowerCase()) ||
-        c.moTa.toLowerCase().includes(value.toLowerCase())
-      )
-
-  const isNew = value.trim() !== '' && !catalog.some(c => c.maBB.toLowerCase() === value.trim().toLowerCase())
-
-  return (
-    <div style={{ position: 'relative', flex: 1, minWidth: 150 }}>
-      <input
-        value={value}
-        placeholder="Nhập hoặc chọn mã bao bì…"
-        onFocus={() => setFocused(true)}
-        onBlur={() => setTimeout(() => setFocused(false), 150)}
-        onChange={e => onChange(e.target.value)}
-        style={{ ...inputStyle, paddingRight: value ? 28 : 10 }}
-      />
-      {value && (
-        <button
-          onMouseDown={e => e.preventDefault()}
-          onClick={() => onChange('')}
-          style={{
-            position: 'absolute', right: 6, top: '50%', transform: 'translateY(-50%)',
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'var(--text3)', display: 'flex', alignItems: 'center', padding: 2,
-          }}>
-          <X size={13} />
-        </button>
-      )}
-      {focused && (
-        <div style={{
-          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 300,
-          background: 'var(--surface)', border: '1px solid var(--border)',
-          borderRadius: 'var(--radius-lg)', boxShadow: '0 4px 20px rgba(0,0,0,.12)',
-          maxHeight: 240, overflowY: 'auto', marginTop: 4,
-        }}>
-          {isNew && (
-            <div style={{ padding: '8px 14px', fontSize: 12, color: '#1565c0', background: '#e3f2fd', borderBottom: '1px solid var(--border)' }}>
-              + Mã mới — sẽ thêm vào danh sách khi được duyệt
-            </div>
-          )}
-          {filtered.length === 0 && !isNew ? (
-            <div style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 13 }}>
-              Không tìm thấy gợi ý nào
-            </div>
-          ) : filtered.map(c => (
-            <div key={c.uid}
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => { onSelectFromCatalog(c); setFocused(false) }}
-              style={{
-                padding: '9px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)',
-                background: c.maBB === value ? 'var(--surface2)' : 'transparent',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-              onMouseLeave={e => (e.currentTarget.style.background = c.maBB === value ? 'var(--surface2)' : 'transparent')}
-            >
-              <div style={{ fontSize: 13, fontWeight: c.maBB === value ? 700 : 500, color: 'var(--text)' }}>{c.maBB}</div>
-              {c.moTa && (
-                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{c.moTa}</div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function ImageModal({ url, onClose }: { url: string; onClose: () => void }) {
-  return (
-    <div
-      onClick={onClose}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1000,
-        background: 'rgba(0,0,0,0.6)',
-        backdropFilter: 'blur(4px)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        cursor: 'zoom-out',
-      }}
-    >
-      <img
-        src={url}
-        alt="preview"
-        onClick={e => e.stopPropagation()}
-        style={{
-          maxWidth: '60vw', maxHeight: '70vh',
-          borderRadius: 'var(--radius-lg)',
-          boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
-          objectFit: 'contain',
-          cursor: 'default',
-        }}
-      />
     </div>
   )
 }

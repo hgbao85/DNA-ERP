@@ -5,7 +5,10 @@ import { Search, Plus, Trash2, Pencil, X, Building2 } from 'lucide-react'
 
 interface Material { id: number; code: string; name: string; unit: string }
 interface Supplier { id: number; name: string; phone?: string | null; address?: string | null; _count?: { materials: number } }
-interface Link { id: number; supplier?: { id: number; name: string; phone?: string | null; address?: string | null } | null }
+// BE (/materials/:materialId/suppliers) trả supplierId + supplierName phẳng (không có object
+// supplier lồng như mock cũ) — ghép thêm phone/address bằng cách tra trong danh sách `suppliers`
+// đã có sẵn theo supplierId, thay vì sửa giao diện bảng.
+interface Link { id: number; price: number; supplierId: number; supplierName: string }
 
 const safeArr = <T,>(d: T[] | null | undefined): T[] => (Array.isArray(d) ? d : [])
 const errMsg = (e: unknown) => (e as { response?: { data?: { error?: string } } })?.response?.data?.error
@@ -19,25 +22,27 @@ export default function VatTuNCCPage() {
 
   const [showSupplierMgr, setShowSupplierMgr] = useState(false)
   const [linkSup, setLinkSup] = useState<number | ''>('')
+  const [linkPrice, setLinkPrice] = useState('')
   const [err, setErr] = useState('')
 
   const matList = safeArr(materials).filter(m => {
     const q = search.trim().toLowerCase()
     return !q || m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q)
   })
-  const linkedSupIds = new Set(safeArr(links).map(l => l.supplier?.id))
+  const linkedSupIds = new Set(safeArr(links).map(l => l.supplierId))
   const availSuppliers = safeArr(suppliers).filter(s => !linkedSupIds.has(s.id))
   const selMatObj = safeArr(materials).find(m => m.id === selMat)
 
   const addLink = async () => {
     setErr('')
     if (!linkSup) { setErr('Chọn nhà cung cấp'); return }
+    if (!linkPrice.trim() || Number(linkPrice) < 0) { setErr('Nhập đơn giá hợp lệ'); return }
     try {
-      await api.createMaterialSupplier({ materialId: selMat, supplierId: Number(linkSup) })
-      setLinkSup(''); refetchLinks()
+      await api.createMaterialSupplier({ materialId: selMat, supplierId: linkSup, price: Number(linkPrice) })
+      setLinkSup(''); setLinkPrice(''); refetchLinks()
     } catch (e) { setErr(errMsg(e) ?? 'Lỗi gắn NCC') }
   }
-  const delLink = async (id: number) => { if (confirm('Bỏ gắn NCC này?')) { await api.deleteMaterialSupplier(id); refetchLinks() } }
+  const delLink = async (id: number) => { if (selMat && confirm('Bỏ gắn NCC này?')) { await api.deleteMaterialSupplier(selMat, id); refetchLinks() } }
 
   return (
     <div>
@@ -80,11 +85,11 @@ export default function VatTuNCCPage() {
               <div style={{ fontWeight: 700, marginBottom: 12 }}>{selMatObj?.name} <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 400 }}>({selMatObj?.unit})</span></div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead><tr style={{ textAlign: 'left', color: 'var(--text3)' }}>
-                  <th style={th}>Nhà cung cấp</th><th style={th}>Địa chỉ</th><th style={th}>SĐT</th><th style={th}></th>
+                  <th style={th}>Nhà cung cấp</th><th style={th}>Địa chỉ</th><th style={th}>SĐT</th><th style={th}>Đơn giá</th><th style={th}></th>
                 </tr></thead>
                 <tbody>
-                  {safeArr(links).map(l => <LinkRow key={l.id} link={l} onDel={delLink} />)}
-                  {safeArr(links).length === 0 && <tr><td colSpan={4} style={{ ...td, color: 'var(--text3)', padding: 14 }}>Chưa gắn NCC nào</td></tr>}
+                  {safeArr(links).map(l => <LinkRow key={l.id} link={l} suppliers={safeArr(suppliers)} onDel={delLink} />)}
+                  {safeArr(links).length === 0 && <tr><td colSpan={5} style={{ ...td, color: 'var(--text3)', padding: 14 }}>Chưa gắn NCC nào</td></tr>}
                 </tbody>
               </table>
 
@@ -96,6 +101,10 @@ export default function VatTuNCCPage() {
                     <option value="">— chọn NCC —</option>
                     {availSuppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                   </select>
+                  <input
+                    type="number" min={0} value={linkPrice} onChange={e => setLinkPrice(e.target.value)}
+                    placeholder="Đơn giá" style={{ ...inp, flex: '1 1 100px' }}
+                  />
                   <button onClick={addLink} style={btnPrimary}><Plus size={14} /> Gắn</button>
                 </div>
                 {availSuppliers.length === 0 && safeArr(suppliers).length > 0 && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>Đã gắn hết NCC hiện có. Thêm NCC mới ở &quot;Quản lý nhà cung cấp&quot;.</div>}
@@ -113,12 +122,14 @@ export default function VatTuNCCPage() {
 }
 
 // ── Dòng NCC ───────────────────────────────────────────────────────────
-function LinkRow({ link, onDel }: { link: Link; onDel: (id: number) => void }) {
+function LinkRow({ link, suppliers, onDel }: { link: Link; suppliers: Supplier[]; onDel: (id: number) => void }) {
+  const supplier = suppliers.find(s => s.id === link.supplierId)
   return (
     <tr style={{ borderTop: '1px solid var(--border)' }}>
-      <td style={td}>{link.supplier?.name}</td>
-      <td style={{ ...td, color: 'var(--text3)' }}>{link.supplier?.address || '—'}</td>
-      <td style={td}>{link.supplier?.phone || '—'}</td>
+      <td style={td}>{link.supplierName}</td>
+      <td style={{ ...td, color: 'var(--text3)' }}>{supplier?.address || '—'}</td>
+      <td style={td}>{supplier?.phone || '—'}</td>
+      <td style={td}>{link.price.toLocaleString('vi-VN')}</td>
       <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
         <button title="Bỏ gắn" onClick={() => onDel(link.id)} style={iconBtn}><Trash2 size={14} color="#c62828" /></button>
       </td>

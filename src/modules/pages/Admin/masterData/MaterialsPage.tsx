@@ -9,6 +9,7 @@ interface Material {
   id: number
   code: string
   name: string
+  kind: string
   unit: string
   materialGroupId?: number | null
   khoUnitFactor?: number | null
@@ -18,6 +19,19 @@ interface MaterialGroup {
   id: number
   name: string
 }
+
+// Dùng để lọc vật tư khi chọn cho SegmentSpec (chỉ STEEL_BAR)/ConsumableBom/BomAccessoryItem
+// ở các trang Spec (Sắt/Dây/Đinh/Sơn/Phụ kiện/Bao bì, xem Việc 2) — vật tư phải được gán đúng
+// kind ở đây thì mới hiện lên trong ô chọn của trang Spec tương ứng.
+const KIND_LABEL: Record<string, string> = {
+  STEEL_BAR: 'Sắt (đoạn cắt)',
+  CONSUMABLE: 'Tiêu hao (Dây/Đinh...)',
+  PAINT: 'Sơn',
+  ACCESSORY: 'Phụ kiện',
+  PACKAGING: 'Bao bì',
+  OTHER: 'Khác',
+}
+const KIND_OPTIONS = Object.entries(KIND_LABEL).map(([value, label]) => ({ value, label }))
 
 export default function MaterialsPage() {
   const { logAction } = useAuditLog()
@@ -36,6 +50,7 @@ export default function MaterialsPage() {
     columns: [
       { key: 'code', label: 'Mã vật tư' },
       { key: 'name', label: 'Tên vật tư' },
+      { key: 'kind', label: 'Loại', render: (m) => KIND_LABEL[m.kind] ?? m.kind },
       { key: 'unit', label: 'Đơn vị' },
       { key: 'materialGroupId', label: 'Nhóm vật tư', render: (m) => groupName(m.materialGroupId) },
       { key: 'khoUnitFactor', label: 'Hệ số quy đổi kho', align: 'right' },
@@ -44,6 +59,7 @@ export default function MaterialsPage() {
     formFields: [
       { name: 'code', label: 'Mã vật tư', type: 'text', required: true },
       { name: 'name', label: 'Tên vật tư', type: 'text', required: true },
+      { name: 'kind', label: 'Loại vật tư', type: 'select', options: KIND_OPTIONS },
       { name: 'unit', label: 'Đơn vị tính', type: 'text', required: true },
       {
         name: 'materialGroupId', label: 'Nhóm vật tư', type: 'select',
@@ -63,9 +79,9 @@ export default function MaterialsPage() {
     },
     api: {
       list: getMaterials,
-      create: (data) => createMaterial({ ...data, materialGroupId: data.materialGroupId ? Number(data.materialGroupId) : undefined }),
-      update: (id, data) => updateMaterial(Number(id), { ...data, materialGroupId: data.materialGroupId ? Number(data.materialGroupId) : undefined }),
-      remove: (id) => deleteMaterial(Number(id)),
+      create: (data) => createMaterial(data),
+      update: (id, data) => updateMaterial(id, data),
+      remove: (id) => deleteMaterial(id),
     },
   }
 

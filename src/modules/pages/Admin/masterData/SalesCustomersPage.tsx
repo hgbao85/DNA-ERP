@@ -42,8 +42,8 @@ export default function SalesCustomersPage() {
     api: {
       list: getSalesCustomers,
       create: createSalesCustomer,
-      update: (id, data) => updateSalesCustomer(Number(id), data),
-      remove: (id) => deleteSalesCustomer(Number(id)),
+      update: (id, data) => updateSalesCustomer(id, data),
+      remove: (id) => deleteSalesCustomer(id),
     },
   }
 

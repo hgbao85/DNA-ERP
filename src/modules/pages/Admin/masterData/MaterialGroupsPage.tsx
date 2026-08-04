@@ -38,8 +38,8 @@ export default function MaterialGroupsPage() {
     api: {
       list: getMaterialGroups,
       create: (data) => createMaterialGroup(String(data.name ?? '')),
-      update: (id, data) => updateMaterialGroup(Number(id), data),
-      remove: (id) => deleteMaterialGroup(Number(id)),
+      update: (id, data) => updateMaterialGroup(id, data),
+      remove: (id) => deleteMaterialGroup(id),
     },
   }
 

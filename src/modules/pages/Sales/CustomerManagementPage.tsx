@@ -19,7 +19,7 @@ export default function CustomerManagementPage() {
 
   const openNew = () => { setForm(EMPTY_FORM); setModal('new') }
   const openEdit = (c: SalesCustomer) => {
-    setForm({ name: c.name, phone: c.phone, email: c.email ?? '', address: c.address ?? '', note: c.note ?? '' })
+    setForm({ name: c.name, phone: c.phone ?? '', email: c.email ?? '', address: c.address ?? '', note: c.note ?? '' })
     setModal(c)
   }
 

@@ -7,9 +7,9 @@ import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPa
 interface ExportCustomer {
   id: number
   name: string
-  country?: string
-  market?: string
-  contactName?: string
+  country?: string | null
+  market?: string | null
+  contactName?: string | null
 }
 
 export default function ExportCustomersPage() {
@@ -47,8 +47,8 @@ export default function ExportCustomersPage() {
     api: {
       list: getMfgExportCustomers,
       create: createMfgExportCustomer,
-      update: (id, data) => updateMfgExportCustomer(Number(id), data) as Promise<ExportCustomer | undefined>,
-      remove: (id) => deleteMfgExportCustomer(Number(id)),
+      update: (id, data) => updateMfgExportCustomer(id, data) as Promise<ExportCustomer | undefined>,
+      remove: (id) => deleteMfgExportCustomer(id),
     },
   }
 
