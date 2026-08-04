@@ -17,12 +17,12 @@
  *  - weaving-points — CHỈ phần CRUD danh mục cơ bản (weaving-points-api.ts); nghiệp vụ phân bổ/
  *    nhận đan/chuyển kiểm vẫn ở mock (mfg.service.ts) vì BE chưa có API tương ứng.
  *  - system-config (system-config-api.ts)
- *  - products (products-api.ts) — an toàn để nối vì sales-orders/plan-forms bên dưới đã dùng
- *    products thật; không còn "2 nguồn sự thật" như lúc chỉ có PlanForm mock.
+ *  - products (products-api.ts) — an toàn để nối vì sales-orders/skus bên dưới đã dùng
+ *    products thật; không còn "2 nguồn sự thật" như lúc chỉ có Sku mock.
  *  - sales-orders (sales-orders-api.ts) — hợp nhất "salesPOs" (Sales) + "exportOrders" (Mfg)
  *    của mock thành 1 bảng thật duy nhất; `getExportOrders`/`createExportOrder` không còn cần
- *    (BE tự resolve PI khi tạo PlanForm/duyệt PI item, xem plan-forms-api.ts) nên đã bỏ hẳn.
- *  - plan-forms (plan-forms-api.ts) — toàn bộ state machine duyệt định mức SKU. Field JSON tự
+ *    (BE tự resolve PI khi tạo Sku/duyệt PI item, xem sku-api.ts) nên đã bỏ hẳn.
+ *  - skus (sku-api.ts) — toàn bộ state machine duyệt định mức SKU. Field JSON tự
  *    do (manhData/quotaManagement.materialType) round-trip nguyên vẹn qua BE (lưu opaque),
  *    Spec pages (SpecSteelPage...) không cần sửa. `stages`/execution Phôi-Hàn-Sơn-KCS vẫn mock.
  *  - production-invoices (production-invoices-api.ts) — state machine duyệt sản xuất theo
@@ -51,11 +51,11 @@ export { getSystemConfig, updateSystemConfig } from './system-config-api';
 export { getMfgProducts, createMfgProduct } from './products-api';
 export { getSalesPOs, createSalesPO, updateSalesPO } from './sales-orders-api';
 export {
-  getPlanForms, getPlanForm, getPlanFormOptions, createPlanForm, deletePlanForms,
-  updatePlanFormManhQuota, updatePlanFormDetailQuota, reviewPlanFormManhQuota, reviewPlanFormDetailQuota,
-  approvePartsPlanForm, approveDetailPlanForm, reviewQlsxPlanForm, requestBossApprovalPlanForm,
-  rejectPlanFormByQlsx, rejectPlanFormByBoss, approveFullPlanForm,
-} from './plan-forms-api';
+  getSkus, getSku, getSkuOptions, createSku, deleteSkus,
+  updateSkuManhQuota, updateSkuDetailQuota, reviewSkuManhQuota, reviewSkuDetailQuota,
+  approvePartsSku, approveDetailSku, reviewQlsxSku, requestBossApprovalSku,
+  rejectSkuByQlsx, rejectSkuByBoss, approveFullSku,
+} from './sku-api';
 export {
   getProductionInvoices, getProductionInvoice, updateProductionInvoice,
   sendItemToQlsx, sendItemToBoss, approveItemByBoss, rejectProdItem,

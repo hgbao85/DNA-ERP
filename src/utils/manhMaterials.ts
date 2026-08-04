@@ -1,11 +1,11 @@
-import type { DaySonItem, PlanForm, SatItem } from '../types/plan-form';
+import type { DaySonItem, Sku, SatItem } from '../types/sku';
 
 /**
- * Gộp phẳng danh sách loại sắt từ tất cả "mảnh" (manhData.sat) của 1 PlanForm thành SatItem[] —
+ * Gộp phẳng danh sách loại sắt từ tất cả "mảnh" (manhData.sat) của 1 Sku thành SatItem[] —
  * dùng thay quotaManagement.materialType.sat (đã bỏ khỏi luồng nhập định mức chi tiết) cho các
  * màn hình tổng hợp vật tư (Kiểm tra vật tư, Tổng hợp vật tư, Xuất kho, Bảng thống kê).
  */
-export function flattenManhSteel(pf: PlanForm): SatItem[] {
+export function flattenManhSteel(pf: Sku): SatItem[] {
   const rows = pf.manhData?.sat ?? [];
   return rows.flatMap((m) =>
     m.children.map((c) => ({
@@ -24,7 +24,7 @@ export function flattenManhSteel(pf: PlanForm): SatItem[] {
  * cả 2 để các màn hình tổng hợp không thiếu dây. KHÔNG gồm Đinh (manhData.dinh) vì Đinh tính theo
  * cây (đếm), không cùng đơn vị kg với dây/sơn — trộn chung sẽ sai số liệu tổng hợp.
  */
-export function combinedDaySon(pf: PlanForm): DaySonItem[] {
+export function combinedDaySon(pf: Sku): DaySonItem[] {
   return [...(pf.quotaManagement?.materialType?.daySon ?? []), ...(pf.manhData?.day ?? [])];
 }
 
@@ -34,6 +34,6 @@ export function combinedDaySon(pf: PlanForm): DaySonItem[] {
  * khỏi combinedDaySon vì khác đơn vị (cây, không phải kg) — các màn hình tổng hợp phải hiển thị
  * Đinh thành dòng/nhóm riêng, không được cộng chung số lượng với Dây/Sơn.
  */
-export function dinhItems(pf: PlanForm): DaySonItem[] {
+export function dinhItems(pf: Sku): DaySonItem[] {
   return pf.manhData?.dinh ?? [];
 }

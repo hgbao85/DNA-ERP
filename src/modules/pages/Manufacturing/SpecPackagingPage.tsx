@@ -4,16 +4,17 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
 import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
 import { useFetch } from '../../../hooks/useFetch'
+import { useMaterialGroupIds } from '../../../hooks/useMaterialGroupIds'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
-import { PLANFORM_ENTITY, isPartsApproved } from '../../../constants/planFormStatus'
-import type { PlanForm, BaoBiDongGoiItem } from '../../../types/plan-form'
+import { SKU_ENTITY, isPartsApproved } from '../../../constants/skuStatus'
+import type { Sku, BaoBiDongGoiItem } from '../../../types/sku'
 
 // ─── Types ────────────────────────────────────────────────────────────
 // Alias tên trường theo domain (maBB/soLuong) cho dễ đọc trong JSX — quy đổi sang/từ
-// BaoBiDongGoiItem thật khi đọc/ghi PlanForm.quotaManagement (xem toPackagingLine/toItem).
-// Việc 2: mỗi dòng gắn với 1 Material thật (kind=PACKAGING) qua materialId, chọn từ
+// BaoBiDongGoiItem thật khi đọc/ghi Sku.quotaManagement (xem toPackagingLine/toItem).
+// Việc 2: mỗi dòng gắn với 1 Material thật (nhóm vật tư Bao bì) qua materialId, chọn từ
 // MaterialPicker — không còn gõ mã/mô tả tự do.
 type BomItem = { id: number; ten: string; thoiGian: string }
 type PackagingLine = { uid: number; materialId: number; maBB: string; unit: string; soLuong?: string }
@@ -33,22 +34,23 @@ const toItem = (l: Omit<PackagingLine, 'uid'>): BaoBiDongGoiItem => ({
 export default function SpecPackagingPage() {
   const { user } = useAuth()
   const { logAction } = useAuditLog()
-  const { data: planFormsData, refetch: refetchPlanForms } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
-  const planForms = (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT')
+  const { data: skusData, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
+  const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
+  const { packaging: packagingGroupId } = useMaterialGroupIds()
 
   // Chỉ hiện SKU đã qua giai đoạn định mức mảnh (KHSX đã duyệt & gửi bộ phận chi tiết) — đúng
   // thứ tự flow hiện tại (mảnh trước, chi tiết sau).
-  const boms: BomItem[] = planForms
+  const boms: BomItem[] = skus
     .filter(pf => isPartsApproved(pf.status))
     .map(pf => ({
       id: pf.id,
       ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
       thoiGian: format(new Date(pf.createdAt), 'dd/MM/yyyy'),
     }))
-  const findPf = (id: number) => planForms.find(pf => pf.id === id)
-  const itemsOf = (pf?: PlanForm) => pf?.quotaManagement?.materialType?.[GROUP] ?? []
-  const reviewOf = (pf?: PlanForm) => pf?.quotaManagement?.reviewStatus?.[GROUP]
-  const entryMetaOf = (pf?: PlanForm) => pf?.quotaManagement?.entryMeta?.[GROUP]
+  const findPf = (id: number) => skus.find(pf => pf.id === id)
+  const itemsOf = (pf?: Sku) => pf?.quotaManagement?.materialType?.[GROUP] ?? []
+  const reviewOf = (pf?: Sku) => pf?.quotaManagement?.reviewStatus?.[GROUP]
+  const entryMetaOf = (pf?: Sku) => pf?.quotaManagement?.entryMeta?.[GROUP]
 
   const bomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' => {
     const pf = findPf(bomId)
@@ -92,9 +94,9 @@ export default function SpecPackagingPage() {
     setSubmitting(true)
     try {
       const items = rows.map(r => toItem(r))
-      await api.updatePlanFormDetailQuota(selectedBom.id, GROUP, items, user?.name ?? 'Không rõ')
-      logAction(PLANFORM_ENTITY, String(selectedBom.id), 'planform.detail_submitted', `Vật tư bao bì (${items.length} vật tư)`)
-      await refetchPlanForms()
+      await api.updateSkuDetailQuota(selectedBom.id, GROUP, items, user?.name ?? 'Không rõ')
+      logAction(SKU_ENTITY, String(selectedBom.id), 'sku.detail_submitted', `Vật tư bao bì (${items.length} vật tư)`)
+      await refetchSkus()
       setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
     } finally {
       setSubmitting(false)
@@ -169,7 +171,7 @@ export default function SpecPackagingPage() {
             </div>
             <div style={{ flex: 1, minWidth: 220 }}>
               <FL>Mã bao bì <span style={{ color: '#e53935' }}>*</span></FL>
-              <MaterialPicker value={fMaterial} onSelect={m => { setFMaterial(m); setFErr('') }} kind="PACKAGING" placeholder="Chọn bao bì…" />
+              <MaterialPicker value={fMaterial} onSelect={m => { setFMaterial(m); setFErr('') }} materialGroupId={packagingGroupId} placeholder="Chọn bao bì…" />
             </div>
             <div style={{ width: 90 }}>
               <FL>Số lượng</FL>

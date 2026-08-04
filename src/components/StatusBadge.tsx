@@ -5,7 +5,7 @@ interface StatusBadgeProps {
 }
 
 /**
- * Badge trạng thái thuần hiển thị — không biết gì về domain (PlanForm, PurchaseOrder, Quotation...).
+ * Badge trạng thái thuần hiển thị — không biết gì về domain (Sku, PurchaseOrder, Quotation...).
  * Nơi gọi tự tra cứu {label, color, bg} từ status map của domain mình rồi truyền vào.
  */
 export default function StatusBadge({ label, color, bg }: StatusBadgeProps) {

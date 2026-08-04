@@ -4,15 +4,16 @@ import { ChevronLeft, ChevronRight, X, Eye } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
 import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
 import { useFetch } from '../../../hooks/useFetch'
+import { useMaterialGroupIds } from '../../../hooks/useMaterialGroupIds'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog, type AuditAction } from '../../../context/AuditLogContext'
-import { PLANFORM_ENTITY, isPartsApproved } from '../../../constants/planFormStatus'
-import type { PlanForm, DaySonItem, QuotaEntryMeta, QuotaReviewStatus } from '../../../types/plan-form'
+import { SKU_ENTITY, isPartsApproved } from '../../../constants/skuStatus'
+import type { Sku, DaySonItem, QuotaEntryMeta, QuotaReviewStatus } from '../../../types/sku'
 
 // ─── Types ────────────────────────────────────────────────────────────
 // MaterialLine = alias tên trường trung lập (uid/soLuong) cho dễ đọc trong JSX — quy đổi sang/từ
-// DaySonItem thật khi đọc/ghi PlanForm (xem toMaterialLine/toItem). Dùng chung cho cả 3 nhóm:
+// DaySonItem thật khi đọc/ghi Sku (xem toMaterialLine/toItem). Dùng chung cho cả 3 nhóm:
 // "Định mức mảnh — Dây" (manhData.day), "Định mức mảnh — Đinh" (manhData.dinh) và "Định mức chi
 // tiết — Sơn" (quotaManagement.materialType.daySon). Việc 2: mỗi dòng gắn với 1 Material thật qua
 // materialId (chọn từ MaterialPicker), không còn gõ mã tự do — tên hiển thị = tên Material.
@@ -33,43 +34,39 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
   subTab: 'dinh-muc-day' | 'dinh-muc-dinh' | 'vat-tu' | 'catalog'
   onSubTabChange: (t: 'dinh-muc-day' | 'dinh-muc-dinh' | 'vat-tu' | 'catalog') => void
 }) {
-  const { data: planFormsData, refetch: refetchPlanForms } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
-  const planForms = (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT')
-  const findPf = (id: number) => planForms.find(pf => pf.id === id)
+  const { data: skusData, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
+  const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
+  const findPf = (id: number) => skus.find(pf => pf.id === id)
 
-  // "Dây"/"Đinh" cùng kind=CONSUMABLE ở BE (phân biệt qua materialGroupId, xem
-  // plan-forms.service.ts) — cần tra id của 2 nhóm vật tư này để lọc đúng trong picker. Nếu
-  // nhóm chưa tồn tại (chưa từng nhập lần nào), picker tạm hiện mọi vật tư CONSUMABLE — BE sẽ
-  // tự tạo nhóm + gán khi nhập lần đầu (xem MaterialPicker/plan-forms.service.ts).
-  const { data: materialGroups } = useFetch(() => api.getMaterialGroups(), [])
-  const dayGroupId = (materialGroups ?? []).find((g: { name: string }) => g.name === 'Dây')?.id
-  const dinhGroupId = (materialGroups ?? []).find((g: { name: string }) => g.name === 'Đinh')?.id
+  // Dây/Đinh/Sơn đều thuộc nhóm vật tư hệ thống riêng (resolve theo systemKey, không theo
+  // tên hiển thị — xem useMaterialGroupIds.ts và skus.service.ts bên BE).
+  const { wire: dayGroupId, nail: dinhGroupId, paint: paintGroupId } = useMaterialGroupIds()
 
-  const toBom = (pf: PlanForm): BomItem => ({
+  const toBom = (pf: Sku): BomItem => ({
     id: pf.id,
     ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
     thoiGian: format(new Date(pf.createdAt), 'dd/MM/yyyy'),
   })
   // Mảnh (Dây, Đinh) là bước nhập đầu tiên nên hiện cho mọi SKU chưa DRAFT; chi tiết (Sơn) chỉ hiện
   // SKU đã qua giai đoạn mảnh (KHSX đã duyệt & gửi bộ phận chi tiết) — đúng thứ tự flow hiện tại.
-  const manhBoms: BomItem[] = planForms.map(toBom)
-  const detailBoms: BomItem[] = planForms.filter(pf => isPartsApproved(pf.status)).map(toBom)
+  const manhBoms: BomItem[] = skus.map(toBom)
+  const detailBoms: BomItem[] = skus.filter(pf => isPartsApproved(pf.status)).map(toBom)
 
   // ── Định mức mảnh — Dây/Đinh (manhData.day|dinh, manhEntryMeta, manhReviewStatus) ────────────
   // Trạng thái phải suy theo riêng từng nhóm (manhReviewStatus.<key> / manhData.<key>), KHÔNG được
   // suy từ pf.status chung — pf.status chỉ đổi 1 lần khi 1 trong các nhóm mảnh (Sắt/Dây/Đinh) nộp
   // trước, nên nếu dùng chung sẽ khóa luôn nhóm còn lại (vd Sắt nộp trước thì Dây/Đinh bị coi như
   // "đang chờ duyệt" dù chưa nhập gì).
-  const dayItemsOf = (pf?: PlanForm) => pf?.manhData?.day ?? []
-  const dayEntryMetaOf = (pf?: PlanForm) => pf?.manhEntryMeta?.day
-  const dayReviewOf = (pf?: PlanForm) => pf?.manhReviewStatus?.day
+  const dayItemsOf = (pf?: Sku) => pf?.manhData?.day ?? []
+  const dayEntryMetaOf = (pf?: Sku) => pf?.manhEntryMeta?.day
+  const dayReviewOf = (pf?: Sku) => pf?.manhReviewStatus?.day
 
-  const dinhItemsOf = (pf?: PlanForm) => pf?.manhData?.dinh ?? []
-  const dinhEntryMetaOf = (pf?: PlanForm) => pf?.manhEntryMeta?.dinh
-  const dinhReviewOf = (pf?: PlanForm) => pf?.manhReviewStatus?.dinh
+  const dinhItemsOf = (pf?: Sku) => pf?.manhData?.dinh ?? []
+  const dinhEntryMetaOf = (pf?: Sku) => pf?.manhEntryMeta?.dinh
+  const dinhReviewOf = (pf?: Sku) => pf?.manhReviewStatus?.dinh
 
   // SKU cũ đã qua hẳn giai đoạn mảnh nhưng chưa có quyết định riêng cho nhóm này — coi như đã duyệt.
-  const makeManhBomStatus = (itemsOf: (pf?: PlanForm) => DaySonItem[], reviewOf: (pf?: PlanForm) => QuotaReviewStatus | undefined) =>
+  const makeManhBomStatus = (itemsOf: (pf?: Sku) => DaySonItem[], reviewOf: (pf?: Sku) => QuotaReviewStatus | undefined) =>
     (bomId: number): BomStatus => {
       const pf = findPf(bomId)
       const review = reviewOf(pf)
@@ -82,9 +79,9 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
   const dinhBomStatus = makeManhBomStatus(dinhItemsOf, dinhReviewOf)
 
   // ── Định mức chi tiết — Sơn (quotaManagement.materialType.daySon) ─────────────────────────
-  const detailItemsOf = (pf?: PlanForm) => pf?.quotaManagement?.materialType?.daySon ?? []
-  const detailReviewOf = (pf?: PlanForm) => pf?.quotaManagement?.reviewStatus?.daySon
-  const detailEntryMetaOf = (pf?: PlanForm) => pf?.quotaManagement?.entryMeta?.daySon
+  const detailItemsOf = (pf?: Sku) => pf?.quotaManagement?.materialType?.daySon ?? []
+  const detailReviewOf = (pf?: Sku) => pf?.quotaManagement?.reviewStatus?.daySon
+  const detailEntryMetaOf = (pf?: Sku) => pf?.quotaManagement?.entryMeta?.daySon
   const detailBomStatus = (bomId: number): BomStatus => {
     const pf = findPf(bomId)
     const review = detailReviewOf(pf)
@@ -102,17 +99,16 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
         notifSubtitle="Đã duyệt định mức mảnh dây"
         codeLabel="Mã dây"
         qtyLabel="Khối lượng (kg)"
-        pickerKind="CONSUMABLE"
         pickerGroupId={dayGroupId}
         boms={manhBoms}
         itemsOf={id => dayItemsOf(findPf(id))}
         entryMetaOf={id => dayEntryMetaOf(findPf(id))}
         reviewOf={id => dayReviewOf(findPf(id))}
         bomStatus={dayBomStatus}
-        onSubmit={(bomId, items, enteredBy) => api.updatePlanFormManhQuota(bomId, 'day', items, enteredBy)}
-        submitLogAction="planform.manh_submitted"
+        onSubmit={(bomId, items, enteredBy) => api.updateSkuManhQuota(bomId, 'day', items, enteredBy)}
+        submitLogAction="sku.manh_submitted"
         submitLogLabel="Mảnh dây"
-        refetchPlanForms={refetchPlanForms}
+        refetchSkus={refetchSkus}
       />
     )
   }
@@ -126,17 +122,16 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
         notifSubtitle="Đã duyệt định mức mảnh đinh"
         codeLabel="Mã đinh"
         qtyLabel="Số lượng (cây)"
-        pickerKind="CONSUMABLE"
         pickerGroupId={dinhGroupId}
         boms={manhBoms}
         itemsOf={id => dinhItemsOf(findPf(id))}
         entryMetaOf={id => dinhEntryMetaOf(findPf(id))}
         reviewOf={id => dinhReviewOf(findPf(id))}
         bomStatus={dinhBomStatus}
-        onSubmit={(bomId, items, enteredBy) => api.updatePlanFormManhQuota(bomId, 'dinh', items, enteredBy)}
-        submitLogAction="planform.manh_submitted"
+        onSubmit={(bomId, items, enteredBy) => api.updateSkuManhQuota(bomId, 'dinh', items, enteredBy)}
+        submitLogAction="sku.manh_submitted"
         submitLogLabel="Mảnh đinh"
-        refetchPlanForms={refetchPlanForms}
+        refetchSkus={refetchSkus}
       />
     )
   }
@@ -150,22 +145,29 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
         notifSubtitle="Đã duyệt định mức Sơn"
         codeLabel="Mã sơn"
         qtyLabel="Khối lượng (kg)"
-        pickerKind="PAINT"
+        pickerGroupId={paintGroupId}
         boms={detailBoms}
         itemsOf={id => detailItemsOf(findPf(id))}
         entryMetaOf={id => detailEntryMetaOf(findPf(id))}
         reviewOf={id => detailReviewOf(findPf(id))}
         bomStatus={detailBomStatus}
-        onSubmit={(bomId, items, enteredBy) => api.updatePlanFormDetailQuota(bomId, 'daySon', items, enteredBy)}
-        submitLogAction="planform.detail_submitted"
+        onSubmit={(bomId, items, enteredBy) => api.updateSkuDetailQuota(bomId, 'daySon', items, enteredBy)}
+        submitLogAction="sku.detail_submitted"
         submitLogLabel="Sơn"
-        refetchPlanForms={refetchPlanForms}
+        refetchSkus={refetchSkus}
       />
     )
   }
 
   /* ══ DANH SÁCH VẬT TƯ (Material thật, quản lý ở Admin > Vật tư) ══ */
-  return <WireCatalogTab planForms={planForms} dayGroupId={dayGroupId} dinhGroupId={dinhGroupId} />
+  return (
+    <WireCatalogTab
+      skus={skus}
+      dayGroupId={dayGroupId}
+      dinhGroupId={dinhGroupId}
+      paintGroupId={paintGroupId}
+    />
+  )
 }
 
 // ─── WireGroupPanel ───────────────────────────────────────────────────
@@ -175,25 +177,24 @@ export default function SpecWirePaintPage({ subTab, onSubTabChange }: {
 // riêng, mount/unmount theo subTab nên không lẫn dữ liệu giữa các nhóm.
 
 function WireGroupPanel({
-  pageTitle, pageDesc, notifSubtitle, codeLabel, qtyLabel, pickerKind, pickerGroupId, boms, itemsOf, entryMetaOf, reviewOf, bomStatus,
-  onSubmit, submitLogAction, submitLogLabel, refetchPlanForms,
+  pageTitle, pageDesc, notifSubtitle, codeLabel, qtyLabel, pickerGroupId, boms, itemsOf, entryMetaOf, reviewOf, bomStatus,
+  onSubmit, submitLogAction, submitLogLabel, refetchSkus,
 }: {
   pageTitle: string
   pageDesc: string
   notifSubtitle: string
   codeLabel: string
   qtyLabel: string
-  pickerKind: string
-  pickerGroupId?: number
+  pickerGroupId: number | undefined
   boms: BomItem[]
   itemsOf: (bomId: number) => DaySonItem[]
   entryMetaOf: (bomId: number) => QuotaEntryMeta | undefined
   reviewOf?: (bomId: number) => QuotaReviewStatus | undefined
   bomStatus: (bomId: number) => BomStatus
-  onSubmit: (bomId: number, items: DaySonItem[], enteredBy: string) => Promise<PlanForm>
+  onSubmit: (bomId: number, items: DaySonItem[], enteredBy: string) => Promise<Sku>
   submitLogAction: AuditAction
   submitLogLabel: string
-  refetchPlanForms: () => Promise<unknown> | void
+  refetchSkus: () => Promise<unknown> | void
 }) {
   const { user } = useAuth()
   const { logAction } = useAuditLog()
@@ -233,8 +234,8 @@ function WireGroupPanel({
     try {
       const items = rows.map(r => toItem(r))
       await onSubmit(selectedBom.id, items, user?.name ?? 'Không rõ')
-      logAction(PLANFORM_ENTITY, String(selectedBom.id), submitLogAction, `${submitLogLabel} (${items.length} vật tư)`)
-      await refetchPlanForms()
+      logAction(SKU_ENTITY, String(selectedBom.id), submitLogAction, `${submitLogLabel} (${items.length} vật tư)`)
+      await refetchSkus()
       setSentMsg(true); setTimeout(() => setSentMsg(false), 3000)
     } finally {
       setSubmitting(false)
@@ -308,7 +309,7 @@ function WireGroupPanel({
             </div>
             <div style={{ flex: 1, minWidth: 200 }}>
               <FL>{codeLabel} <span style={{ color: '#e53935' }}>*</span></FL>
-              <MaterialPicker value={fMaterial} onSelect={m => { setFMaterial(m); setFErr('') }} kind={pickerKind} materialGroupId={pickerGroupId} placeholder={`Chọn ${codeLabel.toLowerCase()}…`} />
+              <MaterialPicker value={fMaterial} onSelect={m => { setFMaterial(m); setFErr('') }} materialGroupId={pickerGroupId} placeholder={`Chọn ${codeLabel.toLowerCase()}…`} />
             </div>
             <div style={{ width: 120 }}>
               <FL>{qtyLabel}</FL>
@@ -450,16 +451,21 @@ function WireGroupPanel({
 
 // ─── WireCatalogTab (Material thật, quản lý ở Admin > Vật tư) ────────
 
-function WireCatalogTab({ planForms, dayGroupId, dinhGroupId }: { planForms: PlanForm[]; dayGroupId?: number; dinhGroupId?: number }) {
+function WireCatalogTab({ skus, dayGroupId, dinhGroupId, paintGroupId }: {
+  skus: Sku[]
+  dayGroupId: number | undefined
+  dinhGroupId: number | undefined
+  paintGroupId: number | undefined
+}) {
   const { data: materialsData } = useFetch(() => api.getMaterials(), [])
   const materials = materialsData ?? []
-  const wireMaterials = materials.filter(m => m.kind === 'CONSUMABLE' && (dayGroupId == null || m.materialGroupId === dayGroupId))
-  const nailMaterials = materials.filter(m => m.kind === 'CONSUMABLE' && (dinhGroupId == null || m.materialGroupId === dinhGroupId))
-  const paintMaterials = materials.filter(m => m.kind === 'PAINT')
+  const wireMaterials = materials.filter(m => dayGroupId != null && m.materialGroupId === dayGroupId)
+  const nailMaterials = materials.filter(m => dinhGroupId != null && m.materialGroupId === dinhGroupId)
+  const paintMaterials = materials.filter(m => paintGroupId != null && m.materialGroupId === paintGroupId)
   const [catalogSearch, setCatalogSearch] = useState('')
 
   // Từ chối ở cả 3 nguồn (mảnh dây, mảnh đinh, chi tiết Sơn) — cùng shape DaySonItem nên gộp chung 1 bảng.
-  const rejectedGroups = planForms.flatMap(pf => {
+  const rejectedGroups = skus.flatMap(pf => {
     const groups: { ten: string; items: DaySonItem[]; reason?: string }[] = []
     const ten = `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, '')
     if (pf.manhReviewStatus?.day?.status === 'REJECTED') {

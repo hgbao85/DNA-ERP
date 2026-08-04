@@ -1,4 +1,4 @@
-export type PlanFormStatus = 'DRAFT' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS' | 'WAITING_QLSX_APPROVAL' | 'WAITING_BOSS_APPROVAL' | 'APPROVED' | 'REJECTED';
+export type SkuStatus = 'DRAFT' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS' | 'WAITING_QLSX_APPROVAL' | 'WAITING_BOSS_APPROVAL' | 'APPROVED' | 'REJECTED';
 
 export interface SatItem {
   id?: number;
@@ -73,7 +73,7 @@ export interface QuotaReviewStatus {
 /** 1 loại sắt thuộc 1 mảnh — nhập sau bước "Tạo mảnh". */
 export interface ManhChildRow {
   id: number;
-  /** Việc 2: id thật của SegmentSpec (Material kind=STEEL_BAR + chiều dài cắt) đứng sau dòng này. */
+  /** Việc 2: id thật của SegmentSpec (Material nhóm Sắt + chiều dài cắt) đứng sau dòng này. */
   segmentSpecId?: string;
   materialId?: string;
   name: string;
@@ -93,19 +93,20 @@ export interface ManhRow {
   children: ManhChildRow[];
 }
 
-export interface PlanForm {
+export interface Sku {
   id: number;
-  exportOrderId: number;
+  /** SKU độc lập với Sales Order — null khi SKU chưa (hoặc không bao giờ) gắn đơn hàng nào. */
+  exportOrderId: number | null;
   mfgProductId: number;
-  status: PlanFormStatus;
+  status: SkuStatus;
   note?: string | null;
   customerName?: string | null;
   /** Mã lệnh sản xuất (PI) — 1 SKU trong 1 PO chỉ có đúng 1 PI, luôn trỏ tới ProductionInvoice
-   *  cùng exportOrderId+mfgProductId (xem plan-form.service.ts createForm) để "Bảng thống kê"
+   *  cùng exportOrderId+mfgProductId (xem skus.service.ts create) để "Bảng thống kê"
    *  hiện đúng dữ liệu của SKU đó. */
   piCode: string;
   productionInvoiceId?: number;
-  /** PlanForm tạo tự động khi PM xác nhận sản xuất 1 SKU trong PI (LenhSXPage) — chỉ phục vụ
+  /** Sku tạo tự động khi PM xác nhận sản xuất 1 SKU trong PI (LenhSXPage) — chỉ phục vụ
    *  "Lệnh kiểm tra vật tư" (prodmgr@demo.com), không phải SKU do KHSX tạo nên phải ẩn khỏi
    *  "Danh sách SKU" / "Duyệt SKU". */
   origin?: 'PRODUCTION_CONFIRM';
@@ -142,8 +143,9 @@ export interface PlanForm {
   qlsxReviewStatus?: QuotaReviewStatus;
 }
 
-export interface CreatePlanFormPayload {
-  exportOrderId: number;
+export interface CreateSkuPayload {
+  /** Tuỳ chọn — SKU có thể tạo mà không gắn Sales Order nào. */
+  exportOrderId?: number;
   mfgProductId: number;
   note?: string;
   customerName?: string;

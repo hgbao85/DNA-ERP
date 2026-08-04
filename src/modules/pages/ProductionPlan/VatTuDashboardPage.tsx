@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { Loader2, X, Search } from 'lucide-react'
-import type { PlanForm } from '../../../types/plan-form'
+import type { Sku } from '../../../types/sku'
 import { flattenManhSteel, combinedDaySon, dinhItems } from '../../../utils/manhMaterials'
 
 const CAT_META = {
@@ -97,14 +97,14 @@ function ManhStockTable({ rows }: { rows: any[] }) {
   )
 }
 
-function pushItems(items: FlatItem[], pf: PlanForm, cat: Cat, arr: any[]) {
+function pushItems(items: FlatItem[], pf: Sku, cat: Cat, arr: any[]) {
   const base = {
     pfId: pf.id,
     pfStatus: pf.status,
     pfCreatedAt: pf.createdAt,
     productName: pf.mfgProduct?.name ?? '—',
     productCode: pf.mfgProduct?.factoryCode ?? '—',
-    poNumber: pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`,
+    poNumber: pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng',
   }
   arr.forEach((i: any, idx: number) => items.push({
     ...base,
@@ -118,16 +118,16 @@ function pushItems(items: FlatItem[], pf: PlanForm, cat: Cat, arr: any[]) {
   }))
 }
 
-function flattenItems(planForms: PlanForm[]): FlatItem[] {
+function flattenItems(skus: Sku[]): FlatItem[] {
   const items: FlatItem[] = []
-  for (const pf of planForms) {
+  for (const pf of skus) {
     const base = {
       pfId: pf.id,
       pfStatus: pf.status,
       pfCreatedAt: pf.createdAt,
       productName: pf.mfgProduct?.name ?? '—',
       productCode: pf.mfgProduct?.factoryCode ?? '—',
-      poNumber: pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`,
+      poNumber: pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng',
     }
     const mt = pf.quotaManagement?.materialType
     pushItems(items, pf, 'sat', flattenManhSteel(pf))
@@ -174,7 +174,7 @@ const MOCK_THANH_PHAM: FlatItem[] = [
 ]
 
 export default function VatTuDashboardPage({ limitCats, combinedCats, manhWarehouseCode }: { limitCats?: Cat[]; combinedCats?: { id: string; label: string; cats: Cat[] }[]; manhWarehouseCode?: string } = {}) {
-  const { data: planForms = [], isLoading } = useFetch(() => api.getPlanForms(), [])
+  const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
   const [approvals, setApprovals] = useState<Record<string, ApprovalEntry>>({})
   const [selected, setSelected] = useState<FlatItem | null>(null)
   const [showRejectInput, setShowRejectInput] = useState(false)
@@ -240,7 +240,7 @@ export default function VatTuDashboardPage({ limitCats, combinedCats, manhWareho
   const isManhChuaDan = activeCats.size === 1 && activeCats.has('manhChuaDan')
   const isManhDaDan = activeCats.size === 1 && activeCats.has('manhDaDan')
 
-  const allItems = [...flattenItems((planForms ?? []) as PlanForm[]), ...MOCK_THANH_PHAM, ...MOCK_VAT_TU_THANH_PHAM]
+  const allItems = [...flattenItems((skus ?? []) as Sku[]), ...MOCK_THANH_PHAM, ...MOCK_VAT_TU_THANH_PHAM]
     .filter(it => !limitCats || limitCats.includes(it.cat))
 
   const [mockSeeded, setMockSeeded] = useState(false)

@@ -5,8 +5,8 @@ import * as api from '../../../services/api'
 import { Plus, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
-import type { PlanForm, CreatePlanFormPayload } from '../../../types/plan-form'
-import { SKUDetail, StatusBadge, STATUS_MAP, PLANFORM_ENTITY } from './SKUDetail'
+import type { Sku, CreateSkuPayload } from '../../../types/sku'
+import { SKUDetail, StatusBadge, STATUS_MAP, SKU_ENTITY } from './SKUDetail'
 import SearchInput from '../../../components/SearchInput'
 import SearchableSelect from '../../../components/SearchableSelect'
 import FilterPills from '../../../components/FilterPills'
@@ -38,8 +38,8 @@ const BOSS_FILTERS: { key: StatusFilter; label: string; color?: string; bg?: str
   { key: 'WAITING_BOSS_APPROVAL', ...STATUS_MAP.WAITING_BOSS_APPROVAL },
 ]
 
-const emptyForm = (): CreatePlanFormPayload => ({
-  exportOrderId: 0, mfgProductId: 0, note: '',
+const emptyForm = (): CreateSkuPayload => ({
+  mfgProductId: 0, note: '',
 })
 
 export default function SKUReviewPage() {
@@ -48,19 +48,18 @@ export default function SKUReviewPage() {
   const { logAction } = useAuditLog()
   const PENDING_STATUSES = isBoss ? BOSS_PENDING_STATUSES : isProdMgr ? QLSX_PENDING_STATUSES : PLANNER_PENDING_STATUSES
   const FILTERS = isBoss ? BOSS_FILTERS : isProdMgr ? QLSX_FILTERS : PLANNER_FILTERS
-  const { data: planForms = [], isLoading, refetch } = useFetch(() => api.getPlanForms(), [])
-  const { data: formOptions } = useFetch(() => api.getPlanFormOptions(), [])
-  const exportOrders = (formOptions?.exportOrders ?? []) as { id: number }[]
+  const { data: skus = [], isLoading, refetch } = useFetch(() => api.getSkus(), [])
+  const { data: formOptions } = useFetch(() => api.getSkuOptions(), [])
   const mfgProducts  = (formOptions?.mfgProducts  ?? []) as { id: number; factoryCode: string; name: string }[]
   const { data: customers } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers(), [])
 
   const [search, setSearch]             = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
-  const [selectedPf, setSelectedPf]     = useState<PlanForm | null>(null)
+  const [selectedPf, setSelectedPf]     = useState<Sku | null>(null)
 
   // Create form state
   const [showForm, setShowForm]         = useState(false)
-  const [form, setForm]                 = useState<CreatePlanFormPayload>(emptyForm)
+  const [form, setForm]                 = useState<CreateSkuPayload>(emptyForm)
   const [customerName, setCustomerName] = useState('')
   const [submitting, setSubmitting]     = useState(false)
   const [success, setSuccess]           = useState(false)
@@ -77,14 +76,13 @@ export default function SKUReviewPage() {
       // không được tự ý gắn vào sản phẩm đầu tiên trong danh sách như trước.
       const existingProduct = mfgProducts.find(p => p.factoryCode?.toLowerCase() === skuCode.toLowerCase())
       const product = existingProduct ?? await api.createMfgProduct({ factoryCode: skuCode, name: skuCode })
-      const createdPlanForm = await api.createPlanForm({
-        exportOrderId: form.exportOrderId || exportOrders[0]?.id || 0,
+      const createdSku = await api.createSku({
         mfgProductId:  product.id,
         note: skuCode,
         customerName:  customerName.trim() || undefined,
       })
-      if (createdPlanForm?.id != null) {
-        logAction(PLANFORM_ENTITY, String(createdPlanForm.id), 'planform.created', skuCode)
+      if (createdSku?.id != null) {
+        logAction(SKU_ENTITY, String(createdSku.id), 'sku.created', skuCode)
       }
       closeForm()
       setSuccess(true)
@@ -97,9 +95,9 @@ export default function SKUReviewPage() {
     }
   }
 
-  // Trừ PlanForm sinh tự động khi PM "xác nhận sản xuất" (LenhSXPage) — không phải SKU do KHSX tạo,
+  // Trừ Sku sinh tự động khi PM "xác nhận sản xuất" (LenhSXPage) — không phải SKU do KHSX tạo,
   // chỉ phục vụ "Lệnh kiểm tra vật tư".
-  const pending = ((planForms ?? []) as PlanForm[]).filter(p => PENDING_STATUSES.has(p.status) && p.origin !== 'PRODUCTION_CONFIRM')
+  const pending = ((skus ?? []) as Sku[]).filter(p => PENDING_STATUSES.has(p.status) && p.origin !== 'PRODUCTION_CONFIRM')
   const countByStatus = (s: StatusFilter) => s === 'all' ? pending.length : pending.filter(p => p.status === s).length
 
   const afterFilter = statusFilter === 'all' ? pending : pending.filter(p => p.status === statusFilter)
@@ -113,8 +111,8 @@ export default function SKUReviewPage() {
 
   const handleApproveDetail = async () => {
     if (!selectedPf) return
-    const updated = await api.approveDetailPlanForm(selectedPf.id)
-    logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.detail_approved')
+    const updated = await api.approveDetailSku(selectedPf.id)
+    logAction(SKU_ENTITY, String(selectedPf.id), 'sku.detail_approved')
     refetch()
     setSelectedPf(updated)
   }
@@ -124,8 +122,8 @@ export default function SKUReviewPage() {
   // định mức chi tiết) và làm mới dữ liệu.
   const handleApproveParts = async () => {
     if (!selectedPf) return
-    const updated = await api.approvePartsPlanForm(selectedPf.id)
-    logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.parts_approved')
+    const updated = await api.approvePartsSku(selectedPf.id)
+    logAction(SKU_ENTITY, String(selectedPf.id), 'sku.parts_approved')
     refetch()
     setSelectedPf(updated)
   }
@@ -133,8 +131,8 @@ export default function SKUReviewPage() {
   // QLSX duyệt cục bộ — chưa gửi sếp, chỉ mở khóa nút "Gửi sếp duyệt" trên UI.
   const handleQlsxApproveLocal = async () => {
     if (!selectedPf) return
-    const updated = await api.reviewQlsxPlanForm(selectedPf.id)
-    logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.qlsx_approved')
+    const updated = await api.reviewQlsxSku(selectedPf.id)
+    logAction(SKU_ENTITY, String(selectedPf.id), 'sku.qlsx_approved')
     refetch()
     setSelectedPf(updated)
   }
@@ -143,8 +141,8 @@ export default function SKUReviewPage() {
   const handleQlsxSendBoss = async () => {
     if (!selectedPf) return
     try {
-      await api.requestBossApprovalPlanForm(selectedPf.id)
-      logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.sent_for_boss_approval')
+      await api.requestBossApprovalSku(selectedPf.id)
+      logAction(SKU_ENTITY, String(selectedPf.id), 'sku.sent_for_boss_approval')
       refetch()
       setSelectedPf(null)
     } catch (e: unknown) {
@@ -156,8 +154,8 @@ export default function SKUReviewPage() {
   const handleApproveBossRequest = async () => {
     if (!selectedPf) return
     try {
-      await api.approveFullPlanForm(selectedPf.id)
-      logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.boss_approved')
+      await api.approveFullSku(selectedPf.id)
+      logAction(SKU_ENTITY, String(selectedPf.id), 'sku.boss_approved')
       refetch()
       setSelectedPf(null)
     } catch (e: unknown) {
@@ -170,8 +168,8 @@ export default function SKUReviewPage() {
   const handleQlsxReject = async (reason?: string) => {
     if (!selectedPf) return
     try {
-      await api.rejectPlanFormByQlsx(selectedPf.id, reason)
-      logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.qlsx_rejected', reason)
+      await api.rejectSkuByQlsx(selectedPf.id, reason)
+      logAction(SKU_ENTITY, String(selectedPf.id), 'sku.qlsx_rejected', reason)
       refetch()
       setSelectedPf(null)
     } catch (e: unknown) {
@@ -184,8 +182,8 @@ export default function SKUReviewPage() {
   const handleBossReject = async (reason?: string) => {
     if (!selectedPf) return
     try {
-      await api.rejectPlanFormByBoss(selectedPf.id, reason)
-      logAction(PLANFORM_ENTITY, String(selectedPf.id), 'planform.boss_rejected', reason)
+      await api.rejectSkuByBoss(selectedPf.id, reason)
+      logAction(SKU_ENTITY, String(selectedPf.id), 'sku.boss_rejected', reason)
       refetch()
       setSelectedPf(null)
     } catch (e: unknown) {
@@ -199,7 +197,7 @@ export default function SKUReviewPage() {
     if (!selectedPf) return
     setRefreshingSelected(true)
     try {
-      const fresh = await api.getPlanForm(selectedPf.id)
+      const fresh = await api.getSku(selectedPf.id)
       setSelectedPf(fresh)
       refetch()
     } finally {

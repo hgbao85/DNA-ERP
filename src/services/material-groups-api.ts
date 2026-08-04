@@ -7,6 +7,9 @@ import { http } from './core/http';
 export interface BeMaterialGroup {
   id: number;
   name: string;
+  /** Khoá kỹ thuật cố định cho 6 nhóm hệ thống (xem constants/materialGroupSystemKeys.ts) -
+   *  null nếu là nhóm admin tự tạo. Không phải field admin sửa được qua form. */
+  systemKey: string | null;
 }
 
 export async function getMaterialGroups(): Promise<BeMaterialGroup[]> {

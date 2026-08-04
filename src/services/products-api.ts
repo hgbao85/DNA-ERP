@@ -1,7 +1,7 @@
 /**
  * Adapter PRODUCTS: FE ⇄ BE thật (module `products` — danh mục SKU/mfgProduct).
- * Trước đây không nối vì mọi nơi tạo mfgProduct đều nhét thẳng vào PlanForm — nay PlanForm
- * cũng đã là BE thật (xem plan-forms-api.ts) nên không còn rủi ro "2 nguồn sự thật" nữa.
+ * Trước đây không nối vì mọi nơi tạo mfgProduct đều nhét thẳng vào Sku — nay Sku
+ * cũng đã là BE thật (xem sku-api.ts) nên không còn rủi ro "2 nguồn sự thật" nữa.
  * Id bigint-as-string.
  */
 import { http } from './core/http';

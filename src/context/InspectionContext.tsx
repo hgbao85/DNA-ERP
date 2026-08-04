@@ -1,6 +1,6 @@
 'use client'
 import { createContext, useContext, useState, useCallback } from 'react'
-import type { PlanForm, ManhRow } from '../types/plan-form'
+import type { Sku, ManhRow } from '../types/sku'
 import type { WarehouseScope } from './AuthContext'
 import { useAuditLog } from './AuditLogContext'
 import { syncDinhMucSatVaoKeHoach, syncDinhMucSatVaoLenhPhoi, type DinhMucSatSyncItem } from '../services/api'
@@ -35,8 +35,8 @@ export interface KhoState {
 }
 
 export interface InspRequest {
-  id: string                   // `insp-${planFormId}`
-  planFormId: number
+  id: string                   // `insp-${skuId}`
+  skuId: number
   poNumber: string
   skuCode: string
   skuName?: string
@@ -79,7 +79,7 @@ export interface ProposalQuote {
 export interface PurchaseProposal {
   id: string           // `prop-${requestId}-${khoKey}`
   requestId: string
-  planFormId: number
+  skuId: number
   poNumber: string
   skuCode: string
   skuName?: string
@@ -110,12 +110,12 @@ export const PROPOSAL_STATUS_LABELS: Record<PurchaseProposal['status'], { label:
   rejected:   { label: 'Từ chối',       color: '#991b1b', bg: '#fee2e2', border: '#fca5a5' },
 }
 
-interface ProposalMeta { planFormId: number; poNumber: string; skuCode: string; skuName?: string; deadline?: string }
+interface ProposalMeta { skuId: number; poNumber: string; skuCode: string; skuName?: string; deadline?: string }
 
 interface InspCtxType {
   requests: InspRequest[]
   proposals: PurchaseProposal[]
-  sendRequest:             (pf: PlanForm) => void
+  sendRequest:             (pf: Sku) => void
   submitKho:               (requestId: string, kho: KhoKey, items: InspItem[]) => void
   markProposalCreated:     (requestId: string, items: PurchaseProposalItem[], meta: ProposalMeta) => void
   acknowledgeProposal:     (proposalId: string) => void
@@ -133,7 +133,7 @@ const isSon = (name: string) => /sơn|son|primer|lót|phủ|hardener|thinner/i.t
 
 // Phân bổ theo đúng CATEGORY_WAREHOUSE_CODE (purchase-order.ts): sat/son -> phôi sơn hàn,
 // day/dinh/vatTuPhuKien -> vật tư thành phẩm, baoBiDongGoi -> kho thành phẩm (nơi đóng gói).
-function buildKhoItems(pf: PlanForm): { phoiSonHan: InspItem[]; vatTuTP: InspItem[]; thanhPham: InspItem[] } {
+function buildKhoItems(pf: Sku): { phoiSonHan: InspItem[]; vatTuTP: InspItem[]; thanhPham: InspItem[] } {
   const mt = pf.quotaManagement?.materialType
   const daySon = combinedDaySon(pf)
   const toItem = (name: string, unit: string, required: number): InspItem => ({
@@ -157,15 +157,15 @@ function buildKhoItems(pf: PlanForm): { phoiSonHan: InspItem[]; vatTuTP: InspIte
 
 // ── Mock seed data ─────────────────────────────────────────────────────────────
 
-// planFormId phải khớp đúng 1 PlanForm thật (API /plan-forms — không còn mock) — planFormId lệch
+// skuId phải khớp đúng 1 Sku thật (API /skus — không còn mock) — skuId lệch
 // thì yêu cầu này không bao giờ hiện trong "Lệnh kiểm tra vật tư" của KHSX (danh sách luôn lọc
-// theo id PlanForm thật). Tên vật tư trong từng items[] cũng phải khớp CHÍNH XÁC với
-// quotaManagement.materialType của PlanForm thật đó — màn hình KHSX tra tồn thực bằng cách so tên
+// theo id Sku thật). Tên vật tư trong từng items[] cũng phải khớp CHÍNH XÁC với
+// quotaManagement.materialType của Sku thật đó — màn hình KHSX tra tồn thực bằng cách so tên
 // (findInspItem), tên lệch thì mọi dòng hiện "—" dù badge kho báo đã kiểm. Đồng thời tách bao bì
 // đóng gói ra kho thành phẩm (thanhPham) thay vì gộp chung vatTuTP, khớp CATEGORY_WAREHOUSE_CODE.
 const SEED_REQUESTS: InspRequest[] = [
   {
-    id: 'insp-1', planFormId: 1,
+    id: 'insp-1', skuId: 1,
     poNumber: 'PO-MY-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
     sentAt: '2026-07-04T07:30:00.000Z',
     phoiSonHan: {
@@ -197,7 +197,7 @@ const SEED_REQUESTS: InspRequest[] = [
     proposalCreated: true,
   },
   {
-    id: 'insp-2', planFormId: 2,
+    id: 'insp-2', skuId: 2,
     poNumber: 'PO-GP-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
     sentAt: '2026-07-03T08:15:00.000Z',
     phoiSonHan: {
@@ -228,11 +228,11 @@ const SEED_REQUESTS: InspRequest[] = [
   },
 ]
 
-// Mỗi PlanForm thiếu hàng ở nhiều kho trước đây gộp chung 1 proposal — nay tách thành
+// Mỗi Sku thiếu hàng ở nhiều kho trước đây gộp chung 1 proposal — nay tách thành
 // 1 proposal/kho (id `prop-${requestId}-${khoKey}`) để route đúng Purchasing phụ trách kho đó.
 const SEED_PROPOSALS: PurchaseProposal[] = [
   {
-    id: 'prop-insp-1-phoiSonHan', requestId: 'insp-1', planFormId: 1,
+    id: 'prop-insp-1-phoiSonHan', requestId: 'insp-1', skuId: 1,
     poNumber: 'PO-MY-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
     createdAt: '2026-07-04T08:10:00.000Z',
     deadline: '2026-07-25T00:00:00.000Z',
@@ -244,7 +244,7 @@ const SEED_PROPOSALS: PurchaseProposal[] = [
     ],
   },
   {
-    id: 'prop-insp-1-vatTuTP', requestId: 'insp-1', planFormId: 1,
+    id: 'prop-insp-1-vatTuTP', requestId: 'insp-1', skuId: 1,
     poNumber: 'PO-MY-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
     createdAt: '2026-07-04T08:10:00.000Z',
     deadline: '2026-07-25T00:00:00.000Z',
@@ -255,7 +255,7 @@ const SEED_PROPOSALS: PurchaseProposal[] = [
     ],
   },
   {
-    id: 'prop-insp-1-thanhPham', requestId: 'insp-1', planFormId: 1,
+    id: 'prop-insp-1-thanhPham', requestId: 'insp-1', skuId: 1,
     poNumber: 'PO-MY-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
     createdAt: '2026-07-04T08:10:00.000Z',
     deadline: '2026-07-25T00:00:00.000Z',
@@ -266,7 +266,7 @@ const SEED_PROPOSALS: PurchaseProposal[] = [
     ],
   },
   {
-    id: 'prop-insp-2-phoiSonHan', requestId: 'insp-2', planFormId: 2,
+    id: 'prop-insp-2-phoiSonHan', requestId: 'insp-2', skuId: 2,
     poNumber: 'PO-GP-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
     createdAt: '2026-07-03T09:20:00.000Z',
     deadline: '2026-07-20T00:00:00.000Z',
@@ -281,7 +281,7 @@ const SEED_PROPOSALS: PurchaseProposal[] = [
     },
   },
   {
-    id: 'prop-insp-2-vatTuTP', requestId: 'insp-2', planFormId: 2,
+    id: 'prop-insp-2-vatTuTP', requestId: 'insp-2', skuId: 2,
     poNumber: 'PO-GP-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
     createdAt: '2026-07-03T09:20:00.000Z',
     deadline: '2026-07-20T00:00:00.000Z',
@@ -296,7 +296,7 @@ const SEED_PROPOSALS: PurchaseProposal[] = [
     },
   },
   {
-    id: 'prop-insp-2-thanhPham', requestId: 'insp-2', planFormId: 2,
+    id: 'prop-insp-2-thanhPham', requestId: 'insp-2', skuId: 2,
     poNumber: 'PO-GP-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
     createdAt: '2026-07-03T09:20:00.000Z',
     deadline: '2026-07-20T00:00:00.000Z',
@@ -321,14 +321,14 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
   const [requests,  setRequests]  = useState<InspRequest[]>(SEED_REQUESTS)
   const [proposals, setProposals] = useState<PurchaseProposal[]>(SEED_PROPOSALS)
 
-  const sendRequest = useCallback((pf: PlanForm) => {
+  const sendRequest = useCallback((pf: Sku) => {
     setRequests(prev => {
-      if (prev.some(r => r.planFormId === pf.id)) return prev
+      if (prev.some(r => r.skuId === pf.id)) return prev
       const { phoiSonHan, vatTuTP, thanhPham } = buildKhoItems(pf)
       const newReq: InspRequest = {
         id:               `insp-${pf.id}`,
-        planFormId:       pf.id,
-        poNumber:         pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`,
+        skuId:       pf.id,
+        poNumber:         pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng',
         skuCode:          pf.mfgProduct?.factoryCode ?? `#${pf.mfgProductId}`,
         skuName:          pf.mfgProduct?.name,
         sentAt:           new Date().toISOString(),
@@ -381,7 +381,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
         next.push({
           id,
           requestId,
-          planFormId: meta.planFormId,
+          skuId: meta.skuId,
           poNumber:   meta.poNumber,
           skuCode:    meta.skuCode,
           skuName:    meta.skuName,
@@ -471,7 +471,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
             const required = Number(child.qty) || 0
             if (required <= 0) continue
             syncItems.push({
-              lineId: 9000 + req.planFormId * 20 + idx,
+              lineId: 9000 + req.skuId * 20 + idx,
               name: child.name, unit: 'cây', required, manhTen: manh.name,
             })
             idx++
@@ -481,7 +481,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
         syncItems = req.phoiSonHan.items
           .filter(i => !isSon(i.name) && i.required > 0)
           .map((it, idx) => ({
-            lineId: 9000 + req.planFormId * 20 + idx,
+            lineId: 9000 + req.skuId * 20 + idx,
             name: it.name, unit: it.unit, required: it.required,
           }))
       }

@@ -4,16 +4,17 @@ import { ChevronRight, ChevronLeft, Plus, X } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
 import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
 import { useFetch } from '../../../hooks/useFetch'
+import { useMaterialGroupIds } from '../../../hooks/useMaterialGroupIds'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
-import { PLANFORM_ENTITY, isPartsApproved } from '../../../constants/planFormStatus'
-import type { PlanForm, ManhRow, ManhChildRow } from '../../../types/plan-form'
+import { SKU_ENTITY, isPartsApproved } from '../../../constants/skuStatus'
+import type { Sku, ManhRow, ManhChildRow } from '../../../types/sku'
 
 // ─── Types ────────────────────────────────────────────────────────────
-// "Định mức mảnh" (Manh/children) đọc/ghi thẳng PlanForm thật (manhData.sat) — quy đổi sang/từ
+// "Định mức mảnh" (Manh/children) đọc/ghi thẳng Sku thật (manhData.sat) — quy đổi sang/từ
 // shape domain dễ đọc trong JSX khi đọc/ghi (xem toManh/toManhRow). Việc 2: mỗi đoạn sắt (child)
-// nay gắn với 1 Material (kind=STEEL_BAR) thật qua materialId, chiều dài cắt (cutLengthMm) là số
+// nay gắn với 1 Material (nhóm vật tư Sắt) thật qua materialId, chiều dài cắt (cutLengthMm) là số
 // nguyên thật — không còn gõ tên/quy cách/chiều dài tự do như trước.
 type ManChild = { id: number; materialId: number; loaiSatName: string; cutLengthMm: string; soLuong: string }
 type Manh = { id: number; tenManh: string; soLuong: string; children: ManChild[] }
@@ -51,16 +52,17 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
 }) {
   const { user } = useAuth()
   const { logAction } = useAuditLog()
-  const { data: planFormsData, refetch: refetchPlanForms } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
-  const planForms = (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT')
+  const { data: skusData, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
+  const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
   const { data: materialsData } = useFetch(() => api.getMaterials(), [])
-  const steelMaterials = (materialsData ?? []).filter(m => m.kind === 'STEEL_BAR')
+  const { steel: steelGroupId } = useMaterialGroupIds()
+  const steelMaterials = (materialsData ?? []).filter(m => steelGroupId != null && m.materialGroupId === steelGroupId)
 
-  const findPf = (id: number) => planForms.find(pf => pf.id === id)
+  const findPf = (id: number) => skus.find(pf => pf.id === id)
 
-  // ── Định mức (mảnh) — PlanForm thật (manhData.sat / manhEntryMeta.sat) ─────────
+  // ── Định mức (mảnh) — Sku thật (manhData.sat / manhEntryMeta.sat) ─────────
   // Mảnh là bước nhập đầu tiên trong flow hiện tại nên hiện luôn cho mọi SKU chưa DRAFT.
-  const manhBoms: BomItem[] = planForms.map(pf => ({
+  const manhBoms: BomItem[] = skus.map(pf => ({
     id: pf.id,
     ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
     thoiGian: format(new Date(pf.createdAt), 'dd/MM/yyyy'),
@@ -105,9 +107,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     if (!selectedBom || totalChildren === 0) return
     setSavingManh(true)
     try {
-      await api.updatePlanFormManhQuota(selectedBom.id, 'sat', manhs.map(toManhRow), user?.name ?? 'Không rõ')
-      logAction(PLANFORM_ENTITY, String(selectedBom.id), 'planform.manh_submitted', `${manhs.length} mảnh · ${totalChildren} loại sắt`)
-      await refetchPlanForms()
+      await api.updateSkuManhQuota(selectedBom.id, 'sat', manhs.map(toManhRow), user?.name ?? 'Không rõ')
+      logAction(SKU_ENTITY, String(selectedBom.id), 'sku.manh_submitted', `${manhs.length} mảnh · ${totalChildren} loại sắt`)
+      await refetchSkus()
     } finally {
       setSavingManh(false)
     }
@@ -377,8 +379,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     borderTop: m.children.length > 0 ? '1px dashed var(--border)' : 'none',
                   }}>
                     <div style={{ width: 240 }}>
-                      <FL>Vật tư (kind=STEEL_BAR)</FL>
-                      <MaterialPicker value={childMaterial} onSelect={setChildMaterial} kind="STEEL_BAR" placeholder="Chọn loại sắt…" />
+                      <FL>Vật tư (nhóm Sắt)</FL>
+                      <MaterialPicker value={childMaterial} onSelect={setChildMaterial} materialGroupId={steelGroupId} placeholder="Chọn loại sắt…" />
                     </div>
                     <div style={{ width: 120 }}>
                       <FL>Chiều dài cắt (mm)</FL>
@@ -481,7 +483,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
         </div>
       )}
 
-      {/* ══ CATALOG VẬT TƯ (Material thật, kind=STEEL_BAR — quản lý ở Admin > Vật tư) ══ */}
+      {/* ══ CATALOG VẬT TƯ (Material thật, nhóm Sắt — quản lý ở Admin > Vật tư) ══ */}
       {subTab === 'catalog' && (
         <div>
           <div style={{ marginBottom: 16 }}>
@@ -518,7 +520,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 }).length === 0 && (
                   <tr>
                     <td colSpan={3} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
-                      {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư kind=STEEL_BAR nào — thêm ở Admin > Vật tư.'}
+                      {catalogSearch ? 'Không tìm thấy kết quả.' : 'Chưa có vật tư nhóm Sắt nào — thêm ở Admin > Vật tư.'}
                     </td>
                   </tr>
                 )}

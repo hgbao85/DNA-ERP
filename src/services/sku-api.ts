@@ -1,6 +1,6 @@
 /**
- * Adapter PLAN FORMS: FE ⇄ BE thật (module `plan-forms`).
- * Map ngược đầy đủ về shape `PlanForm` (types/plan-form.ts) — quotaManagement.materialType/
+ * Adapter SKU: FE ⇄ BE thật (module `skus`).
+ * Map ngược đầy đủ về shape `Sku` (types/sku.ts) — quotaManagement.materialType/
  * manhData/manhReviewStatus/qlsxReviewStatus... — để SKUListPage/SKUDetail/SKUReviewPage
  * không phải sửa lại logic hiển thị + duyệt, chỉ đổi nguồn dữ liệu.
  *
@@ -16,16 +16,16 @@
 import { http } from './core/http';
 import type {
   BaoBiDongGoiItem,
-  CreatePlanFormPayload,
+  CreateSkuPayload,
   DaySonItem,
   ManhChildRow,
   ManhGroup,
   ManhRow,
   MaterialType,
-  PlanForm,
+  Sku,
   QuotaReviewStatus,
   VatTuPhuKienItem,
-} from '../types/plan-form';
+} from '../types/sku';
 
 type ReviewDecision = 'APPROVED' | 'REJECTED';
 
@@ -65,16 +65,16 @@ interface BeMaterialLine {
   qtyPerUnit: number;
 }
 
-interface BePlanForm {
+interface BeSku {
   id: number;
-  salesOrderId: number;
+  salesOrderId: number | null;
   mfgProductId: number;
   factoryCode: string;
   productName: string;
-  customerName: string;
+  customerName: string | null;
   productionInvoiceId: number | null;
   piCode: string | null;
-  status: PlanForm['status'];
+  status: Sku['status'];
   note: string | null;
   origin: string | null;
   manhData: { sat: BeSteelPiece[]; day: BeMaterialLine[]; dinh: BeMaterialLine[] } | null;
@@ -146,7 +146,7 @@ function toEntryMeta<K extends string>(reviews: BeReview[], groupOf: Record<K, s
   return out;
 }
 
-function toPlanForm(pf: BePlanForm): PlanForm {
+function toSku(pf: BeSku): Sku {
   return {
     id: pf.id,
     exportOrderId: pf.salesOrderId,
@@ -158,7 +158,10 @@ function toPlanForm(pf: BePlanForm): PlanForm {
     productionInvoiceId: pf.productionInvoiceId ?? undefined,
     origin: (pf.origin as 'PRODUCTION_CONFIRM' | undefined) ?? undefined,
     createdAt: pf.createdAt,
-    exportOrder: { id: pf.salesOrderId, poNumber: pf.piCode ?? '', deliveryDate: undefined },
+    exportOrder:
+      pf.salesOrderId != null
+        ? { id: pf.salesOrderId, poNumber: pf.piCode ?? '', deliveryDate: undefined }
+        : undefined,
     mfgProduct: { id: pf.mfgProductId, factoryCode: pf.factoryCode, name: pf.productName },
     quotaManagement: {
       id: pf.id,
@@ -182,58 +185,52 @@ function toPlanForm(pf: BePlanForm): PlanForm {
   };
 }
 
-export async function getPlanForms(): Promise<PlanForm[]> {
-  const res = await http.get<BePlanForm[] | { data: BePlanForm[] }>('/plan-forms?limit=100');
+export async function getSkus(): Promise<Sku[]> {
+  const res = await http.get<BeSku[] | { data: BeSku[] }>('/skus?limit=100');
   const list = Array.isArray(res) ? res : res.data;
-  return list.map(toPlanForm);
+  return list.map(toSku);
 }
 
-export async function getPlanForm(id: number | string): Promise<PlanForm> {
-  return toPlanForm(await http.get<BePlanForm>(`/plan-forms/${id}`));
+export async function getSku(id: number | string): Promise<Sku> {
+  return toSku(await http.get<BeSku>(`/skus/${id}`));
 }
 
-/** exportOrders/mfgProducts để chọn khi tạo SKU mới — nay lấy từ SalesOrder/Product thật. */
-export async function getPlanFormOptions(): Promise<{
-  exportOrders: { id: number; poNumber: string; deliveryDate?: string }[];
+/** mfgProducts để chọn khi tạo SKU mới — SKU không còn bắt buộc gắn Sales Order (xem
+ *  ghi chú CreateSkuPayload.exportOrderId), nên không cần lấy exportOrders nữa. */
+export async function getSkuOptions(): Promise<{
   mfgProducts: { id: number; factoryCode: string; name: string }[];
 }> {
-  const [orders, products] = await Promise.all([
-    http.get<{ data: { id: number; code: string; deliveryDate: string | null }[] } | { id: number; code: string; deliveryDate: string | null }[]>('/sales-orders?limit=100'),
-    http.get<{ id: number; factoryCode: string; name: string }[] | { data: { id: number; factoryCode: string; name: string }[] }>('/products?limit=100'),
-  ]);
-  const orderList = Array.isArray(orders) ? orders : orders.data;
+  const products = await http.get<{ id: number; factoryCode: string; name: string }[] | { data: { id: number; factoryCode: string; name: string }[] }>('/products?limit=100');
   const productList = Array.isArray(products) ? products : products.data;
-  return {
-    exportOrders: orderList.map((o) => ({ id: o.id, poNumber: o.code, deliveryDate: o.deliveryDate ?? undefined })),
-    mfgProducts: productList,
-  };
+  return { mfgProducts: productList };
 }
 
-export async function createPlanForm(payload: CreatePlanFormPayload): Promise<PlanForm> {
-  const created = await http.post<BePlanForm>('/plan-forms', {
-    salesOrderId: payload.exportOrderId,
+export async function createSku(payload: CreateSkuPayload): Promise<Sku> {
+  const created = await http.post<BeSku>('/skus', {
+    salesOrderId: payload.exportOrderId || undefined,
     mfgProductId: payload.mfgProductId,
     note: payload.note,
+    customerName: payload.customerName,
   });
-  return toPlanForm(created);
+  return toSku(created);
 }
 
-export async function deletePlanForms(ids: (number | string)[]): Promise<void> {
-  await Promise.all(ids.map((id) => http.del(`/plan-forms/${id}`)));
+export async function deleteSkus(ids: (number | string)[]): Promise<void> {
+  await Promise.all(ids.map((id) => http.del(`/skus/${id}`)));
 }
 
 /**
  * group='sat': `items` là `ManhRow[]` (mảnh → đoạn sắt, mỗi đoạn phải có `materialId` — chọn
- * từ MaterialPicker kind=STEEL_BAR, không còn gõ tên tự do) — gửi dạng `{pieces}` có cấu trúc.
+ * từ MaterialPicker lọc theo nhóm Sắt, không còn gõ tên tự do) — gửi dạng `{pieces}` có cấu trúc.
  * group='day'|'dinh': `items` là `DaySonItem[]`, mỗi dòng phải có `materialId` (chọn từ
- * MaterialPicker kind=CONSUMABLE, lọc theo nhóm Dây/Đinh) — gửi dạng `{items}` phẳng.
+ * MaterialPicker lọc theo nhóm Dây/Đinh) — gửi dạng `{items}` phẳng.
  */
-export async function updatePlanFormManhQuota(
+export async function updateSkuManhQuota(
   id: number | string,
   group: ManhGroup,
   items: unknown,
   enteredBy: string,
-): Promise<PlanForm> {
+): Promise<Sku> {
   const beGroup = MANH_GROUP_TO_BE[group];
   const body =
     group === 'sat'
@@ -256,18 +253,18 @@ export async function updatePlanFormManhQuota(
           })),
           enteredBy,
         };
-  const updated = await http.post<BePlanForm>(`/plan-forms/${id}/manh-quota/${beGroup}`, body);
-  return toPlanForm(updated);
+  const updated = await http.post<BeSku>(`/skus/${id}/manh-quota/${beGroup}`, body);
+  return toSku(updated);
 }
 
-/** `items` phải có `materialId` trên mỗi dòng — chọn từ MaterialPicker (kind=PAINT cho
- *  daySon, ACCESSORY cho vatTuPhuKien, PACKAGING cho baoBiDongGoi). */
-export async function updatePlanFormDetailQuota<K extends keyof MaterialType>(
+/** `items` phải có `materialId` trên mỗi dòng — chọn từ MaterialPicker (nhóm Sơn cho
+ *  daySon, Phụ kiện cho vatTuPhuKien, Bao bì cho baoBiDongGoi). */
+export async function updateSkuDetailQuota<K extends keyof MaterialType>(
   id: number | string,
   group: K,
   items: unknown,
   enteredBy: string,
-): Promise<PlanForm> {
+): Promise<Sku> {
   const beGroup = DETAIL_GROUP_TO_BE[group];
   const arr = items as (DaySonItem | VatTuPhuKienItem | BaoBiDongGoiItem)[];
   const body = {
@@ -277,56 +274,56 @@ export async function updatePlanFormDetailQuota<K extends keyof MaterialType>(
     })),
     enteredBy,
   };
-  const updated = await http.post<BePlanForm>(`/plan-forms/${id}/detail-quota/${beGroup}`, body);
-  return toPlanForm(updated);
+  const updated = await http.post<BeSku>(`/skus/${id}/detail-quota/${beGroup}`, body);
+  return toSku(updated);
 }
 
-export async function reviewPlanFormManhQuota(
+export async function reviewSkuManhQuota(
   id: number | string,
   group: ManhGroup,
   status: ReviewDecision,
   reason?: string,
-): Promise<PlanForm> {
+): Promise<Sku> {
   const beGroup = MANH_GROUP_TO_BE[group];
-  const updated = await http.post<BePlanForm>(`/plan-forms/${id}/manh-quota/${beGroup}/review`, { status, reason });
-  return toPlanForm(updated);
+  const updated = await http.post<BeSku>(`/skus/${id}/manh-quota/${beGroup}/review`, { status, reason });
+  return toSku(updated);
 }
 
-export async function reviewPlanFormDetailQuota<K extends keyof MaterialType>(
+export async function reviewSkuDetailQuota<K extends keyof MaterialType>(
   id: number | string,
   group: K,
   status: ReviewDecision,
   reason?: string,
-): Promise<PlanForm> {
+): Promise<Sku> {
   const beGroup = DETAIL_GROUP_TO_BE[group];
-  const updated = await http.post<BePlanForm>(`/plan-forms/${id}/detail-quota/${beGroup}/review`, { status, reason });
-  return toPlanForm(updated);
+  const updated = await http.post<BeSku>(`/skus/${id}/detail-quota/${beGroup}/review`, { status, reason });
+  return toSku(updated);
 }
 
-export async function approvePartsPlanForm(id: number | string): Promise<PlanForm> {
-  return toPlanForm(await http.post<BePlanForm>(`/plan-forms/${id}/approve-parts`));
+export async function approvePartsSku(id: number | string): Promise<Sku> {
+  return toSku(await http.post<BeSku>(`/skus/${id}/approve-parts`));
 }
 
-export async function approveDetailPlanForm(id: number | string): Promise<PlanForm> {
-  return toPlanForm(await http.post<BePlanForm>(`/plan-forms/${id}/approve-detail`));
+export async function approveDetailSku(id: number | string): Promise<Sku> {
+  return toSku(await http.post<BeSku>(`/skus/${id}/approve-detail`));
 }
 
-export async function reviewQlsxPlanForm(id: number | string): Promise<PlanForm> {
-  return toPlanForm(await http.post<BePlanForm>(`/plan-forms/${id}/qlsx-review`));
+export async function reviewQlsxSku(id: number | string): Promise<Sku> {
+  return toSku(await http.post<BeSku>(`/skus/${id}/qlsx-review`));
 }
 
-export async function requestBossApprovalPlanForm(id: number | string): Promise<PlanForm> {
-  return toPlanForm(await http.post<BePlanForm>(`/plan-forms/${id}/request-boss-approval`));
+export async function requestBossApprovalSku(id: number | string): Promise<Sku> {
+  return toSku(await http.post<BeSku>(`/skus/${id}/request-boss-approval`));
 }
 
-export async function rejectPlanFormByQlsx(id: number | string, _reason?: string): Promise<PlanForm> {
-  return toPlanForm(await http.post<BePlanForm>(`/plan-forms/${id}/reject-qlsx`));
+export async function rejectSkuByQlsx(id: number | string, _reason?: string): Promise<Sku> {
+  return toSku(await http.post<BeSku>(`/skus/${id}/reject-qlsx`));
 }
 
-export async function rejectPlanFormByBoss(id: number | string, _reason?: string): Promise<PlanForm> {
-  return toPlanForm(await http.post<BePlanForm>(`/plan-forms/${id}/reject-boss`));
+export async function rejectSkuByBoss(id: number | string, _reason?: string): Promise<Sku> {
+  return toSku(await http.post<BeSku>(`/skus/${id}/reject-boss`));
 }
 
-export async function approveFullPlanForm(id: number | string): Promise<PlanForm> {
-  return toPlanForm(await http.post<BePlanForm>(`/plan-forms/${id}/approve`));
+export async function approveFullSku(id: number | string): Promise<Sku> {
+  return toSku(await http.post<BeSku>(`/skus/${id}/approve`));
 }

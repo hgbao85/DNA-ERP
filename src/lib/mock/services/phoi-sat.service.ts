@@ -282,7 +282,7 @@ function seedCatPlan(): KeHoachSatItem[] {
   return [
   // ── PO-TEST-001 · TEST-01 — đặt lên ĐẦU hàng đợi để test ngay, khỏi chờ các PO demo
   // bên dưới xuất đủ. lineId (9220-9225) khớp đúng scheme mà InspectionContext.
-  // startProduction sinh ra khi đồng bộ qua "Bắt đầu sản xuất" (planFormId 11) — nếu SKU
+  // startProduction sinh ra khi đồng bộ qua "Bắt đầu sản xuất" (skuId 11) — nếu SKU
   // này sau đó THẬT SỰ đi qua luồng Kiểm tra vật tư → Bắt đầu sản xuất, hàm sync sẽ thấy
   // PO đã có (guard theo poNumber) và bỏ qua, không tạo trùng.
   { id: 'kh-sync-PO-TEST-001-9220', poNumber: 'PO-TEST-001', sku: 'TEST-01', lineId: 9220, ngayLenh: '2026-07-16', manhTen: 'Mảnh Tựa',     loaiSat: 'Ống sắt 25×25', quyCach: 'cây', barLen: 6000, planCay: 20, seg: { 6000: 1 }, hhPerCay: 0 },

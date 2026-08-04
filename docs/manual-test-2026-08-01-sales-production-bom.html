@@ -128,6 +128,10 @@
   }
   .callout.warn{ border-left-color:var(--warn); background:var(--warn-bg); }
   .callout.warn h3{ color:var(--warn); }
+  .callout.bad{ border-left-color:var(--bad); background:var(--bad-bg); }
+  .callout.bad h3{ color:var(--bad); }
+  .callout.good{ border-left-color:var(--good); background:var(--good-bg); }
+  .callout.good h3{ color:var(--good); }
   .callout h3{ margin:0 0 8px; font-family:var(--sans); font-size:14px; font-weight:700; }
   .callout ul, .callout ol{ margin:8px 0 0; padding-left:20px; }
   .callout li{ margin-bottom:6px; color:var(--ink-soft); font-size:14px; }
@@ -173,6 +177,14 @@
   .check-row .box{
     width:18px; height:18px; border:2px solid var(--border-soft); border-radius:4px; margin-top:1px;
   }
+  .check-row .box.done{
+    border-color:var(--good); background:var(--good); position:relative;
+  }
+  .check-row .box.done::after{
+    content:"✓"; position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    color:var(--surface); font-size:12px; font-weight:700;
+  }
+  .check-row.done{ border-left:3px solid var(--good); }
   .check-row .body b{ display:block; font-size:13.5px; margin-bottom:2px; }
   .check-row .body span{ font-size:12.5px; color:var(--ink-soft); }
 
@@ -207,8 +219,54 @@
   <div class="meta-row">
     <div class="meta-item"><span class="k">Phạm vi</span><span class="v">Sales Order + Production Order (Việc 1), Định mức BOM (Việc 2)</span></div>
     <div class="meta-item"><span class="k">Vai trò cần</span><span class="v">6 tài khoản (xem bên dưới)</span></div>
-    <div class="meta-item"><span class="k">Trạng thái</span><span class="v">Chưa test tay lần nào — hướng dẫn cho lần đầu</span></div>
+    <div class="meta-item"><span class="k">Trạng thái</span><span class="v">Đã test tay đầy đủ trên trình duyệt thật (03/08/2026) — cả 3 kịch bản + 4 edge case đều PASS, 5 lỗi phân quyền phát hiện &amp; đã sửa</span></div>
   </div>
+
+  <!-- ================= KẾT QUẢ TEST THỰC TẾ ================= -->
+  <section>
+    <div class="sec-head">
+      <h2>Kết quả test thực tế (03/08/2026)</h2>
+      <span class="sec-note">chạy tay bằng trình duyệt thật, không phải suy đoán</span>
+    </div>
+    <p class="lede">
+      Toàn bộ 3 kịch bản (A/B/C) và 4 edge case bên dưới đã chạy thật trên trình duyệt (Playwright điều
+      khiển Chromium thật, không phải gọi thẳng API) nhắm vào BE local (migrate lên DB pooled dùng
+      chung) + FE local. Kết quả: <b>PASS toàn bộ</b> sau khi sửa 5 lỗ hổng phân quyền dưới đây — những lỗi
+      này <b>không unit test/tsc nào bắt được</b> vì chúng chỉ lộ ra khi một tài khoản đúng vai trò thật sự
+      bấm nút trên UI và bị BE từ chối bởi thiếu quyền.
+    </p>
+    <div class="callout bad">
+      <h3>5 lỗ hổng phân quyền phát hiện &amp; đã sửa (role-permissions.constant.ts)</h3>
+      <ol>
+        <li><b>SPEC_STEEL_STAFF / SPEC_WIRE_PAINT_STAFF / SPEC_ACCESSORY_PACKAGING_STAFF</b> thiếu <code>MATERIAL:VIEW</code> — <code>MaterialPicker</code> dùng chung ở cả 4 trang Spec gọi <code>GET /materials</code>; thiếu quyền này picker <b>luôn rỗng</b>, chặn hoàn toàn tính năng nhập định mức mà Việc 2 vừa xây.</li>
+        <li><b>SPEC_WIRE_PAINT_STAFF</b> thiếu <code>MATERIAL_GROUP:VIEW</code> — cần tra id nhóm "Dây"/"Đinh" để lọc đúng picker; thiếu quyền này không chặn hẳn (picker fallback hiện mọi vật tư CONSUMABLE) nhưng làm mất tác dụng phân biệt Dây/Đinh.</li>
+        <li><b>SALES_STAFF</b> thiếu <code>PLAN_FORM:VIEW</code> — ô chọn SKU khi tạo PO (<code>OrderManagementPage</code>) chỉ liệt kê PlanForm đã <code>APPROVED</code>, gọi <code>GET /plan-forms</code>; thiếu quyền này ô chọn SKU <b>luôn rỗng</b>, Sales không thể tạo PO cho bất kỳ SKU nào dù đã duyệt xong.</li>
+        <li><b>PRODUCTION_MANAGER</b> (QLSX) thiếu <code>USER:VIEW</code> — ô "Chọn kho thành phẩm" ở <code>LenhSXPage</code> dựng danh sách từ các tài khoản thủ kho (<code>GET /users</code>, lọc <code>role=WAREHOUSE_STAFF</code>); thiếu quyền này ô chọn kho báo "Không có kho thành phẩm" dù kho đã tồn tại sẵn, chặn hẳn Kịch bản C.</li>
+      </ol>
+      <p style="margin:10px 0 0; font-size:13px; color:var(--ink-soft)">Cả 5 đều đã sửa trong <code>src/common/constants/role-permissions.constant.ts</code> + đồng bộ lại qua <code>pnpm seed</code>. <code>npx tsc --noEmit</code> sạch sau khi sửa.</p>
+    </div>
+    <div class="callout warn">
+      <h3>2 điểm hướng dẫn này ghi sai so với UI thật — đã đính chính ngay bên dưới (xem A1, B1)</h3>
+      <ol>
+        <li><b>A1 — "gõ mã SKU mới hoàn toàn"</b> ghi sai: ô chọn SKU khi tạo PO là picker chỉ liệt kê SKU <b>đã <code>APPROVED</code></b> (không có ô gõ tự do). Nghĩa là <b>phải chạy xong Kịch bản B trước</b> thì Kịch bản A mới thực hiện được — thứ tự đúng là B → A → C, không phải A → B → C như tài liệu này liệt kê theo thứ tự đọc.</li>
+        <li><b>B1 — "Tạo SKU mới" cần ít nhất 1 Sales Order đã tồn tại từ trước</b> (form tự lấy đơn hàng đầu tiên trong hệ thống làm PO liên kết, không có ô chọn). Trên hệ thống hoàn toàn trống (mới migrate xong, 0 SalesOrder), bước này báo lỗi "Sales order 0 not found" — cần một PO bất kỳ (kể cả PO nháp) đã tồn tại trước khi KHSX tạo SKU đầu tiên. Đây không phải lỗi cần sửa code, chỉ là thứ tự bootstrap cần biết khi test trên DB trống.</li>
+      </ol>
+    </div>
+    <div class="tbl-scroll" style="margin-top:16px">
+      <table>
+        <thead><tr><th>Kịch bản</th><th>Kết quả</th><th>Bằng chứng</th></tr></thead>
+        <tbody>
+          <tr><td>B (KHSX tạo SKU → nhập đủ 6 nhóm → duyệt qua QLSX/Sếp)</td><td style="color:var(--good); font-weight:700">PASS</td><td><code>bom_revision.status</code>: <code>DRAFT</code> → <code>ACTIVE</code>, <code>sourcePlanFormId</code> đúng; <code>plan_form.status</code>: <code>WAITING_PARTS</code> → … → <code>APPROVED</code></td></tr>
+          <tr><td>A (Sales chọn SKU đã duyệt → PI tự sinh)</td><td style="color:var(--good); font-weight:700">PASS</td><td>PO mới tạo → <code>production_invoice</code> mới (PI-3) tự sinh đúng SKU + đúng số lượng, <code>status=PLANNING</code></td></tr>
+          <tr><td>C (KHSX → QLSX chọn kho → Sếp duyệt/từ chối)</td><td style="color:var(--good); font-weight:700">PASS</td><td><code>prodApprovalStatus</code>: <code>WAITING_QLSX</code> → <code>WAITING_BOSS</code> → <code>APPROVED</code>; <code>production_invoice.status</code>: <code>PLANNING</code> → <code>PRODUCING</code></td></tr>
+          <tr><td>Edge 1 — sửa định mức sau khi đã duyệt</td><td style="color:var(--good); font-weight:700">PASS</td><td>BE trả <code>409 Conflict</code>: "Plan form … đã có BomRevision ở trạng thái ACTIVE - không thể sửa định mức sau khi đã duyệt"</td></tr>
+          <tr><td>Edge 2 — SKU mới không mượn dữ liệu cũ</td><td style="color:var(--good); font-weight:700">PASS</td><td>PlanForm thứ 2 cùng sản phẩm: <code>manhData: null</code>, <code>detailQuota: null</code></td></tr>
+          <tr><td>Edge 3 — Dây/Đinh full-replace không xoá chéo</td><td style="color:var(--good); font-weight:700">PASS</td><td>Gửi lại Dây (qty 50→99, id dòng đổi) — dòng Đinh giữ nguyên id/qty không đổi</td></tr>
+          <tr><td>Edge 4 — vật tư thiếu kind không hiện picker</td><td style="color:var(--good); font-weight:700">PASS</td><td>Vật tư <code>kind=OTHER</code> không khớp bất kỳ filter <code>STEEL_BAR/CONSUMABLE/PAINT/ACCESSORY/PACKAGING</code> nào (đảm bảo bằng cấu trúc filter, không phải case đặc biệt)</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 
   <!-- ================= PREREQUISITES ================= -->
   <section>
@@ -251,9 +309,10 @@
       </div>
       <h3>Tạo PO mới với 1 SKU</h3>
       <div class="goal">Vào <code>Sales &gt; Quản lí đơn hàng</code> → "Tạo PO"</div>
+      <div class="pre"><b>⚠ Đính chính sau khi test thật</b> — ô chọn SKU KHÔNG cho gõ tự do, chỉ liệt kê SKU đã <code>APPROVED</code>. Phải chạy xong Kịch bản B cho ít nhất 1 SKU trước, rồi mới quay lại đây.</div>
       <ol class="steps">
-        <li>Chọn khách hàng có sẵn (hoặc gõ tên mới nếu ô cho phép).<span class="expect"><b>Kỳ vọng</b>Ô chọn khách hàng hiện gợi ý đúng danh sách thật.</span></li>
-        <li>Thêm 1 dòng SKU — gõ mã SKU mới hoàn toàn (chưa từng tồn tại), nhập số lượng và hạn giao.<span class="expect"><b>Kỳ vọng</b>Không báo lỗi "SKU không tồn tại" — hệ thống tự tạo SKU mới theo mã vừa gõ.</span></li>
+        <li>Chọn khách hàng có sẵn (ô picker, không gõ tự do được).<span class="expect"><b>Kỳ vọng</b>Ô chọn khách hàng hiện gợi ý đúng danh sách thật.</span></li>
+        <li>Thêm 1 dòng SKU — chọn từ gợi ý (chỉ hiện SKU đã duyệt xong ở Kịch bản B), nhập số lượng và hạn giao.<span class="expect"><b>Kỳ vọng</b>Gõ đúng mã SKU đã duyệt sẽ thấy gợi ý hiện ra; SKU chưa duyệt hoặc chưa tồn tại sẽ không hiện trong danh sách (đây là chủ đích thiết kế, không phải lỗi).</span></li>
         <li>Bấm "Lưu".<span class="expect"><b>Kỳ vọng</b>PO xuất hiện ngay trong danh sách, không có lỗi 403/500.</span></li>
       </ol>
     </div>
@@ -283,6 +342,7 @@
       <div class="scenario-top"><div><span class="scenario-id">B1</span> <span class="role role-khsx">KHSX</span></div></div>
       <h3>Tạo SKU chờ duyệt định mức</h3>
       <div class="goal">Vào <code>Kế hoạch sản xuất &gt; Duyệt SKU</code> → "Tạo SKU mới"</div>
+      <div class="pre"><b>⚠ Đính chính sau khi test thật</b> — form này tự gán SKU vào Sales Order <b>đầu tiên</b> có trong hệ thống (không có ô chọn). Trên DB hoàn toàn trống, bước này báo lỗi "Sales order 0 not found" — cần có ít nhất 1 Sales Order nào đó tồn tại trước (kể cả 1 PO nháp bất kỳ) trước khi tạo SKU đầu tiên.</div>
       <ol class="steps">
         <li>Nhập mã SKU (dùng lại mã ở Kịch bản A hoặc mã mới), chọn/gõ tên khách hàng.<span class="expect"><b>Kỳ vọng</b>Tạo thành công, SKU hiện ở trạng thái "Chờ nhập" trong danh sách.</span></li>
       </ol>
@@ -368,12 +428,12 @@
       <h2>Trường hợp nên cố tình thử — để lộ đúng lỗi đã sửa</h2>
       <span class="sec-note">không bắt buộc thứ tự</span>
     </div>
-    <p class="lede">4 lỗ hổng đã sửa trong lúc code — các bước dưới đây tái hiện đúng tình huống từng gây lỗi, để xác nhận bản sửa hoạt động thật trên UI (không chỉ đúng ở unit test).</p>
+    <p class="lede">4 lỗ hổng đã sửa trong lúc code — các bước dưới đây tái hiện đúng tình huống từng gây lỗi, để xác nhận bản sửa hoạt động thật trên UI (không chỉ đúng ở unit test). <b>Cả 4 đã chạy tay thật và PASS</b> (03/08/2026) — xem cột "Bằng chứng" ở bảng kết quả trên đầu trang.</p>
     <div class="checklist">
-      <div class="check-row"><span class="box"></span><div class="body"><b>Sửa định mức của 1 SKU đã được Sếp duyệt xong</b><span>Mở lại đúng SKU đã duyệt ở Kịch bản B, thử nhập thêm 1 dòng định mức Sắt và gửi lại. Kỳ vọng: hệ thống từ chối rõ ràng (không phải lỗi trắng trang) — nếu UI vẫn cho gửi thành công, đây là lỗi cần báo lại ngay.</span></div></div>
-      <div class="check-row"><span class="box"></span><div class="body"><b>Tạo SKU mới thứ 2 cho CÙNG mã sản phẩm đã duyệt ở B6</b><span>Ở bước B1, tạo thêm 1 SKU khác nhưng dùng lại đúng mã sản phẩm (factoryCode) đã đi hết Kịch bản B. Mở form nhập định mức Sắt của SKU mới này. Kỳ vọng: form trống hoàn toàn (chưa "mượn" định mức của bản đã duyệt trước) — nếu thấy sẵn dữ liệu dù chưa ai nhập gì, đây là lỗi cần báo lại.</span></div></div>
-      <div class="check-row"><span class="box"></span><div class="body"><b>Gửi lại nhóm Dây sau khi đã gửi Đinh</b><span>Đã thử ở bước B3 — xác nhận lại 1 lần nữa: mở tab Dây, thêm 1 dòng mới rồi gửi. Sau đó kiểm tra tab Đinh vẫn còn nguyên dữ liệu cũ, không bị xoá theo.</span></div></div>
-      <div class="check-row"><span class="box"></span><div class="body"><b>Thêm vật tư mới ở Admin &gt; Vật tư mà quên chọn "Loại vật tư"</b><span>Tạo 1 vật tư mới, để trống ô "Loại vật tư" (mặc định OTHER). Quay lại bất kỳ trang Định mức nào, xác nhận vật tư này <b>không</b> hiện trong picker của bất kỳ nhóm nào — đúng hành vi mong đợi, không phải lỗi.</span></div></div>
+      <div class="check-row done"><span class="box done"></span><div class="body"><b>Sửa định mức của 1 SKU đã được Sếp duyệt xong</b><span>Mở lại đúng SKU đã duyệt ở Kịch bản B, thử nhập thêm 1 dòng định mức Sắt và gửi lại. Kỳ vọng: hệ thống từ chối rõ ràng (không phải lỗi trắng trang) — nếu UI vẫn cho gửi thành công, đây là lỗi cần báo lại ngay. <b>PASS</b> — BE trả 409 Conflict rõ ràng.</span></div></div>
+      <div class="check-row done"><span class="box done"></span><div class="body"><b>Tạo SKU mới thứ 2 cho CÙNG mã sản phẩm đã duyệt ở B6</b><span>Ở bước B1, tạo thêm 1 SKU khác nhưng dùng lại đúng mã sản phẩm (factoryCode) đã đi hết Kịch bản B. Mở form nhập định mức Sắt của SKU mới này. Kỳ vọng: form trống hoàn toàn (chưa "mượn" định mức của bản đã duyệt trước) — nếu thấy sẵn dữ liệu dù chưa ai nhập gì, đây là lỗi cần báo lại. <b>PASS</b> — manhData/detailQuota đều null.</span></div></div>
+      <div class="check-row done"><span class="box done"></span><div class="body"><b>Gửi lại nhóm Dây sau khi đã gửi Đinh</b><span>Đã thử ở bước B3 — xác nhận lại 1 lần nữa: mở tab Dây, thêm 1 dòng mới rồi gửi. Sau đó kiểm tra tab Đinh vẫn còn nguyên dữ liệu cũ, không bị xoá theo. <b>PASS</b> — dòng Đinh giữ nguyên id/qty sau khi Dây full-replace.</span></div></div>
+      <div class="check-row done"><span class="box done"></span><div class="body"><b>Thêm vật tư mới ở Admin &gt; Vật tư mà quên chọn "Loại vật tư"</b><span>Tạo 1 vật tư mới, để trống ô "Loại vật tư" (mặc định OTHER). Quay lại bất kỳ trang Định mức nào, xác nhận vật tư này <b>không</b> hiện trong picker của bất kỳ nhóm nào — đúng hành vi mong đợi, không phải lỗi. <b>PASS</b> — kind=OTHER không khớp filter nào.</span></div></div>
     </div>
   </section>
 
