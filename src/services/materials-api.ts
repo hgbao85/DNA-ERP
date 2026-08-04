@@ -11,7 +11,6 @@ export interface BeMaterial {
   id: number;
   code: string;
   name: string;
-  kind: string;
   unit: string;
   materialGroupId: number | null;
   khoUnitFactor: number | null;
@@ -38,7 +37,6 @@ export async function createMaterial(data: Record<string, unknown>): Promise<BeM
   return http.post<BeMaterial>('/materials', {
     code: data.code,
     name: data.name,
-    kind: data.kind || undefined,
     unit: data.unit,
     materialGroupId: data.materialGroupId || undefined,
     khoUnitFactor: data.khoUnitFactor,
@@ -49,7 +47,6 @@ export async function updateMaterial(id: number | string, data: Record<string, u
   return http.patch<BeMaterial>(`/materials/${id}`, {
     code: data.code,
     name: data.name,
-    kind: data.kind || undefined,
     unit: data.unit,
     materialGroupId: data.materialGroupId || undefined,
     khoUnitFactor: data.khoUnitFactor,

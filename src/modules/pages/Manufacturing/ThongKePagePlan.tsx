@@ -5,7 +5,7 @@ import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, Clip
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useInspection, type PurchaseProposal } from '../../../context/InspectionContext'
-import type { PlanForm } from '../../../types/plan-form'
+import type { Sku } from '../../../types/sku'
 import LenhSanXuatBoard, { type BoardColumn } from '../../../components/sanxuat/LenhSanXuatBoard'
 import { VatTuDetailBoard, PHOI_CFG, HAN_CFG, SON_CFG, perSku, lechOf, type ProcManh, type ProcLine, type StageCfg } from '../../../components/sanxuat/core'
 import type { ManhLine, ManhAllocation } from '../../../types/manh'
@@ -55,7 +55,7 @@ interface StageDetails {
 interface MfgOrder {
   id: number
   code: string        // Mã PO — lấy từ exportOrder.poNumber (dữ liệu thật)
-  piCode: string       // Mã PI — 1 SKU trong 1 PO chỉ có đúng 1 PI (xem plan-form.service.ts)
+  piCode: string       // Mã PI — 1 SKU trong 1 PO chỉ có đúng 1 PI (xem skus.service.ts)
   sku: string
   productName: string
   customer: string
@@ -86,19 +86,19 @@ const STAGE_TRACKER_ICONS: Record<MfgStage, React.ComponentType<{ size?: number 
   PACKAGING: PackageCheck,
 }
 
-// ─── Dữ liệu thật: PlanForm + PurchaseProposal ───────────────────────────────
-// "Danh sách" và "Nội dung mua hàng" đọc trực tiếp từ PlanForm/PurchaseProposal thật
+// ─── Dữ liệu thật: Sku + PurchaseProposal ───────────────────────────────
+// "Danh sách" và "Nội dung mua hàng" đọc trực tiếp từ Sku/PurchaseProposal thật
 // (giống TheoDoiMuaHangPage.tsx). Khung cơ khí/Đan/Đóng gói chưa có nguồn dữ liệu tổng
 // hợp thật trong hệ thống (nằm rải ở nhiều module Phôi/Hàn/Sơn/Đan/Đóng gói khác nhau)
-// nên vẫn tạo mock ổn định theo từng PlanForm (deterministic theo id, không đổi giữa các lần render).
+// nên vẫn tạo mock ổn định theo từng Sku (deterministic theo id, không đổi giữa các lần render).
 
 function strHash(s: string): number {
   return s.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
 }
 
-function getPurchasingRows(pf: PlanForm, proposals: PurchaseProposal[]): MaterialItem[] {
+function getPurchasingRows(pf: Sku, proposals: PurchaseProposal[]): MaterialItem[] {
   return proposals
-    .filter(p => p.planFormId === pf.id)
+    .filter(p => p.skuId === pf.id)
     .flatMap(p => p.items.map(item => {
       const ncc = p.chosenSuppliers?.[item.name] ?? ''
       const offers = p.quotes?.[item.name] ?? []
@@ -121,9 +121,9 @@ function getPurchasingPercent(materials: MaterialItem[]): number {
 }
 
 // ─── Dữ liệu chi tiết Khung cơ khí (Phôi/Hàn/Sơn) ─────────────────────────────
-// Ưu tiên dùng định mức mảnh/sắt/sơn THẬT do các account chuyên trách đã nhập trên PlanForm
+// Ưu tiên dùng định mức mảnh/sắt/sơn THẬT do các account chuyên trách đã nhập trên Sku
 // (manhData.sat, quotaManagement.materialType.daySon) — cùng cấu trúc ProcManh/ProcLine dùng ở màn
-// Lệnh sản xuất Phôi/Hàn/Sơn. Nếu PlanForm chưa có (chưa tới bước nhập định mức) thì vẫn tạo mock
+// Lệnh sản xuất Phôi/Hàn/Sơn. Nếu Sku chưa có (chưa tới bước nhập định mức) thì vẫn tạo mock
 // ổn định theo PO để KHSX luôn xem được giao diện chi tiết. Số lượng "đã làm" mock theo đúng
 // SubStatus đã chọn ở trên để nhất quán với thanh tiến độ.
 const doneFracOf = (status: SubStatus, h: number, salt: number): number => {
@@ -135,7 +135,7 @@ const doneFracOf = (status: SubStatus, h: number, salt: number): number => {
 const FALLBACK_MANH = ['Mảnh Tựa', 'Mảnh Tay', 'Mảnh Chân']
 const FALLBACK_SAT = ['Sắt Vuông 6 zem', 'Sắt Hộp 8 zem']
 
-function buildPhoiManhs(pf: PlanForm, status: SubStatus, h: number): ProcManh[] {
+function buildPhoiManhs(pf: Sku, status: SubStatus, h: number): ProcManh[] {
   const doneFrac = doneFracOf(status, h, 1)
   const src = pf.manhData?.sat && pf.manhData.sat.length > 0 ? pf.manhData.sat : null
   const manhList = src ?? FALLBACK_MANH.map((name, i) => ({ id: i + 1, name, qtyPerSku: '1', children: [] as { id: number; name: string; specs?: string | null; length?: string | null; qty?: string | null }[] }))
@@ -181,7 +181,7 @@ function buildHanLines(phoiManhs: ProcManh[], status: SubStatus, h: number): Pro
   })
 }
 
-function buildSonLines(pf: PlanForm, status: SubStatus, h: number): ProcLine[] {
+function buildSonLines(pf: Sku, status: SubStatus, h: number): ProcLine[] {
   const doneFrac = doneFracOf(status, h, 3)
   const items = pf.quotaManagement?.materialType.daySon ?? []
   const src = items.length > 0 ? items : [{ name: 'Sơn tĩnh điện', specifications: null as string | null, kg: null as number | null }]
@@ -231,7 +231,7 @@ function buildWeavingLines(xuatStatus: SubStatus, nhapStatus: SubStatus, h: numb
 // dùng ở trang Chuyền kiểm thật của thủ kho thành phẩm khotp@demo.com) — chỉ suy ra riêng "đã kiểm"
 // theo SubStatus để có tiến độ hiển thị, vì số đã kiểm thật do thủ kho nhập tại chỗ (state riêng
 // của trang đó), KHSX không có quyền chỉnh nên không cần đồng bộ hai chiều.
-function buildChuyenKiemPieces(pf: PlanForm, status: SubStatus, h: number): (MockPiece & { daKiemQty: number })[] {
+function buildChuyenKiemPieces(pf: Sku, status: SubStatus, h: number): (MockPiece & { daKiemQty: number })[] {
   const doneFrac = doneFracOf(status, h, 6)
   return mockPieces(pf).map((p, i) => {
     const remain = Math.max(0, p.totalQty - p.choThucThi)
@@ -242,7 +242,7 @@ function buildChuyenKiemPieces(pf: PlanForm, status: SubStatus, h: number): (Moc
 
 // Khung/Đan/Đóng gói phải tuần tự (đan chỉ bắt đầu khi khung xong, đóng gói khi đan xong) —
 // tạo pseudo-random ổn định theo PO để demo có nhịp độ hợp lý, không đổi giữa các lần render.
-function genExecutionStages(pf: PlanForm, purchasingDone: boolean, weavingPoints: WeavingPointLite[], skuQty: number): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
+function genExecutionStages(pf: Sku, purchasingDone: boolean, weavingPoints: WeavingPointLite[], skuQty: number): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
   if (!purchasingDone) {
     return {
       frame: { phoi: 'pending', han: 'pending', son: 'pending', phoiManhs: [], hanLines: [], sonLines: [] },
@@ -314,7 +314,7 @@ function genExecutionStages(pf: PlanForm, purchasingDone: boolean, weavingPoints
   return { frame, weaving, chuyenKiem, packaging }
 }
 
-function buildOrderRow(pf: PlanForm, proposals: PurchaseProposal[], weavingPoints: WeavingPointLite[], skuQty: number): { order: MfgOrder; details: StageDetails } {
+function buildOrderRow(pf: Sku, proposals: PurchaseProposal[], weavingPoints: WeavingPointLite[], skuQty: number): { order: MfgOrder; details: StageDetails } {
   const materials = getPurchasingRows(pf, proposals)
   const purchPct = getPurchasingPercent(materials)
   const { frame, weaving, chuyenKiem, packaging } = genExecutionStages(pf, purchPct >= 100, weavingPoints, skuQty)
@@ -323,7 +323,7 @@ function buildOrderRow(pf: PlanForm, proposals: PurchaseProposal[], weavingPoint
   const hasVariance = phoiStageStats(frame.phoiManhs).lech || aggLineStats(frame.hanLines).lech || aggLineStats(frame.sonLines).lech
   const order: MfgOrder = {
     id: pf.id,
-    code: pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`,
+    code: pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng',
     piCode: pf.piCode,
     sku: pf.mfgProduct?.factoryCode ?? '—',
     productName: pf.mfgProduct?.name ?? '',
@@ -912,20 +912,20 @@ interface PIApprovalItem { prodApproval?: { status?: string }; quantity?: number
 interface PIStatusRow { id: number; status: string; items?: PIApprovalItem[] }
 
 export default function ThongKePagePlan() {
-  const { data: planFormsData, isLoading } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
+  const { data: skusData, isLoading } = useFetch<Sku[]>(() => api.getSkus(), [])
   const { data: pisData } = useFetch<PIStatusRow[]>(() => api.getProductionInvoices(), [])
   const { data: weavingPointsData } = useFetch<WeavingPointLite[]>(() => (api as any).getWeavingPoints(), [])
   const { proposals } = useInspection()
   const piMap = useMemo(() => new Map((pisData ?? []).map(p => [p.id, p])), [pisData])
   // Lên kế hoạch (PLANNING) chưa vào sản xuất — ẩn khỏi "Bảng thống kê", trừ khi đã có SKU được
   // duyệt (đã thật sự bắt đầu sản xuất dù pi.status còn PLANNING).
-  const planForms = useMemo(() => (planFormsData ?? []).filter(pf => {
+  const skus = useMemo(() => (skusData ?? []).filter(pf => {
     if (pf.status === 'DRAFT') return false
     const pi = pf.productionInvoiceId != null ? piMap.get(pf.productionInvoiceId) : undefined
     if (!pi) return false
     const hasApprovedItem = (pi.items ?? []).some(it => it.prodApproval?.status === 'APPROVED')
     return pi.status !== 'PLANNING' || hasApprovedItem
-  }), [planFormsData, piMap])
+  }), [skusData, piMap])
   const weavingPoints = useMemo(() => weavingPointsData ?? [], [weavingPointsData])
   const pointLabel = (id: number) => {
     const p = weavingPoints.find(w => w.id === id)
@@ -935,12 +935,12 @@ export default function ThongKePagePlan() {
   // Sinh dữ liệu mock nhiều tầng (buildOrderRow → genExecutionStages → buildPhoiManhs/...) khá nặng —
   // memo hoá để gõ tìm kiếm (search) không kích hoạt tính lại toàn bộ danh sách PO.
   const orderRows = useMemo(
-    () => planForms.map(pf => {
+    () => skus.map(pf => {
       const pi = pf.productionInvoiceId != null ? piMap.get(pf.productionInvoiceId) : undefined
       const skuQty = pi?.items?.[0]?.quantity ?? 0
       return buildOrderRow(pf, proposals, weavingPoints, skuQty)
     }),
-    [planForms, proposals, weavingPoints, piMap],
+    [skus, proposals, weavingPoints, piMap],
   )
 
   const [filter, setFilter]         = useState<FilterStatus>('all')

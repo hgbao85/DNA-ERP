@@ -128,7 +128,7 @@ export const seedProductionInvoices = [
     }],
     createdBy: { name: 'Quản lý SX Hùng' },
   },
-  // id 8-11: PI ứng với các SKU do KHSX quản lý — mỗi PlanForm 1 SKU 1 PI riêng, để "Bảng thống
+  // id 8-11: PI ứng với các SKU do KHSX quản lý — mỗi SKU đúng 1 PI riêng, để "Bảng thống
   // kê" hiện đúng dữ liệu theo từng SKU.
   {
     id: 8, code: 'PI-2026-008', deadline: ISO('2026-10-15'),
@@ -182,7 +182,7 @@ export const seedProductionInvoices = [
     }],
     createdBy: { name: 'Quản lý SX Hùng' },
   },
-  // id 12: PI đứng sau PlanForm TEST-01 (id 11, đã APPROVED) — chưa có đơn Sales nào dùng SKU
+  // id 12: PI đứng sau SKU TEST-01 (id 11, đã APPROVED) — chưa có đơn Sales nào dùng SKU
   // này nên PI còn ở PLANNING, sẵn sàng để test luồng Sales tạo đơn hàng từ đầu.
   {
     id: 12, code: 'PI-2026-012', deadline: ISO('2026-12-15'),
@@ -279,7 +279,7 @@ export const seedMfgWarehouseItems = [
   { id: 23, warehouseId: 6, materialId: 4,    name: 'Dây PE Ø4mm xanh lá',         unit: 'kg',  quantity: 95,  material: { id: 4, code: 'DAY-PE4', name: 'Dây PE Ø4mm', unit: 'kg' } },
   { id: 24, warehouseId: 6, materialId: null, name: 'Dung môi sơn',                 unit: 'lít', quantity: 20,  material: null },
   { id: 25, warehouseId: 6, materialId: null, name: 'Primer kết dính',              unit: 'lít', quantity: 15,  material: null },
-  // ── Kho Sắt (id:2) — vật tư khớp định mức planForm ──────────────────
+  // ── Kho Sắt (id:2) — vật tư khớp định mức SKU ──────────────────
   { id: 26, warehouseId: 2, materialId: null, name: 'Sắt hộp 25×25',       unit: 'cây', quantity: 80,  material: null },
   { id: 27, warehouseId: 2, materialId: null, name: 'Sắt vuông 20×20',      unit: 'cây', quantity: 80,  material: null },
   { id: 28, warehouseId: 2, materialId: null, name: 'Sắt tấm 3mm',          unit: 'tấm', quantity: 40,  material: null },

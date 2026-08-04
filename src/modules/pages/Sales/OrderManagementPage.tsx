@@ -5,7 +5,7 @@ import { format } from 'date-fns'
 import { Plus, Trash2, X, Check, ChevronLeft, Paperclip } from 'lucide-react'
 import type { SalesPO, SalesPOStatus, SalesCustomer } from '../../../types/sales'
 import { SALES_PO_STATUS_LABEL, SALES_PRODUCTION_STAGES } from '../../../types/sales'
-import type { PlanForm } from '../../../types/plan-form'
+import type { Sku } from '../../../types/sku'
 import { StatusBadge } from './StatusBadge'
 import SearchableSelect from '../../../components/SearchableSelect'
 
@@ -27,7 +27,7 @@ const emptyForm = (): FormState => ({
 export default function OrderManagementPage() {
   const { data: pos, isLoading, error, refetch } = useFetch<SalesPO[]>(() => api.getSalesPOs())
   const { data: customers } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers())
-  const { data: planForms } = useFetch<PlanForm[]>(() => api.getPlanForms())
+  const { data: skus } = useFetch<Sku[]>(() => api.getSkus())
   const [showCreate, setShowCreate] = useState(false)
   const [detailPO, setDetailPO] = useState<SalesPO | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
@@ -36,7 +36,7 @@ export default function OrderManagementPage() {
   // SKU đã duyệt (danh sách SKU của productplan@demo.com) — nguồn chọn SKU khi tạo PO
   const skuOptions = (() => {
     const byCode = new Map<string, { code: string; name: string }>()
-    for (const pf of planForms ?? []) {
+    for (const pf of skus ?? []) {
       if (pf.status === 'APPROVED' && pf.mfgProduct) {
         byCode.set(pf.mfgProduct.factoryCode, { code: pf.mfgProduct.factoryCode, name: pf.mfgProduct.name })
       }

@@ -9,7 +9,7 @@ import { compactTh as th, compactTd as td } from '../../../styles/table'
 
 // ── NhapKhoSection: list đề xuất đã duyệt (đang mua/đã mua) → detail nhập kho ─
 // Nguồn dữ liệu là PurchaseProposal thật (đã qua Purchasing báo giá + Boss duyệt),
-// không tự tính từ PlanForm nữa — mỗi kho chỉ thấy đúng phần mình phụ trách.
+// không tự tính từ SKU nữa — mỗi kho chỉ thấy đúng phần mình phụ trách.
 function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
   const { proposals, receiveProposalItem } = useInspection()
   const [selectedId, setSelectedId] = useState<string | null>(null)

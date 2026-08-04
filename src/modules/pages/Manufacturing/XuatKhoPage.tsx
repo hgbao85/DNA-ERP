@@ -4,7 +4,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { ArrowUpFromLine, Check, ChevronLeft, Package } from 'lucide-react'
 import { format } from 'date-fns'
-import type { PlanForm } from '../../../types/plan-form'
+import type { Sku } from '../../../types/sku'
 import LoadingState from '../../../components/LoadingState'
 import { compactTh as th, compactTd as td } from '../../../styles/table'
 import { mockStock } from '../../../utils/warehouse'
@@ -28,7 +28,7 @@ const STATUS_XUAT: Record<XuatStatus, { label: string; color: string; bg: string
   'da-xuat':   { label: 'Đã xuất',   color: '#166534', bg: '#dcfce7' },
 }
 
-function flattenXuatLines(pf: PlanForm): XuatLine[] {
+function flattenXuatLines(pf: Sku): XuatLine[] {
   const lines: XuatLine[] = []
   const mt = pf.quotaManagement?.materialType
   if (!mt) return lines
@@ -62,14 +62,14 @@ function computeXuatStatus(lines: XuatLine[]): XuatStatus {
 
 // ── XuatKhoSection: list PO → detail xuất ───────────────────
 function XuatKhoSection() {
-  const { data: planForms = [], isLoading } = useFetch(() => api.getPlanForms(), [])
-  const [selectedPf, setSelectedPf] = useState<PlanForm | null>(null)
+  const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
+  const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const [lines, setLines] = useState<XuatLine[]>([])
   const [xuatStatus, setXuatStatus] = useState<Record<number, XuatStatus>>({})
 
-  const active = ((planForms ?? []) as PlanForm[]).filter(p => p.status !== 'DRAFT')
+  const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT')
 
-  const openDetail = (pf: PlanForm) => {
+  const openDetail = (pf: Sku) => {
     setSelectedPf(pf)
     setLines(flattenXuatLines(pf))
   }
@@ -108,7 +108,7 @@ function XuatKhoSection() {
                 )}
               </h2>
               <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
-                PO: {selectedPf.exportOrder?.poNumber ?? `#${selectedPf.exportOrderId}`}
+                PO: {selectedPf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
                 {selectedPf.exportOrder?.deliveryDate && (
                   <> · Hạn giao: {format(new Date(selectedPf.exportOrder.deliveryDate), 'dd/MM/yyyy')}</>
                 )}
@@ -221,7 +221,7 @@ function XuatKhoSection() {
                     onMouseLeave={e => (e.currentTarget.style.background = '')}
                   >
                     <td style={{ ...td, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`}
+                      {pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
                     </td>
                     <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
@@ -289,11 +289,11 @@ export default function XuatKhoPage({ lockedGroup: _lockedGroup }: { lockedGroup
 
 // ── XuatThungSection ─────────────────────────────────────────
 function XuatThungSection() {
-  const { data: planForms = [], isLoading } = useFetch(() => api.getPlanForms(), [])
+  const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
   const [confirming, setConfirming] = useState<number | null>(null)
   const [done, setDone] = useState<Set<number>>(new Set())
 
-  const active = ((planForms ?? []) as PlanForm[]).filter(p => p.status !== 'DRAFT')
+  const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT')
   const confirmingPf = confirming !== null ? active.find(p => p.id === confirming) ?? null : null
 
   const handleConfirm = () => {
@@ -328,7 +328,7 @@ function XuatThungSection() {
                 return (
                   <tr key={pf.id} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={{ ...td, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`}
+                      {pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
                     </td>
                     <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
@@ -368,7 +368,7 @@ function XuatThungSection() {
             <h3 style={{ margin: '0 0 10px', fontSize: 16, fontWeight: 700 }}>Xác nhận xuất thùng</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
               Xác nhận xuất thùng đóng gói cho PO{' '}
-              <strong>{confirmingPf.exportOrder?.poNumber ?? `#${confirmingPf.exportOrderId}`}</strong>{' '}
+              <strong>{confirmingPf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}</strong>{' '}
               — <strong>{confirmingPf.mfgProduct?.factoryCode}</strong>?
             </p>
             <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>

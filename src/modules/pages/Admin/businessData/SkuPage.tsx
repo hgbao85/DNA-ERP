@@ -1,10 +1,10 @@
 'use client'
 import { Layers3 } from 'lucide-react'
-import { getPlanForms } from '../../../../services/api'
-import type { PlanForm, PlanFormStatus } from '../../../../types/plan-form'
+import { getSkus } from '../../../../services/api'
+import type { Sku, SkuStatus } from '../../../../types/sku'
 import AdminReadOnlyList, { type AdminReadOnlyListConfig } from '../shared/AdminReadOnlyList'
 
-const STATUS_LABEL: Record<PlanFormStatus, string> = {
+const STATUS_LABEL: Record<SkuStatus, string> = {
   DRAFT: 'Nháp',
   WAITING_DETAIL: 'Chờ nhập định mức chi tiết',
   WAITING_PARTS: 'Chờ nhập định mức mảnh',
@@ -18,8 +18,8 @@ const STATUS_LABEL: Record<PlanFormStatus, string> = {
 
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('vi-VN')
 
-export default function PlanFormsPage() {
-  const config: AdminReadOnlyListConfig<PlanForm> = {
+export default function SkuPage() {
+  const config: AdminReadOnlyListConfig<Sku> = {
     title: 'SKU / Định mức',
     icon: <Layers3 size={16} color="#3949ab" />,
     searchFields: ['piCode', 'customerName'],
@@ -38,7 +38,7 @@ export default function PlanFormsPage() {
       { key: 'APPROVED', label: 'Đã duyệt', predicate: (f) => f.status === 'APPROVED' },
       { key: 'REJECTED', label: 'Từ chối', predicate: (f) => f.status === 'REJECTED' },
     ],
-    fetch: getPlanForms,
+    fetch: getSkus,
   }
 
   return <AdminReadOnlyList config={config} />

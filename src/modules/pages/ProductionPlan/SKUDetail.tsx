@@ -8,12 +8,12 @@ import RefreshButton from '../../../components/RefreshButton'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
-import type { ManhGroup, ManhRow, PlanForm } from '../../../types/plan-form'
-import { STATUS_MAP, PLANFORM_ENTITY, isPartsApproved } from '../../../constants/planFormStatus'
+import type { ManhGroup, ManhRow, Sku } from '../../../types/sku'
+import { STATUS_MAP, SKU_ENTITY, isPartsApproved } from '../../../constants/skuStatus'
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
-export { STATUS_MAP, PLANFORM_ENTITY }
+export { STATUS_MAP, SKU_ENTITY }
 
 export function StatusBadge({ status }: { status: string }) {
   return <GenericStatusBadge {...(STATUS_MAP[status] ?? STATUS_MAP.APPROVED_DETAIL)} />
@@ -33,7 +33,7 @@ export function SKUDetail({
   onRefresh,
   refreshing = false,
 }: {
-  pf: PlanForm
+  pf: Sku
   readOnly?: boolean
   onBack: () => void
   /** KHSX duyệt xong toàn bộ nhóm định mức chi tiết → gửi QLSX duyệt. */
@@ -88,8 +88,8 @@ export function SKUDetail({
     if (!manhApproveModal) return
     const { key, title } = manhApproveModal
     setManhSecStatus(p => ({ ...p, [key]: { status: 'APPROVED', at: new Date() } }))
-    ;(api as any).reviewPlanFormManhQuota(pf.id, key, 'APPROVED').catch(() => {})
-    logAction(PLANFORM_ENTITY, String(pf.id), 'planform.parts_section_approved', title)
+    ;(api as any).reviewSkuManhQuota(pf.id, key, 'APPROVED').catch(() => {})
+    logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_approved', title)
     setManhApproveModal(null)
   }
 
@@ -99,8 +99,8 @@ export function SKUDetail({
     if (!manhRejectModal) return
     const reason = manhRejectReason.trim() || undefined
     setManhSecStatus(p => ({ ...p, [manhRejectModal.key]: { status: 'REJECTED', at: new Date(), reason } }))
-    ;(api as any).reviewPlanFormManhQuota(pf.id, manhRejectModal.key, 'REJECTED', reason).catch(() => {})
-    logAction(PLANFORM_ENTITY, String(pf.id), 'planform.parts_section_rejected', reason ? `${manhRejectModal.title} — ${reason}` : manhRejectModal.title)
+    ;(api as any).reviewSkuManhQuota(pf.id, manhRejectModal.key, 'REJECTED', reason).catch(() => {})
+    logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_rejected', reason ? `${manhRejectModal.title} — ${reason}` : manhRejectModal.title)
     setManhRejectModal(null)
   }
 
@@ -153,8 +153,8 @@ export function SKUDetail({
     if (!approveModal) return
     const { key, title } = approveModal
     setSecStatus(p => ({ ...p, [key]: { status: 'APPROVED', at: new Date() } }))
-    ;(api as any).reviewPlanFormDetailQuota(pf.id, key, 'APPROVED').catch(() => {})
-    logAction(PLANFORM_ENTITY, String(pf.id), 'planform.detail_section_approved', title)
+    ;(api as any).reviewSkuDetailQuota(pf.id, key, 'APPROVED').catch(() => {})
+    logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_approved', title)
     setApproveModal(null)
   }
 
@@ -167,8 +167,8 @@ export function SKUDetail({
       ...p,
       [rejectModal.key]: { status: 'REJECTED', at: new Date(), reason },
     }))
-    ;(api as any).reviewPlanFormDetailQuota(pf.id, rejectModal.key, 'REJECTED', reason).catch(() => {})
-    logAction(PLANFORM_ENTITY, String(pf.id), 'planform.detail_section_rejected', reason ? `${rejectModal.title} — ${reason}` : rejectModal.title)
+    ;(api as any).reviewSkuDetailQuota(pf.id, rejectModal.key, 'REJECTED', reason).catch(() => {})
+    logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_rejected', reason ? `${rejectModal.title} — ${reason}` : rejectModal.title)
     setRejectModal(null)
   }
 
@@ -584,7 +584,7 @@ export function SKUDetail({
 
       {!readOnly && (
         <div style={{ width: 300, flexShrink: 0, position: 'sticky', top: 20 }}>
-          <AuditLogTimeline entries={getLogsFor(PLANFORM_ENTITY, String(pf.id))} />
+          <AuditLogTimeline entries={getLogsFor(SKU_ENTITY, String(pf.id))} />
         </div>
       )}
       </div>

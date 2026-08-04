@@ -3,7 +3,7 @@ import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { Trash2 } from 'lucide-react'
-import type { PlanForm } from '../../../types/plan-form'
+import type { Sku } from '../../../types/sku'
 import { SKUDetail, StatusBadge, STATUS_MAP } from './SKUDetail'
 import SearchInput from '../../../components/SearchInput'
 import FilterPills from '../../../components/FilterPills'
@@ -24,9 +24,9 @@ const FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }
 ]
 
 export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }) {
-  const { data: planForms = [], isLoading, refetch } = useFetch(() => api.getPlanForms(), [])
+  const { data: skus = [], isLoading, refetch } = useFetch(() => api.getSkus(), [])
 
-  const [selectedPf, setSelectedPf] = useState<PlanForm | null>(null)
+  const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const [deleteMode, setDeleteMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
   const [showConfirm, setShowConfirm] = useState(false)
@@ -34,9 +34,9 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
-  // Show all non-DRAFT items, trừ PlanForm sinh tự động khi PM "xác nhận sản xuất" (LenhSXPage) —
+  // Show all non-DRAFT items, trừ Sku sinh tự động khi PM "xác nhận sản xuất" (LenhSXPage) —
   // đó không phải SKU do KHSX tạo/quản lý, chỉ phục vụ "Lệnh kiểm tra vật tư".
-  const allItems = ((planForms ?? []) as PlanForm[]).filter(pf => pf.status !== 'DRAFT' && pf.origin !== 'PRODUCTION_CONFIRM')
+  const allItems = ((skus ?? []) as Sku[]).filter(pf => pf.status !== 'DRAFT' && pf.origin !== 'PRODUCTION_CONFIRM')
   const countByStatus = (s: StatusFilter) => s === 'all' ? allItems.length : allItems.filter(pf => pf.status === s).length
 
   const afterFilter = statusFilter === 'all' ? allItems : allItems.filter(pf => pf.status === statusFilter)
@@ -57,7 +57,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
   const handleDelete = async () => {
     setDeleting(true)
     try {
-      await (api as any).deletePlanForms([...selectedIds])
+      await (api as any).deleteSkus([...selectedIds])
       refetch()
       exitDeleteMode()
     } catch {

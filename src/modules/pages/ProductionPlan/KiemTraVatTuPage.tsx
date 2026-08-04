@@ -7,7 +7,7 @@ import * as api from '../../../services/api'
 import LoadingState from '../../../components/LoadingState'
 import { useConfirm } from '../../../hooks/useConfirm'
 import { listTh, listTd } from '../../../styles/table'
-import type { PlanForm } from '../../../types/plan-form'
+import type { Sku } from '../../../types/sku'
 import { flattenManhSteel, combinedDaySon, dinhItems } from '../../../utils/manhMaterials'
 import { useInspection, khoState, PROPOSAL_ENTITY, PROPOSAL_STATUS_LABELS, type KhoKey, type InspRequest, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
@@ -31,7 +31,7 @@ type AllMat = {
 
 const isSon = (name: string) => /sơn|son|primer|lót|phủ|hardener|thinner/i.test(name)
 
-function extractAllMaterials(pf: PlanForm): AllMat[] {
+function extractAllMaterials(pf: Sku): AllMat[] {
   const mt = pf.quotaManagement?.materialType
   return [
     ...flattenManhSteel(pf).map(x => ({
@@ -128,8 +128,8 @@ function ProposalStepper({ status }: { status: PurchaseProposalStatus }) {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function KiemTraVatTuPage() {
-  const { data: planForms = [], isLoading } = useFetch(() => api.getPlanForms(), [])
-  const active = ((planForms ?? []) as PlanForm[]).filter(p => p.status !== 'DRAFT')
+  const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
+  const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT')
 
   const { requests, proposals, sendRequest, markProposalCreated, startProduction } = useInspection()
   const { getLogsFor } = useAuditLog()
@@ -139,7 +139,7 @@ export default function KiemTraVatTuPage() {
   const { ask, confirmModal } = useConfirm()
 
   const selected = active.find(p => p.id === selectedId) ?? null
-  const request  = selected ? requests.find(r => r.planFormId === selected.id) ?? null : null
+  const request  = selected ? requests.find(r => r.skuId === selected.id) ?? null : null
 
   // ── Detail view ──────────────────────────────────────────────────────────────
 
@@ -217,7 +217,7 @@ export default function KiemTraVatTuPage() {
                 )}
               </h2>
               <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
-                PO: {selected.exportOrder?.poNumber ?? `#${selected.exportOrderId}`}
+                PO: {selected.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
                 {selected.exportOrder?.deliveryDate && (
                   <> · Hạn giao: {format(new Date(selected.exportOrder.deliveryDate), 'dd/MM/yyyy')}</>
                 )}
@@ -422,8 +422,8 @@ export default function KiemTraVatTuPage() {
                         khoLabel: i.khoLabel,
                       }))
                       markProposalCreated(request!.id, proposalItems, {
-                        planFormId: selected.id,
-                        poNumber:   selected.exportOrder?.poNumber ?? `#${selected.exportOrderId}`,
+                        skuId: selected.id,
+                        poNumber:   selected.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng',
                         skuCode:    selected.mfgProduct?.factoryCode ?? `#${selected.mfgProductId}`,
                         skuName:    selected.mfgProduct?.name,
                         deadline:   selected.exportOrder?.deliveryDate,
@@ -537,7 +537,7 @@ export default function KiemTraVatTuPage() {
             </thead>
             <tbody>
               {active.map(pf => {
-                const req = requests.find(r => r.planFormId === pf.id)
+                const req = requests.find(r => r.skuId === pf.id)
                 const os  = overallStatus(req)
                 const cfg = OVERALL_CFG[os]
                 return (
@@ -549,7 +549,7 @@ export default function KiemTraVatTuPage() {
                     onMouseLeave={e => (e.currentTarget.style.background = '')}
                   >
                     <td style={{ ...listTd, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`}
+                      {pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
                     </td>
                     <td style={{ ...listTd, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>

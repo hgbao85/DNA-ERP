@@ -4,7 +4,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { format } from 'date-fns'
 import { ChevronLeft, X } from 'lucide-react'
-import type { PlanForm } from '../../../types/plan-form'
+import type { Sku } from '../../../types/sku'
 import LoadingState from '../../../components/LoadingState'
 
 type DGStatus = 'chua-dong' | 'dang-dong' | 'da-dong'
@@ -21,7 +21,7 @@ function strHash(s: string): number {
 
 // Dùng chung với "Chi tiết từng công đoạn" bên Bảng thống kê KHSX (xem ThongKePagePlan.tsx) để số
 // liệu "tổng thùng" luôn khớp với đúng những gì thủ kho thành phẩm (khotp@demo.com) đang thấy ở đây.
-export function mockTotalBoxes(pf: PlanForm): number {
+export function mockTotalBoxes(pf: Sku): number {
   const code = pf.mfgProduct?.factoryCode ?? `#${pf.id}`
   return 20 + (strHash(code) % 60)
 }
@@ -33,13 +33,13 @@ function getStatus(daDong: number, total: number): DGStatus {
 }
 
 export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: number } = {}) {
-  const { data: planForms = [], isLoading } = useFetch(() => api.getPlanForms(), [])
-  const [selectedPf, setSelectedPf] = useState<PlanForm | null>(null)
+  const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
+  const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const [daDongMap, setDaDongMap]   = useState<Record<number, number>>({})
   const [popupOpen, setPopupOpen]   = useState(false)
   const [popupQty, setPopupQty]     = useState('')
 
-  const active = ((planForms ?? []) as PlanForm[]).filter(p => p.status !== 'DRAFT' && (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId))
+  const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT' && (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId))
 
   // Drill-down từ bảng tổng hợp SX (qlsx@) truyền sẵn filterExportOrderId → nhảy thẳng vào chi
   // tiết đúng lệnh đó thay vì bắt bấm lại vào 1 danh sách chỉ có 1 dòng.
@@ -87,7 +87,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }
               )}
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
-              PO: {selectedPf.exportOrder?.poNumber ?? `#${selectedPf.exportOrderId}`}
+              PO: {selectedPf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
               {selectedPf.exportOrder?.deliveryDate && (
                 <> · Hạn giao: {format(new Date(selectedPf.exportOrder.deliveryDate), 'dd/MM/yyyy')}</>
               )}
@@ -224,7 +224,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }
                     onMouseLeave={e => (e.currentTarget.style.background = '')}
                   >
                     <td style={{ ...td, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {pf.exportOrder?.poNumber ?? `#${pf.exportOrderId}`}
+                      {pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
                     </td>
                     <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>

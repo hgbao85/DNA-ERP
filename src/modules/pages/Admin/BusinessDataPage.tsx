@@ -4,18 +4,18 @@ import { Briefcase, ClipboardList, FileText, Layers3, Factory, Truck } from 'luc
 import { tabBtn } from '../../../styles/buttons'
 import SalesPOsPage from './businessData/SalesPOsPage'
 import PurchaseProposalsPage from './businessData/PurchaseProposalsPage'
-import PlanFormsPage from './businessData/PlanFormsPage'
+import SkuPage from './businessData/SkuPage'
 import ProductionInvoicesPage from './businessData/ProductionInvoicesPage'
 import WarehouseTransfersPage from './businessData/WarehouseTransfersPage'
 
 const ACCENT = '#3949ab'
 
-type Tab = 'sales-po' | 'purchase-proposals' | 'plan-forms' | 'production-invoices' | 'warehouse-transfers'
+type Tab = 'sales-po' | 'purchase-proposals' | 'sku' | 'production-invoices' | 'warehouse-transfers'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'sales-po',             label: 'Đơn hàng bán',        icon: <ClipboardList size={14} /> },
   { id: 'purchase-proposals',   label: 'Đề xuất mua hàng',    icon: <FileText size={14} /> },
-  { id: 'plan-forms',           label: 'SKU / Định mức',      icon: <Layers3 size={14} /> },
+  { id: 'sku',                  label: 'SKU / Định mức',      icon: <Layers3 size={14} /> },
   { id: 'production-invoices',  label: 'Lệnh sản xuất',       icon: <Factory size={14} /> },
   { id: 'warehouse-transfers',  label: 'Chuyển kho',          icon: <Truck size={14} /> },
 ]
@@ -47,7 +47,7 @@ export default function BusinessDataPage() {
 
       {tab === 'sales-po' && <SalesPOsPage />}
       {tab === 'purchase-proposals' && <PurchaseProposalsPage />}
-      {tab === 'plan-forms' && <PlanFormsPage />}
+      {tab === 'sku' && <SkuPage />}
       {tab === 'production-invoices' && <ProductionInvoicesPage />}
       {tab === 'warehouse-transfers' && <WarehouseTransfersPage />}
     </div>

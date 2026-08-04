@@ -1,49 +1,52 @@
 import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
+import { useMaterialGroupIds } from '../../../hooks/useMaterialGroupIds'
 import * as api from '../../../services/api'
-import type { PlanForm } from '../../../types/plan-form'
+import type { Sku } from '../../../types/sku'
 
 // ─── Gộp 2 trang "Danh sách vật tư" (Phụ kiện + Bao bì) — cùng cấu trúc dữ liệu,
 // chỉ khác group key trong MaterialType. Tab để chuyển giữa 2 nhóm, không đổi route/menu riêng.
 //
-// Việc 2: catalog nay là Material thật (kind=ACCESSORY/PACKAGING, quản lý ở Admin > Vật tư) thay
-// vì quét lịch sử PlanForm — trang này chỉ còn vai trò xem nhanh đã lọc sẵn theo loại, tiện tra
-// cứu khi nhập định mức ở SpecAccessoryPage/SpecPackagingPage.
+// Việc 2: catalog nay là Material thật (nhóm vật tư Phụ kiện/Bao bì, quản lý ở Admin > Vật tư)
+// thay vì quét lịch sử Sku — trang này chỉ còn vai trò xem nhanh đã lọc sẵn theo nhóm, tiện
+// tra cứu khi nhập định mức ở SpecAccessoryPage/SpecPackagingPage.
 type Group = 'vatTuPhuKien' | 'baoBiDongGoi'
 
-const GROUP_LABELS: Record<Group, { tab: string; hint: string; kind: string; maHeader: string; searchPlaceholder: string }> = {
+const GROUP_LABELS: Record<Group, { tab: string; hint: string; systemKey: 'ACCESSORY' | 'PACKAGING'; maHeader: string; searchPlaceholder: string }> = {
   vatTuPhuKien: {
     tab: 'Phụ kiện',
-    hint: 'Vật tư thật (Admin > Vật tư, kind=ACCESSORY) — dùng để chọn khi nhập định mức',
-    kind: 'ACCESSORY',
+    hint: 'Vật tư thật (Admin > Vật tư, nhóm Phụ kiện) — dùng để chọn khi nhập định mức',
+    systemKey: 'ACCESSORY',
     maHeader: 'Mã phụ kiện',
     searchPlaceholder: 'Tìm theo mã hoặc tên phụ kiện…',
   },
   baoBiDongGoi: {
     tab: 'Bao bì',
-    hint: 'Vật tư thật (Admin > Vật tư, kind=PACKAGING) — dùng để chọn khi nhập định mức',
-    kind: 'PACKAGING',
+    hint: 'Vật tư thật (Admin > Vật tư, nhóm Bao bì) — dùng để chọn khi nhập định mức',
+    systemKey: 'PACKAGING',
     maHeader: 'Mã bao bì',
     searchPlaceholder: 'Tìm theo mã hoặc tên bao bì…',
   },
 }
 
 export default function SpecAccessoryCatalogPage() {
-  const { data: planFormsData } = useFetch<PlanForm[]>(() => api.getPlanForms(), [])
-  const planForms = (planFormsData ?? []).filter(pf => pf.status !== 'DRAFT')
+  const { data: skusData } = useFetch<Sku[]>(() => api.getSkus(), [])
+  const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
   const { data: materialsData } = useFetch(() => api.getMaterials(), [])
   const materials = materialsData ?? []
+  const { accessory: accessoryGroupId, packaging: packagingGroupId } = useMaterialGroupIds()
 
   const [group, setGroup] = useState<Group>('vatTuPhuKien')
   const [catalogSearch, setCatalogSearch] = useState('')
 
-  const itemsOf = (pf: PlanForm, g: Group) => pf.quotaManagement?.materialType?.[g] ?? []
-  const reviewOf = (pf: PlanForm, g: Group) => pf.quotaManagement?.reviewStatus?.[g]
+  const itemsOf = (pf: Sku, g: Group) => pf.quotaManagement?.materialType?.[g] ?? []
+  const reviewOf = (pf: Sku, g: Group) => pf.quotaManagement?.reviewStatus?.[g]
 
   const labels = GROUP_LABELS[group]
-  const catalog = materials.filter(m => m.kind === labels.kind)
+  const groupId = labels.systemKey === 'ACCESSORY' ? accessoryGroupId : packagingGroupId
+  const catalog = materials.filter(m => groupId != null && m.materialGroupId === groupId)
 
-  const rejectedGroups = planForms
+  const rejectedGroups = skus
     .filter(pf => reviewOf(pf, group)?.status === 'REJECTED')
     .map(pf => ({
       ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
@@ -136,7 +139,7 @@ export default function SpecAccessoryCatalogPage() {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={3} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
-                  {catalogSearch ? 'Không tìm thấy kết quả.' : `Chưa có vật tư kind=${labels.kind} nào — thêm ở Admin > Vật tư.`}
+                  {catalogSearch ? 'Không tìm thấy kết quả.' : `Chưa có vật tư nhóm ${labels.tab} nào — thêm ở Admin > Vật tư.`}
                 </td>
               </tr>
             )}

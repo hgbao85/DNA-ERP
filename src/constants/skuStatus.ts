@@ -1,6 +1,7 @@
-// Entity dùng cho AuditLogTimeline — mọi thao tác nhập/duyệt/từ chối/gửi lại trên 1 SKU (PlanForm),
-// từ cả 4 account chuyên trách nhập liệu lẫn KHSX/Sếp duyệt.
-export const PLANFORM_ENTITY = 'PlanForm'
+// Entity dùng cho AuditLogTimeline — mọi thao tác nhập/duyệt/từ chối/gửi lại trên 1 SKU,
+// từ cả 4 account chuyên trách nhập liệu lẫn KHSX/Sếp duyệt. Giá trị 'PlanForm' khớp tên
+// Prisma model ở BE (không đổi cùng lúc với route/endpoint) - xem audit-log.extension.ts.
+export const SKU_ENTITY = 'PlanForm'
 
 /** Định mức mảnh (Sắt/Dây/Đinh) đã được KHSX duyệt xong và gửi bộ phận nhập định mức chi tiết — tức
  *  SKU đã rời khỏi WAITING_PARTS/APPROVED_PARTS. Các trang nhập định mức chi tiết (Sơn, Phụ
@@ -10,7 +11,7 @@ export function isPartsApproved(status: string): boolean {
   return ['WAITING_DETAIL', 'APPROVED_DETAIL', 'WAITING_QLSX_APPROVAL', 'WAITING_BOSS_APPROVAL', 'APPROVED'].includes(status)
 }
 
-/** Trạng thái vòng đời của một SKU (PlanForm) trong luồng Kế hoạch sản xuất. */
+/** Trạng thái vòng đời của một SKU trong luồng duyệt định mức. */
 export const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   WAITING_DETAIL:  { label: 'Chờ nhập định mức chi tiết', color: '#b45309', bg: '#fef3c7' },
   WAITING_PARTS:   { label: 'Chờ nhập định mức mảnh',     color: '#c2410c', bg: '#ffedd5' },

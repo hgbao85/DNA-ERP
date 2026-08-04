@@ -42,7 +42,7 @@ export interface AdminReadOnlyListConfig<T extends { id: number | string }> {
 
 /**
  * Bảng "tra cứu" chỉ đọc — dùng cho dữ liệu nghiệp vụ có state machine duyệt riêng
- * (Sales PO, đề xuất mua hàng, SKU/PlanForm, PI, chuyển kho...) mà Admin chỉ cần xem/lọc,
+ * (Sales PO, đề xuất mua hàng, SKU, PI, chuyển kho...) mà Admin chỉ cần xem/lọc,
  * không thao tác duyệt/từ chối (việc đó thuộc đúng phân hệ nghiệp vụ). Không có nút thêm,
  * không có sửa/xóa — khác AdminEntityPage (engine CRUD).
  */

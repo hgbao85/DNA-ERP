@@ -20,7 +20,7 @@ export interface WarehouseTransfer {
   status: TransferStatus
   items: WarehouseTransferItem[]
   note?: string | null
-  // Mã PI (PlanForm/Lệnh sản xuất) mà khung/vật tư chuyển đi thuộc về — giúp kho nhận biết khung của đơn nào.
+  // Mã PI (SKU/Lệnh sản xuất) mà khung/vật tư chuyển đi thuộc về — giúp kho nhận biết khung của đơn nào.
   piCode?: string | null
   rejectionReason?: string | null
   createdAt: string
