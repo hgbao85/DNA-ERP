@@ -7,6 +7,7 @@ export interface PickedMaterial {
   code: string
   name: string
   unit: string
+  spec: string | null
 }
 
 /**
@@ -39,10 +40,10 @@ export default function MaterialPicker({
       getSearchText={(m) => `${m.code} ${m.name}`}
       renderOption={(m) => (
         <span>
-          <strong>{m.code}</strong> <span style={{ color: 'var(--text3)' }}>— {m.name} ({m.unit})</span>
+          <strong>{m.code}</strong> <span style={{ color: 'var(--text3)' }}>— {m.name} ({m.unit}){m.spec ? ` · ${m.spec}` : ''}</span>
         </span>
       )}
-      onSelect={(m) => onSelect({ id: m.id, code: m.code, name: m.name, unit: m.unit })}
+      onSelect={(m) => onSelect({ id: m.id, code: m.code, name: m.name, unit: m.unit, spec: m.spec })}
       placeholder={placeholder}
       emptyText={
         materialGroupId == null
