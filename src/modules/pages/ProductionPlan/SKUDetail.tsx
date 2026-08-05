@@ -5,7 +5,7 @@ import GenericStatusBadge from '../../../components/StatusBadge'
 import Modal from '../../../components/Modal'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
 import RefreshButton from '../../../components/RefreshButton'
-import * as api from '../../../services/api'
+import { reviewSkuManhQuota, reviewSkuDetailQuota } from '../../../services/sku-api'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import type { ManhGroup, ManhRow, Sku } from '../../../types/sku'
@@ -84,24 +84,35 @@ export function SKUDetail({
 
   type ManhSecModal = { key: ManhGroup; title: string } | null
   const [manhApproveModal, setManhApproveModal] = useState<ManhSecModal>(null)
-  const confirmManhApprove = () => {
+  const confirmManhApprove = async () => {
     if (!manhApproveModal) return
     const { key, title } = manhApproveModal
-    setManhSecStatus(p => ({ ...p, [key]: { status: 'APPROVED', at: new Date() } }))
-    ;(api as any).reviewSkuManhQuota(pf.id, key, 'APPROVED').catch(() => {})
-    logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_approved', title)
     setManhApproveModal(null)
+    setManhSecStatus(p => ({ ...p, [key]: { status: 'APPROVED', at: new Date() } }))
+    try {
+      await reviewSkuManhQuota(pf.id, key, 'APPROVED')
+      logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_approved', title)
+    } catch (e: unknown) {
+      setManhSecStatus(p => ({ ...p, [key]: null }))
+      alert(e instanceof Error ? e.message : `Không thể duyệt ${title}`)
+    }
   }
 
   const [manhRejectModal, setManhRejectModal] = useState<ManhSecModal>(null)
   const [manhRejectReason, setManhRejectReason] = useState('')
-  const confirmManhReject = () => {
+  const confirmManhReject = async () => {
     if (!manhRejectModal) return
+    const { key, title } = manhRejectModal
     const reason = manhRejectReason.trim() || undefined
-    setManhSecStatus(p => ({ ...p, [manhRejectModal.key]: { status: 'REJECTED', at: new Date(), reason } }))
-    ;(api as any).reviewSkuManhQuota(pf.id, manhRejectModal.key, 'REJECTED', reason).catch(() => {})
-    logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_rejected', reason ? `${manhRejectModal.title} — ${reason}` : manhRejectModal.title)
     setManhRejectModal(null)
+    setManhSecStatus(p => ({ ...p, [key]: { status: 'REJECTED', at: new Date(), reason } }))
+    try {
+      await reviewSkuManhQuota(pf.id, key, 'REJECTED', reason)
+      logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_rejected', reason ? `${title} — ${reason}` : title)
+    } catch (e: unknown) {
+      setManhSecStatus(p => ({ ...p, [key]: null }))
+      alert(e instanceof Error ? e.message : `Không thể từ chối ${title}`)
+    }
   }
 
   type ManhSecFilter = 'all' | ManhGroup
@@ -112,7 +123,13 @@ export function SKUDetail({
   const handleApproveParts = async () => {
     if (!onApproveParts) return
     setApprovingParts(true)
-    try { await onApproveParts() } finally { setApprovingParts(false) }
+    try {
+      await onApproveParts()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Không thể gửi bộ phận Định mức chi tiết')
+    } finally {
+      setApprovingParts(false)
+    }
   }
 
   // ── Định mức chi tiết (3 nhóm: Sơn, Phụ kiện, Bao bì — Sắt/Đinh đã chuyển sang định mức mảnh) ──
@@ -149,27 +166,35 @@ export function SKUDetail({
   // phải bấm nút gửi lại riêng.
   type SecModal = { key: SecKey; title: string } | null
   const [approveModal, setApproveModal] = useState<SecModal>(null)
-  const confirmSectionApprove = () => {
+  const confirmSectionApprove = async () => {
     if (!approveModal) return
     const { key, title } = approveModal
-    setSecStatus(p => ({ ...p, [key]: { status: 'APPROVED', at: new Date() } }))
-    ;(api as any).reviewSkuDetailQuota(pf.id, key, 'APPROVED').catch(() => {})
-    logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_approved', title)
     setApproveModal(null)
+    setSecStatus(p => ({ ...p, [key]: { status: 'APPROVED', at: new Date() } }))
+    try {
+      await reviewSkuDetailQuota(pf.id, key, 'APPROVED')
+      logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_approved', title)
+    } catch (e: unknown) {
+      setSecStatus(p => ({ ...p, [key]: null }))
+      alert(e instanceof Error ? e.message : `Không thể duyệt ${title}`)
+    }
   }
 
   const [rejectModal, setRejectModal] = useState<SecModal>(null)
   const [rejectReason, setRejectReason] = useState('')
-  const confirmSectionReject = () => {
+  const confirmSectionReject = async () => {
     if (!rejectModal) return
+    const { key, title } = rejectModal
     const reason = rejectReason.trim() || undefined
-    setSecStatus(p => ({
-      ...p,
-      [rejectModal.key]: { status: 'REJECTED', at: new Date(), reason },
-    }))
-    ;(api as any).reviewSkuDetailQuota(pf.id, rejectModal.key, 'REJECTED', reason).catch(() => {})
-    logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_rejected', reason ? `${rejectModal.title} — ${reason}` : rejectModal.title)
     setRejectModal(null)
+    setSecStatus(p => ({ ...p, [key]: { status: 'REJECTED', at: new Date(), reason } }))
+    try {
+      await reviewSkuDetailQuota(pf.id, key, 'REJECTED', reason)
+      logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_rejected', reason ? `${title} — ${reason}` : title)
+    } catch (e: unknown) {
+      setSecStatus(p => ({ ...p, [key]: null }))
+      alert(e instanceof Error ? e.message : `Không thể từ chối ${title}`)
+    }
   }
 
   type SecFilter = 'all' | SecKey
@@ -181,7 +206,13 @@ export function SKUDetail({
   const handleApproveDetail = async () => {
     if (!onApproveDetail) return
     setApprovingDetail(true)
-    try { await onApproveDetail() } finally { setApprovingDetail(false) }
+    try {
+      await onApproveDetail()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Không thể gửi QLSX duyệt')
+    } finally {
+      setApprovingDetail(false)
+    }
   }
 
   type DetailTab = 'manh' | 'chitiet'
