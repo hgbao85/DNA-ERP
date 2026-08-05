@@ -80,6 +80,8 @@ export interface ManhChildRow {
   specs?: string | null;
   length?: string | null;
   qty?: string | null;
+  note?: string | null;
+  unit?: string | null;
 }
 
 /** 1 mảnh phôi (vd "Mảnh tựa", "Chân ghế") gồm nhiều loại sắt con — do account Sắt nhập theo 2 bước: tạo mảnh -> nhập sắt. */
