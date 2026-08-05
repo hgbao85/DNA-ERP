@@ -194,9 +194,9 @@ class ExportPurposeService extends BaseService<any> {
   }
 }
 
-class WeavingService extends BaseService<any> {
-  constructor() { super('weavingPoints'); }
-
+// Không extends BaseService — collection 'weavingPoints' đã lên BE thật (weaving-points-api.ts),
+// class này chỉ còn phần nghiệp vụ phân bổ/nhận đan/chuyển kiểm vẫn mock, không dùng CRUD chung.
+class WeavingService {
   async getConfig() { return ok(clone(mockStore.get().weavingConfig)); }
   async updateConfig(minAllocationQty: number) {
     await mockDelay();
