@@ -4,11 +4,16 @@
  * shape mock) để LenhSXPage/ThongKePagePlan không phải sửa lại UI. Lưu ý khác mock: tham số
  * "itemIdx" của mock (vị trí trong mảng) nay là `itemId` thật (id của ProductionInvoiceItem) —
  * mọi nơi gọi các hàm approve/reject/send-to-* phải truyền `item.id`, không phải index.
- * `stages` (HAN/WEAVING/SON — lịch thi công từng công đoạn) KHÔNG có ở domain này (thuộc phạm
- * vi thực thi Phôi/Hàn/Sơn, để dành phase sau) nên luôn trả mảng rỗng — UI đã có fallback ước
- * tính theo ngày cho trường hợp này, không phải sửa thêm.
+ * `stages` (FRAME/WEAVING/PACKAGING — lịch KHSX đặt riêng từng công đoạn/SKU, LenhSXPage "Sửa
+ * thời hạn") lưu thật ở bảng `production_invoice_item_stages`, xem `updateProductionInvoiceItem`.
+ * stageType đặt tên rõ nghĩa, KHÔNG trùng `MfgStage` (domain thực thi Phôi/Hàn/Sơn thật, chưa
+ * tồn tại - không liên quan bảng này): `FRAME` = "Khung cơ khí" (mốc hoàn tất CẢ chuỗi
+ * Phôi→Hàn→Sơn, không phải riêng công đoạn Hàn); `PACKAGING` = "Đóng gói" (đặt tên khác
+ * `MfgStage.SON`=Sơn/painting thật để khỏi trùng nghĩa).
  */
 import { http } from './core/http';
+
+type StageType = 'FRAME' | 'WEAVING' | 'PACKAGING';
 
 interface BeProductionInvoiceItem {
   id: number;
@@ -21,6 +26,7 @@ interface BeProductionInvoiceItem {
   quantity: number;
   materialDeadline: string | null;
   deliveryDeadline: string | null;
+  stages: { stageType: StageType; deadline: string }[];
   prodApprovalStatus: 'WAITING_QLSX' | 'WAITING_BOSS' | 'APPROVED' | 'REJECTED' | null;
   requestedAt: string | null;
   requestedById: string | null;
@@ -57,7 +63,7 @@ function toItem(it: BeProductionInvoiceItem) {
     materialDeadline: it.materialDeadline ?? undefined,
     deliveryDeadline: it.deliveryDeadline ?? undefined,
     status: undefined as string | undefined, // stage sản xuất/giao hàng — ngoài phạm vi domain này
-    stages: [] as unknown[], // HAN/WEAVING/SON — ngoài phạm vi domain này (thực thi Phôi/Hàn/Sơn)
+    stages: it.stages.map((s) => ({ stageType: s.stageType, deadline: s.deadline })),
     prodApproval: it.prodApprovalStatus
       ? {
           status: it.prodApprovalStatus,
@@ -98,13 +104,28 @@ export async function getProductionInvoice(id: number | string) {
   return toPI(await http.get<BeProductionInvoice>(`/production-invoices/${id}`));
 }
 
-/** Chỉ cập nhật `deadline` — mock cho phép sửa cả materialDeadline/deliveryDeadline/stages
- *  từng item (LenhSXPage "Sửa thời hạn"), nhưng BE domain này chưa theo dõi các mốc đó theo
- *  item (thuộc phạm vi thực thi Phôi/Hàn/Sơn) nên phần đó không còn được lưu lại. */
+/** Cập nhật `deadline` chung của cả PO. Mốc riêng từng SKU (materialDeadline/deliveryDeadline/
+ *  stages) đi qua `updateProductionInvoiceItem` — xem LenhSXPage "Sửa thời hạn". */
 export async function updateProductionInvoice(id: number | string, data: Record<string, unknown>) {
   return toPI(
     await http.patch<BeProductionInvoice>(`/production-invoices/${id}`, {
       deadline: data.deadline,
+    }),
+  );
+}
+
+/** Lưu thật materialDeadline/deliveryDeadline/stages riêng cho 1 SKU trong PI (LenhSXPage
+ *  "Sửa thời hạn") — itemId = ProductionInvoiceItem.id thật. */
+export async function updateProductionInvoiceItem(
+  piId: number | string,
+  itemId: number | string,
+  data: { materialDeadline?: string; deliveryDeadline?: string; stages?: { stageType: StageType; deadline: string }[] },
+) {
+  return toItem(
+    await http.patch<BeProductionInvoiceItem>(`/production-invoices/${piId}/items/${itemId}`, {
+      materialDeadline: data.materialDeadline,
+      deliveryDeadline: data.deliveryDeadline,
+      stages: data.stages,
     }),
   );
 }
@@ -135,5 +156,13 @@ export async function approveItemByBoss(piId: number | string, itemId: number | 
 export async function rejectProdItem(piId: number | string, itemId: number | string, reason: string, _decidedBy?: string) {
   return toItem(
     await http.post<BeProductionInvoiceItem>(`/production-invoices/${piId}/items/${itemId}/reject`, { reason }),
+  );
+}
+
+/** QLSX từ chối ngay ở bước chọn kho (chưa kịp gửi Sếp) - SKU quay lại cho KHSX sửa thời hạn,
+ *  cùng hệ quả với `rejectProdItem` (Sếp từ chối), khác đường gọi vì BE tách quyền theo mfgRole. */
+export async function rejectProdItemByQlsx(piId: number | string, itemId: number | string, reason: string, _decidedBy?: string) {
+  return toItem(
+    await http.post<BeProductionInvoiceItem>(`/production-invoices/${piId}/items/${itemId}/reject-by-qlsx`, { reason }),
   );
 }

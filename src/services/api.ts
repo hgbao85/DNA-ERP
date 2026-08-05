@@ -57,6 +57,6 @@ export {
   rejectSkuByQlsx, rejectSkuByBoss, approveFullSku,
 } from './sku-api';
 export {
-  getProductionInvoices, getProductionInvoice, updateProductionInvoice,
-  sendItemToQlsx, sendItemToBoss, approveItemByBoss, rejectProdItem,
+  getProductionInvoices, getProductionInvoice, updateProductionInvoice, updateProductionInvoiceItem,
+  sendItemToQlsx, sendItemToBoss, approveItemByBoss, rejectProdItem, rejectProdItemByQlsx,
 } from './production-invoices-api';

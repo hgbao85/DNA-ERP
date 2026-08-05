@@ -24,7 +24,12 @@ export default function LenhSXPage() {
   const [qlsxWarehouseCode, setQlsxWarehouseCode] = useState<string | null>(null)
   const [sendingToBoss, setSendingToBoss] = useState(false)
   const [editingPI, setEditingPI] = useState<any | null>(null)
-  const [editValues, setEditValues] = useState<{ deadline: string; items: { materialDeadline: string; deliveryDeadline: string; HAN: string; WEAVING: string; SON: string }[] }>({ deadline: '', items: [] })
+  const [editValues, setEditValues] = useState<{ deadline: string; items: { materialDeadline: string; deliveryDeadline: string; FRAME: string; WEAVING: string; PACKAGING: string }[] }>({ deadline: '', items: [] })
+  // Field nào lúc mở modal chỉ là ngày "ước tính" (chưa có giá trị thật lưu ở SKU) — map vào ô
+  // nhập để tham khảo, nhưng KHÔNG được tự "chốt" thành ngày chính thức nếu người dùng không đụng
+  // vào (xem editTouched bên dưới) — bấm Lưu mà không sửa gì thì SKU vẫn giữ trạng thái ước tính.
+  const [editEstimated, setEditEstimated] = useState<{ materialDeadline: boolean; deliveryDeadline: boolean; FRAME: boolean; WEAVING: boolean; PACKAGING: boolean }[]>([])
+  const [editTouched, setEditTouched] = useState<Set<string>>(new Set())
   const [savingPI, setSavingPI] = useState(false)
   const [viewingPIId, setViewingPIId] = useState<number | null>(null)
   const [search, setSearch] = useState('')
@@ -129,7 +134,13 @@ export default function LenhSXPage() {
     if (!item) return
     setRejecting(true)
     try {
-      await api.rejectProdItem(pi.id, item.id, reason, user?.name)
+      // isBoss từ chối ở WAITING_BOSS, QLSX từ chối ở WAITING_QLSX — BE tách quyền theo 2
+      // endpoint riêng (mfgRole khác role), chọn đúng theo trạng thái hiện tại của item.
+      if (item.prodApproval?.status === 'WAITING_QLSX') {
+        await api.rejectProdItemByQlsx(pi.id, item.id, reason, user?.name)
+      } else {
+        await api.rejectProdItem(pi.id, item.id, reason, user?.name)
+      }
       refetch()
       setRejectTarget(null)
       setRejectReason('')
@@ -142,56 +153,76 @@ export default function LenhSXPage() {
 
   const openPIEdit = (pi: any) => {
     const piDeadline = new Date(pi.deadline)
-    const stgDate = (item: any, type: string) => {
+    const items = Array.isArray(pi.items) ? pi.items : []
+    // Cùng công thức "ước tính" đang hiển thị ở bảng SKU timeline (computedDeadline + fb theo
+    // số ngày lùi 21/14/8/3) — map luôn giá trị ước tính vào ô nhập thay vì để trống, khớp với
+    // những gì người dùng đang thấy trên bảng ngay phía sau modal.
+    const computedDeadline = items.length > 0
+      ? items.reduce((max: Date, item: any) => {
+          const d = item.deliveryDeadline ? new Date(item.deliveryDeadline) : piDeadline
+          return d > max ? d : max
+        }, new Date(0))
+      : piDeadline
+    const fb = (days: number) => { const d = new Date(computedDeadline); d.setDate(d.getDate() - days); return d }
+    const stgDate = (item: any, type: string, fallbackDays: number) => {
       const s = Array.isArray(item.stages) ? item.stages.find((x: any) => x.stageType === type) : null
-      return s?.deadline ? format(new Date(s.deadline), 'yyyy-MM-dd') : ''
+      return format(s?.deadline ? new Date(s.deadline) : fb(fallbackDays), 'yyyy-MM-dd')
     }
+    const hasStage = (item: any, type: string) =>
+      Array.isArray(item.stages) && item.stages.some((x: any) => x.stageType === type && x.deadline)
     setEditingPI(pi)
     setEditValues({
       deadline: format(piDeadline, 'yyyy-MM-dd'),
-      items: (Array.isArray(pi.items) ? pi.items : []).map((item: any) => ({
-        materialDeadline: item.materialDeadline ? format(new Date(item.materialDeadline), 'yyyy-MM-dd') : '',
-        deliveryDeadline: item.deliveryDeadline  ? format(new Date(item.deliveryDeadline),  'yyyy-MM-dd') : '',
-        HAN:     stgDate(item, 'HAN'),
-        WEAVING: stgDate(item, 'WEAVING'),
-        SON:     stgDate(item, 'SON'),
+      items: items.map((item: any) => ({
+        materialDeadline: format(item.materialDeadline ? new Date(item.materialDeadline) : fb(21), 'yyyy-MM-dd'),
+        deliveryDeadline: format(item.deliveryDeadline  ? new Date(item.deliveryDeadline)  : piDeadline, 'yyyy-MM-dd'),
+        FRAME:     stgDate(item, 'FRAME', 14),
+        WEAVING:   stgDate(item, 'WEAVING', 8),
+        PACKAGING: stgDate(item, 'PACKAGING', 3),
       })),
     })
+    setEditEstimated(items.map((item: any) => ({
+      materialDeadline: !item.materialDeadline,
+      deliveryDeadline: !item.deliveryDeadline,
+      FRAME: !hasStage(item, 'FRAME'),
+      WEAVING: !hasStage(item, 'WEAVING'),
+      PACKAGING: !hasStage(item, 'PACKAGING'),
+    })))
+    setEditTouched(new Set())
   }
 
   const handleSavePI = async () => {
     if (!editingPI || !editValues.deadline) return
     setSavingPI(true)
     try {
-      const updatedItems = (Array.isArray(editingPI.items) ? editingPI.items : []).map((item: any, idx: number) => {
-        const vals = editValues.items[idx]
-        if (!vals) return item
-        const stages: any[] = Array.isArray(item.stages) ? [...item.stages] : []
-        for (const field of ['HAN', 'WEAVING', 'SON'] as const) {
-          const val = vals[field]
-          if (!val) continue
-          const iso = new Date(val).toISOString()
-          const si = stages.findIndex((s: any) => s.stageType === field)
-          if (si >= 0) stages[si] = { ...stages[si], deadline: iso }
-          else stages.push({ stageType: field, deadline: iso, progressPercent: 0, status: 'PENDING' })
-        }
-        return {
-          ...item,
-          materialDeadline: vals.materialDeadline ? new Date(vals.materialDeadline).toISOString() : item.materialDeadline,
-          deliveryDeadline: vals.deliveryDeadline ? new Date(vals.deliveryDeadline).toISOString() : undefined,
-          stages,
-        }
-      })
+      // Field chỉ mang giá trị "ước tính" map sẵn để tham khảo (editEstimated) và người dùng
+      // chưa thật sự đụng vào (editTouched) thì KHÔNG được gửi lên — tránh biến ước tính thành
+      // ngày chính thức chỉ vì bấm Lưu mà không sửa gì (xem openPIEdit).
+      const isCommittable = (idx: number, field: keyof (typeof editEstimated)[number]) =>
+        !editEstimated[idx]?.[field] || editTouched.has(`${idx}:${field}`)
       const itemDls = editValues.items
-        .map(it => it.deliveryDeadline ? new Date(it.deliveryDeadline) : null)
+        .map((it, idx) => it.deliveryDeadline && isCommittable(idx, 'deliveryDeadline') ? new Date(it.deliveryDeadline) : null)
         .filter(Boolean) as Date[]
       const piDeadlineComputed = itemDls.length > 0
         ? itemDls.reduce((max, d) => d > max ? d : max, itemDls[0])
         : new Date(editValues.deadline)
-      await api.updateProductionInvoice(editingPI.id, {
-        deadline: piDeadlineComputed.toISOString(),
-        items: updatedItems,
-      })
+      await api.updateProductionInvoice(editingPI.id, { deadline: piDeadlineComputed.toISOString() })
+
+      const items: any[] = Array.isArray(editingPI.items) ? editingPI.items : []
+      await Promise.all(items.map((item, idx) => {
+        const vals = editValues.items[idx]
+        if (!vals) return null
+        const payload: { materialDeadline?: string; deliveryDeadline?: string; stages?: { stageType: 'FRAME' | 'WEAVING' | 'PACKAGING'; deadline: string }[] } = {}
+        if (vals.materialDeadline && isCommittable(idx, 'materialDeadline')) payload.materialDeadline = new Date(vals.materialDeadline).toISOString()
+        if (vals.deliveryDeadline && isCommittable(idx, 'deliveryDeadline')) payload.deliveryDeadline = new Date(vals.deliveryDeadline).toISOString()
+        const stages = (['FRAME', 'WEAVING', 'PACKAGING'] as const)
+          .filter(field => vals[field] && isCommittable(idx, field))
+          .map(field => ({ stageType: field, deadline: new Date(vals[field]).toISOString() }))
+        if (stages.length > 0) payload.stages = stages
+        if (!payload.materialDeadline && !payload.deliveryDeadline && !payload.stages) return null
+        return api.updateProductionInvoiceItem(editingPI.id, item.id, payload)
+      }))
+
       refetch()
       setEditingPI(null)
     } catch (e: any) {
@@ -250,13 +281,13 @@ export default function LenhSXPage() {
               const isLast = i === flatRows.length - 1
               const piDeadline = new Date(pi.deadline)
               const fb = (days: number) => { const d = new Date(piDeadline); d.setDate(d.getDate() - days); return d }
-              const iHan  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'HAN')     : null
+              const iFrame  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'FRAME')     : null
               const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
-              const iSon  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'SON')     : null
+              const iPackaging  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'PACKAGING')     : null
               const iMat      = item.materialDeadline ? new Date(item.materialDeadline) : fb(21)
-              const iHanDate  = iHan  ? new Date(iHan.deadline)  : fb(14)
+              const iFrameDate  = iFrame  ? new Date(iFrame.deadline)  : fb(14)
               const iWeavDate = iWeav ? new Date(iWeav.deadline) : fb(8)
-              const iSonDate  = iSon  ? new Date(iSon.deadline)  : fb(3)
+              const iPackagingDate  = iPackaging  ? new Date(iPackaging.deadline)  : fb(3)
               const dc = (d: Date, own: boolean) => (
                 <div style={{ textAlign:'center' }}>
                   <div style={{ fontSize:13, fontWeight: own ? 700 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>{format(d, 'dd/MM/yy')}</div>
@@ -285,9 +316,9 @@ export default function LenhSXPage() {
                     </div>
                   </div>
                   {dc(iMat,      !!item.materialDeadline)}
-                  {dc(iHanDate,  !!iHan)}
+                  {dc(iFrameDate,  !!iFrame)}
                   {dc(iWeavDate, !!iWeav)}
-                  {dc(iSonDate,  !!iSon)}
+                  {dc(iPackagingDate,  !!iPackaging)}
                   <div style={{ textAlign:'center' }}>
                     <div style={{ fontSize:13, fontWeight:700, color: iDelivery ? '#1d4ed8' : 'var(--text3)' }}>
                       {format(iDelivery ?? piDeadline, 'dd/MM/yy')}
@@ -307,10 +338,16 @@ export default function LenhSXPage() {
                         </button>
                       </>
                     ) : (
-                      <button onClick={() => { setQlsxTarget({ pi, idx }); setQlsxWarehouseCode(null) }}
-                        style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', color:'#fff' }}>
-                        <Warehouse size={12}/>  Chọn kho sản xuất
-                      </button>
+                      <>
+                        <button onClick={() => { setQlsxTarget({ pi, idx }); setQlsxWarehouseCode(null) }}
+                          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', color:'#fff' }}>
+                          <Warehouse size={12}/>  Chọn kho sản xuất
+                        </button>
+                        <button onClick={() => { setRejectTarget({ pi, idx }); setRejectReason('') }}
+                          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'transparent', border:'1px solid #fca5a5', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', color:'#b91c1c' }}>
+                          <ThumbsDown size={12}/> Từ chối
+                        </button>
+                      </>
                     )}
                   </div>
                 </div>
@@ -394,13 +431,13 @@ export default function LenhSXPage() {
                   const color = item.productVariant?.colorCode
                   const qty  = item.quantity
                   const isLast = idx === items.length - 1
-                  const iHan  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'HAN')     : null
+                  const iFrame  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'FRAME')     : null
                   const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
-                  const iSon  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'SON')     : null
+                  const iPackaging  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'PACKAGING')     : null
                   const iMat      = item.materialDeadline ? new Date(item.materialDeadline) : fb(21)
-                  const iHanDate  = iHan  ? new Date(iHan.deadline)  : fb(14)
+                  const iFrameDate  = iFrame  ? new Date(iFrame.deadline)  : fb(14)
                   const iWeavDate = iWeav ? new Date(iWeav.deadline) : fb(8)
-                  const iSonDate  = iSon  ? new Date(iSon.deadline)  : fb(3)
+                  const iPackagingDate  = iPackaging  ? new Date(iPackaging.deadline)  : fb(3)
                   const dc = (d: Date, own: boolean) => (
                     <div style={{ textAlign:'center' }}>
                       <div style={{ fontSize:14, fontWeight: own ? 700 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>{fmt(d)}</div>
@@ -448,9 +485,9 @@ export default function LenhSXPage() {
                           </div>
                         </div>
                         {dc(iMat,      !!item.materialDeadline)}
-                        {dc(iHanDate,  !!iHan)}
+                        {dc(iFrameDate,  !!iFrame)}
                         {dc(iWeavDate, !!iWeav)}
-                        {dc(iSonDate,  !!iSon)}
+                        {dc(iPackagingDate,  !!iPackaging)}
                         <div style={{ textAlign:'center' }}>
                           <div style={{ fontSize:14, fontWeight:700, color: iDelivery ? '#1d4ed8' : 'var(--text3)' }}>
                             {fmt(iDelivery ?? new Date(pi.deadline))}
@@ -573,14 +610,14 @@ export default function LenhSXPage() {
                   const qty  = item.quantity
                   const pDl  = new Date(confirmProdTarget.deadline)
                   const fb   = (days: number) => { const d = new Date(pDl); d.setDate(d.getDate() - days); return d }
-                  const iHan  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'HAN')     : null
+                  const iFrame  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'FRAME')     : null
                   const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
-                  const iSon  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'SON')     : null
+                  const iPackaging  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'PACKAGING')     : null
                   const cols = [
                     { label:'Mua hàng', val: item.materialDeadline ? new Date(item.materialDeadline) : fb(21), own: !!item.materialDeadline },
-                    { label:'Khung CK', val: iHan  ? new Date(iHan.deadline)  : fb(14), own: !!iHan },
+                    { label:'Khung CK', val: iFrame  ? new Date(iFrame.deadline)  : fb(14), own: !!iFrame },
                     { label:'Đan',      val: iWeav ? new Date(iWeav.deadline) : fb(8),  own: !!iWeav },
-                    { label:'Đóng gói', val: iSon  ? new Date(iSon.deadline)  : fb(3),  own: !!iSon },
+                    { label:'Đóng gói', val: iPackaging  ? new Date(iPackaging.deadline)  : fb(3),  own: !!iPackaging },
                   ]
                   const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                   return (
@@ -764,14 +801,14 @@ export default function LenhSXPage() {
         const qty   = item.quantity
         const piDeadline = new Date(pi.deadline)
         const fb = (days: number) => { const d = new Date(piDeadline); d.setDate(d.getDate() - days); return d }
-        const iHan  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'HAN')     : null
+        const iFrame  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'FRAME')     : null
         const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
-        const iSon  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'SON')     : null
+        const iPackaging  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'PACKAGING')     : null
         const cols = [
           { label:'Mua hàng', val: item.materialDeadline ? new Date(item.materialDeadline) : fb(21), own: !!item.materialDeadline },
-          { label:'Khung CK', val: iHan  ? new Date(iHan.deadline)  : fb(14), own: !!iHan },
+          { label:'Khung CK', val: iFrame  ? new Date(iFrame.deadline)  : fb(14), own: !!iFrame },
           { label:'Đan',      val: iWeav ? new Date(iWeav.deadline) : fb(8),  own: !!iWeav },
-          { label:'Đóng gói', val: iSon  ? new Date(iSon.deadline)  : fb(3),  own: !!iSon },
+          { label:'Đóng gói', val: iPackaging  ? new Date(iPackaging.deadline)  : fb(3),  own: !!iPackaging },
         ]
         const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
         const busy = approvingKey === `${pi.id}-${idx}`
@@ -923,18 +960,25 @@ export default function LenhSXPage() {
                 const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
                 const name = item.productVariant?.mfgProduct?.name ?? ''
                 const qty  = item.quantity
-                const vals = editValues.items[idx] ?? { materialDeadline:'', deliveryDeadline:'', HAN:'', WEAVING:'', SON:'' }
-                const setField = (field: string, val: string) =>
+                const vals = editValues.items[idx] ?? { materialDeadline:'', deliveryDeadline:'', FRAME:'', WEAVING:'', PACKAGING:'' }
+                const est = editEstimated[idx]
+                const setField = (field: string, val: string) => {
                   setEditValues(prev => ({
                     ...prev,
                     items: prev.items.map((it, i) => i === idx ? { ...it, [field]: val } : it),
                   }))
+                  setEditTouched(prev => new Set(prev).add(`${idx}:${field}`))
+                }
+                // Ô còn là ước tính (chưa sửa) hiện viền/nền nhạt hơn + nhãn "ước tính" — cùng quy
+                // ước với bảng SKU timeline, để người dùng biết giá trị nào là gợi ý, giá trị nào
+                // đã chốt thật.
+                const isEstimate = (field: string) => !!est?.[field as keyof typeof est] && !editTouched.has(`${idx}:${field}`)
                 const dateInput = (label: string, field: string) => (
                   <div style={{ flex:1 }}>
-                    <div style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:4 }}>{label}</div>
+                    <div style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:4 }}>{label}{isEstimate(field) && <span style={{ fontStyle:'italic' }}> (ước tính)</span>}</div>
                     <input type="date" value={vals[field as keyof typeof vals] ?? ''}
                       onChange={e => setField(field, e.target.value)}
-                      style={{ width:'100%', padding:'5px 6px', border:'1px solid var(--border)', borderRadius:5, fontSize:12, background:'var(--surface)', color:'var(--text)', boxSizing:'border-box' }}
+                      style={{ width:'100%', padding:'5px 6px', border:`1px solid ${isEstimate(field) ? 'var(--border)' : '#1d4ed8'}`, borderRadius:5, fontSize:12, background:'var(--surface)', color: isEstimate(field) ? 'var(--text3)' : 'var(--text)', boxSizing:'border-box' }}
                     />
                   </div>
                 )
@@ -948,18 +992,18 @@ export default function LenhSXPage() {
                     <div style={{ padding:'12px', display:'flex', flexDirection:'column', gap:10 }}>
                       {/* Hạn giao hàng riêng cho SKU này */}
                       <div>
-                        <div style={{ fontSize:10, color:'#1d4ed8', fontWeight:700, marginBottom:4 }}>Hạn giao hàng</div>
+                        <div style={{ fontSize:10, color:'#1d4ed8', fontWeight:700, marginBottom:4 }}>Hạn giao hàng{isEstimate('deliveryDeadline') && <span style={{ fontStyle:'italic', fontWeight:400 }}> (từ PO)</span>}</div>
                         <input type="date" value={vals.deliveryDeadline ?? ''}
                           onChange={e => setField('deliveryDeadline', e.target.value)}
-                          style={{ width:'100%', padding:'5px 8px', border:'1px solid #1d4ed8', borderRadius:5, fontSize:12, background:'var(--surface)', color:'var(--text)', boxSizing:'border-box' }}
+                          style={{ width:'100%', padding:'5px 8px', border:`1px solid ${isEstimate('deliveryDeadline') ? 'var(--border)' : '#1d4ed8'}`, borderRadius:5, fontSize:12, background:'var(--surface)', color: isEstimate('deliveryDeadline') ? 'var(--text3)' : 'var(--text)', boxSizing:'border-box' }}
                         />
                       </div>
                       {/* Các công đoạn sản xuất */}
                       <div style={{ display:'flex', gap:8 }}>
                         {dateInput('Mua hàng',    'materialDeadline')}
-                        {dateInput('Khung cơ khí', 'HAN')}
+                        {dateInput('Khung cơ khí', 'FRAME')}
                         {dateInput('Đan',          'WEAVING')}
-                        {dateInput('Đóng gói',     'SON')}
+                        {dateInput('Đóng gói',     'PACKAGING')}
                       </div>
                     </div>
                   </div>

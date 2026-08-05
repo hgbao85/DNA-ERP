@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { ChevronRight, ChevronLeft, Plus, X } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, X, Pencil } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
 import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
 import { useFetch } from '../../../hooks/useFetch'
@@ -16,17 +16,17 @@ import type { Sku, ManhRow, ManhChildRow } from '../../../types/sku'
 // shape domain dễ đọc trong JSX khi đọc/ghi (xem toManh/toManhRow). Việc 2: mỗi đoạn sắt (child)
 // nay gắn với 1 Material (nhóm vật tư Sắt) thật qua materialId, chiều dài cắt (cutLengthMm) là số
 // nguyên thật — không còn gõ tên/quy cách/chiều dài tự do như trước.
-type ManChild = { id: number; materialId: number; loaiSatName: string; specs: string; cutLengthMm: string; soLuong: string }
+type ManChild = { id: number; materialId: number; loaiSatName: string; specs: string; cutLengthMm: string; soLuong: string; note: string; unit: string }
 type Manh = { id: number; tenManh: string; soLuong: string; children: ManChild[] }
 type BomItem = { id: number; ten: string; thoiGian: string }
 
 const toManh = (r: ManhRow): Manh => ({
   id: r.id, tenManh: r.name, soLuong: r.qtyPerSku ?? '1',
-  children: r.children.map(c => ({ id: c.id, materialId: Number(c.materialId) || 0, loaiSatName: c.name, specs: c.specs ?? '', cutLengthMm: c.length ?? '', soLuong: c.qty ?? '' })),
+  children: r.children.map(c => ({ id: c.id, materialId: Number(c.materialId) || 0, loaiSatName: c.name, specs: c.specs ?? '', cutLengthMm: c.length ?? '', soLuong: c.qty ?? '', note: c.note ?? '', unit: c.unit ?? '' })),
 })
 const toManhRow = (m: Manh): ManhRow => ({
   id: m.id, name: m.tenManh, qtyPerSku: m.soLuong,
-  children: m.children.map((c): ManhChildRow => ({ id: c.id, materialId: String(c.materialId), name: c.loaiSatName, specs: c.specs || undefined, length: c.cutLengthMm || undefined, qty: c.soLuong || undefined })),
+  children: m.children.map((c): ManhChildRow => ({ id: c.id, materialId: String(c.materialId), name: c.loaiSatName, specs: c.specs || undefined, length: c.cutLengthMm || undefined, qty: c.soLuong || undefined, note: c.note || undefined, unit: c.unit || undefined })),
 })
 
 // ─── FieldLabel ───────────────────────────────────────────────────────
@@ -92,6 +92,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [childSpec, setChildSpec] = useState('')
   const [childCutLengthMm, setChildCutLengthMm] = useState('')
   const [childSoLuong, setChildSoLuong] = useState('')
+  const [childNote, setChildNote] = useState('')
+  const [editingChild, setEditingChild] = useState<{ manhId: number; childId: number } | null>(null)
   const [manhBomSearch, setManhBomSearch] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
 
@@ -101,7 +103,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     const maxId = existing.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
     setSelectedBom(item); setManhs(existing); setNextId(maxId + 1)
     setShowManhForm(false); setFormTenManh('')
-    setAddingTo(null); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildSoLuong('')
+    setAddingTo(null); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildSoLuong(''); setChildNote(''); setEditingChild(null)
   }
 
   const submitManh = async () => {
@@ -124,23 +126,51 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     setShowManhForm(false); setFormTenManh(''); setFormSoLuong('1')
   }
 
-  const addChild = (manhId: number) => {
-    if (!childMaterial || !childCutLengthMm.trim()) return
-    setManhs(ms => ms.map(m =>
-      m.id === manhId
-        ? { ...m, children: [...m.children, { id: nextId, materialId: childMaterial.id, loaiSatName: `${childMaterial.code} — ${childMaterial.name}`, specs: childSpec, cutLengthMm: childCutLengthMm, soLuong: childSoLuong }] }
-        : m
-    ))
-    setNextId(n => n + 1)
-    setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildSoLuong('')
+  const resetChildForm = () => {
+    setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildSoLuong(''); setChildNote(''); setEditingChild(null)
   }
 
-  const deleteChild = (manhId: number, childId: number) =>
+  // Vừa dùng để thêm dòng loại sắt mới, vừa dùng để lưu lại dòng đang sửa (editingChild) —
+  // tránh bắt người dùng xóa rồi nhập lại từ đầu chỉ để chỉnh 1 trường.
+  const saveChild = (manhId: number) => {
+    if (!childMaterial || !childCutLengthMm.trim()) return
+    const editing = editingChild && editingChild.manhId === manhId ? editingChild : null
+    setManhs(ms => ms.map(m => {
+      if (m.id !== manhId) return m
+      if (editing) {
+        return {
+          ...m,
+          children: m.children.map(c => c.id === editing.childId
+            ? { ...c, materialId: childMaterial.id, loaiSatName: `${childMaterial.code} — ${childMaterial.name}`, specs: childSpec, cutLengthMm: childCutLengthMm, soLuong: childSoLuong, note: childNote.trim(), unit: childMaterial.unit }
+            : c),
+        }
+      }
+      return { ...m, children: [...m.children, { id: nextId, materialId: childMaterial.id, loaiSatName: `${childMaterial.code} — ${childMaterial.name}`, specs: childSpec, cutLengthMm: childCutLengthMm, soLuong: childSoLuong, note: childNote.trim(), unit: childMaterial.unit }] }
+    }))
+    if (!editing) setNextId(n => n + 1)
+    resetChildForm()
+  }
+
+  const startEditChild = (manhId: number, child: ManChild) => {
+    const mat = steelMaterials.find(s => s.id === child.materialId)
+    setAddingTo(manhId)
+    setEditingChild({ manhId, childId: child.id })
+    setChildMaterial(mat ? { id: mat.id, code: mat.code, name: mat.name, unit: mat.unit, spec: mat.spec } : null)
+    setChildSpec(child.specs)
+    setChildCutLengthMm(child.cutLengthMm)
+    setChildSoLuong(child.soLuong)
+    setChildNote(child.note)
+  }
+
+  const deleteChild = (manhId: number, childId: number) => {
     setManhs(ms => ms.map(m => m.id === manhId ? { ...m, children: m.children.filter(c => c.id !== childId) } : m))
+    if (editingChild && editingChild.manhId === manhId && editingChild.childId === childId) resetChildForm()
+  }
 
   const deleteManh = (manhId: number) => {
     setManhs(ms => ms.filter(m => m.id !== manhId))
     if (addingTo === manhId) setAddingTo(null)
+    if (editingChild && editingChild.manhId === manhId) resetChildForm()
   }
 
   const totalChildren = manhs.reduce((s, m) => s + m.children.length, 0)
@@ -320,7 +350,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   {!isSubmitted && (
                     <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                       <button
-                        onClick={() => addingTo === m.id ? setAddingTo(null) : (setAddingTo(m.id), setChildMaterial(null), setChildSpec(''), setChildCutLengthMm(''), setChildSoLuong(''))}
+                        onClick={() => addingTo === m.id ? (setAddingTo(null), resetChildForm()) : (setAddingTo(m.id), resetChildForm())}
                         style={{
                           display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
                           border: '1px solid var(--border)', borderRadius: 'var(--radius)',
@@ -348,20 +378,29 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Quy cách</th>
                         <th style={{ width: 110, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài (mm)</th>
                         <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
-                        {!isSubmitted && <th style={{ width: 44 }}></th>}
+                        <th style={{ width: 70, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>ĐVT</th>
+                        {!isSubmitted && <th style={{ width: 64 }}></th>}
                       </tr>
                     </thead>
                     <tbody>
                       {m.children.map((c, i) => {
+                        const isEditingThis = editingChild?.manhId === m.id && editingChild.childId === c.id
                         return (
-                          <tr key={c.id} style={{ borderTop: '1px solid var(--border)' }}>
+                          <tr key={c.id} style={{ borderTop: '1px solid var(--border)', background: isEditingThis ? '#e3f2fd' : undefined }}>
                             <td style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 12, padding: '9px 7px' }}>{i + 1}</td>
-                            <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>{c.loaiSatName}</td>
+                            <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>
+                              {c.loaiSatName}
+                              {c.note && <span style={{ color: 'var(--text3)', fontWeight: 400 }}> ({c.note})</span>}
+                            </td>
                             <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{c.specs || '—'}</td>
                             <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>{c.cutLengthMm || '—'}</td>
                             <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.soLuong || '—'}</td>
+                            <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{c.unit || '—'}</td>
                             {!isSubmitted && (
-                              <td style={{ textAlign: 'center', padding: '4px' }}>
+                              <td style={{ textAlign: 'center', padding: '4px', whiteSpace: 'nowrap' }}>
+                                <button onClick={() => startEditChild(m.id, c)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}>
+                                  <Pencil size={13} />
+                                </button>
                                 <button onClick={() => deleteChild(m.id, c.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}>
                                   <X size={14} />
                                 </button>
@@ -394,34 +433,41 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       <FL>Quy cách</FL>
                       <input placeholder="VD: 10x29x0.8" value={childSpec}
                         onChange={e => setChildSpec(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && addChild(m.id)}
+                        onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
                         style={inputStyle} />
                     </div>
                     <div style={{ width: 120 }}>
                       <FL>Chiều dài cắt (mm)</FL>
                       <input type="number" min={1} placeholder="930" value={childCutLengthMm}
                         onChange={e => setChildCutLengthMm(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && addChild(m.id)}
+                        onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
                         style={inputStyle} />
                     </div>
                     <div style={{ width: 100 }}>
                       <FL>Số lượng</FL>
                       <input placeholder="0" value={childSoLuong}
                         onChange={e => setChildSoLuong(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && addChild(m.id)}
+                        onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
+                        style={inputStyle} />
+                    </div>
+                    <div style={{ width: 160 }}>
+                      <FL>Ghi chú</FL>
+                      <input placeholder="VD: uốn, tán,..." value={childNote}
+                        onChange={e => setChildNote(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
                         style={inputStyle} />
                     </div>
                     <div style={{ display: 'flex', gap: 6 }}>
-                      <button onClick={() => addChild(m.id)} disabled={!childMaterial || !childCutLengthMm.trim()} style={{
+                      <button onClick={() => saveChild(m.id)} disabled={!childMaterial || !childCutLengthMm.trim()} style={{
                         padding: '7px 14px', border: 'none', borderRadius: 'var(--radius)',
                         background: childMaterial && childCutLengthMm.trim() ? '#1565c0' : '#ccc',
                         color: '#fff', fontWeight: 600, fontSize: 13,
                         cursor: childMaterial && childCutLengthMm.trim() ? 'pointer' : 'not-allowed',
-                      }}>+ Thêm</button>
-                      <button onClick={() => setAddingTo(null)} style={{
+                      }}>{editingChild?.manhId === m.id ? 'Lưu' : '+ Thêm'}</button>
+                      <button onClick={() => { setAddingTo(null); resetChildForm() }} style={{
                         padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
                         background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
-                      }}>Đóng</button>
+                      }}>{editingChild?.manhId === m.id ? 'Hủy' : 'Đóng'}</button>
                     </div>
                   </div>
                 )}

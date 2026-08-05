@@ -45,10 +45,12 @@ interface BeSteelSegment {
   materialCode: string;
   materialName: string;
   materialSpec: string | null;
+  materialUnit: string;
   cutLengthMm: number;
   qtyPerPiece: number;
   needsHan: boolean;
   needsSon: boolean;
+  note: string | null;
 }
 interface BeSteelPiece {
   id: number;
@@ -115,6 +117,8 @@ function toManhRow(p: BeSteelPiece): ManhRow {
         specs: s.materialSpec ?? undefined,
         length: String(s.cutLengthMm),
         qty: String(s.qtyPerPiece),
+        note: s.note ?? undefined,
+        unit: s.materialUnit,
       }),
     ),
   };
@@ -244,6 +248,7 @@ export async function updateSkuManhQuota(
               materialId: String(c.materialId ?? ''),
               cutLengthMm: Number(c.length) || 0,
               qtyPerPiece: Number(c.qty) || 0,
+              note: c.note || undefined,
             })),
           })),
           enteredBy,
