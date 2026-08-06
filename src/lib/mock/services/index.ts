@@ -3,7 +3,6 @@
  * Cấu trúc theo Next.js: lib/mock/services → re-export qua services/api.ts
  */
 export * from './mfg.service';
-export * from './warehouse-transfer.service';
 export * from './manh.service';
 export * from './phoi-sat.service';
 export * from './phoi-lenh-sx.service';

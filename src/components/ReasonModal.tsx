@@ -13,6 +13,7 @@ interface ReasonModalProps {
   confirmLabel?: string
   confirmColor?: string
   busy?: boolean
+  confirmDisabled?: boolean
 }
 
 /**
@@ -31,6 +32,7 @@ export default function ReasonModal({
   confirmLabel = 'Xác nhận từ chối',
   confirmColor = '#c62828',
   busy = false,
+  confirmDisabled = false,
 }: ReasonModalProps) {
   return (
     <Modal open={open} onClose={busy ? undefined : onCancel} maxWidth={420} zIndex={2000}>
@@ -48,8 +50,8 @@ export default function ReasonModal({
         <button onClick={onCancel} disabled={busy} style={btnSecondary}>Hủy</button>
         <button
           onClick={onConfirm}
-          disabled={busy}
-          style={{ padding: '8px 18px', background: confirmColor, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.7 : 1 }}
+          disabled={busy || confirmDisabled}
+          style={{ padding: '8px 18px', background: confirmColor, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', cursor: (busy || confirmDisabled) ? 'not-allowed' : 'pointer', opacity: (busy || confirmDisabled) ? 0.7 : 1 }}
         >
           {busy ? 'Đang xử lý...' : confirmLabel}
         </button>
