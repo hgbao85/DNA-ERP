@@ -1,7 +1,8 @@
 export type TransferStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED'
 
 export interface WarehouseTransferItem {
-  id: number
+  id: string
+  materialId: string | null
   materialName: string
   unit: string
   quantity: number
@@ -9,19 +10,17 @@ export interface WarehouseTransferItem {
 }
 
 export interface WarehouseTransfer {
-  id: number
+  id: string
   code: string
-  fromWarehouseId: number
+  fromWarehouseId: string
   fromWarehouseName: string
   fromWarehouseCode: string
-  toWarehouseId: number
+  toWarehouseId: string
   toWarehouseName: string
   toWarehouseCode: string
   status: TransferStatus
   items: WarehouseTransferItem[]
   note?: string | null
-  // Mã PI (SKU/Lệnh sản xuất) mà khung/vật tư chuyển đi thuộc về — giúp kho nhận biết khung của đơn nào.
-  piCode?: string | null
   rejectionReason?: string | null
   createdAt: string
   confirmedAt?: string | null
@@ -31,6 +30,8 @@ export interface WarehouseTransfer {
 // Chuỗi chuyển kho MỘT CHIỀU: value = kho ĐÍCH DUY NHẤT được phép nhận hàng từ key.
 // 'thanh-pham' cố ý không có entry vì là kho cuối chuỗi — không được chuyển tiếp đi đâu.
 // 'phoi-son-han' -> 'thanh-pham' trực tiếp KHÔNG hợp lệ vì không có entry map thẳng như vậy.
+// Mirror đúng TRANSFER_ROUTES phía BE (D:\DNA-ERP-BE\src\modules\warehouse-transfers\transfer-routes.constant.ts)
+// — chỉ dùng để UI-gate hiển thị (ẩn/hiện nút, tab), BE mới là nguồn sự thật khi tạo phiếu thật.
 export const TRANSFER_ROUTES: Record<string, string> = {
   'phoi-son-han': 'vat-tu-tp',
   'vat-tu-tp': 'thanh-pham',

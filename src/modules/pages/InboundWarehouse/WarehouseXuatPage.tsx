@@ -10,7 +10,7 @@ import { errMsg } from '../../../utils/errors'
 import { compactTh as th, compactTd as td, tableWrap, tbl, row, badge, emptyBox } from '../../../styles/table'
 import { backBtn, tabBtn } from '../../../styles/buttons'
 
-interface Wh { id: number; name: string; code: string }
+interface Wh { id: string; name: string; code: string }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -122,7 +122,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
 
   // Kho này có nằm trong chuỗi chuyển kho nội bộ không (phôi sơn hàn, vật tư thành phẩm) —
   // nếu có, nút "Xác nhận" ở bảng dưới sẽ tạo phiếu chuyển kho nội bộ thật thay vì chỉ cập nhật cục bộ.
-  const { data: warehouses } = useFetch<Wh[]>(() => (api as any).getMfgWarehouses(), [])
+  const { data: warehouses } = useFetch<Wh[]>(() => api.getWarehouses(), [])
   const myWarehouse = safeArr(warehouses).find(w => w.code === scope) ?? null
   const nextHopCode = myWarehouse ? TRANSFER_ROUTES[myWarehouse.code] : undefined
   const nextHopWh = safeArr(warehouses).find(w => w.code === nextHopCode) ?? null
@@ -148,11 +148,14 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
       setTransferBusyLine(lineId)
       setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
       try {
-        await (api as any).createWarehouseTransfer({
+        await api.createWarehouseTransfer({
           fromWarehouseId: myWarehouse.id,
           toWarehouseId: nextHopWh.id,
           items: [{ materialName: line.materialName, unit: line.unit, quantity: qty }],
-          piCode: order.piCode,
+          // BE không có field piCode riêng (chỉ note tự do hoặc planFormId thật) - giữ lại thông
+          // tin PI cho thủ kho nhận hàng thấy được bằng cách nhồi vào note, dán nhãn rõ ràng thay
+          // vì giả vờ đây là 1 field có cấu trúc.
+          note: order.piCode ? `PI: ${order.piCode}` : undefined,
         })
       } catch (e) {
         setTransferErrors(prev => ({ ...prev, [lineId]: errMsg(e, 'Không thể tạo phiếu chuyển kho nội bộ') }))

@@ -467,8 +467,6 @@ export function createInitialMockState() {
     kcsPending: structuredClone(seedKcsPending),
     packagingBOM: structuredClone(seedPackagingBOM),
     packagingByPI: structuredClone(seedPackagingByPI),
-    warehouseTransfers: [] as unknown[],
-    mfgTransferReservations: [] as unknown[],
     manhOrders: structuredClone(seedManhOrders),
     auditLogs: [] as AuditLogEntry[],
     notifications: structuredClone(seedNotifications),

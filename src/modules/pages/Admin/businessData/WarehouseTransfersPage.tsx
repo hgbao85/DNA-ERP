@@ -18,7 +18,7 @@ export default function WarehouseTransfersPage() {
       { key: 'code', label: 'Mã phiếu' },
       { key: 'fromWarehouseName', label: 'Từ kho' },
       { key: 'toWarehouseName', label: 'Đến kho' },
-      { key: 'piCode', label: 'Mã PI', render: (t) => t.piCode ?? '—' },
+      { key: 'note', label: 'Ghi chú', render: (t) => t.note ?? '—' },
       {
         key: 'status', label: 'Trạng thái', render: (t) => {
           const s = TRANSFER_STATUS_MAP[t.status]

@@ -11,7 +11,7 @@ import { errMsg } from '../../../utils/errors'
 import ReasonModal from '../../../components/ReasonModal'
 import { compactTh as th, compactTd as td, tableWrap, tbl, row, badge, emptyBox } from '../../../styles/table'
 
-interface Wh { id: number; name: string; code: string }
+interface Wh { id: string; name: string; code: string }
 
 /**
  * Mục "Nhập nội bộ" — nhúng trong trang Nhập kho, chỉ có tác dụng ở kho được phép NHẬN
@@ -19,11 +19,11 @@ interface Wh { id: number; name: string; code: string }
  * chuyển kho gửi tới; tồn kho hai bên chỉ thay đổi khi bấm xác nhận ở đây.
  */
 export function NhapNoiBoSection({ warehouseCode }: { warehouseCode: string }) {
-  const { data: warehouses } = useFetch<Wh[]>(() => (api as any).getMfgWarehouses(), [])
+  const { data: warehouses } = useFetch<Wh[]>(() => api.getWarehouses(), [])
   const myWarehouse = safeArr(warehouses).find(w => w.code === warehouseCode) ?? null
 
   const { data: transfersData, refetch: refetchTransfers } = useFetch<WarehouseTransfer[]>(
-    () => (api as any).getWarehouseTransfers(), []
+    () => api.getWarehouseTransfers(), []
   )
   const transfers = safeArr(transfersData)
 
@@ -47,8 +47,8 @@ export function NhapNoiBoSection({ warehouseCode }: { warehouseCode: string }) {
 // ── Hộp thư chờ nhận (bên nhận) ──────────────────────────────────────────────
 
 function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; onChanged: () => void }) {
-  const [expandedId, setExpandedId] = useState<number | null>(null)
-  const [busy, setBusy] = useState<number | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
   const [rejectModal, setRejectModal] = useState<WarehouseTransfer | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [rejecting, setRejecting] = useState(false)
@@ -60,7 +60,7 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
       async () => {
         setBusy(t.id)
         try {
-          await (api as any).confirmWarehouseTransfer(t.id)
+          await api.confirmWarehouseTransfer(t.id)
           setExpandedId(null)
           onChanged()
         } catch (e) {
@@ -74,9 +74,11 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
 
   const handleReject = async () => {
     if (!rejectModal) return
+    const reason = rejectReason.trim()
+    if (!reason) return // nút Xác nhận từ chối đã disable khi rỗng, đây là chặn phòng hờ
     setRejecting(true)
     try {
-      await (api as any).rejectWarehouseTransfer(rejectModal.id, rejectReason.trim() || undefined)
+      await api.rejectWarehouseTransfer(rejectModal.id, reason)
       setRejectModal(null)
       setRejectReason('')
       setExpandedId(null)
@@ -104,7 +106,6 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer' }}
                 >
                   <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 14 }}>{t.code}</span>
-                  {t.piCode && <span style={{ fontSize: 12, color: 'var(--text3)' }}>PI: {t.piCode}</span>}
                   <span style={{ fontSize: 13, color: 'var(--text2)' }}>Từ: {t.fromWarehouseName}</span>
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>{t.items.length} vật tư</span>
                   <div style={{ flex: 1 }} />
@@ -163,13 +164,14 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
       <ReasonModal
         open={!!rejectModal}
         title={`Từ chối phiếu chuyển kho — ${rejectModal?.code ?? ''}`}
-        description="Phiếu sẽ chuyển sang trạng thái từ chối. Tồn kho của cả 2 kho sẽ KHÔNG thay đổi. Nhập lý do (không bắt buộc)."
+        description="Phiếu sẽ chuyển sang trạng thái từ chối. Tồn kho của cả 2 kho sẽ KHÔNG thay đổi. Vui lòng nhập lý do từ chối."
         reason={rejectReason}
         onReasonChange={setRejectReason}
         placeholder="VD: Sai số lượng, không đúng vật tư..."
         onCancel={() => setRejectModal(null)}
         onConfirm={handleReject}
         busy={rejecting}
+        confirmDisabled={!rejectReason.trim()}
         confirmColor="#c62828"
       />
     </div>
@@ -190,7 +192,6 @@ function TransferHistoryTable({ title, transfers }: { title: string; transfers: 
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={th}>Mã phiếu</th>
-                <th style={th}>PI</th>
                 <th style={th}>Từ kho</th>
                 <th style={th}>Đến kho</th>
                 <th style={th}>Vật tư</th>
@@ -204,7 +205,6 @@ function TransferHistoryTable({ title, transfers }: { title: string; transfers: 
                 return (
                   <tr key={t.id} style={row}>
                     <td style={{ ...td, fontWeight: 600, fontFamily: 'monospace' }}>{t.code}</td>
-                    <td style={{ ...td, color: 'var(--text3)' }}>{t.piCode ?? '—'}</td>
                     <td style={td}>{t.fromWarehouseName}</td>
                     <td style={td}>{t.toWarehouseName}</td>
                     <td style={{ ...td, color: 'var(--text3)' }}>{t.items.length} loại</td>
