@@ -52,12 +52,13 @@ export interface MaterialType {
   baoBiDongGoi: BaoBiDongGoiItem[];
 }
 
-/** 3 nhóm thuộc "định mức mảnh" — Sắt (phân cấp mảnh -> loại sắt con), Dây và Đinh (2 danh sách
- *  phẳng riêng, cùng shape DaySonItem nhưng khác đơn vị: Dây tính kg, Đinh tính cây). Dây/Đinh
- *  tách ra từ nhóm "Dây/Sơn/Đinh" chi tiết cũ. Nhập trước định mức chi tiết trong flow hiện tại. */
-export type ManhGroup = 'sat' | 'day' | 'dinh';
+/** 5 nhóm vật tư có thể xuất hiện bên trong 1 mảnh — Sắt (phân cấp: có segmentSpecId, chiều
+ *  dài cắt, needsHan/needsSon) và Dây/Đinh/Tán rút/Nút nhựa (phẳng: chỉ materialId + qty, không
+ *  có khái niệm cắt). Trước đây Dây/Đinh là 2 danh sách phẳng RIÊNG NGOÀI mảnh, do acc khác
+ *  (SPEC_WIRE_PAINT) nhập — nay gộp làm children của từng mảnh, do acc Sắt nhập chung 1 lần. */
+export type ManhChildGroup = 'sat' | 'day' | 'dinh' | 'tanRut' | 'nutNhua';
 
-/** Ai nhập 1 nhóm định mức (chi tiết hoặc mảnh) và khi nào — phục vụ luồng 4 account chuyên trách nhập liệu. */
+/** Ai nhập 1 nhóm định mức (chi tiết hoặc mảnh) và khi nào — phục vụ luồng account chuyên trách nhập liệu. */
 export interface QuotaEntryMeta {
   enteredBy: string;
   enteredAt: string;
@@ -70,21 +71,29 @@ export interface QuotaReviewStatus {
   reviewedAt: string;
 }
 
-/** 1 loại sắt thuộc 1 mảnh — nhập sau bước "Tạo mảnh". */
+/** 1 dòng vật tư thuộc 1 trong 5 nhóm của 1 mảnh — nhập sau bước "Tạo mảnh". `length`/
+ *  `needsHan`/`needsSon` chỉ có ý nghĩa khi `group==='sat'` (đoạn cắt); 4 nhóm còn lại chỉ
+ *  dùng `materialId` + `qty`. */
 export interface ManhChildRow {
   id: number;
-  /** Việc 2: id thật của SegmentSpec (Material nhóm Sắt + chiều dài cắt) đứng sau dòng này. */
+  group: ManhChildGroup;
+  /** Việc 2: id thật của SegmentSpec (group='sat', Material nhóm Sắt + chiều dài cắt) đứng
+   *  sau dòng này; các nhóm còn lại không có SegmentSpec (đi qua PieceMaterialItem ở BE). */
   segmentSpecId?: string;
   materialId?: string;
   name: string;
   specs?: string | null;
+  /** Chỉ dùng khi group='sat'. */
   length?: string | null;
   qty?: string | null;
+  needsHan?: boolean;
+  needsSon?: boolean;
   note?: string | null;
   unit?: string | null;
 }
 
-/** 1 mảnh phôi (vd "Mảnh tựa", "Chân ghế") gồm nhiều loại sắt con — do account Sắt nhập theo 2 bước: tạo mảnh -> nhập sắt. */
+/** 1 mảnh phôi (vd "Mảnh tựa", "Chân ghế") gồm vật tư con thuộc 5 nhóm (Sắt/Dây/Đinh/Tán
+ *  rút/Nút nhựa) — do account Sắt nhập theo 2 bước: tạo mảnh -> nhập vật tư. */
 export interface ManhRow {
   id: number;
   /** Việc 2: id thật của Piece đứng sau mảnh này. */
@@ -120,25 +129,23 @@ export interface Sku {
   quotaManagement?: {
     id: number;
     materialType: MaterialType;
-    /** Ai/khi nào nhập từng nhóm định mức chi tiết (sat/daySon/vatTuPhuKien/baoBiDongGoi) */
-    entryMeta?: Partial<Record<keyof MaterialType, QuotaEntryMeta>>;
-    /** KHSX duyệt/từ chối từng nhóm — account chuyên trách xem để biết cần sửa lại nhóm nào */
-    reviewStatus?: Partial<Record<keyof MaterialType, QuotaReviewStatus>>;
+    /** Ai/khi nào nhập định mức chi tiết (nhập 1 lần cho cả 3 nhóm Sơn/Phụ kiện/Bao bì). */
+    entryMeta?: QuotaEntryMeta;
+    /** KHSX duyệt/từ chối định mức chi tiết — 1 quyết định duy nhất cho cả 3 nhóm. */
+    reviewStatus?: QuotaReviewStatus;
   };
-  /** Định mức mảnh — nhập TRƯỚC định mức chi tiết (xem quotaManagement). 3 nhóm độc lập: Sắt
-   *  (phân cấp mảnh -> loại sắt con, do account Sắt nhập) và Dây/Đinh (2 danh sách phẳng riêng,
-   *  cùng do account Dây/Sơn nhập, chỉ khác đơn vị: Dây kg, Đinh cây). */
+  /** Định mức mảnh — nhập TRƯỚC định mức chi tiết (xem quotaManagement). Danh sách mảnh, mỗi
+   *  mảnh gồm children thuộc 5 nhóm vật tư (Sắt/Dây/Đinh/Tán rút/Nút nhựa), do 1 acc Sắt nhập
+   *  chung 1 lần và gửi duyệt 1 lần (khác trước đây khi Dây/Đinh tách riêng, do acc khác nhập). */
   manhData?: {
-    sat: ManhRow[];
-    day: DaySonItem[];
-    dinh: DaySonItem[];
+    pieces: ManhRow[];
   };
-  /** Ai/khi nào nhập từng nhóm định mức mảnh (sat/day/dinh) */
-  manhEntryMeta?: Partial<Record<ManhGroup, QuotaEntryMeta>>;
-  /** KHSX duyệt/từ chối từng nhóm định mức mảnh — tách biệt khỏi status vì APPROVED_PARTS còn được
+  /** Ai/khi nào nhập định mức mảnh (nhập 1 lần cho cả 5 nhóm). */
+  manhEntryMeta?: QuotaEntryMeta;
+  /** KHSX duyệt/từ chối định mức mảnh — tách biệt khỏi status vì APPROVED_PARTS còn được
    *  set ngay khi account chuyên trách nhập xong (trước khi KHSX kịp xem), nên không thể dùng status
    *  để suy ra KHSX đã duyệt hay chưa. */
-  manhReviewStatus?: Partial<Record<ManhGroup, QuotaReviewStatus>>;
+  manhReviewStatus?: QuotaReviewStatus;
   /** QLSX duyệt cục bộ ở bước WAITING_QLSX_APPROVAL — tách biệt khỏi status vì QLSX cần duyệt xong
    *  rồi mới bấm "Gửi sếp duyệt" để thực sự chuyển status sang WAITING_BOSS_APPROVAL (2 bước, giống
    *  cơ chế manhReviewStatus). */

@@ -4,15 +4,23 @@ import { useMaterialGroupIds } from '../../../hooks/useMaterialGroupIds'
 import * as api from '../../../services/api'
 import type { Sku } from '../../../types/sku'
 
-// ─── Gộp 2 trang "Danh sách vật tư" (Phụ kiện + Bao bì) — cùng cấu trúc dữ liệu,
-// chỉ khác group key trong MaterialType. Tab để chuyển giữa 2 nhóm, không đổi route/menu riêng.
+// ─── Gộp 3 trang "Danh sách vật tư" (Sơn + Phụ kiện + Bao bì) — cùng cấu trúc dữ liệu,
+// chỉ khác group key trong MaterialType. Tab để chuyển giữa 3 nhóm, không đổi route/menu riêng.
+// Cả 3 nhóm nay dùng chung 1 role/account "Định mức chi tiết" (xem SpecDetailQuotaPage.tsx).
 //
-// Việc 2: catalog nay là Material thật (nhóm vật tư Phụ kiện/Bao bì, quản lý ở Admin > Vật tư)
-// thay vì quét lịch sử Sku — trang này chỉ còn vai trò xem nhanh đã lọc sẵn theo nhóm, tiện
-// tra cứu khi nhập định mức ở SpecAccessoryPage/SpecPackagingPage.
-type Group = 'vatTuPhuKien' | 'baoBiDongGoi'
+// Việc 2: catalog nay là Material thật (nhóm vật tư Sơn/Phụ kiện/Bao bì, quản lý ở Admin > Vật
+// tư) thay vì quét lịch sử Sku — trang này chỉ còn vai trò xem nhanh đã lọc sẵn theo nhóm, tiện
+// tra cứu khi nhập định mức ở SpecDetailQuotaPage.
+type Group = 'daySon' | 'vatTuPhuKien' | 'baoBiDongGoi'
 
-const GROUP_LABELS: Record<Group, { tab: string; hint: string; systemKey: 'ACCESSORY' | 'PACKAGING'; maHeader: string; searchPlaceholder: string }> = {
+const GROUP_LABELS: Record<Group, { tab: string; hint: string; systemKey: 'PAINT' | 'ACCESSORY' | 'PACKAGING'; maHeader: string; searchPlaceholder: string }> = {
+  daySon: {
+    tab: 'Sơn',
+    hint: 'Vật tư thật (Admin > Vật tư, nhóm Sơn) — dùng để chọn khi nhập định mức',
+    systemKey: 'PAINT',
+    maHeader: 'Mã sơn',
+    searchPlaceholder: 'Tìm theo mã hoặc tên sơn…',
+  },
   vatTuPhuKien: {
     tab: 'Phụ kiện',
     hint: 'Vật tư thật (Admin > Vật tư, nhóm Phụ kiện) — dùng để chọn khi nhập định mức',
@@ -29,21 +37,31 @@ const GROUP_LABELS: Record<Group, { tab: string; hint: string; systemKey: 'ACCES
   },
 }
 
+// Số lượng hiển thị ở bảng "Từ chối" — Sơn dùng field `kg`, Phụ kiện/Bao bì dùng `quantity`.
+function qtyOf(it: { quantity?: number | null; kg?: number | null }): number | null | undefined {
+  return it.quantity ?? it.kg
+}
+
 export default function SpecAccessoryCatalogPage() {
   const { data: skusData } = useFetch<Sku[]>(() => api.getSkus(), [])
   const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
   const { data: materialsData } = useFetch(() => api.getMaterials(), [])
   const materials = materialsData ?? []
-  const { accessory: accessoryGroupId, packaging: packagingGroupId } = useMaterialGroupIds()
+  const { paint: paintGroupId, accessory: accessoryGroupId, packaging: packagingGroupId } = useMaterialGroupIds()
 
-  const [group, setGroup] = useState<Group>('vatTuPhuKien')
+  const [group, setGroup] = useState<Group>('daySon')
   const [catalogSearch, setCatalogSearch] = useState('')
 
   const itemsOf = (pf: Sku, g: Group) => pf.quotaManagement?.materialType?.[g] ?? []
   const reviewOf = (pf: Sku, g: Group) => pf.quotaManagement?.reviewStatus?.[g]
 
   const labels = GROUP_LABELS[group]
-  const groupId = labels.systemKey === 'ACCESSORY' ? accessoryGroupId : packagingGroupId
+  const GROUP_ID_BY_SYSTEM_KEY: Record<typeof labels.systemKey, number | undefined> = {
+    PAINT: paintGroupId,
+    ACCESSORY: accessoryGroupId,
+    PACKAGING: packagingGroupId,
+  }
+  const groupId = GROUP_ID_BY_SYSTEM_KEY[labels.systemKey]
   const catalog = materials.filter(m => groupId != null && m.materialGroupId === groupId)
 
   const rejectedGroups = skus
@@ -101,7 +119,7 @@ export default function SpecAccessoryCatalogPage() {
                   <tr key={`${gi}-${i}`} style={{ borderBottom: '1px solid var(--border)' }}>
                     <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text2)' }}>{g.ten}</td>
                     <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{it.name}</td>
-                    <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{it.quantity ?? '—'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{qtyOf(it) ?? '—'}</td>
                     <td style={{ padding: '10px 14px', color: '#c62828', fontSize: 13 }}>{g.reason || '—'}</td>
                   </tr>
                 )))}

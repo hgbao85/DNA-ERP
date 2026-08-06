@@ -3,10 +3,7 @@ import { ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, Arrow
 import { useAuth } from '../../../context/AuthContext'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import SpecSteelPage from './SpecSteelPage'
-import SpecWirePaintPage from './SpecWirePaintPage'
-import SpecAccessoryPage from './SpecAccessoryPage'
-import SpecPackagingPage from './SpecPackagingPage'
-import SpecAccessoryCatalogPage from './SpecAccessoryCatalogPage'
+import SpecDetailQuotaPage from './SpecDetailQuotaPage'
 import MfgWarehousesPage from './MfgWarehousesPage'
 import MfgAllMaterialsPage from './MfgAllMaterialsPage'
 import WeavingPointsPage from './WeavingPointsPage'
@@ -36,11 +33,10 @@ type TabId =
   | 'materials' | 'warehouses' | 'setup'
   | 'kcs-phoi' | 'kcs-han' | 'kcs-son'
 
-// pk/bb hậu tố = trang con Phụ kiện / Bao bì — dùng chung role SPEC_ACCESSORY (1 account nhập cả 2 nhóm).
-// 'catalog' của SPEC_ACCESSORY gộp chung Phụ kiện + Bao bì (tab bên trong SpecAccessoryCatalogPage).
-type SetupSubTab = 'vat-tu' | 'dinh-muc' | 'catalog' | 'dinh-muc-pk' | 'dinh-muc-bb' | 'dinh-muc-day' | 'dinh-muc-dinh'
+// 'catalog' của SPEC_ACCESSORY gộp chung Sơn + Phụ kiện + Bao bì (tab bên trong SpecAccessoryCatalogPage).
+type SetupSubTab = 'vat-tu' | 'dinh-muc' | 'catalog'
 
-const SPEC_ROLES = ['SPEC_STEEL', 'SPEC_WIRE_PAINT', 'SPEC_ACCESSORY'] as const
+const SPEC_ROLES = ['SPEC_STEEL', 'SPEC_ACCESSORY'] as const
 
 const MFG_ROLE_LABELS: Record<string, string> = {
   PRODUCTION_MANAGER: 'Quản lý SX',
@@ -48,29 +44,21 @@ const MFG_ROLE_LABELS: Record<string, string> = {
   HAN: 'Bộ phận Hàn',
   SON: 'Bộ phận Sơn',
   KCS: 'KCS — Kiểm tra chất lượng',
-  SPEC_STEEL: 'NV Định mức - Sắt',
-  SPEC_WIRE_PAINT: 'NV Định mức - Dây/Đinh/Sơn',
-  SPEC_ACCESSORY: 'NV Định mức - Phụ kiện/Bao bì',
+  SPEC_STEEL: 'NV Định mức mảnh',
+  SPEC_ACCESSORY: 'NV Định mức chi tiết',
 }
 
 const SPEC_SETUP_ITEMS: Record<string, { id: SetupSubTab; label: string; icon: 'clipboard' | 'grid' | 'box' }[]> = {
+  // "Định mức mảnh" gồm cả 5 nhóm vật tư (Sắt/Dây/Đinh/Tán rút/Nút nhựa) — 1 account Sắt nhập
+  // chung, gửi duyệt 1 lần (xem SpecSteelPage.tsx).
   SPEC_STEEL: [
     { id: 'dinh-muc', label: 'Định mức mảnh', icon: 'grid' },
     { id: 'catalog', label: 'Danh sách vật tư', icon: 'box' },
   ],
-  // 2 mục "Định mức mảnh" riêng (Dây/Đinh — luồng nhập/duyệt độc lập theo nhóm, giống pattern
-  // SPEC_ACCESSORY bên dưới) + vat-tu = Định mức chi tiết (Sơn, nhập sau khi mảnh đã duyệt xong).
-  SPEC_WIRE_PAINT: [
-    { id: 'dinh-muc-day', label: 'Định mức mảnh (Dây)', icon: 'grid' },
-    { id: 'dinh-muc-dinh', label: 'Định mức mảnh (Đinh)', icon: 'grid' },
-    { id: 'vat-tu', label: 'Định mức mới (Sơn)', icon: 'clipboard' },
-    { id: 'catalog', label: 'Danh sách vật tư', icon: 'box' },
-  ],
-  // 1 account phụ trách cả Phụ kiện và Bao bì — 2 mục "Định mức mới" riêng (luồng nhập/duyệt độc lập theo nhóm)
-  // + 1 mục "Danh sách vật tư" gộp chung, chuyển nhóm bằng tab bên trong SpecAccessoryCatalogPage.
+  // "Định mức chi tiết" gồm cả 3 nhóm vật tư (Sơn/Phụ kiện/Bao bì) — 1 account nhập chung,
+  // gửi duyệt 1 lần (xem SpecDetailQuotaPage.tsx), y hệt cách "định mức mảnh" bên trên hoạt động.
   SPEC_ACCESSORY: [
-    { id: 'dinh-muc-pk', label: 'Định mức mới (Phụ kiện)', icon: 'clipboard' },
-    { id: 'dinh-muc-bb', label: 'Định mức mới (Bao bì)', icon: 'clipboard' },
+    { id: 'dinh-muc', label: 'Định mức mới', icon: 'clipboard' },
     { id: 'catalog', label: 'Danh sách vật tư', icon: 'box' },
   ],
 }
@@ -171,12 +159,12 @@ export default function MfgApp({ onBack }: MfgAppProps) {
               </button>
             )}
             <div style={{ fontWeight: 700, fontSize: 14 }}>
-              {user?.mfgRole === 'SPEC_STEEL' || user?.mfgRole === 'SPEC_WIRE_PAINT' ? 'Quản lý định mức' : 'Sản xuất MES'}
+              {user?.mfgRole === 'SPEC_STEEL' || user?.mfgRole === 'SPEC_ACCESSORY' ? 'Quản lý định mức' : 'Sản xuất MES'}
             </div>
           </div>
           <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-            {user?.mfgRole === 'SPEC_STEEL' ? 'Định mức sắt'
-              : user?.mfgRole === 'SPEC_WIRE_PAINT' ? 'Định mức dây/đinh & sơn'
+            {user?.mfgRole === 'SPEC_STEEL' ? 'Định mức mảnh'
+              : user?.mfgRole === 'SPEC_ACCESSORY' ? 'Định mức chi tiết'
                 : 'Đông Nam Á Corp'}
           </div>
         </div>
@@ -263,10 +251,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'materials' && canSeeWarehouses && <MfgAllMaterialsPage />}
         {tab === 'warehouses' && canSeeWarehouses && <MfgWarehousesPage />}
         {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL' && <SpecSteelPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
-        {tab === 'setup' && user?.mfgRole === 'SPEC_WIRE_PAINT' && <SpecWirePaintPage subTab={setupSubTab as 'dinh-muc-day' | 'dinh-muc-dinh' | 'vat-tu' | 'catalog'} onSubTabChange={setSetupSubTab} />}
-        {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && setupSubTab === 'catalog' && <SpecAccessoryCatalogPage />}
-        {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && setupSubTab === 'dinh-muc-bb' && <SpecPackagingPage />}
-        {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && setupSubTab === 'dinh-muc-pk' && <SpecAccessoryPage />}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && <SpecDetailQuotaPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
       </div>
     </div>
   )

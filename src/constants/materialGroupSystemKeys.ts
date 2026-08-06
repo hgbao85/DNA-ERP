@@ -1,6 +1,7 @@
 /**
- * 6 khoá kỹ thuật cố định seed sẵn cho MaterialGroup.systemKey - dùng để resolve id nhóm
- * vật tư hệ thống (Sắt/Dây/Đinh/Sơn/Phụ kiện/Bao bì) khi lọc MaterialPicker ở 4 trang Spec.
+ * 8 khoá kỹ thuật cố định seed sẵn cho MaterialGroup.systemKey - dùng để resolve id nhóm
+ * vật tư hệ thống (Sắt/Dây/Đinh/Tán rút/Nút nhựa - đều nhập chung trong 1 mảnh - /Sơn/Phụ
+ * kiện/Bao bì) khi lọc MaterialPicker ở trang Spec.
  *
  * QUAN TRỌNG: phải khớp 1-1 với BE
  * (D:\DNA-ERP-BE\src\common\constants\material-group-system-keys.constant.ts) - 2 repo tách
@@ -16,6 +17,8 @@ export const MATERIAL_GROUP_SYSTEM_KEYS = {
   PAINT: 'PAINT',
   ACCESSORY: 'ACCESSORY',
   PACKAGING: 'PACKAGING',
+  RIVET: 'RIVET',
+  PLASTIC_BUTTON: 'PLASTIC_BUTTON',
 } as const
 
 export type MaterialGroupSystemKey =

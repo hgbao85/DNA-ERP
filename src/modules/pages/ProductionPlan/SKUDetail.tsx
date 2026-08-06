@@ -8,7 +8,7 @@ import RefreshButton from '../../../components/RefreshButton'
 import { reviewSkuManhQuota, reviewSkuDetailQuota } from '../../../services/sku-api'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
-import type { ManhGroup, ManhRow, Sku } from '../../../types/sku'
+import type { ManhChildGroup, ManhRow, MaterialType, Sku } from '../../../types/sku'
 import { STATUS_MAP, SKU_ENTITY, isPartsApproved } from '../../../constants/skuStatus'
 
 // ─── Status ───────────────────────────────────────────────────────────────────
@@ -18,6 +18,10 @@ export { STATUS_MAP, SKU_ENTITY }
 export function StatusBadge({ status }: { status: string }) {
   return <GenericStatusBadge {...(STATUS_MAP[status] ?? STATUS_MAP.APPROVED_DETAIL)} />
 }
+
+/** 3 nhóm định mức chi tiết — vẫn dùng để gắn nhãn/lọc hiển thị dù giờ chỉ còn 1 quyết định
+ *  duyệt duy nhất cho cả 3 (xem secStatus trong SKUDetail). */
+type SecKey = 'daySon' | 'vatTuPhuKien' | 'baoBiDongGoi'
 
 export function SKUDetail({
   pf,
@@ -62,60 +66,53 @@ export function SKUDetail({
 
   type SecEntry = { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
 
-  // ── Định mức mảnh (2 nhóm: Sắt, Dây) ────────────────────────────────────────
-  const [manhSecStatus, setManhSecStatus] = useState<Record<ManhGroup, SecEntry>>(() => {
+  // ── Định mức mảnh (5 nhóm vật tư: Sắt/Dây/Đinh/Tán rút/Nút nhựa — 1 acc Sắt nhập chung,
+  // 1 quyết định duyệt duy nhất cho cả mảnh, không còn tách riêng theo từng nhóm như trước) ──
+  const [manhSecStatus, setManhSecStatus] = useState<SecEntry>(() => {
     const review = pf.manhReviewStatus
     // Fallback "coi như đã duyệt" chỉ áp dụng cho SKU cũ CHƯA TỪNG có manhReviewStatus (trước khi
     // field này tồn tại) — không áp dụng khi field đã tồn tại nhưng rỗng (vd QLSX/Sếp vừa từ chối,
-    // xóa trắng quyết định cũ để KHSX duyệt lại từng mục dù mảnh đã từng qua giai đoạn APPROVED_PARTS).
+    // xóa trắng quyết định cũ để KHSX duyệt lại dù mảnh đã từng qua giai đoạn APPROVED_PARTS).
     const fallback = review === undefined && partsAlreadyApproved ? approvedEntry(pf.proposedAt ?? undefined) : null
-    const fromReview = (k: ManhGroup): SecEntry => {
-      const r = review?.[k]
-      return r ? { status: r.status, at: new Date(r.reviewedAt), reason: r.reason } : fallback
-    }
-    return { sat: fromReview('sat'), day: fromReview('day'), dinh: fromReview('dinh') }
+    return review ? { status: review.status, at: new Date(review.reviewedAt), reason: review.reason } : fallback
   })
-  // Mục chưa có nội dung thì nút Duyệt/Từ chối bị disable (xem ManhSteelSection/MaterialSection) —
-  // vẫn phải chờ bộ phận chuyên trách nhập dữ liệu thật rồi KHSX mới duyệt được, không có đường tắt
-  // nào để coi mục rỗng là "đã xong".
-  const manhAllApproved = (['sat', 'day', 'dinh'] as ManhGroup[])
-    .every(k => manhSecStatus[k]?.status === 'APPROVED')
-  const manhAnyRejected = (['sat', 'day', 'dinh'] as ManhGroup[]).some(k => manhSecStatus[k]?.status === 'REJECTED')
+  // Mục chưa có nội dung thì nút Duyệt/Từ chối bị disable (xem ManhPiecesSection) — vẫn phải chờ
+  // account Sắt nhập dữ liệu thật rồi KHSX mới duyệt được, không có đường tắt nào để coi mục rỗng
+  // là "đã xong".
+  const manhAllApproved = manhSecStatus?.status === 'APPROVED'
+  const manhAnyRejected = manhSecStatus?.status === 'REJECTED'
 
-  type ManhSecModal = { key: ManhGroup; title: string } | null
-  const [manhApproveModal, setManhApproveModal] = useState<ManhSecModal>(null)
+  const [manhApproveModalOpen, setManhApproveModalOpen] = useState(false)
   const confirmManhApprove = async () => {
-    if (!manhApproveModal) return
-    const { key, title } = manhApproveModal
-    setManhApproveModal(null)
-    setManhSecStatus(p => ({ ...p, [key]: { status: 'APPROVED', at: new Date() } }))
+    setManhApproveModalOpen(false)
+    setManhSecStatus({ status: 'APPROVED', at: new Date() })
     try {
-      await reviewSkuManhQuota(pf.id, key, 'APPROVED')
-      logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_approved', title)
+      await reviewSkuManhQuota(pf.id, 'APPROVED')
+      logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_approved', 'Định mức mảnh')
     } catch (e: unknown) {
-      setManhSecStatus(p => ({ ...p, [key]: null }))
-      alert(e instanceof Error ? e.message : `Không thể duyệt ${title}`)
+      setManhSecStatus(null)
+      alert(e instanceof Error ? e.message : 'Không thể duyệt định mức mảnh')
     }
   }
 
-  const [manhRejectModal, setManhRejectModal] = useState<ManhSecModal>(null)
+  const [manhRejectModalOpen, setManhRejectModalOpen] = useState(false)
   const [manhRejectReason, setManhRejectReason] = useState('')
   const confirmManhReject = async () => {
-    if (!manhRejectModal) return
-    const { key, title } = manhRejectModal
     const reason = manhRejectReason.trim() || undefined
-    setManhRejectModal(null)
-    setManhSecStatus(p => ({ ...p, [key]: { status: 'REJECTED', at: new Date(), reason } }))
+    setManhRejectModalOpen(false)
+    setManhSecStatus({ status: 'REJECTED', at: new Date(), reason })
     try {
-      await reviewSkuManhQuota(pf.id, key, 'REJECTED', reason)
-      logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_rejected', reason ? `${title} — ${reason}` : title)
+      await reviewSkuManhQuota(pf.id, 'REJECTED', reason)
+      logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_rejected', reason ? `Định mức mảnh — ${reason}` : 'Định mức mảnh')
     } catch (e: unknown) {
-      setManhSecStatus(p => ({ ...p, [key]: null }))
-      alert(e instanceof Error ? e.message : `Không thể từ chối ${title}`)
+      setManhSecStatus(null)
+      alert(e instanceof Error ? e.message : 'Không thể từ chối định mức mảnh')
     }
   }
 
-  type ManhSecFilter = 'all' | ManhGroup
+  // Không còn gate duyệt/từ chối theo nhóm — filter này chỉ để lọc HIỂN THỊ children theo nhóm
+  // vật tư bên trong bảng mảnh (xem ManhPiecesSection), không ảnh hưởng quyết định duyệt.
+  type ManhSecFilter = 'all' | ManhChildGroup
   const [filterManhSec, setFilterManhSec] = useState<ManhSecFilter>('all')
 
   const [approvingParts, setApprovingParts] = useState(false)
@@ -132,71 +129,61 @@ export function SKUDetail({
     }
   }
 
-  // ── Định mức chi tiết (3 nhóm: Sơn, Phụ kiện, Bao bì — Sắt/Đinh đã chuyển sang định mức mảnh) ──
-  type SecKey = 'daySon' | 'vatTuPhuKien' | 'baoBiDongGoi'
-
-  const [secStatus, setSecStatus] = useState<Record<SecKey, SecEntry>>(() => {
+  // ── Định mức chi tiết (Sơn, Phụ kiện, Bao bì — 1 quyết định duyệt duy nhất cho cả 3 nhóm,
+  // Sắt/Đinh đã chuyển sang định mức mảnh) ──────────────────────────────────────────────────
+  const [secStatus, setSecStatus] = useState<SecEntry>(() => {
     const review = pf.quotaManagement?.reviewStatus
     // Cùng lý do với fallback của manhSecStatus ở trên — chỉ áp dụng cho SKU cũ chưa từng có
     // reviewStatus, không áp dụng khi field tồn tại nhưng rỗng (vừa bị QLSX/Sếp từ chối).
     const fallback = review === undefined && detailAlreadyApproved ? approvedEntry(pf.proposedAt ?? undefined) : null
-    const fromReview = (k: SecKey): SecEntry => {
-      const r = review?.[k]
-      return r ? { status: r.status, at: new Date(r.reviewedAt), reason: r.reason } : fallback
-    }
-    return { daySon: fromReview('daySon'), vatTuPhuKien: fromReview('vatTuPhuKien'), baoBiDongGoi: fromReview('baoBiDongGoi') }
+    return review ? { status: review.status, at: new Date(review.reviewedAt), reason: review.reason } : fallback
   })
   // Cùng nguyên tắc với manhAllApproved — mục rỗng không được coi là "đã xong", phải có dữ liệu +
   // được duyệt thật thì mới tính.
-  const allSectionsApproved = (['daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as SecKey[])
-    .every(k => secStatus[k]?.status === 'APPROVED')
-
-  const anySectionRejected = (['daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as SecKey[]).some(k => secStatus[k]?.status === 'REJECTED')
+  const detailApproved = secStatus?.status === 'APPROVED'
+  const detailRejected = secStatus?.status === 'REJECTED'
 
   // Nút "Gửi QLSX duyệt" phải chờ TẤT CẢ mục được duyệt — cả định mức mảnh lẫn chi tiết. Bình thường
   // mảnh đã được duyệt xong xuôi trước khi tới bước chi tiết nên manhAllApproved luôn đúng ở đây;
   // riêng trường hợp QLSX/Sếp từ chối (rejectToDetailReview xóa trắng cả reviewStatus lẫn
   // manhReviewStatus) thì KHSX phải duyệt lại cả 2 phần mới được gửi lại, không chỉ phần chi tiết.
-  const readyForQlsx = allSectionsApproved && manhAllApproved
-  const qlsxBlockedByRejection = anySectionRejected || manhAnyRejected
+  const readyForQlsx = detailApproved && manhAllApproved
+  const qlsxBlockedByRejection = detailRejected || manhAnyRejected
 
-  // Duyệt/từ chối 1 nhóm định mức chi tiết đều phải qua modal xác nhận, và một khi đã có quyết định
-  // (secStatus[k] khác null) thì MaterialSection tự ẩn 2 nút này — account chuyên trách tự thấy trạng
-  // thái "Bị từ chối" (đọc thẳng quotaManagement.reviewStatus) và sửa/nộp lại ngay, không cần KHSX
-  // phải bấm nút gửi lại riêng.
-  type SecModal = { key: SecKey; title: string } | null
-  const [approveModal, setApproveModal] = useState<SecModal>(null)
+  // Duyệt/từ chối định mức chi tiết đều phải qua modal xác nhận, và một khi đã có quyết định
+  // thì phần hiển thị tự ẩn 2 nút này — account chuyên trách tự thấy trạng thái "Bị từ chối"
+  // (đọc thẳng quotaManagement.reviewStatus) và sửa/nộp lại ngay, không cần KHSX phải bấm nút
+  // gửi lại riêng.
+  const [approveModalOpen, setApproveModalOpen] = useState(false)
   const confirmSectionApprove = async () => {
-    if (!approveModal) return
-    const { key, title } = approveModal
-    setApproveModal(null)
-    setSecStatus(p => ({ ...p, [key]: { status: 'APPROVED', at: new Date() } }))
+    setApproveModalOpen(false)
+    setSecStatus({ status: 'APPROVED', at: new Date() })
     try {
-      await reviewSkuDetailQuota(pf.id, key, 'APPROVED')
-      logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_approved', title)
+      await reviewSkuDetailQuota(pf.id, 'APPROVED')
+      logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_approved', 'Định mức chi tiết')
     } catch (e: unknown) {
-      setSecStatus(p => ({ ...p, [key]: null }))
-      alert(e instanceof Error ? e.message : `Không thể duyệt ${title}`)
+      setSecStatus(null)
+      alert(e instanceof Error ? e.message : 'Không thể duyệt định mức chi tiết')
     }
   }
 
-  const [rejectModal, setRejectModal] = useState<SecModal>(null)
+  const [rejectModalOpen, setRejectModalOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const confirmSectionReject = async () => {
-    if (!rejectModal) return
-    const { key, title } = rejectModal
     const reason = rejectReason.trim() || undefined
-    setRejectModal(null)
-    setSecStatus(p => ({ ...p, [key]: { status: 'REJECTED', at: new Date(), reason } }))
+    setRejectModalOpen(false)
+    setSecStatus({ status: 'REJECTED', at: new Date(), reason })
     try {
-      await reviewSkuDetailQuota(pf.id, key, 'REJECTED', reason)
-      logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_rejected', reason ? `${title} — ${reason}` : title)
+      await reviewSkuDetailQuota(pf.id, 'REJECTED', reason)
+      logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_rejected', reason ? `Định mức chi tiết — ${reason}` : 'Định mức chi tiết')
     } catch (e: unknown) {
-      setSecStatus(p => ({ ...p, [key]: null }))
-      alert(e instanceof Error ? e.message : `Không thể từ chối ${title}`)
+      setSecStatus(null)
+      alert(e instanceof Error ? e.message : 'Không thể từ chối định mức chi tiết')
     }
   }
 
+  // Không còn gate duyệt/từ chối theo nhóm — filter này chỉ để lọc HIỂN THỊ (ẩn/hiện từng bảng
+  // Sơn/Phụ kiện/Bao bì), không ảnh hưởng quyết định duyệt.
   type SecFilter = 'all' | SecKey
   const [filterSec, setFilterSec] = useState<SecFilter>('all')
 
@@ -226,8 +213,8 @@ export function SKUDetail({
   const defaultTab: DetailTab = partsAlreadyApproved && manhAllApproved ? 'chitiet' : 'manh'
   const [detailTab, setDetailTab] = useState<DetailTab>(defaultTab)
 
-  // KHSX được duyệt/từ chối từng mục (mảnh: Sắt/Dây/Đinh; chi tiết: Sơn, Phụ kiện, Bao bì) bất kể
-  // đang ở giai đoạn pipeline nào — MaterialSection/ManhSteelSection tự ẩn nút khi mục đã có quyết
+  // KHSX được duyệt/từ chối từng mục (mảnh: 1 quyết định cho cả 5 nhóm; chi tiết: Sơn, Phụ kiện,
+  // Bao bì) bất kể đang ở giai đoạn pipeline nào — MaterialSection/ManhPiecesSection tự ẩn nút khi mục đã có quyết
   // định hoặc chưa có nội dung, nên không cần khóa cứng theo status ở đây. Nhờ vậy khi QLSX/Sếp từ
   // chối (xem rejectToDetailReview), nút Duyệt/Từ chối của TẤT CẢ mục tự hiện lại ngay mà không cần
   // chờ đi lại từ đầu qua từng bước, và không bộ phận chuyên trách nào phải nhập lại dữ liệu.
@@ -244,7 +231,7 @@ export function SKUDetail({
   const finalReviewMode = (isBoss || isProdMgr) && !readOnly
 
   // QLSX duyệt cục bộ (qlsxReviewStatus) trước, rồi nút "Gửi sếp duyệt" mới hiện ra — 2 bước, giống
-  // hệt cơ chế duyệt từng nhóm định mức mảnh của KHSX (xem ManhSteelSection/MaterialSection bên dưới),
+  // hệt cơ chế duyệt định mức mảnh của KHSX (xem ManhPiecesSection/MaterialSection bên dưới),
   // chỉ khác là áp dụng cho cả màn gộp.
   const [qlsxApproved, setQlsxApproved] = useState(!!pf.qlsxReviewStatus)
   const handleQlsxApproveLocal = async () => {
@@ -293,60 +280,16 @@ export function SKUDetail({
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>Định mức mảnh</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <ManhSteelSection
-                readOnly hideStatusBadge entry={manhSecStatus.sat} onApprove={noop} onReject={noop}
-                rows={manh?.sat ?? []}
-              />
-              <MaterialSection
-                title="Dây" color="#1d4ed8" bg="#eff6ff" readOnly hideStatusBadge
-                entry={manhSecStatus.day} onApprove={noop} onReject={noop}
-                items={(manh?.day ?? []).map(i => ({
-                  name: i.name,
-                  spec: i.specifications || null,
-                  unitQty: qtyOf(i),
-                }))}
-              />
-              <MaterialSection
-                title="Đinh" color="#1d4ed8" bg="#eff6ff" readOnly hideStatusBadge
-                entry={manhSecStatus.dinh} onApprove={noop} onReject={noop}
-                items={(manh?.dinh ?? []).map(i => ({
-                  name: i.name,
-                  spec: i.specifications || null,
-                  unitQty: qtyOf(i),
-                }))}
+              <ManhPiecesSection
+                readOnly hideStatusBadge entry={manhSecStatus} onApprove={noop} onReject={noop}
+                rows={manh?.pieces ?? []}
               />
             </div>
           </div>
 
           <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>Định mức chi tiết</div>
           {mt ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              <MaterialSection
-                title="Sơn" color="#1d4ed8" bg="#eff6ff" readOnly hideStatusBadge
-                entry={secStatus.daySon} onApprove={noop} onReject={noop}
-                items={(Array.isArray(mt.daySon) ? mt.daySon : []).map(i => ({
-                  name: i.name,
-                  spec: i.specifications || null,
-                  unitQty: i.kg != null ? `${i.kg} kg` : (i.unit ?? null),
-                }))}
-              />
-              <MaterialSection
-                title="Vật tư phụ kiện" color="#6d28d9" bg="#ede9fe" readOnly hideStatusBadge
-                entry={secStatus.vatTuPhuKien} onApprove={noop} onReject={noop}
-                items={(Array.isArray(mt.vatTuPhuKien) ? mt.vatTuPhuKien : []).map(i => ({
-                  name: i.name, spec: i.specifications || null,
-                  unitQty: i.quantity != null ? `${i.quantity} ${i.unit ?? ''}`.trim() : (i.unit ?? null),
-                }))}
-              />
-              <MaterialSection
-                title="Bao bì đóng gói" color="#065f46" bg="#d1fae5" readOnly hideStatusBadge
-                entry={secStatus.baoBiDongGoi} onApprove={noop} onReject={noop}
-                items={(Array.isArray(mt.baoBiDongGoi) ? mt.baoBiDongGoi : []).map(i => ({
-                  name: i.name, spec: i.specifications || null,
-                  unitQty: i.quantity != null ? `${i.quantity} ${i.unit ?? ''}`.trim() : (i.unit ?? null),
-                }))}
-              />
-            </div>
+            <DetailLinesTable rows={buildDetailRows(mt)} />
           ) : (
             <div style={{ padding: 20, background: 'var(--surface2)', borderRadius: 8, color: 'var(--text3)', fontSize: 13 }}>
               Chưa có thông tin định mức chi tiết
@@ -387,6 +330,7 @@ export function SKUDetail({
             <div style={{ display: 'flex', gap: 5 }}>
               {([
                 ['all', 'Tất cả'], ['sat', 'Sắt'], ['day', 'Dây'], ['dinh', 'Đinh'],
+                ['tanRut', 'Tán rút'], ['nutNhua', 'Nút nhựa'],
               ] as [ManhSecFilter, string][]).map(([key, label]) => (
                 <button
                   key={key}
@@ -401,42 +345,15 @@ export function SKUDetail({
             </div>
           </div>
 
-          {/* Manh sections */}
+          {/* Manh section — 1 quyết định duyệt duy nhất cho cả 5 nhóm vật tư */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {(filterManhSec === 'all' || filterManhSec === 'sat') && (
-              <ManhSteelSection
-                readOnly={!canReview} entry={manhSecStatus.sat}
-                onApprove={() => setManhApproveModal({ key: 'sat', title: 'Sắt' })}
-                onReject={() => { setManhRejectModal({ key: 'sat', title: 'Sắt' }); setManhRejectReason('') }}
-                rows={manh?.sat ?? []}
-              />
-            )}
-            {(filterManhSec === 'all' || filterManhSec === 'day') && (
-              <MaterialSection
-                title="Dây" color="#1d4ed8" bg="#eff6ff" readOnly={!canReview}
-                entry={manhSecStatus.day}
-                onApprove={() => setManhApproveModal({ key: 'day', title: 'Dây' })}
-                onReject={() => { setManhRejectModal({ key: 'day', title: 'Dây' }); setManhRejectReason('') }}
-                items={(manh?.day ?? []).map(i => ({
-                  name: i.name,
-                  spec: i.specifications || null,
-                  unitQty: qtyOf(i),
-                }))}
-              />
-            )}
-            {(filterManhSec === 'all' || filterManhSec === 'dinh') && (
-              <MaterialSection
-                title="Đinh" color="#1d4ed8" bg="#eff6ff" readOnly={!canReview}
-                entry={manhSecStatus.dinh}
-                onApprove={() => setManhApproveModal({ key: 'dinh', title: 'Đinh' })}
-                onReject={() => { setManhRejectModal({ key: 'dinh', title: 'Đinh' }); setManhRejectReason('') }}
-                items={(manh?.dinh ?? []).map(i => ({
-                  name: i.name,
-                  spec: i.specifications || null,
-                  unitQty: qtyOf(i),
-                }))}
-              />
-            )}
+            <ManhPiecesSection
+              readOnly={!canReview} entry={manhSecStatus}
+              onApprove={() => setManhApproveModalOpen(true)}
+              onReject={() => { setManhRejectModalOpen(true); setManhRejectReason('') }}
+              rows={manh?.pieces ?? []}
+              filterGroup={filterManhSec === 'all' ? undefined : filterManhSec}
+            />
           </div>
 
           {/* Actions */}
@@ -469,78 +386,81 @@ export function SKUDetail({
       {/* Tab: Định mức chi tiết */}
       {detailTab === 'chitiet' && (mt ? (
         <div style={{ marginBottom: 24 }}>
-          {/* Section filter */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          {/* Section filter + 1 quyết định duyệt duy nhất cho cả 3 nhóm */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
             <div style={{ fontWeight: 700, fontSize: 13 }}>Danh sách định mức chi tiết</div>
-            <div style={{ display: 'flex', gap: 5 }}>
-              {([
-                ['all', 'Tất cả'], ['daySon', 'Sơn'],
-                ['vatTuPhuKien', 'Phụ kiện'], ['baoBiDongGoi', 'Bao bì'],
-              ] as [SecFilter, string][]).map(([key, label]) => (
-                <button
-                  key={key}
-                  onClick={() => setFilterSec(key)}
-                  style={{
-                    padding: '4px 12px', fontSize: 11, fontWeight: 600, borderRadius: 20, border: 'none', cursor: 'pointer',
-                    background: filterSec === key ? '#2e7d32' : 'var(--surface2)',
-                    color: filterSec === key ? '#fff' : 'var(--text)',
-                  }}
-                >{label}</button>
-              ))}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 5 }}>
+                {([
+                  ['all', 'Tất cả'], ['daySon', 'Sơn'],
+                  ['vatTuPhuKien', 'Phụ kiện'], ['baoBiDongGoi', 'Bao bì'],
+                ] as [SecFilter, string][]).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setFilterSec(key)}
+                    style={{
+                      padding: '4px 12px', fontSize: 11, fontWeight: 600, borderRadius: 20, border: 'none', cursor: 'pointer',
+                      background: filterSec === key ? '#2e7d32' : 'var(--surface2)',
+                      color: filterSec === key ? '#fff' : 'var(--text)',
+                    }}
+                  >{label}</button>
+                ))}
+              </div>
+              {secStatus?.status && <StatusBadge status={secStatus.status} />}
+              {canReview && !secStatus?.status && (
+                <>
+                  {(() => {
+                    const totalDetailItems = (Array.isArray(mt.daySon) ? mt.daySon.length : 0)
+                      + (Array.isArray(mt.vatTuPhuKien) ? mt.vatTuPhuKien.length : 0)
+                      + (Array.isArray(mt.baoBiDongGoi) ? mt.baoBiDongGoi.length : 0)
+                    return (
+                      <>
+                        <button
+                          onClick={() => setApproveModalOpen(true)}
+                          disabled={totalDetailItems === 0}
+                          title={totalDetailItems === 0 ? 'Chưa có dữ liệu để duyệt' : undefined}
+                          style={{
+                            padding: '4px 12px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none',
+                            cursor: totalDetailItems === 0 ? 'not-allowed' : 'pointer',
+                            background: 'rgba(22,163,74,0.12)', color: '#16a34a',
+                            opacity: totalDetailItems === 0 ? 0.45 : 1,
+                          }}
+                        >Duyệt</button>
+                        <button
+                          onClick={() => { setRejectModalOpen(true); setRejectReason('') }}
+                          disabled={totalDetailItems === 0}
+                          title={totalDetailItems === 0 ? 'Chưa có dữ liệu để từ chối' : undefined}
+                          style={{
+                            padding: '4px 12px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none',
+                            cursor: totalDetailItems === 0 ? 'not-allowed' : 'pointer',
+                            background: 'rgba(220,38,38,0.10)', color: '#dc2626',
+                            opacity: totalDetailItems === 0 ? 0.45 : 1,
+                          }}
+                        >Từ chối</button>
+                      </>
+                    )
+                  })()}
+                </>
+              )}
             </div>
           </div>
+          {secStatus?.status === 'REJECTED' && secStatus.reason && (
+            <div style={{ marginBottom: 12, fontSize: 12, color: '#dc2626', fontStyle: 'italic' }}>{secStatus.reason}</div>
+          )}
 
-          {/* Material sections */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {(filterSec === 'all' || filterSec === 'daySon') && (
-              <MaterialSection
-                title="Sơn" color="#1d4ed8" bg="#eff6ff" readOnly={!canReview}
-                entry={secStatus.daySon}
-                onApprove={() => setApproveModal({ key: 'daySon', title: 'Sơn' })}
-                onReject={() => { setRejectModal({ key: 'daySon', title: 'Sơn' }); setRejectReason('') }}
-                items={(Array.isArray(mt.daySon) ? mt.daySon : []).map(i => ({
-                  name: i.name,
-                  spec: i.specifications || null,
-                  unitQty: i.kg != null ? `${i.kg} kg` : (i.unit ?? null),
-                }))}
-              />
-            )}
-            {(filterSec === 'all' || filterSec === 'vatTuPhuKien') && (
-              <MaterialSection
-                title="Vật tư phụ kiện" color="#6d28d9" bg="#ede9fe" readOnly={!canReview}
-                entry={secStatus.vatTuPhuKien}
-                onApprove={() => setApproveModal({ key: 'vatTuPhuKien', title: 'Vật tư phụ kiện' })}
-                onReject={() => { setRejectModal({ key: 'vatTuPhuKien', title: 'Vật tư phụ kiện' }); setRejectReason('') }}
-                items={(Array.isArray(mt.vatTuPhuKien) ? mt.vatTuPhuKien : []).map(i => ({
-                  name: i.name, spec: i.specifications || null,
-                  unitQty: i.quantity != null ? `${i.quantity} ${i.unit ?? ''}`.trim() : (i.unit ?? null),
-                }))}
-              />
-            )}
-            {(filterSec === 'all' || filterSec === 'baoBiDongGoi') && (
-              <MaterialSection
-                title="Bao bì đóng gói" color="#065f46" bg="#d1fae5" readOnly={!canReview}
-                entry={secStatus.baoBiDongGoi}
-                onApprove={() => setApproveModal({ key: 'baoBiDongGoi', title: 'Bao bì đóng gói' })}
-                onReject={() => { setRejectModal({ key: 'baoBiDongGoi', title: 'Bao bì đóng gói' }); setRejectReason('') }}
-                items={(Array.isArray(mt.baoBiDongGoi) ? mt.baoBiDongGoi : []).map(i => ({
-                  name: i.name, spec: i.specifications || null,
-                  unitQty: i.quantity != null ? `${i.quantity} ${i.unit ?? ''}`.trim() : (i.unit ?? null),
-                }))}
-              />
-            )}
-          </div>
+          {/* Bảng gộp cả 3 nhóm — quyết định duyệt/từ chối đã chuyển lên header chung phía trên */}
+          <DetailLinesTable rows={buildDetailRows(mt).filter(r => filterSec === 'all' || r.group === filterSec)} />
 
           {/* Actions */}
           {showDetailActionBar && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              {/* allSectionsApproved xong nhưng vẫn chưa readyForQlsx nghĩa là mảnh (tab khác) đang
+              {/* detailApproved xong nhưng vẫn chưa readyForQlsx nghĩa là mảnh (tab khác) đang
                   chặn — chỉ xảy ra khi QLSX/Sếp vừa từ chối. Nói rõ ra để KHSX không tưởng nhầm mục
                   nào trên chính tab này còn thiếu. */}
-              {!readyForQlsx && !qlsxBlockedByRejection && allSectionsApproved && !manhAllApproved && (
+              {!readyForQlsx && !qlsxBlockedByRejection && detailApproved && !manhAllApproved && (
                 <span style={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>⚠ Định mức mảnh (tab bên cạnh) cũng cần được duyệt lại</span>
               )}
-              {!readyForQlsx && !qlsxBlockedByRejection && !allSectionsApproved && (
+              {!readyForQlsx && !qlsxBlockedByRejection && !detailApproved && (
                 <span style={{ fontSize: 12, color: '#d97706' }}>Cần nhập và duyệt đủ tất cả các mục mới được chuyển đến công đoạn tiếp theo</span>
               )}
               {qlsxBlockedByRejection && (
@@ -620,21 +540,21 @@ export function SKUDetail({
       )}
       </div>
 
-      {/* Modal xác nhận duyệt nhóm định mức mảnh */}
-      <Modal open={!!manhApproveModal} maxWidth={420} zIndex={2000}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận duyệt — {manhApproveModal?.title}</h3>
+      {/* Modal xác nhận duyệt định mức mảnh */}
+      <Modal open={manhApproveModalOpen} maxWidth={420} zIndex={2000}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận duyệt — Định mức mảnh</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
-              Xác nhận duyệt định mức mảnh {manhApproveModal?.title}? Không thể sửa lại quyết định này sau khi xác nhận.
+              Xác nhận duyệt định mức mảnh (cả 5 nhóm vật tư)? Không thể sửa lại quyết định này sau khi xác nhận.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setManhApproveModal(null)} style={btnSecondary}>Hủy</button>
+              <button onClick={() => setManhApproveModalOpen(false)} style={btnSecondary}>Hủy</button>
               <button onClick={confirmManhApprove} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff' }}>Xác nhận duyệt</button>
             </div>
       </Modal>
 
-      {/* Modal từ chối nhóm định mức mảnh */}
-      <Modal open={!!manhRejectModal} maxWidth={420} zIndex={2000}>
-            <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Từ chối — {manhRejectModal?.title}</h3>
+      {/* Modal từ chối định mức mảnh */}
+      <Modal open={manhRejectModalOpen} maxWidth={420} zIndex={2000}>
+            <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Từ chối — Định mức mảnh</h3>
             <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text3)' }}>Nhập lý do từ chối (không bắt buộc)</p>
             <textarea
               value={manhRejectReason}
@@ -645,26 +565,26 @@ export function SKUDetail({
               style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
             />
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-              <button onClick={() => setManhRejectModal(null)} style={btnSecondary}>Hủy</button>
+              <button onClick={() => setManhRejectModalOpen(false)} style={btnSecondary}>Hủy</button>
               <button onClick={confirmManhReject} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#dc2626', color: '#fff' }}>Xác nhận từ chối</button>
             </div>
       </Modal>
 
-      {/* Modal xác nhận duyệt section */}
-      <Modal open={!!approveModal} maxWidth={420} zIndex={2000}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận duyệt — {approveModal?.title}</h3>
+      {/* Modal xác nhận duyệt định mức chi tiết */}
+      <Modal open={approveModalOpen} maxWidth={420} zIndex={2000}>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận duyệt — Định mức chi tiết</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
-              Xác nhận duyệt định mức {approveModal?.title}? Không thể sửa lại quyết định này sau khi xác nhận.
+              Xác nhận duyệt định mức chi tiết (cả 3 nhóm Sơn/Phụ kiện/Bao bì)? Không thể sửa lại quyết định này sau khi xác nhận.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setApproveModal(null)} style={btnSecondary}>Hủy</button>
+              <button onClick={() => setApproveModalOpen(false)} style={btnSecondary}>Hủy</button>
               <button onClick={confirmSectionApprove} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff' }}>Xác nhận duyệt</button>
             </div>
       </Modal>
 
-      {/* Modal từ chối section */}
-      <Modal open={!!rejectModal} maxWidth={420} zIndex={2000}>
-            <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Từ chối — {rejectModal?.title}</h3>
+      {/* Modal từ chối định mức chi tiết */}
+      <Modal open={rejectModalOpen} maxWidth={420} zIndex={2000}>
+            <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Từ chối — Định mức chi tiết</h3>
             <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text3)' }}>Nhập lý do từ chối (không bắt buộc)</p>
             <textarea
               value={rejectReason}
@@ -675,7 +595,7 @@ export function SKUDetail({
               style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
             />
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-              <button onClick={() => setRejectModal(null)} style={btnSecondary}>Hủy</button>
+              <button onClick={() => setRejectModalOpen(false)} style={btnSecondary}>Hủy</button>
               <button onClick={confirmSectionReject} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#dc2626', color: '#fff' }}>Xác nhận từ chối</button>
             </div>
       </Modal>
@@ -807,105 +727,98 @@ function FinalReviewAction({
   )
 }
 
-// ─── MaterialSection ──────────────────────────────────────────────────────────
+// ─── DetailLinesTable ─────────────────────────────────────────────────────────
+// Định mức chi tiết (Sơn/Phụ kiện/Bao bì) hiện gộp thành 1 bảng duy nhất (cột "Nhóm" badge)
+// — giống hệt kiểu bảng gộp bên trang nhập (SpecDetailQuotaPage.tsx) — thay vì 3 khối riêng
+// như MaterialSection cũ, vì 3 nhóm giờ chỉ còn 1 quyết định duyệt duy nhất (xem secStatus).
 
-type MaterialRow = { name: string; spec: string | null; unitQty: string | null }
+type DetailRow = { id: string; group: SecKey; name: string; specs: string | null; qty: string | null; unit: string | null }
 
-// Hiển thị số lượng + đơn vị thật của item (kg cho Dây/Sơn, cây cho Đinh...) — không hard-code
-// "kg" vì Đinh dùng đơn vị khác, dựa vào field `unit` của chính item để hiện đúng.
-function qtyOf(i: { kg?: number | null; unit?: string | null }): string | null {
-  return i.kg != null ? `${i.kg}${i.unit ? ` ${i.unit}` : ''}` : (i.unit ?? null)
+const DETAIL_GROUP_LABELS: Record<SecKey, string> = { daySon: 'Sơn', vatTuPhuKien: 'Phụ kiện', baoBiDongGoi: 'Bao bì' }
+const DETAIL_GROUP_BADGE: Record<SecKey, { bg: string; fg: string }> = {
+  daySon: { bg: '#eff6ff', fg: '#1d4ed8' },
+  vatTuPhuKien: { bg: '#ede9fe', fg: '#6d28d9' },
+  baoBiDongGoi: { bg: '#d1fae5', fg: '#065f46' },
 }
 
-function MaterialSection({
-  title, color, bg, items, entry, readOnly = false, hideStatusBadge = false, onApprove, onReject,
-}: {
-  title: string; color: string; bg: string
-  items: MaterialRow[]
-  entry: { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
-  readOnly?: boolean
-  hideStatusBadge?: boolean
-  onApprove: () => void
-  onReject: () => void
-}) {
-  const status = entry?.status ?? null
+function buildDetailRows(mt: MaterialType): DetailRow[] {
+  return [
+    ...(Array.isArray(mt.daySon) ? mt.daySon : []).map((it, i): DetailRow => ({
+      id: `daySon-${it.id ?? i}`, group: 'daySon', name: it.name, specs: it.specifications ?? null,
+      qty: it.kg != null ? String(it.kg) : null, unit: it.unit ?? null,
+    })),
+    ...(Array.isArray(mt.vatTuPhuKien) ? mt.vatTuPhuKien : []).map((it, i): DetailRow => ({
+      id: `vatTuPhuKien-${it.id ?? i}`, group: 'vatTuPhuKien', name: it.name, specs: it.specifications ?? null,
+      qty: it.quantity != null ? String(it.quantity) : null, unit: it.unit ?? null,
+    })),
+    ...(Array.isArray(mt.baoBiDongGoi) ? mt.baoBiDongGoi : []).map((it, i): DetailRow => ({
+      id: `baoBiDongGoi-${it.id ?? i}`, group: 'baoBiDongGoi', name: it.name, specs: it.specifications ?? null,
+      qty: it.quantity != null ? String(it.quantity) : null, unit: it.unit ?? null,
+    })),
+  ]
+}
+
+function DetailLinesTable({ rows }: { rows: DetailRow[] }) {
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ background: bg, padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ color, fontWeight: 700, fontSize: 12 }}>
-            {title} <span style={{ fontWeight: 400, opacity: 0.7 }}>({items.length} loại)</span>
-          </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            {status && !hideStatusBadge && <StatusBadge status={status} />}
-            {/* Đã có quyết định (duyệt/từ chối) thì khoá 2 nút này. Chưa có nội dung thì vẫn hiện
-                nút nhưng disable — để KHSX thấy rõ đang bị chặn vì thiếu dữ liệu, không phải vì
-                mục này "coi như xong". */}
-            {!readOnly && !status && (
-              <>
-                <button
-                  onClick={onApprove}
-                  disabled={items.length === 0}
-                  title={items.length === 0 ? 'Chưa có dữ liệu để duyệt' : undefined}
-                  style={{
-                    padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none',
-                    cursor: items.length === 0 ? 'not-allowed' : 'pointer',
-                    background: 'rgba(22,163,74,0.12)', color: '#16a34a',
-                    opacity: items.length === 0 ? 0.45 : 1,
-                  }}
-                >Duyệt</button>
-                <button
-                  onClick={onReject}
-                  disabled={items.length === 0}
-                  title={items.length === 0 ? 'Chưa có dữ liệu để từ chối' : undefined}
-                  style={{
-                    padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none',
-                    cursor: items.length === 0 ? 'not-allowed' : 'pointer',
-                    background: 'rgba(220,38,38,0.10)', color: '#dc2626',
-                    opacity: items.length === 0 ? 0.45 : 1,
-                  }}
-                >Từ chối</button>
-              </>
-            )}
-          </div>
-        </div>
-        {status === 'REJECTED' && entry?.reason && (
-          <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626', fontStyle: 'italic' }}>{entry.reason}</div>
-        )}
-      </div>
-      {items.length === 0 ? (
-        <div style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text3)' }}>—</div>
-      ) : (
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
-          <colgroup><col style={{ width: '35%' }} /><col /><col style={{ width: 96 }} /></colgroup>
-          <thead>
-            <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-              <th style={thStyle}>Tên vật tư</th>
-              <th style={thStyle}>Quy cách</th>
-              <th style={{ ...thStyle, textAlign: 'right' }}>ĐVT / SL</th>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead>
+          <tr style={{ background: 'var(--surface2)' }}>
+            <th style={{ width: 36, padding: '7px', textAlign: 'center', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>#</th>
+            <th style={{ width: 90, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Nhóm</th>
+            <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Vật tư</th>
+            <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Quy cách</th>
+            <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
+            <th style={{ width: 70, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>ĐVT</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.length === 0 ? (
+            <tr>
+              <td colSpan={6} style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text3)', textAlign: 'center', fontStyle: 'italic' }}>Đang chờ NV Định mức chi tiết nhập</td>
             </tr>
-          </thead>
-          <tbody>
-            {items.map((row, i) => (
-              <tr key={i} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={{ ...tdStyle, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.name}</td>
-                <td style={{ ...tdStyle, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.spec ?? '—'}</td>
-                <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, whiteSpace: 'nowrap' }}>{row.unitQty ?? '—'}</td>
+          ) : rows.map((r, i) => {
+            const badge = DETAIL_GROUP_BADGE[r.group]
+            return (
+              <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 12, padding: '9px 7px' }}>{i + 1}</td>
+                <td style={{ padding: '9px 14px' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: badge.fg, background: badge.bg, borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap' }}>
+                    {DETAIL_GROUP_LABELS[r.group]}
+                  </span>
+                </td>
+                <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>{r.name}</td>
+                <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{r.specs || '—'}</td>
+                <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{r.qty ?? '—'}</td>
+                <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{r.unit || '—'}</td>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
+            )
+          })}
+        </tbody>
+      </table>
     </div>
   )
 }
 
-// ─── ManhSteelSection ─────────────────────────────────────────────────────────
-// Bản "mảnh -> loại sắt con" của MaterialSection ngay bên dưới — cùng khung header/màu/nút
-// duyệt-từ chối, chỉ khác phần thân: mỗi mảnh 1 card chứa bảng loại sắt con (không phải bảng phẳng).
+// ─── ManhPiecesSection ────────────────────────────────────────────────────────
+// Bản "mảnh -> vật tư con" của MaterialSection ngay bên trên — cùng khung header/màu/nút
+// duyệt-từ chối (1 quyết định DUY NHẤT cho cả mảnh), chỉ khác phần thân: mỗi mảnh 1 card chứa
+// bảng vật tư con thuộc 5 nhóm (Sắt/Dây/Đinh/Tán rút/Nút nhựa) — không phải bảng phẳng. Nút
+// duyệt/từ chối luôn xét trên TOÀN BỘ children (mọi nhóm), `filterGroup` chỉ lọc HIỂN THỊ.
 
-function ManhSteelSection({
-  rows, entry, readOnly = false, hideStatusBadge = false, onApprove, onReject,
+const CHILD_GROUP_LABELS: Record<ManhChildGroup, string> = {
+  sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa',
+}
+const CHILD_GROUP_BADGE: Record<ManhChildGroup, { bg: string; fg: string }> = {
+  sat: { bg: '#e3f2fd', fg: '#1565c0' },
+  day: { bg: '#fff3e0', fg: '#e65100' },
+  dinh: { bg: '#f3e5f5', fg: '#7b1fa2' },
+  tanRut: { bg: '#e8f5e9', fg: '#2e7d32' },
+  nutNhua: { bg: '#fce4ec', fg: '#ad1457' },
+}
+
+function ManhPiecesSection({
+  rows, entry, readOnly = false, hideStatusBadge = false, onApprove, onReject, filterGroup,
 }: {
   rows: ManhRow[]
   entry: { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
@@ -913,6 +826,7 @@ function ManhSteelSection({
   hideStatusBadge?: boolean
   onApprove: () => void
   onReject: () => void
+  filterGroup?: ManhChildGroup
 }) {
   const status = entry?.status ?? null
   const totalChildren = rows.reduce((s, r) => s + r.children.length, 0)
@@ -921,12 +835,13 @@ function ManhSteelSection({
       <div style={{ background: '#fef3c7', padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span style={{ color: '#b45309', fontWeight: 700, fontSize: 12 }}>
-            Sắt <span style={{ fontWeight: 400, opacity: 0.7 }}>({rows.length} mảnh · {totalChildren} loại sắt)</span>
+            Định mức mảnh <span style={{ fontWeight: 400, opacity: 0.7 }}>({rows.length} mảnh · {totalChildren} dòng vật tư)</span>
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
             {status && !hideStatusBadge && <StatusBadge status={status} />}
-            {/* Chưa có loại sắt con nào thì vẫn hiện nút nhưng disable — báo rõ đang chặn vì thiếu
-                dữ liệu, thay vì âm thầm coi mục này là "đã xong". */}
+            {/* Chưa có vật tư con nào thì vẫn hiện nút nhưng disable — báo rõ đang chặn vì thiếu
+                dữ liệu, thay vì âm thầm coi mục này là "đã xong". Xét trên TOÀN BỘ children (mọi
+                nhóm), không phụ thuộc filterGroup đang lọc hiển thị gì. */}
             {!readOnly && !status && (
               <>
                 <button
@@ -963,24 +878,27 @@ function ManhSteelSection({
         <div style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text3)' }}>—</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 10 }}>
-          {rows.map(r => (
+          {rows.map(r => {
+            const children = filterGroup ? r.children.filter(c => c.group === filterGroup) : r.children
+            return (
             <div key={r.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
               <div style={{
                 display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px',
-                background: 'var(--surface2)', borderBottom: r.children.length > 0 ? '1px solid var(--border)' : 'none',
+                background: 'var(--surface2)', borderBottom: children.length > 0 ? '1px solid var(--border)' : 'none',
               }}>
                 <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{r.name}</span>
                 {r.qtyPerSku && (
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#e65100', background: '#fff3e0', borderRadius: 4, padding: '2px 7px' }}>×{r.qtyPerSku} / SKU</span>
                 )}
-                <span style={{ fontSize: 12, color: 'var(--text3)' }}>{r.children.length} loại sắt</span>
+                <span style={{ fontSize: 12, color: 'var(--text3)' }}>{children.length} dòng vật tư</span>
               </div>
-              {r.children.length > 0 && (
+              {children.length > 0 && (
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--surface2)' }}>
                       <th style={{ width: 36, padding: '7px', textAlign: 'center', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>#</th>
-                      <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Loại sắt</th>
+                      <th style={{ width: 80, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Nhóm</th>
+                      <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Vật tư</th>
                       <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Quy cách</th>
                       <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài</th>
                       <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
@@ -988,24 +906,33 @@ function ManhSteelSection({
                     </tr>
                   </thead>
                   <tbody>
-                    {r.children.map((c, i) => (
+                    {children.map((c, i) => {
+                      const badge = CHILD_GROUP_BADGE[c.group]
+                      return (
                       <tr key={c.id} style={{ borderTop: '1px solid var(--border)' }}>
                         <td style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 12, padding: '9px 7px' }}>{i + 1}</td>
+                        <td style={{ padding: '9px 14px' }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: badge.fg, background: badge.bg, borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap' }}>
+                            {CHILD_GROUP_LABELS[c.group]}
+                          </span>
+                        </td>
                         <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>
                           {c.name}
                           {c.note && <span style={{ color: 'var(--text3)', fontWeight: 400 }}> ({c.note})</span>}
                         </td>
                         <td style={{ padding: '9px 14px', color: 'var(--text3)', fontSize: 12 }}>{c.specs || '—'}</td>
-                        <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>{c.length || '—'}</td>
+                        <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>{c.group === 'sat' ? (c.length || '—') : '—'}</td>
                         <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.qty || '—'}</td>
                         <td style={{ padding: '9px 14px', color: 'var(--text3)', fontSize: 12 }}>{c.unit || '—'}</td>
                       </tr>
-                    ))}
+                      )
+                    })}
                   </tbody>
                 </table>
               )}
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>
@@ -1014,6 +941,4 @@ function ManhSteelSection({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const thStyle: React.CSSProperties      = { padding: '7px 12px', fontWeight: 600, fontSize: 11, color: 'var(--text3)' }
-const tdStyle: React.CSSProperties      = { padding: '8px 12px' }
 const btnSecondary: React.CSSProperties = { padding: '9px 20px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }

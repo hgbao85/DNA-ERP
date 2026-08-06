@@ -403,7 +403,7 @@ export const seedSpecEntryProposals = [
     createdAt: ISO('2026-06-15'),
     tasks: [
       { id: 1, specRole: 'SPEC_STEEL', status: 'PENDING', type: 'Ống sắt tròn', specifications: 'Φ16×1.0mm', thickness: 1.0 },
-      { id: 2, specRole: 'SPEC_WIRE_PAINT', status: 'PENDING', unit: 'kg', imageUrl: '', specifications: 'Dây nhựa xanh + sơn xám' },
+      { id: 2, specRole: 'SPEC_ACCESSORY', status: 'PENDING', unit: 'kg', imageUrl: '', specifications: 'Dây nhựa xanh + sơn xám' },
       { id: 3, specRole: 'SPEC_ACCESSORY', status: 'PENDING', unit: 'cái' },
       { id: 4, specRole: 'SPEC_PACKAGING', status: 'PENDING', unit: 'thùng' },
     ],
@@ -421,7 +421,7 @@ export const seedSpecEntryProposals = [
     createdAt: ISO('2026-06-10'),
     tasks: [
       { id: 5, specRole: 'SPEC_STEEL', status: 'COMPLETED', type: 'Ống sắt vuông', specifications: '25×25×1.2mm', thickness: 1.2 },
-      { id: 6, specRole: 'SPEC_WIRE_PAINT', status: 'COMPLETED', unit: 'kg', imageUrl: '', specifications: 'Dây PE xám GSS' },
+      { id: 6, specRole: 'SPEC_ACCESSORY', status: 'COMPLETED', unit: 'kg', imageUrl: '', specifications: 'Dây PE xám GSS' },
       { id: 7, specRole: 'SPEC_ACCESSORY', status: 'IN_PROGRESS', unit: 'bộ' },
       { id: 8, specRole: 'SPEC_PACKAGING', status: 'PENDING', unit: 'thùng' },
     ],
