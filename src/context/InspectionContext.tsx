@@ -4,7 +4,7 @@ import type { Sku, ManhRow } from '../types/sku'
 import type { WarehouseScope } from './AuthContext'
 import { useAuditLog } from './AuditLogContext'
 import { syncDinhMucSatVaoKeHoach, syncDinhMucSatVaoLenhPhoi, type DinhMucSatSyncItem } from '../services/api'
-import { flattenManhSteel, combinedDaySon, dinhItems } from '../utils/manhMaterials'
+import { flattenManhSteel, combinedDaySon, dinhItems, rivetItems, plasticButtonItems } from '../utils/manhMaterials'
 
 export const PROPOSAL_ENTITY = 'PurchaseProposal'
 
@@ -147,6 +147,8 @@ function buildKhoItems(pf: Sku): { phoiSonHan: InspItem[]; vatTuTP: InspItem[]; 
     vatTuTP: [
       ...daySon.filter(x => !isSon(x.name)).map(x => toItem(x.name, x.unit ?? 'm', x.kg ?? 0)),
       ...dinhItems(pf).map(x => toItem(x.name, x.unit ?? 'cây', x.kg ?? 0)),
+      ...rivetItems(pf).map(x => toItem(x.name, x.unit ?? 'cái', x.kg ?? 0)),
+      ...plasticButtonItems(pf).map(x => toItem(x.name, x.unit ?? 'cái', x.kg ?? 0)),
       ...(mt?.vatTuPhuKien ?? []).map(x => toItem(x.name, x.unit ?? 'cái', x.quantity ?? 0)),
     ],
     thanhPham: [
@@ -333,7 +335,9 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
         skuName:          pf.mfgProduct?.name,
         sentAt:           new Date().toISOString(),
         deadline:         pf.exportOrder?.deliveryDate,
-        manhItems:        pf.manhData?.sat,
+        // Chỉ lấy children nhóm Sắt — manhData.pieces giờ gồm cả 5 nhóm (Sắt/Dây/Đinh/Tán rút/
+        // Nút nhựa), nhưng "Xuất sắt cho Phôi" bên dưới chỉ đúng nghĩa với đoạn sắt.
+        manhItems:        pf.manhData?.pieces?.map(p => ({ ...p, children: p.children.filter(c => c.group === 'sat') })),
         phoiSonHan:       { status: 'pending', items: phoiSonHan },
         vatTuTP:          { status: 'pending', items: vatTuTP },
         thanhPham:        { status: 'pending', items: thanhPham },

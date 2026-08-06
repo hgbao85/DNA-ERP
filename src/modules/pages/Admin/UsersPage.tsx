@@ -29,21 +29,19 @@ const MFG_ROLE_LABEL: Record<string, string> = {
   HAN: 'Bộ phận Hàn',
   SON: 'Bộ phận Sơn',
   KCS: 'KCS — Kiểm tra chất lượng',
-  SPEC_STEEL: 'NV Định mức — Sắt',
-  SPEC_WIRE_PAINT: 'NV Định mức — Vật tư/Phụ kiện',
-  SPEC_ACCESSORY: 'NV Định mức — Bao bì/Đóng gói',
+  SPEC_STEEL: 'NV Định mức mảnh',
+  SPEC_ACCESSORY: 'NV Định mức chi tiết',
   SPEC_PACKAGING: 'NV Định mức — Đóng gói (không còn dùng)',
 }
 
 // Công đoạn sản xuất (nhóm "Nhân viên sản xuất") và vị trí định mức (nhóm "Nhân viên định
 // mức") đều lưu chung vào mfgRole — 2 tập hợp con này quyết định option nào hiện ở đâu.
 const MFG_FLOOR_VALUES: NonNullable<SystemUser['mfgRole']>[] = ['PHOI', 'HAN', 'SON', 'KCS']
-const SPEC_VALUES: NonNullable<SystemUser['mfgRole']>[] = ['SPEC_STEEL', 'SPEC_WIRE_PAINT', 'SPEC_ACCESSORY']
+const SPEC_VALUES: NonNullable<SystemUser['mfgRole']>[] = ['SPEC_STEEL', 'SPEC_ACCESSORY']
 
 const SPEC_HINT: Record<string, string> = {
-  SPEC_STEEL: 'Nhập định mức mảnh Sắt.',
-  SPEC_WIRE_PAINT: 'Nhập định mức mảnh Dây/Đinh, định mức chi tiết Sơn.',
-  SPEC_ACCESSORY: 'Nhập định mức Vật tư/Phụ kiện và định mức Bao bì/Đóng gói.',
+  SPEC_STEEL: 'Nhập định mức mảnh: Sắt, Dây, Đinh, Tán rút, Nút nhựa.',
+  SPEC_ACCESSORY: 'Nhập định mức chi tiết: Sơn, Phụ kiện, Bao bì đóng gói.',
 }
 
 // 3 kho thật đang vận hành (trước có thêm Phụ kiện/Bao bì/Dây/Sắt — dữ liệu mock mồ côi,

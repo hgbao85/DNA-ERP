@@ -18,11 +18,12 @@ import type {
   BaoBiDongGoiItem,
   CreateSkuPayload,
   DaySonItem,
+  ManhChildGroup,
   ManhChildRow,
-  ManhGroup,
   ManhRow,
   MaterialType,
   Sku,
+  QuotaEntryMeta,
   QuotaReviewStatus,
   VatTuPhuKienItem,
 } from '../types/sku';
@@ -52,20 +53,37 @@ interface BeSteelSegment {
   needsSon: boolean;
   note: string | null;
 }
-interface BeSteelPiece {
-  id: number;
-  pieceId: string;
-  name: string;
-  qtyPerUnit: number;
-  segments: BeSteelSegment[];
-}
 interface BeMaterialLine {
   id: number;
   materialId: string;
   materialCode: string;
   materialName: string;
+  materialSpec: string | null;
   materialUnit: string;
   qtyPerUnit: number;
+}
+/** Dây/Đinh/Tán rút/Nút nhựa của 1 mảnh — vật tư phẳng theo mảnh (PieceMaterialItem ở BE,
+ *  KHÔNG phải SegmentSpec: không có khái niệm cắt). */
+interface BePieceMaterialLine {
+  id: number;
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  materialSpec: string | null;
+  materialUnit: string;
+  qtyPerPiece: number;
+  note: string | null;
+}
+interface BePiece {
+  id: number;
+  pieceId: string;
+  name: string;
+  qtyPerUnit: number;
+  steel: BeSteelSegment[];
+  wire: BePieceMaterialLine[];
+  nail: BePieceMaterialLine[];
+  rivet: BePieceMaterialLine[];
+  plasticButton: BePieceMaterialLine[];
 }
 
 interface BeSku {
@@ -80,7 +98,7 @@ interface BeSku {
   status: Sku['status'];
   note: string | null;
   origin: string | null;
-  manhData: { sat: BeSteelPiece[]; day: BeMaterialLine[]; dinh: BeMaterialLine[] } | null;
+  manhData: { pieces: BePiece[] } | null;
   detailQuota: {
     daySon: BeMaterialLine[];
     vatTuPhuKien: BeMaterialLine[];
@@ -94,62 +112,80 @@ interface BeSku {
   detailReviews: BeReview[];
 }
 
-const DETAIL_GROUP_TO_BE: Record<keyof MaterialType, string> = {
-  sat: 'SAT', // dead/legacy — không có nhóm BE tương ứng, xem ghi chú dưới
-  daySon: 'DAY_SON',
-  vatTuPhuKien: 'VAT_TU_PHU_KIEN',
-  baoBiDongGoi: 'BAO_BI_DONG_GOI',
-};
-const MANH_GROUP_TO_BE: Record<ManhGroup, string> = { sat: 'SAT', day: 'DAY', dinh: 'DINH' };
+/** Mảnh giờ luôn nhập/duyệt 1 lần duy nhất (group SAT ở BE, không còn DAY/DINH riêng). */
+const MANH_REVIEW_GROUP = 'SAT';
+/** Định mức chi tiết giờ luôn nhập/duyệt 1 lần duy nhất (group DAY_SON ở BE làm sentinel, không
+ *  còn tách VAT_TU_PHU_KIEN/BAO_BI_DONG_GOI riêng). */
+const DETAIL_REVIEW_GROUP = 'DAY_SON';
 
-function toManhRow(p: BeSteelPiece): ManhRow {
+/** 4 nhóm vật tư "phẳng theo mảnh" cạnh Sắt - khớp PIECE_MATERIAL_LINE_GROUPS ở BE. */
+const CHILD_GROUP_TO_BE: Record<Exclude<ManhChildGroup, 'sat'>, string> = {
+  day: 'WIRE',
+  dinh: 'NAIL',
+  tanRut: 'RIVET',
+  nutNhua: 'PLASTIC_BUTTON',
+};
+
+function toManhRow(p: BePiece): ManhRow {
+  const steelChildren: ManhChildRow[] = p.steel.map((s) => ({
+    id: s.id,
+    group: 'sat',
+    segmentSpecId: s.segmentSpecId,
+    materialId: s.materialId,
+    name: s.materialName,
+    specs: s.materialSpec ?? undefined,
+    length: String(s.cutLengthMm),
+    qty: String(s.qtyPerPiece),
+    needsHan: s.needsHan,
+    needsSon: s.needsSon,
+    note: s.note ?? undefined,
+    unit: s.materialUnit,
+  }));
+  const lineChildren = (lines: BePieceMaterialLine[], group: Exclude<ManhChildGroup, 'sat'>): ManhChildRow[] =>
+    lines.map((l) => ({
+      id: l.id,
+      group,
+      materialId: l.materialId,
+      name: l.materialName,
+      specs: l.materialSpec ?? undefined,
+      qty: String(l.qtyPerPiece),
+      note: l.note ?? undefined,
+      unit: l.materialUnit,
+    }));
   return {
     id: p.id,
     pieceId: p.pieceId,
     name: p.name,
     qtyPerSku: String(p.qtyPerUnit),
-    children: p.segments.map(
-      (s): ManhChildRow => ({
-        id: s.id,
-        segmentSpecId: s.segmentSpecId,
-        materialId: s.materialId,
-        name: s.materialName,
-        specs: s.materialSpec ?? undefined,
-        length: String(s.cutLengthMm),
-        qty: String(s.qtyPerPiece),
-        note: s.note ?? undefined,
-        unit: s.materialUnit,
-      }),
-    ),
+    children: [
+      ...steelChildren,
+      ...lineChildren(p.wire, 'day'),
+      ...lineChildren(p.nail, 'dinh'),
+      ...lineChildren(p.rivet, 'tanRut'),
+      ...lineChildren(p.plasticButton, 'nutNhua'),
+    ],
   };
 }
 
 function toDaySonItem(l: BeMaterialLine): DaySonItem {
-  return { id: l.id, materialId: l.materialId, name: l.materialName, kg: l.qtyPerUnit, unit: l.materialUnit };
+  return { id: l.id, materialId: l.materialId, name: l.materialName, specifications: l.materialSpec ?? undefined, kg: l.qtyPerUnit, unit: l.materialUnit };
 }
 
 function toAccessoryLine(l: BeMaterialLine): VatTuPhuKienItem | BaoBiDongGoiItem {
-  return { id: l.id, materialId: l.materialId, name: l.materialName, quantity: l.qtyPerUnit, unit: l.materialUnit };
+  return { id: l.id, materialId: l.materialId, name: l.materialName, specifications: l.materialSpec ?? undefined, quantity: l.qtyPerUnit, unit: l.materialUnit };
 }
 
-function toReviewStatus<K extends string>(reviews: BeReview[], groupOf: Record<K, string>): Partial<Record<K, QuotaReviewStatus>> {
-  const out: Partial<Record<K, QuotaReviewStatus>> = {};
-  for (const key of Object.keys(groupOf) as K[]) {
-    const beGroup = groupOf[key];
-    const row = reviews.find((r) => r.group === beGroup);
-    if (row && row.status) out[key] = { status: row.status, reason: row.reason ?? undefined, reviewedAt: row.reviewedAt ?? '' };
-  }
-  return out;
+/** Mảnh/Định mức chi tiết chỉ còn 1 quyết định duyệt duy nhất (không còn Record theo nhóm như
+ *  Sắt/Dây/Đinh hay Sơn/Phụ kiện/Bao bì cũ) - `sentinelGroup` là group cố định dùng làm đại
+ *  diện cho cả nhóm gộp (xem MANH_REVIEW_GROUP/DETAIL_REVIEW_GROUP). */
+function toSingleReviewStatus(reviews: BeReview[], sentinelGroup: string): QuotaReviewStatus | undefined {
+  const row = reviews.find((r) => r.group === sentinelGroup);
+  return row && row.status ? { status: row.status, reason: row.reason ?? undefined, reviewedAt: row.reviewedAt ?? '' } : undefined;
 }
 
-function toEntryMeta<K extends string>(reviews: BeReview[], groupOf: Record<K, string>): Partial<Record<K, { enteredBy: string; enteredAt: string }>> {
-  const out: Partial<Record<K, { enteredBy: string; enteredAt: string }>> = {};
-  for (const key of Object.keys(groupOf) as K[]) {
-    const beGroup = groupOf[key];
-    const row = reviews.find((r) => r.group === beGroup);
-    if (row?.enteredBy) out[key] = { enteredBy: row.enteredBy, enteredAt: row.enteredAt ?? '' };
-  }
-  return out;
+function toSingleEntryMeta(reviews: BeReview[], sentinelGroup: string): QuotaEntryMeta | undefined {
+  const row = reviews.find((r) => r.group === sentinelGroup);
+  return row?.enteredBy ? { enteredBy: row.enteredBy, enteredAt: row.enteredAt ?? '' } : undefined;
 }
 
 function toSku(pf: BeSku): Sku {
@@ -177,16 +213,14 @@ function toSku(pf: BeSku): Sku {
         vatTuPhuKien: (pf.detailQuota?.vatTuPhuKien ?? []).map(toAccessoryLine) as MaterialType['vatTuPhuKien'],
         baoBiDongGoi: (pf.detailQuota?.baoBiDongGoi ?? []).map(toAccessoryLine) as MaterialType['baoBiDongGoi'],
       },
-      entryMeta: toEntryMeta(pf.detailReviews, DETAIL_GROUP_TO_BE),
-      reviewStatus: toReviewStatus(pf.detailReviews, DETAIL_GROUP_TO_BE),
+      entryMeta: toSingleEntryMeta(pf.detailReviews, DETAIL_REVIEW_GROUP),
+      reviewStatus: toSingleReviewStatus(pf.detailReviews, DETAIL_REVIEW_GROUP),
     },
     manhData: {
-      sat: (pf.manhData?.sat ?? []).map(toManhRow),
-      day: (pf.manhData?.day ?? []).map(toDaySonItem),
-      dinh: (pf.manhData?.dinh ?? []).map(toDaySonItem),
+      pieces: (pf.manhData?.pieces ?? []).map(toManhRow),
     },
-    manhEntryMeta: toEntryMeta(pf.manhReviews, MANH_GROUP_TO_BE),
-    manhReviewStatus: toReviewStatus(pf.manhReviews, MANH_GROUP_TO_BE),
+    manhEntryMeta: toSingleEntryMeta(pf.manhReviews, MANH_REVIEW_GROUP),
+    manhReviewStatus: toSingleReviewStatus(pf.manhReviews, MANH_REVIEW_GROUP),
     qlsxReviewStatus: pf.qlsxReviewedAt ? { status: 'APPROVED', reviewedAt: pf.qlsxReviewedAt } : undefined,
   };
 }
@@ -226,84 +260,80 @@ export async function deleteSkus(ids: (number | string)[]): Promise<void> {
 }
 
 /**
- * group='sat': `items` là `ManhRow[]` (mảnh → đoạn sắt, mỗi đoạn phải có `materialId` — chọn
- * từ MaterialPicker lọc theo nhóm Sắt, không còn gõ tên tự do) — gửi dạng `{pieces}` có cấu trúc.
- * group='day'|'dinh': `items` là `DaySonItem[]`, mỗi dòng phải có `materialId` (chọn từ
- * MaterialPicker lọc theo nhóm Dây/Đinh) — gửi dạng `{items}` phẳng.
+ * Mảnh giờ chứa cả 5 nhóm vật tư trong 1 lần gửi duy nhất - mỗi `ManhRow.children` được tách
+ * theo `group`: `group==='sat'` build `segments[]` (đoạn cắt, materialId chọn từ MaterialPicker
+ * nhóm Sắt); 4 nhóm còn lại (day/dinh/tanRut/nutNhua) build `materialLines[]` phẳng (materialId
+ * chọn từ MaterialPicker nhóm tương ứng, không có khái niệm cắt).
  */
 export async function updateSkuManhQuota(
   id: number | string,
-  group: ManhGroup,
-  items: unknown,
+  rows: ManhRow[],
   enteredBy: string,
 ): Promise<Sku> {
-  const beGroup = MANH_GROUP_TO_BE[group];
-  const body =
-    group === 'sat'
-      ? {
-          pieces: (items as ManhRow[]).map((r) => ({
-            name: r.name,
-            qtyPerUnit: Number(r.qtyPerSku) || 1,
-            segments: r.children.map((c) => ({
-              materialId: String(c.materialId ?? ''),
-              cutLengthMm: Number(c.length) || 0,
-              qtyPerPiece: Number(c.qty) || 0,
-              note: c.note || undefined,
-            })),
-          })),
-          enteredBy,
-        }
-      : {
-          items: (items as DaySonItem[]).map((it) => ({
-            materialId: String(it.materialId ?? ''),
-            qtyPerUnit: it.kg ?? 0,
-          })),
-          enteredBy,
-        };
-  const updated = await http.post<BeSku>(`/skus/${id}/manh-quota/${beGroup}`, body);
-  return toSku(updated);
-}
-
-/** `items` phải có `materialId` trên mỗi dòng — chọn từ MaterialPicker (nhóm Sơn cho
- *  daySon, Phụ kiện cho vatTuPhuKien, Bao bì cho baoBiDongGoi). */
-export async function updateSkuDetailQuota<K extends keyof MaterialType>(
-  id: number | string,
-  group: K,
-  items: unknown,
-  enteredBy: string,
-): Promise<Sku> {
-  const beGroup = DETAIL_GROUP_TO_BE[group];
-  const arr = items as (DaySonItem | VatTuPhuKienItem | BaoBiDongGoiItem)[];
   const body = {
-    items: arr.map((it) => ({
-      materialId: String(it.materialId ?? ''),
-      qtyPerUnit: ('kg' in it ? it.kg : 'quantity' in it ? it.quantity : 0) ?? 0,
+    pieces: rows.map((r) => ({
+      name: r.name,
+      qtyPerUnit: Number(r.qtyPerSku) || 1,
+      segments: r.children
+        .filter((c) => c.group === 'sat')
+        .map((c) => ({
+          materialId: String(c.materialId ?? ''),
+          cutLengthMm: Number(c.length) || 0,
+          qtyPerPiece: Number(c.qty) || 0,
+          needsHan: c.needsHan,
+          needsSon: c.needsSon,
+          note: c.note || undefined,
+        })),
+      materialLines: r.children
+        .filter((c): c is ManhChildRow & { group: Exclude<ManhChildGroup, 'sat'> } => c.group !== 'sat')
+        .map((c) => ({
+          group: CHILD_GROUP_TO_BE[c.group],
+          materialId: String(c.materialId ?? ''),
+          qtyPerPiece: Number(c.qty) || 0,
+          note: c.note || undefined,
+        })),
     })),
     enteredBy,
   };
-  const updated = await http.post<BeSku>(`/skus/${id}/detail-quota/${beGroup}`, body);
+  const updated = await http.post<BeSku>(`/skus/${id}/manh-quota`, body);
+  return toSku(updated);
+}
+
+/**
+ * Định mức chi tiết giờ chứa cả 3 nhóm (Sơn/Phụ kiện/Bao bì) trong 1 lần gửi duy nhất - mỗi
+ * mảng được tag `group` tương ứng (DAY_SON/VAT_TU_PHU_KIEN/BAO_BI_DONG_GOI) trước khi gộp
+ * thành `detailLines[]` gửi lên. `materialId` trên mỗi dòng chọn từ MaterialPicker (nhóm Sơn/
+ * Phụ kiện/Bao bì tương ứng).
+ */
+export async function updateSkuDetailQuota(
+  id: number | string,
+  payload: { daySon: DaySonItem[]; vatTuPhuKien: VatTuPhuKienItem[]; baoBiDongGoi: BaoBiDongGoiItem[] },
+  enteredBy: string,
+): Promise<Sku> {
+  const detailLines = [
+    ...payload.daySon.map((it) => ({ group: 'DAY_SON', materialId: String(it.materialId ?? ''), qtyPerUnit: it.kg ?? 0 })),
+    ...payload.vatTuPhuKien.map((it) => ({ group: 'VAT_TU_PHU_KIEN', materialId: String(it.materialId ?? ''), qtyPerUnit: it.quantity ?? 0 })),
+    ...payload.baoBiDongGoi.map((it) => ({ group: 'BAO_BI_DONG_GOI', materialId: String(it.materialId ?? ''), qtyPerUnit: it.quantity ?? 0 })),
+  ]
+  const updated = await http.post<BeSku>(`/skus/${id}/detail-quota`, { detailLines, enteredBy });
   return toSku(updated);
 }
 
 export async function reviewSkuManhQuota(
   id: number | string,
-  group: ManhGroup,
   status: ReviewDecision,
   reason?: string,
 ): Promise<Sku> {
-  const beGroup = MANH_GROUP_TO_BE[group];
-  const updated = await http.post<BeSku>(`/skus/${id}/manh-quota/${beGroup}/review`, { status, reason });
+  const updated = await http.post<BeSku>(`/skus/${id}/manh-quota/review`, { status, reason });
   return toSku(updated);
 }
 
-export async function reviewSkuDetailQuota<K extends keyof MaterialType>(
+export async function reviewSkuDetailQuota(
   id: number | string,
-  group: K,
   status: ReviewDecision,
   reason?: string,
 ): Promise<Sku> {
-  const beGroup = DETAIL_GROUP_TO_BE[group];
-  const updated = await http.post<BeSku>(`/skus/${id}/detail-quota/${beGroup}/review`, { status, reason });
+  const updated = await http.post<BeSku>(`/skus/${id}/detail-quota/review`, { status, reason });
   return toSku(updated);
 }
 
