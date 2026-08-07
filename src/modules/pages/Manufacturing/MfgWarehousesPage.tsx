@@ -1,156 +1,71 @@
 'use client'
 import { useState } from 'react'
 import { useAuth } from '../../../context/AuthContext'
-import { createUser } from '../../../services/api'
+import { useFetch } from '../../../hooks/useFetch'
+import {
+  createUser, getWarehouses, createWarehouse, deleteWarehouse,
+  getMaterials, createMaterial, getMaterialGroups, getStockQuants, getStockLedger,
+} from '../../../services/api'
 import { Plus, Trash2, X, ArrowLeft, Warehouse, Search } from 'lucide-react'
 
-// ── Types ─────────────────────────────────────────────────────────────────────
+// ── Types (view-model tối giản, khớp field thật cần dùng - xem warehouses-api.ts/
+//    materials-api.ts/stock-api.ts cho hợp đồng đầy đủ) ─────────────────────────
 
-export interface Item {
+interface WhRow {
+  id: string
+  code: string
+  name: string
+  note: string | null
+}
+interface MaterialRow {
+  id: number
+  code: string
+  name: string
+  unit: string
+  spec: string | null
+  materialGroupId: number | null
+  warehouseId: string | null
+}
+interface GroupRow {
   id: number
   name: string
-  unit: string
-  quantity: number
-  code?: string
-  color?: string
-  size?: string
-  note?: string
 }
-export interface Txn {
+interface QuantRow {
+  materialId: string | null
+  warehouseId: string
+  qty: number
+}
+interface LedgerRow {
   id: string
-  itemId: number
-  itemName: string
-  unit: string
-  type: 'IMPORT' | 'EXPORT'
-  quantity: number
-  note: string
-  date: string
+  fromWarehouseCode: string
+  toWarehouseCode: string
+  materialCode: string | null
+  qty: number
+  note: string | null
+  createdAt: string
 }
-export interface Wh {
-  id: string         // 'phoi-son-han' | 'vat-tu-tp' | 'thanh-pham' | 'thanh-pham-{n}'
+export interface StockItem {
+  materialId: number
+  code: string
   name: string
-  category: string
-  items: Item[]
-  txns: Txn[]
+  unit: string
+  spec: string | null
+  groupName: string
+  qty: number
 }
 
-// ── Dữ liệu khởi tạo 3 kho ───────────────────────────────────────────────────
+// ── Config nhóm (label/mô tả header + gate nút "Tạo kho thành phẩm mới") ───────
 
-export const INITIAL_WAREHOUSES: Wh[] = [
-  {
-    id: 'phoi-son-han',
-    name: 'Kho phôi sơn hàn',
-    category: 'Phôi kim loại, sơn, vật tư hàn và cơ khí',
-    txns: [],
-    items: [
-      { id: 101, name: 'Thép ống D25×1.5',           unit: 'm',    quantity: 1_200 },
-      { id: 102, name: 'Thép ống D32×2.0',           unit: 'm',    quantity:   850 },
-      { id: 103, name: 'Thép tấm dày 1.5mm',         unit: 'm²',   quantity:   420 },
-      { id: 104, name: 'Thép hộp 25×25×1.2mm',       unit: 'm',    quantity:   680 },
-      { id: 105, name: 'Sơn tĩnh điện đen',          unit: 'kg',   quantity:   380 },
-      { id: 106, name: 'Sơn tĩnh điện trắng',        unit: 'kg',   quantity:   210 },
-      { id: 107, name: 'Sơn tĩnh điện nâu sồi',     unit: 'kg',   quantity:   145 },
-      { id: 108, name: 'Que hàn điện 3.2mm',         unit: 'hộp',  quantity:    95 },
-      { id: 109, name: 'Dây hàn MIG 0.8mm',          unit: 'cuộn', quantity:    42 },
-      { id: 110, name: 'Nhớt cắt gọt công nghiệp',  unit: 'lít',  quantity:    28 },
-      { id: 111, name: 'Đĩa cắt sắt 105mm',         unit: 'cái',  quantity:   350 },
-      { id: 112, name: 'Đĩa mài sắt 125mm',         unit: 'cái',  quantity:   200 },
-    ],
-  },
-  {
-    id: 'vat-tu-tp',
-    name: 'Kho vật tư thành phẩm',
-    category: 'Vật tư, phụ kiện, dây đan dùng cho thành phẩm',
-    txns: [],
-    items: [
-      { id: 201, name: 'Dây đan PE 2mm – trắng',      unit: 'm',    quantity: 8_500 },
-      { id: 202, name: 'Dây đan PE 2mm – đen',        unit: 'm',    quantity: 6_200 },
-      { id: 203, name: 'Dây đan PE 2mm – xanh lam',  unit: 'm',    quantity: 4_800 },
-      { id: 204, name: 'Dây đan PE 2mm – ghi xám',   unit: 'm',    quantity: 3_100 },
-      { id: 205, name: 'Ốc vít M6×20',                unit: 'cái',  quantity: 5_000 },
-      { id: 206, name: 'Bu lông M8×30',               unit: 'cái',  quantity: 3_200 },
-      { id: 207, name: 'Đai ốc M6',                   unit: 'cái',  quantity: 4_500 },
-      { id: 208, name: 'Vòng đệm M6',                 unit: 'cái',  quantity: 4_500 },
-      { id: 209, name: 'Nhựa bịt đầu ống D25',       unit: 'cái',  quantity: 2_100 },
-      { id: 210, name: 'Nệm ghế dày 5cm',             unit: 'cái',  quantity:   320 },
-      { id: 211, name: 'Gioăng cao su đặc',           unit: 'cái',  quantity: 1_500 },
-      { id: 212, name: 'Tem nhãn sản phẩm',           unit: 'tờ',   quantity:   800 },
-    ],
-  },
-  {
-    id: 'thanh-pham',
-    name: 'Kho thành phẩm',
-    category: 'Thành phẩm và bao bì đóng gói hoàn chỉnh',
-    txns: [],
-    items: [
-      { id: 301, name: 'Ghế sắt mặt đan PE – trắng',      unit: 'cái', quantity: 145 },
-      { id: 302, name: 'Ghế sắt mặt đan PE – đen',        unit: 'cái', quantity:  98 },
-      { id: 303, name: 'Ghế sắt mặt đan PE – xanh lam',  unit: 'cái', quantity:  74 },
-      { id: 304, name: 'Bàn sắt mặt đan PE tròn Ø80',    unit: 'cái', quantity:  62 },
-      { id: 305, name: 'Bàn sắt mặt đan PE chữ nhật',    unit: 'cái', quantity:  45 },
-      { id: 306, name: 'Bộ bàn ghế ngoài trời 4 chỗ',    unit: 'bộ',  quantity:  35 },
-      { id: 307, name: 'Bộ bàn ghế ngoài trời 6 chỗ',    unit: 'bộ',  quantity:  18 },
-      { id: 308, name: 'Ghế xếp compact',                 unit: 'cái', quantity: 180 },
-      { id: 309, name: 'Bao bì carton 5 lớp',             unit: 'cái', quantity: 320 },
-      { id: 310, name: 'Thùng bìa đôi',                   unit: 'cái', quantity: 145 },
-      { id: 311, name: 'Màng PE bọc sản phẩm',            unit: 'cuộn',quantity:  24 },
-    ],
-  },
-  {
-    id: 'thanh-pham-2',
-    name: 'Kho thành phẩm 2',
-    category: 'Thành phẩm nhựa và nội thất ngoài trời',
-    txns: [],
-    items: [
-      { id: 401, name: 'Ghế nhựa đúc liền khối – trắng',   unit: 'cái',  quantity: 220 },
-      { id: 402, name: 'Ghế nhựa đúc liền khối – xanh rêu', unit: 'cái', quantity: 156 },
-      { id: 403, name: 'Bàn nhựa tròn Ø70',                unit: 'cái',  quantity:  98 },
-      { id: 404, name: 'Kệ sắt 3 tầng đa năng',            unit: 'cái',  quantity:  54 },
-      { id: 405, name: 'Kệ sắt 5 tầng đa năng',            unit: 'cái',  quantity:  32 },
-      { id: 406, name: 'Xe đẩy hàng mini',                 unit: 'cái',  quantity:  40 },
-      { id: 407, name: 'Ghế bố xếp gọn',                   unit: 'cái',  quantity: 210 },
-      { id: 408, name: 'Dù che nắng lệch tâm',              unit: 'cái',  quantity:  15 },
-      { id: 409, name: 'Bao bì carton 3 lớp',              unit: 'cái',  quantity: 400 },
-      { id: 410, name: 'Túi PE đóng gói lớn',               unit: 'cái',  quantity: 180 },
-    ],
-  },
-  {
-    id: 'thanh-pham-3',
-    name: 'Kho thành phẩm 3',
-    category: 'Thành phẩm dã ngoại và đồ gia dụng',
-    txns: [],
-    items: [
-      { id: 501, name: 'Giường lưới xếp gọn',              unit: 'cái',  quantity:  60 },
-      { id: 502, name: 'Võng xếp khung thép',              unit: 'cái',  quantity:  85 },
-      { id: 503, name: 'Ghế xích đu đôi',                  unit: 'cái',  quantity:  22 },
-      { id: 504, name: 'Bàn xếp dã ngoại',                 unit: 'cái',  quantity:  48 },
-      { id: 505, name: 'Ô dù sân vườn lớn',                unit: 'cái',  quantity:  12 },
-      { id: 506, name: 'Kệ giày nhựa 4 tầng',              unit: 'cái',  quantity: 130 },
-      { id: 507, name: 'Thùng nhựa đựng đồ 50L',           unit: 'cái',  quantity:  90 },
-      { id: 508, name: 'Rổ nhựa công nghiệp',              unit: 'cái',  quantity: 260 },
-      { id: 509, name: 'Màng co bọc hàng',                 unit: 'cuộn', quantity:  35 },
-      { id: 510, name: 'Nhãn mác đóng gói',                unit: 'tờ',   quantity: 500 },
-    ],
-  },
+interface WhGroup { key: string; label: string; desc: string }
+
+const WAREHOUSE_GROUPS: WhGroup[] = [
+  { key: 'all',          label: 'Tất cả kho',             desc: 'Tổng hợp tất cả kho' },
+  { key: 'phoi-son-han', label: 'Kho phôi sơn hàn',      desc: 'Phôi kim loại, sơn, vật tư hàn và cơ khí' },
+  { key: 'vat-tu-tp',    label: 'Kho vật tư thành phẩm', desc: 'Vật tư, phụ kiện, dây đan dùng cho thành phẩm' },
+  { key: 'thanh-pham',   label: 'Kho thành phẩm',         desc: 'Thành phẩm và bao bì đóng gói hoàn chỉnh' },
 ]
 
-// ── Config nhóm (dùng cho WarehouseTabsPage & filterWarehousesByGroup) ────────
-
-export interface WhGroup { key: string; label: string; desc: string; match: (wh: { name: string }) => boolean }
-
-export const WAREHOUSE_GROUPS: WhGroup[] = [
-  { key: 'all',          label: 'Tất cả kho',             desc: 'Tổng hợp tất cả kho',                       match: () => true },
-  { key: 'phoi-son-han', label: 'Kho phôi sơn hàn',      desc: 'Phôi kim loại, sơn, vật tư hàn và cơ khí', match: wh => /phôi|sắt|sơn|hàn|cơ\s*khí/i.test(wh.name) },
-  { key: 'vat-tu-tp',    label: 'Kho vật tư thành phẩm', desc: 'Vật tư, phụ kiện, dây đan dùng cho thành phẩm', match: wh => /vật\s*tư|phụ\s*kiện|dây|khung/i.test(wh.name) },
-  { key: 'thanh-pham',   label: 'Kho thành phẩm',         desc: 'Thành phẩm và bao bì đóng gói hoàn chỉnh', match: wh => /thành\s*phẩm|bao\s*bì/i.test(wh.name) },
-]
-
-export function filterWarehousesByGroup<T extends { name: string }>(list: T[], groupKey?: string | null): T[] {
-  const g = groupKey ? WAREHOUSE_GROUPS.find(x => x.key === groupKey) : null
-  return g ? list.filter(g.match) : list
-}
-
-const BASE_IDS = new Set(['phoi-son-han', 'vat-tu-tp', 'thanh-pham'])
+const BASE_CODES = new Set(['phoi-son-han', 'vat-tu-tp', 'thanh-pham'])
 
 /** true nếu scope thuộc "họ" kho thành phẩm — kho gốc 'thanh-pham' hoặc kho phụ 'thanh-pham-{n}'. */
 export function isThanhPhamScope(scope?: string | null): boolean {
@@ -164,19 +79,37 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
   const canWrite = user?.mfgRole === 'PRODUCTION_MANAGER'
   const isAdmin  = user?.role === 'ADMIN'
 
-  const [warehouses, setWarehouses] = useState<Wh[]>(INITIAL_WAREHOUSES)
+  const { data: warehouses, isLoading: whLoading, error: whError, refetch: refetchWarehouses } = useFetch<WhRow[]>(getWarehouses)
+  const { data: materials, refetch: refetchMaterials } = useFetch<MaterialRow[]>(getMaterials)
+  const { data: groups } = useFetch<GroupRow[]>(getMaterialGroups)
+  const { data: quants, refetch: refetchQuants } = useFetch<QuantRow[]>(() => getStockQuants())
+
   const [openId, setOpenId]         = useState<string | null>(null)
   const [newAccount, setNewAccount] = useState<{ whName: string; email: string; password: string } | null>(null)
   const [creating, setCreating]     = useState(false)
 
   const group = groupKey ? WAREHOUSE_GROUPS.find(g => g.key === groupKey) : null
 
-  // Lọc theo groupKey (khớp ID trực tiếp thay vì regex tên)
+  // Lọc theo groupKey (khớp code trực tiếp thay vì regex tên)
   const visibleWhs = (groupKey && groupKey !== 'all')
-    ? warehouses.filter(w => w.id === groupKey || w.id.startsWith(groupKey + '-'))
-    : warehouses
+    ? (warehouses ?? []).filter(w => w.code === groupKey || w.code.startsWith(groupKey + '-'))
+    : (warehouses ?? [])
 
   const isThanhPhamContext = !group || group.key === 'all' || group.key === 'thanh-pham'
+
+  const itemsOf = (whId: string): StockItem[] => {
+    const qtyByMaterial = new Map(
+      (quants ?? []).filter(q => q.warehouseId === whId && q.materialId).map(q => [q.materialId, q.qty]),
+    )
+    const groupNameById = new Map((groups ?? []).map(g => [String(g.id), g.name]))
+    return (materials ?? [])
+      .filter(m => m.warehouseId === whId)
+      .map(m => ({
+        materialId: m.id, code: m.code, name: m.name, unit: m.unit, spec: m.spec,
+        groupName: m.materialGroupId ? (groupNameById.get(String(m.materialGroupId)) ?? '—') : '—',
+        qty: qtyByMaterial.get(String(m.id)) ?? 0,
+      }))
+  }
 
   // Tạo kho thành phẩm mới + tài khoản thủ kho riêng, hoạt động độc lập với các kho
   // thành phẩm khác (chỉ quản lý đúng kho vừa tạo) nhưng có đầy đủ chức năng như
@@ -185,51 +118,46 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
     if (creating) return
     setCreating(true)
     try {
-      const template = warehouses.find(w => w.id === 'thanh-pham')!
-      const count    = warehouses.filter(w => w.id === 'thanh-pham' || w.id.startsWith('thanh-pham-')).length
-      const n        = count + 1
-      const whId     = `thanh-pham-${Date.now()}`
-      const whName   = `Kho thành phẩm ${n}`
-
-      const newWh: Wh = {
-        id:       whId,
-        name:     whName,
-        category: template.category,
-        items:    [],
-        txns:     [],
-      }
+      const count = (warehouses ?? []).filter(w => w.code === 'thanh-pham' || w.code.startsWith('thanh-pham-')).length
+      const n      = count + 1
+      const whCode = `thanh-pham-${Date.now()}`
+      const whName = `Kho thành phẩm ${n}`
+      const newWh  = await createWarehouse({ code: whCode, name: whName, isVirtual: false, note: 'Kho thành phẩm phụ' })
 
       const name  = `Thủ kho Thành Phẩm ${n}`
       let   email = `khotp${n}@demo.com`
       const password = 'demo1234'
       try {
-        await createUser({ name, email, password, role: 'WAREHOUSE_STAFF', warehouseScope: whId })
+        await createUser({ name, email, password, role: 'WAREHOUSE_STAFF', warehouseScope: newWh.code })
       } catch {
         // email trùng (vd. đã có khotp{n}@demo.com từ trước) — fallback email duy nhất theo timestamp
         email = `khotp${n}.${Date.now()}@demo.com`
-        await createUser({ name, email, password, role: 'WAREHOUSE_STAFF', warehouseScope: whId })
+        await createUser({ name, email, password, role: 'WAREHOUSE_STAFF', warehouseScope: newWh.code })
       }
 
-      setWarehouses(prev => [...prev, newWh])
+      await refetchWarehouses()
       setNewAccount({ whName, email, password })
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Không thể tạo kho mới')
     } finally {
       setCreating(false)
     }
   }
 
-  const updateWh  = (updated: Wh) => setWarehouses(prev => prev.map(w => w.id === updated.id ? updated : w))
-  const deleteWh  = (id: string)  => setWarehouses(prev => prev.filter(w => w.id !== id))
+  const openWh = (warehouses ?? []).find(w => w.code === openId) ?? null
 
-  const openWh = warehouses.find(w => w.id === openId) ?? null
+  if (whLoading) return <div style={{ color: 'var(--text3)' }}>Đang tải...</div>
+  if (whError)   return <div style={{ color: '#c62828' }}>Không tải được danh sách kho: {whError}</div>
 
   if (openWh) return (
     <WarehouseDetail
       wh={openWh}
+      items={itemsOf(openWh.id)}
       canWrite={canWrite}
-      isDeletable={!BASE_IDS.has(openWh.id)}
+      isDeletable={!BASE_CODES.has(openWh.code)}
       onBack={() => setOpenId(null)}
-      onUpdate={updateWh}
-      onDelete={() => { deleteWh(openWh.id); setOpenId(null) }}
+      onMaterialCreated={() => { void refetchMaterials(); void refetchQuants() }}
+      onWarehouseDeleted={() => { void refetchWarehouses(); setOpenId(null) }}
     />
   )
 
@@ -248,13 +176,18 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 14 }}>
-        {visibleWhs.map(wh => (
-          <WhCard
-            key={wh.id}
-            wh={wh}
-            onOpen={() => setOpenId(wh.id)}
-          />
-        ))}
+        {visibleWhs.map(wh => {
+          const items = itemsOf(wh.id)
+          return (
+            <WhCard
+              key={wh.code}
+              wh={wh}
+              itemCount={items.length}
+              totalQty={items.reduce((s, it) => s + it.qty, 0)}
+              onOpen={() => setOpenId(wh.code)}
+            />
+          )
+        })}
       </div>
 
       {visibleWhs.length === 0 && (
@@ -302,7 +235,7 @@ function NewAccountModal({ account, onClose }: {
 
 // ── Thẻ kho ───────────────────────────────────────────────────────────────────
 
-function WhCard({ wh, onOpen }: { wh: Wh; onOpen: () => void }) {
+function WhCard({ wh, itemCount, totalQty, onOpen }: { wh: WhRow; itemCount: number; totalQty: number; onOpen: () => void }) {
   return (
     <button
       onClick={onOpen}
@@ -319,14 +252,14 @@ function WhCard({ wh, onOpen }: { wh: Wh; onOpen: () => void }) {
         <Warehouse size={18} color="#e65100" />
         <span style={{ fontWeight: 700, fontSize: 15 }}>{wh.name}</span>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text2)' }}>{wh.category}</div>
+      <div style={{ fontSize: 12, color: 'var(--text2)' }}>{wh.note || '—'}</div>
       <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end' }}>
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: '#e65100', lineHeight: 1 }}>
-            {wh.items.length} mặt hàng
+            {itemCount} mặt hàng
           </div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-            Tồn {wh.items.reduce((s, it) => s + it.quantity, 0).toLocaleString('vi-VN')}
+            Tồn {totalQty.toLocaleString('vi-VN')}
           </div>
         </div>
       </div>
@@ -336,29 +269,45 @@ function WhCard({ wh, onOpen }: { wh: Wh; onOpen: () => void }) {
 
 // ── Chi tiết kho ──────────────────────────────────────────────────────────────
 
-function WarehouseDetail({ wh, canWrite, isDeletable, onBack, onUpdate, onDelete }: {
-  wh: Wh
+function WarehouseDetail({ wh, items, canWrite, isDeletable, onBack, onMaterialCreated, onWarehouseDeleted }: {
+  wh: WhRow
+  items: StockItem[]
   canWrite: boolean
   isDeletable: boolean
   onBack: () => void
-  onUpdate: (updated: Wh) => void
-  onDelete: () => void
+  onMaterialCreated: () => void
+  onWarehouseDeleted: () => void
 }) {
   const [tab, setTab]       = useState<'stock' | 'history'>('stock')
   const [search, setSearch] = useState('')
-  const [editItem, setEditItem] = useState<Item | 'new' | null>(null)
+  const [adding, setAdding] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
-  const filteredItems = wh.items.filter(it =>
-    !search || it.name.toLowerCase().includes(search.toLowerCase())
+  const { data: ledger } = useFetch<LedgerRow[]>(() => getStockLedger({ warehouseId: wh.id }), [wh.id])
+
+  const filteredItems = items.filter(it =>
+    !search || it.name.toLowerCase().includes(search.toLowerCase()) || it.code.toLowerCase().includes(search.toLowerCase()),
   )
 
-  const handleSaveItem = (saved: Item) => {
-    const exists = wh.items.find(it => it.id === saved.id)
-    const newItems = exists
-      ? wh.items.map(it => it.id === saved.id ? saved : it)
-      : [...wh.items, { ...saved, id: Date.now() }]
-    onUpdate({ ...wh, items: newItems })
-    setEditItem(null)
+  const txns: Txn[] = (ledger ?? []).map(e => ({
+    id: e.id,
+    itemName: e.materialCode ?? '—',
+    type: e.toWarehouseCode === wh.code ? 'IMPORT' : 'EXPORT',
+    quantity: e.qty,
+    note: e.note ?? (e.toWarehouseCode === wh.code ? `Nhận từ ${e.fromWarehouseCode}` : `Chuyển đến ${e.toWarehouseCode}`),
+    date: e.createdAt,
+  }))
+
+  const handleDeleteWarehouse = async () => {
+    if (!confirm(`Xóa kho "${wh.name}"?`)) return
+    setDeleting(true)
+    try {
+      await deleteWarehouse(wh.id)
+      onWarehouseDeleted()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Không thể xóa kho')
+      setDeleting(false)
+    }
   }
 
   const tabBtn = (id: 'stock' | 'history', label: string) => (
@@ -387,10 +336,10 @@ function WarehouseDetail({ wh, canWrite, isDeletable, onBack, onUpdate, onDelete
               <Search size={14} style={{ position: 'absolute', left: 8, top: 9, color: 'var(--text3)' }} />
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tên / mã…" style={{ ...inp, paddingLeft: 28, width: 200 }} />
             </div>
-            {canWrite && <button onClick={() => setEditItem('new')} style={btnPrimary}><Plus size={15} /> Thêm vật tư</button>}
+            {canWrite && <button onClick={() => setAdding(true)} style={btnPrimary}><Plus size={15} /> Thêm vật tư</button>}
             {isDeletable && (
-              <button onClick={() => { if (confirm(`Xóa kho "${wh.name}"?`)) onDelete() }} style={{ ...btnGhost, color: '#dc2626', borderColor: '#fca5a5' }}>
-                <Trash2 size={14} /> Xóa kho
+              <button onClick={handleDeleteWarehouse} disabled={deleting} style={{ ...btnGhost, color: '#dc2626', borderColor: '#fca5a5', opacity: deleting ? 0.6 : 1 }}>
+                <Trash2 size={14} /> {deleting ? 'Đang xóa...' : 'Xóa kho'}
               </button>
             )}
           </>
@@ -409,31 +358,30 @@ function WarehouseDetail({ wh, canWrite, isDeletable, onBack, onUpdate, onDelete
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                <th style={th}>Mã vật tư</th>
                 <th style={th}>Tên vật tư</th>
-                <th style={th}>Màu / kích thước</th>
+                <th style={th}>Nhóm vật tư</th>
+                <th style={th}>Quy cách</th>
                 <th style={th}>ĐVT</th>
                 <th style={{ ...th, textAlign: 'right' }}>Tồn</th>
               </tr>
             </thead>
             <tbody>
               {filteredItems.map(it => (
-                <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={td}>
-                    <div style={{ fontWeight: 500 }}>{it.name}</div>
-                    {it.note && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{it.note}</div>}
-                  </td>
-                  <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>
-                    {[it.color, it.size].filter(Boolean).join(' · ') || '—'}
-                  </td>
+                <tr key={it.materialId} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{it.code}</td>
+                  <td style={{ ...td, fontWeight: 500 }}>{it.name}</td>
+                  <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{it.groupName}</td>
+                  <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{it.spec || '—'}</td>
                   <td style={td}>{it.unit}</td>
-                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: it.quantity <= 0 ? '#c62828' : 'var(--text)' }}>
-                    {it.quantity.toLocaleString('vi-VN')}
+                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: it.qty <= 0 ? '#c62828' : 'var(--text)' }}>
+                    {it.qty.toLocaleString('vi-VN')}
                   </td>
                 </tr>
               ))}
               {filteredItems.length === 0 && (
-                <tr><td colSpan={canWrite ? 5 : 4} style={{ ...td, color: 'var(--text3)', textAlign: 'center', padding: 24 }}>
-                  {wh.items.length === 0 ? 'Kho chưa có vật tư.' : 'Không tìm thấy vật tư.'}
+                <tr><td colSpan={6} style={{ ...td, color: 'var(--text3)', textAlign: 'center', padding: 24 }}>
+                  {items.length === 0 ? 'Kho chưa có vật tư.' : 'Không tìm thấy vật tư.'}
                 </td></tr>
               )}
             </tbody>
@@ -442,13 +390,13 @@ function WarehouseDetail({ wh, canWrite, isDeletable, onBack, onUpdate, onDelete
       )}
 
       {/* Lịch sử */}
-      {tab === 'history' && <WarehouseHistory txns={wh.txns} />}
+      {tab === 'history' && <WarehouseHistory txns={txns} />}
 
-      {editItem && (
-        <ItemModal
-          item={editItem === 'new' ? null : editItem}
-          onClose={() => setEditItem(null)}
-          onDone={handleSaveItem}
+      {adding && (
+        <AddMaterialModal
+          warehouseId={wh.id}
+          onClose={() => setAdding(false)}
+          onDone={() => { setAdding(false); onMaterialCreated() }}
         />
       )}
     </div>
@@ -456,6 +404,15 @@ function WarehouseDetail({ wh, canWrite, isDeletable, onBack, onUpdate, onDelete
 }
 
 // ── Lịch sử nhập/xuất ────────────────────────────────────────────────────────
+
+interface Txn {
+  id: string
+  itemName: string
+  type: 'IMPORT' | 'EXPORT'
+  quantity: number
+  note: string
+  date: string
+}
 
 function WarehouseHistory({ txns }: { txns: Txn[] }) {
   const [typeFilter, setTypeFilter] = useState<'ALL' | 'IMPORT' | 'EXPORT'>('ALL')
@@ -548,47 +505,49 @@ function WarehouseHistory({ txns }: { txns: Txn[] }) {
   )
 }
 
-// ── Modal thêm / sửa vật tư ───────────────────────────────────────────────────
+// ── Modal thêm vật tư (tạo Material thật, gán warehouseId = kho đang xem) ──────
 
-function ItemModal({ item, onClose, onDone }: {
-  item: Item | null; onClose: () => void; onDone: (saved: Item) => void
+function AddMaterialModal({ warehouseId, onClose, onDone }: {
+  warehouseId: string; onClose: () => void; onDone: () => void
 }) {
-  const [form, setForm] = useState<Omit<Item, 'id'>>({
-    name:  item?.name  ?? '',
-    unit:  item?.unit  ?? '',
-    quantity: item?.quantity ?? 0,
-    color: item?.color ?? '',
-    size:  item?.size  ?? '',
-    note:  item?.note  ?? '',
-  })
-  const [err, setErr] = useState<string | null>(null)
+  const [form, setForm] = useState({ code: '', name: '', unit: '', spec: '' })
+  const [err, setErr]   = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
 
   const set = (key: keyof typeof form, val: string) => setForm(p => ({ ...p, [key]: val }))
 
-  const submit = () => {
+  const submit = async () => {
+    if (!form.code.trim()) { setErr('Mã vật tư bắt buộc'); return }
     if (!form.name.trim()) { setErr('Tên vật tư bắt buộc'); return }
     if (!form.unit.trim()) { setErr('ĐVT bắt buộc'); return }
-    onDone({ ...form, id: item?.id ?? 0, quantity: item ? form.quantity : 0 })
+    setErr(null)
+    setSaving(true)
+    try {
+      await createMaterial({ code: form.code, name: form.name, unit: form.unit, spec: form.spec || undefined, warehouseId })
+      onDone()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Không thể thêm vật tư')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
     <Overlay onClose={onClose}>
       <div style={modalCard}>
-        <ModalHead title={item ? 'Sửa vật tư' : 'Thêm vật tư'} onClose={onClose} />
+        <ModalHead title="Thêm vật tư" onClose={onClose} />
+        <label style={lbl}>Mã vật tư *</label>
+        <input value={form.code} onChange={e => set('code', e.target.value)} style={inp} />
         <label style={lbl}>Tên vật tư *</label>
         <input value={form.name} onChange={e => set('name', e.target.value)} style={inp} />
         <label style={lbl}>ĐVT *</label>
         <input value={form.unit} onChange={e => set('unit', e.target.value)} style={inp} />
-        <label style={lbl}>Màu / đặc tính</label>
-        <input value={form.color ?? ''} onChange={e => set('color', e.target.value)} style={inp} />
-        <label style={lbl}>Kích thước</label>
-        <input value={form.size ?? ''} onChange={e => set('size', e.target.value)} style={inp} />
-        <label style={lbl}>Ghi chú</label>
-        <input value={form.note ?? ''} onChange={e => set('note', e.target.value)} style={inp} />
+        <label style={lbl}>Quy cách</label>
+        <input value={form.spec} onChange={e => set('spec', e.target.value)} style={inp} placeholder="VD: 10x29x0.8" />
         {err && <div style={{ color: '#c62828', fontSize: 13, marginTop: 8 }}>{err}</div>}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
           <button onClick={onClose} style={btnGhost}>Hủy</button>
-          <button onClick={submit} style={btnPrimary}>Lưu</button>
+          <button onClick={submit} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
         </div>
       </div>
     </Overlay>

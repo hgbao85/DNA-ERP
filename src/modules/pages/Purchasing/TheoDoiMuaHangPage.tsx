@@ -3,7 +3,9 @@ import { useState } from 'react'
 import { ChevronLeft, Truck } from 'lucide-react'
 import { useInspection, PROPOSAL_STATUS_LABELS, type PurchaseProposal } from '../../../context/InspectionContext'
 import { useAuth } from '../../../context/AuthContext'
-import { visibleProposalsFor } from '../../../utils/purchasingRouting'
+import { useFetch } from '../../../hooks/useFetch'
+import { getMaterials } from '../../../services/api'
+import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purchasingRouting'
 
 const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
 const td: React.CSSProperties = { padding: '9px 12px' }
@@ -52,7 +54,9 @@ function statusTag(p: PurchaseProposal) {
 export default function TheoDoiMuaHangPage() {
   const { user } = useAuth()
   const { proposals: allProposals } = useInspection()
-  const proposals = visibleProposalsFor(user, allProposals).filter(p => p.status === 'purchasing')
+  const { data: materials } = useFetch(getMaterials)
+  const buyerByMaterialId = buildBuyerByMaterialId(materials ?? [])
+  const proposals = visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.status === 'purchasing')
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = proposals.find(p => p.id === selectedId) ?? null

@@ -4,7 +4,9 @@ import { ChevronLeft, History } from 'lucide-react'
 import { format } from 'date-fns'
 import { useInspection, type PurchaseProposal } from '../../../context/InspectionContext'
 import { useAuth } from '../../../context/AuthContext'
-import { visibleProposalsFor } from '../../../utils/purchasingRouting'
+import { useFetch } from '../../../hooks/useFetch'
+import { getMaterials } from '../../../services/api'
+import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purchasingRouting'
 
 const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
 const td: React.CSSProperties = { padding: '9px 12px' }
@@ -44,7 +46,9 @@ function buildRows(p: PurchaseProposal): Row[] {
 export default function LichSuMuaHangPage() {
   const { user } = useAuth()
   const { proposals: allProposals } = useInspection()
-  const proposals = visibleProposalsFor(user, allProposals).filter(p => p.status === 'purchased')
+  const { data: materials } = useFetch(getMaterials)
+  const buyerByMaterialId = buildBuyerByMaterialId(materials ?? [])
+  const proposals = visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.status === 'purchased')
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = proposals.find(p => p.id === selectedId) ?? null

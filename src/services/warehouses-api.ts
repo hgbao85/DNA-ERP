@@ -18,3 +18,12 @@ export async function getWarehouses(): Promise<BeWarehouse[]> {
   const res = await http.get<BeWarehouse[] | { data: BeWarehouse[] }>('/warehouses?limit=100');
   return Array.isArray(res) ? res : res.data;
 }
+
+export async function createWarehouse(data: { code: string; name: string; isVirtual?: boolean; note?: string }): Promise<BeWarehouse> {
+  return http.post<BeWarehouse>('/warehouses', data);
+}
+
+export async function deleteWarehouse(id: string): Promise<{ id: string }> {
+  await http.del(`/warehouses/${id}`);
+  return { id };
+}
