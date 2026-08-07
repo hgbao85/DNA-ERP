@@ -3,17 +3,21 @@ import { ChevronLeft, Send, ClipboardList, CheckCircle2, Plus, X } from 'lucide-
 import { useInspection, PROPOSAL_ENTITY, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type ProposalQuote } from '../../../context/InspectionContext'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
-import { visibleProposalsFor } from '../../../utils/purchasingRouting'
+import { useFetch } from '../../../hooks/useFetch'
+import { getMaterials } from '../../../services/api'
+import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purchasingRouting'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
 import { format } from 'date-fns'
 
 export default function LenhMuaNCCPage() {
   const { user } = useAuth()
   const { proposals: allProposals, acknowledgeProposal, submitProposalToDirector, requoteProposal } = useInspection()
-  // Purchasing chỉ thấy đề xuất của đúng kho mình phụ trách (user.warehouseScope) — xem purchasingRouting.ts
+  const { data: materials } = useFetch(getMaterials)
+  const buyerByMaterialId = buildBuyerByMaterialId(materials ?? [])
+  // Purchasing chỉ thấy đề xuất chứa vật tư mình được gán mua (Material.buyerId) — xem purchasingRouting.ts
   // Status 'purchasing' (đang mua hàng, chờ nhận) đã chuyển sang màn "Theo dõi mua hàng", còn 'purchased'
   // (đã nhận đủ hàng) đã chuyển sang màn "Lịch sử đã mua" — cả 2 không còn hiển thị ở đây.
-  const proposals = visibleProposalsFor(user, allProposals).filter(p => p.status !== 'purchasing' && p.status !== 'purchased')
+  const proposals = visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.status !== 'purchasing' && p.status !== 'purchased')
 
   return (
     <div>

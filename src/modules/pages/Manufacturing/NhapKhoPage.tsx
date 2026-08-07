@@ -4,24 +4,47 @@ import { ArrowDownToLine, ArrowLeftRight, ChevronLeft } from 'lucide-react'
 import { format } from 'date-fns'
 import { canReceiveAt } from '../../../types/warehouse-transfer'
 import { NhapNoiBoSection } from '../InboundWarehouse/InternalTransferSections'
-import { useInspection, PROPOSAL_STATUS_LABELS, type PurchaseProposal } from '../../../context/InspectionContext'
+import { useInspection, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
 import { compactTh as th, compactTd as td } from '../../../styles/table'
+import { useFetch } from '../../../hooks/useFetch'
+import { getMaterials, getWarehouses } from '../../../services/api'
 
 // ── NhapKhoSection: list đề xuất đã duyệt (đang mua/đã mua) → detail nhập kho ─
 // Nguồn dữ liệu là PurchaseProposal thật (đã qua Purchasing báo giá + Boss duyệt),
-// không tự tính từ SKU nữa — mỗi kho chỉ thấy đúng phần mình phụ trách.
+// không tự tính từ SKU nữa — hàng về vào đúng kho đã khai ở field "Kho" của vật tư
+// (Material.warehouseId, xem Admin > Vật tư), KHÔNG còn theo warehouseScope của cả đề
+// xuất - 1 đề xuất/PO có thể chứa vật tư của nhiều kho khác nhau.
 function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
   const { proposals, receiveProposalItem } = useInspection()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // inputs[`${proposalId}:${itemName}`] = số lượng đang nhập dở
   const [inputs, setInputs] = useState<Record<string, string>>({})
 
-  // Tổng kho/Giám đốc (lockedGroup null) thấy hết, thủ kho theo scope chỉ thấy đúng kho mình.
+  const { data: materials } = useFetch(getMaterials)
+  const { data: warehouses } = useFetch(getWarehouses)
+  // lockedGroup là mã kho (vd 'phoi-son-han') - cần quy đổi sang id thật để so khớp
+  // Material.warehouseId (cũng là id thật, không phải mã).
+  const scopeWarehouseId = lockedGroup ? (warehouses ?? []).find(w => w.code === lockedGroup)?.id ?? null : null
+  const warehouseIdByMaterialId = new Map((materials ?? []).map(m => [m.id, m.warehouseId]))
+
+  // Dòng vật tư chưa gán kho (material.warehouseId rỗng, hoặc item cũ chưa link materialId)
+  // vẫn hiện cho mọi thủ kho để không "mồ côi" tới khi có người nhận - cùng nguyên tắc đã
+  // áp dụng cho routing Mua hàng (xem purchasingRouting.ts).
+  const itemInScope = (item: PurchaseProposalItem): boolean => {
+    if (!scopeWarehouseId) return true // Tổng kho/Giám đốc thấy hết
+    if (item.materialId == null) return true
+    const whId = warehouseIdByMaterialId.get(item.materialId)
+    return !whId || whId === scopeWarehouseId
+  }
+
+  // Tổng kho/Giám đốc (lockedGroup null) thấy hết, thủ kho theo scope chỉ thấy đề xuất có
+  // ít nhất 1 dòng vật tư thuộc kho mình.
   const relevant = proposals.filter(p =>
     (p.status === 'purchasing' || p.status === 'purchased') &&
-    (!lockedGroup || p.warehouseScope === lockedGroup)
+    p.items.some(itemInScope)
   )
   const selected = relevant.find(p => p.id === selectedId) ?? null
+  const visibleItems = selected ? selected.items.filter(itemInScope) : []
 
   const inputKey = (proposalId: string, itemName: string) => `${proposalId}:${itemName}`
 
@@ -78,7 +101,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
               </tr>
             </thead>
             <tbody>
-              {selected.items.map(item => {
+              {visibleItems.map(item => {
                 const received = item.receivedQty ?? 0
                 const done = received >= item.buyQty
                 const partial = received > 0 && !done

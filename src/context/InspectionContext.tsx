@@ -12,9 +12,10 @@ export const PROPOSAL_ENTITY = 'PurchaseProposal'
 
 export type KhoKey = 'phoiSonHan' | 'vatTuTP' | 'thanhPham'
 
-// Kho phụ trách của từng nhóm vật tư — dùng để tách đề xuất mua theo kho và route
-// tới đúng tài khoản Purchasing (user.warehouseScope) phụ trách kho đó. Thêm kho mới
-// chỉ cần thêm 1 dòng ở đây, không phải sửa logic tách/route ở nơi khác.
+// Kho phụ trách của từng nhóm vật tư — dùng để tách đề xuất mua theo kho (mỗi kho tự
+// kiểm tồn riêng). KHÔNG còn dùng để route tới tài khoản Purchasing (đã chuyển sang gán
+// theo từng vật tư - Material.buyerId, xem src/utils/purchasingRouting.ts). Thêm kho mới
+// chỉ cần thêm 1 dòng ở đây, không phải sửa logic tách ở nơi khác.
 export const KHO_KEY_TO_WAREHOUSE_SCOPE: Record<KhoKey, WarehouseScope> = {
   phoiSonHan: 'phoi-son-han',
   vatTuTP: 'vat-tu-tp',

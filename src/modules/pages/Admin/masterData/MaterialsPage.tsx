@@ -2,7 +2,7 @@
 import { Package } from 'lucide-react'
 import { useFetch } from '../../../../hooks/useFetch'
 import { useAuditLog } from '../../../../context/AuditLogContext'
-import { getMaterials, createMaterial, updateMaterial, deleteMaterial, getMaterialGroups } from '../../../../services/api'
+import { getMaterials, createMaterial, updateMaterial, deleteMaterial, getMaterialGroups, getWarehouses, getUsers } from '../../../../services/api'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
 
 interface Material {
@@ -12,6 +12,8 @@ interface Material {
   unit: string
   spec?: string | null
   materialGroupId?: number | null
+  warehouseId?: string | null
+  buyerId?: string | null
   khoUnitFactor?: number | null
 }
 
@@ -20,11 +22,28 @@ interface MaterialGroup {
   name: string
 }
 
+interface Warehouse {
+  id: string
+  name: string
+}
+
+interface Purchaser {
+  id: number
+  name: string
+  isPurchaser?: boolean
+}
+
 export default function MaterialsPage() {
   const { logAction } = useAuditLog()
   const { data: groups } = useFetch<MaterialGroup[]>(getMaterialGroups)
   const groupList = groups ?? []
   const groupName = (id?: number | null) => groupList.find((g) => g.id === id)?.name ?? '—'
+  const { data: warehouses } = useFetch<Warehouse[]>(getWarehouses)
+  const warehouseList = warehouses ?? []
+  const warehouseName = (id?: string | null) => warehouseList.find((w) => w.id === id)?.name ?? '—'
+  const { data: users } = useFetch<Purchaser[]>(getUsers)
+  const buyerList = (users ?? []).filter((u) => u.isPurchaser)
+  const buyerName = (id?: string | null) => buyerList.find((u) => String(u.id) === id)?.name ?? '—'
 
   const config: AdminEntityConfig<Material> = {
     title: 'Vật tư',
@@ -40,6 +59,8 @@ export default function MaterialsPage() {
       { key: 'unit', label: 'Đơn vị' },
       { key: 'spec', label: 'Quy cách', render: (m) => m.spec || '—' },
       { key: 'materialGroupId', label: 'Nhóm vật tư', render: (m) => groupName(m.materialGroupId) },
+      { key: 'warehouseId', label: 'Kho', render: (m) => warehouseName(m.warehouseId) },
+      { key: 'buyerId', label: 'Nhân viên mua hàng', render: (m) => buyerName(m.buyerId) },
       { key: 'khoUnitFactor', label: 'Hệ số quy đổi kho', align: 'right' },
     ],
     filters: groupList.map((g) => ({ key: String(g.id), label: g.name, predicate: (m: Material) => m.materialGroupId === g.id })),
@@ -54,6 +75,14 @@ export default function MaterialsPage() {
       {
         name: 'materialGroupId', label: 'Nhóm vật tư', type: 'select',
         options: groupList.map((g) => ({ value: String(g.id), label: g.name })),
+      },
+      {
+        name: 'warehouseId', label: 'Kho', type: 'select',
+        options: warehouseList.map((w) => ({ value: w.id, label: w.name })),
+      },
+      {
+        name: 'buyerId', label: 'Nhân viên mua hàng', type: 'select',
+        options: buyerList.map((u) => ({ value: String(u.id), label: u.name })),
       },
       { name: 'khoUnitFactor', label: 'Hệ số quy đổi kho', type: 'number', placeholder: 'VD: 600' },
     ],

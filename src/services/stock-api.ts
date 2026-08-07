@@ -1,0 +1,42 @@
+/**
+ * Adapter STOCK: FE ⇄ BE thật (module `stock` — stock-quant + stock-ledger, Phase 3 Ledger
+ * Core). stock_quant là cache tồn kho (materialize từ stock_ledger bằng trigger DB, chỉ đọc).
+ * stock_ledger là sổ cái bút toán kép fromWarehouse->toWarehouse, chỉ đọc qua GET ở đây - ghi
+ * bút toán thật đi qua các flow nghiệp vụ khác (warehouse-transfers...), không phải adapter này.
+ */
+import { http } from './core/http';
+
+export interface BeStockQuant {
+  id: string;
+  warehouseId: string;
+  warehouseCode: string;
+  materialId: string | null;
+  materialCode: string | null;
+  qty: number;
+  updatedAt: string;
+}
+
+export interface BeStockLedgerEntry {
+  id: string;
+  fromWarehouseId: string;
+  fromWarehouseCode: string;
+  toWarehouseId: string;
+  toWarehouseCode: string;
+  materialId: string | null;
+  materialCode: string | null;
+  qty: number;
+  refType: string;
+  note: string | null;
+  createdAt: string;
+}
+
+export async function getStockQuants(params?: { warehouseId?: string }): Promise<BeStockQuant[]> {
+  return http.get<BeStockQuant[]>('/stock-quant', { params });
+}
+
+export async function getStockLedger(params: { warehouseId: string; limit?: number }): Promise<BeStockLedgerEntry[]> {
+  const res = await http.get<{ data: BeStockLedgerEntry[] } | BeStockLedgerEntry[]>('/stock-ledger', {
+    params: { limit: 100, ...params },
+  });
+  return Array.isArray(res) ? res : res.data;
+}

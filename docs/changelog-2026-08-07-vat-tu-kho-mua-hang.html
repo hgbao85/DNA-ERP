@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Nhật ký thay đổi: Vật tư ↔ Kho ↔ Mua hàng</title>
+<style>
+:root{
+  --ground:#EEF0F0; --paper:#FFFFFF; --ink:#1B2023; --ink-soft:#565F66;
+  --line:#D8DCDD; --line-strong:#C3C9CA;
+  --accent:#C4501E; --accent-bg:#FBE9DE; --accent-ink:#9C3E17;
+  --add:#1E7A4C; --add-bg:#E1F1E7;
+  --chg:#B7791B; --chg-bg:#FBF0DA;
+  --del:#B0332B; --del-bg:#FAE4E2;
+  --fe:#2B6CB0; --fe-bg:#E3EDF7;
+  --be:#6B4FA0; --be-bg:#EDE7F6;
+  --db:#1E7A4C; --db-bg:#E1F1E7;
+  --code-bg:#F4F5F5; --shadow:0 1px 2px rgba(20,24,26,.05),0 6px 20px rgba(20,24,26,.06);
+  --serif: ui-serif,"Iowan Old Style","Palatino Linotype","URW Palladio",Georgia,serif;
+  --sans: -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono: ui-monospace,"SF Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --ground:#14181A; --paper:#1B2124; --ink:#E7EAEA; --ink-soft:#9AA3A8;
+    --line:#2B3235; --line-strong:#3A4348;
+    --accent:#E08350; --accent-bg:#3A2416; --accent-ink:#F0A472;
+    --add:#5FBB8B; --add-bg:#173226;
+    --chg:#D9A441; --chg-bg:#332609;
+    --del:#E0776D; --del-bg:#3A1E1B;
+    --fe:#6FA3D8; --fe-bg:#1B2C3D;
+    --be:#B39DDB; --be-bg:#2A2140;
+    --db:#5FBB8B; --db-bg:#173226;
+    --code-bg:#20272A; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#14181A; --paper:#1B2124; --ink:#E7EAEA; --ink-soft:#9AA3A8;
+  --line:#2B3235; --line-strong:#3A4348;
+  --accent:#E08350; --accent-bg:#3A2416; --accent-ink:#F0A472;
+  --add:#5FBB8B; --add-bg:#173226;
+  --chg:#D9A441; --chg-bg:#332609;
+  --del:#E0776D; --del-bg:#3A1E1B;
+  --fe:#6FA3D8; --fe-bg:#1B2C3D;
+  --be:#B39DDB; --be-bg:#2A2140;
+  --db:#5FBB8B; --db-bg:#173226;
+  --code-bg:#20272A; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+}
+:root[data-theme="light"]{
+  --ground:#EEF0F0; --paper:#FFFFFF; --ink:#1B2023; --ink-soft:#565F66;
+  --line:#D8DCDD; --line-strong:#C3C9CA;
+  --accent:#C4501E; --accent-bg:#FBE9DE; --accent-ink:#9C3E17;
+  --add:#1E7A4C; --add-bg:#E1F1E7;
+  --chg:#B7791B; --chg-bg:#FBF0DA;
+  --del:#B0332B; --del-bg:#FAE4E2;
+  --fe:#2B6CB0; --fe-bg:#E3EDF7;
+  --be:#6B4FA0; --be-bg:#EDE7F6;
+  --db:#1E7A4C; --db-bg:#E1F1E7;
+  --code-bg:#F4F5F5; --shadow:0 1px 2px rgba(20,24,26,.05),0 6px 20px rgba(20,24,26,.06);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--ground); color:var(--ink); font-family:var(--sans);
+  line-height:1.6; font-size:15.5px; -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent-bg)}
+a{color:var(--accent-ink)}
+code, pre, .mono{font-family:var(--mono)}
+code{background:var(--code-bg); padding:.1em .4em; border-radius:4px; font-size:.88em}
+
+.topbar{
+  position:sticky; top:0; z-index:30; display:flex; align-items:center; justify-content:space-between;
+  gap:1rem; padding:.7rem 1.4rem; background:var(--paper); border-bottom:1px solid var(--line);
+  box-shadow:var(--shadow);
+}
+.topbar .brand{font-family:var(--serif); font-weight:600; font-size:1.05rem; display:flex; align-items:baseline; gap:.55rem}
+.topbar .brand small{font-family:var(--mono); font-weight:400; color:var(--ink-soft); font-size:.72rem; letter-spacing:.02em}
+.topbar button{
+  border:1px solid var(--line); background:var(--paper); color:var(--ink); border-radius:7px;
+  padding:.42rem .8rem; font-size:.83rem; font-family:var(--sans); cursor:pointer;
+}
+.topbar button:hover{background:var(--accent-bg); border-color:var(--accent)}
+.topbar button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+.wrap{max-width:58rem; margin:0 auto; padding:2.6rem 1.6rem 6rem}
+@media (max-width:640px){ .wrap{padding:1.6rem 1.1rem 4rem} }
+
+.masthead{max-width:54rem; margin-bottom:2.2rem}
+.eyebrow{font-family:var(--mono); font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; color:var(--accent-ink)}
+h1{font-family:var(--serif); font-size:1.95rem; font-weight:600; margin:.5rem 0 .7rem; text-wrap:balance; letter-spacing:-.01em}
+.lede{color:var(--ink-soft); font-size:1.02rem; max-width:64ch}
+.meta{display:flex; gap:1.2rem; flex-wrap:wrap; margin-top:1rem; font-size:.82rem; color:var(--ink-soft); font-family:var(--mono)}
+
+.tldr{
+  background:var(--paper); border:1px solid var(--line); border-radius:11px; box-shadow:var(--shadow);
+  padding:1.2rem 1.4rem; margin:1.6rem 0 2.6rem;
+}
+.tldr h2{margin:0 0 .7rem; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; font-family:var(--mono); color:var(--ink-soft)}
+.tldr ul{margin:0; padding-left:1.2rem; display:flex; flex-direction:column; gap:.45rem}
+.tldr li{font-size:.94rem}
+
+.module{margin-top:3rem; scroll-margin-top:1.2rem}
+.module > h2{
+  font-family:var(--serif); font-size:1.35rem; font-weight:600; margin:0 0 .3rem; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+}
+.module-note{color:var(--ink-soft); font-size:.92rem; margin:.4rem 0 1.3rem; max-width:66ch}
+
+.badge{
+  display:inline-flex; align-items:center; font-family:var(--mono); font-size:.68rem; font-weight:700;
+  letter-spacing:.03em; padding:.18rem .5rem; border-radius:5px; text-transform:uppercase;
+}
+.b-fe{background:var(--fe-bg); color:var(--fe)}
+.b-be{background:var(--be-bg); color:var(--be)}
+.b-db{background:var(--db-bg); color:var(--db)}
+
+.pill{
+  display:inline-flex; align-items:center; font-size:.72rem; font-weight:700; padding:.12rem .55rem;
+  border-radius:20px; font-family:var(--sans);
+}
+.p-add{background:var(--add-bg); color:var(--add)}
+.p-chg{background:var(--chg-bg); color:var(--chg)}
+.p-del{background:var(--del-bg); color:var(--del)}
+
+.card{
+  background:var(--paper); border:1px solid var(--line); border-radius:11px; box-shadow:var(--shadow);
+  padding:1.1rem 1.3rem; margin-bottom:.9rem;
+}
+.card h3{margin:0 0 .35rem; font-size:1rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap}
+.card p{margin:.3rem 0 0; color:var(--ink-soft); font-size:.92rem; max-width:68ch}
+.card .path{font-family:var(--mono); font-size:.82rem}
+
+.callout{
+  border:1px solid var(--line); background:var(--paper); border-left:3px solid var(--accent);
+  border-radius:8px; padding:.85rem 1.1rem; margin:1rem 0; font-size:.92rem; max-width:68ch;
+}
+.callout b{color:var(--accent-ink)}
+.callout.warn{border-left-color:var(--chg); background:var(--chg-bg)}
+.callout.warn b{color:var(--chg)}
+.callout.ok{border-left-color:var(--add); background:var(--add-bg)}
+.callout.ok b{color:var(--add)}
+
+.tbl-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:9px; margin:1rem 0 0; box-shadow:var(--shadow)}
+table{width:100%; border-collapse:collapse; font-size:.86rem; background:var(--paper)}
+th, td{text-align:left; padding:.6rem .8rem; border-bottom:1px solid var(--line); vertical-align:top}
+thead th{font-family:var(--mono); font-size:.68rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); background:var(--code-bg)}
+tbody tr:last-child td{border-bottom:none}
+td.path{font-family:var(--mono); font-size:.8rem; white-space:nowrap}
+
+.timeline{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:1.1rem}
+.timeline li{padding-left:1.6rem; position:relative; font-size:.94rem}
+.timeline li::before{
+  content:''; position:absolute; left:0; top:.42em; width:.55rem; height:.55rem; border-radius:50%;
+  background:var(--accent);
+}
+.timeline b{display:block; margin-bottom:.1rem}
+.timeline span{color:var(--ink-soft)}
+
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:9px; overflow:hidden; margin:1rem 0}
+.stat{background:var(--paper); padding:.9rem 1rem}
+.stat .n{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:1.5rem; font-weight:700; color:var(--accent-ink); line-height:1.1}
+.stat .l{margin-top:.2rem; font-size:.72rem; color:var(--ink-soft)}
+
+footer{margin-top:3.5rem; padding-top:1.4rem; border-top:1px solid var(--line); color:var(--ink-soft); font-size:.85rem; max-width:66ch}
+
+.back-to-top{
+  position:fixed; bottom:1.4rem; right:1.4rem; width:2.6rem; height:2.6rem; border-radius:50%;
+  border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:1.1rem; cursor:pointer;
+  box-shadow:var(--shadow); opacity:.85;
+}
+.back-to-top:hover{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">DNA-ERP <small>NHẬT KÝ THAY ĐỔI</small></div>
+  <button id="theme-toggle" type="button">◐ Theme</button>
+</div>
+
+<div class="wrap">
+  <div class="masthead">
+    <div class="eyebrow">Backend + Frontend · Material.warehouseId + Material.buyerId · Tái cấu trúc Kho · Dọn dữ liệu test</div>
+    <h1>Thêm Kho &amp; Người mua vào Vật tư, nối "Tổng hợp kho" sang API thật, tái cấu trúc gán trách nhiệm</h1>
+    <p class="lede">
+      2 field mới trên <code>Material</code> (<code>warehouseId</code>, <code>buyerId</code>) làm nền
+      cho việc nối trang "Tổng hợp kho" từ mock sang API thật, đổi mô hình gán trách nhiệm mua
+      hàng/nhận hàng từ "theo kho" sang "theo từng vật tư", và thu gọn danh sách kho vật lý từ 6
+      xuống 3 kho gốc. Kết thúc bằng việc dọn sạch dữ liệu test (vật tư, định mức, SKU, đơn hàng,
+      lệnh sản xuất) theo yêu cầu để làm lại từ đầu.
+    </p>
+    <div class="meta">
+      <span>07/08/2026</span>
+      <span>2 repo: <code>DNA-ERP-BE</code> (schema/API) · <code>DNA-ERP</code> (nối trang, đổi routing)</span>
+      <span>2 migration mới — <b>đã áp dụng &amp; verify trên DB thật</b></span>
+      <span>2 đợt dọn dữ liệu — 113 dòng, 18 bảng</span>
+    </div>
+  </div>
+
+  <div class="tldr">
+    <h2>Tóm tắt nhanh</h2>
+    <ul>
+      <li><code>Material.warehouseId</code> (kho vật tư nằm khi tạo) và <code>Material.buyerId</code> (nhân viên mua hàng phụ trách) — 2 field FK mới, mỗi cái 1 migration riêng.</li>
+      <li>Trang "Tổng hợp kho" (<code>MfgWarehousesPage.tsx</code>) viết lại hoàn toàn — từ 100% dữ liệu giả lập cứng sang gọi <code>stock-quant</code>/<code>stock-ledger</code>/<code>warehouses</code>/<code>materials</code> thật.</li>
+      <li>Thu gọn <code>warehouses</code> từ 6 vật lý xuống 3 vật lý gốc (+3 ảo giữ nguyên) — xác minh 0 tham chiếu trước khi xoá 3 kho cũ.</li>
+      <li>Đổi hẳn ngữ nghĩa gán trách nhiệm Mua hàng: trước gán theo <code>warehouseScope</code> (1 người phụ trách mọi vật tư trong 1 kho), giờ gán theo từng <code>Material.buyerId</code> — viết lại toàn bộ <code>purchasingRouting.ts</code> theo đó.</li>
+      <li>Nhận hàng (<code>NhapKhoPage.tsx</code>) đổi sang route theo <code>Material.warehouseId</code> thay vì kho nào phát hiện thiếu hàng lúc kiểm tồn.</li>
+      <li>Dọn dữ liệu test theo yêu cầu, chia 2 đợt, rà soát dependency graph đầy đủ trước mỗi đợt, xin xác nhận phạm vi trước khi xoá — tổng 113 dòng, 18 bảng.</li>
+      <li>Dọn code mock chết: <code>mfg.service.ts</code> từ 59 export xuống còn 8 export thật đang dùng, xoá 3 class mock hoàn toàn không còn ai gọi — rà soát bằng grep đối chiếu toàn repo, giữ lại đúng 2 hàm còn dùng thật (<code>getMfgWarehouses</code>/<code>Items</code>, phục vụ <code>VatTuDashboardPage.tsx</code>) dù trông giống phần đã bị thay thế.</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════════════ 1. MATERIAL.WAREHOUSEID ═══════════════════════ -->
+
+  <div class="module">
+    <h2><span class="badge b-db">DB</span><span class="badge b-be">BE</span><span class="badge b-fe">FE</span> 1. <code>Material.warehouseId</code> — vật tư biết mình thuộc kho nào</h2>
+    <p class="module-note">Migration <code>20260807022219_add_material_warehouse</code> (BE, <code>DNA-ERP-BE</code>) — cột nullable, không phá dữ liệu hiện có.</p>
+
+    <div class="card">
+      <h3><span class="pill p-add">Mới</span> <span class="path">materials.warehouse_id</span></h3>
+      <p>FK nullable → <code>warehouses.id</code>, kèm index. <code>CreateMaterialDto</code>/<code>MaterialResponseDto</code>/<code>MaterialsService</code> (<code>create</code>/<code>update</code>/<code>toResponseDto</code>) đều đã hỗ trợ, cùng pattern với <code>materialGroupId</code> có sẵn.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">materials-api.ts</span></h3>
+      <p>Truyền <code>warehouseId</code> trong payload create/update. Trang Admin &gt; Vật tư (<code>MaterialsPage.tsx</code>) có thêm dropdown "Kho" (fetch <code>getWarehouses()</code>) + cột hiển thị tên kho trong bảng danh sách.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ 2. TÁI CẤU TRÚC KHO ═══════════════════════ -->
+
+  <div class="module">
+    <h2><span class="badge b-db">DB</span><span class="badge b-be">BE</span> 2. Tái cấu trúc Kho: 3 kho gốc thay vì 6</h2>
+    <p class="module-note">
+      Quyết định nghiệp vụ: chỉ còn 3 kho vật lý gốc — <code>phoi-son-han</code>, <code>vat-tu-tp</code>,
+      <code>thanh-pham</code> (kho này được phép tạo thêm nhiều instance phụ, vd <code>thanh-pham-{n}</code>).
+      Bỏ hẳn 3 kho cũ <code>phu-kien</code>/<code>sat</code>/<code>day</code>.
+    </p>
+
+    <div class="stats">
+      <div class="stat"><div class="n">6→3</div><div class="l">kho vật lý</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">tham chiếu tới 3 kho bị xoá</div></div>
+      <div class="stat"><div class="n">9→6</div><div class="l">tổng mã kho protected</div></div>
+    </div>
+
+    <div class="callout ok">
+      <b>Xác minh trước khi xoá:</b> 0 vật tư/tồn kho/lịch sử tham chiếu tới <code>phu-kien</code>/<code>sat</code>/<code>day</code>. 3 chuỗi <code>sat</code>/<code>day</code> chỉ được dùng làm tag phân loại vật tư trùng tên ở tầng FE, không phải mã kho thật ở bất kỳ đâu — an toàn để xoá.
+    </div>
+
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">protected-warehouse-codes.constant.ts</span> (BE)</h3>
+      <p>Còn đúng 3 kho vật lý + 3 kho ảo (6, trước là 9) — danh sách duy nhất mà <code>warehouses.service.ts</code> chặn xoá/đổi mã.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">prisma/seed.ts</span> (BE)</h3>
+      <p>Bỏ 3 entry <code>phu-kien</code>/<code>sat</code>/<code>day</code> khỏi <code>SEED_WAREHOUSES</code>. Xoá 3 row kho cũ trực tiếp trong DB bằng script một lần.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ 3. TỔNG HỢP KHO ═══════════════════════ -->
+
+  <div class="module">
+    <h2><span class="badge b-fe">FE</span><span class="badge b-be">BE</span> 3. Trang "Tổng hợp kho" (<code>MfgWarehousesPage.tsx</code>) — từ mock sang API thật</h2>
+    <p class="module-note">
+      Trang trước đó dùng 100% dữ liệu giả lập cứng (<code>INITIAL_WAREHOUSES</code>), không gọi API
+      nào cho phần kho/vật tư/tồn kho. Viết lại hoàn toàn.
+    </p>
+
+    <div class="card">
+      <h3>Tồn kho</h3>
+      <p>Vật tư thật có <code>warehouseId</code> = kho đang xem (<code>getMaterials</code>), số tồn lấy từ <code>GET /stock-quant</code> (mặc định 0 nếu chưa có chuyển động kho); có thêm cột "Nhóm vật tư" (<code>getMaterialGroups</code>).</p>
+    </div>
+    <div class="card">
+      <h3>Lịch sử Nhập/Xuất</h3>
+      <p><code>GET /stock-ledger</code> thật, suy ra Nhập/Xuất dựa vào <code>to</code>/<code>fromWarehouseCode</code> so với kho đang xem.</p>
+    </div>
+    <div class="card">
+      <h3>Thêm vật tư</h3>
+      <p>Gọi <code>createMaterial</code> thật (gán <code>warehouseId</code> = kho đang xem) — thêm field "Mã vật tư" (BE bắt buộc, bản mock cũ không có); bỏ cột Màu/Kích thước/Ghi chú (không có trong schema thật) đổi thành "Quy cách".</p>
+    </div>
+    <div class="card">
+      <h3>Tạo/Xoá kho thành phẩm phụ</h3>
+      <p>Gọi <code>createWarehouse</code>/<code>deleteWarehouse</code> thật (trước đây kho chỉ tồn tại trong state cục bộ, F5 là mất).</p>
+    </div>
+
+    <div class="callout">
+      <b>Adapter FE mới:</b> <code>warehouses-api.ts</code> thêm <code>createWarehouse</code>/<code>deleteWarehouse</code>; <code>stock-api.ts</code> (file mới) thêm <code>getStockQuants</code>/<code>getStockLedger</code> — không cần API backend mới, module <code>stock</code> (<code>stock-quant</code>, <code>stock-ledger</code>) đã có sẵn từ Phase 3, chỉ chưa được FE gọi tới.
+    </div>
+
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> Quyền RBAC (BE)</h3>
+      <p><code>WAREHOUSE_STAFF</code> và <code>PRODUCTION_MANAGER</code> trước đó thiếu <code>MATERIAL:VIEW</code>, <code>WAREHOUSE:VIEW</code>, <code>STOCK:VIEW</code> (và <code>MATERIAL:CREATE</code> cho QLSX) — 2 role này là người dùng thật của trang, thiếu quyền sẽ 403 ngay khi tải. Đã bổ sung trong <code>role-permissions.constant.ts</code> + chạy lại <code>npm run seed</code> để sync quyền vào DB.</p>
+    </div>
+    <div class="callout warn">
+      <b>Lưu ý khi deploy:</b> user đã đăng nhập sẵn cần đăng xuất/đăng nhập lại để nhận quyền mới — quyền có thể đã được nhúng vào token cũ lúc đăng nhập trước đó.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ 4. MATERIAL.BUYERID ═══════════════════════ -->
+
+  <div class="module">
+    <h2><span class="badge b-db">DB</span><span class="badge b-be">BE</span><span class="badge b-fe">FE</span> 4. <code>Material.buyerId</code> — đổi mô hình gán Mua hàng từ "theo kho" sang "theo vật tư"</h2>
+    <p class="module-note">Migration <code>20260807040230_add_material_buyer</code> (BE).</p>
+
+    <div class="callout">
+      <b>Bối cảnh nghiệp vụ:</b> trước đó, nhân viên Mua hàng được gán 1 <code>warehouseScope</code>
+      (giống thủ kho) — 1 người phụ trách mua <b>mọi vật tư</b> trong 1 kho. Vấn đề: 1 kho chứa nhiều
+      loại vật tư không liên quan (vd kho "Vật tư thành phẩm" gồm cả sơn, dây, vật tư tiêu hao), gán
+      theo kho là gộp nhầm "hàng nằm ở đâu" với "ai chịu trách nhiệm mua". Đổi sang gán theo từng vật
+      tư — khớp với cách hệ thống đã tách trách nhiệm ở chỗ khác
+      (<code>SPEC_STEEL_STAFF</code>/<code>SPEC_ACCESSORY_STAFF</code> tách theo <i>loại vật tư</i>,
+      không theo kho).
+    </div>
+
+    <div class="card">
+      <h3><span class="pill p-add">Mới</span> <span class="path">materials.buyer_id</span> (BE)</h3>
+      <p>FK nullable → <code>users.id</code>, kiểu <b>UUID text</b> — khác các FK bigint-as-string khác trong hệ thống, vì <code>User.id</code> vốn là UUID chứ không phải bigint tự tăng như <code>Material</code>/<code>Warehouse</code>.</p>
+    </div>
+
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">MaterialsPage.tsx</span> (FE)</h3>
+      <p>Thêm dropdown "Nhân viên mua hàng" (chỉ liệt kê user <code>isPurchaser=true</code>) + cột hiển thị trong bảng danh sách.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa (viết lại)</span> <span class="path">purchasingRouting.ts</span> (FE)</h3>
+      <p><code>visibleProposalsFor</code> giờ lọc theo <b>buyer của từng dòng vật tư</b> trong đề xuất mua (<code>Material.buyerId</code>) thay vì <code>warehouseScope</code> của cả phiếu. Dòng vật tư chưa gán ai vẫn hiện cho mọi nhân viên mua hàng — tránh mồ côi dữ liệu. 3 trang tiêu thụ (<code>LenhMuaNCCPage.tsx</code>, <code>TheoDoiMuaHangPage.tsx</code>, <code>LichSuMuaHangPage.tsx</code>) đã cập nhật theo, mỗi trang tự fetch <code>getMaterials()</code> để dựng map buyer.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">UsersPage.tsx</span> (FE)</h3>
+      <p>Bỏ hẳn ô "Kho phụ trách" + validation bắt buộc khi tạo tài khoản Mua hàng — thay bằng ghi chú hướng dẫn gán vật tư ở Admin &gt; Vật tư.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-del">Dọn dữ liệu cũ</span></h3>
+      <p>Xoá <code>warehouseScope</code> tồn đọng trên 3 tài khoản Mua hàng có sẵn trong DB — dữ liệu cũ từ mô hình gán-theo-kho, không còn ý nghĩa sau thay đổi này.</p>
+    </div>
+
+    <div class="callout ok">
+      <b>Không đổi (đúng khái niệm, không đụng tới):</b> <code>warehouseScope</code> của <b>thủ kho</b> (<code>WAREHOUSE_STAFF</code> xác nhận nhận hàng vật lý) — đây là khái niệm khác, vẫn hợp lý theo kho vì 1 thủ kho chỉ quản lý đúng 1 kho vật lý.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ 5. NHẬP KHO ═══════════════════════ -->
+
+  <div class="module">
+    <h2><span class="badge b-fe">FE</span> 5. Nhập kho (<code>NhapKhoPage.tsx</code>) — route theo <code>Material.warehouseId</code></h2>
+    <p class="module-note">Tiếp nối mục 4: hàng mua về giờ vào đúng kho khai ở field "Kho" của vật tư, không còn theo <code>warehouseScope</code> của cả đề xuất.</p>
+
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">NhapKhoSection</span></h3>
+      <p>Fetch <code>getMaterials()</code> + <code>getWarehouses()</code>, quy đổi mã kho (<code>lockedGroup</code>, vd <code>'phoi-son-han'</code>) sang id thật để so khớp <code>Material.warehouseId</code>. Danh sách đề xuất hiện cho thủ kho nếu có <b>ít nhất 1 dòng vật tư</b> thuộc kho mình phụ trách — thay vì trước đây cả đề xuất chỉ hiện đúng 1 kho. Trong màn chi tiết, thủ kho chỉ thấy/xác nhận đúng những dòng vật tư thuộc kho mình (<code>visibleItems</code>) — 1 đề xuất/PO giờ có thể hiện cho nhiều thủ kho khác nhau nếu vật tư trong đó thuộc nhiều kho khác nhau. Dòng vật tư chưa gán kho vẫn hiện cho mọi thủ kho.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ 6. DỌN DỮ LIỆU ═══════════════════════ -->
+
+  <div class="module">
+    <h2><span class="badge b-db">DB</span> 6. Dọn dữ liệu test (thao tác DB trực tiếp, không phải migration)</h2>
+    <p class="module-note">
+      Theo yêu cầu, đã rà soát toàn bộ dependency graph trước khi xoá ở cả 2 đợt — mỗi bước liệt kê
+      rõ bảng/số dòng/mức độ ảnh hưởng và xin xác nhận phạm vi trước khi thực thi. Cả 2 đợt chạy qua
+      Prisma <code>$transaction</code>, không có bước nào rollback lỗi.
+    </p>
+
+    <div class="stats">
+      <div class="stat"><div class="n">113</div><div class="l">tổng dòng đã xoá</div></div>
+      <div class="stat"><div class="n">18</div><div class="l">bảng liên quan</div></div>
+      <div class="stat"><div class="n">2</div><div class="l">transaction riêng biệt</div></div>
+    </div>
+
+    <div class="card">
+      <h3><span class="pill p-del">Đợt 1</span> Vật tư + định mức tham chiếu — 56 dòng</h3>
+      <p>10 <code>Material</code> + toàn bộ dữ liệu định mức tham chiếu <b>bắt buộc</b> tới chúng (FK không null, không thể tồn tại mồ côi): 14 <code>SegmentSpec</code>, 14 <code>PieceBom</code> (định mức mảnh, phần lớn đang <code>ACTIVE</code>), 7 <code>ConsumableBom</code>, 8 <code>BomAccessoryItem</code>, 3 <code>PieceMaterialItem</code>. Giữ nguyên 6 Kho + 8 Nhóm vật tư (hạ tầng seed sẵn, không thuộc phạm vi yêu cầu).</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-del">Đợt 2</span> 4 SKU phát sinh từ đợt 1 + toàn bộ cascade — 57 dòng</h3>
+      <p>4 <code>MfgProduct</code> (SKU) có <code>PieceBom</code> vừa xoá ở đợt 1, kéo theo: 8 <code>Piece</code>, 4 <code>BomRevision</code>, 7 <code>BomPiece</code>, 5 <code>PlanForm</code> (+ 8 <code>PlanFormManhReview</code>, 7 <code>PlanFormDetailReview</code>), 3 <code>SalesOrderItem</code> + 3 <code>SalesOrder</code> (<b>PO-3, PO-4, PO-5</b>), 3 <code>ProductionInvoiceItem</code> (+ 2 <code>ProductionInvoiceItemStage</code>) + 3 <code>ProductionInvoice</code> (<b>PI-4, PI-5, PI-6</b> — PI-5 tại thời điểm xoá đang ở trạng thái <code>PRODUCING</code>).</p>
+    </div>
+
+    <div class="callout ok">
+      <b>Kết quả:</b> DB sạch hoàn toàn phần Vật tư/SKU/Đơn hàng/Sản xuất, chỉ còn hạ tầng hệ thống (6 Kho, 8 Nhóm vật tư) — sẵn sàng nhập lại từ đầu.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ 7. DỌN MOCK CODE ═══════════════════════ -->
+
+  <div class="module">
+    <h2><span class="badge b-fe">FE</span> 7. Dọn code mock chết (đã có API thật thay thế)</h2>
+    <p class="module-note">
+      Sau khi <code>MfgWarehousesPage.tsx</code> (mục 3) chuyển hẳn sang API thật, rà soát toàn bộ
+      9 file mock service để tìm phần đã bị bỏ lại phía sau — export nào còn tồn tại nhưng không
+      còn trang nào gọi tới nữa. Dùng 1 agent đọc-only để grep đối chiếu từng export trên toàn repo
+      trước khi xoá, tránh xoá nhầm phần còn dùng thật.
+    </p>
+
+    <div class="stats">
+      <div class="stat"><div class="n">59→8</div><div class="l">export còn lại trong mfg.service.ts</div></div>
+      <div class="stat"><div class="n">3</div><div class="l">class mock xoá trọn (PI-stages, Packaging, SpecEntryProposal)</div></div>
+      <div class="stat"><div class="n">14→1</div><div class="l">export còn lại trong seed-mfg-ops.ts</div></div>
+    </div>
+
+    <div class="callout warn">
+      <b>Suýt xoá nhầm:</b> <code>getMfgWarehouses</code>/<code>getMfgWarehouseItems</code> trông
+      giống hệt phần đã bị <code>MfgWarehousesPage.tsx</code> thay thế, nhưng grep xác nhận
+      <code>VatTuDashboardPage.tsx</code> vẫn đang gọi thật 2 hàm này (qua
+      <code>(api as any).getMfgWarehouses()</code>) để tra nhanh tồn kho "phôi-sơn-hàn" — 1 mock
+      store độc lập, khác hẳn <code>stock-quant</code> thật. Giữ nguyên 2 hàm này, chỉ xoá phần còn
+      lại của class (<code>create</code>/<code>update</code>/<code>remove</code>/<code>getAllItems</code>/...).
+    </div>
+
+    <div class="card">
+      <h3><span class="pill p-chg">Viết lại</span> <span class="path">mfg.service.ts</span></h3>
+      <p>Xoá trọn 3 class không còn ai gọi: <code>ProductionInvoiceService</code> (PI-stages demo — <code>getStagesByPI</code>, <code>getPILaborCost</code>, <code>getPlanningPIs</code>...), <code>PackagingService</code>, <code>SpecEntryProposalService</code>. Cắt 2 class còn dùng 1 phần xuống đúng phần thật: <code>MfgWarehouseService</code> (chỉ còn <code>getAll</code>/<code>getItems</code>), <code>WeavingService</code> (chỉ còn <code>getByPoint</code>). Giữ nguyên <code>ExportPurposeService</code> (dùng đủ) và <code>uploadContractFile</code>.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">seed.ts</span> / <span class="path">seed-mfg-ops.ts</span></h3>
+      <p>Xoá các mảng seed chỉ nuôi riêng phần export vừa xoá ở trên (<code>seedProductionInvoices</code>, <code>seedPlanningPIs</code>, <code>seedSpecEntryProposals</code>, <code>seedWeavingConfig</code>, <code>seedKcsPending</code>, và 13 export trong <code>seed-mfg-ops.ts</code>). Rút <code>createInitialMockState()</code> xuống còn 7 field thật đang dùng.</p>
+    </div>
+
+    <div class="callout ok">
+      <b>Xác minh:</b> <code>tsc --noEmit</code> sạch, <code>eslint</code> 0 lỗi (chỉ còn warning <code>no-explicit-any</code> có sẵn từ trước), <code>next build</code> production compile thành công — không route nào vỡ.
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ 8. FILE THAY ĐỔI ═══════════════════════ -->
+
+  <div class="module">
+    <h2><span class="badge b-be">BE</span><span class="badge b-fe">FE</span> 8. Danh sách file thay đổi</h2>
+
+    <h3 style="font-family:var(--mono);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin:1.6rem 0 .8rem">Backend (<code>DNA-ERP-BE</code>)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Loại</th><th>File</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">prisma/schema.prisma</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">prisma/seed.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/common/constants/protected-warehouse-codes.constant.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/common/constants/role-permissions.constant.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/materials/dto/create-material.dto.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/materials/dto/material-response.dto.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/materials/materials.service.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/warehouses/warehouses.service.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/warehouses/warehouses.service.spec.ts</td></tr>
+          <tr><td><span class="pill p-add">Mới</span></td><td class="path">prisma/migrations/20260807022219_add_material_warehouse/</td></tr>
+          <tr><td><span class="pill p-add">Mới</span></td><td class="path">prisma/migrations/20260807040230_add_material_buyer/</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="font-family:var(--mono);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin:1.6rem 0 .8rem">Frontend (<code>DNA-ERP</code>)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Loại</th><th>File</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/services/materials-api.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/services/warehouses-api.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/services/api.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/pages/Admin/masterData/MaterialsPage.tsx</td></tr>
+          <tr><td><span class="pill p-chg">Sửa (viết lại)</span></td><td class="path">src/modules/pages/Manufacturing/MfgWarehousesPage.tsx</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/pages/Manufacturing/NhapKhoPage.tsx</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/pages/Admin/UsersPage.tsx</td></tr>
+          <tr><td><span class="pill p-chg">Sửa (viết lại)</span></td><td class="path">src/utils/purchasingRouting.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/pages/Purchasing/LenhMuaNCCPage.tsx</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/pages/Purchasing/TheoDoiMuaHangPage.tsx</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/pages/Purchasing/LichSuMuaHangPage.tsx</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/context/InspectionContext.tsx</td></tr>
+          <tr><td><span class="pill p-chg">Viết lại</span></td><td class="path">src/lib/mock/services/mfg.service.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/lib/mock/data/seed.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/lib/mock/data/seed-mfg-ops.ts</td></tr>
+          <tr><td><span class="pill p-add">Mới</span></td><td class="path">src/services/stock-api.ts</td></tr>
+          <tr><td><span class="pill p-add">Mới</span></td><td class="path">docs/changelog-2026-08-07-vat-tu-kho-mua-hang.html</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ 9. ĐÃ XÁC MINH ═══════════════════════ -->
+
+  <div class="module">
+    <h2>9. Đã xác minh</h2>
+    <ul class="timeline">
+      <li><b><code>npx tsc --noEmit</code></b><span> — sạch cả 2 repo, chạy lại nhiều lần sau mỗi bước.</span></li>
+      <li><b><code>npx jest</code></b><span> (backend) — pass toàn bộ suite liên quan (<code>materials</code>, <code>warehouses</code>, <code>stock</code>, <code>users</code> — 33+19 test).</span></li>
+      <li><b>Migration</b><span> — áp dụng thành công vào Postgres thật, verify lại bằng <code>prisma migrate status</code>.</span></li>
+      <li><b>Build + restart server thật</b><span> — sau mỗi thay đổi schema, endpoint mới (<code>/stock-quant</code>, <code>/stock-ledger</code>, <code>/warehouses</code> POST/DELETE) phản hồi đúng (401 khi chưa auth, không phải 500).</span></li>
+      <li><b>Xoá dữ liệu</b><span> — chạy qua Prisma <code>$transaction</code>, verify count = 0 cho toàn bộ bảng liên quan sau mỗi đợt.</span></li>
+      <li><b>Dọn mock code</b><span> — <code>eslint</code> 0 lỗi (chỉ còn warning <code>no-explicit-any</code> có sẵn từ trước), <code>next build</code> production compile + prerender thành công, grep đối chiếu toàn repo xác nhận 0 tham chiếu còn sót tới mọi export đã xoá.</span></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════════════ 10. ĐỂ NGỎ ═══════════════════════ -->
+
+  <div class="module">
+    <h2>10. Phạm vi chưa làm / để dành</h2>
+    <ul class="timeline">
+      <li><b>Vật tư hiện có (giờ là 0 sau khi dọn)</b><span> — sẽ chưa có <code>warehouseId</code>/<code>buyerId</code> cho tới khi nhập lại và gán thủ công qua Admin &gt; Vật tư.</span></li>
+      <li><b><code>AddMaterialModal</code> trong <code>MfgWarehousesPage.tsx</code></b><span> — form "Thêm vật tư" nhanh cho thủ kho chưa có field chọn Nhóm vật tư/Người mua, chỉ Mã/Tên/ĐVT/Quy cách — giữ tối giản theo đúng phạm vi thao tác của thủ kho.</span></li>
+      <li><b><code>MaterialSupplier</code> (giá theo NCC)</b><span> — chưa có dữ liệu, chưa đụng tới trong đợt dọn dẹp này.</span></li>
+    </ul>
+  </div>
+
+  <footer>
+    Nguồn: toàn bộ nội dung trên tổng hợp trực tiếp từ phiên làm việc trong Claude Code — không suy
+    diễn thêm. Code thật nằm ở <code>D:\DNA-ERP-BE</code> (schema, migration, API, RBAC) và
+    <code>D:\DNA-ERP</code> (nối trang, đổi routing mua hàng/nhập kho).
+  </footer>
+</div>
+
+<button class="back-to-top" id="back-to-top" title="Về đầu trang" type="button">↑</button>
+
+<script>
+(function(){
+  var KEY = 'dna-erp-changelog-theme';
+  var root = document.documentElement;
+  var btn = document.getElementById('theme-toggle');
+  var saved = localStorage.getItem(KEY);
+  if (saved) root.setAttribute('data-theme', saved);
+  btn.addEventListener('click', function(){
+    var current = root.getAttribute('data-theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var effectiveCurrent = current || (prefersDark ? 'dark' : 'light');
+    var next = effectiveCurrent === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem(KEY, next);
+  });
+})();
+(function(){
+  document.getElementById('back-to-top').addEventListener('click', function(){
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>

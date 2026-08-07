@@ -28,20 +28,26 @@
  *  - production-invoices (production-invoices-api.ts) — state machine duyệt sản xuất theo
  *    item. Lưu ý: itemId nay là id thật (không phải index như mock) — mọi call site đã cập
  *    nhật để truyền `item.id`.
- *  - warehouses — CHỈ `getWarehouses()` (warehouses-api.ts), dùng để resolve code->id thật cho
- *    warehouse-transfers bên dưới. CRUD (tạo/sửa/xoá kho) vẫn ở MfgWarehousesPage.tsx (100% local
- *    state, chưa nối BE) — việc riêng, chưa làm.
+ *  - warehouses (warehouses-api.ts) — getWarehouses()/createWarehouse()/deleteWarehouse(). Dùng
+ *    để resolve code->id thật cho warehouse-transfers bên dưới, và bởi MfgWarehousesPage.tsx
+ *    (Tổng hợp kho - nối BE thật, không còn local mock).
  *  - warehouse-transfers (warehouse-transfers-api.ts) — tạo/xác nhận/từ chối phiếu chuyển kho nội
  *    bộ (Phase 3 - Ledger Core). GET list không kèm items như mock cũ, adapter tự fetch chi tiết
  *    từng phiếu để giữ nguyên hợp đồng cũ cho page — xem comment đầu file đó. Không còn `piCode`
  *    (BE không có field này, chỉ có `note` tự do hoặc `planFormId` thật).
+ *  - stock (stock-api.ts) — getStockQuants()/getStockLedger(), chỉ đọc (GET /stock-quant,
+ *    GET /stock-ledger). Ghi bút toán kho thật đi qua warehouse-transfers hoặc các flow nghiệp
+ *    vụ khác, không phải adapter này.
  *
  * Mock tương ứng của các module trên đã bị xoá hẳn (không còn export trùng tên để "ghi đè").
- * Các phần thực thi Phôi/Hàn/Sơn/KCS (getStagesByPI, getKcsPendingCounts, getPhoiExecutions,
- * getPILaborCost, getPlanningPIs, checkPIMaterials...), phân bổ đan, đề xuất mua hàng, đóng gói,
- * notifications CRUD, audit log, system stats, stock-ledger/stock-quant (Phase 3 xây rồi nhưng
- * chưa có trang FE nào đọc)... vẫn chạy mock hoặc chưa có adapter cho tới khi cần — xem báo cáo
- * bàn giao để biết danh sách đầy đủ.
+ * Thực thi Phôi/Hàn/Sơn/KCS thật hiện chạy qua phoi-sat.service.ts/san-luong.service.ts/
+ * phoi-lenh-sx.service.ts (mock riêng, mới hơn) - KHÔNG phải mfg.service.ts, vốn chỉ còn giữ vài
+ * hàm còn dùng thật (getMfgWarehouses/Items cho VatTuDashboardPage, export-purposes,
+ * getWeavingByPoint, uploadContractFile); phần machinery PI-stages/packaging/weaving-allocation/
+ * spec-entry-proposal cũ trong đó là code chết (không trang nào gọi) đã dọn ngày 2026-08-07.
+ * Phân bổ đan, đề xuất mua hàng, đóng gói, notifications CRUD, audit log, system stats,
+ * stock-ledger/stock-quant (Phase 3 xây rồi nhưng chưa có trang FE nào đọc)... vẫn chạy mock hoặc
+ * chưa có adapter cho tới khi cần.
  */
 export * from '../lib/mock/services';
 export { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive } from './users-api';
@@ -68,8 +74,9 @@ export {
   getProductionInvoices, getProductionInvoice, updateProductionInvoice, updateProductionInvoiceItem,
   sendItemToQlsx, sendItemToBoss, approveItemByBoss, rejectProdItem, rejectProdItemByQlsx,
 } from './production-invoices-api';
-export { getWarehouses } from './warehouses-api';
+export { getWarehouses, createWarehouse, deleteWarehouse } from './warehouses-api';
 export {
   getWarehouseTransfers, getWarehouseTransfer, createWarehouseTransfer,
   confirmWarehouseTransfer, rejectWarehouseTransfer,
 } from './warehouse-transfers-api';
+export { getStockQuants, getStockLedger } from './stock-api';

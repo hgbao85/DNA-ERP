@@ -130,7 +130,9 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
     setField('isProductPlanner', fn === 'PLANNER')
     setField('isPurchaser', fn === 'PURCHASE')
     setField('mfgRole', fn === 'PROD_MGR' ? 'PRODUCTION_MANAGER' : undefined)
-    if (fn !== 'PURCHASE') setField('warehouseScope', undefined)
+    // Không có chức năng Văn phòng nào cần warehouseScope nữa - Mua hàng giờ được gán theo
+    // từng vật tư (Material.buyerId, xem Admin > Vật tư), không còn gán theo cả kho.
+    setField('warehouseScope', undefined)
   }
 
   return (
@@ -158,24 +160,18 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
       </div>
 
       {category === 'office' && (
-        <>
-          <div>
-            <label style={fieldLabel}>Chức năng</label>
-            <select value={officeFn ?? ''} onChange={e => onOfficeFnChange(e.target.value as OfficeFn)} style={fieldSelect}>
-              <option value="">— Chọn chức năng —</option>
-              {OFFICE_FUNCTIONS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-            </select>
-          </div>
+        <div>
+          <label style={fieldLabel}>Chức năng</label>
+          <select value={officeFn ?? ''} onChange={e => onOfficeFnChange(e.target.value as OfficeFn)} style={fieldSelect}>
+            <option value="">— Chọn chức năng —</option>
+            {OFFICE_FUNCTIONS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+          </select>
           {officeFn === 'PURCHASE' && (
-            <div>
-              <label style={fieldLabel}>Kho phụ trách</label>
-              <select value={String(values.warehouseScope ?? '')} onChange={e => setField('warehouseScope', e.target.value || undefined)} style={fieldSelect}>
-                <option value="">— Chọn kho —</option>
-                {WAREHOUSE_SCOPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
-            </div>
+            <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+              Vật tư nào giao cho người này mua được gán ở Admin &gt; Vật tư (cột &quot;Nhân viên mua hàng&quot;), không còn gán theo kho.
+            </span>
           )}
-        </>
+        </div>
       )}
 
       {category === 'warehouse' && (
@@ -389,7 +385,6 @@ export default function UsersPage() {
           if (cat === 'office') {
             const fn = deriveOfficeFn(all)
             if (!fn) return 'Chọn chức năng'
-            if (fn === 'PURCHASE' && !all.warehouseScope) return 'Chọn kho phụ trách cho Mua hàng'
           }
           if (cat === 'warehouse' && !all.warehouseScope) return 'Chọn kho phụ trách'
           if ((cat === 'spec' || cat === 'mfg') && !all.mfgRole) return 'Chọn vị trí'

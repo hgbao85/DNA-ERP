@@ -1,231 +1,13 @@
 import type { ManhOrder } from '../../../types/manh';
 import type { AuditLogEntry, Notification } from '../../../types/admin';
-import {
-  seedPhoiExecutions,
-  seedStageExec,
-  seedWeavingFinishedFrames,
-  seedWeavingManhSummary,
-  seedWeavingByPoint,
-  seedWeavingAllocation,
-  seedWeavingReceivePending,
-  seedWeavingByWarehouse,
-  seedChuyenKiem,
-  seedPacking,
-  seedPackagingBOM,
-  seedPackagingByPI,
-  seedPiMaterialChecks,
-  seedMfgWarehouseTxns,
-  seedLaborCost,
-} from './seed-mfg-ops';
-
-const ISO = (d: string) => new Date(d).toISOString();
+import { seedWeavingByPoint } from './seed-mfg-ops';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MANUFACTURING DATA: PRODUCTION, MATERIALS, SUPPLIERS
 // ══════════════════════════════════════════════════════════════════════════════
 
-export const seedProductionInvoices = [
-  // Đang sản xuất — lọc ra ở PIListPage (status PRODUCING), dùng để test các API khác
-  {
-    id: 1, code: 'PI-2026-001', deadline: ISO('2026-08-01'),
-    status: 'PRODUCING', exportOrderId: 1,
-    exportOrder: { poNumber: 'PO-MY-001', contractFileUrl: null },
-    items: [{
-      quantity: 500, materialDeadline: ISO('2026-06-15'),
-      stages: [
-        { stageType: 'HAN', progressPercent: 60, status: 'IN_PROGRESS', deadline: ISO('2026-06-20') },
-        { stageType: 'SON', progressPercent: 0,  status: 'PENDING',     deadline: ISO('2026-07-01') },
-      ],
-      productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
-    }],
-    createdBy: { name: 'Quản lý SX Hùng' },
-  },
-  // 1 SKU — đủ stages tường minh
-  {
-    id: 2, code: 'PI-2026-002', deadline: ISO('2026-09-01'),
-    status: 'PLANNING', exportOrderId: 2,
-    exportOrder: { poNumber: 'PO-GP-002', contractFileUrl: null },
-    items: [{
-      quantity: 300, materialDeadline: ISO('2026-07-01'),
-      stages: [
-        { stageType: 'HAN',     deadline: ISO('2026-07-28') },
-        { stageType: 'WEAVING', deadline: ISO('2026-08-15') },
-        { stageType: 'SON',     deadline: ISO('2026-08-25') },
-      ],
-      productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } },
-    }],
-    createdBy: { name: 'Quản lý SX Hùng' },
-  },
-  // 1 SKU — chỉ có HAN + SON (không có WEAVING), ngày ước tính sẽ hiện nhạt
-  {
-    id: 3, code: 'PI-2026-003', deadline: ISO('2026-09-15'),
-    status: 'PLANNING', exportOrderId: 2,
-    exportOrder: { poNumber: 'PO-GP-002', contractFileUrl: null },
-    items: [{
-      quantity: 200, materialDeadline: ISO('2026-07-10'),
-      stages: [
-        { stageType: 'HAN', deadline: ISO('2026-08-01') },
-        { stageType: 'SON', deadline: ISO('2026-09-05') },
-      ],
-      productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
-    }],
-    createdBy: { name: 'Quản lý SX Hùng' },
-  },
-  // 1 SKU — không set gì cả, tất cả hiện ước tính (nhạt)
-  {
-    id: 4, code: 'PI-2026-004', deadline: ISO('2026-10-30'),
-    status: 'PLANNING', exportOrderId: 3,
-    exportOrder: { poNumber: 'PO-IK-003', contractFileUrl: null },
-    items: [{
-      quantity: 800,
-      stages: [],
-      productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
-    }],
-    createdBy: { name: 'Quản lý SX Hùng' },
-  },
-  // PO-EU-005 có 3 SKU — mỗi SKU 1 PI riêng (1 SKU chỉ có đúng 1 PI, không gộp chung 1 PI như trước).
-  {
-    id: 5, code: 'PI-2026-005', deadline: ISO('2026-09-30'),
-    status: 'PLANNING', exportOrderId: 4,
-    exportOrder: { poNumber: 'PO-EU-005', contractFileUrl: null },
-    items: [{
-      quantity: 400, materialDeadline: ISO('2026-07-10'),
-      stages: [
-        { stageType: 'HAN',     deadline: ISO('2026-07-28') },
-        { stageType: 'WEAVING', deadline: ISO('2026-08-20') },
-        { stageType: 'SON',     deadline: ISO('2026-09-10') },
-      ],
-      productVariant: { colorCode: 'BEIGE', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
-    }],
-    createdBy: { name: 'Quản lý SX Hùng' },
-  },
-  {
-    id: 6, code: 'PI-2026-006', deadline: ISO('2026-09-30'),
-    status: 'PLANNING', exportOrderId: 4,
-    exportOrder: { poNumber: 'PO-EU-005', contractFileUrl: null },
-    items: [{
-      quantity: 250, materialDeadline: ISO('2026-07-20'),
-      stages: [
-        { stageType: 'HAN',     deadline: ISO('2026-08-10') },
-        { stageType: 'WEAVING', deadline: ISO('2026-09-01') },
-        { stageType: 'SON',     deadline: ISO('2026-09-22') },
-      ],
-      productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } },
-    }],
-    createdBy: { name: 'Quản lý SX Hùng' },
-  },
-  {
-    id: 7, code: 'PI-2026-007', deadline: ISO('2026-09-30'),
-    status: 'PLANNING', exportOrderId: 4,
-    exportOrder: { poNumber: 'PO-EU-005', contractFileUrl: null },
-    items: [{
-      quantity: 150, materialDeadline: ISO('2026-06-30'),
-      stages: [
-        { stageType: 'HAN', deadline: ISO('2026-07-20') },
-        { stageType: 'SON', deadline: ISO('2026-08-25') },
-      ],
-      productVariant: { colorCode: 'WHITE', mfgProduct: { name: 'Bàn đan T-08', factoryCode: 'TBL-08' } },
-    }],
-    createdBy: { name: 'Quản lý SX Hùng' },
-  },
-  // id 8-11: PI ứng với các SKU do KHSX quản lý — mỗi SKU đúng 1 PI riêng, để "Bảng thống
-  // kê" hiện đúng dữ liệu theo từng SKU.
-  {
-    id: 8, code: 'PI-2026-008', deadline: ISO('2026-10-15'),
-    status: 'PRODUCING', exportOrderId: 1,
-    exportOrder: { poNumber: 'PO-MY-001', contractFileUrl: null },
-    items: [{
-      quantity: 150,
-      stages: [{ stageType: 'HAN', progressPercent: 40, status: 'IN_PROGRESS', deadline: ISO('2026-08-01') }],
-      productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } },
-    }],
-    createdBy: { name: 'Quản lý SX Hùng' },
-  },
-  {
-    id: 9, code: 'PI-2026-009', deadline: ISO('2026-12-20'),
-    status: 'PLANNING', exportOrderId: 3,
-    exportOrder: { poNumber: 'PO-IK-003', contractFileUrl: null },
-    items: [{
-      quantity: 200,
-      stages: [],
-      productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế đan IEA-3', factoryCode: 'IEA-3' } },
-    }],
-    createdBy: { name: 'Quản lý SX Hùng' },
-  },
-  {
-    id: 10, code: 'PI-2026-010', deadline: ISO('2026-09-20'),
-    status: 'PRODUCING', exportOrderId: 9,
-    exportOrder: { poNumber: 'PO-MY-009', contractFileUrl: null },
-    items: [{
-      quantity: 300,
-      stages: [
-        { stageType: 'PHOI', progressPercent: 100, status: 'DONE' },
-        { stageType: 'HAN',  progressPercent: 100, status: 'DONE' },
-        { stageType: 'SON',  progressPercent: 100, status: 'DONE' },
-      ],
-      productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế J60', factoryCode: 'JSE-60' } },
-    }],
-    createdBy: { name: 'Quản lý SX Hùng' },
-  },
-  {
-    id: 11, code: 'PI-2026-011', deadline: ISO('2026-09-25'),
-    status: 'PRODUCING', exportOrderId: 10,
-    exportOrder: { poNumber: 'PO-IK-010', contractFileUrl: null },
-    items: [{
-      quantity: 250,
-      stages: [
-        { stageType: 'PHOI', progressPercent: 100, status: 'DONE' },
-        { stageType: 'HAN',  progressPercent: 100, status: 'DONE' },
-        { stageType: 'SON',  progressPercent: 100, status: 'DONE' },
-      ],
-      productVariant: { colorCode: 'GRAY', mfgProduct: { name: 'Ghế J55', factoryCode: 'JSE-55' } },
-    }],
-    createdBy: { name: 'Quản lý SX Hùng' },
-  },
-  // id 12: PI đứng sau SKU TEST-01 (id 11, đã APPROVED) — chưa có đơn Sales nào dùng SKU
-  // này nên PI còn ở PLANNING, sẵn sàng để test luồng Sales tạo đơn hàng từ đầu.
-  {
-    id: 12, code: 'PI-2026-012', deadline: ISO('2026-12-15'),
-    status: 'PLANNING', exportOrderId: 100,
-    exportOrder: { poNumber: 'PO-TEST-001', contractFileUrl: null },
-    items: [{
-      quantity: 100, materialDeadline: ISO('2026-10-01'),
-      stages: [
-        { stageType: 'HAN', deadline: ISO('2026-10-20') },
-        { stageType: 'SON', deadline: ISO('2026-11-05') },
-      ],
-      productVariant: { colorCode: 'BLACK', mfgProduct: { name: 'Ghế Test Đầy Đủ', factoryCode: 'TEST-01' } },
-    }],
-    createdBy: { name: 'QA Tester' },
-  },
-];
-
-export const seedPlanningPIs = [
-  {
-    id: 2, code: 'PI-2026-002', poNumber: 'PO-GP-002', deadline: ISO('2026-09-01'), materialDeadline: ISO('2026-07-01'),
-    status: 'PLANNING', exportCustomerName: 'GOPLUS USA',
-    products: [{ name: 'Ghế đan IEA-3', factoryCode: 'IEA-3', colorCode: 'BLACK', quantity: 300 }],
-    lmh: { id: 1, code: 'LMH-2026-001', status: 'QUOTING', hasComputed: true, missingCount: 3, totalBuyQty: 1200 },
-    activeProposal: null,
-  },
-  {
-    id: 3, code: 'PI-2026-003', poNumber: 'PO-GP-002', deadline: ISO('2026-09-15'), materialDeadline: ISO('2026-06-20'),
-    status: 'PLANNING', exportCustomerName: 'GOPLUS USA',
-    products: [{ name: 'Ghế J55', factoryCode: 'JSE-55', colorCode: 'GRAY', quantity: 200 }],
-    lmh: { id: 2, code: 'LMH-2026-004', status: 'ORDERED', hasComputed: true, missingCount: 0, totalBuyQty: 2500 },
-    activeProposal: null,
-  },
-  {
-    id: 4, code: 'PI-2026-004', poNumber: 'PO-IK-003', deadline: ISO('2026-10-30'), materialDeadline: ISO('2026-08-15'),
-    status: 'PLANNING', exportCustomerName: 'IKEA Supplier',
-    products: [{ name: 'Ghế J55', factoryCode: 'JSE-55', colorCode: 'GRAY', quantity: 800 }],
-    lmh: { id: 3, code: 'LMH-2026-005', status: 'DRAFT', hasComputed: false, missingCount: 2, totalBuyQty: 0 },
-    activeProposal: null,
-  },
-];
-
 export const seedMfgWarehouses = [
-  { id: 5, name: 'Kho Bao bì/Thành phẩm', code: 'thanh-pham',    note: 'Bao bì đóng gói & thành phẩm hoàn chỉnh — cuối chuỗi chuyển kho nội bộ', isActive: true },
+  { id: 5, name: 'Kho thành phẩm', code: 'thanh-pham',    note: 'Bao bì đóng gói & thành phẩm hoàn chỉnh — cuối chuỗi chuyển kho nội bộ', isActive: true },
   { id: 6, name: 'Kho Vật tư thành phẩm', code: 'vat-tu-tp',     note: 'Sơn, dây, vật tư tiêu hao sản xuất', isActive: true },
   { id: 7, name: 'Kho Phôi Sơn Hàn',      code: 'phoi-son-han', note: 'Phôi kim loại, sơn, vật tư hàn — đầu chuỗi chuyển kho nội bộ', isActive: true },
 ];
@@ -388,85 +170,19 @@ export const seedManhOrders: ManhOrder[] = [
   },
 ];
 
-// Spec Entry Proposals - Đề xuất nhập định mức từ kế hoạch SX
-export const seedSpecEntryProposals = [
-  {
-    id: 1,
-    code: 'DEF-2026-001',
-    piId: 2,
-    piCode: 'PI-2026-002',
-    exportOrderId: 2,
-    poNumber: 'PO-GP-002',
-    mfgProductId: 2,
-    productName: 'Ghế đan IEA-3',
-    status: 'PROPOSED',
-    createdAt: ISO('2026-06-15'),
-    tasks: [
-      { id: 1, specRole: 'SPEC_STEEL', status: 'PENDING', type: 'Ống sắt tròn', specifications: 'Φ16×1.0mm', thickness: 1.0 },
-      { id: 2, specRole: 'SPEC_ACCESSORY', status: 'PENDING', unit: 'kg', imageUrl: '', specifications: 'Dây nhựa xanh + sơn xám' },
-      { id: 3, specRole: 'SPEC_ACCESSORY', status: 'PENDING', unit: 'cái' },
-      { id: 4, specRole: 'SPEC_PACKAGING', status: 'PENDING', unit: 'thùng' },
-    ],
-  },
-  {
-    id: 2,
-    code: 'DEF-2026-002',
-    piId: 3,
-    piCode: 'PI-2026-003',
-    exportOrderId: 2,
-    poNumber: 'PO-GP-002',
-    mfgProductId: 1,
-    productName: 'Ghế J55',
-    status: 'APPROVED',
-    createdAt: ISO('2026-06-10'),
-    tasks: [
-      { id: 5, specRole: 'SPEC_STEEL', status: 'COMPLETED', type: 'Ống sắt vuông', specifications: '25×25×1.2mm', thickness: 1.2 },
-      { id: 6, specRole: 'SPEC_ACCESSORY', status: 'COMPLETED', unit: 'kg', imageUrl: '', specifications: 'Dây PE xám GSS' },
-      { id: 7, specRole: 'SPEC_ACCESSORY', status: 'IN_PROGRESS', unit: 'bộ' },
-      { id: 8, specRole: 'SPEC_PACKAGING', status: 'PENDING', unit: 'thùng' },
-    ],
-  },
-];
-
 export const seedExportPurposes = [
   { id: 1, label: 'Xuất sản xuất' },
   { id: 2, label: 'Xuất mẫu' },
 ];
 
-export const seedWeavingConfig = { minAllocationQty: 50 };
-
-export const seedKcsPending: Record<number, Record<string, number>> = {
-  1: { PHOI: 0, HAN: 2, SON: 0 },
-  2: { PHOI: 0, HAN: 0, SON: 0 },
-};
-
 export const seedNotifications: Notification[] = [];
 
 export function createInitialMockState() {
   return {
-    productionInvoices: structuredClone(seedProductionInvoices),
-    planningPIs: structuredClone(seedPlanningPIs),
     mfgWarehouses: structuredClone(seedMfgWarehouses),
     mfgWarehouseItems: structuredClone(seedMfgWarehouseItems),
-    mfgWarehouseTxns: structuredClone(seedMfgWarehouseTxns),
-    phoiExecutions: structuredClone(seedPhoiExecutions),
-    stageExec: structuredClone(seedStageExec),
-    weavingFinishedFrames: structuredClone(seedWeavingFinishedFrames),
-    weavingManhSummary: structuredClone(seedWeavingManhSummary),
     weavingByPoint: structuredClone(seedWeavingByPoint),
-    weavingAllocation: structuredClone(seedWeavingAllocation),
-    weavingReceivePending: structuredClone(seedWeavingReceivePending),
-    weavingByWarehouse: structuredClone(seedWeavingByWarehouse),
-    chuyenKiem: structuredClone(seedChuyenKiem),
-    packing: structuredClone(seedPacking),
-    piMaterialChecks: structuredClone(seedPiMaterialChecks),
-    laborCost: structuredClone(seedLaborCost),
-    specEntryProposals: structuredClone(seedSpecEntryProposals),
     exportPurposes: structuredClone(seedExportPurposes),
-    weavingConfig: structuredClone(seedWeavingConfig),
-    kcsPending: structuredClone(seedKcsPending),
-    packagingBOM: structuredClone(seedPackagingBOM),
-    packagingByPI: structuredClone(seedPackagingByPI),
     manhOrders: structuredClone(seedManhOrders),
     auditLogs: [] as AuditLogEntry[],
     notifications: structuredClone(seedNotifications),
