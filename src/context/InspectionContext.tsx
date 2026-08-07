@@ -1,9 +1,18 @@
 'use client'
-import { createContext, useContext, useState, useCallback } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import type { Sku, ManhRow } from '../types/sku'
 import type { WarehouseScope } from './AuthContext'
 import { useAuditLog } from './AuditLogContext'
 import { syncDinhMucSatVaoKeHoach, syncDinhMucSatVaoLenhPhoi, type DinhMucSatSyncItem } from '../services/api'
+import {
+  getPurchaseProposals as fetchPurchaseProposals,
+  acknowledgeProposal as acknowledgeProposalApi,
+  submitProposalToDirector as submitProposalToDirectorApi,
+  approveProposal as approveProposalApi,
+  rejectProposal as rejectProposalApi,
+  requoteProposal as requoteProposalApi,
+  receiveProposalItem as receiveProposalItemApi,
+} from '../services/purchasing-api'
 import { flattenManhSteel, combinedDaySon, dinhItems, rivetItems, plasticButtonItems } from '../utils/manhMaterials'
 
 export const PROPOSAL_ENTITY = 'PurchaseProposal'
@@ -231,98 +240,23 @@ const SEED_REQUESTS: InspRequest[] = [
   },
 ]
 
-// Mỗi Sku thiếu hàng ở nhiều kho trước đây gộp chung 1 proposal — nay tách thành
-// 1 proposal/kho (id `prop-${requestId}-${khoKey}`) để route đúng Purchasing phụ trách kho đó.
-const SEED_PROPOSALS: PurchaseProposal[] = [
-  {
-    id: 'prop-insp-1-phoiSonHan', requestId: 'insp-1', skuId: 1,
-    poNumber: 'PO-MY-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
-    createdAt: '2026-07-04T08:10:00.000Z',
-    deadline: '2026-07-25T00:00:00.000Z',
-    status: 'new',
-    warehouseScope: 'phoi-son-han',
-    items: [
-      { name: 'Sắt hộp 25×25', unit: 'cây', required: 20, actualStock: 12, buyQty: 8, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 1 },
-      { name: 'Sắt tấm 3mm',   unit: 'tấm', required: 2,  actualStock: 1,  buyQty: 1, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 3 },
-    ],
-  },
-  {
-    id: 'prop-insp-1-vatTuTP', requestId: 'insp-1', skuId: 1,
-    poNumber: 'PO-MY-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
-    createdAt: '2026-07-04T08:10:00.000Z',
-    deadline: '2026-07-25T00:00:00.000Z',
-    status: 'new',
-    warehouseScope: 'vat-tu-tp',
-    items: [
-      { name: 'Ốc vít M6×20',  unit: 'cái', required: 48, actualStock: 30, buyQty: 18, khoKey: 'vatTuTP', khoLabel: 'Kho Vật tư thành phẩm', materialId: 1 },
-    ],
-  },
-  {
-    id: 'prop-insp-1-thanhPham', requestId: 'insp-1', skuId: 1,
-    poNumber: 'PO-MY-001', skuCode: 'JSE-55', skuName: 'Ghế J55',
-    createdAt: '2026-07-04T08:10:00.000Z',
-    deadline: '2026-07-25T00:00:00.000Z',
-    status: 'new',
-    warehouseScope: 'thanh-pham',
-    items: [
-      { name: 'Xốp PE bảo vệ', unit: 'm²',  required: 2,  actualStock: 1,  buyQty: 1, khoKey: 'thanhPham', khoLabel: 'Kho Thành phẩm', materialId: 2 },
-    ],
-  },
-  {
-    id: 'prop-insp-2-phoiSonHan', requestId: 'insp-2', skuId: 2,
-    poNumber: 'PO-GP-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
-    createdAt: '2026-07-03T09:20:00.000Z',
-    deadline: '2026-07-20T00:00:00.000Z',
-    submittedAt: '2026-07-03T09:45:00.000Z',
-    status: 'submitted',
-    warehouseScope: 'phoi-son-han',
-    items: [
-      { name: 'Sắt dẹt 20×3', unit: 'cây', required: 4, actualStock: 3, buyQty: 1, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 5 },
-    ],
-    quotes: {
-      'Sắt dẹt 20×3': [{ supplierName: 'Minh Thành', unitPrice: 45000 }, { supplierName: 'An Phát', unitPrice: 43500 }, { supplierName: 'Long Sơn', unitPrice: 46000 }],
-    },
-  },
-  {
-    id: 'prop-insp-2-vatTuTP', requestId: 'insp-2', skuId: 2,
-    poNumber: 'PO-GP-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
-    createdAt: '2026-07-03T09:20:00.000Z',
-    deadline: '2026-07-20T00:00:00.000Z',
-    submittedAt: '2026-07-03T09:45:00.000Z',
-    status: 'submitted',
-    warehouseScope: 'vat-tu-tp',
-    items: [
-      { name: 'Dây nhựa xanh lá', unit: 'cuộn', required: 2.0, actualStock: 1.2, buyQty: 0.8, khoKey: 'vatTuTP', khoLabel: 'Kho Vật tư thành phẩm', materialId: 3 },
-    ],
-    quotes: {
-      'Dây nhựa xanh lá': [{ supplierName: 'Tiến Thịnh', unitPrice: 11500 }, { supplierName: 'An Phát', unitPrice: 11800 }],
-    },
-  },
-  {
-    id: 'prop-insp-2-thanhPham', requestId: 'insp-2', skuId: 2,
-    poNumber: 'PO-GP-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3',
-    createdAt: '2026-07-03T09:20:00.000Z',
-    deadline: '2026-07-20T00:00:00.000Z',
-    submittedAt: '2026-07-03T09:45:00.000Z',
-    status: 'submitted',
-    warehouseScope: 'thanh-pham',
-    items: [
-      { name: 'Xốp chèn góc', unit: 'bộ', required: 4, actualStock: 2, buyQty: 2, khoKey: 'thanhPham', khoLabel: 'Kho Thành phẩm', materialId: 5 },
-    ],
-    quotes: {
-      'Xốp chèn góc': [{ supplierName: 'Bao bì Việt', unitPrice: 18000 }, { supplierName: 'Tiến Long', unitPrice: 17500 }],
-    },
-  },
-]
-
 // ── Context ────────────────────────────────────────────────────────────────────
+// proposals (PurchaseProposal) đã cutover sang BE thật (Phase 8, xem services/purchasing-api.ts)
+// - tự sinh từ CuttingProposal đã duyệt, không còn seed mock ở đây. requests (InspRequest) vẫn
+// giữ mock (SEED_REQUESTS) vì bước Kiểm tra tồn kho chưa nối - xem quyết định 2026-08-07.
 
 const InspCtx = createContext<InspCtxType | undefined>(undefined)
 
 export function InspectionProvider({ children }: { children: React.ReactNode }) {
   const { logAction } = useAuditLog()
   const [requests,  setRequests]  = useState<InspRequest[]>(SEED_REQUESTS)
-  const [proposals, setProposals] = useState<PurchaseProposal[]>(SEED_PROPOSALS)
+  const [proposals, setProposals] = useState<PurchaseProposal[]>([])
+
+  useEffect(() => {
+    fetchPurchaseProposals()
+      .then(setProposals)
+      .catch(err => console.error('getPurchaseProposals failed', err))
+  }, [])
 
   const sendRequest = useCallback((pf: Sku) => {
     setRequests(prev => {
@@ -404,58 +338,72 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
   }, [logAction])
 
   const acknowledgeProposal = useCallback((proposalId: string) => {
-    setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: 'quoting' } : p))
-    logAction(PROPOSAL_ENTITY, proposalId, 'proposal.acknowledged')
+    void acknowledgeProposalApi(proposalId)
+      .then(updated => {
+        setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+        logAction(PROPOSAL_ENTITY, proposalId, 'proposal.acknowledged')
+      })
+      .catch(err => console.error('acknowledgeProposal failed', err))
   }, [logAction])
 
   const submitProposalToDirector = useCallback((proposalId: string, quotes: Record<string, ProposalQuote[]>) => {
-    setProposals(prev => prev.map(p =>
-      p.id === proposalId ? { ...p, status: 'submitted', quotes, submittedAt: new Date().toISOString() } : p
-    ))
-    logAction(PROPOSAL_ENTITY, proposalId, 'proposal.quote_submitted')
-  }, [logAction])
+    const current = proposals.find(p => p.id === proposalId)
+    if (!current) return
+    void submitProposalToDirectorApi(current, quotes)
+      .then(updated => {
+        setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+        logAction(PROPOSAL_ENTITY, proposalId, 'proposal.quote_submitted')
+      })
+      .catch(err => console.error('submitProposalToDirector failed', err))
+  }, [proposals, logAction])
 
   const approveProposal = useCallback((proposalId: string, chosenSuppliers: Record<string, string>) => {
-    setProposals(prev => prev.map(p =>
-      p.id === proposalId ? { ...p, status: 'purchasing', chosenSuppliers, approvedAt: new Date().toISOString() } : p
-    ))
-    logAction(PROPOSAL_ENTITY, proposalId, 'proposal.approved')
-  }, [logAction])
+    const current = proposals.find(p => p.id === proposalId)
+    if (!current) return
+    void approveProposalApi(current, chosenSuppliers)
+      .then(updated => {
+        setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+        logAction(PROPOSAL_ENTITY, proposalId, 'proposal.approved')
+      })
+      .catch(err => console.error('approveProposal failed', err))
+  }, [proposals, logAction])
 
   const rejectProposal = useCallback((proposalId: string, reason: string) => {
-    setProposals(prev => prev.map(p =>
-      p.id === proposalId ? { ...p, status: 'rejected', rejectedAt: new Date().toISOString(), rejectionReason: reason } : p
-    ))
-    logAction(PROPOSAL_ENTITY, proposalId, 'proposal.rejected', reason)
+    void rejectProposalApi(proposalId, reason)
+      .then(updated => {
+        setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+        logAction(PROPOSAL_ENTITY, proposalId, 'proposal.rejected', reason)
+      })
+      .catch(err => console.error('rejectProposal failed', err))
   }, [logAction])
 
   // Mở lại luồng báo giá sau khi bị từ chối — giữ nguyên quotes/rejectionReason cũ làm lịch sử,
   // chỉ đổi status để Purchasing sửa tiếp và gửi lại.
   const requoteProposal = useCallback((proposalId: string) => {
-    setProposals(prev => prev.map(p =>
-      p.id === proposalId && p.status === 'rejected' ? { ...p, status: 'quoting' } : p
-    ))
-    logAction(PROPOSAL_ENTITY, proposalId, 'proposal.requoted')
+    void requoteProposalApi(proposalId)
+      .then(updated => {
+        setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+        logAction(PROPOSAL_ENTITY, proposalId, 'proposal.requoted')
+      })
+      .catch(err => console.error('requoteProposal failed', err))
   }, [logAction])
 
-  // Thủ kho xác nhận đã nhận hàng — cộng dồn qua nhiều lần nhập (hàng có thể về nhiều đợt).
-  // Khi mọi item của proposal đã nhận đủ buyQty thì tự chuyển 'purchasing' -> 'purchased'.
+  // Thủ kho xác nhận đã nhận hàng — cộng dồn qua nhiều lần nhập (hàng có thể về nhiều đợt) ở
+  // tầng BE (xem PurchaseProposalsService.receiveItem), tự chuyển 'purchasing' -> 'purchased'
+  // khi mọi item đã nhận đủ buyQty.
   const receiveProposalItem = useCallback((proposalId: string, itemName: string, qty: number) => {
-    let justCompleted = false
-    const now = new Date().toISOString()
-    setProposals(prev => prev.map(p => {
-      if (p.id !== proposalId) return p
-      const items = p.items.map(it => it.name === itemName
-        ? { ...it, receivedQty: Math.min(it.buyQty, (it.receivedQty ?? 0) + Math.max(0, qty)) }
-        : it)
-      const allReceived = items.every(it => (it.receivedQty ?? 0) >= it.buyQty)
-      if (allReceived && p.status !== 'purchased') justCompleted = true
-      return allReceived
-        ? { ...p, items, status: 'purchased', purchasedAt: now }
-        : { ...p, items }
-    }))
-    if (justCompleted) logAction(PROPOSAL_ENTITY, proposalId, 'proposal.purchased')
-  }, [logAction])
+    const current = proposals.find(p => p.id === proposalId)
+    if (!current) return
+    const wasPurchased = current.status === 'purchased'
+    void receiveProposalItemApi(current, itemName, qty)
+      .then(updated => {
+        setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+        if (!wasPurchased && updated.status === 'purchased') {
+          logAction(PROPOSAL_ENTITY, proposalId, 'proposal.purchased')
+        }
+      })
+      .catch(err => console.error('receiveProposalItem failed', err))
+  }, [proposals, logAction])
 
   // KHSX chốt bắt đầu sản xuất — đồng thời đẩy vật tư sắt trong định mức (kho PSH) sang
   // "Xuất sắt cho Phôi" + "Lệnh sản xuất Phôi" để kho bắt đầu xuất sắt cho Phôi cắt.

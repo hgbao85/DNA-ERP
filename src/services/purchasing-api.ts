@@ -1,0 +1,238 @@
+/**
+ * Adapter PURCHASING: FE ⇄ BE thật (module `purchase-proposals`, Phase 8 - Mua hàng, rút gọn).
+ *
+ * Rút gọn (2026-08-07): PurchaseProposal giờ tự sinh thẳng từ CuttingProposal đã duyệt (chỉ vật
+ * tư sắt) - KHÔNG còn đi qua InspectionRequest/Sku/đơn hàng khách như mock cũ. Hệ quả khi map
+ * ngược về đúng type `PurchaseProposal` (context/InspectionContext.tsx) để không phải sửa UI:
+ *   - `poNumber` là mã lệnh sản xuất NỘI BỘ (BE ProductionOrder.poNumber, vd "PO-9"), KHÔNG phải
+ *     mã đơn hàng khách như mock cũ ("PO-MY-001").
+ *   - `requestId`/`skuId` không có ý nghĩa thật nữa (không còn InspectionRequest) - đặt giá trị
+ *     placeholder ổn định, các màn Mua hàng không đọc 2 field này.
+ *   - `deadline` chưa có nguồn dữ liệu - luôn `undefined` (field vốn optional).
+ *   - `actualStock` là tồn thật (kho phoi-son-han) đã được BE trừ tự động lúc tạo đề xuất (Sếp
+ *     quyết định 2026-08-07: "trừ tồn tự động, hiện qua mua hàng, không hiện ở kho") - `buyQty`
+ *     giờ chỉ còn là phần THIẾU cần mua, nên `required` (tổng nhu cầu) = actualStock + buyQty.
+ *
+ * BE dùng id dạng bigint-as-string - giữ nguyên string, không ép Number() (trừ skuId/materialId,
+ * 2 field number thuần theo type cũ, không dùng để gọi lại API nên ép an toàn).
+ *
+ * `quotes`/`chosenSuppliers` của type cũ key theo `item.name` (tên vật tư) thay vì id thật -
+ * BE dùng itemId/quoteId thật, nên các hàm action bên dưới nhận kèm `proposal` (đã có sẵn trong
+ * state) để tự tra ngược itemId/quoteId theo tên trước khi gọi API.
+ */
+import { http } from './core/http';
+import type {
+  KhoKey,
+  ProposalQuote,
+  PurchaseProposal,
+  PurchaseProposalItem,
+} from '../context/InspectionContext';
+
+// Không import KHO_KEY_TO_WAREHOUSE_SCOPE (value) từ InspectionContext.tsx - file đó import
+// ngược lại từ đây (circular), giá trị import được có thể chưa khởi tạo xong lúc module này
+// chạy. Định nghĩa lại độc lập (3 kho cố định, hiếm khi đổi) thay vì phụ thuộc runtime lẫn nhau.
+const WAREHOUSE_SCOPE_TO_KHO_KEY: Record<string, KhoKey> = {
+  'phoi-son-han': 'phoiSonHan',
+  'vat-tu-tp': 'vatTuTP',
+  'thanh-pham': 'thanhPham',
+};
+
+const KHO_LABELS: Record<string, string> = {
+  'phoi-son-han': 'Kho Phôi Sơn Hàn',
+  'vat-tu-tp': 'Kho Vật tư thành phẩm',
+  'thanh-pham': 'Kho Thành phẩm',
+};
+
+const BE_TO_FE_STATUS: Record<string, PurchaseProposal['status']> = {
+  NEW: 'new',
+  QUOTING: 'quoting',
+  SUBMITTED: 'submitted',
+  PURCHASING: 'purchasing',
+  PURCHASED: 'purchased',
+  REJECTED: 'rejected',
+};
+
+interface BeQuote {
+  id: string;
+  supplierId: string | null;
+  supplierName: string;
+  unitPrice: number | null;
+  expectedDate: string | null;
+  note: string | null;
+  isChosen: boolean;
+}
+
+interface BeItem {
+  id: string;
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  unit: string;
+  actualStock: number;
+  buyQty: number;
+  receivedQty: number;
+  quotes: BeQuote[];
+}
+
+interface BeProposal {
+  id: string;
+  cuttingProposalId: string;
+  warehouseCode: string;
+  status: keyof typeof BE_TO_FE_STATUS;
+  poNumber: string;
+  mfgProductCode: string;
+  mfgProductName: string | null;
+  createdAt: string;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  rejectionReason: string | null;
+  purchasedAt: string | null;
+  items?: BeItem[];
+}
+
+function toItem(item: BeItem, khoKey: KhoKey, warehouseCode: string): PurchaseProposalItem {
+  return {
+    name: item.materialName,
+    unit: item.unit,
+    required: item.actualStock + item.buyQty,
+    actualStock: item.actualStock,
+    buyQty: item.buyQty,
+    khoKey,
+    khoLabel: KHO_LABELS[warehouseCode] ?? warehouseCode,
+    materialId: Number(item.materialId),
+    receivedQty: item.receivedQty,
+  };
+}
+
+function toProposal(be: BeProposal): PurchaseProposal {
+  const khoKey = WAREHOUSE_SCOPE_TO_KHO_KEY[be.warehouseCode] ?? (be.warehouseCode as KhoKey);
+  const items = (be.items ?? []).map((it) => toItem(it, khoKey, be.warehouseCode));
+
+  const quotes: Record<string, ProposalQuote[]> = {};
+  const chosenSuppliers: Record<string, string> = {};
+  for (const it of be.items ?? []) {
+    quotes[it.materialName] = it.quotes.map((q) => ({
+      supplierName: q.supplierName,
+      unitPrice: q.unitPrice,
+      expectedDate: q.expectedDate ?? undefined,
+      note: q.note ?? undefined,
+    }));
+    const chosen = it.quotes.find((q) => q.isChosen);
+    if (chosen) chosenSuppliers[it.materialName] = chosen.supplierName;
+  }
+
+  return {
+    id: be.id,
+    requestId: `cutting-proposal-${be.cuttingProposalId}`,
+    skuId: Number(be.cuttingProposalId),
+    poNumber: be.poNumber,
+    skuCode: be.mfgProductCode,
+    skuName: be.mfgProductName ?? undefined,
+    createdAt: be.createdAt,
+    warehouseScope: be.warehouseCode,
+    items,
+    status: BE_TO_FE_STATUS[be.status] ?? 'new',
+    quotes,
+    chosenSuppliers,
+    submittedAt: be.submittedAt ?? undefined,
+    approvedAt: be.approvedAt ?? undefined,
+    rejectedAt: be.rejectedAt ?? undefined,
+    rejectionReason: be.rejectionReason ?? undefined,
+    purchasedAt: be.purchasedAt ?? undefined,
+  };
+}
+
+async function getPurchaseProposal(id: string): Promise<PurchaseProposal> {
+  const detail = await http.get<BeProposal>(`/purchase-proposals/${id}`);
+  return toProposal(detail);
+}
+
+export async function getPurchaseProposals(): Promise<PurchaseProposal[]> {
+  const res = await http.get<BeProposal[] | { data: BeProposal[] }>('/purchase-proposals?limit=100');
+  const list = Array.isArray(res) ? res : res.data;
+  return Promise.all(list.map((p) => getPurchaseProposal(p.id)));
+}
+
+export async function acknowledgeProposal(id: string): Promise<PurchaseProposal> {
+  await http.post(`/purchase-proposals/${id}/acknowledge`);
+  return getPurchaseProposal(id);
+}
+
+/** Tạo mọi dòng báo giá đã nhập (client gom sẵn trong quoteEdits) rồi gửi Sếp duyệt 1 lượt. */
+export async function submitProposalToDirector(
+  proposal: PurchaseProposal,
+  quotesByItemName: Record<string, ProposalQuote[]>,
+): Promise<PurchaseProposal> {
+  const beItemIdByName = await getBeItemIdsByName(proposal.id);
+
+  for (const [itemName, rows] of Object.entries(quotesByItemName)) {
+    const beItemId = beItemIdByName.get(itemName);
+    if (!beItemId) continue;
+    for (const row of rows) {
+      await http.post(`/purchase-proposals/${proposal.id}/items/${beItemId}/quotes`, {
+        supplierName: row.supplierName,
+        unitPrice: row.unitPrice ?? undefined,
+        expectedDate: row.expectedDate,
+        note: row.note,
+      });
+    }
+  }
+  await http.post(`/purchase-proposals/${proposal.id}/submit`);
+  return getPurchaseProposal(proposal.id);
+}
+
+/** Sếp chọn NCC theo tên (đúng hành vi mock) - tra ngược quoteId thật khớp tên trước khi gọi BE. */
+export async function approveProposal(
+  proposal: PurchaseProposal,
+  chosenSuppliers: Record<string, string>,
+): Promise<PurchaseProposal> {
+  const beDetail = await http.get<BeProposal>(`/purchase-proposals/${proposal.id}`);
+  const chosenQuoteIdByItemId: Record<string, string> = {};
+
+  for (const item of beDetail.items ?? []) {
+    const supplierName = chosenSuppliers[item.materialName];
+    const quote = item.quotes.find((q) => q.supplierName === supplierName);
+    if (quote) chosenQuoteIdByItemId[item.id] = quote.id;
+  }
+
+  await http.post(`/purchase-proposals/${proposal.id}/approve`, { chosenQuoteIdByItemId });
+  return getPurchaseProposal(proposal.id);
+}
+
+export async function rejectProposal(id: string, reason: string): Promise<PurchaseProposal> {
+  await http.post(`/purchase-proposals/${id}/reject`, { rejectionReason: reason });
+  return getPurchaseProposal(id);
+}
+
+export async function requoteProposal(id: string): Promise<PurchaseProposal> {
+  await http.post(`/purchase-proposals/${id}/requote`);
+  return getPurchaseProposal(id);
+}
+
+export async function receiveProposalItem(
+  proposal: PurchaseProposal,
+  itemName: string,
+  qty: number,
+): Promise<PurchaseProposal> {
+  const beItemIdByName = await getBeItemIdsByName(proposal.id);
+  const beItemId = beItemIdByName.get(itemName);
+  if (!beItemId) {
+    throw new Error(`Không tìm thấy vật tư "${itemName}" trong đề xuất mua ${proposal.id}`);
+  }
+  // BE ghi StockLedger (PURCHASE) mỗi lần nhận hàng - bắt buộc header này vì 1 item có thể nhận
+  // nhiều đợt nên không có key tất định từ dữ liệu (xem PurchaseProposalsService.receiveItem()).
+  await http.post(
+    `/purchase-proposals/${proposal.id}/items/${beItemId}/receive`,
+    { receivedQty: qty },
+    { headers: { 'Idempotency-Key': crypto.randomUUID() } },
+  );
+  return getPurchaseProposal(proposal.id);
+}
+
+/** materialName -> itemId thật (PurchaseProposalItem.id) - type cũ không có chỗ lưu itemId nên
+ *  tra lại qua 1 lần gọi detail còn tươi, dùng chung cho mọi action cần itemId. */
+async function getBeItemIdsByName(proposalId: string): Promise<Map<string, string>> {
+  const beDetail = await http.get<BeProposal>(`/purchase-proposals/${proposalId}`);
+  return new Map((beDetail.items ?? []).map((it) => [it.materialName, it.id]));
+}
