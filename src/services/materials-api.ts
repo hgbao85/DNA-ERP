@@ -17,6 +17,7 @@ export interface BeMaterial {
   warehouseId: string | null;
   buyerId: string | null;
   khoUnitFactor: number | null;
+  imageUrl: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -46,6 +47,7 @@ export async function createMaterial(data: Record<string, unknown>): Promise<BeM
     warehouseId: data.warehouseId || undefined,
     buyerId: data.buyerId || undefined,
     khoUnitFactor: data.khoUnitFactor,
+    imageUrl: data.imageUrl || undefined,
   });
 }
 
@@ -59,6 +61,7 @@ export async function updateMaterial(id: number | string, data: Record<string, u
     warehouseId: data.warehouseId || undefined,
     buyerId: data.buyerId || undefined,
     khoUnitFactor: data.khoUnitFactor,
+    imageUrl: data.imageUrl,
     isActive: data.isActive,
   });
 }

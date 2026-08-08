@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Nhật ký thay đổi: Upload ảnh vật tư &amp; fix InspectionContext</title>
+<style>
+:root{
+  --ground:#EEF0F0; --paper:#FFFFFF; --ink:#1B2023; --ink-soft:#565F66;
+  --line:#D8DCDD; --line-strong:#C3C9CA;
+  --accent:#C4501E; --accent-bg:#FBE9DE; --accent-ink:#9C3E17;
+  --add:#1E7A4C; --add-bg:#E1F1E7;
+  --chg:#B7791B; --chg-bg:#FBF0DA;
+  --del:#B0332B; --del-bg:#FAE4E2;
+  --fe:#2B6CB0; --fe-bg:#E3EDF7;
+  --be:#6B4FA0; --be-bg:#EDE7F6;
+  --db:#1E7A4C; --db-bg:#E1F1E7;
+  --code-bg:#F4F5F5; --shadow:0 1px 2px rgba(20,24,26,.05),0 6px 20px rgba(20,24,26,.06);
+  --serif: ui-serif,"Iowan Old Style","Palatino Linotype","URW Palladio",Georgia,serif;
+  --sans: -apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono: ui-monospace,"SF Mono","SFMono-Regular",Consolas,"Liberation Mono",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --ground:#14181A; --paper:#1B2124; --ink:#E7EAEA; --ink-soft:#9AA3A8;
+    --line:#2B3235; --line-strong:#3A4348;
+    --accent:#E08350; --accent-bg:#3A2416; --accent-ink:#F0A472;
+    --add:#5FBB8B; --add-bg:#173226;
+    --chg:#D9A441; --chg-bg:#332609;
+    --del:#E0776D; --del-bg:#3A1E1B;
+    --fe:#6FA3D8; --fe-bg:#1B2C3D;
+    --be:#B39DDB; --be-bg:#2A2140;
+    --db:#5FBB8B; --db-bg:#173226;
+    --code-bg:#20272A; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#14181A; --paper:#1B2124; --ink:#E7EAEA; --ink-soft:#9AA3A8;
+  --line:#2B3235; --line-strong:#3A4348;
+  --accent:#E08350; --accent-bg:#3A2416; --accent-ink:#F0A472;
+  --add:#5FBB8B; --add-bg:#173226;
+  --chg:#D9A441; --chg-bg:#332609;
+  --del:#E0776D; --del-bg:#3A1E1B;
+  --fe:#6FA3D8; --fe-bg:#1B2C3D;
+  --be:#B39DDB; --be-bg:#2A2140;
+  --db:#5FBB8B; --db-bg:#173226;
+  --code-bg:#20272A; --shadow:0 1px 2px rgba(0,0,0,.3),0 6px 20px rgba(0,0,0,.35);
+}
+:root[data-theme="light"]{
+  --ground:#EEF0F0; --paper:#FFFFFF; --ink:#1B2023; --ink-soft:#565F66;
+  --line:#D8DCDD; --line-strong:#C3C9CA;
+  --accent:#C4501E; --accent-bg:#FBE9DE; --accent-ink:#9C3E17;
+  --add:#1E7A4C; --add-bg:#E1F1E7;
+  --chg:#B7791B; --chg-bg:#FBF0DA;
+  --del:#B0332B; --del-bg:#FAE4E2;
+  --fe:#2B6CB0; --fe-bg:#E3EDF7;
+  --be:#6B4FA0; --be-bg:#EDE7F6;
+  --db:#1E7A4C; --db-bg:#E1F1E7;
+  --code-bg:#F4F5F5; --shadow:0 1px 2px rgba(20,24,26,.05),0 6px 20px rgba(20,24,26,.06);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0; background:var(--ground); color:var(--ink); font-family:var(--sans);
+  line-height:1.6; font-size:15.5px; -webkit-font-smoothing:antialiased;
+}
+::selection{background:var(--accent-bg)}
+a{color:var(--accent-ink)}
+code, pre, .mono{font-family:var(--mono)}
+code{background:var(--code-bg); padding:.1em .4em; border-radius:4px; font-size:.88em}
+
+.topbar{
+  position:sticky; top:0; z-index:30; display:flex; align-items:center; justify-content:space-between;
+  gap:1rem; padding:.7rem 1.4rem; background:var(--paper); border-bottom:1px solid var(--line);
+  box-shadow:var(--shadow);
+}
+.topbar .brand{font-family:var(--serif); font-weight:600; font-size:1.05rem; display:flex; align-items:baseline; gap:.55rem}
+.topbar .brand small{font-family:var(--mono); font-weight:400; color:var(--ink-soft); font-size:.72rem; letter-spacing:.02em}
+.topbar button{
+  border:1px solid var(--line); background:var(--paper); color:var(--ink); border-radius:7px;
+  padding:.42rem .8rem; font-size:.83rem; font-family:var(--sans); cursor:pointer;
+}
+.topbar button:hover{background:var(--accent-bg); border-color:var(--accent)}
+.topbar button:focus-visible{outline:2px solid var(--accent); outline-offset:1px}
+
+.wrap{max-width:58rem; margin:0 auto; padding:2.6rem 1.6rem 6rem}
+@media (max-width:640px){ .wrap{padding:1.6rem 1.1rem 4rem} }
+
+.masthead{max-width:54rem; margin-bottom:2.2rem}
+.eyebrow{font-family:var(--mono); font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; color:var(--accent-ink)}
+h1{font-family:var(--serif); font-size:1.95rem; font-weight:600; margin:.5rem 0 .7rem; text-wrap:balance; letter-spacing:-.01em}
+.lede{color:var(--ink-soft); font-size:1.02rem; max-width:64ch}
+.meta{display:flex; gap:1.2rem; flex-wrap:wrap; margin-top:1rem; font-size:.82rem; color:var(--ink-soft); font-family:var(--mono)}
+
+.tldr{
+  background:var(--paper); border:1px solid var(--line); border-radius:11px; box-shadow:var(--shadow);
+  padding:1.2rem 1.4rem; margin:1.6rem 0 2.6rem;
+}
+.tldr h2{margin:0 0 .7rem; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; font-family:var(--mono); color:var(--ink-soft)}
+.tldr ul{margin:0; padding-left:1.2rem; display:flex; flex-direction:column; gap:.45rem}
+.tldr li{font-size:.94rem}
+
+.module{margin-top:3rem; scroll-margin-top:1.2rem}
+.module > h2{
+  font-family:var(--serif); font-size:1.35rem; font-weight:600; margin:0 0 .3rem; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap;
+}
+.module-note{color:var(--ink-soft); font-size:.92rem; margin:.4rem 0 1.3rem; max-width:66ch}
+
+.badge{
+  display:inline-flex; align-items:center; font-family:var(--mono); font-size:.68rem; font-weight:700;
+  letter-spacing:.03em; padding:.18rem .5rem; border-radius:5px; text-transform:uppercase;
+}
+.b-fe{background:var(--fe-bg); color:var(--fe)}
+.b-be{background:var(--be-bg); color:var(--be)}
+.b-db{background:var(--db-bg); color:var(--db)}
+
+.pill{
+  display:inline-flex; align-items:center; font-size:.72rem; font-weight:700; padding:.12rem .55rem;
+  border-radius:20px; font-family:var(--sans);
+}
+.p-add{background:var(--add-bg); color:var(--add)}
+.p-chg{background:var(--chg-bg); color:var(--chg)}
+.p-del{background:var(--del-bg); color:var(--del)}
+
+.card{
+  background:var(--paper); border:1px solid var(--line); border-radius:11px; box-shadow:var(--shadow);
+  padding:1.1rem 1.3rem; margin-bottom:.9rem;
+}
+.card h3{margin:0 0 .35rem; font-size:1rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap}
+.card p{margin:.3rem 0 0; color:var(--ink-soft); font-size:.92rem; max-width:68ch}
+.card .path{font-family:var(--mono); font-size:.82rem}
+
+.callout{
+  border:1px solid var(--line); background:var(--paper); border-left:3px solid var(--accent);
+  border-radius:8px; padding:.85rem 1.1rem; margin:1rem 0; font-size:.92rem; max-width:68ch;
+}
+.callout b{color:var(--accent-ink)}
+.callout.warn{border-left-color:var(--chg); background:var(--chg-bg)}
+.callout.warn b{color:var(--chg)}
+.callout.ok{border-left-color:var(--add); background:var(--add-bg)}
+.callout.ok b{color:var(--add)}
+
+.tbl-wrap{overflow-x:auto; border:1px solid var(--line); border-radius:9px; margin:1rem 0 0; box-shadow:var(--shadow)}
+table{width:100%; border-collapse:collapse; font-size:.86rem; background:var(--paper)}
+th, td{text-align:left; padding:.6rem .8rem; border-bottom:1px solid var(--line); vertical-align:top}
+thead th{font-family:var(--mono); font-size:.68rem; letter-spacing:.06em; text-transform:uppercase; color:var(--ink-soft); background:var(--code-bg)}
+tbody tr:last-child td{border-bottom:none}
+td.path{font-family:var(--mono); font-size:.8rem; white-space:nowrap}
+
+.timeline{list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:1.1rem}
+.timeline li{padding-left:1.6rem; position:relative; font-size:.94rem}
+.timeline li::before{
+  content:''; position:absolute; left:0; top:.42em; width:.55rem; height:.55rem; border-radius:50%;
+  background:var(--accent);
+}
+.timeline b{display:block; margin-bottom:.1rem}
+.timeline span{color:var(--ink-soft)}
+
+.stats{display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:9px; overflow:hidden; margin:1rem 0}
+.stat{background:var(--paper); padding:.9rem 1rem}
+.stat .n{font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:1.5rem; font-weight:700; color:var(--accent-ink); line-height:1.1}
+.stat .l{margin-top:.2rem; font-size:.72rem; color:var(--ink-soft)}
+
+footer{margin-top:3.5rem; padding-top:1.4rem; border-top:1px solid var(--line); color:var(--ink-soft); font-size:.85rem; max-width:66ch}
+
+.back-to-top{
+  position:fixed; bottom:1.4rem; right:1.4rem; width:2.6rem; height:2.6rem; border-radius:50%;
+  border:1px solid var(--line); background:var(--paper); color:var(--ink); font-size:1.1rem; cursor:pointer;
+  box-shadow:var(--shadow); opacity:.85;
+}
+.back-to-top:hover{opacity:1}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand">DNA-ERP <small>NHẬT KÝ THAY ĐỔI</small></div>
+  <button id="theme-toggle" type="button">◐ Theme</button>
+</div>
+
+<div class="wrap">
+  <div class="masthead">
+    <div class="eyebrow">Backend + Frontend · Material.imageUrl · Upload ảnh qua Cloudinary · Fix InspectionContext</div>
+    <h1>Upload ảnh vật tư (Cloudinary) &amp; fix gọi API thừa trên trang đăng nhập</h1>
+    <p class="lede">
+      Thêm field ảnh thật cho form "Vật tư" — backend lưu qua Cloudinary, có tự dọn ảnh cũ khi thay/xóa.
+      Component form dùng chung <code>AdminEntityPage</code> (mọi trang CRUD trong Admin) được thêm
+      kiểu field <code>'image'</code>, thiết kế "upload trễ tới lúc Lưu" để không tạo ảnh rác khi người
+      dùng hủy form giữa chừng. Kèm 1 fix riêng: <code>InspectionContext</code> gọi API đề xuất mua hàng
+      ngay cả trên trang đăng nhập (chưa có token) — giờ chỉ gọi khi đã đăng nhập.
+    </p>
+    <div class="meta">
+      <span>08/08/2026</span>
+      <span>2 repo: <code>DNA-ERP-BE</code> (Cloudinary, schema/API) · <code>DNA-ERP</code> (form ảnh dùng chung, fix context)</span>
+      <span>1 migration mới — <b>đã áp dụng lên DB thật</b></span>
+      <span>15 test backend (materials.service.spec.ts) — pass</span>
+    </div>
+  </div>
+
+  <div class="tldr">
+    <h2>Tóm tắt nhanh</h2>
+    <ul>
+      <li><code>Material.imageUrl</code> — field mới, lưu URL ảnh thật trên Cloudinary (không phải blob/base64).</li>
+      <li><code>UploadsModule</code> (BE) — <code>POST /uploads/image</code> dùng chung cho mọi form cần ảnh, không riêng Vật tư.</li>
+      <li><code>AdminFormField</code> có thêm <code>type: 'image'</code> — mọi trang Admin CRUD dùng <code>AdminEntityPage</code> đều có thể bật field upload ảnh chỉ bằng 1 dòng cấu hình.</li>
+      <li><b>Quyết định thiết kế quan trọng nhất:</b> ảnh chỉ thật sự upload lên Cloudinary lúc bấm <b>Lưu</b>, không phải lúc chọn file — bấm Hủy thì chưa từng có gì lên Cloudinary, không cần thêm endpoint xóa nào (tránh mở rộng bề mặt cho phép xóa ảnh tùy ý).</li>
+      <li><code>MaterialsService</code> (BE) tự xóa ảnh cũ trên Cloudinary khi ảnh bị thay/gỡ hoặc khi xóa hẳn vật tư — best-effort, lỗi Cloudinary không chặn thao tác chính.</li>
+      <li>Fix: <code>InspectionContext.tsx</code> bọc toàn app (kể cả <code>/login</code>) từng gọi <code>getPurchaseProposals()</code> vô điều kiện lúc mount — giờ chỉ gọi khi đã có token đăng nhập.</li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════════════ 1. UPLOAD ẢNH (BE) ═══════════════════════ -->
+
+  <div class="module">
+    <h2><span class="badge b-db">DB</span><span class="badge b-be">BE</span> 1. Hạ tầng upload ảnh (Cloudinary)</h2>
+    <p class="module-note">
+      Trước đây dự án chưa có hạ tầng nhận file upload nào (không multer, không static serving,
+      không cloud storage). Pattern "đính kèm file" duy nhất có sẵn (<code>OrderManagementPage.tsx</code>,
+      sales-order attachment) chỉ dùng <code>URL.createObjectURL</code> — không lưu bền vững, mất khi
+      tải lại trang. Lần này xây hẳn 1 đường upload thật, dùng Cloudinary theo lựa chọn của người dùng.
+    </p>
+
+    <div class="card">
+      <h3><span class="pill p-add">Mới</span> <span class="path">src/modules/uploads/</span> (BE)</h3>
+      <p><code>UploadsController</code> — <code>POST /api/v1/uploads/image</code> (multipart, <code>FileInterceptor</code> + <code>memoryStorage</code>, giới hạn 5MB, chỉ nhận JPEG/PNG/WEBP/GIF). <code>CloudinaryService</code> — <code>uploadBuffer()</code> stream thẳng buffer lên Cloudinary (không ghi tạm ra đĩa) và <code>deleteByUrl()</code> parse <code>public_id</code> từ URL để xóa (best-effort, không throw). Chỉ yêu cầu đăng nhập (JWT), chưa gắn <code>RequirePermissions</code> riêng — xem mục "Để ngỏ".</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-add">Mới</span> <span class="path">materials.image_url</span> (DB)</h3>
+      <p>Cột nullable trên <code>Material</code>, migration <code>20260808000000_add_material_image_url</code> — đã áp dụng lên DB thật (<code>prisma migrate deploy</code>).</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">materials/dto/*.ts</span>, <span class="path">materials.service.ts</span> (BE)</h3>
+      <p><code>CreateMaterialDto</code>/<code>MaterialResponseDto</code> thêm <code>imageUrl</code>. <code>MaterialsService.update()</code> so <code>previous.imageUrl</code> với giá trị mới — khác nhau (bị thay hoặc gỡ về <code>null</code>) thì xóa ảnh cũ trên Cloudinary sau khi ghi DB thành công. <code>remove()</code> xóa luôn ảnh gắn với vật tư khi xóa hẳn bản ghi.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-add">Mới</span> <span class="path">materials.service.spec.ts</span> (BE)</h3>
+      <p>Thêm mock <code>CloudinaryService</code> + 4 test case mới: thay ảnh, gỡ ảnh, không đụng ảnh khi sửa field khác, xóa ảnh khi xóa vật tư. Toàn bộ 15 test pass.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">.env</span>, <span class="path">.env.example</span>, <span class="path">config/</span> (BE)</h3>
+      <p>Thêm <code>CLOUDINARY_CLOUD_NAME</code>/<code>CLOUDINARY_API_KEY</code>/<code>CLOUDINARY_API_SECRET</code> (optional ở Joi validation — thiếu cấu hình không chặn boot cả app, chỉ riêng route upload báo lỗi khi thật sự có ai gọi). Đã điền giá trị thật vào <code>.env</code> local.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ 2. FIELD ẢNH DÙNG CHUNG (FE) ═══════════════════════ -->
+
+  <div class="module">
+    <h2><span class="badge b-fe">FE</span> 2. <code>AdminEntityPage</code> — thêm <code>type: 'image'</code> dùng chung cho mọi trang Admin</h2>
+    <p class="module-note">
+      <code>AdminEntityPage.tsx</code> là component form/bảng dùng chung cho toàn bộ trang CRUD trong
+      Admin (Vật tư, Users, Suppliers, Nhóm vật tư...). Thêm 1 kiểu field mới ở đây nghĩa là mọi trang
+      khác cũng dùng được ngay, không cần viết riêng.
+    </p>
+
+    <div class="callout">
+      <b>Quyết định thiết kế:</b> ảnh KHÔNG upload ngay lúc chọn file. Chọn file chỉ tạo preview tạm
+      bằng <code>URL.createObjectURL</code> (giống pattern <code>OrderManagementPage.tsx</code> đã có).
+      Upload thật lên Cloudinary chỉ xảy ra đúng lúc bấm <b>Lưu</b>. Lý do: thử nghiệm ban đầu upload
+      ngay khi chọn file — bấm Hủy sau đó để lại ảnh mồ côi vĩnh viễn trên Cloudinary (không route nào
+      dọn). Cân nhắc 2 hướng: (a) thêm endpoint xóa-theo-URL để dọn rác sau, hoặc (b) upload trễ. Chọn
+      (b) vì loại bỏ tận gốc, không cần mở endpoint xóa ảnh tùy ý cho mọi user đăng nhập (rủi ro bảo mật
+      không cần thiết cho một tiện ích dọn rác).
+    </div>
+
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">AdminEntityPage.tsx</span></h3>
+      <p><code>AdminFormField.type</code> thêm <code>'image'</code>. State <code>pendingImages</code> giữ <code>{'{'} file, previewUrl, uploadedUrl? {'}'}</code> theo tên field — <code>uploadedUrl</code> cache lại kết quả upload thành công đầu tiên, để nếu Lưu thất bại vì lý do khác (vd trùng mã) và người dùng bấm Lưu lại, <b>không upload lại cùng 1 file lần nữa</b> (tránh nhân bản ảnh rác qua mỗi lần thử). Đóng modal (Hủy/mở lại) revoke toàn bộ object URL đang preview.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">MaterialsPage.tsx</span></h3>
+      <p>Thêm field <code>{'{'} name: 'imageUrl', label: 'Ảnh vật tư', type: 'image' {'}'}</code> vào <code>formFields</code>, thêm <code>imageUrl</code> vào interface <code>Material</code>.</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-add">Mới</span> <span class="path">services/uploads-api.ts</span></h3>
+      <p><code>uploadImage(file)</code> — POST <code>multipart/form-data</code> tới <code>/uploads/image</code>, trả về <code>imageUrl</code>. Lưu ý kỹ thuật: phải set <code>Content-Type: multipart/form-data</code> tường minh trên request này (khác mọi request JSON khác) — axios instance mặc định gắn <code>Content-Type: application/json</code>, nếu giữ nguyên thì <code>FormData</code> bị <code>JSON.stringify</code> nhầm thay vì gửi đúng dạng multipart (xem <code>node_modules/axios/lib/defaults/index.js</code>, nhánh <code>hasJSONContentType</code>).</p>
+    </div>
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">materials-api.ts</span>, <span class="path">api.ts</span></h3>
+      <p><code>BeMaterial</code> thêm <code>imageUrl</code>; <code>createMaterial</code>/<code>updateMaterial</code> truyền field này trong payload. Export <code>uploadImage</code> qua facade <code>api.ts</code>.</p>
+    </div>
+
+    <div class="callout warn">
+      <b>Giới hạn còn lại, chưa xử lý:</b>
+      <ul style="margin:.4rem 0 0; padding-left:1.1rem">
+        <li>Nếu Lưu thất bại <i>sau khi</i> ảnh đã upload thành công (vd lỗi trùng mã ở bước tạo/sửa bản ghi) — ảnh đó mồ côi trên Cloudinary. Hiếm gặp hơn nhiều so với việc hủy form (đã xử lý), và không nhân bản qua các lần thử lại nhờ cache <code>uploadedUrl</code>, nhưng vẫn còn 1 ảnh rác cho lần đầu tiên.</li>
+        <li><code>POST /uploads/image</code> chỉ yêu cầu đăng nhập, chưa gắn quyền cụ thể (khác mọi API khác trong hệ thống luôn có <code>RequirePermissions</code>) — bất kỳ user nào đăng nhập được cũng gọi được, tốn dung lượng/băng thông Cloudinary.</li>
+        <li>Ảnh gốc chưa được resize/tối ưu — thumbnail 64×64 trong form vẫn tải nguyên file gốc (tới 5MB).</li>
+        <li>Kiểm tra loại file dựa vào <code>mimetype</code> client tự khai, có thể giả mạo (Cloudinary tự chặn phần lớn vì không giải mã được thành ảnh hợp lệ, nhưng không phải chốt chặn chủ đích).</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ 3. FIX INSPECTIONCONTEXT ═══════════════════════ -->
+
+  <div class="module">
+    <h2><span class="badge b-fe">FE</span> 3. Fix: gọi API đề xuất mua hàng thừa trên trang đăng nhập</h2>
+    <p class="module-note">
+      Phát hiện qua Network tab: trang <code>/login</code> (chưa đăng nhập) vẫn bắn
+      <code>GET /purchase-proposals?limit=100</code> và nhận 401 — đúng theo bảo mật, nhưng việc gọi
+      API business data ở đây là sai vị trí.
+    </p>
+
+    <div class="card">
+      <h3><span class="pill p-chg">Sửa</span> <span class="path">context/InspectionContext.tsx</span></h3>
+      <p><code>InspectionProvider</code> bọc toàn bộ app ở <code>layout.tsx</code> (kể cả <code>/login</code>), effect gọi <code>getPurchaseProposals()</code> không điều kiện lúc mount. Thêm <code>useAuth()</code>, chỉ fetch khi có <code>token</code> — <code>useEffect</code> đổi dependency từ <code>[]</code> sang <code>[token]</code>. Sau khi đăng nhập, <code>token</code> xuất hiện và effect tự chạy lại như cũ.</p>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ 4. FILE THAY ĐỔI ═══════════════════════ -->
+
+  <div class="module">
+    <h2><span class="badge b-be">BE</span><span class="badge b-fe">FE</span> 4. Danh sách file thay đổi</h2>
+
+    <h3 style="font-family:var(--mono);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin:1.6rem 0 .8rem">Backend (<code>DNA-ERP-BE</code>)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Loại</th><th>File</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill p-add">Mới</span></td><td class="path">src/modules/uploads/cloudinary.service.ts</td></tr>
+          <tr><td><span class="pill p-add">Mới</span></td><td class="path">src/modules/uploads/uploads.controller.ts</td></tr>
+          <tr><td><span class="pill p-add">Mới</span></td><td class="path">src/modules/uploads/uploads.module.ts</td></tr>
+          <tr><td><span class="pill p-add">Mới</span></td><td class="path">prisma/migrations/20260808000000_add_material_image_url/</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">prisma/schema.prisma</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/app.module.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/config/configuration.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/config/env.validation.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/materials/dto/create-material.dto.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/materials/dto/material-response.dto.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/materials/materials.service.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/materials/materials.module.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/materials/materials.service.spec.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">package.json / pnpm-lock.yaml (+cloudinary, +multer, +@types/multer)</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">.env / .env.example</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="font-family:var(--mono);font-size:.78rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin:1.6rem 0 .8rem">Frontend (<code>DNA-ERP</code>)</h3>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Loại</th><th>File</th></tr></thead>
+        <tbody>
+          <tr><td><span class="pill p-add">Mới</span></td><td class="path">src/services/uploads-api.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/pages/Admin/shared/AdminEntityPage.tsx</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/modules/pages/Admin/masterData/MaterialsPage.tsx</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/services/materials-api.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/services/api.ts</td></tr>
+          <tr><td><span class="pill p-chg">Sửa</span></td><td class="path">src/context/InspectionContext.tsx</td></tr>
+          <tr><td><span class="pill p-add">Mới</span></td><td class="path">docs/changelog-2026-08-08-upload-anh-vat-tu.html</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ 6. ĐÃ XÁC MINH ═══════════════════════ -->
+
+  <div class="module">
+    <h2>5. Đã xác minh</h2>
+    <ul class="timeline">
+      <li><b><code>tsc --noEmit</code></b><span> — sạch cả 2 repo (backend chỉ còn lỗi có sẵn từ trước ở <code>skus.service.spec.ts</code>, không liên quan phiên này).</span></li>
+      <li><b><code>eslint</code></b><span> — 0 lỗi ở mọi file thay đổi (chỉ còn 1 warning <code>no-img-element</code> đã biết trước, và vài warning <code>no-explicit-any</code> có sẵn trong test cũ).</span></li>
+      <li><b><code>jest</code> (backend)</b><span> — 15/15 test <code>materials.service.spec.ts</code> pass, gồm 4 test case mới cho logic xóa ảnh Cloudinary.</span></li>
+      <li><b>Migration</b><span> — <code>20260808000000_add_material_image_url</code> áp dụng thành công lên DB thật qua <code>prisma migrate deploy</code>.</span></li>
+    </ul>
+  </div>
+
+  <!-- ═══════════════════════ 6. ĐỂ NGỎ ═══════════════════════ -->
+
+  <div class="module">
+    <h2>6. Phạm vi chưa làm / để dành</h2>
+    <ul class="timeline">
+      <li><b>Quyền cho <code>/uploads/image</code></b><span> — hiện chỉ cần đăng nhập, chưa gắn <code>RequirePermissions</code> theo module cụ thể.</span></li>
+      <li><b>Resize/tối ưu ảnh</b><span> — chưa có transform Cloudinary cho thumbnail, đang tải nguyên file gốc.</span></li>
+      <li><b>Ảnh mồ côi khi Lưu thất bại sau upload thành công</b><span> — đã giảm thiểu (không nhân bản qua các lần thử lại) nhưng chưa dọn được ảnh của lần thử đầu tiên.</span></li>
+    </ul>
+  </div>
+
+  <footer>
+    Nguồn: toàn bộ nội dung trên tổng hợp trực tiếp từ phiên làm việc trong Claude Code — không suy
+    diễn thêm. Code thật nằm ở <code>D:\DNA-ERP-BE</code> (Cloudinary, schema, migration, API) và
+    <code>D:\DNA-ERP</code> (field ảnh dùng chung, fix InspectionContext).
+  </footer>
+</div>
+
+<button class="back-to-top" id="back-to-top" title="Về đầu trang" type="button">↑</button>
+
+<script>
+(function(){
+  var KEY = 'dna-erp-changelog-theme';
+  var root = document.documentElement;
+  var btn = document.getElementById('theme-toggle');
+  var saved = localStorage.getItem(KEY);
+  if (saved) root.setAttribute('data-theme', saved);
+  btn.addEventListener('click', function(){
+    var current = root.getAttribute('data-theme');
+    var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    var effectiveCurrent = current || (prefersDark ? 'dark' : 'light');
+    var next = effectiveCurrent === 'dark' ? 'light' : 'dark';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem(KEY, next);
+  });
+})();
+(function(){
+  document.getElementById('back-to-top').addEventListener('click', function(){
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  });
+})();
+</script>
+</body>
+</html>

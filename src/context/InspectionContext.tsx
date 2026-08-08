@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import type { Sku, ManhRow } from '../types/sku'
 import type { WarehouseScope } from './AuthContext'
+import { useAuth } from './AuthContext'
 import { useAuditLog } from './AuditLogContext'
 import { syncDinhMucSatVaoKeHoach, syncDinhMucSatVaoLenhPhoi, type DinhMucSatSyncItem } from '../services/api'
 import {
@@ -249,14 +250,19 @@ const InspCtx = createContext<InspCtxType | undefined>(undefined)
 
 export function InspectionProvider({ children }: { children: React.ReactNode }) {
   const { logAction } = useAuditLog()
+  const { token } = useAuth()
   const [requests,  setRequests]  = useState<InspRequest[]>(SEED_REQUESTS)
   const [proposals, setProposals] = useState<PurchaseProposal[]>([])
 
+  // InspectionProvider bọc TOÀN BỘ app ở layout.tsx (kể cả /login, trước khi có token) - chỉ gọi
+  // API khi đã đăng nhập, tránh bắn request chắc chắn 401 (không có token) ngay trên màn hình
+  // đăng nhập. `token` chỉ có sau khi AuthProvider khôi phục xong phiên (xem AuthContext.tsx).
   useEffect(() => {
+    if (!token) return
     fetchPurchaseProposals()
       .then(setProposals)
       .catch(err => console.error('getPurchaseProposals failed', err))
-  }, [])
+  }, [token])
 
   const sendRequest = useCallback((pf: Sku) => {
     setRequests(prev => {
