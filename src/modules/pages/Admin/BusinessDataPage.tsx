@@ -1,16 +1,17 @@
 'use client'
 import { useState } from 'react'
-import { Briefcase, ClipboardList, FileText, Layers3, Factory, Truck } from 'lucide-react'
+import { Briefcase, ClipboardList, FileText, Layers3, Factory, Truck, Scissors } from 'lucide-react'
 import { tabBtn } from '../../../styles/buttons'
 import SalesPOsPage from './businessData/SalesPOsPage'
 import PurchaseProposalsPage from './businessData/PurchaseProposalsPage'
 import SkuPage from './businessData/SkuPage'
 import ProductionInvoicesPage from './businessData/ProductionInvoicesPage'
 import WarehouseTransfersPage from './businessData/WarehouseTransfersPage'
+import CuttingProposalsPage from './businessData/CuttingProposalsPage'
 
 const ACCENT = '#3949ab'
 
-type Tab = 'sales-po' | 'purchase-proposals' | 'sku' | 'production-invoices' | 'warehouse-transfers'
+type Tab = 'sales-po' | 'purchase-proposals' | 'sku' | 'production-invoices' | 'warehouse-transfers' | 'cutting-proposals'
 
 const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'sales-po',             label: 'Đơn hàng bán',        icon: <ClipboardList size={14} /> },
@@ -18,6 +19,7 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'sku',                  label: 'SKU / Định mức',      icon: <Layers3 size={14} /> },
   { id: 'production-invoices',  label: 'Lệnh sản xuất',       icon: <Factory size={14} /> },
   { id: 'warehouse-transfers',  label: 'Chuyển kho',          icon: <Truck size={14} /> },
+  { id: 'cutting-proposals',    label: 'Cắt sắt',             icon: <Scissors size={14} /> },
 ]
 
 export default function BusinessDataPage() {
@@ -50,6 +52,7 @@ export default function BusinessDataPage() {
       {tab === 'sku' && <SkuPage />}
       {tab === 'production-invoices' && <ProductionInvoicesPage />}
       {tab === 'warehouse-transfers' && <WarehouseTransfersPage />}
+      {tab === 'cutting-proposals' && <CuttingProposalsPage />}
     </div>
   )
 }
