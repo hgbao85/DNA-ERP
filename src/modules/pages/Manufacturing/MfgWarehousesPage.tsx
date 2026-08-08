@@ -517,13 +517,12 @@ function AddMaterialModal({ warehouseId, onClose, onDone }: {
   const set = (key: keyof typeof form, val: string) => setForm(p => ({ ...p, [key]: val }))
 
   const submit = async () => {
-    if (!form.code.trim()) { setErr('Mã vật tư bắt buộc'); return }
     if (!form.name.trim()) { setErr('Tên vật tư bắt buộc'); return }
     if (!form.unit.trim()) { setErr('ĐVT bắt buộc'); return }
     setErr(null)
     setSaving(true)
     try {
-      await createMaterial({ code: form.code, name: form.name, unit: form.unit, spec: form.spec || undefined, warehouseId })
+      await createMaterial({ code: form.code || undefined, name: form.name, unit: form.unit, spec: form.spec || undefined, warehouseId })
       onDone()
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Không thể thêm vật tư')
@@ -536,8 +535,8 @@ function AddMaterialModal({ warehouseId, onClose, onDone }: {
     <Overlay onClose={onClose}>
       <div style={modalCard}>
         <ModalHead title="Thêm vật tư" onClose={onClose} />
-        <label style={lbl}>Mã vật tư *</label>
-        <input value={form.code} onChange={e => set('code', e.target.value)} style={inp} />
+        <label style={lbl}>Mã vật tư</label>
+        <input value={form.code} onChange={e => set('code', e.target.value)} style={inp} placeholder="Để trống sẽ tự sinh" />
         <label style={lbl}>Tên vật tư *</label>
         <input value={form.name} onChange={e => set('name', e.target.value)} style={inp} />
         <label style={lbl}>ĐVT *</label>

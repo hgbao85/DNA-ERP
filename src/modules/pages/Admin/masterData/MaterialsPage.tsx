@@ -68,7 +68,7 @@ export default function MaterialsPage() {
     // nữa. Nhóm vật tư để trống thì vật tư đó sẽ vô hình ở mọi picker Spec cho đến khi được
     // gán nhóm sau (ở đây hoặc lúc nhập định mức - xem skus.service.ts bên BE).
     formFields: [
-      { name: 'code', label: 'Mã vật tư', type: 'text' },
+      { name: 'code', label: 'Mã vật tư', type: 'text', placeholder: 'Để trống sẽ tự sinh theo Nhóm vật tư' },
       { name: 'name', label: 'Tên vật tư', type: 'text' },
       { name: 'unit', label: 'Đơn vị tính', type: 'text' },
       { name: 'spec', label: 'Quy cách', type: 'text', placeholder: 'VD: 10x29x0.8' },
