@@ -80,3 +80,4 @@ export {
   confirmWarehouseTransfer, rejectWarehouseTransfer,
 } from './warehouse-transfers-api';
 export { getStockQuants, getStockLedger } from './stock-api';
+export { uploadImage } from './uploads-api';

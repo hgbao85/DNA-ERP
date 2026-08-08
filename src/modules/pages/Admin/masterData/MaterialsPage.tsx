@@ -15,6 +15,7 @@ interface Material {
   warehouseId?: string | null
   buyerId?: string | null
   khoUnitFactor?: number | null
+  imageUrl?: string | null
 }
 
 interface MaterialGroup {
@@ -85,6 +86,7 @@ export default function MaterialsPage() {
         options: buyerList.map((u) => ({ value: String(u.id), label: u.name })),
       },
       { name: 'khoUnitFactor', label: 'Hệ số quy đổi kho', type: 'number', placeholder: 'VD: 600' },
+      { name: 'imageUrl', label: 'Ảnh vật tư', type: 'image' },
     ],
     deleteConfirm: (m) => ({
       title: 'Xóa vật tư',
