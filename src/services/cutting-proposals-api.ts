@@ -10,6 +10,21 @@ import { http } from './core/http';
 
 export type CuttingProposalStatus = 'CALCULATING' | 'DRAFT' | 'FAILED' | 'APPROVED' | 'SUPERSEDED';
 
+export interface CuttingProposalSegment {
+  segmentSpecId: string;
+  cutLengthMm: number;
+  countPerBar: number;
+}
+
+export interface CuttingProposalPattern {
+  patternIndex: number;
+  barCount: number;
+  wastePerBarMm: number | null;
+  /** > 0 nghĩa là cây thuộc pattern này cắt dở - phần còn lại để nguyên, nhập kho. */
+  mauNguyenMm: number | null;
+  segments: CuttingProposalSegment[];
+}
+
 export interface CuttingProposalLine {
   materialId: string;
   materialCode: string;
@@ -21,6 +36,8 @@ export interface CuttingProposalLine {
   totalWasteMm: number | null;
   wastePercentage: number | null;
   mauNguyenMm: number | null;
+  lengthComparison: { length: number; bars: number; wastePct: number }[] | null;
+  patterns: CuttingProposalPattern[];
 }
 
 export interface CuttingProposal {

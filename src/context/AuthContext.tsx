@@ -74,6 +74,29 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Khôi phục phiên đăng nhập từ token đã lưu (localStorage). Trả về Promise<Session | null> thay
+ * vì set state trực tiếp - CHỈ resolve với giá trị cuối cùng đã xác minh qua getProfile(), không
+ * có đường nào để "lộ" 1 token chưa xác minh ra ngoài (khác cách cũ: set token ngay rồi rollback
+ * nếu verify thất bại, khiến trong lúc chờ verify, mọi consumer khác đọc `token` từ context tưởng
+ * đã đăng nhập xong và gọi API luôn - gây 401 hàng loạt ngay trên /login khi token cũ hết hạn).
+ */
+export async function restoreSession(): Promise<{ token: string; user: User } | null> {
+  const storedToken = tokenStorage.getAccessToken();
+  if (!storedToken) return null;
+
+  try {
+    const profile = await getProfile();
+    const freshUser = normalizeUser(profile);
+    tokenStorage.setUser(freshUser);
+    return { token: storedToken, user: freshUser };
+  } catch (e) {
+    console.error('Không thể khôi phục phiên đăng nhập', e);
+    tokenStorage.clear();
+    return null;
+  }
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -81,30 +104,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const router = useRouter();
 
   useEffect(() => {
-    const init = async () => {
-      const storedToken = tokenStorage.getAccessToken();
-      if (!storedToken) {
-        setLoading(false);
-        return;
+    restoreSession().then((session) => {
+      if (session) {
+        setToken(session.token);
+        setUser(session.user);
       }
-
-      setToken(storedToken);
-      try {
-        const profile = await getProfile();
-        const freshUser = normalizeUser(profile);
-        setUser(freshUser);
-        tokenStorage.setUser(freshUser);
-      } catch (e) {
-        console.error('Không thể khôi phục phiên đăng nhập', e);
-        tokenStorage.clear();
-        setToken(null);
-        setUser(null);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    void init();
+      setLoading(false);
+    });
   }, []);
 
   // core/http.ts phát event này khi access token hết hạn VÀ refresh cũng thất bại
