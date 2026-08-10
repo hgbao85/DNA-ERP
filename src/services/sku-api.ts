@@ -1,7 +1,7 @@
 /**
  * Adapter SKU: FE ⇄ BE thật (module `skus`).
  * Map ngược đầy đủ về shape `Sku` (types/sku.ts) — quotaManagement.materialType/
- * manhData/manhReviewStatus/qlsxReviewStatus... — để SKUListPage/SKUDetail/SKUReviewPage
+ * manhData/manhReviewStatus... — để SKUListPage/SKUDetail/SKUReviewPage
  * không phải sửa lại logic hiển thị + duyệt, chỉ đổi nguồn dữ liệu.
  *
  * Việc 2: BE không còn lưu JSON tự do — `manhData`/`detailQuota` được BE TÁI DỰNG từ dữ liệu
@@ -104,7 +104,6 @@ interface BeSku {
     vatTuPhuKien: BeMaterialLine[];
     baoBiDongGoi: BeMaterialLine[];
   } | null;
-  qlsxReviewedAt: string | null;
   createdById: string;
   createdAt: string;
   updatedAt: string;
@@ -221,7 +220,6 @@ function toSku(pf: BeSku): Sku {
     },
     manhEntryMeta: toSingleEntryMeta(pf.manhReviews, MANH_REVIEW_GROUP),
     manhReviewStatus: toSingleReviewStatus(pf.manhReviews, MANH_REVIEW_GROUP),
-    qlsxReviewStatus: pf.qlsxReviewedAt ? { status: 'APPROVED', reviewedAt: pf.qlsxReviewedAt } : undefined,
   };
 }
 
@@ -343,18 +341,6 @@ export async function approvePartsSku(id: number | string): Promise<Sku> {
 
 export async function approveDetailSku(id: number | string): Promise<Sku> {
   return toSku(await http.post<BeSku>(`/skus/${id}/approve-detail`));
-}
-
-export async function reviewQlsxSku(id: number | string): Promise<Sku> {
-  return toSku(await http.post<BeSku>(`/skus/${id}/qlsx-review`));
-}
-
-export async function requestBossApprovalSku(id: number | string): Promise<Sku> {
-  return toSku(await http.post<BeSku>(`/skus/${id}/request-boss-approval`));
-}
-
-export async function rejectSkuByQlsx(id: number | string, _reason?: string): Promise<Sku> {
-  return toSku(await http.post<BeSku>(`/skus/${id}/reject-qlsx`));
 }
 
 export async function rejectSkuByBoss(id: number | string, _reason?: string): Promise<Sku> {

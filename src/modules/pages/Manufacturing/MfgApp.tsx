@@ -19,7 +19,6 @@ import ManhChoDanPage from '../Son/ManhChoDanPage'
 import PhoiDinhMucManhPage from './PhoiDinhMucManhPage'
 import XacNhanVatTuPage from './XacNhanVatTuPage'
 import SKUListPage from '../ProductionPlan/SKUListPage'
-import SKUReviewPage from '../ProductionPlan/SKUReviewPage'
 import KcsPhoiPage from '../Kcs/KcsPhoiPage'
 import KcsHanPage from '../Kcs/KcsHanPage'
 import KcsSonPage from '../Kcs/KcsSonPage'
@@ -29,7 +28,7 @@ import KcsSonPage from '../Kcs/KcsSonPage'
 type TabId =
   | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-san-luong' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh' | 'phoi-lich-su-nhan-sat' | 'phoi-kho-phoi'
   | 'han-khung-han' | 'son-manh-cho-dan' | 'han-son-xac-nhan-vat-tu'
-  | 'weaving-points' | 'duyet-sku' | 'sku-list'
+  | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'setup'
   | 'kcs-phoi' | 'kcs-han' | 'kcs-son'
 
@@ -121,7 +120,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isDirector ? [{ id: 'pi-list' as TabId, label: 'Lệnh sản xuất mới', icon: <ClipboardList size={16} /> }] : []),
     ...(isDirector ? [{ id: 'ke-hoach' as TabId, label: 'Kế hoạch SX', icon: <CalendarClock size={16} /> }] : []),
     ...(isProdMgr ? [{ id: 'ke-hoach' as TabId, label: 'Bảng thống kê', icon: <CalendarClock size={16} /> }] : []),
-    ...(isProdMgr ? [{ id: 'duyet-sku' as TabId, label: 'Duyệt SKU mới', icon: <ClipboardCheck size={16} /> }] : []),
     ...(isProdMgr ? [{ id: 'lenh-sx' as TabId, label: 'Xử lý lệnh sản xuất', icon: <Play size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-xac-nhan-san-luong' as TabId, label: 'Xác nhận sản lượng', icon: <Check size={16} /> }] : []),
@@ -246,7 +244,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'kcs-han' && isKcs && <KcsHanPage />}
         {tab === 'kcs-son' && isKcs && <KcsSonPage />}
         {tab === 'weaving-points' && canManageBom && <WeavingPointsPage readOnly />}
-        {tab === 'duyet-sku' && isProdMgr && <SKUReviewPage />}
         {tab === 'sku-list' && isProdMgr && <SKUListPage readOnly />}
         {tab === 'materials' && canSeeWarehouses && <MfgAllMaterialsPage />}
         {tab === 'warehouses' && canSeeWarehouses && <MfgWarehousesPage />}

@@ -30,9 +30,6 @@ export function SKUDetail({
   onApproveDetail,
   onApproveParts,
   onApproveBossRequest,
-  onQlsxApproveLocal,
-  onQlsxSendBoss,
-  onQlsxReject,
   onBossReject,
   onRefresh,
   refreshing = false,
@@ -40,28 +37,24 @@ export function SKUDetail({
   pf: Sku
   readOnly?: boolean
   onBack: () => void
-  /** KHSX duyệt xong toàn bộ nhóm định mức chi tiết → gửi QLSX duyệt. */
+  /** KHSX duyệt xong toàn bộ nhóm định mức chi tiết → gửi Sếp duyệt. */
   onApproveDetail?: () => Promise<void>
   /** KHSX duyệt xong toàn bộ nhóm định mức mảnh → gửi bộ phận nhập định mức chi tiết. */
   onApproveParts?: () => Promise<void>
   onApproveBossRequest?: () => Promise<void>
-  onQlsxApproveLocal?: () => Promise<void>
-  onQlsxSendBoss?: () => Promise<void>
-  onQlsxReject?: (reason?: string) => Promise<void>
   onBossReject?: (reason?: string) => Promise<void>
   onRefresh?: () => void
   refreshing?: boolean
 }) {
-  const { user, isBoss } = useAuth()
-  const isProdMgr = user?.mfgRole === 'PRODUCTION_MANAGER'
+  const { isBoss } = useAuth()
   const { logAction, getLogsFor } = useAuditLog()
   const mt = pf.quotaManagement?.materialType
   const manh = pf.manhData
 
   // Mảnh đã được duyệt khi status vượt qua giai đoạn APPROVED_PARTS (đã gửi bộ phận nhập chi tiết)
   const partsAlreadyApproved = isPartsApproved(pf.status)
-  // Chi tiết đã được duyệt khi status vượt qua giai đoạn APPROVED_DETAIL (đã gửi QLSX duyệt)
-  const detailAlreadyApproved = ['WAITING_QLSX_APPROVAL', 'WAITING_BOSS_APPROVAL', 'APPROVED'].includes(pf.status)
+  // Chi tiết đã được duyệt khi status vượt qua giai đoạn APPROVED_DETAIL (đã gửi Sếp duyệt)
+  const detailAlreadyApproved = ['WAITING_BOSS_APPROVAL', 'APPROVED'].includes(pf.status)
   const approvedEntry = (at?: string) => ({ status: 'APPROVED' as const, at: new Date(at ?? pf.createdAt) })
 
   type SecEntry = { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
@@ -71,7 +64,7 @@ export function SKUDetail({
   const [manhSecStatus, setManhSecStatus] = useState<SecEntry>(() => {
     const review = pf.manhReviewStatus
     // Fallback "coi như đã duyệt" chỉ áp dụng cho SKU cũ CHƯA TỪNG có manhReviewStatus (trước khi
-    // field này tồn tại) — không áp dụng khi field đã tồn tại nhưng rỗng (vd QLSX/Sếp vừa từ chối,
+    // field này tồn tại) — không áp dụng khi field đã tồn tại nhưng rỗng (vd Sếp vừa từ chối,
     // xóa trắng quyết định cũ để KHSX duyệt lại dù mảnh đã từng qua giai đoạn APPROVED_PARTS).
     const fallback = review === undefined && partsAlreadyApproved ? approvedEntry(pf.proposedAt ?? undefined) : null
     return review ? { status: review.status, at: new Date(review.reviewedAt), reason: review.reason } : fallback
@@ -134,7 +127,7 @@ export function SKUDetail({
   const [secStatus, setSecStatus] = useState<SecEntry>(() => {
     const review = pf.quotaManagement?.reviewStatus
     // Cùng lý do với fallback của manhSecStatus ở trên — chỉ áp dụng cho SKU cũ chưa từng có
-    // reviewStatus, không áp dụng khi field tồn tại nhưng rỗng (vừa bị QLSX/Sếp từ chối).
+    // reviewStatus, không áp dụng khi field tồn tại nhưng rỗng (vừa bị Sếp từ chối).
     const fallback = review === undefined && detailAlreadyApproved ? approvedEntry(pf.proposedAt ?? undefined) : null
     return review ? { status: review.status, at: new Date(review.reviewedAt), reason: review.reason } : fallback
   })
@@ -143,12 +136,12 @@ export function SKUDetail({
   const detailApproved = secStatus?.status === 'APPROVED'
   const detailRejected = secStatus?.status === 'REJECTED'
 
-  // Nút "Gửi QLSX duyệt" phải chờ TẤT CẢ mục được duyệt — cả định mức mảnh lẫn chi tiết. Bình thường
+  // Nút "Gửi sếp duyệt" phải chờ TẤT CẢ mục được duyệt — cả định mức mảnh lẫn chi tiết. Bình thường
   // mảnh đã được duyệt xong xuôi trước khi tới bước chi tiết nên manhAllApproved luôn đúng ở đây;
-  // riêng trường hợp QLSX/Sếp từ chối (rejectToDetailReview xóa trắng cả reviewStatus lẫn
+  // riêng trường hợp Sếp từ chối (rejectToDetailReview xóa trắng cả reviewStatus lẫn
   // manhReviewStatus) thì KHSX phải duyệt lại cả 2 phần mới được gửi lại, không chỉ phần chi tiết.
-  const readyForQlsx = detailApproved && manhAllApproved
-  const qlsxBlockedByRejection = detailRejected || manhAnyRejected
+  const readyForBossReview = detailApproved && manhAllApproved
+  const bossReviewBlockedByRejection = detailRejected || manhAnyRejected
 
   // Duyệt/từ chối định mức chi tiết đều phải qua modal xác nhận, và một khi đã có quyết định
   // thì phần hiển thị tự ẩn 2 nút này — account chuyên trách tự thấy trạng thái "Bị từ chối"
@@ -196,7 +189,7 @@ export function SKUDetail({
     try {
       await onApproveDetail()
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Không thể gửi QLSX duyệt')
+      alert(e instanceof Error ? e.message : 'Không thể gửi sếp duyệt')
     } finally {
       setApprovingDetail(false)
     }
@@ -204,10 +197,10 @@ export function SKUDetail({
 
   type DetailTab = 'manh' | 'chitiet'
   // Tab chi tiết hiển thị khi mảnh đã qua duyệt, HOẶC khi đã có dữ liệu chi tiết từ trước (vd SKU bị
-  // QLSX/Sếp từ chối nên status quay về WAITING_PARTS, nhưng dữ liệu chi tiết vẫn còn — vẫn cần xem lại được).
+  // Sếp từ chối nên status quay về WAITING_PARTS, nhưng dữ liệu chi tiết vẫn còn — vẫn cần xem lại được).
   const showDetailTab = partsAlreadyApproved || (['daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as SecKey[]).some(k => (mt?.[k]?.length ?? 0) > 0)
   // Ưu tiên mở tab "Định mức mảnh" nếu nó CHƯA duyệt xong — kể cả khi status đã ở giai đoạn chi tiết
-  // (vd QLSX/Sếp vừa từ chối: rejectToDetailReview xóa trắng cả manhReviewStatus lẫn reviewStatus,
+  // (vd Sếp vừa từ chối: rejectToDetailReview xóa trắng cả manhReviewStatus lẫn reviewStatus,
   // nên Sắt/Dây cũng cần duyệt lại). Không làm vậy thì KHSX mở SKU lên sẽ rơi thẳng vào tab chi tiết,
   // dễ tưởng chỉ cần duyệt lại chi tiết mà không biết mảnh cũng đang chờ.
   const defaultTab: DetailTab = partsAlreadyApproved && manhAllApproved ? 'chitiet' : 'manh'
@@ -215,30 +208,20 @@ export function SKUDetail({
 
   // KHSX được duyệt/từ chối từng mục (mảnh: 1 quyết định cho cả 5 nhóm; chi tiết: Sơn, Phụ kiện,
   // Bao bì) bất kể đang ở giai đoạn pipeline nào — MaterialSection/ManhPiecesSection tự ẩn nút khi mục đã có quyết
-  // định hoặc chưa có nội dung, nên không cần khóa cứng theo status ở đây. Nhờ vậy khi QLSX/Sếp từ
+  // định hoặc chưa có nội dung, nên không cần khóa cứng theo status ở đây. Nhờ vậy khi Sếp từ
   // chối (xem rejectToDetailReview), nút Duyệt/Từ chối của TẤT CẢ mục tự hiện lại ngay mà không cần
   // chờ đi lại từ đầu qua từng bước, và không bộ phận chuyên trách nào phải nhập lại dữ liệu.
-  const canReview = !readOnly && !isBoss && !isProdMgr
-  // Thanh "chuyển tiếp công đoạn" (Gửi bộ phận chi tiết / Gửi QLSX duyệt) chỉ hiện đúng lúc pipeline
+  const canReview = !readOnly && !isBoss
+  // Thanh "chuyển tiếp công đoạn" (Gửi bộ phận chi tiết / Gửi sếp duyệt) chỉ hiện đúng lúc pipeline
   // đang ở giai đoạn tương ứng — khác với canReview, đây là hành động chuyển trạng thái nên vẫn cần
   // khóa theo status.
   const showManhActionBar = canReview && pf.status === 'APPROVED_PARTS'
   const showDetailActionBar = canReview && pf.status === 'APPROVED_DETAIL'
   const noop = () => {}
 
-  // Sếp/QLSX duyệt: xem gộp cả chi tiết + mảnh trên 1 màn hình (không cần chuyển tab) cho tiện duyệt.
+  // Sếp duyệt: xem gộp cả chi tiết + mảnh trên 1 màn hình (không cần chuyển tab) cho tiện duyệt.
   // "Danh sách SKU" (readOnly, chỉ xem lại) vẫn dùng layout tab giống KHSX như bình thường.
-  const finalReviewMode = (isBoss || isProdMgr) && !readOnly
-
-  // QLSX duyệt cục bộ (qlsxReviewStatus) trước, rồi nút "Gửi sếp duyệt" mới hiện ra — 2 bước, giống
-  // hệt cơ chế duyệt định mức mảnh của KHSX (xem ManhPiecesSection/MaterialSection bên dưới),
-  // chỉ khác là áp dụng cho cả màn gộp.
-  const [qlsxApproved, setQlsxApproved] = useState(!!pf.qlsxReviewStatus)
-  const handleQlsxApproveLocal = async () => {
-    if (!onQlsxApproveLocal) return
-    await onQlsxApproveLocal()
-    setQlsxApproved(true)
-  }
+  const finalReviewMode = isBoss && !readOnly
 
   return (
     <div>
@@ -275,7 +258,7 @@ export function SKUDetail({
       <div style={{ flex: 1, minWidth: 0 }}>
       {finalReviewMode ? (
         <>
-          {/* Sếp/QLSX duyệt — xem gộp cả 2 phần trên 1 màn hình, không cần chuyển tab. Mảnh hiện
+          {/* Sếp duyệt — xem gộp cả 2 phần trên 1 màn hình, không cần chuyển tab. Mảnh hiện
               trước vì đây là bước nhập đầu tiên trong flow hiện tại. */}
           <div style={{ marginBottom: 24 }}>
             <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 12 }}>Định mức mảnh</div>
@@ -454,30 +437,30 @@ export function SKUDetail({
           {/* Actions */}
           {showDetailActionBar && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              {/* detailApproved xong nhưng vẫn chưa readyForQlsx nghĩa là mảnh (tab khác) đang
-                  chặn — chỉ xảy ra khi QLSX/Sếp vừa từ chối. Nói rõ ra để KHSX không tưởng nhầm mục
+              {/* detailApproved xong nhưng vẫn chưa readyForBossReview nghĩa là mảnh (tab khác) đang
+                  chặn — chỉ xảy ra khi Sếp vừa từ chối. Nói rõ ra để KHSX không tưởng nhầm mục
                   nào trên chính tab này còn thiếu. */}
-              {!readyForQlsx && !qlsxBlockedByRejection && detailApproved && !manhAllApproved && (
+              {!readyForBossReview && !bossReviewBlockedByRejection && detailApproved && !manhAllApproved && (
                 <span style={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>⚠ Định mức mảnh (tab bên cạnh) cũng cần được duyệt lại</span>
               )}
-              {!readyForQlsx && !qlsxBlockedByRejection && !detailApproved && (
+              {!readyForBossReview && !bossReviewBlockedByRejection && !detailApproved && (
                 <span style={{ fontSize: 12, color: '#d97706' }}>Cần nhập và duyệt đủ tất cả các mục mới được chuyển đến công đoạn tiếp theo</span>
               )}
-              {qlsxBlockedByRejection && (
+              {bossReviewBlockedByRejection && (
                 <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>Có nhóm bị từ chối — đang chờ bộ phận nhập lại</span>
               )}
               <button
                 onClick={() => setConfirmApproveDetail(true)}
-                disabled={!readyForQlsx || approvingDetail}
+                disabled={!readyForBossReview || approvingDetail}
                 style={{
                   padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
-                  cursor: readyForQlsx && !approvingDetail ? 'pointer' : 'not-allowed',
-                  background: readyForQlsx ? '#2e7d32' : '#e5e7eb',
-                  color: readyForQlsx ? '#fff' : '#9ca3af',
+                  cursor: readyForBossReview && !approvingDetail ? 'pointer' : 'not-allowed',
+                  background: readyForBossReview ? '#2e7d32' : '#e5e7eb',
+                  color: readyForBossReview ? '#fff' : '#9ca3af',
                   opacity: approvingDetail ? 0.7 : 1,
                 }}
               >
-                {approvingDetail ? 'Đang gửi...' : 'Gửi QLSX duyệt'}
+                {approvingDetail ? 'Đang gửi...' : 'Gửi sếp duyệt'}
               </button>
             </div>
           )}
@@ -504,32 +487,6 @@ export function SKUDetail({
           onReject={onBossReject}
           rejectConfirmText='Từ chối SKU này? SKU sẽ quay lại cho KHSX duyệt lại từng mục định mức (mảnh + chi tiết). Dữ liệu đã nhập vẫn được giữ nguyên, không bộ phận nào phải nhập lại.'
         />
-      )}
-
-      {/* QLSX duyệt — 2 bước: Duyệt (cục bộ) rồi mới Gửi sếp duyệt (chuyển status thật) */}
-      {isProdMgr && !readOnly && (
-        <>
-          <FinalReviewAction
-            active={pf.status === 'WAITING_QLSX_APPROVAL' && !qlsxApproved}
-            buttonLabel="Duyệt"
-            confirmTitle="Xác nhận duyệt"
-            confirmText="Xác nhận duyệt định mức chi tiết và định mức mảnh của SKU này?"
-            confirmLabel="Duyệt"
-            onConfirm={handleQlsxApproveLocal}
-            onReject={onQlsxReject}
-            rejectConfirmText='Từ chối SKU này? SKU sẽ quay lại cho KHSX duyệt lại từng mục định mức (mảnh + chi tiết). Dữ liệu đã nhập vẫn được giữ nguyên, không bộ phận nào phải nhập lại.'
-          />
-          <FinalReviewAction
-            active={pf.status === 'WAITING_QLSX_APPROVAL' && qlsxApproved}
-            buttonLabel="Gửi sếp duyệt"
-            confirmTitle="Xác nhận gửi sếp duyệt"
-            confirmText='Xác nhận gửi SKU này cho sếp phê duyệt lần cuối? SKU sẽ chuyển sang trạng thái "Chờ sếp duyệt".'
-            confirmLabel="Gửi sếp duyệt"
-            onConfirm={onQlsxSendBoss}
-            doneActive={pf.status === 'WAITING_BOSS_APPROVAL' || pf.status === 'APPROVED'}
-            doneLabel="✓ Đã gửi sếp duyệt"
-          />
-        </>
       )}
       </div>
 
@@ -600,11 +557,11 @@ export function SKUDetail({
             </div>
       </Modal>
 
-      {/* Modal xác nhận gửi QLSX duyệt */}
+      {/* Modal xác nhận gửi sếp duyệt */}
       <Modal open={confirmApproveDetail} maxWidth={420} zIndex={2000}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận gửi QLSX duyệt</h3>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận gửi sếp duyệt</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
-              Toàn bộ định mức mảnh và định mức chi tiết đã được duyệt. Xác nhận gửi Quản lý sản xuất duyệt?
+              Toàn bộ định mức mảnh và định mức chi tiết đã được duyệt. Xác nhận gửi sếp duyệt?
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setConfirmApproveDetail(false)} style={btnSecondary}>Hủy</button>
@@ -620,11 +577,10 @@ export function SKUDetail({
 }
 
 // ─── FinalReviewAction ────────────────────────────────────────────────────────
-// Nút hành động + modal xác nhận dùng chung cho các bước duyệt gộp (Sếp duyệt cuối, QLSX duyệt/gửi
-// sếp) — cùng 1 cơ chế: hiện nút khi active, xác nhận qua modal, gọi onConfirm, rồi (tuỳ chỗ dùng)
-// hiện nhãn "đã xong" khi doneActive. Khác nhau chỉ ở label/text/handler do nơi gọi truyền vào.
-// Truyền thêm onReject để hiện kèm nút "Từ chối" (modal riêng, có ô nhập lý do) — dùng chung cho cả
-// Sếp và QLSX vì 2 bên từ chối giống hệt nhau: trả SKU về bước nhập định mức mảnh (bước đầu tiên).
+// Nút hành động + modal xác nhận cho bước duyệt gộp cuối (Sếp duyệt) — hiện nút khi active, xác
+// nhận qua modal, gọi onConfirm, rồi hiện nhãn "đã xong" khi doneActive. Truyền thêm onReject để
+// hiện kèm nút "Từ chối" (modal riêng, có ô nhập lý do): trả SKU về bước nhập định mức mảnh (bước
+// đầu tiên).
 
 function FinalReviewAction({
   active, buttonLabel, confirmTitle, confirmText, confirmLabel, onConfirm, doneActive = false, doneLabel,

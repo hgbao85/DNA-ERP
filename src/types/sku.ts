@@ -1,4 +1,4 @@
-export type SkuStatus = 'DRAFT' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS' | 'WAITING_QLSX_APPROVAL' | 'WAITING_BOSS_APPROVAL' | 'APPROVED' | 'REJECTED';
+export type SkuStatus = 'DRAFT' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS' | 'WAITING_BOSS_APPROVAL' | 'APPROVED' | 'REJECTED';
 
 export interface SatItem {
   id?: number;
@@ -146,10 +146,6 @@ export interface Sku {
    *  set ngay khi account chuyên trách nhập xong (trước khi KHSX kịp xem), nên không thể dùng status
    *  để suy ra KHSX đã duyệt hay chưa. */
   manhReviewStatus?: QuotaReviewStatus;
-  /** QLSX duyệt cục bộ ở bước WAITING_QLSX_APPROVAL — tách biệt khỏi status vì QLSX cần duyệt xong
-   *  rồi mới bấm "Gửi sếp duyệt" để thực sự chuyển status sang WAITING_BOSS_APPROVAL (2 bước, giống
-   *  cơ chế manhReviewStatus). */
-  qlsxReviewStatus?: QuotaReviewStatus;
 }
 
 export interface CreateSkuPayload {

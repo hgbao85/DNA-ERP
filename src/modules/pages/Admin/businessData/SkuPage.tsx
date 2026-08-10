@@ -10,7 +10,6 @@ const STATUS_LABEL: Record<SkuStatus, string> = {
   WAITING_PARTS: 'Chờ nhập định mức mảnh',
   APPROVED_DETAIL: 'Đã duyệt chi tiết',
   APPROVED_PARTS: 'Đã duyệt mảnh',
-  WAITING_QLSX_APPROVAL: 'Chờ QLSX duyệt',
   WAITING_BOSS_APPROVAL: 'Chờ Giám đốc duyệt',
   APPROVED: 'Đã duyệt — đang sản xuất',
   REJECTED: 'Bị từ chối',

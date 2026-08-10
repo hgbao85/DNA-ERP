@@ -68,8 +68,7 @@ export { getSalesPOs, createSalesPO, updateSalesPO } from './sales-orders-api';
 export {
   getSkus, getSku, getSkuOptions, createSku, deleteSkus,
   updateSkuManhQuota, updateSkuDetailQuota, reviewSkuManhQuota, reviewSkuDetailQuota,
-  approvePartsSku, approveDetailSku, reviewQlsxSku, requestBossApprovalSku,
-  rejectSkuByQlsx, rejectSkuByBoss, approveFullSku,
+  approvePartsSku, approveDetailSku, rejectSkuByBoss, approveFullSku,
 } from './sku-api';
 export {
   getProductionInvoices, getProductionInvoice, updateProductionInvoice, updateProductionInvoiceItem,
