@@ -82,6 +82,10 @@ export interface PurchaseProposalItem {
 
 export interface ProposalQuote {
   supplierName: string
+  /** Id NCC thật (khi chọn từ danh sách đã đăng ký, xem SupplierPicker) - optional để tương thích
+   *  dữ liệu cũ trước khi có field này; luôn ưu tiên so khớp bằng id, chỉ dùng supplierName để
+   *  hiển thị/tương thích ngược. */
+  supplierId?: string
   unitPrice: number | null
   expectedDate?: string
   note?: string

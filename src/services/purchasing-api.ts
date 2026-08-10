@@ -13,8 +13,12 @@
  *     quyết định 2026-08-07: "trừ tồn tự động, hiện qua mua hàng, không hiện ở kho") - `buyQty`
  *     giờ chỉ còn là phần THIẾU cần mua, nên `required` (tổng nhu cầu) = actualStock + buyQty.
  *
- * BE dùng id dạng bigint-as-string - giữ nguyên string, không ép Number() (trừ skuId/materialId,
- * 2 field number thuần theo type cũ, không dùng để gọi lại API nên ép an toàn).
+ * BE dùng id dạng bigint-as-string - giữ nguyên string, không ép Number(). `skuId` là placeholder
+ * (xem trên) nên ép vô hại; nhưng `materialId` KHÔNG được ép Number() - dùng nguyên giá trị string
+ * dưới lớp áo type `number` (cast `as unknown as number`, giống `materials-api.ts`/`users-mapper.ts`)
+ * vì nó phải khớp key với `Material.id` (cũng string-giả-number) khi tra `buyerByMaterialId` ở
+ * `utils/purchasingRouting.ts` - ép Number() làm lệch kiểu key, khiến lọc theo buyer luôn thất bại
+ * (đã xảy ra thật, sửa 2026-08-08).
  *
  * `quotes`/`chosenSuppliers` của type cũ key theo `item.name` (tên vật tư) thay vì id thật -
  * BE dùng itemId/quoteId thật, nên các hàm action bên dưới nhận kèm `proposal` (đã có sẵn trong
@@ -100,7 +104,10 @@ function toItem(item: BeItem, khoKey: KhoKey, warehouseCode: string): PurchasePr
     buyQty: item.buyQty,
     khoKey,
     khoLabel: KHO_LABELS[warehouseCode] ?? warehouseCode,
-    materialId: Number(item.materialId),
+    // BE dùng bigint-as-string; PurchaseProposalItem.materialId là number (quy ước cũ) - cast
+    // để tương thích, KHÔNG Number() (mất khớp key với buildBuyerByMaterialId ở purchasingRouting.ts,
+    // vốn cũng giữ nguyên Material.id string dưới lớp áo type number - xem materials-api.ts).
+    materialId: item.materialId as unknown as number,
     receivedQty: item.receivedQty,
   };
 }
@@ -114,6 +121,7 @@ function toProposal(be: BeProposal): PurchaseProposal {
   for (const it of be.items ?? []) {
     quotes[it.materialName] = it.quotes.map((q) => ({
       supplierName: q.supplierName,
+      supplierId: q.supplierId ?? undefined,
       unitPrice: q.unitPrice,
       expectedDate: q.expectedDate ?? undefined,
       note: q.note ?? undefined,
@@ -172,6 +180,7 @@ export async function submitProposalToDirector(
     for (const row of rows) {
       await http.post(`/purchase-proposals/${proposal.id}/items/${beItemId}/quotes`, {
         supplierName: row.supplierName,
+        supplierId: row.supplierId,
         unitPrice: row.unitPrice ?? undefined,
         expectedDate: row.expectedDate,
         note: row.note,

@@ -1,10 +1,10 @@
-import { useState } from 'react'
-import { ChevronLeft, Send, ClipboardList, CheckCircle2, Plus, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ChevronLeft, Send, ClipboardList, CheckCircle2, X } from 'lucide-react'
 import { useInspection, PROPOSAL_ENTITY, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type ProposalQuote } from '../../../context/InspectionContext'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import { useFetch } from '../../../hooks/useFetch'
-import { getMaterials } from '../../../services/api'
+import { getMaterials, getMaterialSuppliers } from '../../../services/api'
 import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purchasingRouting'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
 import { format } from 'date-fns'
@@ -46,6 +46,72 @@ const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize
 const td: React.CSSProperties = { padding: '9px 12px' }
 const inp: React.CSSProperties = { padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box', width: '100%' }
 
+/** 1 dòng báo giá được tính là hợp lệ để gửi Giám đốc khi đủ cả 3: NCC + đơn giá + ngày dự kiến về. */
+function isValidQuote(r: ProposalQuote): boolean {
+  return r.supplierName.trim() !== '' && r.unitPrice != null && r.unitPrice > 0 && !!r.expectedDate
+}
+
+/**
+ * Chọn NCC cho 1 dòng báo giá — BẮT BUỘC chọn từ danh sách NCC đã gắn sẵn cho đúng vật tư này
+ * (Admin > Vật tư-NCC), tự điền giá tham khảo lần gần nhất. KHÔNG cho nhập tay - NCC mới phải
+ * đăng ký trước ở màn "Vật tư-NCC" (Quản lý nhà cung cấp -> Gắn nhà cung cấp) rồi mới báo giá
+ * được ở đây - tránh trùng tên do gõ lệch chính tả, đảm bảo mọi NCC đã báo giá đều có supplierId
+ * thật để tra cứu/thống kê sau này.
+ */
+function SupplierPicker({ materialId, value, price, usedByOtherRows, onChange }: {
+  materialId?: number
+  value: string
+  price: number | null
+  /** Tên NCC đã chọn ở CÁC DÒNG KHÁC của cùng vật tư này - ẩn khỏi lựa chọn, tránh báo giá
+   *  trùng 1 NCC 2 lần (không có ý nghĩa so sánh, "rẻ nhất" cũng bị trùng vô lý theo). */
+  usedByOtherRows: string[]
+  onChange: (patch: Partial<ProposalQuote>) => void
+}) {
+  const { data: registered } = useFetch(
+    () => (materialId != null ? getMaterialSuppliers(materialId) : Promise.resolve([])),
+    [materialId],
+  )
+  const allOptions = registered ?? []
+  const options = allOptions.filter(s => s.supplierName === value || !usedByOtherRows.includes(s.supplierName))
+
+  if (allOptions.length === 0) {
+    return (
+      <div style={{ fontSize: 12, color: '#c62828', maxWidth: 200 }}>
+        Chưa có NCC nào cho vật tư này — vào &quot;Vật tư – NCC&quot; đăng ký trước.
+      </div>
+    )
+  }
+  if (options.length === 0) {
+    return (
+      <div style={{ fontSize: 12, color: 'var(--text3)', maxWidth: 200 }}>
+        Đã dùng hết NCC có sẵn ở các dòng khác.
+      </div>
+    )
+  }
+
+  return (
+    <select
+      value={value}
+      onChange={e => {
+        const picked = options.find(s => s.supplierName === e.target.value)
+        // Luôn gửi supplierId (kể cả undefined khi bỏ chọn về "— Chọn NCC —") - không được để
+        // trống key này, nếu không id của lần chọn trước sẽ bị merge sót lại (xem updateRow).
+        onChange({
+          supplierName: e.target.value,
+          supplierId: picked ? String(picked.supplierId) : undefined,
+          unitPrice: price ?? picked?.price ?? null,
+        })
+      }}
+      style={{ ...inp, width: 180 }}
+    >
+      <option value="">— Chọn NCC —</option>
+      {options.map(s => (
+        <option key={s.id} value={s.supplierName}>{s.supplierName} — {s.price.toLocaleString('vi-VN')}đ</option>
+      ))}
+    </select>
+  )
+}
+
 // ─── Đề xuất mua từ Quản lý SX ───────────────────────────────────────────────
 
 function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequote }: {
@@ -70,10 +136,32 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
       [proposalId]: { ...(prev[proposalId] ?? {}), [itemName]: rows },
     }))
 
-  const addRow = (proposalId: string, itemName: string, supplierName = '', price: number | null = null, days: number | null = null) => {
-    const expectedDate = days ? new Date(Date.now() + days * 86400000).toISOString().slice(0, 10) : undefined
-    setRows(proposalId, itemName, [...getRows(proposalId, itemName), { supplierName, unitPrice: price, expectedDate }])
-  }
+  // Tự tạo sẵn dòng báo giá cho MỌI vật tư ngay khi vào màn báo giá - không còn nút "+" thủ công.
+  // Vật tư đã có NCC đăng ký (Vật tư-NCC) -> 1 dòng/NCC, tự điền giá tham khảo. Vật tư CHƯA có
+  // NCC nào -> vẫn tạo đúng 1 dòng rỗng, để SupplierPicker tự hiện cảnh báo "Chưa có NCC..."
+  // ngay lập tức thay vì phải bấm gì mới thấy. Chỉ tự điền khi dòng đó CHƯA có gì (tránh ghi đè
+  // báo giá đang sửa/đã nhập, kể cả lúc "Báo giá lại" seed sẵn từ p.quotes cũ).
+  useEffect(() => {
+    if (!selected || selected.status !== 'quoting') return
+    const emptyRow: ProposalQuote = { supplierName: '', unitPrice: null, expectedDate: undefined }
+    selected.items.forEach(item => {
+      if (getRows(selected.id, item.name).length > 0) return
+      if (item.materialId == null) {
+        setRows(selected.id, item.name, [emptyRow])
+        return
+      }
+      getMaterialSuppliers(item.materialId).then(suppliers => {
+        if (getRows(selected.id, item.name).length > 0) return // đã có dữ liệu trong lúc chờ fetch
+        setRows(
+          selected.id, item.name,
+          suppliers.length > 0
+            ? suppliers.map(s => ({ supplierName: s.supplierName, supplierId: String(s.supplierId), unitPrice: s.price, expectedDate: undefined }))
+            : [emptyRow],
+        )
+      })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?.id, selected?.status])
 
   const removeRow = (proposalId: string, itemName: string, idx: number) =>
     setRows(proposalId, itemName, getRows(proposalId, itemName).filter((_, i) => i !== idx))
@@ -84,13 +172,13 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
   const canSubmit = (p: PurchaseProposal) =>
     p.items.every(item => {
       const rows = getRows(p.id, item.name)
-      return rows.some(r => r.supplierName.trim() !== '' && r.unitPrice != null && r.unitPrice > 0)
+      return rows.some(isValidQuote)
     })
 
   const handleSubmit = (p: PurchaseProposal) => {
     const quotes: Record<string, ProposalQuote[]> = {}
     p.items.forEach(item => {
-      quotes[item.name] = getRows(p.id, item.name).filter(r => r.supplierName.trim() !== '' && r.unitPrice != null && r.unitPrice > 0)
+      quotes[item.name] = getRows(p.id, item.name).filter(isValidQuote)
     })
     onSubmitToDirector(p.id, quotes)
     setSelectedId(null)
@@ -207,12 +295,12 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                               return (
                                 <tr key={ri} style={{ borderTop: '1px solid var(--border)', background: isCheap ? '#f1f8e9' : undefined }}>
                                   <td style={{ ...td, fontWeight: 600 }}>
-                                    <input
-                                      type="text"
+                                    <SupplierPicker
+                                      materialId={item.materialId}
                                       value={r.supplierName}
-                                      onChange={e => updateRow(p.id, item.name, ri, { supplierName: e.target.value })}
-                                      placeholder="Tên NCC"
-                                      style={{ ...inp, width: 160 }}
+                                      price={r.unitPrice ?? null}
+                                      usedByOtherRows={rows.filter((_, i) => i !== ri).map(o => o.supplierName)}
+                                      onChange={patch => updateRow(p.id, item.name, ri, patch)}
                                     />
                                     {isCheap && rows.length > 1 && (
                                       <span style={{ marginLeft: 6, fontSize: 10, color: '#2e7d32', fontWeight: 700 }}>★ rẻ nhất</span>
@@ -232,7 +320,10 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                                       type="date"
                                       value={r.expectedDate ?? ''}
                                       onChange={e => updateRow(p.id, item.name, ri, { expectedDate: e.target.value || undefined })}
-                                      style={{ ...inp, width: 130 }}
+                                      style={{
+                                        ...inp, width: 130,
+                                        borderColor: !r.expectedDate && r.supplierName.trim() !== '' && r.unitPrice != null && r.unitPrice > 0 ? '#c62828' : undefined,
+                                      }}
                                     />
                                   </td>
                                   <td style={td}>
@@ -264,20 +355,12 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                         </table>
                       </div>
                     )}
-                    <div style={{ padding: '6px 12px' }}>
-                      <button
-                        onClick={() => addRow(p.id, item.name)}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 10px', border: '1px dashed var(--border)', borderRadius: 6, background: 'none', fontSize: 12, cursor: 'pointer', color: '#4527a0', fontWeight: 600 }}
-                      >
-                        <Plus size={12} /> Thêm báo giá NCC
-                      </button>
-                    </div>
                   </div>
                 )
               })}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
                 {!canSubmit(p) && (
-                  <span style={{ fontSize: 12, color: '#e65100' }}>Mỗi vật tư cần ít nhất 1 NCC có đơn giá</span>
+                  <span style={{ fontSize: 12, color: '#e65100' }}>Mỗi vật tư cần ít nhất 1 dòng đủ NCC, đơn giá và ngày dự kiến về</span>
                 )}
                 <button
                   onClick={() => handleSubmit(p)}
