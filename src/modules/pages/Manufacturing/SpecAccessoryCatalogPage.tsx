@@ -13,28 +13,31 @@ import type { Sku } from '../../../types/sku'
 // tra cứu khi nhập định mức ở SpecDetailQuotaPage.
 type Group = 'daySon' | 'vatTuPhuKien' | 'baoBiDongGoi'
 
-const GROUP_LABELS: Record<Group, { tab: string; hint: string; systemKey: 'PAINT' | 'ACCESSORY' | 'PACKAGING'; maHeader: string; searchPlaceholder: string }> = {
+// Sơn/Phụ kiện/Bao bì đều chọn vật tư từ chung 1 nhóm hệ thống "Vật tư khác" (OTHER) - 3 tab
+// lọc riêng nhau qua Material.detailKind (gán ở Admin > Vật tư, xem GROUP_DETAIL_KIND).
+const GROUP_LABELS: Record<Group, { tab: string; hint: string; maHeader: string; searchPlaceholder: string }> = {
   daySon: {
     tab: 'Sơn',
-    hint: 'Vật tư thật (Admin > Vật tư, nhóm Sơn) — dùng để chọn khi nhập định mức',
-    systemKey: 'PAINT',
+    hint: 'Vật tư thật (Admin > Vật tư, nhóm Vật tư khác, đúng Phân loại) — dùng để chọn khi nhập định mức',
     maHeader: 'Mã sơn',
     searchPlaceholder: 'Tìm theo mã hoặc tên sơn…',
   },
   vatTuPhuKien: {
     tab: 'Phụ kiện',
-    hint: 'Vật tư thật (Admin > Vật tư, nhóm Phụ kiện) — dùng để chọn khi nhập định mức',
-    systemKey: 'ACCESSORY',
+    hint: 'Vật tư thật (Admin > Vật tư, nhóm Vật tư khác, đúng Phân loại) — dùng để chọn khi nhập định mức',
     maHeader: 'Mã phụ kiện',
     searchPlaceholder: 'Tìm theo mã hoặc tên phụ kiện…',
   },
   baoBiDongGoi: {
     tab: 'Bao bì',
-    hint: 'Vật tư thật (Admin > Vật tư, nhóm Bao bì) — dùng để chọn khi nhập định mức',
-    systemKey: 'PACKAGING',
+    hint: 'Vật tư thật (Admin > Vật tư, nhóm Vật tư khác, đúng Phân loại) — dùng để chọn khi nhập định mức',
     maHeader: 'Mã bao bì',
     searchPlaceholder: 'Tìm theo mã hoặc tên bao bì…',
   },
+}
+
+const GROUP_DETAIL_KIND: Record<Group, 'PAINT' | 'ACCESSORY' | 'PACKAGING'> = {
+  daySon: 'PAINT', vatTuPhuKien: 'ACCESSORY', baoBiDongGoi: 'PACKAGING',
 }
 
 // Số lượng hiển thị ở bảng "Từ chối" — Sơn dùng field `kg`, Phụ kiện/Bao bì dùng `quantity`.
@@ -47,7 +50,7 @@ export default function SpecAccessoryCatalogPage() {
   const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
   const { data: materialsData } = useFetch(() => api.getMaterials(), [])
   const materials = materialsData ?? []
-  const { paint: paintGroupId, accessory: accessoryGroupId, packaging: packagingGroupId } = useMaterialGroupIds()
+  const { other: otherGroupId } = useMaterialGroupIds()
 
   const [group, setGroup] = useState<Group>('daySon')
   const [catalogSearch, setCatalogSearch] = useState('')
@@ -56,13 +59,10 @@ export default function SpecAccessoryCatalogPage() {
   const reviewOf = (pf: Sku, g: Group) => pf.quotaManagement?.reviewStatus?.[g]
 
   const labels = GROUP_LABELS[group]
-  const GROUP_ID_BY_SYSTEM_KEY: Record<typeof labels.systemKey, number | undefined> = {
-    PAINT: paintGroupId,
-    ACCESSORY: accessoryGroupId,
-    PACKAGING: packagingGroupId,
-  }
-  const groupId = GROUP_ID_BY_SYSTEM_KEY[labels.systemKey]
-  const catalog = materials.filter(m => groupId != null && m.materialGroupId === groupId)
+  const detailKind = GROUP_DETAIL_KIND[group]
+  const catalog = materials.filter(m =>
+    otherGroupId != null && m.materialGroupId === otherGroupId && m.detailKind === detailKind
+  )
 
   const rejectedGroups = skus
     .filter(pf => reviewOf(pf, group)?.status === 'REJECTED')
@@ -157,7 +157,7 @@ export default function SpecAccessoryCatalogPage() {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={3} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
-                  {catalogSearch ? 'Không tìm thấy kết quả.' : `Chưa có vật tư nhóm ${labels.tab} nào — thêm ở Admin > Vật tư.`}
+                  {catalogSearch ? 'Không tìm thấy kết quả.' : `Chưa có vật tư nào được phân loại ${labels.tab} — gán ở Admin > Vật tư.`}
                 </td>
               </tr>
             )}

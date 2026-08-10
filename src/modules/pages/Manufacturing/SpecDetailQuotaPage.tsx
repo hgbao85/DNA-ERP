@@ -26,6 +26,11 @@ const GROUPS: DetailLineGroup[] = ['daySon', 'vatTuPhuKien', 'baoBiDongGoi']
 const GROUP_LABELS: Record<DetailLineGroup, string> = { daySon: 'Sơn', vatTuPhuKien: 'Phụ kiện', baoBiDongGoi: 'Bao bì' }
 const GROUP_CODE_LABELS: Record<DetailLineGroup, string> = { daySon: 'Mã sơn', vatTuPhuKien: 'Mã phụ kiện', baoBiDongGoi: 'Mã bao bì' }
 const GROUP_QTY_LABELS: Record<DetailLineGroup, string> = { daySon: 'Khối lượng (kg)', vatTuPhuKien: 'Số lượng', baoBiDongGoi: 'Số lượng' }
+// Cả 3 tab đều chọn vật tư từ chung 1 nhóm hệ thống "Vật tư khác" — lọc riêng từng tab qua
+// Material.detailKind (gán ở Admin > Vật tư), không còn qua nhóm vật tư nữa (xem MaterialPicker.tsx).
+const GROUP_DETAIL_KIND: Record<DetailLineGroup, 'PAINT' | 'ACCESSORY' | 'PACKAGING'> = {
+  daySon: 'PAINT', vatTuPhuKien: 'ACCESSORY', baoBiDongGoi: 'PACKAGING',
+}
 const GROUP_BADGE_COLORS: Record<DetailLineGroup, { bg: string; fg: string }> = {
   daySon: { bg: '#eff6ff', fg: '#1d4ed8' },
   vatTuPhuKien: { bg: '#ede9fe', fg: '#6d28d9' },
@@ -58,9 +63,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   // Định mức chi tiết chỉ hiện SKU đã qua giai đoạn mảnh (KHSX đã duyệt & gửi bộ phận chi tiết)
   // — đúng thứ tự flow hiện tại (mảnh trước, chi tiết sau).
   const skus = (skusData ?? []).filter(pf => isPartsApproved(pf.status))
-  const { paint: paintGroupId, accessory: accessoryGroupId, packaging: packagingGroupId } = useMaterialGroupIds()
-  const groupIdOf = (g: DetailLineGroup): number | undefined =>
-    g === 'daySon' ? paintGroupId : g === 'vatTuPhuKien' ? accessoryGroupId : packagingGroupId
+  // Sơn/Phụ kiện/Bao bì đều chọn vật tư từ chung 1 nhóm hệ thống "Vật tư khác" (OTHER) - BE
+  // phân biệt 3 tab qua ConsumableBom.stage / BomAccessoryItem.kind, không phải qua nhóm vật tư.
+  const { other: otherGroupId } = useMaterialGroupIds()
 
   const findPf = (id: number) => skus.find(pf => pf.id === id)
 
@@ -269,7 +274,8 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                   <MaterialPicker
                     value={material}
                     onSelect={m => { setMaterial(m); setSpec(m?.spec ?? ''); setUnit(m?.unit ?? '') }}
-                    materialGroupId={groupIdOf(group)}
+                    materialGroupId={otherGroupId}
+                    detailKind={GROUP_DETAIL_KIND[group]}
                     placeholder={`Chọn ${GROUP_CODE_LABELS[group].toLowerCase()}…`}
                   />
                 </div>

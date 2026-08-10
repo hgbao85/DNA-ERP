@@ -12,6 +12,7 @@ interface Material {
   unit: string
   spec?: string | null
   materialGroupId?: number | null
+  detailKind?: 'PAINT' | 'ACCESSORY' | 'PACKAGING' | null
   warehouseId?: string | null
   buyerId?: string | null
   khoUnitFactor?: number | null
@@ -21,7 +22,15 @@ interface Material {
 interface MaterialGroup {
   id: number
   name: string
+  systemKey: string | null
 }
+
+const DETAIL_KIND_OPTIONS = [
+  { value: 'PAINT', label: 'Sơn' },
+  { value: 'ACCESSORY', label: 'Phụ kiện' },
+  { value: 'PACKAGING', label: 'Bao bì' },
+]
+const DETAIL_KIND_LABEL: Record<string, string> = { PAINT: 'Sơn', ACCESSORY: 'Phụ kiện', PACKAGING: 'Bao bì' }
 
 interface Warehouse {
   id: string
@@ -39,6 +48,11 @@ export default function MaterialsPage() {
   const { data: groups } = useFetch<MaterialGroup[]>(getMaterialGroups)
   const groupList = groups ?? []
   const groupName = (id?: number | null) => groupList.find((g) => g.id === id)?.name ?? '—'
+  // Sơn/Phụ kiện/Bao bì (trang Định mức chi tiết) dùng chung nhóm "Vật tư khác" (systemKey
+  // OTHER) - field "Phân loại" chỉ hiện/bắt buộc khi đang chọn đúng nhóm này (xem
+  // MaterialsService.resolveDetailKind bên BE cho ràng buộc tương ứng).
+  const otherGroupId = groupList.find((g) => g.systemKey === 'OTHER')?.id
+  const isOtherGroup = (v: Partial<Material>) => otherGroupId != null && String(v.materialGroupId) === String(otherGroupId)
   const { data: warehouses } = useFetch<Warehouse[]>(getWarehouses)
   const warehouseList = warehouses ?? []
   const warehouseName = (id?: string | null) => warehouseList.find((w) => w.id === id)?.name ?? '—'
@@ -60,6 +74,7 @@ export default function MaterialsPage() {
       { key: 'unit', label: 'Đơn vị' },
       { key: 'spec', label: 'Quy cách', render: (m) => m.spec || '—' },
       { key: 'materialGroupId', label: 'Nhóm vật tư', render: (m) => groupName(m.materialGroupId) },
+      { key: 'detailKind', label: 'Phân loại', render: (m) => m.detailKind ? DETAIL_KIND_LABEL[m.detailKind] : '—' },
       { key: 'warehouseId', label: 'Kho', render: (m) => warehouseName(m.warehouseId) },
       { key: 'buyerId', label: 'Nhân viên mua hàng', render: (m) => buyerName(m.buyerId) },
       { key: 'khoUnitFactor', label: 'Hệ số quy đổi kho', align: 'right' },
@@ -76,6 +91,11 @@ export default function MaterialsPage() {
       {
         name: 'materialGroupId', label: 'Nhóm vật tư', type: 'select',
         options: groupList.map((g) => ({ value: String(g.id), label: g.name })),
+      },
+      {
+        name: 'detailKind', label: 'Phân loại', type: 'select', required: true,
+        showIf: isOtherGroup,
+        options: DETAIL_KIND_OPTIONS,
       },
       {
         name: 'warehouseId', label: 'Kho', type: 'select',
