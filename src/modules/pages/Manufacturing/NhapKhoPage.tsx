@@ -17,8 +17,11 @@ import { getMaterials, getWarehouses } from '../../../services/api'
 function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
   const { proposals, receiveProposalItem } = useInspection()
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  // inputs[`${proposalId}:${itemName}`] = số lượng đang nhập dở
+  // inputs[`${proposalId}:${itemName}`] = số lượng đang nhập dở (theo unit, vd cái)
   const [inputs, setInputs] = useState<Record<string, string>>({})
+  // kgInputs[`${proposalId}:${itemName}`] = số lượng đang nhập dở theo purchaseUnit (vd kg) -
+  // chỉ dùng để gợi ý auto-fill `inputs` (cái), người dùng vẫn sửa tay được sau khi auto-fill.
+  const [kgInputs, setKgInputs] = useState<Record<string, string>>({})
 
   const { data: materials } = useFetch(getMaterials)
   const { data: warehouses } = useFetch(getWarehouses)
@@ -52,8 +55,10 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
     const key = inputKey(p.id, itemName)
     const qty = Math.max(0, Number(inputs[key]) || 0)
     if (qty <= 0) return
-    receiveProposalItem(p.id, itemName, qty)
+    const kgVal = Math.max(0, Number(kgInputs[key]) || 0)
+    receiveProposalItem(p.id, itemName, qty, kgVal > 0 ? kgVal : undefined)
     setInputs(prev => ({ ...prev, [key]: '' }))
+    setKgInputs(prev => ({ ...prev, [key]: '' }))
   }
 
   // ── Detail view ──────────────────────────────────────────
@@ -89,7 +94,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
               <col style={{ width: 90 }} />
               <col style={{ width: 110 }} />
               <col style={{ width: 90 }} />
-              <col style={{ width: 170 }} />
+              <col style={{ width: 240 }} />
             </colgroup>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
@@ -107,7 +112,9 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                 const partial = received > 0 && !done
                 const key = inputKey(selected.id, item.name)
                 const inputVal = inputs[key] ?? ''
+                const kgVal = kgInputs[key] ?? ''
                 const canConfirm = !done && !!inputVal && Number(inputVal) > 0
+                const hasConversion = !!item.purchaseUnit && !!item.khoUnitFactor
                 return (
                   <tr key={item.name} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={{ ...td, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -122,19 +129,41 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                       {done ? (
                         <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã nhận đủ</span>
                       ) : (
-                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                          <input
-                            type="number" min={1}
-                            value={inputVal}
-                            onChange={e => setInputs(prev => ({ ...prev, [key]: e.target.value }))}
-                            placeholder="SL"
-                            style={{ width: 64, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
-                          />
-                          <button
-                            onClick={() => confirmItem(selected, item.name)}
-                            disabled={!canConfirm}
-                            style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: canConfirm ? '#2e7d32' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
-                          >Xác nhận</button>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                          {hasConversion && (
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                              <input
+                                type="number" min={0} step="any"
+                                value={kgVal}
+                                onChange={e => {
+                                  const v = e.target.value
+                                  setKgInputs(prev => ({ ...prev, [key]: v }))
+                                  const kg = Number(v)
+                                  if (kg > 0 && item.khoUnitFactor) {
+                                    setInputs(prev => ({ ...prev, [key]: String(Math.round(kg * item.khoUnitFactor!)) }))
+                                  }
+                                }}
+                                placeholder={`Số ${item.purchaseUnit} nhận`}
+                                style={{ width: 84, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                              />
+                              <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.purchaseUnit} → tự quy đổi {item.unit}</span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                            <input
+                              type="number" min={1}
+                              value={inputVal}
+                              onChange={e => setInputs(prev => ({ ...prev, [key]: e.target.value }))}
+                              placeholder="SL"
+                              style={{ width: 64, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                            />
+                            <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.unit}{hasConversion ? ' (có thể sửa tay)' : ''}</span>
+                            <button
+                              onClick={() => confirmItem(selected, item.name)}
+                              disabled={!canConfirm}
+                              style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: canConfirm ? '#2e7d32' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
+                            >Xác nhận</button>
+                          </div>
                         </div>
                       )}
                     </td>

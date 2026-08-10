@@ -4,7 +4,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import {
   createUser, getWarehouses, createWarehouse, deleteWarehouse,
-  getMaterials, createMaterial, getMaterialGroups, getStockQuants, getStockLedger,
+  getMaterials, createMaterial, getMaterialGroups, getStockQuants, getStockLedger, adjustStock,
 } from '../../../services/api'
 import { Plus, Trash2, X, ArrowLeft, Warehouse, Search } from 'lucide-react'
 
@@ -76,7 +76,9 @@ export function isThanhPhamScope(scope?: string | null): boolean {
 
 export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | null }) {
   const { user } = useAuth()
-  const canWrite = user?.mfgRole === 'PRODUCTION_MANAGER'
+  // Quyền "Thêm vật tư" thuộc về Thủ kho (biết rõ tồn vật lý thực tế của kho mình khi khai
+  // báo Tồn kho ban đầu lúc tạo vật tư) - không còn cấp cho QLSX, xem role-permissions.constant.ts.
+  const canWrite = user?.role === 'WAREHOUSE_STAFF' && !user?.mfgRole
   const isAdmin  = user?.role === 'ADMIN'
 
   const { data: warehouses, isLoading: whLoading, error: whError, refetch: refetchWarehouses } = useFetch<WhRow[]>(getWarehouses)
@@ -145,6 +147,9 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
   }
 
   const openWh = (warehouses ?? []).find(w => w.code === openId) ?? null
+  // Kho ảo đối ứng cho "Sửa nhanh tồn kho" (bút toán ADJUST qua lại với kho ảo này) - xem
+  // adjustStock() ở stock-api.ts và role-permissions.constant.ts (STOCK:UPDATE của Thủ kho).
+  const openingBalanceWarehouseId = (warehouses ?? []).find(w => w.code === 'OPENING_BALANCE')?.id ?? null
 
   if (whLoading) return <div style={{ color: 'var(--text3)' }}>Đang tải...</div>
   if (whError)   return <div style={{ color: '#c62828' }}>Không tải được danh sách kho: {whError}</div>
@@ -155,8 +160,10 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
       items={itemsOf(openWh.id)}
       canWrite={canWrite}
       isDeletable={!BASE_CODES.has(openWh.code)}
+      openingBalanceWarehouseId={openingBalanceWarehouseId}
       onBack={() => setOpenId(null)}
       onMaterialCreated={() => { void refetchMaterials(); void refetchQuants() }}
+      onQtyAdjusted={() => { void refetchQuants() }}
       onWarehouseDeleted={() => { void refetchWarehouses(); setOpenId(null) }}
     />
   )
@@ -269,25 +276,67 @@ function WhCard({ wh, itemCount, totalQty, onOpen }: { wh: WhRow; itemCount: num
 
 // ── Chi tiết kho ──────────────────────────────────────────────────────────────
 
-function WarehouseDetail({ wh, items, canWrite, isDeletable, onBack, onMaterialCreated, onWarehouseDeleted }: {
+function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWarehouseId, onBack, onMaterialCreated, onQtyAdjusted, onWarehouseDeleted }: {
   wh: WhRow
   items: StockItem[]
   canWrite: boolean
   isDeletable: boolean
+  openingBalanceWarehouseId: string | null
   onBack: () => void
   onMaterialCreated: () => void
+  onQtyAdjusted: () => void
   onWarehouseDeleted: () => void
 }) {
   const [tab, setTab]       = useState<'stock' | 'history'>('stock')
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  // Sửa nhanh tồn kho ngay trên bảng - đang sửa dòng nào (materialId) + giá trị đang gõ dở +
+  // đang lưu dòng nào (disable input, tránh double-submit).
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [savingId,  setSavingId]  = useState<number | null>(null)
 
   const { data: ledger } = useFetch<LedgerRow[]>(() => getStockLedger({ warehouseId: wh.id }), [wh.id])
 
   const filteredItems = items.filter(it =>
     !search || it.name.toLowerCase().includes(search.toLowerCase()) || it.code.toLowerCase().includes(search.toLowerCase()),
   )
+
+  const startEdit = (it: StockItem) => {
+    setEditingId(it.materialId)
+    setEditValue(String(it.qty))
+  }
+
+  const cancelEdit = () => { setEditingId(null); setEditValue('') }
+
+  const commitEdit = async (it: StockItem) => {
+    const newQty = Number(editValue)
+    if (editValue === '' || Number.isNaN(newQty) || newQty < 0) { cancelEdit(); return }
+    const delta = newQty - it.qty
+    if (delta === 0) { cancelEdit(); return }
+    if (!openingBalanceWarehouseId) {
+      alert('Chưa xác định được kho đối ứng để điều chỉnh tồn kho')
+      cancelEdit()
+      return
+    }
+    setSavingId(it.materialId)
+    try {
+      await adjustStock({
+        fromWarehouseId: delta > 0 ? openingBalanceWarehouseId : wh.id,
+        toWarehouseId:   delta > 0 ? wh.id : openingBalanceWarehouseId,
+        materialId: String(it.materialId),
+        qty: Math.abs(delta),
+        note: 'Điều chỉnh tồn kho (trang Kho)',
+      })
+      cancelEdit()
+      onQtyAdjusted()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Không thể sửa tồn kho')
+    } finally {
+      setSavingId(null)
+    }
+  }
 
   const txns: Txn[] = (ledger ?? []).map(e => ({
     id: e.id,
@@ -375,7 +424,26 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, onBack, onMaterialC
                   <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{it.spec || '—'}</td>
                   <td style={td}>{it.unit}</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: it.qty <= 0 ? '#c62828' : 'var(--text)' }}>
-                    {it.qty.toLocaleString('vi-VN')}
+                    {editingId === it.materialId ? (
+                      <input
+                        type="number" min={0} step="any" autoFocus
+                        value={editValue}
+                        disabled={savingId === it.materialId}
+                        onChange={e => setEditValue(e.target.value)}
+                        onBlur={() => void commitEdit(it)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') void commitEdit(it)
+                          else if (e.key === 'Escape') cancelEdit()
+                        }}
+                        style={{ width: 84, padding: '3px 6px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                      />
+                    ) : canWrite ? (
+                      <span onClick={() => startEdit(it)} style={{ cursor: 'pointer', borderBottom: '1px dashed var(--text3)' }} title="Bấm để sửa">
+                        {it.qty.toLocaleString('vi-VN')}
+                      </span>
+                    ) : (
+                      it.qty.toLocaleString('vi-VN')
+                    )}
                   </td>
                 </tr>
               ))}
@@ -510,7 +578,7 @@ function WarehouseHistory({ txns }: { txns: Txn[] }) {
 function AddMaterialModal({ warehouseId, onClose, onDone }: {
   warehouseId: string; onClose: () => void; onDone: () => void
 }) {
-  const [form, setForm] = useState({ code: '', name: '', unit: '', spec: '' })
+  const [form, setForm] = useState({ code: '', name: '', unit: '', spec: '', openingQty: '' })
   const [err, setErr]   = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -522,7 +590,10 @@ function AddMaterialModal({ warehouseId, onClose, onDone }: {
     setErr(null)
     setSaving(true)
     try {
-      await createMaterial({ code: form.code || undefined, name: form.name, unit: form.unit, spec: form.spec || undefined, warehouseId })
+      await createMaterial({
+        code: form.code || undefined, name: form.name, unit: form.unit, spec: form.spec || undefined,
+        warehouseId, openingQty: form.openingQty ? Number(form.openingQty) : undefined,
+      })
       onDone()
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Không thể thêm vật tư')
@@ -543,6 +614,8 @@ function AddMaterialModal({ warehouseId, onClose, onDone }: {
         <input value={form.unit} onChange={e => set('unit', e.target.value)} style={inp} />
         <label style={lbl}>Quy cách</label>
         <input value={form.spec} onChange={e => set('spec', e.target.value)} style={inp} placeholder="VD: 10x29x0.8" />
+        <label style={lbl}>Tồn kho ban đầu</label>
+        <input type="number" min={0} value={form.openingQty} onChange={e => set('openingQty', e.target.value)} style={inp} placeholder="Số lượng đã có sẵn ở kho này (nếu có)" />
         {err && <div style={{ color: '#c62828', fontSize: 13, marginTop: 8 }}>{err}</div>}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
           <button onClick={onClose} style={btnGhost}>Hủy</button>

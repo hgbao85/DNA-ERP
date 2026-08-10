@@ -72,9 +72,12 @@ interface BeItem {
   materialCode: string;
   materialName: string;
   unit: string;
+  purchaseUnit: string | null;
+  khoUnitFactor: number | null;
   actualStock: number;
   buyQty: number;
   receivedQty: number;
+  receivedQtyPurchaseUnit: number | null;
   quotes: BeQuote[];
 }
 
@@ -99,6 +102,8 @@ function toItem(item: BeItem, khoKey: KhoKey, warehouseCode: string): PurchasePr
   return {
     name: item.materialName,
     unit: item.unit,
+    purchaseUnit: item.purchaseUnit,
+    khoUnitFactor: item.khoUnitFactor,
     required: item.actualStock + item.buyQty,
     actualStock: item.actualStock,
     buyQty: item.buyQty,
@@ -109,6 +114,7 @@ function toItem(item: BeItem, khoKey: KhoKey, warehouseCode: string): PurchasePr
     // vốn cũng giữ nguyên Material.id string dưới lớp áo type number - xem materials-api.ts).
     materialId: item.materialId as unknown as number,
     receivedQty: item.receivedQty,
+    receivedQtyPurchaseUnit: item.receivedQtyPurchaseUnit,
   };
 }
 
@@ -223,6 +229,7 @@ export async function receiveProposalItem(
   proposal: PurchaseProposal,
   itemName: string,
   qty: number,
+  receivedQtyPurchaseUnit?: number,
 ): Promise<PurchaseProposal> {
   const beItemIdByName = await getBeItemIdsByName(proposal.id);
   const beItemId = beItemIdByName.get(itemName);
@@ -233,7 +240,7 @@ export async function receiveProposalItem(
   // nhiều đợt nên không có key tất định từ dữ liệu (xem PurchaseProposalsService.receiveItem()).
   await http.post(
     `/purchase-proposals/${proposal.id}/items/${beItemId}/receive`,
-    { receivedQty: qty },
+    { receivedQty: qty, receivedQtyPurchaseUnit },
     { headers: { 'Idempotency-Key': crypto.randomUUID() } },
   );
   return getPurchaseProposal(proposal.id);

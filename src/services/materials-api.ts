@@ -20,6 +20,9 @@ export interface BeMaterial {
   detailKind: 'PAINT' | 'ACCESSORY' | 'PACKAGING' | null;
   warehouseId: string | null;
   buyerId: string | null;
+  /** Đơn vị mua hàng từ NCC khi khác `unit` (đơn vị tồn kho/sản xuất) — vd NCC bán theo "kg"
+   *  nhưng sản xuất dùng "cái". null nếu vật tư chỉ có 1 đơn vị duy nhất. */
+  purchaseUnit: string | null;
   khoUnitFactor: number | null;
   imageUrl: string | null;
   isActive: boolean;
@@ -51,7 +54,9 @@ export async function createMaterial(data: Record<string, unknown>): Promise<BeM
     detailKind: data.detailKind || undefined,
     warehouseId: data.warehouseId || undefined,
     buyerId: data.buyerId || undefined,
+    purchaseUnit: data.purchaseUnit || undefined,
     khoUnitFactor: data.khoUnitFactor,
+    openingQty: data.openingQty || undefined,
     imageUrl: data.imageUrl || undefined,
   });
 }
@@ -66,6 +71,7 @@ export async function updateMaterial(id: number | string, data: Record<string, u
     detailKind: data.detailKind || undefined,
     warehouseId: data.warehouseId || undefined,
     buyerId: data.buyerId || undefined,
+    purchaseUnit: data.purchaseUnit,
     khoUnitFactor: data.khoUnitFactor,
     imageUrl: data.imageUrl,
     isActive: data.isActive,

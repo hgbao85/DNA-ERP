@@ -35,9 +35,10 @@
  *    bộ (Phase 3 - Ledger Core). GET list không kèm items như mock cũ, adapter tự fetch chi tiết
  *    từng phiếu để giữ nguyên hợp đồng cũ cho page — xem comment đầu file đó. Không còn `piCode`
  *    (BE không có field này, chỉ có `note` tự do hoặc `planFormId` thật).
- *  - stock (stock-api.ts) — getStockQuants()/getStockLedger(), chỉ đọc (GET /stock-quant,
- *    GET /stock-ledger). Ghi bút toán kho thật đi qua warehouse-transfers hoặc các flow nghiệp
- *    vụ khác, không phải adapter này.
+ *  - stock (stock-api.ts) — getStockQuants()/getStockLedger() chỉ đọc (GET /stock-quant,
+ *    GET /stock-ledger). adjustStock() là ngoại lệ ghi trực tiếp (POST /stock-ledger/adjust) -
+ *    dùng cho "Sửa nhanh tồn kho" ở MfgWarehousesPage.tsx và MaterialsPage.tsx (Admin > Vật tư).
+ *    Ghi bút toán kho khác vẫn đi qua warehouse-transfers hoặc các flow nghiệp vụ khác.
  *
  * Mock tương ứng của các module trên đã bị xoá hẳn (không còn export trùng tên để "ghi đè").
  * Thực thi Phôi/Hàn/Sơn/KCS thật hiện chạy qua phoi-sat.service.ts/san-luong.service.ts/
@@ -79,5 +80,5 @@ export {
   getWarehouseTransfers, getWarehouseTransfer, createWarehouseTransfer,
   confirmWarehouseTransfer, rejectWarehouseTransfer,
 } from './warehouse-transfers-api';
-export { getStockQuants, getStockLedger } from './stock-api';
+export { getStockQuants, getStockLedger, adjustStock } from './stock-api';
 export { uploadImage } from './uploads-api';
