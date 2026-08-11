@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
+import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
 import { Plus, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
@@ -58,20 +59,15 @@ export default function SKUReviewPage() {
   const [submitting, setSubmitting]     = useState(false)
   const [success, setSuccess]           = useState(false)
   const [refreshingSelected, setRefreshingSelected] = useState(false)
+  const { ask, confirmModal } = useConfirm()
 
   const closeForm = () => { setShowForm(false); setForm(emptyForm()); setCustomerName('') }
 
-  const handleSubmit = async () => {
-    const skuCode = (form.note ?? '').trim()
-    if (!skuCode) { alert('Vui lòng nhập SKU'); return }
+  const doCreateSku = async (mfgProductId: number, skuCode: string) => {
     setSubmitting(true)
     try {
-      // Mã SKU người dùng nhập là mã sản phẩm thật (factoryCode) — tái dùng nếu đã tồn tại,
-      // không được tự ý gắn vào sản phẩm đầu tiên trong danh sách như trước.
-      const existingProduct = mfgProducts.find(p => p.factoryCode?.toLowerCase() === skuCode.toLowerCase())
-      const product = existingProduct ?? await api.createMfgProduct({ factoryCode: skuCode, name: skuCode })
       const createdSku = await api.createSku({
-        mfgProductId:  product.id,
+        mfgProductId,
         note: skuCode,
         customerName:  customerName.trim() || undefined,
       })
@@ -87,6 +83,40 @@ export default function SKUReviewPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  const handleSubmit = async () => {
+    const skuCode = (form.note ?? '').trim()
+    if (!skuCode) { alert('Vui lòng nhập SKU'); return }
+
+    // Mã SKU người dùng nhập là mã sản phẩm thật (factoryCode) — tái dùng nếu đã tồn tại,
+    // không được tự ý gắn vào sản phẩm đầu tiên trong danh sách như trước.
+    const existingProduct = mfgProducts.find(p => p.factoryCode?.toLowerCase() === skuCode.toLowerCase())
+
+    // Cảnh báo nhẹ (không chặn) khi sản phẩm đã có 1 hồ sơ định mức chưa duyệt xong — KHSX chỉ
+    // có 1 người phụ trách nên không cần khoá cứng bằng ràng buộc DB, chỉ cần nhắc để tránh tạo
+    // trùng do quên đã tạo trước đó/bấm nhầm. Bỏ qua bản ghi origin=PRODUCTION_CONFIRM (tự sinh
+    // khi Sếp duyệt PI item, không phải hồ sơ KHSX chủ động tạo — xem bộ lọc `pending` ở trên).
+    const pendingForProduct = existingProduct
+      ? ((skus ?? []) as Sku[]).find(s =>
+          s.mfgProductId === existingProduct.id && s.status !== 'APPROVED' && s.origin !== 'PRODUCTION_CONFIRM',
+        )
+      : undefined
+
+    if (existingProduct && pendingForProduct) {
+      ask(
+        {
+          title: 'Sản phẩm đã có hồ sơ định mức',
+          message: `"${skuCode}" đang có 1 hồ sơ định mức chưa duyệt xong (trạng thái: ${STATUS_MAP[pendingForProduct.status]?.label ?? pendingForProduct.status}). Tạo thêm hồ sơ mới cho cùng sản phẩm này?`,
+          confirmLabel: 'Vẫn tạo mới',
+        },
+        () => doCreateSku(existingProduct.id, skuCode),
+      )
+      return
+    }
+
+    const product = existingProduct ?? await api.createMfgProduct({ factoryCode: skuCode, name: skuCode })
+    await doCreateSku(product.id, skuCode)
   }
 
   // Trừ Sku sinh tự động khi PM "xác nhận sản xuất" (LenhSXPage) — không phải SKU do KHSX tạo,
@@ -314,6 +344,7 @@ export default function SKUReviewPage() {
           </table>
         </div>
       )}
+      {confirmModal}
     </div>
   )
 }
