@@ -2,66 +2,30 @@
 import { useEffect, useRef, useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
+import type { BeTransferCheckPiece } from '../../../services/transfer-check-api'
 import { format } from 'date-fns'
 import { ChevronLeft, Plus, X, Image as ImageIcon } from 'lucide-react'
 import type { Sku } from '../../../types/sku'
 import LoadingState from '../../../components/LoadingState'
 
 interface LoiEntry { id: number; lyDo: string; file: File | null }
-interface PieceState { daKiem: number; loi: number }
-
-export interface MockPiece {
-  id: string
-  name: string
-  totalQty: number
-  choThucThi: number
-}
-
-const MANH_PARTS = ['Thân trên', 'Thân dưới', 'Hông', 'Đế', 'Nắp', 'Khung']
-
-function strHash(s: string): number {
-  return s.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-}
-
-// Dùng chung với "Chi tiết từng công đoạn" bên Bảng thống kê KHSX (xem ThongKePagePlan.tsx) để số
-// liệu "cần kiểm" luôn khớp với đúng những gì thủ kho thành phẩm (khotp@demo.com) đang thấy ở đây.
-export function mockTotalQty(pf: Sku): number {
-  const code = pf.mfgProduct?.factoryCode ?? `#${pf.id}`
-  return 50 + (strHash(code) % 100)
-}
-
-export function mockPieces(pf: Sku): MockPiece[] {
-  const code = pf.mfgProduct?.factoryCode ?? `#${pf.id}`
-  const h = strHash(code)
-  const count = 3 + (h % 3)
-  const pfTotal = mockTotalQty(pf)
-  return Array.from({ length: count }, (_, i) => {
-    const totalQty = Math.floor(pfTotal / count) + (i === 0 ? pfTotal % count : 0)
-    const choThucThi = Math.min(Math.floor(totalQty * ((h + i * 13) % 4 + 1) / 12), totalQty)
-    return {
-      id: `${pf.id}-m-${i}`,
-      name: MANH_PARTS[(h + i) % MANH_PARTS.length],
-      totalQty,
-      choThucThi,
-    }
-  })
-}
-
-function mockChoDoyet(pf: Sku): number {
-  const code = pf.mfgProduct?.factoryCode ?? `#${pf.id}`
-  const total = mockTotalQty(pf)
-  return Math.floor(total * (strHash(code) % 4) / 22)
-}
 
 export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: number } = {}) {
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
-  const [selectedPf, setSelectedPf]         = useState<Sku | null>(null)
-  const [pieceState, setPieceState]          = useState<Record<string, PieceState>>({})
+  const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
+
+  const { data: piecesData, isLoading: piecesLoading, refetch: refetchPieces } = useFetch<BeTransferCheckPiece[]>(
+    () => (selectedPf ? api.getTransferCheckPieces(selectedPf) : Promise.resolve([])),
+    [selectedPf?.id],
+  )
+  const pieces = piecesData ?? []
 
   // Popup state
-  const [checkingPiece, setCheckingPiece]   = useState<MockPiece | null>(null)
-  const [popupQty, setPopupQty]             = useState('')
-  const [loiEntries, setLoiEntries]         = useState<LoiEntry[]>([])
+  const [checkingPiece, setCheckingPiece] = useState<BeTransferCheckPiece | null>(null)
+  const [popupQty, setPopupQty]           = useState('')
+  const [loiEntries, setLoiEntries]       = useState<LoiEntry[]>([])
+  const [saving, setSaving]               = useState(false)
+  const [saveError, setSaveError]         = useState('')
 
   const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT' && (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId))
 
@@ -75,32 +39,50 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
     }
   }, [active, filterExportOrderId])
 
-  const openPopup = (piece: MockPiece) => {
+  const openPopup = (piece: BeTransferCheckPiece) => {
     setCheckingPiece(piece)
     setPopupQty('')
     setLoiEntries([{ id: Date.now(), lyDo: '', file: null }])
+    setSaveError('')
   }
 
   const addLoi    = () => setLoiEntries(prev => [...prev, { id: Date.now(), lyDo: '', file: null }])
   const removeLoi = (id: number) => setLoiEntries(prev => prev.filter(e => e.id !== id))
 
-  const handleConfirm = () => {
-    if (!checkingPiece) return
+  const handleConfirm = async () => {
+    if (!checkingPiece || !selectedPf) return
     const qty      = Math.max(0, Number(popupQty) || 0)
+    if (qty <= 0) return
     const validLoi = loiEntries.filter(e => e.lyDo.trim())
-    setPieceState(prev => {
-      const cur = prev[checkingPiece.id] ?? { daKiem: 0, loi: 0 }
-      return { ...prev, [checkingPiece.id]: { daKiem: cur.daKiem + qty, loi: cur.loi + validLoi.length } }
-    })
-    setCheckingPiece(null)
+
+    setSaving(true)
+    setSaveError('')
+    try {
+      // Ảnh lỗi upload thật lên Cloudinary trước khi ghi kết quả kiểm - cùng pattern với
+      // AdminEntityPage (upload lúc Lưu, không phải lúc chọn file).
+      const defects = await Promise.all(validLoi.map(async (e) => ({
+        reason: e.lyDo.trim(),
+        imageUrl: e.file ? await api.uploadImage(e.file) : undefined,
+      })))
+
+      await api.recordTransferCheck(selectedPf, {
+        pieceId: checkingPiece.pieceId,
+        checkedQty: qty,
+        defects: defects.length > 0 ? defects : undefined,
+      })
+      setCheckingPiece(null)
+      await refetchPieces()
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Không lưu được kết quả kiểm')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const canConfirm = !!popupQty && Number(popupQty) > 0
+  const canConfirm = !!popupQty && Number(popupQty) > 0 && !saving
 
   // ── Detail view ───────────────────────────────────────────────────────────────
   if (selectedPf) {
-    const pieces = mockPieces(selectedPf)
-
     return (
       <div>
         {/* Header */}
@@ -128,40 +110,34 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
         </div>
 
         {/* Detail table */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
-            <colgroup>
-              <col />
-              <col style={{ width: 100 }} />
-              <col style={{ width: 80 }} />
-              <col style={{ width: 72 }} />
-              <col style={{ width: 60 }} />
-              <col style={{ width: 100 }} />
-            </colgroup>
-            <thead>
-              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                <th style={th}>Mảnh</th>
-                <th style={{ ...th, textAlign: 'right' }}>Chờ thực thi</th>
-                <th style={{ ...th, textAlign: 'right' }}>Đã kiểm</th>
-                <th style={{ ...th, textAlign: 'right' }}>Còn lại</th>
-                <th style={{ ...th, textAlign: 'right' }}>Lỗi</th>
-                <th style={th}></th>
-              </tr>
-            </thead>
-            <tbody>
-              {pieces.map(piece => {
-                const daKiem = pieceState[piece.id]?.daKiem ?? 0
-                const loi    = pieceState[piece.id]?.loi ?? 0
-                const conLai = Math.max(0, piece.totalQty - piece.choThucThi - daKiem)
-                return (
-                  <tr key={piece.id} style={{ borderTop: '1px solid var(--border)' }}>
+        {piecesLoading ? <LoadingState /> : (
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+              <colgroup>
+                <col />
+                <col style={{ width: 80 }} />
+                <col style={{ width: 72 }} />
+                <col style={{ width: 60 }} />
+                <col style={{ width: 100 }} />
+              </colgroup>
+              <thead>
+                <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                  <th style={th}>Mảnh</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Tổng cần</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Đã kiểm</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Lỗi</th>
+                  <th style={th}></th>
+                </tr>
+              </thead>
+              <tbody>
+                {pieces.map(piece => (
+                  <tr key={piece.pieceId} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={{ ...td, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {piece.name}
+                      {piece.pieceName}
                     </td>
-                    <td style={{ ...td, textAlign: 'right', color: 'var(--text2)' }}>{piece.choThucThi}</td>
-                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: daKiem > 0 ? '#16a34a' : 'var(--text)' }}>{daKiem}</td>
-                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: conLai > 0 ? '#d97706' : '#16a34a' }}>{conLai}</td>
-                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: loi > 0 ? '#dc2626' : 'var(--text3)' }}>{loi}</td>
+                    <td style={{ ...td, textAlign: 'right', color: 'var(--text2)' }}>{piece.totalQty}</td>
+                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: piece.checkedQty > 0 ? '#16a34a' : 'var(--text)' }}>{piece.checkedQty}</td>
+                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: piece.defectCount > 0 ? '#dc2626' : 'var(--text3)' }}>{piece.defectCount}</td>
                     <td style={td}>
                       {readOnly ? (
                         <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>
@@ -175,29 +151,29 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                       )}
                     </td>
                   </tr>
-                )
-              })}
-              {pieces.length === 0 && (
-                <tr>
-                  <td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
-                    Không có mảnh nào
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                ))}
+                {pieces.length === 0 && (
+                  <tr>
+                    <td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
+                      Chưa có mảnh nào để kiểm (SKU chưa được Sếp duyệt lệnh sản xuất)
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Popup */}
         {checkingPiece && (
           <div
-            onClick={e => { if (e.target === e.currentTarget) setCheckingPiece(null) }}
+            onClick={e => { if (e.target === e.currentTarget && !saving) setCheckingPiece(null) }}
             style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
           >
             <div style={{ background: 'var(--surface)', borderRadius: 14, width: 480, maxHeight: '85vh', overflow: 'auto', boxShadow: '0 8px 40px rgba(0,0,0,.2)' }}>
               <div style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ fontSize: 15, fontWeight: 700 }}>Nhập kết quả kiểm - {checkingPiece.name}</div>
-                <button onClick={() => setCheckingPiece(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>Nhập kết quả kiểm - {checkingPiece.pieceName}</div>
+                <button onClick={() => !saving && setCheckingPiece(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, display: 'flex' }}>
                   <X size={16} color="var(--text3)" />
                 </button>
               </div>
@@ -254,18 +230,21 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                     </div>
                   ))}
                 </div>
+
+                {saveError && <div style={{ color: '#c62828', fontSize: 12, marginTop: 12 }}>{saveError}</div>}
               </div>
 
               <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
                 <button
                   onClick={() => setCheckingPiece(null)}
-                  style={{ padding: '7px 18px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
+                  disabled={saving}
+                  style={{ padding: '7px 18px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: saving ? 'not-allowed' : 'pointer' }}
                 >Hủy</button>
                 <button
                   onClick={handleConfirm}
                   disabled={!canConfirm}
                   style={{ padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: canConfirm ? '#e65100' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed' }}
-                >Xác nhận</button>
+                >{saving ? 'Đang lưu...' : 'Xác nhận'}</button>
               </div>
             </div>
           </div>
@@ -275,6 +254,8 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
   }
 
   // ── List view ─────────────────────────────────────────────────────────────────
+  // Chỉ liệt kê PO/SKU/hạn giao - số liệu tiến độ (tổng/đã kiểm/lỗi) cần gọi API riêng cho từng
+  // SKU nên chỉ tải khi bấm vào xem chi tiết, tránh N lần gọi API cho mỗi dòng trong danh sách.
   return (
     <div>
       <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>Chuyền kiểm</h2>
@@ -285,81 +266,47 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
       {isLoading ? <LoadingState /> : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', minWidth: 900, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+            <table style={{ width: '100%', minWidth: 600, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
               <colgroup>
                 <col style={{ width: 120 }} />
                 <col />
-                <col style={{ width: 78 }} />
-                <col style={{ width: 100 }} />
-                <col style={{ width: 78 }} />
-                <col style={{ width: 84 }} />
-                <col style={{ width: 70 }} />
                 <col style={{ width: 130 }} />
-                <col style={{ width: 100 }} />
               </colgroup>
               <thead>
                 <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                   <th style={th}>PO</th>
                   <th style={th}>SKU</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Số lượng</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Chờ thực thi</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Đã kiểm</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Chờ duyệt</th>
-                  <th style={{ ...th, textAlign: 'right' }}>Còn lại</th>
-                  <th style={th}>Tiến độ</th>
                   <th style={th}>Hạn giao</th>
                 </tr>
               </thead>
               <tbody>
-                {active.map(pf => {
-                  const pieces        = mockPieces(pf)
-                  const total         = mockTotalQty(pf)
-                  const sumChoThucThi = pieces.reduce((s, p) => s + p.choThucThi, 0)
-                  const sumDaKiem     = pieces.reduce((s, p) => s + (pieceState[p.id]?.daKiem ?? 0), 0)
-                  const choDuyet      = mockChoDoyet(pf)
-                  const conLai        = Math.max(0, total - sumChoThucThi - sumDaKiem - choDuyet)
-                  const pct           = Math.min(100, Math.round(sumDaKiem / total * 100))
-                  return (
-                    <tr
-                      key={pf.id}
-                      onClick={() => setSelectedPf(pf)}
-                      style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = '')}
-                    >
-                      <td style={{ ...td, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
-                      </td>
-                      <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
-                        {pf.mfgProduct?.name && (
-                          <><span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>{pf.mfgProduct.name}</>
-                        )}
-                      </td>
-                      <td style={{ ...td, textAlign: 'right', fontWeight: 600 }}>{total}</td>
-                      <td style={{ ...td, textAlign: 'right', color: 'var(--text2)' }}>{sumChoThucThi}</td>
-                      <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: sumDaKiem > 0 ? '#16a34a' : 'var(--text)' }}>{sumDaKiem}</td>
-                      <td style={{ ...td, textAlign: 'right', color: choDuyet > 0 ? '#d97706' : 'var(--text3)' }}>{choDuyet}</td>
-                      <td style={{ ...td, textAlign: 'right', color: conLai > 0 ? 'var(--text)' : '#16a34a' }}>{conLai}</td>
-                      <td style={td}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <div style={{ flex: 1, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }}>
-                            <div style={{ height: '100%', width: `${pct}%`, background: pct >= 100 ? '#16a34a' : '#e65100', borderRadius: 3, transition: 'width .3s' }} />
-                          </div>
-                          <span style={{ fontSize: 11, color: 'var(--text3)', whiteSpace: 'nowrap', minWidth: 28, textAlign: 'right' }}>{pct}%</span>
-                        </div>
-                      </td>
-                      <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--text2)' }}>
-                        {pf.exportOrder?.deliveryDate
-                          ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy')
-                          : '—'}
-                      </td>
-                    </tr>
-                  )
-                })}
+                {active.map(pf => (
+                  <tr
+                    key={pf.id}
+                    onClick={() => setSelectedPf(pf)}
+                    style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '')}
+                  >
+                    <td style={{ ...td, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
+                    </td>
+                    <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
+                      {pf.mfgProduct?.name && (
+                        <><span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>{pf.mfgProduct.name}</>
+                      )}
+                    </td>
+                    <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--text2)' }}>
+                      {pf.exportOrder?.deliveryDate
+                        ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy')
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
                 {active.length === 0 && (
                   <tr>
-                    <td colSpan={9} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
+                    <td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
                       Không có PO nào
                     </td>
                   </tr>

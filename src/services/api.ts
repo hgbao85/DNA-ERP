@@ -87,3 +87,4 @@ export {
 export { getStockQuants, getStockLedger, adjustStock } from './stock-api';
 export { uploadImage } from './uploads-api';
 export { getNotifications, createNotification, markNotificationRead } from './notifications-api';
+export { getTransferCheckPieces, recordTransferCheck } from './transfer-check-api';

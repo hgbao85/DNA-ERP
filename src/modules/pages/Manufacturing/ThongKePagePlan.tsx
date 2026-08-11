@@ -10,7 +10,7 @@ import LenhSanXuatBoard, { type BoardColumn } from '../../../components/sanxuat/
 import { VatTuDetailBoard, PHOI_CFG, HAN_CFG, SON_CFG, perSku, lechOf, type ProcManh, type ProcLine, type StageCfg } from '../../../components/sanxuat/core'
 import type { ManhLine, ManhAllocation } from '../../../types/manh'
 import ManhSkuDetail from '../InboundWarehouse/ManhSkuDetail'
-import { mockPieces, type MockPiece } from '../InboundWarehouse/KhoChuyenKiemPage'
+import { mockPieces, type MockPiece } from '../../../lib/mock/chuyen-kiem-fixtures'
 import { mockTotalBoxes } from '../InboundWarehouse/KhoDongGoiPage'
 import { tabBtn, btnSecondary } from '../../../styles/buttons'
 import ProgressBar from '../../../components/ProgressBar'
