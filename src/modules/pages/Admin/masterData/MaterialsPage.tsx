@@ -4,6 +4,7 @@ import { Package } from 'lucide-react'
 import { useFetch } from '../../../../hooks/useFetch'
 import { useAuditLog } from '../../../../context/AuditLogContext'
 import { getMaterials, createMaterial, updateMaterial, deleteMaterial, getMaterialGroups, getWarehouses, getUsers, getStockQuants, adjustStock } from '../../../../services/api'
+import { MATERIAL_GROUP_SYSTEM_KEYS } from '../../../../constants/materialGroupSystemKeys'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
 
 interface Material {
@@ -18,6 +19,12 @@ interface Material {
   buyerId?: string | null
   purchaseUnit?: string | null
   khoUnitFactor?: number | null
+  /** CHỈ có ý nghĩa với vật tư nhóm Sắt - ngưỡng hao hụt tối đa khi cắt, gửi xuống solver cắt
+   *  sắt. null với mọi nhóm khác - xem MaterialsService.resolveWasteFields (BE). */
+  maxCuttingWastePercentage?: number | null
+  /** CHỈ có ý nghĩa với vật tư KHÔNG thuộc nhóm Sắt - % dự trù cộng thêm vào số lượng đề xuất
+   *  mua (chưa nối vào luồng đề xuất mua nào). null với vật tư Sắt. */
+  purchaseWastePercentage?: number | null
   imageUrl?: string | null
   /** Chỉ dùng lúc TẠO MỚI (ghi 1 bút toán OPENING_BALANCE vào StockLedger) - không phải cột
    *  thật trên Material nên không hiện ở bảng, và bị bỏ qua khi sửa vật tư (xem BE update()). */
@@ -64,8 +71,12 @@ export default function MaterialsPage() {
   // Sơn/Phụ kiện/Bao bì (trang Định mức chi tiết) dùng chung nhóm "Vật tư khác" (systemKey
   // OTHER) - field "Phân loại" chỉ hiện/bắt buộc khi đang chọn đúng nhóm này (xem
   // MaterialsService.resolveDetailKind bên BE cho ràng buộc tương ứng).
-  const otherGroupId = groupList.find((g) => g.systemKey === 'OTHER')?.id
+  const otherGroupId = groupList.find((g) => g.systemKey === MATERIAL_GROUP_SYSTEM_KEYS.OTHER)?.id
   const isOtherGroup = (v: Partial<Material>) => otherGroupId != null && String(v.materialGroupId) === String(otherGroupId)
+  // % hao hụt mang 2 nghĩa ngược chiều tuỳ nhóm (xem comment field ở Material interface) - field
+  // nào hiện phụ thuộc đúng nhóm đang chọn, mirror cách isOtherGroup làm cho detailKind ở trên.
+  const steelGroupId = groupList.find((g) => g.systemKey === MATERIAL_GROUP_SYSTEM_KEYS.STEEL_BAR)?.id
+  const isSteelGroup = (v: Partial<Material>) => steelGroupId != null && String(v.materialGroupId) === String(steelGroupId)
   const { data: warehouses } = useFetch<Warehouse[]>(getWarehouses)
   const warehouseList = warehouses ?? []
   const warehouseName = (id?: string | null) => warehouseList.find((w) => w.id === id)?.name ?? '—'
@@ -190,6 +201,21 @@ export default function MaterialsPage() {
       },
       { key: 'buyerId', label: 'Nhân viên mua hàng', render: (m) => buyerName(m.buyerId) },
       { key: 'khoUnitFactor', label: 'Hệ số quy đổi', align: 'right' },
+      {
+        // Gộp 2 field (mang 2 nghĩa khác nhau tuỳ nhóm - xem comment Material interface) vào
+        // đúng 1 cột kèm nhãn phân biệt, thay vì 2 cột riêng luôn có 1 cột toàn dấu "—" với
+        // mọi vật tư cùng nhóm (vd lọc tab "Sắt" thì cột "% dự trù mua" trống suốt cả bảng).
+        key: 'wastePercentage', label: '% hao hụt', align: 'right',
+        render: (m) => {
+          if (m.maxCuttingWastePercentage != null) {
+            return <span>{m.maxCuttingWastePercentage}% <span style={{ color: 'var(--text3)', fontSize: 11 }}>· cắt</span></span>
+          }
+          if (m.purchaseWastePercentage != null) {
+            return <span>{m.purchaseWastePercentage}% <span style={{ color: 'var(--text3)', fontSize: 11 }}>· mua</span></span>
+          }
+          return '—'
+        },
+      },
     ],
     filters: groupList.map((g) => ({ key: String(g.id), label: g.name, predicate: (m: Material) => m.materialGroupId === g.id })),
     // Không validate gì ở form này (theo yêu cầu) - kể cả Mã/Tên/Đơn vị cũng không bắt buộc
@@ -232,12 +258,29 @@ export default function MaterialsPage() {
         name: 'khoUnitFactor', label: 'Hệ số quy đổi (số Đơn vị tính / 1 Đơn vị mua)', type: 'number',
         placeholder: 'VD: 250 = 250 cái/kg',
       },
+      // % hao hụt mang 2 nghĩa ngược chiều tuỳ nhóm (xem comment Material.maxCuttingWastePercentage
+      // ở trên) - chỉ hiện đúng 1 trong 2 ô tuỳ nhóm đang chọn, KHÔNG gộp chung 1 ô.
+      {
+        name: 'maxCuttingWastePercentage', label: 'Ngưỡng hao hụt cắt cho phép (%)', type: 'number',
+        showIf: isSteelGroup,
+        placeholder: 'Để trống = dùng mặc định hệ thống. Đặt quá thấp có thể khiến không tìm được phương án cắt.',
+        validate: (v) => (v != null && (Number(v) <= 0 || Number(v) > 100)) ? 'Phải trong khoảng (0, 100]' : undefined,
+      },
+      {
+        name: 'purchaseWastePercentage', label: '% dự trù hao hụt khi mua', type: 'number',
+        showIf: (v) => !isSteelGroup(v),
+        placeholder: 'Để trống nếu vật tư không có hao hụt',
+      },
       { name: 'imageUrl', label: 'Ảnh vật tư', type: 'image' },
     ],
     deleteConfirm: (m) => ({
       title: 'Xóa vật tư',
       message: `Xóa vật tư "${m.name}" (${m.code})? Hành động này không thể hoàn tác.`,
     }),
+    // Chặn lưu nếu chưa tải được danh sách nhóm vật tư - nếu không, isSteelGroup/isOtherGroup
+    // đều trả false (groupList rỗng) -> CẢ 2 field hao hụt lẫn detailKind bị showIf ẩn hết ->
+    // form gửi null cho toàn bộ, xoá sạch ngưỡng Sếp đã đặt ở bất kỳ vật tư nào bị sửa lúc đó.
+    guardSave: () => (groups == null ? 'Chưa tải được danh sách Nhóm vật tư - thử lại' : undefined),
     onMutate: (action, m) => {
       const label = `${m.code} — ${m.name}`
       if (action === 'create') logAction('material', String(m.id), 'masterdata.created', label)

@@ -160,6 +160,26 @@ describe('getPurchaseProposals — tải danh sách + chi tiết từng đề xu
     expect(result.chosenSuppliers?.['Sắt hộp 25×25']).toBe('An Phát');
   });
 
+  it('map đúng supplierId từ BE vào từng quote (không chỉ supplierName) - D.risk1-fix', async () => {
+    get.mockResolvedValueOnce({ data: [{ id: '300' }] });
+    get.mockResolvedValueOnce(
+      beProposal({
+        items: [
+          {
+            ...beProposal().items[0],
+            quotes: [
+              { id: 'q1', supplierId: '55', supplierName: 'Minh Thành', unitPrice: 45000, expectedDate: null, note: null, isChosen: false },
+            ],
+          },
+        ],
+      }),
+    );
+
+    const [result] = await getPurchaseProposals();
+
+    expect(result.quotes?.['Sắt hộp 25×25']?.[0].supplierId).toBe('55');
+  });
+
   it('bỏ trống deadline (chưa có nguồn dữ liệu) - không tự bịa ngày', async () => {
     get.mockResolvedValueOnce({ data: [{ id: '300' }] });
     get.mockResolvedValueOnce(beProposal());
@@ -200,6 +220,24 @@ describe('submitProposalToDirector', () => {
     });
     expect(post).toHaveBeenCalledWith('/purchase-proposals/300/submit');
     expect(result.status).toBe('submitted');
+  });
+
+  it('gửi kèm supplierId khi chọn NCC từ danh sách đã đăng ký (không chỉ supplierName) - D.risk1-fix', async () => {
+    get.mockResolvedValueOnce(beProposal());
+    post.mockResolvedValue(undefined);
+    get.mockResolvedValueOnce(beProposal({ status: 'SUBMITTED' }));
+
+    await submitProposalToDirector(feProposal(), {
+      'Sắt hộp 25×25': [{ supplierName: 'Minh Thành', supplierId: '55', unitPrice: 45000 }],
+    });
+
+    expect(post).toHaveBeenCalledWith('/purchase-proposals/300/items/400/quotes', {
+      supplierName: 'Minh Thành',
+      supplierId: '55',
+      unitPrice: 45000,
+      expectedDate: undefined,
+      note: undefined,
+    });
   });
 
   it('bỏ qua tên vật tư không khớp item nào của proposal (không gọi API sai)', async () => {

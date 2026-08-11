@@ -24,6 +24,13 @@ export interface BeMaterial {
    *  nhưng sản xuất dùng "cái". null nếu vật tư chỉ có 1 đơn vị duy nhất. */
   purchaseUnit: string | null;
   khoUnitFactor: number | null;
+  /** CHỈ có ý nghĩa với vật tư nhóm Sắt (systemKey STEEL_BAR) - ngưỡng hao hụt tối đa chấp
+   *  nhận được khi cắt, gửi xuống solver cắt sắt (ghi đè mặc định hệ thống). null với mọi
+   *  nhóm khác - xem MaterialsService.resolveWasteFields (BE). */
+  maxCuttingWastePercentage: number | null;
+  /** CHỈ có ý nghĩa với vật tư KHÔNG thuộc nhóm Sắt - % dự trù cộng thêm vào số lượng đề xuất
+   *  mua (chưa nối vào luồng đề xuất mua nào). null với vật tư Sắt. */
+  purchaseWastePercentage: number | null;
   imageUrl: string | null;
   isActive: boolean;
   createdAt: string;
@@ -56,6 +63,10 @@ export async function createMaterial(data: Record<string, unknown>): Promise<BeM
     buyerId: data.buyerId || undefined,
     purchaseUnit: data.purchaseUnit || undefined,
     khoUnitFactor: data.khoUnitFactor,
+    // Truyền thẳng (KHÔNG `|| undefined`) - 0 là giá trị hợp lệ cho purchaseWastePercentage
+    // (vật tư không có hao hụt mua), `|| undefined` sẽ vô tình nuốt mất nó.
+    maxCuttingWastePercentage: data.maxCuttingWastePercentage,
+    purchaseWastePercentage: data.purchaseWastePercentage,
     openingQty: data.openingQty || undefined,
     imageUrl: data.imageUrl || undefined,
   });
@@ -73,6 +84,14 @@ export async function updateMaterial(id: number | string, data: Record<string, u
     buyerId: data.buyerId || undefined,
     purchaseUnit: data.purchaseUnit,
     khoUnitFactor: data.khoUnitFactor,
+    // `?? null` (KHÔNG để undefined trôi qua) - input số phát undefined khi bị xoá trắng
+    // (AdminEntityPage.tsx), undefined sẽ bị JSON.stringify bỏ khỏi payload PATCH khiến BE
+    // không đụng cột (tưởng "không gửi field này" = giữ nguyên) dù người dùng vừa xoá trắng để
+    // xin về mặc định hệ thống - lưu xong không có gì đổi mà vẫn báo thành công. Ép null để
+    // gửi đúng ý định "xoá field" (đã từng là defect thật với khoUnitFactor, chưa sửa - không
+    // đụng ở đây vì ngoài phạm vi 2 field hao hụt).
+    maxCuttingWastePercentage: data.maxCuttingWastePercentage ?? null,
+    purchaseWastePercentage: data.purchaseWastePercentage ?? null,
     imageUrl: data.imageUrl,
     isActive: data.isActive,
   });
