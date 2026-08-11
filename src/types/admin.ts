@@ -40,12 +40,15 @@ export interface SystemConfig {
   defaultCurrency: string;
 }
 
-/** Thông báo do Admin tạo/quản lý — broadcast đơn giản, chưa gắn trạng thái đã đọc theo user. */
+/** Thông báo do Admin tạo/quản lý — broadcast đơn giản theo audience.
+ *  id là UUID string thật từ BE (module `notifications`), không phải id số như phần lớn domain
+ *  khác. BE chỉ hỗ trợ create/list/mark-read — không có update/delete, xem NotificationsPage. */
 export interface Notification {
-  id: number;
+  id: string;
   title: string;
   message: string;
-  audience: 'all' | 'boss' | 'warehouse_staff';
+  audience: 'all' | 'boss' | 'warehouse_staff' | 'production_manager';
   createdAt: string;
   createdBy?: string;
+  isRead?: boolean;
 }

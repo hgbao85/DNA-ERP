@@ -18,7 +18,10 @@ interface WeavingPoint {
   isActive: boolean
 }
 
-export default function WeavingPointsPage() {
+// readOnly/embedded: cho phép nhúng lại đúng component này ở Manufacturing/MfgApp.tsx (tab chỉ
+// xem) và QuanLyDiemDanPage.tsx (tab con, ẩn tiêu đề riêng) - trước đây 2 nơi đó dùng 1 bản UI
+// viết tay riêng (đã xoá) cùng gọi API weaving-points, nay hợp nhất về 1 component duy nhất.
+export default function WeavingPointsPage({ readOnly = false, embedded = false }: { readOnly?: boolean; embedded?: boolean } = {}) {
   const { logAction } = useAuditLog()
 
   const config: AdminEntityConfig<WeavingPoint> = {
@@ -74,5 +77,5 @@ export default function WeavingPointsPage() {
     },
   }
 
-  return <AdminEntityPage config={config} />
+  return <AdminEntityPage config={config} readOnly={readOnly} embedded={embedded} />
 }

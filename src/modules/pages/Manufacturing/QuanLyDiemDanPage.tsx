@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { AlertCircle, Phone, CheckCircle2 } from 'lucide-react'
-import WeavingPointsPage from './WeavingPointsPage'
+import WeavingPointsPage from '../Admin/masterData/WeavingPointsPage'
 
 // ── Màn "Quản lý điểm đan" — 2 tab con: Thông tin điểm đan | Mảnh tại điểm đan ──
 // readOnly (giám đốc): cả 2 tab chỉ xem. Đan Trưởng/Quản lý SX: tab Thông tin thêm/sửa được.

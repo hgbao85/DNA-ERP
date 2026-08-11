@@ -1,20 +1,23 @@
 'use client'
 import { Bell } from 'lucide-react'
 import { useAuditLog } from '../../../context/AuditLogContext'
-import { useAuth } from '../../../context/AuthContext'
-import { getNotifications, createNotification, updateNotification, deleteNotification } from '../../../services/api'
+import { getNotifications, createNotification } from '../../../services/api'
 import type { Notification } from '../../../types/admin'
 import AdminEntityPage, { type AdminEntityConfig } from './shared/AdminEntityPage'
 
 const AUDIENCE_LABEL: Record<Notification['audience'], string> = {
   all: 'Tất cả',
   boss: 'Giám đốc',
-  warehouse_staff: 'Nhân viên',
+  warehouse_staff: 'Nhân viên kho',
+  production_manager: 'Quản lý sản xuất',
 }
 
+// BE (module `notifications`) chỉ có create + list (lọc theo audience của người gọi) + mark-read
+// - không có update/delete, nên config này cố ý bỏ `update`/`remove` (AdminEntityPage ẩn hẳn nút
+// Sửa/Xóa khi thiếu, xem AdminEntityConfig.api). `createdBy` gửi lên bị BE bỏ qua (server tự lấy
+// từ JWT) nên không cần truyền ở create nữa.
 export default function NotificationsPage() {
   const { logAction } = useAuditLog()
-  const { user } = useAuth()
 
   const config: AdminEntityConfig<Notification> = {
     title: 'Thông báo',
@@ -33,7 +36,8 @@ export default function NotificationsPage() {
     filters: [
       { key: 'audience-all', label: 'Tất cả người dùng', predicate: (n) => n.audience === 'all' },
       { key: 'boss', label: 'Giám đốc', predicate: (n) => n.audience === 'boss' },
-      { key: 'warehouse_staff', label: 'Nhân viên', predicate: (n) => n.audience === 'warehouse_staff' },
+      { key: 'warehouse_staff', label: 'Nhân viên kho', predicate: (n) => n.audience === 'warehouse_staff' },
+      { key: 'production_manager', label: 'Quản lý sản xuất', predicate: (n) => n.audience === 'production_manager' },
     ],
     formFields: [
       { name: 'title', label: 'Tiêu đề', type: 'text', required: true },
@@ -43,7 +47,8 @@ export default function NotificationsPage() {
         options: [
           { value: 'all', label: 'Tất cả' },
           { value: 'boss', label: 'Giám đốc' },
-          { value: 'warehouse_staff', label: 'Nhân viên' },
+          { value: 'warehouse_staff', label: 'Nhân viên kho' },
+          { value: 'production_manager', label: 'Quản lý sản xuất' },
         ],
       },
     ],
@@ -53,14 +58,10 @@ export default function NotificationsPage() {
     }),
     onMutate: (action, n) => {
       if (action === 'create') logAction('notification', String(n.id), 'notification.created', n.title)
-      else if (action === 'update') logAction('notification', String(n.id), 'notification.updated', n.title)
-      else logAction('notification', String(n.id), 'notification.deleted', n.title)
     },
     api: {
       list: getNotifications,
-      create: (data) => createNotification({ ...data, createdBy: user?.name }),
-      update: (id, data) => updateNotification(id, data),
-      remove: (id) => deleteNotification(id),
+      create: (data) => createNotification(data),
     },
   }
 

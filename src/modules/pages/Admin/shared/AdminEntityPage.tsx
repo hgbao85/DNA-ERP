@@ -78,8 +78,11 @@ export interface AdminEntityConfig<T extends { id: number | string }> {
   api: {
     list: () => Promise<T[]>
     create: (data: Record<string, unknown>) => Promise<T>
-    update: (id: number | string, data: Record<string, unknown>) => Promise<T | undefined>
-    remove: (id: number | string) => Promise<{ id: number | string }>
+    /** Bỏ trống khi BE không hỗ trợ sửa (vd Notifications - chỉ có create/list/mark-read ở BE) -
+     *  ẩn hẳn nút Sửa và tắt bấm-dòng-để-sửa thay vì gọi vào hàm không tồn tại. */
+    update?: (id: number | string, data: Record<string, unknown>) => Promise<T | undefined>
+    /** Bỏ trống khi BE không hỗ trợ xóa - ẩn hẳn nút Xóa, xem ghi chú ở `update`. */
+    remove?: (id: number | string) => Promise<{ id: number | string }>
   }
   /** Nút thao tác thêm cho mỗi dòng, chèn trước nút Sửa/Xóa (vd "Đặt lại mật khẩu"/"Khóa" ở Users).
    *  Nhận helper { refetch, ask } để tự làm mới danh sách + hỏi xác nhận sau khi gọi API. */
@@ -103,7 +106,20 @@ function defaultCell<T>(row: T, key: string): ReactNode {
   return String(v)
 }
 
-export default function AdminEntityPage<T extends { id: number | string }>({ config }: { config: AdminEntityConfig<T> }) {
+export default function AdminEntityPage<T extends { id: number | string }>({
+  config,
+  readOnly = false,
+  embedded = false,
+}: {
+  config: AdminEntityConfig<T>
+  /** Ép toàn bộ trang về chỉ xem bất kể config có update/remove hay không - dùng khi cùng 1
+   *  entity được nhúng vào 1 màn khác cho người xem không có quyền sửa (vd Giám đốc xem Điểm
+   *  đan qua tab "Quản lý sản xuất" - xem MfgApp.tsx). */
+  readOnly?: boolean
+  /** Ẩn tiêu đề/icon riêng - dùng khi nhúng vào 1 tab con đã có tiêu đề của màn cha (vd tab
+   *  "Thông tin điểm đan" trong QuanLyDiemDanPage). */
+  embedded?: boolean
+}) {
   const { data, isLoading, error: loadError, refetch } = useFetch<T[]>(config.api.list)
   const items = useMemo(() => data ?? [], [data])
 
@@ -159,6 +175,9 @@ export default function AdminEntityPage<T extends { id: number | string }>({ con
   const paged = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize)
 
   const visibleFields = (allValues: Partial<T>) => config.formFields.filter(f => !f.showIf || f.showIf(allValues))
+  const canUpdate = !readOnly && !!config.api.update
+  const canRemove = !readOnly && !!config.api.remove
+  const hasRowActions = !!(canUpdate || canRemove || (!readOnly && config.rowActions))
 
   // Revoke toàn bộ object URL đang preview - gọi khi đóng modal (Hủy/Lưu xong/mở lại) để
   // không rò rỉ bộ nhớ trình duyệt giữ ảnh đã chọn nhưng không còn dùng tới nữa.
@@ -277,9 +296,10 @@ export default function AdminEntityPage<T extends { id: number | string }>({ con
           })
           .filter(([, v]) => isNew ? v !== undefined : true)
       )
+      if (!isNew && !canUpdate) return // không thể xảy ra - openEdit đã bị chặn khi thiếu update/readOnly
       const saved = isNew
         ? await config.api.create(payload)
-        : await config.api.update((editing as T).id, payload)
+        : await config.api.update!((editing as T).id, payload)
       if (saved) config.onMutate?.(isNew ? 'create' : 'update', saved)
       clearPendingImages()
       setFormOpen(false)
@@ -292,6 +312,7 @@ export default function AdminEntityPage<T extends { id: number | string }>({ con
   }
 
   const handleDelete = (row: T) => {
+    if (!canRemove) return // không thể xảy ra - nút Xóa đã bị ẩn khi thiếu remove/readOnly
     const guardErr = config.guardDelete?.(row)
     if (guardErr) {
       alert(guardErr)
@@ -299,7 +320,7 @@ export default function AdminEntityPage<T extends { id: number | string }>({ con
     }
     const { title, message } = config.deleteConfirm(row)
     ask({ title, message, danger: true, confirmLabel: 'Xóa' }, async () => {
-      await config.api.remove(row.id)
+      await config.api.remove!(row.id)
       config.onMutate?.('delete', row)
       await refetch()
     })
@@ -308,18 +329,22 @@ export default function AdminEntityPage<T extends { id: number | string }>({ con
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-          {config.icon}
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{config.title}</h2>
-          <span style={{ fontSize: 12, color: 'var(--text3)' }}>({filtered.length})</span>
-        </div>
+        {!embedded && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+            {config.icon}
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{config.title}</h2>
+            <span style={{ fontSize: 12, color: 'var(--text3)' }}>({filtered.length})</span>
+          </div>
+        )}
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1) }} placeholder={config.searchPlaceholder ?? 'Tìm kiếm...'} />
-        <button
-          onClick={openCreate}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, color: '#fff', background: '#3949ab', border: 'none', borderRadius: 8, cursor: 'pointer' }}
-        >
-          <Plus size={14} /> {config.addLabel ?? 'Thêm mới'}
-        </button>
+        {!readOnly && (
+          <button
+            onClick={openCreate}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, color: '#fff', background: '#3949ab', border: 'none', borderRadius: 8, cursor: 'pointer' }}
+          >
+            <Plus size={14} /> {config.addLabel ?? 'Thêm mới'}
+          </button>
+        )}
       </div>
 
       {filterOptions && (
@@ -361,42 +386,50 @@ export default function AdminEntityPage<T extends { id: number | string }>({ con
                   {config.columns.map(col => (
                     <th key={col.key} style={{ ...th, textAlign: col.align ?? 'left', width: col.width }}>{col.label}</th>
                   ))}
-                  <th style={{ ...th, width: config.rowActions ? 120 : 90, textAlign: 'right' }}>Thao tác</th>
+                  {hasRowActions && (
+                    <th style={{ ...th, width: config.rowActions ? 120 : 90, textAlign: 'right' }}>Thao tác</th>
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {paged.map(item => (
                   <tr
                     key={item.id}
-                    style={row}
+                    style={{ ...row, cursor: canUpdate ? 'pointer' : 'default' }}
                     onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                    onClick={() => openEdit(item)}
+                    onClick={() => canUpdate && openEdit(item)}
                   >
                     {config.columns.map(col => (
                       <td key={col.key} style={{ ...td, textAlign: col.align ?? 'left' }}>
                         {col.render ? col.render(item) : defaultCell(item, col.key)}
                       </td>
                     ))}
-                    <td style={{ ...td, textAlign: 'right' }} onClick={e => e.stopPropagation()}>
-                      <div style={{ display: 'inline-flex', gap: 4 }}>
-                        {config.rowActions?.(item, { refetch, ask })}
-                        <button
-                          onClick={() => openEdit(item)}
-                          title="Sửa"
-                          style={{ width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}
-                        >
-                          <Pencil size={14} strokeWidth={2.25} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item)}
-                          title="Xóa"
-                          style={{ width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: '#c62828', cursor: 'pointer' }}
-                        >
-                          <Trash2 size={14} strokeWidth={2.25} />
-                        </button>
-                      </div>
-                    </td>
+                    {hasRowActions && (
+                      <td style={{ ...td, textAlign: 'right' }} onClick={e => e.stopPropagation()}>
+                        <div style={{ display: 'inline-flex', gap: 4 }}>
+                          {!readOnly && config.rowActions?.(item, { refetch, ask })}
+                          {canUpdate && (
+                            <button
+                              onClick={() => openEdit(item)}
+                              title="Sửa"
+                              style={{ width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}
+                            >
+                              <Pencil size={14} strokeWidth={2.25} />
+                            </button>
+                          )}
+                          {canRemove && (
+                            <button
+                              onClick={() => handleDelete(item)}
+                              title="Xóa"
+                              style={{ width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: '#c62828', cursor: 'pointer' }}
+                            >
+                              <Trash2 size={14} strokeWidth={2.25} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

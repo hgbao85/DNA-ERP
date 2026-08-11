@@ -39,6 +39,11 @@
  *    GET /stock-ledger). adjustStock() là ngoại lệ ghi trực tiếp (POST /stock-ledger/adjust) -
  *    dùng cho "Sửa nhanh tồn kho" ở MfgWarehousesPage.tsx và MaterialsPage.tsx (Admin > Vật tư).
  *    Ghi bút toán kho khác vẫn đi qua warehouse-transfers hoặc các flow nghiệp vụ khác.
+ *  - notifications (notifications-api.ts) — CHỈ list/create (BE không có update/delete);
+ *    NotificationsPage bỏ hẳn nút sửa/xóa thay vì gọi vào endpoint không tồn tại. GET list lọc
+ *    theo audience của người gọi (không phải "xem tất cả"). KHÔNG áp dụng cho AuditLogPage - đó
+ *    là 1 khái niệm khác hẳn (nhật ký hoạt động ngữ nghĩa tự viết tay qua AuditLogContext, so với
+ *    audit_logs của BE là diff tự động theo field trên model) nên vẫn giữ mock, xem AuditLogContext.tsx.
  *
  * Mock tương ứng của các module trên đã bị xoá hẳn (không còn export trùng tên để "ghi đè").
  * Thực thi Phôi/Hàn/Sơn/KCS thật hiện chạy qua phoi-sat.service.ts/san-luong.service.ts/
@@ -81,3 +86,4 @@ export {
 } from './warehouse-transfers-api';
 export { getStockQuants, getStockLedger, adjustStock } from './stock-api';
 export { uploadImage } from './uploads-api';
+export { getNotifications, createNotification, markNotificationRead } from './notifications-api';
