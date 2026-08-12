@@ -1,6 +1,6 @@
 'use client'
 
-/** Màn hình KCS — Công đoạn HÀN. Đọc/ghi san-luong.service (stage HAN) qua KcsStagePage. */
+/** Màn hình KCS — Công đoạn HÀN. Đọc/ghi production-batches/qc-reviews thật (stage HAN) qua KcsStagePage. */
 
 import { Flame } from 'lucide-react'
 import type { StageCfg } from '../../../components/sanxuat/core'

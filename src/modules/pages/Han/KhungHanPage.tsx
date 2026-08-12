@@ -6,25 +6,26 @@
  * Kho chứa các mảnh/khung Tổ Hàn đã hàn xong & đã được KCS duyệt đạt (chờ chuyển
  * sang Sơn). Tương tự "Kho phôi" bên Tổ Phôi — bảng gọn 3 cột: Tên vật liệu · Số
  * lượng · ĐVT.
+ *
+ * Đã nối BE thật (M3, đợt 2): không cần endpoint tổng hợp riêng — gộp production-batches trạng
+ * thái QC_DONE theo part, tái dùng đúng GET /production-batches?stage= (Phase 1, KcsStagePage),
+ * chỉ đổi trục nhóm (part thay vì PO). reportedQty của batch QC_DONE đã là passed-qty (BE ghi đè
+ * sau khi KCS duyệt), không phải qty gốc đã báo.
  */
 
 import { useMemo } from 'react'
 import { Frame, Check } from 'lucide-react'
+import { useFetch } from '../../../hooks/useFetch'
+import * as api from '../../../services/api'
+import type { BeProductionBatch } from '../../../services/production-batches-api'
+import LoadingState from '../../../components/LoadingState'
 
-// ── Mock data UI (chỉ hiển thị demo, chưa nối BE) ────────────
 interface KhoItem {
   id: string
   tenVatLieu: string
   soLuong: number
   dvt: string          // đơn vị tính: cái
 }
-
-// Mảnh/khung Tổ Hàn đã hàn & KCS duyệt đạt (chờ chuyển Sơn) — bám theo GHE-J55.
-const KHUNG_HAN_DATA: KhoItem[] = [
-  { id: 'h1', tenVatLieu: 'Ráp khung tựa — J55-TUA', soLuong: 500, dvt: 'cái' },
-  { id: 'h2', tenVatLieu: 'Ráp chân ghế — J55-CHAN', soLuong: 300, dvt: 'cái' },
-  { id: 'h3', tenVatLieu: 'Hàn giằng ngang — J55-GIANG', soLuong: 280, dvt: 'cái' },
-]
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -33,7 +34,22 @@ const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
 
 export default function KhungHanPage() {
-  const tong = useMemo(() => KHUNG_HAN_DATA.reduce((s, i) => s + i.soLuong, 0), [])
+  const { data: batches, isLoading } = useFetch<BeProductionBatch[]>(() => api.getProductionBatchesByStage('HAN'), [])
+
+  const rows: KhoItem[] = useMemo(() => {
+    const byPart = new Map<string, KhoItem>()
+    for (const b of batches ?? []) {
+      if (b.status !== 'QC_DONE') continue
+      const cur = byPart.get(b.partId)
+      if (cur) cur.soLuong += b.reportedQty
+      else byPart.set(b.partId, { id: b.partId, tenVatLieu: `${b.partName} — ${b.partCode}`, soLuong: b.reportedQty, dvt: 'cái' })
+    }
+    return Array.from(byPart.values())
+  }, [batches])
+
+  const tong = useMemo(() => rows.reduce((s, i) => s + i.soLuong, 0), [rows])
+
+  if (isLoading) return <LoadingState />
 
   return (
     <div>
@@ -55,14 +71,14 @@ export default function KhungHanPage() {
             </tr>
           </thead>
           <tbody>
-            {KHUNG_HAN_DATA.map(r => (
+            {rows.map(r => (
               <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
                 <td style={{ ...td, fontWeight: 600 }}>{r.tenVatLieu}</td>
                 <td style={{ ...tdR, fontWeight: 700, color: '#e65100' }}>{r.soLuong.toLocaleString('vi-VN')}</td>
                 <td style={{ ...td, color: 'var(--text3)' }}>{r.dvt}</td>
               </tr>
             ))}
-            {KHUNG_HAN_DATA.length === 0 && (
+            {rows.length === 0 && (
               <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Chưa có khung hàn nào được KCS duyệt</td></tr>
             )}
           </tbody>

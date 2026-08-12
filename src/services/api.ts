@@ -110,3 +110,7 @@ export { getTransferCheckPieces, recordTransferCheck } from './transfer-check-ap
 export { getPackaging, recordPackaging } from './packaging-api';
 export { getWeavingIssuePlan, issueWeaving, receiveWeaving } from './weaving-issues-api';
 export { getMaterialIssuePlan, getMaterialIssuesByStage, issueMaterial, receiveMaterialIssue } from './material-issues-api';
+export {
+  getProductionBatchesByStage, reviewProductionBatch,
+  listProductionOrdersForStage, getProductionBatchPlan, reportProductionBatch,
+} from './production-batches-api';

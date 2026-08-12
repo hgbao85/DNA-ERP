@@ -1,6 +1,6 @@
 'use client'
 
-/** Màn hình KCS — Công đoạn SƠN. Đọc/ghi san-luong.service (stage SON) qua KcsStagePage. */
+/** Màn hình KCS — Công đoạn SƠN. Đọc/ghi production-batches/qc-reviews thật (stage SON) qua KcsStagePage. */
 
 import { SprayCan } from 'lucide-react'
 import type { StageCfg } from '../../../components/sanxuat/core'

@@ -10,12 +10,13 @@
  * ĐANG DÙNG DATA MOCK (state nội bộ) — chưa nối backend.
  */
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { ChevronRight, ChevronDown, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Play, Square, Lock, Scissors, Wrench, Flame, SprayCan } from 'lucide-react'
 import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
 import { useFetch } from '../../hooks/useFetch'
 import * as api from '../../services/api'
-import type { SatIssueView, SanLuongStage, SanLuongBatch, DoanTon } from '../../services/api'
+import type { SatIssueView, SanLuongStage } from '../../services/api'
+import type { BeProductionOrderSummary } from '../../services/production-batches-api'
 
 const ACCENT = '#e65100'
 const REMIND_MINUTES = 60
@@ -34,6 +35,9 @@ export interface ProcLine {
   thucCoQty?: number     // SL thực tế đang có sẵn để làm ngay (tồn đầu vào) — Hàn/Sơn
   parts?: ProcPart[]     // Hàn/Sơn: các thanh sắt cấu thành 1 chi tiết (bấm xổ để xem)
   lastInputAt: string | null
+  /** Hàn/Sơn nối BE thật (đợt 2): Part.id thật (BE) dùng để báo sản lượng — xem
+   *  production-batches-api.ts. Không set cho Phôi (vẫn mock). */
+  realPartId?: string
 }
 export interface ProcManh {
   id: number
@@ -54,6 +58,9 @@ export interface ProcRow {
   lastSession?: { from: string; to: string; cut: number } | null
   manhs?: ProcManh[]    // Phôi
   lines?: ProcLine[]    // Hàn/Sơn
+  /** Hàn/Sơn nối BE thật (đợt 2): ProductionOrder.id thật (BE) dùng để báo sản lượng — xem
+   *  production-batches-api.ts. Không set cho Phôi (vẫn mock). */
+  realOrderId?: string
 }
 export interface StageCfg {
   label: string
@@ -78,7 +85,12 @@ export const minsAgo = (mins: number) => new Date(Date.now() - mins * 60000).toI
 
 // ── Helpers ────────────────────────────────────────────────────────
 export const fmt = (n: number) => n.toLocaleString('vi-VN')
-export const dateVN = (iso: string) => new Date(iso).toLocaleDateString('vi-VN')
+// '—' cho ProcRow.deadline chưa có thật (Hàn/Sơn nối BE thật, đợt 2 — ProductionOrder không có
+// cột deadline, xem fetchHanSonRows()) — tránh hiện "Invalid Date" ra UI.
+export const dateVN = (iso: string) => {
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN')
+}
 export const timeVN = (iso: string) => new Date(iso).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' })
 const minutesSince = (iso: string | null) => iso == null ? Infinity : Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
 
@@ -144,15 +156,19 @@ const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
 // ── Tầng 1: Danh sách lệnh (PO) ────────────────────────────────────
 interface PoView { r: ProcRow; s: ReturnType<typeof poSummary>; unlocked: boolean; running: boolean; canEnter: boolean; arranged: boolean; seqUnlocked: boolean; alert: boolean }
 
-function PoListBoard({ rows, cfg, isPhoi, onEnter, onStart, onEnd }: {
+function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onStart, onEnd }: {
   rows: ProcRow[]; cfg: StageCfg; isPhoi: boolean
+  /** "Làm tuần tự" (PO sau chỉ mở khi PO trước đủ 100%) — quy ước riêng của demo/mock, KHÔNG có gì
+   *  tương ứng ở BE. Hàn/Sơn nối BE thật (đợt 2) tắt hẳn để không chặn oan PO thật theo thứ tự
+   *  bất kỳ trả về từ listProductionOrdersForStage(). */
+  sequential?: boolean
   onEnter: (poId: number) => void; onStart: (poId: number) => void; onEnd: (poId: number) => void
 }) {
   const sumOf = (r: ProcRow) => isPhoi ? poSummaryCay(r) : poSummary(r)
   const views: PoView[] = rows.map((r, i) => {
     const s = sumOf(r)
     const arranged = !!r.arrangedAt
-    const seqUnlocked = i === 0 || sumOf(rows[i - 1]).pct >= 100
+    const seqUnlocked = !sequential || i === 0 || sumOf(rows[i - 1]).pct >= 100
     const unlocked = arranged && seqUnlocked
     const running = !!r.startedAt
     // Phôi: bấm thẳng vào PO (không cần Bắt đầu ca) · không đồng bộ mảnh nên không báo lệch.
@@ -577,69 +593,82 @@ export function PhoiScreen({ cfg, rows, setRows, readOnly = false }: {
   return <PoListBoard rows={view} cfg={cfg} isPhoi onEnter={id => { setSelPoId(id); setSelManhId(null) }} onStart={startPo} onEnd={endPo} />
 }
 
+// ── Nguồn dữ liệu thật cho Hàn/Sơn (đợt 2, thay hanSeed()/sonSeed()) ────────────────
+// listProductionOrdersForStage() rồi getProductionBatchPlan() từng PO — cả 2 đã aggregate sẵn
+// plannedQty/awaitingQcQty/passedQty theo part (BE), không cần tự cộng dồn từ batches như bản
+// mock cũ. Bỏ hẳn tính năng "xem thanh sắt cấu thành" (ProcPart/partStock, đồng bộ tồn đoạn từ
+// Phôi) — dữ liệu này chỉ tồn tại ở mock/seed, chưa có gì tương ứng ở BE (segment-level BOM chưa
+// được model), ngoài phạm vi lần này (xem plan M3 Sản lượng Hàn/Sơn).
+interface HanSonFetch { rows: ProcRow[]; awaitingByLine: Map<number, number> }
+
+async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
+  const orders: BeProductionOrderSummary[] = await api.listProductionOrdersForStage()
+  const settled = await Promise.all(orders.map(async o => {
+    try { return { o, plan: await api.getProductionBatchPlan(o.id, stage) } }
+    catch { return null }
+  }))
+
+  const rows: ProcRow[] = []
+  const awaitingByLine = new Map<number, number>()
+  for (const s of settled) {
+    if (!s) continue
+    const { o, plan } = s
+    const lines: ProcLine[] = plan.items.map(item => {
+      const lineId = Number(item.partId)
+      awaitingByLine.set(lineId, item.awaitingQcQty)
+      return {
+        id: lineId, itemName: item.partName, spec: item.partCode,
+        needQty: item.plannedQty, doneQty: item.passedQty,
+        lastInputAt: null, realPartId: item.partId,
+      }
+    })
+    rows.push({
+      // arrangedAt: không null - "chủ chuyền sắp xếp" là bước riêng của mock, không có gì tương
+      // ứng ở BE; PO thật xuất hiện trong danh sách nghĩa là đã sẵn sàng để báo sản lượng.
+      id: Number(o.id), poNumber: plan.poNumber, sku: plan.productName, productName: plan.productName,
+      soLuong: plan.quantity, deadline: '—', arrangedAt: new Date().toISOString(), lines, realOrderId: o.id,
+    })
+  }
+  return { rows, awaitingByLine }
+}
+
 // ── Orchestrator: Hàn/Sơn (2 tầng) ─────────────────────────────────
-// `stage` (HAN/SON) → bật KCS-gated: done derive từ san-luong.service (Σ DA_CAT),
-// báo sản lượng tạo lô CHỜ KCS. Không truyền stage → giữ hành vi cũ (bump done cục bộ)
-// cho các nơi nhúng read-only (KHSX / chủ chuyền).
+// `stage` (HAN/SON) → nguồn dữ liệu thật qua fetchHanSonRows() (đợt 2), báo sản lượng gọi thẳng
+// production-batches thật (KCS duyệt ở màn khác, xem KcsStagePage). Không truyền stage → giữ hành
+// vi cũ (bump done cục bộ) cho các nơi nhúng read-only — hiện không còn nơi nào gọi kiểu này
+// (LenhSanXuatHan/Son luôn truyền stage), giữ lại thuần phòng thủ kiểu.
 export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
-  cfg: StageCfg; seed: () => ProcRow[]; readOnly?: boolean; stage?: SanLuongStage
+  cfg: StageCfg; seed?: () => ProcRow[]; readOnly?: boolean; stage?: SanLuongStage
 }) {
-  const [rows, setRows] = useState<ProcRow[]>(seed)
+  const { data: fetched, refetch } = useFetch<HanSonFetch>(
+    () => stage ? fetchHanSonRows(stage) : Promise.resolve({ rows: [], awaitingByLine: new Map() }), [stage])
+
+  // "Bắt đầu/Kết thúc ca" luôn là overlay cục bộ, không persist ở BE (kể cả bản mock cũ) — merge
+  // đè lên dữ liệu vừa fetch, giữ nguyên session đang chạy của đúng PO qua các lần refetch.
+  const [rows, setRows] = useState<ProcRow[]>(() => seed?.() ?? [])
+  useEffect(() => {
+    if (!stage) return
+    const next = fetched?.rows ?? []
+    setRows(prev => next.map(r => {
+      const old = prev.find(p => p.id === r.id)
+      return old ? { ...r, startedAt: old.startedAt, cutAtStart: old.cutAtStart, lastSession: old.lastSession } : r
+    }))
+  }, [fetched, stage])
+
   const [selPoId, setSelPoId] = useState<number | null>(null)
   const { startPo, endPo } = caActions(setRows)
 
-  const { data: batches, refetch } = useFetch<SanLuongBatch[]>(
-    () => stage ? api.getSanLuongByStage(stage) : Promise.resolve([]), [stage])
+  // done đã có sẵn trong ProcLine.doneQty (từ passedQty của plan) — chỉ còn chờ-KCS cần map riêng.
+  const awaitingByLine = fetched?.awaitingByLine ?? new Map<number, number>()
 
-  // Tồn ĐOẠN từ Phôi (KCS đạt) — để đồng bộ "thực có" thanh sắt cấu thành chi tiết.
-  const { data: doanTon } = useFetch<DoanTon[]>(
-    () => stage ? api.getDoanTonKho() : Promise.resolve([]), [stage])
-
-  const doanMap = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const d of doanTon ?? []) m.set(`${d.poNumber}|${d.loaiSat}|${d.quyCach}|${d.len}`, d.soDoan)
-    return m
-  }, [doanTon])
-
-  // ĐOẠN đã TIÊU HAO = Σ (số khung đã báo hàn) × (SL đoạn / khung) theo từng đoạn.
-  // 1 đoạn có thể dùng cho nhiều chi tiết → cộng dồn qua mọi lô báo sản lượng.
-  const consumedMap = useMemo(() => {
-    const partsByPoLine = new Map<string, ProcPart[]>()
-    for (const r of rows) for (const l of r.lines ?? []) if (l.parts) partsByPoLine.set(`${r.poNumber}|${l.id}`, l.parts)
-    const m = new Map<string, number>()
-    for (const b of batches ?? []) {
-      const parts = partsByPoLine.get(`${b.poNumber}|${b.lineId}`)
-      if (!parts) continue
-      for (const pt of parts) {
-        const k = `${b.poNumber}|${pt.loaiSat}|${pt.quyCach}|${pt.len}`
-        m.set(k, (m.get(k) ?? 0) + b.qty * pt.perChiTiet)
-      }
-    }
-    return m
-  }, [batches, rows])
-
-  // done (Σ DA_CAT) & chờ-KCS (Σ CHO_KCS) theo từng dòng — chỉ khi KCS-gated.
-  const { doneByLine, choKcsByLine } = useMemo(() => {
-    const done = new Map<number, number>(), cho = new Map<number, number>()
-    for (const b of batches ?? []) {
-      if (b.status === 'DA_CAT') done.set(b.lineId, (done.get(b.lineId) ?? 0) + b.qty)
-      else if (b.status === 'CHO_KCS') cho.set(b.lineId, (cho.get(b.lineId) ?? 0) + b.qty)
-    }
-    return { doneByLine: done, choKcsByLine: cho }
-  }, [batches])
-
-  const view = useMemo(() => !stage ? rows : rows.map(r => ({
-    ...r, lines: r.lines?.map(l => ({ ...l, doneQty: Math.min(l.needQty, l.doneQty + (doneByLine.get(l.id) ?? 0)) })),
-  })), [rows, doneByLine, stage])
-
-  const selPo = view.find(r => r.id === selPoId) ?? null
+  const selPo = rows.find(r => r.id === selPoId) ?? null
 
   const updateLineFlat = (poId: number, ul: ProcLine) =>
     setRows(rs => rs.map(r => r.id !== poId ? r : { ...r, lines: r.lines?.map(l => l.id === ul.id ? ul : l) }))
 
   const report = async (po: ProcRow, line: ProcLine, qty: number) => {
-    if (!stage) return
-    await api.baoSanLuong(stage, { poNumber: po.poNumber, sku: po.sku, lineId: line.id, itemName: line.itemName, spec: line.spec, qty })
+    if (!stage || !po.realOrderId || !line.realPartId) return
+    await api.reportProductionBatch(po.realOrderId, { stage, partId: line.realPartId, reportedQty: qty })
     refetch()
   }
 
@@ -652,13 +681,10 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
       onBack={() => setSelPoId(null)}
       onUpdateLine={stage ? undefined : l => updateLineFlat(selPo.id, l)}
       onReport={stage && !readOnly ? (l, qty) => report(selPo, l, qty) : undefined}
-      choKcsFor={stage ? (id => choKcsByLine.get(id) ?? 0) : undefined}
-      partStock={stage ? (pt => {
-        const k = `${selPo.poNumber}|${pt.loaiSat}|${pt.quyCach}|${pt.len}`
-        return Math.max(0, (doanMap.get(k) ?? 0) - (consumedMap.get(k) ?? 0)) // KCS đạt − đã hàn
-      }) : undefined}
+      choKcsFor={stage ? (id => awaitingByLine.get(id) ?? 0) : undefined}
+      showThucCo={stage ? false : undefined}
       manualInput
     />
   }
-  return <PoListBoard rows={view} cfg={cfg} isPhoi={false} onEnter={id => setSelPoId(id)} onStart={startPo} onEnd={endPo} />
+  return <PoListBoard rows={rows} cfg={cfg} isPhoi={false} sequential={!stage} onEnter={id => setSelPoId(id)} onStart={startPo} onEnd={endPo} />
 }

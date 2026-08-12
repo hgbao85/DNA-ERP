@@ -1,12 +1,18 @@
 'use client'
 
-/** Lệnh sản xuất — Công đoạn HÀN (2 tầng: PO → Vật tư/chi tiết). */
+/**
+ * Lệnh sản xuất — Công đoạn HÀN (2 tầng: PO → Vật tư/chi tiết).
+ * Đã nối BE thật (M3, đợt 2): TwoTierScreen tự fetch PO/Part thật qua production-batches-api.ts
+ * khi có `stage` — seed dưới đây KHÔNG còn nuôi trang này nữa.
+ */
 
 import { TwoTierScreen, HAN_CFG, ISO, minsAgo, type ProcRow } from '../../../components/sanxuat/core'
 
 const CFG = HAN_CFG
 
-// Export để Kho phôi (KhoPhoiPage) tính đoạn tồn/thừa từ cùng một BOM (đoạn cấu thành chi tiết).
+// Vẫn export vì KhoPhoiPage (Phôi, còn mock — xem roadmap M3 "Xuất sắt Phôi" hoãn) tính đoạn
+// tồn/thừa dựa trên cùng bộ seed này + san-luong.service.ts mock, tách biệt hoàn toàn khỏi trang
+// Hàn thật ở dưới. KHÔNG xoá cho tới khi Phôi cũng được nối BE thật.
 export function hanSeed(): ProcRow[] {
   return [
     {
@@ -52,5 +58,5 @@ export function hanSeed(): ProcRow[] {
 }
 
 export default function LenhSanXuatHan({ readOnly = false }: { readOnly?: boolean }) {
-  return <TwoTierScreen cfg={CFG} seed={hanSeed} readOnly={readOnly} stage="HAN" />
+  return <TwoTierScreen cfg={CFG} readOnly={readOnly} stage="HAN" />
 }
