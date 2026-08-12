@@ -56,6 +56,13 @@
  *  - weaving-issues (weaving-issues-api.ts) — Phân bổ/nhận hàng đan (KhoXuatDanPage/
  *    KhoNhapDanPage), thay manh.service.ts. Key theo productionOrderId (khác productionInvoiceItemId
  *    ở trên) - resolve qua resolveProductionOrderId() (production-invoice-item.ts).
+ *  - material-issues (material-issues-api.ts) — Xuất vật tư tiêu hao Hàn/Sơn
+ *    (XuatVatTuTieuHaoPage/PhanPhoiNoiBoPage) + Xác nhận nhận (XacNhanVatTuPage), thay
+ *    vat-tu-noi-bo.service.ts. Khác weaving-issues/steel-issues: BE CÓ ghi StockLedger
+ *    MATERIAL_ISSUE ngay lúc xuất. 2 phía dùng 2 cách khác nhau (permission khác nhau, rà lại lúc
+ *    nối FE): kho key theo productionOrderId (cùng cách resolve với weaving-issues), tổ Hàn/Sơn
+ *    KHÔNG có SKU:VIEW/PRODUCTION_ORDER:VIEW nên dùng getMaterialIssuesByStage() (flat, GET
+ *    /material-issues?stage=X, không cần resolve PO) — xem comment đầu material-issues-api.ts.
  *
  * Mock tương ứng của các module trên đã bị xoá hẳn (không còn export trùng tên để "ghi đè").
  * Thực thi Phôi/Hàn/Sơn/KCS thật hiện chạy qua phoi-sat.service.ts/san-luong.service.ts/
@@ -102,3 +109,4 @@ export { getNotifications, createNotification, markNotificationRead } from './no
 export { getTransferCheckPieces, recordTransferCheck } from './transfer-check-api';
 export { getPackaging, recordPackaging } from './packaging-api';
 export { getWeavingIssuePlan, issueWeaving, receiveWeaving } from './weaving-issues-api';
+export { getMaterialIssuePlan, getMaterialIssuesByStage, issueMaterial, receiveMaterialIssue } from './material-issues-api';

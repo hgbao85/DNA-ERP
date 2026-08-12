@@ -7,7 +7,8 @@
  *   3. Xuất vật tư sơn      — vật tư tiêu hao cho Sơn (bột sơn, dung môi, băng keo…).
  *
  * Sắt = WIP có luồng cắt/đồng bộ riêng; vật tư hàn/sơn = tiêu hao (đơn vị bình/kg/lít…),
- * dùng chung component XuatVatTuTieuHaoPage. Data hàn/sơn hiện là MOCK để dựng khung.
+ * dùng chung component XuatVatTuTieuHaoPage — nối BE thật (module material-issues) từ 2026-08-12,
+ * xem material-issues-api.ts.
  */
 
 import { useState } from 'react'

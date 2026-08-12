@@ -3,17 +3,26 @@
 /**
  * Xác nhận sản lượng (Hàn / Sơn) — mục sidebar DƯỚI "Lệnh sản xuất".
  *
- * Tổ đối chiếu VẬT TƯ TIÊU HAO kho vừa cấp qua "Phân phối nội bộ" rồi bấm "Xác nhận
- * đã nhận" (ghi mốc thời gian). Đơn giản hơn Phôi: KHÔNG qua KCS.
+ * Tổ đối chiếu VẬT TƯ TIÊU HAO kho vừa cấp qua "Phân phối nội bộ" rồi bấm "Xác nhận đã nhận"
+ * (module material-issues, POST /material-issues/:id/receive). Đơn giản hơn Phôi: KHÔNG qua KCS,
+ * không ghi thêm StockLedger khi nhận (chỉ ghi 1 lần lúc kho xuất — xem material-issues-api.ts).
+ *
+ * Flat (không master-detail theo SKU/PO như KhoXuatDanPage): HAN_STAFF/SON_STAFF chỉ có
+ * MATERIAL_ISSUE:VIEW, KHÔNG có SKU:VIEW/PRODUCTION_ORDER:VIEW (xem role-permissions.constant.ts,
+ * BE) nên không tự resolve SKU→productionOrderId được — getMaterialIssuesByStage() gọi thẳng
+ * GET /material-issues?stage=X, đúng thay thế getVatTuIssues(stage) mock cũ (cùng shape "flat qua
+ * mọi PO").
  * Toggle góc phải: "Xác nhận" (đợt chờ) · "Lịch sử" (log đã nhận + tổng theo vật tư).
  */
 
 import { useMemo, useState } from 'react'
 import { Check, PackageCheck, Clock } from 'lucide-react'
+import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import { tabBtn } from '../../../styles/buttons'
 import * as api from '../../../services/api'
-import type { VatTuStage, VatTuIssue } from '../../../services/api'
+import type { BeMaterialIssue, MaterialIssueStage } from '../../../services/material-issues-api'
+import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 
 const ACCENT = '#e65100'
@@ -26,41 +35,52 @@ const card: React.CSSProperties = { background: 'var(--surface)', border: '1px s
 const emptyBox: React.CSSProperties = { padding: 44, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }
 
 const fmt = (n: number) => n.toLocaleString('vi-VN')
+const fmtDate = (s: string) => { try { return format(new Date(s), 'dd/MM/yyyy HH:mm') } catch { return s } }
 
-export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: VatTuStage; readOnly?: boolean }) {
-  const { data: issues, isLoading, refetch } = useFetch<VatTuIssue[]>(() => api.getVatTuIssues(stage), [stage])
+export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: MaterialIssueStage; readOnly?: boolean }) {
+  const { data: issuesData, isLoading, refetch } = useFetch<BeMaterialIssue[]>(() => api.getMaterialIssuesByStage(stage), [stage])
+  const issues = issuesData ?? []
   const [view, setView] = useState<'confirm' | 'history'>('confirm')
   const [edit, setEdit] = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState<string | null>(null)
+  const [msg, setMsg] = useState('')
 
   const choNhan = useMemo(
-    () => (issues ?? []).filter(i => i.status === 'CHO_NHAN').sort((a, b) => a.xuatAt.localeCompare(b.xuatAt)),
+    () => issues.filter(i => i.status === 'ISSUED').sort((a, b) => a.issuedAt.localeCompare(b.issuedAt)),
     [issues],
   )
   const daNhan = useMemo(
-    () => (issues ?? []).filter(i => i.status === 'DA_NHAN').sort((a, b) => (b.nhanAt ?? '').localeCompare(a.nhanAt ?? '')),
+    () => issues.filter(i => i.status === 'RECEIVED').sort((a, b) => (b.receivedAt ?? '').localeCompare(a.receivedAt ?? '')),
     [issues],
   )
   // Tổng đã nhận theo vật tư — để analys "đã dùng bao nhiêu".
   const tongTheoVatTu = useMemo(() => {
-    const m = new Map<string, { tenVatTu: string; dvt: string; tong: number }>()
+    const m = new Map<string, { name: string; tong: number }>()
     for (const i of daNhan) {
-      const k = `${i.tenVatTu}|${i.dvt}`
-      const ex = m.get(k)
-      const add = i.soLuongNhan ?? i.soLuong
+      const add = i.receivedQty ?? i.issuedQty
+      const ex = m.get(i.materialCode)
       if (ex) ex.tong += add
-      else m.set(k, { tenVatTu: i.tenVatTu, dvt: i.dvt, tong: add })
+      else m.set(i.materialCode, { name: i.materialName, tong: add })
     }
     return [...m.values()]
   }, [daNhan])
 
-  if (isLoading || !issues) return <LoadingState />
+  if (isLoading || !issuesData) return <LoadingState />
 
-  const xacNhan = async (i: VatTuIssue) => {
+  const xacNhan = async (i: BeMaterialIssue) => {
     const raw = edit[i.id]
     const soNhan = raw != null ? Math.max(0, Math.floor(Number(raw) || 0)) : undefined
-    await api.xacNhanNhanVatTu(i.id, soNhan)
-    setEdit(e => { const { [i.id]: _, ...rest } = e; return rest })
-    refetch()
+    setBusy(i.id)
+    setMsg('')
+    try {
+      await api.receiveMaterialIssue(i.id, soNhan)
+      setEdit(e => { const { [i.id]: _, ...rest } = e; return rest })
+      await refetch()
+    } catch (e) {
+      setMsg(errMsg(e, 'Không thể xác nhận nhận vật tư'))
+    } finally {
+      setBusy(null)
+    }
   }
 
   return (
@@ -94,7 +114,6 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: V
                 <tr style={{ background: 'var(--surface2)' }}>
                   <th style={th}>PO</th>
                   <th style={th}>Vật tư</th>
-                  <th style={th}>ĐVT</th>
                   <th style={thR}>SL kho xuất</th>
                   <th style={th}>Thời gian xuất</th>
                   <th style={{ ...th, textAlign: 'center', width: 280 }}>Xác nhận nhận</th>
@@ -106,29 +125,30 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: V
                   return (
                     <tr key={i.id} style={{ borderTop: '1px solid var(--border)' }}>
                       <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{i.poNumber}</td>
-                      <td style={{ ...td, fontWeight: 600 }}>{i.tenVatTu}</td>
-                      <td style={{ ...td, color: 'var(--text3)' }}>{i.dvt}</td>
+                      <td style={{ ...td, fontWeight: 600 }}>
+                        {i.materialName} <span style={{ color: 'var(--text3)', fontWeight: 400 }}>({i.materialCode})</span>
+                      </td>
                       <td style={tdR}>
                         {editing ? (
                           <input type="number" min={0} value={edit[i.id]} autoFocus
                             onChange={e => setEdit(prev => ({ ...prev, [i.id]: e.target.value }))}
                             style={{ width: 72, padding: '4px 8px', border: `1px solid ${ACCENT}`, borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }} />
                         ) : (
-                          <span style={{ fontWeight: 700 }}>{fmt(i.soLuong)}</span>
+                          <span style={{ fontWeight: 700 }}>{fmt(i.issuedQty)}</span>
                         )}
                       </td>
-                      <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{i.xuatAt}</td>
+                      <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{fmtDate(i.issuedAt)}</td>
                       <td style={{ ...td, textAlign: 'center' }}>
                         {readOnly ? (
                           <span style={{ fontSize: 12, color: 'var(--text3)' }}>chờ xác nhận</span>
                         ) : (
                           <div style={{ display: 'inline-flex', gap: 6 }}>
-                            <button onClick={() => xacNhan(i)}
-                              style={{ padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: ACCENT, color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                              {editing ? 'Lưu & xác nhận' : 'Xác nhận đã nhận'}
+                            <button onClick={() => xacNhan(i)} disabled={busy === i.id}
+                              style={{ padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: ACCENT, color: '#fff', cursor: busy === i.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+                              {busy === i.id ? '...' : editing ? 'Lưu & xác nhận' : 'Xác nhận đã nhận'}
                             </button>
                             {!editing && (
-                              <button onClick={() => setEdit(prev => ({ ...prev, [i.id]: String(i.soLuong) }))}
+                              <button onClick={() => setEdit(prev => ({ ...prev, [i.id]: String(i.issuedQty) }))}
                                 style={{ padding: '5px 10px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                 Nhận thiếu
                               </button>
@@ -141,6 +161,7 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: V
                 })}
               </tbody>
             </table>
+            {msg && <div style={{ padding: '8px 14px', fontSize: 12, color: '#dc2626' }}>{msg}</div>}
           </div>
         )
       )}
@@ -153,10 +174,9 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: V
           <>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
               {tongTheoVatTu.map(t => (
-                <span key={t.tenVatTu} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5, fontSize: 12, padding: '5px 12px', borderRadius: 20, background: 'var(--surface)', border: '1px solid var(--border)' }}>
-                  <span style={{ color: 'var(--text2)' }}>{t.tenVatTu}:</span>
+                <span key={t.name} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5, fontSize: 12, padding: '5px 12px', borderRadius: 20, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+                  <span style={{ color: 'var(--text2)' }}>{t.name}:</span>
                   <b style={{ color: '#16a34a' }}>{fmt(t.tong)}</b>
-                  <span style={{ color: 'var(--text3)' }}>{t.dvt}</span>
                 </span>
               ))}
             </div>
@@ -166,7 +186,6 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: V
                   <tr style={{ background: 'var(--surface2)' }}>
                     <th style={th}>PO</th>
                     <th style={th}>Vật tư</th>
-                    <th style={th}>ĐVT</th>
                     <th style={thR}>SL đã nhận</th>
                     <th style={th}>Thời gian xuất</th>
                     <th style={th}>Thời gian nhận</th>
@@ -174,21 +193,22 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: V
                 </thead>
                 <tbody>
                   {daNhan.map(i => {
-                    const nhan = i.soLuongNhan ?? i.soLuong
-                    const thieu = nhan < i.soLuong
+                    const nhan = i.receivedQty ?? i.issuedQty
+                    const thieu = nhan < i.issuedQty
                     return (
                       <tr key={i.id} style={{ borderTop: '1px solid var(--border)' }}>
                         <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{i.poNumber}</td>
-                        <td style={{ ...td, fontWeight: 600 }}>{i.tenVatTu}</td>
-                        <td style={{ ...td, color: 'var(--text3)' }}>{i.dvt}</td>
+                        <td style={{ ...td, fontWeight: 600 }}>
+                          {i.materialName} <span style={{ color: 'var(--text3)', fontWeight: 400 }}>({i.materialCode})</span>
+                        </td>
                         <td style={tdR}>
                           <span style={{ fontWeight: 700 }}>{fmt(nhan)}</span>
-                          {thieu && <span style={{ fontSize: 11, color: '#c2410c' }}> / {fmt(i.soLuong)} xuất</span>}
+                          {thieu && <span style={{ fontSize: 11, color: '#c2410c' }}> / {fmt(i.issuedQty)} xuất</span>}
                         </td>
-                        <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{i.xuatAt}</td>
+                        <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{fmtDate(i.issuedAt)}</td>
                         <td style={{ ...td, whiteSpace: 'nowrap' }}>
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#16a34a', fontWeight: 600 }}>
-                            <Check size={14} /> {i.nhanAt}
+                            <Check size={14} /> {i.receivedAt ? fmtDate(i.receivedAt) : '—'}
                           </span>
                         </td>
                       </tr>

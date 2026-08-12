@@ -7,7 +7,6 @@ export * from './manh.service';
 export * from './phoi-sat.service';
 export * from './phoi-lenh-sx.service';
 export * from './san-luong.service';
-export * from './vat-tu-noi-bo.service';
 export * from './audit-log.service';
 export * from './system.service';
 export * from './notifications.service';
