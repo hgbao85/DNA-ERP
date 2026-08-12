@@ -20,9 +20,12 @@
  * `utils/purchasingRouting.ts` - ép Number() làm lệch kiểu key, khiến lọc theo buyer luôn thất bại
  * (đã xảy ra thật, sửa 2026-08-08).
  *
- * `quotes`/`chosenSuppliers` của type cũ key theo `item.name` (tên vật tư) thay vì id thật -
- * BE dùng itemId/quoteId thật, nên các hàm action bên dưới nhận kèm `proposal` (đã có sẵn trong
- * state) để tự tra ngược itemId/quoteId theo tên trước khi gọi API.
+ * `quotes` của type cũ key theo `item.name` (tên vật tư) thay vì itemId thật - BE dùng itemId
+ * thật, nên các hàm action bên dưới nhận kèm `proposal` (đã có sẵn trong state) để tự tra ngược
+ * itemId theo tên trước khi gọi API. Riêng quoteId (báo giá nào được chọn) KHÔNG tra theo tên
+ * NCC nữa (từng làm vậy, đã bỏ - xem approveProposal()) - ProposalQuote nay mang sẵn `id` thật
+ * từ lúc đọc về, Sếp chọn thì gửi thẳng id đó, tránh khớp nhầm khi trùng tên NCC hoặc còn báo
+ * giá cũ chưa dọn sau 1 vòng "Báo giá lại".
  */
 import { http } from './core/http';
 import type {
@@ -126,6 +129,7 @@ function toProposal(be: BeProposal): PurchaseProposal {
   const chosenSuppliers: Record<string, string> = {};
   for (const it of be.items ?? []) {
     quotes[it.materialName] = it.quotes.map((q) => ({
+      id: q.id,
       supplierName: q.supplierName,
       supplierId: q.supplierId ?? undefined,
       unitPrice: q.unitPrice,
@@ -197,18 +201,24 @@ export async function submitProposalToDirector(
   return getPurchaseProposal(proposal.id);
 }
 
-/** Sếp chọn NCC theo tên (đúng hành vi mock) - tra ngược quoteId thật khớp tên trước khi gọi BE. */
+/**
+ * Sếp duyệt - nhận thẳng quoteId thật (BossApp.tsx lưu theo id, không phải tên NCC nữa - xem
+ * ProposalQuote.id). KHÔNG tra lại theo supplierName: 2 báo giá có thể trùng tên NCC (hợp lệ,
+ * BE không cấm), hoặc còn báo giá cũ chưa dọn sau 1 vòng "Báo giá lại" (mỗi lần báo giá lại là
+ * create() mới, giữ báo giá cũ làm lịch sử) - tra theo tên có thể khớp nhầm sang bản không phải
+ * cái Sếp vừa bấm (D.h3-quote-id-not-name). Vẫn cần 1 lần GET để dịch item.name -> BE itemId
+ * (state FE key theo tên, không đổi được mà không sửa cả UI).
+ */
 export async function approveProposal(
   proposal: PurchaseProposal,
-  chosenSuppliers: Record<string, string>,
+  chosenQuoteIdByItemName: Record<string, string>,
 ): Promise<PurchaseProposal> {
-  const beDetail = await http.get<BeProposal>(`/purchase-proposals/${proposal.id}`);
+  const beItemIdByName = await getBeItemIdsByName(proposal.id);
   const chosenQuoteIdByItemId: Record<string, string> = {};
 
-  for (const item of beDetail.items ?? []) {
-    const supplierName = chosenSuppliers[item.materialName];
-    const quote = item.quotes.find((q) => q.supplierName === supplierName);
-    if (quote) chosenQuoteIdByItemId[item.id] = quote.id;
+  for (const [itemName, quoteId] of Object.entries(chosenQuoteIdByItemName)) {
+    const beItemId = beItemIdByName.get(itemName);
+    if (beItemId) chosenQuoteIdByItemId[beItemId] = quoteId;
   }
 
   await http.post(`/purchase-proposals/${proposal.id}/approve`, { chosenQuoteIdByItemId });

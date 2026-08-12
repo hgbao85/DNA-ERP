@@ -1,5 +1,5 @@
-/** Lấy thông điệp lỗi từ Error/response API, kèm fallback khi không xác định được. */
+// core/http.ts chuẩn hoá MỌI lỗi request thành ApiError (Error thật, .message = câu tiếng Việt
+// BE trả về, đã join sẵn nếu là mảng validation) trước khi tới đây - không có field `.response`
+// nào để đọc. Ưu tiên thẳng `e.message`; fallback chỉ dùng khi throw không phải Error (hiếm).
 export const errMsg = (e: unknown, fallback = 'Lỗi xử lý'): string =>
-  (e as { response?: { data?: { error?: string } } })?.response?.data?.error
-  ?? (e instanceof Error ? e.message : undefined)
-  ?? fallback
+  (e instanceof Error && e.message) || fallback

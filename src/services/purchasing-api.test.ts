@@ -255,15 +255,29 @@ describe('submitProposalToDirector', () => {
   });
 });
 
-describe('approveProposal', () => {
-  it('tra quoteId thật khớp supplierName rồi gửi chosenQuoteIdByItemId', async () => {
+describe('approveProposal — gửi thẳng quoteId, KHÔNG tra lại theo tên NCC (D.h3-quote-id-not-name)', () => {
+  it('dịch item.name -> BE itemId rồi gửi thẳng quoteId đã nhận (không tìm quote theo supplierName)', async () => {
+    get.mockResolvedValueOnce(beProposal());
+    post.mockResolvedValueOnce(undefined);
+    get.mockResolvedValueOnce(beProposal({ status: 'PURCHASING' }));
+
+    // 'q2' là quoteId đã có sẵn trong tay FE (đọc từ ProposalQuote.id lúc trước, không phải tên).
+    const result = await approveProposal(feProposal(), { 'Sắt hộp 25×25': 'q2' });
+
+    expect(post).toHaveBeenCalledWith('/purchase-proposals/300/approve', {
+      chosenQuoteIdByItemId: { '400': 'q2' },
+    });
+    expect(result.status).toBe('purchasing');
+  });
+
+  it('vẫn chọn đúng quote dù 2 báo giá trùng tên NCC (từng là bug khi còn tra theo tên)', async () => {
     get.mockResolvedValueOnce(
       beProposal({
         items: [
           {
             ...beProposal().items[0],
             quotes: [
-              { id: 'q1', supplierId: null, supplierName: 'Minh Thành', unitPrice: 45000, expectedDate: null, note: null, isChosen: false },
+              { id: 'q1', supplierId: null, supplierName: 'An Phát', unitPrice: 45000, expectedDate: null, note: null, isChosen: false },
               { id: 'q2', supplierId: null, supplierName: 'An Phát', unitPrice: 43500, expectedDate: null, note: null, isChosen: false },
             ],
           },
@@ -273,20 +287,21 @@ describe('approveProposal', () => {
     post.mockResolvedValueOnce(undefined);
     get.mockResolvedValueOnce(beProposal({ status: 'PURCHASING' }));
 
-    const result = await approveProposal(feProposal(), { 'Sắt hộp 25×25': 'An Phát' });
+    // Sếp bấm đúng dòng q1 (giá 45000, không phải giá rẻ nhất) - id phải đi thẳng, không bị tra
+    // theo tên "An Phát" rồi lỡ khớp sang q2.
+    await approveProposal(feProposal(), { 'Sắt hộp 25×25': 'q1' });
 
     expect(post).toHaveBeenCalledWith('/purchase-proposals/300/approve', {
-      chosenQuoteIdByItemId: { '400': 'q2' },
+      chosenQuoteIdByItemId: { '400': 'q1' },
     });
-    expect(result.status).toBe('purchasing');
   });
 
-  it('bỏ qua item không có supplier được chọn khớp tên (không đưa vào map gửi BE)', async () => {
+  it('bỏ qua item không dịch được sang BE itemId (tên vật tư không khớp)', async () => {
     get.mockResolvedValueOnce(beProposal());
     post.mockResolvedValueOnce(undefined);
     get.mockResolvedValueOnce(beProposal());
 
-    await approveProposal(feProposal(), { 'Sắt hộp 25×25': 'NCC không tồn tại' });
+    await approveProposal(feProposal(), { 'Vật tư không tồn tại': 'q1' });
 
     expect(post).toHaveBeenCalledWith('/purchase-proposals/300/approve', {
       chosenQuoteIdByItemId: {},

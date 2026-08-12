@@ -1,17 +1,17 @@
 import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
+import { errMsg } from '../../../utils/errors'
 import { Search, Plus, Trash2, Pencil, X, Building2 } from 'lucide-react'
 
 interface Material { id: number; code: string; name: string; unit: string }
-interface Supplier { id: number; name: string; phone?: string | null; address?: string | null; _count?: { materials: number } }
+interface Supplier { id: number; name: string; phone?: string | null; address?: string | null; isActive: boolean; _count?: { materials: number } }
 // BE (/materials/:materialId/suppliers) trả supplierId + supplierName phẳng (không có object
 // supplier lồng như mock cũ) — ghép thêm phone/address bằng cách tra trong danh sách `suppliers`
 // đã có sẵn theo supplierId, thay vì sửa giao diện bảng.
 interface Link { id: number; price: number; supplierId: number; supplierName: string }
 
 const safeArr = <T,>(d: T[] | null | undefined): T[] => (Array.isArray(d) ? d : [])
-const errMsg = (e: unknown) => (e as { response?: { data?: { error?: string } } })?.response?.data?.error
 
 export default function VatTuNCCPage() {
   const { data: materials } = useFetch<Material[]>(() => api.getMaterials())
@@ -29,8 +29,13 @@ export default function VatTuNCCPage() {
     const q = search.trim().toLowerCase()
     return !q || m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q)
   })
+  // "Ẩn NCC" = update isActive:false (không xoá thật - xem SupplierManager.del), nên NCC đã ẩn
+  // vẫn còn trong danh sách BE trả về. Loại khỏi mọi nơi CHỌN (gắn NCC mới, quản lý) - nhưng
+  // KHÔNG loại khỏi tra cứu hiển thị cho NCC đã gắn từ trước (LinkRow vẫn dùng suppliers đầy đủ,
+  // để hiện đúng SĐT/địa chỉ dù NCC đó vừa bị ẩn sau khi đã gắn).
+  const activeSuppliers = safeArr(suppliers).filter(s => s.isActive)
   const linkedSupIds = new Set(safeArr(links).map(l => l.supplierId))
-  const availSuppliers = safeArr(suppliers).filter(s => !linkedSupIds.has(s.id))
+  const availSuppliers = activeSuppliers.filter(s => !linkedSupIds.has(s.id))
   const selMatObj = safeArr(materials).find(m => m.id === selMat)
 
   const addLink = async () => {
@@ -40,7 +45,7 @@ export default function VatTuNCCPage() {
     try {
       await api.createMaterialSupplier({ materialId: selMat, supplierId: linkSup, price: Number(linkPrice) })
       setLinkSup(''); setLinkPrice(''); refetchLinks()
-    } catch (e) { setErr(errMsg(e) ?? 'Lỗi gắn NCC') }
+    } catch (e) { setErr(errMsg(e, 'Lỗi gắn NCC')) }
   }
   const delLink = async (id: number) => { if (selMat && confirm('Bỏ gắn NCC này?')) { await api.deleteMaterialSupplier(selMat, id); refetchLinks() } }
 
@@ -48,11 +53,11 @@ export default function VatTuNCCPage() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Vật tư – Nhà cung cấp</h2>
-        <button onClick={() => setShowSupplierMgr(true)} style={btnGhost}><Building2 size={15} /> Quản lý nhà cung cấp ({safeArr(suppliers).length})</button>
+        <button onClick={() => setShowSupplierMgr(true)} style={btnGhost}><Building2 size={15} /> Quản lý nhà cung cấp ({activeSuppliers.length})</button>
       </div>
       <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>Mỗi vật tư mua từ NCC nào — kèm địa chỉ & số điện thoại liên hệ</div>
       <div style={{ color: 'var(--text3)', fontSize: 12, marginBottom: 16 }}>
-        {safeArr(materials).length} vật tư · {safeArr(suppliers).length} NCC hiện có
+        {safeArr(materials).length} vật tư · {activeSuppliers.length} NCC hiện có
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16, alignItems: 'start' }}>
@@ -107,8 +112,8 @@ export default function VatTuNCCPage() {
                   />
                   <button onClick={addLink} style={btnPrimary}><Plus size={14} /> Gắn</button>
                 </div>
-                {availSuppliers.length === 0 && safeArr(suppliers).length > 0 && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>Đã gắn hết NCC hiện có. Thêm NCC mới ở &quot;Quản lý nhà cung cấp&quot;.</div>}
-                {safeArr(suppliers).length === 0 && <div style={{ fontSize: 12, color: '#e65100', marginTop: 6 }}>Chưa có NCC nào — bấm &quot;Quản lý nhà cung cấp&quot; để thêm.</div>}
+                {availSuppliers.length === 0 && activeSuppliers.length > 0 && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>Đã gắn hết NCC hiện có. Thêm NCC mới ở &quot;Quản lý nhà cung cấp&quot;.</div>}
+                {activeSuppliers.length === 0 && <div style={{ fontSize: 12, color: '#e65100', marginTop: 6 }}>Chưa có NCC nào — bấm &quot;Quản lý nhà cung cấp&quot; để thêm.</div>}
                 {err && <div style={{ color: '#c62828', fontSize: 12, marginTop: 6 }}>{err}</div>}
               </div>
             </>
@@ -116,7 +121,7 @@ export default function VatTuNCCPage() {
         </div>
       </div>
 
-      {showSupplierMgr && <SupplierManager suppliers={safeArr(suppliers)} onClose={() => setShowSupplierMgr(false)} onChange={refetchSup} />}
+      {showSupplierMgr && <SupplierManager suppliers={activeSuppliers} onClose={() => setShowSupplierMgr(false)} onChange={refetchSup} />}
     </div>
   )
 }
@@ -144,9 +149,12 @@ function SupplierManager({ suppliers, onClose, onChange }: { suppliers: Supplier
   const add = async () => {
     setErr(''); if (!name.trim()) { setErr('Nhập tên NCC'); return }
     try { await api.createSupplier({ name: name.trim(), phone: phone.trim() || undefined, address: address.trim() || undefined }); setName(''); setPhone(''); setAddress(''); onChange() }
-    catch (e) { setErr(errMsg(e) ?? 'Lỗi thêm NCC') }
+    catch (e) { setErr(errMsg(e, 'Lỗi thêm NCC')) }
   }
-  const del = async (id: number) => { if (confirm('Ẩn NCC này?')) { await api.deleteSupplier(id); onChange() } }
+  // Ẩn (isActive:false), KHÔNG xoá thật - đổi từ deleteSupplier() (hard delete) 2026-08-11: xoá
+  // thật 1 NCC đang có báo giá/liên kết vật tư sẽ vỡ FK (500 thô), và hộp thoại này vốn đã hỏi
+  // đúng "Ẩn" chứ không phải "Xoá vĩnh viễn" nên hành vi giờ mới khớp lời hỏi (D.p5-hide-supplier).
+  const del = async (id: number) => { if (confirm('Ẩn NCC này?')) { await api.updateSupplier(id, { isActive: false }); onChange() } }
   return (
     <div onClick={onClose} style={overlay}>
       <div onClick={e => e.stopPropagation()} style={{ ...modalCard, width: 560 }}>

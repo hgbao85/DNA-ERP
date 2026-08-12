@@ -43,7 +43,9 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
   const [rejectMode,   setRejectMode]   = useState(false)
   const [rejectReason, setRejectReason] = useState('')
-  // chosen[itemName] = supplierName selected by boss (gộp item của mọi kho trong đơn)
+  // chosen[itemName] = quoteId đã chọn (KHÔNG phải supplierName - trùng tên NCC hoặc còn báo giá
+  // cũ chưa dọn sau 1 vòng "Báo giá lại" sẽ khớp nhầm nếu dùng tên, xem D.h3-quote-id-not-name).
+  // Gộp item của mọi kho trong đơn.
   const [chosen, setChosen] = useState<Record<string, string>>({})
   const fmt = (n: number) => n.toLocaleString('vi-VN')
 
@@ -57,18 +59,23 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
     setSelectedRequestId(group[0].requestId)
     setRejectMode(false)
     setRejectReason('')
-    // Pre-fill chosen từ chosenSuppliers cũ hoặc NCC rẻ nhất, gộp item của mọi kho trong đơn
+    // Pre-fill chosen (theo quoteId) từ chosenSuppliers cũ hoặc NCC rẻ nhất, gộp item của mọi kho
+    // trong đơn. Nhánh chosenSuppliers vẫn phải tra theo tên (BE chỉ trả lại tên NCC đã chọn ở
+    // đó, không phải quoteId) - nhưng đây chỉ là giá trị GỢI Ý ban đầu, Sếp vẫn thấy đúng dòng
+    // nào đang highlight và tự bấm lại nếu sai trước khi Duyệt; điểm mất an toàn thật (gửi thẳng
+    // id lên BE lúc bấm Duyệt mà không tra lại theo tên) đã bỏ ở approveProposal().
     const init: Record<string, string> = {}
     group.forEach(p => {
       p.items.forEach(item => {
+        const offers: ProposalQuote[] = p.quotes?.[item.name] ?? []
         if (p.chosenSuppliers?.[item.name]) {
-          init[item.name] = p.chosenSuppliers[item.name]
+          const match = offers.find(q => q.supplierName === p.chosenSuppliers![item.name])
+          if (match?.id) init[item.name] = match.id
         } else {
-          const offers: ProposalQuote[] = p.quotes?.[item.name] ?? []
           const cheapest = offers
             .filter(q => q.unitPrice != null && q.unitPrice > 0)
             .sort((a, b) => (a.unitPrice ?? 0) - (b.unitPrice ?? 0))[0]
-          if (cheapest) init[item.name] = cheapest.supplierName
+          if (cheapest?.id) init[item.name] = cheapest.id
         }
       })
     })
@@ -113,8 +120,8 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
     const ready = allSubmitted(group)
 
     const totalChosen = items.reduce((sum, item) => {
-      const suppName = chosen[item.name]
-      const offer = (mergedQuotes[item.name] ?? []).find(q => q.supplierName === suppName)
+      const quoteId = chosen[item.name]
+      const offer = (mergedQuotes[item.name] ?? []).find(q => q.id === quoteId)
       return sum + (offer?.unitPrice ?? 0) * item.buyQty
     }, 0)
 
@@ -155,7 +162,9 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
             const offers: ProposalQuote[] = mergedQuotes[item.name] ?? []
             const prices = offers.map(q => q.unitPrice).filter((x): x is number => x != null && x > 0)
             const cheapestPrice = prices.length > 0 ? Math.min(...prices) : null
-            const chosenName = chosen[item.name]
+            const chosenQuoteId = chosen[item.name]
+            const chosenOffer = offers.find(q => q.id === chosenQuoteId)
+            const chosenName = chosenOffer?.supplierName
 
             return (
               <div key={idx} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface)' }}>
@@ -189,13 +198,13 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
                     </thead>
                     <tbody>
                       {offers.map((q, qi) => {
-                        const isChosen  = q.supplierName === chosenName
+                        const isChosen  = !!q.id && q.id === chosenQuoteId
                         const isCheapest = cheapestPrice != null && q.unitPrice === cheapestPrice && offers.length > 1
                         const total = q.unitPrice != null && q.unitPrice > 0 ? q.unitPrice * item.buyQty : null
                         return (
                           <tr
                             key={qi}
-                            onClick={() => setChosen(prev => ({ ...prev, [item.name]: q.supplierName }))}
+                            onClick={() => { if (q.id) setChosen(prev => ({ ...prev, [item.name]: q.id! })) }}
                             style={{
                               borderTop: '1px solid var(--border)',
                               cursor: 'pointer',

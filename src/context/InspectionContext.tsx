@@ -86,6 +86,11 @@ export interface PurchaseProposalItem {
 }
 
 export interface ProposalQuote {
+  /** Id báo giá thật (PurchaseProposalQuote.id, BE) - CHỈ có khi quote này đã tồn tại ở BE (đọc
+   *  về từ getPurchaseProposal); quote đang soạn ở LenhMuaNCCPage (chưa submit) thì chưa có id.
+   *  Sếp chọn NCC PHẢI dùng field này (không dùng supplierName) - xem BossApp.tsx, tránh khớp
+   *  nhầm khi 2 báo giá trùng tên NCC hoặc còn bản báo giá cũ chưa dọn (D.h3-quote-id-not-name). */
+  id?: string
   supplierName: string
   /** Id NCC thật (khi chọn từ danh sách đã đăng ký, xem SupplierPicker) - optional để tương thích
    *  dữ liệu cũ trước khi có field này; luôn ưu tiên so khớp bằng id, chỉ dùng supplierName để
@@ -140,7 +145,7 @@ interface InspCtxType {
   markProposalCreated:     (requestId: string, items: PurchaseProposalItem[], meta: ProposalMeta) => void
   acknowledgeProposal:     (proposalId: string) => void
   submitProposalToDirector:(proposalId: string, quotes: Record<string, ProposalQuote[]>) => void
-  approveProposal:         (proposalId: string, chosenSuppliers: Record<string, string>) => void
+  approveProposal:         (proposalId: string, chosenQuoteIdByItemName: Record<string, string>) => void
   rejectProposal:          (proposalId: string, reason: string) => void
   requoteProposal:         (proposalId: string) => void
   receiveProposalItem:     (proposalId: string, itemName: string, qty: number, receivedQtyPurchaseUnit?: number) => void
@@ -372,10 +377,10 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
       .catch(err => console.error('submitProposalToDirector failed', err))
   }, [proposals, logAction])
 
-  const approveProposal = useCallback((proposalId: string, chosenSuppliers: Record<string, string>) => {
+  const approveProposal = useCallback((proposalId: string, chosenQuoteIdByItemName: Record<string, string>) => {
     const current = proposals.find(p => p.id === proposalId)
     if (!current) return
-    void approveProposalApi(current, chosenSuppliers)
+    void approveProposalApi(current, chosenQuoteIdByItemName)
       .then(updated => {
         setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
         logAction(PROPOSAL_ENTITY, proposalId, 'proposal.approved')

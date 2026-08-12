@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
+import { errMsg } from '../../../utils/errors'
 import { StatusBadge } from '../Sales/StatusBadge'
 import type { SalesPOStatus } from '../../../types/sales'
 import { format } from 'date-fns'
@@ -81,7 +82,7 @@ export default function LenhSXPage() {
       refetch()
       setConfirmProdTarget(null)
     } catch (e: any) {
-      alert(e?.response?.data?.error ?? e?.message ?? 'Lỗi gửi QLSX')
+      alert(errMsg(e, 'Lỗi gửi QLSX'))
     } finally {
       setConfirmingProdId(null)
     }
@@ -101,7 +102,7 @@ export default function LenhSXPage() {
       setQlsxTarget(null)
       setQlsxWarehouseCode(null)
     } catch (e: any) {
-      alert(e?.response?.data?.error ?? e?.message ?? 'Lỗi gửi sếp duyệt')
+      alert(errMsg(e, 'Lỗi gửi sếp duyệt'))
     } finally {
       setSendingToBoss(false)
     }
@@ -118,7 +119,7 @@ export default function LenhSXPage() {
       refetch()
       setApproveTarget(null)
     } catch (e: any) {
-      alert(e?.response?.data?.error ?? e?.message ?? 'Lỗi duyệt sản xuất')
+      alert(errMsg(e, 'Lỗi duyệt sản xuất'))
     } finally {
       setApprovingKey(null)
     }
@@ -145,7 +146,7 @@ export default function LenhSXPage() {
       setRejectTarget(null)
       setRejectReason('')
     } catch (e: any) {
-      alert(e?.response?.data?.error ?? 'Lỗi từ chối sản xuất')
+      alert(errMsg(e, 'Lỗi từ chối sản xuất'))
     } finally {
       setRejecting(false)
     }
@@ -226,7 +227,7 @@ export default function LenhSXPage() {
       refetch()
       setEditingPI(null)
     } catch (e: any) {
-      alert(e?.response?.data?.error ?? 'Lỗi lưu thời hạn')
+      alert(errMsg(e, 'Lỗi lưu thời hạn'))
     } finally {
       setSavingPI(false)
     }
