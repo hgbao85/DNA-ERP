@@ -26,6 +26,14 @@
  * NCC nữa (từng làm vậy, đã bỏ - xem approveProposal()) - ProposalQuote nay mang sẵn `id` thật
  * từ lúc đọc về, Sếp chọn thì gửi thẳng id đó, tránh khớp nhầm khi trùng tên NCC hoặc còn báo
  * giá cũ chưa dọn sau 1 vòng "Báo giá lại".
+ *
+ * sourceType=MATERIAL_INSPECTION (Phase 10, 2026-08-12): PurchaseProposal tạo thủ công từ 1
+ * InspectionKhoResult đã SUBMITTED (KHSX bấm "Tạo đề xuất mua hàng" ở KiemTraVatTuPage, xem
+ * createProposalFromInspection() cuối file) - khác nhánh CUTTING_PROPOSAL (tự sinh, không có
+ * endpoint tạo tay). `requestId`/`skuId` ở nhánh này CÓ ý nghĩa thật (không phải placeholder):
+ * `requestId` = MaterialInspectionRequest.id thật, khớp thẳng với InspRequest.id (xem
+ * material-inspection-api.ts + InspectionContext.tsx) để ProductionPlan/KiemTraVatTuPage.tsx lọc
+ * `proposals.filter(p => p.requestId === request.id)` không cần đổi gì.
  */
 import { http } from './core/http';
 import type {
@@ -86,7 +94,10 @@ interface BeItem {
 
 interface BeProposal {
   id: string;
-  cuttingProposalId: string;
+  cuttingProposalId: string | null;
+  inspectionKhoResultId?: string | null;
+  materialInspectionRequestId?: string | null;
+  sourceType?: 'CUTTING_PROPOSAL' | 'MATERIAL_INSPECTION';
   warehouseCode: string;
   status: keyof typeof BE_TO_FE_STATUS;
   poNumber: string;
@@ -140,10 +151,14 @@ function toProposal(be: BeProposal): PurchaseProposal {
     if (chosen) chosenSuppliers[it.materialName] = chosen.supplierName;
   }
 
+  const isInspection = be.sourceType === 'MATERIAL_INSPECTION';
+
   return {
     id: be.id,
-    requestId: `cutting-proposal-${be.cuttingProposalId}`,
-    skuId: Number(be.cuttingProposalId),
+    requestId: isInspection
+      ? `${be.materialInspectionRequestId}`
+      : `cutting-proposal-${be.cuttingProposalId}`,
+    skuId: isInspection ? Number(be.materialInspectionRequestId) : Number(be.cuttingProposalId),
     poNumber: be.poNumber,
     skuCode: be.mfgProductCode,
     skuName: be.mfgProductName ?? undefined,
@@ -261,4 +276,22 @@ export async function receiveProposalItem(
 async function getBeItemIdsByName(proposalId: string): Promise<Map<string, string>> {
   const beDetail = await http.get<BeProposal>(`/purchase-proposals/${proposalId}`);
   return new Map((beDetail.items ?? []).map((it) => [it.materialName, it.id]));
+}
+
+/**
+ * KHSX tạo đề xuất mua thủ công từ 1 kho đã kiểm tra vật tư xong (InspectionKhoResult SUBMITTED),
+ * thay markProposalCreated cũ (local state). `items` dùng `InspectionKhoResultItem.id` thật (xem
+ * material-inspection-api.ts BeInspectionKhoItem.id) - KHÔNG phải tên vật tư, khác các action
+ * khác trong file này vì itemId đã có sẵn từ lúc đọc request, không cần tra ngược theo tên.
+ */
+export async function createProposalFromInspection(
+  inspectionKhoResultId: string,
+  items: { itemId: string; buyQty: number }[],
+): Promise<PurchaseProposal> {
+  const created = await http.post<BeProposal>(
+    '/purchase-proposals',
+    { inspectionKhoResultId, items },
+    { headers: { 'Idempotency-Key': crypto.randomUUID() } },
+  );
+  return toProposal(created);
 }

@@ -3,27 +3,20 @@ import { useState } from 'react'
 import { ChevronLeft, CheckCircle2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
-import { useInspection, khoState, type KhoKey, type InspItem } from '../../../context/InspectionContext'
+import { useInspection, khoState, type KhoKey } from '../../../context/InspectionContext'
 
 interface Props {
   limitCats?: string[]   // kept for compat, unused
   inspKhoKey?: KhoKey
 }
 
-function mockStock(name: string, required: number): number {
-  if (required <= 0) return 0
-  const hash = name.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-  return hash % 5 === 0
-    ? Math.floor(required * 0.6)
-    : Math.ceil(required * (1.1 + (hash % 4) * 0.25))
-}
-
 export default function KiemTraVatTuPage({ inspKhoKey }: Props = {}) {
   const { requests, submitKho } = useInspection()
 
   const [selectedInspId, setSelectedInspId] = useState<string | null>(null)
-  const [autoStock, setAutoStock]           = useState<Record<string, number> | null>(null)
-  const [submitDone, setSubmitDone]         = useState(false)
+  // itemId -> giá trị nhập tay, CHỈ cho dòng không có materialId (BE bắt buộc override những
+  // dòng đó, dòng có materialId thì BE tự đọc StockQuant, không nhận số client gõ).
+  const [manualStock, setManualStock] = useState<Record<string, string>>({})
 
   const myRequests = (inspKhoKey ? requests : []).filter(req => {
     const inspKho = inspKhoKey ? khoState(req, inspKhoKey) : req.phoiSonHan
@@ -37,24 +30,19 @@ export default function KiemTraVatTuPage({ inspKhoKey }: Props = {}) {
     const inspKho  = inspReq ? khoState(inspReq, inspKhoKey) : null
     const isDone   = inspKho?.status === 'done'
     const items    = inspKho?.items ?? []
-
-    const handleCheck = () => {
-      const result: Record<string, number> = {}
-      items.forEach(i => { result[i.name] = mockStock(i.name, i.required) })
-      setAutoStock(result)
-    }
+    const manualItems = items.filter(i => i.materialId == null)
+    const canConfirm  = !isDone && manualItems.every(i => i.id && manualStock[i.id]?.trim())
 
     const handleConfirm = () => {
-      if (!inspReq || !autoStock) return
-      const updated: InspItem[] = items.map(i => ({
-        ...i,
-        actualStock: autoStock[i.name] ?? 0,
+      if (!inspReq || !canConfirm) return
+      const overrides = manualItems.map(i => ({
+        itemId: i.id!,
+        actualStock: Math.max(0, Number(manualStock[i.id!]) || 0),
       }))
-      submitKho(inspReq.id, inspKhoKey, updated)
-      setSubmitDone(true)
+      submitKho(inspReq.id, inspKhoKey, overrides.length > 0 ? overrides : undefined)
     }
 
-    const goBack = () => { setSelectedInspId(null); setAutoStock(null); setSubmitDone(false) }
+    const goBack = () => { setSelectedInspId(null); setManualStock({}) }
 
     return (
       <div>
@@ -97,7 +85,7 @@ export default function KiemTraVatTuPage({ inspKhoKey }: Props = {}) {
                 <col />
                 <col style={{ width: 52 }} />
                 <col style={{ width: 70 }} />
-                <col style={{ width: 90 }} />
+                <col style={{ width: 110 }} />
                 <col style={{ width: 130 }} />
               </colgroup>
               <thead>
@@ -111,7 +99,8 @@ export default function KiemTraVatTuPage({ inspKhoKey }: Props = {}) {
               </thead>
               <tbody>
                 {items.map((item, idx) => {
-                  const stock    = isDone ? (item.actualStock ?? 0) : (autoStock ? autoStock[item.name] : null)
+                  const needsManual = item.materialId == null
+                  const stock    = isDone ? item.actualStock : (needsManual ? null : undefined)
                   const ok       = stock != null && item.required > 0 ? stock >= item.required : true
                   const shortage = stock != null && item.required > 0 ? item.required - stock : 0
                   return (
@@ -121,8 +110,20 @@ export default function KiemTraVatTuPage({ inspKhoKey }: Props = {}) {
                       </td>
                       <td style={{ ...tdStyle, color: 'var(--text3)' }}>{item.unit}</td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>{item.required > 0 ? item.required : '—'}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 700, color: stock == null ? 'var(--text3)' : ok ? '#16a34a' : '#dc2626' }}>
-                        {stock ?? '—'}
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>
+                        {isDone ? (
+                          <span style={{ fontWeight: 700, color: ok ? '#16a34a' : '#dc2626' }}>{stock ?? 0}</span>
+                        ) : needsManual ? (
+                          <input
+                            type="number" min={0}
+                            value={item.id ? (manualStock[item.id] ?? '') : ''}
+                            onChange={e => item.id && setManualStock(prev => ({ ...prev, [item.id!]: e.target.value }))}
+                            placeholder="Nhập tồn"
+                            style={{ width: 80, padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                          />
+                        ) : (
+                          <span style={{ color: 'var(--text3)', fontSize: 11 }}>Tự động</span>
+                        )}
                       </td>
                       <td style={tdStyle}>
                         {stock == null
@@ -141,27 +142,19 @@ export default function KiemTraVatTuPage({ inspKhoKey }: Props = {}) {
         </div>
 
         {/* Actions */}
-        {!isDone && !submitDone && items.length > 0 && (
+        {!isDone && items.length > 0 && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            {!autoStock ? (
-              <button
-                onClick={handleCheck}
-                style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#4527a0', color: '#fff', cursor: 'pointer' }}
-              >
-                Kiểm tra
-              </button>
-            ) : (
-              <button
-                onClick={handleConfirm}
-                style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#16a34a', color: '#fff', cursor: 'pointer' }}
-              >
-                Xác nhận
-              </button>
-            )}
+            <button
+              onClick={handleConfirm}
+              disabled={!canConfirm}
+              style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: canConfirm ? '#16a34a' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed' }}
+            >
+              Xác nhận
+            </button>
           </div>
         )}
 
-        {submitDone && (
+        {isDone && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px', border: '1px solid #86efac', borderRadius: 10, background: '#f0fdf4', fontSize: 13, fontWeight: 600, color: '#166534' }}>
             <CheckCircle2 size={16} /> Đã gửi kết quả — Quản lý sản xuất sẽ nhận được thông tin
           </div>
@@ -206,7 +199,7 @@ export default function KiemTraVatTuPage({ inspKhoKey }: Props = {}) {
                 return (
                   <tr
                     key={req.id}
-                    onClick={() => { setSelectedInspId(req.id); setAutoStock(null); setSubmitDone(false) }}
+                    onClick={() => { setSelectedInspId(req.id); setManualStock({}) }}
                     style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                     onMouseLeave={e => (e.currentTarget.style.background = '')}

@@ -1,76 +1,66 @@
 'use client'
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
+import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
-import { safeArr } from '../../../utils/array'
+import type { BeWeavingIssuePlanItem } from '../../../services/weaving-issues-api'
 import { errMsg } from '../../../utils/errors'
-import { listTh as thStyle, listTd as tdStyle, emptyBox } from '../../../styles/table'
-import ProgressBar from '../../../components/ProgressBar'
-import ManhSkuDetail from './ManhSkuDetail'
-import type { ManhOrder, ManhSkuGroup } from '../../../types/manh'
-
-interface WeavingPoint { id: number; name: string; fullName?: string }
-
-const sumXuat = (line: { allocations: { xuatQty: number }[] }) => line.allocations.reduce((s, a) => s + a.xuatQty, 0)
-const sumNhap = (line: { allocations: { nhapQty: number }[] }) => line.allocations.reduce((s, a) => s + a.nhapQty, 0)
-const skuLines = (sku: ManhSkuGroup) => sku.lines
-const orderLines = (order: ManhOrder) => order.skus.flatMap(skuLines)
+import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
+import LoadingState from '../../../components/LoadingState'
+import type { Sku } from '../../../types/sku'
 
 /**
- * Nhập đan = kho thành phẩm nhận mảnh đã đan từ điểm đan gia công bên ngoài. Mỗi dòng ở đây ứng
- * với 1 (mảnh, điểm đan) — vì 1 loại mảnh có thể được xuất cho nhiều điểm đan khác nhau, kho thành
- * phẩm cần biết chính xác đang nhận về từ điểm đan nào để xác nhận đúng phần đó. Đồng bộ trực tiếp
- * với "Theo dõi xuất đan" — chỉ những điểm đan đã có ít nhất 1 lần xuất mới hiện ở đây.
- *
- * PO là cấp lớn nhất: 1 PO có thể có nhiều SKU, mỗi SKU ứng với 1 mã PI riêng — nên điều hướng có
- * 3 cấp: danh sách PO → danh sách SKU trong PO → chi tiết nhập của 1 SKU.
+ * Nhập đan = kho thành phẩm nhận mảnh đã đan từ điểm đan gia công bên ngoài. Mỗi dòng ứng với 1
+ * (mảnh, điểm đan) — 1 loại mảnh có thể được xuất cho nhiều điểm đan khác nhau, kho thành phẩm cần
+ * biết chính xác đang nhận về từ điểm đan nào để xác nhận đúng phần đó. Số lượng nhận cap theo
+ * remainingToReceive TỪNG điểm đan riêng (BE không cộng dồn qua các điểm khác - xem
+ * WeavingIssuesService.receive). Đồng bộ trực tiếp với "Theo dõi xuất đan" (KhoXuatDanPage).
  */
-export default function KhoNhapDanPage({ readOnly = false, filterPiCode }: { readOnly?: boolean; filterPiCode?: string } = {}) {
-  const { data: allOrders, refetch } = useFetch<ManhOrder[]>(() => (api as any).getManhOrders(), [])
-  const { data: weavingPoints } = useFetch<WeavingPoint[]>(() => (api as any).getWeavingPoints(), [])
-  const pointLabel = (id: number) => {
-    const p = safeArr(weavingPoints).find(w => w.id === id)
-    return p?.fullName ?? p?.name ?? `#${id}`
-  }
+export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: number } = {}) {
+  const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
 
-  // Chỉ giữ lại các PO có ít nhất 1 SKU đã xuất đan (còn SKU chưa xuất gì thì lọc bỏ khỏi SKU list bên dưới)
-  // — và nếu drill-down từ bảng tổng hợp SX (qlsx@) truyền filterPiCode, chỉ giữ đúng SKU của lệnh đó
-  // (piCode luôn có tiền tố là mã PI thật, vd "PI-2026-001-A" ứng với PI "PI-2026-001").
-  const orders = safeArr(allOrders)
-    .map(o => ({ ...o, skus: o.skus.filter(sku => sku.lines.some(l => sumXuat(l) > 0) && (!filterPiCode || sku.piCode.startsWith(filterPiCode))) }))
-    .filter(o => o.skus.length > 0)
+  const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
+  const { data: planData, isLoading: planLoading, refetch } = useFetch<BeWeavingIssuePlanItem[]>(
+    () => (selectedPf ? api.getWeavingIssuePlan(selectedPf) : Promise.resolve([])),
+    [selectedPf?.id],
+  )
+  const plan = (planData ?? []).filter(piece => piece.allocations.length > 0)
 
-  const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null)
-  const [selectedSkuId, setSelectedSkuId] = useState<number | null>(null)
-  const selectedOrder = orders.find(o => o.id === selectedOrderId) ?? null
-  const selectedSku = selectedOrder?.skus.find(s => s.id === selectedSkuId) ?? null
+  const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT' && (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId))
 
   const autoSelectedRef = useRef(false)
   useEffect(() => {
-    if (!autoSelectedRef.current && filterPiCode && orders.length > 0) {
-      setSelectedOrderId(orders[0].id)
-      if (orders[0].skus.length === 1) setSelectedSkuId(orders[0].skus[0].id)
+    if (!autoSelectedRef.current && filterExportOrderId !== undefined && active.length > 0) {
+      setSelectedPf(active[0])
       autoSelectedRef.current = true
     }
-  }, [orders, filterPiCode])
+  }, [active, filterExportOrderId])
 
-  const [busy, setBusy] = useState<number | null>(null)
-  const [msgs, setMsgs] = useState<Record<number, string>>({})
+  const [qty, setQty]   = useState<Record<string, string>>({})
+  const [busy, setBusy] = useState<string | null>(null)
+  const [msgs, setMsgs] = useState<Record<string, string>>({})
   const { ask, confirmModal } = useConfirm()
 
-  const handleNhap = (lineId: number, weavingPointId: number, allocId: number, q: number) => {
+  const rowKey = (pieceId: string, weavingPointId: string) => `${pieceId}::${weavingPointId}`
+
+  const handleNhap = (piece: BeWeavingIssuePlanItem, weavingPointId: string, weavingPointLabel: string, max: number) => {
+    const key = rowKey(piece.pieceId, weavingPointId)
+    const q = Number(qty[key])
+    if (!q || q <= 0 || q > max) { setMsgs(p => ({ ...p, [key]: 'Số lượng không hợp lệ (không được vượt quá còn phải nhận)' })); return }
     ask(
-      { message: `Xác nhận đã nhận ${q} mảnh này từ ${pointLabel(weavingPointId)}? Tồn kho thành phẩm sẽ được cộng ngay.` },
+      { message: `Xác nhận đã nhận ${q} "${piece.pieceName}" từ ${weavingPointLabel}? Tồn kho thành phẩm sẽ được cộng ngay.` },
       async () => {
-        setBusy(allocId)
-        setMsgs(p => ({ ...p, [allocId]: '' }))
+        if (!selectedPf) return
+        setBusy(key)
+        setMsgs(p => ({ ...p, [key]: '' }))
         try {
-          await (api as any).nhapManh(lineId, weavingPointId, q)
-          refetch()
+          await api.receiveWeaving(selectedPf, { pieceId: piece.pieceId, weavingPointId, qty: q })
+          setQty(p => ({ ...p, [key]: '' }))
+          await refetch()
         } catch (e) {
-          setMsgs(p => ({ ...p, [allocId]: errMsg(e, 'Không thể xác nhận nhập đan') }))
+          setMsgs(p => ({ ...p, [key]: errMsg(e, 'Không thể xác nhận nhập đan') }))
         } finally {
           setBusy(null)
         }
@@ -78,160 +68,141 @@ export default function KhoNhapDanPage({ readOnly = false, filterPiCode }: { rea
     )
   }
 
-  // ── Cấp 3: chi tiết nhập của 1 SKU ───────────────────────────────────────────
-  if (selectedOrder && selectedSku) {
+  // ── Detail view ───────────────────────────────────────────────────────────────
+  if (selectedPf) {
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
           <button
-            onClick={() => setSelectedSkuId(null)}
+            onClick={() => setSelectedPf(null)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
           >
             <ChevronLeft size={15} /> Quay lại
           </button>
           <div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-              {selectedSku.skuCode}
-              <span style={{ fontWeight: 400, color: 'var(--text2)', marginLeft: 6 }}>— {selectedSku.skuName}</span>
+              {selectedPf.mfgProduct?.factoryCode}
+              {selectedPf.mfgProduct?.name && (
+                <span style={{ fontWeight: 400, color: 'var(--text2)', marginLeft: 6 }}>— {selectedPf.mfgProduct.name}</span>
+              )}
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
-              PO: {selectedOrder.poCode} · PI: {selectedSku.piCode}
+              PO: {selectedPf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
             </div>
           </div>
         </div>
 
-        <div style={{ color: 'var(--text3)', fontSize: 12, marginBottom: 10 }}>
-          Mỗi dòng ứng với 1 điểm đan — 1 loại mảnh có thể xuất hiện nhiều lần nếu đã xuất cho nhiều điểm đan khác nhau.
-        </div>
-        <ManhSkuDetail
-          lines={selectedSku.lines}
-          skuQty={selectedSku.quantity}
-          pointLabel={pointLabel}
-          variant={readOnly ? 'view' : 'nhap'}
-          onNhap={readOnly ? undefined : handleNhap}
-          busyAllocId={busy}
-          msgFor={id => msgs[id]}
-        />
+        {planLoading ? <LoadingState /> : plan.length === 0 ? (
+          <div style={emptyBox}>Chưa có mảnh nào được xuất đan cho SKU này</div>
+        ) : (
+          <div style={tableWrap}>
+            <table style={{ ...tbl, tableLayout: 'auto' }}>
+              <thead>
+                <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                  <th style={thStyle}>Mảnh</th>
+                  <th style={thStyle}>Điểm đan</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Đã xuất</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Đã nhận</th>
+                  <th style={{ ...thStyle, textAlign: 'right' }}>Còn phải nhận</th>
+                  {!readOnly && <th style={thStyle}>Nhận</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {plan.flatMap(piece => piece.allocations.map(a => {
+                  const key = rowKey(piece.pieceId, a.weavingPointId)
+                  const label = a.weavingPointName ?? a.weavingPointCode
+                  const done = a.remainingToReceive <= 0
+                  return (
+                    <tr key={key} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ ...tdStyle, fontWeight: 500 }}>{piece.pieceName}</td>
+                      <td style={{ ...tdStyle, color: 'var(--text3)' }}>{label}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: '#d97706' }}>{a.issuedQty}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: done ? '#16a34a' : 'var(--text)' }}>{a.receivedQty}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: done ? 'var(--text3)' : '#d97706' }}>{a.remainingToReceive}</td>
+                      {!readOnly && (
+                        <td style={tdStyle}>
+                          {done ? (
+                            <span style={{ fontSize: 12, color: 'var(--text3)' }}>Đã nhận đủ</span>
+                          ) : (
+                            <div>
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                <input
+                                  type="number" min={1} max={a.remainingToReceive}
+                                  value={qty[key] ?? ''}
+                                  onChange={e => setQty(p => ({ ...p, [key]: e.target.value }))}
+                                  placeholder="SL"
+                                  style={{ width: 60, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                                />
+                                <button
+                                  onClick={() => handleNhap(piece, a.weavingPointId, label, a.remainingToReceive)}
+                                  disabled={busy === key}
+                                  style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#16a34a', color: '#fff', cursor: busy === key ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                                >
+                                  {busy === key ? '...' : 'Nhận'}
+                                </button>
+                              </div>
+                              {msgs[key] && <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626' }}>{msgs[key]}</div>}
+                            </div>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  )
+                }))}
+              </tbody>
+            </table>
+          </div>
+        )}
         {!readOnly && confirmModal}
       </div>
     )
   }
 
-  // ── Cấp 2: danh sách SKU trong 1 PO ─────────────────────────────────────────
-  if (selectedOrder) {
-    return (
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-          <button
-            onClick={() => setSelectedOrderId(null)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
-          >
-            <ChevronLeft size={15} /> Quay lại
-          </button>
-          <div>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{selectedOrder.poCode}</h2>
-            <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
-              {selectedOrder.skus.length} SKU đã xuất đan trong PO này — mỗi SKU ứng với 1 mã PI riêng
-            </div>
-          </div>
-        </div>
-
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
-            <colgroup>
-              <col style={{ width: 130 }} /><col /><col style={{ width: 80 }} /><col style={{ width: 90 }} /><col style={{ width: 150 }} />
-            </colgroup>
-            <thead>
-              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                <th style={thStyle}>PI</th>
-                <th style={thStyle}>SKU</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>SL</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Đã xuất</th>
-                <th style={thStyle}>Tiến độ nhận</th>
-              </tr>
-            </thead>
-            <tbody>
-              {selectedOrder.skus.map(sku => {
-                const total  = sku.lines.reduce((s, l) => s + l.totalQty, 0)
-                const daXuat = sku.lines.reduce((s, l) => s + sumXuat(l), 0)
-                const daNhap = sku.lines.reduce((s, l) => s + sumNhap(l), 0)
-                return (
-                  <tr
-                    key={sku.id}
-                    onClick={() => setSelectedSkuId(sku.id)}
-                    style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = '')}
-                  >
-                    <td style={{ ...tdStyle, color: 'var(--text3)' }}>{sku.piCode}</td>
-                    <td style={{ ...tdStyle, overflow: 'hidden' }}>
-                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        <span style={{ fontWeight: 600 }}>{sku.skuCode}</span>
-                        <span style={{ color: 'var(--text3)', marginLeft: 6 }}>{sku.skuName}</span>
-                      </div>
-                    </td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{total}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: '#d97706' }}>{daXuat}</td>
-                    <td style={tdStyle}><ProgressBar value={daNhap} max={daXuat} /></td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    )
-  }
-
-  // ── Cấp 1: danh sách PO ──────────────────────────────────────────────────────
+  // ── List view ─────────────────────────────────────────────────────────────────
   return (
     <div>
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Theo dõi nhập đan</h2>
-        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>
-          Nhận mảnh đã đan từ điểm đan gia công bên ngoài, theo từng PO đã xuất đan — 1 PO có thể có nhiều SKU
-        </p>
-      </div>
+      <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>Theo dõi nhập đan</h2>
+      <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text3)' }}>
+        Nhấn vào dòng để xem chi tiết và xác nhận nhận hàng đan từ điểm đan
+      </p>
 
-      {orders.length === 0 ? (
-        <div style={emptyBox}>Chưa có PO nào được xuất đan</div>
-      ) : (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+      {isLoading ? <LoadingState /> : (
+        <div style={tableWrap}>
+          <table style={tbl}>
             <colgroup>
-              <col style={{ width: 150 }} /><col style={{ width: 80 }} /><col style={{ width: 80 }} /><col style={{ width: 90 }} /><col style={{ width: 150 }} />
+              <col style={{ width: 130 }} />
+              <col />
+              <col style={{ width: 130 }} />
             </colgroup>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={thStyle}>PO</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Số SKU</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>SL</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Đã xuất</th>
-                <th style={thStyle}>Tiến độ nhận</th>
+                <th style={thStyle}>SKU</th>
+                <th style={thStyle}>Hạn giao</th>
               </tr>
             </thead>
             <tbody>
-              {orders.map(order => {
-                const lines = orderLines(order)
-                const total  = lines.reduce((s, l) => s + l.totalQty, 0)
-                const daXuat = lines.reduce((s, l) => s + sumXuat(l), 0)
-                const daNhap = lines.reduce((s, l) => s + sumNhap(l), 0)
-                return (
-                  <tr
-                    key={order.id}
-                    onClick={() => setSelectedOrderId(order.id)}
-                    style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = '')}
-                  >
-                    <td style={{ ...tdStyle, fontWeight: 600 }}>{order.poCode}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right' }}>{order.skus.length}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{total}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: '#d97706' }}>{daXuat}</td>
-                    <td style={tdStyle}><ProgressBar value={daNhap} max={daXuat} /></td>
-                  </tr>
-                )
-              })}
+              {active.map(pf => (
+                <tr key={pf.id} onClick={() => setSelectedPf(pf)} style={row}>
+                  <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
+                  </td>
+                  <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
+                    {pf.mfgProduct?.name && (
+                      <><span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>{pf.mfgProduct.name}</>
+                    )}
+                  </td>
+                  <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: 'var(--text2)' }}>
+                    {pf.exportOrder?.deliveryDate
+                      ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy')
+                      : '—'}
+                  </td>
+                </tr>
+              ))}
+              {active.length === 0 && (
+                <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có PO nào</td></tr>
+              )}
             </tbody>
           </table>
         </div>

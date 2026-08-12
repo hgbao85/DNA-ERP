@@ -16,6 +16,7 @@ import {
   rejectProposal,
   requoteProposal,
   receiveProposalItem,
+  createProposalFromInspection,
 } from './purchasing-api';
 
 const get = http.get as ReturnType<typeof vi.fn>;
@@ -187,6 +188,48 @@ describe('getPurchaseProposals — tải danh sách + chi tiết từng đề xu
     const [result] = await getPurchaseProposals();
 
     expect(result.deadline).toBeUndefined();
+  });
+
+  it('sourceType=MATERIAL_INSPECTION: requestId/skuId lấy từ materialInspectionRequestId thật (không phải placeholder cutting-proposal)', async () => {
+    get.mockResolvedValueOnce({ data: [{ id: '900' }] });
+    get.mockResolvedValueOnce(
+      beProposal({
+        id: '900',
+        cuttingProposalId: null,
+        inspectionKhoResultId: '500',
+        materialInspectionRequestId: '600',
+        sourceType: 'MATERIAL_INSPECTION',
+      }),
+    );
+
+    const [result] = await getPurchaseProposals();
+
+    expect(result.requestId).toBe('600');
+    expect(result.skuId).toBe(600);
+  });
+});
+
+describe('createProposalFromInspection', () => {
+  it('POST /purchase-proposals với đúng inspectionKhoResultId/items kèm Idempotency-Key, map ngược sang PurchaseProposal', async () => {
+    post.mockResolvedValueOnce(
+      beProposal({
+        id: '900',
+        cuttingProposalId: null,
+        inspectionKhoResultId: '500',
+        materialInspectionRequestId: '600',
+        sourceType: 'MATERIAL_INSPECTION',
+      }),
+    );
+
+    const result = await createProposalFromInspection('500', [{ itemId: '700', buyQty: 40 }]);
+
+    expect(post).toHaveBeenCalledWith(
+      '/purchase-proposals',
+      { inspectionKhoResultId: '500', items: [{ itemId: '700', buyQty: 40 }] },
+      { headers: { 'Idempotency-Key': expect.any(String) as string } },
+    );
+    expect(result.id).toBe('900');
+    expect(result.requestId).toBe('600');
   });
 });
 

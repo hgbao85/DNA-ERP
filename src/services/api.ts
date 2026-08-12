@@ -44,6 +44,18 @@
  *    theo audience của người gọi (không phải "xem tất cả"). KHÔNG áp dụng cho AuditLogPage - đó
  *    là 1 khái niệm khác hẳn (nhật ký hoạt động ngữ nghĩa tự viết tay qua AuditLogContext, so với
  *    audit_logs của BE là diff tự động theo field trên model) nên vẫn giữ mock, xem AuditLogContext.tsx.
+ *  - transfer-check (transfer-check-api.ts) — mốc TRANSFER_CHECK của production-invoices
+ *    (KhoChuyenKiemPage), key theo productionInvoiceItemId, resolve qua production-invoice-item.ts.
+ *  - packaging (packaging-api.ts) — mốc đóng gói cuối cùng của production-invoices
+ *    (KhoDongGoiPage), model PackagingRecord (append-only, SUM-on-read), cùng cách resolve itemId
+ *    với transfer-check ở trên.
+ *  - material-inspection (material-inspection-api.ts) — Kiểm tra vật tư trước sản xuất (3 kho),
+ *    neo vào PlanForm(origin='PRODUCTION_CONFIRM'); Sku.id ở FE CHÍNH LÀ PlanForm.id nên không cần
+ *    resolver riêng như transfer-check/packaging. Kèm purchasing-api.ts#createProposalFromInspection
+ *    (tạo đề xuất mua thủ công từ kho thiếu vật tư).
+ *  - weaving-issues (weaving-issues-api.ts) — Phân bổ/nhận hàng đan (KhoXuatDanPage/
+ *    KhoNhapDanPage), thay manh.service.ts. Key theo productionOrderId (khác productionInvoiceItemId
+ *    ở trên) - resolve qua resolveProductionOrderId() (production-invoice-item.ts).
  *
  * Mock tương ứng của các module trên đã bị xoá hẳn (không còn export trùng tên để "ghi đè").
  * Thực thi Phôi/Hàn/Sơn/KCS thật hiện chạy qua phoi-sat.service.ts/san-luong.service.ts/
@@ -51,9 +63,9 @@
  * hàm còn dùng thật (getMfgWarehouses/Items cho VatTuDashboardPage, export-purposes,
  * getWeavingByPoint, uploadContractFile); phần machinery PI-stages/packaging/weaving-allocation/
  * spec-entry-proposal cũ trong đó là code chết (không trang nào gọi) đã dọn ngày 2026-08-07.
- * Phân bổ đan, đề xuất mua hàng, đóng gói, notifications CRUD, audit log, system stats,
- * stock-ledger/stock-quant (Phase 3 xây rồi nhưng chưa có trang FE nào đọc)... vẫn chạy mock hoặc
- * chưa có adapter cho tới khi cần.
+ * Phân bổ đan, đề xuất mua hàng, notifications CRUD, audit log, system stats, stock-ledger/
+ * stock-quant (Phase 3 xây rồi nhưng chưa có trang FE nào đọc)... vẫn chạy mock hoặc chưa có
+ * adapter cho tới khi cần.
  */
 export * from '../lib/mock/services';
 export { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive } from './users-api';
@@ -88,3 +100,5 @@ export { getStockQuants, getStockLedger, adjustStock } from './stock-api';
 export { uploadImage } from './uploads-api';
 export { getNotifications, createNotification, markNotificationRead } from './notifications-api';
 export { getTransferCheckPieces, recordTransferCheck } from './transfer-check-api';
+export { getPackaging, recordPackaging } from './packaging-api';
+export { getWeavingIssuePlan, issueWeaving, receiveWeaving } from './weaving-issues-api';

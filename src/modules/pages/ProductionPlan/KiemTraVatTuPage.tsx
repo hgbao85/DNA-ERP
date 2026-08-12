@@ -9,7 +9,7 @@ import { useConfirm } from '../../../hooks/useConfirm'
 import { listTh, listTd } from '../../../styles/table'
 import type { Sku } from '../../../types/sku'
 import { flattenManhSteel, combinedDaySon, dinhItems } from '../../../utils/manhMaterials'
-import { useInspection, khoState, PROPOSAL_ENTITY, PROPOSAL_STATUS_LABELS, type KhoKey, type InspRequest, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
+import { useInspection, khoState, PROPOSAL_ENTITY, PROPOSAL_STATUS_LABELS, type KhoKey, type InspRequest, type PurchaseProposal } from '../../../context/InspectionContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
 
@@ -334,7 +334,7 @@ export default function KiemTraVatTuPage() {
               <button
                 onClick={() => ask(
                   { message: `Xác nhận bắt đầu sản xuất cho lệnh ${selected.mfgProduct?.factoryCode ?? ''}?` },
-                  () => startProduction(request!.id)
+                  () => startProduction(request!.id, selected)
                 )}
                 style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#2563eb', color: '#fff', cursor: 'pointer' }}
               >
@@ -414,20 +414,12 @@ export default function KiemTraVatTuPage() {
                   >Hủy</button>
                   <button
                     onClick={() => {
-                      const proposalItems: PurchaseProposalItem[] = missingItems.map(i => ({
-                        name: i.name, unit: i.unit, required: i.required,
-                        actualStock: i.actualStock ?? 0,
-                        buyQty: i.required - (i.actualStock ?? 0),
-                        khoKey: i.khoKey,
-                        khoLabel: i.khoLabel,
-                      }))
-                      markProposalCreated(request!.id, proposalItems, {
-                        skuId: selected.id,
-                        poNumber:   selected.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng',
-                        skuCode:    selected.mfgProduct?.factoryCode ?? `#${selected.mfgProductId}`,
-                        skuName:    selected.mfgProduct?.name,
-                        deadline:   selected.exportOrder?.deliveryDate,
-                      })
+                      // i.id vắng mặt chỉ khi request chưa round-trip qua BE thật - không xảy ra ở
+                      // đây vì missingItems chỉ tính khi bothDone (cả 3 kho đã submitKho thật).
+                      const items = missingItems
+                        .filter(i => !!i.id)
+                        .map(i => ({ itemId: i.id!, khoKey: i.khoKey, buyQty: i.required - (i.actualStock ?? 0) }))
+                      markProposalCreated(request!.id, items)
                       setProposing(false)
                     }}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#d97706', color: '#fff', cursor: 'pointer' }}
