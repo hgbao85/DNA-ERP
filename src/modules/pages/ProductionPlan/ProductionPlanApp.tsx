@@ -1,6 +1,8 @@
 import { useState } from 'react'
-import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Boxes, Warehouse, Settings, FilePlus, ScanSearch } from 'lucide-react'
+import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Boxes, Warehouse, Settings, FilePlus, ScanSearch, Layers } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
+import { useFetch } from '../../../hooks/useFetch'
+import { getCuttingBatchSuggestions } from '../../../services/cutting-batch-api'
 import VatTuDashboardPage from './VatTuDashboardPage'
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import SKUReviewPage from './SKUReviewPage'
@@ -8,8 +10,9 @@ import SKUListPage from './SKUListPage'
 import ThongKePagePlan from '../Manufacturing/ThongKePagePlan'
 import LenhSXPage from './LenhSXPage'
 import KiemTraVatTuPage from './KiemTraVatTuPage'
+import GomDotCatPage from './GomDotCatPage'
 
-type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'kiem-tra-vt' | 'thongke' | 'lenh-sx' | 'materials' | 'warehouses' | 'setup'
+type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'kiem-tra-vt' | 'thongke' | 'lenh-sx' | 'gom-cat' | 'materials' | 'warehouses' | 'setup'
 
 interface Props { onBack?: () => void }
 
@@ -17,7 +20,15 @@ export default function ProductionPlanApp({ onBack }: Props) {
   const { user, logout, isBoss } = useAuth()
   const [activePage, setActivePage] = useState<Page>('thongke')
 
-  const navBtn = (page: Page, icon: React.ReactNode, label: string) => {
+  // Badge dùng endpoint gợi ý (nhẹ, đúng mục đích đếm); màn GomDotCatPage tự nạp bảng ứng viên
+  // riêng vì cần shape khác hẳn. Chấp nhận 2 request: gộp chung sẽ phải kéo cả bảng vào app shell
+  // chỉ để lấy 1 con số.
+  const { data: batchSuggestions } = useFetch(getCuttingBatchSuggestions)
+  // Chỉ đếm nhóm GỘP ĐƯỢC: nhóm "gộp không cứu được" là việc của thiết kế/ngưỡng, KHSX không thao
+  // tác gì được - đưa vào badge chỉ tạo con số đỏ không bao giờ về 0.
+  const batchCount = (batchSuggestions ?? []).filter((s) => s.outcome === 'FIXED_BY_MERGE').length
+
+  const navBtn = (page: Page, icon: React.ReactNode, label: string, badge?: number) => {
     const active = activePage === page
     return (
       <button
@@ -31,7 +42,12 @@ export default function ProductionPlanApp({ onBack }: Props) {
         }}
       >
         {icon}
-        {label}
+        <span style={{ flex: 1 }}>{label}</span>
+        {badge !== undefined && badge > 0 && (
+          <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: '#c62828', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {badge}
+          </span>
+        )}
       </button>
     )
   }
@@ -56,6 +72,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
           {navBtn('planforms',  <LayoutDashboard size={16} />, 'Danh sách SKU')}
           {navBtn('duyet-sku',    <FilePlus size={16} />,        'Duyệt SKU')}
             {navBtn('lenh-sx',    <ClipboardList size={16} />,  isBoss ? 'Duyệt lệnh SX' : 'Lệnh sản xuất mới')}
+          {navBtn('gom-cat',    <Layers size={16} />,         'Tối ưu cắt sắt', batchCount)}
           {navBtn('kiem-tra-vt', <ScanSearch size={16} />,     'Kiểm tra vật tư')}
                     {navBtn('vattu',      <Package size={16} />,         'Danh sách vật tư')}
           {navBtn('warehouses', <Warehouse size={16} />,      'Tổng hợp kho')}
@@ -84,6 +101,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
         {activePage === 'vattu'      && <VatTuDashboardPage />}
         {activePage === 'kiem-tra-vt' && <KiemTraVatTuPage />}
         {activePage === 'lenh-sx'    && <LenhSXPage />}
+        {activePage === 'gom-cat'    && <GomDotCatPage />}
         {activePage === 'warehouses' && <MfgWarehousesPage />}
       </div>
     </div>
