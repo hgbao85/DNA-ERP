@@ -103,8 +103,11 @@ function getPurchasingRows(pf: Sku, proposals: PurchaseProposal[]): MaterialItem
     // kiểu cho biên dịch được), không phải bug do lần sửa kiểu id này gây ra.
     .filter(p => String(p.skuId) === pf.id)
     .flatMap(p => p.items.map(item => {
-      const ncc = p.chosenSuppliers?.[item.name] ?? ''
-      const offers = p.quotes?.[item.name] ?? []
+      // Key theo materialId (KHÔNG phải item.name) - 2 vật tư khác nhau có thể trùng tên hiển
+      // thị, xem purchasing-api.ts D.p6-quote-key-collision.
+      const key = String(item.materialId)
+      const ncc = p.chosenSuppliers?.[key] ?? ''
+      const offers = p.quotes?.[key] ?? []
       const chosenQuote = offers.find(q => q.supplierName === ncc) ?? offers[0]
       return {
         name: item.name,

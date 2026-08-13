@@ -20,12 +20,17 @@
  * `utils/purchasingRouting.ts` - ép Number() làm lệch kiểu key, khiến lọc theo buyer luôn thất bại
  * (đã xảy ra thật, sửa 2026-08-08).
  *
- * `quotes` của type cũ key theo `item.name` (tên vật tư) thay vì itemId thật - BE dùng itemId
- * thật, nên các hàm action bên dưới nhận kèm `proposal` (đã có sẵn trong state) để tự tra ngược
- * itemId theo tên trước khi gọi API. Riêng quoteId (báo giá nào được chọn) KHÔNG tra theo tên
- * NCC nữa (từng làm vậy, đã bỏ - xem approveProposal()) - ProposalQuote nay mang sẵn `id` thật
- * từ lúc đọc về, Sếp chọn thì gửi thẳng id đó, tránh khớp nhầm khi trùng tên NCC hoặc còn báo
- * giá cũ chưa dọn sau 1 vòng "Báo giá lại".
+ * `quotes` của type cũ key theo String(item.materialId) (KHÔNG phải item.name — sửa 2026-08-13,
+ * D.p6-quote-key-collision: 2 vật tư khác nhau có thể trùng tên hiển thị, vd nhiều loại "Sắt phi"
+ * khác đường kính; dùng tên làm key qua `new Map(items.map(it => [it.materialName, it.id]))` khiến
+ * item đứng trước bị item trùng tên đứng sau ghi đè mất trong map, nên KHÔNG BAO GIỜ gửi báo giá
+ * được cho item đó dù UI trông bình thường - phát hiện qua e2e/golden-path.spec.ts khi đề xuất cắt
+ * sắt chứa 2 vật tư SAT-006/SAT-007 cùng tên "Sắt phi"). materialId thật ổn định + duy nhất trong
+ * 1 đề xuất (BE dùng itemId thật) - các hàm action bên dưới nhận kèm `proposal` (đã có sẵn trong
+ * state) để tự tra ngược itemId theo materialId trước khi gọi API. Riêng quoteId (báo giá nào
+ * được chọn) KHÔNG tra theo tên NCC nữa (từng làm vậy, đã bỏ - xem approveProposal()) -
+ * ProposalQuote nay mang sẵn `id` thật từ lúc đọc về, Sếp chọn thì gửi thẳng id đó, tránh khớp
+ * nhầm khi trùng tên NCC hoặc còn báo giá cũ chưa dọn sau 1 vòng "Báo giá lại".
  *
  * sourceType=MATERIAL_INSPECTION (Phase 10, 2026-08-12): PurchaseProposal tạo thủ công từ 1
  * InspectionKhoResult đã SUBMITTED (KHSX bấm "Tạo đề xuất mua hàng" ở KiemTraVatTuPage, xem
@@ -139,7 +144,8 @@ function toProposal(be: BeProposal): PurchaseProposal {
   const quotes: Record<string, ProposalQuote[]> = {};
   const chosenSuppliers: Record<string, string> = {};
   for (const it of be.items ?? []) {
-    quotes[it.materialName] = it.quotes.map((q) => ({
+    const key = it.materialId;
+    quotes[key] = it.quotes.map((q) => ({
       id: q.id,
       supplierName: q.supplierName,
       supplierId: q.supplierId ?? undefined,
@@ -148,7 +154,7 @@ function toProposal(be: BeProposal): PurchaseProposal {
       note: q.note ?? undefined,
     }));
     const chosen = it.quotes.find((q) => q.isChosen);
-    if (chosen) chosenSuppliers[it.materialName] = chosen.supplierName;
+    if (chosen) chosenSuppliers[key] = chosen.supplierName;
   }
 
   const isInspection = be.sourceType === 'MATERIAL_INSPECTION';
@@ -195,12 +201,12 @@ export async function acknowledgeProposal(id: string): Promise<PurchaseProposal>
 /** Tạo mọi dòng báo giá đã nhập (client gom sẵn trong quoteEdits) rồi gửi Sếp duyệt 1 lượt. */
 export async function submitProposalToDirector(
   proposal: PurchaseProposal,
-  quotesByItemName: Record<string, ProposalQuote[]>,
+  quotesByMaterialId: Record<string, ProposalQuote[]>,
 ): Promise<PurchaseProposal> {
-  const beItemIdByName = await getBeItemIdsByName(proposal.id);
+  const beItemIdByMaterialId = await getBeItemIdsByMaterialId(proposal.id);
 
-  for (const [itemName, rows] of Object.entries(quotesByItemName)) {
-    const beItemId = beItemIdByName.get(itemName);
+  for (const [materialId, rows] of Object.entries(quotesByMaterialId)) {
+    const beItemId = beItemIdByMaterialId.get(materialId);
     if (!beItemId) continue;
     for (const row of rows) {
       await http.post(`/purchase-proposals/${proposal.id}/items/${beItemId}/quotes`, {
@@ -221,18 +227,18 @@ export async function submitProposalToDirector(
  * ProposalQuote.id). KHÔNG tra lại theo supplierName: 2 báo giá có thể trùng tên NCC (hợp lệ,
  * BE không cấm), hoặc còn báo giá cũ chưa dọn sau 1 vòng "Báo giá lại" (mỗi lần báo giá lại là
  * create() mới, giữ báo giá cũ làm lịch sử) - tra theo tên có thể khớp nhầm sang bản không phải
- * cái Sếp vừa bấm (D.h3-quote-id-not-name). Vẫn cần 1 lần GET để dịch item.name -> BE itemId
- * (state FE key theo tên, không đổi được mà không sửa cả UI).
+ * cái Sếp vừa bấm (D.h3-quote-id-not-name). Vẫn cần 1 lần GET để dịch materialId -> BE itemId
+ * (state FE key theo materialId, không đổi được mà không sửa cả UI).
  */
 export async function approveProposal(
   proposal: PurchaseProposal,
-  chosenQuoteIdByItemName: Record<string, string>,
+  chosenQuoteIdByMaterialId: Record<string, string>,
 ): Promise<PurchaseProposal> {
-  const beItemIdByName = await getBeItemIdsByName(proposal.id);
+  const beItemIdByMaterialId = await getBeItemIdsByMaterialId(proposal.id);
   const chosenQuoteIdByItemId: Record<string, string> = {};
 
-  for (const [itemName, quoteId] of Object.entries(chosenQuoteIdByItemName)) {
-    const beItemId = beItemIdByName.get(itemName);
+  for (const [materialId, quoteId] of Object.entries(chosenQuoteIdByMaterialId)) {
+    const beItemId = beItemIdByMaterialId.get(materialId);
     if (beItemId) chosenQuoteIdByItemId[beItemId] = quoteId;
   }
 
@@ -252,14 +258,14 @@ export async function requoteProposal(id: string): Promise<PurchaseProposal> {
 
 export async function receiveProposalItem(
   proposal: PurchaseProposal,
-  itemName: string,
+  materialId: string,
   qty: number,
   receivedQtyPurchaseUnit?: number,
 ): Promise<PurchaseProposal> {
-  const beItemIdByName = await getBeItemIdsByName(proposal.id);
-  const beItemId = beItemIdByName.get(itemName);
+  const beItemIdByMaterialId = await getBeItemIdsByMaterialId(proposal.id);
+  const beItemId = beItemIdByMaterialId.get(materialId);
   if (!beItemId) {
-    throw new Error(`Không tìm thấy vật tư "${itemName}" trong đề xuất mua ${proposal.id}`);
+    throw new Error(`Không tìm thấy vật tư (materialId=${materialId}) trong đề xuất mua ${proposal.id}`);
   }
   // BE ghi StockLedger (PURCHASE) mỗi lần nhận hàng - bắt buộc header này vì 1 item có thể nhận
   // nhiều đợt nên không có key tất định từ dữ liệu (xem PurchaseProposalsService.receiveItem()).
@@ -271,11 +277,13 @@ export async function receiveProposalItem(
   return getPurchaseProposal(proposal.id);
 }
 
-/** materialName -> itemId thật (PurchaseProposalItem.id) - type cũ không có chỗ lưu itemId nên
- *  tra lại qua 1 lần gọi detail còn tươi, dùng chung cho mọi action cần itemId. */
-async function getBeItemIdsByName(proposalId: string): Promise<Map<string, string>> {
+/** materialId -> itemId thật (PurchaseProposalItem.id) - type cũ không có chỗ lưu itemId nên
+ *  tra lại qua 1 lần gọi detail còn tươi, dùng chung cho mọi action cần itemId. Dùng materialId
+ *  (KHÔNG phải materialName - xem comment đầu file, D.p6-quote-key-collision) vì materialId mới
+ *  là định danh duy nhất trong 1 đề xuất; materialName có thể trùng giữa nhiều vật tư khác nhau. */
+async function getBeItemIdsByMaterialId(proposalId: string): Promise<Map<string, string>> {
   const beDetail = await http.get<BeProposal>(`/purchase-proposals/${proposalId}`);
-  return new Map((beDetail.items ?? []).map((it) => [it.materialName, it.id]));
+  return new Map((beDetail.items ?? []).map((it) => [it.materialId, it.id]));
 }
 
 /**

@@ -25,12 +25,15 @@ interface Row {
 
 function buildRows(p: PurchaseProposal): Row[] {
   return p.items.map(item => {
-    const ncc = p.chosenSuppliers?.[item.name] ?? ''
-    const offers = p.quotes?.[item.name] ?? []
+    // Key theo materialId (KHÔNG phải item.name) - 2 vật tư khác nhau có thể trùng tên hiển thị,
+    // xem purchasing-api.ts D.p6-quote-key-collision.
+    const key = String(item.materialId)
+    const ncc = p.chosenSuppliers?.[key] ?? ''
+    const offers = p.quotes?.[key] ?? []
     const chosenQuote = offers.find(q => q.supplierName === ncc) ?? offers[0]
     const boughtQty = item.receivedQty ?? 0
     return {
-      key: `${p.id}-${item.name}`,
+      key: `${p.id}-${key}`,
       poNumber: p.poNumber,
       itemName: item.name,
       ncc: ncc || '—',

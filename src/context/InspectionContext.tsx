@@ -133,8 +133,11 @@ export interface PurchaseProposal {
   warehouseScope: WarehouseScope
   items: PurchaseProposalItem[]
   status: 'new' | 'quoting' | 'submitted' | 'purchasing' | 'purchased' | 'rejected'
-  quotes?: Record<string, ProposalQuote[]>  // keyed by item.name → multiple NCC offers
-  chosenSuppliers?: Record<string, string>  // item.name → chosen supplierName (set by boss)
+  // Key = String(item.materialId), KHÔNG phải item.name — vật tư khác nhau có thể trùng tên hiển
+  // thị (vd nhiều loại "Sắt phi" khác đường kính), materialId mới là định danh duy nhất trong 1
+  // đề xuất (đã gặp bug thật do dùng tên làm key, sửa 2026-08-13, xem purchasing-api.ts).
+  quotes?: Record<string, ProposalQuote[]>  // keyed by String(item.materialId) → multiple NCC offers
+  chosenSuppliers?: Record<string, string>  // String(item.materialId) → chosen supplierName (set by boss)
   deadline?: string
   submittedAt?: string
   approvedAt?: string
@@ -162,10 +165,10 @@ interface InspCtxType {
   markProposalCreated:     (requestId: string, items: { itemId: string; khoKey: KhoKey; buyQty: number }[]) => void
   acknowledgeProposal:     (proposalId: string) => void
   submitProposalToDirector:(proposalId: string, quotes: Record<string, ProposalQuote[]>) => void
-  approveProposal:         (proposalId: string, chosenQuoteIdByItemName: Record<string, string>) => void
+  approveProposal:         (proposalId: string, chosenQuoteIdByItemKey: Record<string, string>) => void
   rejectProposal:          (proposalId: string, reason: string) => void
   requoteProposal:         (proposalId: string) => void
-  receiveProposalItem:     (proposalId: string, itemName: string, qty: number, receivedQtyPurchaseUnit?: number) => void
+  receiveProposalItem:     (proposalId: string, itemKey: string, qty: number, receivedQtyPurchaseUnit?: number) => void
   startProduction:         (requestId: string, pf?: Sku) => void
 }
 
@@ -293,10 +296,10 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
       .catch(err => console.error('submitProposalToDirector failed', err))
   }, [proposals, logAction])
 
-  const approveProposal = useCallback((proposalId: string, chosenQuoteIdByItemName: Record<string, string>) => {
+  const approveProposal = useCallback((proposalId: string, chosenQuoteIdByItemKey: Record<string, string>) => {
     const current = proposals.find(p => p.id === proposalId)
     if (!current) return
-    void approveProposalApi(current, chosenQuoteIdByItemName)
+    void approveProposalApi(current, chosenQuoteIdByItemKey)
       .then(updated => {
         setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
         logAction(PROPOSAL_ENTITY, proposalId, 'proposal.approved')
@@ -327,11 +330,11 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
   // Thủ kho xác nhận đã nhận hàng — cộng dồn qua nhiều lần nhập (hàng có thể về nhiều đợt) ở
   // tầng BE (xem PurchaseProposalsService.receiveItem), tự chuyển 'purchasing' -> 'purchased'
   // khi mọi item đã nhận đủ buyQty.
-  const receiveProposalItem = useCallback((proposalId: string, itemName: string, qty: number, receivedQtyPurchaseUnit?: number) => {
+  const receiveProposalItem = useCallback((proposalId: string, itemKey: string, qty: number, receivedQtyPurchaseUnit?: number) => {
     const current = proposals.find(p => p.id === proposalId)
     if (!current) return
     const wasPurchased = current.status === 'purchased'
-    void receiveProposalItemApi(current, itemName, qty, receivedQtyPurchaseUnit)
+    void receiveProposalItemApi(current, itemKey, qty, receivedQtyPurchaseUnit)
       .then(updated => {
         setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
         if (!wasPurchased && updated.status === 'purchased') {

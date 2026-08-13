@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ChevronLeft, Send, ClipboardList, CheckCircle2, X } from 'lucide-react'
-import { useInspection, PROPOSAL_ENTITY, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type ProposalQuote } from '../../../context/InspectionContext'
+import { useInspection, PROPOSAL_ENTITY, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type PurchaseProposalItem, type ProposalQuote } from '../../../context/InspectionContext'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import { useFetch } from '../../../hooks/useFetch'
@@ -127,13 +127,18 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
   const newCount = proposals.filter(p => p.status === 'new').length
   const selected = proposals.find(p => p.id === selectedId) ?? null
 
-  const getRows = (proposalId: string, itemName: string): ProposalQuote[] =>
-    quoteEdits[proposalId]?.[itemName] ?? []
+  // Key theo materialId (KHÔNG phải item.name) - 2 vật tư khác nhau có thể trùng tên hiển thị (vd
+  // nhiều loại "Sắt phi" khác đường kính), dùng tên làm key từng khiến 1 trong 2 dòng bị đè mất,
+  // không bao giờ gửi báo giá được (D.p6-quote-key-collision, xem purchasing-api.ts).
+  const itemKey = (item: PurchaseProposalItem) => String(item.materialId)
 
-  const setRows = (proposalId: string, itemName: string, rows: ProposalQuote[]) =>
+  const getRows = (proposalId: string, key: string): ProposalQuote[] =>
+    quoteEdits[proposalId]?.[key] ?? []
+
+  const setRows = (proposalId: string, key: string, rows: ProposalQuote[]) =>
     setQuoteEdits(prev => ({
       ...prev,
-      [proposalId]: { ...(prev[proposalId] ?? {}), [itemName]: rows },
+      [proposalId]: { ...(prev[proposalId] ?? {}), [key]: rows },
     }))
 
   // Tự tạo sẵn dòng báo giá cho MỌI vật tư ngay khi vào màn báo giá - không còn nút "+" thủ công.
@@ -145,15 +150,16 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
     if (!selected || selected.status !== 'quoting') return
     const emptyRow: ProposalQuote = { supplierName: '', unitPrice: null, expectedDate: undefined }
     selected.items.forEach(item => {
-      if (getRows(selected.id, item.name).length > 0) return
+      const key = itemKey(item)
+      if (getRows(selected.id, key).length > 0) return
       if (item.materialId == null) {
-        setRows(selected.id, item.name, [emptyRow])
+        setRows(selected.id, key, [emptyRow])
         return
       }
       getMaterialSuppliers(item.materialId).then(suppliers => {
-        if (getRows(selected.id, item.name).length > 0) return // đã có dữ liệu trong lúc chờ fetch
+        if (getRows(selected.id, key).length > 0) return // đã có dữ liệu trong lúc chờ fetch
         setRows(
-          selected.id, item.name,
+          selected.id, key,
           suppliers.length > 0
             ? suppliers.map(s => ({ supplierName: s.supplierName, supplierId: String(s.supplierId), unitPrice: s.price, expectedDate: undefined }))
             : [emptyRow],
@@ -163,29 +169,29 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected?.id, selected?.status])
 
-  const removeRow = (proposalId: string, itemName: string, idx: number) =>
-    setRows(proposalId, itemName, getRows(proposalId, itemName).filter((_, i) => i !== idx))
+  const removeRow = (proposalId: string, key: string, idx: number) =>
+    setRows(proposalId, key, getRows(proposalId, key).filter((_, i) => i !== idx))
 
-  const updateRow = (proposalId: string, itemName: string, idx: number, patch: Partial<ProposalQuote>) =>
-    setRows(proposalId, itemName, getRows(proposalId, itemName).map((r, i) => i === idx ? { ...r, ...patch } : r))
+  const updateRow = (proposalId: string, key: string, idx: number, patch: Partial<ProposalQuote>) =>
+    setRows(proposalId, key, getRows(proposalId, key).map((r, i) => i === idx ? { ...r, ...patch } : r))
 
   const canSubmit = (p: PurchaseProposal) =>
     p.items.every(item => {
-      const rows = getRows(p.id, item.name)
+      const rows = getRows(p.id, itemKey(item))
       return rows.some(isValidQuote)
     })
 
   const handleSubmit = (p: PurchaseProposal) => {
     const quotes: Record<string, ProposalQuote[]> = {}
     p.items.forEach(item => {
-      quotes[item.name] = getRows(p.id, item.name).filter(isValidQuote)
+      quotes[itemKey(item)] = getRows(p.id, itemKey(item)).filter(isValidQuote)
     })
     onSubmitToDirector(p.id, quotes)
     setSelectedId(null)
   }
 
   // Báo giá lại sau khi bị từ chối — seed lại đúng các dòng NCC/giá đã báo trước đó để sửa tiếp,
-  // không bắt nhập lại từ đầu (quoteEdits và p.quotes cùng shape Record<itemName, ProposalQuote[]>).
+  // không bắt nhập lại từ đầu (quoteEdits và p.quotes cùng shape Record<materialId, ProposalQuote[]>).
   const handleRequote = (p: PurchaseProposal) => {
     if (p.quotes) setQuoteEdits(prev => ({ ...prev, [p.id]: p.quotes! }))
     onRequote(p.id)
@@ -264,7 +270,7 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
           {p.status === 'quoting' && (
             <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
               {p.items.map((item, idx) => {
-                const rows = getRows(p.id, item.name)
+                const rows = getRows(p.id, itemKey(item))
                 const prices = rows.map(r => r.unitPrice).filter((x): x is number => x != null && x > 0)
                 const cheapestPrice = prices.length > 0 ? Math.min(...prices) : null
                 return (
@@ -300,7 +306,7 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                                       value={r.supplierName}
                                       price={r.unitPrice ?? null}
                                       usedByOtherRows={rows.filter((_, i) => i !== ri).map(o => o.supplierName)}
-                                      onChange={patch => updateRow(p.id, item.name, ri, patch)}
+                                      onChange={patch => updateRow(p.id, itemKey(item), ri, patch)}
                                     />
                                     {isCheap && rows.length > 1 && (
                                       <span style={{ marginLeft: 6, fontSize: 10, color: '#2e7d32', fontWeight: 700 }}>★ rẻ nhất</span>
@@ -310,7 +316,7 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                                     <input
                                       type="number" min={0}
                                       value={r.unitPrice ?? ''}
-                                      onChange={e => updateRow(p.id, item.name, ri, { unitPrice: e.target.value ? Number(e.target.value) : null })}
+                                      onChange={e => updateRow(p.id, itemKey(item), ri, { unitPrice: e.target.value ? Number(e.target.value) : null })}
                                       placeholder="VD: 85000"
                                       style={{ ...inp, width: 120 }}
                                     />
@@ -319,7 +325,7 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                                     <input
                                       type="date"
                                       value={r.expectedDate ?? ''}
-                                      onChange={e => updateRow(p.id, item.name, ri, { expectedDate: e.target.value || undefined })}
+                                      onChange={e => updateRow(p.id, itemKey(item), ri, { expectedDate: e.target.value || undefined })}
                                       style={{
                                         ...inp, width: 130,
                                         borderColor: !r.expectedDate && r.supplierName.trim() !== '' && r.unitPrice != null && r.unitPrice > 0 ? '#c62828' : undefined,
@@ -330,7 +336,7 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                                     <input
                                       type="text"
                                       value={r.note ?? ''}
-                                      onChange={e => updateRow(p.id, item.name, ri, { note: e.target.value || undefined })}
+                                      onChange={e => updateRow(p.id, itemKey(item), ri, { note: e.target.value || undefined })}
                                       placeholder="Ghi chú..."
                                       style={inp}
                                     />
@@ -341,7 +347,7 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                                   <td style={td}>
                                     {rows.length > 1 && (
                                       <button
-                                        onClick={() => removeRow(p.id, item.name, ri)}
+                                        onClick={() => removeRow(p.id, itemKey(item), ri)}
                                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, padding: 0, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', cursor: 'pointer', color: '#c62828' }}
                                       >
                                         <X size={13} />
@@ -396,7 +402,7 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                 </thead>
                 <tbody>
                   {p.items.flatMap((item, idx) => {
-                    const offers: ProposalQuote[] = p.quotes?.[item.name] ?? []
+                    const offers: ProposalQuote[] = p.quotes?.[itemKey(item)] ?? []
                     const prices = offers.map(q => q.unitPrice).filter((x): x is number => x != null && x > 0)
                     const cheapestPrice = prices.length > 0 ? Math.min(...prices) : null
                     if (offers.length === 0) {

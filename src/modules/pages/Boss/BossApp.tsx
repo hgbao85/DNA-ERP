@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { LayoutDashboard, Package, LogOut, CalendarClock, Warehouse, ClipboardCheck, Check, X, ChevronLeft } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
-import { useInspection, PROPOSAL_ENTITY, type PurchaseProposal, type ProposalQuote } from '../../../context/InspectionContext'
+import { useInspection, PROPOSAL_ENTITY, type PurchaseProposal, type PurchaseProposalItem, type ProposalQuote } from '../../../context/InspectionContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
 import { format } from 'date-fns'
@@ -43,10 +43,13 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
   const [rejectMode,   setRejectMode]   = useState(false)
   const [rejectReason, setRejectReason] = useState('')
-  // chosen[itemName] = quoteId đã chọn (KHÔNG phải supplierName - trùng tên NCC hoặc còn báo giá
+  // chosen[materialId] = quoteId đã chọn (KHÔNG phải supplierName - trùng tên NCC hoặc còn báo giá
   // cũ chưa dọn sau 1 vòng "Báo giá lại" sẽ khớp nhầm nếu dùng tên, xem D.h3-quote-id-not-name).
+  // Key theo materialId (KHÔNG phải item.name - 2 vật tư khác nhau có thể trùng tên hiển thị, vd
+  // nhiều loại "Sắt phi" khác đường kính - xem purchasing-api.ts D.p6-quote-key-collision).
   // Gộp item của mọi kho trong đơn.
   const [chosen, setChosen] = useState<Record<string, string>>({})
+  const itemKey = (item: PurchaseProposalItem) => String(item.materialId)
   const fmt = (n: number) => n.toLocaleString('vi-VN')
 
   const groups = groupByRequestId(proposals)
@@ -67,15 +70,16 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
     const init: Record<string, string> = {}
     group.forEach(p => {
       p.items.forEach(item => {
-        const offers: ProposalQuote[] = p.quotes?.[item.name] ?? []
-        if (p.chosenSuppliers?.[item.name]) {
-          const match = offers.find(q => q.supplierName === p.chosenSuppliers![item.name])
-          if (match?.id) init[item.name] = match.id
+        const key = itemKey(item)
+        const offers: ProposalQuote[] = p.quotes?.[key] ?? []
+        if (p.chosenSuppliers?.[key]) {
+          const match = offers.find(q => q.supplierName === p.chosenSuppliers![key])
+          if (match?.id) init[key] = match.id
         } else {
           const cheapest = offers
             .filter(q => q.unitPrice != null && q.unitPrice > 0)
             .sort((a, b) => (a.unitPrice ?? 0) - (b.unitPrice ?? 0))[0]
-          if (cheapest?.id) init[item.name] = cheapest.id
+          if (cheapest?.id) init[key] = cheapest.id
         }
       })
     })
@@ -83,7 +87,7 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
   }
 
   const allChosen = (group: PurchaseProposal[]) =>
-    group.every(p => p.items.every(item => !!chosen[item.name]))
+    group.every(p => p.items.every(item => !!chosen[itemKey(item)]))
 
   // Duyệt chỉ mở khoá khi TẤT CẢ kho liên quan đến đơn đã báo giá xong — không duyệt lẻ từng kho.
   const allSubmitted = (group: PurchaseProposal[]) =>
@@ -95,7 +99,7 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
   const handleApprove = (group: PurchaseProposal[]) => {
     group.forEach(p => {
       const chosenForP: Record<string, string> = {}
-      p.items.forEach(item => { if (chosen[item.name]) chosenForP[item.name] = chosen[item.name] })
+      p.items.forEach(item => { const key = itemKey(item); if (chosen[key]) chosenForP[key] = chosen[key] })
       onApprove(p.id, chosenForP)
     })
     setSelectedRequestId(null)
@@ -120,8 +124,8 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
     const ready = allSubmitted(group)
 
     const totalChosen = items.reduce((sum, item) => {
-      const quoteId = chosen[item.name]
-      const offer = (mergedQuotes[item.name] ?? []).find(q => q.id === quoteId)
+      const quoteId = chosen[itemKey(item)]
+      const offer = (mergedQuotes[itemKey(item)] ?? []).find(q => q.id === quoteId)
       return sum + (offer?.unitPrice ?? 0) * item.buyQty
     }, 0)
 
@@ -159,10 +163,10 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
         {/* Per-item NCC selection */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {items.map((item, idx) => {
-            const offers: ProposalQuote[] = mergedQuotes[item.name] ?? []
+            const offers: ProposalQuote[] = mergedQuotes[itemKey(item)] ?? []
             const prices = offers.map(q => q.unitPrice).filter((x): x is number => x != null && x > 0)
             const cheapestPrice = prices.length > 0 ? Math.min(...prices) : null
-            const chosenQuoteId = chosen[item.name]
+            const chosenQuoteId = chosen[itemKey(item)]
             const chosenOffer = offers.find(q => q.id === chosenQuoteId)
             const chosenName = chosenOffer?.supplierName
 
@@ -204,7 +208,7 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
                         return (
                           <tr
                             key={qi}
-                            onClick={() => { if (q.id) setChosen(prev => ({ ...prev, [item.name]: q.id! })) }}
+                            onClick={() => { if (q.id) setChosen(prev => ({ ...prev, [itemKey(item)]: q.id! })) }}
                             style={{
                               borderTop: '1px solid var(--border)',
                               cursor: 'pointer',

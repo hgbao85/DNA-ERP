@@ -5,6 +5,10 @@ import { format } from 'date-fns'
 import { canReceiveAt } from '../../../types/warehouse-transfer'
 import { NhapNoiBoSection } from '../InboundWarehouse/InternalTransferSections'
 import { useInspection, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
+
+// Key theo materialId (KHÔNG phải item.name) - 2 vật tư khác nhau có thể trùng tên hiển thị (vd
+// nhiều loại "Sắt phi" khác đường kính) - xem purchasing-api.ts D.p6-quote-key-collision.
+const itemKey = (item: PurchaseProposalItem) => String(item.materialId)
 import { compactTh as th, compactTd as td } from '../../../styles/table'
 import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials, getWarehouses } from '../../../services/api'
@@ -49,14 +53,14 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
   const selected = relevant.find(p => p.id === selectedId) ?? null
   const visibleItems = selected ? selected.items.filter(itemInScope) : []
 
-  const inputKey = (proposalId: string, itemName: string) => `${proposalId}:${itemName}`
+  const inputKey = (proposalId: string, materialId: string) => `${proposalId}:${materialId}`
 
-  const confirmItem = (p: PurchaseProposal, itemName: string) => {
-    const key = inputKey(p.id, itemName)
+  const confirmItem = (p: PurchaseProposal, materialId: string) => {
+    const key = inputKey(p.id, materialId)
     const qty = Math.max(0, Number(inputs[key]) || 0)
     if (qty <= 0) return
     const kgVal = Math.max(0, Number(kgInputs[key]) || 0)
-    receiveProposalItem(p.id, itemName, qty, kgVal > 0 ? kgVal : undefined)
+    receiveProposalItem(p.id, materialId, qty, kgVal > 0 ? kgVal : undefined)
     setInputs(prev => ({ ...prev, [key]: '' }))
     setKgInputs(prev => ({ ...prev, [key]: '' }))
   }
@@ -110,13 +114,13 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                 const received = item.receivedQty ?? 0
                 const done = received >= item.buyQty
                 const partial = received > 0 && !done
-                const key = inputKey(selected.id, item.name)
+                const key = inputKey(selected.id, itemKey(item))
                 const inputVal = inputs[key] ?? ''
                 const kgVal = kgInputs[key] ?? ''
                 const canConfirm = !done && !!inputVal && Number(inputVal) > 0
                 const hasConversion = !!item.purchaseUnit && !!item.khoUnitFactor
                 return (
-                  <tr key={item.name} style={{ borderTop: '1px solid var(--border)' }}>
+                  <tr key={itemKey(item)} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={{ ...td, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {item.name}
                     </td>
@@ -159,7 +163,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                             />
                             <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.unit}{hasConversion ? ' (có thể sửa tay)' : ''}</span>
                             <button
-                              onClick={() => confirmItem(selected, item.name)}
+                              onClick={() => confirmItem(selected, itemKey(item))}
                               disabled={!canConfirm}
                               style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: canConfirm ? '#2e7d32' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
                             >Xác nhận</button>
