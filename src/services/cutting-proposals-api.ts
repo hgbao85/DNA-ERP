@@ -17,6 +17,7 @@ export interface CuttingProposalSegment {
 }
 
 export interface CuttingProposalPattern {
+  id: string;
   patternIndex: number;
   barCount: number;
   wastePerBarMm: number | null;
@@ -66,6 +67,15 @@ export async function getCuttingProposals(): Promise<CuttingProposal[]> {
 
 export async function getCuttingProposal(id: string): Promise<CuttingProposal> {
   return http.get<CuttingProposal>(`/cutting-proposals/${id}`);
+}
+
+/** Mọi phương án cắt (mọi trạng thái) đã tính cho 1 PO — dùng để tìm bản APPROVED mới nhất khi
+ *  Phôi cần tra đúng pattern đã duyệt lúc báo cắt xong (xem steel-issues-api.ts). */
+export async function getCuttingProposalsForOrder(productionOrderId: string): Promise<CuttingProposal[]> {
+  const res = await http.get<CuttingProposal[] | { data: CuttingProposal[] }>(
+    `/production-orders/${productionOrderId}/cutting-proposals?limit=100`,
+  );
+  return Array.isArray(res) ? res : res.data;
 }
 
 /** Nút "Tính lại" - gọi lại theo productionOrderId (không phải cuttingProposalId). */

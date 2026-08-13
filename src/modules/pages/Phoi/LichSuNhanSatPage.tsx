@@ -3,16 +3,19 @@
 /**
  * Lịch sử nhận sắt (Phôi) — mục sidebar, READ-ONLY.
  *
- * List: PO · SKU · Thời gian nhận (kho xuất qua) · Thời gian hoàn thành (cắt xong hết).
- * Bấm 1 PO → chi tiết kho đã xuất qua những gì: bao nhiêu cây theo từng chiều dài
- * (6000mm, 5850mm…) và từng loại sắt.
+ * Đã nối BE thật (M3, 2026-08-12 — "Xuất sắt Phôi"): dựng thẳng từ GET /steel-issues (flat, cùng
+ * nguồn dữ liệu XacNhanSanLuongPage) — PHOI_STAFF chỉ có STEEL_ISSUE:VIEW, xem comment đầu
+ * LenhSanXuatPhoi.tsx tại sao không master-detail theo SKU như phía kho.
+ *
+ * List: PO · Thời gian nhận đợt đầu tiên · Thời gian hoàn thành (mọi đợt đã KCS đạt).
+ * Bấm 1 PO → chi tiết kho đã xuất qua những gì: bao nhiêu cây theo từng chiều dài và loại sắt.
  */
 
 import { useMemo, useState } from 'react'
 import { ArrowDownToLine, ChevronLeft, Check, Clock } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import type { SatIssueView } from '../../../services/api'
+import type { BeSteelIssue } from '../../../services/steel-issues-api'
 import LoadingState from '../../../components/LoadingState'
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
@@ -21,23 +24,23 @@ const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13 }
 const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
 
-interface PoGroup { po: string; sku: string; items: SatIssueView[]; thoiGianNhan: string; hoanThanh: string | null }
+interface PoGroup { po: string; items: BeSteelIssue[]; thoiGianNhan: string; hoanThanh: string | null }
 
 export default function LichSuNhanSatPage() {
-  const { data: lines, isLoading } = useFetch<SatIssueView[]>(() => api.getDotXuatSat(), [])
+  const { data: lines, isLoading } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
   const [selPo, setSelPo] = useState<string | null>(null)
 
   const groups: PoGroup[] = useMemo(() => {
-    const map = new Map<string, SatIssueView[]>()
+    const map = new Map<string, BeSteelIssue[]>()
     for (const l of lines ?? []) {
       if (!map.has(l.poNumber)) map.set(l.poNumber, [])
       map.get(l.poNumber)!.push(l)
     }
     return [...map.entries()].map(([po, items]) => {
-      const nhan = items.map(i => i.dotThoiGian).sort()[0] ?? ''
-      const allDone = items.every(i => i.status === 'DA_CAT')
-      const hoanThanh = allDone ? (items.map(i => i.hoanThanhAt ?? '').sort().at(-1) || null) : null
-      return { po, sku: items[0].sku, items, thoiGianNhan: nhan, hoanThanh }
+      const nhan = items.map(i => i.issuedAt).sort()[0] ?? ''
+      const allDone = items.every(i => i.status === 'QC_PASSED')
+      const hoanThanh = allDone ? (items.map(i => i.completedAt ?? '').sort().at(-1) || null) : null
+      return { po, items, thoiGianNhan: nhan, hoanThanh }
     })
   }, [lines])
 
@@ -53,16 +56,15 @@ export default function LichSuNhanSatPage() {
         <ArrowDownToLine size={20} /> Lịch sử nhận sắt
       </h2>
       <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>
-        Kho xuất sắt qua theo từng PO — Phôi tự động nhận. Bấm 1 PO để xem kho đã xuất bao nhiêu cây theo từng chiều dài.
+        Kho xuất sắt qua theo từng PO. Bấm 1 PO để xem kho đã xuất bao nhiêu cây theo từng chiều dài.
       </div>
 
       <div style={card}>
         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-          <colgroup><col style={{ width: 150 }} /><col /><col style={{ width: 190 }} /><col style={{ width: 190 }} /></colgroup>
+          <colgroup><col style={{ width: 150 }} /><col style={{ width: 190 }} /><col style={{ width: 190 }} /></colgroup>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
               <th style={th}>PO</th>
-              <th style={th}>SKU</th>
               <th style={th}>Thời gian nhận</th>
               <th style={th}>Thời gian hoàn thành</th>
             </tr>
@@ -75,19 +77,18 @@ export default function LichSuNhanSatPage() {
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                 onMouseLeave={e => (e.currentTarget.style.background = '')}>
                 <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{g.po}</td>
-                <td style={{ ...td, fontWeight: 600 }}>{g.sku}</td>
                 <td style={{ ...td, color: 'var(--text2)', whiteSpace: 'nowrap' }}>
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Clock size={13} />{g.thoiGianNhan}</span>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Clock size={13} />{new Date(g.thoiGianNhan).toLocaleString('vi-VN')}</span>
                 </td>
                 <td style={{ ...td, whiteSpace: 'nowrap' }}>
                   {g.hoanThanh
-                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#16a34a', fontWeight: 600 }}><Check size={14} />{g.hoanThanh}</span>
+                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#16a34a', fontWeight: 600 }}><Check size={14} />{new Date(g.hoanThanh).toLocaleString('vi-VN')}</span>
                     : <span style={{ color: '#e65100', fontWeight: 600 }}>Đang tiến hành</span>}
                 </td>
               </tr>
             ))}
             {groups.length === 0 && (
-              <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Chưa nhận đợt sắt nào</td></tr>
+              <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Chưa nhận đợt sắt nào</td></tr>
             )}
           </tbody>
         </table>
@@ -100,9 +101,9 @@ export default function LichSuNhanSatPage() {
 function Detail({ g, onBack }: { g: PoGroup; onBack: () => void }) {
   // Tổng cây theo chiều dài nguyên cây (6000mm, 5850mm…)
   const byLen = new Map<number, number>()
-  for (const it of g.items) byLen.set(it.barLen, (byLen.get(it.barLen) ?? 0) + it.soCay)
+  for (const it of g.items) byLen.set(it.barLengthMm, (byLen.get(it.barLengthMm) ?? 0) + it.barCount)
   const lenRows = [...byLen.entries()].sort((a, b) => b[0] - a[0])
-  const rows = [...g.items].sort((a, b) => a.dotThoiGian.localeCompare(b.dotThoiGian) || a.loaiSat.localeCompare(b.loaiSat))
+  const rows = [...g.items].sort((a, b) => a.issuedAt.localeCompare(b.issuedAt) || a.materialName.localeCompare(b.materialName))
 
   return (
     <div>
@@ -111,11 +112,11 @@ function Detail({ g, onBack }: { g: PoGroup; onBack: () => void }) {
           <ChevronLeft size={15} /> Quay lại
         </button>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-          <span style={{ fontFamily: 'monospace' }}>{g.po}</span> <span style={{ fontWeight: 400, color: 'var(--text2)' }}>— {g.sku}</span>
+          <span style={{ fontFamily: 'monospace' }}>{g.po}</span>
         </h2>
       </div>
       <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16, marginLeft: 2 }}>
-        Thời gian nhận: {g.thoiGianNhan} · Hoàn thành: {g.hoanThanh ?? 'đang tiến hành'}
+        Thời gian nhận: {new Date(g.thoiGianNhan).toLocaleString('vi-VN')} · Hoàn thành: {g.hoanThanh ? new Date(g.hoanThanh).toLocaleString('vi-VN') : 'đang tiến hành'}
       </div>
 
       {/* Tổng cây theo chiều dài — kho xuất qua bao nhiêu cây 6m / 5m */}
@@ -135,7 +136,6 @@ function Detail({ g, onBack }: { g: PoGroup; onBack: () => void }) {
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
               <th style={th}>Loại sắt</th>
-              <th style={th}>Quy cách</th>
               <th style={thR}>Chiều dài (mm)</th>
               <th style={thR}>Số cây</th>
               <th style={th}>Thời gian xuất</th>
@@ -145,15 +145,14 @@ function Detail({ g, onBack }: { g: PoGroup; onBack: () => void }) {
           <tbody>
             {rows.map(l => (
               <tr key={l.id} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={{ ...td, fontWeight: 600 }}>{l.loaiSat}</td>
-                <td style={{ ...td, color: 'var(--text3)' }}>{l.quyCach}</td>
-                <td style={tdR}>{l.barLen.toLocaleString('vi-VN')}</td>
-                <td style={{ ...tdR, fontWeight: 700 }}>{l.soCay}</td>
-                <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{l.dotThoiGian}</td>
+                <td style={{ ...td, fontWeight: 600 }}>{l.materialName}</td>
+                <td style={tdR}>{l.barLengthMm.toLocaleString('vi-VN')}</td>
+                <td style={{ ...tdR, fontWeight: 700 }}>{l.barCount}</td>
+                <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{new Date(l.issuedAt).toLocaleString('vi-VN')}</td>
                 <td style={td}>
-                  {l.status === 'DA_CAT'
+                  {l.status === 'QC_PASSED'
                     ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#16a34a' }}><Check size={13} /> Đã cắt xong</span>
-                    : <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)' }}>Chưa cắt</span>}
+                    : <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)' }}>Chưa cắt xong</span>}
                 </td>
               </tr>
             ))}

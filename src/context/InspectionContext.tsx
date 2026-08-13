@@ -179,22 +179,28 @@ const InspCtx = createContext<InspCtxType | undefined>(undefined)
 
 export function InspectionProvider({ children }: { children: React.ReactNode }) {
   const { logAction } = useAuditLog()
-  const { token } = useAuth()
+  const { token, user } = useAuth()
   const [requests,  setRequests]  = useState<InspRequest[]>([])
   const [proposals, setProposals] = useState<PurchaseProposal[]>([])
 
   // InspectionProvider bọc TOÀN BỘ app ở layout.tsx (kể cả /login, trước khi có token) - chỉ gọi
   // API khi đã đăng nhập, tránh bắn request chắc chắn 401 (không có token) ngay trên màn hình
   // đăng nhập. `token` chỉ có sau khi AuthProvider khôi phục xong phiên (xem AuthContext.tsx).
+  //
+  // Bỏ qua khi user có mfgRole (Sản xuất tại xưởng: QLSX/Phôi/Hàn/Sơn/KCS/Spec, dùng MfgApp) -
+  // phát hiện qua browser thật 2026-08-13: không role nào trong nhóm này có PURCHASE_PROPOSAL:VIEW
+  // hay MATERIAL_INSPECTION:VIEW ở BE (đề xuất mua/kiểm tra vật tư là việc của KHSX/Mua hàng/Sếp,
+  // xem role-permissions.constant.ts), nên 2 lời gọi này luôn 403 âm thầm cho toàn bộ nhóm role
+  // này - không chỉ PHOI/KCS vừa kiểm tra qua browser.
   useEffect(() => {
-    if (!token) return
+    if (!token || user?.mfgRole) return
     fetchPurchaseProposals()
       .then(setProposals)
       .catch(err => console.error('getPurchaseProposals failed', err))
     getInspectionRequests()
       .then(list => setRequests(list.map(toInspRequest)))
       .catch(err => console.error('getInspectionRequests failed', err))
-  }, [token])
+  }, [token, user?.mfgRole])
 
   // Find-or-create idempotent ở BE (theo planFormId) - gọi lại an toàn, không tạo trùng. Chỉ hiện
   // nút "Gửi đề xuất kiểm tra vật tư" khi FE chưa có request cục bộ nên trong luồng bình thường

@@ -114,3 +114,9 @@ export {
   getProductionBatchesByStage, reviewProductionBatch,
   listProductionOrdersForStage, getProductionBatchPlan, reportProductionBatch,
 } from './production-batches-api';
+export {
+  getSteelIssuePlan, getSteelIssuesForSku, issueSteel,
+  getSteelIssuesByStatus, getSteelIssue, receiveSteelIssue, completeCutting, getApprovedPatternsForMaterial,
+  reviewSteelIssueQc, getQcReviewsForSteelIssues,
+  getReplenishRequests, fulfillReplenishRequest, rejectReplenishRequest,
+} from './steel-issues-api';
