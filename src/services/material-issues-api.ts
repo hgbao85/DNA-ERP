@@ -16,7 +16,7 @@
  *    Dùng getMaterialIssuesByStage() gọi thẳng GET /material-issues?stage=X (flat, không cần biết
  *    PO nào) - endpoint riêng cho đúng trường hợp này, xem ListMaterialIssuesQueryDto (BE).
  */
-import { http } from './core/http';
+import { http, withIdempotencyKey } from './core/http';
 import type { Sku } from '../types/sku';
 import { resolveProductionOrderId } from './production-invoice-item';
 
@@ -77,7 +77,7 @@ export async function issueMaterial(
 ): Promise<void> {
   const orderId = await resolveProductionOrderId(pf);
   if (!orderId) throw new Error('SKU chưa có Lệnh sản xuất (chưa được Sếp duyệt) — chưa thể xuất vật tư');
-  await http.post(`/production-orders/${orderId}/material-issues`, data);
+  await http.post(`/production-orders/${orderId}/material-issues`, data, withIdempotencyKey());
 }
 
 export async function receiveMaterialIssue(issueId: string, receivedQty?: number): Promise<void> {

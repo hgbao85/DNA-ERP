@@ -6,7 +6,7 @@
  * `productionInvoiceItemId`) - resolve qua resolveProductionOrderId(). `pieceId`/`weavingPointId`
  * là bigint-as-string thật, không cần tra ngược (client tự có sẵn từ getWeavingIssuePlan()).
  */
-import { http } from './core/http';
+import { http, withIdempotencyKey } from './core/http';
 import type { Sku } from '../types/sku';
 import { resolveProductionOrderId } from './production-invoice-item';
 
@@ -54,7 +54,7 @@ export async function issueWeaving(
   data: { pieceId: string; weavingPointId: string; qty: number },
 ): Promise<void> {
   const orderId = await requireOrderId(pf, 'xuất đan');
-  await http.post(`/production-orders/${orderId}/weaving-issues`, data);
+  await http.post(`/production-orders/${orderId}/weaving-issues`, data, withIdempotencyKey());
 }
 
 export async function receiveWeaving(
@@ -62,5 +62,5 @@ export async function receiveWeaving(
   data: { pieceId: string; weavingPointId: string; qty: number },
 ): Promise<void> {
   const orderId = await requireOrderId(pf, 'nhập đan');
-  await http.post(`/production-orders/${orderId}/weaving-receipts`, data);
+  await http.post(`/production-orders/${orderId}/weaving-receipts`, data, withIdempotencyKey());
 }

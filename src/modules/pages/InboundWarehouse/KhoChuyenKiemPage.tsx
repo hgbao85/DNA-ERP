@@ -10,7 +10,7 @@ import LoadingState from '../../../components/LoadingState'
 
 interface LoiEntry { id: number; lyDo: string; file: File | null }
 
-export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: number } = {}) {
+export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: string } = {}) {
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
 

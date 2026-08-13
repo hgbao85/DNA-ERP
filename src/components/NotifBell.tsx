@@ -9,7 +9,7 @@ import { useState } from 'react'
 import { Bell, X } from 'lucide-react'
 
 export interface NotifBellItem {
-  id: number
+  id: string | number
   title: string
   subtitle: string
 }
@@ -20,7 +20,7 @@ export default function NotifBell({ items, heading = 'Thông báo duyệt', empt
   emptyText?: string
 }) {
   const [open, setOpen] = useState(false)
-  const [dismissed, setDismissed] = useState<number[]>([])
+  const [dismissed, setDismissed] = useState<(string | number)[]>([])
   const visible = items.filter(i => !dismissed.includes(i.id))
 
   return (

@@ -6,7 +6,7 @@
  * khi tính lỗi/không khả thi) cho tới khi Phase 7 có màn nghiệp vụ chính thức. Duyệt phương án
  * cắt vẫn chỉ làm qua API (POST /cutting-proposals/:id/approve), chưa có UI.
  */
-import { http } from './core/http';
+import { http, withIdempotencyKey } from './core/http';
 
 export type CuttingProposalStatus = 'CALCULATING' | 'DRAFT' | 'FAILED' | 'APPROVED' | 'SUPERSEDED';
 
@@ -83,7 +83,7 @@ export async function retryCuttingProposal(productionOrderId: string): Promise<C
   return http.post<CuttingProposal>(
     `/production-orders/${productionOrderId}/cutting-proposals`,
     undefined,
-    { headers: { 'Idempotency-Key': crypto.randomUUID() } },
+    withIdempotencyKey(),
   );
 }
 

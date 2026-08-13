@@ -4,7 +4,7 @@ import { getProductionInvoices } from '../../../../services/api'
 import AdminReadOnlyList, { type AdminReadOnlyListConfig } from '../shared/AdminReadOnlyList'
 
 interface ProductionInvoice {
-  id: number
+  id: string
   code: string
   deadline?: string
   status: string

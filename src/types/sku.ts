@@ -105,10 +105,13 @@ export interface ManhRow {
 }
 
 export interface Sku {
-  id: number;
+  /** bigint-as-string thật từ BE — KHÔNG ép Number(). Khác id lồng trong manhData/quotaManagement
+   *  (ManhRow.id, DaySonItem.id...) — BE tự ép Number() cho các id đó (an toàn, không phải PK cần
+   *  tra chéo qua nhiều bảng), xem skus.service.ts toMaterialLine/toPiece. */
+  id: string;
   /** SKU độc lập với Sales Order — null khi SKU chưa (hoặc không bao giờ) gắn đơn hàng nào. */
-  exportOrderId: number | null;
-  mfgProductId: number;
+  exportOrderId: string | null;
+  mfgProductId: string;
   status: SkuStatus;
   note?: string | null;
   customerName?: string | null;
@@ -116,18 +119,18 @@ export interface Sku {
    *  cùng exportOrderId+mfgProductId (xem skus.service.ts create) để "Bảng thống kê"
    *  hiện đúng dữ liệu của SKU đó. */
   piCode: string;
-  productionInvoiceId?: number;
+  productionInvoiceId?: string;
   /** Sku tạo tự động khi PM xác nhận sản xuất 1 SKU trong PI (LenhSXPage) — chỉ phục vụ
    *  "Lệnh kiểm tra vật tư" (prodmgr@demo.com), không phải SKU do KHSX tạo nên phải ẩn khỏi
    *  "Danh sách SKU" / "Duyệt SKU". */
   origin?: 'PRODUCTION_CONFIRM';
   createdAt: string;
   proposedAt?: string | null;
-  exportOrder?: { id: number; poNumber: string; deliveryDate?: string };
-  mfgProduct?: { id: number; factoryCode: string; name: string };
-  createdBy?: { id: number; name: string };
+  exportOrder?: { id: string; poNumber: string; deliveryDate?: string };
+  mfgProduct?: { id: string; factoryCode: string; name: string };
+  createdBy?: { id: string; name: string };
   quotaManagement?: {
-    id: number;
+    id: string;
     materialType: MaterialType;
     /** Ai/khi nào nhập định mức chi tiết (nhập 1 lần cho cả 3 nhóm Sơn/Phụ kiện/Bao bì). */
     entryMeta?: QuotaEntryMeta;
@@ -150,12 +153,12 @@ export interface Sku {
 
 export interface CreateSkuPayload {
   /** Tuỳ chọn — SKU có thể tạo mà không gắn Sales Order nào. */
-  exportOrderId?: number;
-  mfgProductId: number;
+  exportOrderId?: string;
+  mfgProductId: string;
   note?: string;
   customerName?: string;
   origin?: 'PRODUCTION_CONFIRM';
   /** Khi đã biết chắc PI nào ứng với SKU này (vd LenhSXPage duyệt xong 1 SKU), truyền thẳng id để
    *  tái dùng đúng PI đó thay vì service phải dò theo exportOrderId+SKU. */
-  productionInvoiceId?: number;
+  productionInvoiceId?: string;
 }

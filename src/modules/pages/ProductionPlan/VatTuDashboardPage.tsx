@@ -24,7 +24,9 @@ export type Cat = keyof typeof CAT_META
 
 interface FlatItem {
   key: string
-  pfId: number
+  /** string = Sku.id thật; literal 0 = dòng mock cố định (MOCK_THANH_PHAM/MOCK_VAT_TU_THANH_PHAM
+   *  bên dưới) — phân biệt bằng typeof, không dùng so sánh số nữa. */
+  pfId: string | 0
   pfStatus: string
   pfCreatedAt: string
   productName: string
@@ -439,7 +441,7 @@ export default function VatTuDashboardPage({ limitCats, combinedCats, manhWareho
               )}
             </div>
 
-            {selected.pfId > 0 && (
+            {typeof selected.pfId === 'string' && (
               <div style={{ background: 'var(--surface2)', borderRadius: 8, padding: '10px 14px', marginBottom: 20 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>
                   Định mức #{selected.pfId}

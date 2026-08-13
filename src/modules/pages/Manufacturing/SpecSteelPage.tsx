@@ -28,7 +28,7 @@ type ManChild = {
   unit: string
 }
 type Manh = { id: number; tenManh: string; soLuong: string; children: ManChild[] }
-type BomItem = { id: number; ten: string; thoiGian: string }
+type BomItem = { id: string; ten: string; thoiGian: string }
 
 const CHILD_GROUPS: ManhChildGroup[] = ['sat', 'day', 'dinh', 'tanRut', 'nutNhua']
 const GROUP_LABELS: Record<ManhChildGroup, string> = {
@@ -97,7 +97,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     return plasticButtonGroupId
   }
 
-  const findPf = (id: number) => skus.find(pf => pf.id === id)
+  const findPf = (id: string) => skus.find(pf => pf.id === id)
 
   // ── Định mức (mảnh) — Sku thật (manhData.pieces / manhEntryMeta / manhReviewStatus) ────────
   // Mảnh là bước nhập đầu tiên trong flow hiện tại nên hiện luôn cho mọi SKU chưa DRAFT.
@@ -108,7 +108,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   }))
   // Mảnh giờ chỉ còn 1 quyết định duyệt duy nhất cho cả 5 nhóm vật tư (không còn tách riêng
   // theo Sắt/Dây/Đinh như trước) — account Sắt nhập hết, KHSX duyệt 1 lần.
-  const manhBomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' => {
+  const manhBomStatus = (bomId: string): 'approved' | 'pending' | 'rejected' | 'canInput' => {
     const pf = findPf(bomId)
     const review = pf?.manhReviewStatus
     if (review?.status === 'APPROVED') return 'approved'

@@ -113,7 +113,7 @@ export function toInspRequest(be: BeInspectionRequest): InspRequest {
 
   return {
     id: be.id,
-    skuId: Number(be.planFormId),
+    skuId: be.planFormId,
     poNumber: be.poNumber,
     skuCode: be.mfgProductCode,
     skuName: be.mfgProductName ?? undefined,

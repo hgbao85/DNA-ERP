@@ -140,4 +140,16 @@ export const http = {
   del: <T>(path: string, config?: AxiosRequestConfig) => unwrap<T>(client.delete(path, config)),
 };
 
+/**
+ * Gắn header Idempotency-Key: <uuid mới> vào request config - dùng cho mọi POST mà BE đọc header
+ * này (bắt buộc: stock-ledger/adjust, skus/:id/approve, purchase-proposals/.../receive; khuyến
+ * khích/best-effort: cutting-proposals, material-issues, production-batches, steel-issues,
+ * weaving-issues - xem `idempotencyKey` ở service tương ứng bên BE). Trước đây mỗi call site tự
+ * viết `{ headers: { 'Idempotency-Key': crypto.randomUUID() } }` tay - dễ quên, không có gì bắt lỗi
+ * lúc build. Dùng hàm này thay vì tự viết tay ở mọi nơi cần gửi header.
+ */
+export function withIdempotencyKey(config?: AxiosRequestConfig): AxiosRequestConfig {
+  return { ...config, headers: { ...config?.headers, 'Idempotency-Key': crypto.randomUUID() } };
+}
+
 export const API_BASE_URL = BASE_URL;

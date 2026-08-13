@@ -11,7 +11,7 @@
  *    HAN/SON — dùng GET /production-batches?stage= (flat).
  *  - Báo sản lượng (LenhSanXuatHan/Son, đợt 2): dùng getProductionBatchPlan()/reportProductionBatch().
  */
-import { http } from './core/http';
+import { http, withIdempotencyKey } from './core/http';
 
 export type ProductionBatchStage = 'HAN' | 'SON';
 
@@ -97,5 +97,9 @@ export async function reportProductionBatch(
   productionOrderId: string,
   data: { stage: ProductionBatchStage; partId: string; reportedQty: number },
 ): Promise<void> {
-  await http.post(`/production-orders/${productionOrderId}/production-batches`, data);
+  await http.post(
+    `/production-orders/${productionOrderId}/production-batches`,
+    data,
+    withIdempotencyKey(),
+  );
 }

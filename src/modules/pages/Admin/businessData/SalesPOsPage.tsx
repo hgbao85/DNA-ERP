@@ -1,14 +1,14 @@
 'use client'
 import { ClipboardList } from 'lucide-react'
-import { getSalesPOs } from '../../../../services/api'
-import type { SalesPO } from '../../../../types/sales'
+import { getSalesOrders } from '../../../../services/api'
+import type { SalesOrder } from '../../../../types/sales'
 import AdminReadOnlyList, { type AdminReadOnlyListConfig } from '../shared/AdminReadOnlyList'
 
 const fmtMoney = (n: number) => n.toLocaleString('vi-VN') + 'đ'
 const fmtDate = (d: string) => new Date(d).toLocaleDateString('vi-VN')
 
 export default function SalesPOsPage() {
-  const config: AdminReadOnlyListConfig<SalesPO> = {
+  const config: AdminReadOnlyListConfig<SalesOrder> = {
     title: 'Đơn hàng bán',
     icon: <ClipboardList size={16} color="#3949ab" />,
     searchFields: ['code', 'customerName'],
@@ -24,7 +24,7 @@ export default function SalesPOsPage() {
       { key: 'totalValue', label: 'Tổng giá trị', align: 'right', render: (p) => fmtMoney(p.totalValue) },
       { key: 'depositAmount', label: 'Đã cọc', align: 'right', render: (p) => fmtMoney(p.depositAmount) },
     ],
-    fetch: getSalesPOs,
+    fetch: getSalesOrders,
   }
 
   return <AdminReadOnlyList config={config} />

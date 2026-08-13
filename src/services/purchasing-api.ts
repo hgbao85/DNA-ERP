@@ -35,7 +35,7 @@
  * material-inspection-api.ts + InspectionContext.tsx) để ProductionPlan/KiemTraVatTuPage.tsx lọc
  * `proposals.filter(p => p.requestId === request.id)` không cần đổi gì.
  */
-import { http } from './core/http';
+import { http, withIdempotencyKey } from './core/http';
 import type {
   KhoKey,
   ProposalQuote,
@@ -266,7 +266,7 @@ export async function receiveProposalItem(
   await http.post(
     `/purchase-proposals/${proposal.id}/items/${beItemId}/receive`,
     { receivedQty: qty, receivedQtyPurchaseUnit },
-    { headers: { 'Idempotency-Key': crypto.randomUUID() } },
+    withIdempotencyKey(),
   );
   return getPurchaseProposal(proposal.id);
 }
@@ -291,7 +291,7 @@ export async function createProposalFromInspection(
   const created = await http.post<BeProposal>(
     '/purchase-proposals',
     { inspectionKhoResultId, items },
-    { headers: { 'Idempotency-Key': crypto.randomUUID() } },
+    withIdempotencyKey(),
   );
   return toProposal(created);
 }

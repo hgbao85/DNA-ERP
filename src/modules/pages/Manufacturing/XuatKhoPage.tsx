@@ -290,8 +290,8 @@ export default function XuatKhoPage({ lockedGroup: _lockedGroup }: { lockedGroup
 // ── XuatThungSection ─────────────────────────────────────────
 function XuatThungSection() {
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
-  const [confirming, setConfirming] = useState<number | null>(null)
-  const [done, setDone] = useState<Set<number>>(new Set())
+  const [confirming, setConfirming] = useState<string | null>(null)
+  const [done, setDone] = useState<Set<string>>(new Set())
 
   const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT')
   const confirmingPf = confirming !== null ? active.find(p => p.id === confirming) ?? null : null

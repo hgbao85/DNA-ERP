@@ -16,12 +16,12 @@ import { http } from './core/http';
 type StageType = 'FRAME' | 'WEAVING' | 'PACKAGING';
 
 interface BeProductionInvoiceItem {
-  id: number;
-  productionInvoiceId: number;
-  mfgProductId: number;
+  id: string;
+  productionInvoiceId: string;
+  mfgProductId: string;
   factoryCode: string;
   productName: string;
-  productVariantId: number | null;
+  productVariantId: string | null;
   colorCode: string | null;
   quantity: number;
   materialDeadline: string | null;
@@ -30,7 +30,6 @@ interface BeProductionInvoiceItem {
   prodApprovalStatus: 'WAITING_QLSX' | 'WAITING_BOSS' | 'APPROVED' | 'REJECTED' | null;
   requestedAt: string | null;
   requestedById: string | null;
-  warehouseId: number | null;
   warehouseCode: string | null;
   warehouseName: string | null;
   qlsxAt: string | null;
@@ -41,9 +40,9 @@ interface BeProductionInvoiceItem {
 }
 
 interface BeProductionInvoice {
-  id: number;
+  id: string;
   code: string;
-  salesOrderId: number | null;
+  salesOrderId: string | null;
   salesOrderCode: string | null;
   status: 'PLANNING' | 'PRODUCING' | 'DONE' | 'CANCELLED';
   deadline: string | null;

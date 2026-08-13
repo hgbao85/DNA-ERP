@@ -20,7 +20,7 @@ import type { Sku } from '../../../types/sku'
 // DaySonItem (field `kg`) hoặc VatTuPhuKienItem/BaoBiDongGoiItem (field `quantity`) khi đọc/ghi.
 type DetailLineGroup = 'daySon' | 'vatTuPhuKien' | 'baoBiDongGoi'
 type DetailLine = { id: number; group: DetailLineGroup; materialId: number; name: string; specs: string; unit: string; soLuong: string }
-type BomItem = { id: number; ten: string; thoiGian: string }
+type BomItem = { id: string; ten: string; thoiGian: string }
 
 const GROUPS: DetailLineGroup[] = ['daySon', 'vatTuPhuKien', 'baoBiDongGoi']
 const GROUP_LABELS: Record<DetailLineGroup, string> = { daySon: 'Sơn', vatTuPhuKien: 'Phụ kiện', baoBiDongGoi: 'Bao bì' }
@@ -67,7 +67,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   // phân biệt 3 tab qua ConsumableBom.stage / BomAccessoryItem.kind, không phải qua nhóm vật tư.
   const { other: otherGroupId } = useMaterialGroupIds()
 
-  const findPf = (id: number) => skus.find(pf => pf.id === id)
+  const findPf = (id: string) => skus.find(pf => pf.id === id)
 
   const boms: BomItem[] = skus.map(pf => ({
     id: pf.id,
@@ -80,7 +80,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     const mt = pf?.quotaManagement?.materialType
     return (mt?.daySon.length ?? 0) + (mt?.vatTuPhuKien.length ?? 0) + (mt?.baoBiDongGoi.length ?? 0)
   }
-  const bomStatus = (bomId: number): 'approved' | 'pending' | 'rejected' | 'canInput' => {
+  const bomStatus = (bomId: string): 'approved' | 'pending' | 'rejected' | 'canInput' => {
     const pf = findPf(bomId)
     const review = pf?.quotaManagement?.reviewStatus
     if (review?.status === 'APPROVED') return 'approved'

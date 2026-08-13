@@ -88,7 +88,7 @@ export { getDefectReasons, createDefectReason, updateDefectReason, deleteDefectR
 export { getWeavingPoints, createWeavingPoint, updateWeavingPoint, deleteWeavingPoint } from './weaving-points-api';
 export { getSystemConfig, updateSystemConfig } from './system-config-api';
 export { getMfgProducts, createMfgProduct } from './products-api';
-export { getSalesPOs, createSalesPO, updateSalesPO } from './sales-orders-api';
+export { getSalesOrders, createSalesOrder, updateSalesOrder } from './sales-orders-api';
 export {
   getSkus, getSku, getSkuOptions, createSku, deleteSkus,
   updateSkuManhQuota, updateSkuDetailQuota, reviewSkuManhQuota, reviewSkuDetailQuota,

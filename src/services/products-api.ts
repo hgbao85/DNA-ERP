@@ -7,7 +7,7 @@
 import { http } from './core/http';
 
 export interface BeMfgProduct {
-  id: number;
+  id: string;
   factoryCode: string;
   name: string;
   description: string | null;

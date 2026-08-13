@@ -13,7 +13,7 @@
  * SKUDetail.tsx và các trang thống kê/kho/kiểm tra vật tư đọc `pf.manhData`/
  * `pf.quotaManagement.materialType` không phải sửa gì thêm.
  */
-import { http } from './core/http';
+import { http, withIdempotencyKey } from './core/http';
 import type {
   BaoBiDongGoiItem,
   CreateSkuPayload,
@@ -87,13 +87,13 @@ interface BePiece {
 }
 
 interface BeSku {
-  id: number;
-  salesOrderId: number | null;
-  mfgProductId: number;
+  id: string;
+  salesOrderId: string | null;
+  mfgProductId: string;
   factoryCode: string;
   productName: string;
   customerName: string | null;
-  productionInvoiceId: number | null;
+  productionInvoiceId: string | null;
   piCode: string | null;
   status: Sku['status'];
   note: string | null;
@@ -236,9 +236,9 @@ export async function getSku(id: number | string): Promise<Sku> {
 /** mfgProducts để chọn khi tạo SKU mới — SKU không còn bắt buộc gắn Sales Order (xem
  *  ghi chú CreateSkuPayload.exportOrderId), nên không cần lấy exportOrders nữa. */
 export async function getSkuOptions(): Promise<{
-  mfgProducts: { id: number; factoryCode: string; name: string }[];
+  mfgProducts: { id: string; factoryCode: string; name: string }[];
 }> {
-  const products = await http.get<{ id: number; factoryCode: string; name: string }[] | { data: { id: number; factoryCode: string; name: string }[] }>('/products?limit=100');
+  const products = await http.get<{ id: string; factoryCode: string; name: string }[] | { data: { id: string; factoryCode: string; name: string }[] }>('/products?limit=100');
   const productList = Array.isArray(products) ? products : products.data;
   return { mfgProducts: productList };
 }
@@ -348,5 +348,7 @@ export async function rejectSkuByBoss(id: number | string, _reason?: string): Pr
 }
 
 export async function approveFullSku(id: number | string): Promise<Sku> {
-  return toSku(await http.post<BeSku>(`/skus/${id}/approve`));
+  // BE bắt buộc header này (BadRequestException nếu thiếu, SkusController.approve()) - trước đây
+  // hàm này gọi thiếu, khiến nút "Duyệt" cuối của Sếp luôn 400.
+  return toSku(await http.post<BeSku>(`/skus/${id}/approve`, undefined, withIdempotencyKey()));
 }

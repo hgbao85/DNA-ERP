@@ -65,7 +65,11 @@ export interface KhoState {
 
 export interface InspRequest {
   id: string                   // MaterialInspectionRequest.id (BE)
-  skuId: number
+  /** = Sku.id/PlanForm.id thật (bigint-as-string) — sửa 2026-08-13, trước đó bị Number() làm sai
+   *  kiểu khiến mọi so khớp `requests.find(r => r.skuId === sku.id)` không bao giờ đúng (2 phía so
+   *  sánh number vs string dù cùng 1 giá trị). KHÔNG nhầm với PurchaseProposal.skuId bên dưới —
+   *  field đó là placeholder không liên quan gì tới Sku.id (xem comment purchasing-api.ts). */
+  skuId: string
   poNumber: string
   skuCode: string
   skuName?: string
@@ -361,7 +365,9 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
             const required = Number(child.qty) || 0
             if (required <= 0) continue
             syncItems.push({
-              lineId: 9000 + req.skuId * 20 + idx,
+              // lineId chỉ là khoá tổng hợp cho mock phoi-sat.service.ts, không phải định danh
+              // thật — Number() ở đây an toàn (khác Number(skuId) từng dùng sai để SO SÁNH).
+              lineId: 9000 + Number(req.skuId) * 20 + idx,
               name: child.name, unit: 'cây', required, manhTen: manh.name,
             })
             idx++
@@ -371,7 +377,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
         syncItems = req.phoiSonHan.items
           .filter(i => !isSon(i.name) && i.required > 0)
           .map((it, idx) => ({
-            lineId: 9000 + req.skuId * 20 + idx,
+            lineId: 9000 + Number(req.skuId) * 20 + idx,
             name: it.name, unit: it.unit, required: it.required,
           }))
       }

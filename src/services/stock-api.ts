@@ -6,7 +6,7 @@
  * adjustStock() - POST /stock-ledger/adjust, dùng cho "Sửa nhanh tồn kho" ở MfgWarehousesPage.tsx
  * và MaterialsPage.tsx (Admin > Vật tư).
  */
-import { http } from './core/http';
+import { http, withIdempotencyKey } from './core/http';
 
 export interface BeStockQuant {
   id: string;
@@ -50,7 +50,5 @@ export async function adjustStock(input: {
   qty: number;
   note?: string;
 }): Promise<BeStockLedgerEntry> {
-  return http.post<BeStockLedgerEntry>('/stock-ledger/adjust', input, {
-    headers: { 'Idempotency-Key': crypto.randomUUID() },
-  });
+  return http.post<BeStockLedgerEntry>('/stock-ledger/adjust', input, withIdempotencyKey());
 }

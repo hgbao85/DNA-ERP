@@ -1,7 +1,7 @@
 'use client'
 import { Users, ShieldCheck, Factory, ShoppingCart, ClipboardList, ArrowRight } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
-import { getUsers, getAllAuditLogs, getSalesPOs, getProductionInvoices, getSuppliers } from '../../../services/api'
+import { getUsers, getAllAuditLogs, getSalesOrders, getProductionInvoices, getSuppliers } from '../../../services/api'
 import LoadingState from '../../../components/LoadingState'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
 import type { AuditLogEntry } from '../../../context/AuditLogContext'
@@ -24,7 +24,7 @@ function StatTile({ icon, label, value, accent }: { icon: React.ReactNode; label
 export default function DashboardPage({ onViewAuditLog }: DashboardPageProps) {
   const { data: users, isLoading: loadingUsers } = useFetch<SystemUser[]>(getUsers)
   const { data: logs, isLoading: loadingLogs } = useFetch<AuditLogEntry[]>(() => getAllAuditLogs() as Promise<AuditLogEntry[]>)
-  const { data: salesPOs } = useFetch(getSalesPOs)
+  const { data: salesPOs } = useFetch(getSalesOrders)
   const { data: pis } = useFetch(getProductionInvoices)
   const { data: suppliers } = useFetch(getSuppliers)
 

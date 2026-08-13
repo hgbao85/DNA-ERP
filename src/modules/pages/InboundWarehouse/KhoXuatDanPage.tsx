@@ -19,7 +19,7 @@ import type { Sku } from '../../../types/sku'
  * xem WeavingIssuesService.create). Đồng bộ trực tiếp với "Theo dõi nhập đan" (KhoNhapDanPage) -
  * cùng đọc/ghi WeavingIssue/WeavingReceipt qua weaving-issues-api.ts, không phải 2 nguồn độc lập.
  */
-export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: number } = {}) {
+export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: string } = {}) {
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
   const { data: pointsData } = useFetch<BeWeavingPoint[]>(() => api.getWeavingPoints(), [])
   const points = pointsData ?? []

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // từ đây nên sẽ nhận bản mock này.
 vi.mock('./core/http', () => ({
   http: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), del: vi.fn() },
+  withIdempotencyKey: () => ({ headers: { 'Idempotency-Key': crypto.randomUUID() } }),
 }));
 
 import { http } from './core/http';

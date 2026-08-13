@@ -3,8 +3,8 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { format } from 'date-fns'
 import { Plus, Trash2, X, Check, ChevronLeft, Paperclip } from 'lucide-react'
-import type { SalesPO, SalesPOStatus, SalesCustomer } from '../../../types/sales'
-import { SALES_PO_STATUS_LABEL, SALES_PRODUCTION_STAGES } from '../../../types/sales'
+import type { SalesOrder, SalesOrderStatus, SalesCustomer } from '../../../types/sales'
+import { SALES_ORDER_STATUS_LABEL, SALES_PRODUCTION_STAGES } from '../../../types/sales'
 import type { Sku } from '../../../types/sku'
 import { StatusBadge } from './StatusBadge'
 import SearchableSelect from '../../../components/SearchableSelect'
@@ -25,11 +25,11 @@ const emptyForm = (): FormState => ({
 })
 
 export default function OrderManagementPage() {
-  const { data: pos, isLoading, error, refetch } = useFetch<SalesPO[]>(() => api.getSalesPOs())
+  const { data: pos, isLoading, error, refetch } = useFetch<SalesOrder[]>(() => api.getSalesOrders())
   const { data: customers } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers())
   const { data: skus } = useFetch<Sku[]>(() => api.getSkus())
   const [showCreate, setShowCreate] = useState(false)
-  const [detailPO, setDetailPO] = useState<SalesPO | null>(null)
+  const [detailPO, setDetailPO] = useState<SalesOrder | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
   const [saving, setSaving] = useState(false)
 
@@ -64,7 +64,7 @@ export default function OrderManagementPage() {
           skuName: it.skuName.trim() || undefined,
           totalQty: Number(it.totalQty) || 0,
           shippedQty: 0,
-          status: 'LEN_KE_HOACH' as SalesPOStatus,
+          status: 'LEN_KE_HOACH' as SalesOrderStatus,
           deliveryDate: it.deliveryDate ? new Date(it.deliveryDate).toISOString() : '',
         }))
       // Hạn giao PO = hạn giao xa nhất trong các SKU
@@ -81,7 +81,7 @@ export default function OrderManagementPage() {
         note: form.note.trim() || undefined,
         items,
       }
-      await api.createSalesPO(payload)
+      await api.createSalesOrder(payload)
       await refetch()
       setShowCreate(false)
     } finally {
@@ -89,9 +89,9 @@ export default function OrderManagementPage() {
     }
   }
 
-  const toggleDeposit = async (e: React.MouseEvent, po: SalesPO) => {
+  const toggleDeposit = async (e: React.MouseEvent, po: SalesOrder) => {
     e.stopPropagation()
-    await api.updateSalesPO(po.id, { depositConfirmed: !po.depositConfirmed })
+    await api.updateSalesOrder(po.id, { depositConfirmed: !po.depositConfirmed })
     await refetch()
   }
 
@@ -264,7 +264,7 @@ export default function OrderManagementPage() {
 // ── Trang chi tiết: Chi tiết sản xuất + Chi tiết xuất hàng (2 tab riêng) ─────
 type DetailTab = 'production' | 'shipping'
 
-function PODetailView({ po, onBack }: { po: SalesPO; onBack: () => void }) {
+function PODetailView({ po, onBack }: { po: SalesOrder; onBack: () => void }) {
   const [tab, setTab] = useState<DetailTab>('production')
 
   const paidExcludingDeposit = po.paidAmount - po.depositAmount
@@ -372,7 +372,7 @@ function StatTile({ label, value, color }: { label: string; value: string; color
   )
 }
 
-function ProductionStepper({ status }: { status: SalesPOStatus }) {
+function ProductionStepper({ status }: { status: SalesOrderStatus }) {
   const doneIndex = status === 'HOAN_THANH' ? SALES_PRODUCTION_STAGES.length : SALES_PRODUCTION_STAGES.indexOf(status)
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start' }}>
@@ -392,7 +392,7 @@ function ProductionStepper({ status }: { status: SalesPOStatus }) {
                 {isDone ? <Check size={12} /> : i + 1}
               </div>
               <div style={{ fontSize: 10, color: isActive ? '#1565c0' : isDone ? '#15803d' : 'var(--text3)', fontWeight: isActive ? 700 : 500, textAlign: 'center' }}>
-                {SALES_PO_STATUS_LABEL[stage]}
+                {SALES_ORDER_STATUS_LABEL[stage]}
               </div>
             </div>
             {!isLast && (

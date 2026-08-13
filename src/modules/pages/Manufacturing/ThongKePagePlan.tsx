@@ -53,7 +53,7 @@ interface StageDetails {
 }
 
 interface MfgOrder {
-  id: number
+  id: string
   code: string        // Mã PO — lấy từ exportOrder.poNumber (dữ liệu thật)
   piCode: string       // Mã PI — 1 SKU trong 1 PO chỉ có đúng 1 PI (xem skus.service.ts)
   sku: string
@@ -98,7 +98,10 @@ function strHash(s: string): number {
 
 function getPurchasingRows(pf: Sku, proposals: PurchaseProposal[]): MaterialItem[] {
   return proposals
-    .filter(p => p.skuId === pf.id)
+    // NOTE: p.skuId là placeholder không liên quan gì tới Sku.id thật (xem comment đầu
+    // purchasing-api.ts) — so sánh này gần như không bao giờ khớp, giữ nguyên hành vi cũ (chỉ sửa
+    // kiểu cho biên dịch được), không phải bug do lần sửa kiểu id này gây ra.
+    .filter(p => String(p.skuId) === pf.id)
     .flatMap(p => p.items.map(item => {
       const ncc = p.chosenSuppliers?.[item.name] ?? ''
       const offers = p.quotes?.[item.name] ?? []
@@ -253,13 +256,15 @@ function genExecutionStages(pf: Sku, purchasingDone: boolean, weavingPoints: Wea
       packaging: { dongGoi: 'pending', totalBoxes: 0, daDongQty: 0 },
     }
   }
-  const h = strHash(pf.exportOrder?.poNumber ?? String(pf.id)) + pf.id
+  // pf.id là bigint-as-string thật — Number() chỉ dùng để làm seed hash giả lập demo (không phải
+  // định danh/tra cứu), mất độ chính xác ở đây vô hại.
+  const h = strHash(pf.exportOrder?.poNumber ?? pf.id) + Number(pf.id)
 
   // id 9-10: 2 lệnh minh hoạ cố định luôn ở Chuyền kiểm/Đóng gói (PO-MY-009, PO-IK-010 — xem seed.ts)
   // để demo luôn có sẵn ví dụ cho 2 công đoạn cuối, không phụ thuộc may rủi của hash PO; vẫn tái dùng
   // đúng các hàm buildPhoiManhs/buildHanLines/buildSonLines/buildWeavingLines ở trên để có dữ liệu chi
   // tiết hiển thị bình thường như mọi lệnh khác.
-  if (pf.id === 9 || pf.id === 10) {
+  if (pf.id === '9' || pf.id === '10') {
     const phoiManhs = buildPhoiManhs(pf, 'done', h)
     const frame: StageDetails['frame'] = {
       phoi: 'done', han: 'done', son: 'done', phoiManhs,
@@ -267,8 +272,8 @@ function genExecutionStages(pf: Sku, purchasingDone: boolean, weavingPoints: Wea
       sonLines: buildSonLines(pf, 'done', h),
     }
     const weaving: StageDetails['weaving'] = { xuatDan: 'done', nhapDan: 'done', lines: buildWeavingLines('done', 'done', h, weavingPoints), skuQty }
-    const daKiem: SubStatus  = pf.id === 9 ? 'in-progress' : 'done'
-    const dongGoi: SubStatus = pf.id === 9 ? 'pending'      : 'in-progress'
+    const daKiem: SubStatus  = pf.id === '9' ? 'in-progress' : 'done'
+    const dongGoi: SubStatus = pf.id === '9' ? 'pending'      : 'in-progress'
     const totalBoxes = mockTotalBoxes(pf)
     return {
       frame, weaving,
@@ -911,7 +916,7 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
 // Trạng thái lệnh sản xuất (PI) tối thiểu cần để quyết định 1 SKU đã "vào sản xuất" hay còn "lên kế
 // hoạch".
 interface PIApprovalItem { prodApproval?: { status?: string }; quantity?: number }
-interface PIStatusRow { id: number; status: string; items?: PIApprovalItem[] }
+interface PIStatusRow { id: string; status: string; items?: PIApprovalItem[] }
 
 export default function ThongKePagePlan() {
   const { data: skusData, isLoading } = useFetch<Sku[]>(() => api.getSkus(), [])
@@ -946,7 +951,7 @@ export default function ThongKePagePlan() {
   )
 
   const [filter, setFilter]         = useState<FilterStatus>('all')
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [search, setSearch]         = useState('')
   const [page, setPage]             = useState(1)
 

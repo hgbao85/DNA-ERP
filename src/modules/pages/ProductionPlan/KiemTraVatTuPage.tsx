@@ -133,7 +133,7 @@ export default function KiemTraVatTuPage() {
 
   const { requests, proposals, sendRequest, markProposalCreated, startProduction } = useInspection()
   const { getLogsFor } = useAuditLog()
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [proposing,  setProposing]  = useState(false)
   const [expandedProposalId, setExpandedProposalId] = useState<string | null>(null)
   const { ask, confirmModal } = useConfirm()

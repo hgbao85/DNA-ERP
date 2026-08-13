@@ -2,16 +2,16 @@ import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { format } from 'date-fns'
-import type { SalesCustomer, SalesPO } from '../../../types/sales'
+import type { SalesCustomer, SalesOrder } from '../../../types/sales'
 import { StatusBadge } from './StatusBadge'
 
 export default function PurchaseHistoryPage() {
   const { data: customers } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers())
-  const { data: pos, isLoading, error } = useFetch<SalesPO[]>(() => api.getSalesPOs())
+  const { data: pos, isLoading, error } = useFetch<SalesOrder[]>(() => api.getSalesOrders())
   const [customerId, setCustomerId] = useState('')
 
   const customer = (customers ?? []).find((c) => String(c.id) === customerId) ?? null
-  const customerPOs = customer ? (pos ?? []).filter((p) => p.customerId === customer.id) : []
+  const customerPOs = customer ? (pos ?? []).filter((p) => p.customerId === String(customer.id)) : []
   const rows = customerPOs.flatMap((po) => po.items.map((item) => ({ po, item })))
 
   return (

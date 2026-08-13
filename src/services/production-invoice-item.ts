@@ -9,7 +9,7 @@ import type { Sku } from '../types/sku';
 
 export async function resolveProductionInvoiceItemId(pf: Sku): Promise<string | null> {
   if (!pf.productionInvoiceId) return null;
-  const pi = await http.get<{ items: { id: number; mfgProductId: number }[] }>(
+  const pi = await http.get<{ items: { id: string; mfgProductId: string }[] }>(
     `/production-invoices/${pf.productionInvoiceId}`,
   );
   const item = pi.items.find((it) => it.mfgProductId === pf.mfgProductId);

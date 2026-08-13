@@ -4,7 +4,7 @@ import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import { errMsg } from '../../../utils/errors'
 import { StatusBadge } from '../Sales/StatusBadge'
-import type { SalesPOStatus } from '../../../types/sales'
+import type { SalesOrderStatus } from '../../../types/sales'
 import { format } from 'date-fns'
 import { AlertCircle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse } from 'lucide-react'
 import SearchableSelect from '../../../components/SearchableSelect'
@@ -303,7 +303,7 @@ export default function LenhSXPage() {
                   <div>
                     <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                       <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14 }}>{code}</span>
-                      {item.status && <StatusBadge status={item.status as SalesPOStatus} />}
+                      {item.status && <StatusBadge status={item.status as SalesOrderStatus} />}
                     </div>
                     {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
                     <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap' }}>
@@ -452,7 +452,7 @@ export default function LenhSXPage() {
                         <div>
                           <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                             <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>{code}</span>
-                            {item.status && <StatusBadge status={item.status as SalesPOStatus} />}
+                            {item.status && <StatusBadge status={item.status as SalesOrderStatus} />}
                             {item.prodApproval?.status === 'APPROVED' && (
                               <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#2e7d32', background:'#dcfce7', padding:'2px 8px', borderRadius:10 }}>
                                 <Play size={10}/> Đang sản xuất

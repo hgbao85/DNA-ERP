@@ -20,7 +20,7 @@ export function mockTotalBoxes(pf: Sku): number {
   return 20 + (strHash(code) % 60)
 }
 
-export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: number } = {}) {
+export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: string } = {}) {
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
 

@@ -35,7 +35,7 @@ const BOSS_FILTERS: { key: StatusFilter; label: string; color?: string; bg?: str
 ]
 
 const emptyForm = (): CreateSkuPayload => ({
-  mfgProductId: 0, note: '',
+  mfgProductId: '', note: '',
 })
 
 export default function SKUReviewPage() {
@@ -45,7 +45,7 @@ export default function SKUReviewPage() {
   const FILTERS = isBoss ? BOSS_FILTERS : PLANNER_FILTERS
   const { data: skus = [], isLoading, refetch } = useFetch(() => api.getSkus(), [])
   const { data: formOptions } = useFetch(() => api.getSkuOptions(), [])
-  const mfgProducts  = (formOptions?.mfgProducts  ?? []) as { id: number; factoryCode: string; name: string }[]
+  const mfgProducts  = (formOptions?.mfgProducts  ?? []) as { id: string; factoryCode: string; name: string }[]
   const { data: customers } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers(), [])
 
   const [search, setSearch]             = useState('')
@@ -63,7 +63,7 @@ export default function SKUReviewPage() {
 
   const closeForm = () => { setShowForm(false); setForm(emptyForm()); setCustomerName('') }
 
-  const doCreateSku = async (mfgProductId: number, skuCode: string) => {
+  const doCreateSku = async (mfgProductId: string, skuCode: string) => {
     setSubmitting(true)
     try {
       const createdSku = await api.createSku({

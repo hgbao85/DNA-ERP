@@ -1,7 +1,7 @@
-import type { SalesPOStatus } from '../../../types/sales'
-import { SALES_PO_STATUS_LABEL } from '../../../types/sales'
+import type { SalesOrderStatus } from '../../../types/sales'
+import { SALES_ORDER_STATUS_LABEL } from '../../../types/sales'
 
-export const SALES_PO_STATUS_COLOR: Record<SalesPOStatus, { bg: string; color: string }> = {
+export const SALES_ORDER_STATUS_COLOR: Record<SalesOrderStatus, { bg: string; color: string }> = {
   LEN_KE_HOACH: { bg: '#f1f5f9', color: '#475569' },
   MUA_HANG: { bg: '#f3e5f5', color: '#7b1fa2' },
   KHUNG_CO_KHI: { bg: '#fff3e0', color: '#e65100' },
@@ -11,11 +11,11 @@ export const SALES_PO_STATUS_COLOR: Record<SalesPOStatus, { bg: string; color: s
   HOAN_THANH: { bg: '#dcfce7', color: '#15803d' },
 }
 
-export function StatusBadge({ status }: { status: SalesPOStatus }) {
-  const s = SALES_PO_STATUS_COLOR[status]
+export function StatusBadge({ status }: { status: SalesOrderStatus }) {
+  const s = SALES_ORDER_STATUS_COLOR[status]
   return (
     <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 9px', borderRadius: 20, background: s.bg, color: s.color }}>
-      {SALES_PO_STATUS_LABEL[status]}
+      {SALES_ORDER_STATUS_LABEL[status]}
     </span>
   )
 }

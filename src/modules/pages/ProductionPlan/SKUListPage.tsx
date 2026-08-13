@@ -27,7 +27,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const [deleteMode, setDeleteMode] = useState(false)
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showConfirm, setShowConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [search, setSearch] = useState('')
@@ -47,7 +47,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
       )
     : afterFilter
 
-  const toggleSelect = (id: number) =>
+  const toggleSelect = (id: string) =>
     setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   const toggleAll = () =>
     setSelectedIds(prev => prev.size === displayed.length ? new Set() : new Set(displayed.map(p => p.id)))

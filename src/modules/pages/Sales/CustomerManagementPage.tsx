@@ -2,17 +2,17 @@ import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { Plus, Pencil, Trash2, X } from 'lucide-react'
-import type { SalesCustomer, SalesPO } from '../../../types/sales'
+import type { SalesCustomer, SalesOrder } from '../../../types/sales'
 
 const EMPTY_FORM = { name: '', phone: '', email: '', address: '', note: '' }
 
 // Chỉ tính SKU đã hoàn thành — số lượng đang sản xuất/đang mua không tính vào đây
-const purchasedQty = (pos: SalesPO[]) =>
+const purchasedQty = (pos: SalesOrder[]) =>
   pos.reduce((sum, po) => sum + po.items.filter((it) => it.status === 'HOAN_THANH').reduce((s, it) => s + it.totalQty, 0), 0)
 
 export default function CustomerManagementPage() {
   const { data: customers, isLoading, error, refetch } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers())
-  const { data: pos } = useFetch<SalesPO[]>(() => api.getSalesPOs())
+  const { data: pos } = useFetch<SalesOrder[]>(() => api.getSalesOrders())
   const [modal, setModal] = useState<'new' | SalesCustomer | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
@@ -80,7 +80,7 @@ export default function CustomerManagementPage() {
                 <td style={{ padding: '10px 12px', fontSize: 13 }}>{c.email || '—'}</td>
                 <td style={{ padding: '10px 12px', fontSize: 13 }}>{c.address || '—'}</td>
                 <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600 }}>
-                  {purchasedQty((pos ?? []).filter((p) => p.customerId === c.id)).toLocaleString()}
+                  {purchasedQty((pos ?? []).filter((p) => p.customerId === String(c.id))).toLocaleString()}
                 </td>
                 <td style={{ padding: '10px 12px' }}>
                   <div style={{ display: 'flex', gap: 6 }}>
