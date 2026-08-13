@@ -1,13 +1,13 @@
 'use client'
-import { useMemo, useState } from 'react'
-import { Scissors, Info } from 'lucide-react'
+import { Fragment, useMemo, useState } from 'react'
+import * as XLSX from 'xlsx'
+import { Scissors, Info, ChevronDown, ChevronRight, FileSpreadsheet, X } from 'lucide-react'
 import { useFetch } from '../../../../hooks/useFetch'
 import SearchInput from '../../../../components/SearchInput'
 import FilterPills from '../../../../components/FilterPills'
 import EmptyState from '../../../../components/EmptyState'
 import LoadingState from '../../../../components/LoadingState'
 import Pagination from '../../../../components/Pagination'
-import Modal from '../../../../components/Modal'
 import ConfirmModal from '../../../../components/ConfirmModal'
 import { tableWrap, tbl, th, td, row, badge } from '../../../../styles/table'
 import {
@@ -16,13 +16,14 @@ import {
   retryCuttingProposal,
   type CuttingProposal,
   type CuttingProposalStatus,
+  type CuttingProposalLine,
 } from '../../../../services/cutting-proposals-api'
 
 const ACCENT = '#3949ab'
 
 const STATUS_LABELS: Record<CuttingProposalStatus, { label: string; bg: string; color: string }> = {
   CALCULATING: { label: 'Đang tính', bg: '#eceff1', color: '#546e7a' },
-  DRAFT: { label: 'Chờ duyệt', bg: '#fff3e0', color: '#e65100' },
+  DRAFT: { label: 'Đã tính', bg: '#e3f2fd', color: '#1565c0' },
   FAILED: { label: 'Lỗi', bg: '#ffebee', color: '#c62828' },
   APPROVED: { label: 'Đã duyệt', bg: '#e8f5e9', color: '#2e7d32' },
   SUPERSEDED: { label: 'Đã thay thế', bg: '#eceff1', color: '#78909c' },
@@ -31,6 +32,59 @@ const STATUS_LABELS: Record<CuttingProposalStatus, { label: string; bg: string; 
 const ALL_KEY = '__all__'
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString('vi-VN') : '—')
 const fmtPct = (n: number | null) => (n == null ? '—' : `${n.toFixed(2)}%`)
+
+interface CuttingGuideRow {
+  patternIndex: number
+  counts: number[]
+  barCount: number
+  wastePerBarMm: number | null
+  mauNguyenMm: number | null
+}
+
+/** Gộp bảng hướng dẫn cắt (1 vật tư) từ patterns[] - dùng chung cho hiển thị lẫn xuất Excel. */
+function buildCuttingGuideTable(line: CuttingProposalLine): { columns: number[]; rows: CuttingGuideRow[] } {
+  const patterns = line.patterns ?? []
+  const columnSet = new Set<number>()
+  for (const p of patterns) for (const s of p.segments) columnSet.add(s.cutLengthMm)
+  const columns = [...columnSet].sort((a, b) => b - a)
+  const rows: CuttingGuideRow[] = patterns.map(p => {
+    const bySize = new Map(p.segments.map(s => [s.cutLengthMm, s.countPerBar]))
+    return {
+      patternIndex: p.patternIndex,
+      counts: columns.map(c => bySize.get(c) ?? 0),
+      barCount: p.barCount,
+      wastePerBarMm: p.wastePerBarMm,
+      mauNguyenMm: p.mauNguyenMm,
+    }
+  })
+  return { columns, rows }
+}
+
+function exportCuttingGuideExcel(proposal: CuttingProposal, line: CuttingProposalLine) {
+  const { columns, rows } = buildCuttingGuideTable(line)
+  const header = ['Thanh (mm)', ...columns.map(c => `${c}mm`), 'Số cây', 'HH/cây (mm)', 'Ghi chú']
+  const dataRows = rows.map(r => [
+    line.bestStockLengthMm ?? '',
+    ...r.counts,
+    r.barCount,
+    r.wastePerBarMm ?? '',
+    r.mauNguyenMm && r.mauNguyenMm > 0 ? `Cắt dở - còn ${r.mauNguyenMm}mm để nguyên, nhập kho` : '',
+  ])
+  const sheetData = [
+    [`${line.materialCode} — ${line.materialName}`],
+    [`Mua ${line.bestStockLengthMm ?? '—'}mm × ${line.totalBars ?? '—'} cây, hao hụt ${fmtPct(line.wastePercentage)}`],
+    [`Tổng khúc thừa (phế liệu): ${line.totalWasteMm ?? 0} mm`],
+    [`Mẫu nguyên chưa cắt: ${line.mauNguyenMm ?? 0} mm`],
+    [],
+    header,
+    ...dataRows,
+  ]
+  const ws = XLSX.utils.aoa_to_sheet(sheetData)
+  const wb = XLSX.utils.book_new()
+  const sheetName = line.materialCode.replace(/[\\/*?[\]:]/g, '-').slice(0, 31) || 'VatTu'
+  XLSX.utils.book_append_sheet(wb, ws, sheetName)
+  XLSX.writeFile(wb, `Huong-dan-cat-${proposal.poNumber}-${line.materialCode}.xlsx`)
+}
 
 export default function CuttingProposalsPage() {
   const { data, isLoading, refetch } = useFetch(() => getCuttingProposals(), [])
@@ -44,6 +98,7 @@ export default function CuttingProposalsPage() {
   const [detailId, setDetailId] = useState<string | null>(null)
   const [detail, setDetail] = useState<CuttingProposal | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set())
 
   const [retryTarget, setRetryTarget] = useState<CuttingProposal | null>(null)
   const [busy, setBusy] = useState(false)
@@ -78,11 +133,21 @@ export default function CuttingProposalsPage() {
   const openDetail = async (id: string) => {
     setDetailId(id)
     setDetailLoading(true)
+    setExpandedLines(new Set())
     try {
       setDetail(await getCuttingProposal(id))
     } finally {
       setDetailLoading(false)
     }
+  }
+
+  const toggleLine = (materialId: string) => {
+    setExpandedLines(prev => {
+      const next = new Set(prev)
+      if (next.has(materialId)) next.delete(materialId)
+      else next.add(materialId)
+      return next
+    })
   }
 
   const doRetry = async () => {
@@ -174,14 +239,39 @@ export default function CuttingProposalsPage() {
         </div>
       )}
 
-      {/* Modal chi tiết - liệt kê từng vật tư (khả thi/không, lý do) */}
-      <Modal open={detailId !== null} onClose={() => { setDetailId(null); setDetail(null) }} maxWidth={640}>
-        <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Chi tiết đề xuất cắt sắt</h3>
-        {detail && (
-          <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
-            {detail.poNumber} — {detail.mfgProductCode}
-          </div>
-        )}
+      {/* Side panel chi tiết (thay modal giữa màn hình) - danh sách vẫn thấy được bên trái,
+          liệt kê từng vật tư (khả thi/không, lý do), mở rộng xem bảng hướng dẫn cắt. */}
+      {detailId !== null && (
+        <div
+          onClick={() => { setDetailId(null); setDetail(null) }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.35)', zIndex: 1000 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              position: 'fixed', top: 0, right: 0, height: '100vh', width: 'min(720px, 92vw)',
+              background: 'var(--surface)', boxShadow: '-8px 0 32px rgba(0,0,0,.18)',
+              display: 'flex', flexDirection: 'column',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '20px 24px 12px', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Chi tiết đề xuất cắt sắt</h3>
+                {detail && (
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>
+                    {detail.poNumber} — {detail.mfgProductCode}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => { setDetailId(null); setDetail(null) }}
+                aria-label="Đóng"
+                style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 4, color: 'var(--text3)' }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
         {detailLoading ? (
           <LoadingState />
         ) : detail?.errorMessage ? (
@@ -193,6 +283,7 @@ export default function CuttingProposalsPage() {
             <table style={tbl}>
               <thead>
                 <tr style={{ background: 'var(--surface2)' }}>
+                  <th style={th}></th>
                   <th style={th}>Vật tư</th>
                   <th style={th}>Khả thi</th>
                   <th style={{ ...th, textAlign: 'right' }}>Số cây</th>
@@ -201,26 +292,96 @@ export default function CuttingProposalsPage() {
                 </tr>
               </thead>
               <tbody>
-                {detail.lines.map(l => (
-                  <tr key={l.materialId} style={row}>
-                    <td style={td}>{l.materialCode} — {l.materialName}</td>
-                    <td style={td}>
-                      <span style={{ ...badge, background: l.feasible ? '#e8f5e9' : '#ffebee', color: l.feasible ? '#2e7d32' : '#c62828' }}>
-                        {l.feasible ? 'Khả thi' : 'Không khả thi'}
-                      </span>
-                    </td>
-                    <td style={{ ...td, textAlign: 'right' }}>{l.totalBars ?? '—'}</td>
-                    <td style={{ ...td, textAlign: 'right' }}>{fmtPct(l.wastePercentage)}</td>
-                    <td style={{ ...td, textAlign: 'right' }}>{l.bestStockLengthMm ? `${l.bestStockLengthMm}mm` : '—'}</td>
-                  </tr>
-                ))}
+                {detail.lines.map(l => {
+                  const hasGuide = l.patterns && l.patterns.length > 0
+                  const expanded = expandedLines.has(l.materialId)
+                  const guide = expanded && hasGuide ? buildCuttingGuideTable(l) : null
+                  return (
+                    <Fragment key={l.materialId}>
+                      <tr
+                        style={{ ...row, cursor: hasGuide ? 'pointer' : 'default' }}
+                        onClick={() => hasGuide && toggleLine(l.materialId)}
+                      >
+                        <td style={{ ...td, width: 24 }}>
+                          {hasGuide && (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
+                        </td>
+                        <td style={td}>{l.materialCode} — {l.materialName}</td>
+                        <td style={td}>
+                          <span style={{ ...badge, background: l.feasible ? '#e8f5e9' : '#ffebee', color: l.feasible ? '#2e7d32' : '#c62828' }}>
+                            {l.feasible ? 'Khả thi' : 'Không khả thi'}
+                          </span>
+                        </td>
+                        <td style={{ ...td, textAlign: 'right' }}>{l.totalBars ?? '—'}</td>
+                        <td style={{ ...td, textAlign: 'right' }}>{fmtPct(l.wastePercentage)}</td>
+                        <td style={{ ...td, textAlign: 'right' }}>{l.bestStockLengthMm ? `${l.bestStockLengthMm}mm` : '—'}</td>
+                      </tr>
+                      {guide && (
+                        <tr>
+                          <td colSpan={6} style={{ padding: '4px 12px 16px 32px', background: 'var(--surface2)' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                              <div style={{ fontSize: 12, color: 'var(--text3)' }}>
+                                Mẫu nguyên chưa cắt: {l.mauNguyenMm ?? 0}mm · Tổng khúc thừa (phế liệu): {l.totalWasteMm ?? 0}mm
+                              </div>
+                              <button
+                                onClick={e => { e.stopPropagation(); exportCuttingGuideExcel(detail, l) }}
+                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer' }}
+                              >
+                                <FileSpreadsheet size={13} /> Xuất Excel
+                              </button>
+                            </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                              {guide.rows.map(r => {
+                                const isRemnant = !!r.mauNguyenMm && r.mauNguyenMm > 0
+                                const chips = guide.columns
+                                  .map((c, i) => ({ size: c, count: r.counts[i] }))
+                                  .filter(c => c.count > 0)
+                                return (
+                                  <div
+                                    key={r.patternIndex}
+                                    style={{
+                                      border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px',
+                                      background: isRemnant ? '#fff8e1' : 'var(--surface)',
+                                    }}
+                                  >
+                                    <div style={{ fontSize: 12, marginBottom: 6 }}>
+                                      Thanh <b>{l.bestStockLengthMm ?? '—'}mm</b> × <b>{r.barCount} cây</b>
+                                      <span style={{ color: 'var(--text3)' }}> · hao hụt {r.wastePerBarMm ?? '—'}mm/cây</span>
+                                    </div>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                      {chips.map(c => (
+                                        <span
+                                          key={c.size}
+                                          style={{ fontSize: 12, padding: '3px 9px', borderRadius: 20, background: 'var(--surface2)', border: '1px solid var(--border)' }}
+                                        >
+                                          {c.size}mm ×{c.count}
+                                        </span>
+                                      ))}
+                                    </div>
+                                    {isRemnant && (
+                                      <div style={{ fontSize: 11, color: '#8d6e00', fontStyle: 'italic', marginTop: 6 }}>
+                                        ↳ Cây này cắt dở — còn {r.mauNguyenMm}mm để nguyên, nhập kho (cắt được cỡ bất kỳ sau này)
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         ) : (
           <div style={{ fontSize: 13, color: 'var(--text3)' }}>Chưa có dữ liệu (đang tính).</div>
         )}
-      </Modal>
+            </div>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         open={retryTarget !== null}

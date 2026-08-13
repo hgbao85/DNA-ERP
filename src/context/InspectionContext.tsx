@@ -196,7 +196,14 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     if (!token || user?.mfgRole) return
     fetchPurchaseProposals()
       .then(setProposals)
-      .catch(err => console.error('getPurchaseProposals failed', err))
+      .catch((err: unknown) => {
+        // 403 = vai này không có PURCHASE_PROPOSAL:VIEW (Phôi/Hàn/Sơn/KCS/SPEC... - xem
+        // role-permissions.constant.ts). Provider bọc TOÀN BỘ app nên request vẫn bắn cho mọi
+        // vai vừa đăng nhập; đây là kết quả ĐÚNG với các vai đó, không phải lỗi -> để danh sách
+        // rỗng, không log. Vẫn log mọi lỗi khác (mạng/500) để không giấu sự cố thật.
+        if ((err as { statusCode?: number })?.statusCode === 403) return
+        console.error('getPurchaseProposals failed', err)
+      })
     getInspectionRequests()
       .then(list => setRequests(list.map(toInspRequest)))
       .catch(err => console.error('getInspectionRequests failed', err))
