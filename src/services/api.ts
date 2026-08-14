@@ -65,9 +65,13 @@
  *    /material-issues?stage=X, không cần resolve PO) — xem comment đầu material-issues-api.ts.
  *
  * Mock tương ứng của các module trên đã bị xoá hẳn (không còn export trùng tên để "ghi đè").
- * Thực thi Phôi/Hàn/Sơn/KCS thật hiện chạy qua phoi-sat.service.ts/san-luong.service.ts/
- * phoi-lenh-sx.service.ts (mock riêng, mới hơn) - KHÔNG phải mfg.service.ts, vốn chỉ còn giữ vài
- * hàm còn dùng thật (getMfgWarehouses/Items cho VatTuDashboardPage, export-purposes,
+ * Thực thi Phôi/Hàn/Sơn/KCS thật (xuất/nhận sắt, KCS, báo sản lượng) đã cutover hết sang
+ * steel-issues-api.ts + production-batches-api.ts (XuatSatPage/LenhSanXuatPhoi/KcsPhoiPage/
+ * XacNhanSanLuongPage/KcsStagePage/sanxuat core.tsx) - dọn ngày 2026-08-14, xoá luôn
+ * phoi-lenh-sx.service.ts (không còn ai đọc `phoiRows`). phoi-sat.service.ts/san-luong.service.ts
+ * chỉ còn giữ vài hàm ĐỌC dùng cho các màn tổng hợp tồn kho (getDotXuatSat, getDoanTonKho,
+ * getSanLuongByStage — dùng bởi sanxuat/core.tsx và KhoPhoiPage.tsx). mfg.service.ts vốn chỉ còn
+ * giữ vài hàm còn dùng thật (getMfgWarehouses/Items cho VatTuDashboardPage, export-purposes,
  * getWeavingByPoint, uploadContractFile); phần machinery PI-stages/packaging/weaving-allocation/
  * spec-entry-proposal cũ trong đó là code chết (không trang nào gọi) đã dọn ngày 2026-08-07.
  * Phân bổ đan, đề xuất mua hàng, notifications CRUD, audit log, system stats, stock-ledger/

@@ -1,10 +1,10 @@
 /**
- * Mock API "Báo sản lượng Hàn/Sơn → KCS duyệt" — ĐÓNG VAI BE, dùng chung giữa:
- *  - Lệnh SX Hàn/Sơn: công nhân báo sản lượng → tạo lô CHO_KCS (CHƯA tính done).
- *  - KCS Hàn/Sơn: duyệt → DA_CAT; chỉ phần ĐẠT mới tính "đã hàn/đã sơn" (done).
- *  - Kho đầu ra (Khung hàn / Mảnh chờ đan) đọc DA_CAT — nối sau.
+ * Mock "Báo sản lượng Hàn/Sơn → KCS duyệt" — CHỈ còn phần đọc (getSanLuongByStage), dùng bởi
+ * KhoPhoiPage.tsx để tra "đã hàn" (tồn Khung hàn chờ đan). Nghiệp vụ báo sản lượng/KCS duyệt thật
+ * đã cutover sang production-batches-api.ts (KcsStagePage.tsx/sanxuat/core.tsx::TwoTierScreen) —
+ * các hàm mock tương ứng (baoSanLuong/kcsDuyetStage/getSanLuongChoKcsStage/getDeXuatCapLaiStage)
+ * đã xoá vì không còn trang nào gọi. `batches` dưới đây vì vậy chỉ còn là dữ liệu seed tĩnh.
  * Persist localStorage để sống qua logout/login & reload (giống phoi-sat.service).
- * Xem docs/kcs — cùng khuôn với công đoạn Phôi.
  */
 import { mockDelay } from '../core/delay';
 
@@ -29,25 +29,11 @@ export interface SanLuongBatch {
   reworkOf?: string;
 }
 
-export interface SlCapLaiItem {
-  id: string; stage: SanLuongStage; poNumber: string; sku: string;
-  lineId: number; itemName: string; qty: number; reason?: string; at: string;
-}
-
-const now = () => new Date().toISOString().slice(0, 16).replace('T', ' ');
-
 // ── Persist localStorage (đổi *_v* khi sửa seed để ép nạp lại) ──────
 const LS_BATCHES = 'san_luong_hs_v3';
-const LS_CAPLAI = 'san_luong_hs_caplai_v3';
 function loadJSON<T>(key: string, fb: () => T): T {
   try { const r = localStorage.getItem(key); if (r) return JSON.parse(r) as T; } catch { /* SSR / quota */ }
   return fb();
-}
-function saveJSON(key: string, v: unknown) {
-  try {
-    localStorage.setItem(key, JSON.stringify(v));
-    window.dispatchEvent(new Event('mock-data-changed')); // báo realtime cùng tab
-  } catch { /* SSR / quota */ }
 }
 
 function seed(): SanLuongBatch[] {
@@ -65,72 +51,10 @@ function seed(): SanLuongBatch[] {
   ];
 }
 
-let batches: SanLuongBatch[] = loadJSON(LS_BATCHES, seed);
-const persist = () => saveJSON(LS_BATCHES, batches);
-const capLai: SlCapLaiItem[] = loadJSON(LS_CAPLAI, () => [] as SlCapLaiItem[]);
-const persistCapLai = () => saveJSON(LS_CAPLAI, capLai);
+const batches: SanLuongBatch[] = loadJSON(LS_BATCHES, seed);
 
 // ── API ─────────────────────────────────────────────────────────────
 export async function getSanLuongByStage(stage: SanLuongStage): Promise<SanLuongBatch[]> {
   await mockDelay();
   return batches.filter((b) => b.stage === stage).map((b) => ({ ...b }));
-}
-
-export async function getSanLuongChoKcsStage(stage: SanLuongStage): Promise<SanLuongBatch[]> {
-  await mockDelay();
-  return batches.filter((b) => b.stage === stage && b.status === 'CHO_KCS').map((b) => ({ ...b }));
-}
-
-export interface BaoSanLuongInput { poNumber: string; sku: string; lineId: number; itemName: string; spec: string; qty: number; }
-
-// Công nhân báo sản lượng → tạo lô CHỜ KCS (chưa tính done).
-export async function baoSanLuong(stage: SanLuongStage, i: BaoSanLuongInput) {
-  await mockDelay();
-  const qty = Math.floor(i.qty);
-  if (qty <= 0) return null;
-  const b: SanLuongBatch = {
-    id: `${stage.toLowerCase()}${Date.now()}`,
-    stage, poNumber: i.poNumber, sku: i.sku, lineId: i.lineId,
-    itemName: i.itemName, spec: i.spec, qty, reportedAt: now(), status: 'CHO_KCS',
-  };
-  batches.push(b); persist();
-  return { ...b };
-}
-
-export interface SlKcsPayload { failedQty: number; scrapQty?: number; reason?: string; }
-
-// KCS duyệt 1 lô CHỜ KCS → DA_CAT (chỉ phần ĐẠT tính done + chảy xuống công đoạn sau).
-//  - Sửa được (REWORK): phần fail KHÔNG tính done → tự hiện lại ở "còn lại", công nhân
-//    sửa rồi báo lại (không cần lô mới).
-//  - Phế (SCRAP): ghi "đề xuất cấp lại" bán thành phẩm từ công đoạn trước.
-export async function kcsDuyetStage(stage: SanLuongStage, id: string, p: SlKcsPayload) {
-  await mockDelay();
-  const b = batches.find((x) => x.id === id && x.stage === stage);
-  if (!b || b.status !== 'CHO_KCS') return { ok: false as const };
-
-  const failed = Math.max(0, Math.min(b.qty, Math.floor(p.failedQty || 0)));
-  const scrap = Math.max(0, Math.min(failed, Math.floor(p.scrapQty || 0)));
-  const rework = failed - scrap;  // sửa được: không tính done → tự hiện lại ở "còn lại"
-  const passed = b.qty - failed;
-  b.status = 'DA_CAT';
-  b.qty = passed;                 // done chỉ tính phần đạt
-  b.kcsFailedQty = failed;
-  b.kcsScrapQty = scrap;
-  b.kcsReason = p.reason;
-  b.kcsAt = now();
-
-  if (scrap > 0) {
-    capLai.push({
-      id: 'cl' + Date.now(), stage, poNumber: b.poNumber, sku: b.sku,
-      lineId: b.lineId, itemName: b.itemName, qty: scrap, reason: p.reason, at: now(),
-    });
-    persistCapLai();
-  }
-  persist();
-  return { ok: true as const, passed, failed, rework, scrap };
-}
-
-export async function getDeXuatCapLaiStage(stage: SanLuongStage): Promise<SlCapLaiItem[]> {
-  await mockDelay();
-  return capLai.filter((x) => x.stage === stage).map((x) => ({ ...x }));
 }

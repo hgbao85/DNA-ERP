@@ -5,7 +5,6 @@
 export * from './mfg.service';
 export * from './manh.service';
 export * from './phoi-sat.service';
-export * from './phoi-lenh-sx.service';
 export * from './san-luong.service';
 export * from './audit-log.service';
 export * from './system.service';

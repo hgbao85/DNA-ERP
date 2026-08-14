@@ -11,7 +11,5 @@ class NotificationsService extends BaseService<Notification> {
 
 const notificationsSvc = new NotificationsService();
 
-export const getNotifications = () => notificationsSvc.getAll();
-export const createNotification = (data: Record<string, unknown>) => notificationsSvc.create(data);
 export const updateNotification = (id: number | string, data: Record<string, unknown>) => notificationsSvc.update(id, data);
 export const deleteNotification = (id: number | string) => notificationsSvc.remove(id);
