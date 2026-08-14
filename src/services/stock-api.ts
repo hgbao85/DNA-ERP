@@ -14,6 +14,8 @@ export interface BeStockQuant {
   warehouseCode: string;
   materialId: string | null;
   materialCode: string | null;
+  segmentSpecId: string | null;
+  segmentSpecLabel: string | null;
   qty: number;
   updatedAt: string;
 }
@@ -26,13 +28,15 @@ export interface BeStockLedgerEntry {
   toWarehouseCode: string;
   materialId: string | null;
   materialCode: string | null;
+  segmentSpecId: string | null;
+  segmentSpecLabel: string | null;
   qty: number;
   refType: string;
   note: string | null;
   createdAt: string;
 }
 
-export async function getStockQuants(params?: { warehouseId?: string }): Promise<BeStockQuant[]> {
+export async function getStockQuants(params?: { warehouseId?: string; segmentSpecId?: string }): Promise<BeStockQuant[]> {
   return http.get<BeStockQuant[]>('/stock-quant', { params });
 }
 
@@ -43,10 +47,13 @@ export async function getStockLedger(params: { warehouseId: string; limit?: numb
   return Array.isArray(res) ? res : res.data;
 }
 
+/** materialId/segmentSpecId - đúng 1 trong 2 phải có giá trị (khớp ràng buộc XOR của
+ *  CreateStockAdjustmentDto ở BE - segmentSpecId dùng cho "Kho phôi", xem docs/quy-doi-doan-phoi.md). */
 export async function adjustStock(input: {
   fromWarehouseId: string;
   toWarehouseId: string;
-  materialId: string;
+  materialId?: string;
+  segmentSpecId?: string;
   qty: number;
   note?: string;
 }): Promise<BeStockLedgerEntry> {

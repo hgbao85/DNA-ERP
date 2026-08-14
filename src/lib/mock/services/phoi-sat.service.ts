@@ -1,12 +1,13 @@
 /**
- * Mock "Kho xuất sắt → Phôi nhận sắt" — CHỈ còn phần đọc tồn/đợt xuất sắt cũ (getDotXuatSat,
- * dùng bởi sanxuat/core.tsx; getDoanTonKho, dùng bởi KhoPhoiPage.tsx để tra "tồn đoạn sẵn sàng
- * cho Hàn"). Toàn bộ nghiệp vụ xuất/nhận/KCS/kế hoạch xuất sắt đã cutover sang steel-issues-api.ts
- * thật (XuatSatPage/LenhSanXuatPhoi/KcsPhoiPage/XacNhanSanLuongPage) — các hàm mock tương ứng
- * (xuatSatChoPhoi/huyXuatDot/capLaiSatChoPhoi/xacNhanCatXong/kcsDuyetPhoi/getKeHoachXuatSat/
- * getSanLuongChoKcs/getKcsIssues/getDeXuatCapLaiSat/syncDinhMucSatVaoKeHoach) đã xoá vì không còn
- * trang nào gọi. `issues` dưới đây vì vậy chỉ còn là dữ liệu seed tĩnh (không còn hàm nào ghi mới).
- * Xem docs/quy-doi-doan-phoi.md.
+ * Mock "Kho xuất sắt → Phôi nhận sắt" — CHỈ còn phần đọc đợt xuất sắt cũ (getDotXuatSat, dùng bởi
+ * sanxuat/core.tsx cho tính năng "xem thanh sắt cấu thành"). Toàn bộ nghiệp vụ xuất/nhận/KCS/kế
+ * hoạch xuất sắt đã cutover sang steel-issues-api.ts thật (XuatSatPage/LenhSanXuatPhoi/
+ * KcsPhoiPage/XacNhanSanLuongPage) — các hàm mock tương ứng (xuatSatChoPhoi/huyXuatDot/
+ * capLaiSatChoPhoi/xacNhanCatXong/kcsDuyetPhoi/getKeHoachXuatSat/getSanLuongChoKcs/getKcsIssues/
+ * getDeXuatCapLaiSat/syncDinhMucSatVaoKeHoach) đã xoá vì không còn trang nào gọi. `issues` dưới
+ * đây vì vậy chỉ còn là dữ liệu seed tĩnh (không còn hàm nào ghi mới). getDoanTonKho/DoanTon (tồn
+ * đoạn "quy đổi" từ tỷ lệ KCS) đã xoá 2026-08-14 — KhoPhoiPage.tsx chuyển sang đọc tồn đoạn THẬT
+ * qua GET /stock-quant, xem docs/quy-doi-doan-phoi.md.
  */
 import { mockDelay } from '../core/delay';
 import {
@@ -133,27 +134,4 @@ export async function getDotXuatSat(poNumber?: string): Promise<SatIssueView[]> 
   await mockDelay();
   const src = poNumber ? issues.filter((i) => i.poNumber === poNumber) : issues;
   return src.map(enrich);
-}
-
-// Tồn ĐOẠN sẵn sàng cho Hàn = đoạn từ các đợt Phôi ĐÃ KCS ĐẠT (DA_CAT), quy đổi
-// cây→đoạn (quyDoiDoan) rồi nhân tỷ lệ KCS đạt. Khóa theo (PO, loại sắt, quy cách, chiều dài).
-export interface DoanTon { poNumber: string; loaiSat: string; quyCach: string; len: number; soDoan: number }
-export async function getDoanTonKho(poNumber?: string): Promise<DoanTon[]> {
-  await mockDelay();
-  const acc = new Map<string, DoanTon>();
-  for (const i of issues) {
-    if (i.status !== 'DA_CAT') continue;               // chỉ tính đợt KCS đã duyệt PASS
-    if (poNumber && i.poNumber !== poNumber) continue;
-    const total = tongCay(i.bundles);
-    const ratio = total > 0 ? (i.soCayThuc ?? total) / total : 0; // phần KCS đạt / tổng cắt
-    for (const d of quyDoiDoan(i.bundles)) {
-      const soDoan = Math.floor(d.count * ratio);
-      if (soDoan <= 0) continue;
-      const key = `${i.poNumber}|${i.loaiSat}|${i.quyCach}|${d.len}`;
-      const ex = acc.get(key);
-      if (ex) ex.soDoan += soDoan;
-      else acc.set(key, { poNumber: i.poNumber, loaiSat: i.loaiSat, quyCach: i.quyCach, len: d.len, soDoan });
-    }
-  }
-  return [...acc.values()];
 }

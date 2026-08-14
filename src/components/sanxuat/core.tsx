@@ -15,8 +15,8 @@ import { ChevronRight, ChevronDown, Clock, AlertTriangle, Plus, CalendarClock, L
 import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
 import { useFetch } from '../../hooks/useFetch'
 import * as api from '../../services/api'
-import type { SatIssueView, SanLuongStage } from '../../services/api'
-import type { BeProductionOrderSummary } from '../../services/production-batches-api'
+import type { SatIssueView } from '../../services/api'
+import type { BeProductionOrderSummary, ProductionBatchStage as SanLuongStage } from '../../services/production-batches-api'
 
 const ACCENT = '#e65100'
 const REMIND_MINUTES = 60

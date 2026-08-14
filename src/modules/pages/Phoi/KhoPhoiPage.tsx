@@ -3,21 +3,22 @@
 /**
  * Kho phôi (Phôi) — mục sidebar dưới "Lịch sử nhận sắt", READ-ONLY.
  *
- * Lưu trữ số sắt tổ Phôi đã gia công (cắt) & được KCS duyệt đạt, cùng đoạn sắt cắt thừa.
- * DỮ LIỆU DERIVE TỪ LUỒNG THẬT (không hard-code):
- *   Kho xuất → Phôi cắt → KCS đạt (getDoanTonKho) → Hàn tiêu hao (san-luong HAN).
- *   - "Đã KCS duyệt"  = đoạn tồn còn phục vụ phần Hàn chưa xong (chờ chuyển Hàn).
- *   - "Đoạn thừa"     = đoạn tồn không chi tiết nào còn dùng (đầu mẩu 200mm / chi tiết đã hàn đủ).
- * Xem computeDoanKho (lib/mock/phan-loai-doan-sat) — cùng công thức "thực có" bên màn Hàn.
+ * Tồn ĐOẠN sắt thật (StockQuant.segmentSpecId, kho vật lý "phoi-son-han") - thủ kho tự đếm và tự
+ * nhập qua "Sửa nhanh tồn kho" (POST /stock-ledger/adjust, MfgWarehousesPage.tsx), KHÔNG tự động
+ * tính từ CuttingProposalPattern/tỷ lệ KCS đạt như bản mock cũ (quyết định nghiệp vụ 2026-08-14,
+ * xem docs/quy-doi-doan-phoi.md). Hàn báo sản lượng sẽ tự động trừ tồn này
+ * (ProductionBatchesService, refType SEGMENT_CONSUME).
+ *
+ * 2 tab dựa theo quy ước cutLengthMm=0 = "đầu mẩu" (SegmentSpec riêng KHSX khai cho mỗi material
+ * sắt, không gắn 1 chiều dài BOM cụ thể) - xem docs/quy-doi-doan-phoi.md mục "Bước 1"/"Bước 4".
+ * segmentSpecLabel BE trả dạng "{materialCode} @ {cutLengthMm}mm" (StockQuantService), parse lại
+ * chiều dài từ đó thay vì gọi thêm segment-specs API.
  */
-
 import { useMemo, useState } from 'react'
 import { Warehouse, Check, Scissors } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import type { DoanTon, SanLuongBatch } from '../../../services/api'
-import { computeDoanKho, type DoanKhoRow } from '../../../lib/mock/phan-loai-doan-sat'
-import { hanSeed } from '../Han/LenhSanXuatHan'
+import type { BeStockQuant } from '../../../services/stock-api'
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -27,19 +28,49 @@ const card: React.CSSProperties = { background: 'var(--surface)', border: '1px s
 
 type Tab = 'duyet' | 'thua'
 
-const tenVatLieu = (r: DoanKhoRow, thua: boolean) =>
-  `${r.loaiSat} ${r.quyCach} — đoạn ${thua ? 'thừa ' : ''}${r.len}mm`
+/// Kho vật lý duy nhất chứa tồn đoạn thật - cùng STEEL_WAREHOUSE_CODE ở
+/// production-batches.service.ts (BE). GET /stock-quant trả về mọi kho (kể cả kho ảo "PRODUCTION"
+/// dùng làm điểm đến khi Hàn tiêu hao) nên phải lọc đúng warehouseCode ở đây, không hiện nhầm số
+/// đã tiêu hao (tăng dần, không phải tồn thật).
+const STEEL_WAREHOUSE_CODE = 'phoi-son-han'
+
+interface DoanRow {
+  key: string
+  materialCode: string
+  cutLengthMm: number
+  soDoan: number
+}
+
+/** Parse "{materialCode} @ {cutLengthMm}mm" (StockQuantService.toResponseDto ở BE). */
+function parseSegmentLabel(label: string): { materialCode: string; cutLengthMm: number } | null {
+  const m = /^(.+) @ (\d+)mm$/.exec(label)
+  if (!m) return null
+  return { materialCode: m[1], cutLengthMm: Number(m[2]) }
+}
+
+function toRows(quants: BeStockQuant[]): { duyet: DoanRow[]; thua: DoanRow[] } {
+  const duyet: DoanRow[] = []
+  const thua: DoanRow[] = []
+  for (const q of quants) {
+    if (q.warehouseCode !== STEEL_WAREHOUSE_CODE || !q.segmentSpecId || !q.segmentSpecLabel) continue
+    const parsed = parseSegmentLabel(q.segmentSpecLabel)
+    if (!parsed || q.qty <= 0) continue
+    const row: DoanRow = { key: q.segmentSpecId, materialCode: parsed.materialCode, cutLengthMm: parsed.cutLengthMm, soDoan: q.qty }
+    if (parsed.cutLengthMm === 0) thua.push(row)
+    else duyet.push(row)
+  }
+  const byLen = (a: DoanRow, b: DoanRow) => a.materialCode.localeCompare(b.materialCode) || b.cutLengthMm - a.cutLengthMm
+  return { duyet: duyet.sort(byLen), thua: thua.sort(byLen) }
+}
+
+const tenVatLieu = (r: DoanRow) => `${r.materialCode} — đoạn ${r.cutLengthMm > 0 ? `${r.cutLengthMm}mm` : 'thừa (đầu mẩu)'}`
 
 export default function KhoPhoiPage() {
   const [tab, setTab] = useState<Tab>('duyet')
 
-  const { data: doanTon } = useFetch<DoanTon[]>(() => api.getDoanTonKho(), [])
-  const { data: batches } = useFetch<SanLuongBatch[]>(() => api.getSanLuongByStage('HAN'), [])
+  const { data: quants } = useFetch<BeStockQuant[]>(() => api.getStockQuants(), [])
 
-  const { duyet, thua } = useMemo(
-    () => computeDoanKho(hanSeed(), batches ?? [], doanTon ?? []),
-    [batches, doanTon],
-  )
+  const { duyet, thua } = useMemo(() => toRows(quants ?? []), [quants])
 
   const tongDuyet = useMemo(() => duyet.reduce((s, i) => s + i.soDoan, 0), [duyet])
   const tongThua = useMemo(() => thua.reduce((s, i) => s + i.soDoan, 0), [thua])
@@ -52,13 +83,13 @@ export default function KhoPhoiPage() {
         <Warehouse size={20} /> Kho phôi
       </h2>
       <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>
-        Đoạn sắt tổ Phôi đã gia công & KCS duyệt đạt — <b>Cần</b> còn chờ chuyển Hàn, phần <b>Thừa</b> (đầu mẩu / dôi ra) chờ xử lý.
+        Đoạn sắt tồn thật tại kho <b>phoi-son-han</b> (thủ kho tự đếm & nhập) — <b>Cần</b> là đoạn khớp định mức chờ chuyển Hàn, <b>Thừa</b> là đầu mẩu chờ xử lý.
       </div>
 
       {/* Tab switch */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
         <TabBtn active={tab === 'duyet'} onClick={() => setTab('duyet')} icon={<Check size={15} />}
-          label="Đã KCS duyệt (chờ chuyển Hàn)" badge={tongDuyet} />
+          label="Đoạn chuẩn (chờ chuyển Hàn)" badge={tongDuyet} />
         <TabBtn active={tab === 'thua'} onClick={() => setTab('thua')} icon={<Scissors size={15} />}
           label="Đoạn thừa (chờ xử lý)" badge={tongThua} />
       </div>
@@ -83,7 +114,7 @@ function TabBtn({ active, onClick, icon, label, badge }: { active: boolean; onCl
 }
 
 // ── Bảng 3 cột: Tên vật liệu · Số lượng · ĐVT ────────────────
-function KhoTable({ rows, thua, qtyColor }: { rows: DoanKhoRow[]; thua: boolean; qtyColor: string }) {
+function KhoTable({ rows, thua, qtyColor }: { rows: DoanRow[]; thua: boolean; qtyColor: string }) {
   return (
     <div style={card}>
       <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: 480 }}>
@@ -98,7 +129,7 @@ function KhoTable({ rows, thua, qtyColor }: { rows: DoanKhoRow[]; thua: boolean;
         <tbody>
           {rows.map(r => (
             <tr key={r.key} style={{ borderTop: '1px solid var(--border)' }}>
-              <td style={{ ...td, fontWeight: 600 }}>{tenVatLieu(r, thua)}</td>
+              <td style={{ ...td, fontWeight: 600 }}>{tenVatLieu(r)}</td>
               <td style={{ ...tdR, fontWeight: 700, color: qtyColor }}>{r.soDoan.toLocaleString('vi-VN')}</td>
               <td style={{ ...td, color: 'var(--text3)' }}>cái</td>
             </tr>
