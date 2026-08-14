@@ -101,7 +101,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
         {activePage === 'vattu'      && <VatTuDashboardPage />}
         {activePage === 'kiem-tra-vt' && <KiemTraVatTuPage />}
         {activePage === 'lenh-sx'    && <LenhSXPage />}
-        {activePage === 'gom-cat'    && <GomDotCatPage />}
+        {activePage === 'gom-cat'    && <GomDotCatPage onDone={() => setActivePage('lenh-sx')} />}
         {activePage === 'warehouses' && <MfgWarehousesPage />}
       </div>
     </div>

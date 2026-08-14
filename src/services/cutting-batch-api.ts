@@ -83,6 +83,8 @@ export interface CuttingBatchCandidate {
   productionInvoiceCode: string;
   deadline: string | null;
   prodApprovalStatus: ProdApprovalStatus | null;
+  /** Lý do bị từ chối lần gần nhất - SKU quay lại bảng này sau khi Sếp bác một đợt gộp. */
+  rejectReason: string | null;
   materials: CandidateMaterial[];
   /** false = sản phẩm chưa có định mức ACTIVE nên không tính được gì cho SKU này. */
   hasActiveBom: boolean;
@@ -125,4 +127,19 @@ export async function previewCuttingBatch(
   productionInvoiceItemIds: string[],
 ): Promise<CuttingBatchPreview> {
   return http.post<CuttingBatchPreview>('/cutting-batch-preview', { productionInvoiceItemIds });
+}
+
+/**
+ * CHỐT nhóm: gộp các SKU đã tick thành 1 lệnh sản xuất (PI) để cắt chung một đợt. Khác 2 hàm trên
+ * - đây là thao tác GHI: tạo PI mới và chuyển các SKU sang đó.
+ *
+ * KHÔNG chạy solver ở bước này. Phương án cắt chỉ tính khi Sếp duyệt cả cụm, đúng luồng duyệt sẵn
+ * có (yêu cầu Sếp 2026-08-14) - gộp xong PI đi tiếp qua màn "Lệnh sản xuất mới" như bình thường.
+ */
+export async function mergeCuttingBatch(
+  productionInvoiceItemIds: string[],
+): Promise<{ id: string; code: string }> {
+  return http.post<{ id: string; code: string }>('/production-invoices/merge', {
+    productionInvoiceItemIds,
+  });
 }

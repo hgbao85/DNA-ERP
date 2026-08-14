@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
@@ -6,9 +6,29 @@ import { errMsg } from '../../../utils/errors'
 import { StatusBadge } from '../Sales/StatusBadge'
 import type { SalesOrderStatus } from '../../../types/sales'
 import { format } from 'date-fns'
-import { AlertCircle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse } from 'lucide-react'
+import { AlertCircle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2 } from 'lucide-react'
 import SearchableSelect from '../../../components/SearchableSelect'
 import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
+
+/**
+ * "Đang tính phương án cắt... (đã chạy X phút)" - thời gian solve dao động rất lớn (đo thật:
+ * 4,7 phút -> hơn 15 phút tuỳ vật tư), không hiện gì thì Sếp/KHSX/QLSX duyệt xong không biết đang
+ * chờ hay đã xong. Tự đếm phút bằng interval riêng (không phụ thuộc refetch cha) để số luôn đúng
+ * dù danh sách PI có tự làm mới hay không.
+ */
+function CalculatingBadge({ requestedAt }: { requestedAt: string }) {
+  const [, forceTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => forceTick((n) => n + 1), 15000)
+    return () => clearInterval(id)
+  }, [])
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(requestedAt).getTime()) / 60000))
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#1d4ed8', background:'#dbeafe', padding:'2px 8px', borderRadius:10 }}>
+      <Loader2 size={10} className="spin" /> Đang tính phương án cắt... (đã chạy {minutes} phút)
+    </span>
+  )
+}
 
 export default function LenhSXPage() {
   const { user, isBoss } = useAuth()
@@ -39,9 +59,23 @@ export default function LenhSXPage() {
     () => api.getProductionInvoices(),
     []
   )
+  // Tự làm mới danh sách trong lúc có SKU đang CALCULATING - KHSX/Sếp không phải tự bấm F5 để biết
+  // solver đã trả lời chưa. Dừng poll ngay khi không còn SKU nào đang tính (đỡ tốn request vô ích).
+  const hasCalculating = (Array.isArray(pis) ? pis : []).some((p: any) =>
+    (Array.isArray(p.items) ? p.items : []).some((it: any) => it.cuttingProposalStatus === 'CALCULATING'),
+  )
+  useEffect(() => {
+    if (!hasCalculating) return
+    const id = setInterval(refetch, 20000)
+    return () => clearInterval(id)
+  }, [hasCalculating, refetch])
   const hasItemWithStatus = (p: any, status: string) => (Array.isArray(p.items) ? p.items : []).some((it: any) => it.prodApproval?.status === status)
+  const hasCalculatingItem = (p: any) => (Array.isArray(p.items) ? p.items : []).some((it: any) => it.cuttingProposalStatus === 'CALCULATING')
   // Boss/QLSX chỉ cần thấy PO có SKU đang chờ mình xử lý — không quan tâm PO chưa gửi/đã xử lý xong.
-  const safeList = (Array.isArray(pis) ? pis : []).filter((p: any) => p.status === 'PLANNING' && (
+  // NGOẠI LỆ: duyệt xong PI chuyển PRODUCING NGAY (trước khi solver chạy xong) nên bị lọc mất khỏi
+  // danh sách đúng lúc cần xem "đang tính" nhất - vẫn cho KHSX bấm vào xem PI đó CHỪNG NÀO còn SKU
+  // CALCULATING; tự rớt khỏi danh sách lại khi solver trả lời (DRAFT/FAILED/APPROVED).
+  const safeList = (Array.isArray(pis) ? pis : []).filter((p: any) => (p.status === 'PLANNING' || hasCalculatingItem(p)) && (
     isBoss ? hasItemWithStatus(p, 'WAITING_BOSS') : isQlsx ? hasItemWithStatus(p, 'WAITING_QLSX') : true
   ))
   const filteredList = search.trim()
@@ -109,13 +143,19 @@ export default function LenhSXPage() {
   }
 
   // Sếp duyệt 1 SKU đang chờ — SKU đó mới thực sự bắt đầu sản xuất (hiện ở "Lệnh kiểm tra vật tư").
+  // Đợt gộp (pi.isMerged) duyệt CẢ CỤM một lần: các SKU trong đó nằm chung một cây sắt nên duyệt
+  // lẻ là vô nghĩa — BE cũng chỉ chạy solver một lần cho cả nhóm ở đường này.
   const handleApproveItem = async (pi: any, idx: number) => {
     const items: any[] = pi.items ?? []
     const item = items[idx]
-    if (!item) return
+    if (!item && !pi.isMerged) return
     setApprovingKey(`${pi.id}-${idx}`)
     try {
-      await api.approveItemByBoss(pi.id, item.id, user?.name)
+      if (pi.isMerged) {
+        await api.approveBatchByBoss(pi.id)
+      } else {
+        await api.approveItemByBoss(pi.id, item.id, user?.name)
+      }
       refetch()
       setApproveTarget(null)
     } catch (e: any) {
@@ -132,12 +172,17 @@ export default function LenhSXPage() {
     if (!reason) { alert('Vui lòng nhập lý do từ chối'); return }
     const { pi, idx } = rejectTarget
     const item = (pi.items ?? [])[idx]
-    if (!item) return
+    if (!item && !pi.isMerged) return
     setRejecting(true)
     try {
+      // Từ chối đợt gộp = XOÁ cả đợt: các SKU quay về đơn hàng gốc kèm lý do và xuất hiện lại ở
+      // màn "Tối ưu cắt sắt" để KHSX gộp tổ hợp khác (yêu cầu Sếp 2026-08-14).
+      if (isBoss && pi.isMerged) {
+        await api.rejectBatchByBoss(pi.id, reason)
+      }
       // isBoss từ chối ở WAITING_BOSS, QLSX từ chối ở WAITING_QLSX — BE tách quyền theo 2
       // endpoint riêng (mfgRole khác role), chọn đúng theo trạng thái hiện tại của item.
-      if (item.prodApproval?.status === 'WAITING_QLSX') {
+      else if (item.prodApproval?.status === 'WAITING_QLSX') {
         await api.rejectProdItemByQlsx(pi.id, item.id, reason, user?.name)
       } else {
         await api.rejectProdItem(pi.id, item.id, reason, user?.name)
@@ -297,12 +342,36 @@ export default function LenhSXPage() {
               )
               const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
               const busy = approvingKey === `${pi.id}-${idx}`
+              // Đợt gộp: quyết định thuộc về CẢ CỤM, nên chỉ dòng ĐẦU của cụm mới có nút. Rải nút
+              // trên từng dòng sẽ khiến Sếp tưởng duyệt được lẻ từng SKU (thực tế bấm dòng nào cũng
+              // duyệt cả cụm) - hiểu nhầm nguy hiểm hơn hẳn việc phải nhìn kỹ hơn một chút.
+              const isFirstOfMergedPi =
+                pi.isMerged && flatRows.findIndex((r: any) => r.pi.id === pi.id) === i
+              const mergedSkuCount = pi.isMerged
+                ? flatRows.filter((r: any) => r.pi.id === pi.id).length
+                : 0
               return (
                 <div key={`${pi.id}-${idx}`} style={{ display:'grid', gridTemplateColumns:'100px 1fr 95px 95px 95px 95px 100px 200px', padding:'12px 18px', alignItems:'center', borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
-                  <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1' }}>{getDisplayCode(pi)}</span>
+                  <div>
+                    {/* PI gộp không thuộc đơn hàng nào - mã PO phải đọc từ CHÍNH SKU (mỗi SKU giữ
+                        đơn gốc riêng), rồi ghi thêm mã đợt gộp để Sếp biết nó đi theo cụm nào. */}
+                    <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1' }}>
+                      {item.salesOrderCode ?? getDisplayCode(pi)}
+                    </span>
+                    {pi.isMerged && (
+                      <div style={{ fontSize:10, color:'#7c3aed', fontWeight:700, marginTop:2 }}>
+                        {pi.code}
+                      </div>
+                    )}
+                  </div>
                   <div>
                     <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                       <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14 }}>{code}</span>
+                      {pi.isMerged && (
+                        <span style={{ fontSize:10, fontWeight:700, padding:'1px 7px', borderRadius:20, background:'#f3e8ff', color:'#6b21a8' }}>
+                          ĐỢT GỘP
+                        </span>
+                      )}
                       {item.status && <StatusBadge status={item.status as SalesOrderStatus} />}
                     </div>
                     {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
@@ -327,15 +396,19 @@ export default function LenhSXPage() {
                     {!iDelivery && <div style={{ fontSize:10, color:'var(--text3)' }}>từ PO</div>}
                   </div>
                   <div style={{ display:'flex', gap:8, justifyContent:'center', flexWrap:'wrap' }}>
-                    {isBoss ? (
+                    {isBoss && pi.isMerged && !isFirstOfMergedPi ? (
+                      <span style={{ fontSize:11, color:'var(--text3)', fontStyle:'italic' }}>
+                        cùng {pi.code}
+                      </span>
+                    ) : isBoss ? (
                       <>
                         <button onClick={() => setApproveTarget({ pi, idx })} disabled={busy}
                           style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor: busy ? 'not-allowed' : 'pointer', color:'#fff', opacity: busy ? 0.7 : 1 }}>
-                          <ThumbsUp size={12}/> {busy ? 'Đang duyệt...' : 'Duyệt'}
+                          <ThumbsUp size={12}/> {busy ? 'Đang duyệt...' : pi.isMerged ? `Duyệt cả đợt (${mergedSkuCount} SKU)` : 'Duyệt'}
                         </button>
                         <button onClick={() => { setRejectTarget({ pi, idx }); setRejectReason('') }} disabled={busy}
                           style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'transparent', border:'1px solid #fca5a5', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', color:'#b91c1c' }}>
-                          <ThumbsDown size={12}/> Từ chối
+                          <ThumbsDown size={12}/> {pi.isMerged ? 'Từ chối cả đợt' : 'Từ chối'}
                         </button>
                       </>
                     ) : (
@@ -403,6 +476,11 @@ export default function LenhSXPage() {
               <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20, padding:'14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)' }}>
                 <div>
                   <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:18 }}>{getDisplayCode(pi)}</div>
+                  {pi.isMerged && (
+                    <div style={{ fontSize:11, fontWeight:700, color:'#6b21a8', marginTop:3 }}>
+                      ĐỢT GỘP · cắt chung {items.length} SKU
+                    </div>
+                  )}
                 </div>
                 <div style={{ width:1, height:36, background:'var(--border)' }} />
                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
@@ -452,10 +530,28 @@ export default function LenhSXPage() {
                         <div>
                           <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                             <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>{code}</span>
+                            {/* Đợt gộp chứa SKU của NHIỀU đơn hàng - không ghi rõ từng SKU thuộc đơn
+                                nào thì KHSX không lần ra được đơn gốc (PI cha không còn cho biết). */}
+                            {pi.isMerged && item.salesOrderCode && (
+                              <span style={{ fontSize:11, fontWeight:600, color:'#6b21a8', background:'#f3e8ff', padding:'2px 8px', borderRadius:10 }}>
+                                {item.salesOrderCode}
+                              </span>
+                            )}
                             {item.status && <StatusBadge status={item.status as SalesOrderStatus} />}
                             {item.prodApproval?.status === 'APPROVED' && (
                               <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#2e7d32', background:'#dcfce7', padding:'2px 8px', borderRadius:10 }}>
                                 <Play size={10}/> Đang sản xuất
+                              </span>
+                            )}
+                            {/* Thời gian solve dao động rất lớn (đã đo thật: 4,7 phút -> hơn 15 phút
+                                tuỳ vật tư) - không có gì báo cho KHSX biết Sếp duyệt xong đang chờ hay
+                                đã tính xong. Chỉ hiện khi CALCULATING - tự biến mất khi solver trả lời. */}
+                            {item.cuttingProposalStatus === 'CALCULATING' && item.cuttingProposalRequestedAt && (
+                              <CalculatingBadge requestedAt={item.cuttingProposalRequestedAt} />
+                            )}
+                            {item.cuttingProposalStatus === 'FAILED' && (
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#b91c1c', background:'#fee2e2', padding:'2px 8px', borderRadius:10 }}>
+                                <XCircle size={10}/> Lỗi tính phương án cắt
                               </span>
                             )}
                             {item.prodApproval?.status === 'WAITING_QLSX' && (
@@ -833,6 +929,18 @@ export default function LenhSXPage() {
                 </button>
               </div>
 
+              {/* Đợt gộp: bấm Duyệt là duyệt TẤT CẢ SKU trong đợt, không riêng SKU đang mở. Phải nói
+                  thẳng và liệt kê ra - phần bên dưới chỉ hiện chi tiết 1 SKU nên rất dễ hiểu nhầm. */}
+              {pi.isMerged && (
+                <div style={{ background:'#f5f3ff', border:'1px solid #ddd6fe', borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:12.5, color:'#5b21b6' }}>
+                  <b>Đợt gộp {pi.code}</b> — duyệt sẽ cho sản xuất <b>cả {items.length} SKU</b> trong
+                  đợt và tính phương án cắt chung một lần cho cả nhóm:
+                  <div style={{ marginTop:5, fontFamily:'monospace', fontSize:12 }}>
+                    {items.map((it: any) => it.productVariant?.mfgProduct?.factoryCode ?? '—').join(' · ')}
+                  </div>
+                </div>
+              )}
+
               {/* PO + hạn giao */}
               <div style={{ display:'flex', gap:10, marginBottom:14 }}>
                 <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
@@ -910,11 +1018,28 @@ export default function LenhSXPage() {
                 <X size={18} color="var(--text3)"/>
               </button>
             </div>
-            <div style={{ fontSize:13, color:'var(--text2)', marginBottom:10 }}>
-              SKU <strong style={{ fontFamily:'monospace', color:'#0369a1' }}>
-                {rejectTarget.pi.items?.[rejectTarget.idx]?.productVariant?.mfgProduct?.factoryCode ?? '—'}
-              </strong> sẽ được gửi lại cho KHSX sửa thời hạn.
-            </div>
+            {isBoss && rejectTarget.pi.isMerged ? (
+              // Từ chối đợt gộp là hành động PHÁ HUỶ (xoá cả đợt), không phải trả lại 1 SKU - phải
+              // nói rõ trước khi Sếp bấm, kèm danh sách SKU bị ảnh hưởng.
+              <div style={{ fontSize:13, color:'var(--text2)', marginBottom:10 }}>
+                <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:8, padding:'10px 12px', color:'#991b1b' }}>
+                  Từ chối sẽ <b>xoá đợt gộp {rejectTarget.pi.code}</b> và trả{' '}
+                  <b>{(rejectTarget.pi.items ?? []).length} SKU</b> về đơn hàng gốc kèm lý do. KHSX
+                  sẽ thấy chúng lại ở màn "Tối ưu cắt sắt" để gộp tổ hợp khác.
+                  <div style={{ marginTop:5, fontFamily:'monospace', fontSize:12 }}>
+                    {(rejectTarget.pi.items ?? [])
+                      .map((it: any) => it.productVariant?.mfgProduct?.factoryCode ?? '—')
+                      .join(' · ')}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{ fontSize:13, color:'var(--text2)', marginBottom:10 }}>
+                SKU <strong style={{ fontFamily:'monospace', color:'#0369a1' }}>
+                  {rejectTarget.pi.items?.[rejectTarget.idx]?.productVariant?.mfgProduct?.factoryCode ?? '—'}
+                </strong> sẽ được gửi lại cho KHSX sửa thời hạn.
+              </div>
+            )}
             <textarea
               value={rejectReason}
               onChange={e => setRejectReason(e.target.value)}

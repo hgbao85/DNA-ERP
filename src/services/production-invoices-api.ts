@@ -18,6 +18,9 @@ type StageType = 'FRAME' | 'WEAVING' | 'PACKAGING';
 interface BeProductionInvoiceItem {
   id: string;
   productionInvoiceId: string;
+  /** PO gốc của riêng SKU này - PI gộp chứa SKU của nhiều PO nên PI cha không cho biết được. */
+  salesOrderId: string | null;
+  salesOrderCode: string | null;
   mfgProductId: string;
   factoryCode: string;
   productName: string;
@@ -37,6 +40,9 @@ interface BeProductionInvoiceItem {
   decidedAt: string | null;
   decidedById: string | null;
   rejectReason: string | null;
+  /** null = chưa từng tính (SKU chưa duyệt). Có giá trị CALCULATING = đang chờ solver, xem toItem(). */
+  cuttingProposalStatus?: 'CALCULATING' | 'DRAFT' | 'FAILED' | 'APPROVED' | null;
+  cuttingProposalRequestedAt?: string | null;
 }
 
 interface BeProductionInvoice {
@@ -45,6 +51,8 @@ interface BeProductionInvoice {
   salesOrderId: string | null;
   salesOrderCode: string | null;
   status: 'PLANNING' | 'PRODUCING' | 'DONE' | 'CANCELLED';
+  /** true = đợt gộp do KHSX tạo (nhiều SKU cắt chung), khác PI vỏ 1-1 Sales tự sinh theo mỗi đơn. */
+  isMerged: boolean;
   deadline: string | null;
   createdAt: string;
   updatedAt: string;
@@ -54,6 +62,8 @@ interface BeProductionInvoice {
 function toItem(it: BeProductionInvoiceItem) {
   return {
     id: it.id,
+    salesOrderId: it.salesOrderId ?? undefined,
+    salesOrderCode: it.salesOrderCode ?? undefined,
     quantity: it.quantity,
     productVariant: {
       colorCode: it.colorCode,
@@ -63,6 +73,8 @@ function toItem(it: BeProductionInvoiceItem) {
     deliveryDeadline: it.deliveryDeadline ?? undefined,
     status: undefined as string | undefined, // stage sản xuất/giao hàng — ngoài phạm vi domain này
     stages: it.stages.map((s) => ({ stageType: s.stageType, deadline: s.deadline })),
+    cuttingProposalStatus: it.cuttingProposalStatus ?? null,
+    cuttingProposalRequestedAt: it.cuttingProposalRequestedAt ?? null,
     prodApproval: it.prodApprovalStatus
       ? {
           status: it.prodApprovalStatus,
@@ -85,6 +97,7 @@ function toPI(pi: BeProductionInvoice) {
     id: pi.id,
     code: pi.code,
     status: pi.status,
+    isMerged: pi.isMerged,
     exportOrderId: pi.salesOrderId ?? undefined,
     exportOrder: pi.salesOrderCode ? { poNumber: pi.salesOrderCode } : undefined,
     deadline: pi.deadline ?? pi.createdAt,
@@ -164,4 +177,19 @@ export async function rejectProdItemByQlsx(piId: number | string, itemId: number
   return toItem(
     await http.post<BeProductionInvoiceItem>(`/production-invoices/${piId}/items/${itemId}/reject-by-qlsx`, { reason }),
   );
+}
+
+// ─── Đợt gộp (PI.isMerged): Sếp quyết CẢ CỤM, không quyết lẻ từng SKU ────────────
+// Cả nhóm nằm chung một cây sắt nên duyệt/bác nửa nhóm là vô nghĩa - xem BE approveBatch/rejectBatch.
+
+/** Duyệt cả đợt gộp. BE tự tạo lệnh SX cho từng SKU rồi chạy solver MỘT LẦN cho cả nhóm. */
+export async function approveBatchByBoss(piId: number | string) {
+  return toPI(await http.post<BeProductionInvoice>(`/production-invoices/${piId}/approve-batch`));
+}
+
+/** Từ chối cả đợt gộp: PI bị XOÁ, các SKU trả về đơn hàng gốc kèm lý do và quay lại màn Tối ưu cắt sắt. */
+export async function rejectBatchByBoss(piId: number | string, reason: string) {
+  return http.post<{ movedItemIds: string[] }>(`/production-invoices/${piId}/reject-batch`, {
+    reason,
+  });
 }

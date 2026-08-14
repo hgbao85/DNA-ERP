@@ -13,14 +13,16 @@
  * 2. Mọi số hao hụt kèm dấu "≥" - BE trả GIỚI HẠN DƯỚI, thực tế có thể cao hơn.
  * 3. Bớt 0 cây thì nói thẳng là 0.
  *
- * Nút "Xác nhận gộp" hiện ra khi chọn >= 2 SKU nhưng CHƯA nối hành động (nhịp sau: thực thể nhóm
- * + chạy solver cho cả nhóm) - xem handleConfirm.
+ * "Xác nhận gộp" (>= 2 SKU) tạo 1 lệnh sản xuất chứa đúng các SKU đó rồi chuyển sang màn "Lệnh sản
+ * xuất mới". Chọn đúng 1 SKU thì KHÔNG gộp gì cả - nó vốn đã có lệnh sản xuất riêng, chỉ việc đi
+ * tiếp luồng thường. Solver KHÔNG chạy ở màn này: phương án cắt chỉ tính khi Sếp duyệt.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Check, Info, Layers, Loader2, RefreshCw } from 'lucide-react'
 import {
   getCuttingBatchCandidates,
+  mergeCuttingBatch,
   previewCuttingBatch,
   type CuttingBatchCandidate,
   type CuttingBatchCandidateList,
@@ -35,8 +37,9 @@ const APPROVAL_LABEL: Record<string, string> = {
   WAITING_QLSX: 'Chờ QLSX',
   WAITING_BOSS: 'Chờ Sếp duyệt',
 }
-/** null = Sales vừa tạo, KHSX chưa gửi QLSX - trạng thái sớm nhất trong luồng. */
-const approvalLabel = (s: string | null) => (s === null ? 'Mới tạo' : (APPROVAL_LABEL[s] ?? s))
+/** null = Sales vừa tạo, KHSX chưa gửi QLSX - trạng thái sớm nhất trong luồng, không cần nhãn gì
+ *  (chưa gửi đi đâu thì không có gì để báo) - chỉ hiện nhãn từ lúc đã gửi đi (WAITING_QLSX trở đi). */
+const approvalLabel = (s: string | null) => (s === null ? '' : (APPROVAL_LABEL[s] ?? s))
 
 const TH: React.CSSProperties = {
   textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '.04em',
@@ -65,13 +68,19 @@ function MaterialChip({ code, pct, over }: { code: string; pct: number; over: bo
   )
 }
 
-export default function GomDotCatPage() {
+interface Props {
+  /** Chuyển sang màn "Lệnh sản xuất mới" - nơi làm bước tiếp theo sau khi chốt nhóm. */
+  onDone?: () => void
+}
+
+export default function GomDotCatPage({ onDone }: Props) {
   const [data, setData] = useState<CuttingBatchCandidateList | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [preview, setPreview] = useState<CuttingBatchPreview | null>(null)
   const [previewing, setPreviewing] = useState(false)
+  const [merging, setMerging] = useState(false)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -138,16 +147,18 @@ export default function GomDotCatPage() {
       ? Math.round((new Date(it.deadline).getTime() - earliestSelected) / 86_400_000)
       : 0
 
+  /**
+   * Chốt nhóm. Chỉ TẠO PI - không chạy solver ở đây: phương án cắt được tính khi Sếp duyệt cả cụm
+   * (đúng luồng duyệt sẵn có). Xong thì chuyển thẳng sang màn "Lệnh sản xuất mới" vì đó là nơi
+   * KHSX làm bước tiếp theo (đặt thời hạn rồi gửi duyệt) - để KHSX tự đi tìm là thừa một bước.
+   */
   const handleConfirm = () => {
-    // NHỊP SAU: tạo thực thể nhóm cắt + gọi solver cho nhu cầu gộp của các SKU này. Chưa nối vì
-    // cần migration (CuttingProposal.productionOrderId đang bắt buộc, mà SKU chưa duyệt thì chưa
-    // có ProductionOrder để neo vào) và phải sửa luồng duyệt của Sếp để không chạy solver lại
-    // cho từng SKU. Để nút hiện nhưng nói thật, còn hơn nút bấm vào im lặng không làm gì.
-    alert(
-      `Đã chọn ${selected.size} SKU.\n\n` +
-        'Bước chốt nhóm và chạy tính cắt chung đang được làm ở nhịp tiếp theo — ' +
-        'hiện màn này mới dừng ở tính thử để xem gộp có đáng hay không.',
-    )
+    setMerging(true)
+    setError(null)
+    mergeCuttingBatch([...selected])
+      .then(() => onDone?.())
+      .catch((e) => setError(errMsg(e, 'Không gộp được nhóm đã chọn')))
+      .finally(() => setMerging(false))
   }
 
   return (
@@ -203,10 +214,10 @@ export default function GomDotCatPage() {
               <thead>
                 <tr>
                   <th style={{ ...TH, width: 34 }} />
+                  <th style={TH}>Đơn hàng</th>
                   <th style={TH}>SKU</th>
                   <th style={TH}>Sản phẩm</th>
                   <th style={{ ...TH, textAlign: 'right' }}>SL</th>
-                  <th style={TH}>Đơn hàng</th>
                   <th style={TH}>Hạn</th>
                   <th style={TH}>Loại sắt · hao hụt khi cắt riêng</th>
                 </tr>
@@ -231,6 +242,12 @@ export default function GomDotCatPage() {
                         />
                       </td>
                       <td style={TD}>
+                        {it.salesOrderCode ?? it.productionInvoiceCode}
+                        {approvalLabel(it.prodApprovalStatus) && (
+                          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{approvalLabel(it.prodApprovalStatus)}</div>
+                        )}
+                      </td>
+                      <td style={TD}>
                         <b>{it.mfgProductCode}</b>
                         {recommended.has(it.productionInvoiceItemId) && (
                           <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: '#dbeafe', color: '#1e40af' }}>
@@ -238,12 +255,18 @@ export default function GomDotCatPage() {
                           </span>
                         )}
                       </td>
-                      <td style={{ ...TD, color: 'var(--text2)' }}>{it.mfgProductName ?? '—'}</td>
-                      <td style={NUM}>{it.quantity}</td>
-                      <td style={TD}>
-                        {it.salesOrderCode ?? it.productionInvoiceCode}
-                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{approvalLabel(it.prodApprovalStatus)}</div>
+                      <td style={{ ...TD, color: 'var(--text2)' }}>
+                        {it.mfgProductName ?? '—'}
+                        {/* SKU quay lại đây sau khi Sếp bác một đợt gộp - phải nói rõ VÌ SAO, nếu
+                            không KHSX rất dễ gộp lại đúng tổ hợp vừa bị bác. */}
+                        {it.rejectReason && (
+                          <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 3, display: 'flex', gap: 4, alignItems: 'flex-start' }}>
+                            <AlertTriangle size={11} style={{ flexShrink: 0, marginTop: 1 }} />
+                            <span>Bị từ chối: {it.rejectReason}</span>
+                          </div>
+                        )}
                       </td>
+                      <td style={NUM}>{it.quantity}</td>
                       <td style={{ ...TD, whiteSpace: 'nowrap' }}>
                         {fmtDate(it.deadline)}
                         {/* Chi phí cắt sớm gắn vào ĐÚNG SKU gây ra nó. Trước đây chỉ có 1 con số
@@ -384,17 +407,37 @@ export default function GomDotCatPage() {
           <div style={{ padding: '11px 14px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end' }}>
             <button
               onClick={handleConfirm}
-              disabled={previewing || !preview}
+              disabled={previewing || !preview || merging}
               style={{
                 padding: '8px 16px', border: 'none', borderRadius: 'var(--radius)', fontSize: 13,
                 fontWeight: 600, color: '#fff', background: '#2e7d32',
-                cursor: previewing || !preview ? 'not-allowed' : 'pointer',
-                opacity: previewing || !preview ? 0.5 : 1,
+                display: 'inline-flex', alignItems: 'center', gap: 7,
+                cursor: previewing || !preview || merging ? 'not-allowed' : 'pointer',
+                opacity: previewing || !preview || merging ? 0.5 : 1,
               }}
             >
+              {merging && <Loader2 size={14} className="spin" />}
               Xác nhận gộp {selected.size} SKU
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Đúng 1 SKU: không có gì để gộp (lợi ích chỉ đến khi đoạn của NHIỀU SKU nằm chung một cây).
+          SKU đó vốn đã nằm trong lệnh sản xuất riêng của nó nên chỉ cần đi tiếp luồng thường -
+          không tạo thêm gì, không gọi API. */}
+      {selected.size === 1 && (
+        <div style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ flex: 1, fontSize: 12.5, color: 'var(--text2)', minWidth: 260 }}>
+            Chọn 1 SKU thì không có gì để gộp — SKU này cắt riêng như bình thường. Chọn thêm ít nhất
+            một SKU nữa (dùng chung loại sắt) mới bớt được cây.
+          </div>
+          <button
+            onClick={() => onDone?.()}
+            style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer', flexShrink: 0 }}
+          >
+            Tiến hành cắt riêng
+          </button>
         </div>
       )}
     </div>
