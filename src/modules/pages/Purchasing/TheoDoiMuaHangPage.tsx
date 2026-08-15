@@ -21,6 +21,8 @@ interface Row {
   boughtQty: number
   remaining: number
   deadline?: string
+  /** Ngày NCC hẹn giao của chính báo giá đã duyệt (ProposalQuote.expectedDate). */
+  expectedDate?: string
 }
 
 function buildRows(p: PurchaseProposal): Row[] {
@@ -30,7 +32,12 @@ function buildRows(p: PurchaseProposal): Row[] {
     const key = String(item.materialId)
     const ncc = p.chosenSuppliers?.[key] ?? ''
     const offers = p.quotes?.[key] ?? []
-    const chosenQuote = offers.find(q => q.supplierName === ncc) ?? offers[0]
+    // Tra bằng isChosen (cờ thật từ BE), KHÔNG so supplierName: 2 báo giá trùng tên NCC là hợp lệ
+    // (BE không cấm) nên find() theo tên có thể trả bản KHÔNG phải cái Sếp duyệt - đúng cái bẫy mà
+    // approveProposal() đã bỏ từ 2026-08-13 (D.h3-quote-id-not-name) nhưng màn này còn sót.
+    // Cũng KHÔNG fallback `?? offers[0]`: chưa duyệt thì không có "đơn giá đã duyệt", hiện '—'
+    // thay vì mượn tạm giá của báo giá đầu tiên mà không dấu hiệu nào cho biết (D.a2-price-by-name).
+    const chosenQuote = offers.find(q => q.isChosen)
     const boughtQty = item.receivedQty ?? 0
     return {
       key: `${p.id}-${key}`,
@@ -43,6 +50,7 @@ function buildRows(p: PurchaseProposal): Row[] {
       boughtQty,
       remaining: Math.max(0, item.buyQty - boughtQty),
       deadline: p.deadline,
+      expectedDate: chosenQuote?.expectedDate,
     }
   })
 }
@@ -93,6 +101,7 @@ export default function TheoDoiMuaHangPage() {
                 <th style={th}>ĐVT</th>
                 <th style={{ ...th, textAlign: 'right' }}>Đã mua</th>
                 <th style={{ ...th, textAlign: 'right' }}>Còn lại</th>
+                <th style={th}>NCC hẹn giao</th>
                 <th style={th}>Hạn giao</th>
               </tr>
             </thead>
@@ -107,6 +116,11 @@ export default function TheoDoiMuaHangPage() {
                   <td style={{ ...td, color: 'var(--text3)' }}>{r.unit}</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: r.boughtQty > 0 ? '#16a34a' : 'var(--text3)' }}>{r.boughtQty}</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: r.remaining > 0 ? '#d97706' : '#16a34a' }}>{r.remaining}</td>
+                  {/* Ngày NCC tự hẹn trong báo giá được duyệt - tín hiệu ưu tiên DUY NHẤT mà Mua
+                      hàng đang có thật, vì `deadline` (hạn từ kế hoạch) chưa có nguồn dữ liệu. */}
+                  <td style={{ ...td, color: r.expectedDate ? 'var(--text)' : 'var(--text3)', whiteSpace: 'nowrap' }}>
+                    {r.expectedDate ? new Date(r.expectedDate).toLocaleDateString('vi-VN') : '—'}
+                  </td>
                   <td style={{ ...td, color: r.deadline ? '#dc2626' : 'var(--text3)', fontWeight: r.deadline ? 600 : 400, whiteSpace: 'nowrap' }}>
                     {r.deadline ? new Date(r.deadline).toLocaleDateString('vi-VN') : '—'}
                   </td>

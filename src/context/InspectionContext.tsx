@@ -2,7 +2,6 @@
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
 import type { WarehouseScope } from './AuthContext'
 import { useAuth } from './AuthContext'
-import { useAuditLog } from './AuditLogContext'
 import {
   getPurchaseProposals as fetchPurchaseProposals,
   acknowledgeProposal as acknowledgeProposalApi,
@@ -12,8 +11,6 @@ import {
   requoteProposal as requoteProposalApi,
   receiveProposalItem as receiveProposalItemApi,
 } from '../services/purchasing-api'
-
-export const PROPOSAL_ENTITY = 'PurchaseProposal'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -35,6 +32,10 @@ export interface PurchaseProposalItem {
   khoKey: KhoKey
   khoLabel: string
   materialId?: number
+  /** BE PurchaseProposalItem.id thật (A5, 2026-08-15) - đã có sẵn trong state từ lúc đọc danh
+   *  sách/chi tiết, KHÔNG cần GET riêng để dịch materialId -> itemId nữa (xem purchasing-api.ts
+   *  D.a5-n-plus-one). Optional để tương thích ngược, mọi item đọc từ BE thật đều có. */
+  itemId?: string
   receivedQty?: number // luỹ kế thủ kho đã xác nhận nhận về, so với buyQty để biết đã đủ chưa
   receivedQtyPurchaseUnit?: number | null // luỹ kế theo purchaseUnit (vd kg) - chỉ để đối chiếu
 }
@@ -53,6 +54,11 @@ export interface ProposalQuote {
   unitPrice: number | null
   expectedDate?: string
   note?: string
+  /** Báo giá này có phải cái Sếp đã duyệt không (BE PurchaseProposalQuote.isChosen). Chỉ có ý
+   *  nghĩa với quote đọc về từ BE; dòng đang soạn ở LenhMuaNCCPage chưa có. Mọi màn cần "đơn giá
+   *  đã duyệt" PHẢI lọc bằng field này - so khớp theo supplierName là sai (2 báo giá có thể trùng
+   *  tên NCC, BE không cấm), xem TheoDoiMuaHangPage (D.a2-price-by-name). */
+  isChosen?: boolean
 }
 
 export interface PurchaseProposal {
@@ -92,14 +98,22 @@ export const PROPOSAL_STATUS_LABELS: Record<PurchaseProposal['status'], { label:
   rejected:   { label: 'Từ chối',       color: '#991b1b', bg: '#fee2e2', border: '#fca5a5' },
 }
 
+// Mọi mutation trả Promise và NÉM LẠI lỗi sau khi đã hiện banner (xem InspectionProvider).
+// Trước 2026-08-15 chúng là `=> void` kết thúc bằng `.catch(console.error)`: thao tác thất bại
+// trông y hệt thao tác thành công, kể cả trên chứng từ nhập kho (D.a1-silent-write-failure).
+// Call site KHÔNG bắt buộc phải await - không await thì vẫn có banner như cũ; await chỉ cần ở
+// chỗ có state phải rollback (vd NhapKhoPage xoá ô nhập sau khi xác nhận).
 interface InspCtxType {
   proposals: PurchaseProposal[]
-  acknowledgeProposal:     (proposalId: string) => void
-  submitProposalToDirector:(proposalId: string, quotes: Record<string, ProposalQuote[]>) => void
-  approveProposal:         (proposalId: string, chosenQuoteIdByItemKey: Record<string, string>) => void
-  rejectProposal:          (proposalId: string, reason: string) => void
-  requoteProposal:         (proposalId: string) => void
-  receiveProposalItem:     (proposalId: string, itemKey: string, qty: number, receivedQtyPurchaseUnit?: number) => void
+  /** Lỗi của thao tác ghi gần nhất - `ActionErrorBanner` đọc, `dismissActionError()` xoá. */
+  actionError: string | null
+  dismissActionError:      () => void
+  acknowledgeProposal:     (proposalId: string) => Promise<void>
+  submitProposalToDirector:(proposalId: string, quotes: Record<string, ProposalQuote[]>) => Promise<void>
+  approveProposal:         (proposalId: string, chosenQuoteIdByItemKey: Record<string, string>) => Promise<void>
+  rejectProposal:          (proposalId: string, reason: string) => Promise<void>
+  requoteProposal:         (proposalId: string) => Promise<void>
+  receiveProposalItem:     (proposalId: string, itemKey: string, qty: number, receivedQtyPurchaseUnit?: number) => Promise<void>
 }
 
 // ── Context ────────────────────────────────────────────────────────────────────
@@ -109,9 +123,10 @@ interface InspCtxType {
 const InspCtx = createContext<InspCtxType | undefined>(undefined)
 
 export function InspectionProvider({ children }: { children: React.ReactNode }) {
-  const { logAction } = useAuditLog()
   const { token, user } = useAuth()
   const [proposals, setProposals] = useState<PurchaseProposal[]>([])
+  const [actionError, setActionError] = useState<string | null>(null)
+  const dismissActionError = useCallback(() => setActionError(null), [])
 
   // InspectionProvider bọc TOÀN BỘ app ở layout.tsx (kể cả /login, trước khi có token) - chỉ gọi
   // API khi đã đăng nhập, tránh bắn request chắc chắn 401 (không có token) ngay trên màn hình
@@ -135,78 +150,107 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
       })
   }, [token, user?.mfgRole])
 
-  const acknowledgeProposal = useCallback((proposalId: string) => {
-    void acknowledgeProposalApi(proposalId)
-      .then(updated => {
-        setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
-        logAction(PROPOSAL_ENTITY, proposalId, 'proposal.acknowledged')
-      })
-      .catch(err => console.error('acknowledgeProposal failed', err))
-  }, [logAction])
+  // Bọc mọi thao tác GHI: hiện lỗi cho người dùng rồi NÉM LẠI. Ném lại là phần quan trọng -
+  // nếu chỉ nuốt thì call site không phân biệt được thành công/thất bại để rollback state cục bộ
+  // (xem NhapKhoPage.confirmItem xoá ô nhập). Xoá lỗi cũ trước mỗi lượt để banner luôn ứng với
+  // thao tác vừa bấm, không phải lỗi tồn từ lần trước.
+  const runAction = useCallback(async (label: string, fn: () => Promise<void>): Promise<void> => {
+    setActionError(null)
+    try {
+      await fn()
+    } catch (err) {
+      setActionError(`${label} thất bại: ${err instanceof Error ? err.message : String(err)}`)
+      throw err
+    }
+  }, [])
 
-  const submitProposalToDirector = useCallback((proposalId: string, quotes: Record<string, ProposalQuote[]>) => {
-    const current = proposals.find(p => p.id === proposalId)
-    if (!current) return
-    void submitProposalToDirectorApi(current, quotes)
-      .then(updated => {
-        setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
-        logAction(PROPOSAL_ENTITY, proposalId, 'proposal.quote_submitted')
-      })
-      .catch(err => console.error('submitProposalToDirector failed', err))
-  }, [proposals, logAction])
+  const acknowledgeProposal = useCallback((proposalId: string) =>
+    runAction('Tiếp nhận đề xuất', async () => {
+      const updated = await acknowledgeProposalApi(proposalId)
+      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+    }), [runAction])
 
-  const approveProposal = useCallback((proposalId: string, chosenQuoteIdByItemKey: Record<string, string>) => {
-    const current = proposals.find(p => p.id === proposalId)
-    if (!current) return
-    void approveProposalApi(current, chosenQuoteIdByItemKey)
-      .then(updated => {
-        setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
-        logAction(PROPOSAL_ENTITY, proposalId, 'proposal.approved')
-      })
-      .catch(err => console.error('approveProposal failed', err))
-  }, [proposals, logAction])
+  const submitProposalToDirector = useCallback((proposalId: string, quotes: Record<string, ProposalQuote[]>) =>
+    runAction('Gửi Sếp duyệt', async () => {
+      const current = proposals.find(p => p.id === proposalId)
+      // Ném thay vì `return` im lặng: gửi báo giá mà đề xuất không còn trong state là bất thường
+      // (đã bị người khác xử lý, hoặc list chưa load xong) - người dùng cần biết để tải lại.
+      if (!current) throw new Error('Không tìm thấy đề xuất trong danh sách - hãy tải lại trang')
+      const updated = await submitProposalToDirectorApi(current, quotes)
+      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+    }), [proposals, runAction])
 
-  const rejectProposal = useCallback((proposalId: string, reason: string) => {
-    void rejectProposalApi(proposalId, reason)
-      .then(updated => {
-        setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
-        logAction(PROPOSAL_ENTITY, proposalId, 'proposal.rejected', reason)
-      })
-      .catch(err => console.error('rejectProposal failed', err))
-  }, [logAction])
+  const approveProposal = useCallback((proposalId: string, chosenQuoteIdByItemKey: Record<string, string>) =>
+    runAction('Duyệt đề xuất mua', async () => {
+      const current = proposals.find(p => p.id === proposalId)
+      if (!current) throw new Error('Không tìm thấy đề xuất trong danh sách - hãy tải lại trang')
+      const updated = await approveProposalApi(current, chosenQuoteIdByItemKey)
+      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+    }), [proposals, runAction])
 
-  // Mở lại luồng báo giá sau khi bị từ chối — giữ nguyên quotes/rejectionReason cũ làm lịch sử,
-  // chỉ đổi status để Purchasing sửa tiếp và gửi lại.
-  const requoteProposal = useCallback((proposalId: string) => {
-    void requoteProposalApi(proposalId)
-      .then(updated => {
-        setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
-        logAction(PROPOSAL_ENTITY, proposalId, 'proposal.requoted')
-      })
-      .catch(err => console.error('requoteProposal failed', err))
-  }, [logAction])
+  const rejectProposal = useCallback((proposalId: string, reason: string) =>
+    runAction('Từ chối đề xuất mua', async () => {
+      const updated = await rejectProposalApi(proposalId, reason)
+      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+    }), [runAction])
+
+  // Mở lại luồng báo giá sau khi bị từ chối. LƯU Ý: BE XOÁ SẠCH báo giá cũ (requote() chạy
+  // purchaseProposalQuote.deleteMany - "không giữ làm lịch sử nữa", đổi 2026-08-11); FE tự seed
+  // lại giá trị cũ vào form TRƯỚC khi gọi (LenhMuaNCCPage.handleRequote) nên màn hình không mất
+  // gì, nhưng bản ghi DB thì mất thật. BE tự ghi lại toàn bộ báo giá đã xoá vào audit_logs trước
+  // khi xoá (PurchaseProposalsService.requote -> auditQuoteDecision) nên vẫn truy được ở màn
+  // "Hoạt động" (PurchaseProposalAuditTrail), dù không còn trong bảng sống.
+  const requoteProposal = useCallback((proposalId: string) =>
+    runAction('Mở lại báo giá', async () => {
+      const updated = await requoteProposalApi(proposalId)
+      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+    }), [runAction])
 
   // Thủ kho xác nhận đã nhận hàng — cộng dồn qua nhiều lần nhập (hàng có thể về nhiều đợt) ở
   // tầng BE (xem PurchaseProposalsService.receiveItem), tự chuyển 'purchasing' -> 'purchased'
   // khi mọi item đã nhận đủ buyQty.
-  const receiveProposalItem = useCallback((proposalId: string, itemKey: string, qty: number, receivedQtyPurchaseUnit?: number) => {
-    const current = proposals.find(p => p.id === proposalId)
-    if (!current) return
-    const wasPurchased = current.status === 'purchased'
-    void receiveProposalItemApi(current, itemKey, qty, receivedQtyPurchaseUnit)
-      .then(updated => {
-        setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
-        if (!wasPurchased && updated.status === 'purchased') {
-          logAction(PROPOSAL_ENTITY, proposalId, 'proposal.purchased')
-        }
-      })
-      .catch(err => console.error('receiveProposalItem failed', err))
-  }, [proposals, logAction])
+  const receiveProposalItem = useCallback((proposalId: string, itemKey: string, qty: number, receivedQtyPurchaseUnit?: number) =>
+    runAction('Xác nhận nhận hàng', async () => {
+      const current = proposals.find(p => p.id === proposalId)
+      if (!current) throw new Error('Không tìm thấy đề xuất trong danh sách - hãy tải lại trang')
+      const updated = await receiveProposalItemApi(current, itemKey, qty, receivedQtyPurchaseUnit)
+      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+    }), [proposals, runAction])
 
   return (
-    <InspCtx.Provider value={{ proposals, acknowledgeProposal, submitProposalToDirector, approveProposal, rejectProposal, requoteProposal, receiveProposalItem }}>
+    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, acknowledgeProposal, submitProposalToDirector, approveProposal, rejectProposal, requoteProposal, receiveProposalItem }}>
+      <ActionErrorBanner message={actionError} onDismiss={dismissActionError} />
       {children}
     </InspCtx.Provider>
+  )
+}
+
+/**
+ * Banner lỗi dùng chung cho mọi thao tác ghi của luồng Mua hàng/Nhập kho. Cố ý là một component
+ * nhỏ tại chỗ thay vì kéo thêm thư viện toast: chỉ có đúng một luồng cần nó, và thất bại trên
+ * chứng từ kho/tiền thì nên đứng yên cho người dùng đọc chứ không nên tự tắt sau vài giây.
+ */
+function ActionErrorBanner({ message, onDismiss }: { message: string | null; onDismiss: () => void }) {
+  if (!message) return null
+  return (
+    <div
+      role="alert"
+      style={{
+        position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
+        display: 'flex', alignItems: 'flex-start', gap: 12, maxWidth: 560,
+        padding: '12px 16px', borderRadius: 10,
+        background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b',
+        boxShadow: '0 6px 20px rgba(0,0,0,.15)', fontSize: 13, lineHeight: 1.5,
+      }}
+    >
+      <span style={{ fontWeight: 700 }}>⚠</span>
+      <span style={{ flex: 1, fontWeight: 500 }}>{message}</span>
+      <button
+        onClick={onDismiss}
+        aria-label="Đóng thông báo lỗi"
+        style={{ border: 'none', background: 'transparent', color: '#991b1b', cursor: 'pointer', fontSize: 16, fontWeight: 700, lineHeight: 1, padding: 0 }}
+      >×</button>
+    </div>
   )
 }
 
