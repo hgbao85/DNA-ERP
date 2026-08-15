@@ -1,0 +1,501 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Rà soát khu vực UI chưa gọi API thật</title>
+<style>
+  :root {
+    --bg: #F4F6F8;
+    --surface: #FFFFFF;
+    --surface-2: #EBEEF2;
+    --ink: #1B2530;
+    --ink-soft: #55606B;
+    --ink-faint: #7C8894;
+    --line: #DCE2E8;
+    --accent: #2C5F8A;
+    --accent-soft: #E4EEF6;
+    --mock: #B4690E;
+    --mock-soft: #FBF0DF;
+    --intentional: #3E7C59;
+    --intentional-soft: #E7F2EB;
+    --shadow: 0 1px 2px rgba(27,37,48,0.05), 0 6px 20px rgba(27,37,48,0.06);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10161C;
+      --surface: #171F27;
+      --surface-2: #1D2732;
+      --ink: #E7ECF1;
+      --ink-soft: #9BAAB6;
+      --ink-faint: #6E7C88;
+      --line: #2A3641;
+      --accent: #6FB0E0;
+      --accent-soft: #1D3346;
+      --mock: #E2A34D;
+      --mock-soft: #3A2C15;
+      --intentional: #7FC79A;
+      --intentional-soft: #16301F;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #10161C;
+    --surface: #171F27;
+    --surface-2: #1D2732;
+    --ink: #E7ECF1;
+    --ink-soft: #9BAAB6;
+    --ink-faint: #6E7C88;
+    --line: #2A3641;
+    --accent: #6FB0E0;
+    --accent-soft: #1D3346;
+    --mock: #E2A34D;
+    --mock-soft: #3A2C15;
+    --intentional: #7FC79A;
+    --intentional-soft: #16301F;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+  }
+
+  body {
+    font-family: "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+
+  .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+
+  header.hero {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-bottom: 40px;
+  }
+
+  .eyebrow {
+    font-size: 12.5px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    font-size: clamp(28px, 4vw, 38px);
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  .lede {
+    max-width: 62ch;
+    color: var(--ink-soft);
+    font-size: 15.5px;
+  }
+
+  .lede code {
+    font-family: "Cascadia Code", "Consolas", ui-monospace, Menlo, monospace;
+    font-size: 0.92em;
+    background: var(--surface-2);
+    padding: 1px 6px;
+    border-radius: 4px;
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 8px 0 32px;
+  }
+
+  .stat {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+  }
+
+  .stat .n {
+    font-size: 28px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+  }
+
+  .stat .n.mock { color: var(--mock); }
+  .stat .n.intentional { color: var(--intentional); }
+
+  .stat .label {
+    font-size: 12.5px;
+    color: var(--ink-soft);
+    margin-top: 4px;
+  }
+
+  .filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 28px;
+  }
+
+  .chip {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink-soft);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  }
+
+  .chip:hover { border-color: var(--accent); color: var(--ink); }
+
+  .chip[aria-pressed="true"] {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--surface);
+  }
+
+  .chip:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .module { margin-bottom: 36px; }
+
+  .module-head {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .module-head h2 {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0;
+  }
+
+  .module-head .count {
+    font-size: 12px;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+  }
+
+  .card-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+
+  .card-title {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .badge {
+    flex: none;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 4px 9px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .badge.full { background: var(--mock-soft); color: var(--mock); }
+  .badge.partial { background: var(--mock-soft); color: var(--mock); border: 1px dashed var(--mock); }
+  .badge.intentional { background: var(--intentional-soft); color: var(--intentional); }
+
+  .path {
+    display: inline-block;
+    font-family: "Cascadia Code", "Consolas", ui-monospace, Menlo, monospace;
+    font-size: 12.5px;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 3px 8px;
+    border-radius: 6px;
+    margin-bottom: 10px;
+    word-break: break-all;
+  }
+
+  .desc {
+    font-size: 14.5px;
+    color: var(--ink-soft);
+    margin: 0 0 10px;
+  }
+
+  .quote {
+    font-size: 13px;
+    color: var(--ink-faint);
+    border-left: 2px solid var(--line);
+    padding-left: 10px;
+    font-style: italic;
+  }
+
+  .menu-tag { font-size: 12px; color: var(--ink-faint); }
+  .menu-tag b { color: var(--ink-soft); font-weight: 600; }
+
+  .note {
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 32px;
+    font-size: 13.5px;
+    color: var(--ink-soft);
+  }
+
+  .note b { color: var(--ink); }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    font-size: 12.5px;
+    color: var(--ink-faint);
+  }
+
+  @media (max-width: 640px) {
+    .stats { grid-template-columns: 1fr; }
+    .card-top { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="hero">
+    <span class="eyebrow">DNA-ERP · Frontend audit · 14/08/2026</span>
+    <h1>Những khu vực UI chưa gọi API thật</h1>
+    <p class="lede">Rà toàn bộ <code>src</code> theo từ khóa mock/fake/hardcode và đọc trực tiếp từng file. 10 khu vực còn dữ liệu giả lập — phần lớn là thiếu endpoint tổng hợp, một số là chủ ý giữ mock theo thiết kế.</p>
+  </header>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="n">10</div>
+      <div class="label">Khu vực còn mock</div>
+    </div>
+    <div class="stat">
+      <div class="n mock">7</div>
+      <div class="label">Cần nối API — chưa có endpoint thật</div>
+    </div>
+    <div class="stat">
+      <div class="n intentional">3</div>
+      <div class="label">Chủ ý giữ mock / không thuộc menu chính</div>
+    </div>
+  </div>
+
+  <div class="filters" role="group" aria-label="Lọc theo trạng thái">
+    <button class="chip" data-filter="all" aria-pressed="true">Tất cả (10)</button>
+    <button class="chip" data-filter="gap" aria-pressed="false">Cần nối API (7)</button>
+    <button class="chip" data-filter="intentional" aria-pressed="false">Chủ ý / phụ (3)</button>
+  </div>
+
+  <section class="module">
+    <div class="module-head">
+      <h2>Manufacturing</h2>
+      <span class="count">3 khu vực</span>
+    </div>
+
+    <article class="card" data-status="gap">
+      <div class="card-top">
+        <h3 class="card-title">Bảng thống kê KHSX — 4 công đoạn sản xuất</h3>
+        <span class="badge partial">Mock một phần</span>
+      </div>
+      <span class="path">src/modules/pages/Manufacturing/ThongKePagePlan.tsx:253-325</span>
+      <p class="desc">Danh sách PO/PI/khách hàng/hạn giao và công đoạn "Mua hàng" đã lấy từ Sku + PurchaseProposal thật. Nhưng trạng thái/tiến độ % của <b>Khung cơ khí (Phôi/Hàn/Sơn), Đan, Chuyển kiểm, Đóng gói</b> — đúng phần hiển thị trong ảnh chụp màn hình gốc — được sinh bằng hash giả ổn định theo mã PO (<code>genExecutionStages()</code>), không gọi API.</p>
+      <p class="quote">"Khung cơ khí/Đan/Đóng gói chưa có nguồn dữ liệu tổng hợp thật trong hệ thống… nên vẫn tạo mock ổn định theo từng Sku"</p>
+      <p class="menu-tag">Menu: <b>Bảng thống kê</b> (Trưởng phòng SX) / <b>Kế hoạch SX</b> (Giám đốc) — cùng 1 trang, gồm cả "Chi tiết lệnh"</p>
+    </article>
+
+    <article class="card" data-status="gap">
+      <div class="card-top">
+        <h3 class="card-title">Danh sách định mức mảnh</h3>
+        <span class="badge full">Mock toàn bộ</span>
+      </div>
+      <span class="path">src/modules/pages/Manufacturing/PhoiDinhMucManhPage.tsx:34-41</span>
+      <p class="desc">6 dòng định mức mảnh (loại sắt/sơn, quy cách, chiều dài cắt…) hard-code trong mảng <code>DATA</code>. Tìm kiếm/lọc chỉ chạy trên state nội bộ, không có service/API nào đứng sau.</p>
+      <p class="quote">"ĐANG DÙNG DATA MOCK (state nội bộ) — chưa nối backend/service thật."</p>
+      <p class="menu-tag">Menu: <b>Danh sách định mức mảnh</b> — dùng chung cho tab Phôi/Hàn/Sơn</p>
+    </article>
+
+    <article class="card" data-status="gap">
+      <div class="card-top">
+        <h3 class="card-title">Quản lý điểm đan — phân bổ/nhận đan</h3>
+        <span class="badge partial">Mock một phần</span>
+      </div>
+      <span class="path">src/lib/mock/services/mfg.service.ts:52-54, 79</span>
+      <p class="desc">CRUD điểm đan cơ bản đã lên BE thật. Riêng nghiệp vụ <b>phân bổ/nhận đan</b> (<code>api.getWeavingByPoint()</code>) vẫn đọc từ <code>mockStore</code> (localStorage) vì BE chưa có API tương ứng.</p>
+      <p class="menu-tag">Menu: <b>Quản lý điểm đan</b></p>
+    </article>
+  </section>
+
+  <section class="module">
+    <div class="module-head">
+      <h2>Kho / Xuất kho</h2>
+      <span class="count">2 khu vực</span>
+    </div>
+
+    <article class="card" data-status="gap">
+      <div class="card-top">
+        <h3 class="card-title">Xuất kho — Tổng kho</h3>
+        <span class="badge full">Mock toàn bộ</span>
+      </div>
+      <span class="path">src/modules/pages/Manufacturing/XuatKhoPage.tsx:402-411 · src/utils/warehouse.ts:1-5</span>
+      <p class="desc"><code>mockStock()</code> giả lập tồn kho bằng hash tên vật tư để tính "SL đã mua". Bảng "Lịch sử xuất" (<code>MOCK_HISTORY</code>) là 8 dòng cứng — ngày, loại, tên hàng, PO, SL, người xuất — không liên quan dữ liệu thật, không có comment giải thích.</p>
+      <p class="menu-tag">Menu: <b>Xuất kho</b> (khi scope = Tổng kho, trong Inbound Warehouse App)</p>
+    </article>
+
+    <article class="card" data-status="gap">
+      <div class="card-top">
+        <h3 class="card-title">Xuất kho theo kho cụ thể (Phôi-Sơn-Hàn / VT thành phẩm / Thành phẩm)</h3>
+        <span class="badge partial">Mock một phần</span>
+      </div>
+      <span class="path">src/modules/pages/InboundWarehouse/WarehouseXuatPage.tsx:71-111</span>
+      <p class="desc">Danh sách "Lệnh SX (PO)" cần xuất nội bộ và số lượng kế hoạch/thực có (<code>MOCK</code>, 3 scope) là hard-code, seed thẳng vào state. Riêng hành động <b>Xác nhận</b> khi kho nằm trong chuỗi chuyển kho nội bộ đã gọi API thật (<code>api.createWarehouseTransfer</code>).</p>
+      <p class="menu-tag">Menu: tab <b>Xuất kho</b> của từng kho con trong Kho vật tư</p>
+    </article>
+  </section>
+
+  <section class="module">
+    <div class="module-head">
+      <h2>Tổng hợp vật tư</h2>
+      <span class="count">1 khu vực</span>
+    </div>
+
+    <article class="card" data-status="gap">
+      <div class="card-top">
+        <h3 class="card-title">Vật tư Dashboard — Vật tư thành phẩm / Thành phẩm</h3>
+        <span class="badge partial">Mock một phần</span>
+      </div>
+      <span class="path">src/modules/pages/ProductionPlan/VatTuDashboardPage.tsx:159-176, 197-212</span>
+      <p class="desc"><code>MOCK_VAT_TU_THANH_PHAM</code> (7 dòng) và <code>MOCK_THANH_PHAM</code> (6 dòng) được nối thẳng vào danh sách cùng dữ liệu SKU thật. Hai nhóm "Mảnh chưa đan" / "Mảnh đã đan" gọi qua <code>api.getMfgWarehouses()</code>, <code>getManhOrders()</code> — nhưng các hàm này vẫn là mock service đọc localStorage, chưa phải BE thật.</p>
+      <p class="quote">"literal 0 = dòng mock cố định (MOCK_THANH_PHAM/MOCK_VAT_TU_THANH_PHAM…)"</p>
+      <p class="menu-tag">Xuất hiện ở 3 nơi: <b>BossApp</b> (tab Vật tư), <b>Tổng hợp vật tư</b> (trong Kho), <b>ProductionPlanApp</b> (tab vattu)</p>
+    </article>
+  </section>
+
+  <section class="module">
+    <div class="module-head">
+      <h2>Admin</h2>
+      <span class="count">3 khu vực</span>
+    </div>
+
+    <article class="card" data-status="gap">
+      <div class="card-top">
+        <h3 class="card-title">Danh mục hệ thống — Mục đích xuất</h3>
+        <span class="badge full">Mock toàn bộ</span>
+      </div>
+      <span class="path">src/modules/pages/Admin/masterData/ExportPurposesPage.tsx · src/lib/mock/services/mfg.service.ts:38-47, 74-77</span>
+      <p class="desc">Toàn bộ CRUD (<code>getExportPurposes/create/update/delete</code>) đi qua <code>ExportPurposeService</code> mock, ghi vào <code>mockStore</code> (localStorage) — chưa có BE thật đứng sau.</p>
+      <p class="menu-tag">Menu: <b>Danh mục hệ thống → Mục đích xuất</b></p>
+    </article>
+
+    <article class="card" data-status="intentional">
+      <div class="card-top">
+        <h3 class="card-title">Nhật ký hoạt động (Audit Log) + Dashboard</h3>
+        <span class="badge intentional">Chủ ý giữ mock</span>
+      </div>
+      <span class="path">src/context/AuditLogContext.tsx · src/lib/mock/services/audit-log.service.ts</span>
+      <p class="desc">Audit log "tự viết tay" theo hành động UI — khác với <code>audit_logs</code> tự động của BE (diff theo field). Đây là quyết định thiết kế đã ghi rõ trong code, không phải phần thiếu sót cần nối API.</p>
+      <p class="menu-tag">Menu: <b>Nhật ký hoạt động</b>, <b>Dashboard</b> admin</p>
+    </article>
+
+    <article class="card" data-status="intentional">
+      <div class="card-top">
+        <h3 class="card-title">Trạng thái hệ thống</h3>
+        <span class="badge intentional">Chủ ý giữ mock</span>
+      </div>
+      <span class="path">src/modules/pages/Admin/SystemStatusPage.tsx:48 · src/lib/mock/services/system.service.ts</span>
+      <p class="desc"><code>getSystemStats</code>/<code>resetSystemData</code> đếm bản ghi trong <code>mockStore</code> (localStorage) — không phải nhật ký lỗi server thật, và trang tự khai rõ điều này.</p>
+      <p class="quote">"Toàn bộ dữ liệu là mock lưu trong trình duyệt (localStorage) — không có backend thật nên không có nhật ký lỗi server."</p>
+      <p class="menu-tag">Menu: <b>Trạng thái hệ thống</b></p>
+    </article>
+  </section>
+
+  <section class="module">
+    <div class="module-head">
+      <h2>Route độc lập</h2>
+      <span class="count">1 khu vực</span>
+    </div>
+
+    <article class="card" data-status="intentional">
+      <div class="card-top">
+        <h3 class="card-title">Demo tồn kho — không thuộc menu chính</h3>
+        <span class="badge intentional">Không dùng trong menu</span>
+      </div>
+      <span class="path">src/app/demo-ton-kho/page.tsx:6</span>
+      <p class="desc">Toàn bộ trang "DEMO — Giữ chỗ → Mua hàng → Nhập kho → Sản xuất" là FE/mock, không có nơi nào trong app liên kết tới route này.</p>
+      <p class="quote">"Hoàn toàn FE/mock — không gọi backend."</p>
+      <p class="menu-tag">Không có trong điều hướng chính — độ ưu tiên thấp</p>
+    </article>
+  </section>
+
+  <div class="note">
+    <b>Đính chính:</b> trước đó có đề xuất nối <code>src/services/cutting-batch-api.ts</code> để thay mock của "Khung cơ khí" — không đúng. File đó phục vụ màn <b>Tối uu cắt sắt</b> (gợi ý gộp đợt cắt, qua <code>GomDotCatPage.tsx</code>) và đã gọi API thật rồi, không liên quan tới tiến độ Khung cơ khí.
+  </div>
+
+  <footer>
+    Đã kiểm tra và loại trừ các trang có nhắc "mock" chỉ trong comment lịch sử cutover nhưng code hiện tại đã gọi API thật: SKU List/Review/Detail, Kiểm tra vật tư, Gom đợt cắt, Lệnh SX, Kho phôi, Lệnh sản xuất Phôi/Hàn, KCS Phôi/Hàn/Sơn, Xuất sắt, Xác nhận sản lượng/vật tư, toàn bộ Purchasing, Sales, warehouse-transfers, weaving-points, users, defect-reasons, Kho chuyển kiểm, Kho đóng gói.
+  </footer>
+</div>
+
+<script>
+  var chips = document.querySelectorAll(".chip");
+  var cards = document.querySelectorAll(".card");
+  chips.forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      chips.forEach(function (c) { c.setAttribute("aria-pressed", "false"); });
+      chip.setAttribute("aria-pressed", "true");
+      var filter = chip.getAttribute("data-filter");
+      cards.forEach(function (card) {
+        var status = card.getAttribute("data-status");
+        var show = filter === "all" || status === filter;
+        card.style.display = show ? "" : "none";
+      });
+      document.querySelectorAll(".module").forEach(function (mod) {
+        var visible = mod.querySelectorAll('.card:not([style*="display: none"])').length;
+        mod.style.display = visible === 0 ? "none" : "";
+      });
+    });
+  });
+</script>
+</body>
+</html>

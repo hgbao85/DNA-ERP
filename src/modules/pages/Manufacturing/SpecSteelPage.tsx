@@ -34,6 +34,17 @@ const CHILD_GROUPS: ManhChildGroup[] = ['sat', 'day', 'dinh', 'tanRut', 'nutNhua
 const GROUP_LABELS: Record<ManhChildGroup, string> = {
   sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa',
 }
+
+// "Mảnh có đan" = có đủ cả 3 nhóm Dây + Đinh + Nút nhựa (Tán rút không tính) - đúng quy tắc
+// BE dùng để set Piece.isWoven (xem SkusService.syncIsWoven). Tính lại ở FE thay vì đọc field
+// isWoven từ BE vì trang này còn cho sửa nháp (chưa gửi phê duyệt) - phải phản ánh đúng NGAY
+// theo dòng vật tư đang có trên form, không đợi round-trip lưu/tải lại.
+const WOVEN_GROUPS: ManhChildGroup[] = ['day', 'dinh', 'nutNhua']
+const wovenStatus = (m: Manh): { isWoven: boolean; missing: ManhChildGroup[] } => {
+  const present = new Set(m.children.map(c => c.group))
+  const missing = WOVEN_GROUPS.filter(g => !present.has(g))
+  return { isWoven: missing.length === 0, missing }
+}
 const GROUP_BADGE_COLORS: Record<ManhChildGroup, { bg: string; fg: string }> = {
   sat: { bg: '#e3f2fd', fg: '#1565c0' },
   day: { bg: '#fff3e0', fg: '#e65100' },
@@ -399,25 +410,40 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{m.tenManh}</span>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#e65100', background: '#fff3e0', borderRadius: 4, padding: '2px 7px' }}>×{m.soLuong} / SKU</span>
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>{m.children.length} dòng vật tư</span>
-                  {!isSubmitted && (
-                    <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
-                      <button
-                        onClick={() => addingTo === m.id ? (setAddingTo(null), resetChildForm()) : (setAddingTo(m.id), resetChildForm())}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
-                          border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-                          background: addingTo === m.id ? '#e3f2fd' : 'var(--surface)',
-                          color: addingTo === m.id ? '#1565c0' : 'var(--text2)',
-                          cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                        }}>
-                        <Plus size={13} /> Thêm vật tư
-                      </button>
-                      <button onClick={() => deleteManh(m.id)} style={{
-                        padding: '5px 10px', border: '1px solid #ffcdd2', borderRadius: 'var(--radius)',
-                        background: '#fff8f8', color: '#c62828', cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                      }}>Xóa mảnh</button>
-                    </div>
-                  )}
+                  <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    {(() => {
+                      const { isWoven, missing } = wovenStatus(m)
+                      return isWoven ? (
+                        <span style={{ fontSize: 12, fontWeight: 600, color: '#2e7d32' }}>✓ Có đan</span>
+                      ) : (
+                        <span
+                          title={missing.length < WOVEN_GROUPS.length ? `Thiếu ${missing.map(g => GROUP_LABELS[g]).join(', ')}` : undefined}
+                          style={{ fontSize: 12, color: 'var(--text3)' }}
+                        >
+                          Không đan
+                        </span>
+                      )
+                    })()}
+                    {!isSubmitted && (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <button
+                          onClick={() => addingTo === m.id ? (setAddingTo(null), resetChildForm()) : (setAddingTo(m.id), resetChildForm())}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
+                            border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                            background: addingTo === m.id ? '#e3f2fd' : 'var(--surface)',
+                            color: addingTo === m.id ? '#1565c0' : 'var(--text2)',
+                            cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                          }}>
+                          <Plus size={13} /> Thêm vật tư
+                        </button>
+                        <button onClick={() => deleteManh(m.id)} style={{
+                          padding: '5px 10px', border: '1px solid #ffcdd2', borderRadius: 'var(--radius)',
+                          background: '#fff8f8', color: '#c62828', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                        }}>Xóa mảnh</button>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Children table */}

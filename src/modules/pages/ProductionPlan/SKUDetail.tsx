@@ -773,6 +773,17 @@ const CHILD_GROUP_BADGE: Record<ManhChildGroup, { bg: string; fg: string }> = {
   nutNhua: { bg: '#fce4ec', fg: '#ad1457' },
 }
 
+// "Mảnh có đan" = có đủ cả 3 nhóm Dây + Đinh + Nút nhựa (Tán rút không tính) - đúng quy tắc
+// BE dùng để set Piece.isWoven (xem SkusService.syncIsWoven). Tính trên TOÀN BỘ r.children
+// (không phải `children` đã lọc theo filterGroup) - lọc theo nhóm chỉ ảnh hưởng hiển thị bảng
+// bên dưới, không được đổi câu trả lời "mảnh này có đan không".
+const WOVEN_GROUPS: ManhChildGroup[] = ['day', 'dinh', 'nutNhua']
+const wovenStatus = (r: ManhRow): { isWoven: boolean; missing: ManhChildGroup[] } => {
+  const present = new Set(r.children.map(c => c.group))
+  const missing = WOVEN_GROUPS.filter(g => !present.has(g))
+  return { isWoven: missing.length === 0, missing }
+}
+
 function ManhPiecesSection({
   rows, entry, readOnly = false, hideStatusBadge = false, onApprove, onReject, filterGroup,
 }: {
@@ -847,6 +858,21 @@ function ManhPiecesSection({
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#e65100', background: '#fff3e0', borderRadius: 4, padding: '2px 7px' }}>×{r.qtyPerSku} / SKU</span>
                 )}
                 <span style={{ fontSize: 12, color: 'var(--text3)' }}>{children.length} dòng vật tư</span>
+                <div style={{ marginLeft: 'auto' }}>
+                  {(() => {
+                    const { isWoven, missing } = wovenStatus(r)
+                    return isWoven ? (
+                      <span style={{ fontSize: 12, fontWeight: 600, color: '#2e7d32' }}>✓ Có đan</span>
+                    ) : (
+                      <span
+                        title={missing.length < WOVEN_GROUPS.length ? `Thiếu ${missing.map(g => CHILD_GROUP_LABELS[g]).join(', ')}` : undefined}
+                        style={{ fontSize: 12, color: 'var(--text3)' }}
+                      >
+                        Không đan
+                      </span>
+                    )
+                  })()}
+                </div>
               </div>
               {children.length > 0 && (
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
