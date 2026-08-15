@@ -25,10 +25,13 @@ export const AUDIT_ACTIONS = {
   'sku.manh_submitted':          { label: 'Nhập định mức mảnh',                               color: '#2563eb' },
   'sku.detail_section_approved': { label: 'Duyệt 1 nhóm định mức chi tiết',                  color: '#2e7d32' },
   'sku.detail_section_rejected': { label: 'Từ chối 1 nhóm định mức chi tiết',                color: '#c62828' },
-  'sku.detail_approved':         { label: 'Duyệt định mức chi tiết — chuyển QLSX duyệt',       color: '#2e7d32' },
+  // Mảnh/chi tiết là 2 nhánh độc lập tiến song song (không còn "chuyển QLSX duyệt" hay "chuyển
+  // bộ phận nhập chi tiết" - QLSX duyệt cục bộ đã bỏ khỏi pipeline từ trước, và nhánh kia có thể
+  // đã tự làm việc song song rồi) - nhãn chỉ còn phản ánh đúng 1 nhánh vừa được KHSX chốt xong.
+  'sku.detail_approved':         { label: 'Xác nhận hoàn tất định mức chi tiết',              color: '#2e7d32' },
   'sku.parts_section_approved':  { label: 'Duyệt 1 nhóm định mức mảnh',                       color: '#2e7d32' },
   'sku.parts_section_rejected':  { label: 'Từ chối 1 nhóm định mức mảnh',                     color: '#c62828' },
-  'sku.parts_approved':          { label: 'Duyệt định mức mảnh — chuyển bộ phận nhập chi tiết', color: '#2e7d32' },
+  'sku.parts_approved':          { label: 'Xác nhận hoàn tất định mức mảnh',                  color: '#2e7d32' },
   'sku.qlsx_approved':           { label: 'Quản lý sản xuất duyệt',                            color: '#2e7d32' },
   'sku.sent_for_boss_approval':  { label: 'Gửi sếp duyệt',                                    color: '#7c3aed' },
   'sku.qlsx_rejected':           { label: 'QLSX từ chối — trả về cho KHSX duyệt lại',         color: '#c62828' },

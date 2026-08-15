@@ -9,14 +9,14 @@ import { reviewSkuManhQuota, reviewSkuDetailQuota } from '../../../services/sku-
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import type { ManhChildGroup, ManhRow, MaterialType, Sku } from '../../../types/sku'
-import { STATUS_MAP, SKU_ENTITY, isPartsApproved } from '../../../constants/skuStatus'
+import { STATUS_MAP, SKU_ENTITY } from '../../../constants/skuStatus'
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
 export { STATUS_MAP, SKU_ENTITY }
 
 export function StatusBadge({ status }: { status: string }) {
-  return <GenericStatusBadge {...(STATUS_MAP[status] ?? STATUS_MAP.APPROVED_DETAIL)} />
+  return <GenericStatusBadge {...(STATUS_MAP[status] ?? STATUS_MAP.IN_PROGRESS)} />
 }
 
 /** 3 nhóm định mức chi tiết — vẫn dùng để gắn nhãn/lọc hiển thị dù giờ chỉ còn 1 quyết định
@@ -51,10 +51,10 @@ export function SKUDetail({
   const mt = pf.quotaManagement?.materialType
   const manh = pf.manhData
 
-  // Mảnh đã được duyệt khi status vượt qua giai đoạn APPROVED_PARTS (đã gửi bộ phận nhập chi tiết)
-  const partsAlreadyApproved = isPartsApproved(pf.status)
-  // Chi tiết đã được duyệt khi status vượt qua giai đoạn APPROVED_DETAIL (đã gửi Sếp duyệt)
-  const detailAlreadyApproved = ['WAITING_BOSS_APPROVAL', 'APPROVED'].includes(pf.status)
+  // Mảnh/chi tiết là 2 nhánh độc lập - "đã forward" (KHSX chốt xong, xem advanceForwardedTrack ở
+  // BE) không còn suy ra được từ status (chỉ còn 3 giá trị tổng quát), đọc thẳng 2 mốc thời gian.
+  const partsAlreadyApproved = !!pf.manhForwardedAt
+  const detailAlreadyApproved = !!pf.detailForwardedAt
   const approvedEntry = (at?: string) => ({ status: 'APPROVED' as const, at: new Date(at ?? pf.createdAt) })
 
   type SecEntry = { status: 'APPROVED' | 'REJECTED'; at: Date; reason?: string } | null
@@ -65,7 +65,7 @@ export function SKUDetail({
     const review = pf.manhReviewStatus
     // Fallback "coi như đã duyệt" chỉ áp dụng cho SKU cũ CHƯA TỪNG có manhReviewStatus (trước khi
     // field này tồn tại) — không áp dụng khi field đã tồn tại nhưng rỗng (vd Sếp vừa từ chối,
-    // xóa trắng quyết định cũ để KHSX duyệt lại dù mảnh đã từng qua giai đoạn APPROVED_PARTS).
+    // xóa trắng quyết định cũ để KHSX duyệt lại dù mảnh đã từng forward xong trước đó).
     const fallback = review === undefined && partsAlreadyApproved ? approvedEntry(pf.proposedAt ?? undefined) : null
     return review ? { status: review.status, at: new Date(review.reviewedAt), reason: review.reason } : fallback
   })
@@ -136,12 +136,11 @@ export function SKUDetail({
   const detailApproved = secStatus?.status === 'APPROVED'
   const detailRejected = secStatus?.status === 'REJECTED'
 
-  // Nút "Gửi sếp duyệt" phải chờ TẤT CẢ mục được duyệt — cả định mức mảnh lẫn chi tiết. Bình thường
-  // mảnh đã được duyệt xong xuôi trước khi tới bước chi tiết nên manhAllApproved luôn đúng ở đây;
-  // riêng trường hợp Sếp từ chối (rejectToDetailReview xóa trắng cả reviewStatus lẫn
-  // manhReviewStatus) thì KHSX phải duyệt lại cả 2 phần mới được gửi lại, không chỉ phần chi tiết.
-  const readyForBossReview = detailApproved && manhAllApproved
-  const bossReviewBlockedByRejection = detailRejected || manhAnyRejected
+  // Nút "Xác nhận hoàn tất — Định mức chi tiết" chỉ phụ thuộc CHÍNH nhánh chi tiết - không còn chờ
+  // mảnh (2 nhánh độc lập, xem showManhActionBar/showDetailActionBar). Gửi sếp duyệt thật sự chỉ
+  // xảy ra khi CẢ HAI nhánh đã forward (server tự kiểm - xem advanceForwardedTrack ở BE).
+  const readyToForwardDetail = detailApproved
+  const detailBlockedByRejection = detailRejected
 
   // Duyệt/từ chối định mức chi tiết đều phải qua modal xác nhận, và một khi đã có quyết định
   // thì phần hiển thị tự ẩn 2 nút này — account chuyên trách tự thấy trạng thái "Bị từ chối"
@@ -196,14 +195,12 @@ export function SKUDetail({
   }
 
   type DetailTab = 'manh' | 'chitiet'
-  // Tab chi tiết hiển thị khi mảnh đã qua duyệt, HOẶC khi đã có dữ liệu chi tiết từ trước (vd SKU bị
-  // Sếp từ chối nên status quay về WAITING_PARTS, nhưng dữ liệu chi tiết vẫn còn — vẫn cần xem lại được).
-  const showDetailTab = partsAlreadyApproved || (['daySon', 'vatTuPhuKien', 'baoBiDongGoi'] as SecKey[]).some(k => (mt?.[k]?.length ?? 0) > 0)
-  // Ưu tiên mở tab "Định mức mảnh" nếu nó CHƯA duyệt xong — kể cả khi status đã ở giai đoạn chi tiết
-  // (vd Sếp vừa từ chối: rejectToDetailReview xóa trắng cả manhReviewStatus lẫn reviewStatus,
-  // nên Sắt/Dây cũng cần duyệt lại). Không làm vậy thì KHSX mở SKU lên sẽ rơi thẳng vào tab chi tiết,
-  // dễ tưởng chỉ cần duyệt lại chi tiết mà không biết mảnh cũng đang chờ.
-  const defaultTab: DetailTab = partsAlreadyApproved && manhAllApproved ? 'chitiet' : 'manh'
+  // Mảnh và chi tiết là 2 nhánh độc lập, tiến song song - cả 2 tab luôn hiện, không còn tab nào
+  // bị khoá chờ nhánh kia xong (chuyên viên chi tiết có thể nhập ngay từ khi tạo SKU).
+  const showDetailTab = true
+  // Ưu tiên mở tab của nhánh CHƯA forward xong (còn việc cần xử lý) - mảnh trước nếu cả 2 đều
+  // chưa xong, tương tự tinh thần cũ nhưng không còn phụ thuộc thứ tự tuyến tính.
+  const defaultTab: DetailTab = !partsAlreadyApproved ? 'manh' : !detailAlreadyApproved ? 'chitiet' : 'manh'
   const [detailTab, setDetailTab] = useState<DetailTab>(defaultTab)
 
   // KHSX được duyệt/từ chối từng mục (mảnh: 1 quyết định cho cả 5 nhóm; chi tiết: Sơn, Phụ kiện,
@@ -212,11 +209,10 @@ export function SKUDetail({
   // chối (xem rejectToDetailReview), nút Duyệt/Từ chối của TẤT CẢ mục tự hiện lại ngay mà không cần
   // chờ đi lại từ đầu qua từng bước, và không bộ phận chuyên trách nào phải nhập lại dữ liệu.
   const canReview = !readOnly && !isBoss
-  // Thanh "chuyển tiếp công đoạn" (Gửi bộ phận chi tiết / Gửi sếp duyệt) chỉ hiện đúng lúc pipeline
-  // đang ở giai đoạn tương ứng — khác với canReview, đây là hành động chuyển trạng thái nên vẫn cần
-  // khóa theo status.
-  const showManhActionBar = canReview && pf.status === 'APPROVED_PARTS'
-  const showDetailActionBar = canReview && pf.status === 'APPROVED_DETAIL'
+  // Thanh "xác nhận hoàn tất" của mỗi nhánh hiện tới khi nhánh đó CHƯA forward - 2 nhánh độc lập,
+  // hiện song song, không còn khoá theo vị trí pipeline của status như trước.
+  const showManhActionBar = canReview && !partsAlreadyApproved
+  const showDetailActionBar = canReview && !detailAlreadyApproved
   const noop = () => {}
 
   // Sếp duyệt: xem gộp cả chi tiết + mảnh trên 1 màn hình (không cần chuyển tab) cho tiện duyệt.
@@ -359,7 +355,7 @@ export function SKUDetail({
                   opacity: approvingParts ? 0.7 : 1,
                 }}
               >
-                {approvingParts ? 'Đang gửi...' : 'Gửi bộ phận Định mức chi tiết'}
+                {approvingParts ? 'Đang gửi...' : 'Xác nhận hoàn tất — Định mức mảnh'}
               </button>
             </div>
           )}
@@ -437,30 +433,24 @@ export function SKUDetail({
           {/* Actions */}
           {showDetailActionBar && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
-              {/* detailApproved xong nhưng vẫn chưa readyForBossReview nghĩa là mảnh (tab khác) đang
-                  chặn — chỉ xảy ra khi Sếp vừa từ chối. Nói rõ ra để KHSX không tưởng nhầm mục
-                  nào trên chính tab này còn thiếu. */}
-              {!readyForBossReview && !bossReviewBlockedByRejection && detailApproved && !manhAllApproved && (
-                <span style={{ fontSize: 12, color: '#d97706', fontWeight: 600 }}>⚠ Định mức mảnh (tab bên cạnh) cũng cần được duyệt lại</span>
-              )}
-              {!readyForBossReview && !bossReviewBlockedByRejection && !detailApproved && (
+              {!readyToForwardDetail && !detailBlockedByRejection && (
                 <span style={{ fontSize: 12, color: '#d97706' }}>Cần nhập và duyệt đủ tất cả các mục mới được chuyển đến công đoạn tiếp theo</span>
               )}
-              {bossReviewBlockedByRejection && (
+              {detailBlockedByRejection && (
                 <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>Có nhóm bị từ chối — đang chờ bộ phận nhập lại</span>
               )}
               <button
                 onClick={() => setConfirmApproveDetail(true)}
-                disabled={!readyForBossReview || approvingDetail}
+                disabled={!readyToForwardDetail || approvingDetail}
                 style={{
                   padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
-                  cursor: readyForBossReview && !approvingDetail ? 'pointer' : 'not-allowed',
-                  background: readyForBossReview ? '#2e7d32' : '#e5e7eb',
-                  color: readyForBossReview ? '#fff' : '#9ca3af',
+                  cursor: readyToForwardDetail && !approvingDetail ? 'pointer' : 'not-allowed',
+                  background: readyToForwardDetail ? '#2e7d32' : '#e5e7eb',
+                  color: readyToForwardDetail ? '#fff' : '#9ca3af',
                   opacity: approvingDetail ? 0.7 : 1,
                 }}
               >
-                {approvingDetail ? 'Đang gửi...' : 'Gửi sếp duyệt'}
+                {approvingDetail ? 'Đang gửi...' : 'Xác nhận hoàn tất — Định mức chi tiết'}
               </button>
             </div>
           )}
@@ -471,6 +461,14 @@ export function SKUDetail({
         </div>
       ))}
       </>
+      )}
+
+      {/* Cả 2 nhánh đã forward xong (server tự phát hiện, xem advanceForwardedTrack ở BE) - báo
+          cho KHSX biết SKU đã sang tay Sếp mà không cần suy ra từ việc 2 nút hành động đã ẩn. */}
+      {!isBoss && !readOnly && pf.status === 'WAITING_BOSS_APPROVAL' && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+          <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã gửi sếp duyệt</span>
+        </div>
       )}
 
       {/* Sếp duyệt lần cuối — gộp cả chi tiết + mảnh, không phụ thuộc tab đang xem */}
@@ -557,11 +555,12 @@ export function SKUDetail({
             </div>
       </Modal>
 
-      {/* Modal xác nhận gửi sếp duyệt */}
+      {/* Modal xác nhận hoàn tất nhánh chi tiết */}
       <Modal open={confirmApproveDetail} maxWidth={420} zIndex={2000}>
-            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận gửi sếp duyệt</h3>
+            <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận hoàn tất — Định mức chi tiết</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
-              Toàn bộ định mức mảnh và định mức chi tiết đã được duyệt. Xác nhận gửi sếp duyệt?
+              Định mức chi tiết đã được duyệt. Xác nhận chốt xong nhánh này? Khi định mức mảnh cũng
+              đã chốt xong, SKU sẽ tự động gửi sếp duyệt.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setConfirmApproveDetail(false)} style={btnSecondary}>Hủy</button>

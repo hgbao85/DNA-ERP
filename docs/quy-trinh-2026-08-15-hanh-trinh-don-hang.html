@@ -1,0 +1,470 @@
+<title>Hành Trình Một Đơn Hàng</title>
+<style>
+:root{
+  --bg:#eef1f3;
+  --surface:#ffffff;
+  --surface-2:#f5f7f8;
+  --ink:#1b2430;
+  --ink-soft:#54606d;
+  --ink-faint:#8a94a1;
+  --line:#dbe1e6;
+  --line-strong:#c3ccd3;
+  --accent:#c15a26;
+  --accent-ink:#fff7f2;
+  --accent-soft:#f7e4d5;
+  --accent-line:#e3b48d;
+  --warn:#a92318;
+  --warn-soft:#fbe6e3;
+  --warn-line:#e7b3ab;
+  --ok:#2f6b4f;
+  --ok-soft:#e3efe8;
+  --mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --sans: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --shadow: 0 1px 2px rgba(27,36,48,0.06), 0 8px 24px -12px rgba(27,36,48,0.18);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11151b;
+    --surface:#181e26;
+    --surface-2:#1e252e;
+    --ink:#e8ecf0;
+    --ink-soft:#aab4c0;
+    --ink-faint:#748090;
+    --line:#2a323d;
+    --line-strong:#374050;
+    --accent:#e8834e;
+    --accent-ink:#1c0f06;
+    --accent-soft:#3a2617;
+    --accent-line:#5c3a20;
+    --warn:#ff8f85;
+    --warn-soft:#3a1e1c;
+    --warn-line:#66312c;
+    --ok:#7fcaa4;
+    --ok-soft:#1c2e26;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11151b;
+  --surface:#181e26;
+  --surface-2:#1e252e;
+  --ink:#e8ecf0;
+  --ink-soft:#aab4c0;
+  --ink-faint:#748090;
+  --line:#2a323d;
+  --line-strong:#374050;
+  --accent:#e8834e;
+  --accent-ink:#1c0f06;
+  --accent-soft:#3a2617;
+  --accent-line:#5c3a20;
+  --warn:#ff8f85;
+  --warn-soft:#3a1e1c;
+  --warn-line:#66312c;
+  --ok:#7fcaa4;
+  --ok-soft:#1c2e26;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+}
+
+*{box-sizing:border-box;}
+html{background:var(--bg);}
+body{
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 39px, var(--line) 39px, var(--line) 40px) fixed,
+    var(--bg);
+  background-size: 100% 40px, 100% 100%;
+  color:var(--ink);
+  font-family:var(--sans);
+  line-height:1.55;
+  margin:0;
+  padding:0 20px 96px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) body{ background: repeating-linear-gradient(0deg, transparent, transparent 39px, var(--line) 39px, var(--line) 40px) fixed, var(--bg); background-size:100% 40px, 100% 100%; } }
+:root[data-theme="dark"] body{ background: repeating-linear-gradient(0deg, transparent, transparent 39px, var(--line) 39px, var(--line) 40px) fixed, var(--bg); background-size:100% 40px, 100% 100%; }
+
+.wrap{max-width:840px;margin:0 auto;}
+
+/* ===== Header ===== */
+header.hero{
+  padding:56px 0 28px;
+  border-bottom:1px solid var(--line-strong);
+  margin-bottom:28px;
+}
+.eyebrow{
+  font-family:var(--mono);
+  font-size:12.5px;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--accent);
+  font-weight:600;
+  margin:0 0 14px;
+}
+h1{
+  font-size:clamp(32px,5vw,46px);
+  line-height:1.08;
+  margin:0 0 16px;
+  letter-spacing:-0.02em;
+  text-wrap:balance;
+  font-weight:800;
+}
+.hero p.lede{
+  font-size:17px;
+  color:var(--ink-soft);
+  max-width:62ch;
+  margin:0 0 24px;
+}
+.flowline{
+  font-family:var(--mono);
+  font-size:12.5px;
+  color:var(--ink-faint);
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:8px;
+  padding:14px 16px;
+  overflow-x:auto;
+  white-space:nowrap;
+  letter-spacing:.01em;
+}
+.flowline b{color:var(--ink);font-weight:600;}
+.flowline .arrow{color:var(--accent);margin:0 2px;}
+
+/* ===== Sticky stage nav ===== */
+nav.stagenav{
+  position:sticky;
+  top:0;
+  z-index:10;
+  background:var(--bg);
+  padding:10px 0;
+  margin-bottom:8px;
+  border-bottom:1px solid var(--line);
+}
+nav.stagenav::before{
+  content:"";
+  position:absolute;
+  inset:0 -20px;
+  background:var(--bg);
+  z-index:-1;
+  border-bottom:1px solid var(--line);
+}
+.navrow{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin;}
+.navrow a{
+  flex:none;
+  font-family:var(--mono);
+  font-size:12px;
+  color:var(--ink-soft);
+  text-decoration:none;
+  border:1px solid var(--line);
+  background:var(--surface);
+  border-radius:20px;
+  padding:6px 12px;
+  white-space:nowrap;
+}
+.navrow a:hover, .navrow a:focus-visible{border-color:var(--accent);color:var(--accent);outline:none;}
+
+/* ===== Section headings ===== */
+section.block{margin:44px 0;}
+h2.blocktitle{
+  font-size:14px;
+  text-transform:uppercase;
+  letter-spacing:.1em;
+  color:var(--ink-faint);
+  font-weight:700;
+  margin:0 0 16px;
+}
+
+/* ===== Role legend ===== */
+.roletable{width:100%;border-collapse:collapse;font-size:14.5px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:var(--shadow);}
+.roletable th{
+  text-align:left;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-faint);font-weight:600;background:var(--surface-2);padding:10px 14px;border-bottom:1px solid var(--line);
+}
+.roletable td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-soft);}
+.roletable tr:last-child td{border-bottom:none;}
+.roletable td.rname{color:var(--ink);font-weight:600;white-space:nowrap;}
+.tablewrap{overflow-x:auto;}
+
+/* ===== Stage cards ===== */
+.stage{
+  scroll-margin-top:60px;
+  background:var(--surface);
+  border:1px solid var(--line);
+  border-radius:12px;
+  box-shadow:var(--shadow);
+  padding:26px 28px 24px;
+  margin-bottom:18px;
+  position:relative;
+}
+.stagehead{display:flex;align-items:baseline;gap:14px;margin-bottom:6px;flex-wrap:wrap;}
+.stagenum{
+  font-family:var(--mono);
+  font-weight:700;
+  font-size:13px;
+  color:var(--accent-ink);
+  background:var(--accent);
+  border-radius:6px;
+  padding:3px 9px;
+  letter-spacing:.02em;
+}
+.stagetitle{font-size:21px;font-weight:700;letter-spacing:-0.01em;}
+.stagesub{font-family:var(--mono);font-size:12px;color:var(--ink-faint);margin-bottom:16px;}
+.actors{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+.actor{
+  font-family:var(--mono);
+  font-size:11.5px;
+  letter-spacing:.03em;
+  color:var(--accent);
+  background:var(--accent-soft);
+  border:1px solid var(--accent-line);
+  border-radius:20px;
+  padding:3px 10px;
+  font-weight:600;
+}
+.stage p{margin:0 0 12px;color:var(--ink-soft);}
+.stage p:last-of-type{margin-bottom:0;}
+.stage strong{color:var(--ink);}
+.stage ul{margin:0 0 12px;padding-left:20px;color:var(--ink-soft);}
+.stage li{margin-bottom:6px;}
+.result{
+  margin-top:16px;
+  font-size:13.5px;
+  border-top:1px dashed var(--line-strong);
+  padding-top:12px;
+  color:var(--ink-soft);
+}
+.result b{
+  font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ok);background:var(--ok-soft);border-radius:5px;padding:2px 7px;margin-right:8px;
+}
+
+.callout{
+  margin-top:14px;
+  border:1px solid var(--warn-line);
+  background:var(--warn-soft);
+  border-radius:8px;
+  padding:13px 16px;
+  font-size:13.5px;
+  color:var(--ink);
+}
+.callout .tag{
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--warn);font-weight:700;display:block;margin-bottom:5px;
+}
+.callout p{color:var(--ink-soft);margin:0;}
+
+/* ===== Summary / exceptions ===== */
+.exlist{display:grid;gap:12px;}
+.exitem{
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;
+  padding:16px 18px;box-shadow:var(--shadow);
+}
+.exitem .extitle{font-weight:700;font-size:14.5px;margin-bottom:5px;color:var(--ink);}
+.exitem p{margin:0;color:var(--ink-soft);font-size:14px;}
+
+footer.note{
+  margin-top:48px;
+  padding-top:20px;
+  border-top:1px solid var(--line-strong);
+  font-size:12.5px;
+  color:var(--ink-faint);
+  font-family:var(--mono);
+}
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Tài liệu quy trình · Nhà máy khung sắt</p>
+  <h1>Hành Trình Một Đơn Hàng</h1>
+  <p class="lede">Từ lúc Kinh doanh ký được đơn hàng, tới lúc thùng hàng cuối cùng đóng gói xong — ai chạm vào đơn hàng, ở bước nào, và làm việc gì. Viết lại theo cách hiểu thông thường, không dùng thuật ngữ kỹ thuật.</p>
+  <div class="flowline">
+    <b>Đơn hàng</b><span class="arrow">→</span><b>Duyệt định mức SKU</b><span class="arrow">→</span><b>Lệnh sản xuất</b><span class="arrow">→</span><b>Cắt sắt</b><span class="arrow">→</span><b>Mua hàng*</b><span class="arrow">→</span><b>Hàn</b><span class="arrow">→</span><b>Sơn</b><span class="arrow">→</span><b>Đan (ngoài)</b><span class="arrow">→</span><b>Chuyền kiểm</b><span class="arrow">→</span><b>Đóng gói</b>&nbsp;&nbsp;<span style="opacity:.6">*chỉ khi thiếu vật tư</span>
+  </div>
+</header>
+
+<nav class="stagenav">
+  <div class="navrow">
+    <a href="#roles">Vai trò</a>
+    <a href="#s1">1 · Đơn hàng</a>
+    <a href="#s2">2 · Duyệt SKU</a>
+    <a href="#s3">3 · Lệnh SX</a>
+    <a href="#s4">4 · Cắt sắt</a>
+    <a href="#s5">5 · Mua hàng</a>
+    <a href="#s6">6 · Xuất kho</a>
+    <a href="#s7">7 · Phôi</a>
+    <a href="#s8">8 · Hàn</a>
+    <a href="#s9">9 · Sơn</a>
+    <a href="#s10">10 · Đan</a>
+    <a href="#s11">11 · Chuyền kiểm</a>
+    <a href="#s12">12 · Đóng gói</a>
+    <a href="#s13">13 · Hoàn thành?</a>
+    <a href="#exceptions">Rẽ nhánh</a>
+  </div>
+</nav>
+
+<section class="block" id="context">
+  <h2 class="blocktitle">Bối cảnh</h2>
+  <p style="color:var(--ink-soft);font-size:15px;max-width:70ch;">Đây là nhà máy sản xuất đồ nội thất khung sắt (ghế, bàn...): cắt sắt thành từng đoạn, hàn thành khung, sơn, rồi gửi phần khung/mảnh ra các <strong>điểm đan</strong> bên ngoài để đan mặt ghế, sau đó nhận về kiểm tra và đóng gói. Gần như mọi quyết định quan trọng — duyệt công thức sản phẩm, duyệt lệnh sản xuất, duyệt mua hàng — đều phải qua tay <strong>Sếp (Giám đốc)</strong> ký cuối cùng.</p>
+</section>
+
+<section class="block" id="roles">
+  <h2 class="blocktitle">Ai là ai trong quy trình</h2>
+  <div class="tablewrap">
+  <table class="roletable">
+    <tr><th>Vai trò</th><th>Việc chính</th></tr>
+    <tr><td class="rname">Kinh doanh (Sales)</td><td>Chốt khách hàng, tạo đơn hàng, theo dõi cọc và giao hàng.</td></tr>
+    <tr><td class="rname">KHSX (Kế hoạch SX)</td><td>Tạo mã sản phẩm mới, tổng hợp định mức, gộp đợt cắt, đặt hạn từng công đoạn, gửi duyệt lệnh sản xuất.</td></tr>
+    <tr><td class="rname">Chuyên viên định mức</td><td>Hai người phụ trách riêng: một người nhập định mức sắt/dây/đinh cho từng mảnh, một người nhập định mức sơn/phụ kiện/bao bì.</td></tr>
+    <tr><td class="rname">QLSX (Quản lý SX)</td><td>Duyệt vòng giữa của lệnh sản xuất, chọn kho thành phẩm sẽ nhận hàng.</td></tr>
+    <tr><td class="rname">Sếp (Giám đốc)</td><td>Người duyệt cuối cùng ở hầu hết mọi cổng kiểm soát: công thức sản phẩm, lệnh sản xuất, chọn nhà cung cấp khi mua hàng.</td></tr>
+    <tr><td class="rname">Mua hàng (Purchasing)</td><td>Xin báo giá nhà cung cấp, trình Sếp chọn, theo dõi hàng về.</td></tr>
+    <tr><td class="rname">Thủ kho</td><td>Nhiều người, mỗi người phụ trách một kho: kho vật tư cắt/hàn/sơn, kho vật tư — thành phẩm, kho thành phẩm cuối. Xuất — nhập hàng ở mọi công đoạn.</td></tr>
+    <tr><td class="rname">Tổ Phôi / Tổ Hàn / Tổ Sơn</td><td>Trực tiếp cắt sắt, hàn khung, sơn khung; báo sản lượng làm được.</td></tr>
+    <tr><td class="rname">KCS</td><td>Kiểm tra chất lượng sau mỗi công đoạn Phôi/Hàn/Sơn, quyết định đạt hay không đạt.</td></tr>
+    <tr><td class="rname">Điểm đan</td><td>Đối tác gia công bên ngoài nhà máy, nhận mảnh về đan rồi trả lại.</td></tr>
+  </table>
+  </div>
+</section>
+
+<section class="block stage" id="s1">
+  <div class="stagehead"><span class="stagenum">01</span><span class="stagetitle">Kinh doanh tạo đơn hàng</span></div>
+  <div class="stagesub">Điểm bắt đầu của toàn bộ quy trình</div>
+  <div class="actors"><span class="actor">Kinh doanh</span></div>
+  <p>Nhân viên Kinh doanh chọn khách hàng, sau đó thêm từng dòng sản phẩm vào đơn — nhưng <strong>chỉ được chọn những sản phẩm đã có "công thức" được duyệt sẵn</strong> (xem Giai đoạn 2). Với mỗi dòng sản phẩm, Kinh doanh nhập số lượng và ngày cần giao.</p>
+  <p>Sau khi tạo đơn, hệ thống tự sinh ra ngay phía sau một "lệnh sản xuất" tương ứng — bộ phận Kế hoạch sản xuất sẽ làm việc trên hồ sơ này, Kinh doanh không cần và không thấy phần đó.</p>
+  <p>Kinh doanh theo dõi đơn hàng qua các mốc hiển thị trên màn hình (Lên kế hoạch → Mua hàng → Khung cơ khí → Đan → Chuyền kiểm → Đóng gói → Hoàn thành), đánh dấu đã nhận cọc, và ghi nhận từng đợt xuất hàng cho khách.</p>
+  <div class="result"><b>Kết quả</b>Đơn hàng được tạo, sẵn sàng để bộ phận kế hoạch xử lý.</div>
+  <div class="callout"><span class="tag">Lưu ý</span><p>Các mốc tiến độ hiển thị trên đơn hàng hiện <strong>không tự cập nhật theo tiến độ thực tế dưới xưởng</strong> — phải có người cập nhật tay, nên đôi lúc mốc hiển thị không khớp thực tế.</p></div>
+</section>
+
+<section class="block stage" id="s2">
+  <div class="stagehead"><span class="stagenum">02</span><span class="stagetitle">Xây dựng và duyệt công thức sản phẩm (SKU)</span></div>
+  <div class="stagesub">Thường làm trước hoặc song song với đơn hàng — một sản phẩm chỉ cần duyệt công thức một lần rồi dùng cho nhiều đơn hàng sau này</div>
+  <div class="actors"><span class="actor">KHSX</span><span class="actor">Chuyên viên định mức</span><span class="actor">Sếp</span></div>
+  <p>KHSX tạo một mã sản phẩm mới (SKU). Từ đây, hồ sơ có <strong>hai nhánh nhập liệu và duyệt hoàn toàn độc lập</strong> — làm song song, ai xong trước không cần chờ người kia, trước khi Sếp gật đầu lần cuối:</p>
+  <ul>
+    <li><strong>Nhánh mảnh:</strong> chuyên viên định mức sắt chia sản phẩm thành từng "mảnh" (ví dụ: mảnh tựa, chân ghế), ghi rõ mỗi mảnh cần cắt bao nhiêu sắt, dây, đinh, tán rút, nút nhựa. KHSX kiểm tra và duyệt xong nhánh này.</li>
+    <li><strong>Nhánh chi tiết:</strong> một chuyên viên khác nhập lượng sơn, phụ kiện và bao bì cần dùng — có thể bắt đầu ngay khi SKU được tạo, không cần đợi nhánh mảnh xong trước. KHSX kiểm tra và duyệt xong nhánh này.</li>
+    <li><strong>Tự động gửi Sếp:</strong> ngay khi KHSX đã duyệt xong <em>cả hai</em> nhánh (theo bất kỳ thứ tự nào), hồ sơ tự chuyển sang chờ Sếp duyệt — không cần thêm thao tác nào khác.</li>
+    <li><strong>Duyệt cuối:</strong> Sếp xem toàn bộ công thức và duyệt. Chỉ sau bước này, sản phẩm mới đủ điều kiện để Kinh doanh chọn vào đơn hàng.</li>
+  </ul>
+  <div class="result"><b>Kết quả</b>Sản phẩm có công thức chính thức (định mức vật tư đầy đủ), sẵn sàng đưa vào đơn hàng và sản xuất.</div>
+  <div class="callout"><span class="tag">Nếu bị từ chối</span><p>KHSX hoặc Sếp có thể từ chối ở bất kỳ nhánh/vòng duyệt nào kèm lý do — hồ sơ quay lại đúng người phụ trách để sửa, không phải nhập lại từ đầu. Nếu Sếp từ chối ở bước cuối, cả hai nhánh đều phải được KHSX duyệt lại (dữ liệu đã nhập vẫn giữ nguyên) trước khi hồ sơ được gửi sếp lần nữa.</p></div>
+</section>
+
+<section class="block stage" id="s3">
+  <div class="stagehead"><span class="stagenum">03</span><span class="stagetitle">Lập và duyệt lệnh sản xuất</span></div>
+  <div class="stagesub">Cổng duyệt quan trọng nhất — bấm xong là xưởng bắt đầu chạy, không thể hoàn tác</div>
+  <div class="actors"><span class="actor">KHSX</span><span class="actor">QLSX</span><span class="actor">Sếp</span></div>
+  <p><strong>Bước tùy chọn — gộp đợt cắt:</strong> trước khi gửi duyệt, KHSX có thể gom nhiều sản phẩm (từ nhiều đơn hàng khác nhau) dùng chung loại sắt lại thành một đợt cắt, để giảm số cây sắt phải mua và giảm sắt vụn thừa. Hệ thống gợi ý sẵn cách gộp, KHSX có thể điều chỉnh trước khi xác nhận.</p>
+  <p>KHSX đặt hạn cho từng mốc (mua hàng, khung cơ khí, đan, đóng gói) rồi <strong>gửi cho QLSX</strong>. QLSX xem lại, chọn kho thành phẩm nào sẽ nhận sản phẩm khi hoàn tất, rồi <strong>gửi Sếp duyệt</strong> — hoặc từ chối, trả về KHSX kèm lý do để chỉnh hạn.</p>
+  <p>Khi <strong>Sếp bấm duyệt</strong>, hệ thống lập tức tạo "lệnh sản xuất tại xưởng" và sản xuất chính thức bắt đầu ngay — màn hình cảnh báo rõ đây là hành động không thể hoàn tác.</p>
+  <div class="result"><b>Kết quả</b>Lệnh sản xuất chính thức được mở tại xưởng; nếu là đợt gộp, cả nhóm sản phẩm được duyệt hoặc từ chối cùng lúc (không thể duyệt một nửa).</div>
+</section>
+
+<section class="block stage" id="s4">
+  <div class="stagehead"><span class="stagenum">04</span><span class="stagetitle">Tính phương án cắt sắt</span></div>
+  <div class="stagesub">Bước này chạy tự động, gần như không cần ai bấm nút duyệt tay</div>
+  <div class="actors"><span class="actor">Hệ thống tự động</span><span class="actor">QLSX (chỉ nhận thông báo)</span></div>
+  <p>Ngay sau khi Sếp duyệt lệnh sản xuất, một công cụ tính toán chuyên dụng tự động tìm cách cắt sắt tiết kiệm nhất từ các cây sắt có sẵn (quá trình này mất khoảng 5–15 phút, màn hình hiển thị "đang tính..." theo thời gian thực).</p>
+  <p>Tính xong, hệ thống tự kiểm tra kho: nếu đủ sắt, trừ kho ngay để giữ chỗ cho lệnh này; phần nào còn thiếu, hệ thống <strong>tự tạo đề xuất mua hàng</strong> ngay lập tức, không cần ai duyệt tay bước này (thay đổi áp dụng từ 15/8/2026 — trước đó QLSX phải duyệt tay phương án cắt).</p>
+  <div class="result"><b>Kết quả</b>Phương án cắt được chốt; nếu thiếu sắt, một đề xuất mua hàng tự động sinh ra cho phần thiếu và chuyển sang Giai đoạn 5.</div>
+</section>
+
+<section class="block stage" id="s5">
+  <div class="stagehead"><span class="stagenum">05</span><span class="stagetitle">Mua hàng</span></div>
+  <div class="stagesub">Chỉ xảy ra khi kho không đủ vật tư cho lệnh sản xuất</div>
+  <div class="actors"><span class="actor">Mua hàng</span><span class="actor">Sếp</span><span class="actor">Thủ kho</span></div>
+  <p>Nhân viên Mua hàng nhận đề xuất mua tự động ở trên, liên hệ nhà cung cấp (chỉ được chọn nhà cung cấp đã đăng ký sẵn trong hệ thống), nhập báo giá — có thể nhập nhiều báo giá để so sánh — rồi gửi Sếp.</p>
+  <p><strong>Sếp so sánh giá và chọn nhà cung cấp</strong> cho từng dòng vật tư (hệ thống tự gợi ý báo giá rẻ nhất), sau đó duyệt hoặc từ chối kèm lý do. Nếu từ chối, Mua hàng báo giá lại mà không mất dữ liệu báo giá cũ.</p>
+  <p>Khi hàng về, <strong>Thủ kho</strong> xác nhận nhận hàng — có thể nhận nhiều đợt, nhận thiếu vẫn ghi nhận được — hàng vào đúng kho đã cấu hình sẵn cho từng loại vật tư.</p>
+  <div class="result"><b>Kết quả</b>Vật tư còn thiếu đã về kho, sẵn sàng cấp cho xưởng.</div>
+</section>
+
+<section class="block stage" id="s6">
+  <div class="stagehead"><span class="stagenum">06</span><span class="stagetitle">Xuất vật tư xuống xưởng</span></div>
+  <div class="stagesub">Chuyển vật tư từ kho sang tay các tổ sản xuất</div>
+  <div class="actors"><span class="actor">Thủ kho</span><span class="actor">Tổ Phôi / Hàn / Sơn</span></div>
+  <p>Thủ kho xuất sắt cho Tổ Phôi, xuất sơn/vật tư hàn cho Tổ Hàn và Tổ Sơn — đúng theo định mức đã duyệt ở Giai đoạn 2. Người nhận xác nhận đã nhận đủ, hoặc báo <strong>nhận thiếu</strong> nếu số thực tế nhận được ít hơn số xuất.</p>
+  <div class="result"><b>Kết quả</b>Vật tư sẵn sàng tại xưởng, các tổ có thể bắt đầu sản xuất.</div>
+</section>
+
+<section class="block stage" id="s7">
+  <div class="stagehead"><span class="stagenum">07</span><span class="stagetitle">Sản xuất — Phôi (cắt sắt)</span></div>
+  <div class="actors"><span class="actor">Tổ Phôi</span><span class="actor">KCS</span></div>
+  <p>Tổ Phôi cắt sắt theo phương án đã tính ở Giai đoạn 4 (được phép cắt lệch phương án nếu thực tế cần, hệ thống chỉ ghi chú lại chứ không chặn), rồi báo số lượng đã cắt xong.</p>
+  <p><strong>KCS kiểm tra</strong>: xác nhận đạt bao nhiêu, không đạt bao nhiêu. Phần không đạt được chia làm hai loại — <strong>sửa được</strong> (hệ thống tự tạo một lô cắt lại riêng để Tổ Phôi làm lại phần đó) và <strong>phế</strong> (bỏ hẳn, cần đề xuất bù sắt mới).</p>
+  <div class="result"><b>Kết quả</b>Phần sắt đạt chất lượng chuyển sang cho Tổ Hàn; phần lỗi có lô làm lại riêng để không bị thất lạc.</div>
+</section>
+
+<section class="block stage" id="s8">
+  <div class="stagehead"><span class="stagenum">08</span><span class="stagetitle">Sản xuất — Hàn</span></div>
+  <div class="actors"><span class="actor">Tổ Hàn</span><span class="actor">KCS</span></div>
+  <p>Tổ Hàn nhận phôi đã cắt cùng vật tư hàn, hàn thành khung sản phẩm, báo sản lượng làm được. KCS kiểm tra và duyệt đạt/không đạt tương tự Giai đoạn 7.</p>
+  <div class="result"><b>Kết quả</b>Khung đạt chất lượng chuyển sang cho Tổ Sơn.</div>
+  <div class="callout"><span class="tag">Khác với Phôi</span><p>Ở bước này, nếu có phần không đạt, hệ thống <strong>không tự tạo lô làm lại</strong> như bên Phôi — Tổ Hàn phải tự làm lại và báo như một đợt hoàn toàn mới, không có đường nối lại với lô gốc trong hệ thống.</p></div>
+</section>
+
+<section class="block stage" id="s9">
+  <div class="stagehead"><span class="stagenum">09</span><span class="stagetitle">Sản xuất — Sơn</span></div>
+  <div class="actors"><span class="actor">Tổ Sơn</span><span class="actor">KCS</span></div>
+  <p>Tổ Sơn sơn khung đã hàn xong, báo sản lượng. KCS kiểm tra và duyệt đạt/không đạt — cùng cách chia sửa được/phế và cùng hạn chế về lô làm lại như Giai đoạn 8.</p>
+  <div class="result"><b>Kết quả</b>Mảnh đã sơn xong, sẵn sàng gửi đi đan.</div>
+</section>
+
+<section class="block stage" id="s10">
+  <div class="stagehead"><span class="stagenum">10</span><span class="stagetitle">Đan (gia công ngoài)</span></div>
+  <div class="stagesub">Khâu duy nhất làm bên ngoài nhà máy</div>
+  <div class="actors"><span class="actor">Thủ kho</span><span class="actor">Điểm đan (đối tác ngoài)</span></div>
+  <p>Thủ kho xuất các mảnh đã sơn/hàn xong cho một hoặc nhiều <strong>điểm đan</strong> (đối tác gia công bên ngoài), theo dõi điểm nào đang giữ bao nhiêu hàng, điểm nào đã trả đủ. Khi hàng đan xong quay về, Thủ kho nhập lại vào kho.</p>
+  <div class="result"><b>Kết quả</b>Mảnh đã đan xong quay về nhà máy, sẵn sàng kiểm tra lần cuối.</div>
+  <div class="callout"><span class="tag">Lưu ý</span><p>Khâu này được kiểm soát lỏng hơn các bước trong xưởng: không tự trừ/cộng kho, không có cổng duyệt — chủ yếu dựa vào ghi chép xuất/nhập thủ công của Thủ kho.</p></div>
+</section>
+
+<section class="block stage" id="s11">
+  <div class="stagehead"><span class="stagenum">11</span><span class="stagetitle">Chuyền kiểm</span></div>
+  <div class="stagesub">Kiểm tra lần cuối sau khi hàng đan trở về</div>
+  <div class="actors"><span class="actor">Thủ kho</span></div>
+  <p>Thủ kho kiểm từng mảnh đã đan xong, ghi nhận số lượng đã kiểm; nếu phát hiện lỗi, ghi rõ lý do và có thể đính kèm ảnh chụp cho từng lỗi.</p>
+  <div class="result"><b>Kết quả</b>Mảnh đạt chuẩn được chuyển sang đóng gói.</div>
+</section>
+
+<section class="block stage" id="s12">
+  <div class="stagehead"><span class="stagenum">12</span><span class="stagetitle">Đóng gói</span></div>
+  <div class="actors"><span class="actor">Thủ kho</span></div>
+  <p>Thủ kho đóng thùng theo số lượng cần giao, hệ thống theo dõi đã đóng được bao nhiêu thùng, còn thiếu bao nhiêu. Hàng đóng gói xong được xuất kho để giao cho khách.</p>
+  <div class="result"><b>Kết quả</b>Hàng sẵn sàng giao, cập nhật lại cho Kinh doanh để xuất hàng cho khách.</div>
+</section>
+
+<section class="block stage" id="s13">
+  <div class="stagehead"><span class="stagenum">13</span><span class="stagetitle">Đơn hàng "hoàn thành"?</span></div>
+  <div class="stagesub">Điểm cần lưu ý nhất trong toàn bộ quy trình</div>
+  <div class="actors"><span class="actor">Không ai — đây là khoảng trống của hệ thống</span></div>
+  <p>Trên thực tế, hệ thống <strong>chưa có một nút hay trạng thái nào tự động đánh dấu "đơn hàng đã xong 100%"</strong>. Muốn biết một đơn hàng đã hoàn tất chưa, hiện phải tự so sánh số lượng đã đóng gói với tổng số lượng cần giao, hoặc hỏi trực tiếp người phụ trách — hệ thống không tự báo.</p>
+  <p>Tương tự, việc theo dõi tiền cũng dừng ở mức đánh dấu "đã nhận cọc / chưa nhận cọc" — chưa có phần tự động tính đã thanh toán bao nhiêu, còn nợ lại bao nhiêu.</p>
+  <div class="callout"><span class="tag">Nên biết</span><p>Đây là khoảng trống có thật trong hệ thống hiện tại, không phải một bước quy trình — nếu cần báo cáo "đơn nào đã xong, đơn nào chưa", hiện vẫn phải làm thủ công.</p></div>
+</section>
+
+<section class="block" id="exceptions">
+  <h2 class="blocktitle">Những rẽ nhánh cần biết</h2>
+  <div class="exlist">
+    <div class="exitem">
+      <div class="extitle">Từ chối ở bất kỳ cổng duyệt nào</div>
+      <p>Công thức sản phẩm, lệnh sản xuất, báo giá mua hàng, đợt gộp cắt sắt — tất cả đều có thể bị người duyệt từ chối kèm lý do, hồ sơ quay lại đúng người phụ trách để sửa, dữ liệu đã nhập không bị mất.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">Lỗi chất lượng: sửa được và phế là hai hướng khác nhau</div>
+      <p>KCS không chỉ chấm đạt/không đạt — phần không đạt luôn được tách thành "sửa lại được" và "phế bỏ hẳn". Riêng công đoạn Phôi, hệ thống tự mở một lô làm lại cho phần sửa được; Hàn và Sơn thì tổ phải tự làm lại và báo cáo như một lô mới.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">Nhận thiếu vẫn được ghi nhận</div>
+      <p>Cả khi nhận hàng mua về lẫn khi nhận vật tư xuống xưởng, người nhận có thể xác nhận số lượng ít hơn số được xuất/giao — hệ thống cho phép ghi nhận thiếu, không bắt buộc phải khớp tuyệt đối.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">Gộp đợt cắt có thể tách ra lại</div>
+      <p>Việc gộp nhiều sản phẩm để cắt sắt chung chỉ thực hiện được trước khi Sếp duyệt lệnh sản xuất. Nếu Sếp từ chối cả đợt gộp, toàn bộ sản phẩm trong đợt trả về để KHSX thử gộp lại theo cách khác.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="note">Tổng hợp từ toàn bộ mã nguồn phía giao diện và phía máy chủ của hệ thống — cập nhật đến 15/08/2026.</footer>
+
+</div>

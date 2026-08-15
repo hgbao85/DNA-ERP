@@ -104,6 +104,8 @@ interface BeSku {
     vatTuPhuKien: BeMaterialLine[];
     baoBiDongGoi: BeMaterialLine[];
   } | null;
+  manhForwardedAt: string | null;
+  detailForwardedAt: string | null;
   createdById: string;
   createdAt: string;
   updatedAt: string;
@@ -194,6 +196,8 @@ function toSku(pf: BeSku): Sku {
     mfgProductId: pf.mfgProductId,
     status: pf.status,
     note: pf.note,
+    manhForwardedAt: pf.manhForwardedAt,
+    detailForwardedAt: pf.detailForwardedAt,
     customerName: pf.customerName,
     piCode: pf.piCode ?? '',
     productionInvoiceId: pf.productionInvoiceId ?? undefined,

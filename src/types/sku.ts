@@ -1,4 +1,12 @@
-export type SkuStatus = 'DRAFT' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS' | 'WAITING_BOSS_APPROVAL' | 'APPROVED' | 'REJECTED';
+/** Mảnh và chi tiết giờ là 2 nhánh độc lập, tiến song song (xem Sku.manhForwardedAt/
+ *  detailForwardedAt) - status chỉ còn 3 giá trị pipeline thật sự dùng, không còn mã hoá "đang ở
+ *  giai đoạn nào" theo thứ tự tuyến tính như trước (WAITING_PARTS/APPROVED_PARTS/WAITING_DETAIL/
+ *  APPROVED_DETAIL đã gộp hết vào IN_PROGRESS). 'DRAFT' giữ lại trong union dù BE không bao giờ
+ *  set (mirror đúng ghi chú schema.prisma) - nhiều trang kho (KhoChuyenKiemPage, XuatKhoPage...)
+ *  đang lọc `status !== 'DRAFT'` như 1 lá chắn phòng thủ, không thuộc phạm vi đổi ở đây. REJECTED
+ *  KHÔNG phải giá trị của field này - đó là giá trị của QuotaReviewStatus.status (quyết định
+ *  duyệt/từ chối từng nhánh, xem bên dưới). */
+export type SkuStatus = 'DRAFT' | 'IN_PROGRESS' | 'WAITING_BOSS_APPROVAL' | 'APPROVED';
 
 export interface SatItem {
   id?: number;
@@ -113,6 +121,10 @@ export interface Sku {
   exportOrderId: string | null;
   mfgProductId: string;
   status: SkuStatus;
+  /** KHSX đã "chốt xong" nhánh mảnh/chi tiết chưa - null = chưa. 2 nhánh độc lập, tiến song song;
+   *  khi CẢ HAI khác null thì status tự chuyển WAITING_BOSS_APPROVAL (xem SKUDetail.tsx). */
+  manhForwardedAt?: string | null;
+  detailForwardedAt?: string | null;
   note?: string | null;
   customerName?: string | null;
   /** Mã lệnh sản xuất (PI) — 1 SKU trong 1 PO chỉ có đúng 1 PI, luôn trỏ tới ProductionInvoice
@@ -137,17 +149,16 @@ export interface Sku {
     /** KHSX duyệt/từ chối định mức chi tiết — 1 quyết định duy nhất cho cả 3 nhóm. */
     reviewStatus?: QuotaReviewStatus;
   };
-  /** Định mức mảnh — nhập TRƯỚC định mức chi tiết (xem quotaManagement). Danh sách mảnh, mỗi
-   *  mảnh gồm children thuộc 5 nhóm vật tư (Sắt/Dây/Đinh/Tán rút/Nút nhựa), do 1 acc Sắt nhập
-   *  chung 1 lần và gửi duyệt 1 lần (khác trước đây khi Dây/Đinh tách riêng, do acc khác nhập). */
+  /** Định mức mảnh — nhánh ĐỘC LẬP với định mức chi tiết (xem quotaManagement), không còn bắt
+   *  buộc theo thứ tự nào. Danh sách mảnh, mỗi mảnh gồm children thuộc 5 nhóm vật tư (Sắt/Dây/
+   *  Đinh/Tán rút/Nút nhựa), do 1 acc Sắt nhập chung 1 lần và gửi duyệt 1 lần. */
   manhData?: {
     pieces: ManhRow[];
   };
   /** Ai/khi nào nhập định mức mảnh (nhập 1 lần cho cả 5 nhóm). */
   manhEntryMeta?: QuotaEntryMeta;
-  /** KHSX duyệt/từ chối định mức mảnh — tách biệt khỏi status vì APPROVED_PARTS còn được
-   *  set ngay khi account chuyên trách nhập xong (trước khi KHSX kịp xem), nên không thể dùng status
-   *  để suy ra KHSX đã duyệt hay chưa. */
+  /** KHSX duyệt/từ chối định mức mảnh — tách biệt khỏi status vì status không còn phân biệt được
+   *  "đang ở nhánh mảnh" hay "đang ở nhánh chi tiết" (2 nhánh độc lập, xem manhForwardedAt). */
   manhReviewStatus?: QuotaReviewStatus;
 }
 

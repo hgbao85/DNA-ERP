@@ -8,7 +8,7 @@ import { useMaterialGroupIds } from '../../../hooks/useMaterialGroupIds'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
-import { SKU_ENTITY, isPartsApproved } from '../../../constants/skuStatus'
+import { SKU_ENTITY } from '../../../constants/skuStatus'
 import type { Sku, ManhRow, ManhChildRow, ManhChildGroup } from '../../../types/sku'
 
 // ─── Types ────────────────────────────────────────────────────────────
@@ -124,8 +124,6 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     const review = pf?.manhReviewStatus
     if (review?.status === 'APPROVED') return 'approved'
     if (review?.status === 'REJECTED') return 'rejected'
-    // SKU cũ đã qua hẳn giai đoạn mảnh nhưng chưa có quyết định riêng — coi như đã duyệt.
-    if (pf && isPartsApproved(pf.status)) return 'approved'
     return (pf?.manhData?.pieces?.length ?? 0) > 0 ? 'pending' : 'canInput'
   }
   const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)

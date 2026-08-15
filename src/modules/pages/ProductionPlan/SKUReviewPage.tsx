@@ -17,21 +17,36 @@ import type { SalesCustomer } from '../../../types/sales'
 
 // KHSX theo dõi toàn bộ vòng đời SKU; Sếp chỉ cần thấy các item đang chờ mình duyệt. Bước QLSX
 // duyệt cục bộ đã bị bỏ khỏi pipeline - trang này giờ chỉ còn 2 role: KHSX và Sếp.
-const PLANNER_PENDING_STATUSES = new Set(['WAITING_DETAIL', 'WAITING_PARTS', 'APPROVED_DETAIL', 'APPROVED_PARTS', 'WAITING_BOSS_APPROVAL'])
-const BOSS_PENDING_STATUSES = new Set(['WAITING_BOSS_APPROVAL'])
-type StatusFilter = 'all' | 'WAITING_DETAIL' | 'WAITING_PARTS' | 'APPROVED_DETAIL' | 'APPROVED_PARTS' | 'WAITING_BOSS_APPROVAL'
+const isPlannerPending = (p: Sku) => p.status !== 'APPROVED' && p.status !== 'DRAFT'
+const isBossPending = (p: Sku) => p.status === 'WAITING_BOSS_APPROVAL'
+
+// Mảnh và chi tiết là 2 nhánh độc lập tiến song song (không còn gộp vào 1 vị trí tuyến tính của
+// status) - 1 SKU có thể "chờ duyệt mảnh" VÀ "chờ duyệt chi tiết" cùng lúc, nên lọc theo tình
+// trạng TỪNG nhánh thay vì theo status.
+const needsManhReview = (p: Sku) =>
+  (p.manhData?.pieces?.length ?? 0) > 0 && p.manhReviewStatus?.status !== 'APPROVED'
+const needsDetailReview = (p: Sku) => {
+  const mt = p.quotaManagement?.materialType
+  const hasData = !!mt && (mt.daySon.length + mt.vatTuPhuKien.length + mt.baoBiDongGoi.length) > 0
+  return hasData && p.quotaManagement?.reviewStatus?.status !== 'APPROVED'
+}
+
+type StatusFilter = 'all' | 'manh' | 'chitiet' | 'boss'
+const FILTER_PREDICATES: Record<Exclude<StatusFilter, 'all'>, (p: Sku) => boolean> = {
+  manh: needsManhReview,
+  chitiet: needsDetailReview,
+  boss: isBossPending,
+}
 
 const PLANNER_FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }[] = [
-  { key: 'all',             label: 'Tất cả' },
-  { key: 'WAITING_PARTS',   ...STATUS_MAP.WAITING_PARTS },
-  { key: 'APPROVED_PARTS',  ...STATUS_MAP.APPROVED_PARTS },
-  { key: 'WAITING_DETAIL',  ...STATUS_MAP.WAITING_DETAIL },
-  { key: 'APPROVED_DETAIL', ...STATUS_MAP.APPROVED_DETAIL },
-  { key: 'WAITING_BOSS_APPROVAL', ...STATUS_MAP.WAITING_BOSS_APPROVAL },
+  { key: 'all',     label: 'Tất cả' },
+  { key: 'manh',    label: 'Chờ duyệt mảnh',     color: '#c2410c', bg: '#ffedd5' },
+  { key: 'chitiet', label: 'Chờ duyệt chi tiết', color: '#b45309', bg: '#fef3c7' },
+  { key: 'boss',    label: STATUS_MAP.WAITING_BOSS_APPROVAL.label, color: STATUS_MAP.WAITING_BOSS_APPROVAL.color, bg: STATUS_MAP.WAITING_BOSS_APPROVAL.bg },
 ]
 const BOSS_FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }[] = [
-  { key: 'all',             label: 'Tất cả' },
-  { key: 'WAITING_BOSS_APPROVAL', ...STATUS_MAP.WAITING_BOSS_APPROVAL },
+  { key: 'all',  label: 'Tất cả' },
+  { key: 'boss', label: STATUS_MAP.WAITING_BOSS_APPROVAL.label, color: STATUS_MAP.WAITING_BOSS_APPROVAL.color, bg: STATUS_MAP.WAITING_BOSS_APPROVAL.bg },
 ]
 
 const emptyForm = (): CreateSkuPayload => ({
@@ -41,7 +56,7 @@ const emptyForm = (): CreateSkuPayload => ({
 export default function SKUReviewPage() {
   const { isBoss } = useAuth()
   const { logAction } = useAuditLog()
-  const PENDING_STATUSES = isBoss ? BOSS_PENDING_STATUSES : PLANNER_PENDING_STATUSES
+  const isPending = isBoss ? isBossPending : isPlannerPending
   const FILTERS = isBoss ? BOSS_FILTERS : PLANNER_FILTERS
   const { data: skus = [], isLoading, refetch } = useFetch(() => api.getSkus(), [])
   const { data: formOptions } = useFetch(() => api.getSkuOptions(), [])
@@ -121,10 +136,10 @@ export default function SKUReviewPage() {
 
   // Trừ Sku sinh tự động khi PM "xác nhận sản xuất" (LenhSXPage) — không phải SKU do KHSX tạo,
   // chỉ phục vụ "Lệnh kiểm tra vật tư".
-  const pending = ((skus ?? []) as Sku[]).filter(p => PENDING_STATUSES.has(p.status) && p.origin !== 'PRODUCTION_CONFIRM')
-  const countByStatus = (s: StatusFilter) => s === 'all' ? pending.length : pending.filter(p => p.status === s).length
+  const pending = ((skus ?? []) as Sku[]).filter(p => isPending(p) && p.origin !== 'PRODUCTION_CONFIRM')
+  const countByStatus = (s: StatusFilter) => s === 'all' ? pending.length : pending.filter(FILTER_PREDICATES[s]).length
 
-  const afterFilter = statusFilter === 'all' ? pending : pending.filter(p => p.status === statusFilter)
+  const afterFilter = statusFilter === 'all' ? pending : pending.filter(FILTER_PREDICATES[statusFilter])
   const q = search.trim().toLowerCase()
   const displayed = q
     ? afterFilter.filter(p =>
@@ -142,8 +157,8 @@ export default function SKUReviewPage() {
   }
 
   // Việc duyệt từng nhóm định mức mảnh (và ghi log) đã xảy ra ngay trong SKUDetail trước khi gọi
-  // callback này — ở đây chỉ cần chuyển status APPROVED_PARTS -> WAITING_DETAIL (gửi bộ phận nhập
-  // định mức chi tiết) và làm mới dữ liệu.
+  // callback này — ở đây chỉ cần xác nhận nhánh mảnh đã forward xong (độc lập với chi tiết, xem
+  // advanceForwardedTrack ở BE) và làm mới dữ liệu.
   const handleApproveParts = async () => {
     if (!selectedPf) return
     const updated = await api.approvePartsSku(selectedPf.id)

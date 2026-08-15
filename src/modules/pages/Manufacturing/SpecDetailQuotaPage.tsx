@@ -8,7 +8,7 @@ import { useMaterialGroupIds } from '../../../hooks/useMaterialGroupIds'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
-import { SKU_ENTITY, isPartsApproved } from '../../../constants/skuStatus'
+import { SKU_ENTITY } from '../../../constants/skuStatus'
 import SpecAccessoryCatalogPage from './SpecAccessoryCatalogPage'
 import type { Sku } from '../../../types/sku'
 
@@ -60,9 +60,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   const { user } = useAuth()
   const { logAction } = useAuditLog()
   const { data: skusData, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
-  // Định mức chi tiết chỉ hiện SKU đã qua giai đoạn mảnh (KHSX đã duyệt & gửi bộ phận chi tiết)
-  // — đúng thứ tự flow hiện tại (mảnh trước, chi tiết sau).
-  const skus = (skusData ?? []).filter(pf => isPartsApproved(pf.status))
+  // Mảnh và chi tiết là 2 nhánh độc lập (tiến song song, không bắt buộc theo thứ tự) - chuyên viên
+  // chi tiết thấy SKU ngay khi KHSX tạo, không cần chờ mảnh xong. Cùng điều kiện với SpecSteelPage.tsx.
+  const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
   // Sơn/Phụ kiện/Bao bì đều chọn vật tư từ chung 1 nhóm hệ thống "Vật tư khác" (OTHER) - BE
   // phân biệt 3 tab qua ConsumableBom.stage / BomAccessoryItem.kind, không phải qua nhóm vật tư.
   const { other: otherGroupId } = useMaterialGroupIds()
