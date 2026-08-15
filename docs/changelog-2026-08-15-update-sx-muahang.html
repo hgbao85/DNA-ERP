@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Phiếu Thay Đổi Quy Trình</title>
+<style>
+  :root {
+    --paper: #f2f4f7;
+    --paper-raised: #ffffff;
+    --ink: #161a1f;
+    --ink-soft: #4e5964;
+    --ink-faint: #7c8791;
+    --line: #d3dae1;
+    --line-strong: #b7c1cb;
+    --accent: #2b6690;
+    --accent-deep: #0f3a54;
+    --accent-bg: #e4eef5;
+    --moss: #2f7a4c;
+    --moss-bg: #e1f1e6;
+    --rust: #a8481f;
+    --rust-bg: #f5e6dc;
+    --violet: #6a4c93;
+    --violet-bg: #efe8f7;
+    --shadow: 0 1px 2px rgba(15, 26, 36, 0.06), 0 8px 24px rgba(15, 26, 36, 0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #10141a;
+      --paper-raised: #171c23;
+      --ink: #e8ecf1;
+      --ink-soft: #9da9b4;
+      --ink-faint: #6b7680;
+      --line: #262e37;
+      --line-strong: #333d47;
+      --accent: #6fb0de;
+      --accent-deep: #bee0f8;
+      --accent-bg: #16293a;
+      --moss: #6fc192;
+      --moss-bg: #15271c;
+      --rust: #e28a5c;
+      --rust-bg: #2e1d14;
+      --violet: #b79fe0;
+      --violet-bg: #241c33;
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #10141a;
+    --paper-raised: #171c23;
+    --ink: #e8ecf1;
+    --ink-soft: #9da9b4;
+    --ink-faint: #6b7680;
+    --line: #262e37;
+    --line-strong: #333d47;
+    --accent: #6fb0de;
+    --accent-deep: #bee0f8;
+    --accent-bg: #16293a;
+    --moss: #6fc192;
+    --moss-bg: #15271c;
+    --rust: #e28a5c;
+    --rust-bg: #2e1d14;
+    --violet: #b79fe0;
+    --violet-bg: #241c33;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        color-mix(in srgb, var(--line) 35%, transparent) 0px,
+        color-mix(in srgb, var(--line) 35%, transparent) 1px,
+        transparent 1px,
+        transparent 96px
+      ),
+      repeating-linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--line) 35%, transparent) 0px,
+        color-mix(in srgb, var(--line) 35%, transparent) 1px,
+        transparent 1px,
+        transparent 96px
+      ),
+      var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+  }
+
+  .mono {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", "Roboto Mono", "Liberation Mono", monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  code {
+    font-family: ui-monospace, "SF Mono", "Cascadia Code", "Consolas", "Roboto Mono", "Liberation Mono", monospace;
+    font-size: 0.86em;
+    background: var(--accent-bg);
+    color: var(--accent-deep);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .page {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 56px 24px 88px;
+  }
+
+  /* ── Letterhead ─────────────────────────────────────────────── */
+
+  header.sheet {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-top: 4px solid var(--accent-deep);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    padding: 32px 36px 28px;
+  }
+
+  .sheet-kicker {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    font-size: 11px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 18px;
+  }
+
+  .sheet-kicker .stamp-no {
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  h1 {
+    font-size: clamp(24px, 3.4vw, 31px);
+    line-height: 1.2;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    margin: 0 0 8px;
+    text-wrap: balance;
+    color: var(--ink);
+  }
+
+  .sheet-sub {
+    margin: 0 0 26px;
+    max-width: 62ch;
+    color: var(--ink-soft);
+    font-size: 15.5px;
+  }
+
+  dl.fields {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 32px;
+    margin: 0;
+    padding-top: 22px;
+    border-top: 1px dashed var(--line-strong);
+  }
+
+  dl.fields > div {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  dl.fields dt {
+    flex: 0 0 auto;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+  }
+
+  dl.fields dt::after {
+    content: "";
+    display: inline-block;
+    width: 10px;
+  }
+
+  dl.fields dd {
+    margin: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-wrap: break-word;
+    border-bottom: 1px dotted var(--line-strong);
+    padding-bottom: 2px;
+    font-size: 14.5px;
+    color: var(--ink);
+  }
+
+  /* ── Routing spine + entries ───────────────────────────────── */
+
+  .traveler {
+    position: relative;
+    margin-top: 40px;
+  }
+
+  .traveler::before {
+    content: "";
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 46px;
+    width: 2px;
+    background: var(--line-strong);
+  }
+
+  @media (max-width: 620px) {
+    .traveler::before { left: 26px; }
+  }
+
+  .entry {
+    position: relative;
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 20px;
+    padding: 0 0 44px;
+  }
+
+  @media (max-width: 620px) {
+    .entry { grid-template-columns: 52px 1fr; }
+  }
+
+  .entry:last-child { padding-bottom: 4px; }
+
+  .entry-rail {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .entry-no {
+    position: relative;
+    z-index: 1;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--paper-raised);
+    border: 2px solid var(--line-strong);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-soft);
+  }
+
+  .entry[data-kind="research"] .entry-no { border-color: var(--accent); color: var(--accent-deep); }
+  .entry[data-kind="removal"] .entry-no { border-color: var(--rust); color: var(--rust); }
+  .entry[data-kind="automation"] .entry-no { border-color: var(--moss); color: var(--moss); }
+  .entry[data-kind="expansion"] .entry-no { border-color: var(--violet); color: var(--violet); }
+
+  .stamp {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    font-size: 10.5px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-weight: 700;
+    padding: 8px 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 620px) { .stamp { display: none; } }
+
+  .entry[data-kind="research"] .stamp { background: var(--accent-bg); color: var(--accent-deep); }
+  .entry[data-kind="removal"] .stamp { background: var(--rust-bg); color: var(--rust); }
+  .entry[data-kind="automation"] .stamp { background: var(--moss-bg); color: var(--moss); }
+  .entry[data-kind="expansion"] .stamp { background: var(--violet-bg); color: var(--violet); }
+
+  .entry-body {
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 22px 26px 26px;
+    box-shadow: var(--shadow);
+    min-width: 0;
+  }
+
+  .entry-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 8px;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+  }
+
+  .entry[data-kind="research"] .badge { background: var(--accent-bg); color: var(--accent-deep); }
+  .entry[data-kind="removal"] .badge { background: var(--rust-bg); color: var(--rust); }
+  .entry[data-kind="automation"] .badge { background: var(--moss-bg); color: var(--moss); }
+  .entry[data-kind="expansion"] .badge { background: var(--violet-bg); color: var(--violet); }
+
+  .entry-body h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin: 0 0 12px;
+    letter-spacing: -0.005em;
+    text-wrap: balance;
+  }
+
+  .entry-body p {
+    max-width: 66ch;
+    margin: 0 0 13px;
+    color: var(--ink);
+    font-size: 15px;
+  }
+
+  .entry-body p.lede { color: var(--ink-soft); }
+
+  .entry-body p:last-of-type { margin-bottom: 0; }
+
+  .findings {
+    list-style: none;
+    margin: 16px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 10px;
+  }
+
+  .findings li {
+    display: grid;
+    grid-template-columns: 20px 1fr;
+    gap: 10px;
+    font-size: 14.5px;
+    color: var(--ink);
+  }
+
+  .findings li::before {
+    content: "→";
+    color: var(--accent);
+    font-weight: 700;
+  }
+
+  /* Before / after compare (Entry 02, 03) */
+
+  .compare {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  @media (max-width: 560px) {
+    .compare { grid-template-columns: 1fr; }
+  }
+
+  .compare > div {
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    padding: 14px 16px;
+  }
+
+  .compare .lbl {
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .steps {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+  }
+
+  .step-chip {
+    padding: 5px 9px;
+    border-radius: 4px;
+    background: var(--paper);
+    border: 1px solid var(--line-strong);
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  .step-chip.cut {
+    text-decoration: line-through;
+    text-decoration-color: var(--rust);
+    text-decoration-thickness: 1.5px;
+    color: var(--ink-faint);
+    border-color: var(--rust-bg);
+    background: var(--rust-bg);
+  }
+
+  .step-chip.new {
+    border-color: var(--moss);
+    background: var(--moss-bg);
+    color: var(--moss);
+    font-weight: 600;
+  }
+
+  .step-arrow { color: var(--ink-faint); font-size: 12px; }
+
+  table.diff {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    font-size: 14px;
+  }
+
+  table.diff th {
+    text-align: left;
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    padding: 0 10px 8px 0;
+    border-bottom: 1px solid var(--line-strong);
+    font-weight: 600;
+  }
+
+  table.diff td {
+    padding: 9px 10px 9px 0;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+    color: var(--ink);
+  }
+
+  table.diff tr:last-child td { border-bottom: none; }
+
+  .check {
+    margin-top: 18px;
+    display: flex;
+    gap: 12px;
+    align-items: baseline;
+    padding: 12px 14px;
+    border: 1px dashed var(--line-strong);
+    border-radius: 5px;
+    background: var(--paper);
+    font-size: 13.5px;
+    flex-wrap: wrap;
+  }
+
+  .check b { color: var(--ink); font-size: 15px; }
+
+  /* Manifest (file list) */
+
+  details.manifest {
+    margin-top: 18px;
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    background: var(--paper);
+    overflow: hidden;
+  }
+
+  details.manifest summary {
+    cursor: pointer;
+    list-style: none;
+    padding: 11px 14px;
+    font-size: 12.5px;
+    letter-spacing: 0.04em;
+    color: var(--ink-soft);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    user-select: none;
+  }
+
+  details.manifest summary::-webkit-details-marker { display: none; }
+
+  details.manifest summary::before {
+    content: "▸";
+    color: var(--accent);
+    transition: transform 0.15s ease;
+  }
+
+  details.manifest[open] summary::before { transform: rotate(90deg); }
+
+  details.manifest summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    border-radius: 3px;
+  }
+
+  .manifest-grid {
+    padding: 4px 14px 14px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 4px 20px;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
+
+  @media (max-width: 560px) { .manifest-grid { grid-template-columns: 1fr; } }
+
+  .manifest-grid .col-title {
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 6px 0 4px;
+  }
+
+  .manifest-grid ul {
+    margin: 0 0 8px;
+    padding: 0;
+    list-style: none;
+    display: grid;
+    gap: 3px;
+  }
+
+  .manifest-grid li {
+    font-size: 12.5px;
+    display: flex;
+    gap: 7px;
+    align-items: baseline;
+    color: var(--ink-soft);
+    overflow-wrap: anywhere;
+  }
+
+  .tag {
+    flex: 0 0 auto;
+    font-size: 9.5px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    letter-spacing: 0.03em;
+  }
+
+  .tag.del { background: var(--rust-bg); color: var(--rust); }
+  .tag.mod { background: var(--accent-bg); color: var(--accent-deep); }
+
+  /* ── Footer stats ──────────────────────────────────────────── */
+
+  footer.tally {
+    margin-top: 12px;
+    background: var(--paper-raised);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    box-shadow: var(--shadow);
+    padding: 24px 26px;
+  }
+
+  .tally-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 18px;
+  }
+
+  .tally-head h2 {
+    font-size: 15px;
+    margin: 0;
+    letter-spacing: 0.01em;
+  }
+
+  .tally-head span {
+    font-size: 11px;
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+  }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+
+  @media (max-width: 620px) { .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+  .stat {
+    background: var(--paper-raised);
+    padding: 14px 16px;
+  }
+
+  .stat .n {
+    font-size: 25px;
+    font-weight: 700;
+    color: var(--moss);
+    line-height: 1.1;
+  }
+
+  .stat .n small {
+    font-size: 13px;
+    color: var(--ink-faint);
+    font-weight: 500;
+  }
+
+  .stat .l {
+    margin-top: 4px;
+    font-size: 11.5px;
+    color: var(--ink-soft);
+  }
+
+  .closing {
+    margin: 26px auto 0;
+    max-width: 62ch;
+    font-size: 13.5px;
+    color: var(--ink-faint);
+    text-align: center;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .entry-body, header.sheet, footer.tally { animation: rise 0.5s ease both; }
+    .entry:nth-child(1) .entry-body { animation-delay: 0.02s; }
+    .entry:nth-child(2) .entry-body { animation-delay: 0.08s; }
+    .entry:nth-child(3) .entry-body { animation-delay: 0.14s; }
+    .entry:nth-child(4) .entry-body { animation-delay: 0.2s; }
+  }
+
+  @keyframes rise {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="sheet">
+    <div class="sheet-kicker">
+      <span>Phiếu thay đổi quy trình</span>
+      <span class="mono stamp-no">SỐ 2026-08-15 / 04</span>
+    </div>
+    <h1>Bán hàng → Mua hàng: rà soát, cắt giảm, tự động hóa, mở rộng</h1>
+    <p class="sheet-sub">Ghi nhận công việc thực hiện trên hệ thống DNA-ERP trong phiên làm việc này — từ đọc hiểu quy trình hiện có, đến gỡ bỏ một bước không còn cần dùng, tự động hóa một bước duyệt thủ công, và mở rộng cách hệ thống chọn kho nhận hàng khi mua vật tư.</p>
+    <dl class="fields mono">
+      <div><dt>Dự án</dt><dd>DNA-ERP · Đông Nam Á Corp</dd></div>
+      <div><dt>Ngày</dt><dd>15/08/2026</dd></div>
+      <div><dt>Kho mã nguồn</dt><dd>DNA-ERP (frontend) · DNA-ERP-BE (backend)</dd></div>
+      <div><dt>Phạm vi</dt><dd>Luồng Bán hàng → Sản xuất → Cắt sắt → Mua hàng</dd></div>
+    </dl>
+  </header>
+
+  <div class="traveler">
+
+    <!-- Entry 01 — research -->
+    <article class="entry" data-kind="research">
+      <div class="entry-rail">
+        <div class="entry-no mono">01</div>
+        <span class="stamp">Ghi nhận</span>
+      </div>
+      <div class="entry-body">
+        <div class="entry-eyebrow"><span class="badge">Ghi nhận</span><span>Đọc code · so khớp với hiểu biết thực tế</span></div>
+        <h2>Dựng lại toàn bộ luồng từ đơn hàng đến khi mua hàng xong</h2>
+        <p class="lede">Đọc trực tiếp cả hai kho mã nguồn để trả lời: một đơn hàng đi qua những bước nào, ai bấm gì, và hệ thống tự động ở đâu — trước khi đụng vào bất kỳ dòng code nào.</p>
+        <p>Kết quả là chuỗi <code>SalesOrder</code> → <code>ProductionInvoice</code> → duyệt SKU (QLSX → Sếp) → <code>ProductionOrder</code> → <code>CuttingProposal</code> → <code>PurchaseProposal</code> → nhận hàng, cùng toàn bộ enum trạng thái của từng bước. Sau đó đối chiếu trực tiếp với mô tả của người yêu cầu để tìm đúng chỗ lệch.</p>
+        <ul class="findings">
+          <li>“Tối ưu cắt sắt” là màn xem thử tùy chọn — <b>không</b> chạy thuật toán cắt thật, chỉ gộp đơn trước khi Sếp duyệt.</li>
+          <li>Việc kiểm tồn kho để tính số lượng cần mua xảy ra ngay lúc duyệt phương án cắt — không phải lúc nhân viên mua hàng thao tác.</li>
+          <li>Toàn bộ sắt mua về chỉ nhập vào <b>một kho cố định</b> (Phôi Sơn Hàn), không phải kho riêng theo từng vật tư.</li>
+          <li>Endpoint duyệt phương án cắt đã tồn tại ở backend, nhưng <b>chưa từng có nút bấm nào</b> trên giao diện cho bước đó.</li>
+        </ul>
+      </div>
+    </article>
+
+    <!-- Entry 02 — removal -->
+    <article class="entry" data-kind="removal">
+      <div class="entry-rail">
+        <div class="entry-no mono">02</div>
+        <span class="stamp">Đã gỡ bỏ</span>
+      </div>
+      <div class="entry-body">
+        <div class="entry-eyebrow"><span class="badge">Đã gỡ bỏ</span><span>Tính năng “Kiểm tra vật tư trước sản xuất”</span></div>
+        <h2>Gỡ bỏ bước Kiểm tra vật tư — nhánh song song, không nằm trên luồng chính</h2>
+        <p class="lede">Xác nhận trước khi xóa: đây là một nhánh tùy chọn chạy song song với luồng chính, không có gì khác phụ thuộc vào nó. Tra thẳng database xác nhận không có dữ liệu thật nào bị ảnh hưởng, rồi mới gỡ.</p>
+        <div class="check mono">
+          <span>kiểm tra trước khi xóa —</span>
+          <span><b>22</b> / 22 đề xuất mua hàng đến từ Cắt sắt</span>
+          <span><b>0</b> lệnh kiểm tra vật tư từng được tạo</span>
+        </div>
+        <p>Giữ nguyên toàn bộ phần chung của mua hàng (Sếp duyệt, nhận hàng, báo giá) — chỉ tách và xóa đúng phần riêng của Kiểm tra vật tư. Giữ lại nguyên vẹn ứng dụng Thủ kho, chỉ bỏ đúng 1 tab trong 11 tab của họ.</p>
+        <details class="manifest">
+          <summary>Danh mục thay đổi — 9 file xóa, 18 file sửa</summary>
+          <div class="manifest-grid">
+            <div>
+              <p class="col-title">Backend</p>
+              <ul>
+                <li><span class="tag del">XÓA</span><code>modules/material-inspection/*</code> (8 file)</li>
+                <li><span class="tag del">XÓA</span><code>create-manual-purchase-proposal.dto.ts</code></li>
+                <li><span class="tag mod">SỬA</span><code>purchase-proposals.service.ts</code></li>
+                <li><span class="tag mod">SỬA</span><code>production-invoices.service.ts</code></li>
+                <li><span class="tag mod">SỬA</span><code>skus.service.ts</code>, <code>app.module.ts</code></li>
+                <li><span class="tag mod">SỬA</span>2 file hằng số phân quyền</li>
+              </ul>
+            </div>
+            <div>
+              <p class="col-title">Frontend</p>
+              <ul>
+                <li><span class="tag del">XÓA</span><code>material-inspection-api.ts</code></li>
+                <li><span class="tag del">XÓA</span>2× <code>KiemTraVatTuPage.tsx</code> (KHSX &amp; Thủ kho)</li>
+                <li><span class="tag mod">SỬA</span><code>InspectionContext.tsx</code> (giữ phần chung)</li>
+                <li><span class="tag mod">SỬA</span><code>purchasing-api.ts</code></li>
+                <li><span class="tag mod">SỬA</span><code>InboundWarehouseApp.tsx</code>, <code>ProductionPlanApp.tsx</code></li>
+              </ul>
+            </div>
+          </div>
+        </details>
+      </div>
+    </article>
+
+    <!-- Entry 03 — automation -->
+    <article class="entry" data-kind="automation">
+      <div class="entry-rail">
+        <div class="entry-no mono">03</div>
+        <span class="stamp">Tự động hóa</span>
+      </div>
+      <div class="entry-body">
+        <div class="entry-eyebrow"><span class="badge">Tự động hóa</span><span>Duyệt phương án cắt sắt</span></div>
+        <h2>Bỏ bước QLSX duyệt tay — tính xong là duyệt luôn</h2>
+        <p class="lede">Theo quyết định của Sếp (“sếp duyệt là xong”): khi Sếp duyệt lệnh sản xuất, mọi bước sau đó phải tự chạy hết tới tay Mua hàng, không dừng lại chờ ai bấm thêm gì.</p>
+        <div class="compare">
+          <div>
+            <span class="lbl mono">Trước</span>
+            <div class="steps">
+              <span class="step-chip">Sếp duyệt</span><span class="step-arrow">→</span>
+              <span class="step-chip">Tính cắt sắt</span><span class="step-arrow">→</span>
+              <span class="step-chip cut">QLSX duyệt tay</span><span class="step-arrow">→</span>
+              <span class="step-chip">Mua hàng</span>
+            </div>
+          </div>
+          <div>
+            <span class="lbl mono">Sau</span>
+            <div class="steps">
+              <span class="step-chip">Sếp duyệt</span><span class="step-arrow">→</span>
+              <span class="step-chip">Tính cắt sắt</span><span class="step-arrow">→</span>
+              <span class="step-chip new">Tự động duyệt</span><span class="step-arrow">→</span>
+              <span class="step-chip">Mua hàng</span>
+            </div>
+          </div>
+        </div>
+        <p>Ngay khi thuật toán cắt tính xong, hệ thống tự chạy tiếp phần duyệt: tự trừ tồn kho, tự tạo đề xuất mua hàng cho phần thiếu. Người đứng tên duyệt trong nhật ký chính là người đã bấm duyệt lệnh sản xuất — không phải một tài khoản hệ thống vô danh.</p>
+        <table class="diff">
+          <thead><tr><th>Tình huống</th><th>Xử lý</th></tr></thead>
+          <tbody>
+            <tr><td>Tính cắt thành công</td><td>Tự duyệt, tự trừ tồn, tự tạo đề xuất mua hàng — không cần thao tác thêm.</td></tr>
+            <tr><td>Bước tự duyệt gặp lỗi hiếm</td><td>Kết quả tính cắt (nháp) vẫn được giữ nguyên, không bị đánh sập; chỉ ghi log và báo QLSX xử lý tay qua API dự phòng.</td></tr>
+          </tbody>
+        </table>
+        <div class="check mono">
+          <span>kiểm chứng sau khi sửa —</span>
+          <span><b>452</b> / 452 test backend pass</span>
+          <span>trong đó <b>57</b> test riêng module cắt sắt</span>
+          <span><code>nest build</code> sạch</span>
+        </div>
+      </div>
+    </article>
+
+    <!-- Entry 04 — expansion -->
+    <article class="entry" data-kind="expansion">
+      <div class="entry-rail">
+        <div class="entry-no mono">04</div>
+        <span class="stamp">Mở rộng</span>
+      </div>
+      <div class="entry-body">
+        <div class="entry-eyebrow"><span class="badge">Mở rộng</span><span>Kho nhận hàng khi mua vật tư · lập kế hoạch trước khi sửa</span></div>
+        <h2>Mỗi vật tư nhập đúng kho riêng của nó — không còn gò theo 1 kho chung cả đề xuất</h2>
+        <p class="lede">Câu hỏi khởi điểm: field "Kho" đã khai sẵn trên từng vật tư có nên vừa dùng để ghi tồn đầu kỳ, vừa dùng làm nơi nhận hàng khi mua vật tư đó về? Trước khi sửa, lập kế hoạch riêng và tra thẳng dữ liệu thật để xác nhận tính khả thi, không đoán.</p>
+        <div class="check mono">
+          <span>tra dữ liệu trước khi sửa —</span>
+          <span><b>62</b> / 62 vật tư đã có Kho</span>
+          <span>chia đúng <b>3</b> kho (19 · 10 · 33)</span>
+          <span>không cần migrate database</span>
+        </div>
+        <div class="compare">
+          <div>
+            <span class="lbl mono">Trước</span>
+            <div class="steps">
+              <span class="step-chip cut">1 kho chung cho cả đề xuất mua</span>
+            </div>
+          </div>
+          <div>
+            <span class="lbl mono">Sau</span>
+            <div class="steps">
+              <span class="step-chip new">Mỗi dòng vật tư — kho riêng của nó</span>
+            </div>
+          </div>
+        </div>
+        <p>Kho nhận hàng giờ đọc thẳng từ chính vật tư đang mua (field "Kho" có sẵn), áp dụng nhất quán cho cả bước trừ tồn có sẵn lẫn bước nhập hàng mới về. Chặn rõ ràng nếu lỡ có vật tư nào chưa khai kho, thay vì âm thầm nhập sai chỗ. Các trang hiển thị (Mua hàng, Nhập kho) không cần sửa gì thêm — vốn đã đọc theo từng dòng từ trước.</p>
+        <details class="manifest">
+          <summary>Danh mục thay đổi — 7 file sửa, 6 test mới</summary>
+          <div class="manifest-grid">
+            <div>
+              <p class="col-title">Backend</p>
+              <ul>
+                <li><span class="tag mod">SỬA</span><code>cutting-proposals.service.ts</code> (approve)</li>
+                <li><span class="tag mod">SỬA</span><code>purchase-proposals.service.ts</code> (receiveItem)</li>
+                <li><span class="tag mod">SỬA</span><code>purchase-proposal-response.dto.ts</code></li>
+                <li><span class="tag mod">SỬA</span>2 file test — +4 test mới</li>
+              </ul>
+            </div>
+            <div>
+              <p class="col-title">Frontend</p>
+              <ul>
+                <li><span class="tag mod">SỬA</span><code>purchasing-api.ts</code></li>
+                <li><span class="tag mod">SỬA</span><code>purchasing-api.test.ts</code> — +2 test mới</li>
+              </ul>
+            </div>
+          </div>
+        </details>
+        <div class="check mono">
+          <span>kiểm chứng sau khi sửa —</span>
+          <span><b>456</b> / 456 test backend pass</span>
+          <span><b>36</b> / 36 test frontend pass</span>
+          <span><code>nest build</code> &amp; <code>next build</code> sạch</span>
+        </div>
+      </div>
+    </article>
+
+  </div>
+
+  <footer class="tally">
+    <div class="tally-head">
+      <h2>Xác nhận cuối phiên</h2>
+      <span class="mono">2 kho mã nguồn · 4 hạng mục</span>
+    </div>
+    <div class="stat-row mono">
+      <div class="stat">
+        <div class="n">456<small>/456</small></div>
+        <div class="l">Test backend pass</div>
+      </div>
+      <div class="stat">
+        <div class="n">36<small>/36</small></div>
+        <div class="l">Test frontend pass</div>
+      </div>
+      <div class="stat">
+        <div class="n">2<small>/2</small></div>
+        <div class="l"><code>next build</code> &amp; <code>nest build</code></div>
+      </div>
+      <div class="stat">
+        <div class="n">0</div>
+        <div class="l">Dữ liệu thật bị ảnh hưởng</div>
+      </div>
+    </div>
+  </footer>
+
+  <p class="closing">Không có gì khác trong luồng Bán hàng → Mua hàng bị ảnh hưởng ngoài 4 mục ghi trên.</p>
+
+</div>
+</body>
+</html>

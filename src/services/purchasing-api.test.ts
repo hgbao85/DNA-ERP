@@ -47,6 +47,7 @@ function beProposal(overrides: Record<string, unknown> = {}) {
         materialCode: 'SAT-25',
         materialName: 'Sắt hộp 25×25',
         unit: 'cây',
+        warehouseCode: 'phoi-son-han',
         actualStock: 0,
         buyQty: 8,
         receivedQty: 0,
@@ -112,16 +113,40 @@ describe('getPurchaseProposals — tải danh sách + chi tiết từng đề xu
     expect(result).toHaveLength(1);
   });
 
-  it('map đúng warehouseCode -> khoKey/khoLabel và status BE (uppercase) -> FE (lowercase)', async () => {
+  it('map đúng warehouseCode CỦA TỪNG DÒNG -> khoKey/khoLabel (không phải kho tóm tắt cấp đề xuất) và status BE (uppercase) -> FE (lowercase)', async () => {
     get.mockResolvedValueOnce({ data: [{ id: '300' }] });
-    get.mockResolvedValueOnce(beProposal({ status: 'PURCHASING', warehouseCode: 'vat-tu-tp' }));
+    get.mockResolvedValueOnce(
+      beProposal({
+        status: 'PURCHASING',
+        // Kho tóm tắt cấp đề xuất cố tình khác kho thật của dòng vật tư, để chứng minh FE đọc
+        // đúng field cấp item (Sếp chốt 2026-08-15) chứ không còn "ăn theo" giá trị này.
+        warehouseCode: 'phoi-son-han',
+        items: [{ ...beProposal().items[0], warehouseCode: 'vat-tu-tp' }],
+      }),
+    );
 
     const [result] = await getPurchaseProposals();
 
     expect(result.status).toBe('purchasing');
-    expect(result.warehouseScope).toBe('vat-tu-tp');
     expect(result.items[0].khoKey).toBe('vatTuTP');
     expect(result.items[0].khoLabel).toBe('Kho Vật tư thành phẩm');
+  });
+
+  it('mỗi dòng vật tư giữ đúng kho riêng của nó khi 1 đề xuất gồm nhiều vật tư khác kho nhau', async () => {
+    get.mockResolvedValueOnce({ data: [{ id: '300' }] });
+    get.mockResolvedValueOnce(
+      beProposal({
+        items: [
+          { ...beProposal().items[0], id: '400', materialId: '30', warehouseCode: 'phoi-son-han' },
+          { ...beProposal().items[0], id: '401', materialId: '31', warehouseCode: 'thanh-pham' },
+        ],
+      }),
+    );
+
+    const [result] = await getPurchaseProposals();
+
+    expect(result.items[0].khoLabel).toBe('Kho Phôi Sơn Hàn');
+    expect(result.items[1].khoLabel).toBe('Kho Thành phẩm');
   });
 
   it('required = actualStock + buyQty (BE đã trừ tồn tự động - xem CuttingProposalsService.approve())', async () => {

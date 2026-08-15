@@ -79,6 +79,10 @@ interface BeItem {
   unit: string;
   purchaseUnit: string | null;
   khoUnitFactor: number | null;
+  // Kho nhận hàng THẬT của riêng vật tư này (Material.warehouseId, xem BE
+  // PurchaseProposalItemResponseDto) - Sếp chốt 2026-08-15: 1 đề xuất có thể gồm nhiều vật tư
+  // khác kho nhau, KHÔNG còn dùng chung warehouseCode của cả đề xuất (be.warehouseCode dưới).
+  warehouseCode: string | null;
   actualStock: number;
   buyQty: number;
   receivedQty: number;
@@ -103,7 +107,11 @@ interface BeProposal {
   items?: BeItem[];
 }
 
-function toItem(item: BeItem, khoKey: KhoKey, warehouseCode: string): PurchaseProposalItem {
+// item.warehouseCode có thể null (vật tư cũ/chưa gán kho, xem BE) - rơi về '—' thay vì hiện
+// "null" hay đè nhầm sang kho của đề xuất.
+function toItem(item: BeItem): PurchaseProposalItem {
+  const warehouseCode = item.warehouseCode ?? '—';
+  const khoKey = WAREHOUSE_SCOPE_TO_KHO_KEY[warehouseCode] ?? (warehouseCode as KhoKey);
   return {
     name: item.materialName,
     unit: item.unit,
@@ -124,8 +132,9 @@ function toItem(item: BeItem, khoKey: KhoKey, warehouseCode: string): PurchasePr
 }
 
 function toProposal(be: BeProposal): PurchaseProposal {
-  const khoKey = WAREHOUSE_SCOPE_TO_KHO_KEY[be.warehouseCode] ?? (be.warehouseCode as KhoKey);
-  const items = (be.items ?? []).map((it) => toItem(it, khoKey, be.warehouseCode));
+  // be.warehouseCode giờ CHỈ còn là kho tóm tắt của cả đề xuất (xem BE PurchaseProposalResponseDto)
+  // - từng dòng vật tư tự có warehouseCode riêng, đọc trong toItem() thay vì nhận truyền xuống.
+  const items = (be.items ?? []).map((it) => toItem(it));
 
   const quotes: Record<string, ProposalQuote[]> = {};
   const chosenSuppliers: Record<string, string> = {};
