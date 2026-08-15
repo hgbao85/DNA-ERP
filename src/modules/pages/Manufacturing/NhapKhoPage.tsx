@@ -55,14 +55,31 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
 
   const inputKey = (proposalId: string, materialId: string) => `${proposalId}:${materialId}`
 
-  const confirmItem = (p: PurchaseProposal, materialId: string) => {
+  // Key đang có request bay - khoá nút để không gửi 2 lần cùng 1 dòng (mỗi lần gửi sinh một
+  // Idempotency-Key mới nên BE coi là 2 đợt nhận riêng biệt, sẽ cộng kho 2 lần).
+  const [pending, setPending] = useState<Record<string, boolean>>({})
+
+  // CHỈ xoá ô nhập khi BE đã ghi nhận xong. Trước 2026-08-15 hai dòng setInputs/setKgInputs chạy
+  // ngay sau lời gọi fire-and-forget: BE trả lỗi thì ô vẫn trống đi như bình thường, bảng không
+  // đổi, thủ kho tưởng đã nhập xong trong khi hàng đã nằm trong kho vật lý mà hệ thống không ghi
+  // (D.a1-silent-write-failure). Lỗi nay hiện ở banner của InspectionProvider và số vừa gõ được
+  // GIỮ LẠI để bấm lại, không phải gõ lại từ đầu.
+  const confirmItem = async (p: PurchaseProposal, materialId: string) => {
     const key = inputKey(p.id, materialId)
+    if (pending[key]) return
     const qty = Math.max(0, Number(inputs[key]) || 0)
     if (qty <= 0) return
     const kgVal = Math.max(0, Number(kgInputs[key]) || 0)
-    receiveProposalItem(p.id, materialId, qty, kgVal > 0 ? kgVal : undefined)
-    setInputs(prev => ({ ...prev, [key]: '' }))
-    setKgInputs(prev => ({ ...prev, [key]: '' }))
+    setPending(prev => ({ ...prev, [key]: true }))
+    try {
+      await receiveProposalItem(p.id, materialId, qty, kgVal > 0 ? kgVal : undefined)
+      setInputs(prev => ({ ...prev, [key]: '' }))
+      setKgInputs(prev => ({ ...prev, [key]: '' }))
+    } catch {
+      // Banner đã hiện ở InspectionProvider - ở đây chỉ cần KHÔNG xoá ô nhập.
+    } finally {
+      setPending(prev => ({ ...prev, [key]: false }))
+    }
   }
 
   // ── Detail view ──────────────────────────────────────────
@@ -117,7 +134,8 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                 const key = inputKey(selected.id, itemKey(item))
                 const inputVal = inputs[key] ?? ''
                 const kgVal = kgInputs[key] ?? ''
-                const canConfirm = !done && !!inputVal && Number(inputVal) > 0
+                const isPending = !!pending[key]
+                const canConfirm = !done && !!inputVal && Number(inputVal) > 0 && !isPending
                 const hasConversion = !!item.purchaseUnit && !!item.khoUnitFactor
                 return (
                   <tr key={itemKey(item)} style={{ borderTop: '1px solid var(--border)' }}>
@@ -163,10 +181,10 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                             />
                             <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.unit}{hasConversion ? ' (có thể sửa tay)' : ''}</span>
                             <button
-                              onClick={() => confirmItem(selected, itemKey(item))}
+                              onClick={() => void confirmItem(selected, itemKey(item))}
                               disabled={!canConfirm}
                               style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: canConfirm ? '#2e7d32' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
-                            >Xác nhận</button>
+                            >{isPending ? 'Đang ghi…' : 'Xác nhận'}</button>
                           </div>
                         </div>
                       )}

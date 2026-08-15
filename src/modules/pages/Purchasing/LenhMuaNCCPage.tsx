@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { ChevronLeft, Send, ClipboardList, CheckCircle2, X } from 'lucide-react'
-import { useInspection, PROPOSAL_ENTITY, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type PurchaseProposalItem, type ProposalQuote } from '../../../context/InspectionContext'
+import { useInspection, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type PurchaseProposalItem, type ProposalQuote } from '../../../context/InspectionContext'
 import { useAuth } from '../../../context/AuthContext'
-import { useAuditLog } from '../../../context/AuditLogContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials, getMaterialSuppliers } from '../../../services/api'
 import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purchasingRouting'
-import AuditLogTimeline from '../../../components/AuditLogTimeline'
+import PurchaseProposalAuditTrail from '../../../components/PurchaseProposalAuditTrail'
 import { format } from 'date-fns'
 
 export default function LenhMuaNCCPage() {
@@ -120,7 +119,6 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
   onSubmitToDirector: (id: string, quotes: Record<string, ProposalQuote[]>) => void
   onRequote: (id: string) => void
 }) {
-  const { getLogsFor } = useAuditLog()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [quoteEdits, setQuoteEdits] = useState<Record<string, Record<string, ProposalQuote[]>>>({})
 
@@ -461,7 +459,7 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
       </div>
 
       <div style={{ width: 300, flexShrink: 0, position: 'sticky', top: 20 }}>
-        <AuditLogTimeline entries={getLogsFor(PROPOSAL_ENTITY, p.id)} />
+        <PurchaseProposalAuditTrail proposalId={p.id} />
       </div>
       </div>
     )

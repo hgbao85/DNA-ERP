@@ -2,9 +2,8 @@
 import { useState } from 'react'
 import { LayoutDashboard, Package, LogOut, CalendarClock, Warehouse, ClipboardCheck, Check, X, ChevronLeft } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
-import { useInspection, PROPOSAL_ENTITY, type PurchaseProposal, type PurchaseProposalItem, type ProposalQuote } from '../../../context/InspectionContext'
-import { useAuditLog } from '../../../context/AuditLogContext'
-import AuditLogTimeline from '../../../components/AuditLogTimeline'
+import { useInspection, type PurchaseProposal, type PurchaseProposalItem, type ProposalQuote } from '../../../context/InspectionContext'
+import PurchaseProposalAuditTrail from '../../../components/PurchaseProposalAuditTrail'
 import { format } from 'date-fns'
 import SKUReviewPage from '../ProductionPlan/SKUReviewPage'
 import SKUListPage from '../ProductionPlan/SKUListPage'
@@ -39,7 +38,6 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
   onApprove: (id: string, chosen: Record<string, string>) => void
   onReject:  (id: string, reason: string) => void
 }) {
-  const { getLogsFor } = useAuditLog()
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null)
   const [rejectMode,   setRejectMode]   = useState(false)
   const [rejectReason, setRejectReason] = useState('')
@@ -304,7 +302,7 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
       </div>
 
       <div style={{ width: 300, flexShrink: 0, position: 'sticky', top: 20 }}>
-        <AuditLogTimeline entries={group.flatMap(p => getLogsFor(PROPOSAL_ENTITY, p.id)).sort((a, b) => a.at.localeCompare(b.at))} />
+        <PurchaseProposalAuditTrail proposalId={group.map(p => p.id)} />
       </div>
       </div>
     )

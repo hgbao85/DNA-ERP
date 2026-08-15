@@ -8,7 +8,10 @@
  *     mã đơn hàng khách như mock cũ ("PO-MY-001").
  *   - `requestId`/`skuId` không có ý nghĩa thật nữa (không còn InspectionRequest) - đặt giá trị
  *     placeholder ổn định, các màn Mua hàng không đọc 2 field này.
- *   - `deadline` chưa có nguồn dữ liệu - luôn `undefined` (field vốn optional).
+ *   - `deadline` (2026-08-15, A3): trước đó luôn `undefined` (chưa có nguồn dữ liệu, xem
+ *     `toProposal()`); nay BE tính sẵn (`PurchaseProposalsService.frameDeadlineOf`) - nhánh lệnh
+ *     SX đơn ưu tiên materialDeadline -> mốc Khung cơ khí -> hạn cả PI; nhánh PI gộp lấy hạn SỚM
+ *     NHẤT trong cả nhóm SKU. `null` (không phải `undefined`) khi không SKU nào có hạn nào.
  *   - `actualStock` là tồn thật (kho phoi-son-han) đã được BE trừ tự động lúc tạo đề xuất (Sếp
  *     quyết định 2026-08-07: "trừ tồn tự động, hiện qua mua hàng, không hiện ở kho") - `buyQty`
  *     giờ chỉ còn là phần THIẾU cần mua, nên `required` (tổng nhu cầu) = actualStock + buyQty.
@@ -98,6 +101,10 @@ interface BeProposal {
   poNumber: string;
   mfgProductCode: string;
   mfgProductName: string | null;
+  // Hạn Mua hàng nên ưu tiên (A3, 2026-08-15) - BE tính từ materialDeadline/mốc Khung cơ khí/hạn
+  // PI (PurchaseProposalsService.frameDeadlineOf), null nếu không SKU nào trong đề xuất có hạn.
+  // Trước đây field này LUÔN undefined ở FE (không có nguồn dữ liệu) - xem comment đầu file.
+  deadline: string | null;
   createdAt: string;
   submittedAt: string | null;
   approvedAt: string | null;
@@ -126,6 +133,7 @@ function toItem(item: BeItem): PurchaseProposalItem {
     // để tương thích, KHÔNG Number() (mất khớp key với buildBuyerByMaterialId ở purchasingRouting.ts,
     // vốn cũng giữ nguyên Material.id string dưới lớp áo type number - xem materials-api.ts).
     materialId: item.materialId as unknown as number,
+    itemId: item.id,
     receivedQty: item.receivedQty,
     receivedQtyPurchaseUnit: item.receivedQtyPurchaseUnit,
   };
@@ -147,6 +155,10 @@ function toProposal(be: BeProposal): PurchaseProposal {
       unitPrice: q.unitPrice,
       expectedDate: q.expectedDate ?? undefined,
       note: q.note ?? undefined,
+      // Phải mang theo: đây là nguồn xác thực DUY NHẤT cho "báo giá nào đã được Sếp duyệt".
+      // Từng bị đánh rơi ở bước map này, khiến TheoDoiMuaHangPage phải suy ngược bằng cách so
+      // supplierName với chosenSuppliers - sai khi 2 báo giá trùng tên NCC (D.a2-price-by-name).
+      isChosen: q.isChosen,
     }));
     const chosen = it.quotes.find((q) => q.isChosen);
     if (chosen) chosenSuppliers[key] = chosen.supplierName;
@@ -165,6 +177,7 @@ function toProposal(be: BeProposal): PurchaseProposal {
     status: BE_TO_FE_STATUS[be.status] ?? 'new',
     quotes,
     chosenSuppliers,
+    deadline: be.deadline ?? undefined,
     submittedAt: be.submittedAt ?? undefined,
     approvedAt: be.approvedAt ?? undefined,
     rejectedAt: be.rejectedAt ?? undefined,
@@ -178,10 +191,13 @@ async function getPurchaseProposal(id: string): Promise<PurchaseProposal> {
   return toProposal(detail);
 }
 
+// A5 (2026-08-15, D.a5-n-plus-one): BE findAll() nay trả kèm items (DETAIL_INCLUDE, xem
+// PurchaseProposalsService) - map thẳng, KHÔNG còn 1+N request (trước đây mỗi dòng phải gọi
+// thêm GET :id chỉ để lấy items, limit 100 -> tối đa 101 request/lần tải danh sách).
 export async function getPurchaseProposals(): Promise<PurchaseProposal[]> {
   const res = await http.get<BeProposal[] | { data: BeProposal[] }>('/purchase-proposals?limit=100');
   const list = Array.isArray(res) ? res : res.data;
-  return Promise.all(list.map((p) => getPurchaseProposal(p.id)));
+  return list.map(toProposal);
 }
 
 export async function acknowledgeProposal(id: string): Promise<PurchaseProposal> {
@@ -194,7 +210,7 @@ export async function submitProposalToDirector(
   proposal: PurchaseProposal,
   quotesByMaterialId: Record<string, ProposalQuote[]>,
 ): Promise<PurchaseProposal> {
-  const beItemIdByMaterialId = await getBeItemIdsByMaterialId(proposal.id);
+  const beItemIdByMaterialId = beItemIdsByMaterialId(proposal);
 
   for (const [materialId, rows] of Object.entries(quotesByMaterialId)) {
     const beItemId = beItemIdByMaterialId.get(materialId);
@@ -216,16 +232,19 @@ export async function submitProposalToDirector(
 /**
  * Sếp duyệt - nhận thẳng quoteId thật (BossApp.tsx lưu theo id, không phải tên NCC nữa - xem
  * ProposalQuote.id). KHÔNG tra lại theo supplierName: 2 báo giá có thể trùng tên NCC (hợp lệ,
- * BE không cấm), hoặc còn báo giá cũ chưa dọn sau 1 vòng "Báo giá lại" (mỗi lần báo giá lại là
- * create() mới, giữ báo giá cũ làm lịch sử) - tra theo tên có thể khớp nhầm sang bản không phải
- * cái Sếp vừa bấm (D.h3-quote-id-not-name). Vẫn cần 1 lần GET để dịch materialId -> BE itemId
- * (state FE key theo materialId, không đổi được mà không sửa cả UI).
+ * BE không cấm) - tra theo tên có thể khớp nhầm sang bản không phải cái Sếp vừa bấm
+ * (D.h3-quote-id-not-name). Riêng ca "còn báo giá cũ chưa dọn sau 1 vòng Báo giá lại" KHÔNG còn
+ * xảy ra được nữa - `requote()` BE nay XOÁ SẠCH báo giá cũ trước khi mở lại QUOTING (đổi
+ * 2026-08-11, "không giữ làm lịch sử nữa"; xem `requoteProposal` ở InspectionContext.tsx), nên
+ * lý do #2 chỉ còn ghi lại làm ngữ cảnh lịch sử của quyết định thiết kế này, không phải hành vi
+ * hiện tại. Dịch materialId -> BE itemId đọc THUẦN từ `proposal.items` đã có sẵn (A5, không còn
+ * GET riêng - xem beItemIdsByMaterialId()).
  */
 export async function approveProposal(
   proposal: PurchaseProposal,
   chosenQuoteIdByMaterialId: Record<string, string>,
 ): Promise<PurchaseProposal> {
-  const beItemIdByMaterialId = await getBeItemIdsByMaterialId(proposal.id);
+  const beItemIdByMaterialId = beItemIdsByMaterialId(proposal);
   const chosenQuoteIdByItemId: Record<string, string> = {};
 
   for (const [materialId, quoteId] of Object.entries(chosenQuoteIdByMaterialId)) {
@@ -253,7 +272,7 @@ export async function receiveProposalItem(
   qty: number,
   receivedQtyPurchaseUnit?: number,
 ): Promise<PurchaseProposal> {
-  const beItemIdByMaterialId = await getBeItemIdsByMaterialId(proposal.id);
+  const beItemIdByMaterialId = beItemIdsByMaterialId(proposal);
   const beItemId = beItemIdByMaterialId.get(materialId);
   if (!beItemId) {
     throw new Error(`Không tìm thấy vật tư (materialId=${materialId}) trong đề xuất mua ${proposal.id}`);
@@ -268,11 +287,17 @@ export async function receiveProposalItem(
   return getPurchaseProposal(proposal.id);
 }
 
-/** materialId -> itemId thật (PurchaseProposalItem.id) - type cũ không có chỗ lưu itemId nên
- *  tra lại qua 1 lần gọi detail còn tươi, dùng chung cho mọi action cần itemId. Dùng materialId
- *  (KHÔNG phải materialName - xem comment đầu file, D.p6-quote-key-collision) vì materialId mới
- *  là định danh duy nhất trong 1 đề xuất; materialName có thể trùng giữa nhiều vật tư khác nhau. */
-async function getBeItemIdsByMaterialId(proposalId: string): Promise<Map<string, string>> {
-  const beDetail = await http.get<BeProposal>(`/purchase-proposals/${proposalId}`);
-  return new Map((beDetail.items ?? []).map((it) => [it.materialId, it.id]));
+/** materialId -> itemId thật (PurchaseProposalItem.id) - đọc THUẦN từ state đã có (proposal.items
+ *  mang sẵn itemId từ 2026-08-15, xem toItem()), KHÔNG còn phải gọi GET riêng để dịch nữa (A5,
+ *  D.a5-n-plus-one). Dùng materialId (KHÔNG phải materialName - xem comment đầu file,
+ *  D.p6-quote-key-collision) vì materialId mới là định danh duy nhất trong 1 đề xuất; materialName
+ *  có thể trùng giữa nhiều vật tư khác nhau. */
+function beItemIdsByMaterialId(proposal: PurchaseProposal): Map<string, string> {
+  return new Map(
+    proposal.items
+      .filter((it): it is PurchaseProposalItem & { materialId: number; itemId: string } =>
+        it.materialId != null && it.itemId != null,
+      )
+      .map((it) => [String(it.materialId), it.itemId]),
+  );
 }
