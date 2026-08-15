@@ -23,8 +23,8 @@ type ChoDuyetFilter = 'sku-moi' | 'so-sanh-gia' | 'lenh-sx'
 
 // ── So sánh giá section ───────────────────────────────────────────────────────
 
-// Các PurchaseProposal con của cùng 1 đơn gốc (do KHSX tạo) chia sẻ chung requestId
-// (xem markProposalCreated, InspectionContext.tsx) — nhóm lại để Boss duyệt 1 lần/đơn.
+// Các PurchaseProposal con của cùng 1 đơn gốc chia sẻ chung requestId (xem toProposal(),
+// purchasing-api.ts) — nhóm lại để Boss duyệt 1 lần/đơn.
 function groupByRequestId(proposals: PurchaseProposal[]): PurchaseProposal[][] {
   const map = new Map<string, PurchaseProposal[]>()
   proposals.forEach(p => {

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Boxes, Warehouse, Settings, FilePlus, ScanSearch, Layers } from 'lucide-react'
+import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Boxes, Warehouse, Settings, FilePlus, Layers } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { getCuttingBatchSuggestions } from '../../../services/cutting-batch-api'
@@ -9,10 +9,9 @@ import SKUReviewPage from './SKUReviewPage'
 import SKUListPage from './SKUListPage'
 import ThongKePagePlan from '../Manufacturing/ThongKePagePlan'
 import LenhSXPage from './LenhSXPage'
-import KiemTraVatTuPage from './KiemTraVatTuPage'
 import GomDotCatPage from './GomDotCatPage'
 
-type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'kiem-tra-vt' | 'thongke' | 'lenh-sx' | 'gom-cat' | 'materials' | 'warehouses' | 'setup'
+type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'thongke' | 'lenh-sx' | 'gom-cat' | 'materials' | 'warehouses' | 'setup'
 
 interface Props { onBack?: () => void }
 
@@ -73,7 +72,6 @@ export default function ProductionPlanApp({ onBack }: Props) {
           {navBtn('duyet-sku',    <FilePlus size={16} />,        'Duyệt SKU')}
             {navBtn('lenh-sx',    <ClipboardList size={16} />,  isBoss ? 'Duyệt lệnh SX' : 'Lệnh sản xuất mới')}
           {navBtn('gom-cat',    <Layers size={16} />,         'Tối ưu cắt sắt', batchCount)}
-          {navBtn('kiem-tra-vt', <ScanSearch size={16} />,     'Kiểm tra vật tư')}
                     {navBtn('vattu',      <Package size={16} />,         'Danh sách vật tư')}
           {navBtn('warehouses', <Warehouse size={16} />,      'Tổng hợp kho')}
         </nav>
@@ -99,7 +97,6 @@ export default function ProductionPlanApp({ onBack }: Props) {
         {activePage === 'planforms'  && <SKUListPage />}
         {activePage === 'duyet-sku'    && <SKUReviewPage />}
         {activePage === 'vattu'      && <VatTuDashboardPage />}
-        {activePage === 'kiem-tra-vt' && <KiemTraVatTuPage />}
         {activePage === 'lenh-sx'    && <LenhSXPage />}
         {activePage === 'gom-cat'    && <GomDotCatPage onDone={() => setActivePage('lenh-sx')} />}
         {activePage === 'warehouses' && <MfgWarehousesPage />}

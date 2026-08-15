@@ -1,6 +1,5 @@
 'use client'
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
-import type { Sku } from '../types/sku'
 import type { WarehouseScope } from './AuthContext'
 import { useAuth } from './AuthContext'
 import { useAuditLog } from './AuditLogContext'
@@ -12,79 +11,16 @@ import {
   rejectProposal as rejectProposalApi,
   requoteProposal as requoteProposalApi,
   receiveProposalItem as receiveProposalItemApi,
-  createProposalFromInspection as createProposalFromInspectionApi,
 } from '../services/purchasing-api'
-import {
-  getInspectionRequests,
-  createInspectionRequest,
-  submitInspectionKho as submitInspectionKhoApi,
-  startInspectionProduction as startInspectionProductionApi,
-  toInspRequest,
-} from '../services/material-inspection-api'
 
 export const PROPOSAL_ENTITY = 'PurchaseProposal'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
+// Kho phụ trách của từng nhóm vật tư — dùng để gán nhãn hiển thị (khoLabel) cho từng dòng đề
+// xuất mua, xem purchasing-api.ts#toItem(). KHÔNG dùng để route tới tài khoản Purchasing (đã
+// chuyển sang gán theo từng vật tư - Material.buyerId, xem src/utils/purchasingRouting.ts).
 export type KhoKey = 'phoiSonHan' | 'vatTuTP' | 'thanhPham'
-
-// Kho phụ trách của từng nhóm vật tư — dùng để tách đề xuất mua theo kho (mỗi kho tự
-// kiểm tồn riêng). KHÔNG còn dùng để route tới tài khoản Purchasing (đã chuyển sang gán
-// theo từng vật tư - Material.buyerId, xem src/utils/purchasingRouting.ts). Thêm kho mới
-// chỉ cần thêm 1 dòng ở đây, không phải sửa logic tách ở nơi khác.
-export const KHO_KEY_TO_WAREHOUSE_SCOPE: Record<KhoKey, WarehouseScope> = {
-  phoiSonHan: 'phoi-son-han',
-  vatTuTP: 'vat-tu-tp',
-  thanhPham: 'thanh-pham',
-}
-
-export interface InspItem {
-  /** InspectionKhoResultItem.id (BE) - cần để gửi overrides lúc submitKho và làm itemId lúc tạo
-   *  đề xuất mua thủ công (markProposalCreated). */
-  id?: string
-  /** null/undefined = dòng KHÔNG map được vật tư thật (hiếm) - actualStock của dòng này phải nhập
-   *  tay qua overrides; có giá trị = BE tự đọc StockQuant lúc submitKho, không nhận override. */
-  materialId?: string | null
-  name: string
-  unit: string
-  required: number
-  actualStock: number | null   // null = kho chưa điền
-}
-
-export interface KhoState {
-  status: 'pending' | 'done'
-  items: InspItem[]
-  submittedAt?: string
-  /** InspectionKhoResult.id (BE) - cần để tạo đề xuất mua thủ công (markProposalCreated) và làm
-   *  tham số POST .../kho/:warehouseCode/submit. */
-  khoResultId: string
-  /** PurchaseProposal.id nếu kho này đã có đề xuất mua - undefined nếu chưa. */
-  purchaseProposalId?: string
-}
-
-export interface InspRequest {
-  id: string                   // MaterialInspectionRequest.id (BE)
-  /** = Sku.id/PlanForm.id thật (bigint-as-string) — sửa 2026-08-13, trước đó bị Number() làm sai
-   *  kiểu khiến mọi so khớp `requests.find(r => r.skuId === sku.id)` không bao giờ đúng (2 phía so
-   *  sánh number vs string dù cùng 1 giá trị). KHÔNG nhầm với PurchaseProposal.skuId bên dưới —
-   *  field đó là placeholder không liên quan gì tới Sku.id (xem comment purchasing-api.ts). */
-  skuId: string
-  poNumber: string
-  skuCode: string
-  skuName?: string
-  sentAt: string
-  deadline?: string
-  phoiSonHan: KhoState
-  vatTuTP: KhoState
-  thanhPham: KhoState
-  proposalCreated: boolean
-  productionStarted?: boolean
-  productionStartedAt?: string
-}
-
-export function khoState(req: InspRequest, kho: KhoKey): KhoState {
-  return kho === 'phoiSonHan' ? req.phoiSonHan : kho === 'vatTuTP' ? req.vatTuTP : req.thanhPham
-}
 
 export interface PurchaseProposalItem {
   name: string
@@ -157,32 +93,24 @@ export const PROPOSAL_STATUS_LABELS: Record<PurchaseProposal['status'], { label:
 }
 
 interface InspCtxType {
-  requests: InspRequest[]
   proposals: PurchaseProposal[]
-  sendRequest:             (pf: Sku) => void
-  submitKho:               (requestId: string, kho: KhoKey, overrides?: { itemId: string; actualStock: number }[]) => void
-  markProposalCreated:     (requestId: string, items: { itemId: string; khoKey: KhoKey; buyQty: number }[]) => void
   acknowledgeProposal:     (proposalId: string) => void
   submitProposalToDirector:(proposalId: string, quotes: Record<string, ProposalQuote[]>) => void
   approveProposal:         (proposalId: string, chosenQuoteIdByItemKey: Record<string, string>) => void
   rejectProposal:          (proposalId: string, reason: string) => void
   requoteProposal:         (proposalId: string) => void
   receiveProposalItem:     (proposalId: string, itemKey: string, qty: number, receivedQtyPurchaseUnit?: number) => void
-  startProduction:         (requestId: string, pf?: Sku) => void
 }
 
 // ── Context ────────────────────────────────────────────────────────────────────
 // proposals (PurchaseProposal) đã cutover sang BE thật (Phase 8, xem services/purchasing-api.ts)
-// - tự sinh từ CuttingProposal đã duyệt, hoặc tạo thủ công từ InspectionKhoResult (Phase 10, xem
-// markProposalCreated). requests (InspRequest) cũng đã cutover (Phase 10, 2026-08-12, xem
-// services/material-inspection-api.ts) - không còn SEED_REQUESTS mock.
+// - tự sinh từ CuttingProposal đã duyệt.
 
 const InspCtx = createContext<InspCtxType | undefined>(undefined)
 
 export function InspectionProvider({ children }: { children: React.ReactNode }) {
   const { logAction } = useAuditLog()
   const { token, user } = useAuth()
-  const [requests,  setRequests]  = useState<InspRequest[]>([])
   const [proposals, setProposals] = useState<PurchaseProposal[]>([])
 
   // InspectionProvider bọc TOÀN BỘ app ở layout.tsx (kể cả /login, trước khi có token) - chỉ gọi
@@ -191,9 +119,8 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
   //
   // Bỏ qua khi user có mfgRole (Sản xuất tại xưởng: QLSX/Phôi/Hàn/Sơn/KCS/Spec, dùng MfgApp) -
   // phát hiện qua browser thật 2026-08-13: không role nào trong nhóm này có PURCHASE_PROPOSAL:VIEW
-  // hay MATERIAL_INSPECTION:VIEW ở BE (đề xuất mua/kiểm tra vật tư là việc của KHSX/Mua hàng/Sếp,
-  // xem role-permissions.constant.ts), nên 2 lời gọi này luôn 403 âm thầm cho toàn bộ nhóm role
-  // này - không chỉ PHOI/KCS vừa kiểm tra qua browser.
+  // ở BE (đề xuất mua là việc của KHSX/Mua hàng/Sếp, xem role-permissions.constant.ts), nên lời
+  // gọi này luôn 403 âm thầm cho toàn bộ nhóm role này - không chỉ PHOI/KCS vừa kiểm tra qua browser.
   useEffect(() => {
     if (!token || user?.mfgRole) return
     fetchPurchaseProposals()
@@ -206,70 +133,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
         if ((err as { statusCode?: number })?.statusCode === 403) return
         console.error('getPurchaseProposals failed', err)
       })
-    getInspectionRequests()
-      .then(list => setRequests(list.map(toInspRequest)))
-      .catch(err => console.error('getInspectionRequests failed', err))
   }, [token, user?.mfgRole])
-
-  // Find-or-create idempotent ở BE (theo planFormId) - gọi lại an toàn, không tạo trùng. Chỉ hiện
-  // nút "Gửi đề xuất kiểm tra vật tư" khi FE chưa có request cục bộ nên trong luồng bình thường
-  // hàm này chỉ chạy đúng 1 lần/SKU.
-  const sendRequest = useCallback((pf: Sku) => {
-    void createInspectionRequest(pf)
-      .then(created => {
-        const mapped = toInspRequest(created)
-        setRequests(prev => prev.some(r => r.id === mapped.id)
-          ? prev.map(r => r.id === mapped.id ? mapped : r)
-          : [...prev, mapped])
-      })
-      .catch(err => console.error('sendRequest failed', err))
-  }, [])
-
-  // overrides chỉ cần cho dòng KHÔNG có materialId (hiếm, không map được vật tư thật) - dòng có
-  // materialId luôn được BE tự đọc StockQuant, gửi override cho dòng đó sẽ bị BE từ chối.
-  const submitKho = useCallback((requestId: string, kho: KhoKey, overrides?: { itemId: string; actualStock: number }[]) => {
-    void submitInspectionKhoApi(requestId, KHO_KEY_TO_WAREHOUSE_SCOPE[kho], overrides)
-      .then(updated => setRequests(prev => prev.map(r => r.id === requestId ? toInspRequest(updated) : r)))
-      .catch(err => console.error('submitKho failed', err))
-  }, [])
-
-  // 1 lần "Tạo đề xuất mua hàng" của KHSX có thể gồm vật tư của nhiều kho — tách thành 1
-  // PurchaseProposal riêng cho mỗi kho (khớp @@unique(inspectionKhoResultId) ở BE) để route đúng
-  // Purchasing phụ trách. allSettled thay vì all: 1 kho lỗi (vd đã có đề xuất từ trước) không
-  // được chặn các kho còn lại tạo thành công.
-  const markProposalCreated = useCallback((
-    requestId: string,
-    items: { itemId: string; khoKey: KhoKey; buyQty: number }[],
-  ) => {
-    const request = requests.find(r => r.id === requestId)
-    if (!request) return
-
-    const itemsByKho = new Map<KhoKey, { itemId: string; buyQty: number }[]>()
-    items.forEach(item => {
-      if (!itemsByKho.has(item.khoKey)) itemsByKho.set(item.khoKey, [])
-      itemsByKho.get(item.khoKey)!.push({ itemId: item.itemId, buyQty: item.buyQty })
-    })
-
-    const calls = Array.from(itemsByKho.entries()).map(([khoKey, khoItems]) =>
-      createProposalFromInspectionApi(khoState(request, khoKey).khoResultId, khoItems),
-    )
-
-    Promise.allSettled(calls)
-      .then(results => {
-        const created: PurchaseProposal[] = []
-        results.forEach(r => {
-          if (r.status === 'fulfilled') created.push(r.value)
-          else console.error('createProposalFromInspection failed', r.reason)
-        })
-        if (created.length > 0) {
-          setProposals(prev => [...prev, ...created])
-          created.forEach(p => logAction(PROPOSAL_ENTITY, p.id, 'proposal.created'))
-        }
-        return getInspectionRequests()
-      })
-      .then(list => setRequests(list.map(toInspRequest)))
-      .catch(err => console.error('markProposalCreated refresh failed', err))
-  }, [requests, logAction])
 
   const acknowledgeProposal = useCallback((proposalId: string) => {
     void acknowledgeProposalApi(proposalId)
@@ -339,21 +203,8 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
       .catch(err => console.error('receiveProposalItem failed', err))
   }, [proposals, logAction])
 
-  // KHSX chốt bắt đầu sản xuất. BE chặn (409) nếu chưa đủ 3 kho SUBMITTED - lỗi đó chỉ log
-  // console, không có UI riêng (cùng quy ước với các action khác trong context này); nút "Bắt
-  // đầu sản xuất" ở trang gọi hàm này chỉ hiện khi FE đã tự thấy đủ 3 kho done nên hiếm khi
-  // chạm nhánh đó.
-  const startProduction = useCallback((requestId: string) => {
-    void startInspectionProductionApi(requestId)
-      .then(updated => {
-        setRequests(prev => prev.map(r => r.id === requestId ? toInspRequest(updated) : r))
-        logAction('InspRequest', requestId, 'request.production_started')
-      })
-      .catch(err => console.error('startProduction failed', err))
-  }, [logAction])
-
   return (
-    <InspCtx.Provider value={{ requests, proposals, sendRequest, submitKho, markProposalCreated, acknowledgeProposal, submitProposalToDirector, approveProposal, rejectProposal, requoteProposal, receiveProposalItem, startProduction }}>
+    <InspCtx.Provider value={{ proposals, acknowledgeProposal, submitProposalToDirector, approveProposal, rejectProposal, requoteProposal, receiveProposalItem }}>
       {children}
     </InspCtx.Provider>
   )

@@ -49,10 +49,6 @@
  *  - packaging (packaging-api.ts) — mốc đóng gói cuối cùng của production-invoices
  *    (KhoDongGoiPage), model PackagingRecord (append-only, SUM-on-read), cùng cách resolve itemId
  *    với transfer-check ở trên.
- *  - material-inspection (material-inspection-api.ts) — Kiểm tra vật tư trước sản xuất (3 kho),
- *    neo vào PlanForm(origin='PRODUCTION_CONFIRM'); Sku.id ở FE CHÍNH LÀ PlanForm.id nên không cần
- *    resolver riêng như transfer-check/packaging. Kèm purchasing-api.ts#createProposalFromInspection
- *    (tạo đề xuất mua thủ công từ kho thiếu vật tư).
  *  - weaving-issues (weaving-issues-api.ts) — Phân bổ/nhận hàng đan (KhoXuatDanPage/
  *    KhoNhapDanPage), thay manh.service.ts. Key theo productionOrderId (khác productionInvoiceItemId
  *    ở trên) - resolve qua resolveProductionOrderId() (production-invoice-item.ts).
