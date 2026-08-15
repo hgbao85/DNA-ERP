@@ -14,8 +14,8 @@ import type { Sku, ManhRow, ManhChildRow, ManhChildGroup } from '../../../types/
 // ─── Types ────────────────────────────────────────────────────────────
 // "Định mức mảnh" (Manh/children) đọc/ghi thẳng Sku thật (manhData.pieces) — quy đổi sang/từ
 // shape domain dễ đọc trong JSX khi đọc/ghi (xem toManh/toManhRow). Mỗi mảnh giờ chứa vật tư
-// từ 5 nhóm (Sắt/Dây/Đinh/Tán rút/Nút nhựa) — chỉ Sắt có khái niệm "đoạn cắt" (cutLengthMm/
-// needsHan/needsSon), 4 nhóm còn lại chỉ có materialId + số lượng.
+// từ 5 nhóm (Sắt/Dây/Đinh/Tán rút/Nút nhựa) — chỉ Sắt có khái niệm "đoạn cắt" (cutLengthMm),
+// 4 nhóm còn lại chỉ có materialId + số lượng.
 type ManChild = {
   id: number
   group: ManhChildGroup

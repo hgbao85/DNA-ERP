@@ -250,6 +250,16 @@ export function SKUDetail({
         {pf.proposedAt && <span><span style={{ color: 'var(--text3)' }}>Thời gian tạo: </span><strong>{format(new Date(pf.proposedAt), 'dd/MM/yyyy')}</strong></span>}
       </div>
 
+      {/* Lý do Sếp từ chối lần gần nhất — BE tự xoá field này khi SKU được duyệt xong (xem
+          SkusService.approve), nên chỉ còn hiện khi thật sự đang chờ xử lý lại. Hiện cho cả KHSX
+          (người phải sửa) lẫn Sếp (nhắc lại lý do lần trước khi SKU quay lại chờ duyệt). */}
+      {pf.bossRejectReason && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20, padding: '10px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#b91c1c' }}>
+          <strong style={{ flexShrink: 0 }}>⚠ Sếp đã từ chối lần gần nhất:</strong>
+          <span>{pf.bossRejectReason}</span>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
       {finalReviewMode ? (

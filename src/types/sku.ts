@@ -61,7 +61,7 @@ export interface MaterialType {
 }
 
 /** 5 nhóm vật tư có thể xuất hiện bên trong 1 mảnh — Sắt (phân cấp: có segmentSpecId, chiều
- *  dài cắt, needsHan/needsSon) và Dây/Đinh/Tán rút/Nút nhựa (phẳng: chỉ materialId + qty, không
+ *  dài cắt) và Dây/Đinh/Tán rút/Nút nhựa (phẳng: chỉ materialId + qty, không
  *  có khái niệm cắt). Trước đây Dây/Đinh là 2 danh sách phẳng RIÊNG NGOÀI mảnh, do acc khác
  *  (SPEC_WIRE_PAINT) nhập — nay gộp làm children của từng mảnh, do acc Sắt nhập chung 1 lần. */
 export type ManhChildGroup = 'sat' | 'day' | 'dinh' | 'tanRut' | 'nutNhua';
@@ -79,9 +79,8 @@ export interface QuotaReviewStatus {
   reviewedAt: string;
 }
 
-/** 1 dòng vật tư thuộc 1 trong 5 nhóm của 1 mảnh — nhập sau bước "Tạo mảnh". `length`/
- *  `needsHan`/`needsSon` chỉ có ý nghĩa khi `group==='sat'` (đoạn cắt); 4 nhóm còn lại chỉ
- *  dùng `materialId` + `qty`. */
+/** 1 dòng vật tư thuộc 1 trong 5 nhóm của 1 mảnh — nhập sau bước "Tạo mảnh". `length` chỉ có
+ *  ý nghĩa khi `group==='sat'` (đoạn cắt); 4 nhóm còn lại chỉ dùng `materialId` + `qty`. */
 export interface ManhChildRow {
   id: number;
   group: ManhChildGroup;
@@ -94,8 +93,6 @@ export interface ManhChildRow {
   /** Chỉ dùng khi group='sat'. */
   length?: string | null;
   qty?: string | null;
-  needsHan?: boolean;
-  needsSon?: boolean;
   note?: string | null;
   unit?: string | null;
 }
@@ -125,6 +122,8 @@ export interface Sku {
    *  khi CẢ HAI khác null thì status tự chuyển WAITING_BOSS_APPROVAL (xem SKUDetail.tsx). */
   manhForwardedAt?: string | null;
   detailForwardedAt?: string | null;
+  /** Lý do Sếp từ chối ở lần gần nhất — null nếu chưa từng bị từ chối hoặc đã duyệt xong sau đó. */
+  bossRejectReason?: string | null;
   note?: string | null;
   customerName?: string | null;
   /** Mã lệnh sản xuất (PI) — 1 SKU trong 1 PO chỉ có đúng 1 PI, luôn trỏ tới ProductionInvoice

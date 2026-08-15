@@ -1,0 +1,261 @@
+<title>Tạo Định Mức Sản Phẩm Mới</title>
+<style>
+:root{
+  --bg:#eef1f3;
+  --surface:#ffffff;
+  --surface-2:#f5f7f8;
+  --ink:#1b2430;
+  --ink-soft:#54606d;
+  --ink-faint:#8a94a1;
+  --line:#dbe1e6;
+  --line-strong:#c3ccd3;
+  --accent:#c15a26;
+  --accent-ink:#fff7f2;
+  --accent-soft:#f7e4d5;
+  --accent-line:#e3b48d;
+  --warn:#a92318;
+  --warn-soft:#fbe6e3;
+  --warn-line:#e7b3ab;
+  --ok:#2f6b4f;
+  --ok-soft:#e3efe8;
+  --mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --sans: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --shadow: 0 1px 2px rgba(27,36,48,0.06), 0 8px 24px -12px rgba(27,36,48,0.18);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11151b; --surface:#181e26; --surface-2:#1e252e; --ink:#e8ecf0; --ink-soft:#aab4c0; --ink-faint:#748090;
+    --line:#2a323d; --line-strong:#374050; --accent:#e8834e; --accent-ink:#1c0f06; --accent-soft:#3a2617; --accent-line:#5c3a20;
+    --warn:#ff8f85; --warn-soft:#3a1e1c; --warn-line:#66312c; --ok:#7fcaa4; --ok-soft:#1c2e26;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11151b; --surface:#181e26; --surface-2:#1e252e; --ink:#e8ecf0; --ink-soft:#aab4c0; --ink-faint:#748090;
+  --line:#2a323d; --line-strong:#374050; --accent:#e8834e; --accent-ink:#1c0f06; --accent-soft:#3a2617; --accent-line:#5c3a20;
+  --warn:#ff8f85; --warn-soft:#3a1e1c; --warn-line:#66312c; --ok:#7fcaa4; --ok-soft:#1c2e26;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+}
+*{box-sizing:border-box;}
+html{background:var(--bg);}
+body{
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 39px, var(--line) 39px, var(--line) 40px) fixed,
+    var(--bg);
+  background-size: 100% 40px, 100% 100%;
+  color:var(--ink);
+  font-family:var(--sans);
+  line-height:1.55;
+  margin:0;
+  padding:0 20px 96px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) body{ background: repeating-linear-gradient(0deg, transparent, transparent 39px, var(--line) 39px, var(--line) 40px) fixed, var(--bg); background-size:100% 40px, 100% 100%; } }
+:root[data-theme="dark"] body{ background: repeating-linear-gradient(0deg, transparent, transparent 39px, var(--line) 39px, var(--line) 40px) fixed, var(--bg); background-size:100% 40px, 100% 100%; }
+
+.wrap{max-width:840px;margin:0 auto;}
+header.hero{ padding:56px 0 28px; border-bottom:1px solid var(--line-strong); margin-bottom:28px; }
+.eyebrow{ font-family:var(--mono); font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); font-weight:600; margin:0 0 14px; }
+h1{ font-size:clamp(32px,5vw,46px); line-height:1.08; margin:0 0 16px; letter-spacing:-0.02em; text-wrap:balance; font-weight:800; }
+.hero p.lede{ font-size:17px; color:var(--ink-soft); max-width:64ch; margin:0 0 24px; }
+.flowline{ font-family:var(--mono); font-size:12.5px; color:var(--ink-faint); background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow-x:auto; white-space:nowrap; letter-spacing:.01em; }
+.flowline b{color:var(--ink);font-weight:600;}
+.flowline .arrow{color:var(--accent);margin:0 2px;}
+
+nav.stagenav{ position:sticky; top:0; z-index:10; background:var(--bg); padding:10px 0; margin-bottom:8px; border-bottom:1px solid var(--line); }
+nav.stagenav::before{ content:""; position:absolute; inset:0 -20px; background:var(--bg); z-index:-1; border-bottom:1px solid var(--line); }
+.navrow{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin;}
+.navrow a{ flex:none; font-family:var(--mono); font-size:12px; color:var(--ink-soft); text-decoration:none; border:1px solid var(--line); background:var(--surface); border-radius:20px; padding:6px 12px; white-space:nowrap; }
+.navrow a:hover, .navrow a:focus-visible{border-color:var(--accent);color:var(--accent);outline:none;}
+
+section.block{margin:44px 0;}
+h2.blocktitle{ font-size:14px; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-faint); font-weight:700; margin:0 0 16px; }
+
+.roletable{width:100%;border-collapse:collapse;font-size:14.5px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:var(--shadow);}
+.roletable th{ text-align:left;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase; color:var(--ink-faint);font-weight:600;background:var(--surface-2);padding:10px 14px;border-bottom:1px solid var(--line); }
+.roletable td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-soft);}
+.roletable tr:last-child td{border-bottom:none;}
+.roletable td.rname{color:var(--ink);font-weight:600;white-space:nowrap;}
+.tablewrap{overflow-x:auto;}
+
+.stage{ scroll-margin-top:60px; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); padding:26px 28px 24px; margin-bottom:18px; position:relative; }
+.stagehead{display:flex;align-items:baseline;gap:14px;margin-bottom:6px;flex-wrap:wrap;}
+.stagenum{ font-family:var(--mono); font-weight:700; font-size:13px; color:var(--accent-ink); background:var(--accent); border-radius:6px; padding:3px 9px; letter-spacing:.02em; }
+.stagetitle{font-size:21px;font-weight:700;letter-spacing:-0.01em;}
+.stagesub{font-family:var(--mono);font-size:12px;color:var(--ink-faint);margin-bottom:16px;}
+.actors{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+.actor{ font-family:var(--mono); font-size:11.5px; letter-spacing:.03em; color:var(--accent); background:var(--accent-soft); border:1px solid var(--accent-line); border-radius:20px; padding:3px 10px; font-weight:600; }
+.stage p{margin:0 0 12px;color:var(--ink-soft);}
+.stage p:last-of-type{margin-bottom:0;}
+.stage strong{color:var(--ink);}
+.stage ul{margin:0 0 12px;padding-left:20px;color:var(--ink-soft);}
+.stage li{margin-bottom:6px;}
+.result{ margin-top:16px; font-size:13.5px; border-top:1px dashed var(--line-strong); padding-top:12px; color:var(--ink-soft); }
+.result b{ font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase; color:var(--ok);background:var(--ok-soft);border-radius:5px;padding:2px 7px;margin-right:8px; }
+
+.callout{ margin-top:14px; border:1px solid var(--warn-line); background:var(--warn-soft); border-radius:8px; padding:13px 16px; font-size:13.5px; color:var(--ink); }
+.callout .tag{ font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase; color:var(--warn);font-weight:700;display:block;margin-bottom:5px; }
+.callout p{color:var(--ink-soft);margin:0;}
+.callout.note{border-color:var(--line-strong);background:var(--surface-2);}
+.callout.note .tag{color:var(--ink-faint);}
+
+.exlist{display:grid;gap:12px;}
+.exitem{ background:var(--surface);border:1px solid var(--line);border-radius:10px; padding:16px 18px;box-shadow:var(--shadow); }
+.exitem .extitle{font-weight:700;font-size:14.5px;margin-bottom:5px;color:var(--ink);}
+.exitem p{margin:0;color:var(--ink-soft);font-size:14px;}
+
+footer.note{ margin-top:48px; padding-top:20px; border-top:1px solid var(--line-strong); font-size:12.5px; color:var(--ink-faint); font-family:var(--mono); }
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Tài liệu quy trình · Chi tiết một nhánh · Nhà máy khung sắt</p>
+  <h1>Tạo Định Mức Sản Phẩm Mới</h1>
+  <p class="lede">Đào sâu vào Giai đoạn 2 của "Hành Trình Một Đơn Hàng": từ lúc KHSX tạo một mã sản phẩm (SKU) trống, tới lúc Sếp ký duyệt và định mức chính thức có hiệu lực để đưa vào đơn hàng, sản xuất. Viết lại theo cách hiểu thông thường, kèm vài lỗ hổng/khoảng trống có thật trong hệ thống hiện tại.</p>
+  <div class="flowline">
+    <b>KHSX tạo SKU</b><span class="arrow">→</span><b>Nhập định mức (2 nhánh song song)</b><span class="arrow">→</span><b>KHSX duyệt từng nhánh</b><span class="arrow">→</span><b>Tự động gộp chờ Sếp</b><span class="arrow">→</span><b>Sếp duyệt cuối</b><span class="arrow">→</span><b>Định mức chính thức (active)</b>
+  </div>
+</header>
+
+<nav class="stagenav">
+  <div class="navrow">
+    <a href="#roles">Vai trò</a>
+    <a href="#s1">1 · Tạo SKU</a>
+    <a href="#s2">2 · Nhánh mảnh</a>
+    <a href="#s3">3 · Nhánh chi tiết</a>
+    <a href="#s4">4 · KHSX duyệt</a>
+    <a href="#s5">5 · Tự động gộp</a>
+    <a href="#s6">6 · Sếp duyệt</a>
+    <a href="#s7">7 · Có hiệu lực</a>
+    <a href="#exceptions">Rẽ nhánh &amp; khoảng trống</a>
+  </div>
+</nav>
+
+<section class="block" id="context">
+  <h2 class="blocktitle">Bối cảnh</h2>
+  <p style="color:var(--ink-soft);font-size:15px;max-width:70ch;">"Định mức" ở đây là bộ dữ liệu quyết định một sản phẩm (SKU) cần bao nhiêu vật tư mới làm ra được — chia làm hai phần tách biệt: <strong>định mức mảnh</strong> (mỗi mảnh của sản phẩm — ví dụ mảnh tựa, mảnh chân — cần bao nhiêu sắt cắt, dây, đinh, tán rút, nút nhựa) và <strong>định mức chi tiết</strong> (cả sản phẩm cần bao nhiêu sơn, phụ kiện, bao bì đóng gói). Hai phần này do hai người khác nhau phụ trách, làm độc lập, rồi mới gộp lại chờ một cổng duyệt cuối cùng của Sếp. Chỉ sau khi Sếp duyệt, sản phẩm mới có "định mức chính thức" (hệ thống gọi là BOM đang <em>active</em>) — và chỉ khi đó Kinh doanh mới được chọn sản phẩm này vào đơn hàng, xưởng mới được lập lệnh sản xuất cho nó.</p>
+</section>
+
+<section class="block" id="roles">
+  <h2 class="blocktitle">Ai là ai trong quy trình này</h2>
+  <div class="tablewrap">
+  <table class="roletable">
+    <tr><th>Vai trò</th><th>Việc chính</th></tr>
+    <tr><td class="rname">KHSX (Kế hoạch SX)</td><td>Tạo hồ sơ SKU mới, duyệt/từ chối từng nhánh (mảnh và chi tiết), "chốt" từng nhánh để chuyển tiếp — nhưng <strong>không tự nhập</strong> số liệu định mức.</td></tr>
+    <tr><td class="rname">Chuyên viên định mức mảnh</td><td>Nhập lượng sắt/dây/đinh/tán rút/nút nhựa cho từng mảnh của sản phẩm. Chỉ thấy và sửa được nhánh này.</td></tr>
+    <tr><td class="rname">Chuyên viên định mức chi tiết</td><td>Nhập lượng sơn/phụ kiện/bao bì cho cả sản phẩm. Chỉ thấy và sửa được nhánh này, làm việc song song, không cần chờ nhánh mảnh.</td></tr>
+    <tr><td class="rname">Sếp (Giám đốc)</td><td>Người duyệt cuối cùng — chỉ khi cả hai nhánh đã được KHSX chốt xong, hồ sơ mới xuất hiện trên màn hình chờ duyệt của Sếp.</td></tr>
+    <tr><td class="rname">QLSX (Quản lý SX)</td><td>Chỉ được <strong>xem</strong> danh sách SKU, không tham gia duyệt bước này (đã bị bỏ khỏi luồng duyệt định mức).</td></tr>
+    <tr><td class="rname">Kinh doanh</td><td>Chỉ xem — chờ sản phẩm được duyệt xong để chọn vào đơn hàng mới.</td></tr>
+    <tr><td class="rname">Admin (quản trị vật tư)</td><td>Phải khai báo vật tư (sắt, dây, sơn, phụ kiện, bao bì...) trong danh mục trước — hai chuyên viên định mức chỉ được chọn từ danh mục có sẵn, không gõ tự do.</td></tr>
+  </table>
+  </div>
+</section>
+
+<section class="block stage" id="s1">
+  <div class="stagehead"><span class="stagenum">01</span><span class="stagetitle">KHSX tạo hồ sơ SKU trống</span></div>
+  <div class="stagesub">Điểm bắt đầu — chỉ cần mã sản phẩm, chưa cần định mức</div>
+  <div class="actors"><span class="actor">KHSX</span></div>
+  <p>KHSX bấm "Tạo SKU mới", nhập <strong>mã SKU</strong> (bắt buộc) và tên khách hàng (tuỳ chọn, có thể gõ tự do hoặc chọn từ danh sách). Hồ sơ được tạo với trạng thái "đang xử lý" — chưa có dòng định mức nào cả, chưa có gì để duyệt.</p>
+  <p>Nếu mã SKU trùng với một sản phẩm đã có hồ sơ định mức chưa được duyệt, hệ thống chỉ <strong>cảnh báo mềm</strong> ("Vẫn tạo mới?") chứ không chặn — không có ràng buộc kỹ thuật nào ngăn tạo trùng.</p>
+  <div class="result"><b>Kết quả</b>Một hồ sơ SKU rỗng, sẵn sàng để hai chuyên viên định mức bắt đầu nhập liệu.</div>
+</section>
+
+<section class="block stage" id="s2">
+  <div class="stagehead"><span class="stagenum">02</span><span class="stagetitle">Nhánh mảnh — sắt, dây, đinh</span></div>
+  <div class="stagesub">Làm việc trên từng "mảnh" của sản phẩm</div>
+  <div class="actors"><span class="actor">Chuyên viên định mức mảnh</span></div>
+  <p>Chuyên viên chia sản phẩm thành từng <strong>mảnh</strong> (ví dụ: mảnh tựa, mảnh chân, mảnh khung...), mỗi mảnh cần khai số lượng mảnh dùng trên một sản phẩm (mặc định 1), rồi với mỗi mảnh:</p>
+  <ul>
+    <li><strong>Đoạn sắt cần cắt</strong> — chọn loại sắt (chỉ được chọn vật tư thuộc nhóm "sắt cây" trong danh mục), nhập chiều dài cắt (mm) và số đoạn cần trên một mảnh.</li>
+    <li><strong>Vật tư phụ đi kèm</strong> (tuỳ chọn) — dây, đinh, tán rút, nút nhựa, mỗi thứ nhập số lượng dùng trên một mảnh.</li>
+  </ul>
+  <p>Nếu một mảnh có đủ cả dây + đinh + nút nhựa, hệ thống <strong>tự động đánh dấu mảnh đó là "mảnh đan"</strong> — không cần chuyên viên tick tay.</p>
+  <p>Mỗi lần bấm lưu/gửi, dữ liệu mảnh của SKU đó được <strong>thay thế toàn bộ</strong> (xoá hết mảnh cũ, ghi lại từ đầu) — không phải kiểu chỉnh sửa từng dòng, nên gửi thiếu là mất dữ liệu cũ.</p>
+  <div class="result"><b>Kết quả</b>Danh sách mảnh + định mức sắt/vật tư phụ đầy đủ, trạng thái chuyển "chờ KHSX duyệt".</div>
+</section>
+
+<section class="block stage" id="s3">
+  <div class="stagehead"><span class="stagenum">03</span><span class="stagetitle">Nhánh chi tiết — sơn, phụ kiện, bao bì</span></div>
+  <div class="stagesub">Làm việc trên cả sản phẩm, hoàn toàn song song với nhánh mảnh</div>
+  <div class="actors"><span class="actor">Chuyên viên định mức chi tiết</span></div>
+  <p>Chuyên viên này thấy SKU ngay khi KHSX vừa tạo xong — <strong>không cần đợi</strong> nhánh mảnh nhập xong trước. Với mỗi SKU, khai ba nhóm định mức riêng: <strong>sơn</strong>, <strong>phụ kiện</strong>, <strong>bao bì đóng gói</strong> — mỗi dòng là một vật tư (chọn từ danh mục) kèm số lượng dùng cho một sản phẩm.</p>
+  <div class="callout note"><span class="tag">Lưu ý kỹ thuật ẩn</span><p>Một vật tư chỉ được gắn sẵn cho đúng một trong ba nhóm (sơn / phụ kiện / bao bì) ngay từ khi Admin khai báo trong danh mục — đây là cách hệ thống ngăn cùng một vật tư vừa được tính là phụ kiện vừa được tính là bao bì. Muốn đổi nhóm của một vật tư phải sửa lại ở danh mục gốc, không sửa được từ màn hình định mức.</p></div>
+  <p>Cũng giống nhánh mảnh, mỗi lần gửi là <strong>thay thế toàn bộ</strong> danh sách dòng chi tiết của SKU đó.</p>
+  <div class="result"><b>Kết quả</b>Định mức sơn/phụ kiện/bao bì đầy đủ, trạng thái chuyển "chờ KHSX duyệt".</div>
+</section>
+
+<section class="block stage" id="s4">
+  <div class="stagehead"><span class="stagenum">04</span><span class="stagetitle">KHSX xem và duyệt từng nhánh</span></div>
+  <div class="stagesub">Hai nhánh duyệt độc lập, không nhánh nào phải chờ nhánh kia</div>
+  <div class="actors"><span class="actor">KHSX</span></div>
+  <p>KHSX mở hồ sơ SKU, thấy hai tab riêng "Định mức mảnh" và "Định mức chi tiết". Với mỗi nhánh, có hai nút <strong>Duyệt</strong> / <strong>Từ chối</strong> (nút bị khoá kèm ghi chú "Chưa có dữ liệu để duyệt" nếu chuyên viên chưa nhập gì).</p>
+  <ul>
+    <li><strong>Duyệt:</strong> xác nhận số liệu đúng.</li>
+    <li><strong>Từ chối:</strong> có ô ghi lý do (không bắt buộc), hồ sơ nhánh đó quay lại "chờ nhập" — chuyên viên phụ trách thấy banner đỏ kèm lý do ngay trên màn hình nhập liệu của họ, sửa và gửi lại được ngay mà không mất phần đã nhập trước (trừ phần bị xoá do gửi lại là thay thế toàn bộ).</li>
+  </ul>
+  <p>Sau khi một nhánh được Duyệt, xuất hiện thêm nút riêng <strong>"Xác nhận hoàn tất"</strong> cho nhánh đó — đây là bước KHSX chính thức "chốt" nhánh, tách biệt với bước Duyệt phía trên (duyệt xong chưa tự chốt).</p>
+  <div class="result"><b>Kết quả</b>Từng nhánh lần lượt được chốt xong, độc lập theo tốc độ và thứ tự của KHSX.</div>
+</section>
+
+<section class="block stage" id="s5">
+  <div class="stagehead"><span class="stagenum">05</span><span class="stagetitle">Tự động chuyển sang chờ Sếp</span></div>
+  <div class="stagesub">Không có nút "gửi Sếp" — hệ thống tự làm khi đủ điều kiện</div>
+  <div class="actors"><span class="actor">Hệ thống tự động</span></div>
+  <p>Ngay khi <strong>cả hai</strong> nhánh đã được KHSX "Xác nhận hoàn tất" (theo bất kỳ thứ tự nào — nhánh nào chốt sau sẽ là nhánh kích hoạt bước này), hệ thống tự chuyển trạng thái hồ sơ sang "chờ Sếp duyệt". Không ai phải bấm thêm nút "gửi cho Sếp" nào cả.</p>
+  <div class="result"><b>Kết quả</b>Hồ sơ tự xuất hiện trên màn hình chờ duyệt của Sếp.</div>
+</section>
+
+<section class="block stage" id="s6">
+  <div class="stagehead"><span class="stagenum">06</span><span class="stagetitle">Sếp duyệt cuối</span></div>
+  <div class="stagesub">Cổng duyệt cuối cùng — chỉ Sếp mới bấm được</div>
+  <div class="actors"><span class="actor">Sếp</span></div>
+  <p>Sếp mở hồ sơ, thấy cả hai nhánh gộp trên cùng một màn hình xem (không có tab, chỉ để đọc), rồi bấm <strong>Duyệt</strong> hoặc <strong>Từ chối</strong> (mỗi nút có hộp xác nhận riêng, hộp Từ chối có ô nhập lý do).</p>
+  <p>Khi Sếp bấm <strong>Duyệt</strong>: định mức của sản phẩm này chính thức có hiệu lực (nếu sản phẩm từng có một định mức active từ trước, bản cũ tự động bị thay thế); trạng thái hồ sơ chuyển "đã duyệt".</p>
+  <div class="result"><b>Kết quả</b>Định mức chính thức có hiệu lực cho sản phẩm.</div>
+</section>
+
+<section class="block stage" id="s7">
+  <div class="stagehead"><span class="stagenum">07</span><span class="stagetitle">Định mức có hiệu lực — dùng được ở đâu</span></div>
+  <div class="actors"><span class="actor">Kinh doanh</span><span class="actor">KHSX</span></div>
+  <p>Chỉ từ lúc này, sản phẩm mới đủ điều kiện để <strong>Kinh doanh chọn vào đơn hàng mới</strong>, và <strong>KHSX mới lập được lệnh sản xuất</strong> cho sản phẩm này — cả hai chỗ đều kiểm tra ngầm là sản phẩm đã có một định mức đang hiệu lực, sản phẩm chưa có sẽ báo lỗi rõ ràng ("sản phẩm chưa có định mức đang active") thay vì cho làm tiếp với dữ liệu thiếu.</p>
+  <div class="result"><b>Kết quả</b>Vòng đời tạo định mức kết thúc; sản phẩm sẵn sàng cho đơn hàng và sản xuất.</div>
+</section>
+
+<section class="block" id="exceptions">
+  <h2 class="blocktitle">Những rẽ nhánh và khoảng trống cần biết</h2>
+  <div class="exlist">
+    <div class="exitem">
+      <div class="extitle">Sếp từ chối thì cả hai nhánh đều bị dội ngược, dù chỉ một nhánh sai</div>
+      <p>Khi Sếp từ chối ở bước cuối, hệ thống xoá luôn quyết định duyệt của KHSX ở <em>cả hai</em> nhánh (không riêng nhánh có vấn đề) và đưa hồ sơ về "đang xử lý" — KHSX phải duyệt và chốt lại từ đầu cả hai nhánh, kể cả nhánh vốn không có gì sai. Số liệu định mức đã nhập thì không mất, chỉ mất quyết định duyệt.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">Lý do Sếp từ chối — đã lưu lại từ 15/08/2026</div>
+      <p>Trước đây ô nhập lý do ở bước Sếp từ chối chỉ hiện trên màn hình rồi mất, không lưu vào hệ thống. Từ nay, lý do Sếp từ chối được lưu lại và hiển thị thành banner cảnh báo trên cả danh sách chờ duyệt lẫn trang chi tiết SKU (cho cả KHSX và Sếp xem lại), cho tới khi hồ sơ được duyệt xong ở lần kế tiếp thì banner tự ẩn.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">Không có thông báo tự động cho bất kỳ bước nào</div>
+      <p>Từ lúc chuyên viên gửi định mức, tới lúc KHSX duyệt, tới lúc chờ Sếp — hệ thống không tự bắn thông báo cho người ở bước kế tiếp. Muốn biết có hồ sơ mới cần xử lý, người phụ trách phải tự vào kiểm tra màn hình danh sách của mình.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">Vật tư phải khai báo trước, không gõ tự do được</div>
+      <p>Cả hai chuyên viên định mức chỉ được chọn vật tư từ danh mục đã có sẵn (do Admin khai báo trước ở phần Vật tư) — nếu thiếu một loại sắt/sơn/phụ kiện nào đó trong danh mục, phải nhờ Admin thêm trước, không thể vừa nhập định mức vừa tạo vật tư mới ngay tại chỗ.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">"Cần qua Hàn / qua Sơn" của từng đoạn sắt — đã gỡ bỏ (15/08/2026)</div>
+      <p>Trước đây hệ thống có sẵn chỗ lưu cho mỗi đoạn sắt đánh dấu có cần qua Hàn / qua Sơn hay không, nhưng màn hình nhập định mức mảnh chưa từng có ô nào để chuyên viên đặt giá trị này (luôn tự lưu là "có" cho cả hai), và không nơi nào trong hệ thống đọc lại giá trị này để thật sự bỏ qua công đoạn Hàn/Sơn. Vì là field chết hoàn toàn (không UI, không logic tiêu thụ), đã xóa khỏi cả dữ liệu lẫn mã nguồn thay vì để treo đó.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">Có một màn hình "Danh sách định mức mảnh" đang chạy dữ liệu giả</div>
+      <p>Trang tham khảo nhanh định mức mảnh hiển thị cho Tổ Phôi/Hàn/Sơn và Giám đốc hiện đang dùng <strong>dữ liệu mẫu cứng trong code</strong>, chưa nối với dữ liệu định mức thật đã duyệt — số liệu hiển thị ở đây (kể cả tên sản phẩm) không phản ánh sản phẩm thực tế trong hệ thống, cần lưu ý khi có ai tham khảo trang này.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">Gửi lại là ghi đè toàn bộ, không phải sửa từng dòng</div>
+      <p>Ở cả hai nhánh, mỗi lần chuyên viên bấm gửi/lưu là toàn bộ danh sách mảnh (hoặc danh sách dòng chi tiết) của SKU đó bị xoá và ghi lại từ đầu theo đúng những gì đang có trên màn hình lúc đó — nếu thao tác nhầm và gửi thiếu, dữ liệu cũ đầy đủ hơn sẽ bị mất, không có bản lưu để khôi phục.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="note">Tổng hợp từ toàn bộ mã nguồn phía giao diện (thư mục Manufacturing/ProductionPlan) và phía máy chủ (module skus, bom-revisions) — cập nhật đến 15/08/2026.</footer>
+
+</div>

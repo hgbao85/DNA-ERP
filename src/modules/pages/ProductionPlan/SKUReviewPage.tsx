@@ -338,6 +338,11 @@ export default function SKUReviewPage() {
                     <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
                     <span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>
                     {pf.mfgProduct?.name}
+                    {pf.bossRejectReason && (
+                      <div style={{ marginTop: 2, fontSize: 11, color: '#dc2626', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        ⚠ Sếp từ chối: {pf.bossRejectReason}
+                      </div>
+                    )}
                   </td>
                   <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text2)' }}>
                     {pf.customerName ?? '—'}

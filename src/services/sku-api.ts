@@ -49,8 +49,6 @@ interface BeSteelSegment {
   materialUnit: string;
   cutLengthMm: number;
   qtyPerPiece: number;
-  needsHan: boolean;
-  needsSon: boolean;
   note: string | null;
 }
 interface BeMaterialLine {
@@ -106,6 +104,7 @@ interface BeSku {
   } | null;
   manhForwardedAt: string | null;
   detailForwardedAt: string | null;
+  bossRejectReason: string | null;
   createdById: string;
   createdAt: string;
   updatedAt: string;
@@ -137,8 +136,6 @@ function toManhRow(p: BePiece): ManhRow {
     specs: s.materialSpec ?? undefined,
     length: String(s.cutLengthMm),
     qty: String(s.qtyPerPiece),
-    needsHan: s.needsHan,
-    needsSon: s.needsSon,
     note: s.note ?? undefined,
     unit: s.materialUnit,
   }));
@@ -198,6 +195,7 @@ function toSku(pf: BeSku): Sku {
     note: pf.note,
     manhForwardedAt: pf.manhForwardedAt,
     detailForwardedAt: pf.detailForwardedAt,
+    bossRejectReason: pf.bossRejectReason,
     customerName: pf.customerName,
     piCode: pf.piCode ?? '',
     productionInvoiceId: pf.productionInvoiceId ?? undefined,
@@ -282,8 +280,6 @@ export async function updateSkuManhQuota(
           materialId: String(c.materialId ?? ''),
           cutLengthMm: Number(c.length) || 0,
           qtyPerPiece: Number(c.qty) || 0,
-          needsHan: c.needsHan,
-          needsSon: c.needsSon,
           note: c.note || undefined,
         })),
       materialLines: r.children
@@ -347,8 +343,8 @@ export async function approveDetailSku(id: number | string): Promise<Sku> {
   return toSku(await http.post<BeSku>(`/skus/${id}/approve-detail`));
 }
 
-export async function rejectSkuByBoss(id: number | string, _reason?: string): Promise<Sku> {
-  return toSku(await http.post<BeSku>(`/skus/${id}/reject-boss`));
+export async function rejectSkuByBoss(id: number | string, reason?: string): Promise<Sku> {
+  return toSku(await http.post<BeSku>(`/skus/${id}/reject-boss`, { reason }));
 }
 
 export async function approveFullSku(id: number | string): Promise<Sku> {
