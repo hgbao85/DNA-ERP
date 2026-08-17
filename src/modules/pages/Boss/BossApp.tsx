@@ -84,8 +84,19 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
     setChosen(init)
   }
 
-  const allChosen = (group: PurchaseProposal[]) =>
-    group.every(p => p.items.every(item => !!chosen[itemKey(item)]))
+  // `chosen` chỉ được coi là hợp lệ khi quoteId trỏ tới đúng 1 báo giá CÓ GIÁ - không chỉ "có chọn
+  // gì đó". Nhận `mergedQuotes` của đúng group đang xem (không tự suy từ `proposals` để tránh dò
+  // nhầm sang báo giá trùng id ở đơn khác - quoteId là duy nhất toàn cục nên về logic không sai,
+  // nhưng truyền tường minh rõ ràng hơn). Phòng thủ kép với chặn click ở dòng bảng bên dưới, để
+  // không lệ thuộc duy nhất vào việc user không bao giờ click nhầm - phát hiện qua browser thật
+  // 2026-08-15: trước đây không có chặn nào ở đây, Sếp chọn nhầm dòng rỗng vẫn bấm "Duyệt" được,
+  // chỉ bị BE trả 400 sau khi đã round-trip (C2 vẫn đúng, nhưng trải nghiệm là "bấm xong mới biết
+  // sai" thay vì thấy ngay tại chỗ, D.c2-boss-quote-picker-no-guard).
+  const allChosen = (group: PurchaseProposal[], mergedQuotes: Record<string, ProposalQuote[]>) =>
+    group.every(p => p.items.every(item => {
+      const offer = (mergedQuotes[itemKey(item)] ?? []).find(q => q.id === chosen[itemKey(item)])
+      return !!offer && offer.unitPrice != null && offer.unitPrice > 0
+    }))
 
   // Duyệt chỉ mở khoá khi TẤT CẢ kho liên quan đến đơn đã báo giá xong — không duyệt lẻ từng kho.
   const allSubmitted = (group: PurchaseProposal[]) =>
@@ -203,16 +214,21 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
                         const isChosen  = !!q.id && q.id === chosenQuoteId
                         const isCheapest = cheapestPrice != null && q.unitPrice === cheapestPrice && offers.length > 1
                         const total = q.unitPrice != null && q.unitPrice > 0 ? q.unitPrice * item.buyQty : null
+                        // Báo giá chưa có đơn giá không chọn được - BE (approve()) chặn cứng ca này
+                        // (D.c2-approve-without-price), chặn từ đây để Sếp thấy ngay tại chỗ thay vì
+                        // bấm "Duyệt" xong mới nhận banner lỗi (D.c2-boss-quote-picker-no-guard).
+                        const selectable = q.unitPrice != null && q.unitPrice > 0
                         return (
                           <tr
                             key={qi}
-                            onClick={() => { if (q.id) setChosen(prev => ({ ...prev, [itemKey(item)]: q.id! })) }}
+                            onClick={() => { if (q.id && selectable) setChosen(prev => ({ ...prev, [itemKey(item)]: q.id! })) }}
                             style={{
                               borderTop: '1px solid var(--border)',
-                              cursor: 'pointer',
+                              cursor: selectable ? 'pointer' : 'not-allowed',
+                              opacity: selectable ? 1 : 0.5,
                               background: isChosen ? 'var(--surface2)' : undefined,
                             }}
-                            onMouseEnter={e => { if (!isChosen) e.currentTarget.style.background = 'var(--surface2)' }}
+                            onMouseEnter={e => { if (!isChosen && selectable) e.currentTarget.style.background = 'var(--surface2)' }}
                             onMouseLeave={e => { if (!isChosen) e.currentTarget.style.background = '' }}
                           >
                             <td style={{ ...td, width: 36, paddingRight: 0 }}>
@@ -228,6 +244,7 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
                             <td style={{ ...td, fontWeight: isChosen ? 600 : 400 }}>
                               {q.supplierName}
                               {isCheapest && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--text3)' }}>↓ rẻ nhất</span>}
+                              {!selectable && <span style={{ marginLeft: 6, fontSize: 11, color: '#c62828' }}>chưa có giá - không chọn được</span>}
                             </td>
                             <td style={{ ...td, textAlign: 'right', fontWeight: isChosen ? 600 : 400 }}>
                               {q.unitPrice ? fmt(q.unitPrice) + 'đ' : '—'}
@@ -262,18 +279,18 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
               </button>
               <button
                 onClick={() => handleApprove(group)}
-                disabled={!ready || !allChosen(group)}
+                disabled={!ready || !allChosen(group, mergedQuotes)}
                 title={!ready ? 'Cần tất cả các kho báo giá xong mới duyệt được' : undefined}
                 style={{
                   display: 'inline-flex', alignItems: 'center', gap: 5,
                   padding: '7px 20px', fontSize: 13, fontWeight: 600,
                   border: 'none', borderRadius: 6,
-                  background: ready && allChosen(group) ? '#18181b' : 'var(--surface2)',
-                  color: ready && allChosen(group) ? '#fff' : 'var(--text3)',
-                  cursor: ready && allChosen(group) ? 'pointer' : 'not-allowed',
+                  background: ready && allChosen(group, mergedQuotes) ? '#18181b' : 'var(--surface2)',
+                  color: ready && allChosen(group, mergedQuotes) ? '#fff' : 'var(--text3)',
+                  cursor: ready && allChosen(group, mergedQuotes) ? 'pointer' : 'not-allowed',
                 }}
               >
-                <Check size={13} /> Duyệt{!ready ? ' (chờ đủ kho báo giá)' : !allChosen(group) ? ' (chọn đủ NCC)' : ''}
+                <Check size={13} /> Duyệt{!ready ? ' (chờ đủ kho báo giá)' : !allChosen(group, mergedQuotes) ? ' (chọn đủ NCC)' : ''}
               </button>
             </div>
           ) : (
