@@ -22,6 +22,7 @@ import type {
   ManhChildRow,
   ManhRow,
   MaterialType,
+  ProcessStep,
   Sku,
   QuotaEntryMeta,
   QuotaReviewStatus,
@@ -49,6 +50,7 @@ interface BeSteelSegment {
   materialUnit: string;
   cutLengthMm: number;
   qtyPerPiece: number;
+  processSteps: ProcessStep[];
   note: string | null;
 }
 interface BeMaterialLine {
@@ -77,6 +79,8 @@ interface BePiece {
   pieceId: string;
   name: string;
   qtyPerUnit: number;
+  needsHan: boolean;
+  needsSon: boolean;
   steel: BeSteelSegment[];
   wire: BePieceMaterialLine[];
   nail: BePieceMaterialLine[];
@@ -136,6 +140,7 @@ function toManhRow(p: BePiece): ManhRow {
     specs: s.materialSpec ?? undefined,
     length: String(s.cutLengthMm),
     qty: String(s.qtyPerPiece),
+    processSteps: s.processSteps ?? [],
     note: s.note ?? undefined,
     unit: s.materialUnit,
   }));
@@ -155,6 +160,8 @@ function toManhRow(p: BePiece): ManhRow {
     pieceId: p.pieceId,
     name: p.name,
     qtyPerSku: String(p.qtyPerUnit),
+    needsHan: p.needsHan,
+    needsSon: p.needsSon,
     children: [
       ...steelChildren,
       ...lineChildren(p.wire, 'day'),
@@ -274,12 +281,15 @@ export async function updateSkuManhQuota(
     pieces: rows.map((r) => ({
       name: r.name,
       qtyPerUnit: Number(r.qtyPerSku) || 1,
+      needsHan: r.needsHan,
+      needsSon: r.needsSon,
       segments: r.children
         .filter((c) => c.group === 'sat')
         .map((c) => ({
           materialId: String(c.materialId ?? ''),
           cutLengthMm: Number(c.length) || 0,
           qtyPerPiece: Number(c.qty) || 0,
+          processSteps: c.processSteps ?? [],
           note: c.note || undefined,
         })),
       materialLines: r.children

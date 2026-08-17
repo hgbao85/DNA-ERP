@@ -35,9 +35,9 @@ export interface ProcLine {
   thucCoQty?: number     // SL thực tế đang có sẵn để làm ngay (tồn đầu vào) — Hàn/Sơn
   parts?: ProcPart[]     // Hàn/Sơn: các thanh sắt cấu thành 1 chi tiết (bấm xổ để xem)
   lastInputAt: string | null
-  /** Hàn/Sơn nối BE thật (đợt 2): Part.id thật (BE) dùng để báo sản lượng — xem
+  /** Hàn/Sơn nối BE thật (đợt 2): Piece.id thật (BE) dùng để báo sản lượng — xem
    *  production-batches-api.ts. Không set cho Phôi (vẫn mock). */
-  realPartId?: string
+  realPieceId?: string
 }
 export interface ProcManh {
   id: number
@@ -74,7 +74,7 @@ export interface StageCfg {
 // Cấu hình dùng chung cho công đoạn Phôi/Hàn/Sơn — dùng lại ở màn Lệnh sản xuất riêng
 // (Phoi/Han/Son@demo.com) lẫn ở màn chi tiết Khung cơ khí bên KHSX (xem ThongKePagePlan.tsx).
 export const PHOI_CFG: StageCfg = { label: 'Phôi', done: 'Đã cắt', verb: 'cắt', itemLabel: 'Loại sắt', unit: 'cây', Icon: Wrench }
-export const HAN_CFG: StageCfg = { label: 'Hàn', done: 'Đã hàn', verb: 'hàn', itemLabel: 'Chi tiết', unit: 'cái', Icon: Flame }
+export const HAN_CFG: StageCfg = { label: 'Hàn', done: 'Đã hàn', verb: 'hàn', itemLabel: 'Mảnh', unit: 'cái', Icon: Flame }
 export const SON_CFG: StageCfg = { label: 'Sơn', done: 'Đã sơn', verb: 'sơn', itemLabel: 'Loại sơn', unit: 'lít', Icon: SprayCan }
 
 // ── Helpers cho mock data (dùng ở các file seed) ───────────────────
@@ -595,10 +595,11 @@ export function PhoiScreen({ cfg, rows, setRows, readOnly = false }: {
 
 // ── Nguồn dữ liệu thật cho Hàn/Sơn (đợt 2, thay hanSeed()/sonSeed()) ────────────────
 // listProductionOrdersForStage() rồi getProductionBatchPlan() từng PO — cả 2 đã aggregate sẵn
-// plannedQty/awaitingQcQty/passedQty theo part (BE), không cần tự cộng dồn từ batches như bản
-// mock cũ. Bỏ hẳn tính năng "xem thanh sắt cấu thành" (ProcPart/partStock, đồng bộ tồn đoạn từ
-// Phôi) — dữ liệu này chỉ tồn tại ở mock/seed, chưa có gì tương ứng ở BE (segment-level BOM chưa
-// được model), ngoài phạm vi lần này (xem plan M3 Sản lượng Hàn/Sơn).
+// plannedQty/awaitingQcQty/passedQty theo MẢNH (Piece, không còn Part - xem
+// ProductionBatchesService.getBatchPlan() ở BE), không cần tự cộng dồn từ batches như bản mock cũ.
+// Bỏ hẳn tính năng "xem thanh sắt cấu thành" (ProcPart/partStock, đồng bộ tồn đoạn từ Phôi) — dữ
+// liệu này chỉ tồn tại ở mock/seed; BE nay đã có segment-level BOM theo mảnh thật (PieceBom, cùng
+// bảng Phôi dùng), nhưng nối lại tính năng này vẫn ngoài phạm vi lần đổi Part->Piece này.
 interface HanSonFetch { rows: ProcRow[]; awaitingByLine: Map<number, number> }
 
 async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
@@ -614,12 +615,12 @@ async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
     if (!s) continue
     const { o, plan } = s
     const lines: ProcLine[] = plan.items.map(item => {
-      const lineId = Number(item.partId)
+      const lineId = Number(item.pieceId)
       awaitingByLine.set(lineId, item.awaitingQcQty)
       return {
-        id: lineId, itemName: item.partName, spec: item.partCode,
+        id: lineId, itemName: item.pieceName, spec: item.pieceCode,
         needQty: item.plannedQty, doneQty: item.passedQty,
-        lastInputAt: null, realPartId: item.partId,
+        lastInputAt: null, realPieceId: item.pieceId,
       }
     })
     rows.push({
@@ -667,8 +668,8 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
     setRows(rs => rs.map(r => r.id !== poId ? r : { ...r, lines: r.lines?.map(l => l.id === ul.id ? ul : l) }))
 
   const report = async (po: ProcRow, line: ProcLine, qty: number) => {
-    if (!stage || !po.realOrderId || !line.realPartId) return
-    await api.reportProductionBatch(po.realOrderId, { stage, partId: line.realPartId, reportedQty: qty })
+    if (!stage || !po.realOrderId || !line.realPieceId) return
+    await api.reportProductionBatch(po.realOrderId, { stage, pieceId: line.realPieceId, reportedQty: qty })
     refetch()
   }
 

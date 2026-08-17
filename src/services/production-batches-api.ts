@@ -3,9 +3,14 @@
  * Thay `san-luong.service.ts` (mock, key theo `ProcLine.id` giả tự sinh ở seed — không liên quan
  * gì tới BE thật, xem `components/sanxuat/core.tsx`).
  *
+ * Hàn/Sơn báo sản lượng theo MẢNH (Piece) — khớp Phôi và Đan, vốn cũng làm việc theo mảnh (chỉ
+ * Phôi làm theo từng thanh sắt cấu thành mảnh). Trước đây gắn Part (chi tiết, trục BOM riêng
+ * chưa từng có UI nhập liệu thật) — đã đổi hẳn sang Piece ở BE (xem
+ * ProductionBatchesService.getBatchPlan()).
+ *
  * Nối theo 2 đợt độc lập vì độ khó khác hẳn nhau (xem callout roadmap M3):
  *  - QC Hàn/Sơn (KcsStagePage, đợt 1): tự đứng độc lập, dựng toàn bộ từ mảng batches (đã có sẵn
- *    poNumber/partCode/partName inline) — dùng getProductionBatchesByStage()/reviewProductionBatch().
+ *    poNumber/pieceCode/pieceName inline) — dùng getProductionBatchesByStage()/reviewProductionBatch().
  *    KCS_STAFF chỉ có PRODUCTION_BATCH:VIEW (mới cấp) — KHÔNG có PRODUCTION_ORDER:VIEW/SKU:VIEW nên
  *    không tự resolve productionOrderId được, cùng lý do GET /material-issues?stage= tồn tại cho
  *    HAN/SON — dùng GET /production-batches?stage= (flat).
@@ -20,9 +25,9 @@ export interface BeProductionBatch {
   productionOrderId: string;
   poNumber: string;
   stage: ProductionBatchStage;
-  partId: string;
-  partCode: string;
-  partName: string;
+  pieceId: string;
+  pieceCode: string;
+  pieceName: string;
   reportedQty: number;
   status: 'AWAITING_QC' | 'QC_DONE';
   reportedAt: string;
@@ -67,9 +72,9 @@ export async function listProductionOrdersForStage(): Promise<BeProductionOrderS
 }
 
 export interface BeProductionBatchPlanItem {
-  partId: string;
-  partCode: string;
-  partName: string;
+  pieceId: string;
+  pieceCode: string;
+  pieceName: string;
   plannedQty: number;
   awaitingQcQty: number;
   passedQty: number;
@@ -82,8 +87,8 @@ export interface BeProductionBatchPlan {
   items: BeProductionBatchPlanItem[];
 }
 
-/** "Còn phải báo bao nhiêu" theo part cho đúng PO+stage — xem ProductionBatchesService.getBatchPlan()
- *  (BE) tại sao cần đủ cả productionOrderId lẫn stage (Part không có cột stage). */
+/** "Còn phải báo bao nhiêu" theo mảnh cho đúng PO+stage — xem ProductionBatchesService.getBatchPlan()
+ *  (BE) tại sao cần đủ cả productionOrderId lẫn stage (Piece không có cột stage). */
 export async function getProductionBatchPlan(
   productionOrderId: string,
   stage: ProductionBatchStage,
@@ -95,7 +100,7 @@ export async function getProductionBatchPlan(
 
 export async function reportProductionBatch(
   productionOrderId: string,
-  data: { stage: ProductionBatchStage; partId: string; reportedQty: number },
+  data: { stage: ProductionBatchStage; pieceId: string; reportedQty: number },
 ): Promise<void> {
   await http.post(
     `/production-orders/${productionOrderId}/production-batches`,

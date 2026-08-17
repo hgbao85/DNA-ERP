@@ -8,8 +8,8 @@
  * lượng · ĐVT.
  *
  * Đã nối BE thật (M3, đợt 2): không cần endpoint tổng hợp riêng — gộp production-batches trạng
- * thái QC_DONE theo part, tái dùng đúng GET /production-batches?stage= (Phase 1, KcsStagePage),
- * chỉ đổi trục nhóm (part thay vì PO). reportedQty của batch QC_DONE đã là passed-qty (BE ghi đè
+ * thái QC_DONE theo mảnh, tái dùng đúng GET /production-batches?stage= (Phase 1, KcsStagePage),
+ * chỉ đổi trục nhóm (mảnh thay vì PO). reportedQty của batch QC_DONE đã là passed-qty (BE ghi đè
  * sau khi KCS duyệt), không phải qty gốc đã báo.
  */
 
@@ -37,14 +37,14 @@ export default function KhungHanPage() {
   const { data: batches, isLoading } = useFetch<BeProductionBatch[]>(() => api.getProductionBatchesByStage('HAN'), [])
 
   const rows: KhoItem[] = useMemo(() => {
-    const byPart = new Map<string, KhoItem>()
+    const byPiece = new Map<string, KhoItem>()
     for (const b of batches ?? []) {
       if (b.status !== 'QC_DONE') continue
-      const cur = byPart.get(b.partId)
+      const cur = byPiece.get(b.pieceId)
       if (cur) cur.soLuong += b.reportedQty
-      else byPart.set(b.partId, { id: b.partId, tenVatLieu: `${b.partName} — ${b.partCode}`, soLuong: b.reportedQty, dvt: 'cái' })
+      else byPiece.set(b.pieceId, { id: b.pieceId, tenVatLieu: `${b.pieceName} — ${b.pieceCode}`, soLuong: b.reportedQty, dvt: 'cái' })
     }
-    return Array.from(byPart.values())
+    return Array.from(byPiece.values())
   }, [batches])
 
   const tong = useMemo(() => rows.reduce((s, i) => s + i.soLuong, 0), [rows])

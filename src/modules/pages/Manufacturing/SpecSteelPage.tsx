@@ -9,13 +9,14 @@ import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import { SKU_ENTITY } from '../../../constants/skuStatus'
-import type { Sku, ManhRow, ManhChildRow, ManhChildGroup } from '../../../types/sku'
+import type { Sku, ManhRow, ManhChildRow, ManhChildGroup, ProcessStep } from '../../../types/sku'
 
 // ─── Types ────────────────────────────────────────────────────────────
 // "Định mức mảnh" (Manh/children) đọc/ghi thẳng Sku thật (manhData.pieces) — quy đổi sang/từ
 // shape domain dễ đọc trong JSX khi đọc/ghi (xem toManh/toManhRow). Mỗi mảnh giờ chứa vật tư
 // từ 5 nhóm (Sắt/Dây/Đinh/Tán rút/Nút nhựa) — chỉ Sắt có khái niệm "đoạn cắt" (cutLengthMm),
-// 4 nhóm còn lại chỉ có materialId + số lượng.
+// 4 nhóm còn lại chỉ có materialId + số lượng. needsHan/needsSon áp dụng cho CẢ mảnh (Manh),
+// không phải từng đoạn cắt riêng lẻ.
 type ManChild = {
   id: number
   group: ManhChildGroup
@@ -26,13 +27,20 @@ type ManChild = {
   soLuong: string
   note: string
   unit: string
+  processSteps: ProcessStep[]
 }
-type Manh = { id: number; tenManh: string; soLuong: string; children: ManChild[] }
+type Manh = { id: number; tenManh: string; soLuong: string; needsHan: boolean; needsSon: boolean; children: ManChild[] }
 type BomItem = { id: string; ten: string; thoiGian: string }
 
 const CHILD_GROUPS: ManhChildGroup[] = ['sat', 'day', 'dinh', 'tanRut', 'nutNhua']
 const GROUP_LABELS: Record<ManhChildGroup, string> = {
   sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa',
+}
+
+// Công đoạn phôi chi tiết — chỉ áp dụng cho nhóm Sắt, đa chọn (vd 1 thanh vừa tán vừa dập).
+const PROCESS_STEPS: ProcessStep[] = ['CAT', 'UON', 'DAP', 'DUC_LO', 'TAN', 'TOP_DAU', 'XE']
+const PROCESS_STEP_LABELS: Record<ProcessStep, string> = {
+  CAT: 'Cắt', UON: 'Uốn', DAP: 'Dập', DUC_LO: 'Đục lỗ', TAN: 'Tán', TOP_DAU: 'Tóp đầu', XE: 'Xẻ',
 }
 
 // "Mảnh có đan" = có đủ cả 3 nhóm Dây + Đinh + Nút nhựa (Tán rút không tính) - đúng quy tắc
@@ -55,17 +63,21 @@ const GROUP_BADGE_COLORS: Record<ManhChildGroup, { bg: string; fg: string }> = {
 
 const toManh = (r: ManhRow): Manh => ({
   id: r.id, tenManh: r.name, soLuong: r.qtyPerSku ?? '1',
+  needsHan: r.needsHan ?? true, needsSon: r.needsSon ?? true,
   children: r.children.map(c => ({
     id: c.id, group: c.group, materialId: Number(c.materialId) || 0, loaiSatName: c.name,
     specs: c.specs ?? '', cutLengthMm: c.length ?? '', soLuong: c.qty ?? '', note: c.note ?? '', unit: c.unit ?? '',
+    processSteps: c.processSteps ?? [],
   })),
 })
 const toManhRow = (m: Manh): ManhRow => ({
   id: m.id, name: m.tenManh, qtyPerSku: m.soLuong,
+  needsHan: m.needsHan, needsSon: m.needsSon,
   children: m.children.map((c): ManhChildRow => ({
     id: c.id, group: c.group, materialId: String(c.materialId), name: c.loaiSatName,
     specs: c.specs || undefined, length: c.cutLengthMm || undefined, qty: c.soLuong || undefined,
     note: c.note || undefined, unit: c.unit || undefined,
+    processSteps: c.group === 'sat' && c.processSteps.length > 0 ? c.processSteps : undefined,
   })),
 })
 
@@ -133,6 +145,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [showManhForm, setShowManhForm] = useState(false)
   const [formTenManh, setFormTenManh] = useState('')
   const [formSoLuong, setFormSoLuong] = useState('1')
+  const [formNeedsHan, setFormNeedsHan] = useState(true)
+  const [formNeedsSon, setFormNeedsSon] = useState(true)
   const [addingTo, setAddingTo] = useState<number | null>(null)
   const [childGroup, setChildGroup] = useState<ManhChildGroup>('sat')
   const [childMaterial, setChildMaterial] = useState<PickedMaterial | null>(null)
@@ -140,6 +154,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [childCutLengthMm, setChildCutLengthMm] = useState('')
   const [childSoLuong, setChildSoLuong] = useState('')
   const [childNote, setChildNote] = useState('')
+  const [childProcessSteps, setChildProcessSteps] = useState<ProcessStep[]>([])
   const [editingChild, setEditingChild] = useState<{ manhId: number; childId: number } | null>(null)
   const [manhBomSearch, setManhBomSearch] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
@@ -169,14 +184,26 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const addManh = () => {
     if (!formTenManh.trim() || !selectedBom) return
     const sl = String(Math.max(1, Math.floor(Number(formSoLuong)) || 1))
-    setManhs(m => [...m, { id: nextId, tenManh: formTenManh.trim(), soLuong: sl, children: [] }])
+    setManhs(m => [...m, {
+      id: nextId, tenManh: formTenManh.trim(), soLuong: sl,
+      needsHan: formNeedsHan, needsSon: formNeedsSon, children: [],
+    }])
     setNextId(n => n + 1)
-    setShowManhForm(false); setFormTenManh(''); setFormSoLuong('1')
+    setShowManhForm(false); setFormTenManh(''); setFormSoLuong('1'); setFormNeedsHan(true); setFormNeedsSon(true)
+  }
+
+  const toggleManhFlag = (manhId: number, flag: 'needsHan' | 'needsSon') => {
+    setManhs(ms => ms.map(m => m.id === manhId ? { ...m, [flag]: !m[flag] } : m))
   }
 
   const resetChildForm = () => {
     setChildGroup('sat')
-    setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildSoLuong(''); setChildNote(''); setEditingChild(null)
+    setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildSoLuong(''); setChildNote('')
+    setChildProcessSteps([]); setEditingChild(null)
+  }
+
+  const toggleChildProcessStep = (step: ProcessStep) => {
+    setChildProcessSteps(steps => steps.includes(step) ? steps.filter(s => s !== step) : [...steps, step])
   }
 
   // Vừa dùng để thêm dòng vật tư mới, vừa dùng để lưu lại dòng đang sửa (editingChild) —
@@ -198,6 +225,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
         soLuong: childSoLuong,
         note: childNote.trim(),
         unit: childMaterial.unit,
+        processSteps: childGroup === 'sat' ? childProcessSteps : [],
       }
       if (editing) {
         return { ...m, children: m.children.map(c => c.id === editing.childId ? built : c) }
@@ -218,6 +246,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     setChildCutLengthMm(child.cutLengthMm)
     setChildSoLuong(child.soLuong)
     setChildNote(child.note)
+    setChildProcessSteps(child.processSteps ?? [])
   }
 
   const deleteChild = (manhId: number, childId: number) => {
@@ -366,6 +395,19 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     onKeyDown={e => e.key === 'Enter' && addManh()}
                     style={inputStyle} />
                 </div>
+                <div>
+                  <FL>Routing</FL>
+                  <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--text2)', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={formNeedsHan} onChange={e => setFormNeedsHan(e.target.checked)} />
+                      Cần Hàn
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--text2)', cursor: 'pointer' }}>
+                      <input type="checkbox" checked={formNeedsSon} onChange={e => setFormNeedsSon(e.target.checked)} />
+                      Cần Sơn
+                    </label>
+                  </div>
+                </div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={addManh} disabled={!formTenManh.trim()} style={{
                     padding: '7px 16px', border: 'none', borderRadius: 'var(--radius)',
@@ -373,7 +415,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     color: '#fff', fontWeight: 700, fontSize: 13,
                     cursor: formTenManh.trim() ? 'pointer' : 'not-allowed',
                   }}>Tạo mảnh</button>
-                  <button onClick={() => { setShowManhForm(false); setFormTenManh(''); setFormSoLuong('1') }} style={{
+                  <button onClick={() => { setShowManhForm(false); setFormTenManh(''); setFormSoLuong('1'); setFormNeedsHan(true); setFormNeedsSon(true) }} style={{
                     padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
                     background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
                   }}>Hủy</button>
@@ -422,6 +464,23 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         </span>
                       )
                     })()}
+                    {isSubmitted ? (
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        {m.needsHan && <span style={{ fontSize: 11, fontWeight: 600, color: '#ef6c00', background: '#fff3e0', borderRadius: 4, padding: '2px 7px' }}>Hàn</span>}
+                        {m.needsSon && <span style={{ fontSize: 11, fontWeight: 600, color: '#00695c', background: '#e0f2f1', borderRadius: 4, padding: '2px 7px' }}>Sơn</span>}
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: 10 }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text2)', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={m.needsHan} onChange={() => toggleManhFlag(m.id, 'needsHan')} />
+                          Hàn
+                        </label>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text2)', cursor: 'pointer' }}>
+                          <input type="checkbox" checked={m.needsSon} onChange={() => toggleManhFlag(m.id, 'needsSon')} />
+                          Sơn
+                        </label>
+                      </div>
+                    )}
                     {!isSubmitted && (
                       <div style={{ display: 'flex', gap: 8 }}>
                         <button
@@ -454,6 +513,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Vật tư</th>
                         <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Quy cách</th>
                         <th style={{ width: 110, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài (mm)</th>
+                        <th style={{ width: 150, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Công đoạn phôi</th>
                         <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
                         <th style={{ width: 70, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>ĐVT</th>
                         {!isSubmitted && <th style={{ width: 64 }}></th>}
@@ -477,6 +537,19 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                             </td>
                             <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{c.specs || '—'}</td>
                             <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>{c.group === 'sat' ? (c.cutLengthMm || '—') : '—'}</td>
+                            <td style={{ padding: '9px 14px' }}>
+                              {c.group === 'sat' && c.processSteps.length > 0 ? (
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                                  {c.processSteps.map(step => (
+                                    <span key={step} style={{ fontSize: 11, fontWeight: 600, color: '#5e35b1', background: '#ede7f6', borderRadius: 4, padding: '2px 6px', whiteSpace: 'nowrap' }}>
+                                      {PROCESS_STEP_LABELS[step]}
+                                    </span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span style={{ color: 'var(--text3)' }}>—</span>
+                              )}
+                            </td>
                             <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.soLuong || '—'}</td>
                             <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{c.unit || '—'}</td>
                             {!isSubmitted && (
@@ -504,7 +577,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
                       {CHILD_GROUPS.map(g => (
                         <button key={g}
-                          onClick={() => { setChildGroup(g); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm('') }}
+                          onClick={() => { setChildGroup(g); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildProcessSteps([]) }}
                           style={{
                             padding: '5px 12px', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 12, fontWeight: 700,
                             border: `1px solid ${childGroup === g ? GROUP_BADGE_COLORS[g].fg : 'var(--border)'}`,
@@ -538,6 +611,20 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                             onChange={e => setChildCutLengthMm(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
                             style={inputStyle} />
+                        </div>
+                      )}
+                      {childGroup === 'sat' && (
+                        <div>
+                          <FL>Công đoạn phôi</FL>
+                          <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
+                            {PROCESS_STEPS.map(step => (
+                              <label key={step} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--text2)', cursor: 'pointer' }}>
+                                <input type="checkbox" checked={childProcessSteps.includes(step)}
+                                  onChange={() => toggleChildProcessStep(step)} />
+                                {PROCESS_STEP_LABELS[step]}
+                              </label>
+                            ))}
+                          </div>
                         </div>
                       )}
                       <div style={{ width: 100 }}>

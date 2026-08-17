@@ -46,14 +46,14 @@ export default function KcsStagePage({ cfg, stage }: { cfg: StageCfg; stage: Pro
         const history: AuditLogEntry[] = pending
           ? [{
             id: `${b.id}-rep`, entityType: 'kcs-lo', entityId: b.id, action: 'kcs.reported',
-            actorName: `Tổ ${cfg.label}`, at: b.reportedAt, note: `Báo ${b.reportedQty} ${cfg.unit} · ${b.partName}`,
+            actorName: `Tổ ${cfg.label}`, at: b.reportedAt, note: `Báo ${b.reportedQty} ${cfg.unit} · ${b.pieceName}`,
           }]
           : [{
             id: `${b.id}-done`, entityType: 'kcs-lo', entityId: b.id, action: 'kcs.approved',
-            actorName: 'KCS', at: b.reportedAt, note: `Duyệt: ${b.reportedQty} đạt · ${b.partName}`,
+            actorName: 'KCS', at: b.reportedAt, note: `Duyệt: ${b.reportedQty} đạt · ${b.pieceName}`,
           }]
         return {
-          id: lineId, itemName: b.partName, spec: `${b.partCode} · lô ${b.reportedAt}`,
+          id: lineId, itemName: b.pieceName, spec: `${b.pieceCode} · lô ${b.reportedAt}`,
           needQty: b.reportedQty, doneQty: 0,
           pendingQty: pending ? b.reportedQty : 0,
           approvedQty: pending ? 0 : b.reportedQty,

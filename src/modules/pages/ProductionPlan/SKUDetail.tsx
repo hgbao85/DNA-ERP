@@ -867,7 +867,9 @@ function ManhPiecesSection({
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#e65100', background: '#fff3e0', borderRadius: 4, padding: '2px 7px' }}>×{r.qtyPerSku} / SKU</span>
                 )}
                 <span style={{ fontSize: 12, color: 'var(--text3)' }}>{children.length} dòng vật tư</span>
-                <div style={{ marginLeft: 'auto' }}>
+                <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {r.needsHan && <span style={{ fontSize: 11, fontWeight: 600, color: '#ef6c00', background: '#fff3e0', borderRadius: 4, padding: '2px 7px' }}>Hàn</span>}
+                  {r.needsSon && <span style={{ fontSize: 11, fontWeight: 600, color: '#00695c', background: '#e0f2f1', borderRadius: 4, padding: '2px 7px' }}>Sơn</span>}
                   {(() => {
                     const { isWoven, missing } = wovenStatus(r)
                     return isWoven ? (

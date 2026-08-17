@@ -66,6 +66,10 @@ export interface MaterialType {
  *  (SPEC_WIRE_PAINT) nhập — nay gộp làm children của từng mảnh, do acc Sắt nhập chung 1 lần. */
 export type ManhChildGroup = 'sat' | 'day' | 'dinh' | 'tanRut' | 'nutNhua';
 
+/** 7 công đoạn phôi chi tiết có thể áp dụng cho 1 thanh sắt (group='sat') - đa chọn, vd 1 thanh
+ *  vừa tán vừa dập. Khớp enum ProcessStep ở BE (schema.prisma). */
+export type ProcessStep = 'CAT' | 'UON' | 'DAP' | 'DUC_LO' | 'TAN' | 'TOP_DAU' | 'XE';
+
 /** Ai nhập 1 nhóm định mức (chi tiết hoặc mảnh) và khi nào — phục vụ luồng account chuyên trách nhập liệu. */
 export interface QuotaEntryMeta {
   enteredBy: string;
@@ -93,12 +97,15 @@ export interface ManhChildRow {
   /** Chỉ dùng khi group='sat'. */
   length?: string | null;
   qty?: string | null;
+  /** Chỉ dùng khi group='sat'. */
+  processSteps?: ProcessStep[];
   note?: string | null;
   unit?: string | null;
 }
 
 /** 1 mảnh phôi (vd "Mảnh tựa", "Chân ghế") gồm vật tư con thuộc 5 nhóm (Sắt/Dây/Đinh/Tán
- *  rút/Nút nhựa) — do account Sắt nhập theo 2 bước: tạo mảnh -> nhập vật tư. */
+ *  rút/Nút nhựa) — do account Sắt nhập theo 2 bước: tạo mảnh -> nhập vật tư. `needsHan`/
+ *  `needsSon` áp dụng cho CẢ mảnh (không phải từng thanh sắt riêng lẻ). */
 export interface ManhRow {
   id: number;
   /** Việc 2: id thật của Piece đứng sau mảnh này. */
@@ -106,6 +113,8 @@ export interface ManhRow {
   name: string;
   /** Số lượng mảnh này trên 1 SKU (vd 1 SKU cần 2 "Mảnh tay") */
   qtyPerSku?: string | null;
+  needsHan?: boolean;
+  needsSon?: boolean;
   children: ManhChildRow[];
 }
 
