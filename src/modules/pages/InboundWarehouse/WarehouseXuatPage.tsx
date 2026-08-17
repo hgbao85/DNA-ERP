@@ -1,9 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ArrowUpFromLine, ChevronLeft, Clock } from 'lucide-react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
+import type { BePieceTransferPlanItem } from '../../../services/warehouse-transfers-api'
 import { TRANSFER_ROUTES, canSendFrom } from '../../../types/warehouse-transfer'
 import { safeArr } from '../../../utils/array'
 import { errMsg } from '../../../utils/errors'
@@ -50,7 +51,9 @@ interface Txn {
 // ── Status ─────────────────────────────────────────────────────────────────────
 
 function getStatus(order: Order): OrderStatus {
-  return order.lines.every(l => l.confirmedQty >= l.plannedQty) ? 'da' : 'cho'
+  // plannedQty > 0 bắt buộc - tránh 1 dòng chưa hề bắt đầu (plannedQty=confirmedQty=0, vd mảnh
+  // "phoi-son-han" chưa qua KCS lần nào) bị tính "đủ" (0 >= 0) khiến cả PO hiện nhầm "Hoàn thành".
+  return order.lines.length > 0 && order.lines.every(l => l.plannedQty > 0 && l.confirmedQty >= l.plannedQty) ? 'da' : 'cho'
 }
 
 const STATUS: Record<OrderStatus, { label: string; color: string; bg: string }> = {
@@ -114,8 +117,54 @@ const MOCK: Record<string, Order[]> = {
 
 const ACCENT = '#e65100'
 
+// Piece transfer (mảnh/vật tư thành phẩm) chỉ áp dụng cho chặng phoi-son-han → vat-tu-tp - đơn
+// vị là PO (không phải PI, xem docs/review-2026-08-17-sanxuat-stage-v16-va-chuyen-kho-manh.md
+// mục 6/7 ở BE). Chặng vat-tu-tp → thanh-pham vẫn dùng vật tư tiêu hao tự do (mock) như cũ.
+const PIECE_TRANSFER_SCOPE = 'phoi-son-han'
+
+function pieceLabelToUnit(label: BePieceTransferPlanItem['label']): string {
+  return label === 'MANH' ? 'Mảnh' : 'Vật tư TP'
+}
+
+// item.readyQty/suggestedQty/transferredQty map vào đúng plannedQty/availableQty/confirmedQty
+// sẵn có của OrderLine (không cần shape riêng) - "Kế hoạch" ở đây đọc là "đã qua KCS tính đến
+// nay", "Thực có" đọc là "còn có thể chuyển" (đã trừ phần đã nằm trong phiếu PENDING/CONFIRMED
+// trước đó - xem WarehouseTransfersService.getPieceTransferPlan ở BE).
+function pieceItemsToOrders(summaries: { id: string; poNumber: string }[], plan: BePieceTransferPlanItem[]): Order[] {
+  const byPo = new Map<string, BePieceTransferPlanItem[]>()
+  for (const item of plan) {
+    const arr = byPo.get(item.productionOrderId) ?? []
+    arr.push(item)
+    byPo.set(item.productionOrderId, arr)
+  }
+  return summaries
+    .filter(o => (byPo.get(o.id)?.length ?? 0) > 0)
+    .map(o => {
+      const items = byPo.get(o.id) ?? []
+      return {
+        id: o.id,
+        ref: o.poNumber,
+        counterpart: 'Kho Vật tư thành phẩm',
+        date: new Date().toISOString(),
+        poNumber: o.poNumber,
+        skuName: items[0]?.productName,
+        lines: items.map(it => ({
+          id: it.pieceId,
+          materialName: `${it.pieceCode} — ${it.pieceName}`,
+          unit: pieceLabelToUnit(it.label),
+          plannedQty: it.readyQty,
+          availableQty: it.suggestedQty,
+          confirmedQty: it.transferredQty,
+          inputQty: '',
+        })),
+      }
+    })
+}
+
 export default function WarehouseXuatPage({ scope }: { scope: string }) {
-  const [orders, setOrders]         = useState<Order[]>(() => MOCK[scope] ?? [])
+  const isPieceScope = scope === PIECE_TRANSFER_SCOPE
+
+  const [orders, setOrders]         = useState<Order[]>(() => isPieceScope ? [] : (MOCK[scope] ?? []))
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [txns, setTxns]             = useState<Txn[]>([])
   const [view, setView]             = useState<'orders' | 'history'>('orders')
@@ -127,6 +176,30 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   const nextHopCode = myWarehouse ? TRANSFER_ROUTES[myWarehouse.code] : undefined
   const nextHopWh = safeArr(warehouses).find(w => w.code === nextHopCode) ?? null
   const isInternalChain = canSendFrom(scope) && !!myWarehouse && !!nextHopWh
+
+  // Danh sách PO + kế hoạch chuyển thật (mảnh/vật tư TP) — thay MOCK cho đúng chặng phoi-son-han.
+  const { data: pieceOrders, refetch: refetchPieceOrders } = useFetch<Order[]>(async () => {
+    if (!isPieceScope) return []
+    const summaries = await api.listProductionOrdersForStage()
+    if (summaries.length === 0) return []
+    const plan = await api.getPieceTransferPlan(summaries.map(o => o.id))
+    return pieceItemsToOrders(summaries, plan)
+  }, [isPieceScope])
+
+  // Merge dữ liệu vừa fetch vào state cục bộ, giữ nguyên inputQty đang gõ dở của từng dòng (cùng
+  // idiom TwoTierScreen ở components/sanxuat/core.tsx - merge đè lên overlay cục bộ khi refetch).
+  useEffect(() => {
+    if (!isPieceScope) return
+    const next = pieceOrders ?? []
+    setOrders(prev => next.map(o => {
+      const old = prev.find(p => p.id === o.id)
+      if (!old) return o
+      return { ...o, lines: o.lines.map(l => {
+        const oldLine = old.lines.find(pl => pl.id === l.id)
+        return oldLine ? { ...l, inputQty: oldLine.inputQty } : l
+      }) }
+    }))
+  }, [pieceOrders, isPieceScope])
 
   const [transferBusyLine, setTransferBusyLine] = useState<string | null>(null)
   const [transferErrors, setTransferErrors] = useState<Record<string, string>>({})
@@ -142,8 +215,33 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
     const qty = Math.min(raw, line.availableQty)
     if (qty <= 0) return
 
-    // Kho thuộc chuỗi chuyển kho nội bộ: "Xác nhận" = tạo phiếu chuyển kho thật sang kho kế tiếp,
-    // tồn kho chỉ đổi sau khi kho nhận xác nhận (không phải xuất kho tức thì).
+    // Chặng phoi-son-han: tạo phiếu chuyển kho piece-only thật (mảnh/vật tư TP theo PO), số lượng
+    // đã được BE tự clamp theo kế hoạch (đã qua KCS trừ đã chuyển trước đó) tại thời điểm tạo.
+    if (isPieceScope && myWarehouse && nextHopWh) {
+      setTransferBusyLine(lineId)
+      setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
+      try {
+        await api.createPieceWarehouseTransfer({
+          fromWarehouseId: myWarehouse.id,
+          toWarehouseId: nextHopWh.id,
+          pieceItems: [{ productionOrderId: order.id, pieceId: line.id, quantity: qty }],
+        })
+      } catch (e) {
+        setTransferErrors(prev => ({ ...prev, [lineId]: errMsg(e, 'Không thể tạo phiếu chuyển kho nội bộ') }))
+        setTransferBusyLine(null)
+        return
+      }
+      setTxns(t => [{
+        id: `txn-${Date.now()}-${lineId}`, orderRef: order.ref,
+        materialName: line.materialName, unit: line.unit, qty, date: new Date().toISOString(),
+      }, ...t])
+      setTransferBusyLine(null)
+      refetchPieceOrders() // đọc lại suggestedQty/transferredQty thật từ BE thay vì tự trừ cục bộ
+      return
+    }
+
+    // Kho thuộc chuỗi chuyển kho nội bộ (vat-tu-tp → thanh-pham): "Xác nhận" = tạo phiếu chuyển
+    // kho thật sang kho kế tiếp, tồn kho chỉ đổi sau khi kho nhận xác nhận.
     if (isInternalChain && myWarehouse && nextHopWh) {
       setTransferBusyLine(lineId)
       setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
@@ -240,18 +338,20 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
             </colgroup>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                <th style={th}>Vật tư</th>
-                <th style={th}>ĐVT</th>
-                <th style={{ ...th, textAlign: 'right' }}>Kế hoạch</th>
-                <th style={{ ...th, textAlign: 'right' }}>Thực có</th>
-                <th style={{ ...th, textAlign: 'right' }}>Đã xuất</th>
+                <th style={th}>{isPieceScope ? 'Mảnh / Vật tư TP' : 'Vật tư'}</th>
+                <th style={th}>{isPieceScope ? 'Loại' : 'ĐVT'}</th>
+                <th style={{ ...th, textAlign: 'right' }}>{isPieceScope ? 'Đã qua KCS' : 'Kế hoạch'}</th>
+                <th style={{ ...th, textAlign: 'right' }}>{isPieceScope ? 'Có thể chuyển' : 'Thực có'}</th>
+                <th style={{ ...th, textAlign: 'right' }}>{isPieceScope ? 'Đã chuyển' : 'Đã xuất'}</th>
                 <th style={{ ...th, textAlign: 'right' }}>Còn lại</th>
                 <th style={th}>Xuất</th>
               </tr>
             </thead>
             <tbody>
               {selected.lines.map(l => {
-                const done      = l.confirmedQty >= l.plannedQty
+                // plannedQty > 0 bắt buộc - cùng lý do getStatus() (tránh dòng chưa hề bắt đầu bị
+                // tính "đủ" do 0 >= 0).
+                const done      = l.plannedQty > 0 && l.confirmedQty >= l.plannedQty
                 const partial   = l.confirmedQty > 0 && !done
                 const conLai    = l.plannedQty - l.confirmedQty
                 const noStock   = l.availableQty <= 0
@@ -277,7 +377,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                       {done ? (
                         <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>Đã xong</span>
                       ) : noStock ? (
-                        <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>Hết hàng</span>
+                        <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>{isPieceScope ? 'Chưa có hàng' : 'Hết hàng'}</span>
                       ) : (
                         <div>
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

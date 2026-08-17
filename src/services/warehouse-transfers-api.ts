@@ -126,3 +126,59 @@ export async function rejectWarehouseTransfer(id: string | number, reason: strin
   });
   return toTransfer(t, []);
 }
+
+// ── Chuyển kho piece-only (mảnh / vật tư thành phẩm — needsHan=true/false, xem
+// docs/review-2026-08-17-sanxuat-stage-v16-va-chuyen-kho-manh.md mục 7 ở BE). Tách hẳn khỏi
+// createWarehouseTransfer() (vật tư tiêu hao, khác bảng dòng ở BE) — quyết định "không gộp" mục 7.5.
+
+export interface BePieceTransferPlanItem {
+  productionOrderId: string;
+  poNumber: string;
+  productName: string;
+  pieceId: string;
+  pieceCode: string;
+  pieceName: string;
+  label: 'MANH' | 'VAT_TU_THANH_PHAM';
+  readyQty: number;
+  transferredQty: number;
+  suggestedQty: number;
+}
+
+/** Kế hoạch chuyển kho cho 1 hoặc nhiều PO cùng lúc — đơn vị là PO, không phải PI (1 PI có thể
+ *  gồm nhiều PO tiến độ khác nhau, xem mục 6 tài liệu trên). */
+export async function getPieceTransferPlan(
+  productionOrderIds: Array<string | number>,
+): Promise<BePieceTransferPlanItem[]> {
+  if (productionOrderIds.length === 0) return [];
+  const ids = productionOrderIds.map((id) => String(id)).join(',');
+  return http.get<BePieceTransferPlanItem[]>(
+    `/warehouse-transfers/piece-transfer-plan?productionOrderIds=${encodeURIComponent(ids)}`,
+  );
+}
+
+export async function createPieceWarehouseTransfer(data: {
+  fromWarehouseId: string | number;
+  toWarehouseId: string | number;
+  note?: string;
+  pieceItems: Array<{
+    productionOrderId: string | number;
+    pieceId: string | number;
+    quantity: number;
+    note?: string;
+  }>;
+}): Promise<WarehouseTransfer> {
+  const created = await http.post<BeWarehouseTransfer>('/warehouse-transfers/piece-transfer', {
+    fromWarehouseId: String(data.fromWarehouseId),
+    toWarehouseId: String(data.toWarehouseId),
+    note: data.note,
+    pieceItems: data.pieceItems.map((it) => ({
+      productionOrderId: String(it.productionOrderId),
+      pieceId: String(it.pieceId),
+      quantity: it.quantity,
+      note: it.note,
+    })),
+  });
+  // Cùng lý do createWarehouseTransfer(): số lượng có thể đã bị clamp theo kế hoạch tại thời điểm
+  // tạo (xem WarehouseTransfersService.createPieceTransfer ở BE) — fetch lại chi tiết thật.
+  return getWarehouseTransfer(created.id);
+}

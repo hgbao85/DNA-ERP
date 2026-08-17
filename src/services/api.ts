@@ -103,6 +103,7 @@ export { getWarehouses, createWarehouse, deleteWarehouse } from './warehouses-ap
 export {
   getWarehouseTransfers, getWarehouseTransfer, createWarehouseTransfer,
   confirmWarehouseTransfer, rejectWarehouseTransfer,
+  getPieceTransferPlan, createPieceWarehouseTransfer,
 } from './warehouse-transfers-api';
 export { getStockQuants, getStockLedger, adjustStock } from './stock-api';
 export { uploadImage } from './uploads-api';
