@@ -10,6 +10,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import { SKU_ENTITY } from '../../../constants/skuStatus'
 import type { Sku, ManhRow, ManhChildRow, ManhChildGroup, ProcessStep } from '../../../types/sku'
+import { PROCESS_STEPS, PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 
 // ─── Types ────────────────────────────────────────────────────────────
 // "Định mức mảnh" (Manh/children) đọc/ghi thẳng Sku thật (manhData.pieces) — quy đổi sang/từ
@@ -35,12 +36,6 @@ type BomItem = { id: string; ten: string; thoiGian: string }
 const CHILD_GROUPS: ManhChildGroup[] = ['sat', 'day', 'dinh', 'tanRut', 'nutNhua']
 const GROUP_LABELS: Record<ManhChildGroup, string> = {
   sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa',
-}
-
-// Công đoạn phôi chi tiết — chỉ áp dụng cho nhóm Sắt, đa chọn (vd 1 thanh vừa tán vừa dập).
-const PROCESS_STEPS: ProcessStep[] = ['CAT', 'UON', 'DAP', 'DUC_LO', 'TAN', 'TOP_DAU', 'XE']
-const PROCESS_STEP_LABELS: Record<ProcessStep, string> = {
-  CAT: 'Cắt', UON: 'Uốn', DAP: 'Dập', DUC_LO: 'Đục lỗ', TAN: 'Tán', TOP_DAU: 'Tóp đầu', XE: 'Xẻ',
 }
 
 // "Mảnh có đan" = có đủ cả 3 nhóm Dây + Đinh + Nút nhựa (Tán rút không tính) - đúng quy tắc

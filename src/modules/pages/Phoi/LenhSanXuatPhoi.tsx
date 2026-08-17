@@ -29,7 +29,7 @@ const card: React.CSSProperties = { background: 'var(--surface)', border: '1px s
 
 interface PieceAgg {
   pieceId: string; pieceName: string; materialName: string
-  issuedBarCount: number; awaitingReceive: number; cutting: number; awaitingQc: number; passed: number; failed: number
+  issuedBarCount: number; awaitingReceive: number; cutting: number; inProcess: number; awaitingQc: number; passed: number; failed: number
 }
 interface PoAgg { poNumber: string; pieces: PieceAgg[]; totalIssued: number; totalPassed: number; totalAwaiting: number }
 
@@ -61,6 +61,7 @@ export default function LenhSanXuatPhoi({ readOnly = true }: { readOnly?: boolea
           issuedBarCount: its.reduce((s, i) => s + i.barCount, 0),
           awaitingReceive: its.filter(i => i.status === 'ISSUED').reduce((s, i) => s + i.barCount, 0),
           cutting: its.filter(i => i.status === 'RECEIVED').reduce((s, i) => s + i.barCount, 0),
+          inProcess: its.filter(i => i.status === 'IN_PROCESS').reduce((s, i) => s + (i.actualBarCount ?? i.barCount), 0),
           awaitingQc: its.filter(i => i.status === 'AWAITING_QC').reduce((s, i) => s + (i.actualBarCount ?? i.barCount), 0),
           passed, failed,
         }
@@ -69,7 +70,7 @@ export default function LenhSanXuatPhoi({ readOnly = true }: { readOnly?: boolea
         poNumber: po, pieces,
         totalIssued: pieces.reduce((s, p) => s + p.issuedBarCount, 0),
         totalPassed: pieces.reduce((s, p) => s + p.passed, 0),
-        totalAwaiting: pieces.reduce((s, p) => s + p.awaitingReceive + p.cutting + p.awaitingQc, 0),
+        totalAwaiting: pieces.reduce((s, p) => s + p.awaitingReceive + p.cutting + p.inProcess + p.awaitingQc, 0),
       }
     })
   }, [issues, reviews])
@@ -96,6 +97,7 @@ export default function LenhSanXuatPhoi({ readOnly = true }: { readOnly?: boolea
                 <th style={thR}>Đã xuất (cây)</th>
                 <th style={thR}>Chờ nhận</th>
                 <th style={thR}>Đang cắt</th>
+                <th style={thR}>Đang gia công</th>
                 <th style={thR}>Chờ KCS</th>
                 <th style={thR}>Đạt</th>
                 <th style={thR}>Lỗi</th>
@@ -109,13 +111,14 @@ export default function LenhSanXuatPhoi({ readOnly = true }: { readOnly?: boolea
                   <td style={{ ...tdR, fontWeight: 700 }}>{p.issuedBarCount}</td>
                   <td style={tdR}>{p.awaitingReceive > 0 ? <span style={{ color: ACCENT }}>{p.awaitingReceive}</span> : '—'}</td>
                   <td style={tdR}>{p.cutting > 0 ? <span style={{ color: ACCENT }}>{p.cutting}</span> : '—'}</td>
+                  <td style={tdR}>{p.inProcess > 0 ? <span style={{ color: '#7b1fa2' }}>{p.inProcess}</span> : '—'}</td>
                   <td style={tdR}>{p.awaitingQc > 0 ? <span style={{ color: '#d97706' }}>{p.awaitingQc}</span> : '—'}</td>
                   <td style={tdR}>{p.passed > 0 ? <span style={{ color: '#16a34a', fontWeight: 700 }}>{p.passed}</span> : '—'}</td>
                   <td style={tdR}>{p.failed > 0 ? <span style={{ color: '#c62828', fontWeight: 700 }}>{p.failed}</span> : '—'}</td>
                 </tr>
               ))}
               {sel.pieces.length === 0 && (
-                <tr><td colSpan={8} style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>Chưa có đợt sắt nào</td></tr>
+                <tr><td colSpan={9} style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>Chưa có đợt sắt nào</td></tr>
               )}
             </tbody>
           </table>

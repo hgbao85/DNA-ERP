@@ -118,7 +118,7 @@ export {
 } from './production-batches-api';
 export {
   getSteelIssuePlan, getSteelIssuesForSku, issueSteel,
-  getSteelIssuesByStatus, getSteelIssue, receiveSteelIssue, completeCutting, getApprovedPatternsForMaterial,
+  getSteelIssuesByStatus, getSteelIssue, receiveSteelIssue, completeCutting, completeStep, getApprovedPatternsForMaterial,
   reviewSteelIssueQc, getQcReviewsForSteelIssues,
   getReplenishRequests, fulfillReplenishRequest, rejectReplenishRequest,
 } from './steel-issues-api';

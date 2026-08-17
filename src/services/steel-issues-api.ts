@@ -18,12 +18,12 @@
  * trừ tồn 1 lần lúc duyệt phương án cắt) — xem comment đầu SteelIssuesService (BE).
  */
 import { http, withIdempotencyKey } from './core/http';
-import type { Sku } from '../types/sku';
+import type { Sku, ProcessStep } from '../types/sku';
 import { resolveProductionOrderId } from './production-invoice-item';
 import { getCuttingProposalsForOrder, getCuttingProposal } from './cutting-proposals-api';
 import type { CuttingProposalPattern } from './cutting-proposals-api';
 
-export type SteelIssueStatus = 'ISSUED' | 'RECEIVED' | 'AWAITING_QC' | 'QC_PASSED';
+export type SteelIssueStatus = 'ISSUED' | 'RECEIVED' | 'IN_PROCESS' | 'AWAITING_QC' | 'QC_PASSED';
 
 export interface BeCutPatternSegment {
   segmentSpecId: string;
@@ -58,6 +58,10 @@ export interface BeSteelIssue {
   issuedById: string;
   completedAt: string | null;
   reworkOfId: string | null;
+  /** Công đoạn đã đánh dấu xong (luôn có CAT sau khi báo cắt xong). */
+  completedSteps: ProcessStep[];
+  /** Union công đoạn đã chọn sẵn cho mảnh này (+ CAT mặc định) — phải xong hết mới vào chờ KCS. */
+  requiredSteps: ProcessStep[];
   bundles?: BeCutBundle[];
 }
 
@@ -145,6 +149,12 @@ export async function completeCutting(
   data: { actualBarCount?: number; bundles: CompleteCuttingBundleInput[] },
 ): Promise<void> {
   await http.post(`/steel-issues/${id}/complete-cutting`, data);
+}
+
+/** Đánh dấu 1 công đoạn chi tiết (uốn/dập/...) xong khi đợt đang IN_PROCESS — tự chuyển sang chờ
+ *  KCS khi mọi công đoạn đã chọn sẵn (requiredSteps) đều xong. */
+export async function completeStep(id: string, step: ProcessStep): Promise<void> {
+  await http.post(`/steel-issues/${id}/complete-step`, { step });
 }
 
 /** Các kiểu cắt (pattern) đã duyệt cho đúng vật tư của 1 đợt sắt — để Phôi báo cắt xong đúng theo

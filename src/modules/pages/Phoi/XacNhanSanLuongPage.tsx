@@ -12,11 +12,13 @@
  */
 
 import { Fragment, useMemo, useState } from 'react'
-import { Check, ChevronRight, ChevronDown, Clock, RotateCcw, Plus, Trash2, Package } from 'lucide-react'
+import { Check, ChevronRight, ChevronDown, Clock, RotateCcw, Plus, Trash2, Package, Wrench } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeSteelIssue, BeQcReview, CompleteCuttingBundleInput } from '../../../services/steel-issues-api'
 import type { CuttingProposalPattern } from '../../../services/cutting-proposals-api'
+import type { ProcessStep } from '../../../types/sku'
+import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 
@@ -111,9 +113,22 @@ export default function XacNhanSanLuongPage({ readOnly = false }: { readOnly?: b
     finally { setBusy(null) }
   }
 
-  // Thứ tự ưu tiên: đợt trả về (rework) → chờ nhận → đã nhận (chờ báo) → chờ KCS → đã duyệt (mờ).
+  const doCompleteStep = async (l: BeSteelIssue, step: ProcessStep) => {
+    setBusy(l.id); setErr(p => ({ ...p, [l.id]: '' }))
+    try { await api.completeStep(l.id, step); await refetch() }
+    catch (e) { setErr(p => ({ ...p, [l.id]: errMsg(e, 'Không đánh dấu công đoạn được') })) }
+    finally { setBusy(null) }
+  }
+
+  // Thứ tự ưu tiên: đợt trả về (rework) → chờ nhận → đã nhận (chờ báo) → đang gia công (chờ đánh
+  // dấu công đoạn) → chờ KCS → đã duyệt (mờ).
   const rank = (l: BeSteelIssue) =>
-    l.reworkOfId ? 0 : l.status === 'ISSUED' ? 1 : l.status === 'RECEIVED' ? 2 : l.status === 'AWAITING_QC' ? 3 : 4
+    l.reworkOfId ? 0
+      : l.status === 'ISSUED' ? 1
+      : l.status === 'RECEIVED' ? 2
+      : l.status === 'IN_PROCESS' ? 3
+      : l.status === 'AWAITING_QC' ? 4
+      : 5
   const rows = [...lines].sort((a, b) => {
     const r = rank(a) - rank(b)
     return r !== 0 ? r : b.issuedAt.localeCompare(a.issuedAt)
@@ -127,7 +142,7 @@ export default function XacNhanSanLuongPage({ readOnly = false }: { readOnly?: b
     <div>
       <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Xác nhận sản lượng</h2>
       <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
-        Xác nhận <b>đã nhận</b> đợt kho vừa xuất, sau đó <b>báo cắt xong</b> theo đúng kiểu cắt đã duyệt → đợt chuyển sang <b style={{ color: '#d97706' }}>chờ KCS duyệt</b>. KCS chấm xong sẽ hiện <b style={{ color: '#16a34a' }}>ĐẠT</b> / <b style={{ color: '#c62828' }}>LỖI</b> ngay tại đây.
+        Xác nhận <b>đã nhận</b> đợt kho vừa xuất, sau đó <b>báo cắt xong</b> theo đúng kiểu cắt đã duyệt. Nếu mảnh có thêm công đoạn khác ngoài Cắt (uốn/dập/...), đợt sẽ <b style={{ color: '#7b1fa2' }}>đang gia công</b> cho tới khi đánh dấu xong hết — rồi mới chuyển <b style={{ color: '#d97706' }}>chờ KCS duyệt</b>. KCS chấm xong sẽ hiện <b style={{ color: '#16a34a' }}>ĐẠT</b> / <b style={{ color: '#c62828' }}>LỖI</b> ngay tại đây.
         {choNhan > 0 && <> · <b style={{ color: '#e65100' }}>{choNhan}</b> đợt chờ nhận.</>}
       </div>
 
@@ -192,6 +207,22 @@ export default function XacNhanSanLuongPage({ readOnly = false }: { readOnly?: b
                             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#e65100', color: '#fff', cursor: 'pointer' }}>
                             <Package size={13} /> {isOpen ? 'Đóng' : 'Báo cắt xong'}
                           </button>
+                        )
+                      ) : l.status === 'IN_PROCESS' ? (
+                        readOnly ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>đang gia công</span> : (
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#7b1fa2' }}>
+                              <Wrench size={12} /> Còn thiếu công đoạn
+                            </span>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 4 }}>
+                              {l.requiredSteps.filter(s => !l.completedSteps.includes(s)).map(step => (
+                                <button key={step} onClick={() => doCompleteStep(l, step)} disabled={busy === l.id}
+                                  style={{ padding: '4px 10px', fontSize: 11, fontWeight: 600, border: 'none', borderRadius: 6, background: '#7b1fa2', color: '#fff', cursor: busy === l.id ? 'not-allowed' : 'pointer' }}>
+                                  Xong {PROCESS_STEP_LABELS[step]}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         )
                       ) : l.status === 'AWAITING_QC' ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#d97706' }}>
