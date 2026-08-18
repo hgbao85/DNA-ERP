@@ -134,6 +134,12 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
                     </div>
                     <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
                       Σ đoạn cần (BOM) <b style={{ color: 'var(--text2)' }}>{piece.requiredSegments}</b> · Đã xuất <b style={{ color: piece.issuedBarCount > 0 ? ACCENT : 'var(--text2)' }}>{issuedForPiece(piece.pieceId)}</b> cây
+                      {piece.remainingToIssue != null && (
+                        <> · Còn được xuất <b style={{ color: piece.remainingToIssue > 0 ? 'var(--text2)' : '#dc2626' }}>{piece.remainingToIssue}</b> cây</>
+                      )}
+                      {piece.physicalStockQty != null && (
+                        <> · Tồn kho <b style={{ color: 'var(--text2)' }}>{piece.physicalStockQty}</b> cây</>
+                      )}
                     </div>
                   </div>
 

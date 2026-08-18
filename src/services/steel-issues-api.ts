@@ -76,6 +76,11 @@ export interface BeSteelIssuePlanItem {
   requiredSegments: number;
   /** Σ cây đã xuất (đợt gốc, không tính rework) cho mảnh này. */
   issuedBarCount: number;
+  /** Còn được xuất theo giữ chỗ (B4 Đợt 3c) — null = phương án duyệt trước mốc đảo cơ chế trừ
+   *  tồn (không giữ chỗ) hoặc chưa có phương án cắt nào đã duyệt, KHÔNG phải "không được xuất". */
+  remainingToIssue: number | null;
+  /** Tồn vật lý thật trong kho lúc xem màn hình — null nếu vật tư chưa gán Kho. */
+  physicalStockQty: number | null;
 }
 
 function unwrap<T>(res: T[] | { data: T[] }): T[] {

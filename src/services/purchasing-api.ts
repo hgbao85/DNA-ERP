@@ -4,8 +4,9 @@
  * Rút gọn (2026-08-07): PurchaseProposal giờ tự sinh thẳng từ CuttingProposal đã duyệt (chỉ vật
  * tư sắt) - KHÔNG còn đi qua InspectionRequest/Sku/đơn hàng khách như mock cũ. Hệ quả khi map
  * ngược về đúng type `PurchaseProposal` (context/InspectionContext.tsx) để không phải sửa UI:
- *   - `poNumber` là mã lệnh sản xuất NỘI BỘ (BE ProductionOrder.poNumber, vd "PO-9"), KHÔNG phải
- *     mã đơn hàng khách như mock cũ ("PO-MY-001").
+ *   - `poNumber` là mã PI (lệnh sản xuất, vd "PI-2026-014") - Sếp chốt 2026-08-17 mua hàng theo mã
+ *     PI, KHÔNG phải mã đơn hàng khách như mock cũ ("PO-MY-001"), cũng không còn là mã
+ *     ProductionOrder nội bộ (BE, "PO-9") như bản rút gọn 2026-08-07 nữa.
  *   - `requestId`/`skuId` không có ý nghĩa thật nữa (không còn InspectionRequest) - đặt giá trị
  *     placeholder ổn định, các màn Mua hàng không đọc 2 field này.
  *   - `deadline` (2026-08-15, A3): trước đó luôn `undefined` (chưa có nguồn dữ liệu, xem

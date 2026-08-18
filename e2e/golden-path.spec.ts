@@ -192,14 +192,17 @@ test.describe('Golden path', () => {
     // để đọc purchase-proposals thay vì qlsx.
     const khopshToken = await apiLogin(request, 'khopsh');
 
-    const piItemId: string = await test.step('Tìm PI item vừa duyệt', async () => {
-      const pis = await apiCall(request, khsxToken, 'GET', '/production-invoices?limit=100');
-      const pi = pis.data.find((p: any) => p.salesOrderId === salesOrderId);
-      expect(pi, `PI cho sales order ${salesOrderId}`).toBeTruthy();
-      const item = pi.items.find((it: any) => it.prodApprovalStatus === 'APPROVED');
-      expect(item, 'PI item ở trạng thái APPROVED').toBeTruthy();
-      return item.id;
-    });
+    const { piItemId, piCode }: { piItemId: string; piCode: string } = await test.step(
+      'Tìm PI item vừa duyệt',
+      async () => {
+        const pis = await apiCall(request, khsxToken, 'GET', '/production-invoices?limit=100');
+        const pi = pis.data.find((p: any) => p.salesOrderId === salesOrderId);
+        expect(pi, `PI cho sales order ${salesOrderId}`).toBeTruthy();
+        const item = pi.items.find((it: any) => it.prodApprovalStatus === 'APPROVED');
+        expect(item, 'PI item ở trạng thái APPROVED').toBeTruthy();
+        return { piItemId: item.id, piCode: pi.code };
+      },
+    );
 
     const productionOrderId: string = await test.step('Tìm ProductionOrder tự sinh', async () => {
       for (let i = 0; i < 10; i++) {
@@ -251,11 +254,9 @@ test.describe('Golden path', () => {
     if (purchaseProposal?.status === 'PURCHASED') {
       // Tồn đã đủ cho mọi vật tư ngay lúc duyệt - không có gì để mua, coi như xong luôn chặng này.
     } else if (purchaseProposalId) {
-      const productionOrderPoNumber: string = await test.step('Lấy mã PO-x của ProductionOrder (dùng để tìm dòng trên UI)', async () => {
-        const order = await apiCall(request, qlsxToken, 'GET', `/production-orders/${productionOrderId}`);
-        return order.poNumber;
-      });
-
+      // Cột mã trên 3 màn UI dưới đây (LenhMuaNCCPage/BossApp/NhapKhoPage) hiện mã PI (Sếp chốt
+      // 2026-08-17, xem PurchaseProposalsService.toResponseDto) - dùng lại piCode đã lấy ở trên,
+      // không phải ProductionOrder.poNumber nội bộ nữa.
       // Đăng ký NCC cho các vật tư trong đề xuất — dữ liệu chuẩn bị (fixture), không phải bước
       // nghiệp vụ của luồng vàng, nên làm qua API cho nhanh/xác định (SupplierPicker ở
       // LenhMuaNCCPage BẮT BUỘC chọn từ NCC đã đăng ký, không cho nhập tay). Idempotent - tái
@@ -293,7 +294,7 @@ test.describe('Golden path', () => {
         await uiLogin(page, 'nhan');
         await expect(page.getByText('Lệnh mua — chọn NCC')).toBeVisible();
 
-        await page.getByRole('cell', { name: productionOrderPoNumber, exact: true }).click();
+        await page.getByRole('cell', { name: piCode, exact: true }).click();
         await page.getByRole('button', { name: 'Tiếp nhận & Báo giá' }).click();
         await expect(page.getByRole('button', { name: 'Gửi Giám đốc duyệt' })).toBeVisible();
 
@@ -356,7 +357,7 @@ test.describe('Golden path', () => {
         const page = await ctx.newPage();
         await uiLogin(page, 'boss');
         await page.getByRole('button', { name: 'So sánh giá' }).click();
-        await page.getByRole('cell', { name: productionOrderPoNumber, exact: true }).click();
+        await page.getByRole('cell', { name: piCode, exact: true }).click();
 
         // handleApprove() cũng fire-and-forget (setSelectedRequestId(null) ngay, không đợi resolve)
         // - đợi đúng response POST .../approve rồi mới đóng context, cùng lý do đã sửa ở bước báo giá.
@@ -373,7 +374,7 @@ test.describe('Golden path', () => {
         const page = await ctx.newPage();
         await uiLogin(page, 'khopsh');
         await page.getByRole('button', { name: 'Nhập kho', exact: true }).click();
-        await page.getByRole('cell', { name: productionOrderPoNumber, exact: true }).click();
+        await page.getByRole('cell', { name: piCode, exact: true }).click();
 
         // Sau mỗi lần "Xác nhận", dòng đó re-render (input+nút -> "✓ Đã nhận đủ") và cả bảng có
         // thể re-render theo state proposal mới - không lặp theo index cố định (dễ trật dòng qua
