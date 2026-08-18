@@ -147,6 +147,16 @@ export async function sendItemToQlsx(piId: number | string, itemId: number | str
   return toItem(await http.post<BeProductionInvoiceItem>(`/production-invoices/${piId}/items/${itemId}/send-to-qlsx`));
 }
 
+/** Gửi CẢ phiếu (mọi SKU chưa gửi / bị QLSX trả lại) trong 1 lần — thay cho việc mở hộp thoại chọn
+ *  lại từng SKU. `itemIds` bỏ trống = gửi hết; truyền vào khi người dùng bỏ tick vài SKU. BE luôn
+ *  bỏ qua SKU không đủ điều kiện (kể cả có trong itemIds), ném 409 nếu không còn SKU nào gửi được. */
+export async function sendPiToQlsx(piId: number | string, itemIds?: string[]) {
+  return http.post<BeProductionInvoice>(
+    `/production-invoices/${piId}/send-to-qlsx-batch`,
+    itemIds?.length ? { itemIds } : {},
+  );
+}
+
 export async function sendItemToBoss(
   piId: number | string,
   itemId: number | string,
@@ -159,6 +169,20 @@ export async function sendItemToBoss(
       warehouseName: warehouse.name,
     }),
   );
+}
+
+/** Gửi CẢ phiếu lên Sếp — mọi SKU đang chờ QLSX, dùng CHUNG 1 kho thành phẩm. Ca hiếm cần kho
+ *  khác nhau theo từng SKU thì vẫn dùng sendItemToBoss() lẻ như cũ. */
+export async function sendPiToBoss(
+  piId: number | string,
+  warehouse: { code: string; name: string },
+  itemIds?: string[],
+) {
+  return http.post<BeProductionInvoice>(`/production-invoices/${piId}/send-to-boss-batch`, {
+    warehouseCode: warehouse.code,
+    warehouseName: warehouse.name,
+    ...(itemIds?.length ? { itemIds } : {}),
+  });
 }
 
 export async function approveItemByBoss(piId: number | string, itemId: number | string, _decidedBy?: string) {

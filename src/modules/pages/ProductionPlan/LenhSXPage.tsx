@@ -6,7 +6,7 @@ import { errMsg } from '../../../utils/errors'
 import { StatusBadge } from '../Sales/StatusBadge'
 import type { SalesOrderStatus } from '../../../types/sales'
 import { format } from 'date-fns'
-import { AlertCircle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2 } from 'lucide-react'
+import { AlertCircle, Check, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2 } from 'lucide-react'
 import SearchableSelect from '../../../components/SearchableSelect'
 import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 
@@ -35,7 +35,10 @@ export default function LenhSXPage() {
   const isQlsx = user?.mfgRole === 'PRODUCTION_MANAGER'
   const [confirmingProdId, setConfirmingProdId] = useState<number | null>(null)
   const [confirmProdTarget, setConfirmProdTarget] = useState<any | null>(null)
-  const [selectedItemIdx, setSelectedItemIdx] = useState<number | null>(null)
+  // Gửi QLSX: chọn NHIỀU SKU 1 lần (2026-08-18) — trước đây là radio chọn đúng 1, phải mở lại hộp
+  // thoại cho từng SKU của phiếu gộp. Giữ id thật (không phải index) để khớp thẳng itemIds mà BE
+  // nhận ở /send-to-qlsx-batch.
+  const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set())
   const [approvingKey, setApprovingKey] = useState<string | null>(null)
   const [approveTarget, setApproveTarget] = useState<{ pi: any; idx: number } | null>(null)
   const [rejectTarget, setRejectTarget] = useState<{ pi: any; idx: number } | null>(null)
@@ -43,6 +46,9 @@ export default function LenhSXPage() {
   const [rejecting, setRejecting] = useState(false)
   const [qlsxTarget, setQlsxTarget] = useState<{ pi: any; idx: number } | null>(null)
   const [qlsxWarehouseCode, setQlsxWarehouseCode] = useState<string | null>(null)
+  // Gửi Sếp cả phiếu 1 lần (2026-08-18) — mặc định BẬT khi phiếu còn >1 SKU chờ QLSX (ca thường:
+  // cả đợt gộp cùng về 1 kho thành phẩm). Tắt đi thì quay về gửi đúng SKU đang mở như trước.
+  const [qlsxApplyAll, setQlsxApplyAll] = useState(false)
   const [sendingToBoss, setSendingToBoss] = useState(false)
   const [editingPI, setEditingPI] = useState<any | null>(null)
   const [editValues, setEditValues] = useState<{ deadline: string; items: { materialDeadline: string; deliveryDeadline: string; FRAME: string; WEAVING: string; PACKAGING: string }[] }>({ deadline: '', items: [] })
@@ -106,13 +112,14 @@ export default function LenhSXPage() {
     .filter((u: any) => u.role === 'WAREHOUSE_STAFF' && !u.isPurchaser && isThanhPhamScope(u.warehouseScope))
     .map((u: any) => ({ code: u.warehouseScope as string, name: (u.name as string).replace(/^Thủ kho /, 'Kho ') }))
 
-  // KHSX gửi 1 SKU cho QLSX xử lý — chưa cho sản xuất, QLSX sẽ chọn kho thành phẩm rồi mới trình sếp.
+  // KHSX gửi CẢ PHIẾU (mọi SKU đang tick) cho QLSX xử lý trong 1 lần gọi — chưa cho sản xuất, QLSX
+  // sẽ chọn kho thành phẩm rồi mới trình sếp. Trước 2026-08-18 phải gửi lẻ từng SKU: phiếu gộp 5
+  // SKU = mở hộp thoại 5 lần.
   const handleSendForApproval = async (id: number) => {
+    if (selectedItemIds.size === 0) return
     setConfirmingProdId(id)
     try {
-      const items: any[] = confirmProdTarget?.items ?? []
-      if (selectedItemIdx === null || !items[selectedItemIdx]) return
-      await api.sendItemToQlsx(id, items[selectedItemIdx].id, user?.name)
+      await api.sendPiToQlsx(id, [...selectedItemIds])
       refetch()
       setConfirmProdTarget(null)
     } catch (e: any) {
@@ -131,10 +138,17 @@ export default function LenhSXPage() {
     if (!item) return
     setSendingToBoss(true)
     try {
-      await api.sendItemToBoss(qlsxTarget.pi.id, item.id, { code: wh.code, name: wh.name }, user?.name)
+      // Cả phiếu: 1 lần gọi cho MỌI SKU đang chờ QLSX, dùng chung kho vừa chọn (BE tự lọc đúng
+      // trạng thái). Lẻ: giữ nguyên đường cũ cho ca cần kho khác nhau theo từng SKU.
+      if (qlsxApplyAll) {
+        await api.sendPiToBoss(qlsxTarget.pi.id, { code: wh.code, name: wh.name })
+      } else {
+        await api.sendItemToBoss(qlsxTarget.pi.id, item.id, { code: wh.code, name: wh.name }, user?.name)
+      }
       refetch()
       setQlsxTarget(null)
       setQlsxWarehouseCode(null)
+      setQlsxApplyAll(false)
     } catch (e: any) {
       alert(errMsg(e, 'Lỗi gửi sếp duyệt'))
     } finally {
@@ -413,7 +427,13 @@ export default function LenhSXPage() {
                       </>
                     ) : (
                       <>
-                        <button onClick={() => { setQlsxTarget({ pi, idx }); setQlsxWarehouseCode(null) }}
+                        <button onClick={() => {
+                          setQlsxTarget({ pi, idx })
+                          setQlsxWarehouseCode(null)
+                          // Bật sẵn "gửi cả phiếu" khi còn nhiều SKU chờ - ca thường của phiếu gộp.
+                          const waiting = (pi.items ?? []).filter((it: any) => it.prodApproval?.status === 'WAITING_QLSX').length
+                          setQlsxApplyAll(waiting > 1)
+                        }}
                           style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:12, fontWeight:600, cursor:'pointer', color:'#fff' }}>
                           <Warehouse size={12}/>  Chọn kho sản xuất
                         </button>
@@ -462,9 +482,14 @@ export default function LenhSXPage() {
                 {canConfirmProd && hasSendableItems && (
                   <button onClick={() => {
                     setConfirmProdTarget(pi)
+                    // Tick sẵn MỌI SKU gửi được - ca thường là gửi cả phiếu; ai cần giữ lại vài SKU
+                    // (vd chưa khai xong mốc thời hạn) thì tự bỏ tick.
                     const piItems: any[] = pi.items ?? []
-                    const firstSendable = piItems.findIndex((it: any) => !it.prodApproval || it.prodApproval.status === 'REJECTED')
-                    setSelectedItemIdx(firstSendable >= 0 ? firstSendable : null)
+                    setSelectedItemIds(new Set(
+                      piItems
+                        .filter((it: any) => !it.prodApproval || it.prodApproval.status === 'REJECTED')
+                        .map((it: any) => String(it.id)),
+                    ))
                   }}
                     style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
                     <Play size={13}/> Gửi QLSX
@@ -661,7 +686,15 @@ export default function LenhSXPage() {
       {/* Gửi QLSX xử lý */}
       {confirmProdTarget && (() => {
         const items: any[] = confirmProdTarget.items ?? []
-        const selItem = selectedItemIdx !== null ? items[selectedItemIdx] : null
+        const sendableIds: string[] = items
+          .filter((it: any) => !it.prodApproval || it.prodApproval.status === 'REJECTED')
+          .map((it: any) => String(it.id))
+        const allSendableChecked = sendableIds.length > 0 && sendableIds.every(id => selectedItemIds.has(id))
+        const toggleItem = (id: string) => setSelectedItemIds(prev => {
+          const next = new Set(prev)
+          if (next.has(id)) next.delete(id); else next.add(id)
+          return next
+        })
         return (
           <div onClick={() => { if (!confirmingProdId) setConfirmProdTarget(null) }}
             style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
@@ -690,17 +723,26 @@ export default function LenhSXPage() {
                 </div>
               </div>
 
-              {/* Section label */}
-              <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:0.5, marginBottom:8, flexShrink:0 }}>
-                Chọn SKU để sản xuất — {items.length} SKU trong PO
+              {/* Section label + chọn/bỏ tất cả */}
+              <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:8, marginBottom:8, flexShrink:0 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:0.5 }}>
+                  Chọn SKU để sản xuất — {sendableIds.length}/{items.length} SKU gửi được
+                </div>
+                {sendableIds.length > 1 && (
+                  <button
+                    onClick={() => setSelectedItemIds(allSendableChecked ? new Set() : new Set(sendableIds))}
+                    style={{ padding:'3px 10px', fontSize:11, fontWeight:600, background:'transparent', border:'1px solid var(--border)', borderRadius:6, cursor:'pointer', color:'var(--text2)', flexShrink:0 }}>
+                    {allSendableChecked ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                  </button>
+                )}
               </div>
 
-              {/* SKU list — scrollable, radio style */}
+              {/* SKU list — scrollable, checkbox (chọn nhiều, gửi 1 lần) */}
               <div style={{ flex:1, overflowY:'auto', display:'flex', flexDirection:'column', gap:6 }}>
                 {items.map((item: any, i: number) => {
                   const approvalStatus: 'WAITING_QLSX' | 'WAITING_BOSS' | 'REJECTED' | 'APPROVED' | undefined = item.prodApproval?.status
                   const locked = approvalStatus === 'WAITING_QLSX' || approvalStatus === 'WAITING_BOSS' || approvalStatus === 'APPROVED'
-                  const sel  = selectedItemIdx === i
+                  const sel  = selectedItemIds.has(String(item.id))
                   const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
                   const name = item.productVariant?.mfgProduct?.name ?? ''
                   const clr  = item.productVariant?.colorCode
@@ -718,16 +760,16 @@ export default function LenhSXPage() {
                   ]
                   const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                   return (
-                    <div key={i} onClick={() => { if (!locked) setSelectedItemIdx(i) }}
+                    <div key={i} onClick={() => { if (!locked) toggleItem(String(item.id)) }}
                       style={{ border: sel ? '2px solid #2e7d32' : '1px solid var(--border)', borderRadius:8, overflow:'hidden', cursor: locked ? 'default' : 'pointer', background: locked ? 'var(--surface2)' : sel ? '#f0fdf4' : 'var(--surface)', opacity: locked ? 0.6 : 1, transition:'border-color .12s, background .12s', userSelect:'none' }}>
                       {/* SKU info row */}
                       <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px' }}>
-                        {/* Radio indicator */}
+                        {/* Checkbox (vuông) - chọn nhiều SKU, gửi 1 lần */}
                         {locked ? (
                           <CheckCircle2 size={18} color={approvalStatus === 'APPROVED' ? '#2e7d32' : approvalStatus === 'WAITING_BOSS' ? '#0369a1' : '#b45309'} style={{ flexShrink:0 }} />
                         ) : (
-                          <div style={{ width:18, height:18, borderRadius:'50%', border:'2px solid', borderColor: sel ? '#2e7d32' : '#d1d5db', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color .12s' }}>
-                            {sel && <div style={{ width:9, height:9, borderRadius:'50%', background:'#2e7d32' }} />}
+                          <div style={{ width:18, height:18, borderRadius:4, border:'2px solid', borderColor: sel ? '#2e7d32' : '#d1d5db', background: sel ? '#2e7d32' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'border-color .12s, background .12s' }}>
+                            {sel && <Check size={12} color="#fff" strokeWidth={3} />}
                           </div>
                         )}
                         <div style={{ flex:1, minWidth:0 }}>
@@ -771,13 +813,17 @@ export default function LenhSXPage() {
               {/* Footer */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, marginTop:14, paddingTop:14, borderTop:'1px solid var(--border)', flexShrink:0 }}>
                 <div style={{ fontSize:13, minWidth:0, overflow:'hidden' }}>
-                  {selItem ? (
+                  {selectedItemIds.size > 0 ? (
                     <span style={{ color:'var(--text2)' }}>
-                      Đã chọn: <strong style={{ color:'#0369a1', fontFamily:'monospace' }}>{selItem.productVariant?.mfgProduct?.factoryCode ?? '—'}</strong>
-                      {selItem.productVariant?.mfgProduct?.name && <span style={{ marginLeft:6 }}>{selItem.productVariant.mfgProduct.name}</span>}
+                      Sẽ gửi <strong style={{ color:'#2e7d32' }}>{selectedItemIds.size}</strong> SKU
+                      {sendableIds.length > selectedItemIds.size && (
+                        <span style={{ color:'var(--text3)', marginLeft:6 }}>
+                          (giữ lại {sendableIds.length - selectedItemIds.size})
+                        </span>
+                      )}
                     </span>
                   ) : (
-                    <span style={{ color:'#d97706', fontSize:12 }}>Chưa chọn SKU</span>
+                    <span style={{ color:'#d97706', fontSize:12 }}>Chưa chọn SKU nào</span>
                   )}
                 </div>
                 <div style={{ display:'flex', gap:8, flexShrink:0 }}>
@@ -787,10 +833,12 @@ export default function LenhSXPage() {
                   </button>
                   <button
                     onClick={() => handleSendForApproval(confirmProdTarget.id)}
-                    disabled={!!confirmingProdId || selectedItemIdx === null}
-                    style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background: selectedItemIdx !== null ? '#2e7d32' : '#e5e7eb', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (confirmingProdId || selectedItemIdx === null) ? 'not-allowed' : 'pointer', color: selectedItemIdx !== null ? '#fff' : '#9ca3af', opacity: confirmingProdId ? 0.7 : 1 }}>
+                    disabled={!!confirmingProdId || selectedItemIds.size === 0}
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background: selectedItemIds.size > 0 ? '#2e7d32' : '#e5e7eb', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (confirmingProdId || selectedItemIds.size === 0) ? 'not-allowed' : 'pointer', color: selectedItemIds.size > 0 ? '#fff' : '#9ca3af', opacity: confirmingProdId ? 0.7 : 1 }}>
                     <CheckCircle2 size={15}/>
-                    {confirmingProdId ? 'Đang gửi...' : 'Gửi QLSX'}
+                    {confirmingProdId
+                      ? 'Đang gửi...'
+                      : selectedItemIds.size > 1 ? `Gửi QLSX (${selectedItemIds.size} SKU)` : 'Gửi QLSX'}
                   </button>
                 </div>
               </div>
@@ -811,7 +859,8 @@ export default function LenhSXPage() {
         const qty   = item.quantity
         const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
         const selectedWh = finishedGoodsWarehouses.find((w: any) => w.code === qlsxWarehouseCode) ?? null
-        const closeModal = () => { setQlsxTarget(null); setQlsxWarehouseCode(null) }
+        const waitingCount = items.filter((it: any) => it.prodApproval?.status === 'WAITING_QLSX').length
+        const closeModal = () => { setQlsxTarget(null); setQlsxWarehouseCode(null); setQlsxApplyAll(false) }
         return (
           <div onClick={() => { if (!sendingToBoss) closeModal() }}
             style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1100, padding:16 }}>
@@ -870,6 +919,24 @@ export default function LenhSXPage() {
                 />
               </div>
 
+              {/* Áp dụng cho cả phiếu — chỉ hiện khi còn >1 SKU chờ QLSX (ca gộp nhiều SKU) */}
+              {waitingCount > 1 && (
+                <div onClick={() => !sendingToBoss && setQlsxApplyAll(v => !v)}
+                  style={{ display:'flex', alignItems:'flex-start', gap:9, padding:'10px 12px', marginBottom:14, border:'1px solid', borderColor: qlsxApplyAll ? '#2e7d32' : 'var(--border)', background: qlsxApplyAll ? '#f0fdf4' : 'var(--surface)', borderRadius:8, cursor: sendingToBoss ? 'not-allowed' : 'pointer', userSelect:'none' }}>
+                  <div style={{ width:18, height:18, marginTop:1, borderRadius:4, border:'2px solid', borderColor: qlsxApplyAll ? '#2e7d32' : '#d1d5db', background: qlsxApplyAll ? '#2e7d32' : 'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                    {qlsxApplyAll && <Check size={12} color="#fff" strokeWidth={3} />}
+                  </div>
+                  <div style={{ minWidth:0 }}>
+                    <div style={{ fontSize:13, fontWeight:600 }}>
+                      Gửi cả phiếu — {waitingCount} SKU đang chờ QLSX
+                    </div>
+                    <div style={{ fontSize:11, color:'var(--text3)', marginTop:2 }}>
+                      Tất cả dùng chung kho vừa chọn. Bỏ tick nếu chỉ muốn gửi riêng SKU này.
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Actions */}
               <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
                 <button onClick={closeModal} disabled={sendingToBoss}
@@ -878,7 +945,10 @@ export default function LenhSXPage() {
                 </button>
                 <button onClick={handleQlsxSendToBoss} disabled={sendingToBoss || qlsxWarehouseCode === null}
                   style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background: qlsxWarehouseCode !== null ? '#2e7d32' : '#e5e7eb', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (sendingToBoss || qlsxWarehouseCode === null) ? 'not-allowed' : 'pointer', color: qlsxWarehouseCode !== null ? '#fff' : '#9ca3af', opacity: sendingToBoss ? 0.7 : 1 }}>
-                  <CheckCircle2 size={15}/> {sendingToBoss ? 'Đang gửi...' : 'Gửi sếp duyệt'}
+                  <CheckCircle2 size={15}/>
+                  {sendingToBoss
+                    ? 'Đang gửi...'
+                    : qlsxApplyAll ? `Gửi sếp duyệt (${waitingCount} SKU)` : 'Gửi sếp duyệt'}
                 </button>
               </div>
             </div>

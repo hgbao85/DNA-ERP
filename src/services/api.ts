@@ -96,7 +96,8 @@ export {
 } from './sku-api';
 export {
   getProductionInvoices, getProductionInvoice, updateProductionInvoice, updateProductionInvoiceItem,
-  sendItemToQlsx, sendItemToBoss, approveItemByBoss, rejectProdItem, rejectProdItemByQlsx,
+  sendItemToQlsx, sendItemToBoss, sendPiToQlsx, sendPiToBoss,
+  approveItemByBoss, rejectProdItem, rejectProdItemByQlsx,
   approveBatchByBoss, rejectBatchByBoss,
 } from './production-invoices-api';
 export { getWarehouses, createWarehouse, deleteWarehouse } from './warehouses-api';
