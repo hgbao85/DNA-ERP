@@ -10,6 +10,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import type { ManhChildGroup, ManhRow, MaterialType, Sku } from '../../../types/sku'
 import { STATUS_MAP, SKU_ENTITY } from '../../../constants/skuStatus'
+import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
@@ -891,11 +892,12 @@ function ManhPiecesSection({
                     <tr style={{ background: 'var(--surface2)' }}>
                       <th style={{ width: 36, padding: '7px', textAlign: 'center', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>#</th>
                       <th style={{ width: 80, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Nhóm</th>
-                      <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Vật tư</th>
-                      <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Quy cách</th>
-                      <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài</th>
-                      <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
-                      <th style={{ width: 70, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>ĐVT</th>
+                      <th style={{ width: '22%', padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Vật tư</th>
+                      <th style={{ width: '14%', padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Quy cách</th>
+                      <th style={{ width: 90, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài</th>
+                      <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Công đoạn phôi</th>
+                      <th style={{ width: 90, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
+                      <th style={{ width: 60, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>ĐVT</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -915,6 +917,25 @@ function ManhPiecesSection({
                         </td>
                         <td style={{ padding: '9px 14px', color: 'var(--text3)', fontSize: 12 }}>{c.specs || '—'}</td>
                         <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>{c.group === 'sat' ? (c.length || '—') : '—'}</td>
+                        <td style={{ padding: '9px 14px' }}>
+                          {c.group === 'sat' && c.processSteps && c.processSteps.length > 0 ? (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                              {c.processSteps.map(s => (
+                                <span
+                                  key={s}
+                                  style={{
+                                    fontSize: 11, fontWeight: 500, color: 'var(--text2)', background: 'var(--surface2)',
+                                    border: '1px solid var(--border)', borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {PROCESS_STEP_LABELS[s]}
+                                </span>
+                              ))}
+                            </div>
+                          ) : (
+                            <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>
+                          )}
+                        </td>
                         <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.qty || '—'}</td>
                         <td style={{ padding: '9px 14px', color: 'var(--text3)', fontSize: 12 }}>{c.unit || '—'}</td>
                       </tr>

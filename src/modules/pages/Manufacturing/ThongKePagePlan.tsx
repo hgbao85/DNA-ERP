@@ -1019,8 +1019,8 @@ export default function ThongKePagePlan() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr>
-              <th style={th}>Mã PO</th>
               <th style={th}>Mã PI</th>
+              <th style={th}>Mã PO</th>
               <th style={th}>SKU / Sản phẩm</th>
               <th style={th}>Khách hàng</th>
               <th style={{ ...th, width: 220 }}>Công đoạn hiện tại</th>
@@ -1045,8 +1045,8 @@ export default function ThongKePagePlan() {
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = '' }}
                 >
-                  <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}>{o.code}</td>
-                  <td style={{ ...td, fontFamily: 'monospace', color: 'var(--text2)' }}>{o.piCode}</td>
+                  <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}>{o.piCode}</td>
+                  <td style={{ ...td, fontFamily: 'monospace', color: 'var(--text2)' }}>{o.code}</td>
                   <td style={td}>
                     <div style={{ fontWeight: 600 }}>{o.productName}</div>
                     <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{o.sku}</div>

@@ -91,6 +91,8 @@ interface BePiece {
 interface BeSku {
   id: string;
   salesOrderId: string | null;
+  salesOrderCode: string | null;
+  salesOrderDeliveryDate: string | null;
   mfgProductId: string;
   factoryCode: string;
   productName: string;
@@ -210,7 +212,7 @@ function toSku(pf: BeSku): Sku {
     createdAt: pf.createdAt,
     exportOrder:
       pf.salesOrderId != null
-        ? { id: pf.salesOrderId, poNumber: pf.piCode ?? '', deliveryDate: undefined }
+        ? { id: pf.salesOrderId, poNumber: pf.salesOrderCode ?? '', deliveryDate: pf.salesOrderDeliveryDate ?? undefined }
         : undefined,
     mfgProduct: { id: pf.mfgProductId, factoryCode: pf.factoryCode, name: pf.productName },
     quotaManagement: {

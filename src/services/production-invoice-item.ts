@@ -3,17 +3,34 @@
  * `productionInvoiceItemId` (1 PI có thể có nhiều item, 1/mfgProduct) nên phải tra ngược qua
  * GET /production-invoices/:id rồi so khớp mfgProductId. Dùng chung cho mọi adapter key theo
  * productionInvoiceItemId (transfer-check-api.ts, packaging-api.ts).
+ *
+ * Fallback theo mfgProductId (2026-08-18): SKU tạo độc lập (không chọn Sales Order lúc tạo) thì
+ * `productionInvoiceId` để trống mãi mãi trên PlanForm, dù sau đó ai đó "Yêu cầu sản xuất" cho
+ * đúng mfgProduct này qua 1 đơn hàng thật (tạo ProductionInvoiceItem riêng, chỉ nối ngầm qua
+ * mfgProductId - không ghi ngược lại PlanForm gốc, xem SkusService.create()). Không có fallback
+ * thì mọi màn dùng hàm này (Phân phối nội bộ, Mua hàng routing, Chuyển kho, Đóng gói) coi như SKU
+ * đó chưa từng được sản xuất, dù ProductionOrder thật đã RELEASED. Quét /production-orders?limit=100
+ * theo mfgProductId (cùng kiểu "fetch hết rồi lọc client" đã dùng ở resolveProductionOrderId()) -
+ * giả định 1 mfgProduct chỉ có tối đa 1 ProductionOrder đang chạy tại 1 thời điểm (chưa xử lý case
+ * 1 SKU tái sử dụng cho nhiều lệnh sản xuất song song).
  */
 import { http } from './core/http';
 import type { Sku } from '../types/sku';
 
 export async function resolveProductionInvoiceItemId(pf: Sku): Promise<string | null> {
-  if (!pf.productionInvoiceId) return null;
-  const pi = await http.get<{ items: { id: string; mfgProductId: string }[] }>(
-    `/production-invoices/${pf.productionInvoiceId}`,
-  );
-  const item = pi.items.find((it) => it.mfgProductId === pf.mfgProductId);
-  return item ? String(item.id) : null;
+  if (pf.productionInvoiceId) {
+    const pi = await http.get<{ items: { id: string; mfgProductId: string }[] }>(
+      `/production-invoices/${pf.productionInvoiceId}`,
+    );
+    const item = pi.items.find((it) => it.mfgProductId === pf.mfgProductId);
+    if (item) return String(item.id);
+  }
+  const res = await http.get<
+    { id: string; mfgProductId: string; productionInvoiceItemId: string }[] | { data: { id: string; mfgProductId: string; productionInvoiceItemId: string }[] }
+  >('/production-orders?limit=100');
+  const list = Array.isArray(res) ? res : res.data;
+  const order = list.find((o) => o.mfgProductId === pf.mfgProductId);
+  return order ? order.productionInvoiceItemId : null;
 }
 
 /**
