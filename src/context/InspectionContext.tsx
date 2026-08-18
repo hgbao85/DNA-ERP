@@ -65,7 +65,16 @@ export interface PurchaseProposal {
   id: string           // `prop-${requestId}-${khoKey}`
   requestId: string
   skuId: number
+  /** Mã lệnh SX NỘI BỘ (BE ProductionOrder.poNumber) - chỉ hệ thống dùng để tra cứu, KHÔNG hiển
+   *  thị cho người dùng nữa. Cột "PO" trên UI dùng `salesOrderCode` bên dưới thay thế. */
   poNumber: string
+  /** Mã đơn hàng Sales gốc (SalesOrder.code, vd "PO-31") - đây mới là mã "PO" hiện trên UI. null
+   *  khi SKU không gắn đơn Sales nào (tạo tay); có thể là danh sách nhiều mã nối bằng ", " ở
+   *  nhánh PI gộp (nhiều đơn Sales trong cùng 1 đợt cắt chung). */
+  salesOrderCode: string | null
+  /** Mã ProductionInvoice ("PI-2026-001") lệnh SX/PI gộp phía trên thuộc về - KHÁC poNumber (2 bộ
+   *  đếm độc lập, ProductionOrder vs ProductionInvoice) dù cùng hiển thị cạnh nhau trên UI. */
+  piCode: string
   skuCode: string
   skuName?: string
   createdAt: string

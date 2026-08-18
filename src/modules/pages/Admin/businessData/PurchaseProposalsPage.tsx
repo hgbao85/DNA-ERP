@@ -11,12 +11,12 @@ export default function PurchaseProposalsPage() {
   const config: AdminReadOnlyListConfig<PurchaseProposal> = {
     title: 'Đề xuất mua hàng',
     icon: <FileText size={16} color="#3949ab" />,
-    searchFields: ['poNumber', 'skuCode', 'skuName'],
+    searchFields: ['salesOrderCode', 'skuCode', 'skuName'],
     searchPlaceholder: 'Tìm theo mã PO hoặc SKU...',
     emptyMessage: 'Chưa có đề xuất mua hàng nào',
     pageSize: 10,
     columns: [
-      { key: 'poNumber', label: 'Mã PO' },
+      { key: 'salesOrderCode', label: 'Mã PO', render: (p) => p.salesOrderCode ?? '—' },
       { key: 'skuCode', label: 'SKU', render: (p) => p.skuName ? `${p.skuCode} — ${p.skuName}` : p.skuCode },
       { key: 'warehouseScope', label: 'Kho' },
       {

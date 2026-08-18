@@ -44,6 +44,17 @@ export default function OrderManagementPage() {
     return [...byCode.values()]
   })()
 
+  // SKU đã duyệt, đã gán sẵn cho 1 khách hàng cụ thể (customerName nhập lúc "Tạo SKU mới")
+  // và CHƯA gắn PO nào (exportOrderId null) — nguồn auto-fill "SKU trong PO" khi chọn khách hàng.
+  const skusForCustomer = (customerName: string) => {
+    const key = customerName.trim().toLowerCase()
+    if (!key) return []
+    return (skus ?? []).filter((pf) =>
+      pf.status === 'APPROVED' && !pf.exportOrderId && pf.mfgProduct &&
+      (pf.customerName ?? '').trim().toLowerCase() === key
+    )
+  }
+
   const openNew = () => { setForm(emptyForm()); setShowCreate(true) }
 
   const setItem = (i: number, patch: Partial<ItemDraft>) => {
@@ -186,7 +197,23 @@ export default function OrderManagementPage() {
                   getKey={c => String(c.id)}
                   getSearchText={c => `${c.name} ${c.phone}`}
                   renderOption={c => <><strong>{c.name}</strong> <span style={{ color: 'var(--text3)' }}>— {c.phone}</span></>}
-                  onSelect={c => setForm(f => ({ ...f, customerId: String(c.id) }))}
+                  onSelect={c => setForm(f => {
+                    const preAssigned = skusForCustomer(c.name)
+                    return {
+                      ...f,
+                      customerId: String(c.id),
+                      // Khách hàng đã có sẵn SKU đã duyệt (gán lúc "Tạo SKU mới") thì tự fill vào
+                      // "SKU trong PO" luôn, khỏi phải tìm/chọn lại thủ công từng dòng.
+                      items: preAssigned.length > 0
+                        ? preAssigned.map((pf) => ({
+                            skuCode: pf.mfgProduct!.factoryCode,
+                            skuName: pf.mfgProduct!.name,
+                            totalQty: '',
+                            deliveryDate: '',
+                          }))
+                        : f.items,
+                    }
+                  })}
                   placeholder="Tìm hoặc chọn khách hàng *"
                   emptyText="Không tìm thấy khách hàng"
                 />

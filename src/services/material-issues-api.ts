@@ -35,7 +35,10 @@ export interface BeMaterialIssuePlanItem {
 export interface BeMaterialIssue {
   id: string;
   productionOrderId: string;
+  /** Mã nội bộ (ProductionOrder.poNumber) - chỉ hệ thống dùng, KHÔNG hiển thị. Dùng `salesOrderCode`. */
   poNumber: string;
+  /** Mã đơn hàng Sales gốc - đây mới là mã "PO" hiển thị cho người dùng. */
+  salesOrderCode: string | null;
   stage: MaterialIssueStage;
   materialId: string;
   materialCode: string;

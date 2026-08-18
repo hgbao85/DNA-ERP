@@ -12,7 +12,7 @@ const td: React.CSSProperties = { padding: '9px 12px' }
 
 interface Row {
   key: string
-  poNumber: string
+  poNumber: string | null
   itemName: string
   ncc: string
   unitPrice: number | null
@@ -41,7 +41,7 @@ function buildRows(p: PurchaseProposal): Row[] {
     const boughtQty = item.receivedQty ?? 0
     return {
       key: `${p.id}-${key}`,
-      poNumber: p.poNumber,
+      poNumber: p.salesOrderCode,
       itemName: item.name,
       ncc: ncc || '—',
       unitPrice: chosenQuote?.unitPrice ?? null,
@@ -85,7 +85,7 @@ export default function TheoDoiMuaHangPage() {
             <ChevronLeft size={14} /> Danh sách
           </button>
           <span style={{ fontSize: 13, color: 'var(--text3)' }}>/</span>
-          <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace' }}>{selected.poNumber}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace' }}>{selected.salesOrderCode ?? '—'}</span>
           <span style={{ fontSize: 13, color: 'var(--text2)' }}>{selected.skuCode}{selected.skuName ? ` — ${selected.skuName}` : ''}</span>
         </div>
 
@@ -108,7 +108,7 @@ export default function TheoDoiMuaHangPage() {
             <tbody>
               {rows.map(r => (
                 <tr key={r.key} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text3)' }}>{r.poNumber}</td>
+                  <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text3)' }}>{r.poNumber ?? '—'}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{r.itemName}</td>
                   <td style={td}>{r.ncc}</td>
                   <td style={{ ...td, textAlign: 'right' }}>{r.unitPrice ? r.unitPrice.toLocaleString('vi-VN') + 'đ' : '—'}</td>
@@ -160,6 +160,7 @@ export default function TheoDoiMuaHangPage() {
               <thead>
                 <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                   <th style={th}>PO</th>
+                  <th style={th}>PI</th>
                   <th style={th}>Mã nhà máy</th>
                   <th style={th}>Kho phụ trách</th>
                   <th style={th}>Deadline</th>
@@ -177,7 +178,8 @@ export default function TheoDoiMuaHangPage() {
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                       onMouseLeave={e => (e.currentTarget.style.background = '')}
                     >
-                      <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{p.poNumber}</td>
+                      <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{p.salesOrderCode ?? '—'}</td>
+                      <td style={{ ...td, fontFamily: 'monospace', color: 'var(--text3)' }}>{p.piCode}</td>
                       <td style={td}>
                         <span style={{ fontWeight: 600 }}>{p.skuCode}</span>
                         {p.skuName && <span style={{ marginLeft: 6, color: 'var(--text3)', fontSize: 12 }}>{p.skuName}</span>}

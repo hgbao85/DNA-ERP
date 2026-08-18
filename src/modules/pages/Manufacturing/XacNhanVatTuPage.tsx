@@ -124,7 +124,7 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: M
                   const editing = edit[i.id] != null
                   return (
                     <tr key={i.id} style={{ borderTop: '1px solid var(--border)' }}>
-                      <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{i.poNumber}</td>
+                      <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{i.salesOrderCode ?? '—'}</td>
                       <td style={{ ...td, fontWeight: 600 }}>
                         {i.materialName} <span style={{ color: 'var(--text3)', fontWeight: 400 }}>({i.materialCode})</span>
                       </td>
@@ -197,7 +197,7 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: M
                     const thieu = nhan < i.issuedQty
                     return (
                       <tr key={i.id} style={{ borderTop: '1px solid var(--border)' }}>
-                        <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{i.poNumber}</td>
+                        <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{i.salesOrderCode ?? '—'}</td>
                         <td style={{ ...td, fontWeight: 600 }}>
                           {i.materialName} <span style={{ color: 'var(--text3)', fontWeight: 400 }}>({i.materialCode})</span>
                         </td>

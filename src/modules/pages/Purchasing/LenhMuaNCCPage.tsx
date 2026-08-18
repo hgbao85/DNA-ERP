@@ -215,7 +215,7 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
             <ChevronLeft size={14} /> Danh sách
           </button>
           <span style={{ fontSize: 13, color: 'var(--text3)' }}>/</span>
-          <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace' }}>{p.poNumber}</span>
+          <span style={{ fontSize: 13, fontWeight: 700, fontFamily: 'monospace' }}>{p.salesOrderCode ?? '—'}</span>
           <span style={{ fontSize: 13, color: 'var(--text2)' }}>{p.skuCode}{p.skuName ? ` — ${p.skuName}` : ''}</span>
           <div style={{ flex: 1 }} />
           {statusTag(p)}
@@ -483,6 +483,7 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
           <thead>
             <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
               <th style={th}>PO</th>
+              <th style={th}>PI</th>
               <th style={th}>Mã nhà máy</th>
               <th style={th}>Kho phụ trách</th>
               <th style={th}>Deadline</th>
@@ -500,7 +501,8 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
-                  <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{p.poNumber}</td>
+                  <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{p.salesOrderCode ?? '—'}</td>
+                  <td style={{ ...td, fontFamily: 'monospace', color: 'var(--text3)' }}>{p.piCode}</td>
                   <td style={td}>
                     <span style={{ fontWeight: 600 }}>{p.skuCode}</span>
                     {p.skuName && <span style={{ marginLeft: 6, color: 'var(--text3)', fontSize: 12 }}>{p.skuName}</span>}

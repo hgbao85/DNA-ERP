@@ -24,29 +24,30 @@ const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13 }
 const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
 
-interface PoGroup { po: string; items: BeSteelIssue[]; thoiGianNhan: string; hoanThanh: string | null }
+interface PoGroup { productionOrderId: string; po: string; items: BeSteelIssue[]; thoiGianNhan: string; hoanThanh: string | null }
 
 export default function LichSuNhanSatPage() {
   const { data: lines, isLoading } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
   const [selPo, setSelPo] = useState<string | null>(null)
 
   const groups: PoGroup[] = useMemo(() => {
+    // Gom theo productionOrderId (luôn duy nhất) chứ KHÔNG theo mã hiển thị salesOrderCode.
     const map = new Map<string, BeSteelIssue[]>()
     for (const l of lines ?? []) {
-      if (!map.has(l.poNumber)) map.set(l.poNumber, [])
-      map.get(l.poNumber)!.push(l)
+      if (!map.has(l.productionOrderId)) map.set(l.productionOrderId, [])
+      map.get(l.productionOrderId)!.push(l)
     }
-    return [...map.entries()].map(([po, items]) => {
+    return [...map.entries()].map(([productionOrderId, items]) => {
       const nhan = items.map(i => i.issuedAt).sort()[0] ?? ''
       const allDone = items.every(i => i.status === 'QC_PASSED')
       const hoanThanh = allDone ? (items.map(i => i.completedAt ?? '').sort().at(-1) || null) : null
-      return { po, items, thoiGianNhan: nhan, hoanThanh }
+      return { productionOrderId, po: items[0].salesOrderCode ?? '—', items, thoiGianNhan: nhan, hoanThanh }
     })
   }, [lines])
 
   if (isLoading || !lines) return <LoadingState />
 
-  const sel = selPo ? groups.find(g => g.po === selPo) ?? null : null
+  const sel = selPo ? groups.find(g => g.productionOrderId === selPo) ?? null : null
   if (sel) return <Detail g={sel} onBack={() => setSelPo(null)} />
 
   // ── List view ──────────────────────────────────────────────
@@ -71,8 +72,8 @@ export default function LichSuNhanSatPage() {
           </thead>
           <tbody>
             {groups.map(g => (
-              <tr key={g.po}
-                onClick={() => setSelPo(g.po)}
+              <tr key={g.productionOrderId}
+                onClick={() => setSelPo(g.productionOrderId)}
                 style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                 onMouseLeave={e => (e.currentTarget.style.background = '')}>

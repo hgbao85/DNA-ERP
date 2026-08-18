@@ -130,7 +130,7 @@ function pieceLabelToUnit(label: BePieceTransferPlanItem['label']): string {
 // sẵn có của OrderLine (không cần shape riêng) - "Kế hoạch" ở đây đọc là "đã qua KCS tính đến
 // nay", "Thực có" đọc là "còn có thể chuyển" (đã trừ phần đã nằm trong phiếu PENDING/CONFIRMED
 // trước đó - xem WarehouseTransfersService.getPieceTransferPlan ở BE).
-function pieceItemsToOrders(summaries: { id: string; poNumber: string }[], plan: BePieceTransferPlanItem[]): Order[] {
+function pieceItemsToOrders(summaries: { id: string; poNumber: string; salesOrderCode: string | null }[], plan: BePieceTransferPlanItem[]): Order[] {
   const byPo = new Map<string, BePieceTransferPlanItem[]>()
   for (const item of plan) {
     const arr = byPo.get(item.productionOrderId) ?? []
@@ -141,12 +141,13 @@ function pieceItemsToOrders(summaries: { id: string; poNumber: string }[], plan:
     .filter(o => (byPo.get(o.id)?.length ?? 0) > 0)
     .map(o => {
       const items = byPo.get(o.id) ?? []
+      const displayCode = o.salesOrderCode ?? '—'
       return {
         id: o.id,
-        ref: o.poNumber,
+        ref: displayCode,
         counterpart: 'Kho Vật tư thành phẩm',
         date: new Date().toISOString(),
-        poNumber: o.poNumber,
+        poNumber: displayCode,
         skuName: items[0]?.productName,
         lines: items.map(it => ({
           id: it.pieceId,

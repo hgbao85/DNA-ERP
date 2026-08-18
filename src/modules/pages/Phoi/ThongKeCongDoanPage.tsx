@@ -36,7 +36,7 @@ interface PieceRow {
   pending: Partial<Record<ProcessStep, number>>
   awaitingQc: number; passed: number
 }
-interface PoRow { poNumber: string; pieces: PieceRow[] }
+interface PoRow { productionOrderId: string; poNumber: string; pieces: PieceRow[] }
 
 export default function ThongKeCongDoanPage() {
   const { data: issues, isLoading } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
@@ -47,14 +47,16 @@ export default function ThongKeCongDoanPage() {
   )
 
   const poRows: PoRow[] = useMemo(() => {
+    // Gom theo productionOrderId (luôn duy nhất) chứ KHÔNG theo mã hiển thị salesOrderCode.
     const byPo = new Map<string, BeSteelIssue[]>()
     const order: string[] = []
     for (const i of issues ?? []) {
-      if (!byPo.has(i.poNumber)) { byPo.set(i.poNumber, []); order.push(i.poNumber) }
-      byPo.get(i.poNumber)!.push(i)
+      if (!byPo.has(i.productionOrderId)) { byPo.set(i.productionOrderId, []); order.push(i.productionOrderId) }
+      byPo.get(i.productionOrderId)!.push(i)
     }
-    return order.map(po => {
-      const list = byPo.get(po)!
+    return order.map(productionOrderId => {
+      const list = byPo.get(productionOrderId)!
+      const po = list[0].salesOrderCode ?? '—'
       const byPiece = new Map<string, BeSteelIssue[]>()
       for (const i of list) { if (!byPiece.has(i.pieceId)) byPiece.set(i.pieceId, []); byPiece.get(i.pieceId)!.push(i) }
       const pieces: PieceRow[] = [...byPiece.entries()].map(([pieceId, its]) => {
@@ -70,7 +72,7 @@ export default function ThongKeCongDoanPage() {
           passed: its.filter(i => i.status === 'QC_PASSED').reduce((s, i) => s + barCountOf(i), 0),
         }
       }).filter(p => Object.keys(p.pending).length > 0 || p.awaitingQc > 0)
-      return { poNumber: po, pieces }
+      return { productionOrderId, poNumber: po, pieces }
     }).filter(r => r.pieces.length > 0)
   }, [issues, activeSteps])
 
@@ -124,7 +126,7 @@ export default function ThongKeCongDoanPage() {
               </thead>
               <tbody>
                 {poRows.map(po => po.pieces.map((p, idx) => (
-                  <tr key={`${po.poNumber}-${p.pieceId}`} style={{ borderTop: '1px solid var(--border)' }}>
+                  <tr key={`${po.productionOrderId}-${p.pieceId}`} style={{ borderTop: '1px solid var(--border)' }}>
                     {idx === 0 ? (
                       <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)' }} rowSpan={po.pieces.length}>{po.poNumber}</td>
                     ) : null}

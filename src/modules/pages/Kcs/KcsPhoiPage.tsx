@@ -35,17 +35,20 @@ export default function KcsPhoiPage() {
     for (const r of reviews ?? []) if (r.steelIssueId) reviewByIssue.set(r.steelIssueId, r)
 
     const map = new Map<number, string>()
+    // Gom theo productionOrderId (luôn duy nhất) chứ KHÔNG theo mã hiển thị salesOrderCode -
+    // nhiều lệnh SX có thể cùng chung 1 mã Sales (nhiều SKU/đơn) hoặc cùng null.
     const byPo = new Map<string, BeSteelIssue[]>()
     const order: string[] = []
     for (const i of issues ?? []) {
       if (i.status !== 'AWAITING_QC' && i.status !== 'QC_PASSED') continue // Phôi chưa cắt xong → chưa liên quan KCS
-      if (!byPo.has(i.poNumber)) { byPo.set(i.poNumber, []); order.push(i.poNumber) }
-      byPo.get(i.poNumber)!.push(i)
+      if (!byPo.has(i.productionOrderId)) { byPo.set(i.productionOrderId, []); order.push(i.productionOrderId) }
+      byPo.get(i.productionOrderId)!.push(i)
     }
     let seq = 1
     const rows: KcsRow[] = []
-    for (const po of order) {
-      const list = byPo.get(po)!
+    for (const productionOrderId of order) {
+      const list = byPo.get(productionOrderId)!
+      const po = list[0].salesOrderCode ?? '—'
       if (!list.some(i => i.status === 'AWAITING_QC')) continue   // chỉ PO còn hàng chờ
       const lines: KcsLine[] = list.map(i => {
         const lineId = seq++

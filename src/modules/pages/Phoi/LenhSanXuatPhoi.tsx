@@ -31,7 +31,7 @@ interface PieceAgg {
   pieceId: string; pieceName: string; materialName: string
   issuedBarCount: number; awaitingReceive: number; cutting: number; inProcess: number; awaitingQc: number; passed: number; failed: number
 }
-interface PoAgg { poNumber: string; pieces: PieceAgg[]; totalIssued: number; totalPassed: number; totalAwaiting: number }
+interface PoAgg { productionOrderId: string; poNumber: string; pieces: PieceAgg[]; totalIssued: number; totalPassed: number; totalAwaiting: number }
 
 export default function LenhSanXuatPhoi({ readOnly = true }: { readOnly?: boolean }) {
   void readOnly // màn này luôn đọc-only — xác nhận/báo cắt làm ở XacNhanSanLuongPage
@@ -43,14 +43,17 @@ export default function LenhSanXuatPhoi({ readOnly = true }: { readOnly?: boolea
     const failedByIssue = new Map<string, number>()
     for (const r of reviews ?? []) if (r.steelIssueId) failedByIssue.set(r.steelIssueId, r.failedQty)
 
+    // Gom theo productionOrderId (luôn duy nhất) chứ KHÔNG theo mã hiển thị salesOrderCode -
+    // nhiều lệnh SX có thể cùng chung 1 mã Sales (nhiều SKU/đơn) hoặc cùng null.
     const byPo = new Map<string, BeSteelIssue[]>()
     const order: string[] = []
     for (const i of issues ?? []) {
-      if (!byPo.has(i.poNumber)) { byPo.set(i.poNumber, []); order.push(i.poNumber) }
-      byPo.get(i.poNumber)!.push(i)
+      if (!byPo.has(i.productionOrderId)) { byPo.set(i.productionOrderId, []); order.push(i.productionOrderId) }
+      byPo.get(i.productionOrderId)!.push(i)
     }
-    return order.map(po => {
-      const list = byPo.get(po)!
+    return order.map(productionOrderId => {
+      const list = byPo.get(productionOrderId)!
+      const po = list[0].salesOrderCode ?? '—'
       const byPiece = new Map<string, BeSteelIssue[]>()
       for (const i of list) { if (!byPiece.has(i.pieceId)) byPiece.set(i.pieceId, []); byPiece.get(i.pieceId)!.push(i) }
       const pieces: PieceAgg[] = [...byPiece.entries()].map(([pieceId, its]) => {
@@ -67,7 +70,7 @@ export default function LenhSanXuatPhoi({ readOnly = true }: { readOnly?: boolea
         }
       })
       return {
-        poNumber: po, pieces,
+        productionOrderId, poNumber: po, pieces,
         totalIssued: pieces.reduce((s, p) => s + p.issuedBarCount, 0),
         totalPassed: pieces.reduce((s, p) => s + p.passed, 0),
         totalAwaiting: pieces.reduce((s, p) => s + p.awaitingReceive + p.cutting + p.inProcess + p.awaitingQc, 0),
@@ -77,7 +80,7 @@ export default function LenhSanXuatPhoi({ readOnly = true }: { readOnly?: boolea
 
   if (isLoading || !issues) return <LoadingState />
 
-  const sel = selPo ? poRows.find(r => r.poNumber === selPo) ?? null : null
+  const sel = selPo ? poRows.find(r => r.productionOrderId === selPo) ?? null : null
 
   if (sel) {
     return (
@@ -148,7 +151,7 @@ export default function LenhSanXuatPhoi({ readOnly = true }: { readOnly?: boolea
           </thead>
           <tbody>
             {poRows.map(r => (
-              <tr key={r.poNumber} onClick={() => setSelPo(r.poNumber)} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+              <tr key={r.productionOrderId} onClick={() => setSelPo(r.productionOrderId)} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                 onMouseLeave={e => (e.currentTarget.style.background = '')}>
                 <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{r.poNumber}</td>

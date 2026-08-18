@@ -96,7 +96,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
               <ChevronLeft size={15} /> Quay lại
             </button>
             <div>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>{selected.poNumber}</h2>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>{selected.salesOrderCode ?? '—'}</h2>
               <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
                 {selected.skuCode}{selected.skuName ? ` — ${selected.skuName}` : ''}
                 {selected.deadline && <> · Hạn giao: {format(new Date(selected.deadline), 'dd/MM/yyyy')}</>}
@@ -231,7 +231,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                   onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
                   <td style={{ ...td, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
-                    {p.poNumber}
+                    {p.salesOrderCode ?? '—'}
                   </td>
                   <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     <span style={{ fontWeight: 600 }}>{p.skuCode}</span>

@@ -25,19 +25,23 @@ import LoadingState from '../../../components/LoadingState'
 export default function KcsStagePage({ cfg, stage }: { cfg: StageCfg; stage: ProductionBatchStage }) {
   const { data: batches, isLoading, refetch } = useFetch<BeProductionBatch[]>(() => api.getProductionBatchesByStage(stage), [stage])
 
-  // Gom lô theo PO (chỉ PO còn hàng chờ); mỗi lô = 1 dòng: chờ / đã duyệt.
+  // Gom lô theo PO (chỉ PO còn hàng chờ); mỗi lô = 1 dòng: chờ / đã duyệt. Gom theo
+  // productionOrderId (luôn duy nhất) chứ KHÔNG theo mã hiển thị salesOrderCode - nhiều
+  // ProductionOrder có thể cùng chung 1 salesOrderCode (nhiều SKU/đơn), hoặc cùng null (SKU
+  // không gắn đơn Sales nào) - gom theo mã hiển thị sẽ gộp nhầm các lô khác nhau vào 1 dòng.
   const { rows, map } = useMemo(() => {
     const map = new Map<number, string>()
     const byPo = new Map<string, BeProductionBatch[]>()
     const order: string[] = []
     for (const b of batches ?? []) {
-      if (!byPo.has(b.poNumber)) { byPo.set(b.poNumber, []); order.push(b.poNumber) }
-      byPo.get(b.poNumber)!.push(b)
+      if (!byPo.has(b.productionOrderId)) { byPo.set(b.productionOrderId, []); order.push(b.productionOrderId) }
+      byPo.get(b.productionOrderId)!.push(b)
     }
     let seq = 1
     const rows: KcsRow[] = []
-    for (const po of order) {
-      const list = byPo.get(po)!
+    for (const productionOrderId of order) {
+      const list = byPo.get(productionOrderId)!
+      const po = list[0].salesOrderCode ?? '—'
       if (!list.some(b => b.status === 'AWAITING_QC')) continue   // chỉ PO còn hàng chờ
       const lines: KcsLine[] = list.map(b => {
         const lineId = seq++

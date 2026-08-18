@@ -626,7 +626,7 @@ async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
     rows.push({
       // arrangedAt: không null - "chủ chuyền sắp xếp" là bước riêng của mock, không có gì tương
       // ứng ở BE; PO thật xuất hiện trong danh sách nghĩa là đã sẵn sàng để báo sản lượng.
-      id: Number(o.id), poNumber: plan.poNumber, sku: plan.productName, productName: plan.productName,
+      id: Number(o.id), poNumber: plan.salesOrderCode ?? '—', sku: plan.productName, productName: plan.productName,
       soLuong: plan.quantity, deadline: '—', arrangedAt: new Date().toISOString(), lines, realOrderId: o.id,
     })
   }

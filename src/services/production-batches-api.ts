@@ -23,7 +23,10 @@ export type ProductionBatchStage = 'HAN' | 'SON';
 export interface BeProductionBatch {
   id: string;
   productionOrderId: string;
+  /** Mã nội bộ (ProductionOrder.poNumber) - chỉ hệ thống dùng, KHÔNG hiển thị. Dùng `salesOrderCode`. */
   poNumber: string;
+  /** Mã đơn hàng Sales gốc - đây mới là mã "PO" hiển thị cho người dùng. */
+  salesOrderCode: string | null;
   stage: ProductionBatchStage;
   pieceId: string;
   pieceCode: string;
@@ -56,6 +59,7 @@ export async function reviewProductionBatch(
 export interface BeProductionOrderSummary {
   id: string;
   poNumber: string;
+  salesOrderCode: string | null;
   status: 'DRAFT' | 'RELEASED' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
 }
 
@@ -82,6 +86,7 @@ export interface BeProductionBatchPlanItem {
 
 export interface BeProductionBatchPlan {
   poNumber: string;
+  salesOrderCode: string | null;
   productName: string;
   quantity: number;
   items: BeProductionBatchPlanItem[];

@@ -118,7 +118,7 @@ export default function CuttingProposalsPage() {
     if (search.trim()) {
       const q = search.trim().toLocaleLowerCase('vi')
       list = list.filter(p =>
-        p.poNumber.toLocaleLowerCase('vi').includes(q) ||
+        (p.salesOrderCode ?? '').toLocaleLowerCase('vi').includes(q) ||
         p.mfgProductCode.toLocaleLowerCase('vi').includes(q) ||
         (p.mfgProductName ?? '').toLocaleLowerCase('vi').includes(q),
       )
@@ -209,7 +209,7 @@ export default function CuttingProposalsPage() {
                   const canRetry = p.status === 'FAILED'
                   return (
                     <tr key={p.id} style={row} onClick={() => void openDetail(p.id)}>
-                      <td style={td}>{p.poNumber}</td>
+                      <td style={td}>{p.salesOrderCode ?? '—'}</td>
                       <td style={td}>{p.mfgProductName ? `${p.mfgProductCode} — ${p.mfgProductName}` : p.mfgProductCode}</td>
                       <td style={td}>
                         <span style={{ ...badge, background: s.bg, color: s.color }}>{s.label}</span>
@@ -259,7 +259,7 @@ export default function CuttingProposalsPage() {
                 <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Chi tiết đề xuất cắt sắt</h3>
                 {detail && (
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                    {detail.poNumber} — {detail.mfgProductCode}
+                    {detail.salesOrderCode ?? '—'} — {detail.mfgProductCode}
                   </div>
                 )}
               </div>
@@ -386,7 +386,7 @@ export default function CuttingProposalsPage() {
       <ConfirmModal
         open={retryTarget !== null}
         title="Tính lại phương án cắt"
-        message={`Gọi lại solver cho ${retryTarget?.poNumber ?? ''} — kết quả cũ (nếu có) sẽ được thay thế bằng phương án mới.`}
+        message={`Gọi lại solver cho ${retryTarget?.salesOrderCode ?? ''} — kết quả cũ (nếu có) sẽ được thay thế bằng phương án mới.`}
         confirmLabel="Tính lại"
         busy={busy}
         error={actionError}

@@ -184,7 +184,7 @@ export default function XacNhanSanLuongPage({ readOnly = false }: { readOnly?: b
                           {isOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
                         </button>
                       )}
-                      {l.poNumber}
+                      {l.salesOrderCode ?? '—'}
                     </td>
                     <td style={{ ...td, fontWeight: 600 }}>
                       {l.materialName}

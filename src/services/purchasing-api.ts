@@ -4,9 +4,15 @@
  * Rút gọn (2026-08-07): PurchaseProposal giờ tự sinh thẳng từ CuttingProposal đã duyệt (chỉ vật
  * tư sắt) - KHÔNG còn đi qua InspectionRequest/Sku/đơn hàng khách như mock cũ. Hệ quả khi map
  * ngược về đúng type `PurchaseProposal` (context/InspectionContext.tsx) để không phải sửa UI:
- *   - `poNumber` là mã PI (lệnh sản xuất, vd "PI-2026-014") - Sếp chốt 2026-08-17 mua hàng theo mã
- *     PI, KHÔNG phải mã đơn hàng khách như mock cũ ("PO-MY-001"), cũng không còn là mã
- *     ProductionOrder nội bộ (BE, "PO-9") như bản rút gọn 2026-08-07 nữa.
+ *   - `poNumber` là mã lệnh sản xuất NỘI BỘ (BE ProductionOrder.poNumber) - CHỈ để hệ thống tra
+ *     cứu, KHÔNG hiển thị cho người dùng nữa (xem `salesOrderCode` bên dưới). Trước 2026-08-18
+ *     từng đổi sang mã PI theo chốt của Sếp (2026-08-17), rồi tách tiếp thành `salesOrderCode`/
+ *     `piCode` riêng như dưới đây nên `poNumber` quay về vai trò tra cứu nội bộ thuần túy.
+ *   - `salesOrderCode` (2026-08-18) là mã đơn hàng Sales gốc (SalesOrder.code, vd "PO-31") - đây
+ *     mới là mã "PO" hiện trên UI Mua hàng. null khi SKU không gắn đơn Sales nào (tạo tay); có
+ *     thể là danh sách nhiều mã nối bằng ", " ở nhánh PI gộp (nhiều đơn Sales trong cùng 1 đợt cắt).
+ *   - `piCode` (2026-08-18) là mã ProductionInvoice ("PI-2026-001") mà lệnh SX trên thuộc về - bộ
+ *     đếm ĐỘC LẬP với poNumber/salesOrderCode, thêm cột riêng ở UI để không nhầm lẫn.
  *   - `requestId`/`skuId` không có ý nghĩa thật nữa (không còn InspectionRequest) - đặt giá trị
  *     placeholder ổn định, các màn Mua hàng không đọc 2 field này.
  *   - `deadline` (2026-08-15, A3): trước đó luôn `undefined` (chưa có nguồn dữ liệu, xem
@@ -100,6 +106,8 @@ interface BeProposal {
   warehouseCode: string;
   status: keyof typeof BE_TO_FE_STATUS;
   poNumber: string;
+  salesOrderCode: string | null;
+  piCode: string;
   mfgProductCode: string;
   mfgProductName: string | null;
   // Hạn Mua hàng nên ưu tiên (A3, 2026-08-15) - BE tính từ materialDeadline/mốc Khung cơ khí/hạn
@@ -170,6 +178,8 @@ function toProposal(be: BeProposal): PurchaseProposal {
     requestId: `cutting-proposal-${be.cuttingProposalId}`,
     skuId: Number(be.cuttingProposalId),
     poNumber: be.poNumber,
+    salesOrderCode: be.salesOrderCode,
+    piCode: be.piCode,
     skuCode: be.mfgProductCode,
     skuName: be.mfgProductName ?? undefined,
     createdAt: be.createdAt,

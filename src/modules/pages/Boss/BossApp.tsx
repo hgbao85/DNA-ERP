@@ -150,7 +150,7 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
             <ChevronLeft size={13} /> Danh sách
           </button>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 10 }}>
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>{meta.poNumber}</h2>
+            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>{meta.salesOrderCode ?? '—'}</h2>
             <span style={{ fontSize: 14, color: 'var(--text2)' }}>{meta.skuCode}{meta.skuName ? ` — ${meta.skuName}` : ''}</span>
             <div style={{ flex: 1 }} />
             <span style={{
@@ -370,7 +370,7 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
-                  <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{meta.poNumber}</td>
+                  <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{meta.salesOrderCode ?? '—'}</td>
                   <td style={td}>
                     <span style={{ fontWeight: 600 }}>{meta.skuCode}</span>
                     {meta.skuName && <span style={{ marginLeft: 6, color: 'var(--text3)', fontSize: 12 }}>{meta.skuName}</span>}
