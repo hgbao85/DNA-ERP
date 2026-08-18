@@ -116,7 +116,7 @@ export async function getSteelIssuesForSku(pf: Sku): Promise<BeSteelIssue[]> {
 
 export async function issueSteel(
   pf: Sku,
-  data: { pieceId: string; barLengthMm: number; barCount: number },
+  data: { pieceId: string; materialId: string; barLengthMm: number; barCount: number },
 ): Promise<BeSteelIssue> {
   const orderId = await resolveProductionOrderId(pf);
   if (!orderId) throw new Error('SKU chưa có Lệnh sản xuất (chưa được Sếp duyệt) — chưa thể xuất sắt');

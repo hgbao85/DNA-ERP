@@ -52,3 +52,43 @@ export async function resolveProductionOrderId(pf: Sku): Promise<string | null> 
   const order = list.find((o) => o.productionInvoiceItemId === itemId);
   return order ? order.id : null;
 }
+
+export interface ProductionOrderInfo {
+  /** Mã đơn hàng Sales gốc (SalesOrder.code) — mã "PO" hiển thị cho người dùng. null nếu lệnh sản
+   *  xuất này không gắn đơn hàng nào (tạo tay). */
+  poCode: string | null;
+  /** Mã PI cha (ProductionInvoice.code). */
+  piCode: string;
+  /** Hạn giao (ProductionInvoiceItem.deliveryDeadline) — null nếu chưa khai. */
+  deliveryDate: string | null;
+}
+
+/**
+ * Map mfgProductId -> PO/PI THẬT (từ ProductionOrder Sếp đã duyệt) — PHẢI dùng thay cho
+ * `Sku.exportOrder`/`Sku.piCode` khi hiển thị cột PO/PI ở "Phân phối nội bộ": field trên Sku chỉ
+ * phản ánh PlanForm.salesOrderId tĩnh (gắn được ngay khi Sales tạo PO, dù Sếp chưa duyệt sản
+ * xuất gì), trong khi PO/PI thật chỉ tồn tại SAU khi Sếp duyệt 1 ProductionInvoiceItem sinh ra
+ * ProductionOrder (xem ProductionOrdersService.createFromApproval, BE) — đúng lúc kho mới có gì
+ * để xuất (sắt/vật tư phải được mua/nhập kho theo lệnh sản xuất đó trước). 1 mfgProduct chỉ lấy
+ * ProductionOrder đầu tiên tìm thấy — cùng giả định đơn giản hoá của resolveProductionOrderId().
+ */
+export async function buildProductionOrderInfoByMfgProduct(): Promise<Map<string, ProductionOrderInfo>> {
+  interface BeProductionOrder {
+    id: string;
+    mfgProductId: string;
+    salesOrderCode: string | null;
+    piCode: string;
+    deliveryDeadline: string | null;
+  }
+  const res = await http.get<BeProductionOrder[] | { data: BeProductionOrder[] }>(
+    '/production-orders?limit=100',
+  );
+  const list = Array.isArray(res) ? res : res.data;
+  const map = new Map<string, ProductionOrderInfo>();
+  for (const o of list) {
+    if (!map.has(o.mfgProductId)) {
+      map.set(o.mfgProductId, { poCode: o.salesOrderCode, piCode: o.piCode, deliveryDate: o.deliveryDeadline });
+    }
+  }
+  return map;
+}

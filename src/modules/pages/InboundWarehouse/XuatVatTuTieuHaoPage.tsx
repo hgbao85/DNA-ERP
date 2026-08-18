@@ -17,6 +17,7 @@ import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeMaterialIssuePlanItem, MaterialIssueStage } from '../../../services/material-issues-api'
+import { buildProductionOrderInfoByMfgProduct } from '../../../services/production-invoice-item'
 import { errMsg } from '../../../utils/errors'
 import { backBtn } from '../../../styles/buttons'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
@@ -34,6 +35,10 @@ const card: React.CSSProperties = { background: 'var(--surface)', border: '1px s
 export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialIssueStage; desc: string }) {
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
   const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT')
+  // PO/PI/hạn giao thật (từ ProductionOrder Sếp đã duyệt) - KHÔNG dùng Sku.exportOrder/Sku.piCode,
+  // xem comment ở buildProductionOrderInfoByMfgProduct().
+  const { data: poInfoByProduct } = useFetch(() => buildProductionOrderInfoByMfgProduct(), [])
+  const poInfoFor = (pf: Sku) => poInfoByProduct?.get(pf.mfgProductId)
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const { data: planData, isLoading: planLoading, refetch } = useFetch<BeMaterialIssuePlanItem[]>(
@@ -81,14 +86,19 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
               )}
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
-              PO: {selectedPf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
+              PO: {poInfoFor(selectedPf)?.poCode ?? 'Chưa gắn đơn hàng'}
+              {poInfoFor(selectedPf)?.piCode && <> · PI: {poInfoFor(selectedPf)!.piCode}</>}
             </div>
           </div>
         </div>
         <div style={{ color: 'var(--text3)', fontSize: 13, margin: '0 0 16px' }}>{desc}</div>
 
         {planLoading ? <LoadingState /> : plan.length === 0 ? (
-          <div style={emptyBox}>Chưa có định mức vật tư tiêu hao cho SKU này (chưa được Sếp duyệt lệnh sản xuất, hoặc BOM chưa khai định mức tiêu hao)</div>
+          <div style={emptyBox}>
+            {poInfoFor(selectedPf)
+              ? 'SKU này đã có lệnh sản xuất (PO/PI ở trên) nhưng BOM chưa khai định mức vật tư tiêu hao — báo KHSX bổ sung định mức cho sản phẩm này trước khi xuất được.'
+              : 'SKU này chưa được Sếp duyệt lệnh sản xuất — chưa có gì để xuất.'}
+          </div>
         ) : (
           <div style={{ ...card, overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
@@ -160,36 +170,42 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
             <colgroup>
               <col style={{ width: 130 }} />
               <col />
+              <col style={{ width: 110 }} />
               <col style={{ width: 130 }} />
             </colgroup>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={thStyle}>PO</th>
                 <th style={thStyle}>SKU</th>
+                <th style={thStyle}>PI</th>
                 <th style={thStyle}>Hạn giao</th>
               </tr>
             </thead>
             <tbody>
-              {active.map(pf => (
-                <tr key={pf.id} onClick={() => setSelectedPf(pf)} style={row}>
-                  <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
-                  </td>
-                  <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
-                    {pf.mfgProduct?.name && (
-                      <><span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>{pf.mfgProduct.name}</>
-                    )}
-                  </td>
-                  <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: 'var(--text2)' }}>
-                    {pf.exportOrder?.deliveryDate
-                      ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy')
-                      : '—'}
-                  </td>
-                </tr>
-              ))}
+              {active.map(pf => {
+                const poInfo = poInfoFor(pf)
+                return (
+                  <tr key={pf.id} onClick={() => setSelectedPf(pf)} style={row}>
+                    <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {poInfo?.poCode ?? 'Chưa gắn đơn hàng'}
+                    </td>
+                    <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
+                      {pf.mfgProduct?.name && (
+                        <><span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>{pf.mfgProduct.name}</>
+                      )}
+                    </td>
+                    <td style={{ ...tdStyle, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {poInfo?.piCode ?? '—'}
+                    </td>
+                    <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: 'var(--text2)' }}>
+                      {poInfo?.deliveryDate ? format(new Date(poInfo.deliveryDate), 'dd/MM/yyyy') : '—'}
+                    </td>
+                  </tr>
+                )
+              })}
               {active.length === 0 && (
-                <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có PO nào</td></tr>
+                <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có PO nào</td></tr>
               )}
             </tbody>
           </table>

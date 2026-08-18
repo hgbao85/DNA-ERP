@@ -20,6 +20,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
 import type { BeSteelIssuePlanItem, BeSteelIssue, BeReplenishRequest } from '../../../services/steel-issues-api'
+import { buildProductionOrderInfoByMfgProduct } from '../../../services/production-invoice-item'
 import { errMsg } from '../../../utils/errors'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
@@ -30,6 +31,10 @@ const ACCENT = '#4527A0'
 export default function XuatSatPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
   const { data: replenish, refetch: refetchReplenish } = useFetch<BeReplenishRequest[]>(() => api.getReplenishRequests('OPEN'), [])
+  // PO/PI thật (từ ProductionOrder Sếp đã duyệt) - KHÔNG dùng Sku.exportOrder/Sku.piCode, xem
+  // comment ở buildProductionOrderInfoByMfgProduct().
+  const { data: poInfoByProduct } = useFetch(() => buildProductionOrderInfoByMfgProduct(), [])
+  const poInfoFor = (pf: Sku) => poInfoByProduct?.get(pf.mfgProductId)
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const { data: planData, isLoading: planLoading, refetch } = useFetch<BeSteelIssuePlanItem[]>(
@@ -42,6 +47,21 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
     [selectedPf?.id],
   )
   const history = historyData ?? []
+  // Chiều dài cây mặc định — cây sắt nguyên liệu chuẩn luôn là 6000mm (chốt 2026-08-18), vẫn sửa
+  // được vì kho vật lý có thể đang có cây dài khác. Bỏ hẳn hướng lấy bestStockLengthMm từ phương
+  // án cắt (getApprovedBarLengthByMaterial) — quá phức tạp so với lợi ích, số đó cũng không đại
+  // diện chung cho cả PI khi 1 vật tư dùng ở nhiều sản phẩm/phương án cắt khác nhau.
+  const DEFAULT_BAR_LENGTH_MM = 6000
+  const suggestedBarLen = () => DEFAULT_BAR_LENGTH_MM
+
+  // Gộp danh sách kế hoạch (1 dòng/loại sắt) theo mảnh để hiển thị gọn — mỗi mảnh 1 khối, bên
+  // trong liệt kê các loại sắt của mảnh đó thay vì lặp lại tên mảnh trên từng dòng.
+  const pieceGroups: { pieceId: string; pieceName: string; items: BeSteelIssuePlanItem[] }[] = []
+  for (const item of plan) {
+    const g = pieceGroups.find(g => g.pieceId === item.pieceId)
+    if (g) g.items.push(item)
+    else pieceGroups.push({ pieceId: item.pieceId, pieceName: item.pieceName, items: [item] })
+  }
 
   const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT')
 
@@ -51,27 +71,34 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
   const [msgs, setMsgs] = useState<Record<string, string>>({})
   const { ask, confirmModal } = useConfirm()
 
-  const issuedForPiece = (pieceId: string) =>
-    history.filter(h => h.pieceId === pieceId).reduce((s, h) => s + h.barCount, 0)
+  // Key = `${pieceId}:${materialId}` — 1 mảnh có thể dùng nhiều loại sắt, mỗi loại 1 dòng kế
+  // hoạch riêng (xem SteelIssuesService.getIssuePlan, BE), nên pieceId một mình không còn là khoá
+  // duy nhất trong danh sách plan/state ở đây.
+  const planKey = (p: { pieceId: string; materialId: string }) => `${p.pieceId}:${p.materialId}`
+
+  const issuedForPiece = (pieceId: string, materialId: string) =>
+    history.filter(h => h.pieceId === pieceId && h.materialId === materialId).reduce((s, h) => s + h.barCount, 0)
 
   const handleXuat = (piece: BeSteelIssuePlanItem) => {
-    const len = Number(barLen[piece.pieceId])
-    const n = Number(barCount[piece.pieceId])
-    if (!len || len <= 0) { setMsgs(p => ({ ...p, [piece.pieceId]: 'Nhập chiều dài cây hợp lệ' })); return }
-    if (!n || n <= 0) { setMsgs(p => ({ ...p, [piece.pieceId]: 'Nhập số cây hợp lệ' })); return }
+    const key = planKey(piece)
+    const lenRaw = barLen[key] ?? suggestedBarLen().toString()
+    const len = Number(lenRaw)
+    const n = Number(barCount[key])
+    if (!len || len <= 0) { setMsgs(p => ({ ...p, [key]: 'Nhập chiều dài cây hợp lệ' })); return }
+    if (!n || n <= 0) { setMsgs(p => ({ ...p, [key]: 'Nhập số cây hợp lệ' })); return }
     ask(
       { message: `Xuất ${n} cây ${piece.materialName} (dài ${len}mm) cho Phôi?` },
       async () => {
         if (!selectedPf) return
-        setBusy(piece.pieceId)
-        setMsgs(p => ({ ...p, [piece.pieceId]: '' }))
+        setBusy(key)
+        setMsgs(p => ({ ...p, [key]: '' }))
         try {
-          await api.issueSteel(selectedPf, { pieceId: piece.pieceId, barLengthMm: len, barCount: n })
-          setBarLen(p => ({ ...p, [piece.pieceId]: '' }))
-          setBarCount(p => ({ ...p, [piece.pieceId]: '' }))
+          await api.issueSteel(selectedPf, { pieceId: piece.pieceId, materialId: piece.materialId, barLengthMm: len, barCount: n })
+          setBarLen(p => ({ ...p, [key]: '' }))
+          setBarCount(p => ({ ...p, [key]: '' }))
           await Promise.all([refetch(), refetchHistory()])
         } catch (e) {
-          setMsgs(p => ({ ...p, [piece.pieceId]: errMsg(e, 'Không thể xuất sắt') }))
+          setMsgs(p => ({ ...p, [key]: errMsg(e, 'Không thể xuất sắt') }))
         } finally {
           setBusy(null)
         }
@@ -116,73 +143,99 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
               )}
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
-              PO: {selectedPf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
+              PO: {poInfoFor(selectedPf)?.poCode ?? 'Chưa gắn đơn hàng'}
+              {poInfoFor(selectedPf)?.piCode && <> · PI: {poInfoFor(selectedPf)!.piCode}</>}
             </div>
           </div>
         </div>
 
         {planLoading ? <LoadingState /> : plan.length === 0 ? (
-          <div style={emptyBox}>Chưa có mảnh nào cần xuất sắt (SKU chưa được Sếp duyệt lệnh sản xuất, hoặc chưa có phương án cắt sắt đã duyệt)</div>
+          <div style={emptyBox}>
+            {poInfoFor(selectedPf)
+              ? 'SKU này đã có lệnh sản xuất (PO/PI ở trên) nhưng chưa khai định mức mảnh sắt (BOM) — báo KHSX bổ sung mảnh sắt cho sản phẩm này trước khi xuất được.'
+              : 'SKU này chưa được Sếp duyệt lệnh sản xuất — chưa có gì để xuất sắt.'}
+          </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {plan.map(piece => (
-              <div key={piece.pieceId} style={tableWrap}>
-                <div style={{ padding: '12px 14px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 16 }}>
-                  <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {piece.pieceName} <span style={{ fontWeight: 400, color: 'var(--text3)' }}>— {piece.materialName}</span>
-                    </div>
-                    <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
-                      Σ đoạn cần (BOM) <b style={{ color: 'var(--text2)' }}>{piece.requiredSegments}</b> · Đã xuất <b style={{ color: piece.issuedBarCount > 0 ? ACCENT : 'var(--text2)' }}>{issuedForPiece(piece.pieceId)}</b> cây
-                      {piece.remainingToIssue != null && (
-                        <> · Còn được xuất <b style={{ color: piece.remainingToIssue > 0 ? 'var(--text2)' : '#dc2626' }}>{piece.remainingToIssue}</b> cây</>
-                      )}
-                      {piece.physicalStockQty != null && (
-                        <> · Tồn kho <b style={{ color: 'var(--text2)' }}>{piece.physicalStockQty}</b> cây</>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                      <input
-                        type="number" min={1} placeholder="dài (mm)"
-                        value={barLen[piece.pieceId] ?? ''}
-                        onChange={e => setBarLen(p => ({ ...p, [piece.pieceId]: e.target.value }))}
-                        style={{ width: 90, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
-                      />
-                      <input
-                        type="number" min={1} placeholder="SL cây"
-                        value={barCount[piece.pieceId] ?? ''}
-                        onChange={e => setBarCount(p => ({ ...p, [piece.pieceId]: e.target.value }))}
-                        style={{ width: 70, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
-                      />
-                      <button
-                        onClick={() => handleXuat(piece)}
-                        disabled={busy === piece.pieceId}
-                        style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: ACCENT, color: '#fff', cursor: busy === piece.pieceId ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
-                      >
-                        {busy === piece.pieceId ? '...' : 'Xuất'}
-                      </button>
-                    </div>
-                    {msgs[piece.pieceId] && <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626' }}>{msgs[piece.pieceId]}</div>}
-                  </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {pieceGroups.map(g => (
+              <div key={g.pieceId} style={tableWrap}>
+                <div style={{ padding: '10px 14px', fontWeight: 700, fontSize: 14, borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
+                  {g.pieceName}
+                  <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 12, marginLeft: 8 }}>{g.items.length} loại sắt</span>
                 </div>
+                <table style={{ ...tbl, tableLayout: 'auto' }}>
+                  <thead>
+                    <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                      <th style={thStyle}>Vật tư</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Cần</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Đã xuất</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Còn được xuất</th>
+                      <th style={{ ...thStyle, textAlign: 'right' }}>Tồn kho</th>
+                      <th style={{ ...thStyle, textAlign: 'center', width: 240 }}>Xuất</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {g.items.map(piece => {
+                      const key = planKey(piece)
+                      const suggested = suggestedBarLen()
+                      return (
+                        <tr key={key} style={row}>
+                          <td style={{ ...tdStyle, fontWeight: 600 }}>{piece.materialName}</td>
+                          <td style={{ ...tdStyle, textAlign: 'right' }}>{piece.requiredSegments}</td>
+                          <td style={{ ...tdStyle, textAlign: 'right', color: piece.issuedBarCount > 0 ? ACCENT : 'var(--text2)' }}>
+                            {issuedForPiece(piece.pieceId, piece.materialId)}
+                          </td>
+                          <td style={{ ...tdStyle, textAlign: 'right', color: piece.remainingToIssue != null && piece.remainingToIssue <= 0 ? '#dc2626' : 'var(--text2)' }}>
+                            {piece.remainingToIssue ?? '—'}
+                          </td>
+                          <td style={{ ...tdStyle, textAlign: 'right' }}>{piece.physicalStockQty ?? '—'}</td>
+                          <td style={{ ...tdStyle, textAlign: 'center' }}>
+                            <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+                              <input
+                                type="number" min={1} placeholder="dài (mm)"
+                                title={`Mặc định cây chuẩn ${suggested}mm — sửa lại nếu kho đang có cây dài khác`}
+                                value={barLen[key] ?? String(suggested)}
+                                onChange={e => setBarLen(p => ({ ...p, [key]: e.target.value }))}
+                                style={{ width: 80, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                              />
+                              <input
+                                type="number" min={1} placeholder="SL cây"
+                                value={barCount[key] ?? ''}
+                                onChange={e => setBarCount(p => ({ ...p, [key]: e.target.value }))}
+                                style={{ width: 64, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                              />
+                              <button
+                                onClick={() => handleXuat(piece)}
+                                disabled={busy === key}
+                                style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: ACCENT, color: '#fff', cursor: busy === key ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                              >
+                                {busy === key ? '...' : 'Xuất'}
+                              </button>
+                            </div>
+                            {msgs[key] && <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626' }}>{msgs[key]}</div>}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
 
-                {history.some(h => h.pieceId === piece.pieceId) && (
-                  <table style={{ ...tbl, tableLayout: 'auto' }}>
+                {history.some(h => h.pieceId === g.pieceId) && (
+                  <table style={{ ...tbl, tableLayout: 'auto', borderTop: '1px solid var(--border)' }}>
                     <thead>
                       <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                         <th style={thStyle}>Thời gian</th>
+                        <th style={thStyle}>Vật tư</th>
                         <th style={{ ...thStyle, textAlign: 'right' }}>Dài (mm)</th>
                         <th style={{ ...thStyle, textAlign: 'right' }}>Số cây</th>
                         <th style={thStyle}>Trạng thái</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {history.filter(h => h.pieceId === piece.pieceId).map(h => (
+                      {history.filter(h => h.pieceId === g.pieceId).map(h => (
                         <tr key={h.id} style={row}>
                           <td style={tdStyle}>{new Date(h.issuedAt).toLocaleString('vi-VN')}</td>
+                          <td style={tdStyle}>{g.items.find(it => it.materialId === h.materialId)?.materialName ?? h.materialId}</td>
                           <td style={{ ...tdStyle, textAlign: 'right' }}>{h.barLengthMm.toLocaleString('vi-VN')}</td>
                           <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{h.barCount}</td>
                           <td style={tdStyle}>{statusLabel(h.status)}</td>
@@ -231,29 +284,37 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
             <colgroup>
               <col style={{ width: 130 }} />
               <col />
+              <col style={{ width: 110 }} />
             </colgroup>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={thStyle}>PO</th>
                 <th style={thStyle}>SKU</th>
+                <th style={thStyle}>PI</th>
               </tr>
             </thead>
             <tbody>
-              {active.map(pf => (
-                <tr key={pf.id} onClick={() => setSelectedPf(pf)} style={row}>
-                  <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
-                  </td>
-                  <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
-                    {pf.mfgProduct?.name && (
-                      <><span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>{pf.mfgProduct.name}</>
-                    )}
-                  </td>
-                </tr>
-              ))}
+              {active.map(pf => {
+                const poInfo = poInfoFor(pf)
+                return (
+                  <tr key={pf.id} onClick={() => setSelectedPf(pf)} style={row}>
+                    <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {poInfo?.poCode ?? 'Chưa gắn đơn hàng'}
+                    </td>
+                    <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
+                      {pf.mfgProduct?.name && (
+                        <><span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>{pf.mfgProduct.name}</>
+                      )}
+                    </td>
+                    <td style={{ ...tdStyle, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {poInfo?.piCode ?? '—'}
+                    </td>
+                  </tr>
+                )
+              })}
               {active.length === 0 && (
-                <tr><td colSpan={2} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có PO nào</td></tr>
+                <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có PO nào</td></tr>
               )}
             </tbody>
           </table>
