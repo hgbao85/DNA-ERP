@@ -68,6 +68,10 @@ export interface CandidateMaterial {
   materialName: string;
   /** Hao hụt khi SKU này cắt loại sắt đó MỘT MÌNH. Hiển thị kèm dấu "≥". */
   standaloneWastePct: number;
+  /** Cận dưới số cây khi cắt MỘT MÌNH SKU này. Số nhỏ (ít cây) khiến standaloneWastePct lệch xa
+   *  thực tế NHẤT - dùng để cảnh báo "cận dưới không đáng tin", xem isLowConfidence() ở
+   *  GomDotCatPage.tsx. */
+  standaloneMinBars: number;
   thresholdPct: number;
   overThreshold: boolean;
   /** Mã SKU của các đơn KHÁC cũng dùng loại sắt này = danh sách "gộp được với ai". */

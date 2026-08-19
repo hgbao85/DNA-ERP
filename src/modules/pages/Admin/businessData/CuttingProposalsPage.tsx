@@ -1,7 +1,7 @@
 'use client'
-import { Fragment, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
-import { Scissors, Info, ChevronDown, ChevronRight, FileSpreadsheet, X } from 'lucide-react'
+import { Scissors, Info, ChevronDown, ChevronRight, FileSpreadsheet, X, Loader2, AlertTriangle } from 'lucide-react'
 import { useFetch } from '../../../../hooks/useFetch'
 import SearchInput from '../../../../components/SearchInput'
 import FilterPills from '../../../../components/FilterPills'
@@ -14,24 +14,43 @@ import {
   getCuttingProposals,
   getCuttingProposal,
   retryCuttingProposal,
+  retryCuttingProposalForInvoice,
   type CuttingProposal,
-  type CuttingProposalStatus,
+  type CuttingProposalDisplayStatus,
   type CuttingProposalLine,
 } from '../../../../services/cutting-proposals-api'
 
 const ACCENT = '#3949ab'
 
-const STATUS_LABELS: Record<CuttingProposalStatus, { label: string; bg: string; color: string }> = {
+/** 3 nhãn rút gọn (2026-08-19, xem BE CuttingProposalDisplayStatus) - SUPERSEDED không nằm trong
+ *  danh sách lọc, bị ẩn khỏi `items` mặc định (bản cũ đã bị "Tính lại" thay thế, không ai cần
+ *  xem lại trừ khi audit trực tiếp qua DB). */
+const DISPLAY_LABELS: Record<Exclude<CuttingProposalDisplayStatus, 'SUPERSEDED'>, { label: string; bg: string; color: string }> = {
   CALCULATING: { label: 'Đang tính', bg: '#eceff1', color: '#546e7a' },
-  DRAFT: { label: 'Đã tính', bg: '#e3f2fd', color: '#1565c0' },
-  FAILED: { label: 'Lỗi', bg: '#ffebee', color: '#c62828' },
-  APPROVED: { label: 'Đã duyệt', bg: '#e8f5e9', color: '#2e7d32' },
-  SUPERSEDED: { label: 'Đã thay thế', bg: '#eceff1', color: '#78909c' },
+  OK: { label: 'Đạt', bg: '#e8f5e9', color: '#2e7d32' },
+  NEEDS_ACTION: { label: 'Cần xử lý', bg: '#ffebee', color: '#c62828' },
 }
 
 const ALL_KEY = '__all__'
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString('vi-VN') : '—')
 const fmtPct = (n: number | null) => (n == null ? '—' : `${n.toFixed(2)}%`)
+
+/** "Đang tính... (đã chạy X phút)" - thời gian solve dao động rất lớn (đo thật: 4,7 -> hơn 15
+ *  phút tuỳ vật tư). Tự đếm bằng interval riêng (không phụ thuộc refetch cha) để số luôn đúng dù
+ *  danh sách có tự làm mới hay không - mirror LenhSXPage.tsx::CalculatingBadge. */
+function CalculatingBadge({ requestedAt }: { requestedAt: string }) {
+  const [, forceTick] = useState(0)
+  useEffect(() => {
+    const id = setInterval(() => forceTick(n => n + 1), 15000)
+    return () => clearInterval(id)
+  }, [])
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(requestedAt).getTime()) / 60000))
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#546e7a', background: '#eceff1', padding: '2px 8px', borderRadius: 10 }}>
+      <Loader2 size={10} className="spin" /> Đang tính... (đã chạy {minutes} phút)
+    </span>
+  )
+}
 
 interface CuttingGuideRow {
   patternIndex: number
@@ -86,9 +105,19 @@ function exportCuttingGuideExcel(proposal: CuttingProposal, line: CuttingProposa
   XLSX.writeFile(wb, `Huong-dan-cat-${proposal.poNumber}-${line.materialCode}.xlsx`)
 }
 
+/** Gọi đúng route retry theo neo của phương án (1 lệnh SX riêng, hoặc cả PI gộp) - xem
+ *  cutting-proposals-api.ts. Trước 2026-08-19 chỉ có nhánh productionOrderId, phương án neo PI
+ *  gộp bấm "Tính lại" luôn lỗi vì route BE tương ứng chưa tồn tại. */
+async function retryProposal(p: CuttingProposal): Promise<CuttingProposal> {
+  if (p.productionOrderId) return retryCuttingProposal(p.productionOrderId)
+  if (p.productionInvoiceId) return retryCuttingProposalForInvoice(p.productionInvoiceId)
+  throw new Error('Phương án không neo vào lệnh sản xuất hay đợt gộp nào (dữ liệu hỏng)')
+}
+
 export default function CuttingProposalsPage() {
   const { data, isLoading, refetch } = useFetch(() => getCuttingProposals(), [])
-  const items = useMemo(() => data ?? [], [data])
+  // SUPERSEDED ẩn mặc định - bản cũ đã bị "Tính lại" thay thế, xem DISPLAY_LABELS.
+  const items = useMemo(() => (data ?? []).filter(p => p.displayStatus !== 'SUPERSEDED'), [data])
 
   const [search, setSearch] = useState('')
   const [activeFilter, setActiveFilter] = useState<string>(ALL_KEY)
@@ -104,17 +133,26 @@ export default function CuttingProposalsPage() {
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
 
+  // Poll có điều kiện: chỉ khi còn dòng đang tính, tự tắt ngay khi hết - tránh request vô ích khi
+  // màn hình đứng yên. Mirror LenhSXPage.tsx (đã chạy ổn với cùng bài toán ở màn Lệnh SX).
+  const hasCalculating = items.some(p => p.displayStatus === 'CALCULATING')
+  useEffect(() => {
+    if (!hasCalculating) return
+    const id = setInterval(refetch, 20000)
+    return () => clearInterval(id)
+  }, [hasCalculating, refetch])
+
   const filterOptions = [
     { key: ALL_KEY, label: 'Tất cả' },
-    ...(Object.entries(STATUS_LABELS) as [CuttingProposalStatus, (typeof STATUS_LABELS)[CuttingProposalStatus]][])
+    ...(Object.entries(DISPLAY_LABELS) as [CuttingProposalDisplayStatus, (typeof DISPLAY_LABELS)[keyof typeof DISPLAY_LABELS]][])
       .map(([key, s]) => ({ key, label: s.label, color: s.color, bg: s.bg })),
   ]
   const countFor = (key: string) =>
-    key === ALL_KEY ? items.length : items.filter(p => p.status === key).length
+    key === ALL_KEY ? items.length : items.filter(p => p.displayStatus === key).length
 
   const filtered = useMemo(() => {
     let list = items
-    if (activeFilter !== ALL_KEY) list = list.filter(p => p.status === activeFilter)
+    if (activeFilter !== ALL_KEY) list = list.filter(p => p.displayStatus === activeFilter)
     if (search.trim()) {
       const q = search.trim().toLocaleLowerCase('vi')
       list = list.filter(p =>
@@ -155,7 +193,7 @@ export default function CuttingProposalsPage() {
     setBusy(true)
     setActionError(null)
     try {
-      await retryCuttingProposal(retryTarget.productionOrderId)
+      await retryProposal(retryTarget)
       setRetryTarget(null)
       refetch()
     } catch (e: unknown) {
@@ -177,7 +215,7 @@ export default function CuttingProposalsPage() {
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
         <Info size={13} />
-        Phase 7 (cắt sắt) chưa có màn nghiệp vụ riêng — &quot;Tính lại&quot; tạm thời đặt ở đây (chỉ dùng khi tính lỗi).
+        Phase 7 (cắt sắt) chưa có màn nghiệp vụ riêng — &quot;Tính lại&quot; tạm thời đặt ở đây (chỉ dùng khi cần xử lý).
       </div>
 
       <div style={{ marginBottom: 14 }}>
@@ -205,14 +243,23 @@ export default function CuttingProposalsPage() {
               </thead>
               <tbody>
                 {paged.map(p => {
-                  const s = STATUS_LABELS[p.status]
-                  const canRetry = p.status === 'FAILED'
+                  const s = DISPLAY_LABELS[p.displayStatus as Exclude<CuttingProposalDisplayStatus, 'SUPERSEDED'>]
+                  const canRetry = p.displayStatus === 'NEEDS_ACTION'
                   return (
                     <tr key={p.id} style={row} onClick={() => void openDetail(p.id)}>
                       <td style={td}>{p.salesOrderCode ?? '—'}</td>
                       <td style={td}>{p.mfgProductName ? `${p.mfgProductCode} — ${p.mfgProductName}` : p.mfgProductCode}</td>
                       <td style={td}>
-                        <span style={{ ...badge, background: s.bg, color: s.color }}>{s.label}</span>
+                        {p.displayStatus === 'CALCULATING' ? (
+                          <CalculatingBadge requestedAt={p.requestedAt} />
+                        ) : (
+                          <div>
+                            <span style={{ ...badge, background: s.bg, color: s.color }}>{s.label}</span>
+                            {p.displayStatus === 'NEEDS_ACTION' && p.displayReason && (
+                              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, maxWidth: 260 }}>{p.displayReason}</div>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td style={{ ...td, textAlign: 'right' }}>{p.totalBarsAll ?? '—'}</td>
                       <td style={{ ...td, textAlign: 'right' }}>{fmtPct(p.wastePercentage)}</td>
@@ -263,22 +310,34 @@ export default function CuttingProposalsPage() {
                   </div>
                 )}
               </div>
-              <button
-                onClick={() => { setDetailId(null); setDetail(null) }}
-                aria-label="Đóng"
-                style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 4, color: 'var(--text3)' }}
-              >
-                <X size={18} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {detail?.displayStatus === 'NEEDS_ACTION' && (
+                  <button
+                    onClick={() => setRetryTarget(detail)}
+                    style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer' }}
+                  >
+                    Tính lại
+                  </button>
+                )}
+                <button
+                  onClick={() => { setDetailId(null); setDetail(null) }}
+                  aria-label="Đóng"
+                  style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 4, color: 'var(--text3)' }}
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
         {detailLoading ? (
           <LoadingState />
-        ) : detail?.errorMessage ? (
-          <div style={{ background: 'rgba(198,40,40,.08)', border: '1px solid rgba(198,40,40,.3)', borderRadius: 8, padding: '10px 12px', color: '#c62828', fontSize: 13 }}>
-            {detail.errorMessage}
+        ) : detail?.displayStatus === 'NEEDS_ACTION' && detail.displayReason ? (
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, background: 'rgba(198,40,40,.08)', border: '1px solid rgba(198,40,40,.3)', borderRadius: 8, padding: '10px 12px', color: '#c62828', fontSize: 13, marginBottom: 16 }}>
+            <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+            <span>{detail.displayReason}</span>
           </div>
-        ) : detail?.lines && detail.lines.length > 0 ? (
+        ) : null}
+        {detail?.lines && detail.lines.length > 0 ? (
           <div style={{ ...tableWrap, marginBottom: 0 }}>
             <table style={tbl}>
               <thead>
@@ -305,7 +364,12 @@ export default function CuttingProposalsPage() {
                         <td style={{ ...td, width: 24 }}>
                           {hasGuide && (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
                         </td>
-                        <td style={td}>{l.materialCode} — {l.materialName}</td>
+                        <td style={td}>
+                          {l.materialCode} — {l.materialName}
+                          {l.displayReason && (
+                            <div style={{ fontSize: 11, color: '#c62828', marginTop: 4, maxWidth: 320 }}>{l.displayReason}</div>
+                          )}
+                        </td>
                         <td style={td}>
                           <span style={{ ...badge, background: l.feasible ? '#e8f5e9' : '#ffebee', color: l.feasible ? '#2e7d32' : '#c62828' }}>
                             {l.feasible ? 'Khả thi' : 'Không khả thi'}
@@ -375,9 +439,9 @@ export default function CuttingProposalsPage() {
               </tbody>
             </table>
           </div>
-        ) : (
+        ) : !detailLoading && detail?.displayStatus !== 'NEEDS_ACTION' ? (
           <div style={{ fontSize: 13, color: 'var(--text3)' }}>Chưa có dữ liệu (đang tính).</div>
-        )}
+        ) : null}
             </div>
           </div>
         </div>

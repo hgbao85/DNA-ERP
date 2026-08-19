@@ -51,19 +51,32 @@ const TD: React.CSSProperties = {
 }
 const NUM: React.CSSProperties = { ...TD, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }
 
-function MaterialChip({ code, pct, over }: { code: string; pct: number; over: boolean }) {
+/**
+ * Cận dưới (best-fill.util.ts) giả định nguồn đoạn VÔ HẠN - đúng khi có đủ cây để lặp lại pattern
+ * lý tưởng, sai lệch NẶNG khi ít cây (1-2 cây thì cây cuối gần như quyết định cả %). Ngưỡng 3 là
+ * kinh nghiệm chọn, không phải số đo được - xem changelog 2026-08-15 mục 15.6-7.
+ */
+const isLowConfidence = (minBars: number) => minBars > 0 && minBars < 3
+
+function MaterialChip({ code, pct, over, minBars }: { code: string; pct: number; over: boolean; minBars: number }) {
+  const lowConfidence = isLowConfidence(minBars)
   return (
     <span
-      title={`${code} — hao hụt tốt nhất có thể khi SKU này cắt một mình`}
+      title={
+        lowConfidence
+          ? `${code} — chỉ ${minBars} cây, cận dưới này KHÔNG đáng tin (số lượng quá nhỏ để so sánh)`
+          : `${code} — hao hụt tốt nhất có thể khi SKU này cắt một mình`
+      }
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600,
         padding: '2px 7px', borderRadius: 20, whiteSpace: 'nowrap',
-        background: over ? '#fee2e2' : 'var(--surface2)',
-        color: over ? '#b91c1c' : 'var(--text2)',
+        background: over ? '#fee2e2' : lowConfidence ? '#fef9c3' : 'var(--surface2)',
+        color: over ? '#b91c1c' : lowConfidence ? '#854d0e' : 'var(--text2)',
       }}
     >
       {over && <AlertTriangle size={11} />}
       {code} ≥{pct.toFixed(2)}%
+      {lowConfidence && <span style={{ fontWeight: 700 }}>?</span>}
     </span>
   )
 }
@@ -183,7 +196,8 @@ export default function GomDotCatPage({ onDone }: Props) {
         <span>
           Các con số hao hụt là <b>mức tốt nhất có thể</b> (nên luôn có dấu ≥) — thực tế có thể cao
           hơn vì còn phụ thuộc số lượng và cây cắt dở cuối đợt. Dùng để so sánh phương án, không
-          phải cam kết kết quả.
+          phải cam kết kết quả. Dấu <b style={{ color: '#854d0e' }}>?</b> cạnh % nghĩa là số lượng
+          quá ít (dưới 3 cây) để con số này còn đáng tin — chỉ hoàn toàn dựa vào nó để quyết định.
         </span>
       </div>
 
@@ -284,7 +298,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                           <>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                               {it.materials.map((m) => (
-                                <MaterialChip key={m.materialId} code={m.materialCode} pct={m.standaloneWastePct} over={m.overThreshold} />
+                                <MaterialChip key={m.materialId} code={m.materialCode} pct={m.standaloneWastePct} over={m.overThreshold} minBars={m.standaloneMinBars} />
                               ))}
                             </div>
                             {/* Chỉ gợi ý cho loại VƯỢT ngưỡng - loại đang đạt thì không cần gộp,
@@ -383,7 +397,10 @@ export default function GomDotCatPage({ onDone }: Props) {
                         {l.barsSavedVsSeparate > 0 ? `−${l.barsSavedVsSeparate}` : '0'}
                       </td>
                       <td style={NUM}>
-                        ≥ {l.minWastePct.toFixed(2)}%
+                        <span title={isLowConfidence(l.minBars) ? `Chỉ ${l.minBars} cây - cận dưới này KHÔNG đáng tin (số lượng quá nhỏ để so sánh)` : undefined}>
+                          ≥ {l.minWastePct.toFixed(2)}%
+                          {isLowConfidence(l.minBars) && <span style={{ marginLeft: 3, fontWeight: 700, color: '#854d0e' }}>?</span>}
+                        </span>
                         {l.meetsThreshold
                           ? <span style={{ marginLeft: 5, color: '#166534' }}><Check size={12} /></span>
                           : <span style={{ marginLeft: 5, fontSize: 11, color: '#b91c1c' }}>vượt ngưỡng {l.thresholdPct}%</span>}

@@ -10,6 +10,12 @@ import { http, withIdempotencyKey } from './core/http';
 
 export type CuttingProposalStatus = 'CALCULATING' | 'DRAFT' | 'FAILED' | 'APPROVED' | 'SUPERSEDED';
 
+/** Trạng thái RÚT GỌN cho hiển thị (2026-08-19) - dùng field này để quyết định chip/màu, KHÔNG
+ *  dùng `status` trực tiếp (5 giá trị DB không map 1-1 ra 3 chip). Xem BE
+ *  CuttingProposalDisplayStatus cho định nghĩa từng nhánh (bao gồm chống nháy trạng thái khi vừa
+ *  tính xong đang chờ tự-duyệt, và chống treo CALCULATING quá lâu). */
+export type CuttingProposalDisplayStatus = 'CALCULATING' | 'OK' | 'NEEDS_ACTION' | 'SUPERSEDED';
+
 export interface CuttingProposalSegment {
   segmentSpecId: string;
   cutLengthMm: number;
@@ -38,12 +44,24 @@ export interface CuttingProposalLine {
   wastePercentage: number | null;
   mauNguyenMm: number | null;
   lengthComparison: { length: number; bars: number; wastePct: number }[] | null;
+  /** Lý do KHÔNG cắt được, NGUYÊN VĂN từ solver - null khi feasible=true. Ưu tiên hiển thị
+   *  `displayReason` (đã dựng sẵn tiếng Việt) thay vì tự ghép field này. */
+  reason: string | null;
+  bestAchievable: { length: number; waste_pct: number; bars: number } | null;
+  timedOut: boolean | null;
+  maxWastePctThreshold: number | null;
+  overThreshold: boolean | null;
+  /** Câu tiếng Việt ĐÃ DỰNG SẴN cho dòng này - null khi dòng không cần xử lý gì. */
+  displayReason: string | null;
   patterns: CuttingProposalPattern[];
 }
 
 export interface CuttingProposal {
   id: string;
-  productionOrderId: string;
+  /** null với phương án neo vào PI gộp (productionInvoiceId có giá trị thay vào đó) - xem
+   *  productionInvoiceId bên dưới. */
+  productionOrderId: string | null;
+  productionInvoiceId: string | null;
   /** Mã nội bộ (ProductionOrder.poNumber) - chỉ hệ thống dùng, KHÔNG hiển thị. Dùng `salesOrderCode`. */
   poNumber: string;
   /** Mã đơn hàng Sales gốc - đây mới là mã "PO" hiển thị cho người dùng. */
@@ -51,6 +69,10 @@ export interface CuttingProposal {
   mfgProductCode: string;
   mfgProductName: string | null;
   status: CuttingProposalStatus;
+  displayStatus: CuttingProposalDisplayStatus;
+  /** Câu tiếng Việt ngắn gọn giải thích displayStatus=NEEDS_ACTION (list-level, không đầy đủ bằng
+   *  lines[].displayReason - chỉ có khi gọi getCuttingProposal() chi tiết). null ở trạng thái khác. */
+  displayReason: string | null;
   totalBarsAll: number | null;
   totalWasteMm: number | null;
   wastePercentage: number | null;
@@ -81,7 +103,10 @@ export async function getCuttingProposalsForOrder(productionOrderId: string): Pr
   return Array.isArray(res) ? res : res.data;
 }
 
-/** Nút "Tính lại" - gọi lại theo productionOrderId (không phải cuttingProposalId). */
+/** Nút "Tính lại" cho phương án neo VÀO 1 LỆNH SX riêng - gọi theo productionOrderId (không phải
+ *  cuttingProposalId). Với phương án neo PI GỘP (productionOrderId=null), dùng
+ *  `retryCuttingProposalForInvoice` bên dưới - route BE khác hẳn (trước 2026-08-19 không tồn
+ *  tại, gọi nhầm hàm này với id null luôn lỗi). */
 export async function retryCuttingProposal(productionOrderId: string): Promise<CuttingProposal> {
   return http.post<CuttingProposal>(
     `/production-orders/${productionOrderId}/cutting-proposals`,
@@ -90,3 +115,13 @@ export async function retryCuttingProposal(productionOrderId: string): Promise<C
   );
 }
 
+/** Nút "Tính lại" cho phương án neo vào PI GỘP (isMerged) - dùng productionInvoiceId. */
+export async function retryCuttingProposalForInvoice(
+  productionInvoiceId: string,
+): Promise<CuttingProposal> {
+  return http.post<CuttingProposal>(
+    `/production-invoices/${productionInvoiceId}/cutting-proposals`,
+    undefined,
+    withIdempotencyKey(),
+  );
+}
