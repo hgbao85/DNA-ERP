@@ -3,24 +3,24 @@
  * `qc-reviews`, chốt 2026-08-12 — M3 "Xuất sắt Phôi", trước đó bị hoãn). Thay `phoi-sat.service.ts`
  * (mock, key theo `lineId` giả tự sinh ở seed — không liên quan gì đến BE thật).
  *
- * 2 phía dùng 2 cách truy vấn KHÁC NHAU vì permission khác nhau (cùng lý do đã áp cho
- * material-issues-api.ts/weaving-issues-api.ts, xem role-permissions.constant.ts):
- *  - Kho trung tâm (XuatSatPage, WAREHOUSE_STAFF): key theo `productionOrderId`, resolve qua
- *    resolveProductionOrderId() (WAREHOUSE_STAFF có SKU:VIEW + PRODUCTION_ORDER:VIEW) — master-detail
- *    theo SKU/PO, cùng pattern KhoXuatDanPage.
- *  - Tổ Phôi (XacNhanSanLuongPage, PHOI_STAFF) / KCS (KcsPhoiPage, KCS_STAFF): CHỈ có
- *    STEEL_ISSUE:VIEW(+UPDATE/QC_REVIEW) — KHÔNG có SKU:VIEW/PRODUCTION_ORDER:VIEW nên không tự
- *    resolve productionOrderId được. Dùng getSteelIssuesByStatus() gọi thẳng GET /steel-issues?status=
- *    (flat, không cần biết PO nào) — endpoint riêng cho đúng trường hợp này, xem
- *    ListSteelIssuesQueryDto (BE). productionOrderId/poNumber đã có sẵn trong chính response.
+ * B4 Đợt 3d (2026-08-19, changelog 2026-08-18-xuat-sat-po-pi-vat-tu.md mục 2) - gộp theo CẢ PI
+ * thay vì theo (production_order, piece): 1 PI có thể có nhiều SKU/PO, phần mềm đề xuất mua/cắt
+ * sắt vốn đã tính gộp ở cấp PI, và Phôi tự phân bổ vật lý theo mảnh nào khi cắt thật. Kho trung
+ * tâm (XuatSatPage) giờ key theo `productionInvoiceId` (không phải productionOrderId/pieceId
+ * nữa) — resolve qua `ProductionOrderInfo.productionInvoiceId` (production-invoice-item.ts).
+ *
+ * Tổ Phôi (XacNhanSanLuongPage, PHOI_STAFF) / KCS (KcsPhoiPage, KCS_STAFF): CHỈ có
+ * STEEL_ISSUE:VIEW(+UPDATE/QC_REVIEW) — KHÔNG có SKU:VIEW/PRODUCTION_ORDER:VIEW nên không tự
+ * resolve productionInvoiceId được. Dùng getSteelIssuesByStatus() gọi thẳng GET /steel-issues?status=
+ * (flat, không cần biết PI nào) — endpoint riêng cho đúng trường hợp này, xem
+ * ListSteelIssuesQueryDto (BE). productionInvoiceId/piCode đã có sẵn trong chính response.
  *
  * Khác weaving-issues/material-issues: KHÔNG ghi StockLedger (CuttingProposalsService.approve() đã
  * trừ tồn 1 lần lúc duyệt phương án cắt) — xem comment đầu SteelIssuesService (BE).
  */
 import { http, withIdempotencyKey } from './core/http';
-import type { Sku, ProcessStep } from '../types/sku';
-import { resolveProductionOrderId } from './production-invoice-item';
-import { getCuttingProposalsForOrder, getCuttingProposal } from './cutting-proposals-api';
+import type { ProcessStep } from '../types/sku';
+import { getCuttingProposalsForInvoice, getCuttingProposal } from './cutting-proposals-api';
 import type { CuttingProposalPattern } from './cutting-proposals-api';
 
 export type SteelIssueStatus = 'ISSUED' | 'RECEIVED' | 'IN_PROCESS' | 'AWAITING_QC' | 'QC_PASSED';
@@ -42,14 +42,11 @@ export interface BeCutBundle {
 
 export interface BeSteelIssue {
   id: string;
-  productionOrderId: string;
-  /** Mã nội bộ (ProductionOrder.poNumber) - chỉ hệ thống dùng, KHÔNG hiển thị. Dùng `salesOrderCode`. */
-  poNumber: string;
-  /** Mã đơn hàng Sales gốc - đây mới là mã "PO" hiển thị cho người dùng. */
+  productionInvoiceId: string;
+  /** Mã PI (ProductionInvoice.code) - luôn có, kể cả PI gộp không gắn 1 đơn Sales cụ thể nào. */
+  piCode: string;
+  /** Mã đơn hàng Sales gốc - null cho PI gộp (isMerged). */
   salesOrderCode: string | null;
-  pieceId: string;
-  pieceCode: string;
-  pieceName: string;
   materialId: string;
   materialCode: string;
   materialName: string;
@@ -63,21 +60,20 @@ export interface BeSteelIssue {
   reworkOfId: string | null;
   /** Công đoạn đã đánh dấu xong (luôn có CAT sau khi báo cắt xong). */
   completedSteps: ProcessStep[];
-  /** Union công đoạn đã chọn sẵn cho mảnh này (+ CAT mặc định) — phải xong hết mới vào chờ KCS. */
+  /** Hợp (union) công đoạn của MỌI mảnh dùng loại sắt này trong cả PI (+ CAT mặc định) — phải
+   *  xong hết mới vào chờ KCS (hệ thống không biết trước cây sắt về mảnh nào). */
   requiredSteps: ProcessStep[];
   bundles?: BeCutBundle[];
 }
 
 export interface BeSteelIssuePlanItem {
-  pieceId: string;
-  pieceCode: string;
-  pieceName: string;
   materialId: string;
   materialCode: string;
   materialName: string;
-  /** Σ đoạn cần (theo BOM × số lượng PO) — đơn vị "đoạn", KHÁC barCount (đơn vị "cây"). */
+  /** Σ đoạn cần (theo BOM × số lượng, cộng dồn mọi mảnh/SKU dùng vật tư này trong cả PI) — đơn vị
+   *  "đoạn", KHÁC barCount (đơn vị "cây"). */
   requiredSegments: number;
-  /** Σ cây đã xuất (đợt gốc, không tính rework) cho mảnh này. */
+  /** Σ cây đã xuất (đợt gốc, không tính rework) cho loại sắt này trong cả PI. */
   issuedBarCount: number;
   /** Còn được xuất theo giữ chỗ (B4 Đợt 3c) — null = phương án duyệt trước mốc đảo cơ chế trừ
    *  tồn (không giữ chỗ) hoặc chưa có phương án cắt nào đã duyệt, KHÔNG phải "không được xuất". */
@@ -90,38 +86,34 @@ function unwrap<T>(res: T[] | { data: T[] }): T[] {
   return Array.isArray(res) ? res : res.data;
 }
 
-// ── Kho trung tâm (WAREHOUSE_STAFF) — master-detail theo SKU/PO ────────────────
+// ── Kho trung tâm (WAREHOUSE_STAFF) — master-detail theo PI ────────────────────
 
-/** Trả mảng rỗng khi SKU chưa có ProductionOrder (chưa được Sếp duyệt) — chưa có gì để xuất,
+/** Trả mảng rỗng khi PI chưa có ProductionOrder nào (chưa được Sếp duyệt) — chưa có gì để xuất,
  *  không phải lỗi cần báo cho thủ kho. */
-export async function getSteelIssuePlan(pf: Sku): Promise<BeSteelIssuePlanItem[]> {
-  const orderId = await resolveProductionOrderId(pf);
-  if (!orderId) return [];
+export async function getSteelIssuePlan(productionInvoiceId: string): Promise<BeSteelIssuePlanItem[]> {
   try {
-    return await http.get<BeSteelIssuePlanItem[]>(`/production-orders/${orderId}/steel-issue-plan`);
+    return await http.get<BeSteelIssuePlanItem[]>(
+      `/production-invoices/${productionInvoiceId}/steel-issue-plan`,
+    );
   } catch {
     return [];
   }
 }
 
-/** Lịch sử các đợt kho đã xuất cho 1 PO (mọi trạng thái) — dùng cho detail view của kho. */
-export async function getSteelIssuesForSku(pf: Sku): Promise<BeSteelIssue[]> {
-  const orderId = await resolveProductionOrderId(pf);
-  if (!orderId) return [];
+/** Lịch sử các đợt kho đã xuất cho 1 PI (mọi trạng thái) — dùng cho detail view của kho. */
+export async function getSteelIssuesForInvoice(productionInvoiceId: string): Promise<BeSteelIssue[]> {
   const res = await http.get<BeSteelIssue[] | { data: BeSteelIssue[] }>(
-    `/production-orders/${orderId}/steel-issues?limit=100`,
+    `/production-invoices/${productionInvoiceId}/steel-issues?limit=100`,
   );
   return unwrap(res);
 }
 
 export async function issueSteel(
-  pf: Sku,
-  data: { pieceId: string; materialId: string; barLengthMm: number; barCount: number },
+  productionInvoiceId: string,
+  data: { materialId: string; barLengthMm: number; barCount: number },
 ): Promise<BeSteelIssue> {
-  const orderId = await resolveProductionOrderId(pf);
-  if (!orderId) throw new Error('SKU chưa có Lệnh sản xuất (chưa được Sếp duyệt) — chưa thể xuất sắt');
   return http.post<BeSteelIssue>(
-    `/production-orders/${orderId}/steel-issues`,
+    `/production-invoices/${productionInvoiceId}/steel-issues`,
     data,
     withIdempotencyKey(),
   );
@@ -170,10 +162,10 @@ export async function completeStep(id: string, step: ProcessStep): Promise<void>
  *  có phương án cắt nào APPROVED cho vật tư này (không nên xảy ra — SteelIssuesService.create() đã
  *  chặn xuất sắt khi chưa có phương án duyệt — nhưng không throw để FE có chỗ báo lỗi rõ ràng hơn). */
 export async function getApprovedPatternsForMaterial(
-  productionOrderId: string,
+  productionInvoiceId: string,
   materialId: string,
 ): Promise<CuttingProposalPattern[]> {
-  const proposals = await getCuttingProposalsForOrder(productionOrderId);
+  const proposals = await getCuttingProposalsForInvoice(productionInvoiceId);
   const approved = proposals.find((p) => p.status === 'APPROVED');
   if (!approved) return [];
   const detail = await getCuttingProposal(approved.id);
@@ -237,8 +229,8 @@ export async function getReplenishRequests(
   return unwrap(res);
 }
 
-/** Kho cấp bù bằng 1 đợt SteelIssue MỚI đã tạo trước đó (qua issueSteel() thường, cùng pieceId/
- *  materialId với đợt gốc) — không tự tạo đợt, chỉ liên kết. */
+/** Kho cấp bù bằng 1 đợt SteelIssue MỚI đã tạo trước đó (qua issueSteel() thường, cùng materialId
+ *  với đợt gốc) — không tự tạo đợt, chỉ liên kết. */
 export async function fulfillReplenishRequest(id: string, steelIssueId: string): Promise<void> {
   await http.post(`/replenish-requests/${id}/fulfill`, { steelIssueId });
 }

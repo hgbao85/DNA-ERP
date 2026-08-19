@@ -24,31 +24,32 @@ const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13 }
 const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
 
-interface PoGroup { productionOrderId: string; po: string; items: BeSteelIssue[]; thoiGianNhan: string; hoanThanh: string | null }
+interface PiGroup { productionInvoiceId: string; po: string; items: BeSteelIssue[]; thoiGianNhan: string; hoanThanh: string | null }
 
 export default function LichSuNhanSatPage() {
   const { data: lines, isLoading } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
-  const [selPo, setSelPo] = useState<string | null>(null)
+  const [selPi, setSelPi] = useState<string | null>(null)
 
-  const groups: PoGroup[] = useMemo(() => {
-    // Gom theo productionOrderId (luôn duy nhất) chứ KHÔNG theo mã hiển thị salesOrderCode.
+  const groups: PiGroup[] = useMemo(() => {
+    // Gom theo productionInvoiceId (luôn duy nhất, gộp cả PI - xem changelog
+    // 2026-08-18-xuat-sat-po-pi-vat-tu.md) chứ KHÔNG theo mã hiển thị salesOrderCode.
     const map = new Map<string, BeSteelIssue[]>()
     for (const l of lines ?? []) {
-      if (!map.has(l.productionOrderId)) map.set(l.productionOrderId, [])
-      map.get(l.productionOrderId)!.push(l)
+      if (!map.has(l.productionInvoiceId)) map.set(l.productionInvoiceId, [])
+      map.get(l.productionInvoiceId)!.push(l)
     }
-    return [...map.entries()].map(([productionOrderId, items]) => {
+    return [...map.entries()].map(([productionInvoiceId, items]) => {
       const nhan = items.map(i => i.issuedAt).sort()[0] ?? ''
       const allDone = items.every(i => i.status === 'QC_PASSED')
       const hoanThanh = allDone ? (items.map(i => i.completedAt ?? '').sort().at(-1) || null) : null
-      return { productionOrderId, po: items[0].salesOrderCode ?? '—', items, thoiGianNhan: nhan, hoanThanh }
+      return { productionInvoiceId, po: items[0].salesOrderCode ?? items[0].piCode, items, thoiGianNhan: nhan, hoanThanh }
     })
   }, [lines])
 
   if (isLoading || !lines) return <LoadingState />
 
-  const sel = selPo ? groups.find(g => g.productionOrderId === selPo) ?? null : null
-  if (sel) return <Detail g={sel} onBack={() => setSelPo(null)} />
+  const sel = selPi ? groups.find(g => g.productionInvoiceId === selPi) ?? null : null
+  if (sel) return <Detail g={sel} onBack={() => setSelPi(null)} />
 
   // ── List view ──────────────────────────────────────────────
   return (
@@ -57,7 +58,7 @@ export default function LichSuNhanSatPage() {
         <ArrowDownToLine size={20} /> Lịch sử nhận sắt
       </h2>
       <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>
-        Kho xuất sắt qua theo từng PO. Bấm 1 PO để xem kho đã xuất bao nhiêu cây theo từng chiều dài.
+        Kho xuất sắt qua theo từng PI. Bấm 1 PI để xem kho đã xuất bao nhiêu cây theo từng chiều dài.
       </div>
 
       <div style={card}>
@@ -65,15 +66,15 @@ export default function LichSuNhanSatPage() {
           <colgroup><col style={{ width: 150 }} /><col style={{ width: 190 }} /><col style={{ width: 190 }} /></colgroup>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
-              <th style={th}>PO</th>
+              <th style={th}>PO / PI</th>
               <th style={th}>Thời gian nhận</th>
               <th style={th}>Thời gian hoàn thành</th>
             </tr>
           </thead>
           <tbody>
             {groups.map(g => (
-              <tr key={g.productionOrderId}
-                onClick={() => setSelPo(g.productionOrderId)}
+              <tr key={g.productionInvoiceId}
+                onClick={() => setSelPi(g.productionInvoiceId)}
                 style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                 onMouseLeave={e => (e.currentTarget.style.background = '')}>
@@ -99,7 +100,7 @@ export default function LichSuNhanSatPage() {
 }
 
 // ── Detail: kho đã xuất gì cho PO này ────────────────────────
-function Detail({ g, onBack }: { g: PoGroup; onBack: () => void }) {
+function Detail({ g, onBack }: { g: PiGroup; onBack: () => void }) {
   // Tổng cây theo chiều dài nguyên cây (6000mm, 5850mm…)
   const byLen = new Map<number, number>()
   for (const it of g.items) byLen.set(it.barLengthMm, (byLen.get(it.barLengthMm) ?? 0) + it.barCount)

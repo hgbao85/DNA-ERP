@@ -57,6 +57,8 @@ export interface ProductionOrderInfo {
   /** Mã đơn hàng Sales gốc (SalesOrder.code) — mã "PO" hiển thị cho người dùng. null nếu lệnh sản
    *  xuất này không gắn đơn hàng nào (tạo tay). */
   poCode: string | null;
+  /** Id PI cha (ProductionInvoice.id) — dùng gọi endpoint gộp theo PI (vd steel-issues-api.ts). */
+  productionInvoiceId: string;
   /** Mã PI cha (ProductionInvoice.code). */
   piCode: string;
   /** Hạn giao (ProductionInvoiceItem.deliveryDeadline) — null nếu chưa khai. */
@@ -77,6 +79,7 @@ export async function buildProductionOrderInfoByMfgProduct(): Promise<Map<string
     id: string;
     mfgProductId: string;
     salesOrderCode: string | null;
+    productionInvoiceId: string;
     piCode: string;
     deliveryDeadline: string | null;
   }
@@ -87,7 +90,12 @@ export async function buildProductionOrderInfoByMfgProduct(): Promise<Map<string
   const map = new Map<string, ProductionOrderInfo>();
   for (const o of list) {
     if (!map.has(o.mfgProductId)) {
-      map.set(o.mfgProductId, { poCode: o.salesOrderCode, piCode: o.piCode, deliveryDate: o.deliveryDeadline });
+      map.set(o.mfgProductId, {
+        poCode: o.salesOrderCode,
+        productionInvoiceId: o.productionInvoiceId,
+        piCode: o.piCode,
+        deliveryDate: o.deliveryDeadline,
+      });
     }
   }
   return map;

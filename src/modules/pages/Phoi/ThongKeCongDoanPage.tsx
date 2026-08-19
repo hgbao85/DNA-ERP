@@ -2,9 +2,13 @@
 
 /**
  * Thống kê công đoạn (Phôi) — bóc nhỏ hơn 4 trạng thái thô (Chờ nhận/Đang cắt/Chờ KCS/Đạt) theo
- * TỪNG công đoạn chi tiết (Cắt/Uốn/Dập/Đục lỗ/Tán/Tóp đầu/Xẻ) đã chọn sẵn cho từng mảnh, xem
+ * TỪNG công đoạn chi tiết (Cắt/Uốn/Dập/Đục lỗ/Tán/Tóp đầu/Xẻ), xem
  * PieceBom.processSteps (BE) + SteelIssue.completedSteps/requiredSteps. Cùng nguồn dữ liệu +
  * pattern client-aggregate như LenhSanXuatPhoi.tsx (GET /steel-issues, không cần endpoint riêng).
+ *
+ * B4 Đợt 3d (2026-08-19): gom theo PI + LOẠI SẮT (không còn theo mảnh) — SteelIssue giờ gộp theo
+ * cả PI, requiredSteps là hợp (union) mọi mảnh dùng loại sắt đó trong PI nên không còn breakdown
+ * theo mảnh nào cần bước gì (xem changelog 2026-08-18-xuat-sat-po-pi-vat-tu.md).
  *
  * "Đang chờ" 1 công đoạn = số cây của đợt có công đoạn đó trong requiredSteps nhưng CHƯA có trong
  * completedSteps, và đợt chưa qua KCS (status ISSUED/RECEIVED/IN_PROCESS) — đợt đã AWAITING_QC/
@@ -31,12 +35,12 @@ const isPendingStep = (i: BeSteelIssue, step: ProcessStep) =>
   (i.status === 'ISSUED' || i.status === 'RECEIVED' || i.status === 'IN_PROCESS') &&
   i.requiredSteps.includes(step) && !i.completedSteps.includes(step)
 
-interface PieceRow {
-  pieceId: string; pieceName: string; materialName: string
+interface MaterialRow {
+  materialId: string; materialName: string
   pending: Partial<Record<ProcessStep, number>>
   awaitingQc: number; passed: number
 }
-interface PoRow { productionOrderId: string; poNumber: string; pieces: PieceRow[] }
+interface PiRow { productionInvoiceId: string; poNumber: string; materials: MaterialRow[] }
 
 export default function ThongKeCongDoanPage() {
   const { data: issues, isLoading } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
@@ -46,34 +50,34 @@ export default function ThongKeCongDoanPage() {
     [issues],
   )
 
-  const poRows: PoRow[] = useMemo(() => {
-    // Gom theo productionOrderId (luôn duy nhất) chứ KHÔNG theo mã hiển thị salesOrderCode.
-    const byPo = new Map<string, BeSteelIssue[]>()
+  const piRows: PiRow[] = useMemo(() => {
+    // Gom theo productionInvoiceId (luôn duy nhất) chứ KHÔNG theo mã hiển thị salesOrderCode.
+    const byPi = new Map<string, BeSteelIssue[]>()
     const order: string[] = []
     for (const i of issues ?? []) {
-      if (!byPo.has(i.productionOrderId)) { byPo.set(i.productionOrderId, []); order.push(i.productionOrderId) }
-      byPo.get(i.productionOrderId)!.push(i)
+      if (!byPi.has(i.productionInvoiceId)) { byPi.set(i.productionInvoiceId, []); order.push(i.productionInvoiceId) }
+      byPi.get(i.productionInvoiceId)!.push(i)
     }
-    return order.map(productionOrderId => {
-      const list = byPo.get(productionOrderId)!
-      const po = list[0].salesOrderCode ?? '—'
-      const byPiece = new Map<string, BeSteelIssue[]>()
-      for (const i of list) { if (!byPiece.has(i.pieceId)) byPiece.set(i.pieceId, []); byPiece.get(i.pieceId)!.push(i) }
-      const pieces: PieceRow[] = [...byPiece.entries()].map(([pieceId, its]) => {
+    return order.map(productionInvoiceId => {
+      const list = byPi.get(productionInvoiceId)!
+      const po = list[0].salesOrderCode ?? list[0].piCode
+      const byMaterial = new Map<string, BeSteelIssue[]>()
+      for (const i of list) { if (!byMaterial.has(i.materialId)) byMaterial.set(i.materialId, []); byMaterial.get(i.materialId)!.push(i) }
+      const materials: MaterialRow[] = [...byMaterial.entries()].map(([materialId, its]) => {
         const pending: Partial<Record<ProcessStep, number>> = {}
         for (const step of activeSteps) {
           const n = its.filter(i => isPendingStep(i, step)).reduce((s, i) => s + barCountOf(i), 0)
           if (n > 0) pending[step] = n
         }
         return {
-          pieceId, pieceName: its[0].pieceName, materialName: its[0].materialName,
+          materialId, materialName: its[0].materialName,
           pending,
           awaitingQc: its.filter(i => i.status === 'AWAITING_QC').reduce((s, i) => s + barCountOf(i), 0),
           passed: its.filter(i => i.status === 'QC_PASSED').reduce((s, i) => s + barCountOf(i), 0),
         }
-      }).filter(p => Object.keys(p.pending).length > 0 || p.awaitingQc > 0)
-      return { productionOrderId, poNumber: po, pieces }
-    }).filter(r => r.pieces.length > 0)
+      }).filter(m => Object.keys(m.pending).length > 0 || m.awaitingQc > 0)
+      return { productionInvoiceId, poNumber: po, materials }
+    }).filter(r => r.materials.length > 0)
   }, [issues, activeSteps])
 
   const totalsByStep = useMemo(() => {
@@ -116,8 +120,7 @@ export default function ThongKeCongDoanPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 + activeSteps.length * 100 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)' }}>
-                  <th style={th}>PO</th>
-                  <th style={th}>Mảnh</th>
+                  <th style={th}>PO / PI</th>
                   <th style={th}>Loại sắt</th>
                   {activeSteps.map(step => <th key={step} style={thR}>{PROCESS_STEP_LABELS[step]}</th>)}
                   <th style={thR}>Chờ KCS</th>
@@ -125,24 +128,23 @@ export default function ThongKeCongDoanPage() {
                 </tr>
               </thead>
               <tbody>
-                {poRows.map(po => po.pieces.map((p, idx) => (
-                  <tr key={`${po.productionOrderId}-${p.pieceId}`} style={{ borderTop: '1px solid var(--border)' }}>
+                {piRows.map(pi => pi.materials.map((m, idx) => (
+                  <tr key={`${pi.productionInvoiceId}-${m.materialId}`} style={{ borderTop: '1px solid var(--border)' }}>
                     {idx === 0 ? (
-                      <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)' }} rowSpan={po.pieces.length}>{po.poNumber}</td>
+                      <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)' }} rowSpan={pi.materials.length}>{pi.poNumber}</td>
                     ) : null}
-                    <td style={{ ...td, fontWeight: 600 }}>{p.pieceName}</td>
-                    <td style={{ ...td, color: 'var(--text3)' }}>{p.materialName}</td>
+                    <td style={{ ...td, fontWeight: 600 }}>{m.materialName}</td>
                     {activeSteps.map(step => (
                       <td key={step} style={tdR}>
-                        {p.pending[step] ? <span style={{ color: '#7b1fa2', fontWeight: 700 }}>{p.pending[step]}</span> : '—'}
+                        {m.pending[step] ? <span style={{ color: '#7b1fa2', fontWeight: 700 }}>{m.pending[step]}</span> : '—'}
                       </td>
                     ))}
-                    <td style={tdR}>{p.awaitingQc > 0 ? <span style={{ color: '#d97706', fontWeight: 700 }}>{p.awaitingQc}</span> : '—'}</td>
-                    <td style={tdR}>{p.passed > 0 ? <span style={{ color: '#16a34a', fontWeight: 700 }}>{p.passed}</span> : '—'}</td>
+                    <td style={tdR}>{m.awaitingQc > 0 ? <span style={{ color: '#d97706', fontWeight: 700 }}>{m.awaitingQc}</span> : '—'}</td>
+                    <td style={tdR}>{m.passed > 0 ? <span style={{ color: '#16a34a', fontWeight: 700 }}>{m.passed}</span> : '—'}</td>
                   </tr>
                 )))}
-                {poRows.length === 0 && (
-                  <tr><td colSpan={5 + activeSteps.length} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có công đoạn nào đang treo</td></tr>
+                {piRows.length === 0 && (
+                  <tr><td colSpan={4 + activeSteps.length} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có công đoạn nào đang treo</td></tr>
                 )}
               </tbody>
             </table>

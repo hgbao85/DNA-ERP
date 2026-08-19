@@ -103,6 +103,16 @@ export async function getCuttingProposalsForOrder(productionOrderId: string): Pr
   return Array.isArray(res) ? res : res.data;
 }
 
+/** Mọi phương án cắt (mọi trạng thái) phủ 1 PI — gồm cả phương án neo thẳng vào PI (đợt gộp) lẫn
+ *  neo vào từng PO thành viên (SKU cắt riêng). Dùng thay getCuttingProposalsForOrder() từ khi
+ *  SteelIssue gộp theo cả PI (changelog 2026-08-18-xuat-sat-po-pi-vat-tu.md). */
+export async function getCuttingProposalsForInvoice(productionInvoiceId: string): Promise<CuttingProposal[]> {
+  const res = await http.get<CuttingProposal[] | { data: CuttingProposal[] }>(
+    `/production-invoices/${productionInvoiceId}/cutting-proposals?limit=100`,
+  );
+  return Array.isArray(res) ? res : res.data;
+}
+
 /** Nút "Tính lại" cho phương án neo VÀO 1 LỆNH SX riêng - gọi theo productionOrderId (không phải
  *  cuttingProposalId). Với phương án neo PI GỘP (productionOrderId=null), dùng
  *  `retryCuttingProposalForInvoice` bên dưới - route BE khác hẳn (trước 2026-08-19 không tồn

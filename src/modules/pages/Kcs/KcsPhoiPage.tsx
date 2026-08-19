@@ -28,27 +28,27 @@ export default function KcsPhoiPage() {
   const { data: issues, isLoading, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
   const { data: reviews } = useFetch<BeQcReview[]>(() => api.getQcReviewsForSteelIssues(), [])
 
-  // Gom lô theo PO (chỉ PO còn hàng chờ); mỗi đợt = 1 dòng: chờ / đã duyệt.
+  // Gom lô theo PI (chỉ PI còn hàng chờ); mỗi đợt = 1 dòng: chờ / đã duyệt.
   // map: id dòng (số) → id đợt (chuỗi) — chỉ lô AWAITING_QC mới duyệt được.
   const { rows, map } = useMemo(() => {
     const reviewByIssue = new Map<string, BeQcReview>()
     for (const r of reviews ?? []) if (r.steelIssueId) reviewByIssue.set(r.steelIssueId, r)
 
     const map = new Map<number, string>()
-    // Gom theo productionOrderId (luôn duy nhất) chứ KHÔNG theo mã hiển thị salesOrderCode -
+    // Gom theo productionInvoiceId (luôn duy nhất) chứ KHÔNG theo mã hiển thị salesOrderCode -
     // nhiều lệnh SX có thể cùng chung 1 mã Sales (nhiều SKU/đơn) hoặc cùng null.
     const byPo = new Map<string, BeSteelIssue[]>()
     const order: string[] = []
     for (const i of issues ?? []) {
       if (i.status !== 'AWAITING_QC' && i.status !== 'QC_PASSED') continue // Phôi chưa cắt xong → chưa liên quan KCS
-      if (!byPo.has(i.productionOrderId)) { byPo.set(i.productionOrderId, []); order.push(i.productionOrderId) }
-      byPo.get(i.productionOrderId)!.push(i)
+      if (!byPo.has(i.productionInvoiceId)) { byPo.set(i.productionInvoiceId, []); order.push(i.productionInvoiceId) }
+      byPo.get(i.productionInvoiceId)!.push(i)
     }
     let seq = 1
     const rows: KcsRow[] = []
-    for (const productionOrderId of order) {
-      const list = byPo.get(productionOrderId)!
-      const po = list[0].salesOrderCode ?? '—'
+    for (const productionInvoiceId of order) {
+      const list = byPo.get(productionInvoiceId)!
+      const po = list[0].salesOrderCode ?? list[0].piCode
       if (!list.some(i => i.status === 'AWAITING_QC')) continue   // chỉ PO còn hàng chờ
       const lines: KcsLine[] = list.map(i => {
         const lineId = seq++

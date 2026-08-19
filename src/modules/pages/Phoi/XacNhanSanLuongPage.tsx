@@ -60,7 +60,7 @@ export default function XacNhanSanLuongPage({ readOnly = false }: { readOnly?: b
     if (isOpening && l.status === 'RECEIVED' && !patternsCache[l.id]) {
       setPatternsLoading(s => new Set(s).add(l.id))
       try {
-        const patterns = await api.getApprovedPatternsForMaterial(l.productionOrderId, l.materialId)
+        const patterns = await api.getApprovedPatternsForMaterial(l.productionInvoiceId, l.materialId)
         setPatternsCache(c => ({ ...c, [l.id]: patterns }))
         setBundles(b => ({ ...b, [l.id]: patterns.length > 0 ? [{ patternId: patterns[0].id, barCount: String(l.barCount) }] : [] }))
         setActualBarCount(a => ({ ...a, [l.id]: String(l.barCount) }))
