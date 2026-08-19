@@ -1,11 +1,12 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { Loader2, X, Search } from 'lucide-react'
 import type { Sku } from '../../../types/sku'
 import { flattenManhSteel, combinedDaySon, dinhItems } from '../../../utils/manhMaterials'
+import type { BePackagingIssuePlanItem } from '../../../services/packaging-issues-api'
 
 const CAT_META = {
   sat:              { label: 'Sắt',              color: '#b45309', bg: '#fef3c7' },
@@ -24,8 +25,8 @@ export type Cat = keyof typeof CAT_META
 
 interface FlatItem {
   key: string
-  /** string = Sku.id thật; literal 0 = dòng mock cố định (MOCK_THANH_PHAM/MOCK_VAT_TU_THANH_PHAM
-   *  bên dưới) — phân biệt bằng typeof, không dùng so sánh số nữa. */
+  /** string = Sku.id thật; literal 0 = dòng không gắn với 1 Sku cụ thể (vd tổng hợp theo PO/vật
+   *  tư — xem vatTuThanhPhamItems bên dưới) — phân biệt bằng typeof, không dùng so sánh số nữa. */
   pfId: string | 0
   pfStatus: string
   pfCreatedAt: string
@@ -39,8 +40,6 @@ interface FlatItem {
   qty: string | null
   createdAt: string | null
 }
-
-type ApprovalEntry = { status: 'APPROVED' | 'REJECTED'; reason?: string } | null
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   PROPOSED: { label: 'Chờ duyệt', color: '#d97706', bg: '#fef3c7' },
@@ -156,31 +155,67 @@ const FILTER_TABS: { id: Cat | 'all'; label: string }[] = [
   { id: 'manhDaDan',      label: 'Mảnh đã đan' },
 ]
 
-const MOCK_VAT_TU_THANH_PHAM: FlatItem[] = [
-  { key: 'vttp-1', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-01T00:00:00Z', productName: 'Ghế xoay văn phòng',  productCode: 'GX-001', poNumber: 'PO-2501', cat: 'vatTuThanhPham', name: 'Tem nhãn sản phẩm',          spec: 'In offset 4 màu, 80×50mm',         unit: 'tờ',  qty: '50',  createdAt: '2025-12-01T08:00:00Z' },
-  { key: 'vttp-2', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-01T00:00:00Z', productName: 'Ghế xoay văn phòng',  productCode: 'GX-001', poNumber: 'PO-2501', cat: 'vatTuThanhPham', name: 'Màng PE bọc sản phẩm',      spec: 'PE trắng 0.06mm',                   unit: 'm',   qty: '150', createdAt: '2025-12-01T08:00:00Z' },
-  { key: 'vttp-3', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-03T00:00:00Z', productName: 'Ghế sofa phòng khách', productCode: 'SF-002', poNumber: 'PO-2502', cat: 'vatTuThanhPham', name: 'Tờ hướng dẫn sử dụng',      spec: 'In 2 mặt, A5, giấy couche 100g',    unit: 'tờ',  qty: '20',  createdAt: '2025-12-03T10:00:00Z' },
-  { key: 'vttp-4', pfId: 0, pfStatus: 'PROPOSED', pfCreatedAt: '2025-12-03T00:00:00Z', productName: 'Ghế sofa phòng khách', productCode: 'SF-002', poNumber: 'PO-2502', cat: 'vatTuThanhPham', name: 'Mút xốp lót bảo vệ',         spec: 'EPE trắng 20mm',                    unit: 'tấm', qty: '40',  createdAt: '2025-12-03T10:30:00Z' },
-  { key: 'vttp-5', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-05T00:00:00Z', productName: 'Bàn làm việc L',       productCode: 'BV-003', poNumber: 'PO-2503', cat: 'vatTuThanhPham', name: 'Túi zip linh kiện',           spec: 'PE trong, 15×20cm',                 unit: 'túi', qty: '60',  createdAt: '2025-12-05T09:00:00Z' },
-  { key: 'vttp-6', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-07T00:00:00Z', productName: 'Ghế ăn cao cấp',       productCode: 'GA-004', poNumber: 'PO-2504', cat: 'vatTuThanhPham', name: 'Thẻ kiểm tra chất lượng QC', spec: 'Giấy cứng 300g, in 1 màu',          unit: 'thẻ', qty: '100', createdAt: '2025-12-07T14:00:00Z' },
-  { key: 'vttp-7', pfId: 0, pfStatus: 'PROPOSED', pfCreatedAt: '2025-12-10T00:00:00Z', productName: 'Kệ đa năng',           productCode: 'KD-005', poNumber: 'PO-2505', cat: 'vatTuThanhPham', name: 'Băng keo dán thùng 5cm',    spec: 'OPP trong suốt, 45mic',             unit: 'cuộn', qty: '15', createdAt: '2025-12-10T11:00:00Z' },
-]
+// "Vật tư thành phẩm" (tem nhãn, màng PE, mút xốp...) đã xuất thật từ kho vat-tu-tp — nguồn
+// PackagingIssue + BomAccessoryItem(kind=PACKAGING) qua api.getPackagingIssuePlan() (module
+// `packaging-issues` BE, cùng nguồn WarehouseXuatPage.tsx scope 'vat-tu-tp' dùng để xuất) — xem
+// buildVatTuThanhPhamItems() bên dưới, không còn mock.
 
-const MOCK_THANH_PHAM: FlatItem[] = [
-  { key: 'tp-1', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-01T00:00:00Z', productName: 'Ghế xoay văn phòng',  productCode: 'GX-001', poNumber: 'TP-2501', cat: 'thanhPham', name: 'Ghế xoay lưới thoáng khí',          spec: 'Màu đen, có tay vịn',        unit: 'cái', qty: '50',  createdAt: '2025-12-01T08:00:00Z' },
-  { key: 'tp-2', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-03T00:00:00Z', productName: 'Ghế sofa phòng khách', productCode: 'SF-002', poNumber: 'TP-2502', cat: 'thanhPham', name: 'Sofa 3 chỗ khung thép',              spec: 'Vải nhung xanh navy',         unit: 'bộ',  qty: '20',  createdAt: '2025-12-03T10:30:00Z' },
-  { key: 'tp-3', pfId: 0, pfStatus: 'PROPOSED', pfCreatedAt: '2025-12-05T00:00:00Z', productName: 'Bàn làm việc L',       productCode: 'BV-003', poNumber: 'TP-2503', cat: 'thanhPham', name: 'Bàn L chân sắt mặt gỗ MDF',        spec: 'MDF 18mm, sơn trắng',         unit: 'cái', qty: '30',  createdAt: '2025-12-05T09:00:00Z' },
-  { key: 'tp-4', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-07T00:00:00Z', productName: 'Ghế ăn cao cấp',       productCode: 'GA-004', poNumber: 'TP-2504', cat: 'thanhPham', name: 'Ghế ăn khung inox nệm da',         spec: 'Da PU đen, chân inox 201',    unit: 'cái', qty: '100', createdAt: '2025-12-07T14:00:00Z' },
-  { key: 'tp-5', pfId: 0, pfStatus: 'PROPOSED', pfCreatedAt: '2025-12-10T00:00:00Z', productName: 'Kệ đa năng',           productCode: 'KD-005', poNumber: 'TP-2505', cat: 'thanhPham', name: 'Kệ 5 tầng khung thép sơn tĩnh điện', spec: 'Màu trắng, 60×30×180cm',   unit: 'cái', qty: '15',  createdAt: '2025-12-10T11:00:00Z' },
-  { key: 'tp-6', pfId: 0, pfStatus: 'APPROVED', pfCreatedAt: '2025-12-12T00:00:00Z', productName: 'Giường ngủ đơn',       productCode: 'GN-006', poNumber: 'TP-2506', cat: 'thanhPham', name: 'Giường sắt đơn sơn tĩnh điện',    spec: 'Kích thước 90×200cm, trắng', unit: 'cái', qty: '25',  createdAt: '2025-12-12T08:30:00Z' },
-]
+// "Thành phẩm" = số lượng đã đóng gói thật (PackagingRecord, cùng nguồn KhoDongGoiPage.tsx dùng
+// qua api.getPackaging()) — xem buildThanhPhamItems() bên dưới, không còn mock.
 
 export default function VatTuDashboardPage({ limitCats, combinedCats, manhWarehouseCode }: { limitCats?: Cat[]; combinedCats?: { id: string; label: string; cats: Cat[] }[]; manhWarehouseCode?: string } = {}) {
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
-  const [approvals, setApprovals] = useState<Record<string, ApprovalEntry>>({})
+  // "Thành phẩm" = SKU nào đã đóng gói thật (PackagingRecord qua api.getPackaging(), cùng nguồn
+  // KhoDongGoiPage.tsx dùng) — thay MOCK_THANH_PHAM cũ, chỉ hiện SKU có packedQty > 0.
+  const { data: thanhPhamProgress } = useFetch<{ pf: Sku; packedQty: number }[]>(
+    () => Promise.all(((skus ?? []) as Sku[]).map(async pf => ({ pf, packedQty: (await api.getPackaging(pf)).packedQty }))),
+    [skus],
+  )
+  const thanhPhamItems: FlatItem[] = (thanhPhamProgress ?? [])
+    .filter(({ packedQty }) => packedQty > 0)
+    .map(({ pf, packedQty }) => ({
+      key: `tp-${pf.id}`,
+      pfId: pf.id,
+      pfStatus: pf.status,
+      pfCreatedAt: pf.createdAt,
+      productName: pf.mfgProduct?.name ?? '—',
+      productCode: pf.mfgProduct?.factoryCode ?? '—',
+      poNumber: pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng',
+      cat: 'thanhPham',
+      name: pf.mfgProduct?.name ?? '—',
+      spec: null,
+      unit: 'cái',
+      qty: String(packedQty),
+      createdAt: pf.createdAt,
+    }))
+
+  // "Vật tư thành phẩm" = đã xuất thật qua kho vat-tu-tp (PackagingIssue), gộp mọi PO đang chạy —
+  // cùng nguồn/cách gọi WarehouseXuatPage.tsx scope 'vat-tu-tp' dùng (listProductionOrdersForStage
+  // + getPackagingIssuePlan), thay MOCK_VAT_TU_THANH_PHAM cũ. Chỉ hiện dòng đã xuất (issuedQty > 0).
+  const { data: packagingPlan } = useFetch<BePackagingIssuePlanItem[]>(async () => {
+    const summaries = await api.listProductionOrdersForStage()
+    if (summaries.length === 0) return []
+    return api.getPackagingIssuePlan(summaries.map(o => o.id))
+  }, [])
+  const vatTuThanhPhamItems: FlatItem[] = (packagingPlan ?? [])
+    .filter(item => item.issuedQty > 0)
+    .map(item => ({
+      key: `vttp-${item.productionOrderId}-${item.materialId}`,
+      pfId: 0,
+      pfStatus: '',
+      pfCreatedAt: '',
+      productName: item.productName,
+      productCode: item.materialCode,
+      poNumber: item.poNumber,
+      cat: 'vatTuThanhPham',
+      name: item.materialName,
+      spec: item.materialCode,
+      unit: item.materialUnit,
+      qty: String(item.issuedQty),
+      createdAt: null,
+    }))
+
   const [selected, setSelected] = useState<FlatItem | null>(null)
-  const [showRejectInput, setShowRejectInput] = useState(false)
-  const [rejectReason, setRejectReason] = useState('')
   const [filterCat, setFilterCat] = useState<string>(() => {
     if (combinedCats?.length) {
       const first = limitCats?.[0]
@@ -242,32 +277,8 @@ export default function VatTuDashboardPage({ limitCats, combinedCats, manhWareho
   const isManhChuaDan = activeCats.size === 1 && activeCats.has('manhChuaDan')
   const isManhDaDan = activeCats.size === 1 && activeCats.has('manhDaDan')
 
-  const allItems = [...flattenItems((skus ?? []) as Sku[]), ...MOCK_THANH_PHAM, ...MOCK_VAT_TU_THANH_PHAM]
+  const allItems = [...flattenItems((skus ?? []) as Sku[]), ...thanhPhamItems, ...vatTuThanhPhamItems]
     .filter(it => !limitCats || limitCats.includes(it.cat))
-
-  const [mockSeeded, setMockSeeded] = useState(false)
-  useEffect(() => {
-    if (allItems.length === 0 || mockSeeded) return
-    const CYCLE = [
-      { status: 'APPROVED' as const },
-      { status: 'APPROVED' as const },
-      { status: 'PROPOSED' as const },
-      { status: 'REJECTED' as const, reason: 'Không đủ tồn kho' },
-      { status: 'APPROVED' as const },
-      { status: 'PROPOSED' as const },
-      { status: 'REJECTED' as const, reason: 'Sai quy cách, cần xem lại' },
-      { status: 'APPROVED' as const },
-      { status: 'PROPOSED' as const },
-      { status: 'APPROVED' as const },
-    ]
-    const seed: Record<string, ApprovalEntry> = {}
-    allItems.forEach((item, i) => {
-      const c = CYCLE[i % CYCLE.length]
-      if (c.status !== 'PROPOSED') seed[item.key] = c
-    })
-    setApprovals(seed)
-    setMockSeeded(true)
-  }, [allItems.length])
 
   const items = allItems.filter(it => {
     const matchCat = activeCats.has(it.cat)
@@ -281,23 +292,9 @@ export default function VatTuDashboardPage({ limitCats, combinedCats, manhWareho
     return matchCat && matchQ
   })
 
-  const approve = (key: string) => {
-    setApprovals(p => ({ ...p, [key]: { status: 'APPROVED' } }))
-    setShowRejectInput(false)
-  }
-  const confirmReject = (key: string) => {
-    setApprovals(p => ({ ...p, [key]: { status: 'REJECTED', reason: rejectReason.trim() || undefined } }))
-    setShowRejectInput(false)
-    setRejectReason('')
-  }
-
   const openDetail = (item: FlatItem) => {
     setSelected(item)
-    setShowRejectInput(false)
-    setRejectReason('')
   }
-
-  const selectedApproval = selected ? (approvals[selected.key] ?? null) : null
 
   return (
     <div>
@@ -387,7 +384,13 @@ export default function VatTuDashboardPage({ limitCats, combinedCats, manhWareho
               {items.map(item => {
                 const meta = CAT_META[item.cat]
                 return (
-                  <tr key={item.key} style={{ borderTop: '1px solid var(--border)' }}>
+                  <tr
+                    key={item.key}
+                    onClick={() => openDetail(item)}
+                    style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '')}
+                  >
                     <td style={tdStyle}>
                       <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, color: meta.color, background: meta.bg, whiteSpace: 'nowrap' }}>
                         {meta.label}
@@ -457,63 +460,6 @@ export default function VatTuDashboardPage({ limitCats, combinedCats, manhWareho
                 </div>
               </div>
             )}
-
-            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12 }}>
-                Duyệt vật tư
-              </div>
-
-              {selectedApproval && (
-                <div style={{ marginBottom: 12, padding: '8px 12px', borderRadius: 8, background: selectedApproval.status === 'APPROVED' ? '#dcfce7' : '#fee2e2' }}>
-                  <StatusBadge status={selectedApproval.status} />
-                  {selectedApproval.reason && (
-                    <div style={{ marginTop: 5, fontSize: 12, color: '#dc2626', fontStyle: 'italic' }}>{selectedApproval.reason}</div>
-                  )}
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  onClick={() => approve(selected.key)}
-                  style={{
-                    flex: 1, padding: '9px 0', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer',
-                    background: selectedApproval?.status === 'APPROVED' ? '#16a34a' : 'rgba(22,163,74,0.12)',
-                    color: selectedApproval?.status === 'APPROVED' ? '#fff' : '#16a34a',
-                  }}
-                >Duyệt</button>
-                <button
-                  onClick={() => { setShowRejectInput(v => !v); setRejectReason('') }}
-                  style={{
-                    flex: 1, padding: '9px 0', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer',
-                    background: selectedApproval?.status === 'REJECTED' ? '#dc2626' : 'rgba(220,38,38,0.10)',
-                    color: selectedApproval?.status === 'REJECTED' ? '#fff' : '#dc2626',
-                  }}
-                >Từ chối</button>
-              </div>
-
-              {showRejectInput && (
-                <div style={{ marginTop: 12 }}>
-                  <textarea
-                    value={rejectReason}
-                    onChange={e => setRejectReason(e.target.value)}
-                    placeholder="Lý do từ chối (không bắt buộc)..."
-                    rows={3}
-                    autoFocus
-                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
-                  />
-                  <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                    <button
-                      onClick={() => { setShowRejectInput(false); setRejectReason('') }}
-                      style={{ flex: 1, padding: '7px 0', fontSize: 12, background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, cursor: 'pointer' }}
-                    >Hủy</button>
-                    <button
-                      onClick={() => confirmReject(selected.key)}
-                      style={{ flex: 1, padding: '7px 0', fontSize: 12, fontWeight: 600, background: '#dc2626', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer' }}
-                    >Xác nhận</button>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </div>
       )}

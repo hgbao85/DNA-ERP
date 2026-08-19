@@ -5,7 +5,7 @@
  */
 import { http } from './core/http';
 import type { Sku } from '../types/sku';
-import { resolveProductionInvoiceItemId } from './production-invoice-item';
+import { resolveProductionInvoiceRef } from './production-invoice-item';
 
 export interface BePackagingProgress {
   totalQty: number;
@@ -18,11 +18,11 @@ const EMPTY_PROGRESS: BePackagingProgress = { totalQty: 0, packedQty: 0, remaini
 /** totalQty=0 khi SKU chưa gắn PI/chưa có ProductionOrder (chưa được Sếp duyệt) - chưa có gì để
  *  đóng gói, không phải lỗi cần báo cho thủ kho. */
 export async function getPackaging(pf: Sku): Promise<BePackagingProgress> {
-  const itemId = await resolveProductionInvoiceItemId(pf);
-  if (!itemId) return EMPTY_PROGRESS;
+  const ref = await resolveProductionInvoiceRef(pf);
+  if (!ref) return EMPTY_PROGRESS;
   try {
     return await http.get<BePackagingProgress>(
-      `/production-invoices/${pf.productionInvoiceId}/items/${itemId}/packaging`,
+      `/production-invoices/${ref.productionInvoiceId}/items/${ref.itemId}/packaging`,
     );
   } catch {
     return EMPTY_PROGRESS;
@@ -33,12 +33,12 @@ export async function recordPackaging(
   pf: Sku,
   data: { boxesPacked: number; note?: string },
 ): Promise<BePackagingProgress> {
-  const itemId = await resolveProductionInvoiceItemId(pf);
-  if (!itemId) {
+  const ref = await resolveProductionInvoiceRef(pf);
+  if (!ref) {
     throw new Error('SKU chưa gắn Lệnh sản xuất (PI) hoặc chưa được Sếp duyệt - chưa có gì để đóng gói');
   }
   return http.post<BePackagingProgress>(
-    `/production-invoices/${pf.productionInvoiceId}/items/${itemId}/packaging`,
+    `/production-invoices/${ref.productionInvoiceId}/items/${ref.itemId}/packaging`,
     data,
   );
 }

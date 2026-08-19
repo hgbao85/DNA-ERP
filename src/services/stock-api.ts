@@ -36,7 +36,7 @@ export interface BeStockLedgerEntry {
   createdAt: string;
 }
 
-export async function getStockQuants(params?: { warehouseId?: string; segmentSpecId?: string }): Promise<BeStockQuant[]> {
+export async function getStockQuants(params?: { warehouseId?: string; materialId?: string; segmentSpecId?: string }): Promise<BeStockQuant[]> {
   return http.get<BeStockQuant[]>('/stock-quant', { params });
 }
 

@@ -1,7 +1,7 @@
 /**
  * Adapter WEAVING POINTS: FE ⇄ BE thật (module `weaving-points` — chỉ CRUD danh mục cơ bản).
- * Id bigint-as-string. Nghiệp vụ phân bổ/nhận đan, chuyển kiểm... vẫn ở mock (mfg.service.ts,
- * WeavingService) vì BE chưa có API tương ứng — xem services/api.ts.
+ * Id bigint-as-string. Nghiệp vụ phân bổ/nhận đan (xuất/nhận hàng đan theo PO) đã thật ở
+ * weaving-issues-api.ts; xem thêm getWeavingByPoint() cùng file đó cho view gộp theo điểm đan.
  * `id` khai `number` ở type để khớp interface `{ id: number }` cũ (xem ghi chú ở materials-api.ts).
  */
 import { http } from './core/http';

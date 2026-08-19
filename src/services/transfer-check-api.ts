@@ -6,7 +6,7 @@
  */
 import { http } from './core/http';
 import type { Sku } from '../types/sku';
-import { resolveProductionInvoiceItemId } from './production-invoice-item';
+import { resolveProductionInvoiceRef } from './production-invoice-item';
 
 export interface BeTransferCheckPiece {
   pieceId: string;
@@ -25,11 +25,11 @@ export interface TransferCheckDefectInput {
 /** Trả mảng rỗng khi SKU chưa gắn PI/chưa có ProductionOrder (chưa được Sếp duyệt) - chưa có gì
  *  để kiểm, không phải lỗi cần báo cho thủ kho. */
 export async function getTransferCheckPieces(pf: Sku): Promise<BeTransferCheckPiece[]> {
-  const itemId = await resolveProductionInvoiceItemId(pf);
-  if (!itemId) return [];
+  const ref = await resolveProductionInvoiceRef(pf);
+  if (!ref) return [];
   try {
     return await http.get<BeTransferCheckPiece[]>(
-      `/production-invoices/${pf.productionInvoiceId}/items/${itemId}/transfer-check`,
+      `/production-invoices/${ref.productionInvoiceId}/items/${ref.itemId}/transfer-check`,
     );
   } catch {
     return [];
@@ -40,12 +40,12 @@ export async function recordTransferCheck(
   pf: Sku,
   data: { pieceId: string; checkedQty: number; note?: string; defects?: TransferCheckDefectInput[] },
 ): Promise<BeTransferCheckPiece> {
-  const itemId = await resolveProductionInvoiceItemId(pf);
-  if (!itemId) {
+  const ref = await resolveProductionInvoiceRef(pf);
+  if (!ref) {
     throw new Error('SKU chưa gắn Lệnh sản xuất (PI) hoặc chưa được Sếp duyệt - chưa có gì để kiểm');
   }
   return http.post<BeTransferCheckPiece>(
-    `/production-invoices/${pf.productionInvoiceId}/items/${itemId}/transfer-check`,
+    `/production-invoices/${ref.productionInvoiceId}/items/${ref.itemId}/transfer-check`,
     data,
   );
 }

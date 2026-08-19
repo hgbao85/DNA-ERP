@@ -2,12 +2,12 @@
 import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import { ArrowUpFromLine, Check, ChevronLeft, Package } from 'lucide-react'
+import { ArrowUpFromLine, Check, ChevronLeft } from 'lucide-react'
 import { format } from 'date-fns'
 import type { Sku } from '../../../types/sku'
+import type { BeStockQuant } from '../../../services/stock-api'
 import LoadingState from '../../../components/LoadingState'
 import { compactTh as th, compactTd as td } from '../../../styles/table'
-import { mockStock } from '../../../utils/warehouse'
 import { flattenManhSteel, combinedDaySon, dinhItems } from '../../../utils/manhMaterials'
 
 // ── Xuất kho flow types ──────────────────────────────────────
@@ -28,15 +28,30 @@ const STATUS_XUAT: Record<XuatStatus, { label: string; color: string; bg: string
   'da-xuat':   { label: 'Đã xuất',   color: '#166534', bg: '#dcfce7' },
 }
 
-function flattenXuatLines(pf: Sku): XuatLine[] {
+// Tồn kho materialize từ mọi kho (GET /stock-quant, không lọc warehouseId - trang này không có
+// scope 1 kho cụ thể, xem InboundWarehouseApp.tsx dùng XuatKhoPage làm fallback "Tổng kho" khi
+// !scope). Cộng dồn theo materialId - 1 vật tư có thể tồn ở nhiều kho vật lý cùng lúc.
+function buildStockByMaterial(quants: BeStockQuant[]): Map<string, number> {
+  const map = new Map<string, number>()
+  for (const q of quants) {
+    if (!q.materialId) continue
+    map.set(q.materialId, (map.get(q.materialId) ?? 0) + q.qty)
+  }
+  return map
+}
+
+function flattenXuatLines(pf: Sku, stockByMaterial: Map<string, number>): XuatLine[] {
   const lines: XuatLine[] = []
   const mt = pf.quotaManagement?.materialType
   if (!mt) return lines
   const push = (cat: string, arr: any[]) =>
     arr.forEach((item: any, i: number) => {
       const required = item.quantity != null ? Number(item.quantity) : item.kg != null ? Number(item.kg) : null
-      const stock = mockStock(item.name, required)
-      const purchased = required != null && stock < required ? required - stock : 0
+      // Tồn kho thật theo materialId - null nếu dòng này chưa gắn materialId thật (dữ liệu định
+      // mức cũ nhập tay chỉ có tên tự do, không có gì để tra cứu thật). KHÔNG bịa số khi thiếu
+      // materialId (khác trước đây dùng mockStock() băm theo tên - luôn ra 1 số giả).
+      const stock: number | null = item.materialId ? (stockByMaterial.get(item.materialId) ?? 0) : null
+      const purchased = required != null && stock != null && stock < required ? required - stock : 0
       lines.push({
         id: `${pf.id}-${cat}-${i}`,
         name: item.name,
@@ -63,15 +78,17 @@ function computeXuatStatus(lines: XuatLine[]): XuatStatus {
 // ── XuatKhoSection: list PO → detail xuất ───────────────────
 function XuatKhoSection() {
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
+  const { data: stockQuants } = useFetch<BeStockQuant[]>(() => api.getStockQuants(), [])
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const [lines, setLines] = useState<XuatLine[]>([])
   const [xuatStatus, setXuatStatus] = useState<Record<number, XuatStatus>>({})
 
   const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT')
+  const stockByMaterial = buildStockByMaterial(stockQuants ?? [])
 
   const openDetail = (pf: Sku) => {
     setSelectedPf(pf)
-    setLines(flattenXuatLines(pf))
+    setLines(flattenXuatLines(pf, stockByMaterial))
   }
 
   const confirmLine = (lineId: string) => {
@@ -254,7 +271,7 @@ function XuatKhoSection() {
 
 // ── Main page ────────────────────────────────────────────────
 export default function XuatKhoPage({ lockedGroup: _lockedGroup }: { lockedGroup?: string | null } = {}) {
-  const [xuatTab, setXuatTab] = useState<'xuat' | 'thung' | 'history'>('xuat')
+  const [xuatTab, setXuatTab] = useState<'xuat' | 'history'>('xuat')
 
   return (
     <div>
@@ -264,7 +281,6 @@ export default function XuatKhoPage({ lockedGroup: _lockedGroup }: { lockedGroup
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
         {([
           ['xuat',    'Xuất vật tư/thành phẩm',           ArrowUpFromLine],
-          ['thung',   'Xuất thùng',         Package],
           ['history', 'Lịch sử xuất kho',   Check],
         ] as const).map(([id, label, Icon]) => (
           <button key={id} onClick={() => setXuatTab(id)} style={{
@@ -281,184 +297,90 @@ export default function XuatKhoPage({ lockedGroup: _lockedGroup }: { lockedGroup
       </div>
 
       {xuatTab === 'xuat'    && <XuatKhoSection />}
-      {xuatTab === 'thung'   && <XuatThungSection />}
       {xuatTab === 'history' && <LichSuXuatSection />}
     </div>
   )
 }
 
-// ── XuatThungSection ─────────────────────────────────────────
-function XuatThungSection() {
-  const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
-  const [confirming, setConfirming] = useState<string | null>(null)
-  const [done, setDone] = useState<Set<string>>(new Set())
+// ── LichSuXuatSection ─────────────────────────────────────────
+// Thay MOCK_HISTORY cũ bằng stock_ledger thật (cùng nguồn MfgWarehousesPage.tsx đã dùng) — gộp cả
+// 3 kho trong chuỗi chuyển nội bộ (phoi-son-han → vat-tu-tp → thanh-pham). BeStockLedgerEntry
+// không có cột PO/người xuất (mock cũ bịa ra) nên bảng đổi cột theo đúng dữ liệu thật có: kho
+// nguồn→đích, vật tư, SL, loại bút toán (refType), ghi chú.
+const REF_TYPE_META: Record<string, { label: string; color: string; bg: string }> = {
+  WAREHOUSE_TRANSFER: { label: 'Chuyển kho',      color: '#1e40af', bg: '#dbeafe' },
+  MATERIAL_ISSUE:     { label: 'Xuất vật tư',     color: '#b45309', bg: '#fef3c7' },
+  SEGMENT_CONSUME:    { label: 'Tiêu hao đoạn',   color: '#065f46', bg: '#d1fae5' },
+  FRAME_OUTPUT:       { label: 'Ra khung',        color: '#0e7490', bg: '#cffafe' },
+  FINISHED:           { label: 'Ra thành phẩm',   color: '#166534', bg: '#dcfce7' },
+  ADJUST:             { label: 'Điều chỉnh tay',  color: '#6b21a8', bg: '#f3e8ff' },
+}
 
-  const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT')
-  const confirmingPf = confirming !== null ? active.find(p => p.id === confirming) ?? null : null
-
-  const handleConfirm = () => {
-    if (confirming === null) return
-    setDone(prev => new Set([...prev, confirming]))
-    setConfirming(null)
-  }
+function LichSuXuatSection() {
+  const { data: warehouses } = useFetch(() => api.getWarehouses(), [])
+  const relevantCodes = ['phoi-son-han', 'vat-tu-tp', 'thanh-pham']
+  const relevantIds = (warehouses ?? []).filter(w => relevantCodes.includes(w.code)).map(w => w.id)
+  const { data: entries, isLoading } = useFetch(
+    () => Promise.all(relevantIds.map(warehouseId => api.getStockLedger({ warehouseId }))).then(lists => lists.flat()),
+    [relevantIds.join(',')],
+  )
+  const rows = [...(entries ?? [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 
   return (
     <div>
       <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
-        Xác nhận xuất thùng đóng gói theo từng PO
+        Các lần xuất kho vật tư, thành phẩm và mảnh (kho Phôi-Sơn-Hàn / Vật tư thành phẩm / Thành phẩm)
       </div>
       {isLoading ? <LoadingState /> : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: 140 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 130 }} />
+              <col style={{ width: 200 }} />
               <col />
-              <col style={{ width: 150 }} />
+              <col style={{ width: 72 }} />
+              <col />
             </colgroup>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                <th style={th}>PO</th>
-                <th style={th}>SKU</th>
-                <th style={th}>Xuất thùng</th>
+                <th style={th}>Ngày</th>
+                <th style={th}>Loại</th>
+                <th style={th}>Kho nguồn → đích</th>
+                <th style={th}>Vật tư</th>
+                <th style={{ ...th, textAlign: 'right' }}>SL</th>
+                <th style={th}>Ghi chú</th>
               </tr>
             </thead>
             <tbody>
-              {active.map(pf => {
-                const exported = done.has(pf.id)
+              {rows.map(r => {
+                const meta = REF_TYPE_META[r.refType] ?? { label: r.refType, color: '#475569', bg: '#f1f5f9' }
                 return (
-                  <tr key={pf.id} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={{ ...td, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
-                    </td>
-                    <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
-                      {pf.mfgProduct?.name && <><span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>{pf.mfgProduct.name}</>}
+                  <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
+                    <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
+                      {format(new Date(r.createdAt), 'dd/MM/yyyy HH:mm')}
                     </td>
                     <td style={td}>
-                      {exported ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#166534' }}>
-                          <Check size={13} /> Đã xuất thùng
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => setConfirming(pf.id)}
-                          style={{ padding: '4px 14px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#e65100', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
-                        >
-                          Xuất
-                        </button>
-                      )}
+                      <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, color: meta.color, background: meta.bg, whiteSpace: 'nowrap' }}>
+                        {meta.label}
+                      </span>
                     </td>
+                    <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{r.fromWarehouseCode} → {r.toWarehouseCode}</td>
+                    <td style={{ ...td, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {r.materialCode ?? r.segmentSpecLabel ?? '—'}
+                    </td>
+                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#e65100' }}>{r.qty}</td>
+                    <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text2)' }}>{r.note ?? '—'}</td>
                   </tr>
                 )
               })}
-              {active.length === 0 && (
-                <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có PO nào</td></tr>
+              {rows.length === 0 && (
+                <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Chưa có lần xuất kho nào</td></tr>
               )}
             </tbody>
           </table>
         </div>
       )}
-
-      {confirmingPf && (
-        <div
-          onClick={e => { if (e.target === e.currentTarget) setConfirming(null) }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <div style={{ background: 'var(--surface)', borderRadius: 12, padding: 24, width: 380, boxShadow: '0 8px 32px rgba(0,0,0,.2)' }}>
-            <h3 style={{ margin: '0 0 10px', fontSize: 16, fontWeight: 700 }}>Xác nhận xuất thùng</h3>
-            <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
-              Xác nhận xuất thùng đóng gói cho PO{' '}
-              <strong>{confirmingPf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}</strong>{' '}
-              — <strong>{confirmingPf.mfgProduct?.factoryCode}</strong>?
-            </p>
-            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setConfirming(null)}
-                style={{ padding: '7px 16px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
-              >
-                Hủy
-              </button>
-              <button
-                onClick={handleConfirm}
-                style={{ padding: '7px 16px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#e65100', color: '#fff', cursor: 'pointer' }}
-              >
-                Xác nhận xuất
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── LichSuXuatSection ─────────────────────────────────────────
-const LOAI_META: Record<string, { color: string; bg: string }> = {
-  'Vật tư':    { color: '#b45309', bg: '#fef3c7' },
-  'Thành phẩm':{ color: '#1e40af', bg: '#dbeafe' },
-  'Mảnh':      { color: '#065f46', bg: '#d1fae5' },
-}
-
-const MOCK_HISTORY = [
-  { id: 1, date: '2025-12-22', loai: 'Vật tư',     ten: 'Sắt hộp 20×20',              po: 'PO-2501', sl: 4,  nguoi: 'Nguyễn Văn A' },
-  { id: 2, date: '2025-12-22', loai: 'Mảnh',        ten: 'Mảnh tựa lưng GX-001',       po: 'PO-2501', sl: 5,  nguoi: 'Nguyễn Văn A' },
-  { id: 3, date: '2025-12-21', loai: 'Thành phẩm',  ten: 'Ghế xoay lưới thoáng khí',   po: 'TP-2501', sl: 20, nguoi: 'Trần Thị B'   },
-  { id: 4, date: '2025-12-20', loai: 'Vật tư',      ten: 'Sắt tấm 1.5mm',              po: 'PO-2501', sl: 2,  nguoi: 'Nguyễn Văn A' },
-  { id: 5, date: '2025-12-20', loai: 'Mảnh',        ten: 'Sắt hộp 30×30 (Khung ghế)',  po: 'PO-2504', sl: 4,  nguoi: 'Lê Văn C'     },
-  { id: 6, date: '2025-12-19', loai: 'Thành phẩm',  ten: 'Sofa 3 chỗ khung thép',      po: 'TP-2502', sl: 10, nguoi: 'Trần Thị B'   },
-  { id: 7, date: '2025-12-18', loai: 'Vật tư',      ten: 'Sắt hộp 40×40 (Chân bàn)',   po: 'PO-2503', sl: 4,  nguoi: 'Nguyễn Văn A' },
-  { id: 8, date: '2025-12-17', loai: 'Thành phẩm',  ten: 'Ghế ăn khung inox nệm da',   po: 'TP-2504', sl: 30, nguoi: 'Trần Thị B'   },
-]
-
-function LichSuXuatSection() {
-  return (
-    <div>
-      <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
-        Các lần xuất kho vật tư, thành phẩm và mảnh
-      </div>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
-          <colgroup>
-            <col style={{ width: 100 }} />
-            <col style={{ width: 110 }} />
-            <col />
-            <col style={{ width: 100 }} />
-            <col style={{ width: 72 }} />
-            <col style={{ width: 130 }} />
-          </colgroup>
-          <thead>
-            <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-              <th style={th}>Ngày</th>
-              <th style={th}>Loại</th>
-              <th style={th}>Tên hàng</th>
-              <th style={th}>PO</th>
-              <th style={{ ...th, textAlign: 'right' }}>SL xuất</th>
-              <th style={th}>Người xuất</th>
-            </tr>
-          </thead>
-          <tbody>
-            {MOCK_HISTORY.map(r => {
-              const meta = LOAI_META[r.loai] ?? LOAI_META['Vật tư']
-              return (
-                <tr key={r.id} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
-                    {format(new Date(r.date), 'dd/MM/yyyy')}
-                  </td>
-                  <td style={td}>
-                    <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, color: meta.color, background: meta.bg, whiteSpace: 'nowrap' }}>
-                      {r.loai}
-                    </span>
-                  </td>
-                  <td style={{ ...td, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.ten}</td>
-                  <td style={{ ...td, fontWeight: 600, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{r.po}</td>
-                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#e65100' }}>{r.sl}</td>
-                  <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text2)' }}>{r.nguoi}</td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
-      </div>
     </div>
   )
 }

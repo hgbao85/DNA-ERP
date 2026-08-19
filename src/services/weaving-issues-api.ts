@@ -64,3 +64,30 @@ export async function receiveWeaving(
   const orderId = await requireOrderId(pf, 'nhập đan');
   await http.post(`/production-orders/${orderId}/weaving-receipts`, data, withIdempotencyKey());
 }
+
+// ── "Quản lý điểm đan" (QuanLyDiemDanPage) ─────────────────────────────────
+// Thay WeavingService.getByPoint() mock. Flat, gộp qua MỌI production order - không cần
+// resolveProductionOrderId (không scope theo 1 Sku).
+
+export interface BeWeavingPointAssignment {
+  poNumber: string;
+  productLabel: string;
+  pieceCode: string;
+  pieceName: string;
+  quantity: number;
+  completed: number;
+  holding: number;
+}
+
+export interface BeWeavingPointGroup {
+  id: string;
+  code: string;
+  fullName: string | null;
+  phone: string | null;
+  totalHolding: number;
+  assignments: BeWeavingPointAssignment[];
+}
+
+export async function getWeavingByPoint(): Promise<BeWeavingPointGroup[]> {
+  return http.get<BeWeavingPointGroup[]>('/weaving-issues/by-point');
+}

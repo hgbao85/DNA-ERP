@@ -24,7 +24,9 @@ const post = http.post as ReturnType<typeof vi.fn>;
 
 // BeProposal/BeItem/BeQuote tối thiểu để toProposal() chạy được - mirror đúng shape thật của
 // PurchaseProposalResponseDto/PurchaseProposalItemResponseDto/PurchaseProposalQuoteResponseDto
-// bên BE (src/modules/purchase-proposals/dto/purchase-proposal-response.dto.ts).
+// bên BE (src/modules/purchase-proposals/dto/purchase-proposal-response.dto.ts). Từ A5
+// (2026-08-15) `items` LUÔN có sẵn trong response GET /purchase-proposals (list lẫn detail) -
+// không còn 2 shape khác nhau như trước.
 function beProposal(overrides: Record<string, unknown> = {}) {
   return {
     id: '300',
@@ -60,6 +62,11 @@ function beProposal(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// itemId PHẢI có (A5, 2026-08-15) - beItemIdsByMaterialId() ở purchasing-api.ts đọc thuần từ field
+// này trên proposal.items, không còn gọi GET riêng để dịch materialId -> itemId nữa (xem comment
+// PurchaseProposalItem.itemId, context/InspectionContext.tsx). Thiếu field này khiến mọi action
+// (submit/approve/receive) coi như "không dịch được item nào" - lỗi thật đã gặp khi sửa lại file
+// test này 2026-08-19.
 function feProposal(overrides: Partial<PurchaseProposal> = {}): PurchaseProposal {
   return {
     id: '300',
@@ -82,6 +89,7 @@ function feProposal(overrides: Partial<PurchaseProposal> = {}): PurchaseProposal
         khoKey: 'phoiSonHan',
         khoLabel: 'Kho Phôi Sơn Hàn',
         materialId: 30,
+        itemId: '400',
         receivedQty: 0,
       },
     ],
@@ -90,27 +98,27 @@ function feProposal(overrides: Partial<PurchaseProposal> = {}): PurchaseProposal
   };
 }
 
+// resetAllMocks (không chỉ clearAllMocks) - clearAllMocks KHÔNG xoá queue mockResolvedValueOnce
+// chưa tiêu thụ hết, khiến giá trị mock thừa của 1 test rò rỉ sang test kế tiếp và gây lỗi khó
+// hiểu ở xa nơi thật sự sai (phát hiện khi sửa lại file này 2026-08-19 - toàn bộ 18/22 test cũ
+// mock sai số lần gọi http.get so với hành vi thật hiện tại của purchasing-api.ts).
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
 });
 
-describe('getPurchaseProposals — tải danh sách + chi tiết từng đề xuất', () => {
-  it('gọi GET /purchase-proposals rồi fetch chi tiết từng bản ghi (list không kèm items)', async () => {
-    get.mockResolvedValueOnce({ data: [{ id: '300' }, { id: '301' }] });
-    get.mockResolvedValueOnce(beProposal({ id: '300' }));
-    get.mockResolvedValueOnce(beProposal({ id: '301' }));
+describe('getPurchaseProposals — tải danh sách kèm sẵn items, không còn N+1 detail fetch (A5, D.a5-n-plus-one)', () => {
+  it('gọi GET /purchase-proposals đúng 1 lần duy nhất (list đã có sẵn items, không cần fetch chi tiết riêng)', async () => {
+    get.mockResolvedValueOnce({ data: [beProposal({ id: '300' }), beProposal({ id: '301' })] });
 
     const result = await getPurchaseProposals();
 
-    expect(get).toHaveBeenNthCalledWith(1, '/purchase-proposals?limit=100');
-    expect(get).toHaveBeenNthCalledWith(2, '/purchase-proposals/300');
-    expect(get).toHaveBeenNthCalledWith(3, '/purchase-proposals/301');
+    expect(get).toHaveBeenCalledTimes(1);
+    expect(get).toHaveBeenCalledWith('/purchase-proposals?limit=100');
     expect(result).toHaveLength(2);
   });
 
   it('xử lý được response trả thẳng mảng (không bọc envelope { data })', async () => {
-    get.mockResolvedValueOnce([{ id: '300' }]);
-    get.mockResolvedValueOnce(beProposal());
+    get.mockResolvedValueOnce([beProposal()]);
 
     const result = await getPurchaseProposals();
 
@@ -118,16 +126,17 @@ describe('getPurchaseProposals — tải danh sách + chi tiết từng đề xu
   });
 
   it('map đúng warehouseCode CỦA TỪNG DÒNG -> khoKey/khoLabel (không phải kho tóm tắt cấp đề xuất) và status BE (uppercase) -> FE (lowercase)', async () => {
-    get.mockResolvedValueOnce({ data: [{ id: '300' }] });
-    get.mockResolvedValueOnce(
-      beProposal({
-        status: 'PURCHASING',
-        // Kho tóm tắt cấp đề xuất cố tình khác kho thật của dòng vật tư, để chứng minh FE đọc
-        // đúng field cấp item (Sếp chốt 2026-08-15) chứ không còn "ăn theo" giá trị này.
-        warehouseCode: 'phoi-son-han',
-        items: [{ ...beProposal().items[0], warehouseCode: 'vat-tu-tp' }],
-      }),
-    );
+    get.mockResolvedValueOnce({
+      data: [
+        beProposal({
+          status: 'PURCHASING',
+          // Kho tóm tắt cấp đề xuất cố tình khác kho thật của dòng vật tư, để chứng minh FE đọc
+          // đúng field cấp item (Sếp chốt 2026-08-15) chứ không còn "ăn theo" giá trị này.
+          warehouseCode: 'phoi-son-han',
+          items: [{ ...beProposal().items[0], warehouseCode: 'vat-tu-tp' }],
+        }),
+      ],
+    });
 
     const [result] = await getPurchaseProposals();
 
@@ -137,15 +146,16 @@ describe('getPurchaseProposals — tải danh sách + chi tiết từng đề xu
   });
 
   it('mỗi dòng vật tư giữ đúng kho riêng của nó khi 1 đề xuất gồm nhiều vật tư khác kho nhau', async () => {
-    get.mockResolvedValueOnce({ data: [{ id: '300' }] });
-    get.mockResolvedValueOnce(
-      beProposal({
-        items: [
-          { ...beProposal().items[0], id: '400', materialId: '30', warehouseCode: 'phoi-son-han' },
-          { ...beProposal().items[0], id: '401', materialId: '31', warehouseCode: 'thanh-pham' },
-        ],
-      }),
-    );
+    get.mockResolvedValueOnce({
+      data: [
+        beProposal({
+          items: [
+            { ...beProposal().items[0], id: '400', materialId: '30', warehouseCode: 'phoi-son-han' },
+            { ...beProposal().items[0], id: '401', materialId: '31', warehouseCode: 'thanh-pham' },
+          ],
+        }),
+      ],
+    });
 
     const [result] = await getPurchaseProposals();
 
@@ -154,12 +164,9 @@ describe('getPurchaseProposals — tải danh sách + chi tiết từng đề xu
   });
 
   it('required = actualStock + buyQty (BE đã trừ tồn tự động - xem CuttingProposalsService.approve())', async () => {
-    get.mockResolvedValueOnce({ data: [{ id: '300' }] });
-    get.mockResolvedValueOnce(
-      beProposal({
-        items: [{ ...beProposal().items[0], actualStock: 5, buyQty: 3 }],
-      }),
-    );
+    get.mockResolvedValueOnce({
+      data: [beProposal({ items: [{ ...beProposal().items[0], actualStock: 5, buyQty: 3 }] })],
+    });
 
     const [result] = await getPurchaseProposals();
 
@@ -169,20 +176,21 @@ describe('getPurchaseProposals — tải danh sách + chi tiết từng đề xu
   });
 
   it('gộp quotes theo materialId (KHÔNG phải materialName - D.p6-quote-key-collision) và chỉ set chosenSuppliers cho quote có isChosen=true', async () => {
-    get.mockResolvedValueOnce({ data: [{ id: '300' }] });
-    get.mockResolvedValueOnce(
-      beProposal({
-        items: [
-          {
-            ...beProposal().items[0],
-            quotes: [
-              { id: 'q1', supplierId: null, supplierName: 'Minh Thành', unitPrice: 45000, expectedDate: null, note: null, isChosen: false },
-              { id: 'q2', supplierId: null, supplierName: 'An Phát', unitPrice: 43500, expectedDate: null, note: null, isChosen: true },
-            ],
-          },
-        ],
-      }),
-    );
+    get.mockResolvedValueOnce({
+      data: [
+        beProposal({
+          items: [
+            {
+              ...beProposal().items[0],
+              quotes: [
+                { id: 'q1', supplierId: null, supplierName: 'Minh Thành', unitPrice: 45000, expectedDate: null, note: null, isChosen: false },
+                { id: 'q2', supplierId: null, supplierName: 'An Phát', unitPrice: 43500, expectedDate: null, note: null, isChosen: true },
+              ],
+            },
+          ],
+        }),
+      ],
+    });
 
     const [result] = await getPurchaseProposals();
 
@@ -191,19 +199,18 @@ describe('getPurchaseProposals — tải danh sách + chi tiết từng đề xu
   });
 
   it('map đúng supplierId từ BE vào từng quote (không chỉ supplierName) - D.risk1-fix', async () => {
-    get.mockResolvedValueOnce({ data: [{ id: '300' }] });
-    get.mockResolvedValueOnce(
-      beProposal({
-        items: [
-          {
-            ...beProposal().items[0],
-            quotes: [
-              { id: 'q1', supplierId: '55', supplierName: 'Minh Thành', unitPrice: 45000, expectedDate: null, note: null, isChosen: false },
-            ],
-          },
-        ],
-      }),
-    );
+    get.mockResolvedValueOnce({
+      data: [
+        beProposal({
+          items: [
+            {
+              ...beProposal().items[0],
+              quotes: [{ id: 'q1', supplierId: '55', supplierName: 'Minh Thành', unitPrice: 45000, expectedDate: null, note: null, isChosen: false }],
+            },
+          ],
+        }),
+      ],
+    });
 
     const [result] = await getPurchaseProposals();
 
@@ -211,23 +218,24 @@ describe('getPurchaseProposals — tải danh sách + chi tiết từng đề xu
   });
 
   it('2 vật tư khác nhau trùng tên hiển thị vẫn giữ được quotes riêng (D.p6-quote-key-collision — trước đây key theo materialName khiến item đứng trước bị đè mất)', async () => {
-    get.mockResolvedValueOnce({ data: [{ id: '300' }] });
-    get.mockResolvedValueOnce(
-      beProposal({
-        items: [
-          {
-            id: '400', materialId: '30', materialCode: 'SAT-006', materialName: 'Sắt phi',
-            unit: 'cây', actualStock: 0, buyQty: 8, receivedQty: 0,
-            quotes: [{ id: 'q1', supplierId: null, supplierName: 'Minh Thành', unitPrice: 45000, expectedDate: null, note: null, isChosen: false }],
-          },
-          {
-            id: '401', materialId: '31', materialCode: 'SAT-007', materialName: 'Sắt phi',
-            unit: 'cây', actualStock: 0, buyQty: 4, receivedQty: 0,
-            quotes: [{ id: 'q2', supplierId: null, supplierName: 'An Phát', unitPrice: 20000, expectedDate: null, note: null, isChosen: false }],
-          },
-        ],
-      }),
-    );
+    get.mockResolvedValueOnce({
+      data: [
+        beProposal({
+          items: [
+            {
+              id: '400', materialId: '30', materialCode: 'SAT-006', materialName: 'Sắt phi',
+              unit: 'cây', actualStock: 0, buyQty: 8, receivedQty: 0,
+              quotes: [{ id: 'q1', supplierId: null, supplierName: 'Minh Thành', unitPrice: 45000, expectedDate: null, note: null, isChosen: false }],
+            },
+            {
+              id: '401', materialId: '31', materialCode: 'SAT-007', materialName: 'Sắt phi',
+              unit: 'cây', actualStock: 0, buyQty: 4, receivedQty: 0,
+              quotes: [{ id: 'q2', supplierId: null, supplierName: 'An Phát', unitPrice: 20000, expectedDate: null, note: null, isChosen: false }],
+            },
+          ],
+        }),
+      ],
+    });
 
     const [result] = await getPurchaseProposals();
 
@@ -237,14 +245,12 @@ describe('getPurchaseProposals — tải danh sách + chi tiết từng đề xu
   });
 
   it('bỏ trống deadline (chưa có nguồn dữ liệu) - không tự bịa ngày', async () => {
-    get.mockResolvedValueOnce({ data: [{ id: '300' }] });
-    get.mockResolvedValueOnce(beProposal());
+    get.mockResolvedValueOnce({ data: [beProposal()] });
 
     const [result] = await getPurchaseProposals();
 
     expect(result.deadline).toBeUndefined();
   });
-
 });
 
 describe('acknowledgeProposal', () => {
@@ -260,8 +266,7 @@ describe('acknowledgeProposal', () => {
 });
 
 describe('submitProposalToDirector', () => {
-  it('tạo đúng báo giá cho từng vật tư (tra itemId theo materialId - D.p6-quote-key-collision) rồi submit', async () => {
-    get.mockResolvedValueOnce(beProposal()); // getBeItemIdsByMaterialId
+  it('tạo đúng báo giá cho từng vật tư (itemId đã có sẵn trong proposal.items theo materialId - D.p6-quote-key-collision, A5) rồi submit', async () => {
     post.mockResolvedValue(undefined);
     get.mockResolvedValueOnce(beProposal({ status: 'SUBMITTED' })); // getPurchaseProposal cuối
 
@@ -280,7 +285,6 @@ describe('submitProposalToDirector', () => {
   });
 
   it('gửi kèm supplierId khi chọn NCC từ danh sách đã đăng ký (không chỉ supplierName) - D.risk1-fix', async () => {
-    get.mockResolvedValueOnce(beProposal());
     post.mockResolvedValue(undefined);
     get.mockResolvedValueOnce(beProposal({ status: 'SUBMITTED' }));
 
@@ -298,7 +302,6 @@ describe('submitProposalToDirector', () => {
   });
 
   it('bỏ qua materialId không khớp item nào của proposal (không gọi API sai)', async () => {
-    get.mockResolvedValueOnce(beProposal());
     post.mockResolvedValue(undefined);
     get.mockResolvedValueOnce(beProposal());
 
@@ -312,17 +315,16 @@ describe('submitProposalToDirector', () => {
   });
 
   it('2 vật tư trùng tên hiển thị vẫn gửi báo giá riêng cho cả 2 (D.p6-quote-key-collision — trước đây item đứng trước KHÔNG BAO GIỜ gửi được báo giá)', async () => {
-    const twoItemsProposal = beProposal({
+    const twoItemsFe = feProposal({
       items: [
-        { id: '400', materialId: '30', materialCode: 'SAT-006', materialName: 'Sắt phi', unit: 'cây', actualStock: 0, buyQty: 8, receivedQty: 0, quotes: [] },
-        { id: '401', materialId: '31', materialCode: 'SAT-007', materialName: 'Sắt phi', unit: 'cây', actualStock: 0, buyQty: 4, receivedQty: 0, quotes: [] },
+        { name: 'Sắt phi', unit: 'cây', required: 8, actualStock: 0, buyQty: 8, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 30, itemId: '400', receivedQty: 0 },
+        { name: 'Sắt phi', unit: 'cây', required: 4, actualStock: 0, buyQty: 4, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 31, itemId: '401', receivedQty: 0 },
       ],
     });
-    get.mockResolvedValueOnce(twoItemsProposal); // getBeItemIdsByMaterialId
     post.mockResolvedValue(undefined);
-    get.mockResolvedValueOnce({ ...twoItemsProposal, status: 'SUBMITTED' });
+    get.mockResolvedValueOnce(beProposal({ status: 'SUBMITTED' }));
 
-    await submitProposalToDirector(feProposal(), {
+    await submitProposalToDirector(twoItemsFe, {
       '30': [{ supplierName: 'Minh Thành', unitPrice: 45000 }],
       '31': [{ supplierName: 'An Phát', unitPrice: 20000 }],
     });
@@ -333,8 +335,7 @@ describe('submitProposalToDirector', () => {
 });
 
 describe('approveProposal — gửi thẳng quoteId, KHÔNG tra lại theo tên NCC (D.h3-quote-id-not-name)', () => {
-  it('dịch materialId -> BE itemId rồi gửi thẳng quoteId đã nhận (không tìm quote theo supplierName)', async () => {
-    get.mockResolvedValueOnce(beProposal());
+  it('dịch materialId -> BE itemId (đã có sẵn trong proposal.items, A5) rồi gửi thẳng quoteId đã nhận (không tìm quote theo supplierName)', async () => {
     post.mockResolvedValueOnce(undefined);
     get.mockResolvedValueOnce(beProposal({ status: 'PURCHASING' }));
 
@@ -347,25 +348,12 @@ describe('approveProposal — gửi thẳng quoteId, KHÔNG tra lại theo tên 
     expect(result.status).toBe('purchasing');
   });
 
-  it('vẫn chọn đúng quote dù 2 báo giá trùng tên NCC (từng là bug khi còn tra theo tên)', async () => {
-    get.mockResolvedValueOnce(
-      beProposal({
-        items: [
-          {
-            ...beProposal().items[0],
-            quotes: [
-              { id: 'q1', supplierId: null, supplierName: 'An Phát', unitPrice: 45000, expectedDate: null, note: null, isChosen: false },
-              { id: 'q2', supplierId: null, supplierName: 'An Phát', unitPrice: 43500, expectedDate: null, note: null, isChosen: false },
-            ],
-          },
-        ],
-      }),
-    );
+  it('vẫn chọn đúng quote dù 2 báo giá trùng tên NCC (từng là bug khi còn tra theo tên) - quoteId đi thẳng, không qua bước tra tên nào', async () => {
     post.mockResolvedValueOnce(undefined);
     get.mockResolvedValueOnce(beProposal({ status: 'PURCHASING' }));
 
-    // Sếp bấm đúng dòng q1 (giá 45000, không phải giá rẻ nhất) - id phải đi thẳng, không bị tra
-    // theo tên "An Phát" rồi lỡ khớp sang q2.
+    // Sếp bấm đúng dòng q1 (không phải q2, dù cả 2 có thể trùng tên NCC "An Phát" phía UI) - id
+    // phải đi thẳng tới BE, không có bước tra theo tên nào ở giữa để lỡ khớp nhầm.
     await approveProposal(feProposal(), { '30': 'q1' });
 
     expect(post).toHaveBeenCalledWith('/purchase-proposals/300/approve', {
@@ -374,7 +362,6 @@ describe('approveProposal — gửi thẳng quoteId, KHÔNG tra lại theo tên 
   });
 
   it('bỏ qua item không dịch được sang BE itemId (materialId không khớp)', async () => {
-    get.mockResolvedValueOnce(beProposal());
     post.mockResolvedValueOnce(undefined);
     get.mockResolvedValueOnce(beProposal());
 
@@ -386,17 +373,16 @@ describe('approveProposal — gửi thẳng quoteId, KHÔNG tra lại theo tên 
   });
 
   it('2 vật tư trùng tên hiển thị vẫn duyệt đúng quote riêng cho cả 2 (D.p6-quote-key-collision)', async () => {
-    const twoItemsProposal = beProposal({
+    const twoItemsFe = feProposal({
       items: [
-        { id: '400', materialId: '30', materialCode: 'SAT-006', materialName: 'Sắt phi', unit: 'cây', actualStock: 0, buyQty: 8, receivedQty: 0, quotes: [{ id: 'q1', supplierId: null, supplierName: 'A', unitPrice: 1, expectedDate: null, note: null, isChosen: false }] },
-        { id: '401', materialId: '31', materialCode: 'SAT-007', materialName: 'Sắt phi', unit: 'cây', actualStock: 0, buyQty: 4, receivedQty: 0, quotes: [{ id: 'q2', supplierId: null, supplierName: 'B', unitPrice: 1, expectedDate: null, note: null, isChosen: false }] },
+        { name: 'Sắt phi', unit: 'cây', required: 8, actualStock: 0, buyQty: 8, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 30, itemId: '400', receivedQty: 0 },
+        { name: 'Sắt phi', unit: 'cây', required: 4, actualStock: 0, buyQty: 4, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 31, itemId: '401', receivedQty: 0 },
       ],
     });
-    get.mockResolvedValueOnce(twoItemsProposal);
     post.mockResolvedValueOnce(undefined);
-    get.mockResolvedValueOnce({ ...twoItemsProposal, status: 'PURCHASING' });
+    get.mockResolvedValueOnce(beProposal({ status: 'PURCHASING' }));
 
-    await approveProposal(feProposal(), { '30': 'q1', '31': 'q2' });
+    await approveProposal(twoItemsFe, { '30': 'q1', '31': 'q2' });
 
     expect(post).toHaveBeenCalledWith('/purchase-proposals/300/approve', {
       chosenQuoteIdByItemId: { '400': 'q1', '401': 'q2' },
@@ -423,13 +409,13 @@ describe('rejectProposal / requoteProposal', () => {
 
     const result = await requoteProposal('300');
 
+    expect(post).toHaveBeenCalledWith('/purchase-proposals/300/requote');
     expect(result.status).toBe('quoting');
   });
 });
 
 describe('receiveProposalItem', () => {
-  it('tra itemId theo materialId rồi POST receive với đúng receivedQty kèm header Idempotency-Key', async () => {
-    get.mockResolvedValueOnce(beProposal());
+  it('tra itemId theo materialId (đã có sẵn trong proposal.items, A5) rồi POST receive với đúng receivedQty kèm header Idempotency-Key', async () => {
     post.mockResolvedValueOnce(undefined);
     get.mockResolvedValueOnce(beProposal({ status: 'PURCHASED' }));
 
@@ -444,8 +430,6 @@ describe('receiveProposalItem', () => {
   });
 
   it('ném lỗi rõ ràng khi không tìm thấy vật tư theo materialId (không gọi POST)', async () => {
-    get.mockResolvedValueOnce(beProposal());
-
     await expect(
       receiveProposalItem(feProposal(), '999', 1),
     ).rejects.toThrow(/Không tìm thấy vật tư/);

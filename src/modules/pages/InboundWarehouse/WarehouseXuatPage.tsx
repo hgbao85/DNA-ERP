@@ -5,6 +5,8 @@ import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BePieceTransferPlanItem } from '../../../services/warehouse-transfers-api'
+import type { BePackagingIssuePlanItem } from '../../../services/packaging-issues-api'
+import type { SalesOrder } from '../../../types/sales'
 import { TRANSFER_ROUTES, canSendFrom } from '../../../types/warehouse-transfer'
 import { safeArr } from '../../../utils/array'
 import { errMsg } from '../../../utils/errors'
@@ -61,65 +63,13 @@ const STATUS: Record<OrderStatus, { label: string; color: string; bg: string }> 
   da:  { label: 'Hoàn thành', color: '#166534', bg: '#dcfce7' },
 }
 
-// ── Mock data ──────────────────────────────────────────────────────────────────
-
-const L = (id: string, materialName: string, unit: string, plannedQty: number, availableQty = plannedQty): OrderLine =>
-  ({ id, materialName, unit, plannedQty, availableQty, confirmedQty: 0, inputQty: '' })
-
-// Kho phôi sơn hàn: "Lệnh SX (PO)" liệt kê KHUNG (mảnh vừa gia công/sơn xong theo từng PI) cần xuất
-// nội bộ sang kho vật tư thành phẩm. Số lượng khớp với tồn kho "Khung..." đã seed (id 95) để lúc xác
-// nhận, tồn kho khả dụng thật và số hiển thị ở đây khớp nhau.
-// Kho vật tư thành phẩm: KHÔNG còn xuất mảnh nội bộ (mảnh chưa đan giờ đi qua "Xuất đan" tới điểm đan
-// ngoài — xem KhoXuatDanPage.tsx) — "Lệnh SX (PO)" ở đây chỉ xuất vật tư thành phẩm cho kho thành phẩm.
-const MOCK: Record<string, Order[]> = {
-  'phoi-son-han': [
-    {
-      id: 'pi-2026-001', ref: 'PI-2026-001', counterpart: 'Kho Vật tư thành phẩm', date: '2026-06-28',
-      poNumber: 'PI-2026-001', skuCode: 'JSE-55', skuName: 'Ghế J55', piCode: 'PI-2026-001',
-      lines: [
-        L('l1', 'Khung JSE-55 — PI-2026-001', 'cái', 80, 80),
-      ],
-    },
-  ],
-  'vat-tu-tp': [
-    {
-      id: 'pi-2026-002', ref: 'PI-2026-002', counterpart: 'Kho Thành phẩm', date: '2026-06-29',
-      poNumber: 'PI-2026-002', skuCode: 'IEA-3', skuName: 'Ghế đan IEA-3', piCode: 'PI-2026-002',
-      lines: [
-        L('l1', 'Tem nhãn sản phẩm — PI-2026-002', 'tờ', 500, 500),
-      ],
-    },
-  ],
-  'thanh-pham': [
-    {
-      id: 'po-tp-1', ref: 'ĐH-2507-001', counterpart: 'Nội thất Hải Phòng', date: '2025-07-01',
-      poNumber: 'ĐH-2507-001', skuCode: 'GHE-PE', skuName: 'Ghế sắt mặt đan PE',
-      lines: [
-        L('l1', 'Ghế sắt mặt đan PE – trắng',   'cái', 50, 45),
-        L('l2', 'Bàn sắt mặt đan PE tròn Ø80',  'cái', 10, 12),
-        L('l3', 'Bao bì carton 5 lớp',           'cái', 60, 80),
-      ],
-    },
-    {
-      id: 'po-tp-2', ref: 'ĐH-2507-002', counterpart: 'Sunshine Outdoor SG', date: '2025-07-03',
-      poNumber: 'ĐH-2507-002', skuCode: 'SET-OUTDOOR', skuName: 'Bộ bàn ghế ngoài trời',
-      lines: [
-        L('l1', 'Ghế sắt mặt đan PE – đen',     'cái',  80,  75),
-        L('l2', 'Bộ bàn ghế ngoài trời 4 chỗ', 'bộ',   15,  10),
-        L('l3', 'Bao bì carton 5 lớp',          'cái',  80, 100),
-        L('l4', 'Màng PE bọc sản phẩm',         'cuộn',  5,   6),
-      ],
-    },
-  ],
-}
-
 // ── Component ──────────────────────────────────────────────────────────────────
 
 const ACCENT = '#e65100'
 
 // Piece transfer (mảnh/vật tư thành phẩm) chỉ áp dụng cho chặng phoi-son-han → vat-tu-tp - đơn
 // vị là PO (không phải PI, xem docs/review-2026-08-17-sanxuat-stage-v16-va-chuyen-kho-manh.md
-// mục 6/7 ở BE). Chặng vat-tu-tp → thanh-pham vẫn dùng vật tư tiêu hao tự do (mock) như cũ.
+// mục 6/7 ở BE). Chặng vat-tu-tp → thanh-pham dùng packaging-issues thật (xem PACKAGING_SCOPE).
 const PIECE_TRANSFER_SCOPE = 'phoi-son-han'
 
 function pieceLabelToUnit(label: BePieceTransferPlanItem['label']): string {
@@ -162,10 +112,96 @@ function pieceItemsToOrders(summaries: { id: string; poNumber: string; salesOrde
     })
 }
 
+// Xuất vật tư đóng gói (tem nhãn, màng PE...) chặng vat-tu-tp → thanh-pham - đơn vị là PO, cùng
+// idiom PIECE_TRANSFER_SCOPE ở trên (module packaging-issues, thay MOCK, 2026-08-19).
+const PACKAGING_SCOPE = 'vat-tu-tp'
+
+// item.requiredQty/issuedQty/remainingToIssue map vào đúng plannedQty/confirmedQty/availableQty
+// sẵn có của OrderLine, cùng cách pieceItemsToOrders() đã làm.
+function packagingItemsToOrders(summaries: { id: string; poNumber: string; salesOrderCode: string | null }[], plan: BePackagingIssuePlanItem[]): Order[] {
+  const byPo = new Map<string, BePackagingIssuePlanItem[]>()
+  for (const item of plan) {
+    const arr = byPo.get(item.productionOrderId) ?? []
+    arr.push(item)
+    byPo.set(item.productionOrderId, arr)
+  }
+  return summaries
+    .filter(o => (byPo.get(o.id)?.length ?? 0) > 0)
+    .map(o => {
+      const items = byPo.get(o.id) ?? []
+      const displayCode = o.salesOrderCode ?? '—'
+      return {
+        id: o.id,
+        ref: displayCode,
+        counterpart: 'Kho Thành phẩm',
+        date: new Date().toISOString(),
+        poNumber: displayCode,
+        skuName: items[0]?.productName,
+        lines: items.map(it => ({
+          id: it.materialId,
+          materialName: `${it.materialCode} — ${it.materialName}`,
+          unit: it.materialUnit,
+          plannedQty: it.requiredQty,
+          availableQty: it.remainingToIssue,
+          confirmedQty: it.issuedQty,
+          inputQty: '',
+        })),
+      }
+    })
+}
+
+// Kho thành phẩm xuất trực tiếp cho khách - đơn vị là SalesOrder thật (sales-orders module), khác
+// hẳn 2 chặng nội bộ phía trên (không đi qua warehouse-transfers). "Kế hoạch" = totalQty, "Đã
+// xuất" = shippedQty, "Thực có" = phần còn lại được xuất (totalQty - shippedQty) - BE shipItem()
+// không tự đối chiếu tồn kho vật lý (chỉ là bút toán đơn hàng), nên không có nguồn thật nào khác
+// để lấy "tồn kho" - dùng luôn phần còn lại của đơn làm giới hạn nhập, đúng những gì BE thật sự
+// chặn. SalesOrderItem không có field đơn vị riêng (luôn là thành phẩm đếm theo cái).
+const SHIP_SCOPE = 'thanh-pham'
+
+function salesOrdersToOrders(salesOrders: SalesOrder[]): Order[] {
+  return salesOrders
+    .map(so => ({
+      id: so.id,
+      ref: so.code,
+      counterpart: so.customerName,
+      date: so.orderDate,
+      poNumber: so.code,
+      skuCode: so.items[0]?.skuCode,
+      skuName: so.items[0]?.skuName,
+      lines: so.items
+        .filter(it => it.totalQty > it.shippedQty)
+        .map(it => ({
+          id: it.id,
+          materialName: it.skuName ? `${it.skuCode} — ${it.skuName}` : it.skuCode,
+          unit: 'cái',
+          plannedQty: it.totalQty,
+          availableQty: it.totalQty - it.shippedQty,
+          confirmedQty: it.shippedQty,
+          inputQty: '',
+        })),
+    }))
+    .filter(o => o.lines.length > 0)
+}
+
+// Giữ nguyên inputQty đang gõ dở của từng dòng khi refetch dữ liệu remote đè lên state cục bộ -
+// cùng idiom TwoTierScreen ở components/sanxuat/core.tsx.
+function mergeInputQty(prev: Order[], next: Order[]): Order[] {
+  return next.map(o => {
+    const old = prev.find(p => p.id === o.id)
+    if (!old) return o
+    return { ...o, lines: o.lines.map(l => {
+      const oldLine = old.lines.find(pl => pl.id === l.id)
+      return oldLine ? { ...l, inputQty: oldLine.inputQty } : l
+    }) }
+  })
+}
+
 export default function WarehouseXuatPage({ scope }: { scope: string }) {
   const isPieceScope = scope === PIECE_TRANSFER_SCOPE
+  const isShipScope = scope === SHIP_SCOPE
+  const isPackagingScope = scope === PACKAGING_SCOPE
 
-  const [orders, setOrders]         = useState<Order[]>(() => isPieceScope ? [] : (MOCK[scope] ?? []))
+  const [orders, setOrders]         = useState<Order[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [txns, setTxns]             = useState<Txn[]>([])
   const [view, setView]             = useState<'orders' | 'history'>('orders')
@@ -187,20 +223,38 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
     return pieceItemsToOrders(summaries, plan)
   }, [isPieceScope])
 
+  // Danh sách PO + kế hoạch xuất vật tư đóng gói thật — thay MOCK cho đúng chặng vat-tu-tp.
+  const { data: packagingOrders, refetch: refetchPackagingOrders } = useFetch<Order[]>(async () => {
+    if (!isPackagingScope) return []
+    const summaries = await api.listProductionOrdersForStage()
+    if (summaries.length === 0) return []
+    const plan = await api.getPackagingIssuePlan(summaries.map(o => o.id))
+    return packagingItemsToOrders(summaries, plan)
+  }, [isPackagingScope])
+
+  // Danh sách đơn hàng bán + số lượng còn phải xuất thật — thay MOCK cho scope 'thanh-pham'.
+  const { data: shipOrders, refetch: refetchShipOrders } = useFetch<Order[]>(async () => {
+    if (!isShipScope) return []
+    const salesOrders = await api.getSalesOrders()
+    return salesOrdersToOrders(salesOrders)
+  }, [isShipScope])
+
   // Merge dữ liệu vừa fetch vào state cục bộ, giữ nguyên inputQty đang gõ dở của từng dòng (cùng
   // idiom TwoTierScreen ở components/sanxuat/core.tsx - merge đè lên overlay cục bộ khi refetch).
   useEffect(() => {
     if (!isPieceScope) return
-    const next = pieceOrders ?? []
-    setOrders(prev => next.map(o => {
-      const old = prev.find(p => p.id === o.id)
-      if (!old) return o
-      return { ...o, lines: o.lines.map(l => {
-        const oldLine = old.lines.find(pl => pl.id === l.id)
-        return oldLine ? { ...l, inputQty: oldLine.inputQty } : l
-      }) }
-    }))
+    setOrders(prev => mergeInputQty(prev, pieceOrders ?? []))
   }, [pieceOrders, isPieceScope])
+
+  useEffect(() => {
+    if (!isPackagingScope) return
+    setOrders(prev => mergeInputQty(prev, packagingOrders ?? []))
+  }, [packagingOrders, isPackagingScope])
+
+  useEffect(() => {
+    if (!isShipScope) return
+    setOrders(prev => mergeInputQty(prev, shipOrders ?? []))
+  }, [shipOrders, isShipScope])
 
   const [transferBusyLine, setTransferBusyLine] = useState<string | null>(null)
   const [transferErrors, setTransferErrors] = useState<Record<string, string>>({})
@@ -238,6 +292,49 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
       }, ...t])
       setTransferBusyLine(null)
       refetchPieceOrders() // đọc lại suggestedQty/transferredQty thật từ BE thay vì tự trừ cục bộ
+      return
+    }
+
+    // Chặng vat-tu-tp: xuất vật tư đóng gói thật (packaging-issues), ghi StockLedger ngay - đặt
+    // TRƯỚC nhánh isInternalChain chung bên dưới vì scope này cũng thoả canSendFrom (đúng kho thật
+    // trong TRANSFER_ROUTES) nên phải chặn sớm, không rơi xuống createWarehouseTransfer generic cũ.
+    if (isPackagingScope) {
+      setTransferBusyLine(lineId)
+      setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
+      try {
+        await api.issuePackaging(order.id, { materialId: line.id, issuedQty: qty })
+      } catch (e) {
+        setTransferErrors(prev => ({ ...prev, [lineId]: errMsg(e, 'Không thể xuất vật tư đóng gói') }))
+        setTransferBusyLine(null)
+        return
+      }
+      setTxns(t => [{
+        id: `txn-${Date.now()}-${lineId}`, orderRef: order.ref,
+        materialName: line.materialName, unit: line.unit, qty, date: new Date().toISOString(),
+      }, ...t])
+      setTransferBusyLine(null)
+      refetchPackagingOrders() // đọc lại remainingToIssue/issuedQty thật từ BE thay vì tự trừ cục bộ
+      return
+    }
+
+    // Kho thành phẩm: "Xác nhận" = ship thật cho đơn hàng (cộng dồn shippedQty), không qua
+    // warehouse-transfers vì đây là điểm cuối chuỗi, xuất thẳng cho khách ngoài.
+    if (isShipScope) {
+      setTransferBusyLine(lineId)
+      setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
+      try {
+        await api.shipSalesOrderItem(order.id, line.id, qty)
+      } catch (e) {
+        setTransferErrors(prev => ({ ...prev, [lineId]: errMsg(e, 'Không thể xuất kho') }))
+        setTransferBusyLine(null)
+        return
+      }
+      setTxns(t => [{
+        id: `txn-${Date.now()}-${lineId}`, orderRef: order.ref,
+        materialName: line.materialName, unit: line.unit, qty, date: new Date().toISOString(),
+      }, ...t])
+      setTransferBusyLine(null)
+      refetchShipOrders() // đọc lại shippedQty thật từ BE thay vì tự trừ cục bộ
       return
     }
 
@@ -285,7 +382,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
       o.id !== orderId ? o : { ...o, lines: o.lines.map(l => l.id !== lineId ? l : { ...l, inputQty: val }) }
     ))
 
-  const usePOLayout = scope === 'phoi-son-han' || scope === 'thanh-pham'
+  const usePOLayout = scope === 'phoi-son-han' || scope === 'thanh-pham' || scope === 'vat-tu-tp'
 
   // ── Detail view ──────────────────────────────────────────────────────────────
   if (selected) {
@@ -325,7 +422,16 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
           <span style={{ ...badge, fontSize: 12, padding: '4px 14px', alignSelf: 'center', color: cfg.color, background: cfg.bg }}>{cfg.label}</span>
         </div>
 
-        {isInternalChain && nextHopWh && (
+        {/* vat-tu-tp (packaging-issues): KHÔNG qua warehouse-transfers PENDING/CONFIRMED như 2 chặng
+            còn lại - ghi StockLedger ngay lúc xác nhận (xem confirmLine, nhánh isPackagingScope) -
+            phát hiện qua browser thật 2026-08-19: banner cũ dùng chung isInternalChain nói sai
+            "chờ kho nhận xác nhận" cho chặng này dù tồn kho đã đổi ngay lập tức. */}
+        {isPackagingScope && (
+          <div style={{ marginBottom: 14, padding: '8px 14px', background: '#ede7f6', border: '1px solid #d1c4e9', borderRadius: 8, fontSize: 12, color: '#4527a0' }}>
+            Bấm &quot;Xác nhận&quot; sẽ ghi nhận đã xuất vật tư đóng gói cho <strong>Kho Thành phẩm</strong> ngay lập tức.
+          </div>
+        )}
+        {isInternalChain && nextHopWh && !isPackagingScope && (
           <div style={{ marginBottom: 14, padding: '8px 14px', background: '#ede7f6', border: '1px solid #d1c4e9', borderRadius: 8, fontSize: 12, color: '#4527a0' }}>
             Bấm &quot;Xác nhận&quot; sẽ tạo phiếu chuyển kho nội bộ sang <strong>{nextHopWh.name}</strong> — tồn kho chỉ cập nhật sau khi kho nhận xác nhận.
           </div>

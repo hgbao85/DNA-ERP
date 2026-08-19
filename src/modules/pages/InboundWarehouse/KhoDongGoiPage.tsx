@@ -8,17 +8,6 @@ import { ChevronLeft, X } from 'lucide-react'
 import type { Sku } from '../../../types/sku'
 import LoadingState from '../../../components/LoadingState'
 
-function strHash(s: string): number {
-  return s.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-}
-
-// Dùng riêng cho "Chi tiết từng công đoạn" bên Bảng thống kê KHSX (xem ThongKePagePlan.tsx) - trang
-// đó vẫn hiển thị mock cho công đoạn đóng gói, KhoDongGoiPage ở đây đã nối API thật nên không còn
-// tự gọi hàm này nữa.
-export function mockTotalBoxes(pf: Sku): number {
-  const code = pf.mfgProduct?.factoryCode ?? `#${pf.id}`
-  return 20 + (strHash(code) % 60)
-}
 
 export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: string } = {}) {
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])

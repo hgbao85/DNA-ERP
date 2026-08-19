@@ -8,12 +8,14 @@ import { useInspection, type PurchaseProposal } from '../../../context/Inspectio
 import type { Sku } from '../../../types/sku'
 import LenhSanXuatBoard, { type BoardColumn } from '../../../components/sanxuat/LenhSanXuatBoard'
 import { VatTuDetailBoard, PHOI_CFG, HAN_CFG, SON_CFG, perSku, lechOf, type ProcManh, type ProcLine, type StageCfg } from '../../../components/sanxuat/core'
-import type { ManhLine, ManhAllocation } from '../../../types/manh'
+import type { ManhLine } from '../../../types/manh'
 import ManhSkuDetail from '../InboundWarehouse/ManhSkuDetail'
-import { mockPieces, type MockPiece } from '../../../lib/mock/chuyen-kiem-fixtures'
-import { mockTotalBoxes } from '../InboundWarehouse/KhoDongGoiPage'
+import type { MockPiece } from '../../../lib/mock/chuyen-kiem-fixtures'
 import { tabBtn, btnSecondary } from '../../../styles/buttons'
 import ProgressBar from '../../../components/ProgressBar'
+import { resolveProductionOrderId } from '../../../services/production-invoice-item'
+import type { BeSteelIssue } from '../../../services/steel-issues-api'
+import type { BeProductionBatchPlan } from '../../../services/production-batches-api'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -46,7 +48,7 @@ interface StageDetails {
     sonLines: ProcLine[]
   }
   weaving: { nhapDan: SubStatus; xuatDan: SubStatus; lines: ManhLine[]; skuQty: number }
-  // Chuyền kiểm/Đóng gói dùng chung số liệu "cần làm" (mockPieces/mockTotalBoxes) với đúng trang
+  // Chuyền kiểm/Đóng gói đọc thật qua getTransferCheckPieces()/getPackaging() — cùng nguồn 2 trang
   // Chuyền kiểm/Đóng gói thật của thủ kho thành phẩm (khotp@demo.com) — xem ChuyenKiemContent/PackagingContent.
   chuyenKiem: { daKiem: SubStatus; pieces: (MockPiece & { daKiemQty: number })[] }
   packaging: { dongGoi: SubStatus; totalBoxes: number; daDongQty: number }
@@ -88,13 +90,8 @@ const STAGE_TRACKER_ICONS: Record<MfgStage, React.ComponentType<{ size?: number 
 
 // ─── Dữ liệu thật: Sku + PurchaseProposal ───────────────────────────────
 // "Danh sách" và "Nội dung mua hàng" đọc trực tiếp từ Sku/PurchaseProposal thật
-// (giống TheoDoiMuaHangPage.tsx). Khung cơ khí/Đan/Đóng gói chưa có nguồn dữ liệu tổng
-// hợp thật trong hệ thống (nằm rải ở nhiều module Phôi/Hàn/Sơn/Đan/Đóng gói khác nhau)
-// nên vẫn tạo mock ổn định theo từng Sku (deterministic theo id, không đổi giữa các lần render).
-
-function strHash(s: string): number {
-  return s.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-}
+// (giống TheoDoiMuaHangPage.tsx). Khung cơ khí/Đan/Chuyền kiểm/Đóng gói cũng đã thật —
+// xem fetchFrame/fetchWeaving/fetchChuyenKiem/fetchPackaging bên dưới.
 
 function getPurchasingRows(pf: Sku, proposals: PurchaseProposal[]): MaterialItem[] {
   return proposals
@@ -126,208 +123,143 @@ function getPurchasingPercent(materials: MaterialItem[]): number {
   return Math.round(materials.reduce((s, m) => s + w(m), 0) / materials.length * 100)
 }
 
-// ─── Dữ liệu chi tiết Khung cơ khí (Phôi/Hàn/Sơn) ─────────────────────────────
-// Ưu tiên dùng định mức mảnh/sắt/sơn THẬT do các account chuyên trách đã nhập trên Sku
-// (manhData.pieces, lọc children group='sat' — Hàn/Sơn stats chỉ tính đoạn sắt; quotaManagement.
-// materialType.daySon) — cùng cấu trúc ProcManh/ProcLine dùng ở màn Lệnh sản xuất Phôi/Hàn/Sơn.
-// Nếu Sku chưa có (chưa tới bước nhập định mức) thì vẫn tạo mock ổn định theo PO để KHSX luôn
-// xem được giao diện chi tiết. Số lượng "đã làm" mock theo đúng SubStatus đã chọn ở trên để
-// nhất quán với thanh tiến độ.
-const doneFracOf = (status: SubStatus, h: number, salt: number): number => {
-  if (status === 'done') return 1
-  if (status === 'pending') return 0
-  return 0.25 + ((h + salt * 31) % 45) / 100
+// ─── Dữ liệu chi tiết Khung cơ khí/Đan/Chuyền kiểm/Đóng gói: API thật ─────────
+// Tới 2026-08-19 4 công đoạn này sinh bằng hash giả ổn định theo PO vì "chưa có nguồn dữ liệu
+// tổng hợp thật" — nay sai: steel-issues/production-batches/weaving-issues/transfer-check/
+// packaging đều đã có endpoint thật nhận đúng 1 Sku (qua productionInvoiceId có sẵn trên Sku, hoặc
+// productionOrderId resolve qua resolveProductionOrderId() — cùng cách weaving-issues-api.ts dùng).
+// Đổi N+1 fetch/PO lấy dữ liệu thật, thay vì chờ 1 endpoint tổng hợp (chưa có, ngoài phạm vi).
+
+function subStatusOf(need: number, done: number): SubStatus {
+  if (need <= 0 || done <= 0) return 'pending'
+  return done >= need ? 'done' : 'in-progress'
 }
 
-const FALLBACK_MANH = ['Mảnh Tựa', 'Mảnh Tay', 'Mảnh Chân']
-const FALLBACK_SAT = ['Sắt Vuông 6 zem', 'Sắt Hộp 8 zem']
-
-function buildPhoiManhs(pf: Sku, status: SubStatus, h: number): ProcManh[] {
-  const doneFrac = doneFracOf(status, h, 1)
-  const steelPieces = pf.manhData?.pieces?.map(p => ({ ...p, children: p.children.filter(c => c.group === 'sat') })) ?? null
-  const src = steelPieces && steelPieces.length > 0 ? steelPieces : null
-  const manhList = src ?? FALLBACK_MANH.map((name, i) => ({ id: i + 1, name, qtyPerSku: '1', children: [] as { id: number; name: string; specs?: string | null; length?: string | null; qty?: string | null }[] }))
-  return manhList.map((m, mi) => {
-    const children = m.children.length > 0 ? m.children : [{ id: mi * 10 + 1, name: FALLBACK_SAT[mi % FALLBACK_SAT.length], specs: null, length: null, qty: null }]
-    return {
-      id: m.id,
-      tenManh: m.name,
-      perSku: m.qtyPerSku ? Number(m.qtyPerSku) || 1 : 1,
-      lines: children.map((c, ci) => {
-        const need = Math.max(1, Number(c.qty) || (80 + ((h + mi * 23 + ci * 11) % 150)))
-        const frac = Math.min(1, doneFrac * (0.85 + ((h + mi * 7 + ci * 13) % 30) / 100))
-        const done = Math.round(need * frac)
-        return {
-          id: mi * 1000 + c.id,
-          itemName: c.name,
-          spec: [c.specs, c.length ? `dài ${c.length}` : null].filter(Boolean).join(' · ') || '—',
-          needQty: need,
-          doneQty: done,
-          perManh: 1,
-          lastInputAt: done > 0 ? new Date(Date.now() - ((h + mi * 11 + ci * 17) % 180) * 60000).toISOString() : null,
-        }
-      }),
-    }
-  })
+function lineTotals(lines: ProcLine[]): { need: number; done: number } {
+  return { need: lines.reduce((s, l) => s + l.needQty, 0), done: lines.reduce((s, l) => s + l.doneQty, 0) }
 }
 
-function buildHanLines(phoiManhs: ProcManh[], status: SubStatus, h: number): ProcLine[] {
-  const doneFrac = doneFracOf(status, h, 2)
-  return phoiManhs.map((m, i) => {
-    const need = 60 + ((h + i * 23) % 200)
-    const frac = Math.min(1, doneFrac * (0.8 + (i % 4) / 10))
-    const done = Math.round(need * frac)
-    return {
-      id: 5000 + i,
-      itemName: `Hàn ráp ${m.tenManh}`,
-      spec: `×${perSku(m)} / SKU`,
-      needQty: need,
-      doneQty: done,
-      thucCoQty: Math.min(need, done + ((h + i * 9) % 15)),
-      lastInputAt: done > 0 ? new Date(Date.now() - ((h + i * 7) % 150) * 60000).toISOString() : null,
-    }
-  })
-}
-
-function buildSonLines(pf: Sku, status: SubStatus, h: number): ProcLine[] {
-  const doneFrac = doneFracOf(status, h, 3)
-  const items = pf.quotaManagement?.materialType.daySon ?? []
-  const src = items.length > 0 ? items : [{ name: 'Sơn tĩnh điện', specifications: null as string | null, kg: null as number | null }]
-  return src.map((it, i) => {
-    const need = Math.max(1, Math.round(Number(it.kg) || (40 + ((h + i * 31) % 100))))
-    const frac = Math.min(1, doneFrac * (0.85 + (i % 3) / 10))
-    const done = Math.round(need * frac)
-    return {
-      id: 7000 + i,
-      itemName: it.name,
-      spec: it.specifications || '—',
-      needQty: need,
-      doneQty: done,
-      thucCoQty: Math.min(need, done + ((h + i * 5) % 10)),
-      lastInputAt: done > 0 ? new Date(Date.now() - ((h + i * 13) % 150) * 60000).toISOString() : null,
-    }
-  })
-}
-
-// Đan: "Xuất đan" (kho vật tư thành phẩm giao mảnh cho điểm đan gia công) luôn xảy ra trước
-// "Nhập đan" (kho thành phẩm nhận lại mảnh đã đan) — mock vài mảnh giao cho 1-2 điểm đan (lấy tên
-// điểm đan thật từ getWeavingPoints), theo đúng cấu trúc dòng/điểm đan dùng ở 2 màn thủ kho.
-const DAN_LINE_NAMES = ['Mảnh tựa lưng', 'Mảnh ngồi chính', 'Mảnh tay vịn']
-
-function buildWeavingLines(xuatStatus: SubStatus, nhapStatus: SubStatus, h: number, points: WeavingPointLite[]): ManhLine[] {
-  const xuatFrac = doneFracOf(xuatStatus, h, 4)
-  const nhapFrac = doneFracOf(nhapStatus, h, 5)
-  const pool = points.length > 0 ? points : [{ id: 1, code: 'Điểm đan A' }, { id: 2, code: 'Điểm đan B' }]
-
-  return DAN_LINE_NAMES.map((name, i) => {
-    const total = 20 + ((h + i * 17) % 60)
-    const xuatTotal = Math.round(total * xuatFrac)
-    const twoPoints = pool.length > 1 && xuatTotal > 0 && (h + i) % 2 === 0
-    const splitA = twoPoints ? Math.ceil(xuatTotal * 0.6) : xuatTotal
-    const splits = twoPoints ? [splitA, xuatTotal - splitA] : [splitA]
-    const allocations: ManhAllocation[] = splits
-      .filter(q => q > 0)
-      .map((q, ai) => {
-        const point = pool[(i + ai) % pool.length]
-        return { id: i * 10 + ai + 1, weavingPointId: point.id, xuatQty: q, nhapQty: Math.min(q, Math.round(q * nhapFrac)) }
-      })
-    return { id: i + 1, name, unit: 'cái', totalQty: total, tonThuc: 0, allocations }
-  })
-}
-
-// Chuyền kiểm: lấy đúng danh sách mảnh + số lượng "cần kiểm"/"chờ thực thi" từ mockPieces (cùng hàm
-// dùng ở trang Chuyền kiểm thật của thủ kho thành phẩm khotp@demo.com) — chỉ suy ra riêng "đã kiểm"
-// theo SubStatus để có tiến độ hiển thị, vì số đã kiểm thật do thủ kho nhập tại chỗ (state riêng
-// của trang đó), KHSX không có quyền chỉnh nên không cần đồng bộ hai chiều.
-function buildChuyenKiemPieces(pf: Sku, status: SubStatus, h: number): (MockPiece & { daKiemQty: number })[] {
-  const doneFrac = doneFracOf(status, h, 6)
-  return mockPieces(pf).map((p, i) => {
-    const remain = Math.max(0, p.totalQty - p.choThucThi)
-    const frac = Math.min(1, doneFrac * (0.85 + ((h + i * 7) % 30) / 100))
-    return { ...p, daKiemQty: Math.round(remain * frac) }
-  })
-}
-
-// Khung/Đan/Đóng gói phải tuần tự (đan chỉ bắt đầu khi khung xong, đóng gói khi đan xong) —
-// tạo pseudo-random ổn định theo PO để demo có nhịp độ hợp lý, không đổi giữa các lần render.
-function genExecutionStages(pf: Sku, purchasingDone: boolean, weavingPoints: WeavingPointLite[], skuQty: number): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
-  if (!purchasingDone) {
-    return {
-      frame: { phoi: 'pending', han: 'pending', son: 'pending', phoiManhs: [], hanLines: [], sonLines: [] },
-      weaving: { nhapDan: 'pending', xuatDan: 'pending', lines: [], skuQty },
-      chuyenKiem: { daKiem: 'pending', pieces: [] },
-      packaging: { dongGoi: 'pending', totalBoxes: 0, daDongQty: 0 },
-    }
+// Phôi: gộp SteelIssue theo materialCode (đúng cách XuatSatPage đã gộp lại theo PI, 2026-08-19) —
+// 1 material = 1 "mảnh" giả trong UI, mỗi đợt xuất sắt là 1 dòng con.
+function mapSteelIssuesToPhoiManhs(steelIssues: BeSteelIssue[]): ProcManh[] {
+  const byMaterial = new Map<string, BeSteelIssue[]>()
+  for (const si of steelIssues) {
+    const arr = byMaterial.get(si.materialCode) ?? []
+    arr.push(si)
+    byMaterial.set(si.materialCode, arr)
   }
-  // pf.id là bigint-as-string thật — Number() chỉ dùng để làm seed hash giả lập demo (không phải
-  // định danh/tra cứu), mất độ chính xác ở đây vô hại.
-  const h = strHash(pf.exportOrder?.poNumber ?? pf.id) + Number(pf.id)
+  return Array.from(byMaterial.values()).map((issues, mi) => ({
+    id: mi + 1,
+    tenManh: issues[0].materialName,
+    perSku: 1,
+    lines: issues.map((si, li) => ({
+      id: mi * 1000 + li,
+      itemName: si.materialCode,
+      spec: `Ø${si.barLengthMm}mm`,
+      needQty: si.barCount,
+      doneQty: si.actualBarCount ?? (si.status === 'QC_PASSED' ? si.barCount : 0),
+      perManh: 1,
+      lastInputAt: si.completedAt,
+    })),
+  }))
+}
 
-  // id 9-10: 2 lệnh minh hoạ cố định luôn ở Chuyền kiểm/Đóng gói (PO-MY-009, PO-IK-010 — xem seed.ts)
-  // để demo luôn có sẵn ví dụ cho 2 công đoạn cuối, không phụ thuộc may rủi của hash PO; vẫn tái dùng
-  // đúng các hàm buildPhoiManhs/buildHanLines/buildSonLines/buildWeavingLines ở trên để có dữ liệu chi
-  // tiết hiển thị bình thường như mọi lệnh khác.
-  if (pf.id === '9' || pf.id === '10') {
-    const phoiManhs = buildPhoiManhs(pf, 'done', h)
-    const frame: StageDetails['frame'] = {
-      phoi: 'done', han: 'done', son: 'done', phoiManhs,
-      hanLines: buildHanLines(phoiManhs, 'done', h),
-      sonLines: buildSonLines(pf, 'done', h),
-    }
-    const weaving: StageDetails['weaving'] = { xuatDan: 'done', nhapDan: 'done', lines: buildWeavingLines('done', 'done', h, weavingPoints), skuQty }
-    const daKiem: SubStatus  = pf.id === '9' ? 'in-progress' : 'done'
-    const dongGoi: SubStatus = pf.id === '9' ? 'pending'      : 'in-progress'
-    const totalBoxes = mockTotalBoxes(pf)
-    return {
-      frame, weaving,
-      chuyenKiem: { daKiem, pieces: buildChuyenKiemPieces(pf, daKiem, h) },
-      packaging: { dongGoi, totalBoxes, daDongQty: Math.round(totalBoxes * doneFracOf(dongGoi, h, 7)) },
-    }
+function mapBatchPlanToLines(plan: BeProductionBatchPlan | null): ProcLine[] {
+  return (plan?.items ?? []).map(item => ({
+    id: Number(item.pieceId),
+    itemName: item.pieceName,
+    spec: item.pieceCode,
+    needQty: item.plannedQty,
+    doneQty: item.passedQty,
+    lastInputAt: null,
+  }))
+}
+
+async function fetchFrame(pf: Sku, orderId: string | null): Promise<StageDetails['frame']> {
+  const [steelIssues, hanPlan, sonPlan] = await Promise.all([
+    pf.productionInvoiceId ? api.getSteelIssuesForInvoice(pf.productionInvoiceId) : Promise.resolve([]),
+    orderId ? api.getProductionBatchPlan(orderId, 'HAN') : Promise.resolve(null),
+    orderId ? api.getProductionBatchPlan(orderId, 'SON') : Promise.resolve(null),
+  ])
+  const phoiManhs = mapSteelIssuesToPhoiManhs(steelIssues)
+  const hanLines = mapBatchPlanToLines(hanPlan)
+  const sonLines = mapBatchPlanToLines(sonPlan)
+  const phoi: SubStatus = steelIssues.length === 0 ? 'pending' : steelIssues.every(si => si.status === 'QC_PASSED') ? 'done' : 'in-progress'
+  const hanTotals = lineTotals(hanLines)
+  const sonTotals = lineTotals(sonLines)
+  return {
+    phoi, han: subStatusOf(hanTotals.need, hanTotals.done), son: subStatusOf(sonTotals.need, sonTotals.done),
+    phoiManhs, hanLines, sonLines,
   }
+}
 
-  const pick = (offset: number, thresholds: [number, SubStatus][]): SubStatus => {
-    const v = (h + offset * 7) % 10
-    for (const [t, s] of thresholds) if (v < t) return s
-    return thresholds[thresholds.length - 1][1]
+// Đan: dùng nguyên component thật ManhSkuDetail (đã dùng cho 2 màn thủ kho thật) — chỉ đổi nguồn
+// dữ liệu nạp vào từ mock sang getWeavingIssuePlan() thật.
+async function fetchWeaving(pf: Sku, skuQty: number): Promise<StageDetails['weaving']> {
+  const items = await api.getWeavingIssuePlan(pf)
+  const lines: ManhLine[] = items.map(it => ({
+    id: Number(it.pieceId),
+    name: it.pieceName,
+    unit: 'cái',
+    totalQty: it.totalQty,
+    tonThuc: it.remainingToIssue,
+    allocations: it.allocations.map((a, ai) => ({
+      id: Number(it.pieceId) * 1000 + ai,
+      weavingPointId: Number(a.weavingPointId),
+      xuatQty: a.issuedQty,
+      nhapQty: a.receivedQty,
+    })),
+  }))
+  const totalQty = items.reduce((s, it) => s + it.totalQty, 0)
+  const issuedQty = items.reduce((s, it) => s + it.issuedQty, 0)
+  const receivedQty = items.reduce((s, it) => s + it.allocations.reduce((a, x) => a + x.receivedQty, 0), 0)
+  return { xuatDan: subStatusOf(totalQty, issuedQty), nhapDan: subStatusOf(issuedQty, receivedQty), lines, skuQty }
+}
+
+// Chuyền kiểm: readyQty ("chờ thực thi") là luỹ kế SUM(WeavingReceipt.qty), KHÔNG trừ phần đã kiểm
+// (xem transfer-check-api.ts) — "chờ thực thi hiện tại" = readyQty - checkedQty, khớp đúng ý nghĩa
+// cột "Chờ thực thi" của ChuyenKiemContent bên dưới (remaining = totalQty - choThucThi - daKiemQty).
+async function fetchChuyenKiem(pf: Sku): Promise<StageDetails['chuyenKiem']> {
+  const pieces = await api.getTransferCheckPieces(pf)
+  const mapped = pieces.map(p => ({
+    id: p.pieceId, name: p.pieceName, totalQty: p.totalQty,
+    choThucThi: Math.max(0, p.readyQty - p.checkedQty),
+    daKiemQty: p.checkedQty,
+  }))
+  const totalQty = pieces.reduce((s, p) => s + p.totalQty, 0)
+  const checkedQty = pieces.reduce((s, p) => s + p.checkedQty, 0)
+  return { daKiem: subStatusOf(totalQty, checkedQty), pieces: mapped }
+}
+
+async function fetchPackaging(pf: Sku): Promise<StageDetails['packaging']> {
+  const progress = await api.getPackaging(pf)
+  return { dongGoi: subStatusOf(progress.totalQty, progress.packedQty), totalBoxes: progress.totalQty, daDongQty: progress.packedQty }
+}
+
+function emptyExecutionStages(skuQty: number): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
+  return {
+    frame: { phoi: 'pending', han: 'pending', son: 'pending', phoiManhs: [], hanLines: [], sonLines: [] },
+    weaving: { nhapDan: 'pending', xuatDan: 'pending', lines: [], skuQty },
+    chuyenKiem: { daKiem: 'pending', pieces: [] },
+    packaging: { dongGoi: 'pending', totalBoxes: 0, daDongQty: 0 },
   }
+}
 
-  // Khung cơ khí → Đan → Chuyền kiểm → Đóng gói chạy theo mô hình pipeline, không phải hàng đợi tuần
-  // tự: PO số lượng lớn nên hễ công đoạn trước đã có SẢN LƯỢNG XONG (không còn 'pending') là công đoạn
-  // sau đã có việc để làm, không cần đợi công đoạn trước xong 100%. Nhưng công đoạn sau không thể XONG
-  // HẲN trước khi công đoạn ngay trước nó xong hẳn (chưa qua hết Đan thì Chuyền kiểm không thể xong) —
-  // pipelineNext "chặn trần" trạng thái công đoạn sau ở đúng mức của bottleneck phía trước.
-  const SUB_STATUSES: SubStatus[] = ['pending', 'in-progress', 'done']
-  const rankOf = (s: SubStatus) => SUB_STATUSES.indexOf(s)
-  const pipelineNext = (upstream: SubStatus, roll: SubStatus): SubStatus => SUB_STATUSES[Math.min(rankOf(upstream), rankOf(roll))]
-
-  const phoiStatus = pick(1, [[8, 'done'], [9, 'in-progress'], [10, 'pending']])
-  const hanStatus  = pick(2, [[6, 'done'], [8, 'in-progress'], [10, 'pending']])
-  const sonStatus  = pick(3, [[5, 'done'], [7, 'in-progress'], [10, 'pending']])
-  const phoiManhs = buildPhoiManhs(pf, phoiStatus, h)
-  const frame: StageDetails['frame'] = {
-    phoi: phoiStatus, han: hanStatus, son: sonStatus,
-    phoiManhs,
-    hanLines: buildHanLines(phoiManhs, hanStatus, h),
-    sonLines: buildSonLines(pf, sonStatus, h),
-  }
-  // Đan cần mảnh đã qua đủ cả Phôi lẫn Hàn lẫn Sơn — bottleneck của khung là công đoạn con chậm nhất.
-  const frameBottleneck = SUB_STATUSES[Math.min(rankOf(phoiStatus), rankOf(hanStatus), rankOf(sonStatus))]
-  const xuatDan = pipelineNext(frameBottleneck, pick(4, [[6, 'done'], [8, 'in-progress'], [10, 'pending']]))
-  // nhapDan không thể vượt tiến độ xuatDan (chưa xuất thì chưa có gì để nhập về).
-  const nhapDan = pipelineNext(xuatDan, pick(5, [[4, 'done'], [7, 'in-progress'], [10, 'pending']]))
-  const weaving: StageDetails['weaving'] = { xuatDan, nhapDan, lines: buildWeavingLines(xuatDan, nhapDan, h, weavingPoints), skuQty }
-  const daKiem = pipelineNext(nhapDan, pick(6, [[6, 'done'], [8, 'in-progress'], [10, 'pending']]))
-  const chuyenKiem: StageDetails['chuyenKiem'] = { daKiem, pieces: buildChuyenKiemPieces(pf, daKiem, h) }
-  const dongGoi = pipelineNext(daKiem, pick(7, [[5, 'done'], [8, 'in-progress'], [10, 'pending']]))
-  const totalBoxes = mockTotalBoxes(pf)
-  const packaging: StageDetails['packaging'] = { dongGoi, totalBoxes, daDongQty: Math.round(totalBoxes * doneFracOf(dongGoi, h, 7)) }
+async function fetchExecutionStages(pf: Sku, skuQty: number): Promise<Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'>> {
+  const orderId = await resolveProductionOrderId(pf)
+  const [frame, weaving, chuyenKiem, packaging] = await Promise.all([
+    fetchFrame(pf, orderId),
+    fetchWeaving(pf, skuQty),
+    fetchChuyenKiem(pf),
+    fetchPackaging(pf),
+  ])
   return { frame, weaving, chuyenKiem, packaging }
 }
 
-function buildOrderRow(pf: Sku, proposals: PurchaseProposal[], weavingPoints: WeavingPointLite[], skuQty: number): { order: MfgOrder; details: StageDetails } {
+async function buildOrderRow(pf: Sku, proposals: PurchaseProposal[], skuQty: number): Promise<{ order: MfgOrder; details: StageDetails }> {
   const materials = getPurchasingRows(pf, proposals)
   const purchPct = getPurchasingPercent(materials)
-  const { frame, weaving, chuyenKiem, packaging } = genExecutionStages(pf, purchPct >= 100, weavingPoints, skuQty)
+  const { frame, weaving, chuyenKiem, packaging } = purchPct >= 100 ? await fetchExecutionStages(pf, skuQty) : emptyExecutionStages(skuQty)
   const details: StageDetails = { purchasing: { materials }, frame, weaving, chuyenKiem, packaging }
   const done = isAllDone(details)
   const hasVariance = phoiStageStats(frame.phoiManhs).lech || aggLineStats(frame.hanLines).lech || aggLineStats(frame.sonLines).lech
@@ -942,16 +874,17 @@ export default function ThongKePagePlan() {
     return p?.fullName ? `${p.code} (${p.fullName})` : (p?.code ?? `#${id}`)
   }
 
-  // Sinh dữ liệu mock nhiều tầng (buildOrderRow → genExecutionStages → buildPhoiManhs/...) khá nặng —
-  // memo hoá để gõ tìm kiếm (search) không kích hoạt tính lại toàn bộ danh sách PO.
-  const orderRows = useMemo(
-    () => skus.map(pf => {
+  // buildOrderRow giờ gọi API thật (N+1 theo từng PO: steel-issues/production-batch-plan/
+  // weaving-issue-plan/transfer-check/packaging) — không còn tính đồng bộ được, phải qua useFetch.
+  const { data: orderRowsData, isLoading: rowsLoading } = useFetch(
+    () => Promise.all(skus.map(pf => {
       const pi = pf.productionInvoiceId != null ? piMap.get(pf.productionInvoiceId) : undefined
       const skuQty = pi?.items?.[0]?.quantity ?? 0
-      return buildOrderRow(pf, proposals, weavingPoints, skuQty)
-    }),
-    [skus, proposals, weavingPoints, piMap],
+      return buildOrderRow(pf, proposals, skuQty)
+    })),
+    [skus, proposals, piMap],
   )
+  const orderRows = orderRowsData ?? []
 
   const [filter, setFilter]         = useState<FilterStatus>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -1028,7 +961,7 @@ export default function ThongKePagePlan() {
             </tr>
           </thead>
           <tbody>
-            {isLoading ? (
+            {(isLoading || rowsLoading) ? (
               <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</td></tr>
             ) : pageItems.map(({ order: o, details }) => {
               const isDone     = o.status === 'DONE'

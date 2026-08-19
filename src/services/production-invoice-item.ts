@@ -18,19 +18,40 @@ import { http } from './core/http';
 import type { Sku } from '../types/sku';
 
 export async function resolveProductionInvoiceItemId(pf: Sku): Promise<string | null> {
+  const ref = await resolveProductionInvoiceRef(pf);
+  return ref?.itemId ?? null;
+}
+
+export interface ProductionInvoiceItemRef {
+  /** PI CHA thật của item này — KHÔNG phải lúc nào cũng bằng pf.productionInvoiceId (SKU tạo độc
+   *  lập, resolve qua fallback mfgProductId, để trống mãi mãi trên PlanForm - xem comment đầu
+   *  file). Dùng field này thay vì pf.productionInvoiceId khi build URL /production-invoices/:id/...,
+   *  nếu không URL sẽ thành ".../undefined/..." (400) cho đúng nhóm SKU dùng fallback. */
+  productionInvoiceId: string;
+  itemId: string;
+}
+
+/** Cùng logic resolveProductionInvoiceItemId() nhưng trả thêm productionInvoiceId thật - dùng cho
+ *  các adapter cần build URL /production-invoices/:id/items/:itemId/... (transfer-check-api.ts,
+ *  packaging-api.ts). Phát hiện 2026-08-19 qua browser thật: VatTuDashboardPage gọi getPackaging()
+ *  cho SKU tạo độc lập (fallback path, pf.productionInvoiceId null) ra 400 "/production-invoices/
+ *  undefined/items/.../packaging" - trước đó ít lộ vì getPackaging chỉ gọi tương tác theo 1 SKU
+ *  được chọn, không lặp qua mọi SKU như VatTuDashboardPage. */
+export async function resolveProductionInvoiceRef(pf: Sku): Promise<ProductionInvoiceItemRef | null> {
   if (pf.productionInvoiceId) {
     const pi = await http.get<{ items: { id: string; mfgProductId: string }[] }>(
       `/production-invoices/${pf.productionInvoiceId}`,
     );
     const item = pi.items.find((it) => it.mfgProductId === pf.mfgProductId);
-    if (item) return String(item.id);
+    if (item) return { productionInvoiceId: pf.productionInvoiceId, itemId: String(item.id) };
   }
   const res = await http.get<
-    { id: string; mfgProductId: string; productionInvoiceItemId: string }[] | { data: { id: string; mfgProductId: string; productionInvoiceItemId: string }[] }
+    { mfgProductId: string; productionInvoiceId: string; productionInvoiceItemId: string }[]
+    | { data: { mfgProductId: string; productionInvoiceId: string; productionInvoiceItemId: string }[] }
   >('/production-orders?limit=100');
   const list = Array.isArray(res) ? res : res.data;
   const order = list.find((o) => o.mfgProductId === pf.mfgProductId);
-  return order ? order.productionInvoiceItemId : null;
+  return order ? { productionInvoiceId: order.productionInvoiceId, itemId: order.productionInvoiceItemId } : null;
 }
 
 /**

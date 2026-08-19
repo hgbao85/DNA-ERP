@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
+import type { BeWeavingPointGroup } from '../../../services/weaving-issues-api'
 import { AlertCircle, Phone, CheckCircle2 } from 'lucide-react'
 import WeavingPointsPage from '../Admin/masterData/WeavingPointsPage'
 
@@ -43,11 +44,9 @@ export default function QuanLyDiemDanPage({ readOnly = false }: { readOnly?: boo
 }
 
 // ── Tab "Mảnh tại điểm đan": mỗi điểm đan đang giữ những mảnh nào, số lượng bao nhiêu ──
-interface PointAssignment {
-  id: number; piCode: string; poNumber: string | null; productLabel: string
-  pieceName: string; pieceCode: string; quantity: number; completed: number; holding: number
-}
-interface PointGroup { id: number; code: string; fullName: string | null; phone: string | null; totalHolding: number; assignments: PointAssignment[] }
+// Type thật (GET /weaving-issues/by-point) không có id riêng cho từng dòng như mock cũ — key React
+// dựng từ (pieceCode, poNumber); poNumber đã ưu tiên salesOrderCode nếu có (xem BE).
+type PointGroup = BeWeavingPointGroup
 
 const th: React.CSSProperties = { textAlign: 'left', padding: '7px 12px', fontSize: 12, color: 'var(--text3)', fontWeight: 600, borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap' }
 const td: React.CSSProperties = { padding: '7px 12px', fontSize: 13, borderBottom: '1px solid var(--border)' }
@@ -116,9 +115,9 @@ function ManhTaiDiemDan() {
                 </thead>
                 <tbody>
                   {pt.assignments.map((a) => (
-                    <tr key={a.id}>
+                    <tr key={`${a.pieceCode}-${a.poNumber}`}>
                       <td style={td}><strong>{a.pieceName}</strong> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{a.pieceCode}</span></td>
-                      <td style={{ ...td, fontSize: 12 }}>{a.poNumber ?? a.piCode}<div style={{ color: 'var(--text3)' }}>{a.productLabel}</div></td>
+                      <td style={{ ...td, fontSize: 12 }}>{a.poNumber}<div style={{ color: 'var(--text3)' }}>{a.productLabel}</div></td>
                       <td style={{ ...td, textAlign: 'right' }}>{a.quantity}</td>
                       <td style={{ ...td, textAlign: 'right', color: '#2e7d32' }}>{a.completed}</td>
                       <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: a.holding > 0 ? '#e65100' : 'var(--text3)' }}>{a.holding}</td>

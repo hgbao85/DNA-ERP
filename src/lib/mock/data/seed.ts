@@ -1,6 +1,5 @@
 import type { ManhOrder } from '../../../types/manh';
 import type { AuditLogEntry, Notification } from '../../../types/admin';
-import { seedWeavingByPoint } from './seed-mfg-ops';
 
 // ══════════════════════════════════════════════════════════════════════════════
 // MANUFACTURING DATA: PRODUCTION, MATERIALS, SUPPLIERS
@@ -170,19 +169,12 @@ export const seedManhOrders: ManhOrder[] = [
   },
 ];
 
-export const seedExportPurposes = [
-  { id: 1, label: 'Xuất sản xuất' },
-  { id: 2, label: 'Xuất mẫu' },
-];
-
 export const seedNotifications: Notification[] = [];
 
 export function createInitialMockState() {
   return {
     mfgWarehouses: structuredClone(seedMfgWarehouses),
     mfgWarehouseItems: structuredClone(seedMfgWarehouseItems),
-    weavingByPoint: structuredClone(seedWeavingByPoint),
-    exportPurposes: structuredClone(seedExportPurposes),
     manhOrders: structuredClone(seedManhOrders),
     auditLogs: [] as AuditLogEntry[],
     notifications: structuredClone(seedNotifications),

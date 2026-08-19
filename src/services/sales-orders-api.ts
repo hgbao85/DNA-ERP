@@ -86,6 +86,18 @@ export async function getSalesOrders(): Promise<SalesOrder[]> {
   return list.map(toSalesOrder);
 }
 
+/** Xuất kho thành phẩm cho khách (WarehouseXuatPage, scope 'thanh-pham') - cộng dồn qty vào
+ *  `shippedQty` hiện có của dòng SKU đó. BE tự chặn vượt `totalQty` (409) - không tự check tồn
+ *  vật lý ở đây (shipItem() không đụng stock-quant/stock-ledger, chỉ là bút toán đơn hàng). */
+export async function shipSalesOrderItem(
+  orderId: string,
+  itemId: string,
+  qty: number,
+): Promise<SalesOrderItem> {
+  const res = await http.post<BeSalesOrderItem>(`/sales-orders/${orderId}/items/${itemId}/ship`, { qty });
+  return toSalesOrderItem(res);
+}
+
 export async function createSalesOrder(data: Record<string, unknown>): Promise<SalesOrder> {
   const rawItems = (data.items as Array<Record<string, unknown>>) ?? [];
   const items = await Promise.all(

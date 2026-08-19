@@ -1,6 +1,5 @@
 import { mockDelay } from '../core/delay';
 import { mockStore } from '../core/store';
-import { nextId } from '../core/id';
 import { BaseService } from '../core/base.service';
 
 const clone = <T>(v: T): T => structuredClone(v);
@@ -35,29 +34,9 @@ class MfgWarehouseService extends BaseService<any> {
   }
 }
 
-class ExportPurposeService extends BaseService<any> {
-  constructor() { super('exportPurposes'); }
-
-  async createWithLabel(label: string) {
-    await mockDelay();
-    const row = { id: nextId(), label };
-    mockStore.update((s) => s.exportPurposes.push(row));
-    return row;
-  }
-}
-
-// Không extends BaseService — collection 'weavingPoints' đã lên BE thật (weaving-points-api.ts).
-// Chỉ còn getByPoint (đọc mockStore.weavingByPoint) - dùng bởi QuanLyDiemDanPage.tsx. Phần
-// phân bổ/nhận đan/chuyển kiểm khác đã không còn trang nào gọi tới, đã bỏ.
-class WeavingService {
-  async getByPoint() { return ok(clone(mockStore.get().weavingByPoint)); }
-}
-
 // ─── Service instances (singletons) ──────────────────────────────────────────
 
 const warehouseSvc = new MfgWarehouseService();
-const exportPurposeSvc = new ExportPurposeService();
-const weavingSvc = new WeavingService();
 
 // ─── Exports (API công khai, tương thích ngược hoàn toàn) ────────────────────
 
@@ -70,10 +49,3 @@ export const uploadContractFile = async (_file: File) => {
 
 export const getMfgWarehouses = () => warehouseSvc.getAll();
 export const getMfgWarehouseItems = (warehouseId: number, search?: string) => warehouseSvc.getItems(warehouseId, search);
-
-export const getExportPurposes = () => exportPurposeSvc.getAll();
-export const createExportPurpose = (label: string) => exportPurposeSvc.createWithLabel(label);
-export const updateExportPurpose = (id: number, data: Record<string, unknown>) => exportPurposeSvc.update(id, data);
-export const deleteExportPurpose = (id: number) => exportPurposeSvc.remove(id);
-
-export const getWeavingByPoint = () => weavingSvc.getByPoint();

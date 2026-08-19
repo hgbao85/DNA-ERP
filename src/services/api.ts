@@ -51,7 +51,9 @@
  *    với transfer-check ở trên.
  *  - weaving-issues (weaving-issues-api.ts) — Phân bổ/nhận hàng đan (KhoXuatDanPage/
  *    KhoNhapDanPage), thay manh.service.ts. Key theo productionOrderId (khác productionInvoiceItemId
- *    ở trên) - resolve qua resolveProductionOrderId() (production-invoice-item.ts).
+ *    ở trên) - resolve qua resolveProductionOrderId() (production-invoice-item.ts). Cùng file:
+ *    getWeavingByPoint() — "Quản lý điểm đan" (QuanLyDiemDanPage), flat GET /weaving-issues/by-point
+ *    gộp qua mọi PO, thay WeavingService.getByPoint() mock — thêm 2026-08-19.
  *  - material-issues (material-issues-api.ts) — Xuất vật tư tiêu hao Hàn/Sơn
  *    (XuatVatTuTieuHaoPage/PhanPhoiNoiBoPage) + Xác nhận nhận (XacNhanVatTuPage), thay
  *    vat-tu-noi-bo.service.ts. Khác weaving-issues/steel-issues: BE CÓ ghi StockLedger
@@ -59,6 +61,10 @@
  *    nối FE): kho key theo productionOrderId (cùng cách resolve với weaving-issues), tổ Hàn/Sơn
  *    KHÔNG có SKU:VIEW/PRODUCTION_ORDER:VIEW nên dùng getMaterialIssuesByStage() (flat, GET
  *    /material-issues?stage=X, không cần resolve PO) — xem comment đầu material-issues-api.ts.
+ *  - packaging-issues (packaging-issues-api.ts) — Xuất vật tư đóng gói (WarehouseXuatPage scope
+ *    'vat-tu-tp'), thay MOCK. Khác material-issues: KHÔNG có bước "tổ xác nhận nhận" (cả kho
+ *    nguồn vat-tu-tp lẫn đích thanh-pham đều là thủ kho) — ghi StockLedger ngay lúc xuất. Định mức
+ *    nguồn BomAccessoryItem (kind=PACKAGING), không phải ConsumableBom. Thêm 2026-08-19.
  *
  * Mock tương ứng của các module trên đã bị xoá hẳn (không còn export trùng tên để "ghi đè").
  * Thực thi Phôi/Hàn/Sơn/KCS thật (xuất/nhận sắt, KCS, báo sản lượng) đã cutover hết sang
@@ -67,9 +73,11 @@
  * phoi-lenh-sx.service.ts (không còn ai đọc `phoiRows`). phoi-sat.service.ts/san-luong.service.ts
  * chỉ còn giữ vài hàm ĐỌC dùng cho các màn tổng hợp tồn kho (getDotXuatSat, getDoanTonKho,
  * getSanLuongByStage — dùng bởi sanxuat/core.tsx và KhoPhoiPage.tsx). mfg.service.ts vốn chỉ còn
- * giữ vài hàm còn dùng thật (getMfgWarehouses/Items cho VatTuDashboardPage, export-purposes,
- * getWeavingByPoint, uploadContractFile); phần machinery PI-stages/packaging/weaving-allocation/
+ * giữ vài hàm còn dùng thật (getMfgWarehouses/Items cho VatTuDashboardPage, uploadContractFile);
+ * phần machinery PI-stages/packaging/weaving-allocation/
  * spec-entry-proposal cũ trong đó là code chết (không trang nào gọi) đã dọn ngày 2026-08-07.
+ * "Mục đích xuất" (export-purposes) đã xoá hẳn khỏi Admin ngày 2026-08-19 — không có form/trang
+ * nào khác đọc danh mục này (rà toàn repo xác nhận), không đáng xây BE cho danh mục chết.
  * Phân bổ đan, đề xuất mua hàng, notifications CRUD, audit log, system stats, stock-ledger/
  * stock-quant (Phase 3 xây rồi nhưng chưa có trang FE nào đọc)... vẫn chạy mock hoặc chưa có
  * adapter cho tới khi cần.
@@ -88,7 +96,7 @@ export { getDefectReasons, createDefectReason, updateDefectReason, deleteDefectR
 export { getWeavingPoints, createWeavingPoint, updateWeavingPoint, deleteWeavingPoint } from './weaving-points-api';
 export { getSystemConfig, updateSystemConfig } from './system-config-api';
 export { getMfgProducts, createMfgProduct } from './products-api';
-export { getSalesOrders, createSalesOrder, updateSalesOrder } from './sales-orders-api';
+export { getSalesOrders, createSalesOrder, updateSalesOrder, shipSalesOrderItem } from './sales-orders-api';
 export {
   getSkus, getSku, getSkuOptions, createSku, deleteSkus,
   updateSkuManhQuota, updateSkuDetailQuota, reviewSkuManhQuota, reviewSkuDetailQuota,
@@ -111,8 +119,9 @@ export { uploadImage } from './uploads-api';
 export { getNotifications, createNotification, markNotificationRead } from './notifications-api';
 export { getTransferCheckPieces, recordTransferCheck } from './transfer-check-api';
 export { getPackaging, recordPackaging } from './packaging-api';
-export { getWeavingIssuePlan, issueWeaving, receiveWeaving } from './weaving-issues-api';
+export { getWeavingIssuePlan, issueWeaving, receiveWeaving, getWeavingByPoint } from './weaving-issues-api';
 export { getMaterialIssuePlan, getMaterialIssuesByStage, issueMaterial, receiveMaterialIssue } from './material-issues-api';
+export { getPackagingIssuePlan, issuePackaging } from './packaging-issues-api';
 export {
   getProductionBatchesByStage, reviewProductionBatch,
   listProductionOrdersForStage, getProductionBatchPlan, reportProductionBatch,
