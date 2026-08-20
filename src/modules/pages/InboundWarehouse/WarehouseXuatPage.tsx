@@ -215,7 +215,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   const isInternalChain = canSendFrom(scope) && !!myWarehouse && !!nextHopWh
 
   // Danh sách PO + kế hoạch chuyển thật (mảnh/vật tư TP) — thay MOCK cho đúng chặng phoi-son-han.
-  const { data: pieceOrders, refetch: refetchPieceOrders } = useFetch<Order[]>(async () => {
+  const { data: pieceOrders, error: pieceOrdersError, refetch: refetchPieceOrders } = useFetch<Order[]>(async () => {
     if (!isPieceScope) return []
     const summaries = await api.listProductionOrdersForStage()
     if (summaries.length === 0) return []
@@ -224,7 +224,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   }, [isPieceScope])
 
   // Danh sách PO + kế hoạch xuất vật tư đóng gói thật — thay MOCK cho đúng chặng vat-tu-tp.
-  const { data: packagingOrders, refetch: refetchPackagingOrders } = useFetch<Order[]>(async () => {
+  const { data: packagingOrders, error: packagingOrdersError, refetch: refetchPackagingOrders } = useFetch<Order[]>(async () => {
     if (!isPackagingScope) return []
     const summaries = await api.listProductionOrdersForStage()
     if (summaries.length === 0) return []
@@ -233,11 +233,16 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   }, [isPackagingScope])
 
   // Danh sách đơn hàng bán + số lượng còn phải xuất thật — thay MOCK cho scope 'thanh-pham'.
-  const { data: shipOrders, refetch: refetchShipOrders } = useFetch<Order[]>(async () => {
+  const { data: shipOrders, error: shipOrdersError, refetch: refetchShipOrders } = useFetch<Order[]>(async () => {
     if (!isShipScope) return []
     const salesOrders = await api.getSalesOrders()
     return salesOrdersToOrders(salesOrders)
   }, [isShipScope])
+
+  // useFetch nuốt lỗi vào state `error` riêng, không throw ra ngoài — trước đây không màn nào đọc
+  // field này nên 1 lỗi BE (vd ConflictException của getPieceTransferPlan) khiến danh sách chỉ
+  // hiện trắng trơn "Không có lệnh xuất nào đang chờ xử lý" mà không có gợi ý gì (Critical C2).
+  const activeListError = isPieceScope ? pieceOrdersError : isPackagingScope ? packagingOrdersError : isShipScope ? shipOrdersError : null
 
   // Merge dữ liệu vừa fetch vào state cục bộ, giữ nguyên inputQty đang gõ dở của từng dòng (cùng
   // idiom TwoTierScreen ở components/sanxuat/core.tsx - merge đè lên overlay cục bộ khi refetch).
@@ -534,7 +539,9 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
       </div>
 
       {view === 'orders' && (
-        orders.length === 0 ? (
+        activeListError ? (
+          <div style={{ ...emptyBox, color: '#dc2626' }}>Lỗi tải danh sách: {activeListError}</div>
+        ) : orders.length === 0 ? (
           <div style={emptyBox}>Không có lệnh xuất nào đang chờ xử lý</div>
         ) : (
           // PO | SKU | Số lượng vật tư | Trạng thái — mọi kho (không có hạn giao)
