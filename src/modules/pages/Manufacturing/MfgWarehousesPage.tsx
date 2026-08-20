@@ -328,6 +328,8 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
         materialId: String(it.materialId),
         qty: Math.abs(delta),
         note: 'Điều chỉnh tồn kho (trang Kho)',
+        expectedWarehouseId: String(wh.id),
+        expectedCurrentQty: it.qty,
       })
       cancelEdit()
       onQtyAdjusted()

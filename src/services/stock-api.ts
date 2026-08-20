@@ -41,6 +41,9 @@ export async function getStockQuants(params?: { warehouseId?: string; materialId
 }
 
 export async function getStockLedger(params: { warehouseId: string; limit?: number }): Promise<BeStockLedgerEntry[]> {
+  // limit=100 - đã là max cho phép của PaginationQueryDto (@Max(100) ở BE) nên không bump được
+  // nữa. Rủi ro thấp hơn warehouse-transfers/purchase-proposals vì đây là sổ lịch sử, không có
+  // trạng thái "pending" nào có thể bị mất dấu - chỉ cắt cụt lịch sử cũ, chấp nhận được.
   const res = await http.get<{ data: BeStockLedgerEntry[] } | BeStockLedgerEntry[]>('/stock-ledger', {
     params: { limit: 100, ...params },
   });
@@ -56,6 +59,10 @@ export async function adjustStock(input: {
   segmentSpecId?: string;
   qty: number;
   note?: string;
+  /** Optimistic-lock cho "sửa nhanh tồn kho" - đi kèm expectedCurrentQty, phải trùng
+   *  fromWarehouseId hoặc toWarehouseId. BE 409 nếu tồn thật đã đổi kể từ lúc đọc. */
+  expectedWarehouseId?: string;
+  expectedCurrentQty?: number;
 }): Promise<BeStockLedgerEntry> {
   return http.post<BeStockLedgerEntry>('/stock-ledger/adjust', input, withIdempotencyKey());
 }

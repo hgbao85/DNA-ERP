@@ -129,6 +129,8 @@ export default function MaterialsPage() {
         materialId: String(m.id),
         qty: Math.abs(delta),
         note: 'Điều chỉnh tồn kho (Admin > Vật tư)',
+        expectedWarehouseId: String(m.warehouseId),
+        expectedCurrentQty: currentQty,
       })
       cancelEdit()
       void refetchQuants()

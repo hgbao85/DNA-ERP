@@ -13,7 +13,7 @@
  * xem WarehouseXuatPage.tsx cho cách nhồi thông tin PI vào `note` thay vì giả một field cấu trúc.
  */
 import { http } from './core/http';
-import type { WarehouseTransfer, WarehouseTransferItem } from '../types/warehouse-transfer';
+import type { TransferStatus, WarehouseTransfer, WarehouseTransferItem } from '../types/warehouse-transfer';
 
 interface BeWarehouseTransferItem {
   id: string;
@@ -82,9 +82,16 @@ export async function getWarehouseTransfer(id: string | number): Promise<Warehou
   return toTransfer(detail, detail.items);
 }
 
-export async function getWarehouseTransfers(): Promise<WarehouseTransfer[]> {
+// `status` optional (Medium fix): không truyền = hành vi cũ (top-100 gần nhất, dùng cho Admin
+// history - chấp nhận bỏ sót phiếu cũ, không phải hàng đợi xử lý). Truyền `status` = query thẳng
+// BE theo đúng trạng thái đó (limit=100 là max cho phép của PaginationQueryDto - @Max(100), không
+// tăng được nữa) - dùng cho hộp thư PENDING (InternalTransferSections.tsx): vẫn còn top-100
+// PENDING gần nhất thay vì top-100 lẫn lộn mọi status, nên 1 phiếu PENDING không còn bị các phiếu
+// CONFIRMED/REJECTED cũ hơn (chiếm phần lớn dữ liệu thực tế) đẩy ra khỏi trang đầu.
+export async function getWarehouseTransfers(status?: TransferStatus): Promise<WarehouseTransfer[]> {
   const res = await http.get<BeWarehouseTransfer[] | { data: BeWarehouseTransfer[] }>(
-    '/warehouse-transfers?limit=100',
+    '/warehouse-transfers',
+    { params: status ? { status, limit: 100 } : { limit: 100 } },
   );
   const list = Array.isArray(res) ? res : res.data;
   return Promise.all(list.map((t) => getWarehouseTransfer(t.id)));

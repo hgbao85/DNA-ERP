@@ -32,15 +32,21 @@ interface BeEnvelope<T = unknown> {
 
 type RetryableConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
+// 20s - trước đây không set (axios mặc định 0 = vô hạn), 1 BE treo (deadlock DB, container
+// OOM-kill nhưng TCP chưa reset) làm mọi nút hành động chờ vô thời hạn, không có phản hồi lỗi.
+const REQUEST_TIMEOUT_MS = 20_000;
+
 const client = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  timeout: REQUEST_TIMEOUT_MS,
 });
 
 // Instance riêng cho chính lời gọi refresh — không gắn interceptor 401 ở trên để tránh đệ quy.
 const refreshClient = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
+  timeout: REQUEST_TIMEOUT_MS,
 });
 
 client.interceptors.request.use((config) => {
@@ -57,6 +63,9 @@ client.interceptors.response.use((res) => {
 });
 
 function toApiError(err: AxiosError<BeEnvelope>): ApiError {
+  if (err.code === 'ECONNABORTED') {
+    return new ApiError('Yêu cầu quá thời gian chờ - kiểm tra kết nối mạng và thử lại', 0, 'Timeout');
+  }
   const status = err.response?.status ?? 0;
   const body = err.response?.data;
   const msg = body?.message;
