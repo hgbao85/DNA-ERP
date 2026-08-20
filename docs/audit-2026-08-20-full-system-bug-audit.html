@@ -31,6 +31,10 @@
     --low-bg: #E7EEF3;
     --low-border: #B9CBD8;
 
+    --fixed: #1E7A34;
+    --fixed-bg: #E6F4EA;
+    --fixed-border: #A8D5B5;
+
     --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
   }
 
@@ -59,6 +63,9 @@
       --low: #8FB4D1;
       --low-bg: rgba(143,180,209,0.12);
       --low-border: rgba(143,180,209,0.35);
+      --fixed: #7FD99A;
+      --fixed-bg: rgba(127,217,154,0.12);
+      --fixed-border: rgba(127,217,154,0.35);
       --shadow: 0 1px 2px rgba(0,0,0,0.4);
     }
   }
@@ -86,6 +93,9 @@
     --low: #8FB4D1;
     --low-bg: rgba(143,180,209,0.12);
     --low-border: rgba(143,180,209,0.35);
+    --fixed: #7FD99A;
+    --fixed-bg: rgba(127,217,154,0.12);
+    --fixed-border: rgba(127,217,154,0.35);
     --shadow: 0 1px 2px rgba(0,0,0,0.4);
   }
 
@@ -293,6 +303,28 @@
   .badge.high { color: var(--high); background: var(--high-bg); border-color: var(--high-border); }
   .badge.med  { color: var(--medium); background: var(--medium-bg); border-color: var(--medium-border); }
   .badge.low  { color: var(--low); background: var(--low-bg); border-color: var(--low-border); }
+  .badge.fixed { color: var(--fixed); background: var(--fixed-bg); border-color: var(--fixed-border); }
+
+  .finding.is-fixed { opacity: 0.86; }
+  .fix-note {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border: 1px solid var(--fixed-border);
+    background: var(--fixed-bg);
+    border-radius: 6px;
+  }
+  .fix-note .k {
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-weight: 700;
+    font-size: 11.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--fixed);
+    display: block;
+    margin-bottom: 4px;
+  }
+  .fix-note .v { font-size: 14.7px; color: var(--text); }
+  .fix-note .v code { background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; font-size: 0.92em; }
 
   .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 16.5px; }
 
@@ -408,18 +440,22 @@
     <div class="sec-head"><h2>1. Lỗi Critical — cần sửa ngay</h2><span class="sec-count">2 lỗi</span></div>
     <p class="sec-desc">Cả 2 lỗi đều nằm trong nhóm nghiệp vụ "Kho / Chuyển kho nội bộ" và đều gây <strong>sai lệch tồn kho hoặc trạng thái nghiệp vụ mà người dùng không có cách nào phát hiện qua UI</strong>.</p>
 
-    <article class="finding crit" id="c1">
-      <div class="f-head"><span class="badge crit">Critical</span><span class="f-title">Xác nhận / Từ chối phiếu chuyển kho race nhau — dữ liệu tồn kho mâu thuẫn với trạng thái phiếu hiển thị</span></div>
+    <article class="finding crit is-fixed" id="c1">
+      <div class="f-head"><span class="badge crit">Critical</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Xác nhận / Từ chối phiếu chuyển kho race nhau — dữ liệu tồn kho mâu thuẫn với trạng thái phiếu hiển thị</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\warehouse-transfers\warehouse-transfers.service.ts — confirm() &amp; reject(), dòng 406–498</div>
       <div class="f-field"><span class="k">Lỗi</span><div class="v">Cả <code>confirm()</code> và <code>reject()</code> đọc <code>transfer.status</code> ngoài transaction, rồi chỉ check <code>status === PENDING</code> trong bộ nhớ trước khi mở transaction ghi cuối cùng — transaction đó <strong>không re-check status</strong> (không <code>WHERE status = PENDING</code>, không <code>FOR UPDATE</code>).</div></div>
       <div class="f-field"><span class="k">Cách tái hiện</span><div class="v">2 người (hoặc 2 tab) gọi gần như đồng thời <code>POST /warehouse-transfers/:id/confirm</code> và <code>POST /warehouse-transfers/:id/reject</code> cho cùng 1 phiếu đang PENDING. Cả hai đều đọc thấy PENDING trước khi bên kia commit.</div></div>
       <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Thiếu optimistic lock (điều kiện status trong WHERE của update cuối) hoặc pessimistic lock (<code>SELECT … FOR UPDATE</code>) bao trọn toàn bộ chuỗi đọc → quyết định → ghi.</div></div>
       <div class="f-field"><span class="k">Hậu quả</span><div class="v">Kết quả có thể là: phiếu hiển thị <strong>REJECTED</strong> ("tồn kho 2 kho KHÔNG thay đổi" theo đúng thông báo trên UI) nhưng <code>stock_ledger</code> đã ghi đủ bút toán chuyển kho thật — tồn kho đã di chuyển dù UI khẳng định ngược lại. Hoặc phiếu mang đồng thời cả <code>rejectionReason</code> lẫn <code>confirmedAt</code>, dữ liệu tự mâu thuẫn.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Bọc toàn bộ đọc-status → ghi-ledger → update-status trong 1 transaction, dùng <code>updateMany({where:{id, status:PENDING}})</code> + kiểm <code>count===1</code> (đúng pattern <code>PurchaseProposalsService.receiveItem()</code> trong cùng repo đã áp dụng cho tình huống tương tự).</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Bọc đọc-status → ghi-ledger → update-status của cả <code>confirm()</code> và <code>reject()</code> trong 1 <code>$transaction</code>; bước đầu tiên là <code>updateMany({where:{id, status:PENDING}})</code>, nếu <code>count===0</code> thì throw <code>ConflictException</code> và rollback toàn bộ (đúng pattern <code>SkusService.approve()</code>). 2 request confirm/reject đồng thời cho cùng phiếu giờ tự serialize qua row lock của Postgres. Thêm 2 test race-guard mới trong <code>warehouse-transfers.service.spec.ts</code>; toàn bộ 26 test pass, typecheck sạch.</div>
+      </div>
     </article>
 
-    <article class="finding crit" id="c2">
-      <div class="f-head"><span class="badge crit">Critical</span><span class="f-title">Màn "Xuất kho" kho Phôi-Sơn-Hàn biến mất trắng trơn, không báo lỗi, nếu tồn tại 1 mảnh needsHan=false bất kỳ trong toàn hệ thống</span></div>
+    <article class="finding crit is-fixed" id="c2">
+      <div class="f-head"><span class="badge crit">Critical</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Màn "Xuất kho" kho Phôi-Sơn-Hàn biến mất trắng trơn, không báo lỗi, nếu tồn tại 1 mảnh needsHan=false bất kỳ trong toàn hệ thống</span></div>
       <div class="f-loc">D:\DNA-ERP\src\modules\pages\InboundWarehouse\WarehouseXuatPage.tsx:218-224
 D:\DNA-ERP-BE\src\modules\warehouse-transfers\warehouse-transfers.service.ts:330-337 (getPieceTransferPlan)</div>
       <div class="f-field"><span class="k">Lỗi</span><div class="v">BE chặn cứng (<code>throw ConflictException</code>) toàn bộ response nếu gặp 1 mảnh <code>needsHan=false</code> trong bất kỳ PO nào của batch được truyền vào — không phải chỉ PO chứa mảnh đó. FE gọi API này bằng 1 request duy nhất gộp <strong>toàn bộ</strong> PO đang hoạt động, và <code>WarehouseXuatPage.tsx</code> không đọc field <code>error</code> trả về từ <code>useFetch()</code> — lỗi bị nuốt hoàn toàn, danh sách chỉ hiện "Không có lệnh xuất nào đang chờ xử lý".</div></div>
@@ -427,6 +463,10 @@ D:\DNA-ERP-BE\src\modules\warehouse-transfers\warehouse-transfers.service.ts:330
       <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Thiết kế chặn cứng theo redesign "Xuất sắt theo PI" (ship 2026-08-19) — chủ đích là "báo lỗi rõ ràng" cho trường hợp chưa từng xảy ra trong data thật, nhưng lỗi bị chặn ở tầng gộp-nhiều-PO-trong-1-request thay vì từng PO riêng, và FE không hiển thị lỗi đó cho người dùng.</div></div>
       <div class="f-field"><span class="k">Hậu quả</span><div class="v">Kết quả thực tế là <strong>sai lặng lẽ</strong> thay vì "báo lỗi rõ ràng" như chủ đích thiết kế ban đầu. Thủ kho sẽ tưởng đã xử lý xong hết việc trong khi toàn bộ nghiệp vụ chuyển mảnh/vật tư thành phẩm của kho đó bị đứng, không có gợi ý nào để biết cần liên hệ dev. Rủi ro hiện tại thấp (0/9 BomPiece thật là needsHan=false) nhưng là "bom nổ chậm": chỉ 1 người tạo nhầm 1 BomPiece needsHan=false là sập toàn bộ luồng xuất kho cho mọi đơn hàng.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">(1) FE phải đọc và hiển thị <code>error</code> từ <code>useFetch</code> ở màn này. (2) BE nên trả lỗi có định danh đúng PO gặp vấn đề và/hoặc không chặn toàn batch — bỏ qua + gắn cờ lỗi riêng cho đúng PO có mảnh needsHan=false, để các PO khác vẫn hiển thị bình thường.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">BE: <code>getPieceTransferPlan()</code> giờ chỉ <code>continue</code> (bỏ qua đúng mảnh needsHan=false, kèm <code>console.warn</code> log server) thay vì throw làm hỏng cả batch — các PO/mảnh khác vẫn trả về bình thường. FE: <code>WarehouseXuatPage.tsx</code> đọc thêm <code>error</code> từ cả 3 <code>useFetch</code> (piece/packaging/ship — cùng pattern nuốt lỗi lặp lại ở cả 3 tab), gộp thành <code>activeListError</code> và hiển thị rõ "Lỗi tải danh sách: …" thay vì im lặng hiện empty-state. Thêm test BE xác nhận mảnh needsHan=false bị bỏ qua nhưng mảnh khác cùng batch vẫn trả về; toàn bộ test pass, typecheck sạch cả BE lẫn FE.</div>
+      </div>
     </article>
   </section>
 
@@ -704,11 +744,11 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
     <div class="sec-head"><h2>5. Workflow có rủi ro cao</h2></div>
     <div class="prose-card">
       <h3>Chuyển kho nội bộ (Phân phối nội bộ)</h3>
-      <p>Chứa cả 2 lỗi Critical (C1, C2) và 2 lỗi High (H1, và pattern race M "createPieceTransfer"). Đây là điểm hội tụ của nhiều luồng: xuất sắt theo PI, cắt sắt giữ chỗ, chuyển mảnh/vật tư thành phẩm giữa các kho — nên 1 lỗi ở tầng "tính tồn khả dụng" ảnh hưởng dây chuyền tới nhiều nghiệp vụ khác.</p>
+      <p>Chứa cả 2 lỗi Critical (C1, C2 — <strong style="color:var(--fixed)">đã sửa 20/08/2026</strong>) và 2 lỗi High (H1, và pattern race M "createPieceTransfer"). Đây là điểm hội tụ của nhiều luồng: xuất sắt theo PI, cắt sắt giữ chỗ, chuyển mảnh/vật tư thành phẩm giữa các kho — nên 1 lỗi ở tầng "tính tồn khả dụng" ảnh hưởng dây chuyền tới nhiều nghiệp vụ khác. H1 và pattern race "createPieceTransfer" vẫn còn mở.</p>
     </div>
     <div class="prose-card">
       <h3>Xuất sắt theo PI (redesign 2026-08-19)</h3>
-      <p>Về cơ bản thiết kế lại đúng hướng (union công đoạn theo PI, nhóm theo vật tư, transaction-safe khi trừ tồn) — nhưng lỗ hổng C2 nằm đúng ở ranh giới giữa phần đã redesign (BE chặn cứng needsHan=false) và phần chưa được cập nhật theo (FE nuốt lỗi). Vì đây là khu vực vừa thay đổi lớn và nhiều màn phụ thuộc cùng 1 kiểu dữ liệu (BeSteelIssue), rủi ro tái diễn kiểu lỗi tương tự khi có thay đổi tiếp theo là cao.</p>
+      <p>Về cơ bản thiết kế lại đúng hướng (union công đoạn theo PI, nhóm theo vật tư, transaction-safe khi trừ tồn) — nhưng lỗ hổng C2 nằm đúng ở ranh giới giữa phần đã redesign (BE chặn cứng needsHan=false) và phần chưa được cập nhật theo (FE nuốt lỗi). C2 <strong style="color:var(--fixed)">đã sửa 20/08/2026</strong> (BE bỏ qua đúng mảnh lỗi thay vì chặn cả batch, FE hiển thị lỗi rõ ràng). Vì đây là khu vực vừa thay đổi lớn và nhiều màn phụ thuộc cùng 1 kiểu dữ liệu (BeSteelIssue), rủi ro tái diễn kiểu lỗi tương tự khi có thay đổi tiếp theo vẫn cao — nên rà lại các màn phụ thuộc khác sau mỗi lần redesign tương tự.</p>
     </div>
     <div class="prose-card">
       <h3>Duyệt PI Item → tạo Production Order</h3>
@@ -739,7 +779,7 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
     <div class="prose-card">
       <p>Codebase nhìn chung được viết <strong>cẩn thận hơn mức trung bình</strong>: nhiều nơi tự nhận thức đúng rủi ro concurrency và đã chủ động vá (khoá <code>FOR UPDATE</code> ở steel-issues/purchase-proposals, dedupe refresh token, redact secret khỏi log/audit, chặn tự khoá tài khoản admin, DTO validate đầy đủ, không có raw SQL injection). Rất nhiều comment trong code ghi lại rõ lịch sử bug đã từng xảy ra và cách đã sửa — dấu hiệu của một đội đã tự audit lặp lại nhiều lần trước đó.</p>
       <p>Tuy vậy, audit lần này phát hiện 3 vấn đề mang tính hệ thống cần ưu tiên:</p>
-      <p><strong>(1)</strong> 2 lỗi Critical đều rơi đúng vào khu vực nghiệp vụ lõi — chuyển kho nội bộ — nơi lỗi gây <em>sai lệch dữ liệu không thể phát hiện qua UI</em> (trạng thái phiếu nói một đằng, sổ kho ghi một nẻo), cần sửa trước tiên vì rủi ro cao nhất theo đúng thứ tự ưu tiên Data Integrity đã đặt ra.</p>
+      <p><strong>(1)</strong> 2 lỗi Critical đều rơi đúng vào khu vực nghiệp vụ lõi — chuyển kho nội bộ — nơi lỗi gây <em>sai lệch dữ liệu không thể phát hiện qua UI</em> (trạng thái phiếu nói một đằng, sổ kho ghi một nẻo), cần sửa trước tiên vì rủi ro cao nhất theo đúng thứ tự ưu tiên Data Integrity đã đặt ra. <strong style="color:var(--fixed)">Cả C1 và C2 đã được sửa ngày 20/08/2026</strong> (xem fix-note trong mục 1); 6 lỗi High và 17 lỗi Medium còn lại vẫn đang mở tại thời điểm audit này được viết.</p>
       <p><strong>(2)</strong> Pattern race condition "đọc số lượng đã xuất rồi ghi, không transaction" lặp lại y hệt ở 3 module độc lập (Material/Packaging/Weaving Issues) trong khi chính codebase đã có sẵn pattern đúng ở nơi khác — cho thấy cần chuẩn hoá thành 1 helper/decorator dùng chung thay vì tin từng dev tự nhớ áp dụng đúng.</p>
       <p><strong>(3)</strong> Khu vực vừa redesign lớn (Xuất sắt theo PI, ship 2026-08-19) về thiết kế cơ bản đúng hướng và đã được kiểm chứng khá kỹ trong quá trình phát triển, nhưng lỗ hổng C2 cho thấy rủi ro thực sự của các thay đổi lớn nằm ở <em>ranh giới giữa các phần đã và chưa cập nhật theo</em> (BE đổi hành vi chặn lỗi, FE không theo kịp cách hiển thị lỗi mới) — đáng để rà lại toàn bộ chuỗi màn hình phụ thuộc sau mỗi lần redesign lớn tương tự trong tương lai.</p>
       <p>Không phát hiện lỗ hổng bảo mật nghiêm trọng (không SQL injection, không leak secret, RBAC bao phủ 33/33 controller đúng ở gần hết các endpoint), phần Auth/Security chỉ ở mức Medium/Low và mang tính phòng ngừa (defense-in-depth) nhiều hơn là lỗ hổng khai thác được ngay.</p>
