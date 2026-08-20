@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Audit Toàn Hệ Thống (Full System Bug Audit)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5;
+    --surface: #FFFFFF;
+    --surface-alt: #E7EBEF;
+    --text: #1A2230;
+    --text-muted: #5C6673;
+    --border: #D7DCE2;
+    --accent: #2A5C8A;
+    --accent-strong: #1D4266;
+    --accent-soft: #E1ECF5;
+    --mono-bg: #EEF1F4;
+
+    --critical: #B3261E;
+    --critical-bg: #FBEAE9;
+    --critical-border: #E8B4B0;
+    --high: #A85400;
+    --high-bg: #FBEEDF;
+    --high-border: #E8C39B;
+    --medium: #8A6D00;
+    --medium-bg: #FBF3D6;
+    --medium-border: #E3CE84;
+    --low: #3D5A73;
+    --low-bg: #E7EEF3;
+    --low-border: #B9CBD8;
+
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C;
+      --surface: #1A1F27;
+      --surface-alt: #212832;
+      --text: #E7EBEF;
+      --text-muted: #9AA5B1;
+      --border: #2C3440;
+      --accent: #7FB3DE;
+      --accent-strong: #A9CEEA;
+      --accent-soft: rgba(127,179,222,0.12);
+      --mono-bg: #1E242C;
+
+      --critical: #FF8A80;
+      --critical-bg: rgba(255,138,128,0.12);
+      --critical-border: rgba(255,138,128,0.35);
+      --high: #FFB74D;
+      --high-bg: rgba(255,183,77,0.12);
+      --high-border: rgba(255,183,77,0.35);
+      --medium: #E8D06A;
+      --medium-bg: rgba(232,208,106,0.12);
+      --medium-border: rgba(232,208,106,0.35);
+      --low: #8FB4D1;
+      --low-bg: rgba(143,180,209,0.12);
+      --low-border: rgba(143,180,209,0.35);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C;
+    --surface: #1A1F27;
+    --surface-alt: #212832;
+    --text: #E7EBEF;
+    --text-muted: #9AA5B1;
+    --border: #2C3440;
+    --accent: #7FB3DE;
+    --accent-strong: #A9CEEA;
+    --accent-soft: rgba(127,179,222,0.12);
+    --mono-bg: #1E242C;
+
+    --critical: #FF8A80;
+    --critical-bg: rgba(255,138,128,0.12);
+    --critical-border: rgba(255,138,128,0.35);
+    --high: #FFB74D;
+    --high-bg: rgba(255,183,77,0.12);
+    --high-border: rgba(255,183,77,0.35);
+    --medium: #E8D06A;
+    --medium-bg: rgba(232,208,106,0.12);
+    --medium-border: rgba(232,208,106,0.35);
+    --low: #8FB4D1;
+    --low-bg: rgba(143,180,209,0.12);
+    --low-border: rgba(143,180,209,0.35);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Public Sans', system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Be Vietnam Pro', system-ui, sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+    margin: 0;
+    color: var(--text);
+  }
+
+  code, .mono {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+  }
+
+  a { color: var(--accent-strong); }
+  a:focus-visible, button:focus-visible, .navlink:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .wrap {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 0 24px;
+  }
+
+  /* ===== Header ===== */
+  header.hero {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+  .hero-inner {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 56px 24px 32px;
+  }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-strong);
+    background: var(--accent-soft);
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-bottom: 18px;
+  }
+  h1.title {
+    font-size: clamp(28px, 4.2vw, 40px);
+    line-height: 1.15;
+  }
+  .subtitle {
+    margin-top: 12px;
+    color: var(--text-muted);
+    font-size: 17px;
+    max-width: 62ch;
+  }
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 22px;
+    margin-top: 22px;
+    font-size: 13.5px;
+    color: var(--text-muted);
+  }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  .stat-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-top: 28px;
+  }
+  .stat-pill {
+    border: 1px solid var(--border);
+    background: var(--surface-alt);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-decoration: none;
+    display: block;
+    transition: transform .12s ease, border-color .12s ease;
+  }
+  .stat-pill:hover { transform: translateY(-1px); }
+  .stat-pill .n {
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-weight: 800;
+    font-size: 26px;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .stat-pill .lbl {
+    display: block;
+    margin-top: 6px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .stat-pill.crit { border-left: 4px solid var(--critical); }
+  .stat-pill.crit .n { color: var(--critical); }
+  .stat-pill.high { border-left: 4px solid var(--high); }
+  .stat-pill.high .n { color: var(--high); }
+  .stat-pill.med { border-left: 4px solid var(--medium); }
+  .stat-pill.med .n { color: var(--medium); }
+  .stat-pill.low { border-left: 4px solid var(--low); }
+  .stat-pill.low .n { color: var(--low); }
+
+  /* ===== Sticky nav ===== */
+  nav.subnav {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(6px);
+  }
+  .subnav-inner {
+    max-width: 920px;
+    margin: 0 auto;
+    padding: 0 24px;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+  }
+  .navlink {
+    flex: none;
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--text-muted);
+    text-decoration: none;
+    padding: 13px 12px;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  .navlink:hover { color: var(--text); }
+
+  /* ===== Sections ===== */
+  main { padding: 44px 0 20px; }
+  section.sev-section { margin-bottom: 52px; scroll-margin-top: 54px; }
+  .sec-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .sec-head h2 { font-size: 22px; }
+  .sec-count {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .sec-desc { color: var(--text-muted); font-size: 14.5px; margin: 6px 0 24px; max-width: 68ch; }
+
+  /* ===== Finding card ===== */
+  .finding {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left-width: 4px;
+    border-radius: 8px;
+    padding: 20px 22px;
+    margin-bottom: 16px;
+    box-shadow: var(--shadow);
+    scroll-margin-top: 54px;
+  }
+  .finding.crit { border-left-color: var(--critical); }
+  .finding.high { border-left-color: var(--high); }
+  .finding.med  { border-left-color: var(--medium); }
+  .finding.low  { border-left-color: var(--low); }
+
+  .f-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 4px;
+    border: 1px solid;
+  }
+  .badge.crit { color: var(--critical); background: var(--critical-bg); border-color: var(--critical-border); }
+  .badge.high { color: var(--high); background: var(--high-bg); border-color: var(--high-border); }
+  .badge.med  { color: var(--medium); background: var(--medium-bg); border-color: var(--medium-border); }
+  .badge.low  { color: var(--low); background: var(--low-bg); border-color: var(--low-border); }
+
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 16.5px; }
+
+  .f-loc {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    background: var(--mono-bg);
+    color: var(--text-muted);
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin-bottom: 14px;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .f-field { margin-top: 10px; }
+  .f-field .k {
+    font-family: 'Be Vietnam Pro', sans-serif;
+    font-weight: 700;
+    font-size: 11.5px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    display: block;
+    margin-bottom: 3px;
+  }
+  .f-field .v { font-size: 14.7px; }
+  .f-field .v code {
+    background: var(--mono-bg);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.92em;
+  }
+
+  /* ===== Prose sections (workflow risk, verify, summary) ===== */
+  .prose-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 22px 24px;
+    margin-bottom: 14px;
+    box-shadow: var(--shadow);
+  }
+  .prose-card h3 { font-size: 16px; margin-bottom: 8px; }
+  .prose-card p { margin: 6px 0; color: var(--text); font-size: 14.7px; }
+  .prose-card p.muted { color: var(--text-muted); font-size: 13.5px; }
+  .tag-row { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+
+  .verify-list { list-style: none; padding: 0; margin: 0; }
+  .verify-list li {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 18px;
+    margin-bottom: 10px;
+    font-size: 14.7px;
+    box-shadow: var(--shadow);
+  }
+  .verify-list li strong { font-family: 'Be Vietnam Pro', sans-serif; }
+
+  footer {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 12.5px;
+    padding: 30px 24px 50px;
+  }
+
+  @media (max-width: 600px) {
+    .stat-strip { grid-template-columns: repeat(2, 1fr); }
+    .hero-inner { padding: 40px 20px 28px; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Full System Bug Audit — Read-only Review</span>
+    <h1 class="title">Audit toàn hệ thống DNA-ERP</h1>
+    <p class="subtitle">Rà soát logic nghiệp vụ, tích hợp FE↔BE, phân quyền, toàn vẹn dữ liệu và concurrency trên toàn bộ hệ thống ERP sản xuất — FE Next.js, BE NestJS/Prisma, đối chiếu tích hợp với DNA-DEXUAT.</p>
+    <div class="meta-row">
+      <span><strong>Ngày audit:</strong> 20/08/2026</span>
+      <span><strong>Phạm vi:</strong> D:\DNA-ERP (FE) · D:\DNA-ERP-BE (BE, 32 module) · tích hợp DNA-DEXUAT</span>
+      <span><strong>Phương pháp:</strong> 6 nhánh review độc lập, đọc code thật, không sửa code</span>
+    </div>
+    <div class="stat-strip">
+      <a href="#critical" class="stat-pill crit"><span class="n">2</span><span class="lbl">Critical</span></a>
+      <a href="#high" class="stat-pill high"><span class="n">6</span><span class="lbl">High</span></a>
+      <a href="#medium" class="stat-pill med"><span class="n">17</span><span class="lbl">Medium</span></a>
+      <a href="#low" class="stat-pill low"><span class="n">17</span><span class="lbl">Low / Info</span></a>
+    </div>
+  </div>
+</header>
+
+<nav class="subnav">
+  <div class="subnav-inner">
+    <a class="navlink" href="#critical">Critical</a>
+    <a class="navlink" href="#high">High</a>
+    <a class="navlink" href="#medium">Medium</a>
+    <a class="navlink" href="#low">Low / Info</a>
+    <a class="navlink" href="#workflow-risk">Workflow rủi ro</a>
+    <a class="navlink" href="#verify">Cần xác minh</a>
+    <a class="navlink" href="#summary">Tổng kết</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- ============ CRITICAL ============ -->
+  <section class="sev-section" id="critical">
+    <div class="sec-head"><h2>1. Lỗi Critical — cần sửa ngay</h2><span class="sec-count">2 lỗi</span></div>
+    <p class="sec-desc">Cả 2 lỗi đều nằm trong nhóm nghiệp vụ "Kho / Chuyển kho nội bộ" và đều gây <strong>sai lệch tồn kho hoặc trạng thái nghiệp vụ mà người dùng không có cách nào phát hiện qua UI</strong>.</p>
+
+    <article class="finding crit" id="c1">
+      <div class="f-head"><span class="badge crit">Critical</span><span class="f-title">Xác nhận / Từ chối phiếu chuyển kho race nhau — dữ liệu tồn kho mâu thuẫn với trạng thái phiếu hiển thị</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\warehouse-transfers\warehouse-transfers.service.ts — confirm() &amp; reject(), dòng 406–498</div>
+      <div class="f-field"><span class="k">Lỗi</span><div class="v">Cả <code>confirm()</code> và <code>reject()</code> đọc <code>transfer.status</code> ngoài transaction, rồi chỉ check <code>status === PENDING</code> trong bộ nhớ trước khi mở transaction ghi cuối cùng — transaction đó <strong>không re-check status</strong> (không <code>WHERE status = PENDING</code>, không <code>FOR UPDATE</code>).</div></div>
+      <div class="f-field"><span class="k">Cách tái hiện</span><div class="v">2 người (hoặc 2 tab) gọi gần như đồng thời <code>POST /warehouse-transfers/:id/confirm</code> và <code>POST /warehouse-transfers/:id/reject</code> cho cùng 1 phiếu đang PENDING. Cả hai đều đọc thấy PENDING trước khi bên kia commit.</div></div>
+      <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Thiếu optimistic lock (điều kiện status trong WHERE của update cuối) hoặc pessimistic lock (<code>SELECT … FOR UPDATE</code>) bao trọn toàn bộ chuỗi đọc → quyết định → ghi.</div></div>
+      <div class="f-field"><span class="k">Hậu quả</span><div class="v">Kết quả có thể là: phiếu hiển thị <strong>REJECTED</strong> ("tồn kho 2 kho KHÔNG thay đổi" theo đúng thông báo trên UI) nhưng <code>stock_ledger</code> đã ghi đủ bút toán chuyển kho thật — tồn kho đã di chuyển dù UI khẳng định ngược lại. Hoặc phiếu mang đồng thời cả <code>rejectionReason</code> lẫn <code>confirmedAt</code>, dữ liệu tự mâu thuẫn.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Bọc toàn bộ đọc-status → ghi-ledger → update-status trong 1 transaction, dùng <code>updateMany({where:{id, status:PENDING}})</code> + kiểm <code>count===1</code> (đúng pattern <code>PurchaseProposalsService.receiveItem()</code> trong cùng repo đã áp dụng cho tình huống tương tự).</div></div>
+    </article>
+
+    <article class="finding crit" id="c2">
+      <div class="f-head"><span class="badge crit">Critical</span><span class="f-title">Màn "Xuất kho" kho Phôi-Sơn-Hàn biến mất trắng trơn, không báo lỗi, nếu tồn tại 1 mảnh needsHan=false bất kỳ trong toàn hệ thống</span></div>
+      <div class="f-loc">D:\DNA-ERP\src\modules\pages\InboundWarehouse\WarehouseXuatPage.tsx:218-224
+D:\DNA-ERP-BE\src\modules\warehouse-transfers\warehouse-transfers.service.ts:330-337 (getPieceTransferPlan)</div>
+      <div class="f-field"><span class="k">Lỗi</span><div class="v">BE chặn cứng (<code>throw ConflictException</code>) toàn bộ response nếu gặp 1 mảnh <code>needsHan=false</code> trong bất kỳ PO nào của batch được truyền vào — không phải chỉ PO chứa mảnh đó. FE gọi API này bằng 1 request duy nhất gộp <strong>toàn bộ</strong> PO đang hoạt động, và <code>WarehouseXuatPage.tsx</code> không đọc field <code>error</code> trả về từ <code>useFetch()</code> — lỗi bị nuốt hoàn toàn, danh sách chỉ hiện "Không có lệnh xuất nào đang chờ xử lý".</div></div>
+      <div class="f-field"><span class="k">Cách tái hiện</span><div class="v">Gán 1 <code>BomPiece.needsHan=false</code> cho bất kỳ SKU nào thuộc 1 PO đang RELEASED (không có validation nào chặn việc tạo field này ở màn BOM) → vào màn Xuất kho, chọn kho Phôi-Sơn-Hàn → danh sách trống cho <strong>mọi</strong> PO, kể cả PO không liên quan.</div></div>
+      <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Thiết kế chặn cứng theo redesign "Xuất sắt theo PI" (ship 2026-08-19) — chủ đích là "báo lỗi rõ ràng" cho trường hợp chưa từng xảy ra trong data thật, nhưng lỗi bị chặn ở tầng gộp-nhiều-PO-trong-1-request thay vì từng PO riêng, và FE không hiển thị lỗi đó cho người dùng.</div></div>
+      <div class="f-field"><span class="k">Hậu quả</span><div class="v">Kết quả thực tế là <strong>sai lặng lẽ</strong> thay vì "báo lỗi rõ ràng" như chủ đích thiết kế ban đầu. Thủ kho sẽ tưởng đã xử lý xong hết việc trong khi toàn bộ nghiệp vụ chuyển mảnh/vật tư thành phẩm của kho đó bị đứng, không có gợi ý nào để biết cần liên hệ dev. Rủi ro hiện tại thấp (0/9 BomPiece thật là needsHan=false) nhưng là "bom nổ chậm": chỉ 1 người tạo nhầm 1 BomPiece needsHan=false là sập toàn bộ luồng xuất kho cho mọi đơn hàng.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">(1) FE phải đọc và hiển thị <code>error</code> từ <code>useFetch</code> ở màn này. (2) BE nên trả lỗi có định danh đúng PO gặp vấn đề và/hoặc không chặn toàn batch — bỏ qua + gắn cờ lỗi riêng cho đúng PO có mảnh needsHan=false, để các PO khác vẫn hiển thị bình thường.</div></div>
+    </article>
+  </section>
+
+  <!-- ============ HIGH ============ -->
+  <section class="sev-section" id="high">
+    <div class="sec-head"><h2>2. Lỗi High</h2><span class="sec-count">6 lỗi</span></div>
+    <p class="sec-desc">3 trong 6 lỗi là <strong>cùng một pattern lặp lại</strong>: đọc số lượng đã xuất rồi ghi mà không bọc transaction/khoá — đúng lớp lỗi mà module <code>steel-issues</code>/<code>purchase-proposals</code> trong cùng repo đã tự nhận ra và vá, nhưng chưa lan sang các module vật tư tiêu hao khác.</p>
+
+    <article class="finding high" id="h1">
+      <div class="f-head"><span class="badge high">High</span><span class="f-title">Tạo phiếu chuyển kho nội bộ bỏ qua số lượng đã giữ chỗ cho phương án cắt sắt đã duyệt</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\warehouse-transfers\warehouse-transfers.service.ts:108-127
+D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvailableQty)</div>
+      <div class="f-field"><span class="k">Lỗi</span><div class="v"><code>create()</code> tự viết lại phép tính "tồn khả dụng" (<code>onHand − reservedAgg</code>) chỉ cộng bảng <code>warehouseTransferReservation</code>, bỏ qua <code>StockReservation</code> loại CUTTING_PROPOSAL — trong khi chính comment của <code>getAvailableQty()</code> ghi rõ đây là "hàm DUY NHẤT được phép cộng 2 bảng, không nơi nào khác được tự viết lại".</div></div>
+      <div class="f-field"><span class="k">Cách tái hiện</span><div class="v">1 phương án cắt sắt đã duyệt giữ chỗ 500kg sắt tại kho phôi-son-han cho vật tư X (chưa lấy, chờ Phôi xuất). Đồng thời ai đó tạo phiếu chuyển kho nội bộ vật tư X từ kho này — hệ thống chỉ thấy tồn khả dụng theo <code>onHand</code> đầy đủ, có thể chuyển đi đúng phần đã "có chủ".</div></div>
+      <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Không tái sử dụng hàm dùng chung <code>StockReservationsService.getAvailableQty()</code>.</div></div>
+      <div class="f-field"><span class="k">Hậu quả</span><div class="v">Xuất sắt cho phương án cắt đã duyệt bị hụt tồn dù hệ thống từng báo "đã đủ, đã giữ chỗ" — 2 nghiệp vụ giành nhau cùng lô hàng mà không ai phát hiện.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Đổi <code>create()</code> gọi <code>stockReservationsService.getAvailableQty(tx, fromWarehouseId, materialId, onHand)</code> thay vì tự <code>aggregate()</code>.</div></div>
+    </article>
+
+    <article class="finding high" id="h2">
+      <div class="f-head"><span class="badge high">High</span><span class="f-title">Xuất vật tư tiêu hao (Hàn/Sơn) có thể vượt định mức khi 2 request đồng thời — thiếu transaction/khoá</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\material-issues\material-issues.service.ts:92-121 (create)</div>
+      <div class="f-field"><span class="k">Lỗi</span><div class="v"><code>resolvePlannedQty()</code> và <code>sumIssued()</code> đọc <code>plannedQty</code>/<code>issuedSoFar</code> ngoài transaction, tính <code>remaining</code> rồi mới <code>create()</code> — không khoá (<code>FOR UPDATE</code>) theo <code>(productionOrderId, stage, materialId)</code>.</div></div>
+      <div class="f-field"><span class="k">Cách tái hiện</span><div class="v">2 request <code>POST /production-orders/:id/material-issues</code> gửi gần đồng thời cho cùng bộ khoá nghiệp vụ — mỗi request đều thấy <code>remaining = 10</code>, đều xuất 10 → tổng ghi sổ 20, vượt định mức <code>ConsumableBom</code> mà hệ thống không chặn.</div></div>
+      <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Thiếu <code>FOR UPDATE</code>/transaction bao trọn "đọc số dư → quyết định → ghi" — cùng lớp lỗi đã được vá ở <code>SteelIssuesService.consumeReservationAndDeduct()</code> trong cùng repo nhưng chưa áp dụng ở đây.</div></div>
+      <div class="f-field"><span class="k">Hậu quả</span><div class="v">Xuất vượt định mức vật tư tiêu hao Hàn/Sơn không bị phát hiện, tồn kho vật lý lệch khỏi sổ sách.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Bọc <code>resolvePlannedQty</code> + <code>sumIssued</code> + <code>create</code> trong <code>$transaction</code>, khoá theo <code>(productionOrderId, stage, materialId)</code> theo đúng pattern đã dùng ở SteelIssuesService.</div></div>
+    </article>
+
+    <article class="finding high" id="h3">
+      <div class="f-head"><span class="badge high">High</span><span class="f-title">Xuất vật tư đóng gói có cùng lỗi race condition với vật tư Hàn/Sơn</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\packaging-issues\packaging-issues.service.ts:78-109 (create)</div>
+      <div class="f-field"><span class="k">Lỗi / Cách tái hiện / Nguyên nhân</span><div class="v">Giống hệt lỗi H2: <code>resolvePlannedQty()</code> (81-85), <code>sumIssued()</code> (86) đọc ngoài transaction rồi mới <code>create()</code> (95-105), không khoá — áp dụng cho vật tư đóng gói (tem nhãn, màng PE...).</div></div>
+      <div class="f-field"><span class="k">Hậu quả</span><div class="v">Xuất vượt định mức vật tư đóng gói không bị phát hiện.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Transaction + khoá <code>FOR UPDATE</code> theo <code>(productionOrderId, materialId)</code>, cùng pattern với H2.</div></div>
+    </article>
+
+    <article class="finding high" id="h4">
+      <div class="f-head"><span class="badge high">High</span><span class="f-title">Xuất / Nhận đan (Weaving) có cùng lỗi race condition ở cả 2 chiều</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\weaving-issues\weaving-issues.service.ts:107-154 (create), 156-205 (receive)</div>
+      <div class="f-field"><span class="k">Lỗi</span><div class="v"><code>create()</code> tính <code>remaining = plannedQty − issuedSoFar</code> (131-133) rồi <code>create</code> (141-151) không transaction/lock; <code>receive()</code> tính <code>remaining = issuedAtPoint − receivedAtPoint</code> (182-184) rồi <code>create</code> (192-201) cũng vậy.</div></div>
+      <div class="f-field"><span class="k">Cách tái hiện</span><div class="v">2 lần "xuất đan" đồng thời cho cùng mảnh có thể xuất vượt định mức BOM; 2 lần "nhập đan" đồng thời có thể nhận vượt số điểm đan đang giữ.</div></div>
+      <div class="f-field"><span class="k">Hậu quả</span><div class="v">Dữ liệu phân bổ/nhận hàng đan sai, không phát hiện được lượng khung dư/thiếu thực tế.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Transaction + <code>FOR UPDATE</code> theo <code>(productionOrderId, pieceId[, weavingPointId])</code> cho cả 2 hàm.</div></div>
+    </article>
+
+    <article class="finding high" id="h5">
+      <div class="f-head"><span class="badge high">High</span><span class="f-title">Sửa được thông số cắt (SegmentSpec) của BOM đang ACTIVE — vi phạm nguyên tắc "BOM đã duyệt là bất biến"</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\segment-specs\segment-specs.service.ts:78-101 (update)</div>
+      <div class="f-field"><span class="k">Lỗi</span><div class="v"><code>BomRevisionsService</code> bảo vệ đúng: chỉ revision DRAFT sửa được dòng, ACTIVE/RETIRED bất biến. Nhưng <code>PieceBom</code>/<code>PartBom</code> không lưu trực tiếp chiều dài/vật tư mà trỏ qua <code>segmentSpecId</code> — bảng <code>SegmentSpec</code> không có khái niệm DRAFT/ACTIVE, và <code>update()</code> không kiểm tra spec đó có đang bị BOM ACTIVE/RETIRED tham chiếu hay không.</div></div>
+      <div class="f-field"><span class="k">Cách tái hiện</span><div class="v">SKU A có BOM ACTIVE dùng <code>SegmentSpec#7</code> (sắt Ø10, cắt 500mm), đã có ProductionOrder RELEASED tham chiếu. Sửa <code>SegmentSpec#7</code> thành cắt 480mm (nhầm, hoặc để phục vụ SKU khác dùng chung spec) → toàn bộ PieceBom cũ, kể cả của PO đang chạy, đọc ra chiều dài mới ngay lập tức.</div></div>
+      <div class="f-field"><span class="k">Nguyên nhân</span><div class="v"><code>SegmentSpec</code> là master data dùng chung, sửa "sống" (live reference) thay vì snapshot; code chỉ bảo vệ chiều DELETE (<code>ON DELETE RESTRICT</code>), không bảo vệ chiều UPDATE.</div></div>
+      <div class="f-field"><span class="k">Hậu quả</span><div class="v">Sửa 1 SegmentSpec có thể âm thầm đổi số liệu cắt sắt của các PO/CuttingProposal/SteelIssue đã lên kế hoạch hoặc đã hoàn tất — đúng rủi ro "BOM tham chiếu sống" mà nghiệp vụ yêu cầu tránh.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Chặn <code>update()</code> nếu spec đang được PieceBom/PartBom của 1 BomRevision không phải DRAFT tham chiếu — tương tự cách BomRevisionsService đã làm ở cấp revision.</div></div>
+    </article>
+
+    <article class="finding high" id="h6">
+      <div class="f-head"><span class="badge high">High</span><span class="f-title">Màn Thống kê KHSX đọc mã PI tĩnh trên SKU thay vì PI thật — sai lệch sau khi PI bị gộp</span></div>
+      <div class="f-loc">D:\DNA-ERP\src\modules\pages\Manufacturing\ThongKePagePlan.tsx:59-60, 178-193, 266-269, 810, 981</div>
+      <div class="f-field"><span class="k">Lỗi</span><div class="v">Bảng theo dõi tiến độ sản xuất fetch dữ liệu xuất sắt trực tiếp từ <code>pf.piCode</code>/<code>pf.productionInvoiceId</code> (field tĩnh trên Sku/PlanForm, gán 1 lần lúc tạo SKU) thay vì suy PI thật từ <code>orderId</code> (ProductionOrder) mà chính hàm đã resolve sẵn.</div></div>
+      <div class="f-field"><span class="k">Cách tái hiện</span><div class="v">Tạo SKU gắn Sales Order → KHSX gộp SKU đó vào 1 đợt cắt chung (PI gộp mới) → <code>ProductionInvoiceItem.productionInvoiceId</code> đổi sang PI gộp, nhưng <code>PlanForm.productionInvoiceId</code> không được cập nhật theo (xác nhận: hàm gộp chỉ update <code>productionInvoiceItem</code>, không đụng <code>planForm</code>).</div></div>
+      <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Thiếu đồng bộ 2 chiều <code>PlanForm.productionInvoiceId</code> ↔ <code>ProductionInvoiceItem.productionInvoiceId</code> khi item bị di chuyển giữa các PI.</div></div>
+      <div class="f-field"><span class="k">Hậu quả</span><div class="v">Sau khi gộp, màn theo dõi tiến độ Phôi/Hàn/Sơn hiện sai mã PI và hiện "chưa xuất sắt" dù sắt đã thực xuất dưới PI gộp — KHSX dễ hiểu nhầm SKU chưa được xử lý.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Dùng <code>production-invoice-item.ts</code> (đã có <code>buildProductionOrderInfoByMfgProduct</code>, ghi rõ "phải dùng thay Sku.exportOrder/Sku.piCode") để suy PI thật từ ProductionOrder, không đọc <code>pf.piCode</code> trực tiếp.</div></div>
+    </article>
+  </section>
+
+  <!-- ============ MEDIUM ============ -->
+  <section class="sev-section" id="medium">
+    <div class="sec-head"><h2>3. Lỗi Medium</h2><span class="sec-count">17 lỗi</span></div>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Tạo trùng phiếu chuyển mảnh khi 2 request đồng thời</span></div>
+      <div class="f-loc">warehouse-transfers.service.ts:180-260 (createPieceTransfer, getPieceTransferPlan)</div>
+      <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">Không như chuyển kho vật tư thường (có khoá <code>FOR UPDATE</code>), tạo phiếu chuyển mảnh đọc kế hoạch rồi tạo phiếu không transaction — code tự thừa nhận "piece không có StockQuant để khoá". 2 request đồng thời cho cùng PO+piece có thể tạo tổng số mảnh vượt số thực đã qua QC.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Cần cơ chế khoá mức PO/piece (advisory lock hoặc bảng reservation cho piece) trước khi tính suggestedQty.</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">"Sửa nhanh tồn kho" ở FE tính delta từ số cũ trên client — 2 người sửa cùng lúc cộng dồn sai</span></div>
+      <div class="f-loc">D:\DNA-ERP\src\modules\pages\Manufacturing\MfgWarehousesPage.tsx:313-338; Admin\masterData\MaterialsPage.tsx:117-131</div>
+      <div class="f-field"><span class="k">Lỗi → Cách tái hiện</span><div class="v">Người dùng nhập "số tồn mới" tuyệt đối, FE tự tính <code>delta = newQty − oldQty(đã fetch trước đó)</code>. 2 nhân viên cùng thấy tồn=100, người A đếm ra 90 (gửi delta −10), người B (chưa refresh) đếm ra 95 (gửi delta −5) → kết quả 100−10−5=85, sai so với cả 2 số đếm thật, thay vì "ai sửa sau thắng" hoặc cảnh báo xung đột.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">BE nhận thêm <code>expectedCurrentQty</code>, validate trong transaction có khoá <code>FOR UPDATE</code>, từ chối nếu tồn hiện tại lệch so với expected.</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">FE hard-code limit=100, không phân trang thật — phiếu PENDING cũ có thể "biến mất" khỏi danh sách xử lý</span></div>
+      <div class="f-loc">warehouse-transfers-api.ts:85-91; purchasing-api.ts:208-212; stock-api.ts:43-48</div>
+      <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">FE gọi <code>?limit=100</code> cố định, lọc theo trạng thái ở client trên tập 100 dòng mới nhất. Khi tổng số phiếu vượt 100, 1 phiếu PENDING cũ bị đẩy khỏi top-100 → biến mất khỏi hộp thư chờ xử lý dù vẫn PENDING thật trong DB, dễ bị bỏ sót vĩnh viễn.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Gọi API kèm filter <code>status=PENDING</code> (BE đã hỗ trợ) thay vì lọc client-side trên top-100, hoặc thêm phân trang thật.</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Ghi nhiều dòng sổ kho khi báo cắt xong không nằm trong 1 transaction</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\production-batches\production-batches.service.ts:124-150 (postSegmentConsumeEntries)</div>
+      <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">Sau khi tạo ProductionBatch, hàm lặp qua nhiều pieceBoms và ghi từng dòng StockLedger riêng lẻ, ngoài transaction. Nếu dòng thứ 2/3 lỗi giữa chừng (mất kết nối, timeout), batch đã tồn tại nhưng chỉ trừ tồn đoạn sắt một phần — không có gì phát hiện các batch bị "dở dang", tồn kho đoạn sắt lệch âm thầm.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Bọc <code>create()</code> + toàn bộ <code>postEntry()</code> cho các pieceBoms trong cùng 1 <code>$transaction</code>.</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Phiếu mua hàng có ≥2 dòng vật tư có thể kẹt vĩnh viễn ở trạng thái "đang mua", không bao giờ tự chuyển hoàn tất</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\purchase-proposals\purchase-proposals.service.ts:512-516 (receiveItem)</div>
+      <div class="f-field"><span class="k">Lỗi</span><div class="v">Dòng item hiện tại được khoá <code>FOR UPDATE</code> đúng cách, nhưng cờ <code>allReceived</code> lại tính dựa trên <code>proposal.items</code> — snapshot lấy <strong>trước khi mở transaction</strong> — cho mọi item khác trong cùng phiếu.</div></div>
+      <div class="f-field"><span class="k">Cách tái hiện</span><div class="v">Phiếu có 2 item A, B đều đang mua. 2 request nhận hàng cho A và B gần như đồng thời — mỗi transaction đọc trạng thái của item còn lại từ snapshot cũ (chưa đủ) → cả hai tính <code>allReceived=false</code> dù thực tế cả 2 vừa nhận đủ cùng lúc → phiếu kẹt PURCHASING vĩnh viễn, không lỗi nào được ném ra để phát hiện.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Khoá cả nhóm item theo <code>proposalId</code> hoặc re-query <code>receivedQty</code> mới nhất của mọi item còn lại trong transaction trước khi tính <code>allReceived</code>.</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Gọi solver cắt sắt (DNA-DEXUAT) không tự retry dù doc-comment tuyên bố có</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\external\external-api.service.ts:46-51 (doc-comment) vs 149-165 (executePostRequest)</div>
+      <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">Doc-comment class mô tả "automatic retry" áp dụng chung, nhưng <code>executePostRequest()</code> — dùng để gọi solver <code>de_xuat/propose</code> — chỉ có timeout, không có retry (khác <code>executeGetRequest()</code> có retry thật). Một lỗi mạng thoáng qua làm cả CuttingProposal chuyển FAILED ngay, người dùng phải tự bấm tính lại dù lỗi chỉ là gián đoạn mạng tức thời.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Thêm retry giới hạn cho lỗi network/5xx (không retry lỗi nghiệp vụ 4xx), hoặc sửa lại doc-comment cho khớp hành vi thật.</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Cấp bù sắt lỗi có thể gắn nhầm sang PI khác — mất ràng buộc "cùng đơn hàng" khi bỏ điều kiện pieceId</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\qc-reviews\qc-reviews.service.ts:246-256 (fulfillReplenishRequest)</div>
+      <div class="f-field"><span class="k">Lỗi → Cách tái hiện</span><div class="v">Điều kiện chặn cấp bù giờ chỉ so <code>materialId</code>, không còn so PI. PI-A và PI-B cùng dùng vật tư sắt X; KCS chấm phế 1 đợt của PI-A sinh yêu cầu cấp bù; kho có thể gắn yêu cầu này vào 1 SteelIssue đã xuất trước đó cho PI-B (cùng materialId, khác PI) — BE chấp nhận.</div></div>
+      <div class="f-field"><span class="k">Hậu quả</span><div class="v">Số cây sắt cấp bù bị gắn nhầm PI trong sổ sách — kế hoạch xuất sắt của cả 2 PI đều lệch so với thực tế vật lý.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Thêm điều kiện cùng <code>productionInvoiceId</code>, hoặc nếu chủ đích cho phép khác PI thì cần comment xác nhận rõ đây là quyết định nghiệp vụ có chủ đích.</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Màn Admin &gt; SKU vẫn hiển thị "Mã PI" từ field tĩnh — cùng pattern lỗi với H6</span></div>
+      <div class="f-loc">D:\DNA-ERP\src\modules\pages\Admin\businessData\SkuPage.tsx:24, 29</div>
+      <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">Cột "Mã PI" đọc thẳng <code>Sku.piCode</code> (field tĩnh), đúng pattern bị cấm theo quy tắc nghiệp vụ đã chốt trước đó. Mức độ thấp hơn H6 vì đây là màn Admin tra cứu read-only, nhưng vẫn gây nhầm lẫn khi đối chiếu chéo với các màn kho dùng PO/PI thật.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Đổi sang PI thật qua ProductionOrder, hoặc chú thích rõ đây là "PI lúc tạo SKU". Cần xác nhận với nghiệp vụ đây có phải cố ý (chỉ tra cứu hành chính).</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Tạo PI trực tiếp sinh mã trùng định dạng khác PI tạo qua gộp/SKU — regression đã xác nhận qua git history</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\production-invoices\production-invoices.service.ts:144-169 (create)</div>
+      <div class="f-field"><span class="k">Lỗi</span><div class="v"><code>nextProductionInvoiceCode()</code> sinh mã tuần tự theo năm ("PI-2026-0xx") rồi bị 1 lệnh update ngay sau đó ghi đè thành "PI-{id}" — kèm 1 dòng <code>return</code> chết phía sau không bao giờ chạy.</div></div>
+      <div class="f-field"><span class="k">Xác nhận qua git log</span><div class="v">Commit 127edda6 (2026-08-14) đã sửa đúng lỗi này (bỏ update thừa). Commit b939b780 cùng ngày sau đó vô tình revert lại pattern cũ — gần như chắc chắn do merge/copy nhầm.</div></div>
+      <div class="f-field"><span class="k">Hậu quả</span><div class="v">2 định dạng mã PI cùng tồn tại trong hệ thống ("PI-2026-014" vs "PI-4821"), gây khó tra cứu/đối chiếu.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Xoá đoạn update thừa + dòng return chết, giữ nguyên <code>nextProductionInvoiceCode()</code> như bản đã sửa trước đó.</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Race điều kiện trên toàn bộ chuỗi duyệt/từ chối PI item — thiếu WHERE-guard theo trạng thái</span></div>
+      <div class="f-loc">production-invoices.service.ts — sendItemToQlsx (385-406), sendItemToBoss (409-433), approveItem (547-619), rejectItemByQlsx (626-648), rejectItem (651-673)</div>
+      <div class="f-field"><span class="k">Lỗi → Cách tái hiện</span><div class="v">Cả 5 hàm đều đọc → check status in-memory → <code>update({where:{id}})</code> không kèm điều kiện status — khác <code>SkusService.approve()</code> trong cùng repo dùng <code>updateMany + count</code> để chặn race đúng cách. 2 người bấm "Sếp duyệt" gần đồng thời cho cùng 1 item: cả 2 đều pass check, cả 2 update thành công (ghi đè decidedById/decidedAt của nhau), cả 2 nhận HTTP 200.</div></div>
+      <div class="f-field"><span class="k">Hậu quả</span><div class="v">Không tạo trùng PO nhờ unique constraint, nhưng: người duyệt sau ghi đè thông tin người duyệt trước trong audit trail; người thứ 2 không biết yêu cầu của mình vô tác dụng; log lỗi "unexpected" xuất hiện dù có thể đoán trước.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Áp dụng đúng pattern <code>updateMany + count</code> guard cho cả 5 hàm, như <code>SkusService.approve()</code> đã làm.</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Suy ra số lượng/hạn giao từ dòng SalesOrderItem đầu tiên tìm thấy — sai nếu 1 đơn hàng có 2 dòng cùng sản phẩm</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\skus\skus.service.ts:1216-1247 (resolveProductionInvoice)</div>
+      <div class="f-field"><span class="k">Lỗi → Cách tái hiện</span><div class="v"><code>salesOrderItem.findFirst({where:{salesOrderId, mfgProductId}})</code> không có orderBy, và không có ràng buộc unique (salesOrderId, mfgProductId). Nếu 1 Sales Order có 2 dòng cùng sản phẩm với totalQty/deliveryDate khác nhau, hàm lấy ngẫu nhiên 1 trong 2 dòng để ghim vào PI item mới.</div></div>
+      <div class="f-field"><span class="k">Hậu quả</span><div class="v">Số lượng/thời hạn ghim vào PI (và sau này PO) có thể không khớp dòng đơn hàng thực sự liên quan. Cần xác minh với nghiệp vụ tình huống này có thực tế xảy ra không.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Nếu hợp lệ về nghiệp vụ, cần truyền <code>salesOrderItemId</code> tường minh từ FE thay vì suy luận qua mfgProductId.</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Số lượng đơn hàng sửa được sau khi đã ghim vào PI/PO — không đồng bộ lại, không cảnh báo</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\sales-orders\sales-orders.service.ts:150-170 (updateItem)</div>
+      <div class="f-field"><span class="k">Lỗi → Cách tái hiện</span><div class="v"><code>updateItem()</code> cho sửa <code>totalQty</code> không giới hạn trạng thái, trong khi <code>ProductionInvoiceItem.quantity</code> chỉ ghim 1 lần lúc PI được tạo (comment ở production-orders.service.ts giả định "Sales tạo và không ai sửa sau đó" — giả định này sai). Tạo đơn 100 cái → PI item ghim 100 → Sales sửa còn 60 → PI item vẫn hiển thị/duyệt theo 100, không cảnh báo.</div></div>
+      <div class="f-field"><span class="k">Hậu quả</span><div class="v">Sản xuất theo số cũ trong khi đơn hàng thực tế đã đổi, không ai được cảnh báo dữ liệu lệch nhau.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Chặn sửa totalQty khi đã có PI/PO liên quan, hoặc hiển thị cảnh báo rõ ràng ở FE khi dữ liệu lệch.</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Endpoint upload ảnh không giới hạn quyền — mọi tài khoản đăng nhập đều gọi được</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\uploads\uploads.controller.ts:26-44 (POST /uploads/image)</div>
+      <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">Không có <code>@RequirePermissions</code>/<code>@RequireRole</code>, chỉ cần JWT hợp lệ. Vì các guard phân quyền trong hệ thống <em>fail-open</em> khi thiếu decorator, bất kỳ tài khoản nào (kể cả role thấp nhất) đều upload được lên Cloudinary công ty — không giới hạn theo nghiệp vụ được giao.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Xác nhận với nghiệp vụ có đúng là chủ đích "mọi role được upload" không; nếu không, thêm permission riêng hoặc raise theo permission của form đang dùng ảnh đó.</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Refresh token bị đánh cắp và tái sử dụng không kích hoạt thu hồi toàn bộ phiên</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\auth\auth.service.ts:57-84 (refresh)</div>
+      <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">Khi 1 refresh token đã bị revoke (đã dùng để rotate) bị gọi lại, code chỉ ném 401 — không revoke cả "họ" token liên quan. Nếu kẻ tấn công dùng token cũ trước nạn nhân để lấy token mới, phiên của kẻ tấn công tiếp tục hợp lệ dù nạn nhân sau đó bị 401 — hệ thống không tự phát hiện dấu hiệu token đã bị lộ.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Khi phát hiện tái sử dụng token đã revoke, coi là dấu hiệu bị lộ → revoke toàn bộ refresh token còn sống của user đó, ghi audit log/cảnh báo (theo chuẩn OAuth Security BCP cho refresh token rotation).</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">CORS mặc định chấp nhận mọi origin kèm credentials nếu quên cấu hình</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\main.ts:16-21; src\config\env.validation.ts:17</div>
+      <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v"><code>CORS_ORIGIN</code> mặc định <code>'*'</code>, khi đó server phản chiếu Origin header kèm <code>credentials:true</code>. Deploy production quên set biến này → API chấp nhận credentialed request từ mọi origin. Giảm nhẹ vì auth dùng Bearer token trong header (không cookie) nên rủi ro thực tế thấp hơn, nhưng vẫn là cấu hình quá mở cho API nội bộ doanh nghiệp.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Bắt buộc <code>CORS_ORIGIN</code> cụ thể (không default <code>*</code>) khi <code>NODE_ENV=production</code>.</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Không có rate-limit/khoá tài khoản riêng cho đăng nhập</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\auth\auth.controller.ts:22-26; app.module.ts:79-89</div>
+      <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v"><code>/auth/login</code> chỉ dùng chung ThrottlerGuard global (100 request/60s/IP dùng chung mọi endpoint), không có <code>@Throttle</code> riêng chặt hơn, không khoá tài khoản sau N lần sai. Brute-force mật khẩu khả thi hơn, đặc biệt khi chính sách mật khẩu chỉ yêu cầu tối thiểu 8 ký tự (xem mục Low).</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Thêm <code>@Throttle</code> chặt hơn riêng cho login (5-10 lần/phút/IP) và/hoặc khoá tạm tài khoản sau N lần sai liên tiếp theo username.</div></div>
+    </article>
+
+    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Axios client dùng chung toàn FE không có timeout — request treo vô hạn khi BE không phản hồi</span></div>
+      <div class="f-loc">D:\DNA-ERP\src\services\core\http.ts:35-44 (client &amp; refreshClient)</div>
+      <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">Không set field <code>timeout</code> — axios mặc định 0 (không giới hạn). Nếu BE treo (deadlock DB, network drop, container OOM-kill nhưng TCP chưa reset), mọi fetch/nút hành động chờ vô thời hạn, không có phản hồi lỗi cho người dùng, chỉ có thể F5. Ảnh hưởng toàn hệ thống vì mọi service <code>*-api.ts</code> đều đi qua file này.</div></div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Thêm <code>timeout</code> (ví dụ 20s) cho cả 2 instance, map lỗi timeout sang thông báo rõ ràng cho người dùng.</div></div>
+    </article>
+  </section>
+
+  <!-- ============ LOW / INFO ============ -->
+  <section class="sev-section" id="low">
+    <div class="sec-head"><h2>4. Lỗi Low / Info</h2><span class="sec-count">17 mục</span></div>
+    <p class="sec-desc">Rủi ro thấp hoặc cần xác nhận thêm nghiệp vụ trước khi coi là lỗi thật — liệt kê ngắn gọn.</p>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Quy đổi kg → đơn vị kho làm tròn độc lập theo từng đợt nhận hàng</span></div>
+      <div class="f-loc">D:\DNA-ERP\src\modules\pages\Manufacturing\NhapKhoPage.tsx:164-165</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Nhận hàng nhiều đợt cộng dồn, mỗi đợt làm tròn riêng có thể lệch tối đa ~0.5×(số đợt) đơn vị so với làm tròn 1 lần trên tổng. <strong>Cần xác nhận nghiệp vụ</strong> — có thể là hành vi đúng (mỗi đợt cân là 1 sự kiện vật lý thật).</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Vài field phần trăm cấu hình dùng Float thay vì Decimal</span></div>
+      <div class="f-loc">schema.prisma:248,251,268 — solverBladeWidthMm, solverMaxWastePercentage, purchaseOverReceiptTolerancePercent</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v"><code>purchaseOverReceiptTolerancePercent</code> dùng trực tiếp tính <code>maxAllowedQty</code> — sai số float có thể lệch ngưỡng vài phần vạn, không nghiêm trọng nhưng không nhất quán với việc đã migrate hàng loạt field cắt sắt khác sang Decimal ngày 2026-08-19.</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Tài liệu tích hợp DNA-DEXUAT không mô tả endpoint thực tế đang dùng</span></div>
+      <div class="f-loc">D:\DNA-DEXUAT\TAI_LIEU_TICH_HOP_API.md (mục 4) vs cutting-proposals.service.ts:48 (gọi POST /api/v1/de_xuat/propose/)</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Tài liệu chỉ mô tả <code>cat_sat/optimize</code> và <code>cat_laser_roi/optimize</code>, tự ghi nhận đây là contract "đích" chưa tồn tại lúc viết. Không thể đối chiếu độc lập request/response thật của <code>de_xuat/propose</code> — rủi ro lệch âm thầm nếu phía DNA-DEXUAT đổi format mà không có tài liệu chung.</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Chính sách mật khẩu chỉ yêu cầu tối thiểu 8 ký tự, không bắt buộc độ phức tạp</span></div>
+      <div class="f-loc">auth/dto, users/dto — login.dto.ts, create-user.dto.ts, change-password.dto.ts, reset-password.dto.ts</div>
+      <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Thêm ràng buộc tối thiểu 1 chữ hoa + 1 số qua <code>@Matches()</code>.</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Access + refresh token đều lưu localStorage, không phải cookie httpOnly</span></div>
+      <div class="f-loc">D:\DNA-ERP\src\services\core\tokenStorage.ts:14-27</div>
+      <div class="f-field"><span class="k">Hậu quả</span><div class="v">Nếu có bất kỳ lỗ XSS nào ở bất kỳ trang nào trong app, script độc hại đọc được cả 2 token → chiếm quyền tài khoản tới 7 ngày (hạn refresh token), không chỉ tới khi access token hết hạn.</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Guard phân quyền theo phạm vi kho (WarehouseScopeGuard) là dead code, gây hiểu nhầm</span></div>
+      <div class="f-loc">common\decorators\require-warehouse-scope.decorator.ts; common\guards\warehouse-scope.guard.ts</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Không controller nào gắn decorator này — guard luôn trả true. Việc kiểm tra scope kho thực tế được làm thủ công đúng trong service (đã xác minh, không phải lỗ hổng hiện tại), nhưng dev mới có thể nhầm tưởng gắn decorator là đủ để enforce.</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Đánh dấu "đã đọc" thông báo không kiểm tra đúng đối tượng nhận (audience)</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\notifications\notifications.service.ts:66-81 (markRead)</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Chỉ kiểm tra notification tồn tại, không kiểm tra audience khớp role của caller. Hậu quả thấp vì không lộ thêm nội dung, chỉ là thiếu 1 lớp kiểm tra IDOR ở mức ghi.</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Lỗi lấy kế hoạch xuất sắt bị nuốt hoàn toàn thay vì phân biệt theo mã lỗi</span></div>
+      <div class="f-loc">D:\DNA-ERP\src\services\steel-issues-api.ts:93-101 (getSteelIssuePlan)</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v"><code>catch { return [] }</code> bắt mọi lỗi kể cả 500/network, không chỉ case hợp lệ "PI chưa có ProductionOrder" như comment mô tả — nên phân biệt theo status code.</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Optimistic update ghi log hoạt động không rollback khi lưu thất bại</span></div>
+      <div class="f-loc">D:\DNA-ERP\src\context\AuditLogContext.tsx:96-113 (logAction)</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Promise lưu log không có <code>.catch()</code> — nếu lỗi mạng đúng lúc thao tác, dòng log hiện ngay trong phiên nhưng biến mất khi F5 (chưa từng persist thật).</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Trạng thái "đã tắt thông báo" (NotifBell) không persist, tái xuất hiện sau F5</span></div>
+      <div class="f-loc">D:\DNA-ERP\src\components\NotifBell.tsx:23,47 — dùng ở SpecSteelPage.tsx, SpecDetailQuotaPage.tsx</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v"><code>dismissed</code> chỉ sống trong state cục bộ. Cần xác nhận ý đồ: nhắc 1 lần thật (cần lưu localStorage/gọi API mark-read) hay chỉ ẩn tạm trong phiên xem.</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">1 màn hình quên truyền locale khi format số, khác biệt với &gt;60 vị trí còn lại</span></div>
+      <div class="f-loc">D:\DNA-ERP\src\modules\pages\ProductionPlan\LenhSXPage.tsx:393,600,781,900,1034,1186 — qty.toLocaleString() (thiếu 'vi-VN')</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Kết quả phụ thuộc locale trình duyệt/OS của người dùng, có thể hiển thị dấu phân cách khác phần còn lại của app. Nên gom về 1 hàm <code>formatNumber</code> dùng chung thay vì định nghĩa lặp lại ở nhiều file.</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">ID kiểu string bị ép kiểu number có chủ đích — bẫy tiềm ẩn cho code mới</span></div>
+      <div class="f-loc">D:\DNA-ERP\src\services\users-mapper.ts:36; purchasing-api.ts:144 (as unknown as number)</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Quyết định có chủ đích, có comment giải thích, hiện không có chỗ nào làm phép toán số học trên các field này. Rủi ro là code mới sau này viết <code>Number(id)</code> sẽ ra NaN/sai âm thầm mà ESLint không chặn (no-explicit-any chỉ ở mức warn).</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Version mismatch: @types/react 19 nhưng runtime React 18</span></div>
+      <div class="f-loc">D:\DNA-ERP\package.json — react@18.3.1 / react-dom@18.3.1 vs @types/react@19.2.17</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Type-check dùng typings React 19 (khác API so với React 18 thật ở 1 số chỗ) — có thể che giấu lỗi type thật hoặc báo sai. Nên đồng bộ về cùng major.</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Config JWT_REFRESH_SECRET tồn tại nhưng không còn được dùng ở đâu</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\config\configuration.ts:11,44; env.validation.ts:14</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Refresh token thực tế là random bytes hash SHA-256, không dùng secret này — dễ khiến người review sau nhầm tưởng cơ chế ký JWT. Nên xoá hoặc ghi rõ là biến dự phòng chưa dùng.</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Race hiếm khi sinh số PO — đã tự nhận biết trong code, có unique constraint chặn ghi trùng</span></div>
+      <div class="f-loc">D:\DNA-ERP-BE\src\modules\production-orders\production-orders.service.ts:106-118 (resolvePoNumber)</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">2 item cùng 1 sales order được duyệt gần đồng thời có thể đếm trùng số thứ tự, nhưng <code>poNumber @unique</code> chặn ghi trùng nên chỉ gây lỗi rõ ràng (exception), không tạo dữ liệu sai. Không cấp bách.</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Info</span><span class="f-title">2 chỗ catch rỗng nuốt lỗi có chủ đích, đã có comment giải thích</span></div>
+      <div class="f-loc">AuditLogContext.tsx:90; PurchaseProposalAuditTrail.tsx:94</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Cả 2 chỉ ảnh hưởng hiển thị tên người dùng/lịch sử phụ, không phải luồng nghiệp vụ chính — không phải bug, liệt kê cho đủ báo cáo.</div></div>
+    </article>
+
+    <article class="finding low"><div class="f-head"><span class="badge low">Info</span><span class="f-title">Validate độ chính xác thập phân ở FE lỏng hơn BE cho chiều dài cắt</span></div>
+      <div class="f-loc">D:\DNA-ERP\src\modules\pages\.../SpecSteelPage.tsx:605 (input number không ràng buộc số chữ số thập phân) vs BE QuotaSegmentDto.cutLengthMm (@IsNumber maxDecimalPlaces:1)</div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Nhập "590.55" pass được nút Lưu ở FE rồi mới bị BE trả 400 — trải nghiệm chưa mượt, mức độ nhỏ.</div></div>
+    </article>
+  </section>
+
+  <!-- ============ WORKFLOW RISK ============ -->
+  <section class="sev-section" id="workflow-risk">
+    <div class="sec-head"><h2>5. Workflow có rủi ro cao</h2></div>
+    <div class="prose-card">
+      <h3>Chuyển kho nội bộ (Phân phối nội bộ)</h3>
+      <p>Chứa cả 2 lỗi Critical (C1, C2) và 2 lỗi High (H1, và pattern race M "createPieceTransfer"). Đây là điểm hội tụ của nhiều luồng: xuất sắt theo PI, cắt sắt giữ chỗ, chuyển mảnh/vật tư thành phẩm giữa các kho — nên 1 lỗi ở tầng "tính tồn khả dụng" ảnh hưởng dây chuyền tới nhiều nghiệp vụ khác.</p>
+    </div>
+    <div class="prose-card">
+      <h3>Xuất sắt theo PI (redesign 2026-08-19)</h3>
+      <p>Về cơ bản thiết kế lại đúng hướng (union công đoạn theo PI, nhóm theo vật tư, transaction-safe khi trừ tồn) — nhưng lỗ hổng C2 nằm đúng ở ranh giới giữa phần đã redesign (BE chặn cứng needsHan=false) và phần chưa được cập nhật theo (FE nuốt lỗi). Vì đây là khu vực vừa thay đổi lớn và nhiều màn phụ thuộc cùng 1 kiểu dữ liệu (BeSteelIssue), rủi ro tái diễn kiểu lỗi tương tự khi có thay đổi tiếp theo là cao.</p>
+    </div>
+    <div class="prose-card">
+      <h3>Duyệt PI Item → tạo Production Order</h3>
+      <p>Toàn bộ 5 hàm chuyển trạng thái (gửi QLSX, gửi Sếp, duyệt, từ chối QLSX, từ chối Sếp) đều thiếu WHERE-guard theo status (M — TOCTOU). Không tạo dữ liệu sai nhờ unique constraint chặn ở lớp dưới, nhưng audit trail (ai duyệt) có thể sai khi có thao tác đồng thời — rủi ro tăng dần khi số lượng người dùng đồng thời trong hệ thống tăng.</p>
+    </div>
+    <div class="prose-card">
+      <h3>3 module vật tư tiêu hao: Material Issues / Packaging Issues / Weaving Issues</h3>
+      <p>Cùng 1 pattern race "đọc remaining rồi ghi không transaction" lặp lại y hệt ở cả 3 module (H2, H3, H4) — cho thấy đây không phải lỗi đơn lẻ mà là 1 pattern chưa được chuẩn hoá thành helper dùng chung, trong khi <code>steel-issues</code>/<code>purchase-proposals</code> trong cùng repo đã tự vá đúng cách. Nên rà soát có hệ thống thay vì sửa từng chỗ.</p>
+    </div>
+  </section>
+
+  <!-- ============ VERIFY WITH BUSINESS ============ -->
+  <section class="sev-section" id="verify">
+    <div class="sec-head"><h2>6. Cần xác minh với nghiệp vụ</h2></div>
+    <ul class="verify-list">
+      <li><strong>Mảnh needsHan=false có thực sự không bao giờ xảy ra?</strong> Toàn bộ thiết kế "Xuất sắt theo PI" (và lỗi C2) dựa trên giả định hiện tại 0/9 BomPiece là needsHan=false. Nếu nghiệp vụ xác nhận trường hợp này có thể xảy ra trong tương lai, cần thiết kế lại cơ chế đếm thay vì chỉ chặn cứng.</li>
+      <li><strong>Upload ảnh mở cho mọi role đăng nhập</strong> — có phải chủ đích thiết kế (dùng chung cho mọi form) hay cần giới hạn theo permission cụ thể?</li>
+      <li><strong>Cấp bù sắt lỗi được phép khác PI</strong> (chỉ cần cùng loại vật tư) — có phải quyết định nghiệp vụ có chủ đích (sắt là vật tư dùng chung) hay cần ràng buộc lại cùng PI?</li>
+      <li><strong>1 Sales Order có thể có 2 dòng cùng sản phẩm (mfgProductId) không?</strong> Nếu có, cần cơ chế chọn đúng dòng khi tạo SKU thay vì lấy dòng đầu tiên tìm thấy.</li>
+      <li><strong>Làm tròn số lượng theo từng đợt nhận hàng</strong> (kg → đơn vị kho) — mỗi đợt cân là số liệu vật lý thật cần giữ nguyên, hay cần làm tròn theo tổng luỹ kế?</li>
+      <li><strong>WarehouseScopeGuard / JWT_REFRESH_SECRET</strong> — dead code, giữ lại để dùng sau hay nên dọn dẹp để tránh hiểu nhầm cho dev mới?</li>
+    </ul>
+  </section>
+
+  <!-- ============ SUMMARY ============ -->
+  <section class="sev-section" id="summary">
+    <div class="sec-head"><h2>7. Tổng kết tình trạng hệ thống</h2></div>
+    <div class="prose-card">
+      <p>Codebase nhìn chung được viết <strong>cẩn thận hơn mức trung bình</strong>: nhiều nơi tự nhận thức đúng rủi ro concurrency và đã chủ động vá (khoá <code>FOR UPDATE</code> ở steel-issues/purchase-proposals, dedupe refresh token, redact secret khỏi log/audit, chặn tự khoá tài khoản admin, DTO validate đầy đủ, không có raw SQL injection). Rất nhiều comment trong code ghi lại rõ lịch sử bug đã từng xảy ra và cách đã sửa — dấu hiệu của một đội đã tự audit lặp lại nhiều lần trước đó.</p>
+      <p>Tuy vậy, audit lần này phát hiện 3 vấn đề mang tính hệ thống cần ưu tiên:</p>
+      <p><strong>(1)</strong> 2 lỗi Critical đều rơi đúng vào khu vực nghiệp vụ lõi — chuyển kho nội bộ — nơi lỗi gây <em>sai lệch dữ liệu không thể phát hiện qua UI</em> (trạng thái phiếu nói một đằng, sổ kho ghi một nẻo), cần sửa trước tiên vì rủi ro cao nhất theo đúng thứ tự ưu tiên Data Integrity đã đặt ra.</p>
+      <p><strong>(2)</strong> Pattern race condition "đọc số lượng đã xuất rồi ghi, không transaction" lặp lại y hệt ở 3 module độc lập (Material/Packaging/Weaving Issues) trong khi chính codebase đã có sẵn pattern đúng ở nơi khác — cho thấy cần chuẩn hoá thành 1 helper/decorator dùng chung thay vì tin từng dev tự nhớ áp dụng đúng.</p>
+      <p><strong>(3)</strong> Khu vực vừa redesign lớn (Xuất sắt theo PI, ship 2026-08-19) về thiết kế cơ bản đúng hướng và đã được kiểm chứng khá kỹ trong quá trình phát triển, nhưng lỗ hổng C2 cho thấy rủi ro thực sự của các thay đổi lớn nằm ở <em>ranh giới giữa các phần đã và chưa cập nhật theo</em> (BE đổi hành vi chặn lỗi, FE không theo kịp cách hiển thị lỗi mới) — đáng để rà lại toàn bộ chuỗi màn hình phụ thuộc sau mỗi lần redesign lớn tương tự trong tương lai.</p>
+      <p>Không phát hiện lỗ hổng bảo mật nghiêm trọng (không SQL injection, không leak secret, RBAC bao phủ 33/33 controller đúng ở gần hết các endpoint), phần Auth/Security chỉ ở mức Medium/Low và mang tính phòng ngừa (defense-in-depth) nhiều hơn là lỗ hổng khai thác được ngay.</p>
+      <p class="muted">Báo cáo tổng hợp từ 6 nhánh review độc lập (Auth/Security, Sales–PI–PO–SKU, Cắt/Xuất sắt/Mảnh, Kho/Tồn kho, FE Integration, DB Schema/Transaction/Tích hợp DNA-DEXUAT), mỗi nhánh đọc code thật, không sửa code. Một số phần chưa được đọc sâu do giới hạn thời gian (chi tiết trong từng nhánh gốc) — không nên coi các phần chưa đọc là "đã xác nhận sạch".</p>
+    </div>
+  </section>
+
+</main>
+
+<footer>DNA-ERP Full System Bug Audit · 20/08/2026 · Read-only review, không sửa code</footer>
+</body>
+</html>
