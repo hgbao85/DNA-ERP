@@ -500,7 +500,7 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Bọc <code>resolvePlannedQty</code> + <code>sumIssued</code> + <code>create</code> trong <code>$transaction</code>, khoá theo <code>(productionOrderId, stage, materialId)</code> theo đúng pattern đã dùng ở SteelIssuesService.</div></div>
       <div class="fix-note">
         <span class="k">Đã sửa</span>
-        <div class="v">Không có dòng có sẵn để <code>SELECT ... FOR UPDATE</code> cho lần xuất đầu tiên của 1 khoá composite (chưa từng có <code>MaterialIssue</code> nào) nên dùng khoá advisory Postgres qua helper dùng chung mới <code>common/utils/advisory-lock.util.ts</code> (<code>pg_advisory_xact_lock(hashtext(key))</code>, tự nhả khi transaction kết thúc). Bọc <code>resolvePlannedQty</code> + <code>sumIssued</code> + <code>create</code> trong 1 <code>$transaction</code>, khoá trước theo <code>material-issue:{'{'}orderId{'}'}:{'{'}stage{'}'}:{'{'}materialId{'}'}</code>. Thêm test race-guard xác nhận lock được gọi trong transaction trước khi đọc remaining. 21/21 test pass.</div>
+        <div class="v">Không có dòng có sẵn để <code>SELECT ... FOR UPDATE</code> cho lần xuất đầu tiên của 1 khoá composite (chưa từng có <code>MaterialIssue</code> nào) nên dùng khoá advisory Postgres qua helper dùng chung mới <code>common/utils/advisory-lock.util.ts</code> (<code>pg_advisory_xact_lock(hashtext(key))</code>, tự nhả khi transaction kết thúc). Bọc <code>resolvePlannedQty</code> + <code>sumIssued</code> + <code>create</code> trong 1 <code>$transaction</code>, khoá trước theo <code>material-issue:{orderId}:{stage}:{materialId}</code>. Thêm test race-guard xác nhận lock được gọi trong transaction trước khi đọc remaining. 21/21 test pass.</div>
       </div>
     </article>
 
@@ -512,7 +512,7 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Transaction + khoá <code>FOR UPDATE</code> theo <code>(productionOrderId, materialId)</code>, cùng pattern với H2.</div></div>
       <div class="fix-note">
         <span class="k">Đã sửa</span>
-        <div class="v">Cùng fix với H2, dùng lại helper <code>lockBusinessKey()</code> dùng chung: bọc <code>resolvePlannedQty</code> + <code>sumIssued</code> + <code>create</code> trong 1 <code>$transaction</code>, khoá advisory theo <code>packaging-issue:{'{'}orderId{'}'}:{'{'}materialId{'}'}</code> trước khi đọc remaining. 15/15 test pass (kể cả test race-guard mới).</div>
+        <div class="v">Cùng fix với H2, dùng lại helper <code>lockBusinessKey()</code> dùng chung: bọc <code>resolvePlannedQty</code> + <code>sumIssued</code> + <code>create</code> trong 1 <code>$transaction</code>, khoá advisory theo <code>packaging-issue:{orderId}:{materialId}</code> trước khi đọc remaining. 15/15 test pass (kể cả test race-guard mới).</div>
       </div>
     </article>
 
@@ -525,7 +525,7 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Transaction + <code>FOR UPDATE</code> theo <code>(productionOrderId, pieceId[, weavingPointId])</code> cho cả 2 hàm.</div></div>
       <div class="fix-note">
         <span class="k">Đã sửa</span>
-        <div class="v">Cùng helper <code>lockBusinessKey()</code>, áp dụng cho CẢ 2 chiều: <code>create()</code> khoá theo <code>weaving-issue:{'{'}orderId{'}'}:{'{'}pieceId{'}'}</code>, <code>receive()</code> khoá riêng theo <code>weaving-receipt:{'{'}orderId{'}'}:{'{'}pieceId{'}'}:{'{'}weavingPointId{'}'}</code> (đủ chặn nhập-đan race với nhau, không cần chặn chéo với xuất-đan). 29/29 test pass (kể cả 2 test race-guard mới cho create/receive).</div>
+        <div class="v">Cùng helper <code>lockBusinessKey()</code>, áp dụng cho CẢ 2 chiều: <code>create()</code> khoá theo <code>weaving-issue:{orderId}:{pieceId}</code>, <code>receive()</code> khoá riêng theo <code>weaving-receipt:{orderId}:{pieceId}:{weavingPointId}</code> (đủ chặn nhập-đan race với nhau, không cần chặn chéo với xuất-đan). 29/29 test pass (kể cả 2 test race-guard mới cho create/receive).</div>
       </div>
     </article>
 
@@ -561,114 +561,177 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
   <!-- ============ MEDIUM ============ -->
   <section class="sev-section" id="medium">
     <div class="sec-head"><h2>3. Lỗi Medium</h2><span class="sec-count">17 lỗi</span></div>
+    <p class="sec-desc"><strong style="color:var(--fixed)">Cập nhật 20/08/2026:</strong> 13/17 đã sửa hoàn toàn, 2/17 sửa 1 phần (giảm rủi ro, chưa giải quyết triệt để — xem fix-note từng mục), 2/17 giữ nguyên theo quyết định user (upload ảnh: không sửa; solver retry: để sau). Toàn bộ BE test pass (612/612) + typecheck/eslint sạch cả BE lẫn FE.</p>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Tạo trùng phiếu chuyển mảnh khi 2 request đồng thời</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Tạo trùng phiếu chuyển mảnh khi 2 request đồng thời</span></div>
       <div class="f-loc">warehouse-transfers.service.ts:180-260 (createPieceTransfer, getPieceTransferPlan)</div>
       <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">Không như chuyển kho vật tư thường (có khoá <code>FOR UPDATE</code>), tạo phiếu chuyển mảnh đọc kế hoạch rồi tạo phiếu không transaction — code tự thừa nhận "piece không có StockQuant để khoá". 2 request đồng thời cho cùng PO+piece có thể tạo tổng số mảnh vượt số thực đã qua QC.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Cần cơ chế khoá mức PO/piece (advisory lock hoặc bảng reservation cho piece) trước khi tính suggestedQty.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v"><code>createPieceTransfer()</code> bọc trong 1 <code>$transaction</code>; trước khi tính plan, khoá advisory <code>lockBusinessKey()</code> theo từng <code>productionOrderId</code> phân biệt (sort tăng dần trước khi khoá để tránh deadlock), rồi <code>getPieceTransferPlan()</code> (giờ nhận thêm tham số <code>client</code>) đọc lại plan TRONG lúc đã khoá. Thêm test race-guard xác nhận khoá chạy trước khi đọc plan. Toàn bộ 28 test warehouse-transfers pass.</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">"Sửa nhanh tồn kho" ở FE tính delta từ số cũ trên client — 2 người sửa cùng lúc cộng dồn sai</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">"Sửa nhanh tồn kho" ở FE tính delta từ số cũ trên client — 2 người sửa cùng lúc cộng dồn sai</span></div>
       <div class="f-loc">D:\DNA-ERP\src\modules\pages\Manufacturing\MfgWarehousesPage.tsx:313-338; Admin\masterData\MaterialsPage.tsx:117-131</div>
       <div class="f-field"><span class="k">Lỗi → Cách tái hiện</span><div class="v">Người dùng nhập "số tồn mới" tuyệt đối, FE tự tính <code>delta = newQty − oldQty(đã fetch trước đó)</code>. 2 nhân viên cùng thấy tồn=100, người A đếm ra 90 (gửi delta −10), người B (chưa refresh) đếm ra 95 (gửi delta −5) → kết quả 100−10−5=85, sai so với cả 2 số đếm thật, thay vì "ai sửa sau thắng" hoặc cảnh báo xung đột.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">BE nhận thêm <code>expectedCurrentQty</code>, validate trong transaction có khoá <code>FOR UPDATE</code>, từ chối nếu tồn hiện tại lệch so với expected.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v"><code>CreateStockAdjustmentDto</code> thêm 2 field optional <code>expectedWarehouseId</code>/<code>expectedCurrentQty</code>. <code>StockLedgerService.adjust()</code>: khi có <code>expectedCurrentQty</code>, bọc <code>$transaction</code> + <code>SELECT ... FOR UPDATE</code> trên <code>stock_quant</code> đúng kho/vật tư, so với tồn thật, throw <code>ConflictException</code> (409) nếu lệch. FE (<code>MfgWarehousesPage.tsx</code>, <code>MaterialsPage.tsx</code>) truyền kèm 2 field này ở lần "sửa nhanh". Không truyền = giữ nguyên hành vi cũ cho mọi call site khác. 21 test pass (5 test mới cho optimistic lock).</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">FE hard-code limit=100, không phân trang thật — phiếu PENDING cũ có thể "biến mất" khỏi danh sách xử lý</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge high">◐ Sửa 1 phần 20/08/2026</span><span class="f-title">FE hard-code limit=100, không phân trang thật — phiếu PENDING cũ có thể "biến mất" khỏi danh sách xử lý</span></div>
       <div class="f-loc">warehouse-transfers-api.ts:85-91; purchasing-api.ts:208-212; stock-api.ts:43-48</div>
       <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">FE gọi <code>?limit=100</code> cố định, lọc theo trạng thái ở client trên tập 100 dòng mới nhất. Khi tổng số phiếu vượt 100, 1 phiếu PENDING cũ bị đẩy khỏi top-100 → biến mất khỏi hộp thư chờ xử lý dù vẫn PENDING thật trong DB, dễ bị bỏ sót vĩnh viễn.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Gọi API kèm filter <code>status=PENDING</code> (BE đã hỗ trợ) thay vì lọc client-side trên top-100, hoặc thêm phân trang thật.</div></div>
+      <div class="fix-note">
+        <span class="k">Sửa 1 phần</span>
+        <div class="v"><strong>warehouse-transfers</strong> (rủi ro cao nhất — có hàng đợi PENDING thật): <code>getWarehouseTransfers(status?)</code> giờ query thẳng BE theo <code>status=PENDING</code> khi cần (BE đã hỗ trợ filter này qua <code>ListWarehouseTransfersQueryDto</code>); <code>InternalTransferSections.tsx</code> tách 2 fetch riêng — pending theo status, history giữ hành vi top-100 cũ. <strong>purchase-proposals/stock-ledger: KHÔNG sửa được</strong> — phát hiện ra <code>limit</code> đã ở đúng mức trần cho phép (<code>PaginationQueryDto.@Max(100)</code> dùng chung toàn app), và purchase-proposals findAll() không có filter status sẵn (khác warehouse-transfers) nên không tách được pending/history theo cách tương tự. Nâng trần 100 hoặc thêm phân trang thật là thay đổi lớn hơn phạm vi đợt sửa Medium này — để nguyên, ghi rõ lý do trong code.</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Ghi nhiều dòng sổ kho khi báo cắt xong không nằm trong 1 transaction</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Ghi nhiều dòng sổ kho khi báo cắt xong không nằm trong 1 transaction</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\production-batches\production-batches.service.ts:124-150 (postSegmentConsumeEntries)</div>
       <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">Sau khi tạo ProductionBatch, hàm lặp qua nhiều pieceBoms và ghi từng dòng StockLedger riêng lẻ, ngoài transaction. Nếu dòng thứ 2/3 lỗi giữa chừng (mất kết nối, timeout), batch đã tồn tại nhưng chỉ trừ tồn đoạn sắt một phần — không có gì phát hiện các batch bị "dở dang", tồn kho đoạn sắt lệch âm thầm.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Bọc <code>create()</code> + toàn bộ <code>postEntry()</code> cho các pieceBoms trong cùng 1 <code>$transaction</code>.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v"><code>create()</code> bọc <code>productionBatch.create</code> + <code>postSegmentConsumeEntries</code> (giờ nhận thêm tham số <code>tx</code>) trong 1 <code>$transaction</code> — 1 dòng ledger lỗi giữa chừng giờ rollback cả batch, không còn "dở dang". Nhánh idempotency-retry (batch đã tồn tại) giữ nguyên ngoài transaction, đã tự an toàn nhờ idempotencyKey riêng từng dòng. Thêm test xác nhận lỗi propagate đúng qua <code>$transaction</code>. 16/16 test pass.</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Phiếu mua hàng có ≥2 dòng vật tư có thể kẹt vĩnh viễn ở trạng thái "đang mua", không bao giờ tự chuyển hoàn tất</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Phiếu mua hàng có ≥2 dòng vật tư có thể kẹt vĩnh viễn ở trạng thái "đang mua", không bao giờ tự chuyển hoàn tất</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\purchase-proposals\purchase-proposals.service.ts:512-516 (receiveItem)</div>
       <div class="f-field"><span class="k">Lỗi</span><div class="v">Dòng item hiện tại được khoá <code>FOR UPDATE</code> đúng cách, nhưng cờ <code>allReceived</code> lại tính dựa trên <code>proposal.items</code> — snapshot lấy <strong>trước khi mở transaction</strong> — cho mọi item khác trong cùng phiếu.</div></div>
       <div class="f-field"><span class="k">Cách tái hiện</span><div class="v">Phiếu có 2 item A, B đều đang mua. 2 request nhận hàng cho A và B gần như đồng thời — mỗi transaction đọc trạng thái của item còn lại từ snapshot cũ (chưa đủ) → cả hai tính <code>allReceived=false</code> dù thực tế cả 2 vừa nhận đủ cùng lúc → phiếu kẹt PURCHASING vĩnh viễn, không lỗi nào được ném ra để phát hiện.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Khoá cả nhóm item theo <code>proposalId</code> hoặc re-query <code>receivedQty</code> mới nhất của mọi item còn lại trong transaction trước khi tính <code>allReceived</code>.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Thêm <code>lockBusinessKey(tx, purchase-proposal-received:proposal.id)</code> ngay sau khi khoá dòng item hiện tại — serialize mọi lượt nhận hàng của CÙNG phiếu. <code>allReceived</code> giờ tính trên <code>tx.purchaseProposalItem.findMany()</code> đọc TƯƠI trong transaction (thay vì snapshot <code>proposal.items</code> đọc trước đó). Thêm test mô phỏng đúng ca 2 item nhận đủ gần như đồng thời — phiếu vẫn chuyển PURCHASED đúng. 46/46 test pass.</div>
+      </div>
     </article>
 
     <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Gọi solver cắt sắt (DNA-DEXUAT) không tự retry dù doc-comment tuyên bố có</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\external\external-api.service.ts:46-51 (doc-comment) vs 149-165 (executePostRequest)</div>
       <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">Doc-comment class mô tả "automatic retry" áp dụng chung, nhưng <code>executePostRequest()</code> — dùng để gọi solver <code>de_xuat/propose</code> — chỉ có timeout, không có retry (khác <code>executeGetRequest()</code> có retry thật). Một lỗi mạng thoáng qua làm cả CuttingProposal chuyển FAILED ngay, người dùng phải tự bấm tính lại dù lỗi chỉ là gián đoạn mạng tức thời.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Thêm retry giới hạn cho lỗi network/5xx (không retry lỗi nghiệp vụ 4xx), hoặc sửa lại doc-comment cho khớp hành vi thật.</div></div>
+      <div class="f-field"><span class="k">Trạng thái 20/08/2026</span><div class="v"><strong>Để sau (theo quyết định user)</strong> — chưa đụng vào <code>external-api.service.ts</code> trong đợt sửa Medium này. Thêm retry cho POST là đổi hành vi thật (solver có thể chạy tới 900s, retry sai chỗ có thể gấp đôi thời gian chờ khi lỗi không phải do mạng) nên cần cân nhắc kỹ hơn ngoài phạm vi đợt sửa nhanh này.</div></div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Cấp bù sắt lỗi có thể gắn nhầm sang PI khác — mất ràng buộc "cùng đơn hàng" khi bỏ điều kiện pieceId</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Cấp bù sắt lỗi có thể gắn nhầm sang PI khác — mất ràng buộc "cùng đơn hàng" khi bỏ điều kiện pieceId</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\qc-reviews\qc-reviews.service.ts:246-256 (fulfillReplenishRequest)</div>
       <div class="f-field"><span class="k">Lỗi → Cách tái hiện</span><div class="v">Điều kiện chặn cấp bù giờ chỉ so <code>materialId</code>, không còn so PI. PI-A và PI-B cùng dùng vật tư sắt X; KCS chấm phế 1 đợt của PI-A sinh yêu cầu cấp bù; kho có thể gắn yêu cầu này vào 1 SteelIssue đã xuất trước đó cho PI-B (cùng materialId, khác PI) — BE chấp nhận.</div></div>
       <div class="f-field"><span class="k">Hậu quả</span><div class="v">Số cây sắt cấp bù bị gắn nhầm PI trong sổ sách — kế hoạch xuất sắt của cả 2 PI đều lệch so với thực tế vật lý.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Thêm điều kiện cùng <code>productionInvoiceId</code>, hoặc nếu chủ đích cho phép khác PI thì cần comment xác nhận rõ đây là quyết định nghiệp vụ có chủ đích.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Thêm check <code>steelIssue.productionInvoiceId !== original.productionInvoiceId</code> (cả 2 field có sẵn trực tiếp trên <code>SteelIssue</code>, không cần join thêm) → throw <code>BadRequestException</code> nếu khác PI. Quyết định nghiệp vụ do user xác nhận: cấp bù PHẢI cùng PI, không coi sắt là vật tư dùng chung xuyên PI. Thêm 2 test (chặn khi khác PI, cho qua khi cùng PI). 20/20 test pass.</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Màn Admin &gt; SKU vẫn hiển thị "Mã PI" từ field tĩnh — cùng pattern lỗi với H6</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Màn Admin &gt; SKU vẫn hiển thị "Mã PI" từ field tĩnh — cùng pattern lỗi với H6</span></div>
       <div class="f-loc">D:\DNA-ERP\src\modules\pages\Admin\businessData\SkuPage.tsx:24, 29</div>
       <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">Cột "Mã PI" đọc thẳng <code>Sku.piCode</code> (field tĩnh), đúng pattern bị cấm theo quy tắc nghiệp vụ đã chốt trước đó. Mức độ thấp hơn H6 vì đây là màn Admin tra cứu read-only, nhưng vẫn gây nhầm lẫn khi đối chiếu chéo với các màn kho dùng PO/PI thật.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Đổi sang PI thật qua ProductionOrder, hoặc chú thích rõ đây là "PI lúc tạo SKU". Cần xác nhận với nghiệp vụ đây có phải cố ý (chỉ tra cứu hành chính).</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v"><code>fetch</code> của <code>AdminReadOnlyList</code> đổi thành async: gọi song song <code>getSkus()</code> + <code>buildProductionOrderInfoByMfgProduct()</code> (đúng helper đã dùng cho H6), merge <code>piCode</code> ưu tiên PI thật, fallback field tĩnh khi SKU chưa vào sản xuất (chưa có PO). Fix FE thuần, không có Jest/RTL cho trang này — chỉ xác minh qua typecheck/eslint (0 lỗi), <strong>chưa test qua browser thật</strong>.</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Tạo PI trực tiếp sinh mã trùng định dạng khác PI tạo qua gộp/SKU — regression đã xác nhận qua git history</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Tạo PI trực tiếp sinh mã trùng định dạng khác PI tạo qua gộp/SKU — regression đã xác nhận qua git history</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\production-invoices\production-invoices.service.ts:144-169 (create)</div>
       <div class="f-field"><span class="k">Lỗi</span><div class="v"><code>nextProductionInvoiceCode()</code> sinh mã tuần tự theo năm ("PI-2026-0xx") rồi bị 1 lệnh update ngay sau đó ghi đè thành "PI-{id}" — kèm 1 dòng <code>return</code> chết phía sau không bao giờ chạy.</div></div>
       <div class="f-field"><span class="k">Xác nhận qua git log</span><div class="v">Commit 127edda6 (2026-08-14) đã sửa đúng lỗi này (bỏ update thừa). Commit b939b780 cùng ngày sau đó vô tình revert lại pattern cũ — gần như chắc chắn do merge/copy nhầm.</div></div>
       <div class="f-field"><span class="k">Hậu quả</span><div class="v">2 định dạng mã PI cùng tồn tại trong hệ thống ("PI-2026-014" vs "PI-4821"), gây khó tra cứu/đối chiếu.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Xoá đoạn update thừa + dòng return chết, giữ nguyên <code>nextProductionInvoiceCode()</code> như bản đã sửa trước đó.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Xoá đoạn <code>productionInvoice.update(code: "PI-id")</code> thừa + dòng <code>return</code> chết, giữ nguyên mã từ <code>nextProductionInvoiceCode()</code>. Thêm test xác nhận <code>create()</code> giữ đúng định dạng "PI-2026-0xx", không bị ghi đè.</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Race điều kiện trên toàn bộ chuỗi duyệt/từ chối PI item — thiếu WHERE-guard theo trạng thái</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Race điều kiện trên toàn bộ chuỗi duyệt/từ chối PI item — thiếu WHERE-guard theo trạng thái</span></div>
       <div class="f-loc">production-invoices.service.ts — sendItemToQlsx (385-406), sendItemToBoss (409-433), approveItem (547-619), rejectItemByQlsx (626-648), rejectItem (651-673)</div>
       <div class="f-field"><span class="k">Lỗi → Cách tái hiện</span><div class="v">Cả 5 hàm đều đọc → check status in-memory → <code>update({where:{id}})</code> không kèm điều kiện status — khác <code>SkusService.approve()</code> trong cùng repo dùng <code>updateMany + count</code> để chặn race đúng cách. 2 người bấm "Sếp duyệt" gần đồng thời cho cùng 1 item: cả 2 đều pass check, cả 2 update thành công (ghi đè decidedById/decidedAt của nhau), cả 2 nhận HTTP 200.</div></div>
       <div class="f-field"><span class="k">Hậu quả</span><div class="v">Không tạo trùng PO nhờ unique constraint, nhưng: người duyệt sau ghi đè thông tin người duyệt trước trong audit trail; người thứ 2 không biết yêu cầu của mình vô tác dụng; log lỗi "unexpected" xuất hiện dù có thể đoán trước.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Áp dụng đúng pattern <code>updateMany + count</code> guard cho cả 5 hàm, như <code>SkusService.approve()</code> đã làm.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Cả 5 hàm đổi <code>update()</code> đơn thành <code>updateMany({where:{id, prodApprovalStatus: precondition}})</code> + kiểm <code>count===1</code> (throw <code>ConflictException</code> nếu count=0), dựng "after" từ "before" cho audit log thay vì fetch lại (cùng pattern <code>sendBatchToQlsx</code>/<code>sendBatchToBoss</code> có sẵn). <code>sendItemToQlsx</code> precondition là OR (NULL hoặc REJECTED) nên where dùng mệnh đề <code>OR</code> tường minh. <code>approveItem</code> đặt guard TRƯỚC bước tạo ProductionOrder — có lợi thêm là chặn luôn double <code>createFromApproval()</code>. Thêm 5 test race-guard (mỗi hàm 1 test). 53/53 test pass.</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Suy ra số lượng/hạn giao từ dòng SalesOrderItem đầu tiên tìm thấy — sai nếu 1 đơn hàng có 2 dòng cùng sản phẩm</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge high">◐ Sửa 1 phần 20/08/2026</span><span class="f-title">Suy ra số lượng/hạn giao từ dòng SalesOrderItem đầu tiên tìm thấy — sai nếu 1 đơn hàng có 2 dòng cùng sản phẩm</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\skus\skus.service.ts:1216-1247 (resolveProductionInvoice)</div>
       <div class="f-field"><span class="k">Lỗi → Cách tái hiện</span><div class="v"><code>salesOrderItem.findFirst({where:{salesOrderId, mfgProductId}})</code> không có orderBy, và không có ràng buộc unique (salesOrderId, mfgProductId). Nếu 1 Sales Order có 2 dòng cùng sản phẩm với totalQty/deliveryDate khác nhau, hàm lấy ngẫu nhiên 1 trong 2 dòng để ghim vào PI item mới.</div></div>
       <div class="f-field"><span class="k">Hậu quả</span><div class="v">Số lượng/thời hạn ghim vào PI (và sau này PO) có thể không khớp dòng đơn hàng thực sự liên quan. Cần xác minh với nghiệp vụ tình huống này có thực tế xảy ra không.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Nếu hợp lệ về nghiệp vụ, cần truyền <code>salesOrderItemId</code> tường minh từ FE thay vì suy luận qua mfgProductId.</div></div>
+      <div class="fix-note">
+        <span class="k">Sửa 1 phần</span>
+        <div class="v">Thêm <code>orderBy: {id: 'asc'}</code> — kết quả giờ deterministic (luôn lấy dòng tạo trước) thay vì phụ thuộc thứ tự vật lý trên đĩa, giảm rủi ro "ngẫu nhiên" nhưng KHÔNG giải quyết triệt để: nếu nghiệp vụ xác nhận 1 Sales Order thật sự có thể có 2 dòng cùng sản phẩm, vẫn cần truyền <code>salesOrderItemId</code> tường minh từ FE (câu hỏi này không nằm trong 4 điểm đã hỏi user ở đợt sửa này — vẫn ở mục "cần xác minh với nghiệp vụ").</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Số lượng đơn hàng sửa được sau khi đã ghim vào PI/PO — không đồng bộ lại, không cảnh báo</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Số lượng đơn hàng sửa được sau khi đã ghim vào PI/PO — không đồng bộ lại, không cảnh báo</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\sales-orders\sales-orders.service.ts:150-170 (updateItem)</div>
       <div class="f-field"><span class="k">Lỗi → Cách tái hiện</span><div class="v"><code>updateItem()</code> cho sửa <code>totalQty</code> không giới hạn trạng thái, trong khi <code>ProductionInvoiceItem.quantity</code> chỉ ghim 1 lần lúc PI được tạo (comment ở production-orders.service.ts giả định "Sales tạo và không ai sửa sau đó" — giả định này sai). Tạo đơn 100 cái → PI item ghim 100 → Sales sửa còn 60 → PI item vẫn hiển thị/duyệt theo 100, không cảnh báo.</div></div>
       <div class="f-field"><span class="k">Hậu quả</span><div class="v">Sản xuất theo số cũ trong khi đơn hàng thực tế đã đổi, không ai được cảnh báo dữ liệu lệch nhau.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Chặn sửa totalQty khi đã có PI/PO liên quan, hoặc hiển thị cảnh báo rõ ràng ở FE khi dữ liệu lệch.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Quyết định nghiệp vụ do user chốt: <strong>chặn sửa</strong> (không chỉ cảnh báo). <code>updateItem()</code> khi <code>dto.totalQty</code> khác giá trị hiện tại: query <code>productionInvoiceItem.findFirst()</code> theo <code>mfgProductId</code> + (item.salesOrderId HOẶC productionInvoice.salesOrderId — 2 đường vì tuỳ path tạo mà field nào có giá trị, xem <code>resolveProductionInvoice()</code>), throw <code>ConflictException</code> nếu có PI item liên quan. Các field khác (skuName/status/deliveryDate) vẫn sửa được bình thường. Thêm 3 test. 13/13 test pass.</div>
+      </div>
     </article>
 
     <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Endpoint upload ảnh không giới hạn quyền — mọi tài khoản đăng nhập đều gọi được</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\uploads\uploads.controller.ts:26-44 (POST /uploads/image)</div>
       <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">Không có <code>@RequirePermissions</code>/<code>@RequireRole</code>, chỉ cần JWT hợp lệ. Vì các guard phân quyền trong hệ thống <em>fail-open</em> khi thiếu decorator, bất kỳ tài khoản nào (kể cả role thấp nhất) đều upload được lên Cloudinary công ty — không giới hạn theo nghiệp vụ được giao.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Xác nhận với nghiệp vụ có đúng là chủ đích "mọi role được upload" không; nếu không, thêm permission riêng hoặc raise theo permission của form đang dùng ảnh đó.</div></div>
+      <div class="f-field"><span class="k">Trạng thái 20/08/2026</span><div class="v"><strong>Giữ nguyên, không sửa (quyết định user)</strong> — ảnh dùng chung cho nhiều form (SKU, defect reason...), khả năng cao là chủ đích "mọi role được upload". Thu hẹp quyền sai có thể chặn nhầm 1 luồng hợp lệ đang chạy — để nguyên theo khuyến nghị gốc của audit.</div></div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Refresh token bị đánh cắp và tái sử dụng không kích hoạt thu hồi toàn bộ phiên</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Refresh token bị đánh cắp và tái sử dụng không kích hoạt thu hồi toàn bộ phiên</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\auth\auth.service.ts:57-84 (refresh)</div>
       <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">Khi 1 refresh token đã bị revoke (đã dùng để rotate) bị gọi lại, code chỉ ném 401 — không revoke cả "họ" token liên quan. Nếu kẻ tấn công dùng token cũ trước nạn nhân để lấy token mới, phiên của kẻ tấn công tiếp tục hợp lệ dù nạn nhân sau đó bị 401 — hệ thống không tự phát hiện dấu hiệu token đã bị lộ.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Khi phát hiện tái sử dụng token đã revoke, coi là dấu hiệu bị lộ → revoke toàn bộ refresh token còn sống của user đó, ghi audit log/cảnh báo (theo chuẩn OAuth Security BCP cho refresh token rotation).</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Phân biệt 2 case trong <code>refresh()</code>: token bị revoke BỞI CHÍNH lượt rotate trước đó (<code>replacedByTokenId</code> có giá trị) mà bị dùng lại → dấu hiệu bị lộ, <code>refreshToken.updateMany({where:{userId, revokedAt:null}})</code> revoke toàn bộ token còn sống của user đó, log cảnh báo, throw 401. Token bị revoke do logout/đổi mật khẩu (<code>replacedByTokenId</code> null) KHÔNG bị coi là reuse — vẫn throw 401 như cũ, không revoke thừa. Thêm 2 test. 15/15 test pass.</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">CORS mặc định chấp nhận mọi origin kèm credentials nếu quên cấu hình</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">CORS mặc định chấp nhận mọi origin kèm credentials nếu quên cấu hình</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\main.ts:16-21; src\config\env.validation.ts:17</div>
       <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v"><code>CORS_ORIGIN</code> mặc định <code>'*'</code>, khi đó server phản chiếu Origin header kèm <code>credentials:true</code>. Deploy production quên set biến này → API chấp nhận credentialed request từ mọi origin. Giảm nhẹ vì auth dùng Bearer token trong header (không cookie) nên rủi ro thực tế thấp hơn, nhưng vẫn là cấu hình quá mở cho API nội bộ doanh nghiệp.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Bắt buộc <code>CORS_ORIGIN</code> cụ thể (không default <code>*</code>) khi <code>NODE_ENV=production</code>.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v"><code>env.validation.ts</code>: <code>CORS_ORIGIN</code> đổi sang <code>Joi.when('NODE_ENV', {is:'production'})</code> — bắt buộc và không cho phép <code>'*'</code> khi production, giữ mặc định <code>'*'</code> cho dev/test. App sẽ không boot được ở production nếu quên set biến này, thay vì âm thầm mở CORS cho mọi origin.</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Không có rate-limit/khoá tài khoản riêng cho đăng nhập</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Không có rate-limit/khoá tài khoản riêng cho đăng nhập</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\auth\auth.controller.ts:22-26; app.module.ts:79-89</div>
       <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v"><code>/auth/login</code> chỉ dùng chung ThrottlerGuard global (100 request/60s/IP dùng chung mọi endpoint), không có <code>@Throttle</code> riêng chặt hơn, không khoá tài khoản sau N lần sai. Brute-force mật khẩu khả thi hơn, đặc biệt khi chính sách mật khẩu chỉ yêu cầu tối thiểu 8 ký tự (xem mục Low).</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Thêm <code>@Throttle</code> chặt hơn riêng cho login (5-10 lần/phút/IP) và/hoặc khoá tạm tài khoản sau N lần sai liên tiếp theo username.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Thêm <code>@Throttle({default:{limit:8, ttl:60_000}})</code> riêng cho route <code>login</code> — chặt hơn hẳn throttle global (100/60s dùng chung), không đổi throttle của endpoint khác. Chưa làm khoá tài khoản theo username (nằm ngoài phạm vi sửa nhanh Medium này).</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Medium</span><span class="f-title">Axios client dùng chung toàn FE không có timeout — request treo vô hạn khi BE không phản hồi</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Medium</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Axios client dùng chung toàn FE không có timeout — request treo vô hạn khi BE không phản hồi</span></div>
       <div class="f-loc">D:\DNA-ERP\src\services\core\http.ts:35-44 (client &amp; refreshClient)</div>
       <div class="f-field"><span class="k">Lỗi → Hậu quả</span><div class="v">Không set field <code>timeout</code> — axios mặc định 0 (không giới hạn). Nếu BE treo (deadlock DB, network drop, container OOM-kill nhưng TCP chưa reset), mọi fetch/nút hành động chờ vô thời hạn, không có phản hồi lỗi cho người dùng, chỉ có thể F5. Ảnh hưởng toàn hệ thống vì mọi service <code>*-api.ts</code> đều đi qua file này.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Thêm <code>timeout</code> (ví dụ 20s) cho cả 2 instance, map lỗi timeout sang thông báo rõ ràng cho người dùng.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Thêm <code>timeout: 20_000</code> cho cả <code>client</code> và <code>refreshClient</code>. <code>toApiError()</code> map <code>err.code === 'ECONNABORTED'</code> sang thông báo tiếng Việt rõ ràng ("Yêu cầu quá thời gian chờ - kiểm tra kết nối mạng và thử lại") thay vì message axios thô. Fix FE thuần, xác minh qua typecheck/eslint (0 lỗi).</div>
+      </div>
     </article>
   </section>
 
@@ -807,7 +870,8 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
       <p><strong>(2)</strong> Pattern race condition "đọc số lượng đã xuất rồi ghi, không transaction" lặp lại y hệt ở 3 module độc lập (Material/Packaging/Weaving Issues) trong khi chính codebase đã có sẵn pattern đúng ở nơi khác — cho thấy cần chuẩn hoá thành 1 helper/decorator dùng chung thay vì tin từng dev tự nhớ áp dụng đúng. <strong style="color:var(--fixed)">Đã sửa 20/08/2026</strong> (H2, H3, H4) bằng helper khoá advisory dùng chung mới <code>common/utils/advisory-lock.util.ts</code>.</p>
       <p><strong>(3)</strong> Khu vực vừa redesign lớn (Xuất sắt theo PI, ship 2026-08-19) về thiết kế cơ bản đúng hướng và đã được kiểm chứng khá kỹ trong quá trình phát triển, nhưng lỗ hổng C2 cho thấy rủi ro thực sự của các thay đổi lớn nằm ở <em>ranh giới giữa các phần đã và chưa cập nhật theo</em> (BE đổi hành vi chặn lỗi, FE không theo kịp cách hiển thị lỗi mới) — đáng để rà lại toàn bộ chuỗi màn hình phụ thuộc sau mỗi lần redesign lớn tương tự trong tương lai.</p>
       <p>Không phát hiện lỗ hổng bảo mật nghiêm trọng (không SQL injection, không leak secret, RBAC bao phủ 33/33 controller đúng ở gần hết các endpoint), phần Auth/Security chỉ ở mức Medium/Low và mang tính phòng ngừa (defense-in-depth) nhiều hơn là lỗ hổng khai thác được ngay.</p>
-      <p><strong style="color:var(--fixed)">Cập nhật 20/08/2026:</strong> toàn bộ 2 lỗi Critical (C1, C2) và 6 lỗi High (H1-H6) đã được sửa và test (593 test BE pass + typecheck/eslint sạch FE lẫn BE; H6 là fix FE thuần không có test infra sẵn, chỉ xác minh qua typecheck/eslint, <strong>chưa test qua browser thật</strong>). 17 lỗi Medium và 17 mục Low/Info vẫn đang mở, chưa nằm trong đợt sửa này.</p>
+      <p><strong style="color:var(--fixed)">Cập nhật 20/08/2026 (đợt 1 — Critical/High):</strong> toàn bộ 2 lỗi Critical (C1, C2) và 6 lỗi High (H1-H6) đã được sửa và test (593 test BE pass + typecheck/eslint sạch FE lẫn BE; H6 là fix FE thuần không có test infra sẵn, chỉ xác minh qua typecheck/eslint, <strong>chưa test qua browser thật</strong>).</p>
+      <p><strong style="color:var(--fixed)">Cập nhật 20/08/2026 (đợt 2 — Medium):</strong> 13/17 lỗi Medium đã sửa hoàn toàn, 2/17 sửa 1 phần (mục "FE hard-code limit=100" và "resolveProductionInvoice lấy dòng đầu tiên" — xem fix-note riêng từng mục để biết phần còn tồn đọng), 2/17 giữ nguyên có chủ đích theo quyết định user ("Upload ảnh không giới hạn quyền": giữ nguyên; "Solver không tự retry": để sau). Toàn bộ 612 test BE pass (tăng từ 593, thêm ~35 test mới cho các fix Medium) + typecheck/eslint sạch cả BE lẫn FE (trừ 1 mục FE thuần — SkuPage.tsx — chưa test qua browser thật, cùng giới hạn như H6). 17 mục Low/Info vẫn đang mở, chưa nằm trong đợt sửa này.</p>
       <p class="muted">Báo cáo tổng hợp từ 6 nhánh review độc lập (Auth/Security, Sales–PI–PO–SKU, Cắt/Xuất sắt/Mảnh, Kho/Tồn kho, FE Integration, DB Schema/Transaction/Tích hợp DNA-DEXUAT), mỗi nhánh đọc code thật, không sửa code. Một số phần chưa được đọc sâu do giới hạn thời gian (chi tiết trong từng nhánh gốc) — không nên coi các phần chưa đọc là "đã xác nhận sạch".</p>
     </div>
   </section>

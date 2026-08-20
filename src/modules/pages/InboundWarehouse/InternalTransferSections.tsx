@@ -22,17 +22,24 @@ export function NhapNoiBoSection({ warehouseCode }: { warehouseCode: string }) {
   const { data: warehouses } = useFetch<Wh[]>(() => api.getWarehouses(), [])
   const myWarehouse = safeArr(warehouses).find(w => w.code === warehouseCode) ?? null
 
-  const { data: transfersData, refetch: refetchTransfers } = useFetch<WarehouseTransfer[]>(
+  // Tách riêng fetch PENDING (Medium fix) - trước đây lọc client-side trên top-100 chung, 1 phiếu
+  // PENDING cũ có thể bị đẩy khỏi top-100 khi tổng số phiếu vượt 100, biến mất khỏi hộp thư chờ
+  // xử lý dù vẫn PENDING thật trong DB. getWarehouseTransfers('PENDING') query thẳng BE nên luôn
+  // đầy đủ, không phụ thuộc bao nhiêu phiếu CONFIRMED/REJECTED cũ hơn chen vào.
+  const { data: pendingData, refetch: refetchPending } = useFetch<WarehouseTransfer[]>(
+    () => api.getWarehouseTransfers('PENDING'), []
+  )
+  const { data: historyData, refetch: refetchHistory } = useFetch<WarehouseTransfer[]>(
     () => api.getWarehouseTransfers(), []
   )
-  const transfers = safeArr(transfersData)
+  const refetchTransfers = () => { refetchPending(); refetchHistory() }
 
   if (!canReceiveAt(warehouseCode) || !myWarehouse) {
     return <div style={emptyBox}>Kho này không thuộc bước nhận trong chuỗi chuyển kho nội bộ</div>
   }
 
-  const pending = transfers.filter(t => t.toWarehouseId === myWarehouse.id && t.status === 'PENDING')
-  const history = transfers
+  const pending = safeArr(pendingData).filter(t => t.toWarehouseId === myWarehouse.id)
+  const history = safeArr(historyData)
     .filter(t => t.toWarehouseId === myWarehouse.id && t.status !== 'PENDING')
     .sort((a, b) => (b.confirmedAt ?? b.rejectedAt ?? '').localeCompare(a.confirmedAt ?? a.rejectedAt ?? ''))
 

@@ -205,6 +205,12 @@ async function getPurchaseProposal(id: string): Promise<PurchaseProposal> {
 // A5 (2026-08-15, D.a5-n-plus-one): BE findAll() nay trả kèm items (DETAIL_INCLUDE, xem
 // PurchaseProposalsService) - map thẳng, KHÔNG còn 1+N request (trước đây mỗi dòng phải gọi
 // thêm GET :id chỉ để lấy items, limit 100 -> tối đa 101 request/lần tải danh sách).
+// limit=100 - ĐÃ là max cho phép của PaginationQueryDto (@Max(100) ở BE, dùng chung toàn app) nên
+// không bump được nữa mà không đổi ràng buộc đó (ảnh hưởng mọi endpoint phân trang khác, ngoài
+// phạm vi đợt sửa Medium này). BE findAll() cũng không hỗ trợ filter status (khác
+// warehouse-transfers) nên không tách được pending/history để giảm rủi ro theo cách khác - vẫn là
+// giới hạn đã biết (audit liệt kê "thêm phân trang thật" như 1 lựa chọn riêng, tốn công thiết kế
+// UI hơn phạm vi đợt sửa này).
 export async function getPurchaseProposals(): Promise<PurchaseProposal[]> {
   const res = await http.get<BeProposal[] | { data: BeProposal[] }>('/purchase-proposals?limit=100');
   const list = Array.isArray(res) ? res : res.data;

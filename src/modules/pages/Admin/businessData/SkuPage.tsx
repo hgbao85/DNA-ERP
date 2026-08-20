@@ -1,6 +1,7 @@
 'use client'
 import { Layers3 } from 'lucide-react'
 import { getSkus } from '../../../../services/api'
+import { buildProductionOrderInfoByMfgProduct } from '../../../../services/production-invoice-item'
 import type { Sku, SkuStatus } from '../../../../types/sku'
 import { STATUS_MAP } from '../../../../constants/skuStatus'
 import AdminReadOnlyList, { type AdminReadOnlyListConfig } from '../shared/AdminReadOnlyList'
@@ -38,7 +39,14 @@ export default function SkuPage() {
       { key: 'pending', label: 'Đang xử lý', predicate: (f) => f.status !== 'APPROVED' },
       { key: 'APPROVED', label: 'Đã duyệt', predicate: (f) => f.status === 'APPROVED' },
     ],
-    fetch: getSkus,
+    // Medium fix: piCode trước đây đọc thẳng Sku.piCode (field tĩnh, gán 1 lần lúc tạo SKU) -
+    // cùng lỗi pattern với H6 (ThongKePagePlan). Ưu tiên PI thật suy từ ProductionOrder đã duyệt
+    // (buildProductionOrderInfoByMfgProduct - xem services/production-invoice-item.ts), fallback
+    // về field tĩnh khi SKU chưa vào sản xuất (chưa có PO nào để suy).
+    fetch: async () => {
+      const [skus, poInfoMap] = await Promise.all([getSkus(), buildProductionOrderInfoByMfgProduct()])
+      return skus.map((f) => ({ ...f, piCode: poInfoMap.get(f.mfgProductId)?.piCode ?? f.piCode }))
+    },
   }
 
   return <AdminReadOnlyList config={config} />
