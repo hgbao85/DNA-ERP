@@ -15,7 +15,8 @@ export interface CuttingBatchOrder {
   productionInvoiceItemId: string;
   /** Mã đơn hàng khách (vd "PO-4") - đây là mã người dùng gọi là "PO". */
   salesOrderCode: string | null;
-  productionInvoiceCode: string;
+  /** null = chưa được KHSX gom vào PI nào (2026-08-20 - PI không còn tự sinh lúc Sales tạo PO). */
+  productionInvoiceCode: string | null;
   mfgProductCode: string;
   mfgProductName: string | null;
   quantity: number;
@@ -84,7 +85,8 @@ export interface CuttingBatchCandidate {
   mfgProductName: string | null;
   quantity: number;
   salesOrderCode: string | null;
-  productionInvoiceCode: string;
+  /** null = chưa được KHSX gom vào PI nào (2026-08-20 - PI không còn tự sinh lúc Sales tạo PO). */
+  productionInvoiceCode: string | null;
   deadline: string | null;
   prodApprovalStatus: ProdApprovalStatus | null;
   /** Lý do bị từ chối lần gần nhất - SKU quay lại bảng này sau khi Sếp bác một đợt gộp. */
@@ -146,4 +148,18 @@ export async function mergeCuttingBatch(
   return http.post<{ id: string; code: string }>('/production-invoices/merge', {
     productionInvoiceItemIds,
   });
+}
+
+/**
+ * "Tiến hành cắt riêng" - đúng 1 SKU, không gộp gì cả. Trước đây (< 2026-08-20) đây là no-op vì PI
+ * đã tự sinh sẵn 1-1 lúc Sales tạo PO; giờ PI chỉ sinh khi KHSX chủ động, nên nút này phải THẬT SỰ
+ * tạo 1 PI thường cho đúng SKU đó (ProductionInvoicesService.claimSolo()).
+ */
+export async function claimSoloCuttingBatch(
+  productionInvoiceItemId: string,
+): Promise<{ id: string; code: string }> {
+  return http.post<{ id: string; code: string }>(
+    `/production-invoices/items/${productionInvoiceItemId}/claim-solo`,
+    {},
+  );
 }

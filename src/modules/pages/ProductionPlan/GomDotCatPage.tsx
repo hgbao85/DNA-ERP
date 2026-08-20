@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, Check, Info, Layers, Loader2, RefreshCw } from 'lucide-react'
 import {
+  claimSoloCuttingBatch,
   getCuttingBatchCandidates,
   mergeCuttingBatch,
   previewCuttingBatch,
@@ -174,6 +175,22 @@ export default function GomDotCatPage({ onDone }: Props) {
       .finally(() => setMerging(false))
   }
 
+  /**
+   * "Tiến hành cắt riêng" - đúng 1 SKU, không gộp gì cả. 2026-08-20: PI không còn tự sinh sẵn lúc
+   * Sales tạo PO nên đây KHÔNG còn là no-op - phải tạo thật 1 PI riêng cho SKU này mới đi tiếp
+   * được sang "Lệnh sản xuất mới" (xem claimSoloCuttingBatch()).
+   */
+  const handleClaimSolo = () => {
+    const [itemId] = selected
+    if (!itemId) return
+    setMerging(true)
+    setError(null)
+    claimSoloCuttingBatch(itemId)
+      .then(() => onDone?.())
+      .catch((e) => setError(errMsg(e, 'Không tạo được lệnh sản xuất cho SKU này')))
+      .finally(() => setMerging(false))
+  }
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
@@ -256,7 +273,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                         />
                       </td>
                       <td style={TD}>
-                        {it.salesOrderCode ?? it.productionInvoiceCode}
+                        {it.salesOrderCode ?? it.productionInvoiceCode ?? '—'}
                         {approvalLabel(it.prodApprovalStatus) && (
                           <div style={{ fontSize: 11, color: 'var(--text3)' }}>{approvalLabel(it.prodApprovalStatus)}</div>
                         )}
@@ -440,9 +457,9 @@ export default function GomDotCatPage({ onDone }: Props) {
         </div>
       )}
 
-      {/* Đúng 1 SKU: không có gì để gộp (lợi ích chỉ đến khi đoạn của NHIỀU SKU nằm chung một cây).
-          SKU đó vốn đã nằm trong lệnh sản xuất riêng của nó nên chỉ cần đi tiếp luồng thường -
-          không tạo thêm gì, không gọi API. */}
+      {/* Đúng 1 SKU: không có gì để gộp (lợi ích chỉ đến khi đoạn của NHIỀU SKU nằm chung một cây)
+          - vẫn phải tạo PI riêng cho nó (claimSoloCuttingBatch), chỉ là không cần preview hao hụt
+          vì không có gì để so sánh. */}
       {selected.size === 1 && (
         <div style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, fontSize: 12.5, color: 'var(--text2)', minWidth: 260 }}>
@@ -450,9 +467,11 @@ export default function GomDotCatPage({ onDone }: Props) {
             một SKU nữa (dùng chung loại sắt) mới bớt được cây.
           </div>
           <button
-            onClick={() => onDone?.()}
-            style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer', flexShrink: 0 }}
+            onClick={handleClaimSolo}
+            disabled={merging}
+            style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', cursor: merging ? 'not-allowed' : 'pointer', opacity: merging ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 7, flexShrink: 0 }}
           >
+            {merging && <Loader2 size={14} className="spin" />}
             Tiến hành cắt riêng
           </button>
         </div>
