@@ -13,7 +13,7 @@ import ManhSkuDetail from '../InboundWarehouse/ManhSkuDetail'
 import type { MockPiece } from '../../../lib/mock/chuyen-kiem-fixtures'
 import { tabBtn, btnSecondary } from '../../../styles/buttons'
 import ProgressBar from '../../../components/ProgressBar'
-import { resolveProductionOrderId } from '../../../services/production-invoice-item'
+import { resolveProductionOrderId, buildProductionOrderInfoByMfgProduct, type ProductionOrderInfo } from '../../../services/production-invoice-item'
 import type { BeSteelIssue } from '../../../services/steel-issues-api'
 import type { BeProductionBatchPlan } from '../../../services/production-batches-api'
 
@@ -175,9 +175,13 @@ function mapBatchPlanToLines(plan: BeProductionBatchPlan | null): ProcLine[] {
   }))
 }
 
-async function fetchFrame(pf: Sku, orderId: string | null): Promise<StageDetails['frame']> {
+// productionInvoiceId PHẢI là PI thật (suy từ ProductionOrder qua buildProductionOrderInfoByMfgProduct()),
+// KHÔNG phải pf.productionInvoiceId tĩnh (H6 fix) - field đó không tự cập nhật khi PI item bị gộp
+// sang PI khác (chỉ productionInvoiceItem.productionInvoiceId đổi, planForm giữ nguyên), khiến màn
+// này hiện sai mã PI và "chưa xuất sắt" dù sắt đã thực xuất dưới PI gộp.
+async function fetchFrame(productionInvoiceId: string | null, orderId: string | null): Promise<StageDetails['frame']> {
   const [steelIssues, hanPlan, sonPlan] = await Promise.all([
-    pf.productionInvoiceId ? api.getSteelIssuesForInvoice(pf.productionInvoiceId) : Promise.resolve([]),
+    productionInvoiceId ? api.getSteelIssuesForInvoice(productionInvoiceId) : Promise.resolve([]),
     orderId ? api.getProductionBatchPlan(orderId, 'HAN') : Promise.resolve(null),
     orderId ? api.getProductionBatchPlan(orderId, 'SON') : Promise.resolve(null),
   ])
@@ -245,10 +249,10 @@ function emptyExecutionStages(skuQty: number): Pick<StageDetails, 'frame' | 'wea
   }
 }
 
-async function fetchExecutionStages(pf: Sku, skuQty: number): Promise<Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'>> {
+async function fetchExecutionStages(pf: Sku, skuQty: number, poInfo: ProductionOrderInfo | undefined): Promise<Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'>> {
   const orderId = await resolveProductionOrderId(pf)
   const [frame, weaving, chuyenKiem, packaging] = await Promise.all([
-    fetchFrame(pf, orderId),
+    fetchFrame(poInfo?.productionInvoiceId ?? pf.productionInvoiceId ?? null, orderId),
     fetchWeaving(pf, skuQty),
     fetchChuyenKiem(pf),
     fetchPackaging(pf),
@@ -256,17 +260,19 @@ async function fetchExecutionStages(pf: Sku, skuQty: number): Promise<Pick<Stage
   return { frame, weaving, chuyenKiem, packaging }
 }
 
-async function buildOrderRow(pf: Sku, proposals: PurchaseProposal[], skuQty: number): Promise<{ order: MfgOrder; details: StageDetails }> {
+async function buildOrderRow(pf: Sku, proposals: PurchaseProposal[], skuQty: number, poInfo: ProductionOrderInfo | undefined): Promise<{ order: MfgOrder; details: StageDetails }> {
   const materials = getPurchasingRows(pf, proposals)
   const purchPct = getPurchasingPercent(materials)
-  const { frame, weaving, chuyenKiem, packaging } = purchPct >= 100 ? await fetchExecutionStages(pf, skuQty) : emptyExecutionStages(skuQty)
+  const { frame, weaving, chuyenKiem, packaging } = purchPct >= 100 ? await fetchExecutionStages(pf, skuQty, poInfo) : emptyExecutionStages(skuQty)
   const details: StageDetails = { purchasing: { materials }, frame, weaving, chuyenKiem, packaging }
   const done = isAllDone(details)
   const hasVariance = phoiStageStats(frame.phoiManhs).lech || aggLineStats(frame.hanLines).lech || aggLineStats(frame.sonLines).lech
   const order: MfgOrder = {
     id: pf.id,
     code: pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng',
-    piCode: pf.piCode,
+    // PI thật từ ProductionOrder (H6 fix) - poInfo.piCode, KHÔNG phải pf.piCode tĩnh (xem comment
+    // ở fetchFrame). Fallback pf.piCode chỉ cho trường hợp chưa resolve được (PO chưa duyệt).
+    piCode: poInfo?.piCode ?? pf.piCode,
     sku: pf.mfgProduct?.factoryCode ?? '—',
     productName: pf.mfgProduct?.name ?? '',
     customer: pf.customerName ?? '—',
@@ -857,6 +863,10 @@ export default function ThongKePagePlan() {
   const { data: skusData, isLoading } = useFetch<Sku[]>(() => api.getSkus(), [])
   const { data: pisData } = useFetch<PIStatusRow[]>(() => api.getProductionInvoices(), [])
   const { data: weavingPointsData } = useFetch<WeavingPointLite[]>(() => (api as any).getWeavingPoints(), [])
+  // PI thật theo mfgProductId, suy từ ProductionOrder (H6 fix) - PHẢI dùng thay pf.piCode/
+  // pf.productionInvoiceId tĩnh, xem comment ở fetchFrame/buildOrderRow.
+  const { data: poInfoData } = useFetch<Map<string, ProductionOrderInfo>>(() => buildProductionOrderInfoByMfgProduct(), [])
+  const poInfoMap = poInfoData ?? new Map<string, ProductionOrderInfo>()
   const { proposals } = useInspection()
   const piMap = useMemo(() => new Map((pisData ?? []).map(p => [p.id, p])), [pisData])
   // Lên kế hoạch (PLANNING) chưa vào sản xuất — ẩn khỏi "Bảng thống kê", trừ khi đã có SKU được
@@ -880,9 +890,9 @@ export default function ThongKePagePlan() {
     () => Promise.all(skus.map(pf => {
       const pi = pf.productionInvoiceId != null ? piMap.get(pf.productionInvoiceId) : undefined
       const skuQty = pi?.items?.[0]?.quantity ?? 0
-      return buildOrderRow(pf, proposals, skuQty)
+      return buildOrderRow(pf, proposals, skuQty, poInfoMap.get(pf.mfgProductId))
     })),
-    [skus, proposals, piMap],
+    [skus, proposals, piMap, poInfoMap],
   )
   const orderRows = orderRowsData ?? []
 

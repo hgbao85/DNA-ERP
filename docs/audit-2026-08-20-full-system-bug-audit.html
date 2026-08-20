@@ -475,8 +475,8 @@ D:\DNA-ERP-BE\src\modules\warehouse-transfers\warehouse-transfers.service.ts:330
     <div class="sec-head"><h2>2. Lỗi High</h2><span class="sec-count">6 lỗi</span></div>
     <p class="sec-desc">3 trong 6 lỗi là <strong>cùng một pattern lặp lại</strong>: đọc số lượng đã xuất rồi ghi mà không bọc transaction/khoá — đúng lớp lỗi mà module <code>steel-issues</code>/<code>purchase-proposals</code> trong cùng repo đã tự nhận ra và vá, nhưng chưa lan sang các module vật tư tiêu hao khác.</p>
 
-    <article class="finding high" id="h1">
-      <div class="f-head"><span class="badge high">High</span><span class="f-title">Tạo phiếu chuyển kho nội bộ bỏ qua số lượng đã giữ chỗ cho phương án cắt sắt đã duyệt</span></div>
+    <article class="finding high is-fixed" id="h1">
+      <div class="f-head"><span class="badge high">High</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Tạo phiếu chuyển kho nội bộ bỏ qua số lượng đã giữ chỗ cho phương án cắt sắt đã duyệt</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\warehouse-transfers\warehouse-transfers.service.ts:108-127
 D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvailableQty)</div>
       <div class="f-field"><span class="k">Lỗi</span><div class="v"><code>create()</code> tự viết lại phép tính "tồn khả dụng" (<code>onHand − reservedAgg</code>) chỉ cộng bảng <code>warehouseTransferReservation</code>, bỏ qua <code>StockReservation</code> loại CUTTING_PROPOSAL — trong khi chính comment của <code>getAvailableQty()</code> ghi rõ đây là "hàm DUY NHẤT được phép cộng 2 bảng, không nơi nào khác được tự viết lại".</div></div>
@@ -484,53 +484,77 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
       <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Không tái sử dụng hàm dùng chung <code>StockReservationsService.getAvailableQty()</code>.</div></div>
       <div class="f-field"><span class="k">Hậu quả</span><div class="v">Xuất sắt cho phương án cắt đã duyệt bị hụt tồn dù hệ thống từng báo "đã đủ, đã giữ chỗ" — 2 nghiệp vụ giành nhau cùng lô hàng mà không ai phát hiện.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Đổi <code>create()</code> gọi <code>stockReservationsService.getAvailableQty(tx, fromWarehouseId, materialId, onHand)</code> thay vì tự <code>aggregate()</code>.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Inject <code>StockReservationsService</code> vào <code>WarehouseTransfersService</code>, đổi <code>create()</code> gọi <code>getAvailableQty(tx, fromWarehouseId, materialId, onHand)</code> thay vì tự <code>aggregate()</code> trên riêng bảng <code>warehouseTransferReservation</code>. Thêm test xác nhận hàm dùng chung được gọi đúng tham số, không tự viết lại phép cộng. Toàn bộ test warehouse-transfers pass (27/27), typecheck sạch.</div>
+      </div>
     </article>
 
-    <article class="finding high" id="h2">
-      <div class="f-head"><span class="badge high">High</span><span class="f-title">Xuất vật tư tiêu hao (Hàn/Sơn) có thể vượt định mức khi 2 request đồng thời — thiếu transaction/khoá</span></div>
+    <article class="finding high is-fixed" id="h2">
+      <div class="f-head"><span class="badge high">High</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Xuất vật tư tiêu hao (Hàn/Sơn) có thể vượt định mức khi 2 request đồng thời — thiếu transaction/khoá</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\material-issues\material-issues.service.ts:92-121 (create)</div>
       <div class="f-field"><span class="k">Lỗi</span><div class="v"><code>resolvePlannedQty()</code> và <code>sumIssued()</code> đọc <code>plannedQty</code>/<code>issuedSoFar</code> ngoài transaction, tính <code>remaining</code> rồi mới <code>create()</code> — không khoá (<code>FOR UPDATE</code>) theo <code>(productionOrderId, stage, materialId)</code>.</div></div>
       <div class="f-field"><span class="k">Cách tái hiện</span><div class="v">2 request <code>POST /production-orders/:id/material-issues</code> gửi gần đồng thời cho cùng bộ khoá nghiệp vụ — mỗi request đều thấy <code>remaining = 10</code>, đều xuất 10 → tổng ghi sổ 20, vượt định mức <code>ConsumableBom</code> mà hệ thống không chặn.</div></div>
       <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Thiếu <code>FOR UPDATE</code>/transaction bao trọn "đọc số dư → quyết định → ghi" — cùng lớp lỗi đã được vá ở <code>SteelIssuesService.consumeReservationAndDeduct()</code> trong cùng repo nhưng chưa áp dụng ở đây.</div></div>
       <div class="f-field"><span class="k">Hậu quả</span><div class="v">Xuất vượt định mức vật tư tiêu hao Hàn/Sơn không bị phát hiện, tồn kho vật lý lệch khỏi sổ sách.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Bọc <code>resolvePlannedQty</code> + <code>sumIssued</code> + <code>create</code> trong <code>$transaction</code>, khoá theo <code>(productionOrderId, stage, materialId)</code> theo đúng pattern đã dùng ở SteelIssuesService.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Không có dòng có sẵn để <code>SELECT ... FOR UPDATE</code> cho lần xuất đầu tiên của 1 khoá composite (chưa từng có <code>MaterialIssue</code> nào) nên dùng khoá advisory Postgres qua helper dùng chung mới <code>common/utils/advisory-lock.util.ts</code> (<code>pg_advisory_xact_lock(hashtext(key))</code>, tự nhả khi transaction kết thúc). Bọc <code>resolvePlannedQty</code> + <code>sumIssued</code> + <code>create</code> trong 1 <code>$transaction</code>, khoá trước theo <code>material-issue:{'{'}orderId{'}'}:{'{'}stage{'}'}:{'{'}materialId{'}'}</code>. Thêm test race-guard xác nhận lock được gọi trong transaction trước khi đọc remaining. 21/21 test pass.</div>
+      </div>
     </article>
 
-    <article class="finding high" id="h3">
-      <div class="f-head"><span class="badge high">High</span><span class="f-title">Xuất vật tư đóng gói có cùng lỗi race condition với vật tư Hàn/Sơn</span></div>
+    <article class="finding high is-fixed" id="h3">
+      <div class="f-head"><span class="badge high">High</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Xuất vật tư đóng gói có cùng lỗi race condition với vật tư Hàn/Sơn</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\packaging-issues\packaging-issues.service.ts:78-109 (create)</div>
       <div class="f-field"><span class="k">Lỗi / Cách tái hiện / Nguyên nhân</span><div class="v">Giống hệt lỗi H2: <code>resolvePlannedQty()</code> (81-85), <code>sumIssued()</code> (86) đọc ngoài transaction rồi mới <code>create()</code> (95-105), không khoá — áp dụng cho vật tư đóng gói (tem nhãn, màng PE...).</div></div>
       <div class="f-field"><span class="k">Hậu quả</span><div class="v">Xuất vượt định mức vật tư đóng gói không bị phát hiện.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Transaction + khoá <code>FOR UPDATE</code> theo <code>(productionOrderId, materialId)</code>, cùng pattern với H2.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Cùng fix với H2, dùng lại helper <code>lockBusinessKey()</code> dùng chung: bọc <code>resolvePlannedQty</code> + <code>sumIssued</code> + <code>create</code> trong 1 <code>$transaction</code>, khoá advisory theo <code>packaging-issue:{'{'}orderId{'}'}:{'{'}materialId{'}'}</code> trước khi đọc remaining. 15/15 test pass (kể cả test race-guard mới).</div>
+      </div>
     </article>
 
-    <article class="finding high" id="h4">
-      <div class="f-head"><span class="badge high">High</span><span class="f-title">Xuất / Nhận đan (Weaving) có cùng lỗi race condition ở cả 2 chiều</span></div>
+    <article class="finding high is-fixed" id="h4">
+      <div class="f-head"><span class="badge high">High</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Xuất / Nhận đan (Weaving) có cùng lỗi race condition ở cả 2 chiều</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\weaving-issues\weaving-issues.service.ts:107-154 (create), 156-205 (receive)</div>
       <div class="f-field"><span class="k">Lỗi</span><div class="v"><code>create()</code> tính <code>remaining = plannedQty − issuedSoFar</code> (131-133) rồi <code>create</code> (141-151) không transaction/lock; <code>receive()</code> tính <code>remaining = issuedAtPoint − receivedAtPoint</code> (182-184) rồi <code>create</code> (192-201) cũng vậy.</div></div>
       <div class="f-field"><span class="k">Cách tái hiện</span><div class="v">2 lần "xuất đan" đồng thời cho cùng mảnh có thể xuất vượt định mức BOM; 2 lần "nhập đan" đồng thời có thể nhận vượt số điểm đan đang giữ.</div></div>
       <div class="f-field"><span class="k">Hậu quả</span><div class="v">Dữ liệu phân bổ/nhận hàng đan sai, không phát hiện được lượng khung dư/thiếu thực tế.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Transaction + <code>FOR UPDATE</code> theo <code>(productionOrderId, pieceId[, weavingPointId])</code> cho cả 2 hàm.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Cùng helper <code>lockBusinessKey()</code>, áp dụng cho CẢ 2 chiều: <code>create()</code> khoá theo <code>weaving-issue:{'{'}orderId{'}'}:{'{'}pieceId{'}'}</code>, <code>receive()</code> khoá riêng theo <code>weaving-receipt:{'{'}orderId{'}'}:{'{'}pieceId{'}'}:{'{'}weavingPointId{'}'}</code> (đủ chặn nhập-đan race với nhau, không cần chặn chéo với xuất-đan). 29/29 test pass (kể cả 2 test race-guard mới cho create/receive).</div>
+      </div>
     </article>
 
-    <article class="finding high" id="h5">
-      <div class="f-head"><span class="badge high">High</span><span class="f-title">Sửa được thông số cắt (SegmentSpec) của BOM đang ACTIVE — vi phạm nguyên tắc "BOM đã duyệt là bất biến"</span></div>
+    <article class="finding high is-fixed" id="h5">
+      <div class="f-head"><span class="badge high">High</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Sửa được thông số cắt (SegmentSpec) của BOM đang ACTIVE — vi phạm nguyên tắc "BOM đã duyệt là bất biến"</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\segment-specs\segment-specs.service.ts:78-101 (update)</div>
       <div class="f-field"><span class="k">Lỗi</span><div class="v"><code>BomRevisionsService</code> bảo vệ đúng: chỉ revision DRAFT sửa được dòng, ACTIVE/RETIRED bất biến. Nhưng <code>PieceBom</code>/<code>PartBom</code> không lưu trực tiếp chiều dài/vật tư mà trỏ qua <code>segmentSpecId</code> — bảng <code>SegmentSpec</code> không có khái niệm DRAFT/ACTIVE, và <code>update()</code> không kiểm tra spec đó có đang bị BOM ACTIVE/RETIRED tham chiếu hay không.</div></div>
       <div class="f-field"><span class="k">Cách tái hiện</span><div class="v">SKU A có BOM ACTIVE dùng <code>SegmentSpec#7</code> (sắt Ø10, cắt 500mm), đã có ProductionOrder RELEASED tham chiếu. Sửa <code>SegmentSpec#7</code> thành cắt 480mm (nhầm, hoặc để phục vụ SKU khác dùng chung spec) → toàn bộ PieceBom cũ, kể cả của PO đang chạy, đọc ra chiều dài mới ngay lập tức.</div></div>
       <div class="f-field"><span class="k">Nguyên nhân</span><div class="v"><code>SegmentSpec</code> là master data dùng chung, sửa "sống" (live reference) thay vì snapshot; code chỉ bảo vệ chiều DELETE (<code>ON DELETE RESTRICT</code>), không bảo vệ chiều UPDATE.</div></div>
       <div class="f-field"><span class="k">Hậu quả</span><div class="v">Sửa 1 SegmentSpec có thể âm thầm đổi số liệu cắt sắt của các PO/CuttingProposal/SteelIssue đã lên kế hoạch hoặc đã hoàn tất — đúng rủi ro "BOM tham chiếu sống" mà nghiệp vụ yêu cầu tránh.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Chặn <code>update()</code> nếu spec đang được PieceBom/PartBom của 1 BomRevision không phải DRAFT tham chiếu — tương tự cách BomRevisionsService đã làm ở cấp revision.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Thêm <code>assertNotReferencedByNonDraftBom()</code>: trước khi ghi (khi <code>materialId</code>/<code>cutLengthMm</code> đổi), query song song <code>pieceBom.findFirst</code>/<code>partBom.findFirst</code> với điều kiện <code>bomRevision.status != DRAFT</code>; nếu có dòng khớp thì throw <code>ConflictException</code> nêu rõ revision/status đang chặn — cùng pattern <code>BomRevisionsService.assertDraft()</code>. Thêm 3 test (chặn khi PieceBom ACTIVE, chặn khi PartBom RETIRED, cho phép khi chỉ DRAFT tham chiếu). 14/14 test pass. (Regenerate lại Prisma Client trong lúc này — schema đã đổi cutLengthMm sang Decimal từ trước nhưng client sinh ra bị stale, gây lỗi type che khuất cả test suite; không liên quan trực tiếp H5 nhưng phải sửa mới chạy được test.)</div>
+      </div>
     </article>
 
-    <article class="finding high" id="h6">
-      <div class="f-head"><span class="badge high">High</span><span class="f-title">Màn Thống kê KHSX đọc mã PI tĩnh trên SKU thay vì PI thật — sai lệch sau khi PI bị gộp</span></div>
+    <article class="finding high is-fixed" id="h6">
+      <div class="f-head"><span class="badge high">High</span><span class="badge fixed">✓ Đã sửa 20/08/2026</span><span class="f-title">Màn Thống kê KHSX đọc mã PI tĩnh trên SKU thay vì PI thật — sai lệch sau khi PI bị gộp</span></div>
       <div class="f-loc">D:\DNA-ERP\src\modules\pages\Manufacturing\ThongKePagePlan.tsx:59-60, 178-193, 266-269, 810, 981</div>
       <div class="f-field"><span class="k">Lỗi</span><div class="v">Bảng theo dõi tiến độ sản xuất fetch dữ liệu xuất sắt trực tiếp từ <code>pf.piCode</code>/<code>pf.productionInvoiceId</code> (field tĩnh trên Sku/PlanForm, gán 1 lần lúc tạo SKU) thay vì suy PI thật từ <code>orderId</code> (ProductionOrder) mà chính hàm đã resolve sẵn.</div></div>
       <div class="f-field"><span class="k">Cách tái hiện</span><div class="v">Tạo SKU gắn Sales Order → KHSX gộp SKU đó vào 1 đợt cắt chung (PI gộp mới) → <code>ProductionInvoiceItem.productionInvoiceId</code> đổi sang PI gộp, nhưng <code>PlanForm.productionInvoiceId</code> không được cập nhật theo (xác nhận: hàm gộp chỉ update <code>productionInvoiceItem</code>, không đụng <code>planForm</code>).</div></div>
       <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Thiếu đồng bộ 2 chiều <code>PlanForm.productionInvoiceId</code> ↔ <code>ProductionInvoiceItem.productionInvoiceId</code> khi item bị di chuyển giữa các PI.</div></div>
       <div class="f-field"><span class="k">Hậu quả</span><div class="v">Sau khi gộp, màn theo dõi tiến độ Phôi/Hàn/Sơn hiện sai mã PI và hiện "chưa xuất sắt" dù sắt đã thực xuất dưới PI gộp — KHSX dễ hiểu nhầm SKU chưa được xử lý.</div></div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Dùng <code>production-invoice-item.ts</code> (đã có <code>buildProductionOrderInfoByMfgProduct</code>, ghi rõ "phải dùng thay Sku.exportOrder/Sku.piCode") để suy PI thật từ ProductionOrder, không đọc <code>pf.piCode</code> trực tiếp.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Component chính fetch thêm <code>buildProductionOrderInfoByMfgProduct()</code> 1 lần (map theo <code>mfgProductId</code>), truyền xuống <code>buildOrderRow()</code>/<code>fetchExecutionStages()</code>/<code>fetchFrame()</code> — <code>order.piCode</code> và tham số gọi <code>getSteelIssuesForInvoice()</code> giờ dùng PI thật từ map này (fallback về field tĩnh trên Sku chỉ khi chưa resolve được, vd PO chưa duyệt). Đây là fix thuần FE, không có test infra sẵn cho file này (không có Jest/RTL setup cho trang) — đã xác minh qua typecheck (0 lỗi, kể cả full project) và eslint (0 lỗi), <strong>chưa test qua browser thật</strong>.</div>
+      </div>
     </article>
   </section>
 
@@ -744,19 +768,19 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
     <div class="sec-head"><h2>5. Workflow có rủi ro cao</h2></div>
     <div class="prose-card">
       <h3>Chuyển kho nội bộ (Phân phối nội bộ)</h3>
-      <p>Chứa cả 2 lỗi Critical (C1, C2 — <strong style="color:var(--fixed)">đã sửa 20/08/2026</strong>) và 2 lỗi High (H1, và pattern race M "createPieceTransfer"). Đây là điểm hội tụ của nhiều luồng: xuất sắt theo PI, cắt sắt giữ chỗ, chuyển mảnh/vật tư thành phẩm giữa các kho — nên 1 lỗi ở tầng "tính tồn khả dụng" ảnh hưởng dây chuyền tới nhiều nghiệp vụ khác. H1 và pattern race "createPieceTransfer" vẫn còn mở.</p>
+      <p>Chứa cả 2 lỗi Critical (C1, C2) và 2 lỗi High (H1, và pattern race M "createPieceTransfer"). Đây là điểm hội tụ của nhiều luồng: xuất sắt theo PI, cắt sắt giữ chỗ, chuyển mảnh/vật tư thành phẩm giữa các kho — nên 1 lỗi ở tầng "tính tồn khả dụng" ảnh hưởng dây chuyền tới nhiều nghiệp vụ khác. <strong style="color:var(--fixed)">C1, C2 và H1 đã sửa 20/08/2026</strong>; pattern race M "createPieceTransfer" vẫn còn mở.</p>
     </div>
     <div class="prose-card">
       <h3>Xuất sắt theo PI (redesign 2026-08-19)</h3>
-      <p>Về cơ bản thiết kế lại đúng hướng (union công đoạn theo PI, nhóm theo vật tư, transaction-safe khi trừ tồn) — nhưng lỗ hổng C2 nằm đúng ở ranh giới giữa phần đã redesign (BE chặn cứng needsHan=false) và phần chưa được cập nhật theo (FE nuốt lỗi). C2 <strong style="color:var(--fixed)">đã sửa 20/08/2026</strong> (BE bỏ qua đúng mảnh lỗi thay vì chặn cả batch, FE hiển thị lỗi rõ ràng). Vì đây là khu vực vừa thay đổi lớn và nhiều màn phụ thuộc cùng 1 kiểu dữ liệu (BeSteelIssue), rủi ro tái diễn kiểu lỗi tương tự khi có thay đổi tiếp theo vẫn cao — nên rà lại các màn phụ thuộc khác sau mỗi lần redesign tương tự.</p>
+      <p>Về cơ bản thiết kế lại đúng hướng (union công đoạn theo PI, nhóm theo vật tư, transaction-safe khi trừ tồn) — nhưng lỗ hổng C2 nằm đúng ở ranh giới giữa phần đã redesign (BE chặn cứng needsHan=false) và phần chưa được cập nhật theo (FE nuốt lỗi). <strong style="color:var(--fixed)">C2 đã sửa 20/08/2026</strong> (BE bỏ qua đúng mảnh lỗi thay vì chặn cả batch, FE hiển thị lỗi rõ ràng). Vì đây là khu vực vừa thay đổi lớn và nhiều màn phụ thuộc cùng 1 kiểu dữ liệu (BeSteelIssue), rủi ro tái diễn kiểu lỗi tương tự khi có thay đổi tiếp theo vẫn cao — nên rà lại các màn phụ thuộc khác sau mỗi lần redesign tương tự.</p>
     </div>
     <div class="prose-card">
       <h3>Duyệt PI Item → tạo Production Order</h3>
-      <p>Toàn bộ 5 hàm chuyển trạng thái (gửi QLSX, gửi Sếp, duyệt, từ chối QLSX, từ chối Sếp) đều thiếu WHERE-guard theo status (M — TOCTOU). Không tạo dữ liệu sai nhờ unique constraint chặn ở lớp dưới, nhưng audit trail (ai duyệt) có thể sai khi có thao tác đồng thời — rủi ro tăng dần khi số lượng người dùng đồng thời trong hệ thống tăng.</p>
+      <p>Toàn bộ 5 hàm chuyển trạng thái (gửi QLSX, gửi Sếp, duyệt, từ chối QLSX, từ chối Sếp) đều thiếu WHERE-guard theo status (M — TOCTOU). Không tạo dữ liệu sai nhờ unique constraint chặn ở lớp dưới, nhưng audit trail (ai duyệt) có thể sai khi có thao tác đồng thời — rủi ro tăng dần khi số lượng người dùng đồng thời trong hệ thống tăng. <strong>Chưa sửa</strong> (Medium, ngoài phạm vi đợt sửa High/Critical 20/08/2026).</p>
     </div>
     <div class="prose-card">
       <h3>3 module vật tư tiêu hao: Material Issues / Packaging Issues / Weaving Issues</h3>
-      <p>Cùng 1 pattern race "đọc remaining rồi ghi không transaction" lặp lại y hệt ở cả 3 module (H2, H3, H4) — cho thấy đây không phải lỗi đơn lẻ mà là 1 pattern chưa được chuẩn hoá thành helper dùng chung, trong khi <code>steel-issues</code>/<code>purchase-proposals</code> trong cùng repo đã tự vá đúng cách. Nên rà soát có hệ thống thay vì sửa từng chỗ.</p>
+      <p>Cùng 1 pattern race "đọc remaining rồi ghi không transaction" lặp lại y hệt ở cả 3 module (H2, H3, H4) — cho thấy đây không phải lỗi đơn lẻ mà là 1 pattern chưa được chuẩn hoá thành helper dùng chung, trong khi <code>steel-issues</code>/<code>purchase-proposals</code> trong cùng repo đã tự vá đúng cách. <strong style="color:var(--fixed)">Cả 3 đã sửa 20/08/2026</strong>, giờ dùng chung 1 helper mới <code>common/utils/advisory-lock.util.ts</code> (khoá advisory Postgres) thay vì mỗi module tự nhớ áp dụng transaction/lock riêng.</p>
     </div>
   </section>
 
@@ -779,10 +803,11 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
     <div class="prose-card">
       <p>Codebase nhìn chung được viết <strong>cẩn thận hơn mức trung bình</strong>: nhiều nơi tự nhận thức đúng rủi ro concurrency và đã chủ động vá (khoá <code>FOR UPDATE</code> ở steel-issues/purchase-proposals, dedupe refresh token, redact secret khỏi log/audit, chặn tự khoá tài khoản admin, DTO validate đầy đủ, không có raw SQL injection). Rất nhiều comment trong code ghi lại rõ lịch sử bug đã từng xảy ra và cách đã sửa — dấu hiệu của một đội đã tự audit lặp lại nhiều lần trước đó.</p>
       <p>Tuy vậy, audit lần này phát hiện 3 vấn đề mang tính hệ thống cần ưu tiên:</p>
-      <p><strong>(1)</strong> 2 lỗi Critical đều rơi đúng vào khu vực nghiệp vụ lõi — chuyển kho nội bộ — nơi lỗi gây <em>sai lệch dữ liệu không thể phát hiện qua UI</em> (trạng thái phiếu nói một đằng, sổ kho ghi một nẻo), cần sửa trước tiên vì rủi ro cao nhất theo đúng thứ tự ưu tiên Data Integrity đã đặt ra. <strong style="color:var(--fixed)">Cả C1 và C2 đã được sửa ngày 20/08/2026</strong> (xem fix-note trong mục 1); 6 lỗi High và 17 lỗi Medium còn lại vẫn đang mở tại thời điểm audit này được viết.</p>
-      <p><strong>(2)</strong> Pattern race condition "đọc số lượng đã xuất rồi ghi, không transaction" lặp lại y hệt ở 3 module độc lập (Material/Packaging/Weaving Issues) trong khi chính codebase đã có sẵn pattern đúng ở nơi khác — cho thấy cần chuẩn hoá thành 1 helper/decorator dùng chung thay vì tin từng dev tự nhớ áp dụng đúng.</p>
+      <p><strong>(1)</strong> 2 lỗi Critical đều rơi đúng vào khu vực nghiệp vụ lõi — chuyển kho nội bộ — nơi lỗi gây <em>sai lệch dữ liệu không thể phát hiện qua UI</em> (trạng thái phiếu nói một đằng, sổ kho ghi một nẻo), cần sửa trước tiên vì rủi ro cao nhất theo đúng thứ tự ưu tiên Data Integrity đã đặt ra. <strong style="color:var(--fixed)">Cả C1 và C2 đã được sửa ngày 20/08/2026</strong> (xem fix-note trong mục 1).</p>
+      <p><strong>(2)</strong> Pattern race condition "đọc số lượng đã xuất rồi ghi, không transaction" lặp lại y hệt ở 3 module độc lập (Material/Packaging/Weaving Issues) trong khi chính codebase đã có sẵn pattern đúng ở nơi khác — cho thấy cần chuẩn hoá thành 1 helper/decorator dùng chung thay vì tin từng dev tự nhớ áp dụng đúng. <strong style="color:var(--fixed)">Đã sửa 20/08/2026</strong> (H2, H3, H4) bằng helper khoá advisory dùng chung mới <code>common/utils/advisory-lock.util.ts</code>.</p>
       <p><strong>(3)</strong> Khu vực vừa redesign lớn (Xuất sắt theo PI, ship 2026-08-19) về thiết kế cơ bản đúng hướng và đã được kiểm chứng khá kỹ trong quá trình phát triển, nhưng lỗ hổng C2 cho thấy rủi ro thực sự của các thay đổi lớn nằm ở <em>ranh giới giữa các phần đã và chưa cập nhật theo</em> (BE đổi hành vi chặn lỗi, FE không theo kịp cách hiển thị lỗi mới) — đáng để rà lại toàn bộ chuỗi màn hình phụ thuộc sau mỗi lần redesign lớn tương tự trong tương lai.</p>
       <p>Không phát hiện lỗ hổng bảo mật nghiêm trọng (không SQL injection, không leak secret, RBAC bao phủ 33/33 controller đúng ở gần hết các endpoint), phần Auth/Security chỉ ở mức Medium/Low và mang tính phòng ngừa (defense-in-depth) nhiều hơn là lỗ hổng khai thác được ngay.</p>
+      <p><strong style="color:var(--fixed)">Cập nhật 20/08/2026:</strong> toàn bộ 2 lỗi Critical (C1, C2) và 6 lỗi High (H1-H6) đã được sửa và test (593 test BE pass + typecheck/eslint sạch FE lẫn BE; H6 là fix FE thuần không có test infra sẵn, chỉ xác minh qua typecheck/eslint, <strong>chưa test qua browser thật</strong>). 17 lỗi Medium và 17 mục Low/Info vẫn đang mở, chưa nằm trong đợt sửa này.</p>
       <p class="muted">Báo cáo tổng hợp từ 6 nhánh review độc lập (Auth/Security, Sales–PI–PO–SKU, Cắt/Xuất sắt/Mảnh, Kho/Tồn kho, FE Integration, DB Schema/Transaction/Tích hợp DNA-DEXUAT), mỗi nhánh đọc code thật, không sửa code. Một số phần chưa được đọc sâu do giới hạn thời gian (chi tiết trong từng nhánh gốc) — không nên coi các phần chưa đọc là "đã xác nhận sạch".</p>
     </div>
   </section>
