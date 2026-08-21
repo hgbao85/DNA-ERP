@@ -281,10 +281,10 @@ const FINDINGS: FindingItem[] = [
   {
     id: 'M12', sev: 'med', module: 'Auth/RBAC',
     title: 'Không giới hạn phiên đăng nhập; token làm mới lưu ở localStorage',
-    hienTrang: '2026-08-21: ĐÃ SỬA phần lưu token — access/refresh token giờ nằm trong cookie httpOnly do BE set (không còn ở localStorage), FE gọi qua proxy same-origin (Next.js rewrites, xem next.config.mjs) để cookie hoạt động ổn định kể cả Safari/iOS dù FE (Vercel) và BE (Render) khác domain. Đăng nhập mới vẫn CHƯA revoke token cũ nào (phần này còn mở, xem đề xuất).',
-    vanDe: 'Không giới hạn số thiết bị đăng nhập cùng lúc. Rủi ro XSS-đánh-cắp-token (refresh token 7 ngày) đã giảm đáng kể vì JS không còn đọc được token nữa — vẫn còn CSRF về lý thuyết nhưng SameSite=Lax + same-origin proxy đã chặn vector thực tế cho API JSON thuần.',
+    hienTrang: 'Đăng nhập mới không revoke token cũ nào; FE lưu cả access lẫn refresh token trong localStorage thay vì cookie httpOnly.',
+    vanDe: 'Không giới hạn số thiết bị đăng nhập cùng lúc; nếu FE dính XSS (qua thư viện thứ 3 trong tương lai), kẻ tấn công lấy được refresh token có hiệu lực 7 ngày.',
     ruiRo: 'Trung bình với ERP nội bộ ít traffic công khai, nhưng là điểm yếu chuẩn nếu FE có lỗ hổng XSS trong tương lai.',
-    deXuat: 'Thêm chức năng "đăng xuất khỏi mọi thiết bị" (revoke toàn bộ refresh token của user).',
+    deXuat: 'Cân nhắc chuyển refresh token sang cookie httpOnly; thêm chức năng "đăng xuất khỏi mọi thiết bị".',
     anhHuong: 'Toàn hệ thống auth.',
   },
   {
