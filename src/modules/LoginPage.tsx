@@ -26,7 +26,7 @@ export default function LoginPage() {
 
     try {
       const data = await loginUser({ username, password });
-      login(data.accessToken, data.user as unknown as User);
+      login(data.user as unknown as User);
       router.push('/');
     } catch (err: unknown) {
       console.error('Đăng nhập thất bại:', err);
