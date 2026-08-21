@@ -95,17 +95,17 @@ function MainERP() {
 }
 
 export default function Page() {
-  const { isAuthenticated, user, loading } = useAuth();
+  const { token, user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && (!isAuthenticated || !user)) {
+    if (!loading && (!token || !user)) {
       router.replace('/login');
     }
-  }, [loading, isAuthenticated, user, router]);
+  }, [loading, token, user, router]);
 
   if (loading) return <LoadingScreen />;
-  if (!isAuthenticated || !user) return null;
+  if (!token || !user) return null;
 
   return <MainERP />;
 }

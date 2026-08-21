@@ -65,8 +65,8 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  isAuthenticated: boolean;
-  login: (user: User) => void;
+  token: string | null;
+  login: (token: string, user: User) => void;
   logout: () => void;
   isBoss: boolean;
   loading: boolean;
@@ -75,37 +75,39 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /**
- * Khôi phục phiên đăng nhập. Access token nằm trong cookie httpOnly (JS không đọc được) nên
- * không còn cách nào "check trước" - luôn gọi thẳng getProfile(), coi 401 là chưa đăng nhập.
- * Trả về Promise<User | null> thay vì set state trực tiếp - CHỈ resolve với giá trị cuối cùng đã
- * xác minh qua getProfile(), không có đường nào để "lộ" 1 phiên chưa xác minh ra ngoài (khác cách
- * cũ: set token ngay rồi rollback nếu verify thất bại, khiến trong lúc chờ verify, mọi consumer
- * khác đọc context tưởng đã đăng nhập xong và gọi API luôn - gây 401 hàng loạt ngay trên /login).
+ * Khôi phục phiên đăng nhập từ token đã lưu (localStorage). Trả về Promise<Session | null> thay
+ * vì set state trực tiếp - CHỈ resolve với giá trị cuối cùng đã xác minh qua getProfile(), không
+ * có đường nào để "lộ" 1 token chưa xác minh ra ngoài (khác cách cũ: set token ngay rồi rollback
+ * nếu verify thất bại, khiến trong lúc chờ verify, mọi consumer khác đọc `token` từ context tưởng
+ * đã đăng nhập xong và gọi API luôn - gây 401 hàng loạt ngay trên /login khi token cũ hết hạn).
  */
-export async function restoreSession(): Promise<User | null> {
+export async function restoreSession(): Promise<{ token: string; user: User } | null> {
+  const storedToken = tokenStorage.getAccessToken();
+  if (!storedToken) return null;
+
   try {
     const profile = await getProfile();
     const freshUser = normalizeUser(profile);
     tokenStorage.setUser(freshUser);
-    return freshUser;
+    return { token: storedToken, user: freshUser };
   } catch (e) {
     console.error('Không thể khôi phục phiên đăng nhập', e);
-    tokenStorage.clearUser();
+    tokenStorage.clear();
     return null;
   }
 }
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    restoreSession().then((restoredUser) => {
-      if (restoredUser) {
-        setIsAuthenticated(true);
-        setUser(restoredUser);
+    restoreSession().then((session) => {
+      if (session) {
+        setToken(session.token);
+        setUser(session.user);
       }
       setLoading(false);
     });
@@ -115,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // (refresh token hết hạn/không hợp lệ) — tự đăng xuất + điều hướng về /login.
   useEffect(() => {
     const onSessionExpired = () => {
-      setIsAuthenticated(false);
+      setToken(null);
       setUser(null);
       router.replace('/login');
     };
@@ -123,25 +125,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);
   }, [router]);
 
-  const login = (newUser: User) => {
+  const login = (newToken: string, newUser: User) => {
     const normalized = normalizeUser(newUser);
+    tokenStorage.setAccessToken(newToken);
     tokenStorage.setUser(normalized);
-    setIsAuthenticated(true);
+    setToken(newToken);
     setUser(normalized);
   };
 
   const logout = () => {
-    // Best-effort: thu hồi refresh token ở BE (cookie tự đính kèm), không chặn UI chờ kết quả.
+    // Best-effort: thu hồi refresh token ở BE, không chặn UI chờ kết quả — refreshToken
+    // được đọc đồng bộ ngay khi gọi (trước dòng tokenStorage.clear() dưới đây) nên không
+    // có race giữa việc đọc token và việc xoá token.
     void logoutUser().catch(() => {});
-    tokenStorage.clearUser();
-    setIsAuthenticated(false);
+    tokenStorage.clear();
+    setToken(null);
     setUser(null);
   };
 
   const isBoss = user?.role === 'BOSS';
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated, login, logout, isBoss, loading }}>
+    <AuthContext.Provider value={{ user, token, login, logout, isBoss, loading }}>
       {children}
     </AuthContext.Provider>
   );
