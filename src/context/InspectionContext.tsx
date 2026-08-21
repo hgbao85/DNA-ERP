@@ -132,21 +132,21 @@ interface InspCtxType {
 const InspCtx = createContext<InspCtxType | undefined>(undefined)
 
 export function InspectionProvider({ children }: { children: React.ReactNode }) {
-  const { token, user } = useAuth()
+  const { isAuthenticated, user } = useAuth()
   const [proposals, setProposals] = useState<PurchaseProposal[]>([])
   const [actionError, setActionError] = useState<string | null>(null)
   const dismissActionError = useCallback(() => setActionError(null), [])
 
-  // InspectionProvider bọc TOÀN BỘ app ở layout.tsx (kể cả /login, trước khi có token) - chỉ gọi
-  // API khi đã đăng nhập, tránh bắn request chắc chắn 401 (không có token) ngay trên màn hình
-  // đăng nhập. `token` chỉ có sau khi AuthProvider khôi phục xong phiên (xem AuthContext.tsx).
+  // InspectionProvider bọc TOÀN BỘ app ở layout.tsx (kể cả /login, trước khi có phiên) - chỉ gọi
+  // API khi đã đăng nhập, tránh bắn request chắc chắn 401 (chưa có cookie) ngay trên màn hình
+  // đăng nhập. `isAuthenticated` chỉ true sau khi AuthProvider khôi phục xong phiên (AuthContext.tsx).
   //
   // Bỏ qua khi user có mfgRole (Sản xuất tại xưởng: QLSX/Phôi/Hàn/Sơn/KCS/Spec, dùng MfgApp) -
   // phát hiện qua browser thật 2026-08-13: không role nào trong nhóm này có PURCHASE_PROPOSAL:VIEW
   // ở BE (đề xuất mua là việc của KHSX/Mua hàng/Sếp, xem role-permissions.constant.ts), nên lời
   // gọi này luôn 403 âm thầm cho toàn bộ nhóm role này - không chỉ PHOI/KCS vừa kiểm tra qua browser.
   useEffect(() => {
-    if (!token || user?.mfgRole) return
+    if (!isAuthenticated || user?.mfgRole) return
     // Audit 2026-08-20 (Medium "FE hard-code limit=100"): 1 fetch top-100 theo createdAt duy nhất
     // trước đây khiến phiếu ĐANG XỬ LÝ cũ (new/quoting/submitted/purchasing/rejected) có thể bị
     // đẩy khỏi trang bởi phiếu 'purchased' tích luỹ vô hạn theo thời gian - toàn bộ màn Mua hàng
@@ -169,7 +169,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
         if ((err as { statusCode?: number })?.statusCode === 403) return
         console.error('getPurchaseProposals failed', err)
       })
-  }, [token, user?.mfgRole])
+  }, [isAuthenticated, user?.mfgRole])
 
   // Bọc mọi thao tác GHI: hiện lỗi cho người dùng rồi NÉM LẠI. Ném lại là phần quan trọng -
   // nếu chỉ nuốt thì call site không phân biệt được thành công/thất bại để rollback state cục bộ

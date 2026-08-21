@@ -3,8 +3,8 @@
  * Business mapping (BE↔FE) nằm ở `users-mapper.ts` — file này chỉ còn phần gọi `http`.
  *
  * ⚠️ Yêu cầu để chạy thật:
- *   1) Đặt NEXT_PUBLIC_API_BASE_URL trỏ tới BE.
- *   2) Đăng nhập qua BE thật (services/auth-api.ts) để có JWT hợp lệ, nếu không /users trả 401.
+ *   1) Đặt BACKEND_ORIGIN trỏ tới BE (Next.js proxy qua rewrites(), xem next.config.mjs).
+ *   2) Đăng nhập qua BE thật (services/auth-api.ts) để có phiên hợp lệ, nếu không /users trả 401.
  */
 import { http } from './core/http';
 import type { SystemUser } from '../types/admin';

@@ -8,9 +8,9 @@ vi.mock('../services/core/http', () => ({
 }));
 vi.mock('../services/core/tokenStorage', () => ({
   tokenStorage: {
-    getAccessToken: vi.fn(),
+    getUser: vi.fn(),
     setUser: vi.fn(),
-    clear: vi.fn(),
+    clearUser: vi.fn(),
   },
 }));
 
@@ -18,8 +18,8 @@ import { getProfile } from '../services/api';
 import { tokenStorage } from '../services/core/tokenStorage';
 import { restoreSession } from './AuthContext';
 
-const getAccessToken = tokenStorage.getAccessToken as ReturnType<typeof vi.fn>;
-const clear = tokenStorage.clear as ReturnType<typeof vi.fn>;
+const setUser = tokenStorage.setUser as ReturnType<typeof vi.fn>;
+const clearUser = tokenStorage.clearUser as ReturnType<typeof vi.fn>;
 const getProfileMock = getProfile as ReturnType<typeof vi.fn>;
 
 describe('restoreSession', () => {
@@ -30,28 +30,21 @@ describe('restoreSession', () => {
   // Bug đã xảy ra thật: code cũ set token vào state NGAY khi thấy có token lưu sẵn, rồi mới verify
   // qua getProfile() - trong lúc chờ verify, mọi consumer khác đọc token từ context tưởng đã đăng
   // nhập xong và gọi API luôn, gây 401 hàng loạt ngay trên /login khi token cũ đã hết hạn.
-  // restoreSession() phải KHÔNG BAO GIỜ trả về 1 token chưa được getProfile() xác minh.
-  it('trả về null (không lộ token) khi token đã lưu không còn hợp lệ', async () => {
-    getAccessToken.mockReturnValue('stale-token');
+  // restoreSession() phải KHÔNG BAO GIỜ trả về 1 phiên chưa được getProfile() xác minh.
+  it('trả về null (không lộ phiên) khi getProfile() thất bại (cookie hết hạn/không có)', async () => {
     getProfileMock.mockRejectedValue(new Error('401 Unauthorized'));
 
-    const session = await restoreSession();
+    const user = await restoreSession();
 
-    expect(session).toBeNull();
-    expect(clear).toHaveBeenCalled();
+    expect(user).toBeNull();
+    expect(clearUser).toHaveBeenCalled();
   });
 
-  it('không gọi getProfile() khi chưa từng đăng nhập (không có token lưu sẵn)', async () => {
-    getAccessToken.mockReturnValue(null);
-
-    const session = await restoreSession();
-
-    expect(session).toBeNull();
-    expect(getProfileMock).not.toHaveBeenCalled();
-  });
-
-  it('trả về đúng token+user khi token lưu sẵn còn hợp lệ (verify thành công)', async () => {
-    getAccessToken.mockReturnValue('valid-token');
+  // Access/refresh token nằm trong cookie httpOnly (JS không đọc được) từ 2026-08-21 - không còn
+  // cách nào "check trước có token hay không" như bản cũ (getAccessToken() trả null -> skip hẳn
+  // getProfile()). Luôn phải gọi getProfile() và coi 401 là "chưa đăng nhập" - đánh đổi 1 request
+  // dư trên /login của khách vãng lai để đổi lấy việc token không bao giờ lộ ra JS.
+  it('trả về đúng user khi phiên hợp lệ (verify qua getProfile thành công)', async () => {
     getProfileMock.mockResolvedValue({
       id: '1',
       email: 'a@b.com',
@@ -60,9 +53,9 @@ describe('restoreSession', () => {
       lastName: 'B',
     });
 
-    const session = await restoreSession();
+    const user = await restoreSession();
 
-    expect(session?.token).toBe('valid-token');
-    expect(session?.user.role).toBe('BOSS');
+    expect(user?.role).toBe('BOSS');
+    expect(setUser).toHaveBeenCalled();
   });
 });
