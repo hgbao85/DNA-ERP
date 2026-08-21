@@ -147,8 +147,20 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
   // gọi này luôn 403 âm thầm cho toàn bộ nhóm role này - không chỉ PHOI/KCS vừa kiểm tra qua browser.
   useEffect(() => {
     if (!token || user?.mfgRole) return
-    fetchPurchaseProposals()
-      .then(setProposals)
+    // Audit 2026-08-20 (Medium "FE hard-code limit=100"): 1 fetch top-100 theo createdAt duy nhất
+    // trước đây khiến phiếu ĐANG XỬ LÝ cũ (new/quoting/submitted/purchasing/rejected) có thể bị
+    // đẩy khỏi trang bởi phiếu 'purchased' tích luỹ vô hạn theo thời gian - toàn bộ màn Mua hàng
+    // (Lệnh mua NCC/Theo dõi mua hàng/Nhập kho) đều đọc chung `proposals` này nên mất dấu phiếu là
+    // mất luôn khả năng xử lý, không chỉ mất lịch sử. Giờ gọi song song: `active` (activeOnly=true,
+    // BE lọc where PURCHASED - đảm bảo không phiếu đang xử lý nào bị cắt) + `history` (hành vi cũ,
+    // top-100 chấp nhận cắt cụt vì chỉ phục vụ tra cứu "Lịch sử đã mua"), rồi merge theo id (ưu
+    // tiên bản ghi từ `active` - luôn mới nhất vì không cạnh tranh chỗ).
+    Promise.all([fetchPurchaseProposals({ activeOnly: true }), fetchPurchaseProposals()])
+      .then(([active, history]) => {
+        const byId = new Map(history.map(p => [p.id, p]))
+        for (const p of active) byId.set(p.id, p)
+        setProposals([...byId.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)))
+      })
       .catch((err: unknown) => {
         // 403 = vai này không có PURCHASE_PROPOSAL:VIEW (Phôi/Hàn/Sơn/KCS/SPEC... - xem
         // role-permissions.constant.ts). Provider bọc TOÀN BỘ app nên request vẫn bắn cho mọi
