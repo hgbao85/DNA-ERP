@@ -107,9 +107,15 @@ export function AuditLogProvider({ children }: { children: React.ReactNode }) {
       note,
     }
     setLogs(prev => [...prev, optimistic])
-    void logAuditAction(entityType, entityId, action, actorId, actorName, note).then(saved => {
-      setLogs(prev => prev.map(l => (l.id === optimistic.id ? (saved as AuditLogEntry) : l)))
-    })
+    void logAuditAction(entityType, entityId, action, actorId, actorName, note)
+      .then(saved => {
+        setLogs(prev => prev.map(l => (l.id === optimistic.id ? (saved as AuditLogEntry) : l)))
+      })
+      .catch(() => {
+        // Lưu thất bại (mạng lỗi...) - gỡ dòng optimistic để không để lại log "ma" chỉ
+        // sống trong phiên hiện tại rồi biến mất im lặng khi F5 mà không ai biết đã mất.
+        setLogs(prev => prev.filter(l => l.id !== optimistic.id))
+      })
   }, [user])
 
   const getLogsFor = useCallback((entityType: string, entityId: string) =>

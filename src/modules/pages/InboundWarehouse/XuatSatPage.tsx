@@ -63,7 +63,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
   }
 
   const [selectedPi, setSelectedPi] = useState<PiGroup | null>(null)
-  const { data: planData, isLoading: planLoading, refetch } = useFetch<BeSteelIssuePlanItem[]>(
+  const { data: planData, isLoading: planLoading, error: planError, refetch } = useFetch<BeSteelIssuePlanItem[]>(
     () => (selectedPi ? api.getSteelIssuePlan(selectedPi.productionInvoiceId) : Promise.resolve([])),
     [selectedPi?.productionInvoiceId],
   )
@@ -156,7 +156,9 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
           </div>
         </div>
 
-        {planLoading ? <LoadingState /> : plan.length === 0 ? (
+        {planLoading ? <LoadingState /> : planError ? (
+          <div style={{ ...emptyBox, color: '#dc2626' }}>Lỗi tải kế hoạch xuất sắt: {planError}</div>
+        ) : plan.length === 0 ? (
           <div style={emptyBox}>
             Chưa có mảnh nào trong PI này khai định mức sắt (BOM), hoặc chưa có phương án cắt sắt đã
             duyệt — báo KHSX bổ sung/duyệt phương án trước khi xuất được.

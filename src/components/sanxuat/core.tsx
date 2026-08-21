@@ -11,7 +11,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react'
-import { ChevronRight, ChevronDown, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Play, Square, Lock, Scissors, Wrench, Flame, SprayCan } from 'lucide-react'
+import { ChevronRight, ChevronDown, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Play, Square, Lock, Scissors, Wrench, Flame, SprayCan, type LucideIcon } from 'lucide-react'
 import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
 import { useFetch } from '../../hooks/useFetch'
 import * as api from '../../services/api'
@@ -68,7 +68,7 @@ export interface StageCfg {
   verb: string
   itemLabel: string
   unit: string
-  Icon: React.ComponentType<{ size?: number }>
+  Icon: LucideIcon
 }
 
 // Cấu hình dùng chung cho công đoạn Phôi/Hàn/Sơn — dùng lại ở màn Lệnh sản xuất riêng
@@ -76,6 +76,10 @@ export interface StageCfg {
 export const PHOI_CFG: StageCfg = { label: 'Phôi', done: 'Đã cắt', verb: 'cắt', itemLabel: 'Loại sắt', unit: 'cây', Icon: Wrench }
 export const HAN_CFG: StageCfg = { label: 'Hàn', done: 'Đã hàn', verb: 'hàn', itemLabel: 'Mảnh', unit: 'cái', Icon: Flame }
 export const SON_CFG: StageCfg = { label: 'Sơn', done: 'Đã sơn', verb: 'sơn', itemLabel: 'Loại sơn', unit: 'lít', Icon: SprayCan }
+// "Vật tư thành phẩm" (needsHan=false, vd chân nhôm - cắt xong là hết, không hàn) - Phôi tự báo
+// theo MẢNH (khác PHOI_CFG ở trên, dùng cho theo dõi theo LOẠI SẮT/cây ở ThongKePagePlan.tsx).
+// stage="PHOI" cùng ProductionBatch với Hàn/Sơn (thêm 21/08/2026), chỉ khác điều kiện needsHan.
+export const VAT_TU_TP_CFG: StageCfg = { label: 'Vật tư TP', done: 'Đã cắt', verb: 'cắt', itemLabel: 'Mảnh', unit: 'cái', Icon: Wrench }
 
 // ── Helpers cho mock data (dùng ở các file seed) ───────────────────
 export const ISO = (daysFromNow: number, h = 17, m = 0) => {
