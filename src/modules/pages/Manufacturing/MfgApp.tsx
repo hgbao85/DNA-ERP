@@ -23,15 +23,17 @@ import SKUListPage from '../ProductionPlan/SKUListPage'
 import KcsPhoiPage from '../Kcs/KcsPhoiPage'
 import KcsHanPage from '../Kcs/KcsHanPage'
 import KcsSonPage from '../Kcs/KcsSonPage'
+import LenhSanXuatVatTuThanhPham from '../Phoi/LenhSanXuatVatTuThanhPham'
+import KcsVatTuThanhPhamPage from '../Kcs/KcsVatTuThanhPhamPage'
 
 // ── Module-level constants (không tạo lại mỗi render) ───────────────────────
 
 type TabId =
-  | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-san-luong' | 'phoi-lenh-sx' | 'phoi-dinh-muc-manh' | 'phoi-lich-su-nhan-sat' | 'phoi-kho-phoi' | 'phoi-thong-ke-cong-doan'
+  | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-san-luong' | 'phoi-lenh-sx' | 'phoi-vat-tu-tp' | 'phoi-dinh-muc-manh' | 'phoi-lich-su-nhan-sat' | 'phoi-kho-phoi' | 'phoi-thong-ke-cong-doan'
   | 'han-khung-han' | 'son-manh-cho-dan' | 'han-son-xac-nhan-vat-tu'
   | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'setup'
-  | 'kcs-phoi' | 'kcs-han' | 'kcs-son'
+  | 'kcs-phoi' | 'kcs-han' | 'kcs-son' | 'kcs-vat-tu-tp'
 
 // 'catalog' của SPEC_ACCESSORY gộp chung Sơn + Phụ kiện + Bao bì (tab bên trong SpecAccessoryCatalogPage).
 type SetupSubTab = 'vat-tu' | 'dinh-muc' | 'catalog'
@@ -124,6 +126,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isProdMgr ? [{ id: 'lenh-sx' as TabId, label: 'Xử lý lệnh sản xuất', icon: <Play size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-xac-nhan-san-luong' as TabId, label: 'Xác nhận sản lượng', icon: <Check size={16} /> }] : []),
+    ...(isPhoi ? [{ id: 'phoi-vat-tu-tp' as TabId, label: 'Vật tư thành phẩm', icon: <Wrench size={16} /> }] : []),
     ...((isPhoi || isDirector) ? [{ id: 'phoi-thong-ke-cong-doan' as TabId, label: 'Thống kê công đoạn', icon: <ListChecks size={16} /> }] : []),
     ...((isHan || isSon) ? [{ id: 'han-son-xac-nhan-vat-tu' as TabId, label: 'Xác nhận sản lượng', icon: <PackageCheck size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-dinh-muc-manh' as TabId, label: 'Danh sách định mức mảnh', icon: <Box size={16} /> }] : []),
@@ -134,6 +137,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isKcs ? [{ id: 'kcs-phoi' as TabId, label: 'Phôi', icon: <Wrench size={16} /> }] : []),
     ...(isKcs ? [{ id: 'kcs-han' as TabId, label: 'Hàn', icon: <Flame size={16} /> }] : []),
     ...(isKcs ? [{ id: 'kcs-son' as TabId, label: 'Sơn', icon: <SprayCan size={16} /> }] : []),
+    ...(isKcs ? [{ id: 'kcs-vat-tu-tp' as TabId, label: 'Vật tư TP', icon: <Wrench size={16} /> }] : []),
     ...(isProdMgr ? [{ id: 'sku-list' as TabId, label: 'Danh sách SKU', icon: <Package size={16} /> }] : []),
     ...(canSeeWarehouses ? [{ id: 'materials' as TabId, label: 'Tổng hợp vật tư', icon: <Boxes size={16} /> }] : []),
     ...(canSeeWarehouses ? [{ id: 'warehouses' as TabId, label: 'Tổng hợp kho', icon: <Warehouse size={16} /> }] : []),
@@ -235,6 +239,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'lenh-sx' && (isDirector || isProdMgr) && <LenhSXPage />}
         {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePagePlan />}
         {tab === 'phoi-xac-nhan-san-luong' && (isPhoi || isDirector) && <XacNhanSanLuongPage readOnly={isDirector} />}
+        {tab === 'phoi-vat-tu-tp' && (isPhoi || isDirector) && <LenhSanXuatVatTuThanhPham readOnly={isDirector} />}
         {tab === 'phoi-thong-ke-cong-doan' && (isPhoi || isDirector) && <ThongKeCongDoanPage />}
         {tab === 'phoi-lenh-sx' && (isPhoi || isHan || isSon || isDirector) && (isHan ? <LenhSanXuatHan readOnly={isDirector} /> : isSon ? <LenhSanXuatSon readOnly={isDirector} /> : <LenhSanXuatPhoi readOnly={isDirector} />)}
         {tab === 'phoi-dinh-muc-manh' && (isPhoi || isHan || isSon || isDirector) && <PhoiDinhMucManhPage stage={isSon ? 'SON' : isHan ? 'HAN' : 'PHOI'} />}
@@ -246,6 +251,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'kcs-phoi' && isKcs && <KcsPhoiPage />}
         {tab === 'kcs-han' && isKcs && <KcsHanPage />}
         {tab === 'kcs-son' && isKcs && <KcsSonPage />}
+        {tab === 'kcs-vat-tu-tp' && isKcs && <KcsVatTuThanhPhamPage />}
         {tab === 'weaving-points' && canManageBom && <WeavingPointsPage readOnly />}
         {tab === 'sku-list' && isProdMgr && <SKUListPage readOnly />}
         {tab === 'materials' && canSeeWarehouses && <MfgAllMaterialsPage />}

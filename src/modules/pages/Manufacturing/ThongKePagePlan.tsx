@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { format, formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
-import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Factory, PackageCheck, Search, ShoppingCart, Wrench } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Factory, PackageCheck, Search, ShoppingCart, Wrench, type LucideIcon } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useInspection, type PurchaseProposal } from '../../../context/InspectionContext'
@@ -80,7 +80,7 @@ const MFG_STAGES: { key: MfgStage; label: string; icon: React.ReactNode }[] = [
 
 // Icon riêng cho MfgStageTracker (size nhỏ hơn để vừa vòng tròn 22px) — dùng component thay vì
 // element đã dựng sẵn ở MFG_STAGES.icon để tự chọn size khi render.
-const STAGE_TRACKER_ICONS: Record<MfgStage, React.ComponentType<{ size?: number }>> = {
+const STAGE_TRACKER_ICONS: Record<MfgStage, LucideIcon> = {
   PURCHASING: ShoppingCart,
   FRAME: Wrench,
   WEAVING: Factory,

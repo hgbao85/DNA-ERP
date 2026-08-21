@@ -602,7 +602,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       {childGroup === 'sat' && (
                         <div style={{ width: 120 }}>
                           <FL>Chiều dài cắt (mm)</FL>
-                          <input type="number" min={1} placeholder="930" value={childCutLengthMm}
+                          <input type="number" min={1} step={0.1} placeholder="930" value={childCutLengthMm}
                             onChange={e => setChildCutLengthMm(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
                             style={inputStyle} />

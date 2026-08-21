@@ -390,7 +390,7 @@ export default function LenhSXPage() {
                     </div>
                     {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
                     <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap' }}>
-                      {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
+                      {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                       {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
                       {item.prodApproval?.warehouseName && (
                         <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, color:'#0369a1', background:'#e0f2fe', padding:'2px 8px', borderRadius:10 }}>
@@ -597,7 +597,7 @@ export default function LenhSXPage() {
                           </div>
                           {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
                           <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap' }}>
-                            {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
+                            {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                             {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
                             {item.prodApproval?.warehouseName && (
                               <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, color:'#0369a1', background:'#e0f2fe', padding:'2px 8px', borderRadius:10 }}>
@@ -778,7 +778,7 @@ export default function LenhSXPage() {
                             {name && <span style={{ fontSize:13, color:'var(--text2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</span>}
                           </div>
                           <div style={{ display:'flex', gap:5, marginTop:3 }}>
-                            {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
+                            {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                             {clr && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>{clr}</span>}
                             {approvalStatus === 'APPROVED' && <span style={{ fontSize:11, color:'#2e7d32', fontWeight:600, background:'#dcfce7', padding:'1px 7px', borderRadius:10 }}>Đang sản xuất</span>}
                             {approvalStatus === 'WAITING_QLSX' && <span style={{ fontSize:11, color:'#b45309', fontWeight:600, background:'#fef3c7', padding:'1px 7px', borderRadius:10 }}>Chờ QLSX xử lý</span>}
@@ -897,7 +897,7 @@ export default function LenhSXPage() {
                   {name && <span style={{ fontSize:13, color:'var(--text2)' }}>{name}</span>}
                 </div>
                 <div style={{ display:'flex', gap:6, marginTop:5 }}>
-                  {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
+                  {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                   {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
                 </div>
               </div>
@@ -1031,7 +1031,7 @@ export default function LenhSXPage() {
                     {name && <span style={{ fontSize:13, color:'var(--text2)' }}>{name}</span>}
                   </div>
                   <div style={{ display:'flex', gap:6, marginTop:5 }}>
-                    {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
+                    {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                     {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
                   </div>
                 </div>
@@ -1183,7 +1183,7 @@ export default function LenhSXPage() {
                     <div style={{ background:'var(--surface2)', padding:'7px 12px', display:'flex', alignItems:'center', gap:8 }}>
                       <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1' }}>{code}</span>
                       {name && <span style={{ fontSize:12, color:'var(--text2)' }}>{name}</span>}
-                      {qty != null && <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text3)', background:'var(--surface)', padding:'1px 8px', borderRadius:10 }}>×{qty.toLocaleString()}</span>}
+                      {qty != null && <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text3)', background:'var(--surface)', padding:'1px 8px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                     </div>
                     <div style={{ padding:'12px', display:'flex', flexDirection:'column', gap:10 }}>
                       {/* Hạn giao hàng riêng cho SKU này */}

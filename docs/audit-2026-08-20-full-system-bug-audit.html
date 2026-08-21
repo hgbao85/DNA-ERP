@@ -465,7 +465,8 @@ D:\DNA-ERP-BE\src\modules\warehouse-transfers\warehouse-transfers.service.ts:330
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">(1) FE phải đọc và hiển thị <code>error</code> từ <code>useFetch</code> ở màn này. (2) BE nên trả lỗi có định danh đúng PO gặp vấn đề và/hoặc không chặn toàn batch — bỏ qua + gắn cờ lỗi riêng cho đúng PO có mảnh needsHan=false, để các PO khác vẫn hiển thị bình thường.</div></div>
       <div class="fix-note">
         <span class="k">Đã sửa</span>
-        <div class="v">BE: <code>getPieceTransferPlan()</code> giờ chỉ <code>continue</code> (bỏ qua đúng mảnh needsHan=false, kèm <code>console.warn</code> log server) thay vì throw làm hỏng cả batch — các PO/mảnh khác vẫn trả về bình thường. FE: <code>WarehouseXuatPage.tsx</code> đọc thêm <code>error</code> từ cả 3 <code>useFetch</code> (piece/packaging/ship — cùng pattern nuốt lỗi lặp lại ở cả 3 tab), gộp thành <code>activeListError</code> và hiển thị rõ "Lỗi tải danh sách: …" thay vì im lặng hiện empty-state. Thêm test BE xác nhận mảnh needsHan=false bị bỏ qua nhưng mảnh khác cùng batch vẫn trả về; toàn bộ test pass, typecheck sạch cả BE lẫn FE.</div>
+        <div class="v">BE: <code>getPieceTransferPlan()</code> giờ chỉ <code>continue</code> (bỏ qua đúng mảnh needsHan=false, kèm <code>console.warn</code> log server) thay vì throw làm hỏng cả batch — các PO/mảnh khác vẫn trả về bình thường. FE: <code>WarehouseXuatPage.tsx</code> đọc thêm <code>error</code> từ cả 3 <code>useFetch</code> (piece/packaging/ship — cùng pattern nuốt lỗi lặp lại ở cả 3 tab), gộp thành <code>activeListError</code> và hiển thị rõ "Lỗi tải danh sách: …" thay vì im lặng hiện empty-state. Thêm test BE xác nhận mảnh needsHan=false bị bỏ qua nhưng mảnh khác cùng batch vẫn trả về; toàn bộ test pass, typecheck sạch cả BE lẫn FE.
+        <p class="muted" style="margin-top:8px">Cập nhật 21/08/2026: giả định "0/9 BomPiece thật là needsHan=false" ở trên SAI — xác nhận với nghiệp vụ đây là trường hợp thật đang cần dùng ("vật tư thành phẩm", vd chân nhôm). <code>continue</code>/<code>console.warn</code> ở trên chỉ là bản vá tạm ngăn sập cả batch, KHÔNG khôi phục chức năng — đã thiết kế lại đầy đủ, xem mục 6 "Cần xác minh với nghiệp vụ".</p></div>
       </div>
     </article>
   </section>
@@ -739,15 +740,20 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
   <section class="sev-section" id="low">
     <div class="sec-head"><h2>4. Lỗi Low / Info</h2><span class="sec-count">17 mục</span></div>
     <p class="sec-desc">Rủi ro thấp hoặc cần xác nhận thêm nghiệp vụ trước khi coi là lỗi thật — liệt kê ngắn gọn.</p>
+    <p class="sec-desc"><strong style="color:var(--fixed)">Cập nhật 21/08/2026:</strong> 9/17 mục kỹ thuật thuần (không cần quyết định nghiệp vụ) đã sửa. 8 mục còn lại giữ nguyên có chủ đích — cần xác nhận nghiệp vụ (2 mục), chỉ là ghi chú/Info không phải bug thật (5 mục), hoặc giữ nguyên theo quyết định user sau khi thử ("Chính sách mật khẩu" — muốn để tự do, validate sẽ làm sau) — xem "Ghi chú"/"Trạng thái" từng mục.</p>
 
     <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Quy đổi kg → đơn vị kho làm tròn độc lập theo từng đợt nhận hàng</span></div>
       <div class="f-loc">D:\DNA-ERP\src\modules\pages\Manufacturing\NhapKhoPage.tsx:164-165</div>
       <div class="f-field"><span class="k">Ghi chú</span><div class="v">Nhận hàng nhiều đợt cộng dồn, mỗi đợt làm tròn riêng có thể lệch tối đa ~0.5×(số đợt) đơn vị so với làm tròn 1 lần trên tổng. <strong>Cần xác nhận nghiệp vụ</strong> — có thể là hành vi đúng (mỗi đợt cân là 1 sự kiện vật lý thật).</div></div>
     </article>
 
-    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Vài field phần trăm cấu hình dùng Float thay vì Decimal</span></div>
+    <article class="finding low is-fixed"><div class="f-head"><span class="badge low">Low</span><span class="badge fixed">◐ Sửa 1 phần 21/08/2026</span><span class="f-title">Vài field phần trăm cấu hình dùng Float thay vì Decimal</span></div>
       <div class="f-loc">schema.prisma:248,251,268 — solverBladeWidthMm, solverMaxWastePercentage, purchaseOverReceiptTolerancePercent</div>
       <div class="f-field"><span class="k">Ghi chú</span><div class="v"><code>purchaseOverReceiptTolerancePercent</code> dùng trực tiếp tính <code>maxAllowedQty</code> — sai số float có thể lệch ngưỡng vài phần vạn, không nghiêm trọng nhưng không nhất quán với việc đã migrate hàng loạt field cắt sắt khác sang Decimal ngày 2026-08-19.</div></div>
+      <div class="fix-note">
+        <span class="k">Sửa 1 phần</span>
+        <div class="v">Đổi cả 3 field sang <code>Decimal</code> (<code>solverBladeWidthMm Decimal(6,1)</code>, <code>solverMaxWastePercentage</code>/<code>purchaseOverReceiptTolerancePercent Decimal(6,3)</code>), thêm <code>.toNumber()</code> ở mọi call site (<code>cutting-proposals.service.ts</code>, <code>purchase-proposals.service.ts</code>, <code>system-config.service.ts</code> + DTO/test liên quan). <code>prisma generate</code> đã chạy, code compile/test sạch (BE 613+ test pass). <strong>DB thật (pooled.db.prisma.io) CHƯA được migrate</strong> — lệnh <code>npx prisma db push --accept-data-loss</code> bị chính rào chắn an toàn của Prisma + Claude Code chặn (đòi hỏi chạy từ terminal thật, không qua AI agent dù user đã xác nhận). Cần tự chạy lệnh này trước khi deploy code mới, nếu không Prisma Client sẽ lệch kiểu với cột DB thật.</div>
+      </div>
     </article>
 
     <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Tài liệu tích hợp DNA-DEXUAT không mô tả endpoint thực tế đang dùng</span></div>
@@ -758,6 +764,7 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
     <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Chính sách mật khẩu chỉ yêu cầu tối thiểu 8 ký tự, không bắt buộc độ phức tạp</span></div>
       <div class="f-loc">auth/dto, users/dto — login.dto.ts, create-user.dto.ts, change-password.dto.ts, reset-password.dto.ts</div>
       <div class="f-field"><span class="k">Cách khắc phục</span><div class="v">Thêm ràng buộc tối thiểu 1 chữ hoa + 1 số qua <code>@Matches()</code>.</div></div>
+      <div class="f-field"><span class="k">Trạng thái 21/08/2026</span><div class="v"><strong>Giữ nguyên, không sửa (quyết định user)</strong> — thử thêm <code>@Matches()</code> bắt buộc 1 hoa + 1 số ngày 21/08 rồi revert lại theo yêu cầu: muốn để mật khẩu tự do (chỉ ràng buộc độ dài), validate độ phức tạp sẽ làm sau.</div></div>
     </article>
 
     <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Access + refresh token đều lưu localStorage, không phải cookie httpOnly</span></div>
@@ -765,24 +772,40 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
       <div class="f-field"><span class="k">Hậu quả</span><div class="v">Nếu có bất kỳ lỗ XSS nào ở bất kỳ trang nào trong app, script độc hại đọc được cả 2 token → chiếm quyền tài khoản tới 7 ngày (hạn refresh token), không chỉ tới khi access token hết hạn.</div></div>
     </article>
 
-    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Guard phân quyền theo phạm vi kho (WarehouseScopeGuard) là dead code, gây hiểu nhầm</span></div>
+    <article class="finding low is-fixed"><div class="f-head"><span class="badge low">Low</span><span class="badge fixed">✓ Đã cập nhật 21/08/2026</span><span class="f-title">Guard phân quyền theo phạm vi kho (WarehouseScopeGuard) là dead code, gây hiểu nhầm</span></div>
       <div class="f-loc">common\decorators\require-warehouse-scope.decorator.ts; common\guards\warehouse-scope.guard.ts</div>
       <div class="f-field"><span class="k">Ghi chú</span><div class="v">Không controller nào gắn decorator này — guard luôn trả true. Việc kiểm tra scope kho thực tế được làm thủ công đúng trong service (đã xác minh, không phải lỗ hổng hiện tại), nhưng dev mới có thể nhầm tưởng gắn decorator là đủ để enforce.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã cập nhật</span>
+        <div class="v">Không xoá (guard vẫn đăng ký APP_GUARD, có thể dùng lại đúng lúc cần) — thêm doc-comment rõ ràng vào <code>require-warehouse-scope.decorator.ts</code>: hiện KHÔNG route nào gắn decorator này nên guard luôn no-op, kèm lưu ý phải kiểm tra service không tự check scope trùng trước khi gắn decorator vào route mới.</div>
+      </div>
     </article>
 
-    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Đánh dấu "đã đọc" thông báo không kiểm tra đúng đối tượng nhận (audience)</span></div>
+    <article class="finding low is-fixed"><div class="f-head"><span class="badge low">Low</span><span class="badge fixed">✓ Đã sửa 21/08/2026</span><span class="f-title">Đánh dấu "đã đọc" thông báo không kiểm tra đúng đối tượng nhận (audience)</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\modules\notifications\notifications.service.ts:66-81 (markRead)</div>
       <div class="f-field"><span class="k">Ghi chú</span><div class="v">Chỉ kiểm tra notification tồn tại, không kiểm tra audience khớp role của caller. Hậu quả thấp vì không lộ thêm nội dung, chỉ là thiếu 1 lớp kiểm tra IDOR ở mức ghi.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Tách <code>getAudiencesForUser()</code> dùng chung cho cả <code>findAllForUser</code> lẫn <code>markRead</code>; <code>markRead</code> giờ nhận <code>AuthenticatedUser</code> đầy đủ (không chỉ <code>userId</code>) và throw 404 (không phải 403, tránh lộ tồn tại) nếu audience không khớp. Controller cập nhật truyền <code>@CurrentUser()</code> đầy đủ. Thêm 2 test (chặn khi khác audience, cho qua khi khớp). 8/8 test pass.</div>
+      </div>
     </article>
 
-    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Lỗi lấy kế hoạch xuất sắt bị nuốt hoàn toàn thay vì phân biệt theo mã lỗi</span></div>
+    <article class="finding low is-fixed"><div class="f-head"><span class="badge low">Low</span><span class="badge fixed">✓ Đã sửa 21/08/2026</span><span class="f-title">Lỗi lấy kế hoạch xuất sắt bị nuốt hoàn toàn thay vì phân biệt theo mã lỗi</span></div>
       <div class="f-loc">D:\DNA-ERP\src\services\steel-issues-api.ts:93-101 (getSteelIssuePlan)</div>
       <div class="f-field"><span class="k">Ghi chú</span><div class="v"><code>catch { return [] }</code> bắt mọi lỗi kể cả 500/network, không chỉ case hợp lệ "PI chưa có ProductionOrder" như comment mô tả — nên phân biệt theo status code.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Xác nhận qua code BE (<code>SteelIssuesService.getIssuePlan()</code>): case "PI chưa có ProductionOrder" đã tự trả <code>[]</code> với HTTP 200 từ BE, KHÔNG throw — nên try/catch ở FE không giải quyết case hợp lệ nào cả, chỉ nuốt lỗi thật. Bỏ hẳn try/catch, để lỗi throw ra như mọi hàm khác trong file. Thêm hiển thị <code>planError</code> ở <code>XuatSatPage.tsx</code> (cùng pattern fix C2) để không lặp lại lỗi "nuốt lỗi im lặng thành empty-state".</div>
+      </div>
     </article>
 
-    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Optimistic update ghi log hoạt động không rollback khi lưu thất bại</span></div>
+    <article class="finding low is-fixed"><div class="f-head"><span class="badge low">Low</span><span class="badge fixed">✓ Đã sửa 21/08/2026</span><span class="f-title">Optimistic update ghi log hoạt động không rollback khi lưu thất bại</span></div>
       <div class="f-loc">D:\DNA-ERP\src\context\AuditLogContext.tsx:96-113 (logAction)</div>
       <div class="f-field"><span class="k">Ghi chú</span><div class="v">Promise lưu log không có <code>.catch()</code> — nếu lỗi mạng đúng lúc thao tác, dòng log hiện ngay trong phiên nhưng biến mất khi F5 (chưa từng persist thật).</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Thêm <code>.catch()</code> sau <code>.then()</code>: khi lưu thất bại, gỡ dòng optimistic khỏi state (<code>setLogs(prev =&gt; prev.filter(...))</code>) thay vì để lại log "ma" biến mất im lặng khi F5. Không đụng dòng 90 (catch rỗng ở useEffect nạp lịch sử lúc mount) — đó là mục Info #16 riêng, có chủ đích, ngoài phạm vi.</div>
+      </div>
     </article>
 
     <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Trạng thái "đã tắt thông báo" (NotifBell) không persist, tái xuất hiện sau F5</span></div>
@@ -790,9 +813,13 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
       <div class="f-field"><span class="k">Ghi chú</span><div class="v"><code>dismissed</code> chỉ sống trong state cục bộ. Cần xác nhận ý đồ: nhắc 1 lần thật (cần lưu localStorage/gọi API mark-read) hay chỉ ẩn tạm trong phiên xem.</div></div>
     </article>
 
-    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">1 màn hình quên truyền locale khi format số, khác biệt với &gt;60 vị trí còn lại</span></div>
+    <article class="finding low is-fixed"><div class="f-head"><span class="badge low">Low</span><span class="badge fixed">✓ Đã sửa 21/08/2026</span><span class="f-title">1 màn hình quên truyền locale khi format số, khác biệt với &gt;60 vị trí còn lại</span></div>
       <div class="f-loc">D:\DNA-ERP\src\modules\pages\ProductionPlan\LenhSXPage.tsx:393,600,781,900,1034,1186 — qty.toLocaleString() (thiếu 'vi-VN')</div>
       <div class="f-field"><span class="k">Ghi chú</span><div class="v">Kết quả phụ thuộc locale trình duyệt/OS của người dùng, có thể hiển thị dấu phân cách khác phần còn lại của app. Nên gom về 1 hàm <code>formatNumber</code> dùng chung thay vì định nghĩa lặp lại ở nhiều file.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Thêm <code>'vi-VN'</code> vào cả 6 chỗ. Chưa gom thành hàm <code>formatNumber</code> dùng chung (>60 vị trí khác đã tự gọi đúng <code>toLocaleString('vi-VN')</code> riêng lẻ — gom lại là refactor rộng hơn phạm vi sửa nhanh Low này).</div>
+      </div>
     </article>
 
     <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">ID kiểu string bị ép kiểu number có chủ đích — bẫy tiềm ẩn cho code mới</span></div>
@@ -800,14 +827,22 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
       <div class="f-field"><span class="k">Ghi chú</span><div class="v">Quyết định có chủ đích, có comment giải thích, hiện không có chỗ nào làm phép toán số học trên các field này. Rủi ro là code mới sau này viết <code>Number(id)</code> sẽ ra NaN/sai âm thầm mà ESLint không chặn (no-explicit-any chỉ ở mức warn).</div></div>
     </article>
 
-    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Version mismatch: @types/react 19 nhưng runtime React 18</span></div>
+    <article class="finding low is-fixed"><div class="f-head"><span class="badge low">Low</span><span class="badge fixed">✓ Đã sửa 21/08/2026</span><span class="f-title">Version mismatch: @types/react 19 nhưng runtime React 18</span></div>
       <div class="f-loc">D:\DNA-ERP\package.json — react@18.3.1 / react-dom@18.3.1 vs @types/react@19.2.17</div>
       <div class="f-field"><span class="k">Ghi chú</span><div class="v">Type-check dùng typings React 19 (khác API so với React 18 thật ở 1 số chỗ) — có thể che giấu lỗi type thật hoặc báo sai. Nên đồng bộ về cùng major.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Đồng bộ <code>@types/react</code>/<code>@types/react-dom</code> về <code>^18.3.x</code> khớp React runtime. Đúng như audit dự đoán: hạ version lộ ra 5 lỗi type THẬT bị @types/react 19 che giấu (icon <code>lucide-react</code> gán vào <code>ComponentType&lt;{'{'}size?:number{'}'}&gt;</code> tự chế bị TS so sánh field <code>propTypes</code> invariant và fail) ở <code>core.tsx</code>, <code>ThongKePagePlan.tsx</code>, <code>Kcs*Page.tsx</code> — sửa bằng cách đổi sang type <code>LucideIcon</code> chuẩn của thư viện thay vì tự định nghĩa prop type hẹp hơn. <code>tsc --noEmit</code> sạch hoàn toàn sau fix.</div>
+      </div>
     </article>
 
-    <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Config JWT_REFRESH_SECRET tồn tại nhưng không còn được dùng ở đâu</span></div>
+    <article class="finding low is-fixed"><div class="f-head"><span class="badge low">Low</span><span class="badge fixed">✓ Đã sửa 21/08/2026</span><span class="f-title">Config JWT_REFRESH_SECRET tồn tại nhưng không còn được dùng ở đâu</span></div>
       <div class="f-loc">D:\DNA-ERP-BE\src\config\configuration.ts:11,44; env.validation.ts:14</div>
       <div class="f-field"><span class="k">Ghi chú</span><div class="v">Refresh token thực tế là random bytes hash SHA-256, không dùng secret này — dễ khiến người review sau nhầm tưởng cơ chế ký JWT. Nên xoá hoặc ghi rõ là biến dự phòng chưa dùng.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Xoá <code>JWT_REFRESH_SECRET</code> khỏi <code>configuration.ts</code>, <code>env.validation.ts</code> (thêm comment giải thích tại sao không có), <code>.env.example</code>, <code>render.yaml</code>, <code>README.md</code>, <code>ci.yml</code>, <code>test/jest-setup-env.ts</code>, và mock trong <code>auth.service.spec.ts</code>. Giữ nguyên <code>JWT_REFRESH_EXPIRES_IN</code> — field này VẪN được dùng thật (tính hạn refresh token), chỉ riêng secret là dead.</div>
+      </div>
     </article>
 
     <article class="finding low"><div class="f-head"><span class="badge low">Low</span><span class="f-title">Race hiếm khi sinh số PO — đã tự nhận biết trong code, có unique constraint chặn ghi trùng</span></div>
@@ -820,9 +855,13 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
       <div class="f-field"><span class="k">Ghi chú</span><div class="v">Cả 2 chỉ ảnh hưởng hiển thị tên người dùng/lịch sử phụ, không phải luồng nghiệp vụ chính — không phải bug, liệt kê cho đủ báo cáo.</div></div>
     </article>
 
-    <article class="finding low"><div class="f-head"><span class="badge low">Info</span><span class="f-title">Validate độ chính xác thập phân ở FE lỏng hơn BE cho chiều dài cắt</span></div>
+    <article class="finding low is-fixed"><div class="f-head"><span class="badge low">Info</span><span class="badge fixed">✓ Đã sửa 21/08/2026</span><span class="f-title">Validate độ chính xác thập phân ở FE lỏng hơn BE cho chiều dài cắt</span></div>
       <div class="f-loc">D:\DNA-ERP\src\modules\pages\.../SpecSteelPage.tsx:605 (input number không ràng buộc số chữ số thập phân) vs BE QuotaSegmentDto.cutLengthMm (@IsNumber maxDecimalPlaces:1)</div>
       <div class="f-field"><span class="k">Ghi chú</span><div class="v">Nhập "590.55" pass được nút Lưu ở FE rồi mới bị BE trả 400 — trải nghiệm chưa mượt, mức độ nhỏ.</div></div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Thêm <code>step={0.1}</code> vào input, khớp <code>maxDecimalPlaces:1</code> của BE — trình duyệt tự chặn/làm tròn UI trước khi gọi API thay vì để BE bắt lỗi 400.</div>
+      </div>
     </article>
   </section>
 
@@ -839,7 +878,7 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
     </div>
     <div class="prose-card">
       <h3>Duyệt PI Item → tạo Production Order</h3>
-      <p>Toàn bộ 5 hàm chuyển trạng thái (gửi QLSX, gửi Sếp, duyệt, từ chối QLSX, từ chối Sếp) đều thiếu WHERE-guard theo status (M — TOCTOU). Không tạo dữ liệu sai nhờ unique constraint chặn ở lớp dưới, nhưng audit trail (ai duyệt) có thể sai khi có thao tác đồng thời — rủi ro tăng dần khi số lượng người dùng đồng thời trong hệ thống tăng. <strong>Chưa sửa</strong> (Medium, ngoài phạm vi đợt sửa High/Critical 20/08/2026).</p>
+      <p>Toàn bộ 5 hàm chuyển trạng thái (gửi QLSX, gửi Sếp, duyệt, từ chối QLSX, từ chối Sếp) đều thiếu WHERE-guard theo status (M — TOCTOU). Không tạo dữ liệu sai nhờ unique constraint chặn ở lớp dưới, nhưng audit trail (ai duyệt) có thể sai khi có thao tác đồng thời — rủi ro tăng dần khi số lượng người dùng đồng thời trong hệ thống tăng. <strong style="color:var(--fixed)">Đã sửa 20/08/2026</strong> (đợt 2 — Medium, xem fix-note mục 3) — dòng "Chưa sửa" trước đó ở đúng đoạn này là thông tin cũ chưa được cập nhật kịp lúc viết fix-note, đã xác nhận lại qua code thật ngày 21/08/2026: cả 5 hàm đều có <code>updateMany + count===0</code> guard, 56/56 test <code>production-invoices.service.spec.ts</code> pass.</p>
     </div>
     <div class="prose-card">
       <h3>3 module vật tư tiêu hao: Material Issues / Packaging Issues / Weaving Issues</h3>
@@ -850,13 +889,14 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
   <!-- ============ VERIFY WITH BUSINESS ============ -->
   <section class="sev-section" id="verify">
     <div class="sec-head"><h2>6. Cần xác minh với nghiệp vụ</h2></div>
+    <p class="sec-desc"><strong style="color:var(--fixed)">Cập nhật 21/08/2026:</strong> 5/6 mục đã có câu trả lời từ user (3 mục trong đó đã sửa code kèm test). Còn 1 mục vẫn mở.</p>
     <ul class="verify-list">
-      <li><strong>Mảnh needsHan=false có thực sự không bao giờ xảy ra?</strong> Toàn bộ thiết kế "Xuất sắt theo PI" (và lỗi C2) dựa trên giả định hiện tại 0/9 BomPiece là needsHan=false. Nếu nghiệp vụ xác nhận trường hợp này có thể xảy ra trong tương lai, cần thiết kế lại cơ chế đếm thay vì chỉ chặn cứng.</li>
-      <li><strong>Upload ảnh mở cho mọi role đăng nhập</strong> — có phải chủ đích thiết kế (dùng chung cho mọi form) hay cần giới hạn theo permission cụ thể?</li>
-      <li><strong>Cấp bù sắt lỗi được phép khác PI</strong> (chỉ cần cùng loại vật tư) — có phải quyết định nghiệp vụ có chủ đích (sắt là vật tư dùng chung) hay cần ràng buộc lại cùng PI?</li>
-      <li><strong>1 Sales Order có thể có 2 dòng cùng sản phẩm (mfgProductId) không?</strong> Nếu có, cần cơ chế chọn đúng dòng khi tạo SKU thay vì lấy dòng đầu tiên tìm thấy.</li>
-      <li><strong>Làm tròn số lượng theo từng đợt nhận hàng</strong> (kg → đơn vị kho) — mỗi đợt cân là số liệu vật lý thật cần giữ nguyên, hay cần làm tròn theo tổng luỹ kế?</li>
-      <li><strong>WarehouseScopeGuard / JWT_REFRESH_SECRET</strong> — dead code, giữ lại để dùng sau hay nên dọn dẹp để tránh hiểu nhầm cho dev mới?</li>
+      <li style="border-left-color:var(--fixed)"><strong>Mảnh needsHan=false có thực sự không bao giờ xảy ra?</strong> <span style="color:var(--fixed)">✓ đã trả lời + đã sửa 21/08/2026:</span> user xác nhận CÓ xảy ra thật — "vật tư thành phẩm" (vd chân nhôm: mua thanh nhôm về cắt là xong, không hàn). Trước đó ("Xuất sắt theo PI"/C2) needsHan=false hoàn toàn không có cách nào chuyển kho ra khỏi Phôi-Sơn-Hàn (chỉ bị bỏ qua khỏi kế hoạch, xem <code>getPieceTransferPlan()</code>). Đã thiết kế lại: Phôi tự báo sản lượng cắt xong cho từng piece needsHan=false qua <code>ProductionBatch</code> (stage <code>PHOI</code> mới, cùng hạ tầng đã dùng cho Hàn/Sơn) thay vì cố khôi phục theo dõi theo piece ở <code>SteelIssue</code> (đã mất từ redesign gộp-PI 2026-08-19). BE: mở khoá stage PHOI ở 4 hàm gác cổng <code>ProductionBatchesService</code> + permission <code>PHOI_STAFF</code> + <code>getPieceTransferPlan()</code> tính đúng <code>readyQty</code>/<code>label: VAT_TU_THANH_PHAM</code> thay vì <code>continue</code>. FE: 2 màn mới (Phôi báo sản lượng "Vật tư thành phẩm", KCS duyệt) tái dùng nguyên component <code>TwoTierScreen</code>/<code>KcsStagePage</code> đã có cho Hàn/Sơn. 613 test BE pass (thêm 8 test mới), <code>tsc --noEmit</code>/<code>next build</code>/<code>nest build</code> sạch cả 2 phía. <strong>Còn thiếu:</strong> chưa test qua UI thật với dữ liệu thật (cần seed 1 <code>BomPiece.needsHan=false</code> + tài khoản role Phôi/KCS) — mới verify qua unit test + build, chưa qua browser. Chi tiết đầy đủ xem <code>D:\DNA-ERP-BE\docs\changelog-2026-08-21-vat-tu-thanh-pham-needshan-false.md</code>.</li>
+      <li style="border-left-color:var(--fixed)"><strong>Upload ảnh mở cho mọi role đăng nhập</strong> — <span style="color:var(--fixed)">✓ đã trả lời 21/08/2026:</span> đúng là chủ đích (ảnh dùng chung cho nhiều form: SKU, defect reason...). Quyết định giữ nguyên, không giới hạn permission — xem fix-note mục Medium.</li>
+      <li style="border-left-color:var(--fixed)"><strong>Cấp bù sắt lỗi được phép khác PI</strong> — <span style="color:var(--fixed)">✓ đã trả lời + đã sửa 21/08/2026:</span> user chốt cấp bù PHẢI cùng PI, không coi sắt là vật tư dùng chung xuyên PI. Đã thêm check <code>steelIssue.productionInvoiceId !== original.productionInvoiceId</code> ở <code>qc-reviews.service.ts</code>, 2 test mới.</li>
+      <li style="border-left-color:var(--fixed)"><strong>1 Sales Order có thể có 2 dòng cùng sản phẩm (mfgProductId) không?</strong> — <span style="color:var(--fixed)">✓ đã trả lời + đã sửa 21/08/2026:</span> user xác nhận CÓ THỂ (vd giao 2 đợt khác ngày, không phải trường hợp hiếm). Đã thêm <code>CreateSkuDto.salesOrderItemId</code> tường minh + validate đúng đơn/sản phẩm, 2 test mới. FE hiện chưa có UI dùng nhánh này (rủi ro thực tế = 0), fix chỉ đóng lỗ hổng contract API.</li>
+      <li><strong>Làm tròn số lượng theo từng đợt nhận hàng</strong> (kg → đơn vị kho) — <span style="color:var(--text-muted)">vẫn mở, chưa xác nhận.</span> Mỗi đợt cân là số liệu vật lý thật cần giữ nguyên, hay cần làm tròn theo tổng luỹ kế?</li>
+      <li style="border-left-color:var(--fixed)"><strong>WarehouseScopeGuard / JWT_REFRESH_SECRET</strong> — <span style="color:var(--fixed)">✓ đã trả lời 21/08/2026:</span> <code>JWT_REFRESH_SECRET</code> xác nhận dead thật (refresh token dùng random bytes hash SHA-256, không ký JWT) → đã xoá hẳn. <code>WarehouseScopeGuard</code> giữ lại (guard vẫn đăng ký APP_GUARD, có thể cần dùng sau) nhưng thêm doc-comment rõ hiện đang no-op vì chưa route nào gắn decorator.</li>
     </ul>
   </section>
 
@@ -872,6 +912,7 @@ D:\DNA-ERP-BE\src\modules\stock\stock-reservations.service.ts:135-169 (getAvaila
       <p>Không phát hiện lỗ hổng bảo mật nghiêm trọng (không SQL injection, không leak secret, RBAC bao phủ 33/33 controller đúng ở gần hết các endpoint), phần Auth/Security chỉ ở mức Medium/Low và mang tính phòng ngừa (defense-in-depth) nhiều hơn là lỗ hổng khai thác được ngay.</p>
       <p><strong style="color:var(--fixed)">Cập nhật 20/08/2026 (đợt 1 — Critical/High):</strong> toàn bộ 2 lỗi Critical (C1, C2) và 6 lỗi High (H1-H6) đã được sửa và test (593 test BE pass + typecheck/eslint sạch FE lẫn BE; H6 là fix FE thuần không có test infra sẵn, chỉ xác minh qua typecheck/eslint, <strong>chưa test qua browser thật</strong>).</p>
       <p><strong style="color:var(--fixed)">Cập nhật 20/08/2026 (đợt 2 — Medium):</strong> 15/17 lỗi Medium đã sửa hoàn toàn, 2/17 giữ nguyên có chủ đích theo quyết định user ("Upload ảnh không giới hạn quyền": giữ nguyên; "Solver không tự retry": để sau). 2 mục ban đầu chỉ sửa 1 phần đã sửa dứt điểm ở đợt 3 (cùng ngày, sau khi xác nhận thêm với nghiệp vụ): "FE hard-code limit=100" (sửa nốt phần purchase-proposals, dùng filter <code>activeOnly</code> ở BE) và "resolveProductionInvoice lấy dòng đầu tiên" (xác nhận 1 đơn hàng CÓ THỂ có 2 dòng cùng sản phẩm → thêm <code>salesOrderItemId</code> tường minh, hiện chỉ gọi được qua API trực tiếp vì FE chưa có UI dùng nhánh này) — xem fix-note từng mục. Toàn bộ 613 test BE pass (tăng từ 593, thêm ~38 test mới cho các fix Medium) + typecheck/eslint sạch cả BE lẫn FE cho mọi file đã sửa (trừ 1 mục FE thuần — SkuPage.tsx — chưa test qua browser thật, cùng giới hạn như H6). 17 mục Low/Info vẫn đang mở, chưa nằm trong đợt sửa này.</p>
+      <p class="muted"><strong style="color:var(--fixed)">Cập nhật 21/08/2026 (đợt 4 — Low/Info):</strong> 9/17 mục Low/Info kỹ thuật thuần đã sửa (xem fix-note mục 4). 1 mục ("Field % Float→Decimal") mới sửa code, DB thật CHƯA migrate — lệnh <code>prisma db push</code> bị chính rào chắn an toàn của Prisma + Claude Code chặn cứng dù user đã xác nhận 2 lần, cần tự chạy từ terminal thật. Fix hạ <code>@types/react</code> xuống khớp React 18 lộ ra 5 lỗi type thật từng bị bản 19 che giấu (đã sửa kèm). Mục "Chính sách mật khẩu" thử thêm <code>@Matches()</code> rồi revert lại theo yêu cầu user (muốn để mật khẩu tự do, validate độ phức tạp làm sau) — giữ nguyên như audit gốc. BE: 613+ test pass, <code>tsc --noEmit</code> chỉ còn đúng 8 lỗi pre-existing ở <code>sales-orders.service.spec.ts</code> (không liên quan, không đụng tới). FE: <code>tsc --noEmit</code> sạch hoàn toàn. 8 mục còn lại giữ nguyên có chủ đích (2 cần xác nhận nghiệp vụ, 5 chỉ là ghi chú/Info không phải bug thật, 1 thử-rồi-revert theo quyết định user).</p>
       <p class="muted">Lưu ý phát hiện ngoài phạm vi đợt sửa này (đợt 3, xác minh 21/08/2026): <code>npx tsc --noEmit</code>/<code>npx jest</code> toàn repo BE hiện KHÔNG sạch — 4 test suite (<code>sales-orders.service.spec.ts</code>, <code>cutting-proposals.service.spec.ts</code>, <code>cutting-batch-suggestions.service.spec.ts</code>, <code>production-invoices.service.spec.ts</code>) lỗi biên dịch TypeScript, có vẻ bắt nguồn từ 1 thay đổi schema/luồng PI khác (PI không còn tự sinh lúc tạo PO) đã merge vào nhánh nhưng chưa cập nhật hết call site/test đi kèm. Đã xác nhận bằng <code>git stash</code> đây là lỗi có sẵn trên nhánh, không phải do các fix Medium ở trên gây ra (mọi file bị lỗi đều không nằm trong diff của đợt sửa này) — nêu ra để biết, chưa sửa.</p>
       <p class="muted">Báo cáo tổng hợp từ 6 nhánh review độc lập (Auth/Security, Sales–PI–PO–SKU, Cắt/Xuất sắt/Mảnh, Kho/Tồn kho, FE Integration, DB Schema/Transaction/Tích hợp DNA-DEXUAT), mỗi nhánh đọc code thật, không sửa code. Một số phần chưa được đọc sâu do giới hạn thời gian (chi tiết trong từng nhánh gốc) — không nên coi các phần chưa đọc là "đã xác nhận sạch".</p>
     </div>

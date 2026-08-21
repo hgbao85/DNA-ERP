@@ -18,7 +18,10 @@
  */
 import { http, withIdempotencyKey } from './core/http';
 
-export type ProductionBatchStage = 'HAN' | 'SON';
+/** PHOI ở đây là "Phôi tự báo cắt xong vật tư thành phẩm" (needsHan=false, vd chân nhôm - cắt
+ *  xong là hết, không hàn) - thêm 21/08/2026, khác hẳn công đoạn cắt sắt cho mảnh needsHan=true
+ *  (steel-issues-api.ts, dùng SteelIssue chứ không phải ProductionBatch). */
+export type ProductionBatchStage = 'PHOI' | 'HAN' | 'SON';
 
 export interface BeProductionBatch {
   id: string;

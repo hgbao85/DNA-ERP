@@ -88,16 +88,13 @@ function unwrap<T>(res: T[] | { data: T[] }): T[] {
 
 // ── Kho trung tâm (WAREHOUSE_STAFF) — master-detail theo PI ────────────────────
 
-/** Trả mảng rỗng khi PI chưa có ProductionOrder nào (chưa được Sếp duyệt) — chưa có gì để xuất,
- *  không phải lỗi cần báo cho thủ kho. */
+/** BE tự trả mảng rỗng (200) khi PI chưa có ProductionOrder nào (chưa được Sếp duyệt) —
+ *  không có case lỗi nghiệp vụ nào cần nuốt ở đây, lỗi thật (network/500/403...) phải throw
+ *  ra ngoài như mọi hàm khác trong file này để FE hiển thị được. */
 export async function getSteelIssuePlan(productionInvoiceId: string): Promise<BeSteelIssuePlanItem[]> {
-  try {
-    return await http.get<BeSteelIssuePlanItem[]>(
-      `/production-invoices/${productionInvoiceId}/steel-issue-plan`,
-    );
-  } catch {
-    return [];
-  }
+  return http.get<BeSteelIssuePlanItem[]>(
+    `/production-invoices/${productionInvoiceId}/steel-issue-plan`,
+  );
 }
 
 /** Lịch sử các đợt kho đã xuất cho 1 PI (mọi trạng thái) — dùng cho detail view của kho. */
