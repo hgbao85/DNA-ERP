@@ -866,7 +866,11 @@ export default function ThongKePagePlan() {
   // PI thật theo mfgProductId, suy từ ProductionOrder (H6 fix) - PHẢI dùng thay pf.piCode/
   // pf.productionInvoiceId tĩnh, xem comment ở fetchFrame/buildOrderRow.
   const { data: poInfoData } = useFetch<Map<string, ProductionOrderInfo>>(() => buildProductionOrderInfoByMfgProduct(), [])
-  const poInfoMap = poInfoData ?? new Map<string, ProductionOrderInfo>()
+  // Memo hoá - `poInfoData` giữ nguyên `null` khi fetch lỗi (vd 403 do thiếu quyền
+  // PRODUCTION_ORDER:VIEW), nếu không memo thì mỗi render tạo Map MỚI, khiến effect bên dưới (nhận
+  // poInfoMap làm dep) chạy lại vô hạn -> gọi lại API vô hạn -> đơ tab (phát hiện qua browser thật
+  // 2026-08-22, Sếp bấm "Tổng hợp lệnh SX" bị đơ + hàng nghìn lỗi fetch trong console).
+  const poInfoMap = useMemo(() => poInfoData ?? new Map<string, ProductionOrderInfo>(), [poInfoData])
   const { proposals } = useInspection()
   const piMap = useMemo(() => new Map((pisData ?? []).map(p => [p.id, p])), [pisData])
   // Lên kế hoạch (PLANNING) chưa vào sản xuất — ẩn khỏi "Bảng thống kê", trừ khi đã có SKU được
