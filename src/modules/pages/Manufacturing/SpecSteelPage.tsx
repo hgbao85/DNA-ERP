@@ -29,13 +29,15 @@ type ManChild = {
   note: string
   unit: string
   processSteps: ProcessStep[]
+  /** Chỉ dùng khi group='vatTuTP' - số vật tư thành phẩm cắt được từ 1 đơn vị material. */
+  piecesPerBar: string
 }
 type Manh = { id: number; tenManh: string; soLuong: string; needsHan: boolean; needsSon: boolean; children: ManChild[] }
 type BomItem = { id: string; ten: string; thoiGian: string }
 
-const CHILD_GROUPS: ManhChildGroup[] = ['sat', 'day', 'dinh', 'tanRut', 'nutNhua']
+const CHILD_GROUPS: ManhChildGroup[] = ['sat', 'day', 'dinh', 'tanRut', 'nutNhua', 'vatTuTP']
 const GROUP_LABELS: Record<ManhChildGroup, string> = {
-  sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa',
+  sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa', vatTuTP: 'Vật tư thành phẩm',
 }
 
 // "Mảnh có đan" = có đủ cả 3 nhóm Dây + Đinh + Nút nhựa (Tán rút không tính) - đúng quy tắc
@@ -54,6 +56,7 @@ const GROUP_BADGE_COLORS: Record<ManhChildGroup, { bg: string; fg: string }> = {
   dinh: { bg: '#f3e5f5', fg: '#7b1fa2' },
   tanRut: { bg: '#e8f5e9', fg: '#2e7d32' },
   nutNhua: { bg: '#fce4ec', fg: '#ad1457' },
+  vatTuTP: { bg: '#ede7f6', fg: '#4527a0' },
 }
 
 const toManh = (r: ManhRow): Manh => ({
@@ -62,7 +65,7 @@ const toManh = (r: ManhRow): Manh => ({
   children: r.children.map(c => ({
     id: c.id, group: c.group, materialId: Number(c.materialId) || 0, loaiSatName: c.name,
     specs: c.specs ?? '', cutLengthMm: c.length ?? '', soLuong: c.qty ?? '', note: c.note ?? '', unit: c.unit ?? '',
-    processSteps: c.processSteps ?? [],
+    processSteps: c.processSteps ?? [], piecesPerBar: c.piecesPerBar ?? '',
   })),
 })
 const toManhRow = (m: Manh): ManhRow => ({
@@ -73,6 +76,7 @@ const toManhRow = (m: Manh): ManhRow => ({
     specs: c.specs || undefined, length: c.cutLengthMm || undefined, qty: c.soLuong || undefined,
     note: c.note || undefined, unit: c.unit || undefined,
     processSteps: c.group === 'sat' && c.processSteps.length > 0 ? c.processSteps : undefined,
+    piecesPerBar: c.group === 'vatTuTP' ? c.piecesPerBar || undefined : undefined,
   })),
 })
 
@@ -105,13 +109,14 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const materials = materialsData ?? []
   const {
     steel: steelGroupId, wire: wireGroupId, nail: nailGroupId,
-    rivet: rivetGroupId, plasticButton: plasticButtonGroupId,
+    rivet: rivetGroupId, plasticButton: plasticButtonGroupId, vatTuTP: vatTuTPGroupId,
   } = useMaterialGroupIds()
   const groupIdOf = (g: ManhChildGroup): number | undefined => {
     if (g === 'sat') return steelGroupId
     if (g === 'day') return wireGroupId
     if (g === 'dinh') return nailGroupId
     if (g === 'tanRut') return rivetGroupId
+    if (g === 'vatTuTP') return vatTuTPGroupId
     return plasticButtonGroupId
   }
 
@@ -150,6 +155,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [childSoLuong, setChildSoLuong] = useState('')
   const [childNote, setChildNote] = useState('')
   const [childProcessSteps, setChildProcessSteps] = useState<ProcessStep[]>([])
+  const [childPiecesPerBar, setChildPiecesPerBar] = useState('')
   const [editingChild, setEditingChild] = useState<{ manhId: number; childId: number } | null>(null)
   const [manhBomSearch, setManhBomSearch] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
@@ -194,7 +200,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const resetChildForm = () => {
     setChildGroup('sat')
     setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildSoLuong(''); setChildNote('')
-    setChildProcessSteps([]); setEditingChild(null)
+    setChildProcessSteps([]); setChildPiecesPerBar(''); setEditingChild(null)
   }
 
   const toggleChildProcessStep = (step: ProcessStep) => {
@@ -203,10 +209,12 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
 
   // Vừa dùng để thêm dòng vật tư mới, vừa dùng để lưu lại dòng đang sửa (editingChild) —
   // tránh bắt người dùng xóa rồi nhập lại từ đầu chỉ để chỉnh 1 trường. Chiều dài cắt chỉ bắt
-  // buộc khi nhóm = Sắt (đoạn cắt); 4 nhóm còn lại chỉ cần vật tư + số lượng.
+  // buộc khi nhóm = Sắt (đoạn cắt); số chân/cây chỉ bắt buộc khi nhóm = Vật tư thành phẩm;
+  // 3 nhóm còn lại chỉ cần vật tư + số lượng.
   const saveChild = (manhId: number) => {
     if (!childMaterial) return
     if (childGroup === 'sat' && !childCutLengthMm.trim()) return
+    if (childGroup === 'vatTuTP' && !childPiecesPerBar.trim()) return
     const editing = editingChild && editingChild.manhId === manhId ? editingChild : null
     setManhs(ms => ms.map(m => {
       if (m.id !== manhId) return m
@@ -221,6 +229,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
         note: childNote.trim(),
         unit: childMaterial.unit,
         processSteps: childGroup === 'sat' ? childProcessSteps : [],
+        piecesPerBar: childGroup === 'vatTuTP' ? childPiecesPerBar : '',
       }
       if (editing) {
         return { ...m, children: m.children.map(c => c.id === editing.childId ? built : c) }
@@ -242,6 +251,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     setChildSoLuong(child.soLuong)
     setChildNote(child.note)
     setChildProcessSteps(child.processSteps ?? [])
+    setChildPiecesPerBar(child.piecesPerBar ?? '')
   }
 
   const deleteChild = (manhId: number, childId: number) => {
@@ -507,7 +517,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         <th style={{ width: 80, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Nhóm</th>
                         <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Vật tư</th>
                         <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Quy cách</th>
-                        <th style={{ width: 110, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài (mm)</th>
+                        <th style={{ width: 110, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài (mm) / Số chân/cây</th>
                         <th style={{ width: 150, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Công đoạn phôi</th>
                         <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
                         <th style={{ width: 70, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>ĐVT</th>
@@ -531,7 +541,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                               {c.note && <span style={{ color: 'var(--text3)', fontWeight: 400 }}> ({c.note})</span>}
                             </td>
                             <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{c.specs || '—'}</td>
-                            <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>{c.group === 'sat' ? (c.cutLengthMm || '—') : '—'}</td>
+                            <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>
+                              {c.group === 'sat' ? (c.cutLengthMm || '—') : c.group === 'vatTuTP' ? (c.piecesPerBar || '—') : '—'}
+                            </td>
                             <td style={{ padding: '9px 14px' }}>
                               {c.group === 'sat' && c.processSteps.length > 0 ? (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
@@ -572,7 +584,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
                       {CHILD_GROUPS.map(g => (
                         <button key={g}
-                          onClick={() => { setChildGroup(g); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildProcessSteps([]) }}
+                          onClick={() => { setChildGroup(g); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildProcessSteps([]); setChildPiecesPerBar('') }}
                           style={{
                             padding: '5px 12px', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 12, fontWeight: 700,
                             border: `1px solid ${childGroup === g ? GROUP_BADGE_COLORS[g].fg : 'var(--border)'}`,
@@ -608,6 +620,15 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                             style={inputStyle} />
                         </div>
                       )}
+                      {childGroup === 'vatTuTP' && (
+                        <div style={{ width: 120 }}>
+                          <FL>Số chân/cây</FL>
+                          <input type="number" min={1} step={1} placeholder="12" value={childPiecesPerBar}
+                            onChange={e => setChildPiecesPerBar(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
+                            style={inputStyle} />
+                        </div>
+                      )}
                       {childGroup === 'sat' && (
                         <div>
                           <FL>Công đoạn phôi</FL>
@@ -637,12 +658,19 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                           style={inputStyle} />
                       </div>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => saveChild(m.id)} disabled={!childMaterial || (childGroup === 'sat' && !childCutLengthMm.trim())} style={{
-                          padding: '7px 14px', border: 'none', borderRadius: 'var(--radius)',
-                          background: childMaterial && (childGroup !== 'sat' || childCutLengthMm.trim()) ? '#1565c0' : '#ccc',
-                          color: '#fff', fontWeight: 600, fontSize: 13,
-                          cursor: childMaterial && (childGroup !== 'sat' || childCutLengthMm.trim()) ? 'pointer' : 'not-allowed',
-                        }}>{editingChild?.manhId === m.id ? 'Lưu' : '+ Thêm'}</button>
+                        {(() => {
+                          const childValid = !!childMaterial
+                            && (childGroup !== 'sat' || childCutLengthMm.trim() !== '')
+                            && (childGroup !== 'vatTuTP' || childPiecesPerBar.trim() !== '')
+                          return (
+                            <button onClick={() => saveChild(m.id)} disabled={!childValid} style={{
+                              padding: '7px 14px', border: 'none', borderRadius: 'var(--radius)',
+                              background: childValid ? '#1565c0' : '#ccc',
+                              color: '#fff', fontWeight: 600, fontSize: 13,
+                              cursor: childValid ? 'pointer' : 'not-allowed',
+                            }}>{editingChild?.manhId === m.id ? 'Lưu' : '+ Thêm'}</button>
+                          )
+                        })()}
                         <button onClick={() => { setAddingTo(null); resetChildForm() }} style={{
                           padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
                           background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',

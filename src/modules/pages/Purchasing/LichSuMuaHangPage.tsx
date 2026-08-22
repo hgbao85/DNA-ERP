@@ -49,9 +49,14 @@ function buildRows(p: PurchaseProposal): Row[] {
 export default function LichSuMuaHangPage() {
   const { user } = useAuth()
   const { proposals: allProposals } = useInspection()
-  const { data: materials } = useFetch(getMaterials)
+  const { data: materials, isLoading: materialsLoading } = useFetch(getMaterials)
   const buyerByMaterialId = buildBuyerByMaterialId(materials ?? [])
-  const proposals = visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.status === 'purchased')
+  // materials chưa tải xong -> buyerByMaterialId RỖNG -> mọi đề xuất trông như "chưa gán ai" ->
+  // hiện NHẦM cho mọi nhân viên mua hàng rồi biến mất khi tải xong (D.p7-buyer-filter-loading-
+  // flash, 2026-08-22). Chặn ở đây - rỗng lúc đang tải thay vì lộ nhầm đề xuất của người khác.
+  const proposals = materialsLoading
+    ? []
+    : visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.status === 'purchased')
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = proposals.find(p => p.id === selectedId) ?? null

@@ -60,11 +60,14 @@ export interface MaterialType {
   baoBiDongGoi: BaoBiDongGoiItem[];
 }
 
-/** 5 nhóm vật tư có thể xuất hiện bên trong 1 mảnh — Sắt (phân cấp: có segmentSpecId, chiều
- *  dài cắt) và Dây/Đinh/Tán rút/Nút nhựa (phẳng: chỉ materialId + qty, không
- *  có khái niệm cắt). Trước đây Dây/Đinh là 2 danh sách phẳng RIÊNG NGOÀI mảnh, do acc khác
- *  (SPEC_WIRE_PAINT) nhập — nay gộp làm children của từng mảnh, do acc Sắt nhập chung 1 lần. */
-export type ManhChildGroup = 'sat' | 'day' | 'dinh' | 'tanRut' | 'nutNhua';
+/** 6 nhóm vật tư có thể xuất hiện bên trong 1 mảnh — Sắt (phân cấp: có segmentSpecId, chiều
+ *  dài cắt), Dây/Đinh/Tán rút/Nút nhựa (phẳng: chỉ materialId + qty, không
+ *  có khái niệm cắt), và Vật tư thành phẩm (định mức "1 cây ra N cái" — piecesPerBar, vd thanh
+ *  nhôm → chân nhôm, chỉ áp dụng khi needsHan=false — xem PieceMaterialYield ở BE). Trước đây
+ *  Dây/Đinh là 2 danh sách phẳng RIÊNG NGOÀI mảnh, do acc khác (SPEC_WIRE_PAINT) nhập — nay gộp
+ *  làm children của từng mảnh, do acc Sắt nhập chung 1 lần (2026-08-22: Vật tư thành phẩm nhập
+ *  chung luôn, cùng người/cùng màn với mảnh). */
+export type ManhChildGroup = 'sat' | 'day' | 'dinh' | 'tanRut' | 'nutNhua' | 'vatTuTP';
 
 /** 7 công đoạn phôi chi tiết có thể áp dụng cho 1 thanh sắt (group='sat') - đa chọn, vd 1 thanh
  *  vừa tán vừa dập. Khớp enum ProcessStep ở BE (schema.prisma). */
@@ -99,6 +102,9 @@ export interface ManhChildRow {
   qty?: string | null;
   /** Chỉ dùng khi group='sat'. */
   processSteps?: ProcessStep[];
+  /** Chỉ dùng khi group='vatTuTP' - số vật tư thành phẩm cắt được từ 1 đơn vị material (vd 1
+   *  cây thanh nhôm = 12 chân). */
+  piecesPerBar?: string | null;
   note?: string | null;
   unit?: string | null;
 }

@@ -21,5 +21,12 @@ export function useMaterialGroupIds() {
     rivet: bySystemKey(MATERIAL_GROUP_SYSTEM_KEYS.RIVET),
     plasticButton: bySystemKey(MATERIAL_GROUP_SYSTEM_KEYS.PLASTIC_BUTTON),
     other: bySystemKey(MATERIAL_GROUP_SYSTEM_KEYS.OTHER),
+    // "Vật tư thành phẩm" (vd thanh nhôm → chân nhôm, PieceMaterialYield ở BE) - nhóm do admin
+    // tự tạo (systemKey=null, "vô hình với logic Spec" theo đúng thiết kế MaterialGroup ở BE),
+    // nên KHÔNG resolve được qua bySystemKey như 6 nhóm hệ thống trên. Tra theo codePrefix cố
+    // định 'VTTP' thay thế - đổi tên/prefix nhóm này ở Admin > Vật tư sẽ làm picker này hiện
+    // rỗng, chấp nhận được vì đây là nhóm đơn lẻ do 1 nghiệp vụ cụ thể tạo ra, không phải nhóm
+    // hệ thống seed sẵn.
+    vatTuTP: (groups ?? []).find(g => g.codePrefix === 'VTTP')?.id,
   }
 }

@@ -85,6 +85,10 @@ export interface BeProductionBatchPlanItem {
   plannedQty: number;
   awaitingQcQty: number;
   passedQty: number;
+  /** Chỉ có giá trị cho stage=PHOI khi mảnh có định mức PieceMaterialYield (vd chân nhôm) - tồn
+   *  nguyên liệu thô (vd thanh nhôm) hiện có tại kho, để cảnh báo "còn X cây chưa cắt hết"
+   *  (chỉ hiển thị, không chặn - quyết định nghiệp vụ 2026-08-22). Null cho mọi trường hợp khác. */
+  rawMaterialOnHand: number | null;
 }
 
 export interface BeProductionBatchPlan {

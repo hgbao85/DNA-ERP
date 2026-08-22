@@ -65,9 +65,16 @@ function statusTag(p: PurchaseProposal) {
 export default function TheoDoiMuaHangPage() {
   const { user } = useAuth()
   const { proposals: allProposals } = useInspection()
-  const { data: materials } = useFetch(getMaterials)
+  const { data: materials, isLoading: materialsLoading } = useFetch(getMaterials)
   const buyerByMaterialId = buildBuyerByMaterialId(materials ?? [])
-  const proposals = visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.status === 'purchasing')
+  // materials chưa tải xong -> buyerByMaterialId RỖNG -> canPurchaserSeeProposal() coi mọi đề
+  // xuất là "chưa gán ai" (buyerId undefined) -> hiện NHẦM cho mọi nhân viên mua hàng trong
+  // khoảnh khắc đang tải, biến mất ngay khi materials tải xong và bộ lọc thật chạy lại (D.p7-
+  // buyer-filter-loading-flash, 2026-08-22). Chặn hẳn ở đây - rỗng lúc đang tải (thiếu tạm thời,
+  // an toàn) thay vì lộ nhầm đề xuất của người khác.
+  const proposals = materialsLoading
+    ? []
+    : visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.status === 'purchasing')
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = proposals.find(p => p.id === selectedId) ?? null
