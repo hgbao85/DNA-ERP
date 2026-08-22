@@ -175,7 +175,14 @@ function toProposal(be: BeProposal): PurchaseProposal {
 
   return {
     id: be.id,
-    requestId: `cutting-proposal-${be.cuttingProposalId}`,
+    // requestId là khoá GỘP NHÓM ở BossApp.tsx (nhiều PurchaseProposal cùng 1 phương án cắt gộp
+    // lại 1 nhóm) - be.cuttingProposalId null (sourceType=PIECE_MATERIAL_YIELD, 2026-08-22,
+    // không đi qua CuttingProposal nào) sẽ ra CÙNG 1 chuỗi "cutting-proposal-null" cho MỌI đề
+    // xuất khác PI nhau, gộp nhầm chúng làm 1 nhóm - dùng be.id (luôn duy nhất, không nhóm) làm
+    // fallback thay vì lặp lại chuỗi cố định.
+    requestId: be.cuttingProposalId ? `cutting-proposal-${be.cuttingProposalId}` : `purchase-proposal-${be.id}`,
+    // skuId là placeholder không liên quan gì tới Sku.id thật (xem ThongKePagePlan.tsx) - giữ
+    // nguyên hành vi cũ (đã biết vỡ từ trước, không phải phạm vi sửa lần này).
     skuId: Number(be.cuttingProposalId),
     poNumber: be.poNumber,
     salesOrderCode: be.salesOrderCode,

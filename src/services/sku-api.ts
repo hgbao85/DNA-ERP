@@ -74,6 +74,17 @@ interface BePieceMaterialLine {
   qtyPerPiece: number;
   note: string | null;
 }
+/** Định mức "vật tư thành phẩm" của 1 mảnh (PieceMaterialYield ở BE) — "1 cây ra N cái", vd
+ *  thanh nhôm → chân nhôm. Chỉ áp dụng khi needsHan=false. */
+interface BePieceMaterialYieldLine {
+  id: number;
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  materialSpec: string | null;
+  materialUnit: string;
+  piecesPerBar: number;
+}
 interface BePiece {
   id: number;
   pieceId: string;
@@ -86,6 +97,7 @@ interface BePiece {
   nail: BePieceMaterialLine[];
   rivet: BePieceMaterialLine[];
   plasticButton: BePieceMaterialLine[];
+  materialYields: BePieceMaterialYieldLine[];
 }
 
 interface BeSku {
@@ -124,8 +136,10 @@ const MANH_REVIEW_GROUP = 'SAT';
  *  còn tách VAT_TU_PHU_KIEN/BAO_BI_DONG_GOI riêng). */
 const DETAIL_REVIEW_GROUP = 'DAY_SON';
 
-/** 4 nhóm vật tư "phẳng theo mảnh" cạnh Sắt - khớp PIECE_MATERIAL_LINE_GROUPS ở BE. */
-const CHILD_GROUP_TO_BE: Record<Exclude<ManhChildGroup, 'sat'>, string> = {
+/** 4 nhóm vật tư "phẳng theo mảnh" cạnh Sắt - khớp PIECE_MATERIAL_LINE_GROUPS ở BE. Vật tư
+ *  thành phẩm (vatTuTP) đi qua materialYields riêng (piecesPerBar, không phải qtyPerPiece) -
+ *  không có mặt ở map này. */
+const CHILD_GROUP_TO_BE: Record<Exclude<ManhChildGroup, 'sat' | 'vatTuTP'>, string> = {
   day: 'WIRE',
   dinh: 'NAIL',
   tanRut: 'RIVET',
@@ -146,7 +160,7 @@ function toManhRow(p: BePiece): ManhRow {
     note: s.note ?? undefined,
     unit: s.materialUnit,
   }));
-  const lineChildren = (lines: BePieceMaterialLine[], group: Exclude<ManhChildGroup, 'sat'>): ManhChildRow[] =>
+  const lineChildren = (lines: BePieceMaterialLine[], group: Exclude<ManhChildGroup, 'sat' | 'vatTuTP'>): ManhChildRow[] =>
     lines.map((l) => ({
       id: l.id,
       group,
@@ -157,6 +171,15 @@ function toManhRow(p: BePiece): ManhRow {
       note: l.note ?? undefined,
       unit: l.materialUnit,
     }));
+  const yieldChildren: ManhChildRow[] = p.materialYields.map((y) => ({
+    id: y.id,
+    group: 'vatTuTP',
+    materialId: y.materialId,
+    name: y.materialName,
+    specs: y.materialSpec ?? undefined,
+    piecesPerBar: String(y.piecesPerBar),
+    unit: y.materialUnit,
+  }));
   return {
     id: p.id,
     pieceId: p.pieceId,
@@ -170,6 +193,7 @@ function toManhRow(p: BePiece): ManhRow {
       ...lineChildren(p.nail, 'dinh'),
       ...lineChildren(p.rivet, 'tanRut'),
       ...lineChildren(p.plasticButton, 'nutNhua'),
+      ...yieldChildren,
     ],
   };
 }
@@ -295,12 +319,21 @@ export async function updateSkuManhQuota(
           note: c.note || undefined,
         })),
       materialLines: r.children
-        .filter((c): c is ManhChildRow & { group: Exclude<ManhChildGroup, 'sat'> } => c.group !== 'sat')
+        .filter(
+          (c): c is ManhChildRow & { group: Exclude<ManhChildGroup, 'sat' | 'vatTuTP'> } =>
+            c.group !== 'sat' && c.group !== 'vatTuTP',
+        )
         .map((c) => ({
           group: CHILD_GROUP_TO_BE[c.group],
           materialId: String(c.materialId ?? ''),
           qtyPerPiece: Number(c.qty) || 0,
           note: c.note || undefined,
+        })),
+      materialYields: r.children
+        .filter((c) => c.group === 'vatTuTP')
+        .map((c) => ({
+          materialId: String(c.materialId ?? ''),
+          piecesPerBar: Number(c.piecesPerBar) || 0,
         })),
     })),
     enteredBy,

@@ -38,6 +38,9 @@ export interface ProcLine {
   /** Hàn/Sơn nối BE thật (đợt 2): Piece.id thật (BE) dùng để báo sản lượng — xem
    *  production-batches-api.ts. Không set cho Phôi (vẫn mock). */
   realPieceId?: string
+  /** Vật tư thành phẩm (stage=PHOI, vd chân nhôm) - tồn nguyên liệu thô (thanh nhôm) hiện có tại
+   *  kho, từ BeProductionBatchPlanItem.rawMaterialOnHand. null/undefined ngoài stage=PHOI. */
+  rawMaterialOnHand?: number | null
 }
 export interface ProcManh {
   id: number
@@ -353,6 +356,14 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
           {fmt(l.doneQty)}
           {pend > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--amber)' }}>chờ KCS: {fmt(pend)} {cfg.unit}</span>}
           {short > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--red)' }}>cần {cfg.verb} thêm {fmt(short)} {cfg.unit}</span>}
+          {/* Vật tư thành phẩm (vd chân nhôm) - còn nguyên liệu thô (thanh nhôm) chưa cắt hết ở
+              kho. Chỉ hiển thị, không chặn thao tác (quyết định nghiệp vụ 2026-08-22) - xem
+              ProductionBatchesService.getBatchPlan() rawMaterialOnHand. */}
+          {l.rawMaterialOnHand != null && l.rawMaterialOnHand > 0 && (
+            <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--amber)' }}>
+              còn {fmt(l.rawMaterialOnHand)} cây nguyên liệu chưa cắt
+            </span>
+          )}
         </>
       }
     },
@@ -625,6 +636,7 @@ async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
         id: lineId, itemName: item.pieceName, spec: item.pieceCode,
         needQty: item.plannedQty, doneQty: item.passedQty,
         lastInputAt: null, realPieceId: item.pieceId,
+        rawMaterialOnHand: item.rawMaterialOnHand,
       }
     })
     rows.push({

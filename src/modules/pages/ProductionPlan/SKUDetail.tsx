@@ -773,7 +773,7 @@ function DetailLinesTable({ rows }: { rows: DetailRow[] }) {
 // duyệt/từ chối luôn xét trên TOÀN BỘ children (mọi nhóm), `filterGroup` chỉ lọc HIỂN THỊ.
 
 const CHILD_GROUP_LABELS: Record<ManhChildGroup, string> = {
-  sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa',
+  sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa', vatTuTP: 'Vật tư thành phẩm',
 }
 const CHILD_GROUP_BADGE: Record<ManhChildGroup, { bg: string; fg: string }> = {
   sat: { bg: '#e3f2fd', fg: '#1565c0' },
@@ -781,6 +781,7 @@ const CHILD_GROUP_BADGE: Record<ManhChildGroup, { bg: string; fg: string }> = {
   dinh: { bg: '#f3e5f5', fg: '#7b1fa2' },
   tanRut: { bg: '#e8f5e9', fg: '#2e7d32' },
   nutNhua: { bg: '#fce4ec', fg: '#ad1457' },
+  vatTuTP: { bg: '#ede7f6', fg: '#4527a0' },
 }
 
 // "Mảnh có đan" = có đủ cả 3 nhóm Dây + Đinh + Nút nhựa (Tán rút không tính) - đúng quy tắc
@@ -894,7 +895,7 @@ function ManhPiecesSection({
                       <th style={{ width: 80, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Nhóm</th>
                       <th style={{ width: '22%', padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Vật tư</th>
                       <th style={{ width: '14%', padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Quy cách</th>
-                      <th style={{ width: 90, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài</th>
+                      <th style={{ width: 90, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài / Số chân/cây</th>
                       <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Công đoạn phôi</th>
                       <th style={{ width: 90, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
                       <th style={{ width: 60, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>ĐVT</th>
@@ -916,7 +917,9 @@ function ManhPiecesSection({
                           {c.note && <span style={{ color: 'var(--text3)', fontWeight: 400 }}> ({c.note})</span>}
                         </td>
                         <td style={{ padding: '9px 14px', color: 'var(--text3)', fontSize: 12 }}>{c.specs || '—'}</td>
-                        <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>{c.group === 'sat' ? (c.length || '—') : '—'}</td>
+                        <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>
+                          {c.group === 'sat' ? (c.length || '—') : c.group === 'vatTuTP' ? (c.piecesPerBar || '—') : '—'}
+                        </td>
                         <td style={{ padding: '9px 14px' }}>
                           {c.group === 'sat' && c.processSteps && c.processSteps.length > 0 ? (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
