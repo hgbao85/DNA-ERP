@@ -557,7 +557,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                                 <span style={{ color: 'var(--text3)' }}>—</span>
                               )}
                             </td>
-                            <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.soLuong || '—'}</td>
+                            <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.group === 'vatTuTP' ? '—' : (c.soLuong || '—')}</td>
                             <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{c.unit || '—'}</td>
                             {!isSubmitted && (
                               <td style={{ textAlign: 'center', padding: '4px', whiteSpace: 'nowrap' }}>
@@ -643,13 +643,15 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                           </div>
                         </div>
                       )}
-                      <div style={{ width: 100 }}>
-                        <FL>Số lượng</FL>
-                        <input placeholder="0" value={childSoLuong}
-                          onChange={e => setChildSoLuong(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
-                          style={inputStyle} />
-                      </div>
+                      {childGroup !== 'vatTuTP' && (
+                        <div style={{ width: 100 }}>
+                          <FL>Số lượng</FL>
+                          <input placeholder="0" value={childSoLuong}
+                            onChange={e => setChildSoLuong(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
+                            style={inputStyle} />
+                        </div>
+                      )}
                       <div style={{ width: 160 }}>
                         <FL>Ghi chú</FL>
                         <input placeholder="VD: uốn, tán,..." value={childNote}

@@ -196,11 +196,19 @@ export async function rejectProdItem(piId: number | string, itemId: number | str
 }
 
 /** QLSX từ chối ngay ở bước chọn kho (chưa kịp gửi Sếp) - SKU quay lại cho KHSX sửa thời hạn,
- *  cùng hệ quả với `rejectProdItem` (Sếp từ chối), khác đường gọi vì BE tách quyền theo mfgRole. */
+ *  cùng hệ quả với `rejectProdItem` (Sếp từ chối), khác đường gọi vì BE tách quyền theo mfgRole.
+ *  @deprecated Không còn dùng trên UI (2026-08-24, "duyệt theo PI, không theo từng SKU") - giữ
+ *  lại vì BE vẫn còn route, dùng rejectPiByQlsx() thay thế. */
 export async function rejectProdItemByQlsx(piId: number | string, itemId: number | string, reason: string, _decidedBy?: string) {
   return toItem(
     await http.post<BeProductionInvoiceItem>(`/production-invoices/${piId}/items/${itemId}/reject-by-qlsx`, { reason }),
   );
+}
+
+/** QLSX từ chối CẢ PHIẾU (mọi SKU đang chờ mình xử lý) trong 1 lần - "duyệt theo PI, không theo
+ *  từng SKU" (2026-08-24), cùng tinh thần sendPiToBoss() ở trên. */
+export async function rejectPiByQlsx(piId: number | string, reason: string) {
+  return http.post<BeProductionInvoice>(`/production-invoices/${piId}/reject-qlsx-batch`, { reason });
 }
 
 // ─── Đợt gộp (PI.isMerged): Sếp quyết CẢ CỤM, không quyết lẻ từng SKU ────────────
