@@ -517,7 +517,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         <th style={{ width: 80, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Nhóm</th>
                         <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Vật tư</th>
                         <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Quy cách</th>
-                        <th style={{ width: 110, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài (mm) / Số chân/cây</th>
+                        <th style={{ width: 110, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Chiều dài (mm) / Số lượng/ĐVT</th>
                         <th style={{ width: 150, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Công đoạn phôi</th>
                         <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
                         <th style={{ width: 70, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>ĐVT</th>
@@ -622,7 +622,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       )}
                       {childGroup === 'vatTuTP' && (
                         <div style={{ width: 120 }}>
-                          <FL>Số chân/cây</FL>
+                          <FL>Số lượng/{childMaterial?.unit || 'đơn vị'}</FL>
                           <input type="number" min={1} step={1} placeholder="12" value={childPiecesPerBar}
                             onChange={e => setChildPiecesPerBar(e.target.value)}
                             onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
