@@ -939,7 +939,7 @@ function ManhPiecesSection({
                             <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>
                           )}
                         </td>
-                        <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.qty || '—'}</td>
+                        <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.group === 'vatTuTP' ? '—' : (c.qty || '—')}</td>
                         <td style={{ padding: '9px 14px', color: 'var(--text3)', fontSize: 12 }}>{c.unit || '—'}</td>
                       </tr>
                       )

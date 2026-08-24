@@ -176,7 +176,7 @@ export default function GomDotCatPage({ onDone }: Props) {
   }
 
   /**
-   * "Tiến hành cắt riêng" - đúng 1 SKU, không gộp gì cả. 2026-08-20: PI không còn tự sinh sẵn lúc
+   * "Tạo lệnh sản xuất riêng cho SKU này" - đúng 1 SKU, không gộp gì cả. 2026-08-20: PI không còn tự sinh sẵn lúc
    * Sales tạo PO nên đây KHÔNG còn là no-op - phải tạo thật 1 PI riêng cho SKU này mới đi tiếp
    * được sang "Lệnh sản xuất mới" (xem claimSoloCuttingBatch()).
    */
@@ -472,7 +472,7 @@ export default function GomDotCatPage({ onDone }: Props) {
             style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', cursor: merging ? 'not-allowed' : 'pointer', opacity: merging ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 7, flexShrink: 0 }}
           >
             {merging && <Loader2 size={14} className="spin" />}
-            Tiến hành cắt riêng
+            Tạo lệnh sản xuất riêng cho SKU này
           </button>
         </div>
       )}

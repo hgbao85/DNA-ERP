@@ -151,7 +151,7 @@ export async function mergeCuttingBatch(
 }
 
 /**
- * "Tiến hành cắt riêng" - đúng 1 SKU, không gộp gì cả. Trước đây (< 2026-08-20) đây là no-op vì PI
+ * "Tạo lệnh sản xuất riêng cho SKU này" - đúng 1 SKU, không gộp gì cả. Trước đây (< 2026-08-20) đây là no-op vì PI
  * đã tự sinh sẵn 1-1 lúc Sales tạo PO; giờ PI chỉ sinh khi KHSX chủ động, nên nút này phải THẬT SỰ
  * tạo 1 PI thường cho đúng SKU đó (ProductionInvoicesService.claimSolo()).
  */

@@ -105,7 +105,7 @@ export {
 export {
   getProductionInvoices, getProductionInvoice, updateProductionInvoice, updateProductionInvoiceItem,
   sendItemToQlsx, sendItemToBoss, sendPiToQlsx, sendPiToBoss,
-  approveItemByBoss, rejectProdItem, rejectProdItemByQlsx,
+  approveItemByBoss, rejectProdItem, rejectProdItemByQlsx, rejectPiByQlsx,
   approveBatchByBoss, rejectBatchByBoss,
 } from './production-invoices-api';
 export { getWarehouses, createWarehouse, deleteWarehouse } from './warehouses-api';
