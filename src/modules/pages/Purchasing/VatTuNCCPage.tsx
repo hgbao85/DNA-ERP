@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
+import { useAuth } from '../../../context/AuthContext'
 import { errMsg } from '../../../utils/errors'
 import { Search, Plus, Trash2, Pencil, X, Building2 } from 'lucide-react'
 
-interface Material { id: number; code: string; name: string; unit: string }
+interface Material { id: number; code: string; name: string; unit: string; spec?: string | null; buyerId?: string | null }
 interface Supplier { id: number; name: string; phone?: string | null; address?: string | null; isActive: boolean; _count?: { materials: number } }
 // BE (/materials/:materialId/suppliers) trả supplierId + supplierName phẳng (không có object
 // supplier lồng như mock cũ) — ghép thêm phone/address bằng cách tra trong danh sách `suppliers`
@@ -14,6 +15,7 @@ interface Link { id: number; price: number; supplierId: number; supplierName: st
 const safeArr = <T,>(d: T[] | null | undefined): T[] => (Array.isArray(d) ? d : [])
 
 export default function VatTuNCCPage() {
+  const { user } = useAuth()
   const { data: materials } = useFetch<Material[]>(() => api.getMaterials())
   const { data: suppliers, refetch: refetchSup } = useFetch<Supplier[]>(() => api.getSuppliers())
   const [search, setSearch] = useState('')
@@ -25,9 +27,15 @@ export default function VatTuNCCPage() {
   const [linkPrice, setLinkPrice] = useState('')
   const [err, setErr] = useState('')
 
-  const matList = safeArr(materials).filter(m => {
+  // Nhân viên mua hàng chỉ thấy vật tư mình được gán mua (Material.buyerId) — Sếp (BOSS) vẫn
+  // thấy toàn bộ. Vật tư chưa gán ai (buyerId null) hiện cho mọi nhân viên mua hàng để không
+  // "mồ côi" cho tới khi có người nhận, cùng quy ước với purchasingRouting.ts.
+  const userId = user?.id != null ? String(user.id) : null
+  const isBoss = user?.role === 'BOSS'
+  const scopedMaterials = safeArr(materials).filter(m => isBoss || !userId || !m.buyerId || m.buyerId === userId)
+  const matList = scopedMaterials.filter(m => {
     const q = search.trim().toLowerCase()
-    return !q || m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q)
+    return !q || m.name.toLowerCase().includes(q) || m.code.toLowerCase().includes(q) || (m.spec ?? '').toLowerCase().includes(q)
   })
   // "Ẩn NCC" = update isActive:false (không xoá thật - xem SupplierManager.del), nên NCC đã ẩn
   // vẫn còn trong danh sách BE trả về. Loại khỏi mọi nơi CHỌN (gắn NCC mới, quản lý) - nhưng
@@ -57,7 +65,7 @@ export default function VatTuNCCPage() {
       </div>
       <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>Mỗi vật tư mua từ NCC nào — kèm địa chỉ & số điện thoại liên hệ</div>
       <div style={{ color: 'var(--text3)', fontSize: 12, marginBottom: 16 }}>
-        {safeArr(materials).length} vật tư · {activeSuppliers.length} NCC hiện có
+        {scopedMaterials.length} vật tư · {activeSuppliers.length} NCC hiện có
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16, alignItems: 'start' }}>
@@ -74,7 +82,7 @@ export default function VatTuNCCPage() {
                 background: selMat === m.id ? '#ede7f6' : 'transparent', color: selMat === m.id ? '#4527a0' : 'var(--text)', cursor: 'pointer', fontSize: 13,
               }}>
                 <div style={{ fontWeight: selMat === m.id ? 700 : 500 }}>{m.name}</div>
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>{m.code} · {m.unit}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>{m.spec ? `${m.spec} · ${m.unit}` : m.unit}</div>
               </button>
             ))}
             {matList.length === 0 && <div style={{ padding: 14, color: 'var(--text3)', fontSize: 13 }}>Không có vật tư</div>}
@@ -87,7 +95,12 @@ export default function VatTuNCCPage() {
             <div style={{ color: 'var(--text3)', fontSize: 13 }}>← Chọn 1 vật tư để xem & gắn nhà cung cấp</div>
           ) : (
             <>
-              <div style={{ fontWeight: 700, marginBottom: 12 }}>{selMatObj?.name} <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 400 }}>({selMatObj?.unit})</span></div>
+              <div style={{ fontWeight: 700, marginBottom: 12 }}>
+                {selMatObj?.name}{' '}
+                <span style={{ fontSize: 12, color: 'var(--text3)', fontWeight: 400 }}>
+                  ({selMatObj?.spec ? `${selMatObj.spec} · ${selMatObj.unit}` : selMatObj?.unit})
+                </span>
+              </div>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead><tr style={{ textAlign: 'left', color: 'var(--text3)' }}>
                   <th style={th}>Nhà cung cấp</th><th style={th}>Địa chỉ</th><th style={th}>SĐT</th><th style={th}>Đơn giá</th><th style={th}></th>
