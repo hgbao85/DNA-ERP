@@ -20,8 +20,6 @@
  */
 import { http, withIdempotencyKey } from './core/http';
 import type { ProcessStep } from '../types/sku';
-import { getCuttingProposalsForInvoice, getCuttingProposal } from './cutting-proposals-api';
-import type { CuttingProposalPattern } from './cutting-proposals-api';
 
 export type SteelIssueStatus = 'ISSUED' | 'RECEIVED' | 'IN_PROCESS' | 'AWAITING_QC' | 'QC_PASSED';
 
@@ -207,22 +205,6 @@ export interface BePhoiProgressItem {
 
 export async function getPhoiProgress(productionInvoiceId: string): Promise<BePhoiProgressItem[]> {
   return http.get<BePhoiProgressItem[]>(`/production-invoices/${productionInvoiceId}/phoi-progress`);
-}
-
-/** Các kiểu cắt (pattern) đã duyệt cho đúng vật tư của 1 đợt sắt — để Phôi báo cắt xong đúng theo
- *  phương án đã duyệt (proposalPatternId thật) thay vì nhập tay đoạn/cây. Trả mảng rỗng nếu chưa
- *  có phương án cắt nào APPROVED cho vật tư này (không nên xảy ra — SteelIssuesService.create() đã
- *  chặn xuất sắt khi chưa có phương án duyệt — nhưng không throw để FE có chỗ báo lỗi rõ ràng hơn). */
-export async function getApprovedPatternsForMaterial(
-  productionInvoiceId: string,
-  materialId: string,
-): Promise<CuttingProposalPattern[]> {
-  const proposals = await getCuttingProposalsForInvoice(productionInvoiceId);
-  const approved = proposals.find((p) => p.status === 'APPROVED');
-  if (!approved) return [];
-  const detail = await getCuttingProposal(approved.id);
-  const line = detail.lines?.find((l) => l.materialId === materialId);
-  return line?.patterns ?? [];
 }
 
 // ── KCS (nhánh Phôi) ────────────────────────────────────────────────────────

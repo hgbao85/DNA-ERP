@@ -32,6 +32,16 @@ export interface CuttingProposalPattern {
   segments: CuttingProposalSegment[];
 }
 
+/** 1 dòng bảng "TỔNG KẾT CẮT" của bản in hướng dẫn cắt (layout "In kết quả" của MC Laser).
+ *  Không có cột Tồn kho (Sếp chốt 2026-08-25 bỏ) - cần thì trừ `produced - demand`. */
+export interface CuttingProposalPieceSummary {
+  size: number;
+  demand: number;
+  produced: number;
+  /** Tên các mảnh dùng tới cỡ đoạn này (vd ["chân bàn"]). Rỗng nếu BE không tra được tên. */
+  names: string[];
+}
+
 export interface CuttingProposalLine {
   materialId: string;
   materialCode: string;
@@ -44,6 +54,10 @@ export interface CuttingProposalLine {
   wastePercentage: number | null;
   mauNguyenMm: number | null;
   lengthComparison: { length: number; bars: number; wastePct: number }[] | null;
+  /** Tổng kết theo cỡ đoạn cho bản in. null khi dòng không khả thi, hoặc phương án tính trước
+   *  2026-08-25 mà chưa chạy backfill ở BE - FE PHẢI chịu được null (hiện "—" ở SL cần), xem
+   *  utils/cuttingGuide.ts::buildPieceSummary. */
+  pieceSummary: CuttingProposalPieceSummary[] | null;
   /** Lý do KHÔNG cắt được, NGUYÊN VĂN từ solver - null khi feasible=true. Ưu tiên hiển thị
    *  `displayReason` (đã dựng sẵn tiếng Việt) thay vì tự ghép field này. */
   reason: string | null;
