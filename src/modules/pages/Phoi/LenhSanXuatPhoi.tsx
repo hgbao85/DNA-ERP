@@ -32,14 +32,13 @@
 
 import { useMemo, useState } from 'react'
 import {
-  ChevronLeft, ChevronRight, ChevronDown, Wrench, Clock, Check, AlertTriangle, RotateCcw, Plus,
+  ChevronLeft, ChevronRight, ChevronDown, Wrench, Clock, Check, AlertTriangle, RotateCcw, Plus, Ruler,
 } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type {
   BeSteelIssue, BeQcReview, BePhoiProgressItem, BeCutBundle,
 } from '../../../services/steel-issues-api'
-import type { CuttingProposalPattern } from '../../../services/cutting-proposals-api'
 import type { ProcessStep } from '../../../types/sku'
 import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { errMsg } from '../../../utils/errors'
@@ -89,7 +88,11 @@ function buildPiRows(issues: BeSteelIssue[]): PiAgg[] {
   })
 }
 
-export default function LenhSanXuatPhoi({ readOnly = false }: { readOnly?: boolean }) {
+export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }: {
+  readOnly?: boolean
+  /** Nhảy sang màn "Hướng dẫn cắt" (sidebar riêng) đúng PI đang mở - xem CutBatchPanel. */
+  onOpenCuttingGuide?: (productionInvoiceId: string) => void
+}) {
   const { data: issues, isLoading, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
   const { data: reviews, refetch: refetchReviews } = useFetch<BeQcReview[]>(() => api.getQcReviewsForSteelIssues(), [])
   const [selPi, setSelPi] = useState<string | null>(null)
@@ -103,7 +106,7 @@ export default function LenhSanXuatPhoi({ readOnly = false }: { readOnly?: boole
 
   if (sel) {
     return (
-      <PiDetail pi={sel} readOnly={readOnly} reviews={reviews ?? []} onBack={() => setSelPi(null)} onRefetch={refetchAll} />
+      <PiDetail pi={sel} readOnly={readOnly} reviews={reviews ?? []} onBack={() => setSelPi(null)} onRefetch={refetchAll} onOpenCuttingGuide={onOpenCuttingGuide} />
     )
   }
 
@@ -156,8 +159,9 @@ export default function LenhSanXuatPhoi({ readOnly = false }: { readOnly?: boole
 
 // ── Chi tiết 1 PI — danh sách phẳng từng đợt, báo cắt xong / đánh dấu công đoạn ────────────
 
-function PiDetail({ pi, readOnly, reviews, onBack, onRefetch }: {
+function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide }: {
   pi: PiAgg; readOnly: boolean; reviews: BeQcReview[]; onBack: () => void; onRefetch: () => void
+  onOpenCuttingGuide?: (productionInvoiceId: string) => void
 }) {
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const [busy, setBusy] = useState<string | null>(null)
@@ -279,7 +283,7 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch }: {
 
               {isOpen && (l.status === 'RECEIVED' || (l.status === 'QC_PASSED' && outstanding > 0)) && (
                 <div style={{ borderTop: '1px solid var(--border)', padding: '14px 16px', background: 'var(--surface2)' }}>
-                  <CutBatchPanel issue={l} readOnly={readOnly} progress={progressByMaterial.get(l.materialId) ?? null} review={review} onRefetch={refetchAll} />
+                  <CutBatchPanel issue={l} readOnly={readOnly} progress={progressByMaterial.get(l.materialId) ?? null} review={review} onRefetch={refetchAll} onOpenCuttingGuide={onOpenCuttingGuide} />
                 </div>
               )}
 
@@ -320,15 +324,20 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch }: {
   )
 }
 
-// ── Bảng Cần / Đã cắt / Lỗi / Còn lại + form nhập đợt cắt + lịch sử + gợi ý ──────
+// ── Bảng Cần / Đã cắt / Lỗi / Còn lại + form nhập đợt cắt + lịch sử ──────
 // RECEIVED (cắt lần đầu): đầy đủ form nhập đợt cắt + Gửi KCS. QC_PASSED còn lỗi (2026-08-24, vòng
 // 2 - CHỈ 2 kết quả Đạt/Không đạt): chế độ XEM + nút "Bù đủ" mỗi cỡ đoạn - Phôi tự bù bằng sắt kiếm
 // ngoài thực tế (KHÔNG đụng cây sắt kho đã cấp, KHÔNG qua recordCutBatch), CHỜ KCS duyệt lại mới
 // hết lỗi (QcReviewsService.reportSegmentDone/recheck) - ẩn hẳn ô nhập đợt cắt/Gửi KCS ở chế độ này.
+//
+// "Cách cắt gợi ý" (2026-08-25, bỏ) - phương án cắt KHÔNG phải gợi ý, là BẮT BUỘC theo đúng
+// solver đã duyệt. Bảng chip gọn khó nhìn khi nhiều cỡ và không in được, thay bằng liên kết sang
+// màn riêng "Hướng dẫn cắt" (sidebar, HuongDanCatPage.tsx) - bảng lưới ô-theo-ô + xuất Excel.
 
-function CutBatchPanel({ issue, readOnly, progress, review, onRefetch }: {
+function CutBatchPanel({ issue, readOnly, progress, review, onRefetch, onOpenCuttingGuide }: {
   issue: BeSteelIssue; readOnly: boolean; progress: BePhoiProgressItem | null
   review?: BeQcReview; onRefetch: () => void
+  onOpenCuttingGuide?: (productionInvoiceId: string) => void
 }) {
   const isRecheckMode = issue.status === 'QC_PASSED'
   const [rowInputs, setRowInputs] = useState<Record<string, string>>({})
@@ -337,13 +346,8 @@ function CutBatchPanel({ issue, readOnly, progress, review, onRefetch }: {
   const [busy, setBusy] = useState(false)
   const [buDuBusy, setBuDuBusy] = useState<string | null>(null)
   const [err, setErr] = useState('')
-  const [showPatterns, setShowPatterns] = useState(false)
   const [showHistory, setShowHistory] = useState(false)
 
-  const { data: patterns, isLoading: patternsLoading } = useFetch<CuttingProposalPattern[]>(
-    () => (!isRecheckMode && showPatterns) ? api.getApprovedPatternsForMaterial(issue.productionInvoiceId, issue.materialId) : Promise.resolve([]),
-    [isRecheckMode, showPatterns, issue.id],
-  )
   // Luôn tải (không đợi mở "Lịch sử đợt đã nhập") - cần ngay để tính số cây còn lại bên dưới. Bỏ
   // qua ở chế độ duyệt bù (isRecheckMode) - không còn ô nhập đợt cắt nào cần số cây còn lại.
   const { data: bundles, refetch: refetchBundles } = useFetch<BeCutBundle[]>(
@@ -496,34 +500,15 @@ function CutBatchPanel({ issue, readOnly, progress, review, onRefetch }: {
       )}
       {err && <div style={{ marginTop: 8, fontSize: 12, color: RED }}>{err}</div>}
 
+      {!isRecheckMode && onOpenCuttingGuide && (
+        <button onClick={() => onOpenCuttingGuide(issue.productionInvoiceId)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', border: 'none', background: 'none', padding: 0, marginBottom: 10, fontSize: 12, fontWeight: 600, color: ACCENT, cursor: 'pointer' }}>
+          <Ruler size={13} /> Xem hướng dẫn cắt đầy đủ (bắt buộc theo đúng phương án đã duyệt, xuất được để in) →
+        </button>
+      )}
+
       {!isRecheckMode && (
         <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <button onClick={() => setShowPatterns(x => !x)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start', border: 'none', background: 'none', padding: 0, fontSize: 12, color: 'var(--text3)', cursor: 'pointer' }}>
-            {showPatterns ? <ChevronDown size={12} /> : <ChevronRight size={12} />} Cách cắt gợi ý (phần mềm tính, chỉ tham khảo)
-          </button>
-          {showPatterns && (
-            patternsLoading ? <LoadingState /> : (
-              <div style={{ ...card, padding: '10px 14px' }}>
-                {(patterns ?? []).length === 0 ? (
-                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>Chưa có phương án cắt nào đã duyệt cho vật tư này.</div>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    {(patterns ?? []).map(p => (
-                      <div key={p.id} style={{ fontSize: 12 }}>
-                        Kiểu {p.patternIndex + 1}: {p.segments.map(s => `${s.countPerBar}×${s.cutLengthMm}mm`).join(' + ')}
-                        {' '}<span style={{ color: 'var(--text3)' }}>({p.barCount} cây{p.wastePerBarMm ? `, hao hụt ${p.wastePerBarMm}mm/cây` : ''})</span>
-                        {(p.mauNguyenMm ?? 0) > 0 && (
-                          <span style={{ color: '#8d6e00', fontStyle: 'italic' }}> — cắt dở, còn {p.mauNguyenMm}mm để nguyên</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )
-          )}
-
           <button onClick={() => setShowHistory(x => !x)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start', border: 'none', background: 'none', padding: 0, fontSize: 12, color: 'var(--text3)', cursor: 'pointer' }}>
             {showHistory ? <ChevronDown size={12} /> : <ChevronRight size={12} />} Lịch sử đợt đã nhập

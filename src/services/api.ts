@@ -129,7 +129,7 @@ export {
 export {
   getSteelIssuePlan, getSteelIssuesForInvoice, issueSteel,
   getSteelIssuesByStatus, getSteelIssue, getCutBundles, receiveSteelIssue,
-  recordCutBatch, finishCutting, completeStep, getPhoiProgress, getApprovedPatternsForMaterial,
+  recordCutBatch, finishCutting, completeStep, getPhoiProgress,
   reviewSteelIssueQc, reportSegmentDone, recheckQc, getQcReviewsForSteelIssues,
   getReplenishRequests, fulfillReplenishRequest, rejectReplenishRequest,
 } from './steel-issues-api';

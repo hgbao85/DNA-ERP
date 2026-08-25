@@ -1,7 +1,6 @@
 'use client'
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import * as XLSX from 'xlsx'
-import { Scissors, Info, ChevronDown, ChevronRight, FileSpreadsheet, X, Loader2, AlertTriangle } from 'lucide-react'
+import { Scissors, Info, ChevronDown, ChevronRight, X, Loader2, AlertTriangle } from 'lucide-react'
 import { useFetch } from '../../../../hooks/useFetch'
 import SearchInput from '../../../../components/SearchInput'
 import FilterPills from '../../../../components/FilterPills'
@@ -10,6 +9,8 @@ import LoadingState from '../../../../components/LoadingState'
 import Pagination from '../../../../components/Pagination'
 import ConfirmModal from '../../../../components/ConfirmModal'
 import { tableWrap, tbl, th, td, row, badge } from '../../../../styles/table'
+import { buildCuttingGuideTable, exportCuttingGuideExcel, printCuttingGuide } from '../../../../utils/cuttingGuide'
+import PrintExportButton from '../../../../components/PrintExportButton'
 import {
   getCuttingProposals,
   getCuttingProposal,
@@ -17,7 +18,6 @@ import {
   retryCuttingProposalForInvoice,
   type CuttingProposal,
   type CuttingProposalDisplayStatus,
-  type CuttingProposalLine,
 } from '../../../../services/cutting-proposals-api'
 
 const ACCENT = '#3949ab'
@@ -50,59 +50,6 @@ function CalculatingBadge({ requestedAt }: { requestedAt: string }) {
       <Loader2 size={10} className="spin" /> Đang tính... (đã chạy {minutes} phút)
     </span>
   )
-}
-
-interface CuttingGuideRow {
-  patternIndex: number
-  counts: number[]
-  barCount: number
-  wastePerBarMm: number | null
-  mauNguyenMm: number | null
-}
-
-/** Gộp bảng hướng dẫn cắt (1 vật tư) từ patterns[] - dùng chung cho hiển thị lẫn xuất Excel. */
-function buildCuttingGuideTable(line: CuttingProposalLine): { columns: number[]; rows: CuttingGuideRow[] } {
-  const patterns = line.patterns ?? []
-  const columnSet = new Set<number>()
-  for (const p of patterns) for (const s of p.segments) columnSet.add(s.cutLengthMm)
-  const columns = [...columnSet].sort((a, b) => b - a)
-  const rows: CuttingGuideRow[] = patterns.map(p => {
-    const bySize = new Map(p.segments.map(s => [s.cutLengthMm, s.countPerBar]))
-    return {
-      patternIndex: p.patternIndex,
-      counts: columns.map(c => bySize.get(c) ?? 0),
-      barCount: p.barCount,
-      wastePerBarMm: p.wastePerBarMm,
-      mauNguyenMm: p.mauNguyenMm,
-    }
-  })
-  return { columns, rows }
-}
-
-function exportCuttingGuideExcel(proposal: CuttingProposal, line: CuttingProposalLine) {
-  const { columns, rows } = buildCuttingGuideTable(line)
-  const header = ['Thanh (mm)', ...columns.map(c => `${c}mm`), 'Số cây', 'HH/cây (mm)', 'Ghi chú']
-  const dataRows = rows.map(r => [
-    line.bestStockLengthMm ?? '',
-    ...r.counts,
-    r.barCount,
-    r.wastePerBarMm ?? '',
-    r.mauNguyenMm && r.mauNguyenMm > 0 ? `Cắt dở - còn ${r.mauNguyenMm}mm để nguyên, nhập kho` : '',
-  ])
-  const sheetData = [
-    [`${line.materialCode} — ${line.materialName}`],
-    [`Mua ${line.bestStockLengthMm ?? '—'}mm × ${line.totalBars ?? '—'} cây, hao hụt ${fmtPct(line.wastePercentage)}`],
-    [`Tổng khúc thừa (phế liệu): ${line.totalWasteMm ?? 0} mm`],
-    [`Mẫu nguyên chưa cắt: ${line.mauNguyenMm ?? 0} mm`],
-    [],
-    header,
-    ...dataRows,
-  ]
-  const ws = XLSX.utils.aoa_to_sheet(sheetData)
-  const wb = XLSX.utils.book_new()
-  const sheetName = line.materialCode.replace(/[\\/*?[\]:]/g, '-').slice(0, 31) || 'VatTu'
-  XLSX.utils.book_append_sheet(wb, ws, sheetName)
-  XLSX.writeFile(wb, `Huong-dan-cat-${proposal.poNumber}-${line.materialCode}.xlsx`)
 }
 
 /** Gọi đúng route retry theo neo của phương án (1 lệnh SX riêng, hoặc cả PI gộp) - xem
@@ -386,18 +333,23 @@ export default function CuttingProposalsPage() {
                               <div style={{ fontSize: 12, color: 'var(--text3)' }}>
                                 Mẫu nguyên chưa cắt: {l.mauNguyenMm ?? 0}mm · Tổng khúc thừa (phế liệu): {l.totalWasteMm ?? 0}mm
                               </div>
-                              <button
-                                onClick={e => { e.stopPropagation(); exportCuttingGuideExcel(detail, l) }}
-                                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '4px 10px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer' }}
-                              >
-                                <FileSpreadsheet size={13} /> Xuất Excel
-                              </button>
+                              {/* stopPropagation trên cả khối - PrintExportButton tự có menu con,
+                                  click chọn Excel/PDF bên trong cũng không được để lọt lên tr.onClick
+                                  (toggleLine) như nút rời trước đây đã chặn riêng từng cái. */}
+                              <div onClick={e => e.stopPropagation()}>
+                                <PrintExportButton
+                                  label="In"
+                                  color={ACCENT}
+                                  onExcel={() => exportCuttingGuideExcel(detail.poNumber, l)}
+                                  onPdf={() => printCuttingGuide(detail.poNumber, [l])}
+                                />
+                              </div>
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                               {guide.rows.map(r => {
                                 const isRemnant = !!r.mauNguyenMm && r.mauNguyenMm > 0
                                 const chips = guide.columns
-                                  .map((c, i) => ({ size: c, count: r.counts[i] }))
+                                  .map((c, i) => ({ size: c, label: guide.columnLabels[i], count: r.counts[i] }))
                                   .filter(c => c.count > 0)
                                 return (
                                   <div
@@ -417,7 +369,7 @@ export default function CuttingProposalsPage() {
                                           key={c.size}
                                           style={{ fontSize: 12, padding: '3px 9px', borderRadius: 20, background: 'var(--surface2)', border: '1px solid var(--border)' }}
                                         >
-                                          {c.size}mm ×{c.count}
+                                          {c.label} ×{c.count}
                                         </span>
                                       ))}
                                     </div>
