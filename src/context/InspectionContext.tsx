@@ -5,6 +5,7 @@ import { useAuth } from './AuthContext'
 import {
   getPurchaseProposals as fetchPurchaseProposals,
   acknowledgeProposal as acknowledgeProposalApi,
+  saveProposalQuotes as saveProposalQuotesApi,
   submitProposalToDirector as submitProposalToDirectorApi,
   approveProposal as approveProposalApi,
   rejectProposal as rejectProposalApi,
@@ -18,6 +19,12 @@ import {
 // xuất mua, xem purchasing-api.ts#toItem(). KHÔNG dùng để route tới tài khoản Purchasing (đã
 // chuyển sang gán theo từng vật tư - Material.buyerId, xem src/utils/purchasingRouting.ts).
 export type KhoKey = 'phoiSonHan' | 'vatTuTP' | 'thanhPham'
+
+// State machine dùng chung cho cả PurchaseProposal.status (nay CHỈ còn là giá trị ROLLUP suy ra
+// từ items) và PurchaseProposalItem.status (nguồn sự thật thật sự từ 2026-08-25, "duyệt riêng
+// từng người mua hàng" - xem plan abstract-soaring-rivest). Tách type riêng để 2 field dùng
+// chung 1 định nghĩa thay vì PurchaseProposalItem phải tham chiếu ngược PurchaseProposal['status'].
+export type ProposalStatus = 'new' | 'quoting' | 'submitted' | 'purchasing' | 'purchased' | 'rejected'
 
 export interface PurchaseProposalItem {
   name: string
@@ -38,6 +45,17 @@ export interface PurchaseProposalItem {
   itemId?: string
   receivedQty?: number // luỹ kế thủ kho đã xác nhận nhận về, so với buyQty để biết đã đủ chưa
   receivedQtyPurchaseUnit?: number | null // luỹ kế theo purchaseUnit (vd kg) - chỉ để đối chiếu
+  /** Trạng thái CỦA RIÊNG DÒNG NÀY (2026-08-25) - nguồn sự thật cho mọi gate nghiệp vụ (báo giá,
+   *  gửi Sếp, duyệt, từ chối, nhận hàng). `PurchaseProposal.status` giờ chỉ còn là rollup hiển thị
+   *  tổng quát - KHÔNG dùng để quyết định 1 dòng vật tư cụ thể làm được gì, vì 1 đề xuất gộp có
+   *  thể có vật tư của nhiều người mua hàng ở nhiều trạng thái khác nhau cùng lúc (Nhàn đã
+   *  SUBMITTED trong khi Trâm còn QUOTING). Mặc định 'new' cho item cũ/mock chưa có field này. */
+  status: ProposalStatus
+  submittedAt?: string
+  approvedAt?: string
+  rejectedAt?: string
+  rejectionReason?: string
+  purchasedAt?: string
 }
 
 export interface ProposalQuote {
@@ -82,7 +100,7 @@ export interface PurchaseProposal {
   // (so khớp với user.warehouseScope, xem src/utils/purchasingRouting.ts).
   warehouseScope: WarehouseScope
   items: PurchaseProposalItem[]
-  status: 'new' | 'quoting' | 'submitted' | 'purchasing' | 'purchased' | 'rejected'
+  status: ProposalStatus
   // Key = String(item.materialId), KHÔNG phải item.name — vật tư khác nhau có thể trùng tên hiển
   // thị (vd nhiều loại "Sắt phi" khác đường kính), materialId mới là định danh duy nhất trong 1
   // đề xuất (đã gặp bug thật do dùng tên làm key, sửa 2026-08-13, xem purchasing-api.ts).
@@ -118,9 +136,16 @@ interface InspCtxType {
   actionError: string | null
   dismissActionError:      () => void
   acknowledgeProposal:     (proposalId: string) => Promise<void>
+  /** Lưu báo giá KHÔNG gửi Sếp duyệt - trả về đề xuất đã cập nhật để call site tự re-seed lại
+   *  form nhập liệu với `quote.id` thật (tránh gửi trùng dòng ở lượt lưu tiếp theo, xem
+   *  purchasing-api.ts#postNewQuotes). */
+  saveProposalQuotes:      (proposalId: string, quotes: Record<string, ProposalQuote[]>) => Promise<PurchaseProposal>
   submitProposalToDirector:(proposalId: string, quotes: Record<string, ProposalQuote[]>) => Promise<void>
   approveProposal:         (proposalId: string, chosenQuoteIdByItemKey: Record<string, string>) => Promise<void>
-  rejectProposal:          (proposalId: string, reason: string) => Promise<void>
+  /** `itemIds` (2026-08-25) - Sếp chỉ từ chối đúng batch item đang SUBMITTED mà mình đang xem
+   *  (BossApp truyền id các dòng "submittedItems" của đúng đề xuất này) - không truyền thì BE áp
+   *  dụng cho MỌI item đang SUBMITTED của đề xuất (tương thích ngược). */
+  rejectProposal:          (proposalId: string, reason: string, itemIds?: string[]) => Promise<void>
   requoteProposal:         (proposalId: string) => Promise<void>
   receiveProposalItem:     (proposalId: string, itemKey: string, qty: number, receivedQtyPurchaseUnit?: number) => Promise<void>
 }
@@ -175,10 +200,10 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
   // nếu chỉ nuốt thì call site không phân biệt được thành công/thất bại để rollback state cục bộ
   // (xem NhapKhoPage.confirmItem xoá ô nhập). Xoá lỗi cũ trước mỗi lượt để banner luôn ứng với
   // thao tác vừa bấm, không phải lỗi tồn từ lần trước.
-  const runAction = useCallback(async (label: string, fn: () => Promise<void>): Promise<void> => {
+  const runAction = useCallback(async <T,>(label: string, fn: () => Promise<T>): Promise<T> => {
     setActionError(null)
     try {
-      await fn()
+      return await fn()
     } catch (err) {
       setActionError(`${label} thất bại: ${err instanceof Error ? err.message : String(err)}`)
       throw err
@@ -190,6 +215,15 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
       const updated = await acknowledgeProposalApi(proposalId)
       setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
     }), [runAction])
+
+  const saveProposalQuotes = useCallback((proposalId: string, quotes: Record<string, ProposalQuote[]>) =>
+    runAction('Lưu báo giá', async () => {
+      const current = proposals.find(p => p.id === proposalId)
+      if (!current) throw new Error('Không tìm thấy đề xuất trong danh sách - hãy tải lại trang')
+      const updated = await saveProposalQuotesApi(current, quotes)
+      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+      return updated
+    }), [proposals, runAction])
 
   const submitProposalToDirector = useCallback((proposalId: string, quotes: Record<string, ProposalQuote[]>) =>
     runAction('Gửi Sếp duyệt', async () => {
@@ -209,9 +243,9 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
       setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
     }), [proposals, runAction])
 
-  const rejectProposal = useCallback((proposalId: string, reason: string) =>
+  const rejectProposal = useCallback((proposalId: string, reason: string, itemIds?: string[]) =>
     runAction('Từ chối đề xuất mua', async () => {
-      const updated = await rejectProposalApi(proposalId, reason)
+      const updated = await rejectProposalApi(proposalId, reason, itemIds)
       setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
     }), [runAction])
 
@@ -239,7 +273,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     }), [proposals, runAction])
 
   return (
-    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, acknowledgeProposal, submitProposalToDirector, approveProposal, rejectProposal, requoteProposal, receiveProposalItem }}>
+    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, acknowledgeProposal, saveProposalQuotes, submitProposalToDirector, approveProposal, rejectProposal, requoteProposal, receiveProposalItem }}>
       <ActionErrorBanner message={actionError} onDismiss={dismissActionError} />
       {children}
     </InspCtx.Provider>

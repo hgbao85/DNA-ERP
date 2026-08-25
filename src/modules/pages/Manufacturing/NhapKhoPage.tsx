@@ -44,14 +44,17 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
     return !whId || whId === scopeWarehouseId
   }
 
+  // Vật tư đã tới lượt nhận hàng - item-level (2026-08-25): rollup p.status không lên
+  // 'purchasing'/'purchased' cho tới khi MỌI dòng của đề xuất gộp cùng ở đó, nên Thủ kho phải
+  // thấy được item PURCHASING của Nhàn ngay cả khi item của Trâm trong cùng proposal còn QUOTING.
+  const itemReceivable = (item: PurchaseProposalItem): boolean =>
+    itemInScope(item) && (item.status === 'purchasing' || item.status === 'purchased')
+
   // Tổng kho/Giám đốc (lockedGroup null) thấy hết, thủ kho theo scope chỉ thấy đề xuất có
-  // ít nhất 1 dòng vật tư thuộc kho mình.
-  const relevant = proposals.filter(p =>
-    (p.status === 'purchasing' || p.status === 'purchased') &&
-    p.items.some(itemInScope)
-  )
+  // ít nhất 1 dòng vật tư thuộc kho mình VÀ đã tới lượt nhận hàng.
+  const relevant = proposals.filter(p => p.items.some(itemReceivable))
   const selected = relevant.find(p => p.id === selectedId) ?? null
-  const visibleItems = selected ? selected.items.filter(itemInScope) : []
+  const visibleItems = selected ? selected.items.filter(itemReceivable) : []
 
   const inputKey = (proposalId: string, materialId: string) => `${proposalId}:${materialId}`
 
