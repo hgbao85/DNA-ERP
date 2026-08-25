@@ -128,7 +128,8 @@ export {
 } from './production-batches-api';
 export {
   getSteelIssuePlan, getSteelIssuesForInvoice, issueSteel,
-  getSteelIssuesByStatus, getSteelIssue, receiveSteelIssue, completeCutting, completeStep, getApprovedPatternsForMaterial,
-  reviewSteelIssueQc, getQcReviewsForSteelIssues,
+  getSteelIssuesByStatus, getSteelIssue, getCutBundles, receiveSteelIssue,
+  recordCutBatch, finishCutting, completeStep, getPhoiProgress, getApprovedPatternsForMaterial,
+  reviewSteelIssueQc, reportSegmentDone, recheckQc, getQcReviewsForSteelIssues,
   getReplenishRequests, fulfillReplenishRequest, rejectReplenishRequest,
 } from './steel-issues-api';
