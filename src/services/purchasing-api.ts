@@ -98,6 +98,14 @@ interface BeItem {
   receivedQty: number;
   receivedQtyPurchaseUnit: number | null;
   quotes: BeQuote[];
+  // Trạng thái CỦA RIÊNG DÒNG NÀY (2026-08-25, "duyệt riêng từng người mua hàng") - xem
+  // PurchaseProposalItem.status ở InspectionContext.tsx cho ý nghĩa đầy đủ.
+  status: keyof typeof BE_TO_FE_STATUS;
+  submittedAt: string | null;
+  approvedAt: string | null;
+  rejectedAt: string | null;
+  rejectionReason: string | null;
+  purchasedAt: string | null;
 }
 
 interface BeProposal {
@@ -145,6 +153,12 @@ function toItem(item: BeItem): PurchaseProposalItem {
     itemId: item.id,
     receivedQty: item.receivedQty,
     receivedQtyPurchaseUnit: item.receivedQtyPurchaseUnit,
+    status: BE_TO_FE_STATUS[item.status] ?? 'new',
+    submittedAt: item.submittedAt ?? undefined,
+    approvedAt: item.approvedAt ?? undefined,
+    rejectedAt: item.rejectedAt ?? undefined,
+    rejectionReason: item.rejectionReason ?? undefined,
+    purchasedAt: item.purchasedAt ?? undefined,
   };
 }
 
@@ -236,17 +250,21 @@ export async function acknowledgeProposal(id: string): Promise<PurchaseProposal>
   return getPurchaseProposal(id);
 }
 
-/** Tạo mọi dòng báo giá đã nhập (client gom sẵn trong quoteEdits) rồi gửi Sếp duyệt 1 lượt. */
-export async function submitProposalToDirector(
+/**
+ * Gửi mọi dòng báo giá CHƯA lưu (row.id rỗng - addQuote() BE luôn CREATE, không update, gửi lại
+ * dòng đã có id sẽ tạo trùng) lên đúng item của nó. Dùng chung cho save-nháp và submit-cuối.
+ */
+async function postNewQuotes(
   proposal: PurchaseProposal,
   quotesByMaterialId: Record<string, ProposalQuote[]>,
-): Promise<PurchaseProposal> {
+): Promise<void> {
   const beItemIdByMaterialId = beItemIdsByMaterialId(proposal);
 
   for (const [materialId, rows] of Object.entries(quotesByMaterialId)) {
     const beItemId = beItemIdByMaterialId.get(materialId);
     if (!beItemId) continue;
     for (const row of rows) {
+      if (row.id) continue;
       await http.post(`/purchase-proposals/${proposal.id}/items/${beItemId}/quotes`, {
         supplierName: row.supplierName,
         supplierId: row.supplierId,
@@ -256,6 +274,31 @@ export async function submitProposalToDirector(
       });
     }
   }
+}
+
+/**
+ * Lưu báo giá đã nhập cho CÁC VẬT TƯ CỦA MÌNH mà KHÔNG gửi Sếp duyệt (2026-08-25) - cần thiết từ
+ * khi 1 đề xuất gộp nhiều người mua (LenhMuaNCCPage.splitItemsByOwner): người xong phần mình
+ * trước phải lưu được ngay, không đợi đồng nghiệp phụ trách phần còn lại xong trước mới lưu được
+ * (tránh deadlock 2 người chờ nhau). BE addQuote() giờ tự chặn báo giá hộ vật tư người khác
+ * (assertActorMayQuoteItem) nên chỉ cần gửi đúng phần quotesByMaterialId của actor.
+ */
+export async function saveProposalQuotes(
+  proposal: PurchaseProposal,
+  quotesByMaterialId: Record<string, ProposalQuote[]>,
+): Promise<PurchaseProposal> {
+  await postNewQuotes(proposal, quotesByMaterialId);
+  return getPurchaseProposal(proposal.id);
+}
+
+/** Tạo mọi dòng báo giá CHƯA lưu (client gom sẵn trong quoteEdits) rồi gửi Sếp duyệt 1 lượt. BE
+ *  submit() tự soi CẢ đề xuất (mọi vật tư, kể cả của đồng nghiệp khác) đã có báo giá hợp lệ chưa -
+ *  ai bấm sau cùng khi đề xuất đã đủ đều gửi được, không nhất thiết phải là người tạo mọi dòng. */
+export async function submitProposalToDirector(
+  proposal: PurchaseProposal,
+  quotesByMaterialId: Record<string, ProposalQuote[]>,
+): Promise<PurchaseProposal> {
+  await postNewQuotes(proposal, quotesByMaterialId);
   await http.post(`/purchase-proposals/${proposal.id}/submit`);
   return getPurchaseProposal(proposal.id);
 }
@@ -287,8 +330,10 @@ export async function approveProposal(
   return getPurchaseProposal(proposal.id);
 }
 
-export async function rejectProposal(id: string, reason: string): Promise<PurchaseProposal> {
-  await http.post(`/purchase-proposals/${id}/reject`, { rejectionReason: reason });
+/** `itemIds` (2026-08-25) - từ chối đúng batch item SUBMITTED mà Sếp đang xem; không truyền thì
+ *  BE áp dụng cho MỌI item đang SUBMITTED của đề xuất (tương thích ngược, xem reject() BE). */
+export async function rejectProposal(id: string, reason: string, itemIds?: string[]): Promise<PurchaseProposal> {
+  await http.post(`/purchase-proposals/${id}/reject`, { rejectionReason: reason, itemIds });
   return getPurchaseProposal(id);
 }
 

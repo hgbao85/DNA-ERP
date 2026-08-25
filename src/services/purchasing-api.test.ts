@@ -91,6 +91,7 @@ function feProposal(overrides: Partial<PurchaseProposal> = {}): PurchaseProposal
         materialId: 30,
         itemId: '400',
         receivedQty: 0,
+        status: 'new',
       },
     ],
     status: 'new',
@@ -317,8 +318,8 @@ describe('submitProposalToDirector', () => {
   it('2 vật tư trùng tên hiển thị vẫn gửi báo giá riêng cho cả 2 (D.p6-quote-key-collision — trước đây item đứng trước KHÔNG BAO GIỜ gửi được báo giá)', async () => {
     const twoItemsFe = feProposal({
       items: [
-        { name: 'Sắt phi', unit: 'cây', required: 8, actualStock: 0, buyQty: 8, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 30, itemId: '400', receivedQty: 0 },
-        { name: 'Sắt phi', unit: 'cây', required: 4, actualStock: 0, buyQty: 4, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 31, itemId: '401', receivedQty: 0 },
+        { name: 'Sắt phi', unit: 'cây', required: 8, actualStock: 0, buyQty: 8, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 30, itemId: '400', receivedQty: 0, status: 'new' as const },
+        { name: 'Sắt phi', unit: 'cây', required: 4, actualStock: 0, buyQty: 4, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 31, itemId: '401', receivedQty: 0, status: 'new' as const },
       ],
     });
     post.mockResolvedValue(undefined);
@@ -375,8 +376,8 @@ describe('approveProposal — gửi thẳng quoteId, KHÔNG tra lại theo tên 
   it('2 vật tư trùng tên hiển thị vẫn duyệt đúng quote riêng cho cả 2 (D.p6-quote-key-collision)', async () => {
     const twoItemsFe = feProposal({
       items: [
-        { name: 'Sắt phi', unit: 'cây', required: 8, actualStock: 0, buyQty: 8, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 30, itemId: '400', receivedQty: 0 },
-        { name: 'Sắt phi', unit: 'cây', required: 4, actualStock: 0, buyQty: 4, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 31, itemId: '401', receivedQty: 0 },
+        { name: 'Sắt phi', unit: 'cây', required: 8, actualStock: 0, buyQty: 8, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 30, itemId: '400', receivedQty: 0, status: 'new' as const },
+        { name: 'Sắt phi', unit: 'cây', required: 4, actualStock: 0, buyQty: 4, khoKey: 'phoiSonHan', khoLabel: 'Kho Phôi Sơn Hàn', materialId: 31, itemId: '401', receivedQty: 0, status: 'new' as const },
       ],
     });
     post.mockResolvedValueOnce(undefined);

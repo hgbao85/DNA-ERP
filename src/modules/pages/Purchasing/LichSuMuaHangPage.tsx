@@ -22,8 +22,10 @@ interface Row {
   total: number | null
 }
 
+// Chỉ liệt kê đúng các dòng ĐÃ purchased (2026-08-25) - không phải toàn bộ p.items, cùng lý do
+// với TheoDoiMuaHangPage.buildRows().
 function buildRows(p: PurchaseProposal): Row[] {
-  return p.items.map(item => {
+  return p.items.filter(item => item.status === 'purchased').map(item => {
     // Key theo materialId (KHÔNG phải item.name) - 2 vật tư khác nhau có thể trùng tên hiển thị,
     // xem purchasing-api.ts D.p6-quote-key-collision.
     const key = String(item.materialId)
@@ -54,9 +56,10 @@ export default function LichSuMuaHangPage() {
   // materials chưa tải xong -> buyerByMaterialId RỖNG -> mọi đề xuất trông như "chưa gán ai" ->
   // hiện NHẦM cho mọi nhân viên mua hàng rồi biến mất khi tải xong (D.p7-buyer-filter-loading-
   // flash, 2026-08-22). Chặn ở đây - rỗng lúc đang tải thay vì lộ nhầm đề xuất của người khác.
+  // Lọc theo ITEM (2026-08-25) - xem comment tương ứng ở TheoDoiMuaHangPage.
   const proposals = materialsLoading
     ? []
-    : visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.status === 'purchased')
+    : visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.items.some(item => item.status === 'purchased'))
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = proposals.find(p => p.id === selectedId) ?? null

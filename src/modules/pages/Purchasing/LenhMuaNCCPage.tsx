@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
 import { ChevronLeft, Send, ClipboardList, CheckCircle2, X } from 'lucide-react'
 import { useInspection, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type PurchaseProposalItem, type ProposalQuote } from '../../../context/InspectionContext'
-import { useAuth } from '../../../context/AuthContext'
+import { useAuth, type User } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials, getMaterialSuppliers } from '../../../services/api'
-import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purchasingRouting'
+import { visibleProposalsFor, buildBuyerByMaterialId, splitItemsByOwner, rollupStatusOf, type MaterialBuyerMap } from '../../../utils/purchasingRouting'
 import PurchaseProposalAuditTrail from '../../../components/PurchaseProposalAuditTrail'
 import { format } from 'date-fns'
 
 export default function LenhMuaNCCPage() {
   const { user } = useAuth()
-  const { proposals: allProposals, acknowledgeProposal, submitProposalToDirector, requoteProposal } = useInspection()
+  const { proposals: allProposals, acknowledgeProposal, saveProposalQuotes, submitProposalToDirector, requoteProposal } = useInspection()
   const { data: materials, isLoading: materialsLoading } = useFetch(getMaterials)
   const buyerByMaterialId = buildBuyerByMaterialId(materials ?? [])
   // Purchasing chỉ thấy đề xuất chứa vật tư mình được gán mua (Material.buyerId) — xem purchasingRouting.ts
@@ -19,9 +19,18 @@ export default function LenhMuaNCCPage() {
   // materials chưa tải xong -> buyerByMaterialId RỖNG -> mọi đề xuất trông như "chưa gán ai" ->
   // hiện NHẦM cho mọi nhân viên mua hàng rồi biến mất khi tải xong (D.p7-buyer-filter-loading-
   // flash, 2026-08-22). Chặn ở đây - rỗng lúc đang tải thay vì lộ nhầm đề xuất của người khác.
+  //
+  // Lọc theo ITEM của mình (2026-08-25) - trước đây lọc theo `p.status` (rollup) khiến 1 đề xuất
+  // gộp biến mất khỏi màn này ngay khi rollup lên 'purchasing'/'purchased', dù phần vật tư của
+  // MÌNH trong đó vẫn còn NEW/QUOTING/SUBMITTED/REJECTED cần xử lý (vd Trâm còn báo giá dở trong
+  // khi phần của Nhàn đã được duyệt xong). Giữ đề xuất trong queue chừng nào còn ít nhất 1 dòng
+  // của mình CHƯA xong (khác purchasing/purchased).
   const proposals = materialsLoading
     ? []
-    : visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.status !== 'purchasing' && p.status !== 'purchased')
+    : visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => {
+        const { mine } = splitItemsByOwner(user, p.items, buyerByMaterialId)
+        return mine.some(item => item.status !== 'purchasing' && item.status !== 'purchased')
+      })
 
   return (
     <div>
@@ -32,8 +41,11 @@ export default function LenhMuaNCCPage() {
 
       {proposals.length > 0 ? (
         <ProposalSection
+          user={user}
+          buyerByMaterialId={buyerByMaterialId}
           proposals={proposals}
           onAcknowledge={acknowledgeProposal}
+          onSaveQuotes={saveProposalQuotes}
           onSubmitToDirector={submitProposalToDirector}
           onRequote={requoteProposal}
         />
@@ -53,6 +65,15 @@ const inp: React.CSSProperties = { padding: '6px 8px', border: '1px solid var(--
 /** 1 dòng báo giá được tính là hợp lệ để gửi Giám đốc khi đủ cả 3: NCC + đơn giá + ngày dự kiến về. */
 function isValidQuote(r: ProposalQuote): boolean {
   return r.supplierName.trim() !== '' && r.unitPrice != null && r.unitPrice > 0 && !!r.expectedDate
+}
+
+/** Mốc gửi Sếp duyệt MỚI NHẤT trong 1 nhóm item (2026-08-25) - `submittedAt` giờ ở cấp item, 1
+ *  nhóm "submitted" của mình có thể gồm nhiều dòng gửi ở các thời điểm khác nhau (lưu rồi gửi
+ *  từng đợt) nên hiện mốc gần nhất thay vì mốc của 1 dòng bất kỳ. */
+function formatLatest(dates: (string | undefined)[]): string {
+  const valid = dates.filter((d): d is string => !!d).sort()
+  const latest = valid[valid.length - 1]
+  return latest ? format(new Date(latest), 'HH:mm dd/MM/yyyy') : '—'
 }
 
 /**
@@ -118,16 +139,25 @@ function SupplierPicker({ materialId, value, price, usedByOtherRows, onChange }:
 
 // ─── Đề xuất mua từ Quản lý SX ───────────────────────────────────────────────
 
-function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequote }: {
+function ProposalSection({ user, buyerByMaterialId, proposals, onAcknowledge, onSaveQuotes, onSubmitToDirector, onRequote }: {
+  user: User | null
+  buyerByMaterialId: MaterialBuyerMap
   proposals: PurchaseProposal[]
   onAcknowledge: (id: string) => void
+  onSaveQuotes: (id: string, quotes: Record<string, ProposalQuote[]>) => Promise<PurchaseProposal>
   onSubmitToDirector: (id: string, quotes: Record<string, ProposalQuote[]>) => void
   onRequote: (id: string) => void
 }) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [quoteEdits, setQuoteEdits] = useState<Record<string, Record<string, ProposalQuote[]>>>({})
 
-  const newCount = proposals.filter(p => p.status === 'new').length
+  // Đếm theo ITEM của mình (2026-08-25) - p.status (rollup) không còn phản ánh đúng "còn việc gì
+  // của TÔI chưa làm" khi đề xuất gộp nhiều người mua (vd rollup 'quoting' vì Trâm còn báo giá dở,
+  // trong khi phần của tôi chưa ai tiếp nhận - vẫn cần đếm là "mới").
+  const newCount = proposals.filter(p => {
+    const { mine } = splitItemsByOwner(user, p.items, buyerByMaterialId)
+    return mine.some(item => item.status === 'new')
+  }).length
   const selected = proposals.find(p => p.id === selectedId) ?? null
 
   // Key theo materialId (KHÔNG phải item.name) - 2 vật tư khác nhau có thể trùng tên hiển thị (vd
@@ -144,15 +174,31 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
       [proposalId]: { ...(prev[proposalId] ?? {}), [key]: rows },
     }))
 
-  // Tự tạo sẵn dòng báo giá cho MỌI vật tư ngay khi vào màn báo giá - không còn nút "+" thủ công.
-  // Vật tư đã có NCC đăng ký (Vật tư-NCC) -> 1 dòng/NCC, tự điền giá tham khảo. Vật tư CHƯA có
-  // NCC nào -> vẫn tạo đúng 1 dòng rỗng, để SupplierPicker tự hiện cảnh báo "Chưa có NCC..."
-  // ngay lập tức thay vì phải bấm gì mới thấy. Chỉ tự điền khi dòng đó CHƯA có gì (tránh ghi đè
-  // báo giá đang sửa/đã nhập, kể cả lúc "Báo giá lại" seed sẵn từ p.quotes cũ).
+  // Tự tạo sẵn dòng báo giá cho MỌI vật tư ĐANG QUOTING của mình ngay khi vào màn báo giá - không
+  // còn nút "+" thủ công. Vật tư đã có NCC đăng ký (Vật tư-NCC) -> 1 dòng/NCC, tự điền giá tham
+  // khảo. Vật tư CHƯA có NCC nào -> vẫn tạo đúng 1 dòng rỗng, để SupplierPicker tự hiện cảnh báo
+  // "Chưa có NCC..." ngay lập tức thay vì phải bấm gì mới thấy. Chỉ tự điền khi dòng đó CHƯA có gì
+  // (tránh ghi đè báo giá đang sửa/đã nhập, kể cả lúc "Báo giá lại" seed sẵn từ p.quotes cũ).
+  //
+  // Xét theo item.status === 'quoting' (2026-08-25), KHÔNG còn theo `selected.status` (rollup) -
+  // 1 đề xuất gộp có thể rollup 'submitted' (phần của tôi đã gửi) trong khi 1 dòng khác của tôi
+  // vừa bị Sếp từ chối rồi requote quay lại 'quoting' và cần seed lại form. `quotingKey` (danh
+  // sách materialId đang quoting nối chuỗi) làm dependency ổn định thay vì mảng items (literal mới
+  // mỗi render) - cùng kỹ thuật `idsKey` đã dùng ở PurchaseProposalAuditTrail.tsx.
+  const { mine: mineForSeed } = selected
+    ? splitItemsByOwner(user, selected.items, buyerByMaterialId)
+    : { mine: [] as PurchaseProposalItem[] }
+  const quotingKey = mineForSeed.filter(item => item.status === 'quoting').map(itemKey).join(',')
+
   useEffect(() => {
-    if (!selected || selected.status !== 'quoting') return
-    const emptyRow: ProposalQuote = { supplierName: '', unitPrice: null, expectedDate: undefined }
-    selected.items.forEach(item => {
+    if (!selected) return
+    // Gợi ý sẵn "Ngày dự kiến về" = deadline mua hàng đã duyệt của KHSX (p.deadline, xem
+    // frameDeadlineOf ở BE) - Mua hàng vẫn gõ tay sửa lại được nếu NCC hẹn ngày khác, đây chỉ là
+    // giá trị khởi tạo để đỡ phải gõ tay lặp lại cho từng dòng NCC/từng vật tư.
+    const defaultExpectedDate = selected.deadline ? format(new Date(selected.deadline), 'yyyy-MM-dd') : undefined
+    const emptyRow: ProposalQuote = { supplierName: '', unitPrice: null, expectedDate: defaultExpectedDate }
+    const { mine } = splitItemsByOwner(user, selected.items, buyerByMaterialId)
+    mine.filter(item => item.status === 'quoting').forEach(item => {
       const key = itemKey(item)
       if (getRows(selected.id, key).length > 0) return
       if (item.materialId == null) {
@@ -164,13 +210,13 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
         setRows(
           selected.id, key,
           suppliers.length > 0
-            ? suppliers.map(s => ({ supplierName: s.supplierName, supplierId: String(s.supplierId), unitPrice: s.price, expectedDate: undefined }))
+            ? suppliers.map(s => ({ supplierName: s.supplierName, supplierId: String(s.supplierId), unitPrice: s.price, expectedDate: defaultExpectedDate }))
             : [emptyRow],
         )
       })
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selected?.id, selected?.status])
+  }, [selected?.id, quotingKey])
 
   const removeRow = (proposalId: string, key: string, idx: number) =>
     setRows(proposalId, key, getRows(proposalId, key).filter((_, i) => i !== idx))
@@ -178,30 +224,82 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
   const updateRow = (proposalId: string, key: string, idx: number, patch: Partial<ProposalQuote>) =>
     setRows(proposalId, key, getRows(proposalId, key).map((r, i) => i === idx ? { ...r, ...patch } : r))
 
-  const canSubmit = (p: PurchaseProposal) =>
-    p.items.every(item => {
-      const rows = getRows(p.id, itemKey(item))
-      return rows.some(isValidQuote)
-    })
+  // Gửi Sếp duyệt giờ chỉ còn phụ thuộc PHẦN CỦA MÌNH (2026-08-25) - không còn phải đợi đồng
+  // nghiệp phụ trách phần khác trong cùng đề xuất gộp xong trước (BE submit() cũng chỉ xét đúng
+  // các item QUOTING của actor, xem purchase-proposals.service.ts). Chỉ xét các dòng ĐANG quoting
+  // của mình - dòng đã submitted/purchasing/purchased/rejected không cần (và không được, xem
+  // addQuote() BE) báo giá lại ở đây.
+  const canSubmit = (p: PurchaseProposal) => {
+    const { mine } = splitItemsByOwner(user, p.items, buyerByMaterialId)
+    const quotingMine = mine.filter(item => item.status === 'quoting')
+    return quotingMine.length > 0 && quotingMine.every(item => getRows(p.id, itemKey(item)).some(isValidQuote))
+  }
 
-  const handleSubmit = (p: PurchaseProposal) => {
+  const myQuotesOf = (p: PurchaseProposal) => {
+    const { mine } = splitItemsByOwner(user, p.items, buyerByMaterialId)
     const quotes: Record<string, ProposalQuote[]> = {}
-    p.items.forEach(item => {
+    mine.filter(item => item.status === 'quoting').forEach(item => {
       quotes[itemKey(item)] = getRows(p.id, itemKey(item)).filter(isValidQuote)
     })
-    onSubmitToDirector(p.id, quotes)
+    return quotes
+  }
+
+  // Lưu phần báo giá của mình mà KHÔNG gửi Sếp duyệt - cần thiết khi đề xuất gộp nhiều người mua
+  // và phần của đồng nghiệp chưa xong (canSubmit false): lưu trước, ai xong sau cùng mới gửi.
+  // Re-seed lại form từ đề xuất mới nhất trả về (có `quote.id` thật) để lần lưu/gửi tiếp theo
+  // không gửi trùng các dòng đã lưu (xem purchasing-api.ts#postNewQuotes).
+  const handleSave = async (p: PurchaseProposal) => {
+    const updated = await onSaveQuotes(p.id, myQuotesOf(p))
+    const { mine } = splitItemsByOwner(user, updated.items, buyerByMaterialId)
+    setQuoteEdits(prev => ({
+      ...prev,
+      [p.id]: {
+        ...(prev[p.id] ?? {}),
+        ...Object.fromEntries(mine.map(item => [itemKey(item), updated.quotes?.[itemKey(item)] ?? []])),
+      },
+    }))
+  }
+
+  const handleSubmit = (p: PurchaseProposal) => {
+    onSubmitToDirector(p.id, myQuotesOf(p))
     setSelectedId(null)
   }
 
   // Báo giá lại sau khi bị từ chối — seed lại đúng các dòng NCC/giá đã báo trước đó để sửa tiếp,
   // không bắt nhập lại từ đầu (quoteEdits và p.quotes cùng shape Record<materialId, ProposalQuote[]>).
+  // Bỏ `id` cũ khi seed: BE requote() XOÁ SẠCH báo giá cũ trước khi mở lại QUOTING, giữ `id` cũ
+  // sẽ khiến postNewQuotes() ở lượt lưu/gửi tiếp theo TƯỞNG NHẦM đã lưu rồi nên bỏ qua, không gửi
+  // lại được - mất trắng báo giá dù form vẫn hiện đủ.
   const handleRequote = (p: PurchaseProposal) => {
-    if (p.quotes) setQuoteEdits(prev => ({ ...prev, [p.id]: p.quotes! }))
+    if (p.quotes) {
+      const stripped = Object.fromEntries(
+        Object.entries(p.quotes).map(([key, rows]) => [key, rows.map(r => ({ ...r, id: undefined }))]),
+      )
+      setQuoteEdits(prev => ({ ...prev, [p.id]: stripped }))
+    }
     onRequote(p.id)
   }
 
-  const statusTag = (p: PurchaseProposal) => {
-    const cfg = PROPOSAL_STATUS_LABELS[p.status]
+  // Rollup CỦA RIÊNG PHẦN MÌNH trong 1 đề xuất (2026-08-25) - KHÔNG dùng thẳng `p.status` (rollup
+  // của CẢ đề xuất, gồm cả phần đồng nghiệp khác) nữa cho màn hình này: 1 đề xuất gộp nhiều người
+  // mua có thể rollup 'quoting' vì đồng nghiệp còn NEW, trong khi phần CỦA TÔI đã SUBMITTED xong
+  // xuôi từ lâu - hiện "Đang báo giá" ở đây khiến người vừa bấm "Gửi Giám đốc duyệt" tưởng thao tác
+  // của mình thất bại dù BE đã ghi nhận đúng (báo cáo thật từ Trâm, 2026-08-25: gửi xong quay về
+  // danh sách vẫn thấy "Đang báo giá" - kiểm tra DB thật thì item của Trâm đã SUBMITTED, chỉ là
+  // rollup cả đề xuất chưa lên vì Nhàn chưa động tới phần của Nhàn). Cùng thứ tự ưu tiên với
+  // recomputeProposalStatus() ở BE, chỉ khác input là tập item nào được xét (mine, không phải all).
+  const myRollupStatus = (p: PurchaseProposal): PurchaseProposal['status'] => {
+    const { mine } = splitItemsByOwner(user, p.items, buyerByMaterialId)
+    return mine.length > 0 ? rollupStatusOf(mine) : p.status
+  }
+
+  const statusTag = (p: PurchaseProposal) => itemStatusTag(myRollupStatus(p))
+
+  // Dùng chung cho tag trạng thái CỦA 1 DÒNG (item.status) - "others" panel + từng nhóm mine bên
+  // dưới (2026-08-25). statusTag(p) ở trên tái dùng luôn hàm này (cùng bảng nhãn
+  // PROPOSAL_STATUS_LABELS, chỉ khác input là status nào).
+  const itemStatusTag = (status: PurchaseProposal['status']) => {
+    const cfg = PROPOSAL_STATUS_LABELS[status]
     return <span style={{ fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 6, padding: '2px 8px' }}>{cfg.label}</span>
   }
 
@@ -232,47 +330,132 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
         </div>
 
         <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface)' }}>
+          {(() => {
+            const { mine, others } = splitItemsByOwner(user, p.items, buyerByMaterialId)
+            // Nhóm PHẦN CỦA MÌNH theo status RIÊNG DÒNG (2026-08-25) - 1 đề xuất gộp nhiều người
+            // mua có thể có vật tư của TÔI ở nhiều trạng thái khác nhau CÙNG LÚC (vd Sếp vừa duyệt
+            // 2 dòng lên PURCHASING và từ chối 1 dòng, trong khi dòng thứ 4 tôi chưa kịp báo giá) -
+            // không còn giả định cả đề xuất chỉ có đúng 1 status như trước, xem p.status (rollup).
+            const newItems        = mine.filter(item => item.status === 'new')
+            const quotingItems    = mine.filter(item => item.status === 'quoting')
+            const submittedItems  = mine.filter(item => item.status === 'submitted')
+            const rejectedItems   = mine.filter(item => item.status === 'rejected')
+            const purchasingItems = mine.filter(item => item.status === 'purchasing')
+            const purchasedItems  = mine.filter(item => item.status === 'purchased')
+            let sectionIdx = 0
+            const topBorder = () => (others.length > 0 || sectionIdx++ > 0) ? '1px solid var(--border)' : 'none'
 
-          {/* ── NEW ── */}
-          {p.status === 'new' && (<>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                    <th style={th}>Kho</th>
-                    <th style={th}>Vật tư</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Tồn thực</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Cần mua</th>
-                    <th style={th}>ĐVT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {p.items.map((item, idx) => (
-                    <tr key={idx} style={{ borderTop: '1px solid var(--border)' }}>
-                      <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{item.khoLabel}</td>
-                      <td style={{ ...td, fontWeight: 600 }}>{item.name}</td>
-                      <td style={{ ...td, textAlign: 'right', color: '#dc2626' }}>{item.actualStock}</td>
-                      <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#d97706' }}>{item.buyQty}</td>
-                      <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
+            // Bảng báo giá read-only dùng chung cho SUBMITTED/REJECTED - mỗi dòng vật tư kèm mọi
+            // NCC đã báo (p.quotes, key theo materialId - xem D.p6-quote-key-collision đầu file).
+            const renderQuotesTable = (rowItems: PurchaseProposalItem[]) => (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <thead>
+                    <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                      <th style={th}>Vật tư</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Cần mua</th>
+                      <th style={th}>ĐVT</th>
+                      <th style={th}>Nhà cung cấp</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Đơn giá</th>
+                      <th style={th}>Dự kiến về</th>
+                      <th style={{ ...th, textAlign: 'right' }}>Thành tiền</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 14px', borderTop: '1px solid #fde68a', background: '#fffbeb' }}>
-              <button
-                onClick={() => onAcknowledge(p.id)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#2563eb', color: '#fff', cursor: 'pointer' }}
-              >
-                Tiếp nhận & Báo giá
-              </button>
-            </div>
-          </>)}
+                  </thead>
+                  <tbody>
+                    {rowItems.flatMap((item, idx) => {
+                      const offers: ProposalQuote[] = p.quotes?.[itemKey(item)] ?? []
+                      const prices = offers.map(q => q.unitPrice).filter((x): x is number => x != null && x > 0)
+                      const cheapestPrice = prices.length > 0 ? Math.min(...prices) : null
+                      if (offers.length === 0) {
+                        return [(
+                          <tr key={`${idx}-empty`} style={{ borderTop: '1px solid var(--border)' }}>
+                            <td style={{ ...td, fontWeight: 600 }}>{item.name}</td>
+                            <td style={{ ...td, textAlign: 'right' }}>{item.buyQty}</td>
+                            <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
+                            <td colSpan={4} style={{ ...td, color: 'var(--text3)' }}>—</td>
+                          </tr>
+                        )]
+                      }
+                      return offers.map((q, qi) => {
+                        const isCheap = cheapestPrice != null && q.unitPrice === cheapestPrice
+                        const total = q.unitPrice != null && q.unitPrice > 0 ? q.unitPrice * item.buyQty : null
+                        return (
+                          <tr key={`${idx}-${qi}`} style={{ borderTop: '1px solid var(--border)', background: isCheap ? '#f1f8e9' : undefined }}>
+                            {qi === 0 && <td style={{ ...td, fontWeight: 600 }} rowSpan={offers.length}>{item.name}</td>}
+                            {qi === 0 && <td style={{ ...td, textAlign: 'right' }} rowSpan={offers.length}>{item.buyQty}</td>}
+                            {qi === 0 && <td style={{ ...td, color: 'var(--text3)' }} rowSpan={offers.length}>{item.unit}</td>}
+                            <td style={td}>
+                              {q.supplierName}
+                              {isCheap && offers.length > 1 && <span style={{ marginLeft: 6, fontSize: 10, color: '#2e7d32', fontWeight: 700 }}>★ rẻ nhất</span>}
+                            </td>
+                            <td style={{ ...td, textAlign: 'right' }}>{q.unitPrice ? q.unitPrice.toLocaleString('vi-VN') + 'đ' : '—'}</td>
+                            <td style={{ ...td, color: 'var(--text3)' }}>{q.expectedDate ? new Date(q.expectedDate).toLocaleDateString('vi-VN') : '—'}</td>
+                            <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: '#4527a0' }}>{total ? total.toLocaleString('vi-VN') + 'đ' : '—'}</td>
+                          </tr>
+                        )
+                      })
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )
 
-          {/* ── QUOTING ── */}
-          {p.status === 'quoting' && (
-            <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {p.items.map((item, idx) => {
+            return (<>
+              {others.length > 0 && (
+                <div style={{ padding: '10px 14px', background: 'var(--surface2)' }}>
+                  <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>
+                    {others.length} vật tư khác trong đề xuất này do đồng nghiệp phụ trách mua:
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                    {others.map((item, idx) => (
+                      <span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px' }}>
+                        {item.name} {itemStatusTag(item.status)}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* ── NEW (của mình) ── */}
+              {newItems.length > 0 && (<div style={{ borderTop: topBorder() }}>
+                <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                        <th style={th}>Kho</th>
+                        <th style={th}>Vật tư</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Tồn thực</th>
+                        <th style={{ ...th, textAlign: 'right' }}>Cần mua</th>
+                        <th style={th}>ĐVT</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {newItems.map((item, idx) => (
+                        <tr key={idx} style={{ borderTop: '1px solid var(--border)' }}>
+                          <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{item.khoLabel}</td>
+                          <td style={{ ...td, fontWeight: 600 }}>{item.name}</td>
+                          <td style={{ ...td, textAlign: 'right', color: '#dc2626' }}>{item.actualStock}</td>
+                          <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#d97706' }}>{item.buyQty}</td>
+                          <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 14px', borderTop: '1px solid #fde68a', background: '#fffbeb' }}>
+                  <button
+                    onClick={() => onAcknowledge(p.id)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#2563eb', color: '#fff', cursor: 'pointer' }}
+                  >
+                    Tiếp nhận & Báo giá
+                  </button>
+                </div>
+              </div>)}
+
+              {/* ── QUOTING (của mình) ── */}
+              {quotingItems.length > 0 && (
+            <div style={{ borderTop: topBorder(), padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {quotingItems.map((item, idx) => {
                 const rows = getRows(p.id, itemKey(item))
                 const prices = rows.map(r => r.unitPrice).filter((x): x is number => x != null && x > 0)
                 const cheapestPrice = prices.length > 0 ? Math.min(...prices) : null
@@ -369,8 +552,22 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
               })}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, paddingTop: 4 }}>
                 {!canSubmit(p) && (
-                  <span style={{ fontSize: 12, color: '#e65100' }}>Mỗi vật tư cần ít nhất 1 dòng đủ NCC, đơn giá và ngày dự kiến về</span>
+                  <span style={{ fontSize: 12, color: '#e65100' }}>
+                    {others.length > 0
+                      ? 'Mỗi vật tư của bạn cần đủ NCC/đơn giá/ngày dự kiến về, và đồng nghiệp cần báo giá xong phần của họ'
+                      : 'Mỗi vật tư cần ít nhất 1 dòng đủ NCC, đơn giá và ngày dự kiến về'}
+                  </span>
                 )}
+                <button
+                  onClick={() => handleSave(p)}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '8px 16px', fontSize: 13, fontWeight: 600, borderRadius: 8,
+                    border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer',
+                  }}
+                >
+                  Lưu báo giá
+                </button>
                 <button
                   onClick={() => handleSubmit(p)}
                   disabled={!canSubmit(p)}
@@ -386,80 +583,47 @@ function ProposalSection({ proposals, onAcknowledge, onSubmitToDirector, onRequo
                 </button>
               </div>
             </div>
-          )}
+              )}
 
-          {/* ── SUBMITTED / REJECTED ── */}
-          {(p.status === 'submitted' || p.status === 'rejected') && (<>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                    <th style={th}>Vật tư</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Cần mua</th>
-                    <th style={th}>ĐVT</th>
-                    <th style={th}>Nhà cung cấp</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Đơn giá</th>
-                    <th style={th}>Dự kiến về</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Thành tiền</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {p.items.flatMap((item, idx) => {
-                    const offers: ProposalQuote[] = p.quotes?.[itemKey(item)] ?? []
-                    const prices = offers.map(q => q.unitPrice).filter((x): x is number => x != null && x > 0)
-                    const cheapestPrice = prices.length > 0 ? Math.min(...prices) : null
-                    if (offers.length === 0) {
-                      return [(
-                        <tr key={`${idx}-empty`} style={{ borderTop: '1px solid var(--border)' }}>
-                          <td style={{ ...td, fontWeight: 600 }}>{item.name}</td>
-                          <td style={{ ...td, textAlign: 'right' }}>{item.buyQty}</td>
-                          <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
-                          <td colSpan={4} style={{ ...td, color: 'var(--text3)' }}>—</td>
-                        </tr>
-                      )]
-                    }
-                    return offers.map((q, qi) => {
-                      const isCheap = cheapestPrice != null && q.unitPrice === cheapestPrice
-                      const total = q.unitPrice != null && q.unitPrice > 0 ? q.unitPrice * item.buyQty : null
-                      return (
-                        <tr key={`${idx}-${qi}`} style={{ borderTop: '1px solid var(--border)', background: isCheap ? '#f1f8e9' : undefined }}>
-                          {qi === 0 && <td style={{ ...td, fontWeight: 600 }} rowSpan={offers.length}>{item.name}</td>}
-                          {qi === 0 && <td style={{ ...td, textAlign: 'right' }} rowSpan={offers.length}>{item.buyQty}</td>}
-                          {qi === 0 && <td style={{ ...td, color: 'var(--text3)' }} rowSpan={offers.length}>{item.unit}</td>}
-                          <td style={td}>
-                            {q.supplierName}
-                            {isCheap && offers.length > 1 && <span style={{ marginLeft: 6, fontSize: 10, color: '#2e7d32', fontWeight: 700 }}>★ rẻ nhất</span>}
-                          </td>
-                          <td style={{ ...td, textAlign: 'right' }}>{q.unitPrice ? q.unitPrice.toLocaleString('vi-VN') + 'đ' : '—'}</td>
-                          <td style={{ ...td, color: 'var(--text3)' }}>{q.expectedDate ? new Date(q.expectedDate).toLocaleDateString('vi-VN') : '—'}</td>
-                          <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: '#4527a0' }}>{total ? total.toLocaleString('vi-VN') + 'đ' : '—'}</td>
-                        </tr>
-                      )
-                    })
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {p.status === 'rejected' ? (
-              <div style={{ padding: '10px 14px', borderTop: '1px solid #f48fb1', background: '#fce4ec' }}>
-                <div style={{ fontSize: 13, color: '#c62828', marginBottom: 8 }}>
-                  <strong>Giám đốc từ chối</strong> lúc {p.rejectedAt ? format(new Date(p.rejectedAt), 'HH:mm dd/MM/yyyy') : '—'}: {p.rejectionReason || 'Không có lý do'}
+              {/* ── SUBMITTED (của mình) ── */}
+              {submittedItems.length > 0 && (<div style={{ borderTop: topBorder() }}>
+                {renderQuotesTable(submittedItems)}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderTop: '1px solid #86efac', background: '#f0fdf4', fontSize: 13, color: '#166534' }}>
+                  <CheckCircle2 size={15} />
+                  <span>Đã gửi Giám đốc duyệt lúc {formatLatest(submittedItems.map(i => i.submittedAt))}</span>
                 </div>
-                <button
-                  onClick={() => handleRequote(p)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#c62828', color: '#fff', cursor: 'pointer' }}
-                >
-                  Báo giá lại
-                </button>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderTop: '1px solid #86efac', background: '#f0fdf4', fontSize: 13, color: '#166534' }}>
-                <CheckCircle2 size={15} />
-                <span>Đã gửi Giám đốc duyệt lúc {p.submittedAt ? format(new Date(p.submittedAt), 'HH:mm dd/MM/yyyy') : '—'}</span>
-              </div>
-            )}
-          </>)}
+              </div>)}
 
+              {/* ── REJECTED (của mình) ── */}
+              {rejectedItems.length > 0 && (<div style={{ borderTop: topBorder() }}>
+                {renderQuotesTable(rejectedItems)}
+                <div style={{ padding: '10px 14px', borderTop: '1px solid #f48fb1', background: '#fce4ec' }}>
+                  {rejectedItems.map((item, idx) => (
+                    <div key={idx} style={{ fontSize: 13, color: '#c62828', marginBottom: idx === rejectedItems.length - 1 ? 8 : 4 }}>
+                      <strong>{item.name}</strong> — Giám đốc từ chối lúc {item.rejectedAt ? format(new Date(item.rejectedAt), 'HH:mm dd/MM/yyyy') : '—'}: {item.rejectionReason || 'Không có lý do'}
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => handleRequote(p)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#c62828', color: '#fff', cursor: 'pointer' }}
+                  >
+                    Báo giá lại
+                  </button>
+                </div>
+              </div>)}
+
+              {/* ── PURCHASING / PURCHASED (của mình) ── */}
+              {(purchasingItems.length + purchasedItems.length) > 0 && (<div style={{ borderTop: topBorder(), padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {[...purchasingItems, ...purchasedItems].map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                    <span style={{ fontWeight: 600 }}>{item.name}</span>
+                    {itemStatusTag(item.status)}
+                    <span style={{ fontSize: 12, color: 'var(--text3)' }}>Sếp đã duyệt — theo dõi ở &quot;Theo dõi mua hàng&quot;/&quot;Lịch sử đã mua&quot;</span>
+                  </div>
+                ))}
+              </div>)}
+            </>)
+          })()}
         </div>
       </div>
 

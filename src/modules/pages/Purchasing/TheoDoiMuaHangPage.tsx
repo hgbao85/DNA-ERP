@@ -25,8 +25,11 @@ interface Row {
   expectedDate?: string
 }
 
+// Chỉ liệt kê đúng các dòng ĐANG purchasing (2026-08-25) - không phải toàn bộ p.items: 1 đề xuất
+// gộp có thể còn vật tư khác NEW/QUOTING/SUBMITTED của đồng nghiệp chưa tới lượt, hiện chúng ở
+// đây (màn "chờ hàng về") sẽ gây hiểu nhầm là đã duyệt xong.
 function buildRows(p: PurchaseProposal): Row[] {
-  return p.items.map(item => {
+  return p.items.filter(item => item.status === 'purchasing').map(item => {
     // Key theo materialId (KHÔNG phải item.name) - 2 vật tư khác nhau có thể trùng tên hiển thị,
     // xem purchasing-api.ts D.p6-quote-key-collision.
     const key = String(item.materialId)
@@ -72,9 +75,12 @@ export default function TheoDoiMuaHangPage() {
   // khoảnh khắc đang tải, biến mất ngay khi materials tải xong và bộ lọc thật chạy lại (D.p7-
   // buyer-filter-loading-flash, 2026-08-22). Chặn hẳn ở đây - rỗng lúc đang tải (thiếu tạm thời,
   // an toàn) thay vì lộ nhầm đề xuất của người khác.
+  // Lọc theo ITEM (2026-08-25) - p.status (rollup) không lên 'purchasing' cho tới khi MỌI dòng
+  // của đề xuất gộp cùng ở đó; giữ đề xuất trong "chờ hàng về" chừng nào còn ít nhất 1 dòng đang
+  // purchasing, kể cả khi phần của đồng nghiệp khác trong cùng đề xuất vẫn còn dở báo giá.
   const proposals = materialsLoading
     ? []
-    : visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.status === 'purchasing')
+    : visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.items.some(item => item.status === 'purchasing'))
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = proposals.find(p => p.id === selectedId) ?? null
