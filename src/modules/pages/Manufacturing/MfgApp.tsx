@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, ArrowDownToLine, ClipboardCheck, Box, CalendarClock, Wrench, Flame, SprayCan, Check, Frame, Layers, Play, PackageCheck, ListChecks } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, ClipboardCheck, Box, CalendarClock, Wrench, Flame, SprayCan, Check, Frame, Layers, Play, PackageCheck, ListChecks } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import SpecSteelPage from './SpecSteelPage'
@@ -9,9 +9,8 @@ import MfgAllMaterialsPage from './MfgAllMaterialsPage'
 import WeavingPointsPage from '../Admin/masterData/WeavingPointsPage'
 import ThongKePagePlan from './ThongKePagePlan'
 import LenhSanXuatPhoi from '../Phoi/LenhSanXuatPhoi'
-import LichSuNhanSatPage from '../Phoi/LichSuNhanSatPage'
 import KhoPhoiPage from '../Phoi/KhoPhoiPage'
-import XacNhanSanLuongPage from '../Phoi/XacNhanSanLuongPage'
+import XacNhanNhanSatPage from '../Phoi/XacNhanNhanSatPage'
 import ThongKeCongDoanPage from '../Phoi/ThongKeCongDoanPage'
 import LenhSanXuatHan from '../Han/LenhSanXuatHan'
 import KhungHanPage from '../Han/KhungHanPage'
@@ -29,7 +28,7 @@ import KcsVatTuThanhPhamPage from '../Kcs/KcsVatTuThanhPhamPage'
 // ── Module-level constants (không tạo lại mỗi render) ───────────────────────
 
 type TabId =
-  | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-san-luong' | 'phoi-lenh-sx' | 'phoi-vat-tu-tp' | 'phoi-dinh-muc-manh' | 'phoi-lich-su-nhan-sat' | 'phoi-kho-phoi' | 'phoi-thong-ke-cong-doan'
+  | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-nhan-sat' | 'phoi-lenh-sx' | 'phoi-vat-tu-tp' | 'phoi-dinh-muc-manh' | 'phoi-kho-phoi' | 'phoi-thong-ke-cong-doan'
   | 'han-khung-han' | 'son-manh-cho-dan' | 'han-son-xac-nhan-vat-tu'
   | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'setup'
@@ -125,12 +124,11 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isProdMgr ? [{ id: 'ke-hoach' as TabId, label: 'Bảng thống kê', icon: <CalendarClock size={16} /> }] : []),
     ...(isProdMgr ? [{ id: 'lenh-sx' as TabId, label: 'Xử lý lệnh sản xuất', icon: <Play size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16} /> }] : []),
-    ...(isPhoi ? [{ id: 'phoi-xac-nhan-san-luong' as TabId, label: 'Xác nhận sản lượng', icon: <Check size={16} /> }] : []),
+    ...(isPhoi ? [{ id: 'phoi-xac-nhan-nhan-sat' as TabId, label: 'Xác nhận nhận sắt', icon: <Check size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-vat-tu-tp' as TabId, label: 'Vật tư thành phẩm', icon: <Wrench size={16} /> }] : []),
     ...((isPhoi || isDirector) ? [{ id: 'phoi-thong-ke-cong-doan' as TabId, label: 'Thống kê công đoạn', icon: <ListChecks size={16} /> }] : []),
     ...((isHan || isSon) ? [{ id: 'han-son-xac-nhan-vat-tu' as TabId, label: 'Xác nhận sản lượng', icon: <PackageCheck size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-dinh-muc-manh' as TabId, label: 'Danh sách định mức mảnh', icon: <Box size={16} /> }] : []),
-    ...(isPhoi ? [{ id: 'phoi-lich-su-nhan-sat' as TabId, label: 'Lịch sử nhận sắt', icon: <ArrowDownToLine size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-kho-phoi' as TabId, label: 'Kho phôi', icon: <Warehouse size={16} /> }] : []),
     ...(isHan ? [{ id: 'han-khung-han' as TabId, label: 'Khung hàn', icon: <Frame size={16} /> }] : []),
     ...(isSon ? [{ id: 'son-manh-cho-dan' as TabId, label: 'Mảnh chờ đan', icon: <Layers size={16} /> }] : []),
@@ -238,13 +236,12 @@ export default function MfgApp({ onBack }: MfgAppProps) {
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
         {tab === 'lenh-sx' && (isDirector || isProdMgr) && <LenhSXPage />}
         {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePagePlan />}
-        {tab === 'phoi-xac-nhan-san-luong' && (isPhoi || isDirector) && <XacNhanSanLuongPage readOnly={isDirector} />}
+        {tab === 'phoi-xac-nhan-nhan-sat' && (isPhoi || isDirector) && <XacNhanNhanSatPage readOnly={isDirector} />}
         {tab === 'phoi-vat-tu-tp' && (isPhoi || isDirector) && <LenhSanXuatVatTuThanhPham readOnly={isDirector} />}
         {tab === 'phoi-thong-ke-cong-doan' && (isPhoi || isDirector) && <ThongKeCongDoanPage />}
         {tab === 'phoi-lenh-sx' && (isPhoi || isHan || isSon || isDirector) && (isHan ? <LenhSanXuatHan readOnly={isDirector} /> : isSon ? <LenhSanXuatSon readOnly={isDirector} /> : <LenhSanXuatPhoi readOnly={isDirector} />)}
         {tab === 'phoi-dinh-muc-manh' && (isPhoi || isHan || isSon || isDirector) && <PhoiDinhMucManhPage stage={isSon ? 'SON' : isHan ? 'HAN' : 'PHOI'} />}
         {tab === 'han-son-xac-nhan-vat-tu' && (isHan || isSon) && <XacNhanVatTuPage stage={isHan ? 'HAN' : 'SON'} />}
-        {tab === 'phoi-lich-su-nhan-sat' && (isPhoi || isDirector) && <LichSuNhanSatPage />}
         {tab === 'phoi-kho-phoi' && (isPhoi || isDirector) && <KhoPhoiPage />}
         {tab === 'han-khung-han' && (isHan || isDirector) && <KhungHanPage />}
         {tab === 'son-manh-cho-dan' && (isSon || isDirector) && <ManhChoDanPage />}
