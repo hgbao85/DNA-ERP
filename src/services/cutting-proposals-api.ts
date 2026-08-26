@@ -49,6 +49,11 @@ export interface CuttingProposalLine {
   unit: string;
   feasible: boolean;
   bestStockLengthMm: number | null;
+  /** "fixed" = chiều dài chuẩn NCC bán sẵn. "scan" = chiều dài ĐẶT RIÊNG, solver vét cạn ra vì
+   *  không cỡ chuẩn nào đạt ngưỡng hao hụt (2026-08-26, Sếp mở lại tính năng này cho ca không gộp
+   *  được nữa) - phải hiện rõ ràng, không để người xem tưởng nhầm là cây chuẩn 6000mm. null = dòng
+   *  không khả thi, hoặc phương án tính trước 2026-08-26. */
+  lengthSource: 'fixed' | 'scan' | null;
   totalBars: number | null;
   totalWasteMm: number | null;
   wastePercentage: number | null;

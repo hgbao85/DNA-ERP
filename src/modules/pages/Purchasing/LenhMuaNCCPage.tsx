@@ -8,6 +8,23 @@ import { visibleProposalsFor, buildBuyerByMaterialId, splitItemsByOwner, rollupS
 import PurchaseProposalAuditTrail from '../../../components/PurchaseProposalAuditTrail'
 import { format } from 'date-fns'
 
+/** Tên vật tư kèm chiều dài cây phải đặt (CHỈ vật tư sắt có, xem
+ *  PurchaseProposalItem.stockLengthMm) - buyQty vô nghĩa nếu Purchasing không biết đặt cây dài
+ *  bao nhiêu, nhất là từ khi solver có thể đề xuất cây KHÁC 6000mm mặc định (2026-08-26, Sếp mở
+ *  lại auto_scan). Dùng chung cho mọi chỗ hiện tên vật tư trong màn này. */
+function ItemName({ item }: { item: PurchaseProposalItem }) {
+  return (
+    <>
+      {item.name}
+      {item.stockLengthMm != null && (
+        <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#e65100' }}>
+          · cây {item.stockLengthMm}mm
+        </span>
+      )}
+    </>
+  )
+}
+
 export default function LenhMuaNCCPage() {
   const { user } = useAuth()
   const { proposals: allProposals, acknowledgeProposal, saveProposalQuotes, submitProposalToDirector, requoteProposal } = useInspection()
@@ -369,7 +386,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onAcknowledge, on
                       if (offers.length === 0) {
                         return [(
                           <tr key={`${idx}-empty`} style={{ borderTop: '1px solid var(--border)' }}>
-                            <td style={{ ...td, fontWeight: 600 }}>{item.name}</td>
+                            <td style={{ ...td, fontWeight: 600 }}><ItemName item={item} /></td>
                             <td style={{ ...td, textAlign: 'right' }}>{item.buyQty}</td>
                             <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
                             <td colSpan={4} style={{ ...td, color: 'var(--text3)' }}>—</td>
@@ -381,7 +398,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onAcknowledge, on
                         const total = q.unitPrice != null && q.unitPrice > 0 ? q.unitPrice * item.buyQty : null
                         return (
                           <tr key={`${idx}-${qi}`} style={{ borderTop: '1px solid var(--border)', background: isCheap ? '#f1f8e9' : undefined }}>
-                            {qi === 0 && <td style={{ ...td, fontWeight: 600 }} rowSpan={offers.length}>{item.name}</td>}
+                            {qi === 0 && <td style={{ ...td, fontWeight: 600 }} rowSpan={offers.length}><ItemName item={item} /></td>}
                             {qi === 0 && <td style={{ ...td, textAlign: 'right' }} rowSpan={offers.length}>{item.buyQty}</td>}
                             {qi === 0 && <td style={{ ...td, color: 'var(--text3)' }} rowSpan={offers.length}>{item.unit}</td>}
                             <td style={td}>
@@ -433,7 +450,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onAcknowledge, on
                       {newItems.map((item, idx) => (
                         <tr key={idx} style={{ borderTop: '1px solid var(--border)' }}>
                           <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{item.khoLabel}</td>
-                          <td style={{ ...td, fontWeight: 600 }}>{item.name}</td>
+                          <td style={{ ...td, fontWeight: 600 }}><ItemName item={item} /></td>
                           <td style={{ ...td, textAlign: 'right', color: '#dc2626' }}>{item.actualStock}</td>
                           <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#d97706' }}>{item.buyQty}</td>
                           <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
@@ -462,7 +479,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onAcknowledge, on
                 return (
                   <div key={idx} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: 'var(--surface2)' }}>
-                      <span style={{ fontWeight: 700, fontSize: 13 }}>{item.name}</span>
+                      <span style={{ fontWeight: 700, fontSize: 13 }}><ItemName item={item} /></span>
                       <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.khoLabel}</span>
                       <span style={{ fontSize: 12, color: '#c62828', fontWeight: 600 }}>Cần mua: {item.buyQty} {item.unit}</span>
                     </div>
@@ -616,7 +633,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onAcknowledge, on
               {(purchasingItems.length + purchasedItems.length) > 0 && (<div style={{ borderTop: topBorder(), padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {[...purchasingItems, ...purchasedItems].map((item, idx) => (
                   <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                    <span style={{ fontWeight: 600 }}>{item.name}</span>
+                    <span style={{ fontWeight: 600 }}><ItemName item={item} /></span>
                     {itemStatusTag(item.status)}
                     <span style={{ fontSize: 12, color: 'var(--text3)' }}>Sếp đã duyệt — theo dõi ở &quot;Theo dõi mua hàng&quot;/&quot;Lịch sử đã mua&quot;</span>
                   </div>

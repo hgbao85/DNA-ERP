@@ -174,6 +174,13 @@ function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProp
             {line.wastePercentage != null && <> · hao hụt {line.wastePercentage.toFixed(2)}%</>}
             {(line.mauNguyenMm ?? 0) > 0 && <> · mẫu nguyên chưa cắt {line.mauNguyenMm}mm</>}
           </div>
+          {/* Cỡ đặt riêng (auto_scan mở lại 2026-08-26) - PHẢI nổi bật, không để thợ/Mua hàng
+              tưởng nhầm đây là cây chuẩn 6000mm vẫn hay đặt. */}
+          {line.lengthSource === 'scan' && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, padding: '3px 9px', borderRadius: 6, background: '#fff3e0', color: '#e65100', fontSize: 11, fontWeight: 700 }}>
+              ⚠ Cỡ đặt riêng {line.bestStockLengthMm}mm — không phải cây chuẩn
+            </div>
+          )}
         </div>
         <PrintExportButton
           label="In"

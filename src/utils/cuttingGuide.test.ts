@@ -12,6 +12,7 @@ function makeLine(overrides: Partial<CuttingProposalLine> = {}): CuttingProposal
     unit: 'cây',
     feasible: true,
     bestStockLengthMm: 6000,
+    lengthSource: 'fixed',
     totalBars: 200,
     totalWasteMm: 2000,
     wastePercentage: 0.18,

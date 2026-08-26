@@ -279,6 +279,12 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
                   {/* Item header */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 14px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
                     <span style={{ fontWeight: 600, fontSize: 13 }}>{item.name}</span>
+                    {/* Chỉ vật tư sắt có (2026-08-26, xem PurchaseProposalItem.stockLengthMm) - Sếp
+                        cần biết cây dài bao nhiêu khi so giá, nhất là từ khi có thể ra cây đặt riêng
+                        khác 6000mm mặc định (auto_scan). */}
+                    {item.stockLengthMm != null && (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#e65100' }}>· cây {item.stockLengthMm}mm</span>
+                    )}
                     <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.khoLabel}</span>
                     <span style={{ fontSize: 12, color: 'var(--text3)' }}>·</span>
                     <span style={{ fontSize: 12, color: 'var(--text2)' }}>Cần mua <strong>{item.buyQty} {item.unit}</strong></span>

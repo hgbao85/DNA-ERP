@@ -36,6 +36,10 @@ export interface PurchaseProposalItem {
   required: number
   actualStock: number
   buyQty: number
+  /** Chiều dài cây phải đặt (mm) - CHỈ có ở vật tư sắt (2026-08-26, sau khi Sếp mở lại auto_scan:
+   *  solver có thể đề xuất cây KHÁC 6000mm mặc định). undefined/null cho nhánh kiểm tra vật tư
+   *  thường - không có khái niệm chiều dài cây. Xem BE PurchaseProposalItem.stockLengthMm. */
+  stockLengthMm?: number | null
   khoKey: KhoKey
   khoLabel: string
   materialId?: number

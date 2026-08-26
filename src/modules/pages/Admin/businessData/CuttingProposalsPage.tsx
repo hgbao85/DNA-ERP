@@ -324,7 +324,14 @@ export default function CuttingProposalsPage() {
                         </td>
                         <td style={{ ...td, textAlign: 'right' }}>{l.totalBars ?? '—'}</td>
                         <td style={{ ...td, textAlign: 'right' }}>{fmtPct(l.wastePercentage)}</td>
-                        <td style={{ ...td, textAlign: 'right' }}>{l.bestStockLengthMm ? `${l.bestStockLengthMm}mm` : '—'}</td>
+                        <td style={{ ...td, textAlign: 'right' }}>
+                          {l.bestStockLengthMm ? `${l.bestStockLengthMm}mm` : '—'}
+                          {/* Cỡ đặt riêng (auto_scan mở lại 2026-08-26) - không phải cây chuẩn NCC
+                              bán sẵn, phải nổi bật ngay ở bảng tóm tắt này. */}
+                          {l.lengthSource === 'scan' && (
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#e65100', marginTop: 2 }}>⚠ đặt riêng</div>
+                          )}
+                        </td>
                       </tr>
                       {guide && (
                         <tr>

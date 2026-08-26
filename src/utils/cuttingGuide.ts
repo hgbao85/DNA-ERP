@@ -91,6 +91,11 @@ function buildSheetAoa(line: CuttingProposalLine): (string | number)[][] {
   return [
     [`${line.materialCode} — ${line.materialName}`],
     [`Mua ${line.bestStockLengthMm ?? '—'}mm × ${line.totalBars ?? '—'} cây, hao hụt ${line.wastePercentage != null ? `${line.wastePercentage.toFixed(2)}%` : '—'}`],
+    // Cỡ đặt riêng (auto_scan mở lại 2026-08-26) - phải in rõ trên giấy, thợ/Mua hàng không được
+    // tưởng nhầm đây là cây chuẩn 6000mm.
+    ...(line.lengthSource === 'scan'
+      ? [[`⚠ CỠ ĐẶT RIÊNG ${line.bestStockLengthMm}mm — KHÔNG PHẢI CÂY CHUẨN`]]
+      : []),
     [`Tổng khúc thừa (phế liệu): ${line.totalWasteMm ?? 0} mm`],
     [`Mẫu nguyên chưa cắt: ${line.mauNguyenMm ?? 0} mm`],
     [],
@@ -138,6 +143,9 @@ function buildPrintSectionHtml(line: CuttingProposalLine, pageBreakBefore: boole
       <p>Mua <b>${line.bestStockLengthMm ?? '—'}mm</b> × <b>${line.totalBars ?? '—'} cây</b>
         ${line.wastePercentage != null ? `· hao hụt ${line.wastePercentage.toFixed(2)}%` : ''}
         ${(line.mauNguyenMm ?? 0) > 0 ? `· mẫu nguyên chưa cắt ${line.mauNguyenMm}mm` : ''}</p>
+      ${line.lengthSource === 'scan'
+        ? `<div style="background:#fff3e0;color:#e65100;font-weight:700;padding:8px 12px;margin-bottom:8px;border-left:4px solid #e65100">⚠ CỠ ĐẶT RIÊNG ${line.bestStockLengthMm}mm — KHÔNG PHẢI CÂY CHUẨN</div>`
+        : ''}
       <h4>TỔNG KẾT CẮT</h4>
       <table><thead><tr><th>Tên sắt</th><th>Đoạn (mm)</th><th>SL cần</th><th>SL cắt</th></tr></thead>
         <tbody>${summaryRows}</tbody></table>

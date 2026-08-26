@@ -144,6 +144,12 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                   <tr key={itemKey(item)} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={{ ...td, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {item.name}
+                      {/* Chỉ vật tư sắt có (2026-08-26, xem PurchaseProposalItem.stockLengthMm) -
+                          Thủ kho đối chiếu hàng về đúng cây đã đặt, nhất là từ khi có thể ra cây
+                          đặt riêng khác 6000mm mặc định (auto_scan). */}
+                      {item.stockLengthMm != null && (
+                        <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#e65100' }}>· cây {item.stockLengthMm}mm</span>
+                      )}
                     </td>
                     <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{item.buyQty}</td>

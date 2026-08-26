@@ -95,6 +95,9 @@ interface BeItem {
   warehouseCode: string | null;
   actualStock: number;
   buyQty: number;
+  // Chiều dài cây phải đặt (mm) - CHỈ có ở vật tư sắt, null cho nhánh kiểm tra vật tư thường
+  // (2026-08-26, xem BE PurchaseProposalItem.stockLengthMm).
+  stockLengthMm: number | null;
   receivedQty: number;
   receivedQtyPurchaseUnit: number | null;
   quotes: BeQuote[];
@@ -144,6 +147,7 @@ function toItem(item: BeItem): PurchaseProposalItem {
     required: item.actualStock + item.buyQty,
     actualStock: item.actualStock,
     buyQty: item.buyQty,
+    stockLengthMm: item.stockLengthMm,
     khoKey,
     khoLabel: KHO_LABELS[warehouseCode] ?? warehouseCode,
     // BE dùng bigint-as-string; PurchaseProposalItem.materialId là number (quy ước cũ) - cast
