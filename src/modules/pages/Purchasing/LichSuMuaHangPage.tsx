@@ -26,9 +26,10 @@ interface Row {
 // với TheoDoiMuaHangPage.buildRows().
 function buildRows(p: PurchaseProposal): Row[] {
   return p.items.filter(item => item.status === 'purchased').map(item => {
-    // Key theo materialId (KHÔNG phải item.name) - 2 vật tư khác nhau có thể trùng tên hiển thị,
-    // xem purchasing-api.ts D.p6-quote-key-collision.
-    const key = String(item.materialId)
+    // Key theo itemId (2026-08-26, L6) - KHÔNG phải materialId lẫn item.name, xem
+    // purchasing-api.ts đầu file (1 vật tư đã PURCHASED phát sinh thiếu thêm tách DÒNG MỚI cùng
+    // materialId).
+    const key = item.itemId ?? String(item.materialId)
     const ncc = p.chosenSuppliers?.[key] ?? ''
     const offers = p.quotes?.[key] ?? []
     const chosenQuote = offers.find(q => q.supplierName === ncc) ?? offers[0]

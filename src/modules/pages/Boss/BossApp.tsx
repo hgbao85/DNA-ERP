@@ -47,13 +47,14 @@ function SoSanhGiaSection({ proposals, onApprove, onReject }: {
   const [selectedBuyerId, setSelectedBuyerId] = useState<string | null>(null)
   const [rejectMode,   setRejectMode]   = useState(false)
   const [rejectReason, setRejectReason] = useState('')
-  // chosen[materialId] = quoteId đã chọn (KHÔNG phải supplierName - trùng tên NCC hoặc còn báo giá
+  // chosen[itemId] = quoteId đã chọn (KHÔNG phải supplierName - trùng tên NCC hoặc còn báo giá
   // cũ chưa dọn sau 1 vòng "Báo giá lại" sẽ khớp nhầm nếu dùng tên, xem D.h3-quote-id-not-name).
-  // Key theo materialId (KHÔNG phải item.name - 2 vật tư khác nhau có thể trùng tên hiển thị, vd
-  // nhiều loại "Sắt phi" khác đường kính - xem purchasing-api.ts D.p6-quote-key-collision).
-  // Gộp item của mọi kho trong đơn.
+  // Key theo itemId (2026-08-26, L6) - KHÔNG phải materialId lẫn item.name: 1 vật tư đã PURCHASED
+  // mà lại phát sinh thiếu thêm tách thành DÒNG MỚI cùng materialId (xem purchasing-api.ts đầu
+  // file), key theo materialId sẽ lẫn báo giá/lựa chọn NCC giữa 2 dòng đó. Gộp item của mọi kho
+  // trong đơn.
   const [chosen, setChosen] = useState<Record<string, string>>({})
-  const itemKey = (item: PurchaseProposalItem) => String(item.materialId)
+  const itemKey = (item: PurchaseProposalItem) => item.itemId ?? String(item.materialId)
   const fmt = (n: number) => n.toLocaleString('vi-VN')
 
   // Material.buyerId + tên hiển thị của từng người mua - cần để tách "danh sách người đề xuất"

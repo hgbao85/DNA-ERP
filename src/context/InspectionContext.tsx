@@ -105,11 +105,13 @@ export interface PurchaseProposal {
   warehouseScope: WarehouseScope
   items: PurchaseProposalItem[]
   status: ProposalStatus
-  // Key = String(item.materialId), KHÔNG phải item.name — vật tư khác nhau có thể trùng tên hiển
-  // thị (vd nhiều loại "Sắt phi" khác đường kính), materialId mới là định danh duy nhất trong 1
-  // đề xuất (đã gặp bug thật do dùng tên làm key, sửa 2026-08-13, xem purchasing-api.ts).
-  quotes?: Record<string, ProposalQuote[]>  // keyed by String(item.materialId) → multiple NCC offers
-  chosenSuppliers?: Record<string, string>  // String(item.materialId) → chosen supplierName (set by boss)
+  // Key = item.itemId (PurchaseProposalItem.id thật) — KHÔNG phải materialId lẫn item.name.
+  // Lịch sử: từng key theo tên (trùng tên hiển thị đè mất nhau, sửa 2026-08-13), rồi theo
+  // materialId, rồi materialId cũng KHÔNG còn duy nhất trong 1 đề xuất từ khi 1 vật tư đã
+  // PURCHASED phát sinh thiếu thêm có thể tách thành DÒNG MỚI cùng materialId (sửa 2026-08-26,
+  // L6) - xem purchasing-api.ts đầu file.
+  quotes?: Record<string, ProposalQuote[]>  // keyed by item.itemId → multiple NCC offers
+  chosenSuppliers?: Record<string, string>  // item.itemId → chosen supplierName (set by boss)
   deadline?: string
   submittedAt?: string
   approvedAt?: string

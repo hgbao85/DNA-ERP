@@ -6,9 +6,10 @@ import { canReceiveAt } from '../../../types/warehouse-transfer'
 import { NhapNoiBoSection } from '../InboundWarehouse/InternalTransferSections'
 import { useInspection, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
 
-// Key theo materialId (KHÔNG phải item.name) - 2 vật tư khác nhau có thể trùng tên hiển thị (vd
-// nhiều loại "Sắt phi" khác đường kính) - xem purchasing-api.ts D.p6-quote-key-collision.
-const itemKey = (item: PurchaseProposalItem) => String(item.materialId)
+// Key theo itemId (2026-08-26, L6) - KHÔNG phải materialId: 1 vật tư đã PURCHASED mà lại phát
+// sinh thiếu thêm tách thành DÒNG MỚI cùng materialId (xem purchasing-api.ts đầu file), key theo
+// materialId sẽ gộp nhầm 2 dòng khi thủ kho xác nhận nhận hàng.
+const itemKey = (item: PurchaseProposalItem) => item.itemId ?? String(item.materialId)
 import { compactTh as th, compactTd as td } from '../../../styles/table'
 import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials, getWarehouses } from '../../../services/api'
@@ -56,7 +57,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
   const selected = relevant.find(p => p.id === selectedId) ?? null
   const visibleItems = selected ? selected.items.filter(itemReceivable) : []
 
-  const inputKey = (proposalId: string, materialId: string) => `${proposalId}:${materialId}`
+  const inputKey = (proposalId: string, itemId: string) => `${proposalId}:${itemId}`
 
   // Key đang có request bay - khoá nút để không gửi 2 lần cùng 1 dòng (mỗi lần gửi sinh một
   // Idempotency-Key mới nên BE coi là 2 đợt nhận riêng biệt, sẽ cộng kho 2 lần).
@@ -67,15 +68,15 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
   // đổi, thủ kho tưởng đã nhập xong trong khi hàng đã nằm trong kho vật lý mà hệ thống không ghi
   // (D.a1-silent-write-failure). Lỗi nay hiện ở banner của InspectionProvider và số vừa gõ được
   // GIỮ LẠI để bấm lại, không phải gõ lại từ đầu.
-  const confirmItem = async (p: PurchaseProposal, materialId: string) => {
-    const key = inputKey(p.id, materialId)
+  const confirmItem = async (p: PurchaseProposal, itemId: string) => {
+    const key = inputKey(p.id, itemId)
     if (pending[key]) return
     const qty = Math.max(0, Number(inputs[key]) || 0)
     if (qty <= 0) return
     const kgVal = Math.max(0, Number(kgInputs[key]) || 0)
     setPending(prev => ({ ...prev, [key]: true }))
     try {
-      await receiveProposalItem(p.id, materialId, qty, kgVal > 0 ? kgVal : undefined)
+      await receiveProposalItem(p.id, itemId, qty, kgVal > 0 ? kgVal : undefined)
       setInputs(prev => ({ ...prev, [key]: '' }))
       setKgInputs(prev => ({ ...prev, [key]: '' }))
     } catch {

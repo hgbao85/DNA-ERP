@@ -177,10 +177,12 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onAcknowledge, on
   }).length
   const selected = proposals.find(p => p.id === selectedId) ?? null
 
-  // Key theo materialId (KHÔNG phải item.name) - 2 vật tư khác nhau có thể trùng tên hiển thị (vd
-  // nhiều loại "Sắt phi" khác đường kính), dùng tên làm key từng khiến 1 trong 2 dòng bị đè mất,
-  // không bao giờ gửi báo giá được (D.p6-quote-key-collision, xem purchasing-api.ts).
-  const itemKey = (item: PurchaseProposalItem) => String(item.materialId)
+  // Key theo itemId (2026-08-26, L6) - KHÔNG phải materialId lẫn item.name. Lịch sử: từng key theo
+  // item.name (2 vật tư trùng tên hiển thị đè mất nhau, D.p6-quote-key-collision), đổi sang
+  // materialId, rồi materialId cũng KHÔNG còn duy nhất trong 1 đề xuất từ khi "gộp 1 PI = 1 form"
+  // (1 vật tư đã PURCHASED phát sinh thiếu thêm tách DÒNG MỚI cùng materialId) - xem
+  // purchasing-api.ts đầu file.
+  const itemKey = (item: PurchaseProposalItem) => item.itemId ?? String(item.materialId)
 
   const getRows = (proposalId: string, key: string): ProposalQuote[] =>
     quoteEdits[proposalId]?.[key] ?? []
