@@ -207,6 +207,44 @@ export async function getPhoiProgress(productionInvoiceId: string): Promise<BePh
   return http.get<BePhoiProgressItem[]>(`/production-invoices/${productionInvoiceId}/phoi-progress`);
 }
 
+/** Tiến độ 1 công đoạn chi tiết SAU Cắt (Uốn/Dập/...) - cùng khuôn dạng "Cần/Đã.../Còn lại" như
+ *  getPhoiProgress, khác nguồn `done` (StepBatchSegment thay vì CutPatternSegment). Không gọi với
+ *  step=CAT (dùng getPhoiProgress). */
+export async function getStepProgress(productionInvoiceId: string, step: ProcessStep): Promise<BePhoiProgressItem[]> {
+  return http.get<BePhoiProgressItem[]>(`/production-invoices/${productionInvoiceId}/step-progress/${step}`);
+}
+
+/** 1 dòng nhập đợt gia công cho công đoạn chi tiết SAU Cắt - mirror RecordCutBatchInput nhưng
+ *  không có barCount/mauNguyenMm (bước này không tác động lên cây sắt). BE chặn vượt số đã cắt. */
+export interface RecordStepBatchInput {
+  step: ProcessStep
+  segments: { segmentSpecId: string; qty: number }[]
+}
+
+export interface BeStepBatch {
+  id: string
+  step: ProcessStep
+  segments: { segmentSpecId: string; cutLengthMm: number; qty: number }[]
+}
+
+/** Nhập 1 đợt "đã gia công" cho công đoạn chi tiết (cộng dồn, KHÔNG đổi trạng thái SteelIssue). */
+export async function recordStepBatch(id: string, data: RecordStepBatchInput): Promise<BeStepBatch> {
+  return http.post<BeStepBatch>(`/steel-issues/${id}/step-batches`, data);
+}
+
+/** Danh sách PO/SKU thuộc 1 PI - khối tham khảo cho màn Lệnh sản xuất Phôi, KHÔNG mang số liệu
+ *  tiến độ (tiến độ chỉ có ở cấp PI × loại sắt, xem getPhoiProgress). */
+export interface BePiOrderSummary {
+  poNumber: string;
+  salesOrderCode: string | null;
+  productName: string;
+  quantity: number;
+}
+
+export async function getPiOrderSummary(productionInvoiceId: string): Promise<BePiOrderSummary[]> {
+  return http.get<BePiOrderSummary[]>(`/production-invoices/${productionInvoiceId}/order-summary`);
+}
+
 // ── KCS (nhánh Phôi) ────────────────────────────────────────────────────────
 
 /** 1 dòng lỗi theo cỡ đoạn (2026-08-24, vòng 2) - CHỈ 2 kết quả Đạt/Không đạt, không phân loại
