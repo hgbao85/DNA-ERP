@@ -1055,32 +1055,24 @@ export default function LenhSXPage() {
                 <X size={18} color="var(--text3)"/>
               </button>
             </div>
-            {isBoss && rejectTarget.isMerged ? (
-              // Từ chối đợt gộp là hành động PHÁ HUỶ (xoá cả đợt), không phải trả lại 1 SKU - phải
-              // nói rõ trước khi Sếp bấm, kèm danh sách SKU bị ảnh hưởng.
-              <div style={{ fontSize:13, color:'var(--text2)', marginBottom:10 }}>
-                <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:8, padding:'10px 12px', color:'#991b1b' }}>
-                  Từ chối sẽ <b>xoá đợt gộp {rejectTarget.code}</b> và trả{' '}
-                  <b>{(rejectTarget.items ?? []).length} SKU</b> về đơn hàng gốc kèm lý do. KHSX
-                  sẽ thấy chúng lại ở màn "Tối ưu cắt sắt" để gộp tổ hợp khác.
-                  <div style={{ marginTop:5, fontFamily:'monospace', fontSize:12 }}>
-                    {(rejectTarget.items ?? [])
-                      .map((it: any) => it.productVariant?.mfgProduct?.factoryCode ?? '—')
-                      .join(' · ')}
-                  </div>
-                </div>
-              </div>
-            ) : (() => {
-              // Cả PI, không còn từ chối lẻ 1 SKU (2026-08-24) - QLSX có thể có nhiều SKU đang chờ
-              // mình trong cùng 1 PI (kể cả PI gộp, nếu Sếp chưa duyệt tới); Boss PI cắt riêng chỉ
-              // có đúng 1.
+            {(() => {
+              // Từ chối ở BẤT KỲ cấp nào (QLSX hay Sếp, PI thường hay gộp) giờ đều là hành động
+              // PHÁ HUỶ giống nhau (2026-08-28, thống nhất hành vi QLSX với Sếp đã có từ trước):
+              // PI bị xoá, SKU trả về "chưa gom" để hiện lại ở "Tối ưu cắt sắt" - không còn ca nào
+              // "SKU ở lại PI, gửi lại được ngay" như QLSX từ chối trước đây. Luôn cảnh báo rõ
+              // trước khi bấm, kèm danh sách SKU bị ảnh hưởng - cùng 1 khối cho mọi trường hợp.
               const status = isBoss ? 'WAITING_BOSS' : 'WAITING_QLSX'
               const pending: any[] = (rejectTarget.items ?? []).filter((it: any) => it.prodApproval?.status === status)
+              const codes = pending.map((it: any) => it.productVariant?.mfgProduct?.factoryCode ?? '—').join(' · ')
               return (
                 <div style={{ fontSize:13, color:'var(--text2)', marginBottom:10 }}>
-                  {pending.length > 1 ? <>Cả <strong>{pending.length} SKU</strong> sau sẽ được gửi lại cho KHSX sửa thời hạn:</> : 'SKU sau sẽ được gửi lại cho KHSX sửa thời hạn:'}
-                  <div style={{ marginTop:5, fontFamily:'monospace', fontSize:12, color:'#0369a1' }}>
-                    {pending.map((it: any) => it.productVariant?.mfgProduct?.factoryCode ?? '—').join(' · ')}
+                  <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:8, padding:'10px 12px', color:'#991b1b' }}>
+                    Từ chối sẽ <b>xoá lệnh sản xuất {rejectTarget.code}</b> và trả{' '}
+                    {pending.length > 1 ? <b>{pending.length} SKU</b> : '1 SKU'} về đơn hàng gốc kèm
+                    lý do. KHSX sẽ thấy{' '}
+                    {pending.length > 1 ? 'chúng' : 'nó'}{' '}
+                    lại ở màn &quot;Tối ưu cắt sắt&quot; để gộp/cắt lại từ đầu.
+                    <div style={{ marginTop:5, fontFamily:'monospace', fontSize:12 }}>{codes}</div>
                   </div>
                 </div>
               )
