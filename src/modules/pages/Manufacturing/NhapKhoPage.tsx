@@ -159,6 +159,14 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                 const isPending = !!pending[key]
                 const canConfirm = !done && !!inputVal && Number(inputVal) > 0 && !isPending
                 const hasConversion = !!item.purchaseUnit && !!item.khoUnitFactor
+                // Vấn đề M4 audit 26/08 - ô SL cho sửa tay tự do, trước đây không đối chiếu gì với
+                // số gợi ý tính từ ô kg (dòng dưới). Chỉ CẢNH BÁO (không chặn Xác nhận) vì lệch có
+                // thể hợp lý (làm tròn theo quy cách đóng gói thật) - lệch >5% mới coi là "đáng kể".
+                const expectedQty = hasConversion && Number(kgVal) > 0 ? Number(kgVal) * item.khoUnitFactor! : null
+                const qtyMismatch =
+                  expectedQty != null && !!inputVal && Number(inputVal) > 0
+                    ? Math.abs(Number(inputVal) - expectedQty) / expectedQty > 0.05
+                    : false
                 return (
                   <tr key={itemKey(item)} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={{ ...td, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -205,7 +213,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                               value={inputVal}
                               onChange={e => setInputs(prev => ({ ...prev, [key]: e.target.value }))}
                               placeholder="SL"
-                              style={{ width: 64, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                              style={{ width: 64, padding: '4px 8px', border: `1px solid ${qtyMismatch ? '#d97706' : 'var(--border)'}`, borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
                             />
                             <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.unit}{hasConversion ? ' (có thể sửa tay)' : ''}</span>
                             <button
@@ -214,6 +222,11 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                               style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: canConfirm ? '#2e7d32' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
                             >{isPending ? 'Đang ghi…' : 'Xác nhận'}</button>
                           </div>
+                          {qtyMismatch && (
+                            <div style={{ fontSize: 11, color: '#d97706' }}>
+                              ⚠ Lệch nhiều so với gợi ý ({Math.round(expectedQty!)} {item.unit} theo {kgVal} {item.purchaseUnit}) — kiểm tra lại trước khi xác nhận
+                            </div>
+                          )}
                         </div>
                       )}
                     </td>

@@ -7,6 +7,7 @@ import {
   getMaterials, createMaterial, getMaterialGroups, getStockQuants, getStockLedger, adjustStock,
 } from '../../../services/api'
 import { Plus, Trash2, X, ArrowLeft, Warehouse, Search } from 'lucide-react'
+import AdjustReasonModal from '../../../components/AdjustReasonModal'
 
 // ── Types (view-model tối giản, khớp field thật cần dùng - xem warehouses-api.ts/
 //    materials-api.ts/stock-api.ts cho hợp đồng đầy đủ) ─────────────────────────
@@ -34,6 +35,9 @@ interface QuantRow {
   materialId: string | null
   warehouseId: string
   qty: number
+  /** Vấn đề #13 audit 26/08 - tồn còn dùng được (đã trừ phần giữ chỗ cắt sắt/chuyển kho), BE tính
+   *  sẵn qua getAvailableQty() dùng chung với màn Xuất sắt - xem stock-api.ts. */
+  availableQty: number
 }
 interface LedgerRow {
   id: string
@@ -52,6 +56,9 @@ export interface StockItem {
   spec: string | null
   groupName: string
   qty: number
+  /** Xem QuantRow.availableQty - mặc định === qty nếu vật tư này không có dòng stock_quant nào
+   *  (chưa từng phát sinh giao dịch, tồn = 0 = khả dụng). */
+  availableQty: number
 }
 
 // ── Config nhóm (label/mô tả header + gate nút "Tạo kho thành phẩm mới") ───────
@@ -100,17 +107,21 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
   const isThanhPhamContext = !group || group.key === 'all' || group.key === 'thanh-pham'
 
   const itemsOf = (whId: string): StockItem[] => {
-    const qtyByMaterial = new Map(
-      (quants ?? []).filter(q => q.warehouseId === whId && q.materialId).map(q => [q.materialId, q.qty]),
+    const rowByMaterial = new Map(
+      (quants ?? []).filter(q => q.warehouseId === whId && q.materialId).map(q => [q.materialId, q]),
     )
     const groupNameById = new Map((groups ?? []).map(g => [String(g.id), g.name]))
     return (materials ?? [])
       .filter(m => m.warehouseId === whId)
-      .map(m => ({
-        materialId: m.id, code: m.code, name: m.name, unit: m.unit, spec: m.spec,
-        groupName: m.materialGroupId ? (groupNameById.get(String(m.materialGroupId)) ?? '—') : '—',
-        qty: qtyByMaterial.get(String(m.id)) ?? 0,
-      }))
+      .map(m => {
+        const row = rowByMaterial.get(String(m.id))
+        return {
+          materialId: m.id, code: m.code, name: m.name, unit: m.unit, spec: m.spec,
+          groupName: m.materialGroupId ? (groupNameById.get(String(m.materialGroupId)) ?? '—') : '—',
+          qty: row?.qty ?? 0,
+          availableQty: row?.availableQty ?? 0,
+        }
+      })
   }
 
   // Tạo kho thành phẩm mới + tài khoản thủ kho riêng, hoạt động độc lập với các kho
@@ -291,11 +302,14 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  // Sửa nhanh tồn kho ngay trên bảng - đang sửa dòng nào (materialId) + giá trị đang gõ dở +
-  // đang lưu dòng nào (disable input, tránh double-submit).
+  // Sửa nhanh tồn kho ngay trên bảng - đang sửa dòng nào (materialId) + giá trị đang gõ dở.
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editValue, setEditValue] = useState('')
-  const [savingId,  setSavingId]  = useState<number | null>(null)
+  // Vấn đề #25 audit 26/08 - chốt số xong KHÔNG gọi API ngay, mà chờ AdjustReasonModal thu lý do
+  // thật (trước đây gửi thẳng note cố định) rồi mới ghi bút toán.
+  const [pendingAdjust, setPendingAdjust] = useState<{ it: StockItem; newQty: number; delta: number } | null>(null)
+  const [adjustBusy, setAdjustBusy] = useState(false)
+  const [adjustError, setAdjustError] = useState<string | null>(null)
 
   const { data: ledger } = useFetch<LedgerRow[]>(() => getStockLedger({ warehouseId: wh.id }), [wh.id])
 
@@ -310,34 +324,48 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
 
   const cancelEdit = () => { setEditingId(null); setEditValue('') }
 
-  const commitEdit = async (it: StockItem) => {
+  const commitEdit = (it: StockItem) => {
     const newQty = Number(editValue)
     if (editValue === '' || Number.isNaN(newQty) || newQty < 0) { cancelEdit(); return }
     const delta = newQty - it.qty
-    if (delta === 0) { cancelEdit(); return }
+    cancelEdit()
+    if (delta === 0) return
     if (!openingBalanceWarehouseId) {
       alert('Chưa xác định được kho đối ứng để điều chỉnh tồn kho')
-      cancelEdit()
       return
     }
-    setSavingId(it.materialId)
+    setAdjustError(null)
+    setPendingAdjust({ it, newQty, delta })
+  }
+
+  const confirmAdjust = async (reason: string) => {
+    if (!pendingAdjust || !openingBalanceWarehouseId) return
+    const { it, delta } = pendingAdjust
+    setAdjustBusy(true)
+    setAdjustError(null)
     try {
       await adjustStock({
         fromWarehouseId: delta > 0 ? openingBalanceWarehouseId : wh.id,
         toWarehouseId:   delta > 0 ? wh.id : openingBalanceWarehouseId,
         materialId: String(it.materialId),
         qty: Math.abs(delta),
-        note: 'Điều chỉnh tồn kho (trang Kho)',
+        note: reason,
         expectedWarehouseId: String(wh.id),
         expectedCurrentQty: it.qty,
       })
-      cancelEdit()
+      setPendingAdjust(null)
       onQtyAdjusted()
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Không thể sửa tồn kho')
+      setAdjustError(e instanceof Error ? e.message : 'Không thể sửa tồn kho')
     } finally {
-      setSavingId(null)
+      setAdjustBusy(false)
     }
+  }
+
+  const cancelAdjust = () => {
+    if (adjustBusy) return
+    setPendingAdjust(null)
+    setAdjustError(null)
   }
 
   const txns: Txn[] = (ledger ?? []).map(e => ({
@@ -415,10 +443,13 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
                 <th style={th}>Quy cách</th>
                 <th style={th}>ĐVT</th>
                 <th style={{ ...th, textAlign: 'right' }}>Tồn</th>
+                <th style={{ ...th, textAlign: 'right' }}>Khả dụng</th>
               </tr>
             </thead>
             <tbody>
-              {filteredItems.map(it => (
+              {filteredItems.map(it => {
+                const reserved = it.qty - it.availableQty
+                return (
                 <tr key={it.materialId} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{it.code}</td>
                   <td style={{ ...td, fontWeight: 500 }}>{it.name}</td>
@@ -430,7 +461,6 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
                       <input
                         type="number" min={0} step="any" autoFocus
                         value={editValue}
-                        disabled={savingId === it.materialId}
                         onChange={e => setEditValue(e.target.value)}
                         onBlur={() => void commitEdit(it)}
                         onKeyDown={e => {
@@ -447,10 +477,17 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
                       it.qty.toLocaleString('vi-VN')
                     )}
                   </td>
+                  <td
+                    style={{ ...td, textAlign: 'right', fontWeight: 700, color: it.availableQty <= 0 ? '#c62828' : '#2563eb' }}
+                    title={reserved > 0 ? `Đang giữ chỗ ${reserved.toLocaleString('vi-VN')} (cắt sắt/chuyển kho)` : undefined}
+                  >
+                    {it.availableQty.toLocaleString('vi-VN')}
+                  </td>
                 </tr>
-              ))}
+                )
+              })}
               {filteredItems.length === 0 && (
-                <tr><td colSpan={6} style={{ ...td, color: 'var(--text3)', textAlign: 'center', padding: 24 }}>
+                <tr><td colSpan={7} style={{ ...td, color: 'var(--text3)', textAlign: 'center', padding: 24 }}>
                   {items.length === 0 ? 'Kho chưa có vật tư.' : 'Không tìm thấy vật tư.'}
                 </td></tr>
               )}
@@ -467,6 +504,17 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
           warehouseId={wh.id}
           onClose={() => setAdding(false)}
           onDone={() => { setAdding(false); onMaterialCreated() }}
+        />
+      )}
+
+      {pendingAdjust && (
+        <AdjustReasonModal
+          open
+          summary={`${pendingAdjust.it.name}: ${pendingAdjust.it.qty.toLocaleString('vi-VN')} → ${pendingAdjust.newQty.toLocaleString('vi-VN')} ${pendingAdjust.it.unit}`}
+          busy={adjustBusy}
+          error={adjustError}
+          onConfirm={(reason) => void confirmAdjust(reason)}
+          onCancel={cancelAdjust}
         />
       )}
     </div>

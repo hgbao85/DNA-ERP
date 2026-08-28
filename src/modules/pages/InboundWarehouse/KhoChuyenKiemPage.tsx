@@ -79,7 +79,12 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
     }
   }
 
-  const canConfirm = !!popupQty && Number(popupQty) > 0 && !saving
+  // Phần còn lại cần kiểm (Vấn đề #12 audit 26/08 - trước đây ô này chỉ chặn <=0, không chặn vượt
+  // phần còn lại, khiến "Đã kiểm" có thể hiện âm/vượt 100% nếu lỡ tay nhập quá).
+  const remainingToCheck = checkingPiece ? checkingPiece.totalQty - checkingPiece.checkedQty : 0
+  const popupQtyNum = Number(popupQty)
+  const overRemaining = !!popupQty && popupQtyNum > remainingToCheck
+  const canConfirm = !!popupQty && popupQtyNum > 0 && !overRemaining && !saving
 
   // ── Detail view ───────────────────────────────────────────────────────────────
   if (selectedPf) {
@@ -179,15 +184,20 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
               </div>
 
               <div style={{ padding: '16px 18px' }}>
-                <label style={lbl}>Số lượng đã kiểm *</label>
+                <label style={lbl}>Số lượng đã kiểm * <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(còn lại {remainingToCheck})</span></label>
                 <input
-                  type="number" min={1}
+                  type="number" min={1} max={remainingToCheck}
                   value={popupQty}
                   onChange={e => setPopupQty(e.target.value)}
                   placeholder="Nhập số lượng"
-                  style={inp}
+                  style={{ ...inp, borderColor: overRemaining ? '#dc2626' : undefined }}
                   autoFocus
                 />
+                {overRemaining && (
+                  <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>
+                    Vượt quá số lượng còn lại cần kiểm ({remainingToCheck})
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 18, marginBottom: 10 }}>
                   <span style={lbl}>Lỗi phát hiện</span>

@@ -6,6 +6,7 @@ import { useAuditLog } from '../../../../context/AuditLogContext'
 import { getMaterials, createMaterial, updateMaterial, deleteMaterial, getMaterialGroups, getWarehouses, getUsers, getStockQuants, adjustStock } from '../../../../services/api'
 import { MATERIAL_GROUP_SYSTEM_KEYS } from '../../../../constants/materialGroupSystemKeys'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
+import AdjustReasonModal from '../../../../components/AdjustReasonModal'
 
 interface Material {
   id: number
@@ -61,6 +62,9 @@ interface QuantRow {
   materialId: string | null
   warehouseId: string
   qty: number
+  /** Vấn đề #13 audit 26/08 - tồn còn dùng được (đã trừ phần giữ chỗ cắt sắt/chuyển kho), BE tính
+   *  sẵn qua getAvailableQty() dùng chung với màn Xuất sắt - xem stock-api.ts. */
+  availableQty: number
 }
 
 export default function MaterialsPage() {
@@ -92,17 +96,22 @@ export default function MaterialsPage() {
   const buyerName = (id?: string | null) => buyerList.find((u) => String(u.id) === id)?.name ?? '—'
 
   const { data: quants, refetch: refetchQuants } = useFetch<QuantRow[]>(getStockQuants)
-  const qtyByMaterialId = new Map(
-    (quants ?? []).filter((q) => q.materialId).map((q) => [`${q.materialId}:${q.warehouseId}`, q.qty]),
+  const quantByMaterialId = new Map(
+    (quants ?? []).filter((q) => q.materialId).map((q) => [`${q.materialId}:${q.warehouseId}`, q]),
   )
   const stockQtyOf = (m: Material): number | null =>
-    m.warehouseId ? qtyByMaterialId.get(`${m.id}:${m.warehouseId}`) ?? 0 : null
+    m.warehouseId ? quantByMaterialId.get(`${m.id}:${m.warehouseId}`)?.qty ?? 0 : null
+  const availableQtyOf = (m: Material): number | null =>
+    m.warehouseId ? quantByMaterialId.get(`${m.id}:${m.warehouseId}`)?.availableQty ?? 0 : null
 
-  // Sửa nhanh tồn kho ngay trên bảng - đang sửa dòng nào (materialId) + giá trị đang gõ dở +
-  // đang lưu dòng nào (disable input, tránh double-submit).
+  // Sửa nhanh tồn kho ngay trên bảng - đang sửa dòng nào (materialId) + giá trị đang gõ dở.
   const [editingId, setEditingId] = useState<number | null>(null)
   const [editValue, setEditValue] = useState('')
-  const [savingId,  setSavingId]  = useState<number | null>(null)
+  // Vấn đề #25 audit 26/08 - chốt số xong KHÔNG gọi API ngay, mà chờ AdjustReasonModal thu lý do
+  // thật (trước đây gửi thẳng note cố định) rồi mới ghi bút toán.
+  const [pendingAdjust, setPendingAdjust] = useState<{ m: Material; currentQty: number; newQty: number; delta: number } | null>(null)
+  const [adjustBusy, setAdjustBusy] = useState(false)
+  const [adjustError, setAdjustError] = useState<string | null>(null)
 
   const startEdit = (m: Material, currentQty: number) => {
     setEditingId(m.id)
@@ -111,34 +120,49 @@ export default function MaterialsPage() {
 
   const cancelEdit = () => { setEditingId(null); setEditValue('') }
 
-  const commitEdit = async (m: Material, currentQty: number) => {
+  const commitEdit = (m: Material, currentQty: number) => {
     const newQty = Number(editValue)
     if (editValue === '' || Number.isNaN(newQty) || newQty < 0) { cancelEdit(); return }
     const delta = newQty - currentQty
-    if (delta === 0) { cancelEdit(); return }
+    cancelEdit()
+    if (delta === 0) return
     if (!m.warehouseId || !openingBalanceWarehouseId) {
       alert('Chưa xác định được kho để điều chỉnh tồn kho')
-      cancelEdit()
       return
     }
-    setSavingId(m.id)
+    setAdjustError(null)
+    setPendingAdjust({ m, currentQty, newQty, delta })
+  }
+
+  const confirmAdjust = async (reason: string) => {
+    if (!pendingAdjust || !openingBalanceWarehouseId) return
+    const { m, currentQty, delta } = pendingAdjust
+    if (!m.warehouseId) return
+    setAdjustBusy(true)
+    setAdjustError(null)
     try {
       await adjustStock({
         fromWarehouseId: delta > 0 ? openingBalanceWarehouseId : m.warehouseId,
         toWarehouseId:   delta > 0 ? m.warehouseId : openingBalanceWarehouseId,
         materialId: String(m.id),
         qty: Math.abs(delta),
-        note: 'Điều chỉnh tồn kho (Admin > Vật tư)',
+        note: reason,
         expectedWarehouseId: String(m.warehouseId),
         expectedCurrentQty: currentQty,
       })
-      cancelEdit()
+      setPendingAdjust(null)
       void refetchQuants()
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Không thể sửa tồn kho')
+      setAdjustError(e instanceof Error ? e.message : 'Không thể sửa tồn kho')
     } finally {
-      setSavingId(null)
+      setAdjustBusy(false)
     }
+  }
+
+  const cancelAdjust = () => {
+    if (adjustBusy) return
+    setPendingAdjust(null)
+    setAdjustError(null)
   }
 
   const config: AdminEntityConfig<Material> = {
@@ -176,7 +200,6 @@ export default function MaterialsPage() {
                 <input
                   type="number" min={0} step="any" autoFocus
                   value={editValue}
-                  disabled={savingId === m.id}
                   onChange={(e) => setEditValue(e.target.value)}
                   onBlur={() => void commitEdit(m, qty)}
                   onKeyDown={(e) => {
@@ -199,6 +222,17 @@ export default function MaterialsPage() {
               </span>
             </div>
           )
+        },
+      },
+      {
+        // Vấn đề #13 audit 26/08 - "Tồn kho" ở trên là tồn thực tế; cột này là phần CÒN DÙNG
+        // ĐƯỢC sau khi trừ giữ chỗ (cắt sắt/chuyển kho nội bộ ACTIVE) - chỉ đọc, không sửa nhanh
+        // ở đây (sửa "Tồn kho" mới là nơi ghi bút toán thật).
+        key: 'availableQty', label: 'Khả dụng', align: 'right',
+        render: (m) => {
+          const qty = availableQtyOf(m)
+          if (qty == null) return <span style={{ color: 'var(--text3)' }}>—</span>
+          return <span style={{ fontWeight: 700, color: qty <= 0 ? '#c62828' : '#2563eb' }}>{qty.toLocaleString('vi-VN')}</span>
         },
       },
       { key: 'buyerId', label: 'Nhân viên mua hàng', render: (m) => buyerName(m.buyerId) },
@@ -297,5 +331,19 @@ export default function MaterialsPage() {
     },
   }
 
-  return <AdminEntityPage config={config} />
+  return (
+    <>
+      <AdminEntityPage config={config} />
+      {pendingAdjust && (
+        <AdjustReasonModal
+          open
+          summary={`${pendingAdjust.m.name}: ${pendingAdjust.currentQty.toLocaleString('vi-VN')} → ${pendingAdjust.newQty.toLocaleString('vi-VN')} ${pendingAdjust.m.unit}`}
+          busy={adjustBusy}
+          error={adjustError}
+          onConfirm={(reason) => void confirmAdjust(reason)}
+          onCancel={cancelAdjust}
+        />
+      )}
+    </>
+  )
 }

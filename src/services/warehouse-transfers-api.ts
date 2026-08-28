@@ -12,7 +12,7 @@
  * BE không có khái niệm `piCode` (chỉ có `planFormId` thật hoặc `note` tự do) — bỏ hẳn field này,
  * xem WarehouseXuatPage.tsx cho cách nhồi thông tin PI vào `note` thay vì giả một field cấu trúc.
  */
-import { http } from './core/http';
+import { http, withIdempotencyKey } from './core/http';
 import type { TransferStatus, WarehouseTransfer, WarehouseTransferItem } from '../types/warehouse-transfer';
 
 interface BeWarehouseTransferItem {
@@ -40,6 +40,9 @@ interface BeWarehouseTransfer {
   createdAt: string;
   confirmedAt: string | null;
   rejectedAt: string | null;
+  createdById: string | null;
+  confirmedById: string | null;
+  rejectedById: string | null;
 }
 
 interface BeWarehouseTransferDetail extends BeWarehouseTransfer {
@@ -74,6 +77,9 @@ function toTransfer(t: BeWarehouseTransfer, items: BeWarehouseTransferItem[]): W
     createdAt: t.createdAt,
     confirmedAt: t.confirmedAt,
     rejectedAt: t.rejectedAt,
+    createdById: t.createdById,
+    confirmedById: t.confirmedById,
+    rejectedById: t.rejectedById,
   };
 }
 
@@ -103,18 +109,23 @@ export async function createWarehouseTransfer(data: {
   note?: string;
   items: Array<{ materialId?: string | number; materialName: string; unit: string; quantity: number; note?: string }>;
 }): Promise<WarehouseTransfer> {
-  const created = await http.post<BeWarehouseTransfer>('/warehouse-transfers', {
-    fromWarehouseId: String(data.fromWarehouseId),
-    toWarehouseId: String(data.toWarehouseId),
-    note: data.note,
-    items: data.items.map((it) => ({
-      materialId: it.materialId !== undefined ? String(it.materialId) : undefined,
-      materialName: it.materialName,
-      unit: it.unit,
-      quantity: it.quantity,
-      note: it.note,
-    })),
-  });
+  const created = await http.post<BeWarehouseTransfer>(
+    '/warehouse-transfers',
+    {
+      fromWarehouseId: String(data.fromWarehouseId),
+      toWarehouseId: String(data.toWarehouseId),
+      note: data.note,
+      items: data.items.map((it) => ({
+        materialId: it.materialId !== undefined ? String(it.materialId) : undefined,
+        materialName: it.materialName,
+        unit: it.unit,
+        quantity: it.quantity,
+        note: it.note,
+      })),
+    },
+    // Vấn đề #11 audit 26/08 (phần còn thiếu) - BE giờ bắt buộc header này.
+    withIdempotencyKey(),
+  );
   // Phiếu vừa tạo có thể đã bị clamp số lượng theo tồn khả dụng (xem BE WarehouseTransfersService)
   // — fetch lại chi tiết để trả đúng số lượng/items thật thay vì echo nguyên request.
   return getWarehouseTransfer(created.id);
@@ -177,17 +188,22 @@ export async function createPieceWarehouseTransfer(data: {
     note?: string;
   }>;
 }): Promise<WarehouseTransfer> {
-  const created = await http.post<BeWarehouseTransfer>('/warehouse-transfers/piece-transfer', {
-    fromWarehouseId: String(data.fromWarehouseId),
-    toWarehouseId: String(data.toWarehouseId),
-    note: data.note,
-    pieceItems: data.pieceItems.map((it) => ({
-      productionOrderId: String(it.productionOrderId),
-      pieceId: String(it.pieceId),
-      quantity: it.quantity,
-      note: it.note,
-    })),
-  });
+  const created = await http.post<BeWarehouseTransfer>(
+    '/warehouse-transfers/piece-transfer',
+    {
+      fromWarehouseId: String(data.fromWarehouseId),
+      toWarehouseId: String(data.toWarehouseId),
+      note: data.note,
+      pieceItems: data.pieceItems.map((it) => ({
+        productionOrderId: String(it.productionOrderId),
+        pieceId: String(it.pieceId),
+        quantity: it.quantity,
+        note: it.note,
+      })),
+    },
+    // Vấn đề #11 audit 26/08 (phần còn thiếu) - BE giờ bắt buộc header này.
+    withIdempotencyKey(),
+  );
   // Cùng lý do createWarehouseTransfer(): số lượng có thể đã bị clamp theo kế hoạch tại thời điểm
   // tạo (xem WarehouseTransfersService.createPieceTransfer ở BE) — fetch lại chi tiết thật.
   return getWarehouseTransfer(created.id);

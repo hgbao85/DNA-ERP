@@ -18,7 +18,13 @@ export default function PurchaseProposalsPage() {
     columns: [
       { key: 'salesOrderCode', label: 'Mã PO', render: (p) => p.salesOrderCode ?? '—' },
       { key: 'skuCode', label: 'SKU', render: (p) => p.skuName ? `${p.skuCode} — ${p.skuName}` : p.skuCode },
-      { key: 'warehouseScope', label: 'Kho' },
+      {
+        // Vấn đề M6 audit 26/08 - trước đây hiện thẳng p.warehouseScope (mã kho lỗi thời, dùng để
+        // route theo cách phân việc CŨ), trong khi phân việc hiện nay theo từng vật tư
+        // (Material.buyerId, xem purchasingRouting.ts). Đổi sang gộp khoLabel thật của từng dòng
+        // vật tư trong đề xuất - cùng cách LenhMuaNCCPage.tsx/TheoDoiMuaHangPage.tsx đang hiển thị.
+        key: 'kho', label: 'Kho', render: (p) => [...new Set(p.items.map((i) => i.khoLabel))].join(', ') || '—',
+      },
       {
         key: 'status', label: 'Trạng thái', render: (p) => {
           const s = PROPOSAL_STATUS_LABELS[p.status]

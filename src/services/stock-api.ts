@@ -17,6 +17,11 @@ export interface BeStockQuant {
   segmentSpecId: string | null;
   segmentSpecLabel: string | null;
   qty: number;
+  /** Vấn đề #13 audit 26/08 - tồn thật (qty) trừ phần đang bị giữ chỗ (cắt sắt/chuyển kho nội bộ
+   *  ACTIVE), BE tính qua ĐÚNG hàm StockReservationsService.getAvailableQty() dùng chung với màn
+   *  Xuất sắt (PhanPhoiNoiBoPage.tsx) - không tự trừ lại ở FE. === qty với dòng segmentSpec/piece/
+   *  productVariant (reservation chỉ khoá theo materialId). */
+  availableQty: number;
   updatedAt: string;
 }
 
@@ -58,7 +63,9 @@ export async function adjustStock(input: {
   materialId?: string;
   segmentSpecId?: string;
   qty: number;
-  note?: string;
+  /** Vấn đề #25 audit 26/08 - bắt buộc (khớp BE), phải là lý do thật do người dùng gõ (xem
+   *  AdjustReasonModal), không phải text mẫu cố định như trước. */
+  note: string;
   /** Optimistic-lock cho "sửa nhanh tồn kho" - đi kèm expectedCurrentQty, phải trùng
    *  fromWarehouseId hoặc toWarehouseId. BE 409 nếu tồn thật đã đổi kể từ lúc đọc. */
   expectedWarehouseId?: string;

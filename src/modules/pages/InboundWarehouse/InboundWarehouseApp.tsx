@@ -5,7 +5,6 @@ import { useAuth } from '../../../context/AuthContext'
 import MfgWarehousesPage, { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 import MfgAllMaterialsPage from '../Manufacturing/MfgAllMaterialsPage'
 import NhapKhoPage from '../Manufacturing/NhapKhoPage'
-import XuatKhoPage from '../Manufacturing/XuatKhoPage'
 import KhoChuyenKiemPage from './KhoChuyenKiemPage'
 import KhoDongGoiPage from './KhoDongGoiPage'
 import WarehouseXuatPage from './WarehouseXuatPage'
@@ -149,7 +148,19 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         />}
         {tab === 'warehouses' && <MfgWarehousesPage groupKey={scope} />}
         {tab === 'nhap-kho'   && <NhapKhoPage lockedGroup={scope} />}
-        {tab === 'xuat-kho'   && (scope ? <WarehouseXuatPage scope={scope} /> : <XuatKhoPage lockedGroup={scope} />)}
+        {/* scope luôn có giá trị ở đây trên thực tế (2026-08-28): form tạo tài khoản Admin bắt buộc
+            chọn "Kho phụ trách" cho mọi nhân viên loại Kho (UsersPage.tsx validate 'Chọn kho phụ
+            trách'), và tài khoản BOSS (scope null) không có đường điều hướng nào tới phân hệ Kho
+            đầu vào (BossApp.tsx không nhận onBack). Giữ nhánh scope null ở đây chỉ để không vỡ kiểu
+            dữ liệu - trước đây render XuatKhoPage, 1 màn "xuất kho" giả chỉ setState cục bộ, không
+            hề gọi API (đã xoá, xem audit-2026-08-26-mua-hang-kho-toan-dien.html Vấn đề #2). */}
+        {tab === 'xuat-kho'   && (scope
+          ? <WarehouseXuatPage scope={scope} />
+          : <div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }}>
+              Tài khoản không gán kho phụ trách cụ thể chưa có chức năng xuất kho — đăng nhập bằng
+              tài khoản thủ kho của đúng kho cần xuất.
+            </div>
+        )}
         {tab === 'xuat-sat'   && scope === 'phoi-son-han' && <PhanPhoiNoiBoPage />}
         {tab === 'chuyen-kiem' && canSeePacking && <KhoChuyenKiemPage />}
         {tab === 'dong-goi'    && canSeePacking && <KhoDongGoiPage />}

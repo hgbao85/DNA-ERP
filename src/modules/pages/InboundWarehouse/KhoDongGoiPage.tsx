@@ -55,7 +55,12 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }
     }
   }
 
-  const canConfirm = !!popupQty && Number(popupQty) > 0 && !saving
+  // Vấn đề #12 audit 26/08 - trước đây ô này chỉ chặn <=0, không chặn vượt phần còn lại, khiến
+  // "Đã đóng gói" có thể hiện âm/vượt 100% nếu lỡ tay nhập quá.
+  const remainingToPack = progress?.remainingQty ?? 0
+  const popupQtyNum = Number(popupQty)
+  const overRemaining = !!popupQty && popupQtyNum > remainingToPack
+  const canConfirm = !!popupQty && popupQtyNum > 0 && !overRemaining && !saving
 
   // ── Detail view ───────────────────────────────────────────────────────────────
   if (selectedPf) {
@@ -158,16 +163,21 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }
               </div>
 
               <div style={{ padding: '16px 18px' }}>
-                <label style={lbl}>Số thùng đã đóng *</label>
+                <label style={lbl}>Số thùng đã đóng * <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(còn lại {remainingToPack})</span></label>
                 <input
-                  type="number" min={1}
+                  type="number" min={1} max={remainingToPack}
                   value={popupQty}
                   onChange={e => setPopupQty(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && canConfirm && handleConfirm()}
                   placeholder="Nhập số thùng"
-                  style={inp}
+                  style={{ ...inp, borderColor: overRemaining ? '#dc2626' : undefined }}
                   autoFocus
                 />
+                {overRemaining && (
+                  <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>
+                    Vượt quá số lượng còn lại cần đóng gói ({remainingToPack})
+                  </div>
+                )}
                 {saveError && <div style={{ color: '#c62828', fontSize: 12, marginTop: 12 }}>{saveError}</div>}
               </div>
 

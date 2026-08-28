@@ -25,6 +25,12 @@ export interface WarehouseTransfer {
   createdAt: string
   confirmedAt?: string | null
   rejectedAt?: string | null
+  /** Vấn đề #7 audit 26/08 - trước đây chỉ tra được ai tạo/xác nhận/từ chối qua audit log riêng.
+   *  null với phiếu tạo trước khi field này có mặt (không backfill). Raw user id - FE tự resolve
+   *  tên qua getUsers() nếu cần hiển thị. */
+  createdById?: string | null
+  confirmedById?: string | null
+  rejectedById?: string | null
 }
 
 // Chuỗi chuyển kho MỘT CHIỀU: value = kho ĐÍCH DUY NHẤT được phép nhận hàng từ key.
