@@ -30,29 +30,24 @@
  * `utils/purchasingRouting.ts` - ép Number() làm lệch kiểu key, khiến lọc theo buyer luôn thất bại
  * (đã xảy ra thật, sửa 2026-08-08).
  *
- * `quotes`/`chosenSuppliers` key theo `item.itemId` (PurchaseProposalItem.id thật, KHÔNG phải
- * materialId lẫn item.name — sửa 2026-08-26, L6 rà soát lỗi #6). Lịch sử 2 lần đổi key:
- *   1. 2026-08-13 (D.p6-quote-key-collision): từng key theo item.name, đổi sang materialId vì 2
- *      vật tư khác nhau có thể trùng tên hiển thị (vd nhiều loại "Sắt phi" khác đường kính) khiến
- *      item đứng trước bị item trùng tên đứng sau ghi đè mất trong map.
- *   2. 2026-08-26 (L6): materialId cũng KHÔNG còn duy nhất trong 1 đề xuất - từ khi "gộp 1 PI =
- *      1 form" (2026-08-25), 1 vật tư đã PURCHASED mà lại phát sinh thiếu thêm sẽ tách thành DÒNG
- *      MỚI cùng materialId (xem BE CuttingProposalsService.approve() nhánh shortfall) - key theo
- *      materialId khiến báo giá/duyệt/nhận hàng của dòng này ghi đè/lẫn sang dòng kia. itemId là
- *      định danh DUY NHẤT thật sự (PurchaseProposalItem.id, PK) - không còn ca nào trùng được nữa.
- * Vì key giờ CHÍNH LÀ itemId, các hàm action bên dưới gửi thẳng lên BE, KHÔNG cần tra ngược qua
- * `proposal.items` nữa (đã bỏ hẳn beItemIdsByMaterialId() cũ). Riêng quoteId (báo giá nào được
- * chọn) KHÔNG tra theo tên NCC (từng làm vậy, đã bỏ - xem approveProposal()) - ProposalQuote nay
- * mang sẵn `id` thật từ lúc đọc về, Sếp chọn thì gửi thẳng id đó, tránh khớp nhầm khi trùng tên
- * NCC hoặc còn báo giá cũ chưa dọn sau 1 vòng "Báo giá lại".
+ * 2026-08-27 ("Sếp duyệt ngoài hệ thống"): TOÀN BỘ phần báo giá nhiều NCC đã gỡ khỏi adapter này -
+ * `saveProposalQuotes`/`submitProposalToDirector`/`approveProposal`/`rejectProposal`/
+ * `requoteProposal`/`acknowledgeProposal` và 2 map `quotes`/`chosenSuppliers` không còn. Thay bằng
+ * đúng 1 hàm `bossApproveProposal()`: Mua hàng tự làm phiếu so sánh giá bằng Excel, Sếp ký tay,
+ * FE upload file đó rồi gọi BE đẩy dòng sang PURCHASING. Giá và NCC nằm TRONG FILE, cố ý không
+ * tách ra field riêng (Sếp chốt) - nên `PurchaseProposalItem.approvalFileUrl` là thứ duy nhất
+ * FE cần đọc thêm.
+ *
+ * BE vẫn trả field `quotes` trên mỗi item (32 báo giá cũ, để tra cứu lịch sử) nhưng FE KHÔNG map
+ * nữa - không màn nào hiển thị. Đừng dựng lại map đó nếu không có yêu cầu mới.
+ *
+ * `itemId` (PurchaseProposalItem.id thật) vẫn là khoá định danh dòng ở mọi màn - KHÔNG dùng
+ * materialId (2026-08-26, L6): từ khi "gộp 1 PI = 1 form", 1 vật tư đã PURCHASED mà phát sinh
+ * thiếu thêm sẽ tách thành DÒNG MỚI cùng materialId, khoá theo materialId khiến thao tác của dòng
+ * này ghi đè/lẫn sang dòng kia.
  */
 import { http, withIdempotencyKey } from './core/http';
-import type {
-  KhoKey,
-  ProposalQuote,
-  PurchaseProposal,
-  PurchaseProposalItem,
-} from '../context/InspectionContext';
+import type { KhoKey, PurchaseProposal, PurchaseProposalItem } from '../context/InspectionContext';
 
 const WAREHOUSE_SCOPE_TO_KHO_KEY: Record<string, KhoKey> = {
   'phoi-son-han': 'phoiSonHan',
@@ -75,16 +70,6 @@ const BE_TO_FE_STATUS: Record<string, PurchaseProposal['status']> = {
   REJECTED: 'rejected',
 };
 
-interface BeQuote {
-  id: string;
-  supplierId: string | null;
-  supplierName: string;
-  unitPrice: number | null;
-  expectedDate: string | null;
-  note: string | null;
-  isChosen: boolean;
-}
-
 interface BeItem {
   id: string;
   materialId: string;
@@ -104,7 +89,6 @@ interface BeItem {
   stockLengthMm: number | null;
   receivedQty: number;
   receivedQtyPurchaseUnit: number | null;
-  quotes: BeQuote[];
   // Trạng thái CỦA RIÊNG DÒNG NÀY (2026-08-25, "duyệt riêng từng người mua hàng") - xem
   // PurchaseProposalItem.status ở InspectionContext.tsx cho ý nghĩa đầy đủ.
   status: keyof typeof BE_TO_FE_STATUS;
@@ -113,6 +97,9 @@ interface BeItem {
   rejectedAt: string | null;
   rejectionReason: string | null;
   purchasedAt: string | null;
+  // File phiếu Sếp đã ký duyệt lô mua này (2026-08-27) - null cho dòng duyệt theo luồng cũ.
+  // BE vẫn trả thêm `quotes` (báo giá luồng cũ) nhưng FE KHÔNG còn đọc: giá/NCC nay nằm trong file.
+  approvalFileUrl: string | null;
 }
 
 interface BeProposal {
@@ -167,6 +154,7 @@ function toItem(item: BeItem): PurchaseProposalItem {
     rejectedAt: item.rejectedAt ?? undefined,
     rejectionReason: item.rejectionReason ?? undefined,
     purchasedAt: item.purchasedAt ?? undefined,
+    approvalFileUrl: item.approvalFileUrl ?? undefined,
   };
 }
 
@@ -174,27 +162,6 @@ function toProposal(be: BeProposal): PurchaseProposal {
   // be.warehouseCode giờ CHỈ còn là kho tóm tắt của cả đề xuất (xem BE PurchaseProposalResponseDto)
   // - từng dòng vật tư tự có warehouseCode riêng, đọc trong toItem() thay vì nhận truyền xuống.
   const items = (be.items ?? []).map((it) => toItem(it));
-
-  const quotes: Record<string, ProposalQuote[]> = {};
-  const chosenSuppliers: Record<string, string> = {};
-  for (const it of be.items ?? []) {
-    // Key theo itemId (L6, 2026-08-26) - xem comment đầu file. it.id luôn có (BE luôn trả id thật).
-    const key = it.id;
-    quotes[key] = it.quotes.map((q) => ({
-      id: q.id,
-      supplierName: q.supplierName,
-      supplierId: q.supplierId ?? undefined,
-      unitPrice: q.unitPrice,
-      expectedDate: q.expectedDate ?? undefined,
-      note: q.note ?? undefined,
-      // Phải mang theo: đây là nguồn xác thực DUY NHẤT cho "báo giá nào đã được Sếp duyệt".
-      // Từng bị đánh rơi ở bước map này, khiến TheoDoiMuaHangPage phải suy ngược bằng cách so
-      // supplierName với chosenSuppliers - sai khi 2 báo giá trùng tên NCC (D.a2-price-by-name).
-      isChosen: q.isChosen,
-    }));
-    const chosen = it.quotes.find((q) => q.isChosen);
-    if (chosen) chosenSuppliers[key] = chosen.supplierName;
-  }
 
   return {
     id: be.id,
@@ -216,8 +183,6 @@ function toProposal(be: BeProposal): PurchaseProposal {
     warehouseScope: be.warehouseCode,
     items,
     status: BE_TO_FE_STATUS[be.status] ?? 'new',
-    quotes,
-    chosenSuppliers,
     deadline: be.deadline ?? undefined,
     submittedAt: be.submittedAt ?? undefined,
     approvedAt: be.approvedAt ?? undefined,
@@ -254,89 +219,18 @@ export async function getPurchaseProposals(opts?: { activeOnly?: boolean }): Pro
   return list.map(toProposal);
 }
 
-export async function acknowledgeProposal(id: string): Promise<PurchaseProposal> {
-  await http.post(`/purchase-proposals/${id}/acknowledge`);
-  return getPurchaseProposal(id);
-}
-
 /**
- * Gửi mọi dòng báo giá CHƯA lưu (row.id rỗng - addQuote() BE luôn CREATE, không update, gửi lại
- * dòng đã có id sẽ tạo trùng) lên đúng item của nó. Dùng chung cho save-nháp và submit-cuối.
+ * Mua hàng xác nhận "Sếp đã duyệt" kèm file phiếu Sếp đã ký tay (2026-08-27) - thay cho CẢ chuỗi
+ * acknowledge -> báo giá nhiều NCC -> gửi Sếp -> Sếp duyệt (đã gỡ hết cùng màn So sánh giá).
+ *
+ * BE tự lọc đúng phần vật tư của actor trong đề xuất, và nhận LUÔN dòng còn kẹt ở trạng thái của
+ * luồng cũ (QUOTING/SUBMITTED/REJECTED) - xem PurchaseProposalsService.bossApprove().
  */
-async function postNewQuotes(
-  proposal: PurchaseProposal,
-  quotesByItemId: Record<string, ProposalQuote[]>,
-): Promise<void> {
-  // Key giờ CHÍNH LÀ itemId (L6, 2026-08-26, xem comment đầu file) - gửi thẳng, không cần tra
-  // ngược qua proposal.items nữa.
-  for (const [itemId, rows] of Object.entries(quotesByItemId)) {
-    for (const row of rows) {
-      if (row.id) continue;
-      await http.post(`/purchase-proposals/${proposal.id}/items/${itemId}/quotes`, {
-        supplierName: row.supplierName,
-        supplierId: row.supplierId,
-        unitPrice: row.unitPrice ?? undefined,
-        expectedDate: row.expectedDate,
-        note: row.note,
-      });
-    }
-  }
-}
-
-/**
- * Lưu báo giá đã nhập cho CÁC VẬT TƯ CỦA MÌNH mà KHÔNG gửi Sếp duyệt (2026-08-25) - cần thiết từ
- * khi 1 đề xuất gộp nhiều người mua (LenhMuaNCCPage.splitItemsByOwner): người xong phần mình
- * trước phải lưu được ngay, không đợi đồng nghiệp phụ trách phần còn lại xong trước mới lưu được
- * (tránh deadlock 2 người chờ nhau). BE addQuote() giờ tự chặn báo giá hộ vật tư người khác
- * (assertActorMayQuoteItem) nên chỉ cần gửi đúng phần quotesByItemId của actor.
- */
-export async function saveProposalQuotes(
-  proposal: PurchaseProposal,
-  quotesByItemId: Record<string, ProposalQuote[]>,
+export async function bossApproveProposal(
+  id: string,
+  approvalFileUrl: string,
 ): Promise<PurchaseProposal> {
-  await postNewQuotes(proposal, quotesByItemId);
-  return getPurchaseProposal(proposal.id);
-}
-
-/** Tạo mọi dòng báo giá CHƯA lưu (client gom sẵn trong quoteEdits) rồi gửi Sếp duyệt 1 lượt. BE
- *  submit() tự soi CẢ đề xuất (mọi vật tư, kể cả của đồng nghiệp khác) đã có báo giá hợp lệ chưa -
- *  ai bấm sau cùng khi đề xuất đã đủ đều gửi được, không nhất thiết phải là người tạo mọi dòng. */
-export async function submitProposalToDirector(
-  proposal: PurchaseProposal,
-  quotesByItemId: Record<string, ProposalQuote[]>,
-): Promise<PurchaseProposal> {
-  await postNewQuotes(proposal, quotesByItemId);
-  await http.post(`/purchase-proposals/${proposal.id}/submit`);
-  return getPurchaseProposal(proposal.id);
-}
-
-/**
- * Sếp duyệt - nhận thẳng quoteId thật (BossApp.tsx lưu theo id, không phải tên NCC nữa - xem
- * ProposalQuote.id). KHÔNG tra lại theo supplierName: 2 báo giá có thể trùng tên NCC (hợp lệ,
- * BE không cấm) - tra theo tên có thể khớp nhầm sang bản không phải cái Sếp vừa bấm
- * (D.h3-quote-id-not-name). Riêng ca "còn báo giá cũ chưa dọn sau 1 vòng Báo giá lại" KHÔNG còn
- * xảy ra được nữa - `requote()` BE nay XOÁ SẠCH báo giá cũ trước khi mở lại QUOTING (đổi
- * 2026-08-11, "không giữ làm lịch sử nữa"; xem `requoteProposal` ở InspectionContext.tsx), nên
- * lý do #2 chỉ còn ghi lại làm ngữ cảnh lịch sử của quyết định thiết kế này, không phải hành vi
- * hiện tại. Key giờ CHÍNH LÀ itemId (L6, 2026-08-26) - gửi thẳng lên BE, không cần dịch nữa.
- */
-export async function approveProposal(
-  proposal: PurchaseProposal,
-  chosenQuoteIdByItemId: Record<string, string>,
-): Promise<PurchaseProposal> {
-  await http.post(`/purchase-proposals/${proposal.id}/approve`, { chosenQuoteIdByItemId });
-  return getPurchaseProposal(proposal.id);
-}
-
-/** `itemIds` (2026-08-25) - từ chối đúng batch item SUBMITTED mà Sếp đang xem; không truyền thì
- *  BE áp dụng cho MỌI item đang SUBMITTED của đề xuất (tương thích ngược, xem reject() BE). */
-export async function rejectProposal(id: string, reason: string, itemIds?: string[]): Promise<PurchaseProposal> {
-  await http.post(`/purchase-proposals/${id}/reject`, { rejectionReason: reason, itemIds });
-  return getPurchaseProposal(id);
-}
-
-export async function requoteProposal(id: string): Promise<PurchaseProposal> {
-  await http.post(`/purchase-proposals/${id}/requote`);
+  await http.post(`/purchase-proposals/${id}/boss-approve`, { approvalFileUrl });
   return getPurchaseProposal(id);
 }
 

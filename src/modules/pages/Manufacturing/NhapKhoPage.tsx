@@ -1,6 +1,6 @@
 ﻿'use client'
 import { useState } from 'react'
-import { ArrowDownToLine, ArrowLeftRight, ChevronLeft } from 'lucide-react'
+import { ArrowDownToLine, ArrowLeftRight, ChevronLeft, Paperclip } from 'lucide-react'
 import { format } from 'date-fns'
 import { canReceiveAt } from '../../../types/warehouse-transfer'
 import { NhapNoiBoSection } from '../InboundWarehouse/InternalTransferSections'
@@ -107,9 +107,27 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
               </div>
             </div>
           </div>
-          <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 20, color: cfg.color, background: cfg.bg, alignSelf: 'center' }}>
-            {cfg.label}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, alignSelf: 'center' }}>
+            {/* Phiếu Sếp ký duyệt lô mua này (2026-08-27) - từ khi việc duyệt mua diễn ra ngoài
+                phần mềm, đây là thứ Thủ kho đối chiếu trước khi nhận hàng. Lấy từ dòng đầu tiên có
+                file: 1 lượt bấm "Sếp đã duyệt" gắn CÙNG 1 file cho mọi dòng của lượt đó. */}
+            {(() => {
+              const approvalFileUrl = visibleItems.find(i => i.approvalFileUrl)?.approvalFileUrl
+              return approvalFileUrl ? (
+                <a
+                  href={approvalFileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#2563eb', border: '1px solid #bfdbfe', background: '#eff6ff', borderRadius: 20, padding: '4px 12px' }}
+                >
+                  <Paperclip size={12} /> Xem file Sếp duyệt
+                </a>
+              ) : null
+            })()}
+            <span style={{ display: 'inline-block', fontSize: 12, fontWeight: 700, padding: '4px 12px', borderRadius: 20, color: cfg.color, background: cfg.bg }}>
+              {cfg.label}
+            </span>
+          </div>
         </div>
 
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>

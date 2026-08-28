@@ -1,14 +1,16 @@
 import { useState } from 'react'
-import { Building2, LogOut, Grid, ClipboardList, Truck, History } from 'lucide-react'
+import { LogOut, Grid, ClipboardList, Truck, History } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
-import VatTuNCCPage from './VatTuNCCPage'
 import LenhMuaNCCPage from './LenhMuaNCCPage'
 import TheoDoiMuaHangPage from './TheoDoiMuaHangPage'
 import LichSuMuaHangPage from './LichSuMuaHangPage'
 
 interface Props { onBack?: () => void }
 
-type TabId = 'suppliers' | 'lenh-mua-ncc' | 'theo-doi-mua-hang' | 'lich-su-mua-hang'
+// Tab "Vật tư – NCC" đã gỡ 2026-08-27 cùng luồng báo giá: nó chỉ phục vụ việc gắn NCC + giá tham
+// khảo cho SupplierPicker lúc nhập báo giá, mà giá/NCC nay nằm trong file Excel Sếp ký. Danh mục
+// NCC vẫn quản lý ở Admin › Nhà cung cấp, gán người mua vẫn ở Admin › Vật tư - không mất chức năng.
+type TabId = 'lenh-mua-ncc' | 'theo-doi-mua-hang' | 'lich-su-mua-hang'
 
 export default function PurchasingApp({ onBack }: Props) {
   const { user, logout } = useAuth()
@@ -18,7 +20,6 @@ export default function PurchasingApp({ onBack }: Props) {
     { id: 'lenh-mua-ncc',      label: 'Lệnh mua vật tư',   icon: <ClipboardList size={16} /> },
     { id: 'theo-doi-mua-hang', label: 'Theo dõi mua hàng', icon: <Truck size={16} /> },
     { id: 'lich-su-mua-hang',  label: 'Lịch sử đã mua',    icon: <History size={16} /> },
-    { id: 'suppliers',         label: 'Vật tư – NCC',      icon: <Building2 size={16} /> },
   ]
 
   return (
@@ -67,7 +68,6 @@ export default function PurchasingApp({ onBack }: Props) {
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        {tab === 'suppliers'         && <VatTuNCCPage />}
         {tab === 'lenh-mua-ncc'      && <LenhMuaNCCPage />}
         {tab === 'theo-doi-mua-hang' && <TheoDoiMuaHangPage />}
         {tab === 'lich-su-mua-hang'  && <LichSuMuaHangPage />}

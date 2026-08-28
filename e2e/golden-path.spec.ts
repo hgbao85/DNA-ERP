@@ -10,14 +10,16 @@ import { test, expect, type APIRequestContext, type Page } from '@playwright/tes
  * nút bấm tương ứng trên FE (Admin "Cắt sắt" chỉ đọc/"Tính lại"; tab "Chi tiết xuất hàng" của PO
  * chỉ hiển thị shippedQty) — 2 chặng này gọi thẳng API.
  *
- * Domain "mua hàng" CÓ UI thật (LenhMuaNCCPage/BossApp "So sánh giá"/NhapKhoPage) và được lái qua
- * UI — nhưng cần đúng tài khoản khớp Material.buyerId của vật tư sắt dùng trong BOM test này
- * ("nhan", không phải 1 trong các tài khoản chuẩn ở prisma/seed-demo.ts). Việc đăng ký NCC cho vật
- * tư (Vật tư – NCC) là dữ liệu chuẩn bị, không phải bước nghiệp vụ của luồng vàng, nên làm qua API
- * cho nhanh/xác định.
+ * Domain "mua hàng" CÓ UI thật (LenhMuaNCCPage/NhapKhoPage) và được lái qua UI — nhưng cần đúng
+ * tài khoản khớp Material.buyerId của vật tư sắt dùng trong BOM test này ("nhan", không phải 1
+ * trong các tài khoản chuẩn ở prisma/seed-demo.ts).
  *
- * Vì vậy: 6/8 bước lái qua browser thật (PO, xem SKU, KHSX/QLSX/Boss xử lý lệnh sản xuất, báo giá
- * + duyệt + nhận hàng mua); chỉ duyệt cắt sắt và ship gọi API. Solver cắt sắt ngoài (cat_sat) được
+ * 2026-08-27 ("Sếp duyệt ngoài hệ thống"): luồng mua hàng rút còn Mua hàng tải file Sếp đã ký tay
+ * lên -> Kho nhận hàng - không còn báo giá nhiều NCC hay bước duyệt nào của Sếp trong hệ thống
+ * (màn "So sánh giá" đã gỡ khỏi BossApp). File phiếu ký dùng fixture tĩnh e2e/fixtures/phieu-da-ky.png.
+ *
+ * Vì vậy: 5/7 bước lái qua browser thật (PO, xem SKU, KHSX/QLSX/Boss xử lý lệnh sản xuất, Sếp đã
+ * duyệt + nhận hàng mua); chỉ duyệt cắt sắt và ship gọi API. Solver cắt sắt ngoài (cat_sat) được
  * thay bằng stub cục bộ (xem e2e/solver-stub.js) để test không phụ thuộc mạng ngoài/không xác định.
  *
  * Chạy: `npm run test:e2e` (tự khởi động BE/FE/solver-stub nếu chưa chạy sẵn, xem playwright.config.ts).
@@ -254,119 +256,47 @@ test.describe('Golden path', () => {
     if (purchaseProposal?.status === 'PURCHASED') {
       // Tồn đã đủ cho mọi vật tư ngay lúc duyệt - không có gì để mua, coi như xong luôn chặng này.
     } else if (purchaseProposalId) {
-      // Cột mã trên 3 màn UI dưới đây (LenhMuaNCCPage/BossApp/NhapKhoPage) hiện mã PI (Sếp chốt
+      // Cột mã trên 2 màn UI dưới đây (LenhMuaNCCPage/NhapKhoPage) hiện mã PI (Sếp chốt
       // 2026-08-17, xem PurchaseProposalsService.toResponseDto) - dùng lại piCode đã lấy ở trên,
       // không phải ProductionOrder.poNumber nội bộ nữa.
-      // Đăng ký NCC cho các vật tư trong đề xuất — dữ liệu chuẩn bị (fixture), không phải bước
-      // nghiệp vụ của luồng vàng, nên làm qua API cho nhanh/xác định (SupplierPicker ở
-      // LenhMuaNCCPage BẮT BUỘC chọn từ NCC đã đăng ký, không cho nhập tay). Idempotent - tái
-      // dùng đúng 1 NCC "NCC E2E Test (fixture)" cố định qua mọi lần chạy thay vì tạo mới mỗi lần,
-      // vì material 38/39/94 dùng chung giữa các lần chạy (cùng product "test") - nếu không sẽ
-      // tích luỹ NCC trùng tên qua từng lần chạy, khiến useEffect seed nhiều dòng báo giá/vật tư
-      // hơn dự kiến và test tự flaky theo thời gian (đã gặp thật, dọn dữ liệu tích luỹ cũ 2026-08-13).
-      const FIXTURE_SUPPLIER_NAME = 'NCC E2E Test (fixture)';
-      await test.step('Chuẩn bị NCC cho vật tư (fixture)', async () => {
-        const nhanTokenSetup = await apiLogin(request, 'nhan');
-        const detail = await apiCall(request, nhanTokenSetup, 'GET', `/purchase-proposals/${purchaseProposalId}`);
-        expect(detail.items.length).toBeGreaterThan(0);
-
-        const existingSuppliers = await apiCall(request, nhanTokenSetup, 'GET', '/suppliers?limit=100');
-        let supplierId = existingSuppliers.data.find((s: any) => s.name === FIXTURE_SUPPLIER_NAME)?.id;
-        if (!supplierId) {
-          const created = await apiCall(request, nhanTokenSetup, 'POST', '/suppliers', { name: FIXTURE_SUPPLIER_NAME });
-          supplierId = created.id;
-        }
-
-        const materialIds = [...new Set(detail.items.map((it: any) => it.materialId))];
-        for (const materialId of materialIds) {
-          const links = await apiCall(request, nhanTokenSetup, 'GET', `/materials/${materialId}/suppliers`);
-          if (links.some((l: any) => l.supplierId === supplierId)) continue;
-          await apiCall(request, nhanTokenSetup, 'POST', `/materials/${materialId}/suppliers`, {
-            supplierId,
-            price: 50_000,
-          });
-        }
-      });
-
-      await test.step('Mua hàng (nhan) báo giá + gửi Sếp duyệt — UI thật', async () => {
+      //
+      // 2026-08-27 ("Sếp duyệt ngoài hệ thống"): bỏ hẳn báo giá nhiều NCC + màn "So sánh giá" của
+      // Sếp - so sánh giá nay làm trên phiếu Excel in ra, Sếp ký tay, Mua hàng chỉ tải file đã ký
+      // lên. Không còn cần đăng ký NCC/giá tham khảo (fixture cũ), không còn bước của Sếp trong
+      // luồng UI - rút từ 3 step (fixture NCC + báo giá/gửi Sếp + Boss duyệt) xuống còn 1.
+      await test.step('Mua hàng (nhan) xác nhận "Sếp đã duyệt" kèm file đã ký — UI thật', async () => {
         const ctx = await browser.newContext();
         const page = await ctx.newPage();
         await uiLogin(page, 'nhan');
-        await expect(page.getByText('Lệnh mua — chọn NCC')).toBeVisible();
+        await expect(page.getByText('Lệnh mua vật tư')).toBeVisible();
 
         await page.getByRole('cell', { name: piCode, exact: true }).click();
-        await page.getByRole('button', { name: 'Tiếp nhận & Báo giá' }).click();
-        await expect(page.getByRole('button', { name: 'Gửi Giám đốc duyệt' })).toBeVisible();
+        await page.getByRole('button', { name: 'Sếp đã duyệt' }).click();
+        await page.setInputFiles('input[type="file"]', 'e2e/fixtures/phieu-da-ky.png');
 
-        // useEffect tự seed dòng báo giá cho từng vật tư qua getMaterialSuppliers() (1 fetch/vật
-        // tư, chạy song song, mỗi dòng render dần khi fetch của nó resolve - không phải cùng lúc).
-        // SupplierPicker mỗi dòng CŨNG tự fetch riêng (useFetch nội bộ) nên có thể trễ hơn 1 nhịp
-        // so với chính input ngày của dòng đó xuất hiện. Vì vậy KHÔNG fill 1 lượt duy nhất - lặp
-        // lại việc điền tới khi nút "Gửi Giám đốc duyệt" tự bật (đúng nguồn sự thật canSubmit() của
-        // trang, không đoán số lần/khoảng nghỉ) hoặc hết thời gian chờ.
-        const futureDate = new Date(Date.now() + 3 * 86_400_000).toISOString().slice(0, 10);
-        const submitBtn = page.getByRole('button', { name: 'Gửi Giám đốc duyệt' });
-        const deadline = Date.now() + 20_000;
-        while (Date.now() < deadline && !(await submitBtn.isEnabled())) {
-          const selects = page.locator('select');
-          for (let i = 0; i < (await selects.count()); i++) {
-            const sel = selects.nth(i);
-            if (!(await sel.inputValue())) await sel.selectOption({ index: 1 }).catch(() => {});
-          }
-          const priceInputs = page.locator('input[type="number"]');
-          for (let i = 0; i < (await priceInputs.count()); i++) {
-            const inp = priceInputs.nth(i);
-            if (!(await inp.inputValue())) await inp.fill('50000').catch(() => {});
-          }
-          const dateInputs = page.locator('input[type="date"]');
-          for (let i = 0; i < (await dateInputs.count()); i++) {
-            const inp = dateInputs.nth(i);
-            if (!(await inp.inputValue())) await inp.fill(futureDate).catch(() => {});
-          }
-          if (await submitBtn.isEnabled()) break;
-          await page.waitForTimeout(300);
-        }
-        await expect(submitBtn).toBeEnabled({ timeout: 5_000 });
+        const confirmBtn = page.getByRole('button', { name: 'Xác nhận' });
+        await expect(confirmBtn).toBeEnabled({ timeout: 5_000 });
 
-        // handleSubmit() gọi setSelectedId(null) NGAY sau khi bắn request (không đợi resolve) -
-        // quay lại danh sách ngay lập tức, không có màn xác nhận riêng để chờ. Các POST báo giá +
-        // POST submit vẫn chạy ngầm (fire-and-forget) SAU KHI UI đã điều hướng - phải đợi đúng
-        // network response cuối (/submit) rồi mới đóng context, nếu không đóng context sớm sẽ huỷ
-        // ngang các request đang bay giữa chừng (đã gặp thật - đề xuất kẹt ở QUOTING dù UI trông
-        // như đã gửi xong).
-        const [submitResp] = await Promise.all([
-          page.waitForResponse((r) => /\/purchase-proposals\/\d+\/submit$/.test(r.url()) && r.request().method() === 'POST'),
-          submitBtn.click(),
+        // onConfirm() đóng popup NGAY sau khi Promise (upload + boss-approve) resolve - đợi đúng
+        // network response cuối (/boss-approve) rồi mới đóng context, cùng lý do đã gặp ở luồng cũ
+        // (đóng context sớm huỷ ngang request đang bay, đề xuất kẹt trạng thái cũ dù UI trông như
+        // đã xong).
+        const [approveResp] = await Promise.all([
+          page.waitForResponse((r) => /\/purchase-proposals\/\d+\/boss-approve$/.test(r.url()) && r.request().method() === 'POST'),
+          confirmBtn.click(),
         ]);
-        expect(submitResp.ok(), `POST submit -> ${submitResp.status()}`).toBeTruthy();
-        await expect(page.getByText('Lệnh mua — chọn NCC')).toBeVisible();
+        expect(approveResp.ok(), `POST boss-approve -> ${approveResp.status()}`).toBeTruthy();
+        await expect(page.getByText('Lệnh mua vật tư')).toBeVisible();
         await ctx.close();
       });
 
-      await test.step('Xác nhận đề xuất mua đã chuyển SUBMITTED (API, chỉ đọc)', async () => {
+      await test.step('Xác nhận đề xuất mua đã chuyển PURCHASING (API, chỉ đọc)', async () => {
         for (let i = 0; i < 10; i++) {
           const detail = await apiCall(request, khopshToken, 'GET', `/purchase-proposals/${purchaseProposalId}`);
-          if (detail.status === 'SUBMITTED') return;
+          if (detail.status === 'PURCHASING') return;
           await new Promise((r) => setTimeout(r, 500));
         }
-        throw new Error('Đề xuất mua chưa chuyển SUBMITTED sau khi báo giá qua UI');
-      });
-
-      await test.step('Boss duyệt báo giá (So sánh giá) — UI thật', async () => {
-        const ctx = await browser.newContext();
-        const page = await ctx.newPage();
-        await uiLogin(page, 'boss');
-        await page.getByRole('button', { name: 'So sánh giá' }).click();
-        await page.getByRole('cell', { name: piCode, exact: true }).click();
-
-        // handleApprove() cũng fire-and-forget (setSelectedRequestId(null) ngay, không đợi resolve)
-        // - đợi đúng response POST .../approve rồi mới đóng context, cùng lý do đã sửa ở bước báo giá.
-        const [approveResp] = await Promise.all([
-          page.waitForResponse((r) => /\/purchase-proposals\/\d+\/approve$/.test(r.url()) && r.request().method() === 'POST'),
-          page.getByRole('button', { name: 'Duyệt', exact: true }).click(),
-        ]);
-        expect(approveResp.ok(), `POST approve -> ${approveResp.status()}`).toBeTruthy();
-        await ctx.close();
+        throw new Error('Đề xuất mua chưa chuyển PURCHASING sau khi Sếp đã duyệt qua UI');
       });
 
       await test.step('Kho phôi-sơn-hàn xác nhận nhận hàng — UI thật', async () => {

@@ -4,12 +4,7 @@ import type { WarehouseScope } from './AuthContext'
 import { useAuth } from './AuthContext'
 import {
   getPurchaseProposals as fetchPurchaseProposals,
-  acknowledgeProposal as acknowledgeProposalApi,
-  saveProposalQuotes as saveProposalQuotesApi,
-  submitProposalToDirector as submitProposalToDirectorApi,
-  approveProposal as approveProposalApi,
-  rejectProposal as rejectProposalApi,
-  requoteProposal as requoteProposalApi,
+  bossApproveProposal as bossApproveProposalApi,
   receiveProposalItem as receiveProposalItemApi,
 } from '../services/purchasing-api'
 
@@ -60,27 +55,12 @@ export interface PurchaseProposalItem {
   rejectedAt?: string
   rejectionReason?: string
   purchasedAt?: string
-}
-
-export interface ProposalQuote {
-  /** Id báo giá thật (PurchaseProposalQuote.id, BE) - CHỈ có khi quote này đã tồn tại ở BE (đọc
-   *  về từ getPurchaseProposal); quote đang soạn ở LenhMuaNCCPage (chưa submit) thì chưa có id.
-   *  Sếp chọn NCC PHẢI dùng field này (không dùng supplierName) - xem BossApp.tsx, tránh khớp
-   *  nhầm khi 2 báo giá trùng tên NCC hoặc còn bản báo giá cũ chưa dọn (D.h3-quote-id-not-name). */
-  id?: string
-  supplierName: string
-  /** Id NCC thật (khi chọn từ danh sách đã đăng ký, xem SupplierPicker) - optional để tương thích
-   *  dữ liệu cũ trước khi có field này; luôn ưu tiên so khớp bằng id, chỉ dùng supplierName để
-   *  hiển thị/tương thích ngược. */
-  supplierId?: string
-  unitPrice: number | null
-  expectedDate?: string
-  note?: string
-  /** Báo giá này có phải cái Sếp đã duyệt không (BE PurchaseProposalQuote.isChosen). Chỉ có ý
-   *  nghĩa với quote đọc về từ BE; dòng đang soạn ở LenhMuaNCCPage chưa có. Mọi màn cần "đơn giá
-   *  đã duyệt" PHẢI lọc bằng field này - so khớp theo supplierName là sai (2 báo giá có thể trùng
-   *  tên NCC, BE không cấm), xem TheoDoiMuaHangPage (D.a2-price-by-name). */
-  isChosen?: boolean
+  /** File phiếu Sếp đã KÝ TAY duyệt lô mua này (2026-08-27) - ảnh chụp/PDF scan/Excel, xem
+   *  services/uploads-api.ts#uploadDocument. Từ đợt này việc so sánh giá + phê duyệt diễn ra NGOÀI
+   *  phần mềm nên đây là bằng chứng duy nhất trong hệ thống cho "đã được duyệt mua"; giá và NCC
+   *  nằm trong chính file, cố ý không tách ra field riêng (Sếp chốt). undefined = dòng duyệt theo
+   *  luồng cũ (qua màn So sánh giá của Sếp, đã gỡ). */
+  approvalFileUrl?: string
 }
 
 export interface PurchaseProposal {
@@ -105,13 +85,6 @@ export interface PurchaseProposal {
   warehouseScope: WarehouseScope
   items: PurchaseProposalItem[]
   status: ProposalStatus
-  // Key = item.itemId (PurchaseProposalItem.id thật) — KHÔNG phải materialId lẫn item.name.
-  // Lịch sử: từng key theo tên (trùng tên hiển thị đè mất nhau, sửa 2026-08-13), rồi theo
-  // materialId, rồi materialId cũng KHÔNG còn duy nhất trong 1 đề xuất từ khi 1 vật tư đã
-  // PURCHASED phát sinh thiếu thêm có thể tách thành DÒNG MỚI cùng materialId (sửa 2026-08-26,
-  // L6) - xem purchasing-api.ts đầu file.
-  quotes?: Record<string, ProposalQuote[]>  // keyed by item.itemId → multiple NCC offers
-  chosenSuppliers?: Record<string, string>  // item.itemId → chosen supplierName (set by boss)
   deadline?: string
   submittedAt?: string
   approvedAt?: string
@@ -122,13 +95,15 @@ export interface PurchaseProposal {
 
 // Nhãn + màu hiển thị theo status — cấu hình dùng chung cho mọi màn đọc PurchaseProposal.status
 // (ProposalSection, màn theo dõi của KHSX...), tránh mỗi nơi tự hardcode 1 bảng if-chain riêng.
+// 'quoting'/'submitted'/'rejected' chỉ còn xuất hiện ở DỮ LIỆU CŨ (luồng báo giá gỡ 2026-08-27) -
+// giữ nhãn để màn hình không hiện trạng thái trống cho các dòng đó, nhưng không đường nào sinh mới.
 export const PROPOSAL_STATUS_LABELS: Record<PurchaseProposal['status'], { label: string; color: string; bg: string; border: string }> = {
-  new:        { label: 'Chờ báo giá',   color: '#92400e', bg: '#fef3c7', border: '#fde68a' },
-  quoting:    { label: 'Đang báo giá',  color: '#1e40af', bg: '#dbeafe', border: '#93c5fd' },
-  submitted:  { label: 'Chờ duyệt',     color: '#7c3aed', bg: '#ede9fe', border: '#c4b5fd' },
+  new:        { label: 'Chờ Sếp duyệt', color: '#92400e', bg: '#fef3c7', border: '#fde68a' },
+  quoting:    { label: 'Chờ Sếp duyệt', color: '#92400e', bg: '#fef3c7', border: '#fde68a' },
+  submitted:  { label: 'Chờ Sếp duyệt', color: '#92400e', bg: '#fef3c7', border: '#fde68a' },
   purchasing: { label: 'Đang mua hàng', color: '#92400e', bg: '#fef3c7', border: '#fde68a' },
   purchased:  { label: 'Đã mua',        color: '#166534', bg: '#dcfce7', border: '#86efac' },
-  rejected:   { label: 'Từ chối',       color: '#991b1b', bg: '#fee2e2', border: '#fca5a5' },
+  rejected:   { label: 'Chờ Sếp duyệt', color: '#92400e', bg: '#fef3c7', border: '#fca5a5' },
 }
 
 // Mọi mutation trả Promise và NÉM LẠI lỗi sau khi đã hiện banner (xem InspectionProvider).
@@ -141,18 +116,9 @@ interface InspCtxType {
   /** Lỗi của thao tác ghi gần nhất - `ActionErrorBanner` đọc, `dismissActionError()` xoá. */
   actionError: string | null
   dismissActionError:      () => void
-  acknowledgeProposal:     (proposalId: string) => Promise<void>
-  /** Lưu báo giá KHÔNG gửi Sếp duyệt - trả về đề xuất đã cập nhật để call site tự re-seed lại
-   *  form nhập liệu với `quote.id` thật (tránh gửi trùng dòng ở lượt lưu tiếp theo, xem
-   *  purchasing-api.ts#postNewQuotes). */
-  saveProposalQuotes:      (proposalId: string, quotes: Record<string, ProposalQuote[]>) => Promise<PurchaseProposal>
-  submitProposalToDirector:(proposalId: string, quotes: Record<string, ProposalQuote[]>) => Promise<void>
-  approveProposal:         (proposalId: string, chosenQuoteIdByItemKey: Record<string, string>) => Promise<void>
-  /** `itemIds` (2026-08-25) - Sếp chỉ từ chối đúng batch item đang SUBMITTED mà mình đang xem
-   *  (BossApp truyền id các dòng "submittedItems" của đúng đề xuất này) - không truyền thì BE áp
-   *  dụng cho MỌI item đang SUBMITTED của đề xuất (tương thích ngược). */
-  rejectProposal:          (proposalId: string, reason: string, itemIds?: string[]) => Promise<void>
-  requoteProposal:         (proposalId: string) => Promise<void>
+  /** Mua hàng xác nhận "Sếp đã duyệt" kèm file phiếu đã ký (2026-08-27) - thay cho cả chuỗi
+   *  acknowledge/báo giá/gửi Sếp/Sếp duyệt đã gỡ. BE tự lọc đúng phần vật tư của actor. */
+  bossApproveProposal:     (proposalId: string, approvalFileUrl: string) => Promise<void>
   receiveProposalItem:     (proposalId: string, itemKey: string, qty: number, receivedQtyPurchaseUnit?: number) => Promise<void>
 }
 
@@ -216,54 +182,12 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     }
   }, [])
 
-  const acknowledgeProposal = useCallback((proposalId: string) =>
-    runAction('Tiếp nhận đề xuất', async () => {
-      const updated = await acknowledgeProposalApi(proposalId)
-      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
-    }), [runAction])
-
-  const saveProposalQuotes = useCallback((proposalId: string, quotes: Record<string, ProposalQuote[]>) =>
-    runAction('Lưu báo giá', async () => {
-      const current = proposals.find(p => p.id === proposalId)
-      if (!current) throw new Error('Không tìm thấy đề xuất trong danh sách - hãy tải lại trang')
-      const updated = await saveProposalQuotesApi(current, quotes)
-      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
-      return updated
-    }), [proposals, runAction])
-
-  const submitProposalToDirector = useCallback((proposalId: string, quotes: Record<string, ProposalQuote[]>) =>
-    runAction('Gửi Sếp duyệt', async () => {
-      const current = proposals.find(p => p.id === proposalId)
-      // Ném thay vì `return` im lặng: gửi báo giá mà đề xuất không còn trong state là bất thường
-      // (đã bị người khác xử lý, hoặc list chưa load xong) - người dùng cần biết để tải lại.
-      if (!current) throw new Error('Không tìm thấy đề xuất trong danh sách - hãy tải lại trang')
-      const updated = await submitProposalToDirectorApi(current, quotes)
-      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
-    }), [proposals, runAction])
-
-  const approveProposal = useCallback((proposalId: string, chosenQuoteIdByItemKey: Record<string, string>) =>
-    runAction('Duyệt đề xuất mua', async () => {
-      const current = proposals.find(p => p.id === proposalId)
-      if (!current) throw new Error('Không tìm thấy đề xuất trong danh sách - hãy tải lại trang')
-      const updated = await approveProposalApi(current, chosenQuoteIdByItemKey)
-      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
-    }), [proposals, runAction])
-
-  const rejectProposal = useCallback((proposalId: string, reason: string, itemIds?: string[]) =>
-    runAction('Từ chối đề xuất mua', async () => {
-      const updated = await rejectProposalApi(proposalId, reason, itemIds)
-      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
-    }), [runAction])
-
-  // Mở lại luồng báo giá sau khi bị từ chối. LƯU Ý: BE XOÁ SẠCH báo giá cũ (requote() chạy
-  // purchaseProposalQuote.deleteMany - "không giữ làm lịch sử nữa", đổi 2026-08-11); FE tự seed
-  // lại giá trị cũ vào form TRƯỚC khi gọi (LenhMuaNCCPage.handleRequote) nên màn hình không mất
-  // gì, nhưng bản ghi DB thì mất thật. BE tự ghi lại toàn bộ báo giá đã xoá vào audit_logs trước
-  // khi xoá (PurchaseProposalsService.requote -> auditQuoteDecision) nên vẫn truy được ở màn
-  // "Hoạt động" (PurchaseProposalAuditTrail), dù không còn trong bảng sống.
-  const requoteProposal = useCallback((proposalId: string) =>
-    runAction('Mở lại báo giá', async () => {
-      const updated = await requoteProposalApi(proposalId)
+  // Mua hàng bấm "Sếp đã duyệt" sau khi upload phiếu Sếp ký tay (2026-08-27). BE đẩy đúng phần vật
+  // tư của actor sang 'purchasing' - kể cả dòng còn kẹt ở trạng thái của luồng báo giá cũ, xem
+  // PurchaseProposalsService.bossApprove().
+  const bossApproveProposal = useCallback((proposalId: string, approvalFileUrl: string) =>
+    runAction('Xác nhận Sếp đã duyệt', async () => {
+      const updated = await bossApproveProposalApi(proposalId, approvalFileUrl)
       setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
     }), [runAction])
 
@@ -279,7 +203,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     }), [proposals, runAction])
 
   return (
-    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, acknowledgeProposal, saveProposalQuotes, submitProposalToDirector, approveProposal, rejectProposal, requoteProposal, receiveProposalItem }}>
+    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, bossApproveProposal, receiveProposalItem }}>
       <ActionErrorBanner message={actionError} onDismiss={dismissActionError} />
       {children}
     </InspCtx.Provider>

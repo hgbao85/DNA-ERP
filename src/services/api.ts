@@ -115,7 +115,7 @@ export {
   getPieceTransferPlan, createPieceWarehouseTransfer,
 } from './warehouse-transfers-api';
 export { getStockQuants, getStockLedger, adjustStock } from './stock-api';
-export { uploadImage } from './uploads-api';
+export { uploadImage, uploadDocument } from './uploads-api';
 export { getNotifications, createNotification, markNotificationRead } from './notifications-api';
 export { getTransferCheckPieces, recordTransferCheck } from './transfer-check-api';
 export { getPackaging, recordPackaging } from './packaging-api';

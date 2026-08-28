@@ -23,10 +23,10 @@ type OrderStatus = 'PRODUCING' | 'DONE'
 type MfgStage = 'PURCHASING' | 'FRAME' | 'WEAVING' | 'CHUYEN_KIEM' | 'PACKAGING'
 type SubStatus = 'done' | 'in-progress' | 'pending'
 
+// `ncc`/`unitPrice` đã gỡ 2026-08-27 cùng luồng báo giá - giá và NCC nay nằm trong file Excel Sếp
+// ký (PurchaseProposalItem.approvalFileUrl), phần mềm không lưu tách ra.
 interface MaterialItem {
   name: string
-  ncc: string
-  unitPrice: number
   qty: number      // Tổng SL
   unit: string
   boughtQty: number // Đã mua
@@ -99,23 +99,12 @@ function getPurchasingRows(pf: Sku, proposals: PurchaseProposal[]): MaterialItem
     // purchasing-api.ts) — so sánh này gần như không bao giờ khớp, giữ nguyên hành vi cũ (chỉ sửa
     // kiểu cho biên dịch được), không phải bug do lần sửa kiểu id này gây ra.
     .filter(p => String(p.skuId) === pf.id)
-    .flatMap(p => p.items.map(item => {
-      // Key theo itemId (2026-08-26, L6) - KHÔNG phải materialId lẫn item.name, xem
-      // purchasing-api.ts đầu file (1 vật tư đã PURCHASED phát sinh thiếu thêm tách DÒNG MỚI cùng
-      // materialId).
-      const key = item.itemId ?? String(item.materialId)
-      const ncc = p.chosenSuppliers?.[key] ?? ''
-      const offers = p.quotes?.[key] ?? []
-      const chosenQuote = offers.find(q => q.supplierName === ncc) ?? offers[0]
-      return {
-        name: item.name,
-        ncc: ncc || (chosenQuote?.supplierName ?? '—'),
-        unitPrice: chosenQuote?.unitPrice ?? 0,
-        qty: item.buyQty,
-        unit: item.unit,
-        boughtQty: item.receivedQty ?? 0,
-      }
-    }))
+    .flatMap(p => p.items.map(item => ({
+      name: item.name,
+      qty: item.buyQty,
+      unit: item.unit,
+      boughtQty: item.receivedQty ?? 0,
+    })))
 }
 
 function getPurchasingPercent(materials: MaterialItem[]): number {
@@ -327,8 +316,6 @@ function PurchasingContent({ materials, deadline }: { materials: MaterialItem[];
       <thead>
         <tr>
           <th style={thS}>Tên vật tư</th>
-          <th style={thS}>NCC</th>
-          <th style={{ ...thS, textAlign: 'right' }}>Đơn giá</th>
           <th style={{ ...thS, textAlign: 'right' }}>Tổng SL</th>
           <th style={thS}>ĐVT</th>
           <th style={{ ...thS, textAlign: 'right' }}>Đã mua</th>
@@ -341,8 +328,6 @@ function PurchasingContent({ materials, deadline }: { materials: MaterialItem[];
           return (
             <tr key={i}>
               <td style={{ ...tdS, fontWeight: 600 }}>{m.name}</td>
-              <td style={tdS}>{m.ncc}</td>
-              <td style={{ ...tdS, textAlign: 'right' }}>{m.unitPrice ? m.unitPrice.toLocaleString('vi-VN') + 'đ' : '—'}</td>
               <td style={{ ...tdS, textAlign: 'right' }}>{m.qty.toLocaleString('vi-VN')}</td>
               <td style={{ ...tdS, color: 'var(--text3)' }}>{m.unit}</td>
               <td style={{ ...tdS, textAlign: 'right', fontWeight: 700, color: m.boughtQty > 0 ? '#16a34a' : 'var(--text3)' }}>{m.boughtQty.toLocaleString('vi-VN')}</td>

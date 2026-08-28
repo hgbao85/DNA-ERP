@@ -10,51 +10,40 @@ import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purc
 const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
 const td: React.CSSProperties = { padding: '9px 12px' }
 
+// 3 cột NCC / Đơn giá / NCC hẹn giao đã gỡ 2026-08-27: cả 3 lấy từ báo giá đã chọn, mà luồng báo
+// giá trong phần mềm đã bỏ - giá và NCC nay nằm trong file Excel Sếp ký (item.approvalFileUrl).
 interface Row {
   key: string
   poNumber: string | null
   itemName: string
-  ncc: string
-  unitPrice: number | null
   buyQty: number
   unit: string
   boughtQty: number
   remaining: number
   deadline?: string
-  /** Ngày NCC hẹn giao của chính báo giá đã duyệt (ProposalQuote.expectedDate). */
-  expectedDate?: string
+  approvalFileUrl?: string
 }
 
 // Chỉ liệt kê đúng các dòng ĐANG purchasing (2026-08-25) - không phải toàn bộ p.items: 1 đề xuất
-// gộp có thể còn vật tư khác NEW/QUOTING/SUBMITTED của đồng nghiệp chưa tới lượt, hiện chúng ở
-// đây (màn "chờ hàng về") sẽ gây hiểu nhầm là đã duyệt xong.
+// gộp có thể còn vật tư khác chưa tới lượt, hiện chúng ở đây (màn "chờ hàng về") sẽ gây hiểu nhầm
+// là đã duyệt xong.
 function buildRows(p: PurchaseProposal): Row[] {
   return p.items.filter(item => item.status === 'purchasing').map(item => {
     // Key theo itemId (2026-08-26, L6) - KHÔNG phải materialId lẫn item.name, xem
     // purchasing-api.ts đầu file (1 vật tư đã PURCHASED phát sinh thiếu thêm tách DÒNG MỚI cùng
     // materialId).
     const key = item.itemId ?? String(item.materialId)
-    const ncc = p.chosenSuppliers?.[key] ?? ''
-    const offers = p.quotes?.[key] ?? []
-    // Tra bằng isChosen (cờ thật từ BE), KHÔNG so supplierName: 2 báo giá trùng tên NCC là hợp lệ
-    // (BE không cấm) nên find() theo tên có thể trả bản KHÔNG phải cái Sếp duyệt - đúng cái bẫy mà
-    // approveProposal() đã bỏ từ 2026-08-13 (D.h3-quote-id-not-name) nhưng màn này còn sót.
-    // Cũng KHÔNG fallback `?? offers[0]`: chưa duyệt thì không có "đơn giá đã duyệt", hiện '—'
-    // thay vì mượn tạm giá của báo giá đầu tiên mà không dấu hiệu nào cho biết (D.a2-price-by-name).
-    const chosenQuote = offers.find(q => q.isChosen)
     const boughtQty = item.receivedQty ?? 0
     return {
       key: `${p.id}-${key}`,
       poNumber: p.salesOrderCode,
       itemName: item.name,
-      ncc: ncc || '—',
-      unitPrice: chosenQuote?.unitPrice ?? null,
       buyQty: item.buyQty,
       unit: item.unit,
       boughtQty,
       remaining: Math.max(0, item.buyQty - boughtQty),
       deadline: p.deadline,
-      expectedDate: chosenQuote?.expectedDate,
+      approvalFileUrl: item.approvalFileUrl,
     }
   })
 }
@@ -109,14 +98,12 @@ export default function TheoDoiMuaHangPage() {
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={th}>PO</th>
                 <th style={th}>Tên vật tư</th>
-                <th style={th}>NCC</th>
-                <th style={{ ...th, textAlign: 'right' }}>Đơn giá</th>
                 <th style={{ ...th, textAlign: 'right' }}>Tổng SL</th>
                 <th style={th}>ĐVT</th>
                 <th style={{ ...th, textAlign: 'right' }}>Đã mua</th>
                 <th style={{ ...th, textAlign: 'right' }}>Còn lại</th>
-                <th style={th}>NCC hẹn giao</th>
                 <th style={th}>Hạn giao</th>
+                <th style={th}>Phiếu duyệt</th>
               </tr>
             </thead>
             <tbody>
@@ -124,19 +111,22 @@ export default function TheoDoiMuaHangPage() {
                 <tr key={r.key} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text3)' }}>{r.poNumber ?? '—'}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{r.itemName}</td>
-                  <td style={td}>{r.ncc}</td>
-                  <td style={{ ...td, textAlign: 'right' }}>{r.unitPrice ? r.unitPrice.toLocaleString('vi-VN') + 'đ' : '—'}</td>
                   <td style={{ ...td, textAlign: 'right' }}>{r.buyQty}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>{r.unit}</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: r.boughtQty > 0 ? '#16a34a' : 'var(--text3)' }}>{r.boughtQty}</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: r.remaining > 0 ? '#d97706' : '#16a34a' }}>{r.remaining}</td>
-                  {/* Ngày NCC tự hẹn trong báo giá được duyệt - tín hiệu ưu tiên DUY NHẤT mà Mua
-                      hàng đang có thật, vì `deadline` (hạn từ kế hoạch) chưa có nguồn dữ liệu. */}
-                  <td style={{ ...td, color: r.expectedDate ? 'var(--text)' : 'var(--text3)', whiteSpace: 'nowrap' }}>
-                    {r.expectedDate ? new Date(r.expectedDate).toLocaleDateString('vi-VN') : '—'}
-                  </td>
                   <td style={{ ...td, color: r.deadline ? '#dc2626' : 'var(--text3)', fontWeight: r.deadline ? 600 : 400, whiteSpace: 'nowrap' }}>
                     {r.deadline ? new Date(r.deadline).toLocaleDateString('vi-VN') : '—'}
+                  </td>
+                  {/* Giá + NCC nằm TRONG file này (2026-08-27) - phần mềm không lưu tách ra. */}
+                  <td style={td}>
+                    {r.approvalFileUrl ? (
+                      <a href={r.approvalFileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#2563eb', fontWeight: 600 }}>
+                        Xem file Sếp duyệt
+                      </a>
+                    ) : (
+                      <span style={{ color: 'var(--text3)' }}>—</span>
+                    )}
                   </td>
                 </tr>
               ))}

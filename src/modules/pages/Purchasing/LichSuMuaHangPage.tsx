@@ -11,15 +11,15 @@ import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purc
 const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
 const td: React.CSSProperties = { padding: '9px 12px' }
 
+// 3 cột NCC / Đơn giá / Thành tiền đã gỡ 2026-08-27 cùng luồng báo giá - giá và NCC nay nằm trong
+// file Excel Sếp ký (item.approvalFileUrl), phần mềm không lưu tách ra.
 interface Row {
   key: string
   poNumber: string | null
   itemName: string
-  ncc: string
-  unitPrice: number | null
   buyQty: number
   unit: string
-  total: number | null
+  approvalFileUrl?: string
 }
 
 // Chỉ liệt kê đúng các dòng ĐÃ purchased (2026-08-25) - không phải toàn bộ p.items, cùng lý do
@@ -30,19 +30,13 @@ function buildRows(p: PurchaseProposal): Row[] {
     // purchasing-api.ts đầu file (1 vật tư đã PURCHASED phát sinh thiếu thêm tách DÒNG MỚI cùng
     // materialId).
     const key = item.itemId ?? String(item.materialId)
-    const ncc = p.chosenSuppliers?.[key] ?? ''
-    const offers = p.quotes?.[key] ?? []
-    const chosenQuote = offers.find(q => q.supplierName === ncc) ?? offers[0]
-    const unitPrice = chosenQuote?.unitPrice ?? null
     return {
       key: `${p.id}-${key}`,
       poNumber: p.salesOrderCode,
       itemName: item.name,
-      ncc: ncc || '—',
-      unitPrice,
       buyQty: item.buyQty,
       unit: item.unit,
-      total: unitPrice != null && unitPrice > 0 ? unitPrice * item.buyQty : null,
+      approvalFileUrl: item.approvalFileUrl,
     }
   })
 }
@@ -88,11 +82,9 @@ export default function LichSuMuaHangPage() {
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={th}>PO</th>
                 <th style={th}>Tên vật tư</th>
-                <th style={th}>NCC</th>
-                <th style={{ ...th, textAlign: 'right' }}>Đơn giá</th>
                 <th style={{ ...th, textAlign: 'right' }}>Đã mua</th>
                 <th style={th}>ĐVT</th>
-                <th style={{ ...th, textAlign: 'right' }}>Thành tiền</th>
+                <th style={th}>Phiếu duyệt</th>
               </tr>
             </thead>
             <tbody>
@@ -100,11 +92,18 @@ export default function LichSuMuaHangPage() {
                 <tr key={r.key} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text3)' }}>{r.poNumber ?? '—'}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{r.itemName}</td>
-                  <td style={td}>{r.ncc}</td>
-                  <td style={{ ...td, textAlign: 'right' }}>{r.unitPrice ? r.unitPrice.toLocaleString('vi-VN') + 'đ' : '—'}</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#166534' }}>{r.buyQty}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>{r.unit}</td>
-                  <td style={{ ...td, textAlign: 'right', fontWeight: 600, color: '#4527a0' }}>{r.total ? r.total.toLocaleString('vi-VN') + 'đ' : '—'}</td>
+                  {/* Giá + NCC nằm TRONG file này (2026-08-27) - phần mềm không lưu tách ra. */}
+                  <td style={td}>
+                    {r.approvalFileUrl ? (
+                      <a href={r.approvalFileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#2563eb', fontWeight: 600 }}>
+                        Xem file Sếp duyệt
+                      </a>
+                    ) : (
+                      <span style={{ color: 'var(--text3)' }}>—</span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
