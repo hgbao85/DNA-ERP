@@ -599,9 +599,22 @@ export default function LenhSXPage() {
                           <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                             <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>{code}</span>
                             {item.status && <StatusBadge status={item.status as SalesOrderStatus} />}
-                            {item.prodApproval?.status === 'APPROVED' && (
+                            {item.prodApproval?.status === 'APPROVED' && item.productionOrderId && (
                               <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#2e7d32', background:'#dcfce7', padding:'2px 8px', borderRadius:10 }}>
                                 <Play size={10}/> Đang sản xuất
+                              </span>
+                            )}
+                            {/* SKU "kẹt": đã duyệt nhưng lệnh sản xuất tạo thất bại (race hiếm khi
+                                Sếp duyệt - BOM bị deactivate đúng khoảnh khắc giữa 2 lệnh, xem
+                                ProductionInvoicesService.retryProductionOrder() ở BE). Trang này chỉ
+                                KHSX xem được (isBoss/isQlsx rẽ nhánh khác ở trên) - chỉ báo, không có
+                                nút thao tác vì tạo lại lệnh yêu cầu role BOSS (RequireRole ở BE) mà
+                                Sếp hiện chưa có màn nào duyệt lại xem được các PI đã xử lý xong để
+                                bấm - cần thêm 1 màn "PI đã duyệt" riêng cho Sếp mới làm được nút bấm
+                                thật, ngoài phạm vi lần sửa này. */}
+                            {item.prodApproval?.status === 'APPROVED' && !item.productionOrderId && (
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#b45309', background:'#fef3c7', padding:'2px 8px', borderRadius:10 }}>
+                                <AlertCircle size={10}/> Đã duyệt, chưa tạo được lệnh sản xuất - báo Sếp
                               </span>
                             )}
                             {/* Thời gian solve dao động rất lớn (đã đo thật: 4,7 phút -> hơn 15 phút

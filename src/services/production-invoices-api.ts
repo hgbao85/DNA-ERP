@@ -43,6 +43,10 @@ interface BeProductionInvoiceItem {
   /** null = chưa từng tính (SKU chưa duyệt). Có giá trị CALCULATING = đang chờ solver, xem toItem(). */
   cuttingProposalStatus?: 'CALCULATING' | 'DRAFT' | 'FAILED' | 'APPROVED' | null;
   cuttingProposalRequestedAt?: string | null;
+  /** null = chưa duyệt HOẶC đã APPROVED nhưng tạo lệnh sản xuất thất bại (SKU "kẹt", race hiếm -
+   *  xem retryProductionOrder() bên dưới). Không suy được từ prodApprovalStatus vì cả 2 ca đều
+   *  hiện "đã duyệt" như nhau. */
+  productionOrderId?: string | null;
 }
 
 interface BeProductionInvoice {
@@ -75,6 +79,7 @@ function toItem(it: BeProductionInvoiceItem) {
     stages: it.stages.map((s) => ({ stageType: s.stageType, deadline: s.deadline })),
     cuttingProposalStatus: it.cuttingProposalStatus ?? null,
     cuttingProposalRequestedAt: it.cuttingProposalRequestedAt ?? null,
+    productionOrderId: it.productionOrderId ?? null,
     prodApproval: it.prodApprovalStatus
       ? {
           status: it.prodApprovalStatus,
@@ -187,6 +192,17 @@ export async function sendPiToBoss(
 
 export async function approveItemByBoss(piId: number | string, itemId: number | string, _decidedBy?: string) {
   return toItem(await http.post<BeProductionInvoiceItem>(`/production-invoices/${piId}/items/${itemId}/approve`));
+}
+
+/** Vá SKU "kẹt" - đã APPROVED nhưng lệnh sản xuất tạo thất bại (race hiếm, item.productionOrderId
+ *  = null dù prodApproval.status = APPROVED). Tạo lại ProductionOrder + trigger lại đề xuất cắt
+ *  sắt/mua vật tư, xem ProductionInvoicesService.retryProductionOrder() (BE, đính chính 2026-08-29). */
+export async function retryProductionOrder(piId: number | string, itemId: number | string) {
+  return toItem(
+    await http.post<BeProductionInvoiceItem>(
+      `/production-invoices/${piId}/items/${itemId}/retry-production-order`,
+    ),
+  );
 }
 
 export async function rejectProdItem(piId: number | string, itemId: number | string, reason: string, _decidedBy?: string) {

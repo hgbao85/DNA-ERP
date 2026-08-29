@@ -13,7 +13,10 @@ export interface AdminReadOnlyColumn<T> {
   label: string
   width?: number | string
   align?: 'left' | 'right' | 'center'
-  render?: (row: T) => ReactNode
+  /** `refetch` chỉ dành cho các cột hiếm cần Admin xử lý SỰ CỐ KỸ THUẬT tại chỗ (vd "tạo lại lệnh
+   *  sản xuất" khi có race condition) - KHÔNG dùng để thêm nút duyệt/từ chối nghiệp vụ, việc đó vẫn
+   *  thuộc đúng phân hệ nghiệp vụ như doc comment component nói rõ bên dưới. */
+  render?: (row: T, refetch: () => void) => ReactNode
 }
 
 export interface AdminReadOnlyFilterDef<T> {
@@ -45,9 +48,14 @@ export interface AdminReadOnlyListConfig<T extends { id: number | string }> {
  * (Sales PO, đề xuất mua hàng, SKU, PI, chuyển kho...) mà Admin chỉ cần xem/lọc,
  * không thao tác duyệt/từ chối (việc đó thuộc đúng phân hệ nghiệp vụ). Không có nút thêm,
  * không có sửa/xóa — khác AdminEntityPage (engine CRUD).
+ *
+ * Ngoại lệ hẹp (2026-08-29, xem `AdminReadOnlyColumn.render`): 1 cột có thể nhận thêm `refetch`
+ * để Admin xử lý SỰ CỐ KỸ THUẬT hiếm gặp tại chỗ (vd "tạo lại lệnh sản xuất" khi race condition
+ * làm lệnh tạo thất bại, xem ProductionInvoicesPage.tsx) - không phải cửa mở cho thao tác nghiệp
+ * vụ thường ngày, cùng tinh thần "Tính lại" tạm đặt ở CuttingProposalsPage.tsx.
  */
 export default function AdminReadOnlyList<T extends { id: number | string }>({ config }: { config: AdminReadOnlyListConfig<T> }) {
-  const { data, isLoading } = useFetch<T[]>(config.fetch)
+  const { data, isLoading, refetch } = useFetch<T[]>(config.fetch)
   const items = useMemo(() => data ?? [], [data])
 
   const [search, setSearch] = useState('')
@@ -122,7 +130,7 @@ export default function AdminReadOnlyList<T extends { id: number | string }>({ c
                   <tr key={item.id} style={row}>
                     {config.columns.map(col => (
                       <td key={col.key} style={{ ...td, textAlign: col.align ?? 'left' }}>
-                        {col.render ? col.render(item) : String((item as Record<string, unknown>)[col.key] ?? '—')}
+                        {col.render ? col.render(item, refetch) : String((item as Record<string, unknown>)[col.key] ?? '—')}
                       </td>
                     ))}
                   </tr>
