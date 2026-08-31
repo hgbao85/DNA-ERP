@@ -120,7 +120,10 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
   /** Nhảy sang màn "Hướng dẫn cắt" (sidebar riêng) đúng PI đang mở - xem CutBatchPanel. */
   onOpenCuttingGuide?: (productionInvoiceId: string) => void
 }) {
-  const { data: issues, isLoading, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
+  // activeOnly=true (2026-08-31): chỉ hiện PI có ít nhất 1 SKU đã được QLSX bấm "Bắt đầu" ở Bảng
+  // thống kê - PI có thể chứa nhiều SKU, chỉ cần 1 SKU đang chạy là cả PI vẫn hiện (Phôi xuất sắt
+  // chung theo PI, không tách theo SKU).
+  const { data: issues, isLoading, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(undefined, true), [])
   const { data: reviews, refetch: refetchReviews } = useFetch<BeQcReview[]>(() => api.getQcReviewsForSteelIssues(), [])
   const [selPi, setSelPi] = useState<string | null>(null)
 

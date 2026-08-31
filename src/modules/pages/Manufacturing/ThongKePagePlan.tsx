@@ -3,6 +3,8 @@ import { format, formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Factory, PackageCheck, Search, ShoppingCart, Wrench, type LucideIcon } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
+import { useAuth } from '../../../context/AuthContext'
+import { errMsg } from '../../../utils/errors'
 import * as api from '../../../services/api'
 import { useInspection, type PurchaseProposal } from '../../../context/InspectionContext'
 import type { Sku } from '../../../types/sku'
@@ -13,9 +15,11 @@ import ManhSkuDetail from '../InboundWarehouse/ManhSkuDetail'
 import type { MockPiece } from '../../../lib/mock/chuyen-kiem-fixtures'
 import { tabBtn, btnSecondary } from '../../../styles/buttons'
 import ProgressBar from '../../../components/ProgressBar'
-import { resolveProductionOrderId, buildProductionOrderInfoByMfgProduct, type ProductionOrderInfo } from '../../../services/production-invoice-item'
 import type { BeSteelIssue } from '../../../services/steel-issues-api'
 import type { BeProductionBatchPlan } from '../../../services/production-batches-api'
+import type { BeWeavingIssuePlanItem } from '../../../services/weaving-issues-api'
+import type { BeTransferCheckPiece } from '../../../services/transfer-check-api'
+import type { BePackagingProgress } from '../../../services/packaging-api'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -66,6 +70,11 @@ interface MfgOrder {
   status: OrderStatus
   mfgStage?: MfgStage
   hasVariance: boolean // lệch định mức ở công đoạn Khung cơ khí (Phôi/Hàn/Sơn) — xem phoiStageStats/aggLineStats
+  /** ProductionOrder.id thật - null nếu item duyệt xong nhưng lệnh chưa tạo được ("kẹt", race hiếm).
+   *  Cần để gọi nút Bắt đầu/Kết thúc (QLSX) - xem FloorStageCell. */
+  orderId: string | null
+  /** QLSX kiểm soát qua nút Bắt đầu/Kết thúc ở chính bảng này (2026-08-31) - null nếu orderId null. */
+  floorStage: FloorStage | null
 }
 
 // ─── Stage config ─────────────────────────────────────────────────────────────
@@ -91,7 +100,7 @@ const STAGE_TRACKER_ICONS: Record<MfgStage, LucideIcon> = {
 // ─── Dữ liệu thật: Sku + PurchaseProposal ───────────────────────────────
 // "Danh sách" và "Nội dung mua hàng" đọc trực tiếp từ Sku/PurchaseProposal thật
 // (giống TheoDoiMuaHangPage.tsx). Khung cơ khí/Đan/Chuyền kiểm/Đóng gói cũng đã thật —
-// xem fetchFrame/fetchWeaving/fetchChuyenKiem/fetchPackaging bên dưới.
+// xem buildFrame/buildWeaving/buildChuyenKiem/buildPackaging bên dưới.
 
 function getPurchasingRows(pf: Sku, proposals: PurchaseProposal[]): MaterialItem[] {
   return proposals
@@ -113,12 +122,12 @@ function getPurchasingPercent(materials: MaterialItem[]): number {
   return Math.round(materials.reduce((s, m) => s + w(m), 0) / materials.length * 100)
 }
 
-// ─── Dữ liệu chi tiết Khung cơ khí/Đan/Chuyền kiểm/Đóng gói: API thật ─────────
-// Tới 2026-08-19 4 công đoạn này sinh bằng hash giả ổn định theo PO vì "chưa có nguồn dữ liệu
-// tổng hợp thật" — nay sai: steel-issues/production-batches/weaving-issues/transfer-check/
-// packaging đều đã có endpoint thật nhận đúng 1 Sku (qua productionInvoiceId có sẵn trên Sku, hoặc
-// productionOrderId resolve qua resolveProductionOrderId() — cùng cách weaving-issues-api.ts dùng).
-// Đổi N+1 fetch/PO lấy dữ liệu thật, thay vì chờ 1 endpoint tổng hợp (chưa có, ngoài phạm vi).
+// ─── Dữ liệu chi tiết Khung cơ khí/Đan/Chuyền kiểm/Đóng gói: API thật, tải theo BATCH ────────
+// 2026-08-31: BE đã có 5 endpoint "*-batch" (steel-issues-batch, production-batch-plan-batch,
+// weaving-issue-plan-batch, transfer-check-batch, packaging-batch) - trước đây mỗi dòng SKU tự
+// gọi 1 loạt API riêng (N dòng x tới 6 request/dòng), với PI/PO nào bị nhiều SKU dùng chung thì
+// tải trùng lặp y hệt nhau nhiều lần. Giờ CẢ TRANG chỉ gọi đúng 5 request 1 lần (buildBatchProgressData,
+// xem cuối file component) rồi map lại từng dòng ĐỒNG BỘ (không async nữa) qua buildOrderRow.
 
 function subStatusOf(need: number, done: number): SubStatus {
   if (need <= 0 || done <= 0) return 'pending'
@@ -165,16 +174,48 @@ function mapBatchPlanToLines(plan: BeProductionBatchPlan | null): ProcLine[] {
   }))
 }
 
-// productionInvoiceId PHẢI là PI thật (suy từ ProductionOrder qua buildProductionOrderInfoByMfgProduct()),
-// KHÔNG phải pf.productionInvoiceId tĩnh (H6 fix) - field đó không tự cập nhật khi PI item bị gộp
-// sang PI khác (chỉ productionInvoiceItem.productionInvoiceId đổi, planForm giữ nguyên), khiến màn
-// này hiện sai mã PI và "chưa xuất sắt" dù sắt đã thực xuất dưới PI gộp.
-async function fetchFrame(productionInvoiceId: string | null, orderId: string | null): Promise<StageDetails['frame']> {
-  const [steelIssues, hanPlan, sonPlan] = await Promise.all([
-    productionInvoiceId ? api.getSteelIssuesForInvoice(productionInvoiceId) : Promise.resolve([]),
-    orderId ? api.getProductionBatchPlan(orderId, 'HAN') : Promise.resolve(null),
-    orderId ? api.getProductionBatchPlan(orderId, 'SON') : Promise.resolve(null),
-  ])
+interface BatchProgressData {
+  steelIssuesByPi: Record<string, BeSteelIssue[]>
+  hanPlanByOrder: Record<string, BeProductionBatchPlan>
+  sonPlanByOrder: Record<string, BeProductionBatchPlan>
+  weavingPlanByOrder: Record<string, BeWeavingIssuePlanItem[]>
+  transferCheckByItem: Record<string, BeTransferCheckPiece[]>
+  packagingByItem: Record<string, BePackagingProgress>
+}
+const EMPTY_BATCH_DATA: BatchProgressData = {
+  steelIssuesByPi: {}, hanPlanByOrder: {}, sonPlanByOrder: {},
+  weavingPlanByOrder: {}, transferCheckByItem: {}, packagingByItem: {},
+}
+
+// 6 request CỐ ĐỊNH cho CẢ TRANG, bất kể có bao nhiêu dòng SKU đã duyệt (trước đây tới 6×N) - mỗi
+// dimension bắt lỗi riêng (không gộp vào 1 Promise.all lớn): 1 trong 6 lỗi mạng/429 thoáng qua chỉ
+// khiến ĐÚNG dimension đó rỗng (mọi dòng hiện tạm "pending" ở phần đó), không kéo sập 5 dimension
+// còn lại hay làm cả trang trắng trơn "Không có lệnh nào" (bug đã gặp thật ở tài khoản Boss
+// 2026-08-31, lúc còn 1 Promise.all lớn không bắt lỗi riêng từng phần).
+async function buildBatchProgressData(rows: ApprovedRow[]): Promise<BatchProgressData> {
+  const piIds = [...new Set(rows.map(r => r.piId))]
+  const orderIds = [...new Set(rows.map(r => r.orderId).filter((id): id is string => !!id))]
+  const itemIds = [...new Set(rows.map(r => r.itemId))]
+
+  const safeFetch = <T extends Record<string, unknown>>(label: string, p: Promise<T>): Promise<T> =>
+    p.catch(err => {
+      console.error(`ThongKePagePlan: batch fetch '${label}' failed`, err)
+      return {} as T
+    })
+
+  const [steelIssuesByPi, hanPlanByOrder, sonPlanByOrder, weavingPlanByOrder, transferCheckByItem, packagingByItem] =
+    await Promise.all([
+      safeFetch('steel-issues', api.getSteelIssuesForInvoiceBatch(piIds)),
+      safeFetch('production-batch-plan(HAN)', api.getProductionBatchPlanBatch(orderIds, 'HAN')),
+      safeFetch('production-batch-plan(SON)', api.getProductionBatchPlanBatch(orderIds, 'SON')),
+      safeFetch('weaving-issue-plan', api.getWeavingIssuePlanBatch(orderIds)),
+      safeFetch('transfer-check', api.getTransferCheckPiecesBatch(itemIds)),
+      safeFetch('packaging', api.getPackagingBatch(itemIds)),
+    ])
+  return { steelIssuesByPi, hanPlanByOrder, sonPlanByOrder, weavingPlanByOrder, transferCheckByItem, packagingByItem }
+}
+
+function buildFrame(steelIssues: BeSteelIssue[], hanPlan: BeProductionBatchPlan | null, sonPlan: BeProductionBatchPlan | null): StageDetails['frame'] {
   const phoiManhs = mapSteelIssuesToPhoiManhs(steelIssues)
   const hanLines = mapBatchPlanToLines(hanPlan)
   const sonLines = mapBatchPlanToLines(sonPlan)
@@ -188,9 +229,8 @@ async function fetchFrame(productionInvoiceId: string | null, orderId: string | 
 }
 
 // Đan: dùng nguyên component thật ManhSkuDetail (đã dùng cho 2 màn thủ kho thật) — chỉ đổi nguồn
-// dữ liệu nạp vào từ mock sang getWeavingIssuePlan() thật.
-async function fetchWeaving(pf: Sku, skuQty: number): Promise<StageDetails['weaving']> {
-  const items = await api.getWeavingIssuePlan(pf)
+// dữ liệu nạp vào từ mock sang weaving-issue-plan-batch thật.
+function buildWeaving(items: BeWeavingIssuePlanItem[], skuQty: number): StageDetails['weaving'] {
   const lines: ManhLine[] = items.map(it => ({
     id: Number(it.pieceId),
     name: it.pieceName,
@@ -213,8 +253,7 @@ async function fetchWeaving(pf: Sku, skuQty: number): Promise<StageDetails['weav
 // Chuyền kiểm: readyQty ("chờ thực thi") là luỹ kế SUM(WeavingReceipt.qty), KHÔNG trừ phần đã kiểm
 // (xem transfer-check-api.ts) — "chờ thực thi hiện tại" = readyQty - checkedQty, khớp đúng ý nghĩa
 // cột "Chờ thực thi" của ChuyenKiemContent bên dưới (remaining = totalQty - choThucThi - daKiemQty).
-async function fetchChuyenKiem(pf: Sku): Promise<StageDetails['chuyenKiem']> {
-  const pieces = await api.getTransferCheckPieces(pf)
+function buildChuyenKiem(pieces: BeTransferCheckPiece[]): StageDetails['chuyenKiem'] {
   const mapped = pieces.map(p => ({
     id: p.pieceId, name: p.pieceName, totalQty: p.totalQty,
     choThucThi: Math.max(0, p.readyQty - p.checkedQty),
@@ -225,9 +264,9 @@ async function fetchChuyenKiem(pf: Sku): Promise<StageDetails['chuyenKiem']> {
   return { daKiem: subStatusOf(totalQty, checkedQty), pieces: mapped }
 }
 
-async function fetchPackaging(pf: Sku): Promise<StageDetails['packaging']> {
-  const progress = await api.getPackaging(pf)
-  return { dongGoi: subStatusOf(progress.totalQty, progress.packedQty), totalBoxes: progress.totalQty, daDongQty: progress.packedQty }
+function buildPackaging(progress: BePackagingProgress | undefined): StageDetails['packaging'] {
+  const p = progress ?? { totalQty: 0, packedQty: 0, remainingQty: 0 }
+  return { dongGoi: subStatusOf(p.totalQty, p.packedQty), totalBoxes: p.totalQty, daDongQty: p.packedQty }
 }
 
 function emptyExecutionStages(skuQty: number): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
@@ -239,38 +278,49 @@ function emptyExecutionStages(skuQty: number): Pick<StageDetails, 'frame' | 'wea
   }
 }
 
-async function fetchExecutionStages(pf: Sku, skuQty: number, poInfo: ProductionOrderInfo | undefined): Promise<Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'>> {
-  const orderId = await resolveProductionOrderId(pf)
-  const [frame, weaving, chuyenKiem, packaging] = await Promise.all([
-    fetchFrame(poInfo?.productionInvoiceId ?? pf.productionInvoiceId ?? null, orderId),
-    fetchWeaving(pf, skuQty),
-    fetchChuyenKiem(pf),
-    fetchPackaging(pf),
-  ])
-  return { frame, weaving, chuyenKiem, packaging }
+function buildExecutionStages(row: ApprovedRow, skuQty: number, batch: BatchProgressData): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
+  const steelIssues = batch.steelIssuesByPi[row.piId] ?? []
+  const hanPlan = row.orderId ? (batch.hanPlanByOrder[row.orderId] ?? null) : null
+  const sonPlan = row.orderId ? (batch.sonPlanByOrder[row.orderId] ?? null) : null
+  const weavingItems = row.orderId ? (batch.weavingPlanByOrder[row.orderId] ?? []) : []
+  const transferCheckPieces = batch.transferCheckByItem[row.itemId] ?? []
+  const packagingProgress = batch.packagingByItem[row.itemId]
+  return {
+    frame: buildFrame(steelIssues, hanPlan, sonPlan),
+    weaving: buildWeaving(weavingItems, skuQty),
+    chuyenKiem: buildChuyenKiem(transferCheckPieces),
+    packaging: buildPackaging(packagingProgress),
+  }
 }
 
-async function buildOrderRow(pf: Sku, proposals: PurchaseProposal[], skuQty: number, poInfo: ProductionOrderInfo | undefined): Promise<{ order: MfgOrder; details: StageDetails }> {
+// Đồng bộ hoàn toàn (không còn gọi API riêng/dòng) - mọi dữ liệu tiến độ đã có sẵn trong `batch`
+// (tải 1 lần cho cả trang, xem buildBatchProgressData). Nguồn định danh (piId/orderId/itemId/
+// poCode/piCode/deadline) lấy thẳng từ `row` (ProductionInvoiceItem thật), KHÔNG qua pf.exportOrder/
+// pf.piCode tĩnh nữa - chính xác hơn cả cách "H6 fix" trước đây (poInfoMap dò theo mfgProductId,
+// "lấy ProductionOrder đầu tiên tìm thấy") vì đây là đúng-1-1 theo chính item đang xét.
+function buildOrderRow(row: ApprovedRow, proposals: PurchaseProposal[], batch: BatchProgressData): { order: MfgOrder; details: StageDetails } {
+  const { pf, skuQty } = row
   const materials = getPurchasingRows(pf, proposals)
   const purchPct = getPurchasingPercent(materials)
-  const { frame, weaving, chuyenKiem, packaging } = purchPct >= 100 ? await fetchExecutionStages(pf, skuQty, poInfo) : emptyExecutionStages(skuQty)
+  const stages = purchPct >= 100 ? buildExecutionStages(row, skuQty, batch) : emptyExecutionStages(skuQty)
+  const { frame, weaving, chuyenKiem, packaging } = stages
   const details: StageDetails = { purchasing: { materials }, frame, weaving, chuyenKiem, packaging }
   const done = isAllDone(details)
   const hasVariance = phoiStageStats(frame.phoiManhs).lech || aggLineStats(frame.hanLines).lech || aggLineStats(frame.sonLines).lech
   const order: MfgOrder = {
     id: pf.id,
-    code: pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng',
-    // PI thật từ ProductionOrder (H6 fix) - poInfo.piCode, KHÔNG phải pf.piCode tĩnh (xem comment
-    // ở fetchFrame). Fallback pf.piCode chỉ cho trường hợp chưa resolve được (PO chưa duyệt).
-    piCode: poInfo?.piCode ?? pf.piCode,
+    code: row.poCode ?? 'Chưa gắn đơn hàng',
+    piCode: row.piCode,
     sku: pf.mfgProduct?.factoryCode ?? '—',
     productName: pf.mfgProduct?.name ?? '',
     customer: pf.customerName ?? '—',
-    deadline: pf.exportOrder?.deliveryDate,
+    deadline: row.deliveryDeadline,
     approvedAt: pf.createdAt,
     status: done ? 'DONE' : 'PRODUCING',
     mfgStage: done ? undefined : (purchPct < 100 ? 'PURCHASING' : 'FRAME'),
     hasVariance,
+    orderId: row.orderId,
+    floorStage: row.floorStage,
   }
   return { order, details }
 }
@@ -280,6 +330,54 @@ async function buildOrderRow(pf: Sku, proposals: PurchaseProposal[], skuQty: num
 const STATUS_META: Record<OrderStatus, { label: string; bg: string; color: string; border: string }> = {
   PRODUCING: { label: 'Đang sản xuất', bg: 'var(--amber-bg)', color: 'var(--amber)', border: 'var(--amber)' },
   DONE:      { label: 'Hoàn thành',    bg: 'var(--green-bg)', color: 'var(--green)', border: 'var(--green)' },
+}
+
+// ─── Trạng thái xưởng (QLSX Bắt đầu/Kết thúc, 2026-08-31) ──────────────────────
+// ĐỘC LẬP với STATUS_META ở trên (đó là trạng thái tổng hợp CÔNG VIỆC của lệnh, còn đây là cổng
+// hiển thị do QLSX kiểm soát cho Phôi/Hàn/Sơn thấy hay không - xem ProductionOrderFloorStage BE).
+
+const FLOOR_STAGE_META: Record<FloorStage, { label: string; color: string; bg: string }> = {
+  PENDING:  { label: 'Chưa bắt đầu', color: 'var(--text3)', bg: 'var(--surface2)' },
+  ACTIVE:   { label: 'Đang chạy',    color: 'var(--amber)', bg: 'var(--amber-bg)' },
+  FINISHED: { label: 'Đã kết thúc',  color: 'var(--green)', bg: 'var(--green-bg)' },
+}
+
+const floorActionBtn = (bg: string): React.CSSProperties => ({
+  padding: '4px 10px', fontSize: 11, fontWeight: 700, border: 'none', borderRadius: 6,
+  background: bg, color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap',
+})
+
+// Chỉ QLSX (canManage=true) mới thấy nút - Boss/KHSX chỉ xem badge. orderId null nghĩa là item đã
+// duyệt nhưng ProductionOrder chưa tạo được (kẹt, race hiếm) - không có gì để Bắt đầu/Kết thúc.
+function FloorStageCell({
+  orderId, floorStage, canManage, pending, onStart, onFinish,
+}: {
+  orderId: string | null
+  floorStage: FloorStage | null
+  canManage: boolean
+  pending: boolean
+  onStart: () => void
+  onFinish: () => void
+}) {
+  if (!orderId || !floorStage) {
+    return <span style={{ fontSize: 12, color: 'var(--text3)' }}>—</span>
+  }
+  const meta = FLOOR_STAGE_META[floorStage]
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: meta.bg, color: meta.color, whiteSpace: 'nowrap' }}>
+        {meta.label}
+      </span>
+      {canManage && floorStage !== 'FINISHED' && (
+        <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+          {floorStage === 'PENDING' && (
+            <button disabled={pending} onClick={onStart} style={floorActionBtn('#1d4ed8')}>Bắt đầu</button>
+          )}
+          <button disabled={pending} onClick={onFinish} style={floorActionBtn('#dc2626')}>Kết thúc</button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // Đơn lệnh quá hạn khi có deadline, đã qua hạn, và chưa hoàn thành — dùng chung cho bảng danh sách + trang chi tiết
@@ -841,55 +939,172 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
 // ─── List page ────────────────────────────────────────────────────────────────
 
 // Trạng thái lệnh sản xuất (PI) tối thiểu cần để quyết định 1 SKU đã "vào sản xuất" hay còn "lên kế
-// hoạch".
-interface PIApprovalItem { prodApproval?: { status?: string }; quantity?: number }
-interface PIStatusRow { id: string; status: string; items?: PIApprovalItem[] }
+// hoạch". productionOrderId đã có sẵn thẳng trên item (BE ghi lúc duyệt, xem
+// production-invoices.service.ts createFromApproval) - dùng trực tiếp để tra tiến độ Hàn/Sơn/Đan
+// theo batch, KHÔNG cần dò lại qua resolveProductionOrderId()/poInfoMap như trước (đã bỏ, xem
+// buildBatchProgressData). Các field mfgProductId/productVariant/salesOrder*/deliveryDeadline/
+// decidedAt/requestedAt chỉ dùng khi item được duyệt mà KHÔNG có Sku (PlanForm) tương ứng — xem
+// buildSyntheticSku().
+type FloorStage = 'PENDING' | 'ACTIVE' | 'FINISHED'
+interface PIApprovalItem {
+  id: string
+  mfgProductId: string
+  productionOrderId?: string | null
+  /** QLSX kiểm soát qua nút Bắt đầu/Kết thúc (2026-08-31) - null khi chưa có ProductionOrder. */
+  floorStage?: FloorStage | null
+  prodApproval?: { status?: string }
+  quantity?: number
+  salesOrderId?: string
+  salesOrderCode?: string
+  productVariant?: { mfgProduct?: { name?: string; factoryCode?: string } }
+  deliveryDeadline?: string
+  decidedAt?: string
+  requestedAt?: string
+}
+interface PIStatusRow { id: string; code: string; status: string; items?: PIApprovalItem[] }
+
+// 1 dòng đã duyệt trong "Bảng thống kê" - định danh CHUẨN (piId/itemId/orderId/poCode/piCode/
+// deliveryDeadline) lấy THẲNG từ chính ProductionInvoiceItem đang duyệt, không suy ngược qua Sku
+// nữa (Sku chỉ còn dùng để lấy định mức/vật tư hiển thị, xem buildOrderRow). Chính xác hơn cách
+// cũ (poInfoMap dò theo mfgProductId, "lấy ProductionOrder đầu tiên tìm thấy" - có thể sai nếu 1
+// sản phẩm có nhiều lệnh) vì ở đây picked đúng 1-1 theo chính item đang xét.
+interface ApprovedRow {
+  pf: Sku
+  skuQty: number
+  piId: string
+  itemId: string
+  orderId: string | null
+  poCode: string | null
+  piCode: string
+  deliveryDeadline?: string
+  floorStage: FloorStage | null
+}
+
+// SKU nào cũng được duyệt qua đúng 1 ProductionInvoiceItem, nhưng không phải SKU nào cũng có bản
+// ghi Sku (PlanForm) đi kèm — Sku chỉ tồn tại khi KHSX tự tay tạo qua "Lệnh sản xuất mới" (POST
+// /skus). Nếu PI/Item được tạo/duyệt qua đường khác (vd Admin), ProductionOrder vẫn được BE tự
+// sinh thật khi Sếp duyệt, nhưng KHÔNG có Sku nào khớp — trước đây "Bảng thống kê" chỉ đọc từ
+// skusData nên các lệnh này biến mất hoàn toàn dù đã duyệt xong. Dựng 1 Sku "giả" tối thiểu từ
+// chính PI + Item đã duyệt để lệnh vẫn lên danh sách (thiếu mỗi phần định mức/vật tư do KHSX nhập
+// tay - các fetch* bên trên đã tự trả rỗng khi không có gì, không crash).
+function buildSyntheticSku(pi: PIStatusRow, item: PIApprovalItem, customerName: string | undefined): Sku {
+  return {
+    id: `pi-item:${pi.id}:${item.id}`,
+    exportOrderId: item.salesOrderId ?? null,
+    mfgProductId: item.mfgProductId,
+    status: 'APPROVED',
+    piCode: pi.code,
+    productionInvoiceId: pi.id,
+    customerName: customerName ?? null,
+    createdAt: item.decidedAt ?? item.requestedAt ?? new Date().toISOString(),
+    exportOrder: item.salesOrderCode
+      ? { id: item.salesOrderId ?? '', poNumber: item.salesOrderCode, deliveryDate: item.deliveryDeadline }
+      : undefined,
+    mfgProduct: {
+      id: item.mfgProductId,
+      factoryCode: item.productVariant?.mfgProduct?.factoryCode ?? '—',
+      name: item.productVariant?.mfgProduct?.name ?? '',
+    },
+  }
+}
 
 export default function ThongKePagePlan() {
   const { data: skusData, isLoading } = useFetch<Sku[]>(() => api.getSkus(), [])
-  const { data: pisData } = useFetch<PIStatusRow[]>(() => api.getProductionInvoices(), [])
+  const { data: pisData, refetch: refetchPis } = useFetch<PIStatusRow[]>(() => api.getProductionInvoices(), [])
   const { data: weavingPointsData } = useFetch<WeavingPointLite[]>(() => (api as any).getWeavingPoints(), [])
-  // PI thật theo mfgProductId, suy từ ProductionOrder (H6 fix) - PHẢI dùng thay pf.piCode/
-  // pf.productionInvoiceId tĩnh, xem comment ở fetchFrame/buildOrderRow.
-  const { data: poInfoData } = useFetch<Map<string, ProductionOrderInfo>>(() => buildProductionOrderInfoByMfgProduct(), [])
-  // Memo hoá - `poInfoData` giữ nguyên `null` khi fetch lỗi (vd 403 do thiếu quyền
-  // PRODUCTION_ORDER:VIEW), nếu không memo thì mỗi render tạo Map MỚI, khiến effect bên dưới (nhận
-  // poInfoMap làm dep) chạy lại vô hạn -> gọi lại API vô hạn -> đơ tab (phát hiện qua browser thật
-  // 2026-08-22, Sếp bấm "Tổng hợp lệnh SX" bị đơ + hàng nghìn lỗi fetch trong console).
-  const poInfoMap = useMemo(() => poInfoData ?? new Map<string, ProductionOrderInfo>(), [poInfoData])
   const { proposals } = useInspection()
-  const piMap = useMemo(() => new Map((pisData ?? []).map(p => [p.id, p])), [pisData])
-  // Lên kế hoạch (PLANNING) chưa vào sản xuất — ẩn khỏi "Bảng thống kê", trừ khi đã có SKU được
-  // duyệt (đã thật sự bắt đầu sản xuất dù pi.status còn PLANNING).
-  const skus = useMemo(() => (skusData ?? []).filter(pf => {
-    if (pf.status === 'DRAFT') return false
-    const pi = pf.productionInvoiceId != null ? piMap.get(pf.productionInvoiceId) : undefined
-    if (!pi) return false
-    const hasApprovedItem = (pi.items ?? []).some(it => it.prodApproval?.status === 'APPROVED')
-    return pi.status !== 'PLANNING' || hasApprovedItem
-  }), [skusData, piMap])
+  // Tên khách hàng cho các lệnh KHÔNG có Sku (PlanForm) đi kèm — xem buildSyntheticSku(). Sku thật
+  // đã tự có customerName do KHSX nhập tay lúc tạo, không cần map này.
+  const { data: salesOrdersData } = useFetch<{ id: string; customerName: string }[]>(() => api.getSalesOrders(), [])
+  const customerByOrderId = useMemo(() => new Map((salesOrdersData ?? []).map(o => [o.id, o.customerName])), [salesOrdersData])
+
+  // Nguồn "sự thật" của 1 dòng lệnh là ProductionInvoiceItem đã được SẾP DUYỆT (tự động sinh
+  // ProductionOrder ngay lúc duyệt, xem comment buildSyntheticSku) — KHÔNG phải Sku (PlanForm):
+  // Sku chỉ tồn tại khi KHSX tự tay tạo qua "Lệnh sản xuất mới" (POST /skus), nên trước đây lọc
+  // thẳng theo skusData khiến lệnh nào duyệt qua đường khác (vd Admin) biến mất khỏi bảng dù
+  // ProductionOrder đã có thật. Match từng item đã duyệt với đúng Sku của nó (nếu có) theo cặp
+  // PI+mfgProduct để giữ nguyên định mức/vật tư KHSX đã nhập; item không có Sku khớp vẫn phải lên
+  // danh sách (dựng Sku giả) — mỗi item đã duyệt = đúng 1 dòng, không gộp theo PI dù nhiều SKU của
+  // cùng 1 PI (gộp) đều xuất hiện tách riêng.
+  const skuByPiAndProduct = useMemo(() => {
+    const m = new Map<string, Sku>()
+    for (const pf of skusData ?? []) {
+      if (pf.status === 'DRAFT' || !pf.productionInvoiceId) continue
+      m.set(`${pf.productionInvoiceId}:${pf.mfgProductId}`, pf)
+    }
+    return m
+  }, [skusData])
+  const skuByProduct = useMemo(() => {
+    const m = new Map<string, Sku>()
+    for (const pf of skusData ?? []) {
+      if (pf.status === 'DRAFT') continue
+      if (!m.has(pf.mfgProductId)) m.set(pf.mfgProductId, pf)
+    }
+    return m
+  }, [skusData])
+  const approvedRows = useMemo(() => {
+    const rows: ApprovedRow[] = []
+    for (const pi of pisData ?? []) {
+      for (const item of pi.items ?? []) {
+        if (item.prodApproval?.status !== 'APPROVED') continue
+        const pf = skuByPiAndProduct.get(`${pi.id}:${item.mfgProductId}`)
+          ?? skuByProduct.get(item.mfgProductId)
+          ?? buildSyntheticSku(pi, item, item.salesOrderId ? customerByOrderId.get(item.salesOrderId) : undefined)
+        rows.push({
+          pf,
+          skuQty: item.quantity ?? 0,
+          piId: pi.id,
+          itemId: item.id,
+          orderId: item.productionOrderId ?? null,
+          poCode: item.salesOrderCode ?? null,
+          piCode: pi.code,
+          deliveryDeadline: item.deliveryDeadline,
+          floorStage: item.floorStage ?? null,
+        })
+      }
+    }
+    return rows
+  }, [pisData, skuByPiAndProduct, skuByProduct, customerByOrderId])
   const weavingPoints = useMemo(() => weavingPointsData ?? [], [weavingPointsData])
   const pointLabel = (id: number) => {
     const p = weavingPoints.find(w => w.id === id)
     return p?.fullName ? `${p.code} (${p.fullName})` : (p?.code ?? `#${id}`)
   }
 
-  // buildOrderRow giờ gọi API thật (N+1 theo từng PO: steel-issues/production-batch-plan/
-  // weaving-issue-plan/transfer-check/packaging) — không còn tính đồng bộ được, phải qua useFetch.
-  const { data: orderRowsData, isLoading: rowsLoading } = useFetch(
-    () => Promise.all(skus.map(pf => {
-      const pi = pf.productionInvoiceId != null ? piMap.get(pf.productionInvoiceId) : undefined
-      const skuQty = pi?.items?.[0]?.quantity ?? 0
-      return buildOrderRow(pf, proposals, skuQty, poInfoMap.get(pf.mfgProductId))
-    })),
-    [skus, proposals, piMap, poInfoMap],
+  // 6 request CỐ ĐỊNH cho cả trang (xem buildBatchProgressData) thay vì tới 6×N như trước - đây là
+  // async call DUY NHẤT còn lại của toàn màn, buildOrderRow() giờ hoàn toàn đồng bộ.
+  const { data: batchData, isLoading: rowsLoading } = useFetch(
+    () => buildBatchProgressData(approvedRows),
+    [approvedRows],
   )
-  const orderRows = orderRowsData ?? []
+  const orderRows = useMemo(
+    () => approvedRows.map(row => buildOrderRow(row, proposals, batchData ?? EMPTY_BATCH_DATA)),
+    [approvedRows, proposals, batchData],
+  )
 
   const [filter, setFilter]         = useState<FilterStatus>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [search, setSearch]         = useState('')
   const [page, setPage]             = useState(1)
+
+  // Chỉ QLSX (mfgRole=PRODUCTION_MANAGER) mới thấy nút Bắt đầu/Kết thúc - Boss/KHSX dùng chung
+  // component này nhưng chỉ xem badge trạng thái xưởng, không có quyền thao tác (khớp
+  // @RequireRole(BUSINESS_ROLES.PRODUCTION_MANAGER) ở BE production-orders.controller.ts).
+  const { user } = useAuth()
+  const canManageFloor = user?.mfgRole === 'PRODUCTION_MANAGER'
+  const [floorPending, setFloorPending] = useState<Set<string>>(new Set())
+
+  const handleFloorAction = async (orderId: string, action: 'start' | 'finish') => {
+    setFloorPending(s => new Set(s).add(orderId))
+    try {
+      await (action === 'start' ? api.startProductionOrderFloor(orderId) : api.finishProductionOrderFloor(orderId))
+      refetchPis()
+    } catch (err) {
+      alert(errMsg(err, action === 'start' ? 'Lỗi bắt đầu lệnh' : 'Lỗi kết thúc lệnh'))
+    } finally {
+      setFloorPending(s => { const next = new Set(s); next.delete(orderId); return next })
+    }
+  }
 
   const q = search.trim().toLowerCase()
   const filtered = orderRows
@@ -958,11 +1173,12 @@ export default function ThongKePagePlan() {
               <th style={th}>Khách hàng</th>
               <th style={{ ...th, width: 220 }}>Công đoạn hiện tại</th>
               <th style={th}>Hạn giao</th>
+              <th style={th}>Xưởng</th>
             </tr>
           </thead>
           <tbody>
             {(isLoading || rowsLoading) ? (
-              <tr><td colSpan={6} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</td></tr>
+              <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</td></tr>
             ) : pageItems.map(({ order: o, details }) => {
               const isDone     = o.status === 'DONE'
               const isOverdue  = isOrderOverdue(o.deadline, isDone)
@@ -996,12 +1212,22 @@ export default function ThongKePagePlan() {
                     {o.deadline ? format(new Date(o.deadline), 'dd/MM/yyyy') : '—'}
                     {isOverdue && <div style={{ fontSize: 11, color: '#dc2626' }}>Quá hạn</div>}
                   </td>
+                  <td style={td}>
+                    <FloorStageCell
+                      orderId={o.orderId}
+                      floorStage={o.floorStage}
+                      canManage={canManageFloor}
+                      pending={!!o.orderId && floorPending.has(o.orderId)}
+                      onStart={() => o.orderId && handleFloorAction(o.orderId, 'start')}
+                      onFinish={() => o.orderId && handleFloorAction(o.orderId, 'finish')}
+                    />
+                  </td>
                 </tr>
               )
             })}
             {!isLoading && filtered.length === 0 && (
               <tr>
-                <td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
+                <td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
                   Không có lệnh nào
                 </td>
               </tr>

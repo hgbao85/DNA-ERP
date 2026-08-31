@@ -41,6 +41,18 @@ export async function getWeavingIssuePlan(pf: Sku): Promise<BeWeavingIssuePlanIt
   }
 }
 
+/** Gộp nhiều ProductionOrder 1 lần — "Bảng thống kê" (ThongKePagePlan.tsx) cần tiến độ Đan cho
+ *  nhiều SKU cùng lúc, thay vì N lệnh gọi getWeavingIssuePlan() riêng. Trả về map orderId -> danh
+ *  sách mảnh (order không có trong danh sách trả về key rỗng []). */
+export async function getWeavingIssuePlanBatch(
+  productionOrderIds: string[],
+): Promise<Record<string, BeWeavingIssuePlanItem[]>> {
+  if (productionOrderIds.length === 0) return {};
+  return http.get<Record<string, BeWeavingIssuePlanItem[]>>(
+    `/production-orders/weaving-issue-plan/batch?ids=${encodeURIComponent(productionOrderIds.join(','))}`,
+  );
+}
+
 async function requireOrderId(pf: Sku, action: string): Promise<string> {
   const orderId = await resolveProductionOrderId(pf);
   if (!orderId) {

@@ -29,6 +29,18 @@ export async function getPackaging(pf: Sku): Promise<BePackagingProgress> {
   }
 }
 
+/** Gộp nhiều ProductionInvoiceItem 1 lần — "Bảng thống kê" (ThongKePagePlan.tsx) cần tiến độ
+ *  Đóng gói cho nhiều SKU cùng lúc, thay vì N lệnh gọi getPackaging() riêng. Trả về map itemId ->
+ *  tiến độ (item không có trong danh sách trả về key rỗng, chưa có ProductionOrder). */
+export async function getPackagingBatch(
+  itemIds: string[],
+): Promise<Record<string, BePackagingProgress>> {
+  if (itemIds.length === 0) return {};
+  return http.get<Record<string, BePackagingProgress>>(
+    `/production-invoices/packaging/batch?itemIds=${encodeURIComponent(itemIds.join(','))}`,
+  );
+}
+
 export async function recordPackaging(
   pf: Sku,
   data: { boxesPacked: number; note?: string },

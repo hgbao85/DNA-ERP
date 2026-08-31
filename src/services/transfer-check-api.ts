@@ -36,6 +36,19 @@ export async function getTransferCheckPieces(pf: Sku): Promise<BeTransferCheckPi
   }
 }
 
+/** Gộp nhiều ProductionInvoiceItem 1 lần — "Bảng thống kê" (ThongKePagePlan.tsx) cần tiến độ
+ *  Chuyền kiểm cho nhiều SKU cùng lúc, thay vì N lệnh gọi getTransferCheckPieces() riêng. Chỉ cần
+ *  itemId (không cần piId như bản đơn - ProductionOrder có quan hệ 1-1 với item). Trả về map
+ *  itemId -> danh sách mảnh (item không có trong danh sách trả về key rỗng []). */
+export async function getTransferCheckPiecesBatch(
+  itemIds: string[],
+): Promise<Record<string, BeTransferCheckPiece[]>> {
+  if (itemIds.length === 0) return {};
+  return http.get<Record<string, BeTransferCheckPiece[]>>(
+    `/production-invoices/transfer-check/batch?itemIds=${encodeURIComponent(itemIds.join(','))}`,
+  );
+}
+
 export async function recordTransferCheck(
   pf: Sku,
   data: { pieceId: string; checkedQty: number; note?: string; defects?: TransferCheckDefectInput[] },

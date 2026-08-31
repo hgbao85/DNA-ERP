@@ -64,6 +64,10 @@ export interface ProcRow {
   /** Hàn/Sơn nối BE thật (đợt 2): ProductionOrder.id thật (BE) dùng để báo sản lượng — xem
    *  production-batches-api.ts. Không set cho Phôi (vẫn mock). */
   realOrderId?: string
+  /** Hàn/Sơn gom theo PI (2026-08-31, đồng nhất với LenhSanXuatPhoi.tsx) - xem PiListBoard. Không
+   *  set cho Phôi (màn Phôi thật dùng cấu trúc riêng, không đi qua PoListBoard/TwoTierScreen). */
+  productionInvoiceId?: string
+  piCode?: string
 }
 export interface StageCfg {
   label: string
@@ -160,16 +164,95 @@ function Progress({ pct }: { pct: number }) {
 const td: React.CSSProperties = { padding: '10px 12px', color: 'var(--text)' }
 const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
 
+// ── Tầng 0 (Hàn/Sơn): Danh sách PI — gom nhiều SKU cùng 1 PI ────────────────────
+// Đồng nhất với LenhSanXuatPhoi.tsx (2026-08-31, theo yêu cầu user): Phôi cắt sắt chung cho cả PI
+// nên tự nhiên gom theo PI; Hàn/Sơn tuy có tiến độ THẬT theo từng SKU (khác Phôi, xem PoListBoard
+// bên dưới vẫn giữ nguyên cho tầng kế tiếp) nhưng cũng gom PI ở tầng ngoài cùng để 3 công đoạn
+// nhìn giống nhau. Bấm 1 PI → vào đúng PoListBoard cũ (đã lọc theo PI) → bấm 1 SKU → VatTuDetailBoard
+// như trước, không đổi gì ở 2 tầng trong.
+interface PiGroup { productionInvoiceId: string; piCode: string; rows: ProcRow[] }
+
+function buildPiGroups(rows: ProcRow[]): PiGroup[] {
+  const byPi = new Map<string, ProcRow[]>()
+  const order: string[] = []
+  for (const r of rows) {
+    // Fallback theo r.id (phòng thủ) - không nên xảy ra với dữ liệu thật, mọi ProcRow từ
+    // fetchHanSonRows() đều có productionInvoiceId (ProductionOrder luôn thuộc đúng 1 PI).
+    const key = r.productionInvoiceId ?? `_id:${r.id}`
+    if (!byPi.has(key)) { byPi.set(key, []); order.push(key) }
+    byPi.get(key)!.push(r)
+  }
+  return order.map(key => {
+    const groupRows = byPi.get(key)!
+    return {
+      productionInvoiceId: groupRows[0].productionInvoiceId ?? key,
+      piCode: groupRows[0].piCode ?? groupRows[0].poNumber,
+      rows: groupRows,
+    }
+  })
+}
+
+// Tổng cây/mảnh CẦN - ĐÃ LÀM cộng dồn mọi dòng vật tư của mọi SKU trong PI - cùng cách Phôi cộng
+// dồn "cây" qua nhiều loại sắt (poSummaryCay), mở rộng thêm 1 cấp (nhiều SKU thay vì 1 SKU nhiều
+// loại sắt). KHÔNG dùng poSummary (đếm SKU ráp được) ở đây - số ráp được của SKU A và SKU B không
+// cộng dồn có ý nghĩa với nhau (khác sản phẩm).
+function piGroupStats(rows: ProcRow[]): { need: number; done: number; pct: number } {
+  const lines = rows.flatMap(r => r.lines ?? [])
+  const need = lines.reduce((s, l) => s + l.needQty, 0)
+  const done = lines.reduce((s, l) => s + l.doneQty, 0)
+  return { need, done, pct: need > 0 ? Math.round((done / need) * 100) : 0 }
+}
+
+interface PiView { g: PiGroup; stats: ReturnType<typeof piGroupStats> }
+
+function PiListBoard({ groups, cfg, onEnter }: { groups: PiGroup[]; cfg: StageCfg; onEnter: (productionInvoiceId: string) => void }) {
+  const views: PiView[] = groups.map(g => ({ g, stats: piGroupStats(g.rows) }))
+  const cols: BoardColumn<PiView>[] = [
+    {
+      key: 'pi', header: 'PO / PI', cell: v => (
+        <div>
+          <div style={{ fontWeight: 700, fontFamily: 'monospace' }}>
+            {[...new Set(v.g.rows.map(r => r.poNumber))].join(', ')}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{v.g.piCode}</div>
+        </div>
+      ),
+    },
+    { key: 'skuCount', header: 'Số SKU', align: 'right', cell: v => v.g.rows.length },
+    { key: 'done', header: `${cfg.done} (${cfg.unit})`, align: 'right', cell: v => <span style={{ fontWeight: 700 }}>{fmt(v.stats.done)}</span> },
+    { key: 'remain', header: `Còn lại (${cfg.unit})`, align: 'right', cell: v => <span style={{ color: v.stats.need - v.stats.done > 0 ? ACCENT : 'var(--green)', fontWeight: 600 }}>{fmt(Math.max(0, v.stats.need - v.stats.done))}</span> },
+    { key: 'progress', header: 'Tiến độ', width: 160, cell: v => <Progress pct={v.stats.pct} /> },
+  ]
+  const Icon = cfg.Icon
+  return (
+    <LenhSanXuatBoard<PiView>
+      icon={<Icon size={18} />}
+      title={`Lệnh sản xuất — Công đoạn ${cfg.label}`}
+      subtitle={`Theo dõi tiến độ ${cfg.verb} theo PI · bấm để xem từng SKU trong PI`}
+      columns={cols}
+      rows={views}
+      rowKey={v => v.g.productionInvoiceId}
+      clickable={() => true}
+      onRowClick={v => onEnter(v.g.productionInvoiceId)}
+      rowTitle={() => 'Bấm để xem danh sách SKU trong PI này'}
+    />
+  )
+}
+
 // ── Tầng 1: Danh sách lệnh (PO) ────────────────────────────────────
 interface PoView { r: ProcRow; s: ReturnType<typeof poSummary>; unlocked: boolean; running: boolean; canEnter: boolean; arranged: boolean; seqUnlocked: boolean; alert: boolean }
 
-function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onStart, onEnd }: {
+function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onStart, onEnd, onBack, piCode }: {
   rows: ProcRow[]; cfg: StageCfg; isPhoi: boolean
   /** "Làm tuần tự" (PO sau chỉ mở khi PO trước đủ 100%) — quy ước riêng của demo/mock, KHÔNG có gì
    *  tương ứng ở BE. Hàn/Sơn nối BE thật (đợt 2) tắt hẳn để không chặn oan PO thật theo thứ tự
    *  bất kỳ trả về từ listProductionOrdersForStage(). */
   sequential?: boolean
   onEnter: (poId: number) => void; onStart: (poId: number) => void; onEnd: (poId: number) => void
+  /** Có giá trị khi được mở từ PiListBoard (Hàn/Sơn, 2026-08-31) - hiện nút "Quay lại danh sách
+   *  PI" + mã PI đang xem. undefined = vẫn là tầng ngoài cùng (không đổi hành vi cũ). */
+  onBack?: () => void
+  piCode?: string
 }) {
   const sumOf = (r: ProcRow) => isPhoi ? poSummaryCay(r) : poSummary(r)
   const views: PoView[] = rows.map((r, i) => {
@@ -231,10 +314,12 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onStart, o
   return (
     <LenhSanXuatBoard<PoView>
       icon={<Icon size={18} />}
-      title={`Lệnh sản xuất — Công đoạn ${cfg.label}`}
+      title={onBack ? `PI ${piCode ?? ''}` : `Lệnh sản xuất — Công đoạn ${cfg.label}`}
       subtitle={isPhoi
         ? `Theo dõi tiến độ ${cfg.verb} theo PO/SKU · bấm PO để xem mảnh & xác nhận cắt theo đợt`
         : `Theo dõi tiến độ ${cfg.verb} theo PO/SKU · nhập sản lượng theo ${cfg.itemLabel.toLowerCase()}`}
+      onBack={onBack}
+      backLabel="Quay lại danh sách PI"
       columns={cols}
       rows={views}
       rowKey={v => v.r.id}
@@ -644,6 +729,7 @@ async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
       // ứng ở BE; PO thật xuất hiện trong danh sách nghĩa là đã sẵn sàng để báo sản lượng.
       id: Number(o.id), poNumber: plan.salesOrderCode ?? '—', sku: plan.productName, productName: plan.productName,
       soLuong: plan.quantity, deadline: '—', arrangedAt: new Date().toISOString(), lines, realOrderId: o.id,
+      productionInvoiceId: o.productionInvoiceId, piCode: o.piCode,
     })
   }
   return { rows, awaitingByLine }
@@ -673,12 +759,17 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   }, [fetched, stage])
 
   const [selPoId, setSelPoId] = useState<number | null>(null)
+  // Gom theo PI (2026-08-31, đồng nhất với Phôi - xem PiListBoard đầu file). null = đang ở tầng
+  // ngoài cùng (danh sách PI); có giá trị = đã chọn 1 PI, đang xem danh sách SKU trong PI đó.
+  const [selPiId, setSelPiId] = useState<string | null>(null)
   const { startPo, endPo } = caActions(setRows)
 
   // done đã có sẵn trong ProcLine.doneQty (từ passedQty của plan) — chỉ còn chờ-KCS cần map riêng.
   const awaitingByLine = fetched?.awaitingByLine ?? new Map<number, number>()
 
   const selPo = rows.find(r => r.id === selPoId) ?? null
+  const piGroups = useMemo(() => buildPiGroups(rows), [rows])
+  const selPiGroup = selPiId ? piGroups.find(g => g.productionInvoiceId === selPiId) ?? null : null
 
   const updateLineFlat = (poId: number, ul: ProcLine) =>
     setRows(rs => rs.map(r => r.id !== poId ? r : { ...r, lines: r.lines?.map(l => l.id === ul.id ? ul : l) }))
@@ -703,5 +794,12 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
       manualInput
     />
   }
-  return <PoListBoard rows={rows} cfg={cfg} isPhoi={false} sequential={!stage} onEnter={id => setSelPoId(id)} onStart={startPo} onEnd={endPo} />
+  if (selPiGroup) {
+    return <PoListBoard
+      rows={selPiGroup.rows} cfg={cfg} isPhoi={false} sequential={!stage}
+      onEnter={id => setSelPoId(id)} onStart={startPo} onEnd={endPo}
+      onBack={() => setSelPiId(null)} piCode={selPiGroup.piCode}
+    />
+  }
+  return <PiListBoard groups={piGroups} cfg={cfg} onEnter={id => setSelPiId(id)} />
 }

@@ -43,6 +43,13 @@ interface BeProductionInvoiceItem {
   /** null = chưa từng tính (SKU chưa duyệt). Có giá trị CALCULATING = đang chờ solver, xem toItem(). */
   cuttingProposalStatus?: 'CALCULATING' | 'DRAFT' | 'FAILED' | 'APPROVED' | null;
   cuttingProposalRequestedAt?: string | null;
+  /** null = chưa duyệt HOẶC đã APPROVED nhưng tạo lệnh sản xuất thất bại (SKU "kẹt", race hiếm -
+   *  xem retryProductionOrder() bên dưới). Không suy được từ prodApprovalStatus vì cả 2 ca đều
+   *  hiện "đã duyệt" như nhau. */
+  productionOrderId?: string | null;
+  /** QLSX kiểm soát qua nút Bắt đầu/Kết thúc ở "Bảng thống kê" (2026-08-31) - null cùng lúc với
+   *  productionOrderId null. */
+  floorStage?: 'PENDING' | 'ACTIVE' | 'FINISHED' | null;
 }
 
 interface BeProductionInvoice {
@@ -62,6 +69,7 @@ interface BeProductionInvoice {
 function toItem(it: BeProductionInvoiceItem) {
   return {
     id: it.id,
+    mfgProductId: it.mfgProductId,
     salesOrderId: it.salesOrderId ?? undefined,
     salesOrderCode: it.salesOrderCode ?? undefined,
     quantity: it.quantity,
@@ -75,6 +83,8 @@ function toItem(it: BeProductionInvoiceItem) {
     stages: it.stages.map((s) => ({ stageType: s.stageType, deadline: s.deadline })),
     cuttingProposalStatus: it.cuttingProposalStatus ?? null,
     cuttingProposalRequestedAt: it.cuttingProposalRequestedAt ?? null,
+    productionOrderId: it.productionOrderId ?? null,
+    floorStage: it.floorStage ?? null,
     prodApproval: it.prodApprovalStatus
       ? {
           status: it.prodApprovalStatus,
