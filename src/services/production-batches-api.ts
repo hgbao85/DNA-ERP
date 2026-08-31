@@ -64,18 +64,50 @@ export interface BeProductionOrderSummary {
   poNumber: string;
   salesOrderCode: string | null;
   status: 'DRAFT' | 'RELEASED' | 'IN_PROGRESS' | 'DONE' | 'CANCELLED';
+  /** QLSX kiểm soát qua nút Bắt đầu/Kết thúc ở "Bảng thống kê" (2026-08-31) - ĐỘC LẬP với
+   *  `status` ở trên. Hàn/Sơn chỉ hiện lệnh khi PI của nó có ÍT NHẤT 1 SKU ACTIVE (xem
+   *  listProductionOrdersForStage) - không bắt buộc CHÍNH lệnh này phải tự ACTIVE. */
+  floorStage: 'PENDING' | 'ACTIVE' | 'FINISHED';
+  /** Dùng để gộp theo PI - xem listProductionOrdersForStage. */
+  productionInvoiceId: string;
+  /** Mã PI hiển thị (vd "PI-2026-003") - dùng để gom giao diện Hàn/Sơn theo PI giống Phôi
+   *  (2026-08-31, xem PiListBoard ở core.tsx). */
+  piCode: string;
 }
 
-/** HAN_STAFF/SON_STAFF liệt kê PO đang hoạt động để chọn báo sản lượng — không có endpoint lọc
- *  theo stage/status ở BE (chỉ PaginationQueryDto), cùng kiểu "fetch hết rồi lọc client" đã dùng ở
- *  resolveProductionOrderId() (production-invoice-item.ts) — danh sách chưa lớn. Bỏ DRAFT/DONE/
- *  CANCELLED, chỉ giữ PO đang chạy thật. */
+/**
+ * HAN_STAFF/SON_STAFF liệt kê PO đang hoạt động để chọn báo sản lượng — không có endpoint lọc
+ * theo stage/status ở BE (chỉ PaginationQueryDto), cùng kiểu "fetch hết rồi lọc client" đã dùng ở
+ * resolveProductionOrderId() (production-invoice-item.ts) — danh sách chưa lớn. Bỏ DRAFT/DONE/
+ * CANCELLED, chỉ giữ PO đang chạy thật.
+ *
+ * Lọc theo floorStage GỘP THEO PI (2026-08-31, đồng nhất với Phôi - xem
+ * ListSteelIssuesQueryDto.activeOnly ở BE): 1 PI có nhiều SKU, chỉ cần 1 SKU bất kỳ đã được QLSX
+ * bấm "Bắt đầu" (ACTIVE) là MỌI SKU khác cùng PI đó cũng hiện theo, không bắt buộc từng SKU phải
+ * tự bấm Bắt đầu riêng - khớp thực tế Phôi cắt sắt chung cho cả PI nên Hàn/Sơn nhận hàng ra cùng
+ * lúc, không tách biệt độc lập theo từng SKU như tưởng ban đầu.
+ */
 export async function listProductionOrdersForStage(): Promise<BeProductionOrderSummary[]> {
   const res = await http.get<BeProductionOrderSummary[] | { data: BeProductionOrderSummary[] }>(
     '/production-orders?limit=100',
   );
   const list = Array.isArray(res) ? res : res.data;
-  return list.filter((o) => o.status === 'RELEASED' || o.status === 'IN_PROGRESS');
+  const activePiIds = new Set(
+    list.filter((o) => o.floorStage === 'ACTIVE').map((o) => o.productionInvoiceId),
+  );
+  return list.filter(
+    (o) => (o.status === 'RELEASED' || o.status === 'IN_PROGRESS') && activePiIds.has(o.productionInvoiceId),
+  );
+}
+
+/** QLSX bấm "Bắt đầu" ở "Bảng thống kê" - PENDING/ACTIVE -> ACTIVE. Không đụng `status`. */
+export async function startProductionOrderFloor(productionOrderId: string): Promise<BeProductionOrderSummary> {
+  return http.post<BeProductionOrderSummary>(`/production-orders/${productionOrderId}/floor-start`);
+}
+
+/** QLSX bấm "Kết thúc" - bất kỳ trạng thái nào -> FINISHED, không kiểm tra tiến độ. */
+export async function finishProductionOrderFloor(productionOrderId: string): Promise<BeProductionOrderSummary> {
+  return http.post<BeProductionOrderSummary>(`/production-orders/${productionOrderId}/floor-finish`);
 }
 
 export interface BeProductionBatchPlanItem {
@@ -107,6 +139,19 @@ export async function getProductionBatchPlan(
 ): Promise<BeProductionBatchPlan> {
   return http.get<BeProductionBatchPlan>(
     `/production-orders/${productionOrderId}/production-batch-plan?stage=${stage}`,
+  );
+}
+
+/** Gộp nhiều ProductionOrder 1 lần, CÙNG stage — "Bảng thống kê" (ThongKePagePlan.tsx) cần tiến
+ *  độ Hàn/Sơn cho nhiều SKU cùng lúc (1 lệnh gọi cho HAN, 1 cho SON, thay vì 2×N). Trả về map
+ *  orderId -> kế hoạch (order không có trong danh sách trả về sẽ không có key). */
+export async function getProductionBatchPlanBatch(
+  productionOrderIds: string[],
+  stage: ProductionBatchStage,
+): Promise<Record<string, BeProductionBatchPlan>> {
+  if (productionOrderIds.length === 0) return {};
+  return http.get<Record<string, BeProductionBatchPlan>>(
+    `/production-orders/production-batch-plan/batch?ids=${encodeURIComponent(productionOrderIds.join(','))}&stage=${stage}`,
   );
 }
 

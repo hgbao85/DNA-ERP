@@ -111,6 +111,18 @@ export async function getSteelIssuesForInvoice(productionInvoiceId: string): Pro
   return unwrap(res);
 }
 
+/** Gộp nhiều PI 1 lần — "Bảng thống kê" (ThongKePagePlan.tsx) cần tiến độ Phôi cho nhiều SKU
+ *  cùng lúc, nhiều SKU có thể chung 1 PI (đợt gộp). Trả về map piId -> danh sách đợt xuất (PI
+ *  không có trong danh sách trả về key rỗng []). */
+export async function getSteelIssuesForInvoiceBatch(
+  productionInvoiceIds: string[],
+): Promise<Record<string, BeSteelIssue[]>> {
+  if (productionInvoiceIds.length === 0) return {};
+  return http.get<Record<string, BeSteelIssue[]>>(
+    `/production-invoices/steel-issues/batch?ids=${encodeURIComponent(productionInvoiceIds.join(','))}`,
+  );
+}
+
 export async function issueSteel(
   productionInvoiceId: string,
   data: { materialId: string; barLengthMm: number; barCount: number },
@@ -124,11 +136,22 @@ export async function issueSteel(
 
 // ── Tổ Phôi (PHOI_STAFF) / KCS (KCS_STAFF) — flat, không cần biết PO trước ─────
 
-/** Xem ListSteelIssuesQueryDto tại sao endpoint này tồn tại riêng (permission Phôi/KCS không đủ
- *  để tự resolve productionOrderId). Bỏ trống `status` để lấy mọi trạng thái. */
-export async function getSteelIssuesByStatus(status?: SteelIssueStatus): Promise<BeSteelIssue[]> {
-  const qs = status ? `?status=${status}&limit=100` : '?limit=100';
-  const res = await http.get<BeSteelIssue[] | { data: BeSteelIssue[] }>(`/steel-issues${qs}`);
+/**
+ * Xem ListSteelIssuesQueryDto tại sao endpoint này tồn tại riêng (permission Phôi/KCS không đủ
+ * để tự resolve productionOrderId). Bỏ trống `status` để lấy mọi trạng thái.
+ *
+ * `activeOnly` (2026-08-31): chỉ trả PI có ÍT NHẤT 1 SKU đang ProductionOrder.floorStage=ACTIVE
+ * (QLSX đã bấm "Bắt đầu" ở Bảng thống kê) - dùng riêng cho LenhSanXuatPhoi.tsx, KHÔNG truyền ở
+ * "Xác nhận nhận sắt"/KcsPhoiPage (2 nơi đó vẫn cần thấy mọi PI như cũ, không phụ thuộc floorStage).
+ */
+export async function getSteelIssuesByStatus(
+  status?: SteelIssueStatus,
+  activeOnly?: boolean,
+): Promise<BeSteelIssue[]> {
+  const params = new URLSearchParams({ limit: '100' });
+  if (status) params.set('status', status);
+  if (activeOnly) params.set('activeOnly', 'true');
+  const res = await http.get<BeSteelIssue[] | { data: BeSteelIssue[] }>(`/steel-issues?${params.toString()}`);
   return unwrap(res);
 }
 
