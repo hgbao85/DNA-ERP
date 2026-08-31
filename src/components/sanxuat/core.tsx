@@ -11,7 +11,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react'
-import { ChevronRight, ChevronDown, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Play, Square, Lock, Scissors, Wrench, Flame, SprayCan, type LucideIcon } from 'lucide-react'
+import { ChevronRight, ChevronDown, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Lock, Scissors, Wrench, Flame, SprayCan, type LucideIcon } from 'lucide-react'
 import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
 import { useFetch } from '../../hooks/useFetch'
 import * as api from '../../services/api'
@@ -56,9 +56,6 @@ export interface ProcRow {
   soLuong: number
   deadline: string
   arrangedAt: string | null
-  startedAt?: string | null
-  cutAtStart?: number | null
-  lastSession?: { from: string; to: string; cut: number } | null
   manhs?: ProcManh[]    // Phôi
   lines?: ProcLine[]    // Hàn/Sơn
   /** Hàn/Sơn nối BE thật (đợt 2): ProductionOrder.id thật (BE) dùng để báo sản lượng — xem
@@ -128,7 +125,6 @@ const allLines = (r: ProcRow): ProcLine[] => r.manhs ? r.manhs.flatMap(m => m.li
 const skuUnits = (r: ProcRow): number[] => r.manhs ? r.manhs.map(gheOfManh) : (r.lines ?? []).map(manhFromLine)
 export const skuDongBo = (r: ProcRow) => { const u = skuUnits(r); return u.length ? Math.min(...u) : 0 }
 export const skuLech = (r: ProcRow) => { const u = skuUnits(r); return u.length >= 2 && Math.max(...u) !== Math.min(...u) }
-const totalCut = (r: ProcRow) => allLines(r).reduce((s, l) => s + l.doneQty, 0)
 const poSummary = (r: ProcRow) => {
   const daLam = skuDongBo(r)
   const pct = r.soLuong > 0 ? Math.round((daLam / r.soLuong) * 100) : 0
@@ -142,13 +138,6 @@ const poSummaryCay = (r: ProcRow) => {
   const pct = need > 0 ? Math.round((done / need) * 100) : 0
   return { pct, daLam: done, conLai: Math.max(0, need - done) }
 }
-const durText = (fromISO: string, toISO: string) => {
-  const mins = Math.max(0, Math.round((new Date(toISO).getTime() - new Date(fromISO).getTime()) / 60000))
-  if (mins < 60) return `${mins} phút`
-  const h = Math.floor(mins / 60), m = mins % 60
-  return m ? `${h}h${m}p` : `${h}h`
-}
-
 function Progress({ pct }: { pct: number }) {
   const color = pct >= 100 ? 'var(--green)' : pct >= 50 ? ACCENT : '#b45309'
   return (
@@ -240,15 +229,15 @@ function PiListBoard({ groups, cfg, onEnter }: { groups: PiGroup[]; cfg: StageCf
 }
 
 // ── Tầng 1: Danh sách lệnh (PO) ────────────────────────────────────
-interface PoView { r: ProcRow; s: ReturnType<typeof poSummary>; unlocked: boolean; running: boolean; canEnter: boolean; arranged: boolean; seqUnlocked: boolean; alert: boolean }
+interface PoView { r: ProcRow; s: ReturnType<typeof poSummary>; unlocked: boolean; canEnter: boolean; arranged: boolean; seqUnlocked: boolean; alert: boolean }
 
-function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onStart, onEnd, onBack, piCode }: {
+function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, piCode }: {
   rows: ProcRow[]; cfg: StageCfg; isPhoi: boolean
   /** "Làm tuần tự" (PO sau chỉ mở khi PO trước đủ 100%) — quy ước riêng của demo/mock, KHÔNG có gì
    *  tương ứng ở BE. Hàn/Sơn nối BE thật (đợt 2) tắt hẳn để không chặn oan PO thật theo thứ tự
    *  bất kỳ trả về từ listProductionOrdersForStage(). */
   sequential?: boolean
-  onEnter: (poId: number) => void; onStart: (poId: number) => void; onEnd: (poId: number) => void
+  onEnter: (poId: number) => void
   /** Có giá trị khi được mở từ PiListBoard (Hàn/Sơn, 2026-08-31) - hiện nút "Quay lại danh sách
    *  PI" + mã PI đang xem. undefined = vẫn là tầng ngoài cùng (không đổi hành vi cũ). */
   onBack?: () => void
@@ -260,9 +249,10 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onStart, o
     const arranged = !!r.arrangedAt
     const seqUnlocked = !sequential || i === 0 || sumOf(rows[i - 1]).pct >= 100
     const unlocked = arranged && seqUnlocked
-    const running = !!r.startedAt
-    // Phôi: bấm thẳng vào PO (không cần Bắt đầu ca) · không đồng bộ mảnh nên không báo lệch.
-    return { r, s, arranged, seqUnlocked, unlocked, running, canEnter: isPhoi ? unlocked : unlocked && running, alert: !isPhoi && unlocked && skuLech(r) }
+    // Bấm thẳng vào PO để nhập sản lượng - không còn "Bắt đầu ca" phụ (2026-08-31, QLSX đã kiểm
+    // soát toàn chuỗi qua floorStage rồi, cột Ca chỉ là state cục bộ không persist, dễ gây nhầm với
+    // 2 nút "Bắt đầu"/"Kết thúc" thật của QLSX ở Bảng thống kê).
+    return { r, s, arranged, seqUnlocked, unlocked, canEnter: unlocked, alert: !isPhoi && unlocked && skuLech(r) }
   })
 
   const cols: BoardColumn<PoView>[] = [
@@ -282,32 +272,6 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onStart, o
     { key: 'remain', header: isPhoi ? `Còn lại (${cfg.unit})` : 'Còn lại', align: 'right', cell: v => <span style={{ color: v.s.conLai > 0 ? ACCENT : 'var(--green)', fontWeight: 600 }}>{fmt(v.s.conLai)}</span> },
     { key: 'progress', header: 'Tiến độ', width: 160, cell: v => <Progress pct={v.s.pct} /> },
     { key: 'deadline', header: 'Deadline', cell: v => dateVN(v.r.deadline) },
-    // Cột "Ca" (Bắt đầu/Kết thúc) chỉ cho Hàn/Sơn. Phôi bấm thẳng vào PO.
-    ...((isPhoi ? [] : [{
-      key: 'ca', header: `Ca ${cfg.verb}`, width: 180, cell: (v: PoView) => (
-        <div onClick={e => e.stopPropagation()}>
-          {!v.seqUnlocked
-            ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--text3)' }}><Lock size={12} /> Chờ PO trước</span>
-            : !v.arranged
-              ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>—</span>
-              : v.s.pct >= 100
-                ? <span className="badge green" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}><CheckCircle2 size={12} /> Hoàn tất</span>
-                : v.running
-                  ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
-                    <button onClick={() => onEnd(v.r.id)} className="primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 12, background: 'var(--red)', borderColor: 'var(--red)' }}>
-                      <Square size={12} /> Kết thúc
-                    </button>
-                    <span style={{ fontSize: 11, color: 'var(--text3)' }}>đang {cfg.verb} · từ {timeVN(v.r.startedAt!)}</span>
-                  </div>
-                  : <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 3 }}>
-                    <button onClick={() => onStart(v.r.id)} className="primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 12 }}>
-                      <Play size={12} /> Bắt đầu
-                    </button>
-                    {v.r.lastSession && <span style={{ fontSize: 11, color: 'var(--text3)' }}>ca trước: {fmt(v.r.lastSession.cut)} {cfg.unit} · {durText(v.r.lastSession.from, v.r.lastSession.to)}</span>}
-                  </div>}
-        </div>
-      )
-    }]) as BoardColumn<PoView>[]),
   ]
 
   const Icon = cfg.Icon
@@ -326,11 +290,11 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onStart, o
       rowTone={v => !v.unlocked ? 'muted' : v.alert ? 'alert' : 'default'}
       clickable={v => v.canEnter}
       onRowClick={v => onEnter(v.r.id)}
-      rowTitle={v => !v.arranged ? 'Chủ chuyền chưa sắp xếp lệnh này' : !v.seqUnlocked ? 'Phải hoàn tất PO trước (đủ 100%) mới mở lệnh này' : v.alert ? 'Chưa khớp đồng bộ — nhấn để xem' : isPhoi ? 'Nhấn để xem các mảnh của SKU' : !v.running ? 'Nhấn "Bắt đầu" để mở nhập sản lượng' : 'Nhấn để nhập sản lượng theo vật tư'}
+      rowTitle={v => !v.arranged ? 'Chủ chuyền chưa sắp xếp lệnh này' : !v.seqUnlocked ? 'Phải hoàn tất PO trước (đủ 100%) mới mở lệnh này' : v.alert ? 'Chưa khớp đồng bộ — nhấn để xem' : isPhoi ? 'Nhấn để xem các mảnh của SKU' : 'Nhấn để nhập sản lượng theo vật tư'}
       footer={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
         <CalendarClock size={14} /> Làm <b style={{ color: 'var(--text2)' }}>tuần tự</b>: PO sau chỉ mở khi PO trước đủ 100%. {isPhoi
           ? <>Tiến độ theo <b style={{ color: 'var(--text2)' }}>tổng cây đã cắt / cần</b>; <b style={{ color: 'var(--text2)' }}>đồng bộ sắt</b> (điểm nghẽn loại sắt) xem trong từng mảnh.</>
-          : <><b style={{ color: 'var(--text2)' }}>{cfg.done}</b> = số sản phẩm ráp được đủ mọi {cfg.itemLabel.toLowerCase()} (đồng bộ); dòng đỏ = chưa khớp. Bấm <b style={{ color: 'var(--text2)' }}>Bắt đầu/Kết thúc</b> để đo sản lượng theo ca.</>}
+          : <><b style={{ color: 'var(--text2)' }}>{cfg.done}</b> = số sản phẩm ráp được đủ mọi {cfg.itemLabel.toLowerCase()} (đồng bộ); dòng đỏ = chưa khớp.</>}
       </span>}
     />
   )
@@ -638,28 +602,16 @@ function ConfirmMini({ issue, unit, onConfirm }: {
   )
 }
 
-// Bắt đầu/Kết thúc ca — dùng chung cho mọi orchestrator
-type SetRows = React.Dispatch<React.SetStateAction<ProcRow[]>>
-const caActions = (setRows: SetRows) => ({
-  startPo: (id: number) => setRows(rs => rs.map(r => r.id !== id ? r : { ...r, startedAt: new Date().toISOString(), cutAtStart: totalCut(r), lastSession: null })),
-  endPo: (id: number) => setRows(rs => rs.map(r => {
-    if (r.id !== id || !r.startedAt) return r
-    return { ...r, lastSession: { from: r.startedAt, to: new Date().toISOString(), cut: totalCut(r) - (r.cutAtStart ?? 0) }, startedAt: null, cutAtStart: null }
-  })),
-})
-
 // ── Orchestrator: Phôi (3 tầng) ────────────────────────────────────
 // "Đã cắt" của mỗi dòng = base(seed) + Σ cây các đợt ĐÃ XÁC NHẬN (DA_CAT) theo lineId.
 // Xác nhận sản lượng làm ở màn riêng "Xác nhận sản lượng"; màn này chỉ theo dõi đồng bộ.
-export function PhoiScreen({ cfg, rows, setRows, readOnly = false }: {
+export function PhoiScreen({ cfg, rows, readOnly = false }: {
   cfg: StageCfg
   rows: ProcRow[]
-  setRows: React.Dispatch<React.SetStateAction<ProcRow[]>>
   readOnly?: boolean
 }) {
   const [selPoId, setSelPoId] = useState<number | null>(null)
   const [selManhId, setSelManhId] = useState<number | null>(null)
-  const { startPo, endPo } = caActions(setRows)
   const { data: issues } = useFetch<SatIssueView[]>(() => api.getDotXuatSat(), [])
 
   // Số cây đã xác nhận cắt xong theo từng dòng vật tư (lineId).
@@ -690,7 +642,7 @@ export function PhoiScreen({ cfg, rows, setRows, readOnly = false }: {
   if (selPo) {
     return <ManhListBoard po={selPo} cfg={cfg} onBack={() => setSelPoId(null)} onOpenManh={id => setSelManhId(id)} />
   }
-  return <PoListBoard rows={view} cfg={cfg} isPhoi onEnter={id => { setSelPoId(id); setSelManhId(null) }} onStart={startPo} onEnd={endPo} />
+  return <PoListBoard rows={view} cfg={cfg} isPhoi onEnter={id => { setSelPoId(id); setSelManhId(null) }} />
 }
 
 // ── Nguồn dữ liệu thật cho Hàn/Sơn (đợt 2, thay hanSeed()/sonSeed()) ────────────────
@@ -746,23 +698,16 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   const { data: fetched, refetch } = useFetch<HanSonFetch>(
     () => stage ? fetchHanSonRows(stage) : Promise.resolve({ rows: [], awaitingByLine: new Map() }), [stage])
 
-  // "Bắt đầu/Kết thúc ca" luôn là overlay cục bộ, không persist ở BE (kể cả bản mock cũ) — merge
-  // đè lên dữ liệu vừa fetch, giữ nguyên session đang chạy của đúng PO qua các lần refetch.
   const [rows, setRows] = useState<ProcRow[]>(() => seed?.() ?? [])
   useEffect(() => {
     if (!stage) return
-    const next = fetched?.rows ?? []
-    setRows(prev => next.map(r => {
-      const old = prev.find(p => p.id === r.id)
-      return old ? { ...r, startedAt: old.startedAt, cutAtStart: old.cutAtStart, lastSession: old.lastSession } : r
-    }))
+    setRows(fetched?.rows ?? [])
   }, [fetched, stage])
 
   const [selPoId, setSelPoId] = useState<number | null>(null)
   // Gom theo PI (2026-08-31, đồng nhất với Phôi - xem PiListBoard đầu file). null = đang ở tầng
   // ngoài cùng (danh sách PI); có giá trị = đã chọn 1 PI, đang xem danh sách SKU trong PI đó.
   const [selPiId, setSelPiId] = useState<string | null>(null)
-  const { startPo, endPo } = caActions(setRows)
 
   // done đã có sẵn trong ProcLine.doneQty (từ passedQty của plan) — chỉ còn chờ-KCS cần map riêng.
   const awaitingByLine = fetched?.awaitingByLine ?? new Map<number, number>()
@@ -797,7 +742,7 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   if (selPiGroup) {
     return <PoListBoard
       rows={selPiGroup.rows} cfg={cfg} isPhoi={false} sequential={!stage}
-      onEnter={id => setSelPoId(id)} onStart={startPo} onEnd={endPo}
+      onEnter={id => setSelPoId(id)}
       onBack={() => setSelPiId(null)} piCode={selPiGroup.piCode}
     />
   }

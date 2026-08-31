@@ -21,6 +21,7 @@ import * as api from '../../../services/api'
 import type { BeProductionBatch, ProductionBatchStage } from '../../../services/production-batches-api'
 import type { AuditLogEntry } from '../../../context/AuditLogContext'
 import LoadingState from '../../../components/LoadingState'
+import { errMsg } from '../../../utils/errors'
 
 export default function KcsStagePage({ cfg, stage }: { cfg: StageCfg; stage: ProductionBatchStage }) {
   const { data: batches, isLoading, refetch } = useFetch<BeProductionBatch[]>(() => api.getProductionBatchesByStage(stage), [stage])
@@ -76,17 +77,24 @@ export default function KcsStagePage({ cfg, stage }: { cfg: StageCfg; stage: Pro
 
   if (isLoading || !batches) return <LoadingState />
 
+  // onReview truyền qua KcsTwoTierScreen (kcsCore.tsx) không await/catch promise trả về (fire-and-
+  // forget) - phải tự bắt lỗi ở đây, nếu không lỗi backend (vd PI chưa "Bắt đầu"/đã "Kết thúc",
+  // 2026-08-31) sẽ rớt thành unhandled rejection, KCS bấm duyệt không thấy phản hồi gì cả.
   const onReview = async (_poId: number, lineId: number, p: ReviewPayload) => {
     const id = map.get(lineId)
     if (!id) return
-    await api.reviewProductionBatch(id, {
-      failedQty: p.failedQty,
-      scrapQty: p.scrapQty,
-      reason: p.reviewNote,
-      defectReasonId: p.defectReasonId ? String(p.defectReasonId) : undefined,
-      photoUrl: p.defectPhotoUrl,
-    })
-    refetch()
+    try {
+      await api.reviewProductionBatch(id, {
+        failedQty: p.failedQty,
+        scrapQty: p.scrapQty,
+        reason: p.reviewNote,
+        defectReasonId: p.defectReasonId ? String(p.defectReasonId) : undefined,
+        photoUrl: p.defectPhotoUrl,
+      })
+      refetch()
+    } catch (e) {
+      alert(errMsg(e, 'Không duyệt được'))
+    }
   }
 
   return <KcsTwoTierScreen cfg={cfg} rows={rows} onReview={onReview} showFailMode />

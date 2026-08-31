@@ -49,18 +49,23 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
   const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT')
 
   // Gộp SKU theo PI (chỉ SKU đã có lệnh sản xuất thật) - danh sách ngoài liệt kê theo PI.
-  const piGroups: PiGroup[] = []
+  const piGroupsAll: PiGroup[] = []
   for (const pf of active) {
     const info = poInfoFor(pf)
     if (!info) continue
-    const g = piGroups.find(g => g.productionInvoiceId === info.productionInvoiceId)
+    const g = piGroupsAll.find(g => g.productionInvoiceId === info.productionInvoiceId)
     if (g) {
       if (g.poCode !== info.poCode) g.poCode = null
       g.skus.push(pf)
     } else {
-      piGroups.push({ productionInvoiceId: info.productionInvoiceId, piCode: info.piCode, poCode: info.poCode, skus: [pf] })
+      piGroupsAll.push({ productionInvoiceId: info.productionInvoiceId, piCode: info.piCode, poCode: info.poCode, skus: [pf] })
     }
   }
+  // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho được xuất sắt (2026-08-31) -
+  // ẩn hẳn khỏi danh sách, không chỉ để trống tay khi bấm vào (backend cũng chặn cứng ở
+  // SteelIssuesService.create(), đây chỉ là lớp UI khớp theo). Không bắt buộc CHÍNH SKU nào trong
+  // PI phải ACTIVE, chỉ cần ít nhất 1 - PI cắt sắt chung cho mọi SKU trong đó.
+  const piGroups = piGroupsAll.filter(g => g.skus.some(pf => poInfoFor(pf)?.floorStage === 'ACTIVE'))
 
   const [selectedPi, setSelectedPi] = useState<PiGroup | null>(null)
   const { data: planData, isLoading: planLoading, error: planError, refetch } = useFetch<BeSteelIssuePlanItem[]>(

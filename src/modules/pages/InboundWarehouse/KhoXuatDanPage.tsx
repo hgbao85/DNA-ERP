@@ -7,6 +7,7 @@ import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
 import type { BeWeavingIssuePlanItem } from '../../../services/weaving-issues-api'
 import type { BeWeavingPoint } from '../../../services/weaving-points-api'
+import { buildProductionOrderInfoByMfgProduct } from '../../../services/production-invoice-item'
 import { errMsg } from '../../../utils/errors'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
@@ -35,7 +36,21 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
   )
   const plan = planData ?? []
 
-  const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT' && (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId))
+  // PO/PI thật (từ ProductionOrder Sếp đã duyệt) - xem comment ở buildProductionOrderInfoByMfgProduct().
+  const { data: poInfoByProduct } = useFetch(() => buildProductionOrderInfoByMfgProduct(), [])
+  const poInfoFor = (pf: Sku) => poInfoByProduct?.get(pf.mfgProductId)
+  // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho được xuất đan cho BẤT KỲ SKU
+  // nào cùng PI đó (2026-08-31, gộp theo PI - cùng quy tắc XuatSatPage/XuatVatTuTieuHaoPage/
+  // WeavingIssuesService.assertItemPiHasActiveFloor() ở backend). Ẩn hẳn khỏi danh sách, backend
+  // cũng chặn cứng, đây chỉ là lớp UI khớp theo.
+  const activePiIds = new Set(
+    [...(poInfoByProduct?.values() ?? [])].filter(info => info.floorStage === 'ACTIVE').map(info => info.productionInvoiceId),
+  )
+  const active = ((skus ?? []) as Sku[]).filter(p =>
+    p.status !== 'DRAFT' &&
+    (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId) &&
+    activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? ''),
+  )
 
   const autoSelectedRef = useRef(false)
   useEffect(() => {

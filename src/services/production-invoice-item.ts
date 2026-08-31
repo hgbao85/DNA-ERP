@@ -35,6 +35,7 @@ interface BeProductionOrderRaw {
   productionInvoiceItemId: string;
   piCode: string;
   deliveryDeadline: string | null;
+  floorStage: 'PENDING' | 'ACTIVE' | 'FINISHED';
 }
 let productionOrdersCache: { promise: Promise<BeProductionOrderRaw[]>; expiresAt: number } | null = null;
 const PRODUCTION_ORDERS_CACHE_TTL_MS = 10_000;
@@ -137,6 +138,9 @@ export interface ProductionOrderInfo {
   piCode: string;
   /** Hạn giao (ProductionInvoiceItem.deliveryDeadline) — null nếu chưa khai. */
   deliveryDate: string | null;
+  /** QLSX kiểm soát qua nút Bắt đầu/Kết thúc ở "Bảng thống kê" (2026-08-31) - dùng để ẩn PI khỏi
+   *  "Phân phối nội bộ" (XuatSatPage/XuatVatTuTieuHaoPage) cho tới khi có ít nhất 1 SKU ACTIVE. */
+  floorStage: 'PENDING' | 'ACTIVE' | 'FINISHED';
 }
 
 /**
@@ -158,6 +162,7 @@ export async function buildProductionOrderInfoByMfgProduct(): Promise<Map<string
         productionInvoiceId: o.productionInvoiceId,
         piCode: o.piCode,
         deliveryDate: o.deliveryDeadline,
+        floorStage: o.floorStage,
       });
     }
   }
