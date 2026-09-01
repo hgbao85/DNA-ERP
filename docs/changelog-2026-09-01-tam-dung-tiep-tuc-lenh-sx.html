@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Tạm dừng / Tiếp tục lệnh sản xuất (01/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; font-size: 13.5px; }
+  .flow .step { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-weight: 600; white-space: nowrap; }
+  .flow .arrow { color: var(--text-muted); }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 01/09/2026</span>
+    <h1 class="title">Tạm dừng / Tiếp tục lệnh sản xuất</h1>
+    <p class="subtitle">Thêm 2 nút "Tạm dừng"/"Tiếp tục" bên cạnh "Bắt đầu"/"Kết thúc" ở Bảng thống kê (QLSX), cả 4 nút đều hỏi lại xác nhận trước khi thực hiện. Kèm 1 lỗi hiện trùng dòng đã sửa cùng lúc, và 1 khoảng lệch dữ liệu nền phát hiện được trong lúc làm.</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> FE <code>D:\DNA-ERP</code> · BE <code>D:\DNA-ERP-BE</code></span>
+      <span><strong>Màn hình:</strong> Bảng thống kê (QLSX) — cột "Xưởng"</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ========= Tính năng mới ========= -->
+  <section id="feature">
+    <div class="sec-head"><h2>Tính năng mới</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">01/09</span><span class="f-title">Nút "Tạm dừng" / "Tiếp tục" cho lệnh sản xuất</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>QLSX chỉ có 2 nút "Bắt đầu" và "Kết thúc". Không có cách nào tạm ngưng 1 lệnh đang chạy (vd chờ vật tư, đổi ưu tiên) mà không phải bấm hẳn "Kết thúc" — vốn không thể hoàn tác.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Thêm trạng thái "Đang tạm dừng". Đang chạy thì hiện "Tạm dừng" + "Kết thúc"; đang tạm dừng thì hiện "Tiếp tục" + "Kết thúc". Cả 4 nút (Bắt đầu/Tạm dừng/Tiếp tục/Kết thúc) đều hỏi xác nhận trước khi gọi.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Luồng trạng thái</span>
+        <div class="flow">
+          <span class="step">Chưa bắt đầu</span><span class="arrow">— Bắt đầu →</span>
+          <span class="step">Đang chạy</span><span class="arrow">— Tạm dừng →</span>
+          <span class="step">Đang tạm dừng</span><span class="arrow">— Tiếp tục →</span>
+          <span class="step">Đang chạy</span><span class="arrow">— Kết thúc (từ bất kỳ trạng thái nào) →</span>
+          <span class="step">Đã kết thúc</span>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Chi tiết kỹ thuật</span>
+        <div class="v">
+          <ul>
+            <li>BE: thêm giá trị <code>PAUSED</code> vào enum <code>ProductionOrderFloorStage</code> + endpoint <code>POST /production-orders/:id/floor-pause</code>. "Tiếp tục" dùng lại đúng route <code>floor-start</code> có sẵn (cùng ý nghĩa "chuyển sang ACTIVE"), chỉ khác nhãn nút bên FE.</li>
+            <li>Gate <code>assertPiHasActiveFloor()</code> (chặn mọi thao tác ghi trên xưởng của cả PI) không cần sửa gì — vốn chỉ khớp đúng <code>ACTIVE</code>, nên PAUSED tự động bị chặn giống PENDING.</li>
+            <li>FE: <code>ThongKePagePlan.tsx</code> — <code>FloorStageCell</code>/<code>FLOOR_STAGE_META</code> thêm nhánh PAUSED; xác nhận qua <code>confirm()</code> (cùng cách đã dùng ở các trang khác trong dự án).</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= Lỗi đã sửa ========= -->
+  <section id="fix">
+    <div class="sec-head"><h2>Lỗi đã sửa</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">01/09</span><span class="f-title">Bảng thống kê hiện trùng dòng khi 2 lệnh khác nhau dùng chung 1 SKU nháp</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Mỗi dòng trong bảng được đánh dấu (React key) bằng id của bản ghi SKU. Khi 2 lệnh sản xuất khác nhau không khớp đúng SKU riêng, hệ thống tự lấy tạm 1 SKU chung của cùng sản phẩm cho cả 2 — khiến 2 dòng bị trùng key, trình duyệt báo lỗi console và có nguy cơ 2 dòng bị lẫn dữ liệu vào nhau khi chọn xem chi tiết.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Đổi sang đánh dấu mỗi dòng bằng id của chính lệnh đã duyệt (<code>ProductionInvoiceItem.id</code>) — luôn là 1 dòng ứng đúng 1 lệnh, không bao giờ trùng dù nhiều lệnh tạm dùng chung 1 SKU nháp.</div>
+      </div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>src/modules/pages/Manufacturing/ThongKePagePlan.tsx</code> — hàm <code>buildOrderRow()</code></div></div>
+    </article>
+  </section>
+
+  <!-- ========= Vá hạ tầng nền ========= -->
+  <section id="infra">
+    <div class="sec-head"><h2>Vá hạ tầng nền (phát hiện trong lúc làm)</h2><span class="sec-count">1 mục</span></div>
+    <div class="prose-card">
+      <p>Không phải tính năng hay lỗi người dùng nhìn thấy — ghi lại vì ảnh hưởng tới việc triển khai sau này.</p>
+    </div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Hạ tầng</span><span class="badge date">01/09</span><span class="f-title">Database bị lệch khỏi lịch sử migration đã lưu trong git</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Phát hiện</span>Lúc thêm PAUSED, công cụ migration báo database thật đang có sẵn cột <code>stockLengthMm</code> (kèm dữ liệu thật) trên 4 bảng tồn kho — nhưng 2 file migration ghi lại thay đổi đó, và phần khai báo tương ứng trong <code>schema.prisma</code>, đều bị thiếu trong git. Không rõ nguyên nhân (nghi do 1 lần thao tác trước đó chưa kịp commit).</div>
+        <div class="ba-box after"><span class="k">Đã xử lý</span>Đọc lại đúng cấu trúc thật từ database (chỉ đọc, không đổi), dựng lại 2 file migration bị thiếu + cập nhật <code>schema.prisma</code> khớp đúng thực tế. <b>Không có dữ liệu nào bị đổi hay mất</b> — chỉ đồng bộ lại sổ sách cho khớp với những gì đã tồn tại sẵn.</div>
+      </div>
+      <div class="f-field"><span class="k">Việc còn lại</span><div class="v">Cột <code>stockLengthMm</code> này (bucket tồn kho theo độ dài cây sắt) hiện có trong database nhưng chưa thấy code nghiệp vụ nào đọc/ghi tới — nên rà lại xem tính năng gốc có bị thất lạc theo hay chỉ đơn giản là chưa dùng tới.</div></div>
+    </article>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 01/09/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>

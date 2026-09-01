@@ -67,7 +67,7 @@ export interface BeProductionOrderSummary {
   /** QLSX kiểm soát qua nút Bắt đầu/Kết thúc ở "Bảng thống kê" (2026-08-31) - ĐỘC LẬP với
    *  `status` ở trên. Hàn/Sơn chỉ hiện lệnh khi PI của nó có ÍT NHẤT 1 SKU ACTIVE (xem
    *  listProductionOrdersForStage) - không bắt buộc CHÍNH lệnh này phải tự ACTIVE. */
-  floorStage: 'PENDING' | 'ACTIVE' | 'FINISHED';
+  floorStage: 'PENDING' | 'ACTIVE' | 'PAUSED' | 'FINISHED';
   /** Dùng để gộp theo PI - xem listProductionOrdersForStage. */
   productionInvoiceId: string;
   /** Mã PI hiển thị (vd "PI-2026-003") - dùng để gom giao diện Hàn/Sơn theo PI giống Phôi
@@ -100,9 +100,14 @@ export async function listProductionOrdersForStage(): Promise<BeProductionOrderS
   );
 }
 
-/** QLSX bấm "Bắt đầu" ở "Bảng thống kê" - PENDING/ACTIVE -> ACTIVE. Không đụng `status`. */
+/** QLSX bấm "Bắt đầu" (từ PENDING) hoặc "Tiếp tục" (từ PAUSED) - cùng route, luôn -> ACTIVE. Không đụng `status`. */
 export async function startProductionOrderFloor(productionOrderId: string): Promise<BeProductionOrderSummary> {
   return http.post<BeProductionOrderSummary>(`/production-orders/${productionOrderId}/floor-start`);
+}
+
+/** QLSX bấm "Tạm dừng" - bất kỳ trạng thái nào -> PAUSED. */
+export async function pauseProductionOrderFloor(productionOrderId: string): Promise<BeProductionOrderSummary> {
+  return http.post<BeProductionOrderSummary>(`/production-orders/${productionOrderId}/floor-pause`);
 }
 
 /** QLSX bấm "Kết thúc" - bất kỳ trạng thái nào -> FINISHED, không kiểm tra tiến độ. */

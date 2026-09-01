@@ -125,7 +125,7 @@ export { getPackagingIssuePlan, issuePackaging } from './packaging-issues-api';
 export {
   getProductionBatchesByStage, reviewProductionBatch,
   listProductionOrdersForStage, getProductionBatchPlan, getProductionBatchPlanBatch, reportProductionBatch,
-  startProductionOrderFloor, finishProductionOrderFloor,
+  startProductionOrderFloor, pauseProductionOrderFloor, finishProductionOrderFloor,
 } from './production-batches-api';
 export {
   getSteelIssuePlan, getSteelIssuesForInvoice, getSteelIssuesForInvoiceBatch, issueSteel,

@@ -59,6 +59,11 @@ interface StageDetails {
 }
 
 interface MfgOrder {
+  /** ApprovedRow.itemId (ProductionInvoiceItem.id thật) - KHÔNG dùng pf.id (Sku): nhiều item đã
+   *  duyệt có thể fallback về CHUNG 1 Sku (skuByProduct.get(mfgProductId) ở dưới) khi không có Sku
+   *  khớp đúng theo cặp PI+product, khiến 2 dòng khác nhau trùng id nếu lấy theo pf.id (React
+   *  "duplicate key" ở bảng, 2026-09-01). itemId luôn duy nhất 1-1 theo đúng ý nghĩa "mỗi item đã
+   *  duyệt = đúng 1 dòng" (xem comment ApprovedRow). */
   id: string
   code: string        // Mã PO — lấy từ exportOrder.poNumber (dữ liệu thật)
   piCode: string       // Mã PI — 1 SKU trong 1 PO chỉ có đúng 1 PI (xem skus.service.ts)
@@ -308,7 +313,7 @@ function buildOrderRow(row: ApprovedRow, proposals: PurchaseProposal[], batch: B
   const done = isAllDone(details)
   const hasVariance = phoiStageStats(frame.phoiManhs).lech || aggLineStats(frame.hanLines).lech || aggLineStats(frame.sonLines).lech
   const order: MfgOrder = {
-    id: pf.id,
+    id: row.itemId,
     code: row.poCode ?? 'Chưa gắn đơn hàng',
     piCode: row.piCode,
     sku: pf.mfgProduct?.factoryCode ?? '—',
@@ -339,7 +344,19 @@ const STATUS_META: Record<OrderStatus, { label: string; bg: string; color: strin
 const FLOOR_STAGE_META: Record<FloorStage, { label: string; color: string; bg: string }> = {
   PENDING:  { label: 'Chưa bắt đầu', color: 'var(--text3)', bg: 'var(--surface2)' },
   ACTIVE:   { label: 'Đang chạy',    color: 'var(--amber)', bg: 'var(--amber-bg)' },
+  PAUSED:   { label: 'Đang tạm dừng', color: '#d97706',      bg: '#fef3c7' },
   FINISHED: { label: 'Đã kết thúc',  color: 'var(--green)', bg: 'var(--green-bg)' },
+}
+
+// 2026-09-01: mỗi nút đều hỏi lại xác nhận trước khi gọi API (window.confirm - cùng idiom đã dùng
+// ở MfgWarehousesPage/LenhMuaNCCPage) - bấm nhầm "Kết thúc"/"Tạm dừng" ngay trên bảng danh sách
+// (không có undo) ảnh hưởng luôn tới gate assertPiHasActiveFloor() phía dưới (chặn cả PI, không
+// riêng SKU này) nên cần chắn thêm 1 bước trước khi gọi.
+const FLOOR_ACTION_CONFIRM: Record<'start' | 'resume' | 'pause' | 'finish', string> = {
+  start:  'Xác nhận BẮT ĐẦU sản xuất lệnh này?',
+  resume: 'Xác nhận TIẾP TỤC sản xuất lệnh này?',
+  pause:  'Xác nhận TẠM DỪNG lệnh này? Các thao tác ghi trên xưởng (xuất vật tư/báo sản lượng/KCS...) của cả PI sẽ bị chặn cho tới khi Bắt đầu/Tiếp tục lại (nếu không còn SKU nào khác trong PI đang chạy).',
+  finish: 'Xác nhận KẾT THÚC lệnh này? Không thể hoàn tác thao tác này.',
 }
 
 const floorActionBtn = (bg: string): React.CSSProperties => ({
@@ -349,14 +366,18 @@ const floorActionBtn = (bg: string): React.CSSProperties => ({
 
 // Chỉ QLSX (canManage=true) mới thấy nút - Boss/KHSX chỉ xem badge. orderId null nghĩa là item đã
 // duyệt nhưng ProductionOrder chưa tạo được (kẹt, race hiếm) - không có gì để Bắt đầu/Kết thúc.
+// PENDING: chỉ "Bắt đầu". ACTIVE: "Tạm dừng" + "Kết thúc". PAUSED: "Tiếp tục" (dùng lại route
+// floor-start, xem handleFloorAction) + "Kết thúc" (không bắt buộc tiếp tục trước khi kết thúc).
 function FloorStageCell({
-  orderId, floorStage, canManage, pending, onStart, onFinish,
+  orderId, floorStage, canManage, pending, onStart, onResume, onPause, onFinish,
 }: {
   orderId: string | null
   floorStage: FloorStage | null
   canManage: boolean
   pending: boolean
   onStart: () => void
+  onResume: () => void
+  onPause: () => void
   onFinish: () => void
 }) {
   if (!orderId || !floorStage) {
@@ -372,6 +393,12 @@ function FloorStageCell({
         <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
           {floorStage === 'PENDING' && (
             <button disabled={pending} onClick={onStart} style={floorActionBtn('#1d4ed8')}>Bắt đầu</button>
+          )}
+          {floorStage === 'ACTIVE' && (
+            <button disabled={pending} onClick={onPause} style={floorActionBtn('#d97706')}>Tạm dừng</button>
+          )}
+          {floorStage === 'PAUSED' && (
+            <button disabled={pending} onClick={onResume} style={floorActionBtn('#1d4ed8')}>Tiếp tục</button>
           )}
           <button disabled={pending} onClick={onFinish} style={floorActionBtn('#dc2626')}>Kết thúc</button>
         </div>
@@ -945,7 +972,7 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
 // buildBatchProgressData). Các field mfgProductId/productVariant/salesOrder*/deliveryDeadline/
 // decidedAt/requestedAt chỉ dùng khi item được duyệt mà KHÔNG có Sku (PlanForm) tương ứng — xem
 // buildSyntheticSku().
-type FloorStage = 'PENDING' | 'ACTIVE' | 'FINISHED'
+type FloorStage = 'PENDING' | 'ACTIVE' | 'PAUSED' | 'FINISHED'
 interface PIApprovalItem {
   id: string
   mfgProductId: string
@@ -1094,13 +1121,23 @@ export default function ThongKePagePlan() {
   const canManageFloor = user?.mfgRole === 'PRODUCTION_MANAGER'
   const [floorPending, setFloorPending] = useState<Set<string>>(new Set())
 
-  const handleFloorAction = async (orderId: string, action: 'start' | 'finish') => {
+  // 4 hành động đều hỏi lại xác nhận trước khi gọi API (FLOOR_ACTION_CONFIRM, 2026-09-01) - bấm
+  // Huỷ ở confirm() thì dừng luôn, không setFloorPending/không gọi API. 'start'/'resume' cùng gọi
+  // 1 route floor-start (BE coi 2 việc là một, xem ProductionOrdersService.startFloor) - tách 2
+  // action riêng ở FE chỉ để hiện đúng nội dung confirm ("Bắt đầu" khác "Tiếp tục").
+  const FLOOR_ACTION_ERROR: Record<'start' | 'resume' | 'pause' | 'finish', string> = {
+    start: 'Lỗi bắt đầu lệnh', resume: 'Lỗi tiếp tục lệnh', pause: 'Lỗi tạm dừng lệnh', finish: 'Lỗi kết thúc lệnh',
+  }
+  const handleFloorAction = async (orderId: string, action: 'start' | 'resume' | 'pause' | 'finish') => {
+    if (!confirm(FLOOR_ACTION_CONFIRM[action])) return
     setFloorPending(s => new Set(s).add(orderId))
     try {
-      await (action === 'start' ? api.startProductionOrderFloor(orderId) : api.finishProductionOrderFloor(orderId))
+      if (action === 'start' || action === 'resume') await api.startProductionOrderFloor(orderId)
+      else if (action === 'pause') await api.pauseProductionOrderFloor(orderId)
+      else await api.finishProductionOrderFloor(orderId)
       refetchPis()
     } catch (err) {
-      alert(errMsg(err, action === 'start' ? 'Lỗi bắt đầu lệnh' : 'Lỗi kết thúc lệnh'))
+      alert(errMsg(err, FLOOR_ACTION_ERROR[action]))
     } finally {
       setFloorPending(s => { const next = new Set(s); next.delete(orderId); return next })
     }
@@ -1219,6 +1256,8 @@ export default function ThongKePagePlan() {
                       canManage={canManageFloor}
                       pending={!!o.orderId && floorPending.has(o.orderId)}
                       onStart={() => o.orderId && handleFloorAction(o.orderId, 'start')}
+                      onResume={() => o.orderId && handleFloorAction(o.orderId, 'resume')}
+                      onPause={() => o.orderId && handleFloorAction(o.orderId, 'pause')}
                       onFinish={() => o.orderId && handleFloorAction(o.orderId, 'finish')}
                     />
                   </td>
