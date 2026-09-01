@@ -49,7 +49,7 @@ interface BeProductionInvoiceItem {
   productionOrderId?: string | null;
   /** QLSX kiểm soát qua nút Bắt đầu/Kết thúc ở "Bảng thống kê" (2026-08-31) - null cùng lúc với
    *  productionOrderId null. */
-  floorStage?: 'PENDING' | 'ACTIVE' | 'FINISHED' | null;
+  floorStage?: 'PENDING' | 'ACTIVE' | 'PAUSED' | 'FINISHED' | null;
 }
 
 interface BeProductionInvoice {
