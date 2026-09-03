@@ -144,27 +144,56 @@ export interface ProductionOrderInfo {
 }
 
 /**
- * Map mfgProductId -> PO/PI THẬT (từ ProductionOrder Sếp đã duyệt) — PHẢI dùng thay cho
- * `Sku.exportOrder`/`Sku.piCode` khi hiển thị cột PO/PI ở "Phân phối nội bộ": field trên Sku chỉ
- * phản ánh PlanForm.salesOrderId tĩnh (gắn được ngay khi Sales tạo PO, dù Sếp chưa duyệt sản
- * xuất gì), trong khi PO/PI thật chỉ tồn tại SAU khi Sếp duyệt 1 ProductionInvoiceItem sinh ra
- * ProductionOrder (xem ProductionOrdersService.createFromApproval, BE) — đúng lúc kho mới có gì
- * để xuất (sắt/vật tư phải được mua/nhập kho theo lệnh sản xuất đó trước). 1 mfgProduct chỉ lấy
- * ProductionOrder đầu tiên tìm thấy — cùng giả định đơn giản hoá của resolveProductionOrderId().
+ * Map PO/PI THẬT (từ ProductionOrder Sếp đã duyệt) — PHẢI dùng thay cho `Sku.exportOrder`/
+ * `Sku.piCode` khi hiển thị cột PO/PI ở "Phân phối nội bộ": field trên Sku chỉ phản ánh
+ * PlanForm.salesOrderId tĩnh (gắn được ngay khi Sales tạo PO, dù Sếp chưa duyệt sản xuất gì),
+ * trong khi PO/PI thật chỉ tồn tại SAU khi Sếp duyệt 1 ProductionInvoiceItem sinh ra ProductionOrder
+ * (xem ProductionOrdersService.createFromApproval, BE) — đúng lúc kho mới có gì để xuất (sắt/vật tư
+ * phải được mua/nhập kho theo lệnh sản xuất đó trước).
+ *
+ * Khoá theo CẢ 2 dạng - dùng lookupProductionOrderInfo() để tra đúng, không tự .get() trực tiếp:
+ *  - `${productionInvoiceId}:${mfgProductId}` (khoá CHÍNH, chính xác tuyệt đối) - mỗi dòng
+ *    ProductionOrder ứng đúng 1 cặp (PI, mfgProduct) này (1-1 với ProductionInvoiceItem).
+ *  - `mfgProductId` đơn (khoá FALLBACK, giữ order đầu tiên tìm thấy) - CHỈ dùng khi Sku chưa gắn PI
+ *    nào (SKU tạo độc lập, productionInvoiceId để trống mãi mãi - xem comment đầu file).
+ *
+ * SỬA bug #1 (changelog 2026-08-31-qlsx-floor-stage-toan-chuoi.html mục 10, phát hiện qua E2E
+ * browser thật 31/8, CHƯA sửa lúc đó): trước đây map CHỈ khoá theo mfgProductId đơn nên 1 mfgProduct
+ * chạy song song NHIỀU PI (nhiều đơn hàng khác nhau cùng đặt 1 sản phẩm - vd "GTY-E2E-01" có 5 PI
+ * song song trong data demo) luôn trả về ĐÚNG 1 PI (mới nhất) cho MỌI Sku cùng mfgProduct đó - sai
+ * cho mọi Sku thuộc PI khác, có thể ẩn hoàn toàn 1 SKU đang ACTIVE thật khỏi các trang kho.
  */
 export async function buildProductionOrderInfoByMfgProduct(): Promise<Map<string, ProductionOrderInfo>> {
   const list = await fetchProductionOrdersCached();
   const map = new Map<string, ProductionOrderInfo>();
   for (const o of list) {
-    if (!map.has(o.mfgProductId)) {
-      map.set(o.mfgProductId, {
-        poCode: o.salesOrderCode,
-        productionInvoiceId: o.productionInvoiceId,
-        piCode: o.piCode,
-        deliveryDate: o.deliveryDeadline,
-        floorStage: o.floorStage,
-      });
-    }
+    const info: ProductionOrderInfo = {
+      poCode: o.salesOrderCode,
+      productionInvoiceId: o.productionInvoiceId,
+      piCode: o.piCode,
+      deliveryDate: o.deliveryDeadline,
+      floorStage: o.floorStage,
+    };
+    map.set(`${o.productionInvoiceId}:${o.mfgProductId}`, info);
+    if (!map.has(o.mfgProductId)) map.set(o.mfgProductId, info);
   }
   return map;
+}
+
+/**
+ * Tra map trả về từ buildProductionOrderInfoByMfgProduct() ĐÚNG cho 1 Sku cụ thể - ưu tiên khoá
+ * chính xác (Sku.productionInvoiceId, mfgProductId) vì mỗi Sku (1 dòng đơn hàng, KHÔNG phải 1 mã
+ * catalog dùng chung nhiều đơn) đã tự biết đúng PI của NÓ (xem comment Sku.piCode ở types/sku.ts).
+ * Chỉ rơi về khoá mfgProductId đơn khi Sku chưa gắn PI nào (SKU tạo độc lập). Luôn dùng hàm này
+ * thay vì `.get(pf.mfgProductId)` trực tiếp - xem bug #1 ở comment trên.
+ */
+export function lookupProductionOrderInfo(
+  map: Map<string, ProductionOrderInfo>,
+  pf: Sku,
+): ProductionOrderInfo | undefined {
+  if (pf.productionInvoiceId) {
+    const exact = map.get(`${pf.productionInvoiceId}:${pf.mfgProductId}`);
+    if (exact) return exact;
+  }
+  return map.get(pf.mfgProductId);
 }

@@ -17,6 +17,7 @@ import { useFetch } from '../../hooks/useFetch'
 import * as api from '../../services/api'
 import type { SatIssueView } from '../../services/api'
 import type { BeProductionOrderSummary, ProductionBatchStage as SanLuongStage } from '../../services/production-batches-api'
+import { errMsg } from '../../utils/errors'
 
 const ACCENT = '#e65100'
 const REMIND_MINUTES = 60
@@ -719,10 +720,18 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   const updateLineFlat = (poId: number, ul: ProcLine) =>
     setRows(rs => rs.map(r => r.id !== poId ? r : { ...r, lines: r.lines?.map(l => l.id === ul.id ? ul : l) }))
 
+  // onReport truyền qua VatTuDetailBoard.submit() không await/catch promise trả về (fire-and-
+  // forget) - phải tự bắt lỗi ở đây, nếu không lỗi backend (vd PI chưa "Bắt đầu"/đã "Kết thúc",
+  // 2026-08-31) sẽ rớt thành unhandled rejection, công nhân bấm "Ghi nhận" không thấy phản hồi gì
+  // (ô nhập vẫn bị xoá như đã lưu thành công) - cùng lỗi đã sửa ở KcsStagePage.onReview.
   const report = async (po: ProcRow, line: ProcLine, qty: number) => {
     if (!stage || !po.realOrderId || !line.realPieceId) return
-    await api.reportProductionBatch(po.realOrderId, { stage, pieceId: line.realPieceId, reportedQty: qty })
-    refetch()
+    try {
+      await api.reportProductionBatch(po.realOrderId, { stage, pieceId: line.realPieceId, reportedQty: qty })
+      refetch()
+    } catch (e) {
+      alert(errMsg(e, 'Không ghi nhận được sản lượng'))
+    }
   }
 
   if (selPo) {

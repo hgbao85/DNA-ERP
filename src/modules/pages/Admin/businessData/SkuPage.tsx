@@ -1,7 +1,7 @@
 'use client'
 import { Layers3 } from 'lucide-react'
 import { getSkus } from '../../../../services/api'
-import { buildProductionOrderInfoByMfgProduct } from '../../../../services/production-invoice-item'
+import { buildProductionOrderInfoByMfgProduct, lookupProductionOrderInfo } from '../../../../services/production-invoice-item'
 import type { Sku, SkuStatus } from '../../../../types/sku'
 import { STATUS_MAP } from '../../../../constants/skuStatus'
 import AdminReadOnlyList, { type AdminReadOnlyListConfig } from '../shared/AdminReadOnlyList'
@@ -42,10 +42,12 @@ export default function SkuPage() {
     // Medium fix: piCode trước đây đọc thẳng Sku.piCode (field tĩnh, gán 1 lần lúc tạo SKU) -
     // cùng lỗi pattern với H6 (ThongKePagePlan). Ưu tiên PI thật suy từ ProductionOrder đã duyệt
     // (buildProductionOrderInfoByMfgProduct - xem services/production-invoice-item.ts), fallback
-    // về field tĩnh khi SKU chưa vào sản xuất (chưa có PO nào để suy).
+    // về field tĩnh khi SKU chưa vào sản xuất (chưa có PO nào để suy). lookupProductionOrderInfo()
+    // tra đúng theo (Sku.productionInvoiceId, mfgProductId) - không lấy nhầm PI khác khi cùng
+    // mfgProduct chạy song song nhiều PI (bug #1, changelog 31/8).
     fetch: async () => {
       const [skus, poInfoMap] = await Promise.all([getSkus(), buildProductionOrderInfoByMfgProduct()])
-      return skus.map((f) => ({ ...f, piCode: poInfoMap.get(f.mfgProductId)?.piCode ?? f.piCode }))
+      return skus.map((f) => ({ ...f, piCode: lookupProductionOrderInfo(poInfoMap, f)?.piCode ?? f.piCode }))
     },
   }
 

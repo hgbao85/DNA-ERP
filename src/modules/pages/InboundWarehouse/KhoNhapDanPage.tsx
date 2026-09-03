@@ -6,7 +6,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
 import type { BeWeavingIssuePlanItem } from '../../../services/weaving-issues-api'
-import { buildProductionOrderInfoByMfgProduct } from '../../../services/production-invoice-item'
+import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
 import { errMsg } from '../../../utils/errors'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
@@ -31,11 +31,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId }
 
   // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho được nhập đan cho BẤT KỲ SKU
   // nào cùng PI đó (2026-08-31) - cùng quy tắc/gate ở KhoXuatDanPage/WeavingIssuesService.
-  const { data: poInfoByProduct } = useFetch(() => buildProductionOrderInfoByMfgProduct(), [])
-  const poInfoFor = (pf: Sku) => poInfoByProduct?.get(pf.mfgProductId)
-  const activePiIds = new Set(
-    [...(poInfoByProduct?.values() ?? [])].filter(info => info.floorStage === 'ACTIVE').map(info => info.productionInvoiceId),
-  )
+  const { poInfoFor, activePiIds } = usePoInfoFloorGate()
   const active = ((skus ?? []) as Sku[]).filter(p =>
     p.status !== 'DRAFT' &&
     (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId) &&
