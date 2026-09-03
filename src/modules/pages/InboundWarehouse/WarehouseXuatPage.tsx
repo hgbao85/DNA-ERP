@@ -8,6 +8,7 @@ import type { BePieceTransferPlanItem } from '../../../services/warehouse-transf
 import type { BePackagingIssuePlanItem } from '../../../services/packaging-issues-api'
 import type { SalesOrder } from '../../../types/sales'
 import { TRANSFER_ROUTES, canSendFrom } from '../../../types/warehouse-transfer'
+import { isFamilyScope, warehouseFamilyOf } from '../../../utils/warehouseFamily'
 import { safeArr } from '../../../utils/array'
 import { errMsg } from '../../../utils/errors'
 import { compactTh as th, compactTd as td, tableWrap, tbl, row, badge, emptyBox } from '../../../styles/table'
@@ -70,6 +71,8 @@ const ACCENT = '#e65100'
 // Piece transfer (mảnh/vật tư thành phẩm) chỉ áp dụng cho chặng phoi-son-han → vat-tu-tp - đơn
 // vị là PO (không phải PI, xem docs/review-2026-08-17-sanxuat-stage-v16-va-chuyen-kho-manh.md
 // mục 6/7 ở BE). Chặng vat-tu-tp → thanh-pham dùng packaging-issues thật (xem PACKAGING_SCOPE).
+// 2026-09-03: so khớp theo GIA ĐÌNH (isFamilyScope) thay vì đúng 1 literal - kho phôi-sơn-hàn PHỤ
+// (phoi-son-han-2...) giờ cũng vào được đúng nhánh này, trước đây rơi vào "không có lệnh nào".
 const PIECE_TRANSFER_SCOPE = 'phoi-son-han'
 
 function pieceLabelToUnit(label: BePieceTransferPlanItem['label']): string {
@@ -197,9 +200,11 @@ function mergeInputQty(prev: Order[], next: Order[]): Order[] {
 }
 
 export default function WarehouseXuatPage({ scope }: { scope: string }) {
-  const isPieceScope = scope === PIECE_TRANSFER_SCOPE
-  const isShipScope = scope === SHIP_SCOPE
-  const isPackagingScope = scope === PACKAGING_SCOPE
+  // 2026-09-03: so khớp theo GIA ĐÌNH thay vì đúng 1 literal - kho phụ (phoi-son-han-2,
+  // vat-tu-tp-2...) giờ cũng chạy đúng nhánh nghiệp vụ của gia đình mình.
+  const isPieceScope = isFamilyScope(scope, PIECE_TRANSFER_SCOPE)
+  const isShipScope = isFamilyScope(scope, SHIP_SCOPE)
+  const isPackagingScope = isFamilyScope(scope, PACKAGING_SCOPE)
 
   const [orders, setOrders]         = useState<Order[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -213,6 +218,15 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   const nextHopCode = myWarehouse ? TRANSFER_ROUTES[myWarehouse.code] : undefined
   const nextHopWh = safeArr(warehouses).find(w => w.code === nextHopCode) ?? null
   const isInternalChain = canSendFrom(scope) && !!myWarehouse && !!nextHopWh
+
+  // Chặng phoi-son-han → vat-tu-tp: người tạo phiếu TỰ CHỌN kho đích cụ thể trong gia đình
+  // vat-tu-tp (quyết định nghiệp vụ 2026-09-03, không tự động theo cặp cố định như nextHopWh ở
+  // trên - nextHopWh chỉ còn dùng cho nhánh isInternalChain generic, thực tế không còn kho nào đi
+  // qua nhánh đó vì isPieceScope/isPackagingScope/isShipScope luôn chặn sớm hơn). Mặc định chọn
+  // kho vat-tu-tp đầu tiên tìm thấy, Thủ kho đổi lại nếu có nhiều kho vat-tu-tp phụ.
+  const [pieceDestCode, setPieceDestCode] = useState('')
+  const pieceDestOptions = safeArr(warehouses).filter(w => isFamilyScope(w.code, 'vat-tu-tp'))
+  const pieceDestWh = pieceDestOptions.find(w => w.code === pieceDestCode) ?? pieceDestOptions[0] ?? null
 
   // Danh sách PO + kế hoạch chuyển thật (mảnh/vật tư TP) — thay MOCK cho đúng chặng phoi-son-han.
   const { data: pieceOrders, error: pieceOrdersError, refetch: refetchPieceOrders } = useFetch<Order[]>(async () => {
@@ -277,13 +291,15 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
 
     // Chặng phoi-son-han: tạo phiếu chuyển kho piece-only thật (mảnh/vật tư TP theo PO), số lượng
     // đã được BE tự clamp theo kế hoạch (đã qua KCS trừ đã chuyển trước đó) tại thời điểm tạo.
-    if (isPieceScope && myWarehouse && nextHopWh) {
+    // Kho đích là kho vat-tu-tp Thủ kho đã chọn ở dropdown (pieceDestWh) - không còn tự động theo
+    // 1 cặp cố định (2026-09-03).
+    if (isPieceScope && myWarehouse && pieceDestWh) {
       setTransferBusyLine(lineId)
       setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
       try {
         await api.createPieceWarehouseTransfer({
           fromWarehouseId: myWarehouse.id,
-          toWarehouseId: nextHopWh.id,
+          toWarehouseId: pieceDestWh.id,
           pieceItems: [{ productionOrderId: order.id, pieceId: line.id, quantity: qty }],
         })
       } catch (e) {
@@ -387,7 +403,9 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
       o.id !== orderId ? o : { ...o, lines: o.lines.map(l => l.id !== lineId ? l : { ...l, inputQty: val }) }
     ))
 
-  const usePOLayout = scope === 'phoi-son-han' || scope === 'thanh-pham' || scope === 'vat-tu-tp'
+  // 2026-09-03: any-family thay vì đúng 3 literal - kho phụ (thanh-pham-2, phoi-son-han-2...)
+  // cũng dùng layout theo PO như kho gốc cùng gia đình.
+  const usePOLayout = !!warehouseFamilyOf(scope)
 
   // ── Detail view ──────────────────────────────────────────────────────────────
   if (selected) {
@@ -436,7 +454,29 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
             Bấm &quot;Xác nhận&quot; sẽ ghi nhận đã xuất vật tư đóng gói cho <strong>Kho Thành phẩm</strong> ngay lập tức.
           </div>
         )}
-        {isInternalChain && nextHopWh && !isPackagingScope && (
+        {/* phoi-son-han (piece transfer): Thủ kho TỰ CHỌN kho vat-tu-tp đích trước khi xuất (quyết
+            định nghiệp vụ 2026-09-03 - không còn tự động theo 1 cặp cố định như trước, để hỗ trợ
+            nhiều kho vat-tu-tp song song). Chỉ hiện dropdown khi có từ 2 lựa chọn trở lên - 1 kho
+            duy nhất thì tự chọn sẵn, không cần hỏi. */}
+        {isPieceScope && (
+          <div style={{ marginBottom: 14, padding: '8px 14px', background: '#ede7f6', border: '1px solid #d1c4e9', borderRadius: 8, fontSize: 12, color: '#4527a0', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span>Bấm &quot;Xác nhận&quot; sẽ tạo phiếu chuyển kho nội bộ sang kho vật tư thành phẩm bên dưới — tồn kho chỉ cập nhật sau khi kho nhận xác nhận.</span>
+            {pieceDestOptions.length > 1 ? (
+              <select
+                value={pieceDestWh?.code ?? ''}
+                onChange={e => setPieceDestCode(e.target.value)}
+                style={{ padding: '4px 8px', fontSize: 12, border: '1px solid #d1c4e9', borderRadius: 6, background: '#fff', color: '#4527a0', fontWeight: 600 }}
+              >
+                {pieceDestOptions.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
+              </select>
+            ) : pieceDestWh ? (
+              <strong>{pieceDestWh.name}</strong>
+            ) : (
+              <strong style={{ color: '#dc2626' }}>Chưa có kho vật tư thành phẩm nào — không thể xuất</strong>
+            )}
+          </div>
+        )}
+        {isInternalChain && nextHopWh && !isPackagingScope && !isPieceScope && (
           <div style={{ marginBottom: 14, padding: '8px 14px', background: '#ede7f6', border: '1px solid #d1c4e9', borderRadius: 8, fontSize: 12, color: '#4527a0' }}>
             Bấm &quot;Xác nhận&quot; sẽ tạo phiếu chuyển kho nội bộ sang <strong>{nextHopWh.name}</strong> — tồn kho chỉ cập nhật sau khi kho nhận xác nhận.
           </div>

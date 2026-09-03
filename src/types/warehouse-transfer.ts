@@ -1,3 +1,5 @@
+import { warehouseFamilyOf } from '../utils/warehouseFamily'
+
 export type TransferStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED'
 
 export interface WarehouseTransferItem {
@@ -33,26 +35,37 @@ export interface WarehouseTransfer {
   rejectedById?: string | null
 }
 
-// Chuỗi chuyển kho MỘT CHIỀU: value = kho ĐÍCH DUY NHẤT được phép nhận hàng từ key.
-// 'thanh-pham' cố ý không có entry vì là kho cuối chuỗi — không được chuyển tiếp đi đâu.
-// 'phoi-son-han' -> 'thanh-pham' trực tiếp KHÔNG hợp lệ vì không có entry map thẳng như vậy.
-// Mirror đúng TRANSFER_ROUTES phía BE (D:\DNA-ERP-BE\src\modules\warehouse-transfers\transfer-routes.constant.ts)
+// Chuỗi chuyển kho MỘT CHIỀU theo GIA ĐÌNH: value = gia đình ĐÍCH DUY NHẤT được phép nhận hàng từ
+// gia đình key. 'thanh-pham' cố ý không có entry vì là kho cuối chuỗi — không được chuyển tiếp đi
+// đâu. 'phoi-son-han' -> 'thanh-pham' trực tiếp KHÔNG hợp lệ vì không có entry map thẳng như vậy.
+// Mirror đúng FAMILY_ROUTES phía BE (D:\DNA-ERP-BE\src\modules\warehouse-transfers\transfer-routes.constant.ts)
 // — chỉ dùng để UI-gate hiển thị (ẩn/hiện nút, tab), BE mới là nguồn sự thật khi tạo phiếu thật.
+//
+// 2026-09-03: trước đây map theo ĐÚNG 1 code cố định - kho phụ (thanh-pham-2, rồi cả
+// phoi-son-han-2/vat-tu-tp-2) không có entry nên mọi hàm dưới đây luôn coi kho phụ "không thuộc
+// chuỗi chuyển kho nội bộ". Đổi sang so khớp theo GIA ĐÌNH (warehouseFamilyOf) - người tạo phiếu
+// tự CHỌN kho đích cụ thể trong gia đình hợp lệ (quyết định nghiệp vụ 2026-09-03), các hàm dưới
+// đây chỉ còn xác nhận "gia đình có hợp lệ" chứ không suy ra 1 kho đích duy nhất nữa.
 export const TRANSFER_ROUTES: Record<string, string> = {
   'phoi-son-han': 'vat-tu-tp',
   'vat-tu-tp': 'thanh-pham',
 }
 
 export function isValidTransferRoute(fromCode: string, toCode: string): boolean {
-  return TRANSFER_ROUTES[fromCode] === toCode
+  const fromFamily = warehouseFamilyOf(fromCode)
+  const toFamily = warehouseFamilyOf(toCode)
+  if (!fromFamily || !toFamily) return false
+  return TRANSFER_ROUTES[fromFamily] === toFamily
 }
 
 export function canSendFrom(code: string): boolean {
-  return code in TRANSFER_ROUTES
+  const family = warehouseFamilyOf(code)
+  return !!family && family in TRANSFER_ROUTES
 }
 
 export function canReceiveAt(code: string): boolean {
-  return Object.values(TRANSFER_ROUTES).includes(code)
+  const family = warehouseFamilyOf(code)
+  return !!family && Object.values(TRANSFER_ROUTES).includes(family)
 }
 
 export const TRANSFER_STATUS_MAP: Record<TransferStatus, { label: string; bg: string; color: string }> = {

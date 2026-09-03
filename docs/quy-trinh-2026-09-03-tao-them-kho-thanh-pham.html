@@ -1,0 +1,275 @@
+<title>Tạo &amp; Xoá Kho Vật Lý</title>
+<style>
+:root{
+  --bg:#eef1f3;
+  --surface:#ffffff;
+  --surface-2:#f5f7f8;
+  --ink:#1b2430;
+  --ink-soft:#54606d;
+  --ink-faint:#8a94a1;
+  --line:#dbe1e6;
+  --line-strong:#c3ccd3;
+  --accent:#c15a26;
+  --accent-ink:#fff7f2;
+  --accent-soft:#f7e4d5;
+  --accent-line:#e3b48d;
+  --warn:#a92318;
+  --warn-soft:#fbe6e3;
+  --warn-line:#e7b3ab;
+  --ok:#2f6b4f;
+  --ok-soft:#e3efe8;
+  --mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --sans: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --shadow: 0 1px 2px rgba(27,36,48,0.06), 0 8px 24px -12px rgba(27,36,48,0.18);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11151b; --surface:#181e26; --surface-2:#1e252e; --ink:#e8ecf0; --ink-soft:#aab4c0; --ink-faint:#748090;
+    --line:#2a323d; --line-strong:#374050; --accent:#e8834e; --accent-ink:#1c0f06; --accent-soft:#3a2617; --accent-line:#5c3a20;
+    --warn:#ff8f85; --warn-soft:#3a1e1c; --warn-line:#66312c; --ok:#7fcaa4; --ok-soft:#1c2e26;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11151b; --surface:#181e26; --surface-2:#1e252e; --ink:#e8ecf0; --ink-soft:#aab4c0; --ink-faint:#748090;
+  --line:#2a323d; --line-strong:#374050; --accent:#e8834e; --accent-ink:#1c0f06; --accent-soft:#3a2617; --accent-line:#5c3a20;
+  --warn:#ff8f85; --warn-soft:#3a1e1c; --warn-line:#66312c; --ok:#7fcaa4; --ok-soft:#1c2e26;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+}
+*{box-sizing:border-box;}
+html{background:var(--bg);}
+body{
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 39px, var(--line) 39px, var(--line) 40px) fixed,
+    var(--bg);
+  background-size: 100% 40px, 100% 100%;
+  color:var(--ink);
+  font-family:var(--sans);
+  line-height:1.55;
+  margin:0;
+  padding:0 20px 96px;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) body{ background: repeating-linear-gradient(0deg, transparent, transparent 39px, var(--line) 39px, var(--line) 40px) fixed, var(--bg); background-size:100% 40px, 100% 100%; } }
+:root[data-theme="dark"] body{ background: repeating-linear-gradient(0deg, transparent, transparent 39px, var(--line) 39px, var(--line) 40px) fixed, var(--bg); background-size:100% 40px, 100% 100%; }
+
+.wrap{max-width:840px;margin:0 auto;}
+header.hero{ padding:56px 0 28px; border-bottom:1px solid var(--line-strong); margin-bottom:28px; }
+.eyebrow{ font-family:var(--mono); font-size:12.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); font-weight:600; margin:0 0 14px; }
+h1{ font-size:clamp(32px,5vw,46px); line-height:1.08; margin:0 0 16px; letter-spacing:-0.02em; text-wrap:balance; font-weight:800; }
+.hero p.lede{ font-size:17px; color:var(--ink-soft); max-width:64ch; margin:0 0 24px; }
+.flowline{ font-family:var(--mono); font-size:12.5px; color:var(--ink-faint); background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:14px 16px; overflow-x:auto; white-space:nowrap; letter-spacing:.01em; }
+.flowline b{color:var(--ink);font-weight:600;}
+.flowline .arrow{color:var(--accent);margin:0 2px;}
+
+nav.stagenav{ position:sticky; top:0; z-index:10; background:var(--bg); padding:10px 0; margin-bottom:8px; border-bottom:1px solid var(--line); }
+nav.stagenav::before{ content:""; position:absolute; inset:0 -20px; background:var(--bg); z-index:-1; border-bottom:1px solid var(--line); }
+.navrow{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin;}
+.navrow a{ flex:none; font-family:var(--mono); font-size:12px; color:var(--ink-soft); text-decoration:none; border:1px solid var(--line); background:var(--surface); border-radius:20px; padding:6px 12px; white-space:nowrap; }
+.navrow a:hover, .navrow a:focus-visible{border-color:var(--accent);color:var(--accent);outline:none;}
+
+section.block{margin:44px 0;}
+h2.blocktitle{ font-size:14px; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-faint); font-weight:700; margin:0 0 16px; }
+
+.roletable{width:100%;border-collapse:collapse;font-size:14.5px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:var(--shadow);}
+.roletable th{ text-align:left;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase; color:var(--ink-faint);font-weight:600;background:var(--surface-2);padding:10px 14px;border-bottom:1px solid var(--line); }
+.roletable td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-soft);}
+.roletable tr:last-child td{border-bottom:none;}
+.roletable td.rname{color:var(--ink);font-weight:600;white-space:nowrap;}
+.tablewrap{overflow-x:auto;}
+
+.stage{ scroll-margin-top:60px; background:var(--surface); border:1px solid var(--line); border-radius:12px; box-shadow:var(--shadow); padding:26px 28px 24px; margin-bottom:18px; position:relative; }
+.stagehead{display:flex;align-items:baseline;gap:14px;margin-bottom:6px;flex-wrap:wrap;}
+.stagenum{ font-family:var(--mono); font-weight:700; font-size:13px; color:var(--accent-ink); background:var(--accent); border-radius:6px; padding:3px 9px; letter-spacing:.02em; }
+.stagetitle{font-size:21px;font-weight:700;letter-spacing:-0.01em;}
+.stagesub{font-family:var(--mono);font-size:12px;color:var(--ink-faint);margin-bottom:16px;}
+.actors{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+.actor{ font-family:var(--mono); font-size:11.5px; letter-spacing:.03em; color:var(--accent); background:var(--accent-soft); border:1px solid var(--accent-line); border-radius:20px; padding:3px 10px; font-weight:600; }
+.stage p{margin:0 0 12px;color:var(--ink-soft);}
+.stage p:last-of-type{margin-bottom:0;}
+.stage strong{color:var(--ink);}
+.stage ul{margin:0 0 12px;padding-left:20px;color:var(--ink-soft);}
+.stage li{margin-bottom:6px;}
+.stage code{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 6px;color:var(--ink);}
+.result{ margin-top:16px; font-size:13.5px; border-top:1px dashed var(--line-strong); padding-top:12px; color:var(--ink-soft); }
+.result b{ font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase; color:var(--ok);background:var(--ok-soft);border-radius:5px;padding:2px 7px;margin-right:8px; }
+
+.callout{ margin-top:14px; border:1px solid var(--warn-line); background:var(--warn-soft); border-radius:8px; padding:13px 16px; font-size:13.5px; color:var(--ink); }
+.callout .tag{ font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase; color:var(--warn);font-weight:700;display:block;margin-bottom:5px; }
+.callout p{color:var(--ink-soft);margin:0;}
+.callout.note{border-color:var(--line-strong);background:var(--surface-2);}
+.callout.note .tag{color:var(--ink-faint);}
+
+.exlist{display:grid;gap:12px;}
+.exitem{ background:var(--surface);border:1px solid var(--line);border-radius:10px; padding:16px 18px;box-shadow:var(--shadow); }
+.exitem .extitle{font-weight:700;font-size:14.5px;margin-bottom:5px;color:var(--ink);}
+.exitem p{margin:0;color:var(--ink-soft);font-size:14px;}
+
+footer.note{ margin-top:48px; padding-top:20px; border-top:1px solid var(--line-strong); font-size:12.5px; color:var(--ink-faint); font-family:var(--mono); }
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Tài liệu quy trình · Chi tiết một nhánh · Nhà máy khung sắt</p>
+  <h1>Tạo &amp; Xoá Kho Vật Lý</h1>
+  <p class="lede">Ban đầu chỉ kho thành phẩm tạo thêm được kho phụ song song — từ 03/09/2026 cả 3 gia đình kho (Phôi Sơn Hàn, Vật tư Thành phẩm, Thành phẩm) đều tạo thêm được, kèm hàng loạt chỗ trừ tồn/gate quyền hard-code phải vá lại cho đúng (xem mục 05). Tạo tài khoản Thủ kho giờ chỉ làm ở 1 chỗ duy nhất — Admin &gt; Người dùng — nút "Tạo kho mới" chỉ tạo kho rồi cho chọn 1 tài khoản Kho có sẵn để gán phụ trách, không bắt buộc. Chiều ngược lại — xoá kho — chỉ Admin làm được, xoá kèm luôn tài khoản thủ kho đang gắn với nó. Có thêm tính năng "Sao chép vật tư từ kho khác" (mục 06) để đỡ phải khai lại danh mục vật tư từ đầu cho kho mới. Tài liệu này lần theo đúng mã nguồn, cập nhật liên tục theo từng bug phát hiện qua test tay thật.</p>
+  <div class="flowline">
+    <b>Admin tạo tài khoản Kho (Admin &gt; Người dùng, không bắt buộc chọn kho ngay)</b><span class="arrow">→</span><b>Admin bấm "Tạo kho mới", chọn Loại kho + đặt tên</b><span class="arrow">→</span><b>(không bắt buộc) chọn tài khoản Kho có sẵn để gán</b><span class="arrow">→</span><b>(tuỳ chọn) Sao chép vật tư từ kho khác</b><span class="arrow">→</span><b>Kho phụ hoạt động như kho gốc, quản lý độc lập</b><span class="arrow">→</span><b>(khi cần) Admin xoá kho → tài khoản đang gắn kho đó bị xoá kèm</b>
+  </div>
+</header>
+
+<nav class="stagenav">
+  <div class="navrow">
+    <a href="#context">Bối cảnh</a>
+    <a href="#roles">Vai trò</a>
+    <a href="#s1">1 · Admin điền form</a>
+    <a href="#s2">2 · Tạo kho, gán người (tuỳ chọn)</a>
+    <a href="#s3">3 · Kho phụ hoạt động ra sao</a>
+    <a href="#s4">4 · Xoá kho</a>
+    <a href="#s5">5 · Mở rộng đa-instance cho cả 3 gia đình</a>
+    <a href="#s6">6 · Sao chép vật tư từ kho khác</a>
+    <a href="#exceptions">Rẽ nhánh &amp; khoảng trống</a>
+  </div>
+</nav>
+
+<section class="block" id="context">
+  <h2 class="blocktitle">Bối cảnh</h2>
+  <p style="color:var(--ink-soft);font-size:15px;max-width:70ch;">Bảng <code>Warehouse</code> trong database <strong>không có cột phân loại</strong> (không có field <code>type</code>/<code>kind</code>) — "kho thành phẩm" hay "kho vật tư thành phẩm" chỉ là quy ước đặt tên <code>code</code>. Hệ thống seed sẵn đúng 3 kho vật lý gốc, gọi là 3 "gia đình" (<code>phoi-son-han</code> → <code>vat-tu-tp</code> → <code>thanh-pham</code>, chuỗi chuyển kho nội bộ một chiều) và 4 kho ảo dùng làm điểm ghi sổ. Ban đầu (trước 03/09/2026) chỉ <code>thanh-pham</code> được thiết kế là <strong>"gốc đa-instance"</strong>. Từ 03/09/2026 <strong>cả 3 gia đình đều đa-instance</strong> — Admin nhân bản thêm được kho phụ dạng <code>{'{'}gia-đình{'}'}-{'{'}n{'}'}</code> (vd <code>phoi-son-han-2</code>, <code>vat-tu-tp-3</code>) cho bất kỳ gia đình nào, xem mục 05 cho lý do tại sao việc này không chỉ là đổi UI.</p>
+</section>
+
+<section class="block" id="roles">
+  <h2 class="blocktitle">Ai là ai trong quy trình này</h2>
+  <div class="tablewrap">
+  <table class="roletable">
+    <tr><th>Vai trò</th><th>Việc chính</th></tr>
+    <tr><td class="rname">Admin</td><td>Người <strong>duy nhất</strong> thấy và bấm được nút "Tạo kho thành phẩm mới"/"Xóa kho" — quyền <code>WAREHOUSE:CREATE</code>/<code>WAREHOUSE:DELETE</code> hiện chỉ cấp cho role Admin, Thủ kho chỉ có quyền xem. Tạo tài khoản Kho ở trang Người dùng (không bắt buộc gán kho ngay), rồi ở form tạo kho chỉ đặt tên + tuỳ chọn gán 1 tài khoản Kho có sẵn.</td></tr>
+    <tr><td class="rname">Hệ thống (tự động)</td><td>Chỉ tự sinh mã kho nội bộ (<code>code</code>, dạng <code>thanh-pham-{'{'}timestamp{'}'}</code>) — không tự tạo tài khoản nào, không tự đoán tên/email/mật khẩu.</td></tr>
+    <tr><td class="rname">Thủ kho</td><td>Tài khoản role <code>WAREHOUSE_STAFF</code> đã có sẵn (tạo trước ở trang Người dùng), được Admin gán <code>warehouseScope</code> = kho phụ vừa tạo — chỉ thấy và thao tác trên đúng kho đó (không thấy kho thành phẩm gốc hay kho khác).</td></tr>
+  </table>
+  </div>
+</section>
+
+<section class="block stage" id="s1">
+  <div class="stagehead"><span class="stagenum">01</span><span class="stagetitle">ĐÃ ĐỔI 03/09/2026 — 1 luồng duy nhất: tạo tài khoản ở trang Người dùng, gán ở form tạo kho</span></div>
+  <div class="stagesub"><a href="../src/modules/pages/Manufacturing/MfgWarehousesPage.tsx">MfgWarehousesPage.tsx</a> · <code>CreateThanhPhamModal</code></div>
+  <div class="actors"><span class="actor">Admin</span></div>
+  <p>Bản đầu tiên của đợt sửa 03/09 từng cho form tạo kho <strong>tự tạo luôn tài khoản mới</strong> (2 chế độ song song: "Tạo tài khoản mới" / "Chọn thủ kho có sẵn") — nhưng việc này trùng lặp với trang <strong>Admin &gt; Người dùng</strong>, vốn đã có sẵn field "Loại nhân viên = Kho" + dropdown "Kho phụ trách" (không bắt buộc chọn ngay lúc tạo). Chính vì làm riêng một bản tạo-user thứ hai ở đây mà lộ ra bug thiếu field <code>username</code> bắt buộc (xem callout dưới) — nhân dịp đó gộp lại thành đúng 1 chỗ tạo tài khoản duy nhất.</p>
+  <p>Nút <strong>"Tạo kho mới"</strong> giờ luôn hiện khi đang đăng nhập role Admin — <strong>không còn phụ thuộc đang đứng ở "nhóm" nào</strong> (xem callout "nút biến mất" bên dưới). Bấm vào mở 1 form:</p>
+  <ul>
+    <li><strong>Loại kho *</strong> — dropdown chọn 1 trong 3 gia đình (Phôi Sơn Hàn / Vật tư thành phẩm / Thành phẩm), mặc định gợi ý theo đúng nhóm đang xem nếu có (Thủ kho vào đúng tab của mình), hoặc <code>thanh-pham</code> nếu không suy được (Admin &gt; Quản lý kho không có khái niệm nhóm). Đổi Loại kho sẽ tự gợi ý lại Tên kho theo đúng gia đình mới.</li>
+    <li><strong>Tên kho *</strong> — gợi ý <code>"{'{'}Tên gia đình{'}'} {'{'}n{'}'}"</code> (n = số kho hiện có trong gia đình đó + 1), sửa được.</li>
+    <li><strong>Thủ kho phụ trách</strong> — dropdown <em>không bắt buộc</em>, liệt kê tài khoản <code>role = WAREHOUSE_STAFF</code> đang hoạt động, loại trừ tài khoản thuộc công đoạn Phôi/Hàn/Sơn/KCS (<code>mfgRole</code>), tài khoản Mua hàng (<code>isPurchaser</code>), <strong>và Văn phòng — Sales/KHSX (<code>isSale</code>/<code>isProductPlanner</code>)</strong> — 3 loại này không phải "thủ kho thật" dù cùng mang role RBAC nền <code>WAREHOUSE_STAFF</code> (xem callout thứ 2 bên dưới). Để trống thì kho tạo ra chưa ai phụ trách, gán sau ở trang Người dùng cũng được.</li>
+  </ul>
+  <p>Nếu tài khoản được chọn đang phụ trách 1 kho khác, hiện cảnh báo màu vàng: gán vào kho mới sẽ <strong>chuyển họ khỏi kho hiện tại</strong>, vì <code>warehouseScope</code> là 1 giá trị duy nhất trên mỗi tài khoản (1 thủ kho chỉ phụ trách được đúng 1 kho tại 1 thời điểm).</p>
+  <div class="callout"><span class="tag">Bug thật lộ ra ở bản đầu (đã gỡ luôn nguyên nhân, không chỉ vá triệu chứng)</span><p>Bản form "tạo tài khoản mới" đầu tiên (và cả bản tự-sinh cũ trước đó nữa) <strong>thiếu hẳn field <code>username</code></strong> khi gọi <code>POST /v1/users</code> — <code>CreateUserDto</code> phía BE bắt buộc field này (<code>@IsString() @MinLength(3)</code>, không có <code>@IsOptional()</code>), và mật khẩu tối thiểu thật là <strong>8 ký tự</strong> chứ không phải 6 như bản đầu ghi nhầm. Nghĩa là nút "Tạo kho thành phẩm mới" nhiều khả năng <strong>chưa từng chạy được qua BE thật</strong> ở cả 2 phiên bản trước — chỉ được xác nhận qua đọc code, chưa test qua browser. Thay vì thêm ô username để vá tại chỗ, quyết định cuối là <strong>bỏ hẳn việc tạo tài khoản ở đây</strong> — trang Người dùng vốn đã làm đúng việc này, không cần một bản sao logic thứ hai dễ lệch pha.</p></div>
+  <div class="callout"><span class="tag">Bug thật #2 — phát hiện qua test tay thật, không phải đọc code</span><p><strong>Nút "Tạo kho mới" biến mất hoàn toàn trên trang Admin &gt; Quản lý kho.</strong> Bản đầu của việc mở rộng đa-instance (mục 05) chỉ hiện nút khi đang xem đúng 1 "nhóm" cụ thể (<code>createFamily</code> suy từ <code>groupKey</code>) — nhưng trang <code>AdminApp.tsx</code> render <code>&lt;MfgWarehousesPage /&gt;</code> KHÔNG truyền <code>groupKey</code> nào cả, luôn hiện gộp cả 7 kho, nên không suy ra được gia đình nào → nút không hiện, Admin không tạo được kho nào qua đúng trang quản lý kho của mình. Đã sửa: nút hiện luôn cho Admin bất kể đang xem gì, và form tự có dropdown "Loại kho" để hỏi lại — không còn phụ thuộc ngữ cảnh trang.</p></div>
+  <div class="callout"><span class="tag">Bug thật #3 — cũng phát hiện qua test tay</span><p><strong>Dropdown "Thủ kho phụ trách" lẫn cả tài khoản Sales/KHSX.</strong> Role <code>WAREHOUSE_STAFF</code> ở tầng RBAC chỉ có nghĩa "Nhân viên" nói chung — Sales/KHSX cũng mang đúng role nền này (xem <code>deriveRoleIds()</code> ở <code>users-mapper.ts</code>), phân biệt "Kho" hay "Văn phòng" nằm ở cờ <code>isSale</code>/<code>isProductPlanner</code>, không phải <code>role</code>. Bộ lọc ban đầu chỉ loại <code>mfgRole</code>/<code>isPurchaser</code>, thiếu loại 2 cờ này nên tài khoản Sales/KHSX lọt vào danh sách "thủ kho" để chọn. Đã sửa, khớp đúng cách trang Người dùng tự phân loại "Kho" (<code>deriveStaffCategory()</code>).</p></div>
+  <div class="result"><b>Kết quả</b>Form hiện ra, Admin chọn Loại kho + đặt tên + tuỳ chọn gán người, xong mới bấm "Tạo kho" ở bước kế.</div>
+</section>
+
+<section class="block stage" id="s2">
+  <div class="stagehead"><span class="stagenum">02</span><span class="stagetitle">Admin bấm "Tạo kho" — 1-2 API thật, có rollback</span></div>
+  <div class="stagesub"><a href="../src/modules/pages/Manufacturing/MfgWarehousesPage.tsx">MfgWarehousesPage.tsx</a> · <code>POST /v1/warehouses</code>, kèm <code>PATCH /v1/users/{'{'}id{'}'}(/mfg-attributes)</code> nếu có chọn người</div>
+  <div class="actors"><span class="actor">Admin</span></div>
+  <p>Mã kho thật (<code>code</code>) tự sinh <code>{'{'}family{'}'}-{'{'}Date.now(){'}'}</code> — theo đúng gia đình đã chọn ở dropdown "Loại kho" (mục 01), định danh nội bộ, không cần Admin đặt tay (khác tên hiển thị <code>name</code>, đã cho sửa ở bước 1). Submit gọi:</p>
+  <ol style="margin:0 0 12px;padding-left:20px;color:var(--ink-soft);">
+    <li><code>createWarehouse({'{'} code, name, isVirtual: false, note: "Kho phụ - {'{'}Tên gia đình{'}'}" {'}'})</code> → <code>POST /v1/warehouses</code>. Luôn chạy.</li>
+    <li><strong>Chỉ chạy nếu có chọn người</strong> ở mục 01: <code>updateUser(selectedUser.id, {'{'} name, mfgRole, warehouseScope: code, isPurchaser, isProductPlanner, isSale {'}'})</code> → <code>PATCH /v1/users/{'{'}id{'}'}</code> rồi <code>PATCH /v1/users/{'{'}id{'}'}/mfg-attributes</code>. Gửi kèm nguyên trạng <code>mfgRole</code>/<code>isPurchaser</code>/<code>isProductPlanner</code>/<code>isSale</code> hiện có của người được chọn — endpoint mfg-attributes là <strong>full-replace, không phải merge</strong> (xem <code>mfgAttrsPayload()</code> ở <a href="../src/services/users-mapper.ts">users-mapper.ts</a>), thiếu bước này sẽ vô tình xoá các cờ khác của họ.</li>
+  </ol>
+  <div class="callout"><span class="tag">Đã vá cùng đợt</span><p>Trước đây 2 lệnh gọi này không có rollback — nếu bước 2 lỗi, kho đã tạo ở bước 1 vẫn tồn tại, không ai quản lý (mồ côi). Giờ nếu bước 2 lỗi, FE tự gọi <code>deleteWarehouse()</code> dọn lại kho vừa tạo (best-effort, không che lỗi gốc) rồi hiện lỗi ngay trong form để Admin sửa lại và bấm lại — không còn im lặng để lại rác.</p></div>
+  <div class="result"><b>Kết quả</b>Kho luôn được tạo trọn vẹn; nếu có chọn người thì gán thành công hoặc không có gì cả (rollback) — không còn trạng thái lửng chừng.</div>
+</section>
+
+<section class="block stage" id="s3">
+  <div class="stagehead"><span class="stagenum">03</span><span class="stagetitle">Kho phụ hoạt động như kho gốc — nhờ "generalize scope"</span></div>
+  <div class="stagesub"><a href="../src/utils/warehouseFamily.ts">utils/warehouseFamily.ts</a> · hàm <code>warehouseFamilyOf()</code>/<code>isFamilyScope()</code> (tổng quát hoá từ <code>isThanhPhamScope()</code> cũ, 03/09/2026)</div>
+  <div class="actors"><span class="actor">Thủ kho mới</span></div>
+  <p>Toàn bộ UI của Thủ kho (danh sách tab, lọc vật tư theo nhóm, tiêu đề màn hình...) không so sánh cứng với 1 chuỗi cố định, mà dùng hàm dùng chung <code>warehouseFamilyOf(scope)</code> — trả về đúng 1 trong 3 gia đình nếu khớp:</p>
+  <p style="font-family:var(--mono);font-size:13px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px 14px;color:var(--ink-soft);">['phoi-son-han','vat-tu-tp','thanh-pham'].find(f => code === f || code.startsWith(f + '-'))</p>
+  <p>Ban đầu (trước 03/09) chỉ có bản riêng cho <code>thanh-pham</code> (<code>isThanhPhamScope()</code>, vẫn giữ làm alias mỏng gọi <code>isFamilyScope(code,'thanh-pham')</code> để không phải sửa lại mọi call site cũ). Nhờ tổng quát hoá, tài khoản thủ kho của <em>bất kỳ</em> kho phụ nào (<code>thanh-pham-{'{'}n{'}'}</code>, <code>phoi-son-han-{'{'}n{'}'}</code>, <code>vat-tu-tp-{'{'}n{'}'}</code>) đều nhìn thấy đúng bộ tab và đúng bộ nhóm vật tư của gia đình mình, y hệt kho gốc cùng gia đình — không cần viết thêm dòng code nào riêng cho từng kho phụ mới.</p>
+  <div class="result"><b>Kết quả</b>Về mặt giao diện và quyền thao tác, kho phụ vận hành độc lập nhưng đầy đủ chức năng như kho gốc — cho cả 3 gia đình.</div>
+</section>
+
+<section class="block stage" id="s4">
+  <div class="stagehead"><span class="stagenum">04</span><span class="stagetitle">Xoá kho — chỉ Admin, xoá kèm tài khoản thủ kho</span></div>
+  <div class="stagesub"><a href="../src/modules/pages/Manufacturing/MfgWarehousesPage.tsx">MfgWarehousesPage.tsx:173,380-390</a> · <a href="../../DNA-ERP-BE/src/modules/warehouses/warehouses.service.ts">warehouses.service.ts</a> · <code>DELETE /v1/warehouses/{'{'}id{'}'}</code></div>
+  <div class="actors"><span class="actor">Admin</span></div>
+  <p>Nút "Xóa kho" nằm ở trang chi tiết kho. Trước 03/09/2026, nút này chỉ ẩn/hiện theo <code>isDeletable</code> (kho có phải 1 trong 3 kho gốc hay không) — <strong>không xét role</strong>, nên Thủ kho/KHSX/QLSX mở đúng trang cũng thấy nút, bấm vào mới bị BE trả 403. Đã sửa: <code>isDeletable = isAdmin &amp;&amp; !BASE_CODES.has(code)</code> — giờ chỉ Admin mới thấy nút, khớp đúng với quyền <code>WAREHOUSE:DELETE</code> mà BE yêu cầu (theo seed, chỉ role ADMIN có quyền này — BOSS chỉ được seed VIEW+APPROVE, các role nghiệp vụ khác chỉ VIEW).</p>
+  <p>Ở BE, <code>WarehousesService.remove()</code> vẫn giữ nguyên bước chặn <code>PROTECTED_WAREHOUSE_CODES</code> (403 nếu là 1 trong 6 kho seed sẵn), nhưng giờ chạy trong 1 <code>$transaction</code> gồm 2 việc:</p>
+  <ul>
+    <li><strong>Soft-delete mọi <code>User</code> có <code>warehouseScope</code> đúng bằng code kho này</strong> — qua <code>prisma.user.deleteMany()</code>, tự động được Prisma extension (<code>SOFT_DELETE_MODELS</code>) chuyển thành <code>updateMany({'{'} deletedAt: now {'}'})</code> nên lịch sử/audit của tài khoản không mất, chỉ mất quyền đăng nhập/hiện trong danh sách.</li>
+    <li><strong>Xoá bản ghi <code>Warehouse</code></strong> — vẫn là hard delete như cũ (bảng này không nằm trong <code>SOFT_DELETE_MODELS</code>).</li>
+  </ul>
+  <p>Vì gộp 1 transaction, nếu bước xoá kho thất bại (ví dụ còn <code>Material</code>/<code>StockQuant</code> tham chiếu → lỗi khoá ngoại vì không quan hệ nào khai <code>onDelete: Cascade</code>) thì tài khoản cũng không bị xoá theo — không rơi vào tình trạng "xoá dở": mất tài khoản mà kho vẫn còn.</p>
+  <div class="callout note"><span class="tag">Phạm vi khớp</span><p>So khớp <strong>đúng literal</strong> <code>warehouseScope === code</code> của kho đang xoá (không dùng <code>isThanhPhamScope()</code> tổng quát) — chỉ tài khoản gắn đúng kho này mới bị xoá, tài khoản của các kho thành phẩm phụ khác không bị ảnh hưởng. Nếu có tài khoản mua hàng (<code>isPurchaser</code>) lỡ được gán tay trùng đúng scope này, tài khoản đó cũng bị xoá theo — hệ thống không phân biệt "Thủ kho thật" với tài khoản khác cùng scope.</p></div>
+  <div class="result"><b>Kết quả</b>Kho phụ và tài khoản thủ kho của nó biến mất cùng lúc, không còn tài khoản mồ côi trỏ vào kho đã xoá.</div>
+</section>
+
+<section class="block stage" id="s5">
+  <div class="stagehead"><span class="stagenum">05</span><span class="stagetitle">Mở rộng đa-instance cho Phôi Sơn Hàn &amp; Vật tư Thành phẩm</span></div>
+  <div class="stagesub">~10 file BE+FE · 825 test backend xanh · quyết định nghiệp vụ: <strong>người tạo phiếu chuyển tự chọn kho đích</strong>, không tự động theo cặp cố định</div>
+  <div class="actors"><span class="actor">Admin</span><span class="actor">Thủ kho</span><span class="actor">Công nhân Phôi/Hàn/Sơn/KCS</span></div>
+  <p>Cho "kho thành phẩm" đa-instance (mục 01-04) là việc nhẹ — <code>phoi-son-han</code>/<code>vat-tu-tp</code> lại bị hard-code là kho vật lý DUY NHẤT ở hàng chục nơi, kể cả <strong>3 chỗ trừ tồn kho thật</strong>. Mở đa-instance cho 2 gia đình này mà không vá các chỗ đó thì tồn kho sẽ bị trừ sai khi có ≥2 kho cùng gia đình.</p>
+  <ul>
+    <li><strong>3 chỗ trừ tồn hard-code đã vá</strong> (nghiêm trọng nhất) — <code>material-issues.service.ts</code>, <code>packaging-issues.service.ts</code> (phía nguồn), <code>production-batches.service.ts</code> (đoạn sắt) đều từng trừ tồn vào đúng 1 kho literal bất kể vật tư thật nằm ở kho nào. Đã sửa: đọc động <code>Material.warehouseId</code> (mirror pattern đã đúng sẵn ở <code>cutting-proposals.service.ts</code>), riêng đoạn sắt (không phải <code>Material</code>) thì dùng chính <code>warehouseScope</code> của người báo sản lượng.</li>
+    <li><strong>Gỡ ép buộc <code>MFG_FLOOR_WAREHOUSE_SCOPE</code></strong> (chặn nghiêm trọng nhất nếu bỏ qua) — trước đây bất kỳ user có <code>mfgRole</code> thuộc Phôi/Hàn/Sơn/KCS bị BE <strong>im lặng ghi đè</strong> <code>warehouseScope</code> về đúng literal <code>'phoi-son-han'</code>, dù Admin cố gán kho phụ. Sửa cả BE (<code>users.service.ts</code>) lẫn FE (<code>users-mapper.ts</code>): tin giá trị Admin gửi miễn thuộc đúng gia đình <code>phoi-son-han</code>, chỉ fallback về gốc khi không hợp lệ. Thêm hẳn dropdown "Kho phụ trách" cho nhóm "Sản xuất" ở <code>UsersPage.tsx</code> (trước đây field bị ẩn hoàn toàn).</li>
+    <li><strong>Routing "chọn kho lúc chuyển"</strong> — <code>transfer-routes.constant.ts</code> (BE) + <code>types/warehouse-transfer.ts</code> (FE) đổi từ map cứng theo 1 code cố định sang so khớp theo GIA ĐÌNH. <code>WarehouseXuatPage.tsx</code> (chặng phôi-sơn-hàn → vật tư-TP) thêm hẳn <strong>dropdown chọn kho vật tư-TP đích</strong> khi Thủ kho xác nhận chuyển mảnh — quyết định nghiệp vụ chốt qua trao đổi trực tiếp: không tự động theo 1 cặp cố định như kho thành phẩm (mục 05 khác cách làm mục 01-04 ở điểm này).</li>
+    <li><strong>Generalize gate quyền còn lại</strong> — <code>steel-issues.service.ts</code>, <code>weaving-issues.service.ts</code> (vá nốt nhánh xuất đan còn bất đối xứng với nhánh nhập đan đã vá trước đó).</li>
+    <li><strong>Các trang phụ</strong> — <code>InboundWarehouseApp.tsx</code> (toàn bộ tab-gating + sidebar), <code>KhoPhoiPage.tsx</code> (tồn đoạn sắt lọc theo đúng kho phụ của người xem thay vì luôn kho gốc).</li>
+  </ul>
+  <div class="callout note"><span class="tag">Cố ý chưa sửa</span><p><code>purchasing-api.ts</code> — nhãn hiển thị kho phụ ở trang Mua hàng sẽ hiện mã thô (<code>vat-tu-tp-2</code>) thay vì tên đẹp. Xác nhận không ảnh hưởng logic (chỉ dùng để hiển thị), để lại làm việc cosmetic sau.</p></div>
+  <div class="result"><b>Kết quả</b>Cả 3 gia đình kho đều tạo thêm được kho phụ THẬT (không chỉ đổi UI), đúng nghĩa multi-instance như kho thành phẩm đã có. 825/825 test backend xanh, <code>tsc</code>/<code>eslint</code> sạch cho cả BE và FE — <strong>chưa test qua browser thật</strong> (xem mục cảnh báo dưới).</div>
+</section>
+
+<section class="block stage" id="s6">
+  <div class="stagehead"><span class="stagenum">06</span><span class="stagetitle">Sao chép vật tư từ kho khác</span></div>
+  <div class="stagesub"><a href="../src/modules/pages/Manufacturing/MfgWarehousesPage.tsx">MfgWarehousesPage.tsx</a> · <code>CopyMaterialsModal</code></div>
+  <div class="actors"><span class="actor">Thủ kho</span></div>
+  <p>Kho mới tạo luôn <strong>rỗng hoàn toàn</strong> — mỗi vật tư (<code>Material</code>) chỉ gắn được vào đúng 1 kho (<code>Material.warehouseId</code>, quan hệ 1-nhiều, không phải nhiều-nhiều), không có cơ chế tự động chia sẻ/sao chép danh mục giữa 2 kho cùng gia đình, kể cả khi đặt trùng tên/mã. Tính năng này giải quyết đúng việc phải khai lại tay từng vật tư cho kho mới.</p>
+  <p>Nút "Sao chép vật tư từ kho khác" (cạnh "Thêm vật tư", chỉ Thủ kho <code>canWrite</code> thấy, cần có ≥2 kho mới hiện) → chọn kho nguồn → bảng liệt kê toàn bộ vật tư kho đó, mặc định chọn hết → Thủ kho tự nhập <strong>tồn ban đầu riêng cho từng dòng</strong> (bỏ trống = 0, không tự động copy số tồn từ kho nguồn) → tạo tuần tự từng <code>Material</code> mới (KHÔNG transaction gộp).</p>
+  <div class="callout note"><span class="tag">2 ràng buộc kỹ thuật quan trọng</span><p><strong>Mã vật tư (<code>Material.code</code>) là duy nhất TOÀN HỆ THỐNG</strong>, không phải riêng theo kho — không thể giữ nguyên mã cũ khi sao chép, để trống cho BE tự sinh mã mới (đúng cơ chế "để trống tự sinh" đã có sẵn). Chỉ sao chép Tên/ĐVT/Quy cách/Nhóm vật tư — các field nâng cao (đơn vị mua hàng, hệ số quy đổi, % hao hụt, ảnh) không có trong view-model tối giản của trang này, Admin tự bổ sung lại ở Admin &gt; Vật tư nếu cần.</p></div>
+  <p>Lỗi ở 1 dòng KHÔNG chặn các dòng còn lại (không rollback) — cuối cùng <code>alert()</code> báo rõ đã tạo được bao nhiêu/tổng bao nhiêu và tên từng dòng lỗi, trước khi đóng modal và refetch danh sách.</p>
+  <div class="result"><b>Kết quả</b>Kho mới có ngay danh mục vật tư giống kho nguồn (mã mới, tồn tự nhập), không phải gõ tay từng dòng.</div>
+</section>
+
+<section class="block" id="exceptions">
+  <h2 class="blocktitle">Những rẽ nhánh và khoảng trống cần biết</h2>
+  <div class="exlist">
+    <div class="exitem">
+      <div class="extitle">ĐÃ SỬA 03/09/2026 — Hàng đóng gói luôn "về" kho thành phẩm gốc, bất kể QLSX chọn kho phụ nào</div>
+      <p>Khi QLSX duyệt lệnh sản xuất, có bước "Chọn kho thành phẩm" — lưu vào <code>ProductionInvoiceItem.warehouseCode</code> (xem <a href="../src/modules/pages/ProductionPlan/LenhSXPage.tsx">LenhSXPage.tsx:878-933</a>). Nhưng khi Thủ kho <code>vat-tu-tp</code> thật sự bấm "Xác nhận" xuất vật tư đóng gói cho đơn đó, BE (<code>packaging-issues.service.ts</code>) trước đây <strong>hard-code thẳng đích ghi StockLedger là literal <code>'thanh-pham'</code></strong> — hoàn toàn bỏ qua <code>warehouseCode</code> QLSX đã chọn. Kết quả: dù QLSX chọn "Kho thành phẩm 2", hàng vẫn luôn được ghi nhận vào đúng kho thành phẩm gốc. Đã sửa: <code>postLedgerEntry()</code> giờ đọc <code>issue.productionOrder.productionInvoiceItem.warehouseCode</code> làm đích thật, chỉ fallback về <code>'thanh-pham'</code> khi item chưa từng qua bước QLSX chọn kho (null). Kèm 1 test mới xác nhận ghi đúng kho phụ.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">ĐÃ SỬA 03/09/2026 — Thủ kho của kho thành phẩm phụ bị 403 khi "Nhập đan"</div>
+      <p><code>weaving-issues.service.ts</code> gate quyền cho hành động "nhập đan" (nhận mảnh đã đan từ điểm đan gia công) bằng cách so <strong>đúng literal</strong> <code>warehouseScope !== 'thanh-pham'</code> — Thủ kho của kho phụ (<code>warehouseScope = 'thanh-pham-{'{'}n{'}'}'</code>) tuy thấy tab "Theo dõi nhập đan" trên FE (đã generalize qua <code>isThanhPhamScope()</code>) nhưng bấm vào là bị BE từ chối 403, cùng loại lỗi từng xảy ra với kho gốc hồi 31/08 (copy nhầm hằng số). Đã sửa: thêm util dùng chung <a href="../../DNA-ERP-BE/src/common/utils/thanh-pham-scope.util.ts">thanh-pham-scope.util.ts</a> (mirror đúng <code>isThanhPhamScope()</code> phía FE), gate giờ chấp nhận mọi kho thuộc họ thành phẩm. Kèm 1 test mới cho kho phụ.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">Đính chính: tab "Nhập nội bộ" / <code>canReceiveAt()</code> KHÔNG phải nguyên nhân — đây là nhánh chết</div>
+      <p>Bản nháp đầu của tài liệu này nghi ngờ <code>canReceiveAt()</code> (chỉ khớp đúng literal <code>'vat-tu-tp'</code>/<code>'thanh-pham'</code>) là chỗ chặn kho phụ nhận hàng. Đọc kỹ lại <code>WarehouseXuatPage.tsx</code> cho thấy luồng <code>vat-tu-tp → thanh-pham</code> thật sự đi qua <code>packaging-issues</code> (ghi ledger ngay lúc xuất, không qua state PENDING/CONFIRMED), <strong>không</strong> qua bảng <code>warehouse_transfers</code> chung — nhánh <code>isInternalChain</code>/<code>createWarehouseTransfer</code> generic mà <code>canReceiveAt()</code> canh gác thực ra không được gọi tới cho bất kỳ kho nào trong 3 kho gốc (luôn bị 3 nhánh scope cụ thể hơn chặn trước). Vì vậy tab "Nhập nội bộ" hiện rỗng vô hại cho mọi kho thành phẩm (gốc lẫn phụ) — không cần sửa.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">ĐÃ SỬA 03/09/2026 — "Kho phụ trách" bị bắt buộc chọn ngay lúc tạo tài khoản Kho, mâu thuẫn với thiết kế "gán sau cũng được"</div>
+      <p><code>UsersPage.tsx</code> validate <code>if (cat === 'warehouse' && !all.warehouseScope) return 'Chọn kho phụ trách'</code> — chặn lưu nếu chưa chọn kho, đi ngược lại chính triết lý "không bắt buộc" đã áp dụng cho toàn bộ luồng gán thủ kho (form "Tạo kho mới" ở mục 01 vốn đã cho phép để trống "Thủ kho phụ trách"). Sửa không chỉ đơn giản là xoá dòng validate: <code>deriveStaffCategory()</code> (hàm suy ra đang chọn nhóm nào từ dữ liệu) dùng <code>if (v.warehouseScope) return 'warehouse'</code> — <code>warehouseScope</code> để trống (<code>undefined</code>) và "chưa bấm tab Kho" đều falsy như nhau, không phân biệt được, nên chỉ xoá validate thì lỗi sẽ đổi thành "Chọn loại nhân viên" (sai) thay vì cho lưu. Đã sửa: khi bấm tab "Kho", <code>warehouseScope</code> được đặt thành chuỗi rỗng <code>''</code> (khác <code>undefined</code>) làm dấu hiệu "đã chọn nhóm Kho, chưa chọn kho cụ thể" — <code>deriveStaffCategory()</code> đổi điều kiện thành <code>typeof v.warehouseScope === 'string'</code> để nhận đúng ca này.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">ĐÃ SỬA 03/09/2026 — Gỡ "Kho phụ trách" về trống không có tác dụng, chặn luôn cả việc hoán đổi thủ kho giữa 2 kho</div>
+      <p>Ở form sửa tài khoản (<code>UsersPage.tsx</code>), dropdown "Kho phụ trách" đã cho chọn lại "— Chọn kho —" (đặt về <code>undefined</code>) từ trước, nhưng <code>updateUser()</code> (<code>users-api.ts</code>) chỉ gửi PATCH <code>/mfg-attributes</code> lên BE khi <code>hasMfgAttrs()</code> trả về true — hàm này định nghĩa "có" bằng <code>!!(mfgRole || warehouseScope || isPurchaser || isProductPlanner || isSale)</code>. Gỡ kho phụ trách về trống làm toàn bộ 5 cờ đó cùng rỗng/false một lúc → điều kiện luôn false → <strong>request PATCH bị bỏ qua hoàn toàn</strong>, kho phụ trách cũ vẫn nằm nguyên trong DB dù UI đã hiện trống. Phát hiện qua yêu cầu thật: muốn hoán đổi 2 thủ kho giữa 2 kho (thủ kho A → kho 2, thủ kho B → kho 1) — muốn vậy phải gỡ được cả 2 người trước, nhưng thao tác gỡ không hề có tác dụng. Đã sửa: đổi <code>hasMfgAttrs()</code> sang xét theo <code>role === 'WAREHOUSE_STAFF'</code> thay vì xét giá trị — mọi tài khoản Kho/Định mức/Sản xuất/Văn phòng đều luôn gửi PATCH full-replace (kể cả gửi <code>null</code> để xoá), BE vốn đã nhận <code>null</code> đúng cách (<code>@IsOptional()</code> cho qua). Đồng thời lọc "Thủ kho phụ trách" ở modal "Tạo kho mới" (mục 01) chỉ còn hiện người <strong>chưa</strong> phụ trách kho nào (<code>!u.warehouseScope</code>) — khớp đúng bất biến "1 tài khoản chỉ phụ trách 1 kho tại 1 thời điểm", nên muốn đổi thủ kho của 1 kho phải gỡ người cũ (trang Người dùng) trước rồi mới chọn được người mới ở đây.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">Kho phụ không được bảo vệ — có thể bị xoá (vẫn đúng thiết kế, không phải bug)</div>
+      <p><code>PROTECTED_WAREHOUSE_CODES</code> chỉ khoá đúng 3 kho vật lý gốc + 4 kho ảo seed sẵn; kho dạng <code>thanh-pham-{'{'}n{'}'}</code> không nằm trong danh sách này nên nút "Xóa kho" hoạt động bình thường trên kho phụ (chỉ Admin thấy nút, xem mục 04) — miễn còn xoá được ở tầng DB (không còn <code>Material</code>/<code>StockQuant</code> tham chiếu). Từ 03/09/2026 xoá kho không còn để lại tài khoản mồ côi (xem mục 04) nên đây không còn là khoảng trống, chỉ là hành vi cố ý: kho phụ do Admin tự tạo thì Admin cũng tự chịu trách nhiệm xoá.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">ĐÃ SỬA 03/09/2026 — Mật khẩu mặc định cố định, không bắt đổi lần đầu</div>
+      <p>Trước đây mọi tài khoản Thủ kho được sinh qua nút này đều nhận mật khẩu hard-code <code>"demo1234"</code> giống nhau — hệ thống không ép đổi mật khẩu ở lần đăng nhập đầu tiên, nhiều kho phụ thì nhiều tài khoản dùng chung một mật khẩu biết trước. Đã sửa bằng đúng thay đổi mục 01: mật khẩu giờ do Admin tự gõ trong form (tối thiểu 6 ký tự), không còn giá trị mặc định nào cả — nhưng hệ thống vẫn chưa ép đổi mật khẩu ở lần đăng nhập đầu tiên của Thủ kho (nằm ngoài phạm vi đợt sửa này).</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">ĐÃ SỬA 03/09/2026 — Không có bước xác nhận hay đặt tên tay</div>
+      <p>Trước đây toàn bộ luồng là một nút bấm duy nhất, không có bước preview/xác nhận tên kho, không sửa được tên trước khi tạo. Đã sửa: bấm nút giờ chỉ mở form (mục 01), Admin xem/sửa tên kho + tên/email/mật khẩu thủ kho trước khi bấm "Tạo kho + tài khoản" — có thể Hủy giữa chừng mà không tạo gì cả.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="note">Tổng hợp từ mã nguồn thật: FE (MfgWarehousesPage.tsx, InboundWarehouseApp.tsx, WarehouseXuatPage.tsx, LenhSXPage.tsx, UsersPage.tsx, warehouses-api.ts, users-api.ts, users-mapper.ts, types/warehouse-transfer.ts, utils/warehouseFamily.ts) và BE (module warehouses, packaging-issues, weaving-issues, material-issues, production-batches, steel-issues, users, warehouse-transfers, common/utils/warehouse-family.util.ts, prisma/extensions/soft-delete.extension.ts) — viết 03/09/2026, cập nhật liên tục cùng ngày. Đợt 1 (mục 01-04): packaging-issues + weaving-issues (61 test) → warehouses.service.ts gate Admin-only + xoá kèm tài khoản (10 test) → form tạo kho đổi từ tự sinh hết → tạo tài khoản mới → gỡ hẳn, dồn về trang Người dùng. Đợt 2 (mục 05, mở rộng đa-instance 3 gia đình): warehouse-family.util.ts → 3 chỗ trừ tồn hard-code → gỡ MFG_FLOOR_WAREHOUSE_SCOPE → routing "chọn kho lúc chuyển" → gate steel/weaving-issues → InboundWarehouseApp/KhoPhoiPage (825 test backend xanh). Đợt 3 (test tay thật, phát hiện 5 bug UI mục 01 + mục 06 sao chép vật tư): nút "Tạo kho mới" biến mất trên Admin &gt; Quản lý kho, dropdown thủ kho lẫn Sales/KHSX, đổi tên hiển thị kho gốc thành phẩm (data-only, không phải code), "Kho phụ trách" hết bắt buộc ở UsersPage.tsx, gỡ "Kho phụ trách" về trống không có tác dụng (hasMfgAttrs() chặn nhầm PATCH) + candidates modal "Tạo kho mới" giờ chỉ hiện người chưa phụ trách kho nào. tsc + eslint sạch xuyên suốt, chưa có test tự động cho các form FE trong tài liệu này.</footer>
+
+</div>
