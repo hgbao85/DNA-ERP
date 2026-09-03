@@ -16,9 +16,11 @@
  */
 import { useMemo, useState } from 'react'
 import { Warehouse, Check, Scissors } from 'lucide-react'
+import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeStockQuant } from '../../../services/stock-api'
+import { isFamilyScope } from '../../../utils/warehouseFamily'
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -28,10 +30,13 @@ const card: React.CSSProperties = { background: 'var(--surface)', border: '1px s
 
 type Tab = 'duyet' | 'thua'
 
-/// Kho vật lý duy nhất chứa tồn đoạn thật - cùng STEEL_WAREHOUSE_CODE ở
+/// Kho vật lý MẶC ĐỊNH chứa tồn đoạn thật - cùng STEEL_WAREHOUSE_CODE ở
 /// production-batches.service.ts (BE). GET /stock-quant trả về mọi kho (kể cả kho ảo "PRODUCTION"
 /// dùng làm điểm đến khi Hàn tiêu hao) nên phải lọc đúng warehouseCode ở đây, không hiện nhầm số
 /// đã tiêu hao (tăng dần, không phải tồn thật).
+/// 2026-09-03: chỉ còn là fallback - trang giờ ưu tiên lọc theo đúng kho phoi-son-han cụ thể mà
+/// người xem (PHOI/HAN/SON/KCS) đang được gán (user.warehouseScope), vì kho này giờ có thể có
+/// nhiều instance song song (phoi-son-han-2...), không còn đúng 1 kho gốc duy nhất.
 const STEEL_WAREHOUSE_CODE = 'phoi-son-han'
 
 interface DoanRow {
@@ -48,11 +53,11 @@ function parseSegmentLabel(label: string): { materialCode: string; cutLengthMm: 
   return { materialCode: m[1], cutLengthMm: Number(m[2]) }
 }
 
-function toRows(quants: BeStockQuant[]): { duyet: DoanRow[]; thua: DoanRow[] } {
+function toRows(quants: BeStockQuant[], warehouseCode: string): { duyet: DoanRow[]; thua: DoanRow[] } {
   const duyet: DoanRow[] = []
   const thua: DoanRow[] = []
   for (const q of quants) {
-    if (q.warehouseCode !== STEEL_WAREHOUSE_CODE || !q.segmentSpecId || !q.segmentSpecLabel) continue
+    if (q.warehouseCode !== warehouseCode || !q.segmentSpecId || !q.segmentSpecLabel) continue
     const parsed = parseSegmentLabel(q.segmentSpecLabel)
     if (!parsed || q.qty <= 0) continue
     const row: DoanRow = { key: q.segmentSpecId, materialCode: parsed.materialCode, cutLengthMm: parsed.cutLengthMm, soDoan: q.qty }
@@ -66,11 +71,16 @@ function toRows(quants: BeStockQuant[]): { duyet: DoanRow[]; thua: DoanRow[] } {
 const tenVatLieu = (r: DoanRow) => `${r.materialCode} — đoạn ${r.cutLengthMm > 0 ? `${r.cutLengthMm}mm` : 'thừa (đầu mẩu)'}`
 
 export default function KhoPhoiPage() {
+  const { user } = useAuth()
   const [tab, setTab] = useState<Tab>('duyet')
+
+  // Kho phoi-son-han CỤ THỂ mà người xem (PHOI/HAN/SON/KCS) đang được gán - fallback về kho gốc
+  // nếu không có scope hợp lệ (BOSS/ADMIN xem, hoặc dữ liệu cũ chưa gán warehouseScope).
+  const myWarehouseCode = isFamilyScope(user?.warehouseScope, 'phoi-son-han') ? user!.warehouseScope! : STEEL_WAREHOUSE_CODE
 
   const { data: quants } = useFetch<BeStockQuant[]>(() => api.getStockQuants(), [])
 
-  const { duyet, thua } = useMemo(() => toRows(quants ?? []), [quants])
+  const { duyet, thua } = useMemo(() => toRows(quants ?? [], myWarehouseCode), [quants, myWarehouseCode])
 
   const tongDuyet = useMemo(() => duyet.reduce((s, i) => s + i.soDoan, 0), [duyet])
   const tongThua = useMemo(() => thua.reduce((s, i) => s + i.soDoan, 0), [thua])
@@ -83,7 +93,7 @@ export default function KhoPhoiPage() {
         <Warehouse size={20} /> Kho phôi
       </h2>
       <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>
-        Đoạn sắt tồn thật tại kho <b>phoi-son-han</b> (thủ kho tự đếm & nhập) — <b>Cần</b> là đoạn khớp định mức chờ chuyển Hàn, <b>Thừa</b> là đầu mẩu chờ xử lý.
+        Đoạn sắt tồn thật tại kho <b>{myWarehouseCode}</b> (thủ kho tự đếm & nhập) — <b>Cần</b> là đoạn khớp định mức chờ chuyển Hàn, <b>Thừa</b> là đầu mẩu chờ xử lý.
       </div>
 
       {/* Tab switch */}

@@ -3,11 +3,13 @@ import { useState } from 'react'
 import { Users, KeyRound, Lock, LockOpen } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
-import { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive } from '../../../services/api'
+import { useFetch } from '../../../hooks/useFetch'
+import { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive, getWarehouses } from '../../../services/api'
 import type { SystemUser } from '../../../types/admin'
 import AdminEntityPage, { type AdminEntityConfig } from './shared/AdminEntityPage'
 import Modal from '../../../components/Modal'
 import { btnSecondary } from '../../../styles/buttons'
+import { isFamilyScope } from '../../../utils/warehouseFamily'
 
 const ROLE_LABEL: Record<SystemUser['role'], string> = {
   ADMIN: 'Quản trị viên',
@@ -44,16 +46,15 @@ const SPEC_HINT: Record<string, string> = {
   SPEC_ACCESSORY: 'Nhập định mức chi tiết: Sơn, Phụ kiện, Bao bì đóng gói.',
 }
 
-// 3 kho thật đang vận hành (trước có thêm Phụ kiện/Bao bì/Dây/Sắt — dữ liệu mock mồ côi,
-// không nghiệp vụ nào dùng, đã bỏ). "Thành phẩm" có thể có nhiều kho đánh số song song.
+// Nhãn dự phòng cho cột "Chức năng" khi chưa tải kịp danh sách kho thật (hoặc kho đã bị xoá) -
+// chỉ 3 kho gốc, KHÔNG dùng để build dropdown chọn kho nữa (xem EmployeeTypeField, đã đổi sang
+// getWarehouses() thật 2026-09-03 - trước đó là dict tĩnh, phải sửa tay source mỗi lần Admin tạo
+// thêm kho phụ như "thanh-pham-2" mới hiện được trong form).
 const WAREHOUSE_SCOPE_LABEL: Record<string, string> = {
   'phoi-son-han': 'Phôi - Sơn - Hàn',
   'vat-tu-tp': 'Vật tư thành phẩm',
   'thanh-pham': 'Thành phẩm',
-  'thanh-pham-2': 'Thành phẩm 2',
-  'thanh-pham-3': 'Thành phẩm 3',
 }
-const WAREHOUSE_SCOPE_OPTIONS = Object.entries(WAREHOUSE_SCOPE_LABEL).map(([value, label]) => ({ value, label }))
 
 function chucNangOf(u: SystemUser): string {
   const tags: string[] = []
@@ -91,7 +92,11 @@ function deriveStaffCategory(v: Partial<SystemUser>): StaffCategory | undefined 
   if (v.mfgRole && SPEC_VALUES.includes(v.mfgRole)) return 'spec'
   if (v.mfgRole === 'PRODUCTION_MANAGER') return 'office'
   if (v.isSale || v.isProductPlanner || v.isPurchaser) return 'office'
-  if (v.warehouseScope) return 'warehouse'
+  // '' (chuỗi rỗng) = đã bấm tab "Kho" nhưng CHƯA chọn kho cụ thể - khác undefined/null (chưa bấm
+  // tab nào cả). Không dùng `if (v.warehouseScope)` (truthy) vì '' cũng falsy, sẽ không phân biệt
+  // được 2 ca này - "Kho phụ trách" giờ không bắt buộc chọn ngay lúc tạo tài khoản (gán sau cũng
+  // được, kể cả từ form "Tạo kho mới" - xem CreateWarehouseModal).
+  if (typeof v.warehouseScope === 'string') return 'warehouse'
   return undefined
 }
 
@@ -113,12 +118,24 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
   // selectCategory dưới), lúc đó suy luận lại từ values sẽ ra "chưa chọn gì".
   const [category, setCategory] = useState<StaffCategory | undefined>(() => deriveStaffCategory(values))
 
+  // Danh sách kho THẬT (2026-09-03) - trước đây dropdown "Kho phụ trách" là dict tĩnh hard-code
+  // trong source, phải sửa tay mỗi khi Admin tạo thêm kho phụ (kể cả "thanh-pham-2/3" cũ). Giờ
+  // đọc thẳng GET /warehouses, tự động thấy mọi kho phụ mới tạo ở bất kỳ gia đình nào (kể cả
+  // phoi-son-han-*/vat-tu-tp-* vừa được mở đa-instance). Loại kho ảo (SUPPLIER/PRODUCTION/
+  // SCRAP/OPENING_BALANCE) - không phải nơi ai "phụ trách" được.
+  const { data: warehouses } = useFetch<{ code: string; name: string; isVirtual: boolean; isActive: boolean }[]>(getWarehouses)
+  const realWarehouses = (warehouses ?? []).filter(w => !w.isVirtual && w.isActive)
+  const phoiSonHanWarehouses = realWarehouses.filter(w => isFamilyScope(w.code, 'phoi-son-han'))
+
   const selectCategory = (next: StaffCategory) => {
     if (next === category) return
     setCategory(next)
     // Đổi loại nhân viên → dọn sạch field của loại cũ trước khi áp loại mới, tránh lẫn dữ liệu.
     setField('mfgRole', undefined)
-    setField('warehouseScope', undefined)
+    // '' (không phải undefined) khi chuyển sang "Kho" - đánh dấu "đã chọn nhóm Kho, chưa chọn kho
+    // cụ thể" để deriveStaffCategory() nhận đúng nhóm dù chưa chọn kho (xem comment ở đó) - không
+    // bắt buộc phải chọn kho ngay lúc tạo tài khoản, gán sau cũng được.
+    setField('warehouseScope', next === 'warehouse' ? '' : undefined)
     setField('isPurchaser', false)
     setField('isProductPlanner', false)
     setField('isSale', false)
@@ -179,7 +196,7 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
           <label style={fieldLabel}>Kho phụ trách</label>
           <select value={String(values.warehouseScope ?? '')} onChange={e => setField('warehouseScope', e.target.value || undefined)} style={fieldSelect}>
             <option value="">— Chọn kho —</option>
-            {WAREHOUSE_SCOPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            {realWarehouses.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
           </select>
         </div>
       )}
@@ -198,12 +215,24 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
       )}
 
       {category === 'mfg' && (
-        <div>
-          <label style={fieldLabel}>Công đoạn sản xuất</label>
-          <select value={String(values.mfgRole ?? '')} onChange={e => setField('mfgRole', e.target.value || undefined)} style={fieldSelect}>
-            <option value="">— Chọn công đoạn —</option>
-            {MFG_FLOOR_VALUES.map(v => <option key={v} value={v}>{MFG_ROLE_LABEL[v]}</option>)}
-          </select>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div>
+            <label style={fieldLabel}>Công đoạn sản xuất</label>
+            <select value={String(values.mfgRole ?? '')} onChange={e => setField('mfgRole', e.target.value || undefined)} style={fieldSelect}>
+              <option value="">— Chọn công đoạn —</option>
+              {MFG_FLOOR_VALUES.map(v => <option key={v} value={v}>{MFG_ROLE_LABEL[v]}</option>)}
+            </select>
+          </div>
+          {/* 2026-09-03: trước đây BE luôn ép cứng kho của công đoạn chuyền về đúng kho gốc
+              'phoi-son-han', ô này không tồn tại (field ẩn, không ai chọn được gì). Nay kho gốc
+              có thể có thêm kho phụ (phoi-son-han-2...) - để trống vẫn về đúng kho gốc như cũ. */}
+          <div>
+            <label style={fieldLabel}>Kho phụ trách</label>
+            <select value={String(values.warehouseScope ?? '')} onChange={e => setField('warehouseScope', e.target.value || undefined)} style={fieldSelect}>
+              <option value="">— Kho gốc (Phôi Sơn Hàn) —</option>
+              {phoiSonHanWarehouses.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
+            </select>
+          </div>
         </div>
       )}
     </div>
@@ -386,7 +415,9 @@ export default function UsersPage() {
             const fn = deriveOfficeFn(all)
             if (!fn) return 'Chọn chức năng'
           }
-          if (cat === 'warehouse' && !all.warehouseScope) return 'Chọn kho phụ trách'
+          // "Kho phụ trách" KHÔNG bắt buộc (2026-09-03) - có thể tạo tài khoản Kho trước, gán kho
+          // sau (ở đây hoặc lúc "Tạo kho mới" chọn thủ kho có sẵn) - warehouseScope='' là hợp lệ,
+          // deriveStaffCategory() đã nhận đúng nhóm 'warehouse' cho ca này.
           if ((cat === 'spec' || cat === 'mfg') && !all.mfgRole) return 'Chọn vị trí'
           return undefined
         },

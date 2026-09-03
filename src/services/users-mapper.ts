@@ -6,6 +6,7 @@
  */
 import type { SystemUser } from '../types/admin';
 import type { BeUserProfile } from '../types/auth';
+import { isFamilyScope } from '../utils/warehouseFamily';
 
 // ─── §5: quy đổi lựa chọn admin (form phẳng) → roleIds[] ─────────────────────
 export function deriveRoleIds(v: Record<string, unknown>, roleId: Record<string, string>): string[] {
@@ -58,23 +59,32 @@ export function splitName(name: string): { firstName: string; lastName: string }
   return { firstName: s.slice(0, i), lastName: s.slice(i + 1) };
 }
 
-// mfg-attributes chỉ gửi khi có ít nhất 1 thuộc tính sản xuất/kho
+// mfg-attributes chỉ áp dụng cho role WAREHOUSE_STAFF (ADMIN/BOSS không có khối "Loại nhân viên").
+// 2026-09-03: TRƯỚC đây dựa vào "có ít nhất 1 thuộc tính truthy" - nhưng gỡ kho phụ trách về rỗng
+// (unassign, vd. để hoán đổi 2 thủ kho giữa 2 kho) làm MỌI thuộc tính rỗng/false cùng lúc, khiến
+// điều kiện cũ luôn false → PATCH mfg-attributes bị bỏ qua hoàn toàn → BE không bao giờ nhận được
+// lệnh xoá, kho phụ trách cũ nằm lì trong DB dù UI hiện đã "trống". Dựa theo role thay vì theo giá
+// trị: mọi user WAREHOUSE_STAFF luôn gửi PATCH (full-replace, kể cả gửi null để xoá).
 export function hasMfgAttrs(v: Record<string, unknown>): boolean {
-  return !!(v.mfgRole || v.warehouseScope || v.isPurchaser || v.isProductPlanner || v.isSale);
+  return v.role === 'WAREHOUSE_STAFF';
 }
 
-// Công đoạn chuyền (Phôi/Hàn/Sơn/KCS) chỉ tồn tại trong 1 kho vật lý duy nhất —
-// ép cứng warehouseScope, không để form (hoặc dữ liệu cũ) gửi sai/thiếu.
+// Công đoạn chuyền (Phôi/Hàn/Sơn/KCS) chỉ tồn tại trong gia đình kho phoi-son-han — trước
+// 2026-09-03 ép cứng về đúng 1 literal 'phoi-son-han' bất kể form gửi gì, khiến không công nhân
+// nào gán được vào kho phoi-son-han PHỤ dù Admin đã tạo thêm. Giờ tin giá trị form gửi MIỄN LÀ
+// thuộc đúng gia đình phoi-son-han (isFamilyScope), chỉ fallback về kho gốc khi form không gửi
+// hoặc gửi sai gia đình (dữ liệu cũ/hỏng) - mirror đúng users.service.ts (BE).
 const MFG_FLOOR_WAREHOUSE_SCOPE = 'phoi-son-han';
 const MFG_FLOOR_ROLES = new Set(['PHOI', 'HAN', 'SON', 'KCS']);
 
 export function mfgAttrsPayload(v: Record<string, unknown>) {
   const mfgRole = (v.mfgRole as string) || null;
+  const rawScope = (v.warehouseScope as string) || null;
   return {
     mfgRole,
     warehouseScope: mfgRole && MFG_FLOOR_ROLES.has(mfgRole)
-      ? MFG_FLOOR_WAREHOUSE_SCOPE
-      : (v.warehouseScope as string) || null,
+      ? (isFamilyScope(rawScope, 'phoi-son-han') ? rawScope : MFG_FLOOR_WAREHOUSE_SCOPE)
+      : rawScope,
     isPurchaser: !!v.isPurchaser,
     isProductPlanner: !!v.isProductPlanner,
     isSale: !!v.isSale,

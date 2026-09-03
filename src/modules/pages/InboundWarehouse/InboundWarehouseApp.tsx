@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, BarChart3, MapPin, Share2 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 // Tái dùng nguyên các màn kho đã có (trước đây nằm trong MES) — KHÔNG viết lại logic.
-import MfgWarehousesPage, { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
+import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
+import { isFamilyScope, isThanhPhamScope } from '../../../utils/warehouseFamily'
 import MfgAllMaterialsPage from '../Manufacturing/MfgAllMaterialsPage'
 import NhapKhoPage from '../Manufacturing/NhapKhoPage'
 import KhoChuyenKiemPage from './KhoChuyenKiemPage'
@@ -29,7 +30,10 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   const scope = user?.warehouseScope ?? null
 
   // Chuyền kiểm + Đóng gói: kho thành phẩm + tổng kho (scope null). GĐ cũng thấy.
-  const canSeePacking = scope === null || isThanhPhamScope(scope) || scope === 'vat-tu-tp' || scope === 'phoi-son-han'
+  // 2026-09-03: so khớp theo GIA ĐÌNH (isFamilyScope) thay vì đúng 1 literal - mọi kho phụ
+  // (phoi-son-han-2, vat-tu-tp-2...) giờ cũng thấy đúng bộ tab của gia đình mình, trước đây rơi
+  // vào nhánh generic bên dưới (mất tab "Tổng hợp vật tư", lộ nhầm tab đặc thù vat-tu-tp).
+  const canSeePacking = scope === null || isThanhPhamScope(scope) || isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han')
 
   type TabId = 'materials' | 'warehouses' | 'nhap-kho' | 'xuat-kho' | 'xuat-sat' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan'
   const ALL_TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
@@ -37,7 +41,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     { id: 'warehouses', label: 'Tổng hợp kho',        icon: <Warehouse size={16} /> },
     { id: 'nhap-kho',   label: 'Nhập kho',            icon: <ArrowDownToLine size={16} /> },
     { id: 'xuat-kho',   label: 'Xuất kho',            icon: <ArrowUpFromLine size={16} /> },
-    ...(scope === 'phoi-son-han' ? [{ id: 'xuat-sat' as TabId, label: 'Phân phối nội bộ', icon: <Share2 size={16} /> }] : []),
+    ...(isFamilyScope(scope, 'phoi-son-han') ? [{ id: 'xuat-sat' as TabId, label: 'Phân phối nội bộ', icon: <Share2 size={16} /> }] : []),
     ...(canSeePacking ? [
       { id: 'chuyen-kiem' as TabId, label: 'Chuyền kiểm', icon: <ClipboardCheck size={16} /> },
       { id: 'dong-goi'    as TabId, label: 'Đóng gói',    icon: <Box size={16} /> },
@@ -50,14 +54,14 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   // bao-bi-tp: 5 tab cố định (tổng hợp vật tư, nhập/xuất, chuyền kiểm, đóng gói)
   // Scoped khác: ẩn materials.
   const TABS = (() => {
-    if (scope === 'vat-tu-tp')    return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','xuat-dan','diem-dan'].includes(t.id))
-    if (scope === 'phoi-son-han') return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','xuat-sat'].includes(t.id))
+    if (isFamilyScope(scope, 'vat-tu-tp'))    return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','xuat-dan','diem-dan'].includes(t.id))
+    if (isFamilyScope(scope, 'phoi-son-han')) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','xuat-sat'].includes(t.id))
     if (isThanhPhamScope(scope)) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','chuyen-kiem','dong-goi','nhap-dan'].includes(t.id))
     if (scope) return ALL_TABS.filter(t => t.id !== 'materials')
     return ALL_TABS
   })()
 
-  const [tab, setTab] = useState<TabId>(scope === 'vat-tu-tp' || scope === 'phoi-son-han' || isThanhPhamScope(scope) ? 'materials' : scope ? 'warehouses' : 'materials')
+  const [tab, setTab] = useState<TabId>(isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han') || isThanhPhamScope(scope) ? 'materials' : scope ? 'warehouses' : 'materials')
   const navBtn = (active: boolean): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 9, width: '100%',
     padding: '8px 10px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
@@ -69,8 +73,8 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   // Nhãn chức vụ dưới chân sidebar
   const roleLabel = user?.role === 'BOSS'
     ? 'Giám đốc'
-    : scope === 'vat-tu-tp'    ? 'Thủ kho · Vật tư / TP'
-    : scope === 'phoi-son-han' ? 'Thủ kho · Phôi Sơn Hàn'
+    : isFamilyScope(scope, 'vat-tu-tp')    ? 'Thủ kho · Vật tư / TP'
+    : isFamilyScope(scope, 'phoi-son-han') ? 'Thủ kho · Phôi Sơn Hàn'
     : isThanhPhamScope(scope) ? 'Thủ kho · Thành Phẩm'
     : scope ? `Thủ kho · ${scope}` : 'Thủ kho (tổng)'
 
@@ -137,14 +141,25 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
 
       {/* ── Main content ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        {tab === 'materials'  && (scope === 'vat-tu-tp' || scope === 'phoi-son-han' || isThanhPhamScope(scope) || !scope) && <MfgAllMaterialsPage
+        {tab === 'materials'  && (isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han') || isThanhPhamScope(scope) || !scope) && <MfgAllMaterialsPage
           limitCats={
-            scope === 'vat-tu-tp'      ? ['thanhPham', 'vatTuThanhPham', 'manhChuaDan']
-            : scope === 'phoi-son-han' ? ['sat', 'vatTuThanhPham', 'manhChuaDan']
+            isFamilyScope(scope, 'vat-tu-tp')      ? ['thanhPham', 'vatTuThanhPham', 'manhChuaDan']
+            : isFamilyScope(scope, 'phoi-son-han') ? ['sat', 'vatTuThanhPham', 'manhChuaDan']
             : isThanhPhamScope(scope)  ? ['thanhPham', 'vatTuThanhPham', 'manhDaDan', 'baoBiDongGoi']
             : undefined
           }
-          manhWarehouseCode={isThanhPhamScope(scope) ? 'thanh-pham' : (scope ?? undefined)}
+          // manhWarehouseCode luôn quy về đúng 1 kho GỐC của gia đình (không phải instance cụ thể
+          // của kho phụ) - VatTuDashboardPage.tsx so sánh cứng với 3 literal gốc để quyết định gọi
+          // API nào (getManhOrders/getWeavingPoints...), truyền thẳng code kho phụ vào sẽ khiến
+          // mọi điều kiện đó false (mục "Mảnh chưa đan"/"Mảnh đã đan" trống trơn dù có dữ liệu
+          // thật) - quy về kho gốc cùng gia đình để tái dùng đúng luồng đã có, cùng cách
+          // isThanhPhamScope() đã làm sẵn cho 'thanh-pham'.
+          manhWarehouseCode={
+            isThanhPhamScope(scope) ? 'thanh-pham'
+            : isFamilyScope(scope, 'vat-tu-tp') ? 'vat-tu-tp'
+            : isFamilyScope(scope, 'phoi-son-han') ? 'phoi-son-han'
+            : (scope ?? undefined)
+          }
         />}
         {tab === 'warehouses' && <MfgWarehousesPage groupKey={scope} />}
         {tab === 'nhap-kho'   && <NhapKhoPage lockedGroup={scope} />}
@@ -161,12 +176,12 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
               tài khoản thủ kho của đúng kho cần xuất.
             </div>
         )}
-        {tab === 'xuat-sat'   && scope === 'phoi-son-han' && <PhanPhoiNoiBoPage />}
+        {tab === 'xuat-sat'   && isFamilyScope(scope, 'phoi-son-han') && <PhanPhoiNoiBoPage />}
         {tab === 'chuyen-kiem' && canSeePacking && <KhoChuyenKiemPage />}
         {tab === 'dong-goi'    && canSeePacking && <KhoDongGoiPage />}
-        {tab === 'xuat-dan'   && scope === 'vat-tu-tp'   && <KhoXuatDanPage />}
+        {tab === 'xuat-dan'   && isFamilyScope(scope, 'vat-tu-tp')   && <KhoXuatDanPage />}
         {tab === 'nhap-dan'   && isThanhPhamScope(scope) && <KhoNhapDanPage />}
-        {tab === 'diem-dan'   && scope === 'vat-tu-tp'   && <QuanLyDiemDanPage />}
+        {tab === 'diem-dan'   && isFamilyScope(scope, 'vat-tu-tp')   && <QuanLyDiemDanPage />}
       </div>
     </div>
   )
