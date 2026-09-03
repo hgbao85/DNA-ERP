@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeTransferCheckPiece } from '../../../services/transfer-check-api'
-import { buildProductionOrderInfoByMfgProduct } from '../../../services/production-invoice-item'
+import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
 import { format } from 'date-fns'
 import { ChevronLeft, Plus, X, Image as ImageIcon } from 'lucide-react'
 import type { Sku } from '../../../types/sku'
@@ -30,11 +30,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
 
   // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho ghi nhận chuyền kiểm cho BẤT
   // KỲ SKU nào cùng PI đó (2026-08-31) - cùng quy tắc/gate ở KhoXuatDanPage/ProductionInvoicesService.
-  const { data: poInfoByProduct } = useFetch(() => buildProductionOrderInfoByMfgProduct(), [])
-  const poInfoFor = (pf: Sku) => poInfoByProduct?.get(pf.mfgProductId)
-  const activePiIds = new Set(
-    [...(poInfoByProduct?.values() ?? [])].filter(info => info.floorStage === 'ACTIVE').map(info => info.productionInvoiceId),
-  )
+  const { poInfoFor, activePiIds } = usePoInfoFloorGate()
   const active = ((skus ?? []) as Sku[]).filter(p =>
     p.status !== 'DRAFT' &&
     (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId) &&

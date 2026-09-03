@@ -17,7 +17,7 @@ import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeMaterialIssuePlanItem, MaterialIssueStage } from '../../../services/material-issues-api'
-import { buildProductionOrderInfoByMfgProduct } from '../../../services/production-invoice-item'
+import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
 import { errMsg } from '../../../utils/errors'
 import { backBtn } from '../../../styles/buttons'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
@@ -36,17 +36,13 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
   // PO/PI/hạn giao thật (từ ProductionOrder Sếp đã duyệt) - KHÔNG dùng Sku.exportOrder/Sku.piCode,
   // xem comment ở buildProductionOrderInfoByMfgProduct().
-  const { data: poInfoByProduct } = useFetch(() => buildProductionOrderInfoByMfgProduct(), [])
-  const poInfoFor = (pf: Sku) => poInfoByProduct?.get(pf.mfgProductId)
   // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho được xuất vật tư cho BẤT KỲ
   // SKU nào cùng PI đó (2026-08-31, gộp theo PI - cùng quy tắc XuatSatPage/MaterialIssuesService.
   // assertPiHasActiveFloor() ở backend) - KHÔNG bắt buộc CHÍNH SKU này phải ACTIVE. Ẩn hẳn khỏi
   // danh sách, backend cũng chặn cứng, đây chỉ là lớp UI khớp theo. Trước đây liệt kê MỌI Sku
   // non-draft kể cả chưa có lệnh sản xuất nào - giờ đồng thời cũng đòi hỏi phải có ProductionOrder
   // thật (poInfoFor tồn tại).
-  const activePiIds = new Set(
-    [...(poInfoByProduct?.values() ?? [])].filter(info => info.floorStage === 'ACTIVE').map(info => info.productionInvoiceId),
-  )
+  const { poInfoFor, activePiIds } = usePoInfoFloorGate()
   const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT' && activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? ''))
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)

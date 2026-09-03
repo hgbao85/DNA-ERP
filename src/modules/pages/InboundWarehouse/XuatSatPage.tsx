@@ -22,7 +22,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
 import type { BeSteelIssuePlanItem, BeSteelIssue, BeReplenishRequest } from '../../../services/steel-issues-api'
-import { buildProductionOrderInfoByMfgProduct } from '../../../services/production-invoice-item'
+import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
 import { errMsg } from '../../../utils/errors'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
@@ -43,8 +43,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
   const { data: replenish, refetch: refetchReplenish } = useFetch<BeReplenishRequest[]>(() => api.getReplenishRequests('OPEN'), [])
   // PO/PI thật (từ ProductionOrder Sếp đã duyệt) - KHÔNG dùng Sku.exportOrder/Sku.piCode, xem
   // comment ở buildProductionOrderInfoByMfgProduct().
-  const { data: poInfoByProduct } = useFetch(() => buildProductionOrderInfoByMfgProduct(), [])
-  const poInfoFor = (pf: Sku) => poInfoByProduct?.get(pf.mfgProductId)
+  const { poInfoFor } = usePoInfoFloorGate()
 
   const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT')
 
