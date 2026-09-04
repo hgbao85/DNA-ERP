@@ -83,6 +83,7 @@ function feProposal(overrides: Partial<PurchaseProposal> = {}): PurchaseProposal
         buyQty: 8,
         khoKey: 'phoiSonHan',
         khoLabel: 'Kho Phôi Sơn Hàn',
+        warehouseCode: 'phoi-son-han',
         materialId: 30,
         itemId: '400',
         receivedQty: 0,
@@ -177,6 +178,25 @@ describe('getPurchaseProposals — tải danh sách kèm sẵn items, không cò
     const [result] = await getPurchaseProposals();
 
     expect(result.deadline).toBeUndefined();
+  });
+
+  // 2026-09-04: vật tư đóng gói (BomAccessoryItem kind=PACKAGING) giờ có thể mang warehouseCode là
+  // kho thành phẩm PHỤ do QLSX chọn cho PI (PurchaseProposalItem.receiveWarehouseCode ở BE), không
+  // còn chắc luôn là 1 trong 3 mã kho gốc như trước - phải quy về đúng gia đình 'thanh-pham' thay
+  // vì rớt fallback hiện thẳng mã kỹ thuật ra UI.
+  it('vật tư đóng gói với warehouseCode là kho thành phẩm PHỤ (instance, không phải 1 trong 3 kho gốc) - vẫn quy đúng về khoKey/khoLabel "Thành phẩm"', async () => {
+    get.mockResolvedValueOnce({
+      data: [
+        beProposal({
+          items: [{ ...beProposal().items[0], warehouseCode: 'thanh-pham-1788485485362' }],
+        }),
+      ],
+    });
+
+    const [result] = await getPurchaseProposals();
+
+    expect(result.items[0].khoKey).toBe('thanhPham');
+    expect(result.items[0].khoLabel).toBe('Kho Thành phẩm');
   });
 });
 

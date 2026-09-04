@@ -48,6 +48,7 @@
  */
 import { http, withIdempotencyKey } from './core/http';
 import type { KhoKey, PurchaseProposal, PurchaseProposalItem } from '../context/InspectionContext';
+import { warehouseFamilyOf } from '../utils/warehouseFamily';
 
 const WAREHOUSE_SCOPE_TO_KHO_KEY: Record<string, KhoKey> = {
   'phoi-son-han': 'phoiSonHan',
@@ -127,9 +128,17 @@ interface BeProposal {
 
 // item.warehouseCode có thể null (vật tư cũ/chưa gán kho, xem BE) - rơi về '—' thay vì hiện
 // "null" hay đè nhầm sang kho của đề xuất.
+//
+// Từ 2026-09-04 (vật tư đóng gói routing theo kho QLSX chọn, xem PurchaseProposalItem.
+// receiveWarehouseCode ở BE) warehouseCode của 1 dòng có thể là kho PHỤ dạng '{gia-đình}-{n}'
+// (vd "thanh-pham-1788485485362" = "Kho thành phẩm 2"), không còn chắc luôn là 1 trong 3 mã kho
+// gốc - tra thẳng theo warehouseCode như trước sẽ rớt vào fallback (ép raw code làm khoKey/
+// khoLabel, hiện mã kỹ thuật thay vì tên kho). Quy về gia đình gốc bằng warehouseFamilyOf() (mirror
+// cách BossApp/KhoPhoiPage/... đã xử lý cùng vấn đề) trước khi tra 2 map trên.
 function toItem(item: BeItem): PurchaseProposalItem {
   const warehouseCode = item.warehouseCode ?? '—';
-  const khoKey = WAREHOUSE_SCOPE_TO_KHO_KEY[warehouseCode] ?? (warehouseCode as KhoKey);
+  const family = warehouseFamilyOf(warehouseCode);
+  const khoKey = (family ? WAREHOUSE_SCOPE_TO_KHO_KEY[family] : undefined) ?? (warehouseCode as KhoKey);
   return {
     name: item.materialName,
     unit: item.unit,
@@ -140,7 +149,8 @@ function toItem(item: BeItem): PurchaseProposalItem {
     buyQty: item.buyQty,
     stockLengthMm: item.stockLengthMm,
     khoKey,
-    khoLabel: KHO_LABELS[warehouseCode] ?? warehouseCode,
+    khoLabel: (family ? KHO_LABELS[family] : undefined) ?? warehouseCode,
+    warehouseCode,
     // BE dùng bigint-as-string; PurchaseProposalItem.materialId là number (quy ước cũ) - cast
     // để tương thích, KHÔNG Number() (mất khớp key với buildBuyerByMaterialId ở purchasingRouting.ts,
     // vốn cũng giữ nguyên Material.id string dưới lớp áo type number - xem materials-api.ts).

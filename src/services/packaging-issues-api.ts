@@ -15,6 +15,10 @@ export interface BePackagingIssuePlanItem {
   materialCode: string;
   materialName: string;
   materialUnit: string;
+  /** Mã kho THẬT chứa vật tư này (2026-09-04) - không phải lúc nào cũng vat-tu-tp, vd "Thùng"
+   *  (VTK-009) lại mặc định về kho thanh-pham gốc. WarehouseXuatPage dùng field này để biết ĐÚNG
+   *  thủ kho nào (theo mã kho thật, không phải theo cả gia đình) mới thấy được dòng vật tư này. */
+  materialWarehouseCode: string | null;
   requiredQty: number;
   issuedQty: number;
   remainingToIssue: number;

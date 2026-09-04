@@ -37,6 +37,11 @@ export interface PurchaseProposalItem {
   stockLengthMm?: number | null
   khoKey: KhoKey
   khoLabel: string
+  /** Mã kho THẬT nhận hàng của riêng dòng này (BE PurchaseProposalItemResponseDto.warehouseCode,
+   *  '—' nếu BE trả null) - nguồn xác thực cho NhapKhoPage#itemInScope() lọc đúng thủ kho được
+   *  nhận, khác `khoKey` (chỉ 3 giá trị họ kho, không phân biệt được kho phụ dạng
+   *  '{họ}-{n}' như "Kho thành phẩm 2" với kho gốc cùng họ, xem warehouseFamily.ts). */
+  warehouseCode: string
   materialId?: number
   /** BE PurchaseProposalItem.id thật (A5, 2026-08-15) - đã có sẵn trong state từ lúc đọc danh
    *  sách/chi tiết, KHÔNG cần GET riêng để dịch materialId -> itemId nữa (xem purchasing-api.ts

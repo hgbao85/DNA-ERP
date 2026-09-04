@@ -30,8 +30,15 @@ interface OrderLine {
   inputQty: string
 }
 
+// 2026-09-04: phân biệt theo TỪNG ĐƠN (không còn theo scope trang) - từ khi packaging-issue
+// không còn giới hạn 1 gia đình cố định (xem PACKAGING_SCOPE ở dưới), 1 trang có thể hiện lẫn đơn
+// packaging VÀ đơn ship cùng lúc (vd thủ kho scope 'thanh-pham'), nên confirmLine()/banner/cột
+// bảng không còn suy được loại đơn chỉ từ cờ isXScope của cả trang - phải đọc field này.
+type OrderKind = 'piece' | 'packaging' | 'ship'
+
 interface Order {
   id: string
+  kind: OrderKind
   ref: string
   counterpart: string
   date: string
@@ -97,6 +104,7 @@ function pieceItemsToOrders(summaries: { id: string; poNumber: string; salesOrde
       const displayCode = o.salesOrderCode ?? '—'
       return {
         id: o.id,
+        kind: 'piece' as const,
         ref: displayCode,
         counterpart: 'Kho Vật tư thành phẩm',
         date: new Date().toISOString(),
@@ -117,7 +125,15 @@ function pieceItemsToOrders(summaries: { id: string; poNumber: string; salesOrde
 
 // Xuất vật tư đóng gói (tem nhãn, màng PE...) chặng vat-tu-tp → thanh-pham - đơn vị là PO, cùng
 // idiom PIECE_TRANSFER_SCOPE ở trên (module packaging-issues, thay MOCK, 2026-08-19).
-const PACKAGING_SCOPE = 'vat-tu-tp'
+//
+// KHÔNG còn gán cứng theo 1 gia đình cố định (2026-09-04, sửa sau khi test sống PO-41 "Ghế tình
+// yêu" phát hiện: vật tư đóng gói của SKU này - vd VTK-009 "Thùng" - lại được Admin gán kho MẶC
+// ĐỊNH là chính "thanh-pham" gốc, không phải "vat-tu-tp" như đa số. Trước đây trang chỉ hiện màn
+// Đóng gói cho ĐÚNG scope 'vat-tu-tp' - vật tư nhóm này không ai xuất được qua UI: thủ kho
+// vat-tu-tp bị BE chặn (assertWarehouseScope, không đúng kho vật lý của vật tư), thủ kho thanh-pham
+// thì trang không hiện màn Đóng gói cho họ, chỉ hiện màn Xuất hàng cho khách. Giờ SO TRỰC TIẾP
+// item.materialWarehouseCode === scope (mã kho THẬT của vật tư, không phải cả gia đình) - đúng
+// thủ kho nào giữ vật tư nào thì thấy đúng vật tư đó, bất kể họ thuộc gia đình nào.
 
 // item.requiredQty/issuedQty/remainingToIssue map vào đúng plannedQty/confirmedQty/availableQty
 // sẵn có của OrderLine, cùng cách pieceItemsToOrders() đã làm.
@@ -135,6 +151,7 @@ function packagingItemsToOrders(summaries: { id: string; poNumber: string; sales
       const displayCode = o.salesOrderCode ?? '—'
       return {
         id: o.id,
+        kind: 'packaging' as const,
         ref: displayCode,
         counterpart: 'Kho Thành phẩm',
         date: new Date().toISOString(),
@@ -165,6 +182,7 @@ function salesOrdersToOrders(salesOrders: SalesOrder[]): Order[] {
   return salesOrders
     .map(so => ({
       id: so.id,
+      kind: 'ship' as const,
       ref: so.code,
       counterpart: so.customerName,
       date: so.orderDate,
@@ -204,7 +222,6 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   // vat-tu-tp-2...) giờ cũng chạy đúng nhánh nghiệp vụ của gia đình mình.
   const isPieceScope = isFamilyScope(scope, PIECE_TRANSFER_SCOPE)
   const isShipScope = isFamilyScope(scope, SHIP_SCOPE)
-  const isPackagingScope = isFamilyScope(scope, PACKAGING_SCOPE)
 
   const [orders, setOrders]         = useState<Order[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -222,7 +239,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   // Chặng phoi-son-han → vat-tu-tp: người tạo phiếu TỰ CHỌN kho đích cụ thể trong gia đình
   // vat-tu-tp (quyết định nghiệp vụ 2026-09-03, không tự động theo cặp cố định như nextHopWh ở
   // trên - nextHopWh chỉ còn dùng cho nhánh isInternalChain generic, thực tế không còn kho nào đi
-  // qua nhánh đó vì isPieceScope/isPackagingScope/isShipScope luôn chặn sớm hơn). Mặc định chọn
+  // qua nhánh đó vì order.kind luôn khớp 1 trong 3 nhánh cụ thể trước). Mặc định chọn
   // kho vat-tu-tp đầu tiên tìm thấy, Thủ kho đổi lại nếu có nhiều kho vat-tu-tp phụ.
   const [pieceDestCode, setPieceDestCode] = useState('')
   const pieceDestOptions = safeArr(warehouses).filter(w => isFamilyScope(w.code, 'vat-tu-tp'))
@@ -237,14 +254,18 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
     return pieceItemsToOrders(summaries, plan)
   }, [isPieceScope])
 
-  // Danh sách PO + kế hoạch xuất vật tư đóng gói thật — thay MOCK cho đúng chặng vat-tu-tp.
+  // Danh sách PO + kế hoạch xuất vật tư đóng gói thật — KHÔNG còn gán theo 1 gia đình cố định
+  // (2026-09-04, xem comment PACKAGING_SCOPE cũ ở trên) - luôn fetch rồi lọc đúng dòng mà
+  // materialWarehouseCode === scope (mã kho THẬT của chính thủ kho này), bất kể họ thuộc gia đình
+  // nào - 1 trang giờ có thể vừa có đơn packaging vừa có đơn khác (piece/ship) cùng lúc.
   const { data: packagingOrders, error: packagingOrdersError, refetch: refetchPackagingOrders } = useFetch<Order[]>(async () => {
-    if (!isPackagingScope) return []
     const summaries = await api.listProductionOrdersForStage()
     if (summaries.length === 0) return []
     const plan = await api.getPackagingIssuePlan(summaries.map(o => o.id))
-    return packagingItemsToOrders(summaries, plan)
-  }, [isPackagingScope])
+    const mine = plan.filter(item => item.materialWarehouseCode === scope)
+    if (mine.length === 0) return []
+    return packagingItemsToOrders(summaries, mine)
+  }, [scope])
 
   // Danh sách đơn hàng bán + số lượng còn phải xuất thật — thay MOCK cho scope 'thanh-pham'.
   const { data: shipOrders, error: shipOrdersError, refetch: refetchShipOrders } = useFetch<Order[]>(async () => {
@@ -256,24 +277,20 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   // useFetch nuốt lỗi vào state `error` riêng, không throw ra ngoài — trước đây không màn nào đọc
   // field này nên 1 lỗi BE (vd ConflictException của getPieceTransferPlan) khiến danh sách chỉ
   // hiện trắng trơn "Không có lệnh xuất nào đang chờ xử lý" mà không có gợi ý gì (Critical C2).
-  const activeListError = isPieceScope ? pieceOrdersError : isPackagingScope ? packagingOrdersError : isShipScope ? shipOrdersError : null
+  // packagingOrdersError giờ luôn có thể liên quan (không còn gán theo 1 scope cố định).
+  const activeListError = pieceOrdersError ?? packagingOrdersError ?? (isShipScope ? shipOrdersError : null)
 
-  // Merge dữ liệu vừa fetch vào state cục bộ, giữ nguyên inputQty đang gõ dở của từng dòng (cùng
-  // idiom TwoTierScreen ở components/sanxuat/core.tsx - merge đè lên overlay cục bộ khi refetch).
+  // Gộp CẢ 3 nguồn vào 1 state duy nhất trong CÙNG 1 effect (2026-09-04) - trước đây 3 effect
+  // riêng, mỗi cái tự setOrders() ĐÈ TOÀN BỘ state bằng đúng slice của mình (mergeInputQty trả về
+  // đúng độ dài của next, không cộng dồn với prev) - an toàn khi 3 cờ isXScope loại trừ lẫn nhau
+  // (chỉ đúng 1 effect thật sự chạy), nhưng từ khi packaging không còn loại trừ theo gia đình nữa,
+  // 1 trang có thể có CẢ packagingOrders LẪN shipOrders cùng lúc - 2 effect cũ sẽ đua nhau ghi đè,
+  // effect nào chạy sau cùng "thắng" và xoá mất dữ liệu của effect kia. Gộp lại + giữ nguyên inputQty
+  // đang gõ dở (cùng idiom TwoTierScreen ở components/sanxuat/core.tsx).
   useEffect(() => {
-    if (!isPieceScope) return
-    setOrders(prev => mergeInputQty(prev, pieceOrders ?? []))
-  }, [pieceOrders, isPieceScope])
-
-  useEffect(() => {
-    if (!isPackagingScope) return
-    setOrders(prev => mergeInputQty(prev, packagingOrders ?? []))
-  }, [packagingOrders, isPackagingScope])
-
-  useEffect(() => {
-    if (!isShipScope) return
-    setOrders(prev => mergeInputQty(prev, shipOrders ?? []))
-  }, [shipOrders, isShipScope])
+    const next = [...(pieceOrders ?? []), ...(packagingOrders ?? []), ...(shipOrders ?? [])]
+    setOrders(prev => mergeInputQty(prev, next))
+  }, [pieceOrders, packagingOrders, shipOrders])
 
   const [transferBusyLine, setTransferBusyLine] = useState<string | null>(null)
   const [transferErrors, setTransferErrors] = useState<Record<string, string>>({})
@@ -293,7 +310,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
     // đã được BE tự clamp theo kế hoạch (đã qua KCS trừ đã chuyển trước đó) tại thời điểm tạo.
     // Kho đích là kho vat-tu-tp Thủ kho đã chọn ở dropdown (pieceDestWh) - không còn tự động theo
     // 1 cặp cố định (2026-09-03).
-    if (isPieceScope && myWarehouse && pieceDestWh) {
+    if (order.kind === 'piece' && myWarehouse && pieceDestWh) {
       setTransferBusyLine(lineId)
       setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
       try {
@@ -316,10 +333,12 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
       return
     }
 
-    // Chặng vat-tu-tp: xuất vật tư đóng gói thật (packaging-issues), ghi StockLedger ngay - đặt
-    // TRƯỚC nhánh isInternalChain chung bên dưới vì scope này cũng thoả canSendFrom (đúng kho thật
+    // Xuất vật tư đóng gói thật (packaging-issues), ghi StockLedger ngay - đặt TRƯỚC nhánh
+    // isInternalChain chung bên dưới vì scope 'vat-tu-tp' cũng thoả canSendFrom (đúng kho thật
     // trong TRANSFER_ROUTES) nên phải chặn sớm, không rơi xuống createWarehouseTransfer generic cũ.
-    if (isPackagingScope) {
+    // Dispatch theo order.kind (2026-09-04), KHÔNG còn theo cờ scope cả trang - đơn packaging có
+    // thể lẫn với đơn ship/piece khác trên CÙNG 1 trang (xem comment PACKAGING_SCOPE cũ).
+    if (order.kind === 'packaging') {
       setTransferBusyLine(lineId)
       setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
       try {
@@ -340,7 +359,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
 
     // Kho thành phẩm: "Xác nhận" = ship thật cho đơn hàng (cộng dồn shippedQty), không qua
     // warehouse-transfers vì đây là điểm cuối chuỗi, xuất thẳng cho khách ngoài.
-    if (isShipScope) {
+    if (order.kind === 'ship') {
       setTransferBusyLine(lineId)
       setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
       try {
@@ -445,11 +464,13 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
           <span style={{ ...badge, fontSize: 12, padding: '4px 14px', alignSelf: 'center', color: cfg.color, background: cfg.bg }}>{cfg.label}</span>
         </div>
 
-        {/* vat-tu-tp (packaging-issues): KHÔNG qua warehouse-transfers PENDING/CONFIRMED như 2 chặng
-            còn lại - ghi StockLedger ngay lúc xác nhận (xem confirmLine, nhánh isPackagingScope) -
+        {/* packaging-issues: KHÔNG qua warehouse-transfers PENDING/CONFIRMED như 2 chặng còn lại -
+            ghi StockLedger ngay lúc xác nhận (xem confirmLine, nhánh order.kind === 'packaging') -
             phát hiện qua browser thật 2026-08-19: banner cũ dùng chung isInternalChain nói sai
-            "chờ kho nhận xác nhận" cho chặng này dù tồn kho đã đổi ngay lập tức. */}
-        {isPackagingScope && (
+            "chờ kho nhận xác nhận" cho chặng này dù tồn kho đã đổi ngay lập tức. Dispatch theo
+            selected.kind (2026-09-04) - không còn theo cờ scope cả trang, vì 1 trang giờ có thể
+            vừa có đơn packaging vừa có đơn khác (vd ship) cùng lúc. */}
+        {selected.kind === 'packaging' && (
           <div style={{ marginBottom: 14, padding: '8px 14px', background: '#ede7f6', border: '1px solid #d1c4e9', borderRadius: 8, fontSize: 12, color: '#4527a0' }}>
             Bấm &quot;Xác nhận&quot; sẽ ghi nhận đã xuất vật tư đóng gói cho <strong>Kho Thành phẩm</strong> ngay lập tức.
           </div>
@@ -458,7 +479,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
             định nghiệp vụ 2026-09-03 - không còn tự động theo 1 cặp cố định như trước, để hỗ trợ
             nhiều kho vat-tu-tp song song). Chỉ hiện dropdown khi có từ 2 lựa chọn trở lên - 1 kho
             duy nhất thì tự chọn sẵn, không cần hỏi. */}
-        {isPieceScope && (
+        {selected.kind === 'piece' && (
           <div style={{ marginBottom: 14, padding: '8px 14px', background: '#ede7f6', border: '1px solid #d1c4e9', borderRadius: 8, fontSize: 12, color: '#4527a0', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span>Bấm &quot;Xác nhận&quot; sẽ tạo phiếu chuyển kho nội bộ sang kho vật tư thành phẩm bên dưới — tồn kho chỉ cập nhật sau khi kho nhận xác nhận.</span>
             {pieceDestOptions.length > 1 ? (
@@ -476,7 +497,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
             )}
           </div>
         )}
-        {isInternalChain && nextHopWh && !isPackagingScope && !isPieceScope && (
+        {isInternalChain && nextHopWh && selected.kind !== 'packaging' && selected.kind !== 'piece' && (
           <div style={{ marginBottom: 14, padding: '8px 14px', background: '#ede7f6', border: '1px solid #d1c4e9', borderRadius: 8, fontSize: 12, color: '#4527a0' }}>
             Bấm &quot;Xác nhận&quot; sẽ tạo phiếu chuyển kho nội bộ sang <strong>{nextHopWh.name}</strong> — tồn kho chỉ cập nhật sau khi kho nhận xác nhận.
           </div>
@@ -490,11 +511,11 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
             </colgroup>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                <th style={th}>{isPieceScope ? 'Mảnh / Vật tư TP' : 'Vật tư'}</th>
-                <th style={th}>{isPieceScope ? 'Loại' : 'ĐVT'}</th>
-                <th style={{ ...th, textAlign: 'right' }}>{isPieceScope ? 'Đã qua KCS' : 'Kế hoạch'}</th>
-                <th style={{ ...th, textAlign: 'right' }}>{isPieceScope ? 'Có thể chuyển' : 'Thực có'}</th>
-                <th style={{ ...th, textAlign: 'right' }}>{isPieceScope ? 'Đã chuyển' : 'Đã xuất'}</th>
+                <th style={th}>{selected.kind === 'piece' ? 'Mảnh / Vật tư TP' : 'Vật tư'}</th>
+                <th style={th}>{selected.kind === 'piece' ? 'Loại' : 'ĐVT'}</th>
+                <th style={{ ...th, textAlign: 'right' }}>{selected.kind === 'piece' ? 'Đã qua KCS' : 'Kế hoạch'}</th>
+                <th style={{ ...th, textAlign: 'right' }}>{selected.kind === 'piece' ? 'Có thể chuyển' : 'Thực có'}</th>
+                <th style={{ ...th, textAlign: 'right' }}>{selected.kind === 'piece' ? 'Đã chuyển' : 'Đã xuất'}</th>
                 <th style={{ ...th, textAlign: 'right' }}>Còn lại</th>
                 <th style={th}>Xuất</th>
               </tr>
@@ -529,7 +550,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                       {done ? (
                         <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>Đã xong</span>
                       ) : noStock ? (
-                        <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>{isPieceScope ? 'Chưa có hàng' : 'Hết hàng'}</span>
+                        <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>{selected.kind === 'piece' ? 'Chưa có hàng' : 'Hết hàng'}</span>
                       ) : (
                         <div>
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
