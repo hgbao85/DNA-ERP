@@ -63,7 +63,11 @@ const toManh = (r: ManhRow): Manh => ({
   id: r.id, tenManh: r.name, soLuong: r.qtyPerSku ?? '1',
   needsHan: r.needsHan ?? true, needsSon: r.needsSon ?? true,
   children: r.children.map(c => ({
-    id: c.id, group: c.group, materialId: Number(c.materialId) || 0, loaiSatName: c.name,
+    // KHÔNG Number(c.materialId): id BE là bigint-as-string, khai `number` chỉ để khớp interface
+    // cũ (xem comment đầu materials-api.ts) - ép qua Number() biến "5" thành 5 thật, làm
+    // startEditChild() không bao giờ khớp lại được với materials[].id (vẫn là chuỗi "5"), ô chọn
+    // vật tư trống trơn và nút Lưu khoá cứng mỗi khi sửa dòng đã lưu. Giữ nguyên giá trị gốc.
+    id: c.id, group: c.group, materialId: (c.materialId ?? '') as unknown as number, loaiSatName: c.name,
     specs: c.specs ?? '', cutLengthMm: c.length ?? '', soLuong: c.qty ?? '', note: c.note ?? '', unit: c.unit ?? '',
     processSteps: c.processSteps ?? [], piecesPerBar: c.piecesPerBar ?? '',
   })),
@@ -75,7 +79,7 @@ const toManhRow = (m: Manh): ManhRow => ({
     id: c.id, group: c.group, materialId: String(c.materialId), name: c.loaiSatName,
     specs: c.specs || undefined, length: c.cutLengthMm || undefined, qty: c.soLuong || undefined,
     note: c.note || undefined, unit: c.unit || undefined,
-    processSteps: c.group === 'sat' && c.processSteps.length > 0 ? c.processSteps : undefined,
+    processSteps: (c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.length > 0 ? c.processSteps : undefined,
     piecesPerBar: c.group === 'vatTuTP' ? c.piecesPerBar || undefined : undefined,
   })),
 })
@@ -228,7 +232,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
         soLuong: childSoLuong,
         note: childNote.trim(),
         unit: childMaterial.unit,
-        processSteps: childGroup === 'sat' ? childProcessSteps : [],
+        processSteps: (childGroup === 'sat' || childGroup === 'vatTuTP') ? childProcessSteps : [],
         piecesPerBar: childGroup === 'vatTuTP' ? childPiecesPerBar : '',
       }
       if (editing) {
@@ -545,7 +549,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                               {c.group === 'sat' ? (c.cutLengthMm || '—') : c.group === 'vatTuTP' ? (c.piecesPerBar || '—') : '—'}
                             </td>
                             <td style={{ padding: '9px 14px' }}>
-                              {c.group === 'sat' && c.processSteps.length > 0 ? (
+                              {(c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.length > 0 ? (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                                   {c.processSteps.map(step => (
                                     <span key={step} style={{ fontSize: 11, fontWeight: 600, color: '#5e35b1', background: '#ede7f6', borderRadius: 4, padding: '2px 6px', whiteSpace: 'nowrap' }}>
@@ -629,7 +633,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                             style={inputStyle} />
                         </div>
                       )}
-                      {childGroup === 'sat' && (
+                      {(childGroup === 'sat' || childGroup === 'vatTuTP') && (
                         <div>
                           <FL>Công đoạn phôi</FL>
                           <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>

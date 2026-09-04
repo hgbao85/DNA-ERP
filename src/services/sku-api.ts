@@ -87,6 +87,7 @@ interface BePieceMaterialYieldLine {
   /** Số vật tư thành phẩm cần dùng cho 1 piece (mảnh) này - vd 1 "pat" gồm 3 miếng sắt lá. Độc
    *  lập với piecesPerBar (đó là tỷ lệ cắt cho Mua hàng, đây là tỷ lệ lắp ráp cho Sản xuất). */
   qtyPerPiece: number;
+  processSteps: ProcessStep[];
 }
 interface BePiece {
   id: number;
@@ -183,6 +184,7 @@ function toManhRow(p: BePiece): ManhRow {
     piecesPerBar: String(y.piecesPerBar),
     qty: String(y.qtyPerPiece),
     unit: y.materialUnit,
+    processSteps: y.processSteps ?? [],
   }));
   return {
     id: p.id,
@@ -339,6 +341,7 @@ export async function updateSkuManhQuota(
           materialId: String(c.materialId ?? ''),
           piecesPerBar: Number(c.piecesPerBar) || 0,
           qtyPerPiece: Number(c.qty) || 1,
+          processSteps: c.processSteps ?? [],
         })),
     })),
     enteredBy,

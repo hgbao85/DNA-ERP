@@ -121,10 +121,15 @@ export { getTransferCheckPieces, getTransferCheckPiecesBatch, recordTransferChec
 export { getPackaging, getPackagingBatch, recordPackaging } from './packaging-api';
 export { getWeavingIssuePlan, getWeavingIssuePlanBatch, issueWeaving, receiveWeaving, getWeavingByPoint } from './weaving-issues-api';
 export { getMaterialIssuePlan, getMaterialIssuesByStage, issueMaterial, receiveMaterialIssue } from './material-issues-api';
+export {
+  getMaterialYieldIssuePlan, getMaterialYieldIssuesForOrder, getMaterialYieldIssuesByStatus,
+  issueMaterialYield, receiveMaterialYieldIssue,
+} from './material-yield-issues-api';
 export { getPackagingIssuePlan, issuePackaging } from './packaging-issues-api';
 export {
   getProductionBatchesByStage, reviewProductionBatch,
   listProductionOrdersForStage, getProductionBatchPlan, getProductionBatchPlanBatch, reportProductionBatch,
+  recordPieceStepBatch,
   startProductionOrderFloor, pauseProductionOrderFloor, finishProductionOrderFloor,
 } from './production-batches-api';
 export {

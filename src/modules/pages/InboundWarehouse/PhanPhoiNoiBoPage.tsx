@@ -1,28 +1,32 @@
 'use client'
 
 /**
- * Phân phối nội bộ (kho Phôi–Sơn–Hàn) — kho cấp vật tư cho từng tổ. 3 subtab:
+ * Phân phối nội bộ (kho Phôi–Sơn–Hàn) — kho cấp vật tư cho từng tổ. 4 subtab:
  *   1. Xuất sắt trong phôi  — cấp cây sắt cho Phôi (màn cũ XuatSatPage, nhúng).
- *   2. Xuất vật tư hàn      — vật tư tiêu hao cho Hàn (khí CO2, dây hàn, đá cắt…).
- *   3. Xuất vật tư sơn      — vật tư tiêu hao cho Sơn (bột sơn, dung môi, băng keo…).
+ *   2. Xuất vật tư TP       — Sắt La (→ Pat) / Thanh nhôm (→ chân nhôm) cho Phôi (thêm 2026-09-04).
+ *   3. Xuất vật tư hàn      — vật tư tiêu hao cho Hàn (khí CO2, dây hàn, đá cắt…).
+ *   4. Xuất vật tư sơn      — vật tư tiêu hao cho Sơn (bột sơn, dung môi, băng keo…).
  *
- * Sắt = WIP có luồng cắt/đồng bộ riêng; vật tư hàn/sơn = tiêu hao (đơn vị bình/kg/lít…),
- * dùng chung component XuatVatTuTieuHaoPage — nối BE thật (module material-issues) từ 2026-08-12,
- * xem material-issues-api.ts.
+ * Sắt = WIP có luồng cắt/đồng bộ riêng; vật tư TP = xuất tự do theo PieceMaterialYield (không qua
+ * duyệt phương án như Sắt, xem XuatVatTuThanhPhamPage.tsx); vật tư hàn/sơn = tiêu hao (đơn vị
+ * bình/kg/lít…), dùng chung component XuatVatTuTieuHaoPage — nối BE thật (module material-issues)
+ * từ 2026-08-12, xem material-issues-api.ts.
  */
 
 import { useState } from 'react'
-import { Share2, Scissors, Flame, SprayCan } from 'lucide-react'
+import { Share2, Scissors, Wrench, Flame, SprayCan } from 'lucide-react'
 import XuatSatPage from './XuatSatPage'
+import XuatVatTuThanhPhamPage from './XuatVatTuThanhPhamPage'
 import XuatVatTuTieuHaoPage from './XuatVatTuTieuHaoPage'
 
 const ACCENT = '#4527A0'
 const ACCENT_BG = '#EDE7F6'
 
-type Sub = 'sat' | 'han' | 'son'
+type Sub = 'sat' | 'vat-tu-tp' | 'han' | 'son'
 
 const SUBS: { id: Sub; label: string; icon: React.ReactNode }[] = [
   { id: 'sat', label: 'Xuất sắt trong phôi', icon: <Scissors size={15} /> },
+  { id: 'vat-tu-tp', label: 'Xuất vật tư TP', icon: <Wrench size={15} /> },
   { id: 'han', label: 'Xuất vật tư hàn',     icon: <Flame size={15} /> },
   { id: 'son', label: 'Xuất vật tư sơn',     icon: <SprayCan size={15} /> },
 ]
@@ -57,6 +61,7 @@ export default function PhanPhoiNoiBoPage() {
       </div>
 
       {sub === 'sat' && <XuatSatPage embedded />}
+      {sub === 'vat-tu-tp' && <XuatVatTuThanhPhamPage />}
       {sub === 'han' && <XuatVatTuTieuHaoPage stage="HAN"
         desc="Vật tư tiêu hao cấp cho Tổ Hàn theo lệnh sản xuất (khí CO₂, dây hàn, đá cắt…). Bấm Xuất → tổ Hàn xác nhận nhận." />}
       {sub === 'son' && <XuatVatTuTieuHaoPage stage="SON"
