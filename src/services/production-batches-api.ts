@@ -17,6 +17,7 @@
  *  - Báo sản lượng (LenhSanXuatHan/Son, đợt 2): dùng getProductionBatchPlan()/reportProductionBatch().
  */
 import { http, withIdempotencyKey } from './core/http';
+import type { ProcessStep } from '../types/sku';
 
 /** PHOI ở đây là "Phôi tự báo cắt xong vật tư thành phẩm" (needsHan=false, vd chân nhôm - cắt
  *  xong là hết, không hàn) - thêm 21/08/2026, khác hẳn công đoạn cắt sắt cho mảnh needsHan=true
@@ -115,6 +116,14 @@ export async function finishProductionOrderFloor(productionOrderId: string): Pro
   return http.post<BeProductionOrderSummary>(`/production-orders/${productionOrderId}/floor-finish`);
 }
 
+/** Tiến độ 1 công đoạn (Cắt/Uốn/...) cho 1 mảnh vật tư thành phẩm - required LUÔN = plannedQty
+ *  (mọi mảnh đều phải qua từng bước đã khai), done = Σ đã báo qua recordPieceStepBatch(). */
+export interface BePieceStepProgress {
+  step: ProcessStep;
+  requiredQty: number;
+  doneQty: number;
+}
+
 export interface BeProductionBatchPlanItem {
   pieceId: string;
   pieceCode: string;
@@ -126,6 +135,14 @@ export interface BeProductionBatchPlanItem {
    *  nguyên liệu thô (vd thanh nhôm) hiện có tại kho, để cảnh báo "còn X cây chưa cắt hết"
    *  (chỉ hiển thị, không chặn - quyết định nghiệp vụ 2026-08-22). Null cho mọi trường hợp khác. */
   rawMaterialOnHand: number | null;
+  /** PieceMaterialYield.processSteps (2026-09-04) - ĐÃ chuẩn hoá thứ tự nghiệp vụ ở BE. Mảng rỗng
+   *  cho stage khác PHOI, hoặc mảnh chưa khai công đoạn nào (giữ nguyên luồng báo thẳng cũ). */
+  processSteps: ProcessStep[];
+  /** Rỗng khi processSteps rỗng - xem BePieceStepProgress. */
+  stepProgress: BePieceStepProgress[];
+  /** PieceMaterialYield.qtyPerPiece - chỉ để hiện phụ chú "= N miếng" đối chiếu, KHÔNG dùng để
+   *  tính required/done (đơn vị báo cáo luôn là MẢNH). Null khi mảnh không có PieceMaterialYield. */
+  qtyPerPiece: number | null;
 }
 
 export interface BeProductionBatchPlan {
@@ -166,6 +183,19 @@ export async function reportProductionBatch(
 ): Promise<void> {
   await http.post(
     `/production-orders/${productionOrderId}/production-batches`,
+    data,
+    withIdempotencyKey(),
+  );
+}
+
+/** Phôi báo "vừa {step} xong N mảnh" cho vật tư thành phẩm có PieceMaterialYield.processSteps -
+ *  trước khi chốt lô thật qua reportProductionBatch() để gửi KCS (xem VatTuTpDetail.tsx). */
+export async function recordPieceStepBatch(
+  productionOrderId: string,
+  data: { stage: ProductionBatchStage; pieceId: string; step: ProcessStep; qty: number },
+): Promise<void> {
+  await http.post(
+    `/production-orders/${productionOrderId}/piece-step-batches`,
     data,
     withIdempotencyKey(),
   );

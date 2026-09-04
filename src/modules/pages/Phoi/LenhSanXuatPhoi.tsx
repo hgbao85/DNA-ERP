@@ -61,32 +61,25 @@ import * as api from '../../../services/api'
 import type {
   BeSteelIssue, BeQcReview, BePhoiProgressItem, BeCutBundle, BePiOrderSummary,
 } from '../../../services/steel-issues-api'
+import type { BeProductionOrderSummary, BeProductionBatchPlan } from '../../../services/production-batches-api'
 import type { ProcessStep } from '../../../types/sku'
 import { PROCESS_STEPS, PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
+import VatTuTpDetail, { type VatTuTpItem } from './VatTuTpDetail'
+import {
+  ACCENT, GREEN, RED, AMBER, PURPLE, th, thR, td, tdR, card, smallBtn, inp, subFilterBtn,
+} from './phoiStyles'
 
-const ACCENT = '#e65100'
-const GREEN = '#16a34a'
-const RED = '#c62828'
-const AMBER = '#d97706'
-const PURPLE = '#7b1fa2'
-const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
-const thR: React.CSSProperties = { ...th, textAlign: 'right' }
-const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13, verticalAlign: 'middle' }
-const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
-const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
-const smallBtn: React.CSSProperties = { padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer' }
-const inp: React.CSSProperties = { width: 72, padding: '5px 7px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }
-const subFilterBtn = (active: boolean): React.CSSProperties => ({
-  display: 'inline-flex', alignItems: 'center', padding: '6px 12px', fontSize: 12.5, fontWeight: 600,
-  border: '1px solid ' + (active ? ACCENT : 'var(--border)'), borderRadius: 20, cursor: 'pointer',
-  background: active ? 'var(--accent-bg, #fff3e8)' : 'var(--surface)', color: active ? ACCENT : 'var(--text2)',
-})
+interface PiAgg {
+  productionInvoiceId: string; poNumber: string; issues: BeSteelIssue[]
+  totalIssued: number; totalPassed: number; totalAwaiting: number
+  /** Vật tư thành phẩm (PieceMaterialYield, vd Pat/chân nhôm) của PI này - danh sách PHẲNG, mỗi
+   *  (order, piece) 1 item (2026-09-04, gộp màn - trước đây ở tab riêng "Vật tư thành phẩm"). */
+  vatTuTpItems: VatTuTpItem[]
+}
 
-interface PiAgg { productionInvoiceId: string; poNumber: string; issues: BeSteelIssue[]; totalIssued: number; totalPassed: number; totalAwaiting: number }
-
-function buildPiRows(issues: BeSteelIssue[]): PiAgg[] {
+function buildPiRows(issues: BeSteelIssue[], vatTuTpByPi: Map<string, VatTuTpItem[]>): PiAgg[] {
   // Gom theo productionInvoiceId (luôn duy nhất) chứ KHÔNG theo mã hiển thị salesOrderCode -
   // nhiều lệnh SX có thể cùng chung 1 mã Sales (nhiều SKU/đơn) hoặc cùng null.
   const byPi = new Map<string, BeSteelIssue[]>()
@@ -95,8 +88,14 @@ function buildPiRows(issues: BeSteelIssue[]): PiAgg[] {
     if (!byPi.has(i.productionInvoiceId)) { byPi.set(i.productionInvoiceId, []); order.push(i.productionInvoiceId) }
     byPi.get(i.productionInvoiceId)!.push(i)
   }
+  // PI có thể CHỈ có vật tư thành phẩm (mảnh needsHan=false không cần sắt) - chưa từng xuất hiện
+  // trong `issues` thì vẫn phải thêm vào danh sách, không được bỏ sót.
+  for (const piId of vatTuTpByPi.keys()) {
+    if (!byPi.has(piId)) { byPi.set(piId, []); order.push(piId) }
+  }
   return order.map(productionInvoiceId => {
     const list = byPi.get(productionInvoiceId)!
+    const vatTuTpItems = vatTuTpByPi.get(productionInvoiceId) ?? []
     const awaiting = list.reduce((s, i) => {
       if (i.status === 'ISSUED' || i.status === 'RECEIVED') return s + i.barCount
       if (i.status === 'IN_PROCESS' || i.status === 'AWAITING_QC') return s + (i.actualBarCount ?? i.barCount)
@@ -108,9 +107,11 @@ function buildPiRows(issues: BeSteelIssue[]): PiAgg[] {
     const passed = list.filter(i => i.status === 'QC_PASSED')
       .reduce((s, i) => s + (i.actualBarCount ?? i.barCount), 0)
     return {
-      productionInvoiceId, poNumber: list[0].salesOrderCode ?? list[0].piCode, issues: list,
+      productionInvoiceId,
+      poNumber: list[0]?.salesOrderCode ?? list[0]?.piCode ?? vatTuTpItems[0]?.poNumber ?? productionInvoiceId,
+      issues: list,
       totalIssued: list.reduce((s, i) => s + i.barCount, 0),
-      totalPassed: passed, totalAwaiting: awaiting,
+      totalPassed: passed, totalAwaiting: awaiting, vatTuTpItems,
     }
   })
 }
@@ -125,10 +126,42 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
   // chung theo PI, không tách theo SKU).
   const { data: issues, isLoading, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(undefined, true), [])
   const { data: reviews, refetch: refetchReviews } = useFetch<BeQcReview[]>(() => api.getQcReviewsForSteelIssues(), [])
+  // Vật tư thành phẩm (2026-09-04, gộp màn - trước đây tab riêng "Vật tư thành phẩm", xem
+  // VatTuTpDetail.tsx). listProductionOrdersForStage() trả MỌI order active (dùng chung Hàn/Sơn/
+  // Phôi, không lọc theo needsHan) - lọc còn lại dựa vào plan.items rỗng hay không bên dưới.
+  const { data: vatTuTpOrders, refetch: refetchVatTuTpOrders } = useFetch<BeProductionOrderSummary[]>(
+    () => api.listProductionOrdersForStage(), [],
+  )
+  const orderIds = useMemo(() => (vatTuTpOrders ?? []).map(o => o.id), [vatTuTpOrders])
+  const orderIdsKey = orderIds.join(',')
+  const { data: vatTuTpPlans, refetch: refetchVatTuTpPlans } = useFetch<Record<string, BeProductionBatchPlan>>(
+    () => orderIds.length === 0 ? Promise.resolve({}) : api.getProductionBatchPlanBatch(orderIds, 'PHOI'),
+    [orderIdsKey],
+  )
+  const vatTuTpByPi = useMemo(() => {
+    const m = new Map<string, VatTuTpItem[]>()
+    if (!vatTuTpOrders || !vatTuTpPlans) return m
+    for (const o of vatTuTpOrders) {
+      const plan = vatTuTpPlans[o.id]
+      if (!plan || plan.items.length === 0) continue
+      const arr = m.get(o.productionInvoiceId) ?? []
+      for (const item of plan.items) {
+        arr.push({
+          orderId: o.id, poNumber: plan.salesOrderCode ?? o.piCode, productName: plan.productName,
+          pieceId: item.pieceId, pieceCode: item.pieceCode, pieceName: item.pieceName,
+          plannedQty: item.plannedQty, awaitingQcQty: item.awaitingQcQty, passedQty: item.passedQty,
+          rawMaterialOnHand: item.rawMaterialOnHand, processSteps: item.processSteps,
+          stepProgress: item.stepProgress, qtyPerPiece: item.qtyPerPiece,
+        })
+      }
+      m.set(o.productionInvoiceId, arr)
+    }
+    return m
+  }, [vatTuTpOrders, vatTuTpPlans])
   const [selPi, setSelPi] = useState<string | null>(null)
 
-  const piRows = useMemo(() => buildPiRows(issues ?? []), [issues])
-  const refetchAll = () => { refetch(); refetchReviews() }
+  const piRows = useMemo(() => buildPiRows(issues ?? [], vatTuTpByPi), [issues, vatTuTpByPi])
+  const refetchAll = () => { refetch(); refetchReviews(); refetchVatTuTpOrders(); refetchVatTuTpPlans() }
 
   if (isLoading || !issues) return <LoadingState />
 
@@ -146,7 +179,7 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
         <Wrench size={20} /> Lệnh sản xuất — Công đoạn Phôi
       </h2>
       <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>
-        Theo dõi tiến độ cắt sắt theo PO/PI — bấm để báo cắt xong / đánh dấu công đoạn theo từng đợt. Xác nhận nhận sắt làm ở <b>Xác nhận nhận sắt</b>.
+        Theo dõi tiến độ cắt sắt + vật tư thành phẩm theo PO/PI — bấm để báo cắt xong / đánh dấu công đoạn theo từng đợt. Xác nhận nhận sắt làm ở <b>Xác nhận nhận sắt</b>.
       </div>
 
       <div style={card}>
@@ -157,27 +190,43 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
               <th style={thR}>Đã xuất (cây)</th>
               <th style={thR}>Đang xử lý</th>
               <th style={thR}>Đã phôi</th>
+              <th style={thR}>Vật tư TP</th>
               <th style={{ ...th, width: 40 }}></th>
             </tr>
           </thead>
           <tbody>
-            {piRows.map(r => (
-              <tr key={r.productionInvoiceId} onClick={() => setSelPi(r.productionInvoiceId)} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{r.poNumber}</td>
-                <td style={{ ...tdR, fontWeight: 700 }}>{r.totalIssued}</td>
-                <td style={tdR}>
-                  {r.totalAwaiting > 0
-                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#d97706', fontWeight: 600 }}><Clock size={12} /> {r.totalAwaiting}</span>
-                    : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a' }}><Check size={12} /> xong</span>}
-                </td>
-                <td style={{ ...tdR, color: '#16a34a', fontWeight: 700 }}>{r.totalPassed}</td>
-                <td style={{ ...td, textAlign: 'center', color: 'var(--text3)' }}><ChevronRight size={16} /></td>
-              </tr>
-            ))}
+            {piRows.map(r => {
+              // Đơn vị khác hẳn Sắt (mảnh, không phải cây) - không cộng chung vào cột nào ở trên -
+              // chỉ đếm bao nhiêu mảnh ĐÃ báo đủ (passed+awaiting >= planned) trên tổng số mảnh,
+              // hiện dạng "đã xong X/Y" (thay vì "còn thiếu X/Y" - dễ đọc hơn: số tăng dần theo
+              // tiến độ, khớp trực giác thanh "Đã cắt"/"Đã phôi" cùng hàng đều đếm phần ĐÃ LÀM).
+              const vatTuTpDoneCount = r.vatTuTpItems.filter(v => v.passedQty + v.awaitingQcQty >= v.plannedQty).length
+              const vatTuTpPending = r.vatTuTpItems.length - vatTuTpDoneCount
+              return (
+                <tr key={r.productionInvoiceId} onClick={() => setSelPi(r.productionInvoiceId)} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                  <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{r.poNumber}</td>
+                  <td style={{ ...tdR, fontWeight: 700 }}>{r.issues.length > 0 ? r.totalIssued : '—'}</td>
+                  <td style={tdR}>
+                    {r.issues.length === 0 ? <span style={{ color: 'var(--text3)' }}>—</span>
+                      : r.totalAwaiting > 0
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#d97706', fontWeight: 600 }}><Clock size={12} /> {r.totalAwaiting}</span>
+                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a' }}><Check size={12} /> xong</span>}
+                  </td>
+                  <td style={{ ...tdR, color: r.issues.length > 0 ? '#16a34a' : 'var(--text3)', fontWeight: r.issues.length > 0 ? 700 : 400 }}>{r.issues.length > 0 ? r.totalPassed : '—'}</td>
+                  <td style={tdR}>
+                    {r.vatTuTpItems.length === 0 ? <span style={{ color: 'var(--text3)' }}>—</span>
+                      : vatTuTpPending > 0
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: PURPLE, fontWeight: 600 }}><Wrench size={12} /> đã xong {vatTuTpDoneCount}/{r.vatTuTpItems.length}</span>
+                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a' }}><Check size={12} /> xong ({r.vatTuTpItems.length})</span>}
+                  </td>
+                  <td style={{ ...td, textAlign: 'center', color: 'var(--text3)' }}><ChevronRight size={16} /></td>
+                </tr>
+              )
+            })}
             {piRows.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
+              <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} /> Chưa có PI nào được xuất sắt</span>
               </td></tr>
             )}
@@ -200,6 +249,9 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
   // pattern PI list → PiDetail đã có, chỉ thêm 1 tầng: PiDetail (danh sách loại sắt) → IssueDetail
   // (nội dung 1 loại sắt, độc lập hoàn toàn với các loại khác).
   const [selIssueId, setSelIssueId] = useState<string | null>(null)
+  // Vật tư thành phẩm (2026-09-04, gộp màn) - key `${orderId}:${pieceId}` vì 2 SKU khác nhau trong
+  // cùng PI có thể cùng dùng 1 pieceId trùng tên (vd cùng "Pat"), phải phân biệt theo cả order.
+  const [selVatTuTpKey, setSelVatTuTpKey] = useState<string | null>(null)
   // Công đoạn chi tiết SAU Cắt đọc từ StepBatchSegment (getStepProgress/recordStepBatch) - tải
   // tiến độ MỌI công đoạn active 1 lần ở đây (không phải theo tab, xem IssueDetail) để mỗi đợt
   // sắt tự tra đúng (vật tư, bước) của nó khi mở màn chi tiết riêng.
@@ -272,6 +324,18 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
         key={selIssue.id} issue={selIssue} readOnly={readOnly} review={reviewByIssue.get(selIssue.id)}
         progressByMaterial={progressByMaterial} getStepProgressItem={getStepProgressItem}
         onBack={() => setSelIssueId(null)} onRefetch={refetchAll} onOpenCuttingGuide={onOpenCuttingGuide}
+      />
+    )
+  }
+
+  const selVatTuTp = selVatTuTpKey
+    ? pi.vatTuTpItems.find(v => `${v.orderId}:${v.pieceId}` === selVatTuTpKey) ?? null
+    : null
+  if (selVatTuTp) {
+    return (
+      <VatTuTpDetail
+        key={selVatTuTpKey} item={selVatTuTp} readOnly={readOnly}
+        onBack={() => setSelVatTuTpKey(null)} onRefetch={refetchAll}
       />
     )
   }
@@ -375,6 +439,58 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
           <div style={{ ...card, padding: 24, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Chưa có đợt sắt nào</div>
         )}
       </div>
+
+      {/* Vật tư thành phẩm (2026-09-04, gộp màn - trước đây tab riêng "Vật tư thành phẩm") - danh
+          sách PHẲNG, mỗi (order, piece) 1 item (khác Sắt gộp theo cả PI) - xem VatTuTpItem. */}
+      {pi.vatTuTpItems.length > 0 && (
+        <div style={{ marginTop: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Wrench size={14} /> Vật tư thành phẩm
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {pi.vatTuTpItems.map(v => {
+              const key = `${v.orderId}:${v.pieceId}`
+              const done = v.passedQty + v.awaitingQcQty >= v.plannedQty
+              const undoneSteps = v.processSteps.filter(step => {
+                const p = v.stepProgress.find(sp => sp.step === step)
+                return !p || p.doneQty < p.requiredQty
+              })
+              return (
+                <div key={key} onClick={() => setSelVatTuTpKey(key)} style={{ ...card, cursor: 'pointer' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px' }}>
+                    <ChevronRight size={15} color="var(--text3)" />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{v.pieceName}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text3)' }}>
+                        {v.poNumber} · Cần {v.plannedQty} mảnh{v.qtyPerPiece != null && v.qtyPerPiece > 1 ? ` (= ${v.plannedQty * v.qtyPerPiece} miếng)` : ''}
+                      </div>
+                    </div>
+                    {v.processSteps.length === 0 ? (
+                      done
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đã phôi</span>
+                        : <span style={{ fontSize: 12, color: ACCENT, fontWeight: 600 }}>chưa khai công đoạn</span>
+                    ) : done ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đã phôi</span>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 260 }}>
+                        {undoneSteps.length === 0 ? (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ chốt</span>
+                        ) : undoneSteps.map(step => (
+                          <span key={step} style={{ fontSize: 11, fontWeight: 700, color: PURPLE, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+                            {PROCESS_STEP_LABELS[step]}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

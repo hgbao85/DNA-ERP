@@ -921,7 +921,7 @@ function ManhPiecesSection({
                           {c.group === 'sat' ? (c.length || '—') : c.group === 'vatTuTP' ? (c.piecesPerBar || '—') : '—'}
                         </td>
                         <td style={{ padding: '9px 14px' }}>
-                          {c.group === 'sat' && c.processSteps && c.processSteps.length > 0 ? (
+                          {(c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps && c.processSteps.length > 0 ? (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                               {c.processSteps.map(s => (
                                 <span

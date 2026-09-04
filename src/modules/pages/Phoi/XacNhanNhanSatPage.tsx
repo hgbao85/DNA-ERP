@@ -10,6 +10,12 @@
  * vừa xuất (ISSUED -> RECEIVED). "Báo cắt xong" (chọn kiểu cắt + complete-cutting) và đánh dấu công
  * đoạn chi tiết (uốn/dập) đã CHUYỂN SANG "Lệnh sản xuất" — đợt sau khi nhận xong không còn hành
  * động gì ở màn này nữa, chỉ hiện trạng thái tham khảo (đọc từ đúng cùng nguồn dữ liệu).
+ *
+ * Thêm 2026-09-04: tab "Xác nhận" giờ gộp CẢ Sắt (SteelIssue) LẪN Vật tư thành phẩm - Sắt La/thanh
+ * nhôm (MaterialYieldIssue) trong CÙNG 1 bảng - cùng cột "Loại/Chiều dài/Số lượng" như Sắt, cột
+ * "Chiều dài" hiện "—" cho dòng Vật tư TP (không áp dụng - quy cách material cố định, không đổi mỗi
+ * đợt). Giữ NGUYÊN tên trang "Xác nhận nhận sắt" (không đổi tên). Tab "Lịch sử" CHƯA mở rộng (vẫn
+ * chỉ Sắt) - ngoài phạm vi đợt này, xem changelog.
  */
 
 import { Fragment, useMemo, useState } from 'react'
@@ -17,6 +23,7 @@ import { Check, ChevronLeft, Clock, RotateCcw, Package, Wrench, ArrowDownToLine 
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeSteelIssue, BeQcReview } from '../../../services/steel-issues-api'
+import type { BeMaterialYieldIssue } from '../../../services/material-yield-issues-api'
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 
@@ -34,6 +41,11 @@ export default function XacNhanNhanSatPage({ readOnly = false }: { readOnly?: bo
   // (2 lần cùng 1 dữ liệu), gộp lại còn 1 lần.
   const { data: lines, isLoading, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
   const { data: reviews } = useFetch<BeQcReview[]>(() => api.getQcReviewsForSteelIssues(), [])
+  // Vật tư thành phẩm (2026-09-04) - chỉ dùng ở tab "Xác nhận" (Lịch sử chưa mở rộng).
+  const { data: yieldIssues, refetch: refetchYield } = useFetch<BeMaterialYieldIssue[]>(
+    () => api.getMaterialYieldIssuesByStatus(), [],
+  )
+  const refetchAll = () => { refetch(); refetchYield() }
 
   if (isLoading || !lines) return <LoadingState />
 
@@ -48,7 +60,7 @@ export default function XacNhanNhanSatPage({ readOnly = false }: { readOnly?: bo
         </SubTabBtn>
       </div>
       {subTab === 'xac-nhan'
-        ? <XacNhanTab lines={lines} reviews={reviews ?? []} readOnly={readOnly} refetch={refetch} />
+        ? <XacNhanTab lines={lines} yieldIssues={yieldIssues ?? []} reviews={reviews ?? []} readOnly={readOnly} refetch={refetchAll} />
         : <LichSuTab lines={lines} />}
     </div>
   )
@@ -70,8 +82,8 @@ function SubTabBtn({ active, onClick, icon, children }: { active: boolean; onCli
 // dấu công đoạn chi tiết đã chuyển sang "Lệnh sản xuất" (LenhSanXuatPhoi.tsx) - đợt sau khi nhận
 // xong hiện trạng thái tham khảo ở đây, thao tác làm bên đó.
 
-function XacNhanTab({ lines, reviews, readOnly, refetch }: {
-  lines: BeSteelIssue[]; reviews: BeQcReview[]; readOnly: boolean; refetch: () => void
+function XacNhanTab({ lines, yieldIssues, reviews, readOnly, refetch }: {
+  lines: BeSteelIssue[]; yieldIssues: BeMaterialYieldIssue[]; reviews: BeQcReview[]; readOnly: boolean; refetch: () => void
 }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<Record<string, string>>({})
@@ -88,6 +100,20 @@ function XacNhanTab({ lines, reviews, readOnly, refetch }: {
     catch (e) { setErr(p => ({ ...p, [l.id]: errMsg(e, 'Không xác nhận được') })) }
     finally { setBusy(null) }
   }
+
+  // Vật tư thành phẩm (2026-09-04) - chỉ ISSUED/RECEIVED (không qua KCS ở đây, khác Sắt).
+  const doReceiveYield = async (y: BeMaterialYieldIssue) => {
+    setBusy(y.id); setErr(p => ({ ...p, [y.id]: '' }))
+    try { await api.receiveMaterialYieldIssue(y.id); refetch() }
+    catch (e) { setErr(p => ({ ...p, [y.id]: errMsg(e, 'Không xác nhận được') })) }
+    finally { setBusy(null) }
+  }
+  const yieldRows = [...yieldIssues].sort((a, b) => {
+    const rank = (y: BeMaterialYieldIssue) => (y.status === 'ISSUED' ? 0 : 1)
+    const r = rank(a) - rank(b)
+    return r !== 0 ? r : b.issuedAt.localeCompare(a.issuedAt)
+  })
+  const choNhanYield = yieldIssues.filter(y => y.status === 'ISSUED').length
 
   // Thứ tự ưu tiên: chờ nhận (việc của màn này) → phần còn lại (chỉ tham khảo, việc của "Lệnh sản
   // xuất") → đã duyệt (mờ).
@@ -109,8 +135,8 @@ function XacNhanTab({ lines, reviews, readOnly, refetch }: {
   return (
     <div>
       <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
-        Xác nhận <b>đã nhận</b> đợt kho vừa xuất. Báo cắt xong và đánh dấu công đoạn làm ở <b>Lệnh sản xuất</b>.
-        {choNhan > 0 && <> · <b style={{ color: '#e65100' }}>{choNhan}</b> đợt chờ nhận.</>}
+        Xác nhận <b>đã nhận</b> đợt kho vừa xuất (Sắt, Sắt La, Thanh nhôm). Báo sản lượng/công đoạn làm ở <b>Lệnh sản xuất</b>.
+        {(choNhan + choNhanYield) > 0 && <> · <b style={{ color: '#e65100' }}>{choNhan + choNhanYield}</b> đợt chờ nhận.</>}
       </div>
 
       {traVe > 0 && (
@@ -125,9 +151,9 @@ function XacNhanTab({ lines, reviews, readOnly, refetch }: {
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
               <th style={th}>PO</th>
-              <th style={th}>Loại sắt</th>
+              <th style={th}>Loại</th>
               <th style={thR}>Chiều dài (mm)</th>
-              <th style={thR}>Số lượng (cây)</th>
+              <th style={thR}>Số lượng</th>
               <th style={th}>Thời gian xuất</th>
               <th style={{ ...th, textAlign: 'center', width: 200 }}>Trạng thái</th>
             </tr>
@@ -188,8 +214,39 @@ function XacNhanTab({ lines, reviews, readOnly, refetch }: {
                 </Fragment>
               )
             })}
-            {rows.length === 0 && (
-              <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Chưa có đợt sắt nào</td></tr>
+            {yieldRows.map(y => (
+              <Fragment key={y.id}>
+                <tr style={{ borderTop: '1px solid var(--border)', opacity: y.status === 'RECEIVED' ? 0.75 : 1 }}>
+                  <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
+                    {y.salesOrderCode ?? '—'}
+                  </td>
+                  <td style={{ ...td, fontWeight: 600 }}>{y.materialName}</td>
+                  {/* Chiều dài không áp dụng cho vật tư thành phẩm - quy cách material cố định. */}
+                  <td style={{ ...tdR, color: 'var(--text3)' }}>—</td>
+                  <td style={{ ...tdR, fontWeight: 700 }}>{y.issuedQty}</td>
+                  <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{new Date(y.issuedAt).toLocaleString('vi-VN')}</td>
+                  <td style={{ ...td, textAlign: 'center' }}>
+                    {y.status === 'ISSUED' ? (
+                      readOnly ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>chờ xác nhận nhận</span> : (
+                        <button onClick={() => doReceiveYield(y)} disabled={busy === y.id}
+                          style={{ padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#e65100', color: '#fff', cursor: busy === y.id ? 'not-allowed' : 'pointer' }}>
+                          {busy === y.id ? '...' : 'Xác nhận đã nhận'}
+                        </button>
+                      )
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>
+                        <Check size={14} /> đã nhận · chờ báo sản lượng
+                      </span>
+                    )}
+                  </td>
+                </tr>
+                {err[y.id] && (
+                  <tr><td colSpan={6} style={{ padding: '4px 18px 8px', fontSize: 12, color: '#c62828' }}>{err[y.id]}</td></tr>
+                )}
+              </Fragment>
+            ))}
+            {rows.length === 0 && yieldRows.length === 0 && (
+              <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Chưa có đợt nào</td></tr>
             )}
           </tbody>
         </table>

@@ -22,13 +22,12 @@ import SKUListPage from '../ProductionPlan/SKUListPage'
 import KcsPhoiPage from '../Kcs/KcsPhoiPage'
 import KcsHanPage from '../Kcs/KcsHanPage'
 import KcsSonPage from '../Kcs/KcsSonPage'
-import LenhSanXuatVatTuThanhPham from '../Phoi/LenhSanXuatVatTuThanhPham'
 import KcsVatTuThanhPhamPage from '../Kcs/KcsVatTuThanhPhamPage'
 
 // ── Module-level constants (không tạo lại mỗi render) ───────────────────────
 
 type TabId =
-  | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-nhan-sat' | 'phoi-lenh-sx' | 'phoi-huong-dan-cat' | 'phoi-vat-tu-tp' | 'phoi-dinh-muc-manh' | 'phoi-kho-phoi'
+  | 'lenh-sx' | 'ke-hoach' | 'phoi-xac-nhan-nhan-sat' | 'phoi-lenh-sx' | 'phoi-huong-dan-cat' | 'phoi-dinh-muc-manh' | 'phoi-kho-phoi'
   | 'han-khung-han' | 'son-manh-cho-dan' | 'han-son-xac-nhan-vat-tu'
   | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'setup'
@@ -130,7 +129,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...((isPhoi || isHan || isSon || isDirector) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-huong-dan-cat' as TabId, label: 'Hướng dẫn cắt', icon: <Ruler size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-xac-nhan-nhan-sat' as TabId, label: 'Xác nhận nhận sắt', icon: <Check size={16} /> }] : []),
-    ...(isPhoi ? [{ id: 'phoi-vat-tu-tp' as TabId, label: 'Vật tư thành phẩm', icon: <Wrench size={16} /> }] : []),
     ...((isHan || isSon) ? [{ id: 'han-son-xac-nhan-vat-tu' as TabId, label: 'Xác nhận sản lượng', icon: <PackageCheck size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-dinh-muc-manh' as TabId, label: 'Danh sách định mức mảnh', icon: <Box size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-kho-phoi' as TabId, label: 'Kho phôi', icon: <Warehouse size={16} /> }] : []),
@@ -241,7 +239,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'lenh-sx' && (isDirector || isProdMgr) && <LenhSXPage />}
         {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePagePlan />}
         {tab === 'phoi-xac-nhan-nhan-sat' && (isPhoi || isDirector) && <XacNhanNhanSatPage readOnly={isDirector} />}
-        {tab === 'phoi-vat-tu-tp' && (isPhoi || isDirector) && <LenhSanXuatVatTuThanhPham readOnly={isDirector} />}
         {tab === 'phoi-lenh-sx' && (isPhoi || isHan || isSon || isDirector) && (isHan ? <LenhSanXuatHan readOnly={isDirector} /> : isSon ? <LenhSanXuatSon readOnly={isDirector} /> : <LenhSanXuatPhoi readOnly={isDirector} onOpenCuttingGuide={openHuongDanCat} />)}
         {tab === 'phoi-huong-dan-cat' && (isPhoi || isDirector) && (
           <HuongDanCatPage initialPiId={huongDanCatPiId} onConsumeInitialPi={() => setHuongDanCatPiId(null)} />
