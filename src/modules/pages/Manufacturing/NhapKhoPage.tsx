@@ -11,14 +11,16 @@ import { useInspection, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type Purc
 // materialId sẽ gộp nhầm 2 dòng khi thủ kho xác nhận nhận hàng.
 const itemKey = (item: PurchaseProposalItem) => item.itemId ?? String(item.materialId)
 import { compactTh as th, compactTd as td } from '../../../styles/table'
-import { useFetch } from '../../../hooks/useFetch'
-import { getMaterials, getWarehouses } from '../../../services/api'
 
 // ── NhapKhoSection: list đề xuất đã duyệt (đang mua/đã mua) → detail nhập kho ─
 // Nguồn dữ liệu là PurchaseProposal thật (đã qua Purchasing báo giá + Boss duyệt),
-// không tự tính từ SKU nữa — hàng về vào đúng kho đã khai ở field "Kho" của vật tư
-// (Material.warehouseId, xem Admin > Vật tư), KHÔNG còn theo warehouseScope của cả đề
-// xuất - 1 đề xuất/PO có thể chứa vật tư của nhiều kho khác nhau.
+// không tự tính từ SKU nữa — hàng về vào đúng kho `item.warehouseCode` (BE
+// PurchaseProposalItemResponseDto.warehouseCode: Material.warehouseId, TRỪ vật tư đóng gói thì
+// là kho thành phẩm QLSX đã chọn cho PI, xem PurchaseProposalItem.receiveWarehouseCode) - so trực
+// tiếp mã kho của DÒNG, KHÔNG suy diễn lại qua Material.warehouseId (2026-09-04: sửa cùng lúc test
+// sống fix routing kho đóng gói - trước đó suy diễn qua Material bỏ lỡ hẳn override, khiến thủ kho
+// đúng (vd "Kho thành phẩm 2") không bao giờ thấy dòng cần nhận, trong khi thủ kho SAI (kho mặc
+// định của vật tư) lại thấy và có thể nhận nhầm).
 function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
   const { proposals, receiveProposalItem } = useInspection()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -28,21 +30,13 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
   // chỉ dùng để gợi ý auto-fill `inputs` (cái), người dùng vẫn sửa tay được sau khi auto-fill.
   const [kgInputs, setKgInputs] = useState<Record<string, string>>({})
 
-  const { data: materials } = useFetch(getMaterials)
-  const { data: warehouses } = useFetch(getWarehouses)
-  // lockedGroup là mã kho (vd 'phoi-son-han') - cần quy đổi sang id thật để so khớp
-  // Material.warehouseId (cũng là id thật, không phải mã).
-  const scopeWarehouseId = lockedGroup ? (warehouses ?? []).find(w => w.code === lockedGroup)?.id ?? null : null
-  const warehouseIdByMaterialId = new Map((materials ?? []).map(m => [m.id, m.warehouseId]))
-
-  // Dòng vật tư chưa gán kho (material.warehouseId rỗng, hoặc item cũ chưa link materialId)
-  // vẫn hiện cho mọi thủ kho để không "mồ côi" tới khi có người nhận - cùng nguyên tắc đã
-  // áp dụng cho routing Mua hàng (xem purchasingRouting.ts).
+  // Dòng vật tư chưa gán kho (BE trả '—', xem purchasing-api.ts#toItem) vẫn hiện cho mọi thủ kho
+  // để không "mồ côi" tới khi có người nhận - cùng nguyên tắc đã áp dụng cho routing Mua hàng
+  // (xem purchasingRouting.ts).
   const itemInScope = (item: PurchaseProposalItem): boolean => {
-    if (!scopeWarehouseId) return true // Tổng kho/Giám đốc thấy hết
-    if (item.materialId == null) return true
-    const whId = warehouseIdByMaterialId.get(item.materialId)
-    return !whId || whId === scopeWarehouseId
+    if (!lockedGroup) return true // Tổng kho/Giám đốc thấy hết
+    if (!item.warehouseCode || item.warehouseCode === '—') return true
+    return item.warehouseCode === lockedGroup
   }
 
   // Vật tư đã tới lượt nhận hàng - item-level (2026-08-25): rollup p.status không lên

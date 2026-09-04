@@ -282,8 +282,12 @@ function CreateWarehouseModal({ suggestedFamily, warehouses, onClose, onDone }: 
         // PATCH mfg-attributes là full-replace, không phải merge (xem mfgAttrsPayload() ở
         // users-mapper.ts) - phải gửi kèm nguyên trạng các cờ khác, chỉ đổi warehouseScope, nếu
         // không sẽ vô tình xoá mfgRole/isPurchaser/isProductPlanner/isSale hiện có của họ.
+        // role bắt buộc phải gửi kèm - hasMfgAttrs() ở users-mapper.ts xét đúng field này để
+        // quyết định có gọi PATCH mfg-attributes hay không (2026-09-04: thiếu field này khiến
+        // gán thủ kho lúc tạo kho ở đây âm thầm không có tác dụng, phát hiện qua test tay).
         await updateUser(selectedUser.id, {
           name: selectedUser.name,
+          role: selectedUser.role,
           mfgRole: selectedUser.mfgRole,
           warehouseScope: code,
           isPurchaser: selectedUser.isPurchaser,
