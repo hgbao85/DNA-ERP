@@ -19,7 +19,7 @@ import type { Sku } from '../../../types/sku'
  * remainingToReceive TỪNG điểm đan riêng (BE không cộng dồn qua các điểm khác - xem
  * WeavingIssuesService.receive). Đồng bộ trực tiếp với "Theo dõi xuất đan" (KhoXuatDanPage).
  */
-export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: string } = {}) {
+export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, warehouseScope }: { readOnly?: boolean; filterExportOrderId?: string; warehouseScope?: string | null } = {}) {
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
@@ -32,10 +32,18 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId }
   // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho được nhập đan cho BẤT KỲ SKU
   // nào cùng PI đó (2026-08-31) - cùng quy tắc/gate ở KhoXuatDanPage/WeavingIssuesService.
   const { poInfoFor, activePiIds } = usePoInfoFloorGate()
+  // Lọc đúng instance kho thành phẩm (2026-09-05) - xem comment cùng tên ở KhoChuyenKiemPage.tsx.
+  const inWarehouseScope = (p: Sku): boolean => {
+    if (!warehouseScope) return true
+    const wc = poInfoFor(p)?.warehouseCode
+    if (!wc) return true
+    return wc === warehouseScope
+  }
   const active = ((skus ?? []) as Sku[]).filter(p =>
     p.status !== 'DRAFT' &&
     (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId) &&
-    activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? ''),
+    activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? '') &&
+    inWarehouseScope(p),
   )
 
   const autoSelectedRef = useRef(false)
@@ -95,7 +103,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId }
               )}
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
-              PO: {selectedPf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
+              PO: {poInfoFor(selectedPf)?.poCode ?? '—'} · PI: {poInfoFor(selectedPf)?.piCode ?? 'Chưa gắn đơn hàng'}
             </div>
           </div>
         </div>
@@ -178,6 +186,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId }
         <div style={tableWrap}>
           <table style={tbl}>
             <colgroup>
+              <col style={{ width: 100 }} />
               <col style={{ width: 130 }} />
               <col />
               <col style={{ width: 130 }} />
@@ -185,6 +194,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId }
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={thStyle}>PO</th>
+                <th style={thStyle}>PI</th>
                 <th style={thStyle}>SKU</th>
                 <th style={thStyle}>Hạn giao</th>
               </tr>
@@ -192,8 +202,11 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId }
             <tbody>
               {active.map(pf => (
                 <tr key={pf.id} onClick={() => setSelectedPf(pf)} style={row}>
+                  <td style={{ ...tdStyle, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {poInfoFor(pf)?.poCode ?? '—'}
+                  </td>
                   <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
+                    {poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng'}
                   </td>
                   <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
@@ -209,7 +222,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId }
                 </tr>
               ))}
               {active.length === 0 && (
-                <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có PO nào</td></tr>
+                <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có PI nào</td></tr>
               )}
             </tbody>
           </table>

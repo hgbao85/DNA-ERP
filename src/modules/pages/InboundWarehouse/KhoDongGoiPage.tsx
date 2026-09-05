@@ -10,7 +10,7 @@ import type { Sku } from '../../../types/sku'
 import LoadingState from '../../../components/LoadingState'
 
 
-export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: string } = {}) {
+export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, warehouseScope }: { readOnly?: boolean; filterExportOrderId?: string; warehouseScope?: string | null } = {}) {
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
 
@@ -27,10 +27,18 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }
   // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho ghi nhận đóng gói cho BẤT KỲ
   // SKU nào cùng PI đó (2026-08-31) - cùng quy tắc/gate ở KhoXuatDanPage/ProductionInvoicesService.
   const { poInfoFor, activePiIds } = usePoInfoFloorGate()
+  // Lọc đúng instance kho thành phẩm (2026-09-05) - xem comment cùng tên ở KhoChuyenKiemPage.tsx.
+  const inWarehouseScope = (p: Sku): boolean => {
+    if (!warehouseScope) return true
+    const wc = poInfoFor(p)?.warehouseCode
+    if (!wc) return true
+    return wc === warehouseScope
+  }
   const active = ((skus ?? []) as Sku[]).filter(p =>
     p.status !== 'DRAFT' &&
     (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId) &&
-    activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? ''),
+    activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? '') &&
+    inWarehouseScope(p),
   )
 
   // Drill-down từ bảng tổng hợp SX (qlsx@) truyền sẵn filterExportOrderId → nhảy thẳng vào chi
@@ -94,7 +102,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }
               )}
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
-              PO: {selectedPf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
+              PO: {poInfoFor(selectedPf)?.poCode ?? '—'} · PI: {poInfoFor(selectedPf)?.piCode ?? 'Chưa gắn đơn hàng'}
               {selectedPf.exportOrder?.deliveryDate && (
                 <> · Hạn giao: {format(new Date(selectedPf.exportOrder.deliveryDate), 'dd/MM/yyyy')}</>
               )}
@@ -224,6 +232,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', minWidth: 600, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
               <colgroup>
+                <col style={{ width: 100 }} />
                 <col style={{ width: 120 }} />
                 <col />
                 <col style={{ width: 130 }} />
@@ -231,6 +240,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }
               <thead>
                 <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                   <th style={th}>PO</th>
+                  <th style={th}>PI</th>
                   <th style={th}>SKU</th>
                   <th style={th}>Hạn giao</th>
                 </tr>
@@ -244,8 +254,11 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                     onMouseLeave={e => (e.currentTarget.style.background = '')}
                   >
+                    <td style={{ ...td, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {poInfoFor(pf)?.poCode ?? '—'}
+                    </td>
                     <td style={{ ...td, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {pf.exportOrder?.poNumber ?? 'Chưa gắn đơn hàng'}
+                      {poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng'}
                     </td>
                     <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
@@ -262,8 +275,8 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId }
                 ))}
                 {active.length === 0 && (
                   <tr>
-                    <td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
-                      Không có PO nào
+                    <td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
+                      Không có PI nào
                     </td>
                   </tr>
                 )}

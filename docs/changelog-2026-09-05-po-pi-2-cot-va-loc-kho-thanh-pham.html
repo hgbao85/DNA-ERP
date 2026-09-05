@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — PO/PI 2 cột + lọc đúng kho thành phẩm (05/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --open: #8A1F3D; --open-bg: #FBE7ED; --open-border: #EEB9C9;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --open: #F0A0BC; --open-bg: rgba(240,160,188,0.12); --open-border: rgba(240,160,188,0.35);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --open: #F0A0BC; --open-bg: rgba(240,160,188,0.12); --open-border: rgba(240,160,188,0.35);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.open { color: var(--open); background: var(--open-bg); border-color: var(--open-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+
+  table.filelist { width: 100%; border-collapse: collapse; margin-top: 4px; font-size: 13.5px; }
+  table.filelist th, table.filelist td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.filelist th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 05/09/2026</span>
+    <h1 class="title">PO/PI 2 cột + lọc đúng kho thành phẩm</h1>
+    <p class="subtitle">Đổi 6 màn hình kho từ hiển thị PO (hoặc không có gì) sang hiển thị đủ cả PO lẫn PI thật, đồng thời phát hiện và vá 1 lỗi thật: 3 màn hình phía kho thành phẩm không lọc theo đúng kho vật lý (instance) khi hệ thống có nhiều kho cùng vai trò.</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> FE <code>D:\DNA-ERP</code> · BE <code>D:\DNA-ERP-BE</code></span>
+      <span><strong>Màn hình:</strong> Xuất đan · Nhập đan · Chuyền kiểm · Đóng gói · Xuất kho · Nhập kho</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ========= Tính năng mới ========= -->
+  <section id="feature">
+    <div class="sec-head"><h2>Tính năng mới</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">05/09</span><span class="f-title">Hiển thị đồng thời PO và PI (2 cột riêng) ở 6 màn hình kho</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Các màn Xuất đan/Nhập đan/Chuyền kiểm/Đóng gói chỉ hiện cột "PO", lấy từ <code>Sku.exportOrder.poNumber</code> — field tĩnh gắn ngay khi Sales tạo đơn, không phải PO/PI thật của lệnh sản xuất đã duyệt. Xuất kho (WarehouseXuatPage) và Nhập kho (mua hàng) cũng chỉ có PO, không có PI nào.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Cả 6 màn đều hiện 2 cột riêng: PO (mã đơn hàng Sales) và PI (mã lệnh sản xuất nội bộ), lấy từ dữ liệu thật (<code>ProductionOrder</code> đã Sếp duyệt, hoặc <code>PurchaseProposal.piCode</code>). Riêng đơn "xuất thẳng cho khách hàng" (ship, kho thành phẩm) chỉ có PO vì không có khái niệm PI.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">File đã sửa</span>
+        <div class="v">
+          <table class="filelist">
+            <tr><th>File</th><th>Nguồn PO/PI</th></tr>
+            <tr><td><code>KhoXuatDanPage.tsx</code></td><td rowspan="4"><code>usePoInfoFloorGate().poInfoFor(sku)?.poCode / .piCode</code></td></tr>
+            <tr><td><code>KhoNhapDanPage.tsx</code></td></tr>
+            <tr><td><code>KhoChuyenKiemPage.tsx</code></td></tr>
+            <tr><td><code>KhoDongGoiPage.tsx</code></td></tr>
+            <tr><td><code>WarehouseXuatPage.tsx</code></td><td><code>BeProductionOrderSummary.piCode</code> (đã có ở response, trước đây không được gán vào <code>Order.piCode</code>)</td></tr>
+            <tr><td><code>NhapKhoPage.tsx</code></td><td><code>PurchaseProposal.piCode</code> (đã có sẵn, chưa từng hiển thị)</td></tr>
+          </table>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= Lỗi đã sửa ========= -->
+  <section id="fix">
+    <div class="sec-head"><h2>Lỗi đã sửa</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">05/09</span><span class="f-title">3 màn hình kho thành phẩm không lọc theo đúng kho vật lý (instance)</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Phát hiện</span>Qua browser thật với 2 tài khoản thủ kho khác kho vật lý (<code>khotp</code> = "thanh-pham", <code>khotp2</code> = "thanh-pham-2") — cả 2 cùng thấy <b>y hệt nhau</b> danh sách PO ở "Theo dõi nhập đan"/"Chuyền kiểm"/"Đóng gói". Nguyên nhân: bộ lọc <code>active</code> ở 3 trang này chỉ kiểm trạng thái SKU + PI đang ACTIVE, không hề kiểm kho vật lý nào.</div>
+        <div class="ba-box after"><span class="k">Đã sửa</span>Lọc thêm theo <code>warehouseCode</code> — kho thành phẩm QLSX đã chọn cho từng SKU khi gửi Sếp duyệt — khớp đúng <code>warehouseScope</code> của thủ kho đang đăng nhập. Item nào chưa được gán kho vẫn hiện cho mọi thủ kho (không "mồ côi"), cùng nguyên tắc đã dùng ở <code>NhapKhoPage.tsx</code>.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Chi tiết kỹ thuật</span>
+        <div class="v">
+          <ul>
+            <li>Field <code>ProductionInvoiceItem.warehouseCode</code> đã tồn tại sẵn ở BE (ghi bởi QLSX qua modal "Chọn kho thành phẩm" ở <code>LenhSXPage.tsx</code>) nhưng chưa lộ qua endpoint <code>GET /production-orders</code> mà 3 trang kho này dùng.</li>
+            <li>BE: thêm <code>warehouseCode</code> vào include + <code>ProductionOrderResponseDto</code> (<code>production-orders.service.ts</code>, <code>dto/production-order-response.dto.ts</code>).</li>
+            <li>FE: thêm field vào <code>ProductionOrderInfo</code>/<code>BeProductionOrderRaw</code> (<code>production-invoice-item.ts</code>); <code>InboundWarehouseApp.tsx</code> truyền <code>warehouseScope={scope}</code> xuống <code>KhoChuyenKiemPage</code>/<code>KhoDongGoiPage</code>/<code>KhoNhapDanPage</code> (trước đây hoàn toàn không truyền); mỗi trang lọc thêm <code>poInfoFor(p)?.warehouseCode === warehouseScope</code>.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify qua browser thật (trước/sau, cùng data thật)</span>
+        <div class="v">
+          <table class="filelist">
+            <tr><th>Tài khoản</th><th>Trước (bug)</th><th>Sau (đã sửa)</th></tr>
+            <tr><td><code>khotp</code> (thanh-pham)</td><td>PI-2026-020, PI-2026-010, PI-2026-016...</td><td>chỉ PI-2026-020</td></tr>
+            <tr><td><code>khotp2</code> (thanh-pham-2)</td><td>PI-2026-020, PI-2026-010, PI-2026-016... (y hệt khotp)</td><td>chỉ PI-2026-010, PI-2026-016</td></tr>
+          </table>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= Vá hạ tầng nền ========= -->
+  <section id="infra">
+    <div class="sec-head"><h2>Vá hạ tầng nền (phát hiện trong lúc làm)</h2><span class="sec-count">1 mục</span></div>
+    <div class="prose-card">
+      <p>Không phải tính năng hay lỗi người dùng nhìn thấy — ghi lại vì ảnh hưởng tới việc chạy dev server sau này.</p>
+    </div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Hạ tầng</span><span class="badge date">05/09</span><span class="f-title">Prisma Client lệch <code>schema.prisma</code> lúc khởi động BE dev server</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Phát hiện</span><code>pnpm start:dev</code> báo 28 lỗi TypeScript (thiếu <code>pieceStepBatch</code>, <code>processSteps</code>, <code>MaterialYieldIssueStatus</code>...) — Prisma Client sinh sẵn trong <code>src/generated/prisma</code> không khớp <code>schema.prisma</code> hiện tại, có thể do lần cài đặt/pull trước chưa chạy generate lại.</div>
+        <div class="ba-box after"><span class="k">Đã xử lý</span>Chạy <code>pnpm prisma:generate</code> để sinh lại Client đúng schema — chỉ sinh code, không đổi database. BE build lại sạch (0 lỗi) và chạy bình thường.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= Việc còn mở ========= -->
+  <section id="open">
+    <div class="sec-head"><h2>Việc còn mở</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge open">Chưa làm</span><span class="badge date">05/09</span><span class="f-title">"Theo dõi xuất đan" (KhoXuatDanPage) có thể gặp bug tương tự, chưa điều tra</span></div>
+      <div class="prose-card">
+        <p>Màn "Theo dõi xuất đan" thuộc gia đình kho <code>vat-tu-tp</code> (không phải <code>thanh-pham</code>), cũng có khả năng có nhiều instance (vd <code>vat-tu-tp-2</code>) — nhưng field <code>warehouseCode</code> vừa thêm chỉ mang ý nghĩa "kho <b>thành phẩm</b> QLSX chọn", không đúng cho câu hỏi "mảnh chưa đan đang nằm ở kho vật-tư-TP nào". Cần tìm field khác (vị trí tồn kho vật lý thật) trước khi áp dụng cùng kiểu lọc — chưa làm trong phiên này để tránh lọc sai ý nghĩa.</p>
+      </div>
+    </article>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 05/09/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>

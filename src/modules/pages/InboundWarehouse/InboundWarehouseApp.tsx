@@ -177,10 +177,10 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
             </div>
         )}
         {tab === 'xuat-sat'   && isFamilyScope(scope, 'phoi-son-han') && <PhanPhoiNoiBoPage />}
-        {tab === 'chuyen-kiem' && canSeePacking && <KhoChuyenKiemPage />}
-        {tab === 'dong-goi'    && canSeePacking && <KhoDongGoiPage />}
+        {tab === 'chuyen-kiem' && canSeePacking && <KhoChuyenKiemPage warehouseScope={scope} />}
+        {tab === 'dong-goi'    && canSeePacking && <KhoDongGoiPage warehouseScope={scope} />}
         {tab === 'xuat-dan'   && isFamilyScope(scope, 'vat-tu-tp')   && <KhoXuatDanPage />}
-        {tab === 'nhap-dan'   && isThanhPhamScope(scope) && <KhoNhapDanPage />}
+        {tab === 'nhap-dan'   && isThanhPhamScope(scope) && <KhoNhapDanPage warehouseScope={scope} />}
         {tab === 'diem-dan'   && isFamilyScope(scope, 'vat-tu-tp')   && <QuanLyDiemDanPage />}
       </div>
     </div>
