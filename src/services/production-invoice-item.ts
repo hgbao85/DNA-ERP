@@ -36,6 +36,9 @@ interface BeProductionOrderRaw {
   piCode: string;
   deliveryDeadline: string | null;
   floorStage: 'PENDING' | 'ACTIVE' | 'PAUSED' | 'FINISHED';
+  /** Kho thành phẩm QLSX chọn làm điểm cuối trước khi gửi Sếp duyệt (warehouseScope cụ thể, vd
+   *  'thanh-pham-2') - dùng để lọc đúng instance kho ở các trang kho phía thành phẩm. */
+  warehouseCode: string | null;
 }
 let productionOrdersCache: { promise: Promise<BeProductionOrderRaw[]>; expiresAt: number } | null = null;
 const PRODUCTION_ORDERS_CACHE_TTL_MS = 10_000;
@@ -141,6 +144,13 @@ export interface ProductionOrderInfo {
   /** QLSX kiểm soát qua nút Bắt đầu/Kết thúc ở "Bảng thống kê" (2026-08-31) - dùng để ẩn PI khỏi
    *  "Phân phối nội bộ" (XuatSatPage/XuatVatTuTieuHaoPage) cho tới khi có ít nhất 1 SKU ACTIVE. */
   floorStage: 'PENDING' | 'ACTIVE' | 'PAUSED' | 'FINISHED';
+  /** Kho thành phẩm QLSX chọn làm điểm cuối trước khi gửi Sếp duyệt (warehouseScope cụ thể, vd
+   *  'thanh-pham-2') - dùng để lọc đúng instance kho ở KhoNhapDanPage/KhoChuyenKiemPage/
+   *  KhoDongGoiPage (2026-09-05: trước đây các trang này không lọc gì theo instance, mọi thủ kho
+   *  cùng "gia đình" thanh-pham đều thấy chung 1 danh sách toàn bộ SKU active). null nếu item được
+   *  duyệt qua luồng cũ chưa từng gán kho.
+   */
+  warehouseCode: string | null;
 }
 
 /**
@@ -173,6 +183,7 @@ export async function buildProductionOrderInfoByMfgProduct(): Promise<Map<string
       piCode: o.piCode,
       deliveryDate: o.deliveryDeadline,
       floorStage: o.floorStage,
+      warehouseCode: o.warehouseCode,
     };
     map.set(`${o.productionInvoiceId}:${o.mfgProductId}`, info);
     if (!map.has(o.mfgProductId)) map.set(o.mfgProductId, info);

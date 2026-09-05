@@ -94,7 +94,11 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
               <ChevronLeft size={15} /> Quay lại
             </button>
             <div>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>{selected.salesOrderCode ?? '—'}</h2>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>
+                {selected.salesOrderCode ?? '—'}
+                <span style={{ color: 'var(--text3)', margin: '0 6px' }}>·</span>
+                {selected.piCode}
+              </h2>
               <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
                 {selected.skuCode}{selected.skuName ? ` — ${selected.skuName}` : ''}
                 {selected.deadline && <> · Hạn giao: {format(new Date(selected.deadline), 'dd/MM/yyyy')}</>}
@@ -243,13 +247,15 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
           <colgroup>
-            <col style={{ width: 140 }} />
+            <col style={{ width: 100 }} />
+            <col style={{ width: 130 }} />
             <col />
             <col style={{ width: 160 }} />
           </colgroup>
           <thead>
             <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
               <th style={th}>PO</th>
+              <th style={th}>PI</th>
               <th style={th}>SKU</th>
               <th style={th}>Trạng thái</th>
             </tr>
@@ -265,8 +271,11 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
-                  <td style={{ ...td, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
+                  <td style={{ ...td, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
                     {p.salesOrderCode ?? '—'}
+                  </td>
+                  <td style={{ ...td, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>
+                    {p.piCode}
                   </td>
                   <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     <span style={{ fontWeight: 600 }}>{p.skuCode}</span>
@@ -284,7 +293,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
             })}
             {relevant.length === 0 && (
               <tr>
-                <td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
+                <td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
                   Không có đề xuất nào đang chờ nhập kho
                 </td>
               </tr>

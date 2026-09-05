@@ -75,9 +75,10 @@ const STATUS: Record<OrderStatus, { label: string; color: string; bg: string }> 
 
 const ACCENT = '#e65100'
 
-// Piece transfer (mảnh/vật tư thành phẩm) chỉ áp dụng cho chặng phoi-son-han → vat-tu-tp - đơn
-// vị là PO (không phải PI, xem docs/review-2026-08-17-sanxuat-stage-v16-va-chuyen-kho-manh.md
-// mục 6/7 ở BE). Chặng vat-tu-tp → thanh-pham dùng packaging-issues thật (xem PACKAGING_SCOPE).
+// Piece transfer (mảnh/vật tư thành phẩm) chỉ áp dụng cho chặng phoi-son-han → vat-tu-tp - gộp
+// theo ProductionOrder (byPo keyed theo productionOrderId), hiển thị PI thật cho user (2026-09-05,
+// trước đó hiện PO - xem docs/review-2026-08-17-sanxuat-stage-v16-va-chuyen-kho-manh.md mục 6/7 ở
+// BE cho quyết định gộp gốc). Chặng vat-tu-tp → thanh-pham dùng packaging-issues thật (xem PACKAGING_SCOPE).
 // 2026-09-03: so khớp theo GIA ĐÌNH (isFamilyScope) thay vì đúng 1 literal - kho phôi-sơn-hàn PHỤ
 // (phoi-son-han-2...) giờ cũng vào được đúng nhánh này, trước đây rơi vào "không có lệnh nào".
 const PIECE_TRANSFER_SCOPE = 'phoi-son-han'
@@ -90,7 +91,7 @@ function pieceLabelToUnit(label: BePieceTransferPlanItem['label']): string {
 // sẵn có của OrderLine (không cần shape riêng) - "Kế hoạch" ở đây đọc là "đã qua KCS tính đến
 // nay", "Thực có" đọc là "còn có thể chuyển" (đã trừ phần đã nằm trong phiếu PENDING/CONFIRMED
 // trước đó - xem WarehouseTransfersService.getPieceTransferPlan ở BE).
-function pieceItemsToOrders(summaries: { id: string; poNumber: string; salesOrderCode: string | null }[], plan: BePieceTransferPlanItem[]): Order[] {
+function pieceItemsToOrders(summaries: { id: string; poNumber: string; salesOrderCode: string | null; piCode: string }[], plan: BePieceTransferPlanItem[]): Order[] {
   const byPo = new Map<string, BePieceTransferPlanItem[]>()
   for (const item of plan) {
     const arr = byPo.get(item.productionOrderId) ?? []
@@ -109,6 +110,7 @@ function pieceItemsToOrders(summaries: { id: string; poNumber: string; salesOrde
         counterpart: 'Kho Vật tư thành phẩm',
         date: new Date().toISOString(),
         poNumber: displayCode,
+        piCode: o.piCode,
         skuName: items[0]?.productName,
         lines: items.map(it => ({
           id: it.pieceId,
@@ -123,8 +125,8 @@ function pieceItemsToOrders(summaries: { id: string; poNumber: string; salesOrde
     })
 }
 
-// Xuất vật tư đóng gói (tem nhãn, màng PE...) chặng vat-tu-tp → thanh-pham - đơn vị là PO, cùng
-// idiom PIECE_TRANSFER_SCOPE ở trên (module packaging-issues, thay MOCK, 2026-08-19).
+// Xuất vật tư đóng gói (tem nhãn, màng PE...) chặng vat-tu-tp → thanh-pham - hiển thị PI thật
+// (2026-09-05), cùng idiom PIECE_TRANSFER_SCOPE ở trên (module packaging-issues, thay MOCK, 2026-08-19).
 //
 // KHÔNG còn gán cứng theo 1 gia đình cố định (2026-09-04, sửa sau khi test sống PO-41 "Ghế tình
 // yêu" phát hiện: vật tư đóng gói của SKU này - vd VTK-009 "Thùng" - lại được Admin gán kho MẶC
@@ -137,7 +139,7 @@ function pieceItemsToOrders(summaries: { id: string; poNumber: string; salesOrde
 
 // item.requiredQty/issuedQty/remainingToIssue map vào đúng plannedQty/confirmedQty/availableQty
 // sẵn có của OrderLine, cùng cách pieceItemsToOrders() đã làm.
-function packagingItemsToOrders(summaries: { id: string; poNumber: string; salesOrderCode: string | null }[], plan: BePackagingIssuePlanItem[]): Order[] {
+function packagingItemsToOrders(summaries: { id: string; poNumber: string; salesOrderCode: string | null; piCode: string }[], plan: BePackagingIssuePlanItem[]): Order[] {
   const byPo = new Map<string, BePackagingIssuePlanItem[]>()
   for (const item of plan) {
     const arr = byPo.get(item.productionOrderId) ?? []
@@ -156,6 +158,7 @@ function packagingItemsToOrders(summaries: { id: string; poNumber: string; sales
         counterpart: 'Kho Thành phẩm',
         date: new Date().toISOString(),
         poNumber: displayCode,
+        piCode: o.piCode,
         skuName: items[0]?.productName,
         lines: items.map(it => ({
           id: it.materialId,
@@ -440,7 +443,10 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
               {usePOLayout && selected.poNumber ? (
                 <>
                   <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-                    <span style={{ fontFamily: 'monospace', color: 'var(--text3)' }}>{selected.poNumber}</span>
+                    <span style={{ fontFamily: 'monospace', color: 'var(--text3)' }}>
+                      {selected.poNumber}
+                      {selected.piCode && <> <span style={{ color: 'var(--border)' }}>·</span> {selected.piCode}</>}
+                    </span>
                     <span style={{ fontWeight: 600, marginLeft: 10 }}>{selected.skuCode}</span>
                     {selected.skuName && <span style={{ fontWeight: 400, color: 'var(--text2)', marginLeft: 6, fontSize: 15 }}>— {selected.skuName}</span>}
                   </h2>
@@ -605,14 +611,17 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
         ) : orders.length === 0 ? (
           <div style={emptyBox}>Không có lệnh xuất nào đang chờ xử lý</div>
         ) : (
-          // PO | SKU | Số lượng vật tư | Trạng thái — mọi kho (không có hạn giao)
+          // PO | PI | SKU | Số lượng vật tư | Trạng thái — mọi kho (không có hạn giao). Đơn nội bộ
+          // (piece/packaging) có cả PO lẫn PI thật; đơn ship (xuất thẳng cho khách) chỉ có PO (mã
+          // đơn hàng bán) - không có khái niệm PI.
           <div style={tableWrap}>
             <table style={tbl}>
               <colgroup>
-                <col style={{ width: 130 }} /><col /><col style={{ width: 90 }} /><col style={{ width: 130 }} />
+                <col style={{ width: 100 }} /><col style={{ width: 120 }} /><col /><col style={{ width: 90 }} /><col style={{ width: 130 }} />
               </colgroup>
               <thead><tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={th}>PO</th>
+                <th style={th}>PI</th>
                 <th style={th}>SKU</th>
                 <th style={{ ...th, textAlign: 'right' }}>Số lượng vật tư</th>
                 <th style={th}>Trạng thái</th>
@@ -624,7 +633,8 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                     <tr key={order.id} onClick={() => setSelectedId(order.id)} style={row}
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                       onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                      <td style={{ ...td, fontWeight: 700, color: 'var(--text3)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{order.poNumber ?? order.ref}</td>
+                      <td style={{ ...td, color: 'var(--text3)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{order.poNumber ?? order.ref}</td>
+                      <td style={{ ...td, fontWeight: 700, color: 'var(--text3)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{order.piCode ?? '—'}</td>
                       <td style={{ ...td, overflow: 'hidden' }}>
                         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           <span style={{ fontWeight: 600 }}>{order.skuCode ?? '—'}</span>
