@@ -40,11 +40,12 @@ const GROUP_LABELS: Record<ManhChildGroup, string> = {
   sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa', vatTuTP: 'Vật tư thành phẩm',
 }
 
-// "Mảnh có đan" = có đủ cả 3 nhóm Dây + Đinh + Nút nhựa (Tán rút không tính) - đúng quy tắc
-// BE dùng để set Piece.isWoven (xem SkusService.syncIsWoven). Tính lại ở FE thay vì đọc field
-// isWoven từ BE vì trang này còn cho sửa nháp (chưa gửi phê duyệt) - phải phản ánh đúng NGAY
-// theo dòng vật tư đang có trên form, không đợi round-trip lưu/tải lại.
-const WOVEN_GROUPS: ManhChildGroup[] = ['day', 'dinh', 'nutNhua']
+// "Mảnh có đan" = chỉ cần có nhóm Dây (Đinh/Nút nhựa/Tán rút không còn bắt buộc, đổi 2026-09-05
+// theo DEC-11 + chốt lại trực tiếp với người dùng: "chỉ cần có tick dây thì lập tức chuyển sang
+// có đan") - đúng quy tắc BE dùng để set Piece.isWoven (xem SkusService.isPieceWoven). Tính lại ở
+// FE thay vì đọc field isWoven từ BE vì trang này còn cho sửa nháp (chưa gửi phê duyệt) - phải
+// phản ánh đúng NGAY theo dòng vật tư đang có trên form, không đợi round-trip lưu/tải lại.
+const WOVEN_GROUPS: ManhChildGroup[] = ['day']
 const wovenStatus = (m: Manh): { isWoven: boolean; missing: ManhChildGroup[] } => {
   const present = new Set(m.children.map(c => c.group))
   const missing = WOVEN_GROUPS.filter(g => !present.has(g))

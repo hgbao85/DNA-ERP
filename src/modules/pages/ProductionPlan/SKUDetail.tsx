@@ -784,11 +784,12 @@ const CHILD_GROUP_BADGE: Record<ManhChildGroup, { bg: string; fg: string }> = {
   vatTuTP: { bg: '#ede7f6', fg: '#4527a0' },
 }
 
-// "Mảnh có đan" = có đủ cả 3 nhóm Dây + Đinh + Nút nhựa (Tán rút không tính) - đúng quy tắc
-// BE dùng để set Piece.isWoven (xem SkusService.syncIsWoven). Tính trên TOÀN BỘ r.children
-// (không phải `children` đã lọc theo filterGroup) - lọc theo nhóm chỉ ảnh hưởng hiển thị bảng
-// bên dưới, không được đổi câu trả lời "mảnh này có đan không".
-const WOVEN_GROUPS: ManhChildGroup[] = ['day', 'dinh', 'nutNhua']
+// "Mảnh có đan" = chỉ cần có nhóm Dây (Đinh/Nút nhựa/Tán rút không còn bắt buộc, đổi 2026-09-05
+// theo DEC-11 + chốt lại trực tiếp với người dùng) - đúng quy tắc BE dùng để set Piece.isWoven
+// (xem SkusService.isPieceWoven). Tính trên TOÀN BỘ r.children (không phải `children` đã lọc
+// theo filterGroup) - lọc theo nhóm chỉ ảnh hưởng hiển thị bảng bên dưới, không được đổi câu trả
+// lời "mảnh này có đan không".
+const WOVEN_GROUPS: ManhChildGroup[] = ['day']
 const wovenStatus = (r: ManhRow): { isWoven: boolean; missing: ManhChildGroup[] } => {
   const present = new Set(r.children.map(c => c.group))
   const missing = WOVEN_GROUPS.filter(g => !present.has(g))
