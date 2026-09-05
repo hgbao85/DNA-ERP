@@ -11,9 +11,11 @@
  *
  * Khác mock cũ: bỏ hẳn "kế hoạch xuất sắt" tự tính sẵn số cây mục tiêu (planCay) và highlight
  * "chưa đồng bộ" — không có gì tương ứng ở BE (solver chỉ tính tổng cây/vật tư cho CẢ PI, không
- * chia sẵn theo từng mảnh). Thay vào đó hiện "Σ đoạn cần theo BOM" (steel-issue-plan) làm tham
- * chiếu, thủ kho tự quyết định xuất bao nhiêu cây/chiều dài dựa trên đó — cùng cách đơn giản hoá
- * đã áp cho Sản lượng Hàn/Sơn (bỏ "thanh sắt cấu thành"/"làm tuần tự", xem roadmap M3).
+ * chia sẵn theo từng mảnh). Cột "Cần" (steel-issue-plan) hiện lấy ĐÚNG số cây + chiều dài mà phương
+ * án cắt sắt đã duyệt chốt (CuttingProposalLine, sửa 2026-09-05 — trước đó tính nhầm từ định mức
+ * BOM, đơn vị "đoạn" chứ không phải "cây", không khớp số Mua hàng đã mua), thủ kho tự quyết định
+ * xuất bao nhiêu cây/chiều dài dựa trên đó — cùng cách đơn giản hoá đã áp cho Sản lượng Hàn/Sơn (bỏ
+ * "thanh sắt cấu thành"/"làm tuần tự", xem roadmap M3).
  */
 
 import { useState } from 'react'
@@ -77,12 +79,12 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
     [selectedPi?.productionInvoiceId],
   )
   const history = historyData ?? []
-  // Chiều dài cây mặc định — cây sắt nguyên liệu chuẩn luôn là 6000mm (chốt 2026-08-18), vẫn sửa
-  // được vì kho vật lý có thể đang có cây dài khác. Bỏ hẳn hướng lấy bestStockLengthMm từ phương
-  // án cắt (getApprovedBarLengthByMaterial) — quá phức tạp so với lợi ích, số đó cũng không đại
-  // diện chung cho cả PI khi 1 vật tư dùng ở nhiều sản phẩm/phương án cắt khác nhau.
+  // Chiều dài cây mặc định — ưu tiên đúng chiều dài phương án cắt sắt đã chốt cho vật tư này
+  // (item.bestStockLengthMm, nay lấy thẳng từ CuttingProposalLine, xem steel-issues-api.ts), vẫn sửa
+  // được vì kho vật lý có thể đang có cây dài khác. Fallback 6000mm (chuẩn duy nhất đang dùng) khi
+  // vật tư không còn phương án hiệu lực (bestStockLengthMm=null, chỉ còn lịch sử đã xuất).
   const DEFAULT_BAR_LENGTH_MM = 6000
-  const suggestedBarLen = () => DEFAULT_BAR_LENGTH_MM
+  const suggestedBarLen = (item: BeSteelIssuePlanItem) => item.bestStockLengthMm ?? DEFAULT_BAR_LENGTH_MM
 
   const [barLen, setBarLen] = useState<Record<string, string>>({})
   const [barCount, setBarCount] = useState<Record<string, string>>({})
@@ -95,7 +97,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
 
   const handleXuat = (item: BeSteelIssuePlanItem) => {
     const key = item.materialId
-    const lenRaw = barLen[key] ?? suggestedBarLen().toString()
+    const lenRaw = barLen[key] ?? suggestedBarLen(item).toString()
     const len = Number(lenRaw)
     const n = Number(barCount[key])
     if (!len || len <= 0) { setMsgs(p => ({ ...p, [key]: 'Nhập chiều dài cây hợp lệ' })); return }
@@ -164,8 +166,8 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
           <div style={{ ...emptyBox, color: '#dc2626' }}>Lỗi tải kế hoạch xuất sắt: {planError}</div>
         ) : plan.length === 0 ? (
           <div style={emptyBox}>
-            Chưa có mảnh nào trong PI này khai định mức sắt (BOM), hoặc chưa có phương án cắt sắt đã
-            duyệt — báo KHSX bổ sung/duyệt phương án trước khi xuất được.
+            Chưa có phương án cắt sắt đã duyệt cho PI này — báo KHSX tính/duyệt phương án trước khi
+            xuất được.
           </div>
         ) : (
           <div style={tableWrap}>
@@ -183,11 +185,18 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
               <tbody>
                 {plan.map(item => {
                   const key = item.materialId
-                  const suggested = suggestedBarLen()
+                  const suggested = suggestedBarLen(item)
                   return (
                     <tr key={key} style={row}>
                       <td style={{ ...tdStyle, fontWeight: 600 }}>{item.materialName}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right' }}>{item.requiredSegments}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right' }}>
+                        {item.requiredBars} cây
+                        {item.bestStockLengthMm != null && (
+                          <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>
+                            {item.bestStockLengthMm}mm
+                          </div>
+                        )}
+                      </td>
                       <td style={{ ...tdStyle, textAlign: 'right', color: item.issuedBarCount > 0 ? ACCENT : 'var(--text2)' }}>
                         {issuedForMaterial(item.materialId)}
                       </td>
@@ -196,20 +205,26 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>{item.physicalStockQty ?? '—'}</td>
                       <td style={{ ...tdStyle, textAlign: 'center' }}>
-                        <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                          <input
-                            type="number" min={1} placeholder="dài (mm)"
-                            title={`Mặc định cây chuẩn ${suggested}mm — sửa lại nếu kho đang có cây dài khác`}
-                            value={barLen[key] ?? String(suggested)}
-                            onChange={e => setBarLen(p => ({ ...p, [key]: e.target.value }))}
-                            style={{ width: 80, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
-                          />
-                          <input
-                            type="number" min={1} placeholder="SL cây"
-                            value={barCount[key] ?? ''}
-                            onChange={e => setBarCount(p => ({ ...p, [key]: e.target.value }))}
-                            style={{ width: 64, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
-                          />
+                        <div style={{ display: 'inline-flex', gap: 6, alignItems: 'flex-end' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'center' }}>Dài cây (mm)</span>
+                            <input
+                              type="number" min={1}
+                              title={`Mặc định cây chuẩn ${suggested}mm theo phương án cắt đã duyệt — sửa lại nếu kho đang có cây dài khác`}
+                              value={barLen[key] ?? String(suggested)}
+                              onChange={e => setBarLen(p => ({ ...p, [key]: e.target.value }))}
+                              style={{ width: 80, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                            />
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'center' }}>Số cây</span>
+                            <input
+                              type="number" min={1} placeholder="SL cây"
+                              value={barCount[key] ?? ''}
+                              onChange={e => setBarCount(p => ({ ...p, [key]: e.target.value }))}
+                              style={{ width: 64, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                            />
+                          </div>
                           <button
                             onClick={() => handleXuat(item)}
                             disabled={busy === key}

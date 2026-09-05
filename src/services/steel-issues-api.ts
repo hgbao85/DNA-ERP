@@ -76,9 +76,13 @@ export interface BeSteelIssuePlanItem {
   materialId: string;
   materialCode: string;
   materialName: string;
-  /** Σ đoạn cần (theo BOM × số lượng, cộng dồn mọi mảnh/SKU dùng vật tư này trong cả PI) — đơn vị
-   *  "đoạn", KHÁC barCount (đơn vị "cây"). */
-  requiredSegments: number;
+  /** Σ cây cần mua/cắt theo phương án cắt sắt đã duyệt (CuttingProposalLine.totalBars, cộng dồn
+   *  mọi phương án còn phủ vật tư này trong cả PI) — đơn vị "cây", khớp với số Mua hàng đã mua. 0
+   *  nếu vật tư chỉ còn lịch sử đã xuất (phương án phủ nó đã bị tính lại). */
+  requiredBars: number;
+  /** Chiều dài cây (mm) mà phương án cắt đã chốt dùng chung cho vật tư này trong PI — null nếu
+   *  không còn phương án nào hiệu lực. */
+  bestStockLengthMm: number | null;
   /** Σ cây đã xuất (đợt gốc, không tính rework) cho loại sắt này trong cả PI. */
   issuedBarCount: number;
   /** Còn được xuất theo giữ chỗ (B4 Đợt 3c) — null = phương án duyệt trước mốc đảo cơ chế trừ
