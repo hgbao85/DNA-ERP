@@ -6,7 +6,7 @@ import { errMsg } from '../../../utils/errors'
 import { StatusBadge } from '../Sales/StatusBadge'
 import type { SalesOrderStatus } from '../../../types/sales'
 import { format } from 'date-fns'
-import { AlertCircle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2 } from 'lucide-react'
+import { AlertCircle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2, User } from 'lucide-react'
 import SearchableSelect from '../../../components/SearchableSelect'
 import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 
@@ -411,6 +411,12 @@ export default function LenhSXPage() {
                             {item.status && <StatusBadge status={item.status as SalesOrderStatus} />}
                           </div>
                           {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
+                          {item.customerName && (
+                            <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'var(--text3)', marginTop:3 }}>
+                              <User size={11} />
+                              {item.customerName}
+                            </div>
+                          )}
                           <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap' }}>
                             {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                             {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
@@ -561,9 +567,18 @@ export default function LenhSXPage() {
                 <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', padding:40, textAlign:'center', color:'var(--text3)' }}>Không có SKU</div>
               ) : poGroups.map(([soCode, groupItems]: [string, any[]], gi: number) => (
               <div key={soCode + '-' + gi} style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden', marginBottom: gi === poGroups.length - 1 ? 0 : 16 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 18px', background:'#f3e8ff', borderBottom:'1px solid var(--border)' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 18px', background:'#f3e8ff', borderBottom:'1px solid var(--border)' }}>
                   <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#6b21a8' }}>{soCode}</span>
-                  <span style={{ fontSize:11, color:'#7c3aed' }}>{groupItems.length} SKU</span>
+                  {groupItems[0]?.customerName && (
+                    <>
+                      <div style={{ width:1, height:14, background:'#d8b4fe' }} />
+                      <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:12, color:'#6b21a8' }}>
+                        <User size={12} />
+                        {groupItems[0].customerName}
+                      </span>
+                    </>
+                  )}
+                  <span style={{ marginLeft:'auto', fontSize:11, fontWeight:600, color:'#7c3aed', background:'#fff', padding:'2px 9px', borderRadius:10 }}>{groupItems.length} SKU</span>
                 </div>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 110px', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
                   <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>SKU</span>

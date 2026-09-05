@@ -21,6 +21,7 @@ interface BeProductionInvoiceItem {
   /** PO gốc của riêng SKU này - PI gộp chứa SKU của nhiều PO nên PI cha không cho biết được. */
   salesOrderId: string | null;
   salesOrderCode: string | null;
+  customerName: string | null;
   mfgProductId: string;
   factoryCode: string;
   productName: string;
@@ -72,6 +73,7 @@ function toItem(it: BeProductionInvoiceItem) {
     mfgProductId: it.mfgProductId,
     salesOrderId: it.salesOrderId ?? undefined,
     salesOrderCode: it.salesOrderCode ?? undefined,
+    customerName: it.customerName ?? undefined,
     quantity: it.quantity,
     productVariant: {
       colorCode: it.colorCode,
