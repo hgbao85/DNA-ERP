@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Sửa SKU + dọn dẹp hiển thị mã trùng tên (07/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; font-size: 13.5px; }
+  .flow .step { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-weight: 600; white-space: nowrap; }
+  .flow .arrow { color: var(--text-muted); }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 07/09/2026</span>
+    <h1 class="title">Sửa SKU + dọn dẹp hiển thị mã trùng tên</h1>
+    <p class="subtitle">Thêm chức năng sửa SKU (tên/mã + khách hàng) ở trang "Duyệt SKU", vá 1 lỗi phân quyền chặn nhầm đúng người cần dùng tính năng, và dọn dẹp hiển thị "mã — tên" bị lặp thừa ở 4 màn hình khác nhau (mã và tên SKU luôn giống hệt nhau kể từ lúc tạo, nên hiện riêng 2 lần là dư thừa).</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> FE <code>D:\DNA-ERP</code> · BE <code>D:\DNA-ERP-BE</code></span>
+      <span><strong>Màn hình:</strong> Duyệt SKU · Chi tiết SKU · Danh sách định mức mảnh · Quản lý định mức — Mảnh</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ========= Tính năng mới ========= -->
+  <section id="feature">
+    <div class="sec-head"><h2>Tính năng mới</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">07/09</span><span class="f-title">Sửa SKU (tên/mã + khách hàng) ở trang "Duyệt SKU"</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>SKU tạo nhầm tên hoặc gán sai khách hàng không có cách nào sửa lại — chỉ có thể xoá hẳn rồi tạo mới, mất luôn định mức đã nhập dở.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Nút bút chì "Sửa" trong trang chi tiết SKU (cạnh tên, chỉ hiện khi SKU đang "Đang làm định mức") mở modal sửa — 1 ô "SKU" (đổi cả mã lẫn tên cùng lúc) + 1 ô "Tên khách hàng" (autocomplete, tái dùng đúng component của form tạo mới).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Ràng buộc nghiệp vụ</span>
+        <div class="v">
+          <ul>
+            <li>Chỉ sửa được khi <code>status === IN_PROGRESS</code> — khoá cứng khi đã "Chờ sếp duyệt" hoặc "Đã duyệt", tránh sửa dữ liệu đã chốt.</li>
+            <li>Khách hàng (<code>PlanForm.customerName</code>) là field riêng của từng SKU — luôn sửa được, không ảnh hưởng gì khác.</li>
+            <li>Tên/mã SKU thật ra nằm trên <code>MfgProduct</code> — bảng <b>dùng chung</b> (PO, PI, đơn hàng, BOM revision khác đều tham chiếu qua <code>mfgProductId</code>, không copy tên). Vì vậy chỉ cho đổi khi sản phẩm đó <b>chưa bị bất kỳ bản ghi nào khác</b> dùng (PlanForm/SalesOrderItem/ProductionInvoiceItem/ProductionOrder/BomRevision/ProductVariant khác) — nếu đang dùng chung thì chặn riêng phần tên (409 Conflict), vẫn cho sửa khách hàng.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Chi tiết kỹ thuật</span>
+        <div class="v">
+          <ul>
+            <li>BE: endpoint mới <code>PATCH /skus/:id</code> — <code>SkusController.update()</code> + <code>SkusService.update()</code>/<code>assertMfgProductNotSharedElsewhere()</code> (<code>skus.controller.ts</code>, <code>skus.service.ts</code>). Kèm 9 test mới trong <code>skus.service.spec.ts</code>.</li>
+            <li>FE: <code>SKUReviewPage.tsx</code> (state + modal sửa, dùng lại pattern của modal "Tạo SKU mới") và <code>SKUDetail.tsx</code> (prop <code>onEdit</code>, nút bút chì cạnh tiêu đề). Hàm mới <code>updateSku()</code> ở <code>sku-api.ts</code>.</li>
+            <li>Action log mới <code>sku.updated</code> (<code>AuditLogContext.tsx</code>, <code>AuditLogTimeline.tsx</code>) để ghi lịch sử thao tác.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">2 lần đổi thiết kế theo phản hồi</span>
+        <div class="v">
+          <ul>
+            <li>Ban đầu modal có 2 ô riêng "Mã SKU" và "Tên SKU" (khớp đúng 2 field thật của DB) — nhưng form "Tạo SKU mới" chỉ có 1 ô duy nhất, gán cùng giá trị cho cả 2 field. Gộp lại còn 1 ô "SKU" cho khớp UX tạo mới, tránh làm mã/tên lệch nhau (điều chưa từng xảy ra với SKU nào trong hệ thống).</li>
+            <li>Nút sửa ban đầu đặt ngay trên từng dòng ở bảng danh sách "Duyệt SKU" — sau đổi sang đặt trong trang chi tiết SKU (giữ bảng danh sách gọn, không phải bảng nào cũng cần thao tác nhanh).</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= Lỗi đã sửa ========= -->
+  <section id="fix">
+    <div class="sec-head"><h2>Lỗi đã sửa</h2><span class="sec-count">2 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">07/09</span><span class="f-title">KHSX bấm "Sửa SKU" bị 403 — sai nhóm quyền</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Endpoint <code>PATCH /skus/:id</code> gate bằng permission <code>SKU:UPDATE</code> — nhưng role KHSX (<code>PRODUCTION_PLANNER</code>, người thực sự đứng ở trang "Duyệt SKU") chỉ có <code>VIEW/CREATE/APPROVE/DELETE</code> trên SKU. <code>UPDATE</code> cố tình dành riêng cho 4 tài khoản chuyên trách nhập định mức (Sắt, Sơn/Phụ kiện/Bao bì...). Kết quả: đúng người cần dùng nút Sửa lại bị chặn.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Đổi gate của <code>PATCH /skus/:id</code> sang <code>SKU:CREATE</code> — khớp đúng nhóm quyền KHSX đã có sẵn, không đụng ranh giới "chỉ 4 account chuyên trách được nhập định mức".</div>
+      </div>
+      <div class="f-field"><span class="k">Cách phát hiện</span><div class="v">Chỉ lộ ra khi đăng nhập thật bằng tài khoản role KHSX và bấm thử trong trình duyệt — unit test và kiểm tra kiểu dữ liệu (typecheck) không phát hiện được vì cả hai không mô phỏng lớp phân quyền theo role.</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>D:\DNA-ERP-BE\src\modules\skus\skus.controller.ts</code></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">07/09</span><span class="f-title">Checkbox "Công đoạn phôi" vỡ chữ khi khung bị hẹp</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Nhãn checkbox không có <code>whiteSpace: nowrap</code> và hàng checkbox không cho phép xuống dòng — khi bị các ô cố định bề rộng bên cạnh (Vật tư, Quy cách, Chiều dài cắt...) bóp hẹp lại, chữ bị vỡ giữa từ (vd "Đục lỗ" tách thành "Đục"/"lỗ", "Tóp đầu" tách thành "Tóp"/"đầu").</div>
+        <div class="ba-box after"><span class="k">Sau</span>Thêm <code>whiteSpace: nowrap</code> cho từng nhãn + <code>flexWrap: wrap</code> cho cả hàng checkbox — khi không đủ chỗ, cả cặp (checkbox + nhãn) xuống dòng nguyên khối thay vì chữ bị cắt vỡ. Khối này cũng được cho <code>flex: 1 1 auto; min-width: 260px</code> để không bị các ô khác bóp nhỏ tuỳ tiện.</div>
+      </div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>D:\DNA-ERP\src\modules\pages\Manufacturing\SpecSteelPage.tsx</code> — khối "Công đoạn phôi" trong form thêm/sửa vật tư mảnh</div></div>
+    </article>
+  </section>
+
+  <!-- ========= Dọn dẹp hiển thị ========= -->
+  <section id="ui">
+    <div class="sec-head"><h2>Dọn dẹp hiển thị "mã — tên" trùng lặp</h2><span class="sec-count">3 mục</span></div>
+    <div class="prose-card">
+      <p>Mã SKU (<code>MfgProduct.factoryCode</code>) và tên SKU (<code>MfgProduct.name</code>) là 2 field khác nhau trong DB, nhưng form "Tạo SKU mới" chỉ có 1 ô nhập và luôn gán cùng 1 giá trị cho cả 2 — nên với mọi SKU trong hệ thống, mã và tên hiện tại luôn giống hệt nhau. Hiển thị cả 2 cùng lúc (dạng "demo1234 — demo1234") ở nhiều nơi vì vậy chỉ gây rối mắt, không thêm thông tin gì.</p>
+    </div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Dọn dẹp</span><span class="badge date">07/09</span><span class="f-title">Trang "Duyệt SKU" — bảng danh sách</span></div>
+      <div class="v" style="font-size:14.5px">Cột "SKU" chỉ còn hiện tên, bỏ phần "mã — " phía trước. Tìm kiếm vẫn khớp cả mã lẫn tên như cũ (không đổi logic lọc).</div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>D:\DNA-ERP\src\modules\pages\ProductionPlan\SKUReviewPage.tsx</code></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Dọn dẹp</span><span class="badge date">07/09</span><span class="f-title">Trang chi tiết SKU — info-strip</span></div>
+      <div class="v" style="font-size:14.5px">Bỏ dòng "Mã nhà máy: ..." — tên SKU đã hiện sẵn ở tiêu đề ngay phía trên, chỉ còn "Khách hàng" và "Thời gian tạo" trong info-strip.</div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>D:\DNA-ERP\src\modules\pages\ProductionPlan\SKUDetail.tsx</code></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Dọn dẹp</span><span class="badge date">07/09</span><span class="f-title">Trang "Quản lý định mức — Mảnh" (nhập định mức, account Sắt)</span></div>
+      <div class="v" style="font-size:14.5px">Đã rà lại theo góp ý nhưng <b>chưa đổi</b> — nhãn "demo1234 — demo1234" vẫn lặp lại trên từng dòng mảnh (tựa lưng, tay trái, tay phải...) dù cả trang chỉ đang xem đúng 1 SKU. Người dùng chọn ưu tiên sửa lỗi responsive của khối "Công đoạn phôi" trước (xem mục "Lỗi đã sửa" ở trên); phần nhãn lặp này để lại cho đợt sau.</div>
+      <div class="f-field"><span class="k">Vị trí (việc còn lại)</span><div class="v"><code>D:\DNA-ERP\src\modules\pages\Manufacturing\SpecSteelPage.tsx</code> — dòng hiện <code>{selectedBom?.ten}</code> lặp trong header từng mảnh</div></div>
+    </article>
+  </section>
+
+  <!-- ========= Vá hạ tầng nền ========= -->
+  <section id="infra">
+    <div class="sec-head"><h2>Vá hạ tầng nền (phát hiện trong lúc làm)</h2><span class="sec-count">1 mục</span></div>
+    <div class="prose-card">
+      <p>Không phải tính năng hay lỗi người dùng nhìn thấy — ghi lại vì ảnh hưởng tới việc kiểm thử/triển khai sau này.</p>
+    </div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Hạ tầng</span><span class="badge date">07/09</span><span class="f-title">Prisma Client bị lệch khỏi schema.prisma — backend không khởi động được</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Phát hiện</span>Lúc khởi động BE để kiểm thử tính năng "Sửa SKU" qua trình duyệt thật, <code>nest start --watch</code> báo 35 lỗi kiểu dữ liệu ở các module không liên quan (<code>qc-reviews</code>, <code>steel-issues</code>) — Prisma Client đã generate thiếu hẳn enum <code>CutBundleStatus</code> và các field <code>status/completedSteps/completedAt</code> trên <code>CutBundle</code>, dù các field này đã có sẵn trong <code>schema.prisma</code>.</div>
+        <div class="ba-box after"><span class="k">Đã xử lý</span>Chạy lại <code>npx prisma generate</code> — không đụng database, chỉ sinh lại code client khớp đúng schema hiện tại. BE khởi động lại bình thường, 0 lỗi.</div>
+      </div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Xác nhận đây là trạng thái có sẵn từ trước (không phải do các thay đổi trong phiên này gây ra) bằng cách <code>git stash</code> rồi chạy lại typecheck trên nhánh sạch — vẫn ra đúng 36 lỗi tương tự.</div></div>
+    </article>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 07/09/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>

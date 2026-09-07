@@ -78,6 +78,46 @@ export default function SKUReviewPage() {
 
   const closeForm = () => { setShowForm(false); setForm(emptyForm()); setCustomerName('') }
 
+  // Edit form state — sửa SKU + khách hàng, chỉ mở được khi SKU đang IN_PROGRESS (BE chặn ở mọi
+  // trạng thái khác, xem SkusService.update()). Chỉ 1 ô "SKU" (khớp UX lúc tạo mới, xem
+  // doCreateSku) — gán cùng giá trị cho cả factoryCode lẫn name, không tách 2 ô như dữ liệu BE
+  // thật vì tạo mới cũng chưa từng cho phép 2 giá trị khác nhau.
+  const [editingPf, setEditingPf]               = useState<Sku | null>(null)
+  const [editSkuCode, setEditSkuCode]           = useState('')
+  const [editCustomerName, setEditCustomerName] = useState('')
+  const [editSubmitting, setEditSubmitting]     = useState(false)
+
+  const openEdit = (pf: Sku, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setEditingPf(pf)
+    setEditSkuCode(pf.mfgProduct?.factoryCode ?? '')
+    setEditCustomerName(pf.customerName ?? '')
+  }
+  const closeEdit = () => setEditingPf(null)
+
+  const handleEditSubmit = async () => {
+    if (!editingPf) return
+    const skuCode = editSkuCode.trim()
+    if (!skuCode) { alert('Vui lòng nhập SKU'); return }
+
+    setEditSubmitting(true)
+    try {
+      const updated = await api.updateSku(editingPf.id, {
+        factoryCode: skuCode,
+        name: skuCode,
+        customerName: editCustomerName.trim() || undefined,
+      })
+      logAction(SKU_ENTITY, String(editingPf.id), 'sku.updated', skuCode)
+      closeEdit()
+      refetch()
+      if (selectedPf?.id === editingPf.id) setSelectedPf(updated)
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Không thể sửa SKU')
+    } finally {
+      setEditSubmitting(false)
+    }
+  }
+
   const doCreateSku = async (mfgProductId: string, skuCode: string) => {
     setSubmitting(true)
     try {
@@ -208,19 +248,76 @@ export default function SKUReviewPage() {
     }
   }
 
+  const editModal = editingPf && (
+    <div
+      onClick={e => { if (e.target === e.currentTarget) closeEdit() }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+    >
+      <div style={{ background: 'var(--surface)', borderRadius: 14, width: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#f0fdf4', borderBottom: '1px solid #bbf7d0', borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: '#15803d' }}>Sửa SKU</span>
+          <button onClick={closeEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text3)', display: 'flex' }}>
+            <X size={18} />
+          </button>
+        </div>
+        <div style={{ padding: '20px 20px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div>
+            <label style={labelStyle}>SKU <span style={{ color: '#dc2626' }}>*</span></label>
+            <input
+              autoFocus type="text" value={editSkuCode}
+              onChange={e => setEditSkuCode(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleEditSubmit() }}
+              placeholder="Nhập SKU"
+              style={inputStyle}
+            />
+          </div>
+          <div>
+            <label style={labelStyle}>Tên khách hàng</label>
+            <SearchableSelect
+              displayValue={editCustomerName}
+              options={customers ?? []}
+              getKey={c => String(c.id)}
+              getSearchText={c => `${c.name} ${c.phone}`}
+              renderOption={c => <><strong>{c.name}</strong> <span style={{ color: 'var(--text3)' }}>— {c.phone}</span></>}
+              onSelect={c => setEditCustomerName(c.name)}
+              onQueryChange={setEditCustomerName}
+              placeholder="Tìm hoặc nhập tên khách hàng"
+              emptyText="Không tìm thấy — có thể nhập tên mới"
+            />
+          </div>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '16px 20px', borderTop: '1px solid #e7f9ee', marginTop: 12 }}>
+          <button onClick={closeEdit} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
+            Hủy
+          </button>
+          <button
+            onClick={handleEditSubmit} disabled={editSubmitting}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: editSubmitting ? 'not-allowed' : 'pointer', opacity: editSubmitting ? 0.7 : 1 }}
+          >
+            {editSubmitting ? 'Đang lưu...' : 'Lưu'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
   if (selectedPf) {
     return (
-      <SKUDetail
-        key={`${selectedPf.id}-${selectedPf.status}`}
-        pf={selectedPf}
-        onBack={() => { setSelectedPf(null); refetch() }}
-        onApproveDetail={handleApproveDetail}
-        onApproveParts={handleApproveParts}
-        onApproveBossRequest={handleApproveBossRequest}
-        onBossReject={handleBossReject}
-        onRefresh={handleRefreshSelected}
-        refreshing={refreshingSelected}
-      />
+      <>
+        <SKUDetail
+          key={`${selectedPf.id}-${selectedPf.status}`}
+          pf={selectedPf}
+          onBack={() => { setSelectedPf(null); refetch() }}
+          onApproveDetail={handleApproveDetail}
+          onApproveParts={handleApproveParts}
+          onApproveBossRequest={handleApproveBossRequest}
+          onBossReject={handleBossReject}
+          onRefresh={handleRefreshSelected}
+          refreshing={refreshingSelected}
+          onEdit={e => openEdit(selectedPf, e)}
+        />
+        {editModal}
+      </>
     )
   }
 
@@ -299,6 +396,8 @@ export default function SKUReviewPage() {
         </div>
       )}
 
+      {editModal}
+
       {/* Status filter + search */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
         <FilterPills options={FILTERS} active={statusFilter} onChange={setStatusFilter} countFor={countByStatus} />
@@ -335,9 +434,7 @@ export default function SKUReviewPage() {
                 >
                   <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)' }}>{pf.id}</td>
                   <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
-                    <span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>
-                    {pf.mfgProduct?.name}
+                    <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.name}</span>
                     {pf.bossRejectReason && (
                       <div style={{ marginTop: 2, fontSize: 11, color: '#dc2626', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         ⚠ Sếp từ chối: {pf.bossRejectReason}

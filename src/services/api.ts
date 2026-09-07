@@ -98,7 +98,7 @@ export { getSystemConfig, updateSystemConfig } from './system-config-api';
 export { getMfgProducts, createMfgProduct } from './products-api';
 export { getSalesOrders, createSalesOrder, updateSalesOrder, shipSalesOrderItem } from './sales-orders-api';
 export {
-  getSkus, getSku, getSkuOptions, createSku, deleteSkus,
+  getSkus, getSku, getSkuOptions, createSku, deleteSkus, updateSku,
   updateSkuManhQuota, updateSkuDetailQuota, reviewSkuManhQuota, reviewSkuDetailQuota,
   approvePartsSku, approveDetailSku, rejectSkuByBoss, approveFullSku,
 } from './sku-api';

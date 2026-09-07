@@ -298,6 +298,16 @@ export async function deleteSkus(ids: (number | string)[]): Promise<void> {
   await Promise.all(ids.map((id) => http.del(`/skus/${id}`)));
 }
 
+/** Sửa tên/mã SKU (MfgProduct.factoryCode/name) và/hoặc khách hàng — chỉ BE cho phép khi SKU
+ *  còn IN_PROGRESS; đổi tên còn bị chặn thêm nếu sản phẩm đang dùng chung với SKU/PO/PI khác
+ *  (xem SkusService.update()). Field nào không truyền thì giữ nguyên. */
+export async function updateSku(
+  id: number | string,
+  payload: { factoryCode?: string; name?: string; customerName?: string },
+): Promise<Sku> {
+  return toSku(await http.patch<BeSku>(`/skus/${id}`, payload));
+}
+
 /**
  * Mảnh giờ chứa cả 5 nhóm vật tư trong 1 lần gửi duy nhất - mỗi `ManhRow.children` được tách
  * theo `group`: `group==='sat'` build `segments[]` (đoạn cắt, materialId chọn từ MaterialPicker

@@ -21,6 +21,7 @@ export const AUDIT_ACTIONS = {
 
   // ─── SKU — tạo mới, nhập định mức (4 account chuyên trách) + duyệt (KHSX/Sếp) ─────────
   'sku.created':                { label: 'Tạo SKU',                                         color: '#2563eb' },
+  'sku.updated':                { label: 'Sửa tên/khách hàng SKU',                          color: '#2563eb' },
   'sku.detail_submitted':        { label: 'Nhập định mức chi tiết',                          color: '#2563eb' },
   'sku.manh_submitted':          { label: 'Nhập định mức mảnh',                               color: '#2563eb' },
   'sku.detail_section_approved': { label: 'Duyệt 1 nhóm định mức chi tiết',                  color: '#2e7d32' },

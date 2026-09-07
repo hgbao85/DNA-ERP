@@ -17,6 +17,7 @@ const ACTION_ICON: Record<AuditAction, LucideIcon> = {
   'request.production_started':  Factory,
 
   'sku.created':                FilePlus,
+  'sku.updated':                Pencil,
   'sku.detail_submitted':        FilePlus,
   'sku.manh_submitted':          FilePlus,
   'sku.detail_section_approved': Check,

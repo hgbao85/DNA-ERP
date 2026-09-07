@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Pencil } from 'lucide-react'
 import GenericStatusBadge from '../../../components/StatusBadge'
 import Modal from '../../../components/Modal'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
@@ -34,6 +34,7 @@ export function SKUDetail({
   onBossReject,
   onRefresh,
   refreshing = false,
+  onEdit,
 }: {
   pf: Sku
   readOnly?: boolean
@@ -46,6 +47,9 @@ export function SKUDetail({
   onBossReject?: (reason?: string) => Promise<void>
   onRefresh?: () => void
   refreshing?: boolean
+  /** Sửa SKU + khách hàng — chỉ hiện nút khi truyền vào VÀ SKU đang IN_PROGRESS (BE chặn mọi
+   *  trạng thái khác, xem SkusService.update()). */
+  onEdit?: (e: React.MouseEvent) => void
 }) {
   const { isBoss } = useAuth()
   const { logAction, getLogsFor } = useAuditLog()
@@ -231,7 +235,18 @@ export function SKUDetail({
           <ChevronLeft size={16} /> Danh sách
         </button>
         <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{pf.mfgProduct?.name}</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{pf.mfgProduct?.name}</h2>
+            {onEdit && pf.status === 'IN_PROGRESS' && (
+              <button
+                onClick={onEdit}
+                title="Sửa SKU"
+                style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, color: 'var(--text3)', display: 'inline-flex' }}
+              >
+                <Pencil size={15} />
+              </button>
+            )}
+          </div>
           <p style={{ margin: '2px 0 0', fontSize: 12, color: 'var(--text3)' }}>
             Tạo lúc {format(new Date(pf.createdAt), 'HH:mm dd/MM/yyyy')}
           </p>

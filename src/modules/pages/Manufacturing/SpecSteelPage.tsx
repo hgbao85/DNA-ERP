@@ -635,11 +635,11 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         </div>
                       )}
                       {(childGroup === 'sat' || childGroup === 'vatTuTP') && (
-                        <div>
+                        <div style={{ flex: '1 1 auto', minWidth: 260 }}>
                           <FL>Công đoạn phôi</FL>
-                          <div style={{ display: 'flex', gap: 10, paddingTop: 4 }}>
+                          <div style={{ display: 'flex', gap: 10, rowGap: 6, paddingTop: 4, flexWrap: 'wrap' }}>
                             {PROCESS_STEPS.map(step => (
-                              <label key={step} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--text2)', cursor: 'pointer' }}>
+                              <label key={step} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--text2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                                 <input type="checkbox" checked={childProcessSteps.includes(step)}
                                   onChange={() => toggleChildProcessStep(step)} />
                                 {PROCESS_STEP_LABELS[step]}
