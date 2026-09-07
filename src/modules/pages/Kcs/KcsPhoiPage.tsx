@@ -423,10 +423,19 @@ function RecheckModal({ bundle, issue, review, onClose, onDone }: {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
+  // Gợi ý sẵn "Còn hỏng" = outstanding - lời khai Phôi (2026-09-07) - KCS chỉ cần xác nhận/sửa lại
+  // thay vì gõ lại từ đầu. Vẫn tự đếm độc lập, KHÔNG tin thẳng số Phôi khai (xem doc comment
+  // QcReviewSegment.phoiReportedQty) - dùng CHUNG hàm này cho cả input hiển thị lẫn submit() để 2
+  // nơi luôn khớp nhau (bấm "Xác nhận" ngay không gõ gì vẫn đúng giá trị đang hiển thị).
+  const suggestedRemaining = (s: (typeof rows)[number]) =>
+    Math.max(0, s.failedQty - s.resolvedQty - (s.phoiReportedQty ?? 0))
+
   const submit = async () => {
     const segments = rows.map((s) => {
       const outstanding = s.failedQty - s.resolvedQty
-      const raw = Math.floor(Number(remainingBySeg[s.segmentSpecId]) || 0)
+      const raw = remainingBySeg[s.segmentSpecId] !== undefined
+        ? Math.floor(Number(remainingBySeg[s.segmentSpecId]) || 0)
+        : suggestedRemaining(s)
       return { segmentSpecId: s.segmentSpecId, remainingFailedQty: Math.max(0, Math.min(outstanding, raw)) }
     })
     setBusy(true); setErr('')
@@ -456,6 +465,7 @@ function RecheckModal({ bundle, issue, review, onClose, onDone }: {
               <tr style={{ background: 'var(--surface2)' }}>
                 <th style={th}>Cỡ đoạn</th>
                 <th style={thR}>Đã chấm lỗi</th>
+                <th style={thR}>Phôi khai đã sửa</th>
                 <th style={{ ...thR, width: 110 }}>Còn hỏng</th>
               </tr>
             </thead>
@@ -466,9 +476,10 @@ function RecheckModal({ bundle, issue, review, onClose, onDone }: {
                   <tr key={s.segmentSpecId} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={td}>{s.cutLengthMm.toLocaleString('vi-VN')}mm</td>
                     <td style={tdR}>{outstanding}</td>
+                    <td style={tdR}>{s.phoiReportedQty ?? '—'}</td>
                     <td style={{ ...td, textAlign: 'right' }}>
                       <input type="number" min={0} max={outstanding} placeholder="0"
-                        value={remainingBySeg[s.segmentSpecId] ?? ''}
+                        value={remainingBySeg[s.segmentSpecId] ?? String(suggestedRemaining(s))}
                         onChange={(e) => setRemainingBySeg((p) => ({ ...p, [s.segmentSpecId]: e.target.value }))}
                         style={{ width: 64, padding: '5px 7px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }} />
                     </td>

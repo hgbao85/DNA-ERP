@@ -47,7 +47,7 @@
 
 import { useMemo, useState } from 'react'
 import {
-  ChevronLeft, ChevronRight, Wrench, Clock, Check, AlertTriangle, RotateCcw, Plus, Ruler,
+  ChevronLeft, ChevronRight, ChevronDown, Wrench, Clock, Check, AlertTriangle, RotateCcw, Plus, Ruler, X,
 } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
@@ -513,12 +513,20 @@ function MaterialGroupDetail({ group, readOnly, reviewByBundle, progress, onBack
   const [busyBundleId, setBusyBundleId] = useState<string | null>(null)
   const [err, setErr] = useState('')
 
-  // Issue đích để gắn đợt cắt MỚI/CỘNG DỒN vào - bất kỳ issue nào ĐÃ xác nhận nhận (khác ISSUED)
-  // cũng được, kể cả khi status đã roll-up lên AWAITING_QC/QC_PASSED (2026-09-06 - chỉ là hiển thị
-  // tổng quan cho 2 màn cũ, xem SteelIssuesService.syncIssueStatusFromBundles(); backend chỉ chặn
-  // thật khi issue còn ISSUED - chưa nhận). Vật lý không quan trọng attach vào lô nào
-  // (CutBundle.steelIssueId chỉ cần 1 FK hợp lệ cùng materialId/barLengthMm - xem comment schema).
-  const targetIssue = group.issues.find(i => i.status !== 'ISSUED') ?? null
+  // Issue đích để gắn đợt cắt MỚI/CỘNG DỒN vào. ƯU TIÊN issue nào ĐANG CÓ đợt cắt mở (status
+  // CUTTING) - backend cộng dồn (recordCutBatch) tìm đợt mở THEO ĐÚNG steelIssueId, group có thể
+  // gồm NHIỀU issue (nhiều lần kho giao) nên nếu cứ lấy issue ĐẦU TIÊN "khác ISSUED" một cách mù
+  // quáng, có thể trúng nhầm 1 issue KHÁC issue đang giữ đợt mở - "Lưu đợt cắt" tưởng cộng dồn
+  // nhưng lại tạo ra đợt MỚI dưới issue sai (bug thật phát hiện 2026-09-07 khi test "Hoàn tác": 2
+  // issue cùng "khác ISSUED", đợt đang mở nằm ở issue A nhưng .find() chọn issue B trước). Không
+  // issue nào đang có đợt mở (mọi đợt đã "Báo cắt xong"/QC_PASSED, hoặc lần đầu tiên chưa có đợt
+  // nào) thì mới rơi về "issue đầu tiên đã xác nhận nhận" (khác ISSUED) để bắt đầu đợt mới - roll-up
+  // status AWAITING_QC/QC_PASSED chỉ là hiển thị (xem SteelIssuesService.syncIssueStatusFromBundles),
+  // backend chỉ thật sự chặn khi issue còn ISSUED - chưa nhận.
+  const targetIssue =
+    group.issues.find(i => i.status !== 'ISSUED' && group.bundles.some(b => b.steelIssueId === i.id && b.status === 'CUTTING'))
+    ?? group.issues.find(i => i.status !== 'ISSUED')
+    ?? null
   const isReturn = group.issues.some(i => i.status === 'RECEIVED' && !!i.reworkOfId)
 
   const bundlesSorted = useMemo(() => {
@@ -527,6 +535,16 @@ function MaterialGroupDetail({ group, readOnly, reviewByBundle, progress, onBack
       const r = rank(a.status) - rank(b.status)
       return r !== 0 ? r : b.createdAt.localeCompare(a.createdAt)
     })
+  }, [group.bundles])
+
+  // "Đợt N" đánh số theo thứ tự TẠO RA (cũ nhất = Đợt 1), KHÔNG theo thứ tự hiển thị ở
+  // `bundlesSorted` (ưu tiên đợt đang cắt/chờ KCS lên đầu) - nếu đánh số theo vị trí hiển thị, số
+  // của 1 đợt sẽ nhảy lung tung mỗi khi đợt khác đổi trạng thái. 2026-09-07, theo góp ý người dùng
+  // - "4 cỡ đoạn · 8 đoạn" là thống kê, không cho biết ĐANG XEM đợt nào, khó nói chuyện ("đợt 2 bị
+  // gì đó") hơn hẳn đánh số.
+  const orderIndexByBundleId = useMemo(() => {
+    const byCreatedAsc = [...group.bundles].sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    return new Map(byCreatedAsc.map((b, i) => [b.id, i + 1]))
   }, [group.bundles])
 
   const doFinishBundle = async (bundleId: string) => {
@@ -541,13 +559,6 @@ function MaterialGroupDetail({ group, readOnly, reviewByBundle, progress, onBack
     catch (e) { setErr(errMsg(e, 'Không đánh dấu công đoạn được')) }
     finally { setBusyBundleId(null) }
   }
-  const doBuDu = async (bundleId: string, segmentSpecId: string) => {
-    setBusyBundleId(bundleId); setErr('')
-    try { await api.reportSegmentDoneForBundle(bundleId, segmentSpecId); onRefetch() }
-    catch (e) { setErr(errMsg(e, 'Không báo được')) }
-    finally { setBusyBundleId(null) }
-  }
-
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -567,6 +578,7 @@ function MaterialGroupDetail({ group, readOnly, reviewByBundle, progress, onBack
 
       <NewCutBundleForm
         targetIssue={targetIssue} progress={progress} readOnly={readOnly}
+        bundles={group.bundles} reviewByBundle={reviewByBundle}
         onOpenCuttingGuide={onOpenCuttingGuide && targetIssue ? () => onOpenCuttingGuide(targetIssue.productionInvoiceId) : undefined}
         onCreated={onRefetch}
       />
@@ -576,11 +588,11 @@ function MaterialGroupDetail({ group, readOnly, reviewByBundle, progress, onBack
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {bundlesSorted.map(b => (
             <CutBundleCard
-              key={b.id} bundle={b} readOnly={readOnly} review={reviewByBundle.get(b.id)}
+              key={b.id} bundle={b} orderIndex={orderIndexByBundleId.get(b.id) ?? 0}
+              readOnly={readOnly} review={reviewByBundle.get(b.id)}
               busy={busyBundleId === b.id}
               onFinish={() => doFinishBundle(b.id)}
               onCompleteStep={step => doCompleteBundleStep(b.id, step)}
-              onBuDu={segmentSpecId => doBuDu(b.id, segmentSpecId)}
             />
           ))}
           {bundlesSorted.length === 0 && (
@@ -596,10 +608,17 @@ function MaterialGroupDetail({ group, readOnly, reviewByBundle, progress, onBack
   )
 }
 
-// ── Form "Lưu đợt cắt" + bảng "Cần/Đã cắt/Còn lại" tham khảo (2026-09-05, sửa 2026-09-06) ──────
-// Bảng chỉ mang tính THAM KHẢO tổng thể (Σ mọi đợt cắt của material này trong cả PI) - không còn
-// cột "Lỗi" (lỗi giờ thuộc về TỪNG đợt cắt riêng, xem CutBundleCard) và không chặn lưu thêm dù
-// "Còn lại" đã về 0 (kiểm soát dồn về KCS, cùng triết lý module này đã áp dụng nhiều lần).
+// ── Form "Lưu đợt cắt" + bảng "Cần/Đã cắt/Lỗi/Còn lại" tham khảo (2026-09-05, sửa 2026-09-06) ──
+// Bảng chỉ mang tính THAM KHẢO tổng thể (Σ mọi đợt cắt của material này trong cả PI, PI-wide -
+// đúng quy ước có từ trước, không tách theo từng đợt) và không chặn lưu thêm dù "Còn lại" đã về 0
+// (kiểm soát dồn về KCS, cùng triết lý module này đã áp dụng nhiều lần).
+//
+// Cột "Lỗi" LUÔN hiện (không ẩn/hiện theo điều kiện) - lúc viết lại màn này (2026-09-05) đã lỡ bỏ
+// mất cột này cùng phần trừ `failed` khi tính "Còn lại", tưởng lỗi giờ chỉ cần xem ở CutBundleCard
+// (từng đợt cắt riêng) là đủ. Khôi phục lại (2026-09-06, theo góp ý người dùng) vì 2 vai trò khác
+// nhau: CutBundleCard cho biết ĐÚNG ĐỢT nào đang lỗi để Phôi "Bù đủ", còn cột "Lỗi" ở đây cho biết
+// NGAY TỪ ĐẦU (không cần mở từng đợt) tổng số đoạn cỡ này đang lỗi TRÊN CẢ PI - `remaining` PHẢI
+// trừ lại `failed` (đoạn lỗi chưa bù không tính là "đã xong"), khớp PhoiProgressSegmentDto.failed.
 //
 // "Lưu đợt cắt" (2026-09-06): mỗi lần bấm CỘNG DỒN vào đợt đang mở (CUTTING) của targetIssue nếu
 // có - Phôi khai rải nhiều lần trong ca vẫn tính là 1 đợt. Chỉ khi bấm "Báo cắt xong"
@@ -610,16 +629,127 @@ function MaterialGroupDetail({ group, readOnly, reviewByBundle, progress, onBack
 // "Cách cắt gợi ý" (2026-08-25, bỏ) - phương án cắt KHÔNG phải gợi ý, là BẮT BUỘC theo đúng
 // solver đã duyệt. Bảng chip gọn khó nhìn khi nhiều cỡ và không in được, thay bằng liên kết sang
 // màn riêng "Hướng dẫn cắt" (sidebar, HuongDanCatPage.tsx) - bảng lưới ô-theo-ô + xuất Excel.
-function NewCutBundleForm({ targetIssue, progress, readOnly, onOpenCuttingGuide, onCreated }: {
+//
+// "Bù đủ" ngay tại cột "Lỗi" (2026-09-07, theo góp ý người dùng) - trước đây CHỈ bấm được trong
+// từng CutBundleCard riêng (phải biết đúng đợt nào lỗi). "Lỗi" ở bảng này là TỔNG trên cả PI, có
+// thể gộp từ NHIỀU đợt cắt cùng lỗi 1 cỡ đoạn cùng lúc - popup chỉ hỏi 1 số duy nhất (Phôi không
+// cần biết khái niệm "đợt cắt"), hệ thống tự phân bổ xuống từng đợt theo `allocateQty()` (đợt cũ
+// nhất trước). Bỏ qua các đợt ĐANG chờ KCS duyệt lại (phoiReportedAt != null) - không báo lại được.
+function findBuDuRowsForSegment(
+  segmentSpecId: string, bundles: BeCutBundle[], reviewByBundle: Map<string, BeQcReview>,
+): { rows: { bundleId: string; outstanding: number; createdAt: string }[]; availableTotal: number; pendingTotal: number } {
+  const rows: { bundleId: string; outstanding: number; createdAt: string }[] = []
+  let pendingTotal = 0
+  const passed = bundles.filter(b => b.status === 'QC_PASSED')
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt)) // đợt cũ nhất trước (FIFO)
+  for (const b of passed) {
+    const seg = reviewByBundle.get(b.id)?.segments.find(s => s.segmentSpecId === segmentSpecId)
+    if (!seg) continue
+    const outstanding = seg.failedQty - seg.resolvedQty
+    if (outstanding <= 0) continue
+    if (seg.phoiReportedAt) { pendingTotal += outstanding; continue }
+    rows.push({ bundleId: b.id, outstanding, createdAt: b.createdAt })
+  }
+  return { rows, availableTotal: rows.reduce((s, r) => s + r.outstanding, 0), pendingTotal }
+}
+
+function allocateQty(rows: { bundleId: string; outstanding: number }[], qty: number): { bundleId: string; qty: number }[] {
+  let remaining = qty
+  const alloc: { bundleId: string; qty: number }[] = []
+  for (const r of rows) {
+    if (remaining <= 0) break
+    const take = Math.min(r.outstanding, remaining)
+    alloc.push({ bundleId: r.bundleId, qty: take })
+    remaining -= take
+  }
+  return alloc
+}
+
+// Hiện rõ phân bổ khi lỗi rải ở TỪ 2 ĐỢT CẮT trở lên (2026-09-07, theo góp ý người dùng) - trước
+// đó allocateQty() chia xuống từng đợt "âm thầm", Phôi không biết đợt nào nhận bao nhiêu. Trường
+// hợp thường gặp (đúng 1 đợt) giữ nguyên gọn, không hiện gì thêm - chỉ hiện khi thực sự cần phân
+// biệt (rows.length > 1) để không làm rối luồng đơn giản.
+function BuDuPopup({ cutLengthMm, rows, busy, error, onSubmit, onClose }: {
+  cutLengthMm: number
+  rows: { bundleId: string; outstanding: number; createdAt: string }[]
+  busy: boolean; error: string
+  onSubmit: (qty: number) => void; onClose: () => void
+}) {
+  const maxQty = rows.reduce((s, r) => s + r.outstanding, 0)
+  const [qty, setQty] = useState(String(maxQty))
+  const n = Math.floor(Number(qty))
+  const invalid = !(n >= 1 && n <= maxQty)
+  const alloc = allocateQty(rows, n).filter(a => a.qty > 0)
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }} onClick={onClose}>
+      <div style={{ ...card, width: 300, padding: 18 }} onClick={e => e.stopPropagation()}>
+        <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>Bù đủ — {cutLengthMm.toLocaleString('vi-VN')}mm</div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
+          Đang lỗi {maxQty} đoạn - nhập số đã sửa xong (KCS sẽ kiểm tra lại trước khi tính đạt).
+        </div>
+        <input type="number" min={1} max={maxQty} value={qty} autoFocus
+          onChange={e => setQty(e.target.value)} style={{ ...inp, width: '100%', marginBottom: 8, boxSizing: 'border-box' }} />
+        {rows.length > 1 && !invalid && (
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>
+            Sẽ phân bổ: {alloc.map(a => {
+              const r = rows.find(x => x.bundleId === a.bundleId)!
+              return `đợt ${new Date(r.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} → ${a.qty}`
+            }).join(', ')}
+          </div>
+        )}
+        {error && <div style={{ color: RED, fontSize: 12, marginBottom: 8 }}>{error}</div>}
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+          <button onClick={onClose} disabled={busy}
+            style={{ ...smallBtn, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: busy ? 'not-allowed' : 'pointer' }}>
+            Hủy
+          </button>
+          <button onClick={() => !invalid && onSubmit(n)} disabled={busy || invalid}
+            style={{ ...smallBtn, background: ACCENT, cursor: busy || invalid ? 'not-allowed' : 'pointer' }}>
+            {busy ? '...' : 'Xác nhận'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function NewCutBundleForm({ targetIssue, progress, readOnly, bundles, reviewByBundle, onOpenCuttingGuide, onCreated }: {
   targetIssue: BeSteelIssue | null; progress: BePhoiProgressItem | null; readOnly: boolean
+  bundles: BeCutBundle[]; reviewByBundle: Map<string, BeQcReview>
   onOpenCuttingGuide?: () => void; onCreated: () => void
 }) {
   const [rowInputs, setRowInputs] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [buDuTarget, setBuDuTarget] = useState<{
+    segmentSpecId: string; cutLengthMm: number
+    rows: { bundleId: string; outstanding: number; createdAt: string }[]
+  } | null>(null)
+  const [buDuBusy, setBuDuBusy] = useState(false)
+  const [buDuErr, setBuDuErr] = useState('')
+  // "Hoàn tác" lần "Lưu đợt cắt" GẦN NHẤT (2026-09-07) - chỉ 1 cấp, tự mất khi lưu lần tiếp theo
+  // (bị ghi đè) hoặc bấm Hoàn tác xong. Sống trong state cục bộ - rời màn/refresh là mất, đúng ý
+  // "chỉ dùng ngay sau khi lỡ tay", không phải sổ nhật ký chỉnh sửa lâu dài.
+  const [lastSaved, setLastSaved] = useState<{
+    bundleId: string; segments: { segmentSpecId: string; qty: number; cutLengthMm: number }[]
+  } | null>(null)
+  const [undoBusy, setUndoBusy] = useState(false)
+  const [undoErr, setUndoErr] = useState('')
 
   const segments = progress?.segments ?? []
   const canSubmit = !readOnly && !!targetIssue
+
+  const submitBuDu = async (qty: number) => {
+    if (!buDuTarget) return
+    const alloc = allocateQty(buDuTarget.rows, qty)
+    setBuDuBusy(true); setBuDuErr('')
+    try {
+      for (const a of alloc) await api.reportSegmentDoneForBundle(a.bundleId, buDuTarget.segmentSpecId, a.qty)
+      setBuDuTarget(null)
+      onCreated()
+    } catch (e) { setBuDuErr(errMsg(e, 'Không báo được')) }
+    finally { setBuDuBusy(false) }
+  }
 
   const submit = async () => {
     if (!targetIssue) return
@@ -627,13 +757,30 @@ function NewCutBundleForm({ targetIssue, progress, readOnly, onOpenCuttingGuide,
       .map(s => ({ segmentSpecId: s.segmentSpecId, qty: Math.floor(Number(rowInputs[s.segmentSpecId]) || 0) }))
       .filter(r => r.qty > 0)
     if (rows.length === 0) { setErr('Nhập ít nhất 1 cỡ đoạn đã cắt được'); return }
-    setBusy(true); setErr('')
+    setBusy(true); setErr(''); setUndoErr('')
     try {
-      await api.recordCutBatch(targetIssue.id, { segments: rows })
+      const bundle = await api.recordCutBatch(targetIssue.id, { segments: rows })
       setRowInputs({})
+      setLastSaved({
+        bundleId: bundle.id,
+        segments: rows.map(r => ({
+          ...r, cutLengthMm: segments.find(s => s.segmentSpecId === r.segmentSpecId)?.cutLengthMm ?? 0,
+        })),
+      })
       onCreated()
     } catch (e) { setErr(errMsg(e, 'Không lưu được đợt cắt - kiểm lại số liệu')) }
     finally { setBusy(false) }
+  }
+
+  const undo = async () => {
+    if (!lastSaved) return
+    setUndoBusy(true); setUndoErr('')
+    try {
+      await api.undoLastCutBatch(lastSaved.bundleId, lastSaved.segments.map(s => ({ segmentSpecId: s.segmentSpecId, qty: s.qty })))
+      setLastSaved(null)
+      onCreated()
+    } catch (e) { setUndoErr(errMsg(e, 'Không hoàn tác được')) }
+    finally { setUndoBusy(false) }
   }
 
   if (!progress) return <LoadingState />
@@ -650,18 +797,35 @@ function NewCutBundleForm({ targetIssue, progress, readOnly, onOpenCuttingGuide,
               <th style={th}>Cỡ đoạn</th>
               <th style={thR}>Cần</th>
               <th style={thR}>Đã cắt</th>
+              <th style={thR}>Lỗi</th>
               <th style={thR}>Còn lại</th>
               {canSubmit && <th style={{ ...thR, width: 100 }}>Nhập đợt này</th>}
             </tr>
           </thead>
           <tbody>
             {segments.map(s => {
-              const remaining = s.required - s.done
+              const remaining = s.required - (s.done - s.failed)
+              const buDu = s.failed > 0 && !readOnly ? findBuDuRowsForSegment(s.segmentSpecId, bundles, reviewByBundle) : null
               return (
                 <tr key={s.segmentSpecId} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={td}>{s.cutLengthMm.toLocaleString('vi-VN')}mm</td>
                   <td style={tdR}>{s.required}</td>
                   <td style={tdR}>{s.done}</td>
+                  <td style={{ ...tdR, color: s.failed > 0 ? RED : 'var(--text3)' }}>
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <span>{s.failed > 0 ? s.failed : '—'}</span>
+                      {buDu && buDu.availableTotal > 0 && (
+                        <button
+                          onClick={() => setBuDuTarget({ segmentSpecId: s.segmentSpecId, cutLengthMm: s.cutLengthMm, rows: buDu.rows })}
+                          style={{ ...smallBtn, padding: '2px 8px', fontSize: 11, background: ACCENT, cursor: 'pointer' }}>
+                          Bù đủ
+                        </button>
+                      )}
+                      {buDu && buDu.availableTotal === 0 && buDu.pendingTotal > 0 && (
+                        <span style={{ fontSize: 11, fontWeight: 600, color: AMBER }}>chờ KCS</span>
+                      )}
+                    </div>
+                  </td>
                   <td style={{ ...tdR, color: remaining > 0 ? ACCENT : GREEN, fontWeight: 700 }}>{remaining > 0 ? remaining : 0}</td>
                   {canSubmit && (
                     <td style={{ ...td, textAlign: 'right' }}>
@@ -674,7 +838,7 @@ function NewCutBundleForm({ targetIssue, progress, readOnly, onOpenCuttingGuide,
               )
             })}
             {segments.length === 0 && (
-              <tr><td colSpan={canSubmit ? 5 : 4} style={{ padding: 16, textAlign: 'center', color: 'var(--text3)', fontSize: 12 }}>
+              <tr><td colSpan={canSubmit ? 6 : 5} style={{ padding: 16, textAlign: 'center', color: 'var(--text3)', fontSize: 12 }}>
                 Chưa xác định được định mức cho loại sắt này
               </td></tr>
             )}
@@ -695,34 +859,71 @@ function NewCutBundleForm({ targetIssue, progress, readOnly, onOpenCuttingGuide,
       )}
       {err && <div style={{ marginTop: 8, fontSize: 12, color: RED }}>{err}</div>}
 
+      {/* "Hoàn tác" lần lưu gần nhất (2026-09-07) - biến mất ngay khi lưu lần tiếp theo (lastSaved
+          bị ghi đè) hoặc bấm Hoàn tác xong; KHÔNG phải sổ nhật ký nhiều lượt. */}
+      {lastSaved && !readOnly && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 4, fontSize: 12, color: 'var(--text3)' }}>
+          <span>
+            Đã lưu: {lastSaved.segments.map(s => `+${s.qty}×${s.cutLengthMm.toLocaleString('vi-VN')}mm`).join(', ')}
+          </span>
+          <button onClick={undo} disabled={undoBusy}
+            style={{ background: 'none', border: 'none', padding: 0, color: ACCENT, fontWeight: 600, cursor: undoBusy ? 'not-allowed' : 'pointer', fontSize: 12 }}>
+            {undoBusy ? '...' : 'Hoàn tác'}
+          </button>
+          <button onClick={() => setLastSaved(null)} disabled={undoBusy}
+            style={{ background: 'none', border: 'none', padding: 0, color: 'var(--text3)', cursor: undoBusy ? 'not-allowed' : 'pointer' }}>
+            <X size={13} />
+          </button>
+        </div>
+      )}
+      {undoErr && <div style={{ marginTop: 4, fontSize: 12, color: RED }}>{undoErr}</div>}
+
       {onOpenCuttingGuide && (
         <button onClick={onOpenCuttingGuide}
           style={{ display: 'flex', alignItems: 'center', gap: 5, border: 'none', background: 'none', padding: 0, marginTop: 10, fontSize: 12, fontWeight: 600, color: ACCENT, cursor: 'pointer' }}>
           <Ruler size={13} /> Xem hướng dẫn cắt đầy đủ (bắt buộc theo đúng phương án đã duyệt, xuất được để in) →
         </button>
       )}
+
+      {buDuTarget && (
+        <BuDuPopup cutLengthMm={buDuTarget.cutLengthMm} rows={buDuTarget.rows} busy={buDuBusy} error={buDuErr}
+          onClose={() => { setBuDuTarget(null); setBuDuErr('') }}
+          onSubmit={submitBuDu} />
+      )}
     </div>
   )
 }
 
 // ── 1 ĐỢT CẮT cụ thể - segments đã khai + trạng thái riêng + hành động tương ứng ─────────────
-function CutBundleCard({ bundle, readOnly, review, busy, onFinish, onCompleteStep, onBuDu }: {
-  bundle: BeCutBundle; readOnly: boolean; review?: BeQcReview; busy: boolean
-  onFinish: () => void; onCompleteStep: (step: ProcessStep) => void; onBuDu: (segmentSpecId: string) => void
+//
+// "Bù đủ" KHÔNG còn bấm được ở đây (2026-09-07, theo góp ý người dùng - 2 điểm hành động cho cùng
+// 1 việc gây phân vân bấm chỗ nào) - dồn hẳn về cột "Lỗi" ở bảng tổng trong `NewCutBundleForm`
+// (đã xử lý đúng cả trường hợp 1 đợt lẫn nhiều đợt qua `findBuDuRowsForSegment`/`allocateQty`).
+// Card này chỉ còn hiện SỐ LIỆU (lỗi bao nhiêu, đang chờ KCS duyệt lại hay chưa) để chẩn đoán đúng
+// ĐỢT nào đang vướng, không có nút bấm.
+function CutBundleCard({ bundle, orderIndex, readOnly, review, busy, onFinish, onCompleteStep }: {
+  bundle: BeCutBundle; orderIndex: number; readOnly: boolean; review?: BeQcReview; busy: boolean
+  onFinish: () => void; onCompleteStep: (step: ProcessStep) => void
 }) {
   const segs = review?.segments ?? []
   const outstanding = segs.reduce((s, x) => s + (x.failedQty - x.resolvedQty), 0)
+  // Xổ ra/vào bảng chi tiết cỡ đoạn (2026-09-07, theo góp ý người dùng) - dòng tóm tắt cũ nối
+  // "N×cỡmm" bằng " + " dài dằng dặc khi đợt có nhiều cỡ, khó đọc. Mặc định GỌN (đóng), TRỪ KHI
+  // đợt đang có lỗi (outstanding > 0) - lúc đó tự bung sẵn để Phôi thấy ngay cột "Lỗi" không cần
+  // bấm thêm (cột Lỗi giờ nằm TRONG bảng, gộp cùng "Số lượng" theo đúng cỡ đoạn - 2026-09-07, theo
+  // góp ý người dùng lần 2, thay vì tách rời 1 dòng riêng phía dưới bảng như bản đầu).
+  const [expanded, setExpanded] = useState(outstanding > 0)
   const missingSteps = bundle.requiredSteps.filter(s => s !== 'CAT' && !bundle.completedSteps.includes(s))
+  const totalQty = bundle.segments.reduce((s, x) => s + x.qty, 0)
 
   return (
     <div style={{ ...card, borderColor: outstanding > 0 ? RED : undefined, padding: '12px 16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => setExpanded(e => !e)}>
+        {expanded ? <ChevronDown size={15} color="var(--text3)" /> : <ChevronRight size={15} color="var(--text3)" />}
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>
-            {bundle.segments.map(s => `${s.qty}×${s.cutLengthMm.toLocaleString('vi-VN')}mm`).join(' + ')}
-          </div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>Đợt {orderIndex}</div>
           <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-            {new Date(bundle.createdAt).toLocaleString('vi-VN')}
+            {bundle.segments.length} cỡ đoạn · {totalQty} đoạn · {new Date(bundle.createdAt).toLocaleString('vi-VN')}
           </div>
         </div>
         {bundle.status === 'CUTTING' ? (
@@ -735,6 +936,44 @@ function CutBundleCard({ bundle, readOnly, review, busy, onFinish, onCompleteSte
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đã duyệt</span>
         )}
       </div>
+
+      {expanded && (
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 10 }}>
+          <thead>
+            <tr style={{ background: 'var(--surface)' }}>
+              <th style={th}>Cỡ đoạn</th>
+              <th style={thR}>Số lượng</th>
+              {/* Cột "Lỗi" ngay cạnh "Số lượng" (2026-09-07, theo góp ý người dùng) - trước để
+                  riêng 1 dòng tách rời phía dưới bảng, cùng 1 cỡ đoạn nhưng lỗi hiện ở nơi khác
+                  hẳn số lượng gây khó theo dõi. Chỉ thêm cột này khi đợt CÓ lỗi (outstanding > 0)
+                  - đa số đợt không lỗi, không cần thêm cột thừa. */}
+              {outstanding > 0 && <th style={thR}>Lỗi</th>}
+            </tr>
+          </thead>
+          <tbody>
+            {bundle.segments.map(s => {
+              const rev = segs.find(x => x.segmentSpecId === s.segmentSpecId)
+              const segOutstanding = rev ? rev.failedQty - rev.resolvedQty : 0
+              return (
+                <tr key={s.segmentSpecId} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={td}>{s.cutLengthMm.toLocaleString('vi-VN')}mm</td>
+                  <td style={tdR}>{s.qty}</td>
+                  {outstanding > 0 && (
+                    <td style={{ ...tdR, color: segOutstanding > 0 ? RED : 'var(--text3)' }}>
+                      {segOutstanding > 0 ? (
+                        <>
+                          lỗi {segOutstanding}
+                          {rev?.phoiReportedAt && <span style={{ color: AMBER, fontWeight: 600 }}> · chờ KCS</span>}
+                        </>
+                      ) : '—'}
+                    </td>
+                  )}
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      )}
 
       {bundle.status === 'CUTTING' && missingSteps.length > 0 && (
         <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -765,23 +1004,6 @@ function CutBundleCard({ bundle, readOnly, review, busy, onFinish, onCompleteSte
         </button>
       )}
 
-      {bundle.status === 'QC_PASSED' && outstanding > 0 && !readOnly && (
-        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {segs.filter(s => s.failedQty - s.resolvedQty > 0).map(s => (
-            <div key={s.segmentSpecId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
-              <span>{s.cutLengthMm.toLocaleString('vi-VN')}mm — lỗi {s.failedQty - s.resolvedQty}</span>
-              {s.phoiReportedAt ? (
-                <span style={{ color: AMBER, fontWeight: 600 }}>chờ KCS duyệt lại</span>
-              ) : (
-                <button onClick={() => onBuDu(s.segmentSpecId)} disabled={busy}
-                  style={{ ...smallBtn, background: ACCENT, cursor: busy ? 'not-allowed' : 'pointer' }}>
-                  Bù đủ
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

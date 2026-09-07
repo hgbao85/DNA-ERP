@@ -239,6 +239,15 @@ export async function recordCutBatch(id: string, data: RecordCutBatchInput): Pro
   return http.post<BeCutBundle>(`/steel-issues/${id}/cut-batches`, data);
 }
 
+/** Hoàn tác ĐÚNG lần recordCutBatch() gần nhất (2026-09-07) - gửi lại chính xác `segments` vừa
+ *  submit để trừ đối xứng lại. Chỉ 1 cấp duy nhất, chỉ hoạt động khi đợt còn CUTTING. */
+export async function undoLastCutBatch(
+  cutBundleId: string,
+  segments: { segmentSpecId: string; qty: number }[],
+): Promise<void> {
+  await http.post(`/cut-bundles/${cutBundleId}/undo-last-batch`, { segments });
+}
+
 /** "Xong, mời KCS" - tín hiệu thuần, không mang số liệu (đã nhập ở các đợt recordCutBatch trước
  *  đó). RECEIVED -> AWAITING_QC (hoặc IN_PROCESS nếu còn công đoạn chi tiết chưa đánh dấu). */
 export async function finishCutting(id: string): Promise<void> {
@@ -330,6 +339,9 @@ export interface BeQcReviewSegment {
   failedQty: number;
   resolvedQty: number;
   phoiReportedAt: string | null;
+  /** Số đoạn Phôi TỰ KHAI đã sửa xong lúc bấm "Bù đủ" (2026-09-07) - THAM KHẢO, KCS tự đếm lại độc
+   *  lập ở recheck(), không lấy thẳng số này. null khi chưa từng báo. */
+  phoiReportedQty: number | null;
 }
 
 /** KCS chấm 1 SteelIssue THEO TỪNG CỠ ĐOẠN - segments rỗng = đạt hết. */
@@ -359,14 +371,15 @@ export async function reviewCutBundleQc(
 }
 
 /** Phôi tự báo đã bù đủ cho 1 cỡ đoạn không đạt (đã tự kiếm sắt bù ngoài thực tế, KHÔNG đụng cây
- *  sắt kho đã cấp) - CHỜ KCS recheck() mới tính là đạt. */
-export async function reportSegmentDone(steelIssueId: string, segmentSpecId: string): Promise<void> {
-  await http.post(`/steel-issues/${steelIssueId}/qc-segments/${segmentSpecId}/report-done`, {});
+ *  sắt kho đã cấp) - CHỜ KCS recheck() mới tính là đạt. `qty` (2026-09-07) là số đoạn Phôi TỰ KHAI
+ *  đã sửa xong (1..outstanding) - THAM KHẢO cho KCS, không tự trừ lỗi ngay. */
+export async function reportSegmentDone(steelIssueId: string, segmentSpecId: string, qty: number): Promise<void> {
+  await http.post(`/steel-issues/${steelIssueId}/qc-segments/${segmentSpecId}/report-done`, { qty });
 }
 
 /** Cùng reportSegmentDone() nhưng scope theo ĐÚNG đợt cắt (2026-09-05, luồng mới). */
-export async function reportSegmentDoneForBundle(cutBundleId: string, segmentSpecId: string): Promise<void> {
-  await http.post(`/cut-bundles/${cutBundleId}/qc-segments/${segmentSpecId}/report-done`, {});
+export async function reportSegmentDoneForBundle(cutBundleId: string, segmentSpecId: string, qty: number): Promise<void> {
+  await http.post(`/cut-bundles/${cutBundleId}/qc-segments/${segmentSpecId}/report-done`, { qty });
 }
 
 /** KCS duyệt lại các cỡ đoạn Phôi đã báo "Bù đủ" - remainingFailedQty=0 nghĩa là đạt hết cho cỡ

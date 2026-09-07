@@ -139,5 +139,5 @@ export {
   reviewSteelIssueQc, reportSegmentDone, recheckQc, getQcReviewsForSteelIssues,
   getReplenishRequests, fulfillReplenishRequest, rejectReplenishRequest,
   getAllCutBundles, finishCutBundle, completeBundleStep, reviewCutBundleQc,
-  reportSegmentDoneForBundle, recheckQcForBundle,
+  reportSegmentDoneForBundle, recheckQcForBundle, undoLastCutBatch,
 } from './steel-issues-api';
