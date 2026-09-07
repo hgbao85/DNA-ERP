@@ -19,8 +19,9 @@
  */
 
 import { useState } from 'react'
-import { ChevronLeft, Check, Clock, Plus } from 'lucide-react'
+import { ChevronLeft, Check, Clock, Plus, Send } from 'lucide-react'
 import * as api from '../../../services/api'
+import { useFetch } from '../../../hooks/useFetch'
 import type { ProcessStep } from '../../../types/sku'
 import type { BePieceStepProgress } from '../../../services/production-batches-api'
 import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
@@ -56,7 +57,8 @@ export default function VatTuTpDetail({ item, readOnly, onBack, onRefetch }: {
   const miengSuffix = item.qtyPerPiece != null && item.qtyPerPiece > 1 ? ` (= ${item.plannedQty * item.qtyPerPiece} miếng)` : ''
 
   const stepItems = item.processSteps.map(step => {
-    const p = item.stepProgress.find(sp => sp.step === step) ?? { step, requiredQty: item.plannedQty, doneQty: 0 }
+    const p = item.stepProgress.find(sp => sp.step === step)
+      ?? { step, requiredQty: item.plannedQty, doneQty: 0, submittedQty: 0, passedQty: 0 }
     return { key: step as string, label: PROCESS_STEP_LABELS[step], done: p.doneQty >= p.requiredQty, progress: p }
   })
   const chotDone = item.passedQty + item.awaitingQcQty >= item.plannedQty
@@ -107,7 +109,9 @@ export default function VatTuTpDetail({ item, readOnly, onBack, onRefetch }: {
 }
 
 // ── Panel 1 bước (Cắt/Uốn/...) - mirror StepBatchPanel bên Sắt (LenhSanXuatPhoi.tsx) nhưng 1 dòng
-// thay vì bảng theo cỡ đoạn (PieceMaterialYield không có SegmentSpec để bóc theo cỡ). ──────────
+// thay vì bảng theo cỡ đoạn (PieceMaterialYield không có SegmentSpec để bóc theo cỡ). Từ 2026-09-07
+// mỗi công đoạn tự gửi KCS riêng (nút "Gửi KCS", KHÔNG chờ công đoạn khác) - xem PieceStepBundle
+// doc comment BE tại sao KHÔNG ràng buộc thứ tự nữa. ──────────────────────────────────────────
 function StepPanel({ item, step, progress, readOnly, onRefetch }: {
   item: VatTuTpItem; step: ProcessStep; progress: BePieceStepProgress | null
   readOnly: boolean; onRefetch: () => void
@@ -115,10 +119,17 @@ function StepPanel({ item, step, progress, readOnly, onRefetch }: {
   const [qty, setQty] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [sendBusy, setSendBusy] = useState(false)
+  const [sendErr, setSendErr] = useState('')
   const stepLabel = PROCESS_STEP_LABELS[step]
   const required = progress?.requiredQty ?? item.plannedQty
   const done = progress?.doneQty ?? 0
+  const submitted = progress?.submittedQty ?? 0
+  const passed = progress?.passedQty ?? 0
   const remaining = Math.max(required - done, 0)
+  // Chưa gửi KCS = đã báo (doneQty) nhưng chưa gom vào bundle nào (submittedQty).
+  const readyToSend = Math.max(done - submitted, 0)
+  const awaitingQc = Math.max(submitted - passed, 0)
 
   const submit = async () => {
     const q = Math.floor(Number(qty) || 0)
@@ -131,8 +142,18 @@ function StepPanel({ item, step, progress, readOnly, onRefetch }: {
     finally { setBusy(false) }
   }
 
+  const sendToKcs = async () => {
+    setSendBusy(true); setSendErr('')
+    try {
+      await api.submitPieceStep(item.orderId, { pieceId: item.pieceId, step })
+      onRefetch()
+    } catch (e) { setSendErr(errMsg(e, 'Không gửi được')) }
+    finally { setSendBusy(false) }
+  }
+
   return (
     <div>
+      <StepBuDuPanel item={item} step={step} readOnly={readOnly} onRefetch={onRefetch} />
       <div style={{ ...card, marginBottom: 12 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -166,6 +187,88 @@ function StepPanel({ item, step, progress, readOnly, onRefetch }: {
         </button>
       )}
       {err && <div style={{ marginTop: 8, fontSize: 12, color: RED }}>{err}</div>}
+
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px dashed var(--border)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 13, marginBottom: 10 }}>
+          <div><span style={{ color: 'var(--text3)' }}>Chưa gửi KCS</span> <b style={{ color: readyToSend > 0 ? ACCENT : 'var(--text3)' }}>{readyToSend}</b></div>
+          <div><span style={{ color: 'var(--text3)' }}>Chờ KCS duyệt</span> <b style={{ color: AMBER }}>{awaitingQc}</b></div>
+          <div><span style={{ color: 'var(--text3)' }}>Đã duyệt</span> <b style={{ color: GREEN }}>{passed}</b></div>
+        </div>
+        {!readOnly && readyToSend > 0 && (
+          <button onClick={sendToKcs} disabled={sendBusy}
+            style={{ ...smallBtn, background: ACCENT, display: 'inline-flex', alignItems: 'center', gap: 5, cursor: sendBusy ? 'not-allowed' : 'pointer' }}>
+            <Send size={13} /> {sendBusy ? '...' : `Gửi KCS ${readyToSend} mảnh`}
+          </button>
+        )}
+        {sendErr && <div style={{ marginTop: 8, fontSize: 12, color: RED }}>{sendErr}</div>}
+      </div>
+    </div>
+  )
+}
+
+// ── "Bù đủ" cho đợt CÔNG ĐOẠN đã QC_PASSED nhưng KCS chấm còn lỗi (2026-09-07) - cùng khuôn
+// BuDuPanel (cấp "Chốt & gửi KCS") nhưng lọc theo ĐÚNG (pieceId, step) thay vì cả order. ──────────
+function StepBuDuPanel({ item, step, readOnly, onRefetch }: {
+  item: VatTuTpItem; step: ProcessStep; readOnly: boolean; onRefetch: () => void
+}) {
+  const { data: bundles, refetch: refetchBundles } = useFetch(
+    () => api.getPieceStepBundlesForOrder(item.orderId), [item.orderId],
+  )
+  const { data: reviews, refetch: refetchReviews } = useFetch(() => api.getQcReviewsForPieceStepBundles(), [])
+  const [target, setTarget] = useState<{ bundleId: string; outstanding: number } | null>(null)
+  const [qty, setQty] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const stepBundleIds = new Set(
+    (bundles ?? []).filter(b => b.pieceId === item.pieceId && b.step === step).map(b => b.id),
+  )
+  const outstandingReviews = (reviews ?? [])
+    .filter(r => r.pieceStepBundleId && stepBundleIds.has(r.pieceStepBundleId))
+    .map(r => ({ ...r, outstanding: r.failedQty - (r.scrapQty ?? 0) - r.resolvedQty }))
+    .filter(r => r.outstanding > 0)
+    .sort((a, b) => a.reviewedAt.localeCompare(b.reviewedAt))
+
+  if (outstandingReviews.length === 0) return null
+
+  const submit = async () => {
+    if (!target) return
+    const q = Math.max(1, Math.min(target.outstanding, Math.floor(Number(qty) || 0)))
+    setBusy(true); setErr('')
+    try {
+      await api.reportPieceStepDone(target.bundleId, q)
+      setTarget(null); setQty('')
+      refetchBundles(); refetchReviews(); onRefetch()
+    } catch (e) { setErr(errMsg(e, 'Không báo được')) }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ ...card, padding: '12px 16px', marginBottom: 12, border: `1.5px solid ${RED}` }}>
+      <div style={{ fontWeight: 700, fontSize: 13, color: RED, marginBottom: 8 }}>Có đợt bị lỗi — cần bù đủ</div>
+      {outstandingReviews.map(r => (
+        <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, fontSize: 13, flexWrap: 'wrap' }}>
+          <span>Lỗi <b style={{ color: RED }}>{r.outstanding}</b> mảnh{r.defectReasonLabel ? ` — ${r.defectReasonLabel}` : ''}</span>
+          {r.phoiReportedAt ? (
+            <span style={{ color: AMBER, fontSize: 12 }}>· đã báo, chờ KCS duyệt lại</span>
+          ) : !readOnly ? (
+            <button
+              onClick={() => { setTarget({ bundleId: r.pieceStepBundleId!, outstanding: r.outstanding }); setQty(String(r.outstanding)); setErr('') }}
+              style={{ ...smallBtn, background: ACCENT }}
+            >
+              Bù đủ
+            </button>
+          ) : null}
+        </div>
+      ))}
+      {target && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+          <input type="number" min={1} max={target.outstanding} value={qty} onChange={e => setQty(e.target.value)} style={{ ...inp, width: 80 }} autoFocus />
+          <button onClick={submit} disabled={busy} style={{ ...smallBtn, background: GREEN, cursor: busy ? 'not-allowed' : 'pointer' }}>{busy ? '...' : 'Xác nhận'}</button>
+          <button onClick={() => setTarget(null)} style={{ ...smallBtn, background: 'var(--surface2)', color: 'var(--text)' }}>Hủy</button>
+        </div>
+      )}
+      {err && <div style={{ marginTop: 6, fontSize: 12, color: RED }}>{err}</div>}
     </div>
   )
 }
@@ -199,6 +302,7 @@ function ChotPanel({ item, readOnly, onRefetch }: {
 
   return (
     <div>
+      <BuDuPanel item={item} readOnly={readOnly} onRefetch={onRefetch} />
       <div style={{ ...card, padding: '12px 16px', marginBottom: 12 }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 13 }}>
           <div><span style={{ color: 'var(--text3)' }}>Cần</span> <b>{item.plannedQty}</b> mảnh</div>
@@ -229,6 +333,72 @@ function ChotPanel({ item, readOnly, onRefetch }: {
         </div>
       )}
       {err && <div style={{ marginTop: 8, fontSize: 12, color: RED }}>{err}</div>}
+    </div>
+  )
+}
+
+// ── "Bù đủ" cho lô ĐÃ chốt (QC_DONE) nhưng KCS chấm còn lỗi (2026-09-07) - mirror BuDuPopup bên Sắt
+// (LenhSanXuatPhoi.tsx) nhưng đơn giản hơn: 1 review = 1 đơn vị outstanding (không có "cỡ đoạn" để
+// bóc). Ẩn hẳn khi không có lô nào lỗi - không chiếm chỗ màn hình lúc bình thường. ────────────────
+function BuDuPanel({ item, readOnly, onRefetch }: {
+  item: VatTuTpItem; readOnly: boolean; onRefetch: () => void
+}) {
+  const { data: batches, refetch: refetchBatches } = useFetch(
+    () => api.getProductionBatchesForOrder(item.orderId, 'PHOI'), [item.orderId],
+  )
+  const { data: reviews, refetch: refetchReviews } = useFetch(() => api.getQcReviewsForProductionBatches(), [])
+  const [target, setTarget] = useState<{ batchId: string; outstanding: number } | null>(null)
+  const [qty, setQty] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const pieceBatchIds = new Set((batches ?? []).filter(b => b.pieceId === item.pieceId).map(b => b.id))
+  const outstandingReviews = (reviews ?? [])
+    .filter(r => r.productionBatchId && pieceBatchIds.has(r.productionBatchId))
+    .map(r => ({ ...r, outstanding: r.failedQty - (r.scrapQty ?? 0) - r.resolvedQty }))
+    .filter(r => r.outstanding > 0)
+    .sort((a, b) => a.reviewedAt.localeCompare(b.reviewedAt))
+
+  if (outstandingReviews.length === 0) return null
+
+  const submit = async () => {
+    if (!target) return
+    const q = Math.max(1, Math.min(target.outstanding, Math.floor(Number(qty) || 0)))
+    setBusy(true); setErr('')
+    try {
+      await api.reportProductionBatchDone(target.batchId, q)
+      setTarget(null); setQty('')
+      refetchBatches(); refetchReviews(); onRefetch()
+    } catch (e) { setErr(errMsg(e, 'Không báo được')) }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <div style={{ ...card, padding: '12px 16px', marginBottom: 12, border: `1.5px solid ${RED}` }}>
+      <div style={{ fontWeight: 700, fontSize: 13, color: RED, marginBottom: 8 }}>Có lô bị lỗi — cần bù đủ</div>
+      {outstandingReviews.map(r => (
+        <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, fontSize: 13, flexWrap: 'wrap' }}>
+          <span>Lỗi <b style={{ color: RED }}>{r.outstanding}</b> mảnh{r.defectReasonLabel ? ` — ${r.defectReasonLabel}` : ''}</span>
+          {r.phoiReportedAt ? (
+            <span style={{ color: AMBER, fontSize: 12 }}>· đã báo, chờ KCS duyệt lại</span>
+          ) : !readOnly ? (
+            <button
+              onClick={() => { setTarget({ batchId: r.productionBatchId!, outstanding: r.outstanding }); setQty(String(r.outstanding)); setErr('') }}
+              style={{ ...smallBtn, background: ACCENT }}
+            >
+              Bù đủ
+            </button>
+          ) : null}
+        </div>
+      ))}
+      {target && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
+          <input type="number" min={1} max={target.outstanding} value={qty} onChange={e => setQty(e.target.value)} style={{ ...inp, width: 80 }} autoFocus />
+          <button onClick={submit} disabled={busy} style={{ ...smallBtn, background: GREEN, cursor: busy ? 'not-allowed' : 'pointer' }}>{busy ? '...' : 'Xác nhận'}</button>
+          <button onClick={() => setTarget(null)} style={{ ...smallBtn, background: 'var(--surface2)', color: 'var(--text)' }}>Hủy</button>
+        </div>
+      )}
+      {err && <div style={{ marginTop: 6, fontSize: 12, color: RED }}>{err}</div>}
     </div>
   )
 }

@@ -127,17 +127,21 @@ export {
 } from './material-yield-issues-api';
 export { getPackagingIssuePlan, issuePackaging } from './packaging-issues-api';
 export {
-  getProductionBatchesByStage, reviewProductionBatch,
+  getProductionBatchesByStage, getProductionBatchesForOrder, reviewProductionBatch,
   listProductionOrdersForStage, getProductionBatchPlan, getProductionBatchPlanBatch, reportProductionBatch,
   recordPieceStepBatch,
   startProductionOrderFloor, pauseProductionOrderFloor, finishProductionOrderFloor,
+  getQcReviewsForProductionBatches, reportProductionBatchDone, recheckProductionBatchQc,
+  submitPieceStep, getPieceStepBundlesForOrder, getPieceStepBundles,
+  reviewPieceStepQc, reportPieceStepDone, recheckPieceStepQc, getQcReviewsForPieceStepBundles,
 } from './production-batches-api';
 export {
   getSteelIssuePlan, getSteelIssuesForInvoice, getSteelIssuesForInvoiceBatch, issueSteel,
   getSteelIssuesByStatus, getSteelIssue, getCutBundles, receiveSteelIssue,
-  recordCutBatch, finishCutting, completeStep, getPhoiProgress, getStepProgress, recordStepBatch, getPiOrderSummary,
+  recordCutBatch, getPhoiProgress, getStepProgress, recordStepBatch, getPiOrderSummary,
   reviewSteelIssueQc, reportSegmentDone, recheckQc, getQcReviewsForSteelIssues,
   getReplenishRequests, fulfillReplenishRequest, rejectReplenishRequest,
-  getAllCutBundles, finishCutBundle, completeBundleStep, reviewCutBundleQc,
+  getAllCutBundles, finishCutBundle, reviewCutBundleQc,
   reportSegmentDoneForBundle, recheckQcForBundle, undoLastCutBatch,
+  submitStepBundle, reviewStepBundleQc, reportSegmentDoneForStepBundle, recheckQcForStepBundle,
 } from './steel-issues-api';

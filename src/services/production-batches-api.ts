@@ -51,11 +51,67 @@ export async function getProductionBatchesByStage(stage: ProductionBatchStage): 
   return Array.isArray(res) ? res : res.data;
 }
 
+/** Tổ Phôi xem lại các lô ĐÃ báo (QC_DONE) của CHÍNH order này để tìm lô còn "Bù đủ" (2026-09-07,
+ *  xem VatTuTpDetail.tsx) - khác getProductionBatchesByStage() (flat cho KCS), ở đây scope theo
+ *  đúng 1 productionOrderId (endpoint GET /production-orders/:id/production-batches). */
+export async function getProductionBatchesForOrder(
+  productionOrderId: string,
+  stage: ProductionBatchStage,
+): Promise<BeProductionBatch[]> {
+  const res = await http.get<BeProductionBatch[] | { data: BeProductionBatch[] }>(
+    `/production-orders/${productionOrderId}/production-batches?limit=100`,
+  );
+  const list = Array.isArray(res) ? res : res.data;
+  return list.filter((b) => b.stage === stage);
+}
+
 export async function reviewProductionBatch(
   batchId: string,
   data: { failedQty: number; scrapQty?: number; reason?: string; defectReasonId?: string; photoUrl?: string },
 ): Promise<void> {
   await http.post(`/production-batches/${batchId}/qc-review`, data);
+}
+
+/** 1 dòng qc_reviews nhánh Hàn/Sơn/VTTP (productionBatchId != null) - "Bù đủ" Ở CẤP REVIEW
+ *  (2026-09-07, xem QcReview.resolvedQty doc comment BE) vì nhánh này không có "cỡ đoạn" để bóc như
+ *  Phôi/Sắt. outstanding = failedQty - (scrapQty ?? 0) - resolvedQty. */
+export interface BeProductionBatchQcReview {
+  id: string;
+  productionBatchId: string | null;
+  failedQty: number;
+  scrapQty: number | null;
+  defectReasonId: string | null;
+  defectReasonLabel: string | null;
+  reason: string | null;
+  photoUrl: string | null;
+  reviewedAt: string;
+  reviewedById: string;
+  resolvedQty: number;
+  phoiReportedAt: string | null;
+  phoiReportedQty: number | null;
+}
+
+/** Fetch hết rồi lọc client theo productionBatchId != null - cùng idiom getQcReviewsForSteelIssues()
+ *  (steel-issues-api.ts), danh sách chưa lớn. */
+export async function getQcReviewsForProductionBatches(): Promise<BeProductionBatchQcReview[]> {
+  const res = await http.get<BeProductionBatchQcReview[] | { data: BeProductionBatchQcReview[] }>(
+    '/qc-reviews?limit=100',
+  );
+  const list = Array.isArray(res) ? res : res.data;
+  return list.filter((r) => r.productionBatchId != null);
+}
+
+/** Phôi tự báo đã bù đủ cho 1 lô (Hàn/Sơn/VTTP) không đạt - CHỜ KCS recheckProductionBatchQc() mới
+ *  tính là đạt. `qty` là số lượng TỰ KHAI đã sửa xong (1..outstanding) - THAM KHẢO cho KCS. */
+export async function reportProductionBatchDone(batchId: string, qty: number): Promise<void> {
+  await http.post(`/production-batches/${batchId}/qc-report-done`, { qty });
+}
+
+/** KCS duyệt lại lô đã báo "Bù đủ" - remainingFailedQty=0 nghĩa là đạt hết, >0 là còn hỏng bấy
+ *  nhiêu (mở lại lượt báo mới). Khi đạt (toàn phần hoặc 1 phần), BE cộng thẳng phần vừa xác nhận
+ *  vào ProductionBatch.reportedQty (dù batch đã QC_DONE) - xem RecheckProductionBatchDto doc BE. */
+export async function recheckProductionBatchQc(batchId: string, remainingFailedQty: number): Promise<void> {
+  await http.post(`/production-batches/${batchId}/qc-recheck`, { remainingFailedQty });
 }
 
 // ── Báo sản lượng (LenhSanXuatHan/LenhSanXuatSon) ──────────────────────────────
@@ -122,6 +178,84 @@ export interface BePieceStepProgress {
   step: ProcessStep;
   requiredQty: number;
   doneQty: number;
+  /** Σ PieceStepBundle.qty (MỌI status) - "còn chưa gửi KCS" = doneQty - submittedQty (2026-09-07). */
+  submittedQty: number;
+  /** Σ PieceStepBundle.qty đã KCS duyệt (status=QC_PASSED) - dùng hiện cảnh báo (không chặn) khi
+   *  bước sau vượt bước liền trước, từ khi BE bỏ ràng buộc thứ tự cứng. */
+  passedQty: number;
+}
+
+// ── QC theo TỪNG CÔNG ĐOẠN (PieceStepBundle, 2026-09-07) ───────────────────────
+// Thay ràng buộc CŨ "phải xong hết công đoạn mới gửi KCS" - giờ mỗi công đoạn tự gửi KCS riêng,
+// KHÔNG chờ công đoạn khác (quyết định nghiệp vụ, Sếp Trương Văn Nhân). KHÔNG đụng
+// ProductionBatch.reportedQty - bundle này thuần là cổng kiểm tra chất lượng theo công đoạn, không
+// sinh sản lượng (xem PieceStepBundle doc comment BE).
+
+export interface BePieceStepBundle {
+  id: string;
+  productionOrderId: string;
+  poNumber: string;
+  salesOrderCode: string | null;
+  pieceId: string;
+  pieceCode: string;
+  pieceName: string;
+  step: ProcessStep;
+  qty: number;
+  status: 'AWAITING_QC' | 'QC_PASSED';
+  submittedAt: string;
+  submittedById: string;
+}
+
+/** Phôi gom mọi PieceStepBatch CHƯA gửi (pieceStepBundleId NULL) của (piece, step) thành 1 đợt
+ *  gửi KCS - service tự tính qty, không cần truyền. */
+export async function submitPieceStep(
+  productionOrderId: string,
+  data: { pieceId: string; step: ProcessStep },
+): Promise<BePieceStepBundle> {
+  return http.post<BePieceStepBundle>(`/production-orders/${productionOrderId}/piece-step-bundles`, data);
+}
+
+/** Phôi xem lại bundle CỦA CHÍNH order này (mọi status) - trạng thái theo công đoạn + tìm bundleId
+ *  để gọi Bù đủ (VatTuTpDetail.tsx). Không phân trang (1 order hiếm khi có quá vài chục bundle). */
+export async function getPieceStepBundlesForOrder(productionOrderId: string): Promise<BePieceStepBundle[]> {
+  return http.get<BePieceStepBundle[]>(`/production-orders/${productionOrderId}/piece-step-bundles`);
+}
+
+/** KCS xem bundle đang chờ/đã duyệt - flat qua mọi PO, cùng lý do getProductionBatchesByStage().
+ *  Bỏ trống `status` để lấy CẢ 2 (dùng cho màn KCS gộp chung với ProductionBatch cùng 1 bảng). */
+export async function getPieceStepBundles(status?: 'AWAITING_QC' | 'QC_PASSED'): Promise<BePieceStepBundle[]> {
+  const res = await http.get<BePieceStepBundle[] | { data: BePieceStepBundle[] }>(
+    `/piece-step-bundles?limit=100${status ? `&status=${status}` : ''}`,
+  );
+  return Array.isArray(res) ? res : res.data;
+}
+
+export async function reviewPieceStepQc(
+  pieceStepBundleId: string,
+  data: { failedQty: number; scrapQty?: number; reason?: string; defectReasonId?: string; photoUrl?: string },
+): Promise<void> {
+  await http.post(`/piece-step-bundles/${pieceStepBundleId}/qc-review`, data);
+}
+
+export async function reportPieceStepDone(pieceStepBundleId: string, qty: number): Promise<void> {
+  await http.post(`/piece-step-bundles/${pieceStepBundleId}/qc-report-done`, { qty });
+}
+
+export async function recheckPieceStepQc(pieceStepBundleId: string, remainingFailedQty: number): Promise<void> {
+  await http.post(`/piece-step-bundles/${pieceStepBundleId}/qc-recheck`, { remainingFailedQty });
+}
+
+/** Cùng idiom getQcReviewsForProductionBatches() - fetch hết rồi lọc client theo
+ *  pieceStepBundleId != null, danh sách chưa lớn. */
+export async function getQcReviewsForPieceStepBundles(): Promise<
+  (BeProductionBatchQcReview & { pieceStepBundleId: string | null })[]
+> {
+  const res = await http.get<
+    | (BeProductionBatchQcReview & { pieceStepBundleId: string | null })[]
+    | { data: (BeProductionBatchQcReview & { pieceStepBundleId: string | null })[] }
+  >('/qc-reviews?limit=100');
+  const list = Array.isArray(res) ? res : res.data;
+  return list.filter((r) => r.pieceStepBundleId != null);
 }
 
 export interface BeProductionBatchPlanItem {

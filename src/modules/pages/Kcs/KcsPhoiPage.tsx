@@ -19,14 +19,22 @@
  * 1 lô nhận có thể có NHIỀU đợt cắt cùng lúc đang AWAITING_QC - phải chấm theo TỪNG bundle, không
  * còn theo issue. `QcReviewModal`/`RecheckModal` giờ nhận thẳng `bundle` (segments đã có sẵn
  * trong chính bundle, không cần gọi lại API gộp nhiều bundle như bản issue-based cũ).
+ *
+ * Redesign 2026-09-07 (thêm StepBundle - chấm CÔNG ĐOẠN PHỤ riêng): mỗi đợt cắt giờ có thể có
+ * NHIỀU "đợt gửi KCS công đoạn phụ" (Uốn/Dập/Tán/...) độc lập, KHÔNG chờ Cắt hay công đoạn khác
+ * xong trước (xem StepBundle doc comment BE). `Row` gộp CẢ 2 loại đợt (Cắt lẫn công đoạn phụ)
+ * thành 1 danh sách chờ kiểm chung cho từng PO - `QcReviewModal`/`RecheckModal` đã tổng quát hoá
+ * (nhận `id`/`segments`/`onReview` thay vì bám cứng `bundle`) để dùng chung cho cả 2 loại, tránh
+ * chép lại nguyên modal.
  */
 
 import { useMemo, useState } from 'react'
 import { ClipboardCheck, Check, Clock, ChevronLeft, ChevronRight, AlertTriangle, Upload, X, Plus, Wrench, RotateCcw } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import type { BeSteelIssue, BeQcReview, BeCutBundle } from '../../../services/steel-issues-api'
+import type { BeSteelIssue, BeQcReview, BeCutBundle, BeStepBundle } from '../../../services/steel-issues-api'
 import type { BeDefectReason } from '../../../services/defect-reasons-api'
+import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 
@@ -40,26 +48,44 @@ const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13, verticalAl
 const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
 
-interface PiAgg { productionInvoiceId: string; poNumber: string; bundles: BundleWithIssue[]; pendingCount: number }
+interface PiAgg { productionInvoiceId: string; poNumber: string; bundles: Row[]; pendingCount: number }
 /** 1 đợt cắt kèm lô nhận cha (để hiện materialName/barLengthMm - bundle tự nó không có tên vật tư). */
-interface BundleWithIssue { bundle: BeCutBundle; issue: BeSteelIssue }
+interface CutRow { kind: 'cut'; bundle: BeCutBundle; issue: BeSteelIssue }
+/** 1 đợt gửi KCS công đoạn PHỤ (2026-09-07) - kèm CẢ cutBundle cha (để hiện materialName qua issue,
+ *  cutBundle tự nó không có) lẫn issue. */
+interface StepRow { kind: 'step'; stepBundle: BeStepBundle; cutBundle: BeCutBundle; issue: BeSteelIssue }
+type Row = CutRow | StepRow
 
-/** 1 đợt cắt đang "chờ duyệt lại" nếu có ít nhất 1 cỡ đoạn Phôi đã bấm "Bù đủ" (phoiReportedAt !=
- *  null) mà vẫn còn outstanding (failedQty - resolvedQty > 0) - KCS chưa xử lý xong. */
+/** 1 đợt (Cắt hoặc công đoạn phụ) đang "chờ duyệt lại" nếu có ít nhất 1 cỡ đoạn Phôi đã bấm "Bù
+ *  đủ" (phoiReportedAt != null) mà vẫn còn outstanding (failedQty - resolvedQty > 0) - KCS chưa xử
+ *  lý xong. */
 function hasAwaitingRecheck(review: BeQcReview | undefined): boolean {
   return (review?.segments ?? []).some((s) => s.phoiReportedAt != null && s.failedQty - s.resolvedQty > 0)
 }
 
 function buildPiRows(issues: BeSteelIssue[], bundles: BeCutBundle[], reviews: BeQcReview[]): PiAgg[] {
   const issueById = new Map(issues.map((i) => [i.id, i]))
-  // Chỉ đợt liên quan KCS (đã báo cắt xong trở lên) - đợt còn CUTTING chưa liên quan.
-  const relevant = bundles
+  // Chỉ đợt liên quan KCS (đã báo cắt xong / đã gửi KCS trở lên) - đợt còn CUTTING hoặc công đoạn
+  // phụ chưa gửi chưa liên quan.
+  const cutRows: Row[] = bundles
     .filter((b) => b.status === 'AWAITING_QC' || b.status === 'QC_PASSED')
-    .map((b) => ({ bundle: b, issue: issueById.get(b.steelIssueId) }))
-    .filter((x): x is BundleWithIssue => x.issue != null)
+    .map((b) => ({ kind: 'cut' as const, bundle: b, issue: issueById.get(b.steelIssueId) }))
+    .filter((x): x is CutRow => x.issue != null)
+  const stepRows: Row[] = bundles.flatMap((b) => {
+    const issue = issueById.get(b.steelIssueId)
+    if (!issue) return []
+    return b.stepBundles
+      .filter((sb) => sb.status === 'AWAITING_QC' || sb.status === 'QC_PASSED')
+      .map((sb) => ({ kind: 'step' as const, stepBundle: sb, cutBundle: b, issue }))
+  })
+  const relevant = [...cutRows, ...stepRows]
   const reviewByBundle = new Map<string, BeQcReview>()
-  for (const r of reviews) if (r.cutBundleId) reviewByBundle.set(r.cutBundleId, r)
-  const byPi = new Map<string, BundleWithIssue[]>()
+  const reviewByStepBundle = new Map<string, BeQcReview>()
+  for (const r of reviews) {
+    if (r.cutBundleId) reviewByBundle.set(r.cutBundleId, r)
+    if (r.stepBundleId) reviewByStepBundle.set(r.stepBundleId, r)
+  }
+  const byPi = new Map<string, Row[]>()
   const order: string[] = []
   for (const x of relevant) {
     const piId = x.issue.productionInvoiceId
@@ -71,8 +97,9 @@ function buildPiRows(issues: BeSteelIssue[], bundles: BeCutBundle[], reviews: Be
       const list = byPi.get(productionInvoiceId)!
       // "Đợt chờ kiểm" = chờ duyệt LẦN ĐẦU (AWAITING_QC) + chờ DUYỆT LẠI (QC_PASSED, Phôi đã báo
       // bù đủ) - cả 2 đều là việc KCS phải làm, gộp chung 1 số cho thợ khỏi bỏ sót đợt nào.
-      const pendingCount = list.filter(
-        (x) => x.bundle.status === 'AWAITING_QC' || hasAwaitingRecheck(reviewByBundle.get(x.bundle.id)),
+      const pendingCount = list.filter((x) => x.kind === 'cut'
+        ? x.bundle.status === 'AWAITING_QC' || hasAwaitingRecheck(reviewByBundle.get(x.bundle.id))
+        : x.stepBundle.status === 'AWAITING_QC' || hasAwaitingRecheck(reviewByStepBundle.get(x.stepBundle.id)),
       ).length
       return {
         productionInvoiceId,
@@ -150,23 +177,34 @@ export default function KcsPhoiPage() {
 function PiDetail({ pi, reviews, onBack, onRefetch }: {
   pi: PiAgg; reviews: BeQcReview[]; onBack: () => void; onRefetch: () => void
 }) {
-  const [target, setTarget] = useState<BundleWithIssue | null>(null)
-  const [recheckTarget, setRecheckTarget] = useState<BundleWithIssue | null>(null)
+  const [target, setTarget] = useState<Row | null>(null)
+  const [recheckTarget, setRecheckTarget] = useState<Row | null>(null)
 
   const reviewByBundle = useMemo(() => {
     const m = new Map<string, BeQcReview>()
     for (const r of reviews) if (r.cutBundleId) m.set(r.cutBundleId, r)
     return m
   }, [reviews])
+  const reviewByStepBundle = useMemo(() => {
+    const m = new Map<string, BeQcReview>()
+    for (const r of reviews) if (r.stepBundleId) m.set(r.stepBundleId, r)
+    return m
+  }, [reviews])
 
-  const rank = (x: BundleWithIssue) =>
-    x.bundle.status === 'AWAITING_QC' ? 0 : hasAwaitingRecheck(reviewByBundle.get(x.bundle.id)) ? 1 : 2
+  const reviewOf = (x: Row) => x.kind === 'cut' ? reviewByBundle.get(x.bundle.id) : reviewByStepBundle.get(x.stepBundle.id)
+  const idOf = (x: Row) => x.kind === 'cut' ? x.bundle.id : x.stepBundle.id
+  const statusOf = (x: Row) => x.kind === 'cut' ? x.bundle.status : x.stepBundle.status
+  const completedAtOf = (x: Row) => x.kind === 'cut' ? (x.bundle.completedAt ?? x.bundle.createdAt) : x.stepBundle.submittedAt
+  const segmentsOf = (x: Row) => x.kind === 'cut' ? x.bundle.segments : x.stepBundle.segments
+
+  const rank = (x: Row) =>
+    statusOf(x) === 'AWAITING_QC' ? 0 : hasAwaitingRecheck(reviewOf(x)) ? 1 : 2
   const rows = [...pi.bundles].sort((a, b) => {
     const r = rank(a) - rank(b)
-    return r !== 0 ? r : (b.bundle.completedAt ?? b.bundle.createdAt).localeCompare(a.bundle.completedAt ?? a.bundle.createdAt)
+    return r !== 0 ? r : completedAtOf(b).localeCompare(completedAtOf(a))
   })
 
-  const recheckReview = recheckTarget ? reviewByBundle.get(recheckTarget.bundle.id) : undefined
+  const recheckReview = recheckTarget ? reviewOf(recheckTarget) : undefined
 
   return (
     <div>
@@ -182,31 +220,36 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
               <th style={th}>Loại sắt</th>
-              <th style={th}>Đợt cắt</th>
-              <th style={th}>Báo cắt xong lúc</th>
+              <th style={th}>Công đoạn</th>
+              <th style={th}>Đợt</th>
+              <th style={th}>Gửi KCS lúc</th>
               <th style={{ ...th, textAlign: 'center' }}>Trạng thái</th>
               <th style={{ ...th, width: 140 }}></th>
             </tr>
           </thead>
           <tbody>
             {rows.map((x) => {
-              const { bundle, issue } = x
-              const review = reviewByBundle.get(bundle.id)
-              // failedQty là số ĐOẠN (KCS chấm theo cỡ đoạn) của ĐÚNG đợt cắt này. outstanding =
+              const id = idOf(x)
+              const issue = x.issue
+              const status = statusOf(x)
+              const segments = segmentsOf(x)
+              const review = reviewOf(x)
+              // failedQty là số ĐOẠN (KCS chấm theo cỡ đoạn) của ĐÚNG đợt này. outstanding =
               // Σ(failedQty - resolvedQty) GIẢM DẦN khi KCS duyệt lại xác nhận đạt (2026-08-24,
               // vòng 2).
               const segs = review?.segments ?? []
               const outstanding = segs.reduce((s, y) => s + (y.failedQty - y.resolvedQty), 0)
               const awaitingRecheck = hasAwaitingRecheck(review)
               return (
-                <tr key={bundle.id} style={{ borderTop: '1px solid var(--border)' }}>
+                <tr key={`${x.kind}:${id}`} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ ...td, fontWeight: 600 }}>{issue.materialName}</td>
+                  <td style={td}>{x.kind === 'cut' ? 'Cắt' : PROCESS_STEP_LABELS[x.stepBundle.step]}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>
-                    {bundle.segments.map((s) => `${s.qty}×${s.cutLengthMm.toLocaleString('vi-VN')}mm`).join(' + ')}
+                    {segments.map((s) => `${s.qty}×${s.cutLengthMm.toLocaleString('vi-VN')}mm`).join(' + ')}
                   </td>
-                  <td style={{ ...td, color: 'var(--text3)' }}>{bundle.completedAt ? new Date(bundle.completedAt).toLocaleString('vi-VN') : '—'}</td>
+                  <td style={{ ...td, color: 'var(--text3)' }}>{new Date(completedAtOf(x)).toLocaleString('vi-VN')}</td>
                   <td style={{ ...td, textAlign: 'center' }}>
-                    {bundle.status === 'AWAITING_QC' ? (
+                    {status === 'AWAITING_QC' ? (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ kiểm</span>
                     ) : outstanding > 0 ? (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700 }}>
@@ -222,7 +265,7 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
                     )}
                   </td>
                   <td style={{ ...td, textAlign: 'right' }}>
-                    {bundle.status === 'AWAITING_QC' && (
+                    {status === 'AWAITING_QC' && (
                       <button onClick={() => setTarget(x)}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: ACCENT, color: '#fff', cursor: 'pointer' }}>
                         <ClipboardCheck size={13} /> Tiến hành duyệt
@@ -239,31 +282,47 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
               )
             })}
             {rows.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>Không có đợt nào</td></tr>
+              <tr><td colSpan={6} style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>Không có đợt nào</td></tr>
             )}
           </tbody>
         </table>
       </div>
 
       {target && (
-        <QcReviewModal bundle={target.bundle} issue={target.issue} onClose={() => setTarget(null)}
-          onDone={() => { setTarget(null); onRefetch() }} />
+        <QcReviewModal
+          id={idOf(target)} materialName={target.issue.materialName} segments={segmentsOf(target)}
+          onReview={(id, data) => target.kind === 'cut' ? api.reviewCutBundleQc(id, data) : api.reviewStepBundleQc(id, data)}
+          onClose={() => setTarget(null)} onDone={() => { setTarget(null); onRefetch() }}
+        />
       )}
 
       {recheckTarget && recheckReview && (
-        <RecheckModal bundle={recheckTarget.bundle} issue={recheckTarget.issue} review={recheckReview} onClose={() => setRecheckTarget(null)}
-          onDone={() => { setRecheckTarget(null); onRefetch() }} />
+        <RecheckModal
+          materialName={recheckTarget.issue.materialName} review={recheckReview}
+          onRecheck={(segments) => recheckTarget.kind === 'cut'
+            ? api.recheckQcForBundle(idOf(recheckTarget), segments)
+            : api.recheckQcForStepBundle(idOf(recheckTarget), segments)}
+          onClose={() => setRecheckTarget(null)} onDone={() => { setRecheckTarget(null); onRefetch() }}
+        />
       )}
     </div>
   )
 }
 
-// ── Modal duyệt: nhập lỗi THEO TỪNG CỠ ĐOẠN của chính ĐỢT CẮT này ────────
-// (2026-09-05) segments đã có sẵn trong `bundle` (không còn gọi getCutBundles()/aggregate nhiều
-// bundle như bản issue-based cũ - 1 bundle giờ CHÍNH LÀ đơn vị chấm, không cần gộp).
+// ── Modal duyệt: nhập lỗi THEO TỪNG CỠ ĐOẠN của chính ĐỢT (Cắt hoặc công đoạn phụ) này ────────
+// (2026-09-05) segments đã có sẵn trong đợt (không còn gọi getCutBundles()/aggregate nhiều bundle
+// như bản issue-based cũ - 1 đợt giờ CHÍNH LÀ đơn vị chấm, không cần gộp). Tổng quát hoá
+// (2026-09-07) nhận `id`/`segments`/`onReview` thay vì bám cứng `bundle` - dùng chung được cho cả
+// CutBundle (Cắt) lẫn StepBundle (công đoạn phụ), 2 nhánh chỉ khác API đích (onReview).
 
-function QcReviewModal({ bundle, issue, onClose, onDone }: {
-  bundle: BeCutBundle; issue: BeSteelIssue; onClose: () => void; onDone: () => void
+function QcReviewModal({ id, materialName, segments, onReview, onClose, onDone }: {
+  id: string; materialName: string
+  segments: { segmentSpecId: string; cutLengthMm: number; qty: number }[]
+  onReview: (id: string, data: {
+    segments: { segmentSpecId: string; failedQty: number }[]
+    defectReasonId?: string; reason?: string; photoUrl?: string
+  }) => Promise<void>
+  onClose: () => void; onDone: () => void
 }) {
   const { data: reasons, refetch: refetchReasons } = useFetch<BeDefectReason[]>(() => api.getDefectReasons('PHOI'), [])
 
@@ -279,7 +338,7 @@ function QcReviewModal({ bundle, issue, onClose, onDone }: {
 
   const list = reasons ?? []
 
-  const rows = bundle.segments.map((s) => {
+  const rows = segments.map((s) => {
     const raw = Math.floor(Number(failedByseg[s.segmentSpecId]) || 0)
     const failed = Math.max(0, Math.min(s.qty, raw))
     return { segmentSpecId: s.segmentSpecId, cutLengthMm: s.cutLengthMm, cutQty: s.qty, failed }
@@ -312,7 +371,7 @@ function QcReviewModal({ bundle, issue, onClose, onDone }: {
     if (totalFailed > 0 && !reasonId) { setErr('Có đoạn không đạt → phải chọn nguyên nhân'); return }
     setBusy(true); setErr('')
     try {
-      await api.reviewCutBundleQc(bundle.id, {
+      await onReview(id, {
         segments: rows.filter((r) => r.failed > 0).map((r) => ({ segmentSpecId: r.segmentSpecId, failedQty: r.failed })),
         defectReasonId: totalFailed > 0 ? reasonId : undefined,
         reason: note || undefined,
@@ -327,7 +386,7 @@ function QcReviewModal({ bundle, issue, onClose, onDone }: {
     <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
       <div onClick={(e) => e.stopPropagation()} style={{ width: 520, maxWidth: '92vw', maxHeight: '90vh', overflowY: 'auto', background: 'var(--surface)', borderRadius: 14, padding: 20, boxShadow: '0 8px 30px rgba(0,0,0,.25)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Tiến hành duyệt — {issue.materialName}</h3>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Tiến hành duyệt — {materialName}</h3>
           <button onClick={onClose} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'inline-flex' }}><X size={18} /></button>
         </div>
 
@@ -413,10 +472,14 @@ function QcReviewModal({ bundle, issue, onClose, onDone }: {
 
 // ── Modal duyệt lại: KCS kiểm các cỡ đoạn Phôi đã báo "Bù đủ" (2026-08-24, vòng 2) ────────
 // Chỉ liệt kê cỡ đang phoiReportedAt != null (đã báo, chưa xử lý) - nhập số ĐANG CÒN HỎNG (mặc
-// định 0 = đạt hết), KHÔNG bắt gõ lại toàn bộ failedQty gốc. Scope theo cutBundleId (2026-09-05).
+// định 0 = đạt hết), KHÔNG bắt gõ lại toàn bộ failedQty gốc. Scope theo cutBundleId/stepBundleId
+// (2026-09-05, mở rộng 2026-09-07) - tổng quát hoá nhận `onRecheck` thay vì bám cứng `bundle`,
+// dùng chung được cho cả 2 nhánh.
 
-function RecheckModal({ bundle, issue, review, onClose, onDone }: {
-  bundle: BeCutBundle; issue: BeSteelIssue; review: BeQcReview; onClose: () => void; onDone: () => void
+function RecheckModal({ materialName, review, onRecheck, onClose, onDone }: {
+  materialName: string; review: BeQcReview
+  onRecheck: (segments: { segmentSpecId: string; remainingFailedQty: number }[]) => Promise<void>
+  onClose: () => void; onDone: () => void
 }) {
   const rows = review.segments.filter((s) => s.phoiReportedAt != null && s.failedQty - s.resolvedQty > 0)
   const [remainingBySeg, setRemainingBySeg] = useState<Record<string, string>>({})
@@ -440,7 +503,7 @@ function RecheckModal({ bundle, issue, review, onClose, onDone }: {
     })
     setBusy(true); setErr('')
     try {
-      await api.recheckQcForBundle(bundle.id, segments)
+      await onRecheck(segments)
       onDone()
     } catch (e) { setErr(errMsg(e, 'Không duyệt lại được')) }
     finally { setBusy(false) }
@@ -451,7 +514,7 @@ function RecheckModal({ bundle, issue, review, onClose, onDone }: {
       <div onClick={(e) => e.stopPropagation()} style={{ width: 480, maxWidth: '92vw', maxHeight: '90vh', overflowY: 'auto', background: 'var(--surface)', borderRadius: 14, padding: 20, boxShadow: '0 8px 30px rgba(0,0,0,.25)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <RotateCcw size={16} /> Duyệt lại — {issue.materialName}
+            <RotateCcw size={16} /> Duyệt lại — {materialName}
           </h3>
           <button onClick={onClose} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'inline-flex' }}><X size={18} /></button>
         </div>

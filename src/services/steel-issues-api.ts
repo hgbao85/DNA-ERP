@@ -36,6 +36,27 @@ export interface BeCutPatternSegment {
   qty: number;
 }
 
+export interface BeStepBundleSegment {
+  segmentSpecId: string;
+  cutLengthMm: number;
+  qty: number;
+}
+
+/**
+ * "Đợt gửi KCS" cho 1 CÔNG ĐOẠN PHỤ (Uốn/Dập/Đục lỗ/Tán/...) của 1 đợt cắt cụ thể (2026-09-07) -
+ * mirror BeCutBundle nhưng scope hẹp hơn. Thay cơ chế cờ tự khai `completedSteps` cũ - giờ MỖI
+ * công đoạn phụ phải qua KCS riêng, không chờ nhau (kể cả không chờ Cắt/công đoạn khác).
+ */
+export interface BeStepBundle {
+  id: string;
+  cutBundleId: string;
+  step: ProcessStep;
+  status: 'AWAITING_QC' | 'QC_PASSED';
+  submittedAt: string;
+  submittedById: string;
+  segments: BeStepBundleSegment[];
+}
+
 /**
  * 1 đợt cắt Phôi đã báo (append-only - mỗi lần "Nhập đợt cắt" tạo 1 dòng mới). Từ 2026-09-05 đây
  * là ĐƠN VỊ MANG TRẠNG THÁI của công đoạn Phôi (`status`) - mỗi đợt tự đi
@@ -56,13 +77,17 @@ export interface BeCutBundle {
   /** Luôn 0 với đợt tạo từ 2026-09-05 (không còn cân bằng vật chất để suy ra phế liệu). */
   scrapMm: number;
   status: CutBundleStatus;
-  /** Công đoạn đã xong CỦA ĐỢT NÀY (luôn có CAT ngay khi tạo). */
+  /** LỊCH SỬ/THAM KHẢO - từ 2026-09-07 không còn dùng để chặn "Báo cắt xong" nữa (mỗi công đoạn
+   *  phụ tự gửi KCS riêng qua stepBundles, xem StepBundle). Luôn có CAT ngay khi tạo. */
   completedSteps: ProcessStep[];
-  /** Công đoạn bắt buộc theo định mức của loại sắt này (để biết còn thiếu bước nào). */
+  /** Công đoạn bắt buộc theo định mức của loại sắt này - vẫn dùng để biết cần hiện panel gửi KCS
+   *  cho công đoạn phụ nào (recordStepBatch() vẫn chặn công đoạn ngoài danh sách này). */
   requiredSteps: ProcessStep[];
   completedAt: string | null;
   createdAt: string;
   segments: BeCutPatternSegment[];
+  /** Các đợt gửi KCS công đoạn phụ CỦA ĐỢT CẮT NÀY (2026-09-07, xem BeStepBundle). */
+  stepBundles: BeStepBundle[];
 }
 
 export interface BeSteelIssue {
@@ -214,11 +239,6 @@ export async function finishCutBundle(bundleId: string): Promise<BeCutBundle> {
   return http.post<BeCutBundle>(`/cut-bundles/${bundleId}/finish`, {});
 }
 
-/** Đánh dấu 1 công đoạn chi tiết (uốn/dập/...) xong CHO ĐÚNG đợt cắt này. */
-export async function completeBundleStep(bundleId: string, step: ProcessStep): Promise<BeCutBundle> {
-  return http.post<BeCutBundle>(`/cut-bundles/${bundleId}/complete-step`, { step });
-}
-
 export async function receiveSteelIssue(id: string): Promise<void> {
   await http.post(`/steel-issues/${id}/receive`, {});
 }
@@ -246,18 +266,6 @@ export async function undoLastCutBatch(
   segments: { segmentSpecId: string; qty: number }[],
 ): Promise<void> {
   await http.post(`/cut-bundles/${cutBundleId}/undo-last-batch`, { segments });
-}
-
-/** "Xong, mời KCS" - tín hiệu thuần, không mang số liệu (đã nhập ở các đợt recordCutBatch trước
- *  đó). RECEIVED -> AWAITING_QC (hoặc IN_PROCESS nếu còn công đoạn chi tiết chưa đánh dấu). */
-export async function finishCutting(id: string): Promise<void> {
-  await http.post(`/steel-issues/${id}/finish-cutting`, {});
-}
-
-/** Đánh dấu 1 công đoạn chi tiết (uốn/dập/...) xong khi đợt đang IN_PROCESS — tự chuyển sang chờ
- *  KCS khi mọi công đoạn đã chọn sẵn (requiredSteps) đều xong. */
-export async function completeStep(id: string, step: ProcessStep): Promise<void> {
-  await http.post(`/steel-issues/${id}/complete-step`, { step });
 }
 
 export interface BePhoiProgressSegment {
@@ -297,7 +305,8 @@ export async function getStepProgress(productionInvoiceId: string, step: Process
 }
 
 /** 1 dòng nhập đợt gia công cho công đoạn chi tiết SAU Cắt - mirror RecordCutBatchInput nhưng
- *  không có barCount/mauNguyenMm (bước này không tác động lên cây sắt). BE chặn vượt số đã cắt. */
+ *  không có barCount/mauNguyenMm (bước này không tác động lên cây sắt). BE chặn vượt số đã cắt
+ *  TRONG ĐÚNG ĐỢT CẮT NÀY (2026-09-07, đổi scope từ SteelIssue sang CutBundle). */
 export interface RecordStepBatchInput {
   step: ProcessStep
   segments: { segmentSpecId: string; qty: number }[]
@@ -309,9 +318,17 @@ export interface BeStepBatch {
   segments: { segmentSpecId: string; cutLengthMm: number; qty: number }[]
 }
 
-/** Nhập 1 đợt "đã gia công" cho công đoạn chi tiết (cộng dồn, KHÔNG đổi trạng thái SteelIssue). */
-export async function recordStepBatch(id: string, data: RecordStepBatchInput): Promise<BeStepBatch> {
-  return http.post<BeStepBatch>(`/steel-issues/${id}/step-batches`, data);
+/** Nhập 1 đợt "đã gia công" cho công đoạn chi tiết CỦA ĐÚNG ĐỢT CẮT (cộng dồn, KHÔNG tự gửi KCS -
+ *  xem submitStepBundle() để gửi). Đổi route từ /steel-issues/:id sang /cut-bundles/:id
+ *  (2026-09-07). */
+export async function recordStepBatch(cutBundleId: string, data: RecordStepBatchInput): Promise<BeStepBatch> {
+  return http.post<BeStepBatch>(`/cut-bundles/${cutBundleId}/step-batches`, data);
+}
+
+/** Gom mọi StepBatch CHƯA gửi (của 1 công đoạn phụ, ĐÚNG đợt cắt này) thành 1 "đợt gửi KCS" mới -
+ *  mirror finishCutBundle() nhưng cho công đoạn phụ. Lỗi nếu chưa có gì mới để gửi. */
+export async function submitStepBundle(cutBundleId: string, step: ProcessStep): Promise<BeStepBundle> {
+  return http.post<BeStepBundle>(`/cut-bundles/${cutBundleId}/step-bundles`, { step });
 }
 
 /** Danh sách PO/SKU thuộc 1 PI - khối tham khảo cho màn Lệnh sản xuất Phôi, KHÔNG mang số liệu
@@ -370,6 +387,20 @@ export async function reviewCutBundleQc(
   await http.post(`/cut-bundles/${cutBundleId}/qc-review`, data);
 }
 
+/** KCS chấm 1 "đợt gửi KCS" công đoạn PHỤ (2026-09-07) - cùng khuôn tham số reviewCutBundleQc,
+ *  CHỈ Đạt/Không đạt (không có "phế/sửa được" - mirror hành vi gốc của Sắt). */
+export async function reviewStepBundleQc(
+  stepBundleId: string,
+  data: {
+    segments: { segmentSpecId: string; failedQty: number }[];
+    reason?: string;
+    defectReasonId?: string;
+    photoUrl?: string;
+  },
+): Promise<void> {
+  await http.post(`/step-bundles/${stepBundleId}/qc-review`, data);
+}
+
 /** Phôi tự báo đã bù đủ cho 1 cỡ đoạn không đạt (đã tự kiếm sắt bù ngoài thực tế, KHÔNG đụng cây
  *  sắt kho đã cấp) - CHỜ KCS recheck() mới tính là đạt. `qty` (2026-09-07) là số đoạn Phôi TỰ KHAI
  *  đã sửa xong (1..outstanding) - THAM KHẢO cho KCS, không tự trừ lỗi ngay. */
@@ -380,6 +411,11 @@ export async function reportSegmentDone(steelIssueId: string, segmentSpecId: str
 /** Cùng reportSegmentDone() nhưng scope theo ĐÚNG đợt cắt (2026-09-05, luồng mới). */
 export async function reportSegmentDoneForBundle(cutBundleId: string, segmentSpecId: string, qty: number): Promise<void> {
   await http.post(`/cut-bundles/${cutBundleId}/qc-segments/${segmentSpecId}/report-done`, { qty });
+}
+
+/** Cùng reportSegmentDone() nhưng scope theo ĐÚNG StepBundle (2026-09-07, công đoạn phụ). */
+export async function reportSegmentDoneForStepBundle(stepBundleId: string, segmentSpecId: string, qty: number): Promise<void> {
+  await http.post(`/step-bundles/${stepBundleId}/qc-segments/${segmentSpecId}/report-done`, { qty });
 }
 
 /** KCS duyệt lại các cỡ đoạn Phôi đã báo "Bù đủ" - remainingFailedQty=0 nghĩa là đạt hết cho cỡ
@@ -399,6 +435,14 @@ export async function recheckQcForBundle(
   await http.post(`/cut-bundles/${cutBundleId}/qc-recheck`, { segments });
 }
 
+/** Cùng recheckQc() nhưng scope theo ĐÚNG StepBundle (2026-09-07, công đoạn phụ). */
+export async function recheckQcForStepBundle(
+  stepBundleId: string,
+  segments: { segmentSpecId: string; remainingFailedQty: number }[],
+): Promise<void> {
+  await http.post(`/step-bundles/${stepBundleId}/qc-recheck`, { segments });
+}
+
 /** 1 dòng qc_reviews (nhánh Phôi, steelIssueId != null) — dùng để dựng lại "đạt bao nhiêu / lỗi bao
  *  nhiêu" cho các đợt QC_PASSED (SteelIssue tự nó KHÔNG giữ lại số liệu duyệt, khác ProductionBatch
  *  không ghi đè reportedQty). Fetch 1 lần, lọc client theo steelIssueId — danh sách chưa lớn, cùng
@@ -409,6 +453,8 @@ export interface BeQcReview {
   productionBatchId: string | null;
   /** Đợt cắt được chấm (2026-09-05) - null với review CŨ (chấm cả lô) hoặc nhánh Hàn/Sơn. */
   cutBundleId: string | null;
+  /** Đợt gửi KCS công đoạn PHỤ được chấm (2026-09-07) - null với mọi nhánh khác. */
+  stepBundleId: string | null;
   /** Tổng dẫn xuất từ segments[] (nhánh Phôi) - nhánh Hàn/Sơn là số gốc, segments luôn rỗng. */
   failedQty: number;
   scrapQty: number | null;
