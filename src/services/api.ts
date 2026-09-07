@@ -138,4 +138,6 @@ export {
   recordCutBatch, finishCutting, completeStep, getPhoiProgress, getStepProgress, recordStepBatch, getPiOrderSummary,
   reviewSteelIssueQc, reportSegmentDone, recheckQc, getQcReviewsForSteelIssues,
   getReplenishRequests, fulfillReplenishRequest, rejectReplenishRequest,
+  getAllCutBundles, finishCutBundle, completeBundleStep, reviewCutBundleQc,
+  reportSegmentDoneForBundle, recheckQcForBundle,
 } from './steel-issues-api';

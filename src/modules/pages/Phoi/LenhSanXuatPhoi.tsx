@@ -13,48 +13,41 @@
  *
  * Phạm vi (2026-08-22, chốt lại lần 2): xác nhận NHẬN sắt làm ở màn riêng "Xác nhận nhận sắt".
  * Màn NÀY làm phần còn lại của vòng đời sau khi nhận: báo cắt xong, đánh dấu công đoạn chi tiết
- * (uốn/dập/...). Vì báo cắt xong thao tác trên TỪNG ĐỢT xuất cụ thể (SteelIssue.id), chi tiết 1 PI
- * hiện theo dòng-đợt phẳng thay vì gộp theo loại sắt như bản đọc-only cũ.
+ * (uốn/dập/...).
  *
  * Báo cắt xong (2026-08-22, chốt lại lần 2 - lần đầu bị rollback 08-21 vì thảo luận sai phạm vi
- * màn, không phải sai thiết kế): Phôi KHAI THẲNG số đoạn thực cắt theo TỪNG CỠ (recordCutBatch),
- * hệ thống tự tính phế liệu qua phương trình cân bằng vật chất - không còn "chọn kiểu cắt đã duyệt
- * rồi FE tự bung đoạn" (completeCutting cũ, số liệu thực chất là CHÉP từ kế hoạch solver, không
- * phải ĐO). Kiểu cắt của solver chỉ còn là bảng tham khảo, thu gọn. "Báo cắt xong" tách làm 2 hành
- * động độc lập: nhập từng đợt (nhiều lần, cộng dồn) + "Báo cắt xong" (tín hiệu thuần, không mang
- * số liệu, KHÔNG tự động khi Còn lại = 0 vì ca cắt thiếu do sắt hỏng/cong vẫn phải đi tiếp được).
- * Đổi nhãn nút từ "Gửi KCS" → "Báo cắt xong" (2026-08-27): tên cũ gây hiểu nhầm khi vật tư còn
- * công đoạn phụ (Uốn/Dập/...) - bấm xong chỉ chuyển "đang gia công", CHƯA thật sự qua KCS.
+ * màn, không phải sai thiết kế): Phôi KHAI THẲNG số đoạn thực cắt theo TỪNG CỠ (recordCutBatch).
+ * "Báo cắt xong" tách làm 2 hành động độc lập: nhập từng đợt (nhiều lần, cộng dồn) + "Báo cắt
+ * xong" (tín hiệu thuần, KHÔNG tự động khi Còn lại = 0 vì ca cắt thiếu do sắt hỏng/cong vẫn phải
+ * đi tiếp được).
  *
- * KCS chấm lỗi (2026-08-24, vòng 2): CHỈ 2 kết quả Đạt/Không đạt. Đợt QC_PASSED còn lỗi (outstanding
- * > 0) vẫn mở ra xem được bảng Cần/Đã cắt/Lỗi/Còn lại, nhưng KHÔNG còn ô nhập đợt cắt - Phôi tự bù
- * bằng sắt kiếm ngoài thực tế (KHÔNG đụng cây sắt kho đã cấp), bấm "Bù đủ" rồi CHỜ KCS duyệt lại
- * (QcReviewsService.reportSegmentDone/recheck) mới hết lỗi.
+ * KCS chấm lỗi (2026-08-24, vòng 2): CHỈ 2 kết quả Đạt/Không đạt. Đợt QC_PASSED còn lỗi
+ * (outstanding > 0) vẫn xem được, nhưng KHÔNG còn nhập đợt cắt - Phôi tự bù bằng sắt kiếm ngoài
+ * thực tế, bấm "Bù đủ" rồi CHỜ KCS duyệt lại (QcReviewsService.reportSegmentDone/recheck).
  *
- * Redesign 2026-08-26: PI vẫn là đơn vị lớn nhất (SteelIssue không theo dõi theo SKU/mảnh - xem
- * changelog 2026-08-19-xuat-sat-theo-pi-hoan-tat.html). Thêm khối "PO/SKU trong đợt này" ở
- * PiDetail (THUẦN THAM KHẢO, không có số liệu tiến độ riêng theo SKU - dữ liệu đó không tồn tại
- * thật). Đổi "Đã KCS đạt" → "Đã phôi" (chỉ ở màn Phôi, không đụng KcsPhoiPage) - tách bạch với
- * "Đã cắt" (thô, chưa chắc đã xong Uốn/Dập nếu vật tư cần). Gộp trang "Thống kê công đoạn"
- * (ThongKeCongDoanPage.tsx cũ, đã xoá) làm 1 view-toggle riêng ở đây (CongDoanView).
+ * Redesign 2026-08-26: PI vẫn là đơn vị lớn nhất. Thêm khối "PO/SKU trong đợt này" (THUẦN THAM
+ * KHẢO). Đổi "Đã KCS đạt" → "Đã phôi" (chỉ ở màn Phôi).
  *
- * Bỏ view-toggle đó (2026-08-27, vòng 4): "Theo công đoạn" tự ẩn PI đã xong hết (không còn cách
- * xem lại), và tách rời khỏi thao tác "Xong {bước}" nên phải nhảy 2 màn mới đánh dấu được.
+ * Redesign 2026-09-05 (gộp theo LOẠI SẮT + trạng thái hạ xuống đợt cắt) — thay đổi lớn nhất kể từ
+ * bản gốc: trước đây PiDetail liệt kê PHẲNG mỗi lần kho giao (SteelIssue) thành 1 dòng riêng - 1
+ * loại sắt kho giao 2 lần (vd thiếu hàng đợt đầu, giao bù sau) thì hiện 2 dòng ngang hàng, PI chỉ
+ * 2 loại sắt vẫn thấy 4 dòng (thực tế trên production, PO-52). Giờ PiDetail gộp theo materialId
+ * thành 1 "MaterialGroup" duy nhất mỗi loại sắt (Σ cây mọi lần kho giao), MaterialGroupDetail
+ * (đổi tên từ IssueDetail) liệt kê CÁC ĐỢT CẮT (CutBundle) bên trong - mỗi đợt tự trạng thái riêng
+ * (CUTTING/AWAITING_QC/QC_PASSED, xem CutBundle.status ở BE) nên cắt xong đợt nào gửi KCS đợt đó,
+ * sắt giao bù không còn bị kẹt (trước đây SteelIssue.status làm chủ vòng đời, đợt đã gửi KCS thì
+ * lô đó không cắt tiếp được - recordCutBatch chặn cứng, không có đường quay lại RECEIVED).
+ * SteelIssue giờ chỉ còn ISSUED/RECEIVED (việc của kho, xem màn "Xác nhận nhận sắt" - KHÔNG đổi).
  *
- * Nhập số lượng thật cho từng công đoạn phụ (2026-08-27, vòng 2 cùng ngày): thêm bảng StepBatch/
- * StepBatchSegment (BE, mirror CutBundle) + endpoint getStepProgress/recordStepBatch - Uốn/Dập/...
- * giờ có bảng Cần/Đã.../Còn lại + ô nhập số lượng thật y hệt Cắt, không còn chỉ có nút "Xong" trần.
- *
- * Chi tiết 1 đợt sắt tách thành màn riêng IssueDetail (2026-08-27, vòng 7): trước đó bấm 1 dòng
- * loại sắt chỉ bung ngay trong danh sách PiDetail - nhiều dòng mở cùng lúc gây cảm giác "ảnh hưởng
- * lẫn nhau". Giờ bấm 1 dòng ĐIỀU HƯỚNG sang IssueDetail riêng (đúng pattern PI list → PiDetail),
- * độc lập hoàn toàn với các loại sắt khác. Trong IssueDetail, dải tab lọc theo ĐÚNG TÊN công đoạn
- * (Cắt/Uốn/Tóp đầu/...) - tab nào đã xong có dấu ✓ (vòng 8, cùng ngày) - "Tất cả" xem gộp mọi mục.
+ * Cùng đợt này: bỏ hẳn 2 ô "Số cây đã dùng"/"Mẩu nguyên" khỏi form nhập đợt cắt (yêu cầu nghiệp
+ * vụ - 1 loại sắt giờ gộp nhiều lần kho giao, tách cây theo từng đợt cắt là tuỳ tiện). Hệ quả:
+ * mất cân bằng vật chất/phế liệu tự tính, mất chặn "khai vượt số cây kho giao" - kiểm soát dồn về
+ * KCS, đúng triết lý "không cap lúc báo, KCS mới là bước kiểm soát" vốn có của module này.
  */
 
 import { useMemo, useState } from 'react'
 import {
-  ChevronLeft, ChevronRight, ChevronDown, Wrench, Clock, Check, AlertTriangle, RotateCcw, Plus, Ruler,
+  ChevronLeft, ChevronRight, Wrench, Clock, Check, AlertTriangle, RotateCcw, Plus, Ruler,
 } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
@@ -63,28 +56,35 @@ import type {
 } from '../../../services/steel-issues-api'
 import type { BeProductionOrderSummary, BeProductionBatchPlan } from '../../../services/production-batches-api'
 import type { ProcessStep } from '../../../types/sku'
-import { PROCESS_STEPS, PROCESS_STEP_LABELS } from '../../../constants/processSteps'
+import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 import VatTuTpDetail, { type VatTuTpItem } from './VatTuTpDetail'
 import {
-  ACCENT, GREEN, RED, AMBER, PURPLE, th, thR, td, tdR, card, smallBtn, inp, subFilterBtn,
+  ACCENT, GREEN, RED, AMBER, PURPLE, th, thR, td, tdR, card, smallBtn, inp,
 } from './phoiStyles'
 
 interface PiAgg {
-  productionInvoiceId: string; poNumber: string; issues: BeSteelIssue[]
-  totalIssued: number; totalPassed: number; totalAwaiting: number
+  productionInvoiceId: string; poNumber: string; issues: BeSteelIssue[]; bundles: BeCutBundle[]
+  totalIssued: number
+  /** Số đợt cắt (không phải cây - xem comment đổi tiêu đề cột ở bảng danh sách PI) đang chờ xử lý
+   *  (CUTTING hoặc AWAITING_QC) / đã qua KCS (QC_PASSED). */
+  bundlesPending: number; bundlesPassed: number
   /** Vật tư thành phẩm (PieceMaterialYield, vd Pat/chân nhôm) của PI này - danh sách PHẲNG, mỗi
    *  (order, piece) 1 item (2026-09-04, gộp màn - trước đây ở tab riêng "Vật tư thành phẩm"). */
   vatTuTpItems: VatTuTpItem[]
 }
 
-function buildPiRows(issues: BeSteelIssue[], vatTuTpByPi: Map<string, VatTuTpItem[]>): PiAgg[] {
+function buildPiRows(
+  issues: BeSteelIssue[], bundles: BeCutBundle[], vatTuTpByPi: Map<string, VatTuTpItem[]>,
+): PiAgg[] {
   // Gom theo productionInvoiceId (luôn duy nhất) chứ KHÔNG theo mã hiển thị salesOrderCode -
   // nhiều lệnh SX có thể cùng chung 1 mã Sales (nhiều SKU/đơn) hoặc cùng null.
   const byPi = new Map<string, BeSteelIssue[]>()
   const order: string[] = []
+  const issueById = new Map<string, BeSteelIssue>()
   for (const i of issues) {
+    issueById.set(i.id, i)
     if (!byPi.has(i.productionInvoiceId)) { byPi.set(i.productionInvoiceId, []); order.push(i.productionInvoiceId) }
     byPi.get(i.productionInvoiceId)!.push(i)
   }
@@ -96,29 +96,52 @@ function buildPiRows(issues: BeSteelIssue[], vatTuTpByPi: Map<string, VatTuTpIte
   return order.map(productionInvoiceId => {
     const list = byPi.get(productionInvoiceId)!
     const vatTuTpItems = vatTuTpByPi.get(productionInvoiceId) ?? []
-    const awaiting = list.reduce((s, i) => {
-      if (i.status === 'ISSUED' || i.status === 'RECEIVED') return s + i.barCount
-      if (i.status === 'IN_PROCESS' || i.status === 'AWAITING_QC') return s + (i.actualBarCount ?? i.barCount)
-      return s
-    }, 0)
-    // "Đã phôi" tính theo CÂY (đợt đã duyệt xong, status QC_PASSED) - KHÔNG trừ failedByIssue
-    // nữa: failedQty giờ là số ĐOẠN (từ 2026-08-24, chấm theo cỡ đoạn), khác đơn vị với cây, và
-    // 1 vài đoạn lỗi (sửa được) không có nghĩa cả CÂY bị loại - cây vẫn đã qua KCS bình thường.
-    const passed = list.filter(i => i.status === 'QC_PASSED')
-      .reduce((s, i) => s + (i.actualBarCount ?? i.barCount), 0)
+    // Đợt cắt thuộc PI này = đợt gắn vào 1 SteelIssue nằm trong `list` (bundle không tự biết PI).
+    const piBundles = bundles.filter(b => issueById.get(b.steelIssueId)?.productionInvoiceId === productionInvoiceId)
     return {
       productionInvoiceId,
       poNumber: list[0]?.salesOrderCode ?? list[0]?.piCode ?? vatTuTpItems[0]?.poNumber ?? productionInvoiceId,
       issues: list,
+      bundles: piBundles,
       totalIssued: list.reduce((s, i) => s + i.barCount, 0),
-      totalPassed: passed, totalAwaiting: awaiting, vatTuTpItems,
+      bundlesPending: piBundles.filter(b => b.status !== 'QC_PASSED').length,
+      bundlesPassed: piBundles.filter(b => b.status === 'QC_PASSED').length,
+      vatTuTpItems,
+    }
+  })
+}
+
+/** 1 loại sắt trong 1 PI, gộp mọi lần kho giao (2026-09-05) - xem comment đầu file. */
+interface MaterialGroup {
+  key: string; materialId: string; materialName: string; barLengthMm: number
+  issues: BeSteelIssue[]; bundles: BeCutBundle[]; totalBarCount: number
+}
+
+function buildMaterialGroups(issues: BeSteelIssue[], bundles: BeCutBundle[]): MaterialGroup[] {
+  const byMaterial = new Map<string, BeSteelIssue[]>()
+  const order: string[] = []
+  for (const i of issues) {
+    if (!byMaterial.has(i.materialId)) { byMaterial.set(i.materialId, []); order.push(i.materialId) }
+    byMaterial.get(i.materialId)!.push(i)
+  }
+  return order.map(materialId => {
+    const groupIssues = byMaterial.get(materialId)!
+    const issueIds = new Set(groupIssues.map(i => i.id))
+    return {
+      key: materialId,
+      materialId,
+      materialName: groupIssues[0].materialName,
+      barLengthMm: groupIssues[0].barLengthMm,
+      issues: groupIssues,
+      bundles: bundles.filter(b => issueIds.has(b.steelIssueId)),
+      totalBarCount: groupIssues.reduce((s, i) => s + i.barCount, 0),
     }
   })
 }
 
 export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }: {
   readOnly?: boolean
-  /** Nhảy sang màn "Hướng dẫn cắt" (sidebar riêng) đúng PI đang mở - xem CutBatchPanel. */
+  /** Nhảy sang màn "Hướng dẫn cắt" (sidebar riêng) đúng PI đang mở - xem NewCutBundleForm. */
   onOpenCuttingGuide?: (productionInvoiceId: string) => void
 }) {
   // activeOnly=true (2026-08-31): chỉ hiện PI có ít nhất 1 SKU đã được QLSX bấm "Bắt đầu" ở Bảng
@@ -126,6 +149,10 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
   // chung theo PI, không tách theo SKU).
   const { data: issues, isLoading, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(undefined, true), [])
   const { data: reviews, refetch: refetchReviews } = useFetch<BeQcReview[]>(() => api.getQcReviewsForSteelIssues(), [])
+  // Mọi đợt cắt (2026-09-05) - nguồn trạng thái chính từ nay (xem comment đầu file). Tải 1 LẦN
+  // cho toàn bộ danh sách PI (không theo từng PI riêng) - danh sách chưa lớn, cùng idiom "fetch
+  // hết rồi lọc/gộp client" đã dùng cho issues/reviews ở trên.
+  const { data: allBundles, refetch: refetchBundles } = useFetch<BeCutBundle[]>(() => api.getAllCutBundles(), [])
   // Vật tư thành phẩm (2026-09-04, gộp màn - trước đây tab riêng "Vật tư thành phẩm", xem
   // VatTuTpDetail.tsx). listProductionOrdersForStage() trả MỌI order active (dùng chung Hàn/Sơn/
   // Phôi, không lọc theo needsHan) - lọc còn lại dựa vào plan.items rỗng hay không bên dưới.
@@ -160,8 +187,11 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
   }, [vatTuTpOrders, vatTuTpPlans])
   const [selPi, setSelPi] = useState<string | null>(null)
 
-  const piRows = useMemo(() => buildPiRows(issues ?? [], vatTuTpByPi), [issues, vatTuTpByPi])
-  const refetchAll = () => { refetch(); refetchReviews(); refetchVatTuTpOrders(); refetchVatTuTpPlans() }
+  const piRows = useMemo(
+    () => buildPiRows(issues ?? [], allBundles ?? [], vatTuTpByPi),
+    [issues, allBundles, vatTuTpByPi],
+  )
+  const refetchAll = () => { refetch(); refetchReviews(); refetchBundles(); refetchVatTuTpOrders(); refetchVatTuTpPlans() }
 
   if (isLoading || !issues) return <LoadingState />
 
@@ -188,8 +218,8 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
             <tr style={{ background: 'var(--surface2)' }}>
               <th style={th}>PO / PI</th>
               <th style={thR}>Đã xuất (cây)</th>
-              <th style={thR}>Đang xử lý</th>
-              <th style={thR}>Đã phôi</th>
+              <th style={thR}>Đang xử lý (đợt)</th>
+              <th style={thR}>Đã phôi (đợt)</th>
               <th style={thR}>Vật tư TP</th>
               <th style={{ ...th, width: 40 }}></th>
             </tr>
@@ -209,12 +239,12 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
                   <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{r.poNumber}</td>
                   <td style={{ ...tdR, fontWeight: 700 }}>{r.issues.length > 0 ? r.totalIssued : '—'}</td>
                   <td style={tdR}>
-                    {r.issues.length === 0 ? <span style={{ color: 'var(--text3)' }}>—</span>
-                      : r.totalAwaiting > 0
-                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#d97706', fontWeight: 600 }}><Clock size={12} /> {r.totalAwaiting}</span>
+                    {r.bundles.length === 0 ? <span style={{ color: 'var(--text3)' }}>—</span>
+                      : r.bundlesPending > 0
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#d97706', fontWeight: 600 }}><Clock size={12} /> {r.bundlesPending}</span>
                         : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a' }}><Check size={12} /> xong</span>}
                   </td>
-                  <td style={{ ...tdR, color: r.issues.length > 0 ? '#16a34a' : 'var(--text3)', fontWeight: r.issues.length > 0 ? 700 : 400 }}>{r.issues.length > 0 ? r.totalPassed : '—'}</td>
+                  <td style={{ ...tdR, color: r.bundles.length > 0 ? '#16a34a' : 'var(--text3)', fontWeight: r.bundles.length > 0 ? 700 : 400 }}>{r.bundles.length > 0 ? r.bundlesPassed : '—'}</td>
                   <td style={tdR}>
                     {r.vatTuTpItems.length === 0 ? <span style={{ color: 'var(--text3)' }}>—</span>
                       : vatTuTpPending > 0
@@ -237,48 +267,24 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
   )
 }
 
-// ── Chi tiết 1 PI — danh sách phẳng từng đợt, báo cắt xong / đánh dấu công đoạn ────────────
+// ── Chi tiết 1 PI — danh sách LOẠI SẮT (gộp mọi lần kho giao), báo cắt xong / đánh dấu công đoạn ─
 
 function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide }: {
   pi: PiAgg; readOnly: boolean; reviews: BeQcReview[]; onBack: () => void; onRefetch: () => void
   onOpenCuttingGuide?: (productionInvoiceId: string) => void
 }) {
-  // Chi tiết 1 đợt sắt (2026-08-27, vòng 7): trước đó bấm 1 dòng chỉ BUNG RA NGAY TRONG danh
-  // sách - nhiều dòng có thể cùng mở, dòng nọ đẩy vị trí dòng kia, cảm giác "ảnh hưởng lẫn nhau"
-  // giữa các loại sắt. Giờ bấm 1 dòng ĐIỀU HƯỚNG sang màn chi tiết riêng (IssueDetail) - đúng
-  // pattern PI list → PiDetail đã có, chỉ thêm 1 tầng: PiDetail (danh sách loại sắt) → IssueDetail
-  // (nội dung 1 loại sắt, độc lập hoàn toàn với các loại khác).
+  // Chi tiết 1 loại sắt (2026-08-27, vòng 7; đổi tên MaterialGroupDetail 2026-09-05): trước đó
+  // bấm 1 dòng chỉ BUNG RA NGAY TRONG danh sách - nhiều dòng có thể cùng mở, dòng nọ đẩy vị trí
+  // dòng kia, cảm giác "ảnh hưởng lẫn nhau" giữa các loại sắt. Giờ bấm 1 dòng ĐIỀU HƯỚNG sang màn
+  // chi tiết riêng - đúng pattern PI list → PiDetail đã có, chỉ thêm 1 tầng.
   const [selIssueId, setSelIssueId] = useState<string | null>(null)
   // Vật tư thành phẩm (2026-09-04, gộp màn) - key `${orderId}:${pieceId}` vì 2 SKU khác nhau trong
   // cùng PI có thể cùng dùng 1 pieceId trùng tên (vd cùng "Pat"), phải phân biệt theo cả order.
   const [selVatTuTpKey, setSelVatTuTpKey] = useState<string | null>(null)
-  // Công đoạn chi tiết SAU Cắt đọc từ StepBatchSegment (getStepProgress/recordStepBatch) - tải
-  // tiến độ MỌI công đoạn active 1 lần ở đây (không phải theo tab, xem IssueDetail) để mỗi đợt
-  // sắt tự tra đúng (vật tư, bước) của nó khi mở màn chi tiết riêng.
-  const activeSteps = useMemo(
-    () => PROCESS_STEPS.filter(step => step !== 'CAT' && pi.issues.some(i => i.requiredSteps.includes(step))),
-    [pi.issues],
-  )
-  const activeStepsKey = activeSteps.join(',')
 
   const { data: progress, refetch: refetchProgress } = useFetch<BePhoiProgressItem[]>(
     () => api.getPhoiProgress(pi.productionInvoiceId), [pi.productionInvoiceId],
   )
-  // Tải tiến độ MỌI công đoạn active 1 lần (không phải theo tab chọn - không còn tab) để mỗi dòng
-  // tự tra đúng (vật tư, bước) của nó khi bung ra nhiều bảng cùng lúc.
-  const { data: stepProgressList, refetch: refetchStepProgress } = useFetch<[ProcessStep, BePhoiProgressItem[]][]>(
-    () => activeSteps.length === 0 ? Promise.resolve([]) : Promise.all(
-      activeSteps.map(step => api.getStepProgress(pi.productionInvoiceId, step).then(data => [step, data] as [ProcessStep, BePhoiProgressItem[]])),
-    ),
-    [pi.productionInvoiceId, activeStepsKey],
-  )
-  const stepProgressByStep = useMemo(() => {
-    const m = new Map<ProcessStep, BePhoiProgressItem[]>()
-    for (const [step, data] of stepProgressList ?? []) m.set(step, data)
-    return m
-  }, [stepProgressList])
-  const getStepProgressItem = (materialId: string, step: ProcessStep) =>
-    (stepProgressByStep.get(step) ?? []).find(item => item.materialId === materialId) ?? null
   // Khối "PO/SKU trong đợt này" - THUẦN THAM KHẢO, không mang số liệu tiến độ (tiến độ chỉ có ở
   // cấp PI × loại sắt, xem progress ở trên) - Phôi không biết trước cây sắt về SKU nào lúc cắt.
   // Luôn hiện kể cả PI thường (1 SKU) để đồng nhất giao diện.
@@ -291,38 +297,32 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
     return m
   }, [progress])
   // Nhập đợt cắt/mời KCS đổi cả phoi-progress (Cần/Đã cắt) lẫn steel-issues/qc-reviews (trạng
-  // thái) - phải refetch cả 2 nguồn (+ step-progress mọi công đoạn), không chỉ mỗi onRefetch() của cha.
-  const refetchAll = () => { onRefetch(); refetchProgress(); refetchStepProgress() }
+  // thái) - phải refetch cả 2 nguồn, không chỉ mỗi onRefetch() của cha.
+  const refetchAll = () => { onRefetch(); refetchProgress() }
 
-  const reviewByIssue = useMemo(() => {
+  // Review giờ khoá theo cutBundleId (2026-09-05, KCS chấm theo từng đợt cắt) - review CŨ (trước
+  // khi hạ vòng đời, cutBundleId=null) không còn xuất hiện nữa vì mọi bundle cũ đã backfill status
+  // QC_PASSED ngay từ migration, không quay lại AWAITING_QC để chấm lại qua đường mới.
+  const reviewByBundle = useMemo(() => {
     const m = new Map<string, BeQcReview>()
-    for (const r of reviews) if (r.steelIssueId) m.set(r.steelIssueId, r)
+    for (const r of reviews) if (r.cutBundleId) m.set(r.cutBundleId, r)
     return m
   }, [reviews])
 
-  // Thứ tự ưu tiên: đợt trả về (rework) → đã nhận (chờ báo) → đang gia công (chờ đánh dấu công
-  // đoạn) → chờ nhận (chưa tới lượt màn này) → chờ KCS → đã duyệt (mờ).
-  const rank = (l: BeSteelIssue) =>
-    l.reworkOfId ? 0
-      : l.status === 'RECEIVED' ? 1
-      : l.status === 'IN_PROCESS' ? 2
-      : l.status === 'ISSUED' ? 3
-      : l.status === 'AWAITING_QC' ? 4
-      : 5
-  const rows = [...pi.issues].sort((a, b) => {
-    const r = rank(a) - rank(b)
-    return r !== 0 ? r : b.issuedAt.localeCompare(a.issuedAt)
-  })
+  const materialGroups = useMemo(
+    () => buildMaterialGroups(pi.issues, pi.bundles),
+    [pi.issues, pi.bundles],
+  )
   const traVeList = pi.issues.filter(l => l.status === 'RECEIVED' && l.reworkOfId)
   const traVe = traVeList.length
   const traVeCay = traVeList.reduce((s, l) => s + l.barCount, 0)
 
-  const selIssue = selIssueId ? rows.find(r => r.id === selIssueId) ?? null : null
-  if (selIssue) {
+  const selGroup = selIssueId ? materialGroups.find(g => g.key === selIssueId) ?? null : null
+  if (selGroup) {
     return (
-      <IssueDetail
-        key={selIssue.id} issue={selIssue} readOnly={readOnly} review={reviewByIssue.get(selIssue.id)}
-        progressByMaterial={progressByMaterial} getStepProgressItem={getStepProgressItem}
+      <MaterialGroupDetail
+        key={selGroup.key} group={selGroup} readOnly={readOnly} reviewByBundle={reviewByBundle}
+        progress={progressByMaterial.get(selGroup.materialId) ?? null}
         onBack={() => setSelIssueId(null)} onRefetch={refetchAll} onOpenCuttingGuide={onOpenCuttingGuide}
       />
     )
@@ -376,53 +376,52 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
       )}
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {rows.map(l => {
-          const review = reviewByIssue.get(l.id)
-          const baoCat = l.actualBarCount ?? l.barCount
-          // failedQty là số ĐOẠN (KCS chấm theo cỡ đoạn), KHÁC đơn vị baoCat (cây) - không lấy
-          // hiệu 2 số này ("Đạt" theo cây trừ "Lỗi" theo đoạn là vô nghĩa).
-          // outstanding = Σ(failedQty - resolvedQty) - GIẢM DẦN khi KCS duyệt lại xác nhận đạt
-          // (2026-08-24, vòng 2 - khác failedQty tổng cố định của bản trước).
-          const segs = review?.segments ?? []
-          const outstanding = segs.reduce((s, x) => s + (x.failedQty - x.resolvedQty), 0)
-          const awaitingRecheck = segs.some((x) => x.phoiReportedAt != null && x.failedQty - x.resolvedQty > 0)
-          const isReturn = l.status === 'RECEIVED' && !!l.reworkOfId
-          // Mọi trạng thái sau "chờ nhận" đều xem chi tiết được - chỉ ISSUED chưa có gì để xem.
-          const canOpen = l.status !== 'ISSUED'
+        {materialGroups.map(g => {
+          // 1 dòng / LOẠI SẮT (2026-09-05, gộp mọi lần kho giao - xem comment đầu file). Trạng
+          // thái tổng quát của dòng suy từ tập bundles: có đợt nào đang cắt → "đang cắt", hết
+          // đang cắt mà còn đợt chờ KCS → "chờ KCS", mọi đợt đã qua KCS (và có ít nhất 1) →
+          // "đã phôi" (trừ khi còn lỗi outstanding chưa bù đủ).
+          const cuttingCount = g.bundles.filter(b => b.status === 'CUTTING').length
+          const awaitingQcCount = g.bundles.filter(b => b.status === 'AWAITING_QC').length
+          const passedBundles = g.bundles.filter(b => b.status === 'QC_PASSED')
+          const outstanding = passedBundles.reduce((s, b) => {
+            const segs = reviewByBundle.get(b.id)?.segments ?? []
+            return s + segs.reduce((s2, x) => s2 + (x.failedQty - x.resolvedQty), 0)
+          }, 0)
+          const awaitingRecheck = passedBundles.some(b =>
+            (reviewByBundle.get(b.id)?.segments ?? []).some(x => x.phoiReportedAt != null && x.failedQty - x.resolvedQty > 0),
+          )
+          const hasReceived = g.issues.some(i => i.status !== 'ISSUED')
+          const isReturn = g.issues.some(i => i.status === 'RECEIVED' && !!i.reworkOfId)
           return (
-            <div key={l.id} style={{ ...card, borderColor: isReturn ? RED : undefined }}>
+            <div key={g.key} style={{ ...card, borderColor: isReturn ? RED : undefined }}>
               <div
-                onClick={() => canOpen && setSelIssueId(l.id)}
+                onClick={() => setSelIssueId(g.key)}
                 style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px',
-                  cursor: canOpen ? 'pointer' : 'default', background: isReturn ? 'var(--red-bg, #fef2f2)' : undefined,
-                  opacity: l.status === 'QC_PASSED' && outstanding === 0 ? 0.75 : 1,
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', cursor: 'pointer',
+                  background: isReturn ? 'var(--red-bg, #fef2f2)' : undefined,
+                  opacity: g.bundles.length > 0 && cuttingCount === 0 && awaitingQcCount === 0 && outstanding === 0 ? 0.75 : 1,
                 }}
               >
-                {canOpen ? <ChevronRight size={15} color="var(--text3)" /> : <span style={{ width: 15 }} />}
+                <ChevronRight size={15} color="var(--text3)" />
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>
-                    {l.materialName}
+                    {g.materialName}
                     {isReturn && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: RED, marginLeft: 8 }}><RotateCcw size={11} /> KCS trả về</span>}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                    {l.status === 'ISSUED' || l.status === 'RECEIVED' ? l.barCount : baoCat} cây × {l.barLengthMm.toLocaleString('vi-VN')}mm
+                    {g.totalBarCount} cây × {g.barLengthMm.toLocaleString('vi-VN')}mm
+                    {g.bundles.length > 0 && <> · {g.bundles.length} đợt cắt</>}
                   </div>
                 </div>
-                {l.status === 'ISSUED' ? (
+                {!hasReceived ? (
                   <span style={{ fontSize: 12, color: ACCENT, fontWeight: 600 }}>chờ nhận</span>
-                ) : l.status === 'RECEIVED' ? (
-                  <span style={{ fontSize: 12, color: ACCENT, fontWeight: 600 }}>đang cắt</span>
-                ) : l.status === 'IN_PROCESS' ? (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 260 }}>
-                    {l.requiredSteps.filter(s => s !== 'CAT' && !l.completedSteps.includes(s)).map(step => (
-                      <span key={step} style={{ fontSize: 11, fontWeight: 700, color: PURPLE, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>
-                        {PROCESS_STEP_LABELS[step]}
-                      </span>
-                    ))}
-                  </div>
-                ) : l.status === 'AWAITING_QC' ? (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ KCS</span>
+                ) : cuttingCount > 0 ? (
+                  <span style={{ fontSize: 12, color: ACCENT, fontWeight: 600 }}>đang cắt ({cuttingCount})</span>
+                ) : awaitingQcCount > 0 ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ KCS ({awaitingQcCount})</span>
+                ) : g.bundles.length === 0 ? (
+                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>đã nhận, chưa cắt</span>
                 ) : outstanding > 0 ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700 }}>
                     <span style={{ color: RED }}>Lỗi {outstanding} đoạn</span>
@@ -435,7 +434,7 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
             </div>
           )
         })}
-        {rows.length === 0 && (
+        {materialGroups.length === 0 && (
           <div style={{ ...card, padding: 24, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Chưa có đợt sắt nào</div>
         )}
       </div>
@@ -495,71 +494,59 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
   )
 }
 
-// ── Chi tiết 1 đợt sắt (2026-08-27, vòng 7) — độc lập hoàn toàn với các loại sắt khác trong
-// cùng PI, không còn bung ngay trong danh sách (xem comment ở PiDetail). Lọc theo ĐÚNG TÊN công
-// đoạn (vòng 8) - Cắt/Uốn/Tóp đầu/... mỗi cái 1 tab riêng, tab nào đã xong có dấu ✓; "Tất cả" xem
-// gộp mọi mục cùng lúc. Không còn kiểu thu gọn-sau-chevron của vòng 6 (bấm mới xem) - đã bỏ vì
-// vẫn phải bấm thêm 1 lần cho mỗi mục muốn xem lại.
-function IssueDetail({ issue, readOnly, review, progressByMaterial, getStepProgressItem, onBack, onRefetch, onOpenCuttingGuide }: {
-  issue: BeSteelIssue; readOnly: boolean; review?: BeQcReview
-  progressByMaterial: Map<string, BePhoiProgressItem>
-  getStepProgressItem: (materialId: string, step: ProcessStep) => BePhoiProgressItem | null
+// ── Chi tiết 1 LOẠI SẮT (2026-09-05) — gộp mọi lần kho giao (xem comment đầu file), liệt kê CÁC
+// ĐỢT CẮT bên trong. Mỗi đợt tự trạng thái riêng (CUTTING/AWAITING_QC/QC_PASSED) nên cắt xong đợt
+// nào gửi KCS đợt đó, sắt giao bù vẫn cắt tiếp bình thường dù đợt trước đã/đang qua KCS.
+//
+// Đơn giản hoá có chủ đích: công đoạn phụ (Uốn/Dập/...) của 1 đợt cắt giờ chỉ là TÍN HIỆU thuần
+// (completeBundleStep, không kèm bảng nhập số lượng theo cỡ đoạn như StepBatchPanel cũ) - tại
+// thời điểm viết (2026-09-05), KHÔNG có material nào trong dữ liệu thật yêu cầu bước phụ ngoài
+// Cắt (đã kiểm piece_bom.processSteps DB thật, mọi dòng đều rỗng). Nếu sau này có material cần
+// bước phụ, StepBatch (BE) đã có sẵn cột cutBundleId dự phòng nhưng recordStepBatch/getStepProgress
+// CHƯA scope theo đợt cắt - cần làm thêm phần đó trước khi dựa vào số lượng bước phụ theo từng đợt.
+function MaterialGroupDetail({ group, readOnly, reviewByBundle, progress, onBack, onRefetch, onOpenCuttingGuide }: {
+  group: MaterialGroup; readOnly: boolean; reviewByBundle: Map<string, BeQcReview>
+  progress: BePhoiProgressItem | null
   onBack: () => void; onRefetch: () => void
   onOpenCuttingGuide?: (productionInvoiceId: string) => void
 }) {
-  const [busy, setBusy] = useState(false)
+  const [busyBundleId, setBusyBundleId] = useState<string | null>(null)
   const [err, setErr] = useState('')
-  // Lọc theo TỪNG công đoạn cụ thể (2026-08-27, vòng 8) - trước đó phần đã xong thu gọn sau
-  // chevron, bấm mới xem được; giờ bỏ hẳn chevron, chọn đúng tên công đoạn (Cắt/Uốn/Tóp đầu/...)
-  // ở tab để chỉ xem/nhập đúng 1 mục đó, "Tất cả" xem gộp như cũ. Khoá theo item.key ('CAT' hoặc
-  // ProcessStep).
-  const [subFilter, setSubFilter] = useState<string>('all')
 
-  const segs = review?.segments ?? []
-  const outstanding = segs.reduce((s, x) => s + (x.failedQty - x.resolvedQty), 0)
-  const awaitingRecheck = segs.some((x) => x.phoiReportedAt != null && x.failedQty - x.resolvedQty > 0)
-  const isReturn = issue.status === 'RECEIVED' && !!issue.reworkOfId
-  const baoCat = issue.actualBarCount ?? issue.barCount
+  // Issue đích để gắn đợt cắt MỚI/CỘNG DỒN vào - bất kỳ issue nào ĐÃ xác nhận nhận (khác ISSUED)
+  // cũng được, kể cả khi status đã roll-up lên AWAITING_QC/QC_PASSED (2026-09-06 - chỉ là hiển thị
+  // tổng quan cho 2 màn cũ, xem SteelIssuesService.syncIssueStatusFromBundles(); backend chỉ chặn
+  // thật khi issue còn ISSUED - chưa nhận). Vật lý không quan trọng attach vào lô nào
+  // (CutBundle.steelIssueId chỉ cần 1 FK hợp lệ cùng materialId/barLengthMm - xem comment schema).
+  const targetIssue = group.issues.find(i => i.status !== 'ISSUED') ?? null
+  const isReturn = group.issues.some(i => i.status === 'RECEIVED' && !!i.reworkOfId)
 
-  const doCompleteStep = async (step: ProcessStep) => {
-    setBusy(true); setErr('')
-    try { await api.completeStep(issue.id, step); onRefetch() }
+  const bundlesSorted = useMemo(() => {
+    const rank = (s: string) => (s === 'CUTTING' ? 0 : s === 'AWAITING_QC' ? 1 : 2)
+    return [...group.bundles].sort((a, b) => {
+      const r = rank(a.status) - rank(b.status)
+      return r !== 0 ? r : b.createdAt.localeCompare(a.createdAt)
+    })
+  }, [group.bundles])
+
+  const doFinishBundle = async (bundleId: string) => {
+    setBusyBundleId(bundleId); setErr('')
+    try { await api.finishCutBundle(bundleId); onRefetch() }
+    catch (e) { setErr(errMsg(e, 'Không mời KCS được')) }
+    finally { setBusyBundleId(null) }
+  }
+  const doCompleteBundleStep = async (bundleId: string, step: ProcessStep) => {
+    setBusyBundleId(bundleId); setErr('')
+    try { await api.completeBundleStep(bundleId, step); onRefetch() }
     catch (e) { setErr(errMsg(e, 'Không đánh dấu công đoạn được')) }
-    finally { setBusy(false) }
+    finally { setBusyBundleId(null) }
   }
-
-  // StepBatchPanel tự bắt lỗi ném ra từ đây để hiện ngay tại bảng, không dùng `err` chung (đó là
-  // lỗi của "Xong {bước}").
-  const doRecordStepBatch = async (step: ProcessStep, segments: { segmentSpecId: string; qty: number }[]) => {
-    await api.recordStepBatch(issue.id, { step, segments })
-    onRefetch()
+  const doBuDu = async (bundleId: string, segmentSpecId: string) => {
+    setBusyBundleId(bundleId); setErr('')
+    try { await api.reportSegmentDoneForBundle(bundleId, segmentSpecId); onRefetch() }
+    catch (e) { setErr(errMsg(e, 'Không báo được')) }
+    finally { setBusyBundleId(null) }
   }
-
-  const catEditable = issue.status === 'RECEIVED' || (issue.status === 'QC_PASSED' && outstanding > 0)
-  const catPanel = (
-    <CutBatchPanel
-      issue={issue} readOnly={catEditable ? readOnly : true}
-      progress={progressByMaterial.get(issue.materialId) ?? null} review={review}
-      onRefetch={onRefetch} onOpenCuttingGuide={onOpenCuttingGuide}
-    />
-  )
-  const nonCatSteps = issue.status !== 'RECEIVED' ? issue.requiredSteps.filter(s => s !== 'CAT') : []
-  const items = [
-    { key: 'CAT', label: 'Cắt', done: !catEditable, panel: catPanel },
-    ...nonCatSteps.map(step => ({
-      key: step,
-      label: PROCESS_STEP_LABELS[step],
-      done: issue.completedSteps.includes(step),
-      panel: (
-        <StepBatchPanel
-          step={step} readOnly={readOnly || issue.completedSteps.includes(step)} progress={getStepProgressItem(issue.materialId, step)}
-          busy={busy} onRecord={segments => doRecordStepBatch(step, segments)}
-          onFinish={() => doCompleteStep(step)}
-        />
-      ),
-    })),
-  ]
-  const visibleItems = items.filter(i => subFilter === 'all' || i.key === subFilter)
 
   return (
     <div>
@@ -569,49 +556,39 @@ function IssueDetail({ issue, readOnly, review, progressByMaterial, getStepProgr
         </button>
         <div>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-            {issue.materialName}
+            {group.materialName}
             {isReturn && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: RED }}><RotateCcw size={11} /> KCS trả về</span>}
           </h2>
           <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-            {issue.status === 'ISSUED' || issue.status === 'RECEIVED' ? issue.barCount : baoCat} cây × {issue.barLengthMm.toLocaleString('vi-VN')}mm
-            {issue.status === 'RECEIVED' && <span style={{ color: ACCENT, fontWeight: 600, marginLeft: 8 }}>đang cắt</span>}
-            {issue.status === 'AWAITING_QC' && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: AMBER, fontWeight: 700, marginLeft: 8 }}><Clock size={11} /> chờ KCS</span>}
-            {issue.status === 'QC_PASSED' && outstanding > 0 && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: RED, fontWeight: 700, marginLeft: 8 }}>
-                Lỗi {outstanding} đoạn{awaitingRecheck && <span style={{ color: AMBER }}>· chờ KCS duyệt lại</span>}
-              </span>
-            )}
-            {issue.status === 'QC_PASSED' && outstanding === 0 && (
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: GREEN, fontWeight: 700, marginLeft: 8 }}><Check size={11} /> đã phôi</span>
-            )}
+            {group.totalBarCount} cây × {group.barLengthMm.toLocaleString('vi-VN')}mm
           </div>
         </div>
       </div>
 
-      {items.length > 1 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-          <button onClick={() => setSubFilter('all')} style={subFilterBtn(subFilter === 'all')}>Tất cả</button>
-          {items.map(item => (
-            <button key={item.key} onClick={() => setSubFilter(item.key)} style={subFilterBtn(subFilter === item.key)}>
-              {item.done && <Check size={12} style={{ marginRight: 4, verticalAlign: -1 }} />}
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <NewCutBundleForm
+        targetIssue={targetIssue} progress={progress} readOnly={readOnly}
+        onOpenCuttingGuide={onOpenCuttingGuide && targetIssue ? () => onOpenCuttingGuide(targetIssue.productionInvoiceId) : undefined}
+        onCreated={onRefetch}
+      />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        {visibleItems.map((item, idx) => (
-          <div key={item.key} style={idx > 0 ? { borderTop: '1px solid var(--border)', paddingTop: 14 } : undefined}>
-            <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8, display: 'inline-flex', alignItems: 'center', gap: 5, color: item.done ? GREEN : PURPLE }}>
-              {item.done ? <Check size={13} /> : <Wrench size={13} />} {item.label}{item.done && ' — đã xong'}
+      <div style={{ marginTop: 20 }}>
+        <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>Các đợt cắt ({bundlesSorted.length})</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {bundlesSorted.map(b => (
+            <CutBundleCard
+              key={b.id} bundle={b} readOnly={readOnly} review={reviewByBundle.get(b.id)}
+              busy={busyBundleId === b.id}
+              onFinish={() => doFinishBundle(b.id)}
+              onCompleteStep={step => doCompleteBundleStep(b.id, step)}
+              onBuDu={segmentSpecId => doBuDu(b.id, segmentSpecId)}
+            />
+          ))}
+          {bundlesSorted.length === 0 && (
+            <div style={{ ...card, padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
+              {targetIssue ? 'Chưa nhập đợt cắt nào - nhập cỡ đoạn ở trên để tạo đợt đầu tiên.' : 'Chưa nhận sắt - xác nhận nhận ở "Xác nhận nhận sắt" trước.'}
             </div>
-            {item.panel}
-          </div>
-        ))}
-        {visibleItems.length === 0 && (
-          <div style={{ ...card, padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Không có mục nào</div>
-        )}
+          )}
+        </div>
       </div>
 
       {err && <div style={{ marginTop: 12, fontSize: 12, color: RED }}>{err}</div>}
@@ -619,80 +596,44 @@ function IssueDetail({ issue, readOnly, review, progressByMaterial, getStepProgr
   )
 }
 
-// ── Bảng Cần / Đã cắt / Lỗi / Còn lại + form nhập đợt cắt + lịch sử ──────
-// RECEIVED (cắt lần đầu): đầy đủ form nhập đợt cắt + "Báo cắt xong". QC_PASSED còn lỗi (2026-08-24,
-// vòng 2 - CHỈ 2 kết quả Đạt/Không đạt): chế độ XEM + nút "Bù đủ" mỗi cỡ đoạn - Phôi tự bù bằng sắt
-// kiếm ngoài thực tế (KHÔNG đụng cây sắt kho đã cấp, KHÔNG qua recordCutBatch), CHỜ KCS duyệt lại
-// mới hết lỗi (QcReviewsService.reportSegmentDone/recheck) - ẩn hẳn ô nhập đợt cắt/"Báo cắt xong"
-// ở chế độ này.
+// ── Form "Lưu đợt cắt" + bảng "Cần/Đã cắt/Còn lại" tham khảo (2026-09-05, sửa 2026-09-06) ──────
+// Bảng chỉ mang tính THAM KHẢO tổng thể (Σ mọi đợt cắt của material này trong cả PI) - không còn
+// cột "Lỗi" (lỗi giờ thuộc về TỪNG đợt cắt riêng, xem CutBundleCard) và không chặn lưu thêm dù
+// "Còn lại" đã về 0 (kiểm soát dồn về KCS, cùng triết lý module này đã áp dụng nhiều lần).
+//
+// "Lưu đợt cắt" (2026-09-06): mỗi lần bấm CỘNG DỒN vào đợt đang mở (CUTTING) của targetIssue nếu
+// có - Phôi khai rải nhiều lần trong ca vẫn tính là 1 đợt. Chỉ khi bấm "Báo cắt xong"
+// (CutBundleCard) đợt đó mới chốt và lần lưu tiếp theo mới bắt đầu đợt MỚI. Quyết định gộp/tách
+// nằm hoàn toàn ở backend (SteelIssuesService.recordCutBatch) - FE không cần biết trước đây là
+// cộng dồn hay tạo mới, chỉ cần refetch sau khi lưu.
 //
 // "Cách cắt gợi ý" (2026-08-25, bỏ) - phương án cắt KHÔNG phải gợi ý, là BẮT BUỘC theo đúng
 // solver đã duyệt. Bảng chip gọn khó nhìn khi nhiều cỡ và không in được, thay bằng liên kết sang
 // màn riêng "Hướng dẫn cắt" (sidebar, HuongDanCatPage.tsx) - bảng lưới ô-theo-ô + xuất Excel.
-
-function CutBatchPanel({ issue, readOnly, progress, review, onRefetch, onOpenCuttingGuide }: {
-  issue: BeSteelIssue; readOnly: boolean; progress: BePhoiProgressItem | null
-  review?: BeQcReview; onRefetch: () => void
-  onOpenCuttingGuide?: (productionInvoiceId: string) => void
+function NewCutBundleForm({ targetIssue, progress, readOnly, onOpenCuttingGuide, onCreated }: {
+  targetIssue: BeSteelIssue | null; progress: BePhoiProgressItem | null; readOnly: boolean
+  onOpenCuttingGuide?: () => void; onCreated: () => void
 }) {
-  const isRecheckMode = issue.status === 'QC_PASSED'
   const [rowInputs, setRowInputs] = useState<Record<string, string>>({})
-  const [barCount, setBarCount] = useState('')
-  const [mauNguyen, setMauNguyen] = useState('')
   const [busy, setBusy] = useState(false)
-  const [buDuBusy, setBuDuBusy] = useState<string | null>(null)
   const [err, setErr] = useState('')
-  const [showHistory, setShowHistory] = useState(false)
-
-  // Luôn tải (không đợi mở "Lịch sử đợt đã nhập") - cần ngay để tính số cây còn lại bên dưới. Bỏ
-  // qua ở chế độ duyệt bù (isRecheckMode) - không còn ô nhập đợt cắt nào cần số cây còn lại.
-  const { data: bundles, refetch: refetchBundles } = useFetch<BeCutBundle[]>(
-    () => isRecheckMode ? Promise.resolve([]) : api.getCutBundles(issue.id),
-    [isRecheckMode, issue.id],
-  )
 
   const segments = progress?.segments ?? []
-  const doneEnough = segments.length > 0 && segments.every(s => s.done >= s.required)
-  // Map từ ĐÚNG review của issue này (không phải PI-wide) - "Bù đủ" chỉ tác động phần lỗi CHÍNH
-  // đợt sắt này đã bị KCS chấm, dù cột "Lỗi" hiển thị bên dưới là tổng PI-wide (cùng quy ước với
-  // Cần/Đã cắt/Còn lại - đã vậy từ trước, không phải điểm mới ở đây).
-  const reviewSegBySpec = new Map((review?.segments ?? []).map(s => [s.segmentSpecId, s]))
-  const usedBarCount = bundles?.reduce((s, b) => s + b.barCount, 0) ?? 0
-  const remainingBarCount = issue.barCount - usedBarCount
+  const canSubmit = !readOnly && !!targetIssue
 
   const submit = async () => {
+    if (!targetIssue) return
     const rows = segments
       .map(s => ({ segmentSpecId: s.segmentSpecId, qty: Math.floor(Number(rowInputs[s.segmentSpecId]) || 0) }))
       .filter(r => r.qty > 0)
-    const cay = Math.floor(Number(barCount) || 0)
-    if (cay <= 0) { setErr('Nhập số cây đã dùng cho đợt này'); return }
     if (rows.length === 0) { setErr('Nhập ít nhất 1 cỡ đoạn đã cắt được'); return }
     setBusy(true); setErr('')
     try {
-      await api.recordCutBatch(issue.id, {
-        barCount: cay,
-        mauNguyenMm: mauNguyen ? Math.floor(Number(mauNguyen)) || 0 : undefined,
-        segments: rows,
-      })
-      setRowInputs({}); setBarCount(''); setMauNguyen('')
-      onRefetch()
-      refetchBundles()
+      await api.recordCutBatch(targetIssue.id, { segments: rows })
+      setRowInputs({})
+      onCreated()
     } catch (e) { setErr(errMsg(e, 'Không lưu được đợt cắt - kiểm lại số liệu')) }
     finally { setBusy(false) }
-  }
-
-  const doFinish = async () => {
-    setBusy(true); setErr('')
-    try { await api.finishCutting(issue.id); onRefetch() }
-    catch (e) { setErr(errMsg(e, 'Không mời KCS được')) }
-    finally { setBusy(false) }
-  }
-
-  const doBuDu = async (segmentSpecId: string) => {
-    setBuDuBusy(segmentSpecId); setErr('')
-    try { await api.reportSegmentDone(issue.id, segmentSpecId); onRefetch() }
-    catch (e) { setErr(errMsg(e, 'Không báo được')) }
-    finally { setBuDuBusy(null) }
   }
 
   if (!progress) return <LoadingState />
@@ -700,7 +641,7 @@ function CutBatchPanel({ issue, readOnly, progress, review, onRefetch, onOpenCut
   return (
     <div>
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>
-        {isRecheckMode ? 'Cỡ đoạn không đạt - tự bù bằng sắt kiếm ngoài thực tế:' : 'Cần cắt theo định mức lệnh này:'}
+        Cần cắt theo định mức lệnh này (tổng cả PI, tham khảo):
       </div>
       <div style={{ ...card, marginBottom: 12 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -709,174 +650,8 @@ function CutBatchPanel({ issue, readOnly, progress, review, onRefetch, onOpenCut
               <th style={th}>Cỡ đoạn</th>
               <th style={thR}>Cần</th>
               <th style={thR}>Đã cắt</th>
-              <th style={thR}>Lỗi</th>
               <th style={thR}>Còn lại</th>
-              {!readOnly && isRecheckMode && <th style={{ ...thR, width: 140 }}>Xử lý</th>}
-              {!readOnly && !isRecheckMode && <th style={{ ...thR, width: 100 }}>Nhập đợt này</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {segments.map(s => {
-              const remaining = s.required - (s.done - s.failed)
-              const reviewSeg = reviewSegBySpec.get(s.segmentSpecId)
-              const reviewOutstanding = reviewSeg ? reviewSeg.failedQty - reviewSeg.resolvedQty : 0
-              return (
-                <tr key={s.segmentSpecId} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={td}>{s.cutLengthMm.toLocaleString('vi-VN')}mm</td>
-                  <td style={tdR}>{s.required}</td>
-                  <td style={tdR}>{s.done}</td>
-                  <td style={{ ...tdR, color: s.failed > 0 ? RED : 'var(--text3)' }}>{s.failed > 0 ? s.failed : '—'}</td>
-                  <td style={{ ...tdR, color: remaining > 0 ? ACCENT : GREEN, fontWeight: 700 }}>{remaining > 0 ? remaining : 0}</td>
-                  {!readOnly && isRecheckMode && (
-                    <td style={{ ...td, textAlign: 'right' }}>
-                      {reviewOutstanding > 0 && (
-                        reviewSeg?.phoiReportedAt ? (
-                          <span style={{ fontSize: 12, color: AMBER, fontWeight: 600 }}>chờ KCS duyệt lại</span>
-                        ) : (
-                          <button onClick={() => doBuDu(s.segmentSpecId)} disabled={buDuBusy === s.segmentSpecId}
-                            style={{ ...smallBtn, background: ACCENT, cursor: buDuBusy === s.segmentSpecId ? 'not-allowed' : 'pointer' }}>
-                            {buDuBusy === s.segmentSpecId ? '...' : 'Bù đủ'}
-                          </button>
-                        )
-                      )}
-                    </td>
-                  )}
-                  {!readOnly && !isRecheckMode && (
-                    <td style={{ ...td, textAlign: 'right' }}>
-                      <input type="number" min={0} placeholder="0" value={rowInputs[s.segmentSpecId] ?? ''}
-                        onChange={e => setRowInputs(r => ({ ...r, [s.segmentSpecId]: e.target.value }))}
-                        style={inp} />
-                    </td>
-                  )}
-                </tr>
-              )
-            })}
-            {segments.length === 0 && (
-              <tr><td colSpan={readOnly ? 5 : 6} style={{ padding: 16, textAlign: 'center', color: 'var(--text3)', fontSize: 12 }}>
-                Chưa xác định được định mức cho loại sắt này
-              </td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {!readOnly && !isRecheckMode && segments.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 10, marginBottom: 4 }}>
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 3, display: 'flex', alignItems: 'center', gap: 5 }}>
-              Số cây đã dùng
-              {bundles !== null && (
-                <span style={{ fontWeight: 700, color: remainingBarCount > 0 ? GREEN : RED }}>
-                  {remainingBarCount > 0 ? `còn ${remainingBarCount} cây` : 'hết cây'}
-                </span>
-              )}
-            </div>
-            <input type="number" min={1} max={Math.max(remainingBarCount, 0) || undefined} value={barCount}
-              onChange={e => setBarCount(e.target.value)}
-              style={{ ...inp, width: 64, borderColor: remainingBarCount <= 0 ? RED : undefined }} />
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 3 }}>Mẩu nguyên (mm)</div>
-            <input type="number" min={0} placeholder="0" value={mauNguyen} onChange={e => setMauNguyen(e.target.value)} style={{ ...inp, width: 84 }} />
-          </div>
-          <button onClick={submit} disabled={busy}
-            style={{ ...smallBtn, background: ACCENT, display: 'inline-flex', alignItems: 'center', gap: 5, cursor: busy ? 'not-allowed' : 'pointer' }}>
-            <Plus size={13} /> {busy ? '...' : 'Lưu đợt cắt'}
-          </button>
-          <button onClick={doFinish} disabled={busy}
-            style={{
-              ...smallBtn, cursor: busy ? 'not-allowed' : 'pointer',
-              background: doneEnough ? GREEN : 'var(--surface)',
-              color: doneEnough ? '#fff' : 'var(--text2)',
-              border: doneEnough ? 'none' : '1px solid var(--border)',
-            }}>
-            {busy ? '...' : 'Báo cắt xong'}
-          </button>
-        </div>
-      )}
-      {err && <div style={{ marginTop: 8, fontSize: 12, color: RED }}>{err}</div>}
-
-      {!isRecheckMode && onOpenCuttingGuide && (
-        <button onClick={() => onOpenCuttingGuide(issue.productionInvoiceId)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', border: 'none', background: 'none', padding: 0, marginBottom: 10, fontSize: 12, fontWeight: 600, color: ACCENT, cursor: 'pointer' }}>
-          <Ruler size={13} /> Xem hướng dẫn cắt đầy đủ (bắt buộc theo đúng phương án đã duyệt, xuất được để in) →
-        </button>
-      )}
-
-      {!isRecheckMode && (
-        <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <button onClick={() => setShowHistory(x => !x)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start', border: 'none', background: 'none', padding: 0, fontSize: 12, color: 'var(--text3)', cursor: 'pointer' }}>
-            {showHistory ? <ChevronDown size={12} /> : <ChevronRight size={12} />} Lịch sử đợt đã nhập
-          </button>
-          {showHistory && (
-            <div style={{ ...card, padding: '10px 14px' }}>
-              {(bundles ?? []).length === 0 ? (
-                <div style={{ fontSize: 12, color: 'var(--text3)' }}>Chưa nhập đợt cắt nào.</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {(bundles ?? []).map(b => (
-                    <div key={b.id} style={{ fontSize: 12 }}>
-                      <b>{b.barCount}</b> cây → {b.segments.map(s => `${s.qty}×${s.cutLengthMm}mm`).join(' + ')}
-                      {b.mauNguyenMm > 0 && <span style={{ color: 'var(--text3)' }}> · mẩu nguyên {b.mauNguyenMm}mm</span>}
-                      <span style={{ color: 'var(--text3)' }}> · phế {b.scrapMm}mm</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Bảng Cần / Đã {bước} / Còn lại + form nhập số lượng cho 1 công đoạn chi tiết SAU Cắt ────
-// (2026-08-27) - mirror CutBatchPanel nhưng không có barCount/mauNguyên/scrap (bước này không tác
-// động lên cây sắt, chỉ xử lý tiếp trên các đoạn ĐÃ cắt). `progress` đọc từ getStepProgress
-// (StepBatchSegment), khác nguồn CutBundle của CutBatchPanel. Lỗi từ onRecord (vd vượt số đã cắt,
-// BE chặn) hiện ngay tại đây - không dùng err[l.id] của PiDetail (đó là lỗi riêng "Xong {bước}").
-function StepBatchPanel({ step, readOnly, progress, busy, onRecord, onFinish }: {
-  step: ProcessStep; readOnly: boolean; progress: BePhoiProgressItem | null; busy: boolean
-  onRecord: (segments: { segmentSpecId: string; qty: number }[]) => Promise<void>
-  onFinish: () => void
-}) {
-  const [rowInputs, setRowInputs] = useState<Record<string, string>>({})
-  const [saving, setSaving] = useState(false)
-  const [err, setErr] = useState('')
-
-  const segments = progress?.segments ?? []
-  const doneEnough = segments.length > 0 && segments.every(s => s.done >= s.required)
-  const stepLabel = PROCESS_STEP_LABELS[step]
-
-  const submit = async () => {
-    const rows = segments
-      .map(s => ({ segmentSpecId: s.segmentSpecId, qty: Math.floor(Number(rowInputs[s.segmentSpecId]) || 0) }))
-      .filter(r => r.qty > 0)
-    if (rows.length === 0) { setErr(`Nhập ít nhất 1 cỡ đoạn đã ${stepLabel.toLowerCase()}`); return }
-    setSaving(true); setErr('')
-    try { await onRecord(rows); setRowInputs({}) }
-    catch (e) { setErr(errMsg(e, 'Không lưu được đợt - kiểm lại số liệu')) }
-    finally { setSaving(false) }
-  }
-
-  if (!progress) return <LoadingState />
-
-  return (
-    <div>
-      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>
-        Cần {stepLabel.toLowerCase()} theo định mức lệnh này:
-      </div>
-      <div style={{ ...card, marginBottom: 12 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-          <thead>
-            <tr style={{ background: 'var(--surface)' }}>
-              <th style={th}>Cỡ đoạn</th>
-              <th style={thR}>Cần</th>
-              <th style={thR}>Đã {stepLabel.toLowerCase()}</th>
-              <th style={thR}>Còn lại</th>
-              {!readOnly && <th style={{ ...thR, width: 100 }}>Nhập đợt này</th>}
+              {canSubmit && <th style={{ ...thR, width: 100 }}>Nhập đợt này</th>}
             </tr>
           </thead>
           <tbody>
@@ -888,7 +663,7 @@ function StepBatchPanel({ step, readOnly, progress, busy, onRecord, onFinish }: 
                   <td style={tdR}>{s.required}</td>
                   <td style={tdR}>{s.done}</td>
                   <td style={{ ...tdR, color: remaining > 0 ? ACCENT : GREEN, fontWeight: 700 }}>{remaining > 0 ? remaining : 0}</td>
-                  {!readOnly && (
+                  {canSubmit && (
                     <td style={{ ...td, textAlign: 'right' }}>
                       <input type="number" min={0} placeholder="0" value={rowInputs[s.segmentSpecId] ?? ''}
                         onChange={e => setRowInputs(r => ({ ...r, [s.segmentSpecId]: e.target.value }))}
@@ -899,32 +674,114 @@ function StepBatchPanel({ step, readOnly, progress, busy, onRecord, onFinish }: 
               )
             })}
             {segments.length === 0 && (
-              <tr><td colSpan={readOnly ? 4 : 5} style={{ padding: 16, textAlign: 'center', color: 'var(--text3)', fontSize: 12 }}>
-                Chưa xác định được định mức cho công đoạn này
+              <tr><td colSpan={canSubmit ? 5 : 4} style={{ padding: 16, textAlign: 'center', color: 'var(--text3)', fontSize: 12 }}>
+                Chưa xác định được định mức cho loại sắt này
               </td></tr>
             )}
           </tbody>
         </table>
       </div>
 
-      {!readOnly && segments.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-          <button onClick={submit} disabled={saving}
-            style={{ ...smallBtn, background: ACCENT, display: 'inline-flex', alignItems: 'center', gap: 5, cursor: saving ? 'not-allowed' : 'pointer' }}>
-            <Plus size={13} /> {saving ? '...' : 'Lưu đợt'}
-          </button>
-          <button onClick={onFinish} disabled={busy}
-            style={{
-              ...smallBtn, cursor: busy ? 'not-allowed' : 'pointer',
-              background: doneEnough ? GREEN : 'var(--surface)',
-              color: doneEnough ? '#fff' : 'var(--text2)',
-              border: doneEnough ? 'none' : '1px solid var(--border)',
-            }}>
-            {busy ? '...' : `Xong ${stepLabel}`}
-          </button>
+      {!readOnly && !targetIssue && (
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
+          Chưa có lô sắt nào đã nhận - xác nhận nhận ở &quot;Xác nhận nhận sắt&quot; trước khi lưu đợt cắt.
         </div>
       )}
+      {canSubmit && segments.length > 0 && (
+        <button onClick={submit} disabled={busy}
+          style={{ ...smallBtn, background: ACCENT, display: 'inline-flex', alignItems: 'center', gap: 5, cursor: busy ? 'not-allowed' : 'pointer', marginBottom: 4 }}>
+          <Plus size={13} /> {busy ? '...' : 'Lưu đợt cắt'}
+        </button>
+      )}
       {err && <div style={{ marginTop: 8, fontSize: 12, color: RED }}>{err}</div>}
+
+      {onOpenCuttingGuide && (
+        <button onClick={onOpenCuttingGuide}
+          style={{ display: 'flex', alignItems: 'center', gap: 5, border: 'none', background: 'none', padding: 0, marginTop: 10, fontSize: 12, fontWeight: 600, color: ACCENT, cursor: 'pointer' }}>
+          <Ruler size={13} /> Xem hướng dẫn cắt đầy đủ (bắt buộc theo đúng phương án đã duyệt, xuất được để in) →
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ── 1 ĐỢT CẮT cụ thể - segments đã khai + trạng thái riêng + hành động tương ứng ─────────────
+function CutBundleCard({ bundle, readOnly, review, busy, onFinish, onCompleteStep, onBuDu }: {
+  bundle: BeCutBundle; readOnly: boolean; review?: BeQcReview; busy: boolean
+  onFinish: () => void; onCompleteStep: (step: ProcessStep) => void; onBuDu: (segmentSpecId: string) => void
+}) {
+  const segs = review?.segments ?? []
+  const outstanding = segs.reduce((s, x) => s + (x.failedQty - x.resolvedQty), 0)
+  const missingSteps = bundle.requiredSteps.filter(s => s !== 'CAT' && !bundle.completedSteps.includes(s))
+
+  return (
+    <div style={{ ...card, borderColor: outstanding > 0 ? RED : undefined, padding: '12px 16px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>
+            {bundle.segments.map(s => `${s.qty}×${s.cutLengthMm.toLocaleString('vi-VN')}mm`).join(' + ')}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+            {new Date(bundle.createdAt).toLocaleString('vi-VN')}
+          </div>
+        </div>
+        {bundle.status === 'CUTTING' ? (
+          <span style={{ fontSize: 12, color: ACCENT, fontWeight: 600 }}>đang cắt</span>
+        ) : bundle.status === 'AWAITING_QC' ? (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ KCS</span>
+        ) : outstanding > 0 ? (
+          <span style={{ fontSize: 12, fontWeight: 700, color: RED }}>Lỗi {outstanding} đoạn</span>
+        ) : (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đã duyệt</span>
+        )}
+      </div>
+
+      {bundle.status === 'CUTTING' && missingSteps.length > 0 && (
+        <div style={{ marginTop: 10, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {missingSteps.map(step => (
+            !readOnly ? (
+              <button key={step} onClick={() => onCompleteStep(step)} disabled={busy}
+                style={{ ...smallBtn, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text2)', cursor: busy ? 'not-allowed' : 'pointer' }}>
+                Xong {PROCESS_STEP_LABELS[step]}
+              </button>
+            ) : (
+              <span key={step} style={{ fontSize: 11, fontWeight: 700, color: PURPLE, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: '2px 8px' }}>
+                {PROCESS_STEP_LABELS[step]}
+              </span>
+            )
+          ))}
+        </div>
+      )}
+
+      {bundle.status === 'CUTTING' && !readOnly && (
+        <button onClick={onFinish} disabled={busy || missingSteps.length > 0}
+          style={{
+            ...smallBtn, marginTop: 10, cursor: busy || missingSteps.length > 0 ? 'not-allowed' : 'pointer',
+            background: missingSteps.length === 0 ? GREEN : 'var(--surface)',
+            color: missingSteps.length === 0 ? '#fff' : 'var(--text2)',
+            border: missingSteps.length === 0 ? 'none' : '1px solid var(--border)',
+          }}>
+          {busy ? '...' : 'Báo cắt xong'}
+        </button>
+      )}
+
+      {bundle.status === 'QC_PASSED' && outstanding > 0 && !readOnly && (
+        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {segs.filter(s => s.failedQty - s.resolvedQty > 0).map(s => (
+            <div key={s.segmentSpecId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: 12 }}>
+              <span>{s.cutLengthMm.toLocaleString('vi-VN')}mm — lỗi {s.failedQty - s.resolvedQty}</span>
+              {s.phoiReportedAt ? (
+                <span style={{ color: AMBER, fontWeight: 600 }}>chờ KCS duyệt lại</span>
+              ) : (
+                <button onClick={() => onBuDu(s.segmentSpecId)} disabled={busy}
+                  style={{ ...smallBtn, background: ACCENT, cursor: busy ? 'not-allowed' : 'pointer' }}>
+                  Bù đủ
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

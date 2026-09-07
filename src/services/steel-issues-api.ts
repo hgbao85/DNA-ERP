@@ -23,6 +23,11 @@ import type { ProcessStep } from '../types/sku';
 
 export type SteelIssueStatus = 'ISSUED' | 'RECEIVED' | 'IN_PROCESS' | 'AWAITING_QC' | 'QC_PASSED';
 
+/** Vòng đời 1 đợt cắt (2026-09-05) - từ nay là ĐƠN VỊ MANG TRẠNG THÁI của công đoạn Phôi, xem
+ *  BeCutBundle. Trước đây trạng thái nằm ở cả lô nhận (SteelIssue.status) - đổi vì sắt giao BÙ
+ *  sau khi lô cũ đã gửi KCS không cắt tiếp được (không có đường quay lại RECEIVED). */
+export type CutBundleStatus = 'CUTTING' | 'AWAITING_QC' | 'QC_PASSED';
+
 export interface BeCutPatternSegment {
   segmentSpecId: string;
   cutLengthMm: number;
@@ -31,18 +36,32 @@ export interface BeCutPatternSegment {
   qty: number;
 }
 
-/** 1 đợt cắt Phôi đã báo (append-only - mỗi lần "Nhập đợt cắt" tạo 1 dòng mới, cộng dồn). */
+/**
+ * 1 đợt cắt Phôi đã báo (append-only - mỗi lần "Nhập đợt cắt" tạo 1 dòng mới). Từ 2026-09-05 đây
+ * là ĐƠN VỊ MANG TRẠNG THÁI của công đoạn Phôi (`status`) - mỗi đợt tự đi
+ * CUTTING → AWAITING_QC → QC_PASSED, KCS duyệt theo từng đợt (không còn chờ cắt hết cả lô nhận).
+ */
 export interface BeCutBundle {
   id: string;
+  /** Lô nhận (SteelIssue) đợt này ghi vào - lô chỉ còn ISSUED/RECEIVED (việc của kho) từ khi
+   *  trạng thái hạ xuống cấp đợt cắt. */
+  steelIssueId: string;
   /** Kiểu cắt gợi ý mà đợt này bám theo - THUẦN THAM CHIẾU/audit, không dùng để suy ra đoạn. */
   proposalPatternId: string | null;
   isOffPlan: boolean;
+  /** Luôn 0 với đợt tạo từ 2026-09-05 (bỏ ô nhập "số cây đã dùng") - chỉ còn ý nghĩa với dữ liệu CŨ. */
   barCount: number;
-  /** Mẩu sắt còn nguyên (mm) từ cây cắt dở trong đợt - nhập lại kho (thủ kho tự hàn nối đủ 6m
-   *  rồi nhập vào tồn CÂY), KHÔNG phải phế liệu. */
+  /** Luôn 0 với đợt tạo từ 2026-09-05 (bỏ ô nhập "mẩu nguyên"). */
   mauNguyenMm: number;
-  /** Phế liệu (mm) - phần dư của phương trình cân bằng, HỆ THỐNG TỰ TÍNH, không cần gõ. */
+  /** Luôn 0 với đợt tạo từ 2026-09-05 (không còn cân bằng vật chất để suy ra phế liệu). */
   scrapMm: number;
+  status: CutBundleStatus;
+  /** Công đoạn đã xong CỦA ĐỢT NÀY (luôn có CAT ngay khi tạo). */
+  completedSteps: ProcessStep[];
+  /** Công đoạn bắt buộc theo định mức của loại sắt này (để biết còn thiếu bước nào). */
+  requiredSteps: ProcessStep[];
+  completedAt: string | null;
+  createdAt: string;
   segments: BeCutPatternSegment[];
 }
 
@@ -171,19 +190,46 @@ export async function getCutBundles(steelIssueId: string): Promise<BeCutBundle[]
   return unwrap(res);
 }
 
+/**
+ * Mọi đợt cắt của 1 PI (2026-09-05) - nguồn dữ liệu chính cho màn Phôi sau khi GỘP hiển thị theo
+ * loại sắt (1 loại sắt chỉ còn 1 mục dù kho giao nhiều lần, bên trong liệt kê các đợt cắt). Bỏ
+ * trống `productionInvoiceId` để KCS lấy MỌI đợt đang chờ duyệt qua `status`.
+ */
+export async function getAllCutBundles(
+  productionInvoiceId?: string,
+  status?: CutBundleStatus,
+): Promise<BeCutBundle[]> {
+  const params = new URLSearchParams();
+  if (productionInvoiceId) params.set('productionInvoiceId', productionInvoiceId);
+  if (status) params.set('status', status);
+  const qs = params.toString();
+  const res = await http.get<BeCutBundle[] | { data: BeCutBundle[] }>(
+    `/cut-bundles${qs ? `?${qs}` : ''}`,
+  );
+  return unwrap(res);
+}
+
+/** "Báo cắt xong" cho ĐÚNG đợt cắt này - các đợt khác của cùng lô vẫn cắt tiếp bình thường. */
+export async function finishCutBundle(bundleId: string): Promise<BeCutBundle> {
+  return http.post<BeCutBundle>(`/cut-bundles/${bundleId}/finish`, {});
+}
+
+/** Đánh dấu 1 công đoạn chi tiết (uốn/dập/...) xong CHO ĐÚNG đợt cắt này. */
+export async function completeBundleStep(bundleId: string, step: ProcessStep): Promise<BeCutBundle> {
+  return http.post<BeCutBundle>(`/cut-bundles/${bundleId}/complete-step`, { step });
+}
+
 export async function receiveSteelIssue(id: string): Promise<void> {
   await http.post(`/steel-issues/${id}/receive`, {});
 }
 
-/** 1 dòng nhập đợt cắt - segments phải khớp cỡ trong định mức của PI (BE chặn cỡ lạ), tổng
- *  cây dùng cộng dồn không được vượt SteelIssue.barCount (BE chặn). */
+/** 1 dòng nhập đợt cắt - segments phải khớp cỡ trong định mức của PI (BE chặn cỡ lạ). Không còn
+ *  bắt buộc barCount/mauNguyenMm từ 2026-09-05 (bỏ 2 ô nhập theo yêu cầu nghiệp vụ - 1 loại sắt
+ *  giờ gộp nhiều lần kho giao, tách cây theo từng đợt cắt là tuỳ tiện). */
 export interface RecordCutBatchInput {
-  barCount: number;
-  /** mm mẩu sắt còn nguyên từ cây cắt dở - mặc định 0 (cắt hết cây). */
-  mauNguyenMm?: number;
+  segments: { segmentSpecId: string; qty: number }[];
   /** Kiểu cắt gợi ý đợt này bám theo - THUẦN THAM CHIẾU, tuỳ chọn. */
   proposalPatternId?: string;
-  segments: { segmentSpecId: string; qty: number }[];
 }
 
 /** Nhập 1 đợt cắt (cộng dồn, KHÔNG đổi trạng thái SteelIssue). Thay `completeCutting` cũ
@@ -299,10 +345,28 @@ export async function reviewSteelIssueQc(
   await http.post(`/steel-issues/${id}/qc-review`, data);
 }
 
+/** KCS chấm 1 ĐỢT CẮT (2026-09-05) - thay reviewSteelIssueQc() ở luồng mới, cùng khuôn tham số. */
+export async function reviewCutBundleQc(
+  cutBundleId: string,
+  data: {
+    segments: { segmentSpecId: string; failedQty: number }[];
+    reason?: string;
+    defectReasonId?: string;
+    photoUrl?: string;
+  },
+): Promise<void> {
+  await http.post(`/cut-bundles/${cutBundleId}/qc-review`, data);
+}
+
 /** Phôi tự báo đã bù đủ cho 1 cỡ đoạn không đạt (đã tự kiếm sắt bù ngoài thực tế, KHÔNG đụng cây
  *  sắt kho đã cấp) - CHỜ KCS recheck() mới tính là đạt. */
 export async function reportSegmentDone(steelIssueId: string, segmentSpecId: string): Promise<void> {
   await http.post(`/steel-issues/${steelIssueId}/qc-segments/${segmentSpecId}/report-done`, {});
+}
+
+/** Cùng reportSegmentDone() nhưng scope theo ĐÚNG đợt cắt (2026-09-05, luồng mới). */
+export async function reportSegmentDoneForBundle(cutBundleId: string, segmentSpecId: string): Promise<void> {
+  await http.post(`/cut-bundles/${cutBundleId}/qc-segments/${segmentSpecId}/report-done`, {});
 }
 
 /** KCS duyệt lại các cỡ đoạn Phôi đã báo "Bù đủ" - remainingFailedQty=0 nghĩa là đạt hết cho cỡ
@@ -314,6 +378,14 @@ export async function recheckQc(
   await http.post(`/steel-issues/${steelIssueId}/qc-recheck`, { segments });
 }
 
+/** Cùng recheckQc() nhưng scope theo ĐÚNG đợt cắt (2026-09-05, luồng mới). */
+export async function recheckQcForBundle(
+  cutBundleId: string,
+  segments: { segmentSpecId: string; remainingFailedQty: number }[],
+): Promise<void> {
+  await http.post(`/cut-bundles/${cutBundleId}/qc-recheck`, { segments });
+}
+
 /** 1 dòng qc_reviews (nhánh Phôi, steelIssueId != null) — dùng để dựng lại "đạt bao nhiêu / lỗi bao
  *  nhiêu" cho các đợt QC_PASSED (SteelIssue tự nó KHÔNG giữ lại số liệu duyệt, khác ProductionBatch
  *  không ghi đè reportedQty). Fetch 1 lần, lọc client theo steelIssueId — danh sách chưa lớn, cùng
@@ -322,6 +394,8 @@ export interface BeQcReview {
   id: string;
   steelIssueId: string | null;
   productionBatchId: string | null;
+  /** Đợt cắt được chấm (2026-09-05) - null với review CŨ (chấm cả lô) hoặc nhánh Hàn/Sơn. */
+  cutBundleId: string | null;
   /** Tổng dẫn xuất từ segments[] (nhánh Phôi) - nhánh Hàn/Sơn là số gốc, segments luôn rỗng. */
   failedQty: number;
   scrapQty: number | null;
