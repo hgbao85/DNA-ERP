@@ -134,6 +134,7 @@ export {
   startProductionOrderFloor, pauseProductionOrderFloor, finishProductionOrderFloor,
   getQcReviewsForProductionBatches,
   submitPieceStep, getPieceStepBundlesForOrder, getPieceStepBundles,
+  getQcReviewsForPieceStepBundles,
   reviewPieceStepQc,
 } from './production-batches-api';
 export {

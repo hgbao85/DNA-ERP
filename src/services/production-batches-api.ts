@@ -212,8 +212,9 @@ export async function submitPieceStep(
   return http.post<BePieceStepBundle>(`/production-orders/${productionOrderId}/piece-step-bundles`, data);
 }
 
-/** Phôi xem lại bundle CỦA CHÍNH order này (mọi status) - trạng thái theo công đoạn + tìm bundleId
- *  để gọi Bù đủ (VatTuTpDetail.tsx). Không phân trang (1 order hiếm khi có quá vài chục bundle). */
+/** Phôi xem lại bundle CỦA CHÍNH order này (mọi status) - trạng thái theo công đoạn + khối "Các đợt
+ *  đã gửi" (lịch sử thuần xem, VatTuTpDetail.tsx). Không phân trang (1 order hiếm khi có quá vài
+ *  chục bundle). */
 export async function getPieceStepBundlesForOrder(productionOrderId: string): Promise<BePieceStepBundle[]> {
   return http.get<BePieceStepBundle[]>(`/production-orders/${productionOrderId}/piece-step-bundles`);
 }
@@ -225,6 +226,26 @@ export async function getPieceStepBundles(status?: 'AWAITING_QC' | 'QC_PASSED'):
     `/piece-step-bundles?limit=100${status ? `&status=${status}` : ''}`,
   );
   return Array.isArray(res) ? res : res.data;
+}
+
+/** 1 dòng qc_reviews nhánh công đoạn VTTP (pieceStepBundleId != null) - mirror
+ *  BeProductionBatchQcReview, dùng cho khối "Các đợt đã gửi" (Lỗi của từng đợt). */
+export interface BePieceStepBundleQcReview {
+  id: string;
+  pieceStepBundleId: string | null;
+  failedQty: number;
+  reviewedAt: string;
+  reviewedById: string;
+}
+
+/** Fetch hết rồi lọc client theo pieceStepBundleId != null - cùng idiom
+ *  getQcReviewsForProductionBatches() ở trên, danh sách chưa lớn. */
+export async function getQcReviewsForPieceStepBundles(): Promise<BePieceStepBundleQcReview[]> {
+  const res = await http.get<BePieceStepBundleQcReview[] | { data: BePieceStepBundleQcReview[] }>(
+    '/qc-reviews?limit=100',
+  );
+  const list = Array.isArray(res) ? res : res.data;
+  return list.filter((r) => r.pieceStepBundleId != null);
 }
 
 export async function reviewPieceStepQc(
