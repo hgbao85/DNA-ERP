@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ClipboardCheck, AlertTriangle, Upload, X, Plus, Check, History, RotateCcw } from 'lucide-react'
+import { ClipboardCheck, AlertTriangle, Upload, X, Plus, Check, History } from 'lucide-react'
 import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
 import AuditLogTimeline from '../AuditLogTimeline'
 import type { AuditLogEntry } from '../../context/AuditLogContext'
@@ -25,43 +25,35 @@ const ACCENT = '#e65100'
 export interface KcsLine extends ProcLine {
   pendingQty: number          // chờ kiểm — SL vừa báo, chưa duyệt
   approvedQty?: number        // SL đã KCS duyệt ĐẠT (lô DA_CAT)
-  failedQty?: number          // tổng SL không đạt đã phát hiện qua các lần duyệt
+  /** Tổng không đạt CỘNG DỒN LỊCH SỬ qua các lần duyệt (2026-09-08 lần 2, xem changelog "Bù đủ dồn
+   *  về bảng tổng") - KHÔNG tự giảm khi tổ bù đủ (Bù đủ = 1 lô HOÀN TOÀN MỚI gửi duyệt lại, không
+   *  sửa lại con số này). */
+  failedQty?: number
   defectReason?: string
   reviewNote?: string
   defectPhotoUrl?: string
   history?: AuditLogEntry[]   // lịch sử lô (xuất → báo → duyệt) dựng từ data thật để hiện timeline
-  /** "Bù đủ" cấp review (2026-09-07, CHỈ có ý nghĩa khi `enableBuDu` bật ở KcsTwoTierScreen — hiện
-   *  chỉ VTTP) - outstanding = failedQty - scrapQty - resolvedQty, còn lại thợ CHƯA sửa xong/KCS
-   *  chưa xác nhận. phoiReportedAt != null = thợ đã bấm "Bù đủ", đang chờ KCS "Duyệt lại". */
-  outstandingQty?: number
-  phoiReportedAt?: string | null
-  phoiReportedQty?: number | null
-  /** Override showFailMode CHO ĐÚNG dòng này (2026-09-07) - dòng theo công đoạn (PieceStepBundle)
-   *  mirror Phôi/Sắt: CHỈ Đạt/Không đạt, không tách sửa được/phế (Sếp Trương Văn Nhân: "sửa được
-   *  thì không tính là lỗi" - không có khái niệm phế riêng ở nhánh này, KHÁC dòng "Chốt & gửi KCS"
-   *  (ProductionBatch) vẫn giữ 3 lựa chọn như Hàn/Sơn, chưa đổi). undefined = dùng showFailMode
-   *  chung của cả board (KcsVatTuReviewBoard). */
-  showFailMode?: boolean
 }
 export interface KcsRow extends Omit<ProcRow, 'manhs' | 'lines'> { lines?: KcsLine[] }
 
 interface DefectReason { id: number; label: string; stageType?: string | null }
 
-// failedQty = tổng không đạt; scrapQty = trong đó phế (cấp lại). Sửa được = failedQty − scrapQty.
-export interface ReviewPayload { failedQty: number; scrapQty?: number; defectReasonId?: number; reviewNote?: string; defectPhotoUrl?: string }
+export interface ReviewPayload { failedQty: number; defectReasonId?: number; reviewNote?: string; defectPhotoUrl?: string }
 
 const allKcsLines = (r: KcsRow): KcsLine[] => r.lines ?? []
 const pendingOf = (lines: KcsLine[]) => lines.reduce((s, l) => s + l.pendingQty, 0)
 
-// ── Modal duyệt: nhập SL không đạt + nguyên nhân + ảnh (số còn lại tự tính đạt) ──
-function KcsReviewModal({ stageType, line, showFailMode, onClose, onSubmit }: {
-  stageType: string; line: KcsLine; showFailMode?: boolean; onClose: () => void; onSubmit: (p: ReviewPayload) => void
+// ── Modal duyệt: nhập SL không đạt + nguyên nhân + ảnh (số còn lại tự tính đạt) - CHỈ 2 kết quả
+// Đạt/Không đạt (2026-09-08 lần 2, xem changelog "Bù đủ dồn về bảng tổng") - bỏ hẳn phân loại "Sửa
+// được/Phế" (đã đơn giản hoá bước duyệt theo công đoạn từ 2026-09-07, giờ đồng bộ luôn bước "Chốt &
+// gửi KCS" cuối cùng dùng chung Hàn/Sơn/VTTP). ─────────────────────────────────────────────────
+function KcsReviewModal({ stageType, line, onClose, onSubmit }: {
+  stageType: string; line: KcsLine; onClose: () => void; onSubmit: (p: ReviewPayload) => void
 }) {
   const { data: reasons, refetch } = useFetch<DefectReason[]>(() => api.getDefectReasons(stageType), [stageType])
   const list = Array.isArray(reasons) ? reasons : []
 
   const [failedQty, setFailedQty] = useState('0')
-  const [scrapQtyStr, setScrapQtyStr] = useState('0')
   const [reasonId, setReasonId] = useState<number | ''>('')
   const [reviewNote, setReviewNote] = useState('')
   const [photoUrl, setPhotoUrl] = useState('')
@@ -72,12 +64,6 @@ function KcsReviewModal({ stageType, line, showFailMode, onClose, onSubmit }: {
 
   const failed = Math.max(0, Math.min(line.pendingQty, Math.floor(Number(failedQty) || 0)))
   const passed = line.pendingQty - failed
-  const scrap = Math.max(0, Math.min(failed, Math.floor(Number(scrapQtyStr) || 0)))
-  const rework = failed - scrap   // sửa được = phần fail không phế (2 ô liên động, tổng = failed)
-  // Nhãn "đề xuất làm mới" theo công đoạn (phế cần cấp bù bán TP từ khâu trước).
-  const scrapLabel = stageType === 'PHOI' ? 'Đề xuất lại sắt (làm mới)'
-    : stageType === 'HAN' ? 'Đề xuất lại phôi (làm mới)'
-    : 'Đề xuất làm lại (làm mới)'
 
   const addReason = async () => {
     if (!newLabel.trim()) return
@@ -101,7 +87,7 @@ function KcsReviewModal({ stageType, line, showFailMode, onClose, onSubmit }: {
 
   const submit = () => {
     if (failed > 0 && !reasonId) { setErr('Có SL không đạt → phải chọn nguyên nhân'); return }
-    onSubmit({ failedQty: failed, scrapQty: failed > 0 ? scrap : undefined, defectReasonId: reasonId ? Number(reasonId) : undefined, reviewNote: reviewNote || undefined, defectPhotoUrl: photoUrl || undefined })
+    onSubmit({ failedQty: failed, defectReasonId: reasonId ? Number(reasonId) : undefined, reviewNote: reviewNote || undefined, defectPhotoUrl: photoUrl || undefined })
   }
 
   return (
@@ -119,26 +105,6 @@ function KcsReviewModal({ stageType, line, showFailMode, onClose, onSubmit }: {
         <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
           Đạt: <b style={{ color: 'var(--green)' }}>{fmt(passed)}</b> · Không đạt: <b style={{ color: failed > 0 ? '#c62828' : 'var(--text3)' }}>{fmt(failed)}</b>
         </div>
-
-        {failed > 0 && showFailMode && <>
-          <label style={lbl}>Phân loại {failed} không đạt * <span style={{ fontWeight: 400, color: 'var(--text3)' }}>(2 ô cộng lại = {failed})</span></label>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <div style={{ flex: 1, padding: '8px 10px', borderRadius: 'var(--radius)', border: `1.5px solid ${rework > 0 ? ACCENT : 'var(--border)'}` }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block' }}>Sửa được (làm lại)</label>
-              <input type="number" min={0} max={failed} value={String(rework)}
-                onChange={e => { const v = Math.max(0, Math.min(failed, Math.floor(Number(e.target.value) || 0))); setScrapQtyStr(String(failed - v)) }}
-                style={{ ...inp, marginTop: 2, padding: '4px 8px', fontSize: 18, fontWeight: 700, color: ACCENT }} />
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>làm lại · không tốn NL mới</div>
-            </div>
-            <div style={{ flex: 1, padding: '8px 10px', borderRadius: 'var(--radius)', border: `1.5px solid ${scrap > 0 ? '#c62828' : 'var(--border)'}` }}>
-              <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block' }}>{scrapLabel}</label>
-              <input type="number" min={0} max={failed} value={String(scrap)}
-                onChange={e => { const v = Math.max(0, Math.min(failed, Math.floor(Number(e.target.value) || 0))); setScrapQtyStr(String(v)) }}
-                style={{ ...inp, marginTop: 2, padding: '4px 8px', fontSize: 18, fontWeight: 700, color: '#c62828' }} />
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>phế → cấp bù làm mới</div>
-            </div>
-          </div>
-        </>}
 
         {failed > 0 && <>
           <label style={lbl}>Nguyên nhân không đạt *</label>
@@ -182,51 +148,6 @@ function KcsReviewModal({ stageType, line, showFailMode, onClose, onSubmit }: {
   )
 }
 
-// ── Modal duyệt lại: lô đã QC_DONE nhưng tổ vừa bấm "Bù đủ" (2026-09-07, chỉ khi enableBuDu) ──
-function KcsRecheckModal({ line, onClose, onSubmit }: {
-  line: KcsLine; onClose: () => void; onSubmit: (remainingFailedQty: number) => void
-}) {
-  const outstanding = line.outstandingQty ?? 0
-  // Gợi ý sẵn "còn hỏng" = outstanding - lời khai tổ (2026-09-07) - KCS chỉ cần xác nhận/sửa lại,
-  // không phải gõ tay từ đầu, cùng idiom RecheckModal bên Sắt (KcsPhoiPage.tsx).
-  const suggested = Math.max(0, outstanding - (line.phoiReportedQty ?? 0))
-  const [remainingStr, setRemainingStr] = useState(String(suggested))
-  const remaining = Math.max(0, Math.min(outstanding, Math.floor(Number(remainingStr) || 0)))
-  const resolved = outstanding - remaining
-
-  return (
-    <div onClick={onClose} style={overlay}>
-      <div onClick={e => e.stopPropagation()} style={card}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Duyệt lại — {line.itemName}</h3>
-          <button onClick={onClose} style={iconBtn}><X size={18} /></button>
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
-          Đang lỗi: <b style={{ color: '#c62828' }}>{fmt(outstanding)}</b>
-          {line.phoiReportedQty != null && <> · Tổ tự báo đã sửa: <b style={{ color: 'var(--text)' }}>{fmt(line.phoiReportedQty)}</b></>}
-        </div>
-
-        <label style={lbl}>Còn hỏng (sau khi kiểm lại)</label>
-        <input type="number" min={0} max={outstanding} value={remainingStr}
-          onChange={e => setRemainingStr(e.target.value)} style={inp} autoFocus />
-        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
-          Xác nhận đạt thêm: <b style={{ color: 'var(--green)' }}>{fmt(resolved)}</b>
-          {remaining > 0 && <> · vẫn còn lỗi: <b style={{ color: '#c62828' }}>{fmt(remaining)}</b></>}
-        </div>
-
-        <div style={{
-          display: 'flex', gap: 8, justifyContent: 'flex-end',
-          margin: '16px -20px -20px', padding: '12px 20px',
-          background: 'var(--surface)', borderTop: '1px solid var(--border)',
-        }}>
-          <button onClick={onClose} style={btnGhost}>Hủy</button>
-          <button onClick={() => onSubmit(remaining)} style={btnPrimary}>Xác nhận</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ── Popup lịch sử (read-only) — gộp mọi đợt của PO, xem không cần vào luồng duyệt ─────
 function KcsHistoryModal({ title, entries, onClose }: { title: ReactNode; entries: AuditLogEntry[]; onClose: () => void }) {
   return (
@@ -243,14 +164,11 @@ function KcsHistoryModal({ title, entries, onClose }: { title: ReactNode; entrie
 }
 
 // ── Tầng: Vật tư — chờ duyệt / tiến hành duyệt (dùng chung Phôi/Hàn/Sơn) ─────
-function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, showFailMode, enableBuDu, onBack, onReview, onRecheck }: {
-  lines: KcsLine[]; cfg: StageCfg; title: string; subtitle: string; backLabel: string; showFailMode?: boolean
-  enableBuDu?: boolean
+function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, onBack, onReview }: {
+  lines: KcsLine[]; cfg: StageCfg; title: string; subtitle: string; backLabel: string
   onBack: () => void; onReview: (lineId: number, p: ReviewPayload) => void
-  onRecheck?: (lineId: number, remainingFailedQty: number) => void
 }) {
   const [target, setTarget] = useState<KcsLine | null>(null)
-  const [recheckTarget, setRecheckTarget] = useState<KcsLine | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const lech = lechOf(lines)
   // Lịch sử gộp cả PO: mọi đợt của mọi vật liệu, xếp theo thời gian.
@@ -270,23 +188,11 @@ function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, showFailM
         : <span style={{ color: 'var(--text3)' }}>—</span>
     },
     {
-      key: 'failed', header: 'Lỗi', align: 'right', cell: l => {
-        // enableBuDu: cột này LUÔN phản ánh outstanding (0 sau khi KCS xác nhận hết), KHÔNG phải
-        // failedQty lịch sử (2026-09-07) - failedQty giữ nguyên số lần đầu chấm dù đã bù đủ xong.
-        if (enableBuDu) {
-          const out = l.outstandingQty ?? 0
-          if (out <= 0) return <span style={{ color: 'var(--text3)' }}>—</span>
-          return (
-            <span style={{ fontWeight: 700, color: '#c62828' }}>
-              {fmt(out)}
-              {l.phoiReportedAt && <span style={{ fontWeight: 400, fontSize: 11, marginLeft: 4 }}>· chờ duyệt lại</span>}
-            </span>
-          )
-        }
-        return l.failedQty
-          ? <span style={{ fontWeight: 700, color: '#c62828' }}>{fmt(l.failedQty)}</span>
-          : <span style={{ color: 'var(--text3)' }}>—</span>
-      }
+      // Lỗi CỘNG DỒN LỊCH SỬ (2026-09-08 lần 2, xem changelog "Bù đủ dồn về bảng tổng") - KHÔNG tự
+      // giảm khi tổ bù đủ (Bù đủ = 1 lô HOÀN TOÀN MỚI gửi duyệt lại bình thường, không sửa dòng cũ).
+      key: 'failed', header: 'Lỗi', align: 'right', cell: l => l.failedQty
+        ? <span style={{ fontWeight: 700, color: '#c62828' }}>{fmt(l.failedQty)}</span>
+        : <span style={{ color: 'var(--text3)' }}>—</span>,
     },
     {
       key: 'action', header: '', width: 150, cell: l => {
@@ -294,13 +200,6 @@ function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, showFailM
           <div onClick={e => e.stopPropagation()}>
             <button onClick={() => setTarget(l)} className="primary" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 10px', fontSize: 12 }}>
               <ClipboardCheck size={13} /> Tiến hành duyệt
-            </button>
-          </div>
-        )
-        if (enableBuDu && onRecheck && (l.outstandingQty ?? 0) > 0 && l.phoiReportedAt) return (
-          <div onClick={e => e.stopPropagation()}>
-            <button onClick={() => setRecheckTarget(l)} style={{ ...btnGhost, color: ACCENT, borderColor: ACCENT }}>
-              <RotateCcw size={13} /> Duyệt lại
             </button>
           </div>
         )
@@ -334,19 +233,11 @@ function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, showFailM
         <KcsReviewModal
           stageType={cfg.label === 'Phôi' ? 'PHOI' : cfg.label === 'Hàn' ? 'HAN' : 'SON'}
           line={target}
-          showFailMode={target.showFailMode ?? showFailMode}
           onClose={() => setTarget(null)}
           onSubmit={p => { onReview(target.id, p); setTarget(null) }}
         />
       )}
       {showHistory && <KcsHistoryModal title={title} entries={poHistory} onClose={() => setShowHistory(false)} />}
-      {recheckTarget && (
-        <KcsRecheckModal
-          line={recheckTarget}
-          onClose={() => setRecheckTarget(null)}
-          onSubmit={q => { onRecheck!(recheckTarget.id, q); setRecheckTarget(null) }}
-        />
-      )}
     </>
   )
 }
@@ -367,9 +258,11 @@ function KcsPoListBoard({ rows, cfg, onEnter }: { rows: KcsRow[]; cfg: StageCfg;
   })
 
   const unit = <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--text3)' }}>{cfg.unit}</span>
+  // "SKU nhà máy" (cột cũ) đã bỏ (2026-09-08) - BE chưa từng trả mã SKU thật cho ProductionBatch/
+  // PieceStepBundle, cột đó chỉ lặp lại đúng giá trị cột "PO / PI" (r.sku bị gán tạm = poNumber ở
+  // KcsStagePage.tsx) - phát hiện khi người dùng hỏi "sao SKU lại trống".
   const cols: BoardColumn<KcsPoView>[] = [
-    { key: 'po', header: 'Lô', cell: v => <span style={{ fontWeight: 700 }}>{v.r.poNumber}</span> },
-    { key: 'sku', header: 'SKU nhà máy', cell: v => v.r.sku },
+    { key: 'po', header: 'PO / PI', cell: v => <span style={{ fontWeight: 700 }}>{v.r.poNumber}</span> },
     {
       key: 'soLo', header: 'Số lô chờ kiểm', align: 'right', cell: v => (
         <span style={{ fontWeight: 700, color: v.soLoCho > 0 ? ACCENT : 'var(--text3)' }}>{fmt(v.soLoCho)}</span>
@@ -398,7 +291,7 @@ function KcsPoListBoard({ rows, cfg, onEnter }: { rows: KcsRow[]; cfg: StageCfg;
     <LenhSanXuatBoard<KcsPoView>
       icon={<Icon size={18} />}
       title={`Màn hình KCS — Công đoạn ${cfg.label}`}
-      subtitle="Kiểm tra chất lượng theo lô/SKU — bấm vào dòng có hàng chờ kiểm để duyệt."
+      subtitle="Kiểm tra chất lượng theo PO/PI — bấm vào dòng có hàng chờ kiểm để duyệt."
       columns={cols}
       rows={views}
       rowKey={v => v.r.id}
@@ -413,18 +306,12 @@ function KcsPoListBoard({ rows, cfg, onEnter }: { rows: KcsRow[]; cfg: StageCfg;
 // ── Orchestrator: KCS Phôi/Hàn/Sơn (2 tầng) ─────────────────────────
 // 2 chế độ:
 //  - Mock cục bộ: truyền `seed` (Hàn/Sơn hiện tại — chưa nối store).
-//  - Controlled:  truyền `rows` + `onReview` (Phôi — đọc/ghi phoi-sat.service thật);
-//    bật `showFailMode` để KCS chọn Sửa được / Cấp lại sắt.
-export function KcsTwoTierScreen({ cfg, seed, rows: rowsProp, onReview, showFailMode, enableBuDu, onRecheck }: {
+//  - Controlled:  truyền `rows` + `onReview` (Phôi — đọc/ghi phoi-sat.service thật).
+export function KcsTwoTierScreen({ cfg, seed, rows: rowsProp, onReview }: {
   cfg: StageCfg
   seed?: () => KcsRow[]
   rows?: KcsRow[]
   onReview?: (poId: number, lineId: number, p: ReviewPayload) => void
-  showFailMode?: boolean
-  /** Bật UI outstanding/"Duyệt lại" (2026-09-07) - hiện CHỈ VTTP (xem KcsVatTuThanhPhamPage.tsx),
-   *  Hàn/Sơn giữ nguyên hành vi cũ khi không truyền prop này. */
-  enableBuDu?: boolean
-  onRecheck?: (poId: number, lineId: number, remainingFailedQty: number) => void
 }) {
   const controlled = !!onReview
   const [localRows, setLocalRows] = useState<KcsRow[]>(() => seed ? seed() : [])
@@ -442,16 +329,13 @@ export function KcsTwoTierScreen({ cfg, seed, rows: rowsProp, onReview, showFail
   }
 
   const review = (poId: number, lineId: number, p: ReviewPayload) => {
-    // Toast phản hồi từ số liệu duyệt (đạt / làm lại / cấp lại).
+    // Toast phản hồi từ số liệu duyệt.
     const line = rows.flatMap(r => r.lines ?? []).find(l => l.id === lineId)
     if (line) {
       const failed = Math.min(line.pendingQty, p.failedQty)
       const passed = line.pendingQty - failed
-      const scrap = Math.min(failed, p.scrapQty ?? 0)
-      const rework = failed - scrap
       const parts = [`${fmt(passed)} đạt`]
-      if (rework > 0) parts.push(`${fmt(rework)} làm lại`)
-      if (scrap > 0) parts.push(`${fmt(scrap)} cấp lại`)
+      if (failed > 0) parts.push(`${fmt(failed)} không đạt`)
       showToast(`Đã duyệt ${line.itemName}: ${parts.join(' · ')}`)
     }
     if (controlled) { onReview!(poId, lineId, p); return }
@@ -483,13 +367,12 @@ export function KcsTwoTierScreen({ cfg, seed, rows: rowsProp, onReview, showFail
     <>
       {selPo ? (
         <KcsVatTuReviewBoard
-          lines={selPo.lines ?? []} cfg={cfg} showFailMode={showFailMode} enableBuDu={enableBuDu}
-          title={`${selPo.poNumber} · ${selPo.sku}`}
+          lines={selPo.lines ?? []} cfg={cfg}
+          title={selPo.poNumber}
           subtitle={`${selPo.productName} · SL ${fmt(selPo.soLuong)} · hạn ${dateVN(selPo.deadline)}`}
           backLabel="Quay lại danh sách lệnh"
           onBack={() => setSelPoId(null)}
           onReview={(lineId, p) => review(selPo.id, lineId, p)}
-          onRecheck={onRecheck ? (lineId, q) => onRecheck(selPo.id, lineId, q) : undefined}
         />
       ) : (
         <KcsPoListBoard rows={rows} cfg={cfg} onEnter={id => setSelPoId(id)} />

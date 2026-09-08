@@ -4,8 +4,14 @@
  * Màn hình KCS — công đoạn Hàn/Sơn (controlled, đọc/ghi production-batches/qc-reviews thật).
  * Dùng chung cho KcsHanPage & KcsSonPage — chỉ khác `cfg` + `stage`.
  *  - Công nhân báo sản lượng → lô AWAITING_QC → hiện ở đây (mỗi lô = 1 dòng duyệt).
- *  - KCS duyệt (đạt / sửa được / cấp lại) → reviewProductionBatch → lô sang QC_DONE
- *    (chỉ phần ĐẠT tính "đã hàn/đã sơn" bên Lệnh sản xuất).
+ *  - KCS duyệt (Đạt/Không đạt) → reviewProductionBatch → lô sang QC_DONE (chỉ phần ĐẠT tính "đã
+ *    hàn/đã sơn" bên Lệnh sản xuất).
+ *
+ * Đơn giản hoá 2026-09-08 lần 2 (xem changelog "Bù đủ dồn về bảng tổng"): bỏ hẳn phân loại "Sửa
+ * được/Phế" + cơ chế "Bù đủ → KCS duyệt lại" (report-done/recheck) - "Lỗi" giờ là số lịch sử cộng
+ * dồn hiện ở cột "Lỗi", Bù đủ chỉ là 1 lô HOÀN TOÀN MỚI gửi duyệt lại bình thường (không còn "Duyệt
+ * lại"/`enableBuDu` riêng cho VTTP nữa - CHỈ VTTP mới có sub-row PieceStepBundle, đổi tên prop
+ * `enableBuDu` → `showPieceSteps` cho đúng ý nghĩa còn lại).
  *
  * Regression đã biết so với mock san-luong.service.ts: DTO thật không giữ lại kcsFailedQty/kcsAt
  * sau khi duyệt (ProductionBatch.reportedQty bị ghi đè thành passed-qty ngay trong service) — lịch
@@ -25,22 +31,24 @@ import LoadingState from '../../../components/LoadingState'
 import { errMsg } from '../../../utils/errors'
 
 /** Đích của 1 dòng KCS - "chốt cuối" (ProductionBatch) hoặc "theo công đoạn" (PieceStepBundle,
- *  2026-09-07) - cần phân biệt để gọi ĐÚNG API duyệt/recheck (2 nhánh QcReview khác nhau, xem
+ *  2026-09-07) - cần phân biệt để gọi ĐÚNG API duyệt (2 nhánh QcReview khác nhau, xem
  *  PieceStepBundle doc comment BE). */
 type LineTarget = { kind: 'batch'; id: string } | { kind: 'step'; id: string }
 
-export default function KcsStagePage({ cfg, stage, enableBuDu }: { cfg: StageCfg; stage: ProductionBatchStage; enableBuDu?: boolean }) {
+export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
+  cfg: StageCfg; stage: ProductionBatchStage
+  /** Hiện sub-row PieceStepBundle (theo công đoạn) gộp chung bảng với ProductionBatch (2026-09-07)
+   *  - CHỈ VTTP có dữ liệu này (xem KcsVatTuThanhPhamPage.tsx), Hàn/Sơn không truyền prop này. */
+  showPieceSteps?: boolean
+}) {
   const { data: batches, isLoading, refetch } = useFetch<BeProductionBatch[]>(() => api.getProductionBatchesByStage(stage), [stage])
-  // "Bù đủ" (2026-09-07) chỉ nhánh productionBatchId - xem QcReview.resolvedQty doc BE. Chỉ fetch
-  // khi enableBuDu bật (VTTP) - Hàn/Sơn không cần, tránh gọi API thừa.
-  const { data: reviews, refetch: refetchReviews } = useFetch(() => enableBuDu ? api.getQcReviewsForProductionBatches() : Promise.resolve([]), [enableBuDu])
-  // Đợt gửi KCS theo TỪNG CÔNG ĐOẠN (2026-09-07, chỉ VTTP - enableBuDu) - gộp CHUNG bảng với
+  // "Lỗi" ở cột bảng tổng là Σ QcReview.failedQty CỘNG DỒN LỊCH SỬ (2026-09-08 lần 2) - fetch cho
+  // MỌI stage (không còn gate theo showPieceSteps như "Bù đủ" cũ, cột Lỗi hiện đồng nhất mọi nơi).
+  const { data: reviews, refetch: refetchReviews } = useFetch(() => api.getQcReviewsForProductionBatches(), [])
+  // Đợt gửi KCS theo TỪNG CÔNG ĐOẠN (2026-09-07, chỉ VTTP - showPieceSteps) - gộp CHUNG bảng với
   // ProductionBatch cùng PO, phân biệt bằng nhãn "· {Công đoạn}" ở cột Quy cách.
   const { data: bundles, refetch: refetchBundles } = useFetch<BePieceStepBundle[]>(
-    () => enableBuDu ? api.getPieceStepBundles() : Promise.resolve([]), [enableBuDu],
-  )
-  const { data: bundleReviews, refetch: refetchBundleReviews } = useFetch(
-    () => enableBuDu ? api.getQcReviewsForPieceStepBundles() : Promise.resolve([]), [enableBuDu],
+    () => showPieceSteps ? api.getPieceStepBundles() : Promise.resolve([]), [showPieceSteps],
   )
 
   // Gom lô theo PO (chỉ PO còn hàng chờ); mỗi lô = 1 dòng: chờ / đã duyệt. Gom theo
@@ -49,21 +57,13 @@ export default function KcsStagePage({ cfg, stage, enableBuDu }: { cfg: StageCfg
   // không gắn đơn Sales nào) - gom theo mã hiển thị sẽ gộp nhầm các lô khác nhau vào 1 dòng.
   const { rows, map } = useMemo(() => {
     const map = new Map<number, LineTarget>()
-    // Lô có thể có NHIỀU review qua các lần duyệt/bù đủ - lấy bản MỚI NHẤT theo reviewedAt (khớp
-    // findAll() BE orderBy reviewedAt desc, nhưng sort lại cho chắc vì đây fetch limit=100 chung).
+    // Lô có thể có NHIỀU review qua các lần duyệt/bù đủ (mỗi lần bù đủ = 1 lô MỚI, mỗi lô ứng
+    // ĐÚNG 1 review) - Σ failedQty của mọi lô thuộc cùng PO/mảnh mới là số "Lỗi" lịch sử hiển thị.
     const reviewByBatch = new Map<string, NonNullable<typeof reviews>[number]>()
     for (const r of reviews ?? []) {
       if (!r.productionBatchId) continue
-      const cur = reviewByBatch.get(r.productionBatchId)
-      if (!cur || r.reviewedAt > cur.reviewedAt) reviewByBatch.set(r.productionBatchId, r)
+      reviewByBatch.set(r.productionBatchId, r)
     }
-    const reviewByBundle = new Map<string, NonNullable<typeof bundleReviews>[number]>()
-    for (const r of bundleReviews ?? []) {
-      if (!r.pieceStepBundleId) continue
-      const cur = reviewByBundle.get(r.pieceStepBundleId)
-      if (!cur || r.reviewedAt > cur.reviewedAt) reviewByBundle.set(r.pieceStepBundleId, r)
-    }
-
     // Gom CẢ 2 nguồn (ProductionBatch + PieceStepBundle) vào CHUNG danh sách theo PO - KCS xem 1
     // bảng duy nhất/PO, không tách 2 màn (mỗi công đoạn của cùng PO thường xong rải rác khác thời
     // điểm nhau từ khi bỏ ràng buộc thứ tự, xem PieceStepBundle doc comment BE).
@@ -80,20 +80,20 @@ export default function KcsStagePage({ cfg, stage, enableBuDu }: { cfg: StageCfg
     const rows: KcsRow[] = []
     for (const productionOrderId of order) {
       const { batches: batchList, bundles: bundleList } = byPo.get(productionOrderId)!
-      const po = batchList[0]?.salesOrderCode ?? bundleList[0]?.salesOrderCode ?? '—'
-      const hasOutstanding = (rv: { failedQty: number; scrapQty: number | null; resolvedQty: number } | undefined) =>
-        !!rv && rv.failedQty - (rv.scrapQty ?? 0) - rv.resolvedQty > 0
+      // Dự phòng piCode khi salesOrderCode null (PI gộp không gắn 1 đơn Sales cụ thể) - cùng cách
+      // Sắt đang làm (SteelIssue.piCode, xem KcsPhoiPage.tsx) - trước đây KHÔNG có dự phòng, PI gộp
+      // hiện trắng "—" (phát hiện khi người dùng hỏi "sao lại là Lô mà không phải PI").
+      const po = batchList[0]?.salesOrderCode ?? batchList[0]?.piCode
+        ?? bundleList[0]?.salesOrderCode ?? bundleList[0]?.piCode ?? '—'
       const poHasWork =
-        batchList.some(b => b.status === 'AWAITING_QC' || hasOutstanding(reviewByBatch.get(b.id)))
-        || bundleList.some(bd => bd.status === 'AWAITING_QC' || hasOutstanding(reviewByBundle.get(bd.id)))
+        batchList.some(b => b.status === 'AWAITING_QC') || bundleList.some(bd => bd.status === 'AWAITING_QC')
       if (!poHasWork) continue   // chỉ PO còn việc
 
       const batchLines: KcsLine[] = batchList.map(b => {
         const lineId = seq++
         const pending = b.status === 'AWAITING_QC'
-        map.set(lineId, { kind: 'batch', id: b.id })   // luôn map, kể cả QC_DONE - cần cho "Duyệt lại"
+        map.set(lineId, { kind: 'batch', id: b.id })
         const review = reviewByBatch.get(b.id)
-        const outstandingQty = review ? Math.max(0, review.failedQty - (review.scrapQty ?? 0) - review.resolvedQty) : 0
         const history: AuditLogEntry[] = pending
           ? [{
             id: `${b.id}-rep`, entityType: 'kcs-lo', entityId: b.id, action: 'kcs.reported',
@@ -109,7 +109,6 @@ export default function KcsStagePage({ cfg, stage, enableBuDu }: { cfg: StageCfg
           pendingQty: pending ? b.reportedQty : 0,
           approvedQty: pending ? 0 : b.reportedQty,
           failedQty: review?.failedQty ?? 0,
-          outstandingQty, phoiReportedAt: review?.phoiReportedAt ?? null, phoiReportedQty: review?.phoiReportedQty ?? null,
           lastInputAt: b.reportedAt, history,
         }
       })
@@ -118,8 +117,6 @@ export default function KcsStagePage({ cfg, stage, enableBuDu }: { cfg: StageCfg
         const lineId = seq++
         const pending = bd.status === 'AWAITING_QC'
         map.set(lineId, { kind: 'step', id: bd.id })
-        const review = reviewByBundle.get(bd.id)
-        const outstandingQty = review ? Math.max(0, review.failedQty - (review.scrapQty ?? 0) - review.resolvedQty) : 0
         const stepLabel = PROCESS_STEP_LABELS[bd.step]
         const history: AuditLogEntry[] = pending
           ? [{
@@ -135,12 +132,9 @@ export default function KcsStagePage({ cfg, stage, enableBuDu }: { cfg: StageCfg
           needQty: bd.qty, doneQty: 0,
           pendingQty: pending ? bd.qty : 0,
           approvedQty: pending ? 0 : bd.qty,
-          failedQty: review?.failedQty ?? 0,
-          outstandingQty, phoiReportedAt: review?.phoiReportedAt ?? null, phoiReportedQty: review?.phoiReportedQty ?? null,
+          // Lỗi công đoạn hiện ở bảng tổng VatTuTpDetail.tsx (StepPanel), không cần lặp lại ở đây.
+          failedQty: 0,
           lastInputAt: bd.submittedAt, history,
-          // Mirror Phôi/Sắt (2026-09-07, Sếp Trương Văn Nhân): CHỈ Đạt/Không đạt, không tách sửa
-          // được/phế - xem KcsLine.showFailMode doc comment (kcsCore.tsx).
-          showFailMode: false,
         }
       })
 
@@ -155,7 +149,7 @@ export default function KcsStagePage({ cfg, stage, enableBuDu }: { cfg: StageCfg
       })
     }
     return { rows, map }
-  }, [batches, reviews, bundles, bundleReviews, cfg.label, cfg.unit])
+  }, [batches, reviews, bundles, cfg.label, cfg.unit])
 
   if (isLoading || !batches) return <LoadingState />
 
@@ -167,7 +161,6 @@ export default function KcsStagePage({ cfg, stage, enableBuDu }: { cfg: StageCfg
     if (!target) return
     const dto = {
       failedQty: p.failedQty,
-      scrapQty: p.scrapQty,
       reason: p.reviewNote,
       defectReasonId: p.defectReasonId ? String(p.defectReasonId) : undefined,
       photoUrl: p.defectPhotoUrl,
@@ -178,33 +171,12 @@ export default function KcsStagePage({ cfg, stage, enableBuDu }: { cfg: StageCfg
         refetch(); refetchReviews()
       } else {
         await api.reviewPieceStepQc(target.id, dto)
-        refetchBundles(); refetchBundleReviews()
+        refetchBundles()
       }
     } catch (e) {
       alert(errMsg(e, 'Không duyệt được'))
     }
   }
 
-  const onRecheck = async (_poId: number, lineId: number, remainingFailedQty: number) => {
-    const target = map.get(lineId)
-    if (!target) return
-    try {
-      if (target.kind === 'batch') {
-        await api.recheckProductionBatchQc(target.id, remainingFailedQty)
-        refetch(); refetchReviews()
-      } else {
-        await api.recheckPieceStepQc(target.id, remainingFailedQty)
-        refetchBundles(); refetchBundleReviews()
-      }
-    } catch (e) {
-      alert(errMsg(e, 'Không duyệt lại được'))
-    }
-  }
-
-  return (
-    <KcsTwoTierScreen
-      cfg={cfg} rows={rows} onReview={onReview} showFailMode
-      enableBuDu={enableBuDu} onRecheck={enableBuDu ? onRecheck : undefined}
-    />
-  )
+  return <KcsTwoTierScreen cfg={cfg} rows={rows} onReview={onReview} />
 }

@@ -9,39 +9,72 @@
  * (Hàn/Sơn dùng, không được vỡ).
  *
  * KCS chỉ chấm 2 kết quả: Đạt/Không đạt (2026-08-24, vòng 2 - bỏ hẳn "lỗi sửa được" đã thử ở vòng
- * 1). Đợt đóng QC_PASSED ngay. Phôi tự bù đoạn không đạt bằng sắt kiếm ngoài thực tế (KHÔNG qua
- * hệ thống), bấm "Bù đủ" bên LenhSanXuatPhoi.tsx - màn NÀY thêm bước KCS phải DUYỆT LẠI (RecheckModal
- * bên dưới) mới tính là hết lỗi, xem QcReviewsService.reportSegmentDone/recheck (BE).
+ * 1). Đợt đóng QC_PASSED ngay.
  *
  * Redesign 2026-09-05 (chấm theo ĐỢT CẮT thay vì cả LÔ NHẬN): trước đây 1 lô nhận (SteelIssue)
  * chỉ có đúng 1 lượt "báo cắt xong" nên chấm theo issue = chấm đúng đợt. Từ khi trạng thái hạ
  * xuống CutBundle (mỗi lần Phôi bấm "Lưu đợt cắt" tự có vòng đời riêng, xem LenhSanXuatPhoi.tsx),
  * 1 lô nhận có thể có NHIỀU đợt cắt cùng lúc đang AWAITING_QC - phải chấm theo TỪNG bundle, không
- * còn theo issue. `QcReviewModal`/`RecheckModal` giờ nhận thẳng `bundle` (segments đã có sẵn
- * trong chính bundle, không cần gọi lại API gộp nhiều bundle như bản issue-based cũ).
+ * còn theo issue. `QcReviewModal` giờ nhận thẳng `bundle` (segments đã có sẵn trong chính bundle,
+ * không cần gọi lại API gộp nhiều bundle như bản issue-based cũ).
  *
- * Redesign 2026-09-07 (thêm StepBundle - chấm CÔNG ĐOẠN PHỤ riêng): mỗi đợt cắt giờ có thể có
- * NHIỀU "đợt gửi KCS công đoạn phụ" (Uốn/Dập/Tán/...) độc lập, KHÔNG chờ Cắt hay công đoạn khác
- * xong trước (xem StepBundle doc comment BE). `Row` gộp CẢ 2 loại đợt (Cắt lẫn công đoạn phụ)
- * thành 1 danh sách chờ kiểm chung cho từng PO - `QcReviewModal`/`RecheckModal` đã tổng quát hoá
- * (nhận `id`/`segments`/`onReview` thay vì bám cứng `bundle`) để dùng chung cho cả 2 loại, tránh
- * chép lại nguyên modal.
+ * Redesign 2026-09-07 (thêm StepBundle - chấm CÔNG ĐOẠN PHỤ riêng): mỗi PI giờ có thể có NHIỀU
+ * "đợt gửi KCS công đoạn phụ" (Uốn/Dập/Tán/...) độc lập theo TỪNG LOẠI SẮT, KHÔNG chờ Cắt hay công
+ * đoạn khác xong trước (xem StepBundle doc comment BE). `Row` gộp CẢ 2 loại đợt (Cắt lẫn công đoạn
+ * phụ) thành 1 danh sách chờ kiểm chung cho từng PI - `QcReviewModal` tổng quát hoá (nhận
+ * `id`/`segments`/`onReview` thay vì bám cứng `bundle`) để dùng chung cho cả 2 loại, tránh chép lại
+ * nguyên modal.
+ *
+ * Redesign 2026-09-08 (StepBundle chuyển PI-wide, bỏ report-done/recheck): StepBundle không còn
+ * gắn với đúng 1 CutBundle nào nữa (scope PI + loại sắt, xem LenhSanXuatPhoi.tsx/BeStepBundle) —
+ * `StepRow` giờ lấy thẳng từ `api.getAllStepBundles()`, không còn duyệt qua `bundle.stepBundles`.
+ * Đồng thời BỎ HẲN cơ chế "Bù đủ → KCS duyệt lại" (report-done/recheck) cho cả Cắt lẫn StepBundle:
+ * "Lỗi" giờ là số lịch sử KHÔNG tự giảm, "Bù đủ" chỉ là nút pre-fill số lượng bên LenhSanXuatPhoi.tsx
+ * rồi gửi 1 đợt HOÀN TOÀN MỚI qua đúng luồng bình thường — nên mọi đợt (Cắt lẫn công đoạn phụ) giờ
+ * chỉ còn ĐÚNG 1 lượt duyệt qua `QcReviewModal`, không còn "chờ duyệt lại"/`RecheckModal` nữa.
+ *
+ * Redesign 2026-09-08 (lần 2, theo góp ý người dùng "màn KCS cũng làm tab theo công đoạn"): bảng
+ * chờ duyệt trong `PiDetail` trước đây XỔ CHUNG mọi công đoạn (Cắt lẫn Uốn/Dập/... trộn lẫn theo
+ * hàng, chỉ phân biệt qua cột "Công đoạn") - giờ tách thành TAB bấm chuyển qua lại (mirror
+ * `MaterialGroupDetail` bên `LenhSanXuatPhoi.tsx` đã làm), mỗi tab chỉ hiện đúng đợt của công đoạn
+ * đó + số đang chờ kiểm ngay trên nút tab - tab mặc định chọn công đoạn có nhiều đợt chờ nhất. Bỏ
+ * luôn cột "Công đoạn" khỏi bảng (đã ngầm hiểu qua tab đang chọn, không cần lặp lại mỗi hàng).
+ *
+ * Redesign 2026-09-08 (lần 3, theo góp ý người dùng "sao lại đưa VTTP ra ngoài, sao không đưa vào
+ * trong Phôi luôn"): bên `tkphoi` (LenhSanXuatPhoi.tsx) đã gộp Sắt + Vật tư TP vào 1 màn "Lệnh sản
+ * xuất — Công đoạn Phôi" từ lâu (tab "Cắt sắt"/"Vật tư TP"), nhưng bên KCS lại tách "Phôi"/"Vật tư
+ * TP" thành 2 mục nav riêng (MfgApp.tsx: 'kcs-phoi'/'kcs-vat-tu-tp') - không nhất quán. Gộp NHANH
+ * (theo yêu cầu, không viết lại sâu): bỏ hẳn mục nav 'kcs-vat-tu-tp' riêng, `KcsPhoiPage` giờ tự có
+ * dải tab "Cắt sắt"/"Vật tư TP" ở ĐẦU màn (`section` state) - tab "Vật tư TP" render NGUYÊN
+ * `KcsVatTuThanhPhamPage` cũ (đổi tên `KcsSatSection` cho phần Sắt gốc, không đổi logic bên trong -
+ * chỉ đổi VỊ TRÍ truy cập, 2 luồng dữ liệu vẫn hoàn toàn độc lập như trước).
  */
 
 import { useMemo, useState } from 'react'
-import { ClipboardCheck, Check, Clock, ChevronLeft, ChevronRight, AlertTriangle, Upload, X, Plus, Wrench, RotateCcw } from 'lucide-react'
+import { ClipboardCheck, Check, Clock, ChevronLeft, ChevronRight, AlertTriangle, Upload, X, Plus, Wrench } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeSteelIssue, BeQcReview, BeCutBundle, BeStepBundle } from '../../../services/steel-issues-api'
 import type { BeDefectReason } from '../../../services/defect-reasons-api'
+import type { ProcessStep } from '../../../types/sku'
 import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
+import KcsVatTuThanhPhamPage from './KcsVatTuThanhPhamPage'
 
 const ACCENT = '#e65100'
 const GREEN = '#16a34a'
 const RED = '#c62828'
 const AMBER = '#d97706'
+const tabBtn = (active: boolean): React.CSSProperties => ({
+  display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12.5, fontWeight: 600,
+  border: '1px solid ' + (active ? ACCENT : 'var(--border)'), borderRadius: 20, cursor: 'pointer',
+  background: active ? 'var(--accent-bg, #fff3e8)' : 'var(--surface)', color: active ? ACCENT : 'var(--text2)',
+})
+const tabPendingBadge: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px',
+  borderRadius: 8, fontSize: 10.5, fontWeight: 700, background: AMBER, color: '#fff',
+}
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
 const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13, verticalAlign: 'middle' }
@@ -51,59 +84,52 @@ const card: React.CSSProperties = { background: 'var(--surface)', border: '1px s
 interface PiAgg { productionInvoiceId: string; poNumber: string; bundles: Row[]; pendingCount: number }
 /** 1 đợt cắt kèm lô nhận cha (để hiện materialName/barLengthMm - bundle tự nó không có tên vật tư). */
 interface CutRow { kind: 'cut'; bundle: BeCutBundle; issue: BeSteelIssue }
-/** 1 đợt gửi KCS công đoạn PHỤ (2026-09-07) - kèm CẢ cutBundle cha (để hiện materialName qua issue,
- *  cutBundle tự nó không có) lẫn issue. */
-interface StepRow { kind: 'step'; stepBundle: BeStepBundle; cutBundle: BeCutBundle; issue: BeSteelIssue }
+/** 1 đợt gửi KCS công đoạn PHỤ (2026-09-08, PI-wide) - StepBundle tự mang đủ
+ *  productionInvoiceId/materialName, không cần cutBundle/issue cha nữa. */
+interface StepRow { kind: 'step'; stepBundle: BeStepBundle }
 type Row = CutRow | StepRow
 
-/** 1 đợt (Cắt hoặc công đoạn phụ) đang "chờ duyệt lại" nếu có ít nhất 1 cỡ đoạn Phôi đã bấm "Bù
- *  đủ" (phoiReportedAt != null) mà vẫn còn outstanding (failedQty - resolvedQty > 0) - KCS chưa xử
- *  lý xong. */
-function hasAwaitingRecheck(review: BeQcReview | undefined): boolean {
-  return (review?.segments ?? []).some((s) => s.phoiReportedAt != null && s.failedQty - s.resolvedQty > 0)
+function piIdOf(x: Row): string { return x.kind === 'cut' ? x.issue.productionInvoiceId : x.stepBundle.productionInvoiceId }
+function materialNameOf(x: Row): string { return x.kind === 'cut' ? x.issue.materialName : x.stepBundle.materialName }
+function idOf(x: Row): string { return x.kind === 'cut' ? x.bundle.id : x.stepBundle.id }
+function statusOf(x: Row): 'CUTTING' | 'AWAITING_QC' | 'QC_PASSED' { return x.kind === 'cut' ? x.bundle.status : x.stepBundle.status }
+function completedAtOf(x: Row): string { return x.kind === 'cut' ? (x.bundle.completedAt ?? x.bundle.createdAt) : x.stepBundle.submittedAt }
+function segmentsOf(x: Row): { segmentSpecId: string; cutLengthMm: number; qty: number }[] {
+  return x.kind === 'cut' ? x.bundle.segments : x.stepBundle.segments
 }
 
-function buildPiRows(issues: BeSteelIssue[], bundles: BeCutBundle[], reviews: BeQcReview[]): PiAgg[] {
+function buildPiRows(issues: BeSteelIssue[], bundles: BeCutBundle[], stepBundles: BeStepBundle[]): PiAgg[] {
   const issueById = new Map(issues.map((i) => [i.id, i]))
+  // poNumber tra theo productionInvoiceId (không còn dùng issue của chính Row vì StepRow không có
+  // issue cha nữa) - lấy từ bất kỳ issue nào cùng PI, đều cùng 1 piCode/salesOrderCode.
+  const poNumberByPi = new Map<string, string>()
+  for (const i of issues) {
+    if (!poNumberByPi.has(i.productionInvoiceId)) poNumberByPi.set(i.productionInvoiceId, i.salesOrderCode ?? i.piCode)
+  }
   // Chỉ đợt liên quan KCS (đã báo cắt xong / đã gửi KCS trở lên) - đợt còn CUTTING hoặc công đoạn
   // phụ chưa gửi chưa liên quan.
   const cutRows: Row[] = bundles
     .filter((b) => b.status === 'AWAITING_QC' || b.status === 'QC_PASSED')
     .map((b) => ({ kind: 'cut' as const, bundle: b, issue: issueById.get(b.steelIssueId) }))
     .filter((x): x is CutRow => x.issue != null)
-  const stepRows: Row[] = bundles.flatMap((b) => {
-    const issue = issueById.get(b.steelIssueId)
-    if (!issue) return []
-    return b.stepBundles
-      .filter((sb) => sb.status === 'AWAITING_QC' || sb.status === 'QC_PASSED')
-      .map((sb) => ({ kind: 'step' as const, stepBundle: sb, cutBundle: b, issue }))
-  })
+  const stepRows: Row[] = stepBundles
+    .filter((sb) => sb.status === 'AWAITING_QC' || sb.status === 'QC_PASSED')
+    .map((sb) => ({ kind: 'step' as const, stepBundle: sb }))
   const relevant = [...cutRows, ...stepRows]
-  const reviewByBundle = new Map<string, BeQcReview>()
-  const reviewByStepBundle = new Map<string, BeQcReview>()
-  for (const r of reviews) {
-    if (r.cutBundleId) reviewByBundle.set(r.cutBundleId, r)
-    if (r.stepBundleId) reviewByStepBundle.set(r.stepBundleId, r)
-  }
   const byPi = new Map<string, Row[]>()
   const order: string[] = []
   for (const x of relevant) {
-    const piId = x.issue.productionInvoiceId
+    const piId = piIdOf(x)
     if (!byPi.has(piId)) { byPi.set(piId, []); order.push(piId) }
     byPi.get(piId)!.push(x)
   }
   return order
     .map((productionInvoiceId) => {
       const list = byPi.get(productionInvoiceId)!
-      // "Đợt chờ kiểm" = chờ duyệt LẦN ĐẦU (AWAITING_QC) + chờ DUYỆT LẠI (QC_PASSED, Phôi đã báo
-      // bù đủ) - cả 2 đều là việc KCS phải làm, gộp chung 1 số cho thợ khỏi bỏ sót đợt nào.
-      const pendingCount = list.filter((x) => x.kind === 'cut'
-        ? x.bundle.status === 'AWAITING_QC' || hasAwaitingRecheck(reviewByBundle.get(x.bundle.id))
-        : x.stepBundle.status === 'AWAITING_QC' || hasAwaitingRecheck(reviewByStepBundle.get(x.stepBundle.id)),
-      ).length
+      const pendingCount = list.filter((x) => statusOf(x) === 'AWAITING_QC').length
       return {
         productionInvoiceId,
-        poNumber: list[0].issue.salesOrderCode ?? list[0].issue.piCode,
+        poNumber: poNumberByPi.get(productionInvoiceId) ?? productionInvoiceId,
         bundles: list,
         pendingCount,
       }
@@ -111,17 +137,38 @@ function buildPiRows(issues: BeSteelIssue[], bundles: BeCutBundle[], reviews: Be
     .sort((a, b) => b.pendingCount - a.pendingCount)
 }
 
+const sectionTabBtn = (active: boolean): React.CSSProperties => ({
+  display: 'inline-flex', alignItems: 'center', padding: '7px 14px', fontSize: 13, fontWeight: 600,
+  border: '1px solid ' + (active ? ACCENT : 'var(--border)'), borderRadius: 20, cursor: 'pointer',
+  background: active ? 'var(--accent-bg, #fff3e8)' : 'var(--surface)', color: active ? ACCENT : 'var(--text2)',
+})
+
 export default function KcsPhoiPage() {
+  const [section, setSection] = useState<'sat' | 'vattutp'>('sat')
+
+  return (
+    <div>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
+        <button onClick={() => setSection('sat')} style={sectionTabBtn(section === 'sat')}>Cắt sắt</button>
+        <button onClick={() => setSection('vattutp')} style={sectionTabBtn(section === 'vattutp')}>Vật tư TP</button>
+      </div>
+      {section === 'sat' ? <KcsSatSection /> : <KcsVatTuThanhPhamPage />}
+    </div>
+  )
+}
+
+function KcsSatSection() {
   const { data: issues, isLoading, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
   const { data: allBundles, refetch: refetchBundles } = useFetch<BeCutBundle[]>(() => api.getAllCutBundles(), [])
+  const { data: allStepBundles, refetch: refetchStepBundles } = useFetch<BeStepBundle[]>(() => api.getAllStepBundles(), [])
   const { data: reviews, refetch: refetchReviews } = useFetch<BeQcReview[]>(() => api.getQcReviewsForSteelIssues(), [])
   const [selPi, setSelPi] = useState<string | null>(null)
 
   const piRows = useMemo(
-    () => buildPiRows(issues ?? [], allBundles ?? [], reviews ?? []),
-    [issues, allBundles, reviews],
+    () => buildPiRows(issues ?? [], allBundles ?? [], allStepBundles ?? []),
+    [issues, allBundles, allStepBundles],
   )
-  const refetchAll = () => { refetch(); refetchBundles(); refetchReviews() }
+  const refetchAll = () => { refetch(); refetchBundles(); refetchStepBundles(); refetchReviews() }
 
   if (isLoading || !issues) return <LoadingState />
 
@@ -174,11 +221,13 @@ export default function KcsPhoiPage() {
   )
 }
 
+/** Định danh 1 công đoạn trong tab: 'CAT' (Cắt) hoặc đúng `ProcessStep` của StepRow. */
+function stepKeyOf(x: Row): 'CAT' | ProcessStep { return x.kind === 'cut' ? 'CAT' : x.stepBundle.step }
+
 function PiDetail({ pi, reviews, onBack, onRefetch }: {
   pi: PiAgg; reviews: BeQcReview[]; onBack: () => void; onRefetch: () => void
 }) {
   const [target, setTarget] = useState<Row | null>(null)
-  const [recheckTarget, setRecheckTarget] = useState<Row | null>(null)
 
   const reviewByBundle = useMemo(() => {
     const m = new Map<string, BeQcReview>()
@@ -192,19 +241,45 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
   }, [reviews])
 
   const reviewOf = (x: Row) => x.kind === 'cut' ? reviewByBundle.get(x.bundle.id) : reviewByStepBundle.get(x.stepBundle.id)
-  const idOf = (x: Row) => x.kind === 'cut' ? x.bundle.id : x.stepBundle.id
-  const statusOf = (x: Row) => x.kind === 'cut' ? x.bundle.status : x.stepBundle.status
-  const completedAtOf = (x: Row) => x.kind === 'cut' ? (x.bundle.completedAt ?? x.bundle.createdAt) : x.stepBundle.submittedAt
-  const segmentsOf = (x: Row) => x.kind === 'cut' ? x.bundle.segments : x.stepBundle.segments
 
-  const rank = (x: Row) =>
-    statusOf(x) === 'AWAITING_QC' ? 0 : hasAwaitingRecheck(reviewOf(x)) ? 1 : 2
-  const rows = [...pi.bundles].sort((a, b) => {
-    const r = rank(a) - rank(b)
-    return r !== 0 ? r : completedAtOf(b).localeCompare(completedAtOf(a))
+  // Danh sách công đoạn xuất hiện trong PI này (Cắt luôn trước, còn lại theo thứ tự gặp trong dữ
+  // liệu) + số đợt đang chờ kiểm mỗi công đoạn - dùng để dựng dải tab và badge số chờ trên từng tab.
+  const stepKeys = useMemo(() => {
+    const seen = new Set<string>()
+    const keys: ('CAT' | ProcessStep)[] = []
+    for (const x of pi.bundles) {
+      const k = stepKeyOf(x)
+      if (!seen.has(k)) { seen.add(k); keys.push(k) }
+    }
+    return keys
+  }, [pi.bundles])
+  const pendingByStep = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const x of pi.bundles) {
+      if (statusOf(x) === 'AWAITING_QC') { const k = stepKeyOf(x); m.set(k, (m.get(k) ?? 0) + 1) }
+    }
+    return m
+  }, [pi.bundles])
+  // Mặc định mở đúng công đoạn đang chờ NHIỀU nhất (đỡ phải tự bấm tìm) - chỉ tính lúc mount, đổi
+  // tab sau đó là quyền người dùng, không tự nhảy khi refetch.
+  const [activeStep, setActiveStep] = useState<'CAT' | ProcessStep>(() => {
+    let best: 'CAT' | ProcessStep = stepKeys[0] ?? 'CAT'
+    let bestPending = -1
+    for (const k of stepKeys) {
+      const p = pendingByStep.get(k) ?? 0
+      if (p > bestPending) { bestPending = p; best = k }
+    }
+    return best
   })
+  const effectiveActiveStep = stepKeys.includes(activeStep) ? activeStep : (stepKeys[0] ?? 'CAT')
 
-  const recheckReview = recheckTarget ? reviewOf(recheckTarget) : undefined
+  const rank = (x: Row) => statusOf(x) === 'AWAITING_QC' ? 0 : 1
+  const rows = pi.bundles
+    .filter((x) => stepKeyOf(x) === effectiveActiveStep)
+    .sort((a, b) => {
+      const r = rank(a) - rank(b)
+      return r !== 0 ? r : completedAtOf(b).localeCompare(completedAtOf(a))
+    })
 
   return (
     <div>
@@ -215,12 +290,26 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>{pi.poNumber}</h2>
       </div>
 
+      {stepKeys.length > 1 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+          {stepKeys.map((k) => {
+            const label = k === 'CAT' ? 'Cắt' : PROCESS_STEP_LABELS[k]
+            const pending = pendingByStep.get(k) ?? 0
+            return (
+              <button key={k} onClick={() => setActiveStep(k)} style={tabBtn(k === effectiveActiveStep)}>
+                {label}
+                {pending > 0 && <span style={tabPendingBadge}>{pending}</span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       <div style={card}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
               <th style={th}>Loại sắt</th>
-              <th style={th}>Công đoạn</th>
               <th style={th}>Đợt</th>
               <th style={th}>Gửi KCS lúc</th>
               <th style={{ ...th, textAlign: 'center' }}>Trạng thái</th>
@@ -230,20 +319,16 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
           <tbody>
             {rows.map((x) => {
               const id = idOf(x)
-              const issue = x.issue
               const status = statusOf(x)
               const segments = segmentsOf(x)
               const review = reviewOf(x)
-              // failedQty là số ĐOẠN (KCS chấm theo cỡ đoạn) của ĐÚNG đợt này. outstanding =
-              // Σ(failedQty - resolvedQty) GIẢM DẦN khi KCS duyệt lại xác nhận đạt (2026-08-24,
-              // vòng 2).
-              const segs = review?.segments ?? []
-              const outstanding = segs.reduce((s, y) => s + (y.failedQty - y.resolvedQty), 0)
-              const awaitingRecheck = hasAwaitingRecheck(review)
+              // failedQty giờ là số ĐOẠN lịch sử của ĐÚNG đợt này - KHÔNG tự giảm (không còn khái
+              // niệm "duyệt lại"/outstanding, xem doc comment đầu file 2026-09-08). Đợt QC_PASSED
+              // có lỗi lịch sử vẫn hiện "đạt" - Phôi bù bằng 1 đợt MỚI riêng nếu cần.
+              const totalFailed = (review?.segments ?? []).reduce((s, y) => s + y.failedQty, 0)
               return (
                 <tr key={`${x.kind}:${id}`} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={{ ...td, fontWeight: 600 }}>{issue.materialName}</td>
-                  <td style={td}>{x.kind === 'cut' ? 'Cắt' : PROCESS_STEP_LABELS[x.stepBundle.step]}</td>
+                  <td style={{ ...td, fontWeight: 600 }}>{materialNameOf(x)}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>
                     {segments.map((s) => `${s.qty}×${s.cutLengthMm.toLocaleString('vi-VN')}mm`).join(' + ')}
                   </td>
@@ -251,14 +336,10 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
                   <td style={{ ...td, textAlign: 'center' }}>
                     {status === 'AWAITING_QC' ? (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ kiểm</span>
-                    ) : outstanding > 0 ? (
+                    ) : totalFailed > 0 ? (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700 }}>
-                        <span style={{ color: RED }}>Lỗi {outstanding} đoạn</span>
-                        {awaitingRecheck && (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: AMBER }}>
-                            <RotateCcw size={11} /> chờ duyệt lại
-                          </span>
-                        )}
+                        <Check size={12} color={GREEN} /> <span style={{ color: GREEN }}>đạt</span>
+                        <span style={{ color: RED, fontWeight: 600 }}>(lỗi {totalFailed} đoạn)</span>
                       </span>
                     ) : (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đạt</span>
@@ -271,18 +352,12 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
                         <ClipboardCheck size={13} /> Tiến hành duyệt
                       </button>
                     )}
-                    {awaitingRecheck && (
-                      <button onClick={() => setRecheckTarget(x)}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: AMBER, color: '#fff', cursor: 'pointer' }}>
-                        <RotateCcw size={13} /> Duyệt lại
-                      </button>
-                    )}
                   </td>
                 </tr>
               )
             })}
             {rows.length === 0 && (
-              <tr><td colSpan={6} style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>Không có đợt nào</td></tr>
+              <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>Không có đợt nào</td></tr>
             )}
           </tbody>
         </table>
@@ -290,19 +365,9 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
 
       {target && (
         <QcReviewModal
-          id={idOf(target)} materialName={target.issue.materialName} segments={segmentsOf(target)}
+          id={idOf(target)} materialName={materialNameOf(target)} segments={segmentsOf(target)}
           onReview={(id, data) => target.kind === 'cut' ? api.reviewCutBundleQc(id, data) : api.reviewStepBundleQc(id, data)}
           onClose={() => setTarget(null)} onDone={() => { setTarget(null); onRefetch() }}
-        />
-      )}
-
-      {recheckTarget && recheckReview && (
-        <RecheckModal
-          materialName={recheckTarget.issue.materialName} review={recheckReview}
-          onRecheck={(segments) => recheckTarget.kind === 'cut'
-            ? api.recheckQcForBundle(idOf(recheckTarget), segments)
-            : api.recheckQcForStepBundle(idOf(recheckTarget), segments)}
-          onClose={() => setRecheckTarget(null)} onDone={() => { setRecheckTarget(null); onRefetch() }}
         />
       )}
     </div>
@@ -463,106 +528,6 @@ function QcReviewModal({ id, materialName, segments, onReview, onClose, onDone }
           <button onClick={submit} disabled={busy || uploading}
             style={{ padding: '7px 14px', border: 'none', borderRadius: 8, background: ACCENT, color: '#fff', fontSize: 13, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}>
             {busy ? '...' : 'Xác nhận duyệt'}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Modal duyệt lại: KCS kiểm các cỡ đoạn Phôi đã báo "Bù đủ" (2026-08-24, vòng 2) ────────
-// Chỉ liệt kê cỡ đang phoiReportedAt != null (đã báo, chưa xử lý) - nhập số ĐANG CÒN HỎNG (mặc
-// định 0 = đạt hết), KHÔNG bắt gõ lại toàn bộ failedQty gốc. Scope theo cutBundleId/stepBundleId
-// (2026-09-05, mở rộng 2026-09-07) - tổng quát hoá nhận `onRecheck` thay vì bám cứng `bundle`,
-// dùng chung được cho cả 2 nhánh.
-
-function RecheckModal({ materialName, review, onRecheck, onClose, onDone }: {
-  materialName: string; review: BeQcReview
-  onRecheck: (segments: { segmentSpecId: string; remainingFailedQty: number }[]) => Promise<void>
-  onClose: () => void; onDone: () => void
-}) {
-  const rows = review.segments.filter((s) => s.phoiReportedAt != null && s.failedQty - s.resolvedQty > 0)
-  const [remainingBySeg, setRemainingBySeg] = useState<Record<string, string>>({})
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-
-  // Gợi ý sẵn "Còn hỏng" = outstanding - lời khai Phôi (2026-09-07) - KCS chỉ cần xác nhận/sửa lại
-  // thay vì gõ lại từ đầu. Vẫn tự đếm độc lập, KHÔNG tin thẳng số Phôi khai (xem doc comment
-  // QcReviewSegment.phoiReportedQty) - dùng CHUNG hàm này cho cả input hiển thị lẫn submit() để 2
-  // nơi luôn khớp nhau (bấm "Xác nhận" ngay không gõ gì vẫn đúng giá trị đang hiển thị).
-  const suggestedRemaining = (s: (typeof rows)[number]) =>
-    Math.max(0, s.failedQty - s.resolvedQty - (s.phoiReportedQty ?? 0))
-
-  const submit = async () => {
-    const segments = rows.map((s) => {
-      const outstanding = s.failedQty - s.resolvedQty
-      const raw = remainingBySeg[s.segmentSpecId] !== undefined
-        ? Math.floor(Number(remainingBySeg[s.segmentSpecId]) || 0)
-        : suggestedRemaining(s)
-      return { segmentSpecId: s.segmentSpecId, remainingFailedQty: Math.max(0, Math.min(outstanding, raw)) }
-    })
-    setBusy(true); setErr('')
-    try {
-      await onRecheck(segments)
-      onDone()
-    } catch (e) { setErr(errMsg(e, 'Không duyệt lại được')) }
-    finally { setBusy(false) }
-  }
-
-  return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}>
-      <div onClick={(e) => e.stopPropagation()} style={{ width: 480, maxWidth: '92vw', maxHeight: '90vh', overflowY: 'auto', background: 'var(--surface)', borderRadius: 14, padding: 20, boxShadow: '0 8px 30px rgba(0,0,0,.25)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            <RotateCcw size={16} /> Duyệt lại — {materialName}
-          </h3>
-          <button onClick={onClose} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'inline-flex' }}><X size={18} /></button>
-        </div>
-        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
-          Phôi đã tự bù các cỡ đoạn dưới đây bằng sắt kiếm ngoài thực tế — nhập số đoạn ĐANG CÒN HỎNG (0 = đạt hết).
-        </div>
-
-        <div style={card}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'var(--surface2)' }}>
-                <th style={th}>Cỡ đoạn</th>
-                <th style={thR}>Đã chấm lỗi</th>
-                <th style={thR}>Phôi khai đã sửa</th>
-                <th style={{ ...thR, width: 110 }}>Còn hỏng</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((s) => {
-                const outstanding = s.failedQty - s.resolvedQty
-                return (
-                  <tr key={s.segmentSpecId} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={td}>{s.cutLengthMm.toLocaleString('vi-VN')}mm</td>
-                    <td style={tdR}>{outstanding}</td>
-                    <td style={tdR}>{s.phoiReportedQty ?? '—'}</td>
-                    <td style={{ ...td, textAlign: 'right' }}>
-                      <input type="number" min={0} max={outstanding} placeholder="0"
-                        value={remainingBySeg[s.segmentSpecId] ?? String(suggestedRemaining(s))}
-                        onChange={(e) => setRemainingBySeg((p) => ({ ...p, [s.segmentSpecId]: e.target.value }))}
-                        style={{ width: 64, padding: '5px 7px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }} />
-                    </td>
-                  </tr>
-                )
-              })}
-              {rows.length === 0 && (
-                <tr><td colSpan={3} style={{ padding: 16, textAlign: 'center', color: 'var(--text3)', fontSize: 12 }}>Không còn cỡ đoạn nào chờ duyệt lại</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {err && <div style={{ color: RED, fontSize: 13, marginTop: 10 }}>{err}</div>}
-
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
-          <button onClick={onClose} style={{ padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', fontSize: 13, cursor: 'pointer' }}>Hủy</button>
-          <button onClick={submit} disabled={busy || rows.length === 0}
-            style={{ padding: '7px 14px', border: 'none', borderRadius: 8, background: AMBER, color: '#fff', fontSize: 13, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}>
-            {busy ? '...' : 'Xác nhận duyệt lại'}
           </button>
         </div>
       </div>

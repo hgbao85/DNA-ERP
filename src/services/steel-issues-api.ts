@@ -43,13 +43,17 @@ export interface BeStepBundleSegment {
 }
 
 /**
- * "Đợt gửi KCS" cho 1 CÔNG ĐOẠN PHỤ (Uốn/Dập/Đục lỗ/Tán/...) của 1 đợt cắt cụ thể (2026-09-07) -
- * mirror BeCutBundle nhưng scope hẹp hơn. Thay cơ chế cờ tự khai `completedSteps` cũ - giờ MỖI
- * công đoạn phụ phải qua KCS riêng, không chờ nhau (kể cả không chờ Cắt/công đoạn khác).
+ * "Đợt gửi KCS" cho 1 CÔNG ĐOẠN PHỤ (Uốn/Dập/Đục lỗ/Tán/Tóp đầu/Xẻ) của 1 LOẠI SẮT trong 1 PI
+ * (2026-09-07, đổi scope lần 2 theo Sếp Trương Văn Nhân - Phôi làm các công đoạn SONG SONG, không
+ * cần biết đúng đợt cắt nào ra đoạn đó - KHÔNG còn `cutBundleId`, scope theo PI + vật tư mirror
+ * `BeStepBatch`/getStepProgress()).
  */
 export interface BeStepBundle {
   id: string;
-  cutBundleId: string;
+  productionInvoiceId: string;
+  materialId: string;
+  materialCode: string;
+  materialName: string;
   step: ProcessStep;
   status: 'AWAITING_QC' | 'QC_PASSED';
   submittedAt: string;
@@ -77,17 +81,16 @@ export interface BeCutBundle {
   /** Luôn 0 với đợt tạo từ 2026-09-05 (không còn cân bằng vật chất để suy ra phế liệu). */
   scrapMm: number;
   status: CutBundleStatus;
-  /** LỊCH SỬ/THAM KHẢO - từ 2026-09-07 không còn dùng để chặn "Báo cắt xong" nữa (mỗi công đoạn
-   *  phụ tự gửi KCS riêng qua stepBundles, xem StepBundle). Luôn có CAT ngay khi tạo. */
+  /** LỊCH SỬ/THAM KHẢO - từ 2026-09-07 không còn dùng để chặn "Báo cắt xong" nữa. Luôn có CAT
+   *  ngay khi tạo. */
   completedSteps: ProcessStep[];
-  /** Công đoạn bắt buộc theo định mức của loại sắt này - vẫn dùng để biết cần hiện panel gửi KCS
-   *  cho công đoạn phụ nào (recordStepBatch() vẫn chặn công đoạn ngoài danh sách này). */
+  /** Công đoạn bắt buộc theo định mức của loại sắt này - dùng để biết cần hiện bảng tổng gửi KCS
+   *  cho công đoạn phụ nào (xem getStepProgress()/BeStepBundle - scope PI+vật tư, KHÔNG còn gắn
+   *  với đúng đợt cắt này nữa, đổi 2026-09-07 lần 2). */
   requiredSteps: ProcessStep[];
   completedAt: string | null;
   createdAt: string;
   segments: BeCutPatternSegment[];
-  /** Các đợt gửi KCS công đoạn phụ CỦA ĐỢT CẮT NÀY (2026-09-07, xem BeStepBundle). */
-  stepBundles: BeStepBundle[];
 }
 
 export interface BeSteelIssue {
@@ -277,8 +280,9 @@ export interface BePhoiProgressSegment {
    *  XẢY RA rồi, không rút lại được (2026-08-24, sửa lỗi ERP: trước trừ thẳng lỗi vào đây làm mâu
    *  thuẫn với "Lịch sử đợt đã nhập"). */
   done: number;
-  /** Số đoạn ĐANG thực sự lỗi (KCS đã chấm, chưa duyệt lại xác nhận đạt). "Còn lại" tự tính
-   *  = required - (done - failed), KHÔNG lấy thẳng từ BE. */
+  /** Σ đoạn KCS đã chấm KHÔNG ĐẠT, CỘNG DỒN LỊCH SỬ (2026-09-07 lần 2 - không tự giảm, bỏ hẳn cơ
+   *  chế report-done/recheck). "Còn lại" tự tính = required - (done - failed), KHÔNG lấy thẳng từ
+   *  BE - tự đúng khi Phôi làm thêm rồi gửi KCS như đợt mới (done tăng), KHÔNG cần "failed" giảm. */
   failed: number;
 }
 
@@ -305,9 +309,11 @@ export async function getStepProgress(productionInvoiceId: string, step: Process
 }
 
 /** 1 dòng nhập đợt gia công cho công đoạn chi tiết SAU Cắt - mirror RecordCutBatchInput nhưng
- *  không có barCount/mauNguyenMm (bước này không tác động lên cây sắt). BE chặn vượt số đã cắt
- *  TRONG ĐÚNG ĐỢT CẮT NÀY (2026-09-07, đổi scope từ SteelIssue sang CutBundle). */
+ *  không có barCount/mauNguyenMm (bước này không tác động lên cây sắt). BE chặn vượt TỔNG đã cắt
+ *  CẢ PI cho loại sắt này (2026-09-07 lần 2 - đổi scope từ CutBundle sang PI+vật tư, Phôi làm các
+ *  công đoạn song song không cần biết đúng đợt cắt nào). */
 export interface RecordStepBatchInput {
+  materialId: string
   step: ProcessStep
   segments: { segmentSpecId: string; qty: number }[]
 }
@@ -318,17 +324,40 @@ export interface BeStepBatch {
   segments: { segmentSpecId: string; cutLengthMm: number; qty: number }[]
 }
 
-/** Nhập 1 đợt "đã gia công" cho công đoạn chi tiết CỦA ĐÚNG ĐỢT CẮT (cộng dồn, KHÔNG tự gửi KCS -
- *  xem submitStepBundle() để gửi). Đổi route từ /steel-issues/:id sang /cut-bundles/:id
- *  (2026-09-07). */
-export async function recordStepBatch(cutBundleId: string, data: RecordStepBatchInput): Promise<BeStepBatch> {
-  return http.post<BeStepBatch>(`/cut-bundles/${cutBundleId}/step-batches`, data);
+/** Nhập 1 đợt "đã gia công" cho công đoạn chi tiết CỦA CẢ PI + loại sắt (cộng dồn, KHÔNG tự gửi
+ *  KCS - xem submitStepBundle() để gửi). Route `/production-invoices/:id/step-batches`
+ *  (2026-09-07 lần 2, đổi từ `/cut-bundles/:id/step-batches`). */
+export async function recordStepBatch(productionInvoiceId: string, data: RecordStepBatchInput): Promise<BeStepBatch> {
+  return http.post<BeStepBatch>(`/production-invoices/${productionInvoiceId}/step-batches`, data);
 }
 
-/** Gom mọi StepBatch CHƯA gửi (của 1 công đoạn phụ, ĐÚNG đợt cắt này) thành 1 "đợt gửi KCS" mới -
- *  mirror finishCutBundle() nhưng cho công đoạn phụ. Lỗi nếu chưa có gì mới để gửi. */
-export async function submitStepBundle(cutBundleId: string, step: ProcessStep): Promise<BeStepBundle> {
-  return http.post<BeStepBundle>(`/cut-bundles/${cutBundleId}/step-bundles`, { step });
+/** Gom mọi StepBatch CHƯA gửi (của 1 công đoạn phụ, CẢ PI + loại sắt) thành 1 "đợt gửi KCS" mới -
+ *  mirror finishCutBundle() nhưng cho công đoạn phụ. Lỗi nếu chưa có gì mới để gửi. Route
+ *  `/production-invoices/:id/step-bundles` (2026-09-07 lần 2). */
+export async function submitStepBundle(
+  productionInvoiceId: string,
+  materialId: string,
+  step: ProcessStep,
+): Promise<BeStepBundle> {
+  return http.post<BeStepBundle>(`/production-invoices/${productionInvoiceId}/step-bundles`, {
+    materialId,
+    step,
+  });
+}
+
+/** Lịch sử mọi StepBundle của 1 PI (mọi loại sắt/công đoạn) - màn Phôi xem THUẦN, không thao tác
+ *  được (2026-09-07 lần 2, mọi thao tác dồn về bảng tổng - xem getStepProgress()). */
+export async function getStepBundlesForInvoice(productionInvoiceId: string): Promise<BeStepBundle[]> {
+  return http.get<BeStepBundle[]>(`/production-invoices/${productionInvoiceId}/step-bundles`);
+}
+
+/** Flat, không cần productionInvoiceId - màn KCS lấy thẳng AWAITING_QC, cùng lý do
+ *  getSteelIssuesByStatus()/getAllCutBundles() tồn tại riêng. */
+export async function getAllStepBundles(status?: 'AWAITING_QC' | 'QC_PASSED'): Promise<BeStepBundle[]> {
+  const params = new URLSearchParams({ limit: '100' });
+  if (status) params.set('status', status);
+  const res = await http.get<BeStepBundle[] | { data: BeStepBundle[] }>(`/step-bundles?${params.toString()}`);
+  return unwrap(res);
 }
 
 /** Danh sách PO/SKU thuộc 1 PI - khối tham khảo cho màn Lệnh sản xuất Phôi, KHÔNG mang số liệu
@@ -347,18 +376,15 @@ export async function getPiOrderSummary(productionInvoiceId: string): Promise<Be
 // ── KCS (nhánh Phôi) ────────────────────────────────────────────────────────
 
 /** 1 dòng lỗi theo cỡ đoạn (2026-08-24, vòng 2) - CHỈ 2 kết quả Đạt/Không đạt, không phân loại
- *  "sửa được" nữa. failedQty BẤT BIẾN (số KCS chấm lần đầu); resolvedQty là phần KCS đã DUYỆT LẠI
- *  xác nhận đạt sau khi Phôi tự bù (ngoài hệ thống, không đụng cây sắt kho cấp). Outstanding =
- *  failedQty - resolvedQty. phoiReportedAt != null = Phôi đã bấm "Bù đủ", đang chờ KCS duyệt lại. */
+ *  "sửa được" nữa. failedQty BẤT BIẾN (số KCS chấm lần đầu, không sửa sau khi tạo). "Lỗi" hiển
+ *  thị ở bảng tổng (BePhoiProgressItem.segments[].failed) là Σ failedQty CỘNG DỒN LỊCH SỬ của mọi
+ *  lần chấm (2026-09-07 lần 2, bỏ hẳn resolvedQty/phoiReportedAt/report-done+recheck - xem
+ *  changelog "Bù đủ dồn về bảng tổng") - không tự giảm, Phôi bù bằng cách làm thêm rồi gửi KCS
+ *  như 1 đợt HOÀN TOÀN MỚI, "Còn lại" tự đúng vì cộng thêm "Đã làm". */
 export interface BeQcReviewSegment {
   segmentSpecId: string;
   cutLengthMm: number;
   failedQty: number;
-  resolvedQty: number;
-  phoiReportedAt: string | null;
-  /** Số đoạn Phôi TỰ KHAI đã sửa xong lúc bấm "Bù đủ" (2026-09-07) - THAM KHẢO, KCS tự đếm lại độc
-   *  lập ở recheck(), không lấy thẳng số này. null khi chưa từng báo. */
-  phoiReportedQty: number | null;
 }
 
 /** KCS chấm 1 SteelIssue THEO TỪNG CỠ ĐOẠN - segments rỗng = đạt hết. */
@@ -401,52 +427,10 @@ export async function reviewStepBundleQc(
   await http.post(`/step-bundles/${stepBundleId}/qc-review`, data);
 }
 
-/** Phôi tự báo đã bù đủ cho 1 cỡ đoạn không đạt (đã tự kiếm sắt bù ngoài thực tế, KHÔNG đụng cây
- *  sắt kho đã cấp) - CHỜ KCS recheck() mới tính là đạt. `qty` (2026-09-07) là số đoạn Phôi TỰ KHAI
- *  đã sửa xong (1..outstanding) - THAM KHẢO cho KCS, không tự trừ lỗi ngay. */
-export async function reportSegmentDone(steelIssueId: string, segmentSpecId: string, qty: number): Promise<void> {
-  await http.post(`/steel-issues/${steelIssueId}/qc-segments/${segmentSpecId}/report-done`, { qty });
-}
-
-/** Cùng reportSegmentDone() nhưng scope theo ĐÚNG đợt cắt (2026-09-05, luồng mới). */
-export async function reportSegmentDoneForBundle(cutBundleId: string, segmentSpecId: string, qty: number): Promise<void> {
-  await http.post(`/cut-bundles/${cutBundleId}/qc-segments/${segmentSpecId}/report-done`, { qty });
-}
-
-/** Cùng reportSegmentDone() nhưng scope theo ĐÚNG StepBundle (2026-09-07, công đoạn phụ). */
-export async function reportSegmentDoneForStepBundle(stepBundleId: string, segmentSpecId: string, qty: number): Promise<void> {
-  await http.post(`/step-bundles/${stepBundleId}/qc-segments/${segmentSpecId}/report-done`, { qty });
-}
-
-/** KCS duyệt lại các cỡ đoạn Phôi đã báo "Bù đủ" - remainingFailedQty=0 nghĩa là đạt hết cho cỡ
- *  đó, >0 là còn hỏng bấy nhiêu (segment quay lại chờ Phôi bù tiếp). */
-export async function recheckQc(
-  steelIssueId: string,
-  segments: { segmentSpecId: string; remainingFailedQty: number }[],
-): Promise<void> {
-  await http.post(`/steel-issues/${steelIssueId}/qc-recheck`, { segments });
-}
-
-/** Cùng recheckQc() nhưng scope theo ĐÚNG đợt cắt (2026-09-05, luồng mới). */
-export async function recheckQcForBundle(
-  cutBundleId: string,
-  segments: { segmentSpecId: string; remainingFailedQty: number }[],
-): Promise<void> {
-  await http.post(`/cut-bundles/${cutBundleId}/qc-recheck`, { segments });
-}
-
-/** Cùng recheckQc() nhưng scope theo ĐÚNG StepBundle (2026-09-07, công đoạn phụ). */
-export async function recheckQcForStepBundle(
-  stepBundleId: string,
-  segments: { segmentSpecId: string; remainingFailedQty: number }[],
-): Promise<void> {
-  await http.post(`/step-bundles/${stepBundleId}/qc-recheck`, { segments });
-}
-
-/** 1 dòng qc_reviews (nhánh Phôi, steelIssueId != null) — dùng để dựng lại "đạt bao nhiêu / lỗi bao
- *  nhiêu" cho các đợt QC_PASSED (SteelIssue tự nó KHÔNG giữ lại số liệu duyệt, khác ProductionBatch
- *  không ghi đè reportedQty). Fetch 1 lần, lọc client theo steelIssueId — danh sách chưa lớn, cùng
- *  idiom "fetch hết rồi lọc client" đã dùng ở resolveProductionOrderId(). */
+/** 1 dòng qc_reviews (nhánh Phôi - steelIssueId != null HOẶC stepBundleId != null) — dùng để
+ *  dựng lại "đạt bao nhiêu / lỗi bao nhiêu" cho các đợt QC_PASSED (2026-09-07 lần 2: StepBundle
+ *  review không còn kèm steelIssueId nữa, xem BeStepBundle). Fetch 1 lần, lọc client — danh sách
+ *  chưa lớn, cùng idiom "fetch hết rồi lọc client" đã dùng ở resolveProductionOrderId(). */
 export interface BeQcReview {
   id: string;
   steelIssueId: string | null;
@@ -455,9 +439,10 @@ export interface BeQcReview {
   cutBundleId: string | null;
   /** Đợt gửi KCS công đoạn PHỤ được chấm (2026-09-07) - null với mọi nhánh khác. */
   stepBundleId: string | null;
-  /** Tổng dẫn xuất từ segments[] (nhánh Phôi) - nhánh Hàn/Sơn là số gốc, segments luôn rỗng. */
+  /** Tổng dẫn xuất từ segments[] (nhánh Phôi) - nhánh Hàn/Sơn là số gốc, segments luôn rỗng. BẤT
+   *  BIẾN mọi nhánh - số lịch sử cộng dồn (2026-09-08 lần 2, xem changelog "Bù đủ dồn về bảng
+   *  tổng") - không còn scrapQty/resolvedQty/phoiReportedAt/phoiReportedQty ở đâu cả. */
   failedQty: number;
-  scrapQty: number | null;
   defectReasonId: string | null;
   defectReasonLabel: string | null;
   reason: string | null;
@@ -469,7 +454,7 @@ export interface BeQcReview {
 
 export async function getQcReviewsForSteelIssues(): Promise<BeQcReview[]> {
   const res = await http.get<BeQcReview[] | { data: BeQcReview[] }>('/qc-reviews?limit=100');
-  return unwrap(res).filter((r) => r.steelIssueId != null);
+  return unwrap(res).filter((r) => r.steelIssueId != null || r.stepBundleId != null);
 }
 
 // ── Kho trung tâm — cấp bù sắt phế (KCS đề xuất qua qc-review) ─────────────────

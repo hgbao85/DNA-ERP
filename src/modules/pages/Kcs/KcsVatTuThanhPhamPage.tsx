@@ -10,5 +10,5 @@ import KcsStagePage from './KcsStagePage'
 const CFG: StageCfg = { label: 'Vật tư TP', done: 'Đã cắt', verb: 'cắt', itemLabel: 'Mảnh', unit: 'cái', Icon: Wrench }
 
 export default function KcsVatTuThanhPhamPage() {
-  return <KcsStagePage cfg={CFG} stage="PHOI" enableBuDu />
+  return <KcsStagePage cfg={CFG} stage="PHOI" showPieceSteps />
 }

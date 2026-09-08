@@ -22,7 +22,6 @@ import SKUListPage from '../ProductionPlan/SKUListPage'
 import KcsPhoiPage from '../Kcs/KcsPhoiPage'
 import KcsHanPage from '../Kcs/KcsHanPage'
 import KcsSonPage from '../Kcs/KcsSonPage'
-import KcsVatTuThanhPhamPage from '../Kcs/KcsVatTuThanhPhamPage'
 
 // ── Module-level constants (không tạo lại mỗi render) ───────────────────────
 
@@ -31,7 +30,7 @@ type TabId =
   | 'han-khung-han' | 'son-manh-cho-dan' | 'han-son-xac-nhan-vat-tu'
   | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'setup'
-  | 'kcs-phoi' | 'kcs-han' | 'kcs-son' | 'kcs-vat-tu-tp'
+  | 'kcs-phoi' | 'kcs-han' | 'kcs-son'
 
 // 'catalog' của SPEC_ACCESSORY gộp chung Sơn + Phụ kiện + Bao bì (tab bên trong SpecAccessoryCatalogPage).
 type SetupSubTab = 'vat-tu' | 'dinh-muc' | 'catalog'
@@ -134,10 +133,12 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isPhoi ? [{ id: 'phoi-kho-phoi' as TabId, label: 'Kho phôi', icon: <Warehouse size={16} /> }] : []),
     ...(isHan ? [{ id: 'han-khung-han' as TabId, label: 'Khung hàn', icon: <Frame size={16} /> }] : []),
     ...(isSon ? [{ id: 'son-manh-cho-dan' as TabId, label: 'Mảnh chờ đan', icon: <Layers size={16} /> }] : []),
+    // 'kcs-vat-tu-tp' (Vật tư TP) gộp VÀO trong 'kcs-phoi' từ 2026-09-08 (KcsPhoiPage.tsx tự có
+    // tab "Cắt sắt"/"Vật tư TP" - đồng bộ với bên tkphoi đã gộp 2 mảng này từ lâu) - không còn là
+    // mục nav riêng nữa.
     ...(isKcs ? [{ id: 'kcs-phoi' as TabId, label: 'Phôi', icon: <Wrench size={16} /> }] : []),
     ...(isKcs ? [{ id: 'kcs-han' as TabId, label: 'Hàn', icon: <Flame size={16} /> }] : []),
     ...(isKcs ? [{ id: 'kcs-son' as TabId, label: 'Sơn', icon: <SprayCan size={16} /> }] : []),
-    ...(isKcs ? [{ id: 'kcs-vat-tu-tp' as TabId, label: 'Vật tư TP', icon: <Wrench size={16} /> }] : []),
     ...(isProdMgr ? [{ id: 'sku-list' as TabId, label: 'Danh sách SKU', icon: <Package size={16} /> }] : []),
     ...(canSeeWarehouses ? [{ id: 'materials' as TabId, label: 'Tổng hợp vật tư', icon: <Boxes size={16} /> }] : []),
     ...(canSeeWarehouses ? [{ id: 'warehouses' as TabId, label: 'Tổng hợp kho', icon: <Warehouse size={16} /> }] : []),
@@ -251,7 +252,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'kcs-phoi' && isKcs && <KcsPhoiPage />}
         {tab === 'kcs-han' && isKcs && <KcsHanPage />}
         {tab === 'kcs-son' && isKcs && <KcsSonPage />}
-        {tab === 'kcs-vat-tu-tp' && isKcs && <KcsVatTuThanhPhamPage />}
         {tab === 'weaving-points' && canManageBom && <WeavingPointsPage readOnly />}
         {tab === 'sku-list' && isProdMgr && <SKUListPage readOnly />}
         {tab === 'materials' && canSeeWarehouses && <MfgAllMaterialsPage />}

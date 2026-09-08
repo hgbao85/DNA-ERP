@@ -31,6 +31,10 @@ export interface BeProductionBatch {
   poNumber: string;
   /** Mã đơn hàng Sales gốc - đây mới là mã "PO" hiển thị cho người dùng. */
   salesOrderCode: string | null;
+  /** Mã PI (ProductionInvoice.code) - dự phòng hiển thị "PO/PI" khi salesOrderCode null (PI gộp
+   *  không gắn 1 đơn Sales cụ thể, cùng idiom SteelIssue.piCode ở steel-issues-api.ts). Null nếu
+   *  SKU chưa được KHSX gom vào PI nào. */
+  piCode: string | null;
   stage: ProductionBatchStage;
   pieceId: string;
   pieceCode: string;
@@ -67,28 +71,24 @@ export async function getProductionBatchesForOrder(
 
 export async function reviewProductionBatch(
   batchId: string,
-  data: { failedQty: number; scrapQty?: number; reason?: string; defectReasonId?: string; photoUrl?: string },
+  data: { failedQty: number; reason?: string; defectReasonId?: string; photoUrl?: string },
 ): Promise<void> {
   await http.post(`/production-batches/${batchId}/qc-review`, data);
 }
 
-/** 1 dòng qc_reviews nhánh Hàn/Sơn/VTTP (productionBatchId != null) - "Bù đủ" Ở CẤP REVIEW
- *  (2026-09-07, xem QcReview.resolvedQty doc comment BE) vì nhánh này không có "cỡ đoạn" để bóc như
- *  Phôi/Sắt. outstanding = failedQty - (scrapQty ?? 0) - resolvedQty. */
+/** 1 dòng qc_reviews nhánh Hàn/Sơn/VTTP (productionBatchId != null). failedQty BẤT BIẾN - số lịch
+ *  sử cộng dồn (2026-09-08 lần 2, xem changelog "Bù đủ dồn về bảng tổng") - bỏ hẳn phân loại "Sửa
+ *  được/Phế" (scrapQty) + cơ chế report-done/recheck (resolvedQty/phoiReportedAt/phoiReportedQty). */
 export interface BeProductionBatchQcReview {
   id: string;
   productionBatchId: string | null;
   failedQty: number;
-  scrapQty: number | null;
   defectReasonId: string | null;
   defectReasonLabel: string | null;
   reason: string | null;
   photoUrl: string | null;
   reviewedAt: string;
   reviewedById: string;
-  resolvedQty: number;
-  phoiReportedAt: string | null;
-  phoiReportedQty: number | null;
 }
 
 /** Fetch hết rồi lọc client theo productionBatchId != null - cùng idiom getQcReviewsForSteelIssues()
@@ -99,19 +99,6 @@ export async function getQcReviewsForProductionBatches(): Promise<BeProductionBa
   );
   const list = Array.isArray(res) ? res : res.data;
   return list.filter((r) => r.productionBatchId != null);
-}
-
-/** Phôi tự báo đã bù đủ cho 1 lô (Hàn/Sơn/VTTP) không đạt - CHỜ KCS recheckProductionBatchQc() mới
- *  tính là đạt. `qty` là số lượng TỰ KHAI đã sửa xong (1..outstanding) - THAM KHẢO cho KCS. */
-export async function reportProductionBatchDone(batchId: string, qty: number): Promise<void> {
-  await http.post(`/production-batches/${batchId}/qc-report-done`, { qty });
-}
-
-/** KCS duyệt lại lô đã báo "Bù đủ" - remainingFailedQty=0 nghĩa là đạt hết, >0 là còn hỏng bấy
- *  nhiêu (mở lại lượt báo mới). Khi đạt (toàn phần hoặc 1 phần), BE cộng thẳng phần vừa xác nhận
- *  vào ProductionBatch.reportedQty (dù batch đã QC_DONE) - xem RecheckProductionBatchDto doc BE. */
-export async function recheckProductionBatchQc(batchId: string, remainingFailedQty: number): Promise<void> {
-  await http.post(`/production-batches/${batchId}/qc-recheck`, { remainingFailedQty });
 }
 
 // ── Báo sản lượng (LenhSanXuatHan/LenhSanXuatSon) ──────────────────────────────
@@ -183,6 +170,11 @@ export interface BePieceStepProgress {
   /** Σ PieceStepBundle.qty đã KCS duyệt (status=QC_PASSED) - dùng hiện cảnh báo (không chặn) khi
    *  bước sau vượt bước liền trước, từ khi BE bỏ ràng buộc thứ tự cứng. */
   passedQty: number;
+  /** Σ QcReview.failedQty CỘNG DỒN LỊCH SỬ của đúng bước này (2026-09-07 lần 2, xem changelog
+   *  "Bù đủ dồn về bảng tổng") - KHÔNG tự giảm (bỏ hẳn report-done/recheck theo công đoạn). FE
+   *  hiện nút "Bù đủ" khi remaining > 0 && failedQty > 0, chỉ gợi ý sẵn số lượng vào ô nhập - Phôi
+   *  làm thêm rồi gửi KCS như đợt mới. */
+  failedQty: number;
 }
 
 // ── QC theo TỪNG CÔNG ĐOẠN (PieceStepBundle, 2026-09-07) ───────────────────────
@@ -196,6 +188,9 @@ export interface BePieceStepBundle {
   productionOrderId: string;
   poNumber: string;
   salesOrderCode: string | null;
+  /** Mã PI (ProductionInvoice.code) - dự phòng hiển thị "PO/PI" khi salesOrderCode null, khớp
+   *  shape BeProductionBatch. */
+  piCode: string | null;
   pieceId: string;
   pieceCode: string;
   pieceName: string;
@@ -232,30 +227,9 @@ export async function getPieceStepBundles(status?: 'AWAITING_QC' | 'QC_PASSED'):
 
 export async function reviewPieceStepQc(
   pieceStepBundleId: string,
-  data: { failedQty: number; scrapQty?: number; reason?: string; defectReasonId?: string; photoUrl?: string },
+  data: { failedQty: number; reason?: string; defectReasonId?: string; photoUrl?: string },
 ): Promise<void> {
   await http.post(`/piece-step-bundles/${pieceStepBundleId}/qc-review`, data);
-}
-
-export async function reportPieceStepDone(pieceStepBundleId: string, qty: number): Promise<void> {
-  await http.post(`/piece-step-bundles/${pieceStepBundleId}/qc-report-done`, { qty });
-}
-
-export async function recheckPieceStepQc(pieceStepBundleId: string, remainingFailedQty: number): Promise<void> {
-  await http.post(`/piece-step-bundles/${pieceStepBundleId}/qc-recheck`, { remainingFailedQty });
-}
-
-/** Cùng idiom getQcReviewsForProductionBatches() - fetch hết rồi lọc client theo
- *  pieceStepBundleId != null, danh sách chưa lớn. */
-export async function getQcReviewsForPieceStepBundles(): Promise<
-  (BeProductionBatchQcReview & { pieceStepBundleId: string | null })[]
-> {
-  const res = await http.get<
-    | (BeProductionBatchQcReview & { pieceStepBundleId: string | null })[]
-    | { data: (BeProductionBatchQcReview & { pieceStepBundleId: string | null })[] }
-  >('/qc-reviews?limit=100');
-  const list = Array.isArray(res) ? res : res.data;
-  return list.filter((r) => r.pieceStepBundleId != null);
 }
 
 export interface BeProductionBatchPlanItem {

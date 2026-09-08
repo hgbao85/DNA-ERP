@@ -131,17 +131,16 @@ export {
   listProductionOrdersForStage, getProductionBatchPlan, getProductionBatchPlanBatch, reportProductionBatch,
   recordPieceStepBatch,
   startProductionOrderFloor, pauseProductionOrderFloor, finishProductionOrderFloor,
-  getQcReviewsForProductionBatches, reportProductionBatchDone, recheckProductionBatchQc,
+  getQcReviewsForProductionBatches,
   submitPieceStep, getPieceStepBundlesForOrder, getPieceStepBundles,
-  reviewPieceStepQc, reportPieceStepDone, recheckPieceStepQc, getQcReviewsForPieceStepBundles,
+  reviewPieceStepQc,
 } from './production-batches-api';
 export {
   getSteelIssuePlan, getSteelIssuesForInvoice, getSteelIssuesForInvoiceBatch, issueSteel,
   getSteelIssuesByStatus, getSteelIssue, getCutBundles, receiveSteelIssue,
   recordCutBatch, getPhoiProgress, getStepProgress, recordStepBatch, getPiOrderSummary,
-  reviewSteelIssueQc, reportSegmentDone, recheckQc, getQcReviewsForSteelIssues,
+  reviewSteelIssueQc, getQcReviewsForSteelIssues,
   getReplenishRequests, fulfillReplenishRequest, rejectReplenishRequest,
-  getAllCutBundles, finishCutBundle, reviewCutBundleQc,
-  reportSegmentDoneForBundle, recheckQcForBundle, undoLastCutBatch,
-  submitStepBundle, reviewStepBundleQc, reportSegmentDoneForStepBundle, recheckQcForStepBundle,
+  getAllCutBundles, finishCutBundle, reviewCutBundleQc, undoLastCutBatch,
+  submitStepBundle, reviewStepBundleQc, getStepBundlesForInvoice, getAllStepBundles,
 } from './steel-issues-api';
