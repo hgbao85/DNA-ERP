@@ -12,14 +12,16 @@
  *   trải nghiệm cũ ở TwoTierScreen/VatTuDetailBoard).
  * - CÓ khai: dải tab theo từng bước (Cắt/Uốn/...) + panel "Cần/Đã.../Còn lại" (mirror
  *   StepBatchPanel bên Sắt ở LenhSanXuatPhoi.tsx, nhưng 1 dòng vì không có "cỡ đoạn" để bóc -
- *   PieceMaterialYield chỉ ứng đúng 1 material/piece), cộng 1 tab "Chốt & gửi KCS" cuối cùng để
- *   tạo ProductionBatch thật (nguồn KCS duyệt + chuyển kho). KHÔNG chặn chốt khi chưa báo đủ bước
- *   (quyết định nghiệp vụ 2026-09-04, cùng triết lý "không chặn oan công nhân, KCS mới là bước
- *   kiểm soát" đã lặp lại nhiều lần ở BE) - chỉ CẢNH BÁO.
+ *   PieceMaterialYield chỉ ứng đúng 1 material/piece). 2026-09-08: BỎ HẲN tab "Chốt & gửi KCS"
+ *   (ProductionBatch) riêng cho nhóm này - công đoạn CUỐI xong + KCS duyệt là tự tính xong luôn
+ *   (ProductionBatchesService.autoFinalizePieceOutputIfLastStepComplete() ở BE, trong CÙNG
+ *   transaction duyệt bước cuối) - không còn re-nhập số lần 2 hay duyệt KCS lần 2 nữa. `passedQty`/
+ *   `awaitingQcQty` của item vẫn đọc đúng từ ProductionBatch như trước, chỉ khác là BE tự sinh thay
+ *   vì người dùng bấm "Chốt".
  */
 
 import { useState } from 'react'
-import { ChevronLeft, Check, Clock, Plus, Send } from 'lucide-react'
+import { ChevronLeft, Check, Plus, Send } from 'lucide-react'
 import * as api from '../../../services/api'
 import { useFetch } from '../../../hooks/useFetch'
 import type { ProcessStep } from '../../../types/sku'
@@ -61,11 +63,7 @@ export default function VatTuTpDetail({ item, readOnly, onBack, onRefetch }: {
       ?? { step, requiredQty: item.plannedQty, doneQty: 0, submittedQty: 0, passedQty: 0, failedQty: 0 }
     return { key: step as string, label: PROCESS_STEP_LABELS[step], done: p.doneQty >= p.requiredQty, progress: p }
   })
-  const chotDone = item.passedQty + item.awaitingQcQty >= item.plannedQty
-  const tabItems = [
-    ...stepItems,
-    { key: 'chot', label: 'Chốt & gửi KCS', done: chotDone },
-  ]
+  const tabItems = stepItems
 
   return (
     <div>
@@ -85,17 +83,24 @@ export default function VatTuTpDetail({ item, readOnly, onBack, onRefetch }: {
       </div>
 
       {item.processSteps.length > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
-          {tabItems.map(it => (
-            <button key={it.key} onClick={() => setSubFilter(it.key)} style={subFilterBtn(subFilter === it.key)}>
-              {it.done && <Check size={12} style={{ marginRight: 4, verticalAlign: -1 }} />}
-              {it.label}
-            </button>
-          ))}
-        </div>
+        <>
+          {item.passedQty >= item.plannedQty && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 700, color: GREEN, marginBottom: 10 }}>
+              <Check size={14} /> Đã hoàn thành {item.passedQty}/{item.plannedQty} mảnh (công đoạn cuối đã qua KCS)
+            </div>
+          )}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+            {tabItems.map(it => (
+              <button key={it.key} onClick={() => setSubFilter(it.key)} style={subFilterBtn(subFilter === it.key)}>
+                {it.done && <Check size={12} style={{ marginRight: 4, verticalAlign: -1 }} />}
+                {it.label}
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
-      {subFilter === 'chot' || item.processSteps.length === 0 ? (
+      {item.processSteps.length === 0 ? (
         <ChotPanel item={item} readOnly={readOnly} onRefetch={onRefetch} />
       ) : (
         <StepPanel
@@ -220,87 +225,130 @@ function StepPanel({ item, step, progress, readOnly, onRefetch }: {
   )
 }
 
-// ── Panel "Chốt & gửi KCS" - tạo ProductionBatch thật (nguồn để KCS duyệt + chuyển kho). Cảnh báo
-// (KHÔNG chặn) nếu còn công đoạn chưa báo đủ - quyết định nghiệp vụ 2026-09-04 (nhất quán triết lý
-// "không cap theo BOM lúc báo, KCS mới là bước kiểm soát" đã áp dụng xuyên suốt module BE).
+// ── Panel "Chốt & gửi KCS" - CHỈ còn dùng cho mảnh KHÔNG khai processSteps (rỗng) - mảnh CÓ khai
+// đã bỏ hẳn panel này 2026-09-08 (tự chốt khi công đoạn cuối qua KCS, xem
+// ProductionBatchesService.autoFinalizePieceOutputIfLastStepComplete()) nên item.processSteps ở
+// đây LUÔN rỗng, không còn cảnh báo "chưa báo đủ công đoạn" nữa.
+//
+// 2026-09-08 (theo yêu cầu người dùng "giống Phôi luôn"): đổi từ 1 nút "Ghi nhận" (lưu + gửi KCS
+// cùng lúc) sang 2 bước tách biệt như NewCutBundleForm/StepPanel bên Sắt - "Lưu đợt" tích luỹ vào 1
+// ProductionBatch đang OPEN (recordProductionBatch(), CHƯA gửi KCS), "Gửi KCS" mới đóng batch
+// (finishProductionBatch()). Bảng cũng đổi sang layout cột giống hệt StepPanel cho dễ nhìn/nhất
+// quán UI (yêu cầu người dùng, có ảnh chụp màn StepPanel làm mẫu).
 //
 // "Bù đủ" (2026-09-08 lần 2, xem changelog "Bù đủ dồn về bảng tổng") - đồng bộ với mọi nơi khác:
 // KHÔNG còn cơ chế report-done/recheck riêng (BuDuPanel cũ đã xoá) - "Lỗi" (Σ QcReview.failedQty
 // của mọi ProductionBatch thuộc đúng mảnh này) giờ CỘNG DỒN LỊCH SỬ, nút "Bù đủ" chỉ pre-fill ô
-// nhập số lượng (client-side, không gọi API) - Phôi làm thêm rồi "Ghi nhận" như bình thường, lô mới
-// tự gửi KCS qua đúng luồng "Chốt & gửi KCS". ─────────────────────────────────────────────────────
+// nhập số lượng (client-side, không gọi API) - Phôi làm thêm rồi "Lưu đợt"/"Gửi KCS" bình thường.
 function ChotPanel({ item, readOnly, onRefetch }: {
   item: VatTuTpItem; readOnly: boolean; onRefetch: () => void
 }) {
-  const { data: batches } = useFetch(
+  const { data: batches, refetch: refetchBatches } = useFetch(
     () => api.getProductionBatchesForOrder(item.orderId, 'PHOI'), [item.orderId],
   )
   const { data: reviews } = useFetch(() => api.getQcReviewsForProductionBatches(), [])
   const [qty, setQty] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const [sendBusy, setSendBusy] = useState(false)
+  const [sendErr, setSendErr] = useState('')
 
-  const remaining = Math.max(item.plannedQty - item.passedQty - item.awaitingQcQty, 0)
-  const undoneSteps = item.processSteps.filter(step => {
-    const p = item.stepProgress.find(sp => sp.step === step)
-    return !p || p.doneQty < p.requiredQty
-  })
-  const pieceBatchIds = new Set((batches ?? []).filter(b => b.pieceId === item.pieceId).map(b => b.id))
+  const pieceBatches = (batches ?? []).filter(b => b.pieceId === item.pieceId)
+  const openBatch = pieceBatches.find(b => b.status === 'OPEN')
+  const openQty = openBatch?.reportedQty ?? 0
+  const pieceBatchIds = new Set(pieceBatches.map(b => b.id))
   const failed = (reviews ?? [])
     .filter(r => r.productionBatchId && pieceBatchIds.has(r.productionBatchId))
     .reduce((s, r) => s + r.failedQty, 0)
+
+  const required = item.plannedQty
+  const done = openQty + item.awaitingQcQty + item.passedQty
+  const remaining = Math.max(required - done + failed, 0)
+
+  const refetchAll = () => { refetchBatches(); onRefetch() }
 
   const submit = async () => {
     const q = Math.floor(Number(qty) || 0)
     if (q <= 0) { setErr('Nhập số mảnh đã hoàn thiện'); return }
     setBusy(true); setErr('')
     try {
-      await api.reportProductionBatch(item.orderId, { stage: 'PHOI', pieceId: item.pieceId, reportedQty: q })
-      setQty(''); onRefetch()
-    } catch (e) { setErr(errMsg(e, 'Không ghi nhận được sản lượng')) }
+      await api.recordProductionBatch(item.orderId, { pieceId: item.pieceId, qty: q })
+      setQty(''); refetchAll()
+    } catch (e) { setErr(errMsg(e, 'Không lưu được đợt - kiểm lại số liệu')) }
     finally { setBusy(false) }
+  }
+
+  const sendToKcs = async () => {
+    if (!openBatch) return
+    setSendBusy(true); setSendErr('')
+    try {
+      await api.finishProductionBatch(openBatch.id)
+      refetchAll()
+    } catch (e) { setSendErr(errMsg(e, 'Không gửi được')) }
+    finally { setSendBusy(false) }
   }
 
   return (
     <div>
-      <div style={{ ...card, padding: '12px 16px', marginBottom: 12 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 13 }}>
-          <div><span style={{ color: 'var(--text3)' }}>Cần</span> <b>{item.plannedQty}</b> mảnh</div>
-          <div><span style={{ color: 'var(--text3)' }}>Chờ KCS</span> <b style={{ color: AMBER }}>{item.awaitingQcQty}</b></div>
-          <div><span style={{ color: 'var(--text3)' }}>Đã chốt</span> <b style={{ color: GREEN }}>{item.passedQty}</b></div>
-          <div><span style={{ color: 'var(--text3)' }}>Lỗi</span> <b style={{ color: failed > 0 ? RED : 'var(--text3)' }}>{failed > 0 ? failed : '—'}</b></div>
-          <div><span style={{ color: 'var(--text3)' }}>Còn lại</span> <b style={{ color: remaining > 0 ? ACCENT : GREEN }}>{remaining}</b></div>
-        </div>
-        {undoneSteps.length > 0 && (
-          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', fontSize: 12, color: AMBER }}>
-            <Clock size={13} />
-            <span>Chưa báo đủ: {undoneSteps.map(s => PROCESS_STEP_LABELS[s]).join(', ')} - vẫn chốt được, chỉ là cảnh báo tham khảo.</span>
-          </div>
-        )}
+      <div style={{ ...card, marginBottom: 12 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: 'var(--surface)' }}>
+              <th style={th}>Mảnh</th>
+              <th style={thR}>Cần</th>
+              <th style={thR}>Đã báo</th>
+              <th style={thR}>Lỗi</th>
+              <th style={thR}>Còn lại</th>
+              {!readOnly && <th style={{ ...thR, width: 140 }}>Nhập đợt này</th>}
+            </tr>
+          </thead>
+          <tbody>
+            <tr style={{ borderTop: '1px solid var(--border)' }}>
+              <td style={td}>{item.pieceName}</td>
+              <td style={tdR}>{required}</td>
+              <td style={tdR}>{done}</td>
+              <td style={{ ...tdR, color: failed > 0 ? RED : 'var(--text3)' }}>{failed > 0 ? failed : '—'}</td>
+              <td style={{ ...tdR, color: remaining > 0 ? ACCENT : GREEN, fontWeight: 700 }}>{remaining}</td>
+              {!readOnly && (
+                <td style={{ ...td, textAlign: 'right' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <input type="number" min={0} placeholder="0" value={qty} onChange={e => setQty(e.target.value)} style={inp} />
+                    {failed > 0 && remaining > 0 && (
+                      <button
+                        onClick={() => setQty(String(Math.min(failed, remaining)))}
+                        style={{ ...smallBtn, padding: '4px 8px', fontSize: 11, background: ACCENT, cursor: 'pointer' }}>
+                        Bù đủ
+                      </button>
+                    )}
+                  </div>
+                </td>
+              )}
+            </tr>
+          </tbody>
+        </table>
       </div>
-
-      {!readOnly && remaining > 0 && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-          <input type="number" min={1} max={remaining} placeholder="0" value={qty} onChange={e => setQty(e.target.value)} style={{ ...inp, width: 84 }} />
-          {failed > 0 && (
-            <button
-              onClick={() => setQty(String(Math.min(failed, remaining)))}
-              style={{ ...smallBtn, padding: '5px 10px', fontSize: 12, background: ACCENT, cursor: 'pointer' }}>
-              Bù đủ
-            </button>
-          )}
-          <button onClick={submit} disabled={busy}
-            style={{ ...smallBtn, background: ACCENT, display: 'inline-flex', alignItems: 'center', gap: 5, cursor: busy ? 'not-allowed' : 'pointer' }}>
-            <Plus size={13} /> {busy ? '...' : 'Ghi nhận'}
-          </button>
-        </div>
-      )}
-      {!readOnly && remaining === 0 && (
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 700, color: GREEN }}>
-          <Check size={14} /> Đã báo đủ số lượng cần
-        </div>
+      {!readOnly && (
+        <button onClick={submit} disabled={busy}
+          style={{ ...smallBtn, background: ACCENT, display: 'inline-flex', alignItems: 'center', gap: 5, cursor: busy ? 'not-allowed' : 'pointer' }}>
+          <Plus size={13} /> {busy ? '...' : 'Lưu đợt'}
+        </button>
       )}
       {err && <div style={{ marginTop: 8, fontSize: 12, color: RED }}>{err}</div>}
+
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px dashed var(--border)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 13, marginBottom: 10 }}>
+          <div><span style={{ color: 'var(--text3)' }}>Chưa gửi KCS</span> <b style={{ color: openQty > 0 ? ACCENT : 'var(--text3)' }}>{openQty}</b></div>
+          <div><span style={{ color: 'var(--text3)' }}>Chờ KCS duyệt</span> <b style={{ color: AMBER }}>{item.awaitingQcQty}</b></div>
+          <div><span style={{ color: 'var(--text3)' }}>Đã chốt</span> <b style={{ color: GREEN }}>{item.passedQty}</b></div>
+        </div>
+        {!readOnly && openQty > 0 && (
+          <button onClick={sendToKcs} disabled={sendBusy}
+            style={{ ...smallBtn, background: ACCENT, display: 'inline-flex', alignItems: 'center', gap: 5, cursor: sendBusy ? 'not-allowed' : 'pointer' }}>
+            <Send size={13} /> {sendBusy ? '...' : `Gửi KCS ${openQty} mảnh`}
+          </button>
+        )}
+        {sendErr && <div style={{ marginTop: 8, fontSize: 12, color: RED }}>{sendErr}</div>}
+      </div>
     </div>
   )
 }

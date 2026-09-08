@@ -47,7 +47,7 @@
 
 import { useMemo, useState } from 'react'
 import {
-  ChevronLeft, ChevronRight, ChevronDown, Wrench, Clock, Check, AlertTriangle, RotateCcw, Plus, Ruler, X, Grid, Send,
+  ChevronLeft, ChevronRight, ChevronDown, Wrench, Clock, Check, AlertTriangle, RotateCcw, Plus, Ruler, X, Send,
 } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
@@ -57,7 +57,7 @@ import type {
 } from '../../../services/steel-issues-api'
 import type { BeProductionOrderSummary, BeProductionBatchPlan } from '../../../services/production-batches-api'
 import type { ProcessStep } from '../../../types/sku'
-import { PROCESS_STEPS, PROCESS_STEP_LABELS } from '../../../constants/processSteps'
+import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 import VatTuTpDetail, { type VatTuTpItem } from './VatTuTpDetail'
@@ -337,11 +337,7 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
   // PI CHỈ có VTTP thì mở thẳng tab đó, không bắt xem "Chưa có đợt sắt nào" trước) - CỐ Ý không mặc
   // định "Tất cả" dù thêm lựa chọn đó (dưới), để giữ đúng lợi ích tách tab (đỡ cuộn dài); "Tất cả"
   // chỉ là lối tắt khi cần xem gộp cả 2, không phải hành vi mở màn mặc định.
-  const [tab, setTab] = useState<'all' | 'sat' | 'vttp' | 'matrix'>(() => materialGroups.length > 0 ? 'sat' : 'vttp')
-  // Chỉ hiện tab "Ma trận" khi có ÍT NHẤT 1 mảnh VTTP đã khai processSteps (2026-09-07, đề xuất UX
-  // "màn ma trận mảnh × công đoạn") - mảnh chưa khai công đoạn không có cột nào để hiện, thêm tab
-  // rỗng chỉ gây rối.
-  const matrixItems = useMemo(() => pi.vatTuTpItems.filter(v => v.processSteps.length > 0), [pi.vatTuTpItems])
+  const [tab, setTab] = useState<'all' | 'sat' | 'vttp'>(() => materialGroups.length > 0 ? 'sat' : 'vttp')
 
   const selGroup = selIssueId ? materialGroups.find(g => g.key === selIssueId) ?? null : null
   if (selGroup) {
@@ -414,11 +410,6 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
         <button onClick={() => setTab('vttp')} style={subFilterBtn(tab === 'vttp')}>
           <Wrench size={12} style={{ marginRight: 5 }} /> Vật tư TP ({pi.vatTuTpItems.length})
         </button>
-        {matrixItems.length > 0 && (
-          <button onClick={() => setTab('matrix')} style={subFilterBtn(tab === 'matrix')}>
-            <Grid size={12} style={{ marginRight: 5 }} /> Ma trận
-          </button>
-        )}
       </div>
 
       {(tab === 'sat' || tab === 'all') && (
@@ -525,7 +516,7 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 260 }}>
                         {undoneSteps.length === 0 ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ chốt</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ KCS duyệt bước cuối</span>
                         ) : undoneSteps.map(step => (
                           <span key={step} style={{ fontSize: 11, fontWeight: 700, color: PURPLE, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: '2px 8px', whiteSpace: 'nowrap' }}>
                             {PROCESS_STEP_LABELS[step]}
@@ -540,76 +531,6 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
           </div>
       )}
 
-      {tab === 'matrix' && (
-        <PieceStepMatrix items={matrixItems} onSelectPiece={key => setSelVatTuTpKey(key)} />
-      )}
-    </div>
-  )
-}
-
-// ── Ma trận mảnh × công đoạn (2026-09-07, đề xuất UX sau khi bỏ ràng buộc thứ tự) - nhìn 1 phát
-// thấy công đoạn nào tụt lại + phát hiện bất thường kiểu "Tán 10/10 nhưng Cắt mới 3/10" (chính là
-// cơ chế thay cho ràng buộc thứ tự đã bỏ, xem PieceStepBundle doc comment BE) - KHÔNG chặn gì,
-// thuần hiển thị để QLSX/KCS tự đối chiếu, đúng tinh thần "xảy ra vấn đề mình xử lý" của Sếp. ───
-function PieceStepMatrix({ items, onSelectPiece }: {
-  items: VatTuTpItem[]; onSelectPiece: (key: string) => void
-}) {
-  // Cột = union processSteps của MỌI mảnh trong bảng, theo ĐÚNG thứ tự nghiệp vụ PROCESS_STEPS -
-  // các mảnh có thể khai tập công đoạn khác nhau (vd mảnh A chỉ Cắt+Tán, mảnh B Cắt+Uốn+Dập).
-  const columns = PROCESS_STEPS.filter(s => items.some(v => v.processSteps.includes(s)))
-
-  return (
-    <div style={{ ...card, overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 480 }}>
-        <thead>
-          <tr style={{ background: 'var(--surface)' }}>
-            <th style={th}>Mảnh</th>
-            {columns.map(c => <th key={c} style={{ ...thR, minWidth: 84 }}>{PROCESS_STEP_LABELS[c]}</th>)}
-          </tr>
-        </thead>
-        <tbody>
-          {items.map(v => {
-            const key = `${v.orderId}:${v.pieceId}`
-            return (
-              <tr key={key} onClick={() => onSelectPiece(key)}
-                style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                <td style={td}>
-                  <div style={{ fontWeight: 600 }}>{v.pieceName}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>{v.poNumber}</div>
-                </td>
-                {columns.map((c, ci) => {
-                  if (!v.processSteps.includes(c)) {
-                    return <td key={c} style={{ ...tdR, color: 'var(--border)' }}>—</td>
-                  }
-                  const sp = v.stepProgress.find(x => x.step === c)
-                  const required = sp?.requiredQty ?? v.plannedQty
-                  const passed = sp?.passedQty ?? 0
-                  const done = sp?.doneQty ?? 0
-                  // Cảnh báo (KHÔNG chặn) - bước này đã BÁO (doneQty) vượt số bước LIỀN TRƯỚC đã
-                  // được KCS DUYỆT (passedQty) - dấu hiệu công đoạn chạy trước công đoạn nó "cần"
-                  // theo processSteps, dù hệ thống không còn ép thứ tự.
-                  const prevStep = ci > 0 ? columns[ci - 1] : null
-                  const hasPrev = prevStep != null && v.processSteps.includes(prevStep)
-                  const prevPassed = hasPrev ? v.stepProgress.find(x => x.step === prevStep)?.passedQty ?? 0 : 0
-                  const warn = hasPrev && done > prevPassed
-                  const color = passed >= required && required > 0 ? GREEN : passed > 0 ? AMBER : 'var(--text3)'
-                  return (
-                    <td key={c} style={{ ...tdR, color, fontWeight: 700 }}>
-                      <span title={warn ? `Đã báo ${done} nhưng công đoạn trước mới duyệt ${prevPassed} - đối chiếu lại` : undefined}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                        {warn && <AlertTriangle size={12} color={RED} />}
-                        {passed}/{required}
-                      </span>
-                    </td>
-                  )
-                })}
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
     </div>
   )
 }

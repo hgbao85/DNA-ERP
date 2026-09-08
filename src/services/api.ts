@@ -129,6 +129,7 @@ export { getPackagingIssuePlan, issuePackaging } from './packaging-issues-api';
 export {
   getProductionBatchesByStage, getProductionBatchesForOrder, reviewProductionBatch,
   listProductionOrdersForStage, getProductionBatchPlan, getProductionBatchPlanBatch, reportProductionBatch,
+  recordProductionBatch, finishProductionBatch,
   recordPieceStepBatch,
   startProductionOrderFloor, pauseProductionOrderFloor, finishProductionOrderFloor,
   getQcReviewsForProductionBatches,

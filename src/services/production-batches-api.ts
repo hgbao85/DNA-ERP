@@ -40,7 +40,9 @@ export interface BeProductionBatch {
   pieceCode: string;
   pieceName: string;
   reportedQty: number;
-  status: 'AWAITING_QC' | 'QC_DONE';
+  /** OPEN (2026-09-08) - CHỈ stage PHOI, mảnh không khai processSteps (ChotPanel "Lưu đợt", chưa
+   *  gửi KCS) - xem ProductionBatchesService.recordProductionBatch(). */
+  status: 'OPEN' | 'AWAITING_QC' | 'QC_DONE';
   reportedAt: string;
   reportedById: string;
   reworkOfId: string | null;
@@ -294,6 +296,21 @@ export async function reportProductionBatch(
     data,
     withIdempotencyKey(),
   );
+}
+
+/** "Lưu đợt" ChotPanel (VTTP, CHỈ mảnh không khai processSteps, 2026-09-08) - tích luỹ vào 1
+ *  ProductionBatch đang OPEN, mirror recordCutBatch() bên Sắt. KHÔNG dùng cho Hàn/Sơn (dùng
+ *  reportProductionBatch() ở trên như cũ). */
+export async function recordProductionBatch(
+  productionOrderId: string,
+  data: { pieceId: string; qty: number },
+): Promise<void> {
+  await http.post(`/production-orders/${productionOrderId}/production-batches/record`, data)
+}
+
+/** "Gửi KCS" ChotPanel - đóng ProductionBatch đang OPEN, chuyển AWAITING_QC (mirror finishCutBundle()). */
+export async function finishProductionBatch(productionBatchId: string): Promise<void> {
+  await http.post(`/production-batches/${productionBatchId}/finish`, {})
 }
 
 /** Phôi báo "vừa {step} xong N mảnh" cho vật tư thành phẩm có PieceMaterialYield.processSteps -
