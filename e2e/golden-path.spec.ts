@@ -160,7 +160,7 @@ test.describe('Golden path', () => {
 
       await page.getByRole('button', { name: 'Chọn kho sản xuất' }).click();
       await expect(page.getByText('Chọn kho thành phẩm')).toBeVisible();
-      await page.getByPlaceholder('Chọn kho thành phẩm...').click();
+      await page.getByPlaceholder('Chọn kho thành phẩm cho SKU này...').click();
       await page.locator('div').filter({ hasText: /^Kho/ }).getByRole('button').first().click();
 
       await page.getByRole('button', { name: 'Gửi sếp duyệt' }).click();

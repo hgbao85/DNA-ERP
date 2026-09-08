@@ -43,7 +43,10 @@ export default function LenhSXPage() {
   const [rejectReason, setRejectReason] = useState('')
   const [rejecting, setRejecting] = useState(false)
   const [qlsxTarget, setQlsxTarget] = useState<any | null>(null)
-  const [qlsxWarehouseCode, setQlsxWarehouseCode] = useState<string | null>(null)
+  // Kho thành phẩm chọn RIÊNG cho từng SKU (itemId -> warehouseCode) - PI nhiều SKU có thể cần giao
+  // về nhiều kho khác nhau, không còn ép dùng chung 1 kho cho cả PI (trước đây gộp chung vì tưởng
+  // luôn cùng đích đến, nhưng thực tế người dùng cần tách).
+  const [qlsxWarehouseByItemId, setQlsxWarehouseByItemId] = useState<Record<string, string>>({})
   const [sendingToBoss, setSendingToBoss] = useState(false)
   const [editingPI, setEditingPI] = useState<any | null>(null)
   const [editValues, setEditValues] = useState<{ deadline: string; items: { materialDeadline: string; deliveryDeadline: string; FRAME: string; WEAVING: string; PACKAGING: string }[] }>({ deadline: '', items: [] })
@@ -142,21 +145,34 @@ export default function LenhSXPage() {
   }
 
   // QLSX chọn kho thành phẩm làm điểm cuối rồi gửi sếp duyệt lần cuối - LUÔN cả PI (mọi SKU đang
-  // chờ QLSX của PI này), không còn chọn gửi lẻ từng SKU (2026-08-24).
+  // chờ QLSX của PI này) trong 1 lượt thao tác, nhưng mỗi SKU có thể đi về 1 kho khác nhau. Gom các
+  // SKU cùng kho lại rồi gọi sendPiToBoss() theo từng nhóm (route batch vốn đã nhận itemIds để gửi
+  // 1 phần phiếu - tận dụng lại thay vì phải thêm route mới), thay vì luôn 1 lần cho cả phiếu.
   const handleQlsxSendToBoss = async () => {
-    if (!qlsxTarget || qlsxWarehouseCode === null) return
-    const wh = finishedGoodsWarehouses.find((w: any) => w.code === qlsxWarehouseCode)
-    if (!wh) return
+    if (!qlsxTarget) return
+    const items: any[] = (qlsxTarget.items ?? []).filter((it: any) => it.prodApproval?.status === 'WAITING_QLSX')
+    if (items.length === 0) return
+    const groups = new Map<string, string[]>()
+    for (const it of items) {
+      const code = qlsxWarehouseByItemId[String(it.id)]
+      if (!code) return // chưa chọn đủ kho cho mọi SKU - nút Gửi cũng đang bị disable ở trường hợp này
+      if (!groups.has(code)) groups.set(code, [])
+      groups.get(code)!.push(String(it.id))
+    }
     setSendingToBoss(true)
     try {
-      await api.sendPiToBoss(qlsxTarget.id, { code: wh.code, name: wh.name })
-      refetch()
+      for (const [code, itemIds] of groups) {
+        const wh = finishedGoodsWarehouses.find((w: any) => w.code === code)
+        if (!wh) continue
+        await api.sendPiToBoss(qlsxTarget.id, { code: wh.code, name: wh.name }, itemIds)
+      }
       setQlsxTarget(null)
-      setQlsxWarehouseCode(null)
+      setQlsxWarehouseByItemId({})
       setViewingApprovalPiId(null)
     } catch (e: any) {
       alert(errMsg(e, 'Lỗi gửi sếp duyệt'))
     } finally {
+      refetch()
       setSendingToBoss(false)
     }
   }
@@ -357,7 +373,7 @@ export default function LenhSXPage() {
                       </>
                     ) : (
                       <>
-                        <button onClick={() => { setQlsxTarget(pi); setQlsxWarehouseCode(null) }}
+                        <button onClick={() => { setQlsxTarget(pi); setQlsxWarehouseByItemId({}) }}
                           style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
                           <Warehouse size={13}/> Chọn kho sản xuất{items.length > 1 ? ` (${items.length} SKU)` : ''}
                         </button>
@@ -879,8 +895,8 @@ export default function LenhSXPage() {
       {qlsxTarget && (() => {
         const pi = qlsxTarget
         const items: any[] = (pi.items ?? []).filter((it: any) => it.prodApproval?.status === 'WAITING_QLSX')
-        const selectedWh = finishedGoodsWarehouses.find((w: any) => w.code === qlsxWarehouseCode) ?? null
-        const closeModal = () => { setQlsxTarget(null); setQlsxWarehouseCode(null) }
+        const allChosen = items.length > 0 && items.every((it: any) => !!qlsxWarehouseByItemId[String(it.id)])
+        const closeModal = () => { setQlsxTarget(null); setQlsxWarehouseByItemId({}) }
         return (
           <div onClick={() => { if (!sendingToBoss) closeModal() }}
             style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1100, padding:16 }}>
@@ -910,42 +926,62 @@ export default function LenhSXPage() {
                 </div>
               </div>
 
-              {/* Danh sách SKU sẽ gửi - CẢ PI, không chọn lẻ được nữa (2026-08-24) */}
+              {/* Áp dụng nhanh 1 kho cho mọi SKU - tiện cho ca thường (cùng đích đến), vẫn sửa lại
+                  được riêng từng dòng bên dưới nếu cần tách kho. */}
+              {items.length > 1 && (
+                <div style={{ marginBottom:10 }}>
+                  <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:0.5, marginBottom:6 }}>
+                    Áp dụng nhanh cho tất cả SKU
+                  </div>
+                  <SearchableSelect
+                    displayValue=""
+                    options={finishedGoodsWarehouses}
+                    getKey={(w: any) => w.code}
+                    getSearchText={(w: any) => `${w.name} ${w.code ?? ''}`}
+                    renderOption={(w: any) => <span>{w.name}</span>}
+                    onSelect={(w: any) => setQlsxWarehouseByItemId(
+                      Object.fromEntries(items.map((it: any) => [String(it.id), w.code])),
+                    )}
+                    placeholder="Chọn 1 kho để áp cho tất cả..."
+                    emptyText="Không có kho thành phẩm"
+                  />
+                </div>
+              )}
+
+              {/* Danh sách SKU sẽ gửi - CẢ PI trong 1 lượt (2026-08-24), mỗi SKU chọn kho thành
+                  phẩm riêng (điểm cuối sau khi hoàn thành) - PI nhiều SKU có thể cần giao về
+                  nhiều kho khác nhau. */}
               <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:0.5, marginBottom:6 }}>
                 SKU sẽ gửi — {items.length} SKU đang chờ QLSX
               </div>
-              <div style={{ display:'flex', flexDirection:'column', gap:6, marginBottom:14, maxHeight:180, overflowY:'auto' }}>
-                {items.map((item: any, i: number) => (
-                  <div key={item.id ?? i} style={{ border:'1px solid var(--border)', borderRadius:8, padding:'8px 12px' }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                      <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1' }}>
-                        {item.productVariant?.mfgProduct?.factoryCode ?? '—'}
-                      </span>
-                      {item.productVariant?.mfgProduct?.name && <span style={{ fontSize:12, color:'var(--text2)' }}>{item.productVariant.mfgProduct.name}</span>}
+              <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:14, maxHeight:320, overflowY:'auto' }}>
+                {items.map((item: any, i: number) => {
+                  const itemWh = finishedGoodsWarehouses.find((w: any) => w.code === qlsxWarehouseByItemId[String(item.id)]) ?? null
+                  return (
+                    <div key={item.id ?? i} style={{ border:'1px solid var(--border)', borderRadius:8, padding:'8px 12px' }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                        <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1' }}>
+                          {item.productVariant?.mfgProduct?.factoryCode ?? '—'}
+                        </span>
+                        {item.productVariant?.mfgProduct?.name && <span style={{ fontSize:12, color:'var(--text2)' }}>{item.productVariant.mfgProduct.name}</span>}
+                      </div>
+                      <div style={{ display:'flex', gap:6, marginTop:4, marginBottom:8 }}>
+                        {item.quantity != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{item.quantity.toLocaleString('vi-VN')}</span>}
+                        {item.productVariant?.colorCode && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{item.productVariant.colorCode}</span>}
+                      </div>
+                      <SearchableSelect
+                        displayValue={itemWh?.name ?? ''}
+                        options={finishedGoodsWarehouses}
+                        getKey={(w: any) => w.code}
+                        getSearchText={(w: any) => `${w.name} ${w.code ?? ''}`}
+                        renderOption={(w: any) => <span>{w.name}</span>}
+                        onSelect={(w: any) => setQlsxWarehouseByItemId((prev) => ({ ...prev, [String(item.id)]: w.code }))}
+                        placeholder="Chọn kho thành phẩm cho SKU này..."
+                        emptyText="Không có kho thành phẩm"
+                      />
                     </div>
-                    <div style={{ display:'flex', gap:6, marginTop:4 }}>
-                      {item.quantity != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{item.quantity.toLocaleString('vi-VN')}</span>}
-                      {item.productVariant?.colorCode && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{item.productVariant.colorCode}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Chọn kho thành phẩm */}
-              <div style={{ marginBottom:14 }}>
-                <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:0.5, marginBottom:6 }}>
-                  Kho thành phẩm — điểm cuối sau khi hoàn thành
-                </div>
-                <SearchableSelect
-                  displayValue={selectedWh?.name ?? ''}
-                  options={finishedGoodsWarehouses}
-                  getKey={(w: any) => w.code}
-                  getSearchText={(w: any) => `${w.name} ${w.code ?? ''}`}
-                  renderOption={(w: any) => <span>{w.name}</span>}
-                  onSelect={(w: any) => setQlsxWarehouseCode(w.code)}
-                  placeholder="Chọn kho thành phẩm..."
-                  emptyText="Không có kho thành phẩm"
-                />
+                  )
+                })}
               </div>
 
               {/* Actions */}
@@ -954,8 +990,8 @@ export default function LenhSXPage() {
                   style={{ padding:'9px 18px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor: sendingToBoss ? 'not-allowed' : 'pointer', color:'var(--text2)' }}>
                   Hủy
                 </button>
-                <button onClick={handleQlsxSendToBoss} disabled={sendingToBoss || qlsxWarehouseCode === null}
-                  style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background: qlsxWarehouseCode !== null ? '#2e7d32' : '#e5e7eb', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (sendingToBoss || qlsxWarehouseCode === null) ? 'not-allowed' : 'pointer', color: qlsxWarehouseCode !== null ? '#fff' : '#9ca3af', opacity: sendingToBoss ? 0.7 : 1 }}>
+                <button onClick={handleQlsxSendToBoss} disabled={sendingToBoss || !allChosen}
+                  style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background: allChosen ? '#2e7d32' : '#e5e7eb', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (sendingToBoss || !allChosen) ? 'not-allowed' : 'pointer', color: allChosen ? '#fff' : '#9ca3af', opacity: sendingToBoss ? 0.7 : 1 }}>
                   <CheckCircle2 size={15}/>
                   {sendingToBoss ? 'Đang gửi...' : items.length > 1 ? `Gửi sếp duyệt (${items.length} SKU)` : 'Gửi sếp duyệt'}
                 </button>

@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — QLSX chọn kho thành phẩm riêng từng SKU (08/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; font-size: 13.5px; }
+  .flow .step { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-weight: 600; white-space: nowrap; }
+  .flow .arrow { color: var(--text-muted); }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 08/09/2026</span>
+    <h1 class="title">QLSX chọn kho thành phẩm riêng cho từng SKU</h1>
+    <p class="subtitle">Modal "Chọn kho thành phẩm" (QLSX gửi Sếp duyệt) trước đây chỉ cho chọn 1 kho dùng chung cho cả PI — PI nào có nhiều SKU cần giao về nhiều kho khác nhau thì không có cách nào làm qua UI. Nay mỗi SKU có ô chọn kho riêng, kèm 1 lối tắt "áp dụng cho tất cả" cho ca thường (đa số SKU cùng đích đến).</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> FE <code>D:\DNA-ERP</code> · không đổi BE</span>
+      <span><strong>Màn hình:</strong> Xử lý lệnh sản xuất (QLSX) — modal "Chọn kho thành phẩm"</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ========= Tính năng mới ========= -->
+  <section id="feature">
+    <div class="sec-head"><h2>Tính năng mới</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">08/09</span><span class="f-title">Chọn kho thành phẩm riêng cho từng SKU khi gửi Sếp duyệt</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>1 ô chọn kho duy nhất cho cả PI — mọi SKU đang chờ QLSX của phiếu đó bị gán CHUNG 1 kho thành phẩm khi gửi Sếp. Route BE cho phép gửi lẻ từng SKU với kho khác nhau vẫn tồn tại, nhưng không có nút UI nào gọi tới.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Mỗi dòng SKU trong modal có ô chọn kho riêng. PI có &gt;1 SKU thì thêm 1 ô "Áp dụng nhanh cho tất cả SKU" ở trên để điền nhanh cho ca thường, vẫn sửa lại được từng dòng nếu cần tách kho. Nút "Gửi sếp duyệt" chỉ bật khi mọi SKU đã chọn đủ kho.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Cách gửi đi (không đổi BE)</span>
+        <div class="v">Các SKU được gom nhóm theo kho đã chọn, rồi gọi <code>sendPiToBoss(piId, kho, itemIds)</code> — đúng route batch <code>send-to-boss-batch</code> sẵn có (vốn đã nhận <code>itemIds</code> tùy chọn để gửi 1 phần phiếu) — 1 lần cho mỗi nhóm/kho, thay vì phải thêm route mới.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Đã xác minh không phá luồng nghiệp vụ sau đó</span>
+        <div class="v">
+          <ul>
+            <li><code>warehouseCode</code> vốn đã là field <b>theo từng SKU</b> (<code>ProductionInvoiceItem.warehouseCode</code>), không phải field cấp PI — DB/BE chưa từng ép "1 PI = 1 kho", chỉ UI cũ ép nhầm.</li>
+            <li>Duyệt cả cụm (PI gộp, <code>approveBatch</code>) vẫn tạo <b>1 ProductionOrder riêng cho từng SKU</b>, mỗi lệnh tự mang đúng kho của SKU đó — việc gộp chỉ áp dụng cho khâu cắt sắt (chung 1 cây sắt), tách biệt hoàn toàn khỏi kho thành phẩm.</li>
+            <li>Đóng gói (<code>packaging-issues.service.ts</code>) đọc đích đến và kiểm quyền theo kho (<code>assertWarehouseScope</code>) cũng theo từng <code>ProductionOrder</code>/SKU từ trước — khớp đúng cách chọn kho riêng từng SKU.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Chi tiết kỹ thuật</span>
+        <div class="v">
+          <ul>
+            <li>State modal đổi từ <code>qlsxWarehouseCode: string | null</code> sang <code>qlsxWarehouseByItemId: Record&lt;string, string&gt;</code> (itemId → warehouseCode).</li>
+            <li><code>LenhSXPage.tsx</code> — <code>handleQlsxSendToBoss()</code> gom nhóm theo kho + loop gọi <code>api.sendPiToBoss()</code>; modal render 1 <code>SearchableSelect</code> mỗi dòng SKU + 1 ô "áp dụng nhanh".</li>
+            <li>Cập nhật <code>e2e/golden-path.spec.ts</code> theo placeholder mới của ô chọn kho (đổi từ "Chọn kho thành phẩm..." thành "Chọn kho thành phẩm cho SKU này...").</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Việc còn để lại (ca hiếm, chưa xử lý)</span>
+        <div class="v">Nếu 1 trong nhiều lệnh gửi theo nhóm bị lỗi mạng giữa chừng (nhóm 1 gửi thành công, nhóm 2 lỗi), modal không tự đóng và có thể hiện lại dòng SKU đã gửi thành công (dữ liệu hiển thị chưa refetch ngay) — bấm gửi lại dòng đó sẽ bị BE từ chối êm (409 hoặc tự bỏ qua) chứ không ghi đè sai, nhưng trải nghiệm hơi rối. Xác suất xảy ra thấp (chỉ khi mất mạng đúng lúc), chưa vá.</div>
+      </div>
+    </article>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 08/09/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>
