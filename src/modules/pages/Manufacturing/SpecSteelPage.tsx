@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
-import { ChevronRight, ChevronLeft, Plus, X, Pencil } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, X, Pencil, Upload } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
 import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
 import { useFetch } from '../../../hooks/useFetch'
@@ -31,6 +31,16 @@ type ManChild = {
   processSteps: ProcessStep[]
   /** Chỉ dùng khi group='vatTuTP' - số vật tư thành phẩm cắt được từ 1 đơn vị material. */
   piecesPerBar: string
+  /** Ảnh đính kèm - UI chỉ mở ô upload cho group='day', nhưng field dùng chung được cho mọi nhóm.
+   *  URL THẬT (đã upload Cloudinary) - chỉ có khi: (a) dòng đã có sẵn từ BE, hoặc (b) vừa
+   *  upload xong lúc bấm "Gửi phê duyệt" (xem submitManh). */
+  photoUrl: string
+  /** File ảnh vừa chọn nhưng CHƯA upload - toàn bộ mảnh/vật tư chỉ thật sự ghi lên server lúc
+   *  "Gửi phê duyệt" (giống mọi field khác ở trang này), nên ảnh cũng phải hoãn upload tới lúc đó,
+   *  tránh rác trên Cloudinary nếu người dùng chọn ảnh rồi hủy/thoát giữa chừng. */
+  photoFile: File | null
+  /** Preview tại chỗ (blob URL) cho photoFile - tạo 1 lần lúc chọn, không tạo lại mỗi lần render. */
+  photoPreview: string
 }
 type Manh = { id: number; tenManh: string; soLuong: string; needsHan: boolean; needsSon: boolean; children: ManChild[] }
 type BomItem = { id: string; ten: string; thoiGian: string }
@@ -70,7 +80,8 @@ const toManh = (r: ManhRow): Manh => ({
     // vật tư trống trơn và nút Lưu khoá cứng mỗi khi sửa dòng đã lưu. Giữ nguyên giá trị gốc.
     id: c.id, group: c.group, materialId: (c.materialId ?? '') as unknown as number, loaiSatName: c.name,
     specs: c.specs ?? '', cutLengthMm: c.length ?? '', soLuong: c.qty ?? '', note: c.note ?? '', unit: c.unit ?? '',
-    processSteps: c.processSteps ?? [], piecesPerBar: c.piecesPerBar ?? '',
+    processSteps: c.processSteps ?? [], piecesPerBar: c.piecesPerBar ?? '', photoUrl: c.photoUrl ?? '',
+    photoFile: null, photoPreview: '',
   })),
 })
 const toManhRow = (m: Manh): ManhRow => ({
@@ -79,7 +90,7 @@ const toManhRow = (m: Manh): ManhRow => ({
   children: m.children.map((c): ManhChildRow => ({
     id: c.id, group: c.group, materialId: String(c.materialId), name: c.loaiSatName,
     specs: c.specs || undefined, length: c.cutLengthMm || undefined, qty: c.soLuong || undefined,
-    note: c.note || undefined, unit: c.unit || undefined,
+    note: c.note || undefined, unit: c.unit || undefined, photoUrl: c.photoUrl || undefined,
     processSteps: (c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.length > 0 ? c.processSteps : undefined,
     piecesPerBar: c.group === 'vatTuTP' ? c.piecesPerBar || undefined : undefined,
   })),
@@ -99,6 +110,12 @@ const inputStyle: React.CSSProperties = {
   border: '1px solid var(--border)', borderRadius: 'var(--radius)',
   background: 'var(--surface)', color: 'var(--text)',
   outline: 'none', boxSizing: 'border-box',
+}
+
+// Quy cách chỉ đọc — luôn lấy từ Material.spec (catalog Admin > Vật tư) qua MaterialPicker,
+// không cho gõ tay để tránh lệch với vật tư đang chọn.
+const specInputStyle: React.CSSProperties = {
+  ...inputStyle, background: 'var(--surface2)', color: 'var(--text3)', cursor: 'not-allowed',
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────
@@ -161,6 +178,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [childNote, setChildNote] = useState('')
   const [childProcessSteps, setChildProcessSteps] = useState<ProcessStep[]>([])
   const [childPiecesPerBar, setChildPiecesPerBar] = useState('')
+  const [childPhotoUrl, setChildPhotoUrl] = useState('')
+  const [childPhotoFile, setChildPhotoFile] = useState<File | null>(null)
+  const [childPhotoPreview, setChildPhotoPreview] = useState('')
   const [editingChild, setEditingChild] = useState<{ manhId: number; childId: number } | null>(null)
   const [manhBomSearch, setManhBomSearch] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
@@ -179,9 +199,24 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     if (!selectedBom || totalChildren === 0) return
     setSavingManh(true)
     try {
-      await api.updateSkuManhQuota(selectedBom.id, manhs.map(toManhRow), user?.name ?? 'Không rõ')
+      // Ảnh Dây chỉ được chọn tại chỗ (blob preview), CHƯA lên Cloudinary - upload thật ngay
+      // trước khi gửi, để khớp đúng nguyên tắc "mọi thứ ở trang này chỉ ghi lên server lúc Gửi
+      // phê duyệt". Giữ lại state đã upload (setManhs) để gửi lại lần 2 (vd sau khi KHSX từ chối)
+      // không upload trùng file cũ.
+      const resolvedManhs = await Promise.all(manhs.map(async (m) => ({
+        ...m,
+        children: await Promise.all(m.children.map(async (c) => {
+          if (!c.photoFile) return c
+          const photoUrl = await api.uploadImage(c.photoFile)
+          return { ...c, photoUrl, photoFile: null }
+        })),
+      })))
+      setManhs(resolvedManhs)
+      await api.updateSkuManhQuota(selectedBom.id, resolvedManhs.map(toManhRow), user?.name ?? 'Không rõ')
       logAction(SKU_ENTITY, String(selectedBom.id), 'sku.manh_submitted', `${manhs.length} mảnh · ${totalChildren} dòng vật tư`)
       await refetchSkus()
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : 'Không thể gửi phê duyệt')
     } finally {
       setSavingManh(false)
     }
@@ -205,11 +240,22 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const resetChildForm = () => {
     setChildGroup('sat')
     setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildSoLuong(''); setChildNote('')
-    setChildProcessSteps([]); setChildPiecesPerBar(''); setEditingChild(null)
+    setChildProcessSteps([]); setChildPiecesPerBar(''); setChildPhotoUrl(''); setChildPhotoFile(null)
+    setChildPhotoPreview(''); setEditingChild(null)
   }
 
   const toggleChildProcessStep = (step: ProcessStep) => {
     setChildProcessSteps(steps => steps.includes(step) ? steps.filter(s => s !== step) : [...steps, step])
+  }
+
+  // Chỉ xem trước tại chỗ (blob URL) - CHƯA upload lên Cloudinary. Toàn bộ mảnh/vật tư ở trang
+  // này chỉ thật sự ghi lên server lúc "Gửi phê duyệt" (xem submitManh), nên ảnh cũng phải hoãn
+  // upload tới lúc đó - chọn ảnh rồi hủy/thoát giữa chừng sẽ không để lại rác trên Cloudinary.
+  const onPickChildPhoto = (file?: File) => {
+    if (!file) return
+    setChildPhotoUrl('') // bỏ URL thật cũ (nếu đang sửa dòng đã có ảnh) - ảnh mới sẽ thay thế hẳn
+    setChildPhotoFile(file)
+    setChildPhotoPreview(URL.createObjectURL(file))
   }
 
   // Vừa dùng để thêm dòng vật tư mới, vừa dùng để lưu lại dòng đang sửa (editingChild) —
@@ -235,6 +281,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
         unit: childMaterial.unit,
         processSteps: (childGroup === 'sat' || childGroup === 'vatTuTP') ? childProcessSteps : [],
         piecesPerBar: childGroup === 'vatTuTP' ? childPiecesPerBar : '',
+        photoUrl: childGroup === 'day' ? childPhotoUrl : '',
+        photoFile: childGroup === 'day' ? childPhotoFile : null,
+        photoPreview: childGroup === 'day' ? childPhotoPreview : '',
       }
       if (editing) {
         return { ...m, children: m.children.map(c => c.id === editing.childId ? built : c) }
@@ -257,6 +306,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     setChildNote(child.note)
     setChildProcessSteps(child.processSteps ?? [])
     setChildPiecesPerBar(child.piecesPerBar ?? '')
+    setChildPhotoUrl(child.photoUrl ?? '')
+    setChildPhotoFile(child.photoFile ?? null)
+    setChildPhotoPreview(child.photoPreview ?? '')
   }
 
   const deleteChild = (manhId: number, childId: number) => {
@@ -526,6 +578,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         <th style={{ width: 150, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Công đoạn phôi</th>
                         <th style={{ width: 100, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
                         <th style={{ width: 70, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>ĐVT</th>
+                        <th style={{ width: 60, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Ảnh</th>
                         {!isSubmitted && <th style={{ width: 64 }}></th>}
                       </tr>
                     </thead>
@@ -564,6 +617,13 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                             </td>
                             <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.soLuong || '—'}</td>
                             <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{c.unit || '—'}</td>
+                            <td style={{ padding: '9px 14px' }}>
+                              {(c.photoUrl || c.photoPreview) ? (
+                                <img src={c.photoUrl || c.photoPreview} alt={c.loaiSatName} style={{ height: 28, borderRadius: 4, border: '1px solid var(--border)' }} />
+                              ) : (
+                                <span style={{ color: 'var(--text3)' }}>—</span>
+                              )}
+                            </td>
                             {!isSubmitted && (
                               <td style={{ textAlign: 'center', padding: '4px', whiteSpace: 'nowrap' }}>
                                 <button onClick={() => startEditChild(m.id, c)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}>
@@ -589,7 +649,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
                       {CHILD_GROUPS.map(g => (
                         <button key={g}
-                          onClick={() => { setChildGroup(g); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildProcessSteps([]); setChildPiecesPerBar(''); setChildSoLuong('') }}
+                          onClick={() => { setChildGroup(g); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildProcessSteps([]); setChildPiecesPerBar(''); setChildSoLuong(''); setChildPhotoUrl(''); setChildPhotoFile(null); setChildPhotoPreview('') }}
                           style={{
                             padding: '5px 12px', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 12, fontWeight: 700,
                             border: `1px solid ${childGroup === g ? GROUP_BADGE_COLORS[g].fg : 'var(--border)'}`,
@@ -611,10 +671,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       </div>
                       <div style={{ width: 150 }}>
                         <FL>Quy cách</FL>
-                        <input placeholder="VD: 10x29x0.8" value={childSpec}
-                          onChange={e => setChildSpec(e.target.value)}
-                          onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
-                          style={inputStyle} />
+                        <input placeholder="Theo vật tư đã chọn" value={childSpec}
+                          disabled
+                          style={specInputStyle} />
                       </div>
                       {childGroup === 'sat' && (
                         <div style={{ width: 120 }}>
@@ -649,7 +708,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         </div>
                       )}
                       <div style={{ width: 100 }}>
-                        <FL>{childGroup === 'vatTuTP' ? 'Số lượng/mảnh' : 'Số lượng'}</FL>
+                        <FL>{childGroup === 'vatTuTP' ? 'Số lượng/mảnh' : childGroup === 'day' ? 'Số lượng (KG)' : 'Số lượng'}</FL>
                         <input placeholder="0" value={childSoLuong}
                           onChange={e => setChildSoLuong(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
@@ -662,6 +721,28 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                           onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
                           style={inputStyle} />
                       </div>
+                      {childGroup === 'day' && (
+                        <div>
+                          <FL>Hình ảnh</FL>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <label style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px',
+                              border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                              background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer',
+                              fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap',
+                            }}>
+                              <Upload size={13} /> Chọn ảnh
+                              <input type="file" accept="image/*" hidden onChange={e => onPickChildPhoto(e.target.files?.[0])} />
+                            </label>
+                            {(childPhotoUrl || childPhotoPreview) && (
+                              <img src={childPhotoUrl || childPhotoPreview} alt="Dây" style={{ height: 32, borderRadius: 4, border: '1px solid var(--border)' }} />
+                            )}
+                            {childPhotoPreview && !childPhotoUrl && (
+                              <span style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>Chưa tải lên - tải khi "Gửi phê duyệt"</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       <div style={{ display: 'flex', gap: 6 }}>
                         {(() => {
                           const childValid = !!childMaterial

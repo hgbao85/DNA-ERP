@@ -52,6 +52,12 @@ const inputStyle: React.CSSProperties = {
   outline: 'none', boxSizing: 'border-box',
 }
 
+// Quy cách chỉ đọc — luôn lấy từ Material.spec (catalog Admin > Vật tư) qua MaterialPicker,
+// không cho gõ tay để tránh lệch với vật tư đang chọn.
+const specInputStyle: React.CSSProperties = {
+  ...inputStyle, background: 'var(--surface2)', color: 'var(--text3)', cursor: 'not-allowed',
+}
+
 // ─── Main ─────────────────────────────────────────────────────────────
 export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   subTab: 'dinh-muc' | 'catalog'
@@ -281,10 +287,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                 </div>
                 <div style={{ width: 150 }}>
                   <FL>Quy cách</FL>
-                  <input placeholder="VD: 20kg/thùng" value={spec}
-                    onChange={e => setSpec(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addLine()}
-                    style={inputStyle} />
+                  <input placeholder="Theo vật tư đã chọn" value={spec}
+                    disabled
+                    style={specInputStyle} />
                 </div>
                 <div style={{ width: 110 }}>
                   <FL>Đơn vị tính</FL>

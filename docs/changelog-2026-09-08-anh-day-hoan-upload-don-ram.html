@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Ảnh + đơn vị cho dòng Dây, hoãn upload tới lúc gửi duyệt (08/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --decided: #66748A; --decided-bg: #EEF0F3; --decided-border: #CBD2DB;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.decided { color: var(--decided); background: var(--decided-bg); border-color: var(--decided-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 08/09/2026</span>
+    <h1 class="title">Ảnh + đơn vị cho dòng Dây, hoãn upload tới lúc gửi duyệt</h1>
+    <p class="subtitle">Tiếp nối tính năng ảnh Dây thêm hôm 07/09: thiết kế lại ô đơn vị tính, hoãn upload ảnh thật tới lúc "Gửi phê duyệt" thay vì upload ngay lúc chọn file, và tái dùng cơ chế dọn ảnh mồ côi Cloudinary có sẵn để không tích rác khi đổi ảnh. Kèm 1 sự cố hạ tầng backend không chạy được, và 1 rủi ro đã bàn nhưng chủ động không sửa.</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> FE <code>D:\DNA-ERP</code> · BE <code>D:\DNA-ERP-BE</code></span>
+      <span><strong>Màn hình:</strong> Quản lý định mức — Mảnh (account Sắt), tab Dây</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ========= Tính năng mới ========= -->
+  <section id="feature">
+    <div class="sec-head"><h2>Tính năng mới</h2><span class="sec-count">2 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">08/09</span><span class="f-title">Hoãn upload ảnh Dây tới lúc "Gửi phê duyệt"</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước (07/09)</span>Chọn ảnh là upload thật lên Cloudinary ngay lập tức, dù mảnh/dòng đó chưa được lưu hay gửi đi đâu cả. Chọn ảnh rồi bấm Hủy hoặc thoát trang giữa chừng → ảnh vẫn nằm trên Cloudinary, không gắn vào đâu (rác).</div>
+        <div class="ba-box after"><span class="k">Sau</span>Chọn ảnh chỉ xem trước tại chỗ (blob URL, chưa lên server). Ảnh chỉ thật sự upload khi bấm "Gửi phê duyệt" — đúng nguyên tắc mọi dữ liệu ở trang này (tên mảnh, vật tư, số lượng...) chỉ nằm trên trình duyệt cho tới lúc đó. Hủy/thoát giữa chừng thì ảnh chưa từng chạm server.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Chi tiết kỹ thuật</span>
+        <div class="v">
+          <ul>
+            <li><code>ManChild</code> thêm 2 field runtime-only: <code>photoFile: File | null</code> (file đang chờ) và <code>photoPreview: string</code> (blob URL xem trước) - không gửi lên BE, chỉ tồn tại trong state FE.</li>
+            <li><code>onPickChildPhoto()</code> đổi từ async-upload-ngay thành đồng bộ: chỉ <code>setChildPhotoFile</code> + <code>URL.createObjectURL()</code>.</li>
+            <li><code>submitManh()</code> (nút "Gửi phê duyệt"): duyệt qua toàn bộ mảnh/dòng, upload song song (<code>Promise.all</code>) mọi <code>photoFile</code> đang chờ qua <code>api.uploadImage()</code> có sẵn, gán URL thật vào rồi mới gọi <code>updateSkuManhQuota()</code>. Bọc thêm <code>try/catch</code> báo lỗi rõ nếu upload thất bại (trước đây không có).</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>D:\DNA-ERP\src\modules\pages\Manufacturing\SpecSteelPage.tsx</code></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">08/09</span><span class="f-title">Dọn ảnh mồ côi trên Cloudinary khi đổi/xoá ảnh Dây</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Đổi sang ảnh khác hoặc xoá dòng Dây đang có ảnh → ảnh cũ không còn được tham chiếu ở đâu nhưng vẫn nằm nguyên trên Cloudinary vĩnh viễn, không ai dọn.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Mỗi lần "Gửi phê duyệt" (full-replace toàn bộ dòng vật tư mảnh), BE tự so sánh URL ảnh cũ đang lưu với URL còn dùng trong dữ liệu mới - URL nào bị bỏ rơi (đổi ảnh khác/xoá dòng) thì tự gọi xoá trên Cloudinary. Chạy <b>sau khi</b> đã lưu định mức thành công, best-effort - lỗi Cloudinary (nếu có) không làm hỏng việc lưu định mức chính.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Tái dùng hạ tầng có sẵn, không viết mới</span>
+        <div class="v">Dùng lại đúng <code>CloudinaryService.deleteByUrl()</code> - cơ chế đã tồn tại và đang chạy thật cho tính năng đổi ảnh vật tư ở Admin (<code>materials.service.ts</code>). Các tính năng ảnh khác sau này cần dọn ảnh cũ chỉ việc gọi lại đúng service này, không phải viết riêng.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Chi tiết kỹ thuật</span>
+        <div class="v">
+          <ul>
+            <li>DB: cột mới <code>photoUrl</code> (nullable) trên bảng <code>piece_material_item</code> - migration <code>20260907092723_piece_material_item_photo_url</code>.</li>
+            <li><code>SkusService.replacePieces()</code>: chụp lại toàn bộ <code>photoUrl</code> đang có (query trước khi xoá) → so với tập URL còn dùng sau khi build dữ liệu mới → trả về danh sách URL "mồ côi".</li>
+            <li><code>SkusService.updateManhQuota()</code>: sau khi transaction ghi định mức commit xong, gọi <code>cloudinaryService.deleteByUrl()</code> cho từng URL mồ côi (song song, không chặn response nếu 1 URL lỗi xoá).</li>
+            <li><code>SkusModule</code> import thêm <code>UploadsModule</code> để inject được <code>CloudinaryService</code>.</li>
+            <li>2 test mới trong <code>skus.service.spec.ts</code>: đổi ảnh → gọi xoá đúng URL cũ; giữ nguyên ảnh → không gọi xoá gì. Tổng 48/48 test xanh.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>D:\DNA-ERP-BE\src\modules\skus\skus.service.ts</code>, <code>skus.module.ts</code></div></div>
+    </article>
+  </section>
+
+  <!-- ========= Thiết kế lại theo phản hồi ========= -->
+  <section id="ui">
+    <div class="sec-head"><h2>Thiết kế lại theo phản hồi</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Đổi thiết kế</span><span class="badge date">08/09</span><span class="f-title">Bỏ ô "Đơn vị tính" riêng cho Dây - gộp vào nhãn "Số lượng"</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước (07/09)</span>1 ô "Đơn vị tính" riêng, tự hiện theo đơn vị của vật tư Dây đã chọn trong danh mục (read-only, giống ô "Quy cách").</div>
+        <div class="ba-box after"><span class="k">Sau</span>Bỏ hẳn ô này - đơn vị của Dây luôn cố định là KG, không cần phụ thuộc vật tư. Nhãn ô "Số lượng" đổi thành <b>"Số lượng (KG)"</b> khi đang nhập nhóm Dây, gọn hơn.</div>
+      </div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>D:\DNA-ERP\src\modules\pages\Manufacturing\SpecSteelPage.tsx</code></div></div>
+    </article>
+  </section>
+
+  <!-- ========= Rủi ro đã bàn, chủ động không sửa ========= -->
+  <section id="decided">
+    <div class="sec-head"><h2>Rủi ro đã rà - chủ động không sửa</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Giữ nguyên</span><span class="badge date">08/09</span><span class="f-title">Upload nhiều ảnh song song lúc "Gửi phê duyệt" - lỗi giữa chừng có thể để lại rác</span></div>
+      <div class="f-field">
+        <span class="k">Rủi ro</span>
+        <div class="v">Nếu 1 SKU có nhiều mảnh đều có ảnh Dây đang chờ, <code>Promise.all</code> upload song song hết - nếu 1 cái lỗi (mất mạng giữa chừng), những ảnh <b>đã upload thành công</b> trước đó vẫn nằm trên Cloudinary nhưng không được gửi lên BE (toàn bộ lượt gửi bị huỷ) → thành rác không ai biết, cơ chế dọn ảnh mồ côi ở BE không thấy được (nó chỉ so URL cũ/mới đã lưu trong DB).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Phương án đã cân nhắc và lý do không chọn</span>
+        <div class="v">Đổi sang <code>Promise.allSettled</code> để dọn ngay ảnh đã upload thành công khi có ảnh khác lỗi - nhưng muốn FE dọn được thì phải <b>thêm mới 1 API xoá ảnh theo URL</b> cho FE gọi (hiện <code>deleteByUrl()</code> chỉ chạy được ở BE, không có endpoint HTTP). Một API như vậy sẽ cho phép <b>bất kỳ tài khoản đã đăng nhập nào xoá bất kỳ ảnh nào trong hệ thống theo URL</b> (Cloudinary không lưu chủ sở hữu theo user) - rủi ro bảo mật thật lớn hơn hẳn giá trị xử lý 1 tình huống hiếm (mất mạng giữa lúc gửi nhiều ảnh cùng lúc).</div>
+      </div>
+      <div class="f-field"><span class="k">Quyết định</span><div class="v">Giữ nguyên <code>Promise.all</code> (gộp tất cả-hoặc-không-gì) + báo lỗi rõ qua <code>alert()</code> khi thất bại để người dùng biết gửi lại. Không thêm endpoint xoá ảnh mới.</div></div>
+    </article>
+  </section>
+
+  <!-- ========= Vá hạ tầng nền ========= -->
+  <section id="infra">
+    <div class="sec-head"><h2>Vá hạ tầng nền (phát hiện trong lúc làm)</h2><span class="sec-count">1 mục</span></div>
+    <div class="prose-card">
+      <p>Không phải tính năng hay lỗi người dùng nhìn thấy - ghi lại vì lặp lại lần thứ 2 trong 2 ngày, cần lưu ý cho lần merge/pull tiếp theo.</p>
+    </div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Hạ tầng</span><span class="badge date">08/09</span><span class="f-title">Backend không chạy được - Prisma Client lại bị lệch schema (lần 2)</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Phát hiện</span>Sau khi có thêm các commit <code>DEC22</code>/<code>DEC2+3</code> (thêm model <code>StepBundle</code>/<code>PieceStepBundle</code> + đổi schema <code>CutBundle</code>/<code>QcReview</code>/<code>PieceStepBatch</code>), Prisma Client sinh ra chưa được cập nhật lại - typecheck ra ~60 lỗi ở <code>qc-reviews.service.ts</code>, <code>steel-issues.service.ts</code>, <code>production-batches.service.ts</code>, backend không khởi động được.</div>
+        <div class="ba-box after"><span class="k">Đã xử lý</span><code>npx prisma migrate status</code> xác nhận database đã khớp đủ 99 migration (không thiếu gì cần apply) → chỉ cần <code>npx prisma generate</code> lại. Typecheck về 0 lỗi, backend khởi động sạch (port 3001).</div>
+      </div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Cùng loại sự cố với "Prisma Client bị lệch" đã gặp ngày 07/09 - hễ pull thêm schema mới (model/field mới trong <code>schema.prisma</code>) mà quên chạy lại <code>prisma generate</code> là backend sẽ không chạy được. Nên thêm bước này vào checklist sau khi pull code.</div></div>
+    </article>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 08/09/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>

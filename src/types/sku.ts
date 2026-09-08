@@ -107,6 +107,8 @@ export interface ManhChildRow {
   piecesPerBar?: string | null;
   note?: string | null;
   unit?: string | null;
+  /** Ảnh đính kèm cho dòng vật tư (upload qua uploadImage()) - hiện chỉ mở ở UI cho group='day'. */
+  photoUrl?: string | null;
 }
 
 /** 1 mảnh phôi (vd "Mảnh tựa", "Chân ghế") gồm vật tư con thuộc 5 nhóm (Sắt/Dây/Đinh/Tán

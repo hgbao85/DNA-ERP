@@ -73,6 +73,7 @@ interface BePieceMaterialLine {
   materialUnit: string;
   qtyPerPiece: number;
   note: string | null;
+  photoUrl: string | null;
 }
 /** Định mức "vật tư thành phẩm" của 1 mảnh (PieceMaterialYield ở BE) — "1 cây ra N cái", vd
  *  thanh nhôm → chân nhôm. Chỉ áp dụng khi needsHan=false. */
@@ -174,6 +175,7 @@ function toManhRow(p: BePiece): ManhRow {
       qty: String(l.qtyPerPiece),
       note: l.note ?? undefined,
       unit: l.materialUnit,
+      photoUrl: l.photoUrl ?? undefined,
     }));
   const yieldChildren: ManhChildRow[] = p.materialYields.map((y) => ({
     id: y.id,
@@ -344,6 +346,7 @@ export async function updateSkuManhQuota(
           materialId: String(c.materialId ?? ''),
           qtyPerPiece: Number(c.qty) || 0,
           note: c.note || undefined,
+          photoUrl: c.photoUrl || undefined,
         })),
       materialYields: r.children
         .filter((c) => c.group === 'vatTuTP')
