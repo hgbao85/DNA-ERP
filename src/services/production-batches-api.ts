@@ -319,12 +319,11 @@ export async function reportProductionBatch(
   );
 }
 
-/** "Lưu đợt" ChotPanel (VTTP, CHỈ mảnh không khai processSteps, 2026-09-08) - tích luỹ vào 1
- *  ProductionBatch đang OPEN, mirror recordCutBatch() bên Sắt. KHÔNG dùng cho Hàn/Sơn (dùng
- *  reportProductionBatch() ở trên như cũ). */
+/** "Lưu đợt" (Phôi/Hàn/Sơn, 2026-09-09 mở rộng - ban đầu 2026-09-08 CHỈ VTTP ChotPanel dùng) -
+ *  tích luỹ vào 1 ProductionBatch đang OPEN, mirror recordCutBatch() bên Sắt. */
 export async function recordProductionBatch(
   productionOrderId: string,
-  data: { pieceId: string; qty: number },
+  data: { stage: ProductionBatchStage; pieceId: string; qty: number },
 ): Promise<void> {
   await http.post(`/production-orders/${productionOrderId}/production-batches/record`, data)
 }

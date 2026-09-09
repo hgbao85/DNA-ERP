@@ -11,12 +11,15 @@
  */
 
 import { useState, useMemo, useEffect } from 'react'
-import { ChevronRight, ChevronDown, Clock, AlertTriangle, Plus, CalendarClock, Layers, CheckCircle2, Lock, Scissors, Wrench, Flame, SprayCan, type LucideIcon } from 'lucide-react'
+import { ChevronRight, ChevronLeft, ChevronDown, Check, Clock, AlertTriangle, Plus, Send, CalendarClock, Layers, CheckCircle2, Lock, Scissors, Wrench, Flame, SprayCan, type LucideIcon } from 'lucide-react'
 import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
 import { useFetch } from '../../hooks/useFetch'
 import * as api from '../../services/api'
 import type { SatIssueView } from '../../services/api'
-import type { BeProductionOrderSummary, ProductionBatchStage as SanLuongStage } from '../../services/production-batches-api'
+import type {
+  BeProductionOrderSummary, ProductionBatchStage as SanLuongStage,
+  BeProductionBatch, BeProductionBatchQcReview,
+} from '../../services/production-batches-api'
 import { errMsg } from '../../utils/errors'
 
 const ACCENT = '#e65100'
@@ -153,6 +156,9 @@ function Progress({ pct }: { pct: number }) {
 
 const td: React.CSSProperties = { padding: '10px 12px', color: 'var(--text)' }
 const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
+// Mirror `card` bên phoiStyles.ts (LenhSanXuatPhoi.tsx) - core.tsx không import file đó (khác thư
+// mục/quy ước riêng), định nghĩa lại tương đương bằng CSS var đã dùng sẵn trong file này.
+const card: React.CSSProperties = { border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', overflow: 'hidden' }
 
 // ── Tầng 0 (Hàn/Sơn): Danh sách PI — gom nhiều SKU cùng 1 PI ────────────────────
 // Đồng nhất với LenhSanXuatPhoi.tsx (2026-08-31, theo yêu cầu user): Phôi cắt sắt chung cho cả PI
@@ -339,7 +345,7 @@ function ManhListBoard({ po, onBack, onOpenManh }: { po: ProcRow; cfg: StageCfg;
 }
 
 // ── Tầng chi tiết vật tư (dùng chung Phôi/Hàn/Sơn) ─────────────────
-export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, pendingFor, onConfirmCut, manualInput, showThucCo, onReport, choKcsFor, partStock }: {
+export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, pendingFor, onConfirmCut, manualInput, showThucCo, onRecord, onFinishBatch, choKcsFor, partStock, batchesByLine, reviews }: {
   lines: ProcLine[]; cfg: StageCfg; readOnly: boolean
   title: string; subtitle: string; bannerLabel: string
   /** Bỏ trống khi board được nhúng làm 1 tab con (vd chi tiết Khung cơ khí bên KHSX) — không cần điều hướng "quay lại". */
@@ -355,12 +361,21 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
   manualInput?: boolean
   /** Ép hiện/ẩn cột "Thực có" bất kể phoiMode — dùng khi nhúng chế độ chỉ xem không có cột Xác nhận cắt. */
   showThucCo?: boolean
-  /** KCS-gated (Hàn/Sơn): báo sản lượng → tạo lô CHỜ KCS (thay vì cộng thẳng done). */
-  onReport?: (line: ProcLine, qty: number) => void
+  /** "Lưu đợt" (2026-09-09, đồng bộ Hàn/Sơn theo mẫu Sắt/VTTP - trước đó 1 nút "Ghi nhận" gộp lưu+
+   *  gửi KCS) - tích luỹ vào 1 ProductionBatch đang OPEN, KHÔNG tự gửi KCS. */
+  onRecord?: (line: ProcLine, qty: number) => void
+  /** "Gửi KCS" - đóng batch đang OPEN (tìm qua batchesByLine) đưa sang AWAITING_QC. */
+  onFinishBatch?: (batchId: string) => void
   /** KCS-gated: SL đang chờ KCS duyệt của 1 dòng (để hiện gợi ý + trừ khi nhập). */
   choKcsFor?: (lineId: number) => number
   /** Sync đoạn từ Phôi: trả số ĐOẠN tồn (KCS đạt) cho 1 thanh sắt cấu thành. Có → dùng thay thucCo tĩnh. */
   partStock?: (part: ProcPart) => number
+  /** 2026-09-09: MỌI ProductionBatch (mọi status) của order+stage này, keyed theo pieceId (=lineId)
+   *  - dùng để tìm đợt đang OPEN (nút "Gửi KCS") + hiện "Các đợt đã gửi" (lịch sử, mirror Sắt/VTTP). */
+  batchesByLine?: Map<number, BeProductionBatch[]>
+  /** QcReview nhánh ProductionBatch (mọi order/stage đang xem, KHÔNG lọc theo piece trước - lọc ở
+   *  đây theo batchesByLine) - dùng tính "Lỗi" cho từng dòng + từng đợt lịch sử. */
+  reviews?: BeProductionBatchQcReview[]
 }) {
   const phoiMode = !!onConfirmCut
   const [draft, setDraft] = useState<Record<number, string>>({})
@@ -373,33 +388,65 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
   const needCut = lines.filter(l => shortOf(l) > 0).map(l => `${l.itemName} +${fmt(shortOf(l))}`)
   const itemLabelLC = cfg.itemLabel.toLowerCase()
 
+  const failedOf = (lineId: number): number => {
+    const ids = new Set((batchesByLine?.get(lineId) ?? []).map(b => b.id))
+    return (reviews ?? []).filter(r => r.productionBatchId && ids.has(r.productionBatchId)).reduce((s, r) => s + r.failedQty, 0)
+  }
+
   const submit = (line: ProcLine) => {
     const add = Number(draft[line.id])
     if (!add || add <= 0) return
-    if (onReport) onReport(line, add) // KCS-gated: đẩy sang chờ KCS
+    if (onRecord) onRecord(line, add) // KCS-gated: "Lưu đợt", chưa gửi KCS
     else onUpdateLine?.({ ...line, doneQty: Math.min(line.needQty, line.doneQty + add), lastInputAt: new Date().toISOString() })
     setDraft(d => ({ ...d, [line.id]: '' }))
   }
 
+  // 2026-09-09 (theo yêu cầu người dùng: "bên Phôi đang sao thì bên Hàn Sơn y chang vậy thậm chí
+  // đơn giản hơn") - mảnh Hàn/Sơn không có cỡ đoạn/công đoạn phụ để tab, mirror THẲNG list + card 1
+  // mảnh như VTTP ChotPanel (đơn giản hơn cả Phôi/VTTP-có-processSteps vì không cần dải tab công
+  // đoạn nào). CHỈ áp dụng khi có onRecord (Hàn/Sơn thật, đang tương tác) - phoiMode (mock 3 tầng)
+  // và readOnly (nhúng xem ở ThongKePagePlan) vẫn giữ bảng nhiều dòng cũ bên dưới, KHÔNG đụng.
+  const [selLineId, setSelLineId] = useState<number | null>(null)
+  if (onRecord && !phoiMode) {
+    const selLine = lines.find(l => l.id === selLineId) ?? null
+    if (selLine) {
+      return <LineDetailCard
+        line={selLine} cfg={cfg} readOnly={readOnly} onBack={() => setSelLineId(null)}
+        onRecord={onRecord} onFinishBatch={onFinishBatch} choKcsFor={choKcsFor}
+        batchesByLine={batchesByLine} reviews={reviews}
+      />
+    }
+    return <LineListBoard
+      lines={lines} cfg={cfg} title={title} subtitle={subtitle} backLabel={backLabel} onBack={onBack}
+      onEnter={id => setSelLineId(id)} choKcsFor={choKcsFor}
+    />
+  }
+
   const cols: BoardColumn<ProcLine>[] = [
     {
-      key: 'item', header: cfg.itemLabel, cell: l => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-          {l.parts?.length
-            ? <button onClick={e => { e.stopPropagation(); toggleParts(l.id) }} title="Xem thanh sắt cấu thành"
-              style={{ display: 'inline-flex', padding: 0, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text3)' }}>
-              {openParts.has(l.id) ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-            </button>
-            : null}
-          <span style={{ fontWeight: 600 }}>{l.itemName}</span>
-        </span>
-      )
+      key: 'item', header: cfg.itemLabel, cell: l => {
+        const hasHistory = (batchesByLine?.get(l.id)?.length ?? 0) > 0
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            {(l.parts?.length || hasHistory)
+              ? <button onClick={e => { e.stopPropagation(); toggleParts(l.id) }} title={hasHistory ? 'Xem các đợt đã gửi' : 'Xem thanh sắt cấu thành'}
+                style={{ display: 'inline-flex', padding: 0, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text3)' }}>
+                {openParts.has(l.id) ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
+              </button>
+              : null}
+            <span style={{ fontWeight: 600 }}>{l.itemName}</span>
+          </span>
+        )
+      }
     },
     { key: 'spec', header: 'Quy cách', cell: l => <span style={{ color: 'var(--text3)' }}>{l.spec}</span> },
     { key: 'perManh', header: 'SL/bộ', align: 'right', cell: l => `×${perManh(l)}` },
-    { key: 'need', header: `Định mức (${cfg.unit})`, align: 'right', cell: l => fmt(l.needQty) },
+    // 2026-09-09 (đồng bộ từ vựng với Sắt/VTTP theo yêu cầu người dùng): "Định mức"→"Cần",
+    // "${cfg.done}" (Đã cắt/Đã hàn/Đã sơn)→"Đã báo" - CHỈ đổi CHỮ hiện trong bảng này, không đụng
+    // `cfg.done` (còn dùng ở banner/nơi khác, giữ nguyên ý nghĩa theo verb riêng từng công đoạn).
+    { key: 'need', header: `Cần (${cfg.unit})`, align: 'right', cell: l => fmt(l.needQty) },
     {
-      key: 'done', header: `${cfg.done} (${cfg.unit})`, align: 'right', cell: l => {
+      key: 'done', header: `Đã báo (${cfg.unit})`, align: 'right', cell: l => {
         const short = shortOf(l)
         const pend = choKcsFor?.(l.id) ?? 0
         return <>
@@ -422,6 +469,14 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
         <span style={{ fontWeight: 600 }}>{fmt(l.thucCoQty ?? 0)}</span>
       )
     } as BoardColumn<ProcLine>] : []),
+    // "Lỗi" (2026-09-09, đồng bộ Sắt/VTTP - trước phải bấm mở rộng "Các đợt đã gửi" mới thấy) -
+    // CHỈ hiện khi có batchesByLine (real BE data, mock/read-only embed không có cột này).
+    ...(batchesByLine ? [{
+      key: 'failed', header: 'Lỗi', align: 'right', cell: (l: ProcLine) => {
+        const failed = failedOf(l.id)
+        return <span style={{ fontWeight: 700, color: failed > 0 ? 'var(--red)' : 'var(--text3)' }}>{failed > 0 ? fmt(failed) : '—'}</span>
+      }
+    } as BoardColumn<ProcLine>] : []),
     {
       key: 'remain', header: 'Còn lại', align: 'right', cell: l => {
         const remain = l.needQty - l.doneQty
@@ -429,10 +484,16 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
       }
     },
     {
+      // "Cập nhật lúc" (2026-09-09): khi có batchesByLine (real BE), lấy thời điểm ĐỢT GẦN NHẤT
+      // (reportedAt) thay vì l.lastInputAt - hàm fetchHanSonRows() luôn set lastInputAt=null nên
+      // cột này trước đây LUÔN rỗng cho Hàn/Sơn thật, không phải do chưa ai nhập gì.
       key: 'updated', header: 'Cập nhật lúc', cell: l => {
-        const stale = minutesSince(l.lastInputAt) >= REMIND_MINUTES
-        return l.lastInputAt
-          ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: stale ? 'var(--amber)' : 'var(--text3)' }}><Clock size={12} /> {timeVN(l.lastInputAt)}</span>
+        const latestBatchAt = (batchesByLine?.get(l.id) ?? [])
+          .reduce<string | null>((acc, b) => (!acc || b.reportedAt > acc) ? b.reportedAt : acc, null)
+        const at = latestBatchAt ?? l.lastInputAt
+        const stale = minutesSince(at) >= REMIND_MINUTES
+        return at
+          ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: stale ? 'var(--amber)' : 'var(--text3)' }}><Clock size={12} /> {timeVN(at)}</span>
           : <span style={{ color: 'var(--text3)' }}>— chưa nhập —</span>
       }
     },
@@ -444,29 +505,58 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
         )
       } as BoardColumn<ProcLine>]
       : (manualInput && !readOnly) ? [{
-        key: 'input', header: `Nhập số ${cfg.unit} vừa ${cfg.verb}`, width: 220, cell: (l: ProcLine) => {
+        // 2026-09-09 (đồng bộ Sắt/VTTP): tách "Ghi nhận" 1 nút (lưu+gửi KCS cùng lúc) thành "Lưu
+        // đợt" (onRecord, tích luỹ vào ProductionBatch đang OPEN) + "Gửi KCS" riêng (onFinishBatch,
+        // đóng đợt đang OPEN) - xem VatTuDetailBoard doc props. "Bù đủ" pre-fill input khi có Lỗi,
+        // cùng cơ chế client-side thuần (không gọi API riêng) như StepPanel/ChotPanel bên VTTP.
+        key: 'input', header: `Nhập số ${cfg.unit} vừa ${cfg.verb}`, width: 260, cell: (l: ProcLine) => {
           const pend = choKcsFor?.(l.id) ?? 0
           const remain = l.needQty - l.doneQty - pend
-          if (remain <= 0) return <span className="badge green">{pend > 0 ? 'chờ KCS duyệt' : 'đủ định mức'}</span>
+          const failed = failedOf(l.id)
+          const openBatch = (batchesByLine?.get(l.id) ?? []).find(b => b.status === 'OPEN')
+          const openQty = openBatch?.reportedQty ?? 0
+          if (remain <= 0 && openQty === 0) {
+            return <span className="badge green">{pend > 0 ? 'chờ KCS duyệt' : 'đủ định mức'}</span>
+          }
           return (
-            <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
-              <input
-                type="number" min={0} max={remain} placeholder={`tối đa ${fmt(remain)}`} value={draft[l.id] ?? ''}
-                onChange={e => {
-                  const val = e.target.value
-                  if (val === '') return setDraft(d => ({ ...d, [l.id]: '' }))
-                  let n = Math.floor(Number(val))
-                  if (isNaN(n)) return
-                  if (n < 0) n = 0
-                  if (n > remain) n = remain
-                  setDraft(d => ({ ...d, [l.id]: String(n) }))
-                }}
-                onKeyDown={e => { if (e.key === 'Enter') submit(l) }}
-                style={{ width: 110 }}
-              />
-              <button className="primary" onClick={() => submit(l)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', fontSize: 12 }}>
-                <Plus size={13} /> Ghi nhận
-              </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }} onClick={e => e.stopPropagation()}>
+              {remain > 0 && (
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    type="number" min={0} max={remain} placeholder={`tối đa ${fmt(remain)}`} value={draft[l.id] ?? ''}
+                    onChange={e => {
+                      const val = e.target.value
+                      if (val === '') return setDraft(d => ({ ...d, [l.id]: '' }))
+                      let n = Math.floor(Number(val))
+                      if (isNaN(n)) return
+                      if (n < 0) n = 0
+                      if (n > remain) n = remain
+                      setDraft(d => ({ ...d, [l.id]: String(n) }))
+                    }}
+                    onKeyDown={e => { if (e.key === 'Enter') submit(l) }}
+                    style={{ width: 90 }}
+                  />
+                  {failed > 0 && (
+                    <button onClick={() => setDraft(d => ({ ...d, [l.id]: String(Math.min(failed, remain)) }))}
+                      style={{ padding: '4px 8px', fontSize: 11, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
+                      Bù đủ
+                    </button>
+                  )}
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: 6 }}>
+                {remain > 0 && (
+                  <button className="primary" onClick={() => submit(l)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', fontSize: 12 }}>
+                    <Plus size={13} /> Lưu đợt
+                  </button>
+                )}
+                {openQty > 0 && (
+                  <button onClick={() => onFinishBatch?.(openBatch!.id)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', fontSize: 12, border: 'none', borderRadius: 6, background: 'var(--green)', color: '#fff', cursor: 'pointer' }}>
+                    <Send size={13} /> Gửi KCS
+                  </button>
+                )}
+              </div>
             </div>
           )
         }
@@ -492,8 +582,8 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
       subtitle={<>{subtitle}<div style={{ marginTop: 2 }}>{phoiMode
         ? <>Xác nhận các <b>đợt sắt đã nhận từ kho</b> theo từng {itemLabelLC} — hệ thống tự cộng vào tiến độ.</>
         : manualInput
-          ? (onReport
-            ? <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} → chuyển <b>chờ KCS duyệt</b>; chỉ SL KCS đạt mới tính tiến độ.</>
+          ? (onRecord
+            ? <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} → <b>Lưu đợt</b> rồi <b>Gửi KCS</b>; chỉ SL KCS đạt mới tính tiến độ.</>
             : <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} — hệ thống tự lưu mốc thời gian.</>)
           : <>Số lượng <b>đã {cfg.verb}</b> tự cập nhật từ màn <b>Xác nhận sản lượng</b> — màn này chỉ theo dõi đồng bộ.</>}</div></>}
       beforeTable={banner}
@@ -502,54 +592,272 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
       rowKey={l => l.id}
       rowTone={l => shortOf(l) > 0 ? 'alert' : 'default'}
       expandedRow={l => {
-        if (!(l.parts && openParts.has(l.id))) return null
+        if (!openParts.has(l.id)) return null
+        const lineBatches = batchesByLine?.get(l.id) ?? []
+        if (!l.parts && lineBatches.length === 0) return null
         const thucCoOf = (pt: ProcPart) => partStock ? partStock(pt) : (pt.thucCo ?? 0) // sync từ Phôi nếu có
         const rapDuocOf = (pt: ProcPart) => pt.perChiTiet > 0 ? Math.floor(thucCoOf(pt) / pt.perChiTiet) : 0
-        const rapMin = l.parts.length ? Math.min(...l.parts.map(rapDuocOf)) : 0
+        const rapMin = l.parts?.length ? Math.min(...l.parts.map(rapDuocOf)) : 0
         const thR2: React.CSSProperties = { ...td, fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
         return (
-          <div style={{ padding: '10px 16px 14px', background: 'var(--surface2)' }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>
-              Đoạn sắt cấu thành 1 {itemLabelLC} <span style={{ fontWeight: 400, color: 'var(--text3)' }}>{partStock ? '(thực có = đoạn Phôi KCS đạt − đã hàn)' : '(theo mảnh bên Phôi)'}</span>:
-            </div>
-            <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: 'var(--surface)' }}>
-                    <th style={thR2}>Loại sắt</th>
-                    <th style={thR2}>Quy cách · Dài</th>
-                    <th style={{ ...thR2, textAlign: 'right' }}>SL / {itemLabelLC}</th>
-                    <th style={{ ...thR2, textAlign: 'right' }}>Thực có (đoạn)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {l.parts!.map((pt, i) => {
-                    const nghen = rapDuocOf(pt) === rapMin
-                    return (
-                      <tr key={i} style={{ borderTop: '1px solid var(--border)', background: nghen ? 'var(--red-bg)' : undefined }}>
-                        <td style={{ ...td, fontWeight: 600, borderLeft: `3px solid ${nghen ? 'var(--red)' : 'transparent'}` }}>
-                          {pt.loaiSat}
-                          {nghen && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)', marginLeft: 6 }}>· thiếu nhất</span>}
-                        </td>
-                        <td style={{ ...td, color: 'var(--text3)' }}>{pt.quyCach} · <b style={{ color: 'var(--text2)' }}>{fmt(pt.len)}mm</b></td>
-                        <td style={{ ...tdR, fontWeight: 600 }}>×{pt.perChiTiet}</td>
-                        <td style={{ ...tdR, fontWeight: nghen ? 700 : 400, color: nghen ? 'var(--red)' : 'var(--text)' }}>{fmt(thucCoOf(pt))}</td>
+          <div style={{ padding: '10px 16px 14px', background: 'var(--surface2)', display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {l.parts && (
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>
+                  Đoạn sắt cấu thành 1 {itemLabelLC} <span style={{ fontWeight: 400, color: 'var(--text3)' }}>{partStock ? '(thực có = đoạn Phôi KCS đạt − đã hàn)' : '(theo mảnh bên Phôi)'}</span>:
+                </div>
+                <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden', background: 'var(--surface)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--surface)' }}>
+                        <th style={thR2}>Loại sắt</th>
+                        <th style={thR2}>Quy cách · Dài</th>
+                        <th style={{ ...thR2, textAlign: 'right' }}>SL / {itemLabelLC}</th>
+                        <th style={{ ...thR2, textAlign: 'right' }}>Thực có (đoạn)</th>
                       </tr>
-                    )
-                  })}
-                </tbody>
-                <tfoot>
-                  <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--surface)' }}>
-                    <td style={{ ...td, fontWeight: 700 }} colSpan={3}>Đủ ráp (theo đoạn thiếu nhất)</td>
-                    <td style={{ ...tdR, fontWeight: 800, color: 'var(--green)' }}>{fmt(rapMin)} {itemLabelLC}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
+                    </thead>
+                    <tbody>
+                      {l.parts.map((pt, i) => {
+                        const nghen = rapDuocOf(pt) === rapMin
+                        return (
+                          <tr key={i} style={{ borderTop: '1px solid var(--border)', background: nghen ? 'var(--red-bg)' : undefined }}>
+                            <td style={{ ...td, fontWeight: 600, borderLeft: `3px solid ${nghen ? 'var(--red)' : 'transparent'}` }}>
+                              {pt.loaiSat}
+                              {nghen && <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--red)', marginLeft: 6 }}>· thiếu nhất</span>}
+                            </td>
+                            <td style={{ ...td, color: 'var(--text3)' }}>{pt.quyCach} · <b style={{ color: 'var(--text2)' }}>{fmt(pt.len)}mm</b></td>
+                            <td style={{ ...tdR, fontWeight: 600 }}>×{pt.perChiTiet}</td>
+                            <td style={{ ...tdR, fontWeight: nghen ? 700 : 400, color: nghen ? 'var(--red)' : 'var(--text)' }}>{fmt(thucCoOf(pt))}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                    <tfoot>
+                      <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--surface)' }}>
+                        <td style={{ ...td, fontWeight: 700 }} colSpan={3}>Đủ ráp (theo đoạn thiếu nhất)</td>
+                        <td style={{ ...tdR, fontWeight: 800, color: 'var(--green)' }}>{fmt(rapMin)} {itemLabelLC}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            )}
+            {lineBatches.length > 0 && <BatchHistoryList batches={lineBatches} reviews={reviews ?? []} unit={cfg.unit} />}
           </div>
         )
       }}
     />
+  )
+}
+
+// ── "Các đợt đã gửi" (lịch sử thuần xem, mirror ProductionBatchHistoryCard bên VatTuTpDetail.tsx,
+// đổi màu sang biến CSS var chung của core.tsx thay vì hằng số riêng ACCENT/GREEN/RED) - đánh số
+// "Đợt N" theo thứ tự TẠO RA (cũ nhất = Đợt 1). ──────────────────────────────────────────────────
+function BatchHistoryList({ batches, reviews, unit }: {
+  batches: BeProductionBatch[]; reviews: BeProductionBatchQcReview[]; unit: string
+}) {
+  const sorted = [...batches].sort((a, b) => b.reportedAt.localeCompare(a.reportedAt))
+  const orderIndexById = new Map(
+    [...batches].sort((a, b) => a.reportedAt.localeCompare(b.reportedAt)).map((b, i) => [b.id, i + 1]),
+  )
+  const reviewByBatchId = new Map(reviews.map(r => [r.productionBatchId, r]))
+  return (
+    <div>
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Các đợt đã gửi ({sorted.length}):</div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {sorted.map(b => {
+          const failed = reviewByBatchId.get(b.id)?.failedQty ?? 0
+          return (
+            <div key={b.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', border: `1px solid ${failed > 0 ? 'var(--red)' : 'var(--border)'}`, borderRadius: 8, background: 'var(--surface)' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 700 }}>Đợt {orderIndexById.get(b.id) ?? 0}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)' }}>{fmt(b.reportedQty)} {unit} · {timeVN(b.reportedAt)}</div>
+              </div>
+              {b.status === 'OPEN' ? (
+                <span style={{ fontSize: 12, color: ACCENT, fontWeight: 600 }}>đang mở</span>
+              ) : b.status === 'AWAITING_QC' ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: 'var(--amber)' }}><Clock size={12} /> chờ KCS</span>
+              ) : null}
+              {failed > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--red)' }}>Lỗi {failed}</span>}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── Danh sách mảnh (Hàn/Sơn, 2026-09-09) - mirror ĐÚNG list "Vật tư TP" bên Phôi
+// (LenhSanXuatPhoi.tsx) - mỗi mảnh 1 dòng, bấm vào mở LineDetailCard. ──────────────────────────
+function LineListBoard({ lines, cfg, title, subtitle, backLabel, onBack, onEnter, choKcsFor }: {
+  lines: ProcLine[]; cfg: StageCfg; title: string; subtitle: string
+  backLabel?: string; onBack?: () => void
+  onEnter: (lineId: number) => void
+  choKcsFor?: (lineId: number) => number
+}) {
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        {onBack && (
+          <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
+            <ChevronLeft size={15} /> {backLabel ?? 'Quay lại'}
+          </button>
+        )}
+        <div>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{title}</h2>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>{subtitle}</div>
+        </div>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {lines.map(l => {
+          const pend = choKcsFor?.(l.id) ?? 0
+          const remain = l.needQty - l.doneQty - pend
+          const done = remain <= 0
+          return (
+            <div key={l.id} onClick={() => onEnter(l.id)} style={{ ...card, cursor: 'pointer' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+              onMouseLeave={e => (e.currentTarget.style.background = '')}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px' }}>
+                <ChevronRight size={15} color="var(--text3)" />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{l.itemName}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>Cần {fmt(l.needQty)} {cfg.unit}</div>
+                </div>
+                {done ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: 'var(--green)' }}><Check size={12} /> đã {cfg.verb} xong</span>
+                ) : pend > 0 ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: 'var(--amber)' }}><Clock size={12} /> chờ KCS duyệt</span>
+                ) : (
+                  <span style={{ fontSize: 12, color: ACCENT, fontWeight: 600 }}>còn {fmt(remain)} {cfg.unit}</span>
+                )}
+              </div>
+            </div>
+          )
+        })}
+        {lines.length === 0 && (
+          <div style={{ ...card, padding: 24, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Không có dữ liệu</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const thH: React.CSSProperties = { textAlign: 'left', padding: '8px 12px', fontSize: 12, fontWeight: 700, color: 'var(--text2)' }
+const thHR: React.CSSProperties = { ...thH, textAlign: 'right' }
+
+// ── Chi tiết 1 mảnh (Hàn/Sơn, 2026-09-09) - mirror ĐÚNG ChotPanel bên VTTP (VatTuTpDetail.tsx):
+// bảng Cần/Đã báo/Lỗi/Còn lại/Nhập đợt này + Lưu đợt/Gửi KCS cạnh nhau + Bù đủ + "Các đợt đã gửi".
+// Đơn giản hơn VTTP (không có dải tab công đoạn - Hàn/Sơn không có processSteps). ─────────────────
+function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, choKcsFor, batchesByLine, reviews }: {
+  line: ProcLine; cfg: StageCfg; readOnly: boolean; onBack: () => void
+  onRecord: (line: ProcLine, qty: number) => void
+  onFinishBatch?: (batchId: string) => void
+  choKcsFor?: (lineId: number) => number
+  batchesByLine?: Map<number, BeProductionBatch[]>
+  reviews?: BeProductionBatchQcReview[]
+}) {
+  const [qty, setQty] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [sendBusy, setSendBusy] = useState(false)
+
+  const lineBatches = batchesByLine?.get(line.id) ?? []
+  const openBatch = lineBatches.find(b => b.status === 'OPEN')
+  const openQty = openBatch?.reportedQty ?? 0
+  const pend = choKcsFor?.(line.id) ?? 0
+  const batchIds = new Set(lineBatches.map(b => b.id))
+  const failed = (reviews ?? []).filter(r => r.productionBatchId && batchIds.has(r.productionBatchId)).reduce((s, r) => s + r.failedQty, 0)
+  const remain = Math.max(line.needQty - line.doneQty - pend, 0)
+
+  const submit = async () => {
+    const q = Math.floor(Number(qty) || 0)
+    if (q <= 0) return
+    setBusy(true)
+    try { onRecord(line, q); setQty('') }
+    finally { setBusy(false) }
+  }
+  const sendToKcs = async () => {
+    if (!openBatch) return
+    setSendBusy(true)
+    try { onFinishBatch?.(openBatch.id) }
+    finally { setSendBusy(false) }
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
+          <ChevronLeft size={15} /> Quay lại
+        </button>
+        <div>
+          <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{line.itemName}</h2>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>{line.spec} · Cần {fmt(line.needQty)} {cfg.unit}</div>
+        </div>
+      </div>
+
+      <div style={{ ...card, marginBottom: 12 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: 'var(--surface)' }}>
+              <th style={thH}>Mảnh</th>
+              <th style={thHR}>Cần</th>
+              <th style={thHR}>Đã báo</th>
+              <th style={thHR}>Lỗi</th>
+              <th style={thHR}>Còn lại</th>
+              {!readOnly && <th style={{ ...thHR, width: 140 }}>Nhập đợt này</th>}
+            </tr>
+          </thead>
+          <tbody>
+            <tr style={{ borderTop: '1px solid var(--border)' }}>
+              <td style={td}>{line.itemName}</td>
+              <td style={tdR}>{fmt(line.needQty)}</td>
+              <td style={tdR}>{fmt(line.doneQty)}</td>
+              <td style={{ ...tdR, color: failed > 0 ? 'var(--red)' : 'var(--text3)' }}>{failed > 0 ? fmt(failed) : '—'}</td>
+              <td style={{ ...tdR, color: remain > 0 ? ACCENT : 'var(--green)', fontWeight: 700 }}>{fmt(remain)}</td>
+              {!readOnly && (
+                <td style={{ ...td, textAlign: 'right' }}>
+                  <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                    <input type="number" min={0} max={remain} placeholder="0" value={qty} onChange={e => setQty(e.target.value)} style={{ width: 70 }} />
+                    {failed > 0 && remain > 0 && (
+                      <button onClick={() => setQty(String(Math.min(failed, remain)))}
+                        style={{ padding: '4px 8px', fontSize: 11, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
+                        Bù đủ
+                      </button>
+                    )}
+                  </div>
+                </td>
+              )}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      {!readOnly && (
+        <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
+          <button className="primary" onClick={submit} disabled={busy || remain <= 0}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12, cursor: (busy || remain <= 0) ? 'not-allowed' : 'pointer' }}>
+            <Plus size={13} /> {busy ? '...' : 'Lưu đợt'}
+          </button>
+          {openQty > 0 && (
+            <button onClick={sendToKcs} disabled={sendBusy}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12, border: 'none', borderRadius: 6, background: 'var(--green)', color: '#fff', cursor: sendBusy ? 'not-allowed' : 'pointer' }}>
+              <Send size={13} /> {sendBusy ? '...' : 'Gửi KCS'}
+            </button>
+          )}
+        </div>
+      )}
+
+      <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px dashed var(--border)' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16, fontSize: 13 }}>
+          <div><span style={{ color: 'var(--text3)' }}>Chưa gửi KCS</span> <b style={{ color: openQty > 0 ? ACCENT : 'var(--text3)' }}>{fmt(openQty)}</b></div>
+          <div><span style={{ color: 'var(--text3)' }}>Chờ KCS duyệt</span> <b style={{ color: 'var(--amber)' }}>{fmt(pend)}</b></div>
+          <div><span style={{ color: 'var(--text3)' }}>Đã duyệt</span> <b style={{ color: 'var(--green)' }}>{fmt(line.doneQty)}</b></div>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 14 }}>
+        <BatchHistoryList batches={lineBatches} reviews={reviews ?? []} unit={cfg.unit} />
+      </div>
+    </div>
   )
 }
 
@@ -653,23 +961,37 @@ export function PhoiScreen({ cfg, rows, readOnly = false }: {
 // Bỏ hẳn tính năng "xem thanh sắt cấu thành" (ProcPart/partStock, đồng bộ tồn đoạn từ Phôi) — dữ
 // liệu này chỉ tồn tại ở mock/seed; BE nay đã có segment-level BOM theo mảnh thật (PieceBom, cùng
 // bảng Phôi dùng), nhưng nối lại tính năng này vẫn ngoài phạm vi lần đổi Part->Piece này.
-interface HanSonFetch { rows: ProcRow[]; awaitingByLine: Map<number, number> }
+interface HanSonFetch {
+  rows: ProcRow[]
+  awaitingByLine: Map<number, number>
+  /** 2026-09-09 (đồng bộ "Lưu đợt"/"Gửi KCS"/"Các đợt đã gửi" - trước chỉ VTTP có): MỌI
+   *  ProductionBatch (mọi status) của đúng order+stage đó, keyed theo pieceId (=lineId). */
+  batchesByLine: Map<number, BeProductionBatch[]>
+}
 
 async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
   const orders: BeProductionOrderSummary[] = await api.listProductionOrdersForStage()
   const settled = await Promise.all(orders.map(async o => {
-    try { return { o, plan: await api.getProductionBatchPlan(o.id, stage) } }
+    try {
+      const [plan, batches] = await Promise.all([
+        api.getProductionBatchPlan(o.id, stage),
+        api.getProductionBatchesForOrder(o.id, stage),
+      ])
+      return { o, plan, batches }
+    }
     catch { return null }
   }))
 
   const rows: ProcRow[] = []
   const awaitingByLine = new Map<number, number>()
+  const batchesByLine = new Map<number, BeProductionBatch[]>()
   for (const s of settled) {
     if (!s) continue
-    const { o, plan } = s
+    const { o, plan, batches } = s
     const lines: ProcLine[] = plan.items.map(item => {
       const lineId = Number(item.pieceId)
       awaitingByLine.set(lineId, item.awaitingQcQty)
+      batchesByLine.set(lineId, batches.filter(b => b.pieceId === item.pieceId))
       return {
         id: lineId, itemName: item.pieceName, spec: item.pieceCode,
         needQty: item.plannedQty, doneQty: item.passedQty,
@@ -685,7 +1007,7 @@ async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
       productionInvoiceId: o.productionInvoiceId, piCode: o.piCode,
     })
   }
-  return { rows, awaitingByLine }
+  return { rows, awaitingByLine, batchesByLine }
 }
 
 // ── Orchestrator: Hàn/Sơn (2 tầng) ─────────────────────────────────
@@ -697,7 +1019,10 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   cfg: StageCfg; seed?: () => ProcRow[]; readOnly?: boolean; stage?: SanLuongStage
 }) {
   const { data: fetched, refetch } = useFetch<HanSonFetch>(
-    () => stage ? fetchHanSonRows(stage) : Promise.resolve({ rows: [], awaitingByLine: new Map() }), [stage])
+    () => stage ? fetchHanSonRows(stage) : Promise.resolve({ rows: [], awaitingByLine: new Map(), batchesByLine: new Map() }), [stage])
+  // "Lỗi" theo đợt (2026-09-09, đồng bộ Sắt/VTTP) - fetch 1 lần, lọc theo batchesByLine ở
+  // VatTuDetailBoard (cùng idiom ChotPanel/StepPanel, VatTuTpDetail.tsx).
+  const { data: reviews } = useFetch(() => stage ? api.getQcReviewsForProductionBatches() : Promise.resolve([]), [stage])
 
   const [rows, setRows] = useState<ProcRow[]>(() => seed?.() ?? [])
   useEffect(() => {
@@ -712,6 +1037,7 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
 
   // done đã có sẵn trong ProcLine.doneQty (từ passedQty của plan) — chỉ còn chờ-KCS cần map riêng.
   const awaitingByLine = fetched?.awaitingByLine ?? new Map<number, number>()
+  const batchesByLine = fetched?.batchesByLine ?? new Map<number, BeProductionBatch[]>()
 
   const selPo = rows.find(r => r.id === selPoId) ?? null
   const piGroups = useMemo(() => buildPiGroups(rows), [rows])
@@ -720,17 +1046,25 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   const updateLineFlat = (poId: number, ul: ProcLine) =>
     setRows(rs => rs.map(r => r.id !== poId ? r : { ...r, lines: r.lines?.map(l => l.id === ul.id ? ul : l) }))
 
-  // onReport truyền qua VatTuDetailBoard.submit() không await/catch promise trả về (fire-and-
-  // forget) - phải tự bắt lỗi ở đây, nếu không lỗi backend (vd PI chưa "Bắt đầu"/đã "Kết thúc",
-  // 2026-08-31) sẽ rớt thành unhandled rejection, công nhân bấm "Ghi nhận" không thấy phản hồi gì
-  // (ô nhập vẫn bị xoá như đã lưu thành công) - cùng lỗi đã sửa ở KcsStagePage.onReview.
-  const report = async (po: ProcRow, line: ProcLine, qty: number) => {
+  // onRecord/onFinishBatch truyền qua VatTuDetailBoard.submit()/nút "Gửi KCS" không await/catch
+  // promise trả về (fire-and-forget) - phải tự bắt lỗi ở đây, nếu không lỗi backend (vd PI chưa
+  // "Bắt đầu"/đã "Kết thúc", 2026-08-31) sẽ rớt thành unhandled rejection, công nhân bấm nút không
+  // thấy phản hồi gì (ô nhập vẫn bị xoá như đã lưu thành công) - cùng lỗi đã sửa ở KcsStagePage.onReview.
+  const recordQty = async (po: ProcRow, line: ProcLine, qty: number) => {
     if (!stage || !po.realOrderId || !line.realPieceId) return
     try {
-      await api.reportProductionBatch(po.realOrderId, { stage, pieceId: line.realPieceId, reportedQty: qty })
+      await api.recordProductionBatch(po.realOrderId, { stage, pieceId: line.realPieceId, qty })
       refetch()
     } catch (e) {
-      alert(errMsg(e, 'Không ghi nhận được sản lượng'))
+      alert(errMsg(e, 'Không lưu được đợt'))
+    }
+  }
+  const finishBatch = async (batchId: string) => {
+    try {
+      await api.finishProductionBatch(batchId)
+      refetch()
+    } catch (e) {
+      alert(errMsg(e, 'Không gửi được'))
     }
   }
 
@@ -742,9 +1076,12 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
       bannerLabel="Đồng bộ" backLabel="Quay lại danh sách lệnh"
       onBack={() => setSelPoId(null)}
       onUpdateLine={stage ? undefined : l => updateLineFlat(selPo.id, l)}
-      onReport={stage && !readOnly ? (l, qty) => report(selPo, l, qty) : undefined}
+      onRecord={stage && !readOnly ? (l, qty) => recordQty(selPo, l, qty) : undefined}
+      onFinishBatch={stage && !readOnly ? finishBatch : undefined}
       choKcsFor={stage ? (id => awaitingByLine.get(id) ?? 0) : undefined}
       showThucCo={stage ? false : undefined}
+      batchesByLine={stage ? batchesByLine : undefined}
+      reviews={stage ? (reviews ?? []) : undefined}
       manualInput
     />
   }
