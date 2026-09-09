@@ -10,6 +10,18 @@ import { AlertCircle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight
 import SearchableSelect from '../../../components/SearchableSelect'
 import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 
+/** Chia khoảng [frameStart, frameEnd] theo tỷ lệ (2026-09-09) - dùng để tính mặc định "ước tính"
+ *  cho 3 mốc con Phôi/Hàn/Sơn dựa trên khoảng Khung cơ khí, theo yêu cầu người dùng ("tự tạo ra
+ *  deadline mặc định rồi kế hoạch sản xuất sẽ sửa sau" - cùng idiom "ước tính" đã có sẵn cho
+ *  Khung cơ khí/Đan/Đóng gói, KHÔNG tự lưu DB nếu KHSX không đụng vào). */
+function computeSubRange(frameStartStr: string, frameEndStr: string, ratio: readonly [number, number]) {
+  const start = new Date(frameStartStr).getTime()
+  const end = new Date(frameEndStr).getTime()
+  const span = end - start
+  const at = (r: number) => format(new Date(start + span * r), 'yyyy-MM-dd')
+  return { start: at(ratio[0]), end: at(ratio[1]) }
+}
+
 /**
  * "Đang tính phương án cắt... (đã chạy X phút)" - thời gian solve dao động rất lớn (đo thật:
  * 4,7 phút -> hơn 15 phút tuỳ vật tư), không hiện gì thì Sếp/KHSX/QLSX duyệt xong không biết đang
@@ -49,11 +61,24 @@ export default function LenhSXPage() {
   const [qlsxWarehouseByItemId, setQlsxWarehouseByItemId] = useState<Record<string, string>>({})
   const [sendingToBoss, setSendingToBoss] = useState(false)
   const [editingPI, setEditingPI] = useState<any | null>(null)
-  const [editValues, setEditValues] = useState<{ deadline: string; items: { materialDeadline: string; deliveryDeadline: string; FRAME: string; WEAVING: string; PACKAGING: string }[] }>({ deadline: '', items: [] })
+  // FRAME_START (2026-09-09) - ngày bắt đầu Khung cơ khí (FRAME giờ là khoảng, không chỉ 1 mốc
+  // kết thúc như trước) + PHOI/HAN/SON_START/END - 3 mốc con lồng trong khoảng FRAME, BẮT BUỘC
+  // nằm trong khoảng đó (BE chặn cứng, xem ProductionInvoicesService.assertFrameSubStagesWithinRange).
+  const [editValues, setEditValues] = useState<{ deadline: string; items: {
+    materialDeadline: string; deliveryDeadline: string; FRAME: string; FRAME_START: string; WEAVING: string; PACKAGING: string
+    PHOI_START: string; PHOI_END: string; HAN_START: string; HAN_END: string; SON_START: string; SON_END: string
+  }[] }>({ deadline: '', items: [] })
+  const [editError, setEditError] = useState('')
   // Field nào lúc mở modal chỉ là ngày "ước tính" (chưa có giá trị thật lưu ở SKU) — map vào ô
   // nhập để tham khảo, nhưng KHÔNG được tự "chốt" thành ngày chính thức nếu người dùng không đụng
   // vào (xem editTouched bên dưới) — bấm Lưu mà không sửa gì thì SKU vẫn giữ trạng thái ước tính.
-  const [editEstimated, setEditEstimated] = useState<{ materialDeadline: boolean; deliveryDeadline: boolean; FRAME: boolean; WEAVING: boolean; PACKAGING: boolean }[]>([])
+  // FRAME_START + 6 mốc con Phôi/Hàn/Sơn (2026-09-09) - CÙNG idiom "ước tính" như FRAME/WEAVING/
+  // PACKAGING: tự tính mặc định dựa theo khoảng Khung cơ khí (xem computeSubRange), KHSX sửa gì
+  // thì lưu cái đó, không sửa thì không tự ghi DB.
+  const [editEstimated, setEditEstimated] = useState<{
+    materialDeadline: boolean; deliveryDeadline: boolean; FRAME: boolean; FRAME_START: boolean; WEAVING: boolean; PACKAGING: boolean
+    PHOI_START: boolean; PHOI_END: boolean; HAN_START: boolean; HAN_END: boolean; SON_START: boolean; SON_END: boolean
+  }[]>([])
   const [editTouched, setEditTouched] = useState<Set<string>>(new Set())
   const [savingPI, setSavingPI] = useState(false)
   const [viewingPIId, setViewingPIId] = useState<number | null>(null)
@@ -253,29 +278,105 @@ export default function LenhSXPage() {
     }
     const hasStage = (item: any, type: string) =>
       Array.isArray(item.stages) && item.stages.some((x: any) => x.stageType === type && x.deadline)
+    const findStage = (item: any, type: string) =>
+      Array.isArray(item.stages) ? item.stages.find((x: any) => x.stageType === type) : null
+    // FRAME_START (2026-09-09): CHƯA có mốc "ước tính" nào cho ngày bắt đầu Khung cơ khí trước đây
+    // (FRAME chỉ có 1 mốc kết thúc) - mặc định = Kết thúc trừ lùi 30 ngày, theo yêu cầu người dùng
+    // "tự tạo ra deadline mặc định rồi kế hoạch sản xuất sẽ sửa sau".
+    const frameStartOf = (item: any, frameEndStr: string) => {
+      const s = findStage(item, 'FRAME')
+      if (s?.startDate) return { value: format(new Date(s.startDate), 'yyyy-MM-dd'), estimated: false }
+      const d = new Date(frameEndStr); d.setDate(d.getDate() - 30)
+      return { value: format(d, 'yyyy-MM-dd'), estimated: true }
+    }
+    // Mốc con Phôi/Hàn/Sơn: mặc định chia theo tỷ lệ trong khoảng Khung cơ khí (SUB_STAGE_DEFS.ratio)
+    // - CÙNG idiom "ước tính" như FRAME/WEAVING/PACKAGING, chỉ lưu DB khi KHSX chủ động sửa.
+    const subRangeOf = (item: any, type: string, frameStartStr: string, frameEndStr: string, ratio: readonly [number, number]) => {
+      const s = findStage(item, type)
+      if (s?.startDate && s?.deadline) {
+        return { start: format(new Date(s.startDate), 'yyyy-MM-dd'), end: format(new Date(s.deadline), 'yyyy-MM-dd'), estimated: false }
+      }
+      const r = computeSubRange(frameStartStr, frameEndStr, ratio)
+      return { ...r, estimated: true }
+    }
     setEditingPI(pi)
-    setEditValues({
-      deadline: format(piDeadline, 'yyyy-MM-dd'),
-      items: items.map((item: any) => ({
-        materialDeadline: format(item.materialDeadline ? new Date(item.materialDeadline) : fb(21), 'yyyy-MM-dd'),
-        deliveryDeadline: format(item.deliveryDeadline  ? new Date(item.deliveryDeadline)  : piDeadline, 'yyyy-MM-dd'),
-        FRAME:     stgDate(item, 'FRAME', 14),
-        WEAVING:   stgDate(item, 'WEAVING', 8),
-        PACKAGING: stgDate(item, 'PACKAGING', 3),
-      })),
+    const itemValues = items.map((item: any) => {
+      const frameEnd = stgDate(item, 'FRAME', 14)
+      const frameStart = frameStartOf(item, frameEnd)
+      const subs = SUB_STAGE_DEFS.map((def) => ({
+        def,
+        range: subRangeOf(item, def.stageType, frameStart.value, frameEnd, def.ratio),
+      }))
+      return {
+        values: {
+          materialDeadline: format(item.materialDeadline ? new Date(item.materialDeadline) : fb(21), 'yyyy-MM-dd'),
+          deliveryDeadline: format(item.deliveryDeadline  ? new Date(item.deliveryDeadline)  : piDeadline, 'yyyy-MM-dd'),
+          FRAME: frameEnd,
+          FRAME_START: frameStart.value,
+          WEAVING: stgDate(item, 'WEAVING', 8),
+          PACKAGING: stgDate(item, 'PACKAGING', 3),
+          ...Object.fromEntries(subs.flatMap(({ def, range }) => [[def.startField, range.start], [def.endField, range.end]])),
+        },
+        estimated: {
+          materialDeadline: !item.materialDeadline,
+          deliveryDeadline: !item.deliveryDeadline,
+          FRAME: !hasStage(item, 'FRAME'),
+          FRAME_START: frameStart.estimated,
+          WEAVING: !hasStage(item, 'WEAVING'),
+          PACKAGING: !hasStage(item, 'PACKAGING'),
+          ...Object.fromEntries(subs.flatMap(({ def, range }) => [[def.startField, range.estimated], [def.endField, range.estimated]])),
+        },
+      }
     })
-    setEditEstimated(items.map((item: any) => ({
-      materialDeadline: !item.materialDeadline,
-      deliveryDeadline: !item.deliveryDeadline,
-      FRAME: !hasStage(item, 'FRAME'),
-      WEAVING: !hasStage(item, 'WEAVING'),
-      PACKAGING: !hasStage(item, 'PACKAGING'),
-    })))
+    setEditValues({ deadline: format(piDeadline, 'yyyy-MM-dd'), items: itemValues.map((v) => v.values) })
+    setEditEstimated(itemValues.map((v) => v.estimated))
     setEditTouched(new Set())
+    setEditError('')
   }
+
+  // 3 mốc con Phôi/Hàn/Sơn (2026-09-09) - mỗi cái phải nằm TRONG khoảng FRAME_START..FRAME, được
+  // phép chồng lấn lẫn nhau (không kiểm tra ở đây). `ratio` = tỷ lệ mặc định trong khoảng Khung cơ
+  // khí (Phôi đầu, Hàn giữa, Sơn cuối, chồng lấn nhau - theo yêu cầu người dùng "bên Phôi đang sao
+  // thì Hàn Sơn y chang vậy" áp dụng luôn cho cách chia deadline mặc định).
+  const SUB_STAGE_DEFS = [
+    { stageType: 'FRAME_PHOI' as const, startField: 'PHOI_START' as const, endField: 'PHOI_END' as const, label: 'Phôi', ratio: [0, 0.55] as const },
+    { stageType: 'FRAME_HAN'  as const, startField: 'HAN_START'  as const, endField: 'HAN_END'  as const, label: 'Hàn',  ratio: [0.3, 0.7] as const },
+    { stageType: 'FRAME_SON'  as const, startField: 'SON_START'  as const, endField: 'SON_END'  as const, label: 'Sơn', ratio: [0.45, 1] as const },
+  ]
 
   const handleSavePI = async () => {
     if (!editingPI || !editValues.deadline) return
+    setEditError('')
+
+    // Kiểm tra trước khi gọi API (đỡ round-trip vô ích) - BE vẫn là nơi chặn thật
+    // (assertFrameSubStagesWithinRange) nếu lọt qua đây.
+    const dmy = (isoDate: string) => format(new Date(isoDate), 'dd/MM/yyyy')
+    for (let idx = 0; idx < editValues.items.length; idx++) {
+      const vals = editValues.items[idx]
+      const skuCode = editingPI.items?.[idx]?.productVariant?.mfgProduct?.factoryCode ?? `SKU #${idx + 1}`
+      for (const { startField, endField, label } of SUB_STAGE_DEFS) {
+        const start = vals[startField]
+        const end = vals[endField]
+        if (!start && !end) continue
+        if (!start || !end) {
+          setEditError(`${skuCode}: ${label} cần đủ ngày bắt đầu và kết thúc`)
+          return
+        }
+        if (!vals.FRAME_START || !vals.FRAME) {
+          setEditError(`${skuCode}: đặt khoảng Khung cơ khí trước khi đặt hạn ${label}`)
+          return
+        }
+        if (start > end) {
+          setEditError(`${skuCode}: ${label} có ngày bắt đầu sau ngày kết thúc`)
+          return
+        }
+        if (start < vals.FRAME_START || end > vals.FRAME) {
+          setEditError(`${skuCode}: ${label} phải trong khung cơ khí (${dmy(vals.FRAME_START)} - ${dmy(vals.FRAME)})`)
+          return
+        }
+      }
+    }
+
     setSavingPI(true)
     try {
       // Field chỉ mang giá trị "ước tính" map sẵn để tham khảo (editEstimated) và người dùng
@@ -295,12 +396,35 @@ export default function LenhSXPage() {
       await Promise.all(items.map((item, idx) => {
         const vals = editValues.items[idx]
         if (!vals) return null
-        const payload: { materialDeadline?: string; deliveryDeadline?: string; stages?: { stageType: 'FRAME' | 'WEAVING' | 'PACKAGING'; deadline: string }[] } = {}
+        type StageOut = { stageType: 'FRAME' | 'WEAVING' | 'PACKAGING' | 'FRAME_PHOI' | 'FRAME_HAN' | 'FRAME_SON'; deadline: string; startDate?: string }
+        const payload: { materialDeadline?: string; deliveryDeadline?: string; stages?: StageOut[] } = {}
         if (vals.materialDeadline && isCommittable(idx, 'materialDeadline')) payload.materialDeadline = new Date(vals.materialDeadline).toISOString()
         if (vals.deliveryDeadline && isCommittable(idx, 'deliveryDeadline')) payload.deliveryDeadline = new Date(vals.deliveryDeadline).toISOString()
-        const stages = (['FRAME', 'WEAVING', 'PACKAGING'] as const)
+        const stages: StageOut[] = (['WEAVING', 'PACKAGING'] as const)
           .filter(field => vals[field] && isCommittable(idx, field))
           .map(field => ({ stageType: field, deadline: new Date(vals[field]).toISOString() }))
+        // BE bắt buộc phải có Khung cơ khí (FRAME) ĐÃ LƯU trong DB mới chấp nhận mốc con Phôi/Hàn/
+        // Sơn (assertFrameSubStagesWithinRange) - nên hễ có 1 mốc con nào được chốt lần này, LUÔN
+        // gửi kèm FRAME (dù còn là ước tính), nếu không PI item chưa từng lưu FRAME sẽ bị BE chặn
+        // "chưa đặt khoảng Khung cơ khí" dù màn hình đang hiện đủ (chỉ là ước tính, chưa có DB).
+        const anySubCommittable = SUB_STAGE_DEFS.some(({ startField, endField }) =>
+          vals[startField] && vals[endField] && (isCommittable(idx, startField) || isCommittable(idx, endField)))
+        if (vals.FRAME && vals.FRAME_START && (isCommittable(idx, 'FRAME') || isCommittable(idx, 'FRAME_START') || anySubCommittable)) {
+          stages.push({
+            stageType: 'FRAME',
+            deadline: new Date(vals.FRAME).toISOString(),
+            startDate: new Date(vals.FRAME_START).toISOString(),
+          })
+        }
+        for (const { stageType, startField, endField } of SUB_STAGE_DEFS) {
+          if (vals[startField] && vals[endField] && (isCommittable(idx, startField) || isCommittable(idx, endField))) {
+            stages.push({
+              stageType,
+              deadline: new Date(vals[endField]).toISOString(),
+              startDate: new Date(vals[startField]).toISOString(),
+            })
+          }
+        }
         if (stages.length > 0) payload.stages = stages
         if (!payload.materialDeadline && !payload.deliveryDeadline && !payload.stages) return null
         return api.updateProductionInvoiceItem(editingPI.id, item.id, payload)
@@ -1174,12 +1298,36 @@ export default function LenhSXPage() {
                 const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
                 const name = item.productVariant?.mfgProduct?.name ?? ''
                 const qty  = item.quantity
-                const vals = editValues.items[idx] ?? { materialDeadline:'', deliveryDeadline:'', FRAME:'', WEAVING:'', PACKAGING:'' }
+                const vals = editValues.items[idx] ?? {
+                  materialDeadline:'', deliveryDeadline:'', FRAME:'', FRAME_START:'', WEAVING:'', PACKAGING:'',
+                  PHOI_START:'', PHOI_END:'', HAN_START:'', HAN_END:'', SON_START:'', SON_END:'',
+                }
                 const est = editEstimated[idx]
+                // Khi sửa FRAME_START/FRAME (khoảng Khung cơ khí), tính lại "ước tính" mặc định cho
+                // 3 mốc con Phôi/Hàn/Sơn theo tỷ lệ (SUB_STAGE_DEFS.ratio) - CHỈ với mốc con nào
+                // KHSX chưa tự sửa (còn "ước tính") để không đè lên giá trị người dùng đã tự nhập.
                 const setField = (field: string, val: string) => {
                   setEditValues(prev => ({
                     ...prev,
-                    items: prev.items.map((it, i) => i === idx ? { ...it, [field]: val } : it),
+                    items: prev.items.map((it, i) => {
+                      if (i !== idx) return it
+                      const next = { ...it, [field]: val }
+                      if (field === 'FRAME_START' || field === 'FRAME') {
+                        const frameStart = field === 'FRAME_START' ? val : next.FRAME_START
+                        const frameEnd = field === 'FRAME' ? val : next.FRAME
+                        if (frameStart && frameEnd) {
+                          for (const { startField, endField, ratio } of SUB_STAGE_DEFS) {
+                            const touched = editTouched.has(`${idx}:${startField}`) || editTouched.has(`${idx}:${endField}`)
+                            if (!touched) {
+                              const r = computeSubRange(frameStart, frameEnd, ratio)
+                              next[startField] = r.start
+                              next[endField] = r.end
+                            }
+                          }
+                        }
+                      }
+                      return next
+                    }),
                   }))
                   setEditTouched(prev => new Set(prev).add(`${idx}:${field}`))
                 }
@@ -1187,10 +1335,11 @@ export default function LenhSXPage() {
                 // ước với bảng SKU timeline, để người dùng biết giá trị nào là gợi ý, giá trị nào
                 // đã chốt thật.
                 const isEstimate = (field: string) => !!est?.[field as keyof typeof est] && !editTouched.has(`${idx}:${field}`)
-                const dateInput = (label: string, field: string) => (
+                const dateInput = (label: string, field: string, opts?: { min?: string; max?: string }) => (
                   <div style={{ flex:1 }}>
                     <div style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:4 }}>{label}{isEstimate(field) && <span style={{ fontStyle:'italic' }}> (ước tính)</span>}</div>
                     <input type="date" value={vals[field as keyof typeof vals] ?? ''}
+                      min={opts?.min || undefined} max={opts?.max || undefined}
                       onChange={e => setField(field, e.target.value)}
                       style={{ width:'100%', padding:'5px 6px', border:`1px solid ${isEstimate(field) ? 'var(--border)' : '#1d4ed8'}`, borderRadius:5, fontSize:12, background:'var(--surface)', color: isEstimate(field) ? 'var(--text3)' : 'var(--text)', boxSizing:'border-box' }}
                     />
@@ -1214,16 +1363,49 @@ export default function LenhSXPage() {
                       </div>
                       {/* Các công đoạn sản xuất */}
                       <div style={{ display:'flex', gap:8 }}>
-                        {dateInput('Mua hàng',    'materialDeadline')}
-                        {dateInput('Khung cơ khí', 'FRAME')}
-                        {dateInput('Đan',          'WEAVING')}
-                        {dateInput('Đóng gói',     'PACKAGING')}
+                        {dateInput('Mua hàng', 'materialDeadline')}
+                        {dateInput('Đan',       'WEAVING')}
+                        {dateInput('Đóng gói',  'PACKAGING')}
+                      </div>
+
+                      {/* Khung cơ khí (2026-09-09: giờ là khoảng bắt đầu-kết thúc, không còn 1 mốc) */}
+                      <div>
+                        <div style={{ fontSize:10, color:'var(--text3)', fontWeight:700, marginBottom:4, textTransform:'uppercase', letterSpacing:'0.3px' }}>
+                          Khung cơ khí{(isEstimate('FRAME') || isEstimate('FRAME_START')) && <span style={{ fontStyle:'italic', fontWeight:400, textTransform:'none' }}> (ước tính)</span>}
+                        </div>
+                        <div style={{ display:'flex', gap:8 }}>
+                          {dateInput('Bắt đầu', 'FRAME_START')}
+                          {dateInput('Kết thúc', 'FRAME')}
+                        </div>
+                      </div>
+
+                      {/* Phôi/Hàn/Sơn - mốc con lồng trong khoảng Khung cơ khí, mặc định tự chia
+                          theo tỷ lệ (xem computeSubRange) - KHSX sửa lại tuỳ thực tế. Được phép
+                          chồng lấn nhau. */}
+                      <div style={{ display:'flex', flexDirection:'column', gap:8, paddingLeft:12, borderLeft:'2px solid var(--border)' }}>
+                        {SUB_STAGE_DEFS.map(({ startField, endField, label }) => (
+                          <div key={startField}>
+                            <div style={{ fontSize:10, color:'var(--text3)', fontWeight:700, marginBottom:4 }}>
+                              {label}{(isEstimate(startField) || isEstimate(endField)) && <span style={{ fontStyle:'italic', fontWeight:400 }}> (ước tính)</span>}
+                            </div>
+                            <div style={{ display:'flex', gap:8 }}>
+                              {dateInput('Bắt đầu', startField, { min: vals.FRAME_START, max: vals.FRAME })}
+                              {dateInput('Kết thúc', endField, { min: vals.FRAME_START, max: vals.FRAME })}
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
                 )
               })}
             </div>
+
+            {editError && (
+              <div style={{ marginBottom:16, padding:'8px 12px', background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:6, fontSize:12, color:'#b91c1c' }}>
+                {editError}
+              </div>
+            )}
 
             {/* Actions */}
             <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>

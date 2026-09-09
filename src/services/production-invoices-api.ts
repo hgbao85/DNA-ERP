@@ -13,7 +13,9 @@
  */
 import { http } from './core/http';
 
-type StageType = 'FRAME' | 'WEAVING' | 'PACKAGING';
+/** FRAME_PHOI/FRAME_HAN/FRAME_SON (2026-09-09): mốc con lồng trong khoảng FRAME - xem
+ *  LenhSXPage "Sửa thời hạn" và ProductionInvoicesService.assertFrameSubStagesWithinRange(). */
+type StageType = 'FRAME' | 'WEAVING' | 'PACKAGING' | 'FRAME_PHOI' | 'FRAME_HAN' | 'FRAME_SON';
 
 interface BeProductionInvoiceItem {
   id: string;
@@ -30,7 +32,7 @@ interface BeProductionInvoiceItem {
   quantity: number;
   materialDeadline: string | null;
   deliveryDeadline: string | null;
-  stages: { stageType: StageType; deadline: string }[];
+  stages: { stageType: StageType; deadline: string; startDate?: string | null }[];
   prodApprovalStatus: 'WAITING_QLSX' | 'WAITING_BOSS' | 'APPROVED' | 'REJECTED' | null;
   requestedAt: string | null;
   requestedById: string | null;
@@ -82,7 +84,7 @@ function toItem(it: BeProductionInvoiceItem) {
     materialDeadline: it.materialDeadline ?? undefined,
     deliveryDeadline: it.deliveryDeadline ?? undefined,
     status: undefined as string | undefined, // stage sản xuất/giao hàng — ngoài phạm vi domain này
-    stages: it.stages.map((s) => ({ stageType: s.stageType, deadline: s.deadline })),
+    stages: it.stages.map((s) => ({ stageType: s.stageType, deadline: s.deadline, startDate: s.startDate ?? undefined })),
     cuttingProposalStatus: it.cuttingProposalStatus ?? null,
     cuttingProposalRequestedAt: it.cuttingProposalRequestedAt ?? null,
     productionOrderId: it.productionOrderId ?? null,
@@ -143,7 +145,11 @@ export async function updateProductionInvoice(id: number | string, data: Record<
 export async function updateProductionInvoiceItem(
   piId: number | string,
   itemId: number | string,
-  data: { materialDeadline?: string; deliveryDeadline?: string; stages?: { stageType: StageType; deadline: string }[] },
+  data: {
+    materialDeadline?: string;
+    deliveryDeadline?: string;
+    stages?: { stageType: StageType; deadline: string; startDate?: string }[];
+  },
 ) {
   return toItem(
     await http.patch<BeProductionInvoiceItem>(`/production-invoices/${piId}/items/${itemId}`, {
