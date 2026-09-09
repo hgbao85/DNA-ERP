@@ -107,7 +107,9 @@ export async function createWarehouseTransfer(data: {
   fromWarehouseId: string | number;
   toWarehouseId: string | number;
   note?: string;
-  items: Array<{ materialId?: string | number; materialName: string; unit: string; quantity: number; note?: string }>;
+  // materialId bắt buộc (audit toàn diện 09/09/2026, mục Trung bình "phiếu ghi tự do") - BE giờ
+  // từ chối (400) dòng nào thiếu materialId, không còn kiểu "ghi tự do" chỉ có materialName gõ tay.
+  items: Array<{ materialId: string | number; materialName: string; unit: string; quantity: number; note?: string }>;
 }): Promise<WarehouseTransfer> {
   const created = await http.post<BeWarehouseTransfer>(
     '/warehouse-transfers',
@@ -116,7 +118,7 @@ export async function createWarehouseTransfer(data: {
       toWarehouseId: String(data.toWarehouseId),
       note: data.note,
       items: data.items.map((it) => ({
-        materialId: it.materialId !== undefined ? String(it.materialId) : undefined,
+        materialId: String(it.materialId),
         materialName: it.materialName,
         unit: it.unit,
         quantity: it.quantity,

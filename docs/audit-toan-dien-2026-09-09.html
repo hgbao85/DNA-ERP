@@ -190,7 +190,7 @@
       <span><strong>Phương pháp:</strong> 5 mũi rà soát độc lập, đọc trực tiếp mã nguồn + lịch sử git, đối chiếu với các lần audit trước</span>
     </div>
     <div class="meta-row">
-      <span><strong style="color:var(--ok)">Cập nhật 09/09/2026 (cùng ngày, sau audit):</strong> 6/8 mục Nghiêm trọng (C1–C6) đã được vá và có test tự động xác nhận — xem badge "✓ Đã sửa" trong từng mục. Đã rà soát xong toàn bộ 46 tệp của đợt sửa lỗi "thất lạc" (mục 4, C8) và vá thêm 3 lỗi độc lập phát hiện thêm trong lúc rà soát. Mục H3 (mức Cao) cũng đã vá — <strong>được xác nhận là lỗi thật qua kiểm thử trực tiếp trên hệ thống đang chạy</strong> (tái hiện được 12/13 lần trước khi sửa, 0/13 lần sau khi sửa), mức độ nghiêm trọng thực tế cao hơn đánh giá ban đầu. C7 (giới hạn tải máy tính toán DEXUAT) và các mục Cao/Trung bình/Thấp còn lại <strong>CHƯA xử lý</strong> — theo quyết định có chủ đích của người phụ trách (không đụng tới hệ thống DEXUAT trong đợt này).</span>
+      <span><strong style="color:var(--ok)">Cập nhật 09/09/2026 (cùng ngày, sau audit):</strong> 6/8 mục Nghiêm trọng (C1–C6) đã được vá và có test tự động xác nhận — xem badge "✓ Đã sửa" trong từng mục. Đã rà soát xong toàn bộ 46 tệp của đợt sửa lỗi "thất lạc" (mục 4, C8) và vá thêm 3 lỗi độc lập phát hiện thêm trong lúc rà soát. Mục H3 (mức Cao) cũng đã vá — <strong>được xác nhận là lỗi thật qua kiểm thử trực tiếp trên hệ thống đang chạy</strong> (tái hiện được 12/13 lần trước khi sửa, 0/13 lần sau khi sửa), mức độ nghiêm trọng thực tế cao hơn đánh giá ban đầu. 6 mục Trung bình cũng đã vá tiện tay (chuyển kho nội bộ tính sai tồn khả dụng theo bucket chiều dài; phiếu chuyển kho có dòng "ghi tự do" không đụng tồn kho; xác nhận "đã nhận vật tư" thiếu chống trùng lặp; tạo trùng mã vật tư/nhóm vật tư khi 2 người tạo cùng lúc; sai số thập phân khi cộng dồn nhận hàng nhiều đợt; xoá "lý do lỗi" đang dùng trong lịch sử KCS âm thầm mất dấu vết). C7 (giới hạn tải máy tính toán DEXUAT) và phần lớn các mục Cao/Trung bình/Thấp còn lại <strong>CHƯA xử lý</strong> — theo quyết định có chủ đích của người phụ trách (không đụng tới hệ thống DEXUAT trong đợt này).</span>
     </div>
     <div class="stat-strip">
       <a href="#critical" class="stat-pill crit"><span class="n">8</span><span class="lbl">Nghiêm trọng</span></a>
@@ -495,29 +495,49 @@ Xuất vật tư tiêu hao, Xuất đóng gói, Xuất vật tư gia công (châ
       </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge dom">Kho</span><span class="f-title">Phiếu chuyển kho có dòng "ghi tự do" (không gắn đúng mã vật tư trong danh mục) hiển thị "Đã xác nhận" nhưng không thực sự cộng/trừ tồn kho hệ thống</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge fixed">✓ Đã sửa 09/09/2026</span><span class="badge dom">Kho</span><span class="f-title">Phiếu chuyển kho có dòng "ghi tự do" (không gắn đúng mã vật tư trong danh mục) hiển thị "Đã xác nhận" nhưng không thực sự cộng/trừ tồn kho hệ thống</span></div>
       <div class="f-field"><span class="k">Ảnh hưởng</span><div class="v">Nhân viên có thể tưởng đã chuyển xong hàng trong khi số tồn kho hệ thống không phản ánh đúng, nếu loại hàng đó thực ra có theo dõi tồn kho.</div></div>
       <div class="f-ref">warehouse-transfers.service.ts</div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Rà lại toàn bộ frontend trước khi sửa: xác nhận chỉ đúng 1 chỗ trên toàn hệ thống từng tạo được dòng "ghi tự do" này (<code>WarehouseXuatPage.tsx</code>, nhánh dự phòng cũ "isInternalChain generic"), và bản thân nhánh đó đã là <strong>code chết</strong> — mọi đơn hàng thật hôm nay đều được 1 trong 3 luồng cụ thể hơn xử lý trước đó (mảnh, đóng gói, giao khách), luôn có sẵn mã vật tư/mảnh thật, không bao giờ rơi xuống nhánh tạo dòng tự do. Đã dọn hẳn: (1) xoá nhánh code chết đó cùng biến/banner chỉ phục vụ riêng nó; (2) bắt buộc <code>materialId</code> ở tầng validate khi tạo phiếu (<code>CreateWarehouseTransferItemDto</code>) — request thiếu field này giờ bị từ chối thẳng (400), không tới được service; (3) <code>create()</code> không còn nhánh "trust nguyên số lượng, bỏ qua kiểm tồn" nữa, mọi dòng đều bắt buộc qua đúng kiểm tra tồn kho. Cột <code>materialId</code> trong database vẫn giữ nullable (không migrate) để không phá dữ liệu phiếu cũ đã lỡ tạo trước ngày sửa — <code>confirm()</code> vẫn giữ đúng 1 dòng guard bỏ qua dòng null, nhưng nay chỉ còn ý nghĩa với dữ liệu lịch sử, không còn là hành vi tạo mới được nữa. Có test tự động xác nhận cả 2 phía (tạo mới bắt buộc vật tư thật; dữ liệu cũ vẫn xử lý đúng như trước, không bị "sửa" ngầm số liệu quá khứ).</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge dom">Kho</span><span class="f-title">Xác nhận "đã nhận vật tư" (sau khi xuất) thiếu cơ chế chống thao tác trùng lặp</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge fixed">✓ Đã sửa 09/09/2026</span><span class="badge dom">Kho</span><span class="f-title">Xác nhận "đã nhận vật tư" (sau khi xuất) thiếu cơ chế chống thao tác trùng lặp</span></div>
       <div class="f-field"><span class="k">Ảnh hưởng</span><div class="v">2 lần xác nhận gần như đồng thời (double-click, mạng chập chờn) có thể ghi đè lẫn nhau số liệu người nhận/thời điểm nhận mà không có cảnh báo.</div></div>
       <div class="f-ref">material-issues.service.ts, material-yield-issues.service.ts — hàm receive()</div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Áp dụng đúng khuôn mẫu "updateMany guard theo (id, status hiện tại) + kiểm count" đã dùng cho <code>WarehouseTransfersService.confirm()</code> — trước đây hàm ghi thẳng bằng <code>update()</code> không kèm điều kiện status, giờ đổi sang <code>updateMany({ where: { id, status: ISSUED }, ... })</code>: 2 request <code>receive()</code> gần như đồng thời cho cùng 1 đợt tự serialize qua khoá hàng của UPDATE trong Postgres — request thắng đổi status trước, request thua đọc lại thấy 0 dòng khớp và bị từ chối rõ ràng (409) thay vì âm thầm ghi đè receivedQty/receivedAt/receivedById của request kia. Áp dụng cho cả 2 file (vật tư tiêu hao và vật tư gia công "pat"/chân nhôm). Có test tự động xác nhận race guard cho cả 2.</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge dom">Mua hàng</span><span class="f-title">Có thể tạo trùng mã vật tư/nhóm vật tư nếu 2 người tạo cùng lúc</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge fixed">✓ Đã sửa 09/09/2026</span><span class="badge dom">Mua hàng</span><span class="f-title">Có thể tạo trùng mã vật tư/nhóm vật tư nếu 2 người tạo cùng lúc</span></div>
       <div class="f-field"><span class="k">Ảnh hưởng</span><div class="v">Xác suất thấp (thao tác Admin, ít khi 2 người cùng tạo lúc), nhưng khi xảy ra sẽ báo lỗi kỹ thuật khó hiểu thay vì thông báo rõ nguyên nhân.</div></div>
       <div class="f-ref">materials.service.ts, material-groups.service.ts</div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Ràng buộc unique ở DB (đã có sẵn từ trước cho code/name/systemKey/codePrefix) vẫn là lưới chặn thật cho race - phần thiếu chỉ là <em>thông báo</em> khi thua race. Bọc <code>create()</code> trong try/catch, bắt đúng mã lỗi Prisma P2002 (vi phạm unique constraint) và ném lại đúng lỗi nghiệp vụ rõ ràng (409, cùng nội dung với nhánh pre-check thường) thay vì để lọt ra ngoài thành thông báo chung chung "Duplicate value for: ...". Với nhóm vật tư (2 cột unique: name, codePrefix), đọc <code>error.meta.target</code> để trả đúng lỗi tương ứng cột nào bị trùng. Có test tự động mô phỏng race (pre-check qua nhưng create() thua) cho cả 2 file.</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge dom">Mua hàng</span><span class="f-title">Cách tính cộng dồn số lượng khi nhận hàng nhiều đợt có thể tích luỹ sai số nhỏ với số thập phân</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge fixed">✓ Đã sửa 09/09/2026</span><span class="badge dom">Mua hàng</span><span class="f-title">Cách tính cộng dồn số lượng khi nhận hàng nhiều đợt có thể tích luỹ sai số nhỏ với số thập phân</span></div>
       <div class="f-field"><span class="k">Ảnh hưởng</span><div class="v">Rủi ro tiềm ẩn, khó xảy ra rõ rệt trong thực tế — chỉ đáng lưu ý với vật tư nhận rất nhiều đợt nhỏ lẻ.</div></div>
       <div class="f-ref">purchase-proposals.service.ts — hàm receiveItem()</div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v"><code>receivedQty</code>/<code>receivedQtyPurchaseUnit</code> là cột Decimal ở DB nhưng trước đây bị đổi ra JS number (<code>.toNumber()</code>) rồi cộng bằng phép <code>+</code> thường - qua nhiều đợt nhận nhỏ lẻ, sai số biểu diễn nhị phân kinh điển (vd 0.1 + 0.2 = 0.30000000000000004, không phải 0.3) có thể bị ghi ngược lại vào cột Decimal, tồn tại vĩnh viễn trong sổ sách. Đổi sang cộng bằng chính kiểu <code>Prisma.Decimal</code> (thập phân chính xác tuyệt đối, không đi qua vòng chuyển binary float trung gian) và ghi thẳng giá trị Decimal đó vào DB - chỉ dùng <code>.toNumber()</code> ở những chỗ CHỈ so sánh/hiển thị. Có test tự động dựng đúng kịch bản 0.2 + 0.1, xác nhận DB nhận đúng "0.3", không phải "0.30000000000000004".</div>
+      </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge dom">Sản xuất</span><span class="f-title">Xoá 1 "lý do lỗi" (defect reason) đang được dùng trong lịch sử KCS sẽ âm thầm xoá luôn liên kết lịch sử đó</span></div>
+    <article class="finding med is-fixed"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge fixed">✓ Đã sửa 09/09/2026</span><span class="badge dom">Sản xuất</span><span class="f-title">Xoá 1 "lý do lỗi" (defect reason) đang được dùng trong lịch sử KCS sẽ âm thầm xoá luôn liên kết lịch sử đó</span></div>
       <div class="f-field"><span class="k">Ảnh hưởng</span><div class="v">Admin sửa trùng lặp/đổi tên lý do lỗi bằng cách xoá-tạo-lại sẽ làm mất khả năng tra cứu "lỗi nào xảy ra bao nhiêu lần" cho các lần duyệt KCS trong quá khứ, không có cảnh báo trước.</div></div>
       <div class="f-ref">defect-reasons.service.ts — hàm remove()</div>
+      <div class="fix-note">
+        <span class="k">Đã sửa</span>
+        <div class="v">Đối chiếu migration thật xác nhận đúng như audit mô tả: FK <code>qc_reviews.defectReasonId → defect_reasons.id</code> là <code>ON DELETE SET NULL</code> - xoá thành công lặng lẽ và NULL hoá lịch sử liên quan, không báo lỗi gì. Comment cũ trong code còn ghi "chưa có gì tham chiếu bảng này" - đã lỗi thời từ khi QcReview được thêm, chỉ chưa ai cập nhật lại. Thêm bước đếm <code>QcReview</code> đang tham chiếu trước khi xoá (cùng idiom bảo vệ đã dùng cho nhóm vật tư hệ thống) - còn tham chiếu thì chặn (409) kèm gợi ý "đổi tên thay vì xoá-tạo-lại", không còn đường nào làm mất dấu vết lịch sử qua remove(). Có test tự động cho cả 2 nhánh (chặn khi đang dùng, cho xoá khi chưa từng dùng).</div>
+      </div>
     </article>
 
     <article class="finding med"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge dom">Tích hợp DEXUAT</span><span class="f-title">Tài liệu cấu hình mẫu ghi giá trị thời gian chờ khác với giá trị thực tế cần dùng ở môi trường thật</span></div>
@@ -627,10 +647,11 @@ Xuất vật tư tiêu hao, Xuất đóng gói, Xuất vật tư gia công (châ
         <li><strong>Rủi ro quy trình (đợt sửa lỗi "thất lạc"):</strong> đã rà soát xong toàn bộ 46 tệp (mục 5-C8, mục 6-H8). Phần lớn hoá ra đã lỗi thời do hệ thống đổi thiết kế theo hướng khác sau đó; 2 lỗi thật (C1, C2) đã đưa lại vào hệ thống; rà soát kỹ còn phát hiện thêm 3 lỗi độc lập khác và đã vá luôn.</li>
         <li><strong>Rủi ro dữ liệu trong tình huống đồng thời:</strong> 5/6 vấn đề Nghiêm trọng thuộc nhóm này (C1–C5) đã vá triệt để và có test tự động xác nhận. C6 (báo công đoạn sắt) đã vá phần cốt lõi (chặn được 2 người dùng khác nhau báo trùng vượt số thực đã cắt), còn thiếu lớp bảo vệ phụ (chống 1 người gửi trùng do mất mạng) — cần thêm 1 thay đổi nhỏ vào cơ sở dữ liệu dùng chung, đang chờ xác nhận lịch trước khi làm.</li>
       </ol>
+      <p>Ngoài 2 nhóm rủi ro chính trên, đã tiện tay vá thêm 6 mục Trung bình phát sinh trong lúc rà soát: (1) chuyển kho nội bộ tính sai "tồn khả dụng" khi vật tư có tồn ở nhiều bucket chiều dài; (2) phiếu chuyển kho có dòng "ghi tự do" không thực sự cộng/trừ tồn kho dù hiển thị "Đã xác nhận" — rà lại phát hiện đường tạo ra dòng này qua UI đã là code chết từ trước, đã dọn hẳn cùng lúc với việc bắt buộc <code>materialId</code> ở tầng validate; (3) xác nhận "đã nhận vật tư" (material-issues, material-yield-issues) thiếu chống thao tác trùng lặp — đổi sang <code>updateMany</code> guard theo status, cùng khuôn mẫu đã dùng cho chuyển kho nội bộ; (4) tạo trùng mã vật tư/nhóm vật tư khi 2 người tạo cùng lúc — bắt đúng lỗi Prisma P2002 để trả lỗi nghiệp vụ rõ ràng thay vì lỗi chung chung; (5) sai số thập phân khi cộng dồn nhận hàng nhiều đợt (purchase-proposals.receiveItem) — đổi sang cộng bằng Prisma.Decimal thay vì JS number để không tích luỹ sai số nhị phân; (6) xoá "lý do lỗi" (defect reason) đang dùng trong lịch sử KCS — FK thật là <code>ON DELETE SET NULL</code> (đối chiếu migration), xoá thành công lặng lẽ và mất dấu vết lịch sử; giờ chặn (409) nếu còn <code>QcReview</code> nào tham chiếu.</p>
       <p><strong>Còn lại, CHƯA xử lý (theo đúng phạm vi đã thống nhất với người phụ trách — không đụng vào hệ thống DEXUAT trong đợt này):</strong></p>
       <ul>
         <li><strong>C7</strong> — máy tính toán DEXUAT không giới hạn tải, có thể bị treo nếu nhiều yêu cầu dồn cùng lúc.</li>
-        <li>Toàn bộ các mục mức <strong>Cao (H1, H3–H7)</strong>, <strong>Trung bình</strong> và <strong>Thấp</strong> còn lại — phần lớn liên quan tới DEXUAT, hoặc là các vấn đề phạm vi hẹp/rủi ro thấp hơn nhóm Nghiêm trọng, xử lý sau theo năng lực đội kỹ thuật.</li>
+        <li>Toàn bộ các mục mức <strong>Cao (H1, H3–H7)</strong> và phần lớn <strong>Trung bình</strong>/<strong>Thấp</strong> còn lại — phần lớn liên quan tới DEXUAT, hoặc là các vấn đề phạm vi hẹp/rủi ro thấp hơn nhóm Nghiêm trọng, xử lý sau theo năng lực đội kỹ thuật.</li>
       </ul>
       <p>Với tiến độ hiện tại, các rủi ro có khả năng gây <strong>sai dữ liệu tồn kho hoặc sản lượng trong vận hành hàng ngày</strong> (nhóm rủi ro đồng thời) đã được thu hẹp đáng kể. Rủi ro còn lại tập trung ở hệ thống tính toán cắt vật tư (DEXUAT, chủ đích chưa xử lý đợt này) và các vấn đề phạm vi hẹp hơn không ảnh hưởng trực tiếp tới tính đúng đắn của tồn kho/sổ sách.</p>
     </div>
@@ -639,7 +660,7 @@ Xuất vật tư tiêu hao, Xuất đóng gói, Xuất vật tư gia công (châ
 </main>
 
 <footer>
-  Báo cáo audit toàn diện DNA-ERP · Audit gốc 09/09/2026 (5 mũi rà soát độc lập: Mua hàng &amp; NCC · Kho &amp; Tồn kho · Sản xuất &amp; tích hợp DEXUAT · Bán hàng/SKU &amp; Bảo mật xuyên suốt · Hệ thống DEXUAT), cập nhật tiến độ xử lý cùng ngày · C1–C6, C8, H3 và 1 mục Trung bình đã xử lý (xem badge "✓ Đã sửa") · H3 xác nhận qua kiểm thử trực tiếp trên hệ thống đang chạy, không chỉ đọc code · C7 và các mục còn lại (phần lớn liên quan DEXUAT) chủ đích chưa xử lý đợt này.
+  Báo cáo audit toàn diện DNA-ERP · Audit gốc 09/09/2026 (5 mũi rà soát độc lập: Mua hàng &amp; NCC · Kho &amp; Tồn kho · Sản xuất &amp; tích hợp DEXUAT · Bán hàng/SKU &amp; Bảo mật xuyên suốt · Hệ thống DEXUAT), cập nhật tiến độ xử lý cùng ngày · C1–C6, C8, H3 và 6 mục Trung bình đã xử lý (xem badge "✓ Đã sửa") · H3 xác nhận qua kiểm thử trực tiếp trên hệ thống đang chạy, không chỉ đọc code · C7 và các mục còn lại (phần lớn liên quan DEXUAT) chủ đích chưa xử lý đợt này.
 </footer>
 
 </body>

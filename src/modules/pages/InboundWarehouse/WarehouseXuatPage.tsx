@@ -7,7 +7,6 @@ import * as api from '../../../services/api'
 import type { BePieceTransferPlanItem } from '../../../services/warehouse-transfers-api'
 import type { BePackagingIssuePlanItem } from '../../../services/packaging-issues-api'
 import type { SalesOrder } from '../../../types/sales'
-import { TRANSFER_ROUTES, canSendFrom } from '../../../types/warehouse-transfer'
 import { isFamilyScope, warehouseFamilyOf } from '../../../utils/warehouseFamily'
 import { safeArr } from '../../../utils/array'
 import { errMsg } from '../../../utils/errors'
@@ -231,18 +230,11 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   const [txns, setTxns]             = useState<Txn[]>([])
   const [view, setView]             = useState<'orders' | 'history'>('orders')
 
-  // Kho này có nằm trong chuỗi chuyển kho nội bộ không (phôi sơn hàn, vật tư thành phẩm) —
-  // nếu có, nút "Xác nhận" ở bảng dưới sẽ tạo phiếu chuyển kho nội bộ thật thay vì chỉ cập nhật cục bộ.
   const { data: warehouses } = useFetch<Wh[]>(() => api.getWarehouses(), [])
   const myWarehouse = safeArr(warehouses).find(w => w.code === scope) ?? null
-  const nextHopCode = myWarehouse ? TRANSFER_ROUTES[myWarehouse.code] : undefined
-  const nextHopWh = safeArr(warehouses).find(w => w.code === nextHopCode) ?? null
-  const isInternalChain = canSendFrom(scope) && !!myWarehouse && !!nextHopWh
 
   // Chặng phoi-son-han → vat-tu-tp: người tạo phiếu TỰ CHỌN kho đích cụ thể trong gia đình
-  // vat-tu-tp (quyết định nghiệp vụ 2026-09-03, không tự động theo cặp cố định như nextHopWh ở
-  // trên - nextHopWh chỉ còn dùng cho nhánh isInternalChain generic, thực tế không còn kho nào đi
-  // qua nhánh đó vì order.kind luôn khớp 1 trong 3 nhánh cụ thể trước). Mặc định chọn
+  // vat-tu-tp (quyết định nghiệp vụ 2026-09-03, không tự động theo cặp cố định). Mặc định chọn
   // kho vat-tu-tp đầu tiên tìm thấy, Thủ kho đổi lại nếu có nhiều kho vat-tu-tp phụ.
   const [pieceDestCode, setPieceDestCode] = useState('')
   const pieceDestOptions = safeArr(warehouses).filter(w => isFamilyScope(w.code, 'vat-tu-tp'))
@@ -336,11 +328,9 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
       return
     }
 
-    // Xuất vật tư đóng gói thật (packaging-issues), ghi StockLedger ngay - đặt TRƯỚC nhánh
-    // isInternalChain chung bên dưới vì scope 'vat-tu-tp' cũng thoả canSendFrom (đúng kho thật
-    // trong TRANSFER_ROUTES) nên phải chặn sớm, không rơi xuống createWarehouseTransfer generic cũ.
-    // Dispatch theo order.kind (2026-09-04), KHÔNG còn theo cờ scope cả trang - đơn packaging có
-    // thể lẫn với đơn ship/piece khác trên CÙNG 1 trang (xem comment PACKAGING_SCOPE cũ).
+    // Xuất vật tư đóng gói thật (packaging-issues), ghi StockLedger ngay. Dispatch theo order.kind
+    // (2026-09-04), KHÔNG còn theo cờ scope cả trang - đơn packaging có thể lẫn với đơn ship/piece
+    // khác trên CÙNG 1 trang (xem comment PACKAGING_SCOPE cũ).
     if (order.kind === 'packaging') {
       setTransferBusyLine(lineId)
       setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
@@ -381,43 +371,12 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
       return
     }
 
-    // Kho thuộc chuỗi chuyển kho nội bộ (vat-tu-tp → thanh-pham): "Xác nhận" = tạo phiếu chuyển
-    // kho thật sang kho kế tiếp, tồn kho chỉ đổi sau khi kho nhận xác nhận.
-    if (isInternalChain && myWarehouse && nextHopWh) {
-      setTransferBusyLine(lineId)
-      setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
-      try {
-        await api.createWarehouseTransfer({
-          fromWarehouseId: myWarehouse.id,
-          toWarehouseId: nextHopWh.id,
-          items: [{ materialName: line.materialName, unit: line.unit, quantity: qty }],
-          // BE không có field piCode riêng (chỉ note tự do hoặc planFormId thật) - giữ lại thông
-          // tin PI cho thủ kho nhận hàng thấy được bằng cách nhồi vào note, dán nhãn rõ ràng thay
-          // vì giả vờ đây là 1 field có cấu trúc.
-          note: order.piCode ? `PI: ${order.piCode}` : undefined,
-        })
-      } catch (e) {
-        setTransferErrors(prev => ({ ...prev, [lineId]: errMsg(e, 'Không thể tạo phiếu chuyển kho nội bộ') }))
-        setTransferBusyLine(null)
-        return
-      }
-      setTransferBusyLine(null)
-    }
-
-    setOrders(prev => prev.map(o => {
-      if (o.id !== orderId) return o
-      return {
-        ...o,
-        lines: o.lines.map(l => {
-          if (l.id !== lineId) return l
-          setTxns(t => [{
-            id: `txn-${Date.now()}-${lineId}`, orderRef: o.ref,
-            materialName: l.materialName, unit: l.unit, qty, date: new Date().toISOString(),
-          }, ...t])
-          return { ...l, confirmedQty: l.confirmedQty + qty, availableQty: l.availableQty - qty, inputQty: '' }
-        }),
-      }
-    }))
+    // order.kind chỉ nhận 1 trong 3 giá trị ở trên (piece/packaging/ship, xem OrderKind) - cả 3
+    // đều return sớm, nên không còn nhánh nào rơi xuống đây. Trước 09/09/2026 còn 1 nhánh dự phòng
+    // ("isInternalChain" generic) tạo phiếu chuyển kho qua createWarehouseTransfer() với dòng
+    // "ghi tự do" (materialName gõ tay, không gắn materialId) - đã xác nhận dead code (không đơn
+    // thật nào còn đi qua nhánh đó) và dọn hẳn cùng lúc với việc bắt buộc materialId ở BE (audit
+    // toàn diện 09/09/2026, mục Trung bình "phiếu ghi tự do").
   }
 
   const updateInput = (orderId: string, lineId: string, val: string) =>
@@ -501,11 +460,6 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
             ) : (
               <strong style={{ color: '#dc2626' }}>Chưa có kho vật tư thành phẩm nào — không thể xuất</strong>
             )}
-          </div>
-        )}
-        {isInternalChain && nextHopWh && selected.kind !== 'packaging' && selected.kind !== 'piece' && (
-          <div style={{ marginBottom: 14, padding: '8px 14px', background: '#ede7f6', border: '1px solid #d1c4e9', borderRadius: 8, fontSize: 12, color: '#4527a0' }}>
-            Bấm &quot;Xác nhận&quot; sẽ tạo phiếu chuyển kho nội bộ sang <strong>{nextHopWh.name}</strong> — tồn kho chỉ cập nhật sau khi kho nhận xác nhận.
           </div>
         )}
 
