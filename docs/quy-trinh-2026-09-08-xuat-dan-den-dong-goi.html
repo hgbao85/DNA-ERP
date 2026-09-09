@@ -1,0 +1,278 @@
+<title>Từ Xuất Đan Đến Đóng Gói</title>
+<style>
+:root{
+  --bg:#eef1f3;
+  --surface:#ffffff;
+  --surface-2:#f5f7f8;
+  --ink:#1b2430;
+  --ink-soft:#54606d;
+  --ink-faint:#8a94a1;
+  --line:#dbe1e6;
+  --line-strong:#c3ccd3;
+  --accent:#4527a0;
+  --accent-ink:#fbf9ff;
+  --accent-soft:#ede7f6;
+  --accent-line:#c9b8e8;
+  --warn:#a92318;
+  --warn-soft:#fbe6e3;
+  --warn-line:#e7b3ab;
+  --ok:#2f6b4f;
+  --ok-soft:#e3efe8;
+  --mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --sans: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --shadow: 0 1px 2px rgba(27,36,48,0.06), 0 8px 24px -12px rgba(27,36,48,0.18);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11151b; --surface:#181e26; --surface-2:#1e252e;
+    --ink:#e8ecf0; --ink-soft:#aab4c0; --ink-faint:#748090;
+    --line:#2a323d; --line-strong:#374050;
+    --accent:#b39ddb; --accent-ink:#160f22; --accent-soft:#2c2340; --accent-line:#4a3a70;
+    --warn:#ff8f85; --warn-soft:#3a1e1c; --warn-line:#66312c;
+    --ok:#7fcaa4; --ok-soft:#1c2e26;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11151b; --surface:#181e26; --surface-2:#1e252e;
+  --ink:#e8ecf0; --ink-soft:#aab4c0; --ink-faint:#748090;
+  --line:#2a323d; --line-strong:#374050;
+  --accent:#b39ddb; --accent-ink:#160f22; --accent-soft:#2c2340; --accent-line:#4a3a70;
+  --warn:#ff8f85; --warn-soft:#3a1e1c; --warn-line:#66312c;
+  --ok:#7fcaa4; --ok-soft:#1c2e26;
+  --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
+}
+*{box-sizing:border-box;}
+html{background:var(--bg);}
+body{
+  background:
+    repeating-linear-gradient(0deg, transparent, transparent 39px, var(--line) 39px, var(--line) 40px) fixed,
+    var(--bg);
+  background-size: 100% 40px, 100% 100%;
+  color:var(--ink); font-family:var(--sans); line-height:1.6; margin:0; padding:0 20px 96px;
+}
+.wrap{max-width:840px;margin:0 auto;}
+header.hero{padding:56px 0 28px;border-bottom:1px solid var(--line-strong);margin-bottom:28px;}
+.eyebrow{font-family:var(--mono);font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 14px;}
+h1{font-size:clamp(30px,5vw,44px);line-height:1.1;margin:0 0 16px;letter-spacing:-0.02em;text-wrap:balance;font-weight:800;}
+.hero p.lede{font-size:16.5px;color:var(--ink-soft);max-width:64ch;margin:0 0 24px;}
+.flowline{font-family:var(--mono);font-size:12px;color:var(--ink-faint);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:14px 16px;overflow-x:auto;white-space:nowrap;letter-spacing:.01em;}
+.flowline b{color:var(--ink);font-weight:600;}
+.flowline .arrow{color:var(--accent);margin:0 2px;}
+nav.stagenav{position:sticky;top:0;z-index:10;background:var(--bg);padding:10px 0;margin-bottom:8px;border-bottom:1px solid var(--line);}
+nav.stagenav::before{content:"";position:absolute;inset:0 -20px;background:var(--bg);z-index:-1;border-bottom:1px solid var(--line);}
+.navrow{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px;scrollbar-width:thin;}
+.navrow a{flex:none;font-family:var(--mono);font-size:12px;color:var(--ink-soft);text-decoration:none;border:1px solid var(--line);background:var(--surface);border-radius:20px;padding:6px 12px;white-space:nowrap;}
+.navrow a:hover, .navrow a:focus-visible{border-color:var(--accent);color:var(--accent);outline:none;}
+section.block{margin:44px 0;}
+h2.blocktitle{font-size:14px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint);font-weight:700;margin:0 0 16px;}
+.roletable{width:100%;border-collapse:collapse;font-size:14.5px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:var(--shadow);}
+.roletable th{text-align:left;font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);font-weight:600;background:var(--surface-2);padding:10px 14px;border-bottom:1px solid var(--line);}
+.roletable td{padding:11px 14px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-soft);}
+.roletable tr:last-child td{border-bottom:none;}
+.roletable td.rname{color:var(--ink);font-weight:600;white-space:nowrap;}
+.tablewrap{overflow-x:auto;}
+.stage{scroll-margin-top:60px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:26px 28px 24px;margin-bottom:18px;position:relative;}
+.stagehead{display:flex;align-items:baseline;gap:14px;margin-bottom:6px;flex-wrap:wrap;}
+.stagenum{font-family:var(--mono);font-weight:700;font-size:13px;color:var(--accent-ink);background:var(--accent);border-radius:6px;padding:3px 9px;letter-spacing:.02em;}
+.stagetitle{font-size:20px;font-weight:700;letter-spacing:-0.01em;}
+.stagesub{font-size:13.5px;color:var(--ink-faint);margin-bottom:16px;}
+.actors{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;}
+.actor{font-size:12px;letter-spacing:.01em;color:var(--accent);background:var(--accent-soft);border:1px solid var(--accent-line);border-radius:20px;padding:3px 11px;font-weight:600;}
+.stage p{margin:0 0 12px;color:var(--ink-soft);}
+.stage p:last-of-type{margin-bottom:0;}
+.stage strong{color:var(--ink);}
+.stage ul{margin:0 0 12px;padding-left:20px;color:var(--ink-soft);}
+.stage li{margin-bottom:6px;}
+.result{margin-top:16px;font-size:13.5px;border-top:1px dashed var(--line-strong);padding-top:12px;color:var(--ink-soft);}
+.result b{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ok);background:var(--ok-soft);border-radius:5px;padding:2px 7px;margin-right:8px;}
+.callout{margin-top:14px;border:1px solid var(--warn-line);background:var(--warn-soft);border-radius:8px;padding:13px 16px;font-size:13.5px;color:var(--ink);}
+.callout.info{border-color:var(--accent-line);background:var(--accent-soft);}
+.callout .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--warn);font-weight:700;display:block;margin-bottom:5px;}
+.callout.info .tag{color:var(--accent);}
+.callout p{color:var(--ink-soft);margin:0;}
+.exlist{display:grid;gap:12px;}
+.exitem{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;box-shadow:var(--shadow);}
+.exitem .extitle{font-weight:700;font-size:14.5px;margin-bottom:5px;color:var(--ink);}
+.exitem p{margin:0;color:var(--ink-soft);font-size:14px;}
+.datatable{width:100%;border-collapse:collapse;font-size:14px;background:var(--surface);border:1px solid var(--line);border-radius:10px;overflow:hidden;box-shadow:var(--shadow);}
+.datatable th{text-align:left;font-size:12px;letter-spacing:.02em;color:var(--ink-faint);font-weight:600;background:var(--surface-2);padding:10px 12px;border-bottom:1px solid var(--line);}
+.datatable td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink-soft);}
+.datatable tr:last-child td{border-bottom:none;}
+.datatable td.dname{color:var(--ink);font-weight:600;white-space:nowrap;}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:2px 10px;border-radius:10px;}
+.pill.yes{color:var(--ok);background:var(--ok-soft);}
+.pill.no{color:var(--warn);background:var(--warn-soft);}
+footer.note{margin-top:48px;padding-top:20px;border-top:1px solid var(--line-strong);font-size:13px;color:var(--ink-faint);}
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">Tài liệu quy trình · Nhà máy khung sắt</p>
+  <h1>Từ Xuất Đan Đến Đóng Gói</h1>
+  <p class="lede">Đoạn cuối của hành trình một mảnh sản phẩm: từ lúc rời khung cơ khí, ra điểm đan ngoài (nếu cần), quay về kiểm tra, rồi đóng gói thành phẩm. Viết lại theo cách hiểu thông thường — ai làm gì, ở đâu, khi nào — không dùng thuật ngữ kỹ thuật.</p>
+  <div class="flowline">
+    <b>Mảnh về kho Vật tư thành phẩm</b><span class="arrow">→</span><b>Xuất đan</b><span class="arrow">→</span><b>Điểm đan (ngoài xưởng)</b><span class="arrow">→</span><b>Nhập đan</b><span class="arrow">→</span><b>Chuyền kiểm</b><span class="arrow">→</span><b>Xuất vật tư đóng gói</b><span class="arrow">→</span><b>Đóng thùng</b>
+  </div>
+</header>
+
+<nav class="stagenav">
+  <div class="navrow">
+    <a href="#roles">Vai trò</a>
+    <a href="#s0">0 · Mảnh về kho Vật tư thành phẩm</a>
+    <a href="#s1">1 · Xuất đan</a>
+    <a href="#s2">2 · Nhập đan</a>
+    <a href="#s3">3 · Chuyền kiểm</a>
+    <a href="#s4">4 · Xuất vật tư đóng gói</a>
+    <a href="#s5">5 · Đóng thùng</a>
+    <a href="#s6">6 · Giao cho khách</a>
+    <a href="#data">Bảng tổng hợp</a>
+    <a href="#exceptions">Lưu ý</a>
+  </div>
+</nav>
+
+<section class="block" id="context">
+  <h2 class="blocktitle">Bối cảnh</h2>
+  <p style="color:var(--ink-soft);font-size:15px;max-width:68ch;">Sau khi cắt, hàn, sơn xong, từng mảnh của sản phẩm (ví dụ: mảnh tựa, mảnh mặt ghế) được chuyển từ khu vực khung cơ khí sang <strong>kho Vật tư thành phẩm</strong> — nơi giữ mảnh chờ đủ điều kiện để thành sản phẩm hoàn thiện. Từ đây, tuỳ loại mảnh mà đi theo 2 hướng khác nhau, độc lập với nhau:</p>
+  <ul style="max-width:68ch;color:var(--ink-soft);">
+    <li>Mảnh <strong>cần đan</strong> (ví dụ mặt ghế mây/dây) → phải gửi ra điểm đan bên ngoài trước, rồi mới nhận về.</li>
+    <li>Mảnh <strong>không cần đan</strong> (ví dụ khung sắt đã sơn xong, hoặc chân nhôm chỉ cần cắt) → bỏ qua bước gửi đan, đi thẳng tới bước kiểm tra.</li>
+  </ul>
+  <p style="color:var(--ink-soft);max-width:68ch;">Nhưng <strong>dù đi hướng nào, mọi mảnh đều phải qua bước kiểm tra chất lượng (Chuyền kiểm)</strong> trước khi được phép đóng gói — không có ngoại lệ, kể cả mảnh không cần đan.</p>
+</section>
+
+<section class="block" id="roles">
+  <h2 class="blocktitle">Ai là ai trong đoạn quy trình này</h2>
+  <div class="tablewrap">
+  <table class="roletable">
+    <tr><th>Vai trò</th><th>Việc chính trong đoạn này</th></tr>
+    <tr><td class="rname">Thủ kho khung cơ khí</td><td>Chuyển mảnh đã cắt/hàn/sơn xong và đã kiểm đạt sang kho Vật tư thành phẩm (bước 0, xảy ra trước đoạn quy trình chính của tài liệu này).</td></tr>
+    <tr><td class="rname">Thủ kho Vật tư thành phẩm</td><td>Nhận mảnh từ khung cơ khí (bước 0); gửi mảnh cần đan ra điểm đan ngoài (bước 1); xuất vật tư đóng gói — bước quyết định khiến hàng "chính thức" tính là đã về kho thành phẩm (bước 4), nếu vật tư đóng gói đó do kho này giữ.</td></tr>
+    <tr><td class="rname">Thủ kho thành phẩm</td><td>Nhận lại hàng từ điểm đan (bước 2); kiểm tra chất lượng từng mảnh (bước 3); đếm và ghi nhận số thùng đã đóng xong (bước 5); giao hàng thành phẩm cho khách (bước 6, làm song song, không phụ thuộc các bước trên).</td></tr>
+    <tr><td class="rname">Điểm đan</td><td>Xưởng gia công bên ngoài, không dùng phần mềm — nhận mảnh về đan, trả lại. Mọi số liệu trao đổi với điểm đan đều do 2 thủ kho tự nhập ở bước 1 và 2.</td></tr>
+    <tr><td class="rname">Giám đốc / Quản trị hệ thống</td><td>Xem được toàn bộ mọi kho, không bị giới hạn theo khu vực; là người cấu hình vật tư đóng gói nào "thuộc" kho nào.</td></tr>
+  </table>
+  </div>
+  <div class="callout info">
+    <span class="tag">Lưu ý</span>
+    <p>"Thủ kho khung cơ khí", "thủ kho Vật tư thành phẩm" và "thủ kho thành phẩm" không phải 3 chức danh khác nhau trong phần mềm — đó là 3 tài khoản cùng loại, chỉ khác nhau ở việc mỗi tài khoản được gán phụ trách khu vực kho nào. Có thể có nhiều kho thành phẩm song song (ví dụ mỗi khách hàng lớn một kho riêng), và từ 08/09/2026, người lập kế hoạch sản xuất có thể chọn kho thành phẩm đích <strong>riêng cho từng sản phẩm</strong> trong cùng một đợt sản xuất, thay vì bắt buộc cả đợt về chung một kho như trước.</p>
+  </div>
+</section>
+
+<section class="block stage" id="s0">
+  <div class="stagehead"><span class="stagenum">00</span><span class="stagetitle">Mảnh về kho Vật tư thành phẩm</span></div>
+  <div class="stagesub">Bối cảnh — xảy ra trước đoạn quy trình chính</div>
+  <div class="actors"><span class="actor">Thủ kho khung cơ khí</span><span class="actor">Thủ kho Vật tư thành phẩm</span></div>
+  <p>Thủ kho khu vực khung cơ khí lập một phiếu chuyển kho cho số mảnh đã kiểm đạt, gửi sang kho Vật tư thành phẩm. Thủ kho Vật tư thành phẩm xác nhận đã nhận đủ — chỉ đến lúc này, số mảnh mới thực sự được cộng vào tồn kho của kho Vật tư thành phẩm trên sổ sách.</p>
+  <div class="result"><b>Kết quả</b>Mảnh chính thức có mặt trong kho Vật tư thành phẩm, sẵn sàng cho bước tiếp theo.</div>
+</section>
+
+<section class="block stage" id="s1">
+  <div class="stagehead"><span class="stagenum">01</span><span class="stagetitle">Xuất đan — gửi mảnh ra điểm đan</span></div>
+  <div class="stagesub">Chỉ áp dụng cho mảnh cần đan</div>
+  <div class="actors"><span class="actor">Thủ kho Vật tư thành phẩm</span></div>
+  <p>Với mảnh cần đan, thủ kho Vật tư thành phẩm chọn mảnh, chọn điểm đan sẽ gia công, rồi ghi nhận số lượng gửi đi. Phần mềm không cho gửi vượt quá số lượng mà sản phẩm này cần đan theo công thức sản xuất.</p>
+  <p>Mỗi lần gửi là một dòng ghi chép riêng, không có bước "duyệt" hay "xác nhận" nào khác đi kèm — cứ gửi là ghi nhận ngay.</p>
+  <div class="result"><b>Kết quả</b>Có bằng chứng đã gửi bao nhiêu mảnh cho điểm đan nào. Về mặt tồn kho, mảnh vẫn được tính là đang nằm ở kho Vật tư thành phẩm (chỉ tạm thời đi vắng để gia công), chưa bị trừ đi đâu cả.</div>
+</section>
+
+<section class="block stage" id="s2">
+  <div class="stagehead"><span class="stagenum">02</span><span class="stagetitle">Nhập đan — nhận lại hàng đã đan</span></div>
+  <div class="stagesub">Chỉ áp dụng cho mảnh cần đan</div>
+  <div class="actors"><span class="actor">Thủ kho thành phẩm</span></div>
+  <p>Khi điểm đan giao hàng trả lại, thủ kho <strong>thành phẩm</strong> (không phải thủ kho Vật tư thành phẩm) ghi nhận đã nhận về bao nhiêu. Phần mềm không cho nhận nhiều hơn số điểm đan đó đang còn giữ (đã gửi trừ đã nhận trước đó).</p>
+  <div class="callout info">
+    <span class="tag">Dễ hiểu nhầm</span>
+    <p>Bước này chỉ là <strong>đối chiếu số liệu</strong> với điểm đan bên ngoài — "đã gửi bao nhiêu, đã nhận lại bao nhiêu" — chứ không phải nhập kho thành phẩm thật sự. Việc kiểm đếm hàng đan lúc này diễn ra hoàn toàn bằng tay, ngoài phần mềm. Trên sổ sách, mảnh vẫn được tính là thuộc kho Vật tư thành phẩm cho tới tận bước 4 bên dưới.</p>
+  </div>
+  <div class="result"><b>Kết quả</b>Có bằng chứng đối chiếu đã nhận đủ hàng từ điểm đan, làm căn cứ cho bước Chuyền kiểm tiếp theo.</div>
+</section>
+
+<section class="block stage" id="s3">
+  <div class="stagehead"><span class="stagenum">03</span><span class="stagetitle">Chuyền kiểm</span></div>
+  <div class="stagesub">Bắt buộc cho mọi mảnh, kể cả mảnh không cần đan</div>
+  <div class="actors"><span class="actor">Thủ kho thành phẩm</span></div>
+  <p>Thủ kho thành phẩm kiểm tra chất lượng từng mảnh, ghi nhận số lượng đạt — nếu có lỗi thì chọn nguyên nhân lỗi, có thể đính kèm ảnh. Mỗi lần kiểm là một lượt ghi riêng, số "đã kiểm" của một mảnh là tổng tất cả các lượt.</p>
+  <p>Một sản phẩm chỉ được coi là "đã qua Chuyền kiểm" khi <strong>tất cả các mảnh cấu thành nó</strong> đã đạt đủ số lượng kiểm tương ứng — thiếu một mảnh cũng không tính.</p>
+  <div class="result"><b>Kết quả</b>Xác định được chính xác bao nhiêu sản phẩm đã đủ điều kiện chất lượng để chuyển sang đóng gói. Đây là điều kiện bắt buộc, không thể bỏ qua ở bước 4.</div>
+</section>
+
+<section class="block stage" id="s4">
+  <div class="stagehead"><span class="stagenum">04</span><span class="stagetitle">Xuất vật tư đóng gói — bước "về kho thành phẩm" thật sự</span></div>
+  <div class="stagesub">Đây là bước duy nhất trong cả đoạn quy trình thực sự làm thay đổi tồn kho chính thức</div>
+  <div class="actors"><span class="actor">Thủ kho đang giữ vật tư đóng gói đó</span></div>
+  <p>Đây là bước then chốt: thủ kho xuất các vật tư dùng để đóng gói (tem nhãn, màng bọc, thùng, túi...) theo đúng công thức sản xuất của sản phẩm. Vật tư đóng gói của mỗi sản phẩm thường do kho Vật tư thành phẩm giữ, nhưng cũng có trường hợp một vài loại lại do kho thành phẩm giữ sẵn — phần mềm chỉ cho đúng người đang thật sự giữ loại vật tư đó thao tác.</p>
+  <p>Muốn xuất được, phải thoả đủ <strong>cả 3 điều kiện</strong> cùng lúc:</p>
+  <ul>
+    <li>Không vượt quá lượng vật tư mà công thức sản xuất quy định cho số sản phẩm này.</li>
+    <li>Không vượt quá số sản phẩm đã <strong>qua đủ Chuyền kiểm</strong> ở bước 3 — chưa kiểm xong thì chưa được xuất phần tương ứng.</li>
+    <li>Không vượt quá số vật tư thực tế còn trong kho.</li>
+  </ul>
+  <p>Khi xuất thành công, hàng được ghi nhận là đã chuyển sang đúng <strong>kho thành phẩm mà người lập kế hoạch đã chọn cho sản phẩm này</strong> ngay từ lúc lập lệnh sản xuất — có thể là kho thành phẩm chính hoặc một trong các kho thành phẩm phụ, tuỳ đã chọn trước đó.</p>
+  <div class="result"><b>Kết quả</b>Đây là thời điểm sổ sách ghi nhận hàng "chính thức về" đúng kho thành phẩm đích. Trước bước này, dù đã đan xong, đã kiểm xong, hàng vẫn chưa được tính là đã có mặt ở kho thành phẩm trên sổ sách.</div>
+  <div class="callout">
+    <span class="tag">Rủi ro kỹ thuật còn tồn tại</span>
+    <p>Cách phần mềm kiểm tra "còn đủ vật tư không" và cách nó ghi sổ sau khi xuất chưa hoàn toàn khớp nhau về mặt thời điểm. Nếu hai lệnh sản xuất khác nhau cùng xin xuất gần hết một loại vật tư đóng gói gần như đồng thời, về lý thuyết cả hai đều có thể được chấp nhận dù thực tế kho không đủ cho cả hai — dẫn tới tồn kho bị âm. Đây là rủi ro có xác suất thấp (cần đúng lúc, đúng vật tư sắp hết) nhưng chưa được khắc phục triệt để tính đến thời điểm viết tài liệu này.</p>
+  </div>
+</section>
+
+<section class="block stage" id="s5">
+  <div class="stagehead"><span class="stagenum">05</span><span class="stagetitle">Đóng thùng</span></div>
+  <div class="stagesub">Một sổ đếm riêng, tách biệt với bước 4 dù cùng gọi là "Đóng gói"</div>
+  <div class="actors"><span class="actor">Thủ kho thành phẩm</span></div>
+  <p>Thủ kho thành phẩm đếm và ghi nhận số thùng đã đóng xong cho từng sản phẩm. Bước này chỉ bị giới hạn bởi tổng số lượng của cả lệnh sản xuất — <strong>không bắt buộc phải chờ Chuyền kiểm xong hết</strong> mới được đếm thùng (đây là lựa chọn có chủ đích, không phải thiếu sót), và không làm thay đổi số liệu tồn kho chính thức.</p>
+  <div class="result"><b>Kết quả</b>Có số liệu theo dõi tiến độ đóng thùng thực tế dưới kho, phục vụ báo cáo tiến độ — độc lập với việc sổ sách đã ghi nhận "về kho thành phẩm" hay chưa.</div>
+</section>
+
+<section class="block stage" id="s6">
+  <div class="stagehead"><span class="stagenum">06</span><span class="stagetitle">Giao hàng cho khách (làm song song, không thuộc chuỗi trên)</span></div>
+  <div class="stagesub">Xảy ra bất cứ lúc nào có hàng, không phụ thuộc thứ tự các bước 1–5</div>
+  <div class="actors"><span class="actor">Thủ kho thành phẩm</span></div>
+  <p>Ghi nhận đã giao bao nhiêu sản phẩm cho khách, cộng dồn trực tiếp trên chính đơn hàng bán — hoàn toàn tách biệt với các bước nội bộ ở trên, không đi qua phiếu chuyển kho nào, và không tự đối chiếu với số tồn kho vật lý thật.</p>
+  <div class="result"><b>Kết quả</b>Đơn hàng bán được cập nhật đã giao bao nhiêu, còn thiếu bao nhiêu.</div>
+</section>
+
+<section class="block" id="data">
+  <h2 class="blocktitle">Tổng hợp: bước nào tính là "nhập/xuất kho chính thức"?</h2>
+  <div class="tablewrap">
+  <table class="datatable">
+    <tr><th>Bước</th><th>Có làm đổi tồn kho chính thức không?</th><th>Điều kiện để được làm</th></tr>
+    <tr><td class="dname">0 · Mảnh về kho Vật tư thành phẩm</td><td><span class="pill yes">CÓ</span></td><td>Đã kiểm đạt chất lượng, kho nhận đã xác nhận</td></tr>
+    <tr><td class="dname">1 · Xuất đan</td><td><span class="pill no">KHÔNG</span> (chỉ ghi chép)</td><td>Không vượt quá số cần đan theo công thức</td></tr>
+    <tr><td class="dname">2 · Nhập đan</td><td><span class="pill no">KHÔNG</span> (chỉ đối chiếu)</td><td>Không vượt quá số đã gửi cho đúng điểm đan</td></tr>
+    <tr><td class="dname">3 · Chuyền kiểm</td><td><span class="pill no">KHÔNG</span> (chỉ ghi nhận kết quả kiểm)</td><td>Không giới hạn cứng — nhập tay theo thực tế kiểm</td></tr>
+    <tr><td class="dname">4 · Xuất vật tư đóng gói</td><td><span class="pill yes">CÓ</span></td><td>Đủ công thức + đã qua Chuyền kiểm + đủ tồn kho thật</td></tr>
+    <tr><td class="dname">5 · Đóng thùng</td><td><span class="pill no">KHÔNG</span> (chỉ theo dõi tiến độ)</td><td>Không vượt tổng số lượng của lệnh sản xuất</td></tr>
+    <tr><td class="dname">6 · Giao cho khách</td><td><span class="pill no">KHÔNG</span> (chỉ cập nhật đơn hàng)</td><td>Không vượt số còn lại của đơn hàng</td></tr>
+  </table>
+  </div>
+</section>
+
+<section class="block" id="exceptions">
+  <h2 class="blocktitle">Những điểm dễ nhầm lẫn</h2>
+  <div class="exlist">
+    <div class="exitem">
+      <div class="extitle">Có 3 màn hình khác nhau đều tên là "Đóng gói" hoặc liên quan đến đóng gói</div>
+      <p>(1) Màn <strong>"Đóng gói"</strong> trên menu — chỉ đếm số thùng, không đổi tồn kho (bước 5). (2) Nút "Xác nhận" ở màn "Xuất kho" khi xuất vật tư đóng gói — đây mới là bước thật sự làm hàng "về" kho thành phẩm trên sổ sách (bước 4), hiển thị theo tên vật tư chứ không theo tên sản phẩm. (3) Màn xuất hàng cho khách — hiển thị theo tên sản phẩm, không liên quan gì đến vật tư hay Chuyền kiểm (bước 6). Ba màn này dễ bị nhầm là một vì đều nằm trong khu vực "kho".</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">Mảnh không cần đan bỏ qua bước 1 và 2</div>
+      <p>Những mảnh này đi thẳng từ bước 0 sang bước 3 (Chuyền kiểm) — không có chuyện gửi đan/nhận đan cho chúng. Nhưng vẫn phải qua Chuyền kiểm đầy đủ như mọi mảnh khác trước khi được đóng gói.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">Phần mềm không có một con số "tồn kho thành phẩm" tính theo sản phẩm</div>
+      <p>Tồn kho chính thức chỉ được ghi nhận theo <em>mảnh</em> (bước 0) và theo <em>vật tư đóng gói</em> (bước 4) — không có một con số duy nhất nào đại diện cho "hiện có bao nhiêu sản phẩm hoàn thiện ở kho thành phẩm". Muốn biết con số này phải suy ra gián tiếp, ví dụ từ số vật tư đóng gói đã xuất hoặc từ số thùng đã đóng.</p>
+    </div>
+    <div class="exitem">
+      <div class="extitle">Một lệnh sản xuất có nhiều sản phẩm có thể về nhiều kho thành phẩm khác nhau</div>
+      <p>Từ 08/09/2026, nếu một lệnh sản xuất gồm nhiều sản phẩm khác nhau, người lập kế hoạch có thể chỉ định mỗi sản phẩm về một kho thành phẩm riêng, thay vì bắt buộc cả lệnh phải về chung một kho như trước đây. Thay đổi này chỉ ảnh hưởng tới việc <em>chọn kho đích</em> ở bước 4 phía trên, không thay đổi cách vận hành các bước khác.</p>
+    </div>
+  </div>
+</section>
+
+<footer class="note">
+  Viết ngày 08/09/2026, dựa trên rà soát trực tiếp phần mềm đang chạy — không phải tài liệu thiết kế ban đầu, mô tả đúng những gì hệ thống thực sự làm tại thời điểm viết.
+</footer>
+
+</div>

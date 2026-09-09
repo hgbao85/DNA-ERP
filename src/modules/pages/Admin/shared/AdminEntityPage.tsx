@@ -469,7 +469,17 @@ export default function AdminEntityPage<T extends { id: number | string }>({
               ) : f.type === 'select' ? (
                 <select
                   value={String((values as Record<string, unknown>)[f.name] ?? '')}
-                  onChange={e => setField(f.name, e.target.value || undefined)}
+                  onChange={e => setField(
+                    f.name,
+                    // Đính chính audit độc lập 09/09 (Cao/H1): khi SỬA, chọn "— Không —" phải gửi
+                    // `null` (tín hiệu "chủ động gỡ") chứ không phải `undefined` ("không đụng field
+                    // này") — 2 giá trị này đồng nghĩa "field bị loại khỏi payload" sau khi
+                    // JSON.stringify (undefined bị lược bỏ, null thì giữ nguyên), nên trước đây gỡ
+                    // gán Nhóm vật tư/Kho/Người phụ trách... báo lưu thành công nhưng không có tác
+                    // dụng gì. Lúc TẠO MỚI vẫn giữ `undefined` như cũ (để trống = không gửi field,
+                    // dùng default phía service) - không đổi hành vi tạo mới.
+                    e.target.value || (editing ? null : undefined),
+                  )}
                   style={{ width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)' }}
                 >
                   <option value="">— Không —</option>
