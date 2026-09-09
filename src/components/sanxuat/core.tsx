@@ -750,8 +750,8 @@ const thHR: React.CSSProperties = { ...thH, textAlign: 'right' }
 // Đơn giản hơn VTTP (không có dải tab công đoạn - Hàn/Sơn không có processSteps). ─────────────────
 function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, choKcsFor, batchesByLine, reviews }: {
   line: ProcLine; cfg: StageCfg; readOnly: boolean; onBack: () => void
-  onRecord: (line: ProcLine, qty: number) => void
-  onFinishBatch?: (batchId: string) => void
+  onRecord: (line: ProcLine, qty: number) => void | Promise<void>
+  onFinishBatch?: (batchId: string) => void | Promise<void>
   choKcsFor?: (lineId: number) => number
   batchesByLine?: Map<number, BeProductionBatch[]>
   reviews?: BeProductionBatchQcReview[]
@@ -772,13 +772,15 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
     const q = Math.floor(Number(qty) || 0)
     if (q <= 0) return
     setBusy(true)
-    try { onRecord(line, q); setQty('') }
+    try { await onRecord(line, q); setQty('') }
+    catch { /* onRecord đã tự báo lỗi (alert) - giữ nguyên ô nhập để không phải gõ lại */ }
     finally { setBusy(false) }
   }
   const sendToKcs = async () => {
     if (!openBatch) return
     setSendBusy(true)
-    try { onFinishBatch?.(openBatch.id) }
+    try { await onFinishBatch?.(openBatch.id) }
+    catch { /* onFinishBatch đã tự báo lỗi (alert) */ }
     finally { setSendBusy(false) }
   }
 
@@ -1046,10 +1048,9 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   const updateLineFlat = (poId: number, ul: ProcLine) =>
     setRows(rs => rs.map(r => r.id !== poId ? r : { ...r, lines: r.lines?.map(l => l.id === ul.id ? ul : l) }))
 
-  // onRecord/onFinishBatch truyền qua VatTuDetailBoard.submit()/nút "Gửi KCS" không await/catch
-  // promise trả về (fire-and-forget) - phải tự bắt lỗi ở đây, nếu không lỗi backend (vd PI chưa
-  // "Bắt đầu"/đã "Kết thúc", 2026-08-31) sẽ rớt thành unhandled rejection, công nhân bấm nút không
-  // thấy phản hồi gì (ô nhập vẫn bị xoá như đã lưu thành công) - cùng lỗi đã sửa ở KcsStagePage.onReview.
+  // LineDetailCard.submit()/sendToKcs() await promise này rồi mới clear ô nhập/tắt busy - alert()
+  // báo lỗi ngay, sau đó NÉM LẠI lỗi để caller biết thất bại (không tự xoá ô nhập/không coi như đã
+  // xong khi thật ra chưa lưu được - 2026-09-09, sửa cùng lúc với bug thiếu await ở LineDetailCard).
   const recordQty = async (po: ProcRow, line: ProcLine, qty: number) => {
     if (!stage || !po.realOrderId || !line.realPieceId) return
     try {
@@ -1057,6 +1058,7 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
       refetch()
     } catch (e) {
       alert(errMsg(e, 'Không lưu được đợt'))
+      throw e
     }
   }
   const finishBatch = async (batchId: string) => {
@@ -1065,6 +1067,7 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
       refetch()
     } catch (e) {
       alert(errMsg(e, 'Không gửi được'))
+      throw e
     }
   }
 
