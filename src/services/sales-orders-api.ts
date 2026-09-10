@@ -43,6 +43,9 @@ interface BeSalesOrder {
   attachmentUrl: string | null;
   note: string | null;
   isActive: boolean;
+  /** null = xoá được. Có giá trị = lý do không xoá được (đã gộp PI/đã giao hàng một phần) - dùng
+   *  thẳng làm tooltip cho nút Xoá, xem SalesOrdersService.buildDeleteBlockReason() ở BE. */
+  deleteBlockedReason: string | null;
   createdAt: string;
   updatedAt: string;
   items: BeSalesOrderItem[];
@@ -64,6 +67,7 @@ function toSalesOrder(o: BeSalesOrder): SalesOrder {
     attachmentName: o.attachmentName ?? undefined,
     attachmentUrl: o.attachmentUrl ?? undefined,
     note: o.note ?? undefined,
+    deleteBlockedReason: o.deleteBlockedReason,
     createdAt: o.createdAt,
   };
 }
@@ -151,4 +155,8 @@ export async function updateSalesOrder(id: number | string, data: Record<string,
 
   const updated = await http.get<BeSalesOrder>(`/sales-orders/${id}`);
   return toSalesOrder(updated);
+}
+
+export async function deleteSalesOrder(id: string): Promise<void> {
+  await http.del(`/sales-orders/${id}`);
 }

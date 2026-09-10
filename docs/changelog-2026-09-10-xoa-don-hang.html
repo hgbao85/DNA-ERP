@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Xoá đơn hàng: chặn an toàn, cascade & hard-delete thật (10/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --mono-bg: #EEF1F4;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --mono-bg: #1E242C;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --mono-bg: #1E242C;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  nav.subnav { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--border); backdrop-filter: blur(6px); }
+  .subnav-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+  .navlink { flex: none; font-family: 'Be Vietnam Pro', sans-serif; font-weight: 600; font-size: 13px; color: var(--text-muted); text-decoration: none; padding: 12px 10px; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .navlink:hover { color: var(--text); }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 54px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+  .sec-desc { color: var(--text-muted); font-size: 14.3px; margin: 6px 0 16px; max-width: 72ch; }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); scroll-margin-top: 54px; }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul, .f-field ol { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 5px; }
+
+  .flow-box { background: var(--mono-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.75; overflow-x: auto; white-space: pre; color: var(--text); margin: 8px 0; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+  .prose-card ul { margin: 6px 0; padding-left: 20px; }
+  .prose-card li { margin-bottom: 5px; }
+
+  table.file-table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 8px 0; }
+  table.file-table th, table.file-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.file-table th { font-family: 'Be Vietnam Pro', sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+  table.file-table code { background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; }
+
+  .pending-banner { border-radius: 10px; padding: 18px 20px; margin-bottom: 14px; border: 1px solid var(--fix-border); background: var(--fix-bg); }
+  .pending-banner h3 { color: var(--fix); font-size: 15px; margin-bottom: 6px; }
+  .pending-banner p { font-size: 14px; margin: 4px 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 10/09/2026</span>
+    <h1 class="title">Xoá đơn hàng (PO): từ "im lặng bỏ qua" đến hard-delete cascade thật</h1>
+    <p class="subtitle">Audit toàn diện 09/09 ghi nhận <code>SalesOrdersService.remove()</code> xoá đơn hàng mà không kiểm tra gì cả. Trong ngày 10/09, tính năng này được mở rộng qua 4 đợt liên tiếp theo yêu cầu trực tiếp của người dùng — từ 1 bản vá chặn đơn giản thành 1 luồng xoá hoàn chỉnh: có nút thật trên UI, tự báo trước khi không xoá được, xoá sạch dữ liệu con, và xoá thật (không còn "ẩn đi").</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> BE <code>D:\DNA-ERP-BE</code> (module sales-orders + soft-delete registry) · FE <code>D:\DNA-ERP</code> (Sales &gt; Quản lí đơn hàng)</span>
+      <span><strong>Test:</strong> 22 test tự động (sales-orders.service.spec.ts) + 4 test FE (materials-api liên quan không tính ở đây)</span>
+    </div>
+  </div>
+</header>
+
+<nav class="subnav">
+  <div class="subnav-inner">
+    <a class="navlink" href="#tomtat">Tóm tắt</a>
+    <a class="navlink" href="#dot1">Đợt 1 — Chặn xoá</a>
+    <a class="navlink" href="#dot2">Đợt 2 — Nút Xoá thật</a>
+    <a class="navlink" href="#dot3">Đợt 3 — Disable trước</a>
+    <a class="navlink" href="#dot4">Đợt 4 — Cascade + hard-delete</a>
+    <a class="navlink" href="#files">File đã sửa</a>
+    <a class="navlink" href="#pending">Cần làm trước deploy</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- ========= TÓM TẮT ========= -->
+  <section id="tomtat">
+    <div class="sec-head"><h2>Tóm tắt hành trình</h2></div>
+    <div class="prose-card">
+      <p>Đây không phải 1 lần sửa mà là 4 đợt kế tiếp trong cùng 1 ngày, mỗi đợt do người dùng chủ động yêu cầu sau khi nhìn thấy kết quả đợt trước và hỏi thêm — không nằm trong phạm vi audit gốc từ đợt 2 trở đi:</p>
+      <div class="flow-box">Đợt 1: Chặn xoá khi đã vào sản xuất/đã giao hàng  (đúng phạm vi audit)
+   │
+   ▼ "Thêm nút xóa vào chứ, sales có thể xóa PO"
+Đợt 2: Thêm nút Xoá thật trên UI Sales (trước đó không có UI nào gọi endpoint)
+   │
+   ▼ "Đã báo không thể xóa thì không cho nhấn xóa chứ"
+Đợt 3: Nút tự disable + tooltip lý do NGAY khi mở trang (không cần bấm mới biết)
+   │
+   ▼ "Tôi muốn nó cũng phải được xóa theo luôn, và không có case sản xuất mà không có PO tồn tại"
+Đợt 4: Cascade xoá thật SalesOrderItem/ProductionInvoiceItem
+   │
+   ▼ "Tại sao lại soft-delete?" → "Cho hard-delete luôn"
+Đợt 4b: SalesOrder đổi hẳn sang hard-delete thật, gỡ liên kết PlanForm, dọn vỏ PI rỗng</div>
+      <p>Kết quả cuối: xoá 1 PO giờ là hành động <strong>xoá thật, có kiểm tra trước, có cảnh báo trước, không để lại rác</strong> — đúng nguyên tắc "không có dữ liệu sản xuất tồn tại mà không có PO đứng sau nó" mà người dùng đặt ra ở đợt 4.</p>
+    </div>
+  </section>
+
+  <!-- ========= ĐỢT 1 ========= -->
+  <section id="dot1">
+    <div class="sec-head"><h2>Đợt 1 — Chặn xoá khi đơn đã vào sản xuất/đã giao hàng</h2><span class="sec-count">Đúng phạm vi audit 09/09</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Vá lỗ hổng</span><span class="badge date">10/09</span><span class="f-title">remove() thêm 2 điều kiện chặn trước khi xoá</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span><code>SalesOrdersService.remove()</code> xoá vô điều kiện — kể cả đơn đã được KHSX gộp vào Phiếu sản xuất hoặc đã giao hàng một phần cho khách. Đơn "biến mất" khỏi Sales trong khi nhà máy vẫn đang làm theo đơn đó.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Chặn (409 <code>ConflictException</code>, kèm message rõ ràng) nếu: (1) còn ≥1 dòng đã gộp vào 1 PI thật, hoặc (2) còn ≥1 dòng đã giao hàng một phần (<code>shippedQty &gt; 0</code>).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Điểm mấu chốt lúc thiết kế</span>
+        <div class="v">Ngưỡng "đã vào sản xuất" <strong>không thể</strong> dùng "tồn tại <code>ProductionInvoiceItem</code>" — <code>createProductionInvoiceItems()</code> tạo sẵn 1 dòng cho <em>mọi</em> item ngay lúc Sales lưu đơn (<code>productionInvoiceId: null</code> lúc đầu), trước cả khi KHSX làm gì. Dùng "tồn tại" sẽ khoá xoá mọi đơn hàng, kể cả đơn vừa tạo xong 1 giây trước. Ngưỡng đúng: <code>productionInvoiceId != null</code> (đã được KHSX chủ động gom qua <code>mergeItems()</code>/<code>claimSolo()</code>).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Tái sử dụng</span>
+        <div class="v">Pattern OR-query mirror đúng <code>updateItem()</code> đã có sẵn (chặn sửa <code>totalQty</code> khi đã ghim PI); văn phong lỗi 409 theo khuôn <code>defect-reasons.service.ts</code>.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= ĐỢT 2 ========= -->
+  <section id="dot2">
+    <div class="sec-head"><h2>Đợt 2 — Nút "Xoá đơn hàng" thật trên giao diện Sales</h2></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">10/09</span><span class="f-title">Trước đó endpoint có thật nhưng không FE nào gọi tới</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span><code>DELETE /sales-orders/:id</code> tồn tại ở BE nhưng <code>src/services/sales-orders-api.ts</code> không export hàm xoá nào — chỉ khai thác được qua thao tác kỹ thuật trực tiếp (Postman), không có nút nào trên UI Sales.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Trang chi tiết PO (<code>PODetailView</code>) có nút "Xoá đơn hàng" thật, dùng lại nguyên vẹn <code>useConfirm</code>/<code>ConfirmModal</code> đã có sẵn trong codebase — modal xác nhận hiển thị đúng message lỗi 409 từ BE ngay trong modal nếu bị chặn, không cần code thêm gì để xử lý lỗi.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Chi tiết kỹ thuật</span>
+        <div class="v">
+          <ul>
+            <li>Thêm <code>deleteSalesOrder(id)</code> ở <code>sales-orders-api.ts</code>, mirror <code>deleteMaterial()</code>.</li>
+            <li><code>PODetailView</code> nhận thêm prop <code>onDeleted</code> — sau khi xoá, quay về danh sách + <code>refetch()</code>.</li>
+            <li>Không thêm permission-gate riêng ở FE — hệ thống Sales hiện không có ACL chi tiết theo action ở FE, chặn thật nằm ở BE (decorator + logic 409), nhất quán với <code>AdminEntityPage</code>.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= ĐỢT 3 ========= -->
+  <section id="dot3">
+    <div class="sec-head"><h2>Đợt 3 — Disable nút trước, không để bấm rồi mới báo lỗi</h2></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Cải thiện UX</span><span class="badge date">10/09</span><span class="f-title">Field <code>deleteBlockedReason</code> mới — BE tính sẵn, FE chỉ hiển thị</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Nút Xoá luôn bấm được. Người dùng chỉ biết đơn không xoá được SAU KHI bấm, xác nhận, rồi nhận lỗi 409 trong modal.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Nút tự <code>disabled</code> (mờ, viền/chữ xám, con trỏ "not-allowed") kèm <code>title</code> (tooltip) giải thích đúng lý do, ngay khi mở trang chi tiết — không cần bấm thử mới biết.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Thiết kế: tính toán PHẢI nằm ở BE, không đoán ở FE</span>
+        <div class="v">Field <code>deleteBlockedReason: string | null</code> (null = xoá được) được BE tính bằng đúng hàm <code>buildDeleteBlockReason()</code> dùng chung với <code>remove()</code> — tránh FE tự đoán/trùng logic nghiệp vụ rồi lệch dần với BE theo thời gian. Trả về sẵn trong response của cả <code>findAll()</code>, <code>findOne()</code> và <code>update()</code>.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Hiệu năng: không N+1 cho danh sách nhiều đơn</span>
+        <div class="v"><code>findAll()</code> tính "đã gộp PI" cho <em>cả trang</em> chỉ qua <strong>1 query <code>findMany</code> gộp</strong> theo toàn bộ <code>orderIds</code> đang hiển thị, không <code>count()</code> riêng từng đơn.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= ĐỢT 4 ========= -->
+  <section id="dot4">
+    <div class="sec-head"><h2>Đợt 4 — Cascade thật + hard-delete thật</h2><span class="sec-count">Vượt phạm vi audit gốc, theo yêu cầu bổ sung</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Đổi cơ chế dữ liệu</span><span class="badge date">10/09</span><span class="f-title">4a. Xoá cascade các bản ghi sinh cùng lúc tạo PO</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>"Xoá" chỉ ẩn đúng bản ghi <code>SalesOrder</code> (soft-delete, <code>deletedAt</code>). <code>SalesOrderItem</code> và <code>ProductionInvoiceItem</code> (chưa gộp PI) vẫn còn nguyên trong DB — mất khả năng tra cứu ngược, nhưng dữ liệu không thật sự biến mất.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Cả 2 bảng con bị xoá thật trong cùng 1 <code>$transaction</code> với việc soft-delete order (lúc này vẫn còn soft-delete) — con xoá trước, cha sau, đúng khuôn mẫu <code>skus.service.ts</code> (<code>rewindToDetailReview</code>) đã có sẵn.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Vì sao an toàn</span>
+        <div class="v">Guard ở Đợt 1 đã đảm bảo <em>mọi</em> <code>ProductionInvoiceItem</code> của đơn có <code>productionInvoiceId = null</code> lúc xoá được phép chạy tiếp — nghĩa là 4 bảng con của nó (<code>stages</code>/<code>productionOrder</code>/<code>transferCheckResults</code>/<code>packagingRecords</code>) chắc chắn rỗng (đã xác minh qua code: mọi entrypoint ghi vào 4 bảng đó đều bắt buộc PI thật trước). Xoá thẳng không vi phạm khoá ngoại.</div>
+      </div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Đổi cơ chế dữ liệu</span><span class="badge date">10/09</span><span class="f-title">4b. SalesOrder đổi hẳn sang hard-delete thật</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span><code>SalesOrder</code> đăng ký trong <code>SOFT_DELETE_MODELS</code> — <code>.delete()</code> tự động rewrite thành <code>.update({ deletedAt })</code>, Postgres chưa từng thật sự kiểm tra khoá ngoại cho model này.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Bỏ <code>'SalesOrder'</code> khỏi <code>SOFT_DELETE_MODELS</code> — <code>.delete()</code> giờ là <code>DELETE FROM</code> thật.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Hệ quả phải xử lý: kích hoạt lại FK "ngủ yên" bấy lâu</span>
+        <div class="v">
+          <ul>
+            <li><strong><code>PlanForm</code> (SKU)</strong> gắn qua <code>linkExistingSkus()</code> — <strong>gỡ liên kết</strong> (<code>salesOrderId = null</code>), <strong>KHÔNG xoá</strong>. Đây là dữ liệu độc lập của KHSX (định mức, lịch sử duyệt), có trước cả PO này — quyết định rõ ràng của người dùng khi được hỏi.</li>
+            <li><strong>Vỏ <code>ProductionInvoice</code> rỗng</strong> (tạo qua <code>POST /production-invoices</code>, route có thật, <code>CreateProductionInvoiceDto</code> không bắt buộc item nào) — <strong>xoá luôn</strong> cùng lúc xoá PO. An toàn vì guard đã đảm bảo 0 item merge vào bất kỳ PI nào của đơn.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Phát hiện tốt: dấu vết lịch sử KHÔNG mất dù hard-delete</span>
+        <div class="v"><code>SalesOrder</code> đã có sẵn trong <code>AUDITED_MODELS</code>. Hook <code>delete</code> của audit-log extension tự tính <code>shouldAudit = AUDITED_MODELS.has(model) && !SOFT_DELETE_MODELS.has(model)</code> — chỉ cần bỏ khỏi <code>SOFT_DELETE_MODELS</code> là hook tự chụp snapshot đầy đủ trước khi xoá + ghi 1 dòng <code>AuditAction.DELETE</code> thật vào <code>audit_logs</code>, không cần sửa gì thêm. Lo ngại "hard-delete = mất lịch sử" không đúng — chỉ chuyển từ "còn bản ghi, ẩn khỏi UI" sang "mất bản ghi gốc, còn snapshot trong audit log".</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= FILE ĐÃ SỬA ========= -->
+  <section id="files">
+    <div class="sec-head"><h2>File đã sửa</h2></div>
+    <div class="prose-card">
+      <table class="file-table">
+        <thead><tr><th>File</th><th>Thay đổi</th></tr></thead>
+        <tbody>
+          <tr><td><code>sales-orders.service.ts</code></td><td>Guard chặn xoá + <code>buildDeleteBlockReason()</code>/<code>countMergedProductionInvoiceItems()</code> dùng chung; transaction cascade + hard-delete trong <code>remove()</code>; <code>findAll()</code>/<code>findOne()</code>/<code>update()</code> trả <code>deleteBlockedReason</code>.</td></tr>
+          <tr><td><code>sales-order-response.dto.ts</code></td><td>Thêm field <code>deleteBlockedReason</code>.</td></tr>
+          <tr><td><code>soft-delete-models.constant.ts</code></td><td>Bỏ <code>'SalesOrder'</code> khỏi <code>SOFT_DELETE_MODELS</code>.</td></tr>
+          <tr><td><code>sales-orders.service.spec.ts</code></td><td>22 test: chặn/cho xoá, cascade đúng thứ tự, gỡ liên kết PlanForm, <code>findAll()</code> không N+1.</td></tr>
+          <tr><td><code>sales-orders-api.ts</code></td><td>Thêm <code>deleteSalesOrder()</code>; map <code>deleteBlockedReason</code> qua <code>toSalesOrder()</code>.</td></tr>
+          <tr><td><code>types/sales.ts</code></td><td>Thêm field <code>deleteBlockedReason</code> vào interface <code>SalesOrder</code>.</td></tr>
+          <tr><td><code>api.ts</code></td><td>Re-export <code>deleteSalesOrder</code>.</td></tr>
+          <tr><td><code>OrderManagementPage.tsx</code></td><td>Nút "Xoá đơn hàng" (icon <code>Trash2</code>, đỏ), <code>useConfirm</code>/<code>ConfirmModal</code>, disable + tooltip theo <code>deleteBlockedReason</code>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ========= CẦN LÀM TRƯỚC DEPLOY ========= -->
+  <section id="pending">
+    <div class="sec-head"><h2>Cần kiểm tra trước khi deploy thật</h2></div>
+    <div class="pending-banner">
+      <h3>⚠ Dữ liệu cũ có thể "hiện lại"</h3>
+      <p>Nếu DB hiện có sẵn <code>SalesOrder</code> nào đã bị soft-delete từ trước (thao tác cũ, test cũ), sau khi bỏ khỏi <code>SOFT_DELETE_MODELS</code>, các đơn đó sẽ <strong>hiện lại</strong> trong mọi danh sách Sales — vì hệ thống không còn tự lọc theo <code>deletedAt</code> cho model này nữa.</p>
+      <p>Cần kiểm tra bằng <code>SELECT count(*) FROM sales_orders WHERE "deletedAt" IS NOT NULL</code> (Prisma Studio hoặc truy vấn trực tiếp) trước khi merge — nếu có, quyết định dọn tay (hard-delete luôn) hay chấp nhận nó hiện lại.</p>
+    </div>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 10/09/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>

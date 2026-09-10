@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
+import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
 import { format } from 'date-fns'
 import { Plus, Trash2, X, Check, ChevronLeft, Paperclip } from 'lucide-react'
@@ -110,7 +111,13 @@ export default function OrderManagementPage() {
   if (error) return <div style={{ padding: 40, color: '#E24B4A' }}>Lỗi: {error}</div>
 
   if (detailPO) {
-    return <PODetailView po={detailPO} onBack={() => setDetailPO(null)} />
+    return (
+      <PODetailView
+        po={detailPO}
+        onBack={() => setDetailPO(null)}
+        onDeleted={async () => { setDetailPO(null); await refetch() }}
+      />
+    )
   }
 
   return (
@@ -291,8 +298,9 @@ export default function OrderManagementPage() {
 // ── Trang chi tiết: Chi tiết sản xuất + Chi tiết xuất hàng (2 tab riêng) ─────
 type DetailTab = 'production' | 'shipping'
 
-function PODetailView({ po, onBack }: { po: SalesOrder; onBack: () => void }) {
+function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () => void; onDeleted: () => void | Promise<void> }) {
   const [tab, setTab] = useState<DetailTab>('production')
+  const { ask, confirmModal } = useConfirm()
 
   const paidExcludingDeposit = po.paidAmount - po.depositAmount
   const remainingAmount = po.totalValue - po.paidAmount
@@ -302,14 +310,45 @@ function PODetailView({ po, onBack }: { po: SalesOrder; onBack: () => void }) {
     { id: 'shipping', label: 'Chi tiết xuất hàng' },
   ]
 
+  const handleDelete = () => {
+    ask(
+      {
+        title: 'Xoá đơn hàng',
+        message: `Xoá đơn hàng ${po.code} — ${po.customerName}? Hành động này không thể hoàn tác.`,
+        danger: true,
+        confirmLabel: 'Xoá',
+      },
+      async () => {
+        await api.deleteSalesOrder(po.id)
+        await onDeleted()
+      },
+    )
+  }
+
   return (
     <div>
-      <button
-        onClick={onBack}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', fontSize: 12, fontWeight: 500, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)', marginBottom: 14 }}
-      >
-        <ChevronLeft size={13} /> Danh sách đơn hàng
-      </button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+        <button
+          onClick={onBack}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', fontSize: 12, fontWeight: 500, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)' }}
+        >
+          <ChevronLeft size={13} /> Danh sách đơn hàng
+        </button>
+        <button
+          onClick={handleDelete}
+          disabled={!!po.deleteBlockedReason}
+          title={po.deleteBlockedReason ?? undefined}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', fontSize: 12, fontWeight: 500,
+            border: `1px solid ${po.deleteBlockedReason ? 'var(--border)' : '#E24B4A'}`, borderRadius: 6, background: 'var(--surface)',
+            cursor: po.deleteBlockedReason ? 'not-allowed' : 'pointer',
+            color: po.deleteBlockedReason ? 'var(--text3)' : '#E24B4A',
+            opacity: po.deleteBlockedReason ? 0.6 : 1,
+          }}
+        >
+          <Trash2 size={13} /> Xoá đơn hàng
+        </button>
+      </div>
 
       <div style={{ marginBottom: 16 }}>
         <div style={{ fontWeight: 700, fontSize: 18 }}>{po.code} — {po.customerName}</div>
@@ -386,6 +425,8 @@ function PODetailView({ po, onBack }: { po: SalesOrder; onBack: () => void }) {
           </div>
         </div>
       )}
+
+      {confirmModal}
     </div>
   )
 }

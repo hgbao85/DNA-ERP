@@ -40,6 +40,9 @@ export interface SalesOrder {
   attachmentName?: string;
   attachmentUrl?: string;
   note?: string;
+  /** null = xoá được. Có giá trị = lý do không xoá được (đã gộp PI/đã giao hàng một phần) — dùng
+   *  làm tooltip disable nút Xoá, xem OrderManagementPage.tsx (PODetailView). */
+  deleteBlockedReason: string | null;
   createdAt: string;
 }
 
