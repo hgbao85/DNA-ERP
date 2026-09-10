@@ -259,10 +259,10 @@ function KcsPoListBoard({ rows, cfg, onEnter }: { rows: KcsRow[]; cfg: StageCfg;
 
   const unit = <span style={{ fontWeight: 400, fontSize: 11, color: 'var(--text3)' }}>{cfg.unit}</span>
   // "SKU nhà máy" (cột cũ) đã bỏ (2026-09-08) - BE chưa từng trả mã SKU thật cho ProductionBatch/
-  // PieceStepBundle, cột đó chỉ lặp lại đúng giá trị cột "PO / PI" (r.sku bị gán tạm = poNumber ở
+  // PieceStepBundle, cột đó chỉ lặp lại đúng giá trị cột "PI" (r.sku bị gán tạm = poNumber ở
   // KcsStagePage.tsx) - phát hiện khi người dùng hỏi "sao SKU lại trống".
   const cols: BoardColumn<KcsPoView>[] = [
-    { key: 'po', header: 'PO / PI', cell: v => <span style={{ fontWeight: 700 }}>{v.r.poNumber}</span> },
+    { key: 'po', header: 'PI', cell: v => <span style={{ fontWeight: 700 }}>{v.r.poNumber}</span> },
     {
       key: 'soLo', header: 'Số lô chờ kiểm', align: 'right', cell: v => (
         <span style={{ fontWeight: 700, color: v.soLoCho > 0 ? ACCENT : 'var(--text3)' }}>{fmt(v.soLoCho)}</span>
@@ -291,7 +291,7 @@ function KcsPoListBoard({ rows, cfg, onEnter }: { rows: KcsRow[]; cfg: StageCfg;
     <LenhSanXuatBoard<KcsPoView>
       icon={<Icon size={18} />}
       title={`Màn hình KCS — Công đoạn ${cfg.label}`}
-      subtitle="Kiểm tra chất lượng theo PO/PI — bấm vào dòng có hàng chờ kiểm để duyệt."
+      subtitle="Kiểm tra chất lượng theo PI — bấm vào dòng có hàng chờ kiểm để duyệt."
       columns={cols}
       rows={views}
       rowKey={v => v.r.id}

@@ -21,7 +21,7 @@
 
 import { useMemo } from 'react'
 import { KcsTwoTierScreen, type KcsRow, type KcsLine, type ReviewPayload } from '../../../components/sanxuat/kcsCore'
-import type { StageCfg } from '../../../components/sanxuat/core'
+import { timeVN, type StageCfg } from '../../../components/sanxuat/core'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BePieceStepBundle, BeProductionBatch, ProductionBatchStage } from '../../../services/production-batches-api'
@@ -80,11 +80,11 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
     const rows: KcsRow[] = []
     for (const productionOrderId of order) {
       const { batches: batchList, bundles: bundleList } = byPo.get(productionOrderId)!
-      // Dự phòng piCode khi salesOrderCode null (PI gộp không gắn 1 đơn Sales cụ thể) - cùng cách
-      // Sắt đang làm (SteelIssue.piCode, xem KcsPhoiPage.tsx) - trước đây KHÔNG có dự phòng, PI gộp
-      // hiện trắng "—" (phát hiện khi người dùng hỏi "sao lại là Lô mà không phải PI").
-      const po = batchList[0]?.salesOrderCode ?? batchList[0]?.piCode
-        ?? bundleList[0]?.salesOrderCode ?? bundleList[0]?.piCode ?? '—'
+      // 2026-09-10 (theo yêu cầu người dùng): màn KCS LUÔN hiện mã PI (lệnh sản xuất nội bộ KCS
+      // đang kiểm), KHÔNG hiện mã PO (đơn hàng Sales) - trước đây ưu tiên PO nếu có, dễ nhầm với
+      // "PO" ở màn Mua hàng/Kho (2 mã khác nhau cùng gọi là "PO"). piCode luôn có giá trị thật
+      // (ProductionOrder luôn sinh từ 1 ProductionInvoiceItem đã duyệt) - "—" chỉ là chốt an toàn.
+      const po = batchList[0]?.piCode ?? bundleList[0]?.piCode ?? '—'
       const poHasWork =
         batchList.some(b => b.status === 'AWAITING_QC') || bundleList.some(bd => bd.status === 'AWAITING_QC')
       if (!poHasWork) continue   // chỉ PO còn việc
@@ -104,7 +104,7 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
             actorName: 'KCS', at: b.reportedAt, note: `Duyệt: ${b.reportedQty} đạt · ${b.pieceName}`,
           }]
         return {
-          id: lineId, itemName: b.pieceName, spec: `${b.pieceCode} · lô ${b.reportedAt}`,
+          id: lineId, itemName: b.pieceName, spec: `${b.pieceCode} · lô ${timeVN(b.reportedAt)}`,
           needQty: b.reportedQty, doneQty: 0,
           pendingQty: pending ? b.reportedQty : 0,
           approvedQty: pending ? 0 : b.reportedQty,
@@ -128,7 +128,7 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
             actorName: 'KCS', at: bd.submittedAt, note: `Duyệt ${stepLabel}: ${bd.qty} đạt · ${bd.pieceName}`,
           }]
         return {
-          id: lineId, itemName: bd.pieceName, spec: `${bd.pieceCode} · ${stepLabel} · lô ${bd.submittedAt}`,
+          id: lineId, itemName: bd.pieceName, spec: `${bd.pieceCode} · ${stepLabel} · lô ${timeVN(bd.submittedAt)}`,
           needQty: bd.qty, doneQty: 0,
           pendingQty: pending ? bd.qty : 0,
           approvedQty: pending ? 0 : bd.qty,

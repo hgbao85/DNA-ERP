@@ -1,7 +1,7 @@
 'use client'
 
 /**
- * Màn hình KCS — Công đoạn PHÔI (2 tầng: PO → các đợt chờ kiểm).
+ * Màn hình KCS — Công đoạn PHÔI (2 tầng: PI → các đợt chờ kiểm).
  *
  * Viết lại hoàn toàn (2026-08-24) — KHÔNG còn dùng chung `kcsCore.tsx`/`KcsTwoTierScreen` với
  * Hàn/Sơn nữa: Sếp chốt Phôi chấm THEO TỪNG CỠ ĐOẠN (khác Hàn/Sơn vẫn chấm cả lô theo số lượng
@@ -101,10 +101,13 @@ function segmentsOf(x: Row): { segmentSpecId: string; cutLengthMm: number; qty: 
 function buildPiRows(issues: BeSteelIssue[], bundles: BeCutBundle[], stepBundles: BeStepBundle[]): PiAgg[] {
   const issueById = new Map(issues.map((i) => [i.id, i]))
   // poNumber tra theo productionInvoiceId (không còn dùng issue của chính Row vì StepRow không có
-  // issue cha nữa) - lấy từ bất kỳ issue nào cùng PI, đều cùng 1 piCode/salesOrderCode.
+  // issue cha nữa) - lấy từ bất kỳ issue nào cùng PI, đều cùng 1 piCode. 2026-09-10 (theo yêu cầu
+  // người dùng): màn KCS LUÔN hiện mã PI, KHÔNG hiện mã PO (đơn hàng Sales) - trước đây ưu tiên PO
+  // nếu có, dễ nhầm với "PO" ở màn Mua hàng/Kho (2 mã khác nhau cùng gọi là "PO") - cùng đổi với
+  // Hàn/Sơn/Vật tư TP (KcsStagePage.tsx).
   const poNumberByPi = new Map<string, string>()
   for (const i of issues) {
-    if (!poNumberByPi.has(i.productionInvoiceId)) poNumberByPi.set(i.productionInvoiceId, i.salesOrderCode ?? i.piCode)
+    if (!poNumberByPi.has(i.productionInvoiceId)) poNumberByPi.set(i.productionInvoiceId, i.piCode)
   }
   // Chỉ đợt liên quan KCS (đã báo cắt xong / đã gửi KCS trở lên) - đợt còn CUTTING hoặc công đoạn
   // phụ chưa gửi chưa liên quan.
@@ -183,13 +186,13 @@ function KcsSatSection() {
         <Wrench size={20} /> Màn hình KCS — Công đoạn Phôi
       </h2>
       <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>
-        Kiểm tra chất lượng theo từng cỡ đoạn — bấm vào PO có đợt chờ kiểm để duyệt.
+        Kiểm tra chất lượng theo từng cỡ đoạn — bấm vào PI có đợt chờ kiểm để duyệt.
       </div>
       <div style={card}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
-              <th style={th}>PO / PI</th>
+              <th style={th}>PI</th>
               <th style={thR}>Đợt chờ kiểm</th>
               <th style={{ ...th, width: 40 }}></th>
             </tr>
