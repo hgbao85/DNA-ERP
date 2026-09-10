@@ -78,18 +78,18 @@ export async function updateMaterial(id: number | string, data: Record<string, u
     name: data.name,
     unit: data.unit,
     spec: data.spec,
-    materialGroupId: data.materialGroupId || undefined,
+    // `?? null` (KHÔNG `|| undefined`) - đính chính audit toàn diện 09/09 (Cao/H1): FE
+    // (AdminEntityPage.tsx) đã gửi đúng `null` khi Admin chọn "— Không —" để gỡ gán, nhưng
+    // `null || undefined` luôn ra `undefined` nên `JSON.stringify` xoá hẳn field khỏi payload
+    // PATCH - BE tưởng "không gửi field này" = giữ nguyên, âm thầm KHÔNG gỡ gán dù báo lưu
+    // thành công. Cùng lỗi/cùng cách sửa đã áp dụng cho maxCuttingWastePercentage/
+    // purchaseWastePercentage ngay bên dưới.
+    materialGroupId: data.materialGroupId ?? null,
     detailKind: data.detailKind || undefined,
-    warehouseId: data.warehouseId || undefined,
-    buyerId: data.buyerId || undefined,
+    warehouseId: data.warehouseId ?? null,
+    buyerId: data.buyerId ?? null,
     purchaseUnit: data.purchaseUnit,
     khoUnitFactor: data.khoUnitFactor,
-    // `?? null` (KHÔNG để undefined trôi qua) - input số phát undefined khi bị xoá trắng
-    // (AdminEntityPage.tsx), undefined sẽ bị JSON.stringify bỏ khỏi payload PATCH khiến BE
-    // không đụng cột (tưởng "không gửi field này" = giữ nguyên) dù người dùng vừa xoá trắng để
-    // xin về mặc định hệ thống - lưu xong không có gì đổi mà vẫn báo thành công. Ép null để
-    // gửi đúng ý định "xoá field" (đã từng là defect thật với khoUnitFactor, chưa sửa - không
-    // đụng ở đây vì ngoài phạm vi 2 field hao hụt).
     maxCuttingWastePercentage: data.maxCuttingWastePercentage ?? null,
     purchaseWastePercentage: data.purchaseWastePercentage ?? null,
     imageUrl: data.imageUrl,

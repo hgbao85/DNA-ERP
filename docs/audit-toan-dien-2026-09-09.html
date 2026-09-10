@@ -183,20 +183,23 @@
   <div class="hero-inner">
     <span class="eyebrow">Audit toàn diện — cập nhật tiến độ xử lý 09/09/2026</span>
     <h1 class="title">Audit toàn diện hệ thống DNA-ERP</h1>
-    <p class="subtitle">Rà soát bằng cách đọc trực tiếp code thật (không suy đoán) toàn bộ luồng nghiệp vụ Mua hàng, Kho, Sản xuất, Bán hàng/SKU, phân quyền bảo mật, và hệ thống tính toán cắt vật tư (DEXUAT) — theo hướng "chuyện gì có thể xảy ra với dữ liệu, tồn kho, tiền và uy tín nghiệp vụ", viết cho người không chuyên kỹ thuật.</p>
+    <p class="subtitle">Rà soát bằng cách đọc trực tiếp code thật (không suy đoán) toàn bộ luồng nghiệp vụ Mua hàng, Kho, Sản xuất, Bán hàng/SKU, và phân quyền bảo mật — theo hướng "chuyện gì có thể xảy ra với dữ liệu, tồn kho, tiền và uy tín nghiệp vụ", viết cho người không chuyên kỹ thuật.</p>
     <div class="meta-row">
       <span><strong>Ngày audit gốc:</strong> 09/09/2026</span>
-      <span><strong>Phạm vi:</strong> 3 hệ thống — DNA-ERP (giao diện), DNA-ERP-BE (xử lý nghiệp vụ + dữ liệu), DNA-DEXUAT (máy tính toán phương án cắt)</span>
-      <span><strong>Phương pháp:</strong> 5 mũi rà soát độc lập, đọc trực tiếp mã nguồn + lịch sử git, đối chiếu với các lần audit trước</span>
+      <span><strong>Phạm vi:</strong> 2 hệ thống — DNA-ERP (giao diện), DNA-ERP-BE (xử lý nghiệp vụ + dữ liệu)</span>
+      <span><strong>Phương pháp:</strong> 4 mũi rà soát độc lập, đọc trực tiếp mã nguồn + lịch sử git, đối chiếu với các lần audit trước</span>
     </div>
     <div class="meta-row">
-      <span><strong style="color:var(--ok)">Cập nhật 09/09/2026 (cùng ngày, sau audit):</strong> 6/8 mục Nghiêm trọng (C1–C6) đã được vá và có test tự động xác nhận — xem badge "✓ Đã sửa" trong từng mục. Đã rà soát xong toàn bộ 46 tệp của đợt sửa lỗi "thất lạc" (mục 4, C8) và vá thêm 3 lỗi độc lập phát hiện thêm trong lúc rà soát. Mục H3 (mức Cao) cũng đã vá — <strong>được xác nhận là lỗi thật qua kiểm thử trực tiếp trên hệ thống đang chạy</strong> (tái hiện được 12/13 lần trước khi sửa, 0/13 lần sau khi sửa), mức độ nghiêm trọng thực tế cao hơn đánh giá ban đầu. 6 mục Trung bình cũng đã vá tiện tay (chuyển kho nội bộ tính sai tồn khả dụng theo bucket chiều dài; phiếu chuyển kho có dòng "ghi tự do" không đụng tồn kho; xác nhận "đã nhận vật tư" thiếu chống trùng lặp; tạo trùng mã vật tư/nhóm vật tư khi 2 người tạo cùng lúc; sai số thập phân khi cộng dồn nhận hàng nhiều đợt; xoá "lý do lỗi" đang dùng trong lịch sử KCS âm thầm mất dấu vết). C7 (giới hạn tải máy tính toán DEXUAT) và phần lớn các mục Cao/Trung bình/Thấp còn lại <strong>CHƯA xử lý</strong> — theo quyết định có chủ đích của người phụ trách (không đụng tới hệ thống DEXUAT trong đợt này).</span>
+      <span><strong style="color:var(--ok)">Cập nhật 09/09/2026 (cùng ngày, sau audit):</strong> 6/8 mục Nghiêm trọng (C1–C6) đã được vá và có test tự động xác nhận — xem badge "✓ Đã sửa" trong từng mục. Đã rà soát xong toàn bộ 46 tệp của đợt sửa lỗi "thất lạc" (mục 4, C8) và vá thêm 3 lỗi độc lập phát hiện thêm trong lúc rà soát. Mục H3 (mức Cao) cũng đã vá — <strong>được xác nhận là lỗi thật qua kiểm thử trực tiếp trên hệ thống đang chạy</strong> (tái hiện được 12/13 lần trước khi sửa, 0/13 lần sau khi sửa), mức độ nghiêm trọng thực tế cao hơn đánh giá ban đầu. 6 mục Trung bình cũng đã vá tiện tay (chuyển kho nội bộ tính sai tồn khả dụng theo bucket chiều dài; phiếu chuyển kho có dòng "ghi tự do" không đụng tồn kho; xác nhận "đã nhận vật tư" thiếu chống trùng lặp; tạo trùng mã vật tư/nhóm vật tư khi 2 người tạo cùng lúc; sai số thập phân khi cộng dồn nhận hàng nhiều đợt; xoá "lý do lỗi" đang dùng trong lịch sử KCS âm thầm mất dấu vết). Phần lớn các mục Cao/Trung bình/Thấp còn lại <strong>CHƯA xử lý</strong> — phạm vi hẹp hơn hoặc ưu tiên thấp hơn nhóm Nghiêm trọng, xử lý sau theo năng lực đội kỹ thuật.</span>
+    </div>
+    <div class="meta-row">
+      <span><strong style="color:var(--ok)">Cập nhật 10/09/2026:</strong> Xử lý thêm 2 mục mức Thấp (mục 8) và 1 mục mức Cao (mục 6). (1) "Tạo yêu cầu làm lại hàng lỗi thiếu chống trùng lặp" — rà lại code thật phát hiện hàm liên quan (<code>createReworkIssue()</code>, steel-issues.service.ts) đã là <strong>code mồ côi</strong> từ 25/08/2026 (không còn service/endpoint nào gọi tới sau khi luồng KCS chuyển sang chấm theo segments) — không phải lỗ hổng đang khai thác được; đã xoá hẳn hàm + sửa lại comment lịch sử đang mô tả sai hành vi hiện tại, theo đúng quyết định "xoá code chết" thay vì vá 1 race condition không ai chạm tới. (2) "Gộp nhiều lượt báo công đoạn cắt sắt thành 1 đợt gửi KCS thiếu khoá bảo vệ" — xác nhận đúng là lỗi thật đang tồn tại (<code>submitStepBundle()</code> thiếu <code>lockBusinessKey</code> mà hàm song sinh bên vật tư thành phẩm <code>submitPieceStep()</code> đã có sẵn) — đã vá bằng đúng khuôn mẫu đó, có test tự động xác nhận thứ tự khoá-trước-đọc. (3) "Admin không thể bỏ gán Nhóm vật tư/Kho/Người phụ trách mua" — rà lại phát hiện 2 file audit gốc trỏ tới (<code>AdminEntityPage.tsx</code>, <code>materials.service.ts</code>) thực ra đã được vá đúng từ 09/09, nhưng bug vẫn tái hiện được vì sót 1 lớp trung gian (<code>src/services/materials-api.ts</code>) vẫn dùng <code>|| undefined</code> làm mất tác dụng bản vá — đã sửa nốt, giữ nguyên quyết định KHÔNG ép bắt buộc nhập các field này (đánh đổi mất trạng thái nghiệp vụ "chưa gán ai" hợp lệ). Cả 3 mục xem chi tiết trong mục 6/8 bên dưới.</span>
     </div>
     <div class="stat-strip">
-      <a href="#critical" class="stat-pill crit"><span class="n">8</span><span class="lbl">Nghiêm trọng</span></a>
-      <a href="#high" class="stat-pill high"><span class="n">8</span><span class="lbl">Cao</span></a>
-      <a href="#medium" class="stat-pill med"><span class="n">13</span><span class="lbl">Trung bình</span></a>
-      <a href="#low" class="stat-pill low"><span class="n">11</span><span class="lbl">Thấp</span></a>
+      <a href="#critical" class="stat-pill crit"><span class="n">7</span><span class="lbl">Nghiêm trọng</span></a>
+      <a href="#high" class="stat-pill high"><span class="n">5</span><span class="lbl">Cao</span></a>
+      <a href="#medium" class="stat-pill med"><span class="n">9</span><span class="lbl">Trung bình</span></a>
+      <a href="#low" class="stat-pill low"><span class="n">8</span><span class="lbl">Thấp</span></a>
     </div>
   </div>
 </header>
@@ -224,12 +227,11 @@
   <section class="sev-section" id="tomtat">
     <div class="sec-head"><h2>1. Tóm tắt điều hành</h2></div>
     <div class="prose-card">
-      <p>Hệ thống DNA-ERP gồm <strong>3 mảnh ghép</strong> vận hành cùng nhau: giao diện người dùng, bộ xử lý nghiệp vụ &amp; cơ sở dữ liệu, và một hệ thống riêng (DEXUAT) chuyên tính toán phương án cắt vật tư tối ưu. Sau khi đọc trực tiếp mã nguồn của cả 3 hệ thống theo từng luồng nghiệp vụ thật (mua hàng → kho → sản xuất → giao hàng), chúng tôi ghi nhận:</p>
+      <p>Hệ thống DNA-ERP gồm <strong>2 mảnh ghép</strong> vận hành cùng nhau: giao diện người dùng, và bộ xử lý nghiệp vụ &amp; cơ sở dữ liệu. Sau khi đọc trực tiếp mã nguồn của cả 2 hệ thống theo từng luồng nghiệp vụ thật (mua hàng → kho → sản xuất → giao hàng), chúng tôi ghi nhận:</p>
       <ul>
         <li><strong>Nhiều bản vá lỗi quan trọng đã viết ra ngày 29/08/2026 nhưng chưa từng được đưa vào hệ thống đang chạy thật.</strong> Đây là phát hiện nghiêm trọng nhất về mặt <em>quy trình</em>: hồ sơ nội bộ ghi nhận "đã sửa" nhưng thực tế người dùng vẫn đang dùng bản có lỗi. Xem mục 4.</li>
         <li>Vẫn còn <strong>một số điểm có thể làm sai lệch tồn kho vật tư</strong> (đặc biệt là vật tư tiêu hao/đóng gói, và nhóm vật tư gia công mới đưa vào dùng gần đây) khi 2 người/2 lệnh sản xuất thao tác gần như cùng lúc.</li>
         <li><strong>Khâu duyệt chất lượng (KCS)</strong> có lỗ hổng có thể khiến sản lượng đã chốt sổ bị sai lệch nếu nhân viên bấm duyệt 2 lần hoặc mạng chập chờn khiến trình duyệt gửi lại yêu cầu — đây là rủi ro trực tiếp tới số liệu sản lượng làm căn cứ tính lương/thống kê.</li>
-        <li>Hệ thống tính toán cắt vật tư bên ngoài (DEXUAT) có <strong>xác thực bảo mật tốt</strong> và dữ liệu trao đổi với ERP đồng bộ chính xác, nhưng <strong>chưa có giới hạn tải</strong> — nếu nhiều yêu cầu tính toán dồn vào cùng lúc, máy tính toán có thể bị quá tải và làm chậm/treo toàn bộ các phép tính khác, kể cả các phép tính hợp lệ đang chờ.</li>
         <li>Cơ chế phân quyền, xác thực đăng nhập, và ghi nhật ký (audit log) của hệ thống chính được xây dựng khá chắc chắn — hầu như mọi thao tác nhạy cảm (duyệt, xoá, xuất kho) đều có kiểm tra quyền hạn rõ ràng. Đây là điểm mạnh đáng ghi nhận.</li>
       </ul>
       <p>Không có phát hiện nào cho thấy hệ thống đang <em>mất tiền hoặc mất dữ liệu hàng loạt ngay bây giờ</em>. Rủi ro chủ yếu nằm ở các <strong>tình huống hiếm nhưng có thật</strong> (2 người thao tác cùng lúc, mạng chập chờn, máy chủ khởi động lại giữa chừng) — và ở việc <strong>một số bản vá lỗi tưởng đã xong nhưng thực ra chưa được áp dụng</strong>.</p>
@@ -240,20 +242,19 @@
   <section class="sev-section" id="sodo">
     <div class="sec-head"><h2>2. Sơ đồ hệ thống (nhìn tổng quan)</h2></div>
     <div class="prose-card">
-      <p>Ba hệ thống nói chuyện với nhau như sau:</p>
-      <div class="flow-box">┌────────────────────┐      ┌──────────────────────────┐      ┌────────────────────────┐
-│   DNA-ERP (Giao    │ ───▶ │   DNA-ERP-BE (Bộ não)     │ ───▶ │  DNA-DEXUAT (Máy tính)  │
-│   diện người dùng) │ ◀─── │  Nghiệp vụ + Kho dữ liệu  │ ◀─── │  Tính phương án cắt tối │
-│   Web, mọi phòng    │      │  (đơn hàng, tồn kho, sản  │      │  ưu vật tư (sắt/nhôm)   │
-│   ban dùng qua trình│      │   xuất, mua hàng, quyền   │      │  Chạy độc lập, không    │
-│   duyệt             │      │   hạn, sổ sách...)        │      │  lưu dữ liệu về sau     │
-└────────────────────┘      └──────────────────────────┘      └────────────────────────┘</div>
+      <p>2 hệ thống nói chuyện với nhau như sau:</p>
+      <div class="flow-box">┌────────────────────┐      ┌──────────────────────────┐
+│   DNA-ERP (Giao    │ ───▶ │   DNA-ERP-BE (Bộ não)     │
+│   diện người dùng) │ ◀─── │  Nghiệp vụ + Kho dữ liệu  │
+│   Web, mọi phòng    │      │  (đơn hàng, tồn kho, sản  │
+│   ban dùng qua trình│      │   xuất, mua hàng, quyền   │
+│   duyệt             │      │   hạn, sổ sách...)        │
+└────────────────────┘      └──────────────────────────┘</div>
       <p>Các luồng nghiệp vụ chính đã được trace từ đầu đến cuối:</p>
       <ol>
         <li><strong>Bán hàng → Kế hoạch sản xuất:</strong> Sales tạo đơn hàng → sinh "Sku" (phiếu kế hoạch) → KHSX gộp/tách các Sku thành 1 Phiếu Sản xuất (PI) → Sếp duyệt PI → hệ thống chốt định mức vật tư (không cho sửa "sống" giữa chừng) và sinh Lệnh sản xuất thật.</li>
         <li><strong>Mua hàng:</strong> Hệ thống tự tính nhu cầu mua theo 3 nguồn (sắt cắt, vật tư tiêu hao, vật tư gia công) → gộp thành 1 phiếu đề xuất theo từng PI → nhân viên Mua hàng so giá ngoài hệ thống, Sếp ký tay ngoài hệ thống → Mua hàng xác nhận "đã duyệt" kèm ảnh chụp giấy ký → Thủ kho xác nhận nhận hàng, cộng vào tồn kho.</li>
         <li><strong>Sản xuất:</strong> QLSX bấm "Bắt đầu" cho từng PI tại xưởng → công nhân báo từng bước (cắt, hàn, sơn, dệt...) → KCS duyệt từng lô → hàng đạt được chốt sản lượng, hàng lỗi được xử lý làm lại.</li>
-        <li><strong>Cắt vật tư tối ưu:</strong> Khi duyệt PI, hệ thống tự động gửi yêu cầu sang máy tính toán DEXUAT để tìm phương án cắt tiết kiệm vật tư nhất, chờ vài giây tới vài chục phút, rồi tự áp dụng kết quả và đề xuất mua phần còn thiếu.</li>
         <li><strong>Kho:</strong> Mọi lần nhập/xuất/chuyển vật tư giữa các kho đều ghi vào 1 "sổ cái" duy nhất, từ đó tính ra số tồn của từng kho theo từng loại vật tư (và với sắt, theo cả chiều dài cây).</li>
       </ol>
     </div>
@@ -291,7 +292,7 @@ Xuất vật tư tiêu hao, Xuất đóng gói, Xuất vật tư gia công (châ
 
   <!-- ============ CRITICAL ============ -->
   <section class="sev-section" id="critical">
-    <div class="sec-head"><h2>5. Vấn đề Nghiêm trọng — cần xử lý trước</h2><span class="sec-count">8 vấn đề</span></div>
+    <div class="sec-head"><h2>5. Vấn đề Nghiêm trọng — cần xử lý trước</h2><span class="sec-count">7 vấn đề</span></div>
     <p class="sec-desc">Các vấn đề có thể làm <strong>sai lệch tồn kho, sai số liệu sản lượng, hoặc tạo trùng lặp chứng từ nghiệp vụ</strong> mà người dùng không có cách nào tự phát hiện qua giao diện.</p>
 
     <article class="finding crit is-fixed" id="c1">
@@ -371,14 +372,6 @@ Xuất vật tư tiêu hao, Xuất đóng gói, Xuất vật tư gia công (châ
       </div>
     </article>
 
-    <article class="finding crit" id="c7">
-      <div class="f-head"><span class="badge crit">Nghiêm trọng</span><span class="badge dom">Tích hợp máy tính toán (DEXUAT)</span><span class="f-title">Máy tính toán phương án cắt không giới hạn số phép tính chạy đồng thời — có thể làm treo cả hệ thống tính toán</span></div>
-      <div class="f-field"><span class="k">Vấn đề là gì</span><div class="v">Mỗi lần Sếp duyệt 1 PI (hoặc bấm "Tính lại"), hệ thống gửi 1 yêu cầu tính toán sang máy chủ DEXUAT, có thể chạy tới hàng chục phút cho các trường hợp phức tạp (gộp nhiều loại sắt). Máy chủ DEXUAT hiện chỉ chạy trên 1 tiến trình duy nhất, không giới hạn số phép tính được phép chạy cùng lúc, và không có cách nào huỷ 1 phép tính đang chạy nếu phía ERP đã bỏ cuộc chờ (do hết thời gian chờ).</div></div>
-      <div class="f-field"><span class="k">Ảnh hưởng tới doanh nghiệp</span><div class="v">Nếu nhiều PI được duyệt gần nhau, hoặc người dùng sốt ruột bấm "Tính lại" nhiều lần khi thấy chậm, các phép tính "ma" (đã bị ERP bỏ cuộc chờ nhưng vẫn âm thầm chạy tiếp) sẽ chiếm hết tài nguyên máy chủ, khiến các phép tính hợp lệ khác cũng bị chậm/timeout theo — hiệu ứng domino có thể làm toàn bộ tính năng "cắt tối ưu" bị treo trong một khoảng thời gian, ảnh hưởng tới toàn bộ các PI đang chờ duyệt.</div></div>
-      <div class="f-field"><span class="k">Đề xuất xử lý</span><div class="v">Thêm cơ chế hàng đợi/giới hạn số phép tính chạy song song phía máy chủ DEXUAT, và cân nhắc khả năng huỷ phép tính khi phát hiện phía gọi đã ngắt kết nối.</div></div>
-      <div class="f-ref">DNA-DEXUAT/entrypoint.sh, cat_sat/de_xuat_logic.py — máy chủ chạy 1 tiến trình duy nhất, không giới hạn concurrency</div>
-    </article>
-
     <article class="finding crit is-fixed" id="c8">
       <div class="f-head"><span class="badge crit">Nghiêm trọng</span><span class="badge fixed">✓ Đã rà soát xong 09/09/2026</span><span class="badge dom">Quy trình bàn giao</span><span class="f-title">Cần rà soát lại toàn bộ 46 tệp trong đợt sửa lỗi bị "thất lạc" — không chỉ 2 chỗ đã xác minh</span></div>
       <div class="f-field"><span class="k">Vấn đề là gì</span><div class="v">Như đã nêu ở mục 4, đợt sửa lỗi ngày 29/08/2026 chạm tới ~46 tệp mã nguồn ở nhiều khu vực (Mua hàng, Xuất sắt, Sổ cái kho, Giữ chỗ tồn kho, Chuyển kho nội bộ, Vật tư). Chúng tôi mới xác minh trực tiếp được 2 trong số đó (mục C1, C2) vì đó là phạm vi trọng tâm của đợt audit lần này. Các phần còn lại <strong>chưa được xác minh riêng lẻ</strong> và không thể mặc định là "vẫn ổn" hay "đã được xử lý ở nơi khác".</div></div>
@@ -394,15 +387,19 @@ Xuất vật tư tiêu hao, Xuất đóng gói, Xuất vật tư gia công (châ
 
   <!-- ============ HIGH ============ -->
   <section class="sev-section" id="high">
-    <div class="sec-head"><h2>6. Vấn đề mức Cao</h2><span class="sec-count">8 vấn đề</span></div>
+    <div class="sec-head"><h2>6. Vấn đề mức Cao</h2><span class="sec-count">5 vấn đề</span></div>
     <p class="sec-desc">Ảnh hưởng rõ rệt tới một nghiệp vụ cụ thể, nhưng phạm vi hẹp hơn hoặc điều kiện xảy ra ít phổ biến hơn nhóm Nghiêm trọng.</p>
 
-    <article class="finding high">
-      <div class="f-head"><span class="badge high">Cao</span><span class="badge dom">Mua hàng</span><span class="f-title">Admin không thể bỏ gán Nhóm vật tư / Kho / Người phụ trách mua cho 1 vật tư — thao tác báo thành công nhưng thực ra không có tác dụng</span></div>
+    <article class="finding high is-fixed">
+      <div class="f-head"><span class="badge high">Cao</span><span class="badge fixed">✓ Đã sửa 10/09/2026</span><span class="badge dom">Mua hàng</span><span class="f-title">Admin không thể bỏ gán Nhóm vật tư / Kho / Người phụ trách mua cho 1 vật tư — thao tác báo thành công nhưng thực ra không có tác dụng</span></div>
       <div class="f-field"><span class="k">Vấn đề là gì</span><div class="v">Khi Admin sửa 1 vật tư và chọn "— Không —" để gỡ bỏ 1 trong 3 thông tin gán sẵn (nhóm, kho, người phụ trách mua), hệ thống báo lưu thành công nhưng dữ liệu cũ vẫn còn nguyên — do cách giao diện gửi dữ liệu "gỡ bỏ" bị hiểu nhầm thành "không đổi gì cả".</div></div>
       <div class="f-field"><span class="k">Ảnh hưởng tới doanh nghiệp</span><div class="v">Không thể "trả về trạng thái chưa gán người phụ trách" cho 1 vật tư khi nhân viên mua hàng phụ trách vật tư đó nghỉ việc — hệ thống vẫn coi người đã nghỉ là người duy nhất được xử lý vật tư đó, người khác bị từ chối quyền thao tác.</div></div>
       <div class="f-field"><span class="k">Đề xuất xử lý</span><div class="v">Sửa cách giao diện phân biệt rõ "người dùng chủ động chọn gỡ bỏ" với "trường không được đụng tới" khi gửi yêu cầu lưu.</div></div>
-      <div class="f-ref">AdminEntityPage.tsx + materials.service.ts</div>
+      <div class="f-ref">AdminEntityPage.tsx + materials.service.ts + src/services/materials-api.ts (nguồn bug thật sau khi rà lại)</div>
+      <div class="fix-note">
+        <span class="k">Đã sửa 10/09/2026 — phát hiện thêm khi rà lại: 2 file audit trỏ tới đã được vá đúng từ 09/09, bug thật nằm ở 1 lớp trung gian khác</span>
+        <div class="v">Rà lại code xác nhận <code>AdminEntityPage.tsx</code> (dòng 469-482) và <code>materials.service.ts</code> đã được sửa đúng từ đợt <code>fix-09-09</code>/<code>fix-09-09-v2</code> — FE đã gửi đúng <code>null</code> khi chọn "— Không —", BE đã phân biệt đúng <code>null</code> (xoá) với "không gửi field" (giữ nguyên). Nhưng bug vẫn tái hiện được 100% vì còn 1 lớp trung gian bị bỏ sót: <code>src/services/materials-api.ts</code> hàm <code>updateMaterial()</code> — nơi FE thực sự gọi API, vẫn viết <code>materialGroupId: data.materialGroupId || undefined</code> (và tương tự cho warehouseId/buyerId). Vì <code>null</code> là giá trị falsy trong JS, <code>null || undefined</code> luôn ra <code>undefined</code>, bị <code>JSON.stringify</code> xoá khỏi payload PATCH trước khi tới server — bản vá 09/09 vì vậy không có tác dụng thật trên đường đi thật của request. Đã đổi 3 field này sang <code>?? null</code>, đúng khuôn mẫu đã áp dụng cho 2 field hao hụt (maxCuttingWastePercentage/purchaseWastePercentage) ngay cạnh đó. Xác nhận qua code rằng <code>AdminEntityPage.tsx</code> luôn gửi đủ toàn bộ field dạng select (giá trị thật hoặc <code>null</code> tường minh, không bao giờ <code>undefined</code>) nên đổi công thức này an toàn, không ảnh hưởng ca "không đụng field". Cân nhắc thêm: <code>warehouseId</code>/<code>buyerId</code> CỐ TÌNH giữ optional (không ép bắt buộc nhập) vì "chưa gán ai" là trạng thái nghiệp vụ thật cần có — đặc biệt lúc nhân viên phụ trách mua nghỉ việc, trước khi có người thay thế. Có 4 test tự động mới xác nhận cả 3 field gửi đúng <code>null</code> khi gỡ gán và đúng giá trị khi có id thật.</div>
+      </div>
     </article>
 
     <article class="finding high">
@@ -433,30 +430,6 @@ Xuất vật tư tiêu hao, Xuất đóng gói, Xuất vật tư gia công (châ
     </article>
 
     <article class="finding high">
-      <div class="f-head"><span class="badge high">Cao</span><span class="badge dom">Tích hợp máy tính toán (DEXUAT)</span><span class="f-title">Nếu hệ thống bị gián đoạn giữa lúc đang tính phương án cắt, kết quả tính bị mất vĩnh viễn và phiếu bị "treo" mãi mãi</span></div>
-      <div class="f-field"><span class="k">Vấn đề là gì</span><div class="v">Việc tính phương án cắt chạy "ngầm" — hệ thống không chờ kết quả ngay mà để chạy nền, có thể mất tới hàng chục phút. Nếu máy chủ ERP khởi động lại giữa chừng (do triển khai bản cập nhật, sự cố, hoặc quá tải), hoặc kết nối mạng giữa ERP và máy tính toán bị đứt đúng lúc kết quả vừa tính xong nhưng chưa kịp gửi về, toàn bộ công sức tính toán đó (có thể tốn nhiều phút xử lý) bị mất hoàn toàn và không có cách nào lấy lại — máy tính toán không lưu lại kết quả về sau. Phiếu tính toán trong hệ thống sẽ kẹt ở trạng thái "Đang tính" mãi mãi, không tự động báo lỗi.</div></div>
-      <div class="f-field"><span class="k">Ảnh hưởng tới doanh nghiệp</span><div class="v">Lãng phí thời gian xử lý và làm chậm tiến độ duyệt PI khi sự cố xảy ra; các phiếu "treo" tích luỹ theo thời gian gây nhiễu khi thống kê/báo cáo nếu không ai dọn dẹp thủ công.</div></div>
-      <div class="f-field"><span class="k">Đề xuất xử lý</span><div class="v">Thêm cơ chế tự động quét các phiếu "Đang tính" quá lâu và tự đánh dấu thất bại kèm thông báo rõ ràng, thay vì để treo vô thời hạn.</div></div>
-      <div class="f-ref">cutting-proposals.service.ts — trạng thái CALCULATING không có cơ chế dọn dẹp tự động</div>
-    </article>
-
-    <article class="finding high">
-      <div class="f-head"><span class="badge high">Cao</span><span class="badge dom">Tích hợp máy tính toán (DEXUAT)</span><span class="f-title">Thời gian chờ tối đa của máy chủ tính toán bị "quên" cấu hình — làm cho cấu hình thời gian chờ phía hệ thống chính có thể vô nghĩa</span></div>
-      <div class="f-field"><span class="k">Vấn đề là gì</span><div class="v">Có 1 giá trị cấu hình "thời gian chờ tối đa" được ghi trong tài liệu cấu hình của máy tính toán, nhưng giá trị đó thực ra không được máy chủ đọc — máy chủ chỉ đọc đúng giá trị này nếu được truyền qua 1 tham số khác khi khởi động, và tham số đó hiện chưa được truyền. Máy chủ vì vậy đang dùng thời gian chờ mặc định (ngắn hơn nhiều) mà không ai biết.</div></div>
-      <div class="f-field"><span class="k">Ảnh hưởng tới doanh nghiệp</span><div class="v">Nếu đội kỹ thuật cố tình tăng thời gian chờ phía hệ thống chính để cho phép tính các phương án cắt phức tạp (nhiều loại sắt gộp chung), nỗ lực đó có thể vô nghĩa — kết nối vẫn bị máy tính toán tự cắt sớm hơn dự kiến, và lỗi trả về chung chung không cho biết nguyên nhân thật.</div></div>
-      <div class="f-field"><span class="k">Đề xuất xử lý</span><div class="v">Sửa lệnh khởi động máy chủ để truyền đúng tham số thời gian chờ đã định.</div></div>
-      <div class="f-ref">DNA-DEXUAT/entrypoint.sh, iea_project/settings.py — thiếu cờ dòng lệnh khi khởi động Daphne</div>
-    </article>
-
-    <article class="finding high">
-      <div class="f-head"><span class="badge high">Cao</span><span class="badge dom">Tích hợp máy tính toán (DEXUAT)</span><span class="f-title">Không giới hạn kích thước yêu cầu tính toán — rủi ro nếu khoá bảo mật giữa 2 hệ thống bị lộ</span></div>
-      <div class="f-field"><span class="k">Vấn đề là gì</span><div class="v">Máy tính toán không giới hạn trần cho các thông số đầu vào (khoảng chiều dài cần quét, số lượng dòng vật tư...). Yêu cầu tính toán hiện chỉ tới từ hệ thống chính qua 1 khoá bảo mật cố định.</div></div>
-      <div class="f-field"><span class="k">Ảnh hưởng tới doanh nghiệp</span><div class="v">Nếu khoá bảo mật đó vô tình bị lộ ra ngoài (ví dụ lưu sai chỗ, lọt vào nhật ký hệ thống), người có khoá có thể gửi 1 yêu cầu cố tình yêu cầu tính toán cực lớn, khiến máy tính toán bị quá tải kéo dài — kết hợp với vấn đề C7 ở trên sẽ làm toàn bộ hệ thống tính cắt bị treo.</div></div>
-      <div class="f-field"><span class="k">Đề xuất xử lý</span><div class="v">Thêm giới hạn trần hợp lý cho các thông số đầu vào của yêu cầu tính toán.</div></div>
-      <div class="f-ref">DNA-DEXUAT/api/views.py</div>
-    </article>
-
-    <article class="finding high">
       <div class="f-head"><span class="badge high">Cao</span><span class="badge dom">Bán hàng / Kế hoạch sản xuất</span><span class="f-title">Có thể xoá 1 mã hàng (Sku) đã được duyệt/đang sản xuất ngay qua giao diện thật</span></div>
       <div class="f-field"><span class="k">Vấn đề là gì</span><div class="v">Màn hình danh sách mã hàng chỉ chặn xoá đối với mã hàng đang ở trạng thái nháp — mã hàng đã được Sếp duyệt (đang có định mức sản xuất và lệnh sản xuất gắn theo) vẫn hiện đầy đủ trong danh sách và cho phép chọn xoá hàng loạt, kể cả khi đang lọc riêng nhóm "Đã duyệt".</div></div>
       <div class="f-field"><span class="k">Ảnh hưởng tới doanh nghiệp</span><div class="v">Xoá 1 mã hàng đã duyệt sẽ không báo lỗi (hệ thống chỉ âm thầm gỡ liên kết) — mất khả năng truy vết "định mức sản xuất này thuộc mã hàng nào" trong khi nhà máy vẫn đang sản xuất theo định mức đó, gây khó khăn nghiêm trọng khi cần tra cứu lại sau này.</div></div>
@@ -478,7 +451,7 @@ Xuất vật tư tiêu hao, Xuất đóng gói, Xuất vật tư gia công (châ
 
   <!-- ============ MEDIUM ============ -->
   <section class="sev-section" id="medium">
-    <div class="sec-head"><h2>7. Vấn đề mức Trung bình</h2><span class="sec-count">13 vấn đề</span></div>
+    <div class="sec-head"><h2>7. Vấn đề mức Trung bình</h2><span class="sec-count">9 vấn đề</span></div>
     <p class="sec-desc">Rủi ro thấp hơn — hoặc do điều kiện xảy ra hiếm, hoặc do hậu quả chỉ ảnh hưởng cục bộ, không lan sang các nghiệp vụ khác.</p>
 
     <article class="finding med"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge dom">Kho</span><span class="f-title">Chức năng "Sửa nhanh tồn kho" của Admin chưa hỗ trợ đúng loại tồn kho có phân theo chiều dài cây sắt</span></div>
@@ -540,26 +513,6 @@ Xuất vật tư tiêu hao, Xuất đóng gói, Xuất vật tư gia công (châ
       </div>
     </article>
 
-    <article class="finding med"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge dom">Tích hợp DEXUAT</span><span class="f-title">Tài liệu cấu hình mẫu ghi giá trị thời gian chờ khác với giá trị thực tế cần dùng ở môi trường thật</span></div>
-      <div class="f-field"><span class="k">Ảnh hưởng</span><div class="v">Nếu dựng môi trường mới (thử nghiệm, dự phòng) theo đúng tài liệu mẫu, sẽ gặp lỗi "tính toán thất bại" gây hiểu nhầm là lỗi hệ thống trong khi chỉ là cấu hình chưa khớp.</div></div>
-      <div class="f-ref">.env.example (SOLVER_TIMEOUT_SECONDS)</div>
-    </article>
-
-    <article class="finding med"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge dom">Tích hợp DEXUAT</span><span class="f-title">Không ghi nhật ký cho các yêu cầu tính toán gửi từ hệ thống chính — khó điều tra khi có sự cố</span></div>
-      <div class="f-field"><span class="k">Ảnh hưởng</span><div class="v">Không có cách nào đối chiếu độc lập phía máy tính toán khi có tranh chấp "kết quả tính sai" hay khi cần điều tra dấu hiệu dò khoá bảo mật.</div></div>
-      <div class="f-ref">DNA-DEXUAT/api/views.py</div>
-    </article>
-
-    <article class="finding med"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge dom">Tích hợp DEXUAT</span><span class="f-title">Không giới hạn số lần thử sai khoá bảo mật giữa 2 hệ thống</span></div>
-      <div class="f-field"><span class="k">Ảnh hưởng</span><div class="v">Nếu khoá bảo mật ngắn/dễ đoán, về lý thuyết có thể bị dò tìm không giới hạn số lần thử mà không bị chặn hay ghi nhận.</div></div>
-      <div class="f-ref">DNA-DEXUAT/api/views.py — hàm require_api_key</div>
-    </article>
-
-    <article class="finding med"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge dom">Tích hợp DEXUAT</span><span class="f-title">Cấu hình mặc định khi quên thiết lập biến môi trường nghiêng về "mở", không phải "đóng an toàn"</span></div>
-      <div class="f-field"><span class="k">Ảnh hưởng</span><div class="v">Nếu triển khai máy chủ tính toán theo cách khác (không dùng đúng kịch bản đã cấu hình sẵn) mà quên thiết lập 1-2 biến môi trường, hệ thống sẽ tự bật chế độ hiển thị lỗi chi tiết và chấp nhận mọi nguồn kết nối — rò rỉ thông tin hạ tầng nếu vô tình lộ ra internet.</div></div>
-      <div class="f-ref">DNA-DEXUAT/iea_project/settings.py</div>
-    </article>
-
     <article class="finding med"><div class="f-head"><span class="badge med">Trung bình</span><span class="badge dom">Bán hàng</span><span class="f-title">Xoá đơn hàng không kiểm tra đơn đã được đưa vào sản xuất/đã giao hàng một phần</span></div>
       <div class="f-field"><span class="k">Ảnh hưởng</span><div class="v">Đơn hàng "biến mất" khỏi danh sách bên Sales trong khi nhà máy vẫn đang sản xuất/giao hàng cho đơn đó — mất khả năng tra cứu "đơn này của khách nào" dù nghiệp vụ sản xuất/giao hàng vẫn tiếp diễn bình thường. Hiện tại nút xoá chưa xuất hiện trên giao diện Sales nên chỉ khai thác được qua thao tác kỹ thuật trực tiếp.</div></div>
       <div class="f-ref">sales-orders.service.ts — hàm remove()</div>
@@ -573,22 +526,19 @@ Xuất vật tư tiêu hao, Xuất đóng gói, Xuất vật tư gia công (châ
 
   <!-- ============ LOW ============ -->
   <section class="sev-section" id="low">
-    <div class="sec-head"><h2>8. Vấn đề mức Thấp / Ghi nhận thêm</h2><span class="sec-count">11 vấn đề</span></div>
+    <div class="sec-head"><h2>8. Vấn đề mức Thấp / Ghi nhận thêm</h2><span class="sec-count">8 vấn đề</span></div>
     <p class="sec-desc">Ít ảnh hưởng ngay, hoặc là các quyết định thiết kế có chủ đích đáng được ghi nhận lại để tránh hiểu nhầm là lỗi trong tương lai.</p>
 
     <table class="priority-table">
       <thead><tr><th>Khu vực</th><th>Ghi nhận</th></tr></thead>
       <tbody>
         <tr><td>Kho</td><td>Xoá 1 kho dùng thao tác xoá cứng thay vì "ẩn đi" như các nơi khác trong hệ thống đã thống nhất áp dụng — rủi ro mất dấu vết nếu xoá nhầm 1 kho phụ.</td></tr>
-        <tr><td>Kho</td><td>Tạo yêu cầu "làm lại hàng lỗi" sau khi KCS từ chối chưa có cơ chế chống trùng lặp nếu bấm 2 lần.</td></tr>
+        <tr><td>Kho</td><td><span class="badge fixed">✓ Đã rà soát 10/09/2026</span><br>Tạo yêu cầu "làm lại hàng lỗi" sau khi KCS từ chối chưa có cơ chế chống trùng lặp nếu bấm 2 lần. <strong>Đính chính:</strong> hàm liên quan (<code>createReworkIssue()</code>) đã là code mồ côi từ 25/08/2026, không còn service/endpoint nào gọi tới — không phải lỗ hổng khai thác được thật. Đã xoá hẳn hàm + sửa comment lịch sử gây hiểu lầm.</td></tr>
         <tr><td>Kho</td><td><strong>Xác nhận tích cực:</strong> việc một số nghiệp vụ (chuyển kho nội bộ, xuất vật tư gia công) "không quan tâm chiều dài cây sắt" đã được xác minh là chủ đích thiết kế hợp lý, không phải lỗi.</td></tr>
         <tr><td>Mua hàng</td><td>Xoá vật tư/nhà cung cấp đang được dùng ở nơi khác báo lỗi chung chung, khó hiểu nguyên nhân thật.</td></tr>
         <tr><td>Mua hàng</td><td>Đường dẫn ảnh "giấy Sếp đã ký" là văn bản tự do, không kiểm tra định dạng/trùng lặp — đây là đánh đổi có chủ đích của quy trình "ký tay ngoài hệ thống", không phải lỗi kỹ thuật.</td></tr>
-        <tr><td>Sản xuất</td><td>Gộp nhiều lượt báo công đoạn cắt sắt thành 1 đợt gửi KCS thiếu khoá bảo vệ khi thao tác trùng lặp.</td></tr>
+        <tr><td>Sản xuất</td><td><span class="badge fixed">✓ Đã sửa 10/09/2026</span><br>Gộp nhiều lượt báo công đoạn cắt sắt thành 1 đợt gửi KCS thiếu khoá bảo vệ khi thao tác trùng lặp. Đã thêm <code>lockBusinessKey</code> theo (PI, vật tư, công đoạn) vào <code>submitStepBundle()</code>, cùng khuôn mẫu <code>submitPieceStep()</code> (vật tư thành phẩm) đã làm đúng từ trước — 2 lượt "Gửi KCS" gần đồng thời không còn tạo đợt trùng/đợt rỗng. Có test tự động xác nhận thứ tự khoá-trước-đọc.</td></tr>
         <tr><td>Sản xuất</td><td><strong>Xác nhận tích cực:</strong> các nút "Bắt đầu/Tạm dừng/Kết thúc" tại xưởng không có khoá riêng — đã xác minh đây là thiết kế có chủ đích và an toàn (không gây mất dữ liệu), không cần sửa.</td></tr>
-        <tr><td>Tích hợp DEXUAT</td><td>Không có cơ chế khôi phục khi mất kết nối giữa chừng — đây là lựa chọn thiết kế đơn giản hoá có chủ đích, chỉ đáng lưu ý vì chi phí tính toán bị lãng phí khi phải làm lại.</td></tr>
-        <tr><td>Tích hợp DEXUAT</td><td>Hệ thống tài khoản đăng nhập của máy tính toán hoàn toàn tách biệt với hệ thống chính — rủi ro vận hành: khi 1 nhân viên nghỉ việc, cần nhớ khoá quyền ở cả 2 nơi.</td></tr>
-        <tr><td>Tích hợp DEXUAT</td><td>Có 1 giao diện phụ (phục vụ demo/nội bộ) dùng chung tài nguyên máy tính toán nhưng nằm ngoài tầm kiểm soát của hệ thống chính.</td></tr>
         <tr><td>Bán hàng</td><td>Đường dẫn file đính kèm của đơn hàng không được kiểm tra định dạng — rủi ro rất thấp, cần quyền tạo/sửa đơn hàng mới khai thác được.</td></tr>
       </tbody>
     </table>
@@ -606,7 +556,6 @@ Xuất vật tư tiêu hao, Xuất đóng gói, Xuất vật tư gia công (châ
         <li>Cơ chế ghi nhật ký thao tác (ai làm gì, khi nào) bao phủ khá rộng cho các nghiệp vụ quan trọng: đơn hàng, đề xuất mua hàng, chuyển kho, xuất sắt, duyệt chất lượng.</li>
         <li>Định mức sản xuất (BOM) đã duyệt được "chốt cứng" đúng cách — không thể sửa "sống" giữa chừng khi lệnh sản xuất đang chạy dựa theo định mức đó.</li>
         <li>Nghiệp vụ Xuất sắt và Chuyển kho nội bộ áp dụng đúng cách khoá dữ liệu khi thao tác đồng thời — 2 nghiệp vụ này hiện đang là "khuôn mẫu chuẩn" nên được áp dụng lại cho các nghiệp vụ còn thiếu ở mục 5, 6.</li>
-        <li>Việc trao đổi dữ liệu giữa hệ thống chính và máy tính toán cắt vật tư (DEXUAT) được thiết kế đồng bộ chính xác, có xác thực bảo mật đúng chuẩn (không mở public), có cơ chế tự động thử lại khi lỗi tạm thời.</li>
         <li>1 mã hàng chỉ thuộc về đúng 1 Phiếu sản xuất tại một thời điểm — xác nhận đúng như thiết kế, không có tình trạng 1 mã hàng bị 2 phiếu sản xuất nhận nhầm cùng lúc.</li>
       </ul>
     </div>
@@ -619,8 +568,6 @@ Xuất vật tư tiêu hao, Xuất đóng gói, Xuất vật tư gia công (châ
       <ul>
         <li>Chưa có quy tắc chặn xoá mã hàng/đơn hàng/lý do lỗi khi đã có dữ liệu sản xuất hoặc lịch sử chất lượng gắn theo (mục 6, 7).</li>
         <li>Chưa có quy tắc "khoá số lượng đã ký duyệt" — hệ thống hiện cho phép số liệu tự động tính lại ghi đè lên số đã được Sếp ký tay xác nhận (mục 6).</li>
-        <li>Chưa có cơ chế tự động phát hiện và dọn dẹp các phiếu tính toán "treo" quá lâu (mục 6).</li>
-        <li>Chưa có quy trình chính thức đối chiếu 2 hệ thống tài khoản đăng nhập (hệ thống chính và máy tính toán DEXUAT) khi nhân viên nghỉ việc/đổi vai trò (mục 8).</li>
         <li>Chưa có ràng buộc ngăn 1 loại vật tư vừa được dùng cho nghiệp vụ "có phân theo chiều dài" vừa dùng cho nghiệp vụ "không phân theo chiều dài" cùng lúc (mục 7).</li>
       </ul>
     </div>
@@ -632,7 +579,6 @@ Xuất vật tư tiêu hao, Xuất đóng gói, Xuất vật tư gia công (châ
     <ul class="verify-list">
       <li><strong>Phạm vi thật của đợt sửa lỗi 29/08 bị thất lạc:</strong> cần đội kỹ thuật xác nhận từng phần trong 46 tệp đã thay đổi ở nơi khác hay thực sự còn thiếu, trước khi lên kế hoạch đưa lại vào hệ thống chính.</li>
       <li><strong>Mức độ chấp nhận rủi ro cho quy trình "Sếp ký tay ngoài hệ thống":</strong> hiện toàn bộ việc xác minh giá/nhà cung cấp/số lượng dựa vào 1 đường dẫn ảnh chụp giấy ký không được kiểm tra gì thêm — cần xác nhận với nghiệp vụ đây có phải mức tin tưởng nội bộ được chấp nhận hay cần thêm lớp kiểm soát.</li>
-      <li><strong>Chính sách offboarding cho tài khoản trên hệ thống máy tính toán (DEXUAT):</strong> cần xác nhận quy trình hiện tại có bao gồm việc khoá tài khoản DEXUAT khi nhân viên nghỉ việc hay chỉ khoá tài khoản hệ thống chính.</li>
       <li><strong>Ngưỡng chấp nhận cho việc "xoá nhầm là mất luôn":</strong> một số nghiệp vụ xoá cứng (kho, vật tư, nhà cung cấp) — cần xác nhận với nghiệp vụ mức độ ưu tiên chuyển sang "ẩn thay vì xoá" cho từng loại dữ liệu.</li>
     </ul>
   </section>
@@ -641,26 +587,25 @@ Xuất vật tư tiêu hao, Xuất đóng gói, Xuất vật tư gia công (châ
   <section class="sev-section" id="ketluan">
     <div class="sec-head"><h2>12. Kết luận: hệ thống an toàn tới mức nào, và cần làm gì tiếp theo</h2></div>
     <div class="prose-card">
-      <p><strong>Đánh giá tổng thể (giữ nguyên từ audit gốc):</strong> hệ thống có nền tảng kiến trúc tốt — nguyên tắc ghi sổ cái trước khi cập nhật tồn kho là đúng đắn, phân quyền và ghi nhật ký khá đầy đủ, và phần lớn các nghiệp vụ cốt lõi (xuất sắt, chuyển kho, tích hợp máy tính toán) đã được xây dựng cẩn thận. Đây <strong>không phải một hệ thống có kiến trúc yếu</strong>.</p>
+      <p><strong>Đánh giá tổng thể (giữ nguyên từ audit gốc):</strong> hệ thống có nền tảng kiến trúc tốt — nguyên tắc ghi sổ cái trước khi cập nhật tồn kho là đúng đắn, phân quyền và ghi nhật ký khá đầy đủ, và phần lớn các nghiệp vụ cốt lõi (xuất sắt, chuyển kho) đã được xây dựng cẩn thận. Đây <strong>không phải một hệ thống có kiến trúc yếu</strong>.</p>
       <p><strong style="color:var(--ok)">Cập nhật 09/09/2026 (cùng ngày, sau khi xử lý):</strong> Cả 2 nhóm rủi ro chính nêu ở bản audit gốc đã được xử lý phần lớn:</p>
       <ol>
         <li><strong>Rủi ro quy trình (đợt sửa lỗi "thất lạc"):</strong> đã rà soát xong toàn bộ 46 tệp (mục 5-C8, mục 6-H8). Phần lớn hoá ra đã lỗi thời do hệ thống đổi thiết kế theo hướng khác sau đó; 2 lỗi thật (C1, C2) đã đưa lại vào hệ thống; rà soát kỹ còn phát hiện thêm 3 lỗi độc lập khác và đã vá luôn.</li>
         <li><strong>Rủi ro dữ liệu trong tình huống đồng thời:</strong> 5/6 vấn đề Nghiêm trọng thuộc nhóm này (C1–C5) đã vá triệt để và có test tự động xác nhận. C6 (báo công đoạn sắt) đã vá phần cốt lõi (chặn được 2 người dùng khác nhau báo trùng vượt số thực đã cắt), còn thiếu lớp bảo vệ phụ (chống 1 người gửi trùng do mất mạng) — cần thêm 1 thay đổi nhỏ vào cơ sở dữ liệu dùng chung, đang chờ xác nhận lịch trước khi làm.</li>
       </ol>
       <p>Ngoài 2 nhóm rủi ro chính trên, đã tiện tay vá thêm 6 mục Trung bình phát sinh trong lúc rà soát: (1) chuyển kho nội bộ tính sai "tồn khả dụng" khi vật tư có tồn ở nhiều bucket chiều dài; (2) phiếu chuyển kho có dòng "ghi tự do" không thực sự cộng/trừ tồn kho dù hiển thị "Đã xác nhận" — rà lại phát hiện đường tạo ra dòng này qua UI đã là code chết từ trước, đã dọn hẳn cùng lúc với việc bắt buộc <code>materialId</code> ở tầng validate; (3) xác nhận "đã nhận vật tư" (material-issues, material-yield-issues) thiếu chống thao tác trùng lặp — đổi sang <code>updateMany</code> guard theo status, cùng khuôn mẫu đã dùng cho chuyển kho nội bộ; (4) tạo trùng mã vật tư/nhóm vật tư khi 2 người tạo cùng lúc — bắt đúng lỗi Prisma P2002 để trả lỗi nghiệp vụ rõ ràng thay vì lỗi chung chung; (5) sai số thập phân khi cộng dồn nhận hàng nhiều đợt (purchase-proposals.receiveItem) — đổi sang cộng bằng Prisma.Decimal thay vì JS number để không tích luỹ sai số nhị phân; (6) xoá "lý do lỗi" (defect reason) đang dùng trong lịch sử KCS — FK thật là <code>ON DELETE SET NULL</code> (đối chiếu migration), xoá thành công lặng lẽ và mất dấu vết lịch sử; giờ chặn (409) nếu còn <code>QcReview</code> nào tham chiếu.</p>
-      <p><strong>Còn lại, CHƯA xử lý (theo đúng phạm vi đã thống nhất với người phụ trách — không đụng vào hệ thống DEXUAT trong đợt này):</strong></p>
+      <p><strong>Còn lại, CHƯA xử lý:</strong></p>
       <ul>
-        <li><strong>C7</strong> — máy tính toán DEXUAT không giới hạn tải, có thể bị treo nếu nhiều yêu cầu dồn cùng lúc.</li>
-        <li>Toàn bộ các mục mức <strong>Cao (H1, H3–H7)</strong> và phần lớn <strong>Trung bình</strong>/<strong>Thấp</strong> còn lại — phần lớn liên quan tới DEXUAT, hoặc là các vấn đề phạm vi hẹp/rủi ro thấp hơn nhóm Nghiêm trọng, xử lý sau theo năng lực đội kỹ thuật.</li>
+        <li>Các mục mức <strong>Cao</strong> còn lại (Admin không gỡ được gán Nhóm vật tư/Kho/Người phụ trách mua; xoá được SKU đã duyệt qua giao diện) và phần lớn <strong>Trung bình</strong>/<strong>Thấp</strong> còn lại — phạm vi hẹp hơn/rủi ro thấp hơn nhóm Nghiêm trọng, xử lý sau theo năng lực đội kỹ thuật.</li>
       </ul>
-      <p>Với tiến độ hiện tại, các rủi ro có khả năng gây <strong>sai dữ liệu tồn kho hoặc sản lượng trong vận hành hàng ngày</strong> (nhóm rủi ro đồng thời) đã được thu hẹp đáng kể. Rủi ro còn lại tập trung ở hệ thống tính toán cắt vật tư (DEXUAT, chủ đích chưa xử lý đợt này) và các vấn đề phạm vi hẹp hơn không ảnh hưởng trực tiếp tới tính đúng đắn của tồn kho/sổ sách.</p>
+      <p>Với tiến độ hiện tại, các rủi ro có khả năng gây <strong>sai dữ liệu tồn kho hoặc sản lượng trong vận hành hàng ngày</strong> (nhóm rủi ro đồng thời) đã được thu hẹp đáng kể. Rủi ro còn lại tập trung ở các vấn đề phạm vi hẹp hơn không ảnh hưởng trực tiếp tới tính đúng đắn của tồn kho/sổ sách.</p>
     </div>
   </section>
 
 </main>
 
 <footer>
-  Báo cáo audit toàn diện DNA-ERP · Audit gốc 09/09/2026 (5 mũi rà soát độc lập: Mua hàng &amp; NCC · Kho &amp; Tồn kho · Sản xuất &amp; tích hợp DEXUAT · Bán hàng/SKU &amp; Bảo mật xuyên suốt · Hệ thống DEXUAT), cập nhật tiến độ xử lý cùng ngày · C1–C6, C8, H3 và 6 mục Trung bình đã xử lý (xem badge "✓ Đã sửa") · H3 xác nhận qua kiểm thử trực tiếp trên hệ thống đang chạy, không chỉ đọc code · C7 và các mục còn lại (phần lớn liên quan DEXUAT) chủ đích chưa xử lý đợt này.
+  Báo cáo audit toàn diện DNA-ERP · Audit gốc 09/09/2026 (4 mũi rà soát độc lập: Mua hàng &amp; NCC · Kho &amp; Tồn kho · Sản xuất · Bán hàng/SKU &amp; Bảo mật xuyên suốt), cập nhật tiến độ xử lý cùng ngày · C1–C6, C8, H3 và 6 mục Trung bình đã xử lý (xem badge "✓ Đã sửa") · H3 xác nhận qua kiểm thử trực tiếp trên hệ thống đang chạy, không chỉ đọc code · các mục còn lại phạm vi hẹp hơn, chưa xử lý đợt này · Cập nhật 10/09/2026: thêm 2 mục Thấp đã xử lý (mục 8) — 1 xoá code mồ côi sau khi xác minh không còn khai thác được, 1 vá lockBusinessKey thật cho submitStepBundle() — và 1 mục Cao đã xử lý (mục 6, gỡ gán Nhóm vật tư/Kho/Người phụ trách mua) sau khi phát hiện bản vá 09/09 sót 1 lớp trung gian (materials-api.ts) · các mục liên quan tới hệ thống tính toán cắt vật tư (DEXUAT) đã được rút khỏi báo cáo này theo yêu cầu, không còn nằm trong phạm vi audit.
 </footer>
 
 </body>

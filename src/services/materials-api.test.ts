@@ -89,3 +89,34 @@ describe('updateMaterial — gửi null (không phải undefined) khi field bị
     );
   });
 });
+
+// Đính chính audit toàn diện 09/09 (Cao/H1): AdminEntityPage.tsx đã gửi đúng `null` khi Admin
+// chọn "— Không —" để gỡ Nhóm vật tư/Kho/Người phụ trách mua, nhưng updateMaterial() từng dùng
+// `|| undefined` - `null || undefined` luôn ra `undefined`, bị JSON.stringify xoá khỏi payload
+// PATCH, BE tưởng "không gửi field" = giữ nguyên -> gỡ gán báo thành công nhưng không có tác dụng.
+describe('updateMaterial — gửi null (không phải undefined) khi gỡ gán Nhóm vật tư/Kho/Người phụ trách mua (Cao/H1)', () => {
+  it.each(['materialGroupId', 'warehouseId', 'buyerId'] as const)(
+    'field %s = null (chọn "— Không —") -> vẫn gửi null, không bị nuốt mất',
+    async (field) => {
+      patch.mockResolvedValue({});
+
+      await updateMaterial(1, { name: 'Sat vuong', [field]: null });
+
+      expect(patch).toHaveBeenCalledWith(
+        '/materials/1',
+        expect.objectContaining({ [field]: null }),
+      );
+    },
+  );
+
+  it('field có giá trị thật (id thật) thì gửi đúng giá trị đó', async () => {
+    patch.mockResolvedValue({});
+
+    await updateMaterial(1, { name: 'Sat vuong', materialGroupId: '30', warehouseId: '5', buyerId: '7' });
+
+    expect(patch).toHaveBeenCalledWith(
+      '/materials/1',
+      expect.objectContaining({ materialGroupId: '30', warehouseId: '5', buyerId: '7' }),
+    );
+  });
+});
