@@ -11,12 +11,12 @@ export default function SalesPOsPage() {
   const config: AdminReadOnlyListConfig<SalesOrder> = {
     title: 'Đơn hàng bán',
     icon: <ClipboardList size={16} color="#3949ab" />,
-    searchFields: ['code', 'customerName'],
+    searchFields: ['orderCode', 'customerName'],
     searchPlaceholder: 'Tìm theo mã đơn hoặc khách hàng...',
     emptyMessage: 'Chưa có đơn hàng bán nào',
     pageSize: 10,
     columns: [
-      { key: 'code', label: 'Mã đơn' },
+      { key: 'orderCode', label: 'Mã đơn' },
       { key: 'customerName', label: 'Khách hàng' },
       { key: 'orderDate', label: 'Ngày đặt', render: (p) => fmtDate(p.orderDate) },
       { key: 'deliveryDate', label: 'Ngày giao', render: (p) => fmtDate(p.deliveryDate) },

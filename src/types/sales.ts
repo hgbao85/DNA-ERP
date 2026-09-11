@@ -24,7 +24,11 @@ export interface SalesOrderItem {
 export interface SalesOrder {
   /** bigint-as-string thật từ BE (SalesOrder.id) — KHÔNG ép Number(). */
   id: string;
+  /** Mã nội bộ tự sinh (PO-{id}) — chỉ để tra cứu/debug, KHÔNG hiển thị chính cho người dùng nữa.
+   *  Dùng `orderCode` bên dưới để hiển thị. */
   code: string;
+  /** Mã đơn hàng Sales tự nhập tay — mã hiển thị CHÍNH cho người dùng khắp hệ thống, thay cho `code`. */
+  orderCode: string;
   /** bigint-as-string thật từ BE (SalesOrder.customerId) — so sánh với SalesCustomer.id (vẫn number,
    *  ngoài phạm vi domain Sales) phải bọc String(), xem CustomerManagementPage/PurchaseHistoryPage. */
   customerId: string;

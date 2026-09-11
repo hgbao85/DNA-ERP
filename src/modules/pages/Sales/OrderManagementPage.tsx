@@ -15,12 +15,12 @@ const fmtMoney = (n: number) => n.toLocaleString('vi-VN')
 type ItemDraft = { skuCode: string; skuName: string; totalQty: string; deliveryDate: string }
 const EMPTY_ITEM: ItemDraft = { skuCode: '', skuName: '', totalQty: '', deliveryDate: '' }
 type FormState = {
-  customerId: string; orderDate: string; note: string
+  orderCode: string; customerId: string; orderDate: string; note: string
   attachmentName: string; attachmentUrl: string
   items: ItemDraft[]
 }
 const emptyForm = (): FormState => ({
-  customerId: '', orderDate: new Date().toISOString().slice(0, 10), note: '',
+  orderCode: '', customerId: '', orderDate: new Date().toISOString().slice(0, 10), note: '',
   attachmentName: '', attachmentUrl: '',
   items: [{ ...EMPTY_ITEM }],
 })
@@ -33,6 +33,7 @@ export default function OrderManagementPage() {
   const [detailPO, setDetailPO] = useState<SalesOrder | null>(null)
   const [form, setForm] = useState<FormState>(emptyForm())
   const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   // SKU đã duyệt (danh sách SKU của productplan@demo.com) — nguồn chọn SKU khi tạo PO
   const skuOptions = (() => {
@@ -56,7 +57,7 @@ export default function OrderManagementPage() {
     )
   }
 
-  const openNew = () => { setForm(emptyForm()); setShowCreate(true) }
+  const openNew = () => { setForm(emptyForm()); setFormError(null); setShowCreate(true) }
 
   const setItem = (i: number, patch: Partial<ItemDraft>) => {
     setForm((f) => ({ ...f, items: f.items.map((it, idx) => idx === i ? { ...it, ...patch } : it) }))
@@ -65,8 +66,9 @@ export default function OrderManagementPage() {
   const removeItem = (i: number) => setForm((f) => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }))
 
   const handleSave = async () => {
-    if (!form.customerId || form.items.length === 0) return
+    if (!form.orderCode.trim() || !form.customerId || form.items.length === 0) return
     setSaving(true)
+    setFormError(null)
     try {
       const customer = (customers ?? []).find((c) => String(c.id) === form.customerId)
       const items = form.items
@@ -84,6 +86,7 @@ export default function OrderManagementPage() {
         it.deliveryDate && (!latest || it.deliveryDate > latest) ? it.deliveryDate : latest
       ), '')
       const payload = {
+        orderCode: form.orderCode.trim(),
         customerId: form.customerId,
         customerName: customer?.name ?? '',
         orderDate: new Date(form.orderDate).toISOString(),
@@ -96,6 +99,11 @@ export default function OrderManagementPage() {
       await api.createSalesOrder(payload)
       await refetch()
       setShowCreate(false)
+    } catch (e) {
+      // orderCode do Sales tự gõ tay - khác code cũ tự sinh (không bao giờ trùng), giờ trùng mã
+      // là tình huống thật sẽ xảy ra (BE trả 409 rõ ràng) - phải hiện lỗi trong modal thay vì để
+      // rơi vào unhandled rejection như trước (khi field này chưa tồn tại thì không cần catch).
+      setFormError(e instanceof Error ? e.message : 'Không thể lưu đơn hàng')
     } finally {
       setSaving(false)
     }
@@ -154,7 +162,7 @@ export default function OrderManagementPage() {
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                 >
-                  <td style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--blue)' }}>{po.code}</td>
+                  <td style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--blue)' }}>{po.orderCode}</td>
                   <td style={{ padding: '10px 12px', fontSize: 13 }}>{po.customerName}</td>
                   <td style={{ padding: '10px 12px', fontSize: 13 }}>{po.items.length} SKU</td>
                   <td style={{ padding: '10px 12px', fontWeight: 600, fontSize: 13 }}>{totalQty.toLocaleString()}</td>
@@ -194,6 +202,22 @@ export default function OrderManagementPage() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>Tạo PO mới</div>
               <button onClick={() => setShowCreate(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
+            </div>
+
+            {formError && (
+              <div style={{ padding: '8px 12px', marginBottom: 16, borderRadius: 'var(--radius)', background: 'rgba(226,75,74,.1)', border: '1px solid #E24B4A', color: '#E24B4A', fontSize: 13 }}>
+                {formError}
+              </div>
+            )}
+
+            <div style={{ marginBottom: 16 }}>
+              <Field label="Mã đơn hàng *">
+                <input
+                  value={form.orderCode}
+                  onChange={e => setForm(f => ({ ...f, orderCode: e.target.value }))}
+                  placeholder="Mã đơn hàng (vd mã PO giấy của khách) *"
+                />
+              </Field>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
@@ -284,7 +308,7 @@ export default function OrderManagementPage() {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
               <button onClick={() => setShowCreate(false)} style={{ padding: '8px 18px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer' }}>Hủy</button>
-              <button className="primary" onClick={handleSave} disabled={saving || !form.customerId || form.items.every(it => !it.skuCode.trim())}>
+              <button className="primary" onClick={handleSave} disabled={saving || !form.orderCode.trim() || !form.customerId || form.items.every(it => !it.skuCode.trim())}>
                 {saving ? 'Đang lưu...' : 'Lưu'}
               </button>
             </div>
@@ -314,7 +338,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
     ask(
       {
         title: 'Xoá đơn hàng',
-        message: `Xoá đơn hàng ${po.code} — ${po.customerName}? Hành động này không thể hoàn tác.`,
+        message: `Xoá đơn hàng ${po.orderCode} — ${po.customerName}? Hành động này không thể hoàn tác.`,
         danger: true,
         confirmLabel: 'Xoá',
       },
@@ -351,7 +375,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 18 }}>{po.code} — {po.customerName}</div>
+        <div style={{ fontWeight: 700, fontSize: 18 }}>{po.orderCode} — {po.customerName}</div>
         <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
           Ngày đặt {format(new Date(po.orderDate), 'dd/MM/yyyy')}
           {po.deliveryDate && <> · Hạn giao {format(new Date(po.deliveryDate), 'dd/MM/yyyy')}</>}

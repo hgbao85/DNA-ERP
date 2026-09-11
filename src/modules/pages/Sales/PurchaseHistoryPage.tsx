@@ -52,7 +52,7 @@ export default function PurchaseHistoryPage() {
               <tbody>
                 {rows.map(({ po, item }) => (
                   <tr key={item.id} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--blue)' }}>{po.code}</td>
+                    <td style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--blue)' }}>{po.orderCode}</td>
                     <td style={{ padding: '10px 12px', fontSize: 12 }}>{format(new Date(po.orderDate), 'dd/MM/yyyy')}</td>
                     <td style={{ padding: '10px 12px', fontSize: 13 }}>{item.skuCode}{item.skuName ? <span style={{ color: 'var(--text3)' }}> — {item.skuName}</span> : ''}</td>
                     <td style={{ padding: '10px 12px', fontSize: 13 }}>{item.totalQty.toLocaleString()}</td>
