@@ -26,6 +26,7 @@ import type { BeSteelIssue, BeQcReview } from '../../../services/steel-issues-ap
 import type { BeMaterialYieldIssue } from '../../../services/material-yield-issues-api'
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -39,7 +40,7 @@ export default function XacNhanNhanSatPage({ readOnly = false }: { readOnly?: bo
   const [subTab, setSubTab] = useState<SubTab>('xac-nhan')
   // Chung 1 nguồn dữ liệu cho cả 2 tab - trước đây 2 màn riêng mỗi màn tự gọi GET /steel-issues
   // (2 lần cùng 1 dữ liệu), gộp lại còn 1 lần.
-  const { data: lines, isLoading, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
+  const { data: lines, isLoading, error, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
   const { data: reviews } = useFetch<BeQcReview[]>(() => api.getQcReviewsForSteelIssues(), [])
   // Vật tư thành phẩm (2026-09-04) - chỉ dùng ở tab "Xác nhận" (Lịch sử chưa mở rộng).
   const { data: yieldIssues, refetch: refetchYield } = useFetch<BeMaterialYieldIssue[]>(
@@ -47,7 +48,9 @@ export default function XacNhanNhanSatPage({ readOnly = false }: { readOnly?: bo
   )
   const refetchAll = () => { refetch(); refetchYield() }
 
-  if (isLoading || !lines) return <LoadingState />
+  if (isLoading) return <LoadingState />
+  // 2026-09-11 (QA audit B2): error trước `!lines` - xem LoadErrorState doc comment.
+  if (error || !lines) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
   return (
     <div>

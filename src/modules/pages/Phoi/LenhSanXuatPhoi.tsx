@@ -60,6 +60,7 @@ import type { ProcessStep } from '../../../types/sku'
 import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 import VatTuTpDetail, { type VatTuTpItem } from './VatTuTpDetail'
 import {
   ACCENT, GREEN, RED, AMBER, PURPLE, th, thR, td, tdR, card, smallBtn, inp, subFilterBtn,
@@ -101,7 +102,12 @@ function buildPiRows(
     const piBundles = bundles.filter(b => issueById.get(b.steelIssueId)?.productionInvoiceId === productionInvoiceId)
     return {
       productionInvoiceId,
-      poNumber: list[0]?.salesOrderCode ?? list[0]?.piCode ?? vatTuTpItems[0]?.poNumber ?? productionInvoiceId,
+      // Ưu tiên piCode TRƯỚC salesOrderCode (2026-09-11, QA audit C1) - piCode là thuộc tính của
+      // CHÍNH PI (mọi issue trong `list` chắc chắn cùng piCode), luôn ổn định bất kể thứ tự mảng.
+      // salesOrderCode (PO) thì KHÔNG - 1 PI có thể gộp nhiều PO khác nhau (xem khối "PO/SKU trong
+      // PI này" bên dưới), trước đây ưu tiên PO trước khiến nhãn đại diện có thể đổi giữa các lần
+      // tải nếu thứ tự `issues` trả về từ BE đổi, và không phản ánh đủ các PO thực sự nằm trong PI.
+      poNumber: list[0]?.piCode ?? list[0]?.salesOrderCode ?? vatTuTpItems[0]?.poNumber ?? productionInvoiceId,
       issues: list,
       bundles: piBundles,
       totalIssued: list.reduce((s, i) => s + i.barCount, 0),
@@ -110,6 +116,15 @@ function buildPiRows(
       vatTuTpItems,
     }
   })
+}
+
+/** Tổng số đoạn còn thiếu (Σ mọi cỡ đoạn) của 1 loại sắt - CÙNG công thức với cột "Còn lại" ở
+ *  ProgressBuDuTable (required - (done - failed), không âm). Dùng ở dòng tổng bảng danh sách loại
+ *  sắt (2026-09-10, theo góp ý người dùng) - trước đây badge "đã phôi" chỉ nhìn trạng thái đợt cắt
+ *  (không có đợt nào đang mở/chờ KCS), KHÔNG so với Cần/Đã làm thật - có thể báo "đã phôi" dù còn
+ *  cắt thiếu rất nhiều (chưa ai mở đợt cắt tiếp theo). */
+function sumRemaining(progress: BePhoiProgressItem | null | undefined): number {
+  return (progress?.segments ?? []).reduce((s, x) => s + Math.max(x.required - (x.done - x.failed), 0), 0)
 }
 
 /** 1 loại sắt trong 1 PI, gộp mọi lần kho giao (2026-09-05) - xem comment đầu file. */
@@ -148,7 +163,7 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
   // activeOnly=true (2026-08-31): chỉ hiện PI có ít nhất 1 SKU đã được QLSX bấm "Bắt đầu" ở Bảng
   // thống kê - PI có thể chứa nhiều SKU, chỉ cần 1 SKU đang chạy là cả PI vẫn hiện (Phôi xuất sắt
   // chung theo PI, không tách theo SKU).
-  const { data: issues, isLoading, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(undefined, true), [])
+  const { data: issues, isLoading, error, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(undefined, true), [])
   const { data: reviews, refetch: refetchReviews } = useFetch<BeQcReview[]>(() => api.getQcReviewsForSteelIssues(), [])
   // Mọi đợt cắt (2026-09-05) - nguồn trạng thái chính từ nay (xem comment đầu file). Tải 1 LẦN
   // cho toàn bộ danh sách PI (không theo từng PI riêng) - danh sách chưa lớn, cùng idiom "fetch
@@ -194,7 +209,11 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
   )
   const refetchAll = () => { refetch(); refetchReviews(); refetchBundles(); refetchVatTuTpOrders(); refetchVatTuTpPlans() }
 
-  if (isLoading || !issues) return <LoadingState />
+  if (isLoading) return <LoadingState />
+  // error PHẢI kiểm trước `!issues` (2026-09-11, QA audit B2) - trước đây gate chung
+  // `isLoading || !issues` khiến lỗi tải (mất mạng/403) kẹt ở LoadingState vĩnh viễn vì isLoading đã
+  // về false nhưng issues vẫn null - không phân biệt được với "đang tải chậm".
+  if (error || !issues) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
   const sel = selPi ? piRows.find(r => r.productionInvoiceId === selPi) ?? null : null
 
@@ -217,10 +236,9 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
-              <th style={th}>PO / PI</th>
+              <th style={th}>PI</th>
               <th style={thR}>Đã xuất (cây)</th>
-              <th style={thR}>Đang xử lý (đợt)</th>
-              <th style={thR}>Đã phôi (đợt)</th>
+              <th style={thR}>Cắt sắt</th>
               <th style={thR}>Vật tư TP</th>
               <th style={{ ...th, width: 40 }}></th>
             </tr>
@@ -228,10 +246,10 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
           <tbody>
             {piRows.map(r => {
               // Đơn vị khác hẳn Sắt (mảnh, không phải cây) - không cộng chung vào cột nào ở trên -
-              // chỉ đếm bao nhiêu mảnh ĐÃ báo đủ (passed+awaiting >= planned) trên tổng số mảnh,
-              // hiện dạng "đã xong X/Y" (thay vì "còn thiếu X/Y" - dễ đọc hơn: số tăng dần theo
-              // tiến độ, khớp trực giác thanh "Đã cắt"/"Đã phôi" cùng hàng đều đếm phần ĐÃ LÀM).
-              const vatTuTpDoneCount = r.vatTuTpItems.filter(v => v.passedQty + v.awaitingQcQty >= v.plannedQty).length
+              // chỉ đếm bao nhiêu mảnh ĐÃ ĐƯỢC KCS DUYỆT THẬT (passedQty, KHÔNG cộng awaitingQcQty -
+              // 2026-09-10, cùng lý do sửa ở PiDetail/materialGroups: gửi KCS xong nhưng CHƯA duyệt
+              // không được tính là xong) trên tổng số mảnh.
+              const vatTuTpDoneCount = r.vatTuTpItems.filter(v => v.passedQty >= v.plannedQty).length
               const vatTuTpPending = r.vatTuTpItems.length - vatTuTpDoneCount
               return (
                 <tr key={r.productionInvoiceId} onClick={() => setSelPi(r.productionInvoiceId)} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
@@ -239,18 +257,24 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
                   onMouseLeave={e => (e.currentTarget.style.background = '')}>
                   <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{r.poNumber}</td>
                   <td style={{ ...tdR, fontWeight: 700 }}>{r.issues.length > 0 ? r.totalIssued : '—'}</td>
+                  {/* "đã phôi" ở CỘT NÀY nghĩa là CẢ PO đã cắt xong (không phải 1 đợt) - 2026-09-10,
+                      theo góp ý người dùng: trước đây tách riêng cột "Đã phôi (đợt)" hiện SỐ đợt đã
+                      qua KCS (vd "1") - dễ hiểu nhầm "đã phôi" = xong 1 đợt, gộp lại còn 1 cột duy
+                      nhất, chữ "đã phôi" CHỈ xuất hiện khi thật sự không còn đợt nào đang cắt/chờ
+                      KCS. Vẫn dùng chỉ báo "không còn đợt đang mở" (KHÔNG so remaining=0 như ở
+                      PiDetail/materialGroups) - tính remaining=0 thật cho CẢ PI cần fetch progress
+                      riêng từng PI, chưa làm ở màn danh sách này, xem changelog nếu muốn nâng cấp. */}
                   <td style={tdR}>
                     {r.bundles.length === 0 ? <span style={{ color: 'var(--text3)' }}>—</span>
                       : r.bundlesPending > 0
-                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#d97706', fontWeight: 600 }}><Clock size={12} /> {r.bundlesPending}</span>
-                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a' }}><Check size={12} /> xong</span>}
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#d97706', fontWeight: 600 }}><Clock size={12} /> {r.bundlesPending} đợt</span>
+                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a', fontWeight: 700 }}><Check size={12} /> đã phôi</span>}
                   </td>
-                  <td style={{ ...tdR, color: r.bundles.length > 0 ? '#16a34a' : 'var(--text3)', fontWeight: r.bundles.length > 0 ? 700 : 400 }}>{r.bundles.length > 0 ? r.bundlesPassed : '—'}</td>
                   <td style={tdR}>
                     {r.vatTuTpItems.length === 0 ? <span style={{ color: 'var(--text3)' }}>—</span>
                       : vatTuTpPending > 0
                         ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: PURPLE, fontWeight: 600 }}><Wrench size={12} /> đã xong {vatTuTpDoneCount}/{r.vatTuTpItems.length}</span>
-                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a' }}><Check size={12} /> xong ({r.vatTuTpItems.length})</span>}
+                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a', fontWeight: 700 }}><Check size={12} /> đã phôi ({r.vatTuTpItems.length})</span>}
                   </td>
                   <td style={{ ...td, textAlign: 'center', color: 'var(--text3)' }}><ChevronRight size={16} /></td>
                 </tr>
@@ -375,7 +399,10 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
       </div>
 
       <div style={{ ...card, padding: '12px 16px', marginBottom: 14 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 8 }}>Đợt cắt này gồm</div>
+        {/* "PO/SKU trong PI này" (KHÔNG phải "Đợt cắt" - 2026-09-11, QA audit C9): nội dung là
+            danh sách PO/SKU của CẢ PI (getPiOrderSummary), không phải 1 đợt cắt (CutBundle) cụ thể -
+            tên cũ "Đợt cắt này gồm" dễ nhầm với "Đợt N" đánh số riêng ở màn chi tiết bên dưới. */}
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 8 }}>PO/SKU trong PI này</div>
         {!orderSummary ? (
           <div style={{ fontSize: 12, color: 'var(--text3)' }}>Đang tải...</div>
         ) : orderSummary.length === 0 ? (
@@ -419,18 +446,19 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
         )}
         {materialGroups.map(g => {
           // 1 dòng / LOẠI SẮT (2026-09-05, gộp mọi lần kho giao - xem comment đầu file). Trạng
-          // thái tổng quát của dòng suy từ tập bundles: có đợt nào đang cắt → "đang cắt", hết
-          // đang cắt mà còn đợt chờ KCS → "chờ KCS", mọi đợt đã qua KCS (và có ít nhất 1) →
-          // "đã phôi" (trừ khi còn lỗi outstanding chưa bù đủ).
+          // thái tổng quát của dòng suy từ tập bundles: có đợt nào đang cắt → "đang cắt", hết đang
+          // cắt mà còn đợt chờ KCS → "chờ KCS", ĐÃ CẮT ĐỦ định mức (remaining === 0, xem
+          // sumRemaining) → "đã duyệt" - còn thiếu hàng mà không đợt nào đang mở thì "còn thiếu X
+          // đoạn" (2026-09-10, theo góp ý người dùng: trước đây chỉ nhìn "không có đợt nào đang mở"
+          // mà gọi đã phôi, có thể sai khi còn thiếu rất nhiều nhưng chưa ai mở đợt cắt tiếp theo).
+          // Chữ "đã phôi" (2026-09-10 lần 2) chỉ dành cho CẢ PO ở bảng danh sách PI ngoài cùng
+          // (piRows.map) - 1 loại sắt xong không có nghĩa cả PO xong, ở đây dùng "đã duyệt". CỐ Ý
+          // KHÔNG còn phân biệt theo "outstanding" (lỗi lịch sử) nữa (2026-09-11 lần 2, theo góp ý
+          // người dùng "thấy dài dòng quá") - remaining===0 là đủ để hiện gọn "đã duyệt", không cần
+          // kèm chú thích lỗi lịch sử đã bù đủ (xem chi tiết từng đợt trong "Các đợt cắt" nếu cần).
           const cuttingCount = g.bundles.filter(b => b.status === 'CUTTING').length
           const awaitingQcCount = g.bundles.filter(b => b.status === 'AWAITING_QC').length
-          const passedBundles = g.bundles.filter(b => b.status === 'QC_PASSED')
-          // Lỗi CỘNG DỒN LỊCH SỬ (2026-09-07 lần 2, bỏ resolvedQty/"chờ duyệt lại" - xem changelog
-          // "Bù đủ dồn về bảng tổng") - không tự giảm, chỉ mang tính tham khảo/cảnh báo ở dòng tổng.
-          const outstanding = passedBundles.reduce((s, b) => {
-            const segs = reviewByBundle.get(b.id)?.segments ?? []
-            return s + segs.reduce((s2, x) => s2 + x.failedQty, 0)
-          }, 0)
+          const remaining = sumRemaining(progressByMaterial.get(g.materialId))
           const hasReceived = g.issues.some(i => i.status !== 'ISSUED')
           const isReturn = g.issues.some(i => i.status === 'RECEIVED' && !!i.reworkOfId)
           return (
@@ -440,7 +468,10 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', cursor: 'pointer',
                   background: isReturn ? 'var(--red-bg, #fef2f2)' : undefined,
-                  opacity: g.bundles.length > 0 && cuttingCount === 0 && awaitingQcCount === 0 && outstanding === 0 ? 0.75 : 1,
+                  // KHÔNG còn đòi outstanding===0 (2026-09-11, cùng lý do sửa badge B1 ở dưới) -
+                  // remaining===0 là đủ để coi là "xong", lỗi lịch sử đã bù đủ không cản trạng thái
+                  // mờ đi này nữa.
+                  opacity: g.bundles.length > 0 && cuttingCount === 0 && awaitingQcCount === 0 && remaining === 0 ? 0.75 : 1,
                 }}
               >
                 <ChevronRight size={15} color="var(--text3)" />
@@ -462,10 +493,21 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ KCS ({awaitingQcCount})</span>
                 ) : g.bundles.length === 0 ? (
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>đã nhận, chưa cắt</span>
-                ) : outstanding > 0 ? (
-                  <span style={{ fontSize: 12, fontWeight: 700, color: RED }}>Lỗi {outstanding} đoạn</span>
+                ) : remaining > 0 ? (
+                  // remaining PHẢI kiểm TRƯỚC outstanding (2026-09-11, QA audit B1) - outstanding là
+                  // Σ lỗi CỘNG DỒN LỊCH SỬ, KHÔNG BAO GIỜ tự giảm (đúng thiết kế "Bù đủ dồn về bảng
+                  // tổng") - trước đây check outstanding trước khiến dòng kẹt đỏ "Lỗi N đoạn" VĨNH
+                  // VIỄN dù đã bù đủ + cắt đủ 100% (remaining=0) từ lâu, không bao giờ chuyển "đã
+                  // duyệt" được nữa. Còn thiếu hàng (remaining>0) mới là tín hiệu ưu tiên hiển thị.
+                  <span style={{ fontSize: 12, fontWeight: 600, color: ACCENT }}>còn thiếu {remaining} đoạn</span>
                 ) : (
-                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đã phôi</span>
+                  // Đã cắt ĐỦ (remaining=0) → "đã duyệt" (xanh, KHÔNG phải "đã phôi" - dành riêng
+                  // cho CẢ PO ở bảng danh sách PI ngoài cùng, xem piRows.map) - dù outstanding lịch
+                  // sử >0 vẫn CHỈ hiện gọn "đã duyệt", KHÔNG kèm chú thích "(từng lỗi N đoạn, đã bù
+                  // đủ)" nữa (2026-09-11 lần 2, theo góp ý người dùng: "thấy dài dòng quá" - lỗi lịch
+                  // sử đã bù đủ không còn ý nghĩa hiển thị nữa khi đã xong, chỉ cần biết "đã duyệt"
+                  // là đủ, chi tiết lỗi từng đợt vẫn xem được trong "Các đợt cắt" bên dưới).
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đã duyệt</span>
                 )}
               </div>
             </div>
@@ -490,7 +532,14 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
             )}
             {pi.vatTuTpItems.map(v => {
               const key = `${v.orderId}:${v.pieceId}`
-              const done = v.passedQty + v.awaitingQcQty >= v.plannedQty
+              // "đã duyệt" PHẢI là đã KCS duyệt thật (passedQty), KHÔNG được tính cả awaitingQcQty
+              // (2026-09-10, theo góp ý người dùng - trước đây gửi KCS xong, CHƯA duyệt, đã hiện
+              // "đã phôi" - cùng dạng lỗi với badge tổng bên Sắt, xem sumRemaining ở trên). Chữ
+              // "đã phôi" dành riêng cho bảng danh sách PI (ngoài cùng, xem piRows.map ở trên) -
+              // ở CẤP TỪNG MẢNH này dùng "đã duyệt" (theo góp ý người dùng vòng sau, 2026-09-10 lần
+              // 2: "phần này không cần đã phôi" - đúng ĐỢT/MẢNH này chỉ là 1 phần của cả công đoạn
+              // Phôi, "đã phôi" nên dành cho khi CẢ PO xong, không phải từng mảnh riêng lẻ).
+              const passed = v.passedQty >= v.plannedQty
               const undoneSteps = v.processSteps.filter(step => {
                 const p = v.stepProgress.find(sp => sp.step === step)
                 return !p || p.doneQty < p.requiredQty
@@ -508,11 +557,15 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
                       </div>
                     </div>
                     {v.processSteps.length === 0 ? (
-                      done
-                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đã phôi</span>
-                        : <span style={{ fontSize: 12, color: ACCENT, fontWeight: 600 }}>chưa khai công đoạn</span>
-                    ) : done ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đã phôi</span>
+                      passed ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đã duyệt</span>
+                      ) : v.awaitingQcQty > 0 ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ KCS duyệt</span>
+                      ) : (
+                        <span style={{ fontSize: 12, color: ACCENT, fontWeight: 600 }}>chưa khai công đoạn</span>
+                      )
+                    ) : passed ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đã duyệt</span>
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', justifyContent: 'flex-end', maxWidth: 260 }}>
                         {undoneSteps.length === 0 ? (
@@ -902,6 +955,14 @@ function CutBundleCard({ bundle, orderIndex, review }: {
           <span style={{ fontSize: 12, color: ACCENT, fontWeight: 600 }}>đang cắt</span>
         ) : bundle.status === 'AWAITING_QC' ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ KCS</span>
+        ) : outstanding > 0 ? (
+          // QC_PASSED nhưng còn lỗi chưa bù đủ - trước đây (2026-09-10) không hiện gì ở đây, chỉ có
+          // viền đỏ + bảng cỡ đoạn tự bung, dễ lướt qua không để ý đợt này còn vướng.
+          <span style={{ fontSize: 12, fontWeight: 700, color: RED }}>Lỗi {outstanding} đoạn</span>
+        ) : bundle.status === 'QC_PASSED' ? (
+          // Theo góp ý người dùng (2026-09-10): trước đây đợt đã qua KCS không hiện badge nào cả
+          // (chỉ "đang cắt"/"chờ KCS" có label), nhìn vào tưởng đợt chưa xử lý xong.
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đã duyệt</span>
         ) : null}
       </div>
 

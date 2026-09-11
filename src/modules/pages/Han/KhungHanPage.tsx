@@ -37,6 +37,11 @@ interface ManhRow {
 }
 
 interface SkuGroup {
+  /** Khoá gộp PHẢI là id thật (2026-09-11, QA audit C4) - trước đây gộp theo productName (chuỗi
+   *  hiển thị), nên khi thiếu plan cho 1 productionOrderId (lỗi quyền/đơn archive...) hoặc 2 SKU
+   *  khác nhau vô tình đặt trùng tên hiển thị, số liệu của các đơn khác nhau bị cộng nhầm chung 1
+   *  dòng "Tổng". */
+  productionOrderId: string
   productName: string
   tong: number
   manhs: ManhRow[]
@@ -56,24 +61,24 @@ export default function KhungHanPage() {
     () => api.getProductionBatchPlanBatch(orderIds, 'HAN'),
     [orderIds.join(',')],
   )
-  const [selectedName, setSelectedName] = useState<string | null>(null)
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
 
   const groups: SkuGroup[] = useMemo(() => {
-    const byProduct = new Map<string, SkuGroup>()
+    const byOrder = new Map<string, SkuGroup>()
     for (const b of qcDone) {
       const productName = plans?.[b.productionOrderId]?.productName ?? 'Không xác định được sản phẩm'
-      let g = byProduct.get(productName)
-      if (!g) { g = { productName, tong: 0, manhs: [] }; byProduct.set(productName, g) }
+      let g = byOrder.get(b.productionOrderId)
+      if (!g) { g = { productionOrderId: b.productionOrderId, productName, tong: 0, manhs: [] }; byOrder.set(b.productionOrderId, g) }
       g.tong += b.reportedQty
       const manh = g.manhs.find(m => m.pieceId === b.pieceId)
       if (manh) manh.soLuong += b.reportedQty
       else g.manhs.push({ pieceId: b.pieceId, tenVatLieu: `${b.pieceName} — ${b.pieceCode}`, soLuong: b.reportedQty })
     }
-    return Array.from(byProduct.values()).sort((a, b) => a.productName.localeCompare(b.productName))
+    return Array.from(byOrder.values()).sort((a, b) => a.productName.localeCompare(b.productName))
   }, [qcDone, plans])
 
   const tongTatCa = useMemo(() => groups.reduce((s, g) => s + g.tong, 0), [groups])
-  const selected = groups.find(g => g.productName === selectedName) ?? null
+  const selected = groups.find(g => g.productionOrderId === selectedOrderId) ?? null
 
   if (batchesLoading || plansLoading) return <LoadingState />
 
@@ -82,7 +87,7 @@ export default function KhungHanPage() {
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-          <button onClick={() => setSelectedName(null)} style={backBtn}>
+          <button onClick={() => setSelectedOrderId(null)} style={backBtn}>
             <ChevronLeft size={15} /> Quay lại
           </button>
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{selected.productName}</h2>
@@ -142,7 +147,7 @@ export default function KhungHanPage() {
           </thead>
           <tbody>
             {groups.map(g => (
-              <tr key={g.productName} onClick={() => setSelectedName(g.productName)}
+              <tr key={g.productionOrderId} onClick={() => setSelectedOrderId(g.productionOrderId)}
                 style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
                 onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>

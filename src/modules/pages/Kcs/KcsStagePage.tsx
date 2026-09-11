@@ -28,7 +28,6 @@ import type { BePieceStepBundle, BeProductionBatch, ProductionBatchStage } from 
 import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import type { AuditLogEntry } from '../../../context/AuditLogContext'
 import LoadingState from '../../../components/LoadingState'
-import { errMsg } from '../../../utils/errors'
 
 /** Đích của 1 dòng KCS - "chốt cuối" (ProductionBatch) hoặc "theo công đoạn" (PieceStepBundle,
  *  2026-09-07) - cần phân biệt để gọi ĐÚNG API duyệt (2 nhánh QcReview khác nhau, xem
@@ -94,6 +93,12 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
         const pending = b.status === 'AWAITING_QC'
         map.set(lineId, { kind: 'batch', id: b.id })
         const review = reviewByBatch.get(b.id)
+        // Đính kèm lý do + ảnh lỗi thật vào entry "kcs.approved" (2026-09-11, QA audit B4) - trước
+        // đây review.photoUrl/reason bị bỏ qua hoàn toàn, ảnh KCS chụp lúc chấm "Không đạt" không
+        // hiển thị lại được ở bất kỳ đâu.
+        const doneNote = review?.reason
+          ? `Duyệt: ${b.reportedQty} đạt · ${b.pieceName} · lý do không đạt: ${review.reason}`
+          : `Duyệt: ${b.reportedQty} đạt · ${b.pieceName}`
         const history: AuditLogEntry[] = pending
           ? [{
             id: `${b.id}-rep`, entityType: 'kcs-lo', entityId: b.id, action: 'kcs.reported',
@@ -101,7 +106,7 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
           }]
           : [{
             id: `${b.id}-done`, entityType: 'kcs-lo', entityId: b.id, action: 'kcs.approved',
-            actorName: 'KCS', at: b.reportedAt, note: `Duyệt: ${b.reportedQty} đạt · ${b.pieceName}`,
+            actorName: 'KCS', at: b.reportedAt, note: doneNote, photoUrl: review?.photoUrl ?? undefined,
           }]
         return {
           id: lineId, itemName: b.pieceName, spec: `${b.pieceCode} · lô ${timeVN(b.reportedAt)}`,
@@ -144,7 +149,13 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
         ...bundleList.filter(bd => bd.status === 'AWAITING_QC').map(bd => bd.submittedAt),
       ].sort()[0] ?? batchList[0]?.reportedAt ?? bundleList[0]?.submittedAt
       rows.push({
-        id: rows.length + 1, poNumber: po, sku: po, productName: po,
+        // id PHẢI ổn định theo productionOrderId (KHÔNG dùng rows.length+1/vị trí mảng) - PI vừa
+        // duyệt hết lô cuối sẽ bị lọc khỏi `order` (poHasWork=false) ở lần refetch kế tiếp, làm các
+        // PI sau đó dịch chỉ số và "thừa hưởng" id cũ. selPoId ở KcsTwoTierScreen (kcsCore.tsx) giữ
+        // nguyên id cũ đó qua refetch → sau khi duyệt xong 1 PI, tự "nhảy" sang xem nhầm PI khác vừa
+        // chiếm đúng id đó (2026-09-10, người dùng phát hiện: duyệt xong PI-2026-024 tự nhảy vào
+        // chi tiết PI-2026-022).
+        id: Number(productionOrderId), poNumber: po, sku: po, productName: po,
         soLuong: lines.reduce((s, l) => s + l.pendingQty, 0), deadline: baoLuc, arrangedAt: baoLuc, lines,
       })
     }
@@ -153,9 +164,11 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
 
   if (isLoading || !batches) return <LoadingState />
 
-  // onReview truyền qua KcsTwoTierScreen (kcsCore.tsx) không await/catch promise trả về (fire-and-
-  // forget) - phải tự bắt lỗi ở đây, nếu không lỗi backend (vd PI chưa "Bắt đầu"/đã "Kết thúc",
-  // 2026-08-31) sẽ rớt thành unhandled rejection, KCS bấm duyệt không thấy phản hồi gì cả.
+  // onReview giờ được KcsTwoTierScreen.review() (kcsCore.tsx) await ĐÚNG NGHĨA (2026-09-11, QA
+  // audit sửa cùng lúc) - KHÔNG còn tự bắt lỗi/alert ở đây nữa, để lỗi ném thẳng lên tới
+  // KcsReviewModal.submit() hiện inline + GIỮ NGUYÊN modal (không mất dữ liệu vừa nhập) thay vì
+  // đóng modal ngay rồi alert() rời rạc vài trăm ms sau (hành vi cũ, dễ hiểu nhầm "đã duyệt" xong
+  // dù backend vừa từ chối, vd PI chưa "Bắt đầu"/đã "Kết thúc", 2026-08-31).
   const onReview = async (_poId: number, lineId: number, p: ReviewPayload) => {
     const target = map.get(lineId)
     if (!target) return
@@ -165,16 +178,12 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
       defectReasonId: p.defectReasonId ? String(p.defectReasonId) : undefined,
       photoUrl: p.defectPhotoUrl,
     }
-    try {
-      if (target.kind === 'batch') {
-        await api.reviewProductionBatch(target.id, dto)
-        refetch(); refetchReviews()
-      } else {
-        await api.reviewPieceStepQc(target.id, dto)
-        refetchBundles()
-      }
-    } catch (e) {
-      alert(errMsg(e, 'Không duyệt được'))
+    if (target.kind === 'batch') {
+      await api.reviewProductionBatch(target.id, dto)
+      refetch(); refetchReviews()
+    } else {
+      await api.reviewPieceStepQc(target.id, dto)
+      refetchBundles()
     }
   }
 

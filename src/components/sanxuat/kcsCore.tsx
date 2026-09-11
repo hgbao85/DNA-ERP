@@ -14,6 +14,7 @@ import AuditLogTimeline from '../AuditLogTimeline'
 import type { AuditLogEntry } from '../../context/AuditLogContext'
 import { useFetch } from '../../hooks/useFetch'
 import * as api from '../../services/api'
+import { errMsg } from '../../utils/errors'
 import {
   type ProcLine, type ProcRow, type StageCfg,
   fmt, dateVN, timeVN, lechOf,
@@ -48,7 +49,7 @@ const pendingOf = (lines: KcsLine[]) => lines.reduce((s, l) => s + l.pendingQty,
 // được/Phế" (đã đơn giản hoá bước duyệt theo công đoạn từ 2026-09-07, giờ đồng bộ luôn bước "Chốt &
 // gửi KCS" cuối cùng dùng chung Hàn/Sơn/VTTP). ─────────────────────────────────────────────────
 function KcsReviewModal({ stageType, line, onClose, onSubmit }: {
-  stageType: string; line: KcsLine; onClose: () => void; onSubmit: (p: ReviewPayload) => void
+  stageType: string; line: KcsLine; onClose: () => void; onSubmit: (p: ReviewPayload) => Promise<void>
 }) {
   const { data: reasons, refetch } = useFetch<DefectReason[]>(() => api.getDefectReasons(stageType), [stageType])
   const list = Array.isArray(reasons) ? reasons : []
@@ -60,6 +61,12 @@ function KcsReviewModal({ stageType, line, onClose, onSubmit }: {
   const [uploading, setUploading] = useState(false)
   const [newLabel, setNewLabel] = useState('')
   const [adding, setAdding] = useState(false)
+  // busy (2026-09-11, QA audit): trước đây submit() đồng bộ, đóng modal NGAY khi bấm - không chờ
+  // biết API có thành công không (fire-and-forget ở KcsTwoTierScreen.review()). Lỗi backend (vd PI
+  // đã "Kết thúc"/"Tạm dừng") chỉ hiện alert() vài trăm ms SAU khi modal đã đóng và mất hết dữ liệu
+  // vừa nhập (nguyên nhân/ghi chú/ảnh) - mirror KcsPhoiPage.tsx's QcReviewModal.submit() (đã làm
+  // đúng: await, chỉ đóng khi thành công, lỗi hiện inline + giữ nguyên form).
+  const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
   const failed = Math.max(0, Math.min(line.pendingQty, Math.floor(Number(failedQty) || 0)))
@@ -85,9 +92,14 @@ function KcsReviewModal({ stageType, line, onClose, onSubmit }: {
     finally { setUploading(false) }
   }
 
-  const submit = () => {
+  const submit = async () => {
     if (failed > 0 && !reasonId) { setErr('Có SL không đạt → phải chọn nguyên nhân'); return }
-    onSubmit({ failedQty: failed, defectReasonId: reasonId ? Number(reasonId) : undefined, reviewNote: reviewNote || undefined, defectPhotoUrl: photoUrl || undefined })
+    setBusy(true); setErr('')
+    try {
+      await onSubmit({ failedQty: failed, defectReasonId: reasonId ? Number(reasonId) : undefined, reviewNote: reviewNote || undefined, defectPhotoUrl: photoUrl || undefined })
+      onClose()
+    } catch (e) { setErr(errMsg(e, 'Không duyệt được')) }
+    finally { setBusy(false) }
   }
 
   return (
@@ -140,8 +152,8 @@ function KcsReviewModal({ stageType, line, onClose, onSubmit }: {
           margin: '16px -20px -20px', padding: '12px 20px',
           background: 'var(--surface)', borderTop: '1px solid var(--border)',
         }}>
-          <button onClick={onClose} style={btnGhost}>Hủy</button>
-          <button onClick={submit} disabled={uploading} style={btnPrimary}>Xác nhận duyệt</button>
+          <button onClick={onClose} style={btnGhost} disabled={busy}>Hủy</button>
+          <button onClick={submit} disabled={uploading || busy} style={btnPrimary}>{busy ? 'Đang duyệt…' : 'Xác nhận duyệt'}</button>
         </div>
       </div>
     </div>
@@ -166,7 +178,7 @@ function KcsHistoryModal({ title, entries, onClose }: { title: ReactNode; entrie
 // ── Tầng: Vật tư — chờ duyệt / tiến hành duyệt (dùng chung Phôi/Hàn/Sơn) ─────
 function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, onBack, onReview }: {
   lines: KcsLine[]; cfg: StageCfg; title: string; subtitle: string; backLabel: string
-  onBack: () => void; onReview: (lineId: number, p: ReviewPayload) => void
+  onBack: () => void; onReview: (lineId: number, p: ReviewPayload) => Promise<void>
 }) {
   const [target, setTarget] = useState<KcsLine | null>(null)
   const [showHistory, setShowHistory] = useState(false)
@@ -234,7 +246,7 @@ function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, onBack, o
           stageType={cfg.label === 'Phôi' ? 'PHOI' : cfg.label === 'Hàn' ? 'HAN' : 'SON'}
           line={target}
           onClose={() => setTarget(null)}
-          onSubmit={p => { onReview(target.id, p); setTarget(null) }}
+          onSubmit={p => onReview(target.id, p)}
         />
       )}
       {showHistory && <KcsHistoryModal title={title} entries={poHistory} onClose={() => setShowHistory(false)} />}
@@ -311,7 +323,7 @@ export function KcsTwoTierScreen({ cfg, seed, rows: rowsProp, onReview }: {
   cfg: StageCfg
   seed?: () => KcsRow[]
   rows?: KcsRow[]
-  onReview?: (poId: number, lineId: number, p: ReviewPayload) => void
+  onReview?: (poId: number, lineId: number, p: ReviewPayload) => Promise<void>
 }) {
   const controlled = !!onReview
   const [localRows, setLocalRows] = useState<KcsRow[]>(() => seed ? seed() : [])
@@ -328,8 +340,13 @@ export function KcsTwoTierScreen({ cfg, seed, rows: rowsProp, onReview }: {
     toastTimer.current = window.setTimeout(() => setToast(null), 5000)
   }
 
-  const review = (poId: number, lineId: number, p: ReviewPayload) => {
-    // Toast phản hồi từ số liệu duyệt.
+  // 2026-09-11 (QA audit): PHẢI await xong onReview (controlled/thật) trước khi báo "đã duyệt" -
+  // trước đây hiện toast NGAY rồi mới gọi onReview không await (fire-and-forget), nên khi BE từ
+  // chối (vd PI đã "Kết thúc"/"Tạm dừng"), toast xanh "đã duyệt" đã hiện xong xuôi trước khi alert
+  // lỗi xuất hiện vài trăm ms sau - mâu thuẫn, và modal (KcsReviewModal) đã đóng luôn nên mất hết dữ
+  // liệu vừa nhập. Giờ review() chờ xong (hoặc ném lại lỗi cho modal tự hiện inline) rồi mới toast.
+  const review = async (poId: number, lineId: number, p: ReviewPayload) => {
+    if (controlled) { await onReview!(poId, lineId, p) }
     const line = rows.flatMap(r => r.lines ?? []).find(l => l.id === lineId)
     if (line) {
       const failed = Math.min(line.pendingQty, p.failedQty)
@@ -338,7 +355,7 @@ export function KcsTwoTierScreen({ cfg, seed, rows: rowsProp, onReview }: {
       if (failed > 0) parts.push(`${fmt(failed)} không đạt`)
       showToast(`Đã duyệt ${line.itemName}: ${parts.join(' · ')}`)
     }
-    if (controlled) { onReview!(poId, lineId, p); return }
+    if (controlled) return
     setLocalRows(rs => rs.map(r => r.id !== poId ? r : {
       ...r, lines: r.lines?.map(l => l.id !== lineId ? l : {
         ...l, pendingQty: 0, failedQty: (l.failedQty ?? 0) + p.failedQty,

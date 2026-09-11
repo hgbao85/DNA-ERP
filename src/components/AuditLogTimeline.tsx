@@ -92,6 +92,14 @@ function TimelineList({ entries }: { entries: AuditLogEntry[] }) {
                   &quot;{e.note}&quot;
                 </div>
               )}
+              {/* Ảnh minh hoạ lỗi (2026-09-11, QA audit B4) - trước đây KCS chụp/tải ảnh lúc chấm
+                  "Không đạt" nhưng ảnh không hiển thị lại ở bất kỳ đâu, kể cả đúng ở "Lịch sử" này -
+                  nơi hợp lý nhất để xem lại lý do + ảnh của 1 lần duyệt. */}
+              {e.photoUrl && (
+                <a href={e.photoUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 6 }}>
+                  <img src={e.photoUrl} alt="Ảnh lỗi" style={{ height: 64, borderRadius: 6, border: '1px solid var(--border)', display: 'block' }} />
+                </a>
+              )}
             </div>
           </div>
         )

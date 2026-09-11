@@ -321,6 +321,13 @@ export async function reportProductionBatch(
 
 /** "Lưu đợt" (Phôi/Hàn/Sơn, 2026-09-09 mở rộng - ban đầu 2026-09-08 CHỈ VTTP ChotPanel dùng) -
  *  tích luỹ vào 1 ProductionBatch đang OPEN, mirror recordCutBatch() bên Sắt. */
+// 2026-09-11 (QA audit C2, ĐÍNH CHÍNH sau khi đọc lại BE): phát hiện gốc đề xuất thêm
+// withIdempotencyKey() ở cả 2 hàm dưới - ĐÃ THỬ rồi REVERT vì BE tự ghi rõ đây là quyết định thiết
+// kế CÓ CHỦ Ý, không phải lỗ hổng: `recordProductionBatch()` là hành động CỘNG DỒN, BE comment "KHÔNG
+// cần Idempotency-Key dedup như create() - double-submit chỉ gây cộng dư số lượng (dễ nhận ra + tự
+// sửa lại)... FE tự khoá nút lúc đang gửi (busy state)". `finishProductionBatch()` tự bảo vệ bằng
+// kiểm tra `status !== OPEN` (ConflictException) - double-click chỉ nhận lỗi 409 vô hại, không tạo
+// dữ liệu sai. Thêm Idempotency-Key ở FE cũng vô nghĩa vì BE không đọc header này cho 2 route này.
 export async function recordProductionBatch(
   productionOrderId: string,
   data: { stage: ProductionBatchStage; pieceId: string; qty: number },

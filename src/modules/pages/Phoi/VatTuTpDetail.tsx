@@ -457,6 +457,10 @@ function ProductionBatchHistoryCard({ batch, orderIndex, review }: {
           <span style={{ fontSize: 12, color: ACCENT, fontWeight: 600 }}>đang mở</span>
         ) : batch.status === 'AWAITING_QC' ? (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ KCS</span>
+        ) : failed === 0 && batch.status === 'QC_DONE' ? (
+          // Theo góp ý người dùng (2026-09-10, cùng lý do với CutBundleCard bên Sắt): trước đây đợt
+          // đã qua KCS không hiện badge nào, nhìn vào tưởng đợt chưa xử lý xong.
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đã duyệt</span>
         ) : null}
         {failed > 0 && (
           <span style={{ fontSize: 12, fontWeight: 700, color: RED }}>Lỗi {failed}</span>

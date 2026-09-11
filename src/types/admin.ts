@@ -28,6 +28,10 @@ export interface AuditLogEntry {
   actorName: string;
   at: string; // ISO
   note?: string;
+  /** Ảnh minh hoạ lỗi (2026-09-11, QA audit B4) - KCS chụp/tải ảnh khi chấm "Không đạt" nhưng ảnh
+   *  chưa từng hiển thị lại ở bất kỳ đâu (chỉ lưu lên server, không đọc vào entry nào). Optional -
+   *  hầu hết entry khác (proposal/sku/user/masterdata...) không có ảnh. */
+  photoUrl?: string;
 }
 
 /** Cấu hình chung của công ty — hiện chỉ để Admin xem/sửa, chưa có nghiệp vụ nào đọc động. */

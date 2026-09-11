@@ -26,6 +26,7 @@ import {
 } from '../../../services/cutting-proposals-api'
 import { buildCuttingGuideTable, buildPieceSummary, exportCuttingGuideExcel, exportCuttingGuideExcelAll, printCuttingGuide } from '../../../utils/cuttingGuide'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 import PrintExportButton from '../../../components/PrintExportButton'
 
 const ACCENT = '#e65100'
@@ -49,7 +50,7 @@ export default function HuongDanCatPage({ initialPiId, onConsumeInitialPi }: {
   initialPiId?: string | null
   onConsumeInitialPi?: () => void
 }) {
-  const { data: issues, isLoading } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
+  const { data: issues, isLoading, error, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
   const piOptions = useMemo(() => buildPiOptions(issues ?? []), [issues])
   // Đọc initialPiId NGAY lúc khởi tạo (không đợi issues tải xong) - component này mount lại từ
   // đầu mỗi lần chuyển sang tab "Hướng dẫn cắt" (MfgApp chỉ render tab đang chọn), nên state khởi
@@ -63,7 +64,9 @@ export default function HuongDanCatPage({ initialPiId, onConsumeInitialPi }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  if (isLoading || !issues) return <LoadingState />
+  if (isLoading) return <LoadingState />
+  // 2026-09-11 (QA audit B2): error trước `!issues` - xem LoadErrorState doc comment.
+  if (error || !issues) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
   const selPi = selPiId ? piOptions.find(p => p.productionInvoiceId === selPiId) ?? { productionInvoiceId: selPiId, poNumber: selPiId } : null
   if (selPi) {

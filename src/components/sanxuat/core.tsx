@@ -132,7 +132,10 @@ export const skuLech = (r: ProcRow) => { const u = skuUnits(r); return u.length 
 const poSummary = (r: ProcRow) => {
   const daLam = skuDongBo(r)
   const pct = r.soLuong > 0 ? Math.round((daLam / r.soLuong) * 100) : 0
-  return { pct, daLam, conLai: r.soLuong - daLam }
+  // Math.max(0, ...) (2026-09-11, QA audit C7) - trước đây có thể ra số âm nếu daLam vượt soLuong
+  // (báo dư/điều chỉnh), hiện "Còn lại -5" vẫn tô xanh vì điều kiện đổi màu chỉ so `> 0` - không
+  // đồng nhất với cột "Còn lại" cấp mảnh (VatTuDetailBoard) đã clamp đúng Math.max(remain, 0).
+  return { pct, daLam, conLai: Math.max(0, r.soLuong - daLam) }
 }
 // Phôi: tiến độ theo tổng CÂY (đã cắt / cần) — không dùng đồng bộ mảnh→bộ.
 const poSummaryCay = (r: ProcRow) => {
@@ -205,13 +208,11 @@ function PiListBoard({ groups, cfg, onEnter }: { groups: PiGroup[]; cfg: StageCf
   const views: PiView[] = groups.map(g => ({ g, stats: piGroupStats(g.rows) }))
   const cols: BoardColumn<PiView>[] = [
     {
-      key: 'pi', header: 'PO / PI', cell: v => (
-        <div>
-          <div style={{ fontWeight: 700, fontFamily: 'monospace' }}>
-            {[...new Set(v.g.rows.map(r => r.poNumber))].join(', ')}
-          </div>
-          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{v.g.piCode}</div>
-        </div>
+      // CHỈ hiện mã PI (KHÔNG PO) - 2026-09-10, đồng bộ màn KCS (xem KcsStagePage.tsx): Hàn/Sơn làm
+      // việc theo PI (lệnh sản xuất nội bộ), PO là khái niệm bên Sales, dễ nhầm với "PO" ở màn Mua
+      // hàng/Kho (2 mã khác nhau cùng gọi là "PO").
+      key: 'pi', header: 'PI', cell: v => (
+        <div style={{ fontWeight: 700, fontFamily: 'monospace' }}>{v.g.piCode}</div>
       ),
     },
     { key: 'skuCount', header: 'Số SKU', align: 'right', cell: v => v.g.rows.length },
@@ -263,17 +264,22 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, pi
   })
 
   const cols: BoardColumn<PoView>[] = [
+    // Gộp cột "PO" (riêng biệt trước đây) vào chung cột SKU (2026-09-10, theo góp ý người dùng -
+    // PI đã là mã lệnh chính hiện ở tiêu đề trang trên cùng, tách hẳn 1 cột gọi là "PO" dễ hiểu
+    // nhầm đây lại là mã đang theo dõi chính; mã PO (Sales) giờ chỉ còn là chú thích phụ dưới SKU).
     {
-      key: 'po', header: 'PO', cell: v => (
-        <span style={{ fontWeight: 700 }}>
-          {!v.seqUnlocked
-            ? <Lock size={13} style={{ verticalAlign: -2, marginRight: 5, color: 'var(--text3)' }} />
-            : v.alert && <AlertTriangle size={13} style={{ verticalAlign: -2, marginRight: 5, color: 'var(--red)' }} />}
-          {v.r.poNumber}
-        </span>
-      )
+      key: 'sku', header: 'SKU', cell: v => (
+        <div>
+          <div style={{ fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+            {!v.seqUnlocked
+              ? <Lock size={13} style={{ color: 'var(--text3)' }} />
+              : v.alert && <AlertTriangle size={13} style={{ color: 'var(--red)' }} />}
+            {v.r.sku}
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--text3)' }}>{v.r.poNumber}</div>
+        </div>
+      ),
     },
-    { key: 'sku', header: 'SKU', cell: v => v.r.sku },
     { key: 'sl', header: 'Số lượng', align: 'right', cell: v => fmt(v.r.soLuong) },
     { key: 'done', header: isPhoi ? `${cfg.done} (${cfg.unit})` : cfg.done, align: 'right', cell: v => <span style={{ fontWeight: 700, color: v.alert ? 'var(--red)' : 'var(--text)' }}>{fmt(v.s.daLam)}</span> },
     { key: 'remain', header: isPhoi ? `Còn lại (${cfg.unit})` : 'Còn lại', align: 'right', cell: v => <span style={{ color: v.s.conLai > 0 ? ACCENT : 'var(--green)', fontWeight: 600 }}>{fmt(v.s.conLai)}</span> },
@@ -287,8 +293,8 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, pi
       icon={<Icon size={18} />}
       title={onBack ? `PI ${piCode ?? ''}` : `Lệnh sản xuất — Công đoạn ${cfg.label}`}
       subtitle={isPhoi
-        ? `Theo dõi tiến độ ${cfg.verb} theo PO/SKU · bấm PO để xem mảnh & xác nhận cắt theo đợt`
-        : `Theo dõi tiến độ ${cfg.verb} theo PO/SKU · nhập sản lượng theo ${cfg.itemLabel.toLowerCase()}`}
+        ? `Theo dõi tiến độ ${cfg.verb} theo SKU · bấm SKU để xem mảnh & xác nhận cắt theo đợt`
+        : `Theo dõi tiến độ ${cfg.verb} theo SKU · nhập sản lượng theo ${cfg.itemLabel.toLowerCase()}`}
       onBack={onBack}
       backLabel="Quay lại danh sách PI"
       columns={cols}
@@ -297,9 +303,9 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, pi
       rowTone={v => !v.unlocked ? 'muted' : v.alert ? 'alert' : 'default'}
       clickable={v => v.canEnter}
       onRowClick={v => onEnter(v.r.id)}
-      rowTitle={v => !v.arranged ? 'Chủ chuyền chưa sắp xếp lệnh này' : !v.seqUnlocked ? 'Phải hoàn tất PO trước (đủ 100%) mới mở lệnh này' : v.alert ? 'Chưa khớp đồng bộ — nhấn để xem' : isPhoi ? 'Nhấn để xem các mảnh của SKU' : 'Nhấn để nhập sản lượng theo vật tư'}
+      rowTitle={v => !v.arranged ? 'Chủ chuyền chưa sắp xếp lệnh này' : !v.seqUnlocked ? 'Phải hoàn tất SKU trước (đủ 100%) mới mở lệnh này' : v.alert ? 'Chưa khớp đồng bộ — nhấn để xem' : isPhoi ? 'Nhấn để xem các mảnh của SKU' : 'Nhấn để nhập sản lượng theo vật tư'}
       footer={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        <CalendarClock size={14} /> Làm <b style={{ color: 'var(--text2)' }}>tuần tự</b>: PO sau chỉ mở khi PO trước đủ 100%. {isPhoi
+        <CalendarClock size={14} /> Làm <b style={{ color: 'var(--text2)' }}>tuần tự</b>: SKU sau chỉ mở khi SKU trước đủ 100%. {isPhoi
           ? <>Tiến độ theo <b style={{ color: 'var(--text2)' }}>tổng cây đã cắt / cần</b>; <b style={{ color: 'var(--text2)' }}>đồng bộ sắt</b> (điểm nghẽn loại sắt) xem trong từng mảnh.</>
           : <><b style={{ color: 'var(--text2)' }}>{cfg.done}</b> = số sản phẩm ráp được đủ mọi {cfg.itemLabel.toLowerCase()} (đồng bộ); dòng đỏ = chưa khớp.</>}
       </span>}
@@ -509,47 +515,48 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
         // đợt" (onRecord, tích luỹ vào ProductionBatch đang OPEN) + "Gửi KCS" riêng (onFinishBatch,
         // đóng đợt đang OPEN) - xem VatTuDetailBoard doc props. "Bù đủ" pre-fill input khi có Lỗi,
         // cùng cơ chế client-side thuần (không gọi API riêng) như StepPanel/ChotPanel bên VTTP.
+        //
+        // KHÔNG chặn nhập vượt "Còn lại" (2026-09-11 lần 3, theo góp ý người dùng: "đừng có chặn vẫn
+        // cho phép nhập dư" - đã thử chặn ở lần sửa trước (2026-09-11 lần 1) nhưng thực tế 1 đợt có
+        // thể dư ra so với định mức, không nên chặn cứng) - "Còn lại" chỉ còn mang tính THAM KHẢO,
+        // đồng bộ đúng cách Cắt (LenhSanXuatPhoi.tsx's ProgressBuDuTable) và VTTP (VatTuTpDetail.tsx)
+        // đã làm từ trước - input/nút "Lưu đợt" LUÔN hiện, không ẩn khi remain=0.
         key: 'input', header: `Nhập số ${cfg.unit} vừa ${cfg.verb}`, width: 260, cell: (l: ProcLine) => {
           const pend = choKcsFor?.(l.id) ?? 0
-          const remain = l.needQty - l.doneQty - pend
+          const remain = Math.max(l.needQty - l.doneQty - pend, 0)
           const failed = failedOf(l.id)
           const openBatch = (batchesByLine?.get(l.id) ?? []).find(b => b.status === 'OPEN')
           const openQty = openBatch?.reportedQty ?? 0
-          if (remain <= 0 && openQty === 0) {
-            return <span className="badge green">{pend > 0 ? 'chờ KCS duyệt' : 'đủ định mức'}</span>
-          }
           return (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }} onClick={e => e.stopPropagation()}>
-              {remain > 0 && (
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <input
-                    type="number" min={0} max={remain} placeholder={`tối đa ${fmt(remain)}`} value={draft[l.id] ?? ''}
-                    onChange={e => {
-                      const val = e.target.value
-                      if (val === '') return setDraft(d => ({ ...d, [l.id]: '' }))
-                      let n = Math.floor(Number(val))
-                      if (isNaN(n)) return
-                      if (n < 0) n = 0
-                      if (n > remain) n = remain
-                      setDraft(d => ({ ...d, [l.id]: String(n) }))
-                    }}
-                    onKeyDown={e => { if (e.key === 'Enter') submit(l) }}
-                    style={{ width: 90 }}
-                  />
-                  {failed > 0 && (
-                    <button onClick={() => setDraft(d => ({ ...d, [l.id]: String(Math.min(failed, remain)) }))}
-                      style={{ padding: '4px 8px', fontSize: 11, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
-                      Bù đủ
-                    </button>
-                  )}
-                </div>
+              {remain <= 0 && openQty === 0 && (
+                <span className="badge green" style={{ alignSelf: 'flex-start' }}>{pend > 0 ? 'chờ KCS duyệt' : 'đủ định mức'}</span>
               )}
               <div style={{ display: 'flex', gap: 6 }}>
-                {remain > 0 && (
-                  <button className="primary" onClick={() => submit(l)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', fontSize: 12 }}>
-                    <Plus size={13} /> Lưu đợt
+                <input
+                  type="number" min={0} placeholder="0" value={draft[l.id] ?? ''}
+                  onChange={e => {
+                    const val = e.target.value
+                    if (val === '') return setDraft(d => ({ ...d, [l.id]: '' }))
+                    let n = Math.floor(Number(val))
+                    if (isNaN(n)) return
+                    if (n < 0) n = 0
+                    setDraft(d => ({ ...d, [l.id]: String(n) }))
+                  }}
+                  onKeyDown={e => { if (e.key === 'Enter') submit(l) }}
+                  style={{ width: 90 }}
+                />
+                {failed > 0 && remain > 0 && (
+                  <button onClick={() => setDraft(d => ({ ...d, [l.id]: String(Math.min(failed, remain)) }))}
+                    style={{ padding: '4px 8px', fontSize: 11, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
+                    Bù đủ
                   </button>
                 )}
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button className="primary" onClick={() => submit(l)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', fontSize: 12 }}>
+                  <Plus size={13} /> Lưu đợt
+                </button>
                 {openQty > 0 && (
                   <button onClick={() => onFinishBatch?.(openBatch!.id)}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 10px', fontSize: 12, border: 'none', borderRadius: 6, background: 'var(--green)', color: '#fff', cursor: 'pointer' }}>
@@ -677,6 +684,11 @@ function BatchHistoryList({ batches, reviews, unit }: {
                 <span style={{ fontSize: 12, color: ACCENT, fontWeight: 600 }}>đang mở</span>
               ) : b.status === 'AWAITING_QC' ? (
                 <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: 'var(--amber)' }}><Clock size={12} /> chờ KCS</span>
+              ) : failed === 0 ? (
+                // "đã duyệt" cho đợt QC_DONE sạch (2026-09-10, theo góp ý người dùng: mirror
+                // ProductionBatchHistoryCard bên VatTuTpDetail.tsx/CutBundleCard bên
+                // LenhSanXuatPhoi.tsx - trước đây đợt đã qua KCS không hiện badge nào ở đây).
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: 'var(--green)' }}><Check size={12} /> đã duyệt</span>
               ) : null}
               {failed > 0 && <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--red)' }}>Lỗi {failed}</span>}
             </div>
@@ -769,6 +781,10 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
   const remain = Math.max(line.needQty - line.doneQty - pend, 0)
 
   const submit = async () => {
+    // KHÔNG clamp theo "Còn lại" (2026-09-11 lần 3, theo góp ý người dùng: "đừng có chặn vẫn cho
+    // phép nhập dư" - đã thử clamp ở lần sửa trước (lần 1, QA audit) nhưng thực tế 1 đợt có thể dư
+    // ra so với định mức, không nên chặn cứng; "Còn lại" chỉ còn mang tính THAM KHẢO, đồng bộ đúng
+    // cách Cắt/VTTP đã làm từ trước).
     const q = Math.floor(Number(qty) || 0)
     if (q <= 0) return
     setBusy(true)
@@ -818,7 +834,7 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
               {!readOnly && (
                 <td style={{ ...td, textAlign: 'right' }}>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <input type="number" min={0} max={remain} placeholder="0" value={qty} onChange={e => setQty(e.target.value)} style={{ width: 70 }} />
+                    <input type="number" min={0} placeholder="0" value={qty} onChange={e => setQty(e.target.value)} style={{ width: 70 }} />
                     {failed > 0 && remain > 0 && (
                       <button onClick={() => setQty(String(Math.min(failed, remain)))}
                         style={{ padding: '4px 8px', fontSize: 11, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
@@ -835,8 +851,8 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
 
       {!readOnly && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
-          <button className="primary" onClick={submit} disabled={busy || remain <= 0}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12, cursor: (busy || remain <= 0) ? 'not-allowed' : 'pointer' }}>
+          <button className="primary" onClick={submit} disabled={busy}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12, cursor: busy ? 'not-allowed' : 'pointer' }}>
             <Plus size={13} /> {busy ? '...' : 'Lưu đợt'}
           </button>
           {openQty > 0 && (
@@ -1024,7 +1040,7 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
     () => stage ? fetchHanSonRows(stage) : Promise.resolve({ rows: [], awaitingByLine: new Map(), batchesByLine: new Map() }), [stage])
   // "Lỗi" theo đợt (2026-09-09, đồng bộ Sắt/VTTP) - fetch 1 lần, lọc theo batchesByLine ở
   // VatTuDetailBoard (cùng idiom ChotPanel/StepPanel, VatTuTpDetail.tsx).
-  const { data: reviews } = useFetch(() => stage ? api.getQcReviewsForProductionBatches() : Promise.resolve([]), [stage])
+  const { data: reviews, refetch: refetchReviews } = useFetch(() => stage ? api.getQcReviewsForProductionBatches() : Promise.resolve([]), [stage])
 
   const [rows, setRows] = useState<ProcRow[]>(() => seed?.() ?? [])
   useEffect(() => {
@@ -1055,7 +1071,7 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
     if (!stage || !po.realOrderId || !line.realPieceId) return
     try {
       await api.recordProductionBatch(po.realOrderId, { stage, pieceId: line.realPieceId, qty })
-      refetch()
+      refetch(); refetchReviews()
     } catch (e) {
       alert(errMsg(e, 'Không lưu được đợt'))
       throw e
@@ -1064,7 +1080,11 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   const finishBatch = async (batchId: string) => {
     try {
       await api.finishProductionBatch(batchId)
-      refetch()
+      // refetchReviews() (2026-09-11, QA audit C3) - trước đây chỉ refetch() (rows/batches), không
+      // đụng `reviews` - nếu KCS duyệt/từ chối 1 đợt trong lúc màn này đang mở, cột "Lỗi"/nút "Bù
+      // đủ" (dựa vào reviews) hiện SỐ CŨ cho tới khi rời trang/reload, lệch với "Đã báo"/"Còn lại"
+      // (đã cập nhật đúng từ refetch() ở trên).
+      refetch(); refetchReviews()
     } catch (e) {
       alert(errMsg(e, 'Không gửi được'))
       throw e
@@ -1074,8 +1094,8 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   if (selPo) {
     return <VatTuDetailBoard
       lines={selPo.lines ?? []} cfg={cfg} readOnly={readOnly}
-      title={`${selPo.poNumber} · ${selPo.sku}`}
-      subtitle={`${selPo.productName} · SL ${fmt(selPo.soLuong)} · hạn ${dateVN(selPo.deadline)}`}
+      title={selPo.sku}
+      subtitle={`${selPo.poNumber} · ${selPo.productName} · SL ${fmt(selPo.soLuong)} · hạn ${dateVN(selPo.deadline)}`}
       bannerLabel="Đồng bộ" backLabel="Quay lại danh sách lệnh"
       onBack={() => setSelPoId(null)}
       onUpdateLine={stage ? undefined : l => updateLineFlat(selPo.id, l)}
