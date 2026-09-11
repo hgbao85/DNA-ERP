@@ -185,10 +185,10 @@ function salesOrdersToOrders(salesOrders: SalesOrder[]): Order[] {
     .map(so => ({
       id: so.id,
       kind: 'ship' as const,
-      ref: so.code,
+      ref: so.orderCode,
       counterpart: so.customerName,
       date: so.orderDate,
-      poNumber: so.code,
+      poNumber: so.orderCode,
       skuCode: so.items[0]?.skuCode,
       skuName: so.items[0]?.skuName,
       lines: so.items

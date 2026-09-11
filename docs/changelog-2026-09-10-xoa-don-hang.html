@@ -145,6 +145,7 @@
     <a class="navlink" href="#dot3">Đợt 3 — Disable trước</a>
     <a class="navlink" href="#dot4">Đợt 4 — Cascade + hard-delete</a>
     <a class="navlink" href="#files">File đã sửa</a>
+    <a class="navlink" href="#faq">Hỏi đáp thêm</a>
     <a class="navlink" href="#pending">Cần làm trước deploy</a>
   </div>
 </nav>
@@ -294,6 +295,31 @@
         </tbody>
       </table>
     </div>
+  </section>
+
+  <!-- ========= HỎI ĐÁP THÊM ========= -->
+  <section id="faq">
+    <div class="sec-head"><h2>Hỏi đáp thêm</h2></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge date">10/09</span><span class="f-title">Xoá PO-55 rồi tạo mới, vì sao ra PO-56 chứ không phải PO-55?</span></div>
+      <div class="f-field">
+        <span class="k">Cột "PO" đang hiển thị là field gì</span>
+        <div class="v">Là <code>SalesOrder.code</code> — mã định danh duy nhất của đơn hàng, dạng <code>PO-{id}</code>. Dùng làm mã hiển thị xuyên suốt hệ thống: cột "PO" ở danh sách, tiêu đề trang chi tiết ("PO-53 — MEIJING"), và ô tìm kiếm đơn hàng theo mã. Sinh ra ở <code>create()</code> (<code>sales-orders.service.ts:64-68</code>) — tạo đơn trước với mã tạm, update lại thành <code>PO-{id}</code> ngay khi có <code>id</code> thật (vì <code>id</code> chỉ có sau khi ghi vào DB).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Vì sao số bị nhảy khi xoá rồi tạo lại</span>
+        <div class="v"><code>id</code> phía sau mã <code>PO-xx</code> là số tự tăng (<code>autoincrement</code>) của Postgres — cấp 1 lần, tăng dần mãi mãi, <strong>không bao giờ lùi lại hay cấp lại số đã dùng</strong>, dù bản ghi mang số đó có bị xoá hay không. Xoá PO-55 xong, số 55 coi như "đã dùng rồi" vĩnh viễn; tạo đơn tiếp theo, database chỉ biết đếm tiếp lên 56.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Đây là hành vi vốn có, không phải do đợt sửa hard-delete hôm nay</span>
+        <div class="v">Ngay cả trước khi đổi sang hard-delete (lúc "xoá" chỉ là ẩn đi qua <code>deletedAt</code>), số 55 cũng không bao giờ được cấp lại — bộ đếm nằm ở tầng database, độc lập hoàn toàn với việc bản ghi còn tồn tại hay không, không đổi dù cơ chế xoá thay đổi.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Đây là điều nên có, không phải lỗi</span>
+        <div class="v">Nếu để mã PO-55 "sống lại" cho 1 đơn hàng hoàn toàn khác sau này, sẽ rất dễ gây nhầm lẫn nghiêm trọng khi đối chiếu công nợ, tra cứu lịch sử giao dịch, hay khi khách hàng cầm hoá đơn giấy đã in mã PO-55 cũ tới hỏi. Việc "nhảy số" khi xoá chính là cách đảm bảo mỗi mã PO luôn chỉ gắn với đúng 1 đơn hàng duy nhất trong suốt lịch sử, không bao giờ trùng.</div>
+      </div>
+    </article>
   </section>
 
   <!-- ========= CẦN LÀM TRƯỚC DEPLOY ========= -->

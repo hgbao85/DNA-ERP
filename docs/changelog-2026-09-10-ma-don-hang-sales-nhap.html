@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Mã đơn hàng do Sales tự nhập thay PO-{id} (10/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --mono-bg: #EEF1F4;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --mono-bg: #1E242C;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --mono-bg: #1E242C;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  nav.subnav { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--border); backdrop-filter: blur(6px); }
+  .subnav-inner { max-width: 900px; margin: 0 auto; padding: 0 24px; display: flex; gap: 4px; overflow-x: auto; }
+  .navlink { flex: none; font-family: 'Be Vietnam Pro', sans-serif; font-weight: 600; font-size: 13px; color: var(--text-muted); text-decoration: none; padding: 12px 10px; border-bottom: 2px solid transparent; white-space: nowrap; }
+  .navlink:hover { color: var(--text); }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 54px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+  .sec-desc { color: var(--text-muted); font-size: 14.3px; margin: 6px 0 16px; max-width: 72ch; }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); scroll-margin-top: 54px; }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul, .f-field ol { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 5px; }
+
+  .flow-box { background: var(--mono-bg); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; line-height: 1.75; overflow-x: auto; white-space: pre; color: var(--text); margin: 8px 0; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+  .prose-card ul { margin: 6px 0; padding-left: 20px; }
+  .prose-card li { margin-bottom: 5px; }
+
+  table.file-table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin: 8px 0; }
+  table.file-table th, table.file-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.file-table th { font-family: 'Be Vietnam Pro', sans-serif; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); }
+  table.file-table code { background: var(--mono-bg); padding: 1px 5px; border-radius: 3px; }
+
+  .ok-list { list-style: none; padding: 0; margin: 0; }
+  .ok-list li { background: var(--after-bg); border: 1px solid var(--after); border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; font-size: 13.5px; color: var(--text); }
+  .ok-list li::before { content: "✓ "; color: var(--after); font-weight: 700; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 10/09/2026</span>
+    <h1 class="title">Mã đơn hàng do Sales tự nhập — thay thế PO-{id} tự sinh</h1>
+    <p class="subtitle">Mã "PO" hiển thị khắp hệ thống trước đây tự sinh dạng <code>PO-{id}</code> theo số tự tăng của DB — không mang ý nghĩa nghiệp vụ, không khớp với mã PO giấy/mã nội bộ mà khách hàng hay chính công ty đang dùng. Nay Sales tự gõ tay 1 "Mã đơn hàng" lúc tạo PO, bắt buộc và không trùng — mã này thay thế hoàn toàn vai trò hiển thị cũ, lan ra <strong>toàn bộ hệ thống</strong>, không chỉ riêng màn Sales.</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> BE <code>D:\DNA-ERP-BE</code> (schema + 13 module) · FE <code>D:\DNA-ERP</code> (7+ trang)</span>
+      <span><strong>Test:</strong> 697 test BE + 38 test FE pass, typecheck sạch 2 phía</span>
+    </div>
+  </div>
+</header>
+
+<nav class="subnav">
+  <div class="subnav-inner">
+    <a class="navlink" href="#tomtat">Tóm tắt</a>
+    <a class="navlink" href="#schema">Schema + Migration</a>
+    <a class="navlink" href="#core">BE cốt lõi</a>
+    <a class="navlink" href="#lan-toa">Lan toả BE</a>
+    <a class="navlink" href="#fe">FE Sales</a>
+    <a class="navlink" href="#xac-minh">Xác minh toàn hệ thống</a>
+    <a class="navlink" href="#files">File đã sửa</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- ========= TÓM TẮT ========= -->
+  <section id="tomtat">
+    <div class="sec-head"><h2>Tóm tắt</h2></div>
+    <div class="prose-card">
+      <p>Bối cảnh: khi rà lại tính năng xoá PO cùng ngày, người dùng nhận ra mã "PO" hiển thị (<code>PO-53</code>...) chỉ là số tự tăng của hệ thống, không có ý nghĩa nghiệp vụ thật — muốn <strong>giấu mã này xuống làm mã nội bộ</strong>, và thêm 1 field mới để Sales tự đặt mã đơn hàng, rồi thay thế field cũ ở <strong>mọi nơi</strong> hệ thống đang hiển thị "PO".</p>
+      <p>Việc rà soát phát hiện <code>SalesOrder.code</code> không chỉ dùng ở màn Sales — nó đã được lan ra <strong>~13 module khác</strong> (Mua hàng, QC, Đóng gói, Cắt sắt, Chuyển kho, Xuất sắt/vật tư/dệt, Lệnh sản xuất, Phiếu sản xuất...) qua field trung gian <code>salesOrderCode</code>, và còn được dùng để <strong>sinh ra</strong> 1 mã khác (<code>ProductionOrder.poNumber</code>, dạng "PO-31-2"). Nên đây không phải 1 thay đổi cục bộ mà là đổi nguồn cho cả hệ thống.</p>
+    </div>
+  </section>
+
+  <!-- ========= SCHEMA ========= -->
+  <section id="schema">
+    <div class="sec-head"><h2>1. Schema + Migration</h2></div>
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Field mới</span><span class="badge date">10/09</span><span class="f-title"><code>SalesOrder.orderCode</code> — bắt buộc, unique, immutable</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span><code>code</code> tự sinh dạng <code>PO-{id}</code> (số tự tăng DB) — duy nhất là mã hiển thị, không do ai chủ động đặt.</div>
+        <div class="ba-box after"><span class="k">Sau</span><code>code</code> giữ nguyên nhưng lùi xuống mã nội bộ (tra cứu/debug). <code>orderCode</code> mới — Sales tự gõ tay lúc tạo đơn, bắt buộc, unique — là mã hiển thị chính.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Migration <code>20260910100000_add_sales_order_order_code</code></span>
+        <div class="v">Mirror đúng tiền lệ đã có trong dự án (<code>20260725100000_add_username_to_users</code>): thêm cột nullable → backfill từ <code>code</code> cũ cho mọi đơn hiện có → <code>SET NOT NULL</code> → thêm ràng buộc unique. Vì <code>code</code> vốn đã unique nên backfill không cần xử lý trùng lặp. Đã áp dụng lên DB dev — bước <code>SET NOT NULL</code> tự xác nhận backfill đủ 100% (nếu sót 1 dòng NULL, bước này sẽ báo lỗi ngay).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Quyết định phạm vi</span>
+        <div class="v"><code>orderCode</code> <strong>không sửa được sau khi tạo</strong> (giống <code>code</code> cũ) — sửa lỗi gõ nhầm là việc khác, chưa nằm trong yêu cầu này.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= BE CỐT LÕI ========= -->
+  <section id="core">
+    <div class="sec-head"><h2>2. Module <code>sales-orders</code> (BE)</h2></div>
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Đổi logic</span><span class="badge date">10/09</span><span class="f-title">Lần đầu mã PO có thể trùng — cần chặn đúng cách</span></div>
+      <div class="f-field">
+        <span class="k">Chặn trùng 2 lớp (mirror <code>material-groups.service.ts</code>)</span>
+        <div class="v"><code>create()</code>: pre-check <code>findUnique({ orderCode })</code> chặn trường hợp thường, cộng <code>try/catch</code> bắt Prisma <code>P2002</code> quanh <code>create()</code> chặn race — 2 request tạo cùng mã gần như đồng thời đều qua pre-check nhưng chỉ 1 request thắng ở DB, request thua nhận lỗi nghiệp vụ rõ ràng ("Mã đơn hàng ... đã được dùng cho đơn khác") thay vì lỗi Prisma thô.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Search mở rộng</span>
+        <div class="v"><code>findAll()</code> tìm theo <code>OR: [code, orderCode]</code> — vẫn tra được bằng mã nội bộ cũ nếu ai còn quen dùng, không chỉ mã mới.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Message lỗi xoá đơn</span>
+        <div class="v"><code>buildDeleteBlockReason()</code> (đã có từ tính năng xoá PO sáng nay) đổi sang dùng <code>orderCode</code> trong nội dung thông báo cho Sales.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= LAN TOẢ ========= -->
+  <section id="lan-toa">
+    <div class="sec-head"><h2>3. Lan toả sang 13 module khác (BE)</h2><span class="sec-count">Phần lớn khối lượng công việc</span></div>
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Đổi nguồn dữ liệu</span><span class="badge date">10/09</span><span class="f-title">Đổi nguồn cho field <code>salesOrderCode</code> có sẵn — KHÔNG đổi hợp đồng dữ liệu với FE</span></div>
+      <div class="f-field">
+        <span class="k">Phát hiện quan trọng lúc rà soát</span>
+        <div class="v">Từ 18/08/2026, dự án đã có sẵn quy ước: <code>ProductionOrder.poNumber</code> (mã nội bộ) KHÔNG hiển thị cho người dùng nữa — field <code>salesOrderCode</code> (lấy từ <code>SalesOrder.code</code> qua include Prisma) mới là "mã PO" thật sự hiển thị, đã lan ra khắp ~13 module. Nên việc cần làm không phải "thêm hiển thị mới", mà là <strong>đổi nguồn</strong> của field đã tồn tại sẵn.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Pattern lặp lại — sửa 1 kiểu ở mỗi file</span>
+        <div class="v">Đổi Prisma <code>select: { salesOrder: { select: { code: true } } }</code> → <code>{ select: { orderCode: true } }</code>, và mọi chỗ đọc <code>.salesOrder?.code</code>/<code>.salesOrder.code</code> → <code>.orderCode</code>. Tên field <code>salesOrderCode</code> trong response DTO giữ nguyên — <strong>FE của 13 module này không cần sửa gì cả</strong>, tự động nhận đúng giá trị mới.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">13 module đã sửa</span>
+        <div class="v"><code>production-invoices</code>, <code>skus</code>, <code>purchase-proposals</code>, <code>cutting-proposals</code> (còn có nhánh fallback label riêng), <code>packaging-issues</code>, <code>material-yield-issues</code>, <code>material-issues</code>, <code>steel-issues</code>, <code>weaving-issues</code>, <code>production-batches</code>, <code>warehouse-transfers</code>, <code>production-orders</code> (gồm cả <code>resolvePoNumber()</code> — xem mục dưới).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Điểm cần cẩn thận đã xử lý đúng</span>
+        <div class="v">Vài file (<code>steel-issues</code>, <code>purchase-proposals</code>, <code>production-orders</code>) có <strong>2 field <code>code</code> khác model cùng xuất hiện gần nhau</strong> trong 1 câu Prisma select (vd <code>ProductionInvoice.code</code> đứng cạnh <code>SalesOrder.code</code>) — chỉ đổi đúng field lồng trong <code>salesOrder: {...}</code>, không đụng field <code>code</code> của model khác.</div>
+      </div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Đổi logic</span><span class="badge date">10/09</span><span class="f-title"><code>ProductionOrder.poNumber</code> giờ sinh từ <code>orderCode</code></span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span><code>resolvePoNumber()</code> sinh <code>${salesOrder.code}-${n}</code> (vd "PO-31-2") — theo quyết định người dùng, đổi sang <code>orderCode</code>.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Sinh <code>${salesOrder.orderCode}-${n}</code> — vd "DH-KHACHA-01-2" tuỳ mã Sales đặt. Nhánh <code>NB-{id}</code> (item không gắn Sales Order) giữ nguyên.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Rủi ro đã cân nhắc, chấp nhận có chủ đích</span>
+        <div class="v"><code>orderCode</code> là chuỗi tự do (Sales gõ tay) — về lý thuyết 2 đơn khác nhau có thể tạo ra <code>poNumber</code> trùng (vd 1 đơn có mã "ABC-1" trùng với <code>{mã khác}-1</code>). Ràng buộc <code>@unique</code> ở DB chặn thật (ném lỗi rõ ràng, transaction rollback sạch), không âm thầm sai dữ liệu — tần suất cực hiếm, không thêm ràng buộc ký tự cho <code>orderCode</code> (cùng tinh thần chấp nhận rủi ro hiếm đã áp dụng cho tính năng xoá PO sáng nay).</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= FE SALES ========= -->
+  <section id="fe">
+    <div class="sec-head"><h2>4. FE — module Sales</h2></div>
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">10/09</span><span class="f-title">Ô nhập "Mã đơn hàng *" trong form Tạo PO</span></div>
+      <div class="f-field">
+        <span class="k">Thay đổi</span>
+        <div class="v">
+          <ul>
+            <li>Thêm ô nhập bắt buộc "Mã đơn hàng *" ở đầu form Tạo PO (trước cả "Khách hàng") — vì giờ đây là định danh chính người dùng tự đặt.</li>
+            <li>Cột "PO" ở bảng danh sách, tiêu đề trang chi tiết, message xác nhận xoá đơn — đều chuyển sang <code>po.orderCode</code>.</li>
+            <li>Thêm xử lý lỗi trong modal tạo PO (trước đây <strong>chưa từng cần</strong> vì mã cũ tự sinh không thể trùng) — trùng mã giờ hiện lỗi rõ ràng ngay trong modal thay vì rơi vào unhandled rejection.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= XÁC MINH TOÀN HỆ THỐNG ========= -->
+  <section id="xac-minh">
+    <div class="sec-head"><h2>5. Xác minh toàn hệ thống</h2><span class="sec-count">2 vòng kiểm tra, phát hiện thêm 3 chỗ sót</span></div>
+    <div class="prose-card">
+      <p>Vòng kiểm tra đầu tiên chỉ soát các trang FE đã biết trước có gọi <code>getSalesOrders()</code>. Khi được hỏi lại "đã kiểm tra hết toàn bộ hệ thống chưa", grep lại <strong>toàn bộ 2 repo</strong> (không giới hạn danh sách đã biết) mới phát hiện thêm:</p>
+      <ul>
+        <li>3 trang FE khác vẫn hiển thị trực tiếp <code>.code</code> cũ: <code>PurchaseHistoryPage.tsx</code>, <code>SalesPOsPage.tsx</code> (Admin), <code>WarehouseXuatPage.tsx</code> (2 chỗ gán, lan ra 4 vị trí hiển thị) — đã sửa cả 3.</li>
+        <li>6 dòng comment tư liệu (docstring DTO) mô tả sai <code>SalesOrder.code</code> là "mã PO người dùng cần thấy" — đã sửa lại cho khớp thực tế mới.</li>
+      </ul>
+      <p>Vòng kiểm tra thứ hai (khi được hỏi lại lần nữa, cụ thể hơn: "các item nào có PO") — liệt kê <strong>toàn bộ 20 file có cột/nhãn "PO"</strong> trên UI bằng cách grep theo header hiển thị (không chỉ theo tên field), rồi trace ngược từng cái tới tận nguồn dữ liệu. Phát hiện thêm 7 trang Kho/Xuất (<code>KhoChuyenKiemPage</code>, <code>KhoDongGoiPage</code>, <code>KhoNhapDanPage</code>, <code>KhoXuatDanPage</code>, <code>XuatVatTuTieuHaoPage</code>, <code>XuatSatPage</code>, <code>XuatVatTuThanhPhamPage</code>) chưa từng xuất hiện trong lần grep trước — xác minh riêng, cả 7 đều đã đúng (đi qua chung 1 hook <code>usePoInfoFloorGate()</code> → <code>poInfoFor().poCode</code> ← <code>salesOrderCode</code> đã sửa ở mục 3, không cần sửa gì thêm).</p>
+      <p>Cũng grep riêng các kiểu xử lý chuỗi giả định cứng định dạng cũ (<code>startsWith('PO-')</code>, <code>split('-')</code>, regex <code>/^PO/</code>) — không có kết quả nào, xác nhận không có chỗ nào âm thầm giả định mã luôn bắt đầu bằng "PO-".</p>
+      <ul class="ok-list">
+        <li>20/20 nơi có cột/nhãn "PO" trên UI đã xác nhận trỏ đúng <code>orderCode</code>/<code>salesOrderCode</code>.</li>
+        <li>Xác nhận 2 trường hợp KHÔNG cần sửa: <code>demo-ton-kho/page.tsx</code> (trang demo độc lập, kiểu dữ liệu riêng, không liên quan <code>SalesOrder</code> thật) và <code>ThongKePagePlan.tsx</code> (đã tự động đúng qua chuỗi <code>order.code</code> ← <code>poCode</code> ← <code>salesOrderCode</code>).</li>
+        <li>Không có chỗ nào giả định cứng định dạng "PO-" trong toàn bộ FE.</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- ========= FILE ĐÃ SỬA ========= -->
+  <section id="files">
+    <div class="sec-head"><h2>6. File đã sửa</h2></div>
+    <div class="prose-card">
+      <table class="file-table">
+        <thead><tr><th>Nhóm</th><th>File</th></tr></thead>
+        <tbody>
+          <tr><td>Schema/Migration</td><td><code>schema.prisma</code>, migration mới <code>20260910100000_add_sales_order_order_code</code></td></tr>
+          <tr><td>BE cốt lõi</td><td><code>sales-orders.service.ts</code>, <code>create-sales-order.dto.ts</code>, <code>sales-order-response.dto.ts</code>, <code>sales-orders.service.spec.ts</code> (thêm test chặn trùng + race P2002)</td></tr>
+          <tr><td>BE lan toả (13 module)</td><td><code>production-invoices</code>, <code>skus</code>, <code>purchase-proposals</code>, <code>cutting-proposals</code> (+ spec), <code>packaging-issues</code>, <code>material-yield-issues</code>, <code>material-issues</code>, <code>steel-issues</code>, <code>weaving-issues</code>, <code>production-batches</code>, <code>warehouse-transfers</code>, <code>production-orders</code> (+ spec) — mỗi file chỉ đổi select/field đọc</td></tr>
+          <tr><td>BE tư liệu</td><td>6 file DTO — sửa comment mô tả field cho đúng thực tế mới</td></tr>
+          <tr><td>FE Sales</td><td><code>types/sales.ts</code>, <code>services/sales-orders-api.ts</code>, <code>OrderManagementPage.tsx</code></td></tr>
+          <tr><td>FE phát hiện thêm</td><td><code>PurchaseHistoryPage.tsx</code>, <code>SalesPOsPage.tsx</code>, <code>WarehouseXuatPage.tsx</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 10/09/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>

@@ -32,6 +32,7 @@ interface BeSalesOrderItem {
 interface BeSalesOrder {
   id: string;
   code: string;
+  orderCode: string;
   customerId: string;
   customerName: string;
   orderDate: string;
@@ -55,6 +56,7 @@ function toSalesOrder(o: BeSalesOrder): SalesOrder {
   return {
     id: o.id,
     code: o.code,
+    orderCode: o.orderCode,
     customerId: o.customerId,
     customerName: o.customerName,
     orderDate: o.orderDate,
@@ -117,6 +119,7 @@ export async function createSalesOrder(data: Record<string, unknown>): Promise<S
   );
 
   const created = await http.post<BeSalesOrder>('/sales-orders', {
+    orderCode: data.orderCode,
     customerId: data.customerId,
     orderDate: data.orderDate ?? new Date().toISOString(),
     attachmentName: data.attachmentName,
