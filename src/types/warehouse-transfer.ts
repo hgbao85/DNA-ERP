@@ -11,6 +11,21 @@ export interface WarehouseTransferItem {
   note?: string | null
 }
 
+/** Dòng "mảnh"/vật tư thành phẩm - bảng con riêng ở BE (WarehouseTransferPieceItem), không
+ *  chung với WarehouseTransferItem (vật tư tiêu hao). 1 phiếu chỉ có items HOẶC pieceItems,
+ *  không cả hai - xem createPieceTransfer() ở BE. */
+export interface WarehouseTransferPieceItem {
+  id: string
+  productionOrderId: string
+  poNumber: string
+  salesOrderCode: string | null
+  pieceId: string
+  pieceCode: string
+  pieceName: string
+  quantity: number
+  note?: string | null
+}
+
 export interface WarehouseTransfer {
   id: string
   code: string
@@ -22,6 +37,7 @@ export interface WarehouseTransfer {
   toWarehouseCode: string
   status: TransferStatus
   items: WarehouseTransferItem[]
+  pieceItems: WarehouseTransferPieceItem[]
   note?: string | null
   rejectionReason?: string | null
   createdAt: string

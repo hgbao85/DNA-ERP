@@ -13,13 +13,25 @@
  * xem WarehouseXuatPage.tsx cho cách nhồi thông tin PI vào `note` thay vì giả một field cấu trúc.
  */
 import { http, withIdempotencyKey } from './core/http';
-import type { TransferStatus, WarehouseTransfer, WarehouseTransferItem } from '../types/warehouse-transfer';
+import type { TransferStatus, WarehouseTransfer, WarehouseTransferItem, WarehouseTransferPieceItem } from '../types/warehouse-transfer';
 
 interface BeWarehouseTransferItem {
   id: string;
   materialId: string | null;
   materialName: string;
   unit: string;
+  quantity: number;
+  note: string | null;
+}
+
+interface BeWarehouseTransferPieceItem {
+  id: string;
+  productionOrderId: string;
+  poNumber: string;
+  salesOrderCode: string | null;
+  pieceId: string;
+  pieceCode: string;
+  pieceName: string;
   quantity: number;
   note: string | null;
 }
@@ -47,6 +59,7 @@ interface BeWarehouseTransfer {
 
 interface BeWarehouseTransferDetail extends BeWarehouseTransfer {
   items: BeWarehouseTransferItem[];
+  pieceItems: BeWarehouseTransferPieceItem[];
 }
 
 function toItem(it: BeWarehouseTransferItem): WarehouseTransferItem {
@@ -60,7 +73,25 @@ function toItem(it: BeWarehouseTransferItem): WarehouseTransferItem {
   };
 }
 
-function toTransfer(t: BeWarehouseTransfer, items: BeWarehouseTransferItem[]): WarehouseTransfer {
+function toPieceItem(it: BeWarehouseTransferPieceItem): WarehouseTransferPieceItem {
+  return {
+    id: it.id,
+    productionOrderId: it.productionOrderId,
+    poNumber: it.poNumber,
+    salesOrderCode: it.salesOrderCode,
+    pieceId: it.pieceId,
+    pieceCode: it.pieceCode,
+    pieceName: it.pieceName,
+    quantity: it.quantity,
+    note: it.note,
+  };
+}
+
+function toTransfer(
+  t: BeWarehouseTransfer,
+  items: BeWarehouseTransferItem[],
+  pieceItems: BeWarehouseTransferPieceItem[] = [],
+): WarehouseTransfer {
   return {
     id: t.id,
     code: t.code,
@@ -72,6 +103,7 @@ function toTransfer(t: BeWarehouseTransfer, items: BeWarehouseTransferItem[]): W
     toWarehouseCode: t.toWarehouseCode,
     status: t.status,
     items: items.map(toItem),
+    pieceItems: pieceItems.map(toPieceItem),
     note: t.note,
     rejectionReason: t.rejectionReason,
     createdAt: t.createdAt,
@@ -85,7 +117,7 @@ function toTransfer(t: BeWarehouseTransfer, items: BeWarehouseTransferItem[]): W
 
 export async function getWarehouseTransfer(id: string | number): Promise<WarehouseTransfer> {
   const detail = await http.get<BeWarehouseTransferDetail>(`/warehouse-transfers/${id}`);
-  return toTransfer(detail, detail.items);
+  return toTransfer(detail, detail.items, detail.pieceItems);
 }
 
 // `status` optional (Medium fix): không truyền = hành vi cũ (top-100 gần nhất, dùng cho Admin

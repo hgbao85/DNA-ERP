@@ -114,7 +114,7 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                 >
                   <span style={{ fontWeight: 700, fontFamily: 'monospace', fontSize: 14 }}>{t.code}</span>
                   <span style={{ fontSize: 13, color: 'var(--text2)' }}>Từ: {t.fromWarehouseName}</span>
-                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>{t.items.length} vật tư</span>
+                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>{t.items.length + t.pieceItems.length} vật tư</span>
                   <div style={{ flex: 1 }} />
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>{new Date(t.createdAt).toLocaleDateString('vi-VN')}</span>
                   {isExpanded ? <ChevronUp size={16} color="var(--text3)" /> : <ChevronDown size={16} color="var(--text3)" />}
@@ -136,6 +136,13 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                             <td style={{ ...td, fontWeight: 600 }}>{it.materialName}</td>
                             <td style={{ ...td, textAlign: 'right' }}>{it.quantity}</td>
                             <td style={{ ...td, color: 'var(--text3)' }}>{it.unit}</td>
+                          </tr>
+                        ))}
+                        {t.pieceItems.map(it => (
+                          <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
+                            <td style={{ ...td, fontWeight: 600 }}>{it.pieceCode} — {it.pieceName}</td>
+                            <td style={{ ...td, textAlign: 'right' }}>{it.quantity}</td>
+                            <td style={{ ...td, color: 'var(--text3)' }}>mảnh</td>
                           </tr>
                         ))}
                       </tbody>
@@ -214,7 +221,7 @@ function TransferHistoryTable({ title, transfers }: { title: string; transfers: 
                     <td style={{ ...td, fontWeight: 600, fontFamily: 'monospace' }}>{t.code}</td>
                     <td style={td}>{t.fromWarehouseName}</td>
                     <td style={td}>{t.toWarehouseName}</td>
-                    <td style={{ ...td, color: 'var(--text3)' }}>{t.items.length} loại</td>
+                    <td style={{ ...td, color: 'var(--text3)' }}>{t.items.length + t.pieceItems.length} loại</td>
                     <td style={td}>
                       <span style={{ ...badge, background: st.bg, color: st.color }}>{st.label}</span>
                     </td>
