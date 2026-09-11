@@ -107,6 +107,10 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
           : [{
             id: `${b.id}-done`, entityType: 'kcs-lo', entityId: b.id, action: 'kcs.approved',
             actorName: 'KCS', at: b.reportedAt, note: doneNote, photoUrl: review?.photoUrl ?? undefined,
+            // qcReviewId (2026-09-11 lần 2) - CHỈ có tác dụng khi có photoUrl (xem
+            // AuditLogTimeline.EditPhotoActions) - cho phép người đã chấm review này tự sửa/xóa lại
+            // ảnh, không cần đợi Admin.
+            qcReviewId: review?.id,
           }]
         return {
           id: lineId, itemName: b.pieceName, spec: `${b.pieceCode} · lô ${timeVN(b.reportedAt)}`,
@@ -187,5 +191,32 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
     }
   }
 
-  return <KcsTwoTierScreen cfg={cfg} rows={rows} onReview={onReview} />
+  // Sửa/xóa ảnh lỗi của 1 review ĐÃ CHẤM (2026-09-11 lần 2, theo Sếp Trương Văn Nhân: "cho người
+  // nhập được sửa luôn") - BE (QcReviewsService.updatePhoto()) tự kiểm actor có đúng người đã chấm
+  // review này hay Admin không, ở đây không cần đoán trước. Lỗi (vd không phải người nhập) ném lên
+  // cho AuditLogTimeline.EditPhotoActions tự alert - cùng idiom AttachmentsPage.tsx.
+  const onEditPhoto = async (entry: AuditLogEntry, file: File) => {
+    if (!entry.qcReviewId) return
+    try {
+      const url = await api.uploadImage(file)
+      await api.updateQcReviewPhoto(entry.qcReviewId, url)
+      refetchReviews()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Không đổi được ảnh')
+    }
+  }
+  const onDeletePhoto = async (entry: AuditLogEntry) => {
+    if (!entry.qcReviewId) return
+    try {
+      await api.updateQcReviewPhoto(entry.qcReviewId, null)
+      refetchReviews()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Không xóa được ảnh')
+    }
+  }
+
+  return (
+    <KcsTwoTierScreen cfg={cfg} rows={rows} onReview={onReview}
+      onEditPhoto={onEditPhoto} onDeletePhoto={onDeletePhoto} />
+  )
 }

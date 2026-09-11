@@ -244,6 +244,23 @@ export async function bossApproveProposal(
   return getPurchaseProposal(id);
 }
 
+/**
+ * Admin "Quản lý tệp đính kèm" (2026-09-11, sửa lại lần 2 cùng ngày - cho phép xóa hẳn) - THAY hoặc
+ * XÓA file duyệt của Sếp khi Mua hàng lỡ upload nhầm. Route BE chặn role ADMIN, tự ghi audit log +
+ * dọn Cloudinary. `approvalFileUrl: null` = xóa hẳn (đã rà `receiveItem()` BE không phụ thuộc field
+ * này nên xóa an toàn, không phá luồng nhận hàng - xem doc comment UpdateApprovalFileDto BE).
+ */
+export async function updateProposalItemApprovalFile(
+  proposalId: string,
+  itemId: string,
+  approvalFileUrl: string | null,
+): Promise<PurchaseProposal> {
+  await http.patch(`/purchase-proposals/${proposalId}/items/${itemId}/approval-file`, {
+    approvalFileUrl,
+  });
+  return getPurchaseProposal(proposalId);
+}
+
 /** `itemId` (2026-08-26, L6) là PurchaseProposalItem.id thật - gửi thẳng lên BE, không cần tra
  *  ngược qua proposal.items nữa (trước đây dịch qua materialId, xem comment đầu file). */
 export async function receiveProposalItem(

@@ -7,6 +7,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials } from '../../../services/api'
 import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purchasingRouting'
+import { ApprovalFileCell } from './TheoDoiMuaHangPage'
 
 const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
 const td: React.CSSProperties = { padding: '9px 12px' }
@@ -15,6 +16,8 @@ const td: React.CSSProperties = { padding: '9px 12px' }
 // file Excel Sếp ký (item.approvalFileUrl), phần mềm không lưu tách ra.
 interface Row {
   key: string
+  proposalId: string
+  itemId?: string
   poNumber: string | null
   itemName: string
   buyQty: number
@@ -32,6 +35,8 @@ function buildRows(p: PurchaseProposal): Row[] {
     const key = item.itemId ?? String(item.materialId)
     return {
       key: `${p.id}-${key}`,
+      proposalId: p.id,
+      itemId: item.itemId,
       poNumber: p.salesOrderCode,
       itemName: item.name,
       buyQty: item.buyQty,
@@ -96,13 +101,7 @@ export default function LichSuMuaHangPage() {
                   <td style={{ ...td, color: 'var(--text3)' }}>{r.unit}</td>
                   {/* Giá + NCC nằm TRONG file này (2026-08-27) - phần mềm không lưu tách ra. */}
                   <td style={td}>
-                    {r.approvalFileUrl ? (
-                      <a href={r.approvalFileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#2563eb', fontWeight: 600 }}>
-                        Xem file Sếp duyệt
-                      </a>
-                    ) : (
-                      <span style={{ color: 'var(--text3)' }}>—</span>
-                    )}
+                    <ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} />
                   </td>
                 </tr>
               ))}

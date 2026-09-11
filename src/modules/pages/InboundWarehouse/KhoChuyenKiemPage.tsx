@@ -1,15 +1,85 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
+import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
-import type { BeTransferCheckPiece } from '../../../services/transfer-check-api'
+import type { BeTransferCheckPiece, BeTransferCheckDefect } from '../../../services/transfer-check-api'
+import { resolveProductionInvoiceRef } from '../../../services/production-invoice-item'
 import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
 import { format } from 'date-fns'
-import { ChevronLeft, Plus, X, Image as ImageIcon } from 'lucide-react'
+import { ChevronLeft, Plus, X, Image as ImageIcon, Upload, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import type { Sku } from '../../../types/sku'
 import LoadingState from '../../../components/LoadingState'
 
 interface LoiEntry { id: number; lyDo: string; file: File | null }
+
+/**
+ * Danh sách lỗi ĐÃ GHI của 1 mảnh, kèm sửa/xóa ảnh - 2026-09-11 lần 2 (theo Sếp Trương Văn Nhân:
+ * "cho người nhập được sửa luôn"). Trước đây trang này chỉ hiện SỐ LƯỢNG lỗi (`defectCount`),
+ * không có chỗ nào xem lại/sửa từng lỗi cụ thể - đây là UI MỚI hoàn toàn (không có sẵn để tái dùng
+ * như KCS/Mua hàng). Lấy danh sách qua `getTransferCheckDefects()` (đã có sẵn cho trang Admin,
+ * fetch phẳng toàn hệ thống) rồi lọc client theo `productionInvoiceItemId`+`pieceId` - danh sách
+ * demo/thực tế chưa đủ lớn để cần endpoint lọc riêng.
+ */
+function DefectListPanel({ defects, onChanged }: {
+  defects: BeTransferCheckDefect[]
+  onChanged: () => void
+}) {
+  const { ask, confirmModal } = useConfirm()
+  const [busyId, setBusyId] = useState<string | null>(null)
+
+  const replace = async (id: string, file: File) => {
+    setBusyId(id)
+    try {
+      const url = await api.uploadImage(file)
+      await api.updateTransferCheckDefectPhoto(id, url)
+      onChanged()
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Không đổi được ảnh')
+    } finally {
+      setBusyId(null)
+    }
+  }
+  const remove = (id: string) => {
+    ask({ message: 'Xóa hẳn ảnh lỗi này? Không thể hoàn tác.', danger: true, confirmLabel: 'Xóa ảnh' }, async () => {
+      setBusyId(id)
+      try {
+        await api.updateTransferCheckDefectPhoto(id, null)
+        onChanged()
+      } finally {
+        setBusyId(null)
+      }
+    })
+  }
+
+  return (
+    <div style={{ padding: '10px 14px', background: 'var(--surface2)', borderTop: '1px dashed var(--border)' }}>
+      {confirmModal}
+      {defects.length === 0 ? (
+        <div style={{ fontSize: 12, color: 'var(--text3)' }}>Không có lỗi nào ghi cho mảnh này (có thể do PI khác cùng loại mảnh).</div>
+      ) : defects.map(d => (
+        <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+          {d.imageUrl ? (
+            <a href={d.imageUrl} target="_blank" rel="noreferrer">
+              <img src={d.imageUrl} alt="lỗi" style={{ height: 36, borderRadius: 4, border: '1px solid var(--border)', display: 'block' }} />
+            </a>
+          ) : <span style={{ width: 36 }} />}
+          <span style={{ fontSize: 12, flex: 1, minWidth: 120 }}>{d.reason}</span>
+          <label style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 7px', cursor: busyId === d.id ? 'not-allowed' : 'pointer', opacity: busyId === d.id ? 0.6 : 1 }}>
+            <Upload size={10} /> {busyId === d.id ? '…' : (d.imageUrl ? 'Đổi ảnh' : 'Thêm ảnh')}
+            <input type="file" accept="image/*" hidden disabled={busyId === d.id}
+              onChange={e => { const f = e.target.files?.[0]; if (f) replace(d.id, f); e.target.value = '' }} />
+          </label>
+          {d.imageUrl && (
+            <button onClick={() => remove(d.id)} disabled={busyId === d.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#c62828', border: '1px solid rgba(198,40,40,.35)', borderRadius: 6, padding: '2px 7px', background: 'none', cursor: busyId === d.id ? 'not-allowed' : 'pointer', opacity: busyId === d.id ? 0.6 : 1 }}>
+              <Trash2 size={10} /> Xóa ảnh
+            </button>
+          )}
+        </div>
+      ))}
+    </div>
+  )
+}
 
 export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderId, warehouseScope }: { readOnly?: boolean; filterExportOrderId?: string; warehouseScope?: string | null } = {}) {
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
@@ -20,6 +90,18 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
     [selectedPf?.id],
   )
   const pieces = piecesData ?? []
+
+  // Sửa/xóa ảnh lỗi ĐÃ GHI (2026-09-11 lần 2, theo Sếp: "cho người nhập được sửa luôn") - xem
+  // DefectListPanel. `itemRef` cần để lọc ĐÚNG lần kiểm của PI đang xem (pieceId lặp lại giữa
+  // nhiều PI khác nhau - lọc riêng theo mảnh sẽ lẫn dữ liệu PI khác cùng loại mảnh).
+  const { data: itemRef } = useFetch(
+    () => (selectedPf ? resolveProductionInvoiceRef(selectedPf) : Promise.resolve(null)),
+    [selectedPf?.id],
+  )
+  const { data: allDefects, refetch: refetchDefects } = useFetch(() => api.getTransferCheckDefects(), [])
+  const [expandedPieceId, setExpandedPieceId] = useState<string | null>(null)
+  const defectsForPiece = (pieceId: string) =>
+    (allDefects ?? []).filter(d => d.productionInvoiceItemId === itemRef?.itemId && d.pieceId === pieceId)
 
   // Popup state
   const [checkingPiece, setCheckingPiece] = useState<BeTransferCheckPiece | null>(null)
@@ -155,14 +237,24 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                 </tr>
               </thead>
               <tbody>
-                {pieces.map(piece => (
-                  <tr key={piece.pieceId} style={{ borderTop: '1px solid var(--border)' }}>
+                {pieces.map(piece => {
+                  const expanded = expandedPieceId === piece.pieceId
+                  return (
+                  <Fragment key={piece.pieceId}>
+                  <tr style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={{ ...td, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {piece.pieceName}
                     </td>
                     <td style={{ ...td, textAlign: 'right', color: 'var(--text2)' }}>{piece.totalQty}</td>
                     <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: piece.checkedQty > 0 ? '#16a34a' : 'var(--text)' }}>{piece.checkedQty}</td>
-                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: piece.defectCount > 0 ? '#dc2626' : 'var(--text3)' }}>{piece.defectCount}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>
+                      {piece.defectCount > 0 ? (
+                        <button onClick={() => setExpandedPieceId(expanded ? null : piece.pieceId)}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 700, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>
+                          {piece.defectCount} {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                        </button>
+                      ) : <span style={{ color: 'var(--text3)' }}>{piece.defectCount}</span>}
+                    </td>
                     <td style={td}>
                       {readOnly ? (
                         <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>
@@ -176,7 +268,16 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                       )}
                     </td>
                   </tr>
-                ))}
+                  {expanded && (
+                    <tr>
+                      <td colSpan={5} style={{ padding: 0 }}>
+                        <DefectListPanel defects={defectsForPiece(piece.pieceId)} onChanged={refetchDefects} />
+                      </td>
+                    </tr>
+                  )}
+                  </Fragment>
+                  )
+                })}
                 {pieces.length === 0 && (
                   <tr>
                     <td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>

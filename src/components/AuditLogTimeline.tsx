@@ -1,8 +1,10 @@
 'use client'
+import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
-import { FilePlus, Inbox, Send, RotateCcw, Check, X, History, PackageCheck, Factory, UserPlus, UserCog, Trash2, Pencil, Bell, Settings, RefreshCcw, KeyRound, Lock, LockOpen } from 'lucide-react'
+import { FilePlus, Inbox, Send, RotateCcw, Check, X, History, PackageCheck, Factory, UserPlus, UserCog, Trash2, Pencil, Bell, Settings, RefreshCcw, KeyRound, Lock, LockOpen, Upload } from 'lucide-react'
 import { format } from 'date-fns'
 import { AUDIT_ACTIONS, type AuditAction, type AuditLogEntry } from '../context/AuditLogContext'
+import { useConfirm } from '../hooks/useConfirm'
 
 // Icon theo action chỉ là mối quan tâm hiển thị (UI) — cố tình để ở đây thay vì trong
 // AuditLogContext.tsx để context không phải phụ thuộc lucide-react.
@@ -55,7 +57,59 @@ const ACTION_ICON: Record<AuditAction, LucideIcon> = {
   'system.data_reset':     RefreshCcw,
 }
 
-function TimelineList({ entries }: { entries: AuditLogEntry[] }) {
+/**
+ * Đổi/xóa ảnh minh hoạ - 2026-09-11 lần 2 (theo Sếp Trương Văn Nhân: "cho người nhập được sửa
+ * luôn"), CHỈ hiện khi caller truyền `onEditPhoto`/`onDeletePhoto` (mọi nơi khác dùng
+ * AuditLogTimeline không có ảnh nên không đụng gì). BE (`QcReviewsService.updatePhoto()`) tự kiểm
+ * actor có đúng người đã chấm review này hay Admin không - component này không đoán trước, lỗi
+ * (nếu có) do caller tự xử lý qua Promise reject.
+ */
+function EditPhotoActions({ entry, onEditPhoto, onDeletePhoto }: {
+  entry: AuditLogEntry
+  onEditPhoto?: (entry: AuditLogEntry, file: File) => void | Promise<void>
+  onDeletePhoto?: (entry: AuditLogEntry) => void | Promise<void>
+}) {
+  const { ask, confirmModal } = useConfirm()
+  const [busy, setBusy] = useState(false)
+  if (!entry.qcReviewId) return null
+
+  const replace = async (file: File) => {
+    setBusy(true)
+    try { await onEditPhoto?.(entry, file) }
+    finally { setBusy(false) }
+  }
+  const remove = () => {
+    ask({ message: 'Xóa hẳn ảnh lỗi này? Không thể hoàn tác.', danger: true, confirmLabel: 'Xóa ảnh' }, async () => {
+      setBusy(true)
+      try { await onDeletePhoto?.(entry) }
+      finally { setBusy(false) }
+    })
+  }
+
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+      {confirmModal}
+      {onEditPhoto && (
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 7px', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+          <Upload size={10} /> {busy ? '…' : 'Đổi ảnh'}
+          <input type="file" accept="image/*" hidden disabled={busy}
+            onChange={ev => { const f = ev.target.files?.[0]; if (f) replace(f); ev.target.value = '' }} />
+        </label>
+      )}
+      {onDeletePhoto && (
+        <button onClick={remove} disabled={busy} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#c62828', border: '1px solid rgba(198,40,40,.35)', borderRadius: 6, padding: '2px 7px', background: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+          <Trash2 size={10} /> Xóa ảnh
+        </button>
+      )}
+    </div>
+  )
+}
+
+function TimelineList({ entries, onEditPhoto, onDeletePhoto }: {
+  entries: AuditLogEntry[]
+  onEditPhoto?: (entry: AuditLogEntry, file: File) => void | Promise<void>
+  onDeletePhoto?: (entry: AuditLogEntry) => void | Promise<void>
+}) {
   if (entries.length === 0) {
     return <div style={{ fontSize: 12, color: 'var(--text3)' }}>Chưa có hoạt động nào</div>
   }
@@ -96,9 +150,12 @@ function TimelineList({ entries }: { entries: AuditLogEntry[] }) {
                   "Không đạt" nhưng ảnh không hiển thị lại ở bất kỳ đâu, kể cả đúng ở "Lịch sử" này -
                   nơi hợp lý nhất để xem lại lý do + ảnh của 1 lần duyệt. */}
               {e.photoUrl && (
-                <a href={e.photoUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block', marginTop: 6 }}>
-                  <img src={e.photoUrl} alt="Ảnh lỗi" style={{ height: 64, borderRadius: 6, border: '1px solid var(--border)', display: 'block' }} />
-                </a>
+                <div style={{ display: 'flex', alignItems: 'center', marginTop: 6 }}>
+                  <a href={e.photoUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-block' }}>
+                    <img src={e.photoUrl} alt="Ảnh lỗi" style={{ height: 64, borderRadius: 6, border: '1px solid var(--border)', display: 'block' }} />
+                  </a>
+                  <EditPhotoActions entry={e} onEditPhoto={onEditPhoto} onDeletePhoto={onDeletePhoto} />
+                </div>
               )}
             </div>
           </div>
@@ -111,13 +168,16 @@ function TimelineList({ entries }: { entries: AuditLogEntry[] }) {
 // Panel "Hoạt động" dạng timeline dọc, dùng chung cho mọi entity có audit log — chỉ cần
 // truyền entries lấy từ useAuditLog().getLogsFor(...). Luôn hiển thị đầy đủ, không cần bấm mở.
 // `bare`: bỏ khung/tiêu đề riêng — dùng khi nhúng vào 1 card đã có tiêu đề sẵn (tránh khung lồng khung).
-export default function AuditLogTimeline({ entries, title = 'Hoạt động', bare = false }: {
+export default function AuditLogTimeline({ entries, title = 'Hoạt động', bare = false, onEditPhoto, onDeletePhoto }: {
   entries: AuditLogEntry[]
   title?: string
   bare?: boolean
+  /** Xem doc comment EditPhotoActions - chỉ có tác dụng với entry có cả photoUrl và qcReviewId. */
+  onEditPhoto?: (entry: AuditLogEntry, file: File) => void | Promise<void>
+  onDeletePhoto?: (entry: AuditLogEntry) => void | Promise<void>
 }) {
   if (bare) {
-    return <TimelineList entries={entries} />
+    return <TimelineList entries={entries} onEditPhoto={onEditPhoto} onDeletePhoto={onDeletePhoto} />
   }
 
   return (
@@ -128,7 +188,7 @@ export default function AuditLogTimeline({ entries, title = 'Hoạt động', ba
       </div>
 
       <div style={{ padding: '14px' }}>
-        <TimelineList entries={entries} />
+        <TimelineList entries={entries} onEditPhoto={onEditPhoto} onDeletePhoto={onDeletePhoto} />
       </div>
     </div>
   )

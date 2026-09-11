@@ -1,12 +1,13 @@
 'use client'
 import { useState } from 'react'
-import { LayoutDashboard, Users, History, Database, Bell, Settings, Briefcase, Activity, LogOut, Warehouse } from 'lucide-react'
+import { LayoutDashboard, Users, History, Database, Bell, Settings, Briefcase, Activity, LogOut, Warehouse, Image as ImageIcon } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import DashboardPage from './DashboardPage'
 import UsersPage from './UsersPage'
 import AuditLogPage from './AuditLogPage'
 import MasterDataPage from './MasterDataPage'
 import BusinessDataPage from './BusinessDataPage'
+import AttachmentsPage from './AttachmentsPage'
 import NotificationsPage from './NotificationsPage'
 import SystemConfigPage from './SystemConfigPage'
 import SystemStatusPage from './SystemStatusPage'
@@ -15,7 +16,7 @@ import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 const ACCENT    = '#3949ab'
 const ACCENT_BG = '#e8eaf6'
 
-type AdminPage = 'dashboard' | 'users' | 'warehouses' | 'audit-log' | 'master-data' | 'business-data' | 'notifications' | 'system-config' | 'system-status'
+type AdminPage = 'dashboard' | 'users' | 'warehouses' | 'audit-log' | 'master-data' | 'business-data' | 'attachments' | 'notifications' | 'system-config' | 'system-status'
 
 const NAV_ITEMS: { id: AdminPage; label: string; icon: React.ReactNode; enabled: boolean }[] = [
   { id: 'dashboard',      label: 'Tổng quan',               icon: <LayoutDashboard size={16} />, enabled: true },
@@ -24,6 +25,7 @@ const NAV_ITEMS: { id: AdminPage; label: string; icon: React.ReactNode; enabled:
   { id: 'audit-log',      label: 'Nhật ký hoạt động',        icon: <History size={16} />,         enabled: true },
   { id: 'master-data',    label: 'Danh mục hệ thống',        icon: <Database size={16} />,        enabled: true },
   { id: 'business-data',  label: 'Module nghiệp vụ',         icon: <Briefcase size={16} />,       enabled: true },
+  { id: 'attachments',    label: 'Quản lý tệp đính kèm',     icon: <ImageIcon size={16} />,       enabled: true },
   { id: 'notifications',  label: 'Thông báo',                icon: <Bell size={16} />,            enabled: true },
   { id: 'system-config',  label: 'Cấu hình hệ thống',        icon: <Settings size={16} />,        enabled: true },
   { id: 'system-status',  label: 'Tình trạng hệ thống',      icon: <Activity size={16} />,        enabled: true },
@@ -100,6 +102,7 @@ export default function AdminApp() {
         {page === 'audit-log'      && <AuditLogPage />}
         {page === 'master-data'    && <MasterDataPage />}
         {page === 'business-data'  && <BusinessDataPage />}
+        {page === 'attachments'    && <AttachmentsPage />}
         {page === 'notifications'  && <NotificationsPage />}
         {page === 'system-config'  && <SystemConfigPage />}
         {page === 'system-status'  && <SystemStatusPage />}

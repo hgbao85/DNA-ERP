@@ -117,7 +117,10 @@ export {
 export { getStockQuants, getStockLedger, adjustStock } from './stock-api';
 export { uploadImage, uploadDocument } from './uploads-api';
 export { getNotifications, createNotification, markNotificationRead } from './notifications-api';
-export { getTransferCheckPieces, getTransferCheckPiecesBatch, recordTransferCheck } from './transfer-check-api';
+export {
+  getTransferCheckPieces, getTransferCheckPiecesBatch, recordTransferCheck,
+  getTransferCheckDefects, updateTransferCheckDefectPhoto,
+} from './transfer-check-api';
 export { getPackaging, getPackagingBatch, recordPackaging } from './packaging-api';
 export { getWeavingIssuePlan, getWeavingIssuePlanBatch, issueWeaving, receiveWeaving, getWeavingByPoint } from './weaving-issues-api';
 export { getMaterialIssuePlan, getMaterialIssuesByStage, issueMaterial, receiveMaterialIssue } from './material-issues-api';
@@ -141,7 +144,7 @@ export {
   getSteelIssuePlan, getSteelIssuesForInvoice, getSteelIssuesForInvoiceBatch, issueSteel,
   getSteelIssuesByStatus, getSteelIssue, getCutBundles, receiveSteelIssue,
   recordCutBatch, getPhoiProgress, getStepProgress, recordStepBatch, getPiOrderSummary,
-  reviewSteelIssueQc, getQcReviewsForSteelIssues,
+  reviewSteelIssueQc, getQcReviewsForSteelIssues, getAllQcReviews, updateQcReviewPhoto,
   getReplenishRequests, fulfillReplenishRequest, rejectReplenishRequest,
   getAllCutBundles, finishCutBundle, reviewCutBundleQc, undoLastCutBatch,
   submitStepBundle, reviewStepBundleQc, getStepBundlesForInvoice, getAllStepBundles,

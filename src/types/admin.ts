@@ -32,6 +32,10 @@ export interface AuditLogEntry {
    *  chưa từng hiển thị lại ở bất kỳ đâu (chỉ lưu lên server, không đọc vào entry nào). Optional -
    *  hầu hết entry khác (proposal/sku/user/masterdata...) không có ảnh. */
   photoUrl?: string;
+  /** BE QcReview.id thật (2026-09-11 lần 2, theo Sếp: "cho người nhập được sửa luôn") - CHỈ set
+   *  cho entry action='kcs.approved' có photoUrl, để AuditLogTimeline hiện nút Đổi/Xóa ảnh gọi
+   *  đúng PATCH /qc-reviews/:id/photo. Optional - mọi entry khác không có. */
+  qcReviewId?: string;
 }
 
 /** Cấu hình chung của công ty — hiện chỉ để Admin xem/sửa, chưa có nghiệp vụ nào đọc động. */

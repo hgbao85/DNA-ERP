@@ -87,7 +87,7 @@ function KcsReviewModal({ stageType, line, onClose, onSubmit }: {
   const onPickPhoto = async (file?: File) => {
     if (!file) return
     setUploading(true); setErr('')
-    try { setPhotoUrl(await api.uploadContractFile(file)) }
+    try { setPhotoUrl(await api.uploadImage(file)) }
     catch { setErr('Tải ảnh thất bại') }
     finally { setUploading(false) }
   }
@@ -160,8 +160,13 @@ function KcsReviewModal({ stageType, line, onClose, onSubmit }: {
   )
 }
 
-// ── Popup lịch sử (read-only) — gộp mọi đợt của PO, xem không cần vào luồng duyệt ─────
-function KcsHistoryModal({ title, entries, onClose }: { title: ReactNode; entries: AuditLogEntry[]; onClose: () => void }) {
+// ── Popup lịch sử (read-only ngoại trừ ảnh - 2026-09-11 lần 2, xem EditPhotoActions) — gộp mọi đợt
+// của PO, xem không cần vào luồng duyệt ─────
+function KcsHistoryModal({ title, entries, onClose, onEditPhoto, onDeletePhoto }: {
+  title: ReactNode; entries: AuditLogEntry[]; onClose: () => void
+  onEditPhoto?: (entry: AuditLogEntry, file: File) => void | Promise<void>
+  onDeletePhoto?: (entry: AuditLogEntry) => void | Promise<void>
+}) {
   return (
     <div onClick={onClose} style={overlay}>
       <div onClick={e => e.stopPropagation()} style={{ ...card, width: 460 }}>
@@ -169,16 +174,18 @@ function KcsHistoryModal({ title, entries, onClose }: { title: ReactNode; entrie
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Lịch sử — {title}</h3>
           <button onClick={onClose} style={iconBtn}><X size={18} /></button>
         </div>
-        <AuditLogTimeline entries={entries} title="Diễn biến các đợt" />
+        <AuditLogTimeline entries={entries} title="Diễn biến các đợt" onEditPhoto={onEditPhoto} onDeletePhoto={onDeletePhoto} />
       </div>
     </div>
   )
 }
 
 // ── Tầng: Vật tư — chờ duyệt / tiến hành duyệt (dùng chung Phôi/Hàn/Sơn) ─────
-function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, onBack, onReview }: {
+function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, onBack, onReview, onEditPhoto, onDeletePhoto }: {
   lines: KcsLine[]; cfg: StageCfg; title: string; subtitle: string; backLabel: string
   onBack: () => void; onReview: (lineId: number, p: ReviewPayload) => Promise<void>
+  onEditPhoto?: (entry: AuditLogEntry, file: File) => void | Promise<void>
+  onDeletePhoto?: (entry: AuditLogEntry) => void | Promise<void>
 }) {
   const [target, setTarget] = useState<KcsLine | null>(null)
   const [showHistory, setShowHistory] = useState(false)
@@ -249,7 +256,10 @@ function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, onBack, o
           onSubmit={p => onReview(target.id, p)}
         />
       )}
-      {showHistory && <KcsHistoryModal title={title} entries={poHistory} onClose={() => setShowHistory(false)} />}
+      {showHistory && (
+        <KcsHistoryModal title={title} entries={poHistory} onClose={() => setShowHistory(false)}
+          onEditPhoto={onEditPhoto} onDeletePhoto={onDeletePhoto} />
+      )}
     </>
   )
 }
@@ -319,11 +329,16 @@ function KcsPoListBoard({ rows, cfg, onEnter }: { rows: KcsRow[]; cfg: StageCfg;
 // 2 chế độ:
 //  - Mock cục bộ: truyền `seed` (Hàn/Sơn hiện tại — chưa nối store).
 //  - Controlled:  truyền `rows` + `onReview` (Phôi — đọc/ghi phoi-sat.service thật).
-export function KcsTwoTierScreen({ cfg, seed, rows: rowsProp, onReview }: {
+export function KcsTwoTierScreen({ cfg, seed, rows: rowsProp, onReview, onEditPhoto, onDeletePhoto }: {
   cfg: StageCfg
   seed?: () => KcsRow[]
   rows?: KcsRow[]
   onReview?: (poId: number, lineId: number, p: ReviewPayload) => Promise<void>
+  /** Sửa/xóa ảnh lỗi 1 review ĐÃ CHẤM (2026-09-11 lần 2, theo Sếp: "cho người nhập được sửa
+   *  luôn") - xem AuditLogTimeline.EditPhotoActions. Chỉ có tác dụng ở nhánh controlled (Phôi/Hàn/
+   *  Sơn/VTTP thật) - nhánh mock (seed) không có QcReview thật để sửa. */
+  onEditPhoto?: (entry: AuditLogEntry, file: File) => void | Promise<void>
+  onDeletePhoto?: (entry: AuditLogEntry) => void | Promise<void>
 }) {
   const controlled = !!onReview
   const [localRows, setLocalRows] = useState<KcsRow[]>(() => seed ? seed() : [])
@@ -390,6 +405,8 @@ export function KcsTwoTierScreen({ cfg, seed, rows: rowsProp, onReview }: {
           backLabel="Quay lại danh sách lệnh"
           onBack={() => setSelPoId(null)}
           onReview={(lineId, p) => review(selPo.id, lineId, p)}
+          onEditPhoto={onEditPhoto}
+          onDeletePhoto={onDeletePhoto}
         />
       ) : (
         <KcsPoListBoard rows={rows} cfg={cfg} onEnter={id => setSelPoId(id)} />

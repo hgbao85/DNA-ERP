@@ -22,6 +22,19 @@ export interface TransferCheckDefectInput {
   imageUrl?: string;
 }
 
+/** 1 dòng lỗi cho màn Admin "Quản lý tệp đính kèm" (2026-09-11) - xem
+ *  TransferCheckDefectResponseDto BE, chấp nhận ID thô (không join tên PI/SKU). */
+export interface BeTransferCheckDefect {
+  id: string;
+  transferCheckResultId: string;
+  productionInvoiceItemId: string;
+  pieceId: string;
+  reason: string;
+  imageUrl: string | null;
+  checkedById: string;
+  checkedAt: string;
+}
+
 /** Trả mảng rỗng khi SKU chưa gắn PI/chưa có ProductionOrder (chưa được Sếp duyệt) - chưa có gì
  *  để kiểm, không phải lỗi cần báo cho thủ kho. */
 export async function getTransferCheckPieces(pf: Sku): Promise<BeTransferCheckPiece[]> {
@@ -60,5 +73,26 @@ export async function recordTransferCheck(
   return http.post<BeTransferCheckPiece>(
     `/production-invoices/${ref.productionInvoiceId}/items/${ref.itemId}/transfer-check`,
     data,
+  );
+}
+
+// ── Admin "Quản lý tệp đính kèm" (2026-09-11) - xem changelog audit-upload-file ────────────────
+
+/** Liệt kê PHẲNG mọi lỗi kiểm chuyển kho có ảnh, không theo item/PI - dùng cho màn Admin. */
+export async function getTransferCheckDefects(): Promise<BeTransferCheckDefect[]> {
+  const res = await http.get<{ data: BeTransferCheckDefect[] }>(
+    '/production-invoices/transfer-check/defects?limit=100',
+  );
+  return res.data;
+}
+
+/** Admin-override: sửa/xóa ảnh (`imageUrl: null` = xóa hẳn) - route BE chặn role ADMIN. */
+export async function updateTransferCheckDefectPhoto(
+  id: string,
+  imageUrl: string | null,
+): Promise<BeTransferCheckDefect> {
+  return http.patch<BeTransferCheckDefect>(
+    `/production-invoices/transfer-check/defects/${id}/photo`,
+    { imageUrl },
   );
 }

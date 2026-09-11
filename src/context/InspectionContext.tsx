@@ -6,6 +6,7 @@ import {
   getPurchaseProposals as fetchPurchaseProposals,
   bossApproveProposal as bossApproveProposalApi,
   receiveProposalItem as receiveProposalItemApi,
+  updateProposalItemApprovalFile as updateProposalItemApprovalFileApi,
 } from '../services/purchasing-api'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -125,6 +126,9 @@ interface InspCtxType {
    *  acknowledge/báo giá/gửi Sếp/Sếp duyệt đã gỡ. BE tự lọc đúng phần vật tư của actor. */
   bossApproveProposal:     (proposalId: string, approvalFileUrl: string) => Promise<void>
   receiveProposalItem:     (proposalId: string, itemKey: string, qty: number, receivedQtyPurchaseUnit?: number) => Promise<void>
+  /** Admin "Quản lý tệp đính kèm" (2026-09-11) - thay/xóa file duyệt của 1 item (`approvalFileUrl:
+   *  null` = xóa hẳn, xem services/purchasing-api.ts#updateProposalItemApprovalFile). */
+  updateApprovalFile:      (proposalId: string, itemId: string, approvalFileUrl: string | null) => Promise<void>
 }
 
 // ── Context ────────────────────────────────────────────────────────────────────
@@ -207,8 +211,19 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
       setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
     }), [proposals, runAction])
 
+  // Admin "Quản lý tệp đính kèm" (2026-09-11) - cùng idiom bossApproveProposal/receiveProposalItem
+  // ở trên: gọi API rồi cập nhật lại state cục bộ, KHÔNG được gọi thẳng
+  // services/purchasing-api.ts#updateProposalItemApprovalFile() từ ngoài context (làm vậy BE ghi
+  // đúng nhưng `proposals` ở đây không đổi, UI vẫn hiện dữ liệu cũ tới khi tải lại trang - bug thật
+  // đã gặp lúc live-test).
+  const updateApprovalFile = useCallback((proposalId: string, itemId: string, approvalFileUrl: string | null) =>
+    runAction('Sửa file duyệt', async () => {
+      const updated = await updateProposalItemApprovalFileApi(proposalId, itemId, approvalFileUrl)
+      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+    }), [runAction])
+
   return (
-    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, bossApproveProposal, receiveProposalItem }}>
+    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, bossApproveProposal, receiveProposalItem, updateApprovalFile }}>
       <ActionErrorBanner message={actionError} onDismiss={dismissActionError} />
       {children}
     </InspCtx.Provider>

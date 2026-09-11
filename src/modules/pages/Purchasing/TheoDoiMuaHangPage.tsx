@@ -1,10 +1,11 @@
 'use client'
 import { useState } from 'react'
-import { ChevronLeft, Truck } from 'lucide-react'
+import { ChevronLeft, Truck, Upload, Trash2 } from 'lucide-react'
 import { useInspection, PROPOSAL_STATUS_LABELS, type PurchaseProposal } from '../../../context/InspectionContext'
 import { useAuth } from '../../../context/AuthContext'
+import { useConfirm } from '../../../hooks/useConfirm'
 import { useFetch } from '../../../hooks/useFetch'
-import { getMaterials } from '../../../services/api'
+import { getMaterials, uploadDocument } from '../../../services/api'
 import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purchasingRouting'
 
 const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
@@ -14,6 +15,8 @@ const td: React.CSSProperties = { padding: '9px 12px' }
 // giá trong phần mềm đã bỏ - giá và NCC nay nằm trong file Excel Sếp ký (item.approvalFileUrl).
 interface Row {
   key: string
+  proposalId: string
+  itemId?: string
   poNumber: string | null
   itemName: string
   buyQty: number
@@ -36,6 +39,8 @@ function buildRows(p: PurchaseProposal): Row[] {
     const boughtQty = item.receivedQty ?? 0
     return {
       key: `${p.id}-${key}`,
+      proposalId: p.id,
+      itemId: item.itemId,
       poNumber: p.salesOrderCode,
       itemName: item.name,
       buyQty: item.buyQty,
@@ -46,6 +51,71 @@ function buildRows(p: PurchaseProposal): Row[] {
       approvalFileUrl: item.approvalFileUrl,
     }
   })
+}
+
+/**
+ * Cột "Phiếu duyệt" - CHÍNH người đã bấm "Sếp đã duyệt" (đang xem đúng trang này, vì đề xuất đã
+ * lọc theo buyerByMaterialId của mình) tự sửa/xóa lại được ảnh/file khi lỡ chọn nhầm - 2026-09-11
+ * (theo Sếp Trương Văn Nhân, hỏi qua chat nội bộ "ai được quyền sửa": "cho người nhập được sửa
+ * luôn"). BE (`PurchaseProposalsService.updateApprovalFile()`) tự kiểm actor có đúng là người đã
+ * duyệt (`approvedById`) hay Admin/Sếp không - FE không cần đoán trước, cứ hiện nút, lỗi 403 (nếu
+ * có) hiện qua `runAction` (banner đỏ có sẵn ở InspectionContext).
+ */
+export function ApprovalFileCell({ proposalId, itemId, approvalFileUrl }: {
+  proposalId: string; itemId?: string; approvalFileUrl?: string
+}) {
+  const { updateApprovalFile } = useInspection()
+  const { ask, confirmModal } = useConfirm()
+  const [busy, setBusy] = useState(false)
+
+  if (!itemId) {
+    return approvalFileUrl
+      ? <a href={approvalFileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#2563eb', fontWeight: 600 }}>Xem file Sếp duyệt</a>
+      : <span style={{ color: 'var(--text3)' }}>—</span>
+  }
+
+  const replace = async (file: File) => {
+    setBusy(true)
+    try {
+      const url = await uploadDocument(file)
+      await updateApprovalFile(proposalId, itemId, url)
+    } catch {
+      /* lỗi đã hiện qua ActionErrorBanner (InspectionContext.runAction) */
+    } finally {
+      setBusy(false)
+    }
+  }
+  const remove = () => {
+    ask({
+      message: 'Xóa hẳn phiếu Sếp đã ký duyệt mua hàng này? Chỉ xóa khi thật sự cần. Không thể hoàn tác.',
+      danger: true, confirmLabel: 'Xóa file',
+    }, async () => {
+      setBusy(true)
+      try { await updateApprovalFile(proposalId, itemId, null) }
+      finally { setBusy(false) }
+    })
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+      {confirmModal}
+      {approvalFileUrl ? (
+        <a href={approvalFileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#2563eb', fontWeight: 600 }}>Xem file</a>
+      ) : (
+        <span style={{ color: 'var(--text3)' }}>—</span>
+      )}
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 7px', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+        <Upload size={11} /> {busy ? '…' : (approvalFileUrl ? 'Đổi file' : 'Tải file')}
+        <input type="file" accept="image/*,.pdf,.xls,.xlsx" hidden disabled={busy}
+          onChange={e => { const f = e.target.files?.[0]; if (f) replace(f); e.target.value = '' }} />
+      </label>
+      {approvalFileUrl && (
+        <button onClick={remove} disabled={busy} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#c62828', border: '1px solid rgba(198,40,40,.35)', borderRadius: 6, padding: '2px 7px', background: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+          <Trash2 size={11} /> Xóa
+        </button>
+      )}
+    </div>
+  )
 }
 
 function statusTag(p: PurchaseProposal) {
@@ -120,13 +190,7 @@ export default function TheoDoiMuaHangPage() {
                   </td>
                   {/* Giá + NCC nằm TRONG file này (2026-08-27) - phần mềm không lưu tách ra. */}
                   <td style={td}>
-                    {r.approvalFileUrl ? (
-                      <a href={r.approvalFileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#2563eb', fontWeight: 600 }}>
-                        Xem file Sếp duyệt
-                      </a>
-                    ) : (
-                      <span style={{ color: 'var(--text3)' }}>—</span>
-                    )}
+                    <ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} />
                   </td>
                 </tr>
               ))}

@@ -439,6 +439,8 @@ export interface BeQcReview {
   cutBundleId: string | null;
   /** Đợt gửi KCS công đoạn PHỤ được chấm (2026-09-07) - null với mọi nhánh khác. */
   stepBundleId: string | null;
+  /** Đợt gửi KCS công đoạn VTTP được chấm (2026-09-07) - null với mọi nhánh khác. */
+  pieceStepBundleId: string | null;
   /** Tổng dẫn xuất từ segments[] (nhánh Phôi) - nhánh Hàn/Sơn là số gốc, segments luôn rỗng. BẤT
    *  BIẾN mọi nhánh - số lịch sử cộng dồn (2026-09-08 lần 2, xem changelog "Bù đủ dồn về bảng
    *  tổng") - không còn scrapQty/resolvedQty/phoiReportedAt/phoiReportedQty ở đâu cả. */
@@ -455,6 +457,21 @@ export interface BeQcReview {
 export async function getQcReviewsForSteelIssues(): Promise<BeQcReview[]> {
   const res = await http.get<BeQcReview[] | { data: BeQcReview[] }>('/qc-reviews?limit=100');
   return unwrap(res).filter((r) => r.steelIssueId != null || r.stepBundleId != null);
+}
+
+// ── Admin "Quản lý tệp đính kèm" (2026-09-11) - xem changelog audit-upload-file ────────────────
+
+/** Liệt kê MỌI qc_review (không lọc nhánh) - dùng cho màn Admin, tự lọc photoUrl != null ở FE
+ *  (BE không có filter riêng, danh sách demo chưa đủ lớn để cần thêm - xem plan). */
+export async function getAllQcReviews(): Promise<BeQcReview[]> {
+  const res = await http.get<BeQcReview[] | { data: BeQcReview[] }>('/qc-reviews?limit=100');
+  return unwrap(res);
+}
+
+/** Admin-override: sửa/xóa ảnh bằng chứng (`photoUrl: null` = xóa hẳn) - route BE chặn role
+ *  ADMIN, CHỈ đụng photoUrl (failedQty/reason/... bất biến, xem UpdateQcReviewPhotoDto BE). */
+export async function updateQcReviewPhoto(id: string, photoUrl: string | null): Promise<BeQcReview> {
+  return http.patch<BeQcReview>(`/qc-reviews/${id}/photo`, { photoUrl });
 }
 
 // ── Kho trung tâm — cấp bù sắt phế (KCS đề xuất qua qc-review) ─────────────────

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
+import { uploadDocument } from '../../../services/api'
 import { format } from 'date-fns'
 import { Plus, Trash2, X, Check, ChevronLeft, Paperclip } from 'lucide-react'
 import type { SalesOrder, SalesOrderStatus, SalesCustomer } from '../../../types/sales'
@@ -16,12 +17,16 @@ type ItemDraft = { skuCode: string; skuName: string; totalQty: string; deliveryD
 const EMPTY_ITEM: ItemDraft = { skuCode: '', skuName: '', totalQty: '', deliveryDate: '' }
 type FormState = {
   orderCode: string; customerId: string; orderDate: string; note: string
-  attachmentName: string; attachmentUrl: string
+  /** File chọn tại chỗ, CHƯA upload - chỉ lên Cloudinary thật lúc bấm "Tạo PO" (handleSave), cùng
+   *  pattern AdminEntityPage.tsx (tránh mồ côi file trên Cloudinary nếu Hủy giữa chừng). Trước
+   *  2026-09-11 dùng URL.createObjectURL(file) rồi lưu thẳng blob: URL vào attachmentUrl - link đó
+   *  chỉ sống trong tab hiện tại, sau khi tải lại trang/đổi máy thì chết hẳn (audit "check upload"). */
+  attachmentName: string; attachmentFile: File | null
   items: ItemDraft[]
 }
 const emptyForm = (): FormState => ({
   orderCode: '', customerId: '', orderDate: new Date().toISOString().slice(0, 10), note: '',
-  attachmentName: '', attachmentUrl: '',
+  attachmentName: '', attachmentFile: null,
   items: [{ ...EMPTY_ITEM }],
 })
 
@@ -85,6 +90,9 @@ export default function OrderManagementPage() {
       const deliveryDate = items.reduce((latest, it) => (
         it.deliveryDate && (!latest || it.deliveryDate > latest) ? it.deliveryDate : latest
       ), '')
+      // Upload thật lên Cloudinary CHỈ tới lúc này (không phải lúc chọn file) - xem comment
+      // FormState.attachmentFile.
+      const attachmentUrl = form.attachmentFile ? await uploadDocument(form.attachmentFile) : undefined
       const payload = {
         orderCode: form.orderCode.trim(),
         customerId: form.customerId,
@@ -92,7 +100,7 @@ export default function OrderManagementPage() {
         orderDate: new Date(form.orderDate).toISOString(),
         deliveryDate,
         attachmentName: form.attachmentName || undefined,
-        attachmentUrl: form.attachmentUrl || undefined,
+        attachmentUrl,
         note: form.note.trim() || undefined,
         items,
       }
@@ -260,7 +268,7 @@ export default function OrderManagementPage() {
                   type="file"
                   onChange={e => {
                     const file = e.target.files?.[0]
-                    setForm(f => ({ ...f, attachmentName: file?.name ?? '', attachmentUrl: file ? URL.createObjectURL(file) : '' }))
+                    setForm(f => ({ ...f, attachmentName: file?.name ?? '', attachmentFile: file ?? null }))
                   }}
                 />
               </Field>
