@@ -19,6 +19,15 @@ export interface BeWeavingAllocation {
   remainingToReceive: number;
 }
 
+export interface BeWeavingPieceMaterialLine {
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  materialSpec: string | null;
+  materialUnit: string;
+  qtyPerPiece: number;
+}
+
 export interface BeWeavingIssuePlanItem {
   pieceId: string;
   pieceCode: string;
@@ -27,6 +36,10 @@ export interface BeWeavingIssuePlanItem {
   issuedQty: number;
   remainingToIssue: number;
   allocations: BeWeavingAllocation[];
+  /** Định mức Dây/Đinh /1 mảnh - đúng nhóm vật tư quyết định "mảnh có đan" (xem
+   *  SkusService.isPieceWoven ở BE). Hiển thị tham khảo, không nhân theo số lượng đang xuất. */
+  wire: BeWeavingPieceMaterialLine[];
+  nail: BeWeavingPieceMaterialLine[];
 }
 
 /** Trả mảng rỗng khi SKU chưa có ProductionOrder (chưa được Sếp duyệt) - chưa có gì để xuất/nhận

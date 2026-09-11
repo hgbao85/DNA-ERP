@@ -56,6 +56,10 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
     }
   }, [active, filterExportOrderId])
 
+  // qtyPerPiece là Decimal(14,4) ở BE - nhân trực tiếp với JS number dễ dính rác dấu phẩy động
+  // (vd 0.1 × 3 = 0.30000000000000004), làm tròn lại 4 chữ số thập phân trước khi hiển thị.
+  const roundQty = (n: number) => Math.round(n * 10000) / 10000
+
   const [qty, setQty]         = useState<Record<string, string>>({})
   const [pointId, setPointId] = useState<Record<string, string>>({})
   const [busy, setBusy]       = useState<string | null>(null)
@@ -158,6 +162,49 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
                     )
                   )}
                 </div>
+
+                {(piece.wire.length > 0 || piece.nail.length > 0) && (() => {
+                  const enteredQty = Number(qty[piece.pieceId]) || 0
+                  return (
+                    <div style={{ padding: '10px 14px', borderBottom: piece.allocations.length > 0 ? '1px solid var(--border)' : undefined, background: 'var(--surface2)' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--text3)', marginBottom: 6 }}>
+                        Vật tư đi kèm mảnh (định mức/1 mảnh)
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                        {piece.wire.map(l => (
+                          <span key={`wire-${l.materialId}`} style={{ fontSize: 12, padding: '3px 9px', borderRadius: 20, background: '#fff3e0', color: '#e65100', fontWeight: 600 }}>
+                            Dây: {l.materialName} × {l.qtyPerPiece} {l.materialUnit}
+                          </span>
+                        ))}
+                        {piece.nail.map(l => (
+                          <span key={`nail-${l.materialId}`} style={{ fontSize: 12, padding: '3px 9px', borderRadius: 20, background: '#f3e5f5', color: '#7b1fa2', fontWeight: 600 }}>
+                            Đinh: {l.materialName} × {l.qtyPerPiece} {l.materialUnit}
+                          </span>
+                        ))}
+                      </div>
+
+                      {!readOnly && enteredQty > 0 && (
+                        <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px dashed var(--border)' }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--text3)', marginBottom: 6 }}>
+                            Cần mang theo cho SL {enteredQty}
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {piece.wire.map(l => (
+                              <span key={`wire-total-${l.materialId}`} style={{ fontSize: 12, padding: '3px 9px', borderRadius: 20, background: '#fff3e0', color: '#e65100', fontWeight: 700 }}>
+                                Dây: {l.materialName} = {roundQty(l.qtyPerPiece * enteredQty)} {l.materialUnit}
+                              </span>
+                            ))}
+                            {piece.nail.map(l => (
+                              <span key={`nail-total-${l.materialId}`} style={{ fontSize: 12, padding: '3px 9px', borderRadius: 20, background: '#f3e5f5', color: '#7b1fa2', fontWeight: 700 }}>
+                                Đinh: {l.materialName} = {roundQty(l.qtyPerPiece * enteredQty)} {l.materialUnit}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
 
                 {piece.allocations.length > 0 && (
                   <table style={{ ...tbl, tableLayout: 'auto' }}>
