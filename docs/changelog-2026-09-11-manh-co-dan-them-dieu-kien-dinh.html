@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Quy tắc "mảnh có đan" thêm lại điều kiện Đinh (11/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+
+  .timeline { list-style: none; margin: 4px 0 0; padding: 0; }
+  .timeline li { position: relative; padding: 2px 0 2px 18px; font-size: 14px; }
+  .timeline li::before { content: ''; position: absolute; left: 3px; top: 10px; width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); }
+  .timeline li.now::before { background: var(--accent-strong); }
+  .timeline li.now { font-weight: 700; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 11/09/2026</span>
+    <h1 class="title">Quy tắc "mảnh có đan": khôi phục lại điều kiện Đinh</h1>
+    <p class="subtitle">Cờ "mảnh có đan" (hiển thị trên form nhập định mức, và quyết định luồng xuất/nhập đan) trước đây chỉ cần có dòng vật tư nhóm Dây là đủ. Theo yêu cầu trực tiếp, nay khôi phục lại điều kiện phải có <b>cả Dây lẫn Đinh</b> mới tính là "có đan".</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> BE <code>D:\DNA-ERP-BE</code> (nguồn sự thật) + FE <code>D:\DNA-ERP</code> (2 màn hình tính lại cùng rule)</span>
+      <span><strong>Màn hình:</strong> Định mức sản xuất (Spec) — nhập vật tư mảnh · Chi tiết SKU</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ========= Thay đổi rule ========= -->
+  <section id="rule-change">
+    <div class="sec-head"><h2>Thay đổi quy tắc</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đổi rule nghiệp vụ</span><span class="badge date">11/09</span><span class="f-title">"Mảnh có đan" nay bắt buộc cả Dây (WIRE) VÀ Đinh (NAIL)</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước (từ 04-05/09)</span>Chỉ cần trong <code>materialLines</code> của mảnh có ít nhất 1 dòng thuộc nhóm Dây (WIRE) là tính "có đan" — Đinh/Tán rút/Nút nhựa không bắt buộc.</div>
+        <div class="ba-box after"><span class="k">Sau (11/09)</span>Phải có ít nhất 1 dòng Dây (WIRE) <b>VÀ</b> ít nhất 1 dòng Đinh (NAIL) thì mới tính "có đan". Thiếu 1 trong 2 → không phải mảnh có đan. Tán rút/Nút nhựa vẫn không bắt buộc.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Lịch sử đổi rule (để tránh nhầm lần sau)</span>
+        <ul class="timeline">
+          <li>Ban đầu: cần Dây + Đinh (từng có cả yêu cầu Nút nhựa)</li>
+          <li>04–05/09/2026 (DEC-11): nới lỏng, chỉ cần có Dây là đủ</li>
+          <li class="now">11/09/2026: khôi phục lại — cần cả Dây và Đinh</li>
+        </ul>
+      </div>
+      <div class="f-field">
+        <span class="k">Nơi sửa (3 chỗ cùng logic, phải đồng bộ)</span>
+        <div class="v">
+          <ul>
+            <li><b>BE — nguồn sự thật chính:</b> <code>SkusService.isPieceWoven()</code> trong <code>skus.service.ts</code>. Kết quả được ghi thành snapshot vào <code>BomPiece.isWoven</code> theo đúng <code>bomRevisionId</code>; module <code>weaving-issues</code> (xuất/nhập đan) đọc từ snapshot này, không đọc field khác. <code>Piece.isWoven</code> (master data dùng chung giữa các revision) chỉ được đồng bộ lại theo cùng kết quả, không phải nơi quyết định.</li>
+            <li><b>FE — form nhập định mức (nháp, chưa gửi duyệt):</b> <code>SpecSteelPage.tsx</code>, hằng số <code>WOVEN_GROUPS</code>.</li>
+            <li><b>FE — trang chi tiết SKU:</b> <code>SKUDetail.tsx</code>, hằng số <code>WOVEN_GROUPS</code> (bản sao logic tương tự).</li>
+          </ul>
+          Cả 2 trang FE tự tính lại rule ngay trên form thay vì đọc field <code>isWoven</code> trả về từ BE, vì đang cho sửa nháp trước khi gửi duyệt — phải phản ánh đúng NGAY theo dòng vật tư đang nhập, không đợi round-trip lưu/tải lại.
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Test</span>
+        <div class="v">Cập nhật <code>skus.service.spec.ts</code>: thêm case "có Dây, thiếu Đinh" và "có Đinh, thiếu Dây" (đều phải trả <code>isWoven: false</code>), cùng case "đủ cả 2" (phải trả <code>true</code>). 49 test trong file, cùng các suite liên quan (<code>weaving-issues</code>, <code>cutting-proposals</code>, <code>bom-revisions</code>) — tổng 216 test — đều pass.</div>
+      </div>
+    </article>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 11/09/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>
