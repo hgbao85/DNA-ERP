@@ -317,6 +317,38 @@
         <span class="k">Test</span>
         <div class="v">+5 test case BE mới — trọng tâm là case xác nhận <b>2 lệnh sản xuất khác nhau dùng chung tên mảnh KHÔNG bị gộp nhầm số đã nhận/đã xuất của nhau</b> (đúng yêu cầu chốt lại nhiều lần trong buổi). 135 test qua (weaving-issues + skus + material-issues). Verify qua UI thật: SKU test (chưa từng qua Phân phối nội bộ thật) hiện đúng "Có thể xuất 0", tự ẩn form nhập và hiện cảnh báo đỏ.</div>
       </div>
+      <div class="f-field">
+        <span class="k">Điều chỉnh thêm cùng ngày — chặn ngay lúc gõ, không đợi bấm "Xuất" mới báo lỗi</span>
+        <div class="v">Ban đầu ô "Số lượng" chỉ có thuộc tính HTML <code>max</code> (chỉ là gợi ý thị giác, không thật sự chặn gõ tay/dán số) + báo lỗi SAU khi bấm "Xuất". Theo yêu cầu trực tiếp ("chắc hơn"): gõ số vượt <code>min(còn phải xuất, có thể xuất)</code> giờ <b>tự kẹp về đúng số tối đa được phép ngay lúc gõ</b> — không còn cách nào để ô này giữ được số vượt trần. Verify qua UI thật (giả lập cap=200 bằng cách chặn response mạng để có ca "còn xuất được" thật): gõ 99999 hoặc 300 đều tự về 200, gõ 50 (trong hạn mức) thì giữ nguyên.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= Thiết kế lại UI/UX ========= -->
+  <section id="feature5">
+    <div class="sec-head"><h2>Thiết kế lại UI/UX — 12/09/2026</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Thiết kế lại</span><span class="badge date">12/09</span><span class="f-title">Màn "Xuất đan" (chi tiết theo mảnh): bỏ "viên kẹo" nhiều màu, chia lại thành khối rõ ràng</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Số liệu Cần/Đã xuất/Còn phải xuất/Có thể xuất dồn vào 1 dòng chữ nối dấu chấm giữa. Vật tư đi kèm hiển thị dạng "viên kẹo" bo tròn nhiều màu (cam/tím/hồng) nhồi chung tên vật tư + ô nhập + chú thích nhỏ xíu trong cùng 1 khối màu — rối mắt, không có cấu trúc rõ ràng. Người dùng phản hồi trực tiếp: "khá là xấu".</div>
+        <div class="ba-box after"><span class="k">Sau</span>Tách thành 4 khối rõ ràng theo chiều dọc: (1) tên mảnh, (2) lưới thống kê 4 ô số lớn/nhãn nhỏ, (3) khu vực thao tác có nhãn từng trường hoặc cảnh báo trạng thái, (4) danh sách vật tư dạng hàng gọn gàng. Màu chỉ còn dùng cho ý nghĩa trạng thái (xanh=ổn/cam=cảnh báo/đỏ=chặn) thay vì gán ngẫu nhiên theo loại vật tư.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Chi tiết thay đổi</span>
+        <div class="v">
+          <ul>
+            <li><b>Lưới thống kê:</b> 4 ô (Cần/Đã xuất/Còn phải xuất/Có thể xuất) dạng nhãn nhỏ chữ hoa phía trên + số lớn phía dưới, có đường kẻ ngăn cách — thay cho việc phải đọc lướt cả câu dài mới tìm được đúng con số cần xem.</li>
+            <li><b>Khu vực thao tác:</b> "Điểm đan"/"Số lượng" giờ có nhãn riêng phía trên từng ô (cùng quy ước <code>FieldLabel</code>, mirror <code>FL</code> ở SpecSteelPage.tsx), ô Số lượng có placeholder gợi ý số tối đa; khi bị chặn thì cả khối này đổi hẳn sang 1 dòng cảnh báo kèm giải thích ngắn, không hiện form vô dụng.</li>
+            <li><b>Danh sách vật tư:</b> đổi từ "viên kẹo" sang danh sách hàng ngang gọn - nhãn nhóm nhỏ (giữ đúng màu Dây/Đinh/Nút nhựa như màn Định mức mảnh để nhất quán toàn hệ thống, nhưng chỉ áp cho cái nhãn chứ không loang ra cả dòng), tên vật tư + "Đã xuất/Tồn" ở giữa, ô nhập canh phải.</li>
+            <li><b>Sửa 1 điểm bất nhất phát hiện khi thiết kế lại:</b> trước đây khối vật tư luôn hiện ô nhập có thể gõ được kể cả khi "Có thể xuất = 0" (không có gì để gửi đi đâu) - giờ chỉ hiện ô nhập khi thật sự thao tác được, còn lại hiển thị tham khảo (dấu "—").</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Test</span>
+        <div class="v">Typecheck sạch. Verify qua UI thật cả 2 trạng thái: mảnh bị chặn (Có thể xuất = 0, ẩn form + hiện cảnh báo đỏ) và mảnh còn thao tác được (giả lập cap=200 qua chặn response mạng) - không có console/page error nào.</div>
+      </div>
     </article>
   </section>
 
