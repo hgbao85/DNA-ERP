@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Nút nhựa đi kèm xuất đan + fix PO trống (11/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --qa: #0F766E; --qa-bg: #E1F4F1; --qa-border: #A7DED6;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --qa: #5EEAD4; --qa-bg: rgba(94,234,212,0.12); --qa-border: rgba(94,234,212,0.35);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --qa: #5EEAD4; --qa-bg: rgba(94,234,212,0.12); --qa-border: rgba(94,234,212,0.35);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 920px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 72ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.qa { color: var(--qa); background: var(--qa-bg); border-color: var(--qa-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+  .chip { font-size: 12px; padding: 3px 9px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
+  .chip.wire { background: #fff3e0; color: #e65100; }
+  .chip.nail { background: #f3e5f5; color: #7b1fa2; }
+  .chip.plastic { background: #fce4ec; color: #ad1457; }
+
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; font-size: 12.5px; }
+  .flow .step { background: var(--surface-alt); border: 1px solid var(--border); border-radius: 20px; padding: 4px 11px; font-weight: 600; white-space: nowrap; }
+  .flow .arrow { color: var(--text-muted); }
+  .flow .role { font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: var(--accent-strong); background: var(--accent-soft); border-radius: 10px; padding: 1px 7px; margin-right: 5px; }
+
+  .timeline { list-style: none; margin: 4px 0 0; padding: 0; }
+  .timeline li { position: relative; padding: 2px 0 2px 18px; font-size: 14px; }
+  .timeline li::before { content: ''; position: absolute; left: 3px; top: 10px; width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); }
+  .timeline li.now::before { background: var(--accent-strong); }
+  .timeline li.now { font-weight: 700; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 11/09/2026 (tiếp nối)</span>
+    <h1 class="title">Nút nhựa đi kèm xuất đan, kiểm thử qua UI thật, và fix cột PO trống ở Nhập kho</h1>
+    <p class="subtitle">Tiếp nối thay đổi quy tắc "mảnh có đan" cùng ngày: thêm checkbox cho phép chọn dòng Nút nhựa nào đi kèm mảnh khi xuất đan, dựng lại toàn bộ chuỗi SKU → duyệt → lệnh sản xuất → xuất đan trên trình duyệt thật để xác minh, phát hiện + sửa luôn 1 lỗi có sẵn (không liên quan) ở màn Nhập kho — rồi tiếp tục nâng khối "vật tư đi kèm mảnh" từ số tham khảo thành ô nhập số lượng thật, trừ tồn kho ngay khi xuất đan.</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> BE <code>D:\DNA-ERP-BE</code> + FE <code>D:\DNA-ERP</code></span>
+      <span><strong>Màn hình:</strong> Định mức mảnh · Duyệt SKU · Xuất đan · Nhập kho</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ========= Tính năng mới ========= -->
+  <section id="feature">
+    <div class="sec-head"><h2>Tính năng mới</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">11/09</span><span class="f-title">Nút nhựa: checkbox "đi kèm xuất đan" theo từng dòng vật tư</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Màn "Xuất đan" chỉ mang theo Dây + Đinh của mảnh (2 nhóm luôn tự động đi kèm, không cấu hình được). Nút nhựa không có cách nào xuất hiện ở đó, dù thực tế một số loại nút nhựa cũng cần mang ra điểm đan.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Ở trang Định mức mảnh, mỗi dòng Nút nhựa có thêm checkbox <b>"Đan"</b>. Tick dòng nào thì dòng đó (kèm định mức/1 mảnh) xuất hiện thêm ở màn Xuất đan, cạnh Dây/Đinh — có badge riêng màu hồng đậm để phân biệt.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Quy tắc</span>
+        <div class="v">Checkbox chỉ có ở nhóm <b>Nút nhựa</b> — Tán rút không có, và Dây/Đinh vẫn giữ nguyên hành vi cũ (luôn tự động đi kèm, không cần tick). Cờ này <b>độc lập hoàn toàn</b> với điều kiện "mảnh có đan" (vẫn chỉ là Dây + Đinh) — tick Nút nhựa không làm nó trở thành điều kiện thứ 3.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Minh hoạ trên màn Xuất đan (đã verify qua browser thật, xem phần Kiểm thử bên dưới)</span>
+        <div class="chip-row">
+          <span class="chip wire">Dây: Dây xám bông/nâu × 5 Kg</span>
+          <span class="chip nail">Đinh: Đinh F 10 đen × 3 Cây</span>
+          <span class="chip plastic">Nút nhựa: Nút vặn không rãnh × 4 Cái</span>
+        </div>
+        <div class="v" style="margin-top:10px">Khi thủ kho nhập số lượng xuất, khối "Cần mang theo cho SL X" tự nhân định mức cho <b>cả 3 nhóm</b> (kể cả Nút nhựa) — không chỉ hiển thị định mức tĩnh.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Chi tiết kỹ thuật</span>
+        <div class="v">
+          <ul>
+            <li><b>Schema:</b> cột mới <code>PieceMaterialItem.includeInWeaving</code> (Boolean, default false) — migration <code>20260911120000_piece_material_item_include_in_weaving</code>.</li>
+            <li><b>Ghi:</b> <code>SkusService.replacePieces()</code> ép cứng <code>includeInWeaving=false</code> cho mọi nhóm khác PLASTIC_BUTTON, dù client cũ/lạ có lỡ gửi kèm — không tin field FE gửi lên cho Dây/Đinh/Tán rút.</li>
+            <li><b>Đọc:</b> <code>WeavingIssuesService.getWovenMaterialLinesByPiece()</code> mở rộng lấy thêm nhóm Nút nhựa <b>chỉ khi đã tick</b>, trả về field <code>plasticButton</code> mới trên <code>WeavingIssuePlanItemResponseDto</code> (cạnh <code>wire</code>/<code>nail</code> có sẵn từ đợt "mảnh có đan" sáng cùng ngày).</li>
+            <li><b>FE:</b> <code>SpecSteelPage.tsx</code> (checkbox + badge "✓ Đi kèm xuất đan" khi lưu), <code>SKUDetail.tsx</code> (cùng badge ở màn Duyệt SKU), <code>KhoXuatDanPage.tsx</code> (chip thứ 3 + cộng vào "Cần mang theo cho SL X", có làm tròn tránh lỗi dấu phẩy động JS).</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Test tự động</span>
+        <div class="v">+4 test case BE (ép false cho nhóm khác/giữ true cho PLASTIC_BUTTON ở <code>skus.service.spec.ts</code>; lọc đúng dòng đã tick/mảng rỗng khi chưa tick ở <code>weaving-issues.service.spec.ts</code>) — 93 test qua ở 2 file này, 338 test qua toàn bộ 9 suite liên quan.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= Kiểm thử qua UI ========= -->
+  <section id="qa">
+    <div class="sec-head"><h2>Kiểm thử qua UI thật</h2><span class="sec-count">1 kịch bản, 11 bước</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge qa">QA / E2E thủ công</span><span class="badge date">11/09</span><span class="f-title">Dựng 1 SKU mới từ đầu, lái qua trình duyệt thật (Playwright) tới màn Xuất đan</span></div>
+      <div class="f-field">
+        <span class="k">Vì sao</span>
+        <div class="v">Test tự động (Jest) chỉ xác nhận đúng logic từng hàm — không chứng minh checkbox thật sự hoạt động khi người dùng bấm, hay dữ liệu thật sự trôi đúng qua toàn bộ chuỗi duyệt nhiều vai trò. Dựng 1 SKU test riêng (không đụng dữ liệu SKU khác đang có trong DB dev chung) và lái thật qua 6 tài khoản khác nhau.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Luồng đã đi qua (11 bước, đều qua UI thật — trừ nơi ghi chú)</span>
+        <div class="flow">
+          <span class="step"><span class="role">khsx</span>Tạo SKU mới</span><span class="arrow">→</span>
+          <span class="step"><span class="role">NV mảnh</span>Nhập Sắt+Dây+Đinh+Nút nhựa, tick "Đan"</span><span class="arrow">→</span>
+          <span class="step"><span class="role">NV chi tiết</span>Nhập Sơn, gửi duyệt</span><span class="arrow">→</span>
+          <span class="step"><span class="role">khsx</span>Duyệt cả 2 nhánh</span><span class="arrow">→</span>
+          <span class="step"><span class="role">Boss</span>Duyệt BOM</span><span class="arrow">→</span>
+          <span class="step"><span class="role">Sales</span>Tạo PO</span><span class="arrow">→</span>
+          <span class="step"><span class="role">khsx</span>Tối ưu cắt sắt → tách lệnh riêng</span><span class="arrow">→</span>
+          <span class="step"><span class="role">khsx</span>Gửi QLSX</span><span class="arrow">→</span>
+          <span class="step"><span class="role">QLSX</span>Chọn kho, gửi Sếp duyệt</span><span class="arrow">→</span>
+          <span class="step"><span class="role">Boss</span>Duyệt sản xuất</span><span class="arrow">→</span>
+          <span class="step"><span class="role">QLSX</span>Bấm "Bắt đầu"</span><span class="arrow">→</span>
+          <span class="step"><span class="role">Kho VTTP</span>Xem "Theo dõi xuất đan" ← <b>dừng ở đây</b></span>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Kết quả</span>
+        <div class="v">Toàn bộ chuỗi chạy thành công, không phát sinh lỗi console/network nào từ code đang sửa. Màn Xuất đan hiển thị đúng cả 3 nhóm vật tư (Dây/Đinh/Nút nhựa) + tính đúng "Cần mang theo cho SL 3" (nhân định mức × 3 cho từng nhóm, kể cả Nút nhựa).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Phát hiện phụ (không liên quan tính năng đang làm)</span>
+        <div class="v">Trong lúc dựng luồng, phát hiện 2 nút "Lệnh sản xuất mới" hiện tại đòi phải qua bước "Tối ưu cắt sắt" trước (khác mô tả cũ trong <code>e2e/golden-path.spec.ts</code>, vốn giả định PI tự sinh ngay khi tạo PO) — kịch bản e2e sẵn có trong repo đã lệch so với UI thật ở vài chỗ (tên nút, placeholder tìm kiếm), có thể cần cập nhật lại riêng. Đồng thời phát hiện luôn lỗi cột "PO" trống ở màn Nhập kho — xem mục sửa lỗi bên dưới.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= Sửa lỗi ========= -->
+  <section id="fix">
+    <div class="sec-head"><h2>Sửa lỗi</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Sửa lỗi</span><span class="badge date">11/09</span><span class="f-title">Cột "PO" trống ở màn Nhập kho cho đề xuất mua Sơn/vật tư thành phẩm</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Đề xuất mua vật tư nguồn <code>CONSUMABLE_MATERIAL</code>/<code>PIECE_MATERIAL_YIELD</code> (vd Sơn, tự sinh khi PI item được duyệt) — cột "PO" và "SKU" trên màn Nhập kho luôn hiện trống ("—" / rỗng), dù cột "PI" vẫn hiện đúng mã.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Cả "PO" lẫn "SKU" hiện đúng, kể cả khi PI gộp nhiều SKU thuộc nhiều đơn Sales khác nhau (gộp danh sách mã bằng ", ").</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Nguyên nhân</span>
+        <div class="v"><code>PurchaseProposalsService.toResponseDto()</code>: field <code>piCode</code> đã có fallback đọc thẳng từ <code>row.productionInvoice</code> khi đề xuất không đi qua <code>CuttingProposal</code> nào — nhưng <code>salesOrderCode</code> và <code>mfgProductCode</code> thì KHÔNG có fallback tương ứng, luôn tính từ <code>productionOrder</code>/<code>mergedPi</code> (cả 2 đều null với 2 sourceType này) nên rơi về rỗng. Include Prisma của <code>productionInvoice</code> trước đó cũng chỉ <code>select: { code: true }</code> — không đủ dữ liệu để tính dù có sửa logic.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Cách sửa</span>
+        <div class="v">Mở rộng include <code>productionInvoice</code> lấy kèm <code>items.salesOrder</code>/<code>items.mfgProduct</code>; thêm biến dùng chung <code>piItemsForFallback = mergedPi?.items ?? row.productionInvoice?.items ?? []</code>, áp lại đúng logic gộp-mã-duy-nhất đã có sẵn cho nhánh PI gộp.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Test</span>
+        <div class="v">+2 test case mới (fallback có dữ liệu → hiện đúng; PI gộp nhiều đơn Sales → gộp mã bằng ", ") + xác nhận null-safe khi PI không có <code>items</code>. Verify thêm qua API thật với dữ liệu vừa tạo trong buổi QA ở trên — cả 2 dòng trước đó trống đều đã hiện đúng PO/SKU.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= Tính năng mới (tiếp) ========= -->
+  <section id="feature2">
+    <div class="sec-head"><h2>Tính năng mới (tiếp nối)</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">11/09</span><span class="f-title">Vật tư mang kèm mảnh: ẩn số tham khảo, nhập số lượng THẬT + trừ tồn kho ngay</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước (bản đầu, cùng ngày)</span>Khối "Vật tư đi kèm mảnh" chỉ hiển thị định mức Dây/Đinh/Nút nhựa tĩnh, kèm khối tính tự động "Cần mang theo cho SL X" (định mức × số lượng đang xuất) — thuần tham khảo, không chạm gì tới dữ liệu/tồn kho thật.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Bỏ hẳn 2 khối tham khảo trên. Thay bằng ô nhập số lượng THẬT cho từng dòng Dây/Đinh/Nút nhựa — gõ SL mảnh cần xuất thì cả 3 ô tự điền sẵn theo <code>định mức × SL</code> (vẫn sửa tay lại được, không khoá cứng), gửi đúng số cuối cùng lúc bấm "Xuất". Mỗi ô hiện kèm <b>"Đã xuất"</b>/<b>"Tồn"</b> — số liệu thật lấy từ BE, không phải tính ở FE.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Điều chỉnh thêm cùng ngày — tự điền theo định mức khi gõ SL</span>
+        <div class="v">Phiên bản đầu của ô nhập để trống hoàn toàn, bắt gõ tay từ 0. Theo phản hồi trực tiếp: gõ SL mảnh ở ô bên cạnh giờ tự điền lại <b>cả 3 ô vật tư</b> = <code>qtyPerPiece × SL</code> (ghi đè giá trị đang có, kể cả đã sửa tay trước đó) — đỡ phải tự nhân tay cho ca thường, vẫn sửa lại được trước khi xuất. Xoá SL thì 3 ô cũng tự xoá theo, không để lại số cũ gây hiểu nhầm. Verify qua UI thật: SL=2 với định mức Dây 5/Đinh 3/Nút nhựa 4 → 3 ô tự điền đúng 10/6/8.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Điều chỉnh thêm cùng ngày — bắt buộc nhập đủ vật tư mới cho xuất</span>
+        <div class="v">Trước đó thủ kho vẫn bấm "Xuất" được dù bỏ trống 1-2 dòng vật tư (chỉ dòng có số mới gửi lên BE, dòng trống bị lọc bỏ êm - không báo gì). Theo yêu cầu trực tiếp: nút <b>"Xuất" giờ tự disable</b> (xám, có tooltip) nếu <b>bất kỳ</b> dòng Dây/Đinh/Nút nhựa nào của mảnh đó còn trống/0 - phải điền đủ toàn bộ mới bấm được. Mảnh không có dòng vật tư nào thì không bị chặn gì (giữ nguyên như cũ). Thêm chặn kép ở <code>handleXuat()</code> (báo lỗi rõ ràng nếu vẫn cố bấm qua request khác). Verify qua UI thật đủ 4 ca: rỗng hết → disabled; điền đủ (nhờ tự động điền ở trên) → enabled; xoá riêng 1 ô Dây → disabled lại ngay dù 2 ô kia vẫn có số; điền lại → enabled lại.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Trừ tồn kho thật (mirror MaterialIssuesService — Xuất vật tư tiêu hao Hàn/Sơn)</span>
+        <div class="v">
+          <ul>
+            <li>Bảng mới <code>WeavingIssueMaterial</code> (1 dòng/vật tư/lần xuất đan) — cùng transaction với việc tạo <code>WeavingIssue</code> (mảnh).</li>
+            <li>Trước khi ghi: khoá <code>SELECT ... FOR UPDATE</code> trên <code>stock_quant</code>, tính tồn khả dụng thật qua <code>StockReservationsService.getAvailableQty()</code> (đã trừ phần đang bị giữ chỗ chuyển kho nội bộ nơi khác) — <b>chặn cứng</b> (409) nếu số nhập vượt tồn khả dụng, không cho xuất nợ.</li>
+            <li>Ghi <code>StockLedger</code> (kho vật tư → kho ảo <code>PRODUCTION</code>, refType mới <code>WEAVING_ISSUE_MATERIAL</code>) ngay trong transaction đã khoá — tránh race giữa 2 lệnh sản xuất khác nhau cùng lúc xuất chung 1 vật tư (đúng bài học đã vá ở <code>MaterialIssuesService</code> trước đây).</li>
+            <li>Dòng vật tư không nhập gì (để trống/0) bị lọc bỏ hoàn toàn — không tạo bản ghi rác, không gọi kiểm tồn thừa.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Quyết định mặc định (tự chọn theo pattern có sẵn, chưa hỏi lại người dùng)</span>
+        <div class="v">
+          <ul>
+            <li><b>Chặn cứng khi vượt tồn</b> — không cho xuất non/âm kho, khác với việc chỉ hiển thị tham khảo như bản trước.</li>
+            <li><b>"Đã xuất" cộng dồn theo cả mảnh</b> (mọi điểm đan gộp lại), không tách riêng theo từng điểm đan — cùng cách piece.issuedQty đã tính từ trước.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Sự cố phát sinh khi làm (không liên quan logic tính năng, đã xử lý xong)</span>
+        <div class="v">BE dev server crash 2 lần giữa chừng: (1) thư mục <code>dist/</code> cũ kẹt file khiến <code>nest --watch</code> không rebuild được (lỗi hệ thống file Windows, không phải do code) — dọn sạch <code>dist/</code> rồi khởi động lại; (2) module mới thiếu khai báo <code>imports: [StockModule]</code> nên NestJS không resolve được <code>StockLedgerService</code> lúc inject — bổ sung vào <code>WeavingIssuesModule</code>. Cả 2 đã sửa, server chạy ổn định trở lại và đã verify tiếp ngay sau đó.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Test</span>
+        <div class="v">+6 test case BE mới (trừ tồn đúng số + gọi đúng tham số kiểm khả dụng; 409 khi vượt tồn, không tạo bản ghi/ghi sổ; 400 khi trùng materialId; lọc bỏ dòng qty≤0; issuedQty cộng dồn đúng qua nhiều điểm đan; onHandQty đúng theo kho của vật tư) — 130 test qua (weaving-issues + skus + material-issues). Verify thêm qua UI thật: xuất 2 Kg Dây cho mảnh test — tồn kho đổi đúng 2790 → 2788 Kg, "Đã xuất" hiện đúng 2, ô nhập tự reset sau khi xuất thành công.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= Tính năng mới (12/09) ========= -->
+  <section id="feature3">
+    <div class="sec-head"><h2>Tính năng mới — 12/09/2026</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">12/09</span><span class="f-title">Xuất đan không được vượt số mảnh THỰC TẾ đã nhận từ kho phôi-sơn-hàn</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>"Còn phải xuất" chỉ tính theo <b>kế hoạch trên giấy</b> (định mức × số lượng đơn hàng, trừ đã xuất) — không hề kiểm tra kho vật tư-TP đã thực sự nhận đủ bao nhiêu mảnh từ Phân phối nội bộ (bên phôi-sơn-hàn chuyển qua) hay chưa. Thủ kho vẫn bấm xuất được tới số kế hoạch dù kho chưa nhận đủ hàng thật.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Thêm cột <b>"Có thể xuất"</b> = số mảnh thực tế đã nhận về kho vật tư-TP (qua Phân phối nội bộ) trừ đi số đã xuất đan — chặn cứng không cho xuất vượt số này, dù kế hoạch còn cho phép nhiều hơn. Bằng 0 thì ẩn hẳn form nhập, thay bằng cảnh báo đỏ "Chưa đủ mảnh đã nhận từ kho phôi-sơn-hàn".</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Điểm mấu chốt — tính đúng theo từng SKU/PO/PI, không gộp chéo</span>
+        <div class="v">1 loại mảnh (vd "Mảnh tay") có thể dùng chung tên giữa nhiều lệnh sản xuất khác nhau của cùng sản phẩm. Số "đã nhận" và "đã xuất" được tính <b>riêng theo đúng <code>productionOrderId</code></b> (= đúng 1 SKU của đúng 1 PO trong đúng 1 PI) — <b>không</b> gộp số của lệnh sản xuất khác dù trùng tên mảnh. Nguồn "đã nhận" lấy từ <code>WarehouseTransferPieceItem</code> đã <code>CONFIRMED</code> (đơn vị chuyển vốn đã là <code>(productionOrder, piece)</code>, không phải PI) — tận dụng đúng dữ liệu Phân phối nội bộ đã có, không tạo nguồn mới.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Không đụng đến việc trừ tồn kho cho mảnh</span>
+        <div class="v">Đây <b>chỉ là phép đọc-và-so sánh</b> dữ liệu đã có sẵn (số đã nhận từ Phân phối nội bộ) để tính ra cap mới — <b>không</b> làm "Xuất đan" trừ sổ tồn kho vật tư-TP cho bản thân mảnh (khác với Dây/Đinh/Nút nhựa đã trừ tồn thật ở mục 11/09 phía trên). Quyết định có chủ đích: đủ để chặn đúng yêu cầu, không đụng tới quyết định kiến trúc lớn hơn "mảnh có nên có sổ tồn kho riêng hay không" (hiện <code>StockQuant.pieceId</code> tại vat-tu-tp chỉ được CỘNG bởi Phân phối nội bộ, không có gì trừ lại — đã rà soát: không màn hình/báo cáo nào hiện đang đọc số này nên chưa gây sai lệch hiển thị ở đâu, nhưng sẽ cần làm thêm nếu sau này có màn "tồn kho mảnh theo kho" thật).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Xác nhận không ảnh hưởng "Nhập đan"</span>
+        <div class="v">Màn "Theo dõi nhập đan" đọc <b>đúng cùng 1 nguồn dữ liệu</b> (<code>getWeavingIssuePlan</code>, phần <code>allocations</code>) với màn Xuất đan — không phải 2 bản sao có thể lệch nhau. Thay đổi này chỉ thêm 1 field mới (<code>canIssueQty</code>) và 1 điều kiện chặn ở phía xuất, không sửa/không nhân bản gì ở phía nhận — "Đã xuất"/"Đã nhận" bên Nhập đan giữ nguyên như cũ.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Test</span>
+        <div class="v">+5 test case BE mới — trọng tâm là case xác nhận <b>2 lệnh sản xuất khác nhau dùng chung tên mảnh KHÔNG bị gộp nhầm số đã nhận/đã xuất của nhau</b> (đúng yêu cầu chốt lại nhiều lần trong buổi). 135 test qua (weaving-issues + skus + material-issues). Verify qua UI thật: SKU test (chưa từng qua Phân phối nội bộ thật) hiện đúng "Có thể xuất 0", tự ẩn form nhập và hiện cảnh báo đỏ.</div>
+      </div>
+    </article>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 11–12/09/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>

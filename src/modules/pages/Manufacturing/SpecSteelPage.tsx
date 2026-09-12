@@ -41,6 +41,10 @@ type ManChild = {
   photoFile: File | null
   /** Preview tại chỗ (blob URL) cho photoFile - tạo 1 lần lúc chọn, không tạo lại mỗi lần render. */
   photoPreview: string
+  /** Chỉ dùng khi group='nutNhua' (2026-09-11) - dòng nút nhựa này có "đi kèm mảnh khi xuất đan"
+   *  không (checkbox riêng từng dòng). Dây/Đinh luôn tự động đi kèm (xem
+   *  WeavingIssuesService.getWovenMaterialLinesByPiece ở BE) nên không cần checkbox cho 2 nhóm đó. */
+  includeInWeaving: boolean
 }
 type Manh = { id: number; tenManh: string; soLuong: string; needsHan: boolean; needsSon: boolean; children: ManChild[] }
 type BomItem = { id: string; ten: string; thoiGian: string }
@@ -81,7 +85,7 @@ const toManh = (r: ManhRow): Manh => ({
     id: c.id, group: c.group, materialId: (c.materialId ?? '') as unknown as number, loaiSatName: c.name,
     specs: c.specs ?? '', cutLengthMm: c.length ?? '', soLuong: c.qty ?? '', note: c.note ?? '', unit: c.unit ?? '',
     processSteps: c.processSteps ?? [], piecesPerBar: c.piecesPerBar ?? '', photoUrl: c.photoUrl ?? '',
-    photoFile: null, photoPreview: '',
+    photoFile: null, photoPreview: '', includeInWeaving: c.includeInWeaving ?? false,
   })),
 })
 const toManhRow = (m: Manh): ManhRow => ({
@@ -93,6 +97,7 @@ const toManhRow = (m: Manh): ManhRow => ({
     note: c.note || undefined, unit: c.unit || undefined, photoUrl: c.photoUrl || undefined,
     processSteps: (c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.length > 0 ? c.processSteps : undefined,
     piecesPerBar: c.group === 'vatTuTP' ? c.piecesPerBar || undefined : undefined,
+    includeInWeaving: c.group === 'nutNhua' ? c.includeInWeaving : undefined,
   })),
 })
 
@@ -181,6 +186,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [childPhotoUrl, setChildPhotoUrl] = useState('')
   const [childPhotoFile, setChildPhotoFile] = useState<File | null>(null)
   const [childPhotoPreview, setChildPhotoPreview] = useState('')
+  const [childIncludeInWeaving, setChildIncludeInWeaving] = useState(false)
   const [editingChild, setEditingChild] = useState<{ manhId: number; childId: number } | null>(null)
   const [manhBomSearch, setManhBomSearch] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
@@ -241,7 +247,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     setChildGroup('sat')
     setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildSoLuong(''); setChildNote('')
     setChildProcessSteps([]); setChildPiecesPerBar(''); setChildPhotoUrl(''); setChildPhotoFile(null)
-    setChildPhotoPreview(''); setEditingChild(null)
+    setChildPhotoPreview(''); setChildIncludeInWeaving(false); setEditingChild(null)
   }
 
   const toggleChildProcessStep = (step: ProcessStep) => {
@@ -284,6 +290,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
         photoUrl: childGroup === 'day' ? childPhotoUrl : '',
         photoFile: childGroup === 'day' ? childPhotoFile : null,
         photoPreview: childGroup === 'day' ? childPhotoPreview : '',
+        includeInWeaving: childGroup === 'nutNhua' ? childIncludeInWeaving : false,
       }
       if (editing) {
         return { ...m, children: m.children.map(c => c.id === editing.childId ? built : c) }
@@ -309,6 +316,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     setChildPhotoUrl(child.photoUrl ?? '')
     setChildPhotoFile(child.photoFile ?? null)
     setChildPhotoPreview(child.photoPreview ?? '')
+    setChildIncludeInWeaving(child.includeInWeaving ?? false)
   }
 
   const deleteChild = (manhId: number, childId: number) => {
@@ -597,6 +605,11 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                             <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>
                               {c.loaiSatName}
                               {c.note && <span style={{ color: 'var(--text3)', fontWeight: 400 }}> ({c.note})</span>}
+                              {c.group === 'nutNhua' && c.includeInWeaving && (
+                                <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#2e7d32', background: '#e8f5e9', borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+                                  ✓ Đi kèm xuất đan
+                                </span>
+                              )}
                             </td>
                             <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{c.specs || '—'}</td>
                             <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>
@@ -649,7 +662,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
                       {CHILD_GROUPS.map(g => (
                         <button key={g}
-                          onClick={() => { setChildGroup(g); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildProcessSteps([]); setChildPiecesPerBar(''); setChildSoLuong(''); setChildPhotoUrl(''); setChildPhotoFile(null); setChildPhotoPreview('') }}
+                          onClick={() => { setChildGroup(g); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildProcessSteps([]); setChildPiecesPerBar(''); setChildSoLuong(''); setChildPhotoUrl(''); setChildPhotoFile(null); setChildPhotoPreview(''); setChildIncludeInWeaving(false) }}
                           style={{
                             padding: '5px 12px', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 12, fontWeight: 700,
                             border: `1px solid ${childGroup === g ? GROUP_BADGE_COLORS[g].fg : 'var(--border)'}`,
@@ -721,6 +734,15 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                           onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
                           style={inputStyle} />
                       </div>
+                      {childGroup === 'nutNhua' && (
+                        <div>
+                          <FL>Xuất đan</FL>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--text2)', cursor: 'pointer', paddingTop: 4, whiteSpace: 'nowrap' }}>
+                            <input type="checkbox" checked={childIncludeInWeaving} onChange={e => setChildIncludeInWeaving(e.target.checked)} />
+                            Đan
+                          </label>
+                        </div>
+                      )}
                       {childGroup === 'day' && (
                         <div>
                           <FL>Hình ảnh</FL>

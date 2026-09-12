@@ -931,6 +931,11 @@ function ManhPiecesSection({
                         <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>
                           {c.name}
                           {c.note && <span style={{ color: 'var(--text3)', fontWeight: 400 }}> ({c.note})</span>}
+                          {c.group === 'nutNhua' && c.includeInWeaving && (
+                            <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#2e7d32', background: '#e8f5e9', borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+                              ✓ Đi kèm xuất đan
+                            </span>
+                          )}
                         </td>
                         <td style={{ padding: '9px 14px', color: 'var(--text3)', fontSize: 12 }}>{c.specs || '—'}</td>
                         <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>

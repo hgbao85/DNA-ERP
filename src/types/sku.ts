@@ -109,6 +109,9 @@ export interface ManhChildRow {
   unit?: string | null;
   /** Ảnh đính kèm cho dòng vật tư (upload qua uploadImage()) - hiện chỉ mở ở UI cho group='day'. */
   photoUrl?: string | null;
+  /** Chỉ dùng khi group='nutNhua' (2026-09-11) - dòng nút nhựa này có "đi kèm mảnh khi xuất đan"
+   *  không (checkbox riêng từng dòng). Dây/Đinh luôn tự động đi kèm, không cần cờ này. */
+  includeInWeaving?: boolean;
 }
 
 /** 1 mảnh phôi (vd "Mảnh tựa", "Chân ghế") gồm vật tư con thuộc 5 nhóm (Sắt/Dây/Đinh/Tán

@@ -26,6 +26,11 @@ export interface BeWeavingPieceMaterialLine {
   materialSpec: string | null;
   materialUnit: string;
   qtyPerPiece: number;
+  /** Σ đã xuất kèm mảnh này (mọi điểm đan, WeavingIssueMaterial thật - 2026-09-11), KHÁC
+   *  piece.issuedQty (số mảnh). */
+  issuedQty: number;
+  /** Tồn kho hiện có (tham khảo, chưa trừ giữ chỗ) tại đúng kho của vật tư này. */
+  onHandQty: number;
 }
 
 export interface BeWeavingIssuePlanItem {
@@ -35,11 +40,18 @@ export interface BeWeavingIssuePlanItem {
   totalQty: number;
   issuedQty: number;
   remainingToIssue: number;
+  /** min(remainingToIssue theo định mức, số mảnh THỰC TẾ đã nhận về kho vật tư-TP qua Phân phối
+   *  nội bộ - đúng SKU/PO/PI này - trừ đã xuất) - 2026-09-12. Cap THẬT BE dùng để chặn khi xuất -
+   *  định mức cho phép nhiều hơn không có nghĩa kho đã có đủ hàng thật. */
+  canIssueQty: number;
   allocations: BeWeavingAllocation[];
   /** Định mức Dây/Đinh /1 mảnh - đúng nhóm vật tư quyết định "mảnh có đan" (xem
    *  SkusService.isPieceWoven ở BE). Hiển thị tham khảo, không nhân theo số lượng đang xuất. */
   wire: BeWeavingPieceMaterialLine[];
   nail: BeWeavingPieceMaterialLine[];
+  /** Định mức Nút nhựa /1 mảnh - CHỈ gồm dòng đã tick "đi kèm xuất đan" ở SpecSteelPage.tsx
+   *  (PieceMaterialItem.includeInWeaving), khác wire/nail ở trên (luôn tự động đi kèm). */
+  plasticButton: BeWeavingPieceMaterialLine[];
 }
 
 /** Trả mảng rỗng khi SKU chưa có ProductionOrder (chưa được Sếp duyệt) - chưa có gì để xuất/nhận
@@ -76,7 +88,14 @@ async function requireOrderId(pf: Sku, action: string): Promise<string> {
 
 export async function issueWeaving(
   pf: Sku,
-  data: { pieceId: string; weavingPointId: string; qty: number },
+  data: {
+    pieceId: string
+    weavingPointId: string
+    qty: number
+    /** Dây/Đinh/Nút nhựa THẬT mang kèm lần xuất này (2026-09-11) - BE trừ tồn ngay, khác `qty`
+     *  mảnh ở trên (không trừ tồn). Bỏ trống hoặc mảng rỗng nếu không nhập dòng nào. */
+    materials?: { materialId: string; qty: number }[]
+  },
 ): Promise<void> {
   const orderId = await requireOrderId(pf, 'xuất đan');
   await http.post(`/production-orders/${orderId}/weaving-issues`, data, withIdempotencyKey());
