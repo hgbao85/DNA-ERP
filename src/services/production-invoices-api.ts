@@ -13,8 +13,10 @@
  */
 import { http } from './core/http';
 
-/** FRAME_PHOI/FRAME_HAN/FRAME_SON (2026-09-09): mốc con lồng trong khoảng FRAME - xem
- *  LenhSXPage "Sửa thời hạn" và ProductionInvoicesService.assertFrameSubStagesWithinRange(). */
+/** FRAME_PHOI/FRAME_HAN/FRAME_SON (2026-09-09): mốc kế hoạch RIÊNG cho Phôi/Hàn/Sơn - xem
+ *  LenhSXPage "Sửa thời hạn". Mỗi giá trị enum chỉ có 1 `deadline` như FRAME/WEAVING/PACKAGING
+ *  (2026-09-11 lần 2, đồng bộ lại - bỏ hẳn `startDate`/khái niệm "khoảng thời gian" đã thử trước
+ *  đó, xem doc comment schema.prisma BE ProdItemStageType). */
 type StageType = 'FRAME' | 'WEAVING' | 'PACKAGING' | 'FRAME_PHOI' | 'FRAME_HAN' | 'FRAME_SON';
 
 interface BeProductionInvoiceItem {
@@ -32,7 +34,7 @@ interface BeProductionInvoiceItem {
   quantity: number;
   materialDeadline: string | null;
   deliveryDeadline: string | null;
-  stages: { stageType: StageType; deadline: string; startDate?: string | null }[];
+  stages: { stageType: StageType; deadline: string }[];
   prodApprovalStatus: 'WAITING_QLSX' | 'WAITING_BOSS' | 'APPROVED' | 'REJECTED' | null;
   requestedAt: string | null;
   requestedById: string | null;
@@ -84,7 +86,7 @@ function toItem(it: BeProductionInvoiceItem) {
     materialDeadline: it.materialDeadline ?? undefined,
     deliveryDeadline: it.deliveryDeadline ?? undefined,
     status: undefined as string | undefined, // stage sản xuất/giao hàng — ngoài phạm vi domain này
-    stages: it.stages.map((s) => ({ stageType: s.stageType, deadline: s.deadline, startDate: s.startDate ?? undefined })),
+    stages: it.stages.map((s) => ({ stageType: s.stageType, deadline: s.deadline })),
     cuttingProposalStatus: it.cuttingProposalStatus ?? null,
     cuttingProposalRequestedAt: it.cuttingProposalRequestedAt ?? null,
     productionOrderId: it.productionOrderId ?? null,
@@ -148,7 +150,7 @@ export async function updateProductionInvoiceItem(
   data: {
     materialDeadline?: string;
     deliveryDeadline?: string;
-    stages?: { stageType: StageType; deadline: string; startDate?: string }[];
+    stages?: { stageType: StageType; deadline: string }[];
   },
 ) {
   return toItem(

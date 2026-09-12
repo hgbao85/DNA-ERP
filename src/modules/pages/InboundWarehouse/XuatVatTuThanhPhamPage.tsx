@@ -41,7 +41,7 @@ export default function XuatVatTuThanhPhamPage() {
   const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT' && activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? ''))
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
-  const { data: planData, isLoading: planLoading, refetch } = useFetch<BeMaterialYieldIssuePlanItem[]>(
+  const { data: planData, isLoading: planLoading, error: planError, refetch } = useFetch<BeMaterialYieldIssuePlanItem[]>(
     () => (selectedPf ? api.getMaterialYieldIssuePlan(selectedPf) : Promise.resolve([])),
     [selectedPf?.id],
   )
@@ -92,7 +92,9 @@ export default function XuatVatTuThanhPhamPage() {
           Xuất Sắt La (Pat) / Thanh nhôm (chân nhôm) theo lệnh sản xuất. Bấm Xuất → Phôi xác nhận nhận ở <b>Xác nhận nhận sắt</b>.
         </div>
 
-        {planLoading ? <LoadingState /> : plan.length === 0 ? (
+        {planLoading ? <LoadingState /> : planError ? (
+          <div style={{ ...emptyBox, color: '#dc2626' }}>Lỗi tải kế hoạch xuất vật tư: {planError}</div>
+        ) : plan.length === 0 ? (
           <div style={emptyBox}>
             {poInfoFor(selectedPf)
               ? 'SKU này đã có lệnh sản xuất (PO/PI ở trên) nhưng BOM chưa khai định mức vật tư thành phẩm (PieceMaterialYield) — báo KHSX bổ sung định mức cho sản phẩm này trước khi xuất được.'

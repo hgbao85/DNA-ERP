@@ -66,6 +66,15 @@ import {
   ACCENT, GREEN, RED, AMBER, PURPLE, th, thR, td, tdR, card, smallBtn, inp, subFilterBtn,
 } from './phoiStyles'
 
+// '—' cho phoiDeadline null (KHSX chưa đặt mốc Phôi cho SKU này) - mirror dateVN() ở
+// components/sanxuat/core.tsx (Hàn/Sơn), không import chéo vì file này cố ý độc lập (nối BE thật
+// riêng, xem doc comment đầu file).
+const dateVN = (iso: string | null): string => {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN')
+}
+
 interface PiAgg {
   productionInvoiceId: string; poNumber: string; issues: BeSteelIssue[]; bundles: BeCutBundle[]
   totalIssued: number
@@ -413,7 +422,8 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
               <div key={i} style={{ fontSize: 13, display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{o.poNumber}</span>
                 <span>{o.productName}</span>
-                <span style={{ color: 'var(--text3)', marginLeft: 'auto' }}>SL {o.quantity.toLocaleString('vi-VN')}</span>
+                <span style={{ color: 'var(--text3)', marginLeft: 'auto' }}>Deadline {dateVN(o.phoiDeadline)}</span>
+                <span style={{ color: 'var(--text3)' }}>SL {o.quantity.toLocaleString('vi-VN')}</span>
               </div>
             ))}
           </div>
@@ -916,7 +926,7 @@ function NewCutBundleForm({ targetIssue, progress, readOnly, bundles, onOpenCutt
       {onOpenCuttingGuide && (
         <button onClick={onOpenCuttingGuide}
           style={{ display: 'flex', alignItems: 'center', gap: 5, border: 'none', background: 'none', padding: 0, marginTop: 10, fontSize: 12, fontWeight: 600, color: ACCENT, cursor: 'pointer' }}>
-          <Ruler size={13} /> Xem hướng dẫn cắt đầy đủ (bắt buộc theo đúng phương án đã duyệt, xuất được để in) →
+          <Ruler size={13} /> Xem hướng dẫn cắt đầy đủ
         </button>
       )}
     </div>

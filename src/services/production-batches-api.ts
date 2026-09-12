@@ -119,6 +119,10 @@ export interface BeProductionOrderSummary {
   /** Mã PI hiển thị (vd "PI-2026-003") - dùng để gom giao diện Hàn/Sơn theo PI giống Phôi
    *  (2026-08-31, xem PiListBoard ở core.tsx). */
   piCode: string;
+  /** Mốc kế hoạch của SKU cha (LenhSXPage "Sửa thời hạn") - thêm 2026-09-12 để hiện "Deadline"
+   *  thật ở màn Hàn/Sơn (core.tsx fetchHanSonRows(), trước đây hard-code '—'). Lọc theo
+   *  stageType cần dùng (FRAME_HAN cho Hàn, FRAME_SON cho Sơn). */
+  stages: { stageType: string; deadline: string }[];
 }
 
 /**

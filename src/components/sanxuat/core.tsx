@@ -97,8 +97,9 @@ export const minsAgo = (mins: number) => new Date(Date.now() - mins * 60000).toI
 
 // ── Helpers ────────────────────────────────────────────────────────
 export const fmt = (n: number) => n.toLocaleString('vi-VN')
-// '—' cho ProcRow.deadline chưa có thật (Hàn/Sơn nối BE thật, đợt 2 — ProductionOrder không có
-// cột deadline, xem fetchHanSonRows()) — tránh hiện "Invalid Date" ra UI.
+// '—' cho ProcRow.deadline rỗng (Hàn/Sơn chưa từng được KHSX đặt mốc FRAME_HAN/FRAME_SON riêng,
+// xem fetchHanSonRows() - 2026-09-12: đã nối thật, trước đó luôn hard-code '—') — tránh hiện
+// "Invalid Date" ra UI.
 export const dateVN = (iso: string) => {
   const d = new Date(iso)
   return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN')
@@ -987,8 +988,13 @@ interface HanSonFetch {
   batchesByLine: Map<number, BeProductionBatch[]>
 }
 
+// Hàn -> mốc FRAME_HAN, Sơn -> mốc FRAME_SON (ProdItemStageType ở BE, LenhSXPage "Sửa thời hạn") -
+// SanLuongStage 'PHOI' không dùng hàm này (Phôi vẫn màn riêng, xem LenhSanXuatPhoi.tsx).
+const DEADLINE_STAGE_TYPE: Partial<Record<SanLuongStage, string>> = { HAN: 'FRAME_HAN', SON: 'FRAME_SON' }
+
 async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
   const orders: BeProductionOrderSummary[] = await api.listProductionOrdersForStage()
+  const deadlineStageType = DEADLINE_STAGE_TYPE[stage]
   const settled = await Promise.all(orders.map(async o => {
     try {
       const [plan, batches] = await Promise.all([
@@ -1017,11 +1023,16 @@ async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
         rawMaterialOnHand: item.rawMaterialOnHand,
       }
     })
+    // Mốc kế hoạch KHSX đặt riêng cho Hàn/Sơn (FRAME_HAN/FRAME_SON) - '' nếu chưa từng đặt (dateVN
+    // tự trả '—' cho chuỗi rỗng/không parse được, xem comment dateVN()).
+    const deadlineStage = deadlineStageType
+      ? o.stages.find(s => s.stageType === deadlineStageType)
+      : undefined
     rows.push({
       // arrangedAt: không null - "chủ chuyền sắp xếp" là bước riêng của mock, không có gì tương
       // ứng ở BE; PO thật xuất hiện trong danh sách nghĩa là đã sẵn sàng để báo sản lượng.
       id: Number(o.id), poNumber: plan.salesOrderCode ?? '—', sku: plan.productName, productName: plan.productName,
-      soLuong: plan.quantity, deadline: '—', arrangedAt: new Date().toISOString(), lines, realOrderId: o.id,
+      soLuong: plan.quantity, deadline: deadlineStage?.deadline ?? '', arrangedAt: new Date().toISOString(), lines, realOrderId: o.id,
       productionInvoiceId: o.productionInvoiceId, piCode: o.piCode,
     })
   }

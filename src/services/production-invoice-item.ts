@@ -39,6 +39,12 @@ interface BeProductionOrderRaw {
   /** Kho thành phẩm QLSX chọn làm điểm cuối trước khi gửi Sếp duyệt (warehouseScope cụ thể, vd
    *  'thanh-pham-2') - dùng để lọc đúng instance kho ở các trang kho phía thành phẩm. */
   warehouseCode: string | null;
+  /** true nếu định mức (BOM) của sản phẩm đã được sửa/duyệt lại SAU KHI lệnh này được tạo -
+   *  ProductionOrder.bomRevisionId ghim tại thời điểm duyệt, không tự đồng bộ theo bản mới (xem
+   *  changelog 2026-09-11-bom-revision-ghim-cu-canh-bao.md). Vật tư mới khai ở bản BOM mới sẽ
+   *  KHÔNG xuất hiện ở các màn xuất kho (Xuất sắt/Xuất vật tư TP/hàn/sơn/đan...) cho tới khi có
+   *  người chủ động xử lý - dùng field này để cảnh báo, KHÔNG tự ẩn/tự sửa gì. */
+  bomOutOfDate: boolean;
 }
 let productionOrdersCache: { promise: Promise<BeProductionOrderRaw[]>; expiresAt: number } | null = null;
 const PRODUCTION_ORDERS_CACHE_TTL_MS = 10_000;
@@ -151,6 +157,8 @@ export interface ProductionOrderInfo {
    *  duyệt qua luồng cũ chưa từng gán kho.
    */
   warehouseCode: string | null;
+  /** Xem `BeProductionOrderRaw.bomOutOfDate` - dùng để cảnh báo ở các màn kho, KHÔNG tự sửa gì. */
+  bomOutOfDate: boolean;
 }
 
 /**
@@ -184,6 +192,7 @@ export async function buildProductionOrderInfoByMfgProduct(): Promise<Map<string
       deliveryDate: o.deliveryDeadline,
       floorStage: o.floorStage,
       warehouseCode: o.warehouseCode,
+      bomOutOfDate: o.bomOutOfDate,
     };
     map.set(`${o.productionInvoiceId}:${o.mfgProductId}`, info);
     if (!map.has(o.mfgProductId)) map.set(o.mfgProductId, info);

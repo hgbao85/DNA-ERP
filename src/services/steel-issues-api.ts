@@ -367,6 +367,9 @@ export interface BePiOrderSummary {
   salesOrderCode: string | null;
   productName: string;
   quantity: number;
+  /** Mốc kế hoạch Phôi (LenhSXPage "Sửa thời hạn", ProdItemStageType.FRAME_PHOI) của đúng SKU này -
+   *  null nếu KHSX chưa từng đặt. Thêm 2026-09-12 để màn Lệnh sản xuất Phôi hiện được deadline. */
+  phoiDeadline: string | null;
 }
 
 export async function getPiOrderSummary(productionInvoiceId: string): Promise<BePiOrderSummary[]> {
