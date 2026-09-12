@@ -55,6 +55,9 @@ interface BeWarehouseTransfer {
   createdById: string | null;
   confirmedById: string | null;
   rejectedById: string | null;
+  createdByName: string | null;
+  confirmedByName: string | null;
+  rejectedByName: string | null;
 }
 
 interface BeWarehouseTransferDetail extends BeWarehouseTransfer {
@@ -112,6 +115,9 @@ function toTransfer(
     createdById: t.createdById,
     confirmedById: t.confirmedById,
     rejectedById: t.rejectedById,
+    createdByName: t.createdByName,
+    confirmedByName: t.confirmedByName,
+    rejectedByName: t.rejectedByName,
   };
 }
 

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { ArrowUpFromLine, ChevronLeft, Clock } from 'lucide-react'
+import { ArrowUpFromLine, ChevronLeft } from 'lucide-react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
@@ -11,7 +11,7 @@ import { isFamilyScope, warehouseFamilyOf } from '../../../utils/warehouseFamily
 import { safeArr } from '../../../utils/array'
 import { errMsg } from '../../../utils/errors'
 import { compactTh as th, compactTd as td, tableWrap, tbl, row, badge, emptyBox } from '../../../styles/table'
-import { backBtn, tabBtn } from '../../../styles/buttons'
+import { backBtn } from '../../../styles/buttons'
 
 interface Wh { id: string; name: string; code: string }
 
@@ -46,15 +46,6 @@ interface Order {
   skuName?: string
   piCode?: string
   lines: OrderLine[]
-}
-
-interface Txn {
-  id: string
-  orderRef: string
-  materialName: string
-  unit: string
-  qty: number
-  date: string
 }
 
 // ── Status ─────────────────────────────────────────────────────────────────────
@@ -227,8 +218,6 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
 
   const [orders, setOrders]         = useState<Order[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [txns, setTxns]             = useState<Txn[]>([])
-  const [view, setView]             = useState<'orders' | 'history'>('orders')
 
   const { data: warehouses } = useFetch<Wh[]>(() => api.getWarehouses(), [])
   const myWarehouse = safeArr(warehouses).find(w => w.code === scope) ?? null
@@ -319,10 +308,6 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
         setTransferBusyLine(null)
         return
       }
-      setTxns(t => [{
-        id: `txn-${Date.now()}-${lineId}`, orderRef: order.ref,
-        materialName: line.materialName, unit: line.unit, qty, date: new Date().toISOString(),
-      }, ...t])
       setTransferBusyLine(null)
       refetchPieceOrders() // đọc lại suggestedQty/transferredQty thật từ BE thay vì tự trừ cục bộ
       return
@@ -341,10 +326,6 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
         setTransferBusyLine(null)
         return
       }
-      setTxns(t => [{
-        id: `txn-${Date.now()}-${lineId}`, orderRef: order.ref,
-        materialName: line.materialName, unit: line.unit, qty, date: new Date().toISOString(),
-      }, ...t])
       setTransferBusyLine(null)
       refetchPackagingOrders() // đọc lại remainingToIssue/issuedQty thật từ BE thay vì tự trừ cục bộ
       return
@@ -362,10 +343,6 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
         setTransferBusyLine(null)
         return
       }
-      setTxns(t => [{
-        id: `txn-${Date.now()}-${lineId}`, orderRef: order.ref,
-        materialName: line.materialName, unit: line.unit, qty, date: new Date().toISOString(),
-      }, ...t])
       setTransferBusyLine(null)
       refetchShipOrders() // đọc lại shippedQty thật từ BE thay vì tự trừ cục bộ
       return
@@ -549,17 +526,9 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
         <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
           <ArrowUpFromLine size={20} color={ACCENT} /> Xuất kho
         </h2>
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
-          {(['orders', 'history'] as const).map(v => (
-            <button key={v} onClick={() => setView(v)} style={tabBtn(view === v, ACCENT)}>
-              {v === 'history' && <Clock size={13} />}
-              {v === 'orders' ? 'Xuất kho' : 'Lịch sử'}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {view === 'orders' && (
+      {(
         activeListError ? (
           <div style={{ ...emptyBox, color: '#dc2626' }}>Lỗi tải danh sách: {activeListError}</div>
         ) : orders.length === 0 ? (
@@ -600,38 +569,6 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                     </tr>
                   )
                 })}
-              </tbody>
-            </table>
-          </div>
-        )
-      )}
-
-      {view === 'history' && (
-        txns.length === 0 ? (
-          <div style={emptyBox}>Chưa có giao dịch nào trong phiên này</div>
-        ) : (
-          <div style={tableWrap}>
-            <table style={tbl}>
-              <colgroup>
-                <col style={{ width: 130 }} /><col style={{ width: 110 }} /><col /><col style={{ width: 56 }} /><col style={{ width: 80 }} />
-              </colgroup>
-              <thead><tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                <th style={th}>Thời gian</th>
-                <th style={th}>Mã PO / ĐH</th>
-                <th style={th}>Vật tư</th>
-                <th style={th}>ĐVT</th>
-                <th style={{ ...th, textAlign: 'right' }}>SL xuất</th>
-              </tr></thead>
-              <tbody>
-                {txns.map(t => (
-                  <tr key={t.id} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={{ ...td, color: 'var(--text3)', fontSize: 12, whiteSpace: 'nowrap' }}>{format(new Date(t.date), 'HH:mm · dd/MM')}</td>
-                    <td style={{ ...td, fontWeight: 700, color: ACCENT, whiteSpace: 'nowrap' }}>{t.orderRef}</td>
-                    <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>{t.materialName}</td>
-                    <td style={{ ...td, color: 'var(--text3)' }}>{t.unit}</td>
-                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: ACCENT }}>−{t.qty.toLocaleString('vi-VN')}</td>
-                  </tr>
-                ))}
               </tbody>
             </table>
           </div>

@@ -29,16 +29,49 @@ export interface BeStockLedgerEntry {
   id: string;
   fromWarehouseId: string;
   fromWarehouseCode: string;
+  fromWarehouseName: string;
   toWarehouseId: string;
   toWarehouseCode: string;
+  toWarehouseName: string;
   materialId: string | null;
   materialCode: string | null;
+  materialName: string | null;
+  materialUnit: string | null;
   segmentSpecId: string | null;
   segmentSpecLabel: string | null;
+  /** Mảnh/thành phẩm - 2 chân hàng còn lại của sổ kho (XOR với material/segmentSpec). Kho phôi sơn
+   *  hàn/vật tư TP gần như không có dòng loại này, kho thành phẩm thì có. */
+  pieceId: string | null;
+  pieceCode: string | null;
+  productVariantId: string | null;
+  productVariantLabel: string | null;
   qty: number;
   refType: string;
+  /** Id bản ghi nguồn (vd warehouse_transfers.id) - đa bảng tuỳ refType, chưa dùng để link. */
+  refId: string | null;
+  /** Mã chứng từ đọc được (vd "CK-2026-010"). CHỈ phiếu chuyển kho có mã; nguồn khác (xuất sắt,
+   *  mua hàng, xuất bao bì, điều chỉnh...) không có cột code nên null → hiện nhãn loại thay thế. */
+  refCode: string | null;
+  /** Công đoạn/tổ của bản ghi nguồn (PHOI/HAN/SON/DAN) - chỉ có với bút toán tiêu hao đoạn sắt và
+   *  xuất vật tư tiêu hao; loại khác null vì tổ cố định theo nghiệp vụ (xem TEAM_BY_REF_TYPE). */
+  refStage: string | null;
+  /** Mã đơn hàng Sales (SalesOrder.orderCode) của Lệnh sản xuất gắn với bản ghi nguồn - cột
+   *  "Mã đơn hàng (PO)" ở màn Lịch sử kho (2026-09-12, theo yêu cầu Sếp). null nếu refType không
+   *  đi qua Lệnh sản xuất nào (mua hàng, chuyển kho, KCS phế, điều chỉnh tay...) hoặc PI nguồn là
+   *  PI gộp nhiều đơn. */
+  poCode: string | null;
+  /** Mã Lệnh sản xuất (ProductionInvoice.code, vd "PI-2026-005") - "Lệnh sản xuất" TRONG TOÀN HỆ
+   *  THỐNG là ProductionInvoice/PI, KHÁC poCode (SalesOrder.orderCode) ở trên. null nếu refType
+   *  không gắn Lệnh sản xuất nào (mua hàng, chuyển kho, KCS phế, điều chỉnh tay...). */
+  piCode: string | null;
   note: string | null;
   createdAt: string;
+  createdById: string | null;
+  /** Tên người ghi bút toán - BE trả sẵn (thủ kho không có quyền USER:VIEW để tự resolve). */
+  createdByName: string | null;
+  /** Chiều dài cây (mm) với sắt bán theo chiều dài, 0 cho loại khác - cùng mã sắt khác chiều dài là
+   *  2 lô tồn RIÊNG nên sổ phải hiện ra mới đọc đúng. */
+  stockLengthMm: number;
 }
 
 export async function getStockQuants(params?: { warehouseId?: string; materialId?: string; segmentSpecId?: string }): Promise<BeStockQuant[]> {

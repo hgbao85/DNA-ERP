@@ -44,11 +44,14 @@ export interface WarehouseTransfer {
   confirmedAt?: string | null
   rejectedAt?: string | null
   /** Vấn đề #7 audit 26/08 - trước đây chỉ tra được ai tạo/xác nhận/từ chối qua audit log riêng.
-   *  null với phiếu tạo trước khi field này có mặt (không backfill). Raw user id - FE tự resolve
-   *  tên qua getUsers() nếu cần hiển thị. */
+   *  null với phiếu tạo trước khi field này có mặt (không backfill). */
   createdById?: string | null
   confirmedById?: string | null
   rejectedById?: string | null
+  /** Tên đọc được - BE trả sẵn (thủ kho không có quyền USER:VIEW để tự resolve qua getUsers()). */
+  createdByName?: string | null
+  confirmedByName?: string | null
+  rejectedByName?: string | null
 }
 
 // Chuỗi chuyển kho MỘT CHIỀU theo GIA ĐÌNH: value = gia đình ĐÍCH DUY NHẤT được phép nhận hàng từ

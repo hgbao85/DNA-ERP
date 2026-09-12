@@ -4,10 +4,11 @@ import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import {
   updateUser, getUsers, getWarehouses, createWarehouse, deleteWarehouse,
-  getMaterials, createMaterial, getMaterialGroups, getStockQuants, getStockLedger, adjustStock,
+  getMaterials, createMaterial, getMaterialGroups, getStockQuants, adjustStock,
 } from '../../../services/api'
 import { Plus, Trash2, X, ArrowLeft, Warehouse, Search, Copy } from 'lucide-react'
 import AdjustReasonModal from '../../../components/AdjustReasonModal'
+import WarehouseLedgerHistory from '../../../components/WarehouseLedgerHistory'
 import { warehouseFamilyOf, type WarehouseFamily } from '../../../utils/warehouseFamily'
 export { isThanhPhamScope } from '../../../utils/warehouseFamily'
 
@@ -19,6 +20,7 @@ interface WhRow {
   code: string
   name: string
   note: string | null
+  isVirtual: boolean
 }
 interface MaterialRow {
   id: number
@@ -52,15 +54,6 @@ interface QuantRow {
   /** Vấn đề #13 audit 26/08 - tồn còn dùng được (đã trừ phần giữ chỗ cắt sắt/chuyển kho), BE tính
    *  sẵn qua getAvailableQty() dùng chung với màn Xuất sắt - xem stock-api.ts. */
   availableQty: number
-}
-interface LedgerRow {
-  id: string
-  fromWarehouseCode: string
-  toWarehouseCode: string
-  materialCode: string | null
-  qty: number
-  note: string | null
-  createdAt: string
 }
 export interface StockItem {
   materialId: number
@@ -108,9 +101,17 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
   const group = groupKey ? WAREHOUSE_GROUPS.find(g => g.key === groupKey) : null
 
   // Lọc theo groupKey (khớp code trực tiếp thay vì regex tên)
-  const visibleWhs = (groupKey && groupKey !== 'all')
-    ? (warehouses ?? []).filter(w => w.code === groupKey || w.code.startsWith(groupKey + '-'))
-    : (warehouses ?? [])
+  const visibleWhs = (
+    (groupKey && groupKey !== 'all')
+      ? (warehouses ?? []).filter(w => w.code === groupKey || w.code.startsWith(groupKey + '-'))
+      : (warehouses ?? [])
+  )
+    // Kho ẢO (SUPPLIER/PRODUCTION/SCRAP/OPENING_BALANCE) chỉ Admin thấy (2026-09-12, theo yêu cầu
+    // người dùng) - Boss/QLSX/KHSX vào "Tổng hợp kho" (groupKey=undefined, thấy cả 7 kho) không
+    // cần biết tới các điểm đối ứng bút toán kỹ thuật này, dễ gây hỏi "sao lại có kho không tồn
+    // vật lý". Thủ kho (groupKey=scope riêng) vốn đã không thấy kho ảo từ trước do lọc theo code ở
+    // trên (SUPPLIER/PRODUCTION/SCRAP/OPENING_BALANCE không khớp bất kỳ family nào) - không đổi gì.
+    .filter(w => isAdmin || !w.isVirtual)
 
   // Gia đình gợi ý sẵn khi mở form tạo kho - suy từ nhóm đang xem (nếu có, vd Thủ kho vào đúng tab
   // "Kho phôi sơn hàn"); về null khi xem "Tổng hợp kho" (Admin > Quản lý kho không có khái niệm
@@ -410,8 +411,6 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
   const [adjustBusy, setAdjustBusy] = useState(false)
   const [adjustError, setAdjustError] = useState<string | null>(null)
 
-  const { data: ledger } = useFetch<LedgerRow[]>(() => getStockLedger({ warehouseId: wh.id }), [wh.id])
-
   const filteredItems = items.filter(it =>
     !search || it.name.toLowerCase().includes(search.toLowerCase()) || it.code.toLowerCase().includes(search.toLowerCase()),
   )
@@ -466,15 +465,6 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
     setPendingAdjust(null)
     setAdjustError(null)
   }
-
-  const txns: Txn[] = (ledger ?? []).map(e => ({
-    id: e.id,
-    itemName: e.materialCode ?? '—',
-    type: e.toWarehouseCode === wh.code ? 'IMPORT' : 'EXPORT',
-    quantity: e.qty,
-    note: e.note ?? (e.toWarehouseCode === wh.code ? `Nhận từ ${e.fromWarehouseCode}` : `Chuyển đến ${e.toWarehouseCode}`),
-    date: e.createdAt,
-  }))
 
   const handleDeleteWarehouse = async () => {
     if (!confirm(`Xóa kho "${wh.name}"?`)) return
@@ -598,8 +588,10 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
         </div>
       )}
 
-      {/* Lịch sử */}
-      {tab === 'history' && <WarehouseHistory txns={txns} />}
+      {/* Lịch sử - 2026-09-12 dùng chung component sổ kho với phân hệ Kho đầu vào (tab "Lịch sử
+          kho"). Bảng cũ chỉ 5 cột rút gọn: mất loại đối ứng/người thực hiện/ĐVT, và chỉ hiện được
+          dòng vật tư (đoạn sắt/mảnh/thành phẩm đều ra "—"). */}
+      {tab === 'history' && <WarehouseLedgerHistory warehouseId={String(wh.id)} warehouseCode={wh.code} />}
 
       {adding && (
         <AddMaterialModal
@@ -629,108 +621,6 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
           onCancel={cancelAdjust}
         />
       )}
-    </div>
-  )
-}
-
-// ── Lịch sử nhập/xuất ────────────────────────────────────────────────────────
-
-interface Txn {
-  id: string
-  itemName: string
-  type: 'IMPORT' | 'EXPORT'
-  quantity: number
-  note: string
-  date: string
-}
-
-function WarehouseHistory({ txns }: { txns: Txn[] }) {
-  const [typeFilter, setTypeFilter] = useState<'ALL' | 'IMPORT' | 'EXPORT'>('ALL')
-  const [dateFrom,   setDateFrom]   = useState('')
-  const [dateTo,     setDateTo]     = useState('')
-
-  const filtered = [...txns].reverse().filter(t => {
-    if (typeFilter !== 'ALL' && t.type !== typeFilter) return false
-    if (dateFrom && t.date < dateFrom) return false
-    if (dateTo   && t.date > dateTo + 'T23:59:59') return false
-    return true
-  })
-
-  const TYPE_OPTIONS = [
-    { value: 'ALL'    as const, label: 'Tất cả',   color: 'var(--text)',  bg: 'var(--surface2)' },
-    { value: 'IMPORT' as const, label: 'Nhập kho', color: '#15803d',      bg: '#dcfce7'         },
-    { value: 'EXPORT' as const, label: 'Xuất kho', color: '#c2410c',      bg: '#ffedd5'         },
-  ]
-
-  const hasFilter = typeFilter !== 'ALL' || dateFrom || dateTo
-
-  return (
-    <div>
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14,
-        padding: '10px 14px', background: 'var(--surface2)',
-        border: '1px solid var(--border)', borderRadius: 10, flexWrap: 'wrap',
-      }}>
-        <div style={{ display: 'flex', gap: 4 }}>
-          {TYPE_OPTIONS.map(o => {
-            const active = typeFilter === o.value
-            return (
-              <button key={o.value} onClick={() => setTypeFilter(o.value)} style={{
-                padding: '4px 12px', fontSize: 12, fontWeight: active ? 700 : 500,
-                borderRadius: 20, border: active ? 'none' : '1px solid var(--border)', cursor: 'pointer',
-                background: active ? o.bg : 'var(--surface)', color: active ? o.color : 'var(--text2)',
-                boxShadow: active ? `0 0 0 1.5px ${o.color}33` : 'none', transition: 'all .12s',
-              }}>{o.label}</button>
-            )
-          })}
-        </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-          {hasFilter && (
-            <button onClick={() => { setTypeFilter('ALL'); setDateFrom(''); setDateTo('') }}
-              style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'red', cursor: 'pointer' }}>
-              ✕ Xóa bộ lọc
-            </button>
-          )}
-          <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, whiteSpace: 'nowrap' }}>Từ ngày</span>
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ ...inp, width: 136, padding: '5px 8px', fontSize: 12 }} />
-          <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600 }}>đến</span>
-          <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   style={{ ...inp, width: 136, padding: '5px 8px', fontSize: 12 }} />
-        </div>
-      </div>
-
-      <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-          <thead>
-            <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-              <th style={th}>Ngày</th>
-              <th style={th}>Vật tư</th>
-              <th style={th}>Loại</th>
-              <th style={{ ...th, textAlign: 'right' }}>SL</th>
-              <th style={th}>Ghi chú</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map(t => (
-              <tr key={t.id} style={{ borderTop: '1px solid var(--border)' }}>
-                <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--text3)', fontSize: 12 }}>
-                  {new Date(t.date).toLocaleDateString('vi-VN')}
-                </td>
-                <td style={td}>{t.itemName}</td>
-                <td style={{ ...td, fontWeight: 600, color: t.type === 'IMPORT' ? '#2e7d32' : '#e65100' }}>
-                  {t.type === 'IMPORT' ? 'Nhập' : 'Xuất'}
-                </td>
-                <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>{t.quantity.toLocaleString('vi-VN')}</td>
-                <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{t.note || '—'}</td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr><td colSpan={5} style={{ ...td, textAlign: 'center', color: 'var(--text3)', padding: 24 }}>
-                {txns.length === 0 ? 'Chưa có giao dịch nào.' : 'Không có giao dịch khớp bộ lọc.'}
-              </td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
     </div>
   )
 }

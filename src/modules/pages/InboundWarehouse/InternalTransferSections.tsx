@@ -5,11 +5,11 @@ import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
 import { CheckCircle2, ChevronDown, ChevronUp, XCircle } from 'lucide-react'
 import type { WarehouseTransfer } from '../../../types/warehouse-transfer'
-import { TRANSFER_STATUS_MAP, canReceiveAt } from '../../../types/warehouse-transfer'
+import { canReceiveAt } from '../../../types/warehouse-transfer'
 import { safeArr } from '../../../utils/array'
 import { errMsg } from '../../../utils/errors'
 import ReasonModal from '../../../components/ReasonModal'
-import { compactTh as th, compactTd as td, tableWrap, tbl, row, badge, emptyBox } from '../../../styles/table'
+import { compactTh as th, compactTd as td, emptyBox } from '../../../styles/table'
 
 interface Wh { id: string; name: string; code: string }
 
@@ -17,6 +17,12 @@ interface Wh { id: string; name: string; code: string }
  * Mục "Nhập nội bộ" — nhúng trong trang Nhập kho, chỉ có tác dụng ở kho được phép NHẬN
  * trong chuỗi chuyển kho (Vật tư thành phẩm, Thành phẩm). Xác nhận hoặc từ chối phiếu
  * chuyển kho gửi tới; tồn kho hai bên chỉ thay đổi khi bấm xác nhận ở đây.
+ *
+ * KHÔNG còn bảng "Lịch sử nhập nội bộ" riêng ở đây (2026-09-12, theo yêu cầu người dùng) - phiếu
+ * đã xác nhận/bị từ chối giờ xem ở tab "Lịch sử kho" (WarehouseLedgerHistory.tsx), gộp chung với
+ * mọi loại bút toán khác của kho thay vì tách riêng theo từng nghiệp vụ. Mục này chỉ còn giữ đúng
+ * việc "đang chờ xử lý" (PENDING) - phần duy nhất Lịch sử kho không có, vì đó là sổ CÁI (chỉ ghi
+ * việc đã xảy ra), không có khái niệm "đang chờ".
  */
 export function NhapNoiBoSection({ warehouseCode }: { warehouseCode: string }) {
   const { data: warehouses } = useFetch<Wh[]>(() => api.getWarehouses(), [])
@@ -29,26 +35,14 @@ export function NhapNoiBoSection({ warehouseCode }: { warehouseCode: string }) {
   const { data: pendingData, refetch: refetchPending } = useFetch<WarehouseTransfer[]>(
     () => api.getWarehouseTransfers('PENDING'), []
   )
-  const { data: historyData, refetch: refetchHistory } = useFetch<WarehouseTransfer[]>(
-    () => api.getWarehouseTransfers(), []
-  )
-  const refetchTransfers = () => { refetchPending(); refetchHistory() }
 
   if (!canReceiveAt(warehouseCode) || !myWarehouse) {
     return <div style={emptyBox}>Kho này không thuộc bước nhận trong chuỗi chuyển kho nội bộ</div>
   }
 
   const pending = safeArr(pendingData).filter(t => t.toWarehouseId === myWarehouse.id)
-  const history = safeArr(historyData)
-    .filter(t => t.toWarehouseId === myWarehouse.id && t.status !== 'PENDING')
-    .sort((a, b) => (b.confirmedAt ?? b.rejectedAt ?? '').localeCompare(a.confirmedAt ?? a.rejectedAt ?? ''))
 
-  return (
-    <div>
-      <IncomingInbox pending={pending} onChanged={refetchTransfers} />
-      <TransferHistoryTable title="Lịch sử nhập nội bộ" transfers={history} />
-    </div>
-  )
+  return <IncomingInbox pending={pending} onChanged={refetchPending} />
 }
 
 // ── Hộp thư chờ nhận (bên nhận) ──────────────────────────────────────────────
@@ -188,60 +182,6 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
         confirmDisabled={!rejectReason.trim()}
         confirmColor="#c62828"
       />
-    </div>
-  )
-}
-
-// ── Lịch sử (dùng chung cho cả 2 mục) ────────────────────────────────────────
-
-function TransferHistoryTable({ title, transfers }: { title: string; transfers: WarehouseTransfer[] }) {
-  return (
-    <div>
-      <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>{title}</h3>
-      {transfers.length === 0 ? (
-        <div style={emptyBox}>Chưa có phiếu chuyển kho nào đã xử lý</div>
-      ) : (
-        <div style={tableWrap}>
-          <table style={tbl}>
-            <thead>
-              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                <th style={th}>Mã phiếu</th>
-                <th style={th}>Từ kho</th>
-                <th style={th}>Đến kho</th>
-                <th style={th}>Vật tư</th>
-                <th style={th}>Trạng thái</th>
-                <th style={th}>Ngày xử lý</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transfers.map(t => {
-                const st = TRANSFER_STATUS_MAP[t.status]
-                return (
-                  <tr key={t.id} style={row}>
-                    <td style={{ ...td, fontWeight: 600, fontFamily: 'monospace' }}>{t.code}</td>
-                    <td style={td}>{t.fromWarehouseName}</td>
-                    <td style={td}>{t.toWarehouseName}</td>
-                    <td style={{ ...td, color: 'var(--text3)' }}>{t.items.length + t.pieceItems.length} loại</td>
-                    <td style={td}>
-                      <span style={{ ...badge, background: st.bg, color: st.color }}>{st.label}</span>
-                    </td>
-                    <td style={{ ...td, color: 'var(--text3)' }}>
-                      {new Date(t.confirmedAt ?? t.rejectedAt ?? t.createdAt).toLocaleDateString('vi-VN')}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {transfers.some(t => t.status === 'REJECTED' && t.rejectionReason) && (
-        <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text3)' }}>
-          {transfers.filter(t => t.status === 'REJECTED' && t.rejectionReason).map(t => (
-            <div key={t.id}>Lý do từ chối {t.code}: {t.rejectionReason}</div>
-          ))}
-        </div>
-      )}
     </div>
   )
 }

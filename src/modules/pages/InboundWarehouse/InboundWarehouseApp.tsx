@@ -1,6 +1,9 @@
 import { useState } from 'react'
-import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, BarChart3, MapPin, Share2 } from 'lucide-react'
+import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, BarChart3, MapPin, Share2, History } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
+import { useFetch } from '../../../hooks/useFetch'
+import { getWarehouses } from '../../../services/api'
+import WarehouseLedgerHistory from '../../../components/WarehouseLedgerHistory'
 // Tái dùng nguyên các màn kho đã có (trước đây nằm trong MES) — KHÔNG viết lại logic.
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import { isFamilyScope, isThanhPhamScope } from '../../../utils/warehouseFamily'
@@ -28,6 +31,10 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
 
   // Tài khoản kho bị giới hạn vào 1 nhóm kho (warehouseScope). null = tổng kho / Giám đốc → thấy hết.
   const scope = user?.warehouseScope ?? null
+  // Kho vật lý ứng với scope - cần `id` để đọc sổ kho (GET /stock-ledger?warehouseId=...), scope
+  // chỉ là `code`. Kho phụ (thanh-pham-2...) là bản ghi Warehouse riêng nên khớp thẳng theo code.
+  const { data: allWarehouses } = useFetch(() => getWarehouses(), [])
+  const myWarehouse = (Array.isArray(allWarehouses) ? allWarehouses : []).find(w => w.code === scope) ?? null
 
   // Chuyền kiểm + Đóng gói: kho thành phẩm + tổng kho (scope null). GĐ cũng thấy.
   // 2026-09-03: so khớp theo GIA ĐÌNH (isFamilyScope) thay vì đúng 1 literal - mọi kho phụ
@@ -35,12 +42,17 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   // vào nhánh generic bên dưới (mất tab "Tổng hợp vật tư", lộ nhầm tab đặc thù vat-tu-tp).
   const canSeePacking = scope === null || isThanhPhamScope(scope) || isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han')
 
-  type TabId = 'materials' | 'warehouses' | 'nhap-kho' | 'xuat-kho' | 'xuat-sat' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan'
+  type TabId = 'materials' | 'warehouses' | 'nhap-kho' | 'xuat-kho' | 'lich-su-kho' | 'xuat-sat' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan'
   const ALL_TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
     { id: 'materials',  label: 'Tổng hợp vật tư',    icon: <Boxes size={16} /> },
     { id: 'warehouses', label: 'Tổng hợp kho',        icon: <Warehouse size={16} /> },
     { id: 'nhap-kho',   label: 'Nhập kho',            icon: <ArrowDownToLine size={16} /> },
     { id: 'xuat-kho',   label: 'Xuất kho',            icon: <ArrowUpFromLine size={16} /> },
+    // Sổ kho (stock_ledger) của chính kho mình - 2026-09-12. Trước đây thủ kho KHÔNG có đường nào
+    // xem được lịch sử nhập xuất thật: "Tổng hợp kho" (MfgWarehousesPage, có tab Lịch sử) không
+    // nằm trong bộ tab của 3 scope kho, còn tab "Lịch sử" trong màn Xuất kho chỉ là giao dịch
+    // trong phiên, mất sạch khi tải lại trang.
+    { id: 'lich-su-kho', label: 'Lịch sử kho',        icon: <History size={16} /> },
     ...(isFamilyScope(scope, 'phoi-son-han') ? [{ id: 'xuat-sat' as TabId, label: 'Phân phối nội bộ', icon: <Share2 size={16} /> }] : []),
     ...(canSeePacking ? [
       { id: 'chuyen-kiem' as TabId, label: 'Chuyền kiểm', icon: <ClipboardCheck size={16} /> },
@@ -54,9 +66,9 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   // bao-bi-tp: 5 tab cố định (tổng hợp vật tư, nhập/xuất, chuyền kiểm, đóng gói)
   // Scoped khác: ẩn materials.
   const TABS = (() => {
-    if (isFamilyScope(scope, 'vat-tu-tp'))    return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','xuat-dan','diem-dan'].includes(t.id))
-    if (isFamilyScope(scope, 'phoi-son-han')) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','xuat-sat'].includes(t.id))
-    if (isThanhPhamScope(scope)) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','chuyen-kiem','dong-goi','nhap-dan'].includes(t.id))
+    if (isFamilyScope(scope, 'vat-tu-tp'))    return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','lich-su-kho','xuat-dan','diem-dan'].includes(t.id))
+    if (isFamilyScope(scope, 'phoi-son-han')) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','lich-su-kho','xuat-sat'].includes(t.id))
+    if (isThanhPhamScope(scope)) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','lich-su-kho','chuyen-kiem','dong-goi','nhap-dan'].includes(t.id))
     if (scope) return ALL_TABS.filter(t => t.id !== 'materials')
     return ALL_TABS
   })()
@@ -174,6 +186,19 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
           : <div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }}>
               Tài khoản không gán kho phụ trách cụ thể chưa có chức năng xuất kho — đăng nhập bằng
               tài khoản thủ kho của đúng kho cần xuất.
+            </div>
+        )}
+        {tab === 'lich-su-kho' && (myWarehouse
+          ? <div>
+              <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Lịch sử kho</h2>
+              <p style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 14 }}>
+                Toàn bộ bút toán nhập/xuất của <b>{myWarehouse.name}</b> — mua hàng về, xuất cho sản
+                xuất, chuyển kho nội bộ, phế liệu, điều chỉnh tay.
+              </p>
+              <WarehouseLedgerHistory warehouseId={String(myWarehouse.id)} warehouseCode={myWarehouse.code} />
+            </div>
+          : <div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }}>
+              Đang tải kho phụ trách…
             </div>
         )}
         {tab === 'xuat-sat'   && isFamilyScope(scope, 'phoi-son-han') && <PhanPhoiNoiBoPage />}
