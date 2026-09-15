@@ -1,12 +1,10 @@
 'use client'
-import { useState } from 'react'
 import { Package } from 'lucide-react'
 import { useFetch } from '../../../../hooks/useFetch'
 import { useAuditLog } from '../../../../context/AuditLogContext'
-import { getMaterials, createMaterial, updateMaterial, deleteMaterial, getMaterialGroups, getWarehouses, getUsers, getStockQuants, adjustStock } from '../../../../services/api'
+import { getMaterials, createMaterial, updateMaterial, deleteMaterial, getMaterialGroups, getWarehouses, getUsers, getStockQuants } from '../../../../services/api'
 import { MATERIAL_GROUP_SYSTEM_KEYS } from '../../../../constants/materialGroupSystemKeys'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
-import AdjustReasonModal from '../../../../components/AdjustReasonModal'
 
 interface Material {
   id: number
@@ -87,83 +85,29 @@ export default function MaterialsPage() {
   // Kho ảo (SUPPLIER/PRODUCTION/SCRAP/OPENING_BALANCE...) chỉ là điểm đối ứng cho bút toán kho,
   // không phải nơi vật tư thật sự nằm - loại khỏi dropdown chọn Kho để tránh gán nhầm.
   const realWarehouseOptions = warehouseList.filter((w) => !w.isVirtual)
-  // Kho ảo đối ứng cho "Sửa nhanh tồn kho" (bút toán ADJUST qua lại với kho ảo này) - xem
-  // adjustStock() ở stock-api.ts và role-permissions.constant.ts (STOCK:UPDATE - ADMIN có sẵn
-  // full quyền qua seed, không cần cấp riêng).
-  const openingBalanceWarehouseId = warehouseList.find((w) => w.code === 'OPENING_BALANCE')?.id ?? null
   const { data: users } = useFetch<Purchaser[]>(getUsers)
   const buyerList = (users ?? []).filter((u) => u.isPurchaser)
   const buyerName = (id?: string | null) => buyerList.find((u) => String(u.id) === id)?.name ?? '—'
 
-  const { data: quants, refetch: refetchQuants } = useFetch<QuantRow[]>(getStockQuants)
-  const quantByMaterialId = new Map(
-    (quants ?? []).filter((q) => q.materialId).map((q) => [`${q.materialId}:${q.warehouseId}`, q]),
-  )
+  const { data: quants } = useFetch<QuantRow[]>(getStockQuants)
+  // CỘNG DỒN theo key, KHÔNG lấy dòng cuối - vật tư Sắt có thể có NHIỀU dòng stock_quant cho ĐÚNG
+  // 1 cặp (kho, vật tư) khi tồn ở nhiều bucket stockLengthMm khác nhau (cây 6m/4m là 2 lô RIÊNG,
+  // unique index 3 cột warehouseId+materialId+stockLengthMm - xem fn_sync_stock_quant). API
+  // GET /stock-quant không trả field stockLengthMm ra ngoài nên các dòng này trông như trùng key -
+  // Map ghi đè dòng cuối (bản cũ) sẽ ÂM THẦM BÁO THIẾU tồn cho vật tư Sắt đa-bucket (bug thật, xác
+  // nhận qua SAT-003/SAT-005 có 2 dòng tồn kho tại Kho Phôi Sơn Hàn - xem VatTuDashboardPage.tsx
+  // cùng lỗi đã sửa 14/09/2026).
+  const quantByMaterialId = new Map<string, { qty: number; availableQty: number }>()
+  for (const q of (quants ?? []).filter((q) => q.materialId)) {
+    const key = `${q.materialId}:${q.warehouseId}`
+    const acc = quantByMaterialId.get(key)
+    if (acc) { acc.qty += q.qty; acc.availableQty += q.availableQty }
+    else quantByMaterialId.set(key, { qty: q.qty, availableQty: q.availableQty })
+  }
   const stockQtyOf = (m: Material): number | null =>
     m.warehouseId ? quantByMaterialId.get(`${m.id}:${m.warehouseId}`)?.qty ?? 0 : null
   const availableQtyOf = (m: Material): number | null =>
     m.warehouseId ? quantByMaterialId.get(`${m.id}:${m.warehouseId}`)?.availableQty ?? 0 : null
-
-  // Sửa nhanh tồn kho ngay trên bảng - đang sửa dòng nào (materialId) + giá trị đang gõ dở.
-  const [editingId, setEditingId] = useState<number | null>(null)
-  const [editValue, setEditValue] = useState('')
-  // Vấn đề #25 audit 26/08 - chốt số xong KHÔNG gọi API ngay, mà chờ AdjustReasonModal thu lý do
-  // thật (trước đây gửi thẳng note cố định) rồi mới ghi bút toán.
-  const [pendingAdjust, setPendingAdjust] = useState<{ m: Material; currentQty: number; newQty: number; delta: number } | null>(null)
-  const [adjustBusy, setAdjustBusy] = useState(false)
-  const [adjustError, setAdjustError] = useState<string | null>(null)
-
-  const startEdit = (m: Material, currentQty: number) => {
-    setEditingId(m.id)
-    setEditValue(String(currentQty))
-  }
-
-  const cancelEdit = () => { setEditingId(null); setEditValue('') }
-
-  const commitEdit = (m: Material, currentQty: number) => {
-    const newQty = Number(editValue)
-    if (editValue === '' || Number.isNaN(newQty) || newQty < 0) { cancelEdit(); return }
-    const delta = newQty - currentQty
-    cancelEdit()
-    if (delta === 0) return
-    if (!m.warehouseId || !openingBalanceWarehouseId) {
-      alert('Chưa xác định được kho để điều chỉnh tồn kho')
-      return
-    }
-    setAdjustError(null)
-    setPendingAdjust({ m, currentQty, newQty, delta })
-  }
-
-  const confirmAdjust = async (reason: string) => {
-    if (!pendingAdjust || !openingBalanceWarehouseId) return
-    const { m, currentQty, delta } = pendingAdjust
-    if (!m.warehouseId) return
-    setAdjustBusy(true)
-    setAdjustError(null)
-    try {
-      await adjustStock({
-        fromWarehouseId: delta > 0 ? openingBalanceWarehouseId : m.warehouseId,
-        toWarehouseId:   delta > 0 ? m.warehouseId : openingBalanceWarehouseId,
-        materialId: String(m.id),
-        qty: Math.abs(delta),
-        note: reason,
-        expectedWarehouseId: String(m.warehouseId),
-        expectedCurrentQty: currentQty,
-      })
-      setPendingAdjust(null)
-      void refetchQuants()
-    } catch (e) {
-      setAdjustError(e instanceof Error ? e.message : 'Không thể sửa tồn kho')
-    } finally {
-      setAdjustBusy(false)
-    }
-  }
-
-  const cancelAdjust = () => {
-    if (adjustBusy) return
-    setPendingAdjust(null)
-    setAdjustError(null)
-  }
 
   const config: AdminEntityConfig<Material> = {
     title: 'Vật tư',
@@ -183,51 +127,19 @@ export default function MaterialsPage() {
       { key: 'detailKind', label: 'Phân loại', render: (m) => m.detailKind ? DETAIL_KIND_LABEL[m.detailKind] : '—' },
       { key: 'warehouseId', label: 'Kho', render: (m) => warehouseName(m.warehouseId) },
       {
+        // Chỉ đọc - "Sửa nhanh tồn kho" đã chuyển hẳn sang Admin > Quản lý kho (2026-09-14, theo
+        // yêu cầu trực tiếp: gộp việc sửa tồn về đúng 1 nơi duy nhất thay vì rải rác 2 màn cùng
+        // sửa 1 dữ liệu). Trang này chỉ hiển thị để tham khảo nhanh khi quản lý danh mục vật tư.
         key: 'stockQty', label: 'Tồn kho', align: 'right',
         render: (m) => {
           const qty = stockQtyOf(m)
           if (qty == null) return <span style={{ color: 'var(--text3)' }}>—</span>
-          // <tr> của AdminEntityPage tự mở modal "Sửa vật tư" khi bấm vào bất kỳ đâu trong dòng
-          // (openEdit) - div này phủ kín đúng vùng padding của <td> (9px 14px, xem styles/table.ts)
-          // và stopPropagation ngay từ chính nó, để bấm hụt ra ngoài input/số vẫn không lọt xuống
-          // <tr> mở nhầm modal (chỉ stopPropagation trên input/span bên trong là không đủ).
-          if (editingId === m.id) {
-            return (
-              <div
-                onClick={(e) => e.stopPropagation()}
-                style={{ margin: '-9px -14px', padding: '9px 14px', textAlign: 'right' }}
-              >
-                <input
-                  type="number" min={0} step="any" autoFocus
-                  value={editValue}
-                  onChange={(e) => setEditValue(e.target.value)}
-                  onBlur={() => void commitEdit(m, qty)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') void commitEdit(m, qty)
-                    else if (e.key === 'Escape') cancelEdit()
-                  }}
-                  style={{ width: 84, padding: '3px 6px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
-                />
-              </div>
-            )
-          }
-          return (
-            <div
-              onClick={(e) => { e.stopPropagation(); startEdit(m, qty) }}
-              style={{ margin: '-9px -14px', padding: '9px 14px', cursor: 'pointer', textAlign: 'right' }}
-              title="Bấm để sửa"
-            >
-              <span style={{ borderBottom: '1px dashed var(--text3)', fontWeight: 700, color: qty <= 0 ? '#c62828' : 'var(--text)' }}>
-                {qty.toLocaleString('vi-VN')}
-              </span>
-            </div>
-          )
+          return <span style={{ fontWeight: 700, color: qty <= 0 ? '#c62828' : 'var(--text)' }}>{qty.toLocaleString('vi-VN')}</span>
         },
       },
       {
         // Vấn đề #13 audit 26/08 - "Tồn kho" ở trên là tồn thực tế; cột này là phần CÒN DÙNG
-        // ĐƯỢC sau khi trừ giữ chỗ (cắt sắt/chuyển kho nội bộ ACTIVE) - chỉ đọc, không sửa nhanh
-        // ở đây (sửa "Tồn kho" mới là nơi ghi bút toán thật).
+        // ĐƯỢC sau khi trừ giữ chỗ (cắt sắt/chuyển kho nội bộ ACTIVE).
         key: 'availableQty', label: 'Khả dụng', align: 'right',
         render: (m) => {
           const qty = availableQtyOf(m)
@@ -331,19 +243,5 @@ export default function MaterialsPage() {
     },
   }
 
-  return (
-    <>
-      <AdminEntityPage config={config} />
-      {pendingAdjust && (
-        <AdjustReasonModal
-          open
-          summary={`${pendingAdjust.m.name}: ${pendingAdjust.currentQty.toLocaleString('vi-VN')} → ${pendingAdjust.newQty.toLocaleString('vi-VN')} ${pendingAdjust.m.unit}`}
-          busy={adjustBusy}
-          error={adjustError}
-          onConfirm={(reason) => void confirmAdjust(reason)}
-          onCancel={cancelAdjust}
-        />
-      )}
-    </>
-  )
+  return <AdminEntityPage config={config} />
 }

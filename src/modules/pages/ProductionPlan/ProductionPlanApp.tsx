@@ -72,7 +72,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
           {navBtn('duyet-sku',    <FilePlus size={16} />,        'Duyệt SKU')}
             {navBtn('lenh-sx',    <ClipboardList size={16} />,  isBoss ? 'Duyệt lệnh SX' : 'Lệnh sản xuất mới')}
           {navBtn('gom-cat',    <Layers size={16} />,         'Tối ưu cắt sắt', batchCount)}
-                    {navBtn('vattu',      <Package size={16} />,         'Danh sách vật tư')}
+                    {navBtn('vattu',      <Package size={16} />,         'Tổng hợp vật tư')}
           {navBtn('warehouses', <Warehouse size={16} />,      'Tổng hợp kho')}
         </nav>
 

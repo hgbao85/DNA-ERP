@@ -153,26 +153,13 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
 
       {/* ── Main content ───────────────────────────────────────────────── */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
-        {tab === 'materials'  && (isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han') || isThanhPhamScope(scope) || !scope) && <MfgAllMaterialsPage
-          limitCats={
-            isFamilyScope(scope, 'vat-tu-tp')      ? ['thanhPham', 'vatTuThanhPham', 'manhChuaDan']
-            : isFamilyScope(scope, 'phoi-son-han') ? ['sat', 'vatTuThanhPham', 'manhChuaDan']
-            : isThanhPhamScope(scope)  ? ['thanhPham', 'vatTuThanhPham', 'manhDaDan', 'baoBiDongGoi']
-            : undefined
-          }
-          // manhWarehouseCode luôn quy về đúng 1 kho GỐC của gia đình (không phải instance cụ thể
-          // của kho phụ) - VatTuDashboardPage.tsx so sánh cứng với 3 literal gốc để quyết định gọi
-          // API nào (getManhOrders/getWeavingPoints...), truyền thẳng code kho phụ vào sẽ khiến
-          // mọi điều kiện đó false (mục "Mảnh chưa đan"/"Mảnh đã đan" trống trơn dù có dữ liệu
-          // thật) - quy về kho gốc cùng gia đình để tái dùng đúng luồng đã có, cùng cách
-          // isThanhPhamScope() đã làm sẵn cho 'thanh-pham'.
-          manhWarehouseCode={
-            isThanhPhamScope(scope) ? 'thanh-pham'
-            : isFamilyScope(scope, 'vat-tu-tp') ? 'vat-tu-tp'
-            : isFamilyScope(scope, 'phoi-son-han') ? 'phoi-son-han'
-            : (scope ?? undefined)
-          }
-        />}
+        {/* Tổng hợp vật tư đọc thẳng danh mục Material theo ĐÚNG 1 kho cụ thể (warehouseCode =
+            scope, không quy về kho gốc của gia đình) - các kho cùng họ (thanh-pham-2...) hoạt
+            động độc lập, số liệu không gộp vào nhau (xem VatTuDashboardPage.tsx). scope null
+            (Boss/Tổng kho) = xem toàn bộ mọi kho. */}
+        {tab === 'materials'  && (isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han') || isThanhPhamScope(scope) || !scope) && (
+          <MfgAllMaterialsPage warehouseCode={scope ?? undefined} />
+        )}
         {tab === 'warehouses' && <MfgWarehousesPage groupKey={scope} />}
         {tab === 'nhap-kho'   && <NhapKhoPage lockedGroup={scope} />}
         {/* scope luôn có giá trị ở đây trên thực tế (2026-08-28): form tạo tài khoản Admin bắt buộc

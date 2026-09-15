@@ -16,6 +16,11 @@ export interface BeStockQuant {
   materialCode: string | null;
   segmentSpecId: string | null;
   segmentSpecLabel: string | null;
+  /** Chiều dài cây (mm) với sắt bán theo chiều dài, 0 cho loại khác - cùng mã sắt khác chiều dài là
+   *  2 lô tồn RIÊNG (unique index warehouseId+materialId+stockLengthMm) nên phải đọc field này mới
+   *  phân biệt được, không được gộp/lấy 1 dòng đại diện (bug thật đã gặp, xem
+   *  VatTuDashboardPage.tsx/MaterialsPage.tsx/MfgWarehousesPage.tsx). */
+  stockLengthMm: number;
   qty: number;
   /** Vấn đề #13 audit 26/08 - tồn thật (qty) trừ phần đang bị giữ chỗ (cắt sắt/chuyển kho nội bộ
    *  ACTIVE), BE tính qua ĐÚNG hàm StockReservationsService.getAvailableQty() dùng chung với màn
@@ -96,6 +101,10 @@ export async function adjustStock(input: {
   materialId?: string;
   segmentSpecId?: string;
   qty: number;
+  /** Bỏ trống = điều chỉnh theo TỔNG cộng dồn mọi bucket chiều dài (ghi vào bucket 0 - dùng khi UI
+   *  chỉ hiện 1 số tổng, vd Admin > Vật tư). Có giá trị = điều chỉnh ĐÚNG bucket đó (dùng khi UI đã
+   *  tách hiển thị theo từng chiều dài, vd MfgWarehousesPage.tsx "Quản lý kho"). */
+  stockLengthMm?: number;
   /** Vấn đề #25 audit 26/08 - bắt buộc (khớp BE), phải là lý do thật do người dùng gõ (xem
    *  AdjustReasonModal), không phải text mẫu cố định như trước. */
   note: string;

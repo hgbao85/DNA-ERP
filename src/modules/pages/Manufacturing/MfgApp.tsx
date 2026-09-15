@@ -52,13 +52,13 @@ const SPEC_SETUP_ITEMS: Record<string, { id: SetupSubTab; label: string; icon: '
   // chung, gửi duyệt 1 lần (xem SpecSteelPage.tsx).
   SPEC_STEEL: [
     { id: 'dinh-muc', label: 'Định mức mảnh', icon: 'grid' },
-    { id: 'catalog', label: 'Danh sách vật tư', icon: 'box' },
+    { id: 'catalog', label: 'Tổng hợp vật tư', icon: 'box' },
   ],
   // "Định mức chi tiết" gồm cả 3 nhóm vật tư (Sơn/Phụ kiện/Bao bì) — 1 account nhập chung,
   // gửi duyệt 1 lần (xem SpecDetailQuotaPage.tsx), y hệt cách "định mức mảnh" bên trên hoạt động.
   SPEC_ACCESSORY: [
     { id: 'dinh-muc', label: 'Định mức mới', icon: 'clipboard' },
-    { id: 'catalog', label: 'Danh sách vật tư', icon: 'box' },
+    { id: 'catalog', label: 'Tổng hợp vật tư', icon: 'box' },
   ],
 }
 

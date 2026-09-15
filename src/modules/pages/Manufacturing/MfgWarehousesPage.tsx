@@ -50,6 +50,9 @@ interface UserRow {
 interface QuantRow {
   materialId: string | null
   warehouseId: string
+  /** Chiều dài cây (mm) với sắt bán theo chiều dài, 0 cho loại khác - cùng mã sắt khác chiều dài
+   *  là 2 lô tồn RIÊNG (unique index warehouseId+materialId+stockLengthMm). */
+  stockLengthMm: number
   qty: number
   /** Vấn đề #13 audit 26/08 - tồn còn dùng được (đã trừ phần giữ chỗ cắt sắt/chuyển kho), BE tính
    *  sẵn qua getAvailableQty() dùng chung với màn Xuất sắt - xem stock-api.ts. */
@@ -62,6 +65,12 @@ export interface StockItem {
   unit: string
   spec: string | null
   groupName: string
+  /** null = vật tư này chưa có dòng stock_quant nào ở kho đang xem (chưa phát sinh giao dịch) -
+   *  hiện "—" ở cột Chiều dài. 0 = có phát sinh nhưng chưa gán chiều dài cụ thể (vật tư không bán
+   *  theo chiều dài, hoặc dữ liệu cũ trước khi có tính năng này) - CŨNG hiện "—" vì 0 không phải 1
+   *  chiều dài vật lý thật. >0 = chiều dài cây thật (mm). 1 vật tư Sắt có thể sinh NHIỀU StockItem
+   *  (1 dòng/bucket) khi tồn ở nhiều chiều dài khác nhau cùng lúc - xem itemsOf(). */
+  stockLengthMm: number | null
   qty: number
   /** Xem QuantRow.availableQty - mặc định === qty nếu vật tư này không có dòng stock_quant nào
    *  (chưa từng phát sinh giao dịch, tồn = 0 = khả dụng). */
@@ -85,9 +94,14 @@ const BASE_CODES = new Set(['phoi-son-han', 'vat-tu-tp', 'thanh-pham'])
 
 export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | null }) {
   const { user } = useAuth()
-  // Quyền "Thêm vật tư" thuộc về Thủ kho (biết rõ tồn vật lý thực tế của kho mình khi khai
-  // báo Tồn kho ban đầu lúc tạo vật tư) - không còn cấp cho QLSX, xem role-permissions.constant.ts.
-  const canWrite = user?.role === 'WAREHOUSE_STAFF' && !user?.mfgRole
+  // "Thêm vật tư"/"Sửa nhanh tồn kho" ở màn Quản lý kho CHỈ dành cho Admin (2026-09-14, theo yêu
+  // cầu trực tiếp) - trước đây gán cho Thủ kho (WAREHOUSE_STAFF && !mfgRole) nhưng phát hiện qua
+  // test tay: KHÔNG có tài khoản Thủ kho thật nào điều hướng tới được màn này (tab "Tổng hợp kho"
+  // bị lọc ẩn khỏi sidebar của mọi thủ kho theo từng kho riêng ở InboundWarehouseApp.tsx), khiến
+  // toàn bộ nhánh sửa trước đây thực chất không ai dùng được. BE không chặn Admin (STOCK:UPDATE +
+  // MATERIAL:CREATE có sẵn trong permissions của role ADMIN, warehouseScope=null bỏ qua kiểm tra
+  // phạm vi kho ở StockLedgerService.assertScopeTouchesWarehouses()).
+  const canWrite = user?.role === 'ADMIN'
   const isAdmin  = user?.role === 'ADMIN'
 
   const { data: warehouses, isLoading: whLoading, error: whError, refetch: refetchWarehouses } = useFetch<WhRow[]>(getWarehouses)
@@ -120,22 +134,37 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
   // biến mất hoàn toàn trên trang Admin > Quản lý kho - phát hiện qua test tay thật).
   const suggestedFamily: WarehouseFamily | null = group ? warehouseFamilyOf(group.key) : null
 
+  // Tách theo TỪNG BUCKET chiều dài (KHÔNG gộp 1 dòng/vật tư như bản cũ) - 1 vật tư Sắt có thể có
+  // nhiều dòng stock_quant cho ĐÚNG 1 cặp (kho, vật tư) khi tồn ở nhiều chiều dài khác nhau (cây
+  // 6m/4m là 2 lô RIÊNG). Bản cũ lấy 1 dòng đại diện qua Map khoá theo materialId - đúng ngẫu
+  // nhiên khi 1 bucket = 0 (bug thật, xem MaterialsPage.tsx/VatTuDashboardPage.tsx cùng lỗi đã
+  // sửa 14/09/2026), sai thật khi cả 2 bucket đều dương. Chỉ sinh dòng cho bucket CÒN PHÁT SINH
+  // (qty !== 0) - bucket 0 chết (di tích trước khi có tính năng chiều dài) không cần hiện; vật tư
+  // hoàn toàn chưa có giao dịch nào thì fallback 1 dòng qty=0/stockLengthMm=null (giữ hành vi cũ).
   const itemsOf = (whId: string): StockItem[] => {
-    const rowByMaterial = new Map(
-      (quants ?? []).filter(q => q.warehouseId === whId && q.materialId).map(q => [q.materialId, q]),
-    )
+    const rowsByMaterial = new Map<string, QuantRow[]>()
+    for (const q of quants ?? []) {
+      if (q.warehouseId !== whId || !q.materialId) continue
+      const arr = rowsByMaterial.get(q.materialId)
+      if (arr) arr.push(q); else rowsByMaterial.set(q.materialId, [q])
+    }
     const groupNameById = new Map((groups ?? []).map(g => [String(g.id), g.name]))
-    return (materials ?? [])
-      .filter(m => m.warehouseId === whId)
-      .map(m => {
-        const row = rowByMaterial.get(String(m.id))
-        return {
-          materialId: m.id, code: m.code, name: m.name, unit: m.unit, spec: m.spec,
-          groupName: m.materialGroupId ? (groupNameById.get(String(m.materialGroupId)) ?? '—') : '—',
-          qty: row?.qty ?? 0,
-          availableQty: row?.availableQty ?? 0,
+    const result: StockItem[] = []
+    for (const m of (materials ?? []).filter(m => m.warehouseId === whId)) {
+      const base = {
+        materialId: m.id, code: m.code, name: m.name, unit: m.unit, spec: m.spec,
+        groupName: m.materialGroupId ? (groupNameById.get(String(m.materialGroupId)) ?? '—') : '—',
+      }
+      const buckets = (rowsByMaterial.get(String(m.id)) ?? []).filter(r => r.qty !== 0)
+      if (buckets.length === 0) {
+        result.push({ ...base, stockLengthMm: null, qty: 0, availableQty: 0 })
+      } else {
+        for (const r of buckets) {
+          result.push({ ...base, stockLengthMm: r.stockLengthMm || null, qty: r.qty, availableQty: r.availableQty })
         }
-      })
+      }
+    }
+    return result
   }
 
   const openWh = (warehouses ?? []).find(w => w.code === openId) ?? null
@@ -183,7 +212,9 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
             <WhCard
               key={wh.code}
               wh={wh}
-              itemCount={items.length}
+              // items.length đếm theo DÒNG (1 vật tư có thể ra nhiều dòng nếu nhiều bucket chiều
+              // dài) - đếm distinct materialId mới đúng "số mặt hàng" thật.
+              itemCount={new Set(items.map(it => it.materialId)).size}
               totalQty={items.reduce((s, it) => s + it.qty, 0)}
               onOpen={() => setOpenId(wh.code)}
             />
@@ -397,13 +428,21 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
   onQtyAdjusted: () => void
   onWarehouseDeleted: () => void
 }) {
+  // Cột "Chiều dài" CHỈ có ý nghĩa ở họ kho phôi-sơn-hàn (nơi vật tư Sắt bán theo chiều dài cây
+  // "sống" - các họ kho khác không có vật tư Sắt nào) - ẩn ở Vật tư TP/Thành phẩm để đỡ rối, dù
+  // itemsOf() vẫn tách đúng theo bucket cho MỌI kho (tránh tái phát bug "lấy 1 dòng thay vì cộng
+  // dồn" - chỉ khác là không cần LỘ RA cột riêng ở những kho không có vật tư đa-bucket).
+  const showLengthColumn = warehouseFamilyOf(wh.code) === 'phoi-son-han'
   const [tab, setTab]       = useState<'stock' | 'history'>('stock')
   const [search, setSearch] = useState('')
   const [adding, setAdding] = useState(false)
   const [copying, setCopying] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  // Sửa nhanh tồn kho ngay trên bảng - đang sửa dòng nào (materialId) + giá trị đang gõ dở.
-  const [editingId, setEditingId] = useState<number | null>(null)
+  // Sửa nhanh tồn kho ngay trên bảng - đang sửa dòng nào + giá trị đang gõ dở. Khoá theo
+  // rowKey() (materialId + stockLengthMm), KHÔNG chỉ materialId - 1 vật tư có thể ra NHIỀU dòng
+  // (nhiều bucket chiều dài), khoá đơn theo materialId sẽ khiến bấm sửa 1 dòng vô tình mở luôn ô
+  // sửa ở dòng kia của cùng vật tư (2 dòng cùng khớp editingId).
+  const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editValue, setEditValue] = useState('')
   // Vấn đề #25 audit 26/08 - chốt số xong KHÔNG gọi API ngay, mà chờ AdjustReasonModal thu lý do
   // thật (trước đây gửi thẳng note cố định) rồi mới ghi bút toán.
@@ -415,12 +454,14 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
     !search || it.name.toLowerCase().includes(search.toLowerCase()) || it.code.toLowerCase().includes(search.toLowerCase()),
   )
 
+  const rowKey = (it: StockItem) => `${it.materialId}:${it.stockLengthMm ?? 'none'}`
+
   const startEdit = (it: StockItem) => {
-    setEditingId(it.materialId)
+    setEditingKey(rowKey(it))
     setEditValue(String(it.qty))
   }
 
-  const cancelEdit = () => { setEditingId(null); setEditValue('') }
+  const cancelEdit = () => { setEditingKey(null); setEditValue('') }
 
   const commitEdit = (it: StockItem) => {
     const newQty = Number(editValue)
@@ -447,6 +488,10 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
         toWarehouseId:   delta > 0 ? wh.id : openingBalanceWarehouseId,
         materialId: String(it.materialId),
         qty: Math.abs(delta),
+        // Dòng đã có chiều dài cụ thể (đang tách theo bucket) -> sửa ĐÚNG bucket đó. Dòng "—"
+        // (chưa từng phát sinh hoặc vật tư không bán theo chiều dài) -> bỏ trống, BE ghi vào
+        // bucket chung (0) - đúng hành vi cũ.
+        stockLengthMm: it.stockLengthMm ?? undefined,
         note: reason,
         expectedWarehouseId: String(wh.id),
         expectedCurrentQty: it.qty,
@@ -534,6 +579,7 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
                 <th style={th}>Nhóm vật tư</th>
                 <th style={th}>Quy cách</th>
                 <th style={th}>ĐVT</th>
+                {showLengthColumn && <th style={th}>Chiều dài</th>}
                 <th style={{ ...th, textAlign: 'right' }}>Tồn</th>
                 <th style={{ ...th, textAlign: 'right' }}>Khả dụng</th>
               </tr>
@@ -542,14 +588,19 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
               {filteredItems.map(it => {
                 const reserved = it.qty - it.availableQty
                 return (
-                <tr key={it.materialId} style={{ borderTop: '1px solid var(--border)' }}>
+                <tr key={rowKey(it)} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{it.code}</td>
                   <td style={{ ...td, fontWeight: 500 }}>{it.name}</td>
                   <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{it.groupName}</td>
                   <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{it.spec || '—'}</td>
                   <td style={td}>{it.unit}</td>
+                  {showLengthColumn && (
+                    <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>
+                      {it.stockLengthMm ? `${it.stockLengthMm.toLocaleString('vi-VN')} mm` : '—'}
+                    </td>
+                  )}
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: it.qty <= 0 ? '#c62828' : 'var(--text)' }}>
-                    {editingId === it.materialId ? (
+                    {editingKey === rowKey(it) ? (
                       <input
                         type="number" min={0} step="any" autoFocus
                         value={editValue}
@@ -579,7 +630,7 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
                 )
               })}
               {filteredItems.length === 0 && (
-                <tr><td colSpan={7} style={{ ...td, color: 'var(--text3)', textAlign: 'center', padding: 24 }}>
+                <tr><td colSpan={showLengthColumn ? 8 : 7} style={{ ...td, color: 'var(--text3)', textAlign: 'center', padding: 24 }}>
                   {items.length === 0 ? 'Kho chưa có vật tư.' : 'Không tìm thấy vật tư.'}
                 </td></tr>
               )}

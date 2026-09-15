@@ -80,7 +80,7 @@ export default function SpecAccessoryCatalogPage() {
   return (
     <div>
       <div style={{ marginBottom: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh sách vật tư</h2>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Tổng hợp vật tư</h2>
         <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>{labels.hint}</p>
       </div>
 

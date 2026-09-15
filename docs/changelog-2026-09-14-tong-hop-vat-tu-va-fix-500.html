@@ -1,0 +1,649 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Làm lại "Tổng hợp vật tư" + vá lỗi 500 (14/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  nav.toc { background: var(--surface-alt); border-bottom: 1px solid var(--border); }
+  .toc-inner { max-width: 900px; margin: 0 auto; padding: 14px 24px; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; }
+  .toc-inner a { color: var(--text-muted); text-decoration: none; }
+  .toc-inner a:hover { color: var(--accent-strong); text-decoration: underline; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+
+  .timeline { list-style: none; margin: 4px 0 0; padding: 0; }
+  .timeline li { position: relative; padding: 2px 0 2px 18px; font-size: 14px; }
+  .timeline li::before { content: ''; position: absolute; left: 3px; top: 10px; width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); }
+  .timeline li.now::before { background: var(--accent-strong); }
+  .timeline li.now { font-weight: 700; }
+
+  table.evidence { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13.5px; }
+  table.evidence th, table.evidence td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  table.evidence th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  table.evidence td.num { text-align: right; font-family: 'IBM Plex Mono', monospace; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 14/09/2026</span>
+    <h1 class="title">Làm lại "Tổng hợp vật tư" từ đầu, vá 2 bug số liệu + 1 lỗi 500 lan rộng</h1>
+    <p class="subtitle">Xoá sạch màn "Tổng hợp vật tư" cũ (suy vật tư từ hoạt động sản xuất/đóng gói, trộn thật/giả) và viết lại dựa thẳng trên danh mục Vật tư (Material) + tồn kho thật (StockQuant). Trong quá trình verify sống phát sinh thêm 2 bug số liệu và 1 lỗi 500 không liên quan, đều đã vá và verify lại qua trình duyệt.</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> FE <code>D:\DNA-ERP</code> + BE <code>D:\DNA-ERP-BE</code></span>
+      <span><strong>Màn hình:</strong> Tổng hợp vật tư (Kho đầu vào / Boss / KHSX / QLSX) · Theo dõi mua hàng · Tổng hợp lệnh SX</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="toc-inner">
+    <a href="#lam-lai">1. Làm lại Tổng hợp vật tư</a>
+    <a href="#fix-family">2. Danh mục lọc theo họ kho</a>
+    <a href="#fix-quant-key">3. Khoá tra tồn kho ghép</a>
+    <a href="#denorm">4. BE: denormalize tên nhóm/kho</a>
+    <a href="#fix-500">5. Vá lỗi 500 Prisma Client cũ</a>
+    <a href="#test-chuyen-kho">6. Kiểm tra sống: Chuyển kho nội bộ</a>
+    <a href="#fix-hop-danh-muc">7. Danh mục = hợp catalog + tồn thật</a>
+    <a href="#fix-vtk042">8. Vá tồn kho âm cũ (VTK-042)</a>
+    <a href="#fix-bien-mat">9. Vật tư "khách" biến mất khi về 0</a>
+    <a href="#fix-stocklength">10. Rà soát rủi ro: cộng dồn bucket chiều dài cây sắt</a>
+    <a href="#fix-optimistic-lock">11. Vá 409 "Sửa nhanh tồn kho" cho vật tư Sắt đa-bucket</a>
+    <a href="#feat-length-column">12. Thêm cột "Chiều dài" ở Quản lý kho</a>
+    <a href="#feat-consolidate-edit">13. Gộp "Sửa nhanh tồn kho" về đúng 1 nơi (Quản lý kho, chỉ Admin)</a>
+    <a href="#feat-length-vattu">14. Cột "Chiều dài" ở "Tổng hợp vật tư" (Kho đầu vào)</a>
+    <a href="#fix-bucket-dash">15. Vá lỗi hiển thị "—" sai khi 1 vật tư đa-bucket dùng hết sạch</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- ========= 1. Làm lại hoàn toàn ========= -->
+  <section id="lam-lai">
+    <div class="sec-head"><h2>1. "Tổng hợp vật tư" — làm lại hoàn toàn</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Viết lại</span><span class="badge date">14/09</span><span class="f-title">Nguồn dữ liệu đổi từ "hoạt động sản xuất" sang danh mục Material + StockQuant thật</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Suy vật tư bằng cách gộp <code>getSkus()</code> (flatten mảnh/dây/sơn/đinh), <code>getPackaging()</code> (đã đóng gói), <code>getPackagingIssuePlan()</code> (đã xuất), <code>getManhOrders()</code> (tồn theo đan) — nhiều nguồn hoạt động khác nhau, khó phân biệt số thật/giả trên UI (từng bị audit 17/08 chỉ ra).</div>
+        <div class="ba-box after"><span class="k">Sau</span>Liệt kê thẳng danh mục <code>Material</code> (tạo ở Admin &gt; Vật tư — đúng field <b>Kho</b> + <b>Nhóm vật tư</b> chọn lúc tạo), kèm tồn kho thật từ <code>StockQuant</code>. Nhóm vật tư dùng làm filter chips <b>động</b> (không hard-code danh mục cố định như <code>CAT_META</code> cũ).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">File chính</span>
+        <div class="v"><code>VatTuDashboardPage.tsx</code> (viết lại toàn bộ) · wrapper <code>MfgAllMaterialsPage.tsx</code> (đổi props còn 1 field <code>warehouseCode</code>) · gọi nơi dùng ở <code>InboundWarehouseApp.tsx</code> (truyền thẳng <code>scope</code>, bỏ hẳn logic quy về "kho gốc của họ" trước đây).</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 2. Fix family match ========= -->
+  <section id="fix-family">
+    <div class="sec-head"><h2>2. Danh mục vật tư phải lọc theo HỌ kho, không phải đúng 1 kho</h2><span class="sec-count">1 bug</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Bug số liệu</span><span class="badge date">14/09</span><span class="f-title">"Kho thành phẩm 2" (kho phụ Admin tự tạo) hiện 0 vật tư dù kho gốc có 33</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Bản đầu (sai)</span>Lọc danh mục bằng <code>m.warehouseId === currentWarehouse.id</code> — so khớp <b>đúng 1</b> warehouseId. <code>Material.warehouseId</code> hầu như luôn trỏ về kho <b>GỐC</b> của 1 họ (Admin cấu hình 1 lần lúc tạo vật tư, không đổi theo instance) → mọi kho phụ (thanh-pham-2...) lọc ra rỗng vĩnh viễn.</div>
+        <div class="ba-box after"><span class="k">Đã sửa</span>Lọc theo <b>họ kho</b>: <code>warehouseFamilyOf(m.warehouseCode) === warehouseFamilyOf(warehouseCode)</code>. Khớp đúng pattern QLSX "Chọn kho thành phẩm" lúc duyệt lệnh SX (<code>PackagingIssuesService</code> ghi StockLedger đúng instance QLSX chọn, không phụ thuộc <code>Material.warehouseId</code>).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Xác nhận nghiệp vụ (người dùng)</span>
+        <div class="v">"Kho thành phẩm 2 cũng là loại kho thành phẩm, vật tư cũng giống kho gốc, chỉ khác là hoạt động ĐỘC LẬP và SỐ LƯỢNG từng vật tư khác nhau." → danh mục dùng chung theo họ, số lượng tách riêng theo đúng 1 instance (StockQuant, xem mục 3).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sống (tài khoản <code>khotp2</code>, warehouseScope <code>thanh-pham-1788485485362</code>)</span>
+        <table class="evidence">
+          <tr><th>Trước fix</th><th>Sau fix</th></tr>
+          <tr><td>0 vật tư — "Không có vật tư nào"</td><td>33 vật tư, khớp đúng danh mục kho gốc "Kho thành phẩm"</td></tr>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 3. Fix quant composite key ========= -->
+  <section id="fix-quant-key">
+    <div class="sec-head"><h2>3. Khoá tra tồn kho phải ghép materialId:warehouseId</h2><span class="sec-count">1 bug</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Bug số liệu</span><span class="badge date">14/09</span><span class="f-title">View không giới hạn kho (Boss/KHSX/QLSX) hiện "Tồn kho" ÂM</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước (sai)</span><code>quantByMaterialId</code> khoá ĐƠN theo <code>materialId</code>. <code>GET /stock-quant</code> không truyền <code>warehouseId</code> trả về MỌI dòng (materialId, warehouseId) từng phát sinh — kể cả các kho ẢO đối ứng bút toán kép (SUPPLIER/PRODUCTION/SCRAP, luôn ÂM vì hàng luôn chảy RA khỏi kho ảo). Khoá đơn bị 1 dòng ảo ghi đè ngẫu nhiên lên dòng tồn kho thật.</div>
+        <div class="ba-box after"><span class="k">Đã sửa</span>Đổi sang khoá GHÉP <code>${'{'}materialId{'}'}:${'{'}warehouseId{'}'}</code> — đúng pattern <code>MaterialsPage.tsx</code> (Admin &gt; Vật tư) đã dùng sẵn. Helper <code>quantFor(m)</code>: view theo 1 kho cụ thể tra đúng instance đang xem; view Boss tra đúng kho NHÀ riêng của từng vật tư (khớp cột "Kho" đang hiện trên dòng).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sống (tài khoản <code>boss</code>, xem không giới hạn kho)</span>
+        <table class="evidence">
+          <tr><th>Vật tư</th><th class="num">Trước fix</th><th class="num">Sau fix</th></tr>
+          <tr><td>VTTP-001 — Tấm sắt la</td><td class="num">−93</td><td class="num">93</td></tr>
+          <tr><td>VTK-042 — Bì zipper 9x12</td><td class="num">−278.999</td><td class="num">279.000</td></tr>
+          <tr><td>VTK-045 — HDLR J55 ghế</td><td class="num">−2.790</td><td class="num">2.790</td></tr>
+        </table>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 4. Denormalize BE ========= -->
+  <section id="denorm">
+    <div class="sec-head"><h2>4. Backend: thêm tên Nhóm vật tư/Kho denormalized vào Material</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Hạ tầng</span><span class="badge date">14/09</span><span class="f-title">Né lỗ hổng quyền MATERIAL_GROUP của vai trò thủ kho</span></div>
+      <div class="f-field">
+        <span class="k">Vì sao cần</span>
+        <div class="v">Vai trò <code>WAREHOUSE_STAFF</code> (thủ kho — actor chính dùng màn "Tổng hợp vật tư" ở Kho đầu vào) <b>không có quyền</b> <code>MATERIAL_GROUP:VIEW</code> (<code>role-permissions.constant.ts</code>) nên FE không được phép gọi riêng <code>GET /material-groups</code> để lấy tên nhóm/tab lọc. <code>MATERIAL:VIEW</code>/<code>WAREHOUSE:VIEW</code>/<code>STOCK:VIEW</code> thì có sẵn.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Thay đổi</span>
+        <div class="v"><code>MaterialsService</code> (<code>materials.service.ts</code>) nay <code>include: { materialGroup, warehouse }</code> ở mọi truy vấn (create/update/findAll/findOne), <code>MaterialResponseDto</code> thêm 3 field: <code>materialGroupName</code>, <code>warehouseCode</code>, <code>warehouseName</code>. FE lấy tên nhóm/kho trực tiếp từ response <code>GET /materials</code>, không cần endpoint riêng.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 5. Fix 500 ========= -->
+  <section id="fix-500">
+    <div class="sec-head"><h2>5. Vá lỗi 500 "Database error" lan rộng (không liên quan Tổng hợp vật tư)</h2><span class="sec-count">1 bug hạ tầng</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Bug hạ tầng</span><span class="badge date">14/09</span><span class="f-title"><code>purchase-proposals</code> + <code>production-invoices</code> trả 500 mọi lúc load</span></div>
+      <div class="f-field">
+        <span class="k">Nguyên nhân gốc</span>
+        <div class="v">2 migration liên tiếp (09/09 thêm, 11/09 bỏ) cột <code>startDate</code> ở bảng <code>production_invoice_item_stages</code> (khớp đúng comment schema về việc "đổi ý đồng bộ lại" ngày 11/09) đã áp đúng vào database — nhưng <b>Prisma Client sinh sẵn trong <code>src/generated/prisma</code> bị quên generate lại</b> sau lần revert. Client cũ vẫn cố <code>SELECT</code> cột đã bị xoá → mọi API include quan hệ tới bảng này vỡ với <code>P2022 ColumnNotFound</code>, bị <code>AllExceptionsFilter</code> che thành thông báo chung "Database error".</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Cách phát hiện</span>
+        <div class="v">Chạy trực tiếp truy vấn <code>prisma.purchaseProposal.findMany({'{'}include: DETAIL_INCLUDE{'}'})</code> qua <code>ts-node</code> (bỏ qua <code>AllExceptionsFilter</code>) → lộ đúng lỗi thật: <code>column production_invoice_item_stages.startDate does not exist</code>. <code>npx prisma migrate status</code> báo "up to date" (đúng — migration đã chạy), nhưng <code>grep startDate src/generated/prisma</code> vẫn thấy field này trong client cũ → xác nhận lệch giữa client sinh sẵn và schema hiện tại.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Cách sửa</span>
+        <div class="v"><code>npx prisma generate</code> (D:\DNA-ERP-BE) — sinh lại client khớp đúng schema hiện tại (không còn <code>startDate</code>). Dev server (<code>nest start --watch</code>) tự nhận diện thay đổi trong <code>src/generated/prisma</code> và restart.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify</span>
+        <div class="v"><code>GET /purchase-proposals</code>, <code>GET /purchase-proposals?activeOnly=true</code>, <code>GET /production-invoices</code> đều 200 (trước đó 500). Browser QA (tài khoản <code>boss</code>): 0 console error, so với trước có 3 dòng lỗi <code>getPurchaseProposals failed... Database error</code> lặp lại mỗi lần vào Kho đầu vào.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 6. Kiểm tra sống: Chuyển kho nội bộ ========= -->
+  <section id="test-chuyen-kho">
+    <div class="sec-head"><h2>6. Kiểm tra sống: Chuyển kho nội bộ — không mất dữ liệu</h2><span class="sec-count">1 mục kiểm tra</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Kiểm tra sống</span><span class="badge date">14/09</span><span class="f-title">Test thật trên DB dev (tạo phiếu qua API, không chỉ đọc code) — nghi vấn "mất dữ liệu khi chuyển kho" KHÔNG xác nhận được</span></div>
+      <div class="f-field">
+        <span class="k">Bối cảnh</span>
+        <div class="v">Nghi ngờ dữ liệu sai lệch khi chuyển vật tư giữa các kho trong chuỗi nội bộ (phôi-sơn-hàn → vật-tư-TP → thành-phẩm). Đã đọc code (<code>WarehouseTransfersService</code>, <code>StockLedgerService</code>) rồi thao tác thật bằng tài khoản demo (<code>khovttp</code> tạo phiếu, <code>khotp</code> xác nhận/từ chối) để đối chiếu <code>StockQuant</code>/<code>StockLedger</code> trước–sau từng bước.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Kịch bản 1 — tạo phiếu rồi xác nhận (CK-2026-012, 100 Kg DAY-002, vat-tu-tp → thanh-pham)</span>
+        <table class="evidence">
+          <tr><th>Thời điểm</th><th class="num">Nguồn (vat-tu-tp)</th><th class="num">Đích (thanh-pham)</th></tr>
+          <tr><td>Trước khi tạo phiếu</td><td class="num">qty 2.788 / khả dụng 2.788</td><td class="num">— (chưa có dòng)</td></tr>
+          <tr><td>Sau khi tạo phiếu (PENDING, chỉ giữ chỗ)</td><td class="num">qty 2.788 / khả dụng <b>2.688</b></td><td class="num">không đổi</td></tr>
+          <tr><td>Sau khi xác nhận (CONFIRMED)</td><td class="num">qty <b>2.688</b></td><td class="num">qty <b>100</b> (dòng mới)</td></tr>
+        </table>
+        <div class="v" style="margin-top:8px">Tổng bảo toàn tuyệt đối: 2.688 + 100 = 2.788. <code>StockLedger</code> ghi đúng 1 bút toán kép (<code>fromWarehouseId=5, toWarehouseId=4, refType=WAREHOUSE_TRANSFER, refCode=CK-2026-012</code>).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Kịch bản 2 — từ chối (CK-2026-013, giữ chỗ 200 Kg rồi reject)</span>
+        <div class="v">Giữ chỗ → khả dụng giảm đúng 200 (2.688 → 2.488). Từ chối → khả dụng hoàn trả <b>chính xác</b> về 2.688 (bằng đúng số trước khi giữ chỗ). Không có tồn "kẹt" hay biến mất ở cả 2 kho — đúng vì lúc tạo phiếu chưa hề đụng <code>StockQuant</code>, reject chỉ giải phóng bảng giữ chỗ.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Vì sao an toàn (đọc code xác nhận)</span>
+        <div class="v">Lúc <b>tạo phiếu</b>: chỉ ghi <code>WarehouseTransferReservation</code> (giữ chỗ), không đụng <code>StockQuant</code>. Lúc <b>xác nhận</b>: toàn bộ đọc-status → ghi <code>StockLedger</code> → cập nhật status nằm trong <b>1 transaction Prisma duy nhất</b> kèm <code>idempotencyKey</code> theo (transferId, itemId) — crash giữa chừng thì Postgres rollback sạch, không có trạng thái nửa vời (đã trừ nguồn nhưng chưa cộng đích). Ghi chú cũ trong dự án về <code>postEntry()</code> chạy ngoài transaction (rủi ro race ở luồng khác) <b>không áp dụng</b> cho <code>WarehouseTransfersService.confirm()</code> — nó luôn truyền <code>tx</code> vào <code>postEntry()</code>.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Điểm cần lưu ý (không phải mất dữ liệu, nhưng đáng biết)</span>
+        <div class="v">Thử yêu cầu chuyển <b>999.999 Kg</b> (vượt xa tồn khả dụng, CK-2026-014) — hệ thống <b>không báo lỗi</b>, âm thầm tạo phiếu với đúng số khả dụng thật tại thời điểm đó (2.688 Kg), không phải số đã nhập. Cả FE (<code>WarehouseXuatPage.tsx</code>, <code>confirmLine()</code>: <code>Math.min(raw, line.availableQty)</code>) lẫn BE đều chủ động clamp — thiết kế cố ý (tránh phiếu lỗi do tranh chấp tồn kho), nhưng không có thông báo rõ cho người dùng biết số đã bị giảm so với số họ gõ.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Dữ liệu test để lại trên DB dev</span>
+        <div class="v">3 phiếu thật: <b>CK-2026-012</b> (đã CONFIRM — 100 Kg DAY-002 đã thực sự chuyển vat-tu-tp → thanh-pham, số liệu 2 kho này đã đổi thật), <b>CK-2026-013</b> và <b>CK-2026-014</b> (đã REJECT, không ảnh hưởng số liệu). Chưa hoàn trả lại số cũ — chờ xác nhận có cần khôi phục hay giữ nguyên (DB demo).</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 7. Fix hợp danh mục + tồn thật ========= -->
+  <section id="fix-hop-danh-muc">
+    <div class="sec-head"><h2>7. Danh mục vật tư = hợp của "catalog cùng họ" VÀ "tồn thật tại kho"</h2><span class="sec-count">1 bug thiết kế</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Bug thiết kế</span><span class="badge date">14/09</span><span class="f-title">Vật tư vừa chuyển kho nội bộ tới KHÔNG hiện trong "Tổng hợp vật tư" nếu catalog gốc thuộc họ kho khác</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước (mục 2, sai sót còn sót)</span>Danh mục chỉ lọc theo HỌ kho của <code>Material.warehouseCode</code> (catalog gốc, cố định). Sau khi chuyển 100 Kg DAY-002 (nhóm Dây, catalog gốc thuộc họ <code>vat-tu-tp</code>) sang Kho thành phẩm (họ <code>thanh-pham</code>) và xác nhận thành công — <code>StockQuant</code> đã có dòng thật 100 Kg tại đó, nhưng "Tổng hợp vật tư" của Kho thành phẩm vẫn không hiện vật tư này, vì nó "không thuộc về" họ <code>thanh-pham</code> theo catalog.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Danh mục 1 kho = HỢP của (a) catalog cùng họ (như cũ, để vẫn thấy vật tư chưa nhập hàng) và (b) bất kỳ vật tư nào có <code>StockQuant</code> thật tại ĐÚNG kho instance đang xem, dù catalog gốc thuộc họ khác. Đây là hệ quả tất yếu của chuỗi chuyển kho nội bộ (phôi-sơn-hàn → vật-tư-TP → thành-phẩm): vật tư di chuyển xuyên họ theo tiến độ sản xuất là chuyện bình thường, không phải ngoại lệ.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Phát hiện</span>
+        <div class="v">Người dùng đặt câu hỏi trực tiếp: "chuyển 100kg thì làm sao Kho thành phẩm xem được là hiện đã có 100kg dây?" — đúng chỗ hổng, không phải suy diễn từ code.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sống</span>
+        <div class="v">Kho thành phẩm (tài khoản <code>khotp</code>): 33 → <b>34</b> vật tư, thêm tab lọc "Dây" mới xuất hiện, dòng DAY-002 hiện đúng 100/100 (tồn/khả dụng). 3 kho còn lại không bị ảnh hưởng ngoài ý muốn (21/11/34 — Vật tư/TP tăng từ 10→11, xem mục 8).</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 8. Fix VTK-042 âm ========= -->
+  <section id="fix-vtk042">
+    <div class="sec-head"><h2>8. Vá tồn kho âm cũ lộ ra nhờ fix mục 7 (VTK-042 tại vat-tu-tp)</h2><span class="sec-count">1 dữ liệu cũ</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Dữ liệu cũ</span><span class="badge date">14/09 (gốc 19/08)</span><span class="f-title">StockQuant −1 của VTK-042 tại Kho Vật tư thành phẩm — hậu quả 1 bug packaging-issues đã fix từ 03/09</span></div>
+      <div class="f-field">
+        <span class="k">Cách lộ ra</span>
+        <div class="v">Fix mục 7 (hiện cả vật tư có tồn thật dù khác họ) vô tình phơi ra 1 dòng <code>StockQuant</code> tồn tại từ trước: VTK-042 "Bì zipper" (catalog gốc thuộc Kho thành phẩm) có <code>qty = -1</code> tại Kho Vật tư thành phẩm — trước đây bị bản lọc-theo-họ cũ che mất hoàn toàn.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Truy vết nguyên nhân gốc (toàn bộ lịch sử StockLedger của VTK-042, chỉ 2 dòng)</span>
+        <table class="evidence">
+          <tr><th>Ngày</th><th>Loại</th><th>Từ → Đến</th><th class="num">Qty</th></tr>
+          <tr><td>19/08/2026</td><td>PACKAGING_ISSUE (PO-31/PI-2026-001)</td><td>vat-tu-tp → thanh-pham</td><td class="num">1</td></tr>
+          <tr><td>10/09/2026</td><td>PURCHASE</td><td>SUPPLIER (ảo) → thanh-pham</td><td class="num">278.999</td></tr>
+        </table>
+        <div class="v" style="margin-top:8px">Dòng 19/08 trừ 1 đơn vị ở "vat-tu-tp" nhưng vật tư này <b>chưa từng có tồn thật ở đó</b> (không dòng ledger nào khác từng chạm tới vat-tu-tp cho vật tư này) → ra thẳng −1. Đọc code <code>packaging-issues.service.ts:43-45</code>: <i>"Kho vật lý nguồn KHÔNG còn hardcode 1 code (2026-09-03) — đọc động từ <code>Material.warehouseId</code>"</i> — xác nhận trước 03/09 code này hard-code cứng nguồn = "vat-tu-tp" bất kể vật tư thật sự thuộc kho nào. Bug đã được vá 2 tuần trước khi phát hiện việc này; chỉ còn sót đúng 1 dòng dữ liệu lịch sử chưa từng được dọn.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Cách sửa</span>
+        <div class="v">Ghi 1 bút toán <code>ADJUST</code> qua <code>POST /stock-ledger/adjust</code> (cùng cơ chế "Sửa nhanh tồn kho" ở Admin &gt; Vật tư): +1 từ kho ảo <code>OPENING_BALANCE</code> vào vat-tu-tp cho VTK-042, kèm <code>expectedCurrentQty=-1</code> (optimistic lock) và ghi chú rõ lý do để tra soát sau này. Kết quả: <code>qty: -1 → 0</code>.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 9. Vật tư khách biến mất khi về 0 ========= -->
+  <section id="fix-bien-mat">
+    <div class="sec-head"><h2>9. Vật tư "khách" (catalog gốc thuộc kho khác) phải biến mất khi tồn về 0</h2><span class="sec-count">1 tinh chỉnh hành vi</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Tinh chỉnh theo yêu cầu</span><span class="badge date">14/09</span><span class="f-title">Phân biệt rõ vật tư "chính chủ" (luôn hiện) và vật tư "khách" (chỉ hiện khi còn hàng thật)</span></div>
+      <div class="f-field">
+        <span class="k">Câu hỏi dẫn tới thay đổi</span>
+        <div class="v">Sau khi mục 7 sửa cho vật tư "khách" (catalog gốc thuộc họ kho khác, nhưng đang có tồn thật do chuyển kho tới) hiện đúng trong danh sách — nảy sinh câu hỏi: nếu tồn đó về lại 0 (chuyển tiếp đi hoặc dùng hết), nó có nên biến mất không, hay vẫn hiện dòng "0" mãi mãi? Trả lời: <b>nên biến mất</b> — vì DB trigger <code>fn_sync_stock_quant()</code> (đọc thẳng migration <code>20260904070642</code>) chỉ có <code>INSERT ... ON CONFLICT DO UPDATE</code>, <b>không bao giờ xoá dòng <code>stock_quant</code></b> — nếu không tự lọc, dòng "0" sẽ tồn tại vĩnh viễn trong danh sách dù vật tư đã rời khỏi kho từ lâu.</div>
+      </div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước (mục 7)</span><code>extraFromTransfers</code> chỉ kiểm tra "có dòng StockQuant tại kho này không" — không lọc theo <code>qty</code>, nên vật tư "khách" về 0 vẫn hiện mãi (dòng "0" rác).</div>
+        <div class="ba-box after"><span class="k">Sau</span>Thêm điều kiện <code>q.qty &gt; 0</code> vào <code>extraFromTransfers</code>. Vật tư "chính chủ" (catalog cùng họ, tập <code>byFamily</code>) KHÔNG đổi — vẫn luôn hiện kể cả tồn 0, vì đó là danh mục thường trực của kho.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sống</span>
+        <div class="v">Đưa 100 Kg DAY-002 ở Kho thành phẩm về 0 (đồng thời hoàn trả đúng 2.788 về Kho Vật tư thành phẩm — kho gốc, qua 2 bút toán <code>ADJUST</code> đối ứng <code>OPENING_BALANCE</code>, dọn luôn dữ liệu test phiếu CK-2026-012 ở mục 6): tab "Dây" và dòng DAY-002 <b>biến mất khỏi Kho thành phẩm</b>, về đúng 33 vật tư như ban đầu; vẫn hiện bình thường ở Kho Vật tư thành phẩm (10 vật tư, tồn 2.788). VTK-042 tại Kho thành phẩm (kho gốc) không đổi, vẫn 279.000.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 10. Rà soát rủi ro: bucket chiều dài cây sắt ========= -->
+  <section id="fix-stocklength">
+    <div class="sec-head"><h2>10. Rà soát rủi ro còn lại: cộng dồn sai bucket chiều dài cây sắt (stockLengthMm)</h2><span class="sec-count">1 bug đã sửa + 1 rủi ro tương tự còn mở nơi khác</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Bug đã sửa</span><span class="badge date">14/09</span><span class="f-title">"Tổng hợp vật tư" báo THIẾU tồn kho cho vật tư Sắt có ≥2 chiều dài cây tồn kho cùng lúc</span></div>
+      <div class="f-field">
+        <span class="k">Nguyên nhân</span>
+        <div class="v">Bảng <code>stock_quant</code> cho phép NHIỀU dòng cho ĐÚNG 1 cặp (kho, vật tư) khi vật tư Sắt tồn ở nhiều <code>stockLengthMm</code> khác nhau (cây 6m và cây 4m là 2 lô RIÊNG — unique index 3 cột <code>(warehouseId, materialId, stockLengthMm)</code>, xem trigger <code>fn_sync_stock_quant</code>). Nhưng <code>StockQuantResponseDto</code> (<code>GET /stock-quant</code>) <b>không trả field <code>stockLengthMm</code> ra ngoài</b> — nên nhiều dòng trông như "trùng key" mà client không phân biệt được là khác bucket. Khoá <code>materialId:warehouseId</code> (mục 3) tuy đã sửa đúng vụ số âm, nhưng vẫn <b>lấy dòng cuối cùng thay vì cộng tổng</b> — với vật tư có ≥2 bucket, hiển thị chỉ đúng ngẫu nhiên khi 1 trong các bucket = 0 (may mắn trùng hợp trong dữ liệu hiện tại), sẽ sai thật khi cả 2 bucket đều có số dương.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Bằng chứng thật trên DB dev</span>
+        <table class="evidence">
+          <tr><th>Vật tư</th><th>Kho</th><th class="num">Bucket 1</th><th class="num">Bucket 2</th><th class="num">Tổng đúng</th></tr>
+          <tr><td>SAT-003 (Sắt vuông 6zem 20mm)</td><td>Phôi Sơn Hàn</td><td class="num">0</td><td class="num">50</td><td class="num">50</td></tr>
+          <tr><td>SAT-005 (Sắt vuông 6zem 12mm)</td><td>Phôi Sơn Hàn</td><td class="num">0</td><td class="num">324</td><td class="num">324</td></tr>
+        </table>
+      </div>
+      <div class="f-field">
+        <span class="k">Cách sửa</span>
+        <div class="v"><code>quantByKey</code> đổi từ "ghi đè dòng cuối" sang <b>cộng dồn</b> (<code>qty</code>/<code>availableQty</code>) cho mọi dòng chung khoá <code>materialId:warehouseId</code>. <code>extraFromTransfers</code> (mục 7) cũng đổi sang đọc từ <code>quantByKey</code> đã cộng dồn thay vì lọc trực tiếp trên mảng thô — tránh vừa tính sai ngưỡng &gt;0 vừa tạo trùng dòng cho vật tư đa-bucket.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sống</span>
+        <div class="v">Kho Phôi Sơn Hàn (tài khoản <code>khopsh</code>): SAT-003 hiện đúng <b>50/50</b>, SAT-005 hiện đúng <b>324/0</b> (khả dụng 0 vì đang bị giữ chỗ) — khớp chính xác tổng 2 bucket tính tay từ API. Regression 3 kho gốc + Boss không đổi.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Rủi ro TƯƠNG TỰ tìm thấy + đã sửa luôn (cùng phiên, theo yêu cầu)</span>
+        <div class="v"><code>MaterialsPage.tsx</code> (Admin &gt; Vật tư) dùng ĐÚNG pattern lỗi này cho cột "Tồn kho"/"Khả dụng" (<code>quantByMaterialId</code>, lấy dòng cuối thay vì cộng dồn). Đã sửa tương tự (cộng dồn theo key). Verify sống qua tài khoản <code>admin</code>, lọc nhóm "Sắt": <b>SAT-005 = 324/0</b>, <b>SAT-003 = 50/50</b> — khớp đúng tổng 2 bucket, khớp với "Tổng hợp vật tư".</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 11. Vá 409 optimistic lock đa-bucket ========= -->
+  <section id="fix-optimistic-lock">
+    <div class="sec-head"><h2>11. Vá lỗi 409 "Sửa nhanh tồn kho" cho vật tư Sắt đa-bucket (bug backend có sẵn từ trước)</h2><span class="sec-count">1 bug nghiêm trọng</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Bug backend</span><span class="badge date">14/09</span><span class="f-title">Admin/Thủ kho KHÔNG THỂ sửa tồn kho cho vật tư Sắt có ≥2 bucket chiều dài — 409 luôn xảy ra</span></div>
+      <div class="f-field">
+        <span class="k">Phát hiện</span>
+        <div class="v">Trong lúc rà soát tiếp rủi ro (mục 10), nhận ra: nếu FE giờ hiển thị đúng TỔNG các bucket, thì tính năng "Sửa nhanh tồn kho" (optimistic-lock so khớp <code>expectedCurrentQty</code> client gửi với tồn thật server đọc) có nguy cơ lệch nếu server không cộng dồn tương tự. Test trực tiếp: thử sửa SAT-005 → <b>409 "Tồn kho hiện tại đã đổi (đang là 0, bạn thấy 324)"</b> dù không ai vừa sửa gì.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Nguyên nhân (bug CÓ SẴN TỪ TRƯỚC, không phải do các fix hôm nay gây ra)</span>
+        <div class="v">Câu lệnh khoá trong <code>StockLedgerService.adjust()</code> (<code>stock-ledger.service.ts:212-217</code>):
+        <br><code>SELECT "qty" FROM "stock_quant" WHERE "warehouseId"=X AND "materialId"=Y FOR UPDATE</code>
+        <br>— thiếu điều kiện <code>stockLengthMm</code>, nên với vật tư đa-bucket trả về NHIỀU dòng, nhưng code cũ chỉ lấy <code>locked[0]</code> (dòng đầu tiên theo thứ tự KHÔNG xác định của Postgres) thay vì cộng dồn. Vì FE luôn hiển thị tổng đã cộng dồn (dù là bản cũ "lấy dòng cuối theo id" hay bản mới), gần như chắc chắn lệch với <code>locked[0]</code> ngẫu nhiên ở backend → 409 xảy ra ở MỌI lần thử, không phải race condition thật.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Cách sửa</span>
+        <div class="v">Đổi <code>currentQty</code> từ <code>locked[0]?.qty ?? 0</code> sang <code>locked.reduce((sum, row) =&gt; sum + row.qty.toNumber(), 0)</code> — cộng dồn TẤT CẢ dòng khớp (warehouseId, materialId), khớp đúng số FE đang hiển thị. <code>FOR UPDATE</code> vẫn khoá đúng mọi dòng trả về (chặn race thật giữa 2 người sửa cùng lúc), chỉ đổi cách TÍNH tổng để so khớp.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sống (SAT-005, materialId=37)</span>
+        <table class="evidence">
+          <tr><th>Bước</th><th class="num">Bucket A (id=253)</th><th class="num">Bucket B (id=365)</th><th class="num">Tổng</th></tr>
+          <tr><td>Trước sửa - thử adjust</td><td class="num">0</td><td class="num">324</td><td class="num">409 Conflict (không ghi được)</td></tr>
+          <tr><td>Sau sửa - adjust +1 (idempotencyKey mới)</td><td class="num">1</td><td class="num">324</td><td class="num">201 OK, tổng 325</td></tr>
+          <tr><td>Dọn dẹp - adjust -1 hoàn trả</td><td class="num">0</td><td class="num">324</td><td class="num">201 OK, tổng 324 (đúng ban đầu)</td></tr>
+        </table>
+        <div class="v" style="margin-top:8px">53 test module <code>stock</code> (BE) vẫn xanh sau sửa.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Lưu ý thiết kế</span>
+        <div class="v">Sau khi qua được optimistic-lock, phần điều chỉnh thật (<code>postEntry</code>) vẫn ghi vào bucket <code>stockLengthMm=0</code> (không phân bổ lại vào bucket cụ thể nào) - chấp nhận được vì "Sửa nhanh tồn kho" vốn là công cụ hiệu chỉnh thô cho khớp thực tế vật lý, không nhằm sửa từng bucket riêng; tổng hiển thị sau đó vẫn luôn đúng vì đã cộng dồn mọi bucket kể cả bucket 0.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 12. Cột Chiều dài ở Quản lý kho ========= -->
+  <section id="feat-length-column">
+    <div class="sec-head"><h2>12. Thêm cột "Chiều dài" ở Admin &gt; Quản lý kho — tách hiển thị theo từng bucket + sửa đúng từng bucket</h2><span class="sec-count">1 tính năng mới</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">14/09</span><span class="f-title">Kho Phôi Sơn Hàn (và mọi kho khác) giờ phân biệt được vật tư Sắt tồn ở nhiều chiều dài khác nhau</span></div>
+      <div class="f-field">
+        <span class="k">Bối cảnh</span>
+        <div class="v">Sau khi xác nhận cùng lỗi "lấy 1 dòng thay vì cộng dồn" (mục 10) cũng tồn tại ở <code>MfgWarehousesPage.tsx</code> ("Quản lý kho" — màn hình trong ảnh chụp người dùng gửi), quyết định thêm hẳn cột "Chiều dài" để KHÔNG chỉ hiện đúng tổng mà còn tách riêng từng bucket, giải quyết luôn khoảng trống đã nêu ở mục 10 ("Admin không có cách nào sửa đúng từng lô chiều dài").</div>
+      </div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>1 dòng/vật tư, gộp nhầm hoặc lấy nhầm 1 bucket (bug mục 10). Không có cột chiều dài. "Sửa nhanh tồn kho" chỉ sửa được 1 số tổng, luôn ghi đè vào bucket 0 (không khớp bucket thật nào).</div>
+        <div class="ba-box after"><span class="k">Sau</span>1 dòng/BUCKET (chỉ hiện bucket còn phát sinh, qty ≠ 0). Cột "Chiều dài" hiện đúng "X mm" hoặc "—" (chưa xác định/không áp dụng). "Sửa nhanh tồn kho" sửa ĐÚNG bucket đang bấm vào — không còn đổ nhầm vào bucket ẩn danh.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Thay đổi backend</span>
+        <div class="v">
+          <ul>
+            <li><code>StockQuantResponseDto</code>/<code>stock-quant.service.ts</code>: lộ field <code>stockLengthMm</code> ra <code>GET /stock-quant</code> (trước đây bị ẩn hoàn toàn khỏi mọi API đọc).</li>
+            <li><code>CreateStockAdjustmentDto</code>: thêm field tuỳ chọn <code>stockLengthMm</code>.</li>
+            <li><code>StockLedgerService.adjust()</code>: khi <code>stockLengthMm</code> được truyền → khoá + ghi ĐÚNG bucket đó (không cộng dồn, vì unique index 3 cột đảm bảo khớp đúng 1 dòng); khi bỏ trống → giữ nguyên hành vi cộng dồn tổng (mục 11), dùng cho các màn chỉ hiện 1 số tổng.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Thay đổi frontend (MfgWarehousesPage.tsx)</span>
+        <div class="v">
+          <ul>
+            <li><code>itemsOf()</code>: viết lại để sinh 1 <code>StockItem</code>/bucket (lọc bucket <code>qty !== 0</code>; vật tư chưa từng phát sinh giao dịch thì fallback 1 dòng "—").</li>
+            <li>Thêm cột bảng "Chiều dài" — hiện <code>stockLengthMm</code> kèm hậu tố "mm", hoặc "—" khi không có/không áp dụng.</li>
+            <li><code>editingId</code> (khoá theo materialId) đổi thành <code>editingKey</code> (khoá theo <code>materialId:stockLengthMm</code>) — tránh bấm sửa 1 bucket vô tình mở luôn ô sửa ở bucket kia của cùng vật tư.</li>
+            <li><code>confirmAdjust()</code> truyền thêm <code>stockLengthMm: it.stockLengthMm ?? undefined</code> vào <code>adjustStock()</code>.</li>
+            <li>Số "mặt hàng" trên thẻ kho (<code>WhCard</code>) đổi sang đếm distinct <code>materialId</code> thay vì đếm số dòng - tránh đếm trùng khi 1 vật tư có nhiều bucket.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sống</span>
+        <table class="evidence">
+          <tr><th>Bước (tài khoản admin xem, khopsh sửa)</th><th class="num">Bucket 0mm</th><th class="num">Bucket 6000mm</th></tr>
+          <tr><td>Hiển thị ban đầu (Quản lý kho &gt; Kho Phôi Sơn Hàn)</td><td class="num">ẩn (qty=0)</td><td class="num">"6.000 mm" · 324/0</td></tr>
+          <tr><td>Sửa đúng bucket 6000mm qua API (giả lập bấm sửa trên UI) +1</td><td class="num">0 (không đụng)</td><td class="num">325 (201 OK, không còn 409)</td></tr>
+          <tr><td>Dọn dẹp hoàn trả -1</td><td class="num">0</td><td class="num">324 (đúng ban đầu)</td></tr>
+        </table>
+        <div class="v" style="margin-top:8px">SAT-003 hiển thị tương tự: "6.000 mm" · 50/50, bucket 0 ẩn đúng. 53 test module <code>stock</code> (BE) vẫn xanh sau toàn bộ thay đổi.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Tinh chỉnh theo yêu cầu — chỉ hiện cột ở đúng họ kho phôi-sơn-hàn</span>
+        <div class="v">Cột "Chiều dài" ban đầu hiện ở MỌI kho (vô hại vì kho khác không có vật tư Sắt nào thật, nhưng thừa/rối). Theo yêu cầu, đã thêm <code>showLengthColumn = warehouseFamilyOf(wh.code) === 'phoi-son-han'</code> để CHỈ hiện cột (cả header lẫn cell) khi đang xem đúng họ kho phôi-sơn-hàn — <code>itemsOf()</code> vẫn tách đúng theo bucket cho MỌI kho (giữ nguyên phần sửa lỗi cộng dồn), chỉ khác là không lộ cột ra ở những kho không cần. Verify sống: Kho Phôi Sơn Hàn vẫn hiện đúng "6.000 mm" như trước; Kho Vật tư thành phẩm chỉ còn 7 cột, không có "Chiều dài".</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 13. Gộp sửa tồn về 1 nơi ========= -->
+  <section id="feat-consolidate-edit">
+    <div class="sec-head"><h2>13. Gộp "Sửa nhanh tồn kho" về đúng 1 nơi (Quản lý kho), chỉ Admin được sửa</h2><span class="sec-count">1 tái cấu trúc quyền</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Tái cấu trúc</span><span class="badge date">14/09</span><span class="f-title">Phát hiện: Admin đứng đúng màn "Quản lý kho" nhưng KHÔNG sửa được tồn kho nào cả (không riêng vật tư Sắt)</span></div>
+      <div class="f-field">
+        <span class="k">Phát hiện dẫn tới thay đổi</span>
+        <div class="v">Sau khi thêm cột "Chiều dài", user thử sửa tồn SAT-005/SAT-003 trên UI thật (không phải qua API) nhưng không thấy ô sửa nào. Kiểm tra: <code>canWrite = user?.role === 'WAREHOUSE_STAFF' && !user?.mfgRole</code> — ADMIN không khớp điều kiện này nên KHÔNG sửa được BẤT KỲ vật tư nào ở "Quản lý kho", không riêng gì Sắt đa-bucket. Đào sâu thêm: tài khoản Thủ kho theo từng kho riêng (khớp đúng điều kiện <code>canWrite</code>) lại KHÔNG có đường điều hướng nào tới màn "Quản lý kho" cả (tab "Tổng hợp kho" bị lọc ẩn khỏi sidebar theo từng kho ở <code>InboundWarehouseApp.tsx</code>) — tức tính năng sửa tồn ở đây gần như không ai dùng được trong thực tế.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Quyết định</span>
+        <div class="v">Theo yêu cầu trực tiếp: (1) chỉ Admin được sửa tồn kho, (2) gộp về ĐÚNG 1 màn hình duy nhất (Quản lý kho) thay vì rải rác cả <code>MaterialsPage.tsx</code> (Admin &gt; Vật tư) lẫn <code>MfgWarehousesPage.tsx</code> (Quản lý kho) cùng sửa 1 dữ liệu.</div>
+      </div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>2 màn cùng có "Sửa nhanh tồn kho" (Admin &gt; Vật tư dành cho Thủ kho/Admin tuỳ file; Quản lý kho dành cho Thủ kho không mfgRole) - trùng lặp, và như phát hiện ở trên, gần như không dùng được trong thực tế.</div>
+        <div class="ba-box after"><span class="k">Sau</span><code>MaterialsPage.tsx</code> (Admin &gt; Vật tư): cột "Tồn kho" chỉ đọc (bỏ hẳn ô sửa/state/hàm liên quan `adjustStock`). <code>MfgWarehousesPage.tsx</code> (Quản lý kho): <code>canWrite = user?.role === 'ADMIN'</code> - Admin sửa được tồn cho MỌI vật tư ở MỌI kho ngay tại đây, không cần tài khoản Thủ kho riêng.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sống</span>
+        <div class="v">Admin &gt; Vật tư: 0 ô sửa (đúng, đã gỡ). Quản lý kho &gt; Kho Vật tư thành phẩm (kho KHÔNG có vật tư Sắt, để xác nhận không chỉ giới hạn ở Phôi Sơn Hàn): <b>10/10 dòng đều có ô "Bấm để sửa"</b> cho Admin, nút "Thêm vật tư" cũng hiện đúng.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 14. Cột Chiều dài ở Tổng hợp vật tư ========= -->
+  <section id="feat-length-vattu">
+    <div class="sec-head"><h2>14. Cột "Chiều dài" cũng thêm vào "Tổng hợp vật tư" (Kho đầu vào) — khác file với mục 12</h2><span class="sec-count">1 tính năng mới (file thứ 2)</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">14/09</span><span class="f-title">Nhầm lẫn cần đính chính: mục 12 sửa "Quản lý kho" (Admin), nhưng thủ kho lại xem "Tổng hợp vật tư" (Kho đầu vào) — 2 màn KHÁC FILE cùng tên "kho phôi sơn hàn"</span></div>
+      <div class="f-field">
+        <span class="k">Bối cảnh</span>
+        <div class="v">User gửi ảnh chụp tài khoản <code>khopsh</code> (thủ kho Phôi Sơn Hàn) đứng ở tab "Tổng hợp vật tư" trong "Kho đầu vào" — đây là <code>VatTuDashboardPage.tsx</code>, KHÁC HẲN <code>MfgWarehousesPage.tsx</code> ("Quản lý kho", chỉ Admin vào được) đã sửa ở mục 12. 2 màn cùng hiển thị "tồn kho của Kho Phôi Sơn Hàn" nhưng là 2 implementation độc lập — sửa 1 bên không tự động áp dụng bên kia.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Cách làm</span>
+        <div class="v">Áp dụng ĐÚNG pattern đã dùng ở mục 12 cho <code>VatTuDashboardPage.tsx</code>: <code>showLengthColumn = warehouseFamilyOf(warehouseCode) === 'phoi-son-han'</code>; thêm kiểu <code>DisplayRow</code> (1 vật tư → 1 dòng thường, hoặc 1 dòng/bucket chiều dài còn tồn thật khi showLengthColumn); bảng + drawer chi tiết đều đọc qua <code>displayRows</code> thay vì lặp thẳng trên danh sách vật tư.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sống</span>
+        <table class="evidence">
+          <tr><th>Tài khoản / kho</th><th>Cột "Chiều dài"</th><th>Kết quả</th></tr>
+          <tr><td>khopsh / Kho Phôi Sơn Hàn</td><td>Có</td><td>SAT-005 "6.000 mm" 324/0, SAT-003 "6.000 mm" 50/50 - đúng bucket thật</td></tr>
+          <tr><td>khovttp / Kho Vật tư thành phẩm</td><td>Không</td><td>6 cột header (không có "Chiều dài"), 10 dòng - không đổi so với trước</td></tr>
+        </table>
+      </div>
+      <div class="f-field">
+        <span class="k">Lưu ý môi trường (không phải bug code)</span>
+        <div class="v">Suốt quá trình verify mục 13/14, backend dao động cực mạnh (login lúc 200 lúc timeout hoàn toàn, chu kỳ vài chục giây) - nghi do dồn quá nhiều kết nối lên DB dev pooled từ khối lượng test trực tiếp rất lớn trong 1 phiên siêu dài. Đã xử lý bằng cách poll xác nhận login thật ổn định qua ≥3 lần liên tiếp trước mỗi lượt test trình duyệt.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 15. Vá lỗi — sai khi hết sạch ========= -->
+  <section id="fix-bucket-dash">
+    <div class="sec-head"><h2>15. Vá lỗi: vật tư đa-bucket dùng hết sạch bị hiện nhầm "—" thay vì "0"</h2><span class="sec-count">1 bug (tự phát hiện khi trả lời câu hỏi)</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Bug tự phát hiện</span><span class="badge date">15/09</span><span class="f-title">"Chiều dài" (mục 14) hard-code null cho trường hợp mọi bucket đều về 0 - mất phân biệt "chưa từng có" vs "đã hết"</span></div>
+      <div class="f-field">
+        <span class="k">Câu hỏi dẫn tới phát hiện</span>
+        <div class="v">User hỏi: "vật tư Sắt nhiều chiều dài khi dùng hết trong tồn thì có mất đi không, hay vẫn còn hiện là 0?". Soát lại code <code>displayRows</code> (mục 14) mới thấy: nhánh <code>buckets.length === 0</code> (mọi bucket đều <code>qty===0</code>) hard-code thẳng <code>qty: null</code> → hiện "—", giống hệt vật tư CHƯA TỪNG có giao dịch nào - mất đúng sự phân biệt "—" (chưa từng phát sinh) vs "0" (đã phát sinh, nay hết sạch) đã lập ra ở mục 9.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Cách sửa</span>
+        <div class="v">Nhánh fallback đổi sang tra lại <code>quantFor(m)</code> (tổng đã cộng dồn qua mọi bucket, kể cả bucket đã về 0) thay vì hard-code null - <code>quant?.qty ?? null</code>: có dòng <code>stock_quant</code> thật (dù =0) → hiện "0"; hoàn toàn chưa từng có dòng nào → hiện "—". Chỉ sửa ở <code>VatTuDashboardPage.tsx</code> - <code>MfgWarehousesPage.tsx</code> (mục 12) không có bug này vì file đó chưa bao giờ dùng "—" (luôn hard-code 0 cho fallback, nhất quán với chính nó từ trước).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sống (SAT-003, materialId=35, bucket 6000mm)</span>
+        <table class="evidence">
+          <tr><th>Bước</th><th>Chiều dài</th><th class="num">Tồn kho</th><th class="num">Khả dụng</th></tr>
+          <tr><td>Trước (bucket 6000mm=50)</td><td>"6.000 mm"</td><td class="num">50</td><td class="num">50</td></tr>
+          <tr><td>Dùng hết sạch bucket 6000mm (còn 0)</td><td><b>"—"</b> (bucket biến mất khỏi breakdown riêng)</td><td class="num"><b>0</b> (không phải "—")</td><td class="num"><b>0</b></td></tr>
+          <tr><td>Dọn dẹp hoàn trả</td><td>"6.000 mm"</td><td class="num">50</td><td class="num">50</td></tr>
+        </table>
+      </div>
+      <div class="f-field">
+        <span class="k">Kết luận trả lời câu hỏi user</span>
+        <div class="v">Dữ liệu KHÔNG BAO GIỜ mất - dòng <code>stock_quant</code> của từng bucket tồn tại vĩnh viễn (trigger DB không có nhánh DELETE, xác nhận qua migration <code>fn_sync_stock_quant</code>). Khi 1 chiều dài cụ thể dùng hết: dòng "Chiều dài" riêng cho lô đó BIẾN MẤT khỏi breakdown (vì không còn ý nghĩa hiện 1 lô rỗng), nhưng bản thân VẬT TƯ vẫn hiện với số <b>"0"</b> thật (không phải "—", không phải biến mất khỏi danh sách) - vì "chính chủ" luôn hiện thường trực (mục 9) và giờ đã tra đúng tổng thật.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 16. Chạy dữ liệu thật: 2 bucket chiều dài thật cho 1 vật tư Sắt ========= -->
+  <section id="test-real-flow-2-buckets">
+    <div class="sec-head"><h2>16. Chạy dữ liệu THẬT theo đúng luồng mua hàng — SAT-002 có 2 bucket chiều dài thật tại Kho Phôi Sơn Hàn</h2><span class="sec-count">2 bug backend đã sửa + 1 lệnh SX demo tạo mới hoàn toàn</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Bug backend</span><span class="badge date">15/09</span><span class="f-title">Transaction timeout 5000ms mặc định của Prisma quá ngắn khi lưu kết quả cắt (CuttingProposalLine + patterns + segments)</span></div>
+      <div class="f-field">
+        <span class="k">Cách phát hiện</span>
+        <div class="v">Yêu cầu user: chạy đúng luồng mua hàng thật (không dùng <code>/stock-ledger/adjust</code>) để tạo bucket chiều dài thứ 2 cho cùng 1 vật tư Sắt. Thử đổi <code>SystemConfig.solverStockLengths</code> sang chiều dài khác cho PO có sẵn (PO-42-1) → solver tính xong nhưng lưu kết quả vào DB bị lỗi lặp lại 2 lần liên tiếp: <code>Transaction API error: A query cannot be executed on an expired transaction. The timeout for this transaction was 5000 ms, however 5831-6215 ms passed</code>.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Nguyên nhân</span>
+        <div class="v"><code>cutting-proposals.service.ts</code> — hàm lưu kết quả solver gọi <code>this.prisma.$transaction(async (tx) =&gt; {...})</code> KHÔNG truyền option <code>timeout</code>, nên dùng mặc định Prisma 5000ms. Vòng lặp bên trong ghi <code>cuttingProposalLine</code> + <code>cuttingProposalPattern</code> + <code>cuttingProposalPatternSegment</code> cho MỌI vật tư/pattern/đoạn cắt trong 1 transaction duy nhất - với đơn hàng nhiều vật tư/pattern (vd đơn "Ghế J55" 751 bar) tốn &gt;15s thật, vượt xa 5000ms mặc định. Cùng file này đã có tiền lệ xử lý y hệt ở 1 chỗ khác (dòng ~1219, <code>{ timeout: 15_000 }</code>) - chỗ lưu kết quả lại bị bỏ sót.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Cách sửa</span>
+        <div class="v">Thêm option timeout vào transaction: <code>await this.prisma.$transaction(async (tx) =&gt; {...}, { timeout: 30_000 })</code>. Ban đầu thử 15_000 (khớp tiền lệ trong file) - đủ cho PO 40 nhưng vẫn thiếu cho đơn "Ghế J55" (cần ~16.6s, sát ngưỡng) nên nâng lên 30_000 để có biên an toàn cho đơn lớn hơn trong tương lai.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sống</span>
+        <div class="v">Trước sửa: PO 40 (materialId=34 SAT-002) và PO 36 ("Ghế J55", 751 bar) đều FAILED với lỗi transaction hết hạn. Sau sửa (backend hot-reload xác nhận qua health-check 200): cả 2 solve xong và lưu DB thành công không lỗi.</div>
+      </div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Phát hiện hành vi</span><span class="badge date">15/09</span><span class="f-title">Cutting demand được khoá theo BomRevision, không theo từng ProductionOrder riêng lẻ</span></div>
+      <div class="f-field">
+        <span class="k">Hiện tượng</span>
+        <div class="v">Sau khi PO-41-1 (productionOrderId=48, bomRevisionId=21, sản phẩm "Ghế tình yêu") đã được duyệt đề xuất cắt thật ở vòng 1 (bucket 6000mm/26), mọi lần thử tính lại đề xuất cắt cho PO-42-1 (productionOrderId=40) - CÙNG bomRevisionId=21 - đều nhận <code>displayReason: "Nhu cầu này đã có phương án khác được duyệt trước đó"</code>, dù bản thân PO 40 chưa từng có đề xuất nào được duyệt riêng.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Kết luận</span>
+        <div class="v">Đây KHÔNG phải bug - hệ thống coi "nhu cầu cắt" là thuộc về BomRevision (định mức sản phẩm), không phải thuộc về từng lệnh SX. Một khi 1 lệnh SX dùng chung định mức đó đã được duyệt cắt, các lệnh SX khác cùng định mức bị coi là nhu cầu đã được xử lý. Hệ quả thực tế: không thể "thử nhiều chiều dài khác nhau" bằng cách chạy lại nhiều lệnh SX có sẵn cùng 1 sản phẩm - mỗi định mức (BomRevision) chỉ cho ra đúng 1 phương án cắt đã duyệt trong vòng đời của nó.</div>
+      </div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Demo dữ liệu thật</span><span class="badge date">15/09</span><span class="f-title">Tạo mới hoàn toàn 1 sản phẩm/BOM/đơn hàng/lệnh SX chỉ để có bucket chiều dài thứ 2 - toàn bộ qua API nghiệp vụ thật, không dùng lệnh điều chỉnh tắt</span></div>
+      <div class="f-field">
+        <span class="k">Vì sao phải tạo mới</span>
+        <div class="v">Rà hết các lệnh SX có sẵn trong DB demo dùng SAT-002 (PO 40, PO 52 và các lệnh chia sẻ bomRevisionId=21) - không còn lệnh nào vừa (a) chưa từng duyệt cắt, (b) khả thi ở độ dài khác 6000mm trong ngưỡng hao hụt mặc định, (c) không dính khoá "đã duyệt theo BomRevision" ở trên. Được user xác nhận cho tạo lệnh SX mới từ đầu.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Luồng thật đã chạy (toàn bộ qua API, đúng role từng bước)</span>
+        <div class="v">1) <code>POST /products</code> (admin) tạo sản phẩm demo "DEMO-STOCKLEN-01" · 2) <code>POST /skus</code> (khsx - PRODUCTION_PLANNER) tạo SKU gắn sản phẩm · 3) <code>POST /skus/:id/manh-quota</code> (dmm - SPEC_STEEL_STAFF) khai 1 mảnh dùng SAT-002, đoạn cắt <b>930mm</b> × 6 đoạn/đơn vị (930×6=5580, gần khớp 1 chiều dài scan 5000-6000mm nên chờ đợi solver tự chọn ra 1 chiều dài khác 6000mm với hao hụt rất thấp) · 4) review + approve-parts (khsx) · 5) detail-quota rỗng (dmct - SPEC_ACCESSORY_PACKAGING_STAFF) + review + approve-detail (khsx) → SKU chuyển <code>WAITING_BOSS_APPROVAL</code> · 6) <code>POST /skus/:id/approve</code> (boss) → kích hoạt BomRevision mới (id=29) · 7) <code>POST /sales-orders</code> (sales - SALES_STAFF) tạo đơn hàng 10 sản phẩm → tự sinh 1 ProductionInvoiceItem chưa nhận · 8) <code>claim-solo</code> (khsx) → tạo PI (PI-2026-027) · 9) <code>send-to-qlsx</code> (khsx) → <code>send-to-boss</code> (qlsx - PRODUCTION_MANAGER, kèm warehouseCode) → <code>approve</code> (boss) → tạo ProductionOrder (id=56, RELEASED) VÀ tự kích hoạt solver cắt ngầm.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Kết quả solver (tự động, không cần sửa SystemConfig)</span>
+        <div class="v">CuttingProposal id=73 tự duyệt ngay (APPROVED, displayStatus OK): SAT-002 - <code>bestStockLengthMm=5600, lengthSource=scan, totalBars=10, wastePercentage=0.25%</code>. Sinh PurchaseProposal id=72/item 262 (buyQty=10, stockLengthMm=5600).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Duyệt mua + nhận hàng thật</span>
+        <div class="v"><code>POST /purchase-proposals/72/boss-approve</code> (admin - vai trò BOSS thật không có sẵn quyền <code>PURCHASE_PROPOSAL:UPDATE</code>, xác nhận qua code: gate quyền và gate nghiệp vụ "buyerId bypass" là 2 lớp độc lập, ADMIN thoả cả 2) → <code>POST /purchase-proposals/72/items/262/receive</code> (khopsh, receivedQty=10) → status PURCHASED.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sống - <code>GET /stock-quant?materialId=34&amp;warehouseId=6</code></span>
+        <table class="evidence">
+          <tr><th>Nguồn</th><th>Chiều dài</th><th class="num">Tồn kho</th></tr>
+          <tr><td>PO-41-1 (vòng 1, lệnh SX có sẵn)</td><td>6.000 mm</td><td class="num">26</td></tr>
+          <tr><td>DH-DEMO-STOCKLEN-01-1 (vòng 2, lệnh SX tạo mới)</td><td><b>5.600 mm</b></td><td class="num">10</td></tr>
+        </table>
+        <div class="v">Verify thêm qua UI thật (Playwright, tài khoản khopsh, "Tổng hợp vật tư"): dòng SAT-002 hiện đúng 2 hàng riêng biệt "6.000 mm" (26) và "5.600 mm" (10) - cả 2 đều là dữ liệu SẢN XUẤT/MUA HÀNG thật, không phải dữ liệu QA/adjust.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Lưu ý dọn dẹp</span>
+        <div class="v"><code>SystemConfig</code> (solverStockLengths/solverMaxWastePercentage/solverMinLengthMm/solverMaxLengthMm) đã bị đổi tạm nhiều lần trong lúc dò luồng ở PO 40 (không thành công) - đã khôi phục nguyên trạng gốc sau mỗi lần thử. Sản phẩm/SKU/đơn hàng/lệnh SX demo (DEMO-STOCKLEN-01, id=36) và toàn bộ chuỗi PI/PO/PurchaseProposal liên quan CỐ Ý giữ nguyên trong DB - đây là dữ liệu thật hợp lệ theo đúng luồng nghiệp vụ, không phải rác cần dọn.</div>
+      </div>
+    </article>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 14-15/09/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>

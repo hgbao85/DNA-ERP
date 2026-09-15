@@ -14,11 +14,18 @@ export interface BeMaterial {
   unit: string;
   spec: string | null;
   materialGroupId: number | null;
+  /** Denormalized từ MaterialGroup.name (BE toResponseDto) — dùng ở VatTuDashboardPage để lọc
+   *  theo Nhóm vật tư mà không cần gọi riêng GET /material-groups (WAREHOUSE_STAFF không có
+   *  quyền MATERIAL_GROUP:VIEW). */
+  materialGroupName: string | null;
   /** Sơn/Phụ kiện/Bao bì — chỉ có ý nghĩa khi materialGroupId thuộc nhóm systemKey OTHER
    *  ("Vật tư khác"), null với mọi nhóm khác. Dùng để lọc riêng từng tab ở SpecDetailQuotaPage
    *  vì 3 tab đó giờ dùng chung 1 nhóm vật tư — xem MaterialPicker.tsx. */
   detailKind: 'PAINT' | 'ACCESSORY' | 'PACKAGING' | null;
   warehouseId: string | null;
+  /** Denormalized từ Warehouse.code/name — cùng lý do materialGroupName ở trên. */
+  warehouseCode: string | null;
+  warehouseName: string | null;
   buyerId: string | null;
   /** Đơn vị mua hàng từ NCC khi khác `unit` (đơn vị tồn kho/sản xuất) — vd NCC bán theo "kg"
    *  nhưng sản xuất dùng "cái". null nếu vật tư chỉ có 1 đơn vị duy nhất. */
