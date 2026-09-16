@@ -524,7 +524,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <ArrowUpFromLine size={20} color={ACCENT} /> Xuất kho
+          <ArrowUpFromLine size={20} color={ACCENT} /> Xuất theo đơn hàng
         </h2>
       </div>
 

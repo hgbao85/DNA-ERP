@@ -76,6 +76,7 @@ interface BeItem {
   materialId: string;
   materialCode: string;
   materialName: string;
+  materialSpec: string | null;
   unit: string;
   purchaseUnit: string | null;
   khoUnitFactor: number | null;
@@ -141,6 +142,7 @@ function toItem(item: BeItem): PurchaseProposalItem {
   const khoKey = (family ? WAREHOUSE_SCOPE_TO_KHO_KEY[family] : undefined) ?? (warehouseCode as KhoKey);
   return {
     name: item.materialName,
+    spec: item.materialSpec,
     unit: item.unit,
     purchaseUnit: item.purchaseUnit,
     khoUnitFactor: item.khoUnitFactor,

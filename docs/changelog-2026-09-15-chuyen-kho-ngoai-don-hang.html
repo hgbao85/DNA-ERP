@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Tính năng "Chuyển kho ngoài đơn hàng" (15/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --warn: #A8324A; --warn-bg: #FBE4E9; --warn-border: #E8A9B9;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --warn: #F0899D; --warn-bg: rgba(240,137,157,0.12); --warn-border: rgba(240,137,157,0.35);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --warn: #F0899D; --warn-bg: rgba(240,137,157,0.12); --warn-border: rgba(240,137,157,0.35);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  .status-banner { margin-top: 22px; padding: 12px 16px; border-radius: 8px; background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn); font-size: 13.5px; font-weight: 600; }
+
+  nav.toc { background: var(--surface-alt); border-bottom: 1px solid var(--border); }
+  .toc-inner { max-width: 900px; margin: 0 auto; padding: 14px 24px; display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 13.5px; }
+  .toc-inner a { color: var(--text-muted); text-decoration: none; }
+  .toc-inner a:hover { color: var(--accent-strong); text-decoration: underline; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.warn { color: var(--warn); background: var(--warn-bg); border-color: var(--warn-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+
+  table.evidence { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13.5px; }
+  table.evidence th, table.evidence td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); }
+  table.evidence th { color: var(--text-muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+  table.evidence td.num { text-align: right; font-family: 'IBM Plex Mono', monospace; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  .filelist { list-style: none; margin: 4px 0 0; padding: 0; font-size: 13.8px; }
+  .filelist li { padding: 5px 0; border-bottom: 1px dashed var(--border); display: flex; gap: 10px; align-items: baseline; }
+  .filelist li:last-child { border-bottom: none; }
+  .filelist .fstat { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 700; padding: 1px 6px; border-radius: 4px; flex-shrink: 0; }
+  .filelist .fstat.M { color: var(--fix); background: var(--fix-bg); }
+  .filelist .fstat.new { color: var(--new); background: var(--new-bg); }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 15-16/09/2026</span>
+    <h1 class="title">Tính năng "Chuyển kho ngoài đơn hàng" — chuyển kho tự do giữa 2 kho thật bất kỳ</h1>
+    <p class="subtitle">Thêm 1 màn mới cho thủ kho: chuyển bất kỳ vật tư/số lượng nào giữa 2 kho thật, không cần gắn PO/PI, không cần theo đúng thứ tự chuỗi kho cố định (Phôi Sơn Hàn → Vật tư TP → Thành phẩm). Đi kèm nhiều lượt tinh chỉnh UI/quyền hạn, 1 đợt live-test chủ động rà lỗ hổng dữ liệu (không chỉ đọc code) phát hiện + vá 3 lỗ hổng thật trên chính DB dev, và cuối cùng là 1 đợt QA qua trình duyệt thật với 3 tài khoản thủ kho thật để xác nhận toàn bộ hoạt động đúng ở tầng người dùng cuối, không chỉ tầng API.</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> FE <code>D:\DNA-ERP</code> + BE <code>D:\DNA-ERP-BE</code></span>
+      <span><strong>Màn hình:</strong> Kho đầu vào &gt; "Chuyển kho ngoài đơn hàng" (mới) · "Xuất theo đơn hàng" (đổi tên)</span>
+    </div>
+    <div class="status-banner">⚠ Toàn bộ nội dung dưới đây là LOCAL CHANGE — chưa commit, chưa qua code review, chưa deploy. Tài liệu này mô tả trạng thái làm việc hiện tại, không phải tính năng đã lên production.</div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="toc-inner">
+    <a href="#tong-quan">1. Tổng quan tính năng</a>
+    <a href="#an-kho-ao">2. Ẩn kho ảo khỏi dropdown</a>
+    <a href="#an-ma">3. Ẩn mã kho/mã vật tư, chỉ hiện tên</a>
+    <a href="#gioi-han-psh">4. Giới hạn quyền: Phôi Sơn Hàn</a>
+    <a href="#doi-ten-tab">5. Đổi tên 2 tab cho dễ phân biệt</a>
+    <a href="#hien-het-vattu">6. Hiện toàn bộ vật tư, kể cả tồn = 0</a>
+    <a href="#nhan-hang">7. Bên nhận xác nhận ở đâu</a>
+    <a href="#fix-thuc-co">8. "Thực có" dùng đúng số khả dụng + cảnh báo khi bị giảm</a>
+    <a href="#audit-kho-ao">9. Lỗ hổng: kho ảo bị dùng làm nguồn/đích</a>
+    <a href="#audit-race-code">10. Lỗ hổng: race mã phiếu chuyển kho</a>
+    <a href="#audit-dup-material">11. Lỗ hổng: trùng vật tư trong 1 phiếu</a>
+    <a href="#quy-cach">12. Thêm cột "Quy cách" ở Nhập kho + Nhập nội bộ</a>
+    <a href="#browser-qa">13. Kiểm tra qua trình duyệt thật (không chỉ gọi API)</a>
+    <a href="#files">14. Danh sách file thay đổi</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <!-- ========= 1. Tổng quan ========= -->
+  <section id="tong-quan">
+    <div class="sec-head"><h2>1. Tổng quan tính năng</h2><span class="sec-count">1 màn mới</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Mới</span><span class="badge date">15/09</span><span class="f-title">"Chuyển kho ngoài đơn hàng" — chọn vật tư, số lượng, kho nguồn/đích bất kỳ</span></div>
+      <div class="f-field">
+        <span class="k">Vấn đề trước đây</span>
+        <div class="v">Chuyển vật tư nội bộ chỉ đi được qua đúng 1 chuỗi cố định: Phôi Sơn Hàn → Vật tư thành phẩm → Thành phẩm, và luôn gắn với 1 đơn hàng (PO/PI) cụ thể qua màn "Xuất kho". Không có cách nào để thủ kho tự điều chỉnh/di chuyển vật tư giữa 2 kho bất kỳ khi phát sinh nhu cầu ngoài đơn hàng (vd điều chuyển tồn kho thủ công, gộp kho...).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Cách hoạt động</span>
+        <ul>
+          <li>Chọn <b>kho nguồn</b> (thủ kho bị khoá đúng kho phụ trách; Admin/Giám đốc chọn tự do), <b>kho đích</b>, <b>vật tư</b>, <b>số lượng</b>, ghi chú tuỳ chọn.</li>
+          <li>Bấm "Tạo phiếu chuyển kho" → phiếu ở trạng thái <b>chờ xác nhận</b>, tồn kho <b>chưa đổi ngay</b>.</li>
+          <li>Kho đích vào mục "Nhập nội bộ" (trong tab "Nhập kho") xác nhận hoặc từ chối — tồn kho 2 bên chỉ đổi lúc kho đích bấm <b>Xác nhận nhận hàng</b>.</li>
+        </ul>
+      </div>
+      <div class="f-field">
+        <span class="k">Nền tảng kỹ thuật</span>
+        <div class="v">Gọi thẳng API <code>createWarehouseTransfer()</code> có sẵn — BE đã bỏ ràng buộc <code>isValidTransferRoute()</code> ở hàm <code>create()</code> (quyết định nghiệp vụ), chỉ còn chặn trường hợp vô nghĩa "kho nguồn = kho đích". Luồng chuyển <b>mảnh/vật tư thành phẩm gắn PI</b> (<code>createPieceTransfer()</code>) không đổi, vẫn đi đúng 1 bước theo chuỗi cố định như cũ.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 2. Ẩn kho ảo ========= -->
+  <section id="an-kho-ao">
+    <div class="sec-head"><h2>2. Ẩn kho ảo khỏi dropdown chọn kho</h2><span class="sec-count">1 tinh chỉnh</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Tinh chỉnh UI</span><span class="badge date">15/09</span><span class="f-title">Dropdown "Kho đích" ban đầu lẫn cả kho ảo (OPENING_BALANCE, SCRAP, PRODUCTION, SUPPLIER)</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Danh sách kho lấy thẳng từ <code>getWarehouses()</code>, hiện cả các kho ảo dùng để đối ứng bút toán kép nội bộ (đầu kỳ, phế liệu, sản xuất, nhà cung cấp) — thủ kho không cần và không nên chọn các kho này.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Lọc theo field <code>isVirtual</code> có sẵn trên <code>BeWarehouse</code>: <code>whList = warehouses.filter(w =&gt; !w.isVirtual)</code>, áp dụng cho cả dropdown kho nguồn lẫn kho đích.</div>
+      </div>
+      <div class="f-field"><span class="k">File</span><div class="v"><code>ChuyenKhoTuDoPage.tsx</code></div></div>
+    </article>
+  </section>
+
+  <!-- ========= 3. Ẩn mã ========= -->
+  <section id="an-ma">
+    <div class="sec-head"><h2>3. Ẩn mã kho / mã vật tư trong dropdown</h2><span class="sec-count">1 tinh chỉnh</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Tinh chỉnh UI</span><span class="badge date">15/09</span><span class="f-title">Bỏ tiền tố mã (code) trước tên, chỉ còn hiển thị tên cho dễ đọc</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Mỗi dòng hiện dạng <code>thanh-pham-1788485485362 — Kho thành phẩm 2</code> hoặc <code>VTK-045 — HDLR J55 ghế</code> — mã kỹ thuật đứng trước, gây rối mắt với người dùng không cần quan tâm mã nội bộ.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Chỉ còn hiện tên (<code>Kho thành phẩm 2</code>, <code>HDLR J55 ghế</code>). Mã vẫn dùng được khi gõ tìm kiếm trong ô chọn (<code>getSearchText</code> giữ nguyên cả mã lẫn tên) — chỉ ẩn khỏi phần hiển thị.</div>
+      </div>
+      <div class="f-field"><span class="k">File</span><div class="v"><code>ChuyenKhoTuDoPage.tsx</code> — áp dụng cho cả 3 dropdown: Kho nguồn, Kho đích, Vật tư.</div></div>
+    </article>
+  </section>
+
+  <!-- ========= 4. Giới hạn Phôi Sơn Hàn ========= -->
+  <section id="gioi-han-psh">
+    <div class="sec-head"><h2>4. Giới hạn quyền: Phôi Sơn Hàn không dùng được tính năng này</h2><span class="sec-count">2 lớp chặn (FE + BE)</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge warn">Quyết định nghiệp vụ</span><span class="badge date">15/09</span><span class="f-title">Kho Phôi Sơn Hàn không được gửi đi, và không ai được gửi tới đó qua tính năng này</span></div>
+      <div class="f-field">
+        <span class="k">Yêu cầu gốc</span>
+        <div class="v">Chủ yếu chỉ 2 kho <b>Vật tư thành phẩm</b> và <b>Thành phẩm</b> được dùng "Chuyển kho ngoài đơn hàng". Kho <b>Phôi Sơn Hàn</b> không được dùng tính năng này, và không ai gửi được vật tư <i>tới</i> kho Phôi Sơn Hàn qua đường này (họ chỉ nhận vật tư qua mua hàng/nhập kho).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Lớp 1 — FE: ẩn tab</span>
+        <div class="v">Bộ tab của thủ kho scope Phôi Sơn Hàn (<code>InboundWarehouseApp.tsx</code>) bỏ hẳn tab "Chuyển kho ngoài đơn hàng" — họ không còn thấy/bấm vào được tính năng này.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Lớp 2 — FE: lọc dropdown kho đích</span>
+        <div class="v"><code>ChuyenKhoTuDoPage.tsx</code> lọc bỏ mọi kho thuộc họ <code>phoi-son-han</code> (kể cả kho phụ như <code>phoi-son-han-2</code>) khỏi dropdown Kho đích — áp dụng cho MỌI người dùng, kể cả Admin/Giám đốc.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Lớp 3 — BE: chặn cứng ở API</span>
+        <div class="v">Chặn FE chỉ ngăn được người dùng thao tác qua đúng màn hình này — 1 request gọi thẳng API (vd từ kho <code>vat-tu-tp</code> gửi ngược) vẫn có thể chọn Phôi Sơn Hàn làm đích. <code>WarehouseTransfersService.create()</code> (BE) nay ném <code>BadRequestException</code> nếu <code>warehouseFamilyOf(toWarehouse.code) === 'phoi-son-han'</code>, áp dụng bất kể ai gọi, gọi bằng cách nào.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Kiểm tra</span>
+        <div class="v">Thêm 1 test case BE xác nhận request tạo phiếu tới kho Phôi Sơn Hàn bị từ chối 400, phiếu không được tạo. 37/37 test của <code>warehouse-transfers.service.spec.ts</code> pass.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Phát hiện phụ khi sửa BE</span>
+        <div class="v">File <code>transfer-routes.constant.ts</code> đã bị xoá (uncommitted, có từ trước phiên làm việc này) nhưng vẫn được <code>createPieceTransfer()</code> import — làm hỏng build. Đã khôi phục lại bằng <code>git checkout</code> để code compile được; không phải thay đổi chủ đích của phiên này.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 5. Đổi tên tab ========= -->
+  <section id="doi-ten-tab">
+    <div class="sec-head"><h2>5. Đổi tên 2 tab cho dễ phân biệt</h2><span class="sec-count">1 tinh chỉnh UX</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Tinh chỉnh UX</span><span class="badge date">15/09</span><span class="f-title">"Xuất kho" và "Chuyển kho tự do" dễ gây nhầm lẫn vì cùng là "xuất"</span></div>
+      <div class="f-field">
+        <span class="k">Vấn đề</span>
+        <div class="v">2 tab phục vụ 2 nghiệp vụ khác hẳn nhau nhưng tên gọi cũ không nêu rõ khác biệt: "Xuất kho" gắn với PO/PI cụ thể (đóng gói theo định mức BOM, giao hàng cho khách — trừ đúng <code>shippedQty</code> của đơn bán), còn "Chuyển kho tự do" không gắn đơn nào. Nếu dùng nhầm "Chuyển kho tự do" thay cho xuất đóng gói, tồn kho vẫn đúng nhưng hệ thống <b>mất dấu tiến độ đơn hàng</b> (bảng thống kê sẽ hiện sai "còn thiếu" dù đã xuất).</div>
+      </div>
+      <table class="evidence">
+        <tr><th>Tab</th><th>Tên cũ</th><th>Tên mới</th></tr>
+        <tr><td><code>xuat-kho</code></td><td>Xuất kho</td><td><b>Xuất theo đơn hàng</b></td></tr>
+        <tr><td><code>chuyen-tu-do</code></td><td>Chuyển kho tự do</td><td><b>Chuyển kho ngoài đơn hàng</b></td></tr>
+      </table>
+      <div class="f-field">
+        <span class="k">Cặp tên đối xứng</span>
+        <div class="v">"theo đơn hàng" / "ngoài đơn hàng" — chọn cặp từ đối lập trực tiếp để thủ kho tự suy ra đúng tab cần dùng mà không cần đọc thêm mô tả. Tiêu đề (<code>&lt;h2&gt;</code>) bên trong mỗi màn cũng đổi khớp tên tab. Màn "Chuyển kho ngoài đơn hàng" có thêm 1 dòng mô tả nhắc dùng "Xuất theo đơn hàng" nếu xuất cho 1 đơn hàng cụ thể.</div>
+      </div>
+      <div class="f-field"><span class="k">File</span><div class="v"><code>InboundWarehouseApp.tsx</code> (nhãn tab) · <code>WarehouseXuatPage.tsx</code> (tiêu đề trang) · <code>ChuyenKhoTuDoPage.tsx</code> (tiêu đề + mô tả)</div></div>
+    </article>
+  </section>
+
+  <!-- ========= 6. Hiện toàn bộ vật tư ========= -->
+  <section id="hien-het-vattu">
+    <div class="sec-head"><h2>6. Dropdown "Vật tư" hiện toàn bộ danh mục, kể cả tồn = 0</h2><span class="sec-count">1 tinh chỉnh</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Tinh chỉnh UI</span><span class="badge date">15/09</span><span class="f-title">Trước đây lọc chỉ hiện vật tư đang có tồn &gt; 0, khiến danh sách trông "thiếu" so với "Tổng hợp vật tư"</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span><code>materials.filter(m =&gt; (byMaterial.get(...) ?? 0) &gt; 0)</code> — vật tư chưa từng có tồn (hoặc đã dùng hết sạch) biến mất khỏi dropdown, người dùng không biết vật tư đó có tồn tại trong kho hay không.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Bỏ hẳn bộ lọc, liệt kê toàn bộ <code>materials</code> của kho nguồn. Vật tư chưa có tồn hiện số <b>0</b> (màu xám nhạt, phân biệt với vật tư còn tồn hiện màu xanh). Nút "Tạo phiếu" vẫn tự vô hiệu nếu nhập số lượng vượt tồn khả dụng (kể cả khi tồn = 0).</div>
+      </div>
+      <div class="f-field"><span class="k">File</span><div class="v"><code>ChuyenKhoTuDoPage.tsx</code></div></div>
+    </article>
+  </section>
+
+  <!-- ========= 7. Bên nhận xác nhận ở đâu ========= -->
+  <section id="nhan-hang">
+    <div class="sec-head"><h2>7. Bên nhận xác nhận phiếu ở đâu</h2><span class="sec-count">Ghi chú luồng — không đổi code</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Ghi chú luồng</span><span class="badge date">15/09</span><span class="f-title">Phiếu chuyển kho hiện ở mục "Nhập nội bộ", nằm trong tab "Nhập kho" của kho đích</span></div>
+      <div class="prose-card">
+        <p>Kho nguồn tạo phiếu ở tab <b>"Chuyển kho ngoài đơn hàng"</b> → phiếu ở trạng thái chờ, tồn kho <b>chưa đổi</b>.</p>
+        <p>Kho đích mở tab <b>"Nhập kho"</b> → sẽ thấy 2 tab con: <b>"Nhập kho"</b> (nhập hàng mua về) và <b>"Nhập nội bộ"</b> (danh sách phiếu chuyển kho đang chờ xác nhận, gồm cả phiếu từ "Chuyển kho ngoài đơn hàng" lẫn phiếu mảnh/vật tư TP theo PI). Bấm vào phiếu, xem chi tiết rồi bấm <b>"Xác nhận nhận hàng"</b> hoặc <b>"Từ chối"</b> — tồn kho 2 bên chỉ đổi lúc xác nhận.</p>
+        <p>Cơ chế nhận này (<code>NhapNoiBoSection</code>, <code>canReceiveAt()</code>) không phải thay đổi mới của phiên này — đã tồn tại sẵn trong local change trước khi phiên bắt đầu, chỉ ghi chú lại ở đây để tra cứu chung 1 chỗ với các thay đổi khác của tính năng.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 8. Fix "Thực có" ========= -->
+  <section id="fix-thuc-co">
+    <div class="sec-head"><h2>8. "Thực có" dùng đúng số khả dụng + cảnh báo khi bị giảm</h2><span class="sec-count">1 bug thật, phát hiện qua live-test</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Bug số liệu</span><span class="badge date">15/09</span><span class="f-title">Dropdown "Vật tư" cộng <code>qty</code> thô thay vì <code>availableQty</code> đã trừ giữ chỗ</span></div>
+      <div class="f-field">
+        <span class="k">Cách phát hiện</span>
+        <div class="v">Không chỉ đọc code — viết script gọi thẳng API thật (Node + <code>fetch</code>, tài khoản <code>admin</code>) tạo 1 phiếu giữ chỗ gần hết tồn của 1 vật tư, rồi mô phỏng "người dùng thứ 2" mở dropdown xem số "Thực có" và tạo phiếu tiếp theo.</div>
+      </div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước (sai)</span><code>byMaterial.set(materialId, sum + q.qty)</code> — cộng dồn tồn vật lý thô từ <code>GET /stock-quant</code>, trong khi API đã trả sẵn field <code>availableQty</code> (đã trừ phần đang bị phiếu PENDING khác/cắt sắt giữ chỗ). Live-test: giữ chỗ 2780/2788 → "Thực có" vẫn hiện <b>2788</b> (sai), trong khi thực tế chỉ còn <b>8</b>.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Đổi sang cộng <code>q.availableQty</code>. Số hiển thị giờ luôn khớp phần thật sự còn tạo được, vật tư có 0 khả dụng hiện màu xám thay vì xanh.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Hệ quả nếu không sửa (đã verify sống)</span>
+        <div class="v">Người dùng nhập số trong khoảng "Thực có" hiển thị (vd 50) vẫn tạo phiếu được, nhưng BE âm thầm <b>clamp</b> xuống đúng phần khả dụng thật (8) mà KHÔNG báo lỗi — người tạo phiếu tưởng đã chuyển đủ 50.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Vá kèm: cảnh báo khi bị clamp</span>
+        <div class="v"><code>submit()</code> giờ so <code>created.items[0].quantity</code> (BE trả về, đã tự fetch chi tiết) với số đã nhập — lệch thì hiện banner cam: "Đã tạo phiếu X, nhưng chỉ chuyển được A/B [đơn vị] đã nhập — phần còn lại đang bị 1 phiếu khác giữ chỗ trước." thay vì banner xanh chung chung.</div>
+      </div>
+      <div class="f-field"><span class="k">File</span><div class="v"><code>ChuyenKhoTuDoPage.tsx</code></div></div>
+    </article>
+  </section>
+
+  <!-- ========= 9. Audit: kho ảo ========= -->
+  <section id="audit-kho-ao">
+    <div class="sec-head"><h2>9. Lỗ hổng: kho ảo bị dùng làm nguồn/đích chuyển kho</h2><span class="sec-count">Nghiêm trọng — verify sống, đã vá</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge warn">Nghiêm trọng</span><span class="badge date">15/09</span><span class="f-title">Bỏ <code>isValidTransferRoute()</code> vô tình gỡ luôn tác dụng phụ: chặn code kho ảo</span></div>
+      <div class="f-field">
+        <span class="k">Nguyên nhân gốc</span>
+        <div class="v"><code>isValidTransferRoute()</code> cũ dùng <code>warehouseFamilyOf()</code>, luôn trả <code>null</code> cho code kho ảo (<code>OPENING_BALANCE/SCRAP/PRODUCTION/SUPPLIER</code>) → mọi request có kho ảo ở 1 trong 2 đầu tự động bị từ chối, dù đó không phải mục đích thiết kế của hàm. Gỡ hàm này để mở "chuyển kho tự do" (mục 1) vô tình gỡ luôn lưới chặn đó.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Live-test xác nhận khai thác được thật (không phải lý thuyết)</span>
+        <table class="evidence">
+          <tr><th>Kịch bản</th><th>Kết quả trước fix</th></tr>
+          <tr><td><code>PRODUCTION(8) → vat-tu-tp(5)</code>, DAY-002 qty=2</td><td>Tạo + confirm thành công — <b>nhân bản</b> 2kg "vật tư đang tiêu hao SX" (số dương ảo, không tồn tại vật lý) thành tồn kho thật. vat-tu-tp tăng 2788→2790 <b>miễn phí</b>.</td></tr>
+          <tr><td><code>vat-tu-tp(5) → SCRAP(9)</code>, DAY-002 qty=1</td><td>Tạo + confirm thành công — né hoàn toàn field <code>note</code> bắt buộc + optimistic lock của <code>adjustStock()</code> ("Sửa nhanh tồn kho").</td></tr>
+        </table>
+        <div class="v" style="margin-top:8px">Cả 2 đã được <b>reverse ngay trong live-test</b> (chuyển ngược lại + confirm) để khôi phục đúng nguyên trạng DB dev — không để lại dữ liệu sai.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Cách vá</span>
+        <div class="v">Thêm check <code>fromWarehouse.isVirtual || toWarehouse.isVirtual</code> ngay đầu <code>create()</code> (field <code>isVirtual</code> có sẵn trên <code>Warehouse</code>, không cần migration) — ném <code>BadRequestException</code> nêu rõ tên kho ảo. Không đụng <code>createPieceTransfer()</code> vì <code>isValidTransferRoute()</code> ở đó vẫn giữ nguyên, tự loại kho ảo như trước giờ.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sau vá</span>
+        <div class="v">Thử lại đúng 2 kịch bản trên qua API thật → cả 2 đều 400 <code>"... là kho ảo (điểm đối ứng bút toán kép) - không dùng được cho chuyển kho tự do"</code>. Thêm 2 test case BE.</div>
+      </div>
+      <div class="f-field"><span class="k">File</span><div class="v"><code>warehouse-transfers.service.ts</code> (BE), test ở <code>warehouse-transfers.service.spec.ts</code></div></div>
+    </article>
+  </section>
+
+  <!-- ========= 10. Audit: race mã phiếu ========= -->
+  <section id="audit-race-code">
+    <div class="sec-head"><h2>10. Lỗ hổng: race điều kiện khi sinh mã phiếu đồng thời</h2><span class="sec-count">Trung bình — verify sống, đã vá</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Bug độ tin cậy</span><span class="badge date">15/09</span><span class="f-title">2 thủ kho tạo phiếu gần như cùng lúc: 4/5 request nhận lỗi 409 giả</span></div>
+      <div class="f-field">
+        <span class="k">Cách phát hiện</span>
+        <div class="v">Bắn 5 request tạo phiếu <b>thật sự đồng thời</b> (<code>Promise.all</code>, không tuần tự) cùng xin 1000 mỗi request (tổng 5000, vượt xa tồn thật 2788) — không phải để test oversell (khoá <code>FOR UPDATE</code> đã đúng, không oversell), mà lộ ra 1 vấn đề khác: 4/5 request lỗi <code>409 "Duplicate value for: undefined"</code>.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Nguyên nhân</span>
+        <div class="v"><code>nextTransferCode()</code> cũ đếm số phiếu hiện có <b>NGOÀI</b> transaction, không khoá gì ("đếm rồi tạo, để DB bắt race" — cùng idiom <code>BomRevision.revNo</code>). 2+ request đồng thời cùng đọc 1 số đếm, cùng cố ghi cùng 1 mã <code>CK-{năm}-xxx</code> → unique constraint chặn đúng (không ghi trùng thật), nhưng biến 1 race vô hại thành lỗi 409 phải tự bấm lại — dù tồn kho thừa sức phục vụ cả 2 request.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Cách vá</span>
+        <div class="v">Chuyển việc đếm+sinh mã vào <b>bên trong</b> transaction, khoá trước bằng <code>lockBusinessKey(tx, 'warehouse-transfer-code:{năm}')</code> (advisory lock Postgres, cùng idiom đã dùng cho <code>piece-transfer:{orderId}</code> ở <code>createPieceTransfer()</code> — tự nhả khi transaction commit/rollback). Áp dụng cho cả <code>create()</code> lẫn <code>createPieceTransfer()</code> vì dùng chung 1 sequence mã.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sau vá (chạy lại đúng kịch bản 5 request đồng thời)</span>
+        <table class="evidence">
+          <tr><th></th><th>Trước fix</th><th>Sau fix</th></tr>
+          <tr><td>Lỗi 409 "Duplicate value" (giả)</td><td>4/5</td><td><b>0</b></td></tr>
+          <tr><td>Lỗi 400 "Không đủ tồn kho" (đúng nghiệp vụ)</td><td>0</td><td>2/5 (đúng — hết tồn thật)</td></tr>
+          <tr><td>Tổng số lượng tạo thành công</td><td>1000 (chỉ 1 phiếu lọt qua)</td><td><b>2788</b> = đúng tồn thật (3 phiếu)</td></tr>
+        </table>
+      </div>
+      <div class="f-field"><span class="k">File</span><div class="v"><code>warehouse-transfers.service.ts</code> — <code>nextTransferCode()</code> nhận thêm <code>tx</code>/<code>year</code>, cả 2 call site cập nhật. Test cập nhật số lần gọi khoá của <code>createPieceTransfer</code>.</div></div>
+    </article>
+  </section>
+
+  <!-- ========= 11. Audit: trùng materialId ========= -->
+  <section id="audit-dup-material">
+    <div class="sec-head"><h2>11. Lỗ hổng: trùng vật tư trong CÙNG 1 phiếu cộng dồn vượt tồn thật</h2><span class="sec-count">Nghiêm trọng — verify sống, đã vá, KHÔNG confirm phiếu lỗi</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge warn">Nghiêm trọng</span><span class="badge date">15/09</span><span class="f-title">1 request có 2 dòng cùng <code>materialId</code> — cả 2 dòng đọc chung 1 số khả dụng, cộng lại vượt tồn</span></div>
+      <div class="f-field">
+        <span class="k">Cách phát hiện</span>
+        <div class="v">Gửi 1 request duy nhất, 2 dòng cùng vật tư DAY-002, mỗi dòng xin 2000kg (tổng 4000kg, tồn thật chỉ 2788kg).</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Nguyên nhân</span>
+        <div class="v">Vòng lặp xử lý từng dòng độc lập: mỗi dòng tự <code>SELECT ... FOR UPDATE</code> + tính "khả dụng" riêng, nhưng phần giữ chỗ của dòng 1 (<code>WarehouseTransferReservation</code>) chỉ được ghi <b>SAU KHI CẢ VÒNG LẶP XONG</b> (1 lệnh <code>createMany</code> ở cuối) — nên dòng 2 đọc CÙNG 1 số "khả dụng" như dòng 1, cả 2 CÙNG được clamp riêng rẽ theo 2788, tổng 2 dòng = 4000, vượt tồn thật.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Hậu quả nếu bị duyệt</span>
+        <div class="v">Verify: phiếu tạo thành công (HTTP 201) với 2 dòng, tổng 4000 — "Thực có" của vật tư này về 0 ngay khi còn PENDING. Đọc code <code>StockLedgerService.postEntry()</code> xác nhận: <b>không có guard chặn âm số dư</b> khi ghi ledger — nếu phiếu này được duyệt (confirm) sẽ ghi <b>âm tồn kho thật</b>. Đã <b>KHÔNG bấm confirm</b> phiếu test này (chỉ tạo rồi reject ngay) để không làm hỏng dữ liệu dev thật.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Cách vá</span>
+        <div class="v">Gộp các dòng CÙNG <code>materialId</code> thành 1 dòng duy nhất (cộng <code>quantity</code>) <b>TRƯỚC</b> khi vào vòng lặp tính khả dụng — mỗi vật tư chỉ bị trừ khả dụng đúng 1 lần cho dù request gửi bao nhiêu dòng trùng.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sau vá</span>
+        <div class="v">Gửi lại đúng request cũ (2 dòng x 2000, cùng materialId) → phiếu tạo ra chỉ còn <b>1 dòng duy nhất</b>, <code>quantity=2788</code> (đúng tồn thật) thay vì 2 dòng x 2000. Thêm 1 test case BE xác nhận <code>getAvailableQty</code> chỉ gọi đúng 1 lần cho materialId đó.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Đánh đổi nhỏ, chấp nhận được</span>
+        <div class="v">Khi gộp 2 dòng trùng <code>materialId</code> có <code>note</code> khác nhau, chỉ giữ <code>note</code> của dòng đầu tiên — không ảnh hưởng tồn kho, chỉ mất 1 ghi chú phụ trong trường hợp hiếm gặp (ChuyenKhoTuDoPage.tsx chỉ tạo 1 dòng/lần nên trường hợp này thực tế chỉ xảy ra khi gọi thẳng API).</div>
+      </div>
+      <div class="f-field"><span class="k">File</span><div class="v"><code>warehouse-transfers.service.ts</code> — gộp bằng <code>Map&lt;materialId, item&gt;</code> trước vòng lặp trong <code>create()</code>.</div></div>
+    </article>
+  </section>
+
+  <!-- ========= 12. Quy cách ========= -->
+  <section id="quy-cach">
+    <div class="sec-head"><h2>12. Thêm cột "Quy cách" ở Nhập kho + Nhập nội bộ</h2><span class="sec-count">2 luồng độc lập, cùng 1 yêu cầu</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Mới</span><span class="badge date">15/09</span><span class="f-title">Thủ kho cần đối chiếu đúng quy cách (<code>Material.spec</code>, vd "10x29x0.8") lúc nhận hàng, không chỉ tên</span></div>
+      <div class="f-field">
+        <span class="k">"Nhập kho" (PurchaseProposal)</span>
+        <div class="v">BE <code>PurchaseProposalItemResponseDto</code> thêm field <code>materialSpec</code> — đã có sẵn <code>item.material.spec</code> trong Prisma include, không cần đổi query. FE thêm cột "Quy cách" giữa "Tên vật tư" và "ĐVT" trong bảng chi tiết <code>NhapKhoSection</code>.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">"Nhập nội bộ" (WarehouseTransfer) — kiểm tra thì CHƯA có, đã thêm</span>
+        <div class="v"><code>WarehouseTransferItem</code> không có sẵn quan hệ Material trong include cũ (<code>items: true</code>) — đổi thành <code>items: { include: { material: { select: { spec: true } } } }</code>, thêm <code>materialSpec</code> vào <code>WarehouseTransferItemResponseDto</code>. FE thêm cột "Quy cách" vào bảng chi tiết phiếu trong hộp thư "Nhập nội bộ" (<code>IncomingInbox</code>) — dòng "mảnh" hiện <code>—</code> vì mảnh không có khái niệm quy cách vật tư.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Verify sống</span>
+        <div class="v"><code>GET /purchase-proposals/:id</code>: "Sắt hộp 6zem" trả đúng <code>materialSpec: "10x20"</code>. Tạo 1 phiếu chuyển kho test: <code>GET /warehouse-transfers/:id</code> trả đúng <code>materialSpec: "08"</code> — reject phiếu test ngay sau đó để dọn dẹp.</div>
+      </div>
+      <div class="f-field"><span class="k">File</span><div class="v">BE: <code>purchase-proposal-response.dto.ts</code>, <code>purchase-proposals.service.ts</code>, <code>warehouse-transfer-item-response.dto.ts</code>, <code>warehouse-transfers.service.ts</code>. FE: <code>InspectionContext.tsx</code>, <code>purchasing-api.ts</code>, <code>types/warehouse-transfer.ts</code>, <code>warehouse-transfers-api.ts</code>, <code>NhapKhoPage.tsx</code>, <code>InternalTransferSections.tsx</code>.</div></div>
+    </article>
+  </section>
+
+  <!-- ========= 13. Browser QA ========= -->
+  <section id="browser-qa">
+    <div class="sec-head"><h2>13. Kiểm tra qua trình duyệt thật (không chỉ gọi API)</h2><span class="sec-count">3 tài khoản thật, toàn bộ luồng end-to-end</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Browser QA</span><span class="badge date">16/09</span><span class="f-title">Mọi verify trước đó (mục 8-12) đều gọi thẳng API bằng script — lần này bật trình duyệt thật (Playwright/patchright, headless), đăng nhập bằng 3 tài khoản thủ kho thật, thao tác y hệt người dùng cuối</span></div>
+      <div class="f-field">
+        <span class="k">Vì sao cần làm riêng bước này</span>
+        <div class="v">Test qua API xác nhận đúng logic BE, nhưng không bắt được lỗi hiển thị/UX ở tầng FE (dropdown không hiện đúng options, banner không lên, nút không bấm được...) và không verify được phân quyền theo tài khoản thật bị giới hạn <code>warehouseScope</code> (mọi live-test trước đó dùng tài khoản <code>admin</code>, scope <code>null</code> — không bị chặn gì).</div>
+      </div>
+      <table class="evidence">
+        <tr><th>Bước</th><th>Tài khoản</th><th>Kết quả</th></tr>
+        <tr><td>Đăng nhập, xem bộ tab sidebar</td><td><code>khovttp</code> (vat-tu-tp)</td><td>Đúng nhãn tab mới: "Xuất theo đơn hàng", "Chuyển kho ngoài đơn hàng"</td></tr>
+        <tr><td>Đăng nhập, xem bộ tab sidebar</td><td><code>khopsh</code> (phoi-son-han)</td><td><b>Không thấy</b> tab "Chuyển kho ngoài đơn hàng" — đúng giới hạn quyền mục 4</td></tr>
+        <tr><td>Mở tab "Chuyển kho ngoài đơn hàng"</td><td><code>khovttp</code></td><td>Kho nguồn khoá sẵn "Kho Vật tư thành phẩm" (không phải dropdown)</td></tr>
+        <tr><td>Mở dropdown "Kho đích"</td><td><code>khovttp</code></td><td>Chỉ 2 lựa chọn: "Kho thành phẩm 2", "Kho thành phẩm" — không kho ảo, không Phôi Sơn Hàn, không mã kho</td></tr>
+        <tr><td>Mở dropdown "Vật tư"</td><td><code>khovttp</code></td><td>74 vật tư, đủ cả vật tư tồn = 0, không hiện mã vật tư, số tồn đúng định dạng (vd "2.788")</td></tr>
+        <tr><td>Nhập 3kg "Dây xám bông/nâu", bấm "Tạo phiếu chuyển kho"</td><td><code>khovttp</code></td><td>Banner "Đã tạo phiếu CK-2026-048, chờ kho đích xác nhận." + danh sách "đang chờ" cập nhật ngay, không cần tải lại trang</td></tr>
+        <tr><td>Mở "Nhập kho" → "Nhập nội bộ"</td><td><code>khotp</code> (thanh-pham)</td><td>Thấy đúng phiếu CK-2026-048 từ "Kho Vật tư thành phẩm"</td></tr>
+        <tr><td>Bấm vào phiếu, xem chi tiết</td><td><code>khotp</code></td><td>Bảng hiện đúng cột <b>"Quy cách"</b> = "08" (mục 12) — không phải giả lập, đọc thật từ DB</td></tr>
+        <tr><td>Bấm "Xác nhận nhận hàng" → modal → "Xác nhận"</td><td><code>khotp</code></td><td>Tồn kho đổi đúng qua API đối chiếu lại: vat-tu-tp 2788→2785, thanh-pham 0→3</td></tr>
+      </table>
+      <div class="f-field">
+        <span class="k">Kết quả tổng thể</span>
+        <div class="v">0 console error, 0 request lỗi trong suốt toàn bộ chuỗi thao tác ở cả 3 phiên đăng nhập. Không phát hiện thêm bug chức năng nào qua đợt test này.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">1 lưu ý — không phải bug</span>
+        <div class="v">Đọc danh sách "Nhập nội bộ" ngay khi vừa chuyển tab (trước khi fetch kịp xong) có lúc hiện rỗng thoáng qua — độ trễ fetch bình thường do tự động hoá đọc quá nhanh, đọc lại sau ~1 giây thì đúng ngay. Không liên quan tới code sản phẩm.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Dọn dẹp sau test</span>
+        <div class="v">Chuyển ngược 3kg (thanh-pham → vat-tu-tp) qua API + confirm để khôi phục đúng tồn kho ban đầu (2788/0). Xác nhận không còn phiếu PENDING nào sót lại. Đóng cả 3 phiên trình duyệt headless.</div>
+      </div>
+    </article>
+  </section>
+
+  <!-- ========= 14. Files ========= -->
+  <section id="files">
+    <div class="sec-head"><h2>14. Danh sách file thay đổi (local, chưa commit)</h2><span class="sec-count">2 repo, cập nhật cuối phiên</span></div>
+
+    <article class="feature">
+      <div class="f-title" style="margin-bottom:10px">FE — <code>D:\DNA-ERP</code></div>
+      <ul class="filelist">
+        <li><span class="fstat new">MỚI</span><code>src/modules/pages/InboundWarehouse/ChuyenKhoTuDoPage.tsx</code></li>
+        <li><span class="fstat M">SỬA</span><code>src/modules/pages/InboundWarehouse/InboundWarehouseApp.tsx</code></li>
+        <li><span class="fstat M">SỬA</span><code>src/modules/pages/InboundWarehouse/WarehouseXuatPage.tsx</code></li>
+        <li><span class="fstat M">SỬA</span><code>src/modules/pages/InboundWarehouse/InternalTransferSections.tsx</code></li>
+        <li><span class="fstat M">SỬA</span><code>src/modules/pages/Manufacturing/NhapKhoPage.tsx</code></li>
+        <li><span class="fstat M">SỬA</span><code>src/types/warehouse-transfer.ts</code></li>
+        <li><span class="fstat M">SỬA</span><code>src/context/InspectionContext.tsx</code></li>
+        <li><span class="fstat M">SỬA</span><code>src/services/purchasing-api.ts</code></li>
+        <li><span class="fstat M">SỬA</span><code>src/services/warehouse-transfers-api.ts</code></li>
+      </ul>
+    </article>
+
+    <article class="feature">
+      <div class="f-title" style="margin-bottom:10px">BE — <code>D:\DNA-ERP-BE</code></div>
+      <ul class="filelist">
+        <li><span class="fstat M">SỬA</span><code>src/modules/warehouse-transfers/warehouse-transfers.service.ts</code></li>
+        <li><span class="fstat M">SỬA</span><code>src/modules/warehouse-transfers/warehouse-transfers.service.spec.ts</code></li>
+        <li><span class="fstat M">SỬA</span><code>src/modules/warehouse-transfers/dto/warehouse-transfer-item-response.dto.ts</code></li>
+        <li><span class="fstat M">SỬA</span><code>src/modules/purchase-proposals/dto/purchase-proposal-response.dto.ts</code></li>
+        <li><span class="fstat M">SỬA</span><code>src/modules/purchase-proposals/purchase-proposals.service.ts</code></li>
+      </ul>
+    </article>
+
+    <article class="feature">
+      <div class="f-field">
+        <span class="k">Trạng thái kiểm thử cuối phiên</span>
+        <div class="v">BE: <b>1030/1030</b> test (47 test suite) pass — chạy toàn bộ, không riêng module warehouse-transfers. FE: <code>tsc --noEmit</code> sạch. Verify sống ở CẢ 2 tầng: script gọi thẳng API (mục 8-12) VÀ trình duyệt thật với 3 tài khoản thủ kho thật (mục 13) — 0 console error, 0 request lỗi. Toàn bộ live-test đã reverse/reject, DB dev khôi phục đúng nguyên trạng, không còn phiếu PENDING nào sót lại.</div>
+      </div>
+    </article>
+  </section>
+
+</main>
+
+<footer>DNA-ERP · Changelog phiên làm việc 15-16/09/2026 · Được ghi lại bởi Claude Code</footer>
+
+</body>
+</html>

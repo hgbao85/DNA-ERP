@@ -24,6 +24,9 @@ export type ProposalStatus = 'new' | 'quoting' | 'submitted' | 'purchasing' | 'p
 
 export interface PurchaseProposalItem {
   name: string
+  /** Quy cách vật tư (Material.spec, vd "10x29x0.8") - đối chiếu hàng về đúng quy cách đã đặt,
+   *  nhất là vật tư trùng tên khác kích cỡ (2026-09-15). */
+  spec?: string | null
   unit: string
   // Đơn vị mua hàng từ NCC (vd "kg") khi khác `unit` + hệ số quy đổi (số unit / 1 purchaseUnit,
   // vd 250 = 250 cái/kg) - null nếu vật tư chỉ có 1 đơn vị. Xem Material.purchaseUnit (BE).

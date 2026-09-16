@@ -6,6 +6,9 @@ export interface WarehouseTransferItem {
   id: string
   materialId: string | null
   materialName: string
+  /** Quy cách vật tư (Material.spec) - null cho dòng "ghi tự do" cũ hoặc vật tư chưa khai báo quy
+   *  cách (2026-09-15). */
+  materialSpec: string | null
   unit: string
   quantity: number
   note?: string | null
@@ -82,9 +85,13 @@ export function canSendFrom(code: string): boolean {
   return !!family && family in TRANSFER_ROUTES
 }
 
-export function canReceiveAt(code: string): boolean {
-  const family = warehouseFamilyOf(code)
-  return !!family && Object.values(TRANSFER_ROUTES).includes(family)
+// Chuyển kho TỰ DO (quyết định nghiệp vụ, gỡ isValidTransferRoute() ở BE create()) - hộp thư
+// "chờ nhập" (NhapNoiBoSection) giờ nhận từ MỌI kho, không còn giới hạn theo gia đình. Luôn trả
+// true - chỉ còn kiểm tra warehouseCode có resolve ra 1 kho thật hay không ở nơi gọi (myWarehouse).
+// TRANSFER_ROUTES/isValidTransferRoute/canSendFrom KHÔNG đổi - vẫn dùng cho luồng piece-transfer
+// (mảnh/vật tư thành phẩm gắn PI, xem pieceDestOptions ở WarehouseXuatPage.tsx).
+export function canReceiveAt(_code: string): boolean {
+  return true
 }
 
 export const TRANSFER_STATUS_MAP: Record<TransferStatus, { label: string; bg: string; color: string }> = {

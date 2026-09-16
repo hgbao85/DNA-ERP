@@ -19,6 +19,7 @@ interface BeWarehouseTransferItem {
   id: string;
   materialId: string | null;
   materialName: string;
+  materialSpec: string | null;
   unit: string;
   quantity: number;
   note: string | null;
@@ -70,6 +71,7 @@ function toItem(it: BeWarehouseTransferItem): WarehouseTransferItem {
     id: it.id,
     materialId: it.materialId,
     materialName: it.materialName,
+    materialSpec: it.materialSpec,
     unit: it.unit,
     quantity: it.quantity,
     note: it.note,

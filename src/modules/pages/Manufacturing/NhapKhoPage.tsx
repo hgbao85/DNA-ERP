@@ -132,6 +132,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
               <col />
+              <col style={{ width: 120 }} />
               <col style={{ width: 90 }} />
               <col style={{ width: 110 }} />
               <col style={{ width: 90 }} />
@@ -140,6 +141,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={th}>Tên vật tư</th>
+                <th style={th}>Quy cách</th>
                 <th style={th}>ĐVT</th>
                 <th style={{ ...th, textAlign: 'right' }}>SL cần mua</th>
                 <th style={{ ...th, textAlign: 'right' }}>Đã nhận</th>
@@ -176,6 +178,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                         <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#e65100' }}>· cây {item.stockLengthMm}mm</span>
                       )}
                     </td>
+                    <td style={{ ...td, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.spec || '—'}</td>
                     <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{item.buyQty}</td>
                     <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: done ? '#16a34a' : partial ? '#d97706' : 'var(--text)' }}>

@@ -120,6 +120,7 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                       <thead>
                         <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                           <th style={th}>Vật tư</th>
+                          <th style={th}>Quy cách</th>
                           <th style={{ ...th, textAlign: 'right' }}>Số lượng</th>
                           <th style={th}>ĐVT</th>
                         </tr>
@@ -128,6 +129,7 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                         {t.items.map(it => (
                           <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
                             <td style={{ ...td, fontWeight: 600 }}>{it.materialName}</td>
+                            <td style={{ ...td, color: 'var(--text3)' }}>{it.materialSpec || '—'}</td>
                             <td style={{ ...td, textAlign: 'right' }}>{it.quantity}</td>
                             <td style={{ ...td, color: 'var(--text3)' }}>{it.unit}</td>
                           </tr>
@@ -135,6 +137,7 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                         {t.pieceItems.map(it => (
                           <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
                             <td style={{ ...td, fontWeight: 600 }}>{it.pieceCode} — {it.pieceName}</td>
+                            <td style={{ ...td, color: 'var(--text3)' }}>—</td>
                             <td style={{ ...td, textAlign: 'right' }}>{it.quantity}</td>
                             <td style={{ ...td, color: 'var(--text3)' }}>mảnh</td>
                           </tr>
