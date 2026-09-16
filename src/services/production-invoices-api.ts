@@ -66,6 +66,18 @@ interface BeProductionInvoice {
   /** true = đợt gộp do KHSX tạo (nhiều SKU cắt chung), khác PI vỏ 1-1 Sales tự sinh theo mỗi đơn. */
   isMerged: boolean;
   deadline: string | null;
+  /** Thông số cắt KHSX đề nghị cho đợt này ở "Tối ưu cắt sắt" — Sếp thấy trên màn duyệt lệnh sản
+   *  xuất và chấp thuận bằng chính nút Duyệt. null hết = không xin gì đặc biệt. */
+  solverMaxWastePctOverride: number | null;
+  solverAllowCustomLength: boolean | null;
+  solverOverrideReason: string | null;
+  /** Bằng chứng chụp lúc KHSX xin — loại sắt vướng nhất, ước tính hao hụt, ngưỡng thường. Để Sếp
+   *  thấy con số xin hợp lý hay thừa ngay trên màn duyệt (solver chưa chạy nên chưa có số thật). */
+  solverOverrideEvidence: {
+    materialCode: string;
+    estimatedWastePct: number;
+    normalThresholdPct: number;
+  } | null;
   createdAt: string;
   updatedAt: string;
   items: BeProductionInvoiceItem[];
@@ -117,6 +129,10 @@ function toPI(pi: BeProductionInvoice) {
     exportOrderId: pi.salesOrderId ?? undefined,
     exportOrder: pi.salesOrderCode ? { poNumber: pi.salesOrderCode } : undefined,
     deadline: pi.deadline ?? pi.createdAt,
+    solverMaxWastePctOverride: pi.solverMaxWastePctOverride ?? null,
+    solverAllowCustomLength: pi.solverAllowCustomLength ?? null,
+    solverOverrideReason: pi.solverOverrideReason ?? null,
+    solverOverrideEvidence: pi.solverOverrideEvidence ?? null,
     items: pi.items.map(toItem),
     stages: [] as unknown[],
   };

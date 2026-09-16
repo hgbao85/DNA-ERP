@@ -68,8 +68,14 @@ export interface CuttingProposalLine {
   reason: string | null;
   bestAchievable: { length: number; waste_pct: number; bars: number } | null;
   timedOut: boolean | null;
+  /** Ngưỡng đã áp khi tính — ĐÃ gồm ngưỡng đặc cách của đợt (nếu có). */
   maxWastePctThreshold: number | null;
   overThreshold: boolean | null;
+  /** Ngưỡng hao hụt THƯỜNG của loại sắt này — mức đáng lẽ phải đạt nếu đợt không xin đặc cách. */
+  normalWastePctThreshold: number;
+  /** true = dòng này chỉ lọt được nhờ ngưỡng đặc cách của đợt. Đây chính là chỗ tiền sắt bị chi
+   *  thêm so với lệ thường, nên phải hiện rõ chứ không chỉ nói chung "đã duyệt". */
+  usedWasteOverride: boolean;
   /** Câu tiếng Việt ĐÃ DỰNG SẴN cho dòng này - null khi dòng không cần xử lý gì. */
   displayReason: string | null;
   patterns: CuttingProposalPattern[];

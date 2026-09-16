@@ -6,6 +6,44 @@
  */
 import { http } from './core/http';
 
+/**
+ * Chiều dài cây sắt KHSX chọn cho riêng đợt này, theo TỪNG QUY CÁCH: `{ "<materialId>": <mm> }`.
+ * Thiếu khoá nào thì loại sắt đó dùng chiều dài chuẩn của công ty (hiện 6000mm).
+ */
+export type StockLengthsByMaterial = Record<string, number>;
+
+/**
+ * Dựng query cho 2 endpoint GET: `"7:5850,6:6000"`.
+ *
+ * PHẢI dùng dạng chuỗi này, KHÔNG được để axios serialize object thành `[<id>]=<mm>`: `qs` bên
+ * BE thấy khoá thuần số <= 20 thì hiểu là CHỈ SỐ MẢNG, rồi class-transformer nén mảng thưa nên
+ * materialId bị xoá sạch trước khi tới code. Đo thật lúc live-test 2026-09-16: vật tư id 7 thì
+ * lỗi 400, id 25 lại chạy - tức tính năng sống chết theo id vật tư to hay nhỏ. BE nay từ chối
+ * thẳng dạng mảng kèm hướng dẫn, nên gửi sai sẽ thấy lỗi ngay chứ không âm thầm cắt nhầm cây.
+ */
+function toStockLengthsQuery(map?: StockLengthsByMaterial): string | undefined {
+  const pairs = Object.entries(map ?? {}).map(([id, mm]) => `${id}:${mm}`);
+  return pairs.length > 0 ? pairs.join(',') : undefined;
+}
+
+/**
+ * Thông số cắt KHSX ĐỀ NGHỊ cho riêng một đợt, gửi kèm lúc tạo lệnh sản xuất. Sếp chấp thuận bằng
+ * chính nút Duyệt lệnh sản xuất - không có cổng duyệt riêng.
+ *
+ * Bỏ trống hết = không xin gì đặc biệt, chạy ngưỡng thường + mặc định công ty.
+ */
+export interface SolverOverrideInput {
+  /** Ngưỡng hao hụt đặc cách (%) cho đợt này. Chỉ NÂNG, không hạ ngưỡng của loại sắt nào. Dùng khi
+   *  cây chuẩn không đạt ngưỡng thường mà đơn lại gấp (cây đặt riêng phải chờ NCC cán). */
+  solverMaxWastePctOverride?: number;
+  /** Cho solver đặt cây ngoài chiều dài chuẩn không. Đơn gấp thường để false. */
+  solverAllowCustomLength?: boolean;
+  /** BẮT BUỘC khi có solverMaxWastePctOverride — BE chặn nếu thiếu. Sếp đọc dòng này lúc duyệt. */
+  solverOverrideReason?: string;
+  /** Chiều dài cây chọn cho từng quy cách trong đợt này. Bỏ trống = cây chuẩn của công ty. */
+  solverStockLengthsByMaterial?: StockLengthsByMaterial;
+}
+
 /** Trạng thái duyệt sản xuất của SKU. null = Sales vừa tạo, KHSX chưa gửi QLSX. */
 export type ProdApprovalStatus = 'WAITING_QLSX' | 'WAITING_BOSS' | 'APPROVED' | 'REJECTED';
 
@@ -69,6 +107,9 @@ export interface CandidateMaterial {
   materialName: string;
   /** Hao hụt khi SKU này cắt loại sắt đó MỘT MÌNH. Hiển thị kèm dấu "≥". */
   standaloneWastePct: number;
+  /** Chiều dài cây (mm) mà standaloneWastePct được tính TRÊN đó - đổi ô chọn chiều dài thì số
+   *  này đổi theo. null = công ty khai nhiều cỡ chuẩn nên không có 1 cây duy nhất để nêu. */
+  stockLengthMm: number | null;
   /** Cận dưới số cây khi cắt MỘT MÌNH SKU này. Số nhỏ (ít cây) khiến standaloneWastePct lệch xa
    *  thực tế NHẤT - dùng để cảnh báo "cận dưới không đáng tin", xem isLowConfidence() ở
    *  GomDotCatPage.tsx. */
@@ -107,6 +148,8 @@ export interface CuttingBatchPreviewLine {
   materialCode: string;
   materialName: string;
   thresholdPct: number;
+  /** Chiều dài cây (mm) dòng này được tính trên đó - xem CandidateMaterial.stockLengthMm. */
+  stockLengthMm: number | null;
   contributingSkus: string[];
   cutSizesMm: number[];
   minWastePct: number;
@@ -124,15 +167,32 @@ export interface CuttingBatchPreview {
   daysCutEarly: number | null;
 }
 
-export async function getCuttingBatchCandidates(): Promise<CuttingBatchCandidateList> {
-  return http.get<CuttingBatchCandidateList>('/cutting-batch-candidates');
+/**
+ * Bảng ứng viên. `stockLengths` đổi thì MỌI con số trong bảng đổi theo - không chỉ % mà cả việc
+ * loại sắt nào bị coi là vượt ngưỡng và tổ hợp hệ thống tick sẵn.
+ */
+export async function getCuttingBatchCandidates(
+  stockLengths?: StockLengthsByMaterial,
+): Promise<CuttingBatchCandidateList> {
+  const q = toStockLengthsQuery(stockLengths);
+  return http.get<CuttingBatchCandidateList>(
+    q ? `/cutting-batch-candidates?stockLengthsByMaterial=${encodeURIComponent(q)}` : '/cutting-batch-candidates',
+  );
 }
 
 /** Tính thử theo tổ hợp đang tick. POST vì danh sách id có thể dài - vẫn là thao tác CHỈ ĐỌC. */
 export async function previewCuttingBatch(
   productionInvoiceItemIds: string[],
+  stockLengths?: StockLengthsByMaterial,
 ): Promise<CuttingBatchPreview> {
-  return http.post<CuttingBatchPreview>('/cutting-batch-preview', { productionInvoiceItemIds });
+  // POST nên gửi thẳng object: body là JSON, không đi qua bộ parse query nên không dính bẫy
+  // mảng đã mô tả ở toStockLengthsQuery().
+  return http.post<CuttingBatchPreview>('/cutting-batch-preview', {
+    productionInvoiceItemIds,
+    ...(stockLengths && Object.keys(stockLengths).length > 0
+      ? { stockLengthsByMaterial: stockLengths }
+      : {}),
+  });
 }
 
 /**
@@ -144,9 +204,11 @@ export async function previewCuttingBatch(
  */
 export async function mergeCuttingBatch(
   productionInvoiceItemIds: string[],
+  solver?: SolverOverrideInput,
 ): Promise<{ id: string; code: string }> {
   return http.post<{ id: string; code: string }>('/production-invoices/merge', {
     productionInvoiceItemIds,
+    ...solver,
   });
 }
 
@@ -157,9 +219,10 @@ export async function mergeCuttingBatch(
  */
 export async function claimSoloCuttingBatch(
   productionInvoiceItemId: string,
+  solver?: SolverOverrideInput,
 ): Promise<{ id: string; code: string }> {
   return http.post<{ id: string; code: string }>(
     `/production-invoices/items/${productionInvoiceItemId}/claim-solo`,
-    {},
+    { ...solver },
   );
 }

@@ -6,7 +6,7 @@ import { errMsg } from '../../../utils/errors'
 import { StatusBadge } from '../Sales/StatusBadge'
 import type { SalesOrderStatus } from '../../../types/sales'
 import { format } from 'date-fns'
-import { AlertCircle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2, User } from 'lucide-react'
+import { AlertCircle, AlertTriangle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2, User } from 'lucide-react'
 import SearchableSelect from '../../../components/SearchableSelect'
 import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 
@@ -108,6 +108,78 @@ export default function LenhSXPage() {
     : safeList
   const viewingPI = viewingPIId ? (Array.isArray(pis) ? pis : []).find((p: any) => p.id === viewingPIId) ?? null : null
   const getDisplayCode = (item: any) => item?.exportOrder?.poNumber || item?.poNumber || item?.code || '—'
+
+  /**
+   * Đề nghị cắt đặc cách KHSX gửi kèm lệnh sản xuất (chọn ở màn "Tối ưu cắt sắt"). Sếp bấm Duyệt là
+   * chấp thuận luôn - cố ý KHÔNG có cổng duyệt riêng, cũng không sửa được số ở đây: không đồng ý
+   * thì Từ chối kèm lý do để KHSX làm lại.
+   *
+   * Không xin gì thì KHÔNG hiện gì - phần lớn lệnh sản xuất rơi vào nhóm này, bày thêm một khối
+   * cảnh báo rỗng chỉ làm loãng đúng cái cần chú ý.
+   */
+  /**
+   * UI/UX (2026-09-15, soát lại với vai Sếp): bản đầu nhồi 3 loại thông tin khác hẳn nhau - con số
+   * đang xin (sự thật, quan trọng nhất), lý giải kỹ thuật (bằng chứng hệ thống tự tính), lý do của
+   * KHSX (lời người, có thể sai) - vào cùng 1 cỡ chữ/màu, chỉ khác bullet với không-bullet. Sếp
+   * phải tự đọc hết một đoạn văn mới lượm ra được "đang xin bao nhiêu". Viết lại theo đúng thứ tự
+   * Sếp cần: SỐ LỚN trước ("Xin hao hụt tới X%") → lý giải kỹ thuật mờ hơn, chữ nhỏ hơn → lý do
+   * KHSX tách bằng đường kẻ, đặt trong ngoặc kép như một lời trích dẫn (của người, không phải số
+   * liệu hệ thống). Đã bỏ hẳn "Ngưỡng thường" khỏi hiển thị (2026-09-15, người dùng chốt) - field
+   * `ev.normalThresholdPct` vẫn được BE tính và lưu trong `solverOverrideEvidence` (xem
+   * buildOverrideEvidence() ở production-invoices.service.ts) nhưng KHÔNG còn đọc ở UI này nữa.
+   */
+  const solverOverrideNote = (p: any, compact = false) => {
+    const pct = p?.solverMaxWastePctOverride
+    const onlyStandard = p?.solverAllowCustomLength === false
+    if (pct == null && !onlyStandard) return null
+    const ev = p?.solverOverrideEvidence
+    return (
+      <div style={{ padding:'13px 15px', marginBottom: compact ? 12 : 20, background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:7, fontSize:12.5, fontWeight:700, color:'#92400e', marginBottom:11 }}>
+          <AlertTriangle size={15} style={{ flexShrink:0 }}/>
+          Kế hoạch SX xin cắt đặc cách
+        </div>
+
+        {pct != null && (
+          <div>
+            <div style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.04em', textTransform:'uppercase', color:'#a16207' }}>Xin hao hụt tới</div>
+            <div style={{ fontSize:23, fontWeight:800, color:'#92400e', fontVariantNumeric:'tabular-nums', lineHeight:1.2 }}>{pct}%</div>
+          </div>
+        )}
+
+        {/* Trước 2026-09-16 câu này ghi "Chỉ mua cây chuẩn" - đúng khi chiều dài luôn là cây
+            chuẩn. Từ khi KHSX chọn được chiều dài riêng cho từng quy cách thì cờ này KHÔNG còn
+            nghĩa "mua cây chuẩn" nữa mà là "giữ đúng chiều dài đã định, cấm solver tự dò cây
+            khác" - để nguyên câu cũ là nói sai với Sếp ngay trên màn ký duyệt. */}
+        {onlyStandard && (
+          <div style={{ fontSize:12.5, color:'#92400e', marginTop:9 }}>
+            Giữ <b>đúng chiều dài đã định</b>, không cho hệ thống tự dò cây khác
+          </div>
+        )}
+
+        {/* Bằng chứng BE tự tính lúc KHSX bấm gộp/cắt riêng - căn cứ để Sếp thấy con số xin ở trên
+            là hợp lý hay thừa, vì lúc duyệt solver CHƯA chạy nên chưa có số thật.
+
+            Ước tính tính theo ĐÚNG cây KHSX chọn cho quy cách đó (2026-09-16), nên phải NÊU TÊN
+            cây ra: trước đây ghi cứng "ở cây chuẩn" vì chiều dài luôn là cây chuẩn, nay KHSX chọn
+            5800 cho một quy cách thì câu đó thành nói sai - và Sếp không có cách nào biết 13,74%
+            là của cây 5800 chứ không phải cây 6000. stockLengthMm thiếu = bản ghi cũ trước ngày
+            này, khi đó "cây chuẩn" vẫn đúng. */}
+        {ev && (
+          <div style={{ fontSize:12, color:'#a16207', lineHeight:1.55, marginTop:9 }}>
+            <b>{ev.materialCode}</b> ở {ev.stockLengthMm != null ? <>cây <b>{ev.stockLengthMm}mm</b></> : <>cây chuẩn</>} ước tính hao <b>≥{ev.estimatedWastePct.toFixed(2)}%</b>
+            {!onlyStandard && ' — đợt này còn được thử cây riêng nên thực tế có thể thấp hơn'}
+          </div>
+        )}
+
+        {p?.solverOverrideReason && (
+          <div style={{ marginTop:10, paddingTop:9, borderTop:'1px solid #fde68a', fontSize:12.5, color:'#78350f' }}>
+            Lý do: “{p.solverOverrideReason}”
+          </div>
+        )}
+      </div>
+    )
+  }
 
   // Boss/QLSX xử lý theo TỪNG PI (2026-08-24, không còn theo từng SKU riêng lẻ) - mỗi PI là 1
   // khối, gồm các SKU của nó đang chờ đúng vai trò mình xử lý. 1 nút duyệt/từ chối/gửi cho CẢ
@@ -431,6 +503,8 @@ export default function LenhSXPage() {
                     )}
                   </div>
                 </div>
+
+                {solverOverrideNote(pi)}
 
                 {/* Danh sách SKU trong PI */}
                 <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
@@ -1082,6 +1156,9 @@ export default function LenhSXPage() {
                   </div>
                 </div>
               )}
+
+              {/* Nhắc lại ngay trước nút bấm - đây là thứ Sếp đang thật sự chấp thuận về mặt tiền. */}
+              {solverOverrideNote(pi, true)}
 
               {/* PI + hạn hoàn thành */}
               <div style={{ display:'flex', gap:10, marginBottom:14 }}>

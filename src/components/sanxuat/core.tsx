@@ -83,7 +83,13 @@ export interface StageCfg {
 // (Phoi/Han/Son@demo.com) lẫn ở màn chi tiết Khung cơ khí bên KHSX (xem ThongKePagePlan.tsx).
 export const PHOI_CFG: StageCfg = { label: 'Phôi', done: 'Đã cắt', verb: 'cắt', itemLabel: 'Loại sắt', unit: 'cây', Icon: Wrench }
 export const HAN_CFG: StageCfg = { label: 'Hàn', done: 'Đã hàn', verb: 'hàn', itemLabel: 'Mảnh', unit: 'cái', Icon: Flame }
-export const SON_CFG: StageCfg = { label: 'Sơn', done: 'Đã sơn', verb: 'sơn', itemLabel: 'Loại sơn', unit: 'lít', Icon: SprayCan }
+// itemLabel/unit đúng là 'Mảnh'/'cái' (KHÔNG phải 'Loại sơn'/'lít' như bản đầu) - Sơn báo sản
+// lượng qua ProductionBatch.reportedQty, LUÔN đếm theo MẢNH giống Hàn/Vật tư TP (xem comment
+// ProductionBatch.pieceId ở schema), không có luồng nào theo dõi lít sơn tiêu thụ qua bảng này.
+// Sửa 2026-09-12 (phát hiện qua test tay thật, KCS thấy "Tổng SL chờ kiểm: 20 lít" cho 20 CÁI chân
+// bàn) - trước đây LenhSanXuatSon.tsx tự override cục bộ đúng {itemLabel:'Mảnh',unit:'cái'} nhưng
+// KcsSonPage.tsx và ThongKePagePlan.tsx vẫn dùng thẳng SON_CFG gốc nên còn hiện sai.
+export const SON_CFG: StageCfg = { label: 'Sơn', done: 'Đã sơn', verb: 'sơn', itemLabel: 'Mảnh', unit: 'cái', Icon: SprayCan }
 // "Vật tư thành phẩm" (needsHan=false, vd chân nhôm - cắt xong là hết, không hàn) - Phôi tự báo
 // theo MẢNH (khác PHOI_CFG ở trên, dùng cho theo dõi theo LOẠI SẮT/cây ở ThongKePagePlan.tsx).
 // stage="PHOI" cùng ProductionBatch với Hàn/Sơn (thêm 21/08/2026), chỉ khác điều kiện needsHan.

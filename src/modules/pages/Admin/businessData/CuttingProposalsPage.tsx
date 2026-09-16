@@ -323,7 +323,17 @@ export default function CuttingProposalsPage() {
                           </span>
                         </td>
                         <td style={{ ...td, textAlign: 'right' }}>{l.totalBars ?? '—'}</td>
-                        <td style={{ ...td, textAlign: 'right' }}>{fmtPct(l.wastePercentage)}</td>
+                        <td style={{ ...td, textAlign: 'right' }}>
+                          {fmtPct(l.wastePercentage)}
+                          {/* Chỉ đích danh dòng đã tiêu tới ngưỡng đặc cách của đợt: một con số
+                              xin cho CẢ đợt có thể vô tình bao luôn loại sắt người xin không nghĩ
+                              tới, nên phải thấy được tiền sắt chi thêm nằm ở đâu. */}
+                          {l.usedWasteOverride && (
+                            <div style={{ fontSize: 10, fontWeight: 700, color: '#b45309', marginTop: 2, whiteSpace: 'nowrap' }}>
+                              ⚠ dùng đặc cách (thường ≤{l.normalWastePctThreshold}%)
+                            </div>
+                          )}
+                        </td>
                         <td style={{ ...td, textAlign: 'right' }}>
                           {l.bestStockLengthMm ? `${l.bestStockLengthMm}mm` : '—'}
                           {/* Cỡ đặt riêng (auto_scan mở lại 2026-08-26) - không phải cây chuẩn NCC

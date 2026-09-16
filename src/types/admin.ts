@@ -46,6 +46,9 @@ export interface SystemConfig {
   companyEmail?: string;
   taxCode?: string;
   defaultCurrency: string;
+  /** Mặc định toàn hệ thống: có cho solver đặt cây sắt ngoài các chiều dài chuẩn không. Từng đợt
+   *  cắt đè lại được — KHSX đề nghị ở "Tối ưu cắt sắt", Sếp duyệt cùng lệnh sản xuất. */
+  solverAllowCustomLength: boolean;
 }
 
 /** Thông báo do Admin tạo/quản lý — broadcast đơn giản theo audience.

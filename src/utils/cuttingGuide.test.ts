@@ -23,6 +23,8 @@ function makeLine(overrides: Partial<CuttingProposalLine> = {}): CuttingProposal
     timedOut: null,
     maxWastePctThreshold: 1,
     overThreshold: false,
+    normalWastePctThreshold: 1,
+    usedWasteOverride: false,
     displayReason: null,
     pieceSummary: null,
     patterns: [

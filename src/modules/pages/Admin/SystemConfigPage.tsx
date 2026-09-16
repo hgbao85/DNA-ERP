@@ -7,7 +7,13 @@ import { getSystemConfig, updateSystemConfig } from '../../../services/api'
 import type { SystemConfig } from '../../../types/admin'
 import LoadingState from '../../../components/LoadingState'
 
-const FIELDS: { name: keyof SystemConfig; label: string; required?: boolean }[] = [
+/** Card này là form nhập chữ — chỉ nhận các field chữ của SystemConfig, không nhận field boolean
+ *  (vd solverAllowCustomLength, thuộc nghiệp vụ cắt sắt chứ không phải thông tin công ty). */
+type TextField = {
+  [K in keyof SystemConfig]-?: SystemConfig[K] extends string | undefined ? K : never
+}[keyof SystemConfig]
+
+const FIELDS: { name: TextField; label: string; required?: boolean }[] = [
   { name: 'companyName', label: 'Tên công ty', required: true },
   { name: 'companyAddress', label: 'Địa chỉ' },
   { name: 'companyPhone', label: 'Điện thoại' },
@@ -60,7 +66,7 @@ export default function SystemConfigPage() {
         Thông tin chung của công ty — hiển thị mang tính tham khảo, chưa có nghiệp vụ nào tự động đọc các giá trị này.
       </div>
 
-      <div style={{ maxWidth: 480, display: 'flex', flexDirection: 'column', gap: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 }}>
+      <div style={{ maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 }}>
         {FIELDS.map(f => (
           <div key={f.name}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
