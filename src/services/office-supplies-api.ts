@@ -18,6 +18,9 @@ export interface BeOfficeSupply {
   quantity: number;
   note: string | null;
   isActive: boolean;
+  /** null = đang hoạt động. Khác null = đã xóa (soft-delete) - CHỈ có mặt khi gọi kèm
+   *  `includeDeleted=true` (xem getOfficeSupplies). */
+  deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -40,9 +43,14 @@ export interface BeOfficeSupplyLedgerEntry {
  * `warehouseCode` CHỈ có tác dụng khi tài khoản gọi API không có warehouseScope (Boss/Admin/tổng
  * kho) - BE tự bỏ qua param này với thủ kho bình thường, LUÔN trả về đúng kho của họ (xem
  * OfficeSuppliesService.findAll). Không truyền + không có scope = BE trả gộp mọi kho.
+ * `includeDeleted` - CHỈ dùng ở màn Admin xem lại vật tư đã xóa để tra lịch sử (không giới hạn ở
+ * tầng API, chỉ FE tự hiện nút bật cho Admin - xem OfficeSuppliesPage.tsx).
  */
-export async function getOfficeSupplies(warehouseCode?: string): Promise<BeOfficeSupply[]> {
-  const qs = warehouseCode ? `&warehouseCode=${encodeURIComponent(warehouseCode)}` : '';
+export async function getOfficeSupplies(warehouseCode?: string, includeDeleted?: boolean): Promise<BeOfficeSupply[]> {
+  const qs = [
+    warehouseCode ? `&warehouseCode=${encodeURIComponent(warehouseCode)}` : '',
+    includeDeleted ? '&includeDeleted=true' : '',
+  ].join('');
   const res = await http.get<BeOfficeSupply[] | { data: BeOfficeSupply[] }>(`/office-supplies?limit=100${qs}`);
   return Array.isArray(res) ? res : res.data;
 }

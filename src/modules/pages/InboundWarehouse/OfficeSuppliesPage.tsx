@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Plus, Pencil, Trash2, ArrowDownToLine, ArrowUpFromLine, History, X } from 'lucide-react'
+import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeOfficeSupply, BeOfficeSupplyLedgerEntry, OfficeSupplyLedgerReason } from '../../../services/office-supplies-api'
@@ -44,17 +45,18 @@ interface OfficeSuppliesPageProps {
 }
 
 export default function OfficeSuppliesPage({ warehouseCode }: OfficeSuppliesPageProps) {
-  const { data, isLoading, error, refetch } = useFetch(() => api.getOfficeSupplies(warehouseCode), [warehouseCode])
+  const { user } = useAuth()
+  const isAdmin = user?.role === 'ADMIN'
+  // Chỉ Admin mới bật được - vật tư đã xóa lẫn vào cùng danh sách, đánh dấu bằng badge "Đã xóa"
+  // (xem cột Tên vật tư) thay vì tách màn riêng, vì tần suất tra cứu lại thấp (chỉ để đối chiếu
+  // lịch sử khi có thắc mắc, không phải nghiệp vụ thường xuyên).
+  const [showDeleted, setShowDeleted] = useState(false)
+  const includeDeleted = isAdmin && showDeleted
+  const { data, isLoading, error, refetch } = useFetch(
+    () => api.getOfficeSupplies(warehouseCode, includeDeleted),
+    [warehouseCode, includeDeleted],
+  )
   const supplies = data ?? []
-
-  if (!warehouseCode) {
-    return (
-      <div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }}>
-        Tài khoản không gán kho phụ trách cụ thể chưa có chức năng văn phòng phẩm — đăng nhập
-        bằng tài khoản thủ kho của đúng kho cần quản lý.
-      </div>
-    )
-  }
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<BeOfficeSupply | null>(null)
@@ -74,6 +76,17 @@ export default function OfficeSuppliesPage({ warehouseCode }: OfficeSuppliesPage
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
   const [ledgerTarget, setLedgerTarget] = useState<BeOfficeSupply | null>(null)
+
+  // Đặt SAU mọi hook (rules-of-hooks) - tài khoản không gán kho (Boss/tổng kho, hoặc trước khi
+  // Admin chọn kho ở OfficeSuppliesAdminPage) chỉ hiện thông báo, không có chức năng CRUD nào.
+  if (!warehouseCode) {
+    return (
+      <div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }}>
+        Tài khoản không gán kho phụ trách cụ thể chưa có chức năng văn phòng phẩm — đăng nhập
+        bằng tài khoản thủ kho của đúng kho cần quản lý.
+      </div>
+    )
+  }
 
   const openCreate = () => { setEditing(null); setForm(emptyForm); setFormError(null); setFormOpen(true) }
   const openEdit = (s: BeOfficeSupply) => {
@@ -175,13 +188,20 @@ export default function OfficeSuppliesPage({ warehouseCode }: OfficeSuppliesPage
         từng kho - mỗi lần nhập/xuất đều lưu lịch sử.
       </p>
 
+      {isAdmin && (
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--text2)', marginBottom: 12, cursor: 'pointer' }}>
+          <input type="checkbox" checked={showDeleted} onChange={e => setShowDeleted(e.target.checked)} />
+          Hiện vật tư đã xóa (để tra lịch sử)
+        </label>
+      )}
+
       {isLoading && <LoadingState />}
       {error && <div style={{ color: '#c62828', fontSize: 13, padding: 12 }}>{error}</div>}
 
       {!isLoading && !error && (
         supplies.length === 0 ? (
           <div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }}>
-            Chưa có văn phòng phẩm nào - bấm "Thêm vật tư" để tạo mới.
+            Chưa có văn phòng phẩm nào - bấm &quot;Thêm vật tư&quot; để tạo mới.
           </div>
         ) : (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
@@ -196,23 +216,39 @@ export default function OfficeSuppliesPage({ warehouseCode }: OfficeSuppliesPage
                 </tr>
               </thead>
               <tbody>
-                {supplies.map(s => (
-                  <tr key={s.id} style={{ borderTop: '1px solid var(--border)' }}>
-                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>{s.name}</td>
+                {supplies.map(s => {
+                  const isDeleted = !!s.deletedAt
+                  return (
+                  <tr key={s.id} style={{ borderTop: '1px solid var(--border)', opacity: isDeleted ? 0.55 : 1 }}>
+                    <td style={{ padding: '10px 14px', fontWeight: 600 }}>
+                      {s.name}
+                      {isDeleted && (
+                        <span style={{ marginLeft: 8, padding: '1px 7px', fontSize: 10.5, fontWeight: 700, borderRadius: 10, background: 'rgba(198,40,40,.12)', color: '#c62828' }}>
+                          Đã xóa
+                        </span>
+                      )}
+                    </td>
                     <td style={{ padding: '10px 14px' }}>{s.unit}</td>
                     <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: 600 }}>{s.quantity}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text3)' }}>{s.note ?? '—'}</td>
                     <td style={{ padding: '10px 14px' }}>
                       <div style={{ display: 'flex', gap: 6 }}>
-                        <button title="Nhập" style={iconBtn} onClick={() => openAdjust(s, 'IMPORT')}><ArrowDownToLine size={14} color="#2e7d32" /></button>
-                        <button title="Xuất" style={iconBtn} onClick={() => openAdjust(s, 'EXPORT')}><ArrowUpFromLine size={14} color="#c62828" /></button>
-                        <button title="Lịch sử" style={iconBtn} onClick={() => setLedgerTarget(s)}><History size={14} /></button>
-                        <button title="Sửa" style={iconBtn} onClick={() => openEdit(s)}><Pencil size={14} /></button>
-                        <button title="Xóa" style={iconBtn} onClick={() => { setDeleteTarget(s); setDeleteError(null) }}><Trash2 size={14} color="#c62828" /></button>
+                        {isDeleted ? (
+                          <button title="Lịch sử" style={iconBtn} onClick={() => setLedgerTarget(s)}><History size={14} /></button>
+                        ) : (
+                          <>
+                            <button title="Nhập" style={iconBtn} onClick={() => openAdjust(s, 'IMPORT')}><ArrowDownToLine size={14} color="#2e7d32" /></button>
+                            <button title="Xuất" style={iconBtn} onClick={() => openAdjust(s, 'EXPORT')}><ArrowUpFromLine size={14} color="#c62828" /></button>
+                            <button title="Lịch sử" style={iconBtn} onClick={() => setLedgerTarget(s)}><History size={14} /></button>
+                            <button title="Sửa" style={iconBtn} onClick={() => openEdit(s)}><Pencil size={14} /></button>
+                            <button title="Xóa" style={iconBtn} onClick={() => { setDeleteTarget(s); setDeleteError(null) }}><Trash2 size={14} color="#c62828" /></button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
