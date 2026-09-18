@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, BarChart3, MapPin, Share2, History, ArrowLeftRight } from 'lucide-react'
+import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, BarChart3, MapPin, Share2, History, ArrowLeftRight, PenLine } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { getWarehouses } from '../../../services/api'
@@ -17,6 +17,7 @@ import KhoXuatDanPage from './KhoXuatDanPage'
 import KhoNhapDanPage from './KhoNhapDanPage'
 import QuanLyDiemDanPage from '../Manufacturing/QuanLyDiemDanPage'
 import ChuyenKhoTuDoPage from './ChuyenKhoTuDoPage'
+import OfficeSuppliesPage from './OfficeSuppliesPage'
 
 interface InboundWarehouseAppProps {
   onBack?: () => void // chỉ truyền nếu user có nhiều phân hệ; thủ kho thuần → khóa trong card này
@@ -43,7 +44,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   // vào nhánh generic bên dưới (mất tab "Tổng hợp vật tư", lộ nhầm tab đặc thù vat-tu-tp).
   const canSeePacking = scope === null || isThanhPhamScope(scope) || isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han')
 
-  type TabId = 'materials' | 'warehouses' | 'nhap-kho' | 'xuat-kho' | 'chuyen-tu-do' | 'lich-su-kho' | 'xuat-sat' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan'
+  type TabId = 'materials' | 'warehouses' | 'nhap-kho' | 'xuat-kho' | 'chuyen-tu-do' | 'lich-su-kho' | 'xuat-sat' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan' | 'vat-tu-van-phong'
   const ALL_TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
     { id: 'materials',  label: 'Tổng hợp vật tư',    icon: <Boxes size={16} /> },
     { id: 'warehouses', label: 'Tổng hợp kho',        icon: <Warehouse size={16} /> },
@@ -70,16 +71,21 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     { id: 'xuat-dan' as TabId, label: 'Theo dõi xuất đan',  icon: <BarChart3 size={16} /> },
     { id: 'nhap-dan' as TabId, label: 'Theo dõi nhập đan',  icon: <ArrowDownToLine size={16} /> },
     { id: 'diem-dan' as TabId, label: 'Quản lý điểm đan',   icon: <MapPin size={16} /> },
+    // Vật tư sinh hoạt/văn phòng (bút, giấy...) - 2026-09-17. RIÊNG theo ĐÚNG kho vật lý của tài
+    // khoản (warehouseCode=scope, không gộp theo family như "materials") - hiện cho mọi scope kho
+    // cụ thể, xem TABS bên dưới. scope null (Boss/tổng kho) vẫn thấy tab nhưng
+    // OfficeSuppliesPage.tsx tự hiện thông báo "chưa hỗ trợ" (không có kho cụ thể để lọc).
+    { id: 'vat-tu-van-phong' as TabId, label: 'Văn phòng phẩm', icon: <PenLine size={16} /> },
   ]
 
   // bao-bi-tp: 5 tab cố định (tổng hợp vật tư, nhập/xuất, chuyền kiểm, đóng gói)
   // Scoped khác: ẩn materials.
   const TABS = (() => {
-    if (isFamilyScope(scope, 'vat-tu-tp'))    return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','chuyen-tu-do','lich-su-kho','xuat-dan','diem-dan'].includes(t.id))
+    if (isFamilyScope(scope, 'vat-tu-tp'))    return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','chuyen-tu-do','lich-su-kho','xuat-dan','diem-dan','vat-tu-van-phong'].includes(t.id))
     // Phôi Sơn Hàn không được dùng "Chuyển kho tự do" (2026-09-15, quyết định nghiệp vụ) - họ chỉ
     // xuất sắt cho SX qua "Phân phối nội bộ" (xuat-sat), không tự ý chuyển vật tư đi kho khác.
-    if (isFamilyScope(scope, 'phoi-son-han')) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','lich-su-kho','xuat-sat'].includes(t.id))
-    if (isThanhPhamScope(scope)) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','chuyen-tu-do','lich-su-kho','chuyen-kiem','dong-goi','nhap-dan'].includes(t.id))
+    if (isFamilyScope(scope, 'phoi-son-han')) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','lich-su-kho','xuat-sat','vat-tu-van-phong'].includes(t.id))
+    if (isThanhPhamScope(scope)) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','chuyen-tu-do','lich-su-kho','chuyen-kiem','dong-goi','nhap-dan','vat-tu-van-phong'].includes(t.id))
     if (scope) return ALL_TABS.filter(t => t.id !== 'materials')
     return ALL_TABS
   })()
@@ -206,6 +212,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         {tab === 'xuat-dan'   && isFamilyScope(scope, 'vat-tu-tp')   && <KhoXuatDanPage />}
         {tab === 'nhap-dan'   && isThanhPhamScope(scope) && <KhoNhapDanPage warehouseScope={scope} />}
         {tab === 'diem-dan'   && isFamilyScope(scope, 'vat-tu-tp')   && <QuanLyDiemDanPage />}
+        {tab === 'vat-tu-van-phong' && <OfficeSuppliesPage warehouseCode={scope ?? undefined} />}
       </div>
     </div>
   )

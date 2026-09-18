@@ -87,6 +87,7 @@ export { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUse
 export { loginUser, getProfile, logoutUser } from './auth-api';
 export { getMaterials, createMaterial, updateMaterial, deleteMaterial, getMaterialSuppliers, createMaterialSupplier, updateMaterialSupplier, deleteMaterialSupplier } from './materials-api';
 export { getMaterialGroups, createMaterialGroup, updateMaterialGroup, deleteMaterialGroup } from './material-groups-api';
+export { getOfficeSupplies, createOfficeSupply, updateOfficeSupply, adjustOfficeSupplyQuantity, deleteOfficeSupply, getOfficeSupplyLedger } from './office-supplies-api';
 export { getSuppliers, createSupplier, updateSupplier, deleteSupplier } from './suppliers-api';
 export {
   getCustomers as getSalesCustomers, createCustomer as createSalesCustomer, updateCustomer as updateSalesCustomer, deleteCustomer as deleteSalesCustomer,
