@@ -1,21 +1,20 @@
 'use client'
 
 /**
- * CORE dùng chung cho các màn Lệnh sản xuất (Phôi / Hàn / Sơn).
- * - types + helper đồng bộ (logic thuần)
- * - 3 view dựng trên khung generic `LenhSanXuatBoard`: PO list · Mảnh list · Vật tư detail
- * - 2 orchestrator: PhoiScreen (3 tầng, có mảnh) · TwoTierScreen (2 tầng, Hàn/Sơn)
- *
- * Mỗi màn (Phoi/Han/Son) chỉ cần cấp `cfg` + `seed` rồi gọi orchestrator tương ứng.
- * ĐANG DÙNG DATA MOCK (state nội bộ) — chưa nối backend.
+ * CORE dùng chung cho các màn Lệnh sản xuất (Hàn / Sơn) + thống kê Phôi (ThongKePagePlan).
+ * - types + helper đồng bộ (logic thuần) — ProcManh/perSku vẫn dùng thật cho Phôi qua
+ *   ThongKePagePlan.tsx (mapSteelIssuesToPhoiManhs), không qua orchestrator ở đây.
+ * - view dựng trên khung generic `LenhSanXuatBoard`: PO list · Vật tư detail
+ * - 1 orchestrator: TwoTierScreen (2 tầng, Hàn/Sơn) — tự fetch dữ liệu thật qua
+ *   production-batches-api.ts khi có `stage`. PhoiScreen (orchestrator 3 tầng mock cũ) đã xoá
+ *   2026-09-18 vì không còn trang nào import.
  */
 
 import { useState, useMemo, useEffect } from 'react'
-import { ChevronRight, ChevronLeft, ChevronDown, Check, Clock, AlertTriangle, Plus, Send, CalendarClock, Layers, CheckCircle2, Lock, Scissors, Wrench, Flame, SprayCan, type LucideIcon } from 'lucide-react'
+import { ChevronRight, ChevronLeft, ChevronDown, Check, Clock, AlertTriangle, Plus, Send, CalendarClock, CheckCircle2, Lock, Wrench, Flame, SprayCan, type LucideIcon } from 'lucide-react'
 import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
 import { useFetch } from '../../hooks/useFetch'
 import * as api from '../../services/api'
-import type { SatIssueView } from '../../services/api'
 import type {
   BeProductionOrderSummary, ProductionBatchStage as SanLuongStage,
   BeProductionBatch, BeProductionBatchQcReview,
@@ -320,45 +319,8 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, pi
   )
 }
 
-// ── Tầng 2 (Phôi): Danh sách mảnh — số lượng cây theo từng mảnh ─────────────
-// Không đồng bộ ở đây; điểm nghẽn loại sắt xem trong màn vật tư (bấm vào mảnh).
-interface ManhView { m: ProcManh; tong: number; done: number; remain: number }
-
-function ManhListBoard({ po, onBack, onOpenManh }: { po: ProcRow; cfg: StageCfg; onBack: () => void; onOpenManh: (id: number) => void }) {
-  const manhs = po.manhs ?? []
-  const views: ManhView[] = manhs.map(m => {
-    const tong = m.lines.reduce((s, l) => s + l.needQty, 0)
-    const done = m.lines.reduce((s, l) => s + l.doneQty, 0)
-    return { m, tong, done, remain: Math.max(0, tong - done) }
-  })
-
-  const cols: BoardColumn<ManhView>[] = [
-    { key: 'manh', header: 'Mảnh', cell: v => <span style={{ fontWeight: 700 }}>{v.m.tenManh}</span> },
-    { key: 'perSku', header: 'SL/SKU', align: 'right', cell: v => `×${perSku(v.m)}` },
-    { key: 'tong', header: 'Số lượng (cây)', align: 'right', cell: v => fmt(v.tong) },
-    { key: 'done', header: 'Đã cắt (cây)', align: 'right', cell: v => <span style={{ fontWeight: 700 }}>{fmt(v.done)}</span> },
-    { key: 'remain', header: 'Còn lại (cây)', align: 'right', cell: v => <span style={{ color: v.remain > 0 ? ACCENT : 'var(--green)', fontWeight: 600 }}>{fmt(v.remain)}</span> },
-    { key: 'chevron', header: '', width: 40, cell: () => <span style={{ color: 'var(--text3)' }}><ChevronRight size={16} /></span> },
-  ]
-
-  return (
-    <LenhSanXuatBoard<ManhView>
-      onBack={onBack} backLabel="Quay lại danh sách lệnh"
-      icon={<Layers size={18} />}
-      title={`Danh sách Mảnh của SKU — ${po.sku}`}
-      subtitle={`${po.poNumber} · ${po.productName} · SL ${fmt(po.soLuong)} · hạn ${dateVN(po.deadline)}`}
-      columns={cols}
-      rows={views}
-      rowKey={v => v.m.id}
-      clickable={() => true}
-      onRowClick={v => onOpenManh(v.m.id)}
-      rowTitle={v => `Xem vật tư chi tiết của ${v.m.tenManh}`}
-    />
-  )
-}
-
 // ── Tầng chi tiết vật tư (dùng chung Phôi/Hàn/Sơn) ─────────────────
-export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, pendingFor, onConfirmCut, manualInput, showThucCo, onRecord, onFinishBatch, choKcsFor, partStock, batchesByLine, reviews }: {
+export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, manualInput, showThucCo, onRecord, onFinishBatch, choKcsFor, partStock, batchesByLine, reviews }: {
   lines: ProcLine[]; cfg: StageCfg; readOnly: boolean
   title: string; subtitle: string; bannerLabel: string
   /** Bỏ trống khi board được nhúng làm 1 tab con (vd chi tiết Khung cơ khí bên KHSX) — không cần điều hướng "quay lại". */
@@ -366,13 +328,9 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
   /** Đơn vị của số đồng bộ: Phôi = "mảnh", Hàn/Sơn = "bộ". */
   dbUnit?: string
   onUpdateLine?: (l: ProcLine) => void
-  /** (không dùng cho Phôi nữa) đợt đã nhận đang chờ cắt của 1 dòng vật tư. */
-  pendingFor?: (lineId: number) => SatIssueView[]
-  /** (không dùng cho Phôi nữa) xác nhận cắt xong 1 đợt → cộng vào doneQty. */
-  onConfirmCut?: (line: ProcLine, issue: SatIssueView, soCayThuc?: number) => void
-  /** Hàn/Sơn: cho nhập tay sản lượng. Phôi = false (số lượng tự cập nhật từ màn Xác nhận sản lượng). */
+  /** Hàn/Sơn: cho nhập tay sản lượng. */
   manualInput?: boolean
-  /** Ép hiện/ẩn cột "Thực có" bất kể phoiMode — dùng khi nhúng chế độ chỉ xem không có cột Xác nhận cắt. */
+  /** Ép hiện/ẩn cột "Thực có" — dùng khi nhúng chế độ chỉ xem không có cột Xác nhận cắt. */
   showThucCo?: boolean
   /** "Lưu đợt" (2026-09-09, đồng bộ Hàn/Sơn theo mẫu Sắt/VTTP - trước đó 1 nút "Ghi nhận" gộp lưu+
    *  gửi KCS) - tích luỹ vào 1 ProductionBatch đang OPEN, KHÔNG tự gửi KCS. */
@@ -390,7 +348,6 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
    *  đây theo batchesByLine) - dùng tính "Lỗi" cho từng dòng + từng đợt lịch sử. */
   reviews?: BeProductionBatchQcReview[]
 }) {
-  const phoiMode = !!onConfirmCut
   const [draft, setDraft] = useState<Record<number, string>>({})
   const [openParts, setOpenParts] = useState<Set<number>>(new Set())
   const toggleParts = (id: number) => setOpenParts(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
@@ -416,11 +373,10 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
 
   // 2026-09-09 (theo yêu cầu người dùng: "bên Phôi đang sao thì bên Hàn Sơn y chang vậy thậm chí
   // đơn giản hơn") - mảnh Hàn/Sơn không có cỡ đoạn/công đoạn phụ để tab, mirror THẲNG list + card 1
-  // mảnh như VTTP ChotPanel (đơn giản hơn cả Phôi/VTTP-có-processSteps vì không cần dải tab công
-  // đoạn nào). CHỈ áp dụng khi có onRecord (Hàn/Sơn thật, đang tương tác) - phoiMode (mock 3 tầng)
-  // và readOnly (nhúng xem ở ThongKePagePlan) vẫn giữ bảng nhiều dòng cũ bên dưới, KHÔNG đụng.
+  // mảnh như VTTP ChotPanel. CHỈ áp dụng khi có onRecord (Hàn/Sơn thật, đang tương tác) - readOnly
+  // (nhúng xem ở ThongKePagePlan) vẫn giữ bảng nhiều dòng cũ bên dưới, KHÔNG đụng.
   const [selLineId, setSelLineId] = useState<number | null>(null)
-  if (onRecord && !phoiMode) {
+  if (onRecord) {
     const selLine = lines.find(l => l.id === selLineId) ?? null
     if (selLine) {
       return <LineDetailCard
@@ -477,7 +433,7 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
         </>
       }
     },
-    ...((showThucCo ?? !phoiMode) ? [{
+    ...((showThucCo ?? true) ? [{
       key: 'thucCo', header: 'Thực có', align: 'right', cell: (l: ProcLine) => (
         <span style={{ fontWeight: 600 }}>{fmt(l.thucCoQty ?? 0)}</span>
       )
@@ -510,14 +466,7 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
           : <span style={{ color: 'var(--text3)' }}>— chưa nhập —</span>
       }
     },
-    ...(phoiMode
-      ? [{
-        key: 'confirm', header: 'Xác nhận cắt', width: 340, cell: (l: ProcLine) => (
-          <ConfirmCell line={l} issues={pendingFor!(l.id)} unit={cfg.unit}
-            onConfirm={(issue, soCay) => onConfirmCut!(l, issue, soCay)} />
-        )
-      } as BoardColumn<ProcLine>]
-      : (manualInput && !readOnly) ? [{
+    ...((manualInput && !readOnly) ? [{
         // 2026-09-09 (đồng bộ Sắt/VTTP): tách "Ghi nhận" 1 nút (lưu+gửi KCS cùng lúc) thành "Lưu
         // đợt" (onRecord, tích luỹ vào ProductionBatch đang OPEN) + "Gửi KCS" riêng (onFinishBatch,
         // đóng đợt đang OPEN) - xem VatTuDetailBoard doc props. "Bù đủ" pre-fill input khi có Lỗi,
@@ -593,13 +542,11 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
     <LenhSanXuatBoard<ProcLine>
       onBack={onBack} backLabel={backLabel}
       title={title}
-      subtitle={<>{subtitle}<div style={{ marginTop: 2 }}>{phoiMode
-        ? <>Xác nhận các <b>đợt sắt đã nhận từ kho</b> theo từng {itemLabelLC} — hệ thống tự cộng vào tiến độ.</>
-        : manualInput
-          ? (onRecord
-            ? <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} → <b>Lưu đợt</b> rồi <b>Gửi KCS</b>; chỉ SL KCS đạt mới tính tiến độ.</>
-            : <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} — hệ thống tự lưu mốc thời gian.</>)
-          : <>Số lượng <b>đã {cfg.verb}</b> tự cập nhật từ màn <b>Xác nhận sản lượng</b> — màn này chỉ theo dõi đồng bộ.</>}</div></>}
+      subtitle={<>{subtitle}<div style={{ marginTop: 2 }}>{manualInput
+        ? (onRecord
+          ? <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} → <b>Lưu đợt</b> rồi <b>Gửi KCS</b>; chỉ SL KCS đạt mới tính tiến độ.</>
+          : <>Nhập số <b>{cfg.unit} đã {cfg.verb}</b> theo từng {itemLabelLC} — hệ thống tự lưu mốc thời gian.</>)
+        : <>Số lượng <b>đã {cfg.verb}</b> tự cập nhật từ màn <b>Xác nhận sản lượng</b> — màn này chỉ theo dõi đồng bộ.</>}</div></>}
       beforeTable={banner}
       columns={cols}
       rows={lines}
@@ -884,99 +831,6 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
       </div>
     </div>
   )
-}
-
-// ── Ô "Xác nhận cắt" (Phôi) — các đợt đã nhận chờ cắt của 1 dòng vật tư ──────
-function ConfirmCell({ line, issues, unit, onConfirm }: {
-  line: ProcLine; issues: SatIssueView[]; unit: string
-  onConfirm: (issue: SatIssueView, soCayThuc?: number) => void
-}) {
-  if (issues.length === 0) {
-    const remain = line.needQty - line.doneQty
-    return remain <= 0
-      ? <span className="badge green">đủ định mức</span>
-      : <span style={{ fontSize: 12, color: 'var(--text3)' }}>— chưa có đợt chờ cắt —</span>
-  }
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }} onClick={e => e.stopPropagation()}>
-      {issues.map(i => <ConfirmMini key={i.id} issue={i} unit={unit} onConfirm={s => onConfirm(i, s)} />)}
-    </div>
-  )
-}
-
-function ConfirmMini({ issue, unit, onConfirm }: {
-  issue: SatIssueView; unit: string; onConfirm: (soCayThuc?: number) => void
-}) {
-  const [editing, setEditing] = useState(false)
-  const [val, setVal] = useState(String(issue.soCay))
-  const gio = issue.dotThoiGian.slice(11)
-  return (
-    <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: '7px 9px', background: 'var(--surface2)' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        <span style={{ fontSize: 12, color: 'var(--text2)' }}>Đợt {gio} · <b style={{ color: 'var(--text)' }}>{fmt(issue.soCay)} {unit}</b></span>
-        <button className="primary" onClick={() => onConfirm()}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '4px 9px', fontSize: 12 }}>
-          <Scissors size={12} /> Xác nhận cắt xong
-        </button>
-        <button onClick={() => setEditing(v => !v)}
-          style={{ padding: '4px 8px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
-          Báo sai lệch
-        </button>
-      </div>
-      {editing && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 7 }}>
-          <span style={{ fontSize: 11, color: 'var(--text3)' }}>Thực cắt:</span>
-          <input type="number" min={0} value={val} onChange={e => setVal(e.target.value)} style={{ width: 64 }} />
-          <span style={{ fontSize: 11, color: 'var(--text3)' }}>/ {fmt(issue.soCay)} {unit}</span>
-          <button className="primary" onClick={() => onConfirm(Math.max(0, Number(val) || 0))}
-            style={{ padding: '4px 9px', fontSize: 12 }}>Lưu</button>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ── Orchestrator: Phôi (3 tầng) ────────────────────────────────────
-// "Đã cắt" của mỗi dòng = base(seed) + Σ cây các đợt ĐÃ XÁC NHẬN (DA_CAT) theo lineId.
-// Xác nhận sản lượng làm ở màn riêng "Xác nhận sản lượng"; màn này chỉ theo dõi đồng bộ.
-export function PhoiScreen({ cfg, rows, readOnly = false }: {
-  cfg: StageCfg
-  rows: ProcRow[]
-  readOnly?: boolean
-}) {
-  const [selPoId, setSelPoId] = useState<number | null>(null)
-  const [selManhId, setSelManhId] = useState<number | null>(null)
-  const { data: issues } = useFetch<SatIssueView[]>(() => api.getDotXuatSat(), [])
-
-  // Số cây đã xác nhận cắt xong theo từng dòng vật tư (lineId).
-  const confirmedByLine = useMemo(() => {
-    const m = new Map<number, number>()
-    for (const i of issues ?? []) if (i.status === 'DA_CAT') m.set(i.lineId, (m.get(i.lineId) ?? 0) + (i.soCayThuc ?? i.soCay))
-    return m
-  }, [issues])
-
-  // Rows hiển thị = base + đã xác nhận (cộng vào doneQty đúng dòng).
-  const view = useMemo(() => rows.map(r => ({
-    ...r,
-    manhs: r.manhs?.map(mn => ({ ...mn, lines: mn.lines.map(l => ({ ...l, doneQty: Math.min(l.needQty, l.doneQty + (confirmedByLine.get(l.id) ?? 0)) })) })),
-  })), [rows, confirmedByLine])
-
-  const selPo = view.find(r => r.id === selPoId) ?? null
-  const selManh = selPo?.manhs?.find(m => m.id === selManhId) ?? null
-
-  if (selPo && selManh) {
-    return <VatTuDetailBoard
-      lines={selManh.lines} cfg={cfg} readOnly={readOnly}
-      title={selManh.tenManh}
-      subtitle={`${selPo.poNumber} · ${selPo.sku} · SL ${fmt(selPo.soLuong)} · hạn ${dateVN(selPo.deadline)}`}
-      bannerLabel="Đồng bộ sắt" dbUnit="mảnh" backLabel="Quay lại danh sách mảnh"
-      onBack={() => setSelManhId(null)}
-    />
-  }
-  if (selPo) {
-    return <ManhListBoard po={selPo} cfg={cfg} onBack={() => setSelPoId(null)} onOpenManh={id => setSelManhId(id)} />
-  }
-  return <PoListBoard rows={view} cfg={cfg} isPhoi onEnter={id => { setSelPoId(id); setSelManhId(null) }} />
 }
 
 // ── Nguồn dữ liệu thật cho Hàn/Sơn (đợt 2, thay hanSeed()/sonSeed()) ────────────────

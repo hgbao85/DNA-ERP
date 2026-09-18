@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Quét mock dữ liệu toàn hệ thống (18/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Be+Vietnam+Pro:ital,wght@0,400;0,500;0,600;0,700;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#eef1f0;
+    --surface:#ffffff;
+    --surface-2:#f5f7f6;
+    --border:#d7dcda;
+    --border-strong:#c1c9c6;
+    --text:#182220;
+    --text-muted:#56635f;
+    --text-faint:#8a948f;
+    --accent:#1f6f78;
+    --accent-strong:#154e55;
+    --accent-soft:#dcecec;
+    --active:#a8382b;
+    --active-soft:#f6e3df;
+    --dead:#96631f;
+    --dead-soft:#f3e6d3;
+    --resolved:#3f6b4f;
+    --resolved-soft:#e1ede4;
+    --moot:#727d78;
+    --moot-soft:#eceeed;
+    --shadow: 0 1px 2px rgba(20,30,28,0.06), 0 6px 20px -12px rgba(20,30,28,0.18);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#10171a; --surface:#161f22; --surface-2:#1b2528;
+      --border:#2a3538; --border-strong:#39464a;
+      --text:#e7ede9; --text-muted:#a3b2ac; --text-faint:#728079;
+      --accent:#63b9bd; --accent-strong:#8fd0d2; --accent-soft:#1e3436;
+      --active:#e07a68; --active-soft:#3a231e;
+      --dead:#d9ab68; --dead-soft:#392e1b;
+      --resolved:#84c096; --resolved-soft:#1f3526;
+      --moot:#8ea198; --moot-soft:#212b28;
+      --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 10px 30px -14px rgba(0,0,0,0.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#10171a; --surface:#161f22; --surface-2:#1b2528;
+    --border:#2a3538; --border-strong:#39464a;
+    --text:#e7ede9; --text-muted:#a3b2ac; --text-faint:#728079;
+    --accent:#63b9bd; --accent-strong:#8fd0d2; --accent-soft:#1e3436;
+    --active:#e07a68; --active-soft:#3a231e;
+    --dead:#d9ab68; --dead-soft:#392e1b;
+    --resolved:#84c096; --resolved-soft:#1f3526;
+    --moot:#8ea198; --moot-soft:#212b28;
+    --shadow: 0 1px 2px rgba(0,0,0,0.4), 0 10px 30px -14px rgba(0,0,0,0.6);
+  }
+
+  *{box-sizing:border-box;}
+  html{-webkit-text-size-adjust:100%;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:'Be Vietnam Pro', system-ui, sans-serif;
+    font-size:16px; line-height:1.6; -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--accent-strong);}
+  a:focus-visible, button:focus-visible, summary:focus-visible{ outline:2px solid var(--accent); outline-offset:2px; }
+  code, .mono{ font-family:'IBM Plex Mono', ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+
+  .wrap{ max-width:960px; margin:0 auto; padding: clamp(28px, 6vw, 64px) clamp(18px, 5vw, 28px) 96px; }
+
+  header.hero{ border-bottom:1px solid var(--border); padding-bottom:28px; margin-bottom:32px; }
+  .eyebrow{ display:flex; align-items:center; gap:10px; font-family:'IBM Plex Mono', monospace; font-size:12.5px; letter-spacing:0.09em; text-transform:uppercase; color:var(--accent-strong); margin-bottom:14px; }
+  .eyebrow .dot{ width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px var(--accent-soft); }
+  h1{ font-family:'Archivo', system-ui, sans-serif; font-weight:800; font-size:clamp(28px, 4.4vw, 40px); line-height:1.12; letter-spacing:-0.01em; margin:0 0 12px; text-wrap:balance; color:var(--text); }
+  .dek{ color:var(--text-muted); font-size:16.5px; max-width:70ch; margin:0 0 20px; }
+  .meta-row{ display:flex; flex-wrap:wrap; gap:10px 22px; font-size:13.5px; color:var(--text-faint); }
+  .meta-row b{ color:var(--text-muted); font-weight:600; }
+
+  .stats{ display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:1px; background:var(--border); border:1px solid var(--border); border-radius:10px; overflow:hidden; margin:28px 0 4px; }
+  .stat{ background:var(--surface); padding:16px 16px 15px; }
+  .stat .n{ font-family:'Archivo', sans-serif; font-weight:800; font-size:26px; line-height:1; color:var(--text); }
+  .stat .n.active{color:var(--active);}
+  .stat .n.dead{color:var(--dead);}
+  .stat .n.resolved{color:var(--resolved);}
+  .stat .l{ margin-top:6px; font-size:12px; color:var(--text-faint); letter-spacing:0.02em; }
+
+  section{ margin-top:52px; }
+  .section-head{ display:flex; align-items:baseline; gap:12px; margin-bottom:6px; }
+  .section-num{ font-family:'IBM Plex Mono', monospace; font-size:13px; color:var(--text-faint); }
+  h2{ font-family:'Archivo', sans-serif; font-weight:700; font-size:22px; letter-spacing:-0.005em; margin:0; color:var(--text); }
+  .section-note{ color:var(--text-muted); font-size:15px; max-width:74ch; margin:10px 0 22px; }
+  .section-note code{ background:var(--surface-2); border:1px solid var(--border); border-radius:4px; padding:1px 5px; font-size:0.9em; }
+
+  .finding{ background:var(--surface); border:1px solid var(--border); border-left:4px solid var(--moot); border-radius:8px; padding:18px 20px 20px; margin-bottom:14px; box-shadow:var(--shadow); }
+  .finding.active{ border-left-color:var(--active); }
+  .finding.dead{ border-left-color:var(--dead); }
+  .finding.resolved{ border-left-color:var(--resolved); }
+  .finding.clean{ border-left-color:var(--accent); }
+
+  .finding-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:8px; }
+  .finding-title{ font-family:'Archivo', sans-serif; font-weight:700; font-size:16.5px; color:var(--text); margin:0; }
+  .badge{ display:inline-flex; align-items:center; gap:5px; font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.04em; text-transform:uppercase; padding:3px 8px; border-radius:999px; white-space:nowrap; font-weight:600; }
+  .badge.active{ background:var(--active-soft); color:var(--active); }
+  .badge.dead{ background:var(--dead-soft); color:var(--dead); }
+  .badge.resolved{ background:var(--resolved-soft); color:var(--resolved); }
+  .badge.moot{ background:var(--moot-soft); color:var(--moot); }
+  .badge.clean{ background:var(--accent-soft); color:var(--accent-strong); }
+
+  .loc{ display:block; font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--text-faint); margin-bottom:10px; }
+  .finding p{ margin:0 0 10px; color:var(--text); font-size:15px; }
+  .finding p:last-child{ margin-bottom:0; }
+  .finding .scenario{ background:var(--surface-2); border:1px solid var(--border); border-radius:6px; padding:10px 13px; font-size:14px; color:var(--text-muted); }
+  .finding .scenario b{ color:var(--text); font-weight:600; }
+  .finding .quote{ font-size:13.5px; color:var(--text-faint); border-left:2px solid var(--border); padding-left:10px; font-style:italic; margin:0 0 10px; }
+
+  .status-list{ display:flex; flex-direction:column; gap:1px; background:var(--border); border:1px solid var(--border); border-radius:8px; overflow:hidden; }
+  .status-row{ background:var(--surface); padding:13px 16px; display:flex; gap:14px; align-items:flex-start; }
+  .status-row .badge{ margin-top:2px; flex-shrink:0; }
+  .status-row .body b{ color:var(--text); }
+  .status-row .body{ color:var(--text-muted); font-size:14.5px; }
+
+  .cmp-table{ width:100%; border-collapse:collapse; font-size:14px; }
+  .cmp-table th{ text-align:left; font-family:'IBM Plex Mono', monospace; font-size:11px; letter-spacing:0.05em; text-transform:uppercase; color:var(--text-faint); padding:0 12px 8px; border-bottom:1px solid var(--border-strong); }
+  .cmp-table td{ padding:11px 12px; border-bottom:1px solid var(--border); color:var(--text-muted); vertical-align:top; }
+  .cmp-table td:first-child{ color:var(--text); font-weight:600; }
+  .cmp-table tr:last-child td{ border-bottom:none; }
+  .table-wrap{ overflow-x:auto; border:1px solid var(--border); border-radius:8px; background:var(--surface); box-shadow:var(--shadow); margin-bottom:14px; }
+
+  footer{ margin-top:64px; padding-top:20px; border-top:1px solid var(--border); font-size:12.5px; color:var(--text-faint); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow"><span class="dot"></span>Rà soát nội bộ · Toàn hệ thống</div>
+    <h1>Quét mock dữ liệu toàn hệ thống</h1>
+    <p class="dek">Rà lại từ đầu toàn bộ <code>D:\DNA-ERP</code> (frontend) và <code>D:\DNA-ERP-BE</code> (backend) bằng 2 lượt đọc độc lập song song, sau đó xác minh lại thủ công từng phát hiện bằng grep repo-wide để phân biệt "còn ai gọi thật" với "chỉ còn cái tên mock". Mọi kết luận dưới đây đã đọc trực tiếp code hiện tại, không suy diễn từ comment cũ (nhiều comment mock trong repo này đã lỗi thời).</p>
+    <div class="meta-row">
+      <span><b>Ngày chốt:</b> 18/09/2026</span>
+      <span><b>Phạm vi:</b> D:\DNA-ERP · D:\DNA-ERP-BE</span>
+      <span><b>Phương pháp:</b> 2 subagent đọc độc lập + xác minh chéo bằng grep call-site repo-wide</span>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="n active">2</div><div class="l">Màn hình thật đang chạy mock (chủ ý)</div></div>
+      <div class="stat"><div class="n dead">7</div><div class="l">Hàm/khối mock chết — 0 nơi gọi</div></div>
+      <div class="stat"><div class="n">2</div><div class="l">Trang orphan (không trong menu)</div></div>
+      <div class="stat"><div class="n resolved">7</div><div class="l">Đã tự giải quyết từ báo cáo 14/08</div></div>
+    </div>
+
+    <div class="finding resolved" style="margin-top:20px;">
+      <div class="finding-top"><h3 class="finding-title">Cập nhật cùng ngày — đã dọn toàn bộ mục 03 &amp; 04</h3><span class="badge resolved">Đã dọn</span></div>
+      <p>Sau khi báo cáo này được đọc, 7 hàm/khối mock chết (mục 03) và trang orphan <code class="mono">/phantich</code> (mục 04) đã được xoá khỏi repo trong cùng phiên: <code class="mono">mfg.service.ts</code>, <code class="mono">manh.service.ts</code>, <code class="mono">notifications.service.ts</code>, <code class="mono">phoi-sat.service.ts</code> xoá hẳn file; <code class="mono">mockPieces</code>/<code class="mono">mockTotalQty</code>, <code class="mono">hanSeed()</code>, <code class="mono">PhoiScreen</code>+<code class="mono">ConfirmCell</code>/<code class="mono">ConfirmMini</code>, nhánh <code class="mono">seed</code> của <code class="mono">KcsTwoTierScreen</code> xoá khỏi component đang sống. Đã chạy <code class="mono">tsc --noEmit</code> + <code class="mono">eslint</code> trên toàn bộ file bị đổi — 0 lỗi mới. <b style="color:var(--text)"><code class="mono">/demo-ton-kho</code> theo yêu cầu người dùng được GIỮ LẠI</b> (đã khôi phục ngay sau khi xoá thử) — vẫn là route orphan, không link từ nav, nhưng chủ ý giữ. 2 màn hình mục 02 (Nhật ký hoạt động, Tình trạng hệ thống) cũng giữ nguyên — vẫn chủ ý theo thiết kế, không thuộc diện dọn.</p>
+    </div>
+  </header>
+
+  <section>
+    <div class="section-head"><span class="section-num">00</span><h2>Kết luận chính</h2></div>
+    <div class="status-list">
+      <div class="status-row">
+        <span class="badge clean">BE sạch</span>
+        <div class="body"><b>Backend không có endpoint thật nào trả dữ liệu giả.</b> Toàn bộ 37 module dưới <code class="mono">src/modules</code> đều truy vấn Prisma/tích hợp thật (Cloudinary, solver cắt sắt qua circuit-breaker). Không có <code class="mono">Math.random()</code>, không <code class="mono">faker</code>, không <code class="mono">NotImplementedException</code>, không <code class="mono">TODO</code> trong toàn bộ <code class="mono">src/</code>. Gap duy nhất là 1 enum schema-only đã biết từ trước (mục 03).</div>
+      </div>
+      <div class="status-row">
+        <span class="badge active">FE — 2 màn hình</span>
+        <div class="body"><b>Chỉ còn đúng 2 màn hình thật của người dùng chạy trên dữ liệu mock:</b> "Nhật ký hoạt động" và "Tình trạng hệ thống" (Admin). Cả hai đều <b>chủ ý theo thiết kế</b> — code tự khai rõ lý do, không phải thiếu sót đang chờ nối API (mục 02).</div>
+      </div>
+      <div class="status-row">
+        <span class="badge dead">FE — dọn dẹp</span>
+        <div class="body">7 hàm/khối mock khác về mặt kỹ thuật vẫn "sống" trong tầng <code class="mono">lib/mock</code> (không bị hàm thật cùng tên che) nhưng <b>xác nhận 0 nơi gọi tới</b> qua grep repo-wide — không ảnh hưởng người dùng thật, chỉ là rác nên dọn (mục 04).</div>
+      </div>
+      <div class="status-row">
+        <span class="badge resolved">Tin tốt</span>
+        <div class="body">So với báo cáo <code class="mono">audit-2026-08-14-mock-data-ui.html</code> (10 khu vực còn mock, 7 "cần nối API"), <b>7/7 khu vực "cần nối API" đó nay đã có backend thật</b> — không phải nhờ đợt quét này, mà do các cutover khác đã âm thầm dọn xong trong 5 tuần qua (mục 05).</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">01</span><h2>Backend — không có mock thật</h2></div>
+    <p class="section-note">Grep case-insensitive toàn <code>D:\DNA-ERP-BE\src</code> (trừ <code>src/generated/prisma</code> và <code>*.spec.ts</code>) theo <code>mock|fake|dummy|hardcod|placeholder|Math.random()|not implemented|NotImplementedException|stub|TODO|faker</code> — 45 lượt trúng, đọc từng cái. Không có lượt nào là dữ liệu giả phục vụ người dùng thật; toàn bộ là 1 trong 3 nhóm dưới.</p>
+
+    <div class="finding clean">
+      <div class="finding-top"><h3 class="finding-title">Gap đã biết — <code>PurchaseProposalSource.MATERIAL_INSPECTION</code> schema-only</h3><span class="badge clean">Không phải mock</span></div>
+      <span class="loc mono">src/generated/prisma/enums.ts:242 · purchase-proposals.service.ts (không nơi nào tạo proposal với source này)</span>
+      <p>Enum khai báo nhưng không module/service/controller nào tạo <code>PurchaseProposal</code> với <code>sourceType = MATERIAL_INSPECTION</code> — chỉ <code>CUTTING_PROPOSAL</code>, <code>PIECE_MATERIAL_YIELD</code>, <code>CONSUMABLE_MATERIAL</code> có code thật. Đây là <b>khoảng trống chưa cài đặt</b>, không phải chỗ trả dữ liệu giả — đã ghi nhận từ đợt audit trước (xem <code>project_purchase_proposal_sources.md</code>), lần quét này xác nhận lại vẫn đúng, không có gì mới.</p>
+    </div>
+
+    <div class="finding clean">
+      <div class="finding-top"><h3 class="finding-title">Toàn bộ hit "mock/hardcode/placeholder" khác đều vô hại</h3><span class="badge clean">False positive</span></div>
+      <p>3 nhóm, không nhóm nào là dữ liệu giả phục vụ request thật:</p>
+      <p>① <b>"mock" = tên lịch sử của bản FE-only prototype đã bị thay thế</b> — hàng chục comment kiểu "mirror lại logic trong mock cũ", "thay MOCK" rải trong <code>role-permissions.constant.ts</code>, <code>production-invoices.service.ts</code>, <code>skus.service.ts</code>, <code>qc-reviews.service.ts</code>, <code>sales-orders.service.ts</code>, <code>steel-issues.service.ts</code>, <code>weaving-issues.service.ts</code>, <code>material-issues.service.ts</code>, <code>packaging-issues.service.ts</code>, <code>production-batches.service.ts</code> v.v. — tất cả đều mô tả việc method Prisma thật này thay thế mock cũ, không phải mock đang chạy.</p>
+      <p>② <b>"hardcode" = hằng số nghiệp vụ hợp lệ, không phải data trả về</b> — ví dụ <code>STEEL_WAREHOUSE_CODE = 'phoi-son-han'</code> (steel-issues.service.ts:72-73), <code>PROTECTED_WAREHOUSE_CODES</code> (warehouses.service.ts:25); một số comment khác còn đang mô tả việc <i>gỡ bỏ</i> hardcode cũ.</p>
+      <p>③ <b>"placeholder" = giá trị DB tạm thời, bị ghi đè ngay</b> — <code>sales-orders.service.ts:25,47,57</code>: <code>placeholderCode = 'PO-TMP-' + randomUUID()</code> chỉ tồn tại vài dòng code để thoả unique constraint lúc INSERT, được update thành mã thật <code>PO-{id}</code> ngay sau (dòng 85) — không consumer nào thấy giá trị tạm này.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">02</span><h2>Frontend — màn hình thật đang chạy trên mock</h2></div>
+    <p class="section-note">Xác định bằng cách đọc <code>src/services/api.ts</code> (facade): dòng 85 <code>export * from '../lib/mock/services'</code> rồi các dòng 86-152 <code>export {...} from './*-api.ts'</code> thật ghi đè theo tên. Hàm mock nào <b>không</b> bị trùng tên ghi đè là hàm còn "sống" theo nghĩa kỹ thuật — nhưng chỉ tính là "màn hình thật đang mock" nếu còn ít nhất 1 trang trong navigation thật gọi tới nó.</p>
+
+    <div class="finding active">
+      <div class="finding-top"><h3 class="finding-title">Nhật ký hoạt động (Admin)</h3><span class="badge active">Đang chạy mock — chủ ý</span></div>
+      <span class="loc mono">src/context/AuditLogContext.tsx:4,91,111 · src/lib/mock/services/audit-log.service.ts · src/modules/pages/Admin/AuditLogPage.tsx:5,30 · widget ở DashboardPage.tsx:4,26</span>
+      <p>Mọi log hoạt động nghiệp vụ (duyệt SKU, chuyển trạng thái PurchaseProposal, duyệt KCS, quản lý user...) qua <code>AUDIT_ACTIONS</code> (AuditLogContext.tsx:12-67) được ghi/đọc từ <code>mockStore</code> trong <b>localStorage trình duyệt</b>, không phải bảng nào ở BE. Reachable thật: <code>AdminApp.tsx:27</code> (nav <code>audit-log</code>, <code>enabled: true</code>) và widget ở Dashboard Admin.</p>
+      <p class="quote">services/api.ts:42-46 tự giải thích: BE có bảng <code>audit_logs</code> thật (Prisma extension tự diff theo field), nhưng đó là khái niệm khác hẳn log ngữ nghĩa tự viết tay này — cutover "ngoài phạm vi" đã ghi rõ, không phải bug bị bỏ quên.</p>
+      <p><b>Đừng nhầm với:</b> <code>src/components/PurchaseProposalAuditTrail.tsx</code> (tab "Hoạt động" trên từng PurchaseProposal) — đây là component khác, dùng <code>audit-log-api.ts</code> thật (<code>GET /audit-logs</code>), không liên quan gì tới <code>AuditLogContext</code>/<code>AuditLogPage</code> ở trên.</p>
+    </div>
+
+    <div class="finding active">
+      <div class="finding-top"><h3 class="finding-title">Tình trạng hệ thống (Admin)</h3><span class="badge active">Đang chạy mock — chủ ý, tự khai báo</span></div>
+      <span class="loc mono">src/modules/pages/Admin/SystemStatusPage.tsx:6,17,31,48 · src/lib/mock/services/system.service.ts (getSystemStats/resetSystemData)</span>
+      <p>Đếm số bản ghi / dung lượng byte của <code>mockStore</code> trong localStorage, kèm nút "reset dữ liệu demo". Reachable thật: <code>AdminApp.tsx:33</code> (nav <code>system-status</code>, <code>enabled: true</code>) → render tại dòng 111. Trang tự hiển thị cho người dùng dòng chữ (page.tsx:48): <i>"Toàn bộ dữ liệu là mock lưu trong trình duyệt (localStorage) — không có backend thật nên không có nhật ký lỗi server"</i> — nên đây không phải trường hợp người dùng bị đánh lừa, chỉ là 1 trang debug nội bộ chưa đáng xây BE riêng.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">03</span><h2>Frontend — mock chết (0 nơi gọi, nên dọn)</h2></div>
+    <p class="section-note">Các hàm này vẫn xuất từ <code>lib/mock/services</code> và không bị hàm thật cùng tên ghi đè trong <code>api.ts</code> — nhưng grep <code>\.tênHàm\(</code> repo-wide xác nhận <b>0 call site</b> ở bất kỳ trang/component nào. Không ảnh hưởng người dùng thật; đáng dọn vì comment đi kèm nhiều chỗ đã lỗi thời (tự nhận "vẫn dùng bởi trang X" nhưng trang X đã đổi sang API thật từ lâu).</p>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title"><code>uploadContractFile</code>, <code>getMfgWarehouses</code>, <code>getMfgWarehouseItems</code></h3><span class="badge dead">0 call site</span></div>
+      <span class="loc mono">src/lib/mock/services/mfg.service.ts:45-51</span>
+      <p>Comment tại chỗ (dòng 10-13, 43-44) và cả comment tổng trong <code>services/api.ts:76</code> đều khẳng định "vẫn dùng thật cho VatTuDashboardPage, kcsCore.tsx" — <b>không còn đúng</b>: <code>VatTuDashboardPage.tsx</code> (rebuild 14/09) chỉ gọi <code>api.getWarehouses/getMaterials/getStockQuants</code> (đều thật); grep <code>uploadContractFile</code>/<code>getMfgWarehouses(</code>/<code>getMfgWarehouseItems</code> toàn repo không ra thêm kết quả nào khác ngoài định nghĩa. <code>kcsCore.tsx</code> hiện dùng <code>uploadImage</code>/<code>uploadDocument</code> thật (Cloudinary) thay vì hàm mock này.</p>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title"><code>getManhOrders</code></h3><span class="badge dead">0 call site</span></div>
+      <span class="loc mono">src/lib/mock/services/manh.service.ts:6,10</span>
+      <p>Comment tự nhận "dùng bởi VatTuDashboardPage.tsx để tra tồn theo mảnh" — cũng lỗi thời cùng lý do trên, trang đó không còn gọi hàm này.</p>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title"><code>getDotXuatSat</code> + <code>PhoiScreen</code></h3><span class="badge dead">Orchestrator không ai import</span></div>
+      <span class="loc mono">src/lib/mock/services/phoi-sat.service.ts · src/components/sanxuat/core.tsx:942 (PhoiScreen), 949 (gọi getDotXuatSat), header comment dòng 10 "ĐANG DÙNG DATA MOCK" (lỗi thời)</span>
+      <p><code>getDotXuatSat</code> chỉ có đúng 1 call site — bên trong <code>PhoiScreen</code>. Nhưng <code>PhoiScreen</code> tự nó <b>không được import ở đâu khác trong repo</b> (xác nhận qua grep) — orchestrator còn dùng thật là <code>TwoTierScreen</code> (core.tsx:1053, dùng cho Hàn/Sơn qua <code>fetchHanSonRows()</code> thật). Dữ liệu Phôi thật hiện qua <code>KhoPhoiPage.tsx</code> (đọc <code>api.getStockQuants()</code>) chứ không qua orchestrator này.</p>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title"><code>updateNotification</code>, <code>deleteNotification</code></h3><span class="badge dead">0 call site</span></div>
+      <span class="loc mono">src/lib/mock/services/notifications.service.ts</span>
+      <p>Khớp với chính comment trong <code>services/api.ts:42-44</code>: BE thật chỉ có list/create, nên <code>NotificationsPage</code> "bỏ hẳn nút sửa/xóa" — 2 hàm mock này còn export nhưng không còn UI nào gọi tới.</p>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title"><code>mockPieces</code>, <code>mockTotalQty</code> (chuyen-kiem-fixtures.ts)</h3><span class="badge dead">Chỉ còn type được mượn</span></div>
+      <span class="loc mono">src/lib/mock/chuyen-kiem-fixtures.ts:20-44</span>
+      <p>Sinh số lượng "mảnh"/"chờ thực thi" giả bằng hash mã SKU (<code>strHash</code>) — 2 hàm này không được gọi ở đâu. <code>ThongKePagePlan.tsx:15,57</code> chỉ mượn <i>type</i> <code>MockPiece</code>, còn data thật dựng từ <code>buildChuyenKiem(transferCheckPieces)</code> (dòng 261,296) với <code>BeTransferCheckPiece[]</code> thật. Tên file dễ gây hiểu lầm nếu ai đó vô tình import lại 2 hàm này trong tương lai.</p>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title"><code>hanSeed()</code></h3><span class="badge dead">0 call site, comment sai</span></div>
+      <span class="loc mono">src/modules/pages/Han/LenhSanXuatHan.tsx:13-15 (comment), 16-58 (hàm)</span>
+      <p>3 PO giả hardcode cứng (PO-2026-001/002/003) với thông số sắt giả. Comment đầu file khẳng định "KhoPhoiPage.tsx vẫn dùng seed này" — <b>sai</b>: đọc toàn bộ <code>KhoPhoiPage.tsx</code> xác nhận nó chỉ dùng <code>api.getStockQuants()</code> thật (dòng 81). Bản thân trang <code>LenhSanXuatHan.tsx</code> (dòng 61) gọi <code>TwoTierScreen</code> không truyền <code>seed</code> nên tự fetch dữ liệu thật.</p>
+    </div>
+
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">Nhánh mock của <code>KcsTwoTierScreen</code></h3><span class="badge dead">Nhánh chết trong component còn sống</span></div>
+      <span class="loc mono">src/components/sanxuat/kcsCore.tsx:7 (comment lỗi thời), 332 (KcsTwoTierScreen)</span>
+      <p>Component còn đúng 1 caller — <code>KcsStagePage.tsx:219</code> — luôn truyền <code>rows</code>+<code>onReview</code> thật (nhánh "controlled"). Nhánh <code>seed</code> (mock) trong cùng component không có nơi nào kích hoạt.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">04</span><h2>Trang orphan — không có trong navigation</h2></div>
+    <div class="finding moot">
+      <div class="finding-top"><h3 class="finding-title">/demo-ton-kho</h3><span class="badge moot">Orphan route — chủ ý giữ lại</span></div>
+      <span class="loc mono">src/app/demo-ton-kho/page.tsx</span>
+      <p>Mô phỏng đầy đủ "Giữ chỗ → Mua hàng → Nhập kho → Sản xuất" hoàn toàn bằng <code>useState</code> nội bộ (<code>seedMaterials()</code>, <code>PRODUCTS</code>, <code>SUPPLIERS</code> hardcode) — file tự khai "Hoàn toàn FE/mock — không gọi backend" (dòng 6). Next.js App Router tự tạo route cho mọi <code>page.tsx</code>, nên URL vẫn truy cập được, nhưng grep repo-wide xác nhận không có nav/menu/route-config nào trỏ tới <code>demo-ton-kho</code>. Không đổi so với báo cáo 14/08. <b style="color:var(--text)">Người dùng yêu cầu giữ lại (18/09)</b> — không xoá, dù vẫn orphan.</p>
+    </div>
+    <div class="finding dead">
+      <div class="finding-top"><h3 class="finding-title">/phantich</h3><span class="badge dead">Orphan route — báo cáo tĩnh đông cứng</span></div>
+      <span class="loc mono">src/app/phantich/page.tsx</span>
+      <p>Đây không phải "mock" theo nghĩa thường — là 1 trang React server component chứa mảng <code>FindingItem[]</code> hardcode, tự ghi "tính đến 2026-08-17". Không nav nào trỏ tới. <b>Ít nhất 1 phát hiện của chính nó đã lỗi thời:</b> mục C1 (dòng 37-44) nói <code>WarehouseXuatPage.tsx</code> vẫn khởi tạo từ hằng số MOCK — nhưng code hiện tại của trang đó đã hoàn toàn thật (xem mục 05). Nên xem trang này như 1 snapshot lịch sử đông cứng, không phải nguồn thật hiện tại.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="section-num">05</span><h2>Đối chiếu báo cáo 14/08/2026 — 7/7 gap đã tự giải quyết</h2></div>
+    <p class="section-note">Báo cáo <code>audit-2026-08-14-mock-data-ui.html</code> liệt kê 10 khu vực còn mock: 7 "cần nối API", 3 "chủ ý/phụ". Đọc lại code hiện tại (18/09), toàn bộ 7 mục "cần nối API" đã có backend thật — không phải do đợt quét này sửa, mà do các cutover độc lập khác đã dọn dần trong 5 tuần qua. Chỉ 3 mục "chủ ý/phụ" gốc là còn nguyên (2 màn hình mục 02 + trang demo mục 04).</p>
+    <div class="table-wrap">
+      <table class="cmp-table">
+        <thead><tr><th>Khu vực (báo cáo 14/08)</th><th>Trạng thái hôm nay</th></tr></thead>
+        <tbody>
+          <tr><td>Bảng thống kê KHSX — 4 công đoạn (genExecutionStages hash giả)</td><td>Đã thật — chuyển sang 5 API batch mới (transfer-check/weaving/packaging), ship 2026-08-31</td></tr>
+          <tr><td>Danh sách định mức mảnh (mảng <code>DATA</code> hardcode)</td><td>Đã thật — đọc <code>Sku.manhData</code>/<code>quotaManagement</code> qua <code>api.getSkus()</code></td></tr>
+          <tr><td>Quản lý điểm đan — phân bổ/nhận đan</td><td>Đã thật — <code>weaving-issues-api.getWeavingByPoint()</code>, thêm 2026-08-19</td></tr>
+          <tr><td>Xuất kho — Tổng kho (mockStock + MOCK_HISTORY 8 dòng cứng)</td><td>Đã xoá hẳn file <code>XuatKhoPage.tsx</code> — dead code thật, xoá 2026-08-28</td></tr>
+          <tr><td>Xuất kho theo kho cụ thể (3 scope MOCK hardcode)</td><td>Đã thật toàn bộ — <code>pieceItemsToOrders</code>/<code>packagingItemsToOrders</code>/<code>salesOrdersToOrders</code> từ API thật</td></tr>
+          <tr><td>Vật tư Dashboard (MOCK_VAT_TU_THANH_PHAM, MOCK_THANH_PHAM)</td><td>Đã thật — <code>VatTuDashboardPage.tsx</code> làm lại 2026-09-14, chỉ còn gọi <code>getWarehouses/getMaterials/getStockQuants</code></td></tr>
+          <tr><td>Danh mục hệ thống — Mục đích xuất (CRUD mock toàn bộ)</td><td>Đã xoá hẳn khỏi Admin — 2026-08-19, không còn cả trang lẫn service</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    Đợt quét 18/09/2026 — 2 subagent đọc song song FE/BE, sau đó tự xác minh lại thủ công bằng grep call-site repo-wide cho từng hàm mock được cho là "còn dùng" trước khi đưa vào báo cáo. Danh sách 20 file bị flag bởi từ khoá <code class="mono">mock</code> nhưng xác nhận KHÔNG phải vấn đề (comment lịch sử "thay mock cũ", type mượn tên, so sánh với thiết kế cũ...): <code class="mono">types/admin.ts</code>, <code class="mono">InspectionContext.tsx</code>, <code class="mono">WarehouseXuatPage.tsx</code>, <code class="mono">KcsStagePage.tsx</code>, <code class="mono">AttachmentsPage.tsx</code>, <code class="mono">PhoiDinhMucManhPage.tsx</code>, <code class="mono">XuatSatPage.tsx</code>, <code class="mono">KhoPhoiPage.tsx</code>, <code class="mono">ThongKePagePlan.tsx</code>, <code class="mono">QuanLyDiemDanPage.tsx</code>, <code class="mono">XacNhanVatTuPage.tsx</code>, <code class="mono">PurchaseProposalAuditTrail.tsx</code>, <code class="mono">WeavingPointsPage.tsx</code>, <code class="mono">types/admin.ts</code>.
+  </footer>
+</div>
+</body>
+</html>

@@ -1,10 +1,11 @@
 'use client'
 
 /**
- * CORE dùng chung cho màn KCS duyệt (Phôi / Hàn / Sơn, đều 2 tầng: PO → Vật liệu) — chỉ xem + duyệt, không nhập sản lượng.
- * Phôi chưa có "mảnh" (mảnh chỉ hình thành từ công đoạn Hàn trở đi) nên dùng chung orchestrator 2 tầng với Hàn/Sơn.
+ * CORE dùng chung cho màn KCS duyệt Hàn/Sơn (2 tầng: PO → Vật liệu) — chỉ xem + duyệt, không nhập
+ * sản lượng. Phôi có màn KCS riêng (KcsPhoiPage.tsx, viết lại hoàn toàn 2026-08-24), không dùng
+ * component này nữa.
  * Tái dùng types/helpers/orchestrator-shell từ `core.tsx`; thêm "chờ kiểm" + duyệt đạt/không đạt (số lượng + nguyên nhân + ảnh).
- * ĐANG DÙNG DATA MOCK (state nội bộ) — chưa nối backend, giống các màn Lệnh sản xuất khác.
+ * KcsStagePage.tsx là caller duy nhất, luôn gọi qua API thật (production-batches-api.ts).
  */
 
 import { useEffect, useRef, useState, type ReactNode } from 'react'
@@ -326,23 +327,18 @@ function KcsPoListBoard({ rows, cfg, onEnter }: { rows: KcsRow[]; cfg: StageCfg;
 }
 
 // ── Orchestrator: KCS Phôi/Hàn/Sơn (2 tầng) ─────────────────────────
-// 2 chế độ:
-//  - Mock cục bộ: truyền `seed` (Hàn/Sơn hiện tại — chưa nối store).
-//  - Controlled:  truyền `rows` + `onReview` (Phôi — đọc/ghi phoi-sat.service thật).
-export function KcsTwoTierScreen({ cfg, seed, rows: rowsProp, onReview, onEditPhoto, onDeletePhoto }: {
+// Controlled: caller truyền `rows` + `onReview` (đọc/ghi API thật) — nhánh mock cục bộ
+// (seed/localRows) đã xoá 2026-09-18 vì KcsStagePage.tsx là caller duy nhất và luôn truyền cả
+// hai (KcsPhoiPage.tsx viết lại riêng, không dùng component này).
+export function KcsTwoTierScreen({ cfg, rows, onReview, onEditPhoto, onDeletePhoto }: {
   cfg: StageCfg
-  seed?: () => KcsRow[]
-  rows?: KcsRow[]
-  onReview?: (poId: number, lineId: number, p: ReviewPayload) => Promise<void>
+  rows: KcsRow[]
+  onReview: (poId: number, lineId: number, p: ReviewPayload) => Promise<void>
   /** Sửa/xóa ảnh lỗi 1 review ĐÃ CHẤM (2026-09-11 lần 2, theo Sếp: "cho người nhập được sửa
-   *  luôn") - xem AuditLogTimeline.EditPhotoActions. Chỉ có tác dụng ở nhánh controlled (Phôi/Hàn/
-   *  Sơn/VTTP thật) - nhánh mock (seed) không có QcReview thật để sửa. */
+   *  luôn") - xem AuditLogTimeline.EditPhotoActions. */
   onEditPhoto?: (entry: AuditLogEntry, file: File) => void | Promise<void>
   onDeletePhoto?: (entry: AuditLogEntry) => void | Promise<void>
 }) {
-  const controlled = !!onReview
-  const [localRows, setLocalRows] = useState<KcsRow[]>(() => seed ? seed() : [])
-  const rows = rowsProp ?? localRows
   const [selPoId, setSelPoId] = useState<number | null>(null)
   const selPo = rows.find(r => r.id === selPoId) ?? null
 
@@ -355,13 +351,13 @@ export function KcsTwoTierScreen({ cfg, seed, rows: rowsProp, onReview, onEditPh
     toastTimer.current = window.setTimeout(() => setToast(null), 5000)
   }
 
-  // 2026-09-11 (QA audit): PHẢI await xong onReview (controlled/thật) trước khi báo "đã duyệt" -
-  // trước đây hiện toast NGAY rồi mới gọi onReview không await (fire-and-forget), nên khi BE từ
-  // chối (vd PI đã "Kết thúc"/"Tạm dừng"), toast xanh "đã duyệt" đã hiện xong xuôi trước khi alert
-  // lỗi xuất hiện vài trăm ms sau - mâu thuẫn, và modal (KcsReviewModal) đã đóng luôn nên mất hết dữ
-  // liệu vừa nhập. Giờ review() chờ xong (hoặc ném lại lỗi cho modal tự hiện inline) rồi mới toast.
+  // 2026-09-11 (QA audit): PHẢI await xong onReview trước khi báo "đã duyệt" - trước đây hiện
+  // toast NGAY rồi mới gọi onReview không await (fire-and-forget), nên khi BE từ chối (vd PI đã
+  // "Kết thúc"/"Tạm dừng"), toast xanh "đã duyệt" đã hiện xong xuôi trước khi alert lỗi xuất hiện
+  // vài trăm ms sau - mâu thuẫn, và modal (KcsReviewModal) đã đóng luôn nên mất hết dữ liệu vừa
+  // nhập. Giờ review() chờ xong (hoặc ném lại lỗi cho modal tự hiện inline) rồi mới toast.
   const review = async (poId: number, lineId: number, p: ReviewPayload) => {
-    if (controlled) { await onReview!(poId, lineId, p) }
+    await onReview(poId, lineId, p)
     const line = rows.flatMap(r => r.lines ?? []).find(l => l.id === lineId)
     if (line) {
       const failed = Math.min(line.pendingQty, p.failedQty)
@@ -370,14 +366,6 @@ export function KcsTwoTierScreen({ cfg, seed, rows: rowsProp, onReview, onEditPh
       if (failed > 0) parts.push(`${fmt(failed)} không đạt`)
       showToast(`Đã duyệt ${line.itemName}: ${parts.join(' · ')}`)
     }
-    if (controlled) return
-    setLocalRows(rs => rs.map(r => r.id !== poId ? r : {
-      ...r, lines: r.lines?.map(l => l.id !== lineId ? l : {
-        ...l, pendingQty: 0, failedQty: (l.failedQty ?? 0) + p.failedQty,
-        defectReason: p.defectReasonId ? String(p.defectReasonId) : l.defectReason,
-        reviewNote: p.reviewNote ?? l.reviewNote, defectPhotoUrl: p.defectPhotoUrl ?? l.defectPhotoUrl,
-      }),
-    }))
   }
 
   const toastEl = toast && (

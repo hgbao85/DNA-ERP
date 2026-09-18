@@ -70,17 +70,21 @@
  * Thực thi Phôi/Hàn/Sơn/KCS thật (xuất/nhận sắt, KCS, báo sản lượng) đã cutover hết sang
  * steel-issues-api.ts + production-batches-api.ts (XuatSatPage/LenhSanXuatPhoi/KcsPhoiPage/
  * XacNhanSanLuongPage/KcsStagePage/sanxuat core.tsx) - dọn ngày 2026-08-14, xoá luôn
- * phoi-lenh-sx.service.ts (không còn ai đọc `phoiRows`). phoi-sat.service.ts/san-luong.service.ts
- * chỉ còn giữ vài hàm ĐỌC dùng cho các màn tổng hợp tồn kho (getDotXuatSat, getDoanTonKho,
- * getSanLuongByStage — dùng bởi sanxuat/core.tsx và KhoPhoiPage.tsx). mfg.service.ts vốn chỉ còn
- * giữ vài hàm còn dùng thật (getMfgWarehouses/Items cho VatTuDashboardPage, uploadContractFile);
- * phần machinery PI-stages/packaging/weaving-allocation/
- * spec-entry-proposal cũ trong đó là code chết (không trang nào gọi) đã dọn ngày 2026-08-07.
- * "Mục đích xuất" (export-purposes) đã xoá hẳn khỏi Admin ngày 2026-08-19 — không có form/trang
- * nào khác đọc danh mục này (rà toàn repo xác nhận), không đáng xây BE cho danh mục chết.
- * Phân bổ đan, đề xuất mua hàng, notifications CRUD, audit log, system stats, stock-ledger/
- * stock-quant (Phase 3 xây rồi nhưng chưa có trang FE nào đọc)... vẫn chạy mock hoặc chưa có
- * adapter cho tới khi cần.
+ * phoi-lenh-sx.service.ts (không còn ai đọc `phoiRows`). "Mục đích xuất" (export-purposes) đã xoá
+ * hẳn khỏi Admin ngày 2026-08-19 — không có form/trang nào khác đọc danh mục này, không đáng xây
+ * BE cho danh mục chết.
+ *
+ * Đợt dọn dead-code mock 2026-09-18 (quét mock toàn hệ thống, xem
+ * docs/audit-2026-09-18-quet-mock-toan-he-thong.html): xoá hẳn mfg.service.ts (uploadContractFile/
+ * getMfgWarehouses/getMfgWarehouseItems — 0 trang nào còn gọi, VatTuDashboardPage đã đổi sang
+ * getWarehouses/getMaterials/getStockQuants thật từ đợt rebuild 2026-09-14), manh.service.ts
+ * (getManhOrders — cùng lý do), notifications.service.ts (updateNotification/deleteNotification —
+ * UI đã bỏ nút sửa/xóa từ trước), phoi-sat.service.ts (getDotXuatSat — chỉ được gọi bởi
+ * PhoiScreen, orchestrator 3 tầng mock cũ trong sanxuat/core.tsx mà bản thân nó cũng không còn
+ * trang nào import, đã xoá cùng đợt). Còn lại đúng 2 màn hình thật vẫn chủ ý chạy mock — audit log
+ * (AuditLogContext.tsx, khác hẳn bảng audit_logs tự động của BE) và system stats
+ * (SystemStatusPage.tsx, tự khai báo với người dùng là dữ liệu mock localStorage) — xem báo cáo
+ * trên để biết lý do giữ nguyên.
  */
 export * from '../lib/mock/services';
 export { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive } from './users-api';
