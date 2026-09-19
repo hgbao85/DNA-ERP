@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
-import { format, formatDistanceToNow } from 'date-fns'
-import { vi } from 'date-fns/locale'
+import { format } from 'date-fns'
 import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Factory, PackageCheck, Search, ShoppingCart, Wrench, type LucideIcon } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import { useAuth } from '../../../context/AuthContext'
@@ -9,13 +8,13 @@ import * as api from '../../../services/api'
 import { useInspection, type PurchaseProposal } from '../../../context/InspectionContext'
 import type { Sku } from '../../../types/sku'
 import LenhSanXuatBoard, { type BoardColumn } from '../../../components/sanxuat/LenhSanXuatBoard'
-import { VatTuDetailBoard, PHOI_CFG, HAN_CFG, SON_CFG, perSku, lechOf, type ProcManh, type ProcLine, type StageCfg } from '../../../components/sanxuat/core'
+import { VatTuDetailBoard, PHOI_CFG, HAN_CFG, SON_CFG, VAT_TU_TP_CFG, lechOf, type ProcLine, type StageCfg } from '../../../components/sanxuat/core'
 import type { ManhLine } from '../../../types/manh'
 import ManhSkuDetail from '../InboundWarehouse/ManhSkuDetail'
 import type { MockPiece } from '../../../lib/mock/chuyen-kiem-fixtures'
 import { tabBtn, btnSecondary } from '../../../styles/buttons'
 import ProgressBar from '../../../components/ProgressBar'
-import type { BeSteelIssue } from '../../../services/steel-issues-api'
+import type { BePhoiProgressItem } from '../../../services/steel-issues-api'
 import type { BeProductionBatchPlan } from '../../../services/production-batches-api'
 import type { BeWeavingIssuePlanItem } from '../../../services/weaving-issues-api'
 import type { BeTransferCheckPiece } from '../../../services/transfer-check-api'
@@ -25,7 +24,9 @@ import type { BePackagingProgress } from '../../../services/packaging-api'
 
 type OrderStatus = 'PRODUCING' | 'DONE'
 type MfgStage = 'PURCHASING' | 'FRAME' | 'WEAVING' | 'CHUYEN_KIEM' | 'PACKAGING'
-type SubStatus = 'done' | 'in-progress' | 'pending'
+// 'na' = KHÔNG ÁP DỤNG cho lệnh này (vd sản phẩm không có mảnh đan/không cần sơn) - khác 'pending' (có
+// việc nhưng chưa làm). Bước 'na' bị bỏ khỏi phép tính % và điều kiện "Hoàn thành" (audit 2026-09-19 N2).
+type SubStatus = 'done' | 'in-progress' | 'pending' | 'na'
 
 // `ncc`/`unitPrice` đã gỡ 2026-08-27 cùng luồng báo giá - giá và NCC nay nằm trong file Excel Sếp
 // ký (PurchaseProposalItem.approvalFileUrl), phần mềm không lưu tách ra.
@@ -45,9 +46,13 @@ interface StageDetails {
   purchasing: { materials: MaterialItem[] }
   frame: {
     phoi: SubStatus; han: SubStatus; son: SubStatus
-    // Dữ liệu chi tiết từng công đoạn nhỏ — cùng cấu trúc ProcManh/ProcLine dùng ở màn
+    // Dữ liệu chi tiết từng công đoạn nhỏ — cùng cấu trúc ProcLine dùng ở màn
     // Lệnh sản xuất Phôi/Hàn/Sơn, để hiển thị lại y hệt cho KHSX xem (xem FrameSubStages).
-    phoiManhs: ProcManh[]
+    phoiMaterials: PhoiMaterialView[]
+    /** Vật tư thành phẩm (vd chân nhôm - Phôi tự báo theo MẢNH, cái) - cùng nguồn Hàn/Sơn, stage=PHOI. */
+    phoiVtTpLines: ProcLine[]
+    /** Số lệnh (đã duyệt) cùng PI - Phôi cắt chung cho cả PI nên >1 nghĩa là số Phôi dùng chung các lệnh. */
+    piOrderCount: number
     hanLines: ProcLine[]
     sonLines: ProcLine[]
   }
@@ -107,12 +112,12 @@ const STAGE_TRACKER_ICONS: Record<MfgStage, LucideIcon> = {
 // (giống TheoDoiMuaHangPage.tsx). Khung cơ khí/Đan/Chuyền kiểm/Đóng gói cũng đã thật —
 // xem buildFrame/buildWeaving/buildChuyenKiem/buildPackaging bên dưới.
 
-function getPurchasingRows(pf: Sku, proposals: PurchaseProposal[]): MaterialItem[] {
+// Ghép đề xuất mua với lệnh theo MÃ PI (2026-09-19, audit N1): trước đây so p.skuId (placeholder =
+// cuttingProposalId) với Sku.id nên KHÔNG BAO GIỜ khớp -> bước Mua hàng luôn "xong". Đề xuất mua vốn
+// gộp theo PI nên PI có nhiều lệnh sẽ dùng chung danh sách vật tư (cùng cách Phôi đang gộp theo PI).
+function getPurchasingRows(piCode: string, proposals: PurchaseProposal[]): MaterialItem[] {
   return proposals
-    // NOTE: p.skuId là placeholder không liên quan gì tới Sku.id thật (xem comment đầu
-    // purchasing-api.ts) — so sánh này gần như không bao giờ khớp, giữ nguyên hành vi cũ (chỉ sửa
-    // kiểu cho biên dịch được), không phải bug do lần sửa kiểu id này gây ra.
-    .filter(p => String(p.skuId) === pf.id)
+    .filter(p => p.piCode === piCode)
     .flatMap(p => p.items.map(item => ({
       name: item.name,
       qty: item.buyQty,
@@ -123,7 +128,8 @@ function getPurchasingRows(pf: Sku, proposals: PurchaseProposal[]): MaterialItem
 
 function getPurchasingPercent(materials: MaterialItem[]): number {
   if (materials.length === 0) return 100 // không có gì cần mua → coi như xong bước mua hàng
-  const w = (m: MaterialItem) => m.qty <= 0 ? 0 : Math.min(1, m.boughtQty / m.qty)
+  // qty<=0 = không có gì cần mua ở dòng này -> coi như đủ (trước đây tính 0 làm % kẹt vĩnh viễn)
+  const w = (m: MaterialItem) => m.qty <= 0 ? 1 : Math.min(1, m.boughtQty / m.qty)
   return Math.round(materials.reduce((s, m) => s + w(m), 0) / materials.length * 100)
 }
 
@@ -134,38 +140,68 @@ function getPurchasingPercent(materials: MaterialItem[]): number {
 // tải trùng lặp y hệt nhau nhiều lần. Giờ CẢ TRANG chỉ gọi đúng 5 request 1 lần (buildBatchProgressData,
 // xem cuối file component) rồi map lại từng dòng ĐỒNG BỘ (không async nữa) qua buildOrderRow.
 
-function subStatusOf(need: number, done: number): SubStatus {
-  if (need <= 0 || done <= 0) return 'pending'
+// need<=0 = lệnh không có việc ở bước này -> 'na' (KHÔNG phải 'pending'). Chỉ đúng khi ĐÃ BIẾT chắc
+// nguồn dữ liệu tải được - nếu không (tải lỗi / chưa có lệnh) truyền known=false để ra 'pending', tránh
+// hiện "xong" giả khi nguồn lỗi.
+function subStatusOf(need: number, done: number, known = true): SubStatus {
+  if (!known) return 'pending'
+  if (need <= 0) return 'na'
+  if (done <= 0) return 'pending'
   return done >= need ? 'done' : 'in-progress'
 }
 
+// "Đã làm" của MỖI dòng/mảnh bị chặn trần bằng định mức của chính nó (2026-09-19, audit T2): hệ thống cho phép
+// báo dư, nên mảnh A báo dư không được bù cho mảnh B còn thiếu, và % không vượt 100.
 function lineTotals(lines: ProcLine[]): { need: number; done: number } {
-  return { need: lines.reduce((s, l) => s + l.needQty, 0), done: lines.reduce((s, l) => s + l.doneQty, 0) }
+  return { need: lines.reduce((s, l) => s + l.needQty, 0), done: lines.reduce((s, l) => s + Math.min(l.doneQty, l.needQty), 0) }
 }
 
-// Phôi: gộp SteelIssue theo materialCode (đúng cách XuatSatPage đã gộp lại theo PI, 2026-08-19) —
-// 1 material = 1 "mảnh" giả trong UI, mỗi đợt xuất sắt là 1 dòng con.
-function mapSteelIssuesToPhoiManhs(steelIssues: BeSteelIssue[]): ProcManh[] {
-  const byMaterial = new Map<string, BeSteelIssue[]>()
-  for (const si of steelIssues) {
-    const arr = byMaterial.get(si.materialCode) ?? []
-    arr.push(si)
-    byMaterial.set(si.materialCode, arr)
+// % nguyên, CHỈ ra 100 khi thật sự đủ (làm tròn xuống - 99,6% không được hiện 100%). Mọi nơi hiển thị % tiến độ
+// (thanh công đoạn, tab con, bảng danh sách) đều đi qua hàm này để khớp nhau (audit T1).
+function pctOf(need: number, done: number): number {
+  return need > 0 ? Math.min(100, Math.floor(Math.min(done, need) / need * 100)) : 0
+}
+
+// Đan: xuất/nhập cộng theo TỪNG mảnh đã chặn trần theo tổng cần của mảnh đó.
+function weavingTotals(lines: ManhLine[]): { need: number; issued: number; received: number } {
+  const sum = (l: ManhLine, k: 'xuatQty' | 'nhapQty') => l.allocations.reduce((a, x) => a + x[k], 0)
+  return {
+    need: lines.reduce((a, l) => a + l.totalQty, 0),
+    issued: lines.reduce((a, l) => a + Math.min(sum(l, 'xuatQty'), l.totalQty), 0),
+    received: lines.reduce((a, l) => a + Math.min(sum(l, 'nhapQty'), l.totalQty), 0),
   }
-  return Array.from(byMaterial.values()).map((issues, mi) => ({
-    id: mi + 1,
-    tenManh: issues[0].materialName,
-    perSku: 1,
-    lines: issues.map((si, li) => ({
-      id: mi * 1000 + li,
-      itemName: si.materialCode,
-      spec: `Ø${si.barLengthMm}mm`,
-      needQty: si.barCount,
-      doneQty: si.actualBarCount ?? (si.status === 'QC_PASSED' ? si.barCount : 0),
-      perManh: 1,
-      lastInputAt: si.completedAt,
-    })),
-  }))
+}
+
+// Chuyền kiểm: đã kiểm cộng theo từng mảnh đã chặn trần theo tổng cần của mảnh đó.
+function chuyenKiemTotals(pieces: StageDetails['chuyenKiem']['pieces']): { need: number; done: number } {
+  return { need: pieces.reduce((a, p) => a + p.totalQty, 0), done: pieces.reduce((a, p) => a + Math.min(p.daKiemQty, p.totalQty), 0) }
+}
+
+// Phôi (2026-09-19, audit N3/N4): đo bằng ĐOẠN đã cắt / ĐỊNH MỨC theo từng loại sắt → cỡ đoạn - đúng nguồn
+// (getPhoiProgress) mà màn Phôi thật đang dùng - thay cho "số cây kho đã xuất" trước đây (sai khái niệm, và
+// coi mỗi đợt xuất của cùng 1 loại sắt là 1 loại sắt riêng nên báo "lệch" giả). Mỗi loại sắt = 1 dòng.
+interface PhoiSegmentView { cutLengthMm: number; required: number; done: number; failed: number; good: number; remaining: number }
+interface PhoiMaterialView {
+  materialId: string; materialCode: string; materialName: string; issuedBarCount: number
+  segments: PhoiSegmentView[]
+  need: number; done: number
+}
+
+function mapPhoiProgress(items: BePhoiProgressItem[]): PhoiMaterialView[] {
+  return items.map(it => {
+    const segments = it.segments.map(s => {
+      // "Đạt" = đã cắt trừ lỗi KCS (lỗi cộng dồn, Phôi bù bằng cách cắt thêm); chặn trần theo định mức để
+      // cắt dư ở cỡ này không bù cho cỡ khác còn thiếu.
+      const good = Math.min(s.required, Math.max(0, s.done - s.failed))
+      return { cutLengthMm: s.cutLengthMm, required: s.required, done: s.done, failed: s.failed, good, remaining: Math.max(0, s.required - (s.done - s.failed)) }
+    })
+    return {
+      materialId: it.materialId, materialCode: it.materialCode, materialName: it.materialName, issuedBarCount: it.issuedBarCount,
+      segments,
+      need: segments.reduce((a, s) => a + s.required, 0),
+      done: segments.reduce((a, s) => a + s.good, 0),
+    }
+  })
 }
 
 function mapBatchPlanToLines(plan: BeProductionBatchPlan | null): ProcLine[] {
@@ -180,20 +216,24 @@ function mapBatchPlanToLines(plan: BeProductionBatchPlan | null): ProcLine[] {
 }
 
 interface BatchProgressData {
-  steelIssuesByPi: Record<string, BeSteelIssue[]>
+  phoiProgressByPi: Record<string, BePhoiProgressItem[]>
+  phoiVtTpPlanByOrder: Record<string, BeProductionBatchPlan>
   hanPlanByOrder: Record<string, BeProductionBatchPlan>
   sonPlanByOrder: Record<string, BeProductionBatchPlan>
   weavingPlanByOrder: Record<string, BeWeavingIssuePlanItem[]>
   transferCheckByItem: Record<string, BeTransferCheckPiece[]>
   packagingByItem: Record<string, BePackagingProgress>
+  /** Nhãn các nguồn tải LỖI (rỗng = tải đủ) - nguồn lỗi coi như "không biết", KHÔNG được hiểu là "không có
+   *  việc" (audit 2026-09-19 T5) và được báo lên đầu trang. */
+  failed: string[]
 }
 const EMPTY_BATCH_DATA: BatchProgressData = {
-  steelIssuesByPi: {}, hanPlanByOrder: {}, sonPlanByOrder: {},
-  weavingPlanByOrder: {}, transferCheckByItem: {}, packagingByItem: {},
+  phoiProgressByPi: {}, phoiVtTpPlanByOrder: {}, hanPlanByOrder: {}, sonPlanByOrder: {},
+  weavingPlanByOrder: {}, transferCheckByItem: {}, packagingByItem: {}, failed: [],
 }
 
-// 6 request CỐ ĐỊNH cho CẢ TRANG, bất kể có bao nhiêu dòng SKU đã duyệt (trước đây tới 6×N) - mỗi
-// dimension bắt lỗi riêng (không gộp vào 1 Promise.all lớn): 1 trong 6 lỗi mạng/429 thoáng qua chỉ
+// 7 request CỐ ĐỊNH cho CẢ TRANG, bất kể có bao nhiêu dòng SKU đã duyệt (trước đây tới 6×N) - mỗi
+// dimension bắt lỗi riêng (không gộp vào 1 Promise.all lớn): 1 trong 7 lỗi mạng/429 thoáng qua chỉ
 // khiến ĐÚNG dimension đó rỗng (mọi dòng hiện tạm "pending" ở phần đó), không kéo sập 5 dimension
 // còn lại hay làm cả trang trắng trơn "Không có lệnh nào" (bug đã gặp thật ở tài khoản Boss
 // 2026-08-31, lúc còn 1 Promise.all lớn không bắt lỗi riêng từng phần).
@@ -202,40 +242,55 @@ async function buildBatchProgressData(rows: ApprovedRow[]): Promise<BatchProgres
   const orderIds = [...new Set(rows.map(r => r.orderId).filter((id): id is string => !!id))]
   const itemIds = [...new Set(rows.map(r => r.itemId))]
 
+  const failed: string[] = []
   const safeFetch = <T extends Record<string, unknown>>(label: string, p: Promise<T>): Promise<T> =>
     p.catch(err => {
       console.error(`ThongKePagePlan: batch fetch '${label}' failed`, err)
+      failed.push(label)
       return {} as T
     })
 
-  const [steelIssuesByPi, hanPlanByOrder, sonPlanByOrder, weavingPlanByOrder, transferCheckByItem, packagingByItem] =
+  const [phoiProgressByPi, phoiVtTpPlanByOrder, hanPlanByOrder, sonPlanByOrder, weavingPlanByOrder, transferCheckByItem, packagingByItem] =
     await Promise.all([
-      safeFetch('steel-issues', api.getSteelIssuesForInvoiceBatch(piIds)),
+      safeFetch('phoi-progress', api.getPhoiProgressBatch(piIds)),
+      safeFetch('production-batch-plan(PHOI)', api.getProductionBatchPlanBatch(orderIds, 'PHOI')),
       safeFetch('production-batch-plan(HAN)', api.getProductionBatchPlanBatch(orderIds, 'HAN')),
       safeFetch('production-batch-plan(SON)', api.getProductionBatchPlanBatch(orderIds, 'SON')),
       safeFetch('weaving-issue-plan', api.getWeavingIssuePlanBatch(orderIds)),
       safeFetch('transfer-check', api.getTransferCheckPiecesBatch(itemIds)),
       safeFetch('packaging', api.getPackagingBatch(itemIds)),
     ])
-  return { steelIssuesByPi, hanPlanByOrder, sonPlanByOrder, weavingPlanByOrder, transferCheckByItem, packagingByItem }
+  return { phoiProgressByPi, phoiVtTpPlanByOrder, hanPlanByOrder, sonPlanByOrder, weavingPlanByOrder, transferCheckByItem, packagingByItem, failed }
 }
 
-function buildFrame(steelIssues: BeSteelIssue[], hanPlan: BeProductionBatchPlan | null, sonPlan: BeProductionBatchPlan | null): StageDetails['frame'] {
-  const phoiManhs = mapSteelIssuesToPhoiManhs(steelIssues)
+function buildFrame(
+  phoiProgress: BePhoiProgressItem[] | null, vtTpPlan: BeProductionBatchPlan | null,
+  hanPlan: BeProductionBatchPlan | null, sonPlan: BeProductionBatchPlan | null, piOrderCount: number,
+): StageDetails['frame'] {
+  const phoiMaterials = mapPhoiProgress(phoiProgress ?? [])
+  const phoiVtTpLines = mapBatchPlanToLines(vtTpPlan)
   const hanLines = mapBatchPlanToLines(hanPlan)
   const sonLines = mapBatchPlanToLines(sonPlan)
-  const phoi: SubStatus = steelIssues.length === 0 ? 'pending' : steelIssues.every(si => si.status === 'QC_PASSED') ? 'done' : 'in-progress'
+  const vtTpTotals = lineTotals(phoiVtTpLines)
+  const phoiNeed = phoiMaterials.reduce((a, m) => a + m.need, 0) + vtTpTotals.need
+  const phoiDone = phoiMaterials.reduce((a, m) => a + m.done, 0) + Math.min(vtTpTotals.done, vtTpTotals.need)
+  // Cần đủ CẢ 2 nguồn (định mức cắt + vật tư thành phẩm) mới biết chắc; thiếu 1 nguồn -> 'pending'.
+  const phoi = subStatusOf(phoiNeed, phoiDone, phoiProgress !== null && vtTpPlan !== null)
   const hanTotals = lineTotals(hanLines)
   const sonTotals = lineTotals(sonLines)
+  // plan null = không biết (chưa có lệnh/tải lỗi) -> 'pending'; plan có nhưng không mảnh nào cần Hàn/Sơn -> 'na'.
   return {
-    phoi, han: subStatusOf(hanTotals.need, hanTotals.done), son: subStatusOf(sonTotals.need, sonTotals.done),
-    phoiManhs, hanLines, sonLines,
+    phoi,
+    han: subStatusOf(hanTotals.need, hanTotals.done, hanPlan !== null),
+    son: subStatusOf(sonTotals.need, sonTotals.done, sonPlan !== null),
+    phoiMaterials, phoiVtTpLines, piOrderCount, hanLines, sonLines,
   }
 }
 
 // Đan: dùng nguyên component thật ManhSkuDetail (đã dùng cho 2 màn thủ kho thật) — chỉ đổi nguồn
 // dữ liệu nạp vào từ mock sang weaving-issue-plan-batch thật.
-function buildWeaving(items: BeWeavingIssuePlanItem[], skuQty: number): StageDetails['weaving'] {
+function buildWeaving(itemsOrNull: BeWeavingIssuePlanItem[] | null, skuQty: number): StageDetails['weaving'] {
+  const items = itemsOrNull ?? []
   const lines: ManhLine[] = items.map(it => ({
     id: Number(it.pieceId),
     name: it.pieceName,
@@ -249,34 +304,35 @@ function buildWeaving(items: BeWeavingIssuePlanItem[], skuQty: number): StageDet
       nhapQty: a.receivedQty,
     })),
   }))
-  const totalQty = items.reduce((s, it) => s + it.totalQty, 0)
-  const issuedQty = items.reduce((s, it) => s + it.issuedQty, 0)
-  const receivedQty = items.reduce((s, it) => s + it.allocations.reduce((a, x) => a + x.receivedQty, 0), 0)
-  return { xuatDan: subStatusOf(totalQty, issuedQty), nhapDan: subStatusOf(issuedQty, receivedQty), lines, skuQty }
+  const { need: totalQty, issued: issuedQty, received: receivedQty } = weavingTotals(lines)
+  // "Nhập đan" so với TỔNG cần (không phải với số đã xuất - audit T4): xuất 5/100 rồi nhận đủ 5 mới là 5%.
+  const known = itemsOrNull !== null
+  return { xuatDan: subStatusOf(totalQty, issuedQty, known), nhapDan: subStatusOf(totalQty, receivedQty, known), lines, skuQty }
 }
 
 // Chuyền kiểm: readyQty ("chờ thực thi") là luỹ kế SUM(WeavingReceipt.qty), KHÔNG trừ phần đã kiểm
 // (xem transfer-check-api.ts) — "chờ thực thi hiện tại" = readyQty - checkedQty, khớp đúng ý nghĩa
 // cột "Chờ thực thi" của ChuyenKiemContent bên dưới (remaining = totalQty - choThucThi - daKiemQty).
-function buildChuyenKiem(pieces: BeTransferCheckPiece[]): StageDetails['chuyenKiem'] {
+function buildChuyenKiem(pieces: BeTransferCheckPiece[], known: boolean): StageDetails['chuyenKiem'] {
   const mapped = pieces.map(p => ({
     id: p.pieceId, name: p.pieceName, totalQty: p.totalQty,
     choThucThi: Math.max(0, p.readyQty - p.checkedQty),
     daKiemQty: p.checkedQty,
   }))
-  const totalQty = pieces.reduce((s, p) => s + p.totalQty, 0)
-  const checkedQty = pieces.reduce((s, p) => s + p.checkedQty, 0)
-  return { daKiem: subStatusOf(totalQty, checkedQty), pieces: mapped }
+  const { need, done } = chuyenKiemTotals(mapped)
+  return { daKiem: subStatusOf(need, done, known), pieces: mapped }
 }
 
+// Đóng gói luôn áp dụng cho mọi lệnh (tổng = số lượng lệnh) - totalQty 0 chỉ xảy ra khi chưa có lệnh/tải lỗi
+// nên là 'pending', không phải 'na'.
 function buildPackaging(progress: BePackagingProgress | undefined): StageDetails['packaging'] {
   const p = progress ?? { totalQty: 0, packedQty: 0, remainingQty: 0 }
-  return { dongGoi: subStatusOf(p.totalQty, p.packedQty), totalBoxes: p.totalQty, daDongQty: p.packedQty }
+  return { dongGoi: p.totalQty > 0 ? subStatusOf(p.totalQty, p.packedQty) : 'pending', totalBoxes: p.totalQty, daDongQty: p.packedQty }
 }
 
 function emptyExecutionStages(skuQty: number): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
   return {
-    frame: { phoi: 'pending', han: 'pending', son: 'pending', phoiManhs: [], hanLines: [], sonLines: [] },
+    frame: { phoi: 'pending', han: 'pending', son: 'pending', phoiMaterials: [], phoiVtTpLines: [], piOrderCount: 1, hanLines: [], sonLines: [] },
     weaving: { nhapDan: 'pending', xuatDan: 'pending', lines: [], skuQty },
     chuyenKiem: { daKiem: 'pending', pieces: [] },
     packaging: { dongGoi: 'pending', totalBoxes: 0, daDongQty: 0 },
@@ -284,16 +340,19 @@ function emptyExecutionStages(skuQty: number): Pick<StageDetails, 'frame' | 'wea
 }
 
 function buildExecutionStages(row: ApprovedRow, skuQty: number, batch: BatchProgressData): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
-  const steelIssues = batch.steelIssuesByPi[row.piId] ?? []
+  const phoiProgress = batch.phoiProgressByPi[row.piId] ?? null
+  const vtTpPlan = row.orderId ? (batch.phoiVtTpPlanByOrder[row.orderId] ?? null) : null
   const hanPlan = row.orderId ? (batch.hanPlanByOrder[row.orderId] ?? null) : null
   const sonPlan = row.orderId ? (batch.sonPlanByOrder[row.orderId] ?? null) : null
-  const weavingItems = row.orderId ? (batch.weavingPlanByOrder[row.orderId] ?? []) : []
+  const weavingItems = row.orderId ? (batch.weavingPlanByOrder[row.orderId] ?? null) : null
   const transferCheckPieces = batch.transferCheckByItem[row.itemId] ?? []
+  // BE luôn trả mảng (rỗng) cho mọi itemId kể cả khi tải lỗi/chưa có lệnh -> phải tự xác định "đã biết chắc".
+  const transferKnown = !!row.orderId && !batch.failed.includes('transfer-check')
   const packagingProgress = batch.packagingByItem[row.itemId]
   return {
-    frame: buildFrame(steelIssues, hanPlan, sonPlan),
+    frame: buildFrame(phoiProgress, vtTpPlan, hanPlan, sonPlan, row.piOrderCount),
     weaving: buildWeaving(weavingItems, skuQty),
-    chuyenKiem: buildChuyenKiem(transferCheckPieces),
+    chuyenKiem: buildChuyenKiem(transferCheckPieces, transferKnown),
     packaging: buildPackaging(packagingProgress),
   }
 }
@@ -305,13 +364,19 @@ function buildExecutionStages(row: ApprovedRow, skuQty: number, batch: BatchProg
 // "lấy ProductionOrder đầu tiên tìm thấy") vì đây là đúng-1-1 theo chính item đang xét.
 function buildOrderRow(row: ApprovedRow, proposals: PurchaseProposal[], batch: BatchProgressData): { order: MfgOrder; details: StageDetails } {
   const { pf, skuQty } = row
-  const materials = getPurchasingRows(pf, proposals)
+  const materials = getPurchasingRows(row.piCode, proposals)
   const purchPct = getPurchasingPercent(materials)
-  const stages = purchPct >= 100 ? buildExecutionStages(row, skuQty, batch) : emptyExecutionStages(skuQty)
+  // Luôn dựng tiến độ thực thi từ dữ liệu thật, KHÔNG còn ẩn khi Mua hàng <100% (2026-09-19): mua hàng
+  // giờ đã ghép đúng nên có thể <100% trong khi Phôi/Đan... đã chạy (các công đoạn song song); dữ liệu
+  // thật tự nói lên việc đã làm, ẩn đi chỉ khiến Giám đốc thấy sai lệch.
+  const stages = row.orderId ? buildExecutionStages(row, skuQty, batch) : emptyExecutionStages(skuQty)
   const { frame, weaving, chuyenKiem, packaging } = stages
   const details: StageDetails = { purchasing: { materials }, frame, weaving, chuyenKiem, packaging }
-  const done = isAllDone(details)
-  const hasVariance = phoiStageStats(frame.phoiManhs).lech || aggLineStats(frame.hanLines).lech || aggLineStats(frame.sonLines).lech
+  // "Đã kết thúc" của xưởng (QLSX bấm Kết thúc, không hoàn tác được - xem FloorStageCell) cũng là hoàn thành:
+  // nhiều lệnh không có phiếu xuất sắt/mảnh đan nên các bước con không bao giờ tự "xong" (audit N2).
+  const done = row.floorStage === 'FINISHED' || isAllDone(details)
+  const anyExecProgress = Array.from(PARALLEL_STAGE_KEYS).some(k => !isStageNA(k, details) && getStagePercent(k, details) > 0)
+  const hasVariance = aggLineStats(frame.hanLines).lech || aggLineStats(frame.sonLines).lech
   const order: MfgOrder = {
     id: row.itemId,
     code: row.poCode ?? 'Chưa gắn đơn hàng',
@@ -322,7 +387,8 @@ function buildOrderRow(row: ApprovedRow, proposals: PurchaseProposal[], batch: B
     deadline: row.deliveryDeadline,
     approvedAt: pf.createdAt,
     status: done ? 'DONE' : 'PRODUCING',
-    mfgStage: done ? undefined : (purchPct < 100 ? 'PURCHASING' : 'FRAME'),
+    // Còn ở "Mua hàng" chỉ khi chưa mua đủ VÀ chưa có công đoạn nào bắt đầu chạy.
+    mfgStage: done ? undefined : (purchPct < 100 && !anyExecProgress ? 'PURCHASING' : 'FRAME'),
     hasVariance,
     orderId: row.orderId,
     floorStage: row.floorStage,
@@ -538,27 +604,20 @@ function latestInputAt(lines: ProcLine[]): string | null {
   return lines.reduce<string | null>((latest, l) => (l.lastInputAt && (!latest || l.lastInputAt > latest)) ? l.lastInputAt : latest, null)
 }
 
-function timeAgo(iso: string | null): string {
-  return iso ? formatDistanceToNow(new Date(iso), { addSuffix: true, locale: vi }) : 'chưa cập nhật'
-}
-
 interface StageLineStats { need: number; done: number; pct: number; lech: boolean; lastInputAt: string | null }
 
 function aggLineStats(lines: ProcLine[]): StageLineStats {
-  const need = lines.reduce((s, l) => s + l.needQty, 0)
-  const done = lines.reduce((s, l) => s + l.doneQty, 0)
-  return { need, done, pct: need > 0 ? Math.round(done / need * 100) : 0, lech: lechOf(lines), lastInputAt: latestInputAt(lines) }
+  const { need, done } = lineTotals(lines)
+  return { need, done, pct: pctOf(need, done), lech: lechOf(lines), lastInputAt: latestInputAt(lines) }
 }
 
-// Phôi không đồng bộ theo cả lệnh (mỗi mảnh dùng loại sắt riêng, không so sánh chéo được — xem
-// PoListBoard trong core.tsx): % tính trên tổng cây (gộp mọi mảnh) nhưng lệch xét riêng từng mảnh
-// (có ít nhất 1 mảnh tự lệch giữa các loại sắt của chính nó). Hàn/Sơn dùng chung 1 tập vật tư cho
-// cả lệnh nên so sánh trực tiếp trên toàn bộ dòng (xem aggLineStats).
-function phoiStageStats(manhs: ProcManh[]): StageLineStats {
-  const lines = manhs.flatMap(m => m.lines)
-  const need = lines.reduce((s, l) => s + l.needQty, 0)
-  const done = lines.reduce((s, l) => s + l.doneQty, 0)
-  return { need, done, pct: need > 0 ? Math.round(done / need * 100) : 0, lech: manhs.some(m => lechOf(m.lines)), lastInputAt: latestInputAt(lines) }
+// Phôi: % = (đoạn đã cắt đạt + vật tư thành phẩm đã báo) / (định mức đoạn + vật tư thành phẩm cần), mỗi cỡ
+// đoạn chặn trần theo định mức của chính nó (xem mapPhoiProgress). Không có khái niệm "lệch" ở Phôi.
+function phoiStageStats(frame: StageDetails['frame']): StageLineStats {
+  const vt = lineTotals(frame.phoiVtTpLines)
+  const need = frame.phoiMaterials.reduce((s, m) => s + m.need, 0) + vt.need
+  const done = frame.phoiMaterials.reduce((s, m) => s + m.done, 0) + Math.min(vt.done, vt.need)
+  return { need, done, pct: pctOf(need, done), lech: false, lastInputAt: null }
 }
 
 // ─── Tab chuyển Phôi/Hàn/Sơn ──────────────────────────────────────────────────
@@ -583,39 +642,52 @@ function FrameStageTab({ cfg, stats, active, onClick }: {
   )
 }
 
-// Chi tiết từng loại sắt hiện thẳng dưới mỗi mảnh (dùng expandedRow của LenhSanXuatBoard) —
-// KHSX xem được ngay, khỏi phải bấm vào từng dòng như trước.
-function PhoiManhMiniBoard({ manhs }: { manhs: ProcManh[] }) {
-  const views = manhs.map(m => {
-    const tong = m.lines.reduce((s, l) => s + l.needQty, 0)
-    const done = m.lines.reduce((s, l) => s + l.doneQty, 0)
-    return { m, tong, done, remain: Math.max(0, tong - done), lech: lechOf(m.lines), lastInputAt: latestInputAt(m.lines) }
-  })
-  const cols: BoardColumn<typeof views[number]>[] = [
-    { key: 'manh', header: 'Mảnh', cell: v => (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontWeight: 700 }}>
-        {v.lech && <AlertTriangle size={13} color="var(--red)" />}
-        {v.m.tenManh}
-      </span>
+// Phôi: bảng theo LOẠI SẮT (mỗi loại 1 dòng, gộp mọi đợt kho xuất), bấm mở ra từng cỡ đoạn - cùng số liệu
+// "Cần / Đã cắt / Lỗi / Còn lại" (đơn vị ĐOẠN) với màn Lệnh sản xuất Phôi thật. Không có cờ "lệch": các loại
+// sắt khác nhau không so sánh chéo được, mỗi loại tự có định mức riêng.
+function PhoiMaterialBoard({ materials }: { materials: PhoiMaterialView[] }) {
+  const cols: BoardColumn<PhoiMaterialView>[] = [
+    { key: 'mat', header: 'Loại sắt', cell: m => (
+      <div>
+        <div style={{ fontWeight: 700 }}>{m.materialName}</div>
+        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{m.materialCode}</div>
+      </div>
     ) },
-    { key: 'perSku', header: 'SL/SKU', align: 'right', cell: v => `×${perSku(v.m)}` },
-    { key: 'tong', header: 'Định mức (cây)', align: 'right', cell: v => v.tong.toLocaleString('vi-VN') },
-    { key: 'done', header: 'Đã cắt (cây)', align: 'right', cell: v => <span style={{ fontWeight: 700 }}>{v.done.toLocaleString('vi-VN')}</span> },
-    { key: 'remain', header: 'Còn lại (cây)', align: 'right', cell: v => <span style={{ color: v.remain > 0 ? 'var(--amber)' : 'var(--green)', fontWeight: 600 }}>{v.remain.toLocaleString('vi-VN')}</span> },
-    { key: 'updated', header: 'Cập nhật', cell: v => <span style={{ fontSize: 11, color: 'var(--text3)' }}>{timeAgo(v.lastInputAt)}</span> },
+    { key: 'issued', header: 'Kho đã xuất (cây)', align: 'right', cell: m => m.issuedBarCount.toLocaleString('vi-VN') },
+    { key: 'need', header: 'Cần (đoạn)', align: 'right', cell: m => m.need.toLocaleString('vi-VN') },
+    { key: 'done', header: 'Đã cắt đạt (đoạn)', align: 'right', cell: m => <span style={{ fontWeight: 700 }}>{m.done.toLocaleString('vi-VN')}</span> },
+    { key: 'remain', header: 'Còn lại (đoạn)', align: 'right', cell: m => {
+      const r = Math.max(0, m.need - m.done)
+      return <span style={{ color: r > 0 ? 'var(--amber)' : 'var(--green)', fontWeight: 600 }}>{r.toLocaleString('vi-VN')}</span>
+    } },
   ]
+  const th: React.CSSProperties = { padding: '6px 10px', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textAlign: 'right', textTransform: 'uppercase' }
+  const td: React.CSSProperties = { padding: '6px 10px', fontSize: 12, textAlign: 'right', borderTop: '1px solid var(--border)' }
   return (
     <LenhSanXuatBoard
-      title="Danh sách mảnh" subtitle="Chi tiết từng loại sắt hiện sẵn bên dưới mỗi mảnh — mảnh có ⚠ đang lệch định mức giữa các loại sắt, cần kiểm tra"
-      columns={cols} rows={views} rowKey={v => v.m.id}
-      rowTone={v => v.lech ? 'alert' : 'default'}
-      expandedRow={v => (
-        <div style={{ padding: '4px 14px 16px', background: 'var(--surface2)' }}>
-          <VatTuDetailBoard
-            lines={v.m.lines} cfg={PHOI_CFG} readOnly showThucCo={false}
-            title={v.m.tenManh} subtitle="Chi tiết từng loại sắt của mảnh — chỉ xem"
-            bannerLabel="Đồng bộ sắt" dbUnit="mảnh"
-          />
+      title="Tiến độ cắt theo loại sắt"
+      subtitle="Đoạn đã cắt so với định mức của lệnh, cộng dồn mọi đợt kho xuất — “đạt” = đã cắt trừ đoạn KCS chấm lỗi. Chi tiết từng cỡ đoạn hiện ngay bên dưới mỗi loại sắt"
+      columns={cols} rows={materials} rowKey={m => m.materialId}
+      expandedRow={m => (
+        <div style={{ padding: '4px 14px 14px', background: 'var(--surface2)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ ...th, textAlign: 'left' }}>Cỡ đoạn</th><th style={th}>Cần</th><th style={th}>Đã cắt</th><th style={th}>Lỗi</th><th style={th}>Còn lại</th>
+              </tr>
+            </thead>
+            <tbody>
+              {m.segments.map(s => (
+                <tr key={s.cutLengthMm}>
+                  <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>{s.cutLengthMm.toLocaleString('vi-VN')} mm</td>
+                  <td style={td}>{s.required.toLocaleString('vi-VN')}</td>
+                  <td style={td}>{s.done.toLocaleString('vi-VN')}</td>
+                  <td style={{ ...td, color: s.failed > 0 ? 'var(--red)' : 'var(--text3)', fontWeight: s.failed > 0 ? 700 : 400 }}>{s.failed > 0 ? s.failed.toLocaleString('vi-VN') : '—'}</td>
+                  <td style={{ ...td, fontWeight: 600, color: s.remaining > 0 ? 'var(--amber)' : 'var(--green)' }}>{s.remaining.toLocaleString('vi-VN')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     />
@@ -626,7 +698,7 @@ function FrameSubStages({ frame }: { frame: StageDetails['frame'] }) {
   const [tab, setTab] = useState<FrameSubTab>('PHOI')
 
   const tabs: { key: FrameSubTab; cfg: StageCfg; stats: StageLineStats }[] = [
-    { key: 'PHOI', cfg: PHOI_CFG, stats: phoiStageStats(frame.phoiManhs) },
+    { key: 'PHOI', cfg: PHOI_CFG, stats: phoiStageStats(frame) },
     { key: 'HAN',  cfg: HAN_CFG,  stats: aggLineStats(frame.hanLines) },
     { key: 'SON',  cfg: SON_CFG,  stats: aggLineStats(frame.sonLines) },
   ]
@@ -647,7 +719,26 @@ function FrameSubStages({ frame }: { frame: StageDetails['frame'] }) {
       )}
 
       {tab === 'PHOI' && (
-        <PhoiManhMiniBoard manhs={frame.phoiManhs} />
+        <>
+          {frame.piOrderCount > 1 && (
+            <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
+              Phôi cắt sắt chung cho cả PI ({frame.piOrderCount} lệnh) — số liệu dưới đây là của cả PI, không tách riêng từng lệnh.
+            </div>
+          )}
+          {frame.phoiMaterials.length === 0 && frame.phoiVtTpLines.length === 0 && (
+            <div style={{ padding: '10px 4px', fontSize: 12, color: 'var(--text3)' }}>Lệnh này chưa có định mức cắt sắt / vật tư thành phẩm nào</div>
+          )}
+          {frame.phoiMaterials.length > 0 && <PhoiMaterialBoard materials={frame.phoiMaterials} />}
+          {frame.phoiVtTpLines.length > 0 && (
+            <div style={{ marginTop: frame.phoiMaterials.length > 0 ? 18 : 0 }}>
+              <VatTuDetailBoard
+                lines={frame.phoiVtTpLines} cfg={VAT_TU_TP_CFG} readOnly showThucCo={false}
+                title="Vật tư thành phẩm" subtitle="Phôi tự báo theo mảnh (vd chân nhôm) — chỉ xem"
+                bannerLabel="Đồng bộ"
+              />
+            </div>
+          )}
+        </>
       )}
       {tab === 'HAN' && (
         <VatTuDetailBoard
@@ -685,22 +776,55 @@ function WeavingSubStages({ weaving, pointLabel }: { weaving: StageDetails['weav
 // ─── Parallel stage helpers ───────────────────────────────────────────────────
 
 const PARALLEL_STAGE_KEYS = new Set<MfgStage>(['FRAME', 'WEAVING', 'CHUYEN_KIEM', 'PACKAGING'])
+// Công đoạn hiển thị kèm % (Mua hàng giờ cũng có % thật - audit N1).
+const PERCENT_STAGE_KEYS = new Set<MfgStage>(['PURCHASING', 'FRAME', 'WEAVING', 'CHUYEN_KIEM', 'PACKAGING'])
+
+// Các bước con của 1 công đoạn (dùng chung cho % / "không áp dụng" / "xong").
+function subStatusesOf(key: MfgStage, details: StageDetails): SubStatus[] {
+  if (key === 'FRAME')       return [details.frame.phoi, details.frame.han, details.frame.son]
+  if (key === 'WEAVING')     return [details.weaving.xuatDan, details.weaving.nhapDan]
+  if (key === 'CHUYEN_KIEM') return [details.chuyenKiem.daKiem]
+  if (key === 'PACKAGING')   return [details.packaging.dongGoi]
+  return []
+}
+
+// Công đoạn mà MỌI bước con đều "không áp dụng" cho lệnh này (vd không có mảnh đan).
+function isStageNA(key: MfgStage, details: StageDetails): boolean {
+  const subs = subStatusesOf(key, details)
+  return subs.length > 0 && subs.every(s => s === 'na')
+}
 
 function getStagePercent(key: MfgStage, details: StageDetails): number {
-  const w = (s: SubStatus) => s === 'done' ? 1 : s === 'in-progress' ? 0.5 : 0
-  if (key === 'FRAME')       return Math.round((w(details.frame.phoi) + w(details.frame.han) + w(details.frame.son)) / 3 * 100)
-  if (key === 'WEAVING')     return Math.round((w(details.weaving.nhapDan) + w(details.weaving.xuatDan)) / 2 * 100)
-  if (key === 'CHUYEN_KIEM') return Math.round(w(details.chuyenKiem.daKiem) * 100)
-  if (key === 'PACKAGING')   return Math.round(w(details.packaging.dongGoi) * 100)
-  return 0
+  if (key === 'PURCHASING') return getPurchasingPercent(details.purchasing.materials)
+  // % theo SỐ LƯỢNG THẬT (audit T1), cùng hàm với các tab con bên dưới nên hai nơi luôn khớp nhau. Công
+  // đoạn có nhiều bước con (Khung cơ khí, Đan) = trung bình cộng % các bước còn áp dụng; bước 'na' bỏ qua,
+  // cả công đoạn không áp dụng -> 100 (không kéo lệnh xuống).
+  const subs = subStatusesOf(key, details)
+  const pcts: number[] = []
+  const add = (status: SubStatus, pct: number) => { if (status !== 'na') pcts.push(pct) }
+  if (key === 'FRAME') {
+    add(subs[0], phoiStageStats(details.frame).pct)
+    add(subs[1], aggLineStats(details.frame.hanLines).pct)
+    add(subs[2], aggLineStats(details.frame.sonLines).pct)
+  } else if (key === 'WEAVING') {
+    const t = weavingTotals(details.weaving.lines)
+    add(subs[0], pctOf(t.need, t.issued))
+    add(subs[1], pctOf(t.need, t.received))
+  } else if (key === 'CHUYEN_KIEM') {
+    const t = chuyenKiemTotals(details.chuyenKiem.pieces)
+    add(subs[0], pctOf(t.need, t.done))
+  } else if (key === 'PACKAGING') {
+    add(subs[0], pctOf(details.packaging.totalBoxes, details.packaging.daDongQty))
+  }
+  if (pcts.length === 0) return 100
+  return Math.floor(pcts.reduce((a, b) => a + b, 0) / pcts.length)
 }
 
 function isAllDone(details: StageDetails): boolean {
+  const ok = (s: SubStatus) => s === 'done' || s === 'na'
   return (
-    details.frame.phoi === 'done' && details.frame.han === 'done' && details.frame.son === 'done' &&
-    details.weaving.nhapDan === 'done' && details.weaving.xuatDan === 'done' &&
-    details.chuyenKiem.daKiem === 'done' &&
-    details.packaging.dongGoi === 'done'
+    getPurchasingPercent(details.purchasing.materials) >= 100 &&
+    (['FRAME', 'WEAVING', 'CHUYEN_KIEM', 'PACKAGING'] as MfgStage[]).every(k => subStatusesOf(k, details).every(ok))
   )
 }
 
@@ -710,7 +834,7 @@ function isAllDone(details: StageDetails): boolean {
 function getCurrentParallelStage(details: StageDetails): { stage: MfgStage; pct: number } | null {
   let last: { stage: MfgStage; pct: number } | null = null
   for (const s of MFG_STAGES) {
-    if (!PARALLEL_STAGE_KEYS.has(s.key)) continue
+    if (!PARALLEL_STAGE_KEYS.has(s.key) || isStageNA(s.key, details)) continue
     const pct = getStagePercent(s.key, details)
     if (pct > 0) last = { stage: s.key, pct }
     if (pct > 0 && pct < 100) return { stage: s.key, pct }
@@ -757,25 +881,28 @@ function StageDetailCard({
         </div>
         <span style={{ fontSize: 11, fontWeight: 700, color: statusColor }}>
           {isActive
-            ? PARALLEL_STAGE_KEYS.has(stage.key) ? `${getStagePercent(stage.key, details)}%` : 'Đang thực hiện'
+            ? PERCENT_STAGE_KEYS.has(stage.key) ? `${getStagePercent(stage.key, details)}%` : 'Đang thực hiện'
             : 'Hoàn thành'}
         </span>
       </div>
 
       <div style={{ padding: '12px 16px', background: 'var(--surface)' }}>
-        {stage.key === 'PURCHASING' && (
+        {isStageNA(stage.key, details) && (
+          <div style={{ padding: '10px 4px', fontSize: 12, color: 'var(--text3)' }}>Công đoạn này không áp dụng cho lệnh này (sản phẩm không có việc ở bước này)</div>
+        )}
+        {!isStageNA(stage.key, details) && stage.key === 'PURCHASING' && (
           <PurchasingContent materials={details.purchasing.materials} deadline={orderDeadline} />
         )}
-        {stage.key === 'FRAME' && (
+        {!isStageNA(stage.key, details) && stage.key === 'FRAME' && (
           <FrameSubStages frame={details.frame} />
         )}
-        {stage.key === 'WEAVING' && (
+        {!isStageNA(stage.key, details) && stage.key === 'WEAVING' && (
           <WeavingSubStages weaving={details.weaving} pointLabel={pointLabel} />
         )}
-        {stage.key === 'CHUYEN_KIEM' && (
+        {!isStageNA(stage.key, details) && stage.key === 'CHUYEN_KIEM' && (
           <ChuyenKiemContent chuyenKiem={details.chuyenKiem} />
         )}
-        {stage.key === 'PACKAGING' && (
+        {!isStageNA(stage.key, details) && stage.key === 'PACKAGING' && (
           <PackagingContent packaging={details.packaging} />
         )}
       </div>
@@ -842,7 +969,7 @@ function MfgStageTracker({
                 {done ? <CheckCircle2 size={13} /> : <Icon size={13} />}
               </div>
               <div style={{ fontSize: 11, fontWeight: active || isSelected ? 700 : 600, color: active ? 'var(--amber)' : done ? 'var(--text2)' : 'var(--text3)', whiteSpace: 'nowrap' }}>
-                {stage.label}{active && pct !== undefined && PARALLEL_STAGE_KEYS.has(stage.key) ? ` · ${pct}%` : ''}
+                {stage.label}{active && pct !== undefined && PERCENT_STAGE_KEYS.has(stage.key) ? ` · ${pct}%` : ''}
               </div>
             </div>
             {idx < MFG_STAGES.length - 1 && (
@@ -870,7 +997,7 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
     MFG_STAGES.forEach(stage => reachedCards.push({ stage, isActive: false }))
   } else if (order.status === 'PRODUCING' && order.mfgStage) {
     if (PARALLEL_STAGE_KEYS.has(order.mfgStage)) {
-      reachedCards.push({ stage: MFG_STAGES.find(s => s.key === 'PURCHASING')!, isActive: false })
+      reachedCards.push({ stage: MFG_STAGES.find(s => s.key === 'PURCHASING')!, isActive: getStagePercent('PURCHASING', details) < 100 })
       for (const stage of MFG_STAGES) {
         if (!PARALLEL_STAGE_KEYS.has(stage.key)) continue
         const pct = getStagePercent(stage.key, details)
@@ -897,6 +1024,7 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
   const stagePercents: Partial<Record<MfgStage, number>> | undefined =
     order.mfgStage && PARALLEL_STAGE_KEYS.has(order.mfgStage)
       ? {
+          PURCHASING:  getStagePercent('PURCHASING',  details),
           FRAME:       getStagePercent('FRAME',       details),
           WEAVING:     getStagePercent('WEAVING',     details),
           CHUYEN_KIEM: getStagePercent('CHUYEN_KIEM', details),
@@ -1005,6 +1133,8 @@ interface ApprovedRow {
   piCode: string
   deliveryDeadline?: string
   floorStage: FloorStage | null
+  /** Số item ĐÃ DUYỆT cùng PI (>1: Phôi dùng chung cho các lệnh, xem StageDetails.frame.piOrderCount). */
+  piOrderCount: number
 }
 
 // SKU nào cũng được duyệt qua đúng 1 ProductionInvoiceItem, nhưng không phải SKU nào cũng có bản
@@ -1087,6 +1217,7 @@ export default function ThongKePagePlan() {
           piCode: pi.code,
           deliveryDeadline: item.deliveryDeadline,
           floorStage: item.floorStage ?? null,
+          piOrderCount: (pi.items ?? []).filter(i => i.prodApproval?.status === 'APPROVED').length,
         })
       }
     }
@@ -1159,15 +1290,23 @@ export default function ThongKePagePlan() {
   const pageSafe  = Math.min(page, pageCount)
   const pageItems = filtered.slice((pageSafe - 1) * PAGE_SIZE, pageSafe * PAGE_SIZE)
 
+  // Nguồn tải lỗi -> báo rõ, vì phần đó đang hiện "chưa bắt đầu" do KHÔNG BIẾT chứ không phải do chưa làm.
+  const failedBanner = batchData && batchData.failed.length > 0 ? (
+    <div role="alert" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', marginBottom: 14, borderRadius: 8, background: 'var(--red-bg)', color: 'var(--red)', fontSize: 13, fontWeight: 600 }}>
+      <AlertTriangle size={15} /> Không tải được một phần số liệu tiến độ ({batchData.failed.join(', ')}) — các công đoạn liên quan đang hiện tạm là “chưa bắt đầu”, không phải số thật. Hãy tải lại trang.
+    </div>
+  ) : null
+
   const selectedRow = selectedId != null ? orderRows.find(({ order }) => order.id === selectedId) ?? null : null
   if (selectedRow) {
-    return <ThongKeDetailPage order={selectedRow.order} details={selectedRow.details} onBack={() => setSelectedId(null)} pointLabel={pointLabel} />
+    return <>{failedBanner}<ThongKeDetailPage order={selectedRow.order} details={selectedRow.details} onBack={() => setSelectedId(null)} pointLabel={pointLabel} /></>
   }
 
   return (
     <div>
+      {failedBanner}
       <div style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Bảng thống kê</h2>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Tổng hợp lệnh SX</h2>
         <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text3)' }}>
           Tổng {counts.all} · Đang sản xuất {counts.PRODUCING} · Hoàn thành {counts.DONE}
           {counts.OVERDUE > 0 && <span style={{ color: '#dc2626', fontWeight: 700 }}> · ⚠ Quá hạn {counts.OVERDUE}</span>}

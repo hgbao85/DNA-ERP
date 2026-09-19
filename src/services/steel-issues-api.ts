@@ -510,3 +510,12 @@ export async function fulfillReplenishRequest(id: string, steelIssueId: string):
 export async function rejectReplenishRequest(id: string, reason?: string): Promise<void> {
   await http.post(`/replenish-requests/${id}/reject`, { reason });
 }
+
+/** Gộp nhiều PI 1 lần - "Bảng thống kê" (ThongKePagePlan.tsx) cần tiến độ Phôi (đoạn đã cắt / định mức)
+ *  của nhiều lệnh. Trả về map piId -> danh sách loại sắt (cùng dạng getPhoiProgress). */
+export async function getPhoiProgressBatch(productionInvoiceIds: string[]): Promise<Record<string, BePhoiProgressItem[]>> {
+  if (productionInvoiceIds.length === 0) return {};
+  return http.get<Record<string, BePhoiProgressItem[]>>(
+    `/production-invoices/phoi-progress/batch?ids=${encodeURIComponent(productionInvoiceIds.join(','))}`,
+  );
+}

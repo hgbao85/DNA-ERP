@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rà soát màn hình Chi tiết lệnh (Tổng hợp lệnh SX)</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1f2933; --mute:#65707d; --line:#e2e6ea; --red:#b42318; --redbg:#fdecea; --amber:#b45309; --amberbg:#fff4e0; --green:#14703a; --greenbg:#e6f4ec; --blue:#1d4ed8; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.6 "Segoe UI", Roboto, Arial, sans-serif; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 28px 16px 60px; }
+  h1 { font-size: 24px; margin: 0 0 6px; }
+  h2 { font-size: 19px; margin: 34px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+  h3 { font-size: 16px; margin: 0 0 6px; }
+  p { margin: 6px 0; }
+  .sub { color: var(--mute); font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px 18px; margin: 12px 0; }
+  .card.red { border-left: 5px solid var(--red); }
+  .card.amber { border-left: 5px solid var(--amber); }
+  .card.green { border-left: 5px solid var(--green); }
+  .tag { display:inline-block; font-size:12px; font-weight:700; padding:2px 9px; border-radius:20px; margin-right:6px; vertical-align: middle; }
+  .t-red { background:var(--redbg); color:var(--red); }
+  .t-amber { background:var(--amberbg); color:var(--amber); }
+  .t-green { background:var(--greenbg); color:var(--green); }
+  .kpis { display:flex; gap:10px; flex-wrap:wrap; margin: 14px 0; }
+  .kpi { flex:1 1 140px; background:var(--card); border:1px solid var(--line); border-radius:10px; padding:12px 14px; text-align:center; }
+  .kpi b { display:block; font-size:28px; }
+  .kpi span { font-size:12px; color:var(--mute); }
+  table { width:100%; border-collapse: collapse; background: var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; font-size:14px; }
+  th, td { padding: 9px 12px; text-align:left; vertical-align: top; border-bottom:1px solid var(--line); }
+  th { background:#eef1f4; font-size:12px; text-transform:uppercase; letter-spacing:.04em; color:var(--mute); }
+  .ok { color:var(--green); font-weight:700; }
+  .bad { color:var(--red); font-weight:700; }
+  .mid { color:var(--amber); font-weight:700; }
+  .eg { background:#f1f5ff; border:1px dashed #b7c7f5; border-radius:8px; padding:8px 12px; margin:8px 0; font-size:14px; }
+  .fix { background:var(--greenbg); border-radius:8px; padding:8px 12px; margin:8px 0; font-size:14px; }
+  ul { margin: 6px 0 6px 20px; padding: 0; }
+  @media (max-width:600px){ th,td{padding:7px 8px;font-size:13px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Rà soát màn hình “Chi tiết lệnh” — Tổng hợp lệnh SX (Giám đốc)</h1>
+<p class="sub">Ngày rà soát: 19/09/2026 · Phạm vi: trang thống kê tiến độ sản xuất của từng lệnh (Mua hàng → Khung cơ khí [Phôi/Hàn/Sơn] → Đan → Chuyền kiểm → Đóng gói), và bảng danh sách phía trước nó.</p>
+
+<div class="card">
+  <h3>Kết luận ngắn</h3>
+  <p><b>Chưa thể tin 100% con số trên màn hình này.</b> Các công đoạn <b>Hàn, Sơn, Chuyền kiểm, Đóng gói</b> đọc đúng nguồn số liệu. Nhưng <b>Mua hàng, Phôi</b> và <b>cách gộp trạng thái “cha” (Khung cơ khí, Đan, Hoàn thành)</b> đang cho kết quả sai hoặc gây hiểu nhầm. Tôi tìm được <b>4 lỗi nghiêm trọng, 5 lỗi mức trung bình, 3 điểm nhỏ</b>.</p>
+  <p>Đây là báo cáo rà soát — <b>tôi chưa sửa gì trong hệ thống</b>. Thứ tự ưu tiên sửa ở cuối trang.</p>
+</div>
+
+<div class="kpis">
+  <div class="kpi"><b class="bad">4</b><span>Nghiêm trọng</span></div>
+  <div class="kpi"><b class="mid">5</b><span>Trung bình</span></div>
+  <div class="kpi"><b>3</b><span>Nhỏ</span></div>
+  <div class="kpi"><b class="ok">6</b><span>Điểm đã kiểm & đúng</span></div>
+</div>
+
+<h2>1. Tóm tắt theo từng công đoạn</h2>
+<table>
+  <tr><th>Công đoạn</th><th>Số liệu gốc lấy từ đâu</th><th>Đánh giá</th></tr>
+  <tr><td>Mua hàng</td><td>Danh sách đề xuất mua vật tư</td><td class="bad">SAI — luôn hiện “đã xong”</td></tr>
+  <tr><td>Phôi (cắt sắt)</td><td>Phiếu kho xuất sắt của cả PI</td><td class="bad">SAI khái niệm — đo “cây kho xuất”, không phải “đã cắt / định mức”</td></tr>
+  <tr><td>Hàn</td><td>Sản lượng đã được KCS duyệt</td><td class="mid">Số liệu đúng; cách gộp chưa chặt</td></tr>
+  <tr><td>Sơn</td><td>Sản lượng đã được KCS duyệt</td><td class="mid">Số liệu đúng; cách gộp chưa chặt</td></tr>
+  <tr><td>Đan (xuất/nhập)</td><td>Phiếu xuất đan, phiếu nhập đan</td><td class="mid">Số liệu đúng; % và nhãn “Nhập đan” gây hiểu nhầm</td></tr>
+  <tr><td>Chuyền kiểm</td><td>Kết quả kiểm chuyền của thủ kho TP</td><td class="ok">Đúng nguồn</td></tr>
+  <tr><td>Đóng gói</td><td>Phiếu đóng gói của thủ kho TP</td><td class="ok">Đúng nguồn</td></tr>
+  <tr><td>Trạng thái cha (Khung cơ khí %, Đan %, “Hoàn thành”)</td><td>Tự tính từ các bước con</td><td class="bad">SAI — chỉ ra “Hoàn thành” khi đủ cả 7 bước con, kể cả bước lệnh không hề có</td></tr>
+</table>
+
+<h2>2. Lỗi nghiêm trọng</h2>
+
+<div class="card red">
+  <h3><span class="tag t-red">N1</span> Bước “Mua hàng” luôn hiện là đã xong</h3>
+  <p>Trang cần biết “lệnh này đã mua đủ vật tư chưa”. Để làm vậy, nó ghép đề xuất mua với lệnh bằng một mã định danh — nhưng <b>mã này của hai bên không cùng loại</b> (phía mua hàng chỉ lưu một giá trị tạm, không phải mã lệnh). Kết quả: <b>không bao giờ ghép được</b>, nên trang luôn thấy “lệnh này không có vật tư nào cần mua” và tự coi Mua hàng là 100%.</p>
+  <div class="eg"><b>Thấy trên ảnh chụp:</b> “Mua hàng” có dấu tích xanh ở PO-54, và các công đoạn sau được mở khóa. Trong khi thực tế có thể vật tư chưa về đủ. Bấm vào Mua hàng sẽ chỉ thấy “Chưa có đề xuất mua vật tư nào cho lệnh này”.</div>
+  <p><b>Hậu quả:</b> Giám đốc không thể dùng trang này để biết lệnh đang kẹt ở mua hàng. Ngoài ra, trang chỉ hiện chi tiết Khung cơ khí/Đan… khi Mua hàng “xong”, nên nếu sau này sửa ghép đúng, nhiều lệnh sẽ bị ẩn số liệu Khung cơ khí cho tới khi mua đủ (cần cân nhắc khi sửa).</p>
+  <div class="fix"><b>Hướng sửa:</b> ghép đề xuất mua với lệnh theo mã PI (đề xuất mua đã có sẵn mã PI) thay vì mã tạm.</div>
+</div>
+
+<div class="card red">
+  <h3><span class="tag t-red">N2</span> Nhiều lệnh không thể chuyển sang “Hoàn thành” — kể cả khi xưởng đã Kết thúc</h3>
+  <p>Trang chỉ ghi “Hoàn thành” khi <b>cả 7 bước con</b> (Phôi, Hàn, Sơn, Xuất đan, Nhập đan, Chuyền kiểm, Đóng gói) đều “xong”. Nhưng bước nào <b>lệnh không có</b> (ví dụ sản phẩm không có mảnh đan, chưa có phiếu xuất sắt) thì bị coi là “chưa bắt đầu”, chứ không phải “không áp dụng” — nên lệnh mắc kẹt ở “Đang sản xuất” mãi mãi.</p>
+  <div class="eg"><b>Đã đối chiếu dữ liệu thật (máy chủ dev, 29 lệnh):</b>
+    <ul>
+      <li><b>14/29</b> lệnh không có mảnh nào cần đan → bước Đan không bao giờ xong.</li>
+      <li><b>20/29</b> lệnh chưa có phiếu xuất sắt nào → bước Phôi không bao giờ xong.</li>
+      <li><b>1</b> lệnh (DH-DEMO-STOCKLEN-01) không có mảnh nào cần Hàn hay Sơn.</li>
+      <li><b>6 lệnh xưởng đã bấm “Kết thúc”</b> (PO-35-1, PO-40-1, PO-43-1, PO-46-1, PO-47-1, PO-49-1) nhưng vẫn hiển thị “Đang sản xuất” ở trang này.</li>
+    </ul>
+  </div>
+  <p><b>Hậu quả:</b> bộ lọc “Hoàn thành / Đang sản xuất” và các con số tổng ở đầu bảng danh sách (Tổng · Đang SX · Hoàn thành · Quá hạn) sai. Lệnh đã giao xong vẫn có thể bị báo <b>“Quá hạn”</b> vì trang nghĩ nó chưa hoàn thành.</p>
+  <div class="fix"><b>Hướng sửa:</b> phân biệt “không áp dụng” với “chưa bắt đầu” — bước không áp dụng được bỏ khỏi phép tính; và cân nhắc dùng thêm trạng thái “Đã kết thúc” của xưởng làm tín hiệu hoàn thành.</div>
+</div>
+
+<div class="card red">
+  <h3><span class="tag t-red">N3</span> Công đoạn Phôi đo sai thứ cần đo</h3>
+  <p>Cột “Định mức (cây)” / “Cần” thực chất là <b>số cây sắt kho đã xuất</b>, không phải định mức của lệnh. Cột “Đã cắt” chỉ có 2 giá trị: <b>0</b> hoặc <b>nguyên số cây của phiếu</b> (khi KCS đã duyệt toàn bộ phiếu). Một phần cắt dở, hoặc đã cắt nhưng KCS chưa duyệt, đều hiện 0.</p>
+  <p>Trong khi đó, màn Phôi thật của xưởng đo bằng <b>“số đoạn đã cắt ÷ định mức cần”</b>, theo từng cỡ đoạn. Hai màn hình vì vậy cho hai con số khác nhau cho cùng một việc.</p>
+  <div class="eg"><b>Tình huống sai điển hình:</b> lệnh cần 40 cây nhưng kho mới xuất 18 cây; xưởng cắt xong và KCS duyệt hết 18 cây → trang này hiện <b>Phôi 100% “xong”</b>, dù còn 22 cây chưa xuất. Ngược lại, nếu đang cắt dở 15/18 cây nhưng chưa gửi KCS thì hiện <b>0%</b>.</div>
+  <p>Ngoài ra Phôi <b>không tính</b> “vật tư thành phẩm” (ví dụ chân nhôm) — loại này xưởng tự báo ở luồng riêng, trang này bỏ qua hoàn toàn nên bị thiếu.</p>
+  <div class="fix"><b>Hướng sửa:</b> dùng đúng nguồn “tiến độ cắt” mà màn Phôi thật đang dùng (đã cắt / định mức theo cỡ đoạn), và thêm phần vật tư thành phẩm.</div>
+</div>
+
+<div class="card red">
+  <h3><span class="tag t-red">N4</span> Cờ đỏ “chưa cân đối / lệch định mức” ở Phôi là cảnh báo giả</h3>
+  <p>Khi cùng một loại sắt được kho xuất làm <b>nhiều đợt</b>, trang coi mỗi đợt là <b>một loại sắt khác nhau</b> rồi so sánh chúng với nhau. Đợt 1 đã xong, đợt 2 chưa cắt → báo “lệch”.</p>
+  <div class="eg"><b>Chính là ảnh chụp của bạn:</b> SAT-004 xuất 2 đợt (9 cây + 9 cây). Đợt 1 đã xong (9/9), đợt 2 chưa cắt (0/9). Trang báo đỏ: <i>“Đồng bộ sắt: 0 mảnh — chưa cân đối. Cần cắt thêm SAT-004 +9”</i> và tô đỏ cả dòng, cả tab Phôi, cả dấu ⚠ ngoài bảng danh sách. Thực chất chỉ là “đợt 2 chưa cắt”, không có gì mất cân đối giữa các loại sắt.</div>
+  <p>Cũng trong ảnh: tiêu đề <b>“Danh sách mảnh”</b> và cột “Mảnh” thật ra đang hiện <b>tên loại sắt</b> (“Sắt vuông 6zem 10”); cột “SL/SKU ×1” là số 1 cố định; “Loại sắt SAT-004” xuất hiện 2 lần vì thực chất đó là 2 <b>đợt xuất</b>. Người xem dễ hiểu nhầm là 2 loại sắt hoặc 2 mảnh.</p>
+  <div class="fix"><b>Hướng sửa:</b> gộp các đợt của cùng một loại sắt lại thành một dòng (cần / đã cắt / còn lại) và chỉ cảnh báo lệch khi <i>hai loại sắt khác nhau</i> lệch nhau; đổi tên cột cho đúng là “Loại sắt”.</div>
+</div>
+
+<h2>3. Lỗi mức trung bình</h2>
+
+<div class="card amber">
+  <h3><span class="tag t-amber">T1</span> Phần trăm của công đoạn “cha” không khớp phần trăm các bước “con”</h3>
+  <p>Thanh trạng thái phía trên tính % theo kiểu <b>“bước xong = 1, bước đang làm = 0,5, chưa làm = 0”</b> rồi lấy trung bình — không dựa vào số lượng thật. Còn các tab bên dưới dùng số lượng thật.</p>
+  <div class="eg"><b>Trong ảnh:</b> thanh trên ghi <b>Khung cơ khí 50%</b>, nhưng ba tab con ghi Phôi 24% · Hàn 4% · Sơn 24% (trung bình thực ≈ 17%). Tương tự “Đan 25%” chỉ vì bước xuất đan được tính “0,5” chứ không phải 25% khối lượng thật.</div>
+  <p>Vì độ chính xác là yêu cầu, hai số này phải cùng một cách tính. Cột “Công đoạn hiện tại” trong bảng danh sách cũng dùng số kiểu 0,5 này.</p>
+</div>
+
+<div class="card amber">
+  <h3><span class="tag t-amber">T2</span> “Xong” được tính trên tổng, không tính từng mảnh</h3>
+  <p>Hàn, Sơn và Chuyền kiểm cộng tổng số cần và tổng số đã làm rồi so sánh. Hệ thống cho phép báo dư (không chặn), nên mảnh A báo dư có thể bù cho mảnh B còn thiếu → hiện “xong” dù chưa đủ. Phần trăm cũng không bị chặn ở 100% nên có thể hiện <b>trên 100%</b>.</p>
+  <div class="eg">Mảnh A cần 10, báo 15; mảnh B cần 10, báo 5 → tổng 20/20 = “xong 100%”, nhưng mảnh B còn thiếu 5.</div>
+</div>
+
+<div class="card amber">
+  <h3><span class="tag t-amber">T3</span> Cảnh báo “lệch” của Hàn/Sơn so sánh số thô giữa các mảnh khác định mức</h3>
+  <p>Hàn/Sơn báo “chưa cân đối” khi số lượng đã làm của các mảnh không bằng nhau, nhưng không quy đổi theo số mảnh cần cho mỗi sản phẩm (ví dụ 1 sản phẩm cần 4 chân + 1 mặt bàn: làm đúng tỷ lệ 8 chân + 2 mặt vẫn bị cảnh báo lệch). Cách tính này giống màn Hàn/Sơn của xưởng nên tôi <b>không khẳng định là sai</b> — cần Sếp/QLSX xác nhận quy tắc mong muốn.</p>
+</div>
+
+<div class="card amber">
+  <h3><span class="tag t-amber">T4</span> Bước “Nhập đan” so với số đã xuất, không so với tổng cần</h3>
+  <p>“Nhập đan xong” khi số nhận về ≥ số đã xuất đi. Xuất 5/100, nhận lại đủ 5 → “Nhập đan: xong” trong khi mới làm 5%. Trang vẫn không kết luận “Hoàn thành” sai (vì còn đòi thêm bước Xuất đan), nhưng % của Đan và nhãn từng bước gây hiểu nhầm.</p>
+</div>
+
+<div class="card amber">
+  <h3><span class="tag t-amber">T5</span> Lỗi tải dữ liệu bị nuốt im lặng; nhiều lệnh dùng chung số liệu Phôi của PI</h3>
+  <ul>
+    <li><b>Lỗi tải:</b> trang lấy dữ liệu từ 6 nguồn. Nếu 1 nguồn lỗi mạng, phần đó hiện “chưa bắt đầu / 0%” như thể chưa có gì, <b>không có thông báo lỗi</b> nào cho người xem. Người xem không phân biệt được “thật sự 0%” với “tải hỏng”. Trang cũng không tự làm mới — phải tải lại mới thấy số mới.</li>
+    <li><b>PI có nhiều lệnh:</b> Phôi tính theo cả PI, nên khi 1 PI có 2 lệnh (dữ liệu thật: PI-2026-008 có PO-38-1 và PO-38-2 chỉ có 1 phiếu sắt; PI-2026-012 có PO-44-1 và PO-42-1 cùng 1 phiếu đã xong), <b>cả hai lệnh cùng hiện đúng một số liệu Phôi</b> và cùng hiện Phôi “xong”, dù phiếu đó có thể chỉ phục vụ một trong hai.</li>
+  </ul>
+</div>
+
+<h2>4. Điểm nhỏ</h2>
+<div class="card">
+  <ul>
+    <li><b>“Ngày tạo”</b> ở đầu trang là ngày KHSX tạo phiếu SKU, không phải ngày Sếp duyệt lệnh. Nếu không có phiếu SKU tương ứng đúng PI, trang lấy tạm phiếu SKU của <b>cùng sản phẩm ở PI khác</b> → “Khách hàng” và “Ngày tạo” có thể lấy nhầm của lệnh khác.</li>
+    <li>Thông báo “Chưa tới lượt kiểm — đợi công đoạn Đan hoàn tất” và “Chưa tới lượt đóng gói…” hiện cả khi lệnh <b>không có bước Đan</b>, hoặc khi dữ liệu tải lỗi — nội dung không đúng ngữ cảnh.</li>
+    <li>Bước Phôi chỉ có 3 trạng thái nên khi đã có phiếu xuất sắt nhưng chưa cắt gì (0%) vẫn tính là “đang làm”, kéo % Khung cơ khí lên (liên quan T1).</li>
+  </ul>
+</div>
+
+<h2>5. Những điểm đã kiểm tra và đúng</h2>
+<div class="card green">
+  <ul>
+    <li><b>Hàn/Sơn:</b> chỉ tính phần <b>đã được KCS duyệt</b>; đợt đang nhập dở hoặc đang chờ KCS <b>không</b> bị tính vào “đã làm” — đúng nghiệp vụ.</li>
+    <li><b>Chuyền kiểm:</b> “Chờ thực thi” = số đã về tới chuyền − số đã kiểm; mảnh đan dùng số phiếu nhập đan, mảnh không đan dùng số phiếu chuyển kho đã xác nhận — khớp đúng màn Chuyền kiểm của thủ kho.</li>
+    <li><b>Đóng gói:</b> tổng = số lượng của lệnh, đã đóng = cộng dồn các lần ghi nhận — khớp màn Đóng gói.</li>
+    <li><b>Mã PO, mã PI, số lượng, Hạn giao, cờ “Quá hạn”</b> lấy đúng từ dòng sản phẩm đã được Sếp duyệt (mỗi dòng đã duyệt ↔ đúng 1 dòng trên bảng).</li>
+    <li><b>Cột “Xưởng”</b> (Chưa bắt đầu / Đang chạy / Tạm dừng / Đã kết thúc) đọc thẳng trạng thái thật của lệnh, độc lập với phần tính tiến độ.</li>
+    <li>Các dòng tiến độ của 1 lệnh được ghép đúng theo từng lệnh (không lẫn giữa các lệnh với nhau).</li>
+  </ul>
+</div>
+
+<h2>6. Đề xuất thứ tự xử lý</h2>
+<table>
+  <tr><th>#</th><th>Việc cần làm</th><th>Xử lý lỗi</th></tr>
+  <tr><td>1</td><td>Sửa cách xác định “Hoàn thành” — bỏ qua bước không áp dụng</td><td>N2</td></tr>
+  <tr><td>2</td><td>Sửa ghép đề xuất mua với lệnh, để bước Mua hàng phản ánh thật</td><td>N1</td></tr>
+  <tr><td>3</td><td>Đổi nguồn Phôi sang “đã cắt ÷ định mức”, gộp các đợt của cùng loại sắt, bỏ cờ lệch giả, thêm vật tư thành phẩm</td><td>N3, N4</td></tr>
+  <tr><td>4</td><td>Thống nhất một cách tính % (theo số lượng thật, chặn trần 100%), tính “xong” theo từng mảnh</td><td>T1, T2, T4</td></tr>
+  <tr><td>5</td><td>Hiện thông báo khi một nguồn dữ liệu tải lỗi; tách số liệu Phôi theo từng lệnh khi PI có nhiều lệnh</td><td>T5</td></tr>
+  <tr><td>6</td><td>Xin xác nhận quy tắc “lệch” của Hàn/Sơn</td><td>T3</td></tr>
+</table>
+
+<h2>Tiến độ xử lý (cập nhật cùng ngày)</h2>
+<div class="card green">
+  <ul>
+    <li><b>Đã sửa:</b> N1 (Mua hàng ghép theo mã PI, có % thật), N2 (bước “không áp dụng”, xưởng “Kết thúc” = Hoàn thành), N3 + N4 (Phôi đo theo đoạn cắt / định mức, gộp theo loại sắt, bỏ cờ lệch giả), T1 (mọi % tính theo số lượng thật, thanh trên khớp các tab con), T2 (mỗi mảnh chặn trần theo định mức của chính nó, % không vượt 100), T4 (Nhập đan so với tổng cần), T5 phần “lỗi tải im lặng” (có banner đỏ, nguồn lỗi coi là “không biết”).</li>
+    <li><b>Chưa xử lý:</b> T3 (quy tắc “lệch” của Hàn/Sơn — cần Sếp/QLSX xác nhận), T5 phần “PI nhiều lệnh dùng chung số Phôi” (chỉ thêm ghi chú trên màn hình, backend chưa tách theo lệnh), các điểm nhỏ (Ngày tạo/khách hàng lấy nhầm từ SKU khác, câu chữ thông báo).</li>
+    <li><b>Phạm vi áp dụng:</b> cả 3 vai trò (Giám đốc, KHSX, QLSX) dùng chung một trang nên đều nhận các sửa đổi trên. Riêng nút Bắt đầu / Tạm dừng / Kết thúc của QLSX giữ nguyên.</li>
+    <li><b>Đổi tên:</b> mục “Bảng thống kê” ở sidebar KHSX và QLSX (và tiêu đề trang) đã đổi thành “Tổng hợp lệnh SX” cho giống Giám đốc.</li>
+    <li><b>Cần kiểm tra thêm:</b> tài khoản KHSX và QLSX có đủ quyền xem dữ liệu Phôi/Mua hàng mới hay không (nếu thiếu, trang sẽ hiện banner đỏ báo nguồn lỗi).</li>
+    <li>Các phần này chưa được kiểm tra bằng cách mở trang trên trình duyệt.</li>
+  </ul>
+</div>
+
+<h2>7. Giới hạn của lần rà soát này</h2>
+<div class="card">
+  <ul>
+    <li>Tôi đọc toàn bộ mã của trang, mã backend cung cấp 5 nguồn số liệu, và đối chiếu số liệu thật trên cơ sở dữ liệu dev dùng chung (chỉ đọc, không ghi).</li>
+    <li>Tôi <b>chưa</b> mở trang trên trình duyệt để so từng số của từng lệnh; các ví dụ N2/T5 dựa trên số liệu thật kết hợp với logic của trang, còn ví dụ N3 (40 cây/18 cây) là minh họa bằng số giả định.</li>
+    <li>Truy vấn chi tiết riêng cho lệnh PO-54 (ảnh của bạn) bị treo nên phần đó tôi suy từ ảnh chụp và logic của trang, chưa đối chiếu trực tiếp từng phiếu sắt.</li>
+    <li>Thư mục lưu báo cáo là <b>docs</b> (đã có sẵn trong dự án), không có thư mục tên “doc”.</li>
+  </ul>
+</div>
+
+</div>
+</body>
+</html>

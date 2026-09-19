@@ -67,7 +67,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
         </div>
 
         <nav style={{ flex: 1, padding: '4px 8px' }}>
-          {navBtn('thongke',    <CalendarClock size={16} />,   'Bảng thống kê')}
+          {navBtn('thongke',    <CalendarClock size={16} />,   'Tổng hợp lệnh SX')}
           {navBtn('planforms',  <LayoutDashboard size={16} />, 'Danh sách SKU')}
           {navBtn('duyet-sku',    <FilePlus size={16} />,        'Duyệt SKU')}
             {navBtn('lenh-sx',    <ClipboardList size={16} />,  isBoss ? 'Duyệt lệnh SX' : 'Lệnh sản xuất mới')}

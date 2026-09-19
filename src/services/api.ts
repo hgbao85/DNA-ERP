@@ -146,7 +146,7 @@ export {
   reviewPieceStepQc,
 } from './production-batches-api';
 export {
-  getSteelIssuePlan, getSteelIssuesForInvoice, getSteelIssuesForInvoiceBatch, issueSteel,
+  getSteelIssuePlan, getSteelIssuesForInvoice, getSteelIssuesForInvoiceBatch, getPhoiProgressBatch, issueSteel,
   getSteelIssuesByStatus, getSteelIssue, getCutBundles, receiveSteelIssue,
   recordCutBatch, getPhoiProgress, getStepProgress, recordStepBatch, getPiOrderSummary,
   reviewSteelIssueQc, getQcReviewsForSteelIssues, getAllQcReviews, updateQcReviewPhoto,
