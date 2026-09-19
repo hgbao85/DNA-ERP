@@ -4,6 +4,7 @@ import { useInspection, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type Purc
 import { useAuth, type User } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials, uploadDocument } from '../../../services/api'
+import { useWarehouseName } from '../../../hooks/useWarehouseName'
 import { visibleProposalsFor, buildBuyerByMaterialId, splitItemsByOwner, rollupStatusOf, type MaterialBuyerMap } from '../../../utils/purchasingRouting'
 import PurchaseProposalAuditTrail from '../../../components/PurchaseProposalAuditTrail'
 
@@ -218,6 +219,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
   proposals: PurchaseProposal[]
   onBossApprove: (id: string, approvalFileUrl: string) => Promise<void>
 }) {
+  const warehouseName = useWarehouseName()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [approvingId, setApprovingId] = useState<string | null>(null)
 
@@ -297,7 +299,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                    <th style={th}>Kho</th>
+                    <th style={th}>Hàng về kho</th>
                     <th style={th}>Vật tư</th>
                     <th style={{ ...th, textAlign: 'right' }}>Tồn thực</th>
                     <th style={{ ...th, textAlign: 'right' }}>Cần mua</th>
@@ -307,7 +309,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
                 <tbody>
                   {pendingItems.map((item, idx) => (
                     <tr key={idx} style={{ borderTop: '1px solid var(--border)' }}>
-                      <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{item.khoLabel}</td>
+                      <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{warehouseName(item.warehouseCode, item.khoLabel)}</td>
                       <td style={{ ...td, fontWeight: 600 }}><ItemName item={item} /></td>
                       <td style={{ ...td, textAlign: 'right', color: '#dc2626' }}>{item.actualStock}</td>
                       <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#d97706' }}>{item.buyQty}</td>
@@ -389,14 +391,12 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
               <th style={th}>PO</th>
               <th style={th}>PI</th>
               <th style={th}>Mã nhà máy</th>
-              <th style={th}>Kho phụ trách</th>
               <th style={th}>Deadline</th>
               <th style={th}>Trạng thái</th>
             </tr>
           </thead>
           <tbody>
             {proposals.map(p => {
-              const khos = [...new Set(p.items.map(i => i.khoLabel))].join(', ')
               return (
                 <tr
                   key={p.id}
@@ -411,7 +411,6 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
                     <span style={{ fontWeight: 600 }}>{p.skuCode}</span>
                     {p.skuName && <span style={{ marginLeft: 6, color: 'var(--text3)', fontSize: 12 }}>{p.skuName}</span>}
                   </td>
-                  <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{khos}</td>
                   <td style={{ ...td, color: p.deadline ? '#dc2626' : 'var(--text3)', fontSize: 12, fontWeight: p.deadline ? 600 : 400 }}>
                     {p.deadline ? new Date(p.deadline).toLocaleDateString('vi-VN') : '—'}
                   </td>

@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Cột "Hàng về kho" ở màn Mua hàng (19/09/2026)</title>
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --ok: #1E7A34; --ok-bg: #E6F4EA;
+    --warn: #A85400; --warn-bg: #FBEEDF; --bad: #B0332B; --bad-bg: #FAE4E2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --ok: #7FD99A; --ok-bg: rgba(127,217,154,0.12);
+      --warn: #FFB74D; --warn-bg: rgba(255,183,77,0.12); --bad: #E0776D; --bad-bg: rgba(224,119,109,0.12);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --ok: #7FD99A; --ok-bg: rgba(127,217,154,0.12);
+    --warn: #FFB74D; --warn-bg: rgba(255,183,77,0.12); --bad: #E0776D; --bad-bg: rgba(224,119,109,0.12);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 system-ui, "Segoe UI", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 32px 0 10px; }
+  .sub { color: var(--text-muted); margin: 0 0 24px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 12px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--surface-alt); font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
+  .wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+  .wrap table th:first-child, .wrap table td:first-child { padding-left: 14px; }
+  .tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 6px; }
+  .tag.ok { color: var(--ok); background: var(--ok-bg); }
+  .tag.warn { color: var(--warn); background: var(--warn-bg); }
+  .tag.bad { color: var(--bad); background: var(--bad-bg); }
+  .note { border-left: 4px solid var(--warn); background: var(--warn-bg); padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
+  code { background: var(--surface-alt); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ul { margin: 6px 0; padding-left: 22px; }
+  @media (max-width: 600px) { main { padding: 20px 16px 48px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Cột "Hàng về kho" ở màn Mua hàng</h1>
+  <p class="sub">19/09/2026 · Màn: Lệnh mua vật tư, Theo dõi mua hàng, Lịch sử đã mua</p>
+
+  <h2>Tóm tắt</h2>
+  <div class="card">
+    <ul>
+      <li>Ở phần <b>chi tiết từng PO</b> của 3 màn Mua hàng, có cột <b>"Hàng về kho"</b> cho biết từng vật tư sẽ về kho nào.</li>
+      <li>Cột hiện <b>tên kho thật</b>, nên phân biệt được "Kho thành phẩm" và "Kho thành phẩm 2".</li>
+      <li>Cột <b>"Kho phụ trách"</b> ở phần <b>danh sách PO</b> của cả 3 màn đã được bỏ, vì mỗi PO gồm nhiều vật tư về nhiều kho khác nhau nên cột này không có nhiều ý nghĩa.</li>
+    </ul>
+  </div>
+
+  <h2>Thay đổi trên từng màn</h2>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Màn</th><th>Danh sách PO</th><th>Chi tiết PO</th></tr></thead>
+      <tbody>
+        <tr><td>Lệnh mua vật tư</td><td>Bỏ cột "Kho phụ trách"</td><td>Cột "Kho" đổi tên thành "Hàng về kho" và hiện tên kho thật (trước đây chỉ hiện tên theo nhóm kho)</td></tr>
+        <tr><td>Theo dõi mua hàng</td><td>Bỏ cột "Kho phụ trách"</td><td>Thêm cột "Hàng về kho" (giữa "Còn lại" và "Hạn giao")</td></tr>
+        <tr><td>Lịch sử đã mua</td><td>Bỏ cột "Kho phụ trách"</td><td>Thêm cột "Hàng về kho" (sau "ĐVT")</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>Dữ liệu lấy từ đâu</h2>
+  <div class="card">
+    <p>Mỗi vật tư trong đề xuất mua có một kho nhận hàng do hệ thống ghi:</p>
+    <ul>
+      <li>Thông thường là <b>kho mặc định của vật tư</b> (Admin gán trong danh mục vật tư).</li>
+      <li>Riêng vật tư có kho mặc định là Kho thành phẩm, nếu QLSX đã chọn một kho thành phẩm khác cho PI đó (ví dụ "Kho thành phẩm 2") thì <b>lấy theo kho QLSX chọn</b>.</li>
+    </ul>
+    <p>Trang chỉ hiển thị lại kho đã ghi. Trang Nhập kho cũng dùng đúng kho này để xác định thủ kho nào được nhận hàng.</p>
+  </div>
+
+  <h2>Đã kiểm tra thế nào</h2>
+  <div class="card">
+    <ul>
+      <li><b>Trên trình duyệt thật</b> (tài khoản <code>nhan</code>, <code>tram</code>): cả 3 màn không còn cột "Kho phụ trách" ở danh sách, và có cột "Hàng về kho" ở chi tiết.</li>
+      <li><b>PO-51:</b> Màng PE và Sơn dặm hiện "Kho thành phẩm 2" đúng như QLSX đã chọn, dù kho mặc định của chúng là Kho thành phẩm.</li>
+      <li><b>Đối chiếu dữ liệu toàn hệ thống</b> (35 đề xuất, 178 dòng vật tư): 177 dòng đúng, 1 dòng bất thường (xem bên dưới).</li>
+      <li><b>Test tự động:</b> 38/38 test đạt, kiểm tra kiểu dữ liệu không báo lỗi. Chưa có test tự động riêng cho các màn này.</li>
+    </ul>
+  </div>
+
+  <h2>Còn tồn đọng</h2>
+  <div class="note">
+    <p><span class="tag warn">Chưa xử lý</span> <b>PO-43 (PI-2026-016), vật tư NN-003, mã dòng 216</b> đang ghi kho nhận là "Kho thành phẩm 2", nhưng kho mặc định của vật tư này là Kho Vật tư thành phẩm.</p>
+    <ul>
+      <li>Nguyên nhân: dữ liệu cũ ngày 04/09, lúc quy tắc ghi đè kho còn sai. Sau đó quy tắc đã được sửa.</li>
+      <li>Sổ kho cho thấy 35 cái NN-003 được nhận vào Kho thành phẩm 2 rồi được chuyển ngược về Kho Vật tư thành phẩm cùng ngày. Hàng thực tế nằm ở Kho Vật tư thành phẩm.</li>
+      <li>Ảnh hưởng: cột "Hàng về kho" ở Lịch sử đã mua sẽ hiện "Kho thành phẩm 2" cho dòng này. Dòng đã ở trạng thái "đã mua", không ảnh hưởng đề xuất mới.</li>
+      <li>Cách sửa: xóa kho nhận ghi đè ở dòng 216 để về kho mặc định. Việc này chưa thực hiện vì hệ thống chặn thao tác ghi vào DB dùng chung; cần chạy thủ công hoặc cấp quyền.</li>
+    </ul>
+  </div>
+  <div class="note">
+    <p><span class="tag warn">Dữ liệu thử</span> Khi test, tôi đã bấm "Sếp đã duyệt" cho 4 dòng của <code>tram</code> trong PO-51 (kèm một file ảnh trắng nhỏ làm phiếu duyệt). Các dòng này đang ở trạng thái đang mua. Có thể xóa hoặc đổi file ở cột "Phiếu duyệt" ở màn Theo dõi mua hàng.</p>
+  </div>
+
+  <h2>File đã sửa</h2>
+  <div class="card">
+    <ul>
+      <li><code>src/modules/pages/Purchasing/LenhMuaNCCPage.tsx</code></li>
+      <li><code>src/modules/pages/Purchasing/TheoDoiMuaHangPage.tsx</code></li>
+      <li><code>src/modules/pages/Purchasing/LichSuMuaHangPage.tsx</code></li>
+      <li><code>src/hooks/useWarehouseName.ts</code> (mới, hàm tra tên kho thật, dùng chung cho 3 màn)</li>
+    </ul>
+  </div>
+</main>
+</body>
+</html>

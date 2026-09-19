@@ -6,6 +6,7 @@ import { useInspection, type PurchaseProposal } from '../../../context/Inspectio
 import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials } from '../../../services/api'
+import { useWarehouseName } from '../../../hooks/useWarehouseName'
 import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purchasingRouting'
 import { ApprovalFileCell } from './TheoDoiMuaHangPage'
 
@@ -22,6 +23,8 @@ interface Row {
   itemName: string
   buyQty: number
   unit: string
+  khoLabel: string
+  warehouseCode: string
   approvalFileUrl?: string
 }
 
@@ -41,6 +44,8 @@ function buildRows(p: PurchaseProposal): Row[] {
       itemName: item.name,
       buyQty: item.buyQty,
       unit: item.unit,
+      khoLabel: item.khoLabel,
+      warehouseCode: item.warehouseCode,
       approvalFileUrl: item.approvalFileUrl,
     }
   })
@@ -52,6 +57,7 @@ export default function LichSuMuaHangPage() {
   const { user } = useAuth()
   const { proposals: allProposals } = useInspection()
   const { data: materials, isLoading: materialsLoading } = useFetch(getMaterials)
+  const warehouseName = useWarehouseName()
   const buyerByMaterialId = buildBuyerByMaterialId(materials ?? [])
   // materials chưa tải xong -> buyerByMaterialId RỖNG -> mọi đề xuất trông như "chưa gán ai" ->
   // hiện NHẦM cho mọi nhân viên mua hàng rồi biến mất khi tải xong (D.p7-buyer-filter-loading-
@@ -89,6 +95,7 @@ export default function LichSuMuaHangPage() {
                 <th style={th}>Tên vật tư</th>
                 <th style={{ ...th, textAlign: 'right' }}>Đã mua</th>
                 <th style={th}>ĐVT</th>
+                <th style={th}>Hàng về kho</th>
                 <th style={th}>Phiếu duyệt</th>
               </tr>
             </thead>
@@ -99,6 +106,7 @@ export default function LichSuMuaHangPage() {
                   <td style={{ ...td, fontWeight: 600 }}>{r.itemName}</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#166534' }}>{r.buyQty}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>{r.unit}</td>
+                  <td style={{ ...td, fontWeight: 600 }}>{warehouseName(r.warehouseCode, r.khoLabel)}</td>
                   {/* Giá + NCC nằm TRONG file này (2026-08-27) - phần mềm không lưu tách ra. */}
                   <td style={td}>
                     <ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} />
@@ -144,13 +152,11 @@ export default function LichSuMuaHangPage() {
                   <th style={th}>PO</th>
                   <th style={th}>PI</th>
                   <th style={th}>Mã nhà máy</th>
-                  <th style={th}>Kho phụ trách</th>
                   <th style={th}>Hoàn tất lúc</th>
                 </tr>
               </thead>
               <tbody>
                 {proposals.map(p => {
-                  const khos = [...new Set(p.items.map(i => i.khoLabel))].join(', ')
                   return (
                     <tr
                       key={p.id}
@@ -165,7 +171,6 @@ export default function LichSuMuaHangPage() {
                         <span style={{ fontWeight: 600 }}>{p.skuCode}</span>
                         {p.skuName && <span style={{ marginLeft: 6, color: 'var(--text3)', fontSize: 12 }}>{p.skuName}</span>}
                       </td>
-                      <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{khos}</td>
                       <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>
                         {p.purchasedAt ? format(new Date(p.purchasedAt), 'HH:mm dd/MM/yyyy') : '—'}
                       </td>

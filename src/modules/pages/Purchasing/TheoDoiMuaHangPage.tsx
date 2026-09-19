@@ -6,6 +6,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { useConfirm } from '../../../hooks/useConfirm'
 import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials, uploadDocument } from '../../../services/api'
+import { useWarehouseName } from '../../../hooks/useWarehouseName'
 import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purchasingRouting'
 
 const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
@@ -21,6 +22,8 @@ interface Row {
   itemName: string
   buyQty: number
   unit: string
+  khoLabel: string
+  warehouseCode: string
   boughtQty: number
   remaining: number
   deadline?: string
@@ -45,6 +48,8 @@ function buildRows(p: PurchaseProposal): Row[] {
       itemName: item.name,
       buyQty: item.buyQty,
       unit: item.unit,
+      khoLabel: item.khoLabel,
+      warehouseCode: item.warehouseCode,
       boughtQty,
       remaining: Math.max(0, item.buyQty - boughtQty),
       deadline: p.deadline,
@@ -129,6 +134,7 @@ export default function TheoDoiMuaHangPage() {
   const { user } = useAuth()
   const { proposals: allProposals } = useInspection()
   const { data: materials, isLoading: materialsLoading } = useFetch(getMaterials)
+  const warehouseName = useWarehouseName()
   const buyerByMaterialId = buildBuyerByMaterialId(materials ?? [])
   // materials chưa tải xong -> buyerByMaterialId RỖNG -> canPurchaserSeeProposal() coi mọi đề
   // xuất là "chưa gán ai" (buyerId undefined) -> hiện NHẦM cho mọi nhân viên mua hàng trong
@@ -172,6 +178,7 @@ export default function TheoDoiMuaHangPage() {
                 <th style={th}>ĐVT</th>
                 <th style={{ ...th, textAlign: 'right' }}>Đã mua</th>
                 <th style={{ ...th, textAlign: 'right' }}>Còn lại</th>
+                <th style={th}>Hàng về kho</th>
                 <th style={th}>Hạn giao</th>
                 <th style={th}>Phiếu duyệt</th>
               </tr>
@@ -185,6 +192,7 @@ export default function TheoDoiMuaHangPage() {
                   <td style={{ ...td, color: 'var(--text3)' }}>{r.unit}</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: r.boughtQty > 0 ? '#16a34a' : 'var(--text3)' }}>{r.boughtQty}</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: r.remaining > 0 ? '#d97706' : '#16a34a' }}>{r.remaining}</td>
+                  <td style={{ ...td, fontWeight: 600 }}>{warehouseName(r.warehouseCode, r.khoLabel)}</td>
                   <td style={{ ...td, color: r.deadline ? '#dc2626' : 'var(--text3)', fontWeight: r.deadline ? 600 : 400, whiteSpace: 'nowrap' }}>
                     {r.deadline ? new Date(r.deadline).toLocaleDateString('vi-VN') : '—'}
                   </td>
@@ -230,14 +238,12 @@ export default function TheoDoiMuaHangPage() {
                   <th style={th}>PO</th>
                   <th style={th}>PI</th>
                   <th style={th}>Mã nhà máy</th>
-                  <th style={th}>Kho phụ trách</th>
                   <th style={th}>Deadline</th>
                   <th style={th}>Trạng thái</th>
                 </tr>
               </thead>
               <tbody>
                 {proposals.map(p => {
-                  const khos = [...new Set(p.items.map(i => i.khoLabel))].join(', ')
                   return (
                     <tr
                       key={p.id}
@@ -252,7 +258,6 @@ export default function TheoDoiMuaHangPage() {
                         <span style={{ fontWeight: 600 }}>{p.skuCode}</span>
                         {p.skuName && <span style={{ marginLeft: 6, color: 'var(--text3)', fontSize: 12 }}>{p.skuName}</span>}
                       </td>
-                      <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{khos}</td>
                       <td style={{ ...td, color: p.deadline ? '#dc2626' : 'var(--text3)', fontSize: 12, fontWeight: p.deadline ? 600 : 400 }}>
                         {p.deadline ? new Date(p.deadline).toLocaleDateString('vi-VN') : '—'}
                       </td>
