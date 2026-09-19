@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chuyền Kiểm: Cột Hiện Có</title>
+<style>
+:root{
+  --bg:#eef1f3; --surface:#ffffff; --surface-2:#f5f7f8;
+  --ink:#1b2430; --ink-soft:#54606d; --ink-faint:#8a94a1;
+  --line:#dbe1e6; --line-strong:#c3ccd3;
+  --accent:#4527a0; --accent-soft:#ede7f6; --accent-line:#c9b8e8;
+  --warn:#a92318; --warn-soft:#fbe6e3; --warn-line:#e7b3ab;
+  --ok:#2f6b4f; --ok-soft:#e3efe8;
+  --mono: ui-monospace, "Cascadia Mono", "SFMono-Regular", Consolas, monospace;
+  --sans: -apple-system, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#11151b; --surface:#181e26; --surface-2:#1e252e;
+    --ink:#e8ecf0; --ink-soft:#aab4c0; --ink-faint:#748090;
+    --line:#2a323d; --line-strong:#374050;
+    --accent:#b39ddb; --accent-soft:#2c2340; --accent-line:#4a3a70;
+    --warn:#ff8f85; --warn-soft:#3a1e1c; --warn-line:#66312c;
+    --ok:#7fcaa4; --ok-soft:#1c2e26;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11151b; --surface:#181e26; --surface-2:#1e252e;
+  --ink:#e8ecf0; --ink-soft:#aab4c0; --ink-faint:#748090;
+  --line:#2a323d; --line-strong:#374050;
+  --accent:#b39ddb; --accent-soft:#2c2340; --accent-line:#4a3a70;
+  --warn:#ff8f85; --warn-soft:#3a1e1c; --warn-line:#66312c;
+  --ok:#7fcaa4; --ok-soft:#1c2e26;
+}
+*{box-sizing:border-box;}
+html{background:var(--bg);}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;margin:0;padding:0 16px 80px;}
+.wrap{max-width:840px;margin:0 auto;}
+header{padding:48px 0 24px;border-bottom:1px solid var(--line-strong);margin-bottom:24px;}
+.eyebrow{font-family:var(--mono);font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 12px;}
+h1{font-size:clamp(28px,5vw,40px);line-height:1.15;margin:0 0 14px;letter-spacing:-0.02em;font-weight:800;}
+.lede{font-size:16px;color:var(--ink-soft);margin:0;max-width:64ch;}
+h2{font-size:20px;margin:36px 0 12px;letter-spacing:-0.01em;}
+p{margin:0 0 12px;}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin:0 0 14px;}
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);margin:0 0 14px;}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:520px;}
+th,td{text-align:left;padding:9px 12px;vertical-align:top;border-top:1px solid var(--line);}
+thead th{background:var(--surface-2);border-top:none;font-size:12.5px;color:var(--ink-soft);}
+code{font-family:var(--mono);font-size:12.5px;background:var(--surface-2);border:1px solid var(--line);border-radius:4px;padding:1px 5px;}
+.note{border-left:4px solid var(--accent-line);background:var(--accent-soft);padding:12px 16px;border-radius:0 8px 8px 0;margin:0 0 14px;}
+.warn{border-left:4px solid var(--warn-line);background:var(--warn-soft);padding:12px 16px;border-radius:0 8px 8px 0;margin:0 0 14px;}
+.ok{color:var(--ok);font-weight:600;}
+.bad{color:var(--warn);font-weight:600;}
+ul{margin:0 0 12px;padding-left:22px;}
+li{margin:0 0 6px;}
+.foot{margin-top:40px;font-size:13px;color:var(--ink-faint);}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <p class="eyebrow">Kho thành phẩm · Chuyền kiểm · 19/09/2026</p>
+  <h1>Chuyền kiểm: cột “Hiện có” và chặn kiểm vượt</h1>
+  <p class="lede">Màn Chuyền kiểm có thêm cột “Hiện có” cho mỗi mảnh. Số lượng kiểm cộng dồn của mảnh không được vượt quá cột này.</p>
+</header>
+
+<h2>1. Ý nghĩa các cột</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Cột</th><th>Nghĩa</th></tr></thead>
+<tbody>
+<tr><td>Tổng cần</td><td>Định mức mảnh trên 1 sản phẩm × số lượng của lệnh sản xuất.</td></tr>
+<tr><td><b>Hiện có</b></td><td>Số mảnh đã thực sự về kho, sẵn sàng để kiểm. Cách tính phụ thuộc loại mảnh, xem mục 2.</td></tr>
+<tr><td>Đã kiểm</td><td>Tổng số lượng của mọi lần kiểm đã ghi cho mảnh này.</td></tr>
+<tr><td>Lỗi</td><td>Tổng số lỗi đã ghi qua mọi lần kiểm.</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>2. “Hiện có” lấy từ đâu</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Loại mảnh</th><th>Nguồn “Hiện có”</th><th>Ví dụ</th></tr></thead>
+<tbody>
+<tr>
+  <td>Mảnh có đan</td>
+  <td>Tổng số đã <b>nhập đan về</b> (phiếu nhận hàng đan), cộng dồn qua mọi điểm đan.</td>
+  <td>Mảnh tay, Mảnh tựa</td>
+</tr>
+<tr>
+  <td>Mảnh không đan</td>
+  <td>Tổng số lượng của các dòng mảnh thuộc phiếu <b>chuyển kho nội bộ đã xác nhận</b>, theo lệnh sản xuất và mảnh đó. Phiếu còn chờ (PENDING) hoặc bị từ chối không được tính.</td>
+  <td>Pat, Chân nhôm</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="note">Mảnh có đan không đi qua phiếu chuyển kho, nên hai nguồn không bao giờ chồng nhau. Loại mảnh được xác định bằng <code>BomPiece.isWoven</code> của định mức đã ghim vào lệnh sản xuất.</div>
+
+<h2>3. Quy tắc chặn</h2>
+<div class="card">
+<p><b>Số kiểm tối đa còn lại = Hiện có − Đã kiểm</b>, và không quá <b>Tổng cần − Đã kiểm</b>.</p>
+<ul>
+  <li><b>Giao diện:</b> ô nhập số lượng bị giới hạn theo công thức trên. Nhập vượt sẽ hiện cảnh báo đỏ và nút Xác nhận bị khóa. Khi Đã kiểm ≥ Hiện có, nút “Kiểm” của dòng đó bị mờ.</li>
+  <li><b>Server:</b> <code>recordTransferCheck</code> tự tính lại và trả lỗi 400 nếu số kiểm vượt phần còn lại, nên gọi API trực tiếp cũng không vượt được.</li>
+</ul>
+</div>
+
+<h2>4. Ví dụ</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>Mảnh</th><th>Tổng cần</th><th>Hiện có</th><th>Đã kiểm</th><th>Nhập tối đa lần này</th></tr></thead>
+<tbody>
+<tr><td>Mảnh tay (có đan)</td><td>558</td><td>200</td><td>150</td><td class="ok">50</td></tr>
+<tr><td>Chân nhôm (không đan)</td><td>279</td><td>0</td><td>0</td><td class="bad">0 (chưa có hàng nhập về, nút Kiểm bị mờ)</td></tr>
+<tr><td>Pat (không đan)</td><td>279</td><td>279</td><td>100</td><td class="ok">179</td></tr>
+</tbody>
+</table>
+</div>
+
+<h2>5. Lưu ý</h2>
+<div class="warn">
+<ul>
+  <li>Phiếu chuyển kho chỉ tính khi kho đích đã <b>xác nhận</b>. Nếu Chân nhôm hiện “Hiện có = 0” dù kho nguồn đã gửi, cần kiểm tra phiếu còn ở trạng thái chờ xác nhận ở màn Nhập kho.</li>
+  <li>Việc chặn ở server là đọc tổng rồi mới ghi, không khóa. Hai người kiểm cùng một mảnh cùng lúc có thể vượt vài đơn vị.</li>
+  <li>“Bảng thống kê” dùng chung cách tính này. Cột “chờ thực thi” của mảnh không đan trước đây luôn bằng 0, nay hiện số nhập nội bộ thực trừ số đã kiểm.</li>
+</ul>
+</div>
+
+<h2>6. File liên quan</h2>
+<div class="tablewrap">
+<table>
+<thead><tr><th>File</th><th>Nội dung</th></tr></thead>
+<tbody>
+<tr><td><code>src/modules/pages/InboundWarehouse/KhoChuyenKiemPage.tsx</code></td><td>Cột “Hiện có”, giới hạn ô nhập, làm mờ nút Kiểm.</td></tr>
+<tr><td><code>src/services/transfer-check-api.ts</code></td><td>Kiểu dữ liệu <code>BeTransferCheckPiece</code> (<code>readyQty</code> = “Hiện có”).</td></tr>
+<tr><td><code>DNA-ERP-BE/src/modules/production-invoices/production-invoices.service.ts</code></td><td><code>listTransferCheckPieces</code>, bản batch và <code>recordTransferCheck</code> (chặn vượt).</td></tr>
+<tr><td><code>DNA-ERP-BE/src/modules/production-invoices/production-invoices.service.spec.ts</code></td><td>Test chặn vượt cho mảnh có đan và không đan.</td></tr>
+</tbody>
+</table>
+</div>
+
+<p class="foot">Tài liệu ngày 19/09/2026.</p>
+</div>
+</body>
+</html>

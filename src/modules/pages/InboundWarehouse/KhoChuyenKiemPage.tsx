@@ -183,7 +183,10 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
 
   // Phần còn lại cần kiểm (Vấn đề #12 audit 26/08 - trước đây ô này chỉ chặn <=0, không chặn vượt
   // phần còn lại, khiến "Đã kiểm" có thể hiện âm/vượt 100% nếu lỡ tay nhập quá).
-  const remainingToCheck = checkingPiece ? checkingPiece.totalQty - checkingPiece.checkedQty : 0
+  // Bị chặn bởi "Hiện có" (đã nhập đan/nhập nội bộ về) - không kiểm vượt số thực tế đã về.
+  const remainingToCheck = checkingPiece
+    ? Math.min(checkingPiece.totalQty, checkingPiece.readyQty) - checkingPiece.checkedQty
+    : 0
   const popupQtyNum = Number(popupQty)
   const overRemaining = !!popupQty && popupQtyNum > remainingToCheck
   const canConfirm = !!popupQty && popupQtyNum > 0 && !overRemaining && !saving
@@ -223,6 +226,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
               <colgroup>
                 <col />
                 <col style={{ width: 80 }} />
+                <col style={{ width: 80 }} />
                 <col style={{ width: 72 }} />
                 <col style={{ width: 60 }} />
                 <col style={{ width: 100 }} />
@@ -231,6 +235,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                 <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                   <th style={th}>Mảnh</th>
                   <th style={{ ...th, textAlign: 'right' }}>Tổng cần</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Hiện có</th>
                   <th style={{ ...th, textAlign: 'right' }}>Đã kiểm</th>
                   <th style={{ ...th, textAlign: 'right' }}>Lỗi</th>
                   <th style={th}></th>
@@ -246,6 +251,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                       {piece.pieceName}
                     </td>
                     <td style={{ ...td, textAlign: 'right', color: 'var(--text2)' }}>{piece.totalQty}</td>
+                    <td style={{ ...td, textAlign: 'right', color: 'var(--text2)' }}>{piece.readyQty}</td>
                     <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: piece.checkedQty > 0 ? '#16a34a' : 'var(--text)' }}>{piece.checkedQty}</td>
                     <td style={{ ...td, textAlign: 'right' }}>
                       {piece.defectCount > 0 ? (
@@ -261,7 +267,9 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                       ) : (
                         <button
                           onClick={() => openPopup(piece)}
-                          style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#e65100', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          disabled={piece.checkedQty >= piece.readyQty}
+                          title={piece.checkedQty >= piece.readyQty ? 'Chưa có hàng về để kiểm' : undefined}
+                          style={{ opacity: piece.checkedQty >= piece.readyQty ? 0.45 : 1, padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#e65100', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
                         >
                           Kiểm
                         </button>
@@ -270,7 +278,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                   </tr>
                   {expanded && (
                     <tr>
-                      <td colSpan={5} style={{ padding: 0 }}>
+                      <td colSpan={6} style={{ padding: 0 }}>
                         <DefectListPanel defects={defectsForPiece(piece.pieceId)} onChanged={refetchDefects} />
                       </td>
                     </tr>
@@ -280,7 +288,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                 })}
                 {pieces.length === 0 && (
                   <tr>
-                    <td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
+                    <td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
                       Chưa có mảnh nào để kiểm (SKU chưa được Sếp duyệt lệnh sản xuất)
                     </td>
                   </tr>
@@ -316,7 +324,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                 />
                 {overRemaining && (
                   <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>
-                    Vượt quá số lượng còn lại cần kiểm ({remainingToCheck})
+                    Vượt quá số lượng còn lại có thể kiểm ({remainingToCheck})
                   </div>
                 )}
 
