@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { canReceiveAt } from '../../../types/warehouse-transfer'
 import { NhapNoiBoSection } from '../InboundWarehouse/InternalTransferSections'
 import { useInspection, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
+import { useConfirm } from '../../../hooks/useConfirm'
 
 // Key theo itemId (2026-08-26, L6) - KHÔNG phải materialId: 1 vật tư đã PURCHASED mà lại phát
 // sinh thiếu thêm tách thành DÒNG MỚI cùng materialId (xem purchasing-api.ts đầu file), key theo
@@ -23,6 +24,7 @@ import { compactTh as th, compactTd as td } from '../../../styles/table'
 // định của vật tư) lại thấy và có thể nhận nhầm).
 function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
   const { proposals, receiveProposalItem } = useInspection()
+  const { ask, confirmModal } = useConfirm()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   // inputs[`${proposalId}:${itemName}`] = số lượng đang nhập dở (theo unit, vd cái)
   const [inputs, setInputs] = useState<Record<string, string>>({})
@@ -78,6 +80,27 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
     } finally {
       setPending(prev => ({ ...prev, [key]: false }))
     }
+  }
+
+  // BE (2026-09-19, theo yêu cầu người dùng) không còn chặn nhận vượt số đặt mua - ghi đúng số
+  // thật luôn. Cảnh báo + bắt xác nhận chuyển hẳn sang đây: vượt buyQty thì hỏi lại qua popup
+  // (không phải window.confirm - dùng ConfirmModal chung của app) trước khi gọi API, không vượt
+  // thì xác nhận thẳng như cũ. Popup cố ý ngắn gọn, KHÔNG dùng `danger` (icon/nút đỏ) - góp ý người
+  // dùng 19/09: đây chỉ là hỏi lại số liệu, không phải cảnh báo lỗi nghiêm trọng.
+  const handleConfirmClick = (p: PurchaseProposal, item: PurchaseProposalItem, qty: number) => {
+    const received = item.receivedQty ?? 0
+    const total = received + qty
+    if (total > item.buyQty) {
+      ask(
+        {
+          message: `Xác nhận đã nhận ${total} ${item.unit} "${item.name}"?`,
+          confirmLabel: 'Xác nhận',
+        },
+        () => confirmItem(p, itemKey(item)),
+      )
+      return
+    }
+    void confirmItem(p, itemKey(item))
   }
 
   // ── Detail view ──────────────────────────────────────────
@@ -218,7 +241,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                             />
                             <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.unit}{hasConversion ? ' (có thể sửa tay)' : ''}</span>
                             <button
-                              onClick={() => void confirmItem(selected, itemKey(item))}
+                              onClick={() => handleConfirmClick(selected, item, Number(inputVal))}
                               disabled={!canConfirm}
                               style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: canConfirm ? '#2e7d32' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
                             >{isPending ? 'Đang ghi…' : 'Xác nhận'}</button>
@@ -237,6 +260,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
             </tbody>
           </table>
         </div>
+        {confirmModal}
       </div>
     )
   }
