@@ -842,10 +842,16 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
 // bảng Phôi dùng), nhưng nối lại tính năng này vẫn ngoài phạm vi lần đổi Part->Piece này.
 interface HanSonFetch {
   rows: ProcRow[]
-  awaitingByLine: Map<number, number>
+  /** Khoá `${orderId}:${pieceId}` (2026-09-21, sửa bug "Gửi KCS" biến mất) - KHÔNG dùng bare pieceId:
+   *  2 lệnh sản xuất khác nhau dùng chung 1 BOM revision (vd đặt lại đúng sản phẩm cũ) có piece TRÙNG
+   *  y hệt pieceId, nên Map.set() ở vòng lặp dưới sẽ ghi đè chéo lệnh này lên lệnh kia nếu chỉ khoá
+   *  theo pieceId - lệnh xử lý sau xoá mất batch OPEN của lệnh xử lý trước. Xem TwoTierScreen: 2 map
+   *  "thô" (khoá compound) này được lọc lại về `Map<number, ...>` (khoá lại = line.id) theo đúng
+   *  `selPo` đang chọn trước khi truyền xuống VatTuDetailBoard. */
+  awaitingByLine: Map<string, number>
   /** 2026-09-09 (đồng bộ "Lưu đợt"/"Gửi KCS"/"Các đợt đã gửi" - trước chỉ VTTP có): MỌI
-   *  ProductionBatch (mọi status) của đúng order+stage đó, keyed theo pieceId (=lineId). */
-  batchesByLine: Map<number, BeProductionBatch[]>
+   *  ProductionBatch (mọi status) của đúng order+stage đó. Khoá compound - xem comment awaitingByLine. */
+  batchesByLine: Map<string, BeProductionBatch[]>
 }
 
 // Hàn -> mốc FRAME_HAN, Sơn -> mốc FRAME_SON (ProdItemStageType ở BE, LenhSXPage "Sửa thời hạn") -
@@ -867,15 +873,16 @@ async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
   }))
 
   const rows: ProcRow[] = []
-  const awaitingByLine = new Map<number, number>()
-  const batchesByLine = new Map<number, BeProductionBatch[]>()
+  const awaitingByLine = new Map<string, number>()
+  const batchesByLine = new Map<string, BeProductionBatch[]>()
   for (const s of settled) {
     if (!s) continue
     const { o, plan, batches } = s
     const lines: ProcLine[] = plan.items.map(item => {
       const lineId = Number(item.pieceId)
-      awaitingByLine.set(lineId, item.awaitingQcQty)
-      batchesByLine.set(lineId, batches.filter(b => b.pieceId === item.pieceId))
+      const key = `${o.id}:${lineId}`
+      awaitingByLine.set(key, item.awaitingQcQty)
+      batchesByLine.set(key, batches.filter(b => b.pieceId === item.pieceId))
       return {
         id: lineId, itemName: item.pieceName, spec: item.pieceCode,
         needQty: item.plannedQty, doneQty: item.passedQty,
@@ -908,7 +915,7 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   cfg: StageCfg; seed?: () => ProcRow[]; readOnly?: boolean; stage?: SanLuongStage
 }) {
   const { data: fetched, refetch } = useFetch<HanSonFetch>(
-    () => stage ? fetchHanSonRows(stage) : Promise.resolve({ rows: [], awaitingByLine: new Map(), batchesByLine: new Map() }), [stage])
+    () => stage ? fetchHanSonRows(stage) : Promise.resolve({ rows: [], awaitingByLine: new Map<string, number>(), batchesByLine: new Map<string, BeProductionBatch[]>() }), [stage])
   // "Lỗi" theo đợt (2026-09-09, đồng bộ Sắt/VTTP) - fetch 1 lần, lọc theo batchesByLine ở
   // VatTuDetailBoard (cùng idiom ChotPanel/StepPanel, VatTuTpDetail.tsx).
   const { data: reviews, refetch: refetchReviews } = useFetch(() => stage ? api.getQcReviewsForProductionBatches() : Promise.resolve([]), [stage])
@@ -925,12 +932,27 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   const [selPiId, setSelPiId] = useState<string | null>(null)
 
   // done đã có sẵn trong ProcLine.doneQty (từ passedQty của plan) — chỉ còn chờ-KCS cần map riêng.
-  const awaitingByLine = fetched?.awaitingByLine ?? new Map<number, number>()
-  const batchesByLine = fetched?.batchesByLine ?? new Map<number, BeProductionBatch[]>()
+  // Khoá compound `${orderId}:${pieceId}` (xem HanSonFetch) - KHÔNG dùng thẳng để .get(line.id), phải
+  // lọc lại theo selPo trước (scopedChoKcsFor/scopedBatchesByLine dưới đây).
+  const rawAwaitingByLine = fetched?.awaitingByLine ?? new Map<string, number>()
 
   const selPo = rows.find(r => r.id === selPoId) ?? null
   const piGroups = useMemo(() => buildPiGroups(rows), [rows])
   const selPiGroup = selPiId ? piGroups.find(g => g.productionInvoiceId === selPiId) ?? null : null
+
+  // 2026-09-21 (sửa bug "Gửi KCS" biến mất khi 2 lệnh sản xuất dùng chung BOM revision, cùng pieceId)
+  // - lọc lại map "thô" (khoá compound) về đúng `selPo` đang xem, khoá lại = line.id như cũ, để
+  // VatTuDetailBoard/LineDetailCard/LineListBoard không cần đổi gì (vẫn nhận Map<number, ...>). Đọc
+  // thẳng `fetched?.batchesByLine` TRONG useMemo (không qua biến `rawBatchesByLine` ở ngoài) - fallback
+  // `?? new Map()` của biến đó tạo Map RỖNG MỚI mỗi render khi `fetched` null, khiến deps đổi liên tục.
+  const scopedBatchesByLine = useMemo(() => {
+    const m = new Map<number, BeProductionBatch[]>()
+    if (!selPo?.realOrderId) return m
+    const raw = fetched?.batchesByLine
+    for (const l of selPo.lines ?? []) m.set(l.id, raw?.get(`${selPo.realOrderId}:${l.id}`) ?? [])
+    return m
+  }, [selPo, fetched?.batchesByLine])
+  const scopedChoKcsFor = (id: number) => rawAwaitingByLine.get(`${selPo?.realOrderId}:${id}`) ?? 0
 
   const updateLineFlat = (poId: number, ul: ProcLine) =>
     setRows(rs => rs.map(r => r.id !== poId ? r : { ...r, lines: r.lines?.map(l => l.id === ul.id ? ul : l) }))
@@ -972,9 +994,9 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
       onUpdateLine={stage ? undefined : l => updateLineFlat(selPo.id, l)}
       onRecord={stage && !readOnly ? (l, qty) => recordQty(selPo, l, qty) : undefined}
       onFinishBatch={stage && !readOnly ? finishBatch : undefined}
-      choKcsFor={stage ? (id => awaitingByLine.get(id) ?? 0) : undefined}
+      choKcsFor={stage ? scopedChoKcsFor : undefined}
       showThucCo={stage ? false : undefined}
-      batchesByLine={stage ? batchesByLine : undefined}
+      batchesByLine={stage ? scopedBatchesByLine : undefined}
       reviews={stage ? (reviews ?? []) : undefined}
       manualInput
     />

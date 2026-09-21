@@ -19,11 +19,11 @@
  */
 
 import { useState } from 'react'
-import { ArrowUpFromLine, ChevronLeft, PackagePlus, Check } from 'lucide-react'
+import { ArrowUpFromLine, ChevronLeft, Check } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
-import type { BeSteelIssuePlanItem, BeSteelIssue, BeReplenishRequest } from '../../../services/steel-issues-api'
+import type { BeSteelIssuePlanItem, BeSteelIssue } from '../../../services/steel-issues-api'
 import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
 import { errMsg } from '../../../utils/errors'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
@@ -42,7 +42,6 @@ interface PiGroup {
 
 export default function XuatSatPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
-  const { data: replenish, refetch: refetchReplenish } = useFetch<BeReplenishRequest[]>(() => api.getReplenishRequests('OPEN'), [])
   // PO/PI thật (từ ProductionOrder Sếp đã duyệt) - KHÔNG dùng Sku.exportOrder/Sku.piCode, xem
   // comment ở buildProductionOrderInfoByMfgProduct().
   const { poInfoFor } = usePoInfoFloorGate()
@@ -120,24 +119,6 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
         }
       }
     )
-  }
-
-  const doCapLai = async (r: BeReplenishRequest) => {
-    setMsgs(p => ({ ...p, [`cap-${r.id}`]: '' }))
-    // Cấp bù = tạo 1 đợt xuất mới (issueSteel) rồi liên kết vào request — cần biết đúng
-    // materialId/barLengthMm của đợt gốc, tra qua qc-review→steelIssue (không lộ trực tiếp ở
-    // ReplenishRequest) nên yêu cầu chọn lại PI/vật tư thủ công thay vì tự động hoá 1 click như
-    // mock cũ — đơn giản hoá vì BE tách hẳn "tạo đợt" và "fulfill" thành 2 bước độc lập.
-    setMsgs(p => ({ ...p, [`cap-${r.id}`]: 'Chọn PI/vật tư tương ứng ở bảng trên, xuất 1 đợt mới rồi bấm "Gắn vào đề xuất" bên dưới.' }))
-  }
-
-  const doFulfill = async (r: BeReplenishRequest, steelIssueId: string) => {
-    try {
-      await api.fulfillReplenishRequest(r.id, steelIssueId)
-      await refetchReplenish()
-    } catch (e) {
-      setMsgs(p => ({ ...p, [`cap-${r.id}`]: errMsg(e, 'Không cấp bù được') }))
-    }
   }
 
   // ── Detail view ───────────────────────────────────────────────────────────────
@@ -284,19 +265,6 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
         Nhấn vào dòng để xem loại sắt cần xuất cho cả PI (theo phương án cắt sắt đã duyệt) và xuất theo chiều dài/số cây.
       </p>
 
-      {replenish && replenish.length > 0 && (
-        <div style={{ border: '1px solid #fca5a5', borderRadius: 12, background: 'var(--red-bg, #fef2f2)', padding: '10px 14px', marginBottom: 18 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#b91c1c', fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
-            <PackagePlus size={16} /> Cần cấp lại — KCS chấm phế ({replenish.reduce((s, c) => s + c.qty, 0)} cây)
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {replenish.map(r => (
-              <ReplenishRow key={r.id} r={r} msg={msgs[`cap-${r.id}`]} onCapLai={() => doCapLai(r)} onFulfill={steelIssueId => doFulfill(r, steelIssueId)} />
-            ))}
-          </div>
-        </div>
-      )}
-
       {isLoading ? <LoadingState /> : (
         <div style={tableWrap}>
           <table style={tbl}>
@@ -342,28 +310,4 @@ function statusLabel(status: BeSteelIssue['status']) {
   if (status === 'RECEIVED') return <span style={{ color: '#d97706' }}>Đang cắt</span>
   if (status === 'AWAITING_QC') return <span style={{ color: '#d97706' }}>Chờ KCS duyệt</span>
   return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a', fontWeight: 600 }}><Check size={12} /> KCS đạt</span>
-}
-
-/** 1 dòng đề xuất cấp lại — nhập id đợt (SteelIssue) vừa xuất bù để gắn vào request. Đơn giản
- *  hoá so với mock cũ (1 click) vì BE tách "tạo đợt" và "fulfill" thành 2 bước độc lập, xem
- *  QcReviewsService.fulfillReplenishRequest (BE). */
-function ReplenishRow({ r, msg, onCapLai, onFulfill }: {
-  r: BeReplenishRequest; msg?: string; onCapLai: () => void; onFulfill: (steelIssueId: string) => void
-}) {
-  const [issueId, setIssueId] = useState('')
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '7px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13 }}>
-      <span style={{ flex: 1, minWidth: 200 }}>
-        <b style={{ color: '#c62828' }}>{r.qty} cây phế</b> · đề xuất #{r.id}
-      </span>
-      <button onClick={onCapLai} style={{ padding: '4px 10px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text2)', cursor: 'pointer' }}>Hướng dẫn</button>
-      <input value={issueId} onChange={e => setIssueId(e.target.value)} placeholder="id đợt đã xuất bù"
-        style={{ width: 140, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
-      <button onClick={() => issueId && onFulfill(issueId)} disabled={!issueId}
-        style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: ACCENT, color: '#fff', cursor: issueId ? 'pointer' : 'not-allowed' }}>
-        Gắn vào đề xuất
-      </button>
-      {msg && <div style={{ width: '100%', fontSize: 11, color: 'var(--text3)' }}>{msg}</div>}
-    </div>
-  )
 }

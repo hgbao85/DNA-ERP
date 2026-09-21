@@ -150,7 +150,6 @@ export {
   getSteelIssuesByStatus, getSteelIssue, getCutBundles, receiveSteelIssue,
   recordCutBatch, getPhoiProgress, getStepProgress, recordStepBatch, getPiOrderSummary,
   reviewSteelIssueQc, getQcReviewsForSteelIssues, getAllQcReviews, updateQcReviewPhoto,
-  getReplenishRequests, fulfillReplenishRequest, rejectReplenishRequest,
   getAllCutBundles, finishCutBundle, reviewCutBundleQc, undoLastCutBatch,
   submitStepBundle, reviewStepBundleQc, getStepBundlesForInvoice, getAllStepBundles,
 } from './steel-issues-api';

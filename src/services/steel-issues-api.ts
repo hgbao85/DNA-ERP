@@ -477,39 +477,6 @@ export async function updateQcReviewPhoto(id: string, photoUrl: string | null): 
   return http.patch<BeQcReview>(`/qc-reviews/${id}/photo`, { photoUrl });
 }
 
-// ── Kho trung tâm — cấp bù sắt phế (KCS đề xuất qua qc-review) ─────────────────
-
-export type ReplenishRequestStatus = 'OPEN' | 'FULFILLED' | 'REJECTED';
-
-export interface BeReplenishRequest {
-  id: string;
-  qcReviewId: string;
-  status: ReplenishRequestStatus;
-  qty: number;
-  fulfilledByIssueId: string | null;
-  fulfilledAt: string | null;
-  fulfilledById: string | null;
-  rejectionReason: string | null;
-}
-
-export async function getReplenishRequests(
-  status: ReplenishRequestStatus = 'OPEN',
-): Promise<BeReplenishRequest[]> {
-  const res = await http.get<BeReplenishRequest[] | { data: BeReplenishRequest[] }>(
-    `/replenish-requests?status=${status}&limit=100`,
-  );
-  return unwrap(res);
-}
-
-/** Kho cấp bù bằng 1 đợt SteelIssue MỚI đã tạo trước đó (qua issueSteel() thường, cùng materialId
- *  với đợt gốc) — không tự tạo đợt, chỉ liên kết. */
-export async function fulfillReplenishRequest(id: string, steelIssueId: string): Promise<void> {
-  await http.post(`/replenish-requests/${id}/fulfill`, { steelIssueId });
-}
-
-export async function rejectReplenishRequest(id: string, reason?: string): Promise<void> {
-  await http.post(`/replenish-requests/${id}/reject`, { reason });
-}
 
 /** Gộp nhiều PI 1 lần - "Bảng thống kê" (ThongKePagePlan.tsx) cần tiến độ Phôi (đoạn đã cắt / định mức)
  *  của nhiều lệnh. Trả về map piId -> danh sách loại sắt (cùng dạng getPhoiProgress). */
