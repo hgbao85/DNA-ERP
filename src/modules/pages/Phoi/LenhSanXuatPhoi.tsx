@@ -380,6 +380,7 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
         reviewByStepBundle={reviewByStepBundle}
         stepBundles={(stepBundles ?? []).filter(sb => sb.materialId === selGroup.materialId)}
         progress={progressByMaterial.get(selGroup.materialId) ?? null}
+        orders={orderSummary ?? []}
         productionInvoiceId={pi.productionInvoiceId}
         onBack={() => setSelIssueId(null)} onRefetch={refetchAll} onOpenCuttingGuide={onOpenCuttingGuide}
       />
@@ -613,13 +614,15 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
 // đợt cắt" theo đó tự nằm NGAY DƯỚI bảng tổng Cắt (trong tab Cắt), không còn bị đẩy xuống cuối
 // trang sau mọi tab Uốn/Dập như bản trước.
 function MaterialGroupDetail({
-  group, readOnly, reviewByBundle, reviewByStepBundle, stepBundles, progress, productionInvoiceId,
+  group, readOnly, reviewByBundle, reviewByStepBundle, stepBundles, progress, orders, productionInvoiceId,
   onBack, onRefetch, onOpenCuttingGuide,
 }: {
   group: MaterialGroup; readOnly: boolean; reviewByBundle: Map<string, BeQcReview>
   reviewByStepBundle: Map<string, BeQcReview>
   stepBundles: BeStepBundle[]
   progress: BePhoiProgressItem | null
+  /** Các SKU (ProductionOrder) của PI - Phôi chọn SKU khi nhập đợt cắt (2026-09-21). */
+  orders: BePiOrderSummary[]
   productionInvoiceId: string
   onBack: () => void; onRefetch: () => void
   onOpenCuttingGuide?: (productionInvoiceId: string) => void
@@ -634,8 +637,12 @@ function MaterialGroupDetail({
   // nào) thì mới rơi về "issue đầu tiên đã xác nhận nhận" (khác ISSUED) để bắt đầu đợt mới - roll-up
   // status AWAITING_QC/QC_PASSED chỉ là hiển thị (xem SteelIssuesService.syncIssueStatusFromBundles),
   // backend chỉ thật sự chặn khi issue còn ISSUED - chưa nhận.
+  // 2026-09-21: mỗi đợt cắt thuộc đúng 1 SKU - "đợt đang mở" ở đây là đợt CUTTING CỦA SKU ĐANG CHỌN.
+  const [selOrderId, setSelOrderId] = useState<string | null>(null)
+  const effectiveOrderId = selOrderId && orders.some(o => o.productionOrderId === selOrderId)
+    ? selOrderId : (orders[0]?.productionOrderId ?? null)
   const targetIssue =
-    group.issues.find(i => i.status !== 'ISSUED' && group.bundles.some(b => b.steelIssueId === i.id && b.status === 'CUTTING'))
+    group.issues.find(i => i.status !== 'ISSUED' && group.bundles.some(b => b.steelIssueId === i.id && b.status === 'CUTTING' && b.productionOrderId === effectiveOrderId))
     ?? group.issues.find(i => i.status !== 'ISSUED')
     ?? null
   const isReturn = group.issues.some(i => i.status === 'RECEIVED' && !!i.reworkOfId)
@@ -683,6 +690,9 @@ function MaterialGroupDetail({
         </div>
       </div>
 
+      {/* Chọn SKU áp dụng cho MỌI công đoạn của Phôi (Cắt lẫn Uốn/Dập/...) - mỗi đợt ghi là của đúng 1 SKU. */}
+      <SkuPicker orders={orders} selOrderId={effectiveOrderId} onSelect={setSelOrderId} />
+
       {tabItems.length > 1 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
           {tabItems.map(it => (
@@ -697,7 +707,8 @@ function MaterialGroupDetail({
         <>
           <NewCutBundleForm
             targetIssue={targetIssue} progress={progress} readOnly={readOnly}
-            bundles={group.bundles}
+            bundles={group.bundles} orders={orders}
+            selOrderId={effectiveOrderId}
             onOpenCuttingGuide={onOpenCuttingGuide && targetIssue ? () => onOpenCuttingGuide(targetIssue.productionInvoiceId) : undefined}
             onCreated={onRefetch}
           />
@@ -709,6 +720,8 @@ function MaterialGroupDetail({
                 <CutBundleCard
                   key={b.id} bundle={b} orderIndex={orderIndexByBundleId.get(b.id) ?? 0}
                   review={reviewByBundle.get(b.id)}
+                  skuLabel={b.productionOrderId ? (orders.find(o => o.productionOrderId === b.productionOrderId)?.poNumber ?? 'SKU ?') : 'Chưa phân SKU'}
+                  assign={!readOnly && !b.productionOrderId && orders.length > 1 ? { orders, onAssign: async (oid: string) => { await api.assignCutBundleOrder(b.id, oid); onRefetch() } } : undefined}
                 />
               ))}
               {bundlesSorted.length === 0 && (
@@ -724,8 +737,62 @@ function MaterialGroupDetail({
           key={activeStep} productionInvoiceId={productionInvoiceId} materialId={group.materialId} step={activeStep}
           readOnly={readOnly} stepBundles={stepBundles.filter(sb => sb.step === activeStep)}
           reviewByStepBundle={reviewByStepBundle} onRefetch={onRefetch}
+          orders={orders} selOrderId={effectiveOrderId}
         />
       )}
+    </div>
+  )
+}
+
+// Gán SKU cho đợt CŨ (tạo trước khi Phôi ghi theo SKU) ở PI nhiều SKU - hệ thống không tự đoán được (2026-09-21).
+// Chỉ gán 1 lần; hỏi xác nhận trước vì không sửa lại được.
+interface AssignSkuProps { orders: BePiOrderSummary[]; onAssign: (productionOrderId: string) => Promise<void> }
+function AssignSku({ orders, onAssign }: AssignSkuProps) {
+  const [val, setVal] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const go = async () => {
+    const o = orders.find(x => x.productionOrderId === val)
+    if (!o) return
+    if (!window.confirm(`Gán đợt này cho ${o.poNumber} · ${o.sku}? Chỉ gán được 1 lần - nếu nhầm, nhờ Quản trị viên sửa (Quản trị → Sửa SKU đợt Phôi).`)) return
+    setBusy(true); setErr('')
+    try { await onAssign(val) } catch (e) { setErr(errMsg(e, 'Không gán được SKU')) } finally { setBusy(false) }
+  }
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 12 }} onClick={e => e.stopPropagation()}>
+      <span style={{ color: 'var(--text3)' }}>Đợt cũ chưa biết của SKU nào — gán cho:</span>
+      <select value={val} onChange={e => setVal(e.target.value)} style={{ padding: '3px 6px', fontSize: 12 }}>
+        <option value="">Chọn SKU…</option>
+        {orders.map(o => <option key={o.productionOrderId} value={o.productionOrderId}>{o.poNumber} · {o.sku}</option>)}
+      </select>
+      <button onClick={go} disabled={!val || busy} style={{ ...smallBtn, background: ACCENT, padding: '3px 10px', fontSize: 11, cursor: !val || busy ? 'not-allowed' : 'pointer' }}>{busy ? '...' : 'Gán'}</button>
+      {err && <span style={{ color: RED }}>{err}</span>}
+    </div>
+  )
+}
+
+// Số liệu của 1 SKU từ tiến độ cả PI (2026-09-21): Cần = định mức RIÊNG SKU, Đã làm/Lỗi = đợt của SKU đó (byOrder).
+// Chỉ giữ cỡ nằm trong định mức của SKU (BE chặn khai cỡ ngoài định mức SKU đã chọn).
+function segmentsForOrder(segs: BePhoiProgressSegment[], orderId: string | null): BePhoiProgressSegment[] {
+  return segs
+    .map(s => {
+      const o = (s.byOrder ?? []).find(x => x.productionOrderId === orderId)
+      return { ...s, required: o?.required ?? 0, done: o?.done ?? 0, failed: o?.failed ?? 0 }
+    })
+    .filter(s => s.required > 0 || s.done > 0)
+}
+
+// Chọn SKU cho MỌI công đoạn của Phôi (Cắt, Uốn, Dập...) - nhãn kèm mã PO + số lượng vì nhiều SKU có thể cùng tên sản phẩm.
+function SkuPicker({ orders, selOrderId, onSelect }: { orders: BePiOrderSummary[]; selOrderId: string | null; onSelect: (id: string) => void }) {
+  if (orders.length === 0) return null
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginBottom: 14 }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)' }}>Phôi cho SKU:</span>
+      {orders.map(o => (
+        <button key={o.productionOrderId} onClick={() => onSelect(o.productionOrderId)} style={subFilterBtn(o.productionOrderId === selOrderId)}>
+          {o.poNumber} · {o.sku}
+        </button>
+      ))}
     </div>
   )
 }
@@ -809,9 +876,10 @@ function ProgressBuDuTable({ segments, canInput, rowInputs, onInputChange }: {
 // "Cách cắt gợi ý" (2026-08-25, bỏ) - phương án cắt KHÔNG phải gợi ý, là BẮT BUỘC theo đúng
 // solver đã duyệt. Bảng chip gọn khó nhìn khi nhiều cỡ và không in được, thay bằng liên kết sang
 // màn riêng "Hướng dẫn cắt" (sidebar, HuongDanCatPage.tsx) - bảng lưới ô-theo-ô + xuất Excel.
-function NewCutBundleForm({ targetIssue, progress, readOnly, bundles, onOpenCuttingGuide, onCreated }: {
+function NewCutBundleForm({ targetIssue, progress, readOnly, bundles, orders, selOrderId, onOpenCuttingGuide, onCreated }: {
   targetIssue: BeSteelIssue | null; progress: BePhoiProgressItem | null; readOnly: boolean
   bundles: BeCutBundle[]
+  orders: BePiOrderSummary[]; selOrderId: string | null
   onOpenCuttingGuide?: () => void; onCreated: () => void
 }) {
   const [rowInputs, setRowInputs] = useState<Record<string, string>>({})
@@ -828,19 +896,23 @@ function NewCutBundleForm({ targetIssue, progress, readOnly, bundles, onOpenCutt
   const [undoBusy, setUndoBusy] = useState(false)
   const [undoErr, setUndoErr] = useState('')
 
-  const segments = progress?.segments ?? []
-  const canSubmit = !readOnly && !!targetIssue
-  const openBundle = bundles.find(b => b.status === 'CUTTING') ?? null
+  // Bảng theo SKU ĐANG CHỌN (2026-09-21): Cần = định mức riêng SKU này, Đã làm/Lỗi = đợt cắt của SKU này. Chỉ
+  // hiện cỡ nằm trong định mức của SKU (BE chặn khai cỡ ngoài định mức SKU đã chọn).
+  const selOrder = orders.find(o => o.productionOrderId === selOrderId) ?? null
+  const segments = segmentsForOrder(progress?.segments ?? [], selOrderId)
+  const unassignedDone = (progress?.segments ?? []).reduce((t, s) => t + (s.byOrder.find(x => x.productionOrderId === null)?.done ?? 0), 0)
+  const canSubmit = !readOnly && !!targetIssue && !!selOrder
+  const openBundle = bundles.find(b => b.status === 'CUTTING' && b.productionOrderId === selOrderId) ?? null
 
   const submit = async () => {
-    if (!targetIssue) return
+    if (!targetIssue || !selOrder) return
     const rows = segments
       .map(s => ({ segmentSpecId: s.segmentSpecId, qty: Math.floor(Number(rowInputs[s.segmentSpecId]) || 0) }))
       .filter(r => r.qty > 0)
     if (rows.length === 0) { setErr('Nhập ít nhất 1 cỡ đoạn đã cắt được'); return }
     setBusy(true); setErr(''); setUndoErr('')
     try {
-      const bundle = await api.recordCutBatch(targetIssue.id, { segments: rows })
+      const bundle = await api.recordCutBatch(targetIssue.id, { productionOrderId: selOrder.productionOrderId, segments: rows })
       setRowInputs({})
       setLastSaved({
         bundleId: bundle.id,
@@ -877,8 +949,13 @@ function NewCutBundleForm({ targetIssue, progress, readOnly, bundles, onOpenCutt
   return (
     <div>
       <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>
-        Cần cắt theo định mức lệnh này (tổng cả PI, tham khảo):
+        Cần cắt theo định mức của {selOrder ? `${selOrder.poNumber} · ${selOrder.sku}` : '—'}:
       </div>
+      {unassignedDone > 0 && (
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>
+          Ngoài ra có {unassignedDone} đoạn cắt từ trước khi ghi theo SKU (&quot;Chưa phân SKU&quot;), không tính vào SKU nào.
+        </div>
+      )}
       <ProgressBuDuTable segments={segments} canInput={canSubmit} rowInputs={rowInputs}
         onInputChange={(id, v) => setRowInputs(r => ({ ...r, [id]: v }))} />
 
@@ -941,8 +1018,8 @@ function NewCutBundleForm({ targetIssue, progress, readOnly, bundles, onOpenCutt
 // KHÔNG có nút bấm nào (kể cả "Bù đủ") - mọi thao tác dồn về NewCutBundleForm (bảng tổng, xem doc
 // comment ở đó). Card này chỉ còn hiện SỐ LIỆU (đã cắt bao nhiêu, lỗi bao nhiêu THEO ĐÚNG đợt này,
 // trạng thái) để chẩn đoán đúng ĐỢT nào đang vướng.
-function CutBundleCard({ bundle, orderIndex, review }: {
-  bundle: BeCutBundle; orderIndex: number; review?: BeQcReview
+function CutBundleCard({ bundle, orderIndex, review, skuLabel, assign }: {
+  bundle: BeCutBundle; orderIndex: number; review?: BeQcReview; skuLabel: string; assign?: AssignSkuProps
 }) {
   const segs = review?.segments ?? []
   const outstanding = segs.reduce((s, x) => s + x.failedQty, 0)
@@ -956,7 +1033,7 @@ function CutBundleCard({ bundle, orderIndex, review }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => setExpanded(e => !e)}>
         {expanded ? <ChevronDown size={15} color="var(--text3)" /> : <ChevronRight size={15} color="var(--text3)" />}
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700 }}>Đợt {orderIndex}</div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>Đợt {orderIndex} · {skuLabel}</div>
           <div style={{ fontSize: 11, color: 'var(--text3)' }}>
             {bundle.segments.length} cỡ đoạn · {totalQty} đoạn · {new Date(bundle.createdAt).toLocaleString('vi-VN')}
           </div>
@@ -975,6 +1052,8 @@ function CutBundleCard({ bundle, orderIndex, review }: {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đã duyệt</span>
         ) : null}
       </div>
+
+      {assign && <AssignSku {...assign} />}
 
       {expanded && (
         <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 10 }}>
@@ -1014,29 +1093,33 @@ function CutBundleCard({ bundle, orderIndex, review }: {
 // tách 2 bước như Cắt vì không cần "Hoàn tác" (Cắt cần vì lỡ tay khai sai số cây/cỡ vẫn còn liên
 // quan tới cân đối kho; công đoạn phụ không tác động gì lên tồn kho). Lịch sử "Các đợt đã gửi" bên
 // dưới THUẦN XEM, không có nút nào.
-function StepBundleForm({ productionInvoiceId, materialId, step, readOnly, stepBundles, reviewByStepBundle, onRefetch }: {
+function StepBundleForm({ productionInvoiceId, materialId, step, readOnly, stepBundles, reviewByStepBundle, onRefetch, orders, selOrderId }: {
   productionInvoiceId: string; materialId: string; step: ProcessStep; readOnly: boolean
   stepBundles: BeStepBundle[]; reviewByStepBundle: Map<string, BeQcReview>; onRefetch: () => void
+  orders: BePiOrderSummary[]; selOrderId: string | null
 }) {
   const { data: progressList, refetch: refetchProgress } = useFetch<BePhoiProgressItem[]>(
     () => api.getStepProgress(productionInvoiceId, step), [productionInvoiceId, step],
   )
   const item = (progressList ?? []).find(p => p.materialId === materialId) ?? null
-  const segments = item?.segments ?? []
+  // Bảng theo SKU ĐANG CHỌN (2026-09-21): Cần = định mức công đoạn này của riêng SKU, Đã làm/Lỗi = của SKU này.
+  const selOrder = orders.find(o => o.productionOrderId === selOrderId) ?? null
+  const segments = segmentsForOrder(item?.segments ?? [], selOrderId)
 
   const [rowInputs, setRowInputs] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
   const send = async () => {
+    if (!selOrder) return
     const segs = segments
       .map(s => ({ segmentSpecId: s.segmentSpecId, qty: Math.floor(Number(rowInputs[s.segmentSpecId]) || 0) }))
       .filter(s => s.qty > 0)
     if (segs.length === 0) { setErr(`Nhập số đoạn đã ${PROCESS_STEP_LABELS[step].toLowerCase()}`); return }
     setBusy(true); setErr('')
     try {
-      await api.recordStepBatch(productionInvoiceId, { materialId, step, segments: segs })
-      await api.submitStepBundle(productionInvoiceId, materialId, step)
+      await api.recordStepBatch(productionInvoiceId, { materialId, step, productionOrderId: selOrder.productionOrderId, segments: segs })
+      await api.submitStepBundle(productionInvoiceId, materialId, step, selOrder.productionOrderId)
       setRowInputs({}); refetchProgress(); onRefetch()
     } catch (e) { setErr(errMsg(e, 'Không gửi KCS được')) }
     finally { setBusy(false) }
@@ -1053,9 +1136,12 @@ function StepBundleForm({ productionInvoiceId, materialId, step, readOnly, stepB
 
   return (
     <div>
-      <ProgressBuDuTable segments={segments} canInput={!readOnly} rowInputs={rowInputs}
+      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>
+        Cần {PROCESS_STEP_LABELS[step].toLowerCase()} theo định mức của {selOrder ? `${selOrder.poNumber} · ${selOrder.sku}` : '—'}:
+      </div>
+      <ProgressBuDuTable segments={segments} canInput={!readOnly && !!selOrder} rowInputs={rowInputs}
         onInputChange={(id, v) => setRowInputs(r => ({ ...r, [id]: v }))} />
-      {!readOnly && segments.length > 0 && (
+      {!readOnly && !!selOrder && segments.length > 0 && (
         <button onClick={send} disabled={busy}
           style={{ ...smallBtn, background: ACCENT, display: 'inline-flex', alignItems: 'center', gap: 5, cursor: busy ? 'not-allowed' : 'pointer', marginBottom: 4 }}>
           <Send size={13} /> {busy ? '...' : 'Gửi KCS'}
@@ -1070,6 +1156,8 @@ function StepBundleForm({ productionInvoiceId, materialId, step, readOnly, stepB
             <StepBundleHistoryCard
               key={sb.id} stepBundle={sb} orderIndex={orderIndexByBundleId.get(sb.id) ?? 0}
               review={reviewByStepBundle.get(sb.id)}
+              skuLabel={sb.productionOrderId ? (orders.find(o => o.productionOrderId === sb.productionOrderId)?.poNumber ?? 'SKU ?') : 'Chưa phân SKU'}
+              assign={!readOnly && !sb.productionOrderId && orders.length > 1 ? { orders, onAssign: async (oid: string) => { await api.assignStepBundleOrder(sb.id, oid); onRefetch() } } : undefined}
             />
           ))}
           {sorted.length === 0 && (
@@ -1085,8 +1173,8 @@ function StepBundleForm({ productionInvoiceId, materialId, step, readOnly, stepB
 // Mirror CutBundleCard (2026-09-08, theo yêu cầu người dùng "làm giống Cắt luôn") - cùng cách đánh
 // số "Đợt N", bấm mở/đóng bảng chi tiết cỡ đoạn, tự bung sẵn + viền đỏ khi có lỗi lịch sử, KHÔNG
 // còn badge "Lỗi N đoạn"/"đã duyệt" (xem mục 19 changelog). */
-function StepBundleHistoryCard({ stepBundle, orderIndex, review }: {
-  stepBundle: BeStepBundle; orderIndex: number; review?: BeQcReview
+function StepBundleHistoryCard({ stepBundle, orderIndex, review, skuLabel, assign }: {
+  stepBundle: BeStepBundle; orderIndex: number; review?: BeQcReview; skuLabel: string; assign?: AssignSkuProps
 }) {
   const segs = review?.segments ?? []
   const outstanding = segs.reduce((s, x) => s + x.failedQty, 0)
@@ -1098,7 +1186,7 @@ function StepBundleHistoryCard({ stepBundle, orderIndex, review }: {
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => setExpanded(e => !e)}>
         {expanded ? <ChevronDown size={15} color="var(--text3)" /> : <ChevronRight size={15} color="var(--text3)" />}
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700 }}>Đợt {orderIndex}</div>
+          <div style={{ fontSize: 13, fontWeight: 700 }}>Đợt {orderIndex} · {skuLabel}</div>
           <div style={{ fontSize: 11, color: 'var(--text3)' }}>
             {stepBundle.segments.length} cỡ đoạn · {totalQty} đoạn · {new Date(stepBundle.submittedAt).toLocaleString('vi-VN')}
           </div>
@@ -1107,6 +1195,8 @@ function StepBundleHistoryCard({ stepBundle, orderIndex, review }: {
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ KCS</span>
         )}
       </div>
+
+      {assign && <AssignSku {...assign} />}
 
       {expanded && (
         <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 10 }}>

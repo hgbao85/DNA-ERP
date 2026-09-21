@@ -28,6 +28,14 @@ async function fetchAuditLogs(tableName: string, recordId: string): Promise<BeAu
   return Array.isArray(res) ? res : res.data;
 }
 
+/** Nhật ký kiểm toán THẬT của 1 bảng (mới nhất trước, tối đa 100 dòng) - dùng cho trang Admin "Sửa SKU đợt Phôi". */
+export async function getAuditLogsByTable(tableName: string): Promise<BeAuditLogEntry[]> {
+  const res = await http.get<BeAuditLogEntry[] | { data: BeAuditLogEntry[] }>(
+    `/audit-logs?tableName=${encodeURIComponent(tableName)}&limit=100`,
+  );
+  return Array.isArray(res) ? res : res.data;
+}
+
 /**
  * Gộp vết của chính đề xuất mua (PurchaseProposal, ghi tự động mọi chuyển trạng thái) + vết
  * quyết định NCC/giá (PurchaseProposalQuote, ghi tay ở approve()/requote() - xem service BE) -

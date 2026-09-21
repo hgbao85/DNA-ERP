@@ -47,7 +47,7 @@
 <div class="card">
   <h3>Kết luận ngắn</h3>
   <p><b>Chưa thể tin 100% con số trên màn hình này.</b> Các công đoạn <b>Hàn, Sơn, Chuyền kiểm, Đóng gói</b> đọc đúng nguồn số liệu. Nhưng <b>Mua hàng, Phôi</b> và <b>cách gộp trạng thái “cha” (Khung cơ khí, Đan, Hoàn thành)</b> đang cho kết quả sai hoặc gây hiểu nhầm. Tôi tìm được <b>4 lỗi nghiêm trọng, 5 lỗi mức trung bình, 3 điểm nhỏ</b>.</p>
-  <p>Đây là báo cáo rà soát — <b>tôi chưa sửa gì trong hệ thống</b>. Thứ tự ưu tiên sửa ở cuối trang.</p>
+  <p><b>Cập nhật 21/09:</b> phần lớn các lỗi bên dưới <b>đã được sửa và kiểm tra</b> — xem mục <b>“Tiến độ xử lý”</b> (bảng tình trạng từng lỗi, việc làm thêm, cách kiểm tra, việc còn chờ quyết định). Nội dung các mục 1–6 là <b>đánh giá lúc rà soát ban đầu (19/09)</b>, giữ nguyên để làm bằng chứng.</p>
 </div>
 
 <div class="kpis">
@@ -57,7 +57,7 @@
   <div class="kpi"><b class="ok">6</b><span>Điểm đã kiểm & đúng</span></div>
 </div>
 
-<h2>1. Tóm tắt theo từng công đoạn</h2>
+<h2>1. Tóm tắt theo từng công đoạn <span style="font-size:13px;font-weight:400;color:var(--mute)">(đánh giá lúc rà soát ban đầu)</span></h2>
 <table>
   <tr><th>Công đoạn</th><th>Số liệu gốc lấy từ đâu</th><th>Đánh giá</th></tr>
   <tr><td>Mua hàng</td><td>Danh sách đề xuất mua vật tư</td><td class="bad">SAI — luôn hiện “đã xong”</td></tr>
@@ -177,24 +177,79 @@
   <tr><td>6</td><td>Xin xác nhận quy tắc “lệch” của Hàn/Sơn</td><td>T3</td></tr>
 </table>
 
-<h2>Tiến độ xử lý (cập nhật cùng ngày)</h2>
+<h2>Tiến độ xử lý (cập nhật 21/09/2026)</h2>
+
 <div class="card green">
+  <h3>Tóm tắt</h3>
+  <p>Các lỗi nghiêm trọng (N1–N4) và phần lớn lỗi trung bình đã được sửa và <b>đã kiểm tra trên trình duyệt</b> với 3 tài khoản (Giám đốc, KHSX, QLSX). Ngoài các lỗi trong báo cáo, theo yêu cầu của bạn tôi làm thêm: trang <b>thống kê 2 lớp (PI → SKU)</b> và <b>số liệu Phôi thật theo từng SKU</b>. Còn lại một số việc <b>cần bạn hoặc Sếp quyết định</b> (cuối mục này). Toàn bộ thay đổi <b>chưa được commit</b>.</p>
+</div>
+
+<h3 style="margin-top:18px">A. Các lỗi đã rà soát — tình trạng hiện nay</h3>
+<table>
+  <tr><th>Mã</th><th>Vấn đề</th><th>Tình trạng</th><th>Ghi chú</th></tr>
+  <tr><td>N1</td><td>Mua hàng luôn hiện “xong”</td><td class="ok">Đã sửa</td><td>Ghép đề xuất mua theo mã PI; thanh Mua hàng có % thật (PI-2026-024 đủ 100%, PI-2026-028 chỉ 7%, khớp dữ liệu).</td></tr>
+  <tr><td>N2</td><td>Lệnh không thể “Hoàn thành”</td><td class="ok">Đã sửa</td><td>Bước lệnh không có việc được coi là “không áp dụng”; xưởng bấm “Kết thúc” thì lệnh là Hoàn thành. Đầu trang từ 0 lên 6 lệnh Hoàn thành.</td></tr>
+  <tr><td>N3</td><td>Phôi đo sai thứ cần đo</td><td class="ok">Đã sửa</td><td>Phôi = số đoạn đã làm ÷ định mức, gồm cả công đoạn phụ (Uốn, Dập…) và vật tư thành phẩm.</td></tr>
+  <tr><td>N4</td><td>Cờ đỏ “chưa cân đối” giả ở Phôi</td><td class="ok">Đã sửa</td><td>Một loại sắt chia nhiều đợt xuất giờ là một dòng; đã bỏ cờ lệch ở Phôi.</td></tr>
+  <tr><td>T1</td><td>% thanh trên không khớp các tab con</td><td class="ok">Đã sửa</td><td>Mọi % tính theo số lượng thật (PO-54: Khung cơ khí 12% khớp trung bình các tab).</td></tr>
+  <tr><td>T2</td><td>Báo dư mảnh này bù mảnh kia</td><td class="ok">Đã sửa</td><td>Mỗi mảnh chặn trần theo định mức riêng; % không vượt 100.</td></tr>
+  <tr><td>T3</td><td>Quy tắc cảnh báo “lệch” của Hàn/Sơn</td><td class="mid">Chờ quyết định</td><td>Cần Sếp/QLSX cho biết muốn báo lệch theo cách nào.</td></tr>
+  <tr><td>T4</td><td>“Nhập đan” so với số đã xuất</td><td class="ok">Đã sửa</td><td>Nay so với tổng cần.</td></tr>
+  <tr><td>T5</td><td>Lỗi tải bị nuốt im lặng; PI nhiều lệnh dùng chung số Phôi</td><td class="ok">Đã sửa</td><td>Có banner đỏ khi một nguồn tải lỗi; Phôi nay tách theo từng SKU nên không còn dùng chung.</td></tr>
+  <tr><td>Nhỏ</td><td>“Ngày tạo”/khách hàng có thể lấy nhầm từ SKU khác; câu chữ một số thông báo</td><td class="mid">Chưa sửa</td><td>Không ảnh hưởng số liệu tiến độ.</td></tr>
+</table>
+
+<h3 style="margin-top:22px">B. Việc làm thêm theo yêu cầu của bạn</h3>
+<div class="card">
   <ul>
-    <li><b>Đã sửa:</b> N1 (Mua hàng ghép theo mã PI, có % thật), N2 (bước “không áp dụng”, xưởng “Kết thúc” = Hoàn thành), N3 + N4 (Phôi đo theo đoạn cắt / định mức, gộp theo loại sắt, bỏ cờ lệch giả), T1 (mọi % tính theo số lượng thật, thanh trên khớp các tab con), T2 (mỗi mảnh chặn trần theo định mức của chính nó, % không vượt 100), T4 (Nhập đan so với tổng cần), T5 phần “lỗi tải im lặng” (có banner đỏ, nguồn lỗi coi là “không biết”).</li>
-    <li><b>Chưa xử lý:</b> T3 (quy tắc “lệch” của Hàn/Sơn — cần Sếp/QLSX xác nhận), T5 phần “PI nhiều lệnh dùng chung số Phôi” (chỉ thêm ghi chú trên màn hình, backend chưa tách theo lệnh), các điểm nhỏ (Ngày tạo/khách hàng lấy nhầm từ SKU khác, câu chữ thông báo).</li>
-    <li><b>Phạm vi áp dụng:</b> cả 3 vai trò (Giám đốc, KHSX, QLSX) dùng chung một trang nên đều nhận các sửa đổi trên. Riêng nút Bắt đầu / Tạm dừng / Kết thúc của QLSX giữ nguyên.</li>
-    <li><b>Đổi tên:</b> mục “Bảng thống kê” ở sidebar KHSX và QLSX (và tiêu đề trang) đã đổi thành “Tổng hợp lệnh SX” cho giống Giám đốc.</li>
-    <li><b>Cần kiểm tra thêm:</b> tài khoản KHSX và QLSX có đủ quyền xem dữ liệu Phôi/Mua hàng mới hay không (nếu thiếu, trang sẽ hiện banner đỏ báo nguồn lỗi).</li>
-    <li>Các phần này chưa được kiểm tra bằng cách mở trang trên trình duyệt.</li>
+    <li><b>Thống kê 2 lớp:</b> trang “Tổng hợp lệnh SX” có 3 tầng — <b>danh sách PI</b> (số của PI là cộng dồn các SKU) → <b>các SKU trong PI</b> (kèm nút Bắt đầu/Tạm dừng/Kết thúc của QLSX) → <b>chi tiết 1 SKU</b>. Mục sidebar của KHSX và QLSX đã đổi tên thành “Tổng hợp lệnh SX” cho giống Giám đốc.</li>
+    <li><b>Phôi theo SKU thật:</b> Phôi gồm <b>Cắt và mọi công đoạn phụ</b> (Uốn, Dập, Đục lỗ, Tán, Tóp đầu, Xẻ), mỗi loại sắt có bộ công đoạn riêng. Ở màn Phôi của xưởng, thợ chọn <b>“Phôi cho SKU”</b> (nhãn dạng “PO-38-2 · Ghế J55”) khi nhập và khi gửi KCS; “Cần” là định mức riêng của SKU đó; không được báo Uốn vượt số đã Cắt của chính SKU.</li>
+    <li><b>Màn KCS:</b> thêm cột SKU ở bảng chờ kiểm và dòng “SKU: …” trong hộp duyệt; lỗi KCS chấm được ghi đúng vào SKU của đợt. Tab mặc định tự chọn tab có nhiều đợt chờ nhất.</li>
+    <li><b>Đợt cũ chưa có SKU</b> (làm trước 21/09): PI chỉ có 1 SKU thì tính luôn cho SKU đó; PI nhiều SKU thì <b>không chia bừa</b> — hiện “Chưa phân SKU”, Phôi tự gán 1 lần bằng ô “Gán cho SKU”. Ở tầng PI có ghi chú khi còn đoạn chưa gán (vì thế tổng các SKU có thể thấp hơn số cả PI).</li>
+    <li><b>Sửa SKU gán nhầm (chỉ Quản trị viên):</b> Quản trị → <b>“Sửa SKU đợt Phôi”</b>: chọn PI, xem mọi đợt Cắt/Uốn/Dập… kèm SKU hiện tại, chọn SKU mới rồi bấm “Đổi”. Mọi lần gán/sửa đều được ghi lại (ai, lúc nào, từ SKU nào sang SKU nào) và hiện ở phần “Lịch sử đổi SKU” dưới bảng. Trang “Nhật ký hoạt động” chung của Admin vẫn đọc dữ liệu giả nên không hiện các dòng này (hạn chế cũ).</li>
+    <li><b>Tốc độ:</b> đo thấy tải số liệu Phôi của 25 PI mất khoảng 12 giây; đã viết lại, nay khoảng 0,4 giây (trang danh sách PI tải xong khoảng 2 giây). Nếu một PI tính lỗi, trang báo lỗi rõ chứ không hiện số thiếu.</li>
   </ul>
 </div>
 
-<h2>7. Giới hạn của lần rà soát này</h2>
+<h3 style="margin-top:22px">C. Đã kiểm tra thế nào</h3>
+<div class="card green">
+  <ul>
+    <li><b>Trên trình duyệt, với tài khoản thật của 3 vai trò + KCS + Phôi + Admin:</b> trang tải đủ, không lỗi; số liệu PO-54 và PI-2026-008 khớp nguồn; đã mở lại nhiều lần (15 lần liên tiếp) đều hiện đúng.</li>
+    <li><b>Nút QLSX (trên lệnh test):</b> Bắt đầu, Tạm dừng, Tiếp tục, Kết thúc đều đổi đúng trạng thái thật và đều hỏi xác nhận; Giám đốc và KHSX không thấy nút. Với PI 2 lệnh: cả PI tạm dừng thì bị chặn ghi, còn 1 lệnh chạy thì được ghi.</li>
+    <li><b>Phôi theo SKU (PI-2026-008):</b> ghi Cắt 5 + Uốn 3 cho SKU thứ 2 thì chỉ SKU đó tăng (8/20), SKU kia không đổi; ghi Uốn vượt số đã Cắt bị chặn; KCS chấm lỗi ghi đúng SKU; gán và sửa SKU chạy đúng, người không phải Quản trị viên bị từ chối. Mọi dữ liệu thử đã xoá.</li>
+    <li><b>Số liệu Phôi gộp mới so với bản từng PI:</b> đối chiếu cả 25 PI (10 PI có công đoạn phụ) — không PI nào lệch.</li>
+    <li><b>Tự động:</b> 353 test backend và 38 test frontend đều đạt; kiểm tra kiểu và lint sạch.</li>
+  </ul>
+</div>
+
+<h3 style="margin-top:22px">D. Còn lại — cần bạn hoặc Sếp quyết định</h3>
+<div class="card amber">
+  <ul>
+    <li><b>Cách tính % Phôi:</b> hiện cộng thẳng Cắt + Uốn + Dập… (mỗi đoạn tính 1 lần cho mỗi công đoạn nó phải qua), và vật tư thành phẩm (đơn vị “cái”) cộng chung với “đoạn”. Nếu các công đoạn nặng nhẹ khác nhau thì cần chọn trọng số.</li>
+    <li><b>Xưởng “Kết thúc” tính là Hoàn thành</b> — tôi tự chọn vì “Kết thúc” không hoàn tác được; cần xác nhận.</li>
+    <li><b>Mua hàng không có đề xuất mua nào thì tính là xong;</b> và đề xuất mua ghép theo PI nên PI nhiều SKU dùng chung số Mua hàng.</li>
+    <li><b>Quy tắc “lệch” của Hàn/Sơn</b> (T3).</li>
+  </ul>
+</div>
+
+<h3 style="margin-top:22px">E. Rủi ro và giới hạn còn lại</h3>
 <div class="card">
   <ul>
-    <li>Tôi đọc toàn bộ mã của trang, mã backend cung cấp 5 nguồn số liệu, và đối chiếu số liệu thật trên cơ sở dữ liệu dev dùng chung (chỉ đọc, không ghi).</li>
-    <li>Tôi <b>chưa</b> mở trang trên trình duyệt để so từng số của từng lệnh; các ví dụ N2/T5 dựa trên số liệu thật kết hợp với logic của trang, còn ví dụ N3 (40 cây/18 cây) là minh họa bằng số giả định.</li>
-    <li>Truy vấn chi tiết riêng cho lệnh PO-54 (ảnh của bạn) bị treo nên phần đó tôi suy từ ảnh chụp và logic của trang, chưa đối chiếu trực tiếp từng phiếu sắt.</li>
+    <li><b>Chưa commit.</b> Cần commit cả 2 thay đổi cơ sở dữ liệu (thêm cột SKU vào đợt Cắt và đợt công đoạn phụ); nếu không, người khác kéo mã về sẽ thiếu. Các thay đổi này chỉ thêm cột cho phép trống, không đụng dữ liệu cũ.</li>
+    <li><b>Thợ Phôi và KCS dùng khác đi:</b> phải chọn SKU khi nhập/gửi. Nên báo QLSX và thợ Phôi trước khi dùng thật.</li>
+    <li><b>Chưa thử trực tiếp</b> các công đoạn Dập, Đục lỗ, Tán, Tóp đầu, Xẻ (chỉ Uốn được thử thật; các công đoạn còn lại dùng chung một đoạn mã và có test tự động).</li>
+    <li><b>Chưa thử tải nặng</b> (mới 25 PI, dữ liệu demo). Số liệu Phôi gộp được tải một lượt vào bộ nhớ nên cần theo dõi khi số PI tăng nhiều.</li>
+    <li><b>Ghi đợt Cắt vẫn chưa có khoá chống ghi trùng đồng thời</b> (rủi ro cũ): 2 người cùng ghi Cắt cho cùng SKU cùng lúc có thể tạo 2 đợt đang mở.</li>
+    <li><b>Danh sách đề xuất mua chỉ lấy 100 dòng</b> (hạn chế cũ, dùng chung nhiều màn) — vượt quá thì % Mua hàng có thể sai.</li>
+    <li><b>Dữ liệu demo đã đổi trong lúc thử:</b> PO-test-nutnhua (PI-2026-025) đã Kết thúc vĩnh viễn; 2 lệnh của PI-2026-028 và lệnh PO-38-1 (PI-2026-008) chuyển từ “Chưa bắt đầu” sang “Đang chạy”. Trong lúc thử tôi từng gán nhầm một đợt Uốn cũ của bạn; đã đưa về nguyên trạng và kiểm tra lại.</li>
+  </ul>
+</div>
+
+<h2>7. Giới hạn của lần rà soát ban đầu (19/09)</h2>
+<div class="card">
+  <ul>
+    <li>Lúc rà soát ban đầu tôi đọc toàn bộ mã của trang, mã backend cung cấp 5 nguồn số liệu, và đối chiếu số liệu thật trên cơ sở dữ liệu dev dùng chung (chỉ đọc). Ví dụ N3 (40 cây/18 cây) là minh họa bằng số giả định.</li>
+    <li>Sau đó (21/09) phần lớn nội dung đã được kiểm tra lại trực tiếp trên trình duyệt — xem mục C của “Tiến độ xử lý”.</li>
     <li>Thư mục lưu báo cáo là <b>docs</b> (đã có sẵn trong dự án), không có thư mục tên “doc”.</li>
   </ul>
 </div>

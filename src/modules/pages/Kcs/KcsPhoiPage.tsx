@@ -54,7 +54,7 @@ import { useMemo, useState } from 'react'
 import { ClipboardCheck, Check, Clock, ChevronLeft, ChevronRight, AlertTriangle, Upload, X, Plus, Wrench } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
-import type { BeSteelIssue, BeQcReview, BeCutBundle, BeStepBundle } from '../../../services/steel-issues-api'
+import type { BeSteelIssue, BeQcReview, BeCutBundle, BeStepBundle, BePiOrderSummary } from '../../../services/steel-issues-api'
 import type { BeDefectReason } from '../../../services/defect-reasons-api'
 import type { ProcessStep } from '../../../types/sku'
 import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
@@ -91,6 +91,8 @@ type Row = CutRow | StepRow
 
 function piIdOf(x: Row): string { return x.kind === 'cut' ? x.issue.productionInvoiceId : x.stepBundle.productionInvoiceId }
 function materialNameOf(x: Row): string { return x.kind === 'cut' ? x.issue.materialName : x.stepBundle.materialName }
+/** SKU (ProductionOrder.id) mà đợt này làm cho (2026-09-21) - null = đợt CŨ chưa gắn SKU. */
+function orderIdOf(x: Row): string | null { return x.kind === 'cut' ? x.bundle.productionOrderId : x.stepBundle.productionOrderId }
 function idOf(x: Row): string { return x.kind === 'cut' ? x.bundle.id : x.stepBundle.id }
 function statusOf(x: Row): 'CUTTING' | 'AWAITING_QC' | 'QC_PASSED' { return x.kind === 'cut' ? x.bundle.status : x.stepBundle.status }
 function completedAtOf(x: Row): string { return x.kind === 'cut' ? (x.bundle.completedAt ?? x.bundle.createdAt) : x.stepBundle.submittedAt }
@@ -232,6 +234,16 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
 }) {
   const [target, setTarget] = useState<Row | null>(null)
 
+  // KCS phải biết đang duyệt đợt của SKU nào (2026-09-21) - nhãn kèm mã PO + số lượng vì các SKU cùng PI có thể
+  // cùng tên sản phẩm.
+  const { data: orderSummary } = useFetch<BePiOrderSummary[]>(() => api.getPiOrderSummary(pi.productionInvoiceId), [pi.productionInvoiceId])
+  const skuLabelOf = (x: Row): string => {
+    const oid = orderIdOf(x)
+    if (!oid) return 'Chưa phân SKU'
+    const o = (orderSummary ?? []).find(s => s.productionOrderId === oid)
+    return o ? `${o.poNumber} · ${o.sku}` : '…'
+  }
+
   const reviewByBundle = useMemo(() => {
     const m = new Map<string, BeQcReview>()
     for (const r of reviews) if (r.cutBundleId) m.set(r.cutBundleId, r)
@@ -263,9 +275,11 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
     }
     return m
   }, [pi.bundles])
-  // Mặc định mở đúng công đoạn đang chờ NHIỀU nhất (đỡ phải tự bấm tìm) - chỉ tính lúc mount, đổi
-  // tab sau đó là quyền người dùng, không tự nhảy khi refetch.
-  const [activeStep, setActiveStep] = useState<'CAT' | ProcessStep>(() => {
+  // Mặc định mở đúng công đoạn đang chờ NHIỀU nhất (đỡ phải tự bấm tìm). Tính LẠI theo dữ liệu hiện có cho tới khi
+  // người dùng tự bấm tab (2026-09-21): trước đây chỉ tính 1 lần lúc mount, mà danh sách đợt Cắt và đợt công đoạn
+  // phụ tải riêng nên lúc mount có thể mới có 1 loại -> mặc định vào nhầm tab Uốn dù tab Cắt có đợt chờ.
+  const [picked, setPicked] = useState<'CAT' | ProcessStep | null>(null)
+  const bestStep = useMemo(() => {
     let best: 'CAT' | ProcessStep = stepKeys[0] ?? 'CAT'
     let bestPending = -1
     for (const k of stepKeys) {
@@ -273,8 +287,8 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
       if (p > bestPending) { bestPending = p; best = k }
     }
     return best
-  })
-  const effectiveActiveStep = stepKeys.includes(activeStep) ? activeStep : (stepKeys[0] ?? 'CAT')
+  }, [stepKeys, pendingByStep])
+  const effectiveActiveStep = picked && stepKeys.includes(picked) ? picked : bestStep
 
   const rank = (x: Row) => statusOf(x) === 'AWAITING_QC' ? 0 : 1
   const rows = pi.bundles
@@ -299,7 +313,7 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
             const label = k === 'CAT' ? 'Cắt' : PROCESS_STEP_LABELS[k]
             const pending = pendingByStep.get(k) ?? 0
             return (
-              <button key={k} onClick={() => setActiveStep(k)} style={tabBtn(k === effectiveActiveStep)}>
+              <button key={k} onClick={() => setPicked(k)} style={tabBtn(k === effectiveActiveStep)}>
                 {label}
                 {pending > 0 && <span style={tabPendingBadge}>{pending}</span>}
               </button>
@@ -313,6 +327,7 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
               <th style={th}>Loại sắt</th>
+              <th style={th}>SKU</th>
               <th style={th}>Đợt</th>
               <th style={th}>Gửi KCS lúc</th>
               <th style={{ ...th, textAlign: 'center' }}>Trạng thái</th>
@@ -332,6 +347,7 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
               return (
                 <tr key={`${x.kind}:${id}`} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ ...td, fontWeight: 600 }}>{materialNameOf(x)}</td>
+                  <td style={{ ...td, fontWeight: 600, color: orderIdOf(x) ? 'var(--text)' : 'var(--text3)' }}>{skuLabelOf(x)}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>
                     {segments.map((s) => `${s.qty}×${s.cutLengthMm.toLocaleString('vi-VN')}mm`).join(' + ')}
                   </td>
@@ -360,7 +376,7 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
               )
             })}
             {rows.length === 0 && (
-              <tr><td colSpan={5} style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>Không có đợt nào</td></tr>
+              <tr><td colSpan={6} style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>Không có đợt nào</td></tr>
             )}
           </tbody>
         </table>
@@ -368,7 +384,7 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
 
       {target && (
         <QcReviewModal
-          id={idOf(target)} materialName={materialNameOf(target)} segments={segmentsOf(target)}
+          id={idOf(target)} materialName={materialNameOf(target)} skuLabel={skuLabelOf(target)} segments={segmentsOf(target)}
           onReview={(id, data) => target.kind === 'cut' ? api.reviewCutBundleQc(id, data) : api.reviewStepBundleQc(id, data)}
           onClose={() => setTarget(null)} onDone={() => { setTarget(null); onRefetch() }}
         />
@@ -383,8 +399,8 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
 // (2026-09-07) nhận `id`/`segments`/`onReview` thay vì bám cứng `bundle` - dùng chung được cho cả
 // CutBundle (Cắt) lẫn StepBundle (công đoạn phụ), 2 nhánh chỉ khác API đích (onReview).
 
-function QcReviewModal({ id, materialName, segments, onReview, onClose, onDone }: {
-  id: string; materialName: string
+function QcReviewModal({ id, materialName, skuLabel, segments, onReview, onClose, onDone }: {
+  id: string; materialName: string; skuLabel: string
   segments: { segmentSpecId: string; cutLengthMm: number; qty: number }[]
   onReview: (id: string, data: {
     segments: { segmentSpecId: string; failedQty: number }[]
@@ -455,6 +471,7 @@ function QcReviewModal({ id, materialName, segments, onReview, onClose, onDone }
       <div onClick={(e) => e.stopPropagation()} style={{ width: 520, maxWidth: '92vw', maxHeight: '90vh', overflowY: 'auto', background: 'var(--surface)', borderRadius: 14, padding: 20, boxShadow: '0 8px 30px rgba(0,0,0,.25)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Tiến hành duyệt — {materialName}</h3>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', marginTop: 4 }}>SKU: {skuLabel}</div>
           <button onClick={onClose} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'inline-flex' }}><X size={18} /></button>
         </div>
 

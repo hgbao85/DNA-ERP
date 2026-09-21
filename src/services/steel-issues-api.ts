@@ -58,6 +58,8 @@ export interface BeStepBundle {
   status: 'AWAITING_QC' | 'QC_PASSED';
   submittedAt: string;
   submittedById: string;
+  /** SKU (ProductionOrder.id) của đợt gửi KCS này (2026-09-21). null = đợt CŨ chưa gắn SKU. */
+  productionOrderId: string | null;
   segments: BeStepBundleSegment[];
 }
 
@@ -89,6 +91,8 @@ export interface BeCutBundle {
    *  với đúng đợt cắt này nữa, đổi 2026-09-07 lần 2). */
   requiredSteps: ProcessStep[];
   completedAt: string | null;
+  /** SKU (ProductionOrder.id) đợt cắt này làm cho (2026-09-21). null = đợt CŨ chưa gắn SKU. */
+  productionOrderId: string | null;
   createdAt: string;
   segments: BeCutPatternSegment[];
 }
@@ -237,6 +241,26 @@ export async function getAllCutBundles(
   return unwrap(res);
 }
 
+/** Gán SKU cho đợt cắt CŨ chưa có SKU (PI nhiều SKU) - chỉ gán được 1 lần (2026-09-21). */
+export async function assignCutBundleOrder(bundleId: string, productionOrderId: string): Promise<BeCutBundle> {
+  return http.post<BeCutBundle>(`/cut-bundles/${bundleId}/assign-order`, { productionOrderId });
+}
+
+/** ADMIN sửa SKU của đợt cắt ĐÃ gắn nhầm (2026-09-21) - ghi audit log ở backend. */
+export async function reassignCutBundleOrder(bundleId: string, productionOrderId: string): Promise<BeCutBundle> {
+  return http.post<BeCutBundle>(`/cut-bundles/${bundleId}/reassign-order`, { productionOrderId });
+}
+
+/** ADMIN sửa SKU của đợt công đoạn phụ ĐÃ gắn nhầm (2026-09-21) - ghi audit log ở backend. */
+export async function reassignStepBundleOrder(stepBundleId: string, productionOrderId: string): Promise<BeStepBundle> {
+  return http.post<BeStepBundle>(`/step-bundles/${stepBundleId}/reassign-order`, { productionOrderId });
+}
+
+/** Gán SKU cho đợt công đoạn phụ CŨ chưa có SKU (PI nhiều SKU) - chỉ gán được 1 lần (2026-09-21). */
+export async function assignStepBundleOrder(stepBundleId: string, productionOrderId: string): Promise<BeStepBundle> {
+  return http.post<BeStepBundle>(`/step-bundles/${stepBundleId}/assign-order`, { productionOrderId });
+}
+
 /** "Báo cắt xong" cho ĐÚNG đợt cắt này - các đợt khác của cùng lô vẫn cắt tiếp bình thường. */
 export async function finishCutBundle(bundleId: string): Promise<BeCutBundle> {
   return http.post<BeCutBundle>(`/cut-bundles/${bundleId}/finish`, {});
@@ -250,6 +274,8 @@ export async function receiveSteelIssue(id: string): Promise<void> {
  *  bắt buộc barCount/mauNguyenMm từ 2026-09-05 (bỏ 2 ô nhập theo yêu cầu nghiệp vụ - 1 loại sắt
  *  giờ gộp nhiều lần kho giao, tách cây theo từng đợt cắt là tuỳ tiện). */
 export interface RecordCutBatchInput {
+  /** SKU (ProductionOrder.id) đợt cắt này làm ra đoạn cho - BẮT BUỘC (2026-09-21): 1 đợt = 1 SKU. */
+  productionOrderId: string;
   segments: { segmentSpecId: string; qty: number }[];
   /** Kiểu cắt gợi ý đợt này bám theo - THUẦN THAM CHIẾU, tuỳ chọn. */
   proposalPatternId?: string;
@@ -284,6 +310,16 @@ export interface BePhoiProgressSegment {
    *  chế report-done/recheck). "Còn lại" tự tính = required - (done - failed), KHÔNG lấy thẳng từ
    *  BE - tự đúng khi Phôi làm thêm rồi gửi KCS như đợt mới (done tăng), KHÔNG cần "failed" giảm. */
   failed: number;
+  /** Tách theo SKU (2026-09-21) - Σ các phần tử = required/done/failed ở trên. productionOrderId null =
+   *  đợt cắt CŨ chưa gắn SKU ("Chưa phân SKU", required luôn 0). */
+  byOrder: BePhoiProgressOrderSegment[];
+}
+
+export interface BePhoiProgressOrderSegment {
+  productionOrderId: string | null;
+  required: number;
+  done: number;
+  failed: number;
 }
 
 /** Tiến độ cắt theo (loại sắt -> cỡ đoạn) cho cả 1 PI - nguồn dữ liệu bảng "Cần / Đã cắt / Còn
@@ -295,6 +331,8 @@ export interface BePhoiProgressItem {
   materialName: string;
   issuedBarCount: number;
   segments: BePhoiProgressSegment[];
+  /** Các công đoạn phụ SAU Cắt (Uốn/Dập/...) của loại sắt này - CHỈ có ở getPhoiProgressBatch (2026-09-21). */
+  steps?: { step: ProcessStep; segments: BePhoiProgressSegment[] }[];
 }
 
 export async function getPhoiProgress(productionInvoiceId: string): Promise<BePhoiProgressItem[]> {
@@ -315,6 +353,8 @@ export async function getStepProgress(productionInvoiceId: string, step: Process
 export interface RecordStepBatchInput {
   materialId: string
   step: ProcessStep
+  /** SKU (ProductionOrder.id) đợt gia công này làm cho - BẮT BUỘC (2026-09-21): 1 đợt = 1 SKU. */
+  productionOrderId: string
   segments: { segmentSpecId: string; qty: number }[]
 }
 
@@ -338,10 +378,12 @@ export async function submitStepBundle(
   productionInvoiceId: string,
   materialId: string,
   step: ProcessStep,
+  productionOrderId: string,
 ): Promise<BeStepBundle> {
   return http.post<BeStepBundle>(`/production-invoices/${productionInvoiceId}/step-bundles`, {
     materialId,
     step,
+    productionOrderId,
   });
 }
 
@@ -363,6 +405,10 @@ export async function getAllStepBundles(status?: 'AWAITING_QC' | 'QC_PASSED'): P
 /** Danh sách PO/SKU thuộc 1 PI - khối tham khảo cho màn Lệnh sản xuất Phôi, KHÔNG mang số liệu
  *  tiến độ (tiến độ chỉ có ở cấp PI × loại sắt, xem getPhoiProgress). */
 export interface BePiOrderSummary {
+  /** ProductionOrder.id - dùng để chọn SKU khi nhập đợt cắt và nối tiến độ Phôi theo SKU. */
+  productionOrderId: string;
+  /** Mã xưởng của SKU. */
+  sku: string;
   poNumber: string;
   salesOrderCode: string | null;
   productName: string;

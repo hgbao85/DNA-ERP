@@ -8,6 +8,8 @@ import * as api from '../../../services/api'
 import { useInspection, type PurchaseProposal } from '../../../context/InspectionContext'
 import type { Sku } from '../../../types/sku'
 import LenhSanXuatBoard, { type BoardColumn } from '../../../components/sanxuat/LenhSanXuatBoard'
+import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
+import type { ProcessStep } from '../../../types/sku'
 import { VatTuDetailBoard, PHOI_CFG, HAN_CFG, SON_CFG, VAT_TU_TP_CFG, lechOf, type ProcLine, type StageCfg } from '../../../components/sanxuat/core'
 import type { ManhLine } from '../../../types/manh'
 import ManhSkuDetail from '../InboundWarehouse/ManhSkuDetail'
@@ -52,7 +54,8 @@ interface StageDetails {
     /** Vật tư thành phẩm (vd chân nhôm - Phôi tự báo theo MẢNH, cái) - cùng nguồn Hàn/Sơn, stage=PHOI. */
     phoiVtTpLines: ProcLine[]
     /** Số lệnh (đã duyệt) cùng PI - Phôi cắt chung cho cả PI nên >1 nghĩa là số Phôi dùng chung các lệnh. */
-    piOrderCount: number
+    /** Số đoạn cắt từ đợt CŨ chưa gắn SKU của PI này (không thuộc SKU nào) - chỉ để ghi chú. */
+    phoiUnassignedDone: number
     hanLines: ProcLine[]
     sonLines: ProcLine[]
   }
@@ -161,7 +164,9 @@ function lineTotals(lines: ProcLine[]): { need: number; done: number } {
 // % nguyên, CHỈ ra 100 khi thật sự đủ (làm tròn xuống - 99,6% không được hiện 100%). Mọi nơi hiển thị % tiến độ
 // (thanh công đoạn, tab con, bảng danh sách) đều đi qua hàm này để khớp nhau (audit T1).
 function pctOf(need: number, done: number): number {
-  return need > 0 ? Math.min(100, Math.floor(Math.min(done, need) / need * 100)) : 0
+  if (need <= 0) return 0
+  // Đã có làm dù rất nhỏ thì tối thiểu 1% - hiện 0% sẽ như "chưa làm gì" và làm công đoạn bị ẩn khỏi thanh trạng thái.
+  return Math.min(100, Math.max(done > 0 ? 1 : 0, Math.floor(Math.min(done, need) / need * 100)))
 }
 
 // Đan: xuất/nhập cộng theo TỪNG mảnh đã chặn trần theo tổng cần của mảnh đó.
@@ -183,27 +188,68 @@ function chuyenKiemTotals(pieces: StageDetails['chuyenKiem']['pieces']): { need:
 // (getPhoiProgress) mà màn Phôi thật đang dùng - thay cho "số cây kho đã xuất" trước đây (sai khái niệm, và
 // coi mỗi đợt xuất của cùng 1 loại sắt là 1 loại sắt riêng nên báo "lệch" giả). Mỗi loại sắt = 1 dòng.
 interface PhoiSegmentView { cutLengthMm: number; required: number; done: number; failed: number; good: number; remaining: number }
+/** 1 công đoạn của Phôi cho 1 loại sắt: Cắt hoặc công đoạn phụ (Uốn/Dập/...). */
+interface PhoiStepView { step: 'CAT' | ProcessStep; label: string; segments: PhoiSegmentView[]; need: number; done: number }
 interface PhoiMaterialView {
   materialId: string; materialCode: string; materialName: string; issuedBarCount: number
-  segments: PhoiSegmentView[]
+  /** Cắt + các công đoạn phụ loại sắt này cần đi qua. */
+  steps: PhoiStepView[]
+  /** Σ các công đoạn: mỗi đoạn tính 1 lần cho MỖI công đoạn nó phải qua (Cắt, Uốn, ...). */
   need: number; done: number
 }
 
-function mapPhoiProgress(items: BePhoiProgressItem[]): PhoiMaterialView[] {
-  return items.map(it => {
-    const segments = it.segments.map(s => {
-      // "Đạt" = đã cắt trừ lỗi KCS (lỗi cộng dồn, Phôi bù bằng cách cắt thêm); chặn trần theo định mức để
-      // cắt dư ở cỡ này không bù cho cỡ khác còn thiếu.
-      const good = Math.min(s.required, Math.max(0, s.done - s.failed))
-      return { cutLengthMm: s.cutLengthMm, required: s.required, done: s.done, failed: s.failed, good, remaining: Math.max(0, s.required - (s.done - s.failed)) }
-    })
-    return {
-      materialId: it.materialId, materialCode: it.materialCode, materialName: it.materialName, issuedBarCount: it.issuedBarCount,
-      segments,
-      need: segments.reduce((a, s) => a + s.required, 0),
-      done: segments.reduce((a, s) => a + s.good, 0),
+// Phôi = Cắt + MỌI công đoạn phụ (Uốn/Dập/Đục lỗ/Tán/Tóp đầu/Xẻ) của từng loại sắt, theo từng cỡ đoạn (2026-09-21).
+// orderId = SKU cần xem (số THẬT theo SKU, từ đợt ghi kèm SKU); null = gộp cả PI (dùng cho lớp PI, gồm cả phần đợt
+// CŨ chưa gắn SKU). Đợt cũ chưa gắn SKU KHÔNG tính vào SKU nào (trừ PI chỉ 1 SKU - BE đã tự gán).
+function mapPhoiSegments(segs: BePhoiProgressItem['segments'], orderId: string | null): PhoiSegmentView[] {
+  const out: PhoiSegmentView[] = []
+  for (const s of segs) {
+    const src = orderId === null
+      ? { required: s.required, done: s.done, failed: s.failed }
+      : (s.byOrder ?? []).find(o => o.productionOrderId === orderId) ?? { required: 0, done: 0, failed: 0 }
+    if (orderId !== null && src.required <= 0 && src.done <= 0 && src.failed <= 0) continue
+    // "Đạt" = đã làm trừ lỗi KCS (lỗi cộng dồn, Phôi bù bằng cách làm thêm); chặn trần theo định mức để làm dư ở
+    // cỡ này không bù cho cỡ khác còn thiếu.
+    const good = Math.min(src.required, Math.max(0, src.done - src.failed))
+    out.push({ cutLengthMm: s.cutLengthMm, required: src.required, done: src.done, failed: src.failed, good, remaining: Math.max(0, src.required - (src.done - src.failed)) })
+  }
+  return out
+}
+
+function mapPhoiProgress(items: BePhoiProgressItem[], orderId: string | null): PhoiMaterialView[] {
+  const views: PhoiMaterialView[] = []
+  for (const it of items) {
+    const rawSteps: { step: 'CAT' | ProcessStep; segments: BePhoiProgressItem['segments'] }[] = [
+      { step: 'CAT', segments: it.segments },
+      ...(it.steps ?? []),
+    ]
+    const steps: PhoiStepView[] = []
+    for (const rs of rawSteps) {
+      const segments = mapPhoiSegments(rs.segments, orderId)
+      if (segments.length === 0) continue
+      steps.push({
+        step: rs.step,
+        label: rs.step === 'CAT' ? 'Cắt' : PROCESS_STEP_LABELS[rs.step],
+        segments,
+        need: segments.reduce((a, s) => a + s.required, 0),
+        done: segments.reduce((a, s) => a + s.good, 0),
+      })
     }
-  })
+    if (steps.length === 0) continue
+    views.push({
+      materialId: it.materialId, materialCode: it.materialCode, materialName: it.materialName, issuedBarCount: it.issuedBarCount,
+      steps,
+      need: steps.reduce((a, st) => a + st.need, 0),
+      done: steps.reduce((a, st) => a + st.done, 0),
+    })
+  }
+  return views
+}
+
+// Số đoạn đã làm từ các đợt CŨ (trước 2026-09-21) chưa gắn SKU - chỉ hiện ở mức PI (PI nhiều SKU).
+function unassignedCutOf(items: BePhoiProgressItem[]): number {
+  const one = (segs: BePhoiProgressItem['segments']) => segs.reduce((a, s) => a + ((s.byOrder ?? []).find(o => o.productionOrderId === null)?.done ?? 0), 0)
+  return items.reduce((t, it) => t + one(it.segments) + (it.steps ?? []).reduce((a, st) => a + one(st.segments), 0), 0)
 }
 
 function mapBatchPlanToLines(plan: BeProductionBatchPlan | null): ProcLine[] {
@@ -228,10 +274,17 @@ interface BatchProgressData {
   /** Nhãn các nguồn tải LỖI (rỗng = tải đủ) - nguồn lỗi coi như "không biết", KHÔNG được hiểu là "không có
    *  việc" (audit 2026-09-19 T5) và được báo lên đầu trang. */
   failed: string[]
+  /** Chữ ký danh sách dòng mà dữ liệu này được tải cho (xem batchKeyOf) - chỉ dùng được khi khớp đúng danh sách
+   *  hiện tại, tránh dùng dữ liệu của danh sách cũ/rỗng cho các lệnh mới (bug 2026-09-21). */
+  key: string
 }
 const EMPTY_BATCH_DATA: BatchProgressData = {
   phoiProgressByPi: {}, phoiVtTpPlanByOrder: {}, hanPlanByOrder: {}, sonPlanByOrder: {},
-  weavingPlanByOrder: {}, transferCheckByItem: {}, packagingByItem: {}, failed: [],
+  weavingPlanByOrder: {}, transferCheckByItem: {}, packagingByItem: {}, failed: [], key: '',
+}
+
+function batchKeyOf(rows: ApprovedRow[]): string {
+  return rows.map(r => `${r.piId}:${r.orderId ?? ''}:${r.itemId}`).sort().join(',')
 }
 
 // 7 request CỐ ĐỊNH cho CẢ TRANG, bất kể có bao nhiêu dòng SKU đã duyệt (trước đây tới 6×N) - mỗi
@@ -262,14 +315,16 @@ async function buildBatchProgressData(rows: ApprovedRow[]): Promise<BatchProgres
       safeFetch('transfer-check', api.getTransferCheckPiecesBatch(itemIds)),
       safeFetch('packaging', api.getPackagingBatch(itemIds)),
     ])
-  return { phoiProgressByPi, phoiVtTpPlanByOrder, hanPlanByOrder, sonPlanByOrder, weavingPlanByOrder, transferCheckByItem, packagingByItem, failed }
+  // Backend BỎ KHỎI kết quả PI nào lấy tiến độ Phôi lỗi (thay vì trả rỗng) - thiếu khoá = không biết, phải báo lỗi.
+  if (!failed.includes('phoi-progress') && piIds.some(id => !(id in phoiProgressByPi))) failed.push('phoi-progress')
+  return { phoiProgressByPi, phoiVtTpPlanByOrder, hanPlanByOrder, sonPlanByOrder, weavingPlanByOrder, transferCheckByItem, packagingByItem, failed, key: batchKeyOf(rows) }
 }
 
 function buildFrame(
   phoiProgress: BePhoiProgressItem[] | null, vtTpPlan: BeProductionBatchPlan | null,
-  hanPlan: BeProductionBatchPlan | null, sonPlan: BeProductionBatchPlan | null, piOrderCount: number,
+  hanPlan: BeProductionBatchPlan | null, sonPlan: BeProductionBatchPlan | null, orderId: string | null,
 ): StageDetails['frame'] {
-  const phoiMaterials = mapPhoiProgress(phoiProgress ?? [])
+  const phoiMaterials = mapPhoiProgress(phoiProgress ?? [], orderId)
   const phoiVtTpLines = mapBatchPlanToLines(vtTpPlan)
   const hanLines = mapBatchPlanToLines(hanPlan)
   const sonLines = mapBatchPlanToLines(sonPlan)
@@ -285,7 +340,7 @@ function buildFrame(
     phoi,
     han: subStatusOf(hanTotals.need, hanTotals.done, hanPlan !== null),
     son: subStatusOf(sonTotals.need, sonTotals.done, sonPlan !== null),
-    phoiMaterials, phoiVtTpLines, piOrderCount, hanLines, sonLines,
+    phoiMaterials, phoiVtTpLines, phoiUnassignedDone: unassignedCutOf(phoiProgress ?? []), hanLines, sonLines,
   }
 }
 
@@ -334,7 +389,7 @@ function buildPackaging(progress: BePackagingProgress | undefined): StageDetails
 
 function emptyExecutionStages(skuQty: number): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
   return {
-    frame: { phoi: 'pending', han: 'pending', son: 'pending', phoiMaterials: [], phoiVtTpLines: [], piOrderCount: 1, hanLines: [], sonLines: [] },
+    frame: { phoi: 'pending', han: 'pending', son: 'pending', phoiMaterials: [], phoiVtTpLines: [], phoiUnassignedDone: 0, hanLines: [], sonLines: [] },
     weaving: { nhapDan: 'pending', xuatDan: 'pending', lines: [], skuQty },
     chuyenKiem: { daKiem: 'pending', pieces: [] },
     packaging: { dongGoi: 'pending', totalBoxes: 0, daDongQty: 0 },
@@ -352,7 +407,7 @@ function buildExecutionStages(row: ApprovedRow, skuQty: number, batch: BatchProg
   const transferKnown = !!row.orderId && !batch.failed.includes('transfer-check')
   const packagingProgress = batch.packagingByItem[row.itemId]
   return {
-    frame: buildFrame(phoiProgress, vtTpPlan, hanPlan, sonPlan, row.piOrderCount),
+    frame: buildFrame(phoiProgress, vtTpPlan, hanPlan, sonPlan, row.orderId),
     weaving: buildWeaving(weavingItems, skuQty),
     chuyenKiem: buildChuyenKiem(transferCheckPieces, transferKnown),
     packaging: buildPackaging(packagingProgress),
@@ -667,10 +722,11 @@ function PhoiMaterialBoard({ materials }: { materials: PhoiMaterialView[] }) {
         <div style={{ fontSize: 11, color: 'var(--text3)' }}>{m.materialCode}</div>
       </div>
     ) },
-    { key: 'issued', header: 'Kho đã xuất (cây)', align: 'right', cell: m => m.issuedBarCount.toLocaleString('vi-VN') },
-    { key: 'need', header: 'Cần (đoạn)', align: 'right', cell: m => m.need.toLocaleString('vi-VN') },
-    { key: 'done', header: 'Đã cắt đạt (đoạn)', align: 'right', cell: m => <span style={{ fontWeight: 700 }}>{m.done.toLocaleString('vi-VN')}</span> },
-    { key: 'remain', header: 'Còn lại (đoạn)', align: 'right', cell: m => {
+    { key: 'issued', header: 'Kho đã xuất cả PI (cây)', align: 'right', cell: m => m.issuedBarCount.toLocaleString('vi-VN') },
+    { key: 'steps', header: 'Công đoạn', cell: m => <span style={{ fontSize: 12, color: 'var(--text2)' }}>{m.steps.map(st => st.label).join(' → ')}</span> },
+    { key: 'need', header: 'Cần', align: 'right', cell: m => m.need.toLocaleString('vi-VN') },
+    { key: 'done', header: 'Đã xong (đạt)', align: 'right', cell: m => <span style={{ fontWeight: 700 }}>{m.done.toLocaleString('vi-VN')}</span> },
+    { key: 'remain', header: 'Còn lại', align: 'right', cell: m => {
       const r = Math.max(0, m.need - m.done)
       return <span style={{ color: r > 0 ? 'var(--amber)' : 'var(--green)', fontWeight: 600 }}>{r.toLocaleString('vi-VN')}</span>
     } },
@@ -679,29 +735,36 @@ function PhoiMaterialBoard({ materials }: { materials: PhoiMaterialView[] }) {
   const td: React.CSSProperties = { padding: '6px 10px', fontSize: 12, textAlign: 'right', borderTop: '1px solid var(--border)' }
   return (
     <LenhSanXuatBoard
-      title="Tiến độ cắt theo loại sắt"
-      subtitle="Đoạn đã cắt so với định mức của lệnh, cộng dồn mọi đợt kho xuất — “đạt” = đã cắt trừ đoạn KCS chấm lỗi. Chi tiết từng cỡ đoạn hiện ngay bên dưới mỗi loại sắt"
+      title="Tiến độ Phôi theo loại sắt"
+      subtitle="Phôi gồm Cắt và các công đoạn phụ (Uốn, Dập…) tùy loại sắt. Mỗi đoạn tính 1 lần cho mỗi công đoạn nó phải qua; “đạt” = đã làm trừ đoạn KCS chấm lỗi. Chi tiết từng công đoạn và cỡ đoạn hiện bên dưới mỗi loại sắt"
       columns={cols} rows={materials} rowKey={m => m.materialId}
       expandedRow={m => (
         <div style={{ padding: '4px 14px 14px', background: 'var(--surface2)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr>
-                <th style={{ ...th, textAlign: 'left' }}>Cỡ đoạn</th><th style={th}>Cần</th><th style={th}>Đã cắt</th><th style={th}>Lỗi</th><th style={th}>Còn lại</th>
-              </tr>
-            </thead>
-            <tbody>
-              {m.segments.map(s => (
-                <tr key={s.cutLengthMm}>
-                  <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>{s.cutLengthMm.toLocaleString('vi-VN')} mm</td>
-                  <td style={td}>{s.required.toLocaleString('vi-VN')}</td>
-                  <td style={td}>{s.done.toLocaleString('vi-VN')}</td>
-                  <td style={{ ...td, color: s.failed > 0 ? 'var(--red)' : 'var(--text3)', fontWeight: s.failed > 0 ? 700 : 400 }}>{s.failed > 0 ? s.failed.toLocaleString('vi-VN') : '—'}</td>
-                  <td style={{ ...td, fontWeight: 600, color: s.remaining > 0 ? 'var(--amber)' : 'var(--green)' }}>{s.remaining.toLocaleString('vi-VN')}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {m.steps.map(st => (
+            <div key={st.step} style={{ marginTop: 8 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', marginBottom: 4 }}>
+                {st.label} · {st.done.toLocaleString('vi-VN')}/{st.need.toLocaleString('vi-VN')} đoạn
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...th, textAlign: 'left' }}>Cỡ đoạn</th><th style={th}>Cần</th><th style={th}>Đã làm</th><th style={th}>Lỗi</th><th style={th}>Còn lại</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {st.segments.map(s => (
+                    <tr key={s.cutLengthMm}>
+                      <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>{s.cutLengthMm.toLocaleString('vi-VN')} mm</td>
+                      <td style={td}>{s.required.toLocaleString('vi-VN')}</td>
+                      <td style={td}>{s.done.toLocaleString('vi-VN')}</td>
+                      <td style={{ ...td, color: s.failed > 0 ? 'var(--red)' : 'var(--text3)', fontWeight: s.failed > 0 ? 700 : 400 }}>{s.failed > 0 ? s.failed.toLocaleString('vi-VN') : '—'}</td>
+                      <td style={{ ...td, fontWeight: 600, color: s.remaining > 0 ? 'var(--amber)' : 'var(--green)' }}>{s.remaining.toLocaleString('vi-VN')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
         </div>
       )}
     />
@@ -734,9 +797,9 @@ function FrameSubStages({ frame }: { frame: StageDetails['frame'] }) {
 
       {tab === 'PHOI' && (
         <>
-          {frame.piOrderCount > 1 && (
+          {frame.phoiUnassignedDone > 0 && (
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
-              Phôi cắt sắt chung cho cả PI ({frame.piOrderCount} lệnh) — số liệu dưới đây là của cả PI, không tách riêng từng lệnh.
+              PI này còn {frame.phoiUnassignedDone.toLocaleString('vi-VN')} đoạn đã làm từ trước khi Phôi ghi theo SKU — không thuộc SKU nào, chỉ tính ở mức PI.
             </div>
           )}
           {frame.phoiMaterials.length === 0 && frame.phoiVtTpLines.length === 0 && (
@@ -831,7 +894,8 @@ function getStagePercent(key: MfgStage, details: StageDetails): number {
     add(subs[0], pctOf(details.packaging.totalBoxes, details.packaging.daDongQty))
   }
   if (pcts.length === 0) return 100
-  return Math.floor(pcts.reduce((a, b) => a + b, 0) / pcts.length)
+  const sum = pcts.reduce((a, b) => a + b, 0)
+  return Math.max(sum > 0 ? 1 : 0, Math.floor(sum / pcts.length))
 }
 
 function isAllDone(details: StageDetails): boolean {
@@ -858,7 +922,7 @@ function getCurrentParallelStage(details: StageDetails): { stage: MfgStage; pct:
 
 // Dùng cho cột "Công đoạn hiện tại" ở bảng danh sách — 1 nhãn + % duy nhất thay vì 2 cột
 // Trạng thái/Tiến độ tách rời như trước.
-function currentStageLabel(order: MfgOrder, details: StageDetails): { label: string; icon: React.ReactNode; pct: number } {
+function currentStageLabel(order: Pick<MfgOrder, 'status' | 'mfgStage'>, details: StageDetails): { label: string; icon: React.ReactNode; pct: number } {
   if (order.status === 'DONE') return { label: 'Hoàn thành', icon: <CheckCircle2 size={14} />, pct: 100 }
   if (order.mfgStage === 'PURCHASING') {
     const stage = MFG_STAGES.find(s => s.key === 'PURCHASING')!
@@ -1030,7 +1094,10 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
   // thanh "Trạng thái sản xuất" (MfgStageTracker), không còn dãy tab riêng bên dưới. Mặc định chọn
   // công đoạn đang thực hiện; nếu đã xong hết thì mặc định chọn công đoạn cuối cùng.
   const [selectedStage, setSelectedStage] = useState<MfgStage | null>(
-    reachedCards.find(c => c.isActive)?.stage.key ?? reachedCards[reachedCards.length - 1]?.stage.key ?? null,
+    // Công đoạn "không áp dụng" không bao giờ là thẻ mặc định (chỉ có dòng "không áp dụng" để xem).
+    reachedCards.find(c => c.isActive)?.stage.key
+      ?? [...reachedCards].reverse().find(c => !isStageNA(c.stage.key, details))?.stage.key
+      ?? reachedCards[reachedCards.length - 1]?.stage.key ?? null,
   )
   const selectedCard = reachedCards.find(c => c.stage.key === selectedStage) ?? null
   const reachedStages = new Set(reachedCards.map(c => c.stage.key))
@@ -1151,8 +1218,6 @@ interface ApprovedRow {
   deliveryDeadline?: string
   floorStage: FloorStage | null
   bomOutOfDate: boolean | null
-  /** Số item ĐÃ DUYỆT cùng PI (>1: Phôi dùng chung cho các lệnh, xem StageDetails.frame.piOrderCount). */
-  piOrderCount: number
 }
 
 // SKU nào cũng được duyệt qua đúng 1 ProductionInvoiceItem, nhưng không phải SKU nào cũng có bản
@@ -1182,6 +1247,120 @@ function buildSyntheticSku(pi: PIStatusRow, item: PIApprovalItem, customerName: 
     },
   }
 }
+
+// ─── Lớp 1: tiến độ theo PI (gộp các SKU) ────────────────────────────────────────────────────────
+// "Tổng hợp lệnh SX" thống kê 2 lớp (2026-09-21): lớp 1 = PI (lệnh sản xuất), lớp 2 = từng SKU trong PI. Số của
+// PI = cộng dồn số lượng THẬT của các SKU (không lấy trung bình phần trăm), riêng Phôi dùng số cả PI (gồm cả
+// phần đợt cắt cũ chưa gắn SKU). Dựng StageDetails gộp rồi dùng lại đúng các hàm % / "không áp dụng" / "xong"
+// của lớp SKU để 2 lớp luôn cùng một cách tính.
+
+interface PiRow {
+  piId: string
+  piCode: string
+  rows: { order: MfgOrder; details: StageDetails }[]
+  order: { status: OrderStatus; mfgStage?: MfgStage }
+  details: StageDetails
+  deadline?: string        // sớm nhất trong các SKU
+  overdue: boolean         // có ít nhất 1 SKU quá hạn
+  customers: string
+  poCodes: string
+  floorCounts: Record<FloorStage, number>
+}
+
+function combineSubStatus(list: SubStatus[]): SubStatus {
+  const a = list.filter(s => s !== 'na')
+  if (a.length === 0) return 'na'
+  if (a.every(s => s === 'done')) return 'done'
+  return a.some(s => s !== 'pending') ? 'in-progress' : 'pending'
+}
+
+function aggregateDetails(items: StageDetails[], phoiProgress: BePhoiProgressItem[] | null, phoiVtTpKnown: boolean): StageDetails {
+  const phoiMaterials = mapPhoiProgress(phoiProgress ?? [], null)
+  const phoiVtTpLines = items.flatMap(d => d.frame.phoiVtTpLines)
+  const vt = lineTotals(phoiVtTpLines)
+  const phoiNeed = phoiMaterials.reduce((a, m) => a + m.need, 0) + vt.need
+  const phoiDone = phoiMaterials.reduce((a, m) => a + m.done, 0) + vt.done
+  return {
+    purchasing: items[0].purchasing, // đề xuất mua gộp theo PI - mọi SKU cùng 1 danh sách
+    frame: {
+      phoi: subStatusOf(phoiNeed, phoiDone, phoiProgress !== null && phoiVtTpKnown),
+      han: combineSubStatus(items.map(d => d.frame.han)),
+      son: combineSubStatus(items.map(d => d.frame.son)),
+      phoiMaterials, phoiVtTpLines,
+      phoiUnassignedDone: unassignedCutOf(phoiProgress ?? []),
+      hanLines: items.flatMap(d => d.frame.hanLines),
+      sonLines: items.flatMap(d => d.frame.sonLines),
+    },
+    weaving: {
+      xuatDan: combineSubStatus(items.map(d => d.weaving.xuatDan)),
+      nhapDan: combineSubStatus(items.map(d => d.weaving.nhapDan)),
+      lines: items.flatMap(d => d.weaving.lines),
+      skuQty: items.reduce((a, d) => a + d.weaving.skuQty, 0),
+    },
+    chuyenKiem: {
+      daKiem: combineSubStatus(items.map(d => d.chuyenKiem.daKiem)),
+      pieces: items.flatMap(d => d.chuyenKiem.pieces),
+    },
+    packaging: {
+      dongGoi: combineSubStatus(items.map(d => d.packaging.dongGoi)),
+      totalBoxes: items.reduce((a, d) => a + d.packaging.totalBoxes, 0),
+      daDongQty: items.reduce((a, d) => a + d.packaging.daDongQty, 0),
+    },
+  }
+}
+
+function buildPiRows(approvedRows: ApprovedRow[], orderRows: { order: MfgOrder; details: StageDetails }[], batch: BatchProgressData | null): PiRow[] {
+  const byPi = new Map<string, { row: ApprovedRow; item: { order: MfgOrder; details: StageDetails } }[]>()
+  approvedRows.forEach((row, i) => {
+    const arr = byPi.get(row.piId) ?? []
+    arr.push({ row, item: orderRows[i] })
+    byPi.set(row.piId, arr)
+  })
+  return Array.from(byPi.entries()).map(([piId, list]): PiRow => {
+    const rows = list.map(l => l.item)
+    const details = aggregateDetails(
+      rows.map(r => r.details),
+      batch?.phoiProgressByPi[piId] ?? null,
+      !!batch && !batch.failed.includes('production-batch-plan(PHOI)'),
+    )
+    const done = rows.every(r => r.order.status === 'DONE')
+    const purchPct = getPurchasingPercent(details.purchasing.materials)
+    const anyExecProgress = Array.from(PARALLEL_STAGE_KEYS).some(k => !isStageNA(k, details) && getStagePercent(k, details) > 0)
+    const deadlines = rows.map(r => r.order.deadline).filter((d): d is string => !!d).sort()
+    const floorCounts: Record<FloorStage, number> = { PENDING: 0, ACTIVE: 0, PAUSED: 0, FINISHED: 0 }
+    for (const r of rows) if (r.order.floorStage) floorCounts[r.order.floorStage]++
+    const uniq = (vals: string[]) => Array.from(new Set(vals.filter(v => v && v !== '—')))
+    return {
+      piId,
+      piCode: list[0].row.piCode,
+      rows,
+      order: { status: done ? 'DONE' : 'PRODUCING', mfgStage: done ? undefined : (purchPct < 100 && !anyExecProgress ? 'PURCHASING' : 'FRAME') },
+      details,
+      deadline: deadlines[0],
+      overdue: rows.some(r => isOrderOverdue(r.order.deadline, r.order.status === 'DONE')),
+      customers: uniq(rows.map(r => r.order.customer)).join(', ') || '—',
+      poCodes: uniq(rows.map(r => r.order.code)).join(', ') || '—',
+      floorCounts,
+    }
+  })
+}
+
+// Tóm tắt trạng thái xưởng của cả PI (đếm số SKU theo từng trạng thái).
+function PiFloorSummary({ counts }: { counts: Record<FloorStage, number> }) {
+  const order: FloorStage[] = ['ACTIVE', 'PAUSED', 'PENDING', 'FINISHED']
+  const parts = order.filter(k => counts[k] > 0)
+  if (parts.length === 0) return <span style={{ fontSize: 12, color: 'var(--text3)' }}>—</span>
+  return (
+    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+      {parts.map(k => (
+        <span key={k} style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: FLOOR_STAGE_META[k].bg, color: FLOOR_STAGE_META[k].color, whiteSpace: 'nowrap' }}>
+          {counts[k]} {FLOOR_STAGE_META[k].label.toLowerCase()}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 
 export default function ThongKePagePlan() {
   const { data: skusData, isLoading } = useFetch<Sku[]>(() => api.getSkus(), [])
@@ -1236,7 +1415,6 @@ export default function ThongKePagePlan() {
           deliveryDeadline: item.deliveryDeadline,
           floorStage: item.floorStage ?? null,
           bomOutOfDate: item.bomOutOfDate ?? null,
-          piOrderCount: (pi.items ?? []).filter(i => i.prodApproval?.status === 'APPROVED').length,
         })
       }
     }
@@ -1250,10 +1428,19 @@ export default function ThongKePagePlan() {
 
   // 6 request CỐ ĐỊNH cho cả trang (xem buildBatchProgressData) thay vì tới 6×N như trước - đây là
   // async call DUY NHẤT còn lại của toàn màn, buildOrderRow() giờ hoàn toàn đồng bộ.
-  const { data: batchData, isLoading: rowsLoading } = useFetch(
+  // Tải lại CHỈ khi danh sách dòng thật sự đổi (batchKey), không phải mỗi lần approvedRows đổi tham chiếu (các
+  // nguồn skus/PI/đơn hàng về lệch nhau làm approvedRows dựng lại nhiều lần -> tải trùng 3 vòng). Trong lúc
+  // dữ liệu chưa khớp danh sách hiện tại (vd lần tải đầu chạy khi danh sách còn rỗng), coi là ĐANG TẢI - trước
+  // đây dùng nhầm dữ liệu rỗng đó cho các lệnh thật nên có lúc Chuyền kiểm bị tính "không áp dụng" và trang
+  // chi tiết chọn sai công đoạn (tái hiện được ~1/5 lần mở).
+  const batchKey = useMemo(() => batchKeyOf(approvedRows), [approvedRows])
+  const { data: batchDataRaw, isLoading: batchLoading } = useFetch(
     () => buildBatchProgressData(approvedRows),
-    [approvedRows],
+    [batchKey],
   )
+  const batchFresh = !!batchDataRaw && batchDataRaw.key === batchKey
+  const batchData = batchFresh ? batchDataRaw : null
+  const rowsLoading = batchLoading || !batchFresh
   const orderRows = useMemo(
     () => approvedRows.map(row => buildOrderRow(row, proposals, batchData ?? EMPTY_BATCH_DATA)),
     [approvedRows, proposals, batchData],
@@ -1261,6 +1448,7 @@ export default function ThongKePagePlan() {
 
   const [filter, setFilter]         = useState<FilterStatus>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedPiId, setSelectedPiId] = useState<string | null>(null)
   const [search, setSearch]         = useState('')
   const [page, setPage]             = useState(1)
 
@@ -1316,16 +1504,88 @@ export default function ThongKePagePlan() {
     }
   }
 
+  // Bảng SKU (lớp 2) - giữ nguyên các cột cũ của bảng thống kê theo SKU, nút Bắt đầu/Kết thúc (QLSX) nằm ở đây.
+  const renderSkuTable = (rows: { order: MfgOrder; details: StageDetails }[]) => (
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <thead>
+          <tr>
+            <th style={th}>SKU / Sản phẩm</th>
+            <th style={th}>Mã PO</th>
+            <th style={th}>Khách hàng</th>
+            <th style={{ ...th, width: 220 }}>Công đoạn hiện tại</th>
+            <th style={th}>Hạn giao</th>
+            <th style={th}>Xưởng</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ order: o, details }) => {
+            const isDone    = o.status === 'DONE'
+            const isOverdue = isOrderOverdue(o.deadline, isDone)
+            const stageInfo = currentStageLabel(o, details)
+            return (
+              <tr
+                key={o.id}
+                onClick={() => setSelectedId(o.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(o.id) } }}
+                style={{ cursor: 'pointer' }}
+                onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = '' }}
+              >
+                <td style={td}>
+                  <div style={{ fontWeight: 600 }}>{o.productName}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{o.sku}</div>
+                </td>
+                <td style={{ ...td, fontFamily: 'monospace', color: 'var(--text2)' }}>{o.code}</td>
+                <td style={{ ...td, color: 'var(--text2)' }}>{o.customer}</td>
+                <td style={{ ...td, width: 220 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
+                    {stageInfo.icon} {stageInfo.label}
+                    {o.hasVariance && <AlertTriangle size={12} color="var(--red)" />}
+                  </div>
+                  <ProgressBar value={stageInfo.pct} max={100} />
+                </td>
+                <td style={{ ...td, whiteSpace: 'nowrap', color: isOverdue ? '#dc2626' : undefined, fontWeight: isOverdue ? 700 : undefined }}>
+                  {o.deadline ? format(new Date(o.deadline), 'dd/MM/yyyy') : '—'}
+                  {isOverdue && <div style={{ fontSize: 11, color: '#dc2626' }}>Quá hạn</div>}
+                </td>
+                <td style={td}>
+                  <FloorStageCell
+                    orderId={o.orderId}
+                    floorStage={o.floorStage}
+                    bomOutOfDate={o.bomOutOfDate}
+                    canManage={canManageFloor}
+                    pending={!!o.orderId && floorPending.has(o.orderId)}
+                    onStart={() => o.orderId && handleFloorAction(o.orderId, 'start')}
+                    onResume={() => o.orderId && handleFloorAction(o.orderId, 'resume')}
+                    onPause={() => o.orderId && handleFloorAction(o.orderId, 'pause')}
+                    onFinish={() => o.orderId && handleFloorAction(o.orderId, 'finish')}
+                    onResync={() => o.orderId && handleResyncBom(o.orderId)}
+                  />
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
+
+
+  const piRows = useMemo(() => buildPiRows(approvedRows, orderRows, batchData), [approvedRows, orderRows, batchData])
+
   const q = search.trim().toLowerCase()
-  const filtered = orderRows
-    .filter(({ order }) => filter === 'all' || order.status === filter)
-    .filter(({ order }) => !q || [order.code, order.sku, order.productName, order.customer].some(v => v.toLowerCase().includes(q)))
+  const filtered = piRows
+    .filter(p => filter === 'all' || p.order.status === filter)
+    .filter(p => !q || [p.piCode, ...p.rows.flatMap(({ order }) => [order.code, order.sku, order.productName, order.customer])].some(v => v.toLowerCase().includes(q)))
 
   const counts = {
-    all:       orderRows.length,
-    PRODUCING: orderRows.filter(({ order }) => order.status === 'PRODUCING').length,
-    DONE:      orderRows.filter(({ order }) => order.status === 'DONE').length,
-    OVERDUE:   orderRows.filter(({ order }) => isOrderOverdue(order.deadline, order.status === 'DONE')).length,
+    all:       piRows.length,
+    PRODUCING: piRows.filter(p => p.order.status === 'PRODUCING').length,
+    DONE:      piRows.filter(p => p.order.status === 'DONE').length,
+    OVERDUE:   piRows.filter(p => p.overdue).length,
   }
 
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -1339,18 +1599,89 @@ export default function ThongKePagePlan() {
     </div>
   ) : null
 
+  // Lớp 3 (chi tiết 1 SKU) -> quay về lớp 2 (danh sách SKU của PI đang xem), không văng ra tận lớp 1.
   const selectedRow = selectedId != null ? orderRows.find(({ order }) => order.id === selectedId) ?? null : null
   if (selectedRow) {
     return <>{failedBanner}<ThongKeDetailPage order={selectedRow.order} details={selectedRow.details} onBack={() => setSelectedId(null)} pointLabel={pointLabel} /></>
   }
 
+  // Lớp 2: các SKU của 1 PI - mỗi dòng có tiến độ + nút Bắt đầu/Kết thúc (QLSX) riêng của SKU.
+  const selectedPi = selectedPiId != null ? piRows.find(p => p.piId === selectedPiId) ?? null : null
+  if (selectedPi) {
+    const piDone = selectedPi.order.status === 'DONE'
+    const piMeta = STATUS_META[selectedPi.order.status]
+    const parallel = !!selectedPi.order.mfgStage && PARALLEL_STAGE_KEYS.has(selectedPi.order.mfgStage)
+    const piStagePercents: Partial<Record<MfgStage, number>> | undefined = parallel
+      ? {
+          PURCHASING:  getStagePercent('PURCHASING',  selectedPi.details),
+          FRAME:       getStagePercent('FRAME',       selectedPi.details),
+          WEAVING:     getStagePercent('WEAVING',     selectedPi.details),
+          CHUYEN_KIEM: getStagePercent('CHUYEN_KIEM', selectedPi.details),
+          PACKAGING:   getStagePercent('PACKAGING',   selectedPi.details),
+        }
+      : undefined
+    return (
+      <div>
+        {failedBanner}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+          <button
+            onClick={() => setSelectedPiId(null)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}
+          >
+            <ArrowLeft size={15} />
+            Quay lại danh sách PI
+          </button>
+          <span style={{ color: 'var(--text3)', fontSize: 13 }}>/</span>
+          <span style={{ fontSize: 13, color: 'var(--text3)' }}>Chi tiết PI</span>
+        </div>
+
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 24px', marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+            <div>
+              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 20, color: '#1d4ed8', letterSpacing: '0.02em' }}>{selectedPi.piCode}</div>
+              <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>{selectedPi.rows.length} SKU · PO: {selectedPi.poCodes}</div>
+            </div>
+            <span style={{ display: 'inline-block', padding: '5px 16px', borderRadius: 20, fontSize: 13, fontWeight: 700, background: piMeta.bg, color: piMeta.color, border: `1px solid ${piMeta.border}`, whiteSpace: 'nowrap' }}>
+              {piMeta.label}
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 28px', marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)', fontSize: 13, color: 'var(--text3)' }}>
+            <span>Khách hàng: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{selectedPi.customers}</span></span>
+            <span>
+              Hạn giao sớm nhất: <span style={{ fontWeight: 600, color: selectedPi.overdue ? '#dc2626' : 'var(--text)' }}>
+                {selectedPi.deadline ? format(new Date(selectedPi.deadline), 'dd/MM/yyyy') : '—'}{selectedPi.overdue ? ' · Có SKU quá hạn' : ''}
+              </span>
+            </span>
+          </div>
+        </div>
+
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 24px', marginBottom: 20 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Tiến độ cả PI</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: selectedPi.details.frame.phoiUnassignedDone > 0 ? 6 : 14 }}>Cộng dồn số lượng thật của {selectedPi.rows.length} SKU — bấm 1 SKU bên dưới để xem tiến độ riêng từng SKU.</div>
+          {selectedPi.details.frame.phoiUnassignedDone > 0 && (
+            <div style={{ fontSize: 12, color: 'var(--amber)', marginBottom: 14 }}>
+              Lưu ý: có {selectedPi.details.frame.phoiUnassignedDone.toLocaleString('vi-VN')} đoạn Phôi đã làm từ trước khi ghi theo SKU (chưa gán SKU). Số Phôi của cả PI có tính các đoạn này, còn từng SKU thì không — nên tổng các SKU có thể thấp hơn số cả PI cho tới khi Phôi gán SKU cho các đợt cũ.
+            </div>
+          )}
+          {piDone
+            ? <MfgStageTracker allDone />
+            : <MfgStageTracker currentStage={selectedPi.order.mfgStage} stagePercents={piStagePercents} />}
+        </div>
+
+        <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Tiến độ từng SKU ({selectedPi.rows.length})</div>
+        {renderSkuTable(selectedPi.rows)}
+      </div>
+    )
+  }
+
+  // Lớp 1: danh sách PI.
   return (
     <div>
       {failedBanner}
       <div style={{ marginBottom: 20 }}>
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Tổng hợp lệnh SX</h2>
         <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text3)' }}>
-          Tổng {counts.all} · Đang sản xuất {counts.PRODUCING} · Hoàn thành {counts.DONE}
+          Tổng {counts.all} PI · Đang sản xuất {counts.PRODUCING} · Hoàn thành {counts.DONE}
           {counts.OVERDUE > 0 && <span style={{ color: '#dc2626', fontWeight: 700 }}> · ⚠ Quá hạn {counts.OVERDUE}</span>}
         </p>
       </div>
@@ -1374,7 +1705,7 @@ export default function ThongKePagePlan() {
             type="text"
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Tìm mã PO, SKU, sản phẩm, khách hàng..."
+            placeholder="Tìm mã PI, mã PO, SKU, sản phẩm, khách hàng..."
             style={{ width: '100%', paddingLeft: 32, paddingRight: 10, paddingTop: 6, paddingBottom: 6, fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box', outline: 'none' }}
           />
         </div>
@@ -1386,71 +1717,54 @@ export default function ThongKePagePlan() {
           <thead>
             <tr>
               <th style={th}>Mã PI</th>
+              <th style={th}>Số SKU</th>
               <th style={th}>Mã PO</th>
-              <th style={th}>SKU / Sản phẩm</th>
               <th style={th}>Khách hàng</th>
               <th style={{ ...th, width: 220 }}>Công đoạn hiện tại</th>
-              <th style={th}>Hạn giao</th>
+              <th style={th}>Hạn giao (sớm nhất)</th>
               <th style={th}>Xưởng</th>
             </tr>
           </thead>
           <tbody>
             {(isLoading || rowsLoading) ? (
               <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</td></tr>
-            ) : pageItems.map(({ order: o, details }) => {
-              const isDone     = o.status === 'DONE'
-              const isOverdue  = isOrderOverdue(o.deadline, isDone)
-              const stageInfo  = currentStageLabel(o, details)
+            ) : pageItems.map(p => {
+              const isDone    = p.order.status === 'DONE'
+              const stageInfo = currentStageLabel(p.order, p.details)
               return (
                 <tr
-                  key={o.id}
-                  onClick={() => setSelectedId(o.id)}
+                  key={p.piId}
+                  onClick={() => setSelectedPiId(p.piId)}
                   role="button"
                   tabIndex={0}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(o.id) } }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedPiId(p.piId) } }}
                   style={{ cursor: 'pointer' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = '' }}
                 >
-                  <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}>{o.piCode}</td>
-                  <td style={{ ...td, fontFamily: 'monospace', color: 'var(--text2)' }}>{o.code}</td>
-                  <td style={td}>
-                    <div style={{ fontWeight: 600 }}>{o.productName}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{o.sku}</div>
-                  </td>
-                  <td style={{ ...td, color: 'var(--text2)' }}>{o.customer}</td>
+                  <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}>{p.piCode}</td>
+                  <td style={td}>{p.rows.length}</td>
+                  <td style={{ ...td, fontFamily: 'monospace', color: 'var(--text2)' }}>{p.poCodes}</td>
+                  <td style={{ ...td, color: 'var(--text2)' }}>{p.customers}</td>
                   <td style={{ ...td, width: 220 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
                       {stageInfo.icon} {stageInfo.label}
-                      {o.hasVariance && <AlertTriangle size={12} color="var(--red)" />}
+                      {p.rows.some(r => r.order.hasVariance) && <AlertTriangle size={12} color="var(--red)" />}
                     </div>
                     <ProgressBar value={stageInfo.pct} max={100} />
                   </td>
-                  <td style={{ ...td, whiteSpace: 'nowrap', color: isOverdue ? '#dc2626' : undefined, fontWeight: isOverdue ? 700 : undefined }}>
-                    {o.deadline ? format(new Date(o.deadline), 'dd/MM/yyyy') : '—'}
-                    {isOverdue && <div style={{ fontSize: 11, color: '#dc2626' }}>Quá hạn</div>}
+                  <td style={{ ...td, whiteSpace: 'nowrap', color: p.overdue ? '#dc2626' : undefined, fontWeight: p.overdue ? 700 : undefined }}>
+                    {p.deadline ? format(new Date(p.deadline), 'dd/MM/yyyy') : '—'}
+                    {p.overdue && !isDone && <div style={{ fontSize: 11, color: '#dc2626' }}>Có SKU quá hạn</div>}
                   </td>
-                  <td style={td}>
-                    <FloorStageCell
-                      orderId={o.orderId}
-                      floorStage={o.floorStage}
-                      bomOutOfDate={o.bomOutOfDate}
-                      canManage={canManageFloor}
-                      pending={!!o.orderId && floorPending.has(o.orderId)}
-                      onStart={() => o.orderId && handleFloorAction(o.orderId, 'start')}
-                      onResume={() => o.orderId && handleFloorAction(o.orderId, 'resume')}
-                      onPause={() => o.orderId && handleFloorAction(o.orderId, 'pause')}
-                      onFinish={() => o.orderId && handleFloorAction(o.orderId, 'finish')}
-                      onResync={() => o.orderId && handleResyncBom(o.orderId)}
-                    />
-                  </td>
+                  <td style={td}><PiFloorSummary counts={p.floorCounts} /></td>
                 </tr>
               )
             })}
-            {!isLoading && filtered.length === 0 && (
+            {!isLoading && !rowsLoading && filtered.length === 0 && (
               <tr>
                 <td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
-                  Không có lệnh nào
+                  Không có PI nào
                 </td>
               </tr>
             )}
@@ -1460,7 +1774,7 @@ export default function ThongKePagePlan() {
 
       {!isLoading && filtered.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, fontSize: 12, color: 'var(--text3)' }}>
-          <span>Hiển thị {pageItems.length}/{filtered.length} dòng</span>
+          <span>Hiển thị {pageItems.length}/{filtered.length} PI</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
