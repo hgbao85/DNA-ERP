@@ -165,6 +165,19 @@ export async function finishProductionOrderFloor(productionOrderId: string): Pro
   return http.post<BeProductionOrderSummary>(`/production-orders/${productionOrderId}/floor-finish`);
 }
 
+/**
+ * "Nạp lại định mức" (Việc 3b, changelog-2026-09-11-bom-revision-ghim-cu-canh-bao.md mục 8) - chỉ
+ * gọi được (BE 409 nếu không) khi lệnh còn RELEASED + floorStage PENDING + chưa có phương án cắt
+ * nào được duyệt + sản phẩm có bản ACTIVE khác bản đang ghim. `reason` bắt buộc, Sếp/QLSX đọc lại
+ * được sau này (ghi vào AuditLog thủ công ở BE - ProductionOrder không tự audit theo update()).
+ */
+export async function resyncProductionOrderBom(
+  productionOrderId: string,
+  reason: string,
+): Promise<BeProductionOrderSummary> {
+  return http.post<BeProductionOrderSummary>(`/production-orders/${productionOrderId}/resync-bom`, { reason });
+}
+
 /** Tiến độ 1 công đoạn (Cắt/Uốn/...) cho 1 mảnh vật tư thành phẩm - required LUÔN = plannedQty
  *  (mọi mảnh đều phải qua từng bước đã khai), done = Σ đã báo qua recordPieceStepBatch(). */
 export interface BePieceStepProgress {

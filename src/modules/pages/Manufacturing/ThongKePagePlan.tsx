@@ -85,6 +85,8 @@ interface MfgOrder {
   orderId: string | null
   /** QLSX kiểm soát qua nút Bắt đầu/Kết thúc ở chính bảng này (2026-08-31) - null nếu orderId null. */
   floorStage: FloorStage | null
+  /** Việc 3b (2026-09-21) - true thì hiện nút "Nạp lại định mức" cạnh FloorStageCell. */
+  bomOutOfDate: boolean | null
 }
 
 // ─── Stage config ─────────────────────────────────────────────────────────────
@@ -392,6 +394,7 @@ function buildOrderRow(row: ApprovedRow, proposals: PurchaseProposal[], batch: B
     hasVariance,
     orderId: row.orderId,
     floorStage: row.floorStage,
+    bomOutOfDate: row.bomOutOfDate,
   }
   return { order, details }
 }
@@ -435,28 +438,34 @@ const floorActionBtn = (bg: string): React.CSSProperties => ({
 // PENDING: chỉ "Bắt đầu". ACTIVE: "Tạm dừng" + "Kết thúc". PAUSED: "Tiếp tục" (dùng lại route
 // floor-start, xem handleFloorAction) + "Kết thúc" (không bắt buộc tiếp tục trước khi kết thúc).
 function FloorStageCell({
-  orderId, floorStage, canManage, pending, onStart, onResume, onPause, onFinish,
+  orderId, floorStage, bomOutOfDate, canManage, pending, onStart, onResume, onPause, onFinish, onResync,
 }: {
   orderId: string | null
   floorStage: FloorStage | null
+  bomOutOfDate: boolean | null
   canManage: boolean
   pending: boolean
   onStart: () => void
   onResume: () => void
   onPause: () => void
   onFinish: () => void
+  onResync: () => void
 }) {
   if (!orderId || !floorStage) {
     return <span style={{ fontSize: 12, color: 'var(--text3)' }}>—</span>
   }
   const meta = FLOOR_STAGE_META[floorStage]
+  // "Nạp lại định mức" chỉ hiện khi floorStage=PENDING - khớp đúng điều kiện BE chặn (xưởng đã
+  // bấm Bắt đầu thì API 409, xem ProductionOrdersService.resyncBom()) - không hiện nút sẽ chắc
+  // chắn thất bại. bomOutOfDate=null (chưa có ProductionOrder) đã bị chặn ở nhánh orderId phía trên.
+  const canResync = canManage && floorStage === 'PENDING' && bomOutOfDate === true
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
       <span style={{ display: 'inline-block', padding: '3px 10px', borderRadius: 20, fontSize: 11, fontWeight: 700, background: meta.bg, color: meta.color, whiteSpace: 'nowrap' }}>
         {meta.label}
       </span>
       {canManage && floorStage !== 'FINISHED' && (
-        <div style={{ display: 'flex', gap: 6 }} onClick={e => e.stopPropagation()}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
           {floorStage === 'PENDING' && (
             <button disabled={pending} onClick={onStart} style={floorActionBtn('#1d4ed8')}>Bắt đầu</button>
           )}
@@ -467,6 +476,11 @@ function FloorStageCell({
             <button disabled={pending} onClick={onResume} style={floorActionBtn('#1d4ed8')}>Tiếp tục</button>
           )}
           <button disabled={pending} onClick={onFinish} style={floorActionBtn('#dc2626')}>Kết thúc</button>
+          {canResync && (
+            <button disabled={pending} onClick={onResync} style={floorActionBtn('#7c3aed')} title="Định mức sản phẩm đã đổi sau khi lệnh này được duyệt - nạp lại bản mới nhất">
+              Nạp lại định mức
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -1107,6 +1121,9 @@ interface PIApprovalItem {
   productionOrderId?: string | null
   /** QLSX kiểm soát qua nút Bắt đầu/Kết thúc (2026-08-31) - null khi chưa có ProductionOrder. */
   floorStage?: FloorStage | null
+  /** true = định mức đã ghim cho SKU này KHÁC bản ACTIVE hiện tại - hiện nút "Nạp lại định mức"
+   *  (2026-09-21, Việc 3b). Cùng idiom floorStage - null khi chưa có ProductionOrder. */
+  bomOutOfDate?: boolean | null
   prodApproval?: { status?: string }
   quantity?: number
   salesOrderId?: string
@@ -1133,6 +1150,7 @@ interface ApprovedRow {
   piCode: string
   deliveryDeadline?: string
   floorStage: FloorStage | null
+  bomOutOfDate: boolean | null
   /** Số item ĐÃ DUYỆT cùng PI (>1: Phôi dùng chung cho các lệnh, xem StageDetails.frame.piOrderCount). */
   piOrderCount: number
 }
@@ -1217,6 +1235,7 @@ export default function ThongKePagePlan() {
           piCode: pi.code,
           deliveryDeadline: item.deliveryDeadline,
           floorStage: item.floorStage ?? null,
+          bomOutOfDate: item.bomOutOfDate ?? null,
           piOrderCount: (pi.items ?? []).filter(i => i.prodApproval?.status === 'APPROVED').length,
         })
       }
@@ -1269,6 +1288,29 @@ export default function ThongKePagePlan() {
       refetchPis()
     } catch (err) {
       alert(errMsg(err, FLOOR_ACTION_ERROR[action]))
+    } finally {
+      setFloorPending(s => { const next = new Set(s); next.delete(orderId); return next })
+    }
+  }
+
+  // Việc 3b (2026-09-21, changelog-2026-09-11-bom-revision-ghim-cu-canh-bao.md mục 8) - "Nạp lại
+  // định mức" chỉ hiện khi FloorStageCell đã tự lọc bomOutOfDate=true + floorStage=PENDING, nhưng
+  // BE vẫn tự kiểm lại toàn bộ 4 điều kiện (đơn gọi trực tiếp API/đổi trạng thái ngay lúc click) -
+  // nút này không phải nguồn xác thực, chỉ tránh bấm vào chỗ chắc chắn thất bại. `reason` bắt
+  // buộc (BE 400 nếu rỗng) nên hỏi bằng prompt() thay vì confirm() - cùng mức nhẹ UI với các hành
+  // động khác trên bảng này (không có modal riêng nào ở đây).
+  const handleResyncBom = async (orderId: string) => {
+    const reason = window.prompt(
+      'Vì sao nạp lại định mức cho lệnh này? (Sếp/QLSX đọc lại được sau này)',
+    )
+    if (reason === null) return
+    if (!reason.trim()) { alert('Phải nhập lý do.'); return }
+    setFloorPending(s => new Set(s).add(orderId))
+    try {
+      await api.resyncProductionOrderBom(orderId, reason.trim())
+      refetchPis()
+    } catch (err) {
+      alert(errMsg(err, 'Lỗi nạp lại định mức'))
     } finally {
       setFloorPending(s => { const next = new Set(s); next.delete(orderId); return next })
     }
@@ -1392,12 +1434,14 @@ export default function ThongKePagePlan() {
                     <FloorStageCell
                       orderId={o.orderId}
                       floorStage={o.floorStage}
+                      bomOutOfDate={o.bomOutOfDate}
                       canManage={canManageFloor}
                       pending={!!o.orderId && floorPending.has(o.orderId)}
                       onStart={() => o.orderId && handleFloorAction(o.orderId, 'start')}
                       onResume={() => o.orderId && handleFloorAction(o.orderId, 'resume')}
                       onPause={() => o.orderId && handleFloorAction(o.orderId, 'pause')}
                       onFinish={() => o.orderId && handleFloorAction(o.orderId, 'finish')}
+                      onResync={() => o.orderId && handleResyncBom(o.orderId)}
                     />
                   </td>
                 </tr>

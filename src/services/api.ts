@@ -139,7 +139,7 @@ export {
   listProductionOrdersForStage, getProductionBatchPlan, getProductionBatchPlanBatch, reportProductionBatch,
   recordProductionBatch, finishProductionBatch,
   recordPieceStepBatch,
-  startProductionOrderFloor, pauseProductionOrderFloor, finishProductionOrderFloor,
+  startProductionOrderFloor, pauseProductionOrderFloor, finishProductionOrderFloor, resyncProductionOrderBom,
   getQcReviewsForProductionBatches,
   submitPieceStep, getPieceStepBundlesForOrder, getPieceStepBundles,
   getQcReviewsForPieceStepBundles,

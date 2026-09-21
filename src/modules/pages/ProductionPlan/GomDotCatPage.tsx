@@ -551,8 +551,8 @@ export default function GomDotCatPage({ onDone }: Props) {
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 'var(--radius)', padding: '9px 12px', margin: '12px 0 14px', fontSize: 12, color: '#1e40af' }}>
         <Info size={15} style={{ flexShrink: 0, marginTop: 1 }} />
         <span>
-          Các con số hao hụt là <b>mức tốt nhất có thể</b> (nên luôn có dấu ≥) — thực tế có thể cao
-          hơn vì còn phụ thuộc số lượng và cây cắt dở cuối đợt. Dùng để so sánh phương án, không
+          Các con số hao hụt và số cây là <b>mức tốt nhất có thể</b> (nên luôn có dấu ≥) — thực tế
+          có thể cao hơn vì còn phụ thuộc số lượng và cây cắt dở cuối đợt. Dùng để so sánh phương án, không
           phải cam kết kết quả. Dấu <b style={{ color: '#854d0e' }}>?</b> cạnh % nghĩa là số lượng
           quá ít (dưới 3 cây) để con số này còn đáng tin — chỉ hoàn toàn dựa vào nó để quyết định.
         </span>
@@ -816,58 +816,60 @@ export default function GomDotCatPage({ onDone }: Props) {
 
           {preview && sharedLines.length > 0 && (
             <div style={{ overflow: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
                 <thead>
                   <tr>
-                    <th style={TH}>Loại sắt dùng chung</th>
-                    <th style={TH}>SKU cùng dùng</th>
-                    <th style={{ ...TH, textAlign: 'right' }}>Cắt riêng</th>
-                    <th style={{ ...TH, textAlign: 'right' }}>Cắt chung</th>
-                    <th style={{ ...TH, textAlign: 'right' }}>Bớt</th>
+                    <th style={TH}>Loại sắt</th>
+                    <th style={TH}>SKU dùng</th>
+                    <th style={{ ...TH, textAlign: 'right' }}>Số cây cần</th>
                     <th style={{ ...TH, textAlign: 'right' }}>Hao hụt</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sharedLines.map((l) => (
-                    <tr key={l.materialId}>
-                      <td style={TD}>
-                        <b>{l.materialCode}</b>
-                        {/* Cùng quy tắc với MaterialChip: chỉ nêu khi KHÁC cây chuẩn, tránh
-                            lặp "(6m)" ở mọi dòng mà không nói được gì mới. */}
-                        {l.stockLengthMm != null && l.stockLengthMm !== DEFAULT_STOCK_LENGTH_MM && (
-                          <span style={{ marginLeft: 6, fontSize: 11.5, color: 'var(--text3)', fontWeight: 500 }}>
-                            cây {fmtLen(l.stockLengthMm)}
+                  {/* 19/09, sau 2 vòng góp ý: bỏ "Cắt riêng"/"Cắt chung" rồi bỏ nốt "Bớt" theo yêu
+                      cầu người dùng ("chỉ quan tâm hao hụt thôi", xác nhận sau khi đã được cảnh báo
+                      về nguyên tắc #1 đầu file - case sắt 50x50 giảm % đẹp mà bớt đúng 0 cây thật).
+                      Số "Bớt"/"Cắt riêng"/"Cắt chung" VẪN còn ở banner đầu khối "Nếu gộp N SKU"
+                      (`preview.totalBarsSaved`, xem phía trên) - chỉ bỏ khỏi bảng chi tiết theo
+                      từng loại sắt này, không xoá khỏi toàn trang. */}
+                  {[...sharedLines, ...soloLines].map((l) => {
+                    const isSolo = l.contributingSkus.length < 2
+                    return (
+                      <tr key={l.materialId} style={isSolo ? { background: 'var(--surface2)' } : undefined}>
+                        <td style={TD}>
+                          <span style={{ fontWeight: isSolo ? 500 : 700 }}>{l.materialCode}</span>
+                          {/* Cùng quy tắc với MaterialChip: chỉ nêu khi KHÁC cây chuẩn, tránh
+                              lặp "(6m)" ở mọi dòng mà không nói được gì mới. */}
+                          {l.stockLengthMm != null && l.stockLengthMm !== DEFAULT_STOCK_LENGTH_MM && (
+                            <span style={{ marginLeft: 6, fontSize: 11.5, color: 'var(--text3)', fontWeight: 500 }}>
+                              cây {fmtLen(l.stockLengthMm)}
+                            </span>
+                          )}
+                        </td>
+                        <td style={{ ...TD, fontSize: 12, color: 'var(--text2)' }}>{l.contributingSkus.join(' + ')}</td>
+                        {/* 21/09: đưa lại số cây (chính là cột "Cắt chung" bỏ hôm 19/09), lần này
+                            KHÔNG phải để so sánh gộp/không gộp mà để trả lời "loại sắt này phải
+                            mua bao nhiêu cây". Vẫn kèm dấu ≥ vì minBarsFor() là CẬN DƯỚI
+                            (ceil(tổng mm cần / mm dùng được của cây khéo nhất)) - phương án cắt
+                            thật chạy sau khi Sếp duyệt có thể cần nhiều hơn. Bỏ dấu ≥ ở đây là
+                            biến con số tham khảo thành đơn đặt hàng. */}
+                        <td style={NUM} title={`Cắt khéo nhất cũng cần ${l.minBars} cây ${l.materialCode} - phương án cắt thật (chạy sau khi Sếp duyệt) có thể cần nhiều hơn.`}>
+                          ≥ {l.minBars}
+                        </td>
+                        <td style={NUM}>
+                          <span title={isLowConfidence(l.minBars) ? `Chỉ ${l.minBars} cây - cận dưới này KHÔNG đáng tin (số lượng quá nhỏ để so sánh)` : undefined}>
+                            ≥ {l.minWastePct.toFixed(2)}%
+                            {isLowConfidence(l.minBars) && <span style={{ marginLeft: 3, fontWeight: 700, color: '#854d0e' }}>?</span>}
                           </span>
-                        )}
-                      </td>
-                      <td style={{ ...TD, fontSize: 12, color: 'var(--text2)' }}>{l.contributingSkus.join(' + ')}</td>
-                      <td style={NUM}>{l.barsSeparate} cây</td>
-                      <td style={NUM}>{l.minBars} cây</td>
-                      <td style={{ ...NUM, fontWeight: 700, color: l.barsSavedVsSeparate > 0 ? '#166534' : 'var(--text3)' }}>
-                        {l.barsSavedVsSeparate > 0 ? `−${l.barsSavedVsSeparate}` : '0'}
-                      </td>
-                      <td style={NUM}>
-                        <span title={isLowConfidence(l.minBars) ? `Chỉ ${l.minBars} cây - cận dưới này KHÔNG đáng tin (số lượng quá nhỏ để so sánh)` : undefined}>
-                          ≥ {l.minWastePct.toFixed(2)}%
-                          {isLowConfidence(l.minBars) && <span style={{ marginLeft: 3, fontWeight: 700, color: '#854d0e' }}>?</span>}
-                        </span>
-                        {l.meetsThreshold
-                          ? <span style={{ marginLeft: 5, color: '#166534' }}><Check size={12} /></span>
-                          : <span style={{ marginLeft: 5, fontSize: 11, color: '#b91c1c' }}>vượt ngưỡng {l.thresholdPct}%</span>}
-                      </td>
-                    </tr>
-                  ))}
+                          {l.meetsThreshold
+                            ? <span style={{ marginLeft: 5, color: '#166534' }}><Check size={12} /></span>
+                            : <span style={{ marginLeft: 5, fontSize: 11, fontWeight: 700, color: '#b91c1c' }}>vượt ngưỡng {l.thresholdPct}%</span>}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
-              {soloLines.length > 0 && (
-                // Loại sắt chỉ 1 SKU trong tổ hợp dùng thì gộp KHÔNG THỂ tác động - liệt kê từng
-                // dòng chỉ tạo một loạt "bớt 0 cây" gây nhiễu. Gom lại 1 dòng để KHSX vẫn biết
-                // chúng tồn tại và đã được xét.
-                <div style={{ padding: '9px 14px', fontSize: 12, color: 'var(--text3)', borderTop: '1px solid var(--border)' }}>
-                  {soloLines.length} loại sắt khác ({soloLines.map((l) => l.materialCode).join(', ')})
-                  {' '}chỉ một SKU trong nhóm dùng — gộp không ảnh hưởng.
-                </div>
-              )}
             </div>
           )}
 

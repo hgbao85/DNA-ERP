@@ -55,6 +55,10 @@ interface BeProductionInvoiceItem {
   /** QLSX kiểm soát qua nút Bắt đầu/Kết thúc ở "Bảng thống kê" (2026-08-31) - null cùng lúc với
    *  productionOrderId null. */
   floorStage?: 'PENDING' | 'ACTIVE' | 'PAUSED' | 'FINISHED' | null;
+  /** true = định mức đã ghim cho SKU này KHÁC bản ACTIVE hiện tại của sản phẩm - QLSX bấm "Nạp
+   *  lại định mức" (resyncProductionOrderBom() ở production-batches-api.ts). Cùng idiom
+   *  floorStage - null cùng lúc với productionOrderId null. */
+  bomOutOfDate?: boolean | null;
 }
 
 interface BeProductionInvoice {
@@ -103,6 +107,7 @@ function toItem(it: BeProductionInvoiceItem) {
     cuttingProposalRequestedAt: it.cuttingProposalRequestedAt ?? null,
     productionOrderId: it.productionOrderId ?? null,
     floorStage: it.floorStage ?? null,
+    bomOutOfDate: it.bomOutOfDate ?? null,
     prodApproval: it.prodApprovalStatus
       ? {
           status: it.prodApprovalStatus,
