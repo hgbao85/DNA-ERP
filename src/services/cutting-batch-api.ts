@@ -42,6 +42,10 @@ export interface SolverOverrideInput {
   solverOverrideReason?: string;
   /** Chiều dài cây chọn cho từng quy cách trong đợt này. Bỏ trống = cây chuẩn của công ty. */
   solverStockLengthsByMaterial?: StockLengthsByMaterial;
+  /** Số giây solver được giải CHO MỖI LOẠI SẮT, riêng cho đợt này. Bỏ trống = mặc định công ty
+   *  (SystemConfig.solverTimeLimitSeconds). Không cần lý do/duyệt - thuần ngân sách thời gian tính
+   *  toán, không đổi kết quả cắt hay chi phí sắt. */
+  solverTimeLimitSecondsOverride?: number;
 }
 
 /** Trạng thái duyệt sản xuất của SKU. null = Sales vừa tạo, KHSX chưa gửi QLSX. */

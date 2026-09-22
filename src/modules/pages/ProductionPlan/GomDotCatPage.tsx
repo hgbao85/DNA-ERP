@@ -31,6 +31,7 @@ import {
   type CuttingBatchPreview,
   type StockLengthsByMaterial,
 } from '../../../services/cutting-batch-api'
+import { getSystemConfig } from '../../../services/api'
 import { errMsg } from '../../../utils/errors'
 
 /**
@@ -170,6 +171,18 @@ export default function GomDotCatPage({ onDone }: Props) {
   // tưởng có việc phải điền. Mở ra mới sửa được - cũng chặn luôn việc lỡ tay đổi lúc cuộn/tab,
   // mà đổi chiều dài thì TÍNH LẠI CẢ BẢNG chứ không phải thay đổi vặt.
   const [lenOpen, setLenOpen] = useState(false)
+  // "Thời gian chạy tối đa" (2026-09-22) - ngân sách giây/loại sắt KHSX tự đề nghị cho đợt này,
+  // KHÔNG cần Sếp duyệt (không đổi kết quả cắt, thuần ngân sách thời gian tính toán - xem
+  // SolverOverrideDto.solverTimeLimitSecondsOverride phía BE). Đơn vị Ô NHẬP là PHÚT cho dễ gõ
+  // (mặc định công ty hiện chỉ vài chục giây, gõ giây cho số phút thật cần thì lại dài dòng);
+  // gửi BE quy đổi sang giây. Rỗng = dùng SystemConfig.solverTimeLimitSeconds như trước.
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState('')
+  const [defaultTimeLimitSeconds, setDefaultTimeLimitSeconds] = useState<number | null>(null)
+  useEffect(() => {
+    getSystemConfig()
+      .then((c) => setDefaultTimeLimitSeconds(c.solverTimeLimitSeconds))
+      .catch(() => {}) // Chỉ dùng để hiện gợi ý - không có thì ô nhập vẫn hoạt động bình thường.
+  }, [])
 
   /** Chỉ lấy ô đã gõ HỢP LỆ. Ô rỗng/đang gõ dở không được gửi đi: gửi số vô nghĩa sẽ làm BE trả
    *  400 ngay giữa lúc người ta còn đang gõ dở con số.
@@ -292,6 +305,16 @@ export default function GomDotCatPage({ onDone }: Props) {
     ? selectedItems.filter((i) => !contributingSkuCodes.has(i.mfgProductCode))
     : []
 
+  // Số loại sắt riêng của TỔ HỢP ĐANG CHỌN (không phải toàn bảng) - đúng số solver sẽ chạy TUẦN
+  // TỰ cho đợt này, nêu ra để KHSX tự nhân nhẩm "Nx phút" trước khi gõ số vào ô dưới.
+  const selectedMaterialIds = new Set<string>()
+  for (const it of selectedItems) for (const m of it.materials) selectedMaterialIds.add(m.materialId)
+  const selectedMaterialCount = selectedMaterialIds.size
+
+  const timeLimitMinutesNum = Number(timeLimitMinutes)
+  const timeLimitBad =
+    timeLimitMinutes.trim() !== '' && !(Number.isFinite(timeLimitMinutesNum) && timeLimitMinutesNum > 0)
+
   /** Số ngày 1 SKU phải cắt sớm = hạn của nó trừ hạn GẤP NHẤT trong nhóm (cả đợt cắt cùng lúc). */
   const earliestSelected = Math.min(
     ...selectedItems.filter((i) => i.deadline).map((i) => new Date(i.deadline!).getTime()),
@@ -393,6 +416,12 @@ export default function GomDotCatPage({ onDone }: Props) {
       Object.keys(stockLengths).length > 0
         ? { solverStockLengthsByMaterial: stockLengths }
         : undefined
+    // Độc lập với cutMode/chiều dài cây - thuần ngân sách thời gian tính toán, không phải quyết
+    // định nghiệp vụ, nên đi kèm ở CẢ 2 chế độ như `lengths` ở trên.
+    const timeLimit =
+      timeLimitMinutes.trim() !== '' && !timeLimitBad
+        ? { solverTimeLimitSecondsOverride: Math.round(timeLimitMinutesNum * 60) }
+        : undefined
     if (cutMode === 'ACCEPT_OVER') {
       return {
         solverMaxWastePctOverride: wastePctNum,
@@ -401,21 +430,56 @@ export default function GomDotCatPage({ onDone }: Props) {
         // thì vẫn cho solver dò cây riêng, chỉ là chấp nhận hao cao hơn.
         ...(onlyStandardLength ? { solverAllowCustomLength: false } : {}),
         ...lengths,
+        ...timeLimit,
       }
     }
-    return lengths
+    return lengths || timeLimit ? { ...lengths, ...timeLimit } : undefined
   }
 
   const cutModePanel = (
     <div style={{ width: '100%' }}>
-      <button
-        onClick={() => setOverrideOpen((v) => !v)}
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', fontSize: 12.5, fontWeight: 600, background: 'var(--surface2)', border: `1px solid ${overrideNeeded ? '#fcd34d' : 'var(--border)'}`, borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text2)' }}
-      >
-        <Settings size={14} />
-        Chế độ cắt: {cutMode === 'ACCEPT_OVER' ? 'Chấp nhận hao hụt cao hơn' : 'Bình thường'}
-        {showOverride ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-      </button>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+        <button
+          onClick={() => setOverrideOpen((v) => !v)}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', fontSize: 12.5, fontWeight: 600, background: 'var(--surface2)', border: `1px solid ${overrideNeeded ? '#fcd34d' : 'var(--border)'}`, borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text2)' }}
+        >
+          <Settings size={14} />
+          Chế độ cắt: {cutMode === 'ACCEPT_OVER' ? 'Chấp nhận hao hụt cao hơn' : 'Bình thường'}
+          {showOverride ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+
+        {/* "Thời gian chạy tối đa" (2026-09-22) - KHÔNG nằm trong khối collapsible ở trên: đây
+            không phải quyết định nghiệp vụ cần Sếp duyệt như hao hụt/chiều dài cây, chỉ là ngân
+            sách thời gian tính toán KHSX tự set khi solver có nguy cơ bị timeout HTTP client ngắt
+            ngang chừng (thấy rõ nhất khi gộp nhiều loại sắt - xem lỗi BE
+            CuttingProposalsService.runSolverAndSave nếu vượt). Luôn hiện sẵn, không cần mở gì. */}
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--text2)' }}>
+          Thời gian chạy tối đa
+          <input
+            value={timeLimitMinutes}
+            onChange={(e) => setTimeLimitMinutes(e.target.value)}
+            inputMode="decimal"
+            placeholder="—"
+            aria-label="Thời gian chạy tối đa cho mỗi loại sắt, tính bằng phút"
+            style={{ width: 46, padding: '5px 8px', fontSize: 12.5, textAlign: 'right', border: `1px solid ${timeLimitBad ? '#dc2626' : 'var(--border)'}`, borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)' }}
+          />
+          phút
+          <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>
+            {timeLimitMinutes.trim() === '' ? (
+              defaultTimeLimitSeconds != null ? `(mặc định ${defaultTimeLimitSeconds}s/loại)` : ''
+            ) : (
+              `(${selectedMaterialCount > 0 ? selectedMaterialCount : '—'}x phút${
+                selectedMaterialCount > 0 && !timeLimitBad
+                  ? ` ≈ ${Math.round(selectedMaterialCount * timeLimitMinutesNum * 10) / 10} phút tổng`
+                  : ''
+              })`
+            )}
+          </span>
+        </label>
+        {timeLimitBad && (
+          <span style={{ fontSize: 11.5, color: '#b91c1c' }}>Phải là số phút lớn hơn 0.</span>
+        )}
+      </div>
 
       {overrideNeeded && !showOverride && (
         <div style={{ marginTop: 6, display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: 12.5, color: '#92400e' }}>
@@ -877,13 +941,13 @@ export default function GomDotCatPage({ onDone }: Props) {
             {cutModePanel}
             <button
               onClick={handleConfirm}
-              disabled={previewing || !preview || merging || overrideInvalid}
+              disabled={previewing || !preview || merging || overrideInvalid || timeLimitBad}
               style={{
                 padding: '8px 16px', border: 'none', borderRadius: 'var(--radius)', fontSize: 13,
                 fontWeight: 600, color: '#fff', background: '#2e7d32',
                 display: 'inline-flex', alignItems: 'center', gap: 7,
-                cursor: previewing || !preview || merging || overrideInvalid ? 'not-allowed' : 'pointer',
-                opacity: previewing || !preview || merging || overrideInvalid ? 0.5 : 1,
+                cursor: previewing || !preview || merging || overrideInvalid || timeLimitBad ? 'not-allowed' : 'pointer',
+                opacity: previewing || !preview || merging || overrideInvalid || timeLimitBad ? 0.5 : 1,
               }}
             >
               {merging && <Loader2 size={14} className="spin" />}
@@ -905,8 +969,8 @@ export default function GomDotCatPage({ onDone }: Props) {
           {cutModePanel}
           <button
             onClick={handleClaimSolo}
-            disabled={merging || overrideInvalid}
-            style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', cursor: merging || overrideInvalid ? 'not-allowed' : 'pointer', opacity: merging || overrideInvalid ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 7, flexShrink: 0 }}
+            disabled={merging || overrideInvalid || timeLimitBad}
+            style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', cursor: merging || overrideInvalid || timeLimitBad ? 'not-allowed' : 'pointer', opacity: merging || overrideInvalid || timeLimitBad ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 7, flexShrink: 0 }}
           >
             {merging && <Loader2 size={14} className="spin" />}
             Tạo lệnh sản xuất riêng cho SKU này

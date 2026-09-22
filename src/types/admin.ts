@@ -49,6 +49,9 @@ export interface SystemConfig {
   /** Mặc định toàn hệ thống: có cho solver đặt cây sắt ngoài các chiều dài chuẩn không. Từng đợt
    *  cắt đè lại được — KHSX đề nghị ở "Tối ưu cắt sắt", Sếp duyệt cùng lệnh sản xuất. */
   solverAllowCustomLength: boolean;
+  /** Mặc định toàn hệ thống: số giây solver được giải CHO MỖI LOẠI SẮT. Từng đợt cắt đề nghị riêng
+   *  được ở "Tối ưu cắt sắt" (ô "Thời gian chạy tối đa") — không cần Sếp duyệt. */
+  solverTimeLimitSeconds: number;
 }
 
 /** Thông báo do Admin tạo/quản lý — broadcast đơn giản theo audience.
