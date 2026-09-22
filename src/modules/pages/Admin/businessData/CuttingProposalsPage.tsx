@@ -254,6 +254,11 @@ export default function CuttingProposalsPage() {
                 {detail && (
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>
                     {detail.salesOrderCode ?? '—'} — {detail.mfgProductCode}
+                    {/* Tổng thời gian giải THẬT cộng dồn mọi loại sắt (2026-09-22) - mức tổng quan
+                        "ở ngoài", tách bạch với thời gian riêng từng dòng hiện trong bảng bên dưới. */}
+                    {detail.totalSolveSeconds != null && (
+                      <span> · Tổng thời gian giải: {detail.totalSolveSeconds}s</span>
+                    )}
                   </div>
                 )}
               </div>
@@ -295,6 +300,7 @@ export default function CuttingProposalsPage() {
                   <th style={{ ...th, textAlign: 'right' }}>Số cây</th>
                   <th style={{ ...th, textAlign: 'right' }}>Hao hụt %</th>
                   <th style={{ ...th, textAlign: 'right' }}>Chiều dài</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Thời gian</th>
                 </tr>
               </thead>
               <tbody>
@@ -342,10 +348,13 @@ export default function CuttingProposalsPage() {
                             <div style={{ fontSize: 10, fontWeight: 700, color: '#e65100', marginTop: 2 }}>⚠ đặt riêng</div>
                           )}
                         </td>
+                        <td style={{ ...td, textAlign: 'right' }}>
+                          {l.solveSeconds != null ? `${l.solveSeconds}s` : '—'}
+                        </td>
                       </tr>
                       {guide && (
                         <tr>
-                          <td colSpan={6} style={{ padding: '4px 12px 16px 32px', background: 'var(--surface2)' }}>
+                          <td colSpan={7} style={{ padding: '4px 12px 16px 32px', background: 'var(--surface2)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                               <div style={{ fontSize: 12, color: 'var(--text3)' }}>
                                 Mẫu nguyên chưa cắt: {l.mauNguyenMm ?? 0}mm · Tổng khúc thừa (phế liệu): {l.totalWasteMm ?? 0}mm
@@ -405,6 +414,32 @@ export default function CuttingProposalsPage() {
                     </Fragment>
                   )
                 })}
+              </tbody>
+            </table>
+          </div>
+        ) : detail?.pendingMaterials && detail.pendingMaterials.length > 0 ? (
+          // Đang tính (2026-09-22) - biết TRƯỚC danh sách loại sắt sẽ giải (đọc từ requestParams
+          // ghi sớm, xem BE CuttingProposalsService.runSolverAndSave/findOne) dù solver chưa trả
+          // lời dòng nào - thay màn trắng trơn cũ, người xem biết ngay đang chờ đúng bao nhiêu loại.
+          <div style={{ ...tableWrap, marginBottom: 0 }}>
+            <table style={tbl}>
+              <thead>
+                <tr style={{ background: 'var(--surface2)' }}>
+                  <th style={th}>Vật tư</th>
+                  <th style={th}>Trạng thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                {detail.pendingMaterials.map(m => (
+                  <tr key={m.materialId} style={row}>
+                    <td style={td}>{m.materialCode} — {m.materialName}</td>
+                    <td style={td}>
+                      <span style={{ ...badge, display: 'inline-flex', alignItems: 'center', gap: 4, background: '#eceff1', color: '#546e7a' }}>
+                        <Loader2 size={10} className="spin" /> Đang tính
+                      </span>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

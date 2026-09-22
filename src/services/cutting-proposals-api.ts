@@ -78,6 +78,9 @@ export interface CuttingProposalLine {
   usedWasteOverride: boolean;
   /** Câu tiếng Việt ĐÃ DỰNG SẴN cho dòng này - null khi dòng không cần xử lý gì. */
   displayReason: string | null;
+  /** Thời gian giải THẬT của riêng loại sắt này (giây) - xem CuttingProposal.totalSolveSeconds
+   *  cho tổng cả đợt. null với phương án tính trước khi có field này (2026-09-22). */
+  solveSeconds: number | null;
   patterns: CuttingProposalPattern[];
 }
 
@@ -101,11 +104,19 @@ export interface CuttingProposal {
   totalBarsAll: number | null;
   totalWasteMm: number | null;
   wastePercentage: number | null;
+  /** Tổng thời gian giải THẬT cộng dồn mọi loại sắt (giây) - mức tổng quan/ngoài danh sách, tách
+   *  bạch với lines[].solveSeconds riêng từng dòng. null với phương án tính trước khi có field
+   *  này (2026-09-22). */
+  totalSolveSeconds: number | null;
   errorMessage: string | null;
   requestedAt: string;
   completedAt: string | null;
   approvedAt: string | null;
   lines?: CuttingProposalLine[];
+  /** Danh sách loại sắt SẼ được giải, hiện ngay khi displayStatus=CALCULATING (không cần đợi
+   *  solver trả lời) - null/rỗng khi đã có `lines` thật hoặc phương án cũ tính trước khi có field
+   *  này (2026-09-22, thay màn trắng trơn "Chưa có dữ liệu"). */
+  pendingMaterials?: { materialId: string; materialCode: string; materialName: string }[] | null;
 }
 
 export async function getCuttingProposals(): Promise<CuttingProposal[]> {

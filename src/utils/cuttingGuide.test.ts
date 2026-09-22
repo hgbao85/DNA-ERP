@@ -26,6 +26,7 @@ function makeLine(overrides: Partial<CuttingProposalLine> = {}): CuttingProposal
     normalWastePctThreshold: 1,
     usedWasteOverride: false,
     displayReason: null,
+    solveSeconds: null,
     pieceSummary: null,
     patterns: [
       {
