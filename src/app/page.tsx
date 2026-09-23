@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { BookOpen } from 'lucide-react';
 import ModuleSelector from '../components/ModuleSelector';
 import SalesApp from '../modules/pages/Sales/SalesApp';
 import MfgApp from '../modules/pages/Manufacturing/MfgApp';
@@ -37,6 +38,28 @@ function LoadingScreen() {
   );
 }
 
+/** Nút nổi mở trang Hướng dẫn sử dụng ở tab mới — hiện trên mọi phân hệ, mọi role. */
+function GuideFab() {
+  return (
+    <a
+      href="/guide"
+      target="_blank"
+      rel="noopener noreferrer"
+      title="Hướng dẫn sử dụng"
+      aria-label="Mở hướng dẫn sử dụng ở tab mới"
+      style={{
+        position: 'fixed', right: 20, bottom: 20, zIndex: 1000,
+        width: 44, height: 44, borderRadius: '50%',
+        background: 'var(--blue)', color: '#fff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        boxShadow: '0 4px 14px rgba(0,0,0,0.25)', textDecoration: 'none',
+      }}
+    >
+      <BookOpen size={19} />
+    </a>
+  );
+}
+
 function MainERP() {
   const { user, logout } = useAuth();
   const isDirector = checkIsDirector(user);
@@ -47,8 +70,32 @@ function MainERP() {
     setActiveModule(resolveDefaultModule(user));
   }, [user?.id, user?.isProductPlanner, user?.isPurchaser, user?.isSale, user?.mfgRole, user?.role, isDirector]);
 
+  let content: React.ReactNode;
+
   if (!activeModule) {
-    return (
+    content = (
+      <ModuleSelector
+        user={user}
+        onLogout={logout}
+        onSelectModule={(mod: string) => setActiveModule(mod)}
+      />
+    );
+  } else if (activeModule === 'boss') {
+    content = <BossApp />;
+  } else if (activeModule === 'admin') {
+    content = <AdminApp />;
+  } else if (activeModule === 'sales') {
+    content = <SalesApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
+  } else if (activeModule === 'production') {
+    content = <MfgApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
+  } else if (activeModule === 'purchasing') {
+    content = <PurchasingApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
+  } else if (activeModule === 'inbound_warehouse') {
+    content = <InboundWarehouseApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
+  } else if (activeModule === 'production_plan') {
+    content = <ProductionPlanApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
+  } else {
+    content = (
       <ModuleSelector
         user={user}
         onLogout={logout}
@@ -57,40 +104,11 @@ function MainERP() {
     );
   }
 
-  if (activeModule === 'boss') {
-    return <BossApp />;
-  }
-
-  if (activeModule === 'admin') {
-    return <AdminApp />;
-  }
-
-  if (activeModule === 'sales') {
-    return <SalesApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
-  }
-
-  if (activeModule === 'production') {
-    return <MfgApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
-  }
-
-  if (activeModule === 'purchasing') {
-    return <PurchasingApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
-  }
-
-  if (activeModule === 'inbound_warehouse') {
-    return <InboundWarehouseApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
-  }
-
-  if (activeModule === 'production_plan') {
-    return <ProductionPlanApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
-  }
-
   return (
-    <ModuleSelector
-      user={user}
-      onLogout={logout}
-      onSelectModule={(mod: string) => setActiveModule(mod)}
-    />
+    <>
+      {content}
+      <GuideFab />
+    </>
   );
 }
 

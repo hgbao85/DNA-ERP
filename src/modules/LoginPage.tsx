@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { useAuth, type User } from '../context/AuthContext';
 import { loginUser } from '../services/api';
 import { useRouter } from 'next/navigation';
-import { Shield, Mail, Lock, Ship, ArrowRight } from 'lucide-react';
+import { Shield, Mail, Lock, Ship, ArrowRight, BookOpen } from 'lucide-react';
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -202,6 +202,24 @@ export default function LoginPage() {
               )}
             </button>
           </form>
+
+          <a
+            href="/guide"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              marginTop: 24, padding: '10px 14px',
+              border: '1px solid #334155', borderRadius: 12,
+              color: '#94a3b8', fontSize: 13, fontWeight: 600,
+              textDecoration: 'none', transition: 'all 0.2s ease',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#0284c7'; e.currentTarget.style.color = '#38bdf8'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#334155'; e.currentTarget.style.color = '#94a3b8'; }}
+          >
+            <BookOpen size={16} />
+            <span>Xem hướng dẫn sử dụng</span>
+          </a>
         </div>
       </div>
 
