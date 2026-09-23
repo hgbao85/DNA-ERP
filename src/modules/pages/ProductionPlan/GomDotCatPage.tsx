@@ -31,7 +31,6 @@ import {
   type CuttingBatchPreview,
   type StockLengthsByMaterial,
 } from '../../../services/cutting-batch-api'
-import { getSystemConfig } from '../../../services/api'
 import { errMsg } from '../../../utils/errors'
 
 /**
@@ -177,12 +176,6 @@ export default function GomDotCatPage({ onDone }: Props) {
   // (mặc định công ty hiện chỉ vài chục giây, gõ giây cho số phút thật cần thì lại dài dòng);
   // gửi BE quy đổi sang giây. Rỗng = dùng SystemConfig.solverTimeLimitSeconds như trước.
   const [timeLimitMinutes, setTimeLimitMinutes] = useState('')
-  const [defaultTimeLimitSeconds, setDefaultTimeLimitSeconds] = useState<number | null>(null)
-  useEffect(() => {
-    getSystemConfig()
-      .then((c) => setDefaultTimeLimitSeconds(c.solverTimeLimitSeconds))
-      .catch(() => {}) // Chỉ dùng để hiện gợi ý - không có thì ô nhập vẫn hoạt động bình thường.
-  }, [])
 
   /** Chỉ lấy ô đã gõ HỢP LỆ. Ô rỗng/đang gõ dở không được gửi đi: gửi số vô nghĩa sẽ làm BE trả
    *  400 ngay giữa lúc người ta còn đang gõ dở con số.
@@ -312,8 +305,24 @@ export default function GomDotCatPage({ onDone }: Props) {
   const selectedMaterialCount = selectedMaterialIds.size
 
   const timeLimitMinutesNum = Number(timeLimitMinutes)
+  // Trần thật của ô này = đúng công thức BE dùng để CHẶN (runSolverAndSave: số loại sắt ×
+  // time_limit > SOLVER_TIMEOUT_SECONDS thì từ chối thẳng, xem changelog 2026-09-22/23). Trước
+  // đây KHSX chỉ biết việc này SAU KHI gộp xong, Sếp bấm duyệt mới thấy câu lỗi kỹ thuật tiếng
+  // Anh lẫn số liệu ("vượt timeout HTTP client...") - không tự hiểu được phải sửa gì. Chặn NGAY
+  // TẠI Ô NHẬP bằng số phút thật + câu tiếng Việt để công nhân/KHSX tự biết giới hạn (2026-09-23).
+  const maxTimeLimitMinutes =
+    data && selectedMaterialCount > 0
+      ? Math.floor((data.solverTimeoutSeconds / selectedMaterialCount / 60) * 10) / 10
+      : null
+  const timeLimitOverMax =
+    maxTimeLimitMinutes != null &&
+    timeLimitMinutes.trim() !== '' &&
+    Number.isFinite(timeLimitMinutesNum) &&
+    timeLimitMinutesNum > maxTimeLimitMinutes
   const timeLimitBad =
-    timeLimitMinutes.trim() !== '' && !(Number.isFinite(timeLimitMinutesNum) && timeLimitMinutesNum > 0)
+    (timeLimitMinutes.trim() !== '' &&
+      !(Number.isFinite(timeLimitMinutesNum) && timeLimitMinutesNum > 0)) ||
+    timeLimitOverMax
 
   /** Số ngày 1 SKU phải cắt sớm = hạn của nó trừ hạn GẤP NHẤT trong nhóm (cả đợt cắt cùng lúc). */
   const earliestSelected = Math.min(
@@ -466,7 +475,7 @@ export default function GomDotCatPage({ onDone }: Props) {
           phút
           <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>
             {timeLimitMinutes.trim() === '' ? (
-              defaultTimeLimitSeconds != null ? `(mặc định ${defaultTimeLimitSeconds}s/loại)` : ''
+              data ? `(mặc định ${data.defaultTimeLimitSeconds}s/loại)` : ''
             ) : (
               `(${selectedMaterialCount > 0 ? selectedMaterialCount : '—'}x phút${
                 selectedMaterialCount > 0 && !timeLimitBad
@@ -477,7 +486,13 @@ export default function GomDotCatPage({ onDone }: Props) {
           </span>
         </label>
         {timeLimitBad && (
-          <span style={{ fontSize: 11.5, color: '#b91c1c' }}>Phải là số phút lớn hơn 0.</span>
+          <span style={{ fontSize: 11.5, color: '#b91c1c' }}>
+            {timeLimitOverMax
+              ? // Câu tiếng Việt tự tính đúng trần thật (công thức BE dùng để chặn) - KHSX biết
+                // NGAY tại ô nhập, không phải chờ Sếp duyệt mới thấy lỗi kỹ thuật.
+                `Với ${selectedMaterialCount} loại sắt đang chọn, tối đa được ${maxTimeLimitMinutes} phút/loại - gõ số nhỏ hơn hoặc để trống (dùng mặc định).`
+              : 'Phải là số phút lớn hơn 0.'}
+          </span>
         )}
       </div>
 

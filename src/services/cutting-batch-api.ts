@@ -145,6 +145,11 @@ export interface CuttingBatchCandidateList {
   items: CuttingBatchCandidate[];
   /** Tổ hợp hệ thống tự đề xuất - tick sẵn, KHSX vẫn sửa được. */
   recommendedItemIds: string[];
+  /** Ngân sách thời gian tối đa cho CẢ đợt tính (giây). Dùng để tính "tối đa bao nhiêu phút/loại"
+   *  rồi chặn ngay tại ô "Thời gian chạy tối đa" - xem GomDotCatPage (2026-09-23). */
+  solverTimeoutSeconds: number;
+  /** Mặc định công ty khi để trống ô "Thời gian chạy tối đa" (giây/loại sắt). */
+  defaultTimeLimitSeconds: number;
 }
 
 export interface CuttingBatchPreviewLine {
