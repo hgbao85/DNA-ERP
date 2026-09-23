@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ChevronLeft, ClipboardList, FileCheck2, Paperclip, X } from 'lucide-react'
-import { useInspection, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
+import { useInspection, PROPOSAL_STATUS_LABELS, itemStatusLabel, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
 import { useAuth, type User } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials, uploadDocument } from '../../../services/api'
@@ -240,12 +240,15 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
     return mine.length > 0 ? rollupStatusOf(mine) : p.status
   }
 
-  const itemStatusTag = (status: PurchaseProposal['status']) => {
-    const cfg = PROPOSAL_STATUS_LABELS[status]
+  const itemStatusTag = (item: PurchaseProposalItem) => {
+    const cfg = itemStatusLabel(item)
     return <span style={{ fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 6, padding: '2px 8px' }}>{cfg.label}</span>
   }
 
-  const statusTag = (p: PurchaseProposal) => itemStatusTag(myRollupStatus(p))
+  const statusTag = (p: PurchaseProposal) => {
+    const cfg = PROPOSAL_STATUS_LABELS[myRollupStatus(p)]
+    return <span style={{ fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 6, padding: '2px 8px' }}>{cfg.label}</span>
+  }
 
   // ── Detail view ──────────────────────────────────────────────────────────────
   if (selected) {
@@ -286,7 +289,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {others.map((item, idx) => (
                   <span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px' }}>
-                    {item.name} {itemStatusTag(item.status)}
+                    {item.name} {itemStatusTag(item)}
                   </span>
                 ))}
               </div>
@@ -334,7 +337,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
             {doneItems.map((item, idx) => (
               <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
                 <span style={{ fontWeight: 600 }}><ItemName item={item} /></span>
-                {itemStatusTag(item.status)}
+                {itemStatusTag(item)}
                 {item.approvalFileUrl && (
                   <a
                     href={item.approvalFileUrl}

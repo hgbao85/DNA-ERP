@@ -2,7 +2,7 @@
 import { useState } from 'react'
 import { ChevronLeft, History } from 'lucide-react'
 import { format } from 'date-fns'
-import { useInspection, type PurchaseProposal } from '../../../context/InspectionContext'
+import { useInspection, wasActuallyPurchased, type PurchaseProposal } from '../../../context/InspectionContext'
 import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials } from '../../../services/api'
@@ -28,10 +28,12 @@ interface Row {
   approvalFileUrl?: string
 }
 
-// Chỉ liệt kê đúng các dòng ĐÃ purchased (2026-08-25) - không phải toàn bộ p.items, cùng lý do
-// với TheoDoiMuaHangPage.buildRows().
+// Chỉ liệt kê đúng các dòng ĐÃ purchased VÀ thật sự có mua (2026-08-25, sửa 2026-09-23) - không
+// phải toàn bộ p.items, cùng lý do với TheoDoiMuaHangPage.buildRows(). Loại buyQty=0 (đóng hồ sơ
+// ngay lúc tạo vì tồn kho đã đủ, chưa từng có giao dịch mua nào) khỏi lịch sử - xem
+// wasActuallyPurchased().
 function buildRows(p: PurchaseProposal): Row[] {
-  return p.items.filter(item => item.status === 'purchased').map(item => {
+  return p.items.filter(wasActuallyPurchased).map(item => {
     // Key theo itemId (2026-08-26, L6) - KHÔNG phải materialId lẫn item.name, xem
     // purchasing-api.ts đầu file (1 vật tư đã PURCHASED phát sinh thiếu thêm tách DÒNG MỚI cùng
     // materialId).
@@ -65,7 +67,7 @@ export default function LichSuMuaHangPage() {
   // Lọc theo ITEM (2026-08-25) - xem comment tương ứng ở TheoDoiMuaHangPage.
   const proposals = materialsLoading
     ? []
-    : visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.items.some(item => item.status === 'purchased'))
+    : visibleProposalsFor(user, allProposals, buyerByMaterialId).filter(p => p.items.some(wasActuallyPurchased))
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = proposals.find(p => p.id === selectedId) ?? null

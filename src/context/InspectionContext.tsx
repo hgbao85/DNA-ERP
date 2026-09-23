@@ -115,6 +115,30 @@ export const PROPOSAL_STATUS_LABELS: Record<PurchaseProposal['status'], { label:
   rejected:   { label: 'Chờ Sếp duyệt', color: '#92400e', bg: '#fef3c7', border: '#fca5a5' },
 }
 
+// BE đóng hồ sơ 1 dòng thẳng sang status='purchased' ngay lúc TẠO đề xuất khi buyQty tính ra = 0
+// (tồn kho đã đủ, không có gì để mua - xem cutting-proposals.service.ts/consumable-material-
+// purchase.service.ts/piece-material-yield-purchase.service.ts, nhánh "buyQty === 0 ? PURCHASED :
+// undefined"), KHÔNG đợi Sếp duyệt hay Kho nhận hàng gì cả. Cùng 1 status/badge "Đã mua" nhưng 2
+// nghĩa khác hẳn nhau (thật sự đã mua+nhận hàng, và chưa từng cần mua) khiến người xem hiểu lầm
+// (2026-09-23). Phân biệt lại ở FE bằng buyQty thay vì đổi schema BE (receivedQty/purchasedAt của
+// nhánh buyQty=0 đều rỗng/= lúc tạo, không có gì để đối chiếu thêm).
+export function wasActuallyPurchased(item: PurchaseProposalItem): boolean {
+  return item.status === 'purchased' && item.buyQty > 0
+}
+
+const STOCK_SUFFICIENT_COLOR = { color: '#475569', bg: '#f1f5f9', border: '#cbd5e1' }
+
+// Badge đúng nghĩa cho 1 DÒNG vật tư cụ thể (khác PROPOSAL_STATUS_LABELS dùng chung cho cả
+// PurchaseProposal.status rollup) - tách case buyQty=0 khỏi "Đã mua" thật, xem wasActuallyPurchased.
+// Kèm theo số lượng lấy từ tồn kho có sẵn (actualStock = required khi buyQty=0, xem
+// purchasing-api.ts#toItem) để người xem biết ĐANG NÓI VỀ số lượng nào, không phải chỉ 1 nhãn suông.
+export function itemStatusLabel(item: PurchaseProposalItem): { label: string; color: string; bg: string; border: string } {
+  if (item.status === 'purchased' && !wasActuallyPurchased(item)) {
+    return { label: `Đủ tồn kho (${item.actualStock} ${item.unit})`, ...STOCK_SUFFICIENT_COLOR }
+  }
+  return PROPOSAL_STATUS_LABELS[item.status]
+}
+
 // Mọi mutation trả Promise và NÉM LẠI lỗi sau khi đã hiện banner (xem InspectionProvider).
 // Trước 2026-08-15 chúng là `=> void` kết thúc bằng `.catch(console.error)`: thao tác thất bại
 // trông y hệt thao tác thành công, kể cả trên chứng từ nhập kho (D.a1-silent-write-failure).
