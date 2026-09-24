@@ -5,25 +5,10 @@ import { useAuth, type User } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials, uploadDocument } from '../../../services/api'
 import { useWarehouseName } from '../../../hooks/useWarehouseName'
+import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { visibleProposalsFor, buildBuyerByMaterialId, splitItemsByOwner, rollupStatusOf, type MaterialBuyerMap } from '../../../utils/purchasingRouting'
 import PurchaseProposalAuditTrail from '../../../components/PurchaseProposalAuditTrail'
-
-/** Tên vật tư kèm chiều dài cây phải đặt (CHỈ vật tư sắt có, xem
- *  PurchaseProposalItem.stockLengthMm) - buyQty vô nghĩa nếu Purchasing không biết đặt cây dài
- *  bao nhiêu, nhất là từ khi solver có thể đề xuất cây KHÁC 6000mm mặc định (2026-08-26, Sếp mở
- *  lại auto_scan). Dùng chung cho mọi chỗ hiện tên vật tư trong màn này. */
-function ItemName({ item }: { item: PurchaseProposalItem }) {
-  return (
-    <>
-      {item.name}
-      {item.stockLengthMm != null && (
-        <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#e65100' }}>
-          · cây {item.stockLengthMm}mm
-        </span>
-      )}
-    </>
-  )
-}
+import { ItemCard, ProposalCards } from './mobileCards'
 
 export default function LenhMuaNCCPage() {
   const { user } = useAuth()
@@ -220,6 +205,9 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
   onBossApprove: (id: string, approvalFileUrl: string) => Promise<void>
 }) {
   const warehouseName = useWarehouseName()
+  const isCompact = useIsCompact()
+  const isMobile = useIsMobile()
+  const canViewAudit = user?.role === 'BOSS' || user?.role === 'ADMIN'
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [approvingId, setApprovingId] = useState<string | null>(null)
 
@@ -258,10 +246,10 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
     const doneItems = mine.filter(item => !isPending(item))
 
     return (
-      <div style={{ marginBottom: 24, display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+      <div style={{ marginBottom: 24, display: 'flex', flexDirection: isCompact ? 'column' : 'row', gap: 20, alignItems: isCompact ? 'stretch' : 'flex-start' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Back bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
           <button
             onClick={() => setSelectedId(null)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)' }}
@@ -298,12 +286,31 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
 
           {/* ── Chờ Sếp duyệt (của mình) ── */}
           {pendingItems.length > 0 && (<div style={{ borderTop: others.length > 0 ? '1px solid var(--border)' : 'none' }}>
+            {isMobile ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 10 }}>
+                {pendingItems.map((item, idx) => (
+                  <ItemCard
+                    key={idx}
+                    name={item.name}
+                    spec={item.spec}
+                    stockLengthMm={item.stockLengthMm}
+                    fields={[
+                      { label: 'Tồn thực', value: <span style={{ color: '#dc2626' }}>{item.actualStock}</span> },
+                      { label: 'Cần mua', value: <><b style={{ color: '#d97706' }}>{item.buyQty}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{item.unit}</span></> },
+                      { label: 'Hàng về kho', value: warehouseName(item.warehouseCode, item.khoLabel) },
+                    ]}
+                  />
+                ))}
+              </div>
+            ) : (
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                     <th style={th}>Hàng về kho</th>
                     <th style={th}>Vật tư</th>
+                    <th style={th}>Quy cách</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Chiều dài</th>
                     <th style={{ ...th, textAlign: 'right' }}>Tồn thực</th>
                     <th style={{ ...th, textAlign: 'right' }}>Cần mua</th>
                     <th style={th}>ĐVT</th>
@@ -313,7 +320,11 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
                   {pendingItems.map((item, idx) => (
                     <tr key={idx} style={{ borderTop: '1px solid var(--border)' }}>
                       <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{warehouseName(item.warehouseCode, item.khoLabel)}</td>
-                      <td style={{ ...td, fontWeight: 600 }}><ItemName item={item} /></td>
+                      <td style={{ ...td, fontWeight: 600 }}>{item.name}</td>
+                      <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{item.spec || '—'}</td>
+                      <td style={{ ...td, textAlign: 'right', fontSize: 12, fontWeight: item.stockLengthMm != null ? 700 : 400, color: item.stockLengthMm != null ? '#e65100' : 'var(--text3)' }}>
+                        {item.stockLengthMm != null ? `${item.stockLengthMm}mm` : '—'}
+                      </td>
                       <td style={{ ...td, textAlign: 'right', color: '#dc2626' }}>{item.actualStock}</td>
                       <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#d97706' }}>{item.buyQty}</td>
                       <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
@@ -322,42 +333,75 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
                 </tbody>
               </table>
             </div>
+            )}
             <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 14px', borderTop: '1px solid #fde68a', background: '#fffbeb' }}>
               <button
                 onClick={() => setApprovingId(p.id)}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#2563eb', color: '#fff', cursor: 'pointer' }}
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? '100%' : undefined, gap: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#2563eb', color: '#fff', cursor: 'pointer' }}
               >
                 <FileCheck2 size={14} /> Sếp đã duyệt
               </button>
             </div>
           </div>)}
 
-          {/* ── Đã duyệt mua (của mình) ── */}
-          {doneItems.length > 0 && (<div style={{ borderTop: '1px solid var(--border)', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {doneItems.map((item, idx) => (
-              <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-                <span style={{ fontWeight: 600 }}><ItemName item={item} /></span>
-                {itemStatusTag(item)}
-                {item.approvalFileUrl && (
-                  <a
-                    href={item.approvalFileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#2563eb', fontWeight: 600 }}
-                  >
-                    <Paperclip size={12} /> Xem file Sếp duyệt
-                  </a>
-                )}
-                <span style={{ fontSize: 12, color: 'var(--text3)' }}>theo dõi ở &quot;Theo dõi mua hàng&quot;/&quot;Lịch sử đã mua&quot;</span>
+          {/* ── Đã duyệt mua / đủ tồn kho (của mình) ── */}
+          {doneItems.length > 0 && (<div style={{ borderTop: '1px solid var(--border)' }}>
+            {/* Ghi chú "theo dõi ở..." đặt 1 lần ở tiêu đề thay vì lặp lại từng dòng. */}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', padding: '10px 14px', background: 'var(--surface2)' }}>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>Đã xử lý</span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text2)' }}>{doneItems.length}</span>
+              <span style={{ fontSize: 12, color: 'var(--text3)' }}>theo dõi tiếp ở &quot;Theo dõi mua hàng&quot; / &quot;Lịch sử đã mua&quot;</span>
+            </div>
+            {isMobile ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 10 }}>
+                {doneItems.map((item, idx) => (
+                  <ItemCard
+                    key={idx}
+                    name={item.name}
+                    spec={item.spec}
+                    stockLengthMm={item.stockLengthMm}
+                    fields={[]}
+                    footer={itemStatusTag(item)}
+                  />
+                ))}
               </div>
-            ))}
+            ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ textAlign: 'left' }}>
+                    <th style={th}>Vật tư</th>
+                    <th style={th}>Quy cách</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Chiều dài</th>
+                    <th style={th}>Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {doneItems.map((item, idx) => (
+                    <tr key={idx} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ ...td, fontWeight: 600 }}>{item.name}</td>
+                      <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{item.spec || '—'}</td>
+                      <td style={{ ...td, textAlign: 'right', fontSize: 12, fontWeight: item.stockLengthMm != null ? 700 : 400, color: item.stockLengthMm != null ? '#e65100' : 'var(--text3)' }}>
+                        {item.stockLengthMm != null ? `${item.stockLengthMm}mm` : '—'}
+                      </td>
+                      <td style={td}>{itemStatusTag(item)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            )}
           </div>)}
         </div>
       </div>
 
-      <div style={{ width: 300, flexShrink: 0, position: 'sticky', top: 20 }}>
-        <PurchaseProposalAuditTrail proposalId={p.id} />
-      </div>
+      {/* Chỉ BOSS/ADMIN có AUDIT_LOG:VIEW (BE role-permissions.constant.ts) - nhân viên Mua hàng
+          chỉ thấy khung báo "không có quyền" chiếm 300px vô ích, nên ẩn hẳn (không gọi API luôn). */}
+      {canViewAudit && (
+        <div style={isCompact ? {} : { width: 300, flexShrink: 0, position: 'sticky', top: 20 }}>
+          <PurchaseProposalAuditTrail proposalId={p.id} />
+        </div>
+      )}
 
       {approvingId === p.id && (
         <BossApproveModal
@@ -387,7 +431,15 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
         )}
       </div>
 
-      <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface)' }}>
+      {isMobile ? (
+        <ProposalCards
+          proposals={proposals}
+          onSelect={setSelectedId}
+          badge={statusTag}
+          meta={p => p.deadline && <span style={{ color: '#dc2626', fontWeight: 600 }}>Deadline: {new Date(p.deadline).toLocaleDateString('vi-VN')}</span>}
+        />
+      ) : (
+      <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflowX: 'auto', background: 'var(--surface)' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
@@ -424,6 +476,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }

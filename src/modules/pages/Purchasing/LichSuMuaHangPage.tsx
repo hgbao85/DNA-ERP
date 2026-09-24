@@ -7,8 +7,10 @@ import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials } from '../../../services/api'
 import { useWarehouseName } from '../../../hooks/useWarehouseName'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purchasingRouting'
 import { ApprovalFileCell } from './TheoDoiMuaHangPage'
+import { ItemCard, ProposalCards } from './mobileCards'
 
 const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
 const td: React.CSSProperties = { padding: '9px 12px' }
@@ -23,6 +25,8 @@ interface Row {
   itemName: string
   buyQty: number
   unit: string
+  spec?: string | null
+  stockLengthMm?: number | null
   khoLabel: string
   warehouseCode: string
   approvalFileUrl?: string
@@ -46,6 +50,8 @@ function buildRows(p: PurchaseProposal): Row[] {
       itemName: item.name,
       buyQty: item.buyQty,
       unit: item.unit,
+      spec: item.spec,
+      stockLengthMm: item.stockLengthMm,
       khoLabel: item.khoLabel,
       warehouseCode: item.warehouseCode,
       approvalFileUrl: item.approvalFileUrl,
@@ -60,6 +66,7 @@ export default function LichSuMuaHangPage() {
   const { proposals: allProposals } = useInspection()
   const { data: materials, isLoading: materialsLoading } = useFetch(getMaterials)
   const warehouseName = useWarehouseName()
+  const isMobile = useIsMobile()
   const buyerByMaterialId = buildBuyerByMaterialId(materials ?? [])
   // materials chưa tải xong -> buyerByMaterialId RỖNG -> mọi đề xuất trông như "chưa gán ai" ->
   // hiện NHẦM cho mọi nhân viên mua hàng rồi biến mất khi tải xong (D.p7-buyer-filter-loading-
@@ -77,7 +84,7 @@ export default function LichSuMuaHangPage() {
     const rows = buildRows(selected)
     return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
           <button
             onClick={() => setSelectedId(null)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)' }}
@@ -89,12 +96,32 @@ export default function LichSuMuaHangPage() {
           <span style={{ fontSize: 13, color: 'var(--text2)' }}>{selected.skuCode}{selected.skuName ? ` — ${selected.skuName}` : ''}</span>
         </div>
 
-        <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface)' }}>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: isMobile ? 'transparent' : 'var(--surface)' }}>
+          {isMobile ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 10 }}>
+              {rows.map(r => (
+                <ItemCard
+                  key={r.key}
+                  name={r.itemName}
+                  spec={r.spec}
+                  stockLengthMm={r.stockLengthMm}
+                  fields={[
+                    { label: 'Đã mua', value: <><b style={{ color: '#166534' }}>{r.buyQty}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{r.unit}</span></> },
+                    { label: 'Hàng về kho', value: warehouseName(r.warehouseCode, r.khoLabel) },
+                  ]}
+                  footer={<ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} />}
+                />
+              ))}
+            </div>
+          ) : (
+          <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={th}>PO</th>
                 <th style={th}>Tên vật tư</th>
+                <th style={th}>Quy cách</th>
+                <th style={{ ...th, textAlign: 'right' }}>Chiều dài</th>
                 <th style={{ ...th, textAlign: 'right' }}>Đã mua</th>
                 <th style={th}>ĐVT</th>
                 <th style={th}>Hàng về kho</th>
@@ -106,6 +133,10 @@ export default function LichSuMuaHangPage() {
                 <tr key={r.key} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text3)' }}>{r.poNumber ?? '—'}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{r.itemName}</td>
+                  <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{r.spec || '—'}</td>
+                  <td style={{ ...td, textAlign: 'right', fontSize: 12, fontWeight: r.stockLengthMm != null ? 700 : 400, color: r.stockLengthMm != null ? '#e65100' : 'var(--text3)' }}>
+                    {r.stockLengthMm != null ? `${r.stockLengthMm}mm` : '—'}
+                  </td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#166534' }}>{r.buyQty}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>{r.unit}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{warehouseName(r.warehouseCode, r.khoLabel)}</td>
@@ -117,6 +148,8 @@ export default function LichSuMuaHangPage() {
               ))}
             </tbody>
           </table>
+          </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderTop: '1px solid #86efac', background: '#dcfce7', fontSize: 13, color: '#166534' }}>
             Đã nhận đủ hàng lúc {selected.purchasedAt ? format(new Date(selected.purchasedAt), 'HH:mm dd/MM/yyyy') : '—'}
           </div>
@@ -147,7 +180,14 @@ export default function LichSuMuaHangPage() {
             </span>
           </div>
 
-          <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface)' }}>
+          {isMobile ? (
+            <ProposalCards
+              proposals={proposals}
+              onSelect={setSelectedId}
+              meta={p => <span style={{ color: 'var(--text3)' }}>Hoàn tất lúc {p.purchasedAt ? format(new Date(p.purchasedAt), 'HH:mm dd/MM/yyyy') : '—'}</span>}
+            />
+          ) : (
+          <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflowX: 'auto', background: 'var(--surface)' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
@@ -182,6 +222,7 @@ export default function LichSuMuaHangPage() {
               </tbody>
             </table>
           </div>
+          )}
         </div>
       )}
     </div>

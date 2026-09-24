@@ -53,13 +53,13 @@ export const purchasingGroup: GuideGroup = {
       screenshot: '/guide-screens/purchasing-lenh-mua-ncc.png',
       mock: {
         title: 'Lệnh mua vật tư — chi tiết đề xuất',
-        columns: ['Hàng về kho', 'Vật tư', 'Tồn thực', 'Cần mua', 'ĐVT'],
+        columns: ['Hàng về kho', 'Vật tư', 'Quy cách', 'Chiều dài', 'Tồn thực', 'Cần mua', 'ĐVT'],
         rows: [['Kho Phôi Sơn Hàn', 'Sắt hộp 20x20 · cây 6000mm', '120', '480', 'cây'], ['Kho Vật tư TP', 'Sơn xám RAL7035', '5', '40', 'lít']],
         buttons: ['Sếp đã duyệt'],
       },
       steps: [
         'Chọn 1 đề xuất trong danh sách (cột PO/PI/Mã nhà máy/Deadline/Trạng thái) để mở chi tiết.',
-        'Xem bảng "Chờ Sếp duyệt": Hàng về kho, Vật tư (kèm chiều dài cây nếu là sắt), Tồn thực, Cần mua, ĐVT.',
+        'Xem bảng "Chờ Sếp duyệt": Hàng về kho, Vật tư, Quy cách, Chiều dài (chiều dài cây, chỉ vật tư sắt), Tồn thực, Cần mua, ĐVT.',
         { text: 'Bấm "Sếp đã duyệt" → chọn 1 file ảnh/PDF/Excel phiếu đã ký (tối đa 10MB) → bấm "Xác nhận".', critical: true },
       ],
       result: 'Các dòng vật tư của bạn trong đề xuất này chuyển sang "Đang mua hàng"; đề xuất chuyển sang tab "Theo dõi mua hàng".',
@@ -84,7 +84,7 @@ export const purchasingGroup: GuideGroup = {
       screenshot: '/guide-screens/purchasing-theo-doi.png',
       mock: {
         title: 'Theo dõi mua hàng',
-        columns: ['PO', 'Vật tư', 'Tổng SL', 'Đã mua', 'Còn lại', 'Hạn giao'],
+        columns: ['PO', 'Vật tư', 'Quy cách', 'Chiều dài', 'Tổng SL', 'Đã mua', 'Còn lại', 'Hạn giao'],
         rows: [['PO-2026-014', 'Sắt hộp 20x20', '480', '300', '180', '05/10/2026']],
       },
       steps: [
@@ -111,7 +111,7 @@ export const purchasingGroup: GuideGroup = {
       screenshot: '/guide-screens/purchasing-lich-su.png',
       mock: {
         title: 'Lịch sử đã mua',
-        columns: ['PO', 'Vật tư', 'Đã mua', 'ĐVT', 'Hàng về kho'],
+        columns: ['PO', 'Vật tư', 'Quy cách', 'Chiều dài', 'Đã mua', 'ĐVT', 'Hàng về kho'],
         rows: [['PO-2026-009', 'Sơn xám RAL7035', '40', 'lít', 'Kho Vật tư TP']],
       },
       steps: [

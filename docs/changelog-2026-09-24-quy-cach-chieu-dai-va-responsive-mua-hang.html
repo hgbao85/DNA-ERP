@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Quy cách, Chiều dài và giao diện điện thoại ở màn Mua hàng (24/09/2026)</title>
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --ok: #1E7A34; --ok-bg: #E6F4EA;
+    --warn: #A85400; --warn-bg: #FBEEDF; --bad: #B0332B; --bad-bg: #FAE4E2;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --ok: #7FD99A; --ok-bg: rgba(127,217,154,0.12);
+      --warn: #FFB74D; --warn-bg: rgba(255,183,77,0.12); --bad: #E0776D; --bad-bg: rgba(224,119,109,0.12);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --ok: #7FD99A; --ok-bg: rgba(127,217,154,0.12);
+    --warn: #FFB74D; --warn-bg: rgba(255,183,77,0.12); --bad: #E0776D; --bad-bg: rgba(224,119,109,0.12);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 system-ui, "Segoe UI", sans-serif; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  h2 { font-size: 18px; margin: 32px 0 10px; }
+  .sub { color: var(--text-muted); margin: 0 0 24px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; margin: 12px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--surface-alt); font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: .03em; }
+  .wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+  .wrap table th:first-child, .wrap table td:first-child { padding-left: 14px; }
+  .tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 6px; }
+  .tag.ok { color: var(--ok); background: var(--ok-bg); }
+  .tag.warn { color: var(--warn); background: var(--warn-bg); }
+  .tag.bad { color: var(--bad); background: var(--bad-bg); }
+  .note { border-left: 4px solid var(--warn); background: var(--warn-bg); padding: 10px 14px; border-radius: 6px; margin: 12px 0; }
+  code { background: var(--surface-alt); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ul { margin: 6px 0; padding-left: 22px; }
+  @media (max-width: 600px) { main { padding: 20px 16px 48px; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>Quy cách, Chiều dài và giao diện điện thoại ở màn Mua hàng</h1>
+  <p class="sub">24/09/2026 · Màn: Lệnh mua vật tư, Theo dõi mua hàng, Lịch sử đã mua</p>
+
+  <h2>Tóm tắt</h2>
+  <div class="card">
+    <ul>
+      <li>Phần <b>chi tiết từng PO</b> của cả 3 màn Mua hàng có thêm 2 cột <b>"Quy cách"</b> và <b>"Chiều dài"</b>.</li>
+      <li>Cả app Mua hàng giờ <b>dùng được trên máy tính bảng và điện thoại</b>: menu thu vào nút ☰, bảng đổi thành thẻ trên màn hẹp.</li>
+      <li>Khung <b>"Hoạt động"</b> ở màn Lệnh mua vật tư được <b>ẩn với nhân viên Mua hàng</b>, vì họ không có quyền xem. Giám đốc và Admin vẫn thấy.</li>
+      <li>Không sửa backend. Dữ liệu quy cách và chiều dài đã có sẵn trong đề xuất mua, trước đây chỉ chưa được hiển thị.</li>
+    </ul>
+  </div>
+
+  <h2>1. Cột "Quy cách" và "Chiều dài"</h2>
+  <div class="card">
+    <ul>
+      <li><b>Quy cách:</b> quy cách khai báo trong danh mục vật tư (ví dụ <code>Ø21</code>, <code>10x20</code>, <code>430x460x50</code>). Giúp phân biệt vật tư trùng tên nhưng khác kích cỡ, ví dụ hai dòng "Nệm (Be)" hoặc "Sắt vuông 6zem".</li>
+      <li><b>Chiều dài:</b> chiều dài cây cần đặt, chỉ vật tư sắt mới có (ví dụ <b>6000mm</b>, <b>5100mm</b>), hiện màu cam.</li>
+      <li>Vật tư không có thông tin thì cột hiện "—".</li>
+      <li>Ở màn Lệnh mua vật tư, chiều dài trước đây được ghi kèm sau tên ("· cây 6000mm"). Phần ghi kèm này được bỏ vì đã có cột riêng.</li>
+      <li>Danh sách vật tư <b>đã duyệt mua / đủ tồn kho</b> phía dưới bảng (màn Lệnh mua vật tư) cũng được làm lại thành bảng có tiêu đề <b>"Đã xử lý (số dòng)"</b>, gồm các cột Vật tư, Quy cách, Chiều dài, Trạng thái (phiếu Sếp duyệt xem ở màn Theo dõi mua hàng / Lịch sử đã mua). Câu nhắc "theo dõi ở Theo dõi mua hàng / Lịch sử đã mua" chỉ ghi 1 lần ở tiêu đề thay vì lặp lại từng dòng. Trên điện thoại, mỗi dòng là một thẻ.</li>
+    </ul>
+  </div>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Màn</th><th>Vị trí 2 cột mới</th></tr></thead>
+      <tbody>
+        <tr><td>Lệnh mua vật tư</td><td>Giữa "Vật tư" và "Tồn thực"</td></tr>
+        <tr><td>Theo dõi mua hàng</td><td>Giữa "Tên vật tư" và "Tổng SL"</td></tr>
+        <tr><td>Lịch sử đã mua</td><td>Giữa "Tên vật tư" và "Đã mua"</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>2. Giao diện máy tính bảng và điện thoại</h2>
+  <p>Làm theo đúng cách app Bán hàng đang dùng, nên hai app giống nhau khi dùng trên điện thoại.</p>
+  <div class="wrap">
+    <table>
+      <thead><tr><th>Độ rộng màn hình</th><th>Thay đổi</th></tr></thead>
+      <tbody>
+        <tr>
+          <td>Từ 900px trở lên<br><span style="color:var(--text-muted)">(máy tính)</span></td>
+          <td>Giữ nguyên như cũ.</td>
+        </tr>
+        <tr>
+          <td>Dưới 900px<br><span style="color:var(--text-muted)">(máy tính bảng, laptop nhỏ)</span></td>
+          <td>
+            <ul>
+              <li>Menu bên trái thu vào nút ☰ trên thanh đầu trang; thanh này hiện tên tab đang mở. Chọn tab xong menu tự đóng.</li>
+              <li>Bảng quá rộng thì cuộn ngang được, không làm tràn trang.</li>
+            </ul>
+          </td>
+        </tr>
+        <tr>
+          <td>Dưới 640px<br><span style="color:var(--text-muted)">(điện thoại)</span></td>
+          <td>
+            <ul>
+              <li><b>Danh sách PO</b> đổi thành thẻ: PO, PI, mã nhà máy, trạng thái, deadline hoặc thời điểm hoàn tất. Bấm thẻ để mở chi tiết.</li>
+              <li><b>Chi tiết vật tư</b> đổi thành thẻ: tên vật tư, dưới là quy cách và chiều dài cây, rồi đến các số liệu:
+                <ul>
+                  <li>Lệnh mua vật tư: Tồn thực, Cần mua, Hàng về kho. Nút "Sếp đã duyệt" giãn hết chiều ngang cho dễ bấm.</li>
+                  <li>Theo dõi mua hàng: Tổng SL, Đã mua, Còn lại, Hàng về kho, Hạn giao; các nút Xem / Đổi / Xóa file ở cuối thẻ.</li>
+                  <li>Lịch sử đã mua: Đã mua, Hàng về kho; các nút file ở cuối thẻ.</li>
+                </ul>
+              </li>
+              <li>Dòng tiêu đề (Danh sách / PO / SKU) tự xuống dòng khi không đủ chỗ.</li>
+            </ul>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>3. Ẩn khung "Hoạt động" với nhân viên Mua hàng</h2>
+  <div class="card">
+    <ul>
+      <li>Trước đây, khi nhân viên Mua hàng mở chi tiết một đề xuất, bên phải luôn có khung "Hoạt động" rộng 300px chỉ để báo <i>"Bạn không có quyền xem lịch sử hoạt động"</i>.</li>
+      <li>Quyền xem lịch sử hoạt động chỉ có ở tài khoản <b>Giám đốc</b> và <b>Admin</b>. Giờ khung này chỉ hiện với hai vai trò đó.</li>
+      <li>Khi khung bị ẩn, bảng vật tư giãn ra hết chiều ngang. Trang cũng không còn gửi yêu cầu lấy lịch sử mà chắc chắn bị từ chối (lỗi 403) mỗi lần mở chi tiết.</li>
+    </ul>
+  </div>
+
+  <h2>Đã kiểm tra thế nào</h2>
+  <div class="card">
+    <ul>
+      <li><span class="tag ok">Đạt</span> Kiểm tra kiểu TypeScript không báo lỗi. eslint không báo lỗi mới (chỉ còn 1 cảnh báo cũ về thẻ <code>&lt;img&gt;</code> trong popup "Sếp đã duyệt").</li>
+      <li><span class="tag ok">Đạt</span> 2 cột mới đã hiện trên màn Lệnh mua vật tư ở máy tính, theo ảnh chụp từ tài khoản Mua hàng (PO 6, Ghế J55).</li>
+      <li><span class="tag ok">Đã thử</span> Giao diện điện thoại được mở thử trên điện thoại thật qua Wi-Fi (thông qua proxy tạm, không sửa code); không có lỗi nào được báo lại.</li>
+      <li><span class="tag warn">Chưa kiểm tra</span> Việc ẩn khung "Hoạt động" chưa được xem lại trên trình duyệt, ở cả tài khoản Mua hàng lẫn Giám đốc/Admin.</li>
+      <li><span class="tag warn">Chưa có</span> Không có test tự động cho các màn này.</li>
+    </ul>
+  </div>
+
+  <h2>File đã sửa</h2>
+  <div class="card">
+    <ul>
+      <li><code>src/modules/pages/Purchasing/PurchasingApp.tsx</code> (menu dạng drawer trên màn hẹp)</li>
+      <li><code>src/modules/pages/Purchasing/LenhMuaNCCPage.tsx</code></li>
+      <li><code>src/modules/pages/Purchasing/TheoDoiMuaHangPage.tsx</code></li>
+      <li><code>src/modules/pages/Purchasing/LichSuMuaHangPage.tsx</code></li>
+      <li><code>src/modules/pages/Purchasing/mobileCards.tsx</code> (mới, giao diện thẻ dùng chung cho 3 màn trên điện thoại)</li>
+      <li><code>src/modules/pages/Guide/content/purchasing.ts</code> (trang hướng dẫn: thêm 2 cột mới vào danh sách cột)</li>
+    </ul>
+  </div>
+</main>
+</body>
+</html>
