@@ -357,7 +357,7 @@ export default function CuttingProposalsPage() {
                           <td colSpan={7} style={{ padding: '4px 12px 16px 32px', background: 'var(--surface2)' }}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                               <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                                Mẫu nguyên chưa cắt: {l.mauNguyenMm ?? 0}mm · Tổng khúc thừa (phế liệu): {l.totalWasteMm ?? 0}mm
+                                Tổng khúc thừa (phế liệu): {l.totalWasteMm ?? 0}mm
                               </div>
                               {/* stopPropagation trên cả khối - PrintExportButton tự có menu con,
                                   click chọn Excel/PDF bên trong cũng không được để lọt lên tr.onClick
@@ -373,7 +373,6 @@ export default function CuttingProposalsPage() {
                             </div>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                               {guide.rows.map(r => {
-                                const isRemnant = !!r.mauNguyenMm && r.mauNguyenMm > 0
                                 const chips = guide.columns
                                   .map((c, i) => ({ size: c, label: guide.columnLabels[i], count: r.counts[i] }))
                                   .filter(c => c.count > 0)
@@ -382,7 +381,7 @@ export default function CuttingProposalsPage() {
                                     key={r.patternIndex}
                                     style={{
                                       border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px',
-                                      background: isRemnant ? '#fff8e1' : 'var(--surface)',
+                                      background: 'var(--surface)',
                                     }}
                                   >
                                     <div style={{ fontSize: 12, marginBottom: 6 }}>
@@ -399,11 +398,6 @@ export default function CuttingProposalsPage() {
                                         </span>
                                       ))}
                                     </div>
-                                    {isRemnant && (
-                                      <div style={{ fontSize: 11, color: '#8d6e00', fontStyle: 'italic', marginTop: 6 }}>
-                                        ↳ Cây này cắt dở — còn {r.mauNguyenMm}mm để nguyên, nhập kho (cắt được cỡ bất kỳ sau này)
-                                      </div>
-                                    )}
                                   </div>
                                 )
                               })}

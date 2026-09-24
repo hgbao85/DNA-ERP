@@ -104,17 +104,31 @@ function fmtLen(mm: number): string {
   return cm === 0 ? `${m}m` : `${m}m${String(cm).padStart(2, '0')}`
 }
 
-function MaterialChip({ code, pct, over, minBars, stockLengthMm }: { code: string; pct: number; over: boolean; minBars: number; stockLengthMm: number | null }) {
-  const lowConfidence = isLowConfidence(minBars)
+function MaterialChip({ code, pct, over, minBars, stockLengthMm, verified, verifiedLengthSource, thresholdPct }: { code: string; pct: number; over: boolean; minBars: number; stockLengthMm: number | null; verified: boolean; verifiedLengthSource: 'fixed' | 'scan' | null; thresholdPct: number }) {
+  // "?" (mẫu quá nhỏ, cận dưới không đáng tin) chỉ có ý nghĩa với ƯỚC TÍNH - verified=true là số
+  // solver vừa xác minh thật, đáng tin bất kể số cây nhiều hay ít (2026-09-24).
+  const lowConfidence = !verified && isLowConfidence(minBars)
+  // "scan" = KHÔNG có cách nào cắt ở chiều dài đang chọn mà MỌI cây đều đạt ngưỡng riêng - CHẮC
+  // CHẮN (không phải ước tính) hao hụt thật > ngưỡng, xem doc comment CandidateMaterial.
+  // verifiedLengthSource. `pct` (best_achievable) chỉ là số TỐT NHẤT CÓ THỂ SAU KHI đã phá luật đó
+  // - KHÔNG phải "hao hụt sẽ đạt" nên KHÔNG hiện làm số chính (2026-09-24: bản trước hiện thẳng
+  // pct này, người dùng chỉ ra đó là "bịp bợm" vì trông như đạt ngưỡng trong khi thực ra không đạt
+  // được theo đúng luật - xem changelog mục 19.9). Hiện "> ngưỡng%" thay vào đó - đúng sự thật đã
+  // CHỨNG MINH, còn pct thật vẫn có trong tooltip cho ai cần xem chi tiết.
+  const provenOverThreshold = verified && verifiedLengthSource === 'scan'
   // Nêu rõ con số đang nói về CÂY NÀO. Không có dòng này thì đổi ô chiều dài xong, chip nhảy số
   // mà không biết nó vừa nhảy theo cây nào - người xem không cách gì tự đối chiếu.
   const onBar = stockLengthMm != null ? ` (cây ${fmtLen(stockLengthMm)})` : ''
   return (
     <span
       title={
-        lowConfidence
-          ? `${code}${onBar} — chỉ ${minBars} cây, cận dưới này KHÔNG đáng tin (số lượng quá nhỏ để so sánh)`
-          : `${code}${onBar} — hao hụt tốt nhất có thể khi SKU này cắt một mình`
+        provenOverThreshold
+          ? `${code}${onBar} — CHẮC CHẮN vượt ngưỡng ${thresholdPct}%: không có cách nào cắt đúng số lượng mà MỌI cây đều đạt ngưỡng riêng. Nếu chấp nhận có vài cây lẻ tự vượt ngưỡng, tốt nhất tìm được là ${pct.toFixed(2)}% - nhưng đây KHÔNG phải phương án hệ thống tự chọn khi duyệt (sẽ tự đặt cây riêng thay vào đó).`
+          : verified
+            ? `${code}${onBar} — số THẬT vừa xác minh với solver (không phải ước tính)`
+            : lowConfidence
+              ? `${code}${onBar} — chỉ ${minBars} cây, cận dưới này KHÔNG đáng tin (số lượng quá nhỏ để so sánh)`
+              : `${code}${onBar} — cận dưới ước tính nhanh, CHƯA xác minh với solver thật`
       }
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600,
@@ -124,7 +138,17 @@ function MaterialChip({ code, pct, over, minBars, stockLengthMm }: { code: strin
       }}
     >
       {over && <AlertTriangle size={11} />}
-      {code} ≥{pct.toFixed(2)}%
+      {provenOverThreshold ? (
+        // KHÔNG hiện pct (best_achievable) như số chính - xem comment provenOverThreshold. Hiện
+        // đúng sự thật đã chứng minh: chắc chắn vượt ngưỡng của chính loại sắt này.
+        <>{code} &gt;{thresholdPct}%</>
+      ) : (
+        <>
+          {/* verified=true: số THẬT, không còn là cận dưới nên bỏ dấu "≥" - giữ "≥" cho
+              verified=false để không hứa hẹn sai (xem doc comment CandidateMaterial.standaloneWastePct). */}
+          {code} {verified ? '' : '≥'}{pct.toFixed(2)}%
+        </>
+      )}
       {lowConfidence && <span style={{ fontWeight: 700 }}>?</span>}
       {/* Chỉ hiện khi KHÁC cây chuẩn: gắn "(6m)" vào mọi chip chỉ làm bảng ồn thêm mà không
           nói được gì mới - cây chuẩn vốn là mặc định ai cũng ngầm hiểu. */}
@@ -170,12 +194,13 @@ export default function GomDotCatPage({ onDone }: Props) {
   // tưởng có việc phải điền. Mở ra mới sửa được - cũng chặn luôn việc lỡ tay đổi lúc cuộn/tab,
   // mà đổi chiều dài thì TÍNH LẠI CẢ BẢNG chứ không phải thay đổi vặt.
   const [lenOpen, setLenOpen] = useState(false)
-  // "Thời gian chạy tối đa" (2026-09-22) - ngân sách giây/loại sắt KHSX tự đề nghị cho đợt này,
-  // KHÔNG cần Sếp duyệt (không đổi kết quả cắt, thuần ngân sách thời gian tính toán - xem
-  // SolverOverrideDto.solverTimeLimitSecondsOverride phía BE). Đơn vị Ô NHẬP là PHÚT cho dễ gõ
-  // (mặc định công ty hiện chỉ vài chục giây, gõ giây cho số phút thật cần thì lại dài dòng);
-  // gửi BE quy đổi sang giây. Rỗng = dùng SystemConfig.solverTimeLimitSeconds như trước.
-  const [timeLimitMinutes, setTimeLimitMinutes] = useState('')
+  // "Thời gian chạy tối đa" (2026-09-22 → BỎ Ô NHẬP 2026-09-23): ban đầu là ô KHSX tự gõ, sau đó
+  // thử auto-suggest + giấu vào "Cài đặt nâng cao" - người dùng chốt lại: "KHSX không cần biết
+  // tốn bao lâu, miễn cho kết quả tốt nhất". Không còn field/state nào ở FE cho việc này nữa - xem
+  // solverOverride() dưới, giờ LUÔN tự tính + gửi ngân sách AN TOÀN TỐI ĐA (không phải mặc định
+  // tối thiểu) cho mọi lần gộp/cắt riêng, không cần KHSX biết khái niệm này tồn tại. Solver chạy
+  // NỀN sau khi Sếp duyệt (fire-and-forget, xem runSolverAndSave) nên thời gian giải lâu hơn
+  // KHÔNG làm KHSX phải chờ gì cả - chỉ ảnh hưởng lúc Sếp mở lại xem kết quả.
 
   /** Chỉ lấy ô đã gõ HỢP LỆ. Ô rỗng/đang gõ dở không được gửi đi: gửi số vô nghĩa sẽ làm BE trả
    *  400 ngay giữa lúc người ta còn đang gõ dở con số.
@@ -304,25 +329,20 @@ export default function GomDotCatPage({ onDone }: Props) {
   for (const it of selectedItems) for (const m of it.materials) selectedMaterialIds.add(m.materialId)
   const selectedMaterialCount = selectedMaterialIds.size
 
-  const timeLimitMinutesNum = Number(timeLimitMinutes)
-  // Trần thật của ô này = đúng công thức BE dùng để CHẶN (runSolverAndSave: số loại sắt ×
-  // time_limit > SOLVER_TIMEOUT_SECONDS thì từ chối thẳng, xem changelog 2026-09-22/23). Trước
-  // đây KHSX chỉ biết việc này SAU KHI gộp xong, Sếp bấm duyệt mới thấy câu lỗi kỹ thuật tiếng
-  // Anh lẫn số liệu ("vượt timeout HTTP client...") - không tự hiểu được phải sửa gì. Chặn NGAY
-  // TẠI Ô NHẬP bằng số phút thật + câu tiếng Việt để công nhân/KHSX tự biết giới hạn (2026-09-23).
-  const maxTimeLimitMinutes =
+  // Ngân sách giây/loại sắt LUÔN gửi tự động cho solver - KHÔNG hỏi KHSX gì cả (chốt 2026-09-23:
+  // "KHSX không cần biết tốn bao lâu, miễn cho kết quả tốt nhất"). Dùng HẾT phần ngân sách AN TOÀN
+  // TỐI ĐA cho phép, không phải mặc định tối thiểu của công ty (SystemConfig.solverTimeLimitSeconds
+  // vốn chỉ vài chục giây - đủ chạy nhanh nhưng bỏ lỡ cơ hội CP-SAT tìm được phương án ít hao hụt
+  // hơn nếu được cho thêm thời gian dò). An toàn TUYỆT ĐỐI bằng toán học của phép chia nguyên: với
+  // N = selectedMaterialCount, T = solverTimeoutSeconds, đặt time_limit = floor(T/N) thì
+  // N × floor(T/N) ≤ T LUÔN đúng - không thể vượt trần HTTP client của BE
+  // (CuttingProposalsService.runSolverAndSave), bất kể N là bao nhiêu. Vì chạy NỀN sau khi Sếp
+  // duyệt (fire-and-forget) nên "tốn thêm thời gian giải" không làm KHSX phải chờ gì - đúng tinh
+  // thần "miễn kết quả tốt nhất" người dùng yêu cầu.
+  const autoTimeLimitSeconds =
     data && selectedMaterialCount > 0
-      ? Math.floor((data.solverTimeoutSeconds / selectedMaterialCount / 60) * 10) / 10
+      ? Math.max(1, Math.floor(data.solverTimeoutSeconds / selectedMaterialCount))
       : null
-  const timeLimitOverMax =
-    maxTimeLimitMinutes != null &&
-    timeLimitMinutes.trim() !== '' &&
-    Number.isFinite(timeLimitMinutesNum) &&
-    timeLimitMinutesNum > maxTimeLimitMinutes
-  const timeLimitBad =
-    (timeLimitMinutes.trim() !== '' &&
-      !(Number.isFinite(timeLimitMinutesNum) && timeLimitMinutesNum > 0)) ||
-    timeLimitOverMax
 
   /** Số ngày 1 SKU phải cắt sớm = hạn của nó trừ hạn GẤP NHẤT trong nhóm (cả đợt cắt cùng lúc). */
   const earliestSelected = Math.min(
@@ -426,11 +446,10 @@ export default function GomDotCatPage({ onDone }: Props) {
         ? { solverStockLengthsByMaterial: stockLengths }
         : undefined
     // Độc lập với cutMode/chiều dài cây - thuần ngân sách thời gian tính toán, không phải quyết
-    // định nghiệp vụ, nên đi kèm ở CẢ 2 chế độ như `lengths` ở trên.
+    // định nghiệp vụ, nên đi kèm ở CẢ 2 chế độ như `lengths` ở trên. LUÔN tự tính, không chờ KHSX
+    // nhập gì (xem autoTimeLimitSeconds ở trên).
     const timeLimit =
-      timeLimitMinutes.trim() !== '' && !timeLimitBad
-        ? { solverTimeLimitSecondsOverride: Math.round(timeLimitMinutesNum * 60) }
-        : undefined
+      autoTimeLimitSeconds != null ? { solverTimeLimitSecondsOverride: autoTimeLimitSeconds } : undefined
     if (cutMode === 'ACCEPT_OVER') {
       return {
         solverMaxWastePctOverride: wastePctNum,
@@ -456,44 +475,6 @@ export default function GomDotCatPage({ onDone }: Props) {
           Chế độ cắt: {cutMode === 'ACCEPT_OVER' ? 'Chấp nhận hao hụt cao hơn' : 'Bình thường'}
           {showOverride ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </button>
-
-        {/* "Thời gian chạy tối đa" (2026-09-22) - KHÔNG nằm trong khối collapsible ở trên: đây
-            không phải quyết định nghiệp vụ cần Sếp duyệt như hao hụt/chiều dài cây, chỉ là ngân
-            sách thời gian tính toán KHSX tự set khi solver có nguy cơ bị timeout HTTP client ngắt
-            ngang chừng (thấy rõ nhất khi gộp nhiều loại sắt - xem lỗi BE
-            CuttingProposalsService.runSolverAndSave nếu vượt). Luôn hiện sẵn, không cần mở gì. */}
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: 'var(--text2)' }}>
-          Thời gian chạy tối đa
-          <input
-            value={timeLimitMinutes}
-            onChange={(e) => setTimeLimitMinutes(e.target.value)}
-            inputMode="decimal"
-            placeholder="—"
-            aria-label="Thời gian chạy tối đa cho mỗi loại sắt, tính bằng phút"
-            style={{ width: 46, padding: '5px 8px', fontSize: 12.5, textAlign: 'right', border: `1px solid ${timeLimitBad ? '#dc2626' : 'var(--border)'}`, borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)' }}
-          />
-          phút
-          <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>
-            {timeLimitMinutes.trim() === '' ? (
-              data ? `(mặc định ${data.defaultTimeLimitSeconds}s/loại)` : ''
-            ) : (
-              `(${selectedMaterialCount > 0 ? selectedMaterialCount : '—'}x phút${
-                selectedMaterialCount > 0 && !timeLimitBad
-                  ? ` ≈ ${Math.round(selectedMaterialCount * timeLimitMinutesNum * 10) / 10} phút tổng`
-                  : ''
-              })`
-            )}
-          </span>
-        </label>
-        {timeLimitBad && (
-          <span style={{ fontSize: 11.5, color: '#b91c1c' }}>
-            {timeLimitOverMax
-              ? // Câu tiếng Việt tự tính đúng trần thật (công thức BE dùng để chặn) - KHSX biết
-                // NGAY tại ô nhập, không phải chờ Sếp duyệt mới thấy lỗi kỹ thuật.
-                `Với ${selectedMaterialCount} loại sắt đang chọn, tối đa được ${maxTimeLimitMinutes} phút/loại - gõ số nhỏ hơn hoặc để trống (dùng mặc định).`
-              : 'Phải là số phút lớn hơn 0.'}
-          </span>
-        )}
       </div>
 
       {overrideNeeded && !showOverride && (
@@ -630,10 +611,13 @@ export default function GomDotCatPage({ onDone }: Props) {
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 'var(--radius)', padding: '9px 12px', margin: '12px 0 14px', fontSize: 12, color: '#1e40af' }}>
         <Info size={15} style={{ flexShrink: 0, marginTop: 1 }} />
         <span>
-          Các con số hao hụt và số cây là <b>mức tốt nhất có thể</b> (nên luôn có dấu ≥) — thực tế
-          có thể cao hơn vì còn phụ thuộc số lượng và cây cắt dở cuối đợt. Dùng để so sánh phương án, không
-          phải cam kết kết quả. Dấu <b style={{ color: '#854d0e' }}>?</b> cạnh % nghĩa là số lượng
-          quá ít (dưới 3 cây) để con số này còn đáng tin — chỉ hoàn toàn dựa vào nó để quyết định.
+          Loại sắt kèm dấu <b>≥</b> là ước tính nhanh, <b>chưa xác minh với solver</b> — con số tốt
+          nhất về lý thuyết, giả định có đủ số lượng để lặp lại đúng kiểu cắt tối ưu ở mọi cây; số
+          lượng thật ít thì cây cuối không đủ đoạn để lặp kiểu đó, nên hao hụt thật có thể cao hơn.
+          Loại KHÔNG kèm dấu ≥ là số thật đã xác minh với solver, không còn giả định này. Dùng để so
+          sánh phương án, không phải cam kết kết quả. Dấu <b style={{ color: '#854d0e' }}>?</b> cạnh
+          % nghĩa là số lượng quá ít (dưới 3 cây) để ước tính đó còn đáng tin — chỉ hoàn toàn dựa
+          vào nó để quyết định.
         </span>
       </div>
 
@@ -818,7 +802,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                           <>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                               {it.materials.map((m) => (
-                                <MaterialChip key={m.materialId} code={m.materialCode} pct={m.standaloneWastePct} over={m.overThreshold} minBars={m.standaloneMinBars} stockLengthMm={m.stockLengthMm} />
+                                <MaterialChip key={m.materialId} code={m.materialCode} pct={m.standaloneWastePct} over={m.overThreshold} minBars={m.standaloneMinBars} stockLengthMm={m.stockLengthMm} verified={m.verified} verifiedLengthSource={m.verifiedLengthSource} thresholdPct={m.thresholdPct} />
                               ))}
                             </div>
                             {/* Chỉ gợi ý cho loại VƯỢT ngưỡng - loại đang đạt thì không cần gộp,
@@ -956,13 +940,13 @@ export default function GomDotCatPage({ onDone }: Props) {
             {cutModePanel}
             <button
               onClick={handleConfirm}
-              disabled={previewing || !preview || merging || overrideInvalid || timeLimitBad}
+              disabled={previewing || !preview || merging || overrideInvalid}
               style={{
                 padding: '8px 16px', border: 'none', borderRadius: 'var(--radius)', fontSize: 13,
                 fontWeight: 600, color: '#fff', background: '#2e7d32',
                 display: 'inline-flex', alignItems: 'center', gap: 7,
-                cursor: previewing || !preview || merging || overrideInvalid || timeLimitBad ? 'not-allowed' : 'pointer',
-                opacity: previewing || !preview || merging || overrideInvalid || timeLimitBad ? 0.5 : 1,
+                cursor: previewing || !preview || merging || overrideInvalid ? 'not-allowed' : 'pointer',
+                opacity: previewing || !preview || merging || overrideInvalid ? 0.5 : 1,
               }}
             >
               {merging && <Loader2 size={14} className="spin" />}
@@ -984,8 +968,8 @@ export default function GomDotCatPage({ onDone }: Props) {
           {cutModePanel}
           <button
             onClick={handleClaimSolo}
-            disabled={merging || overrideInvalid || timeLimitBad}
-            style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', cursor: merging || overrideInvalid || timeLimitBad ? 'not-allowed' : 'pointer', opacity: merging || overrideInvalid || timeLimitBad ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 7, flexShrink: 0 }}
+            disabled={merging || overrideInvalid}
+            style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', cursor: merging || overrideInvalid ? 'not-allowed' : 'pointer', opacity: merging || overrideInvalid ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 7, flexShrink: 0 }}
           >
             {merging && <Loader2 size={14} className="spin" />}
             Tạo lệnh sản xuất riêng cho SKU này

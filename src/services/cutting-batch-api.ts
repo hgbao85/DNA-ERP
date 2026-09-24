@@ -109,17 +109,34 @@ export interface CandidateMaterial {
   materialId: string;
   materialCode: string;
   materialName: string;
-  /** Hao hụt khi SKU này cắt loại sắt đó MỘT MÌNH. Hiển thị kèm dấu "≥". */
+  /** Hao hụt khi SKU này cắt loại sắt đó MỘT MÌNH. Ý nghĩa phụ thuộc `verified`:
+   *  - false: cận dưới LÝ TƯỞNG (giả định nguồn đoạn vô hạn) - hiển thị kèm dấu "≥".
+   *  - true: số THẬT solver vừa xác minh cho đúng nhu cầu này - KHÔNG kèm "≥" nữa (2026-09-24). */
   standaloneWastePct: number;
   /** Chiều dài cây (mm) mà standaloneWastePct được tính TRÊN đó - đổi ô chọn chiều dài thì số
-   *  này đổi theo. null = công ty khai nhiều cỡ chuẩn nên không có 1 cây duy nhất để nêu. */
+   *  này đổi theo. null = công ty khai nhiều cỡ chuẩn nên không có 1 cây duy nhất để nêu. Khi
+   *  verified=true và vượt ngưỡng, đây là chiều dài mà solver tìm ra "tốt nhất có thể" - có thể
+   *  KHÁC chiều dài KHSX đang chọn. */
   stockLengthMm: number | null;
-  /** Cận dưới số cây khi cắt MỘT MÌNH SKU này. Số nhỏ (ít cây) khiến standaloneWastePct lệch xa
-   *  thực tế NHẤT - dùng để cảnh báo "cận dưới không đáng tin", xem isLowConfidence() ở
-   *  GomDotCatPage.tsx. */
+  /** Số cây. verified=false: cận dưới (số nhỏ khiến standaloneWastePct lệch xa thực tế NHẤT -
+   *  dùng để cảnh báo "cận dưới không đáng tin", xem isLowConfidence() ở GomDotCatPage.tsx).
+   *  verified=true: số cây THẬT. */
   standaloneMinBars: number;
   thresholdPct: number;
+  /** verified=false: standaloneWastePct > thresholdPct (so trực tiếp). verified=true với
+   *  verifiedLengthSource='scan': KHÔNG suy được từ 2 số này - đọc verifiedLengthSource để biết lý
+   *  do (có thể standaloneWastePct < thresholdPct mà overThreshold vẫn true, xem field dưới). */
   overThreshold: boolean;
+  /** true = 2 field standaloneWastePct/standaloneMinBars ở trên là SỐ THẬT (BE vừa gọi solver xác
+   *  minh riêng loại sắt này, không phải cận dưới ước tính) - xem changelog 2026-09-24 mục 19. */
+  verified: boolean;
+  /** CHỈ có ý nghĩa khi verified=true. "fixed" = cắt được ở đúng chiều dài đang chọn, mọi cây đều
+   *  đạt ngưỡng - standaloneWastePct so trực tiếp với thresholdPct là đúng nghĩa. "scan" = KHÔNG
+   *  cắt được ở chiều dài đó với luật "mọi cây đều ≤ ngưỡng" (sẽ cần đặt cây riêng khi solve thật)
+   *  - standaloneWastePct lúc này là số TỐT NHẤT CÓ THỂ SAU KHI đã nới lỏng luật đó để tìm, có thể
+   *  THẤP HƠN thresholdPct dù overThreshold=true (lý do đỏ là "không đạt luật mỗi cây", không phải
+   *  "% > ngưỡng" - đã gây hiểu lầm thật lúc live-test, xem changelog mục 19.7). */
+  verifiedLengthSource: 'fixed' | 'scan' | null;
   /** Mã SKU của các đơn KHÁC cũng dùng loại sắt này = danh sách "gộp được với ai". */
   mergeableWithSkus: string[];
 }

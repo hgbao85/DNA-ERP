@@ -175,7 +175,6 @@ function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProp
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
             Mua {line.bestStockLengthMm ?? '—'}mm × {line.totalBars ?? '—'} cây
             {line.wastePercentage != null && <> · hao hụt {line.wastePercentage.toFixed(2)}%</>}
-            {(line.mauNguyenMm ?? 0) > 0 && <> · mẫu nguyên chưa cắt {line.mauNguyenMm}mm</>}
           </div>
           {/* Cỡ đặt riêng (auto_scan mở lại 2026-08-26) - PHẢI nổi bật, không để thợ/Mua hàng
               tưởng nhầm đây là cây chuẩn 6000mm vẫn hay đặt. */}
@@ -226,26 +225,19 @@ function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProp
               {columnLabels.map((label, i) => <th key={columns[i]} style={thR}>{label}</th>)}
               <th style={thR}>HH/cây</th>
               <th style={thR}>Số cây</th>
-              <th style={th}>Ghi chú</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r, i) => {
-              const isRemnant = !!r.mauNguyenMm && r.mauNguyenMm > 0
-              return (
-                <tr key={r.patternIndex} style={{ borderTop: '1px solid var(--border)', background: isRemnant ? '#fff8e1' : undefined }}>
-                  <td style={{ ...td, fontWeight: 600 }}>{i + 1}</td>
-                  {r.counts.map((c, ci) => (
-                    <td key={columns[ci]} style={{ ...tdR, fontWeight: c > 0 ? 700 : 400, color: c > 0 ? 'var(--text)' : 'var(--text3)' }}>{c > 0 ? c : '—'}</td>
-                  ))}
-                  <td style={tdR}>{r.wastePerBarMm ?? '—'}</td>
-                  <td style={{ ...tdR, fontWeight: 700 }}>{r.barCount}</td>
-                  <td style={{ ...td, fontSize: 12, color: '#8d6e00', fontStyle: isRemnant ? 'italic' : undefined }}>
-                    {isRemnant ? `Cắt dở — còn ${r.mauNguyenMm}mm để nguyên, nhập kho` : ''}
-                  </td>
-                </tr>
-              )
-            })}
+            {rows.map((r, i) => (
+              <tr key={r.patternIndex} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ ...td, fontWeight: 600 }}>{i + 1}</td>
+                {r.counts.map((c, ci) => (
+                  <td key={columns[ci]} style={{ ...tdR, fontWeight: c > 0 ? 700 : 400, color: c > 0 ? 'var(--text)' : 'var(--text3)' }}>{c > 0 ? c : '—'}</td>
+                ))}
+                <td style={tdR}>{r.wastePerBarMm ?? '—'}</td>
+                <td style={{ ...tdR, fontWeight: 700 }}>{r.barCount}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

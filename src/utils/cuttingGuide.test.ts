@@ -16,7 +16,6 @@ function makeLine(overrides: Partial<CuttingProposalLine> = {}): CuttingProposal
     totalBars: 200,
     totalWasteMm: 2000,
     wastePercentage: 0.18,
-    mauNguyenMm: 0,
     lengthComparison: null,
     reason: null,
     bestAchievable: null,
@@ -34,7 +33,6 @@ function makeLine(overrides: Partial<CuttingProposalLine> = {}): CuttingProposal
         patternIndex: 0,
         barCount: 200,
         wastePerBarMm: 10,
-        mauNguyenMm: 0,
         segments: [
           { segmentSpecId: 's930', cutLengthMm: 930, countPerBar: 4 },
           { segmentSpecId: 's765', cutLengthMm: 765, countPerBar: 1 },
@@ -45,7 +43,6 @@ function makeLine(overrides: Partial<CuttingProposalLine> = {}): CuttingProposal
         patternIndex: 1,
         barCount: 67,
         wastePerBarMm: 15,
-        mauNguyenMm: 0,
         segments: [
           { segmentSpecId: 's765', cutLengthMm: 765, countPerBar: 6 },
         ],
@@ -76,8 +73,8 @@ describe('buildCuttingGuideTable — cột theo cỡ đoạn, dài trước (kh�
   it('dựng đúng số ô theo cỡ cho từng kiểu cắt', () => {
     const { rows } = buildCuttingGuideTable(makeLine());
     expect(rows).toEqual([
-      { patternIndex: 0, counts: [4, 1], barCount: 200, wastePerBarMm: 10, mauNguyenMm: 0 },
-      { patternIndex: 1, counts: [0, 6], barCount: 67, wastePerBarMm: 15, mauNguyenMm: 0 },
+      { patternIndex: 0, counts: [4, 1], barCount: 200, wastePerBarMm: 10 },
+      { patternIndex: 1, counts: [0, 6], barCount: 67, wastePerBarMm: 15 },
     ]);
   });
 });
@@ -115,7 +112,7 @@ describe('printCuttingGuide — mở cửa sổ xem trước với HTML+CSS gi�
     vi.unstubAllGlobals();
   });
 
-  it('viết HTML hợp lệ: đủ 2 bảng, thẻ <tr> không bị vỡ (cắt dở tô màu), nút In không tự bấm', () => {
+  it('viết HTML hợp lệ: đủ 2 bảng, thẻ <tr> không bị vỡ, nút In không tự bấm', () => {
     const written: string[] = [];
     const fakeWindow = {
       document: { write: (s: string) => written.push(s), close: vi.fn() },

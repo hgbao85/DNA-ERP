@@ -20,7 +20,6 @@ export interface CuttingGuideRow {
   counts: number[];
   barCount: number;
   wastePerBarMm: number | null;
-  mauNguyenMm: number | null;
 }
 
 /** cột = mọi cỡ đoạn xuất hiện trong bất kỳ kiểu cắt nào (dài trước, khớp thứ tự thợ nên cắt: cỡ
@@ -45,7 +44,6 @@ export function buildCuttingGuideTable(
       counts: columns.map((c) => bySize.get(c) ?? 0),
       barCount: p.barCount,
       wastePerBarMm: p.wastePerBarMm,
-      mauNguyenMm: p.mauNguyenMm,
     };
   });
   return { columns, columnLabels, rows };
@@ -80,13 +78,12 @@ function buildSheetAoa(line: CuttingProposalLine): (string | number)[][] {
     fmtDemand(p.demand),
     p.produced,
   ]);
-  const header = ['STT', ...columnLabels, 'HH/cây (mm)', 'Số cây', 'Ghi chú'];
+  const header = ['STT', ...columnLabels, 'HH/cây (mm)', 'Số cây'];
   const dataRows = rows.map((r, i) => [
     i + 1,
     ...r.counts.map((c) => (c > 0 ? c : '')),
     r.wastePerBarMm ?? '',
     r.barCount,
-    r.mauNguyenMm && r.mauNguyenMm > 0 ? `Cắt dở - còn ${r.mauNguyenMm}mm để nguyên, nhập kho` : '',
   ]);
   return [
     [`${line.materialCode} — ${line.materialName}`],
@@ -97,7 +94,6 @@ function buildSheetAoa(line: CuttingProposalLine): (string | number)[][] {
       ? [[`⚠ CỠ ĐẶT RIÊNG ${line.bestStockLengthMm}mm — KHÔNG PHẢI CÂY CHUẨN`]]
       : []),
     [`Tổng khúc thừa (phế liệu): ${line.totalWasteMm ?? 0} mm`],
-    [`Mẫu nguyên chưa cắt: ${line.mauNguyenMm ?? 0} mm`],
     [],
     ['TỔNG KẾT CẮT'],
     summaryHeader,
@@ -130,19 +126,16 @@ function buildPrintSectionHtml(line: CuttingProposalLine, pageBreakBefore: boole
     .join('');
   const detailRows = rows
     .map((r, i) => {
-      const isRemnant = !!r.mauNguyenMm && r.mauNguyenMm > 0;
-      const note = isRemnant ? `Cắt dở — còn ${r.mauNguyenMm}mm để nguyên, nhập kho` : '';
       const counts = r.counts.map((c) => `<td>${c > 0 ? c : ''}</td>`).join('');
-      return `<tr${isRemnant ? ' style="background:#fff8e1"' : ''}><td>${i + 1}</td>${counts}` +
-        `<td>${r.wastePerBarMm ?? '—'}</td><td>${r.barCount}</td><td>${escapeHtml(note)}</td></tr>`;
+      return `<tr><td>${i + 1}</td>${counts}` +
+        `<td>${r.wastePerBarMm ?? '—'}</td><td>${r.barCount}</td></tr>`;
     })
     .join('');
   return `
     <div${pageBreakBefore ? ' style="page-break-before: always"' : ''}>
       <h3>${escapeHtml(line.materialCode)} — ${escapeHtml(line.materialName)}</h3>
       <p>Mua <b>${line.bestStockLengthMm ?? '—'}mm</b> × <b>${line.totalBars ?? '—'} cây</b>
-        ${line.wastePercentage != null ? `· hao hụt ${line.wastePercentage.toFixed(2)}%` : ''}
-        ${(line.mauNguyenMm ?? 0) > 0 ? `· mẫu nguyên chưa cắt ${line.mauNguyenMm}mm` : ''}</p>
+        ${line.wastePercentage != null ? `· hao hụt ${line.wastePercentage.toFixed(2)}%` : ''}</p>
       ${line.lengthSource === 'scan'
         ? `<div style="background:#fff3e0;color:#e65100;font-weight:700;padding:8px 12px;margin-bottom:8px;border-left:4px solid #e65100">⚠ CỠ ĐẶT RIÊNG ${line.bestStockLengthMm}mm — KHÔNG PHẢI CÂY CHUẨN</div>`
         : ''}
@@ -151,7 +144,7 @@ function buildPrintSectionHtml(line: CuttingProposalLine, pageBreakBefore: boole
         <tbody>${summaryRows}</tbody></table>
       <h4>KẾ HOẠCH CẮT CHI TIẾT</h4>
       <table><thead><tr><th>STT</th>${columnLabels.map((l) => `<th>${escapeHtml(l)}</th>`).join('')}` +
-        `<th>HH/cây</th><th>Số cây</th><th>Ghi chú</th></tr></thead>
+        `<th>HH/cây</th><th>Số cây</th></tr></thead>
         <tbody>${detailRows}</tbody></table>
     </div>`;
 }

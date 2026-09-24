@@ -27,8 +27,6 @@ export interface CuttingProposalPattern {
   patternIndex: number;
   barCount: number;
   wastePerBarMm: number | null;
-  /** > 0 nghĩa là cây thuộc pattern này cắt dở - phần còn lại để nguyên, nhập kho. */
-  mauNguyenMm: number | null;
   segments: CuttingProposalSegment[];
 }
 
@@ -57,7 +55,6 @@ export interface CuttingProposalLine {
   totalBars: number | null;
   totalWasteMm: number | null;
   wastePercentage: number | null;
-  mauNguyenMm: number | null;
   lengthComparison: { length: number; bars: number; wastePct: number }[] | null;
   /** Tổng kết theo cỡ đoạn cho bản in. null khi dòng không khả thi, hoặc phương án tính trước
    *  2026-08-25 mà chưa chạy backfill ở BE - FE PHẢI chịu được null (hiện "—" ở SL cần), xem
