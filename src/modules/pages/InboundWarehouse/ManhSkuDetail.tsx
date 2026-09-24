@@ -36,7 +36,7 @@ export function ManhSkuTiles({ lines, skuQty }: { lines: ManhLine[]; skuQty: num
   const conLai    = Math.max(0, skuQty - hoanThanh)
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 20 }}>
       <Tile label="Tổng" value={skuQty} />
       <Tile label="Đã hoàn thành" value={hoanThanh} color="#16a34a" />
       <Tile label="Còn lại" value={conLai} color="#d97706" />
@@ -77,8 +77,8 @@ export default function ManhSkuDetail({
       {rows.length === 0 ? (
         <div style={emptyBox}>Chưa xuất đan cho điểm đan nào</div>
       ) : (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
               <col /><col /><col style={{ width: 80 }} /><col style={{ width: 90 }} /><col style={{ width: 90 }} /><col style={{ width: 80 }} /><col style={{ width: variant === 'nhap' ? 190 : 150 }} />
             </colgroup>

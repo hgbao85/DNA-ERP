@@ -18,7 +18,7 @@ interface FilterPillsProps<K extends string> {
 /** Thanh pill lọc theo trạng thái (kèm số đếm), dùng chung cho các trang danh sách có status filter. */
 export default function FilterPills<K extends string,>({ options, active, onChange, countFor }: FilterPillsProps<K>) {
   return (
-    <div style={{ display: 'flex', gap: 6 }}>
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
       {options.map(opt => {
         const isActive = active === opt.key
         const count = countFor?.(opt.key)

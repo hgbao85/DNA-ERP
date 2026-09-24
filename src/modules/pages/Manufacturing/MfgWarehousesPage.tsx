@@ -10,6 +10,7 @@ import { Plus, Trash2, X, ArrowLeft, Warehouse, Search, Copy } from 'lucide-reac
 import AdjustReasonModal from '../../../components/AdjustReasonModal'
 import WarehouseLedgerHistory from '../../../components/WarehouseLedgerHistory'
 import { warehouseFamilyOf, type WarehouseFamily } from '../../../utils/warehouseFamily'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 export { isThanhPhamScope } from '../../../utils/warehouseFamily'
 
 // ── Types (view-model tối giản, khớp field thật cần dùng - xem warehouses-api.ts/
@@ -193,7 +194,7 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
         <h2 style={{ fontSize: 20, fontWeight: 700 }}>{group ? group.label : 'Tổng hợp kho'}</h2>
         {isAdmin && (
           <button onClick={() => setShowCreateForm(true)} style={btnPrimary}>
@@ -205,7 +206,7 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
         {group ? group.desc : 'Chọn kho để xem tồn & nhập/xuất'}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(240px,1fr))', gap: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(240px,100%),1fr))', gap: 14 }}>
         {visibleWhs.map(wh => {
           const items = itemsOf(wh.id)
           return (
@@ -449,6 +450,8 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
   const [pendingAdjust, setPendingAdjust] = useState<{ it: StockItem; newQty: number; delta: number } | null>(null)
   const [adjustBusy, setAdjustBusy] = useState(false)
   const [adjustError, setAdjustError] = useState<string | null>(null)
+  // Điện thoại: bảng tồn 7-8 cột đổi thành thẻ (ô Tồn vẫn bấm sửa được như trên bảng).
+  const isMobile = useIsMobile()
 
   const filteredItems = items.filter(it =>
     !search || it.name.toLowerCase().includes(search.toLowerCase()) || it.code.toLowerCase().includes(search.toLowerCase()),
@@ -523,11 +526,32 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
     }
   }
 
+  // Ô Tồn: Admin bấm để sửa nhanh (ô nhập tại chỗ), người khác chỉ xem - dùng chung bảng và thẻ.
+  const qtyCell = (it: StockItem) => editingKey === rowKey(it) ? (
+    <input
+      type="number" min={0} step="any" autoFocus
+      value={editValue}
+      onChange={e => setEditValue(e.target.value)}
+      onBlur={() => void commitEdit(it)}
+      onKeyDown={e => {
+        if (e.key === 'Enter') void commitEdit(it)
+        else if (e.key === 'Escape') cancelEdit()
+      }}
+      style={{ width: 84, padding: '3px 6px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+    />
+  ) : canWrite ? (
+    <span onClick={() => startEdit(it)} style={{ cursor: 'pointer', borderBottom: '1px dashed var(--text3)' }} title="Bấm để sửa">
+      {it.qty.toLocaleString('vi-VN')}
+    </span>
+  ) : (
+    it.qty.toLocaleString('vi-VN')
+  )
+
   const tabBtn = (id: 'stock' | 'history', label: string) => (
     <button
       onClick={() => setTab(id)}
       style={{
-        padding: '8px 20px', fontSize: 13, fontWeight: tab === id ? 700 : 400,
+        padding: isMobile ? '8px 14px' : '8px 20px', fontSize: 13, fontWeight: tab === id ? 700 : 400, whiteSpace: 'nowrap',
         background: 'transparent', border: 'none', cursor: 'pointer',
         color: tab === id ? '#e65100' : 'var(--text2)',
         borderBottom: tab === id ? '2px solid #e65100' : '2px solid transparent',
@@ -545,9 +569,9 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
         {tab === 'stock' && (
           <>
             <div style={{ flex: 1 }} />
-            <div style={{ position: 'relative' }}>
+            <div style={{ position: 'relative', width: isMobile ? '100%' : undefined }}>
               <Search size={14} style={{ position: 'absolute', left: 8, top: 9, color: 'var(--text3)' }} />
-              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tên / mã…" style={{ ...inp, paddingLeft: 28, width: 200 }} />
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm tên / mã…" style={{ ...inp, paddingLeft: 28, width: isMobile ? '100%' : 200 }} />
             </div>
             {canWrite && <button onClick={() => setAdding(true)} style={btnPrimary}><Plus size={15} /> Thêm vật tư</button>}
             {canWrite && warehouses.some(w => w.id !== wh.id) && (
@@ -563,13 +587,34 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
       </div>
 
       {/* Tabs */}
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 16 }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 16, overflowX: 'auto' }}>
         {tabBtn('stock', 'Tồn kho')}
         {tabBtn('history', 'Lịch sử Nhập/Xuất')}
       </div>
 
       {/* Tồn kho */}
-      {tab === 'stock' && (
+      {tab === 'stock' && isMobile && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {filteredItems.map(it => (
+            <div key={rowKey(it)} className="card" style={{ padding: '11px 13px' }}>
+              <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>{it.name}</div>
+              <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2, wordBreak: 'break-word' }}>
+                {[it.code, it.groupName !== '—' ? it.groupName : null, it.spec, showLengthColumn && it.stockLengthMm ? `${it.stockLengthMm.toLocaleString('vi-VN')} mm` : null].filter(Boolean).join(' · ')}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'baseline', gap: 16, marginTop: 8, fontSize: 13 }}>
+                <span><span style={{ color: 'var(--text3)', fontSize: 11 }}>Tồn </span><b style={{ color: it.qty <= 0 ? '#c62828' : 'var(--text)' }}>{qtyCell(it)}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{it.unit}</span></span>
+                <span><span style={{ color: 'var(--text3)', fontSize: 11 }}>Khả dụng </span><b style={{ color: it.availableQty <= 0 ? '#c62828' : '#2563eb' }}>{it.availableQty.toLocaleString('vi-VN')}</b></span>
+              </div>
+            </div>
+          ))}
+          {filteredItems.length === 0 && (
+            <div className="card" style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>
+              {items.length === 0 ? 'Kho chưa có vật tư.' : 'Không tìm thấy vật tư.'}
+            </div>
+          )}
+        </div>
+      )}
+      {tab === 'stock' && !isMobile && (
         <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
@@ -600,25 +645,7 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
                     </td>
                   )}
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: it.qty <= 0 ? '#c62828' : 'var(--text)' }}>
-                    {editingKey === rowKey(it) ? (
-                      <input
-                        type="number" min={0} step="any" autoFocus
-                        value={editValue}
-                        onChange={e => setEditValue(e.target.value)}
-                        onBlur={() => void commitEdit(it)}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') void commitEdit(it)
-                          else if (e.key === 'Escape') cancelEdit()
-                        }}
-                        style={{ width: 84, padding: '3px 6px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
-                      />
-                    ) : canWrite ? (
-                      <span onClick={() => startEdit(it)} style={{ cursor: 'pointer', borderBottom: '1px dashed var(--text3)' }} title="Bấm để sửa">
-                        {it.qty.toLocaleString('vi-VN')}
-                      </span>
-                    ) : (
-                      it.qty.toLocaleString('vi-VN')
-                    )}
+                    {qtyCell(it)}
                   </td>
                   <td
                     style={{ ...td, textAlign: 'right', fontWeight: 700, color: it.availableQty <= 0 ? '#c62828' : '#2563eb' }}
@@ -881,8 +908,8 @@ function CopyMaterialsModal({ targetWarehouse, warehouses, allMaterials, onClose
 
 function Overlay({ children, onClose }: { children: React.ReactNode; onClose: () => void }) {
   return (
-    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-      <div onClick={e => e.stopPropagation()}>{children}</div>
+    <div onClick={onClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 12 }}>
+      <div onClick={e => e.stopPropagation()} style={{ maxWidth: '100%', display: 'flex', justifyContent: 'center' }}>{children}</div>
     </div>
   )
 }
@@ -902,4 +929,5 @@ const lbl: React.CSSProperties        = { display: 'block', fontSize: 12, color:
 const btnGhost: React.CSSProperties   = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text2)', fontSize: 13, cursor: 'pointer' }
 const btnPrimary: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 14px', border: 'none', borderRadius: 'var(--radius)', background: '#e65100', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }
 const iconBtn: React.CSSProperties    = { padding: 5, background: 'transparent', border: 'none', cursor: 'pointer', display: 'inline-flex' }
-const modalCard: React.CSSProperties  = { width: 420, maxWidth: '92vw', background: 'var(--surface)', borderRadius: 'var(--radius)', padding: 20, boxShadow: '0 8px 30px rgba(0,0,0,.2)' }
+const modalCard: React.CSSProperties  = { width: 420, maxWidth: '100%', maxHeight: '90dvh', overflowY: 'auto', background: 'var(--surface)', borderRadius: 'var(--radius)', padding: 20, boxShadow: '0 8px 30px rgba(0,0,0,.2)' }
+

@@ -11,6 +11,7 @@ import { useAuditLog } from '../../../context/AuditLogContext'
 import type { ManhChildGroup, ManhRow, MaterialType, Sku } from '../../../types/sku'
 import { STATUS_MAP, SKU_ENTITY } from '../../../constants/skuStatus'
 import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
+import { useIsCompact } from '../../../hooks/useMediaQuery'
 
 // ─── Status ───────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,39 @@ export { STATUS_MAP, SKU_ENTITY }
 export function StatusBadge({ status }: { status: string }) {
   return <GenericStatusBadge {...(STATUS_MAP[status] ?? STATUS_MAP.IN_PROGRESS)} />
 }
+
+/** Thẻ 1 SKU thay cho dòng bảng trên điện thoại - dùng chung "Danh sách SKU" và "Duyệt SKU". */
+export function SkuMobileCard({ pf, onClick, selectable = false, checked = false, note }: {
+  pf: Sku
+  onClick: () => void
+  selectable?: boolean
+  checked?: boolean
+  note?: React.ReactNode
+}) {
+  return (
+    <div className="card" onClick={onClick}
+      style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start', background: checked ? '#fef2f2' : undefined, borderColor: checked ? '#fca5a5' : undefined }}>
+      {selectable && (
+        <input type="checkbox" checked={checked} readOnly style={{ width: 16, height: 16, marginTop: 2, flexShrink: 0, pointerEvents: 'none' }} />
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+          <div style={{ fontWeight: 700, wordBreak: 'break-word' }}>{pf.mfgProduct?.factoryCode}</div>
+          <StatusBadge status={pf.status} />
+        </div>
+        {pf.mfgProduct?.name && pf.mfgProduct.name !== pf.mfgProduct.factoryCode && (
+          <div style={{ fontSize: 13, marginTop: 2, wordBreak: 'break-word' }}>{pf.mfgProduct.name}</div>
+        )}
+        {note}
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6, display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+          <span>{pf.customerName ?? '—'}</span>
+          <span>{format(new Date(pf.createdAt), 'HH:mm · dd/MM/yyyy')}</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 
 /** 3 nhóm định mức chi tiết — vẫn dùng để gắn nhãn/lọc hiển thị dù giờ chỉ còn 1 quyết định
  *  duyệt duy nhất cho cả 3 (xem secStatus trong SKUDetail). */
@@ -53,6 +87,8 @@ export function SKUDetail({
 }) {
   const { isBoss } = useAuth()
   const { logAction, getLogsFor } = useAuditLog()
+  // Màn hẹp: cột nhật ký (300px) chuyển xuống dưới nội dung thay vì ép nội dung còn vài chục px.
+  const isCompact = useIsCompact()
   const mt = pf.quotaManagement?.materialType
   const manh = pf.manhData
 
@@ -227,16 +263,16 @@ export function SKUDetail({
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         <button
           onClick={onBack}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, cursor: 'pointer', flexShrink: 0 }}
         >
           <ChevronLeft size={16} /> Danh sách
         </button>
-        <div>
+        <div style={{ flex: '1 1 200px', minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-            <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>{pf.mfgProduct?.name}</h2>
+            <h2 style={{ margin: 0, fontSize: isCompact ? 17 : 20, fontWeight: 700, wordBreak: 'break-word' }}>{pf.mfgProduct?.name}</h2>
             {onEdit && pf.status === 'IN_PROGRESS' && (
               <button
                 onClick={onEdit}
@@ -251,7 +287,7 @@ export function SKUDetail({
             Tạo lúc {format(new Date(pf.createdAt), 'HH:mm dd/MM/yyyy')}
           </p>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
           {/* Trạng thái/dữ liệu có thể đã đổi ở phiên đăng nhập khác (vd bộ phận nhập định mức vừa
               gửi lại sau khi bị từ chối) — cho phép lấy lại bản mới nhất mà không cần tải lại cả trang. */}
           {onRefresh && <RefreshButton onRefresh={onRefresh} loading={refreshing} size="sm" />}
@@ -276,7 +312,7 @@ export function SKUDetail({
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', flexDirection: isCompact ? 'column' : 'row', gap: 20, alignItems: isCompact ? 'stretch' : 'flex-start' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
       {finalReviewMode ? (
         <>
@@ -304,7 +340,7 @@ export function SKUDetail({
       ) : (
       <>
       {/* Sub-tabs */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 20, overflowX: 'auto' }}>
         {([
           ['manh', 'Định mức mảnh'],
           ...(showDetailTab ? [['chitiet', 'Định mức chi tiết']] : []),
@@ -313,7 +349,7 @@ export function SKUDetail({
             key={id}
             onClick={() => setDetailTab(id)}
             style={{
-              padding: '8px 20px', fontSize: 13,
+              padding: isCompact ? '8px 14px' : '8px 20px', fontSize: 13, whiteSpace: 'nowrap',
               fontWeight: detailTab === id ? 700 : 500,
               background: 'transparent', border: 'none', cursor: 'pointer',
               color: detailTab === id ? '#2e7d32' : 'var(--text2)',
@@ -330,9 +366,9 @@ export function SKUDetail({
       {detailTab === 'manh' && (
         <div style={{ marginBottom: 24 }}>
           {/* Section filter */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
             <div style={{ fontWeight: 700, fontSize: 13 }}>Danh sách định mức mảnh</div>
-            <div style={{ display: 'flex', gap: 5 }}>
+            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
               {([
                 ['all', 'Tất cả'], ['sat', 'Sắt'], ['day', 'Dây'], ['dinh', 'Đinh'],
                 ['tanRut', 'Tán rút'], ['nutNhua', 'Nút nhựa'],
@@ -363,7 +399,7 @@ export function SKUDetail({
 
           {/* Actions */}
           {showManhActionBar && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
               {!manhAllApproved && !manhAnyRejected && (
                 <span style={{ fontSize: 12, color: '#d97706' }}>Cần nhập và duyệt đủ tất cả các mục mới được chuyển đến công đoạn tiếp theo</span>
               )}
@@ -394,8 +430,8 @@ export function SKUDetail({
           {/* Section filter + 1 quyết định duyệt duy nhất cho cả 3 nhóm */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 10 }}>
             <div style={{ fontWeight: 700, fontSize: 13 }}>Danh sách định mức chi tiết</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ display: 'flex', gap: 5 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
                 {([
                   ['all', 'Tất cả'], ['daySon', 'Sơn'],
                   ['vatTuPhuKien', 'Phụ kiện'], ['baoBiDongGoi', 'Bao bì'],
@@ -458,7 +494,7 @@ export function SKUDetail({
 
           {/* Actions */}
           {showDetailActionBar && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
               {!readyToForwardDetail && !detailBlockedByRejection && (
                 <span style={{ fontSize: 12, color: '#d97706' }}>Cần nhập và duyệt đủ tất cả các mục mới được chuyển đến công đoạn tiếp theo</span>
               )}
@@ -515,7 +551,7 @@ export function SKUDetail({
       </div>
 
       {!readOnly && (
-        <div style={{ width: 300, flexShrink: 0, position: 'sticky', top: 20 }}>
+        <div style={isCompact ? { width: '100%' } : { width: 300, flexShrink: 0, position: 'sticky', top: 20 }}>
           <AuditLogTimeline entries={getLogsFor(SKU_ENTITY, String(pf.id))} />
         </div>
       )}
@@ -643,8 +679,9 @@ function FinalReviewAction({
   return (
     <>
       {active && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
           {onReject && (
+
             <button
               onClick={() => setRejecting(true)}
               disabled={rejectProcessing}
@@ -741,8 +778,8 @@ function buildDetailRows(mt: MaterialType): DetailRow[] {
 
 function DetailLinesTable({ rows }: { rows: DetailRow[] }) {
   return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflowX: 'auto' }}>
+      <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
           <tr style={{ background: 'var(--surface2)' }}>
             <th style={{ width: 36, padding: '7px', textAlign: 'center', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>#</th>
@@ -827,7 +864,7 @@ function ManhPiecesSection({
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
       <div style={{ background: '#fef3c7', padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
           <span style={{ color: '#b45309', fontWeight: 700, fontSize: 12 }}>
             Định mức mảnh <span style={{ fontWeight: 400, opacity: 0.7 }}>({rows.length} mảnh · {totalChildren} dòng vật tư)</span>
           </span>
@@ -877,7 +914,7 @@ function ManhPiecesSection({
             return (
             <div key={r.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
               <div style={{
-                display: 'flex', alignItems: 'center', gap: 12, padding: '8px 14px',
+                display: 'flex', alignItems: 'center', gap: '6px 12px', padding: '8px 14px', flexWrap: 'wrap',
                 background: 'var(--surface2)', borderBottom: children.length > 0 ? '1px solid var(--border)' : 'none',
               }}>
                 <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{r.name}</span>
@@ -904,7 +941,8 @@ function ManhPiecesSection({
                 </div>
               </div>
               {children.length > 0 && (
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--surface2)' }}>
                       <th style={{ width: 36, padding: '7px', textAlign: 'center', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>#</th>
@@ -967,6 +1005,7 @@ function ManhPiecesSection({
                     })}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
             )

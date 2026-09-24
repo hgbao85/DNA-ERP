@@ -7,7 +7,8 @@ import { Plus, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import type { Sku, CreateSkuPayload } from '../../../types/sku'
-import { SKUDetail, StatusBadge, STATUS_MAP, SKU_ENTITY } from './SKUDetail'
+import { SKUDetail, SkuMobileCard, StatusBadge, STATUS_MAP, SKU_ENTITY } from './SKUDetail'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 import SearchInput from '../../../components/SearchInput'
 import SearchableSelect from '../../../components/SearchableSelect'
 import FilterPills from '../../../components/FilterPills'
@@ -66,6 +67,7 @@ export default function SKUReviewPage() {
   const [search, setSearch]             = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const [selectedPf, setSelectedPf]     = useState<Sku | null>(null)
+  const isMobile = useIsMobile()
 
   // Create form state
   const [showForm, setShowForm]         = useState(false)
@@ -251,9 +253,9 @@ export default function SKUReviewPage() {
   const editModal = editingPf && (
     <div
       onClick={e => { if (e.target === e.currentTarget) closeEdit() }}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}
     >
-      <div style={{ background: 'var(--surface)', borderRadius: 14, width: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#f0fdf4', borderBottom: '1px solid #bbf7d0', borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
           <span style={{ fontSize: 15, fontWeight: 700, color: '#15803d' }}>Sửa SKU</span>
           <button onClick={closeEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text3)', display: 'flex' }}>
@@ -323,7 +325,7 @@ export default function SKUReviewPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: isMobile ? 14 : 24, flexWrap: 'wrap' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Duyệt SKU</h2>
           {success && <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, display: 'block', marginTop: 4 }}>✓ Đã thêm thành công</span>}
@@ -345,9 +347,9 @@ export default function SKUReviewPage() {
       {showForm && (
         <div
           onClick={e => { if (e.target === e.currentTarget) closeForm() }}
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}
         >
-          <div style={{ background: 'var(--surface)', borderRadius: 14, width: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#f0fdf4', borderBottom: '1px solid #bbf7d0', borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
               <span style={{ fontSize: 15, fontWeight: 700, color: '#15803d' }}>Thông tin SKU mới</span>
               <button onClick={closeForm} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text3)', display: 'flex' }}>
@@ -406,7 +408,22 @@ export default function SKUReviewPage() {
 
       {isLoading ? (
         <LoadingState />
+      ) : isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {displayed.map(pf => (
+            <SkuMobileCard key={pf.id} pf={pf} onClick={() => setSelectedPf(pf)}
+              note={pf.bossRejectReason && (
+                <div style={{ marginTop: 4, fontSize: 12, color: '#dc2626', fontStyle: 'italic', wordBreak: 'break-word' }}>⚠ Sếp từ chối: {pf.bossRejectReason}</div>
+              )} />
+          ))}
+          {displayed.length === 0 && (
+            <div className="card" style={{ padding: 30, textAlign: 'center', color: 'var(--text3)' }}>
+              {q ? 'Không tìm thấy kết quả' : 'Không có SKU nào đang chờ duyệt'}
+            </div>
+          )}
+        </div>
       ) : (
+
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>

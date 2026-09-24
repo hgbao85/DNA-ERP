@@ -9,6 +9,10 @@ import { format } from 'date-fns'
 import { AlertCircle, AlertTriangle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2, User } from 'lucide-react'
 import SearchableSelect from '../../../components/SearchableSelect'
 import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
+
+// Nhãn các cột mốc thời gian SKU - trên điện thoại hiện kèm từng ô ngày (không còn hàng tiêu đề bảng).
+const DATE_COL_LABELS = ['Mua hàng', 'Khung CK', 'Đan', 'Đóng gói', 'Hạn giao']
 
 /**
  * "Đang tính phương án cắt... (đã chạy X phút)" - thời gian solve dao động rất lớn (đo thật:
@@ -33,6 +37,8 @@ function CalculatingBadge({ requestedAt }: { requestedAt: string }) {
 export default function LenhSXPage() {
   const { user, isBoss } = useAuth()
   const isQlsx = user?.mfgRole === 'PRODUCTION_MANAGER'
+  // Điện thoại: bảng SKU dạng lưới 6-7 cột cố định không vừa - xếp chồng SKU + dải 5 ô ngày có nhãn.
+  const isMobile = useIsMobile()
   const [confirmingProdId, setConfirmingProdId] = useState<number | null>(null)
   const [confirmProdTarget, setConfirmProdTarget] = useState<any | null>(null)
   const [approvingKey, setApprovingKey] = useState<string | null>(null)
@@ -77,6 +83,24 @@ export default function LenhSXPage() {
   // bấm vào 1 PI mới chuyển sang trang chi tiết (2026-08-24, KHÔNG xổ tại chỗ) - danh sách SKU +
   // 2 nút Duyệt/Từ chối (hoặc Chọn kho/Từ chối) đều nằm trong trang chi tiết đó.
   const [viewingApprovalPiId, setViewingApprovalPiId] = useState<number | null>(null)
+  // Desktop: các ô ngày là con trực tiếp của lưới dòng (display: contents); điện thoại: lưới 5 ô riêng dưới SKU.
+  const dateStrip: React.CSSProperties = isMobile
+    ? { display:'grid', gridTemplateColumns:'repeat(5, minmax(0, 1fr))', gap:4, marginTop:10, paddingTop:8, borderTop:'1px dashed var(--border)' }
+    : { display:'contents' }
+  const mobileLabel = (i: number) => isMobile && (
+    <div style={{ fontSize:9.5, fontWeight:700, color: i === 4 ? '#1d4ed8' : 'var(--text3)', textTransform:'uppercase', marginBottom:2 }}>{DATE_COL_LABELS[i]}</div>
+  )
+  const searchBox = (
+    <div style={{ position:'relative', width: isMobile ? '100%' : undefined }}>
+      <Search size={14} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--text3)', pointerEvents:'none' }} />
+      <input
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        placeholder="Tìm mã PI..."
+        style={{ padding:'7px 10px 7px 32px', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, background:'var(--surface)', color:'var(--text)', width: isMobile ? '100%' : 200, outline:'none' }}
+      />
+    </div>
+  )
 
   const { data: pis, isLoading, error, refetch } = useFetch(
     () => api.getProductionInvoices(),
@@ -461,7 +485,7 @@ export default function LenhSXPage() {
                 </button>
 
                 {/* PI header + 2 nút thao tác cho CẢ khối */}
-                <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20, padding:'14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', flexWrap:'wrap' }}>
+                <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 10 : 16, marginBottom:20, padding: isMobile ? '12px 14px' : '14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', flexWrap:'wrap' }}>
                   <div>
                     <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:18 }}>{pi.code}</span>
                     {pi.isMerged && (
@@ -470,13 +494,13 @@ export default function LenhSXPage() {
                       </div>
                     )}
                   </div>
-                  <div style={{ width:1, height:36, background:'var(--border)' }} />
+                  {!isMobile && <div style={{ width:1, height:36, background:'var(--border)' }} />}
                   <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                     <CalendarClock size={14} color="var(--text3)"/>
                     <span style={{ fontSize:13, color:'var(--text3)' }}>Hạn hoàn thành:</span>
                     <span style={{ fontWeight:700, fontSize:15 }}>{format(piDeadline, 'dd/MM/yyyy')}</span>
                   </div>
-                  <div style={{ flex:1 }} />
+                  {!isMobile && <div style={{ flex:1 }} />}
                   <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                     {isBoss ? (
                       <>
@@ -508,14 +532,14 @@ export default function LenhSXPage() {
 
                 {/* Danh sách SKU trong PI */}
                 <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
-                  <div style={{ display:'grid', gridTemplateColumns:'100px 1fr 95px 95px 95px 95px 100px', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
+                  {!isMobile && <div style={{ display:'grid', gridTemplateColumns:'100px 1fr 95px 95px 95px 95px 100px', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
                     <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>PO</span>
                     <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>SKU</span>
                     {['Mua hàng','Khung CK','Đan','Đóng gói'].map(h => (
                       <span key={h} style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>{h}</span>
                     ))}
                     <span style={{ fontSize:11, fontWeight:700, color:'#1d4ed8', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>Hạn giao</span>
-                  </div>
+                  </div>}
                   {items.map((item: any, idx: number) => {
                     const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
                     const name = item.productVariant?.mfgProduct?.name ?? ''
@@ -529,16 +553,17 @@ export default function LenhSXPage() {
                     const iFrameDate  = iFrame  ? new Date(iFrame.deadline)  : fb(14)
                     const iWeavDate = iWeav ? new Date(iWeav.deadline) : fb(8)
                     const iPackagingDate  = iPackaging  ? new Date(iPackaging.deadline)  : fb(3)
-                    const dc = (d: Date, own: boolean) => (
+                    const dc = (d: Date, own: boolean, i: number) => (
                       <div style={{ textAlign:'center' }}>
-                        <div style={{ fontSize:13, fontWeight: own ? 700 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>{format(d, 'dd/MM/yy')}</div>
+                        {mobileLabel(i)}
+                        <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: own ? 700 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>{format(d, 'dd/MM/yy')}</div>
                         {!own && <div style={{ fontSize:10, color:'var(--text3)' }}>ước tính</div>}
                       </div>
                     )
                     const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                     return (
-                      <div key={item.id ?? idx} style={{ display:'grid', gridTemplateColumns:'100px 1fr 95px 95px 95px 95px 100px', padding:'12px 18px', alignItems:'center', borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
-                        <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1' }}>
+                      <div key={item.id ?? idx} style={{ ...(isMobile ? { padding:'12px 14px' } : { display:'grid', gridTemplateColumns:'100px 1fr 95px 95px 95px 95px 100px', padding:'12px 18px', alignItems:'center' }), borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
+                        <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1', display: isMobile ? 'block' : undefined, marginBottom: isMobile ? 4 : undefined }}>
                           {item.salesOrderCode ?? getDisplayCode(pi)}
                         </span>
                         <div>
@@ -563,15 +588,18 @@ export default function LenhSXPage() {
                             )}
                           </div>
                         </div>
-                        {dc(iMat,      !!item.materialDeadline)}
-                        {dc(iFrameDate,  !!iFrame)}
-                        {dc(iWeavDate, !!iWeav)}
-                        {dc(iPackagingDate,  !!iPackaging)}
+                        <div style={dateStrip}>
+                        {dc(iMat,      !!item.materialDeadline, 0)}
+                        {dc(iFrameDate,  !!iFrame, 1)}
+                        {dc(iWeavDate, !!iWeav, 2)}
+                        {dc(iPackagingDate,  !!iPackaging, 3)}
                         <div style={{ textAlign:'center' }}>
-                          <div style={{ fontSize:13, fontWeight:700, color: iDelivery ? '#1d4ed8' : 'var(--text3)' }}>
+                          {mobileLabel(4)}
+                          <div style={{ fontSize: isMobile ? 12 : 13, fontWeight:700, color: iDelivery ? '#1d4ed8' : 'var(--text3)' }}>
                             {format(iDelivery ?? piDeadline, 'dd/MM/yy')}
                           </div>
                           {!iDelivery && <div style={{ fontSize:10, color:'var(--text3)' }}>từ PO</div>}
+                        </div>
                         </div>
                       </div>
                     )
@@ -583,20 +611,12 @@ export default function LenhSXPage() {
         ) : (
           /* ── DANH SÁCH PI (Boss/QLSX) — thu gọn, bấm vào để xem chi tiết + thao tác ── */
           <div>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom: isMobile ? 14 : 20 }}>
               <div>
                 <h2 style={{ margin:0, fontSize:20, fontWeight:700 }}>{isBoss ? 'Duyệt lệnh sản xuất' : 'Xử lý lệnh sản xuất'}</h2>
                 <p style={{ margin:'4px 0 0', fontSize:13, color:'var(--text3)' }}>{piGroups.length} PI chờ {isBoss ? 'duyệt' : 'xử lý'}</p>
               </div>
-              <div style={{ position:'relative' }}>
-                <Search size={14} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--text3)', pointerEvents:'none' }} />
-                <input
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  placeholder="Tìm mã PI..."
-                  style={{ padding:'7px 10px 7px 32px', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, background:'var(--surface)', color:'var(--text)', width:200, outline:'none' }}
-                />
-              </div>
+              {searchBox}
             </div>
 
             <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
@@ -604,7 +624,7 @@ export default function LenhSXPage() {
                 <div style={{ padding:40, textAlign:'center', color:'var(--text3)' }}>Không có PI chờ {isBoss ? 'duyệt' : 'xử lý'}</div>
               ) : piGroups.map(({ pi, items }: { pi: any; items: any[] }, i: number) => (
                 <button key={pi.id} onClick={() => setViewingApprovalPiId(pi.id)}
-                  style={{ display:'flex', alignItems:'center', gap:14, padding:'13px 16px', width:'100%', background:'var(--surface)', border:'none', borderBottom: i === piGroups.length - 1 ? 'none' : '1px solid var(--border)', cursor:'pointer', textAlign:'left' }}
+                  style={{ display:'flex', alignItems:'center', gap: isMobile ? 8 : 14, padding: isMobile ? '12px' : '13px 16px', width:'100%', background:'var(--surface)', border:'none', borderBottom: i === piGroups.length - 1 ? 'none' : '1px solid var(--border)', cursor:'pointer', textAlign:'left' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}>
                   <div style={{ minWidth:0 }}>
@@ -618,7 +638,7 @@ export default function LenhSXPage() {
                   <div style={{ flex:1 }} />
                   <div style={{ display:'flex', alignItems:'center', gap:5 }}>
                     <CalendarClock size={13} color="var(--text3)"/>
-                    <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>
+                    {!isMobile && <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>}
                     <span style={{ fontWeight:700, fontSize:13, color:'var(--text)' }}>{format(new Date(pi.deadline), 'dd/MM/yy')}</span>
                   </div>
                   <span style={{ fontSize:12, color:'var(--text3)', background:'var(--surface2)', border:'1px solid var(--border)', padding:'3px 10px', borderRadius:12, whiteSpace:'nowrap' }}>
@@ -664,7 +684,7 @@ export default function LenhSXPage() {
                   style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:13, cursor:'pointer', color:'var(--text2)', fontWeight:500 }}>
                   <ChevronLeft size={15}/> Danh sách PI
                 </button>
-                <div style={{ flex:1 }} />
+                {!isMobile && <div style={{ flex:1 }} />}
                 <button onClick={() => openPIEdit(pi)}
                   style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'var(--text2)' }}>
                   <Pencil size={13}/> Sửa thời hạn
@@ -678,7 +698,7 @@ export default function LenhSXPage() {
               </div>
 
               {/* PI header info */}
-              <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:20, padding:'14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 10 : 16, flexWrap:'wrap', marginBottom:20, padding: isMobile ? '12px 14px' : '14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)' }}>
                 <div>
                   <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:18 }}>{pi.code}</div>
                   {pi.isMerged && (
@@ -687,7 +707,7 @@ export default function LenhSXPage() {
                     </div>
                   )}
                 </div>
-                <div style={{ width:1, height:36, background:'var(--border)' }} />
+                {!isMobile && <div style={{ width:1, height:36, background:'var(--border)' }} />}
                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                   <CalendarClock size={14} color="var(--text3)"/>
                   <span style={{ fontSize:13, color:'var(--text3)' }}>Hạn hoàn thành:</span>
@@ -703,7 +723,7 @@ export default function LenhSXPage() {
                 <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', padding:40, textAlign:'center', color:'var(--text3)' }}>Không có SKU</div>
               ) : poGroups.map(([soCode, groupItems]: [string, any[]], gi: number) => (
               <div key={soCode + '-' + gi} style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden', marginBottom: gi === poGroups.length - 1 ? 0 : 16 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 18px', background:'#f3e8ff', borderBottom:'1px solid var(--border)' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', padding: isMobile ? '9px 14px' : '9px 18px', background:'#f3e8ff', borderBottom:'1px solid var(--border)' }}>
                   <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#6b21a8' }}>{soCode}</span>
                   {groupItems[0]?.customerName && (
                     <>
@@ -716,13 +736,13 @@ export default function LenhSXPage() {
                   )}
                   <span style={{ marginLeft:'auto', fontSize:11, fontWeight:600, color:'#7c3aed', background:'#fff', padding:'2px 9px', borderRadius:10 }}>{groupItems.length} SKU</span>
                 </div>
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 110px', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
+                {!isMobile && <div style={{ display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 110px', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
                   <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>SKU</span>
                   {['Mua hàng','Khung CK','Đan','Đóng gói'].map(h => (
                     <span key={h} style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>{h}</span>
                   ))}
                   <span style={{ fontSize:11, fontWeight:700, color:'#1d4ed8', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>Hạn giao</span>
-                </div>
+                </div>}
                 {groupItems.map((item: any, idx: number) => {
                   const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
                   const name = item.productVariant?.mfgProduct?.name ?? ''
@@ -736,16 +756,17 @@ export default function LenhSXPage() {
                   const iFrameDate  = iFrame  ? new Date(iFrame.deadline)  : fb(14)
                   const iWeavDate = iWeav ? new Date(iWeav.deadline) : fb(8)
                   const iPackagingDate  = iPackaging  ? new Date(iPackaging.deadline)  : fb(3)
-                  const dc = (d: Date, own: boolean) => (
+                  const dc = (d: Date, own: boolean, i: number) => (
                     <div style={{ textAlign:'center' }}>
-                      <div style={{ fontSize:14, fontWeight: own ? 700 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>{fmt(d)}</div>
+                      {mobileLabel(i)}
+                      <div style={{ fontSize: isMobile ? 12 : 14, fontWeight: own ? 700 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>{fmt(d)}</div>
                       {!own && <div style={{ fontSize:10, color:'var(--text3)' }}>ước tính</div>}
                     </div>
                   )
                   const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                   return (
                     <div key={item.id ?? idx} style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
-                      <div style={{ display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 110px', padding:'14px 18px', alignItems:'center' }}>
+                      <div style={isMobile ? { padding:'12px 14px' } : { display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 110px', padding:'14px 18px', alignItems:'center' }}>
                         <div>
                           <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                             <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>{code}</span>
@@ -793,19 +814,22 @@ export default function LenhSXPage() {
                             )}
                           </div>
                         </div>
-                        {dc(iMat,      !!item.materialDeadline)}
-                        {dc(iFrameDate,  !!iFrame)}
-                        {dc(iWeavDate, !!iWeav)}
-                        {dc(iPackagingDate,  !!iPackaging)}
+                        <div style={dateStrip}>
+                        {dc(iMat,      !!item.materialDeadline, 0)}
+                        {dc(iFrameDate,  !!iFrame, 1)}
+                        {dc(iWeavDate, !!iWeav, 2)}
+                        {dc(iPackagingDate,  !!iPackaging, 3)}
                         <div style={{ textAlign:'center' }}>
-                          <div style={{ fontSize:14, fontWeight:700, color: iDelivery ? '#1d4ed8' : 'var(--text3)' }}>
+                          {mobileLabel(4)}
+                          <div style={{ fontSize: isMobile ? 12 : 14, fontWeight:700, color: iDelivery ? '#1d4ed8' : 'var(--text3)' }}>
                             {fmt(iDelivery ?? new Date(pi.deadline))}
                           </div>
                           {!iDelivery && <div style={{ fontSize:10, color:'var(--text3)' }}>từ PO</div>}
                         </div>
+                        </div>
                       </div>
                       {item.prodApproval?.status === 'REJECTED' && item.prodApproval.reason && (
-                        <div style={{ margin:'0 18px 12px', fontSize:12, color:'#b91c1c', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:6, padding:'6px 10px' }}>
+                        <div style={{ margin: isMobile ? '0 14px 12px' : '0 18px 12px', fontSize:12, color:'#b91c1c', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:6, padding:'6px 10px' }}>
                           Lý do từ chối: {item.prodApproval.reason}
                         </div>
                       )}
@@ -820,20 +844,12 @@ export default function LenhSXPage() {
       ) : (
         /* ── DANH SÁCH PI (KHSX) ────────────────────────────────────────── */
         <div>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom: isMobile ? 14 : 20 }}>
             <div>
               <h2 style={{ margin:0, fontSize:20, fontWeight:700 }}>Tạo lệnh sản xuất</h2>
               <p style={{ margin:'4px 0 0', fontSize:13, color:'var(--text3)' }}>{safeList.length} lệnh</p>
             </div>
-            <div style={{ position:'relative' }}>
-              <Search size={14} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--text3)', pointerEvents:'none' }} />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Tìm mã PI..."
-                style={{ padding:'7px 10px 7px 32px', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, background:'var(--surface)', color:'var(--text)', width:200, outline:'none' }}
-              />
-            </div>
+            {searchBox}
           </div>
 
           {/* PI List */}
@@ -848,7 +864,7 @@ export default function LenhSXPage() {
               const isLast = i === filteredList.length - 1
               return (
                 <button key={pi.id} onClick={() => setViewingPIId(pi.id)}
-                  style={{ display:'flex', alignItems:'center', gap:14, padding:'13px 16px', width:'100%', background:'var(--surface)', border:'none', borderBottom: isLast ? 'none' : '1px solid var(--border)', cursor:'pointer', textAlign:'left', transition:'background .12s' }}
+                  style={{ display:'flex', alignItems:'center', gap: isMobile ? 8 : 14, padding: isMobile ? '12px' : '13px 16px', width:'100%', background:'var(--surface)', border:'none', borderBottom: isLast ? 'none' : '1px solid var(--border)', cursor:'pointer', textAlign:'left', transition:'background .12s' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}>
                   <div style={{ minWidth:0 }}>
@@ -857,7 +873,7 @@ export default function LenhSXPage() {
                   <div style={{ flex:1 }} />
                   <div style={{ display:'flex', alignItems:'center', gap:5 }}>
                     <CalendarClock size={13} color="var(--text3)"/>
-                    <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>
+                    {!isMobile && <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>}
                     <span style={{ fontWeight:700, fontSize:13, color:'var(--text)' }}>{format(new Date(pi.deadline), 'dd/MM/yy')}</span>
                   </div>
                   <span style={{ fontSize:12, color:'var(--text3)', background:'var(--surface2)', border:'1px solid var(--border)', padding:'3px 10px', borderRadius:12, whiteSpace:'nowrap' }}>
@@ -881,7 +897,7 @@ export default function LenhSXPage() {
           <div onClick={() => { if (!confirmingProdId) setConfirmProdTarget(null) }}
             style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
             <div onClick={e => e.stopPropagation()}
-              style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:24, width:560, maxWidth:'95vw', maxHeight:'85vh', display:'flex', flexDirection:'column', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
+              style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding: isMobile ? 16 : 24, width:560, maxWidth:'100%', maxHeight:'85dvh', display:'flex', flexDirection:'column', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
 
               {/* Header */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexShrink:0 }}>
@@ -899,7 +915,7 @@ export default function LenhSXPage() {
                   <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Mã PO</div>
                   <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14 }}>{getDisplayCode(confirmProdTarget)}</div>
                 </div>
-                <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
+                <div style={{ flex:1, minWidth:0, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
                   <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Hạn hoàn thành</div>
                   <div style={{ fontWeight:700, fontSize:14 }}>{format(new Date(confirmProdTarget.deadline), 'dd/MM/yyyy')}</div>
                 </div>
@@ -984,7 +1000,7 @@ export default function LenhSXPage() {
               </div>
 
               {/* Footer */}
-              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, marginTop:14, paddingTop:14, borderTop:'1px solid var(--border)', flexShrink:0 }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap', marginTop:14, paddingTop:14, borderTop:'1px solid var(--border)', flexShrink:0 }}>
                 <div style={{ fontSize:13, minWidth:0, overflow:'hidden' }}>
                   <span style={{ color:'var(--text2)' }}>
                     Sẽ gửi <strong style={{ color:'#2e7d32' }}>{sendableIds.length}</strong> SKU (cả PI)
@@ -1021,7 +1037,7 @@ export default function LenhSXPage() {
           <div onClick={() => { if (!sendingToBoss) closeModal() }}
             style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1100, padding:16 }}>
             <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="qlsx-send-boss-title"
-              style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:24, width:460, maxWidth:'95vw', maxHeight:'85vh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
+              style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding: isMobile ? 16 : 24, width:460, maxWidth:'100%', maxHeight:'85dvh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
 
               {/* Header */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
@@ -1040,7 +1056,7 @@ export default function LenhSXPage() {
                   <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Mã PI</div>
                   <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14 }}>{pi.code}</div>
                 </div>
-                <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
+                <div style={{ flex:1, minWidth:0, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
                   <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Hạn hoàn thành</div>
                   <div style={{ fontWeight:700, fontSize:14, color:'#1d4ed8' }}>{format(new Date(pi.deadline), 'dd/MM/yyyy')}</div>
                 </div>
@@ -1133,7 +1149,7 @@ export default function LenhSXPage() {
           <div onClick={() => { if (!busy) setApproveTarget(null) }}
             style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1100, padding:16 }}>
             <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="approve-sku-title"
-              style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:24, width:480, maxWidth:'95vw', maxHeight:'85vh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
+              style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding: isMobile ? 16 : 24, width:480, maxWidth:'100%', maxHeight:'85dvh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
 
               {/* Header */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
@@ -1166,7 +1182,7 @@ export default function LenhSXPage() {
                   <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Mã PI</div>
                   <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14 }}>{pi.code}</div>
                 </div>
-                <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
+                <div style={{ flex:1, minWidth:0, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
                   <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Hạn hoàn thành</div>
                   <div style={{ fontWeight:700, fontSize:14, color:'#1d4ed8' }}>{format(piDeadline, 'dd/MM/yyyy')}</div>
                 </div>
@@ -1219,7 +1235,7 @@ export default function LenhSXPage() {
         <div onClick={() => { if (!rejecting) { setRejectTarget(null); setRejectReason('') } }}
           style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1100, padding:16 }}>
           <div onClick={e => e.stopPropagation()}
-            style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:24, width:420, maxWidth:'95vw', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
+            style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding: isMobile ? 16 : 24, width:420, maxWidth:'100%', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
               <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
                 <ThumbsDown size={16} color="#b91c1c"/> Từ chối sản xuất
@@ -1276,13 +1292,13 @@ export default function LenhSXPage() {
       {/* Modal sửa timeline PI */}
       {editingPI && (
         <div onClick={() => { if (!savingPI) setEditingPI(null) }}
-          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000 }}>
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
           <div onClick={e => e.stopPropagation()}
-            style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding:28, width:560, maxWidth:'95vw', maxHeight:'90vh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
+            style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding: isMobile ? 16 : 28, width:560, maxWidth:'100%', maxHeight:'90dvh', overflowY:'auto', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
 
             {/* Header */}
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
-              <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
+              <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                 <CalendarClock size={16} color="#1976d2"/> Sửa thời hạn — <span style={{ fontFamily:'monospace' }}>{getDisplayCode(editingPI)}</span>
               </h3>
               <button onClick={() => setEditingPI(null)} disabled={savingPI}
@@ -1314,7 +1330,7 @@ export default function LenhSXPage() {
                 // đã chốt thật.
                 const isEstimate = (field: string) => !!est?.[field as keyof typeof est] && !editTouched.has(`${idx}:${field}`)
                 const dateInput = (label: string, field: string, opts?: { min?: string; max?: string }) => (
-                  <div style={{ flex:1 }}>
+                  <div style={{ flex:'1 1 110px', minWidth:0 }}>
                     <div style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:4 }}>{label}{isEstimate(field) && <span style={{ fontStyle:'italic' }}> (ước tính)</span>}</div>
                     <input type="date" value={vals[field as keyof typeof vals] ?? ''}
                       min={opts?.min || undefined} max={opts?.max || undefined}
@@ -1325,7 +1341,7 @@ export default function LenhSXPage() {
                 )
                 return (
                   <div key={idx} style={{ border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
-                    <div style={{ background:'var(--surface2)', padding:'7px 12px', display:'flex', alignItems:'center', gap:8 }}>
+                    <div style={{ background:'var(--surface2)', padding:'7px 12px', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                       <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1' }}>{code}</span>
                       {name && <span style={{ fontSize:12, color:'var(--text2)' }}>{name}</span>}
                       {qty != null && <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text3)', background:'var(--surface)', padding:'1px 8px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
@@ -1341,7 +1357,7 @@ export default function LenhSXPage() {
                       </div>
                       {/* Các công đoạn sản xuất (Khung cơ khí tách riêng bên dưới, kèm nút bật
                           Phôi/Hàn/Sơn) */}
-                      <div style={{ display:'flex', gap:8 }}>
+                      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
                         {dateInput('Mua hàng', 'materialDeadline')}
                         {dateInput('Đan',       'WEAVING')}
                         {dateInput('Đóng gói',  'PACKAGING')}
@@ -1359,10 +1375,11 @@ export default function LenhSXPage() {
                           </button>
                         </div>
                         {expandedFrame[idx] && (
-                          <div style={{ display:'flex', gap:8, marginTop:8, paddingLeft:12, borderLeft:'2px solid var(--border)' }}>
+                          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8, paddingLeft:12, borderLeft:'2px solid var(--border)' }}>
                             {SUB_STAGE_DEFS.map(({ field, label }) => (
-                              <div key={field}>{dateInput(label, field)}</div>
+                              <div key={field} style={{ flex:'1 1 110px', minWidth:0, display:'flex' }}>{dateInput(label, field)}</div>
                             ))}
+
                           </div>
                         )}
                       </div>

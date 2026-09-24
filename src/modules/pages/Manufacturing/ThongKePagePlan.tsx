@@ -3,6 +3,7 @@ import { format } from 'date-fns'
 import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Factory, PackageCheck, Search, ShoppingCart, Wrench, type LucideIcon } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import { useAuth } from '../../../context/AuthContext'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { errMsg } from '../../../utils/errors'
 import * as api from '../../../services/api'
 import { useInspection, type PurchaseProposal } from '../../../context/InspectionContext'
@@ -1015,8 +1016,10 @@ function MfgStageTracker({
       ? MFG_STAGES.findIndex(s => s.key === currentStage)
       : -1
 
+  // 5 bước × minWidth 64 không vừa điện thoại dọc - cho cuộn ngang thay vì ép chữ đè lên nhau.
   return (
-    <div style={{ display: 'flex', alignItems: 'center' }}>
+    <div style={{ overflowX: 'auto', paddingTop: 4 }}>
+    <div style={{ display: 'flex', alignItems: 'center', minWidth: 440 }}>
       {MFG_STAGES.map((stage, idx) => {
         const pct        = stagePercents?.[stage.key]
         const done        = allDone || (pct !== undefined ? pct >= 100 : idx < currentIdx)
@@ -1057,12 +1060,14 @@ function MfgStageTracker({
         )
       })}
     </div>
+    </div>
   )
 }
 
 // ─── Detail page ──────────────────────────────────────────────────────────────
 
 function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgOrder; details: StageDetails; onBack: () => void; pointLabel: (id: number) => string }) {
+  const isMobile  = useIsMobile()
   const allDone   = isAllDone(details)
   const isDone    = order.status === 'DONE' || allDone
   const isOverdue = isOrderOverdue(order.deadline, isDone)
@@ -1115,7 +1120,7 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: isMobile ? 14 : 20, flexWrap: 'wrap' }}>
         <button
           onClick={onBack}
           style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}
@@ -1128,11 +1133,11 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
       </div>
 
       {/* Header card */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 24px', marginBottom: 16 }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: isMobile ? 14 : '16px 24px', marginBottom: 16 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-          <div>
+          <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 20, color: '#1d4ed8', letterSpacing: '0.02em' }}>{order.code}</div>
+              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: isMobile ? 17 : 20, wordBreak: 'break-word', color: '#1d4ed8', letterSpacing: '0.02em' }}>{order.code}</div>
               <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, color: 'var(--text3)' }}>PI: {order.piCode}</div>
             </div>
             <div style={{ fontSize: 16, fontWeight: 700, marginTop: 6 }}>{order.productName}</div>
@@ -1155,7 +1160,7 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
       </div>
 
       {/* Production status */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 24px', marginBottom: 20 }}>
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: isMobile ? 14 : '16px 24px', marginBottom: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 14 }}>Trạng thái sản xuất</div>
 
         {isDone
@@ -1361,8 +1366,53 @@ function PiFloorSummary({ counts }: { counts: Record<FloorStage, number> }) {
   )
 }
 
+// Thẻ 1 dòng (PI hoặc SKU) thay cho dòng bảng trên điện thoại: tiêu đề + công đoạn hiện tại + lưới số liệu + chân thẻ.
+function MobileRowCard({ onClick, title, subtitle, stage, variance, meta, footer }: {
+  onClick: () => void
+  title: React.ReactNode
+  subtitle?: React.ReactNode
+  stage: { label: string; icon: React.ReactNode; pct: number }
+  variance?: boolean
+  meta: { label: string; value: React.ReactNode }[]
+  footer?: React.ReactNode
+}) {
+  return (
+    <div className="card" role="button" tabIndex={0} onClick={onClick}
+      onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
+      style={{ padding: '12px 14px', cursor: 'pointer' }}>
+      <div style={{ fontWeight: 700, fontSize: 14, wordBreak: 'break-word' }}>{title}</div>
+      {subtitle && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2, wordBreak: 'break-word' }}>{subtitle}</div>}
+      <div style={{ marginTop: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
+          {stage.icon} {stage.label}
+          {variance && <AlertTriangle size={12} color="var(--red)" />}
+        </div>
+        <ProgressBar value={stage.pct} max={100} />
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8, marginTop: 10, fontSize: 13 }}>
+        {meta.map(m => (
+          <div key={m.label} style={{ minWidth: 0 }}>
+            <div style={{ color: 'var(--text3)', fontSize: 10 }}>{m.label}</div>
+            <div style={{ wordBreak: 'break-word' }}>{m.value}</div>
+          </div>
+        ))}
+      </div>
+      {footer && <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>{footer}</div>}
+    </div>
+  )
+}
+
+function DeadlineText({ deadline, overdue, overdueLabel }: { deadline?: string; overdue: boolean; overdueLabel: string }) {
+  return (
+    <span style={{ color: overdue ? '#dc2626' : undefined, fontWeight: overdue ? 700 : undefined }}>
+      {deadline ? format(new Date(deadline), 'dd/MM/yyyy') : '—'}
+      {overdue && <span style={{ display: 'block', fontSize: 11 }}>{overdueLabel}</span>}
+    </span>
+  )
+}
 
 export default function ThongKePagePlan() {
+
   const { data: skusData, isLoading } = useFetch<Sku[]>(() => api.getSkus(), [])
   const { data: pisData, refetch: refetchPis } = useFetch<PIStatusRow[]>(() => api.getProductionInvoices(), [])
   const { data: weavingPointsData } = useFetch<WeavingPointLite[]>(() => (api as any).getWeavingPoints(), [])
@@ -1457,6 +1507,8 @@ export default function ThongKePagePlan() {
   // @RequireRole(BUSINESS_ROLES.PRODUCTION_MANAGER) ở BE production-orders.controller.ts).
   const { user } = useAuth()
   const canManageFloor = user?.mfgRole === 'PRODUCTION_MANAGER'
+  // Điện thoại (< 640px): thẻ thay bảng ở cả 2 lớp danh sách PI/SKU - cùng idiom Sales/Mua hàng.
+  const isMobile = useIsMobile()
   const [floorPending, setFloorPending] = useState<Set<string>>(new Set())
 
   // 4 hành động đều hỏi lại xác nhận trước khi gọi API (FLOOR_ACTION_CONFIRM, 2026-09-01) - bấm
@@ -1505,7 +1557,41 @@ export default function ThongKePagePlan() {
   }
 
   // Bảng SKU (lớp 2) - giữ nguyên các cột cũ của bảng thống kê theo SKU, nút Bắt đầu/Kết thúc (QLSX) nằm ở đây.
-  const renderSkuTable = (rows: { order: MfgOrder; details: StageDetails }[]) => (
+  const renderFloorCell = (o: MfgOrder) => (
+    <FloorStageCell
+      orderId={o.orderId}
+      floorStage={o.floorStage}
+      bomOutOfDate={o.bomOutOfDate}
+      canManage={canManageFloor}
+      pending={!!o.orderId && floorPending.has(o.orderId)}
+      onStart={() => o.orderId && handleFloorAction(o.orderId, 'start')}
+      onResume={() => o.orderId && handleFloorAction(o.orderId, 'resume')}
+      onPause={() => o.orderId && handleFloorAction(o.orderId, 'pause')}
+      onFinish={() => o.orderId && handleFloorAction(o.orderId, 'finish')}
+      onResync={() => o.orderId && handleResyncBom(o.orderId)}
+    />
+  )
+
+  const renderSkuTable = (rows: { order: MfgOrder; details: StageDetails }[]) => isMobile ? (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {rows.map(({ order: o, details }) => (
+        <MobileRowCard
+          key={o.id}
+          onClick={() => setSelectedId(o.id)}
+          title={o.productName || o.sku}
+          subtitle={o.sku}
+          stage={currentStageLabel(o, details)}
+          variance={o.hasVariance}
+          meta={[
+            { label: 'Mã PO', value: <span style={{ fontFamily: 'monospace' }}>{o.code}</span> },
+            { label: 'Khách hàng', value: o.customer },
+            { label: 'Hạn giao', value: <DeadlineText deadline={o.deadline} overdue={isOrderOverdue(o.deadline, o.status === 'DONE')} overdueLabel="Quá hạn" /> },
+          ]}
+          footer={renderFloorCell(o)}
+        />
+      ))}
+    </div>
+  ) : (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
         <thead>
@@ -1551,20 +1637,7 @@ export default function ThongKePagePlan() {
                   {o.deadline ? format(new Date(o.deadline), 'dd/MM/yyyy') : '—'}
                   {isOverdue && <div style={{ fontSize: 11, color: '#dc2626' }}>Quá hạn</div>}
                 </td>
-                <td style={td}>
-                  <FloorStageCell
-                    orderId={o.orderId}
-                    floorStage={o.floorStage}
-                    bomOutOfDate={o.bomOutOfDate}
-                    canManage={canManageFloor}
-                    pending={!!o.orderId && floorPending.has(o.orderId)}
-                    onStart={() => o.orderId && handleFloorAction(o.orderId, 'start')}
-                    onResume={() => o.orderId && handleFloorAction(o.orderId, 'resume')}
-                    onPause={() => o.orderId && handleFloorAction(o.orderId, 'pause')}
-                    onFinish={() => o.orderId && handleFloorAction(o.orderId, 'finish')}
-                    onResync={() => o.orderId && handleResyncBom(o.orderId)}
-                  />
-                </td>
+                <td style={td}>{renderFloorCell(o)}</td>
               </tr>
             )
           })}
@@ -1623,7 +1696,7 @@ export default function ThongKePagePlan() {
     return (
       <div>
         {failedBanner}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: isMobile ? 14 : 20, flexWrap: 'wrap' }}>
           <button
             onClick={() => setSelectedPiId(null)}
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}
@@ -1635,11 +1708,11 @@ export default function ThongKePagePlan() {
           <span style={{ fontSize: 13, color: 'var(--text3)' }}>Chi tiết PI</span>
         </div>
 
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 24px', marginBottom: 16 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: isMobile ? 14 : '16px 24px', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: 20, color: '#1d4ed8', letterSpacing: '0.02em' }}>{selectedPi.piCode}</div>
-              <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>{selectedPi.rows.length} SKU · PO: {selectedPi.poCodes}</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: isMobile ? 17 : 20, wordBreak: 'break-word', color: '#1d4ed8', letterSpacing: '0.02em' }}>{selectedPi.piCode}</div>
+              <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4, wordBreak: 'break-word' }}>{selectedPi.rows.length} SKU · PO: {selectedPi.poCodes}</div>
             </div>
             <span style={{ display: 'inline-block', padding: '5px 16px', borderRadius: 20, fontSize: 13, fontWeight: 700, background: piMeta.bg, color: piMeta.color, border: `1px solid ${piMeta.border}`, whiteSpace: 'nowrap' }}>
               {piMeta.label}
@@ -1655,7 +1728,7 @@ export default function ThongKePagePlan() {
           </div>
         </div>
 
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 24px', marginBottom: 20 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: isMobile ? 14 : '16px 24px', marginBottom: 20 }}>
           <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Tiến độ cả PI</div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: selectedPi.details.frame.phoiUnassignedDone > 0 ? 6 : 14 }}>Cộng dồn số lượng thật của {selectedPi.rows.length} SKU — bấm 1 SKU bên dưới để xem tiến độ riêng từng SKU.</div>
           {selectedPi.details.frame.phoiUnassignedDone > 0 && (
@@ -1688,7 +1761,7 @@ export default function ThongKePagePlan() {
 
       {/* Filter + Search */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {([['all', 'Tất cả'], ['PRODUCING', 'Đang sản xuất'], ['DONE', 'Hoàn thành']] as [FilterStatus, string][]).map(([key, label]) => (
             <button key={key} onClick={() => { setFilter(key); setPage(1) }}
               style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, borderRadius: 20, border: 'none', cursor: 'pointer',
@@ -1699,7 +1772,7 @@ export default function ThongKePagePlan() {
             </button>
           ))}
         </div>
-        <div style={{ position: 'relative', width: 280 }}>
+        <div style={{ position: 'relative', width: isMobile ? '100%' : 280 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
           <input
             type="text"
@@ -1711,7 +1784,30 @@ export default function ThongKePagePlan() {
         </div>
       </div>
 
-      {/* Table */}
+      {/* Table (thẻ trên điện thoại) */}
+      {isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {(isLoading || rowsLoading) ? (
+            <div className="card" style={{ padding: 30, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</div>
+          ) : filtered.length === 0 ? (
+            <div className="card" style={{ padding: 30, textAlign: 'center', color: 'var(--text3)' }}>Không có PI nào</div>
+          ) : pageItems.map(p => (
+            <MobileRowCard
+              key={p.piId}
+              onClick={() => setSelectedPiId(p.piId)}
+              title={<span style={{ fontFamily: 'monospace' }}>{p.piCode}</span>}
+              subtitle={p.rows.length + ' SKU · ' + p.customers}
+              stage={currentStageLabel(p.order, p.details)}
+              variance={p.rows.some(r => r.order.hasVariance)}
+              meta={[
+                { label: 'Mã PO', value: <span style={{ fontFamily: 'monospace' }}>{p.poCodes}</span> },
+                { label: 'Hạn giao sớm nhất', value: <DeadlineText deadline={p.deadline} overdue={p.overdue && p.order.status !== 'DONE'} overdueLabel="Có SKU quá hạn" /> },
+              ]}
+              footer={<PiFloorSummary counts={p.floorCounts} />}
+            />
+          ))}
+        </div>
+      ) : (
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
@@ -1771,6 +1867,7 @@ export default function ThongKePagePlan() {
           </tbody>
         </table>
       </div>
+      )}
 
       {!isLoading && filtered.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, fontSize: 12, color: 'var(--text3)' }}>

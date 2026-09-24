@@ -5,6 +5,30 @@ import { useAuth, type User } from '../context/AuthContext';
 import { loginUser } from '../services/api';
 import { useRouter } from 'next/navigation';
 import { Shield, Mail, Lock, Ship, ArrowRight, BookOpen } from 'lucide-react';
+import { useIsCompact, useIsMobile } from '../hooks/useMediaQuery';
+
+/** Logo + tên công ty - dùng ở cột thương hiệu (desktop) và đầu form (màn hẹp, khi cột thương hiệu bị ẩn). */
+function Brand() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div style={{
+        background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+        padding: 10, borderRadius: 12,
+        boxShadow: '0 8px 24px rgba(2, 132, 199, 0.4)',
+      }}>
+        <Ship size={24} color="#f8fafc" />
+      </div>
+      <div>
+        <h2 style={{ fontSize: 16, fontWeight: 800, margin: 0, letterSpacing: '0.05em', color: '#38bdf8' }}>
+          ĐÔNG NAM Á
+        </h2>
+        <p style={{ fontSize: 11, margin: 0, opacity: 0.8, color: '#94a3b8' }}>
+          EXPORT - IMPORT SERVICES
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -13,6 +37,11 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  // Màn hẹp (< 900px): ẩn cột ảnh thương hiệu, form chiếm toàn bộ chiều ngang (2 cột ở tablet dọc
+  // chỉ còn ~270px cho form). Điện thoại: chữ ô nhập 16px - dưới 16px iOS Safari tự zoom cả trang khi chạm.
+  const isCompact = useIsCompact();
+  const isMobile = useIsMobile();
+  const inputFontSize = isMobile ? 16 : 14;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,14 +68,18 @@ export default function LoginPage() {
   return (
     <div style={{
       display: 'flex',
-      height: '100vh',
-      width: '100vw',
-      overflow: 'hidden',
+      // dvh + cuộn dọc: bàn phím điện thoại bật lên không che/cắt mất nút Đăng nhập; '100%' thay 100vw
+      // để không lòi thanh cuộn ngang (100vw tính cả bề rộng thanh cuộn dọc).
+      minHeight: '100dvh',
+      width: '100%',
+      overflowX: 'hidden',
+      overflowY: 'auto',
       fontFamily: "'Outfit', 'Inter', sans-serif",
       background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
       color: '#f8fafc'
     }}>
-      {/* Cột trái: branding */}
+      {/* Cột trái: branding - ẩn trên màn hẹp, logo chuyển lên đầu form */}
+      {!isCompact && (
       <div style={{
         flex: 1.2,
         position: 'relative',
@@ -63,22 +96,8 @@ export default function LoginPage() {
           zIndex: 1,
         }} />
 
-        <div style={{ position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{
-            background: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
-            padding: 10, borderRadius: 12,
-            boxShadow: '0 8px 24px rgba(2, 132, 199, 0.4)',
-          }}>
-            <Ship size={24} color="#f8fafc" />
-          </div>
-          <div>
-            <h2 style={{ fontSize: 16, fontWeight: 800, margin: 0, letterSpacing: '0.05em', color: '#38bdf8' }}>
-              ĐÔNG NAM Á
-            </h2>
-            <p style={{ fontSize: 11, margin: 0, opacity: 0.8, color: '#94a3b8' }}>
-              EXPORT - IMPORT SERVICES
-            </p>
-          </div>
+        <div style={{ position: 'relative', zIndex: 2 }}>
+          <Brand />
         </div>
 
         <div style={{ position: 'relative', zIndex: 2, maxWidth: 500, marginBottom: 80 }}>
@@ -98,17 +117,28 @@ export default function LoginPage() {
           © 2026 Dong Nam A Co., Ltd. All rights reserved.
         </div>
       </div>
+      )}
 
       {/* Cột phải: form đăng nhập */}
       <div style={{
-        flex: 0.9, display: 'flex', flexDirection: 'column',
+        // Màn hẹp chỉ còn 1 cột: flex-grow 0.9 (< 1) chỉ chia 90% khoảng trống -> hở 1 dải bên phải.
+        flex: isCompact ? 1 : 0.9, display: 'flex', flexDirection: 'column',
         justifyContent: 'center', alignItems: 'center',
-        padding: '40px', backgroundColor: '#0f172a',
-        borderLeft: '1px solid #1e293b',
+        padding: isMobile ? '32px 20px' : '40px',
+        // Màn hẹp: nền ảnh thương hiệu phủ lớp tối đậm phía sau form để không mất hẳn nhận diện.
+        background: isCompact
+          ? 'linear-gradient(rgba(15, 23, 42, 0.92), rgba(15, 23, 42, 0.97)), url("/bg_loginPage.png") center/cover no-repeat'
+          : '#0f172a',
+        borderLeft: isCompact ? 'none' : '1px solid #1e293b',
       }}>
         <div style={{ width: '100%', maxWidth: 400 }}>
-          <div style={{ marginBottom: 32 }}>
-            <h3 style={{ fontSize: 28, fontWeight: 800, color: '#ffffff', margin: '0 0 8px 0' }}>Xin chào!</h3>
+          {isCompact && (
+            <div style={{ marginBottom: 36 }}>
+              <Brand />
+            </div>
+          )}
+          <div style={{ marginBottom: isMobile ? 24 : 32 }}>
+            <h3 style={{ fontSize: isMobile ? 24 : 28, fontWeight: 800, color: '#ffffff', margin: '0 0 8px 0' }}>Xin chào!</h3>
             <p style={{ fontSize: 14, color: '#64748b', margin: 0 }}>Đăng nhập để vào hệ thống vận hành.</p>
           </div>
 
@@ -134,13 +164,18 @@ export default function LoginPage() {
                 <input
                   type="text"
                   placeholder="Tên đăng nhập"
+                  // Bàn phím điện thoại mặc định viết hoa chữ đầu/tự sửa chính tả -> "Khsx" -> sai tên đăng nhập.
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  autoComplete="username"
                   value={username}
                   onChange={e => setUsername(e.target.value)}
                   disabled={loading}
                   style={{
                     width: '100%', padding: '14px 14px 14px 44px',
                     backgroundColor: '#1e293b', border: '1px solid #334155',
-                    borderRadius: 12, color: '#ffffff', fontSize: 14,
+                    borderRadius: 12, color: '#ffffff', fontSize: inputFontSize,
                     outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box',
                   }}
                   onFocus={e => { e.target.style.borderColor = '#0284c7'; e.target.style.boxShadow = '0 0 0 3px rgba(2, 132, 199, 0.2)'; }}
@@ -156,13 +191,15 @@ export default function LoginPage() {
                 <input
                   type="password"
                   placeholder="••••••••"
+                  autoComplete="current-password"
+
                   value={password}
                   onChange={e => setPassword(e.target.value)}
                   disabled={loading}
                   style={{
                     width: '100%', padding: '14px 14px 14px 44px',
                     backgroundColor: '#1e293b', border: '1px solid #334155',
-                    borderRadius: 12, color: '#ffffff', fontSize: 14,
+                    borderRadius: 12, color: '#ffffff', fontSize: inputFontSize,
                     outline: 'none', transition: 'all 0.2s ease', boxSizing: 'border-box',
                   }}
                   onFocus={e => { e.target.style.borderColor = '#0284c7'; e.target.style.boxShadow = '0 0 0 3px rgba(2, 132, 199, 0.2)'; }}
@@ -220,6 +257,12 @@ export default function LoginPage() {
             <BookOpen size={16} />
             <span>Xem hướng dẫn sử dụng</span>
           </a>
+
+          {isCompact && (
+            <div style={{ marginTop: 32, textAlign: 'center', fontSize: 12, color: '#64748b' }}>
+              © 2026 Dong Nam A Co., Ltd. All rights reserved.
+            </div>
+          )}
         </div>
       </div>
 

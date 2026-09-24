@@ -32,6 +32,7 @@ import {
   type StockLengthsByMaterial,
 } from '../../../services/cutting-batch-api'
 import { errMsg } from '../../../utils/errors'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 /**
  * 2 tình huống cắt KHSX chọn cho đợt sắp tạo. Đặt tên theo NGHIỆP VỤ chứ không theo tham số kỹ
@@ -194,6 +195,8 @@ export default function GomDotCatPage({ onDone }: Props) {
   // tưởng có việc phải điền. Mở ra mới sửa được - cũng chặn luôn việc lỡ tay đổi lúc cuộn/tab,
   // mà đổi chiều dài thì TÍNH LẠI CẢ BẢNG chứ không phải thay đổi vặt.
   const [lenOpen, setLenOpen] = useState(false)
+  // Điện thoại: bảng ứng viên 7 cột (minWidth 760) đổi thành thẻ - chạm cả thẻ để tick/bỏ tick.
+  const isMobile = useIsMobile()
   // "Thời gian chạy tối đa" (2026-09-22 → BỎ Ô NHẬP 2026-09-23): ban đầu là ô KHSX tự gõ, sau đó
   // thử auto-suggest + giấu vào "Cài đặt nâng cao" - người dùng chốt lại: "KHSX không cần biết
   // tốn bao lâu, miễn cho kết quả tốt nhất". Không còn field/state nào ở FE cho việc này nữa - xem
@@ -464,6 +467,35 @@ export default function GomDotCatPage({ onDone }: Props) {
     return lengths || timeLimit ? { ...lengths, ...timeLimit } : undefined
   }
 
+  // Chip hao hụt từng loại sắt + gợi ý "gộp với ai" - dùng chung cho bảng (desktop) và thẻ (điện thoại).
+  const materialsCell = (it: CuttingBatchCandidate) => (
+    !it.hasActiveBom ? (
+      <span style={{ fontSize: 12, color: '#b45309' }}>
+        Chưa có định mức đang áp dụng — không tính được
+      </span>
+    ) : (
+      <>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+          {it.materials.map((m) => (
+            <MaterialChip key={m.materialId} code={m.materialCode} pct={m.standaloneWastePct} over={m.overThreshold} minBars={m.standaloneMinBars} stockLengthMm={m.stockLengthMm} verified={m.verified} verifiedLengthSource={m.verifiedLengthSource} thresholdPct={m.thresholdPct} />
+          ))}
+        </div>
+        {/* Chỉ gợi ý cho loại VƯỢT ngưỡng - loại đang đạt thì không cần gộp,
+            hiện thêm chỉ làm loãng. Đây là câu trả lời sẵn cho "gộp với ai",
+            thay vì bắt KHSX tự quét cả bảng tìm SKU cùng loại sắt. */}
+        {it.materials.filter((m) => m.overThreshold).map((m) => (
+          <div key={m.materialId} style={{ fontSize: 11, marginTop: 4, color: m.mergeableWithSkus.length ? 'var(--text2)' : '#b45309' }}>
+            {m.mergeableWithSkus.length > 0 ? (
+              <>↳ <b>{m.materialCode}</b> gộp được với: <b>{m.mergeableWithSkus.join(', ')}</b></>
+            ) : (
+              <>↳ <b>{m.materialCode}</b> — không SKU nào khác dùng, gộp không cứu được</>
+            )}
+          </div>
+        ))}
+      </>
+    )
+  )
+
   const cutModePanel = (
     <div style={{ width: '100%' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
@@ -531,8 +563,9 @@ export default function GomDotCatPage({ onDone }: Props) {
 
           {cutMode === 'ACCEPT_OVER' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '9px 11px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 'var(--radius)' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--text2)' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--text2)' }}>
                 Chấp nhận hao hụt tới
+
                 <input
                   value={wastePct}
                   onChange={(e) => setWastePct(e.target.value)}
@@ -727,6 +760,56 @@ export default function GomDotCatPage({ onDone }: Props) {
             </div>
           )}
 
+          {isMobile ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {items.map((it: CuttingBatchCandidate) => {
+                const isSel = selected.has(it.productionInvoiceItemId)
+                return (
+                  <div
+                    key={it.productionInvoiceItemId}
+                    onClick={() => toggle(it.productionInvoiceItemId)}
+                    className="card"
+                    style={{ padding: '11px 12px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start', background: isSel ? '#f0fdf4' : undefined, borderColor: isSel ? '#86efac' : undefined }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSel}
+                      onChange={() => toggle(it.productionInvoiceItemId)}
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label={`Chọn ${it.mfgProductCode}`}
+                      style={{ width: 18, height: 18, marginTop: 1, flexShrink: 0, cursor: 'pointer' }}
+                    />
+                    <div style={{ flex: 1, minWidth: 0, fontSize: 13 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <b style={{ wordBreak: 'break-word' }}>{it.mfgProductCode}</b>
+                        {recommended.has(it.productionInvoiceItemId) && (
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: '#dbeafe', color: '#1e40af' }}>ĐỀ XUẤT</span>
+                        )}
+                        <span style={{ marginLeft: 'auto', fontVariantNumeric: 'tabular-nums', color: 'var(--text2)' }}>SL {it.quantity}</span>
+                      </div>
+                      {it.mfgProductName && <div style={{ color: 'var(--text2)', marginTop: 2, wordBreak: 'break-word' }}>{it.mfgProductName}</div>}
+                      <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <span>{it.salesOrderCode ?? it.productionInvoiceCode ?? '—'}{approvalLabel(it.prodApprovalStatus) && ` · ${approvalLabel(it.prodApprovalStatus)}`}</span>
+                        <span>Hạn {fmtDate(it.deadline)}</span>
+                        {isSel && selected.size >= 2 && daysEarlyOf(it) > 0 && (
+                          <span style={{ color: '#b45309' }}>sớm {daysEarlyOf(it)} ngày</span>
+                        )}
+                      </div>
+                      {it.rejectReason && (
+                        <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 4, display: 'flex', gap: 4, alignItems: 'flex-start' }}>
+                          <AlertTriangle size={11} style={{ flexShrink: 0, marginTop: 1 }} />
+                          <span>Bị từ chối: {it.rejectReason}</span>
+                        </div>
+                      )}
+                      <div style={{ marginTop: 8 }}>
+                        {materialsCell(it)}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
               <thead>
@@ -794,31 +877,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                         )}
                       </td>
                       <td style={TD}>
-                        {!it.hasActiveBom ? (
-                          <span style={{ fontSize: 12, color: '#b45309' }}>
-                            Chưa có định mức đang áp dụng — không tính được
-                          </span>
-                        ) : (
-                          <>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                              {it.materials.map((m) => (
-                                <MaterialChip key={m.materialId} code={m.materialCode} pct={m.standaloneWastePct} over={m.overThreshold} minBars={m.standaloneMinBars} stockLengthMm={m.stockLengthMm} verified={m.verified} verifiedLengthSource={m.verifiedLengthSource} thresholdPct={m.thresholdPct} />
-                              ))}
-                            </div>
-                            {/* Chỉ gợi ý cho loại VƯỢT ngưỡng - loại đang đạt thì không cần gộp,
-                                hiện thêm chỉ làm loãng. Đây là câu trả lời sẵn cho "gộp với ai",
-                                thay vì bắt KHSX tự quét cả bảng tìm SKU cùng loại sắt. */}
-                            {it.materials.filter((m) => m.overThreshold).map((m) => (
-                              <div key={m.materialId} style={{ fontSize: 11, marginTop: 4, color: m.mergeableWithSkus.length ? 'var(--text2)' : '#b45309' }}>
-                                {m.mergeableWithSkus.length > 0 ? (
-                                  <>↳ <b>{m.materialCode}</b> gộp được với: <b>{m.mergeableWithSkus.join(', ')}</b></>
-                                ) : (
-                                  <>↳ <b>{m.materialCode}</b> — không SKU nào khác dùng, gộp không cứu được</>
-                                )}
-                              </div>
-                            ))}
-                          </>
-                        )}
+                        {materialsCell(it)}
                       </td>
                     </tr>
                   )
@@ -826,13 +885,14 @@ export default function GomDotCatPage({ onDone }: Props) {
               </tbody>
             </table>
           </div>
+          )}
         </>
       )}
 
       {selected.size >= 2 && (
         <div style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
           <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <b style={{ fontSize: 14, flex: 1 }}>Nếu gộp {selected.size} SKU đã chọn</b>
+            <b style={{ fontSize: 14, flex: '1 1 auto' }}>Nếu gộp {selected.size} SKU đã chọn</b>
             {previewing && <Loader2 size={15} className="spin" color="var(--text3)" />}
             {preview && (
               <>
@@ -879,7 +939,7 @@ export default function GomDotCatPage({ onDone }: Props) {
 
           {preview && sharedLines.length > 0 && (
             <div style={{ overflow: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isMobile ? 0 : 720 }}>
                 <thead>
                   <tr>
                     <th style={TH}>Loại sắt</th>
@@ -944,7 +1004,8 @@ export default function GomDotCatPage({ onDone }: Props) {
               style={{
                 padding: '8px 16px', border: 'none', borderRadius: 'var(--radius)', fontSize: 13,
                 fontWeight: 600, color: '#fff', background: '#2e7d32',
-                display: 'inline-flex', alignItems: 'center', gap: 7,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+                width: isMobile ? '100%' : undefined,
                 cursor: previewing || !preview || merging || overrideInvalid ? 'not-allowed' : 'pointer',
                 opacity: previewing || !preview || merging || overrideInvalid ? 0.5 : 1,
               }}
@@ -961,7 +1022,7 @@ export default function GomDotCatPage({ onDone }: Props) {
           vì không có gì để so sánh. */}
       {selected.size === 1 && (
         <div style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, fontSize: 12.5, color: 'var(--text2)', minWidth: 260 }}>
+          <div style={{ flex: 1, fontSize: 12.5, color: 'var(--text2)', minWidth: isMobile ? 0 : 260 }}>
             Chọn 1 SKU thì không có gì để gộp — SKU này cắt riêng như bình thường. Chọn thêm ít nhất
             một SKU nữa (dùng chung loại sắt) mới bớt được cây.
           </div>
@@ -969,7 +1030,7 @@ export default function GomDotCatPage({ onDone }: Props) {
           <button
             onClick={handleClaimSolo}
             disabled={merging || overrideInvalid}
-            style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', cursor: merging || overrideInvalid ? 'not-allowed' : 'pointer', opacity: merging || overrideInvalid ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', gap: 7, flexShrink: 0 }}
+            style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', cursor: merging || overrideInvalid ? 'not-allowed' : 'pointer', opacity: merging || overrideInvalid ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, flexShrink: 0, width: isMobile ? '100%' : undefined }}
           >
             {merging && <Loader2 size={14} className="spin" />}
             Tạo lệnh sản xuất riêng cho SKU này

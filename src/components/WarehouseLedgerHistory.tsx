@@ -152,7 +152,7 @@ export default function WarehouseLedgerHistory({ warehouseId, warehouseCode }: {
         display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14, padding: '10px 14px',
         background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, flexWrap: 'wrap',
       }}>
-        <div style={{ display: 'flex', gap: 4 }}>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
           {DIR_OPTIONS.map(o => {
             const active = dir === o.value
             return (
@@ -164,7 +164,7 @@ export default function WarehouseLedgerHistory({ warehouseId, warehouseCode }: {
             )
           })}
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {hasFilter && (
             <button onClick={() => { setDir('ALL'); setDateFrom(''); setDateTo('') }}
               style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: '#dc2626', cursor: 'pointer' }}>
@@ -173,10 +173,12 @@ export default function WarehouseLedgerHistory({ warehouseId, warehouseCode }: {
           )}
           <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600 }}>Từ ngày</span>
           <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
-            style={{ padding: '5px 8px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text)' }} />
+            style={{ padding: '5px 8px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text)', width: 'auto', minWidth: 0, flex: '1 1 120px' }} />
+
           <span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600 }}>đến</span>
           <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
-            style={{ padding: '5px 8px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text)' }} />
+            style={{ padding: '5px 8px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text)', width: 'auto', minWidth: 0, flex: '1 1 120px' }} />
+
         </div>
       </div>
 

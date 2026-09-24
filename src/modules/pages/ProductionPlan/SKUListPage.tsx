@@ -4,11 +4,12 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { Trash2 } from 'lucide-react'
 import type { Sku } from '../../../types/sku'
-import { SKUDetail, StatusBadge, STATUS_MAP } from './SKUDetail'
+import { SKUDetail, SkuMobileCard, StatusBadge, STATUS_MAP } from './SKUDetail'
 import SearchInput from '../../../components/SearchInput'
 import FilterPills from '../../../components/FilterPills'
 import LoadingState from '../../../components/LoadingState'
 import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 type StatusFilter = 'all' | 'IN_PROGRESS' | 'WAITING_BOSS_APPROVAL' | 'APPROVED'
 
@@ -29,6 +30,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
   const [deleting, setDeleting] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
+  const isMobile = useIsMobile()
 
   // Show all non-DRAFT items, trừ Sku sinh tự động khi PM "xác nhận sản xuất" (LenhSXPage) —
   // đó không phải SKU do KHSX tạo/quản lý, chỉ phục vụ "Lệnh kiểm tra vật tư".
@@ -80,7 +82,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
   return (
     <div>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: isMobile ? 14 : 24 }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh sách SKU</h2>
         </div>
@@ -123,7 +125,28 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
 
       {isLoading ? (
         <LoadingState />
+      ) : isMobile ? (
+        // Điện thoại: thẻ thay bảng (cùng idiom Sales/Mua hàng) - chế độ xoá thì chạm thẻ để chọn.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {deleteMode && displayed.length > 0 && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text2)' }}>
+              <input type="checkbox" checked={allChecked} ref={el => { if (el) el.indeterminate = someChecked }} onChange={toggleAll} style={{ width: 16, height: 16 }} />
+              Chọn tất cả ({displayed.length})
+            </label>
+          )}
+          {displayed.map(pf => (
+            <SkuMobileCard key={pf.id} pf={pf} selectable={deleteMode} checked={selectedIds.has(pf.id)}
+              onClick={() => deleteMode ? toggleSelect(pf.id) : setSelectedPf(pf)} />
+          ))}
+
+          {displayed.length === 0 && (
+            <div className="card" style={{ padding: 30, textAlign: 'center', color: 'var(--text3)' }}>
+              {q ? 'Không tìm thấy kết quả' : 'Chưa có SKU nào'}
+            </div>
+          )}
+        </div>
       ) : (
+
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>

@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, ClipboardCheck, Box, CalendarClock, Wrench, Flame, SprayCan, Check, Frame, Layers, Play, PackageCheck, Ruler } from 'lucide-react'
+import { ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, ClipboardCheck, Box, CalendarClock, Wrench, Flame, SprayCan, Check, Frame, Layers, Play, PackageCheck, Ruler, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
+import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import SpecSteelPage from './SpecSteelPage'
 import SpecDetailQuotaPage from './SpecDetailQuotaPage'
@@ -68,9 +69,10 @@ const SPEC_ICON = {
   box: <Box size={16} />,
 } as const
 
-const navBtnStyle = (active: boolean): React.CSSProperties => ({
+// compact: drawer trên màn hẹp - nút cao hơn cho dễ chạm.
+const navBtnStyle = (active: boolean, compact = false): React.CSSProperties => ({
   display: 'flex', alignItems: 'center', gap: 9, width: '100%',
-  padding: '8px 10px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
+  padding: compact ? '11px 10px' : '8px 10px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
   background: active ? '#fff3e0' : 'transparent',
   color: active ? '#e65100' : 'var(--text2)',
   fontWeight: active ? 600 : 400,
@@ -106,7 +108,13 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   else if (isKcs)                initialTab = 'kcs-phoi'
   else if (isSpecRole) initialTab = 'setup'
 
-  const [tab, setTab] = useState<TabId>(initialTab)
+  const [tab, setTabState] = useState<TabId>(initialTab)
+  // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ - cùng idiom SalesApp/PurchasingApp/ProductionPlanApp.
+  const isCompact = useIsCompact()
+  const isMobile = useIsMobile()
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  // Đổi tab (kể cả nhảy tab từ trang con, vd "Xem hướng dẫn cắt") luôn đóng drawer.
+  const setTab = (id: TabId) => { setTabState(id); setDrawerOpen(false) }
   // Một state duy nhất cho tất cả SPEC role sub-tabs — mặc định = mục đầu tiên của role
   const [setupSubTab, setSetupSubTab] = useState<SetupSubTab>(
     () => (user?.mfgRole && SPEC_SETUP_ITEMS[user.mfgRole]?.[0]?.id) || 'dinh-muc'
@@ -145,11 +153,11 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isSpecRole ? [{ id: 'setup' as TabId, label: 'Quản lý định mức', icon: <Settings size={16} /> }] : []),
   ]
 
-  return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      {/* ── Sidebar ────────────────────────────────────────────────────── */}
+  const appTitle = user?.mfgRole === 'SPEC_STEEL' || user?.mfgRole === 'SPEC_ACCESSORY' ? 'Quản lý định mức' : 'Sản xuất MES'
+
+  const sidebar = (
       <div style={{
-        width: 210, flexShrink: 0, background: 'var(--surface)', borderRight: '1px solid var(--border)',
+        width: 210, flexShrink: 0, height: '100%', background: 'var(--surface)', borderRight: '1px solid var(--border)',
         display: 'flex', flexDirection: 'column',
       }}>
         <div style={{ padding: '16px 16px 12px' }}>
@@ -163,9 +171,12 @@ export default function MfgApp({ onBack }: MfgAppProps) {
                 <Grid size={16} color="var(--text)" />
               </button>
             )}
-            <div style={{ fontWeight: 700, fontSize: 14 }}>
-              {user?.mfgRole === 'SPEC_STEEL' || user?.mfgRole === 'SPEC_ACCESSORY' ? 'Quản lý định mức' : 'Sản xuất MES'}
-            </div>
+            <div style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>{appTitle}</div>
+            {isCompact && (
+              <button onClick={() => setDrawerOpen(false)} aria-label="Đóng menu" style={{ padding: 4, background: 'transparent', border: 'none', display: 'flex' }}>
+                <X size={18} />
+              </button>
+            )}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text3)' }}>
             {user?.mfgRole === 'SPEC_STEEL' ? 'Định mức mảnh'
@@ -174,7 +185,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
           </div>
         </div>
 
-        <nav style={{ flex: 1, padding: '4px 8px' }}>
+        <nav style={{ flex: 1, padding: '4px 8px', overflowY: 'auto' }}>
           {TABS.map(t => {
             const active = tab === t.id
 
@@ -189,7 +200,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
                     return (
                       <button key={s.id}
                         onClick={() => { setTab('setup'); setSetupSubTab(s.id) }}
-                        style={navBtnStyle(subActive)}
+                        style={navBtnStyle(subActive, isCompact)}
                         onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
                         onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
                       >{SPEC_ICON[s.icon]}{s.label}</button>
@@ -203,7 +214,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
-                style={navBtnStyle(active)}
+                style={navBtnStyle(active, isCompact)}
                 onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
               >
@@ -217,15 +228,15 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
-              width: 28, height: 28, borderRadius: '50%',
+              width: 28, height: 28, flexShrink: 0, borderRadius: '50%',
               background: '#fff3e0', color: '#e65100',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 11, fontWeight: 700,
             }}>
               {user?.name.split(' ').pop()?.substring(0, 2).toUpperCase()}
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 600 }}>{user?.name}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
               <div style={{ fontSize: 10, color: 'var(--text3)' }}>{roleLabel}</div>
             </div>
             <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất">
@@ -235,8 +246,11 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         </div>
       </div>
 
-      {/* ── Main content ───────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
+  )
+
+  // ── Main content ───────────────────────────────────────────────────────
+  const content = (
+      <>
         {tab === 'lenh-sx' && (isDirector || isProdMgr) && <LenhSXPage />}
         {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePagePlan />}
         {tab === 'phoi-xac-nhan-nhan-sat' && (isPhoi || isDirector) && <XacNhanNhanSatPage readOnly={isDirector} />}
@@ -258,7 +272,41 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'warehouses' && canSeeWarehouses && <MfgWarehousesPage />}
         {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL' && <SpecSteelPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
         {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && <SpecDetailQuotaPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
+      </>
+  )
+
+  if (!isCompact) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+        {sidebar}
+        <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: '20px 24px' }}>{content}</div>
       </div>
+    )
+  }
+
+  // Nhãn thanh trên: vai Định mức hiện mục con đang mở, các vai khác hiện tên tab.
+  const specItem = tab === 'setup' && user?.mfgRole ? SPEC_SETUP_ITEMS[user.mfgRole]?.find(s => s.id === setupSubTab) : undefined
+  const activeLabel = specItem?.label ?? TABS.find(t => t.id === tab)?.label
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        <button onClick={() => setDrawerOpen(true)} aria-label="Mở menu" style={{ padding: 6, background: 'transparent', border: 'none', display: 'flex' }}>
+          <Menu size={20} />
+        </button>
+        <div style={{ fontWeight: 700, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {appTitle} {activeLabel && <span style={{ color: 'var(--text3)', fontWeight: 400 }}>· {activeLabel}</span>}
+        </div>
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: isMobile ? '14px 12px 80px' : '18px 20px 80px' }}>{content}</div>
+
+      {drawerOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex' }}>
+          <div onClick={() => setDrawerOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.4)' }} />
+          <div style={{ position: 'relative', height: '100%', boxShadow: '4px 0 20px rgba(0,0,0,.15)' }}>{sidebar}</div>
+        </div>
+      )}
     </div>
   )
 }
+

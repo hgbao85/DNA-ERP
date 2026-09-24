@@ -8,6 +8,7 @@ import type { BeMaterial } from '../../../services/materials-api'
 import type { BeWarehouse } from '../../../services/warehouses-api'
 import type { BeStockQuant } from '../../../services/stock-api'
 import { warehouseFamilyOf } from '../../../utils/warehouseFamily'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 const UNGROUPED = '__ungrouped__'
 
@@ -177,6 +178,7 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
   const [filterGroup, setFilterGroup] = useState('all')
   const [q, setQ] = useState('')
   const [selected, setSelected] = useState<DisplayRow | null>(null)
+  const isMobile = useIsMobile()
 
   const filtered = materialsInScope.filter(m => {
     const matchGroup = filterGroup === 'all' || groupKeyOf(m) === filterGroup
@@ -240,7 +242,7 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
             </button>
           ))}
         </div>
-        <div style={{ position: 'relative', width: 280 }}>
+        <div style={{ position: 'relative', width: isMobile ? '100%' : 280 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
           <input
             value={q}
@@ -259,9 +261,43 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
         <div style={{ padding: 32, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
           Không xác định được kho &quot;{warehouseCode}&quot;
         </div>
+      ) : isMobile ? (
+        // Điện thoại: thẻ thay bảng - chạm thẻ mở cùng khung chi tiết như bấm dòng bảng.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {displayRows.map(row => {
+            const m = row.material
+            const meta = colorFor(groupKeyOf(m))
+            return (
+              <div key={row.key} className="card" onClick={() => setSelected(row)} style={{ padding: '11px 13px', cursor: 'pointer' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>{m.name}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2, wordBreak: 'break-word' }}>
+                      {[m.code, m.spec, m.unit].filter(Boolean).join(' · ')}
+                      {showLengthColumn && row.stockLengthMm ? ` · ${row.stockLengthMm.toLocaleString('vi-VN')} mm` : ''}
+                    </div>
+                  </div>
+                  <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, color: meta.color, background: meta.bg, whiteSpace: 'nowrap' }}>
+                    {m.materialGroupName ?? 'Chưa phân nhóm'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 13, flexWrap: 'wrap' }}>
+                  {!warehouseCode && <span style={{ color: 'var(--text2)', flex: '1 1 auto', minWidth: 0 }}>{m.warehouseName ?? '—'}</span>}
+                  <span style={{ marginLeft: 'auto' }}><span style={{ color: 'var(--text3)', fontSize: 11 }}>Tồn </span><b>{row.qty != null ? row.qty.toLocaleString('vi-VN') : '—'}</b></span>
+                  <span><span style={{ color: 'var(--text3)', fontSize: 11 }}>Khả dụng </span><b style={{ color: row.availableQty != null && row.availableQty <= 0 ? '#c62828' : '#2563eb' }}>{row.availableQty != null ? row.availableQty.toLocaleString('vi-VN') : '—'}</b></span>
+                </div>
+              </div>
+            )
+          })}
+          {displayRows.length === 0 && (
+            <div className="card" style={{ padding: 30, textAlign: 'center', color: 'var(--text3)' }}>
+              {q.trim() || filterGroup !== 'all' ? 'Không tìm thấy vật tư phù hợp' : 'Không có vật tư nào'}
+            </div>
+          )}
+        </div>
       ) : (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 780, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
               <col style={{ width: 100 }} />
               <col />
@@ -336,7 +372,8 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.35)', zIndex: 1000, display: 'flex', alignItems: 'stretch', justifyContent: 'flex-end' }}
           onClick={e => { if (e.target === e.currentTarget) setSelected(null) }}
         >
-          <div style={{ background: 'var(--surface)', width: 360, overflow: 'auto', padding: 24, boxShadow: '-4px 0 32px rgba(0,0,0,.14)' }}>
+          <div style={{ background: 'var(--surface)', width: 360, maxWidth: '100%', overflow: 'auto', padding: isMobile ? 18 : 24,
+ boxShadow: '-4px 0 32px rgba(0,0,0,.14)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <span style={{
                 display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20,

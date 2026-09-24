@@ -56,14 +56,14 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
         </button>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
         {p.icon && (
           <div style={{ width: 34, height: 34, borderRadius: 'var(--radius)', background: '#fff3e0', color: '#e65100', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {p.icon}
           </div>
         )}
-        <div>
-          <h2 style={{ fontSize: 19, fontWeight: 800 }}>{p.title}</h2>
+        <div style={{ flex: '1 1 220px', minWidth: 0 }}>
+          <h2 style={{ fontSize: 'clamp(16px, 4.5vw, 19px)', fontWeight: 800 }}>{p.title}</h2>
           {p.subtitle && <div style={{ fontSize: 12, color: 'var(--text3)' }}>{p.subtitle}</div>}
         </div>
         {p.headerRight && <div style={{ marginLeft: 'auto' }}>{p.headerRight}</div>}
@@ -113,10 +113,11 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
   )
 }
 
-const tbl: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fontSize: 13 }
+// minWidth: dưới khổ này khung overflowX cuộn ngang thay vì bóp cột tới mức chữ vỡ từng từ (điện thoại).
+const tbl: React.CSSProperties = { width: '100%', minWidth: 640, borderCollapse: 'collapse', fontSize: 13 }
 const trh: React.CSSProperties = { background: 'var(--surface2)', textAlign: 'left' }
 const trb: React.CSSProperties = { borderTop: '1px solid var(--border)', transition: 'background .1s' }
-const th: React.CSSProperties = { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
+const th: React.CSSProperties = { padding: '10px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
 const td: React.CSSProperties = { padding: '10px 12px', color: 'var(--text)' }
 const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
