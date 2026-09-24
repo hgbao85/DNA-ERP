@@ -3,12 +3,14 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { Plus, Pencil, Trash2, X } from 'lucide-react'
 import type { SalesCustomer, SalesOrder } from '../../../types/sales'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 const EMPTY_FORM = { name: '', phone: '', email: '', address: '', note: '' }
 
-// Chỉ tính SKU đã hoàn thành — số lượng đang sản xuất/đang mua không tính vào đây
-const purchasedQty = (pos: SalesOrder[]) =>
-  pos.reduce((sum, po) => sum + po.items.filter((it) => it.status === 'HOAN_THANH').reduce((s, it) => s + it.totalQty, 0), 0)
+// Số PO đã hoàn thành trọn vẹn: MỌI SKU trong PO đều HOAN_THANH mới tính 1 (quyết định 24/09).
+// Trước đây cộng totalQty của các SKU đã xong - ra số sản phẩm, lệch với tên cột "Tổng PO đã mua".
+const completedPoCount = (pos: SalesOrder[]) =>
+  pos.filter((po) => po.items.length > 0 && po.items.every((it) => it.status === 'HOAN_THANH')).length
 
 export default function CustomerManagementPage() {
   const { data: customers, isLoading, error, refetch } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers())
@@ -16,6 +18,7 @@ export default function CustomerManagementPage() {
   const [modal, setModal] = useState<'new' | SalesCustomer | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
+  const isMobile = useIsMobile()
 
   const openNew = () => { setForm(EMPTY_FORM); setModal('new') }
   const openEdit = (c: SalesCustomer) => {
@@ -53,7 +56,7 @@ export default function CustomerManagementPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: isMobile ? 14 : 20 }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 18 }}>Quản lí khách hàng</div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{customers?.length ?? 0} khách hàng</div>
@@ -63,6 +66,36 @@ export default function CustomerManagementPage() {
         </button>
       </div>
 
+      {isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {(customers ?? []).map((c) => (
+            <div key={c.id} className="card" style={{ padding: '12px 14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, wordBreak: 'break-word' }}>{c.name}</div>
+                  <div style={{ fontSize: 13, marginTop: 2 }}>{c.phone}</div>
+                </div>
+                <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                  <button onClick={() => openEdit(c)} aria-label="Sửa khách hàng" style={{ padding: 8, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
+                    <Pencil size={14} />
+                  </button>
+                  <button onClick={() => handleDelete(c.id)} aria-label="Xoá khách hàng" style={{ padding: 8, border: '1px solid #fca5a5', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#E24B4A' }}>
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 8, fontSize: 12, color: 'var(--text2)', wordBreak: 'break-word' }}>
+                {c.email && <span>{c.email}</span>}
+                {c.address && <span>{c.address}</span>}
+                <span>Tổng PO đã mua: <b style={{ color: 'var(--text)' }}>{completedPoCount((pos ?? []).filter((p) => p.customerId === String(c.id))).toLocaleString()}</b></span>
+              </div>
+            </div>
+          ))}
+          {(customers ?? []).length === 0 && (
+            <div className="card" style={{ padding: 20, textAlign: 'center', color: 'var(--text3)' }}>Chưa có khách hàng nào</div>
+          )}
+        </div>
+      ) : (
       <div className="card" style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
@@ -80,7 +113,7 @@ export default function CustomerManagementPage() {
                 <td style={{ padding: '10px 12px', fontSize: 13 }}>{c.email || '—'}</td>
                 <td style={{ padding: '10px 12px', fontSize: 13 }}>{c.address || '—'}</td>
                 <td style={{ padding: '10px 12px', fontSize: 13, fontWeight: 600 }}>
-                  {purchasedQty((pos ?? []).filter((p) => p.customerId === String(c.id))).toLocaleString()}
+                  {completedPoCount((pos ?? []).filter((p) => p.customerId === String(c.id))).toLocaleString()}
                 </td>
                 <td style={{ padding: '10px 12px' }}>
                   <div style={{ display: 'flex', gap: 6 }}>
@@ -100,10 +133,11 @@ export default function CustomerManagementPage() {
           </tbody>
         </table>
       </div>
+      )}
 
       {modal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 10, width: 480, maxHeight: '90vh', overflowY: 'auto', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: isMobile ? 12 : 0 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 10, width: 480, maxWidth: '100%', maxHeight: '90dvh', overflowY: 'auto', padding: isMobile ? 16 : 28, boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>{modal === 'new' ? 'Thêm khách hàng mới' : 'Cập nhật khách hàng'}</div>
               <button onClick={() => setModal(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={18} /></button>

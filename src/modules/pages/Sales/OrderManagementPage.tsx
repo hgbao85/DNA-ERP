@@ -10,6 +10,8 @@ import { SALES_ORDER_STATUS_LABEL, SALES_PRODUCTION_STAGES } from '../../../type
 import type { Sku } from '../../../types/sku'
 import { StatusBadge } from './StatusBadge'
 import SearchableSelect from '../../../components/SearchableSelect'
+import DatePicker from '../../../components/DatePicker'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 const fmtMoney = (n: number) => n.toLocaleString('vi-VN')
 
@@ -39,6 +41,7 @@ export default function OrderManagementPage() {
   const [form, setForm] = useState<FormState>(emptyForm())
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const isMobile = useIsMobile()
 
   // SKU đã duyệt (danh sách SKU của productplan@demo.com) — nguồn chọn SKU khi tạo PO
   const skuOptions = (() => {
@@ -138,7 +141,7 @@ export default function OrderManagementPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: isMobile ? 14 : 20 }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 18 }}>Quản lí đơn hàng</div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{pos?.length ?? 0} PO</div>
@@ -148,12 +151,51 @@ export default function OrderManagementPage() {
         </button>
       </div>
 
+      {isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {(pos ?? []).map((po) => {
+            const totalQty = po.items.reduce((s, it) => s + it.totalQty, 0)
+            const doneCount = po.items.filter((it) => it.status === 'HOAN_THANH').length
+            const notDoneCount = po.items.length - doneCount
+            return (
+              <div key={po.id} className="card" onClick={() => setDetailPO(po)} style={{ cursor: 'pointer', padding: '12px 14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, color: 'var(--blue)', wordBreak: 'break-word' }}>{po.orderCode}</div>
+                    <div style={{ fontSize: 13, marginTop: 2, wordBreak: 'break-word' }}>{po.customerName}</div>
+                  </div>
+                  <button
+                    onClick={(e) => toggleDeposit(e, po)}
+                    style={{
+                      flexShrink: 0, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, cursor: 'pointer', border: 'none',
+                      background: po.depositConfirmed ? '#dcfce7' : '#fef3c7',
+                      color: po.depositConfirmed ? '#15803d' : '#b45309',
+                    }}
+                  >
+                    {po.depositConfirmed ? 'Đã xác nhận cọc' : 'Chưa xác nhận'}
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 8, fontSize: 12, color: 'var(--text2)' }}>
+                  <span>{po.items.length} SKU · <b style={{ color: 'var(--text)' }}>{totalQty.toLocaleString()}</b></span>
+                  <span>Hạn giao {po.deliveryDate ? format(new Date(po.deliveryDate), 'dd/MM/yyyy') : '—'}</span>
+                  <span>
+                    <b style={{ color: '#15803d' }}>{doneCount}</b> xong · <b style={{ color: notDoneCount > 0 ? '#b45309' : 'var(--text3)' }}>{notDoneCount}</b> chưa xong
+                  </span>
+                </div>
+              </div>
+            )
+          })}
+          {(pos ?? []).length === 0 && (
+            <div className="card" style={{ padding: 20, textAlign: 'center', color: 'var(--text3)' }}>Chưa có PO nào</div>
+          )}
+        </div>
+      ) : (
       <div className="card" style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
               {['PO', 'Khách hàng', 'SKU', 'Số lượng', 'Hạn giao', 'Trạng thái', 'Xác nhận cọc'].map(h => (
-                <th key={h} style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text3)', fontWeight: 600 }}>{h}</th>
+                <th key={h} style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text3)', fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
               ))}
             </tr>
           </thead>
@@ -172,10 +214,10 @@ export default function OrderManagementPage() {
                 >
                   <td style={{ padding: '10px 12px', fontWeight: 600, color: 'var(--blue)' }}>{po.orderCode}</td>
                   <td style={{ padding: '10px 12px', fontSize: 13 }}>{po.customerName}</td>
-                  <td style={{ padding: '10px 12px', fontSize: 13 }}>{po.items.length} SKU</td>
+                  <td style={{ padding: '10px 12px', fontSize: 13, whiteSpace: 'nowrap' }}>{po.items.length} SKU</td>
                   <td style={{ padding: '10px 12px', fontWeight: 600, fontSize: 13 }}>{totalQty.toLocaleString()}</td>
-                  <td style={{ padding: '10px 12px', fontSize: 12 }}>{po.deliveryDate ? format(new Date(po.deliveryDate), 'dd/MM/yyyy') : '—'}</td>
-                  <td style={{ padding: '10px 12px', fontSize: 12 }}>
+                  <td style={{ padding: '10px 12px', fontSize: 12, whiteSpace: 'nowrap' }}>{po.deliveryDate ? format(new Date(po.deliveryDate), 'dd/MM/yyyy') : '—'}</td>
+                  <td style={{ padding: '10px 12px', fontSize: 12, whiteSpace: 'nowrap' }}>
                     <span style={{ fontWeight: 700, color: '#15803d' }}>{doneCount}</span>
                     <span style={{ color: 'var(--text3)' }}> xong</span>
                     <span style={{ color: 'var(--text3)' }}> · </span>
@@ -186,7 +228,7 @@ export default function OrderManagementPage() {
                     <button
                       onClick={(e) => toggleDeposit(e, po)}
                       style={{
-                        fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, cursor: 'pointer', border: 'none',
+                        whiteSpace: 'nowrap', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, cursor: 'pointer', border: 'none',
                         background: po.depositConfirmed ? '#dcfce7' : '#fef3c7',
                         color: po.depositConfirmed ? '#15803d' : '#b45309',
                       }}
@@ -203,10 +245,11 @@ export default function OrderManagementPage() {
           </tbody>
         </table>
       </div>
+      )}
 
       {showCreate && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 10, width: 680, maxHeight: '90vh', overflowY: 'auto', padding: 28, boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: isMobile ? 12 : 0 }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 10, width: 680, maxWidth: '100%', maxHeight: '90dvh', overflowY: 'auto', padding: isMobile ? 16 : 28, boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>Tạo PO mới</div>
               <button onClick={() => setShowCreate(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
@@ -228,7 +271,7 @@ export default function OrderManagementPage() {
               </Field>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14, marginBottom: 16 }}>
               <Field label="Khách hàng *">
                 <SearchableSelect
                   displayValue={(customers ?? []).find(c => String(c.id) === form.customerId)?.name ?? ''}
@@ -258,36 +301,60 @@ export default function OrderManagementPage() {
                 />
               </Field>
               <Field label="Ngày đặt">
-                <input type="date" value={form.orderDate} onChange={e => setForm(f => ({ ...f, orderDate: e.target.value }))} />
+                <DatePicker value={form.orderDate} onChange={v => setForm(f => ({ ...f, orderDate: v }))} />
               </Field>
             </div>
 
             <div style={{ marginBottom: 20 }}>
               <Field label="File đính kèm (PO, hợp đồng...)">
-                <input
-                  type="file"
-                  onChange={e => {
-                    const file = e.target.files?.[0]
-                    setForm(f => ({ ...f, attachmentName: file?.name ?? '', attachmentFile: file ?? null }))
-                  }}
-                />
-              </Field>
-              {form.attachmentName && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text2)', marginTop: 6 }}>
-                  <Paperclip size={12} /> {form.attachmentName}
+                {/* Nút "Choose File / No file chosen" gốc do trình duyệt vẽ theo ngôn ngữ máy - ẩn
+                    input thật, <label> bọc ngoài vẫn mở hộp chọn file khi bấm. */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 6px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)' }}>
+                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, flexShrink: 0, padding: '5px 10px', fontSize: 12, fontWeight: 500, border: '1px solid var(--border2)', borderRadius: 6, background: 'var(--surface2)', cursor: 'pointer' }}>
+                    <Paperclip size={12} /> Chọn file
+                    <input
+                      key={form.attachmentFile ? 'has-file' : 'empty'}
+                      type="file"
+                      style={{ display: 'none' }}
+                      onChange={e => {
+                        const file = e.target.files?.[0]
+                        setForm(f => ({ ...f, attachmentName: file?.name ?? '', attachmentFile: file ?? null }))
+                      }}
+                    />
+                  </label>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: form.attachmentName ? 'var(--text)' : 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {form.attachmentName || 'Chưa chọn file'}
+                  </span>
+                  {form.attachmentName && (
+                    <button
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, attachmentName: '', attachmentFile: null }))}
+                      aria-label="Bỏ file đã chọn"
+                      title="Bỏ file đã chọn"
+                      style={{ display: 'flex', flexShrink: 0, padding: 4, border: 'none', background: 'transparent' }}
+                    >
+                      <X size={14} color="var(--text3)" />
+                    </button>
+                  )}
                 </div>
-              )}
+              </Field>
             </div>
 
             <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 8 }}>SKU trong PO</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 135px 100px 28px', gap: 6, marginBottom: 6 }}>
-              {['SKU', 'Hạn giao', 'Tổng số', ''].map(h => (
-                <div key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)' }}>{h}</div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 8 }}>
+            {!isMobile && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 135px 100px 28px', gap: 6, marginBottom: 6 }}>
+                {['SKU', 'Hạn giao', 'Tổng số', ''].map(h => (
+                  <div key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)' }}>{h}</div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? 10 : 8, marginBottom: 8 }}>
               {form.items.map((it, i) => (
-                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.6fr 135px 100px 28px', gap: 6, alignItems: 'center' }}>
+                <div key={i} style={isMobile
+                  // Điện thoại: SKU chiếm trọn dòng đầu, Hạn giao/Tổng số/xoá chia dòng dưới.
+                  ? { display: 'grid', gridTemplateColumns: '1fr 1fr 28px', gap: 6, alignItems: 'center', padding: 10, border: '1px solid var(--border)', borderRadius: 'var(--radius)' }
+                  : { display: 'grid', gridTemplateColumns: '1.6fr 135px 100px 28px', gap: 6, alignItems: 'center' }}>
+                  <div style={isMobile ? { gridColumn: '1 / -1' } : undefined}>
                   <SearchableSelect
                     displayValue={it.skuCode ? `${it.skuCode} — ${it.skuName}` : ''}
                     options={skuOptions}
@@ -298,7 +365,8 @@ export default function OrderManagementPage() {
                     placeholder="Tìm hoặc chọn SKU đã duyệt *"
                     emptyText="Không tìm thấy SKU đã duyệt"
                   />
-                  <input type="date" value={it.deliveryDate} onChange={e => setItem(i, { deliveryDate: e.target.value })} title="Hạn giao" />
+                  </div>
+                  <DatePicker value={it.deliveryDate} onChange={v => setItem(i, { deliveryDate: v })} title="Hạn giao" placeholder="Hạn giao" clearable />
                   <input type="number" value={it.totalQty} onChange={e => setItem(i, { totalQty: e.target.value })} placeholder="Tổng số" />
                   <button onClick={() => removeItem(i)} disabled={form.items.length === 1} style={{ padding: 4, background: 'transparent', border: 'none', cursor: form.items.length === 1 ? 'not-allowed' : 'pointer', opacity: form.items.length === 1 ? 0.3 : 1, display: 'flex' }}>
                     <Trash2 size={13} color="#E24B4A" />
@@ -314,7 +382,7 @@ export default function OrderManagementPage() {
               <input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="Ghi chú" />
             </Field>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: isMobile ? 18 : 24 }}>
               <button onClick={() => setShowCreate(false)} style={{ padding: '8px 18px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer' }}>Hủy</button>
               <button className="primary" onClick={handleSave} disabled={saving || !form.orderCode.trim() || !form.customerId || form.items.every(it => !it.skuCode.trim())}>
                 {saving ? 'Đang lưu...' : 'Lưu'}
@@ -333,6 +401,7 @@ type DetailTab = 'production' | 'shipping'
 function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () => void; onDeleted: () => void | Promise<void> }) {
   const [tab, setTab] = useState<DetailTab>('production')
   const { ask, confirmModal } = useConfirm()
+  const isMobile = useIsMobile()
 
   const paidExcludingDeposit = po.paidAmount - po.depositAmount
   const remainingAmount = po.totalValue - po.paidAmount
@@ -359,7 +428,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
         <button
           onClick={onBack}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', fontSize: 12, fontWeight: 500, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)' }}
@@ -383,14 +452,15 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
       </div>
 
       <div style={{ marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: 18 }}>{po.orderCode} — {po.customerName}</div>
+        <div style={{ fontWeight: 700, fontSize: isMobile ? 16 : 18, wordBreak: 'break-word' }}>{po.orderCode} — {po.customerName}</div>
         <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
           Ngày đặt {format(new Date(po.orderDate), 'dd/MM/yyyy')}
           {po.deliveryDate && <> · Hạn giao {format(new Date(po.deliveryDate), 'dd/MM/yyyy')}</>}
         </div>
         {po.attachmentUrl && (
-          <a href={po.attachmentUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--blue)', textDecoration: 'none', marginTop: 6 }}>
-            <Paperclip size={12} /> {po.attachmentName || 'File đính kèm'}
+          <a href={po.attachmentUrl} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--blue)', textDecoration: 'none', marginTop: 6, maxWidth: '100%' }}>
+            <Paperclip size={12} style={{ flexShrink: 0 }} />
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{po.attachmentName || 'File đính kèm'}</span>
           </a>
         )}
       </div>
@@ -401,8 +471,9 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
             key={t.id}
             onClick={() => setTab(t.id)}
             style={{
-              display: 'flex', alignItems: 'center', gap: 6,
-              padding: '10px 20px', border: 'none',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              flex: isMobile ? 1 : undefined, whiteSpace: 'nowrap',
+              padding: isMobile ? '10px 8px' : '10px 20px', border: 'none',
               borderBottom: tab === t.id ? '2px solid var(--blue)' : '2px solid transparent',
               background: 'transparent',
               color: tab === t.id ? 'var(--blue)' : 'var(--text3)',
@@ -416,15 +487,15 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
       </div>
 
       {tab === 'production' && (
-        <div className="card" style={{ padding: 20 }}>
+        <div className="card" style={{ padding: isMobile ? 14 : 20 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {po.items.map((item) => (
               <div key={item.id}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12, marginBottom: 10 }}>
                   <strong>{item.skuCode}</strong>{item.skuName ? <span style={{ color: 'var(--text3)' }}> — {item.skuName}</span> : ''}
                   <StatusBadge status={item.status} />
                 </div>
-                <ProductionStepper status={item.status} />
+                <ProductionStepper status={item.status} vertical={isMobile} />
               </div>
             ))}
           </div>
@@ -432,7 +503,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
       )}
 
       {tab === 'shipping' && (
-        <div className="card" style={{ padding: 20 }}>
+        <div className="card" style={{ padding: isMobile ? 14 : 20 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 18 }}>
             {po.items.map((item) => {
               const itemRemaining = item.totalQty - item.shippedQty
@@ -441,7 +512,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 8 }}>
                     <strong>{item.skuCode}</strong>{item.skuName ? <span style={{ color: 'var(--text3)' }}> — {item.skuName}</span> : ''}
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: isMobile ? 6 : 10 }}>
                     <StatTile label="Tổng số lượng" value={item.totalQty.toLocaleString()} />
                     <StatTile label="Đã xuất hàng" value={item.shippedQty.toLocaleString()} />
                     <StatTile label="Còn lại" value={itemRemaining.toLocaleString()} />
@@ -451,7 +522,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
             })}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: isMobile ? 6 : 10, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
             <StatTile label="Đã thanh toán (trừ cọc)" value={`${fmtMoney(paidExcludingDeposit)}đ`} />
             <StatTile label="Số tiền còn lại" value={`${fmtMoney(remainingAmount)}đ`} color={remainingAmount > 0 ? '#A32D2D' : '#3B6D11'} />
           </div>
@@ -472,8 +543,38 @@ function StatTile({ label, value, color }: { label: string; value: string; color
   )
 }
 
-function ProductionStepper({ status }: { status: SalesOrderStatus }) {
+function ProductionStepper({ status, vertical = false }: { status: SalesOrderStatus; vertical?: boolean }) {
   const doneIndex = status === 'HOAN_THANH' ? SALES_PRODUCTION_STAGES.length : SALES_PRODUCTION_STAGES.indexOf(status)
+  // Điện thoại: 6 mốc ngang không đủ chỗ (chỉ hiện được ~2 mốc) - xếp dọc, nhãn nằm cạnh chấm.
+  if (vertical) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column' }}>
+        {SALES_PRODUCTION_STAGES.map((stage, i) => {
+          const isDone = i < doneIndex
+          const isActive = i === doneIndex
+          const isLast = i === SALES_PRODUCTION_STAGES.length - 1
+          return (
+            <div key={stage} style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{
+                  width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: isDone ? '#15803d' : isActive ? '#1565c0' : 'var(--surface2)',
+                  color: isDone || isActive ? '#fff' : 'var(--text3)',
+                  fontSize: 11, fontWeight: 700, flexShrink: 0,
+                }}>
+                  {isDone ? <Check size={12} /> : i + 1}
+                </div>
+                {!isLast && <div style={{ width: 2, flex: 1, minHeight: 12, background: isDone ? '#15803d' : 'var(--border)' }} />}
+              </div>
+              <div style={{ fontSize: 12, lineHeight: '22px', paddingBottom: isLast ? 0 : 8, color: isActive ? '#1565c0' : isDone ? '#15803d' : 'var(--text3)', fontWeight: isActive ? 700 : 500 }}>
+                {SALES_ORDER_STATUS_LABEL[stage]}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    )
+  }
   return (
     <div style={{ display: 'flex', alignItems: 'flex-start' }}>
       {SALES_PRODUCTION_STAGES.map((stage, i) => {
