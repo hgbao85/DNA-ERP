@@ -115,8 +115,8 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                 </div>
 
                 {isExpanded && (
-                  <div style={{ borderTop: '1px solid var(--border)' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                  <div style={{ borderTop: '1px solid var(--border)', overflowX: 'auto' }}>
+                    <table style={{ width: '100%', minWidth: 520, borderCollapse: 'collapse', fontSize: 13 }}>
                       <thead>
                         <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                           <th style={th}>Vật tư</th>

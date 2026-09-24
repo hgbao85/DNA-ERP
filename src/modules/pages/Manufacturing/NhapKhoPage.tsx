@@ -12,6 +12,8 @@ import { useConfirm } from '../../../hooks/useConfirm'
 // materialId sẽ gộp nhầm 2 dòng khi thủ kho xác nhận nhận hàng.
 const itemKey = (item: PurchaseProposalItem) => item.itemId ?? String(item.materialId)
 import { compactTh as th, compactTd as td } from '../../../styles/table'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
+import MobileListCards from '../../../components/MobileListCards'
 
 // ── NhapKhoSection: list đề xuất đã duyệt (đang mua/đã mua) → detail nhập kho ─
 // Nguồn dữ liệu là PurchaseProposal thật (đã qua Purchasing báo giá + Boss duyệt),
@@ -23,6 +25,8 @@ import { compactTh as th, compactTd as td } from '../../../styles/table'
 // đúng (vd "Kho thành phẩm 2") không bao giờ thấy dòng cần nhận, trong khi thủ kho SAI (kho mặc
 // định của vật tư) lại thấy và có thể nhận nhầm).
 function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
+  // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
+  const isMobile = useIsMobile()
   const { proposals, receiveProposalItem } = useInspection()
   const { ask, confirmModal } = useConfirm()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -109,10 +113,10 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <button
               onClick={() => setSelectedId(null)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
+              style={{ flexShrink: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
             >
               <ChevronLeft size={15} /> Quay lại
             </button>
@@ -151,8 +155,8 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
           </div>
         </div>
 
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 600, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
               <col />
               <col style={{ width: 120 }} />
@@ -271,8 +275,11 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
       <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
         Đề xuất mua đã được duyệt — ghi nhận vật tư thực nhận vào kho
       </div>
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+      {isMobile ? (
+        <MobileListCards emptyText="Không có đề xuất nào đang chờ nhập kho" items={relevant.map(p => { const cfg = PROPOSAL_STATUS_LABELS[p.status]; return { key: String(p.id), onClick: () => setSelectedId(p.id), title: <><b>{p.skuCode}</b>{p.skuName && <span style={{ color: 'var(--text3)' }}> — {p.skuName}</span>}</>, badge: <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20, color: cfg.color, background: cfg.bg }}>{cfg.label}</span>, meta: [{ label: 'PO', value: p.salesOrderCode ?? '—' }, { label: 'PI', value: p.piCode }] } })} />
+      ) : (
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
+        <table style={{ width: '100%', minWidth: 600, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
           <colgroup>
             <col style={{ width: 100 }} />
             <col style={{ width: 130 }} />
@@ -320,14 +327,13 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
             })}
             {relevant.length === 0 && (
               <tr>
-                <td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
-                  Không có đề xuất nào đang chờ nhập kho
-                </td>
+                <td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Không có đề xuất nào đang chờ nhập kho</div></td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }

@@ -11,6 +11,7 @@ import { useAuditLog } from '../../../context/AuditLogContext'
 import { SKU_ENTITY } from '../../../constants/skuStatus'
 import type { Sku, ManhRow, ManhChildRow, ManhChildGroup, ProcessStep } from '../../../types/sku'
 import { PROCESS_STEPS, PROCESS_STEP_LABELS } from '../../../constants/processSteps'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 // ─── Types ────────────────────────────────────────────────────────────
 // "Định mức mảnh" (Manh/children) đọc/ghi thẳng Sku thật (manhData.pieces) — quy đổi sang/từ
@@ -130,6 +131,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
 }) {
   const { user } = useAuth()
   const { logAction } = useAuditLog()
+  // Điện thoại: bảng vật tư con 10 cột -> thẻ; ô nhập form thêm vật tư co giãn thay vì rộng cố định.
+  const isMobile = useIsMobile()
+  const fieldW = (w: number): React.CSSProperties => isMobile ? { flex: '1 1 130px', minWidth: 0 } : { width: w }
   const { data: skusData, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
   const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
   const { data: materialsData } = useFetch(() => api.getMaterials(), [])
@@ -342,8 +346,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   return (
     <div>
       {/* Page header */}
-      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-        <div>
+      <div style={{ marginBottom: isMobile ? 14 : 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ minWidth: 0 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức — Mảnh</h2>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập định mức mảnh theo SKU — Sắt, Dây, Đinh, Tán rút, Nút nhựa</p>
         </div>
@@ -361,7 +365,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               value={manhBomSearch}
               onChange={e => setManhBomSearch(e.target.value)}
               placeholder="Tìm theo tên SKU…"
-              style={{ maxWidth: 280, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+              style={{ width: '100%', maxWidth: 280, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
             />
           </div>
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
@@ -413,9 +417,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
       {subTab === 'dinh-muc' && selectedBom && (
         <div>
           {/* Back */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
             <button onClick={() => setSelectedBom(null)} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', flexShrink: 0, whiteSpace: 'nowrap',
               background: 'var(--surface)', border: '1px solid var(--border)',
               borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
             }}><ChevronLeft size={14} /> Quay lại</button>
@@ -451,7 +455,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     {selectedBom.ten}
                   </div>
                 </div>
-                <div style={{ flex: 1, minWidth: 200 }}>
+                <div style={{ flex: 1, minWidth: isMobile ? '100%' : 200 }}>
                   <FL>Tên mảnh <span style={{ color: '#e53935' }}>*</span></FL>
                   <input autoFocus placeholder="Mảnh tựa, Mảnh tay…" value={formTenManh}
                     onChange={e => setFormTenManh(e.target.value)}
@@ -510,17 +514,20 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               <div key={m.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
                 {/* Header */}
                 <div style={{
-                  display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px',
+                  display: 'flex', alignItems: 'center', gap: '8px 12px', padding: isMobile ? '10px 12px' : '10px 16px', flexWrap: 'wrap',
                   background: 'var(--surface2)',
                   borderBottom: m.children.length > 0 || addingTo === m.id ? '1px solid var(--border)' : 'none',
                 }}>
+                  {/* Tên SKU lặp lại ở mọi mảnh - trên điện thoại đã có ở đầu trang, bỏ cho đỡ chật. */}
+                  {!isMobile && (
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#1565c0', background: '#e3f2fd', borderRadius: 4, padding: '2px 7px' }}>
                     {selectedBom?.ten}
                   </span>
+                  )}
                   <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{m.tenManh}</span>
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#e65100', background: '#fff3e0', borderRadius: 4, padding: '2px 7px' }}>×{m.soLuong} / SKU</span>
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>{m.children.length} dòng vật tư</span>
-                  <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px 12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     {(() => {
                       const { isWoven, missing } = wovenStatus(m)
                       return isWoven ? (
@@ -573,9 +580,54 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   </div>
                 </div>
 
-                {/* Children table */}
-                {m.children.length > 0 && (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                {/* Children: thẻ trên điện thoại (10 cột không vừa), bảng trên màn rộng */}
+                {m.children.length > 0 && isMobile && (
+                  <div>
+                    {m.children.map((c, i) => {
+                      const isEditingThis = editingChild?.manhId === m.id && editingChild.childId === c.id
+                      const badge = GROUP_BADGE_COLORS[c.group]
+                      const lenOrPerBar = c.group === 'sat' ? c.cutLengthMm : c.group === 'vatTuTP' ? c.piecesPerBar : ''
+                      return (
+                        <div key={c.id} style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined, padding: '10px 12px', background: isEditingThis ? '#e3f2fd' : undefined, fontSize: 13 }}>
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: badge.fg, background: badge.bg, borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap', flexShrink: 0 }}>{GROUP_LABELS[c.group]}</span>
+                            <div style={{ flex: 1, minWidth: 0, fontWeight: 500, wordBreak: 'break-word' }}>
+                              {c.loaiSatName}
+                              {c.note && <span style={{ color: 'var(--text3)', fontWeight: 400 }}> ({c.note})</span>}
+                            </div>
+                            {!isSubmitted && (
+                              <div style={{ display: 'flex', flexShrink: 0 }}>
+                                <button onClick={() => startEditChild(m.id, c)} aria-label="Sửa" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 6 }}><Pencil size={15} /></button>
+                                <button onClick={() => deleteChild(m.id, c.id)} aria-label="Xóa" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 6 }}><X size={16} /></button>
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 6, fontSize: 12, color: 'var(--text3)' }}>
+                            {c.specs && <span>Quy cách: <b style={{ color: 'var(--text2)', fontWeight: 600 }}>{c.specs}</b></span>}
+                            {lenOrPerBar && <span>{c.group === 'sat' ? 'Dài' : 'SL/đơn vị'}: <b style={{ color: 'var(--text2)', fontWeight: 600 }}>{lenOrPerBar}{c.group === 'sat' ? ' mm' : ''}</b></span>}
+                            <span>SL: <b style={{ color: 'var(--text)', fontWeight: 700 }}>{c.soLuong || '—'}</b> {c.unit}</span>
+                          </div>
+                          {((c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.length > 0 || (c.group === 'nutNhua' && c.includeInWeaving) || c.photoUrl || c.photoPreview) && (
+                            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginTop: 6 }}>
+                              {(c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.map(step => (
+                                <span key={step} style={{ fontSize: 11, fontWeight: 600, color: '#5e35b1', background: '#ede7f6', borderRadius: 4, padding: '2px 6px' }}>{PROCESS_STEP_LABELS[step]}</span>
+                              ))}
+                              {c.group === 'nutNhua' && c.includeInWeaving && (
+                                <span style={{ fontSize: 10, fontWeight: 700, color: '#2e7d32', background: '#e8f5e9', borderRadius: 4, padding: '1px 6px' }}>✓ Đi kèm xuất đan</span>
+                              )}
+                              {(c.photoUrl || c.photoPreview) && (
+                                <img src={c.photoUrl || c.photoPreview} alt={c.loaiSatName} style={{ height: 32, borderRadius: 4, border: '1px solid var(--border)' }} />
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                {m.children.length > 0 && !isMobile && (
+                  <div style={{ overflowX: 'auto' }}>
+                  <table style={{ width: '100%', minWidth: 820, borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead>
                       <tr style={{ background: 'var(--surface2)' }}>
                         <th style={{ width: 36, padding: '7px', textAlign: 'center', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>#</th>
@@ -652,14 +704,15 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       })}
                     </tbody>
                   </table>
+                  </div>
                 )}
 
                 {/* Add child inline */}
                 {addingTo === m.id && (
-                  <div style={{ padding: '12px 16px', borderTop: m.children.length > 0 ? '1px dashed var(--border)' : 'none' }}>
+                  <div style={{ padding: isMobile ? '12px' : '12px 16px', borderTop: m.children.length > 0 ? '1px dashed var(--border)' : 'none' }}>
                     {/* Chọn nhóm vật tư — quyết định materialGroupId lọc MaterialPicker và có hiện
                         Chiều dài cắt hay không (chỉ nhóm Sắt có khái niệm đoạn cắt). */}
-                    <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                    <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
                       {CHILD_GROUPS.map(g => (
                         <button key={g}
                           onClick={() => { setChildGroup(g); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildProcessSteps([]); setChildPiecesPerBar(''); setChildSoLuong(''); setChildPhotoUrl(''); setChildPhotoFile(null); setChildPhotoPreview(''); setChildIncludeInWeaving(false) }}
@@ -672,8 +725,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         >{GROUP_LABELS[g]}</button>
                       ))}
                     </div>
-                    <div style={{ display: 'flex', gap: 25, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                      <div style={{ width: 240 }}>
+                    <div style={{ display: 'flex', gap: isMobile ? 12 : 25, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                      <div style={isMobile ? { width: '100%' } : { width: 240 }}>
                         <FL>Vật tư (nhóm {GROUP_LABELS[childGroup]})</FL>
                         <MaterialPicker
                           value={childMaterial}
@@ -682,14 +735,14 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                           placeholder={`Chọn ${GROUP_LABELS[childGroup].toLowerCase()}…`}
                         />
                       </div>
-                      <div style={{ width: 150 }}>
+                      <div style={fieldW(150)}>
                         <FL>Quy cách</FL>
                         <input placeholder="Theo vật tư đã chọn" value={childSpec}
                           disabled
                           style={specInputStyle} />
                       </div>
                       {childGroup === 'sat' && (
-                        <div style={{ width: 120 }}>
+                        <div style={fieldW(120)}>
                           <FL>Chiều dài cắt (mm)</FL>
                           <input type="number" min={1} step={0.1} placeholder="930" value={childCutLengthMm}
                             onChange={e => setChildCutLengthMm(e.target.value)}
@@ -698,7 +751,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         </div>
                       )}
                       {childGroup === 'vatTuTP' && (
-                        <div style={{ width: 120 }}>
+                        <div style={fieldW(120)}>
                           <FL>Số lượng/{childMaterial?.unit || 'đơn vị'}</FL>
                           <input type="number" min={1} step={1} placeholder="12" value={childPiecesPerBar}
                             onChange={e => setChildPiecesPerBar(e.target.value)}
@@ -707,7 +760,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         </div>
                       )}
                       {(childGroup === 'sat' || childGroup === 'vatTuTP') && (
-                        <div style={{ flex: '1 1 auto', minWidth: 260 }}>
+                        <div style={{ flex: '1 1 auto', minWidth: isMobile ? '100%' : 260 }}>
                           <FL>Công đoạn phôi</FL>
                           <div style={{ display: 'flex', gap: 10, rowGap: 6, paddingTop: 4, flexWrap: 'wrap' }}>
                             {PROCESS_STEPS.map(step => (
@@ -720,14 +773,14 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                           </div>
                         </div>
                       )}
-                      <div style={{ width: 100 }}>
+                      <div style={fieldW(100)}>
                         <FL>{childGroup === 'vatTuTP' ? 'Số lượng/mảnh' : childGroup === 'day' ? 'Số lượng (KG)' : 'Số lượng'}</FL>
                         <input placeholder="0" value={childSoLuong}
                           onChange={e => setChildSoLuong(e.target.value)}
                           onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
                           style={inputStyle} />
                       </div>
-                      <div style={{ width: 160 }}>
+                      <div style={fieldW(160)}>
                         <FL>Ghi chú</FL>
                         <input placeholder="VD: uốn, tán,..." value={childNote}
                           onChange={e => setChildNote(e.target.value)}
@@ -746,7 +799,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       {childGroup === 'day' && (
                         <div>
                           <FL>Hình ảnh</FL>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                             <label style={{
                               display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 12px',
                               border: '1px solid var(--border)', borderRadius: 'var(--radius)',
@@ -808,7 +861,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
           {/* Submit bar */}
           {manhs.length > 0 && (
             <div style={{
-              marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10,
               padding: '12px 16px', background: 'var(--surface)',
               border: `1px solid ${
                 manhSt === 'approved' ? '#a5d6a7'
@@ -863,13 +916,14 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
       {/* ══ CATALOG VẬT TƯ (Material thật, 5 nhóm — quản lý ở Admin > Vật tư) ══ */}
       {subTab === 'catalog' && (
         <div>
-          <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>
+          {/* 6 tab nhóm: cuộn ngang trên điện thoại thay vì tràn trang */}
+          <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', overflowX: 'auto' }}>
             {CHILD_GROUPS.map(g => (
               <button
                 key={g}
                 onClick={() => { setCatalogGroup(g); setCatalogSearch('') }}
                 style={{
-                  padding: '9px 18px', border: 'none', background: 'none', cursor: 'pointer',
+                  padding: isMobile ? '9px 12px' : '9px 18px', border: 'none', background: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
                   fontSize: 13, fontWeight: 600, color: catalogGroup === g ? '#1565c0' : 'var(--text3)',
                   borderBottom: catalogGroup === g ? '2px solid #1565c0' : '2px solid transparent',
                   marginBottom: -1,
@@ -882,14 +936,15 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               value={catalogSearch}
               onChange={e => setCatalogSearch(e.target.value)}
               placeholder="Tìm theo mã hoặc tên vật tư…"
-              style={{ maxWidth: 320, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+              style={{ width: '100%', maxWidth: 320, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
             />
           </div>
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
                   {['Mã vật tư', 'Tên vật tư', 'Quy cách', 'ĐVT'].map((h, i) => (
+
                     <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>

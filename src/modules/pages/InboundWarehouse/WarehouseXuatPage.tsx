@@ -12,6 +12,8 @@ import { safeArr } from '../../../utils/array'
 import { errMsg } from '../../../utils/errors'
 import { compactTh as th, compactTd as td, tableWrap, tbl, row, badge, emptyBox } from '../../../styles/table'
 import { backBtn } from '../../../styles/buttons'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
+import MobileListCards from '../../../components/MobileListCards'
 
 interface Wh { id: string; name: string; code: string }
 
@@ -211,6 +213,8 @@ function mergeInputQty(prev: Order[], next: Order[]): Order[] {
 }
 
 export default function WarehouseXuatPage({ scope }: { scope: string }) {
+  // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
+  const isMobile = useIsMobile()
   // 2026-09-03: so khớp theo GIA ĐÌNH thay vì đúng 1 literal - kho phụ (phoi-son-han-2,
   // vat-tu-tp-2...) giờ cũng chạy đúng nhánh nghiệp vụ của gia đình mình.
   const isPieceScope = isFamilyScope(scope, PIECE_TRANSFER_SCOPE)
@@ -371,7 +375,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 20, gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
             <button onClick={() => setSelectedId(null)} style={backBtn}>
               <ChevronLeft size={15} /> Quay lại
             </button>
@@ -441,8 +445,8 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
         )}
 
         {/* 7-column xuất table */}
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
               <col /><col style={{ width: 56 }} /><col style={{ width: 84 }} /><col style={{ width: 72 }} /><col style={{ width: 72 }} /><col style={{ width: 72 }} /><col style={{ width: 170 }} />
             </colgroup>
@@ -533,6 +537,8 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
           <div style={{ ...emptyBox, color: '#dc2626' }}>Lỗi tải danh sách: {activeListError}</div>
         ) : orders.length === 0 ? (
           <div style={emptyBox}>Không có lệnh xuất nào đang chờ xử lý</div>
+        ) : isMobile ? (
+          <MobileListCards emptyText="Không có lệnh xuất nào" items={orders.map(order => { const cfg = STATUS[getStatus(order)]; return { key: String(order.id), onClick: () => setSelectedId(order.id), title: <><b>{order.skuCode ?? '—'}</b>{order.skuName && <span style={{ color: 'var(--text3)' }}> — {order.skuName}</span>}</>, badge: <span style={{ ...badge, color: cfg.color, background: cfg.bg }}>{cfg.label}</span>, meta: [{ label: 'PO', value: order.poNumber ?? order.ref }, { label: 'PI', value: order.piCode ?? '—' }, { label: 'Số lượng vật tư', value: order.lines.length }] } })} />
         ) : (
           // PO | PI | SKU | Số lượng vật tư | Trạng thái — mọi kho (không có hạn giao). Đơn nội bộ
           // (piece/packaging) có cả PO lẫn PI thật; đơn ship (xuất thẳng cho khách) chỉ có PO (mã

@@ -237,8 +237,8 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
       {myPending.length === 0 ? (
         <div style={emptyBox}>Chưa có phiếu nào đang chờ</div>
       ) : (
-        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={th}>Mã phiếu</th>

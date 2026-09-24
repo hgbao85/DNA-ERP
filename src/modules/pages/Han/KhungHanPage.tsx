@@ -51,7 +51,8 @@ const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
 const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13 }
 const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
-const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
+// overflowX (không cắt): bảng 2-3 cột vừa điện thoại, khung chỉ cuộn nếu nội dung thật sự dài.
+const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }
 
 export default function KhungHanPage() {
   const { data: batches, isLoading: batchesLoading } = useFetch<BeProductionBatch[]>(() => api.getProductionBatchesByStage('HAN'), [])
@@ -94,8 +95,8 @@ export default function KhungHanPage() {
         </div>
 
         <div style={card}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: 480 }}>
-            <colgroup><col /><col style={{ width: 140 }} /><col style={{ width: 120 }} /></colgroup>
+          <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+            <colgroup><col /><col style={{ width: 110 }} /><col style={{ width: 80 }} /></colgroup>
             <thead>
               <tr style={{ background: 'var(--surface2)' }}>
                 <th style={th}>Tên mảnh</th>
@@ -136,8 +137,8 @@ export default function KhungHanPage() {
       </div>
 
       <div style={card}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: 480 }}>
-          <colgroup><col /><col style={{ width: 140 }} /><col style={{ width: 32 }} /></colgroup>
+        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+          <colgroup><col /><col style={{ width: 110 }} /><col style={{ width: 32 }} /></colgroup>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
               <th style={th}>SKU / Sản phẩm</th>
@@ -160,7 +161,7 @@ export default function KhungHanPage() {
               </tr>
             ))}
             {groups.length === 0 && (
-              <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Chưa có khung hàn nào được KCS duyệt</td></tr>
+              <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Chưa có khung hàn nào được KCS duyệt</div></td></tr>
             )}
           </tbody>
           <tfoot>

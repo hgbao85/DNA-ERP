@@ -65,6 +65,8 @@ import VatTuTpDetail, { type VatTuTpItem } from './VatTuTpDetail'
 import {
   ACCENT, GREEN, RED, AMBER, PURPLE, th, thR, td, tdR, card, smallBtn, inp, subFilterBtn,
 } from './phoiStyles'
+import MobileListCards from '../../../components/MobileListCards'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 // '—' cho phoiDeadline null (KHSX chưa đặt mốc Phôi cho SKU này) - mirror dateVN() ở
 // components/sanxuat/core.tsx (Hàn/Sơn), không import chéo vì file này cố ý độc lập (nối BE thật
@@ -169,6 +171,8 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
   /** Nhảy sang màn "Hướng dẫn cắt" (sidebar riêng) đúng PI đang mở - xem NewCutBundleForm. */
   onOpenCuttingGuide?: (productionInvoiceId: string) => void
 }) {
+  // Điện thoại: danh sách PI dạng thẻ (mã PI + 3 số liệu), không bóp bảng 5 cột.
+  const isMobile = useIsMobile()
   // activeOnly=true (2026-08-31): chỉ hiện PI có ít nhất 1 SKU đã được QLSX bấm "Bắt đầu" ở Bảng
   // thống kê - PI có thể chứa nhiều SKU, chỉ cần 1 SKU đang chạy là cả PI vẫn hiện (Phôi xuất sắt
   // chung theo PI, không tách theo SKU).
@@ -232,6 +236,21 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
     )
   }
 
+  // Ô "Cắt sắt" / "Vật tư TP" dùng chung cho bảng (màn rộng) và thẻ (điện thoại) - xem chú thích tại bảng.
+  type PiRowT = (typeof piRows)[number]
+  const cutCell = (r: PiRowT) => r.bundles.length === 0 ? <span style={{ color: 'var(--text3)' }}>—</span>
+    : r.bundlesPending > 0
+      ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#d97706', fontWeight: 600 }}><Clock size={12} /> {r.bundlesPending} đợt</span>
+      : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a', fontWeight: 700 }}><Check size={12} /> đã phôi</span>
+  const vatTuTpCell = (r: PiRowT) => {
+    const vatTuTpDoneCount = r.vatTuTpItems.filter(v => v.passedQty >= v.plannedQty).length
+    const vatTuTpPending = r.vatTuTpItems.length - vatTuTpDoneCount
+    return r.vatTuTpItems.length === 0 ? <span style={{ color: 'var(--text3)' }}>—</span>
+      : vatTuTpPending > 0
+        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: PURPLE, fontWeight: 600 }}><Wrench size={12} /> đã xong {vatTuTpDoneCount}/{r.vatTuTpItems.length}</span>
+        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a', fontWeight: 700 }}><Check size={12} /> đã phôi ({r.vatTuTpItems.length})</span>
+  }
+
   return (
     <div>
       <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
@@ -241,6 +260,17 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
         Theo dõi tiến độ cắt sắt + vật tư thành phẩm theo PO/PI — bấm để báo cắt xong / đánh dấu công đoạn theo từng đợt. Xác nhận nhận sắt làm ở <b>Xác nhận nhận sắt</b>.
       </div>
 
+      {isMobile ? (
+        <MobileListCards emptyText="Chưa có PI nào được xuất sắt" items={piRows.map(r => ({
+          key: r.productionInvoiceId, onClick: () => setSelPi(r.productionInvoiceId),
+          title: <b style={{ fontFamily: 'monospace' }}>{r.poNumber}</b>,
+          meta: [
+            { label: 'Đã xuất (cây)', value: <b>{r.issues.length > 0 ? r.totalIssued : '—'}</b> },
+            { label: 'Cắt sắt', value: cutCell(r) },
+            { label: 'Vật tư TP', value: vatTuTpCell(r) },
+          ],
+        }))} />
+      ) : (
       <div style={card}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -258,8 +288,6 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
               // chỉ đếm bao nhiêu mảnh ĐÃ ĐƯỢC KCS DUYỆT THẬT (passedQty, KHÔNG cộng awaitingQcQty -
               // 2026-09-10, cùng lý do sửa ở PiDetail/materialGroups: gửi KCS xong nhưng CHƯA duyệt
               // không được tính là xong) trên tổng số mảnh.
-              const vatTuTpDoneCount = r.vatTuTpItems.filter(v => v.passedQty >= v.plannedQty).length
-              const vatTuTpPending = r.vatTuTpItems.length - vatTuTpDoneCount
               return (
                 <tr key={r.productionInvoiceId} onClick={() => setSelPi(r.productionInvoiceId)} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
@@ -273,30 +301,19 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
                       KCS. Vẫn dùng chỉ báo "không còn đợt đang mở" (KHÔNG so remaining=0 như ở
                       PiDetail/materialGroups) - tính remaining=0 thật cho CẢ PI cần fetch progress
                       riêng từng PI, chưa làm ở màn danh sách này, xem changelog nếu muốn nâng cấp. */}
-                  <td style={tdR}>
-                    {r.bundles.length === 0 ? <span style={{ color: 'var(--text3)' }}>—</span>
-                      : r.bundlesPending > 0
-                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#d97706', fontWeight: 600 }}><Clock size={12} /> {r.bundlesPending} đợt</span>
-                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a', fontWeight: 700 }}><Check size={12} /> đã phôi</span>}
-                  </td>
-                  <td style={tdR}>
-                    {r.vatTuTpItems.length === 0 ? <span style={{ color: 'var(--text3)' }}>—</span>
-                      : vatTuTpPending > 0
-                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: PURPLE, fontWeight: 600 }}><Wrench size={12} /> đã xong {vatTuTpDoneCount}/{r.vatTuTpItems.length}</span>
-                        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a', fontWeight: 700 }}><Check size={12} /> đã phôi ({r.vatTuTpItems.length})</span>}
-                  </td>
+                  <td style={tdR}>{cutCell(r)}</td>
+                  <td style={tdR}>{vatTuTpCell(r)}</td>
                   <td style={{ ...td, textAlign: 'center', color: 'var(--text3)' }}><ChevronRight size={16} /></td>
                 </tr>
               )
             })}
             {piRows.length === 0 && (
-              <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} /> Chưa có PI nào được xuất sắt</span>
-              </td></tr>
+              <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} /> Chưa có PI nào được xuất sắt</span></div></td></tr>
             )}
           </tbody>
         </table>
       </div>
+      )}
     </div>
   )
 }
@@ -808,6 +825,47 @@ function ProgressBuDuTable({ segments, canInput, rowInputs, onInputChange }: {
   segments: BePhoiProgressSegment[]; canInput: boolean
   rowInputs: Record<string, string>; onInputChange: (segmentSpecId: string, value: string) => void
 }) {
+  // Điện thoại: mỗi cỡ đoạn 1 hàng gọn, ô nhập luôn nằm trong màn hình (bảng 6 cột đẩy ô nhập ra ngoài mép).
+  const isMobile = useIsMobile()
+  if (isMobile) {
+    return (
+      <div style={{ ...card, marginBottom: 12 }}>
+        {segments.map((s, i) => {
+          const remaining = Math.max(s.required - (s.done - s.failed), 0)
+          return (
+            <div key={s.segmentSpecId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderTop: i > 0 ? '1px solid var(--border)' : undefined }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14 }}>
+                  <b>{s.cutLengthMm.toLocaleString('vi-VN')}mm</b>
+                  <span style={{ marginLeft: 8, fontSize: 12, color: remaining > 0 ? ACCENT : GREEN, fontWeight: 700 }}>còn {remaining}</span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 10px', marginTop: 3, fontSize: 12, color: 'var(--text3)' }}>
+                  <span>Cần <b style={{ color: 'var(--text2)' }}>{s.required}</b></span>
+                  <span>Đã làm <b style={{ color: 'var(--text2)' }}>{s.done}</b></span>
+                  <span>Lỗi <b style={{ color: s.failed > 0 ? RED : 'var(--text3)' }}>{s.failed > 0 ? s.failed : '—'}</b></span>
+                  {canInput && s.failed > 0 && remaining > 0 && (
+                    <button
+                      onClick={() => onInputChange(s.segmentSpecId, String(Math.min(s.failed, remaining)))}
+                      style={{ ...smallBtn, padding: '2px 8px', fontSize: 11, background: ACCENT, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      Bù đủ
+                    </button>
+                  )}
+                </div>
+              </div>
+              {canInput && (
+                <input type="number" min={0} placeholder="Nhập" aria-label={'Nhập đợt này - đoạn ' + s.cutLengthMm + 'mm'} value={rowInputs[s.segmentSpecId] ?? ''}
+                  onChange={e => onInputChange(s.segmentSpecId, e.target.value)}
+                  style={{ ...inp, width: 84, flexShrink: 0 }} />
+              )}
+            </div>
+          )
+        })}
+        {segments.length === 0 && (
+          <div style={{ padding: 16, textAlign: 'center', color: 'var(--text3)', fontSize: 12 }}>Chưa xác định được định mức</div>
+        )}
+      </div>
+    )
+  }
   return (
     <div style={{ ...card, marginBottom: 12 }}>
       <table style={{ width: '100%', borderCollapse: 'collapse' }}>

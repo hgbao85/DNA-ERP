@@ -23,6 +23,8 @@ import { backBtn } from '../../../styles/buttons'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
 import type { Sku } from '../../../types/sku'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
+import MobileListCards from '../../../components/MobileListCards'
 
 const ACCENT = '#4527A0'
 
@@ -33,6 +35,8 @@ const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
 
 export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialIssueStage; desc: string }) {
+  // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
+  const isMobile = useIsMobile()
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
   // PO/PI/hạn giao thật (từ ProductionOrder Sếp đã duyệt) - KHÔNG dùng Sku.exportOrder/Sku.piCode,
   // xem comment ở buildProductionOrderInfoByMfgProduct().
@@ -79,7 +83,7 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
   if (selectedPf) {
     return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
           <button onClick={() => setSelectedPf(null)} style={backBtn}>
             <ChevronLeft size={15} /> Quay lại
           </button>
@@ -169,7 +173,9 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
     <div>
       <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>{desc}</div>
 
-      {isLoading ? <LoadingState /> : (
+      {isLoading ? <LoadingState /> : isMobile ? (
+        <MobileListCards emptyText="Không có PO nào" items={active.map(pf => ({ key: String(pf.id), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? 'Chưa gắn đơn hàng' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? '—' }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
+      ) : (
         <div style={tableWrap}>
           <table style={tbl}>
             <colgroup>
@@ -210,7 +216,7 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
                 )
               })}
               {active.length === 0 && (
-                <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có PO nào</td></tr>
+                <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Không có PO nào</div></td></tr>
               )}
             </tbody>
           </table>

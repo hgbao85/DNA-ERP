@@ -12,6 +12,8 @@ import { errMsg } from '../../../utils/errors'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
 import type { Sku } from '../../../types/sku'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
+import MobileListCards from '../../../components/MobileListCards'
 
 /**
  * Xuất đan = xuất mảnh chưa đan (của 1 SKU, tại kho vật tư thành phẩm) cho điểm đan gia công bên
@@ -21,6 +23,8 @@ import type { Sku } from '../../../types/sku'
  * cùng đọc/ghi WeavingIssue/WeavingReceipt qua weaving-issues-api.ts, không phải 2 nguồn độc lập.
  */
 export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: string } = {}) {
+  // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
+  const isMobile = useIsMobile()
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
   const { data: pointsData } = useFetch<BeWeavingPoint[]>(() => api.getWeavingPoints(), [])
   const points = pointsData ?? []
@@ -141,10 +145,10 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
   if (selectedPf) {
     return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
           <button
             onClick={() => setSelectedPf(null)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
+            style={{ flexShrink: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
           >
             <ChevronLeft size={15} /> Quay lại
           </button>
@@ -285,7 +289,7 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
                 )}
 
                 {piece.allocations.length > 0 && (
-                  <div style={{ borderTop: '1px solid var(--border)' }}>
+                  <div style={{ borderTop: '1px solid var(--border)', overflowX: 'auto' }}>
                     <table style={{ ...tbl, tableLayout: 'auto' }}>
                       <thead>
                         <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
@@ -324,7 +328,9 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
         Nhấn vào dòng để xuất mảnh cho điểm đan gia công bên ngoài
       </p>
 
-      {isLoading ? <LoadingState /> : (
+      {isLoading ? <LoadingState /> : isMobile ? (
+        <MobileListCards emptyText="Không có PI nào" items={active.map(pf => ({ key: String(pf.id), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng' }, { label: 'Hạn giao', value: pf.exportOrder?.deliveryDate ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy') : '—' }] }))} />
+      ) : (
         <div style={tableWrap}>
           <table style={tbl}>
             <colgroup>
@@ -364,7 +370,7 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
                 </tr>
               ))}
               {active.length === 0 && (
-                <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có PI nào</td></tr>
+                <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Không có PI nào</div></td></tr>
               )}
             </tbody>
           </table>

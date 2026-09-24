@@ -61,6 +61,8 @@ import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 import KcsVatTuThanhPhamPage from './KcsVatTuThanhPhamPage'
+import MobileListCards from '../../../components/MobileListCards'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 const ACCENT = '#e65100'
 const GREEN = '#16a34a'
@@ -79,7 +81,8 @@ const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
 const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13, verticalAlign: 'middle' }
 const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
-const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
+// overflowX (không cắt): trên điện thoại bảng rộng hơn khung thì cuộn ngang thay vì mất cột bên phải.
+const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }
 
 interface PiAgg { productionInvoiceId: string; poNumber: string; bundles: Row[]; pendingCount: number }
 /** 1 đợt cắt kèm lô nhận cha (để hiện materialName/barLengthMm - bundle tự nó không có tên vật tư). */
@@ -215,9 +218,7 @@ function KcsSatSection() {
               </tr>
             ))}
             {piRows.length === 0 && (
-              <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} /> Chưa có đợt nào chờ kiểm</span>
-              </td></tr>
+              <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} /> Chưa có đợt nào chờ kiểm</span></div></td></tr>
             )}
           </tbody>
         </table>
@@ -232,6 +233,8 @@ function stepKeyOf(x: Row): 'CAT' | ProcessStep { return x.kind === 'cut' ? 'CAT
 function PiDetail({ pi, reviews, onBack, onRefetch }: {
   pi: PiAgg; reviews: BeQcReview[]; onBack: () => void; onRefetch: () => void
 }) {
+  // Điện thoại: đợt chờ kiểm dạng thẻ + nút duyệt ở chân thẻ (bảng 6 cột vỡ chữ từng từ).
+  const isMobile = useIsMobile()
   const [target, setTarget] = useState<Row | null>(null)
 
   // KCS phải biết đang duyệt đợt của SKU nào (2026-09-21) - nhãn kèm mã PO + số lượng vì các SKU cùng PI có thể
@@ -298,6 +301,25 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
       return r !== 0 ? r : completedAtOf(b).localeCompare(completedAtOf(a))
     })
 
+  // Nhãn trạng thái + nút duyệt dùng chung cho bảng (màn rộng) và thẻ (điện thoại).
+  // failedQty là số ĐOẠN lịch sử của ĐÚNG đợt - đợt QC_PASSED có lỗi lịch sử vẫn hiện "đạt" (xem chú thích tại bảng).
+  const statusBadge = (status: ReturnType<typeof statusOf>, totalFailed: number) => status === 'AWAITING_QC' ? (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ kiểm</span>
+  ) : totalFailed > 0 ? (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700 }}>
+      <Check size={12} color={GREEN} /> <span style={{ color: GREEN }}>đạt</span>
+      <span style={{ color: RED, fontWeight: 600 }}>(lỗi {totalFailed} đoạn)</span>
+    </span>
+  ) : (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đạt</span>
+  )
+  const reviewBtn = (x: Row) => (
+    <button onClick={() => setTarget(x)}
+      style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: ACCENT, color: '#fff', cursor: 'pointer' }}>
+      <ClipboardCheck size={13} /> Tiến hành duyệt
+    </button>
+  )
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
@@ -322,6 +344,22 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
         </div>
       )}
 
+      {isMobile ? (
+        <MobileListCards emptyText="Không có đợt nào" items={rows.map(x => {
+          const totalFailed = (reviewOf(x)?.segments ?? []).reduce((s, y) => s + y.failedQty, 0)
+          return {
+            key: x.kind + ':' + idOf(x),
+            title: <b>{materialNameOf(x)}</b>,
+            badge: statusBadge(statusOf(x), totalFailed),
+            meta: [
+              { label: 'SKU', value: <span style={{ fontWeight: 600, color: orderIdOf(x) ? 'var(--text)' : 'var(--text3)' }}>{skuLabelOf(x)}</span> },
+              { label: 'Gửi KCS lúc', value: new Date(completedAtOf(x)).toLocaleString('vi-VN') },
+              { label: 'Đợt', value: segmentsOf(x).map((s) => s.qty + '×' + s.cutLengthMm.toLocaleString('vi-VN') + 'mm').join(' + ') },
+            ],
+            footer: statusOf(x) === 'AWAITING_QC' ? reviewBtn(x) : undefined,
+          }
+        })} />
+      ) : (
       <div style={card}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -352,26 +390,8 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
                     {segments.map((s) => `${s.qty}×${s.cutLengthMm.toLocaleString('vi-VN')}mm`).join(' + ')}
                   </td>
                   <td style={{ ...td, color: 'var(--text3)' }}>{new Date(completedAtOf(x)).toLocaleString('vi-VN')}</td>
-                  <td style={{ ...td, textAlign: 'center' }}>
-                    {status === 'AWAITING_QC' ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: AMBER }}><Clock size={12} /> chờ kiểm</span>
-                    ) : totalFailed > 0 ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700 }}>
-                        <Check size={12} color={GREEN} /> <span style={{ color: GREEN }}>đạt</span>
-                        <span style={{ color: RED, fontWeight: 600 }}>(lỗi {totalFailed} đoạn)</span>
-                      </span>
-                    ) : (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đạt</span>
-                    )}
-                  </td>
-                  <td style={{ ...td, textAlign: 'right' }}>
-                    {status === 'AWAITING_QC' && (
-                      <button onClick={() => setTarget(x)}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: ACCENT, color: '#fff', cursor: 'pointer' }}>
-                        <ClipboardCheck size={13} /> Tiến hành duyệt
-                      </button>
-                    )}
-                  </td>
+                  <td style={{ ...td, textAlign: 'center' }}>{statusBadge(status, totalFailed)}</td>
+                  <td style={{ ...td, textAlign: 'right' }}>{status === 'AWAITING_QC' && reviewBtn(x)}</td>
                 </tr>
               )
             })}
@@ -381,6 +401,7 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
           </tbody>
         </table>
       </div>
+      )}
 
       {target && (
         <QcReviewModal

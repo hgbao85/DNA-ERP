@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, BarChart3, MapPin, Share2, History, ArrowLeftRight, PenLine } from 'lucide-react'
+import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, BarChart3, MapPin, Share2, History, ArrowLeftRight, PenLine, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
+import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useFetch } from '../../../hooks/useFetch'
 import { getWarehouses } from '../../../services/api'
 import WarehouseLedgerHistory from '../../../components/WarehouseLedgerHistory'
@@ -90,10 +91,15 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     return ALL_TABS
   })()
 
-  const [tab, setTab] = useState<TabId>(isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han') || isThanhPhamScope(scope) ? 'materials' : scope ? 'warehouses' : 'materials')
+  const [tab, setTabState] = useState<TabId>(isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han') || isThanhPhamScope(scope) ? 'materials' : scope ? 'warehouses' : 'materials')
+  // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ - cùng idiom SalesApp/PurchasingApp/MfgApp.
+  const isCompact = useIsCompact()
+  const isMobile = useIsMobile()
+  const [drawerOpen, setDrawerOpen] = useState(false)
+  const setTab = (id: TabId) => { setTabState(id); setDrawerOpen(false) }
   const navBtn = (active: boolean): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 9, width: '100%',
-    padding: '8px 10px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
+    padding: isCompact ? '11px 10px' : '8px 10px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
     background: active ? ACCENT_BG : 'transparent',
     color: active ? ACCENT : 'var(--text2)',
     fontWeight: active ? 600 : 400,
@@ -107,11 +113,9 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     : isThanhPhamScope(scope) ? 'Thủ kho · Thành Phẩm'
     : scope ? `Thủ kho · ${scope}` : 'Thủ kho (tổng)'
 
-  return (
-    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
-      {/* ── Sidebar ────────────────────────────────────────────────────── */}
+  const sidebar = (
       <div style={{
-        width: 210, flexShrink: 0, background: 'var(--surface)', borderRight: '1px solid var(--border)',
+        width: 210, flexShrink: 0, height: '100%', background: 'var(--surface)', borderRight: '1px solid var(--border)',
         display: 'flex', flexDirection: 'column',
       }}>
         <div style={{ padding: '16px 16px 12px' }}>
@@ -125,12 +129,17 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
                 <Grid size={16} color="var(--text)" />
               </button>
             )}
-            <div style={{ fontWeight: 700, fontSize: 14 }}>Kho đầu vào</div>
+            <div style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>Kho đầu vào</div>
+            {isCompact && (
+              <button onClick={() => setDrawerOpen(false)} aria-label="Đóng menu" style={{ padding: 4, background: 'transparent', border: 'none', display: 'flex' }}>
+                <X size={18} />
+              </button>
+            )}
           </div>
           <div style={{ fontSize: 11, color: 'var(--text3)' }}>Đông Nam Á Corp</div>
         </div>
 
-        <nav style={{ flex: 1, padding: '4px 8px' }}>
+        <nav style={{ flex: 1, padding: '4px 8px', overflowY: 'auto' }}>
           {TABS.map(t => {
             const active = tab === t.id
             return (
@@ -150,15 +159,15 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
-              width: 28, height: 28, borderRadius: '50%',
+              width: 28, height: 28, flexShrink: 0, borderRadius: '50%',
               background: ACCENT_BG, color: ACCENT,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 11, fontWeight: 700,
             }}>
               {user?.name.split(' ').pop()?.substring(0, 2).toUpperCase()}
             </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 12, fontWeight: 600 }}>{user?.name}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
               <div style={{ fontSize: 10, color: 'var(--text3)' }}>{roleLabel}</div>
             </div>
             <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất">
@@ -168,8 +177,11 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         </div>
       </div>
 
-      {/* ── Main content ───────────────────────────────────────────────── */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>
+  )
+
+  // ── Main content ───────────────────────────────────────────────────────
+  const content = (
+      <>
         {/* Tổng hợp vật tư đọc thẳng danh mục Material theo ĐÚNG 1 kho cụ thể (warehouseCode =
             scope, không quy về kho gốc của gia đình) - các kho cùng họ (thanh-pham-2...) hoạt
             động độc lập, số liệu không gộp vào nhau (xem VatTuDashboardPage.tsx). scope null
@@ -213,7 +225,39 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         {tab === 'nhap-dan'   && isThanhPhamScope(scope) && <KhoNhapDanPage warehouseScope={scope} />}
         {tab === 'diem-dan'   && isFamilyScope(scope, 'vat-tu-tp')   && <QuanLyDiemDanPage />}
         {tab === 'vat-tu-van-phong' && <OfficeSuppliesPage warehouseCode={scope ?? undefined} />}
+      </>
+  )
+
+  if (!isCompact) {
+    return (
+      <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+        {sidebar}
+        <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: '20px 24px' }}>{content}</div>
       </div>
+    )
+  }
+
+  const activeLabel = TABS.find(t => t.id === tab)?.label
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: 'var(--surface)', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+        <button onClick={() => setDrawerOpen(true)} aria-label="Mở menu" style={{ padding: 6, background: 'transparent', border: 'none', display: 'flex' }}>
+          <Menu size={20} />
+        </button>
+        <div style={{ fontWeight: 700, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          Kho {activeLabel && <span style={{ color: 'var(--text3)', fontWeight: 400 }}>· {activeLabel}</span>}
+        </div>
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: isMobile ? '14px 12px 80px' : '18px 20px 80px' }}>{content}</div>
+
+      {drawerOpen && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex' }}>
+          <div onClick={() => setDrawerOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.4)' }} />
+          <div style={{ position: 'relative', height: '100%', boxShadow: '4px 0 20px rgba(0,0,0,.15)' }}>{sidebar}</div>
+        </div>
+      )}
     </div>
   )
 }
+

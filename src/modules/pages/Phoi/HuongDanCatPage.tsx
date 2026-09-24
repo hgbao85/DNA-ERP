@@ -34,7 +34,8 @@ const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
 const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13, verticalAlign: 'middle' }
 const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
-const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
+// overflowX (không cắt): trên điện thoại bảng rộng hơn khung thì cuộn ngang thay vì mất cột bên phải.
+const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }
 
 interface PiOption { productionInvoiceId: string; poNumber: string }
 
@@ -100,9 +101,7 @@ export default function HuongDanCatPage({ initialPiId, onConsumeInitialPi }: {
               </tr>
             ))}
             {piOptions.length === 0 && (
-              <tr><td colSpan={2} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} /> Chưa có PI nào được xuất sắt</span>
-              </td></tr>
+              <tr><td colSpan={2} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} /> Chưa có PI nào được xuất sắt</span></div></td></tr>
             )}
           </tbody>
         </table>

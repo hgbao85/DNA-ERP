@@ -34,6 +34,7 @@ import { errMsg } from '../../../utils/errors'
 import {
   ACCENT, GREEN, RED, AMBER, th, thR, td, tdR, card, smallBtn, inp, subFilterBtn,
 } from './phoiStyles'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 export interface VatTuTpItem {
   orderId: string
@@ -70,8 +71,8 @@ export default function VatTuTpDetail({ item, readOnly, onBack, onRefetch }: {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <button onClick={onBack} style={{ flexShrink: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
           <ChevronLeft size={15} /> Quay lại
         </button>
         <div>
@@ -106,11 +107,47 @@ export default function VatTuTpDetail({ item, readOnly, onBack, onRefetch }: {
       {item.processSteps.length === 0 ? (
         <ChotPanel item={item} readOnly={readOnly} onRefetch={onRefetch} />
       ) : (
+        // key theo công đoạn: không có key thì React dùng lại 1 StepPanel cho mọi công đoạn -> số đang
+        // gõ ở ô "Nhập đợt này" (vd Dập) còn nguyên khi chuyển sang công đoạn khác (Đục lỗ) và có thể
+        // bị Lưu đợt nhầm công đoạn.
         <StepPanel
+          key={subFilter}
           item={item} step={subFilter as ProcessStep}
           progress={stepItems.find(s => s.key === subFilter)?.progress ?? null}
           readOnly={readOnly} onRefetch={onRefetch}
         />
+      )}
+    </div>
+  )
+}
+
+// Điện thoại: 1 hàng gọn thay bảng 1 dòng 6 cột (tên mảnh đã là tiêu đề trang; bảng đẩy ô nhập ra ngoài
+// mép phải) - cùng kiểu ProgressBuDuTable ở LenhSanXuatPhoi.tsx. Nút "Bù đủ" chỉ điền sẵn số, không gọi API.
+function MobileQtyRow({ doneLabel, required, done, failed, remaining, readOnly, qty, setQty }: {
+  doneLabel: string; required: number; done: number; failed: number; remaining: number
+  readOnly: boolean; qty: string; setQty: (v: string) => void
+}) {
+  return (
+    <div style={{ ...card, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14 }}>
+          Còn lại <b style={{ color: remaining > 0 ? ACCENT : GREEN }}>{remaining}</b>
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 10px', marginTop: 3, fontSize: 12, color: 'var(--text3)' }}>
+          <span>Cần <b style={{ color: 'var(--text2)' }}>{required}</b></span>
+          <span>{doneLabel} <b style={{ color: 'var(--text2)' }}>{done}</b></span>
+          <span>Lỗi <b style={{ color: failed > 0 ? RED : 'var(--text3)' }}>{failed > 0 ? failed : '—'}</b></span>
+          {!readOnly && failed > 0 && remaining > 0 && (
+            <button onClick={() => setQty(String(Math.min(failed, remaining)))}
+              style={{ ...smallBtn, padding: '2px 8px', fontSize: 11, background: ACCENT, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+              Bù đủ
+            </button>
+          )}
+        </div>
+      </div>
+      {!readOnly && (
+        <input type="number" min={0} placeholder="Nhập" aria-label="Nhập đợt này" value={qty} onChange={e => setQty(e.target.value)}
+          style={{ ...inp, width: 84, flexShrink: 0 }} />
       )}
     </div>
   )
@@ -127,6 +164,7 @@ function StepPanel({ item, step, progress, readOnly, onRefetch }: {
   item: VatTuTpItem; step: ProcessStep; progress: BePieceStepProgress | null
   readOnly: boolean; onRefetch: () => void
 }) {
+  const isMobile = useIsMobile()
   const { data: bundles, refetch: refetchBundles } = useFetch(
     () => api.getPieceStepBundlesForOrder(item.orderId), [item.orderId],
   )
@@ -178,6 +216,9 @@ function StepPanel({ item, step, progress, readOnly, onRefetch }: {
 
   return (
     <div>
+      {isMobile ? (
+        <MobileQtyRow doneLabel={'Đã ' + stepLabel.toLowerCase()} required={required} done={done} failed={failed} remaining={remaining} readOnly={readOnly} qty={qty} setQty={setQty} />
+      ) : (
       <div style={{ ...card, marginBottom: 12 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -215,6 +256,7 @@ function StepPanel({ item, step, progress, readOnly, onRefetch }: {
           </tbody>
         </table>
       </div>
+      )}
       {!readOnly && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
           <button onClick={submit} disabled={busy}
@@ -304,6 +346,7 @@ function PieceStepBundleHistoryCard({ bundle, orderIndex, review }: {
 function ChotPanel({ item, readOnly, onRefetch }: {
   item: VatTuTpItem; readOnly: boolean; onRefetch: () => void
 }) {
+  const isMobile = useIsMobile()
   const { data: batches, refetch: refetchBatches } = useFetch(
     () => api.getProductionBatchesForOrder(item.orderId, 'PHOI'), [item.orderId],
   )
@@ -357,6 +400,9 @@ function ChotPanel({ item, readOnly, onRefetch }: {
 
   return (
     <div>
+      {isMobile ? (
+        <MobileQtyRow doneLabel="Đã báo" required={required} done={done} failed={failed} remaining={remaining} readOnly={readOnly} qty={qty} setQty={setQty} />
+      ) : (
       <div style={{ ...card, marginBottom: 12 }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
@@ -394,6 +440,7 @@ function ChotPanel({ item, readOnly, onRefetch }: {
           </tbody>
         </table>
       </div>
+      )}
       {!readOnly && (
         <div style={{ display: 'flex', gap: 8, marginBottom: 4 }}>
           <button onClick={submit} disabled={busy}

@@ -204,8 +204,8 @@ export default function OfficeSuppliesPage({ warehouseCode }: OfficeSuppliesPage
             Chưa có văn phòng phẩm nào - bấm &quot;Thêm vật tư&quot; để tạo mới.
           </div>
         ) : (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                   <th style={{ padding: '10px 14px' }}>Tên vật tư</th>
@@ -334,7 +334,8 @@ function LedgerHistoryModal({ supply, onClose }: { supply: BeOfficeSupply; onClo
         entries.length === 0
           ? <div style={{ color: 'var(--text3)', fontSize: 13, padding: '12px 0' }}>Chưa có lịch sử nào.</div>
           : (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+            <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 520, borderCollapse: 'collapse', fontSize: 12.5 }}>
               <thead>
                 <tr style={{ textAlign: 'left', color: 'var(--text3)' }}>
                   <th style={{ padding: '6px 8px' }}>Thời gian</th>
@@ -360,6 +361,7 @@ function LedgerHistoryModal({ supply, onClose }: { supply: BeOfficeSupply; onClo
                 ))}
               </tbody>
             </table>
+            </div>
           )
       )}
     </Modal>

@@ -26,7 +26,8 @@ const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
 const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13 }
 const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
-const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
+// overflowX (không cắt): bảng 2-3 cột vừa điện thoại, khung chỉ cuộn nếu nội dung thật sự dài.
+const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }
 
 type Tab = 'duyet' | 'thua'
 
@@ -127,8 +128,8 @@ function TabBtn({ active, onClick, icon, label, badge }: { active: boolean; onCl
 function KhoTable({ rows, thua, qtyColor }: { rows: DoanRow[]; thua: boolean; qtyColor: string }) {
   return (
     <div style={card}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', minWidth: 480 }}>
-        <colgroup><col /><col style={{ width: 140 }} /><col style={{ width: 120 }} /></colgroup>
+      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+        <colgroup><col /><col style={{ width: 110 }} /><col style={{ width: 80 }} /></colgroup>
         <thead>
           <tr style={{ background: 'var(--surface2)' }}>
             <th style={th}>Tên vật liệu</th>
@@ -145,9 +146,7 @@ function KhoTable({ rows, thua, qtyColor }: { rows: DoanRow[]; thua: boolean; qt
             </tr>
           ))}
           {rows.length === 0 && (
-            <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
-              {thua ? 'Chưa có đoạn thừa' : 'Chưa có đoạn nào chờ chuyển Hàn'}
-            </td></tr>
+            <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">{thua ? 'Chưa có đoạn thừa' : 'Chưa có đoạn nào chờ chuyển Hàn'}</div></td></tr>
           )}
         </tbody>
       </table>

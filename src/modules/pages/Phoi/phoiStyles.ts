@@ -9,7 +9,8 @@ export const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fon
 export const thR: React.CSSProperties = { ...th, textAlign: 'right' }
 export const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13, verticalAlign: 'middle' }
 export const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
-export const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
+// overflowX (không cắt): trên điện thoại bảng rộng hơn khung thì cuộn ngang thay vì mất cột bên phải.
+export const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }
 export const smallBtn: React.CSSProperties = { padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, color: '#fff', cursor: 'pointer' }
 export const inp: React.CSSProperties = { width: 72, padding: '5px 7px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }
 export const subFilterBtn = (active: boolean): React.CSSProperties => ({

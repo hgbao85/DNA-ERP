@@ -11,6 +11,7 @@ import { useAuditLog } from '../../../context/AuditLogContext'
 import { SKU_ENTITY } from '../../../constants/skuStatus'
 import SpecAccessoryCatalogPage from './SpecAccessoryCatalogPage'
 import type { Sku } from '../../../types/sku'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 // ─── Types ────────────────────────────────────────────────────────────
 // "Định mức chi tiết" (Sơn/Phụ kiện/Bao bì) — 1 account nhập cả 3 nhóm trong 1 trang, gửi
@@ -65,6 +66,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
 }) {
   const { user } = useAuth()
   const { logAction } = useAuditLog()
+  // Điện thoại: bảng dòng vật tư 7 cột -> thẻ; ô nhập form co giãn thay vì rộng cố định.
+  const isMobile = useIsMobile()
+  const fieldW = (w: number): React.CSSProperties => isMobile ? { flex: '1 1 130px', minWidth: 0 } : { width: w }
   const { data: skusData, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
   // Mảnh và chi tiết là 2 nhánh độc lập (tiến song song, không bắt buộc theo thứ tự) - chuyên viên
   // chi tiết thấy SKU ngay khi KHSX tạo, không cần chờ mảnh xong. Cùng điều kiện với SpecSteelPage.tsx.
@@ -159,8 +163,8 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   return (
     <div>
       {/* Page header */}
-      <div style={{ marginBottom: 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-        <div>
+      <div style={{ marginBottom: isMobile ? 14 : 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ minWidth: 0 }}>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức chi tiết</h2>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập định mức chi tiết theo SKU — Sơn, Phụ kiện, Bao bì</p>
         </div>
@@ -178,7 +182,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
               value={bomSearch}
               onChange={e => setBomSearch(e.target.value)}
               placeholder="Tìm theo tên SKU…"
-              style={{ maxWidth: 280, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
+              style={{ width: '100%', maxWidth: 280, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
             />
           </div>
           <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--border)', overflow: 'hidden' }}>
@@ -230,9 +234,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
       {subTab === 'dinh-muc' && selectedBom && (
         <div>
           {/* Back */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
             <button onClick={() => setSelectedBom(null)} style={{
-              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+              display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', flexShrink: 0, whiteSpace: 'nowrap',
               background: 'var(--surface)', border: '1px solid var(--border)',
               borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
             }}><ChevronLeft size={14} /> Quay lại</button>
@@ -259,9 +263,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
 
           {/* Add line */}
           {!isSubmitted && (
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '14px 16px', marginBottom: 14 }}>
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: isMobile ? 12 : '14px 16px', marginBottom: 14 }}>
               {/* Chọn nhóm vật tư — quyết định materialGroupId lọc MaterialPicker + nhãn form. */}
-              <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
                 {GROUPS.map(g => (
                   <button key={g}
                     onClick={() => { setGroup(g); setMaterial(null) }}
@@ -274,8 +278,8 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                   >{GROUP_LABELS[g]}</button>
                 ))}
               </div>
-              <div style={{ display: 'flex', gap: 25, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: 220 }}>
+              <div style={{ display: 'flex', gap: isMobile ? 12 : 25, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: isMobile ? '100%' : 220 }}>
                   <FL>{GROUP_CODE_LABELS[group]}</FL>
                   <MaterialPicker
                     value={material}
@@ -285,20 +289,20 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                     placeholder={`Chọn ${GROUP_CODE_LABELS[group].toLowerCase()}…`}
                   />
                 </div>
-                <div style={{ width: 150 }}>
+                <div style={fieldW(150)}>
                   <FL>Quy cách</FL>
                   <input placeholder="Theo vật tư đã chọn" value={spec}
                     disabled
                     style={specInputStyle} />
                 </div>
-                <div style={{ width: 110 }}>
+                <div style={fieldW(110)}>
                   <FL>Đơn vị tính</FL>
                   <input placeholder="VD: kg" value={unit}
                     onChange={e => setUnit(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addLine()}
                     style={inputStyle} />
                 </div>
-                <div style={{ width: 140 }}>
+                <div style={fieldW(140)}>
                   <FL>{GROUP_QTY_LABELS[group]}</FL>
                   <input type="number" min={0} placeholder="0" value={soLuong}
                     onChange={e => setSoLuong(e.target.value)}
@@ -324,10 +328,32 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
             </div>
           )}
 
-          {/* Combined lines table */}
-          {lines.length > 0 && (
+          {/* Combined lines: thẻ trên điện thoại, bảng trên màn rộng */}
+          {lines.length > 0 && isMobile && (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              {lines.map((l, i) => {
+                const badge = GROUP_BADGE_COLORS[l.group]
+                return (
+                  <div key={l.id} style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined, padding: '10px 12px', fontSize: 13 }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: badge.fg, background: badge.bg, borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap', flexShrink: 0 }}>{GROUP_LABELS[l.group]}</span>
+                      <div style={{ flex: 1, minWidth: 0, fontWeight: 500, wordBreak: 'break-word' }}>{l.name}</div>
+                      {!isSubmitted && (
+                        <button onClick={() => deleteLine(l.id)} aria-label="Xóa" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 6, flexShrink: 0 }}><X size={16} /></button>
+                      )}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 6, fontSize: 12, color: 'var(--text3)' }}>
+                      {l.specs && <span>Quy cách: <b style={{ color: 'var(--text2)', fontWeight: 600 }}>{l.specs}</b></span>}
+                      <span>{GROUP_QTY_LABELS[l.group]}: <b style={{ color: 'var(--text)', fontWeight: 700 }}>{l.soLuong || '—'}</b> {l.unit}</span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {lines.length > 0 && !isMobile && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflowX: 'auto' }}>
+              <table style={{ width: '100%', minWidth: 640, borderCollapse: 'collapse', fontSize: 13 }}>
                 <thead>
                   <tr style={{ background: 'var(--surface2)' }}>
                     <th style={{ width: 36, padding: '7px', textAlign: 'center', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>#</th>
@@ -372,8 +398,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
           {/* Submit bar */}
           {lines.length > 0 && (
             <div style={{
-              marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10,
               padding: '12px 16px', background: 'var(--surface)',
+
               border: `1px solid ${
                 bomSt === 'approved' ? '#a5d6a7'
                 : bomSt === 'pending' ? '#ffe082'

@@ -11,6 +11,8 @@ export const backBtn: CSSProperties = {
   display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px',
   fontSize: 13, border: '1px solid var(--border)', borderRadius: 8,
   background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer',
+  // Header chi tiết trên điện thoại: tiêu đề SKU dài không được bóp nút thành 2 dòng.
+  flexShrink: 0, whiteSpace: 'nowrap',
 }
 
 /** Tab button dùng trong trang kho (active/inactive với accent màu tùy kho). */

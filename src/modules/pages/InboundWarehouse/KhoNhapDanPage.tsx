@@ -11,6 +11,8 @@ import { errMsg } from '../../../utils/errors'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
 import type { Sku } from '../../../types/sku'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
+import MobileListCards from '../../../components/MobileListCards'
 
 /**
  * Nhập đan = kho thành phẩm nhận mảnh đã đan từ điểm đan gia công bên ngoài. Mỗi dòng ứng với 1
@@ -20,6 +22,8 @@ import type { Sku } from '../../../types/sku'
  * WeavingIssuesService.receive). Đồng bộ trực tiếp với "Theo dõi xuất đan" (KhoXuatDanPage).
  */
 export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, warehouseScope }: { readOnly?: boolean; filterExportOrderId?: string; warehouseScope?: string | null } = {}) {
+  // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
+  const isMobile = useIsMobile()
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
@@ -88,10 +92,10 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
   if (selectedPf) {
     return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
           <button
             onClick={() => setSelectedPf(null)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
+            style={{ flexShrink: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
           >
             <ChevronLeft size={15} /> Quay lại
           </button>
@@ -182,7 +186,9 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
         Nhấn vào dòng để xem chi tiết và xác nhận nhận hàng đan từ điểm đan
       </p>
 
-      {isLoading ? <LoadingState /> : (
+      {isLoading ? <LoadingState /> : isMobile ? (
+        <MobileListCards emptyText="Không có PI nào" items={active.map(pf => ({ key: String(pf.id), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng' }, { label: 'Hạn giao', value: pf.exportOrder?.deliveryDate ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy') : '—' }] }))} />
+      ) : (
         <div style={tableWrap}>
           <table style={tbl}>
             <colgroup>
@@ -222,7 +228,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
                 </tr>
               ))}
               {active.length === 0 && (
-                <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có PI nào</td></tr>
+                <tr><td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Không có PI nào</div></td></tr>
               )}
             </tbody>
           </table>

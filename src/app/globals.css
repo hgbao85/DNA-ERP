@@ -115,3 +115,9 @@ textarea { resize: vertical; min-height: 80px; }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* Dòng "Không có ... nào" nằm trong bảng có sàn minWidth (cuộn ngang trên điện thoại): căn giữa theo
+   bảng 600px sẽ đẩy chữ ra ngoài mép phải màn hình. Khối nằm sát mép trái ô (KHÔNG margin auto - sticky
+   chỉ giữ khi cuộn, không kéo khối về vùng nhìn thấy) + rộng tối đa bằng khung nhìn, chữ căn giữa trong
+   khối nhờ text-align của ô. Desktop: khung nhìn rộng hơn bảng nên khối = cả ô, vẫn căn giữa như cũ. */
+.table-empty-msg { position: sticky; left: 0; max-width: calc(100vw - 50px); }

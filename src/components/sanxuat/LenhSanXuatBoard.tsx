@@ -13,6 +13,7 @@
 
 import { Fragment, type ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
+import { useIsMobile } from '../../hooks/useMediaQuery'
 
 export interface BoardColumn<T> {
   key: string
@@ -47,7 +48,15 @@ export interface LenhSanXuatBoardProps<T> {
 
 const toneBg: Record<RowTone, string> = { default: 'transparent', alert: 'var(--red-bg)', muted: 'transparent' }
 
+// Thẻ (điện thoại): cột rộng (thanh tiến độ, ô nhập, nút thao tác) hoặc không có tiêu đề -> chiếm trọn 1 hàng
+// của lưới thay vì bị ép vào nửa thẻ.
+const isWideCol = <T,>(c: BoardColumn<T>) => (c.width ?? 0) >= 150 || c.header === '' || c.header == null
+
 export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
+  // Điện thoại: mỗi dòng thành 1 thẻ (cột đầu = tiêu đề, các cột còn lại = cặp nhãn/giá trị) - cùng 1
+  // `columns` nên mọi màn dùng board (Lệnh SX Phôi/Hàn/Sơn, KCS, chi tiết vật tư...) tự có bản điện thoại.
+  const isMobile = useIsMobile()
+  const [firstCol, ...restCols] = p.columns
   return (
     <div>
       {p.onBack && (
@@ -71,6 +80,51 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
 
       {p.beforeTable}
 
+      {isMobile ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+          {p.rows.map(row => {
+            const tone = p.rowTone?.(row) ?? 'default'
+            const canClick = p.clickable?.(row) ?? !!p.onRowClick
+            const expanded = p.expandedRow?.(row)
+            return (
+              <div
+                key={p.rowKey(row)}
+                className="card"
+                role={canClick ? 'button' : undefined}
+                tabIndex={canClick ? 0 : undefined}
+                title={p.rowTitle?.(row)}
+                onClick={() => canClick && p.onRowClick?.(row)}
+                onKeyDown={e => { if (canClick && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); p.onRowClick?.(row) } }}
+                style={{
+                  padding: '11px 13px', overflow: 'hidden',
+                  cursor: canClick ? 'pointer' : tone === 'muted' ? 'not-allowed' : 'default',
+                  opacity: tone === 'muted' ? 0.55 : 1,
+                  background: tone === 'alert' ? toneBg.alert : undefined,
+                  borderColor: tone === 'alert' ? '#f0c1c1' : undefined,
+                }}
+              >
+                {firstCol && <div style={{ fontSize: 13, fontWeight: 600, wordBreak: 'break-word' }}>{firstCol.cell(row)}</div>}
+                {restCols.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '8px 12px', marginTop: 8, fontSize: 13 }}>
+                    {restCols.map(c => (
+                      <div key={c.key} style={{ minWidth: 0, gridColumn: isWideCol(c) ? '1 / -1' : undefined }}>
+                        {c.header !== '' && c.header != null && <div style={{ fontSize: 10, color: 'var(--text3)', marginBottom: 1 }}>{c.header}</div>}
+                        <div style={{ wordBreak: 'break-word' }}>{c.cell(row)}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {expanded && (
+                  <div style={{ margin: '10px -13px -11px', borderTop: '1px solid var(--border)', overflowX: 'auto' }}>{expanded}</div>
+                )}
+              </div>
+            )
+          })}
+          {p.rows.length === 0 && (
+            <div className="card" style={{ padding: 24, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>{p.emptyText ?? 'Không có dữ liệu.'}</div>
+          )}
+        </div>
+      ) : (
       <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: 14 }}>
         <table style={tbl}>
           <thead><tr style={trh}>
@@ -102,11 +156,13 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
               )
             })}
             {p.rows.length === 0 && (
-              <tr><td colSpan={p.columns.length} style={{ ...td, textAlign: 'center', color: 'var(--text3)', padding: 24 }}>{p.emptyText ?? 'Không có dữ liệu.'}</td></tr>
+              <tr><td colSpan={p.columns.length} style={{ ...td, textAlign: 'center', color: 'var(--text3)', padding: 24 }}><div className="table-empty-msg">{p.emptyText ?? 'Không có dữ liệu.'}</div></td></tr>
             )}
           </tbody>
         </table>
       </div>
+      )}
+
 
       {p.footer && <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text3)' }}>{p.footer}</div>}
     </div>

@@ -18,6 +18,8 @@ import * as api from '../../../services/api'
 import type { Sku } from '../../../types/sku'
 import { combinedDaySon } from '../../../utils/manhMaterials'
 import LoadingState from '../../../components/LoadingState'
+import MobileListCards from '../../../components/MobileListCards'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 const ACCENT = '#e65100'
 
@@ -85,6 +87,8 @@ function buildPaintRows(skus: Sku[]): PaintRow[] {
 
 export default function PhoiDinhMucManhPage({ stage = 'PHOI' }: { stage?: DinhMucStage }) {
   const isSon = stage === 'SON'
+  // Điện thoại: bảng 6-7 cột bị bóp tới vỡ chữ từng từ -> thẻ (chỉ xem, không bấm).
+  const isMobile = useIsMobile()
   const [q, setQ] = useState('')
   const [sku, setSku] = useState('ALL')
 
@@ -132,17 +136,29 @@ export default function PhoiDinhMucManhPage({ stage = 'PHOI' }: { stage?: DinhMu
       </div>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '14px 0', flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', width: 280 }}>
+        <div style={{ position: 'relative', width: isMobile ? '100%' : 280 }}>
           <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)' }} />
           <input placeholder={isSon ? 'Tìm SKU, loại sơn…' : 'Tìm SKU, tên mảnh, loại sắt…'} value={q} onChange={e => setQ(e.target.value)} style={{ padding: '7px 10px 7px 32px' }} />
         </div>
-        <select value={sku} onChange={e => setSku(e.target.value)} style={{ width: 200 }}>
+        <select value={sku} onChange={e => setSku(e.target.value)} style={{ width: isMobile ? 'auto' : 200, flex: isMobile ? '1 1 0' : undefined, minWidth: 0 }}>
           {skuOptions.map(s => <option key={s} value={s}>{s === 'ALL' ? '— Tất cả SKU —' : s}</option>)}
         </select>
         <span style={{ fontSize: 12, color: 'var(--text3)' }}>{rows.length} dòng</span>
       </div>
 
-      {isLoading ? <LoadingState /> : (
+      {isLoading ? <LoadingState /> : isMobile ? (
+        isSon ? (
+          <MobileListCards emptyText="Không tìm thấy dữ liệu phù hợp." items={paintFiltered.map(d => ({
+            key: d.id, title: <b>{d.sonName}</b>,
+            meta: [{ label: 'SKU', value: <b>{d.sku}</b> }, { label: 'Sản phẩm', value: d.sanPham }, { label: 'Mã sơn', value: d.sonCode }, { label: 'ĐVT', value: d.sonUnit }],
+          }))} />
+        ) : (
+          <MobileListCards emptyText="Không tìm thấy mảnh phù hợp." items={steelFiltered.map(d => ({
+            key: d.id, title: <b>{d.loaiSat}</b>,
+            meta: [{ label: 'SKU', value: <b>{d.sku}</b> }, { label: 'Tên mảnh', value: d.tenManh }, { label: 'Quy cách', value: d.spec }, { label: 'Chiều dài cắt', value: fmt(d.cutLengthMm) + ' mm · ' + d.unit }],
+          }))} />
+        )
+      ) : (
       <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)' }}>
         <table style={tbl}>
           {isSon ? (

@@ -8,9 +8,13 @@ import { format } from 'date-fns'
 import { ChevronLeft, X } from 'lucide-react'
 import type { Sku } from '../../../types/sku'
 import LoadingState from '../../../components/LoadingState'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
+import MobileListCards from '../../../components/MobileListCards'
 
 
 export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, warehouseScope }: { readOnly?: boolean; filterExportOrderId?: string; warehouseScope?: string | null } = {}) {
+  // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
+  const isMobile = useIsMobile()
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
 
@@ -87,10 +91,10 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
     return (
       <div>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
           <button
             onClick={() => setSelectedPf(null)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
+            style={{ flexShrink: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
           >
             <ChevronLeft size={15} /> Quay lại
           </button>
@@ -112,8 +116,8 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
 
         {/* Detail table */}
         {progressLoading ? <LoadingState /> : (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 600, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
               <colgroup>
                 <col />
                 <col style={{ width: 100 }} />
@@ -133,9 +137,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
               <tbody>
                 {total === 0 ? (
                   <tr>
-                    <td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
-                      Chưa có gì để đóng gói (SKU chưa được Sếp duyệt lệnh sản xuất)
-                    </td>
+                    <td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Chưa có gì để đóng gói (SKU chưa được Sếp duyệt lệnh sản xuất)</div></td>
                   </tr>
                 ) : (
                   <tr style={{ borderTop: '1px solid var(--border)' }}>
@@ -227,7 +229,9 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
         Nhấn vào dòng để cập nhật số lượng đóng gói
       </p>
 
-      {isLoading ? <LoadingState /> : (
+      {isLoading ? <LoadingState /> : isMobile ? (
+        <MobileListCards emptyText="Không có PI nào" items={active.map(pf => ({ key: String(pf.id), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng' }, { label: 'Hạn giao', value: pf.exportOrder?.deliveryDate ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy') : '—' }] }))} />
+      ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', minWidth: 600, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
@@ -275,9 +279,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
                 ))}
                 {active.length === 0 && (
                   <tr>
-                    <td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
-                      Không có PI nào
-                    </td>
+                    <td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Không có PI nào</div></td>
                   </tr>
                 )}
               </tbody>

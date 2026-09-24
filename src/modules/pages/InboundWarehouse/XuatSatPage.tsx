@@ -29,6 +29,8 @@ import { errMsg } from '../../../utils/errors'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
 import type { Sku } from '../../../types/sku'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
+import MobileListCards from '../../../components/MobileListCards'
 
 const ACCENT = '#4527A0'
 
@@ -41,6 +43,8 @@ interface PiGroup {
 }
 
 export default function XuatSatPage({ embedded = false }: { embedded?: boolean } = {}) {
+  // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
+  const isMobile = useIsMobile()
   const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
   // PO/PI thật (từ ProductionOrder Sếp đã duyệt) - KHÔNG dùng Sku.exportOrder/Sku.piCode, xem
   // comment ở buildProductionOrderInfoByMfgProduct().
@@ -125,10 +129,10 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
   if (selectedPi) {
     return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
           <button
             onClick={() => setSelectedPi(null)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
+            style={{ flexShrink: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
           >
             <ChevronLeft size={15} /> Quay lại
           </button>
@@ -265,7 +269,9 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
         Nhấn vào dòng để xem loại sắt cần xuất cho cả PI (theo phương án cắt sắt đã duyệt) và xuất theo chiều dài/số cây.
       </p>
 
-      {isLoading ? <LoadingState /> : (
+      {isLoading ? <LoadingState /> : isMobile ? (
+        <MobileListCards emptyText="Không có PI nào" items={piGroups.map(g => ({ key: String(g.productionInvoiceId), onClick: () => setSelectedPi(g), title: <b>{g.skus.map(pf => pf.mfgProduct?.factoryCode).filter(Boolean).join(', ') || '—'}</b>, meta: [{ label: 'PI', value: g.piCode }, { label: 'PO', value: g.poCode ?? 'Gộp nhiều đơn' }] }))} />
+      ) : (
         <div style={tableWrap}>
           <table style={tbl}>
             <colgroup>
@@ -295,7 +301,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
                 </tr>
               ))}
               {piGroups.length === 0 && (
-                <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có PI nào</td></tr>
+                <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Không có PI nào</div></td></tr>
               )}
             </tbody>
           </table>

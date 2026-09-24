@@ -20,6 +20,7 @@ import type {
   BeProductionBatch, BeProductionBatchQcReview,
 } from '../../services/production-batches-api'
 import { errMsg } from '../../utils/errors'
+import { useIsMobile } from '../../hooks/useMediaQuery'
 
 const ACCENT = '#e65100'
 const REMIND_MINUTES = 60
@@ -310,8 +311,10 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, pi
       clickable={v => v.canEnter}
       onRowClick={v => onEnter(v.r.id)}
       rowTitle={v => !v.arranged ? 'Chủ chuyền chưa sắp xếp lệnh này' : !v.seqUnlocked ? 'Phải hoàn tất SKU trước (đủ 100%) mới mở lệnh này' : v.alert ? 'Chưa khớp đồng bộ — nhấn để xem' : isPhoi ? 'Nhấn để xem các mảnh của SKU' : 'Nhấn để nhập sản lượng theo vật tư'}
-      footer={<span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        <CalendarClock size={14} /> Làm <b style={{ color: 'var(--text2)' }}>tuần tự</b>: SKU sau chỉ mở khi SKU trước đủ 100%. {isPhoi
+      // Đoạn văn thường (không inline-flex): inline-flex biến mỗi đoạn chữ/chữ đậm thành 1 "cột" riêng,
+      // màn hẹp bị ép thành các cột chữ vỡ dòng.
+      footer={<span style={{ display: 'block', lineHeight: 1.6 }}>
+        <CalendarClock size={14} style={{ verticalAlign: '-2px', marginRight: 4 }} /> Làm <b style={{ color: 'var(--text2)' }}>tuần tự</b>: SKU sau chỉ mở khi SKU trước đủ 100%. {isPhoi
           ? <>Tiến độ theo <b style={{ color: 'var(--text2)' }}>tổng cây đã cắt / cần</b>; <b style={{ color: 'var(--text2)' }}>đồng bộ sắt</b> (điểm nghẽn loại sắt) xem trong từng mảnh.</>
           : <><b style={{ color: 'var(--text2)' }}>{cfg.done}</b> = số sản phẩm ráp được đủ mọi {cfg.itemLabel.toLowerCase()} (đồng bộ); dòng đỏ = chưa khớp.</>}
       </span>}
@@ -663,9 +666,9 @@ function LineListBoard({ lines, cfg, title, subtitle, backLabel, onBack, onEnter
 }) {
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
         {onBack && (
-          <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
+          <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
             <ChevronLeft size={15} /> {backLabel ?? 'Quay lại'}
           </button>
         )}
@@ -722,6 +725,8 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
   batchesByLine?: Map<number, BeProductionBatch[]>
   reviews?: BeProductionBatchQcReview[]
 }) {
+  // Điện thoại: bảng 1 dòng - bỏ cột "Mảnh" (tên mảnh đã là tiêu đề trang) để ô nhập luôn nằm trong màn hình.
+  const isMobile = useIsMobile()
   const [qty, setQty] = useState('')
   const [busy, setBusy] = useState(false)
   const [sendBusy, setSendBusy] = useState(false)
@@ -756,8 +761,8 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+        <button onClick={onBack} style={{ flexShrink: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
           <ChevronLeft size={15} /> Quay lại
         </button>
         <div>
@@ -770,7 +775,7 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--surface)' }}>
-              <th style={thH}>Mảnh</th>
+              {!isMobile && <th style={thH}>Mảnh</th>}
               <th style={thHR}>Cần</th>
               <th style={thHR}>Đã báo</th>
               <th style={thHR}>Lỗi</th>
@@ -780,7 +785,7 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
           </thead>
           <tbody>
             <tr style={{ borderTop: '1px solid var(--border)' }}>
-              <td style={td}>{line.itemName}</td>
+              {!isMobile && <td style={td}>{line.itemName}</td>}
               <td style={tdR}>{fmt(line.needQty)}</td>
               <td style={tdR}>{fmt(line.doneQty)}</td>
               <td style={{ ...tdR, color: failed > 0 ? 'var(--red)' : 'var(--text3)' }}>{failed > 0 ? fmt(failed) : '—'}</td>
