@@ -100,7 +100,7 @@ export {
 export { getDefectReasons, createDefectReason, updateDefectReason, deleteDefectReason } from './defect-reasons-api';
 export { getWeavingPoints, createWeavingPoint, updateWeavingPoint, deleteWeavingPoint } from './weaving-points-api';
 export { getSystemConfig, updateSystemConfig } from './system-config-api';
-export { getMfgProducts, createMfgProduct } from './products-api';
+export { getMfgProducts, createMfgProduct, findMfgProductByCode } from './products-api';
 export { getSalesOrders, createSalesOrder, updateSalesOrder, shipSalesOrderItem, deleteSalesOrder } from './sales-orders-api';
 export {
   getSkus, getSku, getSkuOptions, createSku, deleteSkus, updateSku,

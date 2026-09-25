@@ -108,9 +108,13 @@ export async function createSalesOrder(data: Record<string, unknown>): Promise<S
   const rawItems = (data.items as Array<Record<string, unknown>>) ?? [];
   const items = await Promise.all(
     rawItems.map(async (it) => {
-      const product = await resolveMfgProduct(String(it.skuCode ?? ''), it.skuName as string | undefined);
+      // Có mfgProductId (chọn từ SKU đã duyệt) thì dùng thẳng — mã SKU không unique, resolve theo
+      // mã có thể gắn nhầm sang sản phẩm cùng mã của khách khác.
+      const mfgProductId = it.mfgProductId
+        ? String(it.mfgProductId)
+        : (await resolveMfgProduct(String(it.skuCode ?? ''), it.skuName as string | undefined)).id;
       return {
-        mfgProductId: product.id,
+        mfgProductId,
         skuName: it.skuName,
         totalQty: it.totalQty,
         deliveryDate: it.deliveryDate || undefined,

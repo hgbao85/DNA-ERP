@@ -26,11 +26,21 @@ export async function createMfgProduct(data: Record<string, unknown>): Promise<B
   });
 }
 
+/** Tra 1 sản phẩm theo đúng mã (không phân biệt hoa/thường) — hỏi thẳng BE bằng `search` tại
+ *  thời điểm gọi, không dựa danh sách đã tải sẵn (có thể cũ, hoặc vượt limit=100) — danh sách cũ
+ *  làm FE tưởng mã chưa có rồi POST /products tạo trùng → 409 Conflict. */
+export async function findMfgProductByCode(factoryCode: string): Promise<BeMfgProduct | undefined> {
+  const res = await http.get<BeMfgProduct[] | { data: BeMfgProduct[] }>('/products', {
+    params: { search: factoryCode, limit: 100 },
+  });
+  const list = Array.isArray(res) ? res : res.data;
+  return list.find((p) => p.factoryCode.toLowerCase() === factoryCode.toLowerCase());
+}
+
 /** Tìm theo factoryCode (không phân biệt hoa/thường), không có thì tạo mới — dùng chung cho
  *  mọi nơi cần "resolve-or-create" 1 SKU theo mã (OrderManagementPage, SKUReviewPage...). */
 export async function resolveMfgProduct(factoryCode: string, name?: string): Promise<BeMfgProduct> {
-  const products = await getMfgProducts();
-  const existing = products.find((p) => p.factoryCode.toLowerCase() === factoryCode.toLowerCase());
+  const existing = await findMfgProductByCode(factoryCode);
   if (existing) return existing;
   return createMfgProduct({ factoryCode, name: name ?? factoryCode });
 }

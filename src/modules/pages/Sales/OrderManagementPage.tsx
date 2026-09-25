@@ -15,8 +15,10 @@ import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 const fmtMoney = (n: number) => n.toLocaleString('vi-VN')
 
-type ItemDraft = { skuCode: string; skuName: string; totalQty: string; deliveryDate: string }
-const EMPTY_ITEM: ItemDraft = { skuCode: '', skuName: '', totalQty: '', deliveryDate: '' }
+/** `mfgProductId` là khoá thật của dòng — `skuCode` KHÔNG unique (2 khách có thể dùng cùng mã SKU
+ *  cho 2 kết cấu khác nhau), chỉ để hiển thị. */
+type ItemDraft = { mfgProductId: string; skuCode: string; skuName: string; totalQty: string; deliveryDate: string }
+const EMPTY_ITEM: ItemDraft = { mfgProductId: '', skuCode: '', skuName: '', totalQty: '', deliveryDate: '' }
 type FormState = {
   orderCode: string; customerId: string; orderDate: string; note: string
   /** File chọn tại chỗ, CHƯA upload - chỉ lên Cloudinary thật lúc bấm "Tạo PO" (handleSave), cùng
@@ -44,14 +46,20 @@ export default function OrderManagementPage() {
   const isMobile = useIsMobile()
 
   // SKU đã duyệt (danh sách SKU của productplan@demo.com) — nguồn chọn SKU khi tạo PO
+  // Gom theo mfgProductId (không theo mã — mã có thể trùng giữa 2 khách), kèm tên khách để phân biệt.
   const skuOptions = (() => {
-    const byCode = new Map<string, { code: string; name: string }>()
+    const byId = new Map<string, { id: string; code: string; name: string; customerName: string }>()
     for (const pf of skus ?? []) {
       if (pf.status === 'APPROVED' && pf.mfgProduct) {
-        byCode.set(pf.mfgProduct.factoryCode, { code: pf.mfgProduct.factoryCode, name: pf.mfgProduct.name })
+        byId.set(pf.mfgProduct.id, {
+          id: pf.mfgProduct.id,
+          code: pf.mfgProduct.factoryCode,
+          name: pf.mfgProduct.name,
+          customerName: pf.customerName ?? '',
+        })
       }
     }
-    return [...byCode.values()]
+    return [...byId.values()]
   })()
 
   // SKU đã duyệt, đã gán sẵn cho 1 khách hàng cụ thể (customerName nhập lúc "Tạo SKU mới")
@@ -82,6 +90,7 @@ export default function OrderManagementPage() {
       const items = form.items
         .filter((it) => it.skuCode.trim())
         .map((it) => ({
+          mfgProductId: it.mfgProductId || undefined,
           skuCode: it.skuCode.trim(),
           skuName: it.skuName.trim() || undefined,
           totalQty: Number(it.totalQty) || 0,
@@ -288,6 +297,7 @@ export default function OrderManagementPage() {
                       // "SKU trong PO" luôn, khỏi phải tìm/chọn lại thủ công từng dòng.
                       items: preAssigned.length > 0
                         ? preAssigned.map((pf) => ({
+                            mfgProductId: pf.mfgProduct!.id,
                             skuCode: pf.mfgProduct!.factoryCode,
                             skuName: pf.mfgProduct!.name,
                             totalQty: '',
@@ -358,10 +368,10 @@ export default function OrderManagementPage() {
                   <SearchableSelect
                     displayValue={it.skuCode ? `${it.skuCode} — ${it.skuName}` : ''}
                     options={skuOptions}
-                    getKey={o => o.code}
-                    getSearchText={o => `${o.code} ${o.name}`}
-                    renderOption={o => <><strong>{o.code}</strong> <span style={{ color: 'var(--text3)' }}>— {o.name}</span></>}
-                    onSelect={o => setItem(i, { skuCode: o.code, skuName: o.name })}
+                    getKey={o => o.id}
+                    getSearchText={o => `${o.code} ${o.name} ${o.customerName}`}
+                    renderOption={o => <><strong>{o.code}</strong> <span style={{ color: 'var(--text3)' }}>— {o.name}{o.customerName ? ` · ${o.customerName}` : ''}</span></>}
+                    onSelect={o => setItem(i, { mfgProductId: o.id, skuCode: o.code, skuName: o.name })}
                     placeholder="Tìm hoặc chọn SKU đã duyệt *"
                     emptyText="Không tìm thấy SKU đã duyệt"
                   />
