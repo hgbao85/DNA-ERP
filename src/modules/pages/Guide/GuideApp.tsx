@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useAuth, type User } from '../../../context/AuthContext';
 import { GUIDE_GROUPS, allArticles } from './content';
 import type { GuideGroup, GuideRole } from './types';
-import { roleInfo, GUIDE_VERIFIED_DATE } from './types';
+import { roleInfo } from './types';
 import { searchArticles } from './search';
 import { markVisited, isVisited, getLastVisited } from './progress';
 import ArticleView, { type TabKey } from './ArticleView';
@@ -80,23 +80,22 @@ function GroupCard({ group, onOpen, delayMs = 0 }: { group: GuideGroup; onOpen: 
       className="dna-guide-card-in"
       style={{
         textAlign: 'left', padding: '17px 18px 16px', borderRadius: 'var(--radius-lg)',
-        border: '1px solid var(--border)', borderTop: `3px solid ${group.color}`,
+        border: '1px solid var(--border)',
         background: 'var(--surface)', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 9,
         boxShadow: hover ? '0 10px 24px rgba(15,23,42,0.09)' : '0 1px 2px rgba(15,23,42,0.04)',
-        transform: hover ? 'translateY(-3px)' : 'translateY(0)',
-        transition: 'box-shadow 0.18s ease, transform 0.18s ease, border-color 0.18s ease',
+        transition: 'box-shadow 0.18s ease, border-color 0.18s ease',
         animationDelay: `${delayMs}ms`,
       }}
     >
       <span style={{
-        width: 36, height: 36, borderRadius: 10, background: group.bg,
+        width: 36, height: 36, borderRadius: 10, background: 'var(--surface2)',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
-        <GuideIcon name={group.icon} size={18} color={group.color} />
+        <GuideIcon name={group.icon} size={18} color="var(--text2)" />
       </span>
-      <span style={{ fontWeight: 700, fontSize: 14.5, color: 'var(--text)' }}>{group.title}</span>
-      <span style={{ fontSize: 12.5, color: 'var(--text2)', lineHeight: 1.55 }}>{group.description}</span>
-      <span style={{ fontSize: 11.5, fontWeight: 700, color: group.color, display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+      <span style={{ fontWeight: 700, fontSize: 15.5, color: 'var(--text)' }}>{group.title}</span>
+      <span style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.6 }}>{group.description}</span>
+      <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--blue-text)', display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
         {group.articles.length} bài viết <ArrowRight size={11} />
       </span>
     </button>
@@ -126,8 +125,8 @@ function ContinueReadingCard({ onOpen }: { onOpen: (id: string) => void }) {
         background: 'var(--surface)', cursor: 'pointer',
       }}
     >
-      <span style={{ width: 34, height: 34, borderRadius: 10, background: found.group.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-        <Sparkles size={16} color={found.group.color} />
+      <span style={{ width: 34, height: 34, borderRadius: 10, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Sparkles size={16} color="var(--text2)" />
       </span>
       <span style={{ flex: 1, minWidth: 0 }}>
         <span style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Tiếp tục đọc</span>
@@ -200,9 +199,6 @@ function WelcomePane({ myRoles, onOpenArticle }: { myRoles: GuideRole[]; onOpenA
             </span>
           </div>
         </div>
-        <div style={{ marginTop: 16, fontSize: 11, color: 'var(--text3)' }}>
-          Xác minh theo mã nguồn ngày {GUIDE_VERIFIED_DATE} — nghiệp vụ có thể đã thay đổi sau đó, ưu tiên tin theo phần mềm đang chạy nếu khác.
-        </div>
       </div>
 
       <ContinueReadingCard onOpen={onOpenArticle} />
@@ -235,14 +231,13 @@ function WelcomePane({ myRoles, onOpenArticle }: { myRoles: GuideRole[]; onOpenA
 function GroupSection({
   group, activeId, onSelect, open, onToggle, mounted,
 }: { group: GuideGroup; activeId: string | null; onSelect: (id: string) => void; open: boolean; onToggle: () => void; mounted: boolean }) {
-  const containsActive = group.articles.some(a => a.id === activeId);
 
   return (
     <div style={{ marginBottom: 2 }}>
       <button onClick={onToggle} style={{
         display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 10px',
         border: 'none', background: 'transparent', cursor: 'pointer', borderRadius: 'var(--radius)',
-        color: 'var(--text)', fontSize: 12.5, fontWeight: 700, textAlign: 'left',
+        color: 'var(--text)', fontSize: 14, fontWeight: 700, textAlign: 'left',
       }}
         onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)'; }}
         onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
@@ -252,9 +247,9 @@ function GroupSection({
         </span>
         <span style={{
           width: 22, height: 22, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          background: containsActive ? group.bg : 'transparent',
+          background: 'transparent',
         }}>
-          <GuideIcon name={group.icon} size={14} color={group.color} />
+          <GuideIcon name={group.icon} size={15} color="var(--text2)" />
         </span>
         <span style={{ flex: 1 }}>{group.title}</span>
         <span style={{
@@ -269,16 +264,16 @@ function GroupSection({
             const visited = mounted && isVisited(a.id);
             return (
               <button key={a.id} data-guide-article={a.id} onClick={() => onSelect(a.id)} style={{
-                display: 'flex', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left', padding: '7px 10px 7px 12px', fontSize: 12.5,
-                border: 'none', borderLeft: active ? `2px solid ${group.color}` : '2px solid transparent',
+                display: 'flex', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left', padding: '7px 10px 7px 12px', fontSize: 13.5,
+                border: 'none', borderLeft: active ? '2px solid var(--blue)' : '2px solid transparent',
                 borderRadius: '0 var(--radius) var(--radius) 0', cursor: 'pointer',
-                background: active ? group.bg : 'transparent', color: active ? group.color : 'var(--text2)',
-                fontWeight: active ? 600 : 400, lineHeight: 1.4,
+                background: active ? 'var(--surface2)' : 'transparent', color: active ? 'var(--text)' : 'var(--text2)',
+                fontWeight: 500, lineHeight: 1.45,
               }}
                 onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)'; }}
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent'; }}
               >
-                <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
+                <span style={{ flex: 1 }}>{a.title}</span>
                 {visited && !active && <Check size={11} color="var(--text3)" style={{ flexShrink: 0 }} />}
               </button>
             );
@@ -298,7 +293,12 @@ export default function GuideApp({ onBack }: Props) {
   const [pendingTab, setPendingTab] = useState<TabKey | undefined>(undefined);
   const [errorsHubOpen, setErrorsHubOpen] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [openGroupId, setOpenGroupId] = useState<string | null>(GUIDE_GROUPS[0]?.id ?? null);
+  // Cho phép mở nhiều nhóm cùng lúc, chỉ đóng khi người dùng tự bấm — trước đây là accordion
+  // 1 nhóm: mở nhóm này thì nhóm phía trên tự đóng, cả danh sách trượt lên ngay dưới con trỏ.
+  const [openGroupIds, setOpenGroupIds] = useState<Set<string>>(() => new Set(GUIDE_GROUPS[0] ? [GUIDE_GROUPS[0].id] : []));
+  const openGroup = useCallback((id: string) => {
+    setOpenGroupIds(prev => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }, []);
   const [mounted, setMounted] = useState(false);
   const [progress, setProgress] = useState(0);
   const navRef = useRef<HTMLElement>(null);
@@ -395,17 +395,22 @@ export default function GuideApp({ onBack }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active?.article.title, errorsHubOpen]);
 
-  // Sidebar là accordion 1-nhóm-mở-tại-1-thời-điểm — tự mở đúng nhóm chứa bài đang xem
-  // (kể cả khi vào thẳng qua link chia sẻ) và tự cuộn bài đó vào khung nhìn. Lý do bỏ `active`
+  // Tự mở nhóm chứa bài đang xem (kể cả khi vào thẳng qua link chia sẻ) và cuộn bài đó vào
+  // khung nhìn nếu đang khuất. Lý do bỏ `active`
   // khỏi deps giống effect đổi tiêu đề tab ở trên (object mới mỗi render).
   useEffect(() => {
     if (!active) return;
     // setState này gắn liền với scrollIntoView ngay dưới (phải nằm trong effect vì DOM API
     // không gọi được lúc render) — cả hai cùng phản ứng với 1 sự kiện "đổi bài đang xem".
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setOpenGroupId(active.group.id);
-    const el = navRef.current?.querySelector<HTMLElement>(`[data-guide-article="${active.article.id}"]`);
-    el?.scrollIntoView({ block: 'nearest' });
+    openGroup(active.group.id);
+    // Đợi 1 frame để nhóm vừa mở render xong mục của bài — gọi ngay thì mục chưa tồn tại
+    // (hoặc còn ở vị trí cũ) nên cuộn sai chỗ.
+    const raf = requestAnimationFrame(() => {
+      const el = navRef.current?.querySelector<HTMLElement>(`[data-guide-article="${active.article.id}"]`);
+      el?.scrollIntoView({ block: 'nearest' });
+    });
+    return () => cancelAnimationFrame(raf);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active?.article.id, active?.group.id]);
 
@@ -508,23 +513,12 @@ export default function GuideApp({ onBack }: Props) {
           .dna-guide-sidebar, .dna-guide-topbar, .dna-guide-toc, .dna-guide-copylink, .dna-guide-prevnext { display: none !important; }
           .dna-guide-shell, .dna-guide-scrollarea { height: auto !important; overflow: visible !important; display: block !important; }
         }
-        .dna-guide-details > summary { list-style: none; cursor: pointer; }
-        .dna-guide-details > summary::-webkit-details-marker { display: none; }
-        .dna-guide-details > summary .dna-guide-details-chevron { transition: transform 0.15s ease; }
-        .dna-guide-details[open] > summary .dna-guide-details-chevron { transform: rotate(180deg); }
-        .dna-guide-details > summary:hover h3 { color: var(--text2); }
-        @media print {
-          .dna-guide-details > summary .dna-guide-details-chevron { display: none; }
-          .dna-guide-details > div { display: block !important; }
-        }
         .dna-guide-shell button { transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease; }
-        @keyframes dnaFadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes dnaFadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes dnaOverlayIn { from { opacity: 0; } to { opacity: 1; } }
-        .dna-guide-content-in { animation: dnaFadeInUp 0.22s ease both; }
-        /* Chỉ animate opacity (không animate transform) ở đây — GroupCard còn dùng transform
-           inline riêng cho hiệu ứng hover, animate transform ở cả 2 nơi sẽ đá nhau sau khi
-           animation-fill-mode:forwards giữ nguyên giá trị animation, làm mất hiệu ứng hover. */
+        .dna-guide-content-in { animation: dnaFadeIn 0.15s ease both; }
+        /* Chỉ animate opacity — mọi hiệu ứng có dịch chuyển vị trí (translate) đều đã bỏ để bố
+           cục luôn đứng yên, không có gì trượt/nảy khi đổi bài, đổi tab hay rê chuột. */
         .dna-guide-card-in { opacity: 0; animation: dnaFadeIn 0.3s ease forwards; }
         .dna-guide-overlay-in { animation: dnaOverlayIn 0.15s ease; }
         /* Nhanh hơn dna-guide-content-in (đổi cả bài) vì đây chỉ đổi 1 tab trong cùng 1 bài —
@@ -618,7 +612,7 @@ export default function GuideApp({ onBack }: Props) {
           </button>
         </div>
 
-        <nav ref={navRef} style={{ flex: 1, overflow: 'auto', padding: '8px 8px' }}>
+        <nav ref={navRef} style={{ flex: 1, overflow: 'auto', scrollbarGutter: 'stable', padding: '8px 8px' }}>
           {/* key theo việc đang gõ tìm kiếm hay không — ép remount để fade lại mỗi lần chuyển
              qua lại giữa danh sách kết quả tìm kiếm và cây danh mục nhóm, tránh đổi nội dung
              đột ngột giống lỗi từng gặp ở tab trong bài viết. */}
@@ -640,8 +634,8 @@ export default function GuideApp({ onBack }: Props) {
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                   >
                     <span style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>{h.article.title}</span>
-                    <span style={{ fontSize: 10.5, color: h.group.color, display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <GuideIcon name={h.group.icon} size={11} color={h.group.color} />{h.group.title}
+                    <span style={{ fontSize: 10.5, color: 'var(--text3)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <GuideIcon name={h.group.icon} size={11} color="var(--text3)" />{h.group.title}
                     </span>
                   </button>
                 ))}
@@ -654,8 +648,12 @@ export default function GuideApp({ onBack }: Props) {
                 group={g}
                 activeId={activeId}
                 onSelect={selectArticle}
-                open={g.id === openGroupId}
-                onToggle={() => setOpenGroupId(prev => (prev === g.id ? null : g.id))}
+                open={openGroupIds.has(g.id)}
+                onToggle={() => setOpenGroupIds(prev => {
+                  const next = new Set(prev);
+                  if (next.has(g.id)) next.delete(g.id); else next.add(g.id);
+                  return next;
+                })}
                 mounted={mounted}
               />
             ))
@@ -693,7 +691,7 @@ export default function GuideApp({ onBack }: Props) {
           </button>
           <button onClick={goHome} style={{
             display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', cursor: 'pointer',
-            padding: '4px 6px', fontSize: 12.5, color: (active || errorsHubOpen) ? 'var(--text3)' : 'var(--text)', fontWeight: (active || errorsHubOpen) ? 500 : 700,
+            padding: '4px 6px', fontSize: 12.5, color: (active || errorsHubOpen) ? 'var(--text3)' : 'var(--text)', fontWeight: 600,
           }}>
             <Home size={13} /> Trang chủ
           </button>
@@ -708,11 +706,11 @@ export default function GuideApp({ onBack }: Props) {
           {active && (
             <>
               <ChevronRight size={12} color="var(--text3)" style={{ flexShrink: 0 }} />
-              <button onClick={() => setOpenGroupId(active.group.id)} style={{
+              <button onClick={() => openGroup(active.group.id)} style={{
                 display: 'flex', alignItems: 'center', gap: 6, border: 'none', background: 'transparent', cursor: 'pointer',
                 padding: '4px 6px', fontSize: 12.5, color: 'var(--text3)', fontWeight: 500, flexShrink: 0,
               }}>
-                <GuideIcon name={active.group.icon} size={12} color={active.group.color} />
+                <GuideIcon name={active.group.icon} size={12} color="var(--text3)" />
                 {active.group.title}
               </button>
               <ChevronRight size={12} color="var(--text3)" style={{ flexShrink: 0 }} />
@@ -728,14 +726,14 @@ export default function GuideApp({ onBack }: Props) {
           )}
         </div>
 
-        <div ref={scrollRef} className="dna-guide-scrollarea" style={{ flex: 1, overflow: 'auto', display: 'flex', justifyContent: 'center' }}>
+        <div ref={scrollRef} className="dna-guide-scrollarea" style={{ flex: 1, overflow: 'auto', scrollbarGutter: 'stable', display: 'flex', justifyContent: 'center' }}>
           <div key={activeId ?? (errorsHubOpen ? 'errors-hub' : 'home')} className="dna-guide-content-in" style={{ width: '100%', padding: '26px 28px 70px', display: 'flex', justifyContent: 'center' }}>
             {active
               ? <ArticleView article={active.article} group={active.group} prev={prevArticle} next={nextArticle} onNavigate={selectArticle} scrollContainerRef={scrollRef} initialTab={pendingTab} />
               : errorsHubOpen
                 ? <ErrorsHub onOpenArticle={id => selectArticle(id, 'errors')} />
                 : (
-                  <div style={{ maxWidth: 900, width: '100%' }}>
+                  <div style={{ maxWidth: 954, width: '100%' }}>
                     {invalidArticleId && <BrokenLinkBanner onDismiss={() => setInvalidArticleId(null)} />}
                     <WelcomePane myRoles={myRoles} onOpenArticle={selectArticle} />
                   </div>

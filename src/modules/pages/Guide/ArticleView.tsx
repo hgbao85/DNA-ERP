@@ -3,40 +3,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RefObject } from 'react';
 import type { GuideArticle, GuideGroup } from './types';
-import { roleInfo, GUIDE_VERIFIED_DATE } from './types';
+import { roleInfo } from './types';
 import {
-  AlertTriangle, CheckCircle2, ListChecks, Tag, FileWarning,
-  GuideIcon, Link2, Check, ChevronLeft, ChevronRight, ChevronDown, Clock, List, Target, Info,
+  AlertTriangle, CheckCircle2, FileWarning,
+  GuideIcon, Link2, Check, ChevronLeft, ChevronRight, Clock, List,
 } from './icons';
 import ScreenMock from './ScreenMock';
 
 interface TocSection { id: string; label: string }
 export type TabKey = 'main' | 'errors' | 'statuses';
-interface TabDef { key: TabKey; label: string; count?: number; tone?: string }
+interface TabDef { key: TabKey; label: string; count?: number }
 
-function SectionTitle({ id, icon, children, tone }: { id: string; icon: React.ReactNode; children: React.ReactNode; tone?: string }) {
-  return (
-    <div id={id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, marginTop: 30, scrollMarginTop: 84 }}>
-      <span style={{ display: 'flex', color: tone ?? 'var(--text3)' }}>{icon}</span>
-      <h3 style={{ margin: 0, fontSize: 12.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: tone ?? 'var(--text3)' }}>{children}</h3>
-    </div>
-  );
-}
+/** Cỡ chữ nội dung chính — đủ lớn để người dùng không quen máy tính đọc thoải mái. */
+const BODY_FONT = 15.5;
 
-function CollapsibleSection({
-  id, icon, tone, title, count, children,
-}: { id: string; icon: React.ReactNode; tone?: string; title: string; count?: number; children: React.ReactNode }) {
+function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <details className="dna-guide-details" id={id} style={{ marginTop: 30, scrollMarginTop: 84 }}>
-      <summary style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <ChevronDown size={13} className="dna-guide-details-chevron" style={{ color: 'var(--text3)', flexShrink: 0 }} />
-        <span style={{ display: 'flex', color: tone ?? 'var(--text3)' }}>{icon}</span>
-        <h3 style={{ margin: 0, fontSize: 12.5, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: tone ?? 'var(--text3)' }}>
-          {title}{count != null ? ` (${count})` : ''}
-        </h3>
-      </summary>
-      <div style={{ marginTop: 12 }}>{children}</div>
-    </details>
+    <h2 id={id} style={{ margin: '36px 0 14px', fontSize: 19, fontWeight: 700, lineHeight: 1.35, color: 'var(--text)', scrollMarginTop: 84 }}>
+      {children}
+    </h2>
   );
 }
 
@@ -68,38 +53,6 @@ function CopyLinkButton({ articleId }: { articleId: string }) {
   );
 }
 
-/** Nội dung tài liệu là dữ liệu tĩnh, không có backend — không thể "gửi báo cáo" thật sự.
- * Copy sẵn 1 mẫu báo cáo (tên bài + id + link) vào clipboard để người đọc dán vào kênh báo lỗi
- * nội bộ hiện có (Zalo/chat...), thay vì phải tự gõ lại link + tên bài từ đầu. */
-function ReportStaleButton({ article }: { article: GuideArticle }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      onClick={async () => {
-        try {
-          const url = `${window.location.origin}${window.location.pathname}?a=${article.id}`;
-          const report = `[Báo nội dung Hướng dẫn sử dụng]\nBài: "${article.title}" (id: ${article.id})\nLink: ${url}\nVấn đề: <mô tả nội dung sai/cũ ở đây>`;
-          await navigator.clipboard.writeText(report);
-          setCopied(true);
-          setTimeout(() => setCopied(false), 2200);
-        } catch {
-          // clipboard API có thể bị chặn (http/permissions) — bỏ qua, không phải lỗi nghiêm trọng
-        }
-      }}
-      title="Sao chép mẫu báo cáo (tên bài + link) để gửi cho người phụ trách tài liệu"
-      style={{
-        display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', fontSize: 11.5,
-        border: '1px solid var(--border)', borderRadius: 20, background: copied ? 'var(--green-bg)' : 'transparent',
-        color: copied ? 'var(--green)' : 'var(--text3)', cursor: 'pointer', flexShrink: 0,
-        transition: 'background 0.15s, color 0.15s',
-      }}
-    >
-      {copied ? <Check size={11} /> : <Info size={11} />}
-      {copied ? 'Đã sao chép mẫu báo cáo' : 'Nội dung sai/cũ? Báo lại'}
-    </button>
-  );
-}
-
 function estimateReadMinutes(article: GuideArticle): number {
   const steps = article.steps.map(s => (typeof s === 'string' ? s : s.text)).join(' ');
   const errs = (article.commonErrors ?? []).map(e => `${e.issue} ${e.cause} ${e.fix}`).join(' ');
@@ -126,18 +79,18 @@ function TabBar({ tabs, activeTab, onSelect }: { tabs: TabDef[]; activeTab: TabK
             onClick={() => onSelect(t.key)}
             style={{
               display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px', marginBottom: -1,
-              border: 'none', borderBottom: active ? `2px solid ${t.tone ?? 'var(--blue)'}` : '2px solid transparent',
+              border: 'none', borderBottom: active ? '2px solid var(--text)' : '2px solid transparent',
               background: 'transparent', cursor: 'pointer',
-              fontSize: 13.5, fontWeight: active ? 700 : 600,
-              color: active ? (t.tone ?? 'var(--blue-text)') : 'var(--text3)',
+              fontSize: 14.5, fontWeight: 600,
+              color: active ? 'var(--text)' : 'var(--text3)',
             }}
           >
             {t.label}
             {t.count != null && (
               <span style={{
                 fontSize: 11, fontWeight: 700, padding: '1px 6px', borderRadius: 10,
-                background: active ? `${t.tone ?? 'var(--blue)'}1f` : 'var(--surface2)',
-                color: active ? (t.tone ?? 'var(--blue-text)') : 'var(--text3)',
+                background: 'var(--surface2)',
+                color: 'var(--text2)',
               }}>{t.count}</span>
             )}
           </button>
@@ -197,7 +150,7 @@ interface Props {
 export default function ArticleView({ article, group, prev, next, onNavigate, scrollContainerRef, initialTab }: Props) {
   const tabs = useMemo<TabDef[]>(() => {
     const list: TabDef[] = [{ key: 'main', label: 'Cách làm' }];
-    if (article.commonErrors?.length) list.push({ key: 'errors', label: 'Lỗi thường gặp', count: article.commonErrors.length, tone: 'var(--red)' });
+    if (article.commonErrors?.length) list.push({ key: 'errors', label: 'Lỗi thường gặp', count: article.commonErrors.length });
     if (article.statuses?.length) list.push({ key: 'statuses', label: 'Trạng thái' });
     return list;
   }, [article]);
@@ -226,11 +179,11 @@ export default function ArticleView({ article, group, prev, next, onNavigate, sc
   // chỗ hay không (visible=false vẫn giữ nguyên chiều rộng cột) — nếu tính theo tab đang mở,
   // cột TOC sẽ đổi chiều rộng (190px + gap) mỗi lần chuyển tab, gây nhảy layout ngang.
   const sections = useMemo<TocSection[]>(() => {
-    const list: TocSection[] = [{ id: 'sec-purpose', label: 'Tóm tắt' }];
-    if (article.preconditions?.length) list.push({ id: 'sec-preconditions', label: 'Điều kiện trước' });
-    list.push({ id: 'sec-steps', label: 'Các bước thao tác' });
-    list.push({ id: 'sec-result', label: 'Kết quả mong đợi' });
-    if (article.warnings?.length) list.push({ id: 'sec-warnings', label: 'Lưu ý / Cảnh báo' });
+    const list: TocSection[] = [{ id: 'sec-purpose', label: 'Giới thiệu' }];
+    if (article.preconditions?.length) list.push({ id: 'sec-preconditions', label: 'Cần có trước khi làm' });
+    list.push({ id: 'sec-steps', label: 'Các bước thực hiện' });
+    list.push({ id: 'sec-result', label: 'Làm xong sẽ thấy gì' });
+    if (article.warnings?.length) list.push({ id: 'sec-warnings', label: 'Cần lưu ý' });
     return list;
   }, [article]);
 
@@ -273,34 +226,28 @@ export default function ArticleView({ article, group, prev, next, onNavigate, sc
     // của <article> luôn tính trên cùng một không gian sẵn có, bất kể tab nào đang mở.
     <div ref={rootElRef} style={{ display: 'flex', gap: 44, alignItems: 'flex-start', width: '100%', maxWidth: 954 }}>
       <article style={{ flex: '1 1 640px', minWidth: 0, maxWidth: 720 }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14, flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, fontWeight: 700, color: group.color }}>
-            <GuideIcon name={group.icon} size={14} color={group.color} />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 10, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13, fontWeight: 600, color: 'var(--text3)' }}>
+            <GuideIcon name={group.icon} size={14} color="var(--text3)" />
             {group.title}
           </div>
           <div className="dna-guide-copylink" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--text3)' }}>
-              <Clock size={12} /> ~{readMinutes} phút đọc
+            <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text3)' }}>
+              <Clock size={12} /> Khoảng {readMinutes} phút đọc
             </span>
             <CopyLinkButton articleId={article.id} />
           </div>
         </div>
 
-        <h1 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 14px', letterSpacing: '-0.015em', lineHeight: 1.25, color: 'var(--text)' }}>
+        <h1 style={{ fontSize: 28, fontWeight: 700, margin: '0 0 10px', letterSpacing: '-0.01em', lineHeight: 1.3, color: 'var(--text)' }}>
           {article.title}
         </h1>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 20 }}>
-          {article.roles.map(r => {
-            const info = roleInfo(r);
-            return (
-              <span key={r} style={{
-                fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
-                background: info.bg, color: info.color, border: `1px solid ${info.color}33`,
-              }}>{info.label}</span>
-            );
-          })}
-        </div>
+        {/* Vai trò hiển thị dạng 1 dòng chữ thường (không chip màu) — người đọc chỉ cần biết
+           "bài này dành cho ai", màu riêng từng vai trò chỉ gây rối mắt. */}
+        <p style={{ margin: '0 0 22px', fontSize: 14, color: 'var(--text3)', lineHeight: 1.6 }}>
+          Dành cho: <span style={{ color: 'var(--text2)', fontWeight: 600 }}>{article.roles.map(r => roleInfo(r).label).join(', ')}</span>
+        </p>
 
         <TabBar tabs={tabs} activeTab={activeTab} onSelect={selectTab} />
 
@@ -310,33 +257,12 @@ export default function ArticleView({ article, group, prev, next, onNavigate, sc
         <div key={activeTab} className="dna-guide-tab-in">
         {activeTab === 'main' && (
           <>
-            <div
-              id="sec-purpose"
-              style={{
-                display: 'flex', gap: 12, padding: '14px 16px', marginBottom: 22,
-                background: group.bg, borderRadius: 'var(--radius-lg)', border: `1px solid ${group.color}33`,
-                scrollMarginTop: 84,
-              }}
-            >
-              <Target size={18} color={group.color} style={{ flexShrink: 0, marginTop: 2 }} />
-              <div>
-                <div style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase', color: group.color, marginBottom: 4 }}>
-                  Tóm tắt nhanh
-                </div>
-                <p style={{ margin: 0, fontSize: 15.5, fontWeight: 600, lineHeight: 1.55, color: 'var(--text)' }}>
-                  {article.purpose}
-                </p>
-              </div>
-            </div>
+            <p id="sec-purpose" style={{ margin: '0 0 24px', fontSize: 17, lineHeight: 1.7, color: 'var(--text)', scrollMarginTop: 84 }}>
+              {article.purpose}
+            </p>
 
             {article.screenshot ? (
-              <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', marginBottom: 20 }}>
-                <div style={{
-                  display: 'flex', alignItems: 'center', gap: 6, padding: '7px 14px',
-                  background: 'var(--green-bg)', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--green)', fontWeight: 600,
-                }}>
-                  <CheckCircle2 size={12} /> Ảnh chụp thật từ hệ thống — dữ liệu trong ảnh là dữ liệu demo minh hoạ
-                </div>
+              <figure style={{ margin: '0 0 8px' }}>
                 {/* aspect-ratio 1440/900 cố định — toàn bộ ảnh trong public/guide-screens/ đều
                    chụp cùng kích thước này, giữ chỗ đúng trước khi ảnh tải xong (tránh layout
                    nhảy khi cuộn), không cần biết kích thước riêng từng ảnh. */}
@@ -344,71 +270,67 @@ export default function ArticleView({ article, group, prev, next, onNavigate, sc
                 <img
                   src={article.screenshot}
                   alt={`Màn hình: ${article.title}`}
-                  style={{ display: 'block', width: '100%', height: 'auto', aspectRatio: '1440 / 900', background: 'var(--surface2)' }}
+                  style={{
+                    display: 'block', width: '100%', height: 'auto', aspectRatio: '1440 / 900',
+                    background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)',
+                  }}
                 />
-              </div>
+                <figcaption style={{ marginTop: 8, fontSize: 12.5, color: 'var(--text3)', textAlign: 'center' }}>
+                  Ảnh màn hình minh hoạ — số liệu trong ảnh là dữ liệu mẫu.
+                </figcaption>
+              </figure>
             ) : article.mock ? (
               <ScreenMock mock={article.mock} />
             ) : null}
 
             {article.preconditions && article.preconditions.length > 0 && (
               <>
-                <SectionTitle id="sec-preconditions" icon={<ListChecks size={14} />}>Điều kiện trước khi thực hiện</SectionTitle>
-                <ul style={{ margin: 0, paddingLeft: 20, color: 'var(--text2)', lineHeight: 1.75, fontSize: 14.5 }}>
-                  {article.preconditions.map((p, i) => <li key={i} style={{ marginBottom: 4 }}>{p}</li>)}
+                <SectionTitle id="sec-preconditions">Cần có trước khi làm</SectionTitle>
+                <ul style={{ margin: 0, paddingLeft: 22, color: 'var(--text)', lineHeight: 1.75, fontSize: BODY_FONT }}>
+                  {article.preconditions.map((p, i) => <li key={i} style={{ marginBottom: 6 }}>{p}</li>)}
                 </ul>
               </>
             )}
 
-            <SectionTitle id="sec-steps" icon={<ListChecks size={14} />}>Các bước thao tác</SectionTitle>
-            <ol style={{ margin: 0, paddingLeft: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <SectionTitle id="sec-steps">Các bước thực hiện</SectionTitle>
+            <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
               {article.steps.map((s, i) => {
                 const step = typeof s === 'string' ? { text: s, critical: false } : s;
                 return (
-                  <li key={i} style={{
-                    display: 'flex', gap: 11, alignItems: 'flex-start', padding: '11px 14px',
-                    borderRadius: 'var(--radius)',
-                    background: step.critical ? 'var(--amber-bg)' : 'var(--surface2)',
-                    border: step.critical ? '1px solid #f0d9a8' : '1px solid transparent',
-                  }}>
-                    {step.critical ? (
-                      <span style={{
-                        flexShrink: 0, width: 21, height: 21, borderRadius: '50%',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: 'var(--amber)', color: '#fff',
-                      }}><AlertTriangle size={12} /></span>
-                    ) : (
-                      <span style={{
-                        flexShrink: 0, width: 21, height: 21, borderRadius: '50%', fontSize: 11, fontWeight: 700,
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: 'var(--blue)', color: '#fff',
-                      }}>{i + 1}</span>
-                    )}
-                    <span style={{ fontSize: 14, lineHeight: 1.65, color: 'var(--text)', fontWeight: step.critical ? 600 : 400, paddingTop: 1 }}>
-                      {step.text}
-                      {step.critical && <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>· Quan trọng</span>}
-                    </span>
+                  <li key={i} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                    <span style={{
+                      flexShrink: 0, width: 26, height: 26, borderRadius: '50%', fontSize: 13, fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      border: '1.5px solid var(--border)', color: 'var(--text2)', background: 'var(--surface)',
+                    }}>{i + 1}</span>
+                    <div style={{ paddingTop: 2, fontSize: BODY_FONT, lineHeight: 1.75, color: 'var(--text)' }}>
+                      {step.critical && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 700, color: 'var(--amber)', marginBottom: 2 }}>
+                          <AlertTriangle size={13} /> Bước quan trọng
+                        </div>
+                      )}
+                      <span style={{ fontWeight: step.critical ? 600 : 400 }}>{step.text}</span>
+                    </div>
                   </li>
                 );
               })}
             </ol>
 
-            <SectionTitle id="sec-result" icon={<CheckCircle2 size={14} />} tone="var(--green)">Kết quả mong đợi</SectionTitle>
-            <div style={{ display: 'flex', gap: 10, padding: '12px 16px', background: 'var(--green-bg)', borderRadius: 'var(--radius)', border: '1px solid #cfe3b8' }}>
-              <CheckCircle2 size={16} color="var(--green)" style={{ flexShrink: 0, marginTop: 2 }} />
-              <p style={{ margin: 0, color: '#2d4d0c', fontSize: 14.5, lineHeight: 1.65 }}>{article.result}</p>
-            </div>
+            <SectionTitle id="sec-result">Làm xong sẽ thấy gì</SectionTitle>
+            <p style={{ margin: 0, fontSize: BODY_FONT, lineHeight: 1.75, color: 'var(--text)' }}>
+              <CheckCircle2 size={16} color="var(--green)" style={{ verticalAlign: '-3px', marginRight: 8 }} />
+              {article.result}
+            </p>
 
             {article.warnings && article.warnings.length > 0 && (
               <>
-                <SectionTitle id="sec-warnings" icon={<AlertTriangle size={14} />} tone="var(--amber)">Lưu ý / Cảnh báo</SectionTitle>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {article.warnings.map((w, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 10, padding: '11px 14px', background: 'var(--amber-bg)', borderRadius: 'var(--radius)', border: '1px solid #f0d9a8', color: '#6b4a12', fontSize: 14, lineHeight: 1.65 }}>
-                      <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 2 }} />
-                      <span>{w}</span>
-                    </div>
-                  ))}
+                <SectionTitle id="sec-warnings">Cần lưu ý</SectionTitle>
+                {/* Gom mọi cảnh báo vào 1 khối duy nhất (thay vì mỗi dòng 1 hộp màu riêng) —
+                   ít khung/màu hơn, người đọc lướt như 1 danh sách bình thường. */}
+                <div style={{ padding: '14px 18px', background: 'var(--surface2)', borderLeft: '3px solid var(--amber)', borderRadius: 'var(--radius)' }}>
+                  <ul style={{ margin: 0, paddingLeft: 18, fontSize: BODY_FONT, lineHeight: 1.75, color: 'var(--text)' }}>
+                    {article.warnings.map((w, i) => <li key={i} style={{ marginBottom: i === article.warnings!.length - 1 ? 0 : 8 }}>{w}</li>)}
+                  </ul>
                 </div>
               </>
             )}
@@ -416,16 +338,16 @@ export default function ArticleView({ article, group, prev, next, onNavigate, sc
         )}
 
         {activeTab === 'errors' && article.commonErrors && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
             {article.commonErrors.map((e, i) => (
-              <div key={i} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '10px 14px', background: 'var(--red-bg)', color: 'var(--red)', fontWeight: 700, fontSize: 13.5 }}>
-                  <FileWarning size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+              <div key={i} style={{ padding: '18px 0', borderTop: i === 0 ? 'none' : '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontWeight: 700, fontSize: 16, lineHeight: 1.5, color: 'var(--text)', marginBottom: 8 }}>
+                  <FileWarning size={16} color="var(--text3)" style={{ flexShrink: 0, marginTop: 3 }} />
                   {e.issue}
                 </div>
-                <div style={{ padding: '11px 14px', display: 'flex', flexDirection: 'column', gap: 6, background: 'var(--surface)' }}>
-                  <div style={{ fontSize: 13.5, color: 'var(--text2)', lineHeight: 1.6 }}><strong style={{ color: 'var(--text)' }}>Vì sao:</strong> {e.cause}</div>
-                  <div style={{ fontSize: 13.5, color: 'var(--text2)', lineHeight: 1.6 }}><strong style={{ color: 'var(--text)' }}>Xử lý:</strong> {e.fix}</div>
+                <div style={{ paddingLeft: 24, display: 'flex', flexDirection: 'column', gap: 6, fontSize: BODY_FONT, lineHeight: 1.7 }}>
+                  <div style={{ color: 'var(--text2)' }}><strong style={{ color: 'var(--text)' }}>Nguyên nhân:</strong> {e.cause}</div>
+                  <div style={{ color: 'var(--text2)' }}><strong style={{ color: 'var(--text)' }}>Cách xử lý:</strong> {e.fix}</div>
                 </div>
               </div>
             ))}
@@ -436,10 +358,10 @@ export default function ArticleView({ article, group, prev, next, onNavigate, sc
           <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
             {article.statuses.map((s, i) => (
               <div key={i} style={{
-                display: 'flex', gap: 14, padding: '10px 14px', fontSize: 13.5,
-                borderTop: i === 0 ? 'none' : '1px solid var(--border)', background: i % 2 ? 'var(--surface2)' : 'var(--surface)',
+                display: 'flex', gap: 16, padding: '12px 16px', fontSize: BODY_FONT, lineHeight: 1.65,
+                borderTop: i === 0 ? 'none' : '1px solid var(--border)', background: 'var(--surface)',
               }}>
-                <span style={{ fontWeight: 700, color: 'var(--blue-text)', minWidth: 170, flexShrink: 0 }}>{s.name}</span>
+                <span style={{ fontWeight: 700, color: 'var(--text)', minWidth: 170, flexShrink: 0 }}>{s.name}</span>
                 <span style={{ color: 'var(--text2)' }}>{s.meaning}</span>
               </div>
             ))}
@@ -447,25 +369,8 @@ export default function ArticleView({ article, group, prev, next, onNavigate, sc
         )}
         </div>
 
-        <div style={{ marginTop: 36, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
-          {article.sourceRefs && article.sourceRefs.length > 0 && (
-            <CollapsibleSection id="sec-sources" icon={<Tag size={12} />} title="Chi tiết kỹ thuật (tệp mã nguồn)">
-              <div style={{ fontSize: 11.5, color: 'var(--text3)', lineHeight: 1.7 }}>{article.sourceRefs.join(' · ')}</div>
-            </CollapsibleSection>
-          )}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap',
-            marginTop: article.sourceRefs?.length ? 12 : 0,
-          }}>
-            <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.7 }}>
-              Xác minh theo mã nguồn ngày {GUIDE_VERIFIED_DATE} — nếu thao tác thực tế khác với mô tả, ưu tiên tin theo phần mềm đang chạy.
-            </div>
-            <ReportStaleButton article={article} />
-          </div>
-        </div>
-
         {(prev || next) && (
-          <div className="dna-guide-prevnext" style={{ display: 'flex', gap: 12, marginTop: 24, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
+          <div className="dna-guide-prevnext" style={{ display: 'flex', gap: 12, marginTop: 36, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
             {prev ? (
               <button onClick={() => onNavigate(prev.id)} style={{
                 flex: 1, display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left', padding: '12px 14px',

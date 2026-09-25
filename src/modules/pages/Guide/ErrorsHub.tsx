@@ -15,7 +15,6 @@ interface ErrorRow {
   groupId: string;
   groupTitle: string;
   groupIcon: string;
-  groupColor: string;
 }
 
 function buildRows(): ErrorRow[] {
@@ -32,7 +31,6 @@ function buildRows(): ErrorRow[] {
         groupId: group.id,
         groupTitle: group.title,
         groupIcon: group.icon,
-        groupColor: group.color,
       });
     });
   }
@@ -58,7 +56,7 @@ export default function ErrorsHub({ onOpenArticle }: Props) {
   }, [rows, query]);
 
   return (
-    <div style={{ maxWidth: 820, width: '100%' }}>
+    <div style={{ maxWidth: 954, width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
         <span style={{ width: 32, height: 32, borderRadius: 9, background: 'var(--red-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <FileWarning size={16} color="var(--red)" />
@@ -100,22 +98,22 @@ export default function ErrorsHub({ onOpenArticle }: Props) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filtered.map(r => (
             <div key={r.key} style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden', background: 'var(--surface)' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '11px 14px', background: 'var(--red-bg)', color: 'var(--red)', fontWeight: 700, fontSize: 13.5 }}>
-                <FileWarning size={14} style={{ flexShrink: 0, marginTop: 2 }} />
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '14px 16px 4px', color: 'var(--text)', fontWeight: 700, fontSize: 15.5, lineHeight: 1.5 }}>
+                <FileWarning size={16} color="var(--text3)" style={{ flexShrink: 0, marginTop: 3 }} />
                 {r.issue}
               </div>
-              <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ fontSize: 13.5, color: 'var(--text2)', lineHeight: 1.6 }}><strong style={{ color: 'var(--text)' }}>Vì sao:</strong> {r.cause}</div>
-                <div style={{ fontSize: 13.5, color: 'var(--text2)', lineHeight: 1.6 }}><strong style={{ color: 'var(--text)' }}>Xử lý:</strong> {r.fix}</div>
+              <div style={{ padding: '6px 16px 14px 40px', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ fontSize: 15, color: 'var(--text2)', lineHeight: 1.7 }}><strong style={{ color: 'var(--text)' }}>Nguyên nhân:</strong> {r.cause}</div>
+                <div style={{ fontSize: 15, color: 'var(--text2)', lineHeight: 1.7 }}><strong style={{ color: 'var(--text)' }}>Cách xử lý:</strong> {r.fix}</div>
                 <button
                   onClick={() => onOpenArticle(r.articleId)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginTop: 6,
-                    padding: '5px 11px 5px 8px', fontSize: 12, fontWeight: 600, color: r.groupColor,
-                    border: `1px solid ${r.groupColor}33`, borderRadius: 20, background: 'var(--surface2)', cursor: 'pointer',
+                    padding: '5px 11px 5px 8px', fontSize: 13, fontWeight: 600, color: 'var(--blue-text)',
+                    border: '1px solid var(--border)', borderRadius: 20, background: 'var(--surface2)', cursor: 'pointer',
                   }}
                 >
-                  <GuideIcon name={r.groupIcon} size={12} color={r.groupColor} />
+                  <GuideIcon name={r.groupIcon} size={12} color="var(--text3)" />
                   {r.articleTitle}
                   <ArrowRight size={11} />
                 </button>

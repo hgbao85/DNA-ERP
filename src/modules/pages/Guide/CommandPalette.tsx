@@ -179,14 +179,14 @@ export default function CommandPalette({ onSelect }: Props) {
                   }}
                 >
                   <span style={{
-                    width: 28, height: 28, borderRadius: 8, background: h.group.bg, flexShrink: 0,
+                    width: 28, height: 28, borderRadius: 8, background: 'var(--surface2)', flexShrink: 0,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                   }}>
-                    <GuideIcon name={h.group.icon} size={14} color={h.group.color} />
+                    <GuideIcon name={h.group.icon} size={14} color="var(--text2)" />
                   </span>
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: 'block', fontSize: 13.5, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{h.article.title}</span>
-                    <span style={{ display: 'block', fontSize: 11, color: h.group.color, fontWeight: 600 }}>{h.group.title}</span>
+                    <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)', fontWeight: 600 }}>{h.group.title}</span>
                   </span>
                   {i === index && <CornerDownLeft size={13} color="var(--text3)" style={{ flexShrink: 0 }} />}
                 </button>

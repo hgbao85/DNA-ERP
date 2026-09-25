@@ -82,7 +82,7 @@ export interface GuideArticle {
   statuses?: GuideStatus[];
   /** Từ khoá phụ để tìm kiếm (đồng nghĩa nghiệp vụ, tên nút cũ, viết tắt...) */
   tags?: string[];
-  /** Nguồn tham chiếu trong code, hiển thị nhỏ ở cuối bài cho người bảo trì tài liệu */
+  /** Nguồn tham chiếu trong code — CHỈ dành cho người bảo trì tài liệu, KHÔNG hiển thị cho người đọc */
   sourceRefs?: string[];
 }
 
@@ -100,7 +100,7 @@ export interface GuideArticle {
   statuses?: GuideStatus[];
   /** Từ khoá phụ để tìm kiếm (đồng nghĩa nghiệp vụ, tên nút cũ, viết tắt...) */
   tags?: string[];
-  /** Nguồn tham chiếu trong code, hiển thị nhỏ ở cuối bài cho người bảo trì tài liệu */
+  /** Nguồn tham chiếu trong code — CHỈ dành cho người bảo trì tài liệu, KHÔNG hiển thị cho người đọc */
   sourceRefs?: string[];
 }
 
@@ -135,8 +135,3 @@ export const GUIDE_ROLES: GuideRoleInfo[] = [
 export function roleInfo(id: GuideRole): GuideRoleInfo {
   return GUIDE_ROLES.find(r => r.id === id) ?? { id, label: id, short: id, color: '#5a5a56', bg: '#f0efeb' };
 }
-
-/** Ngày rà soát mã nguồn gần nhất để viết/cập nhật nội dung — hiển thị cho người đọc biết
- * mức độ mới của tài liệu, vì nghiệp vụ hệ thống này thay đổi khá thường xuyên. Cập nhật
- * giá trị này mỗi khi có một đợt rà soát nội dung lớn. */
-export const GUIDE_VERIFIED_DATE = '22/09/2026';

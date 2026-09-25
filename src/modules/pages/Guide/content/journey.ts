@@ -169,7 +169,7 @@ export const journeyGroup: GuideGroup = {
         'Xuất đan/Nhập đan chỉ là GHI CHÉP đối chiếu với điểm đan — KHÔNG làm thay đổi tồn kho chính thức. Trên sổ sách, mảnh vẫn tính là thuộc kho Vật tư thành phẩm cho tới khi Xuất vật tư đóng gói.',
         'Có 3 màn hình dễ nhầm là một vì đều nằm trong khu vực Kho: (1) "Đóng gói" trên menu chỉ đếm thùng, không đổi tồn kho; (2) nút "Xác nhận" ở "Xuất kho" khi xuất vật tư đóng gói — đây mới là bước hàng thật sự "về" kho thành phẩm, hiển thị theo TÊN VẬT TƯ chứ không theo tên sản phẩm; (3) màn xuất hàng cho khách — hiển thị theo tên sản phẩm, không liên quan Chuyền kiểm.',
         'Muốn xuất vật tư đóng gói phải thoả cả 3 điều kiện: không vượt định mức, không vượt số đã qua đủ Chuyền kiểm, không vượt tồn kho thực tế.',
-        'Rủi ro race-condition có xác suất thấp: 2 lệnh sản xuất xin xuất gần hết một vật tư đóng gói gần như đồng thời có thể khiến tồn kho bị âm — chưa khắc phục triệt để.',
+        'Hiếm khi xảy ra: nếu 2 lệnh sản xuất cùng xin xuất gần hết một vật tư đóng gói vào đúng cùng một lúc, tồn kho có thể bị âm. Khi thấy tồn kho âm, báo ngay cho Admin để kiểm tra.',
         'Phần mềm không có một con số "tồn kho thành phẩm" tính theo sản phẩm — chỉ có theo mảnh và theo vật tư đóng gói.',
       ],
       commonErrors: [

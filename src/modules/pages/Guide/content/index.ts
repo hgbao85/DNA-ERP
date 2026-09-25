@@ -8,7 +8,6 @@ import { manufacturingGroup } from './manufacturing';
 import { bossGroup } from './boss';
 import { adminGroup } from './admin';
 
-export { GUIDE_VERIFIED_DATE } from '../types';
 
 /** Toàn bộ nội dung Hướng dẫn sử dụng, theo đúng thứ tự hiển thị trong sidebar. */
 export const GUIDE_GROUPS: GuideGroup[] = [

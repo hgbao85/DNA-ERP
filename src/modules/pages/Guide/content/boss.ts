@@ -84,7 +84,7 @@ export const bossGroup: GuideGroup = {
         'Từ chối = xoá toàn bộ PI, SKU quay lại danh sách "Tối ưu cắt sắt" để KHSX gộp lại từ đầu.',
       ],
       commonErrors: [
-        { issue: '"Lỗi duyệt sản xuất" / "Lỗi từ chối sản xuất"', cause: 'Lỗi từ máy chủ, thường do race condition (2 người cùng thao tác) hoặc PI đã bị xử lý.', fix: 'Tải lại trang, kiểm tra trạng thái mới nhất.' },
+        { issue: '"Lỗi duyệt sản xuất" / "Lỗi từ chối sản xuất"', cause: 'Thường do có 2 người cùng thao tác trên một lệnh cùng lúc, hoặc PI đã được người khác xử lý trước.', fix: 'Tải lại trang, kiểm tra trạng thái mới nhất.' },
       ],
       statuses: [
         { name: 'Chờ QLSX xử lý → Chờ Giám đốc duyệt → Đã duyệt', meaning: 'Vòng đời duyệt bình thường của một PI.' },
