@@ -188,8 +188,13 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
                       <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)' }}>{pf.id}</td>
                       <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
-                        <span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>
-                        {pf.mfgProduct?.name}
+                        {/* Form tạo SKU gán cùng 1 giá trị cho factoryCode lẫn name - trùng thì chỉ hiện 1 lần (như thẻ mobile ở SKUDetail.tsx). */}
+                        {pf.mfgProduct?.name && pf.mfgProduct.name !== pf.mfgProduct.factoryCode && (
+                          <>
+                            <span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>
+                            {pf.mfgProduct.name}
+                          </>
+                        )}
                       </td>
                       <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text2)' }}>
                         {pf.customerName ?? '—'}
@@ -242,8 +247,12 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
               {allItems.filter(pf => selectedIds.has(pf.id)).map((pf, i) => (
                 <div key={pf.id} style={{ padding: '9px 14px', fontSize: 13, borderTop: i > 0 ? '1px solid #fca5a5' : undefined, background: i % 2 === 0 ? '#fff5f5' : '#fff' }}>
                   <span style={{ fontWeight: 700, color: '#dc2626', fontFamily: 'monospace' }}>{pf.mfgProduct?.factoryCode}</span>
-                  <span style={{ color: 'var(--text3)', margin: '0 6px' }}>—</span>
-                  {pf.mfgProduct?.name}
+                  {pf.mfgProduct?.name && pf.mfgProduct.name !== pf.mfgProduct.factoryCode && (
+                    <>
+                      <span style={{ color: 'var(--text3)', margin: '0 6px' }}>—</span>
+                      {pf.mfgProduct.name}
+                    </>
+                  )}
                   {pf.customerName && <span style={{ color: 'var(--text3)', marginLeft: 8, fontSize: 12 }}>· {pf.customerName}</span>}
                 </div>
               ))}
