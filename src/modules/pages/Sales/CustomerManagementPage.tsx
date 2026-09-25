@@ -100,7 +100,7 @@ export default function CustomerManagementPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
-              {['Tên khách hàng', 'SĐT', 'Email', 'Địa chỉ', 'Tổng PO đã mua', 'Hành động'].map(h => (
+              {['Mã khách hàng', 'SĐT', 'Email', 'Địa chỉ', 'Tổng PO đã mua', 'Hành động'].map(h => (
                 <th key={h} style={{ padding: '10px 12px', fontSize: 12, color: 'var(--text3)', fontWeight: 600 }}>{h}</th>
               ))}
             </tr>
@@ -144,8 +144,8 @@ export default function CustomerManagementPage() {
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <Field label="Tên khách hàng *">
-                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Tên khách hàng" />
+              <Field label="Mã khách hàng *">
+                <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Mã khách hàng" />
               </Field>
               <Field label="Số điện thoại *">
                 <input value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="09xxxxxxxx" />

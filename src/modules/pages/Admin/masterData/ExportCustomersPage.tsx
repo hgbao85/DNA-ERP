@@ -24,13 +24,13 @@ export default function ExportCustomersPage() {
     addLabel: 'Thêm khách hàng xuất khẩu',
     pageSize: 10,
     columns: [
-      { key: 'name', label: 'Tên khách hàng' },
+      { key: 'name', label: 'Mã khách hàng' },
       { key: 'country', label: 'Quốc gia' },
       { key: 'market', label: 'Thị trường' },
       { key: 'contactName', label: 'Người liên hệ' },
     ],
     formFields: [
-      { name: 'name', label: 'Tên khách hàng', type: 'text', required: true },
+      { name: 'name', label: 'Mã khách hàng', type: 'text', required: true },
       { name: 'country', label: 'Quốc gia', type: 'text' },
       { name: 'market', label: 'Thị trường', type: 'text' },
       { name: 'contactName', label: 'Người liên hệ', type: 'text' },

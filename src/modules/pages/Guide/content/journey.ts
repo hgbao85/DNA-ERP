@@ -111,7 +111,7 @@ export const journeyGroup: GuideGroup = {
         buttons: ['Từ chối', 'Duyệt', 'Xác nhận hoàn tất'],
       },
       steps: [
-        'KHSX tạo hồ sơ SKU mới (ở màn "Duyệt SKU"): nhập mã SKU (bắt buộc) + tên khách hàng (tuỳ chọn).',
+        'KHSX tạo hồ sơ SKU mới (ở màn "Duyệt SKU"): nhập mã SKU (bắt buộc) + Mã khách hàng (tuỳ chọn).',
         { text: 'Nhánh mảnh (chuyên viên định mức mảnh): chia sản phẩm thành từng "mảnh" (VD: mảnh tựa, mảnh chân), khai chiều dài sắt cần cắt + số đoạn, và vật tư phụ (dây, đinh, tán rút, nút nhựa) cho từng mảnh.', critical: false },
         { text: 'Nhánh chi tiết (chuyên viên định mức chi tiết): khai sơn, phụ kiện, bao bì cho cả sản phẩm — làm song song, không cần chờ nhánh mảnh.', critical: false },
         'KHSX mở chi tiết SKU, xem 2 tab "Định mức mảnh" và "Định mức chi tiết": mỗi tab chỉ có MỘT quyết định Duyệt/Từ chối duy nhất cho toàn bộ nhánh đó (không duyệt riêng từng nhóm vật tư con).',

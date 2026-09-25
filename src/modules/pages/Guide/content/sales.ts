@@ -105,11 +105,11 @@ export const salesGroup: GuideGroup = {
       screenshot: '/guide-screens/sales-khach-hang.png',
       mock: {
         title: 'Thêm khách hàng',
-        formFields: ['Tên khách hàng *', 'Số điện thoại *', 'Email', 'Địa chỉ', 'Ghi chú'],
+        formFields: ['Mã khách hàng *', 'Số điện thoại *', 'Email', 'Địa chỉ', 'Ghi chú'],
         buttons: ['Hủy', 'Lưu'],
       },
       steps: [
-        'Bấm "Thêm khách hàng", nhập Tên khách hàng và Số điện thoại (bắt buộc), Email/Địa chỉ/Ghi chú (tuỳ chọn), bấm "Lưu".',
+        'Bấm "Thêm khách hàng", nhập Mã khách hàng và Số điện thoại (bắt buộc), Email/Địa chỉ/Ghi chú (tuỳ chọn), bấm "Lưu".',
         'Bấm icon bút chì trên một dòng để sửa thông tin.',
         { text: 'Bấm icon thùng rác để xoá khách hàng — xác nhận qua hộp thoại "Xóa khách hàng này?".', critical: true },
       ],
@@ -118,7 +118,7 @@ export const salesGroup: GuideGroup = {
         'Xoá khách hàng KHÔNG bị chặn dù khách đó đang có đơn hàng liên kết — hệ thống không cảnh báo gì thêm ngoài hộp thoại xác nhận chung. Cân nhắc kỹ trước khi xoá một khách hàng đã từng có đơn hàng.',
       ],
       commonErrors: [
-        { issue: 'Nút "Lưu" không bấm được khi thêm/sửa khách hàng', cause: 'Chưa nhập Tên khách hàng hoặc Số điện thoại — hai trường này bắt buộc.', fix: 'Điền đầy đủ 2 trường bắt buộc rồi thử lại.' },
+        { issue: 'Nút "Lưu" không bấm được khi thêm/sửa khách hàng', cause: 'Chưa nhập Mã khách hàng hoặc Số điện thoại — hai trường này bắt buộc.', fix: 'Điền đầy đủ 2 trường bắt buộc rồi thử lại.' },
       ],
       tags: ['khách hàng', 'customer'],
       sourceRefs: ['src/modules/pages/Sales/CustomerManagementPage.tsx'],

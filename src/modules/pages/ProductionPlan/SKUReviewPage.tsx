@@ -274,7 +274,7 @@ export default function SKUReviewPage() {
             />
           </div>
           <div>
-            <label style={labelStyle}>Tên khách hàng</label>
+            <label style={labelStyle}>Mã khách hàng</label>
             <SearchableSelect
               displayValue={editCustomerName}
               options={customers ?? []}
@@ -283,7 +283,7 @@ export default function SKUReviewPage() {
               renderOption={c => <><strong>{c.name}</strong> <span style={{ color: 'var(--text3)' }}>— {c.phone}</span></>}
               onSelect={c => setEditCustomerName(c.name)}
               onQueryChange={setEditCustomerName}
-              placeholder="Tìm hoặc nhập tên khách hàng"
+              placeholder="Tìm hoặc nhập Mã khách hàng"
               emptyText="Không tìm thấy — có thể nhập tên mới"
             />
           </div>
@@ -368,7 +368,7 @@ export default function SKUReviewPage() {
                 />
               </div>
               <div>
-                <label style={labelStyle}>Tên khách hàng</label>
+                <label style={labelStyle}>Mã khách hàng</label>
                 <SearchableSelect
                   displayValue={customerName}
                   options={customers ?? []}
@@ -377,7 +377,7 @@ export default function SKUReviewPage() {
                   renderOption={c => <><strong>{c.name}</strong> <span style={{ color: 'var(--text3)' }}>— {c.phone}</span></>}
                   onSelect={c => setCustomerName(c.name)}
                   onQueryChange={setCustomerName}
-                  placeholder="Tìm hoặc nhập tên khách hàng"
+                  placeholder="Tìm hoặc nhập Mã khách hàng"
                   emptyText="Không tìm thấy — có thể nhập tên mới"
                 />
               </div>

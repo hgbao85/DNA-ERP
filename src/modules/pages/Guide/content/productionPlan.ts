@@ -26,7 +26,7 @@ export const productionPlanGroup: GuideGroup = {
       },
       steps: [
         'Lọc theo trạng thái bằng các pill: Tất cả / Đang làm định mức / Chờ sếp duyệt / Đã duyệt.',
-        'Tìm theo mã SKU, tên sản phẩm hoặc tên khách hàng.',
+        'Tìm theo mã SKU, tên sản phẩm hoặc Mã khách hàng.',
         'Click một dòng để xem chi tiết (chỉ xem, không duyệt được từ đây).',
         { text: 'Xoá: bấm "Xóa SKU" để vào chế độ chọn → tick các dòng cần xoá → "Xóa N mục" → xác nhận trong hộp thoại.', critical: true },
       ],
@@ -48,12 +48,12 @@ export const productionPlanGroup: GuideGroup = {
       screenshot: '/guide-screens/pp-tao-sku.png',
       mock: {
         title: 'Tạo SKU mới',
-        formFields: ['SKU *', 'Tên khách hàng'],
+        formFields: ['SKU *', 'Mã khách hàng'],
         buttons: ['Thêm SKU'],
       },
       steps: [
         'Ở màn "Duyệt SKU", bấm "Tạo SKU mới".',
-        'Nhập SKU (mã sản phẩm, bắt buộc) và Tên khách hàng (tuỳ chọn, gõ tự do hoặc chọn có sẵn).',
+        'Nhập SKU (mã sản phẩm, bắt buộc) và Mã khách hàng (tuỳ chọn, gõ tự do hoặc chọn có sẵn).',
         'Bấm "Thêm SKU".',
       ],
       result: 'Hồ sơ SKU rỗng được tạo, trạng thái "Đang làm định mức" — sẵn sàng cho hai chuyên viên định mức bắt đầu nhập liệu.',

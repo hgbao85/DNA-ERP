@@ -1417,7 +1417,7 @@ export default function ThongKePagePlan() {
   const { data: pisData, refetch: refetchPis } = useFetch<PIStatusRow[]>(() => api.getProductionInvoices(), [])
   const { data: weavingPointsData } = useFetch<WeavingPointLite[]>(() => (api as any).getWeavingPoints(), [])
   const { proposals } = useInspection()
-  // Tên khách hàng cho các lệnh KHÔNG có Sku (PlanForm) đi kèm — xem buildSyntheticSku(). Sku thật
+  // Mã khách hàng cho các lệnh KHÔNG có Sku (PlanForm) đi kèm — xem buildSyntheticSku(). Sku thật
   // đã tự có customerName do KHSX nhập tay lúc tạo, không cần map này.
   const { data: salesOrdersData } = useFetch<{ id: string; customerName: string }[]>(() => api.getSalesOrders(), [])
   const customerByOrderId = useMemo(() => new Map((salesOrdersData ?? []).map(o => [o.id, o.customerName])), [salesOrdersData])
