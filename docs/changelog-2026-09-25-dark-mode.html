@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Giao diện tối (Dark mode) (25/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --decided: #66748A; --decided-bg: #EEF0F3; --decided-border: #CBD2DB;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.decided { color: var(--decided); background: var(--decided-bg); border-color: var(--decided-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+
+  .tbl-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; box-shadow: var(--shadow); margin-bottom: 14px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14.3px; min-width: 560px; }
+  th, td { text-align: left; padding: 10px 14px; border-top: 1px solid var(--border); vertical-align: top; }
+  th { border-top: none; font-family: 'Be Vietnam Pro', sans-serif; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); background: var(--surface-alt); }
+  td.ok { color: var(--after); font-weight: 600; white-space: nowrap; }
+  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--border); vertical-align: -1px; margin-right: 4px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 25/09/2026</span>
+    <h1 class="title">Giao diện tối (Dark mode) cho toàn hệ thống</h1>
+    <p class="subtitle">Header của mọi phân hệ có thêm nút đổi giao diện: Sáng → Tối → Theo hệ thống. Lựa chọn được nhớ trên trình duyệt và tự đồng bộ giữa các tab. Giao diện sáng giữ đúng màu như trước. Đã test tự động 78 trang ở 15 vai trò, cả với dữ liệu thật lẫn dữ liệu mock: không có chữ khó đọc, không còn mảng nền sáng sót lại.</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> chỉ FE <code>D:\DNA-ERP</code>. BE và DB không đổi.</span>
+      <span><strong>Quy mô:</strong> 105 file có mã màu hex cứng được chuyển sang token + 4 file mới/sửa hạ tầng</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="feature">
+    <div class="sec-head"><h2>Tính năng mới</h2><span class="sec-count">2 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">25/09</span><span class="f-title">Nút đổi giao diện ở header mọi phân hệ</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Chỉ có giao diện sáng. Dùng buổi tối hoặc ở xưởng thiếu sáng thì màn hình trắng bị chói.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Có icon mặt trời / mặt trăng / màn hình cạnh nút Đăng xuất. Bấm để chuyển vòng <b>Sáng → Tối → Theo hệ thống</b>. "Theo hệ thống" nghĩa là theo cài đặt sáng/tối của Windows, điện thoại hay macOS, và tự đổi khi máy đổi.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Hành vi</span>
+        <div class="v">
+          <ul>
+            <li>Lựa chọn lưu ở <code>localStorage["dna-theme"]</code>, riêng từng trình duyệt và không gắn với tài khoản. Nếu chưa chọn thì mặc định là "Theo hệ thống".</li>
+            <li>Tải lại trang không bị nháy trắng: một script nhỏ trong <code>&lt;head&gt;</code> gắn <code>data-theme</code> lên <code>&lt;html&gt;</code> trước khi trang được vẽ.</li>
+            <li>Tự đồng bộ giữa các tab. Ví dụ trang Hướng dẫn mở ở tab riêng sẽ đổi theo ngay.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field"><span class="k">Vị trí nút</span><div class="v">Header của 7 phân hệ (Admin, Giám đốc, Kho, Sản xuất, Kế hoạch SX, Mua hàng, Bán hàng) và màn chọn phân hệ.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">25/09</span><span class="f-title">Bảng màu tối cho toàn bộ màn hình</span></div>
+      <div class="f-field">
+        <span class="k">Phủ những gì</span>
+        <div class="v">
+          <ul>
+            <li>Mọi màn hình trong 7 phân hệ, các modal, trang Hướng dẫn <code>/guide</code>, cùng các badge, pill lọc, thanh tiến độ và banner cảnh báo.</li>
+            <li>Ô nhập, dropdown, ô chọn ngày và thanh cuộn của trình duyệt cũng đổi sang tối (<code>color-scheme: dark</code>).</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Cố ý không đổi</span>
+        <div class="v">
+          <ul>
+            <li><b>Trang đăng nhập</b> và màn "Đang xác thực": vốn đã là giao diện tối.</li>
+            <li><b>Bản in Hướng dẫn cắt</b> (<code>cuttingGuide.ts</code>): giấy in luôn cần nền trắng.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section id="tech">
+    <div class="sec-head"><h2>Chi tiết kỹ thuật</h2><span class="sec-count">Cho lập trình viên</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Hạ tầng</span><span class="f-title">2 lớp màu</span></div>
+      <div class="f-field">
+        <span class="k">Lớp 1: biến ngữ nghĩa có sẵn (globals.css)</span>
+        <div class="v">Các biến <code>--bg</code>, <code>--surface</code>, <code>--surface2</code>, <code>--border</code>, <code>--text</code>/<code>2</code>/<code>3</code>, <code>--blue</code>/<code>red</code>/<code>amber</code>/<code>green</code> và các biến <code>-bg</code> tương ứng giờ có thêm bộ giá trị trong <code>:root[data-theme="dark"]</code>. Khoảng 2.700 chỗ đang dùng <code>var(--...)</code> tự đổi màu theo mà không phải sửa gì.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Lớp 2: token cho mã hex cứng (theme-palette.css, mới)</span>
+        <div class="v">
+          <p style="margin:0 0 6px">Khoảng 1.040 chỗ viết hex trực tiếp trong <code>style={{...}}</code> (ví dụ <code>'#c62828'</code>) đã được thay bằng 142 token, mỗi token có 2 giá trị:</p>
+          <ul>
+            <li><code>--bg-xxxxxx</code> (dùng làm nền): nền nhạt chuyển thành nền tối cùng tông; nền đặc có chữ trắng (nút, badge) giữ nguyên màu. Ví dụ <span class="swatch" style="background:#fff3e0"></span><code>#fff3e0</code> → <span class="swatch" style="background:#3d2f1a"></span><code>#3d2f1a</code>.</li>
+            <li><code>--fg-xxxxxx</code> (dùng cho chữ, viền, icon): màu đậm được làm sáng lên để đọc được trên nền tối, viền nhạt được làm tối lại. Ví dụ <span class="swatch" style="background:#c62828"></span><code>#c62828</code> → <span class="swatch" style="background:#e26f6f"></span><code>#e26f6f</code>.</li>
+            <li>Ở giao diện sáng, mọi token giữ <b>đúng mã màu gốc</b>, nên giao diện sáng không đổi so với trước.</li>
+            <li>Tên token giữ mã hex gốc (ví dụ <code>--fg-c62828</code>), nên dễ đối chiếu với code cũ và git blame.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Hạ tầng</span><span class="f-title">File mới / sửa</span></div>
+      <div class="f-field">
+        <div class="v">
+          <ul>
+            <li><code>src\context\ThemeContext.tsx</code> (mới): hook <code>useTheme()</code> (dùng <code>useSyncExternalStore</code>), <code>ThemeProvider</code> và <code>THEME_INIT_SCRIPT</code> chống nháy trắng.</li>
+            <li><code>src\components\ThemeToggle.tsx</code> (mới): nút chuyển giao diện.</li>
+            <li><code>src\app\theme-palette.css</code> (mới, sinh tự động): 142 token, mỗi token có giá trị sáng và tối.</li>
+            <li><code>src\app\layout.tsx</code>: thêm script chống nháy, <code>ThemeProvider</code>, import palette và <code>suppressHydrationWarning</code> trên <code>&lt;html&gt;</code>.</li>
+            <li><code>src\app\globals.css</code>: thêm bảng màu tối cho các biến ngữ nghĩa; viền của <code>button.danger</code> chuyển sang token.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Sửa tay</span><span class="f-title">2 chỗ codemod không tự xử lý được</span></div>
+      <div class="f-field">
+        <div class="v">
+          <ul>
+            <li><code>AuditLogTimeline.tsx</code>: code cũ ghép chuỗi alpha kiểu <code>`${color}1a`</code>. Cách này hỏng khi <code>color</code> là <code>var(--...)</code>, nên đã đổi sang <code>color-mix(in srgb, color 10%, transparent)</code>.</li>
+            <li><code>ModuleSelector.tsx</code>: key tên <code>color</code> nhưng thực chất là màu nền của thẻ phân hệ, nên đã đổi sang token <code>--bg-*</code>.</li>
+          </ul>
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section id="guide">
+    <div class="sec-head"><h2>Quy ước khi viết màu mới</h2></div>
+    <div class="prose-card">
+      <p><b>Đừng viết mã hex trực tiếp</b> trong <code>style</code>. Màu hex cứng sẽ không đổi ở giao diện tối và dễ thành một mảng sáng chói.</p>
+      <p>1. Ưu tiên biến ngữ nghĩa: <code>var(--text)</code>, <code>var(--text2)</code>, <code>var(--surface)</code>, <code>var(--border)</code>, <code>var(--red)</code> + <code>var(--red-bg)</code>…</p>
+      <p>2. Nếu cần đúng một sắc độ riêng, dùng token có sẵn trong <code>theme-palette.css</code> (<code>var(--fg-xxxxxx)</code> cho chữ/viền, <code>var(--bg-xxxxxx)</code> cho nền).</p>
+      <p>3. Nếu phải thêm token mới, khai báo <b>cả hai</b> giá trị: trong <code>:root</code> và trong <code>:root[data-theme="dark"]</code>.</p>
+      <p>4. Muốn làm nhạt một màu, đừng ghép chuỗi alpha (<code>`${c}22`</code>); dùng <code>color-mix(in srgb, ${c} 13%, transparent)</code>.</p>
+    </div>
+  </section>
+
+  <section id="test">
+    <div class="sec-head"><h2>Kết quả test</h2><span class="sec-count">Test tự động bằng Playwright</span></div>
+    <div class="prose-card">
+      <p><b>Cách test:</b> một script đăng nhập lần lượt từng vai trò demo, bật giao diện tối rồi bấm qua từng mục menu. Ở mỗi màn, script đo tương phản giữa chữ và nền của mọi phần tử (báo lỗi nếu dưới 3:1), tìm các mảng nền sáng lớn còn sót, và chụp ảnh. Để chắc bộ đo thật sự bắt được lỗi, script cũng được chạy trên giao diện sáng và báo đúng hàng loạt mảng nền sáng như dự kiến.</p>
+      <p><b>Về mock:</b> DB dev gần như trống, nên dữ liệu mock (6 PI đủ các trạng thái, 6 PO, 6 đề xuất mua) chỉ được đưa vào trình duyệt test bằng cách chặn API. Mọi request ghi đều bị chặn. Đã kiểm lại sau khi test: DB dev không có bản ghi mock nào, code dự án cũng không.</p>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead><tr><th>Lượt</th><th>Phạm vi</th><th>Kết quả</th></tr></thead>
+        <tbody>
+          <tr><td>Dữ liệu thật</td><td>78 trang · 15 vai trò: admin, giám đốc, sales, khsx, qlsx, 3 thủ kho (phôi-sơn-hàn / vật tư TP / thành phẩm), phôi, hàn, sơn, kcs, định mức mảnh, định mức chi tiết, mua hàng</td><td class="ok">0 lỗi</td></tr>
+          <tr><td>Dữ liệu mock</td><td>6 vai trò có dùng Lệnh SX / PO / đề xuất mua; kiểm cả danh sách lẫn chi tiết dòng đầu</td><td class="ok">0 lỗi</td></tr>
+          <tr><td>Tab con &amp; modal</td><td>Lệnh sản xuất (màn Giám đốc duyệt, có hộp "xin cắt đặc cách"), chi tiết PI, form Tạo PO, Lệnh SX mới, Xử lý lệnh SX</td><td class="ok">0 lỗi</td></tr>
+          <tr><td>Hướng dẫn</td><td><code>/guide</code>, tự nhận giao diện tối từ lựa chọn đã lưu</td><td class="ok">Ổn</td></tr>
+          <tr><td>Kiểm tra tĩnh</td><td><code>tsc --noEmit</code> sạch · vitest 38/38 · eslint giữ nguyên 137 cảnh báo cũ, không phát sinh mới</td><td class="ok">Qua</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="limits">
+    <div class="sec-head"><h2>Hạn chế đã biết</h2><span class="sec-count">3 mục</span></div>
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Chưa phủ</span><span class="f-title">Phạm vi test</span></div>
+      <div class="f-field"><div class="v"><ul>
+        <li>Chỉ có mock cho PI, PO và đề xuất mua. Các trang Kho, Phôi, Hàn, Sơn, KCS mới được test ở trạng thái trống.</li>
+        <li>Các modal sâu hơn (Duyệt/Từ chối, Sửa thời hạn, nhập/xuất kho chi tiết) chưa được mở trong test.</li>
+      </ul></div></div>
+    </article>
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Chấp nhận</span><span class="f-title">Nền đặc màu sáng hơn, chữ trắng hơi nhạt</span></div>
+      <div class="f-field"><div class="v">Ở một vài chỗ, màu dùng cho chữ cũng được dùng làm nền cho chữ trắng, ví dụ vòng tròn bước tiến độ ở <code>ThongKePagePlan.tsx:1045</code>. Ở giao diện tối, nền đó được làm sáng lên nên chữ trắng tương phản khoảng 3:1: vẫn đọc được nhưng kém hơn giao diện sáng.</div></div>
+    </article>
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Theo thiết kế</span><span class="f-title">Lựa chọn giao diện gắn với trình duyệt, không gắn với tài khoản</span></div>
+      <div class="f-field"><div class="v">Đăng nhập cùng một tài khoản trên máy khác thì phải chọn lại giao diện. Muốn lưu theo tài khoản thì cần thêm trường ở BE; hiện chưa làm.</div></div>
+    </article>
+  </section>
+
+</main>
+
+<footer>DNA-ERP · Changelog 25/09/2026 · Giao diện tối</footer>
+
+</body>
+</html>

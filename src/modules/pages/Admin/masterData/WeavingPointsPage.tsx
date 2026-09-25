@@ -26,7 +26,7 @@ export default function WeavingPointsPage({ readOnly = false, embedded = false }
 
   const config: AdminEntityConfig<WeavingPoint> = {
     title: 'Điểm đan',
-    icon: <Scissors size={18} color="#3949ab" />,
+    icon: <Scissors size={18} color="var(--fg-3949ab)" />,
     searchFields: ['code', 'fullName'],
     searchPlaceholder: 'Tìm theo mã, tên đầy đủ...',
     emptyMessage: 'Chưa có điểm đan nào',

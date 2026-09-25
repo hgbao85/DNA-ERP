@@ -21,7 +21,7 @@ export default function NotificationsPage() {
 
   const config: AdminEntityConfig<Notification> = {
     title: 'Thông báo',
-    icon: <Bell size={18} color="#3949ab" />,
+    icon: <Bell size={18} color="var(--fg-3949ab)" />,
     searchFields: ['title', 'message'],
     searchPlaceholder: 'Tìm theo tiêu đề hoặc nội dung...',
     emptyMessage: 'Chưa có thông báo nào',

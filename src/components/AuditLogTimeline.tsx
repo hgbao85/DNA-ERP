@@ -97,7 +97,7 @@ function EditPhotoActions({ entry, onEditPhoto, onDeletePhoto }: {
         </label>
       )}
       {onDeletePhoto && (
-        <button onClick={remove} disabled={busy} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#c62828', border: '1px solid rgba(198,40,40,.35)', borderRadius: 6, padding: '2px 7px', background: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+        <button onClick={remove} disabled={busy} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: 'var(--fg-c62828)', border: '1px solid rgba(198,40,40,.35)', borderRadius: 6, padding: '2px 7px', background: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
           <Trash2 size={10} /> Xóa ảnh
         </button>
       )}
@@ -125,7 +125,7 @@ function TimelineList({ entries, onEditPhoto, onDeletePhoto }: {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
               <div style={{
                 width: 24, height: 24, borderRadius: '50%', flexShrink: 0,
-                background: `${cfg.color}1a`, color: cfg.color,
+                background: `color-mix(in srgb, ${cfg.color} 10%, transparent)`, color: cfg.color,
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
               }}>
                 <Icon size={13} />

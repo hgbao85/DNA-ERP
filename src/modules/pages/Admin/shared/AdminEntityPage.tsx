@@ -354,7 +354,7 @@ export default function AdminEntityPage<T extends { id: number | string }>({
         <button
           onClick={() => handleDelete(item)}
           title="Xóa"
-          style={{ width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: '#c62828', cursor: 'pointer' }}
+          style={{ width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--fg-c62828)', cursor: 'pointer' }}
         >
           <Trash2 size={14} strokeWidth={2.25} />
         </button>
@@ -378,7 +378,7 @@ export default function AdminEntityPage<T extends { id: number | string }>({
         {!readOnly && (
           <button
             onClick={openCreate}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, color: '#fff', background: '#3949ab', border: 'none', borderRadius: 8, cursor: 'pointer' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--bg-3949ab)', border: 'none', borderRadius: 8, cursor: 'pointer' }}
           >
             <Plus size={14} /> {config.addLabel ?? 'Thêm mới'}
           </button>
@@ -396,13 +396,13 @@ export default function AdminEntityPage<T extends { id: number | string }>({
           display: 'flex', alignItems: 'center', gap: 8,
           background: 'rgba(198, 40, 40, 0.08)', border: '1px solid rgba(198, 40, 40, 0.3)',
           borderRadius: 8, padding: '10px 14px', marginBottom: 14,
-          color: '#c62828', fontSize: 13, fontWeight: 500,
+          color: 'var(--fg-c62828)', fontSize: 13, fontWeight: 500,
         }}>
           <AlertTriangle size={16} style={{ flexShrink: 0 }} />
           <span style={{ flex: 1 }}>Không tải được dữ liệu: {loadError}</span>
           <button
             onClick={refetch}
-            style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, color: '#c62828', background: 'transparent', border: '1px solid rgba(198, 40, 40, 0.4)', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}
+            style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, color: 'var(--fg-c62828)', background: 'transparent', border: '1px solid rgba(198, 40, 40, 0.4)', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}
           >
             Thử lại
           </button>
@@ -492,7 +492,7 @@ export default function AdminEntityPage<T extends { id: number | string }>({
               ) : (
               <>
               <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
-                {f.label}{f.required && <span style={{ color: '#c62828' }}> *</span>}
+                {f.label}{f.required && <span style={{ color: 'var(--fg-c62828)' }}> *</span>}
               </label>
 
               {f.type === 'checkbox' ? (
@@ -576,19 +576,19 @@ export default function AdminEntityPage<T extends { id: number | string }>({
               </>
               )}
 
-              {errors[f.name] && <div style={{ color: '#c62828', fontSize: 11, marginTop: 4 }}>{errors[f.name]}</div>}
+              {errors[f.name] && <div style={{ color: 'var(--fg-c62828)', fontSize: 11, marginTop: 4 }}>{errors[f.name]}</div>}
             </div>
           ))}
         </div>
 
-        {formError && <div style={{ color: '#c62828', fontSize: 12, marginTop: 12 }}>{formError}</div>}
+        {formError && <div style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 12 }}>{formError}</div>}
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
           <button onClick={closeForm} disabled={saving} style={btnSecondary}>Hủy</button>
           <button
             onClick={handleSave}
             disabled={saving}
-            style={{ padding: '8px 18px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', background: '#3949ab', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
+            style={{ padding: '8px 18px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--bg-3949ab)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
           >
             {saving ? 'Đang lưu...' : 'Lưu'}
           </button>

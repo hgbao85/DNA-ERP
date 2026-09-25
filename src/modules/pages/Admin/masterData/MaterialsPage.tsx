@@ -111,7 +111,7 @@ export default function MaterialsPage() {
 
   const config: AdminEntityConfig<Material> = {
     title: 'Vật tư',
-    icon: <Package size={18} color="#3949ab" />,
+    icon: <Package size={18} color="var(--fg-3949ab)" />,
     searchFields: ['code', 'name'],
     searchPlaceholder: 'Tìm theo mã hoặc tên vật tư...',
     emptyMessage: 'Chưa có vật tư nào',
@@ -134,7 +134,7 @@ export default function MaterialsPage() {
         render: (m) => {
           const qty = stockQtyOf(m)
           if (qty == null) return <span style={{ color: 'var(--text3)' }}>—</span>
-          return <span style={{ fontWeight: 700, color: qty <= 0 ? '#c62828' : 'var(--text)' }}>{qty.toLocaleString('vi-VN')}</span>
+          return <span style={{ fontWeight: 700, color: qty <= 0 ? 'var(--fg-c62828)' : 'var(--text)' }}>{qty.toLocaleString('vi-VN')}</span>
         },
       },
       {
@@ -144,7 +144,7 @@ export default function MaterialsPage() {
         render: (m) => {
           const qty = availableQtyOf(m)
           if (qty == null) return <span style={{ color: 'var(--text3)' }}>—</span>
-          return <span style={{ fontWeight: 700, color: qty <= 0 ? '#c62828' : '#2563eb' }}>{qty.toLocaleString('vi-VN')}</span>
+          return <span style={{ fontWeight: 700, color: qty <= 0 ? 'var(--fg-c62828)' : 'var(--fg-2563eb)' }}>{qty.toLocaleString('vi-VN')}</span>
         },
       },
       { key: 'buyerId', label: 'Nhân viên mua hàng', render: (m) => buyerName(m.buyerId) },

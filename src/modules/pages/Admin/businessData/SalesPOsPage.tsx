@@ -10,7 +10,7 @@ const fmtDate = (d: string) => new Date(d).toLocaleDateString('vi-VN')
 export default function SalesPOsPage() {
   const config: AdminReadOnlyListConfig<SalesOrder> = {
     title: 'Đơn hàng bán',
-    icon: <ClipboardList size={16} color="#3949ab" />,
+    icon: <ClipboardList size={16} color="var(--fg-3949ab)" />,
     searchFields: ['orderCode', 'customerName'],
     searchPlaceholder: 'Tìm theo mã đơn hoặc khách hàng...',
     emptyMessage: 'Chưa có đơn hàng bán nào',

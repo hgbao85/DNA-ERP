@@ -21,7 +21,7 @@ const fmtDate = (d: string) => new Date(d).toLocaleDateString('vi-VN')
 export default function SkuPage() {
   const config: AdminReadOnlyListConfig<Sku> = {
     title: 'SKU / Định mức',
-    icon: <Layers3 size={16} color="#3949ab" />,
+    icon: <Layers3 size={16} color="var(--fg-3949ab)" />,
     searchFields: ['piCode', 'customerName'],
     searchPlaceholder: 'Tìm theo mã PI hoặc khách hàng...',
     emptyMessage: 'Chưa có SKU nào',

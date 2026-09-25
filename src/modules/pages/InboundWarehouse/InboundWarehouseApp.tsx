@@ -19,6 +19,7 @@ import KhoNhapDanPage from './KhoNhapDanPage'
 import QuanLyDiemDanPage from '../Manufacturing/QuanLyDiemDanPage'
 import ChuyenKhoTuDoPage from './ChuyenKhoTuDoPage'
 import OfficeSuppliesPage from './OfficeSuppliesPage'
+import ThemeToggle from '../../../components/ThemeToggle'
 
 interface InboundWarehouseAppProps {
   onBack?: () => void // chỉ truyền nếu user có nhiều phân hệ; thủ kho thuần → khóa trong card này
@@ -26,8 +27,8 @@ interface InboundWarehouseAppProps {
 
 // Phân hệ "Kho đầu vào" — gom toàn bộ thao tác kho của Thủ kho (WAREHOUSE_STAFF không mfgRole).
 // Theme tím #4527A0 khớp màu card trong ModuleSelector.
-const ACCENT = '#4527A0'
-const ACCENT_BG = '#EDE7F6'
+const ACCENT = 'var(--fg-4527a0)'
+const ACCENT_BG = 'var(--bg-ede7f6)'
 
 export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps) {
   const { user, logout } = useAuth()
@@ -170,6 +171,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
               <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
               <div style={{ fontSize: 10, color: 'var(--text3)' }}>{roleLabel}</div>
             </div>
+            <ThemeToggle />
             <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất">
               <LogOut size={16} color="var(--text3)" />
             </button>

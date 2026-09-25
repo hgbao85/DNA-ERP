@@ -39,8 +39,8 @@ import * as api from '../../../services/api'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 
-const ACCENT = '#3949ab'
-const RED = '#c62828'
+const ACCENT = 'var(--fg-3949ab)'
+const RED = 'var(--fg-c62828)'
 
 type Tab = 'kcs-photos' | 'transfer-check-photos' | 'approval-files'
 

@@ -65,7 +65,7 @@ export default function AuditLogPage() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <History size={18} color="#3949ab" />
+        <History size={18} color="var(--fg-3949ab)" />
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Nhật ký hoạt động</h2>
         <span style={{ fontSize: 12, color: 'var(--text3)' }}>({filtered.length})</span>
       </div>

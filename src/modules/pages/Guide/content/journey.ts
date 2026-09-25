@@ -10,8 +10,8 @@ export const journeyGroup: GuideGroup = {
   id: 'journey',
   title: 'Hành trình một đơn hàng',
   icon: 'Route',
-  color: '#B45309',
-  bg: '#FEF3C7',
+  color: 'var(--fg-b45309)',
+  bg: 'var(--bg-fef3c7)',
   roles: ['sales', 'khsx', 'qlsx', 'boss', 'purchasing', 'warehouse', 'phoi', 'han', 'son', 'kcs'],
   description:
     'Toàn cảnh từ lúc Kinh doanh tạo đơn hàng tới lúc đóng gói giao khách — ai làm gì, ở bước nào. Đọc nhóm này trước nếu bạn mới dùng hệ thống.',

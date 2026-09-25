@@ -64,14 +64,14 @@ import KcsVatTuThanhPhamPage from './KcsVatTuThanhPhamPage'
 import MobileListCards from '../../../components/MobileListCards'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 
-const ACCENT = '#e65100'
-const GREEN = '#16a34a'
-const RED = '#c62828'
-const AMBER = '#d97706'
+const ACCENT = 'var(--fg-e65100)'
+const GREEN = 'var(--fg-16a34a)'
+const RED = 'var(--fg-c62828)'
+const AMBER = 'var(--fg-d97706)'
 const tabBtn = (active: boolean): React.CSSProperties => ({
   display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12.5, fontWeight: 600,
   border: '1px solid ' + (active ? ACCENT : 'var(--border)'), borderRadius: 20, cursor: 'pointer',
-  background: active ? 'var(--accent-bg, #fff3e8)' : 'var(--surface)', color: active ? ACCENT : 'var(--text2)',
+  background: active ? 'var(--accent-bg, var(--bg-fff3e8))' : 'var(--surface)', color: active ? ACCENT : 'var(--text2)',
 })
 const tabPendingBadge: React.CSSProperties = {
   display: 'inline-flex', alignItems: 'center', justifyContent: 'center', minWidth: 16, height: 16, padding: '0 4px',
@@ -148,7 +148,7 @@ function buildPiRows(issues: BeSteelIssue[], bundles: BeCutBundle[], stepBundles
 const sectionTabBtn = (active: boolean): React.CSSProperties => ({
   display: 'inline-flex', alignItems: 'center', padding: '7px 14px', fontSize: 13, fontWeight: 600,
   border: '1px solid ' + (active ? ACCENT : 'var(--border)'), borderRadius: 20, cursor: 'pointer',
-  background: active ? 'var(--accent-bg, #fff3e8)' : 'var(--surface)', color: active ? ACCENT : 'var(--text2)',
+  background: active ? 'var(--accent-bg, var(--bg-fff3e8))' : 'var(--surface)', color: active ? ACCENT : 'var(--text2)',
 })
 
 export default function KcsPhoiPage() {

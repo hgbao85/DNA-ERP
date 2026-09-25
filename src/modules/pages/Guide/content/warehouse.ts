@@ -11,8 +11,8 @@ export const warehouseGroup: GuideGroup = {
   id: 'warehouse',
   title: 'Kho',
   icon: 'Warehouse',
-  color: '#4338CA',
-  bg: '#E0E7FF',
+  color: 'var(--fg-4338ca)',
+  bg: 'var(--bg-e0e7ff)',
   roles: ['warehouse'],
   description: 'Nhập/xuất vật tư, chuyển kho nội bộ, xuất-nhập đan, chuyền kiểm, đóng gói — theo đúng kho bạn phụ trách.',
   articles: [

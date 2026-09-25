@@ -19,18 +19,18 @@ function LoadingScreen() {
     <div style={{
       display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
       height: '100vh', width: '100vw',
-      background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-      color: '#f8fafc', fontFamily: "'Outfit', 'Inter', sans-serif",
+      background: 'linear-gradient(135deg, var(--bg-0f172a) 0%, var(--bg-1e293b) 100%)',
+      color: 'var(--fg-f8fafc)', fontFamily: "'Outfit', 'Inter', sans-serif",
     }}>
       <div style={{
         width: 48, height: 48,
         border: '4px solid rgba(2, 132, 199, 0.2)',
-        borderTop: '4px solid #0284c7',
+        borderTop: '4px solid var(--fg-0284c7)',
         borderRadius: '50%',
         animation: 'spin 1s linear infinite',
         marginBottom: 16,
       }} />
-      <div style={{ fontSize: 14, fontWeight: 500, color: '#94a3b8', letterSpacing: '0.05em' }}>
+      <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--fg-94a3b8)', letterSpacing: '0.05em' }}>
         ĐANG XÁC THỰC HỆ THỐNG...
       </div>
       <style>{`@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }`}</style>

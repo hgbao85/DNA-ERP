@@ -2,13 +2,13 @@ import type { SalesOrderStatus } from '../../../types/sales'
 import { SALES_ORDER_STATUS_LABEL } from '../../../types/sales'
 
 export const SALES_ORDER_STATUS_COLOR: Record<SalesOrderStatus, { bg: string; color: string }> = {
-  LEN_KE_HOACH: { bg: '#f1f5f9', color: '#475569' },
-  MUA_HANG: { bg: '#f3e5f5', color: '#7b1fa2' },
-  KHUNG_CO_KHI: { bg: '#fff3e0', color: '#e65100' },
-  DAN: { bg: '#ede7f6', color: '#4527a0' },
-  CHUYEN_KIEM: { bg: '#e1f5fe', color: '#0277bd' },
-  DONG_GOI: { bg: '#e3f2fd', color: '#1565c0' },
-  HOAN_THANH: { bg: '#dcfce7', color: '#15803d' },
+  LEN_KE_HOACH: { bg: 'var(--bg-f1f5f9)', color: 'var(--fg-475569)' },
+  MUA_HANG: { bg: 'var(--bg-f3e5f5)', color: 'var(--fg-7b1fa2)' },
+  KHUNG_CO_KHI: { bg: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)' },
+  DAN: { bg: 'var(--bg-ede7f6)', color: 'var(--fg-4527a0)' },
+  CHUYEN_KIEM: { bg: 'var(--bg-e1f5fe)', color: 'var(--fg-0277bd)' },
+  DONG_GOI: { bg: 'var(--bg-e3f2fd)', color: 'var(--fg-1565c0)' },
+  HOAN_THANH: { bg: 'var(--bg-dcfce7)', color: 'var(--fg-15803d)' },
 }
 
 export function StatusBadge({ status }: { status: SalesOrderStatus }) {

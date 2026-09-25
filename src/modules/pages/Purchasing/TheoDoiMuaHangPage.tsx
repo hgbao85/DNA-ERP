@@ -81,7 +81,7 @@ export function ApprovalFileCell({ proposalId, itemId, approvalFileUrl }: {
 
   if (!itemId) {
     return approvalFileUrl
-      ? <a href={approvalFileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#2563eb', fontWeight: 600 }}>Xem file Sếp duyệt</a>
+      ? <a href={approvalFileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--fg-2563eb)', fontWeight: 600 }}>Xem file Sếp duyệt</a>
       : <span style={{ color: 'var(--text3)' }}>—</span>
   }
 
@@ -111,7 +111,7 @@ export function ApprovalFileCell({ proposalId, itemId, approvalFileUrl }: {
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
       {confirmModal}
       {approvalFileUrl ? (
-        <a href={approvalFileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: '#2563eb', fontWeight: 600 }}>Xem file</a>
+        <a href={approvalFileUrl} target="_blank" rel="noopener noreferrer" style={{ fontSize: 12, color: 'var(--fg-2563eb)', fontWeight: 600 }}>Xem file</a>
       ) : (
         <span style={{ color: 'var(--text3)' }}>—</span>
       )}
@@ -121,7 +121,7 @@ export function ApprovalFileCell({ proposalId, itemId, approvalFileUrl }: {
           onChange={e => { const f = e.target.files?.[0]; if (f) replace(f); e.target.value = '' }} />
       </label>
       {approvalFileUrl && (
-        <button onClick={remove} disabled={busy} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#c62828', border: '1px solid rgba(198,40,40,.35)', borderRadius: 6, padding: '2px 7px', background: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
+        <button onClick={remove} disabled={busy} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: 'var(--fg-c62828)', border: '1px solid rgba(198,40,40,.35)', borderRadius: 6, padding: '2px 7px', background: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
           <Trash2 size={11} /> Xóa
         </button>
       )}
@@ -185,10 +185,10 @@ export default function TheoDoiMuaHangPage() {
                 stockLengthMm={r.stockLengthMm}
                 fields={[
                   { label: 'Tổng SL', value: <>{r.buyQty} <span style={{ color: 'var(--text3)', fontSize: 11 }}>{r.unit}</span></> },
-                  { label: 'Đã mua', value: <b style={{ color: r.boughtQty > 0 ? '#16a34a' : 'var(--text3)' }}>{r.boughtQty}</b> },
-                  { label: 'Còn lại', value: <b style={{ color: r.remaining > 0 ? '#d97706' : '#16a34a' }}>{r.remaining}</b> },
+                  { label: 'Đã mua', value: <b style={{ color: r.boughtQty > 0 ? 'var(--fg-16a34a)' : 'var(--text3)' }}>{r.boughtQty}</b> },
+                  { label: 'Còn lại', value: <b style={{ color: r.remaining > 0 ? 'var(--fg-d97706)' : 'var(--fg-16a34a)' }}>{r.remaining}</b> },
                   { label: 'Hàng về kho', value: warehouseName(r.warehouseCode, r.khoLabel) },
-                  { label: 'Hạn giao', value: r.deadline ? <span style={{ color: '#dc2626', fontWeight: 600 }}>{new Date(r.deadline).toLocaleDateString('vi-VN')}</span> : '—' },
+                  { label: 'Hạn giao', value: r.deadline ? <span style={{ color: 'var(--fg-dc2626)', fontWeight: 600 }}>{new Date(r.deadline).toLocaleDateString('vi-VN')}</span> : '—' },
                 ]}
                 footer={<ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} />}
               />
@@ -218,15 +218,15 @@ export default function TheoDoiMuaHangPage() {
                   <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text3)' }}>{r.poNumber ?? '—'}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{r.itemName}</td>
                   <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{r.spec || '—'}</td>
-                  <td style={{ ...td, textAlign: 'right', fontSize: 12, fontWeight: r.stockLengthMm != null ? 700 : 400, color: r.stockLengthMm != null ? '#e65100' : 'var(--text3)' }}>
+                  <td style={{ ...td, textAlign: 'right', fontSize: 12, fontWeight: r.stockLengthMm != null ? 700 : 400, color: r.stockLengthMm != null ? 'var(--fg-e65100)' : 'var(--text3)' }}>
                     {r.stockLengthMm != null ? `${r.stockLengthMm}mm` : '—'}
                   </td>
                   <td style={{ ...td, textAlign: 'right' }}>{r.buyQty}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>{r.unit}</td>
-                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: r.boughtQty > 0 ? '#16a34a' : 'var(--text3)' }}>{r.boughtQty}</td>
-                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: r.remaining > 0 ? '#d97706' : '#16a34a' }}>{r.remaining}</td>
+                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: r.boughtQty > 0 ? 'var(--fg-16a34a)' : 'var(--text3)' }}>{r.boughtQty}</td>
+                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: r.remaining > 0 ? 'var(--fg-d97706)' : 'var(--fg-16a34a)' }}>{r.remaining}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{warehouseName(r.warehouseCode, r.khoLabel)}</td>
-                  <td style={{ ...td, color: r.deadline ? '#dc2626' : 'var(--text3)', fontWeight: r.deadline ? 600 : 400, whiteSpace: 'nowrap' }}>
+                  <td style={{ ...td, color: r.deadline ? 'var(--fg-dc2626)' : 'var(--text3)', fontWeight: r.deadline ? 600 : 400, whiteSpace: 'nowrap' }}>
                     {r.deadline ? new Date(r.deadline).toLocaleDateString('vi-VN') : '—'}
                   </td>
                   {/* Giá + NCC nằm TRONG file này (2026-08-27) - phần mềm không lưu tách ra. */}
@@ -258,9 +258,9 @@ export default function TheoDoiMuaHangPage() {
       ) : (
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <Truck size={16} color="#92400e" />
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#92400e' }}>Đang mua hàng</span>
-            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}>
+            <Truck size={16} color="var(--fg-92400e)" />
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--fg-92400e)' }}>Đang mua hàng</span>
+            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'var(--bg-fef3c7)', color: 'var(--fg-92400e)', border: '1px solid var(--fg-fde68a)' }}>
               {proposals.length}
             </span>
           </div>
@@ -270,7 +270,7 @@ export default function TheoDoiMuaHangPage() {
               proposals={proposals}
               onSelect={setSelectedId}
               badge={statusTag}
-              meta={p => p.deadline && <span style={{ color: '#dc2626', fontWeight: 600 }}>Deadline: {new Date(p.deadline).toLocaleDateString('vi-VN')}</span>}
+              meta={p => p.deadline && <span style={{ color: 'var(--fg-dc2626)', fontWeight: 600 }}>Deadline: {new Date(p.deadline).toLocaleDateString('vi-VN')}</span>}
             />
           ) : (
           <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflowX: 'auto', background: 'var(--surface)' }}>
@@ -300,7 +300,7 @@ export default function TheoDoiMuaHangPage() {
                         <span style={{ fontWeight: 600 }}>{p.skuCode}</span>
                         {p.skuName && <span style={{ marginLeft: 6, color: 'var(--text3)', fontSize: 12 }}>{p.skuName}</span>}
                       </td>
-                      <td style={{ ...td, color: p.deadline ? '#dc2626' : 'var(--text3)', fontSize: 12, fontWeight: p.deadline ? 600 : 400 }}>
+                      <td style={{ ...td, color: p.deadline ? 'var(--fg-dc2626)' : 'var(--text3)', fontSize: 12, fontWeight: p.deadline ? 600 : 400 }}>
                         {p.deadline ? new Date(p.deadline).toLocaleDateString('vi-VN') : '—'}
                       </td>
                       <td style={td}>{statusTag(p)}</td>

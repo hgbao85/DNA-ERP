@@ -10,7 +10,7 @@ import { warehouseFamilyOf } from '../../../utils/warehouseFamily'
 import { errMsg } from '../../../utils/errors'
 import { compactTh as th, compactTd as td, emptyBox } from '../../../styles/table'
 
-const ACCENT = '#4527A0'
+const ACCENT = 'var(--fg-4527a0)'
 
 interface MaterialOption {
   id: number
@@ -180,7 +180,7 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
             renderOption={m => (
               <span>
                 <span>{m.name} <span style={{ color: 'var(--text3)' }}>({m.unit})</span></span>
-                <span style={{ float: 'right', color: m.availableQty > 0 ? '#2563eb' : 'var(--text3)', fontWeight: 600 }}>{m.availableQty.toLocaleString('vi-VN')}</span>
+                <span style={{ float: 'right', color: m.availableQty > 0 ? 'var(--fg-2563eb)' : 'var(--text3)', fontWeight: 600 }}>{m.availableQty.toLocaleString('vi-VN')}</span>
               </span>
             )}
             onSelect={m => setMaterial(m)}
@@ -198,7 +198,7 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
               type="number" min={0} value={qty}
               onChange={e => setQty(e.target.value)}
               disabled={!material}
-              style={{ width: '100%', padding: '8px 10px', border: `1px solid ${overAvail ? '#dc2626' : 'var(--border)'}`, borderRadius: 6, fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }}
+              style={{ width: '100%', padding: '8px 10px', border: `1px solid ${overAvail ? 'var(--fg-dc2626)' : 'var(--border)'}`, borderRadius: 6, fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }}
             />
           </div>
           <div>
@@ -210,12 +210,12 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
           </div>
         </div>
 
-        {error && <div style={{ marginBottom: 12, fontSize: 12, color: '#dc2626' }}>{error}</div>}
+        {error && <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--fg-dc2626)' }}>{error}</div>}
         {successCode && !clampedInfo && (
-          <div style={{ marginBottom: 12, fontSize: 12, color: '#16a34a' }}>Đã tạo phiếu {successCode}, chờ kho đích xác nhận.</div>
+          <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--fg-16a34a)' }}>Đã tạo phiếu {successCode}, chờ kho đích xác nhận.</div>
         )}
         {successCode && clampedInfo && (
-          <div style={{ marginBottom: 12, padding: '8px 12px', background: '#fff3e0', border: '1px solid #ffcc80', borderRadius: 6, fontSize: 12, color: '#92400e' }}>
+          <div style={{ marginBottom: 12, padding: '8px 12px', background: 'var(--bg-fff3e0)', border: '1px solid var(--fg-ffcc80)', borderRadius: 6, fontSize: 12, color: 'var(--fg-92400e)' }}>
             Đã tạo phiếu {successCode}, nhưng chỉ chuyển được <strong>{clampedInfo.actual.toLocaleString('vi-VN')}</strong> / {clampedInfo.requested.toLocaleString('vi-VN')} {clampedInfo.unit} đã nhập — phần còn lại đang bị 1 phiếu khác giữ chỗ trước. Chờ kho đích xác nhận.
           </div>
         )}

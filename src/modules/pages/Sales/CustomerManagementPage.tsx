@@ -52,7 +52,7 @@ export default function CustomerManagementPage() {
   }
 
   if (isLoading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</div>
-  if (error) return <div style={{ padding: 40, color: '#E24B4A' }}>Lỗi: {error}</div>
+  if (error) return <div style={{ padding: 40, color: 'var(--fg-e24b4a)' }}>Lỗi: {error}</div>
 
   return (
     <div>
@@ -79,7 +79,7 @@ export default function CustomerManagementPage() {
                   <button onClick={() => openEdit(c)} aria-label="Sửa khách hàng" style={{ padding: 8, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                     <Pencil size={14} />
                   </button>
-                  <button onClick={() => handleDelete(c.id)} aria-label="Xoá khách hàng" style={{ padding: 8, border: '1px solid #fca5a5', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#E24B4A' }}>
+                  <button onClick={() => handleDelete(c.id)} aria-label="Xoá khách hàng" style={{ padding: 8, border: '1px solid var(--fg-fca5a5)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--fg-e24b4a)' }}>
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -120,7 +120,7 @@ export default function CustomerManagementPage() {
                     <button onClick={() => openEdit(c)} style={{ padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                       <Pencil size={12} />
                     </button>
-                    <button onClick={() => handleDelete(c.id)} style={{ padding: '4px 8px', border: '1px solid #fca5a5', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#E24B4A' }}>
+                    <button onClick={() => handleDelete(c.id)} style={{ padding: '4px 8px', border: '1px solid var(--fg-fca5a5)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--fg-e24b4a)' }}>
                       <Trash2 size={12} />
                     </button>
                   </div>

@@ -21,8 +21,8 @@ const navBtn = (disabled: boolean) => ({
 
 const pageBtn = (active: boolean) => ({
   minWidth: 28, height: 28, padding: '0 6px',
-  border: `1px solid ${active ? '#1f2937' : 'var(--border)'}`, borderRadius: 'var(--radius)',
-  background: active ? '#1f2937' : 'var(--surface)',
+  border: `1px solid ${active ? 'var(--fg-1f2937)' : 'var(--border)'}`, borderRadius: 'var(--radius)',
+  background: active ? 'var(--bg-1f2937)' : 'var(--surface)',
   color: active ? '#fff' : 'var(--text2)',
   fontSize: 12, fontWeight: active ? 700 : 500, cursor: 'pointer' as const,
 })

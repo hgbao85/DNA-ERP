@@ -40,8 +40,8 @@ const FILTER_PREDICATES: Record<Exclude<StatusFilter, 'all'>, (p: Sku) => boolea
 
 const PLANNER_FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }[] = [
   { key: 'all',     label: 'Tất cả' },
-  { key: 'manh',    label: 'Chờ duyệt mảnh',     color: '#c2410c', bg: '#ffedd5' },
-  { key: 'chitiet', label: 'Chờ duyệt chi tiết', color: '#b45309', bg: '#fef3c7' },
+  { key: 'manh',    label: 'Chờ duyệt mảnh',     color: 'var(--fg-c2410c)', bg: 'var(--bg-ffedd5)' },
+  { key: 'chitiet', label: 'Chờ duyệt chi tiết', color: 'var(--fg-b45309)', bg: 'var(--bg-fef3c7)' },
   { key: 'boss',    label: STATUS_MAP.WAITING_BOSS_APPROVAL.label, color: STATUS_MAP.WAITING_BOSS_APPROVAL.color, bg: STATUS_MAP.WAITING_BOSS_APPROVAL.bg },
 ]
 const BOSS_FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }[] = [
@@ -249,15 +249,15 @@ export default function SKUReviewPage() {
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}
     >
       <div style={{ background: 'var(--surface)', borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#f0fdf4', borderBottom: '1px solid #bbf7d0', borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
-          <span style={{ fontSize: 15, fontWeight: 700, color: '#15803d' }}>Sửa SKU</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: 'var(--bg-f0fdf4)', borderBottom: '1px solid var(--fg-bbf7d0)', borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--fg-15803d)' }}>Sửa SKU</span>
           <button onClick={closeEdit} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text3)', display: 'flex' }}>
             <X size={18} />
           </button>
         </div>
         <div style={{ padding: '20px 20px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
           <div>
-            <label style={labelStyle}>SKU <span style={{ color: '#dc2626' }}>*</span></label>
+            <label style={labelStyle}>SKU <span style={{ color: 'var(--fg-dc2626)' }}>*</span></label>
             <input
               autoFocus type="text" value={editSkuCode}
               onChange={e => setEditSkuCode(e.target.value)}
@@ -281,13 +281,13 @@ export default function SKUReviewPage() {
             />
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '16px 20px', borderTop: '1px solid #e7f9ee', marginTop: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '16px 20px', borderTop: '1px solid var(--fg-e7f9ee)', marginTop: 12 }}>
           <button onClick={closeEdit} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
             Hủy
           </button>
           <button
             onClick={handleEditSubmit} disabled={editSubmitting}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: editSubmitting ? 'not-allowed' : 'pointer', opacity: editSubmitting ? 0.7 : 1 }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', background: 'var(--bg-2e7d32)', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: editSubmitting ? 'not-allowed' : 'pointer', opacity: editSubmitting ? 0.7 : 1 }}
           >
             {editSubmitting ? 'Đang lưu...' : 'Lưu'}
           </button>
@@ -321,14 +321,14 @@ export default function SKUReviewPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: isMobile ? 14 : 24, flexWrap: 'wrap' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Duyệt SKU</h2>
-          {success && <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, display: 'block', marginTop: 4 }}>✓ Đã thêm thành công</span>}
+          {success && <span style={{ fontSize: 13, color: 'var(--fg-16a34a)', fontWeight: 600, display: 'block', marginTop: 4 }}>✓ Đã thêm thành công</span>}
         </div>
         {/* Chỉ KHSX mới được tạo SKU mới — Sếp chỉ duyệt. */}
         {!isBoss && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button
               onClick={() => setShowForm(true)}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: '#2e7d32', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: 'var(--bg-2e7d32)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
             >
               <Plus size={14} /> Tạo SKU mới
             </button>
@@ -343,15 +343,15 @@ export default function SKUReviewPage() {
           style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 12 }}
         >
           <div style={{ background: 'var(--surface)', borderRadius: 14, width: '100%', maxWidth: 480, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: '#f0fdf4', borderBottom: '1px solid #bbf7d0', borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
-              <span style={{ fontSize: 15, fontWeight: 700, color: '#15803d' }}>Thông tin SKU mới</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', background: 'var(--bg-f0fdf4)', borderBottom: '1px solid var(--fg-bbf7d0)', borderTopLeftRadius: 14, borderTopRightRadius: 14 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--fg-15803d)' }}>Thông tin SKU mới</span>
               <button onClick={closeForm} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text3)', display: 'flex' }}>
                 <X size={18} />
               </button>
             </div>
             <div style={{ padding: '20px 20px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
               <div>
-                <label style={labelStyle}>SKU <span style={{ color: '#dc2626' }}>*</span></label>
+                <label style={labelStyle}>SKU <span style={{ color: 'var(--fg-dc2626)' }}>*</span></label>
                 <input
                   autoFocus type="text" value={form.note}
                   onChange={e => setForm({ ...form, note: e.target.value })}
@@ -397,13 +397,13 @@ export default function SKUReviewPage() {
                 )}
               </div>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '16px 20px', borderTop: '1px solid #e7f9ee', marginTop: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '16px 20px', borderTop: '1px solid var(--fg-e7f9ee)', marginTop: 12 }}>
               <button onClick={closeForm} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
                 Hủy
               </button>
               <button
                 onClick={handleSubmit} disabled={submitting}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', background: '#2e7d32', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', background: 'var(--bg-2e7d32)', color: '#fff', border: 'none', borderRadius: 8, fontWeight: 600, fontSize: 13, cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.7 : 1 }}
               >
                 <Plus size={14} />
                 {submitting ? 'Đang lưu...' : 'Thêm SKU'}
@@ -428,7 +428,7 @@ export default function SKUReviewPage() {
           {displayed.map(pf => (
             <SkuMobileCard key={pf.id} pf={pf} onClick={() => setSelectedPf(pf)}
               note={pf.bossRejectReason && (
-                <div style={{ marginTop: 4, fontSize: 12, color: '#dc2626', fontStyle: 'italic', wordBreak: 'break-word' }}>⚠ Sếp từ chối: {pf.bossRejectReason}</div>
+                <div style={{ marginTop: 4, fontSize: 12, color: 'var(--fg-dc2626)', fontStyle: 'italic', wordBreak: 'break-word' }}>⚠ Sếp từ chối: {pf.bossRejectReason}</div>
               )} />
           ))}
           {displayed.length === 0 && (
@@ -461,14 +461,14 @@ export default function SKUReviewPage() {
                   key={pf.id}
                   onClick={() => setSelectedPf(pf)}
                   style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#f0fdf4')}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-f0fdf4)')}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
                   <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)' }}>{pf.id}</td>
                   <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.name}</span>
                     {pf.bossRejectReason && (
-                      <div style={{ marginTop: 2, fontSize: 11, color: '#dc2626', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      <div style={{ marginTop: 2, fontSize: 11, color: 'var(--fg-dc2626)', fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                         ⚠ Sếp từ chối: {pf.bossRejectReason}
                       </div>
                     )}

@@ -47,7 +47,7 @@ export default function AdjustReasonModal({
     >
       <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 420, padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,.18)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 14 }}>
-          <AlertTriangle size={20} color="#4527a0" style={{ flexShrink: 0, marginTop: 1 }} />
+          <AlertTriangle size={20} color="var(--fg-4527a0)" style={{ flexShrink: 0, marginTop: 1 }} />
           <div>
             <h3 style={{ margin: '0 0 6px', fontSize: 16, fontWeight: 700 }}>Xác nhận sửa tồn kho</h3>
             <p style={{ margin: 0, fontSize: 13, color: 'var(--text2)' }}>{summary}</p>
@@ -63,16 +63,16 @@ export default function AdjustReasonModal({
           onBlur={() => setTouched(true)}
           onKeyDown={(e) => { if (e.key === 'Enter') submit() }}
           placeholder="VD: kiểm kê phát hiện lệch, nhập nhầm lần trước..."
-          style={{ width: '100%', padding: '8px 10px', border: `1px solid ${invalid ? '#c62828' : 'var(--border)'}`, borderRadius: 8, fontSize: 13, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box' }}
+          style={{ width: '100%', padding: '8px 10px', border: `1px solid ${invalid ? 'var(--fg-c62828)' : 'var(--border)'}`, borderRadius: 8, fontSize: 13, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box' }}
         />
-        {invalid && <div style={{ color: '#c62828', fontSize: 12, marginTop: 4 }}>Vui lòng nhập lý do</div>}
+        {invalid && <div style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 4 }}>Vui lòng nhập lý do</div>}
 
         {error && (
           <div style={{
             display: 'flex', alignItems: 'center', gap: 8,
             background: 'rgba(198, 40, 40, 0.08)', border: '1px solid rgba(198, 40, 40, 0.3)',
             borderRadius: 8, padding: '8px 12px', marginTop: 10,
-            color: '#c62828', fontSize: 12.5, fontWeight: 500,
+            color: 'var(--fg-c62828)', fontSize: 12.5, fontWeight: 500,
           }}>
             <AlertTriangle size={15} style={{ flexShrink: 0 }} />
             <span>{error}</span>
@@ -92,7 +92,7 @@ export default function AdjustReasonModal({
             disabled={busy}
             style={{
               padding: '8px 18px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff',
-              background: '#4527a0',
+              background: 'var(--bg-4527a0)',
               cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.7 : 1,
             }}
           >

@@ -10,8 +10,8 @@ export const adminGroup: GuideGroup = {
   id: 'admin',
   title: 'Quản trị hệ thống',
   icon: 'Shield',
-  color: '#334155',
-  bg: '#E2E8F0',
+  color: 'var(--fg-334155)',
+  bg: 'var(--bg-e2e8f0)',
   roles: ['admin'],
   description: 'Tạo tài khoản và kho, khai báo danh mục nền (vật tư, khách hàng, NCC...), xử lý sự cố kỹ thuật.',
   articles: [

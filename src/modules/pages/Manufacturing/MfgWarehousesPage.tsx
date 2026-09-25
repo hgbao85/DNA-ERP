@@ -192,7 +192,7 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
   const openingBalanceWarehouseId = (warehouses ?? []).find(w => w.code === 'OPENING_BALANCE')?.id ?? null
 
   if (whLoading) return <div style={{ color: 'var(--text3)' }}>Đang tải...</div>
-  if (whError)   return <div style={{ color: '#c62828' }}>Không tải được danh sách kho: {whError}</div>
+  if (whError)   return <div style={{ color: 'var(--fg-c62828)' }}>Không tải được danh sách kho: {whError}</div>
 
   if (openWh) return (
     <WarehouseDetail
@@ -383,12 +383,12 @@ function CreateWarehouseModal({ suggestedFamily, warehouses, onClose, onDone }: 
           </div>
         )}
         {selectedUserCurrentWh && (
-          <div style={{ fontSize: 12.5, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 10px', marginTop: 8 }}>
+          <div style={{ fontSize: 12.5, color: 'var(--fg-b45309)', background: 'var(--bg-fffbeb)', border: '1px solid var(--fg-fde68a)', borderRadius: 8, padding: '8px 10px', marginTop: 8 }}>
             Tài khoản này đang phụ trách <strong>{selectedUserCurrentWh}</strong> — gán vào kho mới sẽ <strong>chuyển họ khỏi kho hiện tại</strong> (1 tài khoản chỉ phụ trách được đúng 1 kho tại 1 thời điểm).
           </div>
         )}
 
-        {err && <div style={{ color: '#c62828', fontSize: 13, marginTop: 8 }}>{err}</div>}
+        {err && <div style={{ color: 'var(--fg-c62828)', fontSize: 13, marginTop: 8 }}>{err}</div>}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
           <button onClick={onClose} disabled={saving} style={btnGhost}>Hủy</button>
           <button onClick={submit} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>{saving ? 'Đang tạo...' : 'Tạo kho'}</button>
@@ -414,13 +414,13 @@ function WhCard({ wh, itemCount, totalQty, onOpen }: { wh: WhRow; itemCount: num
       onMouseLeave={e => { e.currentTarget.style.boxShadow = 'none' }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-        <Warehouse size={18} color="#e65100" />
+        <Warehouse size={18} color="var(--fg-e65100)" />
         <span style={{ fontWeight: 700, fontSize: 15 }}>{wh.name}</span>
       </div>
       <div style={{ fontSize: 12, color: 'var(--text2)' }}>{wh.note || '—'}</div>
       <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end' }}>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#e65100', lineHeight: 1 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--fg-e65100)', lineHeight: 1 }}>
             {itemCount} mặt hàng
           </div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
@@ -571,8 +571,8 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
       style={{
         padding: isMobile ? '8px 14px' : '8px 20px', fontSize: 13, fontWeight: tab === id ? 700 : 400, whiteSpace: 'nowrap',
         background: 'transparent', border: 'none', cursor: 'pointer',
-        color: tab === id ? '#e65100' : 'var(--text2)',
-        borderBottom: tab === id ? '2px solid #e65100' : '2px solid transparent',
+        color: tab === id ? 'var(--fg-e65100)' : 'var(--text2)',
+        borderBottom: tab === id ? '2px solid var(--fg-e65100)' : '2px solid transparent',
         marginBottom: -1,
       }}
     >{label}</button>
@@ -596,7 +596,7 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
               <button onClick={() => setCopying(true)} style={btnGhost}><Copy size={14} /> Sao chép vật tư từ kho khác</button>
             )}
             {isDeletable && (
-              <button onClick={handleDeleteWarehouse} disabled={deleting} style={{ ...btnGhost, color: '#dc2626', borderColor: '#fca5a5', opacity: deleting ? 0.6 : 1 }}>
+              <button onClick={handleDeleteWarehouse} disabled={deleting} style={{ ...btnGhost, color: 'var(--fg-dc2626)', borderColor: 'var(--fg-fca5a5)', opacity: deleting ? 0.6 : 1 }}>
                 <Trash2 size={14} /> {deleting ? 'Đang xóa...' : 'Xóa kho'}
               </button>
             )}
@@ -620,8 +620,8 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
                 {[it.code, it.groupName !== '—' ? it.groupName : null, it.spec, showLengthColumn && it.stockLengthMm ? `${it.stockLengthMm.toLocaleString('vi-VN')} mm` : null].filter(Boolean).join(' · ')}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'baseline', gap: 16, marginTop: 8, fontSize: 13 }}>
-                <span><span style={{ color: 'var(--text3)', fontSize: 11 }}>Tồn </span><b style={{ color: it.qty <= 0 ? '#c62828' : 'var(--text)' }}>{qtyCell(it)}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{it.unit}</span></span>
-                <span><span style={{ color: 'var(--text3)', fontSize: 11 }}>Khả dụng </span><b style={{ color: it.availableQty <= 0 ? '#c62828' : '#2563eb' }}>{it.availableQty.toLocaleString('vi-VN')}</b></span>
+                <span><span style={{ color: 'var(--text3)', fontSize: 11 }}>Tồn </span><b style={{ color: it.qty <= 0 ? 'var(--fg-c62828)' : 'var(--text)' }}>{qtyCell(it)}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{it.unit}</span></span>
+                <span><span style={{ color: 'var(--text3)', fontSize: 11 }}>Khả dụng </span><b style={{ color: it.availableQty <= 0 ? 'var(--fg-c62828)' : 'var(--fg-2563eb)' }}>{it.availableQty.toLocaleString('vi-VN')}</b></span>
               </div>
             </div>
           ))}
@@ -662,11 +662,11 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
                       {it.stockLengthMm ? `${it.stockLengthMm.toLocaleString('vi-VN')} mm` : '—'}
                     </td>
                   )}
-                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: it.qty <= 0 ? '#c62828' : 'var(--text)' }}>
+                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: it.qty <= 0 ? 'var(--fg-c62828)' : 'var(--text)' }}>
                     {qtyCell(it)}
                   </td>
                   <td
-                    style={{ ...td, textAlign: 'right', fontWeight: 700, color: it.availableQty <= 0 ? '#c62828' : '#2563eb' }}
+                    style={{ ...td, textAlign: 'right', fontWeight: 700, color: it.availableQty <= 0 ? 'var(--fg-c62828)' : 'var(--fg-2563eb)' }}
                     title={reserved > 0 ? `Đang giữ chỗ ${reserved.toLocaleString('vi-VN')} (cắt sắt/chuyển kho)` : undefined}
                   >
                     {it.availableQty.toLocaleString('vi-VN')}
@@ -765,7 +765,7 @@ function AddMaterialModal({ warehouseId, onClose, onDone }: {
         <input value={form.spec} onChange={e => set('spec', e.target.value)} style={inp} placeholder="VD: 10x29x0.8" />
         <label style={lbl}>Tồn kho ban đầu</label>
         <input type="number" min={0} value={form.openingQty} onChange={e => set('openingQty', e.target.value)} style={inp} placeholder="Số lượng đã có sẵn ở kho này (nếu có)" />
-        {err && <div style={{ color: '#c62828', fontSize: 13, marginTop: 8 }}>{err}</div>}
+        {err && <div style={{ color: 'var(--fg-c62828)', fontSize: 13, marginTop: 8 }}>{err}</div>}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
           <button onClick={onClose} style={btnGhost}>Hủy</button>
           <button onClick={submit} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
@@ -896,7 +896,7 @@ function CopyMaterialsModal({ targetWarehouse, targetItems, warehouses, allMater
         </select>
 
         {existingCount > 0 && (
-          <div style={{ fontSize: 12.5, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 10px', marginTop: 8 }}>
+          <div style={{ fontSize: 12.5, color: 'var(--fg-b45309)', background: 'var(--bg-fffbeb)', border: '1px solid var(--fg-fde68a)', borderRadius: 8, padding: '8px 10px', marginTop: 8 }}>
             {newIds.length === 0
               ? <>Tất cả {existingCount} vật tư của kho này <strong>đã có ở {targetWarehouse.name}</strong>, không cần sao chép.</>
               : <><strong>{existingCount}</strong> vật tư đã có ở {targetWarehouse.name} (nhãn &quot;Đã có&quot;) nên đã được bỏ tích. Chỉ <strong>{newIds.length}</strong> vật tư mới được chọn sẵn.</>}
@@ -927,7 +927,7 @@ function CopyMaterialsModal({ targetWarehouse, targetItems, warehouses, allMater
                       <div style={{ fontWeight: 500 }}>
                         {m.name}
                         {isExisting(m) && (
-                          <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: '#15803d', background: '#dcfce7', borderRadius: 4, padding: '1px 6px' }}>Đã có</span>
+                          <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: 'var(--fg-15803d)', background: 'var(--bg-dcfce7)', borderRadius: 4, padding: '1px 6px' }}>Đã có</span>
                         )}
                       </div>
                       <div style={{ fontSize: 11, color: 'var(--text3)' }}>{m.code}{m.spec ? ` · ${m.spec}` : ''}</div>
@@ -952,7 +952,7 @@ function CopyMaterialsModal({ targetWarehouse, targetItems, warehouses, allMater
         {progress && saving && (
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 8 }}>Đang tạo {progress.done}/{progress.total}...</div>
         )}
-        {err && <div style={{ color: '#c62828', fontSize: 13, marginTop: 8 }}>{err}</div>}
+        {err && <div style={{ color: 'var(--fg-c62828)', fontSize: 13, marginTop: 8 }}>{err}</div>}
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
           <button onClick={onClose} disabled={saving} style={btnGhost}>Hủy</button>
           <button onClick={submit} disabled={saving || sourceMaterials.length === 0} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>
@@ -987,7 +987,7 @@ const td: React.CSSProperties         = { padding: '8px 12px', color: 'var(--tex
 const inp: React.CSSProperties        = { width: '100%', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box' }
 const lbl: React.CSSProperties        = { display: 'block', fontSize: 12, color: 'var(--text2)', margin: '10px 0 4px' }
 const btnGhost: React.CSSProperties   = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text2)', fontSize: 13, cursor: 'pointer' }
-const btnPrimary: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 14px', border: 'none', borderRadius: 'var(--radius)', background: '#e65100', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }
+const btnPrimary: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 14px', border: 'none', borderRadius: 'var(--radius)', background: 'var(--bg-e65100)', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }
 const iconBtn: React.CSSProperties    = { padding: 5, background: 'transparent', border: 'none', cursor: 'pointer', display: 'inline-flex' }
 const modalCard: React.CSSProperties  = { width: 420, maxWidth: '100%', maxHeight: '90dvh', overflowY: 'auto', background: 'var(--surface)', borderRadius: 'var(--radius)', padding: 20, boxShadow: '0 8px 30px rgba(0,0,0,.2)' }
 

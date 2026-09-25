@@ -46,10 +46,10 @@ export default function DashboardPage({ onViewAuditLog }: DashboardPageProps) {
       <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 18 }}>Số liệu quản trị hệ thống</div>
 
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
-        <StatTile icon={<Users size={18} />} label={`Tổng người dùng (${activeCount} hoạt động)`} value={userList.length} accent="#3949ab" />
-        <StatTile icon={<ShieldCheck size={18} />} label="Giám đốc" value={bossCount} accent="#2e7d32" />
-        <StatTile icon={<Factory size={18} />} label="Nhân sự sản xuất" value={mfgCount} accent="#e65100" />
-        <StatTile icon={<ShoppingCart size={18} />} label="Mua hàng / KH SX / Sales" value={`${purchaserCount} / ${plannerCount} / ${saleCount}`} accent="#4527a0" />
+        <StatTile icon={<Users size={18} />} label={`Tổng người dùng (${activeCount} hoạt động)`} value={userList.length} accent="var(--fg-3949ab)" />
+        <StatTile icon={<ShieldCheck size={18} />} label="Giám đốc" value={bossCount} accent="var(--fg-2e7d32)" />
+        <StatTile icon={<Factory size={18} />} label="Nhân sự sản xuất" value={mfgCount} accent="var(--fg-e65100)" />
+        <StatTile icon={<ShoppingCart size={18} />} label="Mua hàng / KH SX / Sales" value={`${purchaserCount} / ${plannerCount} / ${saleCount}`} accent="var(--fg-4527a0)" />
       </div>
 
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -58,7 +58,7 @@ export default function DashboardPage({ onViewAuditLog }: DashboardPageProps) {
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)' }}>Hoạt động gần đây</div>
             <button
               onClick={onViewAuditLog}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: '#3949ab', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--fg-3949ab)', background: 'transparent', border: 'none', cursor: 'pointer', fontWeight: 600 }}
             >
               Xem tất cả <ArrowRight size={12} />
             </button>

@@ -20,9 +20,35 @@
   --green-bg: #EAF3DE;
   --radius: 8px;
   --radius-lg: 12px;
+  color-scheme: light;
+}
+
+/* Dark mode: <html data-theme="dark"> — do script chống nháy trong layout.tsx + ThemeContext đặt.
+   Chỉ đổi giá trị biến; mọi component đang dùng var(--...) tự đổi theo. Màu hex cứng cũ đã chuyển
+   thành token trong theme-palette.css (có sẵn giá trị dark). */
+:root[data-theme="dark"] {
+  --bg: #121211;
+  --surface: #1c1c1a;
+  --surface2: #262623;
+  --border: #34342f;
+  --border2: #4a4a44;
+  --text: #ecebe6;
+  --text2: #b4b3ac;
+  --text3: #8a8983;
+  --blue: #3d84cc;
+  --blue-bg: #172a3e;
+  --blue-text: #9cc6f0;
+  --red: #e57373;
+  --red-bg: #3b1d1d;
+  --amber: #e0a458;
+  --amber-bg: #3a2a14;
+  --green: #8fc46a;
+  --green-bg: #1f2e15;
+  color-scheme: dark;
 }
 
 body {
+  transition: background-color 0.15s, color 0.15s;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -49,11 +75,12 @@ button.primary {
   border-color: var(--blue);
 }
 button.primary:hover { background: var(--blue-text); }
+:root[data-theme="dark"] button.primary:hover { background: #2f6fb0; }
 
 button.danger {
   background: var(--red-bg);
   color: var(--red);
-  border-color: #f0c1c1;
+  border-color: var(--fg-f0c1c1);
 }
 
 input, select, textarea {

@@ -105,7 +105,7 @@ export default function KhoPhoiPage() {
           label="Đoạn thừa (chờ xử lý)" badge={tongThua} />
       </div>
 
-      <KhoTable rows={rows} thua={tab === 'thua'} qtyColor={tab === 'duyet' ? '#e65100' : '#d97706'} />
+      <KhoTable rows={rows} thua={tab === 'thua'} qtyColor={tab === 'duyet' ? 'var(--fg-e65100)' : 'var(--fg-d97706)'} />
     </div>
   )
 }
@@ -115,11 +115,11 @@ function TabBtn({ active, onClick, icon, label, badge }: { active: boolean; onCl
     <button onClick={onClick}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 14px', fontSize: 13, fontWeight: 600,
-        border: '1px solid', borderColor: active ? '#e65100' : 'var(--border)', borderRadius: 8, cursor: 'pointer',
-        background: active ? '#fff3e0' : 'var(--surface)', color: active ? '#e65100' : 'var(--text2)',
+        border: '1px solid', borderColor: active ? 'var(--fg-e65100)' : 'var(--border)', borderRadius: 8, cursor: 'pointer',
+        background: active ? 'var(--bg-fff3e0)' : 'var(--surface)', color: active ? 'var(--fg-e65100)' : 'var(--text2)',
       }}>
       {icon}{label}
-      <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: active ? '#e65100' : 'var(--surface2)', color: active ? '#fff' : 'var(--text3)' }}>{badge.toLocaleString('vi-VN')}</span>
+      <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: active ? 'var(--bg-e65100)' : 'var(--surface2)', color: active ? '#fff' : 'var(--text3)' }}>{badge.toLocaleString('vi-VN')}</span>
     </button>
   )
 }

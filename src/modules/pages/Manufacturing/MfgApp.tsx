@@ -23,6 +23,7 @@ import SKUListPage from '../ProductionPlan/SKUListPage'
 import KcsPhoiPage from '../Kcs/KcsPhoiPage'
 import KcsHanPage from '../Kcs/KcsHanPage'
 import KcsSonPage from '../Kcs/KcsSonPage'
+import ThemeToggle from '../../../components/ThemeToggle'
 
 // ── Module-level constants (không tạo lại mỗi render) ───────────────────────
 
@@ -73,8 +74,8 @@ const SPEC_ICON = {
 const navBtnStyle = (active: boolean, compact = false): React.CSSProperties => ({
   display: 'flex', alignItems: 'center', gap: 9, width: '100%',
   padding: compact ? '11px 10px' : '8px 10px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
-  background: active ? '#fff3e0' : 'transparent',
-  color: active ? '#e65100' : 'var(--text2)',
+  background: active ? 'var(--bg-fff3e0)' : 'transparent',
+  color: active ? 'var(--fg-e65100)' : 'var(--text2)',
   fontWeight: active ? 600 : 400,
   fontSize: 13, textAlign: 'left', cursor: 'pointer', transition: 'background .1s',
 })
@@ -229,7 +230,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
               width: 28, height: 28, flexShrink: 0, borderRadius: '50%',
-              background: '#fff3e0', color: '#e65100',
+              background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               fontSize: 11, fontWeight: 700,
             }}>
@@ -239,6 +240,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
               <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
               <div style={{ fontSize: 10, color: 'var(--text3)' }}>{roleLabel}</div>
             </div>
+            <ThemeToggle />
             <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất">
               <LogOut size={16} color="var(--text3)" />
             </button>

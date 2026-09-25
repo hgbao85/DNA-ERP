@@ -21,7 +21,7 @@ const inputStyle: React.CSSProperties = {
 const labelStyle: React.CSSProperties = { display: 'block', fontSize: 12, color: 'var(--text2)', margin: '10px 0 4px' }
 const btnPrimary: React.CSSProperties = {
   padding: '8px 16px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600,
-  color: '#fff', background: '#4527A0', cursor: 'pointer',
+  color: '#fff', background: 'var(--bg-4527a0)', cursor: 'pointer',
 }
 const btnSecondary: React.CSSProperties = {
   padding: '8px 16px', background: 'var(--surface2)', border: '1px solid var(--border)',
@@ -196,7 +196,7 @@ export default function OfficeSuppliesPage({ warehouseCode }: OfficeSuppliesPage
       )}
 
       {isLoading && <LoadingState />}
-      {error && <div style={{ color: '#c62828', fontSize: 13, padding: 12 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--fg-c62828)', fontSize: 13, padding: 12 }}>{error}</div>}
 
       {!isLoading && !error && (
         supplies.length === 0 ? (
@@ -223,7 +223,7 @@ export default function OfficeSuppliesPage({ warehouseCode }: OfficeSuppliesPage
                     <td style={{ padding: '10px 14px', fontWeight: 600 }}>
                       {s.name}
                       {isDeleted && (
-                        <span style={{ marginLeft: 8, padding: '1px 7px', fontSize: 10.5, fontWeight: 700, borderRadius: 10, background: 'rgba(198,40,40,.12)', color: '#c62828' }}>
+                        <span style={{ marginLeft: 8, padding: '1px 7px', fontSize: 10.5, fontWeight: 700, borderRadius: 10, background: 'rgba(198,40,40,.12)', color: 'var(--fg-c62828)' }}>
                           Đã xóa
                         </span>
                       )}
@@ -237,11 +237,11 @@ export default function OfficeSuppliesPage({ warehouseCode }: OfficeSuppliesPage
                           <button title="Lịch sử" style={iconBtn} onClick={() => setLedgerTarget(s)}><History size={14} /></button>
                         ) : (
                           <>
-                            <button title="Nhập" style={iconBtn} onClick={() => openAdjust(s, 'IMPORT')}><ArrowDownToLine size={14} color="#2e7d32" /></button>
-                            <button title="Xuất" style={iconBtn} onClick={() => openAdjust(s, 'EXPORT')}><ArrowUpFromLine size={14} color="#c62828" /></button>
+                            <button title="Nhập" style={iconBtn} onClick={() => openAdjust(s, 'IMPORT')}><ArrowDownToLine size={14} color="var(--fg-2e7d32)" /></button>
+                            <button title="Xuất" style={iconBtn} onClick={() => openAdjust(s, 'EXPORT')}><ArrowUpFromLine size={14} color="var(--fg-c62828)" /></button>
                             <button title="Lịch sử" style={iconBtn} onClick={() => setLedgerTarget(s)}><History size={14} /></button>
                             <button title="Sửa" style={iconBtn} onClick={() => openEdit(s)}><Pencil size={14} /></button>
-                            <button title="Xóa" style={iconBtn} onClick={() => { setDeleteTarget(s); setDeleteError(null) }}><Trash2 size={14} color="#c62828" /></button>
+                            <button title="Xóa" style={iconBtn} onClick={() => { setDeleteTarget(s); setDeleteError(null) }}><Trash2 size={14} color="var(--fg-c62828)" /></button>
                           </>
                         )}
                       </div>
@@ -270,7 +270,7 @@ export default function OfficeSuppliesPage({ warehouseCode }: OfficeSuppliesPage
             <input type="number" min={0} style={inputStyle} value={form.openingQty} onChange={e => setForm({ ...form, openingQty: e.target.value })} placeholder="0" />
           </>
         )}
-        {formError && <div style={{ color: '#c62828', fontSize: 12, marginTop: 10 }}>{formError}</div>}
+        {formError && <div style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 10 }}>{formError}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
           <button style={btnSecondary} onClick={() => setFormOpen(false)} disabled={saving}>Hủy</button>
           <button style={{ ...btnPrimary, opacity: saving ? 0.7 : 1 }} onClick={submitForm} disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu'}</button>
@@ -287,7 +287,7 @@ export default function OfficeSuppliesPage({ warehouseCode }: OfficeSuppliesPage
         <input type="number" min={0} autoFocus style={inputStyle} value={adjustQty} onChange={e => setAdjustQty(e.target.value)} />
         <label style={labelStyle}>Ghi chú</label>
         <input style={inputStyle} value={adjustNote} onChange={e => setAdjustNote(e.target.value)} placeholder="VD: mua bổ sung, phát cho phòng kế toán..." />
-        {adjustError && <div style={{ color: '#c62828', fontSize: 12, marginTop: 10 }}>{adjustError}</div>}
+        {adjustError && <div style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 10 }}>{adjustError}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 18 }}>
           <button style={btnSecondary} onClick={() => setAdjustTarget(null)} disabled={adjusting}>Hủy</button>
           <button style={{ ...btnPrimary, opacity: adjusting ? 0.7 : 1 }} onClick={submitAdjust} disabled={adjusting}>
@@ -329,7 +329,7 @@ function LedgerHistoryModal({ supply, onClose }: { supply: BeOfficeSupply; onClo
         <button title="Đóng" onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} /></button>
       </div>
       {isLoading && <LoadingState />}
-      {error && <div style={{ color: '#c62828', fontSize: 13 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--fg-c62828)', fontSize: 13 }}>{error}</div>}
       {!isLoading && !error && (
         entries.length === 0
           ? <div style={{ color: 'var(--text3)', fontSize: 13, padding: '12px 0' }}>Chưa có lịch sử nào.</div>
@@ -351,7 +351,7 @@ function LedgerHistoryModal({ supply, onClose }: { supply: BeOfficeSupply; onClo
                   <tr key={e.id} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>{new Date(e.createdAt).toLocaleString('vi-VN')}</td>
                     <td style={{ padding: '6px 8px' }}>{reasonLabel[e.reason]}</td>
-                    <td style={{ padding: '6px 8px', textAlign: 'right', color: e.changeQty >= 0 ? '#2e7d32' : '#c62828', fontWeight: 600 }}>
+                    <td style={{ padding: '6px 8px', textAlign: 'right', color: e.changeQty >= 0 ? 'var(--fg-2e7d32)' : 'var(--fg-c62828)', fontWeight: 600 }}>
                       {e.changeQty >= 0 ? '+' : ''}{e.changeQty}
                     </td>
                     <td style={{ padding: '6px 8px', textAlign: 'right' }}>{e.quantityAfter}</td>

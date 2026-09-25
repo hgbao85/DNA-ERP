@@ -240,15 +240,15 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
   type PiRowT = (typeof piRows)[number]
   const cutCell = (r: PiRowT) => r.bundles.length === 0 ? <span style={{ color: 'var(--text3)' }}>—</span>
     : r.bundlesPending > 0
-      ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#d97706', fontWeight: 600 }}><Clock size={12} /> {r.bundlesPending} đợt</span>
-      : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a', fontWeight: 700 }}><Check size={12} /> đã phôi</span>
+      ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--fg-d97706)', fontWeight: 600 }}><Clock size={12} /> {r.bundlesPending} đợt</span>
+      : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--fg-16a34a)', fontWeight: 700 }}><Check size={12} /> đã phôi</span>
   const vatTuTpCell = (r: PiRowT) => {
     const vatTuTpDoneCount = r.vatTuTpItems.filter(v => v.passedQty >= v.plannedQty).length
     const vatTuTpPending = r.vatTuTpItems.length - vatTuTpDoneCount
     return r.vatTuTpItems.length === 0 ? <span style={{ color: 'var(--text3)' }}>—</span>
       : vatTuTpPending > 0
         ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: PURPLE, fontWeight: 600 }}><Wrench size={12} /> đã xong {vatTuTpDoneCount}/{r.vatTuTpItems.length}</span>
-        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a', fontWeight: 700 }}><Check size={12} /> đã phôi ({r.vatTuTpItems.length})</span>
+        : <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--fg-16a34a)', fontWeight: 700 }}><Check size={12} /> đã phôi ({r.vatTuTpItems.length})</span>
   }
 
   return (
@@ -449,7 +449,7 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
       </div>
 
       {traVe > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', marginBottom: 14, borderRadius: 10, background: 'var(--red-bg, #fef2f2)', color: '#b91c1c', fontSize: 13 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', marginBottom: 14, borderRadius: 10, background: 'var(--red-bg, var(--bg-fef2f2))', color: 'var(--fg-b91c1c)', fontSize: 13 }}>
           <RotateCcw size={16} />
           <span><b>{traVe}</b> đợt KCS trả về cần <b>cắt lại</b> · tổng <b>{traVeCay}</b> cây.</span>
         </div>
@@ -495,7 +495,7 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
                 onClick={() => setSelIssueId(g.key)}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', cursor: 'pointer',
-                  background: isReturn ? 'var(--red-bg, #fef2f2)' : undefined,
+                  background: isReturn ? 'var(--red-bg, var(--bg-fef2f2))' : undefined,
                   // KHÔNG còn đòi outstanding===0 (2026-09-11, cùng lý do sửa badge B1 ở dưới) -
                   // remaining===0 là đủ để coi là "xong", lỗi lịch sử đã bù đủ không cản trạng thái
                   // mờ đi này nữa.

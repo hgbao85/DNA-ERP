@@ -59,13 +59,13 @@ function getStatus(order: Order): OrderStatus {
 }
 
 const STATUS: Record<OrderStatus, { label: string; color: string; bg: string }> = {
-  cho: { label: 'Chờ xử lý',  color: '#92400e', bg: '#fef3c7' },
-  da:  { label: 'Hoàn thành', color: '#166534', bg: '#dcfce7' },
+  cho: { label: 'Chờ xử lý',  color: 'var(--fg-92400e)', bg: 'var(--bg-fef3c7)' },
+  da:  { label: 'Hoàn thành', color: 'var(--fg-166534)', bg: 'var(--bg-dcfce7)' },
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-const ACCENT = '#e65100'
+const ACCENT = 'var(--fg-e65100)'
 
 // Piece transfer (mảnh/vật tư thành phẩm) chỉ áp dụng cho chặng phoi-son-han → vat-tu-tp - gộp
 // theo ProductionOrder (byPo keyed theo productionOrderId), hiển thị PI thật cho user (2026-09-05,
@@ -417,7 +417,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
             selected.kind (2026-09-04) - không còn theo cờ scope cả trang, vì 1 trang giờ có thể
             vừa có đơn packaging vừa có đơn khác (vd ship) cùng lúc. */}
         {selected.kind === 'packaging' && (
-          <div style={{ marginBottom: 14, padding: '8px 14px', background: '#ede7f6', border: '1px solid #d1c4e9', borderRadius: 8, fontSize: 12, color: '#4527a0' }}>
+          <div style={{ marginBottom: 14, padding: '8px 14px', background: 'var(--bg-ede7f6)', border: '1px solid var(--fg-d1c4e9)', borderRadius: 8, fontSize: 12, color: 'var(--fg-4527a0)' }}>
             Bấm &quot;Xác nhận&quot; sẽ ghi nhận đã xuất vật tư đóng gói cho <strong>Kho Thành phẩm</strong> ngay lập tức.
           </div>
         )}
@@ -426,20 +426,20 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
             nhiều kho vat-tu-tp song song). Chỉ hiện dropdown khi có từ 2 lựa chọn trở lên - 1 kho
             duy nhất thì tự chọn sẵn, không cần hỏi. */}
         {selected.kind === 'piece' && (
-          <div style={{ marginBottom: 14, padding: '8px 14px', background: '#ede7f6', border: '1px solid #d1c4e9', borderRadius: 8, fontSize: 12, color: '#4527a0', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+          <div style={{ marginBottom: 14, padding: '8px 14px', background: 'var(--bg-ede7f6)', border: '1px solid var(--fg-d1c4e9)', borderRadius: 8, fontSize: 12, color: 'var(--fg-4527a0)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span>Bấm &quot;Xác nhận&quot; sẽ tạo phiếu chuyển kho nội bộ sang kho vật tư thành phẩm bên dưới — tồn kho chỉ cập nhật sau khi kho nhận xác nhận.</span>
             {pieceDestOptions.length > 1 ? (
               <select
                 value={pieceDestWh?.code ?? ''}
                 onChange={e => setPieceDestCode(e.target.value)}
-                style={{ padding: '4px 8px', fontSize: 12, border: '1px solid #d1c4e9', borderRadius: 6, background: '#fff', color: '#4527a0', fontWeight: 600 }}
+                style={{ padding: '4px 8px', fontSize: 12, border: '1px solid var(--fg-d1c4e9)', borderRadius: 6, background: 'var(--surface)', color: 'var(--fg-4527a0)', fontWeight: 600 }}
               >
                 {pieceDestOptions.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
               </select>
             ) : pieceDestWh ? (
               <strong>{pieceDestWh.name}</strong>
             ) : (
-              <strong style={{ color: '#dc2626' }}>Chưa có kho vật tư thành phẩm nào — không thể xuất</strong>
+              <strong style={{ color: 'var(--fg-dc2626)' }}>Chưa có kho vật tư thành phẩm nào — không thể xuất</strong>
             )}
           </div>
         )}
@@ -477,21 +477,21 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                     <td style={{ ...td, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.materialName}</td>
                     <td style={{ ...td, color: 'var(--text3)' }}>{l.unit}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{l.plannedQty.toLocaleString('vi-VN')}</td>
-                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: l.availableQty > 0 ? '#2563eb' : '#dc2626' }}>
+                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: l.availableQty > 0 ? 'var(--fg-2563eb)' : 'var(--fg-dc2626)' }}>
                       {l.availableQty.toLocaleString('vi-VN')}
                     </td>
-                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: done ? '#16a34a' : partial ? '#d97706' : 'var(--text)' }}>
+                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: done ? 'var(--fg-16a34a)' : partial ? 'var(--fg-d97706)' : 'var(--text)' }}>
                       {done && <span style={{ marginRight: 4, fontSize: 11 }}>✓</span>}
                       {l.confirmedQty.toLocaleString('vi-VN')}
                     </td>
-                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: conLai > 0 ? '#d97706' : '#16a34a' }}>
+                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: conLai > 0 ? 'var(--fg-d97706)' : 'var(--fg-16a34a)' }}>
                       {conLai.toLocaleString('vi-VN')}
                     </td>
                     <td style={td}>
                       {done ? (
-                        <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>Đã xong</span>
+                        <span style={{ fontSize: 12, color: 'var(--fg-16a34a)', fontWeight: 600 }}>Đã xong</span>
                       ) : noStock ? (
-                        <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>{selected.kind === 'piece' ? 'Chưa có hàng' : 'Hết hàng'}</span>
+                        <span style={{ fontSize: 12, color: 'var(--fg-dc2626)', fontWeight: 600 }}>{selected.kind === 'piece' ? 'Chưa có hàng' : 'Hết hàng'}</span>
                       ) : (
                         <div>
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -500,7 +500,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                               onChange={e => updateInput(selected.id, l.id, e.target.value)}
                               placeholder="SL"
                               disabled={transferBusyLine === l.id}
-                              style={{ width: 72, padding: '4px 8px', border: `1px solid ${overAvail ? '#dc2626' : 'var(--border)'}`, borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                              style={{ width: 72, padding: '4px 8px', border: `1px solid ${overAvail ? 'var(--fg-dc2626)' : 'var(--border)'}`, borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
                             />
                             <button onClick={() => confirmLine(selected.id, l.id)} disabled={!can || transferBusyLine === l.id}
                               style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: can ? ACCENT : 'var(--surface2)', color: can ? '#fff' : 'var(--text3)', cursor: can && transferBusyLine !== l.id ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}>
@@ -508,7 +508,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                             </button>
                           </div>
                           {transferErrors[l.id] && (
-                            <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626' }}>{transferErrors[l.id]}</div>
+                            <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)' }}>{transferErrors[l.id]}</div>
                           )}
                         </div>
                       )}
@@ -534,7 +534,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
 
       {(
         activeListError ? (
-          <div style={{ ...emptyBox, color: '#dc2626' }}>Lỗi tải danh sách: {activeListError}</div>
+          <div style={{ ...emptyBox, color: 'var(--fg-dc2626)' }}>Lỗi tải danh sách: {activeListError}</div>
         ) : orders.length === 0 ? (
           <div style={emptyBox}>Không có lệnh xuất nào đang chờ xử lý</div>
         ) : isMobile ? (

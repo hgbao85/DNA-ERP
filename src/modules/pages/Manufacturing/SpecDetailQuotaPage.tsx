@@ -34,9 +34,9 @@ const GROUP_DETAIL_KIND: Record<DetailLineGroup, 'PAINT' | 'ACCESSORY' | 'PACKAG
   daySon: 'PAINT', vatTuPhuKien: 'ACCESSORY', baoBiDongGoi: 'PACKAGING',
 }
 const GROUP_BADGE_COLORS: Record<DetailLineGroup, { bg: string; fg: string }> = {
-  daySon: { bg: '#eff6ff', fg: '#1d4ed8' },
-  vatTuPhuKien: { bg: '#ede9fe', fg: '#6d28d9' },
-  baoBiDongGoi: { bg: '#d1fae5', fg: '#065f46' },
+  daySon: { bg: 'var(--bg-eff6ff)', fg: 'var(--fg-1d4ed8)' },
+  vatTuPhuKien: { bg: 'var(--bg-ede9fe)', fg: 'var(--fg-6d28d9)' },
+  baoBiDongGoi: { bg: 'var(--bg-d1fae5)', fg: 'var(--fg-065f46)' },
 }
 
 function FL({ children }: { children: React.ReactNode }) {
@@ -211,17 +211,17 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                     <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>
                       {item.ten}
                       {rejectReason && (
-                        <div style={{ marginTop: 2, fontSize: 11, fontWeight: 400, color: '#c62828', fontStyle: 'italic' }}>{rejectReason}</div>
+                        <div style={{ marginTop: 2, fontSize: 11, fontWeight: 400, color: 'var(--fg-c62828)', fontStyle: 'italic' }}>{rejectReason}</div>
                       )}
                     </td>
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.maKhachHang || '—'}</td>
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
                     <td style={{ padding: '12px 14px' }}>
                       {st === 'pending'
-                        ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
+                        ? <span style={{ background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
                         : st === 'rejected'
-                        ? <span style={{ background: '#ffebee', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
-                        : <span style={{ background: '#eef2ff', color: '#3949ab', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
+                        ? <span style={{ background: 'var(--bg-ffebee)', color: 'var(--fg-c62828)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
+                        : <span style={{ background: 'var(--bg-eef2ff)', color: 'var(--fg-3949ab)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
                       }
                     </td>
                     <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
@@ -261,10 +261,10 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
           )}
 
           {bomSt === 'rejected' && (
-            <div style={{ padding: '10px 16px', background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 'var(--radius-lg)', marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>⚠ KHSX đã từ chối — vui lòng chỉnh sửa và gửi lại</div>
+            <div style={{ padding: '10px 16px', background: 'var(--bg-fff5f5)', border: '1px solid var(--fg-fca5a5)', borderRadius: 'var(--radius-lg)', marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg-dc2626)' }}>⚠ KHSX đã từ chối — vui lòng chỉnh sửa và gửi lại</div>
               {findPf(selectedBom.id)?.quotaManagement?.reviewStatus?.reason && (
-                <div style={{ fontSize: 12, color: '#dc2626', fontStyle: 'italic', marginTop: 2 }}>{findPf(selectedBom.id)!.quotaManagement!.reviewStatus!.reason}</div>
+                <div style={{ fontSize: 12, color: 'var(--fg-dc2626)', fontStyle: 'italic', marginTop: 2 }}>{findPf(selectedBom.id)!.quotaManagement!.reviewStatus!.reason}</div>
               )}
             </div>
           )}
@@ -320,7 +320,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={addLine} disabled={!material} style={{
                     padding: '7px 16px', border: 'none', borderRadius: 'var(--radius)',
-                    background: material ? '#1565c0' : '#ccc',
+                    background: material ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
                     color: '#fff', fontWeight: 700, fontSize: 13,
                     cursor: material ? 'pointer' : 'not-allowed',
                   }}>+ Thêm</button>
@@ -410,15 +410,15 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
               padding: '12px 16px', background: 'var(--surface)',
 
               border: `1px solid ${
-                bomSt === 'approved' ? '#a5d6a7'
-                : bomSt === 'pending' ? '#ffe082'
+                bomSt === 'approved' ? 'var(--fg-a5d6a7)'
+                : bomSt === 'pending' ? 'var(--fg-ffe082)'
                 : 'var(--border)'
               }`,
               borderRadius: 'var(--radius-lg)',
             }}>
               {bomSt === 'approved' ? (
                 <>
-                  <span style={{ fontSize: 13, color: '#2e7d32', fontWeight: 600 }}>✓ Đã được duyệt</span>
+                  <span style={{ fontSize: 13, color: 'var(--fg-2e7d32)', fontWeight: 600 }}>✓ Đã được duyệt</span>
                   <button onClick={() => setSelectedBom(null)} style={{
                     padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
                     background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
@@ -426,7 +426,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                 </>
               ) : bomSt === 'pending' ? (
                 <>
-                  <span style={{ fontSize: 13, color: '#e65100', fontWeight: 600 }}>⏳ Đã gửi phê duyệt — đang chờ quản lý xác nhận</span>
+                  <span style={{ fontSize: 13, color: 'var(--fg-e65100)', fontWeight: 600 }}>⏳ Đã gửi phê duyệt — đang chờ quản lý xác nhận</span>
                   <button onClick={() => setSelectedBom(null)} style={{
                     padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
                     background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
@@ -440,7 +440,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                     disabled={savingDetail}
                     style={{
                       padding: '7px 20px', border: 'none', borderRadius: 'var(--radius)',
-                      background: '#1565c0', color: '#fff', fontWeight: 700, fontSize: 13,
+                      background: 'var(--bg-1565c0)', color: '#fff', fontWeight: 700, fontSize: 13,
                       cursor: savingDetail ? 'not-allowed' : 'pointer', opacity: savingDetail ? 0.7 : 1,
                     }}
                   >{savingDetail ? 'Đang gửi...' : 'Gửi phê duyệt →'}</button>

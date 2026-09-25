@@ -32,7 +32,7 @@ export function SkuMobileCard({ pf, onClick, selectable = false, checked = false
 }) {
   return (
     <div className="card" onClick={onClick}
-      style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start', background: checked ? '#fef2f2' : undefined, borderColor: checked ? '#fca5a5' : undefined }}>
+      style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start', background: checked ? 'var(--bg-fef2f2)' : undefined, borderColor: checked ? 'var(--fg-fca5a5)' : undefined }}>
       {selectable && (
         <input type="checkbox" checked={checked} readOnly style={{ width: 16, height: 16, marginTop: 2, flexShrink: 0, pointerEvents: 'none' }} />
       )}
@@ -308,7 +308,7 @@ export function SKUDetail({
           SkusService.approve), nên chỉ còn hiện khi thật sự đang chờ xử lý lại. Hiện cho cả KHSX
           (người phải sửa) lẫn Sếp (nhắc lại lý do lần trước khi SKU quay lại chờ duyệt). */}
       {pf.bossRejectReason && (
-        <div style={{ display: 'flex', gap: 8, marginBottom: 20, padding: '10px 16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, fontSize: 13, color: '#b91c1c' }}>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 20, padding: '10px 16px', background: 'var(--bg-fef2f2)', border: '1px solid var(--fg-fecaca)', borderRadius: 8, fontSize: 13, color: 'var(--fg-b91c1c)' }}>
           <strong style={{ flexShrink: 0 }}>⚠ Sếp đã từ chối lần gần nhất:</strong>
           <span>{pf.bossRejectReason}</span>
         </div>
@@ -354,8 +354,8 @@ export function SKUDetail({
               padding: isCompact ? '8px 14px' : '8px 20px', fontSize: 13, whiteSpace: 'nowrap',
               fontWeight: detailTab === id ? 700 : 500,
               background: 'transparent', border: 'none', cursor: 'pointer',
-              color: detailTab === id ? '#2e7d32' : 'var(--text2)',
-              borderBottom: detailTab === id ? '2px solid #2e7d32' : '2px solid transparent',
+              color: detailTab === id ? 'var(--fg-2e7d32)' : 'var(--text2)',
+              borderBottom: detailTab === id ? '2px solid var(--fg-2e7d32)' : '2px solid transparent',
               marginBottom: -1,
             }}
           >
@@ -380,7 +380,7 @@ export function SKUDetail({
                   onClick={() => setFilterManhSec(key)}
                   style={{
                     padding: '4px 12px', fontSize: 11, fontWeight: 600, borderRadius: 20, border: 'none', cursor: 'pointer',
-                    background: filterManhSec === key ? '#2e7d32' : 'var(--surface2)',
+                    background: filterManhSec === key ? 'var(--bg-2e7d32)' : 'var(--surface2)',
                     color: filterManhSec === key ? '#fff' : 'var(--text)',
                   }}
                 >{label}</button>
@@ -403,10 +403,10 @@ export function SKUDetail({
           {showManhActionBar && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
               {!manhAllApproved && !manhAnyRejected && (
-                <span style={{ fontSize: 12, color: '#d97706' }}>Cần nhập và duyệt đủ tất cả các mục mới được chuyển đến công đoạn tiếp theo</span>
+                <span style={{ fontSize: 12, color: 'var(--fg-d97706)' }}>Cần nhập và duyệt đủ tất cả các mục mới được chuyển đến công đoạn tiếp theo</span>
               )}
               {manhAnyRejected && (
-                <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>Có nhóm bị từ chối — đang chờ bộ phận nhập lại</span>
+                <span style={{ fontSize: 12, color: 'var(--fg-7c3aed)', fontWeight: 600 }}>Có nhóm bị từ chối — đang chờ bộ phận nhập lại</span>
               )}
               <button
                 onClick={handleApproveParts}
@@ -414,8 +414,8 @@ export function SKUDetail({
                 style={{
                   padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
                   cursor: manhAllApproved && !approvingParts ? 'pointer' : 'not-allowed',
-                  background: manhAllApproved ? '#2e7d32' : '#e5e7eb',
-                  color: manhAllApproved ? '#fff' : '#9ca3af',
+                  background: manhAllApproved ? 'var(--bg-2e7d32)' : 'var(--bg-e5e7eb)',
+                  color: manhAllApproved ? '#fff' : 'var(--fg-9ca3af)',
                   opacity: approvingParts ? 0.7 : 1,
                 }}
               >
@@ -443,7 +443,7 @@ export function SKUDetail({
                     onClick={() => setFilterSec(key)}
                     style={{
                       padding: '4px 12px', fontSize: 11, fontWeight: 600, borderRadius: 20, border: 'none', cursor: 'pointer',
-                      background: filterSec === key ? '#2e7d32' : 'var(--surface2)',
+                      background: filterSec === key ? 'var(--bg-2e7d32)' : 'var(--surface2)',
                       color: filterSec === key ? '#fff' : 'var(--text)',
                     }}
                   >{label}</button>
@@ -465,7 +465,7 @@ export function SKUDetail({
                           style={{
                             padding: '4px 12px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none',
                             cursor: totalDetailItems === 0 ? 'not-allowed' : 'pointer',
-                            background: 'rgba(22,163,74,0.12)', color: '#16a34a',
+                            background: 'rgba(22,163,74,0.12)', color: 'var(--fg-16a34a)',
                             opacity: totalDetailItems === 0 ? 0.45 : 1,
                           }}
                         >Duyệt</button>
@@ -476,7 +476,7 @@ export function SKUDetail({
                           style={{
                             padding: '4px 12px', fontSize: 12, fontWeight: 600, borderRadius: 6, border: 'none',
                             cursor: totalDetailItems === 0 ? 'not-allowed' : 'pointer',
-                            background: 'rgba(220,38,38,0.10)', color: '#dc2626',
+                            background: 'rgba(220,38,38,0.10)', color: 'var(--fg-dc2626)',
                             opacity: totalDetailItems === 0 ? 0.45 : 1,
                           }}
                         >Từ chối</button>
@@ -488,7 +488,7 @@ export function SKUDetail({
             </div>
           </div>
           {secStatus?.status === 'REJECTED' && secStatus.reason && (
-            <div style={{ marginBottom: 12, fontSize: 12, color: '#dc2626', fontStyle: 'italic' }}>{secStatus.reason}</div>
+            <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--fg-dc2626)', fontStyle: 'italic' }}>{secStatus.reason}</div>
           )}
 
           {/* Bảng gộp cả 3 nhóm — quyết định duyệt/từ chối đã chuyển lên header chung phía trên */}
@@ -498,10 +498,10 @@ export function SKUDetail({
           {showDetailActionBar && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
               {!readyToForwardDetail && !detailBlockedByRejection && (
-                <span style={{ fontSize: 12, color: '#d97706' }}>Cần nhập và duyệt đủ tất cả các mục mới được chuyển đến công đoạn tiếp theo</span>
+                <span style={{ fontSize: 12, color: 'var(--fg-d97706)' }}>Cần nhập và duyệt đủ tất cả các mục mới được chuyển đến công đoạn tiếp theo</span>
               )}
               {detailBlockedByRejection && (
-                <span style={{ fontSize: 12, color: '#7c3aed', fontWeight: 600 }}>Có nhóm bị từ chối — đang chờ bộ phận nhập lại</span>
+                <span style={{ fontSize: 12, color: 'var(--fg-7c3aed)', fontWeight: 600 }}>Có nhóm bị từ chối — đang chờ bộ phận nhập lại</span>
               )}
               <button
                 onClick={() => setConfirmApproveDetail(true)}
@@ -509,8 +509,8 @@ export function SKUDetail({
                 style={{
                   padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
                   cursor: readyToForwardDetail && !approvingDetail ? 'pointer' : 'not-allowed',
-                  background: readyToForwardDetail ? '#2e7d32' : '#e5e7eb',
-                  color: readyToForwardDetail ? '#fff' : '#9ca3af',
+                  background: readyToForwardDetail ? 'var(--bg-2e7d32)' : 'var(--bg-e5e7eb)',
+                  color: readyToForwardDetail ? '#fff' : 'var(--fg-9ca3af)',
                   opacity: approvingDetail ? 0.7 : 1,
                 }}
               >
@@ -531,7 +531,7 @@ export function SKUDetail({
           cho KHSX biết SKU đã sang tay Sếp mà không cần suy ra từ việc 2 nút hành động đã ẩn. */}
       {!isBoss && !readOnly && pf.status === 'WAITING_BOSS_APPROVAL' && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-          <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã gửi sếp duyệt</span>
+          <span style={{ fontSize: 12, color: 'var(--fg-16a34a)', fontWeight: 600 }}>✓ Đã gửi sếp duyệt</span>
         </div>
       )}
 
@@ -567,7 +567,7 @@ export function SKUDetail({
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setManhApproveModalOpen(false)} style={btnSecondary}>Hủy</button>
-              <button onClick={confirmManhApprove} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff' }}>Xác nhận duyệt</button>
+              <button onClick={confirmManhApprove} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-16a34a)', color: '#fff' }}>Xác nhận duyệt</button>
             </div>
       </Modal>
 
@@ -585,7 +585,7 @@ export function SKUDetail({
             />
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
               <button onClick={() => setManhRejectModalOpen(false)} style={btnSecondary}>Hủy</button>
-              <button onClick={confirmManhReject} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#dc2626', color: '#fff' }}>Xác nhận từ chối</button>
+              <button onClick={confirmManhReject} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-dc2626)', color: '#fff' }}>Xác nhận từ chối</button>
             </div>
       </Modal>
 
@@ -597,7 +597,7 @@ export function SKUDetail({
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={() => setApproveModalOpen(false)} style={btnSecondary}>Hủy</button>
-              <button onClick={confirmSectionApprove} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff' }}>Xác nhận duyệt</button>
+              <button onClick={confirmSectionApprove} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-16a34a)', color: '#fff' }}>Xác nhận duyệt</button>
             </div>
       </Modal>
 
@@ -615,7 +615,7 @@ export function SKUDetail({
             />
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
               <button onClick={() => setRejectModalOpen(false)} style={btnSecondary}>Hủy</button>
-              <button onClick={confirmSectionReject} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#dc2626', color: '#fff' }}>Xác nhận từ chối</button>
+              <button onClick={confirmSectionReject} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-dc2626)', color: '#fff' }}>Xác nhận từ chối</button>
             </div>
       </Modal>
 
@@ -631,7 +631,7 @@ export function SKUDetail({
               <button
                 onClick={async () => { setConfirmApproveDetail(false); await handleApproveDetail() }}
                 disabled={approvingDetail}
-                style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#2e7d32', color: '#fff' }}
+                style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-2e7d32)', color: '#fff' }}
               >Xác nhận gửi</button>
             </div>
       </Modal>
@@ -689,7 +689,7 @@ function FinalReviewAction({
               disabled={rejectProcessing}
               style={{
                 padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8,
-                border: '1px solid #dc2626', background: '#fff5f5', color: '#dc2626',
+                border: '1px solid var(--fg-dc2626)', background: 'var(--bg-fff5f5)', color: 'var(--fg-dc2626)',
                 cursor: rejectProcessing ? 'default' : 'pointer', opacity: rejectProcessing ? 0.7 : 1,
               }}
             >{rejectProcessing ? 'Đang xử lý...' : 'Từ chối'}</button>
@@ -700,14 +700,14 @@ function FinalReviewAction({
             style={{
               padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none',
               cursor: processing ? 'default' : 'pointer',
-              background: '#16a34a', color: '#fff', opacity: processing ? 0.7 : 1,
+              background: 'var(--bg-16a34a)', color: '#fff', opacity: processing ? 0.7 : 1,
             }}
           >{processing ? 'Đang xử lý...' : buttonLabel}</button>
         </div>
       )}
       {doneActive && doneLabel && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
-          <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>{doneLabel}</span>
+          <span style={{ fontSize: 12, color: 'var(--fg-16a34a)', fontWeight: 600 }}>{doneLabel}</span>
         </div>
       )}
       <Modal open={confirming} maxWidth={420} zIndex={2000}>
@@ -718,7 +718,7 @@ function FinalReviewAction({
           <button
             onClick={async () => { setConfirming(false); await handleConfirm() }}
             disabled={processing}
-            style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#16a34a', color: '#fff' }}
+            style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-16a34a)', color: '#fff' }}
           >{confirmLabel}</button>
         </div>
       </Modal>
@@ -738,7 +738,7 @@ function FinalReviewAction({
             <button
               onClick={async () => { setRejecting(false); await handleReject() }}
               disabled={rejectProcessing}
-              style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: '#dc2626', color: '#fff' }}
+              style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-dc2626)', color: '#fff' }}
             >Xác nhận từ chối</button>
           </div>
         </Modal>
@@ -756,9 +756,9 @@ type DetailRow = { id: string; group: SecKey; name: string; specs: string | null
 
 const DETAIL_GROUP_LABELS: Record<SecKey, string> = { daySon: 'Sơn', vatTuPhuKien: 'Phụ kiện', baoBiDongGoi: 'Bao bì' }
 const DETAIL_GROUP_BADGE: Record<SecKey, { bg: string; fg: string }> = {
-  daySon: { bg: '#eff6ff', fg: '#1d4ed8' },
-  vatTuPhuKien: { bg: '#ede9fe', fg: '#6d28d9' },
-  baoBiDongGoi: { bg: '#d1fae5', fg: '#065f46' },
+  daySon: { bg: 'var(--bg-eff6ff)', fg: 'var(--fg-1d4ed8)' },
+  vatTuPhuKien: { bg: 'var(--bg-ede9fe)', fg: 'var(--fg-6d28d9)' },
+  baoBiDongGoi: { bg: 'var(--bg-d1fae5)', fg: 'var(--fg-065f46)' },
 }
 
 function buildDetailRows(mt: MaterialType): DetailRow[] {
@@ -830,12 +830,12 @@ const CHILD_GROUP_LABELS: Record<ManhChildGroup, string> = {
   sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa', vatTuTP: 'Vật tư thành phẩm',
 }
 const CHILD_GROUP_BADGE: Record<ManhChildGroup, { bg: string; fg: string }> = {
-  sat: { bg: '#e3f2fd', fg: '#1565c0' },
-  day: { bg: '#fff3e0', fg: '#e65100' },
-  dinh: { bg: '#f3e5f5', fg: '#7b1fa2' },
-  tanRut: { bg: '#e8f5e9', fg: '#2e7d32' },
-  nutNhua: { bg: '#fce4ec', fg: '#ad1457' },
-  vatTuTP: { bg: '#ede7f6', fg: '#4527a0' },
+  sat: { bg: 'var(--bg-e3f2fd)', fg: 'var(--fg-1565c0)' },
+  day: { bg: 'var(--bg-fff3e0)', fg: 'var(--fg-e65100)' },
+  dinh: { bg: 'var(--bg-f3e5f5)', fg: 'var(--fg-7b1fa2)' },
+  tanRut: { bg: 'var(--bg-e8f5e9)', fg: 'var(--fg-2e7d32)' },
+  nutNhua: { bg: 'var(--bg-fce4ec)', fg: 'var(--fg-ad1457)' },
+  vatTuTP: { bg: 'var(--bg-ede7f6)', fg: 'var(--fg-4527a0)' },
 }
 
 // "Mảnh có đan" = phải có cả nhóm Dây VÀ nhóm Đinh (Nút nhựa/Tán rút không bắt buộc, khôi phục lại
@@ -865,9 +865,9 @@ function ManhPiecesSection({
   const totalChildren = rows.reduce((s, r) => s + r.children.length, 0)
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
-      <div style={{ background: '#fef3c7', padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
+      <div style={{ background: 'var(--bg-fef3c7)', padding: '8px 14px', borderBottom: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 }}>
-          <span style={{ color: '#b45309', fontWeight: 700, fontSize: 12 }}>
+          <span style={{ color: 'var(--fg-b45309)', fontWeight: 700, fontSize: 12 }}>
             Định mức mảnh <span style={{ fontWeight: 400, opacity: 0.7 }}>({rows.length} mảnh · {totalChildren} dòng vật tư)</span>
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -884,7 +884,7 @@ function ManhPiecesSection({
                   style={{
                     padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none',
                     cursor: totalChildren === 0 ? 'not-allowed' : 'pointer',
-                    background: 'rgba(22,163,74,0.12)', color: '#16a34a',
+                    background: 'rgba(22,163,74,0.12)', color: 'var(--fg-16a34a)',
                     opacity: totalChildren === 0 ? 0.45 : 1,
                   }}
                 >Duyệt</button>
@@ -895,7 +895,7 @@ function ManhPiecesSection({
                   style={{
                     padding: '3px 10px', fontSize: 11, fontWeight: 600, borderRadius: 6, border: 'none',
                     cursor: totalChildren === 0 ? 'not-allowed' : 'pointer',
-                    background: 'rgba(220,38,38,0.10)', color: '#dc2626',
+                    background: 'rgba(220,38,38,0.10)', color: 'var(--fg-dc2626)',
                     opacity: totalChildren === 0 ? 0.45 : 1,
                   }}
                 >Từ chối</button>
@@ -904,7 +904,7 @@ function ManhPiecesSection({
           </div>
         </div>
         {status === 'REJECTED' && entry?.reason && (
-          <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626', fontStyle: 'italic' }}>{entry.reason}</div>
+          <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)', fontStyle: 'italic' }}>{entry.reason}</div>
         )}
       </div>
       {rows.length === 0 ? (
@@ -921,16 +921,16 @@ function ManhPiecesSection({
               }}>
                 <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>{r.name}</span>
                 {r.qtyPerSku && (
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#e65100', background: '#fff3e0', borderRadius: 4, padding: '2px 7px' }}>×{r.qtyPerSku} / SKU</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-e65100)', background: 'var(--bg-fff3e0)', borderRadius: 4, padding: '2px 7px' }}>×{r.qtyPerSku} / SKU</span>
                 )}
                 <span style={{ fontSize: 12, color: 'var(--text3)' }}>{children.length} dòng vật tư</span>
                 <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 10 }}>
-                  {r.needsHan && <span style={{ fontSize: 11, fontWeight: 600, color: '#ef6c00', background: '#fff3e0', borderRadius: 4, padding: '2px 7px' }}>Hàn</span>}
-                  {r.needsSon && <span style={{ fontSize: 11, fontWeight: 600, color: '#00695c', background: '#e0f2f1', borderRadius: 4, padding: '2px 7px' }}>Sơn</span>}
+                  {r.needsHan && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-ef6c00)', background: 'var(--bg-fff3e0)', borderRadius: 4, padding: '2px 7px' }}>Hàn</span>}
+                  {r.needsSon && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-00695c)', background: 'var(--bg-e0f2f1)', borderRadius: 4, padding: '2px 7px' }}>Sơn</span>}
                   {(() => {
                     const { isWoven, missing } = wovenStatus(r)
                     return isWoven ? (
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#2e7d32' }}>✓ Có đan</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg-2e7d32)' }}>✓ Có đan</span>
                     ) : (
                       <span
                         title={missing.length < WOVEN_GROUPS.length ? `Thiếu ${missing.map(g => CHILD_GROUP_LABELS[g]).join(', ')}` : undefined}
@@ -972,7 +972,7 @@ function ManhPiecesSection({
                           {c.name}
                           {c.note && <span style={{ color: 'var(--text3)', fontWeight: 400 }}> ({c.note})</span>}
                           {c.group === 'nutNhua' && c.includeInWeaving && (
-                            <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#2e7d32', background: '#e8f5e9', borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+                            <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--fg-2e7d32)', background: 'var(--bg-e8f5e9)', borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap' }}>
                               ✓ Đi kèm xuất đan
                             </span>
                           )}

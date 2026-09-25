@@ -132,7 +132,7 @@ function BossApproveModal({ itemCount, onClose, onConfirm }: {
         style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-          <FileCheck2 size={17} color="#2563eb" />
+          <FileCheck2 size={17} color="var(--fg-2563eb)" />
           <span style={{ fontSize: 15, fontWeight: 700 }}>Sếp đã duyệt</span>
           <div style={{ flex: 1 }} />
           <button onClick={onClose} style={{ display: 'flex', padding: 4, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text3)' }}>
@@ -171,7 +171,7 @@ function BossApproveModal({ itemCount, onClose, onConfirm }: {
           </label>
 
           {err && (
-            <div style={{ marginTop: 12, padding: '8px 10px', fontSize: 12, color: '#991b1b', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 8 }}>
+            <div style={{ marginTop: 12, padding: '8px 10px', fontSize: 12, color: 'var(--fg-991b1b)', background: 'var(--bg-fee2e2)', border: '1px solid var(--fg-fca5a5)', borderRadius: 8 }}>
               {err}
             </div>
           )}
@@ -188,7 +188,7 @@ function BossApproveModal({ itemCount, onClose, onConfirm }: {
           <button
             onClick={() => void confirm()}
             disabled={!file || busy}
-            style={{ padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: !file || busy ? '#93c5fd' : '#2563eb', color: '#fff', cursor: !file || busy ? 'default' : 'pointer' }}
+            style={{ padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: !file || busy ? 'var(--bg-93c5fd)' : 'var(--bg-2563eb)', color: '#fff', cursor: !file || busy ? 'default' : 'pointer' }}
           >
             {busy ? 'Đang tải lên…' : 'Xác nhận'}
           </button>
@@ -262,7 +262,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
           <div style={{ flex: 1 }} />
           {statusTag(p)}
           {p.deadline && (
-            <span style={{ fontSize: 12, color: '#dc2626', fontWeight: 600 }}>
+            <span style={{ fontSize: 12, color: 'var(--fg-dc2626)', fontWeight: 600 }}>
               Deadline: {new Date(p.deadline).toLocaleDateString('vi-VN')}
             </span>
           )}
@@ -295,8 +295,8 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
                     spec={item.spec}
                     stockLengthMm={item.stockLengthMm}
                     fields={[
-                      { label: 'Tồn thực', value: <span style={{ color: '#dc2626' }}>{item.actualStock}</span> },
-                      { label: 'Cần mua', value: <><b style={{ color: '#d97706' }}>{item.buyQty}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{item.unit}</span></> },
+                      { label: 'Tồn thực', value: <span style={{ color: 'var(--fg-dc2626)' }}>{item.actualStock}</span> },
+                      { label: 'Cần mua', value: <><b style={{ color: 'var(--fg-d97706)' }}>{item.buyQty}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{item.unit}</span></> },
                       { label: 'Hàng về kho', value: warehouseName(item.warehouseCode, item.khoLabel) },
                     ]}
                   />
@@ -322,11 +322,11 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
                       <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{warehouseName(item.warehouseCode, item.khoLabel)}</td>
                       <td style={{ ...td, fontWeight: 600 }}>{item.name}</td>
                       <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{item.spec || '—'}</td>
-                      <td style={{ ...td, textAlign: 'right', fontSize: 12, fontWeight: item.stockLengthMm != null ? 700 : 400, color: item.stockLengthMm != null ? '#e65100' : 'var(--text3)' }}>
+                      <td style={{ ...td, textAlign: 'right', fontSize: 12, fontWeight: item.stockLengthMm != null ? 700 : 400, color: item.stockLengthMm != null ? 'var(--fg-e65100)' : 'var(--text3)' }}>
                         {item.stockLengthMm != null ? `${item.stockLengthMm}mm` : '—'}
                       </td>
-                      <td style={{ ...td, textAlign: 'right', color: '#dc2626' }}>{item.actualStock}</td>
-                      <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#d97706' }}>{item.buyQty}</td>
+                      <td style={{ ...td, textAlign: 'right', color: 'var(--fg-dc2626)' }}>{item.actualStock}</td>
+                      <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: 'var(--fg-d97706)' }}>{item.buyQty}</td>
                       <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
                     </tr>
                   ))}
@@ -334,10 +334,10 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
               </table>
             </div>
             )}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 14px', borderTop: '1px solid #fde68a', background: '#fffbeb' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 14px', borderTop: '1px solid var(--fg-fde68a)', background: 'var(--bg-fffbeb)' }}>
               <button
                 onClick={() => setApprovingId(p.id)}
-                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? '100%' : undefined, gap: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: '#2563eb', color: '#fff', cursor: 'pointer' }}
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? '100%' : undefined, gap: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: 'var(--bg-2563eb)', color: '#fff', cursor: 'pointer' }}
               >
                 <FileCheck2 size={14} /> Sếp đã duyệt
               </button>
@@ -381,7 +381,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
                     <tr key={idx} style={{ borderTop: '1px solid var(--border)' }}>
                       <td style={{ ...td, fontWeight: 600 }}>{item.name}</td>
                       <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{item.spec || '—'}</td>
-                      <td style={{ ...td, textAlign: 'right', fontSize: 12, fontWeight: item.stockLengthMm != null ? 700 : 400, color: item.stockLengthMm != null ? '#e65100' : 'var(--text3)' }}>
+                      <td style={{ ...td, textAlign: 'right', fontSize: 12, fontWeight: item.stockLengthMm != null ? 700 : 400, color: item.stockLengthMm != null ? 'var(--fg-e65100)' : 'var(--text3)' }}>
                         {item.stockLengthMm != null ? `${item.stockLengthMm}mm` : '—'}
                       </td>
                       <td style={td}>{itemStatusTag(item)}</td>
@@ -422,10 +422,10 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
   return (
     <div style={{ marginBottom: 24 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-        <ClipboardList size={16} color="#d97706" />
-        <span style={{ fontSize: 14, fontWeight: 700, color: '#92400e' }}>Đề xuất mua từ Quản lý SX</span>
+        <ClipboardList size={16} color="var(--fg-d97706)" />
+        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--fg-92400e)' }}>Đề xuất mua từ Quản lý SX</span>
         {pendingCount > 0 && (
-          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#fef3c7', color: '#92400e', border: '1px solid #fde68a' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'var(--bg-fef3c7)', color: 'var(--fg-92400e)', border: '1px solid var(--fg-fde68a)' }}>
             {pendingCount} chờ xử lý
           </span>
         )}
@@ -436,7 +436,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
           proposals={proposals}
           onSelect={setSelectedId}
           badge={statusTag}
-          meta={p => p.deadline && <span style={{ color: '#dc2626', fontWeight: 600 }}>Deadline: {new Date(p.deadline).toLocaleDateString('vi-VN')}</span>}
+          meta={p => p.deadline && <span style={{ color: 'var(--fg-dc2626)', fontWeight: 600 }}>Deadline: {new Date(p.deadline).toLocaleDateString('vi-VN')}</span>}
         />
       ) : (
       <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflowX: 'auto', background: 'var(--surface)' }}>
@@ -466,7 +466,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
                     <span style={{ fontWeight: 600 }}>{p.skuCode}</span>
                     {p.skuName && <span style={{ marginLeft: 6, color: 'var(--text3)', fontSize: 12 }}>{p.skuName}</span>}
                   </td>
-                  <td style={{ ...td, color: p.deadline ? '#dc2626' : 'var(--text3)', fontSize: 12, fontWeight: p.deadline ? 600 : 400 }}>
+                  <td style={{ ...td, color: p.deadline ? 'var(--fg-dc2626)' : 'var(--text3)', fontSize: 12, fontWeight: p.deadline ? 600 : 400 }}>
                     {p.deadline ? new Date(p.deadline).toLocaleDateString('vi-VN') : '—'}
                   </td>
                   <td style={td}>{statusTag(p)}</td>

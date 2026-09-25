@@ -22,7 +22,7 @@ import type {
 import { errMsg } from '../../utils/errors'
 import { useIsMobile } from '../../hooks/useMediaQuery'
 
-const ACCENT = '#e65100'
+const ACCENT = 'var(--fg-e65100)'
 const REMIND_MINUTES = 60
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -153,7 +153,7 @@ const poSummaryCay = (r: ProcRow) => {
   return { pct, daLam: done, conLai: Math.max(0, need - done) }
 }
 function Progress({ pct }: { pct: number }) {
-  const color = pct >= 100 ? 'var(--green)' : pct >= 50 ? ACCENT : '#b45309'
+  const color = pct >= 100 ? 'var(--green)' : pct >= 50 ? ACCENT : 'var(--fg-b45309)'
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
       <div style={{ flex: 1, height: 7, borderRadius: 5, background: 'var(--surface2)', overflow: 'hidden' }}>
@@ -530,7 +530,7 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
   ]
 
   const banner = (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', margin: '14px 0 0', borderRadius: 'var(--radius)', background: lech ? 'var(--red-bg)' : 'var(--green-bg, #e8f5e9)', color: lech ? 'var(--red)' : 'var(--green)', fontSize: 13 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', margin: '14px 0 0', borderRadius: 'var(--radius)', background: lech ? 'var(--red-bg)' : 'var(--green-bg, var(--bg-e8f5e9))', color: lech ? 'var(--red)' : 'var(--green)', fontSize: 13 }}>
       {lech ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
       <span>
         {bannerLabel}: <b>{fmt(db)} {dbUnit}</b>

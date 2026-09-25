@@ -59,7 +59,7 @@ export default function SystemConfigPage() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <Settings size={18} color="#3949ab" />
+        <Settings size={18} color="var(--fg-3949ab)" />
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Cấu hình hệ thống</h2>
       </div>
       <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 18 }}>
@@ -70,7 +70,7 @@ export default function SystemConfigPage() {
         {FIELDS.map(f => (
           <div key={f.name}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
-              {f.label}{f.required && <span style={{ color: '#c62828' }}> *</span>}
+              {f.label}{f.required && <span style={{ color: 'var(--fg-c62828)' }}> *</span>}
             </label>
             <input
               value={values[f.name] ?? ''}
@@ -80,13 +80,13 @@ export default function SystemConfigPage() {
           </div>
         ))}
 
-        {error && <div style={{ color: '#c62828', fontSize: 12 }}>{error}</div>}
+        {error && <div style={{ color: 'var(--fg-c62828)', fontSize: 12 }}>{error}</div>}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button
             onClick={handleSave}
             disabled={saving}
-            style={{ padding: '8px 18px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', background: '#3949ab', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
+            style={{ padding: '8px 18px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--bg-3949ab)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
           >
             {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
           </button>

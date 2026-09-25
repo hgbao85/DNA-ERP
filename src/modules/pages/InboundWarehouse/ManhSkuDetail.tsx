@@ -38,8 +38,8 @@ export function ManhSkuTiles({ lines, skuQty }: { lines: ManhLine[]; skuQty: num
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 12, marginBottom: 20 }}>
       <Tile label="Tổng" value={skuQty} />
-      <Tile label="Đã hoàn thành" value={hoanThanh} color="#16a34a" />
-      <Tile label="Còn lại" value={conLai} color="#d97706" />
+      <Tile label="Đã hoàn thành" value={hoanThanh} color="var(--fg-16a34a)" />
+      <Tile label="Còn lại" value={conLai} color="var(--fg-d97706)" />
     </div>
   )
 }
@@ -102,14 +102,14 @@ export default function ManhSkuDetail({
                     <td style={{ ...tdStyle, fontWeight: 500 }}>{line.name}</td>
                     <td style={tdStyle}>{pointLabel(alloc.weavingPointId)}</td>
                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{line.totalQty}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: '#d97706' }}>{alloc.xuatQty}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: alloc.nhapQty > 0 ? '#16a34a' : 'var(--text3)' }}>{alloc.nhapQty}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: done ? 'var(--text3)' : '#d97706' }}>{remaining}</td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: 'var(--fg-d97706)' }}>{alloc.xuatQty}</td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: alloc.nhapQty > 0 ? 'var(--fg-16a34a)' : 'var(--text3)' }}>{alloc.nhapQty}</td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: done ? 'var(--text3)' : 'var(--fg-d97706)' }}>{remaining}</td>
                     <td style={tdStyle}>
                       {variant === 'view' ? (
                         <ProgressBar value={alloc.nhapQty} max={alloc.xuatQty} />
                       ) : done ? (
-                        <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>Đã nhận đủ</span>
+                        <span style={{ fontSize: 12, color: 'var(--fg-16a34a)', fontWeight: 600 }}>Đã nhận đủ</span>
                       ) : (
                         <div>
                           <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -123,12 +123,12 @@ export default function ManhSkuDetail({
                             <button
                               onClick={() => submit(line.id, alloc.weavingPointId, alloc.id, remaining)}
                               disabled={busyAllocId === alloc.id}
-                              style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#166534', color: '#fff', cursor: busyAllocId === alloc.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                              style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-166534)', color: '#fff', cursor: busyAllocId === alloc.id ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
                             >
                               {busyAllocId === alloc.id ? 'Đang lưu...' : 'Nhập'}
                             </button>
                           </div>
-                          {msgFor?.(alloc.id) && <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626' }}>{msgFor(alloc.id)}</div>}
+                          {msgFor?.(alloc.id) && <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)' }}>{msgFor(alloc.id)}</div>}
                         </div>
                       )}
                     </td>

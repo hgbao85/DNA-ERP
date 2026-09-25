@@ -143,7 +143,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                   href={approvalFileUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: '#2563eb', border: '1px solid #bfdbfe', background: '#eff6ff', borderRadius: 20, padding: '4px 12px' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--fg-2563eb)', border: '1px solid var(--fg-bfdbfe)', background: 'var(--bg-eff6ff)', borderRadius: 20, padding: '4px 12px' }}
                 >
                   <Paperclip size={12} /> Xem file Sếp duyệt
                 </a>
@@ -202,18 +202,18 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                           Thủ kho đối chiếu hàng về đúng cây đã đặt, nhất là từ khi có thể ra cây
                           đặt riêng khác 6000mm mặc định (auto_scan). */}
                       {item.stockLengthMm != null && (
-                        <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: '#e65100' }}>· cây {item.stockLengthMm}mm</span>
+                        <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: 'var(--fg-e65100)' }}>· cây {item.stockLengthMm}mm</span>
                       )}
                     </td>
                     <td style={{ ...td, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.spec || '—'}</td>
                     <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
                     <td style={{ ...td, textAlign: 'right' }}>{item.buyQty}</td>
-                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: done ? '#16a34a' : partial ? '#d97706' : 'var(--text)' }}>
+                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: done ? 'var(--fg-16a34a)' : partial ? 'var(--fg-d97706)' : 'var(--text)' }}>
                       {received}
                     </td>
                     <td style={td}>
                       {done ? (
-                        <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>✓ Đã nhận đủ</span>
+                        <span style={{ fontSize: 12, color: 'var(--fg-16a34a)', fontWeight: 600 }}>✓ Đã nhận đủ</span>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                           {hasConversion && (
@@ -241,17 +241,17 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                               value={inputVal}
                               onChange={e => setInputs(prev => ({ ...prev, [key]: e.target.value }))}
                               placeholder="SL"
-                              style={{ width: 64, padding: '4px 8px', border: `1px solid ${qtyMismatch ? '#d97706' : 'var(--border)'}`, borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                              style={{ width: 64, padding: '4px 8px', border: `1px solid ${qtyMismatch ? 'var(--fg-d97706)' : 'var(--border)'}`, borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
                             />
                             <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.unit}{hasConversion ? ' (có thể sửa tay)' : ''}</span>
                             <button
                               onClick={() => handleConfirmClick(selected, item, Number(inputVal))}
                               disabled={!canConfirm}
-                              style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: canConfirm ? '#2e7d32' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
+                              style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: canConfirm ? 'var(--bg-2e7d32)' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
                             >{isPending ? 'Đang ghi…' : 'Xác nhận'}</button>
                           </div>
                           {qtyMismatch && (
-                            <div style={{ fontSize: 11, color: '#d97706' }}>
+                            <div style={{ fontSize: 11, color: 'var(--fg-d97706)' }}>
                               ⚠ Lệch nhiều so với gợi ý ({Math.round(expectedQty!)} {item.unit} theo {kgVal} {item.purchaseUnit}) — kiểm tra lại trước khi xác nhận
                             </div>
                           )}
@@ -360,8 +360,8 @@ export default function NhapKhoPage({ lockedGroup }: { lockedGroup?: string | nu
             display: 'inline-flex', alignItems: 'center', gap: 6,
             padding: '8px 18px', fontSize: 13, fontWeight: nhapTab === id ? 700 : 500,
             background: 'transparent', border: 'none', cursor: 'pointer',
-            color: nhapTab === id ? '#2e7d32' : 'var(--text2)',
-            borderBottom: nhapTab === id ? '2px solid #2e7d32' : '2px solid transparent',
+            color: nhapTab === id ? 'var(--fg-2e7d32)' : 'var(--text2)',
+            borderBottom: nhapTab === id ? '2px solid var(--fg-2e7d32)' : '2px solid transparent',
             marginBottom: -1,
           }}>
             <Icon size={14} />{label}

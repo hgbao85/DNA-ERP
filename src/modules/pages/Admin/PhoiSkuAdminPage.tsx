@@ -20,8 +20,8 @@ import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 
-const ACCENT = '#3949ab'
-const RED = '#c62828'
+const ACCENT = 'var(--fg-3949ab)'
+const RED = 'var(--fg-c62828)'
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
 const th: React.CSSProperties = { padding: '9px 12px', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em', textAlign: 'left', background: 'var(--surface2)', whiteSpace: 'nowrap' }
 const td: React.CSSProperties = { padding: '9px 12px', fontSize: 13, borderTop: '1px solid var(--border)', verticalAlign: 'middle' }

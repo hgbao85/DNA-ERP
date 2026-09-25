@@ -15,9 +15,10 @@ import SystemStatusPage from './SystemStatusPage'
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import OfficeSuppliesAdminPage from './OfficeSuppliesAdminPage'
 import PhoiSkuAdminPage from './PhoiSkuAdminPage'
+import ThemeToggle from '../../../components/ThemeToggle'
 
-const ACCENT    = '#3949ab'
-const ACCENT_BG = '#e8eaf6'
+const ACCENT    = 'var(--fg-3949ab)'
+const ACCENT_BG = 'var(--bg-e8eaf6)'
 
 type AdminPage = 'dashboard' | 'users' | 'warehouses' | 'office-supplies' | 'phoi-sku' | 'audit-log' | 'master-data' | 'business-data' | 'attachments' | 'notifications' | 'system-config' | 'system-status'
 
@@ -102,6 +103,7 @@ export default function AdminApp() {
               <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
               <div style={{ fontSize: 10, color: 'var(--text3)' }}>Quản trị viên</div>
             </div>
+            <ThemeToggle />
             <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất">
               <LogOut size={16} color="var(--text3)" />
             </button>

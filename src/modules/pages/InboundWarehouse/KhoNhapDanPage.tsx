@@ -136,9 +136,9 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
                     <tr key={key} style={{ borderTop: '1px solid var(--border)' }}>
                       <td style={{ ...tdStyle, fontWeight: 500 }}>{piece.pieceName}</td>
                       <td style={{ ...tdStyle, color: 'var(--text3)' }}>{label}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: '#d97706' }}>{a.issuedQty}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: done ? '#16a34a' : 'var(--text)' }}>{a.receivedQty}</td>
-                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: done ? 'var(--text3)' : '#d97706' }}>{a.remainingToReceive}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: 'var(--fg-d97706)' }}>{a.issuedQty}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: done ? 'var(--fg-16a34a)' : 'var(--text)' }}>{a.receivedQty}</td>
+                      <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: done ? 'var(--text3)' : 'var(--fg-d97706)' }}>{a.remainingToReceive}</td>
                       {!readOnly && (
                         <td style={tdStyle}>
                           {done ? (
@@ -156,12 +156,12 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
                                 <button
                                   onClick={() => handleNhap(piece, a.weavingPointId, label, a.remainingToReceive)}
                                   disabled={busy === key}
-                                  style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#16a34a', color: '#fff', cursor: busy === key ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                                  style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-16a34a)', color: '#fff', cursor: busy === key ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
                                 >
                                   {busy === key ? '...' : 'Nhận'}
                                 </button>
                               </div>
-                              {msgs[key] && <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626' }}>{msgs[key]}</div>}
+                              {msgs[key] && <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)' }}>{msgs[key]}</div>}
                             </div>
                           )}
                         </td>

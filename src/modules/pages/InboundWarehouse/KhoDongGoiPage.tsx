@@ -145,15 +145,15 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
                       Thùng thành phẩm
                     </td>
                     <td style={{ ...td, textAlign: 'right', color: 'var(--text2)' }}>{total}</td>
-                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: daDong > 0 ? '#16a34a' : 'var(--text)' }}>{daDong}</td>
-                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: conLai > 0 ? '#d97706' : '#16a34a' }}>{conLai}</td>
+                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: daDong > 0 ? 'var(--fg-16a34a)' : 'var(--text)' }}>{daDong}</td>
+                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: conLai > 0 ? 'var(--fg-d97706)' : 'var(--fg-16a34a)' }}>{conLai}</td>
                     <td style={td}>
                       {readOnly ? (
                         <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>
                       ) : (
                         <button
                           onClick={openPopup}
-                          style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#e65100', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-e65100)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
                         >
                           Đóng gói
                         </button>
@@ -188,15 +188,15 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
                   onChange={e => setPopupQty(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && canConfirm && handleConfirm()}
                   placeholder="Nhập số thùng"
-                  style={{ ...inp, borderColor: overRemaining ? '#dc2626' : undefined }}
+                  style={{ ...inp, borderColor: overRemaining ? 'var(--fg-dc2626)' : undefined }}
                   autoFocus
                 />
                 {overRemaining && (
-                  <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>
+                  <div style={{ color: 'var(--fg-dc2626)', fontSize: 12, marginTop: 4 }}>
                     Vượt quá số lượng còn lại cần đóng gói ({remainingToPack})
                   </div>
                 )}
-                {saveError && <div style={{ color: '#c62828', fontSize: 12, marginTop: 12 }}>{saveError}</div>}
+                {saveError && <div style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 12 }}>{saveError}</div>}
               </div>
 
               <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -208,7 +208,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
                 <button
                   onClick={handleConfirm}
                   disabled={!canConfirm}
-                  style={{ padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: canConfirm ? '#e65100' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed' }}
+                  style={{ padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: canConfirm ? 'var(--bg-e65100)' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed' }}
                 >{saving ? 'Đang lưu...' : 'Xác nhận'}</button>
               </div>
             </div>

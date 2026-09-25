@@ -1,15 +1,16 @@
 import { LayoutDashboard, Users, Package, ShoppingCart, Truck, Factory, DollarSign, Wallet, CheckSquare, LogOut } from 'lucide-react'
+import ThemeToggle from './ThemeToggle'
 
 const ALL_MODULES = [
-  { id: 'sales', name: 'Bán hàng', desc: 'Quản lý đơn hàng, quản lý khách hàng', icon: <Users size={32} />, color: '#E8F5E9', textColor: '#2E7D32' },
-  { id: 'production_plan', name: 'Kế hoạch SX', desc: 'Tổng nhu cầu NVL, lệnh sản xuất', icon: <LayoutDashboard size={32} />, color: '#E8F5E9', textColor: '#2E7D32' },
-  { id: 'purchasing', name: 'Mua hàng', desc: 'RFQ, so sánh giá, PO, gửi NCC', icon: <ShoppingCart size={32} />, color: '#EDE7F6', textColor: '#4527A0' },
-  { id: 'inbound_warehouse', name: 'Kho đầu vào', desc: 'Theo dõi vật tư về, nhập kho NVL', icon: <Package size={32} />, color: '#EDE7F6', textColor: '#4527A0' },
-  { id: 'qc', name: 'Chất lượng QC', desc: 'Chuyên kiểm, đạt/không đạt', icon: <CheckSquare size={32} />, color: '#FFF3E0', textColor: '#E65100' },
-  { id: 'production', name: 'Sản xuất', desc: 'Cắt -> Hàn -> Sơn, gia công ngoài', icon: <Factory size={32} />, color: '#FFF3E0', textColor: '#E65100' },
-  { id: 'shipping', name: 'Vận chuyển', desc: 'Xuất khẩu, vận chuyển', icon: <Truck size={32} />, color: '#E3F2FD', textColor: '#1565C0' },
-  { id: 'ap_accounting', name: 'KT mua', desc: 'Công nợ phải trả, theo dõi thanh toán', icon: <Wallet size={32} />, color: '#E8EAF6', textColor: '#283593' },
-  { id: 'ar_accounting', name: 'KT bán', desc: 'Công nợ phải thu, theo dõi thu tiền', icon: <DollarSign size={32} />, color: '#E8EAF6', textColor: '#283593' },
+  { id: 'sales', name: 'Bán hàng', desc: 'Quản lý đơn hàng, quản lý khách hàng', icon: <Users size={32} />, color: 'var(--bg-e8f5e9)', textColor: 'var(--fg-2e7d32)' },
+  { id: 'production_plan', name: 'Kế hoạch SX', desc: 'Tổng nhu cầu NVL, lệnh sản xuất', icon: <LayoutDashboard size={32} />, color: 'var(--bg-e8f5e9)', textColor: 'var(--fg-2e7d32)' },
+  { id: 'purchasing', name: 'Mua hàng', desc: 'RFQ, so sánh giá, PO, gửi NCC', icon: <ShoppingCart size={32} />, color: 'var(--bg-ede7f6)', textColor: 'var(--fg-4527a0)' },
+  { id: 'inbound_warehouse', name: 'Kho đầu vào', desc: 'Theo dõi vật tư về, nhập kho NVL', icon: <Package size={32} />, color: 'var(--bg-ede7f6)', textColor: 'var(--fg-4527a0)' },
+  { id: 'qc', name: 'Chất lượng QC', desc: 'Chuyên kiểm, đạt/không đạt', icon: <CheckSquare size={32} />, color: 'var(--bg-fff3e0)', textColor: 'var(--fg-e65100)' },
+  { id: 'production', name: 'Sản xuất', desc: 'Cắt -> Hàn -> Sơn, gia công ngoài', icon: <Factory size={32} />, color: 'var(--bg-fff3e0)', textColor: 'var(--fg-e65100)' },
+  { id: 'shipping', name: 'Vận chuyển', desc: 'Xuất khẩu, vận chuyển', icon: <Truck size={32} />, color: 'var(--bg-e3f2fd)', textColor: 'var(--fg-1565c0)' },
+  { id: 'ap_accounting', name: 'KT mua', desc: 'Công nợ phải trả, theo dõi thanh toán', icon: <Wallet size={32} />, color: 'var(--bg-e8eaf6)', textColor: 'var(--fg-283593)' },
+  { id: 'ar_accounting', name: 'KT bán', desc: 'Công nợ phải thu, theo dõi thu tiền', icon: <DollarSign size={32} />, color: 'var(--bg-e8eaf6)', textColor: 'var(--fg-283593)' },
 ];
 
 interface ModuleSelectorProps {
@@ -37,12 +38,13 @@ export default function ModuleSelector({ user, onLogout, onSelectModule }: Modul
               </span>
               <span style={{
                 fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-                background: user.role === 'BOSS' ? '#eff6ff' : '#fef3c7',
-                color: user.role === 'BOSS' ? '#1d4ed8' : '#b45309',
-                border: user.role === 'BOSS' ? '1px solid #bfdbfe' : '1px solid #fde68a'
+                background: user.role === 'BOSS' ? 'var(--bg-eff6ff)' : 'var(--bg-fef3c7)',
+                color: user.role === 'BOSS' ? 'var(--fg-1d4ed8)' : 'var(--fg-b45309)',
+                border: user.role === 'BOSS' ? '1px solid var(--fg-bfdbfe)' : '1px solid var(--fg-fde68a)'
               }}>
                 {user.role === 'BOSS' ? 'Giám đốc' : 'Thủ kho'}
               </span>
+              <ThemeToggle />
               <button 
                 onClick={onLogout} 
                 style={{ 

@@ -32,7 +32,7 @@ import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 
-const ACCENT = '#4527A0'
+const ACCENT = 'var(--fg-4527a0)'
 
 interface PiGroup {
   productionInvoiceId: string
@@ -148,7 +148,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
         </div>
 
         {planLoading ? <LoadingState /> : planError ? (
-          <div style={{ ...emptyBox, color: '#dc2626' }}>Lỗi tải kế hoạch xuất sắt: {planError}</div>
+          <div style={{ ...emptyBox, color: 'var(--fg-dc2626)' }}>Lỗi tải kế hoạch xuất sắt: {planError}</div>
         ) : plan.length === 0 ? (
           <div style={emptyBox}>
             Chưa có phương án cắt sắt đã duyệt cho PI này — báo KHSX tính/duyệt phương án trước khi
@@ -185,7 +185,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
                       <td style={{ ...tdStyle, textAlign: 'right', color: item.issuedBarCount > 0 ? ACCENT : 'var(--text2)' }}>
                         {issuedForMaterial(item.materialId)}
                       </td>
-                      <td style={{ ...tdStyle, textAlign: 'right', color: item.remainingToIssue != null && item.remainingToIssue <= 0 ? '#dc2626' : 'var(--text2)' }}>
+                      <td style={{ ...tdStyle, textAlign: 'right', color: item.remainingToIssue != null && item.remainingToIssue <= 0 ? 'var(--fg-dc2626)' : 'var(--text2)' }}>
                         {item.remainingToIssue ?? '—'}
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>{item.physicalStockQty ?? '—'}</td>
@@ -218,7 +218,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
                             {busy === key ? '...' : 'Xuất'}
                           </button>
                         </div>
-                        {msgs[key] && <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626' }}>{msgs[key]}</div>}
+                        {msgs[key] && <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)' }}>{msgs[key]}</div>}
                       </td>
                     </tr>
                   )
@@ -313,7 +313,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
 
 function statusLabel(status: BeSteelIssue['status']) {
   if (status === 'ISSUED') return <span style={{ color: 'var(--text3)' }}>Chờ Phôi nhận</span>
-  if (status === 'RECEIVED') return <span style={{ color: '#d97706' }}>Đang cắt</span>
-  if (status === 'AWAITING_QC') return <span style={{ color: '#d97706' }}>Chờ KCS duyệt</span>
-  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#16a34a', fontWeight: 600 }}><Check size={12} /> KCS đạt</span>
+  if (status === 'RECEIVED') return <span style={{ color: 'var(--fg-d97706)' }}>Đang cắt</span>
+  if (status === 'AWAITING_QC') return <span style={{ color: 'var(--fg-d97706)' }}>Chờ KCS duyệt</span>
+  return <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: 'var(--fg-16a34a)', fontWeight: 600 }}><Check size={12} /> KCS đạt</span>
 }

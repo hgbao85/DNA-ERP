@@ -51,7 +51,7 @@ export function ItemCard({ name, spec, stockLengthMm, fields, footer }: {
         <div style={{ fontSize: 12, marginTop: 2, color: 'var(--text3)' }}>
           {spec}
           {stockLengthMm != null && (
-            <span style={{ fontWeight: 700, color: '#e65100' }}>{spec ? ' · ' : ''}cây {stockLengthMm}mm</span>
+            <span style={{ fontWeight: 700, color: 'var(--fg-e65100)' }}>{spec ? ' · ' : ''}cây {stockLengthMm}mm</span>
           )}
         </div>
       )}

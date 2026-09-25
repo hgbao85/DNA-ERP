@@ -40,7 +40,7 @@ export default function PurchaseHistoryPage() {
       </div>
 
       {isLoading && <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</div>}
-      {error && <div style={{ padding: 40, color: '#E24B4A' }}>Lỗi: {error}</div>}
+      {error && <div style={{ padding: 40, color: 'var(--fg-e24b4a)' }}>Lỗi: {error}</div>}
 
       {!isLoading && !error && !customer && (
         <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Chọn một khách hàng để xem lịch sử mua hàng</div>

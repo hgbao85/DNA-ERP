@@ -134,8 +134,8 @@ function MaterialChip({ code, pct, over, minBars, stockLengthMm, verified, verif
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600,
         padding: '2px 7px', borderRadius: 20, whiteSpace: 'nowrap',
-        background: over ? '#fee2e2' : '#e8f5e9',
-        color: over ? '#b91c1c' : '#166534',
+        background: over ? 'var(--bg-fee2e2)' : 'var(--bg-e8f5e9)',
+        color: over ? 'var(--fg-b91c1c)' : 'var(--fg-166534)',
       }}
     >
       {over && <AlertTriangle size={11} />}
@@ -470,7 +470,7 @@ export default function GomDotCatPage({ onDone }: Props) {
   // Chip hao hụt từng loại sắt + gợi ý "gộp với ai" - dùng chung cho bảng (desktop) và thẻ (điện thoại).
   const materialsCell = (it: CuttingBatchCandidate) => (
     !it.hasActiveBom ? (
-      <span style={{ fontSize: 12, color: '#b45309' }}>
+      <span style={{ fontSize: 12, color: 'var(--fg-b45309)' }}>
         Chưa có định mức đang áp dụng — không tính được
       </span>
     ) : (
@@ -484,7 +484,7 @@ export default function GomDotCatPage({ onDone }: Props) {
             hiện thêm chỉ làm loãng. Đây là câu trả lời sẵn cho "gộp với ai",
             thay vì bắt KHSX tự quét cả bảng tìm SKU cùng loại sắt. */}
         {it.materials.filter((m) => m.overThreshold).map((m) => (
-          <div key={m.materialId} style={{ fontSize: 11, marginTop: 4, color: m.mergeableWithSkus.length ? 'var(--text2)' : '#b45309' }}>
+          <div key={m.materialId} style={{ fontSize: 11, marginTop: 4, color: m.mergeableWithSkus.length ? 'var(--text2)' : 'var(--fg-b45309)' }}>
             {m.mergeableWithSkus.length > 0 ? (
               <>↳ <b>{m.materialCode}</b> gộp được với: <b>{m.mergeableWithSkus.join(', ')}</b></>
             ) : (
@@ -501,7 +501,7 @@ export default function GomDotCatPage({ onDone }: Props) {
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
         <button
           onClick={() => setOverrideOpen((v) => !v)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', fontSize: 12.5, fontWeight: 600, background: 'var(--surface2)', border: `1px solid ${overrideNeeded ? '#fcd34d' : 'var(--border)'}`, borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text2)' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', fontSize: 12.5, fontWeight: 600, background: 'var(--surface2)', border: `1px solid ${overrideNeeded ? 'var(--fg-fcd34d)' : 'var(--border)'}`, borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text2)' }}
         >
           <Settings size={14} />
           Chế độ cắt: {cutMode === 'ACCEPT_OVER' ? 'Chấp nhận hao hụt cao hơn' : 'Bình thường'}
@@ -510,7 +510,7 @@ export default function GomDotCatPage({ onDone }: Props) {
       </div>
 
       {overrideNeeded && !showOverride && (
-        <div style={{ marginTop: 6, display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: 12.5, color: '#92400e' }}>
+        <div style={{ marginTop: 6, display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--fg-92400e)' }}>
           <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
           <span>Đợt này <b>vượt ngưỡng hao hụt</b> — mở chế độ cắt để xử lý, nếu không sẽ dừng chờ duyệt tay.</span>
         </div>
@@ -519,7 +519,7 @@ export default function GomDotCatPage({ onDone }: Props) {
       {showOverride && (
         <div style={{ marginTop: 8, padding: '11px 13px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', display: 'flex', flexDirection: 'column', gap: 8 }}>
           {overrideNeeded && (
-            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: '#92400e', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 'var(--radius)', padding: '8px 10px' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--fg-92400e)', background: 'var(--bg-fffbeb)', border: '1px solid var(--fg-fcd34d)', borderRadius: 'var(--radius)', padding: '8px 10px' }}>
               <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
               <span>Đợt này <b>vượt ngưỡng hao hụt</b> nên sẽ dừng chờ duyệt tay. Đơn gấp thì chọn <b>“Chấp nhận hao hụt cao hơn”</b> — Sếp duyệt lệnh sản xuất là chấp thuận luôn.</span>
             </div>
@@ -531,7 +531,7 @@ export default function GomDotCatPage({ onDone }: Props) {
               <label
                 key={m.value}
                 onClick={(e) => e.stopPropagation()}
-                style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '9px 11px', borderRadius: 'var(--radius)', cursor: 'pointer', border: `1px solid ${active ? '#e65100' : 'var(--border)'}`, background: active ? 'rgba(230,81,0,0.06)' : 'var(--surface)' }}
+                style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '9px 11px', borderRadius: 'var(--radius)', cursor: 'pointer', border: `1px solid ${active ? 'var(--fg-e65100)' : 'var(--border)'}`, background: active ? 'rgba(230,81,0,0.06)' : 'var(--surface)' }}
               >
                 <input
                   type="radio"
@@ -551,7 +551,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                   }}
                   // Ghim kích thước: để trình duyệt tự co giãn thì ở khung hẹp nút radio phình to
                   // bằng cả dòng (lỗi đã gặp ở bản trước).
-                  style={{ width: 15, height: 15, flexShrink: 0, marginTop: 1, accentColor: '#e65100' }}
+                  style={{ width: 15, height: 15, flexShrink: 0, marginTop: 1, accentColor: 'var(--fg-e65100)' }}
                 />
                 <div style={{ minWidth: 0 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 600, color: 'var(--text)' }}>{m.label}</div>
@@ -562,7 +562,7 @@ export default function GomDotCatPage({ onDone }: Props) {
           })}
 
           {cutMode === 'ACCEPT_OVER' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '9px 11px', background: '#fffbeb', border: '1px solid #fcd34d', borderRadius: 'var(--radius)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '9px 11px', background: 'var(--bg-fffbeb)', border: '1px solid var(--fg-fcd34d)', borderRadius: 'var(--radius)' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--text2)' }}>
                 Chấp nhận hao hụt tới
 
@@ -572,7 +572,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                   onClick={(e) => e.stopPropagation()}
                   inputMode="decimal"
                   placeholder="—"
-                  style={{ width: 62, padding: '5px 8px', fontSize: 12.5, textAlign: 'right', border: `1px solid ${wastePctBad ? '#dc2626' : 'var(--border)'}`, borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)' }}
+                  style={{ width: 62, padding: '5px 8px', fontSize: 12.5, textAlign: 'right', border: `1px solid ${wastePctBad ? 'var(--fg-dc2626)' : 'var(--border)'}`, borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)' }}
                 />
                 %
                 {suggestedPct != null && (
@@ -582,7 +582,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                 )}
               </label>
               {wastePctTooLow && (
-                <div style={{ fontSize: 11.5, color: '#b45309' }}>
+                <div style={{ fontSize: 11.5, color: 'var(--fg-b45309)' }}>
                   Thấp hơn mức ước tính — nhiều khả năng vẫn bị chặn nếu không cho đặt cây riêng.
                 </div>
               )}
@@ -599,7 +599,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                   checked={onlyStandardLength}
                   onChange={(e) => setOnlyStandardLength(e.target.checked)}
                   onClick={(e) => e.stopPropagation()}
-                  style={{ width: 15, height: 15, flexShrink: 0, accentColor: '#e65100' }}
+                  style={{ width: 15, height: 15, flexShrink: 0, accentColor: 'var(--fg-e65100)' }}
                 />
                 Giữ đúng chiều dài đã định, không cho hệ thống tự dò cây khác
               </label>
@@ -608,10 +608,10 @@ export default function GomDotCatPage({ onDone }: Props) {
                 onChange={(e) => setOverrideReason(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
                 placeholder="Lý do để Sếp duyệt — vd: PO-4 giao gấp, không kịp chờ cán cây riêng"
-                style={{ width: '100%', padding: '6px 9px', fontSize: 12.5, border: `1px solid ${reasonMissing ? '#dc2626' : 'var(--border)'}`, borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)' }}
+                style={{ width: '100%', padding: '6px 9px', fontSize: 12.5, border: `1px solid ${reasonMissing ? 'var(--fg-dc2626)' : 'var(--border)'}`, borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)' }}
               />
               {overrideInvalid && (
-                <div style={{ fontSize: 12, color: '#b91c1c' }}>
+                <div style={{ fontSize: 12, color: 'var(--fg-b91c1c)' }}>
                   {wastePctBad
                     ? 'Mức hao hụt phải là số trong khoảng 0–100%.'
                     : 'Nhập lý do thì Sếp mới có căn cứ duyệt.'}
@@ -629,7 +629,7 @@ export default function GomDotCatPage({ onDone }: Props) {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <div style={{ flex: 1 }}>
           <h2 style={{ margin: 0, fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Layers size={19} color="#e65100" /> Tối ưu cắt sắt
+            <Layers size={19} color="var(--fg-e65100)" /> Tối ưu cắt sắt
           </h2>
           <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>
             Chọn các SKU muốn cắt chung một đợt để bớt số cây sắt phải mua. Chỉ gồm SKU{' '}
@@ -641,14 +641,14 @@ export default function GomDotCatPage({ onDone }: Props) {
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 'var(--radius)', padding: '9px 12px', margin: '12px 0 14px', fontSize: 12, color: '#1e40af' }}>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: 'var(--bg-eff6ff)', border: '1px solid var(--fg-bfdbfe)', borderRadius: 'var(--radius)', padding: '9px 12px', margin: '12px 0 14px', fontSize: 12, color: 'var(--fg-1e40af)' }}>
         <Info size={15} style={{ flexShrink: 0, marginTop: 1 }} />
         <span>
           Loại sắt kèm dấu <b>≥</b> là ước tính nhanh, <b>chưa xác minh với solver</b> — con số tốt
           nhất về lý thuyết, giả định có đủ số lượng để lặp lại đúng kiểu cắt tối ưu ở mọi cây; số
           lượng thật ít thì cây cuối không đủ đoạn để lặp kiểu đó, nên hao hụt thật có thể cao hơn.
           Loại KHÔNG kèm dấu ≥ là số thật đã xác minh với solver, không còn giả định này. Dùng để so
-          sánh phương án, không phải cam kết kết quả. Dấu <b style={{ color: '#854d0e' }}>?</b> cạnh
+          sánh phương án, không phải cam kết kết quả. Dấu <b style={{ color: 'var(--fg-854d0e)' }}>?</b> cạnh
           % nghĩa là số lượng quá ít (dưới 3 cây) để ước tính đó còn đáng tin — chỉ hoàn toàn dựa
           vào nó để quyết định.
         </span>
@@ -656,7 +656,7 @@ export default function GomDotCatPage({ onDone }: Props) {
 
       {loading && <div style={{ fontSize: 13, color: 'var(--text3)' }}>Đang tải…</div>}
       {error && (
-        <div style={{ background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', borderRadius: 'var(--radius)', padding: '10px 12px', fontSize: 13, marginBottom: 12 }}>
+        <div style={{ background: 'var(--bg-fee2e2)', border: '1px solid var(--fg-fca5a5)', color: 'var(--fg-991b1b)', borderRadius: 'var(--radius)', padding: '10px 12px', fontSize: 13, marginBottom: 12 }}>
           {error}
         </div>
       )}
@@ -671,7 +671,7 @@ export default function GomDotCatPage({ onDone }: Props) {
         <>
           <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>
             {overCount > 0
-              ? <><b style={{ color: '#b91c1c' }}>{overCount}</b> SKU có loại sắt vượt ngưỡng hao hụt. </>
+              ? <><b style={{ color: 'var(--fg-b91c1c)' }}>{overCount}</b> SKU có loại sắt vượt ngưỡng hao hụt. </>
               : <>Không SKU nào vượt ngưỡng. </>}
             {recommended.size > 0 && <>Hệ thống đề xuất gộp <b>{recommended.size}</b> SKU — đã tick sẵn, sửa được.</>}
           </div>
@@ -683,7 +683,7 @@ export default function GomDotCatPage({ onDone }: Props) {
               nên nó phải tốn ĐÚNG 1 dòng chữ, không phải một dãy ô nhập. Mở ra chỉ khi thật sự
               cần đổi. Dòng tóm tắt chỉ nêu NGOẠI LỆ - 10 loại sắt đổi 1 thì vẫn gọn 1 dòng. */}
           {materialsInTable.length > 0 && (
-            <div style={{ padding: '8px 11px', marginBottom: 8, background: 'var(--surface)', border: `1px solid ${lenChanged.length > 0 ? '#fcd34d' : 'var(--border)'}`, borderRadius: 'var(--radius-lg)' }}>
+            <div style={{ padding: '8px 11px', marginBottom: 8, background: 'var(--surface)', border: `1px solid ${lenChanged.length > 0 ? 'var(--fg-fcd34d)' : 'var(--border)'}`, borderRadius: 'var(--radius-lg)' }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, fontSize: 12.5 }}>
                 <span style={{ fontWeight: 600, color: 'var(--text2)' }}>Chiều dài cây sắt</span>
                 {!lenOpen && (
@@ -742,7 +742,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                           placeholder={String(DEFAULT_STOCK_LENGTH_MM)}
                           aria-label={`Chiều dài cây cho ${m.code}, tính bằng mm`}
                           title="Bỏ trống = dùng cây chuẩn của công ty. Nhập mm, vd 5850 cho cây 5m85."
-                          style={{ width: 78, padding: '4px 8px', fontSize: 12.5, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: changed ? 700 : 400, border: `1px solid ${bad ? '#dc2626' : changed ? '#e65100' : 'var(--border)'}`, borderRadius: 'var(--radius)', background: 'var(--surface2)', color: 'var(--text)' }}
+                          style={{ width: 78, padding: '4px 8px', fontSize: 12.5, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: changed ? 700 : 400, border: `1px solid ${bad ? 'var(--fg-dc2626)' : changed ? 'var(--fg-e65100)' : 'var(--border)'}`, borderRadius: 'var(--radius)', background: 'var(--surface2)', color: 'var(--text)' }}
                         />
                       </Fragment>
                     )
@@ -751,7 +751,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                     Bỏ trống = cây chuẩn {fmtLen(DEFAULT_STOCK_LENGTH_MM)}.
                   </span>
                   {materialsInTable.some((m) => stockLenBad(m.id)) && (
-                    <span style={{ gridColumn: '1 / -1', fontSize: 11.5, color: '#b91c1c' }}>
+                    <span style={{ gridColumn: '1 / -1', fontSize: 11.5, color: 'var(--fg-b91c1c)' }}>
                       Chiều dài phải từ {MIN_STOCK_LENGTH_MM} đến {MAX_STOCK_LENGTH_MM}mm — nhập theo mm (6000, không phải 6).
                     </span>
                   )}
@@ -769,7 +769,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                     key={it.productionInvoiceItemId}
                     onClick={() => toggle(it.productionInvoiceItemId)}
                     className="card"
-                    style={{ padding: '11px 12px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start', background: isSel ? '#f0fdf4' : undefined, borderColor: isSel ? '#86efac' : undefined }}
+                    style={{ padding: '11px 12px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start', background: isSel ? 'var(--bg-f0fdf4)' : undefined, borderColor: isSel ? 'var(--fg-86efac)' : undefined }}
                   >
                     <input
                       type="checkbox"
@@ -783,7 +783,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <b style={{ wordBreak: 'break-word' }}>{it.mfgProductCode}</b>
                         {recommended.has(it.productionInvoiceItemId) && (
-                          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: '#dbeafe', color: '#1e40af' }}>ĐỀ XUẤT</span>
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: 'var(--bg-dbeafe)', color: 'var(--fg-1e40af)' }}>ĐỀ XUẤT</span>
                         )}
                         <span style={{ marginLeft: 'auto', fontVariantNumeric: 'tabular-nums', color: 'var(--text2)' }}>SL {it.quantity}</span>
                       </div>
@@ -792,11 +792,11 @@ export default function GomDotCatPage({ onDone }: Props) {
                         <span>{it.salesOrderCode ?? it.productionInvoiceCode ?? '—'}{approvalLabel(it.prodApprovalStatus) && ` · ${approvalLabel(it.prodApprovalStatus)}`}</span>
                         <span>Hạn {fmtDate(it.deadline)}</span>
                         {isSel && selected.size >= 2 && daysEarlyOf(it) > 0 && (
-                          <span style={{ color: '#b45309' }}>sớm {daysEarlyOf(it)} ngày</span>
+                          <span style={{ color: 'var(--fg-b45309)' }}>sớm {daysEarlyOf(it)} ngày</span>
                         )}
                       </div>
                       {it.rejectReason && (
-                        <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 4, display: 'flex', gap: 4, alignItems: 'flex-start' }}>
+                        <div style={{ fontSize: 11, color: 'var(--fg-b91c1c)', marginTop: 4, display: 'flex', gap: 4, alignItems: 'flex-start' }}>
                           <AlertTriangle size={11} style={{ flexShrink: 0, marginTop: 1 }} />
                           <span>Bị từ chối: {it.rejectReason}</span>
                         </div>
@@ -830,7 +830,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                     <tr
                       key={it.productionInvoiceItemId}
                       onClick={() => toggle(it.productionInvoiceItemId)}
-                      style={{ cursor: 'pointer', background: isSel ? '#f0fdf4' : undefined }}
+                      style={{ cursor: 'pointer', background: isSel ? 'var(--bg-f0fdf4)' : undefined }}
                     >
                       <td style={{ ...TD, textAlign: 'center' }}>
                         <input
@@ -851,7 +851,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                       <td style={TD}>
                         <b>{it.mfgProductCode}</b>
                         {recommended.has(it.productionInvoiceItemId) && (
-                          <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: '#dbeafe', color: '#1e40af' }}>
+                          <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: 'var(--bg-dbeafe)', color: 'var(--fg-1e40af)' }}>
                             ĐỀ XUẤT
                           </span>
                         )}
@@ -861,7 +861,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                         {/* SKU quay lại đây sau khi Sếp bác một đợt gộp - phải nói rõ VÌ SAO, nếu
                             không KHSX rất dễ gộp lại đúng tổ hợp vừa bị bác. */}
                         {it.rejectReason && (
-                          <div style={{ fontSize: 11, color: '#b91c1c', marginTop: 3, display: 'flex', gap: 4, alignItems: 'flex-start' }}>
+                          <div style={{ fontSize: 11, color: 'var(--fg-b91c1c)', marginTop: 3, display: 'flex', gap: 4, alignItems: 'flex-start' }}>
                             <AlertTriangle size={11} style={{ flexShrink: 0, marginTop: 1 }} />
                             <span>Bị từ chối: {it.rejectReason}</span>
                           </div>
@@ -873,7 +873,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                         {/* Chi phí cắt sớm gắn vào ĐÚNG SKU gây ra nó. Trước đây chỉ có 1 con số
                             cho cả nhóm nên không biết SKU nào đang làm đội chi phí. */}
                         {isSel && selected.size >= 2 && daysEarlyOf(it) > 0 && (
-                          <div style={{ fontSize: 11, color: '#b45309' }}>sớm {daysEarlyOf(it)} ngày</div>
+                          <div style={{ fontSize: 11, color: 'var(--fg-b45309)' }}>sớm {daysEarlyOf(it)} ngày</div>
                         )}
                       </td>
                       <td style={TD}>
@@ -896,11 +896,11 @@ export default function GomDotCatPage({ onDone }: Props) {
             {previewing && <Loader2 size={15} className="spin" color="var(--text3)" />}
             {preview && (
               <>
-                <span style={{ fontSize: 15, fontWeight: 700, color: preview.totalBarsSaved > 0 ? '#166534' : 'var(--text3)' }}>
+                <span style={{ fontSize: 15, fontWeight: 700, color: preview.totalBarsSaved > 0 ? 'var(--fg-166534)' : 'var(--text3)' }}>
                   {preview.totalBarsSaved > 0 ? `Bớt ${preview.totalBarsSaved} cây sắt` : 'Không bớt được cây nào'}
                 </span>
                 {preview.daysCutEarly !== null && preview.daysCutEarly > 0 && (
-                  <span style={{ fontSize: 12, color: '#b45309' }}>
+                  <span style={{ fontSize: 12, color: 'var(--fg-b45309)' }}>
                     · đơn xa nhất phải cắt sớm {preview.daysCutEarly} ngày
                   </span>
                 )}
@@ -913,7 +913,7 @@ export default function GomDotCatPage({ onDone }: Props) {
           {deadItems.map((it) => {
             const d = daysEarlyOf(it)
             return (
-              <div key={it.productionInvoiceItemId} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '10px 14px', background: '#fffbeb', borderBottom: '1px solid var(--border)', fontSize: 12.5, color: '#92400e' }}>
+              <div key={it.productionInvoiceItemId} style={{ display: 'flex', gap: 9, alignItems: 'flex-start', padding: '10px 14px', background: 'var(--bg-fffbeb)', borderBottom: '1px solid var(--border)', fontSize: 12.5, color: 'var(--fg-92400e)' }}>
                 <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
                 <span style={{ flex: 1 }}>
                   <b>{it.mfgProductCode}</b> không dùng chung loại sắt nào với các SKU còn lại trong
@@ -922,7 +922,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                 </span>
                 <button
                   onClick={() => toggle(it.productionInvoiceItemId)}
-                  style={{ flexShrink: 0, padding: '3px 9px', fontSize: 12, background: 'var(--surface)', border: '1px solid #fcd34d', borderRadius: 'var(--radius)', cursor: 'pointer', color: '#92400e', fontWeight: 600 }}
+                  style={{ flexShrink: 0, padding: '3px 9px', fontSize: 12, background: 'var(--surface)', border: '1px solid var(--fg-fcd34d)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--fg-92400e)', fontWeight: 600 }}
                 >
                   Bỏ khỏi nhóm
                 </button>
@@ -931,7 +931,7 @@ export default function GomDotCatPage({ onDone }: Props) {
           })}
 
           {preview && sharedLines.length === 0 && (
-            <div style={{ padding: '14px', fontSize: 13, color: '#b45309' }}>
+            <div style={{ padding: '14px', fontSize: 13, color: 'var(--fg-b45309)' }}>
               Các SKU đã chọn <b>không dùng chung loại sắt nào</b> — gộp chúng lại không thay đổi
               được gì. Chọn các SKU có chung ít nhất một loại sắt.
             </div>
@@ -982,11 +982,11 @@ export default function GomDotCatPage({ onDone }: Props) {
                         <td style={NUM}>
                           <span title={isLowConfidence(l.minBars) ? `Chỉ ${l.minBars} cây - cận dưới này KHÔNG đáng tin (số lượng quá nhỏ để so sánh)` : undefined}>
                             ≥ {l.minWastePct.toFixed(2)}%
-                            {isLowConfidence(l.minBars) && <span style={{ marginLeft: 3, fontWeight: 700, color: '#854d0e' }}>?</span>}
+                            {isLowConfidence(l.minBars) && <span style={{ marginLeft: 3, fontWeight: 700, color: 'var(--fg-854d0e)' }}>?</span>}
                           </span>
                           {l.meetsThreshold
-                            ? <span style={{ marginLeft: 5, color: '#166534' }}><Check size={12} /></span>
-                            : <span style={{ marginLeft: 5, fontSize: 11, fontWeight: 700, color: '#b91c1c' }}>vượt ngưỡng {l.thresholdPct}%</span>}
+                            ? <span style={{ marginLeft: 5, color: 'var(--fg-166534)' }}><Check size={12} /></span>
+                            : <span style={{ marginLeft: 5, fontSize: 11, fontWeight: 700, color: 'var(--fg-b91c1c)' }}>vượt ngưỡng {l.thresholdPct}%</span>}
                         </td>
                       </tr>
                     )
@@ -1003,7 +1003,7 @@ export default function GomDotCatPage({ onDone }: Props) {
               disabled={previewing || !preview || merging || overrideInvalid}
               style={{
                 padding: '8px 16px', border: 'none', borderRadius: 'var(--radius)', fontSize: 13,
-                fontWeight: 600, color: '#fff', background: '#2e7d32',
+                fontWeight: 600, color: '#fff', background: 'var(--bg-2e7d32)',
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
                 width: isMobile ? '100%' : undefined,
                 cursor: previewing || !preview || merging || overrideInvalid ? 'not-allowed' : 'pointer',

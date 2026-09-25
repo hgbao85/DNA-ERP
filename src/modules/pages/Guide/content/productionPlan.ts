@@ -7,8 +7,8 @@ export const productionPlanGroup: GuideGroup = {
   id: 'production-plan',
   title: 'Kế hoạch sản xuất',
   icon: 'LayoutDashboard',
-  color: '#0E7490',
-  bg: '#CFFAFE',
+  color: 'var(--fg-0e7490)',
+  bg: 'var(--bg-cffafe)',
   roles: ['khsx', 'qlsx', 'boss'],
   description: 'Tạo sản phẩm mới, duyệt định mức, gộp đợt cắt sắt, lập và trình duyệt lệnh sản xuất.',
   articles: [

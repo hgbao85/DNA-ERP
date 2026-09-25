@@ -91,8 +91,8 @@ export default function SpecAccessoryCatalogPage() {
             onClick={() => { setGroup(g); setCatalogSearch('') }}
             style={{
               padding: '9px 18px', border: 'none', background: 'none', cursor: 'pointer',
-              fontSize: 13, fontWeight: 600, color: group === g ? '#e65100' : 'var(--text3)',
-              borderBottom: group === g ? '2px solid #e65100' : '2px solid transparent',
+              fontSize: 13, fontWeight: 600, color: group === g ? 'var(--fg-e65100)' : 'var(--text3)',
+              borderBottom: group === g ? '2px solid var(--fg-e65100)' : '2px solid transparent',
               marginBottom: -1,
             }}
           >{GROUP_LABELS[g].tab}</button>
@@ -101,16 +101,16 @@ export default function SpecAccessoryCatalogPage() {
 
       {rejectedGroups.length > 0 && (
         <div style={{ marginBottom: 20 }}>
-          <div style={{ fontWeight: 700, fontSize: 13, color: '#c62828', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ background: '#ffebee', color: '#c62828', borderRadius: 20, padding: '2px 10px', fontSize: 12 }}>✕ Từ chối</span>
+          <div style={{ fontWeight: 700, fontSize: 13, color: 'var(--fg-c62828)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ background: 'var(--bg-ffebee)', color: 'var(--fg-c62828)', borderRadius: 20, padding: '2px 10px', fontSize: 12 }}>✕ Từ chối</span>
             <span style={{ color: 'var(--text3)', fontWeight: 400, fontSize: 12 }}>{rejectedGroups.length} SKU</span>
           </div>
-          <div style={{ background: 'var(--surface)', border: '1px solid #ffcdd2', borderLeft: '4px solid #c62828', borderRadius: 'var(--radius-lg)', overflowX: 'auto' }}>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--fg-ffcdd2)', borderLeft: '4px solid var(--fg-c62828)', borderRadius: 'var(--radius-lg)', overflowX: 'auto' }}>
             <table style={{ width: '100%', minWidth: 520, borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
-                <tr style={{ background: '#ffebee', borderBottom: '1px solid #ffcdd2' }}>
+                <tr style={{ background: 'var(--bg-ffebee)', borderBottom: '1px solid var(--fg-ffcdd2)' }}>
                   {['SKU', labels.maHeader, 'Số lượng', 'Lý do từ chối'].map((h, i) => (
-                    <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: '#b71c1c', fontSize: 11 }}>{h}</th>
+                    <th key={i} style={{ padding: '8px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--fg-b71c1c)', fontSize: 11 }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -120,7 +120,7 @@ export default function SpecAccessoryCatalogPage() {
                     <td style={{ padding: '10px 14px', fontWeight: 600, color: 'var(--text2)' }}>{g.ten}</td>
                     <td style={{ padding: '10px 14px', fontWeight: 500, color: 'var(--text)' }}>{it.name}</td>
                     <td style={{ padding: '10px 14px', color: 'var(--text)' }}>{qtyOf(it) ?? '—'}</td>
-                    <td style={{ padding: '10px 14px', color: '#c62828', fontSize: 13 }}>{g.reason || '—'}</td>
+                    <td style={{ padding: '10px 14px', color: 'var(--fg-c62828)', fontSize: 13 }}>{g.reason || '—'}</td>
                   </tr>
                 )))}
               </tbody>

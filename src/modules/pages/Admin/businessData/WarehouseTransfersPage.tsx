@@ -9,7 +9,7 @@ const fmtDate = (d: string) => new Date(d).toLocaleDateString('vi-VN')
 export default function WarehouseTransfersPage() {
   const config: AdminReadOnlyListConfig<WarehouseTransfer> = {
     title: 'Chuyển kho',
-    icon: <Truck size={16} color="#3949ab" />,
+    icon: <Truck size={16} color="var(--fg-3949ab)" />,
     searchFields: ['code', 'fromWarehouseName', 'toWarehouseName'],
     searchPlaceholder: 'Tìm theo mã phiếu hoặc kho...',
     emptyMessage: 'Chưa có phiếu chuyển kho nào',

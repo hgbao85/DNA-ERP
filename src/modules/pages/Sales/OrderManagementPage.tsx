@@ -136,7 +136,7 @@ export default function OrderManagementPage() {
   }
 
   if (isLoading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</div>
-  if (error) return <div style={{ padding: 40, color: '#E24B4A' }}>Lỗi: {error}</div>
+  if (error) return <div style={{ padding: 40, color: 'var(--fg-e24b4a)' }}>Lỗi: {error}</div>
 
   if (detailPO) {
     return (
@@ -177,8 +177,8 @@ export default function OrderManagementPage() {
                     onClick={(e) => toggleDeposit(e, po)}
                     style={{
                       flexShrink: 0, fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, cursor: 'pointer', border: 'none',
-                      background: po.depositConfirmed ? '#dcfce7' : '#fef3c7',
-                      color: po.depositConfirmed ? '#15803d' : '#b45309',
+                      background: po.depositConfirmed ? 'var(--bg-dcfce7)' : 'var(--bg-fef3c7)',
+                      color: po.depositConfirmed ? 'var(--fg-15803d)' : 'var(--fg-b45309)',
                     }}
                   >
                     {po.depositConfirmed ? 'Đã xác nhận cọc' : 'Chưa xác nhận'}
@@ -188,7 +188,7 @@ export default function OrderManagementPage() {
                   <span>{po.items.length} SKU · <b style={{ color: 'var(--text)' }}>{totalQty.toLocaleString()}</b></span>
                   <span>Hạn giao {po.deliveryDate ? format(new Date(po.deliveryDate), 'dd/MM/yyyy') : '—'}</span>
                   <span>
-                    <b style={{ color: '#15803d' }}>{doneCount}</b> xong · <b style={{ color: notDoneCount > 0 ? '#b45309' : 'var(--text3)' }}>{notDoneCount}</b> chưa xong
+                    <b style={{ color: 'var(--fg-15803d)' }}>{doneCount}</b> xong · <b style={{ color: notDoneCount > 0 ? 'var(--fg-b45309)' : 'var(--text3)' }}>{notDoneCount}</b> chưa xong
                   </span>
                 </div>
               </div>
@@ -227,10 +227,10 @@ export default function OrderManagementPage() {
                   <td style={{ padding: '10px 12px', fontWeight: 600, fontSize: 13 }}>{totalQty.toLocaleString()}</td>
                   <td style={{ padding: '10px 12px', fontSize: 12, whiteSpace: 'nowrap' }}>{po.deliveryDate ? format(new Date(po.deliveryDate), 'dd/MM/yyyy') : '—'}</td>
                   <td style={{ padding: '10px 12px', fontSize: 12, whiteSpace: 'nowrap' }}>
-                    <span style={{ fontWeight: 700, color: '#15803d' }}>{doneCount}</span>
+                    <span style={{ fontWeight: 700, color: 'var(--fg-15803d)' }}>{doneCount}</span>
                     <span style={{ color: 'var(--text3)' }}> xong</span>
                     <span style={{ color: 'var(--text3)' }}> · </span>
-                    <span style={{ fontWeight: 700, color: notDoneCount > 0 ? '#b45309' : 'var(--text3)' }}>{notDoneCount}</span>
+                    <span style={{ fontWeight: 700, color: notDoneCount > 0 ? 'var(--fg-b45309)' : 'var(--text3)' }}>{notDoneCount}</span>
                     <span style={{ color: 'var(--text3)' }}> chưa xong</span>
                   </td>
                   <td style={{ padding: '10px 12px' }}>
@@ -238,8 +238,8 @@ export default function OrderManagementPage() {
                       onClick={(e) => toggleDeposit(e, po)}
                       style={{
                         whiteSpace: 'nowrap', fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, cursor: 'pointer', border: 'none',
-                        background: po.depositConfirmed ? '#dcfce7' : '#fef3c7',
-                        color: po.depositConfirmed ? '#15803d' : '#b45309',
+                        background: po.depositConfirmed ? 'var(--bg-dcfce7)' : 'var(--bg-fef3c7)',
+                        color: po.depositConfirmed ? 'var(--fg-15803d)' : 'var(--fg-b45309)',
                       }}
                     >
                       {po.depositConfirmed ? 'Đã xác nhận cọc' : 'Chưa xác nhận'}
@@ -265,7 +265,7 @@ export default function OrderManagementPage() {
             </div>
 
             {formError && (
-              <div style={{ padding: '8px 12px', marginBottom: 16, borderRadius: 'var(--radius)', background: 'rgba(226,75,74,.1)', border: '1px solid #E24B4A', color: '#E24B4A', fontSize: 13 }}>
+              <div style={{ padding: '8px 12px', marginBottom: 16, borderRadius: 'var(--radius)', background: 'rgba(226,75,74,.1)', border: '1px solid var(--fg-e24b4a)', color: 'var(--fg-e24b4a)', fontSize: 13 }}>
                 {formError}
               </div>
             )}
@@ -379,7 +379,7 @@ export default function OrderManagementPage() {
                   <DatePicker value={it.deliveryDate} onChange={v => setItem(i, { deliveryDate: v })} title="Hạn giao" placeholder="Hạn giao" clearable />
                   <input type="number" value={it.totalQty} onChange={e => setItem(i, { totalQty: e.target.value })} placeholder="Tổng số" />
                   <button onClick={() => removeItem(i)} disabled={form.items.length === 1} style={{ padding: 4, background: 'transparent', border: 'none', cursor: form.items.length === 1 ? 'not-allowed' : 'pointer', opacity: form.items.length === 1 ? 0.3 : 1, display: 'flex' }}>
-                    <Trash2 size={13} color="#E24B4A" />
+                    <Trash2 size={13} color="var(--fg-e24b4a)" />
                   </button>
                 </div>
               ))}
@@ -451,9 +451,9 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
           title={po.deleteBlockedReason ?? undefined}
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', fontSize: 12, fontWeight: 500,
-            border: `1px solid ${po.deleteBlockedReason ? 'var(--border)' : '#E24B4A'}`, borderRadius: 6, background: 'var(--surface)',
+            border: `1px solid ${po.deleteBlockedReason ? 'var(--border)' : 'var(--fg-e24b4a)'}`, borderRadius: 6, background: 'var(--surface)',
             cursor: po.deleteBlockedReason ? 'not-allowed' : 'pointer',
-            color: po.deleteBlockedReason ? 'var(--text3)' : '#E24B4A',
+            color: po.deleteBlockedReason ? 'var(--text3)' : 'var(--fg-e24b4a)',
             opacity: po.deleteBlockedReason ? 0.6 : 1,
           }}
         >
@@ -534,7 +534,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
 
           <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', gap: isMobile ? 6 : 10, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
             <StatTile label="Đã thanh toán (trừ cọc)" value={`${fmtMoney(paidExcludingDeposit)}đ`} />
-            <StatTile label="Số tiền còn lại" value={`${fmtMoney(remainingAmount)}đ`} color={remainingAmount > 0 ? '#A32D2D' : '#3B6D11'} />
+            <StatTile label="Số tiền còn lại" value={`${fmtMoney(remainingAmount)}đ`} color={remainingAmount > 0 ? 'var(--fg-a32d2d)' : 'var(--fg-3b6d11)'} />
           </div>
         </div>
       )}
@@ -568,15 +568,15 @@ function ProductionStepper({ status, vertical = false }: { status: SalesOrderSta
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{
                   width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: isDone ? '#15803d' : isActive ? '#1565c0' : 'var(--surface2)',
+                  background: isDone ? 'var(--bg-15803d)' : isActive ? 'var(--bg-1565c0)' : 'var(--surface2)',
                   color: isDone || isActive ? '#fff' : 'var(--text3)',
                   fontSize: 11, fontWeight: 700, flexShrink: 0,
                 }}>
                   {isDone ? <Check size={12} /> : i + 1}
                 </div>
-                {!isLast && <div style={{ width: 2, flex: 1, minHeight: 12, background: isDone ? '#15803d' : 'var(--border)' }} />}
+                {!isLast && <div style={{ width: 2, flex: 1, minHeight: 12, background: isDone ? 'var(--bg-15803d)' : 'var(--border)' }} />}
               </div>
-              <div style={{ fontSize: 12, lineHeight: '22px', paddingBottom: isLast ? 0 : 8, color: isActive ? '#1565c0' : isDone ? '#15803d' : 'var(--text3)', fontWeight: isActive ? 700 : 500 }}>
+              <div style={{ fontSize: 12, lineHeight: '22px', paddingBottom: isLast ? 0 : 8, color: isActive ? 'var(--fg-1565c0)' : isDone ? 'var(--fg-15803d)' : 'var(--text3)', fontWeight: isActive ? 700 : 500 }}>
                 {SALES_ORDER_STATUS_LABEL[stage]}
               </div>
             </div>
@@ -596,18 +596,18 @@ function ProductionStepper({ status, vertical = false }: { status: SalesOrderSta
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5, minWidth: 66 }}>
               <div style={{
                 width: 22, height: 22, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                background: isDone ? '#15803d' : isActive ? '#1565c0' : 'var(--surface2)',
+                background: isDone ? 'var(--bg-15803d)' : isActive ? 'var(--bg-1565c0)' : 'var(--surface2)',
                 color: isDone || isActive ? '#fff' : 'var(--text3)',
                 fontSize: 11, fontWeight: 700, flexShrink: 0,
               }}>
                 {isDone ? <Check size={12} /> : i + 1}
               </div>
-              <div style={{ fontSize: 10, color: isActive ? '#1565c0' : isDone ? '#15803d' : 'var(--text3)', fontWeight: isActive ? 700 : 500, textAlign: 'center' }}>
+              <div style={{ fontSize: 10, color: isActive ? 'var(--fg-1565c0)' : isDone ? 'var(--fg-15803d)' : 'var(--text3)', fontWeight: isActive ? 700 : 500, textAlign: 'center' }}>
                 {SALES_ORDER_STATUS_LABEL[stage]}
               </div>
             </div>
             {!isLast && (
-              <div style={{ flex: 1, height: 2, background: isDone ? '#15803d' : 'var(--border)', marginTop: 10 }} />
+              <div style={{ flex: 1, height: 2, background: isDone ? 'var(--bg-15803d)' : 'var(--border)', marginTop: 10 }} />
             )}
           </div>
         )

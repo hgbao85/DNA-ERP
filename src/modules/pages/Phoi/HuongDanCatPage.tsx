@@ -29,7 +29,7 @@ import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import PrintExportButton from '../../../components/PrintExportButton'
 
-const ACCENT = '#e65100'
+const ACCENT = 'var(--fg-e65100)'
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
 const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13, verticalAlign: 'middle' }
@@ -178,7 +178,7 @@ function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProp
           {/* Cỡ đặt riêng (auto_scan mở lại 2026-08-26) - PHẢI nổi bật, không để thợ/Mua hàng
               tưởng nhầm đây là cây chuẩn 6000mm vẫn hay đặt. */}
           {line.lengthSource === 'scan' && (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, padding: '3px 9px', borderRadius: 6, background: '#fff3e0', color: '#e65100', fontSize: 11, fontWeight: 700 }}>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 6, padding: '3px 9px', borderRadius: 6, background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)', fontSize: 11, fontWeight: 700 }}>
               ⚠ Cỡ đặt riêng {line.bestStockLengthMm}mm — không phải cây chuẩn
             </div>
           )}

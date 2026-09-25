@@ -16,7 +16,7 @@ export default function SuppliersPage() {
 
   const config: AdminEntityConfig<Supplier> = {
     title: 'Nhà cung cấp',
-    icon: <Truck size={18} color="#3949ab" />,
+    icon: <Truck size={18} color="var(--fg-3949ab)" />,
     searchFields: ['name', 'phone'],
     searchPlaceholder: 'Tìm theo tên hoặc SĐT...',
     emptyMessage: 'Chưa có nhà cung cấp nào',

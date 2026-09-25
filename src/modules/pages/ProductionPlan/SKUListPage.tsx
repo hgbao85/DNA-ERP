@@ -92,7 +92,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
               <>
                 <button
                   onClick={() => setDeleteMode(true)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid #fca5a5', background: '#fff5f5', color: '#dc2626', cursor: 'pointer' }}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid var(--fg-fca5a5)', background: 'var(--bg-fff5f5)', color: 'var(--fg-dc2626)', cursor: 'pointer' }}
                 >
                   <Trash2 size={14} /> Xóa SKU
                 </button>
@@ -102,7 +102,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
                 {selectedIds.size > 0 && (
                   <button
                     onClick={() => setShowConfirm(true)}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: 'var(--bg-dc2626)', color: '#fff', cursor: 'pointer' }}
                   >
                     <Trash2 size={14} /> Xóa {selectedIds.size} mục
                   </button>
@@ -181,8 +181,8 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
                   <Fragment key={pf.id}>
                     <tr
                       onClick={() => deleteMode ? toggleSelect(pf.id) : setSelectedPf(pf)}
-                      style={{ borderTop: '1px solid var(--border)', cursor: 'pointer', background: isChecked ? '#fef2f2' : undefined }}
-                      onMouseEnter={e => { if (!isChecked) e.currentTarget.style.background = deleteMode ? '#fff5f5' : '#f0fdf4' }}
+                      style={{ borderTop: '1px solid var(--border)', cursor: 'pointer', background: isChecked ? 'var(--bg-fef2f2)' : undefined }}
+                      onMouseEnter={e => { if (!isChecked) e.currentTarget.style.background = deleteMode ? 'var(--bg-fff5f5)' : 'var(--bg-f0fdf4)' }}
                       onMouseLeave={e => { if (!isChecked) e.currentTarget.style.background = '' }}
                     >
                       <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)' }}>{pf.id}</td>
@@ -235,18 +235,18 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
         >
           <div style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 440, padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,.18)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-              <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#fee2e2', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <Trash2 size={18} color="#dc2626" />
+              <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--bg-fee2e2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <Trash2 size={18} color="var(--fg-dc2626)" />
               </div>
               <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Xác nhận xóa {selectedIds.size} SKU</h3>
             </div>
             <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text2)' }}>
               Hành động này không thể hoàn tác. Các SKU sau sẽ bị xóa vĩnh viễn:
             </p>
-            <div style={{ border: '1px solid #fca5a5', borderRadius: 8, overflow: 'hidden', marginBottom: 20, maxHeight: 200, overflowY: 'auto' }}>
+            <div style={{ border: '1px solid var(--fg-fca5a5)', borderRadius: 8, overflow: 'hidden', marginBottom: 20, maxHeight: 200, overflowY: 'auto' }}>
               {allItems.filter(pf => selectedIds.has(pf.id)).map((pf, i) => (
-                <div key={pf.id} style={{ padding: '9px 14px', fontSize: 13, borderTop: i > 0 ? '1px solid #fca5a5' : undefined, background: i % 2 === 0 ? '#fff5f5' : '#fff' }}>
-                  <span style={{ fontWeight: 700, color: '#dc2626', fontFamily: 'monospace' }}>{pf.mfgProduct?.factoryCode}</span>
+                <div key={pf.id} style={{ padding: '9px 14px', fontSize: 13, borderTop: i > 0 ? '1px solid var(--fg-fca5a5)' : undefined, background: i % 2 === 0 ? 'var(--bg-fff5f5)' : 'var(--surface)' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--fg-dc2626)', fontFamily: 'monospace' }}>{pf.mfgProduct?.factoryCode}</span>
                   {pf.mfgProduct?.name && pf.mfgProduct.name !== pf.mfgProduct.factoryCode && (
                     <>
                       <span style={{ color: 'var(--text3)', margin: '0 6px' }}>—</span>
@@ -263,7 +263,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
               </button>
               <button
                 onClick={handleDelete} disabled={deleting}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: '#dc2626', color: '#fff', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.7 : 1 }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: 'var(--bg-dc2626)', color: '#fff', cursor: deleting ? 'not-allowed' : 'pointer', opacity: deleting ? 0.7 : 1 }}
               >
                 <Trash2 size={14} /> {deleting ? 'Đang xóa...' : 'Xóa'}
               </button>

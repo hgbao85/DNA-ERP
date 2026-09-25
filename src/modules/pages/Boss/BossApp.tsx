@@ -9,10 +9,11 @@ import VatTuDashboardPage from '../ProductionPlan/VatTuDashboardPage'
 import ThongKePagePlan from '../Manufacturing/ThongKePagePlan'
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
+import ThemeToggle from '../../../components/ThemeToggle'
 
 
-const ACCENT    = '#2e7d32'
-const ACCENT_BG = '#e8f5e9'
+const ACCENT    = 'var(--fg-2e7d32)'
+const ACCENT_BG = 'var(--bg-e8f5e9)'
 
 type Page           = 'cho-duyet' | 'thong-ke' | 'sku-list' | 'vat-tu' | 'kho'
 type ChoDuyetFilter = 'sku-moi' | 'lenh-sx'
@@ -130,6 +131,7 @@ export default function BossApp() {
               <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
               <div style={{ fontSize: 10, color: 'var(--text3)' }}>Giám đốc</div>
             </div>
+            <ThemeToggle />
             <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất">
               <LogOut size={16} color="var(--text3)" />
             </button>

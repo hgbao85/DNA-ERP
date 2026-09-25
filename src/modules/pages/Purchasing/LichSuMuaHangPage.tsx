@@ -106,7 +106,7 @@ export default function LichSuMuaHangPage() {
                   spec={r.spec}
                   stockLengthMm={r.stockLengthMm}
                   fields={[
-                    { label: 'Đã mua', value: <><b style={{ color: '#166534' }}>{r.buyQty}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{r.unit}</span></> },
+                    { label: 'Đã mua', value: <><b style={{ color: 'var(--fg-166534)' }}>{r.buyQty}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{r.unit}</span></> },
                     { label: 'Hàng về kho', value: warehouseName(r.warehouseCode, r.khoLabel) },
                   ]}
                   footer={<ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} />}
@@ -134,10 +134,10 @@ export default function LichSuMuaHangPage() {
                   <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text3)' }}>{r.poNumber ?? '—'}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{r.itemName}</td>
                   <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{r.spec || '—'}</td>
-                  <td style={{ ...td, textAlign: 'right', fontSize: 12, fontWeight: r.stockLengthMm != null ? 700 : 400, color: r.stockLengthMm != null ? '#e65100' : 'var(--text3)' }}>
+                  <td style={{ ...td, textAlign: 'right', fontSize: 12, fontWeight: r.stockLengthMm != null ? 700 : 400, color: r.stockLengthMm != null ? 'var(--fg-e65100)' : 'var(--text3)' }}>
                     {r.stockLengthMm != null ? `${r.stockLengthMm}mm` : '—'}
                   </td>
-                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: '#166534' }}>{r.buyQty}</td>
+                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: 'var(--fg-166534)' }}>{r.buyQty}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>{r.unit}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{warehouseName(r.warehouseCode, r.khoLabel)}</td>
                   {/* Giá + NCC nằm TRONG file này (2026-08-27) - phần mềm không lưu tách ra. */}
@@ -150,7 +150,7 @@ export default function LichSuMuaHangPage() {
           </table>
           </div>
           )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderTop: '1px solid #86efac', background: '#dcfce7', fontSize: 13, color: '#166534' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', borderTop: '1px solid var(--fg-86efac)', background: 'var(--bg-dcfce7)', fontSize: 13, color: 'var(--fg-166534)' }}>
             Đã nhận đủ hàng lúc {selected.purchasedAt ? format(new Date(selected.purchasedAt), 'HH:mm dd/MM/yyyy') : '—'}
           </div>
         </div>
@@ -173,9 +173,9 @@ export default function LichSuMuaHangPage() {
       ) : (
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-            <History size={16} color="#166534" />
-            <span style={{ fontSize: 14, fontWeight: 700, color: '#166534' }}>Đã mua</span>
-            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: '#dcfce7', color: '#166534', border: '1px solid #86efac' }}>
+            <History size={16} color="var(--fg-166534)" />
+            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--fg-166534)' }}>Đã mua</span>
+            <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'var(--bg-dcfce7)', color: 'var(--fg-166534)', border: '1px solid var(--fg-86efac)' }}>
               {proposals.length}
             </span>
           </div>

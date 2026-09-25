@@ -21,7 +21,7 @@ import LoadingState from '../../../components/LoadingState'
 import MobileListCards from '../../../components/MobileListCards'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 
-const ACCENT = '#e65100'
+const ACCENT = 'var(--fg-e65100)'
 
 export type DinhMucStage = 'PHOI' | 'HAN' | 'SON'
 
@@ -126,7 +126,7 @@ export default function PhoiDinhMucManhPage({ stage = 'PHOI' }: { stage?: DinhMu
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 'var(--radius)', background: '#fff3e0', color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 34, height: 34, borderRadius: 'var(--radius)', background: 'var(--bg-fff3e0)', color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Layers size={18} />
         </div>
         <div>

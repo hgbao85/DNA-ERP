@@ -23,7 +23,7 @@ const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('vi-VN') : '�
 export default function ProductionInvoicesPage() {
   const config: AdminReadOnlyListConfig<ProductionInvoice> = {
     title: 'Lệnh sản xuất (PI)',
-    icon: <Factory size={16} color="#3949ab" />,
+    icon: <Factory size={16} color="var(--fg-3949ab)" />,
     searchFields: ['code'],
     searchPlaceholder: 'Tìm theo mã PI...',
     emptyMessage: 'Chưa có lệnh sản xuất nào',

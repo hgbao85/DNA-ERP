@@ -67,7 +67,7 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
         {p.icon && (
-          <div style={{ width: 34, height: 34, borderRadius: 'var(--radius)', background: '#fff3e0', color: '#e65100', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 34, height: 34, borderRadius: 'var(--radius)', background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             {p.icon}
           </div>
         )}
@@ -100,7 +100,7 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
                   cursor: canClick ? 'pointer' : tone === 'muted' ? 'not-allowed' : 'default',
                   opacity: tone === 'muted' ? 0.55 : 1,
                   background: tone === 'alert' ? toneBg.alert : undefined,
-                  borderColor: tone === 'alert' ? '#f0c1c1' : undefined,
+                  borderColor: tone === 'alert' ? 'var(--fg-f0c1c1)' : undefined,
                 }}
               >
                 {firstCol && <div style={{ fontSize: 13, fontWeight: 600, wordBreak: 'break-word' }}>{firstCol.cell(row)}</div>}

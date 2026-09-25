@@ -39,7 +39,7 @@ function CodePrefixField({ values, setField }: { value: unknown; values: Partial
   return (
     <div>
       <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
-        Tiền tố mã vật tư<span style={{ color: '#c62828' }}> *</span>
+        Tiền tố mã vật tư<span style={{ color: 'var(--fg-c62828)' }}> *</span>
       </label>
       <input
         value={values.codePrefix ?? ''}
@@ -59,7 +59,7 @@ export default function MaterialGroupsPage() {
 
   const config: AdminEntityConfig<MaterialGroup> = {
     title: 'Nhóm vật tư',
-    icon: <Layers size={18} color="#3949ab" />,
+    icon: <Layers size={18} color="var(--fg-3949ab)" />,
     searchFields: ['name'],
     searchPlaceholder: 'Tìm theo tên nhóm...',
     emptyMessage: 'Chưa có nhóm vật tư nào',

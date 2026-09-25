@@ -196,15 +196,15 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderTop: '1px solid var(--border)' }}>
                   <StatCell label="Cần" value={piece.totalQty} />
                   <StatCell label="Đã xuất" value={piece.issuedQty} bordered />
-                  <StatCell label="Còn phải xuất" value={piece.remainingToIssue} color={piece.remainingToIssue > 0 ? '#b45309' : '#15803d'} bordered />
-                  <StatCell label="Có thể xuất" value={piece.canIssueQty} color={piece.canIssueQty > 0 ? '#15803d' : '#dc2626'} bordered />
+                  <StatCell label="Còn phải xuất" value={piece.remainingToIssue} color={piece.remainingToIssue > 0 ? 'var(--fg-b45309)' : 'var(--fg-15803d)'} bordered />
+                  <StatCell label="Có thể xuất" value={piece.canIssueQty} color={piece.canIssueQty > 0 ? 'var(--fg-15803d)' : 'var(--fg-dc2626)'} bordered />
                 </div>
 
                 {/* Khu vực thao tác - form có nhãn rõ ràng thay vì nhồi 1 hàng ngang, hoặc thông báo trạng thái khi không thao tác được */}
                 {!readOnly && (
                   <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
                     {statusMsg ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: statusMsg.tone === 'ok' ? 'var(--text3)' : '#dc2626' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: statusMsg.tone === 'ok' ? 'var(--text3)' : 'var(--fg-dc2626)' }}>
                         {statusMsg.text}
                         {statusMsg.tone === 'blocked' && (
                           <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text3)' }} title="Kho vật tư-TP chưa nhận đủ mảnh từ Phân phối nội bộ (phôi-sơn-hàn) để xuất đan tiếp">
@@ -240,12 +240,12 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
                             onClick={() => handleXuat(piece)}
                             disabled={busy === piece.pieceId || !allMaterialsFilled(piece)}
                             title={!allMaterialsFilled(piece) ? 'Nhập đủ số lượng cho mọi vật tư đi kèm trước khi xuất' : undefined}
-                            style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 6, background: busy === piece.pieceId || !allMaterialsFilled(piece) ? 'var(--border)' : '#d97706', color: busy === piece.pieceId || !allMaterialsFilled(piece) ? 'var(--text3)' : '#fff', cursor: busy === piece.pieceId || !allMaterialsFilled(piece) ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                            style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 6, background: busy === piece.pieceId || !allMaterialsFilled(piece) ? 'var(--border)' : 'var(--bg-d97706)', color: busy === piece.pieceId || !allMaterialsFilled(piece) ? 'var(--text3)' : '#fff', cursor: busy === piece.pieceId || !allMaterialsFilled(piece) ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
                           >
                             {busy === piece.pieceId ? 'Đang xuất…' : 'Xuất đan'}
                           </button>
                         </div>
-                        {msgs[piece.pieceId] && <div style={{ marginTop: 8, fontSize: 12, color: '#dc2626' }}>{msgs[piece.pieceId]}</div>}
+                        {msgs[piece.pieceId] && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--fg-dc2626)' }}>{msgs[piece.pieceId]}</div>}
                       </div>
                     )}
                   </div>
@@ -408,7 +408,7 @@ function StatCell({ label, value, color, bordered }: {
 /** Màu nhãn nhóm vật tư - cùng quy ước GROUP_BADGE_COLORS ở SpecSteelPage.tsx (Dây/Đinh/Nút nhựa
  *  giữ đúng màu đã dùng ở màn Định mức mảnh, chỉ áp cho cái nhãn nhỏ, không loang ra cả dòng). */
 const GROUP_BADGE: Record<'Dây' | 'Đinh' | 'Nút nhựa', { background: string; color: string }> = {
-  'Dây': { background: '#fff3e0', color: '#e65100' },
-  'Đinh': { background: '#f3e5f5', color: '#7b1fa2' },
-  'Nút nhựa': { background: '#fce4ec', color: '#ad1457' },
+  'Dây': { background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)' },
+  'Đinh': { background: 'var(--bg-f3e5f5)', color: 'var(--fg-7b1fa2)' },
+  'Nút nhựa': { background: 'var(--bg-fce4ec)', color: 'var(--fg-ad1457)' },
 }

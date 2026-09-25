@@ -11,8 +11,8 @@ export const manufacturingGroup: GuideGroup = {
   id: 'manufacturing',
   title: 'Sản xuất (Phôi · Hàn · Sơn · KCS)',
   icon: 'Factory',
-  color: '#C2410C',
-  bg: '#FFEDD5',
+  color: 'var(--fg-c2410c)',
+  bg: 'var(--bg-ffedd5)',
   roles: ['qlsx', 'phoi', 'han', 'son', 'kcs', 'spec_steel', 'spec_detail'],
   description: 'Điều hành xưởng: bấm Bắt đầu/Kết thúc lệnh, cắt sắt, hàn, sơn, kiểm tra chất lượng, nhập định mức.',
   articles: [

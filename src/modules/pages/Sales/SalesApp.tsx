@@ -5,6 +5,7 @@ import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import OrderManagementPage from './OrderManagementPage'
 import CustomerManagementPage from './CustomerManagementPage'
 import PurchaseHistoryPage from './PurchaseHistoryPage'
+import ThemeToggle from '../../../components/ThemeToggle'
 
 interface Props { onBack?: () => void }
 
@@ -51,8 +52,8 @@ export default function SalesApp({ onBack }: Props) {
           return (
             <button key={t.id} onClick={() => selectTab(t.id)} style={{
               display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: isCompact ? '11px 10px' : '8px 10px', marginBottom: 2,
-              border: 'none', borderRadius: 'var(--radius)', background: active ? '#e8f5e9' : 'transparent',
-              color: active ? '#2e7d32' : 'var(--text2)', fontWeight: active ? 600 : 400, fontSize: 13, textAlign: 'left', cursor: 'pointer',
+              border: 'none', borderRadius: 'var(--radius)', background: active ? 'var(--bg-e8f5e9)' : 'transparent',
+              color: active ? 'var(--fg-2e7d32)' : 'var(--text2)', fontWeight: active ? 600 : 400, fontSize: 13, textAlign: 'left', cursor: 'pointer',
             }}
               onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
               onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
@@ -63,13 +64,14 @@ export default function SalesApp({ onBack }: Props) {
 
       <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#e8f5e9', color: '#2e7d32', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--bg-e8f5e9)', color: 'var(--fg-2e7d32)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
             {user?.name.split(' ').pop()?.substring(0, 2).toUpperCase()}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
             <div style={{ fontSize: 10, color: 'var(--text3)' }}>Bán hàng</div>
           </div>
+          <ThemeToggle />
           <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất"><LogOut size={16} color="var(--text3)" /></button>
         </div>
       </div>

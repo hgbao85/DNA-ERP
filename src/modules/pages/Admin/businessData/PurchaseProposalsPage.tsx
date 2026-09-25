@@ -10,7 +10,7 @@ export default function PurchaseProposalsPage() {
 
   const config: AdminReadOnlyListConfig<PurchaseProposal> = {
     title: 'Đề xuất mua hàng',
-    icon: <FileText size={16} color="#3949ab" />,
+    icon: <FileText size={16} color="var(--fg-3949ab)" />,
     searchFields: ['salesOrderCode', 'skuCode', 'skuName'],
     searchPlaceholder: 'Tìm theo mã PO hoặc SKU...',
     emptyMessage: 'Chưa có đề xuất mua hàng nào',

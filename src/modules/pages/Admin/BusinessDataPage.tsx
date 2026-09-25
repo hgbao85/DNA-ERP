@@ -9,7 +9,7 @@ import ProductionInvoicesPage from './businessData/ProductionInvoicesPage'
 import WarehouseTransfersPage from './businessData/WarehouseTransfersPage'
 import CuttingProposalsPage from './businessData/CuttingProposalsPage'
 
-const ACCENT = '#3949ab'
+const ACCENT = 'var(--fg-3949ab)'
 
 type Tab = 'sales-po' | 'purchase-proposals' | 'sku' | 'production-invoices' | 'warehouse-transfers' | 'cutting-proposals'
 

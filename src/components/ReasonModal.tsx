@@ -30,7 +30,7 @@ export default function ReasonModal({
   onCancel,
   onConfirm,
   confirmLabel = 'Xác nhận từ chối',
-  confirmColor = '#c62828',
+  confirmColor = 'var(--fg-c62828)',
   busy = false,
   confirmDisabled = false,
 }: ReasonModalProps) {

@@ -9,13 +9,13 @@ export default function LoadErrorState({ error, onRetry }: { error: string; onRe
     <div style={{
       display: 'flex', alignItems: 'center', gap: 8,
       background: 'rgba(198, 40, 40, 0.08)', border: '1px solid rgba(198, 40, 40, 0.3)',
-      borderRadius: 8, padding: '10px 14px', color: '#c62828', fontSize: 13, fontWeight: 500,
+      borderRadius: 8, padding: '10px 14px', color: 'var(--fg-c62828)', fontSize: 13, fontWeight: 500,
     }}>
       <AlertTriangle size={16} style={{ flexShrink: 0 }} />
       <span style={{ flex: 1 }}>Không tải được dữ liệu: {error}</span>
       <button
         onClick={onRetry}
-        style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, color: '#c62828', background: 'transparent', border: '1px solid rgba(198, 40, 40, 0.4)', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}
+        style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, color: 'var(--fg-c62828)', background: 'transparent', border: '1px solid rgba(198, 40, 40, 0.4)', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}
       >
         Thử lại
       </button>

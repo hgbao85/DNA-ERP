@@ -117,21 +117,21 @@ export interface GuideGroup {
 }
 
 export const GUIDE_ROLES: GuideRoleInfo[] = [
-  { id: 'sales',       label: 'Kinh doanh (Sales)',                 short: 'Sales',    color: '#2E7D32', bg: '#E8F5E9' },
-  { id: 'khsx',        label: 'Kế hoạch sản xuất (KHSX)',           short: 'KHSX',     color: '#2E7D32', bg: '#E8F5E9' },
-  { id: 'purchasing',  label: 'Mua hàng',                           short: 'Mua hàng', color: '#4527A0', bg: '#EDE7F6' },
-  { id: 'warehouse',   label: 'Thủ kho',                            short: 'Thủ kho',  color: '#4527A0', bg: '#EDE7F6' },
-  { id: 'qlsx',        label: 'Quản lý sản xuất (QLSX)',            short: 'QLSX',     color: '#E65100', bg: '#FFF3E0' },
-  { id: 'phoi',        label: 'Tổ Phôi (cắt sắt)',                  short: 'Phôi',     color: '#E65100', bg: '#FFF3E0' },
-  { id: 'han',         label: 'Tổ Hàn',                             short: 'Hàn',      color: '#E65100', bg: '#FFF3E0' },
-  { id: 'son',         label: 'Tổ Sơn',                             short: 'Sơn',      color: '#E65100', bg: '#FFF3E0' },
-  { id: 'kcs',         label: 'KCS (Kiểm tra chất lượng)',          short: 'KCS',      color: '#E65100', bg: '#FFF3E0' },
-  { id: 'spec_steel',  label: 'Chuyên viên định mức mảnh',          short: 'CV mảnh',  color: '#E65100', bg: '#FFF3E0' },
-  { id: 'spec_detail', label: 'Chuyên viên định mức chi tiết',      short: 'CV CT',    color: '#E65100', bg: '#FFF3E0' },
-  { id: 'boss',        label: 'Giám đốc (Sếp)',                     short: 'Sếp',      color: '#1565C0', bg: '#E3F2FD' },
-  { id: 'admin',       label: 'Quản trị hệ thống (Admin)',          short: 'Admin',    color: '#283593', bg: '#E8EAF6' },
+  { id: 'sales',       label: 'Kinh doanh (Sales)',                 short: 'Sales',    color: 'var(--fg-2e7d32)', bg: 'var(--bg-e8f5e9)' },
+  { id: 'khsx',        label: 'Kế hoạch sản xuất (KHSX)',           short: 'KHSX',     color: 'var(--fg-2e7d32)', bg: 'var(--bg-e8f5e9)' },
+  { id: 'purchasing',  label: 'Mua hàng',                           short: 'Mua hàng', color: 'var(--fg-4527a0)', bg: 'var(--bg-ede7f6)' },
+  { id: 'warehouse',   label: 'Thủ kho',                            short: 'Thủ kho',  color: 'var(--fg-4527a0)', bg: 'var(--bg-ede7f6)' },
+  { id: 'qlsx',        label: 'Quản lý sản xuất (QLSX)',            short: 'QLSX',     color: 'var(--fg-e65100)', bg: 'var(--bg-fff3e0)' },
+  { id: 'phoi',        label: 'Tổ Phôi (cắt sắt)',                  short: 'Phôi',     color: 'var(--fg-e65100)', bg: 'var(--bg-fff3e0)' },
+  { id: 'han',         label: 'Tổ Hàn',                             short: 'Hàn',      color: 'var(--fg-e65100)', bg: 'var(--bg-fff3e0)' },
+  { id: 'son',         label: 'Tổ Sơn',                             short: 'Sơn',      color: 'var(--fg-e65100)', bg: 'var(--bg-fff3e0)' },
+  { id: 'kcs',         label: 'KCS (Kiểm tra chất lượng)',          short: 'KCS',      color: 'var(--fg-e65100)', bg: 'var(--bg-fff3e0)' },
+  { id: 'spec_steel',  label: 'Chuyên viên định mức mảnh',          short: 'CV mảnh',  color: 'var(--fg-e65100)', bg: 'var(--bg-fff3e0)' },
+  { id: 'spec_detail', label: 'Chuyên viên định mức chi tiết',      short: 'CV CT',    color: 'var(--fg-e65100)', bg: 'var(--bg-fff3e0)' },
+  { id: 'boss',        label: 'Giám đốc (Sếp)',                     short: 'Sếp',      color: 'var(--fg-1565c0)', bg: 'var(--bg-e3f2fd)' },
+  { id: 'admin',       label: 'Quản trị hệ thống (Admin)',          short: 'Admin',    color: 'var(--fg-283593)', bg: 'var(--bg-e8eaf6)' },
 ];
 
 export function roleInfo(id: GuideRole): GuideRoleInfo {
-  return GUIDE_ROLES.find(r => r.id === id) ?? { id, label: id, short: id, color: '#5a5a56', bg: '#f0efeb' };
+  return GUIDE_ROLES.find(r => r.id === id) ?? { id, label: id, short: id, color: 'var(--fg-5a5a56)', bg: 'var(--surface2)' };
 }

@@ -15,13 +15,13 @@ const UNGROUPED = '__ungrouped__'
 // Nhóm vật tư là danh mục ĐỘNG do Admin tự tạo (Admin > Danh mục > Nhóm vật tư) — không map cứng
 // theo tên như bản cũ (CAT_META cố định 1 bộ category), nên tô màu badge tuần hoàn theo key.
 const GROUP_PALETTE = [
-  { color: '#b45309', bg: '#fef3c7' },
-  { color: '#0369a1', bg: '#e0f2fe' },
-  { color: '#0e7490', bg: '#cffafe' },
-  { color: '#7c3aed', bg: '#ede9fe' },
-  { color: '#be185d', bg: '#fce7f3' },
-  { color: '#166534', bg: '#dcfce7' },
-  { color: '#1e40af', bg: '#dbeafe' },
+  { color: 'var(--fg-b45309)', bg: 'var(--bg-fef3c7)' },
+  { color: 'var(--fg-0369a1)', bg: 'var(--bg-e0f2fe)' },
+  { color: 'var(--fg-0e7490)', bg: 'var(--bg-cffafe)' },
+  { color: 'var(--fg-7c3aed)', bg: 'var(--bg-ede9fe)' },
+  { color: 'var(--fg-be185d)', bg: 'var(--bg-fce7f3)' },
+  { color: 'var(--fg-166534)', bg: 'var(--bg-dcfce7)' },
+  { color: 'var(--fg-1e40af)', bg: 'var(--bg-dbeafe)' },
 ]
 function colorFor(key: string) {
   let hash = 0
@@ -284,7 +284,7 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
                 <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 13, flexWrap: 'wrap' }}>
                   {!warehouseCode && <span style={{ color: 'var(--text2)', flex: '1 1 auto', minWidth: 0 }}>{m.warehouseName ?? '—'}</span>}
                   <span style={{ marginLeft: 'auto' }}><span style={{ color: 'var(--text3)', fontSize: 11 }}>Tồn </span><b>{row.qty != null ? row.qty.toLocaleString('vi-VN') : '—'}</b></span>
-                  <span><span style={{ color: 'var(--text3)', fontSize: 11 }}>Khả dụng </span><b style={{ color: row.availableQty != null && row.availableQty <= 0 ? '#c62828' : '#2563eb' }}>{row.availableQty != null ? row.availableQty.toLocaleString('vi-VN') : '—'}</b></span>
+                  <span><span style={{ color: 'var(--text3)', fontSize: 11 }}>Khả dụng </span><b style={{ color: row.availableQty != null && row.availableQty <= 0 ? 'var(--fg-c62828)' : 'var(--fg-2563eb)' }}>{row.availableQty != null ? row.availableQty.toLocaleString('vi-VN') : '—'}</b></span>
                 </div>
               </div>
             )
@@ -349,7 +349,7 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
                       </td>
                     )}
                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{row.qty != null ? row.qty.toLocaleString('vi-VN') : '—'}</td>
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: row.availableQty != null && row.availableQty <= 0 ? '#c62828' : '#2563eb' }}>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: row.availableQty != null && row.availableQty <= 0 ? 'var(--fg-c62828)' : 'var(--fg-2563eb)' }}>
                       {row.availableQty != null ? row.availableQty.toLocaleString('vi-VN') : '—'}
                     </td>
                   </tr>
@@ -422,8 +422,8 @@ function tabStyle(active: boolean, meta: { color: string; bg: string } | null): 
     padding: '6px 14px', fontSize: 12, fontWeight: active ? 700 : 500,
     borderRadius: 20, border: active ? 'none' : '1px solid var(--border)',
     cursor: 'pointer',
-    background: active ? (meta?.bg ?? '#f1f5f9') : 'var(--surface)',
-    color: active ? (meta?.color ?? '#334155') : 'var(--text2)',
+    background: active ? (meta?.bg ?? 'var(--bg-f1f5f9)') : 'var(--surface)',
+    color: active ? (meta?.color ?? 'var(--fg-334155)') : 'var(--text2)',
   }
 }
 

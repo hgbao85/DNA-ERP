@@ -75,7 +75,7 @@ function SubTabBtn({ active, onClick, icon, children }: { active: boolean; onCli
     <button onClick={onClick} style={{
       display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', fontSize: 13, fontWeight: 600,
       border: 'none', borderRadius: 8, cursor: 'pointer',
-      background: active ? '#fff3e0' : 'var(--surface2)', color: active ? '#e65100' : 'var(--text2)',
+      background: active ? 'var(--bg-fff3e0)' : 'var(--surface2)', color: active ? 'var(--fg-e65100)' : 'var(--text2)',
     }}>
       {icon}{children}
     </button>
@@ -140,11 +140,11 @@ function XacNhanTab({ lines, yieldIssues, reviews, readOnly, refetch }: {
     <div>
       <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
         Xác nhận <b>đã nhận</b> đợt kho vừa xuất (Sắt, Sắt La, Thanh nhôm). Báo sản lượng/công đoạn làm ở <b>Lệnh sản xuất</b>.
-        {(choNhan + choNhanYield) > 0 && <> · <b style={{ color: '#e65100' }}>{choNhan + choNhanYield}</b> đợt chờ nhận.</>}
+        {(choNhan + choNhanYield) > 0 && <> · <b style={{ color: 'var(--fg-e65100)' }}>{choNhan + choNhanYield}</b> đợt chờ nhận.</>}
       </div>
 
       {traVe > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', marginBottom: 14, borderRadius: 10, background: 'var(--red-bg, #fef2f2)', color: '#b91c1c', fontSize: 13 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 14px', marginBottom: 14, borderRadius: 10, background: 'var(--red-bg, var(--bg-fef2f2))', color: 'var(--fg-b91c1c)', fontSize: 13 }}>
           <RotateCcw size={16} />
           <span><b>{traVe}</b> đợt KCS trả về cần <b>cắt lại</b> · tổng <b>{traVeCay}</b> cây — xử lý ở <b>Lệnh sản xuất</b>.</span>
         </div>
@@ -171,13 +171,13 @@ function XacNhanTab({ lines, yieldIssues, reviews, readOnly, refetch }: {
               const isReturn = l.status === 'RECEIVED' && !!l.reworkOfId
               return (
                 <Fragment key={l.id}>
-                  <tr style={{ borderTop: '1px solid var(--border)', opacity: l.status === 'QC_PASSED' && failed === 0 ? 0.75 : 1, background: isReturn ? 'var(--red-bg, #fef2f2)' : undefined }}>
+                  <tr style={{ borderTop: '1px solid var(--border)', opacity: l.status === 'QC_PASSED' && failed === 0 ? 0.75 : 1, background: isReturn ? 'var(--red-bg, var(--bg-fef2f2))' : undefined }}>
                     <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
                       {l.salesOrderCode ?? '—'}
                     </td>
                     <td style={{ ...td, fontWeight: 600 }}>
                       {l.materialName}
-                      {isReturn && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: '#c62828', marginLeft: 6 }}><RotateCcw size={11} /> KCS trả về · cắt lại</span>}
+                      {isReturn && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: 'var(--fg-c62828)', marginLeft: 6 }}><RotateCcw size={11} /> KCS trả về · cắt lại</span>}
                     </td>
                     <td style={tdR}>{l.barLengthMm.toLocaleString('vi-VN')}</td>
                     <td style={{ ...tdR, fontWeight: 700 }}>{l.status === 'ISSUED' || l.status === 'RECEIVED' ? l.barCount : baoCat}</td>
@@ -186,34 +186,34 @@ function XacNhanTab({ lines, yieldIssues, reviews, readOnly, refetch }: {
                       {l.status === 'ISSUED' ? (
                         readOnly ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>chờ xác nhận nhận</span> : (
                           <button onClick={() => doReceive(l)} disabled={busy === l.id}
-                            style={{ padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#e65100', color: '#fff', cursor: busy === l.id ? 'not-allowed' : 'pointer' }}>
+                            style={{ padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-e65100)', color: '#fff', cursor: busy === l.id ? 'not-allowed' : 'pointer' }}>
                             {busy === l.id ? '...' : 'Xác nhận đã nhận'}
                           </button>
                         )
                       ) : l.status === 'RECEIVED' ? (
                         <span style={{ fontSize: 12, color: 'var(--text3)' }}>đã nhận · chờ cắt</span>
                       ) : l.status === 'IN_PROCESS' ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: '#7b1fa2' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: 'var(--fg-7b1fa2)' }}>
                           <Wrench size={12} /> đang gia công
                         </span>
                       ) : l.status === 'AWAITING_QC' ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#d97706' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: 'var(--fg-d97706)' }}>
                           <Clock size={13} /> Chờ KCS duyệt
                         </span>
                       ) : failed > 0 ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 12, fontWeight: 700 }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: '#16a34a' }}><Check size={13} /> Đạt {passed}</span>
-                          <span style={{ color: '#c62828' }}>Lỗi {failed}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--fg-16a34a)' }}><Check size={13} /> Đạt {passed}</span>
+                          <span style={{ color: 'var(--fg-c62828)' }}>Lỗi {failed}</span>
                         </span>
                       ) : (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: 'var(--fg-16a34a)' }}>
                           <Check size={14} /> KCS: ĐẠT
                         </span>
                       )}
                     </td>
                   </tr>
                   {err[l.id] && (
-                    <tr><td colSpan={6} style={{ padding: '4px 18px 8px', fontSize: 12, color: '#c62828' }}>{err[l.id]}</td></tr>
+                    <tr><td colSpan={6} style={{ padding: '4px 18px 8px', fontSize: 12, color: 'var(--fg-c62828)' }}>{err[l.id]}</td></tr>
                   )}
                 </Fragment>
               )
@@ -233,19 +233,19 @@ function XacNhanTab({ lines, yieldIssues, reviews, readOnly, refetch }: {
                     {y.status === 'ISSUED' ? (
                       readOnly ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>chờ xác nhận nhận</span> : (
                         <button onClick={() => doReceiveYield(y)} disabled={busy === y.id}
-                          style={{ padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#e65100', color: '#fff', cursor: busy === y.id ? 'not-allowed' : 'pointer' }}>
+                          style={{ padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-e65100)', color: '#fff', cursor: busy === y.id ? 'not-allowed' : 'pointer' }}>
                           {busy === y.id ? '...' : 'Xác nhận đã nhận'}
                         </button>
                       )
                     ) : (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: 'var(--fg-16a34a)' }}>
                         <Check size={14} /> đã nhận · chờ báo sản lượng
                       </span>
                     )}
                   </td>
                 </tr>
                 {err[y.id] && (
-                  <tr><td colSpan={6} style={{ padding: '4px 18px 8px', fontSize: 12, color: '#c62828' }}>{err[y.id]}</td></tr>
+                  <tr><td colSpan={6} style={{ padding: '4px 18px 8px', fontSize: 12, color: 'var(--fg-c62828)' }}>{err[y.id]}</td></tr>
                 )}
               </Fragment>
             ))}
@@ -314,8 +314,8 @@ function LichSuTab({ lines }: { lines: BeSteelIssue[] }) {
                 </td>
                 <td style={{ ...td, whiteSpace: 'nowrap' }}>
                   {g.hoanThanh
-                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#16a34a', fontWeight: 600 }}><Check size={14} />{new Date(g.hoanThanh).toLocaleString('vi-VN')}</span>
-                    : <span style={{ color: '#e65100', fontWeight: 600 }}>Đang tiến hành</span>}
+                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--fg-16a34a)', fontWeight: 600 }}><Check size={14} />{new Date(g.hoanThanh).toLocaleString('vi-VN')}</span>
+                    : <span style={{ color: 'var(--fg-e65100)', fontWeight: 600 }}>Đang tiến hành</span>}
                 </td>
               </tr>
             ))}
@@ -356,7 +356,7 @@ function LichSuDetail({ g, onBack }: { g: PiGroup; onBack: () => void }) {
         {lenRows.map(([len, cay]) => (
           <div key={len} style={{ ...card, padding: '12px 18px', minWidth: 150 }}>
             <div style={{ fontSize: 12, color: 'var(--text3)' }}>Cây {len.toLocaleString('vi-VN')}mm <span style={{ color: 'var(--text3)' }}>(~{(len / 1000).toFixed(2)}m)</span></div>
-            <div style={{ fontSize: 22, fontWeight: 700, color: '#e65100' }}>{cay} <span style={{ fontSize: 13, color: 'var(--text3)', fontWeight: 400 }}>cây</span></div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: 'var(--fg-e65100)' }}>{cay} <span style={{ fontSize: 13, color: 'var(--text3)', fontWeight: 400 }}>cây</span></div>
           </div>
         ))}
       </div>
@@ -382,7 +382,7 @@ function LichSuDetail({ g, onBack }: { g: PiGroup; onBack: () => void }) {
                 <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{new Date(l.issuedAt).toLocaleString('vi-VN')}</td>
                 <td style={td}>
                   {l.status === 'QC_PASSED'
-                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#16a34a' }}><Check size={13} /> Đã cắt xong</span>
+                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: 'var(--fg-16a34a)' }}><Check size={13} /> Đã cắt xong</span>
                     : <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)' }}>Chưa cắt xong</span>}
                 </td>
               </tr>

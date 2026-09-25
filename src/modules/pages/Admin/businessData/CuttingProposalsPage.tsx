@@ -22,15 +22,15 @@ import {
   type CuttingProposalDisplayStatus,
 } from '../../../../services/cutting-proposals-api'
 
-const ACCENT = '#3949ab'
+const ACCENT = 'var(--fg-3949ab)'
 
 /** 3 nhãn rút gọn (2026-08-19, xem BE CuttingProposalDisplayStatus) - SUPERSEDED không nằm trong
  *  danh sách lọc, bị ẩn khỏi `items` mặc định (bản cũ đã bị "Tính lại" thay thế, không ai cần
  *  xem lại trừ khi audit trực tiếp qua DB). */
 const DISPLAY_LABELS: Record<Exclude<CuttingProposalDisplayStatus, 'SUPERSEDED'>, { label: string; bg: string; color: string }> = {
-  CALCULATING: { label: 'Đang tính', bg: '#eceff1', color: '#546e7a' },
-  OK: { label: 'Đạt', bg: '#e8f5e9', color: '#2e7d32' },
-  NEEDS_ACTION: { label: 'Cần xử lý', bg: '#ffebee', color: '#c62828' },
+  CALCULATING: { label: 'Đang tính', bg: 'var(--bg-eceff1)', color: 'var(--fg-546e7a)' },
+  OK: { label: 'Đạt', bg: 'var(--bg-e8f5e9)', color: 'var(--fg-2e7d32)' },
+  NEEDS_ACTION: { label: 'Cần xử lý', bg: 'var(--bg-ffebee)', color: 'var(--fg-c62828)' },
 }
 
 const ALL_KEY = '__all__'
@@ -48,7 +48,7 @@ function CalculatingBadge({ requestedAt }: { requestedAt: string }) {
   }, [])
   const minutes = Math.max(0, Math.floor((Date.now() - new Date(requestedAt).getTime()) / 60000))
   return (
-    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: '#546e7a', background: '#eceff1', padding: '2px 8px', borderRadius: 10 }}>
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 600, color: 'var(--fg-546e7a)', background: 'var(--bg-eceff1)', padding: '2px 8px', borderRadius: 10 }}>
       <Loader2 size={10} className="spin" /> Đang tính... (đã chạy {minutes} phút)
     </span>
   )
@@ -311,7 +311,7 @@ export default function CuttingProposalsPage() {
         {detailLoading ? (
           <LoadingState />
         ) : detail?.displayStatus === 'NEEDS_ACTION' && detail.displayReason ? (
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, background: 'rgba(198,40,40,.08)', border: '1px solid rgba(198,40,40,.3)', borderRadius: 8, padding: '10px 12px', color: '#c62828', fontSize: 13, marginBottom: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, background: 'rgba(198,40,40,.08)', border: '1px solid rgba(198,40,40,.3)', borderRadius: 8, padding: '10px 12px', color: 'var(--fg-c62828)', fontSize: 13, marginBottom: 16 }}>
             <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
             <span>{detail.displayReason}</span>
           </div>
@@ -347,11 +347,11 @@ export default function CuttingProposalsPage() {
                         <td style={td}>
                           {l.materialCode} — {l.materialName}
                           {l.displayReason && (
-                            <div style={{ fontSize: 11, color: '#c62828', marginTop: 4, maxWidth: 320 }}>{l.displayReason}</div>
+                            <div style={{ fontSize: 11, color: 'var(--fg-c62828)', marginTop: 4, maxWidth: 320 }}>{l.displayReason}</div>
                           )}
                         </td>
                         <td style={td}>
-                          <span style={{ ...badge, background: l.feasible ? '#e8f5e9' : '#ffebee', color: l.feasible ? '#2e7d32' : '#c62828' }}>
+                          <span style={{ ...badge, background: l.feasible ? 'var(--bg-e8f5e9)' : 'var(--bg-ffebee)', color: l.feasible ? 'var(--fg-2e7d32)' : 'var(--fg-c62828)' }}>
                             {l.feasible ? 'Khả thi' : 'Không khả thi'}
                           </span>
                         </td>
@@ -362,7 +362,7 @@ export default function CuttingProposalsPage() {
                               xin cho CẢ đợt có thể vô tình bao luôn loại sắt người xin không nghĩ
                               tới, nên phải thấy được tiền sắt chi thêm nằm ở đâu. */}
                           {l.usedWasteOverride && (
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#b45309', marginTop: 2, whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-b45309)', marginTop: 2, whiteSpace: 'nowrap' }}>
                               ⚠ dùng đặc cách (thường ≤{l.normalWastePctThreshold}%)
                             </div>
                           )}
@@ -372,7 +372,7 @@ export default function CuttingProposalsPage() {
                           {/* Cỡ đặt riêng (auto_scan mở lại 2026-08-26) - không phải cây chuẩn NCC
                               bán sẵn, phải nổi bật ngay ở bảng tóm tắt này. */}
                           {l.lengthSource === 'scan' && (
-                            <div style={{ fontSize: 10, fontWeight: 700, color: '#e65100', marginTop: 2 }}>⚠ đặt riêng</div>
+                            <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-e65100)', marginTop: 2 }}>⚠ đặt riêng</div>
                           )}
                         </td>
                         <td style={{ ...td, textAlign: 'right' }}>
@@ -455,7 +455,7 @@ export default function CuttingProposalsPage() {
                   <tr key={m.materialId} style={row}>
                     <td style={td}>{m.materialCode} — {m.materialName}</td>
                     <td style={td}>
-                      <span style={{ ...badge, display: 'inline-flex', alignItems: 'center', gap: 4, background: '#eceff1', color: '#546e7a' }}>
+                      <span style={{ ...badge, display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--bg-eceff1)', color: 'var(--fg-546e7a)' }}>
                         <Loader2 size={10} className="spin" /> Đang tính
                       </span>
                     </td>

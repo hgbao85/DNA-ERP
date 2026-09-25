@@ -94,8 +94,8 @@ function whLabel(code: string, name: string, e: BeStockLedgerEntry): string {
 
 const DIR_OPTIONS: { value: Dir; label: string; color: string; bg: string }[] = [
   { value: 'ALL', label: 'Tất cả',   color: 'var(--text)', bg: 'var(--surface2)' },
-  { value: 'IN',  label: 'Nhập kho', color: '#15803d',     bg: '#dcfce7' },
-  { value: 'OUT', label: 'Xuất kho', color: '#c2410c',     bg: '#ffedd5' },
+  { value: 'IN',  label: 'Nhập kho', color: 'var(--fg-15803d)',     bg: 'var(--bg-dcfce7)' },
+  { value: 'OUT', label: 'Xuất kho', color: 'var(--fg-c2410c)',     bg: 'var(--bg-ffedd5)' },
 ]
 
 /** Mặt hàng của 1 bút toán - đúng 1 trong 4 chân hàng (XOR ở DB). Kho phôi sơn hàn còn có dòng
@@ -144,7 +144,7 @@ export default function WarehouseLedgerHistory({ warehouseId, warehouseCode }: {
   const hasFilter = dir !== 'ALL' || !!dateFrom || !!dateTo
 
   if (isLoading) return <LoadingState />
-  if (error) return <div style={{ ...emptyBox, color: '#dc2626' }}>Lỗi tải sổ kho: {error}</div>
+  if (error) return <div style={{ ...emptyBox, color: 'var(--fg-dc2626)' }}>Lỗi tải sổ kho: {error}</div>
 
   return (
     <div>
@@ -167,7 +167,7 @@ export default function WarehouseLedgerHistory({ warehouseId, warehouseCode }: {
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {hasFilter && (
             <button onClick={() => { setDir('ALL'); setDateFrom(''); setDateTo('') }}
-              style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: '#dc2626', cursor: 'pointer' }}>
+              style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--fg-dc2626)', cursor: 'pointer' }}>
               ✕ Xóa bộ lọc
             </button>
           )}
@@ -226,7 +226,7 @@ export default function WarehouseLedgerHistory({ warehouseId, warehouseCode }: {
                     <div style={{ fontWeight: 600 }}>{item.code}</div>
                     {item.name && <div style={{ fontSize: 11, color: 'var(--text3)' }}>{item.name}</div>}
                   </td>
-                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap', color: isIn ? '#15803d' : '#c2410c' }}>
+                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, whiteSpace: 'nowrap', color: isIn ? 'var(--fg-15803d)' : 'var(--fg-c2410c)' }}>
                     {isIn ? '+' : '−'}{e.qty.toLocaleString('vi-VN')}
                     {item.unit && <span style={{ fontWeight: 400, color: 'var(--text3)', fontSize: 11 }}> {item.unit}</span>}
                   </td>

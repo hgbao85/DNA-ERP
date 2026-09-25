@@ -95,7 +95,7 @@ export function canReceiveAt(_code: string): boolean {
 }
 
 export const TRANSFER_STATUS_MAP: Record<TransferStatus, { label: string; bg: string; color: string }> = {
-  PENDING: { label: 'Chờ xác nhận', bg: '#fff3e0', color: '#e65100' },
-  CONFIRMED: { label: 'Đã xác nhận', bg: '#e8f5e9', color: '#2e7d32' },
-  REJECTED: { label: 'Đã từ chối', bg: '#fce4ec', color: '#c62828' },
+  PENDING: { label: 'Chờ xác nhận', bg: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)' },
+  CONFIRMED: { label: 'Đã xác nhận', bg: 'var(--bg-e8f5e9)', color: 'var(--fg-2e7d32)' },
+  REJECTED: { label: 'Đã từ chối', bg: 'var(--bg-fce4ec)', color: 'var(--fg-c62828)' },
 }

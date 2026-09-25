@@ -17,7 +17,7 @@ export default function ExportCustomersPage() {
 
   const config: AdminEntityConfig<ExportCustomer> = {
     title: 'Khách hàng xuất khẩu',
-    icon: <Globe2 size={18} color="#3949ab" />,
+    icon: <Globe2 size={18} color="var(--fg-3949ab)" />,
     searchFields: ['name', 'country', 'market', 'contactName'],
     searchPlaceholder: 'Tìm theo tên, quốc gia, thị trường...',
     emptyMessage: 'Chưa có khách hàng xuất khẩu nào',

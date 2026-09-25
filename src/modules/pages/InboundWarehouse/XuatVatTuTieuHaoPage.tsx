@@ -26,7 +26,7 @@ import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 
-const ACCENT = '#4527A0'
+const ACCENT = 'var(--fg-4527a0)'
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -130,10 +130,10 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
                       </td>
                       <td style={tdR}>{d.requiredQty.toLocaleString('vi-VN')}</td>
                       <td style={{ ...tdR, color: 'var(--text3)' }}>{d.issuedQty.toLocaleString('vi-VN')}</td>
-                      <td style={{ ...tdR, fontWeight: 700, color: du ? 'var(--green)' : '#dc2626' }}>{d.remainingToIssue.toLocaleString('vi-VN')}</td>
+                      <td style={{ ...tdR, fontWeight: 700, color: du ? 'var(--green)' : 'var(--fg-dc2626)' }}>{d.remainingToIssue.toLocaleString('vi-VN')}</td>
                       <td style={{ ...td, textAlign: 'center' }}>
                         {du ? (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#16a34a' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: 'var(--fg-16a34a)' }}>
                             <Check size={14} /> đã xuất đủ
                           </span>
                         ) : (
@@ -153,7 +153,7 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
                                 {busy === d.materialId ? '...' : 'Xuất'}
                               </button>
                             </div>
-                            {msgs[d.materialId] && <div style={{ marginTop: 4, fontSize: 11, color: '#dc2626' }}>{msgs[d.materialId]}</div>}
+                            {msgs[d.materialId] && <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)' }}>{msgs[d.materialId]}</div>}
                           </div>
                         )}
                       </td>

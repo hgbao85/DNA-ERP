@@ -10,8 +10,8 @@ export const purchasingGroup: GuideGroup = {
   id: 'purchasing',
   title: 'Mua hàng',
   icon: 'ShoppingCart',
-  color: '#6D28D9',
-  bg: '#EDE9FE',
+  color: 'var(--fg-6d28d9)',
+  bg: 'var(--bg-ede9fe)',
   roles: ['purchasing', 'boss'],
   description: 'Xử lý đề xuất mua vật tư tự động sinh ra khi thiếu vật tư cho sản xuất, xin Giám đốc ký duyệt tay, theo dõi hàng về.',
   articles: [

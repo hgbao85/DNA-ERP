@@ -21,7 +21,7 @@ export default function DefectReasonsPage() {
 
   const config: AdminEntityConfig<DefectReason> = {
     title: 'Lý do lỗi',
-    icon: <AlertTriangle size={18} color="#3949ab" />,
+    icon: <AlertTriangle size={18} color="var(--fg-3949ab)" />,
     searchFields: ['label'],
     searchPlaceholder: 'Tìm theo nội dung lỗi...',
     emptyMessage: 'Chưa có lý do lỗi nào',

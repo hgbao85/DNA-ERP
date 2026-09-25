@@ -31,7 +31,7 @@ export default function FilterPills<K extends string,>({ options, active, onChan
               padding: '5px 12px', fontSize: 12, fontWeight: 600, borderRadius: 20,
               border: isActive ? 'none' : '1px solid var(--border)',
               cursor: 'pointer',
-              background: isActive ? (opt.bg ?? '#1f2937') : 'var(--surface)',
+              background: isActive ? (opt.bg ?? 'var(--bg-1f2937)') : 'var(--surface)',
               color: isActive ? (opt.color ?? '#fff') : 'var(--text2)',
               transition: 'all 0.15s',
             }}

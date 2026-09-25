@@ -469,7 +469,7 @@ const STATUS_META: Record<OrderStatus, { label: string; bg: string; color: strin
 const FLOOR_STAGE_META: Record<FloorStage, { label: string; color: string; bg: string }> = {
   PENDING:  { label: 'Chưa bắt đầu', color: 'var(--text3)', bg: 'var(--surface2)' },
   ACTIVE:   { label: 'Đang chạy',    color: 'var(--amber)', bg: 'var(--amber-bg)' },
-  PAUSED:   { label: 'Đang tạm dừng', color: '#d97706',      bg: '#fef3c7' },
+  PAUSED:   { label: 'Đang tạm dừng', color: 'var(--fg-d97706)',      bg: 'var(--bg-fef3c7)' },
   FINISHED: { label: 'Đã kết thúc',  color: 'var(--green)', bg: 'var(--green-bg)' },
 }
 
@@ -523,17 +523,17 @@ function FloorStageCell({
       {canManage && floorStage !== 'FINISHED' && (
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }} onClick={e => e.stopPropagation()}>
           {floorStage === 'PENDING' && (
-            <button disabled={pending} onClick={onStart} style={floorActionBtn('#1d4ed8')}>Bắt đầu</button>
+            <button disabled={pending} onClick={onStart} style={floorActionBtn('var(--fg-1d4ed8)')}>Bắt đầu</button>
           )}
           {floorStage === 'ACTIVE' && (
-            <button disabled={pending} onClick={onPause} style={floorActionBtn('#d97706')}>Tạm dừng</button>
+            <button disabled={pending} onClick={onPause} style={floorActionBtn('var(--fg-d97706)')}>Tạm dừng</button>
           )}
           {floorStage === 'PAUSED' && (
-            <button disabled={pending} onClick={onResume} style={floorActionBtn('#1d4ed8')}>Tiếp tục</button>
+            <button disabled={pending} onClick={onResume} style={floorActionBtn('var(--fg-1d4ed8)')}>Tiếp tục</button>
           )}
-          <button disabled={pending} onClick={onFinish} style={floorActionBtn('#dc2626')}>Kết thúc</button>
+          <button disabled={pending} onClick={onFinish} style={floorActionBtn('var(--fg-dc2626)')}>Kết thúc</button>
           {canResync && (
-            <button disabled={pending} onClick={onResync} style={floorActionBtn('#7c3aed')} title="Định mức sản phẩm đã đổi sau khi lệnh này được duyệt - nạp lại bản mới nhất">
+            <button disabled={pending} onClick={onResync} style={floorActionBtn('var(--fg-7c3aed)')} title="Định mức sản phẩm đã đổi sau khi lệnh này được duyệt - nạp lại bản mới nhất">
               Nạp lại định mức
             </button>
           )}
@@ -591,8 +591,8 @@ function PurchasingContent({ materials, deadline }: { materials: MaterialItem[];
               <td style={{ ...tdS, fontWeight: 600 }}>{m.name}</td>
               <td style={{ ...tdS, textAlign: 'right' }}>{m.qty.toLocaleString('vi-VN')}</td>
               <td style={{ ...tdS, color: 'var(--text3)' }}>{m.unit}</td>
-              <td style={{ ...tdS, textAlign: 'right', fontWeight: 700, color: m.boughtQty > 0 ? '#16a34a' : 'var(--text3)' }}>{m.boughtQty.toLocaleString('vi-VN')}</td>
-              <td style={{ ...tdS, textAlign: 'right', fontWeight: 700, color: remaining > 0 ? '#d97706' : '#16a34a' }}>{remaining.toLocaleString('vi-VN')}</td>
+              <td style={{ ...tdS, textAlign: 'right', fontWeight: 700, color: m.boughtQty > 0 ? 'var(--fg-16a34a)' : 'var(--text3)' }}>{m.boughtQty.toLocaleString('vi-VN')}</td>
+              <td style={{ ...tdS, textAlign: 'right', fontWeight: 700, color: remaining > 0 ? 'var(--fg-d97706)' : 'var(--fg-16a34a)' }}>{remaining.toLocaleString('vi-VN')}</td>
             </tr>
           )
         })}
@@ -629,8 +629,8 @@ function ChuyenKiemContent({ chuyenKiem }: { chuyenKiem: StageDetails['chuyenKie
             <tr key={p.id}>
               <td style={{ ...tdS, fontWeight: 600 }}>{p.name}</td>
               <td style={{ ...tdS, textAlign: 'right', color: 'var(--text3)' }}>{p.choThucThi.toLocaleString('vi-VN')}</td>
-              <td style={{ ...tdS, textAlign: 'right', fontWeight: 700, color: p.daKiemQty > 0 ? '#16a34a' : 'var(--text3)' }}>{p.daKiemQty.toLocaleString('vi-VN')}</td>
-              <td style={{ ...tdS, textAlign: 'right', fontWeight: 700, color: remaining > 0 ? '#d97706' : '#16a34a' }}>{remaining.toLocaleString('vi-VN')}</td>
+              <td style={{ ...tdS, textAlign: 'right', fontWeight: 700, color: p.daKiemQty > 0 ? 'var(--fg-16a34a)' : 'var(--text3)' }}>{p.daKiemQty.toLocaleString('vi-VN')}</td>
+              <td style={{ ...tdS, textAlign: 'right', fontWeight: 700, color: remaining > 0 ? 'var(--fg-d97706)' : 'var(--fg-16a34a)' }}>{remaining.toLocaleString('vi-VN')}</td>
             </tr>
           )
         })}
@@ -648,8 +648,8 @@ function PackagingContent({ packaging }: { packaging: StageDetails['packaging'] 
   const remaining = Math.max(0, packaging.totalBoxes - packaging.daDongQty)
   const stats: { label: string; value: number; color: string }[] = [
     { label: 'Tổng thùng',   value: packaging.totalBoxes, color: 'var(--text)' },
-    { label: 'Đã đóng gói',  value: packaging.daDongQty,  color: packaging.daDongQty > 0 ? '#16a34a' : 'var(--text3)' },
-    { label: 'Còn lại',      value: remaining,             color: remaining > 0 ? '#d97706' : '#16a34a' },
+    { label: 'Đã đóng gói',  value: packaging.daDongQty,  color: packaging.daDongQty > 0 ? 'var(--fg-16a34a)' : 'var(--text3)' },
+    { label: 'Còn lại',      value: remaining,             color: remaining > 0 ? 'var(--fg-d97706)' : 'var(--fg-16a34a)' },
   ]
   return (
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
@@ -1137,7 +1137,7 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: isMobile ? 17 : 20, wordBreak: 'break-word', color: '#1d4ed8', letterSpacing: '0.02em' }}>{order.code}</div>
+              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: isMobile ? 17 : 20, wordBreak: 'break-word', color: 'var(--fg-1d4ed8)', letterSpacing: '0.02em' }}>{order.code}</div>
               <div style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, color: 'var(--text3)' }}>PI: {order.piCode}</div>
             </div>
             <div style={{ fontSize: 16, fontWeight: 700, marginTop: 6 }}>{order.productName}</div>
@@ -1152,7 +1152,7 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
           <span>Khách hàng: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{order.customer}</span></span>
           <span>Ngày tạo: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{format(new Date(order.approvedAt), 'dd/MM/yyyy')}</span></span>
           <span>
-            Hạn giao: <span style={{ fontWeight: 600, color: isOverdue ? '#dc2626' : 'var(--text)' }}>
+            Hạn giao: <span style={{ fontWeight: 600, color: isOverdue ? 'var(--fg-dc2626)' : 'var(--text)' }}>
               {order.deadline ? format(new Date(order.deadline), 'dd/MM/yyyy') : '—'}{isOverdue ? ' · Quá hạn' : ''}
             </span>
           </span>
@@ -1404,7 +1404,7 @@ function MobileRowCard({ onClick, title, subtitle, stage, variance, meta, footer
 
 function DeadlineText({ deadline, overdue, overdueLabel }: { deadline?: string; overdue: boolean; overdueLabel: string }) {
   return (
-    <span style={{ color: overdue ? '#dc2626' : undefined, fontWeight: overdue ? 700 : undefined }}>
+    <span style={{ color: overdue ? 'var(--fg-dc2626)' : undefined, fontWeight: overdue ? 700 : undefined }}>
       {deadline ? format(new Date(deadline), 'dd/MM/yyyy') : '—'}
       {overdue && <span style={{ display: 'block', fontSize: 11 }}>{overdueLabel}</span>}
     </span>
@@ -1633,9 +1633,9 @@ export default function ThongKePagePlan() {
                   </div>
                   <ProgressBar value={stageInfo.pct} max={100} />
                 </td>
-                <td style={{ ...td, whiteSpace: 'nowrap', color: isOverdue ? '#dc2626' : undefined, fontWeight: isOverdue ? 700 : undefined }}>
+                <td style={{ ...td, whiteSpace: 'nowrap', color: isOverdue ? 'var(--fg-dc2626)' : undefined, fontWeight: isOverdue ? 700 : undefined }}>
                   {o.deadline ? format(new Date(o.deadline), 'dd/MM/yyyy') : '—'}
-                  {isOverdue && <div style={{ fontSize: 11, color: '#dc2626' }}>Quá hạn</div>}
+                  {isOverdue && <div style={{ fontSize: 11, color: 'var(--fg-dc2626)' }}>Quá hạn</div>}
                 </td>
                 <td style={td}>{renderFloorCell(o)}</td>
               </tr>
@@ -1711,7 +1711,7 @@ export default function ThongKePagePlan() {
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: isMobile ? 14 : '16px 24px', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: isMobile ? 17 : 20, wordBreak: 'break-word', color: '#1d4ed8', letterSpacing: '0.02em' }}>{selectedPi.piCode}</div>
+              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: isMobile ? 17 : 20, wordBreak: 'break-word', color: 'var(--fg-1d4ed8)', letterSpacing: '0.02em' }}>{selectedPi.piCode}</div>
               <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4, wordBreak: 'break-word' }}>{selectedPi.rows.length} SKU · PO: {selectedPi.poCodes}</div>
             </div>
             <span style={{ display: 'inline-block', padding: '5px 16px', borderRadius: 20, fontSize: 13, fontWeight: 700, background: piMeta.bg, color: piMeta.color, border: `1px solid ${piMeta.border}`, whiteSpace: 'nowrap' }}>
@@ -1721,7 +1721,7 @@ export default function ThongKePagePlan() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 28px', marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)', fontSize: 13, color: 'var(--text3)' }}>
             <span>Khách hàng: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{selectedPi.customers}</span></span>
             <span>
-              Hạn giao sớm nhất: <span style={{ fontWeight: 600, color: selectedPi.overdue ? '#dc2626' : 'var(--text)' }}>
+              Hạn giao sớm nhất: <span style={{ fontWeight: 600, color: selectedPi.overdue ? 'var(--fg-dc2626)' : 'var(--text)' }}>
                 {selectedPi.deadline ? format(new Date(selectedPi.deadline), 'dd/MM/yyyy') : '—'}{selectedPi.overdue ? ' · Có SKU quá hạn' : ''}
               </span>
             </span>
@@ -1755,7 +1755,7 @@ export default function ThongKePagePlan() {
         <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Tổng hợp lệnh SX</h2>
         <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text3)' }}>
           Tổng {counts.all} PI · Đang sản xuất {counts.PRODUCING} · Hoàn thành {counts.DONE}
-          {counts.OVERDUE > 0 && <span style={{ color: '#dc2626', fontWeight: 700 }}> · ⚠ Quá hạn {counts.OVERDUE}</span>}
+          {counts.OVERDUE > 0 && <span style={{ color: 'var(--fg-dc2626)', fontWeight: 700 }}> · ⚠ Quá hạn {counts.OVERDUE}</span>}
         </p>
       </div>
 
@@ -1765,7 +1765,7 @@ export default function ThongKePagePlan() {
           {([['all', 'Tất cả'], ['PRODUCING', 'Đang sản xuất'], ['DONE', 'Hoàn thành']] as [FilterStatus, string][]).map(([key, label]) => (
             <button key={key} onClick={() => { setFilter(key); setPage(1) }}
               style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, borderRadius: 20, border: 'none', cursor: 'pointer',
-                background: filter === key ? '#1d4ed8' : 'var(--surface2)',
+                background: filter === key ? 'var(--bg-1d4ed8)' : 'var(--surface2)',
                 color: filter === key ? '#fff' : 'var(--text)',
               }}>
               {label} <span style={{ opacity: 0.75 }}>({key === 'all' ? counts.all : counts[key as OrderStatus]})</span>
@@ -1849,9 +1849,9 @@ export default function ThongKePagePlan() {
                     </div>
                     <ProgressBar value={stageInfo.pct} max={100} />
                   </td>
-                  <td style={{ ...td, whiteSpace: 'nowrap', color: p.overdue ? '#dc2626' : undefined, fontWeight: p.overdue ? 700 : undefined }}>
+                  <td style={{ ...td, whiteSpace: 'nowrap', color: p.overdue ? 'var(--fg-dc2626)' : undefined, fontWeight: p.overdue ? 700 : undefined }}>
                     {p.deadline ? format(new Date(p.deadline), 'dd/MM/yyyy') : '—'}
-                    {p.overdue && !isDone && <div style={{ fontSize: 11, color: '#dc2626' }}>Có SKU quá hạn</div>}
+                    {p.overdue && !isDone && <div style={{ fontSize: 11, color: 'var(--fg-dc2626)' }}>Có SKU quá hạn</div>}
                   </td>
                   <td style={td}><PiFloorSummary counts={p.floorCounts} /></td>
                 </tr>

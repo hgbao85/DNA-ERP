@@ -28,7 +28,7 @@ function CalculatingBadge({ requestedAt }: { requestedAt: string }) {
   }, [])
   const minutes = Math.max(0, Math.floor((Date.now() - new Date(requestedAt).getTime()) / 60000))
   return (
-    <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#1d4ed8', background:'#dbeafe', padding:'2px 8px', borderRadius:10 }}>
+    <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'var(--fg-1d4ed8)', background:'var(--bg-dbeafe)', padding:'2px 8px', borderRadius:10 }}>
       <Loader2 size={10} className="spin" /> Đang tính phương án cắt... (đã chạy {minutes} phút)
     </span>
   )
@@ -88,7 +88,7 @@ export default function LenhSXPage() {
     ? { display:'grid', gridTemplateColumns:'repeat(5, minmax(0, 1fr))', gap:4, marginTop:10, paddingTop:8, borderTop:'1px dashed var(--border)' }
     : { display:'contents' }
   const mobileLabel = (i: number) => isMobile && (
-    <div style={{ fontSize:9.5, fontWeight:700, color: i === 4 ? '#1d4ed8' : 'var(--text3)', textTransform:'uppercase', marginBottom:2 }}>{DATE_COL_LABELS[i]}</div>
+    <div style={{ fontSize:9.5, fontWeight:700, color: i === 4 ? 'var(--fg-1d4ed8)' : 'var(--text3)', textTransform:'uppercase', marginBottom:2 }}>{DATE_COL_LABELS[i]}</div>
   )
   const searchBox = (
     <div style={{ position:'relative', width: isMobile ? '100%' : undefined }}>
@@ -158,16 +158,16 @@ export default function LenhSXPage() {
     if (pct == null && !onlyStandard) return null
     const ev = p?.solverOverrideEvidence
     return (
-      <div style={{ padding:'13px 15px', marginBottom: compact ? 12 : 20, background:'#fffbeb', border:'1px solid #fcd34d', borderRadius:8 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:7, fontSize:12.5, fontWeight:700, color:'#92400e', marginBottom:11 }}>
+      <div style={{ padding:'13px 15px', marginBottom: compact ? 12 : 20, background:'var(--bg-fffbeb)', border:'1px solid var(--fg-fcd34d)', borderRadius:8 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:7, fontSize:12.5, fontWeight:700, color:'var(--fg-92400e)', marginBottom:11 }}>
           <AlertTriangle size={15} style={{ flexShrink:0 }}/>
           Kế hoạch SX xin cắt đặc cách
         </div>
 
         {pct != null && (
           <div>
-            <div style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.04em', textTransform:'uppercase', color:'#a16207' }}>Xin hao hụt tới</div>
-            <div style={{ fontSize:23, fontWeight:800, color:'#92400e', fontVariantNumeric:'tabular-nums', lineHeight:1.2 }}>{pct}%</div>
+            <div style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.04em', textTransform:'uppercase', color:'var(--fg-a16207)' }}>Xin hao hụt tới</div>
+            <div style={{ fontSize:23, fontWeight:800, color:'var(--fg-92400e)', fontVariantNumeric:'tabular-nums', lineHeight:1.2 }}>{pct}%</div>
           </div>
         )}
 
@@ -176,7 +176,7 @@ export default function LenhSXPage() {
             nghĩa "mua cây chuẩn" nữa mà là "giữ đúng chiều dài đã định, cấm solver tự dò cây
             khác" - để nguyên câu cũ là nói sai với Sếp ngay trên màn ký duyệt. */}
         {onlyStandard && (
-          <div style={{ fontSize:12.5, color:'#92400e', marginTop:9 }}>
+          <div style={{ fontSize:12.5, color:'var(--fg-92400e)', marginTop:9 }}>
             Giữ <b>đúng chiều dài đã định</b>, không cho hệ thống tự dò cây khác
           </div>
         )}
@@ -190,14 +190,14 @@ export default function LenhSXPage() {
             là của cây 5800 chứ không phải cây 6000. stockLengthMm thiếu = bản ghi cũ trước ngày
             này, khi đó "cây chuẩn" vẫn đúng. */}
         {ev && (
-          <div style={{ fontSize:12, color:'#a16207', lineHeight:1.55, marginTop:9 }}>
+          <div style={{ fontSize:12, color:'var(--fg-a16207)', lineHeight:1.55, marginTop:9 }}>
             <b>{ev.materialCode}</b> ở {ev.stockLengthMm != null ? <>cây <b>{ev.stockLengthMm}mm</b></> : <>cây chuẩn</>} ước tính hao <b>≥{ev.estimatedWastePct.toFixed(2)}%</b>
             {!onlyStandard && ' — đợt này còn được thử cây riêng nên thực tế có thể thấp hơn'}
           </div>
         )}
 
         {p?.solverOverrideReason && (
-          <div style={{ marginTop:10, paddingTop:9, borderTop:'1px solid #fde68a', fontSize:12.5, color:'#78350f' }}>
+          <div style={{ marginTop:10, paddingTop:9, borderTop:'1px solid var(--fg-fde68a)', fontSize:12.5, color:'var(--fg-78350f)' }}>
             Lý do: “{p.solverOverrideReason}”
           </div>
         )}
@@ -459,7 +459,7 @@ export default function LenhSXPage() {
 
   if (isLoading) return <div style={{ padding:40, color:'var(--text3)' }}>Đang tải...</div>
   if (error) return (
-    <div style={{ padding:40, color:'#c62828', display:'flex', alignItems:'center', gap:8 }}>
+    <div style={{ padding:40, color:'var(--fg-c62828)', display:'flex', alignItems:'center', gap:8 }}>
       <AlertCircle size={18}/> Lỗi tải dữ liệu
     </div>
   )
@@ -489,7 +489,7 @@ export default function LenhSXPage() {
                   <div>
                     <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:18 }}>{pi.code}</span>
                     {pi.isMerged && (
-                      <div style={{ fontSize:11, fontWeight:700, color:'#6b21a8', marginTop:3 }}>
+                      <div style={{ fontSize:11, fontWeight:700, color:'var(--fg-6b21a8)', marginTop:3 }}>
                         ĐỢT GỘP · {items.length} SKU
                       </div>
                     )}
@@ -505,22 +505,22 @@ export default function LenhSXPage() {
                     {isBoss ? (
                       <>
                         <button onClick={() => setApproveTarget(pi)} disabled={busy}
-                          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor: busy ? 'not-allowed' : 'pointer', color:'#fff', opacity: busy ? 0.7 : 1 }}>
+                          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'var(--bg-2e7d32)', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor: busy ? 'not-allowed' : 'pointer', color:'#fff', opacity: busy ? 0.7 : 1 }}>
                           <ThumbsUp size={13}/> {busy ? 'Đang duyệt...' : pi.isMerged ? `Duyệt cả đợt (${items.length} SKU)` : 'Duyệt'}
                         </button>
                         <button onClick={() => { setRejectTarget(pi); setRejectReason('') }} disabled={busy}
-                          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'transparent', border:'1px solid #fca5a5', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#b91c1c' }}>
+                          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'transparent', border:'1px solid var(--fg-fca5a5)', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'var(--fg-b91c1c)' }}>
                           <ThumbsDown size={13}/> {pi.isMerged ? 'Từ chối cả đợt' : 'Từ chối'}
                         </button>
                       </>
                     ) : (
                       <>
                         <button onClick={() => { setQlsxTarget(pi); setQlsxWarehouseByItemId({}) }}
-                          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
+                          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'var(--bg-2e7d32)', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
                           <Warehouse size={13}/> Chọn kho sản xuất{items.length > 1 ? ` (${items.length} SKU)` : ''}
                         </button>
                         <button onClick={() => { setRejectTarget(pi); setRejectReason('') }}
-                          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'transparent', border:'1px solid #fca5a5', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#b91c1c' }}>
+                          style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'transparent', border:'1px solid var(--fg-fca5a5)', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'var(--fg-b91c1c)' }}>
                           <ThumbsDown size={13}/> Từ chối{items.length > 1 ? ` (${items.length} SKU)` : ''}
                         </button>
                       </>
@@ -538,7 +538,7 @@ export default function LenhSXPage() {
                     {['Mua hàng','Khung CK','Đan','Đóng gói'].map(h => (
                       <span key={h} style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>{h}</span>
                     ))}
-                    <span style={{ fontSize:11, fontWeight:700, color:'#1d4ed8', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>Hạn giao</span>
+                    <span style={{ fontSize:11, fontWeight:700, color:'var(--fg-1d4ed8)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>Hạn giao</span>
                   </div>}
                   {items.map((item: any, idx: number) => {
                     const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
@@ -563,7 +563,7 @@ export default function LenhSXPage() {
                     const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                     return (
                       <div key={item.id ?? idx} style={{ ...(isMobile ? { padding:'12px 14px' } : { display:'grid', gridTemplateColumns:'100px 1fr 95px 95px 95px 95px 100px', padding:'12px 18px', alignItems:'center' }), borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
-                        <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1', display: isMobile ? 'block' : undefined, marginBottom: isMobile ? 4 : undefined }}>
+                        <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'var(--fg-0369a1)', display: isMobile ? 'block' : undefined, marginBottom: isMobile ? 4 : undefined }}>
                           {item.salesOrderCode ?? getDisplayCode(pi)}
                         </span>
                         <div>
@@ -582,7 +582,7 @@ export default function LenhSXPage() {
                             {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                             {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
                             {item.prodApproval?.warehouseName && (
-                              <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, color:'#0369a1', background:'#e0f2fe', padding:'2px 8px', borderRadius:10 }}>
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, color:'var(--fg-0369a1)', background:'var(--bg-e0f2fe)', padding:'2px 8px', borderRadius:10 }}>
                                 <Warehouse size={10}/> {item.prodApproval.warehouseName}
                               </span>
                             )}
@@ -595,7 +595,7 @@ export default function LenhSXPage() {
                         {dc(iPackagingDate,  !!iPackaging, 3)}
                         <div style={{ textAlign:'center' }}>
                           {mobileLabel(4)}
-                          <div style={{ fontSize: isMobile ? 12 : 13, fontWeight:700, color: iDelivery ? '#1d4ed8' : 'var(--text3)' }}>
+                          <div style={{ fontSize: isMobile ? 12 : 13, fontWeight:700, color: iDelivery ? 'var(--fg-1d4ed8)' : 'var(--text3)' }}>
                             {format(iDelivery ?? piDeadline, 'dd/MM/yy')}
                           </div>
                           {!iDelivery && <div style={{ fontSize:10, color:'var(--text3)' }}>từ PO</div>}
@@ -630,7 +630,7 @@ export default function LenhSXPage() {
                   <div style={{ minWidth:0 }}>
                     <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'var(--text)' }}>{pi.code}</span>
                     {pi.isMerged && (
-                      <span style={{ marginLeft:8, fontSize:10, fontWeight:700, padding:'1px 7px', borderRadius:20, background:'#f3e8ff', color:'#6b21a8' }}>
+                      <span style={{ marginLeft:8, fontSize:10, fontWeight:700, padding:'1px 7px', borderRadius:20, background:'var(--bg-f3e8ff)', color:'var(--fg-6b21a8)' }}>
                         ĐỢT GỘP
                       </span>
                     )}
@@ -691,7 +691,7 @@ export default function LenhSXPage() {
                 </button>
                 {canConfirmProd && hasSendableItems && (
                   <button onClick={() => setConfirmProdTarget(pi)}
-                    style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'#2e7d32', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
+                    style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'var(--bg-2e7d32)', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
                     <Play size={13}/> Gửi QLSX
                   </button>
                 )}
@@ -702,7 +702,7 @@ export default function LenhSXPage() {
                 <div>
                   <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:18 }}>{pi.code}</div>
                   {pi.isMerged && (
-                    <div style={{ fontSize:11, fontWeight:700, color:'#6b21a8', marginTop:3 }}>
+                    <div style={{ fontSize:11, fontWeight:700, color:'var(--fg-6b21a8)', marginTop:3 }}>
                       ĐỢT GỘP · cắt chung {items.length} SKU
                     </div>
                   )}
@@ -723,25 +723,25 @@ export default function LenhSXPage() {
                 <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', padding:40, textAlign:'center', color:'var(--text3)' }}>Không có SKU</div>
               ) : poGroups.map(([soCode, groupItems]: [string, any[]], gi: number) => (
               <div key={soCode + '-' + gi} style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden', marginBottom: gi === poGroups.length - 1 ? 0 : 16 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', padding: isMobile ? '9px 14px' : '9px 18px', background:'#f3e8ff', borderBottom:'1px solid var(--border)' }}>
-                  <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#6b21a8' }}>{soCode}</span>
+                <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', padding: isMobile ? '9px 14px' : '9px 18px', background:'var(--bg-f3e8ff)', borderBottom:'1px solid var(--border)' }}>
+                  <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'var(--fg-6b21a8)' }}>{soCode}</span>
                   {groupItems[0]?.customerName && (
                     <>
-                      <div style={{ width:1, height:14, background:'#d8b4fe' }} />
-                      <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:12, color:'#6b21a8' }}>
+                      <div style={{ width:1, height:14, background:'var(--bg-d8b4fe)' }} />
+                      <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:12, color:'var(--fg-6b21a8)' }}>
                         <User size={12} />
                         {groupItems[0].customerName}
                       </span>
                     </>
                   )}
-                  <span style={{ marginLeft:'auto', fontSize:11, fontWeight:600, color:'#7c3aed', background:'#fff', padding:'2px 9px', borderRadius:10 }}>{groupItems.length} SKU</span>
+                  <span style={{ marginLeft:'auto', fontSize:11, fontWeight:600, color:'var(--fg-7c3aed)', background:'var(--surface)', padding:'2px 9px', borderRadius:10 }}>{groupItems.length} SKU</span>
                 </div>
                 {!isMobile && <div style={{ display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 110px', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
                   <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>SKU</span>
                   {['Mua hàng','Khung CK','Đan','Đóng gói'].map(h => (
                     <span key={h} style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>{h}</span>
                   ))}
-                  <span style={{ fontSize:11, fontWeight:700, color:'#1d4ed8', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>Hạn giao</span>
+                  <span style={{ fontSize:11, fontWeight:700, color:'var(--fg-1d4ed8)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>Hạn giao</span>
                 </div>}
                 {groupItems.map((item: any, idx: number) => {
                   const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
@@ -769,10 +769,10 @@ export default function LenhSXPage() {
                       <div style={isMobile ? { padding:'12px 14px' } : { display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 110px', padding:'14px 18px', alignItems:'center' }}>
                         <div>
                           <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                            <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>{code}</span>
+                            <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'var(--fg-0369a1)' }}>{code}</span>
                             {item.status && <StatusBadge status={item.status as SalesOrderStatus} />}
                             {item.prodApproval?.status === 'APPROVED' && (
-                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#2e7d32', background:'#dcfce7', padding:'2px 8px', borderRadius:10 }}>
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'var(--fg-2e7d32)', background:'var(--bg-dcfce7)', padding:'2px 8px', borderRadius:10 }}>
                                 <Play size={10}/> Đang sản xuất
                               </span>
                             )}
@@ -783,22 +783,22 @@ export default function LenhSXPage() {
                               <CalculatingBadge requestedAt={item.cuttingProposalRequestedAt} />
                             )}
                             {item.cuttingProposalStatus === 'FAILED' && (
-                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#b91c1c', background:'#fee2e2', padding:'2px 8px', borderRadius:10 }}>
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'var(--fg-b91c1c)', background:'var(--bg-fee2e2)', padding:'2px 8px', borderRadius:10 }}>
                                 <XCircle size={10}/> Lỗi tính phương án cắt
                               </span>
                             )}
                             {item.prodApproval?.status === 'WAITING_QLSX' && (
-                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#b45309', background:'#fef3c7', padding:'2px 8px', borderRadius:10 }}>
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'var(--fg-b45309)', background:'var(--bg-fef3c7)', padding:'2px 8px', borderRadius:10 }}>
                                 <Clock size={10}/> Chờ QLSX xử lý
                               </span>
                             )}
                             {item.prodApproval?.status === 'WAITING_BOSS' && (
-                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#0369a1', background:'#e0f2fe', padding:'2px 8px', borderRadius:10 }}>
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'var(--fg-0369a1)', background:'var(--bg-e0f2fe)', padding:'2px 8px', borderRadius:10 }}>
                                 <Clock size={10}/> Chờ sếp duyệt
                               </span>
                             )}
                             {item.prodApproval?.status === 'REJECTED' && (
-                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'#b91c1c', background:'#fee2e2', padding:'2px 8px', borderRadius:10 }}>
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'var(--fg-b91c1c)', background:'var(--bg-fee2e2)', padding:'2px 8px', borderRadius:10 }}>
                                 <XCircle size={10}/> Bị từ chối
                               </span>
                             )}
@@ -808,7 +808,7 @@ export default function LenhSXPage() {
                             {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                             {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
                             {item.prodApproval?.warehouseName && (
-                              <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, color:'#0369a1', background:'#e0f2fe', padding:'2px 8px', borderRadius:10 }}>
+                              <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, color:'var(--fg-0369a1)', background:'var(--bg-e0f2fe)', padding:'2px 8px', borderRadius:10 }}>
                                 <Warehouse size={10}/> {item.prodApproval.warehouseName}
                               </span>
                             )}
@@ -821,7 +821,7 @@ export default function LenhSXPage() {
                         {dc(iPackagingDate,  !!iPackaging, 3)}
                         <div style={{ textAlign:'center' }}>
                           {mobileLabel(4)}
-                          <div style={{ fontSize: isMobile ? 12 : 14, fontWeight:700, color: iDelivery ? '#1d4ed8' : 'var(--text3)' }}>
+                          <div style={{ fontSize: isMobile ? 12 : 14, fontWeight:700, color: iDelivery ? 'var(--fg-1d4ed8)' : 'var(--text3)' }}>
                             {fmt(iDelivery ?? new Date(pi.deadline))}
                           </div>
                           {!iDelivery && <div style={{ fontSize:10, color:'var(--text3)' }}>từ PO</div>}
@@ -829,7 +829,7 @@ export default function LenhSXPage() {
                         </div>
                       </div>
                       {item.prodApproval?.status === 'REJECTED' && item.prodApproval.reason && (
-                        <div style={{ margin: isMobile ? '0 14px 12px' : '0 18px 12px', fontSize:12, color:'#b91c1c', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:6, padding:'6px 10px' }}>
+                        <div style={{ margin: isMobile ? '0 14px 12px' : '0 18px 12px', fontSize:12, color:'var(--fg-b91c1c)', background:'var(--bg-fef2f2)', border:'1px solid var(--fg-fecaca)', borderRadius:6, padding:'6px 10px' }}>
                           Lý do từ chối: {item.prodApproval.reason}
                         </div>
                       )}
@@ -902,7 +902,7 @@ export default function LenhSXPage() {
               {/* Header */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14, flexShrink:0 }}>
                 <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
-                  <Play size={16} color="#2e7d32"/> Gửi QLSX xử lý
+                  <Play size={16} color="var(--fg-2e7d32)"/> Gửi QLSX xử lý
                 </h3>
                 <button onClick={() => setConfirmProdTarget(null)} style={{ padding:4, background:'transparent', border:'none', cursor:'pointer' }}>
                   <X size={18} color="var(--text3)"/>
@@ -951,41 +951,41 @@ export default function LenhSXPage() {
                   const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                   return (
                     <div key={i}
-                      style={{ border: !locked ? '2px solid #2e7d32' : '1px solid var(--border)', borderRadius:8, overflow:'hidden', background: locked ? 'var(--surface2)' : '#f0fdf4', opacity: locked ? 0.6 : 1, userSelect:'none' }}>
+                      style={{ border: !locked ? '2px solid var(--fg-2e7d32)' : '1px solid var(--border)', borderRadius:8, overflow:'hidden', background: locked ? 'var(--surface2)' : 'var(--bg-f0fdf4)', opacity: locked ? 0.6 : 1, userSelect:'none' }}>
                       {/* SKU info row */}
                       <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px' }}>
                         {/* Chỉ để xem - không chọn lẻ được nữa (2026-08-24), mọi SKU sendable đều
                             sẽ được gửi cùng lúc. */}
                         {locked ? (
-                          <CheckCircle2 size={18} color={approvalStatus === 'APPROVED' ? '#2e7d32' : approvalStatus === 'WAITING_BOSS' ? '#0369a1' : '#b45309'} style={{ flexShrink:0 }} />
+                          <CheckCircle2 size={18} color={approvalStatus === 'APPROVED' ? 'var(--fg-2e7d32)' : approvalStatus === 'WAITING_BOSS' ? 'var(--fg-0369a1)' : 'var(--fg-b45309)'} style={{ flexShrink:0 }} />
                         ) : (
-                          <CheckCircle2 size={18} color="#2e7d32" style={{ flexShrink:0 }} />
+                          <CheckCircle2 size={18} color="var(--fg-2e7d32)" style={{ flexShrink:0 }} />
                         )}
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ display:'flex', alignItems:'center', gap:8, overflow:'hidden' }}>
-                            <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1', flexShrink:0 }}>{code}</span>
+                            <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'var(--fg-0369a1)', flexShrink:0 }}>{code}</span>
                             {name && <span style={{ fontSize:13, color:'var(--text2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</span>}
                           </div>
                           <div style={{ display:'flex', gap:5, marginTop:3 }}>
                             {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                             {clr && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>{clr}</span>}
-                            {approvalStatus === 'APPROVED' && <span style={{ fontSize:11, color:'#2e7d32', fontWeight:600, background:'#dcfce7', padding:'1px 7px', borderRadius:10 }}>Đang sản xuất</span>}
-                            {approvalStatus === 'WAITING_QLSX' && <span style={{ fontSize:11, color:'#b45309', fontWeight:600, background:'#fef3c7', padding:'1px 7px', borderRadius:10 }}>Chờ QLSX xử lý</span>}
-                            {approvalStatus === 'WAITING_BOSS' && <span style={{ fontSize:11, color:'#0369a1', fontWeight:600, background:'#e0f2fe', padding:'1px 7px', borderRadius:10 }}>Chờ sếp duyệt</span>}
-                            {approvalStatus === 'REJECTED' && <span style={{ fontSize:11, color:'#b91c1c', fontWeight:600, background:'#fee2e2', padding:'1px 7px', borderRadius:10 }}>Bị từ chối - Cập nhật thông tin để gửi lại</span>}
+                            {approvalStatus === 'APPROVED' && <span style={{ fontSize:11, color:'var(--fg-2e7d32)', fontWeight:600, background:'var(--bg-dcfce7)', padding:'1px 7px', borderRadius:10 }}>Đang sản xuất</span>}
+                            {approvalStatus === 'WAITING_QLSX' && <span style={{ fontSize:11, color:'var(--fg-b45309)', fontWeight:600, background:'var(--bg-fef3c7)', padding:'1px 7px', borderRadius:10 }}>Chờ QLSX xử lý</span>}
+                            {approvalStatus === 'WAITING_BOSS' && <span style={{ fontSize:11, color:'var(--fg-0369a1)', fontWeight:600, background:'var(--bg-e0f2fe)', padding:'1px 7px', borderRadius:10 }}>Chờ sếp duyệt</span>}
+                            {approvalStatus === 'REJECTED' && <span style={{ fontSize:11, color:'var(--fg-b91c1c)', fontWeight:600, background:'var(--bg-fee2e2)', padding:'1px 7px', borderRadius:10 }}>Bị từ chối - Cập nhật thông tin để gửi lại</span>}
                           </div>
                         </div>
                         {iDelivery && (
                           <div style={{ textAlign:'right', flexShrink:0 }}>
-                            <div style={{ fontSize:10, color:'#1d4ed8', fontWeight:600 }}>Hạn giao</div>
-                            <div style={{ fontSize:12, fontWeight:700, color:'#1d4ed8' }}>{format(iDelivery, 'dd/MM/yy')}</div>
+                            <div style={{ fontSize:10, color:'var(--fg-1d4ed8)', fontWeight:600 }}>Hạn giao</div>
+                            <div style={{ fontSize:12, fontWeight:700, color:'var(--fg-1d4ed8)' }}>{format(iDelivery, 'dd/MM/yy')}</div>
                           </div>
                         )}
                       </div>
                       {/* Timeline dates row */}
-                      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', borderTop:'1px solid', borderColor: !locked ? '#bbf7d0' : 'var(--border)', background: !locked ? '#dcfce7' : 'var(--surface2)' }}>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', borderTop:'1px solid', borderColor: !locked ? 'var(--fg-bbf7d0)' : 'var(--border)', background: !locked ? 'var(--bg-dcfce7)' : 'var(--surface2)' }}>
                         {cols.map(({ label, val, own }, ci) => (
-                          <div key={label} style={{ padding:'5px 10px', borderRight: ci < 3 ? '1px solid' : undefined, borderRightColor: !locked ? '#bbf7d0' : 'var(--border)', textAlign:'center' }}>
+                          <div key={label} style={{ padding:'5px 10px', borderRight: ci < 3 ? '1px solid' : undefined, borderRightColor: !locked ? 'var(--fg-bbf7d0)' : 'var(--border)', textAlign:'center' }}>
                             <div style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:1 }}>{label}</div>
                             <div style={{ fontSize:11, fontWeight: own ? 600 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>
                               {format(val, 'dd/MM/yy')}
@@ -1003,7 +1003,7 @@ export default function LenhSXPage() {
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap', marginTop:14, paddingTop:14, borderTop:'1px solid var(--border)', flexShrink:0 }}>
                 <div style={{ fontSize:13, minWidth:0, overflow:'hidden' }}>
                   <span style={{ color:'var(--text2)' }}>
-                    Sẽ gửi <strong style={{ color:'#2e7d32' }}>{sendableIds.length}</strong> SKU (cả PI)
+                    Sẽ gửi <strong style={{ color:'var(--fg-2e7d32)' }}>{sendableIds.length}</strong> SKU (cả PI)
                   </span>
                 </div>
                 <div style={{ display:'flex', gap:8, flexShrink:0 }}>
@@ -1014,7 +1014,7 @@ export default function LenhSXPage() {
                   <button
                     onClick={() => handleSendForApproval(confirmProdTarget.id)}
                     disabled={!!confirmingProdId || sendableIds.length === 0}
-                    style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background: sendableIds.length > 0 ? '#2e7d32' : '#e5e7eb', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (confirmingProdId || sendableIds.length === 0) ? 'not-allowed' : 'pointer', color: sendableIds.length > 0 ? '#fff' : '#9ca3af', opacity: confirmingProdId ? 0.7 : 1 }}>
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background: sendableIds.length > 0 ? 'var(--bg-2e7d32)' : 'var(--bg-e5e7eb)', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (confirmingProdId || sendableIds.length === 0) ? 'not-allowed' : 'pointer', color: sendableIds.length > 0 ? '#fff' : 'var(--fg-9ca3af)', opacity: confirmingProdId ? 0.7 : 1 }}>
                     <CheckCircle2 size={15}/>
                     {confirmingProdId
                       ? 'Đang gửi...'
@@ -1042,7 +1042,7 @@ export default function LenhSXPage() {
               {/* Header */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
                 <h3 id="qlsx-send-boss-title" style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
-                  <Warehouse size={16} color="#2e7d32"/> Chọn kho thành phẩm
+                  <Warehouse size={16} color="var(--fg-2e7d32)"/> Chọn kho thành phẩm
                 </h3>
                 <button onClick={closeModal} disabled={sendingToBoss} aria-label="Đóng"
                   style={{ padding:4, background:'transparent', border:'none', cursor: sendingToBoss ? 'not-allowed' : 'pointer' }}>
@@ -1058,7 +1058,7 @@ export default function LenhSXPage() {
                 </div>
                 <div style={{ flex:1, minWidth:0, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
                   <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Hạn hoàn thành</div>
-                  <div style={{ fontWeight:700, fontSize:14, color:'#1d4ed8' }}>{format(new Date(pi.deadline), 'dd/MM/yyyy')}</div>
+                  <div style={{ fontWeight:700, fontSize:14, color:'var(--fg-1d4ed8)' }}>{format(new Date(pi.deadline), 'dd/MM/yyyy')}</div>
                 </div>
               </div>
 
@@ -1096,7 +1096,7 @@ export default function LenhSXPage() {
                   return (
                     <div key={item.id ?? i} style={{ border:'1px solid var(--border)', borderRadius:8, padding:'8px 12px' }}>
                       <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                        <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1' }}>
+                        <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'var(--fg-0369a1)' }}>
                           {item.productVariant?.mfgProduct?.factoryCode ?? '—'}
                         </span>
                         {item.productVariant?.mfgProduct?.name && <span style={{ fontSize:12, color:'var(--text2)' }}>{item.productVariant.mfgProduct.name}</span>}
@@ -1127,7 +1127,7 @@ export default function LenhSXPage() {
                   Hủy
                 </button>
                 <button onClick={handleQlsxSendToBoss} disabled={sendingToBoss || !allChosen}
-                  style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background: allChosen ? '#2e7d32' : '#e5e7eb', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (sendingToBoss || !allChosen) ? 'not-allowed' : 'pointer', color: allChosen ? '#fff' : '#9ca3af', opacity: sendingToBoss ? 0.7 : 1 }}>
+                  style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background: allChosen ? 'var(--bg-2e7d32)' : 'var(--bg-e5e7eb)', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (sendingToBoss || !allChosen) ? 'not-allowed' : 'pointer', color: allChosen ? '#fff' : 'var(--fg-9ca3af)', opacity: sendingToBoss ? 0.7 : 1 }}>
                   <CheckCircle2 size={15}/>
                   {sendingToBoss ? 'Đang gửi...' : items.length > 1 ? `Gửi sếp duyệt (${items.length} SKU)` : 'Gửi sếp duyệt'}
                 </button>
@@ -1154,7 +1154,7 @@ export default function LenhSXPage() {
               {/* Header */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
                 <h3 id="approve-sku-title" style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
-                  <ThumbsUp size={16} color="#2e7d32"/> Duyệt sản xuất — Tạo lệnh sản xuất
+                  <ThumbsUp size={16} color="var(--fg-2e7d32)"/> Duyệt sản xuất — Tạo lệnh sản xuất
                 </h3>
                 <button onClick={() => setApproveTarget(null)} disabled={busy} aria-label="Đóng"
                   style={{ padding:4, background:'transparent', border:'none', cursor: busy ? 'not-allowed' : 'pointer' }}>
@@ -1164,7 +1164,7 @@ export default function LenhSXPage() {
 
               {/* Đợt gộp: bấm Duyệt là duyệt TẤT CẢ SKU trong đợt cùng lúc. */}
               {pi.isMerged && (
-                <div style={{ background:'#f5f3ff', border:'1px solid #ddd6fe', borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:12.5, color:'#5b21b6' }}>
+                <div style={{ background:'var(--bg-f5f3ff)', border:'1px solid var(--fg-ddd6fe)', borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:12.5, color:'var(--fg-5b21b6)' }}>
                   <b>Đợt gộp {pi.code}</b> — duyệt sẽ cho sản xuất <b>cả {items.length} SKU</b> trong
                   đợt và tính phương án cắt chung một lần cho cả nhóm:
                   <div style={{ marginTop:5, fontFamily:'monospace', fontSize:12 }}>
@@ -1184,7 +1184,7 @@ export default function LenhSXPage() {
                 </div>
                 <div style={{ flex:1, minWidth:0, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
                   <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Hạn hoàn thành</div>
-                  <div style={{ fontWeight:700, fontSize:14, color:'#1d4ed8' }}>{format(piDeadline, 'dd/MM/yyyy')}</div>
+                  <div style={{ fontWeight:700, fontSize:14, color:'var(--fg-1d4ed8)' }}>{format(piDeadline, 'dd/MM/yyyy')}</div>
                 </div>
               </div>
 
@@ -1193,7 +1193,7 @@ export default function LenhSXPage() {
                 {items.map((item: any, i: number) => (
                   <div key={item.id ?? i} style={{ border:'1px solid var(--border)', borderRadius:8, padding:'10px 12px' }}>
                     <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                      <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'#0369a1' }}>
+                      <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'var(--fg-0369a1)' }}>
                         {item.productVariant?.mfgProduct?.factoryCode ?? '—'}
                       </span>
                       {item.productVariant?.mfgProduct?.name && <span style={{ fontSize:13, color:'var(--text2)' }}>{item.productVariant.mfgProduct.name}</span>}
@@ -1207,7 +1207,7 @@ export default function LenhSXPage() {
               </div>
 
               {/* Hệ quả của hành động */}
-              <div style={{ display:'flex', gap:8, alignItems:'flex-start', background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:'10px 12px', fontSize:12, color:'#166534' }}>
+              <div style={{ display:'flex', gap:8, alignItems:'flex-start', background:'var(--bg-f0fdf4)', border:'1px solid var(--fg-bbf7d0)', borderRadius:8, padding:'10px 12px', fontSize:12, color:'var(--fg-166534)' }}>
                 <CheckCircle2 size={14} style={{ flexShrink:0, marginTop:1 }}/>
                 <span>
                   Duyệt sẽ tạo lệnh sản xuất cho {items.length > 1 ? 'cả ' + items.length + ' SKU' : 'SKU này'} và bắt đầu sản xuất ngay — không thể hoàn tác.
@@ -1221,7 +1221,7 @@ export default function LenhSXPage() {
                   Hủy
                 </button>
                 <button onClick={() => handleApproveItem(pi)} disabled={busy}
-                  style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background:'#2e7d32', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: busy ? 'not-allowed' : 'pointer', color:'#fff', opacity: busy ? 0.7 : 1 }}>
+                  style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background:'var(--bg-2e7d32)', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: busy ? 'not-allowed' : 'pointer', color:'#fff', opacity: busy ? 0.7 : 1 }}>
                   <ThumbsUp size={15}/> {busy ? 'Đang duyệt...' : 'Xác nhận duyệt'}
                 </button>
               </div>
@@ -1238,7 +1238,7 @@ export default function LenhSXPage() {
             style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding: isMobile ? 16 : 24, width:420, maxWidth:'100%', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
               <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
-                <ThumbsDown size={16} color="#b91c1c"/> Từ chối sản xuất
+                <ThumbsDown size={16} color="var(--fg-b91c1c)"/> Từ chối sản xuất
               </h3>
               <button onClick={() => { setRejectTarget(null); setRejectReason('') }} disabled={rejecting}
                 style={{ padding:4, background:'transparent', border:'none', cursor:'pointer' }}>
@@ -1256,7 +1256,7 @@ export default function LenhSXPage() {
               const codes = pending.map((it: any) => it.productVariant?.mfgProduct?.factoryCode ?? '—').join(' · ')
               return (
                 <div style={{ fontSize:13, color:'var(--text2)', marginBottom:10 }}>
-                  <div style={{ background:'#fef2f2', border:'1px solid #fecaca', borderRadius:8, padding:'10px 12px', color:'#991b1b' }}>
+                  <div style={{ background:'var(--bg-fef2f2)', border:'1px solid var(--fg-fecaca)', borderRadius:8, padding:'10px 12px', color:'var(--fg-991b1b)' }}>
                     Từ chối sẽ <b>xoá lệnh sản xuất {rejectTarget.code}</b> và trả{' '}
                     {pending.length > 1 ? <b>{pending.length} SKU</b> : '1 SKU'} về đơn hàng gốc kèm
                     lý do. KHSX sẽ thấy{' '}
@@ -1281,7 +1281,7 @@ export default function LenhSXPage() {
                 Hủy
               </button>
               <button onClick={handleRejectItem} disabled={rejecting || !rejectReason.trim()}
-                style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background:'#b91c1c', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (rejecting || !rejectReason.trim()) ? 'not-allowed' : 'pointer', color:'#fff', opacity: (rejecting || !rejectReason.trim()) ? 0.6 : 1 }}>
+                style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background:'var(--bg-b91c1c)', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (rejecting || !rejectReason.trim()) ? 'not-allowed' : 'pointer', color:'#fff', opacity: (rejecting || !rejectReason.trim()) ? 0.6 : 1 }}>
                 <ThumbsDown size={15}/> {rejecting ? 'Đang gửi...' : 'Từ chối'}
               </button>
             </div>
@@ -1299,7 +1299,7 @@ export default function LenhSXPage() {
             {/* Header */}
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
               <h3 style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                <CalendarClock size={16} color="#1976d2"/> Sửa thời hạn — <span style={{ fontFamily:'monospace' }}>{getDisplayCode(editingPI)}</span>
+                <CalendarClock size={16} color="var(--fg-1976d2)"/> Sửa thời hạn — <span style={{ fontFamily:'monospace' }}>{getDisplayCode(editingPI)}</span>
               </h3>
               <button onClick={() => setEditingPI(null)} disabled={savingPI}
                 style={{ padding:4, background:'transparent', border:'none', cursor:'pointer' }}>
@@ -1335,24 +1335,24 @@ export default function LenhSXPage() {
                     <input type="date" value={vals[field as keyof typeof vals] ?? ''}
                       min={opts?.min || undefined} max={opts?.max || undefined}
                       onChange={e => setField(field, e.target.value)}
-                      style={{ width:'100%', padding:'5px 6px', border:`1px solid ${isEstimate(field) ? 'var(--border)' : '#1d4ed8'}`, borderRadius:5, fontSize:12, background:'var(--surface)', color: isEstimate(field) ? 'var(--text3)' : 'var(--text)', boxSizing:'border-box' }}
+                      style={{ width:'100%', padding:'5px 6px', border:`1px solid ${isEstimate(field) ? 'var(--border)' : 'var(--fg-1d4ed8)'}`, borderRadius:5, fontSize:12, background:'var(--surface)', color: isEstimate(field) ? 'var(--text3)' : 'var(--text)', boxSizing:'border-box' }}
                     />
                   </div>
                 )
                 return (
                   <div key={idx} style={{ border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
                     <div style={{ background:'var(--surface2)', padding:'7px 12px', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
-                      <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'#0369a1' }}>{code}</span>
+                      <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'var(--fg-0369a1)' }}>{code}</span>
                       {name && <span style={{ fontSize:12, color:'var(--text2)' }}>{name}</span>}
                       {qty != null && <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text3)', background:'var(--surface)', padding:'1px 8px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                     </div>
                     <div style={{ padding:'12px', display:'flex', flexDirection:'column', gap:10 }}>
                       {/* Hạn giao hàng riêng cho SKU này */}
                       <div>
-                        <div style={{ fontSize:10, color:'#1d4ed8', fontWeight:700, marginBottom:4 }}>Hạn giao hàng{isEstimate('deliveryDeadline') && <span style={{ fontStyle:'italic', fontWeight:400 }}> (từ PO)</span>}</div>
+                        <div style={{ fontSize:10, color:'var(--fg-1d4ed8)', fontWeight:700, marginBottom:4 }}>Hạn giao hàng{isEstimate('deliveryDeadline') && <span style={{ fontStyle:'italic', fontWeight:400 }}> (từ PO)</span>}</div>
                         <input type="date" value={vals.deliveryDeadline ?? ''}
                           onChange={e => setField('deliveryDeadline', e.target.value)}
-                          style={{ width:'100%', padding:'5px 8px', border:`1px solid ${isEstimate('deliveryDeadline') ? 'var(--border)' : '#1d4ed8'}`, borderRadius:5, fontSize:12, background:'var(--surface)', color: isEstimate('deliveryDeadline') ? 'var(--text3)' : 'var(--text)', boxSizing:'border-box' }}
+                          style={{ width:'100%', padding:'5px 8px', border:`1px solid ${isEstimate('deliveryDeadline') ? 'var(--border)' : 'var(--fg-1d4ed8)'}`, borderRadius:5, fontSize:12, background:'var(--surface)', color: isEstimate('deliveryDeadline') ? 'var(--text3)' : 'var(--text)', boxSizing:'border-box' }}
                         />
                       </div>
                       {/* Các công đoạn sản xuất (Khung cơ khí tách riêng bên dưới, kèm nút bật
@@ -1390,7 +1390,7 @@ export default function LenhSXPage() {
             </div>
 
             {editError && (
-              <div style={{ marginBottom:16, padding:'8px 12px', background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:6, fontSize:12, color:'#b91c1c' }}>
+              <div style={{ marginBottom:16, padding:'8px 12px', background:'var(--bg-fef2f2)', border:'1px solid var(--fg-fca5a5)', borderRadius:6, fontSize:12, color:'var(--fg-b91c1c)' }}>
                 {editError}
               </div>
             )}
@@ -1402,7 +1402,7 @@ export default function LenhSXPage() {
                 Hủy
               </button>
               <button onClick={handleSavePI} disabled={savingPI}
-                style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background:'#1976d2', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: savingPI ? 'not-allowed' : 'pointer', color:'#fff', opacity: savingPI ? 0.7 : 1 }}>
+                style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background:'var(--bg-1976d2)', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: savingPI ? 'not-allowed' : 'pointer', color:'#fff', opacity: savingPI ? 0.7 : 1 }}>
                 {savingPI ? 'Đang lưu...' : 'Lưu'}
               </button>
             </div>

@@ -2,7 +2,7 @@ import type { CSSProperties } from 'react'
 
 export default function ProgressBar({ value, max }: { value: number; max: number }) {
   const pct   = max > 0 ? Math.min(100, Math.round(value / max * 100)) : 0
-  const color = pct === 100 ? '#16a34a' : pct >= 60 ? '#2563eb' : '#d97706'
+  const color = pct === 100 ? 'var(--fg-16a34a)' : pct >= 60 ? 'var(--fg-2563eb)' : 'var(--fg-d97706)'
   const trackStyle: CSSProperties = { flex: 1, height: 6, background: 'var(--border)', borderRadius: 3, overflow: 'hidden' }
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

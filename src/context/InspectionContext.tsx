@@ -107,12 +107,12 @@ export interface PurchaseProposal {
 // 'quoting'/'submitted'/'rejected' chỉ còn xuất hiện ở DỮ LIỆU CŨ (luồng báo giá gỡ 2026-08-27) -
 // giữ nhãn để màn hình không hiện trạng thái trống cho các dòng đó, nhưng không đường nào sinh mới.
 export const PROPOSAL_STATUS_LABELS: Record<PurchaseProposal['status'], { label: string; color: string; bg: string; border: string }> = {
-  new:        { label: 'Chờ Sếp duyệt', color: '#92400e', bg: '#fef3c7', border: '#fde68a' },
-  quoting:    { label: 'Chờ Sếp duyệt', color: '#92400e', bg: '#fef3c7', border: '#fde68a' },
-  submitted:  { label: 'Chờ Sếp duyệt', color: '#92400e', bg: '#fef3c7', border: '#fde68a' },
-  purchasing: { label: 'Đang mua hàng', color: '#92400e', bg: '#fef3c7', border: '#fde68a' },
-  purchased:  { label: 'Đã mua',        color: '#166534', bg: '#dcfce7', border: '#86efac' },
-  rejected:   { label: 'Chờ Sếp duyệt', color: '#92400e', bg: '#fef3c7', border: '#fca5a5' },
+  new:        { label: 'Chờ Sếp duyệt', color: 'var(--fg-92400e)', bg: 'var(--bg-fef3c7)', border: 'var(--fg-fde68a)' },
+  quoting:    { label: 'Chờ Sếp duyệt', color: 'var(--fg-92400e)', bg: 'var(--bg-fef3c7)', border: 'var(--fg-fde68a)' },
+  submitted:  { label: 'Chờ Sếp duyệt', color: 'var(--fg-92400e)', bg: 'var(--bg-fef3c7)', border: 'var(--fg-fde68a)' },
+  purchasing: { label: 'Đang mua hàng', color: 'var(--fg-92400e)', bg: 'var(--bg-fef3c7)', border: 'var(--fg-fde68a)' },
+  purchased:  { label: 'Đã mua',        color: 'var(--fg-166534)', bg: 'var(--bg-dcfce7)', border: 'var(--fg-86efac)' },
+  rejected:   { label: 'Chờ Sếp duyệt', color: 'var(--fg-92400e)', bg: 'var(--bg-fef3c7)', border: 'var(--fg-fca5a5)' },
 }
 
 // BE đóng hồ sơ 1 dòng thẳng sang status='purchased' ngay lúc TẠO đề xuất khi buyQty tính ra = 0
@@ -126,7 +126,7 @@ export function wasActuallyPurchased(item: PurchaseProposalItem): boolean {
   return item.status === 'purchased' && item.buyQty > 0
 }
 
-const STOCK_SUFFICIENT_COLOR = { color: '#475569', bg: '#f1f5f9', border: '#cbd5e1' }
+const STOCK_SUFFICIENT_COLOR = { color: 'var(--fg-475569)', bg: 'var(--bg-f1f5f9)', border: 'var(--fg-cbd5e1)' }
 
 // Badge đúng nghĩa cho 1 DÒNG vật tư cụ thể (khác PROPOSAL_STATUS_LABELS dùng chung cho cả
 // PurchaseProposal.status rollup) - tách case buyQty=0 khỏi "Đã mua" thật, xem wasActuallyPurchased.
@@ -271,7 +271,7 @@ function ActionErrorBanner({ message, onDismiss }: { message: string | null; onD
         position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', zIndex: 9999,
         display: 'flex', alignItems: 'flex-start', gap: 12, maxWidth: 560,
         padding: '12px 16px', borderRadius: 10,
-        background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b',
+        background: 'var(--bg-fee2e2)', border: '1px solid var(--fg-fca5a5)', color: 'var(--fg-991b1b)',
         boxShadow: '0 6px 20px rgba(0,0,0,.15)', fontSize: 13, lineHeight: 1.5,
       }}
     >
@@ -280,7 +280,7 @@ function ActionErrorBanner({ message, onDismiss }: { message: string | null; onD
       <button
         onClick={onDismiss}
         aria-label="Đóng thông báo lỗi"
-        style={{ border: 'none', background: 'transparent', color: '#991b1b', cursor: 'pointer', fontSize: 16, fontWeight: 700, lineHeight: 1, padding: 0 }}
+        style={{ border: 'none', background: 'transparent', color: 'var(--fg-991b1b)', cursor: 'pointer', fontSize: 16, fontWeight: 700, lineHeight: 1, padding: 0 }}
       >×</button>
     </div>
   )

@@ -28,8 +28,8 @@ export default function QuanLyDiemDanPage({ readOnly = false }: { readOnly?: boo
             <button key={t.id} onClick={() => setSub(t.id)} style={{
               padding: '10px 20px', border: 'none', fontSize: 13, cursor: 'pointer',
               borderRadius: 'var(--radius) var(--radius) 0 0', background: active ? 'var(--surface)' : 'transparent',
-              borderBottom: active ? '2px solid #e65100' : '2px solid transparent', marginBottom: -2,
-              color: active ? '#e65100' : 'var(--text2)', fontWeight: active ? 700 : 400,
+              borderBottom: active ? '2px solid var(--fg-e65100)' : '2px solid transparent', marginBottom: -2,
+              color: active ? 'var(--fg-e65100)' : 'var(--text2)', fontWeight: active ? 700 : 400,
             }}>
               {t.label}
             </button>
@@ -57,7 +57,7 @@ function ManhTaiDiemDan() {
   const all = Array.isArray(data) ? data : []
 
   if (isLoading) return <div style={{ padding: 40, color: 'var(--text3)' }}>Đang tải...</div>
-  if (error) return <div style={{ color: '#c62828', display: 'flex', gap: 6 }}><AlertCircle size={16} />Lỗi tải dữ liệu</div>
+  if (error) return <div style={{ color: 'var(--fg-c62828)', display: 'flex', gap: 6 }}><AlertCircle size={16} />Lỗi tải dữ liệu</div>
   if (all.length === 0) return <div style={{ color: 'var(--text3)', fontSize: 13 }}>Chưa có điểm đan nào nhận mảnh.</div>
 
   const totalGiao = all.reduce((s, p) => s + p.assignments.reduce((a, x) => a + x.quantity, 0), 0)
@@ -73,8 +73,8 @@ function ManhTaiDiemDan() {
         <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', fontSize: 13 }}>
           <span style={{ color: 'var(--text3)' }}>Điểm đan: <strong style={{ color: 'var(--text)' }}>{all.length}</strong> <span style={{ color: 'var(--text3)' }}>(đang giữ {holdingCount})</span></span>
           <span style={{ color: 'var(--text3)' }}>Đã giao: <strong style={{ color: 'var(--text)' }}>{totalGiao}</strong></span>
-          <span style={{ color: 'var(--text3)' }}>Đã về: <strong style={{ color: '#2e7d32' }}>{totalVe}</strong></span>
-          <span style={{ color: 'var(--text3)' }}>Đang giữ: <strong style={{ color: '#e65100' }}>{totalGiu}</strong></span>
+          <span style={{ color: 'var(--text3)' }}>Đã về: <strong style={{ color: 'var(--fg-2e7d32)' }}>{totalVe}</strong></span>
+          <span style={{ color: 'var(--text3)' }}>Đang giữ: <strong style={{ color: 'var(--fg-e65100)' }}>{totalGiu}</strong></span>
         </div>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 7, fontSize: 13, color: 'var(--text2)', cursor: 'pointer', userSelect: 'none' }}>
           <input type="checkbox" checked={onlyHolding} onChange={(e) => setOnlyHolding(e.target.checked)} style={{ cursor: 'pointer' }} />
@@ -97,9 +97,9 @@ function ManhTaiDiemDan() {
                 {pt.phone && <span style={{ color: 'var(--text3)', marginLeft: 8, fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}><Phone size={11} />{pt.phone}</span>}
               </div>
               {held ? (
-                <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: '#fff3e0', color: '#e65100' }}>Đang giữ {pt.totalHolding} mảnh</span>
+                <span style={{ fontSize: 12, fontWeight: 700, padding: '3px 10px', borderRadius: 99, background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)' }}>Đang giữ {pt.totalHolding} mảnh</span>
               ) : (
-                <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: '#e8f5e9', color: '#2e7d32', display: 'inline-flex', alignItems: 'center', gap: 5 }}><CheckCircle2 size={12} /> Đã về đủ</span>
+                <span style={{ fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 99, background: 'var(--bg-e8f5e9)', color: 'var(--fg-2e7d32)', display: 'inline-flex', alignItems: 'center', gap: 5 }}><CheckCircle2 size={12} /> Đã về đủ</span>
               )}
             </div>
             <div style={{ overflowX: 'auto' }}>
@@ -119,8 +119,8 @@ function ManhTaiDiemDan() {
                       <td style={td}><strong>{a.pieceName}</strong> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{a.pieceCode}</span></td>
                       <td style={{ ...td, fontSize: 12 }}>{a.poNumber}<div style={{ color: 'var(--text3)' }}>{a.productLabel}</div></td>
                       <td style={{ ...td, textAlign: 'right' }}>{a.quantity}</td>
-                      <td style={{ ...td, textAlign: 'right', color: '#2e7d32' }}>{a.completed}</td>
-                      <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: a.holding > 0 ? '#e65100' : 'var(--text3)' }}>{a.holding}</td>
+                      <td style={{ ...td, textAlign: 'right', color: 'var(--fg-2e7d32)' }}>{a.completed}</td>
+                      <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: a.holding > 0 ? 'var(--fg-e65100)' : 'var(--text3)' }}>{a.holding}</td>
                     </tr>
                   ))}
                 </tbody>

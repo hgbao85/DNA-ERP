@@ -5,6 +5,7 @@ import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import LenhMuaNCCPage from './LenhMuaNCCPage'
 import TheoDoiMuaHangPage from './TheoDoiMuaHangPage'
 import LichSuMuaHangPage from './LichSuMuaHangPage'
+import ThemeToggle from '../../../components/ThemeToggle'
 
 interface Props { onBack?: () => void }
 
@@ -54,8 +55,8 @@ export default function PurchasingApp({ onBack }: Props) {
           return (
             <button key={t.id} onClick={() => selectTab(t.id)} style={{
               display: 'flex', alignItems: 'center', gap: 9, width: '100%', padding: isCompact ? '11px 10px' : '8px 10px', marginBottom: 2,
-              border: 'none', borderRadius: 'var(--radius)', background: active ? '#ede7f6' : 'transparent',
-              color: active ? '#4527a0' : 'var(--text2)', fontWeight: active ? 600 : 400, fontSize: 13, textAlign: 'left', cursor: 'pointer',
+              border: 'none', borderRadius: 'var(--radius)', background: active ? 'var(--bg-ede7f6)' : 'transparent',
+              color: active ? 'var(--fg-4527a0)' : 'var(--text2)', fontWeight: active ? 600 : 400, fontSize: 13, textAlign: 'left', cursor: 'pointer',
             }}
               onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
               onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
@@ -66,13 +67,14 @@ export default function PurchasingApp({ onBack }: Props) {
 
       <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#ede7f6', color: '#4527a0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--bg-ede7f6)', color: 'var(--fg-4527a0)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
             {user?.name.split(' ').pop()?.substring(0, 2).toUpperCase()}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.name}</div>
             <div style={{ fontSize: 10, color: 'var(--text3)' }}>Mua hàng</div>
           </div>
+          <ThemeToggle />
           <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất"><LogOut size={16} color="var(--text3)" /></button>
         </div>
       </div>

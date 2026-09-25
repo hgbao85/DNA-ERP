@@ -8,8 +8,8 @@ export const bossGroup: GuideGroup = {
   id: 'boss',
   title: 'Giám đốc',
   icon: 'Crown',
-  color: '#1D4ED8',
-  bg: '#DBEAFE',
+  color: 'var(--fg-1d4ed8)',
+  bg: 'var(--bg-dbeafe)',
   roles: ['boss'],
   description: 'Duyệt cuối định mức sản phẩm và lệnh sản xuất, theo dõi tiến độ và tồn kho toàn hệ thống.',
   articles: [

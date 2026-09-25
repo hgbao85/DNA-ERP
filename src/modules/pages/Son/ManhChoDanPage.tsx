@@ -107,7 +107,7 @@ export default function ManhChoDanPage() {
               {selected.manhs.map(m => (
                 <tr key={m.pieceId} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ ...td, fontWeight: 600 }}>{m.tenVatLieu}</td>
-                  <td style={{ ...tdR, fontWeight: 700, color: '#e65100' }}>{m.soLuong.toLocaleString('vi-VN')}</td>
+                  <td style={{ ...tdR, fontWeight: 700, color: 'var(--fg-e65100)' }}>{m.soLuong.toLocaleString('vi-VN')}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>cái</td>
                 </tr>
               ))}
@@ -115,7 +115,7 @@ export default function ManhChoDanPage() {
             <tfoot>
               <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--surface2)' }}>
                 <td style={{ ...td, fontWeight: 700 }}>Tổng</td>
-                <td style={{ ...tdR, fontWeight: 700, color: '#e65100' }}>{selected.tong.toLocaleString('vi-VN')}</td>
+                <td style={{ ...tdR, fontWeight: 700, color: 'var(--fg-e65100)' }}>{selected.tong.toLocaleString('vi-VN')}</td>
                 <td style={{ ...td, color: 'var(--text3)' }}>cái</td>
               </tr>
             </tfoot>
@@ -132,7 +132,7 @@ export default function ManhChoDanPage() {
         <Layers size={20} /> Mảnh chờ đan
       </h2>
       <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        <Check size={14} style={{ color: '#16a34a' }} /> Kho chứa các mảnh Tổ Sơn đã sơn & KCS duyệt đạt — chờ chuyển sang Đan. Bấm vào 1 sản phẩm để xem các mảnh còn tồn.
+        <Check size={14} style={{ color: 'var(--fg-16a34a)' }} /> Kho chứa các mảnh Tổ Sơn đã sơn & KCS duyệt đạt — chờ chuyển sang Đan. Bấm vào 1 sản phẩm để xem các mảnh còn tồn.
       </div>
 
       <div style={card}>
@@ -155,7 +155,7 @@ export default function ManhChoDanPage() {
                   <span style={{ fontWeight: 700 }}>{g.productName}</span>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{g.manhs.length} loại mảnh</div>
                 </td>
-                <td style={{ ...tdR, fontWeight: 700, color: '#e65100' }}>{g.tong.toLocaleString('vi-VN')}</td>
+                <td style={{ ...tdR, fontWeight: 700, color: 'var(--fg-e65100)' }}>{g.tong.toLocaleString('vi-VN')}</td>
                 <td style={{ ...td, textAlign: 'center', color: 'var(--text3)' }}><ChevronRight size={16} /></td>
               </tr>
             ))}
@@ -166,7 +166,7 @@ export default function ManhChoDanPage() {
           <tfoot>
             <tr style={{ borderTop: '2px solid var(--border)', background: 'var(--surface2)' }}>
               <td style={{ ...td, fontWeight: 700 }}>Tổng</td>
-              <td style={{ ...tdR, fontWeight: 700, color: '#e65100' }}>{tongTatCa.toLocaleString('vi-VN')}</td>
+              <td style={{ ...tdR, fontWeight: 700, color: 'var(--fg-e65100)' }}>{tongTatCa.toLocaleString('vi-VN')}</td>
               <td style={td} />
             </tr>
           </tfoot>

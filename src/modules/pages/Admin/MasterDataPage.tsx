@@ -10,7 +10,7 @@ import MaterialsPage from './masterData/MaterialsPage'
 import WeavingPointsPage from './masterData/WeavingPointsPage'
 import DefectReasonsPage from './masterData/DefectReasonsPage'
 
-const ACCENT = '#3949ab'
+const ACCENT = 'var(--fg-3949ab)'
 
 type Tab = 'suppliers' | 'sales-customers' | 'export-customers' | 'material-groups' | 'materials' | 'weaving-points' | 'defect-reasons'
 

@@ -141,14 +141,14 @@ function BrokenLinkBanner({ onDismiss }: { onDismiss: () => void }) {
   return (
     <div style={{
       display: 'flex', alignItems: 'flex-start', gap: 10, padding: '12px 16px', marginBottom: 20,
-      background: 'var(--amber-bg)', border: '1px solid #f0d9a8', borderRadius: 'var(--radius-lg)',
+      background: 'var(--amber-bg)', border: '1px solid var(--fg-f0d9a8)', borderRadius: 'var(--radius-lg)',
     }}>
       <AlertTriangle size={16} color="var(--amber)" style={{ flexShrink: 0, marginTop: 1 }} />
-      <p style={{ margin: 0, flex: 1, fontSize: 13, lineHeight: 1.6, color: '#6b4a12' }}>
+      <p style={{ margin: 0, flex: 1, fontSize: 13, lineHeight: 1.6, color: 'var(--fg-6b4a12)' }}>
         Không tìm thấy bài viết này — đường link có thể đã cũ vì tài liệu vừa được cập nhật. Dưới đây là toàn bộ danh mục.
       </p>
       <button onClick={onDismiss} aria-label="Đóng thông báo" style={{ border: 'none', background: 'transparent', padding: 2, cursor: 'pointer', display: 'flex', flexShrink: 0 }}>
-        <X size={14} color="#6b4a12" />
+        <X size={14} color="var(--fg-6b4a12)" />
       </button>
     </div>
   );

@@ -10,8 +10,8 @@ export const SKU_ENTITY = 'PlanForm'
  *  thái tổng lẫn quyết định duyệt/từ chối riêng từng nhánh (manhReviewStatus.status /
  *  quotaManagement.reviewStatus.status, có thể là APPROVED/REJECTED) - xem SKUDetail.tsx. */
 export const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  IN_PROGRESS:           { label: 'Đang làm định mức', color: '#b45309', bg: '#fef3c7' },
-  WAITING_BOSS_APPROVAL: { label: 'Chờ sếp duyệt',      color: '#0369a1', bg: '#e0f2fe' },
-  APPROVED:              { label: 'Đã duyệt',           color: '#16a34a', bg: '#dcfce7' },
-  REJECTED:              { label: 'Từ chối',            color: '#dc2626', bg: '#fee2e2' },
+  IN_PROGRESS:           { label: 'Đang làm định mức', color: 'var(--fg-b45309)', bg: 'var(--bg-fef3c7)' },
+  WAITING_BOSS_APPROVAL: { label: 'Chờ sếp duyệt',      color: 'var(--fg-0369a1)', bg: 'var(--bg-e0f2fe)' },
+  APPROVED:              { label: 'Đã duyệt',           color: 'var(--fg-16a34a)', bg: 'var(--bg-dcfce7)' },
+  REJECTED:              { label: 'Từ chối',            color: 'var(--fg-dc2626)', bg: 'var(--bg-fee2e2)' },
 }

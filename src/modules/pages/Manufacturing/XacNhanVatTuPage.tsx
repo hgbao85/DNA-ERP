@@ -25,7 +25,7 @@ import type { BeMaterialIssue, MaterialIssueStage } from '../../../services/mate
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 
-const ACCENT = '#e65100'
+const ACCENT = 'var(--fg-e65100)'
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -92,7 +92,7 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: M
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
           <button onClick={() => setView('confirm')} style={tabBtn(view === 'confirm', ACCENT)}>
             Xác nhận
-            {choNhan.length > 0 && <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: '#fff3e0', color: ACCENT }}>{choNhan.length}</span>}
+            {choNhan.length > 0 && <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 20, background: 'var(--bg-fff3e0)', color: ACCENT }}>{choNhan.length}</span>}
           </button>
           <button onClick={() => setView('history')} style={tabBtn(view === 'history', ACCENT)}>
             <Clock size={13} /> Lịch sử
@@ -161,7 +161,7 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: M
                 })}
               </tbody>
             </table>
-            {msg && <div style={{ padding: '8px 14px', fontSize: 12, color: '#dc2626' }}>{msg}</div>}
+            {msg && <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--fg-dc2626)' }}>{msg}</div>}
           </div>
         )
       )}
@@ -176,7 +176,7 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: M
               {tongTheoVatTu.map(t => (
                 <span key={t.name} style={{ display: 'inline-flex', alignItems: 'baseline', gap: 5, fontSize: 12, padding: '5px 12px', borderRadius: 20, background: 'var(--surface)', border: '1px solid var(--border)' }}>
                   <span style={{ color: 'var(--text2)' }}>{t.name}:</span>
-                  <b style={{ color: '#16a34a' }}>{fmt(t.tong)}</b>
+                  <b style={{ color: 'var(--fg-16a34a)' }}>{fmt(t.tong)}</b>
                 </span>
               ))}
             </div>
@@ -203,11 +203,11 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: M
                         </td>
                         <td style={tdR}>
                           <span style={{ fontWeight: 700 }}>{fmt(nhan)}</span>
-                          {thieu && <span style={{ fontSize: 11, color: '#c2410c' }}> / {fmt(i.issuedQty)} xuất</span>}
+                          {thieu && <span style={{ fontSize: 11, color: 'var(--fg-c2410c)' }}> / {fmt(i.issuedQty)} xuất</span>}
                         </td>
                         <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{fmtDate(i.issuedAt)}</td>
                         <td style={{ ...td, whiteSpace: 'nowrap' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#16a34a', fontWeight: 600 }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: 'var(--fg-16a34a)', fontWeight: 600 }}>
                             <Check size={14} /> {i.receivedAt ? fmtDate(i.receivedAt) : '—'}
                           </span>
                         </td>

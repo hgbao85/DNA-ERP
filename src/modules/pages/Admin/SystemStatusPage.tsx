@@ -41,7 +41,7 @@ export default function SystemStatusPage() {
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-        <Activity size={18} color="#3949ab" />
+        <Activity size={18} color="var(--fg-3949ab)" />
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Tình trạng hệ thống</h2>
       </div>
       <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 18 }}>
@@ -50,12 +50,12 @@ export default function SystemStatusPage() {
 
       <div style={{ display: 'flex', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
         <div style={{ flex: 1, minWidth: 160, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
-          <div style={{ color: '#3949ab', marginBottom: 10 }}><Database size={18} /></div>
+          <div style={{ color: 'var(--fg-3949ab)', marginBottom: 10 }}><Database size={18} /></div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>{totalRecords.toLocaleString('vi-VN')}</div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Tổng bản ghi ({data.collectionCounts.length} collection)</div>
         </div>
         <div style={{ flex: 1, minWidth: 160, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
-          <div style={{ color: '#3949ab', marginBottom: 10 }}><HardDrive size={18} /></div>
+          <div style={{ color: 'var(--fg-3949ab)', marginBottom: 10 }}><HardDrive size={18} /></div>
           <div style={{ fontSize: 24, fontWeight: 700 }}>{formatBytes(data.storageBytes)}</div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Dung lượng localStorage</div>
         </div>
@@ -81,14 +81,14 @@ export default function SystemStatusPage() {
         </div>
 
         <div style={{ flex: 1, minWidth: 260 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: '#c62828', marginBottom: 10 }}>Vùng nguy hiểm</div>
-          <div style={{ border: '1px solid #f5c6cb', borderRadius: 10, background: 'var(--red-bg)', padding: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg-c62828)', marginBottom: 10 }}>Vùng nguy hiểm</div>
+          <div style={{ border: '1px solid var(--fg-f5c6cb)', borderRadius: 10, background: 'var(--red-bg)', padding: 16 }}>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 12 }}>
               Xóa toàn bộ dữ liệu demo hiện có trong trình duyệt này và khôi phục lại dữ liệu gốc ban đầu.
             </div>
             <button
               onClick={handleReset}
-              style={{ padding: '8px 16px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', background: '#c62828', cursor: 'pointer' }}
+              style={{ padding: '8px 16px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--bg-c62828)', cursor: 'pointer' }}
             >
               Reset dữ liệu demo
             </button>

@@ -21,7 +21,7 @@ import {
   fmt, dateVN, timeVN, lechOf,
 } from './core'
 
-const ACCENT = '#e65100'
+const ACCENT = 'var(--fg-e65100)'
 
 // ── Types ──────────────────────────────────────────────────────────
 export interface KcsLine extends ProcLine {
@@ -116,7 +116,7 @@ function KcsReviewModal({ stageType, line, onClose, onSubmit }: {
         <input type="number" min={0} max={line.pendingQty} value={failedQty}
           onChange={e => setFailedQty(e.target.value)} style={inp} autoFocus />
         <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
-          Đạt: <b style={{ color: 'var(--green)' }}>{fmt(passed)}</b> · Không đạt: <b style={{ color: failed > 0 ? '#c62828' : 'var(--text3)' }}>{fmt(failed)}</b>
+          Đạt: <b style={{ color: 'var(--green)' }}>{fmt(passed)}</b> · Không đạt: <b style={{ color: failed > 0 ? 'var(--fg-c62828)' : 'var(--text3)' }}>{fmt(failed)}</b>
         </div>
 
         {failed > 0 && <>
@@ -146,7 +146,7 @@ function KcsReviewModal({ stageType, line, onClose, onSubmit }: {
           </div>
         </>}
 
-        {err && <div style={{ color: '#c62828', fontSize: 13, marginTop: 10 }}>{err}</div>}
+        {err && <div style={{ color: 'var(--fg-c62828)', fontSize: 13, marginTop: 10 }}>{err}</div>}
 
         <div style={{
           position: 'sticky', bottom: -20, display: 'flex', gap: 8, justifyContent: 'flex-end',
@@ -211,7 +211,7 @@ function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, onBack, o
       // Lỗi CỘNG DỒN LỊCH SỬ (2026-09-08 lần 2, xem changelog "Bù đủ dồn về bảng tổng") - KHÔNG tự
       // giảm khi tổ bù đủ (Bù đủ = 1 lô HOÀN TOÀN MỚI gửi duyệt lại bình thường, không sửa dòng cũ).
       key: 'failed', header: 'Lỗi', align: 'right', cell: l => l.failedQty
-        ? <span style={{ fontWeight: 700, color: '#c62828' }}>{fmt(l.failedQty)}</span>
+        ? <span style={{ fontWeight: 700, color: 'var(--fg-c62828)' }}>{fmt(l.failedQty)}</span>
         : <span style={{ color: 'var(--text3)' }}>—</span>,
     },
     {
@@ -303,7 +303,7 @@ function KcsPoListBoard({ rows, cfg, onEnter }: { rows: KcsRow[]; cfg: StageCfg;
     },
     {
       key: 'loi', header: 'Lỗi', align: 'right', cell: v => v.loi > 0
-        ? <span style={{ fontWeight: 700, color: '#c62828' }}>{fmt(v.loi)} {unit}</span>
+        ? <span style={{ fontWeight: 700, color: 'var(--fg-c62828)' }}>{fmt(v.loi)} {unit}</span>
         : <span style={{ color: 'var(--text3)' }}>0</span>
     },
     { key: 'reportedAt', header: 'Báo lúc', cell: v => timeVN(v.r.deadline) },
@@ -372,12 +372,12 @@ export function KcsTwoTierScreen({ cfg, rows, onReview, onEditPhoto, onDeletePho
     <div style={{
       position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1200,
       display: 'flex', alignItems: 'center', gap: 12, padding: '11px 16px',
-      background: '#1f2937', color: '#fff', borderRadius: 10, fontSize: 13,
+      background: 'var(--bg-1f2937)', color: '#fff', borderRadius: 10, fontSize: 13,
       boxShadow: '0 8px 24px rgba(0,0,0,.25)', maxWidth: 'calc(100vw - 32px)',
     }}>
-      <Check size={16} color="#4ade80" />
+      <Check size={16} color="var(--fg-4ade80)" />
       <span>{toast}</span>
-      <button onClick={() => setToast(null)} style={{ padding: 2, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', color: '#9ca3af' }} title="Đóng">
+      <button onClick={() => setToast(null)} style={{ padding: 2, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex', color: 'var(--fg-9ca3af)' }} title="Đóng">
         <X size={15} />
       </button>
     </div>

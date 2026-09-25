@@ -14,9 +14,9 @@ export default function ScreenMock({ mock }: { mock: GuideMock }) {
         background: 'var(--surface2)', borderBottom: '1px solid var(--border)',
       }}>
         <div style={{ display: 'flex', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#e3a5a5' }} />
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#e8cf9c' }} />
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#a8cfa0' }} />
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--bg-e3a5a5)' }} />
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--bg-e8cf9c)' }} />
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--bg-a8cfa0)' }} />
         </div>
         <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)' }}>{mock.title}</span>
         <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4, fontSize: 10, color: 'var(--text3)', fontStyle: 'italic' }}>

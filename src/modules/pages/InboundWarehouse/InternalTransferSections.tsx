@@ -151,14 +151,14 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                       <button
                         onClick={() => { setRejectModal(t); setRejectReason('') }}
                         disabled={busy === t.id}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '8px 16px', background: '#fce4ec', border: '1px solid #ef9a9a', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#c62828', cursor: 'pointer' }}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '8px 16px', background: 'var(--bg-fce4ec)', border: '1px solid var(--fg-ef9a9a)', borderRadius: 8, fontSize: 13, fontWeight: 600, color: 'var(--fg-c62828)', cursor: 'pointer' }}
                       >
                         <XCircle size={14} /> Từ chối
                       </button>
                       <button
                         onClick={() => handleConfirm(t)}
                         disabled={busy === t.id}
-                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: '#2e7d32', color: '#fff', cursor: busy === t.id ? 'not-allowed' : 'pointer', opacity: busy === t.id ? 0.7 : 1 }}
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: 'var(--bg-2e7d32)', color: '#fff', cursor: busy === t.id ? 'not-allowed' : 'pointer', opacity: busy === t.id ? 0.7 : 1 }}
                       >
                         <CheckCircle2 size={15} /> {busy === t.id ? 'Đang xử lý...' : 'Xác nhận nhận hàng'}
                       </button>
@@ -183,7 +183,7 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
         onConfirm={handleReject}
         busy={rejecting}
         confirmDisabled={!rejectReason.trim()}
-        confirmColor="#c62828"
+        confirmColor="var(--fg-c62828)"
       />
     </div>
   )

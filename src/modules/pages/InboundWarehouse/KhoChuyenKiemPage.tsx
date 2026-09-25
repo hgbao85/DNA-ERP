@@ -73,7 +73,7 @@ function DefectListPanel({ defects, onChanged }: {
               onChange={e => { const f = e.target.files?.[0]; if (f) replace(d.id, f); e.target.value = '' }} />
           </label>
           {d.imageUrl && (
-            <button onClick={() => remove(d.id)} disabled={busyId === d.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: '#c62828', border: '1px solid rgba(198,40,40,.35)', borderRadius: 6, padding: '2px 7px', background: 'none', cursor: busyId === d.id ? 'not-allowed' : 'pointer', opacity: busyId === d.id ? 0.6 : 1 }}>
+            <button onClick={() => remove(d.id)} disabled={busyId === d.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: 'var(--fg-c62828)', border: '1px solid rgba(198,40,40,.35)', borderRadius: 6, padding: '2px 7px', background: 'none', cursor: busyId === d.id ? 'not-allowed' : 'pointer', opacity: busyId === d.id ? 0.6 : 1 }}>
               <Trash2 size={10} /> Xóa ảnh
             </button>
           )}
@@ -256,11 +256,11 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                     </td>
                     <td style={{ ...td, textAlign: 'right', color: 'var(--text2)' }}>{piece.totalQty}</td>
                     <td style={{ ...td, textAlign: 'right', color: 'var(--text2)' }}>{piece.readyQty}</td>
-                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: piece.checkedQty > 0 ? '#16a34a' : 'var(--text)' }}>{piece.checkedQty}</td>
+                    <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: piece.checkedQty > 0 ? 'var(--fg-16a34a)' : 'var(--text)' }}>{piece.checkedQty}</td>
                     <td style={{ ...td, textAlign: 'right' }}>
                       {piece.defectCount > 0 ? (
                         <button onClick={() => setExpandedPieceId(expanded ? null : piece.pieceId)}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 700, color: '#dc2626', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontWeight: 700, color: 'var(--fg-dc2626)', background: 'none', border: 'none', cursor: 'pointer', fontSize: 13 }}>
                           {piece.defectCount} {expanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                         </button>
                       ) : <span style={{ color: 'var(--text3)' }}>{piece.defectCount}</span>}
@@ -273,7 +273,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                           onClick={() => openPopup(piece)}
                           disabled={piece.checkedQty >= piece.readyQty}
                           title={piece.checkedQty >= piece.readyQty ? 'Chưa có hàng về để kiểm' : undefined}
-                          style={{ opacity: piece.checkedQty >= piece.readyQty ? 0.45 : 1, padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: '#e65100', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
+                          style={{ opacity: piece.checkedQty >= piece.readyQty ? 0.45 : 1, padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-e65100)', color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
                         >
                           Kiểm
                         </button>
@@ -321,11 +321,11 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                   value={popupQty}
                   onChange={e => setPopupQty(e.target.value)}
                   placeholder="Nhập số lượng"
-                  style={{ ...inp, borderColor: overRemaining ? '#dc2626' : undefined }}
+                  style={{ ...inp, borderColor: overRemaining ? 'var(--fg-dc2626)' : undefined }}
                   autoFocus
                 />
                 {overRemaining && (
-                  <div style={{ color: '#dc2626', fontSize: 12, marginTop: 4 }}>
+                  <div style={{ color: 'var(--fg-dc2626)', fontSize: 12, marginTop: 4 }}>
                     Vượt quá số lượng còn lại có thể kiểm ({remainingToCheck})
                   </div>
                 )}
@@ -372,7 +372,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                   ))}
                 </div>
 
-                {saveError && <div style={{ color: '#c62828', fontSize: 12, marginTop: 12 }}>{saveError}</div>}
+                {saveError && <div style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 12 }}>{saveError}</div>}
               </div>
 
               <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
@@ -384,7 +384,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                 <button
                   onClick={handleConfirm}
                   disabled={!canConfirm}
-                  style={{ padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: canConfirm ? '#e65100' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed' }}
+                  style={{ padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: canConfirm ? 'var(--bg-e65100)' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed' }}
                 >{saving ? 'Đang lưu...' : 'Xác nhận'}</button>
               </div>
             </div>

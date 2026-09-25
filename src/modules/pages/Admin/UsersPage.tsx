@@ -165,7 +165,7 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
               style={{
                 flex: 1, padding: '8px 6px', fontSize: 12, fontWeight: 600, border: 'none',
                 borderRight: i < STAFF_CATEGORIES.length - 1 ? '1px solid var(--border)' : 'none',
-                background: category === c.value ? '#3949ab' : 'var(--surface)',
+                background: category === c.value ? 'var(--bg-3949ab)' : 'var(--surface)',
                 color: category === c.value ? '#fff' : 'var(--text2)',
                 cursor: 'pointer',
               }}
@@ -298,14 +298,14 @@ function ResetPasswordModal({ user, onClose, onDone }: { user: SystemUser | null
         </div>
       </div>
 
-      {error && <div style={{ color: '#c62828', fontSize: 12, marginTop: 12 }}>{error}</div>}
+      {error && <div style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 12 }}>{error}</div>}
 
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
         <button onClick={close} disabled={saving} style={btnSecondary}>Hủy</button>
         <button
           onClick={handleSubmit}
           disabled={saving}
-          style={{ padding: '8px 18px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', background: '#3949ab', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
+          style={{ padding: '8px 18px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--bg-3949ab)', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1 }}
         >
           {saving ? 'Đang lưu...' : 'Đặt lại mật khẩu'}
         </button>
@@ -321,7 +321,7 @@ export default function UsersPage() {
 
   const config: AdminEntityConfig<SystemUser> = {
     title: 'Người dùng',
-    icon: <Users size={18} color="#3949ab" />,
+    icon: <Users size={18} color="var(--fg-3949ab)" />,
     searchFields: ['name', 'email'],
     searchPlaceholder: 'Tìm theo tên hoặc email...',
     emptyMessage: 'Chưa có tài khoản nào',
@@ -331,7 +331,7 @@ export default function UsersPage() {
       {
         key: 'name', label: 'Tên', render: (u) => (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <div style={{ width: 24, height: 24, borderRadius: '50%', background: '#e8eaf6', color: '#3949ab', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
+            <div style={{ width: 24, height: 24, borderRadius: '50%', background: 'var(--bg-e8eaf6)', color: 'var(--fg-3949ab)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, flexShrink: 0 }}>
               {u.name.split(' ').pop()?.substring(0, 2).toUpperCase()}
             </div>
             <span style={{ fontWeight: 600 }}>{u.name}</span>
@@ -460,7 +460,7 @@ export default function UsersPage() {
               }
             }}
             title={u.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
-            style={{ ...rowIconBtn, color: u.isActive ? 'var(--text2)' : '#e65100' }}
+            style={{ ...rowIconBtn, color: u.isActive ? 'var(--text2)' : 'var(--fg-e65100)' }}
           >
             {u.isActive ? <Lock size={14} strokeWidth={2.25} /> : <LockOpen size={14} strokeWidth={2.25} />}
           </button>

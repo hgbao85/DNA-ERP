@@ -19,8 +19,8 @@ import XuatSatPage from './XuatSatPage'
 import XuatVatTuThanhPhamPage from './XuatVatTuThanhPhamPage'
 import XuatVatTuTieuHaoPage from './XuatVatTuTieuHaoPage'
 
-const ACCENT = '#4527A0'
-const ACCENT_BG = '#EDE7F6'
+const ACCENT = 'var(--fg-4527a0)'
+const ACCENT_BG = 'var(--bg-ede7f6)'
 
 type Sub = 'sat' | 'vat-tu-tp' | 'han' | 'son'
 

@@ -10,7 +10,7 @@ export default function SalesCustomersPage() {
 
   const config: AdminEntityConfig<SalesCustomer> = {
     title: 'Khách hàng bán hàng',
-    icon: <Users size={18} color="#3949ab" />,
+    icon: <Users size={18} color="var(--fg-3949ab)" />,
     searchFields: ['name', 'phone', 'email'],
     searchPlaceholder: 'Tìm theo tên, SĐT hoặc email...',
     emptyMessage: 'Chưa có khách hàng nào',

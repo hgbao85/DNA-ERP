@@ -68,12 +68,12 @@ const wovenStatus = (m: Manh): { isWoven: boolean; missing: ManhChildGroup[] } =
   return { isWoven: missing.length === 0, missing }
 }
 const GROUP_BADGE_COLORS: Record<ManhChildGroup, { bg: string; fg: string }> = {
-  sat: { bg: '#e3f2fd', fg: '#1565c0' },
-  day: { bg: '#fff3e0', fg: '#e65100' },
-  dinh: { bg: '#f3e5f5', fg: '#7b1fa2' },
-  tanRut: { bg: '#e8f5e9', fg: '#2e7d32' },
-  nutNhua: { bg: '#fce4ec', fg: '#ad1457' },
-  vatTuTP: { bg: '#ede7f6', fg: '#4527a0' },
+  sat: { bg: 'var(--bg-e3f2fd)', fg: 'var(--fg-1565c0)' },
+  day: { bg: 'var(--bg-fff3e0)', fg: 'var(--fg-e65100)' },
+  dinh: { bg: 'var(--bg-f3e5f5)', fg: 'var(--fg-7b1fa2)' },
+  tanRut: { bg: 'var(--bg-e8f5e9)', fg: 'var(--fg-2e7d32)' },
+  nutNhua: { bg: 'var(--bg-fce4ec)', fg: 'var(--fg-ad1457)' },
+  vatTuTP: { bg: 'var(--bg-ede7f6)', fg: 'var(--fg-4527a0)' },
 }
 
 const toManh = (r: ManhRow): Manh => ({
@@ -394,17 +394,17 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     <td style={{ padding: '12px 14px', fontWeight: 600, color: 'var(--text)' }}>
                       {item.ten}
                       {rejectReason && (
-                        <div style={{ marginTop: 2, fontSize: 11, fontWeight: 400, color: '#c62828', fontStyle: 'italic' }}>{rejectReason}</div>
+                        <div style={{ marginTop: 2, fontSize: 11, fontWeight: 400, color: 'var(--fg-c62828)', fontStyle: 'italic' }}>{rejectReason}</div>
                       )}
                     </td>
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.maKhachHang || '—'}</td>
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
                     <td style={{ padding: '12px 14px' }}>
                       {st === 'pending'
-                        ? <span style={{ background: '#fff3e0', color: '#e65100', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
+                        ? <span style={{ background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
                         : st === 'rejected'
-                        ? <span style={{ background: '#ffebee', color: '#c62828', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
-                        : <span style={{ background: '#eef2ff', color: '#3949ab', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
+                        ? <span style={{ background: 'var(--bg-ffebee)', color: 'var(--fg-c62828)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
+                        : <span style={{ background: 'var(--bg-eef2ff)', color: 'var(--fg-3949ab)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
                       }
                     </td>
                     <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
@@ -444,27 +444,27 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
           )}
 
           {manhSt === 'rejected' && (
-            <div style={{ padding: '10px 16px', background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: 'var(--radius-lg)', marginBottom: 16 }}>
-              <div style={{ fontSize: 13, fontWeight: 700, color: '#dc2626' }}>⚠ KHSX đã từ chối — vui lòng chỉnh sửa và gửi lại</div>
+            <div style={{ padding: '10px 16px', background: 'var(--bg-fff5f5)', border: '1px solid var(--fg-fca5a5)', borderRadius: 'var(--radius-lg)', marginBottom: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--fg-dc2626)' }}>⚠ KHSX đã từ chối — vui lòng chỉnh sửa và gửi lại</div>
               {findPf(selectedBom.id)?.manhReviewStatus?.reason && (
-                <div style={{ fontSize: 12, color: '#dc2626', fontStyle: 'italic', marginTop: 2 }}>{findPf(selectedBom.id)!.manhReviewStatus!.reason}</div>
+                <div style={{ fontSize: 12, color: 'var(--fg-dc2626)', fontStyle: 'italic', marginTop: 2 }}>{findPf(selectedBom.id)!.manhReviewStatus!.reason}</div>
               )}
             </div>
           )}
 
           {/* Form tạo mảnh */}
           {showManhForm && (
-            <div style={{ background: '#e3f2fd', border: '1px solid #90caf9', borderRadius: 'var(--radius-lg)', padding: '14px 16px', marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, color: '#1565c0', marginBottom: 10, fontSize: 14 }}>Tạo mảnh mới</div>
+            <div style={{ background: 'var(--bg-e3f2fd)', border: '1px solid var(--fg-90caf9)', borderRadius: 'var(--radius-lg)', padding: '14px 16px', marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, color: 'var(--fg-1565c0)', marginBottom: 10, fontSize: 14 }}>Tạo mảnh mới</div>
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div>
                   <FL>SKU</FL>
-                  <div style={{ padding: '7px 12px', background: '#d6e8fb', border: '1px solid #90caf9', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 700, color: '#1565c0' }}>
+                  <div style={{ padding: '7px 12px', background: 'var(--bg-d6e8fb)', border: '1px solid var(--fg-90caf9)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 700, color: 'var(--fg-1565c0)' }}>
                     {selectedBom.ten}
                   </div>
                 </div>
                 <div style={{ flex: 1, minWidth: isMobile ? '100%' : 200 }}>
-                  <FL>Tên mảnh <span style={{ color: '#e53935' }}>*</span></FL>
+                  <FL>Tên mảnh <span style={{ color: 'var(--fg-e53935)' }}>*</span></FL>
                   <input autoFocus placeholder="Mảnh tựa, Mảnh tay…" value={formTenManh}
                     onChange={e => setFormTenManh(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addManh()}
@@ -493,7 +493,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button onClick={addManh} disabled={!formTenManh.trim()} style={{
                     padding: '7px 16px', border: 'none', borderRadius: 'var(--radius)',
-                    background: formTenManh.trim() ? '#1565c0' : '#ccc',
+                    background: formTenManh.trim() ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
                     color: '#fff', fontWeight: 700, fontSize: 13,
                     cursor: formTenManh.trim() ? 'pointer' : 'not-allowed',
                   }}>Tạo mảnh</button>
@@ -510,7 +510,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
           {manhs.length === 0 && !showManhForm && (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '40px', textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
               Chưa có mảnh nào —{' '}
-              <button onClick={() => setShowManhForm(true)} style={{ background: 'none', border: 'none', color: '#1565c0', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
+              <button onClick={() => setShowManhForm(true)} style={{ background: 'none', border: 'none', color: 'var(--fg-1565c0)', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
                 + Nhập mảnh đầu tiên
               </button>
             </div>
@@ -528,18 +528,18 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 }}>
                   {/* Tên SKU lặp lại ở mọi mảnh - trên điện thoại đã có ở đầu trang, bỏ cho đỡ chật. */}
                   {!isMobile && (
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#1565c0', background: '#e3f2fd', borderRadius: 4, padding: '2px 7px' }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-1565c0)', background: 'var(--bg-e3f2fd)', borderRadius: 4, padding: '2px 7px' }}>
                     {selectedBom?.ten}
                   </span>
                   )}
                   <span style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{m.tenManh}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#e65100', background: '#fff3e0', borderRadius: 4, padding: '2px 7px' }}>×{m.soLuong} / SKU</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--fg-e65100)', background: 'var(--bg-fff3e0)', borderRadius: 4, padding: '2px 7px' }}>×{m.soLuong} / SKU</span>
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>{m.children.length} dòng vật tư</span>
                   <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px 12px', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                     {(() => {
                       const { isWoven, missing } = wovenStatus(m)
                       return isWoven ? (
-                        <span style={{ fontSize: 12, fontWeight: 600, color: '#2e7d32' }}>✓ Có đan</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg-2e7d32)' }}>✓ Có đan</span>
                       ) : (
                         <span
                           title={missing.length < WOVEN_GROUPS.length ? `Thiếu ${missing.map(g => GROUP_LABELS[g]).join(', ')}` : undefined}
@@ -551,8 +551,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     })()}
                     {isSubmitted ? (
                       <div style={{ display: 'flex', gap: 8 }}>
-                        {m.needsHan && <span style={{ fontSize: 11, fontWeight: 600, color: '#ef6c00', background: '#fff3e0', borderRadius: 4, padding: '2px 7px' }}>Hàn</span>}
-                        {m.needsSon && <span style={{ fontSize: 11, fontWeight: 600, color: '#00695c', background: '#e0f2f1', borderRadius: 4, padding: '2px 7px' }}>Sơn</span>}
+                        {m.needsHan && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-ef6c00)', background: 'var(--bg-fff3e0)', borderRadius: 4, padding: '2px 7px' }}>Hàn</span>}
+                        {m.needsSon && <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-00695c)', background: 'var(--bg-e0f2f1)', borderRadius: 4, padding: '2px 7px' }}>Sơn</span>}
                       </div>
                     ) : (
                       <div style={{ display: 'flex', gap: 10 }}>
@@ -573,15 +573,15 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                           style={{
                             display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
                             border: '1px solid var(--border)', borderRadius: 'var(--radius)',
-                            background: addingTo === m.id ? '#e3f2fd' : 'var(--surface)',
-                            color: addingTo === m.id ? '#1565c0' : 'var(--text2)',
+                            background: addingTo === m.id ? 'var(--bg-e3f2fd)' : 'var(--surface)',
+                            color: addingTo === m.id ? 'var(--fg-1565c0)' : 'var(--text2)',
                             cursor: 'pointer', fontSize: 12, fontWeight: 600,
                           }}>
                           <Plus size={13} /> Thêm vật tư
                         </button>
                         <button onClick={() => deleteManh(m.id)} style={{
-                          padding: '5px 10px', border: '1px solid #ffcdd2', borderRadius: 'var(--radius)',
-                          background: '#fff8f8', color: '#c62828', cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                          padding: '5px 10px', border: '1px solid var(--fg-ffcdd2)', borderRadius: 'var(--radius)',
+                          background: 'var(--bg-fff8f8)', color: 'var(--fg-c62828)', cursor: 'pointer', fontSize: 12, fontWeight: 600,
                         }}>Xóa mảnh</button>
                       </div>
                     )}
@@ -596,7 +596,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       const badge = GROUP_BADGE_COLORS[c.group]
                       const lenOrPerBar = c.group === 'sat' ? c.cutLengthMm : c.group === 'vatTuTP' ? c.piecesPerBar : ''
                       return (
-                        <div key={c.id} style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined, padding: '10px 12px', background: isEditingThis ? '#e3f2fd' : undefined, fontSize: 13 }}>
+                        <div key={c.id} style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined, padding: '10px 12px', background: isEditingThis ? 'var(--bg-e3f2fd)' : undefined, fontSize: 13 }}>
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: badge.fg, background: badge.bg, borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap', flexShrink: 0 }}>{GROUP_LABELS[c.group]}</span>
                             <div style={{ flex: 1, minWidth: 0, fontWeight: 500, wordBreak: 'break-word' }}>
@@ -618,10 +618,10 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                           {((c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.length > 0 || (c.group === 'nutNhua' && c.includeInWeaving) || c.photoUrl || c.photoPreview) && (
                             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginTop: 6 }}>
                               {(c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.map(step => (
-                                <span key={step} style={{ fontSize: 11, fontWeight: 600, color: '#5e35b1', background: '#ede7f6', borderRadius: 4, padding: '2px 6px' }}>{PROCESS_STEP_LABELS[step]}</span>
+                                <span key={step} style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-5e35b1)', background: 'var(--bg-ede7f6)', borderRadius: 4, padding: '2px 6px' }}>{PROCESS_STEP_LABELS[step]}</span>
                               ))}
                               {c.group === 'nutNhua' && c.includeInWeaving && (
-                                <span style={{ fontSize: 10, fontWeight: 700, color: '#2e7d32', background: '#e8f5e9', borderRadius: 4, padding: '1px 6px' }}>✓ Đi kèm xuất đan</span>
+                                <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-2e7d32)', background: 'var(--bg-e8f5e9)', borderRadius: 4, padding: '1px 6px' }}>✓ Đi kèm xuất đan</span>
                               )}
                               {(c.photoUrl || c.photoPreview) && (
                                 <img src={c.photoUrl || c.photoPreview} alt={c.loaiSatName} style={{ height: 32, borderRadius: 4, border: '1px solid var(--border)' }} />
@@ -655,7 +655,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         const isEditingThis = editingChild?.manhId === m.id && editingChild.childId === c.id
                         const badge = GROUP_BADGE_COLORS[c.group]
                         return (
-                          <tr key={c.id} style={{ borderTop: '1px solid var(--border)', background: isEditingThis ? '#e3f2fd' : undefined }}>
+                          <tr key={c.id} style={{ borderTop: '1px solid var(--border)', background: isEditingThis ? 'var(--bg-e3f2fd)' : undefined }}>
                             <td style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 12, padding: '9px 7px' }}>{i + 1}</td>
                             <td style={{ padding: '9px 14px' }}>
                               <span style={{ fontSize: 11, fontWeight: 700, color: badge.fg, background: badge.bg, borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap' }}>
@@ -666,7 +666,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                               {c.loaiSatName}
                               {c.note && <span style={{ color: 'var(--text3)', fontWeight: 400 }}> ({c.note})</span>}
                               {c.group === 'nutNhua' && c.includeInWeaving && (
-                                <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: '#2e7d32', background: '#e8f5e9', borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap' }}>
+                                <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--fg-2e7d32)', background: 'var(--bg-e8f5e9)', borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap' }}>
                                   ✓ Đi kèm xuất đan
                                 </span>
                               )}
@@ -679,7 +679,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                               {(c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.length > 0 ? (
                                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                                   {c.processSteps.map(step => (
-                                    <span key={step} style={{ fontSize: 11, fontWeight: 600, color: '#5e35b1', background: '#ede7f6', borderRadius: 4, padding: '2px 6px', whiteSpace: 'nowrap' }}>
+                                    <span key={step} style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-5e35b1)', background: 'var(--bg-ede7f6)', borderRadius: 4, padding: '2px 6px', whiteSpace: 'nowrap' }}>
                                       {PROCESS_STEP_LABELS[step]}
                                     </span>
                                   ))}
@@ -834,7 +834,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                           return (
                             <button onClick={() => saveChild(m.id)} disabled={!childValid} style={{
                               padding: '7px 14px', border: 'none', borderRadius: 'var(--radius)',
-                              background: childValid ? '#1565c0' : '#ccc',
+                              background: childValid ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
                               color: '#fff', fontWeight: 600, fontSize: 13,
                               cursor: childValid ? 'pointer' : 'not-allowed',
                             }}>{editingChild?.manhId === m.id ? 'Lưu' : '+ Thêm'}</button>
@@ -872,15 +872,15 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10,
               padding: '12px 16px', background: 'var(--surface)',
               border: `1px solid ${
-                manhSt === 'approved' ? '#a5d6a7'
-                : manhSt === 'pending' ? '#ffe082'
+                manhSt === 'approved' ? 'var(--fg-a5d6a7)'
+                : manhSt === 'pending' ? 'var(--fg-ffe082)'
                 : 'var(--border)'
               }`,
               borderRadius: 'var(--radius-lg)',
             }}>
               {manhSt === 'approved' ? (
                 <>
-                  <span style={{ fontSize: 13, color: '#2e7d32', fontWeight: 600 }}>
+                  <span style={{ fontSize: 13, color: 'var(--fg-2e7d32)', fontWeight: 600 }}>
                     ✓ Đã được duyệt
                   </span>
                   <button onClick={() => setSelectedBom(null)} style={{
@@ -890,7 +890,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 </>
               ) : manhSt === 'pending' ? (
                 <>
-                  <span style={{ fontSize: 13, color: '#e65100', fontWeight: 600 }}>
+                  <span style={{ fontSize: 13, color: 'var(--fg-e65100)', fontWeight: 600 }}>
                     ⏳ Đã gửi phê duyệt — đang chờ quản lý xác nhận
                   </span>
                   <button onClick={() => setSelectedBom(null)} style={{
@@ -908,7 +908,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     disabled={totalChildren === 0 || savingManh}
                     style={{
                       padding: '7px 20px', border: 'none', borderRadius: 'var(--radius)',
-                      background: totalChildren > 0 ? '#1565c0' : '#ccc',
+                      background: totalChildren > 0 ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
                       color: '#fff', fontWeight: 700, fontSize: 13,
                       cursor: totalChildren > 0 && !savingManh ? 'pointer' : 'not-allowed',
                       opacity: savingManh ? 0.7 : 1,
@@ -932,8 +932,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 onClick={() => { setCatalogGroup(g); setCatalogSearch('') }}
                 style={{
                   padding: isMobile ? '9px 12px' : '9px 18px', border: 'none', background: 'none', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0,
-                  fontSize: 13, fontWeight: 600, color: catalogGroup === g ? '#1565c0' : 'var(--text3)',
-                  borderBottom: catalogGroup === g ? '2px solid #1565c0' : '2px solid transparent',
+                  fontSize: 13, fontWeight: 600, color: catalogGroup === g ? 'var(--fg-1565c0)' : 'var(--text3)',
+                  borderBottom: catalogGroup === g ? '2px solid var(--fg-1565c0)' : '2px solid transparent',
                   marginBottom: -1,
                 }}
               >{GROUP_LABELS[g]}</button>

@@ -7,8 +7,8 @@ export const salesGroup: GuideGroup = {
   id: 'sales',
   title: 'Bán hàng',
   icon: 'Users',
-  color: '#047857',
-  bg: '#D1FAE5',
+  color: 'var(--fg-047857)',
+  bg: 'var(--bg-d1fae5)',
   roles: ['sales'],
   description: 'Tạo và theo dõi đơn hàng (PO) của khách, quản lý danh mục khách hàng, tra cứu lịch sử mua hàng.',
   articles: [
