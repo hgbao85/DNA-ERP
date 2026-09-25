@@ -49,7 +49,7 @@ type ManChild = {
   includeInWeaving: boolean
 }
 type Manh = { id: number; tenManh: string; soLuong: string; needsHan: boolean; needsSon: boolean; children: ManChild[] }
-type BomItem = { id: string; ten: string; thoiGian: string }
+type BomItem = { id: string; ten: string; maKhachHang: string; thoiGian: string }
 
 const CHILD_GROUPS: ManhChildGroup[] = ['sat', 'day', 'dinh', 'tanRut', 'nutNhua', 'vatTuTP']
 const GROUP_LABELS: Record<ManhChildGroup, string> = {
@@ -158,7 +158,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   // Mảnh là bước nhập đầu tiên trong flow hiện tại nên hiện luôn cho mọi SKU chưa DRAFT.
   const manhBoms: BomItem[] = skus.map(pf => ({
     id: pf.id,
-    ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
+    // Form tạo SKU (SKUReviewPage) gán cùng 1 giá trị cho factoryCode lẫn name - trùng thì chỉ hiện 1 lần.
+    ten: [...new Set([pf.mfgProduct?.factoryCode, pf.mfgProduct?.name].filter(Boolean))].join(' — '),
+    maKhachHang: pf.customerName ?? '',
     thoiGian: format(new Date(pf.createdAt), 'dd/MM/yyyy'),
   }))
   // Mảnh giờ chỉ còn 1 quyết định duyệt duy nhất cho cả 5 nhóm vật tư (không còn tách riêng
@@ -365,7 +367,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
             <input
               value={manhBomSearch}
               onChange={e => setManhBomSearch(e.target.value)}
-              placeholder="Tìm theo tên SKU…"
+              placeholder="Tìm theo tên SKU, mã khách hàng…"
               style={{ width: '100%', maxWidth: 280, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
             />
           </div>
@@ -373,13 +375,13 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['SKU', 'Thời gian', 'Trạng thái', ''].map(h => (
+                  {['SKU', 'Mã khách hàng', 'Thời gian', 'Trạng thái', ''].map(h => (
                     <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {manhBoms.filter(b => b.ten.toLowerCase().includes(manhBomSearch.toLowerCase()) && manhBomStatus(b.id) !== 'approved').map(item => {
+                {manhBoms.filter(b => `${b.ten} ${b.maKhachHang}`.toLowerCase().includes(manhBomSearch.toLowerCase()) && manhBomStatus(b.id) !== 'approved').map(item => {
                   const st = manhBomStatus(item.id)
                   const rejectReason = st === 'rejected' ? findPf(item.id)?.manhReviewStatus?.reason : undefined
                   return (
@@ -395,6 +397,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                         <div style={{ marginTop: 2, fontSize: 11, fontWeight: 400, color: '#c62828', fontStyle: 'italic' }}>{rejectReason}</div>
                       )}
                     </td>
+                    <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.maKhachHang || '—'}</td>
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
                     <td style={{ padding: '12px 14px' }}>
                       {st === 'pending'
@@ -427,6 +430,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
             <SkuImageThumb url={findPf(selectedBom.id)?.imageUrl} size={56} />
             <div>
               <span style={{ fontWeight: 700, fontSize: 15 }}>{selectedBom.ten}</span>
+              {selectedBom.maKhachHang && (
+                <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 600, color: 'var(--text2)', background: 'var(--surface2)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 20 }}>Khách hàng: {selectedBom.maKhachHang}</span>
+              )}
               <span style={{ marginLeft: 10, fontSize: 12, color: 'var(--text3)' }}>{selectedBom.thoiGian}</span>
             </div>
           </div>

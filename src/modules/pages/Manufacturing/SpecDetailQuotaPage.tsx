@@ -22,7 +22,7 @@ import { useIsMobile } from '../../../hooks/useMediaQuery'
 // DaySonItem (field `kg`) hoặc VatTuPhuKienItem/BaoBiDongGoiItem (field `quantity`) khi đọc/ghi.
 type DetailLineGroup = 'daySon' | 'vatTuPhuKien' | 'baoBiDongGoi'
 type DetailLine = { id: number; group: DetailLineGroup; materialId: number; name: string; specs: string; unit: string; soLuong: string }
-type BomItem = { id: string; ten: string; thoiGian: string }
+type BomItem = { id: string; ten: string; maKhachHang: string; thoiGian: string }
 
 const GROUPS: DetailLineGroup[] = ['daySon', 'vatTuPhuKien', 'baoBiDongGoi']
 const GROUP_LABELS: Record<DetailLineGroup, string> = { daySon: 'Sơn', vatTuPhuKien: 'Phụ kiện', baoBiDongGoi: 'Bao bì' }
@@ -82,7 +82,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
 
   const boms: BomItem[] = skus.map(pf => ({
     id: pf.id,
-    ten: `${pf.mfgProduct?.factoryCode ?? ''} — ${pf.mfgProduct?.name ?? ''}`.replace(/^— | —$/g, ''),
+    // Form tạo SKU (SKUReviewPage) gán cùng 1 giá trị cho factoryCode lẫn name - trùng thì chỉ hiện 1 lần.
+    ten: [...new Set([pf.mfgProduct?.factoryCode, pf.mfgProduct?.name].filter(Boolean))].join(' — '),
+    maKhachHang: pf.customerName ?? '',
     thoiGian: format(new Date(pf.createdAt), 'dd/MM/yyyy'),
   }))
   // Định mức chi tiết giờ chỉ còn 1 quyết định duyệt duy nhất cho cả 3 nhóm (không còn tách
@@ -182,7 +184,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
             <input
               value={bomSearch}
               onChange={e => setBomSearch(e.target.value)}
-              placeholder="Tìm theo tên SKU…"
+              placeholder="Tìm theo tên SKU, mã khách hàng…"
               style={{ width: '100%', maxWidth: 280, padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)', outline: 'none' }}
             />
           </div>
@@ -190,13 +192,13 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['SKU', 'Thời gian', 'Trạng thái', ''].map(h => (
+                  {['SKU', 'Mã khách hàng', 'Thời gian', 'Trạng thái', ''].map(h => (
                     <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {boms.filter(b => b.ten.toLowerCase().includes(bomSearch.toLowerCase()) && bomStatus(b.id) !== 'approved').map(item => {
+                {boms.filter(b => `${b.ten} ${b.maKhachHang}`.toLowerCase().includes(bomSearch.toLowerCase()) && bomStatus(b.id) !== 'approved').map(item => {
                   const st = bomStatus(item.id)
                   const rejectReason = st === 'rejected' ? findPf(item.id)?.quotaManagement?.reviewStatus?.reason : undefined
                   return (
@@ -212,6 +214,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                         <div style={{ marginTop: 2, fontSize: 11, fontWeight: 400, color: '#c62828', fontStyle: 'italic' }}>{rejectReason}</div>
                       )}
                     </td>
+                    <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.maKhachHang || '—'}</td>
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
                     <td style={{ padding: '12px 14px' }}>
                       {st === 'pending'
@@ -244,6 +247,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
             <SkuImageThumb url={findPf(selectedBom.id)?.imageUrl} size={56} />
             <div>
               <span style={{ fontWeight: 700, fontSize: 15 }}>{selectedBom.ten}</span>
+              {selectedBom.maKhachHang && (
+                <span style={{ marginLeft: 10, fontSize: 12, fontWeight: 600, color: 'var(--text2)', background: 'var(--surface2)', border: '1px solid var(--border)', padding: '2px 8px', borderRadius: 20 }}>Khách hàng: {selectedBom.maKhachHang}</span>
+              )}
               <span style={{ marginLeft: 10, fontSize: 12, color: 'var(--text3)' }}>{selectedBom.thoiGian}</span>
             </div>
           </div>
