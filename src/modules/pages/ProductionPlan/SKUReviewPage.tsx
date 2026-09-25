@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
-import { Plus, X } from 'lucide-react'
+import { ImagePlus, Plus, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import type { Sku, CreateSkuPayload } from '../../../types/sku'
@@ -73,12 +73,30 @@ export default function SKUReviewPage() {
   const [showForm, setShowForm]         = useState(false)
   const [form, setForm]                 = useState<CreateSkuPayload>(emptyForm)
   const [customerName, setCustomerName] = useState('')
+  // Ảnh chỉ giữ ở trình duyệt cho tới khi bấm "Thêm SKU" (upload lúc đó, xem doCreateSku) —
+  // đóng form/huỷ thì không có gì lên Cloudinary.
+  const [imageFile, setImageFile]       = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [submitting, setSubmitting]     = useState(false)
   const [success, setSuccess]           = useState(false)
   const [refreshingSelected, setRefreshingSelected] = useState(false)
   const { ask, confirmModal } = useConfirm()
 
-  const closeForm = () => { setShowForm(false); setForm(emptyForm()); setCustomerName('') }
+  useEffect(() => {
+    if (!imageFile) { setImagePreview(null); return }
+    const url = URL.createObjectURL(imageFile)
+    setImagePreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [imageFile])
+
+  const closeForm = () => { setShowForm(false); setForm(emptyForm()); setCustomerName(''); setImageFile(null) }
+
+  const pickImage = (file: File | undefined) => {
+    if (!file) return
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) { alert('Chỉ chấp nhận ảnh JPEG/PNG/WEBP/GIF'); return }
+    if (file.size > 5 * 1024 * 1024) { alert('Ảnh tối đa 5MB'); return }
+    setImageFile(file)
+  }
 
   // Edit form state — sửa SKU + khách hàng, chỉ mở được khi SKU đang IN_PROGRESS (BE chặn ở mọi
   // trạng thái khác, xem SkusService.update()). Chỉ 1 ô "SKU" (khớp UX lúc tạo mới, xem
@@ -123,10 +141,12 @@ export default function SKUReviewPage() {
   const doCreateSku = async (mfgProductId: string, skuCode: string) => {
     setSubmitting(true)
     try {
+      const imageUrl = imageFile ? await api.uploadImage(imageFile) : undefined
       const createdSku = await api.createSku({
         mfgProductId,
         note: skuCode,
         customerName:  customerName.trim() || undefined,
+        imageUrl,
       })
       if (createdSku?.id != null) {
         logAction(SKU_ENTITY, String(createdSku.id), 'sku.created', skuCode)
@@ -380,6 +400,28 @@ export default function SKUReviewPage() {
                   placeholder="Tìm hoặc nhập Mã khách hàng"
                   emptyText="Không tìm thấy — có thể nhập tên mới"
                 />
+              </div>
+              <div>
+                <label style={labelStyle}>Ảnh sản phẩm</label>
+                {imagePreview ? (
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <img src={imagePreview} alt="Ảnh SKU" style={{ display: 'block', maxWidth: '100%', maxHeight: 180, borderRadius: 8, border: '1px solid var(--border)', objectFit: 'contain' }} />
+                    <button
+                      type="button" onClick={() => setImageFile(null)} title="Bỏ ảnh"
+                      style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: '50%', border: 'none', background: 'rgba(0,0,0,0.55)', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 10px', border: '1px dashed var(--border)', borderRadius: 6, fontSize: 13, color: 'var(--text3)', cursor: 'pointer', background: 'var(--surface)' }}>
+                    <ImagePlus size={16} /> Chọn ảnh (JPEG/PNG/WEBP/GIF, tối đa 5MB)
+                    <input
+                      type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden
+                      onChange={e => { pickImage(e.target.files?.[0]); e.target.value = '' }}
+                    />
+                  </label>
+                )}
               </div>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '16px 20px', borderTop: '1px solid #e7f9ee', marginTop: 12 }}>

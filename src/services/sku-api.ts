@@ -116,6 +116,7 @@ interface BeSku {
   factoryCode: string;
   productName: string;
   customerName: string | null;
+  imageUrl: string | null;
   productionInvoiceId: string | null;
   piCode: string | null;
   status: Sku['status'];
@@ -241,6 +242,7 @@ function toSku(pf: BeSku): Sku {
     detailForwardedAt: pf.detailForwardedAt,
     bossRejectReason: pf.bossRejectReason,
     customerName: pf.customerName,
+    imageUrl: pf.imageUrl,
     piCode: pf.piCode ?? '',
     productionInvoiceId: pf.productionInvoiceId ?? undefined,
     origin: (pf.origin as 'PRODUCTION_CONFIRM' | undefined) ?? undefined,
@@ -295,6 +297,7 @@ export async function createSku(payload: CreateSkuPayload): Promise<Sku> {
     mfgProductId: payload.mfgProductId,
     note: payload.note,
     customerName: payload.customerName,
+    imageUrl: payload.imageUrl,
   });
   return toSku(created);
 }

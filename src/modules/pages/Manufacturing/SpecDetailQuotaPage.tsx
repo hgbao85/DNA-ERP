@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { format } from 'date-fns'
 import { ChevronRight, ChevronLeft, X } from 'lucide-react'
 import NotifBell from '../../../components/NotifBell'
+import SkuImageThumb from '../../../components/SkuImageThumb'
 import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
 import { useFetch } from '../../../hooks/useFetch'
 import { useMaterialGroupIds } from '../../../hooks/useMaterialGroupIds'
@@ -240,6 +241,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
               background: 'var(--surface)', border: '1px solid var(--border)',
               borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
             }}><ChevronLeft size={14} /> Quay lại</button>
+            <SkuImageThumb url={findPf(selectedBom.id)?.imageUrl} size={56} />
             <div>
               <span style={{ fontWeight: 700, fontSize: 15 }}>{selectedBom.ten}</span>
               <span style={{ marginLeft: 10, fontSize: 12, color: 'var(--text3)' }}>{selectedBom.thoiGian}</span>

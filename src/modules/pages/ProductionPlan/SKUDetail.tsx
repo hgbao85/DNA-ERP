@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import SkuImageThumb from '../../../components/SkuImageThumb'
 import { format } from 'date-fns'
 import { ChevronLeft, Pencil } from 'lucide-react'
 import GenericStatusBadge from '../../../components/StatusBadge'
@@ -296,7 +297,8 @@ export function SKUDetail({
       </div>
 
       {/* Info strip */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 28px', padding: '10px 16px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 20, fontSize: 13 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px 28px', padding: '10px 16px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 20, fontSize: 13 }}>
+        <SkuImageThumb url={pf.imageUrl} />
         <span><span style={{ color: 'var(--text3)' }}>Mã nhà máy: </span><strong>{pf.mfgProduct?.factoryCode ?? '—'}</strong></span>
         <span><span style={{ color: 'var(--text3)' }}>Khách hàng: </span><strong>{pf.customerName || '—'}</strong></span>
         {pf.proposedAt && <span><span style={{ color: 'var(--text3)' }}>Thời gian tạo: </span><strong>{format(new Date(pf.proposedAt), 'dd/MM/yyyy')}</strong></span>}

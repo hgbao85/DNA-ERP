@@ -146,6 +146,8 @@ export interface Sku {
   bossRejectReason?: string | null;
   note?: string | null;
   customerName?: string | null;
+  /** Ảnh sản phẩm (Cloudinary URL) — null khi tạo SKU không kèm ảnh. */
+  imageUrl?: string | null;
   /** Mã lệnh sản xuất (PI) — 1 SKU trong 1 PO chỉ có đúng 1 PI, luôn trỏ tới ProductionInvoice
    *  cùng exportOrderId+mfgProductId (xem skus.service.ts create) để "Bảng thống kê"
    *  hiện đúng dữ liệu của SKU đó. */
@@ -187,6 +189,7 @@ export interface CreateSkuPayload {
   mfgProductId: string;
   note?: string;
   customerName?: string;
+  imageUrl?: string;
   origin?: 'PRODUCTION_CONFIRM';
   /** Khi đã biết chắc PI nào ứng với SKU này (vd LenhSXPage duyệt xong 1 SKU), truyền thẳng id để
    *  tái dùng đúng PI đó thay vì service phải dò theo exportOrderId+SKU. */

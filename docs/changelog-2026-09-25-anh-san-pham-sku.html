@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Ảnh sản phẩm cho SKU (25/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --decided: #66748A; --decided-bg: #EEF0F3; --decided-border: #CBD2DB;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.decided { color: var(--decided); background: var(--decided-bg); border-color: var(--decided-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 25/09/2026</span>
+    <h1 class="title">Ảnh sản phẩm cho SKU</h1>
+    <p class="subtitle">KHSX đính kèm được 1 ảnh sản phẩm lúc tạo SKU mới. Ảnh hiện ở chi tiết SKU (KHSX + Sếp) và ở 2 màn nhập định mức (Mảnh + Chi tiết). Ảnh chỉ lên Cloudinary khi bấm "Thêm SKU" và bị xoá khỏi Cloudinary khi xoá SKU.</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> FE <code>D:\DNA-ERP</code> · BE <code>D:\DNA-ERP-BE</code></span>
+      <span><strong>Màn hình:</strong> Duyệt SKU (tạo mới + chi tiết) · Danh sách SKU · Quản lý định mức — Mảnh · Quản lý định mức chi tiết</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="feature">
+    <div class="sec-head"><h2>Tính năng mới</h2><span class="sec-count">3 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">25/09</span><span class="f-title">Ô "Ảnh sản phẩm" trong form "Thông tin SKU mới"</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Form tạo SKU chỉ có 2 ô: SKU và Mã khách hàng. SKU không có chỗ lưu ảnh.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Thêm ô chọn ảnh (JPEG/PNG/WEBP/GIF, tối đa 5MB), xem trước ngay trong form và có nút ✕ để bỏ ảnh. Ảnh chỉ nằm trên trình duyệt cho tới khi bấm <b>"Thêm SKU"</b>. Bấm Hủy hoặc đóng form thì không có gì lên server.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">Chi tiết kỹ thuật</span>
+        <div class="v">
+          <ul>
+            <li>DB: cột mới <code>imageUrl</code> (nullable) trên bảng <code>plan_forms</code>, migration <code>20260925000000_add_plan_form_image_url</code> (đã áp lên DB dev chung).</li>
+            <li><code>CreateSkuDto.imageUrl</code> (tuỳ chọn) và <code>SkuResponseDto.imageUrl</code>. FE: <code>Sku.imageUrl</code>, <code>CreateSkuPayload.imageUrl</code>.</li>
+            <li>FE <code>doCreateSku()</code>: upload qua <code>api.uploadImage()</code> có sẵn (<code>POST /uploads/image</code>), lấy URL rồi mới gọi <code>createSku()</code>. Cùng cách "hoãn upload" như ảnh Dây (08/09).</li>
+            <li>Giới hạn loại file và dung lượng kiểm tra ở FE khớp với <code>UploadsController.uploadImage</code>, nên người dùng được báo lỗi ngay, không phải chờ upload xong mới biết.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>src\modules\pages\ProductionPlan\SKUReviewPage.tsx</code>, <code>src\services\sku-api.ts</code>, <code>src\types\sku.ts</code> · BE <code>src\modules\skus\dto\*.ts</code>, <code>prisma\schema.prisma</code></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">25/09</span><span class="f-title">Không để ảnh thừa trên Cloudinary</span></div>
+      <div class="f-field">
+        <span class="k">2 trường hợp được dọn</span>
+        <div class="v">
+          <ul>
+            <li><b>Xoá SKU:</b> <code>SkusService.remove()</code> xoá bản ghi xong thì gọi <code>cloudinaryService.deleteByUrl(pf.imageUrl)</code>. Áp dụng cho mọi đường xoá qua <code>DELETE /skus/:id</code>, gồm cả nút xoá ở Danh sách SKU.</li>
+            <li><b>Tạo SKU thất bại sau khi ảnh đã upload</b> (ví dụ sản phẩm/đơn hàng không tồn tại): <code>create()</code> bọc <code>createPlanForm()</code> trong try/catch và xoá ảnh vừa gửi lên trước khi ném lỗi lại.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field"><span class="k">Tái dùng hạ tầng có sẵn</span><div class="v"><code>deleteByUrl()</code> là best-effort, không throw, nên lỗi Cloudinary không chặn thao tác xoá hay tạo SKU. Đây cũng là cơ chế đang dùng cho ảnh vật tư và ảnh Dây.</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v">BE <code>src\modules\skus\skus.service.ts</code> (<code>create</code>, <code>remove</code>)</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Giao diện</span><span class="badge date">25/09</span><span class="f-title">Hiển thị ảnh ở chi tiết SKU và 2 màn nhập định mức</span></div>
+      <div class="f-field">
+        <span class="k">Nơi hiển thị</span>
+        <div class="v">
+          <ul>
+            <li><b>Chi tiết SKU</b> (Duyệt SKU, Danh sách SKU, Sếp duyệt): thumbnail 72×72 ở đầu dải thông tin, trước "Mã nhà máy".</li>
+            <li><b>Quản lý định mức — Mảnh</b> và <b>Quản lý định mức chi tiết</b>: thumbnail 56×56 trên thanh tiêu đề, giữa nút "Quay lại" và tên SKU.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field"><span class="k">Hành vi</span><div class="v">Bấm vào ảnh sẽ mở ảnh gốc ở tab mới. SKU không có ảnh (gồm mọi SKU tạo trước 25/09) thì không hiện gì, bố cục giữ nguyên như cũ.</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v">Component dùng chung <code>src\components\SkuImageThumb.tsx</code>, dùng tại <code>ProductionPlan\SKUDetail.tsx</code>, <code>Manufacturing\SpecSteelPage.tsx</code>, <code>Manufacturing\SpecDetailQuotaPage.tsx</code></div></div>
+    </article>
+  </section>
+
+  <section id="test">
+    <div class="sec-head"><h2>Kiểm tra</h2><span class="sec-count">3 mục</span></div>
+    <div class="prose-card">
+      <p><b>Tự động:</b> type-check FE và BE đều sạch. <code>skus.service.spec.ts</code> 51/51 test xanh.</p>
+      <p><b>Dữ liệu demo:</b> SKU <b>Ghế J55 (3 ghế)</b> (<code>plan_forms.id = 62</code>, đã duyệt) được gắn ảnh mẫu công khai <code>https://res.cloudinary.com/demo/image/upload/chair.png</code> bằng cách ghi thẳng vào DB dev. Không upload gì lên tài khoản Cloudinary của dự án.</p>
+      <p><b>Chưa làm:</b> chưa kiểm tra thủ công trên trình duyệt. Chưa có test tự động riêng cho nhánh dọn ảnh ở <code>create()</code>/<code>remove()</code>.</p>
+    </div>
+  </section>
+
+  <section id="decided">
+    <div class="sec-head"><h2>Giới hạn hiện tại / lưu ý</h2><span class="sec-count">3 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Chưa làm</span><span class="badge date">25/09</span><span class="f-title">Chưa đổi hoặc gỡ được ảnh của SKU đã tạo</span></div>
+      <div class="f-field"><span class="k">Hiện trạng</span><div class="v">Form "Sửa SKU" và <code>PATCH /skus/:id</code> chưa nhận <code>imageUrl</code>. Ảnh chỉ gắn được lúc tạo mới. Nếu cần làm thì phải dọn ảnh cũ bằng <code>deleteByUrl()</code> khi đổi, giống cách <code>updateManhQuota()</code> đang làm.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Lưu ý</span><span class="badge date">25/09</span><span class="f-title">Ảnh demo của SKU id 62 khi xoá SKU</span></div>
+      <div class="f-field"><span class="k">Rủi ro</span><div class="v">Nếu xoá SKU này, BE sẽ gọi <code>destroy("chair")</code> trên tài khoản Cloudinary của dự án. Việc này chỉ gây hại nếu tài khoản tình cờ có ảnh trùng tên <code>chair</code> ở gốc. Để gỡ ảnh demo: <code>UPDATE plan_forms SET "imageUrl" = NULL WHERE id = 62;</code></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Lưu ý</span><span class="badge date">25/09</span><span class="f-title">Sau khi pull cần chạy migration</span></div>
+      <div class="f-field"><span class="k">Việc cần làm</span><div class="v">Máy nào dùng DB riêng thì chạy <code>npx prisma migrate deploy</code> rồi <code>npx prisma generate</code> trong <code>D:\DNA-ERP-BE</code>. Thiếu bước này thì BE báo lỗi cột <code>imageUrl</code> không tồn tại.</div></div>
+    </article>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 25/09/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>
