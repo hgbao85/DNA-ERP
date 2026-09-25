@@ -53,7 +53,7 @@ export default function DashboardPage({ onViewAuditLog }: DashboardPageProps) {
       </div>
 
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <div style={{ flex: 2, minWidth: 320 }}>
+        <div style={{ flex: 2, minWidth: 'min(320px, 100%)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)' }}>Hoạt động gần đây</div>
             <button

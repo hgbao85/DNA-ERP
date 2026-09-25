@@ -8,6 +8,8 @@ import EmptyState from '../../../../components/EmptyState'
 import LoadingState from '../../../../components/LoadingState'
 import Pagination from '../../../../components/Pagination'
 import ConfirmModal from '../../../../components/ConfirmModal'
+import MobileListCards from '../../../../components/MobileListCards'
+import { useIsCompact, useIsMobile } from '../../../../hooks/useMediaQuery'
 import { tableWrap, tbl, th, td, row, badge } from '../../../../styles/table'
 import { buildCuttingGuideTable, exportCuttingGuideExcel, printCuttingGuide } from '../../../../utils/cuttingGuide'
 import PrintExportButton from '../../../../components/PrintExportButton'
@@ -79,6 +81,9 @@ export default function CuttingProposalsPage() {
   const [retryTarget, setRetryTarget] = useState<CuttingProposal | null>(null)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  // Điện thoại: thẻ thay bảng 7 cột + panel chi tiết phủ kín màn. Máy tính bảng: bảng cuộn ngang với sàn rộng hơn.
+  const isCompact = useIsCompact()
+  const isMobile = useIsMobile()
 
   // Poll có điều kiện: chỉ khi còn dòng đang tính, tự tắt ngay khi hết - tránh request vô ích khi
   // màn hình đứng yên. Mirror LenhSXPage.tsx (đã chạy ổn với cùng bài toán ở màn Lệnh SX).
@@ -150,6 +155,28 @@ export default function CuttingProposalsPage() {
     }
   }
 
+  const renderStatus = (p: CuttingProposal) => {
+    if (p.displayStatus === 'CALCULATING') return <CalculatingBadge requestedAt={p.requestedAt} />
+    const s = DISPLAY_LABELS[p.displayStatus as Exclude<CuttingProposalDisplayStatus, 'SUPERSEDED'>]
+    return (
+      <div>
+        <span style={{ ...badge, background: s.bg, color: s.color }}>{s.label}</span>
+        {p.displayStatus === 'NEEDS_ACTION' && p.displayReason && (
+          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, maxWidth: 260 }}>{p.displayReason}</div>
+        )}
+      </div>
+    )
+  }
+
+  const retryBtn = (p: CuttingProposal) => (
+    <button
+      onClick={() => setRetryTarget(p)}
+      style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer' }}
+    >
+      Tính lại
+    </button>
+  )
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
@@ -160,8 +187,8 @@ export default function CuttingProposalsPage() {
         </div>
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1) }} placeholder="Tìm theo mã PO hoặc SKU..." />
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
-        <Info size={13} />
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
+        <Info size={13} style={{ flexShrink: 0, marginTop: 1 }} />
         Phase 7 (cắt sắt) chưa có màn nghiệp vụ riêng — &quot;Tính lại&quot; tạm thời đặt ở đây (chỉ dùng khi cần xử lý).
       </div>
 
@@ -173,10 +200,32 @@ export default function CuttingProposalsPage() {
         <LoadingState />
       ) : filtered.length === 0 ? (
         <EmptyState icon={<Scissors size={16} color={ACCENT} />} message="Chưa có đề xuất cắt sắt nào" />
+      ) : isMobile ? (
+        <>
+          <MobileListCards
+            emptyText=""
+            items={paged.map(p => ({
+              key: p.id,
+              onClick: () => void openDetail(p.id),
+              title: <span style={{ fontWeight: 600 }}>{p.salesOrderCode ?? '—'}</span>,
+              badge: renderStatus(p),
+              meta: [
+                { label: 'SKU / Sản phẩm', value: p.mfgProductName ? `${p.mfgProductCode} — ${p.mfgProductName}` : p.mfgProductCode },
+                { label: 'Ngày yêu cầu', value: fmtDate(p.requestedAt) },
+                { label: 'Tổng số cây', value: p.totalBarsAll ?? '—' },
+                { label: 'Hao hụt %', value: fmtPct(p.wastePercentage) },
+              ],
+              footer: p.displayStatus === 'NEEDS_ACTION' ? <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{retryBtn(p)}</div> : undefined,
+            }))}
+          />
+          <div className="card" style={{ padding: 0, marginTop: 8 }}>
+            <Pagination page={currentPage} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
+          </div>
+        </>
       ) : (
         <div style={tableWrap}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={tbl}>
+            <table style={isCompact ? { ...tbl, minWidth: 880 } : tbl}>
               <thead>
                 <tr style={{ background: 'var(--surface2)' }}>
                   <th style={th}>Mã PO</th>
@@ -189,41 +238,19 @@ export default function CuttingProposalsPage() {
                 </tr>
               </thead>
               <tbody>
-                {paged.map(p => {
-                  const s = DISPLAY_LABELS[p.displayStatus as Exclude<CuttingProposalDisplayStatus, 'SUPERSEDED'>]
-                  const canRetry = p.displayStatus === 'NEEDS_ACTION'
-                  return (
-                    <tr key={p.id} style={row} onClick={() => void openDetail(p.id)}>
-                      <td style={td}>{p.salesOrderCode ?? '—'}</td>
-                      <td style={td}>{p.mfgProductName ? `${p.mfgProductCode} — ${p.mfgProductName}` : p.mfgProductCode}</td>
-                      <td style={td}>
-                        {p.displayStatus === 'CALCULATING' ? (
-                          <CalculatingBadge requestedAt={p.requestedAt} />
-                        ) : (
-                          <div>
-                            <span style={{ ...badge, background: s.bg, color: s.color }}>{s.label}</span>
-                            {p.displayStatus === 'NEEDS_ACTION' && p.displayReason && (
-                              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, maxWidth: 260 }}>{p.displayReason}</div>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ ...td, textAlign: 'right' }}>{p.totalBarsAll ?? '—'}</td>
-                      <td style={{ ...td, textAlign: 'right' }}>{fmtPct(p.wastePercentage)}</td>
-                      <td style={td}>{fmtDate(p.requestedAt)}</td>
-                      <td style={td} onClick={e => e.stopPropagation()}>
-                        {canRetry && (
-                          <button
-                            onClick={() => setRetryTarget(p)}
-                            style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer' }}
-                          >
-                            Tính lại
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
+                {paged.map(p => (
+                  <tr key={p.id} style={row} onClick={() => void openDetail(p.id)}>
+                    <td style={td}>{p.salesOrderCode ?? '—'}</td>
+                    <td style={td}>{p.mfgProductName ? `${p.mfgProductCode} — ${p.mfgProductName}` : p.mfgProductCode}</td>
+                    <td style={td}>{renderStatus(p)}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>{p.totalBarsAll ?? '—'}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>{fmtPct(p.wastePercentage)}</td>
+                    <td style={td}>{fmtDate(p.requestedAt)}</td>
+                    <td style={td} onClick={e => e.stopPropagation()}>
+                      {p.displayStatus === 'NEEDS_ACTION' && retryBtn(p)}
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
@@ -243,13 +270,13 @@ export default function CuttingProposalsPage() {
           <div
             onClick={e => e.stopPropagation()}
             style={{
-              position: 'fixed', top: 0, right: 0, height: '100vh', width: 'min(720px, 92vw)',
+              position: 'fixed', top: 0, right: 0, height: '100dvh', width: isMobile ? '100vw' : 'min(720px, 92vw)',
               background: 'var(--surface)', boxShadow: '-8px 0 32px rgba(0,0,0,.18)',
               display: 'flex', flexDirection: 'column',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', padding: '20px 24px 12px', borderBottom: '1px solid var(--border)' }}>
-              <div>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, padding: isMobile ? '14px 14px 10px' : '20px 24px 12px', borderBottom: '1px solid var(--border)' }}>
+              <div style={{ minWidth: 0 }}>
                 <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Chi tiết đề xuất cắt sắt</h3>
                 {detail && (
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>
@@ -262,7 +289,7 @@ export default function CuttingProposalsPage() {
                   </div>
                 )}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
                 {detail?.displayStatus === 'NEEDS_ACTION' && (
                   <button
                     onClick={() => setRetryTarget(detail)}
@@ -280,7 +307,7 @@ export default function CuttingProposalsPage() {
                 </button>
               </div>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+            <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? 12 : 24 }}>
         {detailLoading ? (
           <LoadingState />
         ) : detail?.displayStatus === 'NEEDS_ACTION' && detail.displayReason ? (
@@ -291,10 +318,10 @@ export default function CuttingProposalsPage() {
         ) : null}
         {detail?.lines && detail.lines.length > 0 ? (
           <div style={{ ...tableWrap, marginBottom: 0 }}>
-            <table style={tbl}>
+            <table style={isCompact ? { ...tbl, minWidth: 760 } : tbl}>
               <thead>
                 <tr style={{ background: 'var(--surface2)' }}>
-                  <th style={th}></th>
+                  <th style={{ ...th, width: 36 }}></th>
                   <th style={th}>Vật tư</th>
                   <th style={th}>Khả thi</th>
                   <th style={{ ...th, textAlign: 'right' }}>Số cây</th>

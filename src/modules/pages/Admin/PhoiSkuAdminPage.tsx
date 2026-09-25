@@ -56,8 +56,8 @@ export default function PhoiSkuAdminPage() {
       </p>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-        <span style={{ fontSize: 13, fontWeight: 600 }}>Chọn PI:</span>
-        <select value={piId} onChange={e => setPiId(e.target.value)} disabled={isLoading} style={{ padding: '6px 10px', fontSize: 13, minWidth: 260 }}>
+        <span style={{ fontSize: 13, fontWeight: 600, flexShrink: 0 }}>Chọn PI:</span>
+        <select value={piId} onChange={e => setPiId(e.target.value)} disabled={isLoading} style={{ padding: '6px 10px', fontSize: 13, flex: 1, minWidth: 0, maxWidth: 360 }}>
           <option value="">{isLoading ? 'Đang tải…' : '— Chọn PI —'}</option>
           {multi.length > 0 && (
             <optgroup label="PI có từ 2 SKU">
@@ -148,8 +148,9 @@ function PiPanel({ piId }: { piId: string }) {
       {err && <div style={{ marginBottom: 10, fontSize: 13, color: RED, fontWeight: 600 }}>{err}</div>}
 
       <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Các đợt Phôi ({rows.length})</div>
+      {/* Sàn minWidth: trên điện thoại bảng cuộn ngang trong khung thay vì bóp 7 cột tới mức chữ vỡ từng từ. */}
       <div style={{ ...card, overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table style={{ width: '100%', minWidth: 860, borderCollapse: 'collapse' }}>
           <thead>
             <tr><th style={th}>Công đoạn</th><th style={th}>Loại sắt</th><th style={th}>Đợt</th><th style={th}>Lúc</th><th style={th}>Trạng thái</th><th style={th}>SKU hiện tại</th><th style={th}>Sửa SKU</th></tr>
           </thead>
@@ -180,14 +181,14 @@ function PiPanel({ piId }: { piId: string }) {
                 </td>
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={7} style={{ ...td, textAlign: 'center', color: 'var(--text3)' }}>PI này chưa có đợt Phôi nào</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={7} style={{ ...td, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">PI này chưa có đợt Phôi nào</div></td></tr>}
           </tbody>
         </table>
       </div>
 
       <div style={{ fontSize: 14, fontWeight: 700, margin: '20px 0 8px' }}>Lịch sử đổi SKU ({history.length})</div>
       <div style={{ ...card, overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse' }}>
           <thead><tr><th style={th}>Lúc</th><th style={th}>Người đổi</th><th style={th}>Đợt</th><th style={th}>Từ SKU</th><th style={th}>Sang SKU</th><th style={th}>Loại</th></tr></thead>
           <tbody>
             {history.map(h => {
@@ -204,7 +205,7 @@ function PiPanel({ piId }: { piId: string }) {
                 </tr>
               )
             })}
-            {history.length === 0 && <tr><td colSpan={6} style={{ ...td, textAlign: 'center', color: 'var(--text3)' }}>Chưa có lần gán/sửa SKU nào</td></tr>}
+            {history.length === 0 && <tr><td colSpan={6} style={{ ...td, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Chưa có lần gán/sửa SKU nào</div></td></tr>}
           </tbody>
         </table>
       </div>

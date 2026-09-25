@@ -28,7 +28,7 @@ export default function OfficeSuppliesAdminPage() {
           value={selectedCode}
           onChange={e => setSelectedCode(e.target.value)}
           disabled={isLoading}
-          style={{ padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, background: 'var(--surface)', color: 'var(--text)', minWidth: 260 }}
+          style={{ padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, background: 'var(--surface)', color: 'var(--text)', flex: 1, minWidth: 0, maxWidth: 360 }}
         >
           <option value="">{isLoading ? 'Đang tải danh sách kho...' : '— Chọn kho —'}</option>
           {realWarehouses.map(w => (

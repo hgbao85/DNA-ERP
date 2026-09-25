@@ -62,7 +62,7 @@ export default function SystemStatusPage() {
       </div>
 
       <div style={{ display: 'flex', gap: 20, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-        <div style={{ flex: 2, minWidth: 320 }}>
+        <div style={{ flex: 2, minWidth: 'min(320px, 100%)' }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text2)', marginBottom: 10 }}>Số bản ghi theo collection</div>
           <div style={{ border: '1px solid var(--border)', borderRadius: 10, background: 'var(--surface)', maxHeight: 420, overflowY: 'auto' }}>
             {data.collectionCounts.map((c, i) => (

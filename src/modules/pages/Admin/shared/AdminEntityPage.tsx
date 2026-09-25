@@ -10,6 +10,8 @@ import FilterPills from '../../../../components/FilterPills'
 import EmptyState from '../../../../components/EmptyState'
 import LoadingState from '../../../../components/LoadingState'
 import Pagination from '../../../../components/Pagination'
+import MobileListCards from '../../../../components/MobileListCards'
+import { useIsCompact, useIsMobile } from '../../../../hooks/useMediaQuery'
 import { btnSecondary } from '../../../../styles/buttons'
 import { tableWrap, tbl, th, td, row } from '../../../../styles/table'
 
@@ -106,6 +108,12 @@ function defaultCell<T>(row: T, key: string): ReactNode {
   return String(v)
 }
 
+/** Sàn chiều rộng bảng trên màn hẹp (< BREAKPOINT_COMPACT) - `tbl` dùng tableLayout fixed với sàn 600px cố định,
+ *  bảng 8-14 cột (vd Vật tư) bị bóp mỗi cột còn ~40px, chữ vỡ từng ký tự. Cột không khai width tính 120px. */
+export function compactTableMinWidth(columns: { width?: number | string }[], extra = 0): number {
+  return Math.max(600, columns.reduce((sum, c) => sum + (typeof c.width === 'number' ? c.width : 120), 0) + extra)
+}
+
 export default function AdminEntityPage<T extends { id: number | string }>({
   config,
   readOnly = false,
@@ -143,6 +151,8 @@ export default function AdminEntityPage<T extends { id: number | string }>({
   const [pendingImages, setPendingImages] = useState<Record<string, { file: File; previewUrl: string; uploadedUrl?: string }>>({})
 
   const { ask, confirmModal } = useConfirm()
+  const isCompact = useIsCompact()
+  const isMobile = useIsMobile()
 
   const filterOptions = useMemo(() => {
     if (!config.filters) return null
@@ -326,11 +336,39 @@ export default function AdminEntityPage<T extends { id: number | string }>({
     })
   }
 
+  const renderCell = (item: T, col: AdminColumn<T>) => (col.render ? col.render(item) : defaultCell(item, col.key))
+
+  const renderActions = (item: T) => (
+    <div style={{ display: 'inline-flex', gap: 4 }}>
+      {!readOnly && config.rowActions?.(item, { refetch, ask })}
+      {canUpdate && (
+        <button
+          onClick={() => openEdit(item)}
+          title="Sửa"
+          style={{ width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}
+        >
+          <Pencil size={14} strokeWidth={2.25} />
+        </button>
+      )}
+      {canRemove && (
+        <button
+          onClick={() => handleDelete(item)}
+          title="Xóa"
+          style={{ width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: '#c62828', cursor: 'pointer' }}
+        >
+          <Trash2 size={14} strokeWidth={2.25} />
+        </button>
+      )}
+    </div>
+  )
+
+  const actionsColWidth = config.rowActions ? 120 : 90
+
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
         {!embedded && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: isMobile ? '100%' : 0 }}>
             {config.icon}
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{config.title}</h2>
             <span style={{ fontSize: 12, color: 'var(--text3)' }}>({filtered.length})</span>
@@ -377,17 +415,37 @@ export default function AdminEntityPage<T extends { id: number | string }>({
         loadError
           ? null // đã báo lỗi ở banner trên — tránh vừa hiện lỗi vừa hiện "chưa có dữ liệu" gây hiểu lầm
           : <EmptyState icon={config.icon} message={config.emptyMessage ?? 'Chưa có dữ liệu'} />
+      ) : isMobile ? (
+        // Điện thoại: thẻ thay bảng - cột đầu làm tiêu đề thẻ, các cột còn lại thành lưới nhãn/giá trị.
+        <>
+          <MobileListCards
+            emptyText=""
+            items={paged.map(item => {
+              const [first, ...rest] = config.columns
+              return {
+                key: String(item.id),
+                onClick: canUpdate ? () => openEdit(item) : undefined,
+                title: <span style={{ fontWeight: 600 }}>{first ? renderCell(item, first) : String(item.id)}</span>,
+                meta: rest.map(col => ({ label: col.label, value: renderCell(item, col) })),
+                footer: hasRowActions ? <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{renderActions(item)}</div> : undefined,
+              }
+            })}
+          />
+          <div className="card" style={{ padding: 0, marginTop: 8 }}>
+            <Pagination page={currentPage} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
+          </div>
+        </>
       ) : (
         <div style={tableWrap}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={tbl}>
+            <table style={isCompact ? { ...tbl, minWidth: compactTableMinWidth(config.columns, hasRowActions ? actionsColWidth : 0) } : tbl}>
               <thead>
                 <tr style={{ background: 'var(--surface2)' }}>
                   {config.columns.map(col => (
                     <th key={col.key} style={{ ...th, textAlign: col.align ?? 'left', width: col.width }}>{col.label}</th>
                   ))}
                   {hasRowActions && (
-                    <th style={{ ...th, width: config.rowActions ? 120 : 90, textAlign: 'right' }}>Thao tác</th>
+                    <th style={{ ...th, width: actionsColWidth, textAlign: 'right' }}>Thao tác</th>
                   )}
                 </tr>
               </thead>
@@ -402,32 +460,12 @@ export default function AdminEntityPage<T extends { id: number | string }>({
                   >
                     {config.columns.map(col => (
                       <td key={col.key} style={{ ...td, textAlign: col.align ?? 'left' }}>
-                        {col.render ? col.render(item) : defaultCell(item, col.key)}
+                        {renderCell(item, col)}
                       </td>
                     ))}
                     {hasRowActions && (
                       <td style={{ ...td, textAlign: 'right' }} onClick={e => e.stopPropagation()}>
-                        <div style={{ display: 'inline-flex', gap: 4 }}>
-                          {!readOnly && config.rowActions?.(item, { refetch, ask })}
-                          {canUpdate && (
-                            <button
-                              onClick={() => openEdit(item)}
-                              title="Sửa"
-                              style={{ width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}
-                            >
-                              <Pencil size={14} strokeWidth={2.25} />
-                            </button>
-                          )}
-                          {canRemove && (
-                            <button
-                              onClick={() => handleDelete(item)}
-                              title="Xóa"
-                              style={{ width: 26, height: 26, padding: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: '#c62828', cursor: 'pointer' }}
-                            >
-                              <Trash2 size={14} strokeWidth={2.25} />
-                            </button>
-                          )}
-                        </div>
+                        {renderActions(item)}
                       </td>
                     )}
                   </tr>

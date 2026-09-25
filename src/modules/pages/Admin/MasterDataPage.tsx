@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Layers, Truck, Users, Globe2, Package, Scissors, AlertTriangle } from 'lucide-react'
-import { tabBtn } from '../../../styles/buttons'
+import AdminTabs from './shared/AdminTabs'
 import SuppliersPage from './masterData/SuppliersPage'
 import SalesCustomersPage from './masterData/SalesCustomersPage'
 import ExportCustomersPage from './masterData/ExportCustomersPage'
@@ -37,17 +37,7 @@ export default function MasterDataPage() {
         Dữ liệu nền dùng chung cho các phân hệ nghiệp vụ — sửa/xóa tại đây sẽ ảnh hưởng tới toàn hệ thống
       </div>
 
-      <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--border)', marginBottom: 18, flexWrap: 'wrap' }}>
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            style={{ ...tabBtn(tab === t.id, ACCENT), display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            {t.icon} {t.label}
-          </button>
-        ))}
-      </div>
+      <AdminTabs tabs={TABS} active={tab} onChange={setTab} accent={ACCENT} />
 
       {tab === 'suppliers' && <SuppliersPage />}
       {tab === 'sales-customers' && <SalesCustomersPage />}

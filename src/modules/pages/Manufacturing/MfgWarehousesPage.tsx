@@ -30,7 +30,10 @@ interface MaterialRow {
   unit: string
   spec: string | null
   materialGroupId: number | null
+  /** Sơn/Phụ kiện/Bao bì - BE bắt buộc với nhóm "Vật tư khác", PHẢI mang theo khi sao chép. */
+  detailKind: 'PAINT' | 'ACCESSORY' | 'PACKAGING' | null
   warehouseId: string | null
+  warehouseCode: string | null
 }
 interface GroupRow {
   id: number
@@ -142,16 +145,31 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
   // sửa 14/09/2026), sai thật khi cả 2 bucket đều dương. Chỉ sinh dòng cho bucket CÒN PHÁT SINH
   // (qty !== 0) - bucket 0 chết (di tích trước khi có tính năng chiều dài) không cần hiện; vật tư
   // hoàn toàn chưa có giao dịch nào thì fallback 1 dòng qty=0/stockLengthMm=null (giữ hành vi cũ).
-  const itemsOf = (whId: string): StockItem[] => {
+  //
+  // Danh mục vật tư của 1 kho - CÙNG quy tắc với trang thủ kho "Tổng hợp vật tư"
+  // (materialsInScope ở VatTuDashboardPage.tsx), trước 2026-09-25 chỉ lọc m.warehouseId === whId
+  // khiến kho phụ (vd "Kho thành phẩm 2") hiện "0 mặt hàng" ở Admin/KHSX trong khi thủ kho của
+  // chính kho đó thấy đủ danh mục của họ - Admin tưởng kho trống rồi bấm "Sao chép" tạo mã trùng.
+  // = HỢP của (a) vật tư cùng HỌ kho (luôn hiện, kể cả tồn 0) và (b) vật tư họ khác đang CÒN TỒN
+  // THẬT (> 0) tại đúng kho này (hàng đã chuyển tới qua chuyển kho nội bộ). Kho không thuộc họ nào
+  // (kho ảo) giữ cách so khớp đúng warehouseId như cũ.
+  const itemsOf = (wh: WhRow): StockItem[] => {
+    const whId = wh.id
     const rowsByMaterial = new Map<string, QuantRow[]>()
     for (const q of quants ?? []) {
       if (q.warehouseId !== whId || !q.materialId) continue
       const arr = rowsByMaterial.get(q.materialId)
       if (arr) arr.push(q); else rowsByMaterial.set(q.materialId, [q])
     }
+    const family = warehouseFamilyOf(wh.code)
+    const inCatalog = (m: MaterialRow) => family
+      ? warehouseFamilyOf(m.warehouseCode) === family
+      : m.warehouseId === whId
+    const hasStockHere = (m: MaterialRow) =>
+      (rowsByMaterial.get(String(m.id)) ?? []).reduce((s, r) => s + r.qty, 0) > 0
     const groupNameById = new Map((groups ?? []).map(g => [String(g.id), g.name]))
     const result: StockItem[] = []
-    for (const m of (materials ?? []).filter(m => m.warehouseId === whId)) {
+    for (const m of (materials ?? []).filter(m => inCatalog(m) || hasStockHere(m))) {
       const base = {
         materialId: m.id, code: m.code, name: m.name, unit: m.unit, spec: m.spec,
         groupName: m.materialGroupId ? (groupNameById.get(String(m.materialGroupId)) ?? '—') : '—',
@@ -179,7 +197,7 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
   if (openWh) return (
     <WarehouseDetail
       wh={openWh}
-      items={itemsOf(openWh.id)}
+      items={itemsOf(openWh)}
       canWrite={canWrite}
       isDeletable={isAdmin && !BASE_CODES.has(openWh.code)}
       openingBalanceWarehouseId={openingBalanceWarehouseId}
@@ -208,7 +226,7 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(min(240px,100%),1fr))', gap: 14 }}>
         {visibleWhs.map(wh => {
-          const items = itemsOf(wh.id)
+          const items = itemsOf(wh)
           return (
             <WhCard
               key={wh.code}
@@ -682,6 +700,7 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
       {copying && (
         <CopyMaterialsModal
           targetWarehouse={wh}
+          targetItems={items}
           warehouses={warehouses}
           allMaterials={allMaterials}
           onClose={() => setCopying(false)}
@@ -759,14 +778,27 @@ function AddMaterialModal({ warehouseId, onClose, onDone }: {
 // ── Modal sao chép vật tư từ 1 kho khác (2026-09-03) ──────────────────────────
 // Mã vật tư (Material.code) là DUY NHẤT TOÀN HỆ THỐNG (không phải riêng theo kho) - không thể giữ
 // nguyên mã cũ khi sao chép sang kho khác, để trống cho BE tự sinh mã mới (đúng cơ chế "để trống
-// tự sinh" đã có sẵn ở AddMaterialModal). Chỉ sao chép Tên/ĐVT/Quy cách/Nhóm vật tư - các field
+// tự sinh" đã có sẵn ở AddMaterialModal). Chỉ sao chép Tên/ĐVT/Quy cách/Nhóm vật tư/Phân loại
+// (detailKind - BE bắt buộc với nhóm "Vật tư khác", thiếu nó mọi dòng nhóm này đều lỗi 400, sửa
+// 2026-09-25) - các field
 // nâng cao khác (đơn vị mua hàng, hệ số quy đổi, % hao hụt, ảnh...) không có trong MaterialRow
 // (view-model tối giản của trang này), Admin tự bổ sung lại ở Admin > Vật tư nếu cần sau khi sao
 // chép. Tồn ban đầu do Admin tự nhập riêng cho TỪNG dòng - kho mới không có tồn vật lý thật nào
 // tự động cả, không "sao chép" số dư ảo từ kho khác.
 
-function CopyMaterialsModal({ targetWarehouse, warehouses, allMaterials, onClose, onDone }: {
+// "Đã có" ở kho đích (2026-09-25) - tránh bấm "Sao chép" tạo bản trùng. 1 vật tư nguồn coi là đã
+// có khi kho đích ĐÃ THẤY đúng vật tư đó (cùng họ kho -> danh mục dùng chung, xem itemsOf()),
+// HOẶC kho đích có 1 vật tư khác cùng Tên + Quy cách + ĐVT (bản đã chép từ lần trước - mã mới
+// nên không khớp theo id được). Chỉ BỎ TÍCH MẶC ĐỊNH, không khoá - Admin vẫn tích lại được nếu
+// cố ý muốn tách mã riêng.
+const norm = (s: string | null | undefined) => (s ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
+const sameItemKey = (x: { name: string; spec: string | null; unit: string }) =>
+  `${norm(x.name)}|${norm(x.spec)}|${norm(x.unit)}`
+
+function CopyMaterialsModal({ targetWarehouse, targetItems, warehouses, allMaterials, onClose, onDone }: {
   targetWarehouse: WhRow
+  /** Danh mục kho đích ĐANG thấy (itemsOf) - để đánh dấu "Đã có". */
+  targetItems: StockItem[]
   warehouses: WhRow[]
   allMaterials: MaterialRow[]
   onClose: () => void
@@ -774,21 +806,29 @@ function CopyMaterialsModal({ targetWarehouse, warehouses, allMaterials, onClose
 }) {
   const sourceOptions = warehouses.filter(w => w.id !== targetWarehouse.id)
   const [sourceId, setSourceId] = useState(sourceOptions[0]?.id ?? '')
-  const sourceMaterials = allMaterials.filter(m => m.warehouseId === sourceId)
+  const materialsOfSource = (id: string) => allMaterials.filter(m => m.warehouseId === id)
+  const sourceMaterials = materialsOfSource(sourceId)
+
+  const targetIds = new Set(targetItems.map(it => String(it.materialId)))
+  const targetKeys = new Set(targetItems.map(sameItemKey))
+  const isExisting = (m: MaterialRow) => targetIds.has(String(m.id)) || targetKeys.has(sameItemKey(m))
+  const newIdsOf = (list: MaterialRow[]) => list.filter(m => !isExisting(m)).map(m => m.id)
+  const newIds = newIdsOf(sourceMaterials)
+  const existingCount = sourceMaterials.length - newIds.length
 
   const [selected, setSelected] = useState<Set<number>>(
-    () => new Set(allMaterials.filter(m => m.warehouseId === sourceOptions[0]?.id).map(m => m.id)),
+    () => new Set(newIdsOf(materialsOfSource(sourceOptions[0]?.id ?? ''))),
   )
   const [openingQtyById, setOpeningQtyById] = useState<Record<number, string>>({})
   const [err, setErr] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
 
-  // Đổi kho nguồn → chọn lại từ đầu (mặc định chọn hết dòng của kho mới), xoá tồn đã nhập dở của
-  // kho nguồn cũ (không còn ý nghĩa gì với danh sách vật tư mới).
+  // Đổi kho nguồn → chọn lại từ đầu (mặc định chọn các dòng CHƯA có ở kho đích), xoá tồn đã nhập
+  // dở của kho nguồn cũ (không còn ý nghĩa gì với danh sách vật tư mới).
   const onSourceChange = (id: string) => {
     setSourceId(id)
-    setSelected(new Set(allMaterials.filter(m => m.warehouseId === id).map(m => m.id)))
+    setSelected(new Set(newIdsOf(materialsOfSource(id))))
     setOpeningQtyById({})
   }
 
@@ -797,9 +837,14 @@ function CopyMaterialsModal({ targetWarehouse, warehouses, allMaterials, onClose
     if (next.has(id)) next.delete(id); else next.add(id)
     return next
   })
-  const toggleAll = () => setSelected(prev =>
-    prev.size === sourceMaterials.length ? new Set() : new Set(sourceMaterials.map(m => m.id)),
-  )
+  // Ô "chọn tất cả" chỉ bật/tắt các dòng MỚI - không kéo theo dòng "Đã có" (muốn chép trùng thì
+  // phải tích tay từng dòng, có chủ ý).
+  const allNewSelected = newIds.length > 0 && newIds.every(id => selected.has(id))
+  const toggleAll = () => setSelected(prev => {
+    const next = new Set(prev)
+    if (allNewSelected) newIds.forEach(id => next.delete(id)); else newIds.forEach(id => next.add(id))
+    return next
+  })
 
   const submit = async () => {
     const toCopy = sourceMaterials.filter(m => selected.has(m.id))
@@ -821,6 +866,7 @@ function CopyMaterialsModal({ targetWarehouse, warehouses, allMaterials, onClose
           unit: m.unit,
           spec: m.spec || undefined,
           materialGroupId: m.materialGroupId ?? undefined,
+          detailKind: m.detailKind ?? undefined,
           warehouseId: targetWarehouse.id,
           openingQty: Number(openingQtyById[m.id]) > 0 ? Number(openingQtyById[m.id]) : undefined,
         })
@@ -849,6 +895,15 @@ function CopyMaterialsModal({ targetWarehouse, warehouses, allMaterials, onClose
           {sourceOptions.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
         </select>
 
+        {existingCount > 0 && (
+          <div style={{ fontSize: 12.5, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8, padding: '8px 10px', marginTop: 8 }}>
+            {newIds.length === 0
+              ? <>Tất cả {existingCount} vật tư của kho này <strong>đã có ở {targetWarehouse.name}</strong>, không cần sao chép.</>
+              : <><strong>{existingCount}</strong> vật tư đã có ở {targetWarehouse.name} (nhãn &quot;Đã có&quot;) nên đã được bỏ tích. Chỉ <strong>{newIds.length}</strong> vật tư mới được chọn sẵn.</>}
+            {' '}Tích lại dòng &quot;Đã có&quot; sẽ tạo vật tư trùng tên với mã mới.
+          </div>
+        )}
+
         {sourceMaterials.length === 0 ? (
           <div style={{ color: 'var(--text3)', fontSize: 13, marginTop: 16 }}>Kho nguồn này chưa có vật tư nào.</div>
         ) : (
@@ -857,7 +912,7 @@ function CopyMaterialsModal({ targetWarehouse, warehouses, allMaterials, onClose
               <thead>
                 <tr style={{ background: 'var(--surface2)', textAlign: 'left', position: 'sticky', top: 0 }}>
                   <th style={{ ...th, width: 30 }}>
-                    <input type="checkbox" checked={selected.size === sourceMaterials.length} onChange={toggleAll} />
+                    <input type="checkbox" checked={allNewSelected} disabled={newIds.length === 0} onChange={toggleAll} title="Chọn/bỏ chọn các vật tư mới" />
                   </th>
                   <th style={th}>Tên vật tư</th>
                   <th style={th}>ĐVT</th>
@@ -866,10 +921,15 @@ function CopyMaterialsModal({ targetWarehouse, warehouses, allMaterials, onClose
               </thead>
               <tbody>
                 {sourceMaterials.map(m => (
-                  <tr key={m.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <tr key={m.id} style={{ borderTop: '1px solid var(--border)', opacity: isExisting(m) && !selected.has(m.id) ? 0.6 : 1 }}>
                     <td style={td}><input type="checkbox" checked={selected.has(m.id)} onChange={() => toggleOne(m.id)} /></td>
                     <td style={td}>
-                      <div style={{ fontWeight: 500 }}>{m.name}</div>
+                      <div style={{ fontWeight: 500 }}>
+                        {m.name}
+                        {isExisting(m) && (
+                          <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 600, color: '#15803d', background: '#dcfce7', borderRadius: 4, padding: '1px 6px' }}>Đã có</span>
+                        )}
+                      </div>
                       <div style={{ fontSize: 11, color: 'var(--text3)' }}>{m.code}{m.spec ? ` · ${m.spec}` : ''}</div>
                     </td>
                     <td style={{ ...td, color: 'var(--text3)' }}>{m.unit}</td>

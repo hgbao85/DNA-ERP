@@ -1,7 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { Briefcase, ClipboardList, FileText, Layers3, Factory, Truck, Scissors } from 'lucide-react'
-import { tabBtn } from '../../../styles/buttons'
+import AdminTabs from './shared/AdminTabs'
 import SalesPOsPage from './businessData/SalesPOsPage'
 import PurchaseProposalsPage from './businessData/PurchaseProposalsPage'
 import SkuPage from './businessData/SkuPage'
@@ -35,17 +35,7 @@ export default function BusinessDataPage() {
         Tra cứu tổng hợp dữ liệu các phân hệ nghiệp vụ — chỉ xem, không duyệt/thao tác tại đây. Việc duyệt/xử lý thuộc đúng phân hệ nghiệp vụ tương ứng.
       </div>
 
-      <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--border)', marginBottom: 18, flexWrap: 'wrap' }}>
-        {TABS.map(t => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            style={{ ...tabBtn(tab === t.id, ACCENT), display: 'inline-flex', alignItems: 'center', gap: 6 }}
-          >
-            {t.icon} {t.label}
-          </button>
-        ))}
-      </div>
+      <AdminTabs tabs={TABS} active={tab} onChange={setTab} accent={ACCENT} />
 
       {tab === 'sales-po' && <SalesPOsPage />}
       {tab === 'purchase-proposals' && <PurchaseProposalsPage />}

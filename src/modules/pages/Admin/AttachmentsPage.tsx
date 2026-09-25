@@ -30,8 +30,9 @@
  */
 import { useMemo, useState } from 'react'
 import { Image as ImageIcon, Truck, FileCheck2, Trash2, Upload, ExternalLink } from 'lucide-react'
-import { tabBtn } from '../../../styles/buttons'
+import AdminTabs from './shared/AdminTabs'
 import { useFetch } from '../../../hooks/useFetch'
+import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { useConfirm } from '../../../hooks/useConfirm'
 import { useInspection } from '../../../context/InspectionContext'
 import * as api from '../../../services/api'
@@ -68,8 +69,10 @@ function AttachmentRow({ thumbnailUrl, fileUrl, title, meta, busy, onReplace, on
   deleteLabel?: string
   accept: string
 }) {
+  // Điện thoại: 2 nút hành động rớt xuống hàng riêng (canh phải) - nằm chung hàng thì phần tiêu đề/meta bị bóp về 0.
+  const isMobile = useIsMobile()
   return (
-    <div style={card}>
+    <div style={{ ...card, flexWrap: isMobile ? 'wrap' : undefined, gap: isMobile ? 10 : 14 }}>
       {thumbnailUrl ? (
         <img src={thumbnailUrl} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', flexShrink: 0 }} />
       ) : (
@@ -79,9 +82,9 @@ function AttachmentRow({ thumbnailUrl, fileUrl, title, meta, busy, onReplace, on
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 700, fontSize: 13 }}>{title}</div>
-        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{meta.join(' · ')}</div>
+        <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2, wordBreak: 'break-word' }}>{meta.join(' · ')}</div>
       </div>
-      <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+      <div style={{ display: 'flex', gap: 8, flexShrink: 0, ...(isMobile && { width: '100%', justifyContent: 'flex-end' }) }}>
         <label style={{ ...btnGhost, cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
           <Upload size={12} /> {busy ? 'Đang xử lý…' : replaceLabel}
           <input type="file" accept={accept} hidden disabled={busy}
@@ -287,14 +290,7 @@ export default function AttachmentsPage() {
         (tra được qua API GET /audit-logs; trang &quot;Nhật ký hoạt động&quot; hiện chưa đọc nguồn này).
       </div>
 
-      <div style={{ display: 'flex', gap: 2, borderBottom: '1px solid var(--border)', marginBottom: 18, flexWrap: 'wrap' }}>
-        {TABS.map(t => (
-          <button key={t.id} onClick={() => setTab(t.id)}
-            style={{ ...tabBtn(tab === t.id, ACCENT), display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-            {t.icon} {t.label}
-          </button>
-        ))}
-      </div>
+      <AdminTabs tabs={TABS} active={tab} onChange={setTab} accent={ACCENT} />
 
       {tab === 'kcs-photos' && <KcsPhotosTab />}
       {tab === 'transfer-check-photos' && <TransferCheckPhotosTab />}

@@ -6,7 +6,10 @@ import FilterPills from '../../../../components/FilterPills'
 import EmptyState from '../../../../components/EmptyState'
 import LoadingState from '../../../../components/LoadingState'
 import Pagination from '../../../../components/Pagination'
+import MobileListCards from '../../../../components/MobileListCards'
+import { useIsCompact, useIsMobile } from '../../../../hooks/useMediaQuery'
 import { tableWrap, tbl, th, td, row } from '../../../../styles/table'
+import { compactTableMinWidth } from './AdminEntityPage'
 
 export interface AdminReadOnlyColumn<T> {
   key: string
@@ -54,6 +57,10 @@ export default function AdminReadOnlyList<T extends { id: number | string }>({ c
   const [activeFilter, setActiveFilter] = useState<string>(ALL_FILTER_KEY)
   const [page, setPage] = useState(1)
   const pageSize = config.pageSize ?? 10
+  const isCompact = useIsCompact()
+  const isMobile = useIsMobile()
+  const renderCell = (item: T, col: AdminReadOnlyColumn<T>) =>
+    col.render ? col.render(item) : String((item as Record<string, unknown>)[col.key] ?? '—')
 
   const filterOptions = useMemo(() => {
     if (!config.filters) return null
@@ -88,7 +95,7 @@ export default function AdminReadOnlyList<T extends { id: number | string }>({ c
   return (
     <div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: isMobile ? '100%' : 0 }}>
           {config.icon}
           <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{config.title}</h3>
           <span style={{ fontSize: 12, color: 'var(--text3)' }}>({filtered.length})</span>
@@ -106,10 +113,28 @@ export default function AdminReadOnlyList<T extends { id: number | string }>({ c
         <LoadingState />
       ) : filtered.length === 0 ? (
         <EmptyState icon={config.icon} message={config.emptyMessage ?? 'Chưa có dữ liệu'} />
+      ) : isMobile ? (
+        // Điện thoại: thẻ thay bảng - cùng cách AdminEntityPage (cột đầu làm tiêu đề thẻ).
+        <>
+          <MobileListCards
+            emptyText=""
+            items={paged.map(item => {
+              const [first, ...rest] = config.columns
+              return {
+                key: String(item.id),
+                title: <span style={{ fontWeight: 600 }}>{first ? renderCell(item, first) : String(item.id)}</span>,
+                meta: rest.map(col => ({ label: col.label, value: renderCell(item, col) })),
+              }
+            })}
+          />
+          <div className="card" style={{ padding: 0, marginTop: 8 }}>
+            <Pagination page={currentPage} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
+          </div>
+        </>
       ) : (
         <div style={tableWrap}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={tbl}>
+            <table style={isCompact ? { ...tbl, minWidth: compactTableMinWidth(config.columns) } : tbl}>
               <thead>
                 <tr style={{ background: 'var(--surface2)' }}>
                   {config.columns.map(col => (
@@ -122,7 +147,7 @@ export default function AdminReadOnlyList<T extends { id: number | string }>({ c
                   <tr key={item.id} style={row}>
                     {config.columns.map(col => (
                       <td key={col.key} style={{ ...td, textAlign: col.align ?? 'left' }}>
-                        {col.render ? col.render(item) : String((item as Record<string, unknown>)[col.key] ?? '—')}
+                        {renderCell(item, col)}
                       </td>
                     ))}
                   </tr>
