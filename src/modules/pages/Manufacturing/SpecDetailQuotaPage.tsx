@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { ChevronRight, ChevronLeft, X } from 'lucide-react'
-import NotifBell from '../../../components/NotifBell'
 import SkuImageThumb from '../../../components/SkuImageThumb'
 import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
 import { useFetch } from '../../../hooks/useFetch'
@@ -165,16 +164,13 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   // ─── Render ────────────────────────────────────────────────────────────
   return (
     <div>
-      {/* Page header */}
-      <div style={{ marginBottom: isMobile ? 14 : 20, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ minWidth: 0 }}>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức chi tiết</h2>
-          <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập định mức chi tiết theo SKU — Sơn, Phụ kiện, Bao bì</p>
-        </div>
-        <NotifBell
-          items={boms.filter(b => bomStatus(b.id) === 'approved').map(n => ({ id: n.id, title: n.ten, subtitle: `Đã duyệt định mức chi tiết · ${n.thoiGian}` }))}
-          emptyText="Chưa có định mức nào được duyệt."
-        />
+      {/* Page header - chuông "đã duyệt định mức" cục bộ (NotifBell, không nối BE, F5 mất trạng
+          thái đã xem) đã gỡ 2026-09-25: thông báo thật cho luồng duyệt SKU/định mức thuộc Phase 3
+          (nối sự kiện theo luồng) của changelog notification 2026-09-25, chưa có ở BE - xem
+          NotificationCenter ở app shell (MfgApp) cho thông báo chung hiện có. */}
+      <div style={{ marginBottom: isMobile ? 14 : 20 }}>
+        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức chi tiết</h2>
+        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập định mức chi tiết theo SKU — Sơn, Phụ kiện, Bao bì</p>
       </div>
 
       {/* ══ ĐỊNH MỨC: LIST ══ */}

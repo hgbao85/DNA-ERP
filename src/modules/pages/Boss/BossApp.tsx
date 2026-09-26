@@ -1,8 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LayoutDashboard, Package, LogOut, CalendarClock, Warehouse, ClipboardCheck, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
+import { useUrlState } from '../../../hooks/useUrlState'
+import NotificationCenter from '../../../components/NotificationCenter'
 import SKUReviewPage from '../ProductionPlan/SKUReviewPage'
 import SKUListPage from '../ProductionPlan/SKUListPage'
 import VatTuDashboardPage from '../ProductionPlan/VatTuDashboardPage'
@@ -17,6 +19,8 @@ const ACCENT_BG = 'var(--bg-e8f5e9)'
 
 type Page           = 'cho-duyet' | 'thong-ke' | 'sku-list' | 'vat-tu' | 'kho'
 type ChoDuyetFilter = 'sku-moi' | 'lenh-sx'
+const PAGE_VALUES: Page[] = ['cho-duyet', 'thong-ke', 'sku-list', 'vat-tu', 'kho']
+const isPage = (v: string | null): v is Page => !!v && (PAGE_VALUES as string[]).includes(v)
 
 
 // ── Tổng hợp chờ duyệt section ────────────────────────────────────────────────
@@ -75,12 +79,22 @@ const NAV_ITEMS: { id: Page; label: string; icon: React.ReactNode }[] = [
 
 export default function BossApp() {
   const { user, logout } = useAuth()
-  const [page, setPage]  = useState<Page>('cho-duyet')
+  // `p` trong query string - cho NotificationCenter mở đúng tab (vd SKU_SENT_TO_BOSS trỏ tới
+  // module 'boss' + page 'cho-duyet', xem notification-types.ts bên BE) - cùng cơ chế
+  // ProductionPlanApp/MfgApp đã làm (mục 6.2/12/12.5.B changelog notification 2026-09-25/26).
+  const [urlPage, setUrlPage] = useUrlState('p')
+  const [page, setPageState]  = useState<Page>(() => (isPage(urlPage) ? urlPage : 'cho-duyet'))
   // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ - cùng idiom SalesApp/PurchasingApp/ProductionPlanApp.
   const isCompact = useIsCompact()
   const isMobile  = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const setPage = (id: Page) => { setPageState(id); setUrlPage(id) }
   const selectPage = (id: Page) => { setPage(id); setDrawerOpen(false) }
+  // Điều hướng TỪ BÊN NGOÀI (NotificationCenter gọi router.push('/?m=boss&p=...') từ sâu trong
+  // cây) - đổi tab theo urlPage khi nó đổi và khác tab hiện tại.
+  useEffect(() => {
+    if (isPage(urlPage) && urlPage !== page) setPageState(urlPage)
+  }, [urlPage])
 
   const sidebar = (
       <div style={{ width: 210, flexShrink: 0, height: '100%', background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
@@ -132,6 +146,7 @@ export default function BossApp() {
               <div style={{ fontSize: 10, color: 'var(--text3)' }}>Giám đốc</div>
             </div>
             <ThemeToggle />
+            <NotificationCenter color="var(--text3)" />
             <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất">
               <LogOut size={16} color="var(--text3)" />
             </button>
@@ -170,6 +185,7 @@ export default function BossApp() {
         <div style={{ fontWeight: 700, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           Giám đốc <span style={{ color: 'var(--text3)', fontWeight: 400 }}>· {activeItem?.label}</span>
         </div>
+        <NotificationCenter size={20} />
       </div>
 
       <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: isMobile ? '14px 12px 80px' : '18px 20px 80px' }}>{content}</div>

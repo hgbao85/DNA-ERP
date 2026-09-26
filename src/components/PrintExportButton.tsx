@@ -2,9 +2,9 @@
 
 /**
  * Nút "In" gộp chung — bấm ra menu 2 lựa chọn (Excel / Xem trước & In PDF) thay vì 2 nút rời
- * (2026-08-25, theo yêu cầu Sếp: gộp lại cho gọn UI). Không tự đóng khi click ra ngoài - cùng quy
- * ước đơn giản với NotifBell.tsx (component dropdown duy nhất sẵn có trong codebase), không thêm
- * click-outside handler cho 1 nút dùng ít lần/phiên.
+ * (2026-08-25, theo yêu cầu Sếp: gộp lại cho gọn UI). Không tự đóng khi click ra ngoài (khác
+ * NotificationCenter.tsx - có backdrop riêng vì phải đóng được từ nhiều nơi đặt khác nhau) - chấp
+ * nhận được cho 1 nút dùng ít lần/phiên, không đáng thêm click-outside handler riêng.
  */
 import { useState } from 'react'
 import { Printer, FileSpreadsheet, ChevronDown } from 'lucide-react'

@@ -39,11 +39,12 @@
  *    GET /stock-ledger). adjustStock() là ngoại lệ ghi trực tiếp (POST /stock-ledger/adjust) -
  *    dùng cho "Sửa nhanh tồn kho" ở MfgWarehousesPage.tsx và MaterialsPage.tsx (Admin > Vật tư).
  *    Ghi bút toán kho khác vẫn đi qua warehouse-transfers hoặc các flow nghiệp vụ khác.
- *  - notifications (notifications-api.ts) — CHỈ list/create (BE không có update/delete);
- *    NotificationsPage bỏ hẳn nút sửa/xóa thay vì gọi vào endpoint không tồn tại. GET list lọc
- *    theo audience của người gọi (không phải "xem tất cả"). KHÔNG áp dụng cho AuditLogPage - đó
- *    là 1 khái niệm khác hẳn (nhật ký hoạt động ngữ nghĩa tự viết tay qua AuditLogContext, so với
- *    audit_logs của BE là diff tự động theo field trên model) nên vẫn giữ mock, xem AuditLogContext.tsx.
+ *  - notifications (notifications-api.ts) — 2026-09-25: GET list trả "thông báo của TÔI" (BE
+ *    fan-out sẵn, không còn lọc audience thủ công); thêm unread-count/read-all/archive/sent
+ *    (NotificationCenter + trang "Thông báo chung" của Admin dùng). Vẫn KHÔNG có update/delete cho
+ *    announcement. KHÔNG áp dụng cho AuditLogPage - đó là 1 khái niệm khác hẳn (nhật ký hoạt động
+ *    ngữ nghĩa tự viết tay qua AuditLogContext, so với audit_logs của BE là diff tự động theo field
+ *    trên model) nên vẫn giữ mock, xem AuditLogContext.tsx.
  *  - transfer-check (transfer-check-api.ts) — mốc TRANSFER_CHECK của production-invoices
  *    (KhoChuyenKiemPage), key theo productionInvoiceItemId, resolve qua production-invoice-item.ts.
  *  - packaging (packaging-api.ts) — mốc đóng gói cuối cùng của production-invoices
@@ -121,7 +122,15 @@ export {
 } from './warehouse-transfers-api';
 export { getStockQuants, getStockLedger, adjustStock } from './stock-api';
 export { uploadImage, uploadDocument } from './uploads-api';
-export { getNotifications, createNotification, markNotificationRead } from './notifications-api';
+export {
+  getNotifications,
+  createNotification,
+  markNotificationRead,
+  getUnreadCount,
+  markAllNotificationsRead,
+  archiveNotification,
+  getSentAnnouncements,
+} from './notifications-api';
 export {
   getTransferCheckPieces, getTransferCheckPiecesBatch, recordTransferCheck,
   getTransferCheckDefects, updateTransferCheckDefectPhoto,

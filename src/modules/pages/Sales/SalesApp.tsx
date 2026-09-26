@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { ClipboardList, Users, History, LogOut, Grid, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
+import NotificationCenter from '../../../components/NotificationCenter'
 import OrderManagementPage from './OrderManagementPage'
 import CustomerManagementPage from './CustomerManagementPage'
 import PurchaseHistoryPage from './PurchaseHistoryPage'
@@ -72,6 +73,7 @@ export default function SalesApp({ onBack }: Props) {
             <div style={{ fontSize: 10, color: 'var(--text3)' }}>Bán hàng</div>
           </div>
           <ThemeToggle />
+          <NotificationCenter color="var(--text3)" />
           <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất"><LogOut size={16} color="var(--text3)" /></button>
         </div>
       </div>
@@ -105,6 +107,7 @@ export default function SalesApp({ onBack }: Props) {
         <div style={{ fontWeight: 700, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           Bán hàng <span style={{ color: 'var(--text3)', fontWeight: 400 }}>· {activeTab?.label}</span>
         </div>
+        <NotificationCenter size={20} />
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: isMobile ? '14px 12px 80px' : '18px 20px 80px' }}>{content}</div>

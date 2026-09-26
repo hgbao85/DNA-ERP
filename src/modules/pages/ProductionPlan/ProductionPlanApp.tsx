@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Warehouse, FilePlus, Layers, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
+import { useUrlState } from '../../../hooks/useUrlState'
 import { getCuttingBatchSuggestions } from '../../../services/cutting-batch-api'
+import NotificationCenter from '../../../components/NotificationCenter'
 import VatTuDashboardPage from './VatTuDashboardPage'
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import SKUReviewPage from './SKUReviewPage'
@@ -15,11 +17,23 @@ import ThemeToggle from '../../../components/ThemeToggle'
 
 type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'thongke' | 'lenh-sx' | 'gom-cat' | 'warehouses'
 
+const PAGE_VALUES: Page[] = ['planforms', 'duyet-sku', 'vattu', 'thongke', 'lenh-sx', 'gom-cat', 'warehouses']
+const isPage = (v: string | null): v is Page => !!v && (PAGE_VALUES as string[]).includes(v)
+
 interface Props { onBack?: () => void }
 
 export default function ProductionPlanApp({ onBack }: Props) {
   const { user, logout, isBoss } = useAuth()
-  const [activePage, setActivePage] = useState<Page>('thongke')
+  // `p` trong query string - cho phép NotificationCenter mở đúng tab (vd thông báo cắt sắt trỏ
+  // tới 'lenh-sx') qua router.push('/?m=production_plan&p=lenh-sx'), xem changelog notification
+  // 2026-09-25 mục 6.2 + NotificationCenter.tsx. Đọc 1 lần lúc khởi tạo state cho giá trị đầu, rồi
+  // đồng bộ 2 chiều qua setActivePage/effect bên dưới - y hệt cách app/page.tsx làm với `m`.
+  const [urlPage, setUrlPage] = useUrlState('p')
+  const [activePage, setActivePageState] = useState<Page>(() => (isPage(urlPage) ? urlPage : 'thongke'))
+  const setActivePage = (page: Page) => { setActivePageState(page); setUrlPage(page) }
+  useEffect(() => {
+    if (isPage(urlPage) && urlPage !== activePage) setActivePageState(urlPage)
+  }, [urlPage])
   // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ - cùng idiom SalesApp/PurchasingApp.
   const isCompact = useIsCompact()
   const isMobile = useIsMobile()
@@ -103,6 +117,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
             <div style={{ fontSize: 10, color: 'var(--text3)' }}>Kế hoạch SX</div>
           </div>
           <ThemeToggle />
+          <NotificationCenter color="var(--text3)" />
           <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất">
             <LogOut size={16} color="var(--text3)" />
           </button>
@@ -143,6 +158,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
         <div style={{ fontWeight: 700, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           Kế hoạch SX <span style={{ color: 'var(--text3)', fontWeight: 400 }}>· {active?.label}</span>
         </div>
+        <NotificationCenter size={20} />
       </div>
 
       <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: isMobile ? '14px 12px 80px' : '18px 20px 80px' }}>{content}</div>
