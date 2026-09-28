@@ -62,6 +62,7 @@ function chucNangOf(u: SystemUser): string {
   if (u.isPurchaser) tags.push('Mua hàng')
   if (u.isProductPlanner) tags.push('KH Sản xuất')
   if (u.isSale) tags.push('Sales')
+  if (u.isMaterialsManager) tags.push('Quản lý vật tư')
   if (!u.mfgRole && u.warehouseScope) tags.push(`Kho ${WAREHOUSE_SCOPE_LABEL[u.warehouseScope] ?? u.warehouseScope}`)
   return tags.length > 0 ? tags.join(', ') : '—'
 }
@@ -71,7 +72,7 @@ function chucNangOf(u: SystemUser): string {
 // dữ liệu thật (mfgRole hoặc warehouseScope/cờ boolean có sẵn), không phát sinh cột DB mới.
 
 type StaffCategory = 'office' | 'warehouse' | 'spec' | 'mfg'
-type OfficeFn = 'SALE' | 'PLANNER' | 'PROD_MGR' | 'PURCHASE'
+type OfficeFn = 'SALE' | 'PLANNER' | 'PROD_MGR' | 'PURCHASE' | 'MATERIALS_MGR'
 
 const STAFF_CATEGORIES: { value: StaffCategory; label: string }[] = [
   { value: 'office', label: 'Văn phòng' },
@@ -85,13 +86,14 @@ const OFFICE_FUNCTIONS: { value: OfficeFn; label: string }[] = [
   { value: 'PLANNER', label: 'KH Sản xuất (KHSX)' },
   { value: 'PROD_MGR', label: 'Quản lý sản xuất (QLSX)' },
   { value: 'PURCHASE', label: 'Mua hàng' },
+  { value: 'MATERIALS_MGR', label: 'Quản lý vật tư' },
 ]
 
 function deriveStaffCategory(v: Partial<SystemUser>): StaffCategory | undefined {
   if (v.mfgRole && MFG_FLOOR_VALUES.includes(v.mfgRole)) return 'mfg'
   if (v.mfgRole && SPEC_VALUES.includes(v.mfgRole)) return 'spec'
   if (v.mfgRole === 'PRODUCTION_MANAGER') return 'office'
-  if (v.isSale || v.isProductPlanner || v.isPurchaser) return 'office'
+  if (v.isSale || v.isProductPlanner || v.isPurchaser || v.isMaterialsManager) return 'office'
   // '' (chuỗi rỗng) = đã bấm tab "Kho" nhưng CHƯA chọn kho cụ thể - khác undefined/null (chưa bấm
   // tab nào cả). Không dùng `if (v.warehouseScope)` (truthy) vì '' cũng falsy, sẽ không phân biệt
   // được 2 ca này - "Kho phụ trách" giờ không bắt buộc chọn ngay lúc tạo tài khoản (gán sau cũng
@@ -105,6 +107,7 @@ function deriveOfficeFn(v: Partial<SystemUser>): OfficeFn | undefined {
   if (v.isPurchaser) return 'PURCHASE'
   if (v.isProductPlanner) return 'PLANNER'
   if (v.isSale) return 'SALE'
+  if (v.isMaterialsManager) return 'MATERIALS_MGR'
   return undefined
 }
 
@@ -139,6 +142,7 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
     setField('isPurchaser', false)
     setField('isProductPlanner', false)
     setField('isSale', false)
+    setField('isMaterialsManager', false)
   }
 
   const officeFn = deriveOfficeFn(values)
@@ -146,6 +150,7 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
     setField('isSale', fn === 'SALE')
     setField('isProductPlanner', fn === 'PLANNER')
     setField('isPurchaser', fn === 'PURCHASE')
+    setField('isMaterialsManager', fn === 'MATERIALS_MGR')
     setField('mfgRole', fn === 'PROD_MGR' ? 'PRODUCTION_MANAGER' : undefined)
     // Không có chức năng Văn phòng nào cần warehouseScope nữa - Mua hàng giờ được gán theo
     // từng vật tư (Material.buyerId, xem Admin > Vật tư), không còn gán theo cả kho.
@@ -533,13 +538,14 @@ export default function UsersPage() {
           return undefined
         },
       },
-      // 5 field dưới đây là dữ liệu thật (được khối "Loại nhân viên" ở trên set) — không tự vẽ
+      // 6 field dưới đây là dữ liệu thật (được khối "Loại nhân viên" ở trên set) — không tự vẽ
       // dòng riêng (type 'hidden'), nhưng vẫn theo showIf/payload như field bình thường.
       { name: 'mfgRole', label: 'Bộ phận / Vị trí', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
       { name: 'warehouseScope', label: 'Kho phụ trách', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
       { name: 'isPurchaser', label: 'Mua hàng', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
       { name: 'isProductPlanner', label: 'KH Sản xuất', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
       { name: 'isSale', label: 'Sales', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
+      { name: 'isMaterialsManager', label: 'Quản lý vật tư', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
       // KHÔNG có field "Trạng thái" trong form: khóa/mở tài khoản làm bằng nút ổ khóa ở dòng (qua
       // setUserActive). Tạo mới: BE luôn tạo active. Sửa: form không đụng isActive để tránh 2 nơi
       // cùng điều khiển 1 giá trị (checkbox form vs nút ổ khóa) gây rối/ghi đè nhau.

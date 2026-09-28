@@ -21,6 +21,7 @@ export function deriveRoleIds(v: Record<string, unknown>, roleId: Record<string,
     ...(v.isPurchaser ? pick('PURCHASER') : []),
     ...(v.isSale ? pick('SALES_STAFF') : []),
     ...(v.isProductPlanner ? pick('PRODUCTION_PLANNER') : []),
+    ...(v.isMaterialsManager ? pick('MATERIALS_MANAGER') : []),
   ];
 }
 
@@ -45,6 +46,7 @@ export function mapBeToFe(u: BeUserProfile): SystemUser {
     isPurchaser: u.isPurchaser,
     isProductPlanner: u.isProductPlanner,
     isSale: u.isSale,
+    isMaterialsManager: u.isMaterialsManager,
     isActive: u.isActive,
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
@@ -88,5 +90,6 @@ export function mfgAttrsPayload(v: Record<string, unknown>) {
     isPurchaser: !!v.isPurchaser,
     isProductPlanner: !!v.isProductPlanner,
     isSale: !!v.isSale,
+    isMaterialsManager: !!v.isMaterialsManager,
   };
 }

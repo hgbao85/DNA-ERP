@@ -27,6 +27,7 @@ export interface BeUserProfile {
   isPurchaser: boolean;
   isProductPlanner: boolean;
   isSale: boolean;
+  isMaterialsManager: boolean;
 }
 
 /** Response của POST /auth/login và POST /auth/refresh — AuthTokensDto ở BE. */

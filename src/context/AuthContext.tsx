@@ -45,6 +45,7 @@ export interface WarehouseUser extends BaseUser {
   isPurchaser?: boolean;
   isProductPlanner?: boolean;
   isSale?: boolean;
+  isMaterialsManager?: boolean;
 }
 
 /**
@@ -61,6 +62,7 @@ export interface User {
   isPurchaser?: boolean;
   isProductPlanner?: boolean;
   isSale?: boolean;
+  isMaterialsManager?: boolean;
 }
 
 interface AuthContextType {

@@ -7,6 +7,7 @@ import ModuleSelector from '../components/ModuleSelector';
 import SalesApp from '../modules/pages/Sales/SalesApp';
 import MfgApp from '../modules/pages/Manufacturing/MfgApp';
 import PurchasingApp from '../modules/pages/Purchasing/PurchasingApp';
+import MaterialsManagerApp from '../modules/pages/MaterialsManager/MaterialsManagerApp';
 import InboundWarehouseApp from '../modules/pages/InboundWarehouse/InboundWarehouseApp';
 import ProductionPlanApp from '../modules/pages/ProductionPlan/ProductionPlanApp';
 import BossApp from '../modules/pages/Boss/BossApp';
@@ -68,7 +69,7 @@ function MainERP() {
   useEffect(() => {
     if (!user || isDirector) return;
     setActiveModule(resolveDefaultModule(user));
-  }, [user?.id, user?.isProductPlanner, user?.isPurchaser, user?.isSale, user?.mfgRole, user?.role, isDirector]);
+  }, [user?.id, user?.isProductPlanner, user?.isPurchaser, user?.isSale, user?.isMaterialsManager, user?.mfgRole, user?.role, isDirector]);
 
   let content: React.ReactNode;
 
@@ -90,6 +91,8 @@ function MainERP() {
     content = <MfgApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
   } else if (activeModule === 'purchasing') {
     content = <PurchasingApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
+  } else if (activeModule === 'materials_manager') {
+    content = <MaterialsManagerApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
   } else if (activeModule === 'inbound_warehouse') {
     content = <InboundWarehouseApp onBack={isDirector ? () => setActiveModule(null) : undefined} />;
   } else if (activeModule === 'production_plan') {

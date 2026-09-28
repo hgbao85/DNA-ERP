@@ -19,6 +19,7 @@ interface NormalizableUser {
   isPurchaser?: boolean;
   isProductPlanner?: boolean;
   isSale?: boolean;
+  isMaterialsManager?: boolean;
 }
 
 /**
@@ -42,5 +43,6 @@ export function normalizeUser(raw: NormalizableUser): User {
     isPurchaser: !!raw.isPurchaser,
     isProductPlanner: !!raw.isProductPlanner,
     isSale: !!raw.isSale,
+    isMaterialsManager: !!raw.isMaterialsManager,
   };
 }

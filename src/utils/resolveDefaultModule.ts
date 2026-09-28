@@ -12,6 +12,7 @@ const MODULE_STRATEGIES: ModuleStrategy[] = [
   { matches: (u) => !!u.isProductPlanner,                    module: 'production_plan'   },
   { matches: (u) => !!u.isSale,                              module: 'sales'             },
   { matches: (u) => !!u.isPurchaser,                         module: 'purchasing'        },
+  { matches: (u) => !!u.isMaterialsManager,                  module: 'materials_manager' },
   { matches: (u) => u.role === 'WAREHOUSE_STAFF',            module: 'inbound_warehouse' },
   { matches: (u) => u.role === 'BOSS' && !u.mfgRole,        module: 'boss'              },
 ];
