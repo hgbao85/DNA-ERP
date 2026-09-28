@@ -96,7 +96,11 @@ export async function updateMaterial(id: number | string, data: Record<string, u
     warehouseId: data.warehouseId ?? null,
     buyerId: data.buyerId ?? null,
     purchaseUnit: data.purchaseUnit,
-    khoUnitFactor: data.khoUnitFactor,
+    // `?? null` (không `|| undefined`) - cùng lỗi/cùng cách sửa với materialGroupId/warehouseId ở
+    // trên: field này bị bỏ sót khỏi đợt fix audit 09/09 (Cao/H1) - xoá trắng ô "Hệ số quy đổi" ở
+    // form sửa vật tư set state về `undefined`, JSON.stringify xoá hẳn key khỏi body PATCH, BE
+    // tưởng "không đụng field" nên giữ nguyên giá trị cũ dù báo lưu thành công.
+    khoUnitFactor: data.khoUnitFactor ?? null,
     maxCuttingWastePercentage: data.maxCuttingWastePercentage ?? null,
     purchaseWastePercentage: data.purchaseWastePercentage ?? null,
     imageUrl: data.imageUrl,
