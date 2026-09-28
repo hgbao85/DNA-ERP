@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Chuyển giao vật tư mua hàng (28/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --decided: #66748A; --decided-bg: #EEF0F3; --decided-border: #CBD2DB;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.decided { color: var(--decided); background: var(--decided-bg); border-color: var(--decided-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 28/09/2026</span>
+    <h1 class="title">Chuyển giao vật tư mua hàng</h1>
+    <p class="subtitle">Khi nhân viên mua hàng nghỉ việc hoặc đổi vị trí, Admin chuyển toàn bộ vật tư người đó phụ trách sang người mới bằng 1 nút. Hệ thống chặn khoá, bỏ chức năng Mua hàng, đổi vai trò hoặc xoá tài khoản khi người đó còn vật tư, để không còn vật tư "mồ côi". Ô Tên đăng nhập và Email trên form sửa người dùng giờ chỉ để xem.</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> FE <code>D:\DNA-ERP</code> · BE <code>D:\DNA-ERP-BE</code></span>
+      <span><strong>Màn hình:</strong> Admin › Người dùng &amp; Phân quyền · Admin › Danh mục hệ thống › Vật tư (chỉ bị ảnh hưởng dữ liệu)</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="context">
+    <div class="sec-head"><h2>Bối cảnh</h2></div>
+    <div class="prose-card">
+      <p>Mỗi vật tư gán cho đúng 1 nhân viên mua hàng qua cột <code>Material.buyerId</code>, lưu theo <b>id tài khoản</b> chứ không theo tên đăng nhập. Nhân viên mua hàng chỉ thấy và xử lý đề xuất mua của vật tư chưa gán ai, hoặc gán cho chính mình. Luật này áp ở cả FE (<code>purchasingRouting.ts</code>) và BE (<code>PurchaseProposalsService.assertActorMayHandle</code>).</p>
+      <p>Nhân viên <b>Trâm Trâm (tram)</b> nghỉ việc, người mới cần nhận lại các vật tư Trâm đang mua. Trước bản này chỉ có cách mở từng vật tư ở Admin › Vật tư để đổi người mua.</p>
+    </div>
+  </section>
+
+  <section id="fix">
+    <div class="sec-head"><h2>Vấn đề phát hiện</h2><span class="sec-count">2 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Sửa lỗi</span><span class="badge date">28/09</span><span class="f-title">Vật tư "mồ côi" khi khoá hoặc bỏ Mua hàng của nhân viên</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Khoá tài khoản, bỏ chức năng Mua hàng hoặc xoá tài khoản thì <code>buyerId</code> của vật tư vẫn trỏ về người cũ. Hậu quả: không nhân viên mua hàng nào khác thấy hay duyệt được đề xuất của các vật tư đó, chỉ Sếp/Admin còn xử lý được. Màn Vật tư lại hiện "—" ở cột Nhân viên mua hàng, trông như chưa gán ai. Không có cảnh báo nào.</div>
+        <div class="ba-box after"><span class="k">Sau</span>BE trả lỗi 400 <i>"Không thể … : người này còn phụ trách mua N vật tư. Dùng "Chuyển giao vật tư" ở Admin &gt; Người dùng để giao cho nhân viên mua hàng khác trước."</i> Không có gì bị ghi.</div>
+      </div>
+      <div class="f-field">
+        <span class="k">4 thao tác bị chặn</span>
+        <div class="v">
+          <ul>
+            <li>Khoá tài khoản (<code>isActive</code> true → false) qua nút ổ khoá.</li>
+            <li>Đổi vai trò làm mất role <code>PURCHASER</code> (ví dụ đổi sang Giám đốc hoặc sang nhóm Sản xuất).</li>
+            <li>Bỏ cờ <code>isPurchaser</code> (đổi Chức năng khỏi "Mua hàng").</li>
+            <li>Xoá tài khoản.</li>
+          </ul>
+          Chỉ chặn khi <b>chuyển trạng thái</b> (ví dụ đang hoạt động → khoá). Sửa các thông tin khác mà vẫn giữ Mua hàng thì không bị ảnh hưởng.
+        </div>
+      </div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v">BE <code>src\modules\users\users.service.ts</code>: <code>assertNoBuyerMaterials()</code>, gọi trong <code>update()</code>, <code>updateMfgAttributes()</code>, <code>remove()</code></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Sửa lỗi</span><span class="badge date">28/09</span><span class="f-title">Sửa Tên đăng nhập / Email "lưu thành công" nhưng không đổi gì</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Form "Sửa người dùng" cho gõ vào ô Tên đăng nhập và Email. Bấm Lưu báo thành công nhưng giá trị giữ nguyên, vì FE <code>updateUser()</code> không gửi 2 field này và BE <code>update()</code> không ghi email.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Khi <b>sửa</b>, 2 ô chỉ để xem (nền xám, con trỏ cấm). Khi <b>tạo mới</b> vẫn nhập bình thường. Theo quyết định: khoá lại chứ không mở cho sửa.</div>
+      </div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v">Tuỳ chọn mới <code>disabledOnEdit</code> của <code>AdminFormField</code> trong <code>src\modules\pages\Admin\shared\AdminEntityPage.tsx</code> (áp cho ô text/email), bật tại <code>src\modules\pages\Admin\UsersPage.tsx</code></div></div>
+    </article>
+  </section>
+
+  <section id="feature">
+    <div class="sec-head"><h2>Tính năng mới</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">28/09</span><span class="f-title">Nút "Chuyển giao vật tư mua hàng" (⇄) ở Admin › Người dùng</span></div>
+      <div class="f-field">
+        <span class="k">Cách dùng</span>
+        <div class="v">
+          <ol>
+            <li>Tạo tài khoản cho nhân viên mới: Vai trò <b>Nhân viên</b> › Loại <b>Văn phòng</b> › Chức năng <b>Mua hàng</b>.</li>
+            <li>Trên dòng người cũ, bấm nút <b>⇄</b> ở cột Thao tác (nằm giữa ổ khoá và chìa khoá, chỉ hiện với tài khoản có Mua hàng).</li>
+            <li>Xem danh sách vật tư đang phụ trách, chọn người nhận ở ô <b>"Chuyển cho"</b>, bấm <b>"Chuyển N vật tư"</b>.</li>
+            <li>Kiểm tra ở Danh mục hệ thống › Vật tư, rồi khoá tài khoản người cũ bằng nút ổ khoá.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">Quy tắc</span>
+        <div class="v">
+          <ul>
+            <li>Người nhận phải khác người chuyển, đang hoạt động và có chức năng Mua hàng. Dropdown chỉ liệt kê người hợp lệ, BE kiểm tra lại lần nữa.</li>
+            <li>Chuyển <b>toàn bộ</b> vật tư trong 1 lệnh <code>updateMany</code>, không chọn lẻ từng vật tư. Muốn chia cho nhiều người thì chuyển hết cho 1 người rồi sửa lẻ ở màn Vật tư.</li>
+            <li>Lịch sử cũ (ai đã duyệt mua dòng nào, v.v.) vẫn giữ tên người cũ, vì lưu theo id tài khoản.</li>
+            <li>Mỗi lần chuyển được ghi nhật ký hoạt động <code>user.materials_transferred</code>: "N vật tư: A → B".</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field">
+        <span class="k">API mới</span>
+        <div class="v">
+          <ul>
+            <li><code>GET /api/v1/users/:id/buyer-materials</code> (quyền USER:VIEW) → <code>{ count, materials: [{ id, code, name }] }</code></li>
+            <li><code>POST /api/v1/users/:id/transfer-buyer-materials</code> body <code>{ toUserId }</code> (quyền USER:UPDATE) → <code>{ count }</code></li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v">BE <code>users.service.ts</code> (<code>findBuyerMaterials</code>, <code>transferBuyerMaterials</code>), <code>users.controller.ts</code>, <code>dto\transfer-buyer-materials.dto.ts</code> · FE <code>UsersPage.tsx</code> (<code>TransferMaterialsModal</code>), <code>services\users-api.ts</code>, <code>services\api.ts</code>, <code>context\AuditLogContext.tsx</code>, <code>components\AuditLogTimeline.tsx</code></div></div>
+    </article>
+  </section>
+
+  <section id="decided">
+    <div class="sec-head"><h2>Quyết định</h2><span class="sec-count">1 mục</span></div>
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Đã chốt</span><span class="badge date">28/09</span><span class="f-title">Không tái dùng tài khoản người cũ cho người mới</span></div>
+      <div class="f-field"><span class="k">Lý do</span><div class="v">Đổi họ tên hoặc tên đăng nhập của tài khoản cũ thành người mới thì vật tư chuyển theo ngay, nhưng mọi việc người cũ đã làm (ví dụ <code>PurchaseProposalItem.approvedBy</code>) sẽ hiện dưới tên người mới, mất dấu ai đã duyệt mua cái gì. Hơn nữa FE vốn không sửa được tên đăng nhập. Luồng đúng: tạo tài khoản mới → chuyển giao → khoá tài khoản cũ.</div></div>
+    </article>
+  </section>
+
+  <section id="test">
+    <div class="sec-head"><h2>Kiểm tra</h2></div>
+    <div class="prose-card">
+      <p><b>Tự động:</b> type-check và lint FE/BE sạch (chỉ còn cảnh báo <code>&lt;img&gt;</code> có từ trước). <code>users.service.spec.ts</code> 16/16 test xanh, gồm 11 test mới: chuyển giao hợp lệ, từ chối người nhận không có Mua hàng / đã khoá / chính mình, chặn 4 thao tác khi còn vật tư, cho phép khi đã chuyển hết, và danh sách vật tư serialize được JSON.</p>
+      <p><b>Thủ công:</b> đã chuyển giao thành công trên UI với DB dev chung. Lần thử đầu lỗi 500 do <code>Material.id</code> là BigInt trả thẳng ra JSON, đã sửa bằng <code>Number(id)</code>.</p>
+      <p><b>Chưa kiểm tra trên trình duyệt:</b> thông báo chặn khi khoá tài khoản còn vật tư; giao diện ô Tên đăng nhập/Email chỉ-xem.</p>
+    </div>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 28/09/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>

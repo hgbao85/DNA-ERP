@@ -51,6 +51,7 @@ export const AUDIT_ACTIONS = {
   'user.password_reset': { label: 'Đặt lại mật khẩu',  color: 'var(--fg-7c3aed)' },
   'user.locked':       { label: 'Khóa tài khoản',      color: 'var(--fg-c62828)' },
   'user.unlocked':     { label: 'Mở khóa tài khoản',   color: 'var(--fg-059669)' },
+  'user.materials_transferred': { label: 'Chuyển giao vật tư mua hàng', color: 'var(--fg-d97706)' },
   'user.deleted':      { label: 'Xóa tài khoản',       color: 'var(--fg-c62828)' },
 
   // ─── Admin — Danh mục hệ thống (dùng chung cho mọi entity danh mục) ──────────

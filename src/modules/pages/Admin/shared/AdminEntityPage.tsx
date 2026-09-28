@@ -48,6 +48,9 @@ export interface AdminFormField<T> {
   Render?: ComponentType<{ value: unknown; values: Partial<T>; setField: (name: string, value: unknown) => void }>
   /** Không đưa field này vào payload lưu — dùng cho field UI thuần không map tới cột dữ liệu nào. */
   excludeFromPayload?: boolean
+  /** Khi SỬA: chỉ hiển thị, không cho gõ (vd Tên đăng nhập/Email - API sửa không nhận 2 field này,
+      để ô gõ được sẽ "lưu thành công" mà không có tác dụng gì). Chỉ áp dụng ô nhập text/email. */
+  disabledOnEdit?: boolean
 }
 
 export interface AdminFilterDef<T> {
@@ -570,7 +573,13 @@ export default function AdminEntityPage<T extends { id: number | string }>({
                   value={String((values as Record<string, unknown>)[f.name] ?? '')}
                   onChange={e => setField(f.name, e.target.value)}
                   placeholder={f.placeholder}
-                  style={{ width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)' }}
+                  readOnly={!!editing && f.disabledOnEdit}
+                  style={{
+                    width: '100%', padding: '7px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8,
+                    ...(editing && f.disabledOnEdit
+                      ? { background: 'var(--bg)', color: 'var(--text3)', cursor: 'not-allowed' }
+                      : { background: 'var(--surface)', color: 'var(--text)' }),
+                  }}
                 />
               )}
               </>

@@ -83,3 +83,18 @@ export async function resetUserPassword(id: number | string, newPassword: string
 export async function setUserActive(id: number | string, isActive: boolean): Promise<SystemUser> {
   return mapBeToFe(await http.patch<BeUserProfile>(`/users/${id}`, { isActive }));
 }
+
+// Chuyển giao vật tư mua hàng (Material.buyerId) - dùng khi nhân viên mua hàng nghỉ việc/đổi vị
+// trí. BE chặn khoá/bỏ Mua hàng/xoá tài khoản còn vật tư, nên phải chuyển giao trước.
+export interface BuyerMaterials {
+  count: number;
+  materials: { id: number; code: string; name: string }[];
+}
+
+export async function getBuyerMaterials(id: number | string): Promise<BuyerMaterials> {
+  return http.get<BuyerMaterials>(`/users/${id}/buyer-materials`);
+}
+
+export async function transferBuyerMaterials(id: number | string, toUserId: number | string): Promise<{ count: number }> {
+  return http.post<{ count: number }>(`/users/${id}/transfer-buyer-materials`, { toUserId });
+}

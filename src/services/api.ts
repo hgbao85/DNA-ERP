@@ -87,7 +87,8 @@
  * trên để biết lý do giữ nguyên.
  */
 export * from '../lib/mock/services';
-export { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive } from './users-api';
+export { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive, getBuyerMaterials, transferBuyerMaterials } from './users-api';
+export type { BuyerMaterials } from './users-api';
 export { loginUser, getProfile, logoutUser } from './auth-api';
 export { getMaterials, createMaterial, updateMaterial, deleteMaterial, getMaterialSuppliers, createMaterialSupplier, updateMaterialSupplier, deleteMaterialSupplier } from './materials-api';
 export { getMaterialGroups, createMaterialGroup, updateMaterialGroup, deleteMaterialGroup } from './material-groups-api';

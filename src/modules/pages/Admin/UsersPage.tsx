@@ -1,10 +1,10 @@
 'use client'
-import { useState } from 'react'
-import { Users, KeyRound, Lock, LockOpen } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Users, KeyRound, Lock, LockOpen, ArrowRightLeft } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import { useFetch } from '../../../hooks/useFetch'
-import { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive, getWarehouses } from '../../../services/api'
+import { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive, getWarehouses, getBuyerMaterials, transferBuyerMaterials, type BuyerMaterials } from '../../../services/api'
 import type { SystemUser } from '../../../types/admin'
 import AdminEntityPage, { type AdminEntityConfig } from './shared/AdminEntityPage'
 import Modal from '../../../components/Modal'
@@ -314,10 +314,119 @@ function ResetPasswordModal({ user, onClose, onDone }: { user: SystemUser | null
   )
 }
 
+// Chuyển giao TOÀN BỘ vật tư (Material.buyerId) của 1 nhân viên mua hàng sang người khác - dùng khi
+// người cũ nghỉ việc/đổi vị trí. Không tái dùng tài khoản cũ cho người mới: lịch sử duyệt mua lưu
+// theo tài khoản, đổi tên sẽ ghi việc người cũ đã làm sang tên người mới. BE chặn khoá/bỏ Mua
+// hàng/xoá tài khoản khi người đó còn vật tư, nên luồng đúng là: chuyển giao ở đây trước, rồi khoá.
+function TransferMaterialsModal({ user, onClose, onDone }: { user: SystemUser | null; onClose: () => void; onDone: (from: SystemUser, to: SystemUser, count: number) => void }) {
+  const [data, setData] = useState<BuyerMaterials | null>(null)
+  const [candidates, setCandidates] = useState<SystemUser[]>([])
+  const [toUserId, setToUserId] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    // State tự reset nhờ key={user.id} ở nơi render - không cần set lại ở đây.
+    if (!user) return
+    let cancelled = false
+    Promise.all([getBuyerMaterials(user.id), getUsers()])
+      .then(([materials, users]) => {
+        if (cancelled) return
+        setData(materials)
+        setCandidates(users.filter(u => u.isPurchaser && u.isActive && u.id !== user.id))
+      })
+      .catch(e => { if (!cancelled) setError(e instanceof Error ? e.message : 'Không tải được dữ liệu') })
+    return () => { cancelled = true }
+  }, [user])
+
+  const close = () => { if (!saving) onClose() }
+
+  const handleSubmit = async () => {
+    if (!user) return
+    const target = candidates.find(u => String(u.id) === toUserId)
+    if (!target) { setError('Chọn người nhận'); return }
+    setSaving(true)
+    setError(null)
+    try {
+      const { count } = await transferBuyerMaterials(user.id, target.id)
+      onDone(user, target, count)
+      onClose()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không thể chuyển giao vật tư')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const empty = data?.count === 0
+
+  return (
+    <Modal open={!!user} onClose={close} maxWidth={480}>
+      <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Chuyển giao vật tư mua hàng</h3>
+      {user && (
+        <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text2)' }}>
+          Từ <strong>{user.name}</strong> ({user.username}) sang nhân viên mua hàng khác. Lịch sử cũ vẫn giữ tên {user.name}.
+        </p>
+      )}
+
+      {!data && !error && <div style={{ fontSize: 13, color: 'var(--text3)' }}>Đang tải...</div>}
+
+      {data && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div>
+            <label style={fieldLabel}>Vật tư đang phụ trách ({data.count})</label>
+            {empty ? (
+              <div style={{ fontSize: 13, color: 'var(--text3)' }}>Không còn vật tư nào — có thể khoá tài khoản này.</div>
+            ) : (
+              <div style={{ maxHeight: 180, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 10px', fontSize: 12 }}>
+                {data.materials.map(m => (
+                  <div key={m.id} style={{ padding: '2px 0' }}>
+                    <span style={{ color: 'var(--text3)', marginRight: 8 }}>{m.code}</span>{m.name}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          {!empty && (
+            <div>
+              <label style={fieldLabel}>Chuyển cho</label>
+              <select value={toUserId} onChange={e => setToUserId(e.target.value)} style={fieldSelect}>
+                <option value="">— Chọn nhân viên mua hàng —</option>
+                {candidates.map(u => <option key={u.id} value={String(u.id)}>{u.name} ({u.username})</option>)}
+              </select>
+              {candidates.length === 0 && (
+                <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                  Chưa có nhân viên mua hàng nào khác đang hoạt động — tạo tài khoản mới với Chức năng &quot;Mua hàng&quot; trước.
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {error && <div style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 12 }}>{error}</div>}
+
+      <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+        <button onClick={close} disabled={saving} style={btnSecondary}>{empty ? 'Đóng' : 'Hủy'}</button>
+        {!empty && (
+          <button
+            onClick={handleSubmit}
+            disabled={saving || !data || !toUserId}
+            style={{ padding: '8px 18px', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--bg-3949ab)', cursor: saving || !toUserId ? 'not-allowed' : 'pointer', opacity: saving || !toUserId ? 0.7 : 1 }}
+          >
+            {saving ? 'Đang chuyển...' : `Chuyển ${data?.count ?? ''} vật tư`}
+          </button>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
 export default function UsersPage() {
   const { user: currentUser } = useAuth()
   const { logAction } = useAuditLog()
   const [pwUser, setPwUser] = useState<SystemUser | null>(null)
+  const [transferUser, setTransferUser] = useState<{ user: SystemUser; refetch: () => void } | null>(null)
 
   const config: AdminEntityConfig<SystemUser> = {
     title: 'Người dùng',
@@ -376,15 +485,17 @@ export default function UsersPage() {
     formFields: [
       { name: 'name', label: 'Họ tên', type: 'text', required: true },
       {
-        // Dùng để đăng nhập (BE thật). Không sửa được sau khi tạo — BE PATCH không nhận username.
-        name: 'username', label: 'Tên đăng nhập', type: 'text', placeholder: 'chỉ chữ/số . _ -',
+        // Dùng để đăng nhập (BE thật). Không sửa được sau khi tạo — updateUser() không gửi
+        // username, nên khi sửa chỉ hiển thị (trước 28/09 ô vẫn gõ được, lưu "thành công" mà không đổi gì).
+        name: 'username', label: 'Tên đăng nhập', type: 'text', placeholder: 'chỉ chữ/số . _ -', disabledOnEdit: true,
         validate: (v, all) =>
           (!all.id && !v) ? 'Bắt buộc khi tạo mới'
           : (v && !/^[a-zA-Z0-9._-]{3,}$/.test(String(v))) ? 'Tối thiểu 3 ký tự, chỉ chữ/số . _ -'
           : undefined,
       },
       {
-        name: 'email', label: 'Email', type: 'email', required: true,
+        // Như Tên đăng nhập: chỉ nhập lúc tạo, khi sửa chỉ hiển thị (BE update() không ghi email).
+        name: 'email', label: 'Email', type: 'email', required: true, disabledOnEdit: true,
         validate: (v) => (!v || !/^\S+@\S+\.\S+$/.test(String(v))) ? 'Email không hợp lệ' : undefined,
       },
       {
@@ -465,6 +576,16 @@ export default function UsersPage() {
             {u.isActive ? <Lock size={14} strokeWidth={2.25} /> : <LockOpen size={14} strokeWidth={2.25} />}
           </button>
         )}
+        {u.isPurchaser && (
+          <button
+            key="transfer-materials"
+            onClick={() => setTransferUser({ user: u, refetch })}
+            title="Chuyển giao vật tư mua hàng"
+            style={{ ...rowIconBtn, color: 'var(--text2)' }}
+          >
+            <ArrowRightLeft size={14} strokeWidth={2.25} />
+          </button>
+        )}
         <button
           key="reset-password"
           onClick={() => setPwUser(u)}
@@ -496,6 +617,15 @@ export default function UsersPage() {
         user={pwUser}
         onClose={() => setPwUser(null)}
         onDone={(u) => logAction('user', String(u.id), 'user.password_reset', `${u.name} (${u.email})`)}
+      />
+      <TransferMaterialsModal
+        key={transferUser ? String(transferUser.user.id) : 'none'}
+        user={transferUser?.user ?? null}
+        onClose={() => setTransferUser(null)}
+        onDone={(from, to, count) => {
+          logAction('user', String(from.id), 'user.materials_transferred', `${count} vật tư: ${from.name} → ${to.name}`)
+          transferUser?.refetch()
+        }}
       />
     </>
   )

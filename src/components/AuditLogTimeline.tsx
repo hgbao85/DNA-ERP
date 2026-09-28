@@ -44,6 +44,7 @@ const ACTION_ICON: Record<AuditAction, LucideIcon> = {
   'user.password_reset': KeyRound,
   'user.locked':       Lock,
   'user.unlocked':     LockOpen,
+  'user.materials_transferred': UserCog,
   'user.deleted':      Trash2,
 
   'masterdata.created': FilePlus,
