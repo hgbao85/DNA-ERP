@@ -10,6 +10,7 @@ import { useWarehouseName } from '../../../hooks/useWarehouseName'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purchasingRouting'
 import { ItemCard, ProposalCards } from './mobileCards'
+import EmptyState from '../../../components/EmptyState'
 
 const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
 const td: React.CSSProperties = { padding: '9px 12px' }
@@ -252,9 +253,7 @@ export default function TheoDoiMuaHangPage() {
       </div>
 
       {proposals.length === 0 ? (
-        <div style={{ padding: '40px 24px', textAlign: 'center', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text3)' }}>
-          Không có lệnh mua nào đang chờ hàng về
-        </div>
+        <EmptyState icon={<Truck size={28} />} message="Không có lệnh mua nào đang chờ hàng về" />
       ) : (
         <div style={{ marginBottom: 24 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>

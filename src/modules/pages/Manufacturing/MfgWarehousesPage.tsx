@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
+import { useConfirm } from '../../../hooks/useConfirm'
 import {
   updateUser, getUsers, getWarehouses, createWarehouse, deleteWarehouse,
   getMaterials, createMaterial, getMaterialGroups, getStockQuants, adjustStock,
@@ -9,6 +10,8 @@ import {
 import { Plus, Trash2, X, ArrowLeft, Warehouse, Search, Copy } from 'lucide-react'
 import AdjustReasonModal from '../../../components/AdjustReasonModal'
 import WarehouseLedgerHistory from '../../../components/WarehouseLedgerHistory'
+import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 import { warehouseFamilyOf, type WarehouseFamily } from '../../../utils/warehouseFamily'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 export { isThanhPhamScope } from '../../../utils/warehouseFamily'
@@ -191,8 +194,8 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
   // adjustStock() ở stock-api.ts và role-permissions.constant.ts (STOCK:UPDATE của Thủ kho).
   const openingBalanceWarehouseId = (warehouses ?? []).find(w => w.code === 'OPENING_BALANCE')?.id ?? null
 
-  if (whLoading) return <div style={{ color: 'var(--text3)' }}>Đang tải...</div>
-  if (whError)   return <div style={{ color: 'var(--fg-c62828)' }}>Không tải được danh sách kho: {whError}</div>
+  if (whLoading) return <LoadingState />
+  if (whError || !warehouses) return <LoadErrorState error={whError ?? 'Không rõ nguyên nhân'} onRetry={refetchWarehouses} />
 
   if (openWh) return (
     <WarehouseDetail
@@ -470,6 +473,7 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
   const [adjustError, setAdjustError] = useState<string | null>(null)
   // Điện thoại: bảng tồn 7-8 cột đổi thành thẻ (ô Tồn vẫn bấm sửa được như trên bảng).
   const isMobile = useIsMobile()
+  const { ask, confirmModal } = useConfirm()
 
   const filteredItems = items.filter(it =>
     !search || it.name.toLowerCase().includes(search.toLowerCase()) || it.code.toLowerCase().includes(search.toLowerCase()),
@@ -532,16 +536,16 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
     setAdjustError(null)
   }
 
-  const handleDeleteWarehouse = async () => {
-    if (!confirm(`Xóa kho "${wh.name}"?`)) return
-    setDeleting(true)
-    try {
-      await deleteWarehouse(wh.id)
-      onWarehouseDeleted()
-    } catch (e) {
-      alert(e instanceof Error ? e.message : 'Không thể xóa kho')
-      setDeleting(false)
-    }
+  const handleDeleteWarehouse = () => {
+    ask({ title: 'Xóa kho', message: `Xóa kho "${wh.name}"? Hành động này không thể hoàn tác.`, danger: true, confirmLabel: 'Xóa' }, async () => {
+      setDeleting(true)
+      try {
+        await deleteWarehouse(wh.id)
+        onWarehouseDeleted()
+      } finally {
+        setDeleting(false)
+      }
+    })
   }
 
   // Ô Tồn: Admin bấm để sửa nhanh (ô nhập tại chỗ), người khác chỉ xem - dùng chung bảng và thẻ.
@@ -718,6 +722,7 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
           onCancel={cancelAdjust}
         />
       )}
+      {confirmModal}
     </div>
   )
 }

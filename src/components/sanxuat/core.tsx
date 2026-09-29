@@ -21,6 +21,8 @@ import type {
 } from '../../services/production-batches-api'
 import { errMsg } from '../../utils/errors'
 import { useIsMobile } from '../../hooks/useMediaQuery'
+import LoadingState from '../LoadingState'
+import LoadErrorState from '../LoadErrorState'
 
 const ACCENT = 'var(--fg-e65100)'
 const REMIND_MINUTES = 60
@@ -919,7 +921,7 @@ async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
 export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   cfg: StageCfg; seed?: () => ProcRow[]; readOnly?: boolean; stage?: SanLuongStage
 }) {
-  const { data: fetched, refetch } = useFetch<HanSonFetch>(
+  const { data: fetched, isLoading: fetchedLoading, error: fetchedError, refetch } = useFetch<HanSonFetch>(
     () => stage ? fetchHanSonRows(stage) : Promise.resolve({ rows: [], awaitingByLine: new Map<string, number>(), batchesByLine: new Map<string, BeProductionBatch[]>() }), [stage])
   // "Lỗi" theo đợt (2026-09-09, đồng bộ Sắt/VTTP) - fetch 1 lần, lọc theo batchesByLine ở
   // VatTuDetailBoard (cùng idiom ChotPanel/StepPanel, VatTuTpDetail.tsx).
@@ -988,6 +990,9 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
       throw e
     }
   }
+
+  if (stage && fetchedLoading) return <LoadingState />
+  if (stage && (fetchedError || !fetched)) return <LoadErrorState error={fetchedError ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
   if (selPo) {
     return <VatTuDetailBoard

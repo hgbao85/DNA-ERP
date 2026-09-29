@@ -21,6 +21,8 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeStockQuant } from '../../../services/stock-api'
 import { isFamilyScope } from '../../../utils/warehouseFamily'
+import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -79,7 +81,7 @@ export default function KhoPhoiPage() {
   // nếu không có scope hợp lệ (BOSS/ADMIN xem, hoặc dữ liệu cũ chưa gán warehouseScope).
   const myWarehouseCode = isFamilyScope(user?.warehouseScope, 'phoi-son-han') ? user!.warehouseScope! : STEEL_WAREHOUSE_CODE
 
-  const { data: quants } = useFetch<BeStockQuant[]>(() => api.getStockQuants(), [])
+  const { data: quants, isLoading, error, refetch } = useFetch<BeStockQuant[]>(() => api.getStockQuants(), [])
 
   const { duyet, thua } = useMemo(() => toRows(quants ?? [], myWarehouseCode), [quants, myWarehouseCode])
 
@@ -87,6 +89,9 @@ export default function KhoPhoiPage() {
   const tongThua = useMemo(() => thua.reduce((s, i) => s + i.soDoan, 0), [thua])
 
   const rows = tab === 'duyet' ? duyet : thua
+
+  if (isLoading) return <LoadingState />
+  if (error || !quants) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
   return (
     <div>

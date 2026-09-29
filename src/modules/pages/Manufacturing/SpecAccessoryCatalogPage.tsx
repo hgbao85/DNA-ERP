@@ -3,6 +3,8 @@ import { useFetch } from '../../../hooks/useFetch'
 import { useMaterialGroupIds } from '../../../hooks/useMaterialGroupIds'
 import * as api from '../../../services/api'
 import type { Sku } from '../../../types/sku'
+import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 // ─── Gộp 3 trang "Danh sách vật tư" (Sơn + Phụ kiện + Bao bì) — cùng cấu trúc dữ liệu,
 // chỉ khác group key trong MaterialType. Tab để chuyển giữa 3 nhóm, không đổi route/menu riêng.
@@ -46,9 +48,9 @@ function qtyOf(it: { quantity?: number | null; kg?: number | null }): number | n
 }
 
 export default function SpecAccessoryCatalogPage() {
-  const { data: skusData } = useFetch<Sku[]>(() => api.getSkus(), [])
+  const { data: skusData, isLoading: skusLoading, error: skusError, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
   const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
-  const { data: materialsData } = useFetch(() => api.getMaterials(), [])
+  const { data: materialsData, isLoading: materialsLoading, error: materialsError, refetch: refetchMaterials } = useFetch(() => api.getMaterials(), [])
   const materials = materialsData ?? []
   const { other: otherGroupId } = useMaterialGroupIds()
 
@@ -76,6 +78,11 @@ export default function SpecAccessoryCatalogPage() {
     const q = catalogSearch.toLowerCase()
     return c.code.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)
   })
+
+  if (skusLoading || materialsLoading) return <LoadingState />
+  if (skusError || materialsError || !skusData || !materialsData) {
+    return <LoadErrorState error={skusError ?? materialsError ?? 'Không rõ nguyên nhân'} onRetry={() => { refetchSkus(); refetchMaterials() }} />
+  }
 
   return (
     <div>

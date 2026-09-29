@@ -14,6 +14,8 @@ interface ReasonModalProps {
   confirmColor?: string
   busy?: boolean
   confirmDisabled?: boolean
+  /** Lỗi từ action (vd BE từ chối) — hiện inline, modal vẫn mở để người dùng thấy và sửa/thử lại. */
+  error?: string | null
 }
 
 /**
@@ -33,6 +35,7 @@ export default function ReasonModal({
   confirmColor = 'var(--fg-c62828)',
   busy = false,
   confirmDisabled = false,
+  error = null,
 }: ReasonModalProps) {
   return (
     <Modal open={open} onClose={busy ? undefined : onCancel} maxWidth={420} zIndex={2000}>
@@ -46,6 +49,15 @@ export default function ReasonModal({
         autoFocus
         style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
       />
+      {error && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8, marginTop: 12,
+          background: 'rgba(198, 40, 40, 0.08)', border: '1px solid rgba(198, 40, 40, 0.3)',
+          borderRadius: 8, padding: '8px 12px', color: 'var(--fg-c62828)', fontSize: 12.5, fontWeight: 500,
+        }}>
+          {error}
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
         <button onClick={onCancel} disabled={busy} style={btnSecondary}>Hủy</button>
         <button

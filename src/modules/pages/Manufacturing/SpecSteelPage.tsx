@@ -12,6 +12,8 @@ import { SKU_ENTITY } from '../../../constants/skuStatus'
 import type { Sku, ManhRow, ManhChildRow, ManhChildGroup, ProcessStep } from '../../../types/sku'
 import { PROCESS_STEPS, PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 // ─── Types ────────────────────────────────────────────────────────────
 // "Định mức mảnh" (Manh/children) đọc/ghi thẳng Sku thật (manhData.pieces) — quy đổi sang/từ
@@ -134,7 +136,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   // Điện thoại: bảng vật tư con 10 cột -> thẻ; ô nhập form thêm vật tư co giãn thay vì rộng cố định.
   const isMobile = useIsMobile()
   const fieldW = (w: number): React.CSSProperties => isMobile ? { flex: '1 1 130px', minWidth: 0 } : { width: w }
-  const { data: skusData, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
+  const { data: skusData, isLoading: skusLoading, error: skusError, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
   const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
   const { data: materialsData } = useFetch(() => api.getMaterials(), [])
   const materials = materialsData ?? []
@@ -175,6 +177,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [manhs, setManhs] = useState<Manh[]>([])
   const [nextId, setNextId] = useState(1)
   const [savingManh, setSavingManh] = useState(false)
+  const [submitManhError, setSubmitManhError] = useState<string | null>(null)
   const [showManhForm, setShowManhForm] = useState(false)
   const [formTenManh, setFormTenManh] = useState('')
   const [formSoLuong, setFormSoLuong] = useState('1')
@@ -205,11 +208,13 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     setSelectedBom(item); setManhs(existing); setNextId(maxId + 1)
     setShowManhForm(false); setFormTenManh('')
     setAddingTo(null); resetChildForm()
+    setSubmitManhError(null)
   }
 
   const submitManh = async () => {
     if (!selectedBom || totalChildren === 0) return
     setSavingManh(true)
+    setSubmitManhError(null)
     try {
       // Ảnh Dây chỉ được chọn tại chỗ (blob preview), CHƯA lên Cloudinary - upload thật ngay
       // trước khi gửi, để khớp đúng nguyên tắc "mọi thứ ở trang này chỉ ghi lên server lúc Gửi
@@ -228,7 +233,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
       logAction(SKU_ENTITY, String(selectedBom.id), 'sku.manh_submitted', `${manhs.length} mảnh · ${totalChildren} dòng vật tư`)
       await refetchSkus()
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Không thể gửi phê duyệt')
+      setSubmitManhError(e instanceof Error ? e.message : 'Không thể gửi phê duyệt')
     } finally {
       setSavingManh(false)
     }
@@ -345,6 +350,11 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const catalogMaterials = materials.filter(m => catalogGroupId != null && m.materialGroupId === catalogGroupId)
 
   // ─── Render ────────────────────────────────────────────────────────────
+  // Gate CHỈ áp cho subTab 'dinh-muc' (cần skus) - 'catalog' không đụng skus, không được chặn
+  // theo trạng thái tải của nhánh khác.
+  if (subTab === 'dinh-muc' && skusLoading) return <LoadingState />
+  if (subTab === 'dinh-muc' && (skusError || !skusData)) return <LoadErrorState error={skusError ?? 'Không rõ nguyên nhân'} onRetry={refetchSkus} />
+
   return (
     <div>
       {/* Page header - chuông "đã duyệt định mức" cục bộ (NotifBell, không nối BE, F5 mất trạng
@@ -896,6 +906,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 </>
               ) : (
                 <>
+                  {submitManhError && (
+                    <span style={{ fontSize: 12, color: 'var(--fg-c62828)', flex: '1 1 100%' }}>{submitManhError}</span>
+                  )}
                   <span style={{ fontSize: 13, color: 'var(--text2)' }}>
                     {manhs.length} mảnh · {totalChildren} dòng vật tư
                   </span>

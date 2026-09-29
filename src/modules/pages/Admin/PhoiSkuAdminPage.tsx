@@ -17,11 +17,11 @@ import * as api from '../../../services/api'
 import { getAuditLogsByTable, type BeAuditLogEntry } from '../../../services/audit-log-api'
 import type { BeCutBundle, BeStepBundle, BeSteelIssue, BePiOrderSummary } from '../../../services/steel-issues-api'
 import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
-import { errMsg } from '../../../utils/errors'
+import { useConfirm } from '../../../hooks/useConfirm'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 const ACCENT = 'var(--fg-3949ab)'
-const RED = 'var(--fg-c62828)'
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
 const th: React.CSSProperties = { padding: '9px 12px', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: '.04em', textAlign: 'left', background: 'var(--surface2)', whiteSpace: 'nowrap' }
 const td: React.CSSProperties = { padding: '9px 12px', fontSize: 13, borderTop: '1px solid var(--border)', verticalAlign: 'middle' }
@@ -80,16 +80,16 @@ export default function PhoiSkuAdminPage() {
 }
 
 function PiPanel({ piId }: { piId: string }) {
-  const { data: orders } = useFetch<BePiOrderSummary[]>(() => api.getPiOrderSummary(piId), [piId])
+  const { data: orders, error: ordersError, refetch: refetchOrders } = useFetch<BePiOrderSummary[]>(() => api.getPiOrderSummary(piId), [piId])
   const { data: issues } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesForInvoice(piId), [piId])
-  const { data: cuts, refetch: refetchCuts } = useFetch<BeCutBundle[]>(() => api.getAllCutBundles(piId), [piId])
-  const { data: steps, refetch: refetchSteps } = useFetch<BeStepBundle[]>(() => api.getStepBundlesForInvoice(piId), [piId])
+  const { data: cuts, error: cutsError, refetch: refetchCuts } = useFetch<BeCutBundle[]>(() => api.getAllCutBundles(piId), [piId])
+  const { data: steps, error: stepsError, refetch: refetchSteps } = useFetch<BeStepBundle[]>(() => api.getStepBundlesForInvoice(piId), [piId])
   const { data: users } = useFetch(() => api.getUsers().catch(() => []), [])
   const { data: cutLogs, refetch: refetchCutLogs } = useFetch<BeAuditLogEntry[]>(() => getAuditLogsByTable('CutBundle'), [])
   const { data: stepLogs, refetch: refetchStepLogs } = useFetch<BeAuditLogEntry[]>(() => getAuditLogsByTable('StepBundle'), [])
   const [pending, setPending] = useState<Record<string, string>>({})
   const [busyKey, setBusyKey] = useState<string | null>(null)
-  const [err, setErr] = useState('')
+  const { ask, confirmModal } = useConfirm()
 
   const orderList = orders ?? []
   const labelOf = (id: string | null) => {
@@ -123,21 +123,27 @@ function PiPanel({ piId }: { piId: string }) {
     return mine.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   }, [cutLogs, stepLogs, cuts, steps])
 
-  const change = async (r: BundleRow) => {
+  const change = (r: BundleRow) => {
     const target = pending[r.key]
     const o = orderList.find(x => x.productionOrderId === target)
     if (!o) return
-    if (!window.confirm(`Đổi đợt ${r.stepLabel} (${r.materialName}) từ ${labelOf(r.orderId)} sang ${o.poNumber} · ${o.sku}?\nViệc đổi được ghi lại (ai, lúc nào).`)) return
-    setBusyKey(r.key); setErr('')
-    try {
-      if (r.kind === 'cut') await api.reassignCutBundleOrder(r.id, target)
-      else await api.reassignStepBundleOrder(r.id, target)
-      setPending(p => { const n = { ...p }; delete n[r.key]; return n })
-      refetchCuts(); refetchSteps(); refetchCutLogs(); refetchStepLogs()
-    } catch (e) { setErr(errMsg(e, 'Không đổi được SKU')) }
-    finally { setBusyKey(null) }
+    ask(
+      { title: 'Đổi SKU đợt Phôi', message: `Đổi đợt ${r.stepLabel} (${r.materialName}) từ ${labelOf(r.orderId)} sang ${o.poNumber} · ${o.sku}? Việc đổi được ghi lại (ai, lúc nào).` },
+      async () => {
+        setBusyKey(r.key)
+        try {
+          if (r.kind === 'cut') await api.reassignCutBundleOrder(r.id, target)
+          else await api.reassignStepBundleOrder(r.id, target)
+          setPending(p => { const n = { ...p }; delete n[r.key]; return n })
+          refetchCuts(); refetchSteps(); refetchCutLogs(); refetchStepLogs()
+        } finally { setBusyKey(null) }
+      },
+    )
   }
 
+  if (ordersError || cutsError || stepsError) {
+    return <LoadErrorState error={ordersError ?? cutsError ?? stepsError ?? 'Không rõ nguyên nhân'} onRetry={() => { refetchOrders(); refetchCuts(); refetchSteps() }} />
+  }
   if (!orders || !cuts || !steps) return <LoadingState />
 
   return (
@@ -145,7 +151,6 @@ function PiPanel({ piId }: { piId: string }) {
       {orderList.length <= 1 && (
         <div style={{ ...card, padding: 14, marginBottom: 14, fontSize: 13, color: 'var(--text3)' }}>PI này chỉ có {orderList.length} SKU — mọi đợt tự tính cho SKU đó, không cần sửa.</div>
       )}
-      {err && <div style={{ marginBottom: 10, fontSize: 13, color: RED, fontWeight: 600 }}>{err}</div>}
 
       <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8 }}>Các đợt Phôi ({rows.length})</div>
       {/* Sàn minWidth: trên điện thoại bảng cuộn ngang trong khung thay vì bóp 7 cột tới mức chữ vỡ từng từ. */}
@@ -209,6 +214,7 @@ function PiPanel({ piId }: { piId: string }) {
           </tbody>
         </table>
       </div>
+      {confirmModal}
     </div>
   )
 }

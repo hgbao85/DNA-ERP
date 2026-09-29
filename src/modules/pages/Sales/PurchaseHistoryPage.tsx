@@ -2,14 +2,18 @@ import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { format } from 'date-fns'
+import { History, ClipboardList } from 'lucide-react'
 import type { SalesCustomer, SalesOrder } from '../../../types/sales'
 import { StatusBadge } from './StatusBadge'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import SearchableSelect from '../../../components/SearchableSelect'
+import EmptyState from '../../../components/EmptyState'
+import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 export default function PurchaseHistoryPage() {
   const { data: customers } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers())
-  const { data: pos, isLoading, error } = useFetch<SalesOrder[]>(() => api.getSalesOrders())
+  const { data: pos, isLoading, error, refetch } = useFetch<SalesOrder[]>(() => api.getSalesOrders())
   const [customerId, setCustomerId] = useState('')
   const isMobile = useIsMobile()
 
@@ -39,14 +43,14 @@ export default function PurchaseHistoryPage() {
         />
       </div>
 
-      {isLoading && <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</div>}
-      {error && <div style={{ padding: 40, color: 'var(--fg-e24b4a)' }}>Lỗi: {error}</div>}
+      {isLoading && <LoadingState />}
+      {!isLoading && (error || !pos) && <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />}
 
-      {!isLoading && !error && !customer && (
-        <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Chọn một khách hàng để xem lịch sử mua hàng</div>
+      {!isLoading && !error && pos && !customer && (
+        <EmptyState icon={<History size={28} />} message="Chọn một khách hàng để xem lịch sử mua hàng" />
       )}
 
-      {!isLoading && !error && customer && (
+      {!isLoading && !error && pos && customer && (
         <>
           <div style={{ marginBottom: 12, fontSize: 12, color: 'var(--text3)' }}>
             {customer.phone}{customer.address ? ` · ${customer.address}` : ''} · {customerPOs.length} PO đã mua
@@ -73,7 +77,7 @@ export default function PurchaseHistoryPage() {
                 </div>
               ))}
               {rows.length === 0 && (
-                <div className="card" style={{ padding: 20, textAlign: 'center', color: 'var(--text3)' }}>Chưa có PO nào</div>
+                <EmptyState icon={<ClipboardList size={28} />} message="Chưa có PO nào" />
               )}
             </div>
           ) : (
@@ -99,7 +103,7 @@ export default function PurchaseHistoryPage() {
                   </tr>
                 ))}
                 {rows.length === 0 && (
-                  <tr><td colSpan={7} style={{ padding: 20, textAlign: 'center', color: 'var(--text3)' }}>Chưa có PO nào</td></tr>
+                  <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Chưa có PO nào</div></td></tr>
                 )}
               </tbody>
             </table>

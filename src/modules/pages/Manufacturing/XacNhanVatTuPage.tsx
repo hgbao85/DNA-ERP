@@ -24,6 +24,7 @@ import * as api from '../../../services/api'
 import type { BeMaterialIssue, MaterialIssueStage } from '../../../services/material-issues-api'
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 const ACCENT = 'var(--fg-e65100)'
 
@@ -38,7 +39,7 @@ const fmt = (n: number) => n.toLocaleString('vi-VN')
 const fmtDate = (s: string) => { try { return format(new Date(s), 'dd/MM/yyyy HH:mm') } catch { return s } }
 
 export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: MaterialIssueStage; readOnly?: boolean }) {
-  const { data: issuesData, isLoading, refetch } = useFetch<BeMaterialIssue[]>(() => api.getMaterialIssuesByStage(stage), [stage])
+  const { data: issuesData, isLoading, error, refetch } = useFetch<BeMaterialIssue[]>(() => api.getMaterialIssuesByStage(stage), [stage])
   const issues = issuesData ?? []
   const [view, setView] = useState<'confirm' | 'history'>('confirm')
   const [edit, setEdit] = useState<Record<string, string>>({})
@@ -65,7 +66,8 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: M
     return [...m.values()]
   }, [daNhan])
 
-  if (isLoading || !issuesData) return <LoadingState />
+  if (isLoading) return <LoadingState />
+  if (error || !issuesData) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
   const xacNhan = async (i: BeMaterialIssue) => {
     const raw = edit[i.id]

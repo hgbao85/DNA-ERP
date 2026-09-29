@@ -59,6 +59,7 @@ import type { BeProductionOrderSummary, BeProductionBatchPlan } from '../../../s
 import type { ProcessStep } from '../../../types/sku'
 import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { errMsg } from '../../../utils/errors'
+import { useConfirm } from '../../../hooks/useConfirm'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import VatTuTpDetail, { type VatTuTpItem } from './VatTuTpDetail'
@@ -333,7 +334,7 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
   // cùng PI có thể cùng dùng 1 pieceId trùng tên (vd cùng "Pat"), phải phân biệt theo cả order.
   const [selVatTuTpKey, setSelVatTuTpKey] = useState<string | null>(null)
 
-  const { data: progress, refetch: refetchProgress } = useFetch<BePhoiProgressItem[]>(
+  const { data: progress, isLoading: progressLoading, error: progressError, refetch: refetchProgress } = useFetch<BePhoiProgressItem[]>(
     () => api.getPhoiProgress(pi.productionInvoiceId), [pi.productionInvoiceId],
   )
   // Lịch sử StepBundle của CẢ PI (2026-09-07 lần 2 - không còn gắn với đúng đợt cắt nào, xem
@@ -388,6 +389,9 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
   // định "Tất cả" dù thêm lựa chọn đó (dưới), để giữ đúng lợi ích tách tab (đỡ cuộn dài); "Tất cả"
   // chỉ là lối tắt khi cần xem gộp cả 2, không phải hành vi mở màn mặc định.
   const [tab, setTab] = useState<'all' | 'sat' | 'vttp'>(() => materialGroups.length > 0 ? 'sat' : 'vttp')
+
+  if (progressLoading) return <LoadingState />
+  if (progressError || !progress) return <LoadErrorState error={progressError ?? 'Không rõ nguyên nhân'} onRetry={refetchProgress} />
 
   const selGroup = selIssueId ? materialGroups.find(g => g.key === selIssueId) ?? null : null
   if (selGroup) {
@@ -766,14 +770,14 @@ function MaterialGroupDetail({
 interface AssignSkuProps { orders: BePiOrderSummary[]; onAssign: (productionOrderId: string) => Promise<void> }
 function AssignSku({ orders, onAssign }: AssignSkuProps) {
   const [val, setVal] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-  const go = async () => {
+  const { ask, confirmModal } = useConfirm()
+  const go = () => {
     const o = orders.find(x => x.productionOrderId === val)
     if (!o) return
-    if (!window.confirm(`Gán đợt này cho ${o.poNumber} · ${o.sku}? Chỉ gán được 1 lần - nếu nhầm, nhờ Quản trị viên sửa (Quản trị → Sửa SKU đợt Phôi).`)) return
-    setBusy(true); setErr('')
-    try { await onAssign(val) } catch (e) { setErr(errMsg(e, 'Không gán được SKU')) } finally { setBusy(false) }
+    ask(
+      { message: `Gán đợt này cho ${o.poNumber} · ${o.sku}? Chỉ gán được 1 lần - nếu nhầm, nhờ Quản trị viên sửa (Quản trị → Sửa SKU đợt Phôi).` },
+      () => onAssign(val),
+    )
   }
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 12 }} onClick={e => e.stopPropagation()}>
@@ -782,8 +786,8 @@ function AssignSku({ orders, onAssign }: AssignSkuProps) {
         <option value="">Chọn SKU…</option>
         {orders.map(o => <option key={o.productionOrderId} value={o.productionOrderId}>{o.poNumber} · {o.sku}</option>)}
       </select>
-      <button onClick={go} disabled={!val || busy} style={{ ...smallBtn, background: ACCENT, padding: '3px 10px', fontSize: 11, cursor: !val || busy ? 'not-allowed' : 'pointer' }}>{busy ? '...' : 'Gán'}</button>
-      {err && <span style={{ color: RED }}>{err}</span>}
+      <button onClick={go} disabled={!val} style={{ ...smallBtn, background: ACCENT, padding: '3px 10px', fontSize: 11, cursor: !val ? 'not-allowed' : 'pointer' }}>Gán</button>
+      {confirmModal}
     </div>
   )
 }

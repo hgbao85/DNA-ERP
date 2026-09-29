@@ -3,6 +3,7 @@ import { Users, ShieldCheck, Factory, ShoppingCart, ClipboardList, ArrowRight } 
 import { useFetch } from '../../../hooks/useFetch'
 import { getUsers, getAllAuditLogs, getSalesOrders, getProductionInvoices, getSuppliers } from '../../../services/api'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
 import type { AuditLogEntry } from '../../../context/AuditLogContext'
 import type { SystemUser } from '../../../types/admin'
@@ -22,8 +23,8 @@ function StatTile({ icon, label, value, accent }: { icon: React.ReactNode; label
 }
 
 export default function DashboardPage({ onViewAuditLog }: DashboardPageProps) {
-  const { data: users, isLoading: loadingUsers } = useFetch<SystemUser[]>(getUsers)
-  const { data: logs, isLoading: loadingLogs } = useFetch<AuditLogEntry[]>(() => getAllAuditLogs() as Promise<AuditLogEntry[]>)
+  const { data: users, isLoading: loadingUsers, error: usersError, refetch: refetchUsers } = useFetch<SystemUser[]>(getUsers)
+  const { data: logs, isLoading: loadingLogs, error: logsError, refetch: refetchLogs } = useFetch<AuditLogEntry[]>(() => getAllAuditLogs() as Promise<AuditLogEntry[]>)
   const { data: salesPOs } = useFetch(getSalesOrders)
   const { data: pis } = useFetch(getProductionInvoices)
   const { data: suppliers } = useFetch(getSuppliers)
@@ -39,6 +40,9 @@ export default function DashboardPage({ onViewAuditLog }: DashboardPageProps) {
   const recentLogs = [...(logs ?? [])].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5)
 
   if (loadingUsers || loadingLogs) return <LoadingState />
+  if (usersError || logsError) {
+    return <LoadErrorState error={usersError ?? logsError ?? 'Không rõ nguyên nhân'} onRetry={() => { refetchUsers(); refetchLogs() }} />
+  }
 
   return (
     <div>

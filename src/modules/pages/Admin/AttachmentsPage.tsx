@@ -59,10 +59,11 @@ const btnDanger: React.CSSProperties = { ...btnGhost, color: RED, borderColor: '
 
 /** Hàng chung cho 3 tab: thumbnail/link + thông tin + nút hành động. `onReplace` nhận File đã
  *  chọn (upload thật do caller tự lo, khác nhau giữa ảnh/document). */
-function AttachmentRow({ thumbnailUrl, fileUrl, title, meta, busy, onReplace, onDelete, replaceLabel, deleteLabel, accept }: {
+function AttachmentRow({ thumbnailUrl, fileUrl, title, meta, busy, error, onReplace, onDelete, replaceLabel, deleteLabel, accept }: {
   thumbnailUrl?: string | null; fileUrl: string
   title: string; meta: string[]
   busy: boolean
+  error?: string | null
   onReplace: (file: File) => void
   onDelete?: () => void
   replaceLabel: string
@@ -72,7 +73,8 @@ function AttachmentRow({ thumbnailUrl, fileUrl, title, meta, busy, onReplace, on
   // Điện thoại: 2 nút hành động rớt xuống hàng riêng (canh phải) - nằm chung hàng thì phần tiêu đề/meta bị bóp về 0.
   const isMobile = useIsMobile()
   return (
-    <div style={{ ...card, flexWrap: isMobile ? 'wrap' : undefined, gap: isMobile ? 10 : 14 }}>
+    <div style={{ ...card, flexDirection: 'column', alignItems: 'stretch', gap: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 14, flexWrap: isMobile ? 'wrap' : undefined }}>
       {thumbnailUrl ? (
         <img src={thumbnailUrl} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)', flexShrink: 0 }} />
       ) : (
@@ -96,6 +98,8 @@ function AttachmentRow({ thumbnailUrl, fileUrl, title, meta, busy, onReplace, on
           </button>
         )}
       </div>
+      </div>
+      {error && <div style={{ marginTop: 8, fontSize: 11.5, color: RED }}>{error}</div>}
     </div>
   )
 }
@@ -104,17 +108,19 @@ function KcsPhotosTab() {
   const { data: reviews, isLoading, error, refetch } = useFetch(() => api.getAllQcReviews(), [])
   const { ask, confirmModal } = useConfirm()
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null)
 
   const withPhoto = useMemo(() => (reviews ?? []).filter(r => r.photoUrl), [reviews])
 
   const replace = async (id: string, file: File) => {
     setBusyId(id)
+    setRowError(null)
     try {
       const url = await api.uploadImage(file)
       await api.updateQcReviewPhoto(id, url)
       await refetch()
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Không đổi được ảnh')
+      setRowError({ id, message: e instanceof Error ? e.message : 'Không đổi được ảnh' })
     } finally {
       setBusyId(null)
     }
@@ -153,6 +159,7 @@ function KcsPhotosTab() {
           title={sourceOf(r)}
           meta={[`Lỗi ${r.failedQty}`, r.defectReasonLabel ?? 'Không rõ nguyên nhân', new Date(r.reviewedAt).toLocaleString('vi-VN')]}
           busy={busyId === r.id}
+          error={rowError?.id === r.id ? rowError.message : null}
           onReplace={f => replace(r.id, f)}
           onDelete={() => remove(r.id)}
           replaceLabel="Đổi ảnh"
@@ -167,15 +174,17 @@ function TransferCheckPhotosTab() {
   const { data: defects, isLoading, error, refetch } = useFetch(() => api.getTransferCheckDefects(), [])
   const { ask, confirmModal } = useConfirm()
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null)
 
   const replace = async (id: string, file: File) => {
     setBusyId(id)
+    setRowError(null)
     try {
       const url = await api.uploadImage(file)
       await api.updateTransferCheckDefectPhoto(id, url)
       await refetch()
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Không đổi được ảnh')
+      setRowError({ id, message: e instanceof Error ? e.message : 'Không đổi được ảnh' })
     } finally {
       setBusyId(null)
     }
@@ -205,6 +214,7 @@ function TransferCheckPhotosTab() {
           title={d.reason}
           meta={[`PI item #${d.productionInvoiceItemId}`, `Mảnh #${d.pieceId}`, new Date(d.checkedAt).toLocaleString('vi-VN')]}
           busy={busyId === d.id}
+          error={rowError?.id === d.id ? rowError.message : null}
           onReplace={f => replace(d.id, f)}
           onDelete={() => remove(d.id)}
           replaceLabel="Đổi ảnh"
@@ -219,6 +229,7 @@ function ApprovalFilesTab() {
   const { proposals, updateApprovalFile } = useInspection()
   const { ask, confirmModal } = useConfirm()
   const [busyKey, setBusyKey] = useState<string | null>(null)
+  const [rowError, setRowError] = useState<{ key: string; message: string } | null>(null)
 
   const rows = useMemo(() => proposals.flatMap(p => p.items
     .filter(it => it.approvalFileUrl && it.itemId)
@@ -231,11 +242,12 @@ function ApprovalFilesTab() {
   const replace = async (proposalId: string, itemId: string, file: File) => {
     const key = `${proposalId}:${itemId}`
     setBusyKey(key)
+    setRowError(null)
     try {
       const url = await api.uploadDocument(file)
       await updateApprovalFile(proposalId, itemId, url)
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Không thay được file')
+      setRowError({ key, message: e instanceof Error ? e.message : 'Không thay được file' })
     } finally {
       setBusyKey(null)
     }
@@ -265,6 +277,7 @@ function ApprovalFilesTab() {
           title={item.name}
           meta={[piCode, skuName ? `${skuCode} — ${skuName}` : skuCode, `${item.buyQty} ${item.unit}`]}
           busy={busyKey === `${proposalId}:${item.itemId}`}
+          error={rowError?.key === `${proposalId}:${item.itemId}` ? rowError.message : null}
           onReplace={f => replace(proposalId, item.itemId!, f)}
           onDelete={() => remove(proposalId, item.itemId!)}
           replaceLabel="Thay file"

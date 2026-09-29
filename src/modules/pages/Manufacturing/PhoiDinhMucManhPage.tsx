@@ -18,6 +18,7 @@ import * as api from '../../../services/api'
 import type { Sku } from '../../../types/sku'
 import { combinedDaySon } from '../../../utils/manhMaterials'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 import MobileListCards from '../../../components/MobileListCards'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 
@@ -92,7 +93,7 @@ export default function PhoiDinhMucManhPage({ stage = 'PHOI' }: { stage?: DinhMu
   const [q, setQ] = useState('')
   const [sku, setSku] = useState('ALL')
 
-  const { data: skusData, isLoading } = useFetch(() => api.getSkus(), [])
+  const { data: skusData, isLoading, error, refetch } = useFetch(() => api.getSkus(), [])
   const skus = ((skusData ?? []) as Sku[]).filter(pf => pf.status !== 'DRAFT')
 
   const steelRows = useMemo(() => buildSteelRows(skus), [skus])
@@ -146,7 +147,7 @@ export default function PhoiDinhMucManhPage({ stage = 'PHOI' }: { stage?: DinhMu
         <span style={{ fontSize: 12, color: 'var(--text3)' }}>{rows.length} dòng</span>
       </div>
 
-      {isLoading ? <LoadingState /> : isMobile ? (
+      {isLoading ? <LoadingState /> : error ? <LoadErrorState error={error} onRetry={refetch} /> : isMobile ? (
         isSon ? (
           <MobileListCards emptyText="Không tìm thấy dữ liệu phù hợp." items={paintFiltered.map(d => ({
             key: d.id, title: <b>{d.sonName}</b>,

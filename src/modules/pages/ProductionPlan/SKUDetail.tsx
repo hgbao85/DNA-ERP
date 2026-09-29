@@ -117,31 +117,46 @@ export function SKUDetail({
   const manhAllApproved = manhSecStatus?.status === 'APPROVED'
   const manhAnyRejected = manhSecStatus?.status === 'REJECTED'
 
+  // Modal duyệt/từ chối GIỮ MỞ tới khi biết chắc kết quả (2026-09-11, cùng idiom FinalReviewAction/
+  // KcsStagePage.tsx) - đóng ngay rồi alert() lỗi sau dễ hiểu nhầm "đã duyệt xong" dù backend vừa
+  // từ chối, nhất là quyết định này "không sửa lại được".
   const [manhApproveModalOpen, setManhApproveModalOpen] = useState(false)
+  const [manhApproveBusy, setManhApproveBusy] = useState(false)
+  const [manhApproveError, setManhApproveError] = useState<string | null>(null)
   const confirmManhApprove = async () => {
-    setManhApproveModalOpen(false)
+    setManhApproveBusy(true)
+    setManhApproveError(null)
     setManhSecStatus({ status: 'APPROVED', at: new Date() })
     try {
       await reviewSkuManhQuota(pf.id, 'APPROVED')
       logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_approved', 'Định mức mảnh')
+      setManhApproveModalOpen(false)
     } catch (e: unknown) {
       setManhSecStatus(null)
-      alert(e instanceof Error ? e.message : 'Không thể duyệt định mức mảnh')
+      setManhApproveError(e instanceof Error ? e.message : 'Không thể duyệt định mức mảnh')
+    } finally {
+      setManhApproveBusy(false)
     }
   }
 
   const [manhRejectModalOpen, setManhRejectModalOpen] = useState(false)
   const [manhRejectReason, setManhRejectReason] = useState('')
+  const [manhRejectBusy, setManhRejectBusy] = useState(false)
+  const [manhRejectError, setManhRejectError] = useState<string | null>(null)
   const confirmManhReject = async () => {
     const reason = manhRejectReason.trim() || undefined
-    setManhRejectModalOpen(false)
+    setManhRejectBusy(true)
+    setManhRejectError(null)
     setManhSecStatus({ status: 'REJECTED', at: new Date(), reason })
     try {
       await reviewSkuManhQuota(pf.id, 'REJECTED', reason)
       logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_rejected', reason ? `Định mức mảnh — ${reason}` : 'Định mức mảnh')
+      setManhRejectModalOpen(false)
     } catch (e: unknown) {
       setManhSecStatus(null)
-      alert(e instanceof Error ? e.message : 'Không thể từ chối định mức mảnh')
+      setManhRejectError(e instanceof Error ? e.message : 'Không thể từ chối định mức mảnh')
+    } finally {
+      setManhRejectBusy(false)
     }
   }
 
@@ -151,14 +166,16 @@ export function SKUDetail({
   const [filterManhSec, setFilterManhSec] = useState<ManhSecFilter>('all')
 
   const [approvingParts, setApprovingParts] = useState(false)
+  const [approvePartsError, setApprovePartsError] = useState<string | null>(null)
 
   const handleApproveParts = async () => {
     if (!onApproveParts) return
     setApprovingParts(true)
+    setApprovePartsError(null)
     try {
       await onApproveParts()
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Không thể gửi bộ phận Định mức chi tiết')
+      setApprovePartsError(e instanceof Error ? e.message : 'Không thể gửi bộ phận Định mức chi tiết')
     } finally {
       setApprovingParts(false)
     }
@@ -189,30 +206,42 @@ export function SKUDetail({
   // (đọc thẳng quotaManagement.reviewStatus) và sửa/nộp lại ngay, không cần KHSX phải bấm nút
   // gửi lại riêng.
   const [approveModalOpen, setApproveModalOpen] = useState(false)
+  const [approveSectionBusy, setApproveSectionBusy] = useState(false)
+  const [approveSectionError, setApproveSectionError] = useState<string | null>(null)
   const confirmSectionApprove = async () => {
-    setApproveModalOpen(false)
+    setApproveSectionBusy(true)
+    setApproveSectionError(null)
     setSecStatus({ status: 'APPROVED', at: new Date() })
     try {
       await reviewSkuDetailQuota(pf.id, 'APPROVED')
       logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_approved', 'Định mức chi tiết')
+      setApproveModalOpen(false)
     } catch (e: unknown) {
       setSecStatus(null)
-      alert(e instanceof Error ? e.message : 'Không thể duyệt định mức chi tiết')
+      setApproveSectionError(e instanceof Error ? e.message : 'Không thể duyệt định mức chi tiết')
+    } finally {
+      setApproveSectionBusy(false)
     }
   }
 
   const [rejectModalOpen, setRejectModalOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+  const [rejectSectionBusy, setRejectSectionBusy] = useState(false)
+  const [rejectSectionError, setRejectSectionError] = useState<string | null>(null)
   const confirmSectionReject = async () => {
     const reason = rejectReason.trim() || undefined
-    setRejectModalOpen(false)
+    setRejectSectionBusy(true)
+    setRejectSectionError(null)
     setSecStatus({ status: 'REJECTED', at: new Date(), reason })
     try {
       await reviewSkuDetailQuota(pf.id, 'REJECTED', reason)
       logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_rejected', reason ? `Định mức chi tiết — ${reason}` : 'Định mức chi tiết')
+      setRejectModalOpen(false)
     } catch (e: unknown) {
       setSecStatus(null)
-      alert(e instanceof Error ? e.message : 'Không thể từ chối định mức chi tiết')
+      setRejectSectionError(e instanceof Error ? e.message : 'Không thể từ chối định mức chi tiết')
+    } finally {
+      setRejectSectionBusy(false)
     }
   }
 
@@ -223,14 +252,17 @@ export function SKUDetail({
 
   const [approvingDetail, setApprovingDetail] = useState(false)
   const [confirmApproveDetail, setConfirmApproveDetail] = useState(false)
+  const [approveDetailError, setApproveDetailError] = useState<string | null>(null)
 
   const handleApproveDetail = async () => {
     if (!onApproveDetail) return
     setApprovingDetail(true)
+    setApproveDetailError(null)
     try {
       await onApproveDetail()
+      setConfirmApproveDetail(false)
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Không thể gửi sếp duyệt')
+      setApproveDetailError(e instanceof Error ? e.message : 'Không thể gửi sếp duyệt')
     } finally {
       setApprovingDetail(false)
     }
@@ -408,6 +440,9 @@ export function SKUDetail({
               {manhAnyRejected && (
                 <span style={{ fontSize: 12, color: 'var(--fg-7c3aed)', fontWeight: 600 }}>Có nhóm bị từ chối — đang chờ bộ phận nhập lại</span>
               )}
+              {approvePartsError && (
+                <span style={{ fontSize: 12, color: 'var(--fg-c62828)', flexBasis: '100%' }}>{approvePartsError}</span>
+              )}
               <button
                 onClick={handleApproveParts}
                 disabled={!manhAllApproved || approvingParts}
@@ -560,19 +595,20 @@ export function SKUDetail({
       </div>
 
       {/* Modal xác nhận duyệt định mức mảnh */}
-      <Modal open={manhApproveModalOpen} maxWidth={420} zIndex={2000}>
+      <Modal open={manhApproveModalOpen} onClose={manhApproveBusy ? undefined : () => { setManhApproveModalOpen(false); setManhApproveError(null) }} maxWidth={420} zIndex={2000}>
             <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận duyệt — Định mức mảnh</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
               Xác nhận duyệt định mức mảnh (cả 5 nhóm vật tư)? Không thể sửa lại quyết định này sau khi xác nhận.
             </p>
+            {manhApproveError && <div style={modalErrorStyle}>{manhApproveError}</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setManhApproveModalOpen(false)} style={btnSecondary}>Hủy</button>
-              <button onClick={confirmManhApprove} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-16a34a)', color: '#fff' }}>Xác nhận duyệt</button>
+              <button onClick={() => { setManhApproveModalOpen(false); setManhApproveError(null) }} disabled={manhApproveBusy} style={btnSecondary}>Hủy</button>
+              <button onClick={() => void confirmManhApprove()} disabled={manhApproveBusy} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: manhApproveBusy ? 'not-allowed' : 'pointer', background: 'var(--bg-16a34a)', color: '#fff', opacity: manhApproveBusy ? 0.7 : 1 }}>{manhApproveBusy ? 'Đang xử lý...' : 'Xác nhận duyệt'}</button>
             </div>
       </Modal>
 
       {/* Modal từ chối định mức mảnh */}
-      <Modal open={manhRejectModalOpen} maxWidth={420} zIndex={2000}>
+      <Modal open={manhRejectModalOpen} onClose={manhRejectBusy ? undefined : () => { setManhRejectModalOpen(false); setManhRejectError(null) }} maxWidth={420} zIndex={2000}>
             <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Từ chối — Định mức mảnh</h3>
             <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text3)' }}>Nhập lý do từ chối (không bắt buộc)</p>
             <textarea
@@ -583,26 +619,28 @@ export function SKUDetail({
               autoFocus
               style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
             />
+            {manhRejectError && <div style={{ ...modalErrorStyle, marginTop: 12 }}>{manhRejectError}</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-              <button onClick={() => setManhRejectModalOpen(false)} style={btnSecondary}>Hủy</button>
-              <button onClick={confirmManhReject} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-dc2626)', color: '#fff' }}>Xác nhận từ chối</button>
+              <button onClick={() => { setManhRejectModalOpen(false); setManhRejectError(null) }} disabled={manhRejectBusy} style={btnSecondary}>Hủy</button>
+              <button onClick={() => void confirmManhReject()} disabled={manhRejectBusy} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: manhRejectBusy ? 'not-allowed' : 'pointer', background: 'var(--bg-dc2626)', color: '#fff', opacity: manhRejectBusy ? 0.7 : 1 }}>{manhRejectBusy ? 'Đang xử lý...' : 'Xác nhận từ chối'}</button>
             </div>
       </Modal>
 
       {/* Modal xác nhận duyệt định mức chi tiết */}
-      <Modal open={approveModalOpen} maxWidth={420} zIndex={2000}>
+      <Modal open={approveModalOpen} onClose={approveSectionBusy ? undefined : () => { setApproveModalOpen(false); setApproveSectionError(null) }} maxWidth={420} zIndex={2000}>
             <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận duyệt — Định mức chi tiết</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
               Xác nhận duyệt định mức chi tiết (cả 3 nhóm Sơn/Phụ kiện/Bao bì)? Không thể sửa lại quyết định này sau khi xác nhận.
             </p>
+            {approveSectionError && <div style={modalErrorStyle}>{approveSectionError}</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setApproveModalOpen(false)} style={btnSecondary}>Hủy</button>
-              <button onClick={confirmSectionApprove} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-16a34a)', color: '#fff' }}>Xác nhận duyệt</button>
+              <button onClick={() => { setApproveModalOpen(false); setApproveSectionError(null) }} disabled={approveSectionBusy} style={btnSecondary}>Hủy</button>
+              <button onClick={() => void confirmSectionApprove()} disabled={approveSectionBusy} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: approveSectionBusy ? 'not-allowed' : 'pointer', background: 'var(--bg-16a34a)', color: '#fff', opacity: approveSectionBusy ? 0.7 : 1 }}>{approveSectionBusy ? 'Đang xử lý...' : 'Xác nhận duyệt'}</button>
             </div>
       </Modal>
 
       {/* Modal từ chối định mức chi tiết */}
-      <Modal open={rejectModalOpen} maxWidth={420} zIndex={2000}>
+      <Modal open={rejectModalOpen} onClose={rejectSectionBusy ? undefined : () => { setRejectModalOpen(false); setRejectSectionError(null) }} maxWidth={420} zIndex={2000}>
             <h3 style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700 }}>Từ chối — Định mức chi tiết</h3>
             <p style={{ margin: '0 0 14px', fontSize: 13, color: 'var(--text3)' }}>Nhập lý do từ chối (không bắt buộc)</p>
             <textarea
@@ -613,26 +651,28 @@ export function SKUDetail({
               autoFocus
               style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
             />
+            {rejectSectionError && <div style={{ ...modalErrorStyle, marginTop: 12 }}>{rejectSectionError}</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-              <button onClick={() => setRejectModalOpen(false)} style={btnSecondary}>Hủy</button>
-              <button onClick={confirmSectionReject} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-dc2626)', color: '#fff' }}>Xác nhận từ chối</button>
+              <button onClick={() => { setRejectModalOpen(false); setRejectSectionError(null) }} disabled={rejectSectionBusy} style={btnSecondary}>Hủy</button>
+              <button onClick={() => void confirmSectionReject()} disabled={rejectSectionBusy} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: rejectSectionBusy ? 'not-allowed' : 'pointer', background: 'var(--bg-dc2626)', color: '#fff', opacity: rejectSectionBusy ? 0.7 : 1 }}>{rejectSectionBusy ? 'Đang xử lý...' : 'Xác nhận từ chối'}</button>
             </div>
       </Modal>
 
       {/* Modal xác nhận hoàn tất nhánh chi tiết */}
-      <Modal open={confirmApproveDetail} maxWidth={420} zIndex={2000}>
+      <Modal open={confirmApproveDetail} onClose={approvingDetail ? undefined : () => { setConfirmApproveDetail(false); setApproveDetailError(null) }} maxWidth={420} zIndex={2000}>
             <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận hoàn tất — Định mức chi tiết</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
               Định mức chi tiết đã được duyệt. Xác nhận chốt xong nhánh này? Khi định mức mảnh cũng
               đã chốt xong, SKU sẽ tự động gửi sếp duyệt.
             </p>
+            {approveDetailError && <div style={modalErrorStyle}>{approveDetailError}</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setConfirmApproveDetail(false)} style={btnSecondary}>Hủy</button>
+              <button onClick={() => { setConfirmApproveDetail(false); setApproveDetailError(null) }} disabled={approvingDetail} style={btnSecondary}>Hủy</button>
               <button
-                onClick={async () => { setConfirmApproveDetail(false); await handleApproveDetail() }}
+                onClick={() => void handleApproveDetail()}
                 disabled={approvingDetail}
-                style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-2e7d32)', color: '#fff' }}
-              >Xác nhận gửi</button>
+                style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: approvingDetail ? 'not-allowed' : 'pointer', background: 'var(--bg-2e7d32)', color: '#fff', opacity: approvingDetail ? 0.7 : 1 }}
+              >{approvingDetail ? 'Đang xử lý...' : 'Xác nhận gửi'}</button>
             </div>
       </Modal>
     </div>
@@ -662,20 +702,41 @@ function FinalReviewAction({
 }) {
   const [confirming, setConfirming] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const [confirmError, setConfirmError] = useState<string | null>(null)
   const [rejecting, setRejecting] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const [rejectProcessing, setRejectProcessing] = useState(false)
+  const [rejectError, setRejectError] = useState<string | null>(null)
 
+  // Giữ modal MỞ cho tới khi biết chắc thành công (2026-09-11, cùng idiom KcsStagePage.tsx) - đóng
+  // ngay rồi alert() lỗi vài trăm ms sau dễ khiến hiểu nhầm "đã duyệt xong" dù backend vừa từ chối.
   const handleConfirm = async () => {
     if (!onConfirm) return
     setProcessing(true)
-    try { await onConfirm() } finally { setProcessing(false) }
+    setConfirmError(null)
+    try {
+      await onConfirm()
+      setConfirming(false)
+    } catch (e) {
+      setConfirmError(e instanceof Error ? e.message : 'Không thể duyệt')
+    } finally {
+      setProcessing(false)
+    }
   }
 
   const handleReject = async () => {
     if (!onReject) return
     setRejectProcessing(true)
-    try { await onReject(rejectReason.trim() || undefined) } finally { setRejectProcessing(false); setRejectReason('') }
+    setRejectError(null)
+    try {
+      await onReject(rejectReason.trim() || undefined)
+      setRejecting(false)
+      setRejectReason('')
+    } catch (e) {
+      setRejectError(e instanceof Error ? e.message : 'Không thể từ chối')
+    } finally {
+      setRejectProcessing(false)
+    }
   }
 
   return (
@@ -710,20 +771,21 @@ function FinalReviewAction({
           <span style={{ fontSize: 12, color: 'var(--fg-16a34a)', fontWeight: 600 }}>{doneLabel}</span>
         </div>
       )}
-      <Modal open={confirming} maxWidth={420} zIndex={2000}>
+      <Modal open={confirming} onClose={processing ? undefined : () => { setConfirming(false); setConfirmError(null) }} maxWidth={420} zIndex={2000}>
         <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>{confirmTitle}</h3>
         <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>{confirmText}</p>
+        {confirmError && <div style={modalErrorStyle}>{confirmError}</div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={() => setConfirming(false)} style={btnSecondary}>Hủy</button>
+          <button onClick={() => { setConfirming(false); setConfirmError(null) }} disabled={processing} style={btnSecondary}>Hủy</button>
           <button
-            onClick={async () => { setConfirming(false); await handleConfirm() }}
+            onClick={() => void handleConfirm()}
             disabled={processing}
-            style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-16a34a)', color: '#fff' }}
-          >{confirmLabel}</button>
+            style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: processing ? 'not-allowed' : 'pointer', background: 'var(--bg-16a34a)', color: '#fff', opacity: processing ? 0.7 : 1 }}
+          >{processing ? 'Đang xử lý...' : confirmLabel}</button>
         </div>
       </Modal>
       {onReject && (
-        <Modal open={rejecting} maxWidth={420} zIndex={2000}>
+        <Modal open={rejecting} onClose={rejectProcessing ? undefined : () => { setRejecting(false); setRejectError(null) }} maxWidth={420} zIndex={2000}>
           <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Từ chối SKU</h3>
           <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text2)' }}>{rejectConfirmText}</p>
           <textarea
@@ -733,13 +795,14 @@ function FinalReviewAction({
             rows={3}
             style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 13, resize: 'vertical', boxSizing: 'border-box', fontFamily: 'inherit' }}
           />
+          {rejectError && <div style={{ ...modalErrorStyle, marginTop: 12, marginBottom: 0 }}>{rejectError}</div>}
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-            <button onClick={() => setRejecting(false)} style={btnSecondary}>Hủy</button>
+            <button onClick={() => { setRejecting(false); setRejectError(null) }} disabled={rejectProcessing} style={btnSecondary}>Hủy</button>
             <button
-              onClick={async () => { setRejecting(false); await handleReject() }}
+              onClick={() => void handleReject()}
               disabled={rejectProcessing}
-              style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-dc2626)', color: '#fff' }}
-            >Xác nhận từ chối</button>
+              style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: rejectProcessing ? 'not-allowed' : 'pointer', background: 'var(--bg-dc2626)', color: '#fff', opacity: rejectProcessing ? 0.7 : 1 }}
+            >{rejectProcessing ? 'Đang xử lý...' : 'Xác nhận từ chối'}</button>
           </div>
         </Modal>
       )}
@@ -1021,3 +1084,4 @@ function ManhPiecesSection({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const btnSecondary: React.CSSProperties = { padding: '9px 20px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }
+const modalErrorStyle: React.CSSProperties = { padding: '8px 12px', fontSize: 12.5, color: 'var(--fg-c62828)', background: 'rgba(198,40,40,.08)', border: '1px solid rgba(198,40,40,.3)', borderRadius: 8, marginBottom: 16 }

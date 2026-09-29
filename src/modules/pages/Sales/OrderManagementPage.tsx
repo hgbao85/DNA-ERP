@@ -4,13 +4,18 @@ import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
 import { uploadDocument } from '../../../services/api'
 import { format } from 'date-fns'
-import { Plus, Trash2, X, Check, ChevronLeft, Paperclip } from 'lucide-react'
+import { Plus, Trash2, X, Check, ChevronLeft, Paperclip, ClipboardList } from 'lucide-react'
 import type { SalesOrder, SalesOrderStatus, SalesCustomer } from '../../../types/sales'
 import { SALES_ORDER_STATUS_LABEL, SALES_PRODUCTION_STAGES } from '../../../types/sales'
 import type { Sku } from '../../../types/sku'
 import { StatusBadge } from './StatusBadge'
 import SearchableSelect from '../../../components/SearchableSelect'
 import DatePicker from '../../../components/DatePicker'
+import Modal from '../../../components/Modal'
+import EmptyState from '../../../components/EmptyState'
+import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
+import { btnSecondary } from '../../../styles/buttons'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 const fmtMoney = (n: number) => n.toLocaleString('vi-VN')
@@ -135,8 +140,8 @@ export default function OrderManagementPage() {
     await refetch()
   }
 
-  if (isLoading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</div>
-  if (error) return <div style={{ padding: 40, color: 'var(--fg-e24b4a)' }}>Lỗi: {error}</div>
+  if (isLoading) return <LoadingState />
+  if (error || !pos) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
   if (detailPO) {
     return (
@@ -195,7 +200,7 @@ export default function OrderManagementPage() {
             )
           })}
           {(pos ?? []).length === 0 && (
-            <div className="card" style={{ padding: 20, textAlign: 'center', color: 'var(--text3)' }}>Chưa có PO nào</div>
+            <EmptyState icon={<ClipboardList size={28} />} message="Chưa có PO nào" />
           )}
         </div>
       ) : (
@@ -249,16 +254,14 @@ export default function OrderManagementPage() {
               )
             })}
             {(pos ?? []).length === 0 && (
-              <tr><td colSpan={7} style={{ padding: 20, textAlign: 'center', color: 'var(--text3)' }}>Chưa có PO nào</td></tr>
+              <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Chưa có PO nào</div></td></tr>
             )}
           </tbody>
         </table>
       </div>
       )}
 
-      {showCreate && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: isMobile ? 12 : 0 }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 10, width: 680, maxWidth: '100%', maxHeight: '90dvh', overflowY: 'auto', padding: isMobile ? 16 : 28, boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
+      <Modal open={showCreate} onClose={() => setShowCreate(false)} maxWidth={680}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>Tạo PO mới</div>
               <button onClick={() => setShowCreate(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
@@ -393,14 +396,12 @@ export default function OrderManagementPage() {
             </Field>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: isMobile ? 18 : 24 }}>
-              <button onClick={() => setShowCreate(false)} style={{ padding: '8px 18px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer' }}>Hủy</button>
+              <button onClick={() => setShowCreate(false)} style={btnSecondary}>Hủy</button>
               <button className="primary" onClick={handleSave} disabled={saving || !form.orderCode.trim() || !form.customerId || form.items.every(it => !it.skuCode.trim())}>
                 {saving ? 'Đang lưu...' : 'Lưu'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
     </div>
   )
 }

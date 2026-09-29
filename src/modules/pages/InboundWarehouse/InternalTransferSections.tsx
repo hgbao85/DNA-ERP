@@ -53,6 +53,7 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
   const [rejectModal, setRejectModal] = useState<WarehouseTransfer | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [rejecting, setRejecting] = useState(false)
+  const [rejectError, setRejectError] = useState<string | null>(null)
   const { ask, confirmModal } = useConfirm()
 
   const handleConfirm = (t: WarehouseTransfer) => {
@@ -64,8 +65,6 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
           await api.confirmWarehouseTransfer(t.id)
           setExpandedId(null)
           onChanged()
-        } catch (e) {
-          alert(errMsg(e))
         } finally {
           setBusy(null)
         }
@@ -78,6 +77,7 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
     const reason = rejectReason.trim()
     if (!reason) return // nút Xác nhận từ chối đã disable khi rỗng, đây là chặn phòng hờ
     setRejecting(true)
+    setRejectError(null)
     try {
       await api.rejectWarehouseTransfer(rejectModal.id, reason)
       setRejectModal(null)
@@ -85,7 +85,7 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
       setExpandedId(null)
       onChanged()
     } catch (e) {
-      alert(errMsg(e))
+      setRejectError(errMsg(e))
     } finally {
       setRejecting(false)
     }
@@ -149,7 +149,7 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                     )}
                     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
                       <button
-                        onClick={() => { setRejectModal(t); setRejectReason('') }}
+                        onClick={() => { setRejectModal(t); setRejectReason(''); setRejectError(null) }}
                         disabled={busy === t.id}
                         style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '8px 16px', background: 'var(--bg-fce4ec)', border: '1px solid var(--fg-ef9a9a)', borderRadius: 8, fontSize: 13, fontWeight: 600, color: 'var(--fg-c62828)', cursor: 'pointer' }}
                       >
@@ -184,6 +184,7 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
         busy={rejecting}
         confirmDisabled={!rejectReason.trim()}
         confirmColor="var(--fg-c62828)"
+        error={rejectError}
       />
     </div>
   )

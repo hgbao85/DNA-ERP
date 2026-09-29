@@ -12,6 +12,7 @@ import SearchInput from '../../../components/SearchInput'
 import SearchableSelect from '../../../components/SearchableSelect'
 import FilterPills from '../../../components/FilterPills'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import type { SalesCustomer } from '../../../types/sales'
 
@@ -58,7 +59,7 @@ export default function SKUReviewPage() {
   const { logAction } = useAuditLog()
   const isPending = isBoss ? isBossPending : isPlannerPending
   const FILTERS = isBoss ? BOSS_FILTERS : PLANNER_FILTERS
-  const { data: skus = [], isLoading, refetch } = useFetch(() => api.getSkus(), [])
+  const { data: skus = [], isLoading, error: skusError, refetch } = useFetch(() => api.getSkus(), [])
   const { data: customers } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers(), [])
 
   const [search, setSearch]             = useState('')
@@ -75,6 +76,7 @@ export default function SKUReviewPage() {
   const [imageFile, setImageFile]       = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [submitting, setSubmitting]     = useState(false)
+  const [formError, setFormError]       = useState<string | null>(null)
   const [success, setSuccess]           = useState(false)
   const [refreshingSelected, setRefreshingSelected] = useState(false)
 
@@ -85,12 +87,13 @@ export default function SKUReviewPage() {
     return () => URL.revokeObjectURL(url)
   }, [imageFile])
 
-  const closeForm = () => { setShowForm(false); setForm(emptyForm()); setCustomerName(''); setImageFile(null) }
+  const closeForm = () => { setShowForm(false); setForm(emptyForm()); setCustomerName(''); setImageFile(null); setFormError(null) }
 
   const pickImage = (file: File | undefined) => {
     if (!file) return
-    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) { alert('Chỉ chấp nhận ảnh JPEG/PNG/WEBP/GIF'); return }
-    if (file.size > 5 * 1024 * 1024) { alert('Ảnh tối đa 5MB'); return }
+    setFormError(null)
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) { setFormError('Chỉ chấp nhận ảnh JPEG/PNG/WEBP/GIF'); return }
+    if (file.size > 5 * 1024 * 1024) { setFormError('Ảnh tối đa 5MB'); return }
     setImageFile(file)
   }
 
@@ -102,21 +105,24 @@ export default function SKUReviewPage() {
   const [editSkuCode, setEditSkuCode]           = useState('')
   const [editCustomerName, setEditCustomerName] = useState('')
   const [editSubmitting, setEditSubmitting]     = useState(false)
+  const [editError, setEditError]               = useState<string | null>(null)
 
   const openEdit = (pf: Sku, e: React.MouseEvent) => {
     e.stopPropagation()
     setEditingPf(pf)
     setEditSkuCode(pf.mfgProduct?.factoryCode ?? '')
     setEditCustomerName(pf.customerName ?? '')
+    setEditError(null)
   }
-  const closeEdit = () => setEditingPf(null)
+  const closeEdit = () => { setEditingPf(null); setEditError(null) }
 
   const handleEditSubmit = async () => {
     if (!editingPf) return
     const skuCode = editSkuCode.trim()
-    if (!skuCode) { alert('Vui lòng nhập SKU'); return }
+    if (!skuCode) { setEditError('Vui lòng nhập SKU'); return }
 
     setEditSubmitting(true)
+    setEditError(null)
     try {
       const updated = await api.updateSku(editingPf.id, {
         factoryCode: skuCode,
@@ -128,45 +134,46 @@ export default function SKUReviewPage() {
       refetch()
       if (selectedPf?.id === editingPf.id) setSelectedPf(updated)
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Không thể sửa SKU')
+      setEditError(e instanceof Error ? e.message : 'Không thể sửa SKU')
     } finally {
       setEditSubmitting(false)
     }
   }
 
   const doCreateSku = async (mfgProductId: string, skuCode: string) => {
-    setSubmitting(true)
-    try {
-      const imageUrl = imageFile ? await api.uploadImage(imageFile) : undefined
-      const createdSku = await api.createSku({
-        mfgProductId,
-        note: skuCode,
-        customerName:  customerName.trim() || undefined,
-        imageUrl,
-      })
-      if (createdSku?.id != null) {
-        logAction(SKU_ENTITY, String(createdSku.id), 'sku.created', skuCode)
-      }
-      closeForm()
-      setSuccess(true)
-      refetch()
-      setTimeout(() => setSuccess(false), 4000)
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Không thể tạo SKU')
-    } finally {
-      setSubmitting(false)
+    const imageUrl = imageFile ? await api.uploadImage(imageFile) : undefined
+    const createdSku = await api.createSku({
+      mfgProductId,
+      note: skuCode,
+      customerName:  customerName.trim() || undefined,
+      imageUrl,
+    })
+    if (createdSku?.id != null) {
+      logAction(SKU_ENTITY, String(createdSku.id), 'sku.created', skuCode)
     }
+    closeForm()
+    setSuccess(true)
+    refetch()
+    setTimeout(() => setSuccess(false), 4000)
   }
 
   const handleSubmit = async () => {
     const skuCode = (form.note ?? '').trim()
-    if (!skuCode) { alert('Vui lòng nhập SKU'); return }
+    if (!skuCode) { setFormError('Vui lòng nhập SKU'); return }
 
-    // Mỗi lần "Tạo SKU mới" luôn là 1 sản phẩm (MfgProduct) riêng, KHÔNG tái dùng sản phẩm cùng
-    // mã: 2 khách có thể dùng cùng 1 mã SKU cho 2 kết cấu khác nhau (VD "J55.T4 MỚI (BÀN 4)"
-    // GOPLUS vs MEYING) — gộp chung sẽ dùng chung BOM/định mức. BE đã bỏ unique factoryCode.
-    const product = await api.createMfgProduct({ factoryCode: skuCode, name: skuCode })
-    await doCreateSku(product.id, skuCode)
+    setSubmitting(true)
+    setFormError(null)
+    try {
+      // Mỗi lần "Tạo SKU mới" luôn là 1 sản phẩm (MfgProduct) riêng, KHÔNG tái dùng sản phẩm cùng
+      // mã: 2 khách có thể dùng cùng 1 mã SKU cho 2 kết cấu khác nhau (VD "J55.T4 MỚI (BÀN 4)"
+      // GOPLUS vs MEYING) — gộp chung sẽ dùng chung BOM/định mức. BE đã bỏ unique factoryCode.
+      const product = await api.createMfgProduct({ factoryCode: skuCode, name: skuCode })
+      await doCreateSku(product.id, skuCode)
+    } catch (e: unknown) {
+      setFormError(e instanceof Error ? e.message : 'Không thể tạo SKU')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   // Trừ Sku sinh tự động khi PM "xác nhận sản xuất" (LenhSXPage) — không phải SKU do KHSX tạo,
@@ -202,31 +209,25 @@ export default function SKUReviewPage() {
     setSelectedPf(updated)
   }
 
-  // Sếp duyệt lần cuối — SKU chính thức bắt đầu sản xuất.
+  // Sếp duyệt lần cuối — SKU chính thức bắt đầu sản xuất. KHÔNG tự bắt lỗi ở đây - ném lên cho
+  // FinalReviewAction (SKUDetail.tsx) hiện inline ngay trong modal xác nhận (giữ modal mở tới khi
+  // biết chắc thành công), thay vì tự alert() rồi để modal đóng ngay như đã duyệt xong.
   const handleApproveBossRequest = async () => {
     if (!selectedPf) return
-    try {
-      await api.approveFullSku(selectedPf.id)
-      logAction(SKU_ENTITY, String(selectedPf.id), 'sku.boss_approved')
-      refetch()
-      setSelectedPf(null)
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Không thể duyệt')
-    }
+    await api.approveFullSku(selectedPf.id)
+    logAction(SKU_ENTITY, String(selectedPf.id), 'sku.boss_approved')
+    refetch()
+    setSelectedPf(null)
   }
 
   // Sếp từ chối toàn bộ SKU — trả về cho KHSX duyệt lại từng mục (không bắt bộ phận chuyên trách
-  // nào nhập lại, xem rejectToDetailReview ở service).
+  // nào nhập lại, xem rejectToDetailReview ở service). Cùng lý do không tự bắt lỗi như trên.
   const handleBossReject = async (reason?: string) => {
     if (!selectedPf) return
-    try {
-      await api.rejectSkuByBoss(selectedPf.id, reason)
-      logAction(SKU_ENTITY, String(selectedPf.id), 'sku.boss_rejected', reason)
-      refetch()
-      setSelectedPf(null)
-    } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : 'Không thể từ chối')
-    }
+    await api.rejectSkuByBoss(selectedPf.id, reason)
+    logAction(SKU_ENTITY, String(selectedPf.id), 'sku.boss_rejected', reason)
+    refetch()
+    setSelectedPf(null)
   }
 
   // Lấy lại đúng SKU đang xem — cần khi 1 trong 4 account chuyên trách vừa nhập/duyệt định mức
@@ -280,6 +281,9 @@ export default function SKUReviewPage() {
               emptyText="Không tìm thấy — có thể nhập tên mới"
             />
           </div>
+          {editError && (
+            <div style={{ padding: '8px 12px', fontSize: 12.5, color: 'var(--fg-c62828)', background: 'rgba(198,40,40,.08)', border: '1px solid rgba(198,40,40,.3)', borderRadius: 8 }}>{editError}</div>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '16px 20px', borderTop: '1px solid var(--fg-e7f9ee)', marginTop: 12 }}>
           <button onClick={closeEdit} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
@@ -396,6 +400,9 @@ export default function SKUReviewPage() {
                   </label>
                 )}
               </div>
+              {formError && (
+                <div style={{ padding: '8px 12px', fontSize: 12.5, color: 'var(--fg-c62828)', background: 'rgba(198,40,40,.08)', border: '1px solid rgba(198,40,40,.3)', borderRadius: 8 }}>{formError}</div>
+              )}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '16px 20px', borderTop: '1px solid var(--fg-e7f9ee)', marginTop: 12 }}>
               <button onClick={closeForm} style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
@@ -423,6 +430,8 @@ export default function SKUReviewPage() {
 
       {isLoading ? (
         <LoadingState />
+      ) : skusError ? (
+        <LoadErrorState error={skusError} onRetry={refetch} />
       ) : isMobile ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {displayed.map(pf => (

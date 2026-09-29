@@ -8,6 +8,7 @@ import { SKUDetail, SkuMobileCard, StatusBadge, STATUS_MAP } from './SKUDetail'
 import SearchInput from '../../../components/SearchInput'
 import FilterPills from '../../../components/FilterPills'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 
@@ -21,13 +22,14 @@ const FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }
 ]
 
 export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }) {
-  const { data: skus = [], isLoading, refetch } = useFetch(() => api.getSkus(), [])
+  const { data: skus = [], isLoading, error: skusError, refetch } = useFetch(() => api.getSkus(), [])
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const [deleteMode, setDeleteMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [showConfirm, setShowConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
   const isMobile = useIsMobile()
@@ -50,16 +52,17 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
     setSelectedIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   const toggleAll = () =>
     setSelectedIds(prev => prev.size === displayed.length ? new Set() : new Set(displayed.map(p => p.id)))
-  const exitDeleteMode = () => { setDeleteMode(false); setSelectedIds(new Set()); setShowConfirm(false) }
+  const exitDeleteMode = () => { setDeleteMode(false); setSelectedIds(new Set()); setShowConfirm(false); setDeleteError(null) }
 
   const handleDelete = async () => {
     setDeleting(true)
+    setDeleteError(null)
     try {
       await (api as any).deleteSkus([...selectedIds])
       refetch()
       exitDeleteMode()
-    } catch {
-      alert('Không thể xóa')
+    } catch (e: unknown) {
+      setDeleteError(e instanceof Error ? e.message : 'Không thể xóa')
     } finally {
       setDeleting(false)
     }
@@ -101,7 +104,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
               <>
                 {selectedIds.size > 0 && (
                   <button
-                    onClick={() => setShowConfirm(true)}
+                    onClick={() => { setShowConfirm(true); setDeleteError(null) }}
                     style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', background: 'var(--bg-dc2626)', color: '#fff', cursor: 'pointer' }}
                   >
                     <Trash2 size={14} /> Xóa {selectedIds.size} mục
@@ -125,6 +128,8 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
 
       {isLoading ? (
         <LoadingState />
+      ) : skusError ? (
+        <LoadErrorState error={skusError} onRetry={refetch} />
       ) : isMobile ? (
         // Điện thoại: thẻ thay bảng (cùng idiom Sales/Mua hàng) - chế độ xoá thì chạm thẻ để chọn.
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -257,8 +262,11 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
                 </div>
               ))}
             </div>
+            {deleteError && (
+              <div style={{ marginBottom: 16, padding: '8px 12px', fontSize: 12.5, color: 'var(--fg-c62828)', background: 'rgba(198,40,40,.08)', border: '1px solid rgba(198,40,40,.3)', borderRadius: 8 }}>{deleteError}</div>
+            )}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setShowConfirm(false)} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', cursor: 'pointer' }}>
+              <button onClick={() => setShowConfirm(false)} disabled={deleting} style={{ padding: '9px 20px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', cursor: 'pointer' }}>
                 Hủy
               </button>
               <button

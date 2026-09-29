@@ -10,6 +10,7 @@ import { format } from 'date-fns'
 import { ChevronLeft, Plus, X, Image as ImageIcon, Upload, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
 import type { Sku } from '../../../types/sku'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 
@@ -29,15 +30,17 @@ function DefectListPanel({ defects, onChanged }: {
 }) {
   const { ask, confirmModal } = useConfirm()
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [errorFor, setErrorFor] = useState<{ id: string; message: string } | null>(null)
 
   const replace = async (id: string, file: File) => {
     setBusyId(id)
+    setErrorFor(null)
     try {
       const url = await api.uploadImage(file)
       await api.updateTransferCheckDefectPhoto(id, url)
       onChanged()
     } catch (e) {
-      alert(e instanceof Error ? e.message : 'Không đổi được ảnh')
+      setErrorFor({ id, message: e instanceof Error ? e.message : 'Không đổi được ảnh' })
     } finally {
       setBusyId(null)
     }
@@ -60,7 +63,8 @@ function DefectListPanel({ defects, onChanged }: {
       {defects.length === 0 ? (
         <div style={{ fontSize: 12, color: 'var(--text3)' }}>Không có lỗi nào ghi cho mảnh này (có thể do PI khác cùng loại mảnh).</div>
       ) : defects.map(d => (
-        <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+        <div key={d.id} style={{ marginBottom: 6 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
           {d.imageUrl ? (
             <a href={d.imageUrl} target="_blank" rel="noreferrer">
               <img src={d.imageUrl} alt="lỗi" style={{ height: 36, borderRadius: 4, border: '1px solid var(--border)', display: 'block' }} />
@@ -78,6 +82,10 @@ function DefectListPanel({ defects, onChanged }: {
             </button>
           )}
         </div>
+        {errorFor?.id === d.id && (
+          <div style={{ fontSize: 11, color: 'var(--fg-c62828)', marginTop: 3 }}>{errorFor.message}</div>
+        )}
+        </div>
       ))}
     </div>
   )
@@ -86,7 +94,7 @@ function DefectListPanel({ defects, onChanged }: {
 export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderId, warehouseScope }: { readOnly?: boolean; filterExportOrderId?: string; warehouseScope?: string | null } = {}) {
   // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
-  const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
+  const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
 
   const { data: piecesData, isLoading: piecesLoading, refetch: refetchPieces } = useFetch<BeTransferCheckPiece[]>(
@@ -404,7 +412,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
         Nhấn vào dòng để xem chi tiết mảnh và nhập kết quả kiểm
       </p>
 
-      {isLoading ? <LoadingState /> : isMobile ? (
+      {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
         <MobileListCards emptyText="Không có PI nào" items={active.map(pf => ({ key: String(pf.id), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng' }, { label: 'Hạn giao', value: pf.exportOrder?.deliveryDate ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy') : '—' }] }))} />
       ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>

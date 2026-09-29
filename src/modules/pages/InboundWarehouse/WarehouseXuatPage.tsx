@@ -14,6 +14,7 @@ import { compactTh as th, compactTd as td, tableWrap, tbl, row, badge, emptyBox 
 import { backBtn } from '../../../styles/buttons'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 interface Wh { id: string; name: string; code: string }
 
@@ -267,6 +268,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   // hiện trắng trơn "Không có lệnh xuất nào đang chờ xử lý" mà không có gợi ý gì (Critical C2).
   // packagingOrdersError giờ luôn có thể liên quan (không còn gán theo 1 scope cố định).
   const activeListError = pieceOrdersError ?? packagingOrdersError ?? (isShipScope ? shipOrdersError : null)
+  const retryActiveList = () => { refetchPieceOrders(); refetchPackagingOrders(); if (isShipScope) refetchShipOrders() }
 
   // Gộp CẢ 3 nguồn vào 1 state duy nhất trong CÙNG 1 effect (2026-09-04) - trước đây 3 effect
   // riêng, mỗi cái tự setOrders() ĐÈ TOÀN BỘ state bằng đúng slice của mình (mergeInputQty trả về
@@ -534,7 +536,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
 
       {(
         activeListError ? (
-          <div style={{ ...emptyBox, color: 'var(--fg-dc2626)' }}>Lỗi tải danh sách: {activeListError}</div>
+          <LoadErrorState error={activeListError} onRetry={retryActiveList} />
         ) : orders.length === 0 ? (
           <div style={emptyBox}>Không có lệnh xuất nào đang chờ xử lý</div>
         ) : isMobile ? (

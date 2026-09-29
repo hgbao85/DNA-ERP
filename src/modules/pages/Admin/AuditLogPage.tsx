@@ -7,6 +7,7 @@ import SearchInput from '../../../components/SearchInput'
 import FilterPills from '../../../components/FilterPills'
 import EmptyState from '../../../components/EmptyState'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 import Pagination from '../../../components/Pagination'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
 import { AUDIT_ACTIONS, type AuditLogEntry } from '../../../context/AuditLogContext'
@@ -27,7 +28,7 @@ const ENTITY_LABEL: Record<string, string> = {
 }
 
 export default function AuditLogPage() {
-  const { data, isLoading } = useFetch<AuditLogEntry[]>(() => getAllAuditLogs() as Promise<AuditLogEntry[]>)
+  const { data, isLoading, error, refetch } = useFetch<AuditLogEntry[]>(() => getAllAuditLogs() as Promise<AuditLogEntry[]>)
   const logs = useMemo(() => data ?? [], [data])
 
   const [search, setSearch] = useState('')
@@ -102,6 +103,8 @@ export default function AuditLogPage() {
 
       {isLoading ? (
         <LoadingState />
+      ) : error || !data ? (
+        <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
       ) : filtered.length === 0 ? (
         <EmptyState icon={<History size={28} />} message="Chưa có hoạt động nào" />
       ) : (

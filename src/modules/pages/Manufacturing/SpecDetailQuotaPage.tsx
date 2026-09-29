@@ -12,6 +12,8 @@ import { SKU_ENTITY } from '../../../constants/skuStatus'
 import SpecAccessoryCatalogPage from './SpecAccessoryCatalogPage'
 import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 // ─── Types ────────────────────────────────────────────────────────────
 // "Định mức chi tiết" (Sơn/Phụ kiện/Bao bì) — 1 account nhập cả 3 nhóm trong 1 trang, gửi
@@ -69,7 +71,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   // Điện thoại: bảng dòng vật tư 7 cột -> thẻ; ô nhập form co giãn thay vì rộng cố định.
   const isMobile = useIsMobile()
   const fieldW = (w: number): React.CSSProperties => isMobile ? { flex: '1 1 130px', minWidth: 0 } : { width: w }
-  const { data: skusData, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
+  const { data: skusData, isLoading: skusLoading, error: skusError, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
   // Mảnh và chi tiết là 2 nhánh độc lập (tiến song song, không bắt buộc theo thứ tự) - chuyên viên
   // chi tiết thấy SKU ngay khi KHSX tạo, không cần chờ mảnh xong. Cùng điều kiện với SpecSteelPage.tsx.
   const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
@@ -104,6 +106,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   const [lines, setLines] = useState<DetailLine[]>([])
   const [nextId, setNextId] = useState(1)
   const [savingDetail, setSavingDetail] = useState(false)
+  const [submitDetailError, setSubmitDetailError] = useState<string | null>(null)
   const [group, setGroup] = useState<DetailLineGroup>('daySon')
   const [material, setMaterial] = useState<PickedMaterial | null>(null)
   const [spec, setSpec] = useState('')
@@ -126,6 +129,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     ]
     setSelectedBom(item); setLines(existing); setNextId(id)
     resetForm()
+    setSubmitDetailError(null)
   }
 
   const addLine = () => {
@@ -144,6 +148,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   const submitAll = async () => {
     if (!selectedBom || lines.length === 0) return
     setSavingDetail(true)
+    setSubmitDetailError(null)
     try {
       const toLine = (l: DetailLine) => ({ materialId: String(l.materialId), name: l.name, unit: l.unit || undefined })
       await api.updateSkuDetailQuota(selectedBom.id, {
@@ -153,6 +158,8 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
       }, user?.name ?? 'Không rõ')
       logAction(SKU_ENTITY, String(selectedBom.id), 'sku.detail_submitted', `${lines.length} vật tư (Sơn/Phụ kiện/Bao bì)`)
       await refetchSkus()
+    } catch (e) {
+      setSubmitDetailError(e instanceof Error ? e.message : 'Không thể gửi phê duyệt')
     } finally {
       setSavingDetail(false)
     }
@@ -162,6 +169,11 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   const isSubmitted = bomSt === 'pending' || bomSt === 'approved'
 
   // ─── Render ────────────────────────────────────────────────────────────
+  // Gate CHỈ áp cho subTab 'dinh-muc' (cần skus) - 'catalog' (SpecAccessoryCatalogPage) không đụng
+  // gì tới skus, không được chặn theo trạng thái tải của nhánh khác.
+  if (subTab === 'dinh-muc' && skusLoading) return <LoadingState />
+  if (subTab === 'dinh-muc' && (skusError || !skusData)) return <LoadErrorState error={skusError ?? 'Không rõ nguyên nhân'} onRetry={refetchSkus} />
+
   return (
     <div>
       {/* Page header - chuông "đã duyệt định mức" cục bộ (NotifBell, không nối BE, F5 mất trạng
@@ -430,6 +442,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                 </>
               ) : (
                 <>
+                  {submitDetailError && (
+                    <span style={{ fontSize: 12, color: 'var(--fg-c62828)', flex: '1 1 100%' }}>{submitDetailError}</span>
+                  )}
                   <span style={{ fontSize: 13, color: 'var(--text2)' }}>{lines.length} vật tư</span>
                   <button
                     onClick={submitAll}

@@ -6,6 +6,7 @@ import { useAuditLog } from '../../../context/AuditLogContext'
 import { getSystemConfig, updateSystemConfig } from '../../../services/api'
 import type { SystemConfig } from '../../../types/admin'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 /** Card này là form nhập chữ — chỉ nhận các field chữ của SystemConfig, không nhận field boolean
  *  (vd solverAllowCustomLength, thuộc nghiệp vụ cắt sắt chứ không phải thông tin công ty). */
@@ -25,7 +26,7 @@ const FIELDS: { name: TextField; label: string; required?: boolean }[] = [
 const inputStyle = { width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)' }
 
 export default function SystemConfigPage() {
-  const { data, isLoading, refetch } = useFetch<SystemConfig>(getSystemConfig)
+  const { data, isLoading, error: loadError, refetch } = useFetch<SystemConfig>(getSystemConfig)
   const { logAction } = useAuditLog()
   // Chỉnh sửa được giữ dưới dạng "draft" đè lên dữ liệu đã fetch, thay vì đồng bộ qua
   // useEffect+setState (dễ gây render lồng) — draft reset về rỗng sau mỗi lần lưu thành công.
@@ -49,12 +50,15 @@ export default function SystemConfigPage() {
       setTimeout(() => setSaved(false), 2500)
       setDraft({})
       await refetch()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Không thể lưu cấu hình')
     } finally {
       setSaving(false)
     }
   }
 
-  if (isLoading || !values) return <LoadingState />
+  if (isLoading) return <LoadingState />
+  if (loadError || !values) return <LoadErrorState error={loadError ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
   return (
     <div>

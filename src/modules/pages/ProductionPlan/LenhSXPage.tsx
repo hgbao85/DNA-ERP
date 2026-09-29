@@ -6,10 +6,12 @@ import { errMsg } from '../../../utils/errors'
 import { StatusBadge } from '../Sales/StatusBadge'
 import type { SalesOrderStatus } from '../../../types/sales'
 import { format } from 'date-fns'
-import { AlertCircle, AlertTriangle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2, User } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2, User } from 'lucide-react'
 import SearchableSelect from '../../../components/SearchableSelect'
 import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 // Nhãn các cột mốc thời gian SKU - trên điện thoại hiện kèm từng ô ngày (không còn hàng tiêu đề bảng).
 const DATE_COL_LABELS = ['Mua hàng', 'Khung CK', 'Đan', 'Đóng gói', 'Hạn giao']
@@ -457,12 +459,8 @@ export default function LenhSXPage() {
     }
   }
 
-  if (isLoading) return <div style={{ padding:40, color:'var(--text3)' }}>Đang tải...</div>
-  if (error) return (
-    <div style={{ padding:40, color:'var(--fg-c62828)', display:'flex', alignItems:'center', gap:8 }}>
-      <AlertCircle size={18}/> Lỗi tải dữ liệu
-    </div>
-  )
+  if (isLoading) return <LoadingState />
+  if (error || !pis) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
   return (
     <div>

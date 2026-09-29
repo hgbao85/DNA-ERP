@@ -25,6 +25,7 @@ import { errMsg } from '../../../utils/errors'
 import { backBtn } from '../../../styles/buttons'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
@@ -40,7 +41,7 @@ const card: React.CSSProperties = { background: 'var(--surface)', border: '1px s
 export default function XuatVatTuThanhPhamPage() {
   // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
-  const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
+  const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
   const { poInfoFor, activePiIds } = usePoInfoFloorGate()
   const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT' && activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? ''))
 
@@ -171,7 +172,7 @@ export default function XuatVatTuThanhPhamPage() {
         Xuất Sắt La (Pat) / Thanh nhôm (chân nhôm) cho Phôi theo lệnh sản xuất.
       </div>
 
-      {isLoading ? <LoadingState /> : isMobile ? (
+      {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
         <MobileListCards emptyText="Không có PO nào" items={active.map(pf => ({ key: String(pf.id), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? 'Chưa gắn đơn hàng' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? '—' }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
       ) : (
         <div style={tableWrap}>

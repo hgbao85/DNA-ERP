@@ -60,6 +60,7 @@ import type { ProcessStep } from '../../../types/sku'
 import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 import KcsVatTuThanhPhamPage from './KcsVatTuThanhPhamPage'
 import MobileListCards from '../../../components/MobileListCards'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
@@ -166,7 +167,7 @@ export default function KcsPhoiPage() {
 }
 
 function KcsSatSection() {
-  const { data: issues, isLoading, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
+  const { data: issues, isLoading, error, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
   const { data: allBundles, refetch: refetchBundles } = useFetch<BeCutBundle[]>(() => api.getAllCutBundles(), [])
   const { data: allStepBundles, refetch: refetchStepBundles } = useFetch<BeStepBundle[]>(() => api.getAllStepBundles(), [])
   const { data: reviews, refetch: refetchReviews } = useFetch<BeQcReview[]>(() => api.getQcReviewsForSteelIssues(), [])
@@ -178,7 +179,8 @@ function KcsSatSection() {
   )
   const refetchAll = () => { refetch(); refetchBundles(); refetchStepBundles(); refetchReviews() }
 
-  if (isLoading || !issues) return <LoadingState />
+  if (isLoading) return <LoadingState />
+  if (error || !issues) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
   const sel = selPi ? piRows.find((r) => r.productionInvoiceId === selPi) ?? null : null
   if (sel) {

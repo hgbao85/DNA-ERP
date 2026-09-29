@@ -1,5 +1,6 @@
 'use client'
 import { useMemo, useState, type ReactNode } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import { useFetch } from '../../../../hooks/useFetch'
 import SearchInput from '../../../../components/SearchInput'
 import FilterPills from '../../../../components/FilterPills'
@@ -50,7 +51,7 @@ export interface AdminReadOnlyListConfig<T extends { id: number | string }> {
  * không có sửa/xóa — khác AdminEntityPage (engine CRUD).
  */
 export default function AdminReadOnlyList<T extends { id: number | string }>({ config }: { config: AdminReadOnlyListConfig<T> }) {
-  const { data, isLoading } = useFetch<T[]>(config.fetch)
+  const { data, isLoading, error: loadError, refetch } = useFetch<T[]>(config.fetch)
   const items = useMemo(() => data ?? [], [data])
 
   const [search, setSearch] = useState('')
@@ -109,10 +110,30 @@ export default function AdminReadOnlyList<T extends { id: number | string }>({ c
         </div>
       )}
 
+      {loadError && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 8,
+          background: 'rgba(198, 40, 40, 0.08)', border: '1px solid rgba(198, 40, 40, 0.3)',
+          borderRadius: 8, padding: '10px 14px', marginBottom: 14,
+          color: 'var(--fg-c62828)', fontSize: 13, fontWeight: 500,
+        }}>
+          <AlertTriangle size={16} style={{ flexShrink: 0 }} />
+          <span style={{ flex: 1 }}>Không tải được dữ liệu: {loadError}</span>
+          <button
+            onClick={refetch}
+            style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, color: 'var(--fg-c62828)', background: 'transparent', border: '1px solid rgba(198, 40, 40, 0.4)', borderRadius: 6, cursor: 'pointer', flexShrink: 0 }}
+          >
+            Thử lại
+          </button>
+        </div>
+      )}
+
       {isLoading ? (
         <LoadingState />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={config.icon} message={config.emptyMessage ?? 'Chưa có dữ liệu'} />
+        loadError
+          ? null // đã báo lỗi ở banner trên — tránh vừa hiện lỗi vừa hiện "chưa có dữ liệu" gây hiểu lầm
+          : <EmptyState icon={config.icon} message={config.emptyMessage ?? 'Chưa có dữ liệu'} />
       ) : isMobile ? (
         // Điện thoại: thẻ thay bảng - cùng cách AdminEntityPage (cột đầu làm tiêu đề thẻ).
         <>

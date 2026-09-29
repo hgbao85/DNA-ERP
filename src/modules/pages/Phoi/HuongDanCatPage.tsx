@@ -111,7 +111,7 @@ export default function HuongDanCatPage({ initialPiId, onConsumeInitialPi }: {
 }
 
 function PiCuttingGuide({ pi, onBack }: { pi: PiOption; onBack: () => void }) {
-  const { data: proposals, isLoading } = useFetch<CuttingProposal[]>(
+  const { data: proposals, isLoading, error, refetch } = useFetch<CuttingProposal[]>(
     () => getCuttingProposalsForInvoice(pi.productionInvoiceId), [pi.productionInvoiceId],
   )
   const approved = (proposals ?? []).find(p => p.status === 'APPROVED') ?? null
@@ -146,6 +146,8 @@ function PiCuttingGuide({ pi, onBack }: { pi: PiOption; onBack: () => void }) {
 
       {isLoading || detailLoading ? (
         <LoadingState />
+      ) : error || !proposals ? (
+        <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
       ) : !approved ? (
         <div style={{ ...card, padding: 24, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
           Chưa có phương án cắt nào đã duyệt cho PO/PI này.

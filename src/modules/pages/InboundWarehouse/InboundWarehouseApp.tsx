@@ -8,6 +8,7 @@ import { useWorkQueue } from '../../../context/WorkQueueContext'
 import { getWarehouses } from '../../../services/api'
 import WarehouseLedgerHistory from '../../../components/WarehouseLedgerHistory'
 import NotificationCenter from '../../../components/NotificationCenter'
+import LoadingState from '../../../components/LoadingState'
 // Tái dùng nguyên các màn kho đã có (trước đây nằm trong MES) — KHÔNG viết lại logic.
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import { isFamilyScope, isThanhPhamScope } from '../../../utils/warehouseFamily'
@@ -40,7 +41,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   const scope = user?.warehouseScope ?? null
   // Kho vật lý ứng với scope - cần `id` để đọc sổ kho (GET /stock-ledger?warehouseId=...), scope
   // chỉ là `code`. Kho phụ (thanh-pham-2...) là bản ghi Warehouse riêng nên khớp thẳng theo code.
-  const { data: allWarehouses } = useFetch(() => getWarehouses(), [])
+  const { data: allWarehouses, isLoading: warehousesLoading } = useFetch(() => getWarehouses(), [])
   const myWarehouse = (Array.isArray(allWarehouses) ? allWarehouses : []).find(w => w.code === scope) ?? null
 
   // Chuyền kiểm + Đóng gói: kho thành phẩm + tổng kho (scope null). GĐ cũng thấy.
@@ -233,7 +234,9 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
               tài khoản thủ kho của đúng kho cần xuất.
             </div>
         )}
-        {tab === 'lich-su-kho' && (myWarehouse
+        {tab === 'lich-su-kho' && (warehousesLoading
+          ? <LoadingState />
+          : myWarehouse
           ? <div>
               <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Lịch sử kho</h2>
               <p style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 14 }}>
@@ -243,7 +246,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
               <WarehouseLedgerHistory warehouseId={String(myWarehouse.id)} warehouseCode={myWarehouse.code} />
             </div>
           : <div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }}>
-              Đang tải kho phụ trách…
+              Không tìm thấy kho phụ trách — liên hệ Admin kiểm tra lại tài khoản.
             </div>
         )}
         {tab === 'chuyen-tu-do' && <ChuyenKhoTuDoPage scope={scope} />}

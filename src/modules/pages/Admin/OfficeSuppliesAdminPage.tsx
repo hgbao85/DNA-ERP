@@ -4,6 +4,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import { getWarehouses } from '../../../services/api'
 import type { BeWarehouse } from '../../../services/warehouses-api'
 import OfficeSuppliesPage from '../InboundWarehouse/OfficeSuppliesPage'
+import EmptyState from '../../../components/EmptyState'
 
 // Văn phòng phẩm là RIÊNG THEO TỪNG KHO (xem OfficeSuppliesService.assertWarehouseScope ở BE) -
 // khác thủ kho (có sẵn User.warehouseScope để suy ra đúng 1 kho), Admin không gắn kho nào nên
@@ -40,9 +41,7 @@ export default function OfficeSuppliesAdminPage() {
       {selectedCode ? (
         <OfficeSuppliesPage warehouseCode={selectedCode} />
       ) : (
-        <div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }}>
-          Chọn 1 kho ở trên để xem/quản lý vật tư văn phòng của kho đó.
-        </div>
+        <EmptyState icon={<WarehouseIcon size={28} />} message="Chọn 1 kho ở trên để xem/quản lý vật tư văn phòng của kho đó." />
       )}
     </div>
   )

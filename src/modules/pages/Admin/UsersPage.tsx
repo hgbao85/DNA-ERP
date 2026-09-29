@@ -8,6 +8,7 @@ import { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUse
 import type { SystemUser } from '../../../types/admin'
 import AdminEntityPage, { type AdminEntityConfig } from './shared/AdminEntityPage'
 import Modal from '../../../components/Modal'
+import LoadingState from '../../../components/LoadingState'
 import { btnSecondary } from '../../../styles/buttons'
 import { isFamilyScope } from '../../../utils/warehouseFamily'
 
@@ -374,7 +375,7 @@ function TransferMaterialsModal({ user, onClose, onDone }: { user: SystemUser | 
         </p>
       )}
 
-      {!data && !error && <div style={{ fontSize: 13, color: 'var(--text3)' }}>Đang tải...</div>}
+      {!data && !error && <LoadingState />}
 
       {data && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>

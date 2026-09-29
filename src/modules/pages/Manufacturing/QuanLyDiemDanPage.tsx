@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeWeavingPointGroup } from '../../../services/weaving-issues-api'
-import { AlertCircle, Phone, CheckCircle2 } from 'lucide-react'
+import { Phone, CheckCircle2 } from 'lucide-react'
 import WeavingPointsPage from '../Admin/masterData/WeavingPointsPage'
+import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 // ── Màn "Quản lý điểm đan" — 2 tab con: Thông tin điểm đan | Mảnh tại điểm đan ──
 // readOnly (giám đốc): cả 2 tab chỉ xem. Đan Trưởng/Quản lý SX: tab Thông tin thêm/sửa được.
@@ -52,12 +54,12 @@ const th: React.CSSProperties = { textAlign: 'left', padding: '7px 12px', fontSi
 const td: React.CSSProperties = { padding: '7px 12px', fontSize: 13, borderBottom: '1px solid var(--border)' }
 
 function ManhTaiDiemDan() {
-  const { data, isLoading, error } = useFetch<PointGroup[]>(() => api.getWeavingByPoint(), [])
+  const { data, isLoading, error, refetch } = useFetch<PointGroup[]>(() => api.getWeavingByPoint(), [])
   const [onlyHolding, setOnlyHolding] = useState(false)
   const all = Array.isArray(data) ? data : []
 
-  if (isLoading) return <div style={{ padding: 40, color: 'var(--text3)' }}>Đang tải...</div>
-  if (error) return <div style={{ color: 'var(--fg-c62828)', display: 'flex', gap: 6 }}><AlertCircle size={16} />Lỗi tải dữ liệu</div>
+  if (isLoading) return <LoadingState />
+  if (error || !data) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
   if (all.length === 0) return <div style={{ color: 'var(--text3)', fontSize: 13 }}>Chưa có điểm đan nào nhận mảnh.</div>
 
   const totalGiao = all.reduce((s, p) => s + p.assignments.reduce((a, x) => a + x.quantity, 0), 0)

@@ -1,8 +1,14 @@
 import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
+import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
-import { Plus, Pencil, Trash2, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, X, Users } from 'lucide-react'
 import type { SalesCustomer, SalesOrder } from '../../../types/sales'
+import Modal from '../../../components/Modal'
+import EmptyState from '../../../components/EmptyState'
+import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
+import { btnSecondary } from '../../../styles/buttons'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 const EMPTY_FORM = { name: '', phone: '', email: '', address: '', note: '' }
@@ -19,6 +25,7 @@ export default function CustomerManagementPage() {
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)
   const isMobile = useIsMobile()
+  const { ask, confirmModal } = useConfirm()
 
   const openNew = () => { setForm(EMPTY_FORM); setModal('new') }
   const openEdit = (c: SalesCustomer) => {
@@ -45,14 +52,18 @@ export default function CustomerManagementPage() {
     }
   }
 
-  const handleDelete = async (id: number) => {
-    if (!confirm('Xóa khách hàng này?')) return
-    await api.deleteSalesCustomer(id)
-    await refetch()
+  const handleDelete = (c: SalesCustomer) => {
+    ask(
+      { title: 'Xoá khách hàng', message: `Xoá khách hàng "${c.name}"? Hành động này không thể hoàn tác.`, danger: true, confirmLabel: 'Xoá' },
+      async () => {
+        await api.deleteSalesCustomer(c.id)
+        await refetch()
+      },
+    )
   }
 
-  if (isLoading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</div>
-  if (error) return <div style={{ padding: 40, color: 'var(--fg-e24b4a)' }}>Lỗi: {error}</div>
+  if (isLoading) return <LoadingState />
+  if (error || !customers) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
   return (
     <div>
@@ -79,7 +90,7 @@ export default function CustomerManagementPage() {
                   <button onClick={() => openEdit(c)} aria-label="Sửa khách hàng" style={{ padding: 8, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                     <Pencil size={14} />
                   </button>
-                  <button onClick={() => handleDelete(c.id)} aria-label="Xoá khách hàng" style={{ padding: 8, border: '1px solid var(--fg-fca5a5)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--fg-e24b4a)' }}>
+                  <button onClick={() => handleDelete(c)} aria-label="Xoá khách hàng" style={{ padding: 8, border: '1px solid var(--fg-fca5a5)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--fg-e24b4a)' }}>
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -92,7 +103,7 @@ export default function CustomerManagementPage() {
             </div>
           ))}
           {(customers ?? []).length === 0 && (
-            <div className="card" style={{ padding: 20, textAlign: 'center', color: 'var(--text3)' }}>Chưa có khách hàng nào</div>
+            <EmptyState icon={<Users size={28} />} message="Chưa có khách hàng nào" />
           )}
         </div>
       ) : (
@@ -120,7 +131,7 @@ export default function CustomerManagementPage() {
                     <button onClick={() => openEdit(c)} style={{ padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
                       <Pencil size={12} />
                     </button>
-                    <button onClick={() => handleDelete(c.id)} style={{ padding: '4px 8px', border: '1px solid var(--fg-fca5a5)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--fg-e24b4a)' }}>
+                    <button onClick={() => handleDelete(c)} style={{ padding: '4px 8px', border: '1px solid var(--fg-fca5a5)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', display: 'flex', alignItems: 'center', color: 'var(--fg-e24b4a)' }}>
                       <Trash2 size={12} />
                     </button>
                   </div>
@@ -128,16 +139,14 @@ export default function CustomerManagementPage() {
               </tr>
             ))}
             {(customers ?? []).length === 0 && (
-              <tr><td colSpan={6} style={{ padding: 20, textAlign: 'center', color: 'var(--text3)' }}>Chưa có khách hàng nào</td></tr>
+              <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Chưa có khách hàng nào</div></td></tr>
             )}
           </tbody>
         </table>
       </div>
       )}
 
-      {modal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100, padding: isMobile ? 12 : 0 }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 10, width: 480, maxWidth: '100%', maxHeight: '90dvh', overflowY: 'auto', padding: isMobile ? 16 : 28, boxShadow: '0 20px 60px rgba(0,0,0,.25)' }}>
+      <Modal open={!!modal} onClose={() => setModal(null)} maxWidth={480}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div style={{ fontWeight: 700, fontSize: 16 }}>{modal === 'new' ? 'Thêm khách hàng mới' : 'Cập nhật khách hàng'}</div>
               <button onClick={() => setModal(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
@@ -162,14 +171,14 @@ export default function CustomerManagementPage() {
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
-              <button onClick={() => setModal(null)} style={{ padding: '8px 18px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer' }}>Hủy</button>
+              <button onClick={() => setModal(null)} style={btnSecondary}>Hủy</button>
               <button className="primary" onClick={handleSave} disabled={saving || !form.name.trim() || !form.phone.trim()}>
                 {saving ? 'Đang lưu...' : 'Lưu'}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+      </Modal>
+
+      {confirmModal}
     </div>
   )
 }

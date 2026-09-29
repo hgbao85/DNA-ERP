@@ -17,6 +17,7 @@ import ManhSkuDetail from '../InboundWarehouse/ManhSkuDetail'
 import type { MockPiece } from '../../../lib/mock/chuyen-kiem-fixtures'
 import { tabBtn, btnSecondary } from '../../../styles/buttons'
 import ProgressBar from '../../../components/ProgressBar'
+import LoadErrorState from '../../../components/LoadErrorState'
 import type { BePhoiProgressItem } from '../../../services/steel-issues-api'
 import type { BeProductionBatchPlan } from '../../../services/production-batches-api'
 import type { BeWeavingIssuePlanItem } from '../../../services/weaving-issues-api'
@@ -1413,7 +1414,7 @@ function DeadlineText({ deadline, overdue, overdueLabel }: { deadline?: string; 
 
 export default function ThongKePagePlan() {
 
-  const { data: skusData, isLoading } = useFetch<Sku[]>(() => api.getSkus(), [])
+  const { data: skusData, isLoading, error: skusError, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
   const { data: pisData, refetch: refetchPis } = useFetch<PIStatusRow[]>(() => api.getProductionInvoices(), [])
   const { data: weavingPointsData } = useFetch<WeavingPointLite[]>(() => (api as any).getWeavingPoints(), [])
   const { proposals } = useInspection()
@@ -1484,13 +1485,16 @@ export default function ThongKePagePlan() {
   // đây dùng nhầm dữ liệu rỗng đó cho các lệnh thật nên có lúc Chuyền kiểm bị tính "không áp dụng" và trang
   // chi tiết chọn sai công đoạn (tái hiện được ~1/5 lần mở).
   const batchKey = useMemo(() => batchKeyOf(approvedRows), [approvedRows])
-  const { data: batchDataRaw, isLoading: batchLoading } = useFetch(
+  const { data: batchDataRaw, isLoading: batchLoading, error: batchError, refetch: refetchBatch } = useFetch(
     () => buildBatchProgressData(approvedRows),
     [batchKey],
   )
   const batchFresh = !!batchDataRaw && batchDataRaw.key === batchKey
   const batchData = batchFresh ? batchDataRaw : null
-  const rowsLoading = batchLoading || !batchFresh
+  // batchError khiến batchFresh mãi false (batchDataRaw không đổi) - phải tách khỏi rowsLoading,
+  // nếu không bảng kẹt "Đang tải..." vĩnh viễn thay vì báo lỗi + cho Thử lại.
+  const rowsLoading = !batchError && (batchLoading || !batchFresh)
+  const rowsError = skusError ?? batchError ?? null
   const orderRows = useMemo(
     () => approvedRows.map(row => buildOrderRow(row, proposals, batchData ?? EMPTY_BATCH_DATA)),
     [approvedRows, proposals, batchData],
@@ -1787,7 +1791,9 @@ export default function ThongKePagePlan() {
       {/* Table (thẻ trên điện thoại) */}
       {isMobile ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {(isLoading || rowsLoading) ? (
+          {rowsError ? (
+            <LoadErrorState error={rowsError} onRetry={() => { refetchSkus(); refetchBatch() }} />
+          ) : (isLoading || rowsLoading) ? (
             <div className="card" style={{ padding: 30, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</div>
           ) : filtered.length === 0 ? (
             <div className="card" style={{ padding: 30, textAlign: 'center', color: 'var(--text3)' }}>Không có PI nào</div>
@@ -1822,7 +1828,9 @@ export default function ThongKePagePlan() {
             </tr>
           </thead>
           <tbody>
-            {(isLoading || rowsLoading) ? (
+            {rowsError ? (
+              <tr><td colSpan={7} style={{ padding: 24 }}><LoadErrorState error={rowsError} onRetry={() => { refetchSkus(); refetchBatch() }} /></td></tr>
+            ) : (isLoading || rowsLoading) ? (
               <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</td></tr>
             ) : pageItems.map(p => {
               const isDone    = p.order.status === 'DONE'
@@ -1857,7 +1865,7 @@ export default function ThongKePagePlan() {
                 </tr>
               )
             })}
-            {!isLoading && !rowsLoading && filtered.length === 0 && (
+            {!rowsError && !isLoading && !rowsLoading && filtered.length === 0 && (
               <tr>
                 <td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
                   Không có PI nào
@@ -1869,7 +1877,7 @@ export default function ThongKePagePlan() {
       </div>
       )}
 
-      {!isLoading && filtered.length > 0 && (
+      {!rowsError && !isLoading && filtered.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, fontSize: 12, color: 'var(--text3)' }}>
           <span>Hiển thị {pageItems.length}/{filtered.length} PI</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

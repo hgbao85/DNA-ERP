@@ -29,6 +29,7 @@ import * as api from '../../../services/api'
 import type { BeProductionBatch } from '../../../services/production-batches-api'
 import { backBtn } from '../../../styles/buttons'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 interface ManhRow {
   pieceId: string
@@ -54,10 +55,10 @@ const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }
 
 export default function ManhChoDanPage() {
-  const { data: batches, isLoading: batchesLoading } = useFetch<BeProductionBatch[]>(() => api.getProductionBatchesByStage('SON'), [])
+  const { data: batches, isLoading: batchesLoading, error: batchesError, refetch: refetchBatches } = useFetch<BeProductionBatch[]>(() => api.getProductionBatchesByStage('SON'), [])
   const qcDone = useMemo(() => (batches ?? []).filter(b => b.status === 'QC_DONE'), [batches])
   const orderIds = useMemo(() => Array.from(new Set(qcDone.map(b => b.productionOrderId))).sort(), [qcDone])
-  const { data: plans, isLoading: plansLoading } = useFetch(
+  const { data: plans, isLoading: plansLoading, error: plansError, refetch: refetchPlans } = useFetch(
     () => api.getProductionBatchPlanBatch(orderIds, 'SON'),
     [orderIds.join(',')],
   )
@@ -81,6 +82,7 @@ export default function ManhChoDanPage() {
   const selected = groups.find(g => g.productionOrderId === selectedOrderId) ?? null
 
   if (batchesLoading || plansLoading) return <LoadingState />
+  if (batchesError || plansError) return <LoadErrorState error={batchesError ?? plansError ?? 'Không rõ nguyên nhân'} onRetry={() => { refetchBatches(); refetchPlans() }} />
 
   // ── Chi tiết 1 SKU: các mảnh còn tồn ─────────────────────────────────────────
   if (selected) {

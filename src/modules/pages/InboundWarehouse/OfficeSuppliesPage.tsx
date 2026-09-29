@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Plus, Pencil, Trash2, ArrowDownToLine, ArrowUpFromLine, History, X } from 'lucide-react'
+import { Plus, Pencil, Trash2, ArrowDownToLine, ArrowUpFromLine, History, X, Package } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
@@ -7,6 +7,8 @@ import type { BeOfficeSupply, BeOfficeSupplyLedgerEntry, OfficeSupplyLedgerReaso
 import Modal from '../../../components/Modal'
 import ConfirmModal from '../../../components/ConfirmModal'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
+import EmptyState from '../../../components/EmptyState'
 
 // Văn phòng phẩm/vật tư sinh hoạt (bút, giấy...) - HOÀN TOÀN tách biệt khỏi "Tổng hợp vật tư"
 // (Material sản xuất gắn định mức/BOM, xem VatTuDashboardPage.tsx). RIÊNG THEO TỪNG KHO - không
@@ -196,13 +198,11 @@ export default function OfficeSuppliesPage({ warehouseCode }: OfficeSuppliesPage
       )}
 
       {isLoading && <LoadingState />}
-      {error && <div style={{ color: 'var(--fg-c62828)', fontSize: 13, padding: 12 }}>{error}</div>}
+      {!isLoading && (error || !data) && <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />}
 
-      {!isLoading && !error && (
+      {!isLoading && !error && data && (
         supplies.length === 0 ? (
-          <div style={{ padding: 48, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }}>
-            Chưa có văn phòng phẩm nào - bấm &quot;Thêm vật tư&quot; để tạo mới.
-          </div>
+          <EmptyState icon={<Package size={28} />} message={'Chưa có văn phòng phẩm nào - bấm "Thêm vật tư" để tạo mới.'} />
         ) : (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
             <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 13 }}>
@@ -315,7 +315,7 @@ export default function OfficeSuppliesPage({ warehouseCode }: OfficeSuppliesPage
 }
 
 function LedgerHistoryModal({ supply, onClose }: { supply: BeOfficeSupply; onClose: () => void }) {
-  const { data, isLoading, error } = useFetch(() => api.getOfficeSupplyLedger(supply.id), [supply.id])
+  const { data, isLoading, error, refetch } = useFetch(() => api.getOfficeSupplyLedger(supply.id), [supply.id])
   const entries: BeOfficeSupplyLedgerEntry[] = data ?? []
 
   const reasonLabel: Record<OfficeSupplyLedgerReason, string> = {
@@ -329,7 +329,7 @@ function LedgerHistoryModal({ supply, onClose }: { supply: BeOfficeSupply; onClo
         <button title="Đóng" onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><X size={18} /></button>
       </div>
       {isLoading && <LoadingState />}
-      {error && <div style={{ color: 'var(--fg-c62828)', fontSize: 13 }}>{error}</div>}
+      {!isLoading && error && <LoadErrorState error={error} onRetry={refetch} />}
       {!isLoading && !error && (
         entries.length === 0
           ? <div style={{ color: 'var(--text3)', fontSize: 13, padding: '12px 0' }}>Chưa có lịch sử nào.</div>

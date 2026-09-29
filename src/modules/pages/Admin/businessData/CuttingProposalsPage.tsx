@@ -6,6 +6,7 @@ import SearchInput from '../../../../components/SearchInput'
 import FilterPills from '../../../../components/FilterPills'
 import EmptyState from '../../../../components/EmptyState'
 import LoadingState from '../../../../components/LoadingState'
+import LoadErrorState from '../../../../components/LoadErrorState'
 import Pagination from '../../../../components/Pagination'
 import ConfirmModal from '../../../../components/ConfirmModal'
 import MobileListCards from '../../../../components/MobileListCards'
@@ -64,7 +65,7 @@ async function retryProposal(p: CuttingProposal): Promise<CuttingProposal> {
 }
 
 export default function CuttingProposalsPage() {
-  const { data, isLoading, refetch } = useFetch(() => getCuttingProposals(), [])
+  const { data, isLoading, error, refetch } = useFetch(() => getCuttingProposals(), [])
   // SUPERSEDED ẩn mặc định - bản cũ đã bị "Tính lại" thay thế, xem DISPLAY_LABELS.
   const items = useMemo(() => (data ?? []).filter(p => p.displayStatus !== 'SUPERSEDED'), [data])
 
@@ -76,6 +77,7 @@ export default function CuttingProposalsPage() {
   const [detailId, setDetailId] = useState<string | null>(null)
   const [detail, setDetail] = useState<CuttingProposal | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState<string | null>(null)
   const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set())
 
   const [retryTarget, setRetryTarget] = useState<CuttingProposal | null>(null)
@@ -122,10 +124,14 @@ export default function CuttingProposalsPage() {
 
   const openDetail = async (id: string) => {
     setDetailId(id)
+    setDetail(null)
+    setDetailError(null)
     setDetailLoading(true)
     setExpandedLines(new Set())
     try {
       setDetail(await getCuttingProposal(id))
+    } catch (e) {
+      setDetailError(e instanceof Error ? e.message : 'Không thể tải chi tiết')
     } finally {
       setDetailLoading(false)
     }
@@ -198,6 +204,8 @@ export default function CuttingProposalsPage() {
 
       {isLoading ? (
         <LoadingState />
+      ) : error ? (
+        <LoadErrorState error={error} onRetry={refetch} />
       ) : filtered.length === 0 ? (
         <EmptyState icon={<Scissors size={16} color={ACCENT} />} message="Chưa có đề xuất cắt sắt nào" />
       ) : isMobile ? (
@@ -310,6 +318,8 @@ export default function CuttingProposalsPage() {
             <div style={{ flex: 1, overflowY: 'auto', padding: isMobile ? 12 : 24 }}>
         {detailLoading ? (
           <LoadingState />
+        ) : detailError ? (
+          <LoadErrorState error={detailError} onRetry={() => void openDetail(detailId!)} />
         ) : detail?.displayStatus === 'NEEDS_ACTION' && detail.displayReason ? (
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, background: 'rgba(198,40,40,.08)', border: '1px solid rgba(198,40,40,.3)', borderRadius: 8, padding: '10px 12px', color: 'var(--fg-c62828)', fontSize: 13, marginBottom: 16 }}>
             <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
@@ -464,7 +474,7 @@ export default function CuttingProposalsPage() {
               </tbody>
             </table>
           </div>
-        ) : !detailLoading && detail?.displayStatus !== 'NEEDS_ACTION' ? (
+        ) : !detailLoading && !detailError && detail?.displayStatus !== 'NEEDS_ACTION' ? (
           <div style={{ fontSize: 13, color: 'var(--text3)' }}>Chưa có dữ liệu (đang tính).</div>
         ) : null}
             </div>

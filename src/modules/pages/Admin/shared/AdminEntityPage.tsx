@@ -328,7 +328,7 @@ export default function AdminEntityPage<T extends { id: number | string }>({
     if (!canRemove) return // không thể xảy ra - nút Xóa đã bị ẩn khi thiếu remove/readOnly
     const guardErr = config.guardDelete?.(row)
     if (guardErr) {
-      alert(guardErr)
+      ask({ title: 'Không thể xóa', message: guardErr, confirmLabel: 'Đã hiểu', cancelLabel: 'Đã hiểu' }, () => {})
       return
     }
     const { title, message } = config.deleteConfirm(row)

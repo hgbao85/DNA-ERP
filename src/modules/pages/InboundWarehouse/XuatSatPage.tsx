@@ -28,6 +28,7 @@ import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
 import { errMsg } from '../../../utils/errors'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
@@ -45,7 +46,7 @@ interface PiGroup {
 export default function XuatSatPage({ embedded = false }: { embedded?: boolean } = {}) {
   // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
-  const { data: skus = [], isLoading } = useFetch(() => api.getSkus(), [])
+  const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
   // PO/PI thật (từ ProductionOrder Sếp đã duyệt) - KHÔNG dùng Sku.exportOrder/Sku.piCode, xem
   // comment ở buildProductionOrderInfoByMfgProduct().
   const { poInfoFor } = usePoInfoFloorGate()
@@ -269,7 +270,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
         Nhấn vào dòng để xem loại sắt cần xuất cho cả PI (theo phương án cắt sắt đã duyệt) và xuất theo chiều dài/số cây.
       </p>
 
-      {isLoading ? <LoadingState /> : isMobile ? (
+      {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
         <MobileListCards emptyText="Không có PI nào" items={piGroups.map(g => ({ key: String(g.productionInvoiceId), onClick: () => setSelectedPi(g), title: <b>{g.skus.map(pf => pf.mfgProduct?.factoryCode).filter(Boolean).join(', ') || '—'}</b>, meta: [{ label: 'PI', value: g.piCode }, { label: 'PO', value: g.poCode ?? 'Gộp nhiều đơn' }] }))} />
       ) : (
         <div style={tableWrap}>

@@ -1,7 +1,7 @@
 'use client'
 import { useMemo, useState } from 'react'
 import { format } from 'date-fns'
-import { Loader2, Search, X } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeMaterial } from '../../../services/materials-api'
@@ -9,6 +9,8 @@ import type { BeWarehouse } from '../../../services/warehouses-api'
 import type { BeStockQuant } from '../../../services/stock-api'
 import { warehouseFamilyOf } from '../../../utils/warehouseFamily'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 const UNGROUPED = '__ungrouped__'
 
@@ -65,7 +67,7 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
   const warehousesLoaded = warehouses != null
   const currentWarehouse = warehouseCode ? (warehouses ?? []).find(w => w.code === warehouseCode) ?? null : null
 
-  const { data: materials, isLoading: materialsLoading } = useFetch<BeMaterial[]>(() => api.getMaterials(), [])
+  const { data: materials, isLoading: materialsLoading, error: materialsError, refetch: refetchMaterials } = useFetch<BeMaterial[]>(() => api.getMaterials(), [])
 
   // Chỉ tra tồn kho ĐÚNG kho đang xem (không gộp theo họ) — bỏ trống = lấy hết mọi kho (view Boss).
   const quantScopeId = currentWarehouse?.id
@@ -254,9 +256,9 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
       </div>
 
       {isLoading ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--text2)' }}>
-          <Loader2 size={18} /> Đang tải...
-        </div>
+        <LoadingState />
+      ) : materialsError ? (
+        <LoadErrorState error={materialsError} onRetry={refetchMaterials} />
       ) : warehouseCode && !currentWarehouse ? (
         <div style={{ padding: 32, textAlign: 'center', color: 'var(--text3)', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
           Không xác định được kho &quot;{warehouseCode}&quot;

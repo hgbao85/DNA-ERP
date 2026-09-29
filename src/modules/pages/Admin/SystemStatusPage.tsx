@@ -6,6 +6,7 @@ import { useAuditLog } from '../../../context/AuditLogContext'
 import { getSystemStats, resetSystemData } from '../../../services/api'
 import type { SystemStats } from '../../../lib/mock/services/system.service'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -14,7 +15,7 @@ function formatBytes(bytes: number): string {
 }
 
 export default function SystemStatusPage() {
-  const { data, isLoading, refetch } = useFetch<SystemStats>(getSystemStats)
+  const { data, isLoading, error, refetch } = useFetch<SystemStats>(getSystemStats)
   const { logAction } = useAuditLog()
   const { ask, confirmModal } = useConfirm()
 
@@ -34,7 +35,8 @@ export default function SystemStatusPage() {
     )
   }
 
-  if (isLoading || !data) return <LoadingState />
+  if (isLoading) return <LoadingState />
+  if (error || !data) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
   const totalRecords = data.collectionCounts.reduce((sum, c) => sum + c.count, 0)
 

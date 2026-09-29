@@ -28,6 +28,7 @@ import type { BePieceStepBundle, BeProductionBatch, ProductionBatchStage } from 
 import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import type { AuditLogEntry } from '../../../context/AuditLogContext'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 
 /** Đích của 1 dòng KCS - "chốt cuối" (ProductionBatch) hoặc "theo công đoạn" (PieceStepBundle,
  *  2026-09-07) - cần phân biệt để gọi ĐÚNG API duyệt (2 nhánh QcReview khác nhau, xem
@@ -40,7 +41,7 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
    *  - CHỈ VTTP có dữ liệu này (xem KcsVatTuThanhPhamPage.tsx), Hàn/Sơn không truyền prop này. */
   showPieceSteps?: boolean
 }) {
-  const { data: batches, isLoading, refetch } = useFetch<BeProductionBatch[]>(() => api.getProductionBatchesByStage(stage), [stage])
+  const { data: batches, isLoading, error, refetch } = useFetch<BeProductionBatch[]>(() => api.getProductionBatchesByStage(stage), [stage])
   // "Lỗi" ở cột bảng tổng là Σ QcReview.failedQty CỘNG DỒN LỊCH SỬ (2026-09-08 lần 2) - fetch cho
   // MỌI stage (không còn gate theo showPieceSteps như "Bù đủ" cũ, cột Lỗi hiện đồng nhất mọi nơi).
   const { data: reviews, refetch: refetchReviews } = useFetch(() => api.getQcReviewsForProductionBatches(), [])
@@ -166,7 +167,8 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
     return { rows, map }
   }, [batches, reviews, bundles, cfg.label, cfg.unit])
 
-  if (isLoading || !batches) return <LoadingState />
+  if (isLoading) return <LoadingState />
+  if (error || !batches) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
   // onReview giờ được KcsTwoTierScreen.review() (kcsCore.tsx) await ĐÚNG NGHĨA (2026-09-11, QA
   // audit sửa cùng lúc) - KHÔNG còn tự bắt lỗi/alert ở đây nữa, để lỗi ném thẳng lên tới
