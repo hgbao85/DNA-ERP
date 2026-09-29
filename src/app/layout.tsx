@@ -4,7 +4,6 @@ import { AuditLogProvider } from '../context/AuditLogContext';
 import { InspectionProvider } from '../context/InspectionContext';
 import { ThemeProvider, THEME_INIT_SCRIPT } from '../context/ThemeContext';
 import { NotificationsProvider } from '../context/NotificationsContext';
-import { WorkQueueProvider } from '../context/WorkQueueContext';
 import './globals.css';
 import './theme-palette.css';
 
@@ -24,9 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AuthProvider>
             <AuditLogProvider>
               <NotificationsProvider>
-                <WorkQueueProvider>
-                  <InspectionProvider>{children}</InspectionProvider>
-                </WorkQueueProvider>
+                <InspectionProvider>{children}</InspectionProvider>
               </NotificationsProvider>
             </AuditLogProvider>
           </AuthProvider>

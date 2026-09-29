@@ -3,7 +3,6 @@ import { ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, Clipb
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
-import { useWorkQueue } from '../../../context/WorkQueueContext'
 import NotificationCenter from '../../../components/NotificationCenter'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import SpecSteelPage from './SpecSteelPage'
@@ -175,21 +174,6 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isSpecRole ? [{ id: 'setup' as TabId, label: 'Quản lý định mức', icon: <Settings size={16} /> }] : []),
   ]
 
-  // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27) - khoá theo TabId thường,
-  // riêng Spec đọc trực tiếp `specQuotaBadge` (gắn vào sub-item 'dinh-muc', không phải tab 'setup'
-  // cha - xem nhánh render riêng của SPEC_SETUP_ITEMS bên dưới).
-  const { counts: workQueue } = useWorkQueue()
-  const badgeByTab: Partial<Record<TabId, number>> = {
-    'lenh-sx': workQueue.qlsxProductionQueue,
-    'phoi-xac-nhan-nhan-sat': workQueue.phoiSteelReceiving,
-    'kcs-phoi': workQueue.kcsPhoi,
-    'kcs-han': workQueue.kcsHan,
-    'kcs-son': workQueue.kcsSon,
-  }
-  const specQuotaBadge = user?.mfgRole === 'SPEC_STEEL' ? workQueue.specSteelQuota
-    : user?.mfgRole === 'SPEC_ACCESSORY' ? workQueue.specDetailQuota
-    : undefined
-
   const appTitle = user?.mfgRole === 'SPEC_STEEL' || user?.mfgRole === 'SPEC_ACCESSORY' ? 'Quản lý định mức' : 'Sản xuất MES'
 
   const sidebar = (
@@ -234,29 +218,19 @@ export default function MfgApp({ onBack }: MfgAppProps) {
                 <div key={t.id}>
                   {specItems.map(s => {
                     const subActive = isSetup && setupSubTab === s.id
-                    const badge = s.id === 'dinh-muc' ? specQuotaBadge : undefined
                     return (
                       <button key={s.id}
                         onClick={() => { setTab('setup'); setSetupSubTab(s.id) }}
                         style={navBtnStyle(subActive, isCompact)}
                         onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
                         onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
-                      >
-                        {SPEC_ICON[s.icon]}
-                        <span style={{ flex: 1 }}>{s.label}</span>
-                        {badge !== undefined && badge > 0 && (
-                          <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: 'var(--bg-c62828)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {badge}
-                          </span>
-                        )}
-                      </button>
+                      >{SPEC_ICON[s.icon]}{s.label}</button>
                     )
                   })}
                 </div>
               )
             }
 
-            const badge = badgeByTab[t.id]
             return (
               <button
                 key={t.id}
@@ -266,12 +240,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
               >
                 {t.icon}
-                <span style={{ flex: 1 }}>{t.label}</span>
-                {badge !== undefined && badge > 0 && (
-                  <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: 'var(--bg-c62828)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    {badge}
-                  </span>
-                )}
+                {t.label}
               </button>
             )
           })}

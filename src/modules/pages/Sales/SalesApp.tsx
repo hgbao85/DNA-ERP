@@ -1,9 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ClipboardList, Users, History, LogOut, Grid, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
-import { useUrlState } from '../../../hooks/useUrlState'
-import { useWorkQueue } from '../../../context/WorkQueueContext'
 import NotificationCenter from '../../../components/NotificationCenter'
 import OrderManagementPage from './OrderManagementPage'
 import CustomerManagementPage from './CustomerManagementPage'
@@ -13,28 +11,17 @@ import ThemeToggle from '../../../components/ThemeToggle'
 interface Props { onBack?: () => void }
 
 type TabId = 'orders' | 'customers' | 'history'
-const TAB_VALUES: TabId[] = ['orders', 'customers', 'history']
-const isTabId = (v: string | null): v is TabId => !!v && (TAB_VALUES as string[]).includes(v)
 
 export default function SalesApp({ onBack }: Props) {
   const { user, logout } = useAuth()
-  // `p` trong query string - cho NotificationCenter mở đúng tab, cùng cơ chế app shell khác (xem
-  // changelog notification 2026-09-25 mục 6.2/12.5.B/17.3/20.3).
-  const [urlTab, setUrlTab] = useUrlState('p')
-  const [tab, setTabState] = useState<TabId>(() => (isTabId(urlTab) ? urlTab : 'orders'))
-  const setTab = (id: TabId) => { setTabState(id); setUrlTab(id) }
-  useEffect(() => {
-    if (isTabId(urlTab) && urlTab !== tab) setTabState(urlTab)
-  }, [urlTab])
+  const [tab, setTab] = useState<TabId>('orders')
   // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ trên thanh đầu trang.
   const isCompact = useIsCompact()
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27).
-  const { counts: workQueue } = useWorkQueue()
-  const TABS: { id: TabId; label: string; icon: React.ReactNode; badge?: number }[] = [
-    { id: 'orders',    label: 'Quản lí đơn hàng',  icon: <ClipboardList size={16} />, badge: workQueue.salesReadyToShip },
+  const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
+    { id: 'orders',    label: 'Quản lí đơn hàng',  icon: <ClipboardList size={16} /> },
     { id: 'customers', label: 'Quản lí khách hàng', icon: <Users size={16} /> },
     { id: 'history',   label: 'Lịch sử mua hàng',   icon: <History size={16} /> },
   ]
@@ -71,15 +58,7 @@ export default function SalesApp({ onBack }: Props) {
             }}
               onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
               onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
-            >
-              {t.icon}
-              <span style={{ flex: 1 }}>{t.label}</span>
-              {t.badge !== undefined && t.badge > 0 && (
-                <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: 'var(--bg-c62828)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  {t.badge}
-                </span>
-              )}
-            </button>
+            >{t.icon}{t.label}</button>
           )
         })}
       </nav>

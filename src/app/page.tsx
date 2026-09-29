@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { BookOpen } from 'lucide-react';
 import { useUrlState } from '../hooks/useUrlState';
 import ModuleSelector from '../components/ModuleSelector';
-import MyNotificationsPage from '../components/MyNotificationsPage';
 import SalesApp from '../modules/pages/Sales/SalesApp';
 import MfgApp from '../modules/pages/Manufacturing/MfgApp';
 import PurchasingApp from '../modules/pages/Purchasing/PurchasingApp';
@@ -74,11 +73,6 @@ function MainERP() {
   const [activeModule, setActiveModuleState] = useState<string | null>(
     () => urlModule ?? resolveDefaultModule(user),
   );
-  // Trang "Thông báo của tôi" (mục 6.1/20.6 changelog notification) là overlay TOÀN MÀN HÌNH, không
-  // thuộc module nào - `notif=all` chồng lên TRÊN `content` thay vì thay thế nó trong switch dưới,
-  // để đóng lại (xoá `notif`) không mất `m`/`p` đang xem dở. `NotificationCenter` tự `router.push`
-  // (không dùng setter ở đây) để mở - giữ 1 nấc lịch sử cho nút Back, xem `useUrlState.ts`.
-  const [notifPage, setNotifPage] = useUrlState('notif');
 
   const setActiveModule = (mod: string | null) => {
     setActiveModuleState(mod);
@@ -138,7 +132,6 @@ function MainERP() {
   return (
     <>
       {content}
-      {notifPage === 'all' && <MyNotificationsPage onClose={() => setNotifPage(null)} />}
       <GuideFab />
     </>
   );
