@@ -162,3 +162,4 @@ export {
   getAllCutBundles, finishCutBundle, reviewCutBundleQc, undoLastCutBatch, assignCutBundleOrder, assignStepBundleOrder, reassignCutBundleOrder, reassignStepBundleOrder,
   submitStepBundle, reviewStepBundleQc, getStepBundlesForInvoice, getAllStepBundles,
 } from './steel-issues-api';
+export { getWorkQueue } from './work-queue-api';

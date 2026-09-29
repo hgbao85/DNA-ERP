@@ -102,6 +102,9 @@ export interface ListNotificationsParams {
    *  duyệt không được làm nó biến mất khỏi "Cần xử lý" khi việc thật vẫn chưa xong. */
   resolved?: 'true' | 'false';
   category?: NotificationCategory;
+  /** Tìm theo tiêu đề/nội dung (BE: contains, không phân biệt hoa thường) - dùng cho trang "Thông
+   *  báo của tôi" (xem changelog notification 2026-09-25 mục 20.6). */
+  search?: string;
   page?: number;
   limit?: number;
 }
@@ -115,6 +118,7 @@ export async function getNotifications(params: ListNotificationsParams = {}): Pr
   if (params.status) query.set('status', params.status);
   if (params.resolved) query.set('resolved', params.resolved);
   if (params.category) query.set('category', params.category);
+  if (params.search?.trim()) query.set('search', params.search.trim());
   const res = await http.get<PaginatedResult<BeNotification>>(`/notifications?${query.toString()}`);
   return { data: res.data.map(toNotification), meta: res.meta };
 }

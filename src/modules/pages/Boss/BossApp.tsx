@@ -4,6 +4,7 @@ import { LayoutDashboard, Package, LogOut, CalendarClock, Warehouse, ClipboardCh
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
+import { useWorkQueue } from '../../../context/WorkQueueContext'
 import NotificationCenter from '../../../components/NotificationCenter'
 import SKUReviewPage from '../ProductionPlan/SKUReviewPage'
 import SKUListPage from '../ProductionPlan/SKUListPage'
@@ -33,14 +34,16 @@ const CHO_DUYET_FILTERS: { key: ChoDuyetFilter; label: string }[] = [
   { key: 'lenh-sx',     label: 'Lệnh sản xuất'  },
 ]
 
-function ChoDuyetSection() {
+function ChoDuyetSection({ skuBadge, lenhSxBadge }: { skuBadge?: number; lenhSxBadge?: number }) {
   const [filter, setFilter] = useState<ChoDuyetFilter>('sku-moi')
+  const badgeByKey: Record<ChoDuyetFilter, number | undefined> = { 'sku-moi': skuBadge, 'lenh-sx': lenhSxBadge }
 
   return (
     <div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
         {CHO_DUYET_FILTERS.map(f => {
           const active = filter === f.key
+          const badge = badgeByKey[f.key]
           return (
             <button
               key={f.key}
@@ -56,6 +59,11 @@ function ChoDuyetSection() {
               }}
             >
               {f.label}
+              {badge !== undefined && badge > 0 && (
+                <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: 'var(--bg-c62828)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {badge}
+                </span>
+              )}
             </button>
           )
         })}
@@ -84,6 +92,12 @@ export default function BossApp() {
   // ProductionPlanApp/MfgApp đã làm (mục 6.2/12/12.5.B changelog notification 2026-09-25/26).
   const [urlPage, setUrlPage] = useUrlState('p')
   const [page, setPageState]  = useState<Page>(() => (isPage(urlPage) ? urlPage : 'cho-duyet'))
+  // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27) - 'cho-duyet' gộp cả 2 loại
+  // (SKU mới + Lệnh SX) vì đây là 1 mục menu DUY NHẤT, tách lại thành 2 badge riêng ở đúng 2 nút lọc
+  // bên trong (xem ChoDuyetSection/CHO_DUYET_FILTERS).
+  const { counts: workQueue } = useWorkQueue()
+  const choDuyetBadge = (workQueue.bossSkuApproval ?? 0) + (workQueue.bossProductionApproval ?? 0)
+  const badgeByPage: Partial<Record<Page, number>> = { 'cho-duyet': choDuyetBadge }
   // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ - cùng idiom SalesApp/PurchasingApp/ProductionPlanApp.
   const isCompact = useIsCompact()
   const isMobile  = useIsMobile()
@@ -113,6 +127,7 @@ export default function BossApp() {
         <nav style={{ flex: 1, padding: '4px 8px', overflowY: 'auto' }}>
           {NAV_ITEMS.map(item => {
             const active = page === item.id
+            const badge = badgeByPage[item.id]
             return (
               <button
                 key={item.id}
@@ -130,7 +145,12 @@ export default function BossApp() {
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
               >
                 {item.icon}
-                {item.label}
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {badge !== undefined && badge > 0 && (
+                  <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: 'var(--bg-c62828)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {badge}
+                  </span>
+                )}
               </button>
             )
           })}
@@ -158,7 +178,7 @@ export default function BossApp() {
 
   const content = (
     <>
-      {page === 'cho-duyet' && <ChoDuyetSection />}
+      {page === 'cho-duyet' && <ChoDuyetSection skuBadge={workQueue.bossSkuApproval} lenhSxBadge={workQueue.bossProductionApproval} />}
       {page === 'thong-ke'  && <ThongKePagePlan />}
       {page === 'sku-list'  && <SKUListPage readOnly />}
       {page === 'vat-tu'    && <VatTuDashboardPage />}

@@ -3,6 +3,7 @@ import { LogOut, Grid, ClipboardList, Truck, History, Menu, X } from 'lucide-rea
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
+import { useWorkQueue } from '../../../context/WorkQueueContext'
 import NotificationCenter from '../../../components/NotificationCenter'
 import LenhMuaNCCPage from './LenhMuaNCCPage'
 import TheoDoiMuaHangPage from './TheoDoiMuaHangPage'
@@ -30,9 +31,11 @@ export default function PurchasingApp({ onBack }: Props) {
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
+  // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27).
+  const { counts: workQueue } = useWorkQueue()
+  const TABS: { id: TabId; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'lenh-mua-ncc',      label: 'Lệnh mua vật tư',   icon: <ClipboardList size={16} /> },
-    { id: 'theo-doi-mua-hang', label: 'Theo dõi mua hàng', icon: <Truck size={16} /> },
+    { id: 'theo-doi-mua-hang', label: 'Theo dõi mua hàng', icon: <Truck size={16} />, badge: workQueue.purchaserPending },
     { id: 'lich-su-mua-hang',  label: 'Lịch sử đã mua',    icon: <History size={16} /> },
   ]
 
@@ -73,7 +76,15 @@ export default function PurchasingApp({ onBack }: Props) {
             }}
               onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
               onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
-            >{t.icon}{t.label}</button>
+            >
+              {t.icon}
+              <span style={{ flex: 1 }}>{t.label}</span>
+              {t.badge !== undefined && t.badge > 0 && (
+                <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: 'var(--bg-c62828)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {t.badge}
+                </span>
+              )}
+            </button>
           )
         })}
       </nav>

@@ -74,6 +74,17 @@ describe('getNotifications', () => {
     expect(get).toHaveBeenCalledWith('/notifications?limit=50&page=1&resolved=false&category=ACTION_REQUIRED');
   });
 
+  it('kèm search khi được truyền (trang "Thông báo của tôi") - tự trim, bỏ qua nếu chỉ toàn khoảng trắng', async () => {
+    get.mockResolvedValue({ data: [], meta: { page: 1, limit: 20, total: 0, totalPages: 1 } });
+
+    await getNotifications({ search: '  PI-2026  ', page: 1, limit: 20 });
+    expect(get).toHaveBeenCalledWith('/notifications?limit=20&page=1&search=PI-2026');
+
+    get.mockClear();
+    await getNotifications({ search: '   ', page: 1, limit: 20 });
+    expect(get).toHaveBeenCalledWith('/notifications?limit=20&page=1');
+  });
+
   it('audience null (mọi thông báo sự kiện, khác ANNOUNCEMENT) map về null - KHÔNG throw vì thiếu khoá trong toFeAudience', async () => {
     get.mockResolvedValue({ data: [beNotification({ audience: null })], meta: { page: 1, limit: 100, total: 1, totalPages: 1 } });
 

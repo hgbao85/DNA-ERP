@@ -12,9 +12,10 @@
  * điều hướng xuyên suốt props của 7 tầng *App.tsx).
  */
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Bell, X, CheckCheck, Info, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react'
 import { useIsCompact } from '../hooks/useMediaQuery'
+import { buildNotificationLinkUrl } from '../utils/notificationLink'
 import type { NotificationTab } from '../hooks/useNotifications'
 import { useNotifications } from '../context/NotificationsContext'
 import type { Notification } from '../types/admin'
@@ -89,6 +90,8 @@ interface NotificationCenterProps {
 
 export default function NotificationCenter({ size = 16, color }: NotificationCenterProps) {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const isCompact = useIsCompact()
   const [open, setOpen] = useState(false)
   const { unread, items, listLoading, tab, toast, openWithTab, switchTab, markRead, markAllRead, dismissToast } = useNotifications()
@@ -106,14 +109,20 @@ export default function NotificationCenter({ size = 16, color }: NotificationCen
     if (!n.isRead) markRead(n.id)
     setOpen(false)
     if (n.link?.module) {
-      const params = new URLSearchParams()
-      params.set('m', n.link.module)
-      if (n.link.page) params.set('p', n.link.page)
-      router.push(`/?${params.toString()}`)
+      router.push(buildNotificationLinkUrl(n.link))
     }
   }
 
   const openToast = () => { if (toast) openNotification(toast); dismissToast() }
+
+  // `router.push` (không phải `useUrlState`, luôn `replace`) - mở trang riêng cần thêm 1 nấc lịch sử
+  // để nút Back đóng lại được đúng chỗ đang xem (xem doc comment useUrlState.ts + app/page.tsx).
+  const viewAll = () => {
+    setOpen(false)
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('notif', 'all')
+    router.push(`${pathname}?${params.toString()}`)
+  }
 
   const tabBtn = (id: NotificationTab, label: string, count?: number) => (
     <button
@@ -185,6 +194,12 @@ export default function NotificationCenter({ size = 16, color }: NotificationCen
             items.map(n => <Row key={n.id} n={n} onOpen={openNotification} />)
           )}
         </div>
+        <button
+          onClick={viewAll}
+          style={{ padding: '10px 0', fontSize: 12, fontWeight: 600, color: '#1976d2', background: 'transparent', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer', flexShrink: 0 }}
+        >
+          Xem tất cả
+        </button>
       </div>
     </div>
   )

@@ -4,6 +4,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
+import { useWorkQueue } from '../../../context/WorkQueueContext'
 import { getCuttingBatchSuggestions } from '../../../services/cutting-batch-api'
 import NotificationCenter from '../../../components/NotificationCenter'
 import VatTuDashboardPage from './VatTuDashboardPage'
@@ -47,11 +48,17 @@ export default function ProductionPlanApp({ onBack }: Props) {
   // tác gì được - đưa vào badge chỉ tạo con số đỏ không bao giờ về 0.
   const batchCount = (batchSuggestions ?? []).filter((s) => s.outcome === 'FIXED_BY_MERGE').length
 
+  // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27) - 'duyet-sku' = định mức
+  // chờ KHSX review; 'lenh-sx' đổi khoá theo ĐÚNG role hiện đang xem (Boss ghé qua trang này vẫn
+  // thấy PI WAITING_BOSS, khác KHSX thấy PI REJECTED cần sửa gửi lại - mirror đúng nhánh isBoss đã
+  // có sẵn ở label dòng dưới).
+  const { counts: workQueue } = useWorkQueue()
+
   const NAV: { page: Page; icon: React.ReactNode; label: string; badge?: number }[] = [
     { page: 'thongke',    icon: <CalendarClock size={16} />,   label: 'Tổng hợp lệnh SX' },
     { page: 'planforms',  icon: <LayoutDashboard size={16} />, label: 'Danh sách SKU' },
-    { page: 'duyet-sku',  icon: <FilePlus size={16} />,        label: 'Duyệt SKU' },
-    { page: 'lenh-sx',    icon: <ClipboardList size={16} />,   label: isBoss ? 'Duyệt lệnh SX' : 'Lệnh sản xuất mới' },
+    { page: 'duyet-sku',  icon: <FilePlus size={16} />,        label: 'Duyệt SKU', badge: workQueue.khsxSkuReview },
+    { page: 'lenh-sx',    icon: <ClipboardList size={16} />,   label: isBoss ? 'Duyệt lệnh SX' : 'Lệnh sản xuất mới', badge: isBoss ? workQueue.bossProductionApproval : workQueue.khsxProductionRejected },
     { page: 'gom-cat',    icon: <Layers size={16} />,          label: 'Tối ưu cắt sắt', badge: batchCount },
     { page: 'vattu',      icon: <Package size={16} />,         label: 'Tổng hợp vật tư' },
     { page: 'warehouses', icon: <Warehouse size={16} />,       label: 'Tổng hợp kho' },

@@ -4,6 +4,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
 import { useFetch } from '../../../hooks/useFetch'
+import { useWorkQueue } from '../../../context/WorkQueueContext'
 import { getWarehouses } from '../../../services/api'
 import WarehouseLedgerHistory from '../../../components/WarehouseLedgerHistory'
 import NotificationCenter from '../../../components/NotificationCenter'
@@ -49,10 +50,16 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   const canSeePacking = scope === null || isThanhPhamScope(scope) || isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han')
 
   type TabId = 'materials' | 'warehouses' | 'nhap-kho' | 'xuat-kho' | 'chuyen-tu-do' | 'lich-su-kho' | 'xuat-sat' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan' | 'vat-tu-van-phong'
-  const ALL_TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
+  // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27) - gộp vào ĐÚNG 1 tab
+  // 'nhap-kho' vì cả 2 việc chờ (hàng mua chờ nhận + phiếu chuyển "Nhập nội bộ" chờ xác nhận) đều
+  // là sub-tab BÊN TRONG NhapKhoPage.tsx, không phải 2 tab riêng (khác 'chuyen-tu-do' - đó là màn
+  // TẠO phiếu chuyển đi, không phải hàng đang CHỜ mình xử lý).
+  const { counts: workQueue } = useWorkQueue()
+  const nhapKhoBadge = (workQueue.warehouseTransferPending ?? 0) + (workQueue.warehousePurchaseReceiving ?? 0)
+  const ALL_TABS: { id: TabId; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'materials',  label: 'Tổng hợp vật tư',    icon: <Boxes size={16} /> },
     { id: 'warehouses', label: 'Tổng hợp kho',        icon: <Warehouse size={16} /> },
-    { id: 'nhap-kho',   label: 'Nhập kho',            icon: <ArrowDownToLine size={16} /> },
+    { id: 'nhap-kho',   label: 'Nhập kho',            icon: <ArrowDownToLine size={16} />, badge: nhapKhoBadge },
     // Đổi tên 2026-09-15 (song song với "Chuyển kho ngoài đơn hàng" bên dưới) - người dùng thực tế
     // hay lẫn 2 tab này vì cùng là "xuất" - "theo đơn hàng" nêu rõ tab này gắn với PO/PI cụ thể
     // (giới hạn theo định mức, cập nhật tiến độ đơn), khác "Chuyển kho tự do" không gắn đơn nào.
@@ -166,7 +173,12 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
               >
                 {t.icon}
-                {t.label}
+                <span style={{ flex: 1 }}>{t.label}</span>
+                {t.badge !== undefined && t.badge > 0 && (
+                  <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: 'var(--bg-c62828)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {t.badge}
+                  </span>
+                )}
               </button>
             )
           })}
