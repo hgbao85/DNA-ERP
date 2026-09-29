@@ -54,15 +54,50 @@ export interface SystemConfig {
   solverTimeLimitSeconds: number;
 }
 
-/** Thông báo do Admin tạo/quản lý — broadcast đơn giản theo audience.
- *  id là UUID string thật từ BE (module `notifications`), không phải id số như phần lớn domain
- *  khác. BE chỉ hỗ trợ create/list/mark-read — không có update/delete, xem NotificationsPage. */
+export type NotificationCategory = 'ANNOUNCEMENT' | 'ACTION_REQUIRED' | 'RESULT' | 'ALERT' | 'INFO';
+export type NotificationSeverity = 'INFO' | 'SUCCESS' | 'WARNING' | 'CRITICAL';
+
+/** BE dựng URL từ đây (BE không biết cấu trúc route FE - xem changelog notification 2026-09-25 mục
+ *  6.2). `module`/`page` khớp đúng chuỗi FE dùng làm khoá điều hướng (app/page.tsx `activeModule`,
+ *  `type Page` của từng *App.tsx) - hợp đồng bằng convention, không có type dùng chung giữa 2 repo. */
+export interface NotificationLink {
+  module: string;
+  page?: string;
+  params?: Record<string, string | number | null>;
+}
+
+/**
+ * 1 dòng thông báo CỦA NGƯỜI GỌI (BE fan-out theo NotificationRecipient từ 2026-09-25, thay mô
+ * hình broadcast-4-audience cũ) — id là UUID string thật từ BE (module `notifications`), không
+ * phải id số như phần lớn domain khác. `audience` giờ chỉ có giá trị khi `category=ANNOUNCEMENT`.
+ */
 export interface Notification {
+  id: string;
+  type: string | null;
+  category: NotificationCategory;
+  severity: NotificationSeverity;
+  title: string;
+  message: string;
+  entityType: string | null;
+  entityId: string | null;
+  link: NotificationLink | null;
+  data: unknown;
+  audience?: 'all' | 'boss' | 'warehouse_staff' | 'production_manager' | null;
+  createdAt: string;
+  createdBy?: string | null;
+  isRead: boolean;
+  isResolved: boolean;
+}
+
+/** 1 dòng "Thông báo chung đã gửi" (Admin) - góc nhìn CỦA NGƯỜI PHÁT (tỉ lệ đọc trên mọi người
+ *  nhận), khác `Notification` (trạng thái của 1 người cụ thể). Xem AnnouncementResponseDto (BE). */
+export interface Announcement {
   id: string;
   title: string;
   message: string;
-  audience: 'all' | 'boss' | 'warehouse_staff' | 'production_manager';
+  audience: 'all' | 'boss' | 'warehouse_staff' | 'production_manager' | null;
+  createdBy: string | null;
   createdAt: string;
-  createdBy?: string;
-  isRead?: boolean;
+  recipientCount: number;
+  readCount: number;
 }

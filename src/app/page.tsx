@@ -1,9 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BookOpen } from 'lucide-react';
+import { useUrlState } from '../hooks/useUrlState';
 import ModuleSelector from '../components/ModuleSelector';
+import MyNotificationsPage from '../components/MyNotificationsPage';
 import SalesApp from '../modules/pages/Sales/SalesApp';
 import MfgApp from '../modules/pages/Manufacturing/MfgApp';
 import PurchasingApp from '../modules/pages/Purchasing/PurchasingApp';
@@ -64,12 +66,41 @@ function GuideFab() {
 function MainERP() {
   const { user, logout } = useAuth();
   const isDirector = checkIsDirector(user);
-  const [activeModule, setActiveModule] = useState<string | null>(() => resolveDefaultModule(user));
+  // `m` trong query string phản ánh module đang mở (mục 6.2 changelog notification 2026-09-25) -
+  // cho phép bấm 1 thông báo từ NotificationCenter (router.push('/?m=...')) mở đúng phân hệ mà
+  // KHÔNG cần truyền setActiveModule qua props xuyên suốt 7 tầng *App.tsx, và F5 không mất chỗ
+  // đang xem. `activeModule` (state) vẫn là nguồn sự thật cho RENDER - `urlModule` chỉ đồng bộ HAI
+  // CHIỀU với nó qua setActiveModule/useEffect bên dưới.
+  const [urlModule, setUrlModule] = useUrlState('m');
+  const [activeModule, setActiveModuleState] = useState<string | null>(
+    () => urlModule ?? resolveDefaultModule(user),
+  );
+  // Trang "Thông báo của tôi" (mục 6.1/20.6 changelog notification) là overlay TOÀN MÀN HÌNH, không
+  // thuộc module nào - `notif=all` chồng lên TRÊN `content` thay vì thay thế nó trong switch dưới,
+  // để đóng lại (xoá `notif`) không mất `m`/`p` đang xem dở. `NotificationCenter` tự `router.push`
+  // (không dùng setter ở đây) để mở - giữ 1 nấc lịch sử cho nút Back, xem `useUrlState.ts`.
+  const [notifPage, setNotifPage] = useUrlState('notif');
+
+  const setActiveModule = (mod: string | null) => {
+    setActiveModuleState(mod);
+    setUrlModule(mod);
+  };
 
   useEffect(() => {
     if (!user || isDirector) return;
     setActiveModule(resolveDefaultModule(user));
   }, [user?.id, user?.isProductPlanner, user?.isPurchaser, user?.isSale, user?.isMaterialsManager, user?.mfgRole, user?.role, isDirector]);
+
+  // Điều hướng TỪ BÊN NGOÀI (NotificationCenter gọi router.push('/?m=...') từ sâu trong cây, không
+  // có setActiveModule trực tiếp) - đổi activeModule theo urlModule khi nó đổi và khác giá trị hiện
+  // tại. Chỉ tin urlModule khi director (chọn module tự do) hoặc đúng module mà user không-director
+  // đằng nào cũng chỉ có 1 cái - không cho URL tự set 1 module ngoài quyền của user.
+  useEffect(() => {
+    if (!user || !urlModule || urlModule === activeModule) return;
+    if (isDirector || urlModule === resolveDefaultModule(user)) {
+      setActiveModuleState(urlModule);
+    }
+  }, [urlModule, user, isDirector, activeModule]);
 
   let content: React.ReactNode;
 
@@ -110,6 +141,7 @@ function MainERP() {
   return (
     <>
       {content}
+      {notifPage === 'all' && <MyNotificationsPage onClose={() => setNotifPage(null)} />}
       <GuideFab />
     </>
   );
@@ -128,5 +160,11 @@ export default function Page() {
   if (loading) return <LoadingScreen />;
   if (!token || !user) return null;
 
-  return <MainERP />;
+  // MainERP (và NotificationCenter/ProductionPlanApp bên trong nó) dùng useSearchParams() - Next.js
+  // App Router đòi hỏi 1 Suspense boundary bao quanh, nếu không `next build` báo lỗi.
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <MainERP />
+    </Suspense>
+  );
 }

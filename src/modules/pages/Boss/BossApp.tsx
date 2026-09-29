@@ -1,8 +1,11 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LayoutDashboard, Package, LogOut, CalendarClock, Warehouse, ClipboardCheck, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
+import { useUrlState } from '../../../hooks/useUrlState'
+import { useWorkQueue } from '../../../context/WorkQueueContext'
+import NotificationCenter from '../../../components/NotificationCenter'
 import SKUReviewPage from '../ProductionPlan/SKUReviewPage'
 import SKUListPage from '../ProductionPlan/SKUListPage'
 import VatTuDashboardPage from '../ProductionPlan/VatTuDashboardPage'
@@ -17,6 +20,8 @@ const ACCENT_BG = 'var(--bg-e8f5e9)'
 
 type Page           = 'cho-duyet' | 'thong-ke' | 'sku-list' | 'vat-tu' | 'kho'
 type ChoDuyetFilter = 'sku-moi' | 'lenh-sx'
+const PAGE_VALUES: Page[] = ['cho-duyet', 'thong-ke', 'sku-list', 'vat-tu', 'kho']
+const isPage = (v: string | null): v is Page => !!v && (PAGE_VALUES as string[]).includes(v)
 
 
 // ── Tổng hợp chờ duyệt section ────────────────────────────────────────────────
@@ -29,14 +34,16 @@ const CHO_DUYET_FILTERS: { key: ChoDuyetFilter; label: string }[] = [
   { key: 'lenh-sx',     label: 'Lệnh sản xuất'  },
 ]
 
-function ChoDuyetSection() {
+function ChoDuyetSection({ skuBadge, lenhSxBadge }: { skuBadge?: number; lenhSxBadge?: number }) {
   const [filter, setFilter] = useState<ChoDuyetFilter>('sku-moi')
+  const badgeByKey: Record<ChoDuyetFilter, number | undefined> = { 'sku-moi': skuBadge, 'lenh-sx': lenhSxBadge }
 
   return (
     <div>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
         {CHO_DUYET_FILTERS.map(f => {
           const active = filter === f.key
+          const badge = badgeByKey[f.key]
           return (
             <button
               key={f.key}
@@ -52,6 +59,11 @@ function ChoDuyetSection() {
               }}
             >
               {f.label}
+              {badge !== undefined && badge > 0 && (
+                <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: 'var(--bg-c62828)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {badge}
+                </span>
+              )}
             </button>
           )
         })}
@@ -75,12 +87,28 @@ const NAV_ITEMS: { id: Page; label: string; icon: React.ReactNode }[] = [
 
 export default function BossApp() {
   const { user, logout } = useAuth()
-  const [page, setPage]  = useState<Page>('cho-duyet')
+  // `p` trong query string - cho NotificationCenter mở đúng tab (vd SKU_SENT_TO_BOSS trỏ tới
+  // module 'boss' + page 'cho-duyet', xem notification-types.ts bên BE) - cùng cơ chế
+  // ProductionPlanApp/MfgApp đã làm (mục 6.2/12/12.5.B changelog notification 2026-09-25/26).
+  const [urlPage, setUrlPage] = useUrlState('p')
+  const [page, setPageState]  = useState<Page>(() => (isPage(urlPage) ? urlPage : 'cho-duyet'))
+  // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27) - 'cho-duyet' gộp cả 2 loại
+  // (SKU mới + Lệnh SX) vì đây là 1 mục menu DUY NHẤT, tách lại thành 2 badge riêng ở đúng 2 nút lọc
+  // bên trong (xem ChoDuyetSection/CHO_DUYET_FILTERS).
+  const { counts: workQueue } = useWorkQueue()
+  const choDuyetBadge = (workQueue.bossSkuApproval ?? 0) + (workQueue.bossProductionApproval ?? 0)
+  const badgeByPage: Partial<Record<Page, number>> = { 'cho-duyet': choDuyetBadge }
   // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ - cùng idiom SalesApp/PurchasingApp/ProductionPlanApp.
   const isCompact = useIsCompact()
   const isMobile  = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const setPage = (id: Page) => { setPageState(id); setUrlPage(id) }
   const selectPage = (id: Page) => { setPage(id); setDrawerOpen(false) }
+  // Điều hướng TỪ BÊN NGOÀI (NotificationCenter gọi router.push('/?m=boss&p=...') từ sâu trong
+  // cây) - đổi tab theo urlPage khi nó đổi và khác tab hiện tại.
+  useEffect(() => {
+    if (isPage(urlPage) && urlPage !== page) setPageState(urlPage)
+  }, [urlPage])
 
   const sidebar = (
       <div style={{ width: 210, flexShrink: 0, height: '100%', background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
@@ -99,6 +127,7 @@ export default function BossApp() {
         <nav style={{ flex: 1, padding: '4px 8px', overflowY: 'auto' }}>
           {NAV_ITEMS.map(item => {
             const active = page === item.id
+            const badge = badgeByPage[item.id]
             return (
               <button
                 key={item.id}
@@ -116,7 +145,12 @@ export default function BossApp() {
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
               >
                 {item.icon}
-                {item.label}
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {badge !== undefined && badge > 0 && (
+                  <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: 'var(--bg-c62828)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {badge}
+                  </span>
+                )}
               </button>
             )
           })}
@@ -132,6 +166,7 @@ export default function BossApp() {
               <div style={{ fontSize: 10, color: 'var(--text3)' }}>Giám đốc</div>
             </div>
             <ThemeToggle />
+            <NotificationCenter color="var(--text3)" />
             <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất">
               <LogOut size={16} color="var(--text3)" />
             </button>
@@ -143,7 +178,7 @@ export default function BossApp() {
 
   const content = (
     <>
-      {page === 'cho-duyet' && <ChoDuyetSection />}
+      {page === 'cho-duyet' && <ChoDuyetSection skuBadge={workQueue.bossSkuApproval} lenhSxBadge={workQueue.bossProductionApproval} />}
       {page === 'thong-ke'  && <ThongKePagePlan />}
       {page === 'sku-list'  && <SKUListPage readOnly />}
       {page === 'vat-tu'    && <VatTuDashboardPage />}
@@ -170,6 +205,7 @@ export default function BossApp() {
         <div style={{ fontWeight: 700, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           Giám đốc <span style={{ color: 'var(--text3)', fontWeight: 400 }}>· {activeItem?.label}</span>
         </div>
+        <NotificationCenter size={20} />
       </div>
 
       <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: isMobile ? '14px 12px 80px' : '18px 20px 80px' }}>{content}</div>

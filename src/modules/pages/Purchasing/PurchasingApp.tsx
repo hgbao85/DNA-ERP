@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LogOut, Grid, ClipboardList, Truck, History, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
+import { useUrlState } from '../../../hooks/useUrlState'
+import { useWorkQueue } from '../../../context/WorkQueueContext'
+import NotificationCenter from '../../../components/NotificationCenter'
 import LenhMuaNCCPage from './LenhMuaNCCPage'
 import TheoDoiMuaHangPage from './TheoDoiMuaHangPage'
 import LichSuMuaHangPage from './LichSuMuaHangPage'
@@ -13,22 +16,35 @@ interface Props { onBack?: () => void }
 // khảo cho SupplierPicker lúc nhập báo giá, mà giá/NCC nay nằm trong file Excel Sếp ký. Danh mục
 // NCC vẫn quản lý ở Admin › Nhà cung cấp, gán người mua vẫn ở Admin › Vật tư - không mất chức năng.
 type TabId = 'lenh-mua-ncc' | 'theo-doi-mua-hang' | 'lich-su-mua-hang'
+const TAB_VALUES: TabId[] = ['lenh-mua-ncc', 'theo-doi-mua-hang', 'lich-su-mua-hang']
+const isTabId = (v: string | null): v is TabId => !!v && (TAB_VALUES as string[]).includes(v)
 
 export default function PurchasingApp({ onBack }: Props) {
   const { user, logout } = useAuth()
-  const [tab, setTab] = useState<TabId>('lenh-mua-ncc')
+  // `p` trong query string - cho NotificationCenter mở đúng tab (vd PURCHASE_PROPOSAL_CREATED trỏ
+  // tới module 'purchasing' + page 'lenh-mua-ncc', xem notification-types.ts bên BE) - cùng cơ chế
+  // ProductionPlanApp/MfgApp/BossApp đã làm (mục 6.2/12/12.5.B/16 changelog notification).
+  const [urlTab, setUrlTab] = useUrlState('p')
+  const [tab, setTabState] = useState<TabId>(() => (isTabId(urlTab) ? urlTab : 'lenh-mua-ncc'))
   // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ - cùng idiom SalesApp.
   const isCompact = useIsCompact()
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
-  const TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
+  // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27).
+  const { counts: workQueue } = useWorkQueue()
+  const TABS: { id: TabId; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'lenh-mua-ncc',      label: 'Lệnh mua vật tư',   icon: <ClipboardList size={16} /> },
-    { id: 'theo-doi-mua-hang', label: 'Theo dõi mua hàng', icon: <Truck size={16} /> },
+    { id: 'theo-doi-mua-hang', label: 'Theo dõi mua hàng', icon: <Truck size={16} />, badge: workQueue.purchaserPending },
     { id: 'lich-su-mua-hang',  label: 'Lịch sử đã mua',    icon: <History size={16} /> },
   ]
 
+  const setTab = (id: TabId) => { setTabState(id); setUrlTab(id) }
   const selectTab = (id: TabId) => { setTab(id); setDrawerOpen(false) }
+  // Điều hướng TỪ BÊN NGOÀI (NotificationCenter gọi router.push('/?m=purchasing&p=...')).
+  useEffect(() => {
+    if (isTabId(urlTab) && urlTab !== tab) setTabState(urlTab)
+  }, [urlTab])
 
   const sidebar = (
     <div style={{ width: 210, flexShrink: 0, height: '100%', background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
@@ -60,7 +76,15 @@ export default function PurchasingApp({ onBack }: Props) {
             }}
               onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--surface2)' }}
               onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
-            >{t.icon}{t.label}</button>
+            >
+              {t.icon}
+              <span style={{ flex: 1 }}>{t.label}</span>
+              {t.badge !== undefined && t.badge > 0 && (
+                <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: 'var(--bg-c62828)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {t.badge}
+                </span>
+              )}
+            </button>
           )
         })}
       </nav>
@@ -75,6 +99,7 @@ export default function PurchasingApp({ onBack }: Props) {
             <div style={{ fontSize: 10, color: 'var(--text3)' }}>Mua hàng</div>
           </div>
           <ThemeToggle />
+          <NotificationCenter color="var(--text3)" />
           <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất"><LogOut size={16} color="var(--text3)" /></button>
         </div>
       </div>
@@ -108,6 +133,7 @@ export default function PurchasingApp({ onBack }: Props) {
         <div style={{ fontWeight: 700, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           Mua hàng <span style={{ color: 'var(--text3)', fontWeight: 400 }}>· {activeTab?.label}</span>
         </div>
+        <NotificationCenter size={20} />
       </div>
 
       <div style={{ flex: 1, overflow: 'auto', padding: isMobile ? '14px 12px 80px' : '18px 20px 80px' }}>{content}</div>

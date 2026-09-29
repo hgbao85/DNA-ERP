@@ -1,8 +1,9 @@
 ﻿'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowDownToLine, ArrowLeftRight, ChevronLeft, Paperclip } from 'lucide-react'
 import { format } from 'date-fns'
 import { canReceiveAt } from '../../../types/warehouse-transfer'
+import { useUrlState } from '../../../hooks/useUrlState'
 import { NhapNoiBoSection } from '../InboundWarehouse/InternalTransferSections'
 import { useInspection, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
 import { useConfirm } from '../../../hooks/useConfirm'
@@ -340,7 +341,16 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
 
 // ── Main page ────────────────────────────────────────────────
 export default function NhapKhoPage({ lockedGroup }: { lockedGroup?: string | null } = {}) {
-  const [nhapTab, setNhapTab] = useState<'nhap' | 'noi-bo'>('nhap')
+  // `sub` trong query string - cho `WAREHOUSE_TRANSFER_CREATED` mở đúng sub-tab "Nhập nội bộ" thay
+  // vì rơi vào "Nhập kho" (mua hàng) mặc định - 2 sub-tab hoàn toàn khác chức năng, không có route
+  // riêng trước đây (xem changelog notification 2026-09-25 mục 23.2). Cùng cơ chế `p` ở cấp app
+  // shell, chỉ khác đây là sub-tab lồng bên trong 1 page đã có `p='nhap-kho'`.
+  const [urlSub, setUrlSub] = useUrlState('sub')
+  const [nhapTab, setNhapTabState] = useState<'nhap' | 'noi-bo'>(() => (urlSub === 'noi-bo' ? 'noi-bo' : 'nhap'))
+  const setNhapTab = (id: 'nhap' | 'noi-bo') => { setNhapTabState(id); setUrlSub(id === 'noi-bo' ? 'noi-bo' : null) }
+  useEffect(() => {
+    if (urlSub === 'noi-bo' && nhapTab !== 'noi-bo') setNhapTabState('noi-bo')
+  }, [urlSub])
 
   const showNoiBo = canReceiveAt(lockedGroup ?? '')
 

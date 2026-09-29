@@ -1,7 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, ClipboardCheck, Box, CalendarClock, Wrench, Flame, SprayCan, Check, Frame, Layers, Play, PackageCheck, Ruler, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
+import { useUrlState } from '../../../hooks/useUrlState'
+import { useWorkQueue } from '../../../context/WorkQueueContext'
+import NotificationCenter from '../../../components/NotificationCenter'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import SpecSteelPage from './SpecSteelPage'
 import SpecDetailQuotaPage from './SpecDetailQuotaPage'
@@ -33,6 +36,15 @@ type TabId =
   | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'setup'
   | 'kcs-phoi' | 'kcs-han' | 'kcs-son'
+
+const TAB_VALUES: TabId[] = [
+  'lenh-sx', 'ke-hoach', 'phoi-xac-nhan-nhan-sat', 'phoi-lenh-sx', 'phoi-huong-dan-cat', 'phoi-dinh-muc-manh', 'phoi-kho-phoi',
+  'han-khung-han', 'son-manh-cho-dan', 'han-son-xac-nhan-vat-tu',
+  'weaving-points', 'sku-list',
+  'materials', 'warehouses', 'setup',
+  'kcs-phoi', 'kcs-han', 'kcs-son',
+]
+const isTabId = (v: string | null): v is TabId => !!v && (TAB_VALUES as string[]).includes(v)
 
 // 'catalog' của SPEC_ACCESSORY gộp chung Sơn + Phụ kiện + Bao bì (tab bên trong SpecAccessoryCatalogPage).
 type SetupSubTab = 'vat-tu' | 'dinh-muc' | 'catalog'
@@ -109,13 +121,22 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   else if (isKcs)                initialTab = 'kcs-phoi'
   else if (isSpecRole) initialTab = 'setup'
 
-  const [tab, setTabState] = useState<TabId>(initialTab)
+  // `p` trong query string - cho NotificationCenter mở đúng tab (vd thông báo cắt sắt trỏ tới
+  // module 'production' + page 'lenh-sx', xem notification-types.ts bên BE) - cùng cơ chế
+  // ProductionPlanApp đã làm (mục 6.2/12 changelog notification 2026-09-25).
+  const [urlTab, setUrlTab] = useUrlState('p')
+  const [tab, setTabState] = useState<TabId>(() => (isTabId(urlTab) ? urlTab : initialTab))
   // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ - cùng idiom SalesApp/PurchasingApp/ProductionPlanApp.
   const isCompact = useIsCompact()
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
   // Đổi tab (kể cả nhảy tab từ trang con, vd "Xem hướng dẫn cắt") luôn đóng drawer.
-  const setTab = (id: TabId) => { setTabState(id); setDrawerOpen(false) }
+  const setTab = (id: TabId) => { setTabState(id); setUrlTab(id); setDrawerOpen(false) }
+  // Điều hướng TỪ BÊN NGOÀI (NotificationCenter gọi router.push('/?m=production&p=...') từ sâu
+  // trong cây) - đổi tab theo urlTab khi nó đổi và khác tab hiện tại.
+  useEffect(() => {
+    if (isTabId(urlTab) && urlTab !== tab) setTabState(urlTab)
+  }, [urlTab])
   // Một state duy nhất cho tất cả SPEC role sub-tabs — mặc định = mục đầu tiên của role
   const [setupSubTab, setSetupSubTab] = useState<SetupSubTab>(
     () => (user?.mfgRole && SPEC_SETUP_ITEMS[user.mfgRole]?.[0]?.id) || 'dinh-muc'
@@ -153,6 +174,21 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(canSeeWarehouses ? [{ id: 'warehouses' as TabId, label: 'Tổng hợp kho', icon: <Warehouse size={16} /> }] : []),
     ...(isSpecRole ? [{ id: 'setup' as TabId, label: 'Quản lý định mức', icon: <Settings size={16} /> }] : []),
   ]
+
+  // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27) - khoá theo TabId thường,
+  // riêng Spec đọc trực tiếp `specQuotaBadge` (gắn vào sub-item 'dinh-muc', không phải tab 'setup'
+  // cha - xem nhánh render riêng của SPEC_SETUP_ITEMS bên dưới).
+  const { counts: workQueue } = useWorkQueue()
+  const badgeByTab: Partial<Record<TabId, number>> = {
+    'lenh-sx': workQueue.qlsxProductionQueue,
+    'phoi-xac-nhan-nhan-sat': workQueue.phoiSteelReceiving,
+    'kcs-phoi': workQueue.kcsPhoi,
+    'kcs-han': workQueue.kcsHan,
+    'kcs-son': workQueue.kcsSon,
+  }
+  const specQuotaBadge = user?.mfgRole === 'SPEC_STEEL' ? workQueue.specSteelQuota
+    : user?.mfgRole === 'SPEC_ACCESSORY' ? workQueue.specDetailQuota
+    : undefined
 
   const appTitle = user?.mfgRole === 'SPEC_STEEL' || user?.mfgRole === 'SPEC_ACCESSORY' ? 'Quản lý định mức' : 'Sản xuất MES'
 
@@ -198,19 +234,29 @@ export default function MfgApp({ onBack }: MfgAppProps) {
                 <div key={t.id}>
                   {specItems.map(s => {
                     const subActive = isSetup && setupSubTab === s.id
+                    const badge = s.id === 'dinh-muc' ? specQuotaBadge : undefined
                     return (
                       <button key={s.id}
                         onClick={() => { setTab('setup'); setSetupSubTab(s.id) }}
                         style={navBtnStyle(subActive, isCompact)}
                         onMouseEnter={e => { if (!subActive) e.currentTarget.style.background = 'var(--surface2)' }}
                         onMouseLeave={e => { if (!subActive) e.currentTarget.style.background = 'transparent' }}
-                      >{SPEC_ICON[s.icon]}{s.label}</button>
+                      >
+                        {SPEC_ICON[s.icon]}
+                        <span style={{ flex: 1 }}>{s.label}</span>
+                        {badge !== undefined && badge > 0 && (
+                          <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: 'var(--bg-c62828)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {badge}
+                          </span>
+                        )}
+                      </button>
                     )
                   })}
                 </div>
               )
             }
 
+            const badge = badgeByTab[t.id]
             return (
               <button
                 key={t.id}
@@ -220,7 +266,12 @@ export default function MfgApp({ onBack }: MfgAppProps) {
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
               >
                 {t.icon}
-                {t.label}
+                <span style={{ flex: 1 }}>{t.label}</span>
+                {badge !== undefined && badge > 0 && (
+                  <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: 'var(--bg-c62828)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {badge}
+                  </span>
+                )}
               </button>
             )
           })}
@@ -241,6 +292,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
               <div style={{ fontSize: 10, color: 'var(--text3)' }}>{roleLabel}</div>
             </div>
             <ThemeToggle />
+            <NotificationCenter color="var(--text3)" />
             <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất">
               <LogOut size={16} color="var(--text3)" />
             </button>
@@ -298,6 +350,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         <div style={{ fontWeight: 700, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {appTitle} {activeLabel && <span style={{ color: 'var(--text3)', fontWeight: 400 }}>· {activeLabel}</span>}
         </div>
+        <NotificationCenter size={20} />
       </div>
 
       <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: isMobile ? '14px 12px 80px' : '18px 20px 80px' }}>{content}</div>

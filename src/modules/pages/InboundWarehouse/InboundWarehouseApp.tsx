@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, BarChart3, MapPin, Share2, History, ArrowLeftRight, PenLine, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
+import { useUrlState } from '../../../hooks/useUrlState'
 import { useFetch } from '../../../hooks/useFetch'
+import { useWorkQueue } from '../../../context/WorkQueueContext'
 import { getWarehouses } from '../../../services/api'
 import WarehouseLedgerHistory from '../../../components/WarehouseLedgerHistory'
+import NotificationCenter from '../../../components/NotificationCenter'
 // Tái dùng nguyên các màn kho đã có (trước đây nằm trong MES) — KHÔNG viết lại logic.
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import { isFamilyScope, isThanhPhamScope } from '../../../utils/warehouseFamily'
@@ -47,10 +50,16 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   const canSeePacking = scope === null || isThanhPhamScope(scope) || isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han')
 
   type TabId = 'materials' | 'warehouses' | 'nhap-kho' | 'xuat-kho' | 'chuyen-tu-do' | 'lich-su-kho' | 'xuat-sat' | 'chuyen-kiem' | 'dong-goi' | 'xuat-dan' | 'nhap-dan' | 'diem-dan' | 'vat-tu-van-phong'
-  const ALL_TABS: { id: TabId; label: string; icon: React.ReactNode }[] = [
+  // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27) - gộp vào ĐÚNG 1 tab
+  // 'nhap-kho' vì cả 2 việc chờ (hàng mua chờ nhận + phiếu chuyển "Nhập nội bộ" chờ xác nhận) đều
+  // là sub-tab BÊN TRONG NhapKhoPage.tsx, không phải 2 tab riêng (khác 'chuyen-tu-do' - đó là màn
+  // TẠO phiếu chuyển đi, không phải hàng đang CHỜ mình xử lý).
+  const { counts: workQueue } = useWorkQueue()
+  const nhapKhoBadge = (workQueue.warehouseTransferPending ?? 0) + (workQueue.warehousePurchaseReceiving ?? 0)
+  const ALL_TABS: { id: TabId; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'materials',  label: 'Tổng hợp vật tư',    icon: <Boxes size={16} /> },
     { id: 'warehouses', label: 'Tổng hợp kho',        icon: <Warehouse size={16} /> },
-    { id: 'nhap-kho',   label: 'Nhập kho',            icon: <ArrowDownToLine size={16} /> },
+    { id: 'nhap-kho',   label: 'Nhập kho',            icon: <ArrowDownToLine size={16} />, badge: nhapKhoBadge },
     // Đổi tên 2026-09-15 (song song với "Chuyển kho ngoài đơn hàng" bên dưới) - người dùng thực tế
     // hay lẫn 2 tab này vì cùng là "xuất" - "theo đơn hàng" nêu rõ tab này gắn với PO/PI cụ thể
     // (giới hạn theo định mức, cập nhật tiến độ đơn), khác "Chuyển kho tự do" không gắn đơn nào.
@@ -92,12 +101,24 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     return ALL_TABS
   })()
 
-  const [tab, setTabState] = useState<TabId>(isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han') || isThanhPhamScope(scope) ? 'materials' : scope ? 'warehouses' : 'materials')
+  const defaultTab: TabId = isFamilyScope(scope, 'vat-tu-tp') || isFamilyScope(scope, 'phoi-son-han') || isThanhPhamScope(scope) ? 'materials' : scope ? 'warehouses' : 'materials'
+  // `p` trong query string - cho NotificationCenter mở đúng tab (vd PURCHASE_PROPOSAL_ITEM_RECEIVED
+  // không gắn link vì đa vai trò, nhưng luồng "Hàng về" khác trong tương lai có thể trỏ tới đây) -
+  // cùng cơ chế ProductionPlanApp/MfgApp/BossApp/PurchasingApp đã làm (mục 6.2/16 changelog
+  // notification). Validate theo TABS đã lọc theo scope hiện tại - không dùng static TabId, vài
+  // scope không có đủ mọi tab (vd 'materials' ẩn khi scope là 1 kho cụ thể).
+  const [urlTab, setUrlTab] = useUrlState('p')
+  const isValidTab = (v: string | null): v is TabId => !!v && TABS.some(t => t.id === v)
+  const [tab, setTabState] = useState<TabId>(() => (isValidTab(urlTab) ? urlTab : defaultTab))
   // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ - cùng idiom SalesApp/PurchasingApp/MfgApp.
   const isCompact = useIsCompact()
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const setTab = (id: TabId) => { setTabState(id); setDrawerOpen(false) }
+  const setTab = (id: TabId) => { setTabState(id); setUrlTab(id); setDrawerOpen(false) }
+  // Điều hướng TỪ BÊN NGOÀI (NotificationCenter gọi router.push('/?m=inbound_warehouse&p=...')).
+  useEffect(() => {
+    if (isValidTab(urlTab) && urlTab !== tab) setTabState(urlTab)
+  }, [urlTab])
   const navBtn = (active: boolean): React.CSSProperties => ({
     display: 'flex', alignItems: 'center', gap: 9, width: '100%',
     padding: isCompact ? '11px 10px' : '8px 10px', marginBottom: 2, border: 'none', borderRadius: 'var(--radius)',
@@ -152,7 +173,12 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
                 onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}
               >
                 {t.icon}
-                {t.label}
+                <span style={{ flex: 1 }}>{t.label}</span>
+                {t.badge !== undefined && t.badge > 0 && (
+                  <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: 'var(--bg-c62828)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {t.badge}
+                  </span>
+                )}
               </button>
             )
           })}
@@ -172,6 +198,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
               <div style={{ fontSize: 10, color: 'var(--text3)' }}>{roleLabel}</div>
             </div>
             <ThemeToggle />
+            <NotificationCenter color="var(--text3)" />
             <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất">
               <LogOut size={16} color="var(--text3)" />
             </button>

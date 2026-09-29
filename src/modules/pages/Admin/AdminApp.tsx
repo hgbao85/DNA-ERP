@@ -1,8 +1,10 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { LayoutDashboard, Users, History, Database, Bell, Settings, Briefcase, Activity, LogOut, Warehouse, Image as ImageIcon, PenLine, Wrench, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
+import { useUrlState } from '../../../hooks/useUrlState'
+import NotificationCenter from '../../../components/NotificationCenter'
 import DashboardPage from './DashboardPage'
 import UsersPage from './UsersPage'
 import AuditLogPage from './AuditLogPage'
@@ -22,6 +24,9 @@ const ACCENT_BG = 'var(--bg-e8eaf6)'
 
 type AdminPage = 'dashboard' | 'users' | 'warehouses' | 'office-supplies' | 'phoi-sku' | 'audit-log' | 'master-data' | 'business-data' | 'attachments' | 'notifications' | 'system-config' | 'system-status'
 
+const ADMIN_PAGE_VALUES: AdminPage[] = ['dashboard', 'users', 'warehouses', 'office-supplies', 'phoi-sku', 'audit-log', 'master-data', 'business-data', 'attachments', 'notifications', 'system-config', 'system-status']
+const isAdminPage = (v: string | null): v is AdminPage => !!v && (ADMIN_PAGE_VALUES as string[]).includes(v)
+
 const NAV_ITEMS: { id: AdminPage; label: string; icon: React.ReactNode; enabled: boolean }[] = [
   { id: 'dashboard',      label: 'Tổng quan',               icon: <LayoutDashboard size={16} />, enabled: true },
   { id: 'users',          label: 'Người dùng & Phân quyền', icon: <Users size={16} />,           enabled: true },
@@ -39,7 +44,14 @@ const NAV_ITEMS: { id: AdminPage; label: string; icon: React.ReactNode; enabled:
 
 export default function AdminApp() {
   const { user, logout } = useAuth()
-  const [page, setPage] = useState<AdminPage>('dashboard')
+  // `p` trong query string - cho NotificationCenter mở đúng tab (xem changelog notification
+  // 2026-09-25 mục 6.2/12) - cùng cơ chế ProductionPlanApp/MfgApp đã làm.
+  const [urlPage, setUrlPage] = useUrlState('p')
+  const [page, setPageState] = useState<AdminPage>(() => (isAdminPage(urlPage) ? urlPage : 'dashboard'))
+  const setPage = (id: AdminPage) => { setPageState(id); setUrlPage(id) }
+  useEffect(() => {
+    if (isAdminPage(urlPage) && urlPage !== page) setPageState(urlPage)
+  }, [urlPage])
   // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ - cùng idiom BossApp/SalesApp/PurchasingApp.
   const isCompact = useIsCompact()
   const isMobile  = useIsMobile()
@@ -104,6 +116,7 @@ export default function AdminApp() {
               <div style={{ fontSize: 10, color: 'var(--text3)' }}>Quản trị viên</div>
             </div>
             <ThemeToggle />
+            <NotificationCenter color="var(--text3)" />
             <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất">
               <LogOut size={16} color="var(--text3)" />
             </button>
@@ -148,6 +161,7 @@ export default function AdminApp() {
         <div style={{ fontWeight: 700, fontSize: 14, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           Quản trị <span style={{ color: 'var(--text3)', fontWeight: 400 }}>· {activeItem?.label}</span>
         </div>
+        <NotificationCenter size={20} />
       </div>
 
       <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: isMobile ? '14px 12px 80px' : '18px 20px 80px' }}>{content}</div>
