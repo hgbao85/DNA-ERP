@@ -10,7 +10,7 @@ import type { SalesOrder } from '../../../types/sales'
 import { isFamilyScope, warehouseFamilyOf } from '../../../utils/warehouseFamily'
 import { safeArr } from '../../../utils/array'
 import { errMsg } from '../../../utils/errors'
-import { compactTh as th, compactTd as td, tableWrap, tbl, row, badge, emptyBox } from '../../../styles/table'
+import { compactTh as th, compactTd as td, tableWrap, tbl, row, badge, emptyBox, tableScrollBox, stickyHeaderRow } from '../../../styles/table'
 import { backBtn } from '../../../styles/buttons'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
@@ -546,12 +546,12 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
           // PO | PI | SKU | Số lượng vật tư | Trạng thái — mọi kho (không có hạn giao). Đơn nội bộ
           // (piece/packaging) có cả PO lẫn PI thật; đơn ship (xuất thẳng cho khách) chỉ có PO (mã
           // đơn hàng bán) - không có khái niệm PI.
-          <div style={tableWrap}>
+          <div style={{ ...tableWrap, ...tableScrollBox }}>
             <table style={tbl}>
               <colgroup>
                 <col style={{ width: 100 }} /><col style={{ width: 120 }} /><col /><col style={{ width: 90 }} /><col style={{ width: 130 }} />
               </colgroup>
-              <thead><tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+              <thead><tr style={{ ...stickyHeaderRow, textAlign: 'left' }}>
                 <th style={th}>PO</th>
                 <th style={th}>PI</th>
                 <th style={th}>SKU</th>

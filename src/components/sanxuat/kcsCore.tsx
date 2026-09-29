@@ -104,8 +104,8 @@ function KcsReviewModal({ stageType, line, onClose, onSubmit }: {
   }
 
   return (
-    <div onClick={onClose} style={overlay}>
-      <div onClick={e => e.stopPropagation()} style={card}>
+    <div onClick={onClose} className="dna-modal-overlay-in" style={overlay}>
+      <div onClick={e => e.stopPropagation()} className="dna-modal-card-in" style={card}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Tiến hành duyệt — {line.itemName}</h3>
           <button onClick={onClose} style={iconBtn}><X size={18} /></button>
@@ -169,8 +169,8 @@ function KcsHistoryModal({ title, entries, onClose, onEditPhoto, onDeletePhoto }
   onDeletePhoto?: (entry: AuditLogEntry) => void | Promise<void>
 }) {
   return (
-    <div onClick={onClose} style={overlay}>
-      <div onClick={e => e.stopPropagation()} style={{ ...card, width: 460 }}>
+    <div onClick={onClose} className="dna-modal-overlay-in" style={overlay}>
+      <div onClick={e => e.stopPropagation()} className="dna-modal-card-in" style={{ ...card, width: 460 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Lịch sử — {title}</h3>
           <button onClick={onClose} style={iconBtn}><X size={18} /></button>

@@ -50,7 +50,7 @@ import { useState } from 'react'
 import { useFetch } from '../hooks/useFetch'
 import { getStockLedger, type BeStockLedgerEntry } from '../services/stock-api'
 import LoadingState from './LoadingState'
-import { tableWrap, tbl, compactTh as th, compactTd as td, emptyBox } from '../styles/table'
+import { tableWrap, tbl, compactTh as th, compactTd as td, emptyBox, tableScrollBox, stickyHeaderRow } from '../styles/table'
 
 type Dir = 'ALL' | 'IN' | 'OUT'
 
@@ -182,10 +182,10 @@ export default function WarehouseLedgerHistory({ warehouseId, warehouseCode }: {
         </div>
       </div>
 
-      <div style={{ ...tableWrap, overflowX: 'auto' }}>
+      <div style={{ ...tableWrap, ...tableScrollBox }}>
         <table style={{ ...tbl, minWidth: 1040, tableLayout: 'auto' }}>
           <thead>
-            <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+            <tr style={{ ...stickyHeaderRow, textAlign: 'left' }}>
               <th style={th}>Thời gian</th>
               <th style={th}>Lệnh sản xuất</th>
               <th style={th}>Mã đơn hàng (PO)</th>

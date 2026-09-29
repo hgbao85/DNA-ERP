@@ -9,7 +9,7 @@ import LoadingState from '../../../../components/LoadingState'
 import Pagination from '../../../../components/Pagination'
 import MobileListCards from '../../../../components/MobileListCards'
 import { useIsCompact, useIsMobile } from '../../../../hooks/useMediaQuery'
-import { tableWrap, tbl, th, td, row } from '../../../../styles/table'
+import { tableWrap, tbl, th, td, row, tableScrollBox, stickyHeaderRow } from '../../../../styles/table'
 import { cardTitle } from '../../../../styles/typography'
 import { compactTableMinWidth } from './AdminEntityPage'
 
@@ -155,10 +155,10 @@ export default function AdminReadOnlyList<T extends { id: number | string }>({ c
         </>
       ) : (
         <div style={tableWrap}>
-          <div style={{ overflowX: 'auto' }}>
+          <div style={tableScrollBox}>
             <table style={isCompact ? { ...tbl, minWidth: compactTableMinWidth(config.columns) } : tbl}>
               <thead>
-                <tr style={{ background: 'var(--surface2)' }}>
+                <tr style={stickyHeaderRow}>
                   {config.columns.map(col => (
                     <th key={col.key} style={{ ...th, textAlign: col.align ?? 'left', width: col.width }}>{col.label}</th>
                   ))}

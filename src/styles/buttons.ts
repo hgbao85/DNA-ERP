@@ -23,5 +23,6 @@ export function tabBtn(active: boolean, accent: string): CSSProperties {
     color: active ? accent : 'var(--text2)',
     borderBottom: active ? `2px solid ${accent}` : '2px solid transparent',
     marginBottom: -1,
+    transition: 'color .15s ease, border-color .15s ease',
   }
 }

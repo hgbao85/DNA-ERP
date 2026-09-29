@@ -630,7 +630,7 @@ export default function GomDotCatPage({ onDone }: Props) {
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <div style={{ flex: 1 }}>
           <h2 style={{ ...pageTitle, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Layers size={19} color="var(--fg-e65100)" /> Tối ưu cắt sắt
+            <Layers size={20} color="var(--fg-e65100)" /> Tối ưu cắt sắt
           </h2>
           <div style={{ ...pageSubtitle, marginTop: 4 }}>
             Chọn các SKU muốn cắt chung một đợt để bớt số cây sắt phải mua. Chỉ gồm SKU{' '}

@@ -8,7 +8,7 @@ import * as api from '../../../services/api'
 import type { BeWeavingIssuePlanItem } from '../../../services/weaving-issues-api'
 import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
 import { errMsg } from '../../../utils/errors'
-import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
+import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle, tableScrollBox, stickyHeaderRow } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
@@ -117,10 +117,10 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
         {planLoading ? <LoadingState /> : plan.length === 0 ? (
           <div style={emptyBox}>Chưa có mảnh nào được xuất đan cho SKU này</div>
         ) : (
-          <div style={tableWrap}>
+          <div style={{ ...tableWrap, ...tableScrollBox }}>
             <table style={{ ...tbl, tableLayout: 'auto' }}>
               <thead>
-                <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                <tr style={{ ...stickyHeaderRow, textAlign: 'left' }}>
                   <th style={thStyle}>Mảnh</th>
                   <th style={thStyle}>Điểm đan</th>
                   <th style={{ ...thStyle, textAlign: 'right' }}>Đã xuất</th>
@@ -191,7 +191,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
         <MobileListCards emptyText="Không có PI nào" items={active.map(pf => ({ key: String(pf.id), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng' }, { label: 'Hạn giao', value: pf.exportOrder?.deliveryDate ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy') : '—' }] }))} />
       ) : (
-        <div style={tableWrap}>
+        <div style={{ ...tableWrap, ...tableScrollBox }}>
           <table style={tbl}>
             <colgroup>
               <col style={{ width: 100 }} />
@@ -200,7 +200,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
               <col style={{ width: 130 }} />
             </colgroup>
             <thead>
-              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+              <tr style={{ ...stickyHeaderRow, textAlign: 'left' }}>
                 <th style={thStyle}>PO</th>
                 <th style={thStyle}>PI</th>
                 <th style={thStyle}>SKU</th>

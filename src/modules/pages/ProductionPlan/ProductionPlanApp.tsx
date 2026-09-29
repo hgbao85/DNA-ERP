@@ -124,7 +124,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
             <div style={{ fontSize: 10, color: 'var(--text3)' }}>Kế hoạch SX</div>
           </div>
           <ThemeToggle />
-          <NotificationCenter color="var(--text3)" />
+          {!isCompact && <NotificationCenter color="var(--text3)" />}
           <button onClick={logout} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }} title="Đăng xuất">
             <LogOut size={16} color="var(--text3)" />
           </button>
@@ -172,8 +172,8 @@ export default function ProductionPlanApp({ onBack }: Props) {
 
       {drawerOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex' }}>
-          <div onClick={() => setDrawerOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.4)' }} />
-          <div style={{ position: 'relative', height: '100%', boxShadow: '4px 0 20px rgba(0,0,0,.15)' }}>{sidebar}</div>
+          <div onClick={() => setDrawerOpen(false)} className="dna-drawer-backdrop-in" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.4)' }} />
+          <div className="dna-drawer-panel-in" style={{ position: 'relative', height: '100%', boxShadow: '4px 0 20px rgba(0,0,0,.15)' }}>{sidebar}</div>
         </div>
       )}
     </div>

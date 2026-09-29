@@ -14,6 +14,7 @@
 import { Fragment, type ReactNode } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { useIsMobile } from '../../hooks/useMediaQuery'
+import { tableScrollBox, stickyHeaderRow } from '../../styles/table'
 
 export interface BoardColumn<T> {
   key: string
@@ -125,9 +126,9 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
           )}
         </div>
       ) : (
-      <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: 'var(--space-5)' }}>
+      <div style={{ ...tableScrollBox, border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: 'var(--space-5)' }}>
         <table style={tbl}>
-          <thead><tr style={trh}>
+          <thead><tr style={{ ...trh, ...stickyHeaderRow }}>
             {p.columns.map(c => (
               <th key={c.key} style={{ ...(c.align === 'right' ? thR : th), ...(c.width ? { width: c.width } : {}) }}>{c.header}</th>
             ))}

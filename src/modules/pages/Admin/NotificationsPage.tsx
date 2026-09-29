@@ -22,7 +22,7 @@ import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import Pagination from '../../../components/Pagination'
 import { btnSecondary } from '../../../styles/buttons'
-import { tableWrap, tbl, th, td, row } from '../../../styles/table'
+import { tableWrap, tbl, th, td, row, tableScrollBox, stickyHeaderRow } from '../../../styles/table'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 const AUDIENCE_LABEL: Record<string, string> = {
@@ -159,10 +159,10 @@ export default function NotificationsPage() {
         <EmptyState icon={<Bell size={32} style={{ marginBottom: 8, opacity: 0.4 }} />} message={search ? 'Không tìm thấy thông báo nào khớp.' : 'Chưa có thông báo chung nào.'} />
       ) : (
         <>
-          <div style={tableWrap}>
+          <div style={{ ...tableWrap, ...tableScrollBox }}>
             <table style={tbl}>
               <thead>
-                <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                <tr style={{ ...stickyHeaderRow, textAlign: 'left' }}>
                   <th style={th}>Tiêu đề</th>
                   <th style={th}>Nội dung</th>
                   <th style={{ ...th, width: 130 }}>Đối tượng</th>

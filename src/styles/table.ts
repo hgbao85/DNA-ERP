@@ -20,3 +20,16 @@ export const tbl: CSSProperties       = { width: '100%', minWidth: 600, borderCo
 export const row: CSSProperties       = { borderTop: '1px solid var(--border)', cursor: 'pointer' }
 export const badge: CSSProperties     = { display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 10px', borderRadius: 20 }
 export const emptyBox: CSSProperties  = { padding: 48, textAlign: 'center', color: 'var(--text3)', border: '1px solid var(--border)', borderRadius: 12, fontSize: 14 }
+
+/** Khung cuộn RIÊNG cho phần <table> khi muốn header dính (sticky) - áp vào div bọc TRỰC TIẾP
+ *  <table>, KHÔNG áp vào tableWrap ngoài cùng nếu wrap đó còn chứa footer/phân trang (footer sẽ bị
+ *  cuộn mất theo nếu đặt maxHeight ở tableWrap). overflowX ở đây thay thế luôn overflowX của
+ *  tableWrap (dùng 1 trong 2, không lồng 2 lớp overflow-x cùng lúc - dễ ra 2 thanh cuộn ngang).
+ *  maxHeight 70vh: bảng ngắn hơn khung nhìn KHÔNG đổi gì (không có gì để cuộn); chỉ bảng dài hơn mới
+ *  tự cuộn bên trong với <thead> (stickyHeaderRow) luôn dính trên cùng - tránh phải cuộn cả trang lên
+ *  lại để xem tên cột. */
+export const tableScrollBox: CSSProperties = { overflowX: 'auto', overflowY: 'auto', maxHeight: '70vh' }
+
+/** Header <tr> dính khi cuộn bên trong tableScrollBox - ghép vào tr bọc <th> (`<tr style={stickyHeaderRow}>`).
+ *  Nền PHẢI đặt ở đây (không phải từng <th>) vì <tr> trong suốt để lộ nội dung cuộn phía dưới đè lên chữ. */
+export const stickyHeaderRow: CSSProperties = { position: 'sticky', top: 0, zIndex: 1, background: 'var(--surface2)' }

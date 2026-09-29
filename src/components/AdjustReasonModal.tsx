@@ -43,9 +43,10 @@ export default function AdjustReasonModal({
   return (
     <div
       onClick={busy ? undefined : onCancel}
+      className="dna-modal-overlay-in"
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex: 3000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}
     >
-      <div onClick={(e) => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 420, padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,.18)' }}>
+      <div onClick={(e) => e.stopPropagation()} className="dna-modal-card-in" style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 420, padding: 24, boxShadow: '0 8px 32px rgba(0,0,0,.18)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 14 }}>
           <AlertTriangle size={20} color="var(--fg-4527a0)" style={{ flexShrink: 0, marginTop: 1 }} />
           <div>

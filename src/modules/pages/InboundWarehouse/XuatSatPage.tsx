@@ -26,7 +26,7 @@ import * as api from '../../../services/api'
 import type { BeSteelIssuePlanItem, BeSteelIssue } from '../../../services/steel-issues-api'
 import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
 import { errMsg } from '../../../utils/errors'
-import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
+import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle, tableScrollBox, stickyHeaderRow } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import type { Sku } from '../../../types/sku'
@@ -157,10 +157,10 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
             xuất được.
           </div>
         ) : (
-          <div style={tableWrap}>
+          <div style={{ ...tableWrap, ...tableScrollBox }}>
             <table style={{ ...tbl, tableLayout: 'auto' }}>
               <thead>
-                <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                <tr style={{ ...stickyHeaderRow, textAlign: 'left' }}>
                   <th style={thStyle}>Vật tư</th>
                   <th style={{ ...thStyle, textAlign: 'right' }}>Cần</th>
                   <th style={{ ...thStyle, textAlign: 'right' }}>Đã xuất</th>
@@ -274,7 +274,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
         <MobileListCards emptyText="Không có PI nào" items={piGroups.map(g => ({ key: String(g.productionInvoiceId), onClick: () => setSelectedPi(g), title: <b>{g.skus.map(pf => pf.mfgProduct?.factoryCode).filter(Boolean).join(', ') || '—'}</b>, meta: [{ label: 'PI', value: g.piCode }, { label: 'PO', value: g.poCode ?? 'Gộp nhiều đơn' }] }))} />
       ) : (
-        <div style={tableWrap}>
+        <div style={{ ...tableWrap, ...tableScrollBox }}>
           <table style={tbl}>
             <colgroup>
               <col style={{ width: 130 }} />
@@ -282,7 +282,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
               <col />
             </colgroup>
             <thead>
-              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+              <tr style={{ ...stickyHeaderRow, textAlign: 'left' }}>
                 <th style={thStyle}>PI</th>
                 <th style={thStyle}>PO</th>
                 <th style={thStyle}>Sản phẩm</th>

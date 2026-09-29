@@ -26,9 +26,9 @@ import Pagination from './Pagination'
 
 const SEVERITY_STYLE: Record<string, { color: string; Icon: typeof Info }> = {
   INFO: { color: 'var(--text3)', Icon: Info },
-  SUCCESS: { color: '#2e7d32', Icon: CheckCircle2 },
-  WARNING: { color: '#e65100', Icon: AlertTriangle },
-  CRITICAL: { color: '#c62828', Icon: AlertCircle },
+  SUCCESS: { color: 'var(--fg-2e7d32)', Icon: CheckCircle2 },
+  WARNING: { color: 'var(--fg-e65100)', Icon: AlertTriangle },
+  CRITICAL: { color: 'var(--fg-c62828)', Icon: AlertCircle },
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -72,7 +72,7 @@ function Row({ n, onOpen }: { n: Notification; onOpen: (n: Notification) => void
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
           <div style={{ fontSize: 14, fontWeight: n.isRead ? 500 : 700, flex: 1, minWidth: 0 }}>{n.title}</div>
-          {!n.isRead && <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#1976d2', flexShrink: 0 }} />}
+          {!n.isRead && <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--fg-1976d2)', flexShrink: 0 }} />}
         </div>
         <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 3 }}>{n.message}</div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6, fontSize: 11.5, color: 'var(--text3)' }}>
@@ -80,7 +80,7 @@ function Row({ n, onOpen }: { n: Notification; onOpen: (n: Notification) => void
             {CATEGORY_LABEL[n.category] ?? n.category}
           </span>
           <span>{fmtDateTime(n.createdAt)}</span>
-          {n.isResolved && <span style={{ color: '#2e7d32', fontWeight: 600 }}>· Đã xử lý</span>}
+          {n.isResolved && <span style={{ color: 'var(--fg-2e7d32)', fontWeight: 600 }}>· Đã xử lý</span>}
         </div>
       </div>
     </button>
@@ -152,10 +152,10 @@ export default function MyNotificationsPage({ onClose }: MyNotificationsPageProp
         <button onClick={onClose} aria-label="Đóng, quay lại màn trước" style={{ padding: 6, background: 'transparent', border: 'none', cursor: 'pointer', display: 'flex' }}>
           <ArrowLeft size={20} />
         </button>
-        <Bell size={18} color="#1976d2" />
+        <Bell size={18} color="var(--fg-1976d2)" />
         <h1 style={{ margin: 0, fontSize: 17, fontWeight: 700, flex: 1 }}>Thông báo của tôi</h1>
         {hasUnread && (
-          <button onClick={markAllRead} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', fontSize: 13, fontWeight: 600, color: '#1976d2', background: 'none', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' }}>
+          <button onClick={markAllRead} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', fontSize: 13, fontWeight: 600, color: 'var(--fg-1976d2)', background: 'none', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer' }}>
             <CheckCheck size={14} /> Đọc tất cả
           </button>
         )}

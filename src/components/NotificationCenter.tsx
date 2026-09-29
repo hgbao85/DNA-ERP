@@ -147,11 +147,13 @@ export default function NotificationCenter({ size = 16, color }: NotificationCen
   // document-mousedown-listener riêng trước đây (đơn giản hơn, không phụ thuộc DOM ref).
   const panel = (
     <div
+      className="dna-drawer-backdrop-in"
       style={{ position: 'fixed', inset: 0, zIndex: 1200, background: isCompact ? 'rgba(0,0,0,.25)' : 'transparent' }}
       onClick={() => setOpen(false)}
     >
       <div
         onClick={e => e.stopPropagation()}
+        className="dna-modal-card-in"
         style={isCompact ? {
           position: 'absolute', top: 56, right: 12,
           width: 'min(360px, calc(100vw - 24px))', maxHeight: '75vh',

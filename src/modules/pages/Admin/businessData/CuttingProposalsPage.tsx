@@ -11,7 +11,7 @@ import Pagination from '../../../../components/Pagination'
 import ConfirmModal from '../../../../components/ConfirmModal'
 import MobileListCards from '../../../../components/MobileListCards'
 import { useIsCompact, useIsMobile } from '../../../../hooks/useMediaQuery'
-import { tableWrap, tbl, th, td, row, badge } from '../../../../styles/table'
+import { tableWrap, tbl, th, td, row, badge, tableScrollBox, stickyHeaderRow } from '../../../../styles/table'
 import { cardTitle } from '../../../../styles/typography'
 import { buildCuttingGuideTable, exportCuttingGuideExcel, printCuttingGuide } from '../../../../utils/cuttingGuide'
 import PrintExportButton from '../../../../components/PrintExportButton'
@@ -208,7 +208,7 @@ export default function CuttingProposalsPage() {
       ) : error ? (
         <LoadErrorState error={error} onRetry={refetch} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<Scissors size={16} color={ACCENT} />} message="Chưa có đề xuất cắt sắt nào" />
+        <EmptyState icon={<Scissors size={28} color={ACCENT} />} message="Chưa có đề xuất cắt sắt nào" />
       ) : isMobile ? (
         <>
           <MobileListCards
@@ -233,10 +233,10 @@ export default function CuttingProposalsPage() {
         </>
       ) : (
         <div style={tableWrap}>
-          <div style={{ overflowX: 'auto' }}>
+          <div style={tableScrollBox}>
             <table style={isCompact ? { ...tbl, minWidth: 880 } : tbl}>
               <thead>
-                <tr style={{ background: 'var(--surface2)' }}>
+                <tr style={stickyHeaderRow}>
                   <th style={th}>Mã PO</th>
                   <th style={th}>SKU / Sản phẩm</th>
                   <th style={th}>Trạng thái</th>

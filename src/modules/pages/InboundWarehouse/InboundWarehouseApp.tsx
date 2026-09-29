@@ -286,8 +286,8 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
 
       {drawerOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex' }}>
-          <div onClick={() => setDrawerOpen(false)} style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.4)' }} />
-          <div style={{ position: 'relative', height: '100%', boxShadow: '4px 0 20px rgba(0,0,0,.15)' }}>{sidebar}</div>
+          <div onClick={() => setDrawerOpen(false)} className="dna-drawer-backdrop-in" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,.4)' }} />
+          <div className="dna-drawer-panel-in" style={{ position: 'relative', height: '100%', boxShadow: '4px 0 20px rgba(0,0,0,.15)' }}>{sidebar}</div>
         </div>
       )}
     </div>

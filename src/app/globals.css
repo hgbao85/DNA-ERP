@@ -83,9 +83,17 @@ button {
   background: var(--surface);
   color: var(--text);
   padding: 7px 14px;
-  transition: background 0.15s, border-color 0.15s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 button:hover { background: var(--surface2); }
+
+/* Focus rõ ràng cho điều hướng bàn phím (Tab) - :focus-visible nên KHÔNG hiện khi bấm chuột, chỉ
+   khi thật sự dùng bàn phím. Trước đây button/link không có style riêng, dựa hoàn toàn vào outline
+   mặc định của trình duyệt (khác màu/hình dạng tuỳ browser, không theo border-radius của app). */
+button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
 
 button.primary {
   background: var(--blue);
@@ -164,6 +172,34 @@ textarea { resize: vertical; min-height: 80px; }
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* Hiệu ứng mở modal dùng chung (Modal.tsx, ConfirmModal.tsx, AdjustReasonModal.tsx, kcsCore.tsx) -
+   overlay fade nhanh + thẻ nội dung fade nhẹ, không có hiệu ứng đóng (modal đóng bằng unmount ngay,
+   không giữ state để animate ra).
+   CHỈ dùng opacity, KHÔNG dùng transform (2026-09-29, sửa bug thật): mọi giá trị transform khác
+   'none' - kể cả transform "identity" translateX(0)/scale(1) còn giữ lại sau khi animation kết thúc
+   (animation-fill-mode: forwards) - biến phần tử thành containing block MỚI cho con cháu
+   position:fixed/absolute (CSS spec). Modal/drawer panel thường lồng những thứ tự định vị fixed
+   riêng (SearchableSelect/DatePicker dropdown dùng position:fixed, NotificationCenter panel cũng
+   vậy) - nếu cha có transform (dù chỉ trong lúc chạy animation), các phần tử fixed đó bị "nhốt"
+   trong khung cha thay vì bám đúng viewport, gây lệch/che mất - hồi 29/09 phát hiện qua chuông
+   thông báo đặt trong sidebar bị kẹt trong drawer mobile đang có transform trượt vào. */
+@keyframes dnaModalOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dnaModalCardIn { from { opacity: 0; } to { opacity: 1; } }
+.dna-modal-overlay-in { animation: dnaModalOverlayIn 0.12s ease forwards; }
+.dna-modal-card-in { animation: dnaModalCardIn 0.15s ease forwards; }
+
+/* Drawer menu mobile (*App.tsx) + panel thông báo (NotificationCenter.tsx) - cùng lý do: hiện bật
+   tắt tức thì (chỉ điều kiện render), thao tác lặp lại rất nhiều trên điện thoại/mọi màn hình.
+   Chỉ opacity - lý do giống hệt khối modal phía trên (không dùng transform). */
+@keyframes dnaDrawerBackdropIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dnaDrawerPanelIn { from { opacity: 0; } to { opacity: 1; } }
+.dna-drawer-backdrop-in { animation: dnaDrawerBackdropIn 0.12s ease forwards; }
+.dna-drawer-panel-in { animation: dnaDrawerPanelIn 0.15s ease forwards; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dna-modal-overlay-in, .dna-modal-card-in, .dna-drawer-backdrop-in, .dna-drawer-panel-in { animation: none !important; }
+}
 
 /* Dòng "Không có ... nào" nằm trong bảng có sàn minWidth (cuộn ngang trên điện thoại): căn giữa theo
    bảng 600px sẽ đẩy chữ ra ngoài mép phải màn hình. Khối nằm sát mép trái ô (KHÔNG margin auto - sticky

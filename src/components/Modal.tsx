@@ -17,9 +17,10 @@ export default function Modal({ open, onClose, maxWidth = 440, zIndex = 1000, ch
   return (
     <div
       onClick={e => { if (onClose && e.target === e.currentTarget) onClose() }}
+      className="dna-modal-overlay-in"
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(12px, 4vw, 24px)' }}
     >
-      <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth, maxHeight: '90dvh', overflowY: 'auto', padding: 'clamp(20px, 5vw, 28px)', boxShadow: 'var(--shadow-md)' }}>
+      <div className="dna-modal-card-in" style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth, maxHeight: '90dvh', overflowY: 'auto', padding: 'clamp(20px, 5vw, 28px)', boxShadow: 'var(--shadow-md)' }}>
         {children}
       </div>
     </div>
