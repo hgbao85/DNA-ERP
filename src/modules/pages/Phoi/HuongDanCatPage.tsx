@@ -27,6 +27,7 @@ import {
 import { buildCuttingGuideTable, buildPieceSummary, exportCuttingGuideExcel, exportCuttingGuideExcelAll, printCuttingGuide } from '../../../utils/cuttingGuide'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import PrintExportButton from '../../../components/PrintExportButton'
 
 const ACCENT = 'var(--fg-e65100)'
@@ -76,10 +77,10 @@ export default function HuongDanCatPage({ initialPiId, onConsumeInitialPi }: {
 
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      <h2 style={{ ...pageTitle, marginBottom: 2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
         <Ruler size={20} /> Hướng dẫn cắt
       </h2>
-      <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Bảng cắt theo đúng phương án đã duyệt cho từng loại sắt — chọn PO/PI để xem chi tiết và xuất file in.
       </div>
       <div style={card}>

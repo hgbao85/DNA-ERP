@@ -62,6 +62,7 @@ import { errMsg } from '../../../utils/errors'
 import { useConfirm } from '../../../hooks/useConfirm'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import VatTuTpDetail, { type VatTuTpItem } from './VatTuTpDetail'
 import {
   ACCENT, GREEN, RED, AMBER, PURPLE, th, thR, td, tdR, card, smallBtn, inp, subFilterBtn,
@@ -254,10 +255,10 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
 
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      <h2 style={{ ...pageTitle, marginBottom: 2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
         <Wrench size={20} /> Lệnh sản xuất — Công đoạn Phôi
       </h2>
-      <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Theo dõi tiến độ cắt sắt + vật tư thành phẩm theo PO/PI — bấm để báo cắt xong / đánh dấu công đoạn theo từng đợt. Xác nhận nhận sắt làm ở <b>Xác nhận nhận sắt</b>.
       </div>
 

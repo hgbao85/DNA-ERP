@@ -19,7 +19,7 @@ export default function Modal({ open, onClose, maxWidth = 440, zIndex = 1000, ch
       onClick={e => { if (onClose && e.target === e.currentTarget) onClose() }}
       style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', zIndex, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 'clamp(12px, 4vw, 24px)' }}
     >
-      <div style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth, maxHeight: '90dvh', overflowY: 'auto', padding: 'clamp(16px, 5vw, 24px)', boxShadow: '0 8px 32px rgba(0,0,0,.18)' }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', width: '100%', maxWidth, maxHeight: '90dvh', overflowY: 'auto', padding: 'clamp(20px, 5vw, 28px)', boxShadow: 'var(--shadow-md)' }}>
         {children}
       </div>
     </div>

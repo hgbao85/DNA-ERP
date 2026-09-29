@@ -29,6 +29,7 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
+import { pageSubtitle } from '../../../styles/typography'
 
 const ACCENT = 'var(--fg-4527a0)'
 
@@ -168,7 +169,7 @@ export default function XuatVatTuThanhPhamPage() {
   // ── List view ─────────────────────────────────────────────────────────────────
   return (
     <div>
-      <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Xuất Sắt La (Pat) / Thanh nhôm (chân nhôm) cho Phôi theo lệnh sản xuất.
       </div>
 

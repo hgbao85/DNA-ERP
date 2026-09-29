@@ -8,6 +8,7 @@ import Modal from '../../../components/Modal'
 import ConfirmModal from '../../../components/ConfirmModal'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import EmptyState from '../../../components/EmptyState'
 
 // Văn phòng phẩm/vật tư sinh hoạt (bút, giấy...) - HOÀN TOÀN tách biệt khỏi "Tổng hợp vật tư"
@@ -179,13 +180,13 @@ export default function OfficeSuppliesPage({ warehouseCode }: OfficeSuppliesPage
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Văn phòng phẩm</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 style={{ ...pageTitle, margin: 0 }}>Văn phòng phẩm</h2>
         <button onClick={openCreate} style={{ ...btnPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Plus size={15} /> Thêm vật tư
         </button>
       </div>
-      <p style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 14 }}>
+      <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Đồ dùng sinh hoạt/văn phòng (bút, giấy...) - KHÔNG liên quan định mức sản xuất. Riêng theo
         từng kho - mỗi lần nhập/xuất đều lưu lịch sử.
       </p>

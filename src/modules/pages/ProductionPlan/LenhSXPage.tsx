@@ -12,6 +12,7 @@ import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 // Nhãn các cột mốc thời gian SKU - trên điện thoại hiện kèm từng ô ngày (không còn hàng tiêu đề bảng).
 const DATE_COL_LABELS = ['Mua hàng', 'Khung CK', 'Đan', 'Đóng gói', 'Hạn giao']
@@ -609,10 +610,10 @@ export default function LenhSXPage() {
         ) : (
           /* ── DANH SÁCH PI (Boss/QLSX) — thu gọn, bấm vào để xem chi tiết + thao tác ── */
           <div>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom: isMobile ? 14 : 20 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom: isMobile ? 14 : 'var(--space-5)' }}>
               <div>
-                <h2 style={{ margin:0, fontSize:20, fontWeight:700 }}>{isBoss ? 'Duyệt lệnh sản xuất' : 'Xử lý lệnh sản xuất'}</h2>
-                <p style={{ margin:'4px 0 0', fontSize:13, color:'var(--text3)' }}>{piGroups.length} PI chờ {isBoss ? 'duyệt' : 'xử lý'}</p>
+                <h2 style={{ ...pageTitle, margin: 0 }}>{isBoss ? 'Duyệt lệnh sản xuất' : 'Xử lý lệnh sản xuất'}</h2>
+                <p style={{ ...pageSubtitle, margin: '2px 0 0' }}>{piGroups.length} PI chờ {isBoss ? 'duyệt' : 'xử lý'}</p>
               </div>
               {searchBox}
             </div>
@@ -842,10 +843,10 @@ export default function LenhSXPage() {
       ) : (
         /* ── DANH SÁCH PI (KHSX) ────────────────────────────────────────── */
         <div>
-          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom: isMobile ? 14 : 20 }}>
+          <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom: isMobile ? 14 : 'var(--space-5)' }}>
             <div>
-              <h2 style={{ margin:0, fontSize:20, fontWeight:700 }}>Tạo lệnh sản xuất</h2>
-              <p style={{ margin:'4px 0 0', fontSize:13, color:'var(--text3)' }}>{safeList.length} lệnh</p>
+              <h2 style={{ ...pageTitle, margin: 0 }}>Tạo lệnh sản xuất</h2>
+              <p style={{ ...pageSubtitle, margin: '2px 0 0' }}>{safeList.length} lệnh</p>
             </div>
             {searchBox}
           </div>

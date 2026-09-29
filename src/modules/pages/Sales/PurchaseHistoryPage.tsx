@@ -10,6 +10,7 @@ import SearchableSelect from '../../../components/SearchableSelect'
 import EmptyState from '../../../components/EmptyState'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 export default function PurchaseHistoryPage() {
   const { data: customers } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers())
@@ -23,12 +24,12 @@ export default function PurchaseHistoryPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 18 }}>Lịch sử mua hàng</div>
-        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Chọn khách hàng để xem lịch sử mua hàng</div>
+      <div style={{ marginBottom: 'var(--space-6)' }}>
+        <div style={pageTitle}>Lịch sử mua hàng</div>
+        <div style={pageSubtitle}>Chọn khách hàng để xem lịch sử mua hàng</div>
       </div>
 
-      <div style={{ marginBottom: 20, maxWidth: isMobile ? '100%' : 320 }}>
+      <div style={{ marginBottom: 'var(--space-6)', maxWidth: isMobile ? '100%' : 320 }}>
         {/* Không dùng <select> gốc: danh sách xổ do trình duyệt vẽ, không theo khung màn hình
             hẹp - dùng chung ô tìm-để-chọn với form Tạo PO (danh sách nằm gọn dưới ô, gõ lọc được). */}
         <SearchableSelect

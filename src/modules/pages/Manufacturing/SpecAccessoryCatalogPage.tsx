@@ -5,6 +5,7 @@ import * as api from '../../../services/api'
 import type { Sku } from '../../../types/sku'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 // ─── Gộp 3 trang "Danh sách vật tư" (Sơn + Phụ kiện + Bao bì) — cùng cấu trúc dữ liệu,
 // chỉ khác group key trong MaterialType. Tab để chuyển giữa 3 nhóm, không đổi route/menu riêng.
@@ -86,9 +87,9 @@ export default function SpecAccessoryCatalogPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Tổng hợp vật tư</h2>
-        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>{labels.hint}</p>
+      <div style={{ marginBottom: 'var(--space-5)' }}>
+        <h2 style={{ ...pageTitle, margin: 0 }}>Tổng hợp vật tư</h2>
+        <p style={{ ...pageSubtitle, margin: '2px 0 0' }}>{labels.hint}</p>
       </div>
 
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)' }}>

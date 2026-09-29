@@ -26,6 +26,7 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
+import { pageSubtitle } from '../../../styles/typography'
 
 const ACCENT = 'var(--fg-4527a0)'
 
@@ -172,7 +173,7 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
   // ── List view ─────────────────────────────────────────────────────────────────
   return (
     <div>
-      <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>{desc}</div>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>{desc}</div>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
         <MobileListCards emptyText="Không có PO nào" items={active.map(pf => ({ key: String(pf.id), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? 'Chưa gắn đơn hàng' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? '—' }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />

@@ -10,6 +10,7 @@ import { visibleProposalsFor, buildBuyerByMaterialId, splitItemsByOwner, rollupS
 import PurchaseProposalAuditTrail from '../../../components/PurchaseProposalAuditTrail'
 import { ItemCard, ProposalCards } from './mobileCards'
 import EmptyState from '../../../components/EmptyState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 export default function LenhMuaNCCPage() {
   const { user } = useAuth()
@@ -35,8 +36,8 @@ export default function LenhMuaNCCPage() {
 
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Lệnh mua vật tư</h2>
-      <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20 }}>
+      <h2 style={pageTitle}>Lệnh mua vật tư</h2>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-6)' }}>
         Dựa vào số lượng cần mua dưới đây để làm phiếu so sánh giá, xin Sếp ký duyệt, rồi tải file đã ký lên để Kho được phép nhận hàng.
       </div>
 
@@ -248,7 +249,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
       <div style={{ marginBottom: 24, display: 'flex', flexDirection: isCompact ? 'column' : 'row', gap: 20, alignItems: isCompact ? 'stretch' : 'flex-start' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
         {/* Back bar */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
           <button
             onClick={() => setSelectedId(null)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)' }}
@@ -419,8 +420,8 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
 
   // ── List view ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ marginBottom: 24 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+    <div style={{ marginBottom: 'var(--space-6)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--space-3)' }}>
         <ClipboardList size={16} color="var(--fg-d97706)" />
         <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--fg-92400e)' }}>Đề xuất mua từ Quản lý SX</span>
         {pendingCount > 0 && (

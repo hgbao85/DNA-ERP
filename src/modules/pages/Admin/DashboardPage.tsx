@@ -7,6 +7,7 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
 import type { AuditLogEntry } from '../../../context/AuditLogContext'
 import type { SystemUser } from '../../../types/admin'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 interface DashboardPageProps {
   onViewAuditLog: () => void
@@ -14,7 +15,7 @@ interface DashboardPageProps {
 
 function StatTile({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: number | string; accent: string }) {
   return (
-    <div style={{ flex: 1, minWidth: 160, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px' }}>
+    <div className="card" style={{ flex: 1, minWidth: 160 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: accent }}>{icon}</div>
       <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text)' }}>{value}</div>
       <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{label}</div>
@@ -46,10 +47,10 @@ export default function DashboardPage({ onViewAuditLog }: DashboardPageProps) {
 
   return (
     <div>
-      <h2 style={{ margin: '0 0 4px', fontSize: 18, fontWeight: 700 }}>Tổng quan</h2>
-      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 18 }}>Số liệu quản trị hệ thống</div>
+      <h2 style={{ ...pageTitle, margin: 0 }}>Tổng quan</h2>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>Số liệu quản trị hệ thống</div>
 
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 'var(--space-6)' }}>
         <StatTile icon={<Users size={18} />} label={`Tổng người dùng (${activeCount} hoạt động)`} value={userList.length} accent="var(--fg-3949ab)" />
         <StatTile icon={<ShieldCheck size={18} />} label="Giám đốc" value={bossCount} accent="var(--fg-2e7d32)" />
         <StatTile icon={<Factory size={18} />} label="Nhân sự sản xuất" value={mfgCount} accent="var(--fg-e65100)" />

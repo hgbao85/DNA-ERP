@@ -7,6 +7,7 @@ import { getSystemStats, resetSystemData } from '../../../services/api'
 import type { SystemStats } from '../../../lib/mock/services/system.service'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -42,11 +43,11 @@ export default function SystemStatusPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Activity size={18} color="var(--fg-3949ab)" />
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Tình trạng hệ thống</h2>
+        <h2 style={{ ...pageTitle, margin: 0 }}>Tình trạng hệ thống</h2>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 18 }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Toàn bộ dữ liệu là mock lưu trong trình duyệt (localStorage) — không có backend thật nên không có nhật ký lỗi server.
       </div>
 

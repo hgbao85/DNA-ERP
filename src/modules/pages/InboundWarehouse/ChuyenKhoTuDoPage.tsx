@@ -9,6 +9,7 @@ import { safeArr } from '../../../utils/array'
 import { warehouseFamilyOf } from '../../../utils/warehouseFamily'
 import { errMsg } from '../../../utils/errors'
 import { compactTh as th, compactTd as td, emptyBox } from '../../../styles/table'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 const ACCENT = 'var(--fg-4527a0)'
 
@@ -126,10 +127,10 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
 
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 4px', display: 'flex', alignItems: 'center', gap: 8 }}>
+      <h2 style={{ ...pageTitle, marginBottom: 2, display: 'flex', alignItems: 'center', gap: 8 }}>
         <ArrowLeftRight size={20} color={ACCENT} /> Chuyển kho ngoài đơn hàng
       </h2>
-      <p style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 18 }}>
+      <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Dùng khi chuyển vật tư KHÔNG gắn với đơn hàng (PO/PI) cụ thể nào — chọn vật tư đang có tồn,
         nhập số lượng, chọn kho đích, không cần theo đúng thứ tự chuỗi kho. Nếu xuất cho 1 đơn hàng cụ
         thể (đóng gói, giao khách...), dùng tab &quot;Xuất theo đơn hàng&quot; để tiến độ đơn được cập

@@ -25,6 +25,7 @@ import type { BeMaterialIssue, MaterialIssueStage } from '../../../services/mate
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle } from '../../../styles/typography'
 
 const ACCENT = 'var(--fg-e65100)'
 
@@ -87,8 +88,8 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: M
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6, flexWrap: 'wrap', gap: 12 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-5)', flexWrap: 'wrap', gap: 12 }}>
+        <h2 style={{ ...pageTitle, display: 'flex', alignItems: 'center', gap: 8 }}>
           <PackageCheck size={20} /> Xác nhận sản lượng
         </h2>
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>

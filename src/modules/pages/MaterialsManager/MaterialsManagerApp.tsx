@@ -37,7 +37,7 @@ export default function MaterialsManagerApp({ onBack }: Props) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100dvh', overflow: 'hidden' }}>
       {header}
-      <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: isCompact ? '14px 12px 24px' : '20px 24px' }}>
+      <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: isCompact ? '16px 14px 24px' : 'var(--space-6) var(--space-7)' }}>
         <MaterialsPage />
       </div>
     </div>

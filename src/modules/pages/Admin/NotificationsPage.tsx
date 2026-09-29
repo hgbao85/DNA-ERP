@@ -19,9 +19,11 @@ import Modal from '../../../components/Modal'
 import SearchInput from '../../../components/SearchInput'
 import EmptyState from '../../../components/EmptyState'
 import LoadingState from '../../../components/LoadingState'
+import LoadErrorState from '../../../components/LoadErrorState'
 import Pagination from '../../../components/Pagination'
 import { btnSecondary } from '../../../styles/buttons'
 import { tableWrap, tbl, th, td, row } from '../../../styles/table'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 const AUDIENCE_LABEL: Record<string, string> = {
   all: 'Tất cả',
@@ -76,8 +78,8 @@ function CreateAnnouncementModal({ open, onClose, onCreated }: { open: boolean; 
 
   return (
     <Modal open={open} onClose={close}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-        <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Tạo thông báo chung</h3>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-5)' }}>
+        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Tạo thông báo chung</h3>
         <button onClick={close} style={{ padding: 4, background: 'none', border: 'none', cursor: 'pointer', display: 'flex' }}><X size={18} color="var(--text3)" /></button>
       </div>
       <div style={{ marginBottom: 12 }}>
@@ -94,13 +96,13 @@ function CreateAnnouncementModal({ open, onClose, onCreated }: { open: boolean; 
           {AUDIENCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
-      {error && <div style={{ fontSize: 12, color: '#c62828', marginBottom: 12 }}>{error}</div>}
+      {error && <div style={{ fontSize: 12, color: 'var(--fg-c62828)', marginBottom: 12 }}>{error}</div>}
       <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
         <button style={btnSecondary} onClick={close}>Hủy</button>
         <button
           onClick={submit}
           disabled={saving}
-          style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, color: '#fff', background: '#3949ab', border: 'none', borderRadius: 8, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}
+          style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--fg-3949ab)', border: 'none', borderRadius: 8, cursor: saving ? 'default' : 'pointer', opacity: saving ? 0.7 : 1 }}
         >
           {saving ? 'Đang gửi...' : 'Gửi thông báo'}
         </button>
@@ -110,7 +112,7 @@ function CreateAnnouncementModal({ open, onClose, onCreated }: { open: boolean; 
 }
 
 export default function NotificationsPage() {
-  const { data, isLoading, refetch } = useFetch(() => getSentAnnouncements(1, 200))
+  const { data, isLoading, error, refetch } = useFetch(() => getSentAnnouncements(1, 200))
   const announcements = useMemo(() => data?.data ?? [], [data])
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -130,27 +132,29 @@ export default function NotificationsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 'var(--space-2)', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
-          <Bell size={18} color="#3949ab" />
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Thông báo chung</h2>
+          <Bell size={18} color="var(--fg-3949ab)" />
+          <h2 style={{ ...pageTitle, margin: 0 }}>Thông báo chung</h2>
           <span style={{ fontSize: 12, color: 'var(--text3)' }}>({filtered.length})</span>
         </div>
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1) }} placeholder="Tìm theo tiêu đề hoặc nội dung..." />
         <button
           onClick={() => setShowCreate(true)}
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, color: '#fff', background: '#3949ab', border: 'none', borderRadius: 8, cursor: 'pointer' }}
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--fg-3949ab)', border: 'none', borderRadius: 8, cursor: 'pointer' }}
         >
           <Plus size={14} /> Tạo thông báo
         </button>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-4)' }}>
         Chỉ dùng cho tin nhắn chung (thông báo lịch nghỉ, thay đổi quy trình...) — thông báo về từng
         lệnh sản xuất/đơn hàng cụ thể do hệ thống tự phát khi có việc cần xử lý, không tạo tay ở đây.
       </div>
 
       {isLoading ? (
         <LoadingState />
+      ) : error || !data ? (
+        <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
       ) : filtered.length === 0 ? (
         <EmptyState icon={<Bell size={32} style={{ marginBottom: 8, opacity: 0.4 }} />} message={search ? 'Không tìm thấy thông báo nào khớp.' : 'Chưa có thông báo chung nào.'} />
       ) : (

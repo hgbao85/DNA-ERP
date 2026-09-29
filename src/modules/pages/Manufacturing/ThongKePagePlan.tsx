@@ -18,6 +18,7 @@ import type { MockPiece } from '../../../lib/mock/chuyen-kiem-fixtures'
 import { tabBtn, btnSecondary } from '../../../styles/buttons'
 import ProgressBar from '../../../components/ProgressBar'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import type { BePhoiProgressItem } from '../../../services/steel-issues-api'
 import type { BeProductionBatchPlan } from '../../../services/production-batches-api'
 import type { BeWeavingIssuePlanItem } from '../../../services/weaving-issues-api'
@@ -1755,9 +1756,9 @@ export default function ThongKePagePlan() {
   return (
     <div>
       {failedBanner}
-      <div style={{ marginBottom: 20 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Tổng hợp lệnh SX</h2>
-        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text3)' }}>
+      <div style={{ marginBottom: 'var(--space-5)' }}>
+        <h2 style={{ ...pageTitle, margin: 0 }}>Tổng hợp lệnh SX</h2>
+        <p style={{ ...pageSubtitle, margin: '2px 0 0' }}>
           Tổng {counts.all} PI · Đang sản xuất {counts.PRODUCING} · Hoàn thành {counts.DONE}
           {counts.OVERDUE > 0 && <span style={{ color: 'var(--fg-dc2626)', fontWeight: 700 }}> · ⚠ Quá hạn {counts.OVERDUE}</span>}
         </p>

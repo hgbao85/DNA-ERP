@@ -14,6 +14,7 @@ import MobileListCards from '../../../../components/MobileListCards'
 import { useIsCompact, useIsMobile } from '../../../../hooks/useMediaQuery'
 import { btnSecondary } from '../../../../styles/buttons'
 import { tableWrap, tbl, th, td, row } from '../../../../styles/table'
+import { pageTitle } from '../../../../styles/typography'
 
 export interface AdminColumn<T> {
   key: string
@@ -369,11 +370,11 @@ export default function AdminEntityPage<T extends { id: number | string }>({
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 'var(--space-5)', flexWrap: 'wrap' }}>
         {!embedded && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: isMobile ? '100%' : 0 }}>
             {config.icon}
-            <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{config.title}</h2>
+            <h2 style={{ ...pageTitle, margin: 0 }}>{config.title}</h2>
             <span style={{ fontSize: 12, color: 'var(--text3)' }}>({filtered.length})</span>
           </div>
         )}
@@ -389,7 +390,7 @@ export default function AdminEntityPage<T extends { id: number | string }>({
       </div>
 
       {filterOptions && (
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: 'var(--space-4)' }}>
           <FilterPills options={filterOptions} active={activeFilter} onChange={k => { setActiveFilter(k); setPage(1) }} countFor={countFor} />
         </div>
       )}
@@ -483,18 +484,18 @@ export default function AdminEntityPage<T extends { id: number | string }>({
       )}
 
       <Modal open={formOpen} onClose={closeForm} maxWidth={480}>
-        <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>
+        <h3 style={{ margin: '0 0 var(--space-5)', fontSize: 17, fontWeight: 700 }}>
           {editing ? `Sửa ${config.title.toLowerCase()}` : `Thêm ${config.title.toLowerCase()}`}
         </h3>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '60vh', overflowY: 'auto', paddingRight: 4 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', maxHeight: '60vh', overflowY: 'auto', paddingRight: 4 }}>
           {visibleFields(values).filter(f => f.type !== 'hidden').map(f => (
             <div key={f.name}>
               {f.type === 'custom' ? (
                 f.Render && <f.Render value={(values as Record<string, unknown>)[f.name]} values={values} setField={setField} />
               ) : (
               <>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>
                 {f.label}{f.required && <span style={{ color: 'var(--fg-c62828)' }}> *</span>}
               </label>
 
@@ -592,7 +593,7 @@ export default function AdminEntityPage<T extends { id: number | string }>({
 
         {formError && <div style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 12 }}>{formError}</div>}
 
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 'var(--space-6)' }}>
           <button onClick={closeForm} disabled={saving} style={btnSecondary}>Hủy</button>
           <button
             onClick={handleSave}

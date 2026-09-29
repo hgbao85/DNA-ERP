@@ -11,6 +11,7 @@ import { errMsg } from '../../../utils/errors'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
@@ -182,8 +183,8 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
   // ── List view ─────────────────────────────────────────────────────────────────
   return (
     <div>
-      <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>Theo dõi nhập đan</h2>
-      <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text3)' }}>
+      <h2 style={{ ...pageTitle, margin: 0 }}>Theo dõi nhập đan</h2>
+      <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Nhấn vào dòng để xem chi tiết và xác nhận nhận hàng đan từ điểm đan
       </p>
 

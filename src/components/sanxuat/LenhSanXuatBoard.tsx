@@ -60,20 +60,20 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
   return (
     <div>
       {p.onBack && (
-        <button onClick={p.onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 14, fontSize: 13 }}>
+        <button onClick={p.onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 'var(--space-4)', fontSize: 13 }}>
           <ChevronLeft size={15} /> {p.backLabel ?? 'Quay lại'}
         </button>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
         {p.icon && (
-          <div style={{ width: 34, height: 34, borderRadius: 'var(--radius)', background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: 34, height: 34, borderRadius: 'var(--radius)', background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             {p.icon}
           </div>
         )}
         <div style={{ flex: '1 1 220px', minWidth: 0 }}>
-          <h2 style={{ fontSize: 'clamp(16px, 4.5vw, 19px)', fontWeight: 800 }}>{p.title}</h2>
-          {p.subtitle && <div style={{ fontSize: 12, color: 'var(--text3)' }}>{p.subtitle}</div>}
+          <h2 style={{ fontSize: 'clamp(16px, 4.5vw, 19px)', fontWeight: 800, lineHeight: 1.3 }}>{p.title}</h2>
+          {p.subtitle && <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{p.subtitle}</div>}
         </div>
         {p.headerRight && <div style={{ marginLeft: 'auto' }}>{p.headerRight}</div>}
       </div>
@@ -81,7 +81,7 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
       {p.beforeTable}
 
       {isMobile ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 'var(--space-5)' }}>
           {p.rows.map(row => {
             const tone = p.rowTone?.(row) ?? 'default'
             const canClick = p.clickable?.(row) ?? !!p.onRowClick
@@ -125,7 +125,7 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
           )}
         </div>
       ) : (
-      <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: 14 }}>
+      <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: 'var(--space-5)' }}>
         <table style={tbl}>
           <thead><tr style={trh}>
             {p.columns.map(c => (

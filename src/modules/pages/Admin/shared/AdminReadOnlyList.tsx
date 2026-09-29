@@ -10,6 +10,7 @@ import Pagination from '../../../../components/Pagination'
 import MobileListCards from '../../../../components/MobileListCards'
 import { useIsCompact, useIsMobile } from '../../../../hooks/useMediaQuery'
 import { tableWrap, tbl, th, td, row } from '../../../../styles/table'
+import { cardTitle } from '../../../../styles/typography'
 import { compactTableMinWidth } from './AdminEntityPage'
 
 export interface AdminReadOnlyColumn<T> {
@@ -95,17 +96,17 @@ export default function AdminReadOnlyList<T extends { id: number | string }>({ c
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: isMobile ? '100%' : 0 }}>
           {config.icon}
-          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>{config.title}</h3>
+          <h3 style={{ ...cardTitle, margin: 0 }}>{config.title}</h3>
           <span style={{ fontSize: 12, color: 'var(--text3)' }}>({filtered.length})</span>
         </div>
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1) }} placeholder={config.searchPlaceholder ?? 'Tìm kiếm...'} />
       </div>
 
       {filterOptions && (
-        <div style={{ marginBottom: 14 }}>
+        <div style={{ marginBottom: 'var(--space-4)' }}>
           <FilterPills options={filterOptions} active={activeFilter} onChange={k => { setActiveFilter(k); setPage(1) }} countFor={countFor} />
         </div>
       )}

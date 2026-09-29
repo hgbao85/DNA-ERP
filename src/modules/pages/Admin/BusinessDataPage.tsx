@@ -8,6 +8,7 @@ import SkuPage from './businessData/SkuPage'
 import ProductionInvoicesPage from './businessData/ProductionInvoicesPage'
 import WarehouseTransfersPage from './businessData/WarehouseTransfersPage'
 import CuttingProposalsPage from './businessData/CuttingProposalsPage'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 const ACCENT = 'var(--fg-3949ab)'
 
@@ -27,11 +28,11 @@ export default function BusinessDataPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Briefcase size={18} color={ACCENT} />
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Module nghiệp vụ</h2>
+        <h2 style={{ ...pageTitle, margin: 0 }}>Module nghiệp vụ</h2>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Tra cứu tổng hợp dữ liệu các phân hệ nghiệp vụ — chỉ xem, không duyệt/thao tác tại đây. Việc duyệt/xử lý thuộc đúng phân hệ nghiệp vụ tương ứng.
       </div>
 

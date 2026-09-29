@@ -20,6 +20,20 @@
   --green-bg: #EAF3DE;
   --radius: 8px;
   --radius-lg: 12px;
+  /* Thang khoảng cách (8px base) - dùng cho khu vực tiêu đề/form/card/modal. Bảng dữ liệu CỐ Ý
+     giữ nguyên padding cũ (mật độ ERP), không áp thang này vào ô bảng (quyết định người dùng
+     2026-09-29: "thoáng hơn" chỉ áp cho ngoài bảng). */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  /* Elevation rất nhẹ - chỉ đủ tách card khỏi nền, không phải shadow kiểu Material. */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.04), 0 1px 1px rgba(0,0,0,.03);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.08), 0 1px 3px rgba(0,0,0,.05);
   color-scheme: light;
 }
 
@@ -44,6 +58,9 @@
   --amber-bg: #3a2a14;
   --green: #8fc46a;
   --green-bg: #1f2e15;
+  /* Nền tối cần shadow đậm hơn 1 chút mới thấy được độ nổi - cùng vai trò với bản light. */
+  --shadow-sm: 0 1px 2px rgba(0,0,0,.25), 0 1px 1px rgba(0,0,0,.2);
+  --shadow-md: 0 4px 16px rgba(0,0,0,.35), 0 1px 3px rgba(0,0,0,.25);
   color-scheme: dark;
 }
 
@@ -54,6 +71,7 @@ body {
   color: var(--text);
   min-height: 100vh;
   font-size: 14px;
+  line-height: 1.5;
 }
 
 button {
@@ -64,7 +82,7 @@ button {
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--text);
-  padding: 5px 12px;
+  padding: 7px 14px;
   transition: background 0.15s, border-color 0.15s;
 }
 button:hover { background: var(--surface2); }
@@ -88,14 +106,17 @@ input, select, textarea {
   font-size: 13px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 7px 10px;
+  padding: 8px 12px;
   background: var(--surface);
   color: var(--text);
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, box-shadow 0.15s;
   width: 100%;
 }
-input:focus, select:focus, textarea:focus { border-color: var(--blue); }
+input:focus, select:focus, textarea:focus {
+  border-color: var(--blue);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--blue) 15%, transparent);
+}
 
 textarea { resize: vertical; min-height: 80px; }
 
@@ -127,7 +148,8 @@ textarea { resize: vertical; min-height: 80px; }
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 14px 16px;
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
 }
 
 .section-title {

@@ -22,9 +22,9 @@ import type { Notification } from '../types/admin'
 
 const SEVERITY_STYLE: Record<string, { color: string; Icon: typeof Info }> = {
   INFO: { color: 'var(--text3)', Icon: Info },
-  SUCCESS: { color: '#2e7d32', Icon: CheckCircle2 },
-  WARNING: { color: '#e65100', Icon: AlertTriangle },
-  CRITICAL: { color: '#c62828', Icon: AlertCircle },
+  SUCCESS: { color: 'var(--fg-2e7d32)', Icon: CheckCircle2 },
+  WARNING: { color: 'var(--fg-e65100)', Icon: AlertTriangle },
+  CRITICAL: { color: 'var(--fg-c62828)', Icon: AlertCircle },
 }
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -62,14 +62,14 @@ function Row({ n, onOpen }: { n: Notification; onOpen: (n: Notification) => void
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
           <div style={{ fontSize: 13, fontWeight: n.isRead ? 500 : 700, flex: 1, minWidth: 0 }}>{n.title}</div>
-          {!n.isRead && <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#1976d2', flexShrink: 0 }} />}
+          {!n.isRead && <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'var(--fg-1976d2)', flexShrink: 0 }} />}
         </div>
         <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
           {n.message}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 11, color: 'var(--text3)' }}>
           <span>{timeAgo(n.createdAt)}</span>
-          {n.isResolved && <span style={{ color: '#2e7d32' }}>· Đã xử lý</span>}
+          {n.isResolved && <span style={{ color: 'var(--fg-2e7d32)' }}>· Đã xử lý</span>}
         </div>
       </div>
     </button>
@@ -130,8 +130,8 @@ export default function NotificationCenter({ size = 16, color }: NotificationCen
       style={{
         flex: 1, padding: '9px 0', fontSize: 12, fontWeight: tab === id ? 700 : 500,
         background: 'transparent', border: 'none', cursor: 'pointer',
-        color: tab === id ? '#1976d2' : 'var(--text2)',
-        borderBottom: tab === id ? '2px solid #1976d2' : '2px solid transparent',
+        color: tab === id ? 'var(--fg-1976d2)' : 'var(--text2)',
+        borderBottom: tab === id ? '2px solid var(--fg-1976d2)' : '2px solid transparent',
       }}
     >
       {label}{count !== undefined && count > 0 ? ` (${count})` : ''}
@@ -170,7 +170,7 @@ export default function NotificationCenter({ size = 16, color }: NotificationCen
           <div style={{ fontSize: 14, fontWeight: 700 }}>Thông báo</div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             {unread.total > 0 && (
-              <button onClick={() => markAllRead()} title="Đánh dấu đã đọc tất cả" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#1976d2', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <button onClick={() => markAllRead()} title="Đánh dấu đã đọc tất cả" style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--fg-1976d2)', background: 'none', border: 'none', cursor: 'pointer' }}>
                 <CheckCheck size={13} /> Đọc tất cả
               </button>
             )}
@@ -196,7 +196,7 @@ export default function NotificationCenter({ size = 16, color }: NotificationCen
         </div>
         <button
           onClick={viewAll}
-          style={{ padding: '10px 0', fontSize: 12, fontWeight: 600, color: '#1976d2', background: 'transparent', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer', flexShrink: 0 }}
+          style={{ padding: '10px 0', fontSize: 12, fontWeight: 600, color: 'var(--fg-1976d2)', background: 'transparent', border: 'none', borderTop: '1px solid var(--border)', cursor: 'pointer', flexShrink: 0 }}
         >
           Xem tất cả
         </button>
@@ -215,7 +215,7 @@ export default function NotificationCenter({ size = 16, color }: NotificationCen
         {unread.total > 0 && (
           <span style={{
             position: 'absolute', top: -4, right: -4, minWidth: 15, height: 15, padding: '0 3px',
-            background: '#c62828', color: '#fff', borderRadius: 99, fontSize: 9, fontWeight: 700,
+            background: 'var(--bg-c62828)', color: '#fff', borderRadius: 99, fontSize: 9, fontWeight: 700,
             display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1,
           }}>
             {unread.total > 99 ? '99+' : unread.total}

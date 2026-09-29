@@ -14,6 +14,7 @@ import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 // ─── Types ────────────────────────────────────────────────────────────
 // "Định mức chi tiết" (Sơn/Phụ kiện/Bao bì) — 1 account nhập cả 3 nhóm trong 1 trang, gửi
@@ -180,9 +181,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
           thái đã xem) đã gỡ 2026-09-25: thông báo thật cho luồng duyệt SKU/định mức thuộc Phase 3
           (nối sự kiện theo luồng) của changelog notification 2026-09-25, chưa có ở BE - xem
           NotificationCenter ở app shell (MfgApp) cho thông báo chung hiện có. */}
-      <div style={{ marginBottom: isMobile ? 14 : 20 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Quản lý định mức chi tiết</h2>
-        <p style={{ margin: '4px 0 0', fontSize: 13, color: 'var(--text3)' }}>Nhập định mức chi tiết theo SKU — Sơn, Phụ kiện, Bao bì</p>
+      <div style={{ marginBottom: isMobile ? 14 : 'var(--space-5)' }}>
+        <h2 style={{ ...pageTitle, margin: 0 }}>Quản lý định mức chi tiết</h2>
+        <p style={{ ...pageSubtitle, margin: '2px 0 0' }}>Nhập định mức chi tiết theo SKU — Sơn, Phụ kiện, Bao bì</p>
       </div>
 
       {/* ══ ĐỊNH MỨC: LIST ══ */}

@@ -5,6 +5,7 @@ import { getWarehouses } from '../../../services/api'
 import type { BeWarehouse } from '../../../services/warehouses-api'
 import OfficeSuppliesPage from '../InboundWarehouse/OfficeSuppliesPage'
 import EmptyState from '../../../components/EmptyState'
+import { pageTitle } from '../../../styles/typography'
 
 // Văn phòng phẩm là RIÊNG THEO TỪNG KHO (xem OfficeSuppliesService.assertWarehouseScope ở BE) -
 // khác thủ kho (có sẵn User.warehouseScope để suy ra đúng 1 kho), Admin không gắn kho nào nên
@@ -18,12 +19,12 @@ export default function OfficeSuppliesAdminPage() {
 
   return (
     <div>
-      <h2 style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 700 }}>Văn phòng phẩm</h2>
-      <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text3)' }}>
+      <h2 style={{ ...pageTitle, margin: 0 }}>Văn phòng phẩm</h2>
+      <p style={{ margin: 'var(--space-2) 0 var(--space-5)', fontSize: 13, color: 'var(--text3)' }}>
         Chọn kho để quản lý vật tư văn phòng của đúng kho đó (danh sách/tồn/lịch sử riêng theo từng kho).
       </p>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--space-6)' }}>
         <WarehouseIcon size={15} color="var(--text3)" />
         <select
           value={selectedCode}

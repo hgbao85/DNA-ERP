@@ -9,6 +9,7 @@ import SearchInput from '../../../components/SearchInput'
 import FilterPills from '../../../components/FilterPills'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle } from '../../../styles/typography'
 import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 
@@ -87,7 +88,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: isMobile ? 14 : 24 }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Danh sách SKU</h2>
+          <h2 style={{ ...pageTitle, margin: 0 }}>Danh sách SKU</h2>
         </div>
         {!readOnly && (
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>

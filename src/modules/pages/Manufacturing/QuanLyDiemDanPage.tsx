@@ -6,6 +6,7 @@ import { Phone, CheckCircle2 } from 'lucide-react'
 import WeavingPointsPage from '../Admin/masterData/WeavingPointsPage'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle } from '../../../styles/typography'
 
 // ── Màn "Quản lý điểm đan" — 2 tab con: Thông tin điểm đan | Mảnh tại điểm đan ──
 // readOnly (giám đốc): cả 2 tab chỉ xem. Đan Trưởng/Quản lý SX: tab Thông tin thêm/sửa được.
@@ -21,7 +22,7 @@ export default function QuanLyDiemDanPage({ readOnly = false }: { readOnly?: boo
 
   return (
     <div>
-      <h2 style={{ margin: '0 0 16px', fontSize: 20, fontWeight: 700 }}>Quản lý điểm đan</h2>
+      <h2 style={{ ...pageTitle, margin: '0 0 var(--space-5)' }}>Quản lý điểm đan</h2>
 
       <div style={{ display: 'flex', gap: 2, borderBottom: '2px solid var(--border)', marginBottom: 20 }}>
         {tabs.map((t) => {

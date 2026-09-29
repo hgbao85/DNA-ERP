@@ -64,6 +64,7 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import KcsVatTuThanhPhamPage from './KcsVatTuThanhPhamPage'
 import MobileListCards from '../../../components/MobileListCards'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 const ACCENT = 'var(--fg-e65100)'
 const GREEN = 'var(--fg-16a34a)'
@@ -189,10 +190,10 @@ function KcsSatSection() {
 
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      <h2 style={{ ...pageTitle, marginBottom: 2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
         <Wrench size={20} /> Màn hình KCS — Công đoạn Phôi
       </h2>
-      <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Kiểm tra chất lượng theo từng cỡ đoạn — bấm vào PI có đợt chờ kiểm để duyệt.
       </div>
       <div style={card}>

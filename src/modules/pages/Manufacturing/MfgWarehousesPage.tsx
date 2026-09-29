@@ -12,6 +12,7 @@ import AdjustReasonModal from '../../../components/AdjustReasonModal'
 import WarehouseLedgerHistory from '../../../components/WarehouseLedgerHistory'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { warehouseFamilyOf, type WarehouseFamily } from '../../../utils/warehouseFamily'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 export { isThanhPhamScope } from '../../../utils/warehouseFamily'
@@ -215,15 +216,15 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700 }}>{group ? group.label : 'Tổng hợp kho'}</h2>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 2 }}>
+        <h2 style={pageTitle}>{group ? group.label : 'Tổng hợp kho'}</h2>
         {isAdmin && (
           <button onClick={() => setShowCreateForm(true)} style={btnPrimary}>
             <Plus size={14} /> Tạo kho mới
           </button>
         )}
       </div>
-      <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 18 }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         {group ? group.desc : 'Chọn kho để xem tồn & nhập/xuất'}
       </div>
 

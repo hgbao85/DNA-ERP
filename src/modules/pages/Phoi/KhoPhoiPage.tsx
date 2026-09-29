@@ -23,6 +23,7 @@ import type { BeStockQuant } from '../../../services/stock-api'
 import { isFamilyScope } from '../../../utils/warehouseFamily'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -95,10 +96,10 @@ export default function KhoPhoiPage() {
 
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      <h2 style={{ ...pageTitle, marginBottom: 2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
         <Warehouse size={20} /> Kho phôi
       </h2>
-      <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Đoạn sắt tồn thật tại kho <b>{myWarehouseCode}</b> (thủ kho tự đếm & nhập) — <b>Cần</b> là đoạn khớp định mức chờ chuyển Hàn, <b>Thừa</b> là đầu mẩu chờ xử lý.
       </div>
 

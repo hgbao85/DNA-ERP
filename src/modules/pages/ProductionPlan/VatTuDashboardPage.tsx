@@ -11,6 +11,7 @@ import { warehouseFamilyOf } from '../../../utils/warehouseFamily'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 const UNGROUPED = '__ungrouped__'
 
@@ -228,9 +229,9 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
 
   return (
     <div>
-      <div style={{ marginBottom: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Tổng hợp vật tư</h2>
-        <p style={{ margin: '6px 0 0', fontSize: 13, color: 'var(--text2)' }}>
+      <div style={{ marginBottom: 'var(--space-5)' }}>
+        <h2 style={{ ...pageTitle, margin: 0 }}>Tổng hợp vật tư</h2>
+        <p style={{ ...pageSubtitle, margin: '2px 0 0' }}>
           {currentWarehouse ? `Kho: ${currentWarehouse.name} · ` : ''}Tổng số {materialsInScope.length} vật tư
         </p>
       </div>

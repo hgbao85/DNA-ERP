@@ -20,6 +20,7 @@ import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { useConfirm } from '../../../hooks/useConfirm'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle } from '../../../styles/typography'
 
 const ACCENT = 'var(--fg-3949ab)'
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
@@ -49,13 +50,13 @@ export default function PhoiSkuAdminPage() {
 
   return (
     <div>
-      <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Sửa SKU đợt Phôi</h2>
-      <p style={{ margin: '6px 0 16px', fontSize: 13, color: 'var(--text3)', maxWidth: 760 }}>
+      <h2 style={{ ...pageTitle, margin: 0 }}>Sửa SKU đợt Phôi</h2>
+      <p style={{ margin: 'var(--space-2) 0 var(--space-5)', fontSize: 13, color: 'var(--text3)', maxWidth: 760 }}>
         Mỗi đợt Cắt / Uốn / Dập… của Phôi thuộc đúng 1 SKU. Đợt cũ chưa có SKU do Phôi tự gán (1 lần); nếu gán nhầm, chỉ Quản trị viên sửa được tại đây.
         Mọi lần đổi đều được ghi lại (ai, lúc nào, từ SKU nào sang SKU nào). Chỉ PI có từ 2 SKU trở lên mới cần sửa.
       </p>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 'var(--space-4)' }}>
         <span style={{ fontSize: 13, fontWeight: 600, flexShrink: 0 }}>Chọn PI:</span>
         <select value={piId} onChange={e => setPiId(e.target.value)} disabled={isLoading} style={{ padding: '6px 10px', fontSize: 13, flex: 1, minWidth: 0, maxWidth: 360 }}>
           <option value="">{isLoading ? 'Đang tải…' : '— Chọn PI —'}</option>

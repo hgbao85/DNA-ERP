@@ -668,15 +668,15 @@ function LineListBoard({ lines, cfg, title, subtitle, backLabel, onBack, onEnter
 }) {
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 'var(--space-5)', flexWrap: 'wrap' }}>
         {onBack && (
-          <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
+          <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>
             <ChevronLeft size={15} /> {backLabel ?? 'Quay lại'}
           </button>
         )}
         <div>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{title}</h2>
-          <div style={{ fontSize: 12, color: 'var(--text3)' }}>{subtitle}</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{subtitle}</div>
         </div>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

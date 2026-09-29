@@ -16,6 +16,7 @@ import EmptyState from '../../../components/EmptyState'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { btnSecondary } from '../../../styles/buttons'
+import { pageTitle, pageSubtitle, sectionLabel } from '../../../styles/typography'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 const fmtMoney = (n: number) => n.toLocaleString('vi-VN')
@@ -155,10 +156,10 @@ export default function OrderManagementPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: isMobile ? 14 : 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: isMobile ? 'var(--space-4)' : 'var(--space-6)' }}>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>Quản lí đơn hàng</div>
-          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{pos?.length ?? 0} PO</div>
+          <div style={pageTitle}>Quản lí đơn hàng</div>
+          <div style={pageSubtitle}>{pos?.length ?? 0} PO</div>
         </div>
         <button className="primary" onClick={openNew} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Plus size={14} /> Tạo PO
@@ -262,18 +263,18 @@ export default function OrderManagementPage() {
       )}
 
       <Modal open={showCreate} onClose={() => setShowCreate(false)} maxWidth={680}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>Tạo PO mới</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
+              <div style={{ fontWeight: 700, fontSize: 17 }}>Tạo PO mới</div>
               <button onClick={() => setShowCreate(false)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
             </div>
 
             {formError && (
-              <div style={{ padding: '8px 12px', marginBottom: 16, borderRadius: 'var(--radius)', background: 'rgba(226,75,74,.1)', border: '1px solid var(--fg-e24b4a)', color: 'var(--fg-e24b4a)', fontSize: 13 }}>
+              <div style={{ padding: '8px 12px', marginBottom: 'var(--space-4)', borderRadius: 'var(--radius)', background: 'rgba(226,75,74,.1)', border: '1px solid var(--fg-e24b4a)', color: 'var(--fg-e24b4a)', fontSize: 13 }}>
                 {formError}
               </div>
             )}
 
-            <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 'var(--space-4)' }}>
               <Field label="Mã đơn hàng *">
                 <input
                   value={form.orderCode}
@@ -283,7 +284,7 @@ export default function OrderManagementPage() {
               </Field>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14, marginBottom: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 14, marginBottom: 'var(--space-4)' }}>
               <Field label="Khách hàng *">
                 <SearchableSelect
                   displayValue={(customers ?? []).find(c => String(c.id) === form.customerId)?.name ?? ''}
@@ -318,7 +319,7 @@ export default function OrderManagementPage() {
               </Field>
             </div>
 
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ marginBottom: 'var(--space-5)' }}>
               <Field label="File đính kèm (PO, hợp đồng...)">
                 {/* Nút "Choose File / No file chosen" gốc do trình duyệt vẽ theo ngôn ngữ máy - ẩn
                     input thật, <label> bọc ngoài vẫn mở hộp chọn file khi bấm. */}
@@ -353,7 +354,7 @@ export default function OrderManagementPage() {
               </Field>
             </div>
 
-            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 8 }}>SKU trong PO</div>
+            <div style={{ ...sectionLabel, marginBottom: 'var(--space-2)' }}>SKU trong PO</div>
             {!isMobile && (
               <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 135px 100px 28px', gap: 6, marginBottom: 6 }}>
                 {['SKU', 'Hạn giao', 'Tổng số', ''].map(h => (
@@ -387,7 +388,7 @@ export default function OrderManagementPage() {
                 </div>
               ))}
             </div>
-            <button onClick={addItem} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 10px', fontSize: 12, border: '1px dashed var(--border)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', color: 'var(--text2)', marginBottom: 16 }}>
+            <button onClick={addItem} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 10px', fontSize: 12, border: '1px dashed var(--border)', borderRadius: 'var(--radius)', background: 'transparent', cursor: 'pointer', color: 'var(--text2)', marginBottom: 'var(--space-4)' }}>
               <Plus size={12} /> Thêm SKU
             </button>
 
@@ -395,7 +396,7 @@ export default function OrderManagementPage() {
               <input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="Ghi chú" />
             </Field>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: isMobile ? 18 : 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: isMobile ? 'var(--space-5)' : 'var(--space-6)' }}>
               <button onClick={() => setShowCreate(false)} style={btnSecondary}>Hủy</button>
               <button className="primary" onClick={handleSave} disabled={saving || !form.orderCode.trim() || !form.customerId || form.items.every(it => !it.skuCode.trim())}>
                 {saving ? 'Đang lưu...' : 'Lưu'}
@@ -439,7 +440,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 'var(--space-4)' }}>
         <button
           onClick={onBack}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '5px 12px', fontSize: 12, fontWeight: 500, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)' }}
@@ -462,9 +463,9 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
         </button>
       </div>
 
-      <div style={{ marginBottom: 16 }}>
-        <div style={{ fontWeight: 700, fontSize: isMobile ? 16 : 18, wordBreak: 'break-word' }}>{po.orderCode} — {po.customerName}</div>
-        <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
+      <div style={{ marginBottom: 'var(--space-4)' }}>
+        <div style={{ fontWeight: 700, fontSize: isMobile ? 17 : 20, wordBreak: 'break-word' }}>{po.orderCode} — {po.customerName}</div>
+        <div style={pageSubtitle}>
           Ngày đặt {format(new Date(po.orderDate), 'dd/MM/yyyy')}
           {po.deliveryDate && <> · Hạn giao {format(new Date(po.deliveryDate), 'dd/MM/yyyy')}</>}
         </div>
@@ -476,7 +477,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
         )}
       </div>
 
-      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 20 }}>
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 'var(--space-6)' }}>
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -498,7 +499,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
       </div>
 
       {tab === 'production' && (
-        <div className="card" style={{ padding: isMobile ? 14 : 20 }}>
+        <div className="card" style={{ padding: isMobile ? 16 : 20 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
             {po.items.map((item) => (
               <div key={item.id}>
@@ -514,7 +515,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
       )}
 
       {tab === 'shipping' && (
-        <div className="card" style={{ padding: isMobile ? 14 : 20 }}>
+        <div className="card" style={{ padding: isMobile ? 16 : 20 }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginBottom: 18 }}>
             {po.items.map((item) => {
               const itemRemaining = item.totalQty - item.shippedQty
@@ -621,7 +622,7 @@ function ProductionStepper({ status, vertical = false }: { status: SalesOrderSta
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>{label}</label>
+      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>{label}</label>
       {children}
     </div>
   )

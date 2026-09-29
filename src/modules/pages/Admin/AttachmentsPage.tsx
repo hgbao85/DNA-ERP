@@ -38,6 +38,7 @@ import { useInspection } from '../../../context/InspectionContext'
 import * as api from '../../../services/api'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 const ACCENT = 'var(--fg-3949ab)'
 const RED = 'var(--fg-c62828)'
@@ -294,11 +295,11 @@ export default function AttachmentsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <ImageIcon size={18} color={ACCENT} />
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Quản lý tệp đính kèm</h2>
+        <h2 style={{ ...pageTitle, margin: 0 }}>Quản lý tệp đính kèm</h2>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Sửa/xóa ảnh hoặc file khi lỡ chọn nhầm - mọi thao tác đều được ghi vào audit log phía server
         (tra được qua API GET /audit-logs; trang &quot;Nhật ký hoạt động&quot; hiện chưa đọc nguồn này).
       </div>

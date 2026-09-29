@@ -30,6 +30,7 @@ import type { BeProductionBatch } from '../../../services/production-batches-api
 import { backBtn } from '../../../styles/buttons'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 interface ManhRow {
   pieceId: string
@@ -131,10 +132,10 @@ export default function KhungHanPage() {
   // ── Trang tổng: danh sách SKU ─────────────────────────────────────────────────
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      <h2 style={{ ...pageTitle, marginBottom: 2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
         <Frame size={20} /> Khung hàn
       </h2>
-      <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
         <Check size={14} style={{ color: 'var(--fg-16a34a)' }} /> Kho chứa các mảnh/khung Tổ Hàn đã hàn & KCS duyệt đạt — chờ chuyển sang Sơn. Bấm vào 1 sản phẩm để xem các mảnh còn tồn.
       </div>
 

@@ -15,6 +15,7 @@ const itemKey = (item: PurchaseProposalItem) => item.itemId ?? String(item.mater
 import { compactTh as th, compactTd as td } from '../../../styles/table'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
+import { pageTitle } from '../../../styles/typography'
 
 // ── NhapKhoSection: list đề xuất đã duyệt (đang mua/đã mua) → detail nhập kho ─
 // Nguồn dữ liệu là PurchaseProposal thật (đã qua Purchasing báo giá + Boss duyệt),
@@ -361,7 +362,7 @@ export default function NhapKhoPage({ lockedGroup }: { lockedGroup?: string | nu
 
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Nhập kho</h2>
+      <h2 style={{ ...pageTitle, marginBottom: 'var(--space-5)' }}>Nhập kho</h2>
 
       {/* Tab switcher */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 20 }}>

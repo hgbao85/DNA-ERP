@@ -18,6 +18,7 @@ import { Share2, Scissors, Wrench, Flame, SprayCan } from 'lucide-react'
 import XuatSatPage from './XuatSatPage'
 import XuatVatTuThanhPhamPage from './XuatVatTuThanhPhamPage'
 import XuatVatTuTieuHaoPage from './XuatVatTuTieuHaoPage'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 const ACCENT = 'var(--fg-4527a0)'
 const ACCENT_BG = 'var(--bg-ede7f6)'
@@ -36,10 +37,10 @@ export default function PhanPhoiNoiBoPage() {
 
   return (
     <div style={{ maxWidth: 1280, margin: '0 auto' }}>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      <h2 style={{ ...pageTitle, marginBottom: 2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
         <Share2 size={20} /> Phân phối nội bộ
       </h2>
-      <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Kho cấp vật tư cho các tổ sản xuất: <b>sắt</b> cho Phôi, <b>vật tư hàn</b> cho Hàn, <b>vật tư sơn</b> cho Sơn.
       </div>
 

@@ -13,6 +13,7 @@ import SearchableSelect from '../../../components/SearchableSelect'
 import FilterPills from '../../../components/FilterPills'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle } from '../../../styles/typography'
 import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import type { SalesCustomer } from '../../../types/sales'
 
@@ -324,7 +325,7 @@ export default function SKUReviewPage() {
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: isMobile ? 14 : 24, flexWrap: 'wrap' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 700 }}>Duyệt SKU</h2>
+          <h2 style={{ ...pageTitle, margin: 0 }}>Duyệt SKU</h2>
           {success && <span style={{ fontSize: 13, color: 'var(--fg-16a34a)', fontWeight: 600, display: 'block', marginTop: 4 }}>✓ Đã thêm thành công</span>}
         </div>
         {/* Chỉ KHSX mới được tạo SKU mới — Sếp chỉ duyệt. */}

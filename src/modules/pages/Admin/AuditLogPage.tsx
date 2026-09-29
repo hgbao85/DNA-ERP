@@ -8,6 +8,7 @@ import FilterPills from '../../../components/FilterPills'
 import EmptyState from '../../../components/EmptyState'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import Pagination from '../../../components/Pagination'
 import AuditLogTimeline from '../../../components/AuditLogTimeline'
 import { AUDIT_ACTIONS, type AuditLogEntry } from '../../../context/AuditLogContext'
@@ -65,16 +66,16 @@ export default function AuditLogPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <History size={18} color="var(--fg-3949ab)" />
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Nhật ký hoạt động</h2>
+        <h2 style={{ ...pageTitle, margin: 0 }}>Nhật ký hoạt động</h2>
         <span style={{ fontSize: 12, color: 'var(--text3)' }}>({filtered.length})</span>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Nhật ký chỉ ghi nhận các hoạt động phát sinh sau khi tính năng này được bật — dữ liệu trước đó không được lưu lại.
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1) }} placeholder="Tìm theo người thực hiện, ghi chú..." />
         <select
           value={action}

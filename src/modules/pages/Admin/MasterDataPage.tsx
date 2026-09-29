@@ -9,6 +9,7 @@ import MaterialGroupsPage from './masterData/MaterialGroupsPage'
 import MaterialsPage from './masterData/MaterialsPage'
 import WeavingPointsPage from './masterData/WeavingPointsPage'
 import DefectReasonsPage from './masterData/DefectReasonsPage'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 const ACCENT = 'var(--fg-3949ab)'
 
@@ -29,11 +30,11 @@ export default function MasterDataPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Layers size={18} color={ACCENT} />
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Danh mục hệ thống</h2>
+        <h2 style={{ ...pageTitle, margin: 0 }}>Danh mục hệ thống</h2>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Dữ liệu nền dùng chung cho các phân hệ nghiệp vụ — sửa/xóa tại đây sẽ ảnh hưởng tới toàn hệ thống
       </div>
 

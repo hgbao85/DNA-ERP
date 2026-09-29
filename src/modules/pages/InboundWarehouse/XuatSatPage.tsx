@@ -32,6 +32,7 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 const ACCENT = 'var(--fg-4527a0)'
 
@@ -262,11 +263,11 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
   return (
     <div>
       {!embedded && (
-        <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <h2 style={{ ...pageTitle, marginBottom: 2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
           <ArrowUpFromLine size={20} /> Xuất sắt cho Phôi
         </h2>
       )}
-      <p style={{ margin: '4px 0 16px', fontSize: 13, color: 'var(--text3)' }}>
+      <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Nhấn vào dòng để xem loại sắt cần xuất cho cả PI (theo phương án cắt sắt đã duyệt) và xuất theo chiều dài/số cây.
       </p>
 

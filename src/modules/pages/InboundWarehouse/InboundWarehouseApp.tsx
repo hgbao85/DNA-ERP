@@ -9,6 +9,7 @@ import { getWarehouses } from '../../../services/api'
 import WarehouseLedgerHistory from '../../../components/WarehouseLedgerHistory'
 import NotificationCenter from '../../../components/NotificationCenter'
 import LoadingState from '../../../components/LoadingState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 // Tái dùng nguyên các màn kho đã có (trước đây nằm trong MES) — KHÔNG viết lại logic.
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import { isFamilyScope, isThanhPhamScope } from '../../../utils/warehouseFamily'
@@ -238,8 +239,8 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
           ? <LoadingState />
           : myWarehouse
           ? <div>
-              <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Lịch sử kho</h2>
-              <p style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 14 }}>
+              <h2 style={{ ...pageTitle, marginBottom: 2 }}>Lịch sử kho</h2>
+              <p style={{ ...pageSubtitle, marginBottom: 'var(--space-4)' }}>
                 Toàn bộ bút toán nhập/xuất của <b>{myWarehouse.name}</b> — mua hàng về, xuất cho sản
                 xuất, chuyển kho nội bộ, phế liệu, điều chỉnh tay.
               </p>
@@ -264,7 +265,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     return (
       <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
         {sidebar}
-        <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: '20px 24px' }}>{content}</div>
+        <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: 'var(--space-6) var(--space-7)' }}>{content}</div>
       </div>
     )
   }
@@ -281,7 +282,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         </div>
       </div>
 
-      <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: isMobile ? '14px 12px 80px' : '18px 20px 80px' }}>{content}</div>
+      <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: isMobile ? '16px 14px 80px' : '20px 24px 80px' }}>{content}</div>
 
       {drawerOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex' }}>

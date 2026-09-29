@@ -126,17 +126,17 @@ export default function PhoiDinhMucManhPage({ stage = 'PHOI' }: { stage?: DinhMu
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-        <div style={{ width: 34, height: 34, borderRadius: 'var(--radius)', background: 'var(--bg-fff3e0)', color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 'var(--space-4)' }}>
+        <div style={{ width: 34, height: 34, borderRadius: 'var(--radius)', background: 'var(--bg-fff3e0)', color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Layers size={18} />
         </div>
         <div>
           <h2 style={{ fontSize: 19, fontWeight: 800 }}>Danh sách định mức mảnh</h2>
-          <div style={{ fontSize: 12, color: 'var(--text3)' }}>{subtitle}</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{subtitle}</div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center', margin: '14px 0', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', margin: 'var(--space-5) 0', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', width: isMobile ? '100%' : 280 }}>
           <Search size={15} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)' }} />
           <input placeholder={isSon ? 'Tìm SKU, loại sơn…' : 'Tìm SKU, tên mảnh, loại sắt…'} value={q} onChange={e => setQ(e.target.value)} style={{ padding: '7px 10px 7px 32px' }} />

@@ -33,6 +33,7 @@ import {
 } from '../../../services/cutting-batch-api'
 import { errMsg } from '../../../utils/errors'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 /**
  * 2 tình huống cắt KHSX chọn cho đợt sắp tạo. Đặt tên theo NGHIỆP VỤ chứ không theo tham số kỹ
@@ -628,10 +629,10 @@ export default function GomDotCatPage({ onDone }: Props) {
     <div>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
         <div style={{ flex: 1 }}>
-          <h2 style={{ margin: 0, fontSize: 18, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h2 style={{ ...pageTitle, display: 'flex', alignItems: 'center', gap: 8 }}>
             <Layers size={19} color="var(--fg-e65100)" /> Tối ưu cắt sắt
           </h2>
-          <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>
+          <div style={{ ...pageSubtitle, marginTop: 4 }}>
             Chọn các SKU muốn cắt chung một đợt để bớt số cây sắt phải mua. Chỉ gồm SKU{' '}
             <b>Sếp chưa duyệt</b> — duyệt rồi thì phương án cắt đã chạy riêng, không gộp được nữa.
           </div>

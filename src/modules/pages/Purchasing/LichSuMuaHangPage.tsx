@@ -12,6 +12,7 @@ import { visibleProposalsFor, buildBuyerByMaterialId } from '../../../utils/purc
 import { ApprovalFileCell } from './TheoDoiMuaHangPage'
 import { ItemCard, ProposalCards } from './mobileCards'
 import EmptyState from '../../../components/EmptyState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
 const td: React.CSSProperties = { padding: '9px 12px' }
@@ -85,7 +86,7 @@ export default function LichSuMuaHangPage() {
     const rows = buildRows(selected)
     return (
       <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
           <button
             onClick={() => setSelectedId(null)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)' }}
@@ -162,16 +163,16 @@ export default function LichSuMuaHangPage() {
   // ── List view: theo từng PO đã mua xong ───────────────────────────────────────
   return (
     <div>
-      <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>Lịch sử đã mua</h2>
-      <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20 }}>
+      <h2 style={pageTitle}>Lịch sử đã mua</h2>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-6)' }}>
         Các lệnh mua đã nhận đủ hàng — lưu lại làm lịch sử tra cứu.
       </div>
 
       {proposals.length === 0 ? (
         <EmptyState icon={<History size={28} />} message="Chưa có lệnh mua nào hoàn tất" />
       ) : (
-        <div style={{ marginBottom: 24 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+        <div style={{ marginBottom: 'var(--space-6)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 'var(--space-3)' }}>
             <History size={16} color="var(--fg-166534)" />
             <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--fg-166534)' }}>Đã mua</span>
             <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: 'var(--bg-dcfce7)', color: 'var(--fg-166534)', border: '1px solid var(--fg-86efac)' }}>

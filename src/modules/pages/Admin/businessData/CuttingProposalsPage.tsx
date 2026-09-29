@@ -12,6 +12,7 @@ import ConfirmModal from '../../../../components/ConfirmModal'
 import MobileListCards from '../../../../components/MobileListCards'
 import { useIsCompact, useIsMobile } from '../../../../hooks/useMediaQuery'
 import { tableWrap, tbl, th, td, row, badge } from '../../../../styles/table'
+import { cardTitle } from '../../../../styles/typography'
 import { buildCuttingGuideTable, exportCuttingGuideExcel, printCuttingGuide } from '../../../../utils/cuttingGuide'
 import PrintExportButton from '../../../../components/PrintExportButton'
 import {
@@ -185,20 +186,20 @@ export default function CuttingProposalsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 'var(--space-2)', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
           <Scissors size={16} color={ACCENT} />
-          <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>Cắt sắt</h3>
+          <h3 style={{ ...cardTitle, margin: 0 }}>Cắt sắt</h3>
           <span style={{ fontSize: 12, color: 'var(--text3)' }}>({filtered.length})</span>
         </div>
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1) }} placeholder="Tìm theo mã PO hoặc SKU..." />
       </div>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, color: 'var(--text3)', marginBottom: 14 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6, fontSize: 12, color: 'var(--text3)', marginBottom: 'var(--space-4)' }}>
         <Info size={13} style={{ flexShrink: 0, marginTop: 1 }} />
         Phase 7 (cắt sắt) chưa có màn nghiệp vụ riêng — &quot;Tính lại&quot; tạm thời đặt ở đây (chỉ dùng khi cần xử lý).
       </div>
 
-      <div style={{ marginBottom: 14 }}>
+      <div style={{ marginBottom: 'var(--space-4)' }}>
         <FilterPills options={filterOptions} active={activeFilter} onChange={k => { setActiveFilter(k); setPage(1) }} countFor={countFor} />
       </div>
 

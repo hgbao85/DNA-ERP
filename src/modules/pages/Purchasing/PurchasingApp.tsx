@@ -118,7 +118,7 @@ export default function PurchasingApp({ onBack }: Props) {
     return (
       <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
         {sidebar}
-        <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px' }}>{content}</div>
+        <div style={{ flex: 1, overflow: 'auto', padding: 'var(--space-6) var(--space-7)' }}>{content}</div>
       </div>
     )
   }
@@ -136,7 +136,7 @@ export default function PurchasingApp({ onBack }: Props) {
         <NotificationCenter size={20} />
       </div>
 
-      <div style={{ flex: 1, overflow: 'auto', padding: isMobile ? '14px 12px 80px' : '18px 20px 80px' }}>{content}</div>
+      <div style={{ flex: 1, overflow: 'auto', padding: isMobile ? '16px 14px 80px' : '20px 24px 80px' }}>{content}</div>
 
       {drawerOpen && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 200, display: 'flex' }}>

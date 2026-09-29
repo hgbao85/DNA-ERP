@@ -7,6 +7,7 @@ import { getSystemConfig, updateSystemConfig } from '../../../services/api'
 import type { SystemConfig } from '../../../types/admin'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 /** Card này là form nhập chữ — chỉ nhận các field chữ của SystemConfig, không nhận field boolean
  *  (vd solverAllowCustomLength, thuộc nghiệp vụ cắt sắt chứ không phải thông tin công ty). */
@@ -62,15 +63,15 @@ export default function SystemConfigPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         <Settings size={18} color="var(--fg-3949ab)" />
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Cấu hình hệ thống</h2>
+        <h2 style={{ ...pageTitle, margin: 0 }}>Cấu hình hệ thống</h2>
       </div>
-      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 18 }}>
+      <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Thông tin chung của công ty — hiển thị mang tính tham khảo, chưa có nghiệp vụ nào tự động đọc các giá trị này.
       </div>
 
-      <div style={{ maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 14, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 }}>
+      <div className="card" style={{ maxWidth: 560, display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
         {FIELDS.map(f => (
           <div key={f.name}>
             <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>

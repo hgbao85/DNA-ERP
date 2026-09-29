@@ -9,6 +9,7 @@ import EmptyState from '../../../components/EmptyState'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { btnSecondary } from '../../../styles/buttons'
+import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 
 const EMPTY_FORM = { name: '', phone: '', email: '', address: '', note: '' }
@@ -67,10 +68,10 @@ export default function CustomerManagementPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: isMobile ? 14 : 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: isMobile ? 'var(--space-4)' : 'var(--space-6)' }}>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 18 }}>Quản lí khách hàng</div>
-          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{customers?.length ?? 0} khách hàng</div>
+          <div style={pageTitle}>Quản lí khách hàng</div>
+          <div style={pageSubtitle}>{customers?.length ?? 0} khách hàng</div>
         </div>
         <button className="primary" onClick={openNew} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Plus size={14} /> Thêm khách hàng
@@ -147,12 +148,12 @@ export default function CustomerManagementPage() {
       )}
 
       <Modal open={!!modal} onClose={() => setModal(null)} maxWidth={480}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, fontSize: 16 }}>{modal === 'new' ? 'Thêm khách hàng mới' : 'Cập nhật khách hàng'}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-5)' }}>
+              <div style={{ fontWeight: 700, fontSize: 17 }}>{modal === 'new' ? 'Thêm khách hàng mới' : 'Cập nhật khách hàng'}</div>
               <button onClick={() => setModal(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}><X size={18} /></button>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
               <Field label="Mã khách hàng *">
                 <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Mã khách hàng" />
               </Field>
@@ -170,7 +171,7 @@ export default function CustomerManagementPage() {
               </Field>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 'var(--space-6)' }}>
               <button onClick={() => setModal(null)} style={btnSecondary}>Hủy</button>
               <button className="primary" onClick={handleSave} disabled={saving || !form.name.trim() || !form.phone.trim()}>
                 {saving ? 'Đang lưu...' : 'Lưu'}
@@ -186,7 +187,7 @@ export default function CustomerManagementPage() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', display: 'block', marginBottom: 5 }}>{label}</label>
+      <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>{label}</label>
       {children}
     </div>
   )
