@@ -890,7 +890,7 @@ function DetailLinesTable({ rows }: { rows: DetailRow[] }) {
 // duyệt/từ chối luôn xét trên TOÀN BỘ children (mọi nhóm), `filterGroup` chỉ lọc HIỂN THỊ.
 
 const CHILD_GROUP_LABELS: Record<ManhChildGroup, string> = {
-  sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa', vatTuTP: 'Vật tư thành phẩm',
+  sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa', satTuTinh: 'Sắt tự tính',
 }
 const CHILD_GROUP_BADGE: Record<ManhChildGroup, { bg: string; fg: string }> = {
   sat: { bg: 'var(--bg-e3f2fd)', fg: 'var(--fg-1565c0)' },
@@ -898,7 +898,7 @@ const CHILD_GROUP_BADGE: Record<ManhChildGroup, { bg: string; fg: string }> = {
   dinh: { bg: 'var(--bg-f3e5f5)', fg: 'var(--fg-7b1fa2)' },
   tanRut: { bg: 'var(--bg-e8f5e9)', fg: 'var(--fg-2e7d32)' },
   nutNhua: { bg: 'var(--bg-fce4ec)', fg: 'var(--fg-ad1457)' },
-  vatTuTP: { bg: 'var(--bg-ede7f6)', fg: 'var(--fg-4527a0)' },
+  satTuTinh: { bg: 'var(--bg-ede7f6)', fg: 'var(--fg-4527a0)' },
 }
 
 // "Mảnh có đan" = phải có cả nhóm Dây VÀ nhóm Đinh (Nút nhựa/Tán rút không bắt buộc, khôi phục lại
@@ -1042,10 +1042,10 @@ function ManhPiecesSection({
                         </td>
                         <td style={{ padding: '9px 14px', color: 'var(--text3)', fontSize: 12 }}>{c.specs || '—'}</td>
                         <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text3)' }}>
-                          {c.group === 'sat' ? (c.length || '—') : c.group === 'vatTuTP' ? (c.piecesPerBar || '—') : '—'}
+                          {c.group === 'sat' ? (c.length || '—') : c.group === 'satTuTinh' ? (c.piecesPerBar || '—') : '—'}
                         </td>
                         <td style={{ padding: '9px 14px' }}>
-                          {(c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps && c.processSteps.length > 0 ? (
+                          {(c.group === 'sat' || c.group === 'satTuTinh') && c.processSteps && c.processSteps.length > 0 ? (
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                               {c.processSteps.map(s => (
                                 <span

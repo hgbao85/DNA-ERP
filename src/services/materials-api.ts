@@ -108,6 +108,21 @@ export async function updateMaterial(id: number | string, data: Record<string, u
   });
 }
 
+/**
+ * Sửa % hao hụt hàng loạt (Admin > Vật tư) - đúng 1 trong 2 phạm vi: `materialIds` (chọn tay,
+ * có thể khác nhóm nhau) hoặc `materialGroupId` (áp dụng cho cả nhóm). `value: null` = xoá %
+ * hao hụt hiện có - hành động hàng loạt luôn GHI ĐÈ, không có khái niệm "để trống = giữ nguyên"
+ * như PATCH từng vật tư (xem MaterialsService.bulkUpdateWaste ở BE, field thật sự ghi
+ * (maxCuttingWastePercentage/purchaseWastePercentage) tuỳ nhóm của TỪNG vật tư).
+ */
+export async function bulkUpdateMaterialWaste(payload: {
+  materialIds?: string[];
+  materialGroupId?: string;
+  value: number | null;
+}): Promise<{ updated: number }> {
+  return http.patch<{ updated: number }>('/materials/bulk-waste', payload);
+}
+
 export async function deleteMaterial(id: number | string): Promise<{ id: number | string }> {
   await http.del(`/materials/${id}`);
   return { id };

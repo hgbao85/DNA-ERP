@@ -91,7 +91,7 @@ export * from '../lib/mock/services';
 export { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive, getBuyerMaterials, transferBuyerMaterials } from './users-api';
 export type { BuyerMaterials } from './users-api';
 export { loginUser, getProfile, logoutUser } from './auth-api';
-export { getMaterials, createMaterial, updateMaterial, deleteMaterial, getMaterialSuppliers, createMaterialSupplier, updateMaterialSupplier, deleteMaterialSupplier } from './materials-api';
+export { getMaterials, createMaterial, updateMaterial, bulkUpdateMaterialWaste, deleteMaterial, getMaterialSuppliers, createMaterialSupplier, updateMaterialSupplier, deleteMaterialSupplier } from './materials-api';
 export { getMaterialGroups, createMaterialGroup, updateMaterialGroup, deleteMaterialGroup } from './material-groups-api';
 export { getOfficeSupplies, createOfficeSupply, updateOfficeSupply, adjustOfficeSupplyQuantity, deleteOfficeSupply, getOfficeSupplyLedger } from './office-supplies-api';
 export { getSuppliers, createSupplier, updateSupplier, deleteSupplier } from './suppliers-api';

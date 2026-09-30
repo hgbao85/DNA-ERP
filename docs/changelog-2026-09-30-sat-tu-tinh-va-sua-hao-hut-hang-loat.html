@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Sắt tự tính & Sửa hao hụt hàng loạt (30/09/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --decided: #66748A; --decided-bg: #EEF0F3; --decided-border: #CBD2DB;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.decided { color: var(--decided); background: var(--decided-bg); border-color: var(--decided-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 30/09/2026</span>
+    <h1 class="title">Sắt tự tính & Sửa hao hụt hàng loạt</h1>
+    <p class="subtitle">Tab "Vật tư thành phẩm" ở Định mức mảnh đổi tên thành "Sắt tự tính", nhóm vật tư cùng tên được nâng cấp thành nhóm hệ thống thứ 7 (không còn tra theo tiền tố mã dễ vỡ). Thêm nút "Sửa hao hụt hàng loạt" ở Admin › Vật tư, sửa % hao hụt cho nhiều vật tư hoặc nguyên 1 nhóm cùng lúc.</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> FE <code>D:\DNA-ERP</code> · BE <code>D:\DNA-ERP-BE</code></span>
+      <span><strong>Màn hình:</strong> Manufacturing › Định mức mảnh · Admin › Danh mục hệ thống › Vật tư/Nhóm vật tư</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="context">
+    <div class="sec-head"><h2>Bối cảnh</h2></div>
+    <div class="prose-card">
+      <p>Trang "Định mức mảnh" cho account Sắt nhập 6 nhóm vật tư/mảnh (Sắt, Dây, Đinh, Tán rút, Nút nhựa, và 1 tab gọi "Vật tư thành phẩm" cho vật tư cắt-theo-tỷ-lệ như thanh nhôm → chân nhôm, lưu qua bảng <code>PieceMaterialYield</code>). Tên "Vật tư thành phẩm" gây nhầm lẫn với 1 khái niệm khác cùng tên ở các màn KCS/Phôi/Kho (kho vật tư thành phẩm, đợt KCS vật tư thành phẩm...), nên đổi thành "Sắt tự tính" cho đúng bản chất — vật tư trong nhóm này chủ yếu là các loại sắt/nhôm được tính ra số lượng tự động theo tỷ lệ cắt cố định, không cần nhập tay từng đoạn như Sắt thường.</p>
+      <p>6 nhóm vật tư hệ thống (Sắt/Dây/Đinh/Tán rút/Nút nhựa/Vật tư khác) được nhận diện qua cột kỹ thuật <code>MaterialGroup.systemKey</code> — ổn định, Admin đổi tên/tiền tố mã thoải mái mà logic không vỡ. Nhóm "Vật tư thành phẩm" cũ lại là nhóm do Admin tự tạo tay (<code>systemKey=null</code>), nên FE phải tra tạm qua <code>codePrefix</code> — 1 field Admin sửa được tự do qua UI, không có gì ràng buộc với code.</p>
+    </div>
+  </section>
+
+  <section id="feature">
+    <div class="sec-head"><h2>Tính năng mới &amp; đổi tên</h2><span class="sec-count">3 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Đổi tên</span><span class="badge date">30/09</span><span class="f-title">"Vật tư thành phẩm" → "Sắt tự tính" (tab + key nội bộ)</span></div>
+      <div class="f-field">
+        <span class="k">Phạm vi đổi</span>
+        <div class="v">
+          <ul>
+            <li>Nhãn hiển thị nút tab ở trang Định mức mảnh (Manufacturing) và trang xem chi tiết SKU (ProductionPlan).</li>
+            <li>Key nội bộ của type <code>ManhChildGroup</code>: <code>'vatTuTP'</code> → <code>'satTuTinh'</code>, sửa xuyên suốt mọi nơi so khớp giá trị này (không chỉ đổi label).</li>
+          </ul>
+        </div>
+      </div>
+      <div class="f-field"><span class="k">Không đụng</span><div class="v"><code>KhoKey.vatTuTP</code> (kho vật tư thành phẩm — khái niệm kho hàng khác hẳn, trùng chuỗi ký tự ngẫu nhiên) và các trang KCS/Phôi dùng "vật tư thành phẩm" làm tên gọi rộng cho cả pipeline <code>PieceMaterialYield</code> (quy ước đặt tên riêng, không phải cùng khái niệm với tab vừa đổi).</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>src\types\sku.ts</code>, <code>src\services\sku-api.ts</code>, <code>src\modules\pages\Manufacturing\SpecSteelPage.tsx</code>, <code>src\modules\pages\ProductionPlan\SKUDetail.tsx</code>, <code>src\hooks\useMaterialGroupIds.ts</code></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Hạ tầng</span><span class="badge date">30/09</span><span class="f-title">Nhóm vật tư "Sắt tự tính" trở thành nhóm hệ thống thứ 7</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Nhóm do Admin tự tạo (<code>systemKey=null</code>), FE tra bằng <code>codePrefix === 'VTTP'</code> (hardcode). Admin đổi tiền tố mã qua UI là picker "Sắt tự tính" ở Định mức mảnh tự nhiên hiện rỗng, không cảnh báo gì.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Thêm <code>SAT_TU_TINH</code> vào <code>MATERIAL_GROUP_SYSTEM_KEYS</code> (2 repo) + tiền tố cố định <code>STT</code> + seed. Chạy <code>npm run seed</code> "nhận nuôi" nhóm đã có sẵn qua khớp <code>name</code>, gán <code>systemKey</code>, không tạo trùng. FE tra qua <code>bySystemKey(...)</code> ổn định như 6 nhóm kia.</div>
+      </div>
+      <div class="f-field"><span class="k">Tác dụng phụ (có lợi)</span><div class="v">Nhóm này giờ được BE chặn xoá (<code>remove()</code> từ chối mọi nhóm có <code>systemKey != null</code>), và tiền tố mã tự đồng bộ lại đúng hằng số mỗi lần chạy seed dù Admin lỡ đổi qua UI.</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v">BE <code>material-group-system-keys.constant.ts</code>, <code>material-group-code-prefix.constant.ts</code>, <code>prisma/seed.ts</code> · FE <code>constants\materialGroupSystemKeys.ts</code>, <code>hooks\useMaterialGroupIds.ts</code></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">30/09</span><span class="f-title">Nút "Sửa hao hụt hàng loạt" ở Admin › Vật tư</span></div>
+      <div class="f-field">
+        <span class="k">Cách dùng</span>
+        <div class="v">
+          <ol>
+            <li>Bấm nút "Sửa hao hụt hàng loạt" cạnh "+ Thêm vật tư".</li>
+            <li>Chọn 1 trong 2 chế độ: <b>Theo từng vật tư</b> (tick tay, có tìm kiếm, chọn được vật tư khác nhóm nhau) hoặc <b>Theo cả nhóm vật tư</b> (chọn nguyên 1 nhóm).</li>
+            <li>Nhập % hao hụt mới — để trống nghĩa là <b>xoá</b> % hao hụt hiện có, không phải "giữ nguyên".</li>
+            <li>Bấm "Áp dụng" — modal tự gợi ý field sẽ bị ghi (% hao hụt cắt cho nhóm Sắt, % dự trù hao hụt mua cho mọi nhóm khác); chọn tay nhiều vật tư trải nhiều nhóm thì mỗi vật tư tự áp đúng field của nhóm nó.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="f-field"><span class="k">API mới</span><div class="v"><code>PATCH /api/v1/materials/bulk-waste</code> (quyền MATERIAL:UPDATE) — body <code>{ materialIds?, materialGroupId?, value }</code>, đúng 1 trong 2 phạm vi. Service gom vật tư theo nhóm rồi chạy 2 <code>updateMany</code> trong 1 transaction (Sắt → % cắt, còn lại → % mua) thay vì loop từng dòng.</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v">BE <code>materials.controller.ts</code>, <code>materials.service.ts</code> (<code>bulkUpdateWaste</code>), <code>dto\bulk-update-waste.dto.ts</code> · FE <code>MaterialsBulkWasteModal.tsx</code> (mới), <code>materials-api.ts</code>, <code>AdminEntityPage.tsx</code> (thêm slot <code>toolbarExtra</code> — optional, không ảnh hưởng trang Admin khác)</div></div>
+    </article>
+  </section>
+
+  <section id="fix">
+    <div class="sec-head"><h2>Vấn đề phát hiện</h2><span class="sec-count">1 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Sửa lỗi</span><span class="badge date">30/09</span><span class="f-title">Danh sách chọn vật tư trong modal trống trơn, chỉ thấy checkbox</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span><code>globals.css</code> có rule toàn cục <code>input, select, textarea { width: 100% }</code> áp cả lên <code>&lt;input type="checkbox"&gt;</code>. Checkbox trong danh sách chọn vật tư không khai <code>width</code> tường minh nên bị nuốt gần hết chiều rộng dòng (~530/556px), đẩy toàn bộ chữ mã/tên/nhóm ra ngoài vùng nhìn thấy — người dùng chỉ thấy 1 cột checkbox trống, không biết đang tick cái gì.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Khai tường minh <code>width: 16, height: 16</code> cho checkbox. Danh sách hiện đúng "Mã — Tên" (cắt gọn bằng "…" khi dài) và nhãn nhóm vật tư dạng pill bên phải.</div>
+      </div>
+      <div class="f-field"><span class="k">Phát hiện qua</span><div class="v">QA trực tiếp trên trình duyệt thật (cài tạm <code>patchright</code>, không lưu <code>package.json</code>, gỡ lại sau khi xong) — không đoán ra được chỉ bằng đọc code, vì màu chữ/kiểu dáng trông đều hợp lý, chỉ có chiều rộng khối bao ngoài co về 0px khi đo bằng <code>getBoundingClientRect()</code>.</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>src\modules\pages\Admin\masterData\MaterialsBulkWasteModal.tsx</code></div></div>
+    </article>
+  </section>
+
+  <section id="decided">
+    <div class="sec-head"><h2>Quyết định</h2><span class="sec-count">1 mục</span></div>
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Đã chốt</span><span class="badge date">30/09</span><span class="f-title">Chưa nối "% dự trù hao hụt khi mua" vào số lượng đề xuất mua</span></div>
+      <div class="f-field"><span class="k">Hiện trạng</span><div class="v"><code>Material.purchaseWastePercentage</code> chỉ được lưu/hiển thị (kể cả qua tính năng "Sửa hao hụt hàng loạt" mới) — công thức tính <code>buyQty</code> thật ở <code>consumable-material-purchase.service.ts</code> và <code>piece-material-yield-purchase.service.ts</code> không hề nhân thêm % này. Người mua hàng chưa thấy tác dụng gì của con số đó trên Đề xuất mua hàng.</div></div>
+      <div class="f-field"><span class="k">Lý do để sau</span><div class="v">Người dùng xác nhận đây là việc làm sau, chưa cần wiring ngay trong phiên này. Gợi ý công thức khi làm: <code>buyQty = ceil(required × (1 + purchaseWastePercentage/100)) - consumeQty</code>, nhớ áp cho cả 2 service và cân nhắc rounding.</div></div>
+    </article>
+  </section>
+
+  <section id="test">
+    <div class="sec-head"><h2>Kiểm tra</h2></div>
+    <div class="prose-card">
+      <p><b>Tự động:</b> <code>tsc --noEmit</code> sạch cả 2 repo (2 lỗi TS còn lại thuộc file seed khác, có từ trước, không liên quan). Lint sạch, chỉ còn 1 cảnh báo <code>&lt;img&gt;</code> có từ trước. BE <code>materials.service.spec.ts</code> 36/36 xanh (7 test mới cho <code>bulkUpdateWaste</code>: chặn thiếu/thừa phạm vi, chặn thiếu <code>value</code>, tách đúng 2 <code>updateMany</code> theo nhóm, <code>value=null</code> xoá đúng). FE <code>materials-api.test.ts</code> 11/11 xanh (2 test mới cho <code>bulkUpdateMaterialWaste</code>). BE <code>material-groups.service.spec.ts</code> 9/9 xanh không đổi.</p>
+      <p><b>Thủ công qua trình duyệt thật:</b> đăng nhập, mở modal, tick 2 vật tư ("2 vật tư đã chọn" đúng), chuyển "Theo cả nhóm vật tư" → chọn "Sắt tự tính" (hiện đúng "5 vật tư trong nhóm này" + gợi ý "% dự trù hao hụt khi mua" — đúng vì nhóm này không phải Sắt), nhập 7, bấm Áp dụng → modal đóng, không lỗi console/network. Verify qua API: cả 5 vật tư ghi đúng <code>purchaseWastePercentage: 7</code>, sau đó revert lại về <code>null</code> để không để lại dữ liệu rác trên DB dev dùng chung.</p>
+      <p><b>Đổi tay trên DB dev (không qua migration):</b> nhóm "Sắt tự tính" đổi <code>name</code>/<code>codePrefix</code> qua API trước khi seed nhận nuôi; 3 vật tư SAT-006/007/013 chuyển nhóm + đổi mã thành STT-003/004/005.</p>
+    </div>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 30/09/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>

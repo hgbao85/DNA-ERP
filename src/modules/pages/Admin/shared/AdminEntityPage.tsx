@@ -99,6 +99,10 @@ export interface AdminEntityConfig<T extends { id: number | string }> {
   guardSave?: (values: Partial<T>, isNew: boolean) => string | undefined
   /** Gọi sau khi tạo/sửa/xóa thành công — nơi gọi thường dùng để ghi audit log. */
   onMutate?: (action: 'create' | 'update' | 'delete', row: T) => void
+  /** Nút/khối thêm vào thanh công cụ đầu trang, chèn trước nút "+ Thêm mới" (vd "Sửa hao hụt
+   *  hàng loạt" ở Vật tư). Nhận `refetch` để tự làm mới danh sách sau khi tự thao tác xong -
+   *  trang cha tự quản lý modal/luồng riêng, AdminEntityPage không biết gì về nội dung bên trong. */
+  toolbarExtra?: (helpers: { refetch: () => void }) => ReactNode
 }
 
 // Namespaced để không bao giờ trùng với 1 filter key nghiệp vụ thật (vd Notification's
@@ -379,6 +383,7 @@ export default function AdminEntityPage<T extends { id: number | string }>({
           </div>
         )}
         <SearchInput value={search} onChange={v => { setSearch(v); setPage(1) }} placeholder={config.searchPlaceholder ?? 'Tìm kiếm...'} />
+        {!readOnly && config.toolbarExtra?.({ refetch })}
         {!readOnly && (
           <button
             onClick={openCreate}

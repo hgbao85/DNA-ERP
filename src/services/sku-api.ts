@@ -145,9 +145,9 @@ const MANH_REVIEW_GROUP = 'SAT';
 const DETAIL_REVIEW_GROUP = 'DAY_SON';
 
 /** 4 nhóm vật tư "phẳng theo mảnh" cạnh Sắt - khớp PIECE_MATERIAL_LINE_GROUPS ở BE. Vật tư
- *  thành phẩm (vatTuTP) đi qua materialYields riêng (piecesPerBar, không phải qtyPerPiece) -
+ *  thành phẩm (satTuTinh) đi qua materialYields riêng (piecesPerBar, không phải qtyPerPiece) -
  *  không có mặt ở map này. */
-const CHILD_GROUP_TO_BE: Record<Exclude<ManhChildGroup, 'sat' | 'vatTuTP'>, string> = {
+const CHILD_GROUP_TO_BE: Record<Exclude<ManhChildGroup, 'sat' | 'satTuTinh'>, string> = {
   day: 'WIRE',
   dinh: 'NAIL',
   tanRut: 'RIVET',
@@ -168,7 +168,7 @@ function toManhRow(p: BePiece): ManhRow {
     note: s.note ?? undefined,
     unit: s.materialUnit,
   }));
-  const lineChildren = (lines: BePieceMaterialLine[], group: Exclude<ManhChildGroup, 'sat' | 'vatTuTP'>): ManhChildRow[] =>
+  const lineChildren = (lines: BePieceMaterialLine[], group: Exclude<ManhChildGroup, 'sat' | 'satTuTinh'>): ManhChildRow[] =>
     lines.map((l) => ({
       id: l.id,
       group,
@@ -183,7 +183,7 @@ function toManhRow(p: BePiece): ManhRow {
     }));
   const yieldChildren: ManhChildRow[] = p.materialYields.map((y) => ({
     id: y.id,
-    group: 'vatTuTP',
+    group: 'satTuTinh',
     materialId: y.materialId,
     name: y.materialName,
     specs: y.materialSpec ?? undefined,
@@ -344,8 +344,8 @@ export async function updateSkuManhQuota(
         })),
       materialLines: r.children
         .filter(
-          (c): c is ManhChildRow & { group: Exclude<ManhChildGroup, 'sat' | 'vatTuTP'> } =>
-            c.group !== 'sat' && c.group !== 'vatTuTP',
+          (c): c is ManhChildRow & { group: Exclude<ManhChildGroup, 'sat' | 'satTuTinh'> } =>
+            c.group !== 'sat' && c.group !== 'satTuTinh',
         )
         .map((c) => ({
           group: CHILD_GROUP_TO_BE[c.group],
@@ -358,7 +358,7 @@ export async function updateSkuManhQuota(
           includeInWeaving: c.includeInWeaving,
         })),
       materialYields: r.children
-        .filter((c) => c.group === 'vatTuTP')
+        .filter((c) => c.group === 'satTuTinh')
         .map((c) => ({
           materialId: String(c.materialId ?? ''),
           piecesPerBar: Number(c.piecesPerBar) || 0,

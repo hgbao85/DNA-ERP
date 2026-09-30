@@ -67,7 +67,7 @@ export interface MaterialType {
  *  Dây/Đinh là 2 danh sách phẳng RIÊNG NGOÀI mảnh, do acc khác (SPEC_WIRE_PAINT) nhập — nay gộp
  *  làm children của từng mảnh, do acc Sắt nhập chung 1 lần (2026-08-22: Vật tư thành phẩm nhập
  *  chung luôn, cùng người/cùng màn với mảnh). */
-export type ManhChildGroup = 'sat' | 'day' | 'dinh' | 'tanRut' | 'nutNhua' | 'vatTuTP';
+export type ManhChildGroup = 'sat' | 'day' | 'dinh' | 'tanRut' | 'nutNhua' | 'satTuTinh';
 
 /** 7 công đoạn phôi chi tiết có thể áp dụng cho 1 thanh sắt (group='sat') - đa chọn, vd 1 thanh
  *  vừa tán vừa dập. Khớp enum ProcessStep ở BE (schema.prisma). */
@@ -102,7 +102,7 @@ export interface ManhChildRow {
   qty?: string | null;
   /** Chỉ dùng khi group='sat'. */
   processSteps?: ProcessStep[];
-  /** Chỉ dùng khi group='vatTuTP' - số vật tư thành phẩm cắt được từ 1 đơn vị material (vd 1
+  /** Chỉ dùng khi group='satTuTinh' - số vật tư thành phẩm cắt được từ 1 đơn vị material (vd 1
    *  cây thanh nhôm = 12 chân). */
   piecesPerBar?: string | null;
   note?: string | null;

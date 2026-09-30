@@ -7,7 +7,7 @@ vi.mock('./core/http', () => ({
 }));
 
 import { http } from './core/http';
-import { createMaterial, updateMaterial } from './materials-api';
+import { bulkUpdateMaterialWaste, createMaterial, updateMaterial } from './materials-api';
 
 const post = http.post as ReturnType<typeof vi.fn>;
 const patch = http.patch as ReturnType<typeof vi.fn>;
@@ -118,5 +118,24 @@ describe('updateMaterial — gửi null (không phải undefined) khi gỡ gán 
       '/materials/1',
       expect.objectContaining({ materialGroupId: '30', warehouseId: '5', buyerId: '7' }),
     );
+  });
+});
+
+describe('bulkUpdateMaterialWaste', () => {
+  it('gửi PATCH /materials/bulk-waste kèm nguyên payload (materialIds, value)', async () => {
+    patch.mockResolvedValue({ updated: 2 });
+
+    const result = await bulkUpdateMaterialWaste({ materialIds: ['1', '2'], value: 3 });
+
+    expect(patch).toHaveBeenCalledWith('/materials/bulk-waste', { materialIds: ['1', '2'], value: 3 });
+    expect(result).toEqual({ updated: 2 });
+  });
+
+  it('value = null (xoá % hao hụt) truyền thẳng, không bị nuốt mất', async () => {
+    patch.mockResolvedValue({ updated: 5 });
+
+    await bulkUpdateMaterialWaste({ materialGroupId: '7', value: null });
+
+    expect(patch).toHaveBeenCalledWith('/materials/bulk-waste', { materialGroupId: '7', value: null });
   });
 });

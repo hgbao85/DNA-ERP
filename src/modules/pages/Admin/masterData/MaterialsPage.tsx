@@ -5,6 +5,7 @@ import { useAuditLog } from '../../../../context/AuditLogContext'
 import { getMaterials, createMaterial, updateMaterial, deleteMaterial, getMaterialGroups, getWarehouses, getUsers, getStockQuants } from '../../../../services/api'
 import { MATERIAL_GROUP_SYSTEM_KEYS } from '../../../../constants/materialGroupSystemKeys'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
+import MaterialsBulkWasteModal from './MaterialsBulkWasteModal'
 
 interface Material {
   id: number
@@ -88,6 +89,13 @@ export default function MaterialsPage() {
   const { data: users } = useFetch<Purchaser[]>(getUsers)
   const buyerList = (users ?? []).filter((u) => u.isPurchaser)
   const buyerName = (id?: string | null) => buyerList.find((u) => String(u.id) === id)?.name ?? '—'
+
+  // Riêng cho modal "Sửa hao hụt hàng loạt" (toolbarExtra) - AdminEntityPage tự fetch danh sách
+  // vật tư cho bảng chính nhưng không lộ ra ngoài cho trang cha dùng lại, nên phải fetch thêm 1
+  // lần ở đây (useFetch không cache theo key, gọi getMaterials() 2 lần = 2 request GET riêng -
+  // chấp nhận được, bảng chỉ ~100 dòng). Modal không hiện cột % hao hụt nên không cần refetch
+  // lại sau khi lưu - chỉ AdminEntityPage.refetch (bảng chính) mới cần.
+  const { data: materialsForBulk } = useFetch<Material[]>(getMaterials)
 
   const { data: quants } = useFetch<QuantRow[]>(getStockQuants)
   // CỘNG DỒN theo key, KHÔNG lấy dòng cuối - vật tư Sắt có thể có NHIỀU dòng stock_quant cho ĐÚNG
@@ -241,6 +249,16 @@ export default function MaterialsPage() {
       update: (id, data) => updateMaterial(id, data),
       remove: (id) => deleteMaterial(id),
     },
+    toolbarExtra: ({ refetch }) => (
+      <MaterialsBulkWasteModal
+        materials={materialsForBulk ?? []}
+        groups={groupList}
+        onDone={({ count, value, scope }) => {
+          logAction('material', 'bulk', 'masterdata.updated', `Sửa hao hụt hàng loạt: ${count} vật tư (${scope}) → ${value == null ? 'xoá % hao hụt' : `${value}%`}`)
+          void refetch()
+        }}
+      />
+    ),
   }
 
   return <AdminEntityPage config={config} />
