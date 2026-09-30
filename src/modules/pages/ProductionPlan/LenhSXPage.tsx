@@ -10,6 +10,7 @@ import { AlertTriangle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRig
 import SearchableSelect from '../../../components/SearchableSelect'
 import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import CuttingPlanNote from './CuttingPlanNote'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
@@ -169,8 +170,18 @@ export default function LenhSXPage() {
 
         {pct != null && (
           <div>
-            <div style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.04em', textTransform:'uppercase', color:'var(--fg-a16207)' }}>Xin hao hụt tới</div>
-            <div style={{ fontSize:23, fontWeight:800, color:'var(--fg-92400e)', fontVariantNumeric:'tabular-nums', lineHeight:1.2 }}>{pct}%</div>
+            {pct >= 100 ? (
+              <>
+                <div style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.04em', textTransform:'uppercase', color:'var(--fg-a16207)' }}>Xin</div>
+                <div style={{ fontSize:18, fontWeight:800, color:'var(--fg-92400e)', lineHeight:1.3 }}>Chấp nhận hao hụt cao hơn mức mặc định</div>
+                <div style={{ fontSize:12, color:'var(--fg-92400e)', marginTop:3 }}>Không đặt trần — xem % hao hụt thật ở khối phương án cắt bên dưới.</div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize:10.5, fontWeight:700, letterSpacing:'.04em', textTransform:'uppercase', color:'var(--fg-a16207)' }}>Xin hao hụt tới</div>
+                <div style={{ fontSize:23, fontWeight:800, color:'var(--fg-92400e)', fontVariantNumeric:'tabular-nums', lineHeight:1.2 }}>{pct}%</div>
+              </>
+            )}
           </div>
         )}
 
@@ -528,6 +539,7 @@ export default function LenhSXPage() {
                 </div>
 
                 {solverOverrideNote(pi)}
+                <CuttingPlanNote plan={pi.cuttingPlan} isMobile={isMobile} />
 
                 {/* Danh sách SKU trong PI */}
                 <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
@@ -1174,6 +1186,7 @@ export default function LenhSXPage() {
 
               {/* Nhắc lại ngay trước nút bấm - đây là thứ Sếp đang thật sự chấp thuận về mặt tiền. */}
               {solverOverrideNote(pi, true)}
+              <CuttingPlanNote plan={pi.cuttingPlan} isMobile={isMobile} />
 
               {/* PI + hạn hoàn thành */}
               <div style={{ display:'flex', gap:10, marginBottom:14 }}>

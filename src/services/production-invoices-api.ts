@@ -82,6 +82,16 @@ interface BeProductionInvoice {
     estimatedWastePct: number;
     normalThresholdPct: number;
   } | null;
+  /** Phương án cắt neo PI (luồng "Solve trước → tạo PI", 2026-09-30): có sẵn từ lúc tạo PI nên
+   *  QLSX/Sếp duyệt trên số thật. null = chưa có (PI theo luồng cũ, solver chạy sau khi Sếp duyệt). */
+  cuttingPlan?: {
+    proposalId: string;
+    status: string;
+    totalBars: number | null;
+    wastePercentage: number | null;
+    /** Có loại sắt vượt ngưỡng hao hụt - QLSX/Sếp phải thấy cảnh báo trước khi duyệt. */
+    hasOverThreshold?: boolean;
+  } | null;
   createdAt: string;
   updatedAt: string;
   items: BeProductionInvoiceItem[];
@@ -138,6 +148,7 @@ function toPI(pi: BeProductionInvoice) {
     solverAllowCustomLength: pi.solverAllowCustomLength ?? null,
     solverOverrideReason: pi.solverOverrideReason ?? null,
     solverOverrideEvidence: pi.solverOverrideEvidence ?? null,
+    cuttingPlan: pi.cuttingPlan ?? null,
     items: pi.items.map(toItem),
     stages: [] as unknown[],
   };

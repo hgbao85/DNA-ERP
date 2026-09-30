@@ -13,9 +13,11 @@
  * 2. Mọi số hao hụt kèm dấu "≥" - BE trả GIỚI HẠN DƯỚI, thực tế có thể cao hơn.
  * 3. Bớt 0 cây thì nói thẳng là 0.
  *
- * "Xác nhận gộp" (>= 2 SKU) tạo 1 lệnh sản xuất chứa đúng các SKU đó rồi chuyển sang màn "Lệnh sản
- * xuất mới". Chọn đúng 1 SKU thì KHÔNG gộp gì cả - nó vốn đã có lệnh sản xuất riêng, chỉ việc đi
- * tiếp luồng thường. Solver KHÔNG chạy ở màn này: phương án cắt chỉ tính khi Sếp duyệt.
+ * Luồng "Solve trước → tạo lệnh sản xuất" (2026-09-30): KHSX bấm "Tính phương án cắt" -> solver chạy
+ * NGAY cho đúng tổ hợp đang tick (tiến độ + kết quả hiện ở khối bên dưới, xem CuttingSolvePanel) ->
+ * khi kết quả dùng được mới tạo lệnh sản xuất (>= 2 SKU: gộp; đúng 1 SKU: cắt riêng) rồi chuyển sang
+ * màn "Lệnh sản xuất mới". QLSX/Sếp duyệt ĐÚNG phương án đã tính, solver không chạy lại sau khi duyệt.
+ * Số ước tính nhanh (dấu ≥) ở bảng trên vẫn giữ nguyên để KHSX chọn tổ hợp trước khi bấm Tính.
  */
 
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -23,14 +25,20 @@ import { AlertTriangle, Check, ChevronDown, ChevronUp, Info, Layers, Loader2, Re
 import {
   claimSoloCuttingBatch,
   getCuttingBatchCandidates,
+  getCuttingBatchSolves,
+  getCuttingDefaults,
   mergeCuttingBatch,
+  type CuttingDefaults,
   previewCuttingBatch,
+  requestCuttingBatchSolve,
+  type CuttingBatchSolve,
   type CuttingBatchCandidate,
   type CuttingBatchCandidateList,
   type SolverOverrideInput,
   type CuttingBatchPreview,
   type StockLengthsByMaterial,
 } from '../../../services/cutting-batch-api'
+import CuttingSolvePanel, { sameItemSet } from './CuttingSolvePanel'
 import { errMsg } from '../../../utils/errors'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
@@ -52,14 +60,21 @@ const CUT_MODES: { value: CutMode; label: string; desc: string }[] = [
   {
     value: 'AUTO',
     label: 'Bình thường (mặc định)',
-    desc: 'Cây chuẩn nào đạt ngưỡng thì chốt luôn; không cây nào đạt thì tự dò thêm chiều dài khác rồi mới đặt. Không đạt nữa thì dừng chờ duyệt tay.',
+    desc: 'Dùng mức “Hao hụt sắt mặc định tối đa” ở ô trên. Cây chuẩn nào đạt thì chốt luôn; không cây nào đạt thì tự dò thêm chiều dài khác rồi mới đặt. Không có cách cắt nào đạt thì báo “Cần xử lý” (chưa có phương án để tạo lệnh).',
   },
   {
     value: 'ACCEPT_OVER',
     label: 'Chấp nhận hao hụt cao hơn (đơn gấp)',
-    desc: 'Xin Sếp duyệt một mức hao hụt cao hơn ngưỡng thường cho riêng đợt này. Vượt cả mức đã xin thì hệ thống vẫn chặn.',
+    desc: 'Dùng cho đợt gấp: không đặt trần hao hụt cho riêng đợt này, hệ thống tìm phương án tốt nhất có thể (không đổi mức mặc định). Kết quả hiện ngay sau khi tính; Sếp thấy lý do và % hao hụt thật khi duyệt lệnh sản xuất.',
   },
 ]
+
+/** "Chấp nhận hao hụt cao hơn" không còn ô nhập % (2026-09-30, theo yêu cầu): Sếp duyệt trên KẾT QUẢ THẬT đã tính nên con số xin
+ *  là thừa. BE vẫn cần 1 con số ngưỡng đặc cách -> gửi trần tối đa cho phép (100%) = "không đặt trần hao hụt". */
+const NO_CEILING_PCT = 100
+
+/** 1 -> "1,0", 2.5 -> "2,5" - đúng dạng người dùng gõ/đọc (dấu phẩy). */
+const fmtPct = (n: number) => n.toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 3 })
 
 const fmtDate = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }) : '—'
@@ -91,7 +106,7 @@ const isLowConfidence = (minBars: number) => minBars > 0 && minBars < 3
 
 /**
  * 2 màu THEO ĐÚNG NGƯỠNG CỦA CHÍNH LOẠI SẮT ĐÓ (`over`, đã tính sẵn ở BE theo
- * Material.maxCuttingWastePercentage ?? SystemConfig mặc định) - KHÔNG hard-code một mốc % cố
+ * SystemConfig.solverMaxWastePercentage - ngưỡng chung KHSX tự đổi; không còn ngưỡng riêng theo vật tư) - KHÔNG hard-code một mốc % cố
  * định ở đây. Loại sắt nào được cấp ngưỡng riêng cao hơn (vd 5%) mà hard-code 1% sẽ báo đỏ sai.
  *
  * Dấu "?" (2026-09-15, thay cho màu vàng riêng trước đó) giữ nguyên ý nghĩa cũ: mẫu quá nhỏ (dưới
@@ -182,13 +197,26 @@ export default function GomDotCatPage({ onDone }: Props) {
   const [preview, setPreview] = useState<CuttingBatchPreview | null>(null)
   const [previewing, setPreviewing] = useState(false)
   const [merging, setMerging] = useState(false)
+  // Luồng "Solve trước": các lượt tính gần đây + đang gửi yêu cầu tính.
+  const [solves, setSolves] = useState<CuttingBatchSolve[]>([])
+  const [solving, setSolving] = useState(false)
+  // 2 tab: "Chọn và tính" (việc thường ngày) | "Kết quả đã tính" (theo dõi + tạo lệnh). Tách đôi để
+  // KHSX không phải cuộn qua bảng SKU + khối chế độ cắt mới thấy kết quả solver.
+  const [tab, setTab] = useState<'choose' | 'results'>('choose')
+  const [expandedSolveId, setExpandedSolveId] = useState<string | null>(null)
+  const openedOnce = useRef(false)
+  // "Hao hụt sắt mặc định tối đa (%)": mức chung của công ty, KHSX chỉ ĐỌC (2026-09-30, theo yêu cầu: ô này khoá;
+  // ai cần hao hụt cao hơn thì chọn "Chấp nhận hao hụt cao hơn" ở khối Chế độ cắt - Sếp duyệt riêng cho đợt đó).
+  const [defaults, setDefaults] = useState<CuttingDefaults | null>(null)
   // Chế độ cắt KHSX đề nghị cho ĐÚNG đợt sắp tạo - Sếp chấp thuận bằng chính nút Duyệt lệnh SX.
-  // Giữ % dạng chuỗi để ô nhập rỗng được (0 và "chưa nhập" là 2 chuyện khác nhau).
   const [cutMode, setCutMode] = useState<CutMode>('AUTO')
-  const [wastePct, setWastePct] = useState('')
   const [overrideReason, setOverrideReason] = useState('')
   const [onlyStandardLength, setOnlyStandardLength] = useState(false)
   const [overrideOpen, setOverrideOpen] = useState(false)
+  // Lỗi của đề nghị đặc cách chỉ hiện SAU khi KHSX bấm Tính mà chưa điền đủ - vừa chọn mode đã báo đỏ là hù người dùng.
+  const [overrideTouched, setOverrideTouched] = useState(false)
+  const cutModeRef = useRef<HTMLDivElement | null>(null)
+  const overrideBoxRef = useRef<HTMLDivElement | null>(null)
   // Chiều dài cây KHSX chọn cho TỪNG QUY CÁCH trong đợt này (materialId -> chuỗi đang gõ).
   // Giữ dạng chuỗi như wastePct: ô rỗng = "dùng cây chuẩn", khác hẳn với số 0.
   const [stockLenInput, setStockLenInput] = useState<Record<string, string>>({})
@@ -202,9 +230,12 @@ export default function GomDotCatPage({ onDone }: Props) {
   // thử auto-suggest + giấu vào "Cài đặt nâng cao" - người dùng chốt lại: "KHSX không cần biết
   // tốn bao lâu, miễn cho kết quả tốt nhất". Không còn field/state nào ở FE cho việc này nữa - xem
   // solverOverride() dưới, giờ LUÔN tự tính + gửi ngân sách AN TOÀN TỐI ĐA (không phải mặc định
-  // tối thiểu) cho mọi lần gộp/cắt riêng, không cần KHSX biết khái niệm này tồn tại. Solver chạy
-  // NỀN sau khi Sếp duyệt (fire-and-forget, xem runSolverAndSave) nên thời gian giải lâu hơn
-  // KHÔNG làm KHSX phải chờ gì cả - chỉ ảnh hưởng lúc Sếp mở lại xem kết quả.
+  // tối thiểu) cho mọi lần tính, không cần KHSX biết khái niệm này tồn tại.
+  // 2026-09-30 (luồng "Solve trước"): solver giờ chạy NGAY khi KHSX bấm Tính (vẫn chạy nền, có thể rời
+  // màn hình và nhận thông báo khi xong) nhưng KHSX phải có kết quả mới tạo được lệnh sản xuất - nên
+  // thời gian giải lâu hơn giờ LÀ thời gian KHSX chờ trước khi đi tiếp. Nếu thấy chờ quá lâu thì hạ
+  // ngân sách này (SystemConfig.solverTimeLimitSeconds / SOLVER_TIMEOUT_SECONDS), đừng bỏ "kết quả
+  // tốt nhất" mà không hỏi lại.
 
   /** Chỉ lấy ô đã gõ HỢP LỆ. Ô rỗng/đang gõ dở không được gửi đi: gửi số vô nghĩa sẽ làm BE trả
    *  400 ngay giữa lúc người ta còn đang gõ dở con số.
@@ -267,6 +298,38 @@ export default function GomDotCatPage({ onDone }: Props) {
       .finally(() => { if (!cancelled) setPreviewing(false) })
     return () => { cancelled = true }
   }, [selectedKey, stockLengths])
+
+  useEffect(() => {
+    getCuttingDefaults()
+      .then(setDefaults)
+      .catch(() => { /* không chặn màn nếu chỉ đọc số mặc định lỗi */ })
+  }, [])
+
+  const loadSolves = useCallback(() => {
+    getCuttingBatchSolves()
+      .then((res) => {
+        setSolves(res)
+        // Lần đầu vào màn mà đã có lượt tính (đang chạy / vừa xong - vd bấm từ thông báo "đã tính
+        // xong") thì mở thẳng tab kết quả: đó chính là thứ KHSX quay lại để xem.
+        if (!openedOnce.current) {
+          openedOnce.current = true
+          if (res.length > 0) {
+            setTab('results')
+            setExpandedSolveId(res[0].id)
+          }
+        }
+      })
+      // Không chặn cả màn nếu chỉ khối tiến độ tải lỗi - bảng chọn SKU vẫn dùng được.
+      .catch((e) => setError(errMsg(e, 'Không tải được tiến độ tính phương án cắt')))
+  }, [])
+  useEffect(() => { loadSolves() }, [loadSolves])
+  // Còn lượt đang tính thì hỏi lại BE mỗi 4 giây; xong hết thì dừng (không poll vô ích).
+  const hasCalculating = solves.some((sv) => sv.displayStatus === 'CALCULATING')
+  useEffect(() => {
+    if (!hasCalculating) return
+    const t = setInterval(loadSolves, 4000)
+    return () => clearInterval(t)
+  }, [hasCalculating, loadSolves])
 
   const toggle = (id: string) =>
     setSelected((prev) => {
@@ -332,6 +395,10 @@ export default function GomDotCatPage({ onDone }: Props) {
   const selectedMaterialIds = new Set<string>()
   for (const it of selectedItems) for (const m of it.materials) selectedMaterialIds.add(m.materialId)
   const selectedMaterialCount = selectedMaterialIds.size
+  /** Lượt tính khớp ĐÚNG tổ hợp SKU đang tick (danh sách BE trả mới nhất trước nên find() ra bản mới
+   *  nhất). Phương án chỉ dùng được cho ĐÚNG tập SKU đã tính - tick khác đi là chưa có kết quả. */
+  const currentSolve = solves.find((sv) => sameItemSet(sv, [...selected])) ?? null
+  const currentCalculating = currentSolve?.displayStatus === 'CALCULATING'
 
   // Ngân sách giây/loại sắt LUÔN gửi tự động cho solver - KHÔNG hỏi KHSX gì cả (chốt 2026-09-23:
   // "KHSX không cần biết tốn bao lâu, miễn cho kết quả tốt nhất"). Dùng HẾT phần ngân sách AN TOÀN
@@ -358,55 +425,86 @@ export default function GomDotCatPage({ onDone }: Props) {
       : 0
 
   /**
-   * Chốt nhóm. Chỉ TẠO PI - không chạy solver ở đây: phương án cắt được tính khi Sếp duyệt cả cụm
-   * (đúng luồng duyệt sẵn có). Xong thì chuyển thẳng sang màn "Lệnh sản xuất mới" vì đó là nơi
-   * KHSX làm bước tiếp theo (đặt thời hạn rồi gửi duyệt) - để KHSX tự đi tìm là thừa một bước.
+   * "Tính phương án cắt" - chạy solver NGAY cho tổ hợp đang tick (chạy nền, kết quả hiện ở khối
+   * "Kết quả tính" bên dưới). Chưa tạo lệnh sản xuất nào ở bước này. Thông số cắt (chế độ đặc cách,
+   * chiều dài cây, thời gian tính) gửi kèm ở đây - lệnh sản xuất tạo sau sẽ dùng đúng bộ đó.
    */
-  const handleConfirm = () => {
+  const handleSolve = async () => {
+    // Đề nghị đặc cách chưa đủ: KHÔNG khoá nút (khoá mà không nói lý do thì người dùng bí) - mở khối chế độ cắt,
+    // hiện lỗi đúng chỗ cần điền và cuộn tới đó.
+    if (overrideInvalid) {
+      setOverrideTouched(true)
+      setOverrideOpen(true)
+      // Cuộn tới ĐÚNG ô cần điền (khối vàng), không phải cả khối chế độ cắt: khối cao gần hết màn, cuộn vào giữa
+      // thì thanh Tính cố định ở đáy che mất ô lý do. Chờ 1 nhịp để khối bung ra xong mới có ref.
+      setTimeout(() => (overrideBoxRef.current ?? cutModeRef.current)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60)
+      return
+    }
+    setSolving(true)
+    setError(null)
+    requestCuttingBatchSolve([...selected], solverOverride())
+      .then((sv) => {
+        // Chuyển sang tab kết quả ngay: KHSX thấy lượt vừa bấm đang chạy (bộ đếm giây) thay vì phải
+        // tự cuộn xuống tìm.
+        setExpandedSolveId(sv.id)
+        setTab('results')
+        loadSolves()
+      })
+      .catch((e) => setError(errMsg(e, 'Không bắt đầu tính được phương án cắt')))
+      .finally(() => setSolving(false))
+  }
+
+  /** Bấm "Tính lại với chế độ khác" ở 1 thẻ: quay về tab chọn, tick lại đúng các SKU của lượt đó và điền
+   *  lại cài đặt đã dùng (chỉ cây chuẩn, chiều dài cây) để KHSX chỉ việc đổi rồi bấm Tính. */
+  const handleRecalcFrom = (solve: CuttingBatchSolve) => {
+    const alive = new Set(items.map((i) => i.productionInvoiceItemId))
+    setSelected(new Set((solve.items ?? []).map((i) => i.productionInvoiceItemId).filter((id) => alive.has(id))))
+    const o = solve.solverOptions
+    // Điền lại ĐÚNG chế độ lượt đó đã dùng để KHSX chỉ việc đổi rồi Tính lại.
+    setOverrideTouched(false)
+    if (o?.solverMaxWastePctOverride != null) {
+      setCutMode('ACCEPT_OVER')
+      setOverrideReason(o.solverOverrideReason ?? '')
+      setOnlyStandardLength(o.solverAllowCustomLength === false)
+      setOverrideOpen(true)
+    } else {
+      setCutMode('AUTO')
+      setOverrideReason('')
+      setOnlyStandardLength(false)
+    }
+    if (o?.solverStockLengthsByMaterial && Object.keys(o.solverStockLengthsByMaterial).length > 0) {
+      setStockLenInput(Object.fromEntries(Object.entries(o.solverStockLengthsByMaterial).map(([k, v]) => [k, String(v)])))
+      setLenOpen(true)
+    } else {
+      setStockLenInput({})
+    }
+    setTab('choose')
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  /** Tạo lệnh sản xuất từ phương án đã tính. BE kiểm lại phương án còn đúng (chưa lỗi thời) - nếu
+   *  không, 409 kèm lý do và ta tải lại danh sách để khối kết quả hiện đúng trạng thái mới. */
+  const handleCreateInvoice = (solve: CuttingBatchSolve) => {
     setMerging(true)
     setError(null)
-    mergeCuttingBatch([...selected], solverOverride())
+    // SKU lấy từ CHÍNH lượt tính (không phụ thuộc đang tick gì) - tab kết quả tách khỏi bảng chọn.
+    const ids = (solve.items ?? []).map((i) => i.productionInvoiceItemId)
+    const create = ids.length >= 2
+      ? mergeCuttingBatch(ids, solve.id)
+      : claimSoloCuttingBatch(ids[0], solve.id)
+    create
       .then(() => onDone?.())
-      .catch((e) => setError(errMsg(e, 'Không gộp được nhóm đã chọn')))
+      .catch((e) => {
+        setError(errMsg(e, 'Không tạo được lệnh sản xuất từ phương án này'))
+        loadSolves()
+      })
       .finally(() => setMerging(false))
   }
 
   /**
-   * "Tạo lệnh sản xuất riêng cho SKU này" - đúng 1 SKU, không gộp gì cả. 2026-08-20: PI không còn tự sinh sẵn lúc
-   * Sales tạo PO nên đây KHÔNG còn là no-op - phải tạo thật 1 PI riêng cho SKU này mới đi tiếp
-   * được sang "Lệnh sản xuất mới" (xem claimSoloCuttingBatch()).
-   */
-  const handleClaimSolo = () => {
-    const [itemId] = selected
-    if (!itemId) return
-    setMerging(true)
-    setError(null)
-    claimSoloCuttingBatch(itemId, solverOverride())
-      .then(() => onDone?.())
-      .catch((e) => setError(errMsg(e, 'Không tạo được lệnh sản xuất cho SKU này')))
-      .finally(() => setMerging(false))
-  }
-
-  /**
-   * Khối "đề nghị cắt đặc cách" dùng chung cho cả 2 nút bên dưới (gộp >=2 SKU / cắt riêng 1 SKU).
-   *
-   * CHỈ hiện khi thật sự vướng — đạt ngưỡng rồi thì không có gì để xin, bày ra chỉ tổ mời người ta
-   * nới ngưỡng vô cớ. Đã gộp thì tin `preview` (gộp có cứu được không) chứ không tin số cắt riêng
-   * của từng SKU; chưa gộp thì mới đọc cờ overThreshold của chính SKU đó.
-   */
-  const overrideNeeded = preview
-    ? preview.lines.some((l) => !l.meetsThreshold)
-    : items.some((i) => selected.has(i.productionInvoiceItemId) && i.materials.some((m) => m.overThreshold))
-  const showOverride = overrideOpen || overrideNeeded
-
-  /**
-   * Mức hao hụt tối thiểu cần xin, suy từ chính số đang hiện trên màn: loại sắt vướng nhất trong
-   * tổ hợp đang chọn. Làm tròn LÊN 0.1% cho dễ đọc.
-   *
-   * Số này là CẬN DƯỚI ở CÂY CHUẨN (xem chú thích đầu file) nên chỉ là gợi ý, không phải cam kết:
-   * - Không cấm đặt cây riêng → solver có thể tìm được cây lạ hao ít hơn nhiều, xin thừa cũng
-   *   không sao nhưng dễ vô tình bao luôn loại sắt khác.
-   * - Cấm đặt cây riêng → đây gần đúng là con số thật sự phải xin.
+   * Gợi ý cho ô “Chấp nhận hao hụt tới”: mức tối thiểu ước tính để đợt đang chọn KHÔNG vượt ngưỡng (làm
+   * tròn LÊN 0,1%). Là CẬN DƯỚI ở cây chuẩn nên chỉ là gợi ý; solver có thể tìm được cây riêng hao ít
+   * hơn. Đã gộp thì tin `preview`; chưa gộp thì đọc cờ overThreshold của chính SKU.
    */
   const suggestedPct = (() => {
     const pcts = preview
@@ -430,14 +528,19 @@ export default function GomDotCatPage({ onDone }: Props) {
     return all[0]?.materialCode ?? null
   })()
 
-  const wastePctNum = Number(wastePct)
-  const wastePctBad = !(Number.isFinite(wastePctNum) && wastePctNum > 0 && wastePctNum <= 100)
-  /** Xin thấp hơn cả cận dưới thì gần như chắc chắn vẫn bị chặn - cảnh báo, KHÔNG cấm (còn tuỳ
-   *  solver có được dò cây riêng hay không). */
-  const wastePctTooLow = !wastePctBad && suggestedPct != null && wastePctNum < suggestedPct
+  /**
+   * Khối "đề nghị cắt đặc cách" chỉ hiện khi thật sự vướng — đạt ngưỡng rồi thì không có gì để xin.
+   * Đã gộp thì tin `preview` (gộp có cứu được không) chứ không tin số cắt riêng của từng SKU.
+   */
+  const overrideNeeded = preview
+    ? preview.lines.some((l) => !l.meetsThreshold)
+    : items.some((i) => selected.has(i.productionInvoiceItemId) && i.materials.some((m) => m.overThreshold))
+  // Không tự bung: chỉ hiện 1 dòng nhắc khi vượt ngưỡng (xem cutModePanel), KHSX bấm mới mở.
+  const showOverride = overrideOpen
+
   // BE bắt buộc lý do khi có ngưỡng đặc cách - chặn luôn ở đây để KHSX không phải ăn lỗi 400.
   const reasonMissing = overrideReason.trim() === ''
-  const overrideInvalid = cutMode === 'ACCEPT_OVER' && (wastePctBad || reasonMissing)
+  const overrideInvalid = cutMode === 'ACCEPT_OVER' && reasonMissing
 
   /** undefined = không đề nghị gì, để BE chạy ngưỡng thường + mặc định công ty.
    *
@@ -449,14 +552,12 @@ export default function GomDotCatPage({ onDone }: Props) {
       Object.keys(stockLengths).length > 0
         ? { solverStockLengthsByMaterial: stockLengths }
         : undefined
-    // Độc lập với cutMode/chiều dài cây - thuần ngân sách thời gian tính toán, không phải quyết
-    // định nghiệp vụ, nên đi kèm ở CẢ 2 chế độ như `lengths` ở trên. LUÔN tự tính, không chờ KHSX
-    // nhập gì (xem autoTimeLimitSeconds ở trên).
+    // Thuần ngân sách thời gian tính toán - LUÔN tự tính (xem autoTimeLimitSeconds ở trên).
     const timeLimit =
       autoTimeLimitSeconds != null ? { solverTimeLimitSecondsOverride: autoTimeLimitSeconds } : undefined
     if (cutMode === 'ACCEPT_OVER') {
       return {
-        solverMaxWastePctOverride: wastePctNum,
+        solverMaxWastePctOverride: NO_CEILING_PCT,
         solverOverrideReason: overrideReason.trim(),
         // Đơn gấp thường kèm "chỉ cây chuẩn" (khỏi chờ NCC cán), nhưng KHÔNG bắt buộc - bỏ tick
         // thì vẫn cho solver dò cây riêng, chỉ là chấp nhận hao cao hơn.
@@ -497,8 +598,54 @@ export default function GomDotCatPage({ onDone }: Props) {
     )
   )
 
+  /** Mức hao hụt MẶC ĐỊNH của công ty - chỉ đọc (ô bị khoá). Cần cao hơn cho đợt gấp: “Chấp nhận hao hụt cao hơn”
+   *  ở khối Chế độ cắt (Sếp duyệt riêng, không đổi mức chung này). */
+  const settingsCard = defaults && (
+    <div style={{ padding: '12px 14px', marginBottom: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
+      <label htmlFor="waste-max" style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 6 }}>
+        Hao hụt sắt mặc định tối đa (%):
+      </label>
+      <input
+        id="waste-max"
+        value={fmtPct(defaults.solverMaxWastePercentage)}
+        disabled
+        readOnly
+        style={{ width: 'min(260px, 100%)', padding: '9px 11px', fontSize: 14, border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface2)', color: 'var(--text2)', cursor: 'not-allowed', boxSizing: 'border-box' }}
+      />
+      <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--text3)', lineHeight: 1.5 }}>
+        Mức chung của công ty, áp cho mọi lượt tính (không sửa tại đây). Đợt gấp cần hao hụt cao hơn: chọn
+        {' '}<b>“Chấp nhận hao hụt cao hơn”</b> ở khối “Chế độ cắt” bên dưới — Sếp duyệt riêng cho đợt đó.
+      </div>
+    </div>
+  )
+
+  /** Nút "Tính phương án cắt". Khoá khi: đang gửi yêu cầu, đúng tổ hợp này ĐANG tính (bấm nữa chỉ bị
+   *  BE chặn 409), hoặc chưa chọn SKU (đề nghị đặc cách thiếu thì chặn lúc bấm, kèm lỗi ngay chỗ cần điền). (Đang lưu ô hao hụt KHÔNG khoá nút: khoá giữa mousedown và mouseup làm mất click; handleSolve tự chờ lưu xong.) */
+  const solveDisabled = solving || currentCalculating || merging || selected.size === 0
+  const solveButton = (
+    <button
+      onClick={handleSolve}
+      disabled={solveDisabled}
+      style={{
+        padding: '8px 16px', border: 'none', borderRadius: 'var(--radius)', fontSize: 13,
+        fontWeight: 600, color: '#fff', background: 'var(--bg-2e7d32)',
+        display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+        flexShrink: 0, width: isMobile ? '100%' : undefined,
+        cursor: solveDisabled ? 'not-allowed' : 'pointer',
+        opacity: solveDisabled ? 0.5 : 1,
+      }}
+    >
+      {(solving || currentCalculating) && <Loader2 size={14} className="spin" />}
+      {currentCalculating
+        ? 'Đang tính…'
+        : currentSolve
+          ? `Tính lại phương án cắt (${selected.size} SKU)`
+          : `Tính phương án cắt (${selected.size} SKU)`}
+    </button>
+  )
+
   const cutModePanel = (
-    <div style={{ width: '100%' }}>
+    <div ref={cutModeRef} style={{ padding: '8px 11px', marginBottom: 8, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
         <button
           onClick={() => setOverrideOpen((v) => !v)}
@@ -513,7 +660,7 @@ export default function GomDotCatPage({ onDone }: Props) {
       {overrideNeeded && !showOverride && (
         <div style={{ marginTop: 6, display: 'flex', gap: 7, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--fg-92400e)' }}>
           <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-          <span>Đợt này <b>vượt ngưỡng hao hụt</b> — mở chế độ cắt để xử lý, nếu không sẽ dừng chờ duyệt tay.</span>
+          <span>Đợt này <b>vượt ngưỡng hao hụt</b> — vẫn tính và tạo lệnh được, nhưng QLSX/Sếp sẽ thấy cảnh báo. Muốn tính với hao hụt cao hơn mức mặc định cho đợt gấp này: mở chế độ cắt và chọn “Chấp nhận hao hụt cao hơn”.</span>
         </div>
       )}
 
@@ -522,7 +669,7 @@ export default function GomDotCatPage({ onDone }: Props) {
           {overrideNeeded && (
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, color: 'var(--fg-92400e)', background: 'var(--bg-fffbeb)', border: '1px solid var(--fg-fcd34d)', borderRadius: 'var(--radius)', padding: '8px 10px' }}>
               <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
-              <span>Đợt này <b>vượt ngưỡng hao hụt</b> nên sẽ dừng chờ duyệt tay. Đơn gấp thì chọn <b>“Chấp nhận hao hụt cao hơn”</b> — Sếp duyệt lệnh sản xuất là chấp thuận luôn.</span>
+              <span>Đợt này <b>vượt ngưỡng hao hụt</b> — vẫn tạo lệnh được nhưng QLSX/Sếp sẽ thấy cảnh báo. Đợt gấp cần mức hao hụt cao hơn mức mặc định: chọn <b>“Chấp nhận hao hụt cao hơn”</b> bên dưới (Sếp duyệt riêng, không đổi mức mặc định).</span>
             </div>
           )}
 
@@ -540,15 +687,9 @@ export default function GomDotCatPage({ onDone }: Props) {
                   checked={active}
                   onChange={() => {
                     setCutMode(m.value)
-                    // Chọn "chấp nhận hao cao hơn" thì điền sẵn luôn mức tối thiểu cần - tránh
-                    // đúng thói quen gõ số tròn cho chắc (vd 10%), vì con số này là TRẦN áp cho
-                    // MỌI loại sắt trong đợt, xin thừa là vô tình duyệt luôn loại khác.
-                    if (m.value === 'ACCEPT_OVER') {
-                      setOnlyStandardLength(true)
-                      if (wastePct.trim() === '' && suggestedPct != null) {
-                        setWastePct(String(suggestedPct))
-                      }
-                    }
+                    setOverrideTouched(false)
+                    // Đơn gấp thường kèm "giữ đúng chiều dài đã định" (khỏi chờ NCC cán cây riêng) - tick sẵn, bỏ tick được.
+                    if (m.value === 'ACCEPT_OVER') setOnlyStandardLength(true)
                   }}
                   // Ghim kích thước: để trình duyệt tự co giãn thì ở khung hẹp nút radio phình to
                   // bằng cả dòng (lỗi đã gặp ở bản trước).
@@ -563,37 +704,18 @@ export default function GomDotCatPage({ onDone }: Props) {
           })}
 
           {cutMode === 'ACCEPT_OVER' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '9px 11px', background: 'var(--bg-fffbeb)', border: '1px solid var(--fg-fcd34d)', borderRadius: 'var(--radius)' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 7, flexWrap: 'wrap', fontSize: 12.5, color: 'var(--text2)' }}>
-                Chấp nhận hao hụt tới
-
-                <input
-                  value={wastePct}
-                  onChange={(e) => setWastePct(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  inputMode="decimal"
-                  placeholder="—"
-                  style={{ width: 62, padding: '5px 8px', fontSize: 12.5, textAlign: 'right', border: `1px solid ${wastePctBad ? 'var(--fg-dc2626)' : 'var(--border)'}`, borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)' }}
-                />
-                %
+            <div ref={overrideBoxRef} style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '9px 11px', background: 'var(--bg-fffbeb)', border: '1px solid var(--fg-fcd34d)', borderRadius: 'var(--radius)' }}>
+              <div style={{ fontSize: 12.5, color: 'var(--text2)', lineHeight: 1.5 }}>
+                Không đặt trần hao hụt cho đợt này — hệ thống tìm phương án tốt nhất có thể.
                 {suggestedPct != null && (
-                  <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>
-                    (ước tính cần ≥{suggestedPct}%{suggestedDriver ? ` — do ${suggestedDriver}` : ''})
+                  <span style={{ color: 'var(--text3)' }}>
+                    {' '}Ước tính đợt này cần ≥ {fmtPct(suggestedPct)}%{suggestedDriver ? ` (${suggestedDriver})` : ''}; số thật hiện sau khi tính.
                   </span>
                 )}
-              </label>
-              {wastePctTooLow && (
-                <div style={{ fontSize: 11.5, color: 'var(--fg-b45309)' }}>
-                  Thấp hơn mức ước tính — nhiều khả năng vẫn bị chặn nếu không cho đặt cây riêng.
-                </div>
-              )}
-              {/* Trước 2026-09-16 nhãn ghi "Chỉ mua cây chuẩn" - đúng khi chiều dài luôn là cây
-                  chuẩn. Từ khi có ô chọn chiều dài riêng theo quy cách (thanh phía trên), tick này
-                  có thể đang GIỮ một cây RIÊNG (vd 5850) chứ không phải ép về cây chuẩn - "khỏi
-                  chờ nhà cung cấp cán cây riêng" thành sai nghĩa ngay lúc đó. Câu mới không giả
-                  định cây nào, và khớp NGUYÊN VĂN với callout Sếp đọc lúc duyệt
-                  (solverOverrideNote() trong LenhSXPage.tsx) - Sếp phải thấy đúng y chang thứ
-                  KHSX vừa tick, không phải một cách diễn đạt khác đi. */}
+              </div>
+              {/* Nhãn KHỚP NGUYÊN VĂN với callout Sếp đọc lúc duyệt (solverOverrideNote() trong
+                  LenhSXPage.tsx) - Sếp phải thấy đúng y chang thứ KHSX vừa tick. Không giả định
+                  "cây chuẩn": có thể đang giữ một cây RIÊNG (vd 5850) chọn ở ô chiều dài cây. */}
               <label style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--text2)' }}>
                 <input
                   type="checkbox"
@@ -609,13 +731,11 @@ export default function GomDotCatPage({ onDone }: Props) {
                 onChange={(e) => setOverrideReason(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
                 placeholder="Lý do để Sếp duyệt — vd: PO-4 giao gấp, không kịp chờ cán cây riêng"
-                style={{ width: '100%', padding: '6px 9px', fontSize: 12.5, border: `1px solid ${reasonMissing ? 'var(--fg-dc2626)' : 'var(--border)'}`, borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)' }}
+                style={{ width: '100%', padding: '6px 9px', fontSize: 12.5, border: `1px solid ${overrideTouched && reasonMissing ? 'var(--fg-dc2626)' : 'var(--border)'}`, borderRadius: 'var(--radius)', background: 'var(--surface)', color: 'var(--text)' }}
               />
-              {overrideInvalid && (
+              {overrideTouched && overrideInvalid && (
                 <div style={{ fontSize: 12, color: 'var(--fg-b91c1c)' }}>
-                  {wastePctBad
-                    ? 'Mức hao hụt phải là số trong khoảng 0–100%.'
-                    : 'Nhập lý do thì Sếp mới có căn cứ duyệt.'}
+                  Nhập lý do thì Sếp mới có căn cứ duyệt.
                 </div>
               )}
             </div>
@@ -634,7 +754,7 @@ export default function GomDotCatPage({ onDone }: Props) {
           </h2>
           <div style={{ ...pageSubtitle, marginTop: 4 }}>
             Chọn các SKU muốn cắt chung một đợt để bớt số cây sắt phải mua. Chỉ gồm SKU{' '}
-            <b>Sếp chưa duyệt</b> — duyệt rồi thì phương án cắt đã chạy riêng, không gộp được nữa.
+            <b>Sếp chưa duyệt</b> — Sếp duyệt rồi thì đã chốt phương án cắt riêng, không gộp được nữa.
           </div>
         </div>
         <button onClick={load} style={{ padding: '6px 10px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, flexShrink: 0 }}>
@@ -642,33 +762,63 @@ export default function GomDotCatPage({ onDone }: Props) {
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: 'var(--bg-eff6ff)', border: '1px solid var(--fg-bfdbfe)', borderRadius: 'var(--radius)', padding: '9px 12px', margin: '12px 0 14px', fontSize: 12, color: 'var(--fg-1e40af)' }}>
-        <Info size={15} style={{ flexShrink: 0, marginTop: 1 }} />
-        <span>
-          Loại sắt kèm dấu <b>≥</b> là ước tính nhanh, <b>chưa xác minh với solver</b> — con số tốt
-          nhất về lý thuyết, giả định có đủ số lượng để lặp lại đúng kiểu cắt tối ưu ở mọi cây; số
-          lượng thật ít thì cây cuối không đủ đoạn để lặp kiểu đó, nên hao hụt thật có thể cao hơn.
-          Loại KHÔNG kèm dấu ≥ là số thật đã xác minh với solver, không còn giả định này. Dùng để so
-          sánh phương án, không phải cam kết kết quả. Dấu <b style={{ color: 'var(--fg-854d0e)' }}>?</b> cạnh
-          % nghĩa là số lượng quá ít (dưới 3 cây) để ước tính đó còn đáng tin — chỉ hoàn toàn dựa
-          vào nó để quyết định.
-        </span>
+      {/* 2 tab. Số trên tab kết quả = lượt đang có; chấm xanh = có lượt đã tính xong dùng được để tạo lệnh. */}
+      <div style={{ display: 'flex', gap: 8, margin: '14px 0' }}>
+        {([
+          { key: 'choose', label: 'Chọn và tính' },
+          { key: 'results', label: 'Kết quả đã tính' },
+        ] as const).map((t) => {
+          const active = tab === t.key
+          const count = t.key === 'results' ? solves.length : 0
+          const readyCount = solves.filter((sv) => sv.invoiceReadiness?.ready === true).length
+          return (
+            <button
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 7, padding: '8px 16px', fontSize: 13,
+                fontWeight: 600, borderRadius: 'var(--radius)', cursor: 'pointer',
+                border: `1px solid ${active ? 'var(--fg-e65100)' : 'var(--border)'}`,
+                background: active ? 'rgba(230,81,0,0.08)' : 'var(--surface)',
+                color: active ? 'var(--fg-e65100)' : 'var(--text2)',
+              }}
+            >
+              {t.label}
+              {t.key === 'results' && count > 0 && (
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '1px 7px', borderRadius: 10, background: readyCount > 0 ? 'var(--bg-e8f5e9)' : 'var(--surface2)', color: readyCount > 0 ? 'var(--fg-166534)' : 'var(--text2)' }}>
+                  {count}{readyCount > 0 ? ' · xong' : ''}
+                </span>
+              )}
+            </button>
+          )
+        })}
       </div>
 
-      {loading && <div style={{ fontSize: 13, color: 'var(--text3)' }}>Đang tải…</div>}
+      {loading && tab === 'choose' && <div style={{ fontSize: 13, color: 'var(--text3)' }}>Đang tải…</div>}
       {error && (
         <div style={{ background: 'var(--bg-fee2e2)', border: '1px solid var(--fg-fca5a5)', color: 'var(--fg-991b1b)', borderRadius: 'var(--radius)', padding: '10px 12px', fontSize: 13, marginBottom: 12 }}>
           {error}
         </div>
       )}
 
-      {!loading && items.length === 0 && !error && (
+      {tab === 'choose' && (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', background: 'var(--bg-eff6ff)', border: '1px solid var(--fg-bfdbfe)', borderRadius: 'var(--radius)', padding: '8px 12px', marginBottom: 12, fontSize: 12, color: 'var(--fg-1e40af)' }}>
+          <Info size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+          <span>
+            Số kèm dấu <b>≥</b> chỉ là <b>ước tính nhanh</b>, dùng để chọn SKU nào nên cắt chung. Số thật
+            có sau khi bấm <b>Tính phương án cắt</b>. Dấu <b style={{ color: 'var(--fg-854d0e)' }}>?</b> = mới
+            có vài cây nên ước tính chưa đáng tin.
+          </span>
+        </div>
+      )}
+
+      {tab === 'choose' && !loading && items.length === 0 && !error && (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '20px 16px', textAlign: 'center', fontSize: 13, color: 'var(--text2)' }}>
           Không có SKU nào đang chờ duyệt — không có gì để gộp.
         </div>
       )}
 
-      {items.length > 0 && (
+      {tab === 'choose' && items.length > 0 && (
         <>
           <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8 }}>
             {overCount > 0
@@ -676,6 +826,12 @@ export default function GomDotCatPage({ onDone }: Props) {
               : <>Không SKU nào vượt ngưỡng. </>}
             {recommended.size > 0 && <>Hệ thống đề xuất gộp <b>{recommended.size}</b> SKU — đã tick sẵn, sửa được.</>}
           </div>
+
+          {settingsCard}
+
+          {/* Chế độ cắt nằm cùng nhóm cài đặt ở đầu trang (không nằm trong thanh Tính cố định ở đáy - bung ra
+              sẽ che hết bảng SKU, đang tick dở không thấy mình chọn gì). */}
+          {selected.size >= 1 && cutModePanel}
 
           {/* Chiều dài cây theo TỪNG QUY CÁCH. Đổi ô nào thì mọi con số của đúng loại sắt đó
               trong bảng tính lại, các loại khác không đụng tới. */}
@@ -890,7 +1046,7 @@ export default function GomDotCatPage({ onDone }: Props) {
         </>
       )}
 
-      {selected.size >= 2 && (
+      {tab === 'choose' && selected.size >= 2 && (
         <div style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
           <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
             <b style={{ fontSize: 14, flex: '1 1 auto' }}>Nếu gộp {selected.size} SKU đã chọn</b>
@@ -975,9 +1131,9 @@ export default function GomDotCatPage({ onDone }: Props) {
                             KHÔNG phải để so sánh gộp/không gộp mà để trả lời "loại sắt này phải
                             mua bao nhiêu cây". Vẫn kèm dấu ≥ vì minBarsFor() là CẬN DƯỚI
                             (ceil(tổng mm cần / mm dùng được của cây khéo nhất)) - phương án cắt
-                            thật chạy sau khi Sếp duyệt có thể cần nhiều hơn. Bỏ dấu ≥ ở đây là
+                            thật (bấm “Tính phương án cắt” để có số thật) có thể cần nhiều hơn. Bỏ dấu ≥ ở đây là
                             biến con số tham khảo thành đơn đặt hàng. */}
-                        <td style={NUM} title={`Cắt khéo nhất cũng cần ${l.minBars} cây ${l.materialCode} - phương án cắt thật (chạy sau khi Sếp duyệt) có thể cần nhiều hơn.`}>
+                        <td style={NUM} title={`Cắt khéo nhất cũng cần ${l.minBars} cây ${l.materialCode} - phương án cắt thật (bấm “Tính phương án cắt” để có số thật) có thể cần nhiều hơn.`}>
                           ≥ {l.minBars}
                         </td>
                         <td style={NUM}>
@@ -997,46 +1153,48 @@ export default function GomDotCatPage({ onDone }: Props) {
             </div>
           )}
 
-          <div style={{ padding: '11px 14px', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            {cutModePanel}
-            <button
-              onClick={handleConfirm}
-              disabled={previewing || !preview || merging || overrideInvalid}
-              style={{
-                padding: '8px 16px', border: 'none', borderRadius: 'var(--radius)', fontSize: 13,
-                fontWeight: 600, color: '#fff', background: 'var(--bg-2e7d32)',
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7,
-                width: isMobile ? '100%' : undefined,
-                cursor: previewing || !preview || merging || overrideInvalid ? 'not-allowed' : 'pointer',
-                opacity: previewing || !preview || merging || overrideInvalid ? 0.5 : 1,
-              }}
-            >
-              {merging && <Loader2 size={14} className="spin" />}
-              Xác nhận gộp {selected.size} SKU
-            </button>
-          </div>
         </div>
       )}
 
       {/* Đúng 1 SKU: không có gì để gộp (lợi ích chỉ đến khi đoạn của NHIỀU SKU nằm chung một cây)
-          - vẫn phải tạo PI riêng cho nó (claimSoloCuttingBatch), chỉ là không cần preview hao hụt
-          vì không có gì để so sánh. */}
-      {selected.size === 1 && (
-        <div style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '12px 14px', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, fontSize: 12.5, color: 'var(--text2)', minWidth: isMobile ? 0 : 260 }}>
-            Chọn 1 SKU thì không có gì để gộp — SKU này cắt riêng như bình thường. Chọn thêm ít nhất
-            một SKU nữa (dùng chung loại sắt) mới bớt được cây.
-          </div>
-          {cutModePanel}
-          <button
-            onClick={handleClaimSolo}
-            disabled={merging || overrideInvalid}
-            style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, fontWeight: 600, background: 'var(--surface2)', color: 'var(--text)', cursor: merging || overrideInvalid ? 'not-allowed' : 'pointer', opacity: merging || overrideInvalid ? 0.6 : 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 7, flexShrink: 0, width: isMobile ? '100%' : undefined }}
-          >
-            {merging && <Loader2 size={14} className="spin" />}
-            Tạo lệnh sản xuất riêng cho SKU này
-          </button>
+          - vẫn tính phương án cắt riêng cho nó rồi tạo lệnh sản xuất riêng, chỉ là không cần preview
+          hao hụt vì không có gì để so sánh. */}
+      {tab === 'choose' && selected.size === 1 && (
+        <div style={{ marginTop: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '10px 14px', fontSize: 12.5, color: 'var(--text2)' }}>
+          Chọn 1 SKU thì không có gì để gộp — SKU này cắt riêng như bình thường. Chọn thêm ít nhất một SKU
+          nữa (dùng chung loại sắt) mới bớt được cây.
         </div>
+      )}
+
+      {/* Thanh hành động CỐ ĐỊNH ở đáy: luôn thấy nút Tính dù bảng SKU dài. Chỉ gồm tóm tắt + nút - mọi cài đặt ở đầu trang. */}
+      {tab === 'choose' && selected.size >= 1 && (
+        <div style={{ position: 'sticky', bottom: 0, zIndex: 5, marginTop: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '10px 14px', boxShadow: '0 -4px 14px rgba(0,0,0,0.14)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 12.5, color: 'var(--text2)' }}>
+              Đang chọn <b>{selected.size}</b> SKU
+              {currentSolve ? ' · đã có kết quả (xem tab “Kết quả đã tính”)' : ' · chưa tính'}
+              {' · '}Chế độ: <b>{cutMode === 'ACCEPT_OVER' ? 'chấp nhận hao hụt cao hơn' : 'bình thường'}</b>
+              {overrideTouched && overrideInvalid && (
+                <span style={{ color: 'var(--fg-b91c1c)' }}> — chưa điền đủ ở khối “Chế độ cắt” phía trên</span>
+              )}
+            </span>
+            {solveButton}
+          </div>
+        </div>
+      )}
+
+      {/* Kết quả solver THẬT + theo dõi tiến độ. Mỗi lượt là 1 thẻ; thẻ mới nhất mở sẵn. */}
+      {tab === 'results' && (
+        <CuttingSolvePanel
+          solves={solves}
+          expandedId={expandedSolveId}
+          onToggle={(id) => setExpandedSolveId((cur) => (cur === id ? null : id))}
+          creating={merging}
+          onCreateInvoice={handleCreateInvoice}
+          onRecalc={handleRecalcFrom}
+          onGoChoose={() => setTab('choose')}
+          isMobile={isMobile}
+        />
       )}
     </div>
   )

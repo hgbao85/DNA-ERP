@@ -19,25 +19,24 @@ beforeEach(() => {
 // % dự trù hao hụt khi mua (purchaseWastePercentage) hợp lệ với giá trị 0 ("không có hao hụt")
 // - khác NULL/undefined ("chưa set gì"). `|| undefined` sẽ vô tình nuốt mất 0 vì nó falsy trong
 // JS - đã cố ý dùng truyền thẳng thay vì `|| undefined` cho riêng field này (xem materials-api.ts).
-describe('createMaterial — gửi đủ 2 field hao hụt, kể cả khi giá trị là 0 (D.hao-hut-sat)', () => {
-  it('truyền thẳng maxCuttingWastePercentage/purchaseWastePercentage kể cả 0', async () => {
+describe('createMaterial — purchaseWastePercentage truyền thẳng kể cả 0; KHÔNG còn gửi maxCuttingWastePercentage (D.hao-hut-sat, 2026-09-30)', () => {
+  it('truyền thẳng purchaseWastePercentage kể cả 0, và không gửi ngưỡng cắt theo vật tư', async () => {
     post.mockResolvedValue({});
 
     await createMaterial({
       code: 'SAT-01',
       name: 'Sat vuong',
       unit: 'cay',
-      maxCuttingWastePercentage: 0,
+      maxCuttingWastePercentage: 3, // Sắt không còn ngưỡng cắt riêng - phải bị bỏ khỏi payload
       purchaseWastePercentage: 0,
     });
 
     expect(post).toHaveBeenCalledWith(
       '/materials',
-      expect.objectContaining({
-        maxCuttingWastePercentage: 0,
-        purchaseWastePercentage: 0,
-      }),
+      expect.objectContaining({ purchaseWastePercentage: 0 }),
     );
+    const body = (post.mock.calls[0] as unknown as [string, Record<string, unknown>])[1];
+    expect(body).not.toHaveProperty('maxCuttingWastePercentage');
   });
 
   it('không gửi field nào thì để undefined (Prisma dùng default khi tạo mới)', async () => {
@@ -59,23 +58,32 @@ describe('updateMaterial — gửi null (không phải undefined) khi field bị
   it('field undefined (đã xoá trắng) -> gửi null, không bị JSON.stringify nuốt mất', async () => {
     patch.mockResolvedValue({});
 
-    await updateMaterial(1, { name: 'Sat vuong', maxCuttingWastePercentage: undefined });
+    await updateMaterial(1, { name: 'Bao bi', purchaseWastePercentage: undefined });
 
     expect(patch).toHaveBeenCalledWith(
       '/materials/1',
-      expect.objectContaining({ maxCuttingWastePercentage: null }),
+      expect.objectContaining({ purchaseWastePercentage: null }),
     );
   });
 
   it('field có giá trị thật thì gửi đúng giá trị đó (không bị ép về null)', async () => {
     patch.mockResolvedValue({});
 
-    await updateMaterial(1, { name: 'Sat vuong', maxCuttingWastePercentage: 2.5 });
+    await updateMaterial(1, { name: 'Bao bi', purchaseWastePercentage: 2.5 });
 
     expect(patch).toHaveBeenCalledWith(
       '/materials/1',
-      expect.objectContaining({ maxCuttingWastePercentage: 2.5 }),
+      expect.objectContaining({ purchaseWastePercentage: 2.5 }),
     );
+  });
+
+  it('KHÔNG gửi maxCuttingWastePercentage (Sắt không còn ngưỡng cắt riêng theo vật tư)', async () => {
+    patch.mockResolvedValue({});
+
+    await updateMaterial(1, { name: 'Sat vuong', maxCuttingWastePercentage: 2.5 });
+
+    const body = (patch.mock.calls[0] as unknown as [string, Record<string, unknown>])[1];
+    expect(body).not.toHaveProperty('maxCuttingWastePercentage');
   });
 
   it('giá trị 0 không bị coi là "xoá trắng" - vẫn gửi đúng 0', async () => {
@@ -123,12 +131,12 @@ describe('updateMaterial — gửi null (không phải undefined) khi gỡ gán 
 
 describe('bulkUpdateMaterialWaste', () => {
   it('gửi PATCH /materials/bulk-waste kèm nguyên payload (materialIds, value)', async () => {
-    patch.mockResolvedValue({ updated: 2 });
+    patch.mockResolvedValue({ updated: 2, skippedSteel: 0 });
 
     const result = await bulkUpdateMaterialWaste({ materialIds: ['1', '2'], value: 3 });
 
     expect(patch).toHaveBeenCalledWith('/materials/bulk-waste', { materialIds: ['1', '2'], value: 3 });
-    expect(result).toEqual({ updated: 2 });
+    expect(result).toEqual({ updated: 2, skippedSteel: 0 });
   });
 
   it('value = null (xoá % hao hụt) truyền thẳng, không bị nuốt mất', async () => {

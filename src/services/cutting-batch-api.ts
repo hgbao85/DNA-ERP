@@ -222,33 +222,142 @@ export async function previewCuttingBatch(
 }
 
 /**
- * CHỐT nhóm: gộp các SKU đã tick thành 1 lệnh sản xuất (PI) để cắt chung một đợt. Khác 2 hàm trên
- * - đây là thao tác GHI: tạo PI mới và chuyển các SKU sang đó.
+ * TẠO lệnh sản xuất (PI) từ phương án cắt ĐÃ TÍNH cho đúng tổ hợp SKU này: gộp các SKU thành 1 PI
+ * để cắt chung một đợt. Khác 2 hàm đọc ở trên - đây là thao tác GHI: tạo PI mới và chuyển các SKU
+ * sang đó.
  *
- * KHÔNG chạy solver ở bước này. Phương án cắt chỉ tính khi Sếp duyệt cả cụm, đúng luồng duyệt sẵn
- * có (yêu cầu Sếp 2026-08-14) - gộp xong PI đi tiếp qua màn "Lệnh sản xuất mới" như bình thường.
+ * Luồng "Solve trước → tạo PI" (2026-09-30): cần `cuttingProposalId` của lượt tính đã xong, dùng
+ * được và chưa lỗi thời (BE trả 409 kèm lý do nếu không). Thông số cắt KHÔNG gửi lại ở đây - đã
+ * dùng lúc tính (requestCuttingBatchSolve). Sau đó PI đi tiếp QLSX → Sếp duyệt ĐÚNG phương án này,
+ * solver không chạy lần nữa.
  */
 export async function mergeCuttingBatch(
   productionInvoiceItemIds: string[],
-  solver?: SolverOverrideInput,
+  cuttingProposalId: string,
 ): Promise<{ id: string; code: string }> {
   return http.post<{ id: string; code: string }>('/production-invoices/merge', {
+    productionInvoiceItemIds,
+    cuttingProposalId,
+  });
+}
+
+/**
+ * "Tạo lệnh sản xuất riêng cho SKU này" - đúng 1 SKU, không gộp gì cả: tạo 1 PI thường từ phương
+ * án đã tính riêng cho SKU đó (ProductionInvoicesService.claimSolo()).
+ */
+export async function claimSoloCuttingBatch(
+  productionInvoiceItemId: string,
+  cuttingProposalId: string,
+): Promise<{ id: string; code: string }> {
+  return http.post<{ id: string; code: string }>(
+    `/production-invoices/items/${productionInvoiceItemId}/claim-solo`,
+    { cuttingProposalId },
+  );
+}
+
+// ── Solve trước → tạo lệnh sản xuất (2026-09-30) ─────────────────────────────
+
+/** Trạng thái RÚT GỌN của 1 lượt tính (BE dẫn xuất, xem CuttingProposalDisplayStatus). */
+export type CuttingSolveDisplayStatus = 'CALCULATING' | 'OK' | 'NEEDS_ACTION' | 'SUPERSEDED'
+
+/** 1 SKU trong ảnh chụp đầu vào của lượt tính (BOM + số lượng TẠI THỜI ĐIỂM bấm Tính). */
+export interface CuttingSolveItem {
+  productionInvoiceItemId: string;
+  mfgProductCode: string;
+  mfgProductName: string | null;
+  salesOrderCode: string | null;
+  quantity: number;
+}
+
+/** 1 loại sắt trong kết quả tính. */
+export interface CuttingSolveLine {
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  unit: string;
+  feasible: boolean;
+  bestStockLengthMm: number | null;
+  /** "fixed" = cây chuẩn; "scan" = cây ĐẶT RIÊNG (phải chờ NCC cán). */
+  lengthSource: 'fixed' | 'scan' | null;
+  totalBars: number | null;
+  wastePercentage: number | null;
+  /** Ngưỡng đã áp khi tính (đã gồm đặc cách của đợt). */
+  maxWastePctThreshold: number | null;
+  overThreshold: boolean | null;
+  /** Mức hao hụt MẶC ĐỊNH của công ty lúc xem (khác `maxWastePctThreshold` - có thể là trần 100% của chế độ đơn gấp). */
+  normalWastePctThreshold?: number;
+  /** Hao hụt thật đã VƯỢT mức mặc định (chỉ lọt vì chế độ "Chấp nhận hao hụt cao hơn"). */
+  usedWasteOverride?: boolean;
+  timedOut: boolean | null;
+  solveSeconds: number | null;
+  /** Câu tiếng Việt BE dựng sẵn - null khi dòng không cần xử lý. */
+  displayReason: string | null;
+}
+
+export interface CuttingBatchSolve {
+  id: string;
+  status: 'CALCULATING' | 'DRAFT' | 'APPROVED' | 'SUPERSEDED' | 'FAILED';
+  displayStatus: CuttingSolveDisplayStatus;
+  displayReason: string | null;
+  totalBarsAll: number | null;
+  wastePercentage: number | null;
+  totalSolveSeconds: number | null;
+  errorMessage: string | null;
+  requestedAt: string;
+  completedAt: string | null;
+  items?: CuttingSolveItem[];
+  lines?: CuttingSolveLine[];
+  /** Có khi đang tính: các loại sắt SẼ được giải. */
+  pendingMaterials?: { materialId: string; materialCode: string; materialName: string }[] | null;
+  solverOptions?: SolverOverrideInput | null;
+  /** Chỉ có ở lượt DRAFT: đã đủ điều kiện tạo lệnh sản xuất chưa, hoặc vì sao chưa. */
+  invoiceReadiness?: { ready: boolean; reason: string | null; warning?: string | null } | null;
+}
+
+/**
+ * KHSX bấm "Tính phương án cắt": chạy solver cho đúng tổ hợp SKU đang tick TRƯỚC khi có lệnh sản
+ * xuất nào. Trả ngay lượt tính ở trạng thái đang tính - kết quả về sau (poll getCuttingBatchSolves).
+ * Chỉ tính, KHÔNG tự duyệt, không đụng kho/mua.
+ */
+export async function requestCuttingBatchSolve(
+  productionInvoiceItemIds: string[],
+  solver?: SolverOverrideInput,
+): Promise<CuttingBatchSolve> {
+  return http.post<CuttingBatchSolve>('/cutting-batch-solve', {
     productionInvoiceItemIds,
     ...solver,
   });
 }
 
+/** Các lượt tính chưa được dùng để tạo lệnh sản xuất (mới nhất trước) - tiến độ + kết quả. */
+export async function getCuttingBatchSolves(): Promise<CuttingBatchSolve[]> {
+  return http.get<CuttingBatchSolve[]>('/cutting-batch-solves');
+}
+
+// ── Ngưỡng hao hụt mặc định (2026-09-30) ─────────────────────────────────────
+
+export interface CuttingDefaults {
+  /** Ngưỡng hao hụt mặc định (%) áp cho loại sắt CHƯA có ngưỡng riêng (Admin > Vật tư). */
+  solverMaxWastePercentage: number;
+  /** Số trước lần đổi vừa rồi (null khi chỉ đọc). */
+  previous: number | null;
+  updatedAt: string;
+}
+
+export async function getCuttingDefaults(): Promise<CuttingDefaults> {
+  return http.get<CuttingDefaults>('/system-config/cutting-defaults');
+}
+
 /**
- * "Tạo lệnh sản xuất riêng cho SKU này" - đúng 1 SKU, không gộp gì cả. Trước đây (< 2026-08-20) đây là no-op vì PI
- * đã tự sinh sẵn 1-1 lúc Sales tạo PO; giờ PI chỉ sinh khi KHSX chủ động, nên nút này phải THẬT SỰ
- * tạo 1 PI thường cho đúng SKU đó (ProductionInvoicesService.claimSolo()).
+ * KHSX đổi ngưỡng hao hụt mặc định cho cắt sắt. BE ghi lịch sử (ai đổi, từ bao nhiêu sang bao nhiêu)
+ * và báo Sếp + QLSX; không cần duyệt. Chỉ áp cho lượt tính TỪ SAU (lượt đã tính giữ nguyên).
  */
-export async function claimSoloCuttingBatch(
-  productionInvoiceItemId: string,
-  solver?: SolverOverrideInput,
-): Promise<{ id: string; code: string }> {
-  return http.post<{ id: string; code: string }>(
-    `/production-invoices/items/${productionInvoiceItemId}/claim-solo`,
-    { ...solver },
-  );
+export async function updateMaxWastePercentage(
+  solverMaxWastePercentage: number,
+  reason?: string,
+): Promise<CuttingDefaults> {
+  return http.put<CuttingDefaults>('/system-config/cutting-defaults/max-waste', {
+    solverMaxWastePercentage,
+    ...(reason && reason.trim() !== '' ? { reason: reason.trim() } : {}),
+  });
 }

@@ -50,11 +50,15 @@ export default function MaterialsBulkWasteModal({
   const groupName = (id?: number | null) => groups.find(g => g.id === id)?.name ?? '—'
   const isSteelGroup = (id: number | null) => groups.find(g => g.id === id)?.systemKey === MATERIAL_GROUP_SYSTEM_KEYS.STEEL_BAR
 
+  // Nhóm Sắt (STEEL_BAR) KHÔNG có % hao hụt để sửa (2026-09-30): ngưỡng cắt do KHSX quyết ở "Tối ưu cắt
+  // sắt" - loại hẳn khỏi danh sách chọn. "Sắt tự tính" (không qua solver) vẫn sửa được.
   const filteredMaterials = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('vi')
-    if (!q) return materials
-    return materials.filter(m => `${m.code} ${m.name}`.toLocaleLowerCase('vi').includes(q))
-  }, [materials, search])
+    const editable = materials.filter(m => !isSteelGroup(m.materialGroupId ?? null))
+    if (!q) return editable
+    return editable.filter(m => `${m.code} ${m.name}`.toLocaleLowerCase('vi').includes(q))
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isSteelGroup chỉ đọc `groups`
+  }, [materials, search, groups])
 
   const selectedGroup = groups.find(g => String(g.id) === groupId)
   const materialsInGroup = groupId ? materials.filter(m => String(m.materialGroupId) === groupId) : []
@@ -85,18 +89,12 @@ export default function MaterialsBulkWasteModal({
     return ids.size === 1 ? [...ids][0] : null // null = nhiều nhóm khác nhau
   }, [mode, selectedIds, materials])
 
-  const fieldHint = (() => {
-    if (mode === 'group') {
-      if (!selectedGroup) return null
-      return isSteelGroup(selectedGroup.id) ? '% hao hụt cắt (nhóm Sắt)' : '% dự trù hao hụt khi mua'
-    }
-    if (singleGroupIdOfSelection === undefined) return null
-    if (singleGroupIdOfSelection === null) return 'Nhiều nhóm khác nhau — mỗi vật tư tự áp đúng field của nhóm nó'
-    return isSteelGroup(singleGroupIdOfSelection) ? '% hao hụt cắt (nhóm Sắt)' : '% dự trù hao hụt khi mua'
-  })()
+  // Sắt đã bị loại khỏi lựa chọn nên chỉ còn 1 loại field: % dự trù hao hụt khi mua.
+  const fieldHint = mode === 'group' && !selectedGroup ? null : '% dự trù hao hụt khi mua'
 
   const count = mode === 'group' ? materialsInGroup.length : selectedIds.size
-  const canSubmit = count > 0 && !saving
+  const selectedSteelGroup = mode === 'group' && !!selectedGroup && isSteelGroup(selectedGroup.id)
+  const canSubmit = count > 0 && !saving && !selectedSteelGroup
 
   const submit = async () => {
     if (!canSubmit) return
@@ -129,6 +127,10 @@ export default function MaterialsBulkWasteModal({
 
       <Modal open={open} onClose={close} maxWidth={620}>
         <h3 style={{ margin: '0 0 var(--space-5)', fontSize: 17, fontWeight: 700 }}>Sửa % hao hụt hàng loạt</h3>
+        <div style={{ fontSize: 12, color: 'var(--text2)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', marginBottom: 14, lineHeight: 1.5 }}>
+          Nhóm <b>Sắt</b> không có % hao hụt để sửa ở đây — ngưỡng hao hụt khi cắt do <b>KHSX</b> quyết định ở màn
+          “Tối ưu cắt sắt”. Nhóm <b>Sắt tự tính</b> và các nhóm khác vẫn sửa được (% dự trù hao hụt khi mua).
+        </div>
 
         {/* Segmented control - 2 nút chia đều chiều rộng, rõ ràng hơn 2 pill trôi nổi bên trái. */}
         <div style={{ display: 'flex', marginBottom: 16, border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 3, background: 'var(--surface2)' }}>
@@ -155,7 +157,11 @@ export default function MaterialsBulkWasteModal({
               style={{ width: '100%', padding: '8px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)' }}
             >
               <option value="">— Chọn nhóm —</option>
-              {groups.map(g => <option key={g.id} value={String(g.id)}>{g.name}</option>)}
+              {groups.map(g => (
+                <option key={g.id} value={String(g.id)} disabled={isSteelGroup(g.id)}>
+                  {g.name}{isSteelGroup(g.id) ? ' (KHSX quyết định)' : ''}
+                </option>
+              ))}
             </select>
             {groupId && (
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12, fontWeight: 600, color: 'var(--fg-3949ab)', background: 'var(--bg-e3f2fd)', borderRadius: 20, padding: '4px 12px' }}>

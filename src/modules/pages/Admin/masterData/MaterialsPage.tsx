@@ -158,14 +158,10 @@ export default function MaterialsPage() {
       { key: 'buyerId', label: 'Nhân viên mua hàng', render: (m) => buyerName(m.buyerId) },
       { key: 'khoUnitFactor', label: 'Hệ số quy đổi', align: 'right' },
       {
-        // Gộp 2 field (mang 2 nghĩa khác nhau tuỳ nhóm - xem comment Material interface) vào
-        // đúng 1 cột kèm nhãn phân biệt, thay vì 2 cột riêng luôn có 1 cột toàn dấu "—" với
-        // mọi vật tư cùng nhóm (vd lọc tab "Sắt" thì cột "% dự trù mua" trống suốt cả bảng).
+        // % dự trù hao hụt khi MUA. Nhóm Sắt (STEEL_BAR) không có % hao hụt ở đây: ngưỡng hao hụt khi
+        // CẮT do KHSX quyết định ở "Tối ưu cắt sắt" (2026-09-30) - nên cột này luôn "—" với Sắt.
         key: 'wastePercentage', label: '% hao hụt', align: 'right',
         render: (m) => {
-          if (m.maxCuttingWastePercentage != null) {
-            return <span>{m.maxCuttingWastePercentage}% <span style={{ color: 'var(--text3)', fontSize: 11 }}>· cắt</span></span>
-          }
           if (m.purchaseWastePercentage != null) {
             return <span>{m.purchaseWastePercentage}% <span style={{ color: 'var(--text3)', fontSize: 11 }}>· mua</span></span>
           }
@@ -214,14 +210,9 @@ export default function MaterialsPage() {
         name: 'khoUnitFactor', label: 'Hệ số quy đổi (số Đơn vị tính / 1 Đơn vị mua)', type: 'number',
         placeholder: 'VD: 250 = 250 cái/kg',
       },
-      // % hao hụt mang 2 nghĩa ngược chiều tuỳ nhóm (xem comment Material.maxCuttingWastePercentage
-      // ở trên) - chỉ hiện đúng 1 trong 2 ô tuỳ nhóm đang chọn, KHÔNG gộp chung 1 ô.
-      {
-        name: 'maxCuttingWastePercentage', label: 'Ngưỡng hao hụt cắt cho phép (%)', type: 'number',
-        showIf: isSteelGroup,
-        placeholder: 'Để trống = dùng mặc định hệ thống. Đặt quá thấp có thể khiến không tìm được phương án cắt.',
-        validate: (v) => (v != null && (Number(v) <= 0 || Number(v) > 100)) ? 'Phải trong khoảng (0, 100]' : undefined,
-      },
+      // % dự trù hao hụt khi mua - CHỈ vật tư KHÔNG thuộc nhóm Sắt (gồm "Sắt tự tính", không qua
+      // solver). Nhóm Sắt (STEEL_BAR) KHÔNG có ô nhập % hao hụt (2026-09-30): ngưỡng hao hụt khi cắt do
+      // KHSX quyết ở "Tối ưu cắt sắt" - Admin không đặt riêng theo vật tư nữa.
       {
         name: 'purchaseWastePercentage', label: '% dự trù hao hụt khi mua', type: 'number',
         showIf: (v) => !isSteelGroup(v),

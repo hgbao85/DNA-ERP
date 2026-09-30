@@ -72,7 +72,7 @@ export async function createMaterial(data: Record<string, unknown>): Promise<BeM
     khoUnitFactor: data.khoUnitFactor,
     // Truyền thẳng (KHÔNG `|| undefined`) - 0 là giá trị hợp lệ cho purchaseWastePercentage
     // (vật tư không có hao hụt mua), `|| undefined` sẽ vô tình nuốt mất nó.
-    maxCuttingWastePercentage: data.maxCuttingWastePercentage,
+    // maxCuttingWastePercentage KHÔNG gửi nữa (2026-09-30): Sắt không còn ngưỡng cắt riêng theo vật tư.
     purchaseWastePercentage: data.purchaseWastePercentage,
     openingQty: data.openingQty || undefined,
     imageUrl: data.imageUrl || undefined,
@@ -101,7 +101,6 @@ export async function updateMaterial(id: number | string, data: Record<string, u
     // form sửa vật tư set state về `undefined`, JSON.stringify xoá hẳn key khỏi body PATCH, BE
     // tưởng "không đụng field" nên giữ nguyên giá trị cũ dù báo lưu thành công.
     khoUnitFactor: data.khoUnitFactor ?? null,
-    maxCuttingWastePercentage: data.maxCuttingWastePercentage ?? null,
     purchaseWastePercentage: data.purchaseWastePercentage ?? null,
     imageUrl: data.imageUrl,
     isActive: data.isActive,
@@ -119,8 +118,8 @@ export async function bulkUpdateMaterialWaste(payload: {
   materialIds?: string[];
   materialGroupId?: string;
   value: number | null;
-}): Promise<{ updated: number }> {
-  return http.patch<{ updated: number }>('/materials/bulk-waste', payload);
+}): Promise<{ updated: number; skippedSteel: number }> {
+  return http.patch<{ updated: number; skippedSteel: number }>('/materials/bulk-waste', payload);
 }
 
 export async function deleteMaterial(id: number | string): Promise<{ id: number | string }> {
