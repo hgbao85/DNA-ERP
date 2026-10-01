@@ -269,6 +269,23 @@ export interface CuttingSolveItem {
   quantity: number;
 }
 
+/** 1 kiểu cắt: các đoạn trên MỘT cây và số cây cắt theo kiểu đó. */
+export interface CuttingSolvePattern {
+  id: string;
+  patternIndex: number;
+  barCount: number;
+  wastePerBarMm: number | null;
+  segments: { segmentSpecId: string; cutLengthMm: number; countPerBar: number }[];
+}
+
+/** 1 cỡ đoạn của loại sắt: cần bao nhiêu, phương án cắt ra bao nhiêu, và là mảnh gì. */
+export interface CuttingSolvePieceSummary {
+  size: number;
+  demand: number;
+  produced: number;
+  names: string[];
+}
+
 /** 1 loại sắt trong kết quả tính. */
 export interface CuttingSolveLine {
   materialId: string;
@@ -292,6 +309,10 @@ export interface CuttingSolveLine {
   solveSeconds: number | null;
   /** Câu tiếng Việt BE dựng sẵn - null khi dòng không cần xử lý. */
   displayReason: string | null;
+  /** Các đoạn cần cắt của loại sắt này (null/thiếu với phương án tính từ trước khi có field này). */
+  pieceSummary?: CuttingSolvePieceSummary[] | null;
+  /** Cách cắt từng cây. */
+  patterns?: CuttingSolvePattern[];
 }
 
 export interface CuttingBatchSolve {
@@ -332,6 +353,11 @@ export async function requestCuttingBatchSolve(
 /** Các lượt tính chưa được dùng để tạo lệnh sản xuất (mới nhất trước) - tiến độ + kết quả. */
 export async function getCuttingBatchSolves(): Promise<CuttingBatchSolve[]> {
   return http.get<CuttingBatchSolve[]>('/cutting-batch-solves');
+}
+
+/** Xoá 1 lượt tính chưa dùng khỏi "Kết quả đã tính" (BE từ chối nếu đang tính / đã gắn lệnh sản xuất). */
+export async function discardCuttingBatchSolve(id: string): Promise<void> {
+  await http.del(`/cutting-batch-solves/${id}`)
 }
 
 // ── Ngưỡng hao hụt mặc định (2026-09-30) ─────────────────────────────────────

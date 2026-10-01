@@ -1177,7 +1177,8 @@ export default function LenhSXPage() {
               {pi.isMerged && (
                 <div style={{ background:'var(--bg-f5f3ff)', border:'1px solid var(--fg-ddd6fe)', borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:12.5, color:'var(--fg-5b21b6)' }}>
                   <b>Đợt gộp {pi.code}</b> — duyệt sẽ cho sản xuất <b>cả {items.length} SKU</b> trong
-                  đợt và tính phương án cắt chung một lần cho cả nhóm:
+                  {/* Luồng "Solve trước" (2026-09-30): phương án đã tính sẵn, duyệt KHÔNG chạy solver lại. */}
+                  đợt và {pi.cuttingPlan ? 'dùng chung phương án cắt đã tính bên dưới' : 'tính phương án cắt chung một lần'} cho cả nhóm:
                   <div style={{ marginTop:5, fontFamily:'monospace', fontSize:12 }}>
                     {items.map((it: any) => it.productVariant?.mfgProduct?.factoryCode ?? '—').join(' · ')}
                   </div>

@@ -14,8 +14,8 @@
  * nêu thẳng lý do BE trả về - KHSX biết phải chỉnh gì (gộp khác, xin đặc cách, tính lại).
  */
 
-import { useEffect, useState } from 'react'
-import { AlertTriangle, Check, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
+import { Fragment, useEffect, useState } from 'react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight, ChevronUp, Loader2 } from 'lucide-react'
 import type { CuttingBatchSolve, CuttingSolveLine } from '../../../services/cutting-batch-api'
 
 const TH: React.CSSProperties = {
@@ -56,6 +56,10 @@ function ElapsedText({ requestedAt }: { requestedAt: string }) {
 
 export function solveSkuCodes(s: CuttingBatchSolve): string {
   return [...new Set((s.items ?? []).map((i) => i.mfgProductCode))].join(', ') || '—'
+}
+
+export function solveOrderCodes(s: CuttingBatchSolve): string {
+  return [...new Set((s.items ?? []).map((i) => i.salesOrderCode).filter((c): c is string => !!c))].join(', ')
 }
 
 /** Cùng tập SKU (không phân biệt thứ tự) - phương án chỉ dùng được cho ĐÚNG tổ hợp đã tính. */
@@ -119,7 +123,95 @@ export type SolveLineLike = Pick<
   | 'materialId' | 'materialCode' | 'feasible' | 'bestStockLengthMm' | 'lengthSource' | 'totalBars'
   | 'wastePercentage' | 'maxWastePctThreshold' | 'overThreshold' | 'timedOut' | 'displayReason'
 >
-  & Partial<Pick<CuttingSolveLine, 'normalWastePctThreshold' | 'usedWasteOverride'>>
+  & Partial<Pick<CuttingSolveLine, 'normalWastePctThreshold' | 'usedWasteOverride' | 'pieceSummary' | 'patterns'>>
+
+
+/** "470 mm" - cỡ đoạn nói bằng mm (khác chiều dài cây nói bằng mét) để không lẫn với nhau. */
+const fmtMm = (mm: number) => `${Number(mm).toLocaleString('vi-VN')} mm`
+
+/**
+ * Chi tiết 1 loại sắt khi bấm vào dòng: (1) các cỡ đoạn cần cắt - cần bao nhiêu, phương án cắt ra bao nhiêu, mảnh gì;
+ * (2) cách cắt từng cây - mỗi kiểu là các đoạn trên một cây và số cây cắt theo kiểu đó. Cho KHSX hiểu VÌ SAO ra
+ * ngần ấy cây trước khi tạo lệnh sản xuất.
+ */
+function LineDetail({ line }: { line: SolveLineLike }) {
+  const sizes = [...(line.pieceSummary ?? [])].sort((a, b) => b.size - a.size)
+  const patterns = [...(line.patterns ?? [])].sort((a, b) => b.barCount - a.barCount || a.patternIndex - b.patternIndex)
+  const sub: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: 'var(--text2)', margin: '2px 0 6px' }
+  const box: React.CSSProperties = { overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)' }
+  if (sizes.length === 0 && patterns.length === 0) {
+    return <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>Phương án này chưa lưu chi tiết các đoạn cắt. Bấm “Tính lại” để có.</div>
+  }
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {sizes.length > 0 && (
+        <div>
+          <div style={sub}>Các đoạn cần cắt</div>
+          <div style={box}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={TH}>Cỡ đoạn</th>
+                  <th style={TH}>Mảnh</th>
+                  <th style={{ ...TH, textAlign: 'right' }}>Cần</th>
+                  <th style={{ ...TH, textAlign: 'right' }}>Cắt ra</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sizes.map((p) => (
+                  <tr key={p.size}>
+                    <td style={{ ...TD, fontWeight: 600 }}>{fmtMm(p.size)}</td>
+                    <td style={{ ...TD, color: 'var(--text2)' }}>{p.names.length > 0 ? p.names.join(', ') : '—'}</td>
+                    <td style={NUM}>{p.demand}</td>
+                    <td style={NUM}>
+                      {p.produced}
+                      {p.produced > p.demand && (
+                        <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--text3)' }} title="Dư ra khi cắt cho vừa cây">dư {p.produced - p.demand}</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      {patterns.length > 0 && (
+        <div>
+          <div style={sub}>Cách cắt từng cây</div>
+          <div style={box}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  <th style={TH}>Kiểu</th>
+                  <th style={{ ...TH, textAlign: 'right' }}>Số cây</th>
+                  <th style={TH}>Các đoạn trên 1 cây</th>
+                  <th style={{ ...TH, textAlign: 'right' }}>Phần thừa/cây</th>
+                </tr>
+              </thead>
+              <tbody>
+                {patterns.map((pt, i) => (
+                  <tr key={pt.id}>
+                    <td style={{ ...TD, color: 'var(--text2)' }}>{i + 1}</td>
+                    <td style={NUM}><b>{pt.barCount}</b></td>
+                    <td style={TD}>
+                      {[...pt.segments]
+                        .filter((sg) => sg.countPerBar > 0)
+                        .sort((a, b) => b.cutLengthMm - a.cutLengthMm)
+                        .map((sg) => `${Number(sg.cutLengthMm).toLocaleString('vi-VN')} × ${sg.countPerBar}`)
+                        .join('  +  ')}
+                    </td>
+                    <td style={NUM}>{pt.wastePerBarMm != null ? fmtMm(pt.wastePerBarMm) : '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 /** Bảng kết quả theo từng loại sắt: số cây mua, chiều dài cây, hao hụt, đạt/vượt/không cắt được. */
 export function SolveLinesTable({
@@ -131,6 +223,8 @@ export function SolveLinesTable({
   totalSolveSeconds?: number | null
   isMobile: boolean
 }) {
+  // Loại sắt đang mở chi tiết (bấm vào dòng để mở/đóng).
+  const [openMaterial, setOpenMaterial] = useState<string | null>(null)
   return (
     <div style={{ overflowX: 'auto' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isMobile ? 640 : undefined }}>
@@ -144,10 +238,21 @@ export function SolveLinesTable({
           </tr>
         </thead>
         <tbody>
-          {lines.map((l) => (
-            <tr key={l.materialId}>
+          {lines.map((l) => {
+            const hasDetail = (l.pieceSummary?.length ?? 0) > 0 || (l.patterns?.length ?? 0) > 0
+            const open = openMaterial === l.materialId
+            return (
+            <Fragment key={l.materialId}>
+            <tr
+              onClick={hasDetail ? () => setOpenMaterial(open ? null : l.materialId) : undefined}
+              style={{ cursor: hasDetail ? 'pointer' : 'default', background: open ? 'var(--surface2)' : undefined }}
+              title={hasDetail ? 'Bấm để xem các đoạn cắt của loại sắt này' : undefined}
+            >
               <td style={TD}>
-                <b>{l.materialCode}</b>
+                <b style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  {hasDetail && (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
+                  {l.materialCode}
+                </b>
                 {l.displayReason && (
                   <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 3, maxWidth: 420 }}>{l.displayReason}</div>
                 )}
@@ -174,7 +279,16 @@ export function SolveLinesTable({
               </td>
               <td style={TD}>{lineResult(l)}</td>
             </tr>
-          ))}
+            {open && hasDetail && (
+              <tr>
+                <td colSpan={5} style={{ ...TD, background: 'var(--surface2)', padding: '12px 14px' }}>
+                  <LineDetail line={l} />
+                </td>
+              </tr>
+            )}
+            </Fragment>
+            )
+          })}
         </tbody>
         {totalBarsAll != null && (
           <tfoot>
@@ -207,6 +321,8 @@ interface Props {
   onCreateInvoice: (solve: CuttingBatchSolve) => void
   /** "Tính lại với chế độ khác": quay lại tab chọn với đúng SKU + cài đặt của lượt này. */
   onRecalc: (solve: CuttingBatchSolve) => void
+  /** Xoá lượt tính này khỏi danh sách (chỉ lượt đã xong/lỗi, chưa dùng tạo lệnh sản xuất). */
+  onDiscard: (solve: CuttingBatchSolve) => void
   /** Bấm ở trạng thái rỗng: quay lại tab chọn SKU. */
   onGoChoose: () => void
   isMobile: boolean
@@ -245,7 +361,7 @@ function summaryText(s: CuttingBatchSolve): string {
  * quay lại tab chọn để chỉnh và tính lại.
  */
 export default function CuttingSolvePanel({
-  solves, expandedId, onToggle, creating, onCreateInvoice, onRecalc, onGoChoose, isMobile,
+  solves, expandedId, onToggle, creating, onCreateInvoice, onRecalc, onDiscard, onGoChoose, isMobile,
 }: Props) {
   if (solves.length === 0) {
     return (
@@ -270,7 +386,7 @@ export default function CuttingSolvePanel({
         const warning = ready ? (s.invoiceReadiness?.warning ?? null) : null
         const skuCount = (s.items ?? []).length
         return (
-          <div key={s.id} style={{ background: 'var(--surface)', border: `1px solid ${ready ? 'var(--fg-86efac)' : 'var(--border)'}`, borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+          <div key={s.id} data-solve-id={s.id} style={{ background: 'var(--surface)', border: `1px solid ${ready ? 'var(--fg-86efac)' : 'var(--border)'}`, borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
             <button
               onClick={() => onToggle(s.id)}
               aria-expanded={open}
@@ -278,6 +394,8 @@ export default function CuttingSolvePanel({
             >
               <b style={{ fontSize: 13, wordBreak: 'break-word' }}>{solveSkuCodes(s)}</b>
               {skuCount >= 2 && <span style={{ fontSize: 11.5, color: 'var(--text3)' }}>gộp {skuCount} SKU</span>}
+              {/* Mã đơn: 2 đơn cùng SKU cho ra 2 thẻ trùng tên SKU - thiếu dòng này KHSX không biết thẻ nào của đơn nào. */}
+              {solveOrderCodes(s) && <span style={{ fontSize: 11.5, color: 'var(--text2)' }}>đơn {solveOrderCodes(s)}</span>}
               <span style={{ fontSize: 12.5, color: 'var(--text2)' }}>{summaryText(s)}</span>
               <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                 <StatusBadge solve={s} />
@@ -297,6 +415,12 @@ export default function CuttingSolvePanel({
                       style={{ fontSize: 12, fontWeight: 600, padding: '4px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text)' }}
                     >
                       Tính lại với chế độ khác
+                    </button>
+                    <button
+                      onClick={() => onDiscard(s)}
+                      style={{ fontSize: 12, fontWeight: 600, padding: '4px 12px', background: 'var(--surface)', border: '1px solid var(--fg-fca5a5)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--fg-991b1b)' }}
+                    >
+                      Xóa lượt tính này
                     </button>
                   </div>
                 )}

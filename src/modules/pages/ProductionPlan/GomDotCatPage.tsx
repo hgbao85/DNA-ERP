@@ -26,6 +26,7 @@ import {
   claimSoloCuttingBatch,
   getCuttingBatchCandidates,
   getCuttingBatchSolves,
+  discardCuttingBatchSolve,
   getCuttingDefaults,
   mergeCuttingBatch,
   type CuttingDefaults,
@@ -38,9 +39,10 @@ import {
   type CuttingBatchPreview,
   type StockLengthsByMaterial,
 } from '../../../services/cutting-batch-api'
-import CuttingSolvePanel, { sameItemSet } from './CuttingSolvePanel'
+import CuttingSolvePanel, { sameItemSet, solveSkuCodes, solveOrderCodes } from './CuttingSolvePanel'
 import { errMsg } from '../../../utils/errors'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import { useConfirm } from '../../../hooks/useConfirm'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 /**
@@ -72,6 +74,9 @@ const CUT_MODES: { value: CutMode; label: string; desc: string }[] = [
 /** "Chấp nhận hao hụt cao hơn" không còn ô nhập % (2026-09-30, theo yêu cầu): Sếp duyệt trên KẾT QUẢ THẬT đã tính nên con số xin
  *  là thừa. BE vẫn cần 1 con số ngưỡng đặc cách -> gửi trần tối đa cho phép (100%) = "không đặt trần hao hụt". */
 const NO_CEILING_PCT = 100
+
+/** Trần giây/loại sắt gửi cho solver (thử nghiệm 2026-10-01) - xem autoTimeLimitSeconds. */
+const SOLVER_MAX_SECONDS_PER_MATERIAL = 20
 
 /** 1 -> "1,0", 2.5 -> "2,5" - đúng dạng người dùng gõ/đọc (dấu phẩy). */
 const fmtPct = (n: number) => n.toLocaleString('vi-VN', { minimumFractionDigits: 1, maximumFractionDigits: 3 })
@@ -193,6 +198,7 @@ export default function GomDotCatPage({ onDone }: Props) {
   const [data, setData] = useState<CuttingBatchCandidateList | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { ask, confirmModal } = useConfirm()
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [preview, setPreview] = useState<CuttingBatchPreview | null>(null)
   const [previewing, setPreviewing] = useState(false)
@@ -323,6 +329,23 @@ export default function GomDotCatPage({ onDone }: Props) {
       .catch((e) => setError(errMsg(e, 'Không tải được tiến độ tính phương án cắt')))
   }, [])
   useEffect(() => { loadSolves() }, [loadSolves])
+
+  /** Xoá 1 lượt tính khỏi "Kết quả đã tính" (thử nhiều lần thì danh sách tràn lan). Lỗi (vd đang tính) hiện ngay trong hộp xác nhận. */
+  const handleDiscard = (solve: CuttingBatchSolve) => {
+    ask(
+      {
+        title: 'Xóa lượt tính này?',
+        message: `Xóa kết quả tính của ${solveSkuCodes(solve)}${solveOrderCodes(solve) ? ` (đơn ${solveOrderCodes(solve)})` : ''}? Các SKU được thả ra để tính lại; lệnh sản xuất không bị ảnh hưởng.`,
+        confirmLabel: 'Xóa',
+        danger: true,
+      },
+      async () => {
+        await discardCuttingBatchSolve(solve.id)
+        setExpandedSolveId((cur) => (cur === solve.id ? null : cur))
+        loadSolves()
+      },
+    )
+  }
   // Còn lượt đang tính thì hỏi lại BE mỗi 4 giây; xong hết thì dừng (không poll vô ích).
   const hasCalculating = solves.some((sv) => sv.displayStatus === 'CALCULATING')
   useEffect(() => {
@@ -410,9 +433,15 @@ export default function GomDotCatPage({ onDone }: Props) {
   // (CuttingProposalsService.runSolverAndSave), bất kể N là bao nhiêu. Vì chạy NỀN sau khi Sếp
   // duyệt (fire-and-forget) nên "tốn thêm thời gian giải" không làm KHSX phải chờ gì - đúng tinh
   // thần "miễn kết quả tốt nhất" người dùng yêu cầu.
+  // Thử nghiệm 2026-10-01 (live-test tốc độ, changelog-2026-10-01-live-test-dau-cuoi.md 7b): kẹp thêm TRẦN
+  // SOLVER_MAX_SECONDS_PER_MATERIAL - Ghế J55/Ghế tình yêu nâng limit 20s -> 242/340s tốn 7-8 lần thời gian mà ra
+  // đúng cùng phương án. Vẫn là chặn trên nên N × min(floor(T/N), trần) ≤ T luôn đúng.
   const autoTimeLimitSeconds =
     data && selectedMaterialCount > 0
-      ? Math.max(1, Math.floor(data.solverTimeoutSeconds / selectedMaterialCount))
+      ? Math.min(
+          SOLVER_MAX_SECONDS_PER_MATERIAL,
+          Math.max(1, Math.floor(data.solverTimeoutSeconds / selectedMaterialCount)),
+        )
       : null
 
   /** Số ngày 1 SKU phải cắt sớm = hạn của nó trừ hạn GẤP NHẤT trong nhóm (cả đợt cắt cùng lúc). */
@@ -1192,10 +1221,12 @@ export default function GomDotCatPage({ onDone }: Props) {
           creating={merging}
           onCreateInvoice={handleCreateInvoice}
           onRecalc={handleRecalcFrom}
+          onDiscard={handleDiscard}
           onGoChoose={() => setTab('choose')}
           isMobile={isMobile}
         />
       )}
+      {confirmModal}
     </div>
   )
 }
