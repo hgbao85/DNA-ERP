@@ -293,12 +293,25 @@ export interface BeProductionBatchPlanItem {
   qtyPerPiece: number | null;
 }
 
+/** Vật tư thành phẩm không gắn mảnh (vd chân nhôm) - chỉ có ở stage PHOI, xem ProductionBatchesService. */
+export interface BeProductionBatchMaterialYieldItem {
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  materialSpec: string | null;
+  lastUpdatedAt: string | null;
+  plannedQty: number;
+  awaitingQcQty: number;
+  passedQty: number;
+}
+
 export interface BeProductionBatchPlan {
   poNumber: string;
   salesOrderCode: string | null;
   productName: string;
   quantity: number;
   items: BeProductionBatchPlanItem[];
+  materialYieldItems?: BeProductionBatchMaterialYieldItem[];
 }
 
 /** "Còn phải báo bao nhiêu" theo mảnh cho đúng PO+stage — xem ProductionBatchesService.getBatchPlan()
@@ -348,8 +361,9 @@ export async function reportProductionBatch(
 export async function recordProductionBatch(
   productionOrderId: string,
   data: { stage: ProductionBatchStage; pieceId: string; qty: number },
-): Promise<void> {
-  await http.post(`/production-orders/${productionOrderId}/production-batches/record`, data)
+): Promise<{ overPlanWarning?: string | null }> {
+  // overPlanWarning: báo vượt nhu cầu (không chặn) - màn gọi hiện cảnh báo sau khi đã lưu
+  return http.post<{ overPlanWarning?: string | null }>(`/production-orders/${productionOrderId}/production-batches/record`, data)
 }
 
 /** "Gửi KCS" ChotPanel - đóng ProductionBatch đang OPEN, chuyển AWAITING_QC (mirror finishCutBundle()). */

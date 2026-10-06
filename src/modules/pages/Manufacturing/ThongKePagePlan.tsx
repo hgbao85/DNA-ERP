@@ -56,6 +56,7 @@ interface StageDetails {
     phoiMaterials: PhoiMaterialView[]
     /** Vật tư thành phẩm (vd chân nhôm - Phôi tự báo theo MẢNH, cái) - cùng nguồn Hàn/Sơn, stage=PHOI. */
     phoiVtTpLines: ProcLine[]
+    phoiMaterialYieldRows: MaterialYieldRow[]
     /** Số lệnh (đã duyệt) cùng PI - Phôi cắt chung cho cả PI nên >1 nghĩa là số Phôi dùng chung các lệnh. */
     /** Số đoạn cắt từ đợt CŨ chưa gắn SKU của PI này (không thuộc SKU nào) - chỉ để ghi chú. */
     phoiUnassignedDone: number
@@ -266,6 +267,37 @@ function mapBatchPlanToLines(plan: BeProductionBatchPlan | null): ProcLine[] {
   }))
 }
 
+// Vật tư thành phẩm không gắn mảnh (chân nhôm) - KHÔNG phải mảnh nên hiển thị bảng riêng (xem
+// MaterialYieldTable). Vẫn đưa vào tổng tiến độ Phôi qua phoiVtTpLines, id ÂM để không trùng id mảnh.
+interface MaterialYieldRow {
+  code: string
+  name: string
+  spec: string | null
+  need: number
+  done: number
+  lastUpdatedAt: string | null
+}
+function mapMaterialYieldToRows(plan: BeProductionBatchPlan | null): MaterialYieldRow[] {
+  return (plan?.materialYieldItems ?? []).map(item => ({
+    code: item.materialCode,
+    name: item.materialName,
+    spec: item.materialSpec ?? null,
+    need: item.plannedQty,
+    done: item.passedQty,
+    lastUpdatedAt: item.lastUpdatedAt ?? null,
+  }))
+}
+function mapMaterialYieldToLines(plan: BeProductionBatchPlan | null): ProcLine[] {
+  return (plan?.materialYieldItems ?? []).map(item => ({
+    id: -Number(item.materialId),
+    itemName: item.materialName,
+    spec: item.materialCode,
+    needQty: item.plannedQty,
+    doneQty: item.passedQty,
+    lastInputAt: null,
+  }))
+}
+
 interface BatchProgressData {
   phoiProgressByPi: Record<string, BePhoiProgressItem[]>
   phoiVtTpPlanByOrder: Record<string, BeProductionBatchPlan>
@@ -328,7 +360,7 @@ function buildFrame(
   hanPlan: BeProductionBatchPlan | null, sonPlan: BeProductionBatchPlan | null, orderId: string | null,
 ): StageDetails['frame'] {
   const phoiMaterials = mapPhoiProgress(phoiProgress ?? [], orderId)
-  const phoiVtTpLines = mapBatchPlanToLines(vtTpPlan)
+  const phoiVtTpLines = [...mapBatchPlanToLines(vtTpPlan), ...mapMaterialYieldToLines(vtTpPlan)]
   const hanLines = mapBatchPlanToLines(hanPlan)
   const sonLines = mapBatchPlanToLines(sonPlan)
   const vtTpTotals = lineTotals(phoiVtTpLines)
@@ -343,7 +375,7 @@ function buildFrame(
     phoi,
     han: subStatusOf(hanTotals.need, hanTotals.done, hanPlan !== null),
     son: subStatusOf(sonTotals.need, sonTotals.done, sonPlan !== null),
-    phoiMaterials, phoiVtTpLines, phoiUnassignedDone: unassignedCutOf(phoiProgress ?? []), hanLines, sonLines,
+    phoiMaterials, phoiVtTpLines, phoiMaterialYieldRows: mapMaterialYieldToRows(vtTpPlan), phoiUnassignedDone: unassignedCutOf(phoiProgress ?? []), hanLines, sonLines,
   }
 }
 
@@ -392,7 +424,7 @@ function buildPackaging(progress: BePackagingProgress | undefined): StageDetails
 
 function emptyExecutionStages(skuQty: number): Pick<StageDetails, 'frame' | 'weaving' | 'chuyenKiem' | 'packaging'> {
   return {
-    frame: { phoi: 'pending', han: 'pending', son: 'pending', phoiMaterials: [], phoiVtTpLines: [], phoiUnassignedDone: 0, hanLines: [], sonLines: [] },
+    frame: { phoi: 'pending', han: 'pending', son: 'pending', phoiMaterials: [], phoiVtTpLines: [], phoiMaterialYieldRows: [], phoiUnassignedDone: 0, hanLines: [], sonLines: [] },
     weaving: { nhapDan: 'pending', xuatDan: 'pending', lines: [], skuQty },
     chuyenKiem: { daKiem: 'pending', pieces: [] },
     packaging: { dongGoi: 'pending', totalBoxes: 0, daDongQty: 0 },
@@ -717,6 +749,36 @@ function FrameStageTab({ cfg, stats, active, onClick }: {
 // Phôi: bảng theo LOẠI SẮT (mỗi loại 1 dòng, gộp mọi đợt kho xuất), bấm mở ra từng cỡ đoạn - cùng số liệu
 // "Cần / Đã cắt / Lỗi / Còn lại" (đơn vị ĐOẠN) với màn Lệnh sản xuất Phôi thật. Không có cờ "lệch": các loại
 // sắt khác nhau không so sánh chéo được, mỗi loại tự có định mức riêng.
+// Vật tư thành phẩm KHÔNG gắn mảnh (vd chân nhôm): đơn vị là cái, không có công đoạn/bộ như mảnh.
+function MaterialYieldTable({ rows }: { rows: MaterialYieldRow[] }) {
+  const cols: BoardColumn<MaterialYieldRow>[] = [
+    { key: 'mat', header: 'Vật tư', cell: r => (
+      <div>
+        <div style={{ fontWeight: 700 }}>{r.name}</div>
+        <div style={{ fontSize: 11, color: 'var(--text3)' }}>{r.code}</div>
+      </div>
+    ) },
+    { key: 'need', header: 'Cần (cái)', align: 'right', width: 120, cell: r => r.need.toLocaleString('vi-VN') },
+    { key: 'done', header: 'Đã xong (cái)', align: 'right', width: 150, cell: r => <span style={{ fontWeight: 700 }}>{r.done.toLocaleString('vi-VN')}</span> },
+    { key: 'remain', header: 'Còn lại', align: 'right', width: 110, cell: r => {
+      const left = Math.max(0, r.need - r.done)
+      return <span style={{ color: left > 0 ? 'var(--amber)' : 'var(--green)', fontWeight: 600 }}>{left.toLocaleString('vi-VN')}</span>
+    } },
+    { key: 'at', header: 'Cập nhật lúc', align: 'right', width: 170, cell: r => (
+      <span style={{ fontSize: 12, color: 'var(--text3)' }}>
+        {r.lastUpdatedAt ? new Date(r.lastUpdatedAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' }) : '— chưa có —'}
+      </span>
+    ) },
+  ]
+  return (
+    <LenhSanXuatBoard
+      title="Vật tư thành phẩm không gắn mảnh"
+      subtitle="Phôi sản xuất theo recipe (vd chân nhôm) — đạt KCS công đoạn cuối thì cộng vào kho Phôi. Chỉ xem."
+      columns={cols} rows={rows} rowKey={r => r.code} fixedLayout
+    />
+  )
+}
+
 function PhoiMaterialBoard({ materials }: { materials: PhoiMaterialView[] }) {
   const cols: BoardColumn<PhoiMaterialView>[] = [
     { key: 'mat', header: 'Loại sắt', cell: m => (
@@ -725,11 +787,11 @@ function PhoiMaterialBoard({ materials }: { materials: PhoiMaterialView[] }) {
         <div style={{ fontSize: 11, color: 'var(--text3)' }}>{m.materialCode}</div>
       </div>
     ) },
-    { key: 'issued', header: 'Kho đã xuất cả PI (cây)', align: 'right', cell: m => m.issuedBarCount.toLocaleString('vi-VN') },
+    { key: 'issued', header: 'Kho đã xuất cả PI (cây)', align: 'right', width: 150, cell: m => m.issuedBarCount.toLocaleString('vi-VN') },
     { key: 'steps', header: 'Công đoạn', cell: m => <span style={{ fontSize: 12, color: 'var(--text2)' }}>{m.steps.map(st => st.label).join(' → ')}</span> },
-    { key: 'need', header: 'Cần', align: 'right', cell: m => m.need.toLocaleString('vi-VN') },
-    { key: 'done', header: 'Đã xong (đạt)', align: 'right', cell: m => <span style={{ fontWeight: 700 }}>{m.done.toLocaleString('vi-VN')}</span> },
-    { key: 'remain', header: 'Còn lại', align: 'right', cell: m => {
+    { key: 'need', header: 'Cần', align: 'right', width: 120, cell: m => m.need.toLocaleString('vi-VN') },
+    { key: 'done', header: 'Đã xong (đạt)', align: 'right', width: 150, cell: m => <span style={{ fontWeight: 700 }}>{m.done.toLocaleString('vi-VN')}</span> },
+    { key: 'remain', header: 'Còn lại', align: 'right', width: 110, cell: m => {
       const r = Math.max(0, m.need - m.done)
       return <span style={{ color: r > 0 ? 'var(--amber)' : 'var(--green)', fontWeight: 600 }}>{r.toLocaleString('vi-VN')}</span>
     } },
@@ -740,7 +802,7 @@ function PhoiMaterialBoard({ materials }: { materials: PhoiMaterialView[] }) {
     <LenhSanXuatBoard
       title="Tiến độ Phôi theo loại sắt"
       subtitle="Phôi gồm Cắt và các công đoạn phụ (Uốn, Dập…) tùy loại sắt. Mỗi đoạn tính 1 lần cho mỗi công đoạn nó phải qua; “đạt” = đã làm trừ đoạn KCS chấm lỗi. Chi tiết từng công đoạn và cỡ đoạn hiện bên dưới mỗi loại sắt"
-      columns={cols} rows={materials} rowKey={m => m.materialId}
+      columns={cols} rows={materials} rowKey={m => m.materialId} fixedLayout
       expandedRow={m => (
         <div style={{ padding: '4px 14px 14px', background: 'var(--surface2)' }}>
           {m.steps.map(st => (
@@ -748,19 +810,24 @@ function PhoiMaterialBoard({ materials }: { materials: PhoiMaterialView[] }) {
               <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text2)', marginBottom: 4 }}>
                 {st.label} · {st.done.toLocaleString('vi-VN')}/{st.need.toLocaleString('vi-VN')} đoạn
               </div>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              {/* Cùng cấu trúc cột với bảng cha (cột 2 để trống = cột "Kho đã xuất", cột 3 = "Công đoạn") để thẳng hàng */}
+              <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                <colgroup>
+                  <col /><col style={{ width: 150 }} /><col /><col style={{ width: 120 }} /><col style={{ width: 150 }} /><col style={{ width: 110 }} />
+                </colgroup>
                 <thead>
                   <tr>
-                    <th style={{ ...th, textAlign: 'left' }}>Cỡ đoạn</th><th style={th}>Cần</th><th style={th}>Đã làm</th><th style={th}>Lỗi</th><th style={th}>Còn lại</th>
+                    <th style={{ ...th, textAlign: 'left' }}>Cỡ đoạn</th><th style={th} /><th style={{ ...th, textAlign: 'left' }}>Lỗi</th><th style={th}>Cần</th><th style={th}>Đã làm</th><th style={th}>Còn lại</th>
                   </tr>
                 </thead>
                 <tbody>
                   {st.segments.map(s => (
                     <tr key={s.cutLengthMm}>
                       <td style={{ ...td, textAlign: 'left', fontWeight: 600 }}>{s.cutLengthMm.toLocaleString('vi-VN')} mm</td>
+                      <td style={td} />
+                      <td style={{ ...td, textAlign: 'left', color: s.failed > 0 ? 'var(--red)' : 'var(--text3)', fontWeight: s.failed > 0 ? 700 : 400 }}>{s.failed > 0 ? s.failed.toLocaleString('vi-VN') : '—'}</td>
                       <td style={td}>{s.required.toLocaleString('vi-VN')}</td>
                       <td style={td}>{s.done.toLocaleString('vi-VN')}</td>
-                      <td style={{ ...td, color: s.failed > 0 ? 'var(--red)' : 'var(--text3)', fontWeight: s.failed > 0 ? 700 : 400 }}>{s.failed > 0 ? s.failed.toLocaleString('vi-VN') : '—'}</td>
                       <td style={{ ...td, fontWeight: 600, color: s.remaining > 0 ? 'var(--amber)' : 'var(--green)' }}>{s.remaining.toLocaleString('vi-VN')}</td>
                     </tr>
                   ))}
@@ -805,19 +872,32 @@ function FrameSubStages({ frame }: { frame: StageDetails['frame'] }) {
               PI này còn {frame.phoiUnassignedDone.toLocaleString('vi-VN')} đoạn đã làm từ trước khi Phôi ghi theo SKU — không thuộc SKU nào, chỉ tính ở mức PI.
             </div>
           )}
-          {frame.phoiMaterials.length === 0 && frame.phoiVtTpLines.length === 0 && (
-            <div style={{ padding: '10px 4px', fontSize: 12, color: 'var(--text3)' }}>Lệnh này chưa có định mức cắt sắt / vật tư thành phẩm nào</div>
-          )}
-          {frame.phoiMaterials.length > 0 && <PhoiMaterialBoard materials={frame.phoiMaterials} />}
-          {frame.phoiVtTpLines.length > 0 && (
-            <div style={{ marginTop: frame.phoiMaterials.length > 0 ? 18 : 0 }}>
-              <VatTuDetailBoard
-                lines={frame.phoiVtTpLines} cfg={VAT_TU_TP_CFG} readOnly showThucCo={false}
-                title="Vật tư thành phẩm" subtitle="Phôi tự báo theo mảnh (vd chân nhôm) — chỉ xem"
-                bannerLabel="Đồng bộ"
-              />
-            </div>
-          )}
+          {(() => {
+            const pieceLines = frame.phoiVtTpLines.filter(l => l.id > 0)
+            const hasAny = frame.phoiMaterials.length > 0 || pieceLines.length > 0 || frame.phoiMaterialYieldRows.length > 0
+            return (
+              <>
+                {!hasAny && (
+                  <div style={{ padding: '10px 4px', fontSize: 12, color: 'var(--text3)' }}>Lệnh này chưa có định mức cắt sắt / vật tư thành phẩm nào</div>
+                )}
+                {frame.phoiMaterials.length > 0 && <PhoiMaterialBoard materials={frame.phoiMaterials} />}
+                {pieceLines.length > 0 && (
+                  <div style={{ marginTop: frame.phoiMaterials.length > 0 ? 18 : 0 }}>
+                    <VatTuDetailBoard
+                      lines={pieceLines} cfg={VAT_TU_TP_CFG} readOnly showThucCo={false} showSpec={false} aligned
+                      title="Mảnh cắt theo tỷ lệ cố định" subtitle="Phôi tự báo theo mảnh — chỉ xem"
+                      bannerLabel="Đồng bộ"
+                    />
+                  </div>
+                )}
+                {frame.phoiMaterialYieldRows.length > 0 && (
+                  <div style={{ marginTop: frame.phoiMaterials.length > 0 || pieceLines.length > 0 ? 18 : 0 }}>
+                    <MaterialYieldTable rows={frame.phoiMaterialYieldRows} />
+                  </div>
+                )}
+              </>
+            )
+          })()}
         </>
       )}
       {tab === 'HAN' && (
@@ -1294,6 +1374,7 @@ function aggregateDetails(items: StageDetails[], phoiProgress: BePhoiProgressIte
       han: combineSubStatus(items.map(d => d.frame.han)),
       son: combineSubStatus(items.map(d => d.frame.son)),
       phoiMaterials, phoiVtTpLines,
+      phoiMaterialYieldRows: items.flatMap(d => d.frame.phoiMaterialYieldRows),
       phoiUnassignedDone: unassignedCutOf(phoiProgress ?? []),
       hanLines: items.flatMap(d => d.frame.hanLines),
       sonLines: items.flatMap(d => d.frame.sonLines),

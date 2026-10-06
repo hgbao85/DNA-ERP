@@ -325,7 +325,7 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, pi
 }
 
 // ── Tầng chi tiết vật tư (dùng chung Phôi/Hàn/Sơn) ─────────────────
-export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, manualInput, showThucCo, onRecord, onFinishBatch, choKcsFor, partStock, batchesByLine, reviews }: {
+export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, manualInput, showThucCo, showSpec = true, aligned = false, onRecord, onFinishBatch, choKcsFor, partStock, batchesByLine, reviews }: {
   lines: ProcLine[]; cfg: StageCfg; readOnly: boolean
   title: string; subtitle: string; bannerLabel: string
   /** Bỏ trống khi board được nhúng làm 1 tab con (vd chi tiết Khung cơ khí bên KHSX) — không cần điều hướng "quay lại". */
@@ -337,6 +337,10 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
   manualInput?: boolean
   /** Ép hiện/ẩn cột "Thực có" — dùng khi nhúng chế độ chỉ xem không có cột Xác nhận cắt. */
   showThucCo?: boolean
+  /** Ẩn cột "Quy cách" (Phôi: mảnh không có quy cách riêng, mã mảnh lặp lại vô nghĩa). */
+  showSpec?: boolean
+  /** Căn cột cố định (độ rộng cứng) để nhiều bảng xếp chồng thẳng hàng - dùng ở tab Phôi. */
+  aligned?: boolean
   /** "Lưu đợt" (2026-09-09, đồng bộ Hàn/Sơn theo mẫu Sắt/VTTP - trước đó 1 nút "Ghi nhận" gộp lưu+
    *  gửi KCS) - tích luỹ vào 1 ProductionBatch đang OPEN, KHÔNG tự gửi KCS. */
   onRecord?: (line: ProcLine, qty: number) => void
@@ -413,14 +417,14 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
         )
       }
     },
-    { key: 'spec', header: 'Quy cách', cell: l => <span style={{ color: 'var(--text3)' }}>{l.spec}</span> },
-    { key: 'perManh', header: 'SL/bộ', align: 'right', cell: l => `×${perManh(l)}` },
+    ...(showSpec ? [{ key: 'spec', header: 'Quy cách', cell: (l: ProcLine) => <span style={{ color: 'var(--text3)' }}>{l.spec}</span> }] : []),
+    { key: 'perManh', header: 'SL/bộ', align: 'right', width: aligned ? 84 : undefined, cell: l => `×${perManh(l)}` },
     // 2026-09-09 (đồng bộ từ vựng với Sắt/VTTP theo yêu cầu người dùng): "Định mức"→"Cần",
     // "${cfg.done}" (Đã cắt/Đã hàn/Đã sơn)→"Đã báo" - CHỈ đổi CHỮ hiện trong bảng này, không đụng
     // `cfg.done` (còn dùng ở banner/nơi khác, giữ nguyên ý nghĩa theo verb riêng từng công đoạn).
-    { key: 'need', header: `Cần (${cfg.unit})`, align: 'right', cell: l => fmt(l.needQty) },
+    { key: 'need', header: `Cần (${cfg.unit})`, align: 'right', width: aligned ? 120 : undefined, cell: l => fmt(l.needQty) },
     {
-      key: 'done', header: `Đã báo (${cfg.unit})`, align: 'right', cell: l => {
+      key: 'done', header: `Đã báo (${cfg.unit})`, align: 'right', width: aligned ? 150 : undefined, cell: l => {
         const short = shortOf(l)
         const pend = choKcsFor?.(l.id) ?? 0
         return <>
@@ -446,13 +450,13 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
     // "Lỗi" (2026-09-09, đồng bộ Sắt/VTTP - trước phải bấm mở rộng "Các đợt đã gửi" mới thấy) -
     // CHỈ hiện khi có batchesByLine (real BE data, mock/read-only embed không có cột này).
     ...(batchesByLine ? [{
-      key: 'failed', header: 'Lỗi', align: 'right', cell: (l: ProcLine) => {
+      key: 'failed', header: 'Lỗi', align: 'right', width: aligned ? 90 : undefined, cell: (l: ProcLine) => {
         const failed = failedOf(l.id)
         return <span style={{ fontWeight: 700, color: failed > 0 ? 'var(--red)' : 'var(--text3)' }}>{failed > 0 ? fmt(failed) : '—'}</span>
       }
     } as BoardColumn<ProcLine>] : []),
     {
-      key: 'remain', header: 'Còn lại', align: 'right', cell: l => {
+      key: 'remain', header: 'Còn lại', align: 'right', width: aligned ? 110 : undefined, cell: l => {
         const remain = l.needQty - l.doneQty
         return <span style={{ fontWeight: 600, color: remain <= 0 ? 'var(--green)' : ACCENT }}>{fmt(Math.max(remain, 0))}</span>
       }
@@ -461,7 +465,7 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
       // "Cập nhật lúc" (2026-09-09): khi có batchesByLine (real BE), lấy thời điểm ĐỢT GẦN NHẤT
       // (reportedAt) thay vì l.lastInputAt - hàm fetchHanSonRows() luôn set lastInputAt=null nên
       // cột này trước đây LUÔN rỗng cho Hàn/Sơn thật, không phải do chưa ai nhập gì.
-      key: 'updated', header: 'Cập nhật lúc', cell: l => {
+      key: 'updated', header: 'Cập nhật lúc', width: aligned ? 170 : undefined, cell: l => {
         const latestBatchAt = (batchesByLine?.get(l.id) ?? [])
           .reduce<string | null>((acc, b) => (!acc || b.reportedAt > acc) ? b.reportedAt : acc, null)
         const at = latestBatchAt ?? l.lastInputAt
@@ -545,7 +549,7 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
 
   return (
     <LenhSanXuatBoard<ProcLine>
-      onBack={onBack} backLabel={backLabel}
+      onBack={onBack} backLabel={backLabel} fixedLayout={aligned}
       title={title}
       subtitle={<>{subtitle}<div style={{ marginTop: 2 }}>{manualInput
         ? (onRecord
@@ -970,8 +974,9 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   const recordQty = async (po: ProcRow, line: ProcLine, qty: number) => {
     if (!stage || !po.realOrderId || !line.realPieceId) return
     try {
-      await api.recordProductionBatch(po.realOrderId, { stage, pieceId: line.realPieceId, qty })
+      const res = await api.recordProductionBatch(po.realOrderId, { stage, pieceId: line.realPieceId, qty })
       refetch(); refetchReviews()
+      if (res?.overPlanWarning) alert(res.overPlanWarning)
     } catch (e) {
       alert(errMsg(e, 'Không lưu được đợt'))
       throw e
