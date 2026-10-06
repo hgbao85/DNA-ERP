@@ -8,6 +8,7 @@ import NotificationCenter from '../../../components/NotificationCenter'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
 import SpecSteelPage from './SpecSteelPage'
 import SpecDetailQuotaPage from './SpecDetailQuotaPage'
+import MaterialYieldRecipesPage from '../Admin/masterData/MaterialYieldRecipesPage'
 import MfgWarehousesPage from './MfgWarehousesPage'
 import MfgAllMaterialsPage from './MfgAllMaterialsPage'
 import WeavingPointsPage from '../Admin/masterData/WeavingPointsPage'
@@ -67,6 +68,10 @@ const SPEC_SETUP_ITEMS: Record<string, { id: SetupSubTab; label: string; icon: '
   SPEC_STEEL: [
     { id: 'dinh-muc', label: 'Định mức mảnh', icon: 'grid' },
     { id: 'catalog', label: 'Tổng hợp vật tư', icon: 'box' },
+    // Định mức "vật tư thành phẩm" (vd thanh nhôm → chân nhôm, 2026-10-01) - CRUD
+    // MaterialYieldRecipe, dùng chung AdminEntityPage với Admin > Danh mục hệ thống, cấp thêm cho
+    // NV Định mức mảnh tự quản lý (không cần qua Admin) - xem role-permissions.constant.ts (BE).
+    { id: 'vat-tu', label: 'Định mức vật tư thành phẩm', icon: 'clipboard' },
   ],
   // "Định mức chi tiết" gồm cả 3 nhóm vật tư (Sơn/Phụ kiện/Bao bì) — 1 account nhập chung,
   // gửi duyệt 1 lần (xem SpecDetailQuotaPage.tsx), y hệt cách "định mức mảnh" bên trên hoạt động.
@@ -324,7 +329,8 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'sku-list' && isProdMgr && <SKUListPage readOnly />}
         {tab === 'materials' && canSeeWarehouses && <MfgAllMaterialsPage />}
         {tab === 'warehouses' && canSeeWarehouses && <MfgWarehousesPage />}
-        {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL' && <SpecSteelPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL' && setupSubTab === 'vat-tu' && <MaterialYieldRecipesPage canManageActive={false} />}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL' && setupSubTab !== 'vat-tu' && <SpecSteelPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
         {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && <SpecDetailQuotaPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
       </>
   )

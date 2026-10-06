@@ -9,6 +9,11 @@ import { MATERIAL_GROUP_SYSTEM_KEYS } from '../constants/materialGroupSystemKeys
  * nhóm vật tư. `undefined` nghĩa là nhóm chưa được seed (deploy hỏng/chưa chạy "npm run
  * seed" ở BE) - MaterialPicker tự hiện rỗng kèm cảnh báo trong trường hợp này, KHÔNG
  * fallback hiện tất cả (xem MaterialPicker.tsx).
+ *
+ * 2026-10-01: `vatTuTP` (nhóm "Vật tư thành phẩm" cũ, tra qua codePrefix='VTTP') đã BỊ XOÁ khỏi
+ * đây - Sắt giờ chia 3 nhóm CON (Phần mềm/Tự tính/Vật tư thành phẩm) nằm chung trong `steel`,
+ * phân biệt qua Material.steelSubGroup chứ không qua materialGroupId riêng nữa. SpecSteelPage.tsx
+ * dùng `steel` cho cả 3 tab, truyền thêm prop `steelSubGroup` cho MaterialPicker.
  */
 export function useMaterialGroupIds() {
   const { data: groups } = useFetch(() => api.getMaterialGroups(), [])
@@ -21,12 +26,5 @@ export function useMaterialGroupIds() {
     rivet: bySystemKey(MATERIAL_GROUP_SYSTEM_KEYS.RIVET),
     plasticButton: bySystemKey(MATERIAL_GROUP_SYSTEM_KEYS.PLASTIC_BUTTON),
     other: bySystemKey(MATERIAL_GROUP_SYSTEM_KEYS.OTHER),
-    // "Vật tư thành phẩm" (vd thanh nhôm → chân nhôm, PieceMaterialYield ở BE) - nhóm do admin
-    // tự tạo (systemKey=null, "vô hình với logic Spec" theo đúng thiết kế MaterialGroup ở BE),
-    // nên KHÔNG resolve được qua bySystemKey như 6 nhóm hệ thống trên. Tra theo codePrefix cố
-    // định 'VTTP' thay thế - đổi tên/prefix nhóm này ở Admin > Vật tư sẽ làm picker này hiện
-    // rỗng, chấp nhận được vì đây là nhóm đơn lẻ do 1 nghiệp vụ cụ thể tạo ra, không phải nhóm
-    // hệ thống seed sẵn.
-    vatTuTP: (groups ?? []).find(g => g.codePrefix === 'VTTP')?.id,
   }
 }

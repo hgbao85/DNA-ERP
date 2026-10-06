@@ -15,6 +15,9 @@ interface Material {
   spec?: string | null
   materialGroupId?: number | null
   detailKind?: 'PAINT' | 'ACCESSORY' | 'PACKAGING' | null
+  /** Nhóm con của Sắt (2026-10-01) - CHỈ có ý nghĩa khi materialGroupId thuộc nhóm systemKey
+   *  STEEL_BAR. Xem MaterialsService.resolveSteelSubGroup (BE). */
+  steelSubGroup?: 'SOFTWARE' | 'SELF_CALC' | 'FINISHED_COMPONENT' | null
   warehouseId?: string | null
   buyerId?: string | null
   purchaseUnit?: string | null
@@ -43,6 +46,18 @@ const DETAIL_KIND_OPTIONS = [
   { value: 'PACKAGING', label: 'Bao bì' },
 ]
 const DETAIL_KIND_LABEL: Record<string, string> = { PAINT: 'Sơn', ACCESSORY: 'Phụ kiện', PACKAGING: 'Bao bì' }
+
+// 3 nhóm con của Sắt (2026-10-01) - KHÔNG phải nhóm vật tư ngang hàng (xem comment enum
+// SteelSubGroup, schema.prisma BE): Phần mềm (đi qua solver cắt sắt), Tự tính (tỷ lệ cắt cố định,
+// vd sắt lá -> Pat), Vật tư thành phẩm (gia công từ nguyên liệu mua, không gắn piece, vd chân nhôm).
+const STEEL_SUB_GROUP_OPTIONS = [
+  { value: 'SOFTWARE', label: 'Phần mềm (cắt qua phần mềm)' },
+  { value: 'SELF_CALC', label: 'Tự tính (tỷ lệ cắt cố định)' },
+  { value: 'FINISHED_COMPONENT', label: 'Vật tư thành phẩm' },
+]
+const STEEL_SUB_GROUP_LABEL: Record<string, string> = {
+  SOFTWARE: 'Phần mềm', SELF_CALC: 'Tự tính', FINISHED_COMPONENT: 'Vật tư thành phẩm',
+}
 
 interface Warehouse {
   id: string
@@ -80,6 +95,10 @@ export default function MaterialsPage() {
   // nào hiện phụ thuộc đúng nhóm đang chọn, mirror cách isOtherGroup làm cho detailKind ở trên.
   const steelGroupId = groupList.find((g) => g.systemKey === MATERIAL_GROUP_SYSTEM_KEYS.STEEL_BAR)?.id
   const isSteelGroup = (v: Partial<Material>) => steelGroupId != null && String(v.materialGroupId) === String(steelGroupId)
+  // 2026-10-01: trong 3 nhóm con của Sắt, CHỈ "Phần mềm" (mặc định khi chưa chọn) là không có %
+  // hao hụt mua - Tự tính/Vật tư thành phẩm vẫn là vật tư MUA về như nhóm thường, mirror
+  // MaterialsService.resolveWasteFields's isSoftwareSteel (BE).
+  const isSoftwareSteel = (v: Partial<Material>) => isSteelGroup(v) && (v.steelSubGroup ?? 'SOFTWARE') === 'SOFTWARE'
   const { data: warehouses } = useFetch<Warehouse[]>(getWarehouses)
   const warehouseList = warehouses ?? []
   const warehouseName = (id?: string | null) => warehouseList.find((w) => w.id === id)?.name ?? '—'
@@ -133,6 +152,10 @@ export default function MaterialsPage() {
       { key: 'spec', label: 'Quy cách', render: (m) => m.spec || '—' },
       { key: 'materialGroupId', label: 'Nhóm vật tư', render: (m) => groupName(m.materialGroupId) },
       { key: 'detailKind', label: 'Phân loại', render: (m) => m.detailKind ? DETAIL_KIND_LABEL[m.detailKind] : '—' },
+      {
+        key: 'steelSubGroup', label: 'Nhóm con Sắt',
+        render: (m) => isSteelGroup(m) && m.steelSubGroup ? STEEL_SUB_GROUP_LABEL[m.steelSubGroup] : '—',
+      },
       { key: 'warehouseId', label: 'Kho', render: (m) => warehouseName(m.warehouseId) },
       {
         // Chỉ đọc - "Sửa nhanh tồn kho" đã chuyển hẳn sang Admin > Quản lý kho (2026-09-14, theo
@@ -188,6 +211,11 @@ export default function MaterialsPage() {
         options: DETAIL_KIND_OPTIONS,
       },
       {
+        name: 'steelSubGroup', label: 'Nhóm con Sắt', type: 'select', required: true,
+        showIf: isSteelGroup,
+        options: STEEL_SUB_GROUP_OPTIONS,
+      },
+      {
         name: 'warehouseId', label: 'Kho', type: 'select',
         options: realWarehouseOptions.map((w) => ({ value: w.id, label: w.name })),
       },
@@ -210,12 +238,12 @@ export default function MaterialsPage() {
         name: 'khoUnitFactor', label: 'Hệ số quy đổi (số Đơn vị tính / 1 Đơn vị mua)', type: 'number',
         placeholder: 'VD: 250 = 250 cái/kg',
       },
-      // % dự trù hao hụt khi mua - CHỈ vật tư KHÔNG thuộc nhóm Sắt (gồm "Sắt tự tính", không qua
-      // solver). Nhóm Sắt (STEEL_BAR) KHÔNG có ô nhập % hao hụt (2026-09-30): ngưỡng hao hụt khi cắt do
-      // KHSX quyết ở "Tối ưu cắt sắt" - Admin không đặt riêng theo vật tư nữa.
+      // % dự trù hao hụt khi mua - ẨN với nhóm con "Phần mềm" của Sắt (2026-09-30: ngưỡng hao hụt
+      // khi cắt do KHSX quyết ở "Tối ưu cắt sắt", Admin không đặt riêng theo vật tư). Tự tính/Vật
+      // tư thành phẩm vẫn nhập được như nhóm thường (2026-10-01).
       {
         name: 'purchaseWastePercentage', label: '% dự trù hao hụt khi mua', type: 'number',
-        showIf: (v) => !isSteelGroup(v),
+        showIf: (v) => !isSoftwareSteel(v),
         placeholder: 'Để trống nếu vật tư không có hao hụt',
       },
       { name: 'imageUrl', label: 'Ảnh vật tư', type: 'image' },

@@ -22,6 +22,10 @@ export interface BeMaterial {
    *  ("Vật tư khác"), null với mọi nhóm khác. Dùng để lọc riêng từng tab ở SpecDetailQuotaPage
    *  vì 3 tab đó giờ dùng chung 1 nhóm vật tư — xem MaterialPicker.tsx. */
   detailKind: 'PAINT' | 'ACCESSORY' | 'PACKAGING' | null;
+  /** Nhóm con của Sắt (2026-10-01) - chỉ có ý nghĩa khi materialGroupId thuộc nhóm systemKey
+   *  STEEL_BAR, null với mọi nhóm khác. Dùng để lọc riêng Sắt/Tự tính/Vật tư thành phẩm ở
+   *  SpecSteelPage.tsx - xem MaterialPicker.tsx (steelSubGroup prop). */
+  steelSubGroup: 'SOFTWARE' | 'SELF_CALC' | 'FINISHED_COMPONENT' | null;
   warehouseId: string | null;
   /** Denormalized từ Warehouse.code/name — cùng lý do materialGroupName ở trên. */
   warehouseCode: string | null;
@@ -66,6 +70,7 @@ export async function createMaterial(data: Record<string, unknown>): Promise<BeM
     spec: data.spec,
     materialGroupId: data.materialGroupId || undefined,
     detailKind: data.detailKind || undefined,
+    steelSubGroup: data.steelSubGroup || undefined,
     warehouseId: data.warehouseId || undefined,
     buyerId: data.buyerId || undefined,
     purchaseUnit: data.purchaseUnit || undefined,
@@ -93,6 +98,7 @@ export async function updateMaterial(id: number | string, data: Record<string, u
     // purchaseWastePercentage ngay bên dưới.
     materialGroupId: data.materialGroupId ?? null,
     detailKind: data.detailKind || undefined,
+    steelSubGroup: data.steelSubGroup || undefined,
     warehouseId: data.warehouseId ?? null,
     buyerId: data.buyerId ?? null,
     purchaseUnit: data.purchaseUnit,

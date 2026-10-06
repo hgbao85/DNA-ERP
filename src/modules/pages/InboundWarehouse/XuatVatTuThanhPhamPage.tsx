@@ -30,6 +30,8 @@ import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 import { pageSubtitle } from '../../../styles/typography'
+import ChanNhomXuatSection from './ChanNhomXuatSection'
+import { subFilterBtn } from '../Phoi/phoiStyles'
 
 const ACCENT = 'var(--fg-4527a0)'
 
@@ -40,6 +42,11 @@ const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
 
 export default function XuatVatTuThanhPhamPage() {
+  // Theo mảnh (cũ, PieceMaterialYield) vs KHÔNG gắn mảnh (MaterialYieldRecipe, vd chân nhôm,
+  // 2026-10-01) - 2 model dữ liệu khác hẳn nhau (theo SKU/PO vs theo cả PI), tách hẳn component
+  // (ChanNhomXuatSection.tsx) thay vì cố nhét chung 1 luồng state.
+  const [mode, setMode] = useState<'manh' | 'chan-nhom'>('manh')
+
   // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
   const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
@@ -71,6 +78,22 @@ export default function XuatVatTuThanhPhamPage() {
     } finally {
       setBusy(null)
     }
+  }
+
+  const modeToggle = (
+    <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+      <button onClick={() => setMode('manh')} style={subFilterBtn(mode === 'manh')}>Theo mảnh</button>
+      <button onClick={() => setMode('chan-nhom')} style={subFilterBtn(mode === 'chan-nhom')}>Không gắn mảnh (chân nhôm)</button>
+    </div>
+  )
+
+  if (mode === 'chan-nhom') {
+    return (
+      <div>
+        {modeToggle}
+        <ChanNhomXuatSection />
+      </div>
+    )
   }
 
   // ── Detail view ───────────────────────────────────────────────────────────────
@@ -169,8 +192,9 @@ export default function XuatVatTuThanhPhamPage() {
   // ── List view ─────────────────────────────────────────────────────────────────
   return (
     <div>
+      {modeToggle}
       <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
-        Xuất Sắt La (Pat) / Thanh nhôm (chân nhôm) cho Phôi theo lệnh sản xuất.
+        Xuất Sắt La (Pat) cho Phôi theo lệnh sản xuất.
       </div>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (

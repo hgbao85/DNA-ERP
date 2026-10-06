@@ -93,7 +93,7 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
     const clampedQty = Number(clamped)
     setMaterialQty(p => {
       const next = { ...p }
-      for (const l of [...piece.wire, ...piece.nail, ...piece.plasticButton]) {
+      for (const l of [...piece.wire, ...piece.nail, ...piece.plasticButton, ...piece.finishedComponent]) {
         const key = `${piece.pieceId}:${l.materialId}`
         if (clamped && clampedQty > 0) next[key] = String(roundQty(l.qtyPerPiece * clampedQty))
         else delete next[key]
@@ -102,10 +102,10 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
     })
   }
 
-  // Bắt buộc nhập đủ MỌI dòng vật tư đi kèm (Dây/Đinh/Nút nhựa) trước khi cho xuất - mảnh không
-  // có dòng vật tư nào (wire/nail/plasticButton đều rỗng) thì coi như luôn "đủ", không chặn gì.
+  // Bắt buộc nhập đủ MỌI dòng vật tư đi kèm (Dây/Đinh/Nút nhựa/Vật tư thành phẩm) trước khi cho
+  // xuất - mảnh không có dòng vật tư nào thì coi như luôn "đủ", không chặn gì.
   const allMaterialsFilled = (piece: BeWeavingIssuePlanItem) => {
-    const lines = [...piece.wire, ...piece.nail, ...piece.plasticButton]
+    const lines = [...piece.wire, ...piece.nail, ...piece.plasticButton, ...piece.finishedComponent]
     return lines.every(l => Number(materialQty[`${piece.pieceId}:${l.materialId}`]) > 0)
   }
 
@@ -116,7 +116,7 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
     if (q > piece.canIssueQty) { setMsgs(p => ({ ...p, [piece.pieceId]: `Vượt số mảnh thực tế đã nhận từ kho phôi-sơn-hàn (chỉ còn ${piece.canIssueQty} có thể xuất)` })); return }
     if (!pid) { setMsgs(p => ({ ...p, [piece.pieceId]: 'Chọn điểm đan' })); return }
     if (!allMaterialsFilled(piece)) { setMsgs(p => ({ ...p, [piece.pieceId]: 'Nhập đủ số lượng cho mọi vật tư đi kèm trước khi xuất' })); return }
-    const materials = [...piece.wire, ...piece.nail, ...piece.plasticButton]
+    const materials = [...piece.wire, ...piece.nail, ...piece.plasticButton, ...piece.finishedComponent]
       .map(l => ({ materialId: l.materialId, qty: Number(materialQty[`${piece.pieceId}:${l.materialId}`]) || 0 }))
       .filter(m => m.qty > 0)
     ask(
@@ -176,6 +176,7 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
                 ...piece.wire.map(l => ({ ...l, group: 'Dây' as const })),
                 ...piece.nail.map(l => ({ ...l, group: 'Đinh' as const })),
                 ...piece.plasticButton.map(l => ({ ...l, group: 'Nút nhựa' as const })),
+                ...piece.finishedComponent.map(l => ({ ...l, group: 'Vật tư thành phẩm' as const })),
               ]
               const cap = Math.min(piece.remainingToIssue, piece.canIssueQty)
               // Chỉ cho thao tác khi: chưa xuất đủ theo định mức, VÀ kho đã thực nhận đủ hàng từ
@@ -409,8 +410,9 @@ function StatCell({ label, value, color, bordered }: {
 
 /** Màu nhãn nhóm vật tư - cùng quy ước GROUP_BADGE_COLORS ở SpecSteelPage.tsx (Dây/Đinh/Nút nhựa
  *  giữ đúng màu đã dùng ở màn Định mức mảnh, chỉ áp cho cái nhãn nhỏ, không loang ra cả dòng). */
-const GROUP_BADGE: Record<'Dây' | 'Đinh' | 'Nút nhựa', { background: string; color: string }> = {
+const GROUP_BADGE: Record<'Dây' | 'Đinh' | 'Nút nhựa' | 'Vật tư thành phẩm', { background: string; color: string }> = {
   'Dây': { background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)' },
   'Đinh': { background: 'var(--bg-f3e5f5)', color: 'var(--fg-7b1fa2)' },
   'Nút nhựa': { background: 'var(--bg-fce4ec)', color: 'var(--fg-ad1457)' },
+  'Vật tư thành phẩm': { background: 'var(--bg-ede7f6)', color: 'var(--fg-4527a0)' },
 }

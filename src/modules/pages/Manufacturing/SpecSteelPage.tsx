@@ -53,9 +53,17 @@ type ManChild = {
 type Manh = { id: number; tenManh: string; soLuong: string; needsHan: boolean; needsSon: boolean; children: ManChild[] }
 type BomItem = { id: string; ten: string; maKhachHang: string; thoiGian: string }
 
-const CHILD_GROUPS: ManhChildGroup[] = ['sat', 'day', 'dinh', 'tanRut', 'nutNhua', 'vatTuTP']
+const CHILD_GROUPS: ManhChildGroup[] = ['sat', 'day', 'dinh', 'tanRut', 'nutNhua', 'vatTuTP', 'vatTuThanhPham']
 const GROUP_LABELS: Record<ManhChildGroup, string> = {
-  sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa', vatTuTP: 'Vật tư thành phẩm',
+  sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa',
+  // 2026-10-01: Sắt chia 3 nhóm con - 'sat' = Phần mềm (đi solver), 'vatTuTP' đổi nhãn thành "Tự
+  // tính" (tỷ lệ cắt cố định, vd tấm sắt lá -> Pat), 'vatTuThanhPham' là nhóm con MỚI (vd chân
+  // nhôm) - cả 3 đều thuộc CÙNG 1 MaterialGroup "Sắt", phân biệt qua Material.steelSubGroup.
+  vatTuTP: 'Tự tính', vatTuThanhPham: 'Vật tư thành phẩm',
+}
+// Nhóm con Sắt tương ứng từng tab - dùng để lọc MaterialPicker (steelSubGroup prop) và catalog.
+const STEEL_SUB_GROUP_OF: Partial<Record<ManhChildGroup, 'SOFTWARE' | 'SELF_CALC' | 'FINISHED_COMPONENT'>> = {
+  sat: 'SOFTWARE', vatTuTP: 'SELF_CALC', vatTuThanhPham: 'FINISHED_COMPONENT',
 }
 
 // "Mảnh có đan" = phải có cả nhóm Dây VÀ nhóm Đinh (Nút nhựa/Tán rút không bắt buộc, khôi phục lại
@@ -76,6 +84,7 @@ const GROUP_BADGE_COLORS: Record<ManhChildGroup, { bg: string; fg: string }> = {
   tanRut: { bg: 'var(--bg-e8f5e9)', fg: 'var(--fg-2e7d32)' },
   nutNhua: { bg: 'var(--bg-fce4ec)', fg: 'var(--fg-ad1457)' },
   vatTuTP: { bg: 'var(--bg-ede7f6)', fg: 'var(--fg-4527a0)' },
+  vatTuThanhPham: { bg: 'var(--bg-e0f2f1)', fg: 'var(--fg-00695c)' },
 }
 
 const toManh = (r: ManhRow): Manh => ({
@@ -101,7 +110,7 @@ const toManhRow = (m: Manh): ManhRow => ({
     note: c.note || undefined, unit: c.unit || undefined, photoUrl: c.photoUrl || undefined,
     processSteps: (c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.length > 0 ? c.processSteps : undefined,
     piecesPerBar: c.group === 'vatTuTP' ? c.piecesPerBar || undefined : undefined,
-    includeInWeaving: c.group === 'nutNhua' ? c.includeInWeaving : undefined,
+    includeInWeaving: (c.group === 'nutNhua' || c.group === 'vatTuThanhPham') ? c.includeInWeaving : undefined,
   })),
 })
 
@@ -143,16 +152,18 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const materials = materialsData ?? []
   const {
     steel: steelGroupId, wire: wireGroupId, nail: nailGroupId,
-    rivet: rivetGroupId, plasticButton: plasticButtonGroupId, vatTuTP: vatTuTPGroupId,
+    rivet: rivetGroupId, plasticButton: plasticButtonGroupId,
   } = useMaterialGroupIds()
+  // 2026-10-01: sat/vatTuTP/vatTuThanhPham đều thuộc CÙNG 1 MaterialGroup "Sắt" (3 nhóm con,
+  // không phải 3 nhóm ngang hàng) - phân biệt thêm qua steelSubGroupOf() truyền cho MaterialPicker.
   const groupIdOf = (g: ManhChildGroup): number | undefined => {
-    if (g === 'sat') return steelGroupId
+    if (g === 'sat' || g === 'vatTuTP' || g === 'vatTuThanhPham') return steelGroupId
     if (g === 'day') return wireGroupId
     if (g === 'dinh') return nailGroupId
     if (g === 'tanRut') return rivetGroupId
-    if (g === 'vatTuTP') return vatTuTPGroupId
     return plasticButtonGroupId
   }
+  const steelSubGroupOf = (g: ManhChildGroup) => STEEL_SUB_GROUP_OF[g]
 
   const findPf = (id: string) => skus.find(pf => pf.id === id)
 
@@ -258,7 +269,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const resetChildForm = () => {
     setChildGroup('sat')
     setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildSoLuong(''); setChildNote('')
-    setChildProcessSteps([]); setChildPiecesPerBar(''); setChildPhotoUrl(''); setChildPhotoFile(null)
+    // Tick sẵn "Cắt" (2026-10-01, theo yêu cầu người dùng) - mọi vật tư nhóm Sắt/Tự tính đều phải
+    // qua Phôi cắt trước, đỡ phải tự bấm mỗi lần thêm mới.
+    setChildProcessSteps(['CAT']); setChildPiecesPerBar(''); setChildPhotoUrl(''); setChildPhotoFile(null)
     setChildPhotoPreview(''); setChildIncludeInWeaving(false); setEditingChild(null)
   }
 
@@ -302,7 +315,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
         photoUrl: childGroup === 'day' ? childPhotoUrl : '',
         photoFile: childGroup === 'day' ? childPhotoFile : null,
         photoPreview: childGroup === 'day' ? childPhotoPreview : '',
-        includeInWeaving: childGroup === 'nutNhua' ? childIncludeInWeaving : false,
+        includeInWeaving: (childGroup === 'nutNhua' || childGroup === 'vatTuThanhPham') ? childIncludeInWeaving : false,
       }
       if (editing) {
         return { ...m, children: m.children.map(c => c.id === editing.childId ? built : c) }
@@ -348,7 +361,12 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const isSubmitted = manhSt === 'pending' || manhSt === 'approved'
 
   const catalogGroupId = groupIdOf(catalogGroup)
-  const catalogMaterials = materials.filter(m => catalogGroupId != null && m.materialGroupId === catalogGroupId)
+  const catalogSteelSubGroup = steelSubGroupOf(catalogGroup)
+  const catalogMaterials = materials.filter(m =>
+    catalogGroupId != null && m.materialGroupId === catalogGroupId
+    && (catalogSteelSubGroup == null || m.steelSubGroup === catalogSteelSubGroup
+        || (catalogSteelSubGroup === 'SOFTWARE' && m.steelSubGroup == null))
+  )
 
   // ─── Render ────────────────────────────────────────────────────────────
   // Gate CHỈ áp cho subTab 'dinh-muc' (cần skus) - 'catalog' không đụng skus, không được chặn
@@ -622,12 +640,12 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                             {lenOrPerBar && <span>{c.group === 'sat' ? 'Dài' : 'SL/đơn vị'}: <b style={{ color: 'var(--text2)', fontWeight: 600 }}>{lenOrPerBar}{c.group === 'sat' ? ' mm' : ''}</b></span>}
                             <span>SL: <b style={{ color: 'var(--text)', fontWeight: 700 }}>{c.soLuong || '—'}</b> {c.unit}</span>
                           </div>
-                          {((c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.length > 0 || (c.group === 'nutNhua' && c.includeInWeaving) || c.photoUrl || c.photoPreview) && (
+                          {((c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.length > 0 || ((c.group === 'nutNhua' || c.group === 'vatTuThanhPham') && c.includeInWeaving) || c.photoUrl || c.photoPreview) && (
                             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginTop: 6 }}>
                               {(c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.map(step => (
                                 <span key={step} style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-5e35b1)', background: 'var(--bg-ede7f6)', borderRadius: 4, padding: '2px 6px' }}>{PROCESS_STEP_LABELS[step]}</span>
                               ))}
-                              {c.group === 'nutNhua' && c.includeInWeaving && (
+                              {(c.group === 'nutNhua' || c.group === 'vatTuThanhPham') && c.includeInWeaving && (
                                 <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-2e7d32)', background: 'var(--bg-e8f5e9)', borderRadius: 4, padding: '1px 6px' }}>✓ Đi kèm xuất đan</span>
                               )}
                               {(c.photoUrl || c.photoPreview) && (
@@ -672,7 +690,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                             <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>
                               {c.loaiSatName}
                               {c.note && <span style={{ color: 'var(--text3)', fontWeight: 400 }}> ({c.note})</span>}
-                              {c.group === 'nutNhua' && c.includeInWeaving && (
+                              {(c.group === 'nutNhua' || c.group === 'vatTuThanhPham') && c.includeInWeaving && (
                                 <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--fg-2e7d32)', background: 'var(--bg-e8f5e9)', borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap' }}>
                                   ✓ Đi kèm xuất đan
                                 </span>
@@ -730,7 +748,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
                       {CHILD_GROUPS.map(g => (
                         <button key={g}
-                          onClick={() => { setChildGroup(g); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildProcessSteps([]); setChildPiecesPerBar(''); setChildSoLuong(''); setChildPhotoUrl(''); setChildPhotoFile(null); setChildPhotoPreview(''); setChildIncludeInWeaving(false) }}
+                          onClick={() => { setChildGroup(g); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildProcessSteps((g === 'sat' || g === 'vatTuTP') ? ['CAT'] : []); setChildPiecesPerBar(''); setChildSoLuong(''); setChildPhotoUrl(''); setChildPhotoFile(null); setChildPhotoPreview(''); setChildIncludeInWeaving(false) }}
                           style={{
                             padding: '5px 12px', borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 12, fontWeight: 700,
                             border: `1px solid ${childGroup === g ? GROUP_BADGE_COLORS[g].fg : 'var(--border)'}`,
@@ -747,6 +765,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                           value={childMaterial}
                           onSelect={m => { setChildMaterial(m); setChildSpec(m?.spec ?? '') }}
                           materialGroupId={groupIdOf(childGroup)}
+                          steelSubGroup={steelSubGroupOf(childGroup)}
                           placeholder={`Chọn ${GROUP_LABELS[childGroup].toLowerCase()}…`}
                         />
                       </div>
@@ -802,7 +821,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                           onKeyDown={e => e.key === 'Enter' && saveChild(m.id)}
                           style={inputStyle} />
                       </div>
-                      {childGroup === 'nutNhua' && (
+                      {(childGroup === 'nutNhua' || childGroup === 'vatTuThanhPham') && (
                         <div>
                           <FL>Xuất đan</FL>
                           <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, color: 'var(--text2)', cursor: 'pointer', paddingTop: 4, whiteSpace: 'nowrap' }}>

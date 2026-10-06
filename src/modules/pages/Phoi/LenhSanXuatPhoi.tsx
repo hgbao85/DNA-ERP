@@ -56,6 +56,7 @@ import type {
   BePhoiProgressSegment, BeStepBundle,
 } from '../../../services/steel-issues-api'
 import type { BeProductionOrderSummary, BeProductionBatchPlan } from '../../../services/production-batches-api'
+import type { BeMaterialYieldRecipeDemandItem } from '../../../services/material-yield-recipe-production-api'
 import type { ProcessStep } from '../../../types/sku'
 import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { errMsg } from '../../../utils/errors'
@@ -64,6 +65,7 @@ import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import VatTuTpDetail, { type VatTuTpItem } from './VatTuTpDetail'
+import ChanNhomDetail, { type ChanNhomRecipeItem } from './ChanNhomDetail'
 import {
   ACCENT, GREEN, RED, AMBER, PURPLE, th, thR, td, tdR, card, smallBtn, inp, subFilterBtn,
 } from './phoiStyles'
@@ -88,10 +90,15 @@ interface PiAgg {
   /** Vật tư thành phẩm (PieceMaterialYield, vd Pat/chân nhôm) của PI này - danh sách PHẲNG, mỗi
    *  (order, piece) 1 item (2026-09-04, gộp màn - trước đây ở tab riêng "Vật tư thành phẩm"). */
   vatTuTpItems: VatTuTpItem[]
+  /** Vật tư thành phẩm KHÔNG gắn piece (MaterialYieldRecipe, vd chân nhôm, 2026-10-01) - danh sách
+   *  PHẲNG theo recipeId, KHÁC vatTuTpItems (không có pieceId - thuộc về cả PI, không thuộc 1
+   *  piece/SKU nào). Xem ChanNhomDetail.tsx. */
+  chanNhomItems: ChanNhomRecipeItem[]
 }
 
 function buildPiRows(
   issues: BeSteelIssue[], bundles: BeCutBundle[], vatTuTpByPi: Map<string, VatTuTpItem[]>,
+  chanNhomByPi: Map<string, ChanNhomRecipeItem[]>,
 ): PiAgg[] {
   // Gom theo productionInvoiceId (luôn duy nhất) chứ KHÔNG theo mã hiển thị salesOrderCode -
   // nhiều lệnh SX có thể cùng chung 1 mã Sales (nhiều SKU/đơn) hoặc cùng null.
@@ -108,9 +115,14 @@ function buildPiRows(
   for (const piId of vatTuTpByPi.keys()) {
     if (!byPi.has(piId)) { byPi.set(piId, []); order.push(piId) }
   }
+  // Cùng lý do - PI có thể CHỈ cần chân nhôm (không sắt, không vattutp cũ theo piece).
+  for (const piId of chanNhomByPi.keys()) {
+    if (!byPi.has(piId)) { byPi.set(piId, []); order.push(piId) }
+  }
   return order.map(productionInvoiceId => {
     const list = byPi.get(productionInvoiceId)!
     const vatTuTpItems = vatTuTpByPi.get(productionInvoiceId) ?? []
+    const chanNhomItems = chanNhomByPi.get(productionInvoiceId) ?? []
     // Đợt cắt thuộc PI này = đợt gắn vào 1 SteelIssue nằm trong `list` (bundle không tự biết PI).
     const piBundles = bundles.filter(b => issueById.get(b.steelIssueId)?.productionInvoiceId === productionInvoiceId)
     return {
@@ -120,13 +132,14 @@ function buildPiRows(
       // salesOrderCode (PO) thì KHÔNG - 1 PI có thể gộp nhiều PO khác nhau (xem khối "PO/SKU trong
       // PI này" bên dưới), trước đây ưu tiên PO trước khiến nhãn đại diện có thể đổi giữa các lần
       // tải nếu thứ tự `issues` trả về từ BE đổi, và không phản ánh đủ các PO thực sự nằm trong PI.
-      poNumber: list[0]?.piCode ?? list[0]?.salesOrderCode ?? vatTuTpItems[0]?.poNumber ?? productionInvoiceId,
+      poNumber: list[0]?.piCode ?? list[0]?.salesOrderCode ?? vatTuTpItems[0]?.poNumber ?? chanNhomItems[0]?.piCode ?? productionInvoiceId,
       issues: list,
       bundles: piBundles,
       totalIssued: list.reduce((s, i) => s + i.barCount, 0),
       bundlesPending: piBundles.filter(b => b.status !== 'QC_PASSED').length,
       bundlesPassed: piBundles.filter(b => b.status === 'QC_PASSED').length,
       vatTuTpItems,
+      chanNhomItems,
     }
   })
 }
@@ -216,13 +229,60 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
     }
     return m
   }, [vatTuTpOrders, vatTuTpPlans])
+
+  // Vật tư thành phẩm KHÔNG gắn piece (MaterialYieldRecipe, vd chân nhôm, 2026-10-01) - nhu cầu tính
+  // theo PI (không theo order như vatTuTpByPi, xem getProductionDemand() doc comment BE: cộng dồn
+  // từ MỌI order/piece trong PI). piIds lấy từ cùng `vatTuTpOrders` (listProductionOrdersForStage,
+  // MỌI order active bất kể needsHan) - PI nào không cần chân nhôm thì demand trả rỗng, không hại gì.
+  const chanNhomPiIds = useMemo(() => [...new Set((vatTuTpOrders ?? []).map(o => o.productionInvoiceId))], [vatTuTpOrders])
+  const chanNhomPiIdsKey = chanNhomPiIds.join(',')
+  const { data: chanNhomDemandByPi, refetch: refetchChanNhomDemand } = useFetch<Map<string, BeMaterialYieldRecipeDemandItem[]>>(
+    async () => {
+      if (chanNhomPiIds.length === 0) return new Map()
+      const entries = await Promise.all(
+        chanNhomPiIds.map(async id => [id, await api.getMaterialYieldRecipeDemand(id).catch(() => [])] as const),
+      )
+      return new Map(entries)
+    },
+    [chanNhomPiIdsKey],
+  )
+  const { data: allRecipes, refetch: refetchAllRecipes } = useFetch(() => api.getMaterialYieldRecipes(), [])
+  const recipeById = useMemo(() => new Map((allRecipes ?? []).map(r => [String(r.id), r])), [allRecipes])
+  const piCodeByPiId = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const o of vatTuTpOrders ?? []) if (!m.has(o.productionInvoiceId)) m.set(o.productionInvoiceId, o.piCode)
+    return m
+  }, [vatTuTpOrders])
+  const chanNhomByPi = useMemo(() => {
+    const m = new Map<string, ChanNhomRecipeItem[]>()
+    if (!chanNhomDemandByPi) return m
+    for (const [piId, items] of chanNhomDemandByPi) {
+      const arr: ChanNhomRecipeItem[] = []
+      for (const d of items) {
+        if (d.requiredOutputQty <= 0) continue
+        arr.push({
+          productionInvoiceId: piId, piCode: piCodeByPiId.get(piId) ?? piId,
+          recipeId: d.recipeId, outputMaterialCode: d.outputMaterialCode, outputMaterialName: d.outputMaterialName,
+          inputMaterialCode: d.inputMaterialCode, inputMaterialName: d.inputMaterialName,
+          requiredOutputQty: d.requiredOutputQty, onHandOutputQty: d.onHandOutputQty, shortfallOutputQty: d.shortfallOutputQty,
+          requiredInputQty: d.requiredInputQty, processSteps: recipeById.get(d.recipeId)?.processSteps ?? [],
+        })
+      }
+      if (arr.length > 0) m.set(piId, arr)
+    }
+    return m
+  }, [chanNhomDemandByPi, recipeById, piCodeByPiId])
+
   const [selPi, setSelPi] = useState<string | null>(null)
 
   const piRows = useMemo(
-    () => buildPiRows(issues ?? [], allBundles ?? [], vatTuTpByPi),
-    [issues, allBundles, vatTuTpByPi],
+    () => buildPiRows(issues ?? [], allBundles ?? [], vatTuTpByPi, chanNhomByPi),
+    [issues, allBundles, vatTuTpByPi, chanNhomByPi],
   )
-  const refetchAll = () => { refetch(); refetchReviews(); refetchBundles(); refetchVatTuTpOrders(); refetchVatTuTpPlans() }
+  const refetchAll = () => {
+    refetch(); refetchReviews(); refetchBundles(); refetchVatTuTpOrders(); refetchVatTuTpPlans()
+    refetchChanNhomDemand(); refetchAllRecipes()
+  }
 
   if (isLoading) return <LoadingState />
   // error PHẢI kiểm trước `!issues` (2026-09-11, QA audit B2) - trước đây gate chung
@@ -334,6 +394,9 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
   // Vật tư thành phẩm (2026-09-04, gộp màn) - key `${orderId}:${pieceId}` vì 2 SKU khác nhau trong
   // cùng PI có thể cùng dùng 1 pieceId trùng tên (vd cùng "Pat"), phải phân biệt theo cả order.
   const [selVatTuTpKey, setSelVatTuTpKey] = useState<string | null>(null)
+  // Vật tư thành phẩm KHÔNG gắn piece (2026-10-01) - key là recipeId (duy nhất trong phạm vi 1 PI,
+  // khác vatTuTp không cần orderId vì không gắn piece/order nào).
+  const [selChanNhomRecipeId, setSelChanNhomRecipeId] = useState<string | null>(null)
 
   const { data: progress, isLoading: progressLoading, error: progressError, refetch: refetchProgress } = useFetch<BePhoiProgressItem[]>(
     () => api.getPhoiProgress(pi.productionInvoiceId), [pi.productionInvoiceId],
@@ -389,7 +452,7 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
   // PI CHỈ có VTTP thì mở thẳng tab đó, không bắt xem "Chưa có đợt sắt nào" trước) - CỐ Ý không mặc
   // định "Tất cả" dù thêm lựa chọn đó (dưới), để giữ đúng lợi ích tách tab (đỡ cuộn dài); "Tất cả"
   // chỉ là lối tắt khi cần xem gộp cả 2, không phải hành vi mở màn mặc định.
-  const [tab, setTab] = useState<'all' | 'sat' | 'vttp'>(() => materialGroups.length > 0 ? 'sat' : 'vttp')
+  const [tab, setTab] = useState<'all' | 'sat' | 'vttp' | 'chan-nhom'>(() => materialGroups.length > 0 ? 'sat' : 'vttp')
 
   if (progressLoading) return <LoadingState />
   if (progressError || !progress) return <LoadErrorState error={progressError ?? 'Không rõ nguyên nhân'} onRetry={refetchProgress} />
@@ -417,6 +480,18 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
       <VatTuTpDetail
         key={selVatTuTpKey} item={selVatTuTp} readOnly={readOnly}
         onBack={() => setSelVatTuTpKey(null)} onRefetch={refetchAll}
+      />
+    )
+  }
+
+  const selChanNhom = selChanNhomRecipeId
+    ? pi.chanNhomItems.find(v => v.recipeId === selChanNhomRecipeId) ?? null
+    : null
+  if (selChanNhom) {
+    return (
+      <ChanNhomDetail
+        key={selChanNhomRecipeId} item={selChanNhom} readOnly={readOnly}
+        onBack={() => setSelChanNhomRecipeId(null)} onRefetch={refetchAll}
       />
     )
   }
@@ -460,9 +535,9 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
         <button onClick={() => setTab('all')} style={subFilterBtn(tab === 'all')}>
-          Tất cả ({materialGroups.length + pi.vatTuTpItems.length})
+          Tất cả ({materialGroups.length + pi.vatTuTpItems.length + pi.chanNhomItems.length})
         </button>
         <button onClick={() => setTab('sat')} style={subFilterBtn(tab === 'sat')}>
           Cắt sắt ({materialGroups.length})
@@ -470,6 +545,11 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
         <button onClick={() => setTab('vttp')} style={subFilterBtn(tab === 'vttp')}>
           <Wrench size={12} style={{ marginRight: 5 }} /> Vật tư TP ({pi.vatTuTpItems.length})
         </button>
+        {pi.chanNhomItems.length > 0 && (
+          <button onClick={() => setTab('chan-nhom')} style={subFilterBtn(tab === 'chan-nhom')}>
+            <Wrench size={12} style={{ marginRight: 5 }} /> VT không gắn mảnh ({pi.chanNhomItems.length})
+          </button>
+        )}
       </div>
 
       {(tab === 'sat' || tab === 'all') && (
@@ -609,6 +689,40 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
                           </span>
                         ))}
                       </div>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+      )}
+
+      {/* Vật tư thành phẩm KHÔNG gắn piece (MaterialYieldRecipe, vd chân nhôm, 2026-10-01) - danh
+          sách PHẲNG theo recipeId, "Cần" là shortfallOutputQty tính theo CẢ PI (xem ChanNhomDetail
+          doc comment). Chỉ hiện tab này khi PI thật sự có nhu cầu (pi.chanNhomItems.length > 0). */}
+      {(tab === 'chan-nhom' || tab === 'all') && pi.chanNhomItems.length > 0 && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: tab === 'all' ? 20 : 0 }}>
+            {tab === 'all' && (
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text3)' }}>Vật tư không gắn mảnh</div>
+            )}
+            {pi.chanNhomItems.map(v => {
+              const done = v.shortfallOutputQty <= 0
+              return (
+                <div key={v.recipeId} onClick={() => setSelChanNhomRecipeId(v.recipeId)} style={{ ...card, cursor: 'pointer' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = '')}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px' }}>
+                    <ChevronRight size={15} color="var(--text3)" />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{v.outputMaterialName}</div>
+                      <div style={{ fontSize: 12, color: 'var(--text3)' }}>
+                        Cần {v.requiredOutputQty.toLocaleString('vi-VN')} · từ {v.inputMaterialName}
+                      </div>
+                    </div>
+                    {done ? (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đủ tồn</span>
+                    ) : (
+                      <span style={{ fontSize: 12, fontWeight: 600, color: ACCENT }}>còn thiếu {v.shortfallOutputQty.toLocaleString('vi-VN')}</span>
                     )}
                   </div>
                 </div>

@@ -16,6 +16,11 @@
  * "Chiều dài" hiện "—" cho dòng Vật tư TP (không áp dụng - quy cách material cố định, không đổi mỗi
  * đợt). Giữ NGUYÊN tên trang "Xác nhận nhận sắt" (không đổi tên). Tab "Lịch sử" CHƯA mở rộng (vẫn
  * chỉ Sắt) - ngoài phạm vi đợt này, xem changelog.
+ *
+ * Thêm 2026-10-01: gộp thêm CẢ MaterialYieldRecipeIssue (vật tư thành phẩm KHÔNG gắn piece, vd
+ * thanh nhôm → chân nhôm qua MaterialYieldRecipe) vào CÙNG bảng "Xác nhận" - cùng dạng dữ liệu, chỉ
+ * khác PO hiện "—" (đợt này thuộc về cả PI, không gắn 1 SKU/PO cụ thể, xem
+ * MaterialYieldRecipesService.getProductionDemand() doc comment BE).
  */
 
 import { Fragment, useMemo, useState } from 'react'
@@ -24,6 +29,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeSteelIssue, BeQcReview } from '../../../services/steel-issues-api'
 import type { BeMaterialYieldIssue } from '../../../services/material-yield-issues-api'
+import type { BeMaterialYieldRecipeIssue } from '../../../services/material-yield-recipe-production-api'
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
@@ -47,7 +53,11 @@ export default function XacNhanNhanSatPage({ readOnly = false }: { readOnly?: bo
   const { data: yieldIssues, refetch: refetchYield } = useFetch<BeMaterialYieldIssue[]>(
     () => api.getMaterialYieldIssuesByStatus(), [],
   )
-  const refetchAll = () => { refetch(); refetchYield() }
+  // Vật tư thành phẩm KHÔNG gắn piece (2026-10-01, vd chân nhôm) - cùng tab "Xác nhận".
+  const { data: recipeIssues, refetch: refetchRecipeIssues } = useFetch<BeMaterialYieldRecipeIssue[]>(
+    () => api.getMaterialYieldRecipeIssuesByStatus(), [],
+  )
+  const refetchAll = () => { refetch(); refetchYield(); refetchRecipeIssues() }
 
   if (isLoading) return <LoadingState />
   // 2026-09-11 (QA audit B2): error trước `!lines` - xem LoadErrorState doc comment.
@@ -64,7 +74,7 @@ export default function XacNhanNhanSatPage({ readOnly = false }: { readOnly?: bo
         </SubTabBtn>
       </div>
       {subTab === 'xac-nhan'
-        ? <XacNhanTab lines={lines} yieldIssues={yieldIssues ?? []} reviews={reviews ?? []} readOnly={readOnly} refetch={refetchAll} />
+        ? <XacNhanTab lines={lines} yieldIssues={yieldIssues ?? []} recipeIssues={recipeIssues ?? []} reviews={reviews ?? []} readOnly={readOnly} refetch={refetchAll} />
         : <LichSuTab lines={lines} />}
     </div>
   )
@@ -86,8 +96,9 @@ function SubTabBtn({ active, onClick, icon, children }: { active: boolean; onCli
 // dấu công đoạn chi tiết đã chuyển sang "Lệnh sản xuất" (LenhSanXuatPhoi.tsx) - đợt sau khi nhận
 // xong hiện trạng thái tham khảo ở đây, thao tác làm bên đó.
 
-function XacNhanTab({ lines, yieldIssues, reviews, readOnly, refetch }: {
-  lines: BeSteelIssue[]; yieldIssues: BeMaterialYieldIssue[]; reviews: BeQcReview[]; readOnly: boolean; refetch: () => void
+function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refetch }: {
+  lines: BeSteelIssue[]; yieldIssues: BeMaterialYieldIssue[]; recipeIssues: BeMaterialYieldRecipeIssue[]
+  reviews: BeQcReview[]; readOnly: boolean; refetch: () => void
 }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<Record<string, string>>({})
@@ -119,6 +130,20 @@ function XacNhanTab({ lines, yieldIssues, reviews, readOnly, refetch }: {
   })
   const choNhanYield = yieldIssues.filter(y => y.status === 'ISSUED').length
 
+  // Vật tư thành phẩm KHÔNG gắn piece (2026-10-01) - cùng kiểu xác nhận ISSUED -> RECEIVED.
+  const doReceiveRecipe = async (y: BeMaterialYieldRecipeIssue) => {
+    setBusy(y.id); setErr(p => ({ ...p, [y.id]: '' }))
+    try { await api.receiveMaterialYieldRecipeIssue(y.id); refetch() }
+    catch (e) { setErr(p => ({ ...p, [y.id]: errMsg(e, 'Không xác nhận được') })) }
+    finally { setBusy(null) }
+  }
+  const recipeRows = [...recipeIssues].sort((a, b) => {
+    const rank = (y: BeMaterialYieldRecipeIssue) => (y.status === 'ISSUED' ? 0 : 1)
+    const r = rank(a) - rank(b)
+    return r !== 0 ? r : b.issuedAt.localeCompare(a.issuedAt)
+  })
+  const choNhanRecipe = recipeIssues.filter(y => y.status === 'ISSUED').length
+
   // Thứ tự ưu tiên: chờ nhận (việc của màn này) → phần còn lại (chỉ tham khảo, việc của "Lệnh sản
   // xuất") → đã duyệt (mờ).
   const rank = (l: BeSteelIssue) =>
@@ -140,7 +165,7 @@ function XacNhanTab({ lines, yieldIssues, reviews, readOnly, refetch }: {
     <div>
       <div style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 16 }}>
         Xác nhận <b>đã nhận</b> đợt kho vừa xuất (Sắt, Sắt La, Thanh nhôm). Báo sản lượng/công đoạn làm ở <b>Lệnh sản xuất</b>.
-        {(choNhan + choNhanYield) > 0 && <> · <b style={{ color: 'var(--fg-e65100)' }}>{choNhan + choNhanYield}</b> đợt chờ nhận.</>}
+        {(choNhan + choNhanYield + choNhanRecipe) > 0 && <> · <b style={{ color: 'var(--fg-e65100)' }}>{choNhan + choNhanYield + choNhanRecipe}</b> đợt chờ nhận.</>}
       </div>
 
       {traVe > 0 && (
@@ -249,7 +274,38 @@ function XacNhanTab({ lines, yieldIssues, reviews, readOnly, refetch }: {
                 )}
               </Fragment>
             ))}
-            {rows.length === 0 && yieldRows.length === 0 && (
+            {recipeRows.map(y => (
+              <Fragment key={y.id}>
+                <tr style={{ borderTop: '1px solid var(--border)', opacity: y.status === 'RECEIVED' ? 0.75 : 1 }}>
+                  {/* Không gắn PO/SKU - thuộc về cả PI, hiện mã PI thay PO. */}
+                  <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
+                    {y.piCode}
+                  </td>
+                  <td style={{ ...td, fontWeight: 600 }}>{y.inputMaterialName}</td>
+                  <td style={{ ...tdR, color: 'var(--text3)' }}>—</td>
+                  <td style={{ ...tdR, fontWeight: 700 }}>{y.issuedQty}</td>
+                  <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{new Date(y.issuedAt).toLocaleString('vi-VN')}</td>
+                  <td style={{ ...td, textAlign: 'center' }}>
+                    {y.status === 'ISSUED' ? (
+                      readOnly ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>chờ xác nhận nhận</span> : (
+                        <button onClick={() => doReceiveRecipe(y)} disabled={busy === y.id}
+                          style={{ padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-e65100)', color: '#fff', cursor: busy === y.id ? 'not-allowed' : 'pointer' }}>
+                          {busy === y.id ? '...' : 'Xác nhận đã nhận'}
+                        </button>
+                      )
+                    ) : (
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: 'var(--fg-16a34a)' }}>
+                        <Check size={14} /> đã nhận · chờ báo công đoạn
+                      </span>
+                    )}
+                  </td>
+                </tr>
+                {err[y.id] && (
+                  <tr><td colSpan={6} style={{ padding: '4px 18px 8px', fontSize: 12, color: 'var(--fg-c62828)' }}>{err[y.id]}</td></tr>
+                )}
+              </Fragment>
+            ))}
+            {rows.length === 0 && yieldRows.length === 0 && recipeRows.length === 0 && (
               <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Chưa có đợt nào</div></td></tr>
             )}
           </tbody>

@@ -60,14 +60,18 @@ export interface MaterialType {
   baoBiDongGoi: BaoBiDongGoiItem[];
 }
 
-/** 6 nhóm vật tư có thể xuất hiện bên trong 1 mảnh — Sắt (phân cấp: có segmentSpecId, chiều
- *  dài cắt), Dây/Đinh/Tán rút/Nút nhựa (phẳng: chỉ materialId + qty, không
- *  có khái niệm cắt), và Vật tư thành phẩm (định mức "1 cây ra N cái" — piecesPerBar, vd thanh
- *  nhôm → chân nhôm, chỉ áp dụng khi needsHan=false — xem PieceMaterialYield ở BE). Trước đây
- *  Dây/Đinh là 2 danh sách phẳng RIÊNG NGOÀI mảnh, do acc khác (SPEC_WIRE_PAINT) nhập — nay gộp
- *  làm children của từng mảnh, do acc Sắt nhập chung 1 lần (2026-08-22: Vật tư thành phẩm nhập
- *  chung luôn, cùng người/cùng màn với mảnh). */
-export type ManhChildGroup = 'sat' | 'day' | 'dinh' | 'tanRut' | 'nutNhua' | 'vatTuTP';
+/** 7 nhóm vật tư có thể xuất hiện bên trong 1 mảnh — Sắt (`sat`, phân cấp: có segmentSpecId,
+ *  chiều dài cắt — nhóm con PHẦN MỀM của Sắt, đi qua solver cắt sắt), Dây/Đinh/Tán rút/Nút nhựa
+ *  (phẳng: chỉ materialId + qty, không có khái niệm cắt), `vatTuTP` ("Tự tính" — nhóm con TỰ TÍNH
+ *  của Sắt, định mức "1 đơn vị ra N cái" — piecesPerBar, vd tấm sắt lá → "Pat", KHÔNG qua solver,
+ *  xem PieceMaterialYield ở BE), và `vatTuThanhPham` ("Vật tư thành phẩm" — nhóm con VẬT TƯ THÀNH
+ *  PHẨM của Sắt, 2026-10-01, vd chân nhôm: phẳng như Nút nhựa (materialId + qty +
+ *  includeInWeaving), KHÁC `vatTuTP` ở chỗ không tự nó là 1 "mảnh" mà là vật tư GẮN KÈM mảnh khác
+ *  cần đan, sản xuất qua MaterialYieldRecipe riêng - xem PieceMaterialItem group=FINISHED_COMPONENT
+ *  ở BE). `sat`/`vatTuTP`/`vatTuThanhPham` đều thuộc CÙNG 1 MaterialGroup "Sắt", phân biệt qua
+ *  Material.steelSubGroup chứ KHÔNG qua materialGroupId riêng (bài học từ nỗ lực tách nhóm hệ
+ *  thống thứ 7 "SAT_TU_TINH" ngày 2026-09-30, đã bị revert cùng ngày). */
+export type ManhChildGroup = 'sat' | 'day' | 'dinh' | 'tanRut' | 'nutNhua' | 'vatTuTP' | 'vatTuThanhPham';
 
 /** 7 công đoạn phôi chi tiết có thể áp dụng cho 1 thanh sắt (group='sat') - đa chọn, vd 1 thanh
  *  vừa tán vừa dập. Khớp enum ProcessStep ở BE (schema.prisma). */
@@ -109,8 +113,9 @@ export interface ManhChildRow {
   unit?: string | null;
   /** Ảnh đính kèm cho dòng vật tư (upload qua uploadImage()) - hiện chỉ mở ở UI cho group='day'. */
   photoUrl?: string | null;
-  /** Chỉ dùng khi group='nutNhua' (2026-09-11) - dòng nút nhựa này có "đi kèm mảnh khi xuất đan"
-   *  không (checkbox riêng từng dòng). Dây/Đinh luôn tự động đi kèm, không cần cờ này. */
+  /** Chỉ dùng khi group='nutNhua' hoặc 'vatTuThanhPham' (2026-09-11, mở rộng 2026-10-01) - dòng
+   *  này có "đi kèm mảnh khi xuất đan" không (checkbox riêng từng dòng). Dây/Đinh luôn tự động đi
+   *  kèm, không cần cờ này. */
   includeInWeaving?: boolean;
 }
 
