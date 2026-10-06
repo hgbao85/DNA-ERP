@@ -382,8 +382,9 @@ function ChotPanel({ item, readOnly, onRefetch }: {
     if (q <= 0) { setErr('Nhập số mảnh đã hoàn thiện'); return }
     setBusy(true); setErr('')
     try {
-      await api.recordProductionBatch(item.orderId, { stage: 'PHOI', pieceId: item.pieceId, qty: q })
+      const res = await api.recordProductionBatch(item.orderId, { stage: 'PHOI', pieceId: item.pieceId, qty: q })
       setQty(''); refetchAll()
+      if (res?.overPlanWarning) alert(res.overPlanWarning)
     } catch (e) { setErr(errMsg(e, 'Không lưu được đợt - kiểm lại số liệu')) }
     finally { setBusy(false) }
   }

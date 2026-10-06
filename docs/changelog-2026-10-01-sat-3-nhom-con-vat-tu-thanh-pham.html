@@ -484,6 +484,59 @@
     </article>
   </section>
 
+  <section id="round06">
+    <div class="sec-head"><h2>Cập nhật 06/10: Thống kê Phôi hiện Chân nhôm, tách bảng, căn cột</h2><span class="sec-count">4 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">06/10</span><span class="f-title">Chân nhôm không hiện trong tiến độ Phôi của Thống kê</span></div>
+      <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Bảng "Vật tư thành phẩm" của Thống kê chỉ đọc định mức BomPiece. Chân nhôm là vật tư không gắn mảnh (MaterialYieldRecipe) nên không có trong kế hoạch đó.</div></div>
+      <div class="f-field"><span class="k">Cách sửa</span><div class="v">BE <code>getBatchPlan</code>/<code>getBatchPlanBatch</code> (stage PHOI) trả thêm <code>materialYieldItems</code>: nhu cầu = BomPiece.qtyPerUnit × PieceMaterialItem.qtyPerPiece × SL SKU; tiến độ lấy từ đợt KCS công đoạn cuối, cộng qua StockLedger, phân bổ theo tỷ lệ nhu cầu trong PI nhiều SKU. Thêm <code>materialSpec</code>, <code>lastUpdatedAt</code>. Test production-batches 96/96.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Đổi bố cục</span><span class="badge date">06/10</span><span class="f-title">Tách Mảnh (Pat) và Vật tư thành phẩm không gắn mảnh (Chân nhôm) thành 2 bảng</span></div>
+      <div class="f-field"><span class="k">Lý do</span><div class="v">Pat là mảnh (đơn vị bộ, có SL/bộ và banner đồng bộ). Chân nhôm là vật tư (đơn vị chiếc, nguồn là đợt KCS theo PI). Gộp chung khiến cột "Mảnh" sai với Chân nhôm và banner so sánh 2 đơn vị khác nhau.</div></div>
+      <div class="f-field"><span class="k">Cách làm</span><div class="v">Khối "Mảnh cắt theo tỷ lệ cố định" giữ banner đồng bộ theo bộ. Khối "Vật tư thành phẩm không gắn mảnh" có Cần/Đã xong/Còn lại (cái) và Cập nhật lúc, không có banner. Cột Quy cách ẩn ở cả 2 bảng vì mã mảnh lặp lại vô nghĩa.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">06/10</span><span class="f-title">Các bảng tiến độ Phôi lệch cột</span></div>
+      <div class="f-field"><span class="k">Cách sửa</span><div class="v">Cột số có độ rộng cố định (prop <code>fixedLayout</code>, <code>aligned</code>), bảng cỡ đoạn con dùng cùng cấu trúc cột với bảng cha. Chỉ áp dụng ở tab Phôi; Hàn/Sơn giữ nguyên.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">E2E lần 8 (đang chạy, qua giao diện)</span><span class="badge date">06/10</span><span class="f-title">SKU GHE-FULL-DEMO-07 — PO GHE-FULL-DEMO-07-T8, PI-2026-005 (id 10), lệnh GHE-FULL-DEMO-07-T8-1 (id 10)</span></div>
+      <div class="f-field"><span class="k">Đã làm qua giao diện</span><div class="v">Sales tạo PO (xoá và tạo lại để sửa hạn giao 25/10/2026, vì ô ngày ban đầu không nhận giá trị). Khsx tính Tối ưu cắt sắt chỉ với SKU của test 8 (bỏ 2 SKU E2E cũ): 80 cây, hao hụt 0,24%. Khsx tạo lệnh sản xuất và gửi QLSX. QLSX chọn Kho thành phẩm 2 và gửi Sếp. Sếp duyệt PI-2026-005. QLSX bấm Bắt đầu: lệnh ACTIVE.</div></div>
+      <div class="f-field"><span class="k">Mua hàng (qua giao diện)</span><div class="v">Nhàn duyệt 8 dòng sắt, Dây, Thanh nhôm; Hiếu duyệt 4 dòng Sơn, Đinh, Vis, Bì zipper. Cả 12 dòng chuyển sang PURCHASING. Phiếu "Sếp đã ký" là file test 1x1 px tên test8_phieu_TEST.png, không phải chữ ký thật, chỉ dùng cho E2E.</div></div>
+      <div class="f-field"><span class="k">Nhập kho (qua giao diện)</span><div class="v">Đủ 12/12 dòng, đề xuất PURCHASED. Thủ kho Phôi (khopsh) nhận 8 dòng; khovttp nhận Đinh 1920, Vis 960, Dây 240; khotp2 nhận Bì zipper 120. Lỗi thao tác của người chạy test: lần đầu nhập Đinh bằng số sai (30, 10, 32) nên Đinh đã nhận 72; đã nhận bù 1848 để đủ 1920. Các phiếu nhận sai vẫn còn trong sổ (đều là số đã nhập thật, cộng đủ 1920), không phải lỗi ứng dụng.</div></div>
+      <div class="f-field"><span class="k">Sắt và cắt (qua giao diện)</span><div class="v">Khopsh xuất 4 phiếu sắt (id 18–21, PI-2026-005). Phôi nhận đủ 4 phiếu. Phôi báo cắt và bấm Gửi KCS cho 4 đợt: 600mm×120, 500mm×240, 750mm×120, 1000mm×120 (đợt cut-bundle 18–21, chờ KCS).</div></div>
+      <div class="f-field"><span class="k">Tiến độ (qua giao diện, 06/10)</span><div class="v">KCS duyệt 4/4 đợt cắt. Uốn, Dập, Đục lỗ: báo và KCS duyệt 3/3. Chân nhôm: xuất thanh nhôm 32, phôi nhận, báo cắt 380 (còn 100 tồn sẵn từ lần trước), KCS duyệt. Pat: xuất Tấm sắt la 10 và Sắt phi 30, phôi nhận, báo cắt 120, KCS duyệt. Hàn: 5/5 mảnh, KCS duyệt 5/5. Sơn: 4/4 mảnh, KCS duyệt 4/4.</div></div>
+      <div class="f-field"><span class="k">Chuyển mảnh (qua giao diện)</span><div class="v">Khopsh tạo 5 phiếu chuyển (CK-2026-007 đến 011), mỗi mảnh 120; khovttp xác nhận 5/5.</div></div>
+      <div class="f-field"><span class="k">Lỗi thao tác phát hiện (không phải lỗi ứng dụng)</span><div class="v">Khi báo Sơn cho Mê ngồi, script bấm "Lưu đợt" hai lần, đợt Sơn (id 30) thành 240 thay vì 120, KCS đã duyệt 240. Mê ngồi hiện "Đã qua KCS 240". Ghi nhận cho sản phẩm: hệ thống không chặn số báo vượt định mức ở bước báo công đoạn, và KCS không đối chiếu với nhu cầu. Lần này chỉ chuyển 120 Mê ngồi; 120 dư vẫn còn trong sổ sản xuất.</div></div>
+      <div class="f-field"><span class="k">Kết thúc (qua giao diện)</span><div class="v">Đan: 4/4 mảnh (Tay trái và Tay phải có Chân 240; Mê ngồi và Khung tựa không có Chân; vật tư đi kèm đúng định mức). Nhận đan 4/4, Chuyền kiểm 5/5, Đóng gói 120/120, xuất GOPLUS 120, QLSX bấm Kết thúc: lệnh GHE-FULL-DEMO-07-T8-1 Đã kết thúc. Đối soát sổ cái: 0 mồ côi.</div></div>
+      <div class="f-field"><span class="k">Cảnh báo báo vượt nhu cầu (06/10)</span><div class="v">Khi ghi đợt Hàn/Sơn/Phôi (mảnh), BE trả <code>overPlanWarning</code> nếu tổng đã báo của mảnh/công đoạn vượt Σ nhu cầu (BomPiece.qtyPerUnit × SL SKU). Chỉ cảnh báo, KHÔNG chặn, theo lựa chọn của người dùng. FE hiện cảnh báo sau khi lưu (màn Lệnh SX và Phôi). Test: production-batches 98/98. Chưa kiểm trên giao diện; chưa đổi KCS. Thử trên lệnh test 8 (đã kết thúc): BE trả 409 "chưa có SKU nào được bấm Bắt đầu (hoặc đã Kết thúc)" - đúng gate, không ghi thêm được, nên chưa thấy cảnh báo vượt trên giao diện. Cần một lệnh còn đang chạy để kiểm. ĐÃ KIỂM qua giao diện trên PI-2026-002 (lệnh NB-10, dữ liệu test cũ): Hàn ghi E2E Tay phải 1 = 6 (nhu cầu 5) → hiện cảnh báo "Tổng đã báo 6 vượt nhu cầu 5 (HAN)". Đợt 6 (đang mở, chưa gửi KCS, id 32) đã được xoá theo yêu cầu, PI-2026-002 trở về trạng thái trước khi thử. Đợt Sơn Mê ngồi 240 đã KCS trước đó vẫn giữ nguyên (không sửa dữ liệu đã duyệt).</div></div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Chênh lệch Sơn Mê ngồi 120 dư do lỗi thao tác (xem trên). Trên màn Đan, card hoàn thành bị ẩn nên thứ tự card thay đổi; ghi nhận để lần sau kiểm tra theo tên mảnh.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">E2E lần 7</span><span class="badge date">06/10</span><span class="f-title">SKU GHE-FULL-DEMO-07 — công đoạn Phôi đa dạng, chạy từ định mức đến Đã kết thúc</span></div>
+      <div class="f-field"><span class="k">Cấu hình</span><div class="v">Tay trái CẮT+UỐN, Tay phải CẮT+DẬP, Mê ngồi CẮT+ĐỤC LỖ, Khung tựa CẮT. Chân nhôm chỉ CẮT. Pat: sắt chỉ CẮT, Pat đi HÀN.</div></div>
+      <div class="f-field"><span class="k">Kết quả</span><div class="v">Solver 80 cây (0,24%). Mua và nhập 12 dòng. Sắt 4 phiếu, cắt 4 đợt, Uốn/Dập/Đục lỗ 3 đợt, Chân nhôm 480, Pat cắt 120 và Hàn 120, Hàn 5 mảnh, Sơn 4 mảnh, Đan 4 mảnh, Chuyền kiểm 5/5, Đóng gói 120/120, xuất GOPLUS 120, lệnh Đã kết thúc. Đối soát 0 mồ côi.</div></div>
+      <div class="f-field"><span class="k">Lưu ý</span><div class="v">Chạy qua API với tài khoản có sẵn (demo1234), không qua giao diện. Vì vậy lần 7 chỉ xác nhận logic BE và DB; các màn hình chưa được kiểm tra. Lần 8 sẽ chạy qua giao diện thật (xem mục E2E lần 8).</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">06/10</span><span class="f-title">KCS công đoạn phụ của sắt (Uốn/Dập/Đục lỗ) lỗi 500 — thiếu chân trong CHECK qc_reviews</span></div>      <div class="f-field"><span class="k">Hiện tượng</span><div class="v">Test lần 7 (SKU GHE-FULL-DEMO-07): duyệt KCS đợt Uốn/Dập/Đục lỗ trả 500 "violates check constraint qc_reviews_goods_xor_chk".</div></div>
+      <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Đường KCS công đoạn phụ ghi <code>qc_reviews.stepBundleId</code>, nhưng CHECK chỉ đếm 4 chân khác (steelIssueId, productionBatchId, pieceStepBundleId, materialYieldStepBundleId).</div></div>
+      <div class="f-field"><span class="k">Cách sửa</span><div class="v">Migration <code>20261006010000_qc_review_step_bundle_leg</code>: thêm stepBundleId làm chân thứ 5. Không đưa cutBundleId vào vì đường KCS đợt cắt ghi cả steelIssueId lẫn cutBundleId. Đã áp dụng vào DB dev (chưa ghi vào <code>_prisma_migrations</code>). 3/3 đợt KCS công đoạn phụ đã duyệt.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">05/10</span><span class="f-title">Xuất đan bị chặn oan và lỗi 500 khi mang kèm nhiều vật tư</span></div>
+      <div class="f-field"><span class="k">Cách sửa</span><div class="v"><code>WeavingIssuesService</code>: cộng lại giữ chỗ PRODUCTION_INVOICE của chính PI; tăng timeout transaction lên 20 giây. Test weaving 58/58.</div></div>
+    </article>
+  </section>
+
   <footer>DNA-ERP · Changelog phiên làm việc 01/10/2026 · Được ghi lại bởi Claude Code</footer>
 </main>
 

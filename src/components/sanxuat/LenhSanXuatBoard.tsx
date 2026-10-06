@@ -38,6 +38,8 @@ export interface LenhSanXuatBoardProps<T> {
   columns: BoardColumn<T>[]
   rows: T[]
   rowKey: (row: T) => string | number
+  /** Bảng có độ rộng cột cố định (cột có `width`) để các bảng xếp chồng thẳng hàng nhau. */
+  fixedLayout?: boolean
   rowTone?: (row: T) => RowTone
   clickable?: (row: T) => boolean
   onRowClick?: (row: T) => void
@@ -127,7 +129,7 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
         </div>
       ) : (
       <div style={{ ...tableScrollBox, border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: 'var(--space-5)' }}>
-        <table style={tbl}>
+        <table style={{ ...tbl, ...(p.fixedLayout ? { tableLayout: 'fixed' as const, minWidth: 0 } : {}) }}>
           <thead><tr style={{ ...trh, ...stickyHeaderRow }}>
             {p.columns.map(c => (
               <th key={c.key} style={{ ...(c.align === 'right' ? thR : th), ...(c.width ? { width: c.width } : {}) }}>{c.header}</th>
