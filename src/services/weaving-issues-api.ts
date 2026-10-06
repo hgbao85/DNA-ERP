@@ -52,6 +52,10 @@ export interface BeWeavingIssuePlanItem {
   /** Định mức Nút nhựa /1 mảnh - CHỈ gồm dòng đã tick "đi kèm xuất đan" ở SpecSteelPage.tsx
    *  (PieceMaterialItem.includeInWeaving), khác wire/nail ở trên (luôn tự động đi kèm). */
   plasticButton: BeWeavingPieceMaterialLine[];
+  /** Định mức Vật tư thành phẩm (Sắt, nhóm con Vật tư thành phẩm, vd chân nhôm) /1 mảnh - CHỈ gồm
+   *  dòng đã tick "đi kèm xuất đan", cùng điều kiện như plasticButton - vai trò giống hệt Nút nhựa
+   *  (2026-10-01). */
+  finishedComponent: BeWeavingPieceMaterialLine[];
 }
 
 /** Trả mảng rỗng khi SKU chưa có ProductionOrder (chưa được Sếp duyệt) - chưa có gì để xuất/nhận

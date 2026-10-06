@@ -62,6 +62,7 @@ import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import KcsVatTuThanhPhamPage from './KcsVatTuThanhPhamPage'
+import KcsChanNhomSection from './KcsChanNhomSection'
 import MobileListCards from '../../../components/MobileListCards'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
@@ -154,15 +155,16 @@ const sectionTabBtn = (active: boolean): React.CSSProperties => ({
 })
 
 export default function KcsPhoiPage() {
-  const [section, setSection] = useState<'sat' | 'vattutp'>('sat')
+  const [section, setSection] = useState<'sat' | 'vattutp' | 'chan-nhom'>('sat')
 
   return (
     <div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 16 }}>
         <button onClick={() => setSection('sat')} style={sectionTabBtn(section === 'sat')}>Cắt sắt</button>
         <button onClick={() => setSection('vattutp')} style={sectionTabBtn(section === 'vattutp')}>Vật tư TP</button>
+        <button onClick={() => setSection('chan-nhom')} style={sectionTabBtn(section === 'chan-nhom')}>VT không gắn mảnh</button>
       </div>
-      {section === 'sat' ? <KcsSatSection /> : <KcsVatTuThanhPhamPage />}
+      {section === 'sat' ? <KcsSatSection /> : section === 'vattutp' ? <KcsVatTuThanhPhamPage /> : <KcsChanNhomSection />}
     </div>
   )
 }

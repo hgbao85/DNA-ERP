@@ -12,6 +12,7 @@ interface MaterialLite {
   code: string
   name: string
   materialGroupId?: number | null
+  steelSubGroup?: 'SOFTWARE' | 'SELF_CALC' | 'FINISHED_COMPONENT' | null
 }
 interface GroupLite {
   id: number
@@ -49,15 +50,18 @@ export default function MaterialsBulkWasteModal({
 
   const groupName = (id?: number | null) => groups.find(g => g.id === id)?.name ?? '—'
   const isSteelGroup = (id: number | null) => groups.find(g => g.id === id)?.systemKey === MATERIAL_GROUP_SYSTEM_KEYS.STEEL_BAR
+  // 2026-10-01: Sắt giờ có 3 nhóm con (xem MaterialsPage.tsx) - CHỈ "Phần mềm" (mặc định khi
+  // chưa chọn) không có % hao hụt để sửa, mirror MaterialsService.resolveWasteFields's
+  // isSoftwareSteel (BE). Tự tính/Vật tư thành phẩm vẫn sửa được như nhóm thường.
+  const isSoftwareSteel = (m: { materialGroupId?: number | null; steelSubGroup?: string | null }) =>
+    isSteelGroup(m.materialGroupId ?? null) && (m.steelSubGroup ?? 'SOFTWARE') === 'SOFTWARE'
 
-  // Nhóm Sắt (STEEL_BAR) KHÔNG có % hao hụt để sửa (2026-09-30): ngưỡng cắt do KHSX quyết ở "Tối ưu cắt
-  // sắt" - loại hẳn khỏi danh sách chọn. "Sắt tự tính" (không qua solver) vẫn sửa được.
   const filteredMaterials = useMemo(() => {
     const q = search.trim().toLocaleLowerCase('vi')
-    const editable = materials.filter(m => !isSteelGroup(m.materialGroupId ?? null))
+    const editable = materials.filter(m => !isSoftwareSteel(m))
     if (!q) return editable
     return editable.filter(m => `${m.code} ${m.name}`.toLocaleLowerCase('vi').includes(q))
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- isSteelGroup chỉ đọc `groups`
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- isSoftwareSteel chỉ đọc `groups`
   }, [materials, search, groups])
 
   const selectedGroup = groups.find(g => String(g.id) === groupId)

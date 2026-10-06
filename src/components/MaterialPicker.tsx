@@ -24,20 +24,29 @@ export interface PickedMaterial {
  * `detailKind` lọc thêm khi cần tách Sơn/Phụ kiện/Bao bì — 3 tab đó dùng chung 1
  * `materialGroupId` (nhóm "Vật tư khác") nên phải lọc thêm theo Material.detailKind (gán ở
  * Admin > Vật tư) mới ra đúng danh sách cho từng tab (xem SpecDetailQuotaPage.tsx). Bỏ trống
- * cho các picker khác (Sắt/Dây/Đinh/Tán rút/Nút nhựa) — những nhóm đó không dùng detailKind.
+ * cho các picker khác (Dây/Đinh/Tán rút/Nút nhựa) — những nhóm đó không dùng detailKind.
+ *
+ * `steelSubGroup` lọc thêm khi cần tách 3 nhóm con của Sắt (Phần mềm/Tự tính/Vật tư thành phẩm,
+ * 2026-10-01) — cả 3 đều dùng chung `materialGroupId` (nhóm "Sắt") nên phải lọc thêm theo
+ * Material.steelSubGroup (gán ở Admin > Vật tư) mới ra đúng danh sách cho từng tab ở
+ * SpecSteelPage.tsx. Bỏ trống cho các picker không phải Sắt.
  */
 export default function MaterialPicker({
-  value, onSelect, materialGroupId, detailKind, placeholder = 'Chọn vật tư…',
+  value, onSelect, materialGroupId, detailKind, steelSubGroup, placeholder = 'Chọn vật tư…',
 }: {
   value: PickedMaterial | null
   onSelect: (m: PickedMaterial | null) => void
   materialGroupId: number | undefined
   detailKind?: 'PAINT' | 'ACCESSORY' | 'PACKAGING'
+  steelSubGroup?: 'SOFTWARE' | 'SELF_CALC' | 'FINISHED_COMPONENT'
   placeholder?: string
 }) {
   const { data } = useFetch(() => api.getMaterials(), [])
   const options = materialGroupId == null ? [] : (data ?? []).filter((m) =>
-    m.materialGroupId === materialGroupId && (detailKind == null || m.detailKind === detailKind)
+    m.materialGroupId === materialGroupId
+    && (detailKind == null || m.detailKind === detailKind)
+    && (steelSubGroup == null || m.steelSubGroup === steelSubGroup
+        || (steelSubGroup === 'SOFTWARE' && m.steelSubGroup == null))
   )
 
   return (

@@ -104,6 +104,9 @@ interface BePiece {
   nail: BePieceMaterialLine[];
   rivet: BePieceMaterialLine[];
   plasticButton: BePieceMaterialLine[];
+  /** Vật tư thành phẩm (2026-10-01, vd chân nhôm) - nhóm con FINISHED_COMPONENT của Sắt, phẳng
+   *  như plasticButton (PieceMaterialItem), KHÁC materialYields bên dưới (không tự nó là PieceMaterialYield). */
+  finishedComponent: BePieceMaterialLine[];
   materialYields: BePieceMaterialYieldLine[];
 }
 
@@ -144,14 +147,17 @@ const MANH_REVIEW_GROUP = 'SAT';
  *  còn tách VAT_TU_PHU_KIEN/BAO_BI_DONG_GOI riêng). */
 const DETAIL_REVIEW_GROUP = 'DAY_SON';
 
-/** 4 nhóm vật tư "phẳng theo mảnh" cạnh Sắt - khớp PIECE_MATERIAL_LINE_GROUPS ở BE. Vật tư
- *  thành phẩm (vatTuTP) đi qua materialYields riêng (piecesPerBar, không phải qtyPerPiece) -
- *  không có mặt ở map này. */
+/** 5 nhóm vật tư "phẳng theo mảnh" cạnh Sắt - khớp PIECE_MATERIAL_LINE_GROUPS ở BE. "Tự tính"
+ *  (vatTuTP) đi qua materialYields riêng (piecesPerBar, không phải qtyPerPiece) - không có mặt ở
+ *  map này. vatTuThanhPham (2026-10-01, Vật tư thành phẩm) KHÁC 4 nhóm còn lại: không có
+ *  MaterialGroup riêng (nằm lồng trong Sắt qua Material.steelSubGroup), nhưng vẫn gửi qua
+ *  materialLines[] như nhóm phẳng bình thường - xem SkusService.assertOrAssignSteelSubGroup. */
 const CHILD_GROUP_TO_BE: Record<Exclude<ManhChildGroup, 'sat' | 'vatTuTP'>, string> = {
   day: 'WIRE',
   dinh: 'NAIL',
   tanRut: 'RIVET',
   nutNhua: 'PLASTIC_BUTTON',
+  vatTuThanhPham: 'FINISHED_COMPONENT',
 };
 
 function toManhRow(p: BePiece): ManhRow {
@@ -168,7 +174,10 @@ function toManhRow(p: BePiece): ManhRow {
     note: s.note ?? undefined,
     unit: s.materialUnit,
   }));
-  const lineChildren = (lines: BePieceMaterialLine[], group: Exclude<ManhChildGroup, 'sat' | 'vatTuTP'>): ManhChildRow[] =>
+  const lineChildren = (
+    lines: BePieceMaterialLine[],
+    group: Exclude<ManhChildGroup, 'sat' | 'vatTuTP'>,
+  ): ManhChildRow[] =>
     lines.map((l) => ({
       id: l.id,
       group,
@@ -205,6 +214,7 @@ function toManhRow(p: BePiece): ManhRow {
       ...lineChildren(p.nail, 'dinh'),
       ...lineChildren(p.rivet, 'tanRut'),
       ...lineChildren(p.plasticButton, 'nutNhua'),
+      ...lineChildren(p.finishedComponent, 'vatTuThanhPham'),
       ...yieldChildren,
     ],
   };

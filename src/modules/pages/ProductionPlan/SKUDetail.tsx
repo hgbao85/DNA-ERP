@@ -890,7 +890,8 @@ function DetailLinesTable({ rows }: { rows: DetailRow[] }) {
 // duyệt/từ chối luôn xét trên TOÀN BỘ children (mọi nhóm), `filterGroup` chỉ lọc HIỂN THỊ.
 
 const CHILD_GROUP_LABELS: Record<ManhChildGroup, string> = {
-  sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa', vatTuTP: 'Vật tư thành phẩm',
+  sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa',
+  vatTuTP: 'Tự tính', vatTuThanhPham: 'Vật tư thành phẩm',
 }
 const CHILD_GROUP_BADGE: Record<ManhChildGroup, { bg: string; fg: string }> = {
   sat: { bg: 'var(--bg-e3f2fd)', fg: 'var(--fg-1565c0)' },
@@ -899,6 +900,7 @@ const CHILD_GROUP_BADGE: Record<ManhChildGroup, { bg: string; fg: string }> = {
   tanRut: { bg: 'var(--bg-e8f5e9)', fg: 'var(--fg-2e7d32)' },
   nutNhua: { bg: 'var(--bg-fce4ec)', fg: 'var(--fg-ad1457)' },
   vatTuTP: { bg: 'var(--bg-ede7f6)', fg: 'var(--fg-4527a0)' },
+  vatTuThanhPham: { bg: 'var(--bg-e0f2f1)', fg: 'var(--fg-00695c)' },
 }
 
 // "Mảnh có đan" = phải có cả nhóm Dây VÀ nhóm Đinh (Nút nhựa/Tán rút không bắt buộc, khôi phục lại

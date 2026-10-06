@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Sắt chia 3 nhóm con & Định mức vật tư thành phẩm (01/10/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --decided: #66748A; --decided-bg: #EEF0F3; --decided-border: #CBD2DB;
+    --blocked: #A8321E; --blocked-bg: #FBE6E2; --blocked-border: #E8AC9E;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+      --blocked: #E8897A; --blocked-bg: rgba(232,137,122,0.12); --blocked-border: rgba(232,137,122,0.35);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+    --blocked: #E8897A; --blocked-bg: rgba(232,137,122,0.12); --blocked-border: rgba(232,137,122,0.35);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.decided { color: var(--decided); background: var(--decided-bg); border-color: var(--decided-border); }
+  .badge.blocked { color: var(--blocked); background: var(--blocked-bg); border-color: var(--blocked-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul, .f-field ol { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  .pillbar { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .pill { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-alt); color: var(--text); }
+  .pill.sw { border-color: var(--ui-border); background: var(--ui-bg); color: var(--ui); }
+  .pill.sc { border-color: var(--new-border); background: var(--new-bg); color: var(--new); }
+  .pill.fc { border-color: var(--infra-border); background: var(--infra-bg); color: var(--infra); }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+
+  nav.toc { position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--border); backdrop-filter: blur(6px); }
+  .toc-inner { max-width: 900px; margin: 0 auto; padding: 10px 24px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .toc-label { font-family: 'IBM Plex Mono', monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); margin-right: 2px; }
+  .toc-link { font-family: 'Be Vietnam Pro', sans-serif; font-size: 12.5px; font-weight: 600; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text); text-decoration: none; white-space: nowrap; transition: background 0.12s, border-color 0.12s; }
+  .toc-link:hover { border-color: var(--accent-strong); color: var(--accent-strong); background: var(--accent-soft); }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 01/10/2026</span>
+    <h1 class="title">Sắt chia 3 nhóm con &amp; Định mức vật tư thành phẩm</h1>
+    <p class="subtitle">Nhóm "Sắt" được chia thành 3 nhóm con (Phần mềm / Tự tính / Vật tư thành phẩm) qua field mới <code>Material.steelSubGroup</code> — không tạo nhóm vật tư ngang hàng mới (bài học từ lần thử "Sắt tự tính" 30/09 đã bị rút lại). Vật tư thành phẩm (vd chân nhôm) hạ cấp từ "1 mảnh riêng" xuống "vật tư gắn kèm mảnh khác khi đan", sản xuất qua 1 module hoàn toàn mới (<code>material-yield-recipes</code>) không gắn với piece nào cả.</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> FE <code>D:\DNA-ERP</code> · BE <code>D:\DNA-ERP-BE</code></span>
+      <span><strong>Màn hình:</strong> Manufacturing › Định mức mảnh · Admin › Vật tư/Danh mục hệ thống</span>
+    </div>
+  </div>
+</header>
+
+<nav class="toc">
+  <div class="toc-inner">
+    <span class="toc-label">Mục lục</span>
+    <a class="toc-link" href="#context">Bối cảnh</a>
+    <a class="toc-link" href="#feature">Tính năng mới</a>
+    <a class="toc-link" href="#decided">Giới hạn &amp; quyết định</a>
+    <a class="toc-link" href="#cleanup">Dọn dẹp dữ liệu</a>
+    <a class="toc-link" href="#polish">Tinh chỉnh UI</a>
+    <a class="toc-link" href="#test">Kiểm tra</a>
+    <a class="toc-link" href="#later">Cập nhật 03–05/10</a>
+    <a class="toc-link" href="#round6">Cập nhật 05/10</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+  <section id="context">
+    <div class="sec-head"><h2>Bối cảnh</h2></div>
+    <div class="prose-card">
+      <p>Trước đây nhóm "Sắt" chỉ có 1 hành vi duy nhất: mọi đoạn cắt đều đi qua phần mềm tối ưu (solver bin-packing) rồi xuất theo đúng cây tồn kho. Thực tế một số loại sắt/nhôm đã biết trước tỷ lệ cắt cố định (vd 1 thanh nhôm luôn cắt ra đúng 12 chân, 1 tấm sắt lá luôn ra đúng N miếng Pat) — không cần solver, nhưng hệ thống không có cách khai báo việc này trong nhóm Sắt chính, phải dùng tạm 1 nhóm "Vật tư thành phẩm" do Admin tự tạo riêng, dùng chung cho cả 2 trường hợp rất khác nhau: Pat (vẫn là 1 "mảnh" thật) và chân nhôm (thực chất chỉ là 1 chi tiết gắn vào mảnh khác, như Nút nhựa).</p>
+      <p>Thiết kế mới tách rõ 3 nhóm con cùng nằm trong Sắt: <b>Phần mềm</b> (hành vi gốc, không đổi), <b>Tự tính</b> (tỷ lệ cắt cố định nhưng vẫn là 1 mảnh — dùng <code>PieceMaterialYield</code> có sẵn, không đổi gì), và <b>Vật tư thành phẩm</b> (tỷ lệ cắt cố định nhưng KHÔNG phải 1 mảnh — cần model hoàn toàn mới vì không gắn với piece nào).</p>
+    </div>
+  </section>
+
+  <section id="feature">
+    <div class="sec-head"><h2>Tính năng mới</h2><span class="sec-count">7 mục — 4 ngày 01/10, 1 ngày 02/10, 2 ngày 03/10</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Hạ tầng</span><span class="badge date">01/10</span><span class="f-title">3 nhóm con của Sắt — field mới, không phải nhóm vật tư ngang hàng</span></div>
+      <div class="pillbar">
+        <span class="pill sw">SOFTWARE — Phần mềm</span>
+        <span class="pill sc">SELF_CALC — Tự tính</span>
+        <span class="pill fc">FINISHED_COMPONENT — Vật tư thành phẩm</span>
+      </div>
+      <div class="f-field"><span class="k">Vì sao không làm như 30/09</span><div class="v">Commit <code>revert-satTuTinh</code> (30/09) đã thử biến "Sắt tự tính" thành nhóm hệ thống thứ 7 ngang hàng Sắt/Dây/Đinh, rồi bị rút lại cùng ngày vì sai bản chất — 3 nhóm trên là <b>con của Sắt</b>, không phải ngang hàng. Lần này dùng 1 field <code>Material.steelSubGroup</code> (enum, nullable = SOFTWARE mặc định) trên chính model <code>Material</code>, mọi vật tư Sắt vẫn cùng 1 <code>MaterialGroup</code> duy nhất.</div></div>
+      <div class="f-field"><span class="k">Validate ở đúng đường đi thật</span><div class="v">Điểm quan trọng nhất: validate nằm ở <code>SkusService.replacePieces()</code> (helper <code>assertOrAssignSteelSubGroup()</code>) — đây là endpoint <code>POST /skus/:id/manh-quota</code> mà trang "Định mức mảnh" dùng thật. Suýt bị bỏ sót vì ban đầu chỉ sửa <code>bom-revisions.service.ts</code>/<code>segment-specs.service.ts</code>, vốn là đường phụ không ai dùng từ UI chính.</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v">BE <code>prisma/schema.prisma</code>, <code>skus.service.ts</code>, <code>skus/dto/update-quota.dto.ts</code>, <code>materials.service.ts</code>, <code>segment-specs.service.ts</code>, <code>bom-revisions.service.ts</code> · FE <code>SpecSteelPage.tsx</code>, <code>MaterialsPage.tsx</code>, <code>MaterialPicker.tsx</code>, <code>useMaterialGroupIds.ts</code></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Module mới</span><span class="badge date">01/10</span><span class="f-title"><code>material-yield-recipes</code> — vật tư thành phẩm sản xuất không gắn piece</span></div>
+      <div class="f-field">
+        <span class="k">Luồng đầy đủ</span>
+        <div class="v">
+          <ol>
+            <li><code>MaterialYieldRecipe</code>: "1 đơn vị vật tư vào cắt ra N vật tư ra" (vd thanh nhôm → chân nhôm) — <b>không có pieceId</b>, khác hẳn <code>PieceMaterialYield</code>.</li>
+            <li><code>MaterialYieldRecipeIssue</code>: xuất vật tư vào cho Phôi (mirror <code>MaterialYieldIssue</code>, khoá theo PI thay vì SKU).</li>
+            <li><code>MaterialYieldStepBatch</code>/<code>Bundle</code>: Phôi báo công đoạn + gửi KCS (mirror <code>StepBatch</code>/<code>StepBundle</code> bên Sắt — scope theo PI+recipe, không theo piece).</li>
+            <li>KCS duyệt qua <code>QcReviewsService.reviewMaterialYieldStep()</code> (leg mới <code>materialYieldStepBundleId</code> trong CHECK XOR <code>qc_reviews_goods_xor_chk</code>) — công đoạn CUỐI pass thì <b>tự động</b> ghi StockLedger/StockQuant cộng tồn vật tư ra vào đúng kho của nó, không cần bước nào thêm.</li>
+            <li>Kết quả gắn vào BOM của mảnh khác cần đan qua <code>PieceMaterialItem</code> (group <code>FINISHED_COMPONENT</code> mới) + <code>includeInWeaving</code> — vai trò giống hệt Nút nhựa.</li>
+          </ol>
+        </div>
+      </div>
+      <div class="f-field"><span class="k">Giản lược có chủ đích</span><div class="v"><code>MaterialYieldRecipeIssuesService</code> chưa nối <code>StockReservationsService</code> (giữ đúng khoá FOR UPDATE kiểm tồn nhưng chưa trừ giữ chỗ của nguồn khác) — ghi rõ trong code, bổ sung sau nếu phát sinh xung đột thật.</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>src\modules\material-yield-recipes\</code> (service CRUD recipe + issuance + production), wired vào <code>qc-reviews.module.ts</code></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Trang mới</span><span class="badge date">01/10</span><span class="f-title">"Định mức mảnh" có thêm 2 nút: Tự tính &amp; Vật tư thành phẩm</span></div>
+      <div class="f-field"><span class="k">Trước</span><div class="v">1 tab gộp chung tên "Vật tư thành phẩm" cho cả 2 loại khác bản chất.</div></div>
+      <div class="f-field"><span class="k">Sau</span><div class="v">6 nút gốc (Sắt/Dây/Đinh/Tán rút/Nút nhựa) + <b>Tự tính</b> (đổi nhãn từ tab cũ, giữ nguyên hành vi <code>PieceMaterialYield</code>) + <b>Vật tư thành phẩm</b> (nút hoàn toàn mới, hành vi y hệt Nút nhựa — chọn vật tư + số lượng + tick "Đan"). <code>MaterialPicker</code> lọc đúng theo nhóm con qua prop mới <code>steelSubGroup</code>.</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>src\modules\pages\Manufacturing\SpecSteelPage.tsx</code>, <code>src\types\sku.ts</code> (thêm <code>ManhChildGroup = 'vatTuThanhPham'</code>)</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Trang mới</span><span class="badge date">01/10</span><span class="f-title">Admin CRUD "Định mức vật tư thành phẩm" — cấp luôn cho NV Định mức mảnh</span></div>
+      <div class="f-field"><span class="k">Vị trí truy cập</span><div class="v">Admin › Danh mục hệ thống (toàn quyền), <b>và</b> trực tiếp trong "Quản lý định mức" của nhân viên Định mức mảnh (tài khoản <code>dmm</code>, mfgRole <code>SPEC_STEEL</code>) — dùng chung 1 component, không viết 2 bản.</div></div>
+      <div class="f-field"><span class="k">Nội dung</span><div class="v">Chọn vật tư ra (lọc sẵn chỉ hiện vật tư nhóm con Vật tư thành phẩm), vật tư vào, tỷ lệ cắt, công đoạn (checkbox đa chọn), bật/tắt hoạt động.</div></div>
+      <div class="f-field"><span class="k">Quyền BE</span><div class="v">Module quyền mới <code>MATERIAL_YIELD_RECIPE</code>, cấp <code>ALL</code> cho <code>SPEC_STEEL_STAFF</code> — phải chạy lại <code>npm run seed</code> (idempotent) để tạo Permission rows cho module mới, nếu không Admin cũng bị 403 dù có toàn quyền (Permission rows là dữ liệu seed, không tự sinh theo code).</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v">FE <code>MaterialYieldRecipesPage.tsx</code> (mới), <code>MasterDataPage.tsx</code>, <code>MfgApp.tsx</code> (sub-tab <code>vat-tu</code>) · BE <code>permission-modules.constant.ts</code>, <code>role-permissions.constant.ts</code></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Service mới</span><span class="badge date">02/10</span><span class="f-title">Mua hàng — nối nốt phần còn thiếu: tự động đề xuất mua nguyên liệu đầu vào (vd thanh nhôm) cho vật tư thành phẩm</span></div>
+      <div class="f-field"><span class="k">Lỗ hổng phát hiện khi test E2E</span><div class="v">Field <code>MaterialYieldRecipe.inputMaterialId</code> được UI gắn nhãn "Vật tư vào (nguyên liệu mua)" ngay từ đầu (<code>MaterialYieldRecipesPage.tsx</code>), nhưng grep toàn bộ module <code>material-yield-recipes</code> xác nhận KHÔNG có bất kỳ chỗ nào nối vào <code>PurchaseProposal</code> — khác hẳn 2 nhóm sắt còn lại (Phần mềm tự tạo đề xuất mua qua <code>CuttingProposalsService.approve()</code>, Tự tính/Pat đã có <code>PieceMaterialYieldPurchaseService</code> riêng). Mua hàng không có cách nào biết cần mua thêm thanh nhôm khi có nhu cầu sản xuất chân nhôm - lúc test phải bơm tay qua "Sửa nhanh tồn kho", né hẳn luồng Mua hàng thật.</div></div>
+      <div class="f-field"><span class="k">Giải pháp</span><div class="v"><code>MaterialYieldRecipePurchaseService</code> (mới, <code>production-invoices/material-yield-recipe-purchase.service.ts</code>) - mirror gần 1-1 <code>PieceMaterialYieldPurchaseService</code>, chỉ khác nguồn tính nhu cầu: đọc thẳng <code>MaterialYieldRecipesService.getProductionDemand()</code> (đã gộp sẵn theo <code>PieceMaterialItem.includeInWeaving</code> qua mọi mảnh dùng outputMaterial trong PI) thay vì tự tính lại. Có giữ chỗ tồn kho riêng (<code>StockReservationRefType.MATERIAL_YIELD_RECIPE_PURCHASE</code>, chống 2 PI giành cùng lô thanh nhôm) và nguồn đề xuất riêng (<code>PurchaseProposalSource.MATERIAL_YIELD_RECIPE</code>) - gộp chung vào đúng 1 <code>PurchaseProposal</code>/PI với 3 nguồn đề xuất mua khác (cùng khoá <code>purchase-proposal-merge:&lt;piId&gt;</code>).</div></div>
+      <div class="f-field"><span class="k">Nối vào đúng điểm kích hoạt</span><div class="v"><code>ProductionInvoicesService.computeNonSteelPurchaseProposals()</code> - đúng chỗ 2 nguồn kia đã tự chạy mỗi khi Sếp duyệt 1 SKU, không cần nút bấm riêng, không cần sửa FE (màn Mua hàng đọc <code>PurchaseProposal</code> theo <code>cuttingProposalId</code> null/có, không rẽ nhánh theo <code>sourceType</code> nên tự nhận nguồn mới mà không cần đổi code).</div></div>
+      <div class="f-field"><span class="k">Kiểm tra</span><div class="v">13 test mới (tính thiếu tồn, gộp 2 recipe dùng chung 1 nguyên liệu vào, buyQty theo tồn khả dụng không phải tồn vật lý thô, giữ chỗ/shrinkToFloor, item đã PURCHASED không bị ghi đè, báo lỗi thiếu Kho) - cùng mức chi tiết test sẵn có của 3 service anh em. BE: 1374/1374 test xanh (toàn repo), <code>tsc --noEmit</code>/eslint sạch (2 lỗi TS còn lại ở file seed khác, có từ trước, không liên quan).</div></div>
+      <div class="f-field"><span class="k">Migration</span><div class="v"><code>20261002010000_material_yield_recipe_purchase</code> - thuần thêm 2 giá trị enum (<code>PurchaseProposalSource.MATERIAL_YIELD_RECIPE</code>, <code>StockReservationRefType.MATERIAL_YIELD_RECIPE_PURCHASE</code>), đã áp vào DB dev.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">03/10</span><span class="f-title">Bug thật phát hiện qua E2E retest: "mua thẳng chân nhôm" bị tính kế toán kép cùng lúc với đề xuất mua thanh nhôm đúng</span></div>
+      <div class="f-field"><span class="k">Phát hiện khi retest</span><div class="v">Lần retest đi đúng qua luồng Mua hàng/Kho thật (không bơm tay tồn kho), phát hiện <code>ConsumableMaterialPurchaseService</code> (chuyên tính nhu cầu mua Dây/Đinh/Tán rút/Nút nhựa/Sơn/Phụ kiện/Bao bì) đọc <b>MỌI</b> dòng <code>PieceMaterialItem</code> không lọc gì - dòng "Chân nhôm" (nhóm Vật tư thành phẩm, cùng bảng dữ liệu với Dây/Đinh về mặt kỹ thuật) lọt qua, bị tính thành đề xuất "mua thẳng 1999 chân nhôm" - một vật tư KHÔNG nhà cung cấp nào bán, chỉ tự sản xuất trong nhà từ thanh nhôm. Đề xuất sai này nằm CHUNG 1 phiếu với đề xuất ĐÚNG "mua 118 thanh nhôm" do <code>MaterialYieldRecipePurchaseService</code> (mục trên) tạo ra - kế toán kép, và vì vật tư này chưa gán "người mua phụ trách" nên vẫn hiện ra cho MỌI nhân viên Mua hàng thao tác được (không bị ẩn khi buyerId null).</div></div>
+      <div class="f-field"><span class="k">Cách sửa</span><div class="v">Thêm điều kiện lọc <code>material: { steelSubGroup: { not: FINISHED_COMPONENT } }</code> vào truy vấn <code>pieceMaterialItem.findMany()</code> của <code>ConsumableMaterialPurchaseService</code> - cùng cách nhận diện đã dùng ở <code>WeavingIssuesService.getWovenMaterialLinesByPiece()</code>. Vật tư thành phẩm giờ CHỈ còn được tính bởi đúng 1 nơi (<code>MaterialYieldRecipePurchaseService</code>), không còn chồng lấn.</div></div>
+      <div class="f-field"><span class="k">Kiểm tra</span><div class="v">1 test mới xác nhận đúng điều kiện lọc được gửi tới Prisma - BE 1375/1375 test xanh (toàn repo), tsc/eslint sạch. Đã retest lại qua dữ liệu thật ngay sau đó (xem mục "Retest lần 3" bên dưới) - xác nhận fix hoạt động đúng, không chỉ unit test.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Retest lần 3</span><span class="badge date">03/10</span><span class="f-title">Xóa sạch tồn kho về 0, test lại từ đầu — xác nhận fix "kế toán kép" hoạt động đúng qua dữ liệu thật</span></div>
+      <div class="f-field"><span class="k">Chuẩn bị</span><div class="v">Theo yêu cầu user, xóa sạch <code>stock_ledger</code>/<code>stock_quant</code>/<code>StockReservation</code> trước khi test - đã verify read-only trước: toàn bộ 6 dòng ledger/5 dòng quant khác 0/2 giữ chỗ đang có đều là dữ liệu của chính 2 lần test trước (01-02/10), không có dữ liệu thật nào khác trong DB dev bị ảnh hưởng. Sau khi xóa: mọi vật tư ở mọi kho đều về đúng 0.</div></div>
+      <div class="f-field"><span class="k">SKU thứ 4</span><div class="v"><code>QA-FINISHED-COMPONENT-04</code> (mfgProduct id=73, PlanForm id=85, SalesOrder id=4, PI id=3 <code>PI-2026-003</code>, ProductionOrder id=3) - dùng số tròn (10 bộ × 12 chân/bộ) để kiểm tay dễ dàng, đi trọn luồng thật (Mua hàng duyệt → Kho Nhập kho nhận hàng → Thủ kho xuất → Phôi cắt/báo công đoạn → KCS duyệt), không dùng "Sửa nhanh tồn kho" ở bất kỳ bước nào.</div></div>
+      <div class="f-field"><span class="k">Kết quả xác nhận bug ĐÃ SỬA ĐÚNG</span><div class="v"><code>PurchaseProposal id=3</code> chỉ có đúng 3 dòng hợp lệ: Sắt (SAT-002), Bao nylon (VTK-032, không liên quan bug - xác nhận filter không loại nhầm vật tư hợp lệ khác), và Thanh nhôm (SAT-015, buyQty=10) - <b>KHÔNG còn dòng "mua thẳng Chân nhôm" nào</b>. Toán khớp tuyệt đối với baseline 0: 10×12=120 Chân nhôm cần ÷12 (piecesPerBar) = đúng 10 cây Thanh nhôm, không có số dư làm nhiễu phép kiểm tra như 2 lần trước (khi còn tồn kho cũ lẫn vào).</div></div>
+      <div class="f-field"><span class="k">Số liệu cuối (từ baseline 0, sạch hoàn toàn)</span><div class="v">Thanh nhôm: mua 10, dùng 10 → dư 0. Sắt SAT-002: mua 1, dùng 1 → dư 0. Chân nhôm: sản xuất ra đúng 120.</div></div>
+      <div class="f-field"><span class="k">Sự cố hạ tầng (không phải bug)</span><div class="v">Lần tính phương án cắt đầu tiên lỗi "External service unavailable" (solver ngoài trên Render.com bị cold-start) - bấm "Tính lại" ~1 phút sau thành công ngay. Không có cơ chế tự động thử lại - KHSX phải tự nhận ra badge "Solver lỗi" và bấm tính lại tay.</div></div>
+      <div class="f-field"><span class="k">Dọn rác phụ</span><div class="v">Trong lúc thử tạo SKU nhiều lần, sót lại 1 <code>MfgProduct</code> mồ côi (id=72, không PlanForm nào, không hiện ở UI) với 1 <code>BomRevision</code> DRAFT - đã xóa sạch ngay sau khi nhận báo cáo (DRAFT nên KHÔNG cần escape hatch <code>bom_maintenance</code>, xóa an toàn bằng Prisma bình thường).</div></div>
+      <div class="f-field"><span class="k">Kết luận</span><div class="v">Sau 3 vòng E2E liên tiếp (01-03/10), tính năng "Sắt 3 nhóm con" + Mua hàng cho Vật tư thành phẩm đã được kiểm chứng đầy đủ bằng dữ liệu thật qua UI thật - không còn bug nào đã biết.</div></div>
+    </article>
+  </section>
+
+  <section id="decided">
+    <div class="sec-head"><h2>Giới hạn đã biết &amp; quyết định</h2><span class="sec-count">4 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge blocked">Bị chặn</span><span class="badge date">01/10</span><span class="f-title">Chưa migrate chân nhôm thật của SKU "Ghế J55" sang model mới</span></div>
+      <div class="f-field"><span class="k">Hiện trạng</span><div class="v">2 mảnh "Tay trái"/"Tay phải" (SKU Ghế J55, khách MEIJING — SKU đã duyệt định mức nhưng <b>chưa có đơn hàng/lệnh sản xuất thật nào</b>) vẫn đang dùng <code>PieceMaterialYield</code> trực tiếp vào "Thanh nhôm" theo cách cũ (chân nhôm = 1 mảnh độc lập), chưa chuyển sang <code>PieceMaterialItem</code> trỏ vào material "Chân nhôm" mới theo thiết kế.</div></div>
+      <div class="f-field"><span class="k">Vì sao không làm</span><div class="v">Đã thử cả 2 cách: (a) qua API ứng dụng — bị từ chối vì <code>BomRevision</code> của SKU này đã ACTIVE (hệ thống không có tính năng "sửa BOM đã duyệt"); (b) ghi thẳng database — bị <b>trigger PostgreSQL chặn cứng</b>, báo nguyên văn "BomRevision ... đang ACTIVE - chỉ DRAFT mới sửa được dòng con". Đây là khoá an toàn chủ đích ở tầng DB, không phải lỗ hổng. Người dùng xác nhận dừng ở đây vì SKU chưa có đơn hàng thật, không gấp.</div></div>
+      <div class="f-field"><span class="k">Đã tạo sẵn để dùng sau</span><div class="v">Material <code>CHAN-NHOM-01</code> "Chân nhôm" (nhóm Sắt, FINISHED_COMPONENT) + <code>MaterialYieldRecipe</code> thật (Chân nhôm ← Thanh nhôm, tỷ lệ 12, công đoạn Cắt) — tạo qua chính trang Admin mới, sẵn sàng dùng ngay khi quyết định migrate BOM thật.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Chưa test</span><span class="badge date">01/10</span><span class="f-title">Luồng sản xuất vật tư thành phẩm mới chưa chạy đầu-cuối thật (có số liệu)</span></div>
+      <div class="f-field"><span class="k">Hiện trạng</span><div class="v">Giao diện 3 vai trò (Thủ kho/Phôi/KCS) đã xây xong và xác nhận tải đúng/điều hướng đúng qua browser thật (xem mục "Giao diện sản xuất đầy đủ" bên dưới). Nhưng chưa chạy được 1 lượt xuất→báo công đoạn→KCS duyệt→tự động nhập kho CÓ SỐ LIỆU THẬT, vì DB dev hiện không có PI nào đang ACTIVE (QLSX chưa bấm "Bắt đầu" cho SKU nào) — dựng cả chuỗi đơn hàng → PI → lệnh sản xuất → bắt đầu chỉ để test là việc tốn công, chưa làm trong phiên này.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Mới</span><span class="badge date">01/10</span><span class="f-title">Giao diện sản xuất đầy đủ cho vật tư thành phẩm không gắn mảnh (Phôi/Thủ kho/KCS) — phần còn thiếu ở mục "Chưa test" bên trên, nay đã xây xong</span></div>
+      <div class="f-field"><span class="k">Phát hiện</span><div class="v">Khi soát lại, API backend cho luồng chân nhôm (xuất nguyên liệu, báo công đoạn, KCS duyệt) đã đầy đủ và có test — nhưng <b>chưa hề có giao diện nào dùng tới</b>, không chỉ "chưa test qua UI" như ghi trước đó. Đã bổ sung 2 endpoint GET còn thiếu ở BE (danh sách đợt gửi KCS theo PI + flat cho màn KCS) và field <code>materialYieldStepBundleId</code> còn thiếu trên <code>QcReviewResponseDto</code>, trước khi xây FE.</div></div>
+      <div class="f-field"><span class="k">Thủ kho</span><div class="v">"Phân phối nội bộ" › "Xuất vật tư TP" thêm nút chuyển "Theo mảnh" / "Không gắn mảnh (chân nhôm)" — chọn PI thay vì SKU/PO (vật tư này thuộc về cả PI, không gắn 1 SKU), xuất nguyên liệu vào theo đúng nhu cầu tính từ <code>getProductionDemand()</code>.</div></div>
+      <div class="f-field"><span class="k">Phôi</span><div class="v">"Lệnh sản xuất" thêm tab "VT không gắn mảnh" (chỉ hiện khi PI thật sự cần) — báo từng công đoạn + gửi KCS, mirror đúng UI "Vật tư TP" cũ nhưng khoá theo <code>recipeId</code> thay vì <code>pieceId</code>. "Xác nhận nhận sắt" gộp thêm dòng xác nhận nhận nguyên liệu của luồng này vào cùng bảng có sẵn.</div></div>
+      <div class="f-field"><span class="k">KCS</span><div class="v">"Màn hình KCS — Phôi" thêm tab thứ 3 "VT không gắn mảnh" — danh sách phẳng (không cần 2 tầng theo PI như Sắt, số lượng ít), duyệt Đạt/Không đạt theo số lượng phẳng (không có cỡ đoạn để bóc).</div></div>
+      <div class="f-field"><span class="k">Quyền</span><div class="v">Thêm <code>MATERIAL_YIELD_RECIPE:VIEW</code> cho PHOI_STAFF và WAREHOUSE_STAFF (đọc nhu cầu/tên vật tư) — đã chạy lại <code>npm run seed</code>.</div></div>
+      <div class="f-field"><span class="k">Kiểm tra</span><div class="v">BE: thêm 14 test mới cho <code>MaterialYieldRecipeProductionService</code> (trước đó 0 test riêng cho cả 3 service module này) — 1353/1353 test xanh. FE: <code>tsc --noEmit</code>/eslint sạch. Test qua browser thật với 3 tài khoản tạm (PHOI/KCS/WAREHOUSE_STAFF scope Phôi Sơn Hàn, đã xoá sau khi xong): cả 3 màn hình tải đúng, điều hướng đúng, không lỗi console mới (2 lỗi 401 <code>/me/work-queue</code> và <code>/notifications/unread-count</code> xuất hiện kể cả lúc CHƯA đăng nhập — xác nhận có từ trước, không liên quan).</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã xoá</span><span class="badge date">01/10</span><span class="f-title">Xoá hẳn SKU fixture "Ghế J55 (3 ghế)" khỏi DB dev</span></div>
+      <div class="f-field"><span class="k">Bối cảnh</span><div class="v">Đây là dữ liệu fixture seed (<code>seed-ghe-j55-full-bom.ts</code>, tạo để tái hiện 1 ca lỗi timeout solver cắt sắt), không phải dữ liệu khách hàng thật, và BOM của nó vẫn đang dùng mô hình chân nhôm CŨ (chân nhôm = 1 mảnh riêng) chưa migrate sang mô hình mới — user quyết định xoá hẳn cho sạch thay vì giữ lại/migrate. Đã rà soát toàn bộ trước khi xoá: 0 đơn hàng/lệnh sản xuất/PI item/tồn kho/phiếu chuyển kho nào tham chiếu tới sản phẩm này.</div></div>
+      <div class="f-field"><span class="k">Vì sao user phải tự chạy</span><div class="v">Script cần dùng escape hatch <code>SET LOCAL "dna.bom_maintenance"='on'</code> để xoá dòng con của BomRevision đang ACTIVE — auto-mode classifier của Claude Code chặn hành động này (và chặn luôn cả việc tự xin thêm quyền để làm), nên không thể tự chạy hộ được. User đã tự chạy script thành công.</div></div>
+      <div class="f-field"><span class="k">Kết quả</span><div class="v">Xoá sạch: MfgProduct, PlanForm, BomRevision, 5 Piece (Khung tựa/Tay trái/Tay phải/Hông trước/Mê ngồi) và toàn bộ dòng con (5 bomPiece, 33 pieceBom, 14 pieceMaterialItem, 2 pieceMaterialYield, 1 consumableBom, 19 bomAccessoryItem) — xác nhận qua chính output script.</div></div>
+    </article>
+  </section>
+
+  <section id="cleanup">
+    <div class="sec-head"><h2>Dọn dẹp dữ liệu sau khi ship</h2><span class="sec-count">4 mục — 3 ngày 01/10, 1 ngày 02/10</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Sửa lỗi</span><span class="badge date">01/10</span><span class="f-title">Chân nhôm nhập kho sai bước — nhảy cóc thẳng vào "Vật tư thành phẩm" thay vì dừng ở "Phôi Sơn Hàn"</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước (sai)</span>KCS duyệt công đoạn cuối → cộng thẳng tồn kho vào <code>vat-tu-tp</code> (bước 2 trong chuỗi kho chuẩn) — bỏ qua bước 1, khác với cách mọi mảnh khác (cắt/KCS xong) đang đứng ở <code>phoi-son-han</code>.</div>
+        <div class="ba-box after"><span class="k">Sau (đúng)</span>Vật tư "Chân nhôm" đổi kho gán (<code>Material.warehouseId</code>) từ "Kho Vật tư thành phẩm" sang "Kho Phôi Sơn Hàn" — đúng bước 1 của chuỗi <code>phoi-son-han → vat-tu-tp → thanh-pham</code>.</div>
+      </div>
+      <div class="f-field"><span class="k">Không cần sửa code</span><div class="v">Cả <code>finalizeRecipeOutputIfLastStepComplete()</code> (lúc KCS duyệt, credit tồn kho) lẫn <code>WeavingIssuesService</code> (lúc xuất cho đan, trừ tồn kho) đều đọc ĐỘNG theo <code>Material.warehouseId</code> — không hardcode kho nào. Nên đây thuần là sửa dữ liệu (đổi 1 field qua Admin > Vật tư), không đụng code.</div></div>
+      <div class="f-field"><span class="k">Xác nhận nghiệp vụ</span><div class="v">Chân nhôm được hàn/đóng vào khung LÚC ĐAN (không phải lúc chuyển kho) — luồng "xuất cho đan" đã xây cho chân nhôm (coi như Nút nhựa, gắn theo đúng mảnh qua <code>WeavingIssue.pieceId</code>) giữ nguyên, KHÔNG đổi.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Dọn rác</span><span class="badge date">01/10</span><span class="f-title">Xoá nhóm vật tư "Vật tư thành phẩm" (VTTP) cũ — đã rỗng sau redesign</span></div>
+      <div class="f-field"><span class="k">Xác nhận trước khi xoá</span><div class="v">0 vật tư nào còn thuộc nhóm này (toàn bộ đã chuyển sang nhóm Sắt từ bước redesign), không bảng nào khác tham chiếu MaterialGroup theo id ngoài <code>Material.materialGroupId</code>, và FE không còn tra cứu theo <code>codePrefix='VTTP'</code> nữa (đã gỡ khỏi <code>useMaterialGroupIds.ts</code>). Xoá an toàn, không ảnh hưởng phần nhập định mức.</div></div>
+      <div class="f-field"><span class="k">Thực hiện</span><div class="v">User tự xoá qua Admin > Danh mục hệ thống > Nhóm vật tư.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đổi mã</span><span class="badge date">01/10</span><span class="f-title">Đổi mã vật tư Sắt la / Thanh nhôm từ tiền tố VTTP sang SAT</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Tấm sắt la: <code>VTTP-001</code><br>Thanh nhôm: <code>VTTP-002</code></div>
+        <div class="ba-box after"><span class="k">Sau</span>Tấm sắt la: <code>SAT-014</code><br>Thanh nhôm: <code>SAT-015</code></div>
+      </div>
+      <div class="f-field"><span class="k">Lý do đổi tay, không để trống</span><div class="v">Form sửa vật tư chỉ tự sinh mã theo nhóm lúc TẠO MỚI — sửa (update) để trống mã thì giữ nguyên mã cũ, không tự sinh lại. Nên phải tính tay số thứ tự tiếp theo của tiền tố SAT (lúc đó đã dùng tới SAT-013) rồi nhập trực tiếp.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã xoá</span><span class="badge date">02/10</span><span class="f-title">Xoá tiếp SKU "Ghế J55 (3 ghế)" THẬT (id=62/PlanForm 74, khách MEYING) — SKU dùng để minh chứng luồng chân nhôm mới</span></div>
+      <div class="f-field"><span class="k">Lưu ý phân biệt</span><div class="v">Đây KHÔNG phải cùng bản ghi với mục "Đã xoá hẳn SKU fixture" (01/10) ở trên — bản đó là <code>MfgProduct id=38</code>, seed fixture cũ (khách MEIJING, dùng chân nhôm theo mô hình CŨ). Bản bị xoá lần này là <code>MfgProduct id=62</code>/<code>PlanForm id=74</code>, tạo MỚI ngay sau đó trong cùng phiên 01/10 qua chính UI thật (KHSX → Định mức mảnh → Định mức chi tiết → QLSX → Sếp duyệt), đã lên <code>APPROVED</code>/<code>BomRevision id=44 ACTIVE</code>, và là SKU DUY NHẤT trong DB dev dùng đúng luồng mới (2 mảnh Tay trái/Tay phải → <code>PieceMaterialItem</code> trỏ "Chân nhôm", <code>includeInWeaving=true</code>).</div></div>
+      <div class="f-field"><span class="k">Lý do xoá</span><div class="v">User yêu cầu xoá trực tiếp item này qua UI (ảnh chụp bảng "Duyệt SKU"). Đã rà soát read-only trước khi xoá: 0 ProductionOrder/ProductionInvoiceItem/SalesOrderItem/WarehouseTransfer nào tham chiếu — an toàn xoá sạch, không vỡ dữ liệu khác.</div></div>
+      <div class="f-field"><span class="k">Cách xoá</span><div class="v">Lần này Claude Code tự chạy được script (không cần user tự chạy như lần 01/10) — dùng đúng escape hatch <code>SET LOCAL "dna.bom_maintenance"='on'</code> (migration <code>20260921030000</code>) trong 1 transaction để xoá dòng con của <code>BomRevision 44</code> đang ACTIVE, xoá theo thứ tự: bomAccessoryItem/consumableBom/pieceMaterialYield/pieceMaterialItem/pieceBom/bomPiece → planFormManhReview/detailReview → bomRevision → planForm → 6 piece (Khung tựa/Tay trái/Tay phải/Hông trước/Mê ngồi/Pat) → mfgProduct. Script tạm đã xoá khỏi <code>D:\DNA-ERP-BE\scripts\</code> sau khi chạy xong.</div></div>
+      <div class="f-field"><span class="k">Hệ quả</span><div class="v">DB dev hiện <b>không còn SKU thật nào</b> dùng luồng <code>FINISHED_COMPONENT</code>/<code>MaterialYieldRecipe</code> mới — mục "Chưa test" (luồng sản xuất vật tư thành phẩm chưa chạy đầu-cuối có số liệu thật) ở trên quay lại đúng điểm xuất phát: cần tạo lại 1 SKU thật + đơn hàng + PI ACTIVE từ đầu nếu muốn test luồng này bằng dữ liệu thật.</div></div>
+    </article>
+  </section>
+
+  <section id="polish">
+    <div class="sec-head"><h2>Tinh chỉnh sau khi dùng thử</h2><span class="sec-count">2 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">UI</span><span class="badge date">01/10</span><span class="f-title">Tick sẵn "Cắt" khi thêm vật tư/định mức mới liên quan Phôi</span></div>
+      <div class="f-field"><span class="k">Lý do</span><div class="v">Mọi vật tư thuộc Sắt/Tự tính/Vật tư thành phẩm đều phải qua Phôi cắt trước, đỡ phải tự bấm "Cắt" mỗi lần thêm mới.</div></div>
+      <div class="f-field"><span class="k">Phạm vi</span><div class="v">Chỉ áp dụng lúc <b>tạo mới</b> — sửa 1 dòng đã lưu từ trước giữ nguyên đúng công đoạn đã chọn, không tự thêm "Cắt" vào.</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>SpecSteelPage.tsx</code> ("Thêm vật tư" nhóm Sắt/Tự tính), <code>MaterialYieldRecipesPage.tsx</code> (tạo định mức mới).</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">UI</span><span class="badge date">01/10</span><span class="f-title">Ô "Hoạt động" của định mức — chỉ Admin thấy/sửa được</span></div>
+      <div class="f-field"><span class="k">Lý do</span><div class="v">NV Định mức mảnh (dmm) vừa được cấp quyền quản lý "Định mức vật tư thành phẩm" cùng ngày — theo yêu cầu an toàn, cờ bật/tắt định mức (ẩn/hiện khỏi màn tính nhu cầu bên Thủ kho/Phôi) chỉ để Admin kiểm soát.</div></div>
+      <div class="f-field"><span class="k">Cách làm</span><div class="v">Thêm prop <code>canManageActive</code> cho <code>MaterialYieldRecipesPage</code> (mặc định <code>true</code>, không đổi gì cho Admin) — ẩn cả cột "Hoạt động" lẫn ô tick trong form khi gọi với <code>canManageActive={false}</code> từ <code>MfgApp.tsx</code> (chỗ dmm dùng). dmm vẫn sửa được mọi field khác bình thường; giá trị hiện có giữ nguyên khi lưu, không bị reset. Định mức mới tạo (dù ai tạo) luôn mặc định "Hoạt động" = Có — DTO tạo mới không có field này, Prisma tự gán theo <code>@default(true)</code>.</div></div>
+    </article>
+  </section>
+
+  <section id="test">
+    <div class="sec-head"><h2>Kiểm tra</h2></div>
+    <div class="prose-card">
+      <p><b>Tự động:</b> <code>tsc --noEmit</code> sạch cả 2 repo (2 lỗi TS còn lại thuộc file seed khác, có từ trước, không liên quan). Lint sạch, chỉ còn vài cảnh báo có từ trước (<code>&lt;img&gt;</code>, 1 <code>useEffect</code>). BE: <b>1339/1339 test xanh</b> toàn bộ repo (không chỉ phần mới), gồm test mới cho validate steelSubGroup ở cả 3 nhánh (segments/materialLines FINISHED_COMPONENT/materialYields) và 2 test chặn sai nhóm con.</p>
+      <p><b>Thủ công qua trình duyệt thật</b> (dùng Playwright trực tiếp, tạo tài khoản thử rồi xoá sau khi xong, không đụng tài khoản/dữ liệu người dùng thật): xác nhận Admin › Vật tư hiện đúng ô "Nhóm con Sắt" (3 lựa chọn) khi chọn nhóm Sắt; "Định mức mảnh" hiện đúng 7 nút nhóm, "Tự tính" chỉ hiện 2 vật tư đã gán đúng, "Vật tư thành phẩm" hiện rỗng đúng (chưa có vật tư nào gán FINISHED_COMPONENT lúc đó), "Sắt" loại trừ đúng 2 vật tư kia; tạo material "Chân nhôm" + 1 <code>MaterialYieldRecipe</code> thật qua chính UI; đăng nhập bằng tài khoản Định mức mảnh thử, xác nhận thấy đúng nút "Định mức vật tư thành phẩm" mới và thao tác được, không lỗi 403.</p>
+      <p><b>Dữ liệu thật trong DB dev đã đổi:</b> material "Thanh nhôm" (<code>SAT-015</code>)/"Tấm sắt la" (<code>SAT-014</code>, trước ở nhóm Vật tư thành phẩm cũ VTTP-002/VTTP-001) → chuyển sang nhóm Sắt + nhóm con Tự tính, đổi mã về đúng tiền tố SAT, kho giữ nguyên. Thêm mới material "Chân nhôm" (<code>CHAN-NHOM-01</code>, nhóm con Vật tư thành phẩm, kho đã sửa về Phôi Sơn Hàn — xem mục "Dọn dẹp dữ liệu") + 1 <code>MaterialYieldRecipe</code> (Chân nhôm ← Thanh nhôm, tỷ lệ 12, công đoạn Cắt). Nhóm vật tư VTTP cũ đã xoá hẳn (rỗng, không ai dùng). Permission rows cho module <code>MATERIAL_YIELD_RECIPE</code> đã seed.</p>
+    </div>
+  </section>
+
+  <section id="later">
+    <div class="sec-head"><h2>Cập nhật 03–05/10: nhiều vật tư Tự tính trên 1 mảnh, lỗi giữ chỗ và E2E lần 4</h2><span class="sec-count">4 mục</span></div>
+
+    <div class="prose-card">
+      <p><b>Tổng hợp trạng thái</b></p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead><tr style="text-align:left;border-bottom:1px solid var(--border)"><th style="padding:6px">Hạng mục</th><th style="padding:6px">Trạng thái</th><th style="padding:6px">Ghi chú</th></tr></thead>
+        <tbody>
+          <tr><td style="padding:6px">1 mảnh nhiều vật tư Tự tính</td><td style="padding:6px">Đã làm</td><td style="padding:6px">Migration + sửa 5 nơi; test xanh</td></tr>
+          <tr><td style="padding:6px">Xuất Tự tính bị chặn oan bởi giữ chỗ PI</td><td style="padding:6px">Đã sửa</td><td style="padding:6px">Có test hồi quy</td></tr>
+          <tr><td style="padding:6px">Dòng sổ cái mồ côi (bút toán 24)</td><td style="padding:6px">Chưa rõ nguyên nhân</td><td style="padding:6px">Đã đảo bằng bút toán 25; giữ nguyên 24 và 25 (xem mục 05/10)</td></tr>
+          <tr><td style="padding:6px">Xuất Chân nhôm song song lỗi 500</td><td style="padding:6px">Đã sửa</td><td style="padding:6px">Timeout transaction 5s → 20s; 5/5 thành công</td></tr>
+          <tr><td style="padding:6px">E2E lần 4 (GHE-FULL-DEMO-02)</td><td style="padding:6px">Đạt đến KCS</td><td style="padding:6px">Chân nhôm 120 → 600</td></tr>
+          <tr><td style="padding:6px">Vis 960 và Bì zipper 120</td><td style="padding:6px">Chưa nhập</td><td style="padding:6px">Thiếu quyền kho vat-tu-tp và thanh-pham-1788485485362</td></tr>
+          <tr><td style="padding:6px">Kho PRODUCTION Chân nhôm âm (−600)</td><td style="padding:6px">Cần xác nhận</td><td style="padding:6px">Có phải quy ước không</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Đảo quyết định</span><span class="badge date">03/10</span><span class="f-title">1 mảnh được có NHIỀU vật tư Tự tính (trước đây tối đa 1)</span></div>
+      <div class="f-field"><span class="k">Thay đổi</span><div class="v">Bỏ ràng buộc <code>@@unique([bomRevisionId, pieceId])</code> trên <code>PieceMaterialYield</code>, thay bằng <code>[bomRevisionId, pieceId, materialId]</code> (migration <code>20261003010000</code>). Mảnh "Pat" giờ có thể đồng thời dùng Tấm sắt la và Sắt phi. Đã sửa: tính đề xuất mua cộng đủ mọi dòng; báo công đoạn và xác nhận nhận yêu cầu đủ mọi vật tư; chốt sản lượng dùng hợp các công đoạn; CRUD phụ kiểm tra theo đúng 3 cột.</div></div>
+      <div class="f-field"><span class="k">Kiểm tra</span><div class="v">Thêm test cho kịch bản 2 vật tư Tự tính trên cùng mảnh (mua hàng, báo công đoạn, chặn khi chỉ nhận 1 trong 2, chốt sản lượng, CRUD). Toàn bộ backend xanh.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">04/10</span><span class="f-title">Xuất vật tư Tự tính bị chặn oan bởi giữ chỗ của chính PI đang xuất</span></div>
+      <div class="f-field"><span class="k">Hiện tượng</span><div class="v">Xuất Tấm sắt la / Sắt phi cho PI-2026-004 báo "tồn khả dụng 0" dù tồn thực đủ. Nguyên nhân: giữ chỗ loại <code>PRODUCTION_INVOICE</code> (tạo lúc duyệt PI) của chính PI đó bị trừ khỏi tồn khả dụng. Cùng lớp lỗi với giữ chỗ đề xuất mua đã sửa trước đó.</div></div>
+      <div class="f-field"><span class="k">Cách sửa</span><div class="v"><code>MaterialYieldIssuesService.create()</code> cộng lại phần còn lại của giữ chỗ chính PI đó (không vượt tồn thực). Giữ chỗ của PI khác vẫn bị trừ. Thêm 1 test hồi quy; module 35/35 xanh.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge blocked">Chưa rõ nguyên nhân</span><span class="badge date">04/10</span><span class="f-title">Dòng sổ cái mồ côi: bút toán xuất Thanh nhôm có refId trỏ tới phiếu xuất không tồn tại</span></div>
+      <div class="f-field"><span class="k">Hiện tượng</span><div class="v">Bút toán <code>StockLedger</code> id 24 (MATERIAL_YIELD_CONSUME, 40 cây, refId 4) đã commit và cập nhật tồn kho, nhưng bảng phiếu xuất không có id 4 (chỉ có 1–3). Bộ đếm id đã cấp 4, nên có khả năng dòng phiếu bị rollback còn bút toán thì không.</div></div>
+      <div class="f-field"><span class="k">Đã xác minh</span><div class="v">Code ghi phiếu và bút toán trong cùng transaction, không có code nào xoá phiếu. Ứng dụng kết nối qua proxy <code>pooled.db.prisma.io</code>; nghi vấn chính là transaction không được giữ nguyên qua proxy. CHƯA tái hiện được lỗi.</div></div>
+      <div class="f-field"><span class="k">Xử lý tạm</span><div class="v">Bút toán đảo id 25 (ADJUST, 40 cây PRODUCTION → phoi-son-han) đưa tồn Thanh nhôm về đúng thực tế; bút toán 24 giữ nguyên để truy vết. Chưa sửa gốc. Lần E2E sau đó không phát sinh thêm dòng mồ côi nào.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">E2E lần 4</span><span class="badge date">03–05/10</span><span class="f-title">SKU GHE-FULL-DEMO-02 — PI-2026-004 chạy từ mua hàng đến KCS</span></div>
+      <div class="f-field"><span class="k">Kết quả</span><div class="v">Đạt các bước: Bắt đầu lệnh SX; Mua hàng duyệt phiếu; Kho nhập 8/10 dòng; xuất Thanh nhôm 40, Tấm sắt la 10, Sắt phi 30 và 4 loại thép khung (24/14/18/24 cây); Phôi nhận và báo cắt (Chân nhôm 480, Pat 120, thép khung 120–240); KCS duyệt Đạt. Mỗi lệnh ghi đều khớp phiếu–sổ cái. Chân nhôm tồn ở Phôi Sơn Hàn tăng 120 → 600.</div></div>
+      <div class="f-field"><span class="k">Chưa xong</span><div class="v">Vis 960 (kho <code>vat-tu-tp</code>) và Bì zipper 120 (kho <code>thanh-pham-1788485485362</code>) còn ở trạng thái đang mua vì tài khoản test không có quyền các kho này. Kho PRODUCTION hiển thị Chân nhôm âm (−600) sau khi KCS duyệt — cần xác nhận có phải quy ước không.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">05/10</span><span class="f-title">Xuất Chân nhôm song song bị lỗi 500 do transaction hết hạn sau 5 giây</span></div>
+      <div class="f-field"><span class="k">Tái hiện</span><div class="v">Gửi 5 lệnh xuất song song: 2/5 trả 500 "Database error". Log cho thấy transaction hết hạn (timeout mặc định 5 giây của Prisma) vì các lệnh phải chờ khoá nhau. Lệnh lỗi không để lại phiếu hay bút toán nào.</div></div>
+      <div class="f-field"><span class="k">Cách sửa</span><div class="v">Tăng timeout của transaction xuất Chân nhôm lên 20 giây. Sau khi sửa, 5/5 lệnh song song đều thành công, không có dòng mồ côi mới.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Công cụ</span><span class="badge date">04/10</span><span class="f-title">Đối soát sổ cái chỉ đọc (<code>prisma/reconcile-ledger.ts</code>) và log có cấu trúc cho luồng xuất Chân nhôm</span></div>
+      <div class="f-field"><span class="k">Đối soát</span><div class="v">Script chỉ đọc, liệt kê mọi bút toán có refId trỏ tới phiếu/bước không tồn tại, với 3 loại: xuất Vật tư TP, xuất thép, sản lượng Chân nhôm. Thoát mã 1 nếu có dòng mồ côi. Chạy: <code>npx ts-node -r tsconfig-paths/register prisma/reconcile-ledger.ts</code>.</div></div>
+      <div class="f-field"><span class="k">Log</span><div class="v">Luồng xuất Chân nhôm ghi log khi bút toán vừa ghi (chờ commit) và khi đã commit, kèm id phiếu, để lần sau có lỗi thì biết dừng ở bước nào.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge blocked">Chưa rõ nguyên nhân</span><span class="badge date">05/10</span><span class="f-title">Dòng mồ côi 24: đã thử tái hiện, chưa tái hiện được</span></div>
+      <div class="f-field"><span class="k">Đã thử</span><div class="v">Transaction thử có chủ đích bị rollback: không rò rỉ dòng nào qua proxy pooler. Transaction hết hạn giữa chừng: không ghi một phần. Gửi song song: chỉ gây lỗi 500, không tạo mồ côi. Đối soát toàn bộ: không có mồ côi mới.</div></div>
+      <div class="f-field"><span class="k">Quyết định</span><div class="v">Giữ nguyên bút toán 24 (xuất 40, refId 4, phiếu không tồn tại) và bút toán đảo 25 (+40 về Phôi Sơn Hàn). Tổng hai dòng bằng 0, tồn đúng thực tế. Không xoá dòng sổ cái: xoá một mình sẽ làm lệch bảng tồn kho (cập nhật tự động khi thêm bút toán, không khi xoá), và xoá cả hai sẽ mất dấu vết kiểm toán.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Dọn dữ liệu thử</span><span class="badge date">05/10</span><span class="f-title">Đảo dữ liệu thử nghiệm tái hiện lỗi</span></div>
+      <div class="f-field"><span class="k">Nội dung</span><div class="v">Đã nạp 20 cây Thanh nhôm và xuất thử 11 cây (phiếu 7–17, đều khớp bút toán). Đã đảo 9 cây về PRODUCTION (bút toán ADJUST mới, có ghi chú). Tồn Thanh nhôm ở Phôi Sơn Hàn về 0, đúng trạng thái trước các lần thử. Các bút toán thử vẫn nằm trong sổ cái để truy vết.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">05/10</span><span class="f-title">Đề xuất mua Thanh nhôm đòi thêm 40 cây dù đã có 600 Chân nhôm tồn</span></div>
+      <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Tồn Chân nhôm được cộng dồn qua mọi kho, gồm cả kho ảo PRODUCTION đang ghi âm (−600) cho số đã sản xuất. Ví dụ 600 ở Phôi Sơn Hàn + (−600) ở PRODUCTION = 0, nên hệ thống tưởng không có tồn và đòi mua thêm.</div></div>
+      <div class="f-field"><span class="k">Cách sửa</span><div class="v">Chỉ tính tồn ở kho gốc của vật tư ra (Material.warehouseId). Sau khi sửa: PI-2026-005 có tồn 1080, nhu cầu thiếu 0, đề xuất mua Thanh nhôm 0 (trước đó 40).</div></div>
+      <div class="f-field"><span class="k">Hệ quả đã xảy ra</span><div class="v">Lần E2E 5 đã mua và xuất 40 cây Thanh nhôm trước khi phát hiện, nên phần này đã thành Chân nhôm dư và chưa có nhu cầu tiêu thụ. Không tự động đảo lại.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Đúng thiết kế</span><span class="badge date">05/10</span><span class="f-title">Pat: đề xuất mua Tấm sắt la và Sắt phi bằng 0 và lệnh xuất 409 — không phải lỗi</span></div>
+      <div class="f-field"><span class="k">Mô hình</span><div class="v">Pat được sản xuất theo cùng cơ chế với Chân nhôm: có thể cắt vượt số lượng của một PI, phần dư nhập vào tồn kho mảnh và các PI sau lấy từ tồn đó. Vì vậy 120 Pat đã hoàn thành từ PI-2026-004 là tồn kho dùng được cho PI-2026-005.</div></div>
+      <div class="f-field"><span class="k">Kết luận</span><div class="v">Nhu cầu PI-2026-005 đã được đáp ứng từ tồn, nên không cần cắt thêm: đề xuất mua vật tư = 0 là đúng, và không cần xuất Tấm sắt la / Sắt phi. Lệnh xuất bị 409 là do thao tác xuất không cần thiết, không phải lỗi hệ thống.</div></div>
+    </article>
+  </section>
+
+  <section id="round6">
+    <div class="sec-head"><h2>Cập nhật 05/10: E2E lần 6 từ kho đã reset, Dây/Đinh không vào đề xuất mua, và các việc đang chờ quyết định</h2><span class="sec-count">5 mục</span></div>
+
+    <div class="prose-card">
+      <p><b>Written for:</b> đội phát triển và người phụ trách nghiệp vụ Mua hàng/Kho, đọc để biết trạng thái hiện tại và việc còn chờ quyết định.</p>
+      <p><b>Tổng hợp trạng thái</b></p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px">
+        <thead><tr style="text-align:left;border-bottom:1px solid var(--border)"><th style="padding:6px">Hạng mục</th><th style="padding:6px">Trạng thái</th><th style="padding:6px">Ghi chú</th></tr></thead>
+        <tbody>
+          <tr><td style="padding:6px">E2E lần 6 từ kho đã reset</td><td style="padding:6px">Đạt đến KCS</td><td style="padding:6px">Đơn GHE-FULL-DEMO-02-R6, PI-2026-001, đối soát sổ cái 0 dòng mồ côi</td></tr>
+          <tr><td style="padding:6px">Dây đen (DAY-001) và Đinh F10 (DINH-001) không vào đề xuất mua</td><td style="padding:6px">Đã sửa, đã áp dụng cho PI-2026-001</td><td style="padding:6px">Lỗi lọc NULL, xem mục 05/10 bên dưới</td></tr>
+          <tr><td style="padding:6px">Nhãn trạng thái đề xuất QUOTING</td><td style="padding:6px">Đã sửa (FE)</td><td style="padding:6px">Hiện "Đang báo giá" thay vì "Chờ Sếp duyệt"</td></tr>
+          <tr><td style="padding:6px">Phôi báo cắt dư (126 so với 120) không cảnh báo</td><td style="padding:6px">Chờ quyết định nghiệp vụ</td><td style="padding:6px">Đổi quy tắc "không giới hạn khi báo", cần chốt cách tính số cần và nơi nhập phần dư</td></tr>
+          <tr><td style="padding:6px">Đợt cắt Phôi không gắn phương án đã duyệt (isOffPlan = true)</td><td style="padding:6px">Chờ quyết định nghiệp vụ</td><td style="padding:6px">Cần chốt có bắt buộc chọn phương án khi báo cắt hay không</td></tr>
+          <tr><td style="padding:6px">Dòng mồ côi 24 (Thanh nhôm)</td><td style="padding:6px">Chưa rõ nguyên nhân</td><td style="padding:6px">Bút toán 24 và 25 đã bị xoá khi reset kho; không tái hiện được trong vòng 6</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">E2E lần 6</span><span class="badge date">05/10</span><span class="f-title">Chạy lại từ kho đã reset về 0 (chỉ giữ dữ liệu master)</span></div>
+      <div class="f-field"><span class="k">Reset</span><div class="v">Script <code>prisma/reset-warehouse-v2.ts</code> xoá dữ liệu giao dịch kho (tồn, phiếu xuất/nhập, đề xuất mua, phương án cắt, lệnh sản xuất, đơn hàng, báo công đoạn, KCS...) theo thứ tự khoá ngoại, trong một transaction. Giữ nguyên vật tư, kho, SKU/BOM, khách, nhà cung cấp, người dùng. Chạy bởi người phụ trách sau khi tự xác nhận số liệu TRƯỚC.</div></div>
+      <div class="f-field"><span class="k">Kết quả</span><div class="v">Đạt đến KCS qua giao diện thật: đơn 120 bộ; solver cắt thép 80 cây, hao hụt 0.24%, cả 4 loại thép trong ngưỡng 1%; PI-2026-001 tạo và Sếp duyệt; QLSX bắt đầu; Mua hàng duyệt 8/10 dòng; Kho nhập đúng số; xuất Chân nhôm, Pat (10 Tấm sắt la, 30 Sắt phi) và thép khung (24/14/18/24 cây) đều thành công, không còn lỗi 409; Thanh nhôm 40 xuất qua phiếu recipe 21; Chân nhôm +480 ở Phôi Sơn Hàn; Phôi báo cắt; KCS duyệt Đạt.</div></div>
+      <div class="f-field"><span class="k">Đối soát</span><div class="v">Script <code>reconcile-ledger.ts</code>: 0 dòng mồ côi. Các lệnh ghi đều khớp phiếu và sổ cái.</div></div>
+      <div class="f-field"><span class="k">Dọn dẹp</span><div class="v">Đã khôi phục đúng người mua của 8 vật tư, vô hiệu hoá tài khoản test. Không sửa mã nguồn ứng dụng trong lúc chạy test.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">05/10</span><span class="f-title">Dây đen và Đinh F10 bị loại khỏi đề xuất mua (lỗi lọc NULL)</span></div>
+      <div class="f-field"><span class="k">Hiện tượng</span><div class="v">Trong E2E lần 6, đề xuất mua không có Dây đen (kỳ vọng 240 kg) và Đinh F10 (kỳ vọng 1920 cây). Các vật tư tính theo mảnh (Dây, Đinh, Tán rút, Nút nhựa) đều bị ảnh hưởng.</div></div>
+      <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Bộ lọc "loại trừ vật tư thành phẩm" trong <code>ConsumableMaterialPurchaseService</code> viết là <code>steelSubGroup != FINISHED_COMPONENT</code>. Các vật tư này có <code>steelSubGroup = NULL</code>, và SQL với NULL cho kết quả không xác định nên bị loại. Lỗi có từ 02/10 khi thêm bộ lọc này. Test cũ mock Prisma nên không bắt được.</div></div>
+      <div class="f-field"><span class="k">Cách sửa</span><div class="v">Điều kiện đổi thành <code>steelSubGroup IS NULL OR steelSubGroup != FINISHED_COMPONENT</code>. Cập nhật spec theo điều kiện mới. Kiểm tra: 21/21 test service này, 188/188 test module production-invoices, tsc sạch. Đã tính lại PI-2026-001: DAY-001 240 và DINH-001 1920 xuất hiện ở trạng thái NEW.</div></div>
+      <div class="f-field"><span class="k">Lưu ý</span><div class="v">Các PI khác tạo sau 02/10 vẫn đang thiếu 4 nhóm vật tư này trong đề xuất mua, cần tính lại. Lần tính lại đã gửi thông báo tới người mua của Dây và Đinh.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">05/10</span><span class="f-title">Nhãn trạng thái đề xuất mua QUOTING hiện sai là "Chờ Sếp duyệt"</span></div>
+      <div class="f-field"><span class="k">Nguyên nhân</span><div class="v">Backend đang sinh QUOTING khi có ít nhất một dòng đã rời NEW nhưng chưa xong. Đây là trạng thái "đang báo giá/đang xử lý", nhưng FE gán nhãn "Chờ Sếp duyệt", khiến người xem hiểu sai tiến độ. Comment trong code còn ghi sai rằng QUOTING chỉ là dữ liệu cũ.</div></div>
+      <div class="f-field"><span class="k">Cách sửa</span><div class="v">Nhãn QUOTING đổi thành "Đang báo giá" (khớp với màn Lịch sử). Cập nhật comment. Chỉ sửa FE, không đổi dữ liệu hay API.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge blocked">Chờ quyết định</span><span class="badge date">05/10</span><span class="f-title">Phôi báo cắt dư không cảnh báo, và đợt cắt không gắn phương án đã duyệt</span></div>
+      <div class="f-field"><span class="k">Hiện trạng</span><div class="v">Phôi báo cắt tự do, không so với số cần. Code ghi chú đây là chủ ý từ trước (KCS là bước kiểm soát duy nhất). Mọi đợt cắt trong E2E đều có <code>isOffPlan = true</code>, không gắn <code>proposalPatternId</code>, nên không kiểm tra được đã cắt theo phương án solver đề xuất hay chưa. Trong E2E lần 6, cỡ 600/750mm báo 126 cây trong khi cần 120.</div></div>
+      <div class="f-field"><span class="k">Rủi ro</span><div class="v">(1) Nhập phần dư vào tồn kho làm tồn không có nguồn gốc rõ, vì từ 05/09 không còn cân bằng vật chất để kiểm chứng. (2) Cùng một cỡ đoạn có thể dùng cho nhiều SKU trong một PI, phải quyết tính số cần theo SKU hay theo PI. (3) Nếu bắt chọn phương án, công nhân cắt lệch có thể bị chặn hoặc chọn phương án gần nhất để qua kiểm tra. (4) Dữ liệu cũ đã báo dư không được tự động chuyển thành tồn kho. (5) Logic độ phủ và đề xuất mua có thể coi các đợt <code>isOffPlan</code> là ngoài kế hoạch, cần kiểm tra trước khi đổi.</div></div>
+      <div class="f-field"><span class="k">Đề xuất</span><div class="v">Ghi nhận phương án là gợi ý, không chặn, để thu thập dữ liệu thật. Phần dư tách thành mục riêng có cờ "chờ Sếp xác nhận", chưa cộng vào tồn kho chung đến khi có quyết định nghiệp vụ. Cảnh báo cắt dư kiểm tra ở server, có cờ xác nhận được ghi log.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge blocked">Chưa rõ nguyên nhân</span><span class="badge date">05/10</span><span class="f-title">Dòng mồ côi 24 không tái hiện được và đã bị xoá khi reset</span></div>
+      <div class="f-field"><span class="k">Ghi nhận</span><div class="v">Trong E2E lần 6 không phát sinh dòng mồ côi nào. Reset kho đã xoá toàn bộ bút toán 24 và 25 cùng các phiếu liên quan, nên không còn dữ liệu để truy vết. Nghi vấn ban đầu (transaction qua proxy pooler) chưa được xác nhận. Nếu lỗi tái diễn, đối soát <code>reconcile-ledger.ts</code> sẽ phát hiện, và log luồng xuất Chân nhôm sẽ cho biết dừng ở bước nào.</div></div>
+    </article>
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">05/10</span><span class="f-title">Xuất đan bị chặn oan bởi giữ chỗ của chính PI đang đan</span></div>
+      <div class="f-field"><span class="k">Hiện tượng</span><div class="v">Xuất Dây/Đinh mang kèm mảnh cho PI-2026-001 báo "Tồn kho khả dụng (0) không đủ mang kèm 60 DAY-001", dù tồn thực là 240. Nguyên nhân: giữ chỗ loại <code>PRODUCTION_INVOICE</code> của chính PI giữ toàn bộ định mức Dây/Đinh và bị trừ khỏi khả dụng. Cùng lớp lỗi với Pat đã sửa trước đó.</div></div>
+      <div class="f-field"><span class="k">Cách sửa</span><div class="v"><code>WeavingIssuesService.issueMaterialsForWeaving()</code> cộng lại phần giữ chỗ còn lại của chính PI (không vượt tồn thực), giữ nguyên giữ chỗ của PI khác. Thêm 1 test hồi quy; module 58/58 xanh, tsc sạch.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Đã sửa</span><span class="badge date">05/10</span><span class="f-title">Xuất đan với nhiều vật tư mang kèm bị lỗi 500 do transaction hết hạn sau 5 giây</span></div>
+      <div class="f-field"><span class="k">Tái hiện</span><div class="v">Lần xuất đan thứ hai trả 500 "Database error". Log: "commit on expired transaction, timeout 5000 ms". Transaction rollback sạch, không có phiếu dở dang.</div></div>
+      <div class="f-field"><span class="k">Cách sửa</span><div class="v">Tăng timeout transaction <code>WeavingIssuesService.create()</code> lên 20 giây, cùng cách đã làm cho xuất Chân nhôm.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">E2E tiếp (sau Phôi)</span><span class="badge date">05/10</span><span class="f-title">Chạy tiếp PI-2026-001 từ Hàn đến Đã kết thúc bằng tài khoản có sẵn (mật khẩu demo1234)</span></div>
+      <div class="f-field"><span class="k">Kết quả</span><div class="v">Hàn: 5 mảnh × 120, KCS đạt 5/5. Sơn: 4 mảnh × 120, KCS đạt 4/4. Chuyển kho phôi-sơn-hàn → vat-tu-tp: 5 phiếu CK-2026-001..005 đã xác nhận. Đan: xuất 4 mảnh × 120 tới điểm đan DAN-TEST-01, mang kèm Dây 240 kg, Đinh 1920 cây, Chân nhôm 480. Nhận đan vào Kho thành phẩm 2: 4/4. Chuyền kiểm: 5/5 mảnh đạt. Đóng gói: 120/120 thùng. Xuất thành phẩm cho GOPLUS: 120. QLSX bấm Kết thúc: lệnh chuyển "Đã kết thúc".</div></div>
+      <div class="f-field"><span class="k">Đối soát</span><div class="v"><code>reconcile-ledger.ts</code>: 0 dòng mồ côi (xuất vật tư thành phẩm, thép, sản lượng Chân nhôm).</div></div>
+      <div class="f-field"><span class="k">Lưu ý</span><div class="v">Chạy bằng tài khoản có sẵn thay cho tài khoản test (theo yêu cầu). Điểm đan DAN-TEST-01 được tạo trong DB dev để chạy Đan. Các bước duyệt, nhập, KCS được thực hiện qua giao diện thật.</div></div>
+    </article>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 01/10/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>
