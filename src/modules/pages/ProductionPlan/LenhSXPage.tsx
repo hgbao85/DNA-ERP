@@ -14,6 +14,7 @@ import CuttingPlanNote from './CuttingPlanNote'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
+import { useRealtimeRefetch, useRealtimeStatus } from '../../../realtime/hooks'
 
 // Nhãn các cột mốc thời gian SKU - trên điện thoại hiện kèm từng ô ngày (không còn hàng tiêu đề bảng).
 const DATE_COL_LABELS = ['Mua hàng', 'Khung CK', 'Đan', 'Đóng gói', 'Hạn giao']
@@ -115,11 +116,14 @@ export default function LenhSXPage() {
   const hasCalculating = (Array.isArray(pis) ? pis : []).some((p: any) =>
     (Array.isArray(p.items) ? p.items : []).some((it: any) => it.cuttingProposalStatus === 'CALCULATING'),
   )
+  // Realtime: BE phát khi solver xong / PI đổi - làm mới ngay. Chỉ poll dự phòng khi MẤT kết nối.
+  const rtConnected = useRealtimeStatus() === 'connected'
+  useRealtimeRefetch(['production-invoices', 'cutting-proposals'], refetch)
   useEffect(() => {
-    if (!hasCalculating) return
+    if (!hasCalculating || rtConnected) return
     const id = setInterval(refetch, 20000)
     return () => clearInterval(id)
-  }, [hasCalculating, refetch])
+  }, [hasCalculating, refetch, rtConnected])
   const hasItemWithStatus = (p: any, status: string) => (Array.isArray(p.items) ? p.items : []).some((it: any) => it.prodApproval?.status === status)
   const hasCalculatingItem = (p: any) => (Array.isArray(p.items) ? p.items : []).some((it: any) => it.cuttingProposalStatus === 'CALCULATING')
   // Boss/QLSX chỉ cần thấy PO có SKU đang chờ mình xử lý — không quan tâm PO chưa gửi/đã xử lý xong.

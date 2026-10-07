@@ -41,6 +41,7 @@ export default function ProductionInvoicesPage() {
       { key: 'DONE', label: 'Hoàn thành', predicate: (p) => p.status === 'DONE' },
     ],
     fetch: () => getProductionInvoices() as Promise<ProductionInvoice[]>,
+    realtimeTopics: ['production-invoices'],
   }
 
   return <AdminReadOnlyList config={config} />

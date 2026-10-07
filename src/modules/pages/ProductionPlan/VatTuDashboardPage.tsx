@@ -12,6 +12,7 @@ import { useIsMobile } from '../../../hooks/useMediaQuery'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 const UNGROUPED = '__ungrouped__'
 
@@ -72,10 +73,12 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
 
   // Chỉ tra tồn kho ĐÚNG kho đang xem (không gộp theo họ) — bỏ trống = lấy hết mọi kho (view Boss).
   const quantScopeId = currentWarehouse?.id
-  const { data: quants } = useFetch<BeStockQuant[]>(
+  const { data: quants, refetch: refetchQuants } = useFetch<BeStockQuant[]>(
     () => api.getStockQuants(quantScopeId ? { warehouseId: quantScopeId } : undefined),
     [quantScopeId],
   )
+  // Realtime: tồn kho đổi (nhập/xuất/chuyển/điều chỉnh) -> làm mới số liệu dashboard.
+  useRealtimeRefetch(['stock'], refetchQuants)
   // Khoá GHÉP (materialId:warehouseId), KHÔNG chỉ materialId - GET /stock-quant không scope trả
   // về MỌI dòng (materialId, warehouseId) từng có phát sinh, kể cả các kho ẢO đối ứng bút toán kép
   // (SUPPLIER/PRODUCTION/SCRAP - luôn âm vì hàng luôn CHẢY RA khỏi kho ảo). Khoá đơn theo

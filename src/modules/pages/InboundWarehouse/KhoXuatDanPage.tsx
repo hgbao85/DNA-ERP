@@ -16,6 +16,8 @@ import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
+import { useRealtimeChangeNotice } from '../../../realtime/hooks'
+import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
 
 /**
  * Xuất đan = xuất mảnh chưa đan (của 1 SKU, tại kho vật tư thành phẩm) cho điểm đan gia công bên
@@ -28,6 +30,8 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
   // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
   const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
+  // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập.
+  const skuChange = useRealtimeChangeNotice(['skus'])
   const { data: pointsData } = useFetch<BeWeavingPoint[]>(() => api.getWeavingPoints(), [])
   const points = pointsData ?? []
   const pointLabel = (id: string) => {
@@ -326,6 +330,7 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
   // ── List view ─────────────────────────────────────────────────────────────────
   return (
     <div>
+      <RealtimeUpdateNotice visible={skuChange.changed} onReload={() => { skuChange.clear(); void refetchSkus() }} />
       <h2 style={{ ...pageTitle, margin: 0 }}>Theo dõi xuất đan</h2>
       <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Nhấn vào dòng để xuất mảnh cho điểm đan gia công bên ngoài

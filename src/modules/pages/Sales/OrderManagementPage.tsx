@@ -18,6 +18,7 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import { btnSecondary } from '../../../styles/buttons'
 import { pageTitle, pageSubtitle, sectionLabel } from '../../../styles/typography'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 const fmtMoney = (n: number) => n.toLocaleString('vi-VN')
 
@@ -42,6 +43,8 @@ const emptyForm = (): FormState => ({
 
 export default function OrderManagementPage() {
   const { data: pos, isLoading, error, refetch } = useFetch<SalesOrder[]>(() => api.getSalesOrders())
+  // Realtime: đơn bán đổi (tạo/sửa/xuất hàng) từ người khác -> làm mới danh sách.
+  useRealtimeRefetch(['sales-orders'], refetch)
   const { data: customers } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers())
   const { data: skus } = useFetch<Sku[]>(() => api.getSkus())
   const [showCreate, setShowCreate] = useState(false)

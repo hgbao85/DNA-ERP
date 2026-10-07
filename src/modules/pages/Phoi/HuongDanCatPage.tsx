@@ -29,6 +29,7 @@ import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import PrintExportButton from '../../../components/PrintExportButton'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 const ACCENT = 'var(--fg-e65100)'
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
@@ -53,6 +54,7 @@ export default function HuongDanCatPage({ initialPiId, onConsumeInitialPi }: {
   onConsumeInitialPi?: () => void
 }) {
   const { data: issues, isLoading, error, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
+  useRealtimeRefetch(['steel-issues'], refetch)
   const piOptions = useMemo(() => buildPiOptions(issues ?? []), [issues])
   // Đọc initialPiId NGAY lúc khởi tạo (không đợi issues tải xong) - component này mount lại từ
   // đầu mỗi lần chuyển sang tab "Hướng dẫn cắt" (MfgApp chỉ render tab đang chọn), nên state khởi

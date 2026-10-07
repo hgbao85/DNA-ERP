@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
 import { CheckCircle2, ChevronDown, ChevronUp, XCircle } from 'lucide-react'
@@ -35,6 +36,8 @@ export function NhapNoiBoSection({ warehouseCode }: { warehouseCode: string }) {
   const { data: pendingData, refetch: refetchPending } = useFetch<WarehouseTransfer[]>(
     () => api.getWarehouseTransfers('PENDING'), []
   )
+  // Realtime: phiếu chuyển kho mới/đã xử lý từ kho khác hiện ngay trong hộp đến, không cần F5.
+  useRealtimeRefetch(['warehouse-transfers'], refetchPending)
 
   if (!canReceiveAt(warehouseCode) || !myWarehouse) {
     return <div style={emptyBox}>Kho này không thuộc bước nhận trong chuỗi chuyển kho nội bộ</div>

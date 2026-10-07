@@ -66,6 +66,7 @@ import KcsChanNhomSection from './KcsChanNhomSection'
 import MobileListCards from '../../../components/MobileListCards'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 const ACCENT = 'var(--fg-e65100)'
 const GREEN = 'var(--fg-16a34a)'
@@ -174,6 +175,7 @@ function KcsSatSection() {
   const { data: allBundles, refetch: refetchBundles } = useFetch<BeCutBundle[]>(() => api.getAllCutBundles(), [])
   const { data: allStepBundles, refetch: refetchStepBundles } = useFetch<BeStepBundle[]>(() => api.getAllStepBundles(), [])
   const { data: reviews, refetch: refetchReviews } = useFetch<BeQcReview[]>(() => api.getQcReviewsForSteelIssues(), [])
+  useRealtimeRefetch(['steel-issues', 'qc-reviews'], () => { void refetch(); void refetchReviews() })
   const [selPi, setSelPi] = useState<string | null>(null)
 
   const piRows = useMemo(

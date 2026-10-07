@@ -1,5 +1,6 @@
 'use client'
 import { createContext, useContext, useState, useCallback, useEffect } from 'react'
+import { useRealtimeRefetch } from '../realtime/hooks'
 import type { WarehouseScope } from './AuthContext'
 import { useAuth } from './AuthContext'
 import {
@@ -179,11 +180,12 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
   // phát hiện qua browser thật 2026-08-13: không role nào trong nhóm này có PURCHASE_PROPOSAL:VIEW
   // ở BE (đề xuất mua là việc của KHSX/Mua hàng/Sếp, xem role-permissions.constant.ts), nên lời
   // gọi này luôn 403 âm thầm cho toàn bộ nhóm role này - không chỉ PHOI/KCS vừa kiểm tra qua browser.
-  useEffect(() => {
+  const mfgRole = user?.mfgRole
+  const loadProposals = useCallback(() => {
     // Ngoại lệ QLSX (PRODUCTION_MANAGER): vai này ĐÃ có PURCHASE_PROPOSAL:VIEW (role-permissions.constant.ts) và màn
     // "Tổng hợp lệnh SX" của QLSX cần đề xuất mua để tính bước "Mua hàng". Bỏ qua cả vai này (như trước 2026-10-01) làm
     // danh sách đề xuất rỗng -> bước Mua hàng luôn hiện "xong" dù chưa mua gì (PI-2026-021: KHSX thấy 0%, QLSX thấy xong).
-    if (!token || (user?.mfgRole && user.mfgRole !== 'PRODUCTION_MANAGER')) return
+    if (!token || (mfgRole && mfgRole !== 'PRODUCTION_MANAGER')) return
     // Audit 2026-08-20 (Medium "FE hard-code limit=100"): 1 fetch top-100 theo createdAt duy nhất
     // trước đây khiến phiếu ĐANG XỬ LÝ cũ (new/quoting/submitted/purchasing/rejected) có thể bị
     // đẩy khỏi trang bởi phiếu 'purchased' tích luỹ vô hạn theo thời gian - toàn bộ màn Mua hàng
@@ -206,7 +208,10 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
         if ((err as { statusCode?: number })?.statusCode === 403) return
         console.error('getPurchaseProposals failed', err)
       })
-  }, [token, user?.mfgRole])
+  }, [token, mfgRole])
+  useEffect(() => { loadProposals() }, [loadProposals])
+  // Realtime: BE phát khi đề xuất đổi (duyệt/nhận hàng) - làm mới đúng danh sách này, không cần F5.
+  useRealtimeRefetch(['purchase-proposals'], loadProposals)
 
   // Bọc mọi thao tác GHI: hiện lỗi cho người dùng rồi NÉM LẠI. Ném lại là phần quan trọng -
   // nếu chỉ nuốt thì call site không phân biệt được thành công/thất bại để rollback state cục bộ

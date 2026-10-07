@@ -33,6 +33,7 @@ import type { BeMaterialYieldRecipeIssue } from '../../../services/material-yiel
 import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -58,6 +59,7 @@ export default function XacNhanNhanSatPage({ readOnly = false }: { readOnly?: bo
     () => api.getMaterialYieldRecipeIssuesByStatus(), [],
   )
   const refetchAll = () => { refetch(); refetchYield(); refetchRecipeIssues() }
+  useRealtimeRefetch(['steel-issues', 'material-yield-issues'], refetchAll)
 
   if (isLoading) return <LoadingState />
   // 2026-09-11 (QA audit B2): error trước `!lines` - xem LoadErrorState doc comment.

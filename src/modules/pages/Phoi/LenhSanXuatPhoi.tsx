@@ -71,6 +71,8 @@ import {
 } from './phoiStyles'
 import MobileListCards from '../../../components/MobileListCards'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import { useRealtimeChangeNotice } from '../../../realtime/hooks'
+import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
 
 // '—' cho phoiDeadline null (KHSX chưa đặt mốc Phôi cho SKU này) - mirror dateVN() ở
 // components/sanxuat/core.tsx (Hàn/Sơn), không import chéo vì file này cố ý độc lập (nối BE thật
@@ -197,6 +199,7 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
   // cho toàn bộ danh sách PI (không theo từng PI riêng) - danh sách chưa lớn, cùng idiom "fetch
   // hết rồi lọc/gộp client" đã dùng cho issues/reviews ở trên.
   const { data: allBundles, refetch: refetchBundles } = useFetch<BeCutBundle[]>(() => api.getAllCutBundles(), [])
+  const dataChange = useRealtimeChangeNotice(['steel-issues', 'qc-reviews', 'production-batches', 'material-yield-recipes'])
   // Vật tư thành phẩm (2026-09-04, gộp màn - trước đây tab riêng "Vật tư thành phẩm", xem
   // VatTuTpDetail.tsx). listProductionOrdersForStage() trả MỌI order active (dùng chung Hàn/Sơn/
   // Phôi, không lọc theo needsHan) - lọc còn lại dựa vào plan.items rỗng hay không bên dưới.
@@ -315,6 +318,7 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
 
   return (
     <div>
+      <RealtimeUpdateNotice visible={dataChange.changed} onReload={() => { dataChange.clear(); void refetch(); void refetchReviews(); void refetchBundles(); void refetchAllRecipes() }} />
       <h2 style={{ ...pageTitle, marginBottom: 2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
         <Wrench size={20} /> Lệnh sản xuất — Công đoạn Phôi
       </h2>

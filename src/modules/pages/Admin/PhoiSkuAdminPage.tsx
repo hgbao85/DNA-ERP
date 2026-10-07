@@ -21,6 +21,9 @@ import { useConfirm } from '../../../hooks/useConfirm'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle } from '../../../styles/typography'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
+import { useRealtimeChangeNotice } from '../../../realtime/hooks'
+import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
 
 const ACCENT = 'var(--fg-3949ab)'
 const card: React.CSSProperties = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }
@@ -42,7 +45,8 @@ interface BundleRow {
 const STATUS_LABEL: Record<string, string> = { CUTTING: 'đang cắt', AWAITING_QC: 'chờ KCS', QC_PASSED: 'đã duyệt' }
 
 export default function PhoiSkuAdminPage() {
-  const { data: pis, isLoading } = useFetch(() => api.getProductionInvoices(), [])
+  const { data: pis, isLoading, refetch: refetchPis } = useFetch(() => api.getProductionInvoices(), [])
+  useRealtimeRefetch(['production-invoices'], refetchPis)
   const [piId, setPiId] = useState('')
 
   const multi = useMemo(() => (pis ?? []).filter(p => p.items.length > 1), [pis])
@@ -85,6 +89,8 @@ function PiPanel({ piId }: { piId: string }) {
   const { data: issues } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesForInvoice(piId), [piId])
   const { data: cuts, error: cutsError, refetch: refetchCuts } = useFetch<BeCutBundle[]>(() => api.getAllCutBundles(piId), [piId])
   const { data: steps, error: stepsError, refetch: refetchSteps } = useFetch<BeStepBundle[]>(() => api.getStepBundlesForInvoice(piId), [piId])
+  // Form gán SKU đang sửa dở theo từng dòng (`pending`): chỉ báo, không tự tải lại.
+  const bundleChange = useRealtimeChangeNotice(['steel-issues'])
   const { data: users } = useFetch(() => api.getUsers().catch(() => []), [])
   const { data: cutLogs, refetch: refetchCutLogs } = useFetch<BeAuditLogEntry[]>(() => getAuditLogsByTable('CutBundle'), [])
   const { data: stepLogs, refetch: refetchStepLogs } = useFetch<BeAuditLogEntry[]>(() => getAuditLogsByTable('StepBundle'), [])
@@ -149,6 +155,7 @@ function PiPanel({ piId }: { piId: string }) {
 
   return (
     <div>
+      <RealtimeUpdateNotice visible={bundleChange.changed} onReload={() => { bundleChange.clear(); void refetchCuts(); void refetchSteps() }} />
       {orderList.length <= 1 && (
         <div style={{ ...card, padding: 14, marginBottom: 14, fontSize: 13, color: 'var(--text3)' }}>PI này chỉ có {orderList.length} SKU — mọi đợt tự tính cho SKU đó, không cần sửa.</div>
       )}

@@ -11,6 +11,7 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import { btnSecondary } from '../../../styles/buttons'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 const EMPTY_FORM = { name: '', phone: '', email: '', address: '', note: '' }
 
@@ -21,7 +22,8 @@ const completedPoCount = (pos: SalesOrder[]) =>
 
 export default function CustomerManagementPage() {
   const { data: customers, isLoading, error, refetch } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers())
-  const { data: pos } = useFetch<SalesOrder[]>(() => api.getSalesOrders())
+  const { data: pos, refetch: refetchPos } = useFetch<SalesOrder[]>(() => api.getSalesOrders())
+  useRealtimeRefetch(['sales-orders'], refetchPos)
   const [modal, setModal] = useState<'new' | SalesCustomer | null>(null)
   const [form, setForm] = useState(EMPTY_FORM)
   const [saving, setSaving] = useState(false)

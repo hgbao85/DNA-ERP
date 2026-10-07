@@ -25,6 +25,7 @@ export default function SalesPOsPage() {
       { key: 'depositAmount', label: 'Đã cọc', align: 'right', render: (p) => fmtMoney(p.depositAmount) },
     ],
     fetch: getSalesOrders,
+    realtimeTopics: ['sales-orders'],
   }
 
   return <AdminReadOnlyList config={config} />

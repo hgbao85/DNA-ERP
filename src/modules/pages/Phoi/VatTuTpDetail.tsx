@@ -35,6 +35,8 @@ import {
   ACCENT, GREEN, RED, AMBER, th, thR, td, tdR, card, smallBtn, inp, subFilterBtn,
 } from './phoiStyles'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import { useRealtimeChangeNotice } from '../../../realtime/hooks'
+import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
 
 export interface VatTuTpItem {
   orderId: string
@@ -168,7 +170,8 @@ function StepPanel({ item, step, progress, readOnly, onRefetch }: {
   const { data: bundles, refetch: refetchBundles } = useFetch(
     () => api.getPieceStepBundlesForOrder(item.orderId), [item.orderId],
   )
-  const { data: bundleReviews } = useFetch(() => api.getQcReviewsForPieceStepBundles(), [])
+  const { data: bundleReviews, refetch: refetchBundleReviews } = useFetch(() => api.getQcReviewsForPieceStepBundles(), [])
+  const qcChange = useRealtimeChangeNotice(['qc-reviews'])
   const [qty, setQty] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -216,6 +219,7 @@ function StepPanel({ item, step, progress, readOnly, onRefetch }: {
 
   return (
     <div>
+      <RealtimeUpdateNotice visible={qcChange.changed} onReload={() => { qcChange.clear(); void refetchBundles(); void refetchBundleReviews() }} />
       {isMobile ? (
         <MobileQtyRow doneLabel={'Đã ' + stepLabel.toLowerCase()} required={required} done={done} failed={failed} remaining={remaining} readOnly={readOnly} qty={qty} setQty={setQty} />
       ) : (
@@ -350,7 +354,8 @@ function ChotPanel({ item, readOnly, onRefetch }: {
   const { data: batches, refetch: refetchBatches } = useFetch(
     () => api.getProductionBatchesForOrder(item.orderId, 'PHOI'), [item.orderId],
   )
-  const { data: reviews } = useFetch(() => api.getQcReviewsForProductionBatches(), [])
+  const { data: reviews, refetch: refetchReviews } = useFetch(() => api.getQcReviewsForProductionBatches(), [])
+  const batchChange = useRealtimeChangeNotice(['production-batches', 'qc-reviews'])
   const [qty, setQty] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -401,6 +406,7 @@ function ChotPanel({ item, readOnly, onRefetch }: {
 
   return (
     <div>
+      <RealtimeUpdateNotice visible={batchChange.changed} onReload={() => { batchChange.clear(); void refetchBatches(); void refetchReviews() }} />
       {isMobile ? (
         <MobileQtyRow doneLabel="Đã báo" required={required} done={done} failed={failed} remaining={remaining} readOnly={readOnly} qty={qty} setQty={setQty} />
       ) : (

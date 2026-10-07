@@ -22,8 +22,13 @@ import {
   getNotifications, getUnreadCount, markNotificationRead, markAllNotificationsRead, archiveNotification,
 } from '../services/api'
 import type { Notification } from '../types/admin'
+import { REALTIME_EVENTS } from '../realtime/contract'
+import { useAuth } from '../context/AuthContext'
+import { useRealtimeEvent, useRealtimeStatus } from '../realtime/hooks'
 
 const POLL_INTERVAL_MS = 30_000
+// Khi realtime đang kết nối, sự kiện đã đẩy badge/toast tức thì - polling chỉ còn là lưới an toàn.
+const POLL_INTERVAL_CONNECTED_MS = 120_000
 
 export type NotificationTab = 'action' | 'all'
 
@@ -36,6 +41,11 @@ export function useNotificationsState() {
   const prevTotalRef = useRef(0)
   const toastedIdsRef = useRef<Set<string>>(new Set())
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const tabRef = useRef<NotificationTab>('action')
+  const listLoadedRef = useRef(false)
+  const connected = useRealtimeStatus() === 'connected'
+  // Chưa đăng nhập (vd trang /login) thì không gọi API: tránh 401 vô ích lúc mount.
+  const { token } = useAuth()
 
   const showToast = useCallback((n: Notification) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
@@ -44,6 +54,7 @@ export function useNotificationsState() {
   }, [])
 
   const pollUnread = useCallback(async () => {
+    if (!token) return
     try {
       const next = await getUnreadCount()
       if (next.total > prevTotalRef.current) {
@@ -62,11 +73,14 @@ export function useNotificationsState() {
     } catch {
       // Best-effort - lỗi mạng lúc poll không được làm hỏng phần còn lại của app.
     }
-  }, [showToast])
+  }, [showToast, token])
 
+  // Tải ngay khi mount và khi trạng thái kết nối đổi (kết nối lại = có thể đã lỡ thông báo).
   useEffect(() => {
+    if (!token) return
     pollUnread()
-    const id = setInterval(() => { if (!document.hidden) pollUnread() }, POLL_INTERVAL_MS)
+    const interval = connected ? POLL_INTERVAL_CONNECTED_MS : POLL_INTERVAL_MS
+    const id = setInterval(() => { if (!document.hidden) pollUnread() }, interval)
     const onVisibility = () => { if (!document.hidden) pollUnread() }
     document.addEventListener('visibilitychange', onVisibility)
     return () => {
@@ -74,9 +88,54 @@ export function useNotificationsState() {
       document.removeEventListener('visibilitychange', onVisibility)
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
     }
-  }, [pollUnread])
+  }, [pollUnread, connected])
+
+  // Tải danh sách KHÔNG bật spinner - dùng khi realtime báo có thay đổi lúc danh sách đang mở.
+  const refreshListSilently = useCallback(async (forTab: NotificationTab) => {
+    try {
+      const res = forTab === 'action'
+        ? await getNotifications({ resolved: 'false', category: 'ACTION_REQUIRED', limit: 50 })
+        : await getNotifications({ status: 'all', limit: 50 })
+      setItems(res.data)
+    } catch {
+      // Best-effort: lần poll/refetch sau sẽ thử lại.
+    }
+  }, [])
+
+  // Realtime: BE đẩy NGAY khi có thông báo mới cho người này - cập nhật badge, toast (WARNING/CRITICAL)
+  // và danh sách đang mở, không chờ chu kỳ poll.
+  useRealtimeEvent(REALTIME_EVENTS.NOTIFICATION_CREATED, (payload) => {
+    void pollUnread()
+    if ((payload.severity === 'WARNING' || payload.severity === 'CRITICAL') && !toastedIdsRef.current.has(payload.notificationId)) {
+      toastedIdsRef.current.add(payload.notificationId)
+      showToast({
+        id: payload.notificationId,
+        type: payload.type,
+        category: payload.category,
+        severity: payload.severity,
+        title: payload.title,
+        message: payload.message,
+        entityType: null,
+        entityId: null,
+        link: payload.link,
+        data: null,
+        createdAt: payload.createdAt,
+        isRead: false,
+      } as Notification)
+    }
+    if (listLoadedRef.current) void refreshListSilently(tabRef.current)
+  })
+
+  // Đồng bộ giữa các tab/thiết bị của cùng người dùng và khi thông báo được đóng (resolve): badge và
+  // danh sách đang mở tự cập nhật, không hiện toast.
+  useRealtimeEvent(REALTIME_EVENTS.NOTIFICATION_CHANGED, () => {
+    void pollUnread()
+    if (listLoadedRef.current) void refreshListSilently(tabRef.current)
+  })
 
   const loadList = useCallback(async (forTab: NotificationTab) => {
+    tabRef.current = forTab
+    listLoadedRef.current = true
     setListLoading(true)
     try {
       // 'action' lọc theo resolved=false (đã xử lý xong hay chưa) - KHÔNG dùng status=unread (đã

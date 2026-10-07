@@ -16,6 +16,7 @@ import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle } from '../../../styles/typography'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 interface Wh { id: string; name: string; code: string }
 
@@ -264,6 +265,11 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
     return salesOrdersToOrders(salesOrders)
   }, [isShipScope])
 
+  // Realtime: đơn xuất / đợt đóng gói / tồn đổi -> làm mới đúng danh sách tương ứng. Các hàm refetch này
+  // đã gộp giữ số lượng đang gõ dở (xem comment phía trên), nên an toàn khi dữ liệu remote đổi.
+  useRealtimeRefetch(['sales-orders'], () => { void refetchShipOrders() })
+  useRealtimeRefetch(['packaging-issues'], () => { void refetchPackagingOrders() })
+  useRealtimeRefetch(['stock'], () => { void refetchPieceOrders() })
   // useFetch nuốt lỗi vào state `error` riêng, không throw ra ngoài — trước đây không màn nào đọc
   // field này nên 1 lỗi BE (vd ConflictException của getPieceTransferPlan) khiến danh sách chỉ
   // hiện trắng trơn "Không có lệnh xuất nào đang chờ xử lý" mà không có gợi ý gì (Critical C2).

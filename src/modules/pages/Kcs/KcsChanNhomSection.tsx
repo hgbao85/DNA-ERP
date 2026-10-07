@@ -23,6 +23,7 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import MobileListCards from '../../../components/MobileListCards'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { pageSubtitle } from '../../../styles/typography'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 const ACCENT = 'var(--fg-e65100)'
 const GREEN = 'var(--fg-16a34a)'
@@ -41,6 +42,7 @@ export default function KcsChanNhomSection() {
   const { data: reviews, refetch: refetchReviews } = useFetch<BeMaterialYieldStepBundleQcReview[]>(
     () => api.getQcReviewsForMaterialYieldStepBundles(), [],
   )
+  useRealtimeRefetch(['qc-reviews'], () => { void refetch(); void refetchReviews() })
   const [target, setTarget] = useState<BeMaterialYieldStepBundle | null>(null)
   const isMobile = useIsMobile()
 

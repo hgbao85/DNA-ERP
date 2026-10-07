@@ -11,10 +11,12 @@ import EmptyState from '../../../components/EmptyState'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 export default function PurchaseHistoryPage() {
   const { data: customers } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers())
   const { data: pos, isLoading, error, refetch } = useFetch<SalesOrder[]>(() => api.getSalesOrders())
+  useRealtimeRefetch(['sales-orders'], refetch)
   const [customerId, setCustomerId] = useState('')
   const isMobile = useIsMobile()
 
