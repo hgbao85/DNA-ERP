@@ -23,6 +23,8 @@ import { errMsg } from '../../utils/errors'
 import { useIsMobile } from '../../hooks/useMediaQuery'
 import LoadingState from '../LoadingState'
 import LoadErrorState from '../LoadErrorState'
+import { useRealtimeChangeNotice } from '../../realtime/hooks'
+import RealtimeUpdateNotice from '../../realtime/RealtimeUpdateNotice'
 
 const ACCENT = 'var(--fg-e65100)'
 const REMIND_MINUTES = 60
@@ -930,6 +932,10 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   // "Lỗi" theo đợt (2026-09-09, đồng bộ Sắt/VTTP) - fetch 1 lần, lọc theo batchesByLine ở
   // VatTuDetailBoard (cùng idiom ChotPanel/StepPanel, VatTuTpDetail.tsx).
   const { data: reviews, refetch: refetchReviews } = useFetch(() => stage ? api.getQcReviewsForProductionBatches() : Promise.resolve([]), [stage])
+  // Component dùng chung cho nhiều màn Hàn/Sơn/KCS - `rows` đang sửa dở được đồng bộ từ `fetched`
+  // qua useEffect bên dưới, nên KHÔNG tự refetch khi có thay đổi từ người khác (sẽ đè số đang nhập
+  // dở). Chỉ báo, người dùng tự bấm tải lại. Rỗng khi stage=undefined (màn Phôi không dùng 2 fetch này).
+  const dataChange = useRealtimeChangeNotice(stage ? ['production-batches', 'qc-reviews'] : [])
 
   const [rows, setRows] = useState<ProcRow[]>(() => seed?.() ?? [])
   useEffect(() => {
@@ -999,29 +1005,42 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   if (stage && fetchedLoading) return <LoadingState />
   if (stage && (fetchedError || !fetched)) return <LoadErrorState error={fetchedError ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
+  const notice = <RealtimeUpdateNotice
+    visible={dataChange.changed}
+    onReload={() => { dataChange.clear(); void refetch(); void refetchReviews() }}
+  />
   if (selPo) {
-    return <VatTuDetailBoard
-      lines={selPo.lines ?? []} cfg={cfg} readOnly={readOnly}
-      title={selPo.sku}
-      subtitle={`${selPo.poNumber} · ${selPo.productName} · SL ${fmt(selPo.soLuong)} · hạn ${dateVN(selPo.deadline)}`}
-      bannerLabel="Đồng bộ" backLabel="Quay lại danh sách lệnh"
-      onBack={() => setSelPoId(null)}
-      onUpdateLine={stage ? undefined : l => updateLineFlat(selPo.id, l)}
-      onRecord={stage && !readOnly ? (l, qty) => recordQty(selPo, l, qty) : undefined}
-      onFinishBatch={stage && !readOnly ? finishBatch : undefined}
-      choKcsFor={stage ? scopedChoKcsFor : undefined}
-      showThucCo={stage ? false : undefined}
-      batchesByLine={stage ? scopedBatchesByLine : undefined}
-      reviews={stage ? (reviews ?? []) : undefined}
-      manualInput
-    />
+    return <>
+      {notice}
+      <VatTuDetailBoard
+        lines={selPo.lines ?? []} cfg={cfg} readOnly={readOnly}
+        title={selPo.sku}
+        subtitle={`${selPo.poNumber} · ${selPo.productName} · SL ${fmt(selPo.soLuong)} · hạn ${dateVN(selPo.deadline)}`}
+        bannerLabel="Đồng bộ" backLabel="Quay lại danh sách lệnh"
+        onBack={() => setSelPoId(null)}
+        onUpdateLine={stage ? undefined : l => updateLineFlat(selPo.id, l)}
+        onRecord={stage && !readOnly ? (l, qty) => recordQty(selPo, l, qty) : undefined}
+        onFinishBatch={stage && !readOnly ? finishBatch : undefined}
+        choKcsFor={stage ? scopedChoKcsFor : undefined}
+        showThucCo={stage ? false : undefined}
+        batchesByLine={stage ? scopedBatchesByLine : undefined}
+        reviews={stage ? (reviews ?? []) : undefined}
+        manualInput
+      />
+    </>
   }
   if (selPiGroup) {
-    return <PoListBoard
-      rows={selPiGroup.rows} cfg={cfg} isPhoi={false} sequential={!stage}
-      onEnter={id => setSelPoId(id)}
-      onBack={() => setSelPiId(null)} piCode={selPiGroup.piCode}
-    />
+    return <>
+      {notice}
+      <PoListBoard
+        rows={selPiGroup.rows} cfg={cfg} isPhoi={false} sequential={!stage}
+        onEnter={id => setSelPoId(id)}
+        onBack={() => setSelPiId(null)} piCode={selPiGroup.piCode}
+      />
+    </>
   }
-  return <PiListBoard groups={piGroups} cfg={cfg} onEnter={id => setSelPiId(id)} />
+  return <>
+    {notice}
+    <PiListBoard groups={piGroups} cfg={cfg} onEnter={id => setSelPiId(id)} />
+  </>
 }

@@ -12,6 +12,7 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle } from '../../../styles/typography'
 import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 type StatusFilter = 'all' | 'IN_PROGRESS' | 'WAITING_BOSS_APPROVAL' | 'APPROVED'
 
@@ -24,6 +25,8 @@ const FILTERS: { key: StatusFilter; label: string; color?: string; bg?: string }
 
 export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }) {
   const { data: skus = [], isLoading, error: skusError, refetch } = useFetch(() => api.getSkus(), [])
+  // Realtime: SKU tạo/sửa/duyệt từ phòng khác -> làm mới danh sách.
+  useRealtimeRefetch(['skus'], refetch)
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const [deleteMode, setDeleteMode] = useState(false)

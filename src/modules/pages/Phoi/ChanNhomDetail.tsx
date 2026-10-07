@@ -27,6 +27,9 @@ import {
   ACCENT, GREEN, RED, AMBER, th, thR, td, tdR, card, smallBtn, inp, subFilterBtn,
 } from './phoiStyles'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import { useRealtimeChangeNotice } from '../../../realtime/hooks'
+import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 export interface ChanNhomRecipeItem {
   productionInvoiceId: string
@@ -48,9 +51,10 @@ export default function ChanNhomDetail({ item, readOnly, onBack, onRefetch }: {
 }) {
   const [subFilter, setSubFilter] = useState<string>(item.processSteps[0] ?? '')
 
-  const { data: issues } = useFetch(
+  const { data: issues, refetch: refetchTopIssues } = useFetch(
     () => api.getMaterialYieldRecipeIssuesForInvoice(item.productionInvoiceId), [item.productionInvoiceId],
   )
+  useRealtimeRefetch(['material-yield-issues'], refetchTopIssues)
   const recipeIssues = (issues ?? []).filter(i => i.recipeId === item.recipeId)
   const issuedQty = recipeIssues.reduce((s, i) => s + i.issuedQty, 0)
   const receivedQty = recipeIssues.filter(i => i.status === 'RECEIVED').reduce((s, i) => s + (i.receivedQty ?? 0), 0)
@@ -149,7 +153,8 @@ function StepPanel({ item, step, readOnly, onRefetch }: {
   const { data: bundles, refetch: refetchBundles } = useFetch(
     () => api.getMaterialYieldStepBundlesForInvoice(item.productionInvoiceId), [item.productionInvoiceId],
   )
-  const { data: bundleReviews } = useFetch(() => api.getQcReviewsForMaterialYieldStepBundles(), [])
+  const { data: bundleReviews, refetch: refetchBundleReviews } = useFetch(() => api.getQcReviewsForMaterialYieldStepBundles(), [])
+  const qcChange = useRealtimeChangeNotice(['qc-reviews'])
   const [qty, setQty] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -187,6 +192,7 @@ function StepPanel({ item, step, readOnly, onRefetch }: {
 
   return (
     <div>
+      <RealtimeUpdateNotice visible={qcChange.changed} onReload={() => { qcChange.clear(); void refetchBundles(); void refetchBundleReviews() }} />
       {isMobile ? (
         <MobileQtyRow doneLabel={'Đã ' + stepLabel.toLowerCase()} required={required} done={done} failed={failed} remaining={remaining} readOnly={readOnly} qty={qty} setQty={setQty} />
       ) : (

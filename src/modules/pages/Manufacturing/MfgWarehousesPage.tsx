@@ -15,6 +15,7 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { warehouseFamilyOf, type WarehouseFamily } from '../../../utils/warehouseFamily'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 export { isThanhPhamScope } from '../../../utils/warehouseFamily'
 
 // ── Types (view-model tối giản, khớp field thật cần dùng - xem warehouses-api.ts/
@@ -116,6 +117,7 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
   const { data: materials, refetch: refetchMaterials } = useFetch<MaterialRow[]>(getMaterials)
   const { data: groups } = useFetch<GroupRow[]>(getMaterialGroups)
   const { data: quants, refetch: refetchQuants } = useFetch<QuantRow[]>(() => getStockQuants())
+  useRealtimeRefetch(['stock'], () => { void refetchQuants() })
 
   const [openId, setOpenId]                 = useState<string | null>(null)
   const [showCreateForm, setShowCreateForm] = useState(false)

@@ -26,6 +26,7 @@ import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle } from '../../../styles/typography'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 const ACCENT = 'var(--fg-e65100)'
 
@@ -41,6 +42,7 @@ const fmtDate = (s: string) => { try { return format(new Date(s), 'dd/MM/yyyy HH
 
 export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: MaterialIssueStage; readOnly?: boolean }) {
   const { data: issuesData, isLoading, error, refetch } = useFetch<BeMaterialIssue[]>(() => api.getMaterialIssuesByStage(stage), [stage])
+  useRealtimeRefetch(['material-issues'], refetch)
   const issues = issuesData ?? []
   const [view, setView] = useState<'confirm' | 'history'>('confirm')
   const [edit, setEdit] = useState<Record<string, string>>({})

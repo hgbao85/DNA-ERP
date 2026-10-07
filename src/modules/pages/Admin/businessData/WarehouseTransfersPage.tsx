@@ -31,6 +31,7 @@ export default function WarehouseTransfersPage() {
       key, label: s.label, color: s.color, bg: s.bg, predicate: (t: WarehouseTransfer) => t.status === key,
     })),
     fetch: getWarehouseTransfers,
+    realtimeTopics: ['warehouse-transfers', 'stock'],
   }
 
   return <AdminReadOnlyList config={config} />

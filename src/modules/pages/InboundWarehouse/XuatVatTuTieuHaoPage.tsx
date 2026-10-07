@@ -27,6 +27,8 @@ import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 import { pageSubtitle } from '../../../styles/typography'
+import { useRealtimeChangeNotice } from '../../../realtime/hooks'
+import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
 
 const ACCENT = 'var(--fg-4527a0)'
 
@@ -40,6 +42,8 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
   // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
   const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
+  // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập.
+  const skuChange = useRealtimeChangeNotice(['skus'])
   // PO/PI/hạn giao thật (từ ProductionOrder Sếp đã duyệt) - KHÔNG dùng Sku.exportOrder/Sku.piCode,
   // xem comment ở buildProductionOrderInfoByMfgProduct().
   // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho được xuất vật tư cho BẤT KỲ
@@ -173,6 +177,7 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
   // ── List view ─────────────────────────────────────────────────────────────────
   return (
     <div>
+      <RealtimeUpdateNotice visible={skuChange.changed} onReload={() => { skuChange.clear(); void refetchSkus() }} />
       <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>{desc}</div>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (

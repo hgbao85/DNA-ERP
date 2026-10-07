@@ -12,12 +12,16 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
+import { useRealtimeChangeNotice } from '../../../realtime/hooks'
+import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
 
 
 export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, warehouseScope }: { readOnly?: boolean; filterExportOrderId?: string; warehouseScope?: string | null } = {}) {
   // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
   const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
+  // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập.
+  const skuChange = useRealtimeChangeNotice(['skus'])
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
 
   const { data: progress, isLoading: progressLoading, refetch: refetchProgress } = useFetch<BePackagingProgress>(
@@ -226,6 +230,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
   // (cùng pattern với KhoChuyenKiemPage).
   return (
     <div>
+      <RealtimeUpdateNotice visible={skuChange.changed} onReload={() => { skuChange.clear(); void refetchSkus() }} />
       <h2 style={{ ...pageTitle, margin: 0 }}>Đóng gói</h2>
       <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Nhấn vào dòng để cập nhật số lượng đóng gói

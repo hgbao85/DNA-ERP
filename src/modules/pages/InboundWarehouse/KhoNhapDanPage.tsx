@@ -15,6 +15,8 @@ import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
+import { useRealtimeChangeNotice } from '../../../realtime/hooks'
+import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
 
 /**
  * Nhập đan = kho thành phẩm nhận mảnh đã đan từ điểm đan gia công bên ngoài. Mỗi dòng ứng với 1
@@ -27,6 +29,8 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
   // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
   const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
+  // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập.
+  const skuChange = useRealtimeChangeNotice(['skus'])
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const { data: planData, isLoading: planLoading, refetch } = useFetch<BeWeavingIssuePlanItem[]>(
@@ -183,6 +187,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
   // ── List view ─────────────────────────────────────────────────────────────────
   return (
     <div>
+      <RealtimeUpdateNotice visible={skuChange.changed} onReload={() => { skuChange.clear(); void refetchSkus() }} />
       <h2 style={{ ...pageTitle, margin: 0 }}>Theo dõi nhập đan</h2>
       <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Nhấn vào dòng để xem chi tiết và xác nhận nhận hàng đan từ điểm đan

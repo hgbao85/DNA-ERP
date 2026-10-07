@@ -24,6 +24,7 @@ import { isFamilyScope } from '../../../utils/warehouseFamily'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -83,6 +84,8 @@ export default function KhoPhoiPage() {
   const myWarehouseCode = isFamilyScope(user?.warehouseScope, 'phoi-son-han') ? user!.warehouseScope! : STEEL_WAREHOUSE_CODE
 
   const { data: quants, isLoading, error, refetch } = useFetch<BeStockQuant[]>(() => api.getStockQuants(), [])
+  // Realtime: tồn kho đổi (xuất/nhận/chuyển) -> làm mới ngay.
+  useRealtimeRefetch(['stock'], refetch)
 
   const { duyet, thua } = useMemo(() => toRows(quants ?? [], myWarehouseCode), [quants, myWarehouseCode])
 

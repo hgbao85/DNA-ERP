@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { ArrowLeftRight, Send } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 import * as api from '../../../services/api'
 import type { BeWarehouse } from '../../../services/warehouses-api'
 import SearchableSelect from '../../../components/SearchableSelect'
@@ -85,6 +86,10 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
   const { data: pendingData, refetch: refetchPending } = useFetch(
     () => api.getWarehouseTransfers('PENDING'), []
   )
+  // Realtime: chỉ làm mới phiếu CHỜ XÁC NHẬN. Không refetch tồn kho ở đây: danh sách vật tư đang
+  // là lựa chọn của form người dùng đang nhập - đổi options giữa chừng có thể làm mất lựa chọn.
+  // Tồn kho được BE kiểm lại khi xác nhận phiếu.
+  useRealtimeRefetch(['warehouse-transfers'], refetchPending)
   const myPending = safeArr(pendingData).filter(t => t.fromWarehouseId === effectiveFromId)
 
   const resetLine = () => { setMaterial(null); setQty(''); setNote('') }

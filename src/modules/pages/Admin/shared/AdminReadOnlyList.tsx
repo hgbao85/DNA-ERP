@@ -2,6 +2,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { useFetch } from '../../../../hooks/useFetch'
+import { useRealtimeRefetch } from '../../../../realtime/hooks'
 import SearchInput from '../../../../components/SearchInput'
 import FilterPills from '../../../../components/FilterPills'
 import EmptyState from '../../../../components/EmptyState'
@@ -43,6 +44,8 @@ export interface AdminReadOnlyListConfig<T extends { id: number | string }> {
   pageSize?: number
   emptyMessage?: string
   fetch: () => Promise<T[]>
+  /** Topic realtime làm mới danh sách này khi có thay đổi (xem realtime.contract.ts). */
+  realtimeTopics?: readonly string[]
 }
 
 /**
@@ -53,6 +56,7 @@ export interface AdminReadOnlyListConfig<T extends { id: number | string }> {
  */
 export default function AdminReadOnlyList<T extends { id: number | string }>({ config }: { config: AdminReadOnlyListConfig<T> }) {
   const { data, isLoading, error: loadError, refetch } = useFetch<T[]>(config.fetch)
+  useRealtimeRefetch(config.realtimeTopics ?? [], refetch)
   const items = useMemo(() => data ?? [], [data])
 
   const [search, setSearch] = useState('')

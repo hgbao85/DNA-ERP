@@ -31,6 +31,7 @@ import { backBtn } from '../../../styles/buttons'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 interface ManhRow {
   pieceId: string
@@ -58,6 +59,7 @@ const card: React.CSSProperties = { background: 'var(--surface)', border: '1px s
 
 export default function KhungHanPage() {
   const { data: batches, isLoading: batchesLoading, error: batchesError, refetch: refetchBatches } = useFetch<BeProductionBatch[]>(() => api.getProductionBatchesByStage('HAN'), [])
+  useRealtimeRefetch(['production-batches'], refetchBatches)
   const qcDone = useMemo(() => (batches ?? []).filter(b => b.status === 'QC_DONE'), [batches])
   const orderIds = useMemo(() => Array.from(new Set(qcDone.map(b => b.productionOrderId))).sort(), [qcDone])
   const { data: plans, isLoading: plansLoading, error: plansError, refetch: refetchPlans } = useFetch(

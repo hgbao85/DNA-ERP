@@ -23,6 +23,7 @@ import {
   type CuttingProposal,
   type CuttingProposalDisplayStatus,
 } from '../../../../services/cutting-proposals-api'
+import { useRealtimeRefetch, useRealtimeStatus } from '../../../../realtime/hooks'
 
 const ACCENT = 'var(--fg-3949ab)'
 
@@ -91,11 +92,14 @@ export default function CuttingProposalsPage() {
   // Poll có điều kiện: chỉ khi còn dòng đang tính, tự tắt ngay khi hết - tránh request vô ích khi
   // màn hình đứng yên. Mirror LenhSXPage.tsx (đã chạy ổn với cùng bài toán ở màn Lệnh SX).
   const hasCalculating = items.some(p => p.displayStatus === 'CALCULATING')
+  // Realtime: BE phát khi solver xong / PI đổi - làm mới ngay. Chỉ poll dự phòng khi MẤT kết nối.
+  const rtConnected = useRealtimeStatus() === 'connected'
+  useRealtimeRefetch(['cutting-proposals'], refetch)
   useEffect(() => {
-    if (!hasCalculating) return
+    if (!hasCalculating || rtConnected) return
     const id = setInterval(refetch, 20000)
     return () => clearInterval(id)
-  }, [hasCalculating, refetch])
+  }, [hasCalculating, refetch, rtConnected])
 
   const filterOptions = [
     { key: ALL_KEY, label: 'Tất cả' },

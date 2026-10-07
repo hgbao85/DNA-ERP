@@ -16,6 +16,7 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle } from '../../../styles/typography'
 import { listTh as thStyle, listTd as tdStyle } from '../../../styles/table'
 import type { SalesCustomer } from '../../../types/sales'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 // KHSX theo dõi toàn bộ vòng đời SKU; Sếp chỉ cần thấy các item đang chờ mình duyệt. Bước QLSX
 // duyệt cục bộ đã bị bỏ khỏi pipeline - trang này giờ chỉ còn 2 role: KHSX và Sếp.
@@ -61,6 +62,8 @@ export default function SKUReviewPage() {
   const isPending = isBoss ? isBossPending : isPlannerPending
   const FILTERS = isBoss ? BOSS_FILTERS : PLANNER_FILTERS
   const { data: skus = [], isLoading, error: skusError, refetch } = useFetch(() => api.getSkus(), [])
+  // Realtime: SKU mới/đổi trạng thái -> làm mới hàng chờ duyệt.
+  useRealtimeRefetch(['skus'], refetch)
   const { data: customers } = useFetch<SalesCustomer[]>(() => api.getSalesCustomers(), [])
 
   const [search, setSearch]             = useState('')

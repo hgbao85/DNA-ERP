@@ -29,6 +29,7 @@ import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import type { AuditLogEntry } from '../../../context/AuditLogContext'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 /** Đích của 1 dòng KCS - "chốt cuối" (ProductionBatch) hoặc "theo công đoạn" (PieceStepBundle,
  *  2026-09-07) - cần phân biệt để gọi ĐÚNG API duyệt (2 nhánh QcReview khác nhau, xem
@@ -45,6 +46,7 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
   // "Lỗi" ở cột bảng tổng là Σ QcReview.failedQty CỘNG DỒN LỊCH SỬ (2026-09-08 lần 2) - fetch cho
   // MỌI stage (không còn gate theo showPieceSteps như "Bù đủ" cũ, cột Lỗi hiện đồng nhất mọi nơi).
   const { data: reviews, refetch: refetchReviews } = useFetch(() => api.getQcReviewsForProductionBatches(), [])
+  useRealtimeRefetch(['production-batches', 'qc-reviews'], () => { void refetch(); void refetchReviews() })
   // Đợt gửi KCS theo TỪNG CÔNG ĐOẠN (2026-09-07, chỉ VTTP - showPieceSteps) - gộp CHUNG bảng với
   // ProductionBatch cùng PO, phân biệt bằng nhãn "· {Công đoạn}" ở cột Quy cách.
   const { data: bundles, refetch: refetchBundles } = useFetch<BePieceStepBundle[]>(

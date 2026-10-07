@@ -162,3 +162,11 @@ export function withIdempotencyKey(config?: AxiosRequestConfig): AxiosRequestCon
 }
 
 export const API_BASE_URL = BASE_URL;
+
+/**
+ * Làm mới access token bằng refresh token (dùng chung với interceptor 401, có dedupe). Realtime
+ * gọi hàm này khi handshake socket bị từ chối vì token hết hạn. Ném ApiError nếu không refresh được.
+ */
+export async function refreshSession(): Promise<void> {
+  await refreshAccessToken();
+}

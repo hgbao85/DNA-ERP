@@ -39,6 +39,7 @@ import * as api from '../../../services/api'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 const ACCENT = 'var(--fg-3949ab)'
 const RED = 'var(--fg-c62828)'
@@ -107,6 +108,7 @@ function AttachmentRow({ thumbnailUrl, fileUrl, title, meta, busy, error, onRepl
 
 function KcsPhotosTab() {
   const { data: reviews, isLoading, error, refetch } = useFetch(() => api.getAllQcReviews(), [])
+  useRealtimeRefetch(['qc-reviews'], refetch)
   const { ask, confirmModal } = useConfirm()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [rowError, setRowError] = useState<{ id: string; message: string } | null>(null)

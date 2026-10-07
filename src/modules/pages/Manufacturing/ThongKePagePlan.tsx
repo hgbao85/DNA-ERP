@@ -24,6 +24,8 @@ import type { BeProductionBatchPlan } from '../../../services/production-batches
 import type { BeWeavingIssuePlanItem } from '../../../services/weaving-issues-api'
 import type { BeTransferCheckPiece } from '../../../services/transfer-check-api'
 import type { BePackagingProgress } from '../../../services/packaging-api'
+import { useRealtimeChangeNotice } from '../../../realtime/hooks'
+import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1497,6 +1499,10 @@ function DeadlineText({ deadline, overdue, overdueLabel }: { deadline?: string; 
 export default function ThongKePagePlan() {
 
   const { data: skusData, isLoading, error: skusError, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
+  // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập.
+  // 'production-orders': nút "Bắt đầu"/"Tạm dừng"/"Kết thúc" (floor-gate) cũng đổi dữ liệu ở đúng
+  // bảng này - nhiều vai (QLSX/Hàn/Sơn/Phôi) có thể cùng xem trang này.
+  const skuChange = useRealtimeChangeNotice(['skus', 'production-orders'])
   const { data: pisData, refetch: refetchPis } = useFetch<PIStatusRow[]>(() => api.getProductionInvoices(), [])
   const { data: weavingPointsData } = useFetch<WeavingPointLite[]>(() => (api as any).getWeavingPoints(), [])
   const { proposals } = useInspection()
@@ -1836,6 +1842,7 @@ export default function ThongKePagePlan() {
   // Lớp 1: danh sách PI.
   return (
     <div>
+      <RealtimeUpdateNotice visible={skuChange.changed} onReload={() => { skuChange.clear(); void refetchSkus(); void refetchPis() }} />
       {failedBanner}
       <div style={{ marginBottom: 'var(--space-5)' }}>
         <h2 style={{ ...pageTitle, margin: 0 }}>Tổng hợp lệnh SX</h2>
