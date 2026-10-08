@@ -30,8 +30,10 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
   // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
   const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
-  // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập.
-  const skuChange = useRealtimeChangeNotice(['skus'])
+  // SKU mới/đổi từ phòng khác, hoặc có ai khác vừa xuất/nhập đan (weaving-issues - BE bắn event
+  // nhưng trước 2026-10-08 chưa màn nào nghe, xem đồng bộ với KhoNhapDanPage) - chỉ báo, KHÔNG tự
+  // tải lại để không mất dữ liệu đang nhập (qty/pointId/materialQty theo dòng).
+  const skuChange = useRealtimeChangeNotice(['skus', 'weaving-issues'])
   const { data: pointsData } = useFetch<BeWeavingPoint[]>(() => api.getWeavingPoints(), [])
   const points = pointsData ?? []
   const pointLabel = (id: string) => {
@@ -330,7 +332,7 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
   // ── List view ─────────────────────────────────────────────────────────────────
   return (
     <div>
-      <RealtimeUpdateNotice visible={skuChange.changed} onReload={() => { skuChange.clear(); void refetchSkus() }} />
+      <RealtimeUpdateNotice visible={skuChange.changed} onReload={() => { skuChange.clear(); void refetchSkus(); void refetch() }} />
       <h2 style={{ ...pageTitle, margin: 0 }}>Theo dõi xuất đan</h2>
       <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Nhấn vào dòng để xuất mảnh cho điểm đan gia công bên ngoài
