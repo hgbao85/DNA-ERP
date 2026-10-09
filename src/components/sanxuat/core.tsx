@@ -400,7 +400,7 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
     }
     return <LineListBoard
       lines={lines} cfg={cfg} title={title} subtitle={subtitle} backLabel={backLabel} onBack={onBack}
-      onEnter={id => setSelLineId(id)} choKcsFor={choKcsFor}
+      onEnter={id => setSelLineId(id)} choKcsFor={choKcsFor} batchesByLine={batchesByLine}
     />
   }
 
@@ -668,11 +668,12 @@ function BatchHistoryList({ batches, reviews, unit }: {
 
 // ── Danh sách mảnh (Hàn/Sơn, 2026-09-09) - mirror ĐÚNG list "Vật tư TP" bên Phôi
 // (LenhSanXuatPhoi.tsx) - mỗi mảnh 1 dòng, bấm vào mở LineDetailCard. ──────────────────────────
-function LineListBoard({ lines, cfg, title, subtitle, backLabel, onBack, onEnter, choKcsFor }: {
+function LineListBoard({ lines, cfg, title, subtitle, backLabel, onBack, onEnter, choKcsFor, batchesByLine }: {
   lines: ProcLine[]; cfg: StageCfg; title: string; subtitle: string
   backLabel?: string; onBack?: () => void
   onEnter: (lineId: number) => void
   choKcsFor?: (lineId: number) => number
+  batchesByLine?: Map<number, BeProductionBatch[]>
 }) {
   return (
     <div>
@@ -690,8 +691,10 @@ function LineListBoard({ lines, cfg, title, subtitle, backLabel, onBack, onEnter
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {lines.map(l => {
           const pend = choKcsFor?.(l.id) ?? 0
-          const remain = l.needQty - l.doneQty - pend
-          const done = remain <= 0
+          // Đợt đã "Lưu đợt" chưa gửi KCS cũng trừ vào "còn" (2026-10-09, cùng lý do LineDetailCard).
+          const openQty = (batchesByLine?.get(l.id) ?? []).find(b => b.status === 'OPEN')?.reportedQty ?? 0
+          const remain = l.needQty - l.doneQty - pend - openQty
+          const done = remain <= 0 && pend === 0 && openQty === 0
           return (
             <div key={l.id} onClick={() => onEnter(l.id)} style={{ ...card, cursor: 'pointer' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
@@ -704,6 +707,8 @@ function LineListBoard({ lines, cfg, title, subtitle, backLabel, onBack, onEnter
                 </div>
                 {done ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: 'var(--green)' }}><Check size={12} /> đã {cfg.verb} xong</span>
+                ) : openQty > 0 ? (
+                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--amber)' }}>đã lưu {fmt(openQty)}, chưa gửi KCS{remain > 0 ? ` · còn ${fmt(remain)} ${cfg.unit}` : ''}</span>
                 ) : pend > 0 ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: 'var(--amber)' }}><Clock size={12} /> chờ KCS duyệt</span>
                 ) : (
@@ -747,7 +752,11 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
   const pend = choKcsFor?.(line.id) ?? 0
   const batchIds = new Set(lineBatches.map(b => b.id))
   const failed = (reviews ?? []).filter(r => r.productionBatchId && batchIds.has(r.productionBatchId)).reduce((s, r) => s + r.failedQty, 0)
-  const remain = Math.max(line.needQty - line.doneQty - pend, 0)
+  // "Đã báo" = đã đạt + chờ KCS + đã "Lưu đợt" chưa gửi (2026-10-09) - trước chỉ hiện line.doneQty
+  // (= passedQty, KCS đã duyệt) nên lưu 24 mà cột vẫn 0 và "Còn lại" vẫn 24 cho tới khi KCS duyệt.
+  // Đồng bộ "Đã làm" bên Cắt sắt: cộng ngay khi lưu.
+  const reported = line.doneQty + pend + openQty
+  const remain = Math.max(line.needQty - reported, 0)
 
   const submit = async () => {
     // KHÔNG clamp theo "Còn lại" (2026-09-11 lần 3, theo góp ý người dùng: "đừng có chặn vẫn cho
@@ -797,7 +806,7 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
             <tr style={{ borderTop: '1px solid var(--border)' }}>
               {!isMobile && <td style={td}>{line.itemName}</td>}
               <td style={tdR}>{fmt(line.needQty)}</td>
-              <td style={tdR}>{fmt(line.doneQty)}</td>
+              <td style={tdR}>{fmt(reported)}</td>
               <td style={{ ...tdR, color: failed > 0 ? 'var(--red)' : 'var(--text3)' }}>{failed > 0 ? fmt(failed) : '—'}</td>
               <td style={{ ...tdR, color: remain > 0 ? ACCENT : 'var(--green)', fontWeight: 700 }}>{fmt(remain)}</td>
               {!readOnly && (

@@ -25,7 +25,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
 import type { BeSteelIssuePlanItem, BeSteelIssue } from '../../../services/steel-issues-api'
-import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
+import { listProductionOrdersLite } from '../../../services/production-invoice-item'
 import { errMsg } from '../../../utils/errors'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle, tableScrollBox, stickyHeaderRow } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
@@ -42,53 +42,63 @@ const ACCENT = 'var(--fg-4527a0)'
 interface PiGroup {
   productionInvoiceId: string
   piCode: string
-  /** null khi PI gộp nhiều đơn hàng Sales khác nhau (isMerged) — không có 1 mã PO đại diện. */
-  poCode: string | null
-  skus: Sku[]
+  /** Mọi mã đơn hàng Sales trong PI (PI gộp có nhiều) - rỗng nếu lệnh không gắn đơn hàng. */
+  poCodes: string[]
+  /** 1 dòng / lệnh sản xuất ("GHE-J55 ×12") - 2 lệnh CÙNG sản phẩm vẫn là 2 dòng. */
+  products: string[]
+  /** Có ít nhất 1 lệnh QLSX đã bấm "Bắt đầu". */
+  active: boolean
 }
 
 export default function XuatSatPage({ embedded = false }: { embedded?: boolean } = {}) {
   // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
-  const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
-  // PO/PI thật (từ ProductionOrder Sếp đã duyệt) - KHÔNG dùng Sku.exportOrder/Sku.piCode, xem
-  // comment ở buildProductionOrderInfoByMfgProduct().
-  const { poInfoFor } = usePoInfoFloorGate()
+  // Sku chỉ còn dùng để tra mã xưởng (factoryCode) theo mfgProductId.
+  const { data: skus = [], isLoading: skusLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
+  // Gom PI THẲNG từ lệnh sản xuất (2026-10-09) - trước gom qua Sku + lookupProductionOrderInfo khoá
+  // (PI, mfgProduct)/mfgProduct: 2 lệnh cùng sản phẩm trong 1 PI gộp (vd 2 đơn Ghế J55) dồn thành 1
+  // (đầu trang chỉ ghi 1 đơn), và Sku chưa gắn PI rơi về lệnh ĐẦU TIÊN của sản phẩm đó ở bất kỳ PI nào.
+  const { data: orders, isLoading: ordersLoading, error: ordersError, refetch: refetchOrders } = useFetch(() => listProductionOrdersLite(), [])
+  const isLoading = skusLoading || ordersLoading
+  const listError = skusError ?? ordersError
 
-  const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT')
-
-  // Gộp SKU theo PI (chỉ SKU đã có lệnh sản xuất thật) - danh sách ngoài liệt kê theo PI.
-  const piGroupsAll: PiGroup[] = []
-  for (const pf of active) {
-    const info = poInfoFor(pf)
-    if (!info) continue
-    const g = piGroupsAll.find(g => g.productionInvoiceId === info.productionInvoiceId)
-    if (g) {
-      if (g.poCode !== info.poCode) g.poCode = null
-      g.skus.push(pf)
-    } else {
-      piGroupsAll.push({ productionInvoiceId: info.productionInvoiceId, piCode: info.piCode, poCode: info.poCode, skus: [pf] })
+  const codeByProduct = new Map(((skus ?? []) as Sku[]).map(pf => [String(pf.mfgProductId), pf.mfgProduct?.factoryCode]))
+  const groupMap = new Map<string, PiGroup>()
+  for (const o of orders ?? []) {
+    let g = groupMap.get(o.productionInvoiceId)
+    if (!g) {
+      g = { productionInvoiceId: o.productionInvoiceId, piCode: o.piCode, poCodes: [], products: [], active: false }
+      groupMap.set(o.productionInvoiceId, g)
     }
+    if (o.salesOrderCode && !g.poCodes.includes(o.salesOrderCode)) g.poCodes.push(o.salesOrderCode)
+    g.products.push(`${codeByProduct.get(String(o.mfgProductId)) ?? `SP #${o.mfgProductId}`} ×${o.quantity}`)
+    if (o.floorStage === 'ACTIVE') g.active = true
   }
   // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho được xuất sắt (2026-08-31) -
   // ẩn hẳn khỏi danh sách, không chỉ để trống tay khi bấm vào (backend cũng chặn cứng ở
   // SteelIssuesService.create(), đây chỉ là lớp UI khớp theo). Không bắt buộc CHÍNH SKU nào trong
   // PI phải ACTIVE, chỉ cần ít nhất 1 - PI cắt sắt chung cho mọi SKU trong đó.
-  const piGroups = piGroupsAll.filter(g => g.skus.some(pf => poInfoFor(pf)?.floorStage === 'ACTIVE'))
+  const piGroups = [...groupMap.values()].filter(g => g.active)
+  const poLabel = (g: PiGroup) => g.poCodes.length > 0 ? g.poCodes.join(', ') : 'Không gắn đơn hàng'
 
   const [selectedPi, setSelectedPi] = useState<PiGroup | null>(null)
-  const { data: planData, isLoading: planLoading, error: planError, refetch } = useFetch<BeSteelIssuePlanItem[]>(
-    () => (selectedPi ? api.getSteelIssuePlan(selectedPi.productionInvoiceId) : Promise.resolve([])),
-    [selectedPi?.productionInvoiceId],
+  // Gắn kèm PI của lần tải (2026-10-09): useFetch cố ý KHÔNG bật lại isLoading khi đổi deps, nên ngay
+  // sau khi chọn PI, planData vẫn là [] của lần tải trước (chưa chọn PI) -> từng hiện nhầm "Chưa có
+  // phương án cắt sắt đã duyệt" trong lúc đang tải. Chỉ dùng dữ liệu khi đúng PI đang chọn.
+  const selPiId = selectedPi?.productionInvoiceId ?? null
+  const { data: planData, error: planError, refetch } = useFetch<{ piId: string | null; items: BeSteelIssuePlanItem[] }>(
+    () => (selPiId ? api.getSteelIssuePlan(selPiId).then(items => ({ piId: selPiId, items })) : Promise.resolve({ piId: null, items: [] })),
+    [selPiId],
   )
-  const plan = planData ?? []
-  const { data: historyData, refetch: refetchHistory } = useFetch<BeSteelIssue[]>(
-    () => (selectedPi ? api.getSteelIssuesForInvoice(selectedPi.productionInvoiceId) : Promise.resolve([])),
-    [selectedPi?.productionInvoiceId],
+  const planReady = !!selPiId && planData?.piId === selPiId
+  const plan = planReady ? planData!.items : []
+  const { data: historyData, refetch: refetchHistory } = useFetch<{ piId: string | null; items: BeSteelIssue[] }>(
+    () => (selPiId ? api.getSteelIssuesForInvoice(selPiId).then(items => ({ piId: selPiId, items })) : Promise.resolve({ piId: null, items: [] })),
+    [selPiId],
   )
   // Realtime: chỉ làm mới LỊCH SỬ xuất (danh sách đã xuất). Không refetch kế hoạch đang chọn để không đổi dòng người dùng đang nhập.
   useRealtimeRefetch(['steel-issues'], () => { void refetchHistory() })
-  const history = historyData ?? []
+  const history = historyData && historyData.piId === selPiId ? historyData.items : []
   // Kế hoạch có thể đã đổi do người khác (xuất/nhận sắt, tồn kho): báo, KHÔNG tự tải lại để không mất dòng đang nhập.
   const planChange = useRealtimeChangeNotice(['steel-issues', 'stock'])
   // Chiều dài cây mặc định — ưu tiên đúng chiều dài phương án cắt sắt đã chốt cho vật tư này
@@ -150,16 +160,16 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
               PI: {selectedPi.piCode}
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
-              PO: {selectedPi.poCode ?? 'PI gộp nhiều đơn hàng'}
-              {' · '}{selectedPi.skus.length} sản phẩm: {selectedPi.skus.map(pf => pf.mfgProduct?.factoryCode).filter(Boolean).join(', ')}
+              PO: {poLabel(selectedPi)}
+              {' · '}{selectedPi.products.length} lệnh: {selectedPi.products.join(', ')}
             </div>
           </div>
         </div>
 
         <RealtimeUpdateNotice visible={planChange.changed} onReload={() => { planChange.clear(); void refetch() }} />
-        {planLoading ? <LoadingState /> : planError ? (
+        {planError ? (
           <div style={{ ...emptyBox, color: 'var(--fg-dc2626)' }}>Lỗi tải kế hoạch xuất sắt: {planError}</div>
-        ) : plan.length === 0 ? (
+        ) : !planReady ? <LoadingState /> : plan.length === 0 ? (
           <div style={emptyBox}>
             Chưa có phương án cắt sắt đã duyệt cho PI này — báo KHSX tính/duyệt phương án trước khi
             xuất được.
@@ -279,8 +289,8 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
         Nhấn vào dòng để xem loại sắt cần xuất cho cả PI (theo phương án cắt sắt đã duyệt) và xuất theo chiều dài/số cây.
       </p>
 
-      {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
-        <MobileListCards emptyText="Không có PI nào" items={piGroups.map(g => ({ key: String(g.productionInvoiceId), onClick: () => setSelectedPi(g), title: <b>{g.skus.map(pf => pf.mfgProduct?.factoryCode).filter(Boolean).join(', ') || '—'}</b>, meta: [{ label: 'PI', value: g.piCode }, { label: 'PO', value: g.poCode ?? 'Gộp nhiều đơn' }] }))} />
+      {isLoading ? <LoadingState /> : listError ? <LoadErrorState error={listError} onRetry={() => { refetchSkus(); refetchOrders() }} /> : isMobile ? (
+        <MobileListCards emptyText="Không có PI nào" items={piGroups.map(g => ({ key: String(g.productionInvoiceId), onClick: () => setSelectedPi(g), title: <b>{g.products.join(', ') || '—'}</b>, meta: [{ label: 'PI', value: g.piCode }, { label: 'PO', value: poLabel(g) }] }))} />
       ) : (
         <div style={{ ...tableWrap, ...tableScrollBox }}>
           <table style={tbl}>
@@ -303,10 +313,10 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
                     {g.piCode}
                   </td>
                   <td style={{ ...tdStyle, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {g.poCode ?? 'Gộp nhiều đơn'}
+                    {poLabel(g)}
                   </td>
                   <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {g.skus.map(pf => pf.mfgProduct?.factoryCode).filter(Boolean).join(', ')}
+                    {g.products.join(', ')}
                   </td>
                 </tr>
               ))}

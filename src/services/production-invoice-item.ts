@@ -27,9 +27,11 @@ import type { Sku } from '../types/sku';
 // request trong 1 lần tải "Bảng thống kê" sau khi sửa để hiện đủ mọi SKU đã duyệt, trước đó ít lộ
 // vì danh sách còn bị lọc thiếu). TTL ngắn chỉ đủ gộp các lệnh gọi bắn dồn dập trong 1 lượt render
 // - không cache lâu vì "Xử lý lệnh sản xuất" cần thấy ProductionOrder mới ngay sau khi vừa duyệt.
-interface BeProductionOrderRaw {
+export interface BeProductionOrderRaw {
   id: string;
   mfgProductId: string;
+  /** Số lượng sản phẩm của lệnh (ProductionOrder.quantity). */
+  quantity: number;
   salesOrderCode: string | null;
   productionInvoiceId: string;
   productionInvoiceItemId: string;
@@ -48,6 +50,13 @@ interface BeProductionOrderRaw {
 }
 let productionOrdersCache: { promise: Promise<BeProductionOrderRaw[]>; expiresAt: number } | null = null;
 const PRODUCTION_ORDERS_CACHE_TTL_MS = 10_000;
+
+/** Danh sách lệnh sản xuất (dùng chung cache) - cho màn cần gom THEO PI từ chính lệnh sản xuất
+ *  (2026-10-09, XuatSatPage): 1 PI gộp có thể chứa 2 lệnh CÙNG sản phẩm (2 đơn hàng khác nhau), gom
+ *  qua Sku/mfgProduct sẽ dồn làm 1 và mất đơn thứ 2. */
+export function listProductionOrdersLite(): Promise<BeProductionOrderRaw[]> {
+  return fetchProductionOrdersCached();
+}
 
 function fetchProductionOrdersCached(): Promise<BeProductionOrderRaw[]> {
   const now = Date.now();

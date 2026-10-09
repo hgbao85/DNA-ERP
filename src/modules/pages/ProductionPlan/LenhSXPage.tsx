@@ -370,12 +370,9 @@ export default function LenhSXPage() {
     // Cùng công thức "ước tính" đang hiển thị ở bảng SKU timeline (computedDeadline + fb theo
     // số ngày lùi 21/14/8/3) — map luôn giá trị ước tính vào ô nhập thay vì để trống, khớp với
     // những gì người dùng đang thấy trên bảng ngay phía sau modal.
-    const computedDeadline = items.length > 0
-      ? items.reduce((max: Date, item: any) => {
-          const d = item.deliveryDeadline ? new Date(item.deliveryDeadline) : piDeadline
-          return d > max ? d : max
-        }, new Date(0))
-      : piDeadline
+    // pi.deadline đã là hạn giao SỚM NHẤT của các SKU (piDisplayDeadline, 2026-10-09) - trước tự tính
+    // lại hạn MUỘN NHẤT ở đây, lệch với danh sách.
+    const computedDeadline = piDeadline
     const fb = (days: number) => { const d = new Date(computedDeadline); d.setDate(d.getDate() - days); return d }
     const stgDate = (item: any, type: string, fallbackDays: number) => {
       const s = Array.isArray(item.stages) ? item.stages.find((x: any) => x.stageType === type) : null
@@ -441,8 +438,9 @@ export default function LenhSXPage() {
       const itemDls = editValues.items
         .map((it, idx) => it.deliveryDeadline && isCommittable(idx, 'deliveryDeadline') ? new Date(it.deliveryDeadline) : null)
         .filter(Boolean) as Date[]
+      // Hạn của cả PI = hạn giao SỚM NHẤT (2026-10-09, cùng quy ước piDisplayDeadline) - trước lấy muộn nhất.
       const piDeadlineComputed = itemDls.length > 0
-        ? itemDls.reduce((max, d) => d > max ? d : max, itemDls[0])
+        ? itemDls.reduce((min, d) => d < min ? d : min, itemDls[0])
         : new Date(editValues.deadline)
       await api.updateProductionInvoice(editingPI.id, { deadline: piDeadlineComputed.toISOString() })
 
@@ -671,13 +669,9 @@ export default function LenhSXPage() {
         (() => {
           const pi = viewingPI
           const items = Array.isArray(pi.items) ? pi.items : []
-          // PI deadline = latest delivery deadline among SKUs (fallback to pi.deadline)
-          const computedDeadline = items.length > 0
-            ? items.reduce((max: Date, item: any) => {
-                const d = item.deliveryDeadline ? new Date(item.deliveryDeadline) : new Date(pi.deadline)
-                return d > max ? d : max
-              }, new Date(0))
-            : new Date(pi.deadline)
+          // Hạn hoàn thành = pi.deadline, đã là hạn giao SỚM NHẤT của các SKU (piDisplayDeadline,
+          // 2026-10-09) - trước tự tính hạn MUỘN NHẤT ở đây nên lệch với thẻ ở danh sách.
+          const computedDeadline = new Date(pi.deadline)
           const fmt = (d: Date) => format(d, 'dd/MM/yy')
           const canConfirmProd = pi.status !== 'PRODUCING' && pi.status !== 'DONE' && pi.status !== 'CANCELLED'
           // Còn SKU nào chưa gửi duyệt / bị từ chối (có thể gửi lại).

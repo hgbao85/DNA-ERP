@@ -95,6 +95,17 @@ function SubTabBtn({ active, onClick, icon, children }: { active: boolean; onCli
   )
 }
 
+// Ô "PI / PO" của dòng sắt (2026-10-09): PI gộp nhiều đơn hàng có salesOrderCode = null - trước đây
+// chỉ hiện "—", Phôi không biết đợt sắt thuộc lệnh nào. Luôn hiện mã PI, mã PO (nếu có) ở dòng phụ.
+function PiPoCell({ piCode, poCode }: { piCode: string; poCode: string | null }) {
+  return (
+    <td style={{ ...td, whiteSpace: 'nowrap' }}>
+      <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text2)' }}>{piCode}</div>
+      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{poCode ?? 'PI gộp nhiều đơn'}</div>
+    </td>
+  )
+}
+
 // ── Tab "Xác nhận" — CHỈ còn xác nhận đã nhận (2026-08-22, chốt lại lần 2). Báo cắt xong + đánh
 // dấu công đoạn chi tiết đã chuyển sang "Lệnh sản xuất" (LenhSanXuatPhoi.tsx) - đợt sau khi nhận
 // xong hiện trạng thái tham khảo ở đây, thao tác làm bên đó.
@@ -106,9 +117,13 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<Record<string, string>>({})
 
-  const reviewByIssue = useMemo(() => {
-    const m = new Map<string, BeQcReview>()
-    for (const r of reviews) if (r.steelIssueId) m.set(r.steelIssueId, r)
+  // Tổng số ĐOẠN KCS chấm lỗi của lô, cộng MỌI lượt chấm (2026-10-09) - từ 2026-09-05 KCS chấm theo
+  // từng đợt cắt (CutBundle) nên 1 lô có nhiều review; trước đây chỉ lấy 1 review cuối và lấy số CÂY
+  // trừ số ĐOẠN lỗi -> ra "Đạt -3" (2 đơn vị khác nhau). Màn này chỉ hiện số lỗi, số đạt theo cỡ đoạn
+  // xem ở "Lệnh sản xuất".
+  const failedByIssue = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const r of reviews) if (r.steelIssueId) m.set(r.steelIssueId, (m.get(r.steelIssueId) ?? 0) + r.failedQty)
     return m
   }, [reviews])
 
@@ -182,7 +197,7 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 780 }}>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
-              <th style={th}>PO</th>
+              <th style={th}>PI / PO</th>
               <th style={th}>Loại</th>
               <th style={thR}>Chiều dài (mm)</th>
               <th style={thR}>Số lượng</th>
@@ -192,17 +207,13 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
           </thead>
           <tbody>
             {rows.map(l => {
-              const review = reviewByIssue.get(l.id)
+              const failed = failedByIssue.get(l.id) ?? 0
               const baoCat = l.actualBarCount ?? l.barCount
-              const failed = review?.failedQty ?? 0
-              const passed = baoCat - failed
               const isReturn = l.status === 'RECEIVED' && !!l.reworkOfId
               return (
                 <Fragment key={l.id}>
                   <tr {...focusAttr('STEEL_ISSUE', l.id)} style={{ borderTop: '1px solid var(--border)', opacity: l.status === 'QC_PASSED' && failed === 0 ? 0.75 : 1, background: isReturn ? 'var(--red-bg, var(--bg-fef2f2))' : undefined }}>
-                    <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
-                      {l.salesOrderCode ?? '—'}
-                    </td>
+                    <PiPoCell piCode={l.piCode} poCode={l.salesOrderCode} />
                     <td style={{ ...td, fontWeight: 600 }}>
                       {l.materialName}
                       {isReturn && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: 'var(--fg-c62828)', marginLeft: 6 }}><RotateCcw size={11} /> KCS trả về · cắt lại</span>}
@@ -230,8 +241,8 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
                         </span>
                       ) : failed > 0 ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, fontSize: 12, fontWeight: 700 }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--fg-16a34a)' }}><Check size={13} /> Đạt {passed}</span>
-                          <span style={{ color: 'var(--fg-c62828)' }}>Lỗi {failed}</span>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, color: 'var(--fg-16a34a)' }}><Check size={13} /> KCS đã duyệt</span>
+                          <span style={{ color: 'var(--fg-c62828)' }}>Lỗi {failed} đoạn</span>
                         </span>
                       ) : (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: 'var(--fg-16a34a)' }}>

@@ -1164,8 +1164,10 @@ function NewCutBundleForm({ targetIssue, progress, readOnly, bundles, orders, se
       {finishErr && <div style={{ marginTop: 8, fontSize: 12, color: RED }}>{finishErr}</div>}
 
       {/* "Hoàn tác" lần lưu gần nhất (2026-09-07) - biến mất ngay khi lưu lần tiếp theo (lastSaved
-          bị ghi đè) hoặc bấm Hoàn tác xong; KHÔNG phải sổ nhật ký nhiều lượt. */}
-      {lastSaved && !readOnly && (
+          bị ghi đè) hoặc bấm Hoàn tác xong; KHÔNG phải sổ nhật ký nhiều lượt. 2026-10-09: chỉ hiện khi
+          lần lưu đó thuộc ĐÚNG đợt đang mở của SKU đang chọn - trước đây đổi SKU hoặc đã "Gửi KCS" vẫn
+          còn nút, bấm vào BE trả 409 (chỉ hoàn tác được đợt đang cắt). */}
+      {lastSaved && !readOnly && lastSaved.bundleId === openBundle?.id && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, marginBottom: 4, fontSize: 12, color: 'var(--text3)' }}>
           <span>
             Đã lưu: {lastSaved.segments.map(s => `+${s.qty}×${s.cutLengthMm.toLocaleString('vi-VN')}mm`).join(', ')}

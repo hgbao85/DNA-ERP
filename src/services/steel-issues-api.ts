@@ -503,9 +503,19 @@ export interface BeQcReview {
   segments: BeQcReviewSegment[];
 }
 
+/** Tải HẾT các trang (2026-10-09) - BE giới hạn limit tối đa 100 và sắp mới nhất trước; trước đây chỉ
+ *  lấy trang 1 nên khi tổng số lượt chấm (mọi nhánh Phôi/Hàn/Sơn) vượt 100, lượt chấm cũ rơi mất và
+ *  số "Lỗi" của các lô cũ ở "Xác nhận nhận sắt" thành 0 ("KCS: ĐẠT" sai). Chặn trần MAX_PAGES để 1 màn
+ *  không bắn quá nhiều request khi dữ liệu lớn - lúc đó cần BE trả sẵn tổng lỗi theo lô. */
+const QC_REVIEW_MAX_PAGES = 20;
 export async function getQcReviewsForSteelIssues(): Promise<BeQcReview[]> {
-  const res = await http.get<BeQcReview[] | { data: BeQcReview[] }>('/qc-reviews?limit=100');
-  return unwrap(res).filter((r) => r.steelIssueId != null || r.stepBundleId != null);
+  type Page = BeQcReview[] | { data: BeQcReview[]; meta?: { totalPages?: number } };
+  const first = await http.get<Page>('/qc-reviews?limit=100&page=1');
+  const totalPages = Array.isArray(first) ? 1 : Math.min(first.meta?.totalPages ?? 1, QC_REVIEW_MAX_PAGES);
+  const rest = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, i) => http.get<Page>(`/qc-reviews?limit=100&page=${i + 2}`)),
+  );
+  return [first, ...rest].flatMap((p) => unwrap<BeQcReview>(p)).filter((r) => r.steelIssueId != null || r.stepBundleId != null);
 }
 
 // ── Admin "Quản lý tệp đính kèm" (2026-09-11) - xem changelog audit-upload-file ────────────────

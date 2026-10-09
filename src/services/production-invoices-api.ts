@@ -135,6 +135,16 @@ function toItem(it: BeProductionInvoiceItem) {
   };
 }
 
+/** "Hạn hoàn thành" của cả PI (2026-10-09) - MỘT nguồn cho mọi màn KHSX/QLSX/Sếp: hạn giao SỚM NHẤT
+ *  trong các SKU (cùng ý BE "cả nhóm cắt cùng lúc nên theo SKU gấp nhất", và cột "Hạn giao (sớm
+ *  nhất)" của QLSX). Trước đây danh sách đọc `pi.deadline ?? createdAt` (PI gộp "solve trước" tạo với
+ *  deadline null -> hiện NGÀY TẠO) còn trang chi tiết tự tính hạn giao MUỘN NHẤT -> 2 chỗ 2 ngày.
+ *  Chỉ rơi về `pi.deadline` (rồi createdAt) khi chưa SKU nào có hạn giao. */
+function piDisplayDeadline(pi: BeProductionInvoice): string {
+  const dls = pi.items.map((it) => it.deliveryDeadline).filter((d): d is string => !!d).sort()
+  return dls[0] ?? pi.deadline ?? pi.createdAt
+}
+
 function toPI(pi: BeProductionInvoice) {
   return {
     id: pi.id,
@@ -143,7 +153,7 @@ function toPI(pi: BeProductionInvoice) {
     isMerged: pi.isMerged,
     exportOrderId: pi.salesOrderId ?? undefined,
     exportOrder: pi.salesOrderCode ? { poNumber: pi.salesOrderCode } : undefined,
-    deadline: pi.deadline ?? pi.createdAt,
+    deadline: piDisplayDeadline(pi),
     solverMaxWastePctOverride: pi.solverMaxWastePctOverride ?? null,
     solverAllowCustomLength: pi.solverAllowCustomLength ?? null,
     solverOverrideReason: pi.solverOverrideReason ?? null,
