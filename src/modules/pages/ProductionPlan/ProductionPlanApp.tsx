@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
 import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Warehouse, FilePlus, Layers, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
@@ -39,6 +40,8 @@ export default function ProductionPlanApp({ onBack }: Props) {
   const isCompact = useIsCompact()
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const closeNav = useCallback(() => setDrawerOpen(false), [])
+  useCloseNavOnNotification(closeNav)
 
   // Badge dùng endpoint gợi ý (nhẹ, đúng mục đích đếm); màn GomDotCatPage tự nạp bảng ứng viên
   // riêng vì cần shape khác hẳn. Chấp nhận 2 request: gộp chung sẽ phải kéo cả bảng vào app shell

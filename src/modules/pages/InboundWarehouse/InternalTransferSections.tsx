@@ -1,4 +1,5 @@
 'use client'
+import { focusAttr } from '../../../utils/notificationLink'
 import { useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
@@ -104,7 +105,7 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
           {pending.map(t => {
             const isExpanded = expandedId === t.id
             return (
-              <div key={t.id} style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface)' }}>
+              <div key={t.id} {...focusAttr('WAREHOUSE_TRANSFER', t.id)} style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface)' }}>
                 <div
                   onClick={() => setExpandedId(isExpanded ? null : t.id)}
                   style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', cursor: 'pointer' }}

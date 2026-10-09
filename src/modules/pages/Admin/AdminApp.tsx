@@ -1,5 +1,6 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
+import { useEffect, useState, useCallback } from 'react'
 import { LayoutDashboard, Users, History, Database, Bell, Settings, Briefcase, Activity, LogOut, Warehouse, Image as ImageIcon, PenLine, Wrench, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
@@ -56,6 +57,8 @@ export default function AdminApp() {
   const isCompact = useIsCompact()
   const isMobile  = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const closeNav = useCallback(() => setDrawerOpen(false), [])
+  useCloseNavOnNotification(closeNav)
   const selectPage = (id: AdminPage) => { setPage(id); setDrawerOpen(false) }
 
   const sidebar = (

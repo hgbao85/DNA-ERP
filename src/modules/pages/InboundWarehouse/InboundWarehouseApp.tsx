@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import FloorStoppedBanner from '../../../components/FloorStoppedBanner'
+import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
 import { LogOut, Grid, Boxes, Warehouse, ArrowDownToLine, ArrowUpFromLine, ClipboardCheck, Box, BarChart3, MapPin, Share2, History, ArrowLeftRight, PenLine, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
@@ -116,6 +118,8 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   const isCompact = useIsCompact()
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const closeNav = useCallback(() => setDrawerOpen(false), [])
+  useCloseNavOnNotification(closeNav)
   const setTab = (id: TabId) => { setTabState(id); setUrlTab(id); setDrawerOpen(false) }
   // Điều hướng TỪ BÊN NGOÀI (NotificationCenter gọi router.push('/?m=inbound_warehouse&p=...')).
   useEffect(() => {
@@ -213,6 +217,7 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   // ── Main content ───────────────────────────────────────────────────────
   const content = (
       <>
+        {scope !== null && <FloorStoppedBanner />}
         {/* Tổng hợp vật tư đọc thẳng danh mục Material theo ĐÚNG 1 kho cụ thể (warehouseCode =
             scope, không quy về kho gốc của gia đình) - các kho cùng họ (thanh-pham-2...) hoạt
             động độc lập, số liệu không gộp vào nhau (xem VatTuDashboardPage.tsx). scope null

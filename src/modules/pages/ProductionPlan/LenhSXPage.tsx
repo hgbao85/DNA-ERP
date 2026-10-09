@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { focusAttr } from '../../../utils/notificationLink'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
@@ -638,7 +639,7 @@ export default function LenhSXPage() {
               {piGroups.length === 0 ? (
                 <div style={{ padding:40, textAlign:'center', color:'var(--text3)' }}>Không có PI chờ {isBoss ? 'duyệt' : 'xử lý'}</div>
               ) : piGroups.map(({ pi, items }: { pi: any; items: any[] }, i: number) => (
-                <button key={pi.id} onClick={() => setViewingApprovalPiId(pi.id)}
+                <button key={pi.id} {...focusAttr('PRODUCTION_INVOICE', pi.id)} onClick={() => setViewingApprovalPiId(pi.id)}
                   style={{ display:'flex', alignItems:'center', gap: isMobile ? 8 : 14, padding: isMobile ? '12px' : '13px 16px', width:'100%', background:'var(--surface)', border:'none', borderBottom: i === piGroups.length - 1 ? 'none' : '1px solid var(--border)', cursor:'pointer', textAlign:'left' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}>

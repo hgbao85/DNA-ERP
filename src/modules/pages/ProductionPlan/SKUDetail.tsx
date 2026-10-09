@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { focusAttr } from '../../../utils/notificationLink'
 import SkuImageThumb from '../../../components/SkuImageThumb'
 import { format } from 'date-fns'
 import { ChevronLeft, Pencil } from 'lucide-react'
@@ -31,7 +32,7 @@ export function SkuMobileCard({ pf, onClick, selectable = false, checked = false
   note?: React.ReactNode
 }) {
   return (
-    <div className="card" onClick={onClick}
+    <div className="card" {...focusAttr('SKU', pf.id)} onClick={onClick}
       style={{ padding: '12px 14px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'flex-start', background: checked ? 'var(--bg-fef2f2)' : undefined, borderColor: checked ? 'var(--fg-fca5a5)' : undefined }}>
       {selectable && (
         <input type="checkbox" checked={checked} readOnly style={{ width: 16, height: 16, marginTop: 2, flexShrink: 0, pointerEvents: 'none' }} />

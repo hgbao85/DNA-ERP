@@ -10,6 +10,7 @@
  *   2026-09-18 vì không còn trang nào import.
  */
 
+import { focusKey } from '../../utils/notificationLink'
 import { useState, useMemo, useEffect } from 'react'
 import { ChevronRight, ChevronLeft, ChevronDown, Check, Clock, AlertTriangle, Plus, Send, CalendarClock, CheckCircle2, Lock, Wrench, Flame, SprayCan, type LucideIcon } from 'lucide-react'
 import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
@@ -240,6 +241,7 @@ function PiListBoard({ groups, cfg, onEnter }: { groups: PiGroup[]; cfg: StageCf
       columns={cols}
       rows={views}
       rowKey={v => v.g.productionInvoiceId}
+      rowFocus={v => focusKey('PI_CODE', v.g.piCode)}
       clickable={() => true}
       onRowClick={v => onEnter(v.g.productionInvoiceId)}
       rowTitle={() => 'Bấm để xem danh sách SKU trong PI này'}
@@ -935,7 +937,7 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   // Component dùng chung cho nhiều màn Hàn/Sơn/KCS - `rows` đang sửa dở được đồng bộ từ `fetched`
   // qua useEffect bên dưới, nên KHÔNG tự refetch khi có thay đổi từ người khác (sẽ đè số đang nhập
   // dở). Chỉ báo, người dùng tự bấm tải lại. Rỗng khi stage=undefined (màn Phôi không dùng 2 fetch này).
-  const dataChange = useRealtimeChangeNotice(stage ? ['production-batches', 'qc-reviews'] : [])
+  const dataChange = useRealtimeChangeNotice(stage ? ['production-batches', 'qc-reviews', 'production-orders'] : [])
 
   const [rows, setRows] = useState<ProcRow[]>(() => seed?.() ?? [])
   useEffect(() => {

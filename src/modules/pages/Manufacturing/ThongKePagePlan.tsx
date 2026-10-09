@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { focusAttrAny, focusKey } from '../../../utils/notificationLink'
 import { format } from 'date-fns'
 import { AlertTriangle, ArrowLeft, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, Factory, PackageCheck, Search, ShoppingCart, Wrench, type LucideIcon } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
@@ -1452,8 +1453,9 @@ function PiFloorSummary({ counts }: { counts: Record<FloorStage, number> }) {
 }
 
 // Thẻ 1 dòng (PI hoặc SKU) thay cho dòng bảng trên điện thoại: tiêu đề + công đoạn hiện tại + lưới số liệu + chân thẻ.
-function MobileRowCard({ onClick, title, subtitle, stage, variance, meta, footer }: {
+function MobileRowCard({ onClick, title, subtitle, stage, variance, meta, footer, focusKeys }: {
   onClick: () => void
+  focusKeys?: ReadonlyArray<string | null | undefined>
   title: React.ReactNode
   subtitle?: React.ReactNode
   stage: { label: string; icon: React.ReactNode; pct: number }
@@ -1462,7 +1464,7 @@ function MobileRowCard({ onClick, title, subtitle, stage, variance, meta, footer
   footer?: React.ReactNode
 }) {
   return (
-    <div className="card" role="button" tabIndex={0} onClick={onClick}
+    <div className="card" {...focusAttrAny(focusKeys ?? [])} role="button" tabIndex={0} onClick={onClick}
       onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick() } }}
       style={{ padding: '12px 14px', cursor: 'pointer' }}>
       <div style={{ fontWeight: 700, fontSize: 14, wordBreak: 'break-word' }}>{title}</div>
@@ -1889,6 +1891,7 @@ export default function ThongKePagePlan() {
           ) : pageItems.map(p => (
             <MobileRowCard
               key={p.piId}
+              focusKeys={[focusKey('PRODUCTION_INVOICE', p.piId), focusKey('PI_CODE', p.piCode)]}
               onClick={() => setSelectedPiId(p.piId)}
               title={<span style={{ fontFamily: 'monospace' }}>{p.piCode}</span>}
               subtitle={p.rows.length + ' SKU · ' + p.customers}
@@ -1927,6 +1930,7 @@ export default function ThongKePagePlan() {
               return (
                 <tr
                   key={p.piId}
+                  {...focusAttrAny([focusKey('PRODUCTION_INVOICE', p.piId), focusKey('PI_CODE', p.piCode)])}
                   onClick={() => setSelectedPiId(p.piId)}
                   role="button"
                   tabIndex={0}

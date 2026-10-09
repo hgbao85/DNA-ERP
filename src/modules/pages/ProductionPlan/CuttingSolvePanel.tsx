@@ -14,6 +14,7 @@
  * nêu thẳng lý do BE trả về - KHSX biết phải chỉnh gì (gộp khác, xin đặc cách, tính lại).
  */
 
+import { focusAttr } from '../../../utils/notificationLink'
 import { Fragment, useEffect, useState } from 'react'
 import { AlertTriangle, Check, ChevronDown, ChevronRight, ChevronUp, Loader2 } from 'lucide-react'
 import type { CuttingBatchSolve, CuttingSolveLine } from '../../../services/cutting-batch-api'
@@ -386,7 +387,7 @@ export default function CuttingSolvePanel({
         const warning = ready ? (s.invoiceReadiness?.warning ?? null) : null
         const skuCount = (s.items ?? []).length
         return (
-          <div key={s.id} data-solve-id={s.id} style={{ background: 'var(--surface)', border: `1px solid ${ready ? 'var(--fg-86efac)' : 'var(--border)'}`, borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+          <div key={s.id} data-solve-id={s.id} {...focusAttr('CUTTING_PROPOSAL', s.id)} style={{ background: 'var(--surface)', border: `1px solid ${ready ? 'var(--fg-86efac)' : 'var(--border)'}`, borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
             <button
               onClick={() => onToggle(s.id)}
               aria-expanded={open}

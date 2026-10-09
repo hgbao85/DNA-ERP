@@ -11,6 +11,7 @@
  * toàn màn hình từ `app/page.tsx`, mở qua query `?notif=all` (giữ nguyên `m`/`p` bên dưới để đóng
  * lại đúng chỗ đang xem, xem `MainERP`).
  */
+import { emitNotificationNavigate } from '../hooks/useCloseNavOnNotification'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Bell, CheckCheck, Info, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react'
@@ -18,7 +19,8 @@ import { getNotifications } from '../services/api'
 import { useFetch } from '../hooks/useFetch'
 import { useNotifications } from '../context/NotificationsContext'
 import type { Notification, NotificationCategory } from '../types/admin'
-import { buildNotificationLinkUrl } from '../utils/notificationLink'
+import { isLinkUnreachable, resolveNotificationUrl } from '../utils/notificationLink'
+import { useAuth } from '../context/AuthContext'
 import SearchInput from './SearchInput'
 import EmptyState from './EmptyState'
 import LoadingState from './LoadingState'
@@ -59,6 +61,8 @@ function fmtDateTime(iso: string): string {
 
 function Row({ n, onOpen }: { n: Notification; onOpen: (n: Notification) => void }) {
   const { color, Icon } = SEVERITY_STYLE[n.severity] ?? SEVERITY_STYLE.INFO
+  const { user } = useAuth()
+  const unreachable = isLinkUnreachable(n, user)
   return (
     <button
       onClick={() => onOpen(n)}
@@ -81,6 +85,7 @@ function Row({ n, onOpen }: { n: Notification; onOpen: (n: Notification) => void
           </span>
           <span>{fmtDateTime(n.createdAt)}</span>
           {n.isResolved && <span style={{ color: 'var(--fg-2e7d32)', fontWeight: 600 }}>· Đã xử lý</span>}
+          {unreachable && <span title="Thông báo này trỏ tới màn của phân hệ khác, vai trò của bạn không mở được">· Chỉ để xem</span>}
         </div>
       </div>
     </button>
@@ -93,6 +98,7 @@ interface MyNotificationsPageProps {
 
 export default function MyNotificationsPage({ onClose }: MyNotificationsPageProps) {
   const router = useRouter()
+  const { user } = useAuth()
   // Dùng chung context với NotificationCenter (không gọi thẳng service) - để badge/unread-count ở
   // chuông cập nhật NGAY khi đọc/đọc-tất-cả từ trang này, không phải chờ tới lần poll 30s kế tiếp.
   const { markRead: markReadInContext, markAllRead: markAllReadInContext } = useNotifications()
@@ -130,8 +136,10 @@ export default function MyNotificationsPage({ onClose }: MyNotificationsPageProp
 
   const openNotification = async (n: Notification) => {
     if (!n.isRead) await markReadInContext(n.id)
-    if (n.link?.module) {
-      router.push(buildNotificationLinkUrl(n.link))
+    const url = resolveNotificationUrl(n, user)
+    if (url) {
+      emitNotificationNavigate()
+      router.push(url)
       return
     }
     // Không có link để điều hướng - chỉ cần cập nhật lại dòng vừa đọc trong danh sách đang xem.

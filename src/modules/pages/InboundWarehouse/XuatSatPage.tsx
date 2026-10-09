@@ -18,6 +18,7 @@
  * "thanh sắt cấu thành"/"làm tuần tự", xem roadmap M3).
  */
 
+import { focusAttr } from '../../../utils/notificationLink'
 import { useState } from 'react'
 import { ArrowUpFromLine, ChevronLeft, Check } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
@@ -297,7 +298,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
             </thead>
             <tbody>
               {piGroups.map(g => (
-                <tr key={g.productionInvoiceId} onClick={() => setSelectedPi(g)} style={row}>
+                <tr key={g.productionInvoiceId} {...focusAttr('PI_CODE', g.piCode)} onClick={() => setSelectedPi(g)} style={row}>
                   <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {g.piCode}
                   </td>

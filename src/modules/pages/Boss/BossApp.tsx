@@ -1,9 +1,10 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
+import { useEffect, useState, useCallback } from 'react'
 import { LayoutDashboard, Package, LogOut, CalendarClock, Warehouse, ClipboardCheck, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
-import { useUrlState } from '../../../hooks/useUrlState'
+import { useUrlState, useUrlParamValue } from '../../../hooks/useUrlState'
 import { useWorkQueue } from '../../../context/WorkQueueContext'
 import NotificationCenter from '../../../components/NotificationCenter'
 import SKUReviewPage from '../ProductionPlan/SKUReviewPage'
@@ -36,6 +37,13 @@ const CHO_DUYET_FILTERS: { key: ChoDuyetFilter; label: string }[] = [
 
 function ChoDuyetSection({ skuBadge, lenhSxBadge }: { skuBadge?: number; lenhSxBadge?: number }) {
   const [filter, setFilter] = useState<ChoDuyetFilter>('sku-moi')
+  // Bấm thông báo mở thẳng đúng mục (focus=<entityType>:<id>): mục nằm ở tab con nào thì mở tab đó, không thì
+  // dòng cần nháy sáng không được render. SKU chờ duyệt -> 'SKU mới'; PI chờ duyệt -> 'Lệnh sản xuất'.
+  const focusHint = useUrlParamValue('focus')
+  useEffect(() => {
+    if (focusHint?.startsWith('PRODUCTION_INVOICE')) setFilter('lenh-sx')
+    else if (focusHint?.startsWith('SKU')) setFilter('sku-moi')
+  }, [focusHint])
   const badgeByKey: Record<ChoDuyetFilter, number | undefined> = { 'sku-moi': skuBadge, 'lenh-sx': lenhSxBadge }
 
   return (
@@ -102,6 +110,8 @@ export default function BossApp() {
   const isCompact = useIsCompact()
   const isMobile  = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const closeNav = useCallback(() => setDrawerOpen(false), [])
+  useCloseNavOnNotification(closeNav)
   const setPage = (id: Page) => { setPageState(id); setUrlPage(id) }
   const selectPage = (id: Page) => { setPage(id); setDrawerOpen(false) }
   // Điều hướng TỪ BÊN NGOÀI (NotificationCenter gọi router.push('/?m=boss&p=...') từ sâu trong

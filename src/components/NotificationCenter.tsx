@@ -11,11 +11,13 @@
  * (đồng bộ với `useUrlState('m')` ở app/page.tsx — xem đó để hiểu vì sao KHÔNG cần truyền callback
  * điều hướng xuyên suốt props của 7 tầng *App.tsx).
  */
+import { emitNotificationNavigate } from '../hooks/useCloseNavOnNotification'
 import { useState } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Bell, X, CheckCheck, Info, CheckCircle2, AlertTriangle, AlertCircle } from 'lucide-react'
 import { useIsCompact } from '../hooks/useMediaQuery'
-import { buildNotificationLinkUrl } from '../utils/notificationLink'
+import { isLinkUnreachable, resolveNotificationUrl } from '../utils/notificationLink'
+import { useAuth } from '../context/AuthContext'
 import type { NotificationTab } from '../hooks/useNotifications'
 import { useNotifications } from '../context/NotificationsContext'
 import type { Notification } from '../types/admin'
@@ -49,6 +51,8 @@ function timeAgo(iso: string): string {
 
 function Row({ n, onOpen }: { n: Notification; onOpen: (n: Notification) => void }) {
   const { color, Icon } = SEVERITY_STYLE[n.severity] ?? SEVERITY_STYLE.INFO
+  const { user } = useAuth()
+  const unreachable = isLinkUnreachable(n, user)
   return (
     <button
       onClick={() => onOpen(n)}
@@ -70,6 +74,7 @@ function Row({ n, onOpen }: { n: Notification; onOpen: (n: Notification) => void
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4, fontSize: 11, color: 'var(--text3)' }}>
           <span>{timeAgo(n.createdAt)}</span>
           {n.isResolved && <span style={{ color: 'var(--fg-2e7d32)' }}>· Đã xử lý</span>}
+          {unreachable && <span title="Thông báo này trỏ tới màn của phân hệ khác, vai trò của bạn không mở được">· Chỉ để xem</span>}
         </div>
       </div>
     </button>
@@ -94,6 +99,7 @@ export default function NotificationCenter({ size = 16, color }: NotificationCen
   const searchParams = useSearchParams()
   const isCompact = useIsCompact()
   const [open, setOpen] = useState(false)
+  const { user } = useAuth()
   const { unread, items, listLoading, tab, toast, openWithTab, switchTab, markRead, markAllRead, dismissToast } = useNotifications()
 
   const toggle = () => {
@@ -108,8 +114,10 @@ export default function NotificationCenter({ size = 16, color }: NotificationCen
   const openNotification = async (n: Notification) => {
     if (!n.isRead) markRead(n.id)
     setOpen(false)
-    if (n.link?.module) {
-      router.push(buildNotificationLinkUrl(n.link))
+    const url = resolveNotificationUrl(n, user)
+    if (url) {
+      emitNotificationNavigate()
+      router.push(url)
     }
   }
 

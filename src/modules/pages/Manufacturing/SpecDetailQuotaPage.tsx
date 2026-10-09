@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { focusAttr } from '../../../utils/notificationLink'
 import { format } from 'date-fns'
 import { ChevronRight, ChevronLeft, X } from 'lucide-react'
 import SkuImageThumb from '../../../components/SkuImageThumb'
@@ -216,7 +217,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                   const st = bomStatus(item.id)
                   const rejectReason = st === 'rejected' ? findPf(item.id)?.quotaManagement?.reviewStatus?.reason : undefined
                   return (
-                  <tr key={item.id}
+                  <tr key={item.id} {...focusAttr('SKU', item.id)}
                     onClick={() => openBom(item)}
                     style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer', transition: 'background .1s' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}

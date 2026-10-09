@@ -8,6 +8,7 @@
  * nhiều PI/cỡ đoạn cần 2 tầng).
  */
 
+import { focusAttr } from '../../../utils/notificationLink'
 import { useMemo, useState } from 'react'
 import { ClipboardCheck, Check, Clock, X, Plus, Upload } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
@@ -118,7 +119,7 @@ export default function KcsChanNhomSection() {
             {rows.map(b => {
               const failed = reviewByBundle.get(b.id)?.failedQty ?? 0
               return (
-                <tr key={b.id} style={{ borderTop: '1px solid var(--border)' }}>
+                <tr key={b.id} {...focusAttr('MATERIAL_YIELD_STEP_BUNDLE', b.id)} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)' }}>{b.piCode}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{b.outputMaterialName}</td>
                   <td style={td}>{PROCESS_STEP_LABELS[b.step]}</td>

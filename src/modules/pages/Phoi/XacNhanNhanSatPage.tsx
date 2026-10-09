@@ -23,6 +23,7 @@
  * MaterialYieldRecipesService.getProductionDemand() doc comment BE).
  */
 
+import { focusAttr } from '../../../utils/notificationLink'
 import { Fragment, useMemo, useState } from 'react'
 import { Check, ChevronLeft, Clock, RotateCcw, Package, Wrench, ArrowDownToLine } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
@@ -198,7 +199,7 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
               const isReturn = l.status === 'RECEIVED' && !!l.reworkOfId
               return (
                 <Fragment key={l.id}>
-                  <tr style={{ borderTop: '1px solid var(--border)', opacity: l.status === 'QC_PASSED' && failed === 0 ? 0.75 : 1, background: isReturn ? 'var(--red-bg, var(--bg-fef2f2))' : undefined }}>
+                  <tr {...focusAttr('STEEL_ISSUE', l.id)} style={{ borderTop: '1px solid var(--border)', opacity: l.status === 'QC_PASSED' && failed === 0 ? 0.75 : 1, background: isReturn ? 'var(--red-bg, var(--bg-fef2f2))' : undefined }}>
                     <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
                       {l.salesOrderCode ?? '—'}
                     </td>
@@ -247,7 +248,7 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
             })}
             {yieldRows.map(y => (
               <Fragment key={y.id}>
-                <tr style={{ borderTop: '1px solid var(--border)', opacity: y.status === 'RECEIVED' ? 0.75 : 1 }}>
+                <tr {...focusAttr('MATERIAL_YIELD_ISSUE', y.id)} style={{ borderTop: '1px solid var(--border)', opacity: y.status === 'RECEIVED' ? 0.75 : 1 }}>
                   <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
                     {y.salesOrderCode ?? '—'}
                   </td>
@@ -278,7 +279,7 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
             ))}
             {recipeRows.map(y => (
               <Fragment key={y.id}>
-                <tr style={{ borderTop: '1px solid var(--border)', opacity: y.status === 'RECEIVED' ? 0.75 : 1 }}>
+                <tr {...focusAttr('MATERIAL_YIELD_RECIPE_ISSUE', y.id)} style={{ borderTop: '1px solid var(--border)', opacity: y.status === 'RECEIVED' ? 0.75 : 1 }}>
                   {/* Không gắn PO/SKU - thuộc về cả PI, hiện mã PI thay PO. */}
                   <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
                     {y.piCode}

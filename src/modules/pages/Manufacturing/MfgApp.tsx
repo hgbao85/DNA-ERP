@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import FloorStoppedBanner from '../../../components/FloorStoppedBanner'
+import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
 import { ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, ClipboardCheck, Box, CalendarClock, Wrench, Flame, SprayCan, Check, Frame, Layers, Play, PackageCheck, Ruler, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
@@ -135,6 +137,8 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   const isCompact = useIsCompact()
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const closeNav = useCallback(() => setDrawerOpen(false), [])
+  useCloseNavOnNotification(closeNav)
   // Đổi tab (kể cả nhảy tab từ trang con, vd "Xem hướng dẫn cắt") luôn đóng drawer.
   const setTab = (id: TabId) => { setTabState(id); setUrlTab(id); setDrawerOpen(false) }
   // Điều hướng TỪ BÊN NGOÀI (NotificationCenter gọi router.push('/?m=production&p=...') từ sâu
@@ -310,6 +314,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   // ── Main content ───────────────────────────────────────────────────────
   const content = (
       <>
+        {(isPhoi || isHan || isSon || isKcs) && <FloorStoppedBanner />}
         {tab === 'lenh-sx' && (isDirector || isProdMgr) && <LenhSXPage />}
         {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePagePlan />}
         {tab === 'phoi-xac-nhan-nhan-sat' && (isPhoi || isDirector) && <XacNhanNhanSatPage readOnly={isDirector} />}

@@ -26,6 +26,8 @@ const ACCENT = 'var(--fg-e65100)'
 // ── Types ──────────────────────────────────────────────────────────
 export interface KcsLine extends ProcLine {
   pendingQty: number          // chờ kiểm — SL vừa báo, chưa duyệt
+  /** Khoá mở-thẳng-đúng-mục từ thông báo (vd 'PRODUCTION_BATCH:12') - xem utils/notificationLink.ts. */
+  focusKey?: string
   approvedQty?: number        // SL đã KCS duyệt ĐẠT (lô DA_CAT)
   /** Tổng không đạt CỘNG DỒN LỊCH SỬ qua các lần duyệt (2026-09-08 lần 2, xem changelog "Bù đủ dồn
    *  về bảng tổng") - KHÔNG tự giảm khi tổ bù đủ (Bù đủ = 1 lô HOÀN TOÀN MỚI gửi duyệt lại, không
@@ -247,6 +249,7 @@ function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, onBack, o
         columns={cols}
         rows={lines}
         rowKey={l => l.id}
+        rowFocus={l => l.focusKey}
         rowTone={l => l.pendingQty > 0 ? 'alert' : 'default'}
       />
       {target && (
@@ -318,6 +321,7 @@ function KcsPoListBoard({ rows, cfg, onEnter }: { rows: KcsRow[]; cfg: StageCfg;
       columns={cols}
       rows={views}
       rowKey={v => v.r.id}
+      rowFocus={v => (v.r.lines ?? []).map(l => l.focusKey).filter(Boolean).join(' ') || undefined}
       rowTone={v => v.choKiem > 0 ? 'alert' : 'default'}
       clickable={() => true}
       onRowClick={v => onEnter(v.r.id)}

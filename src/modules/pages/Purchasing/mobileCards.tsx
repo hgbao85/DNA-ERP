@@ -1,4 +1,5 @@
 'use client'
+import { focusAttr } from '../../../utils/notificationLink'
 import type { ReactNode } from 'react'
 import type { PurchaseProposal } from '../../../context/InspectionContext'
 
@@ -17,7 +18,7 @@ export function ProposalCards({ proposals, onSelect, badge, meta }: {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {proposals.map(p => (
-        <div key={p.id} className="card" onClick={() => onSelect(p.id)} style={{ padding: '12px 14px', cursor: 'pointer' }}>
+        <div key={p.id} {...focusAttr('PURCHASE_PROPOSAL', p.id)} className="card" onClick={() => onSelect(p.id)} style={{ padding: '12px 14px', cursor: 'pointer' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontFamily: 'monospace', wordBreak: 'break-word' }}>{p.salesOrderCode ?? '—'}</div>

@@ -15,6 +15,7 @@
  * Toggle góc phải: "Xác nhận" (đợt chờ) · "Lịch sử" (log đã nhận + tổng theo vật tư).
  */
 
+import { focusAttr } from '../../../utils/notificationLink'
 import { useMemo, useState } from 'react'
 import { Check, PackageCheck, Clock } from 'lucide-react'
 import { format } from 'date-fns'
@@ -128,7 +129,7 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: M
                 {choNhan.map(i => {
                   const editing = edit[i.id] != null
                   return (
-                    <tr key={i.id} style={{ borderTop: '1px solid var(--border)' }}>
+                    <tr key={i.id} {...focusAttr('MATERIAL_ISSUE', i.id)} style={{ borderTop: '1px solid var(--border)' }}>
                       <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{i.salesOrderCode ?? '—'}</td>
                       <td style={{ ...td, fontWeight: 600 }}>
                         {i.materialName} <span style={{ color: 'var(--text3)', fontWeight: 400 }}>({i.materialCode})</span>

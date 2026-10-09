@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { focusAttr } from '../../../utils/notificationLink'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
@@ -176,7 +177,7 @@ export default function OrderManagementPage() {
             const doneCount = po.items.filter((it) => it.status === 'HOAN_THANH').length
             const notDoneCount = po.items.length - doneCount
             return (
-              <div key={po.id} className="card" onClick={() => setDetailPO(po)} style={{ cursor: 'pointer', padding: '12px 14px' }}>
+              <div key={po.id} {...focusAttr('SALES_ORDER_CODE', po.orderCode)} className="card" onClick={() => setDetailPO(po)} style={{ cursor: 'pointer', padding: '12px 14px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 700, color: 'var(--blue)', wordBreak: 'break-word' }}>{po.orderCode}</div>
@@ -225,6 +226,7 @@ export default function OrderManagementPage() {
               return (
                 <tr
                   key={po.id}
+                  {...focusAttr('SALES_ORDER_CODE', po.orderCode)}
                   onClick={() => setDetailPO(po)}
                   style={{ borderBottom: '1px solid var(--border)', cursor: 'pointer' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}

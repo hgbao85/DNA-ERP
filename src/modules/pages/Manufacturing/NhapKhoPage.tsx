@@ -1,4 +1,5 @@
 ﻿'use client'
+import { focusAttr } from '../../../utils/notificationLink'
 import { useEffect, useState } from 'react'
 import { ArrowDownToLine, ArrowLeftRight, ChevronLeft, Paperclip } from 'lucide-react'
 import { format } from 'date-fns'
@@ -302,6 +303,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
               return (
                 <tr
                   key={p.id}
+                  {...focusAttr('PURCHASE_PROPOSAL', p.id)}
                   onClick={() => setSelectedId(p.id)}
                   style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}

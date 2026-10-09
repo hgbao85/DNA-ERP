@@ -45,6 +45,7 @@
  * KCS, đúng triết lý "không cap lúc báo, KCS mới là bước kiểm soát" vốn có của module này.
  */
 
+import { focusAttrAny, focusKey } from '../../../utils/notificationLink'
 import { useMemo, useState } from 'react'
 import {
   ChevronLeft, ChevronRight, ChevronDown, Wrench, Clock, Check, AlertTriangle, RotateCcw, Plus, Ruler, X, Send,
@@ -199,7 +200,7 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
   // cho toàn bộ danh sách PI (không theo từng PI riêng) - danh sách chưa lớn, cùng idiom "fetch
   // hết rồi lọc/gộp client" đã dùng cho issues/reviews ở trên.
   const { data: allBundles, refetch: refetchBundles } = useFetch<BeCutBundle[]>(() => api.getAllCutBundles(), [])
-  const dataChange = useRealtimeChangeNotice(['steel-issues', 'qc-reviews', 'production-batches', 'material-yield-recipes'])
+  const dataChange = useRealtimeChangeNotice(['steel-issues', 'qc-reviews', 'production-batches', 'material-yield-recipes', 'production-orders'])
   // Vật tư thành phẩm (2026-09-04, gộp màn - trước đây tab riêng "Vật tư thành phẩm", xem
   // VatTuTpDetail.tsx). listProductionOrdersForStage() trả MỌI order active (dùng chung Hàn/Sơn/
   // Phôi, không lọc theo needsHan) - lọc còn lại dựa vào plan.items rỗng hay không bên dưới.
@@ -355,7 +356,7 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
               // 2026-09-10, cùng lý do sửa ở PiDetail/materialGroups: gửi KCS xong nhưng CHƯA duyệt
               // không được tính là xong) trên tổng số mảnh.
               return (
-                <tr key={r.productionInvoiceId} onClick={() => setSelPi(r.productionInvoiceId)} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
+                <tr key={r.productionInvoiceId} {...focusAttrAny([focusKey('PRODUCTION_INVOICE', r.productionInvoiceId), focusKey('PI_CODE', r.poNumber)])} onClick={() => setSelPi(r.productionInvoiceId)} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}>
                   <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{r.poNumber}</td>

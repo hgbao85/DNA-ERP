@@ -188,6 +188,9 @@ textarea { resize: vertical; min-height: 80px; }
 @keyframes dnaModalCardIn { from { opacity: 0; } to { opacity: 1; } }
 .dna-modal-overlay-in { animation: dnaModalOverlayIn 0.12s ease forwards; }
 .dna-modal-card-in { animation: dnaModalCardIn 0.15s ease forwards; }
+/* Mục được thông báo trỏ tới (components/NotificationFocus.tsx) - nháy sáng để người dùng thấy ngay đúng dòng. */
+@keyframes notifFocusFlash { 0%,100% { background-color: transparent; } 50% { background-color: rgba(245, 158, 11, 0.28); } }
+.notif-focus-flash { animation: notifFocusFlash 1.1s ease 3; outline: 2px solid #f59e0b; outline-offset: -2px; border-radius: 4px; }
 
 /* Drawer menu mobile (*App.tsx) + panel thông báo (NotificationCenter.tsx) - cùng lý do: hiện bật
    tắt tức thì (chỉ điều kiện render), thao tác lặp lại rất nhiều trên điện thoại/mọi màn hình.

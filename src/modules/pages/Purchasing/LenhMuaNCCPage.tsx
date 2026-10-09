@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { focusAttr } from '../../../utils/notificationLink'
 import { ChevronLeft, ClipboardList, FileCheck2, Paperclip, X } from 'lucide-react'
 import { useInspection, PROPOSAL_STATUS_LABELS, itemStatusLabel, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
 import { useAuth, type User } from '../../../context/AuthContext'
@@ -455,6 +456,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
               return (
                 <tr
                   key={p.id}
+                  {...focusAttr('PURCHASE_PROPOSAL', p.id)}
                   onClick={() => setSelectedId(p.id)}
                   style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}

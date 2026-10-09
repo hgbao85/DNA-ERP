@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { focusAttr } from '../../../utils/notificationLink'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
@@ -472,6 +473,7 @@ export default function SKUReviewPage() {
               {displayed.map(pf => (
                 <tr
                   key={pf.id}
+                  {...focusAttr('SKU', pf.id)}
                   onClick={() => setSelectedPf(pf)}
                   style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-f0fdf4)')}

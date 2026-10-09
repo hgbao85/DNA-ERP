@@ -19,6 +19,7 @@
  * sung sau bằng cách join thêm GET /qc-reviews theo productionBatchId nếu cần.
  */
 
+import { focusKey } from '../../../utils/notificationLink'
 import { useMemo } from 'react'
 import { KcsTwoTierScreen, type KcsRow, type KcsLine, type ReviewPayload } from '../../../components/sanxuat/kcsCore'
 import { timeVN, type StageCfg } from '../../../components/sanxuat/core'
@@ -46,7 +47,7 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
   // "Lỗi" ở cột bảng tổng là Σ QcReview.failedQty CỘNG DỒN LỊCH SỬ (2026-09-08 lần 2) - fetch cho
   // MỌI stage (không còn gate theo showPieceSteps như "Bù đủ" cũ, cột Lỗi hiện đồng nhất mọi nơi).
   const { data: reviews, refetch: refetchReviews } = useFetch(() => api.getQcReviewsForProductionBatches(), [])
-  useRealtimeRefetch(['production-batches', 'qc-reviews'], () => { void refetch(); void refetchReviews() })
+  useRealtimeRefetch(['production-batches', 'qc-reviews', 'production-orders'], () => { void refetch(); void refetchReviews() })
   // Đợt gửi KCS theo TỪNG CÔNG ĐOẠN (2026-09-07, chỉ VTTP - showPieceSteps) - gộp CHUNG bảng với
   // ProductionBatch cùng PO, phân biệt bằng nhãn "· {Công đoạn}" ở cột Quy cách.
   const { data: bundles, refetch: refetchBundles } = useFetch<BePieceStepBundle[]>(
@@ -116,7 +117,7 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
             qcReviewId: review?.id,
           }]
         return {
-          id: lineId, itemName: b.pieceName, spec: `${b.pieceCode} · lô ${timeVN(b.reportedAt)}`,
+          id: lineId, focusKey: focusKey('PRODUCTION_BATCH', b.id), itemName: b.pieceName, spec: `${b.pieceCode} · lô ${timeVN(b.reportedAt)}`,
           needQty: b.reportedQty, doneQty: 0,
           pendingQty: pending ? b.reportedQty : 0,
           approvedQty: pending ? 0 : b.reportedQty,

@@ -50,7 +50,9 @@
  * chỉ đổi VỊ TRÍ truy cập, 2 luồng dữ liệu vẫn hoàn toàn độc lập như trước).
  */
 
-import { useMemo, useState } from 'react'
+import { useUrlParamValue } from '../../../hooks/useUrlState'
+import { focusAttr, focusAttrAny, focusKey } from '../../../utils/notificationLink'
+import { useEffect, useMemo, useState } from 'react'
 import { ClipboardCheck, Check, Clock, ChevronLeft, ChevronRight, AlertTriangle, Upload, X, Plus, Wrench } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
@@ -156,7 +158,12 @@ const sectionTabBtn = (active: boolean): React.CSSProperties => ({
 })
 
 export default function KcsPhoiPage() {
-  const [section, setSection] = useState<'sat' | 'vattutp' | 'chan-nhom'>('sat')
+  // `?sub=chan-nhom` từ thông báo "Phôi gửi KCS vật tư không gắn mảnh" mở thẳng tab con tương ứng.
+  const urlSub = useUrlParamValue('sub')
+  const [section, setSection] = useState<'sat' | 'vattutp' | 'chan-nhom'>(urlSub === 'chan-nhom' ? 'chan-nhom' : 'sat')
+  useEffect(() => {
+    if (urlSub === 'chan-nhom') setSection('chan-nhom')
+  }, [urlSub])
 
   return (
     <div>
@@ -211,7 +218,7 @@ function KcsSatSection() {
           </thead>
           <tbody>
             {piRows.map((r) => (
-              <tr key={r.productionInvoiceId} onClick={() => setSelPi(r.productionInvoiceId)}
+              <tr key={r.productionInvoiceId} {...focusAttrAny(r.bundles.map((x) => (x.kind === 'cut' ? focusKey('CUT_BUNDLE', x.bundle.id) : null)))} onClick={() => setSelPi(r.productionInvoiceId)}
                 style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface2)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = '')}>
@@ -390,7 +397,7 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
               // có lỗi lịch sử vẫn hiện "đạt" - Phôi bù bằng 1 đợt MỚI riêng nếu cần.
               const totalFailed = (review?.segments ?? []).reduce((s, y) => s + y.failedQty, 0)
               return (
-                <tr key={`${x.kind}:${id}`} style={{ borderTop: '1px solid var(--border)' }}>
+                <tr key={`${x.kind}:${id}`} {...(x.kind === 'cut' ? focusAttr('CUT_BUNDLE', x.bundle.id) : {})} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ ...td, fontWeight: 600 }}>{materialNameOf(x)}</td>
                   <td style={{ ...td, fontWeight: 600, color: orderIdOf(x) ? 'var(--text)' : 'var(--text3)' }}>{skuLabelOf(x)}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>

@@ -44,6 +44,8 @@ export interface LenhSanXuatBoardProps<T> {
   clickable?: (row: T) => boolean
   onRowClick?: (row: T) => void
   rowTitle?: (row: T) => string
+  /** Khoá mở-thẳng-đúng-mục từ thông báo (`data-focus-id`, xem components/NotificationFocus.tsx): nhiều khoá cách nhau bằng khoảng trắng. */
+  rowFocus?: (row: T) => string | undefined
   expandedRow?: (row: T) => ReactNode | null   // trả nội dung để bung dòng chi tiết dưới mỗi dòng
   emptyText?: string
   footer?: ReactNode
@@ -92,6 +94,7 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
             return (
               <div
                 key={p.rowKey(row)}
+                data-focus-id={p.rowFocus?.(row)}
                 className="card"
                 role={canClick ? 'button' : undefined}
                 tabIndex={canClick ? 0 : undefined}
@@ -144,6 +147,7 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
               return (
                 <Fragment key={p.rowKey(row)}>
                   <tr
+                    data-focus-id={p.rowFocus?.(row)}
                     onClick={() => canClick && p.onRowClick?.(row)}
                     title={p.rowTitle?.(row)}
                     style={{ ...trb, cursor: canClick ? 'pointer' : tone === 'muted' ? 'not-allowed' : 'default', opacity: tone === 'muted' ? 0.55 : 1, background: bg }}

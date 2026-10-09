@@ -6,6 +6,7 @@ import { BookOpen } from 'lucide-react';
 import { useUrlState } from '../hooks/useUrlState';
 import ModuleSelector from '../components/ModuleSelector';
 import MyNotificationsPage from '../components/MyNotificationsPage';
+import NotificationFocus from '../components/NotificationFocus';
 import SalesApp from '../modules/pages/Sales/SalesApp';
 import MfgApp from '../modules/pages/Manufacturing/MfgApp';
 import PurchasingApp from '../modules/pages/Purchasing/PurchasingApp';
@@ -142,6 +143,7 @@ function MainERP() {
     <>
       {content}
       {notifPage === 'all' && <MyNotificationsPage onClose={() => setNotifPage(null)} />}
+      <NotificationFocus />
       <GuideFab />
     </>
   );

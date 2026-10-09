@@ -1,4 +1,5 @@
 import { useState, Fragment } from 'react'
+import { focusAttr } from '../../../utils/notificationLink'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
@@ -189,6 +190,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
                 return (
                   <Fragment key={pf.id}>
                     <tr
+                      {...focusAttr('SKU', pf.id)}
                       onClick={() => deleteMode ? toggleSelect(pf.id) : setSelectedPf(pf)}
                       style={{ borderTop: '1px solid var(--border)', cursor: 'pointer', background: isChecked ? 'var(--bg-fef2f2)' : undefined }}
                       onMouseEnter={e => { if (!isChecked) e.currentTarget.style.background = deleteMode ? 'var(--bg-fff5f5)' : 'var(--bg-f0fdf4)' }}

@@ -60,10 +60,15 @@ export type NotificationSeverity = 'INFO' | 'SUCCESS' | 'WARNING' | 'CRITICAL';
 /** BE dựng URL từ đây (BE không biết cấu trúc route FE - xem changelog notification 2026-09-25 mục
  *  6.2). `module`/`page` khớp đúng chuỗi FE dùng làm khoá điều hướng (app/page.tsx `activeModule`,
  *  `type Page` của từng *App.tsx) - hợp đồng bằng convention, không có type dùng chung giữa 2 repo. */
-export interface NotificationLink {
+export interface NotificationLinkTarget {
   module: string;
   page?: string;
   params?: Record<string, string | number | null>;
+}
+
+export interface NotificationLink extends NotificationLinkTarget {
+  /** Đích thay thế khi người nhận không mở được phân hệ chính (BE: NotificationLink.alternatives). */
+  alternatives?: NotificationLinkTarget[];
 }
 
 /**

@@ -58,6 +58,8 @@ export interface NotificationCreatedPayload {
   title: string;
   message: string;
   link: unknown;
+  entityType: string | null;
+  entityId: string | null;
   merged: boolean;
   createdAt: string;
 }

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
 import { ClipboardList, Users, History, LogOut, Grid, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
@@ -30,6 +31,8 @@ export default function SalesApp({ onBack }: Props) {
   const isCompact = useIsCompact()
   const isMobile = useIsMobile()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const closeNav = useCallback(() => setDrawerOpen(false), [])
+  useCloseNavOnNotification(closeNav)
 
   // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27).
   const { counts: workQueue } = useWorkQueue()
