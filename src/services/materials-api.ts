@@ -39,9 +39,13 @@ export interface BeMaterial {
    *  nhận được khi cắt, gửi xuống solver cắt sắt (ghi đè mặc định hệ thống). null với mọi
    *  nhóm khác - xem MaterialsService.resolveWasteFields (BE). */
   maxCuttingWastePercentage: number | null;
-  /** CHỈ có ý nghĩa với vật tư KHÔNG thuộc nhóm Sắt - % dự trù cộng thêm vào số lượng đề xuất
-   *  mua (chưa nối vào luồng đề xuất mua nào). null với vật tư Sắt. */
+  /** CHỈ có ý nghĩa với vật tư KHÔNG thuộc nhóm Sắt phần mềm - % dự trù cộng thêm vào số lượng
+   *  đề xuất mua. null với Sắt phần mềm. */
   purchaseWastePercentage: number | null;
+  /** Tri-state (2026-10-10) - ép CÁCH làm tròn buyQty khi tính đề xuất mua. null = mỗi luồng tự
+   *  theo mặc định gốc (vật tư tiêu hao giữ thập phân, Sắt tự tính luôn ceil nguyên cây/tấm).
+   *  true = ép ceil lên nguyên (vd Đinh/Vis/Nút). false = ép GIỮ thập phân (vd Tấm sắt la). */
+  purchaseRoundUp: boolean | null;
   imageUrl: string | null;
   isActive: boolean;
   createdAt: string;
@@ -62,6 +66,15 @@ export async function getMaterials(): Promise<BeMaterial[]> {
   return Array.isArray(res) ? res : res.data;
 }
 
+// AdminEntityPage's <select> cho purchaseRoundUp chỉ gửi được string ("true"/"false") hoặc
+// null/undefined ("— Mặc định —", xem comment ở field config trong MaterialsPage.tsx) - decode
+// về đúng kiểu boolean|null|undefined mà BE mong đợi trước khi gửi.
+function decodeRoundUp(v: unknown): boolean | null | undefined {
+  if (v === 'true') return true;
+  if (v === 'false') return false;
+  return v as null | undefined;
+}
+
 export async function createMaterial(data: Record<string, unknown>): Promise<BeMaterial> {
   return http.post<BeMaterial>('/materials', {
     code: data.code,
@@ -79,6 +92,7 @@ export async function createMaterial(data: Record<string, unknown>): Promise<BeM
     // (vật tư không có hao hụt mua), `|| undefined` sẽ vô tình nuốt mất nó.
     // maxCuttingWastePercentage KHÔNG gửi nữa (2026-09-30): Sắt không còn ngưỡng cắt riêng theo vật tư.
     purchaseWastePercentage: data.purchaseWastePercentage,
+    purchaseRoundUp: decodeRoundUp(data.purchaseRoundUp),
     openingQty: data.openingQty || undefined,
     imageUrl: data.imageUrl || undefined,
   });
@@ -108,6 +122,7 @@ export async function updateMaterial(id: number | string, data: Record<string, u
     // tưởng "không đụng field" nên giữ nguyên giá trị cũ dù báo lưu thành công.
     khoUnitFactor: data.khoUnitFactor ?? null,
     purchaseWastePercentage: data.purchaseWastePercentage ?? null,
+    purchaseRoundUp: decodeRoundUp(data.purchaseRoundUp),
     imageUrl: data.imageUrl,
     isActive: data.isActive,
   });

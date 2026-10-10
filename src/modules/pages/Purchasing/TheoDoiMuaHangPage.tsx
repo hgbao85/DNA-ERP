@@ -25,6 +25,7 @@ interface Row {
   poNumber: string | null
   itemName: string
   buyQty: number
+  purchaseWastePercentage?: number | null
   unit: string
   spec?: string | null
   stockLengthMm?: number | null
@@ -53,6 +54,7 @@ function buildRows(p: PurchaseProposal): Row[] {
       poNumber: p.salesOrderCode,
       itemName: item.name,
       buyQty: item.buyQty,
+      purchaseWastePercentage: item.purchaseWastePercentage,
       unit: item.unit,
       spec: item.spec,
       stockLengthMm: item.stockLengthMm,
@@ -187,6 +189,7 @@ export default function TheoDoiMuaHangPage() {
                 stockLengthMm={r.stockLengthMm}
                 fields={[
                   { label: 'Tổng SL', value: <>{r.buyQty} <span style={{ color: 'var(--text3)', fontSize: 11 }}>{r.unit}</span></> },
+                  { label: 'Hao hụt', value: r.purchaseWastePercentage ? `+${r.purchaseWastePercentage}%` : '—' },
                   { label: 'Đã mua', value: <b style={{ color: r.boughtQty > 0 ? 'var(--fg-16a34a)' : 'var(--text3)' }}>{r.boughtQty}</b> },
                   { label: 'Còn lại', value: <b style={{ color: r.remaining > 0 ? 'var(--fg-d97706)' : 'var(--fg-16a34a)' }}>{r.remaining}</b> },
                   { label: 'Hàng về kho', value: warehouseName(r.warehouseCode, r.khoLabel) },
@@ -206,6 +209,7 @@ export default function TheoDoiMuaHangPage() {
                 <th style={th}>Quy cách</th>
                 <th style={{ ...th, textAlign: 'right' }}>Chiều dài</th>
                 <th style={{ ...th, textAlign: 'right' }}>Tổng SL</th>
+                <th style={{ ...th, textAlign: 'right' }}>Hao hụt</th>
                 <th style={th}>ĐVT</th>
                 <th style={{ ...th, textAlign: 'right' }}>Đã mua</th>
                 <th style={{ ...th, textAlign: 'right' }}>Còn lại</th>
@@ -224,6 +228,7 @@ export default function TheoDoiMuaHangPage() {
                     {r.stockLengthMm != null ? `${r.stockLengthMm}mm` : '—'}
                   </td>
                   <td style={{ ...td, textAlign: 'right' }}>{r.buyQty}</td>
+                  <td style={{ ...td, textAlign: 'right', fontSize: 12, color: 'var(--text3)' }}>{r.purchaseWastePercentage ? `+${r.purchaseWastePercentage}%` : '—'}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>{r.unit}</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: r.boughtQty > 0 ? 'var(--fg-16a34a)' : 'var(--text3)' }}>{r.boughtQty}</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: r.remaining > 0 ? 'var(--fg-d97706)' : 'var(--fg-16a34a)' }}>{r.remaining}</td>

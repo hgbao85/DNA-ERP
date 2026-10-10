@@ -33,6 +33,10 @@ export interface PurchaseProposalItem {
   // vd 250 = 250 cái/kg) - null nếu vật tư chỉ có 1 đơn vị. Xem Material.purchaseUnit (BE).
   purchaseUnit?: string | null
   khoUnitFactor?: number | null
+  /** % dự trù hao hụt khi mua (Material.purchaseWastePercentage) - LIVE theo Material hiện tại,
+   *  không snapshot (2026-10-08). Đã được BE cộng vào `buyQty` rồi - field này chỉ để hiển thị
+   *  giải thích vì sao buyQty cao hơn nhu cầu gốc. null = chưa cấu hình % (hoặc Sắt phần mềm). */
+  purchaseWastePercentage?: number | null
   required: number
   actualStock: number
   buyQty: number

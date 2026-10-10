@@ -80,6 +80,10 @@ interface BeItem {
   unit: string;
   purchaseUnit: string | null;
   khoUnitFactor: number | null;
+  // % dự trù hao hụt khi mua (Material.purchaseWastePercentage) - LIVE theo Material hiện tại,
+  // KHÔNG snapshot (xem BE PurchaseProposalItemResponseDto, 2026-10-08). Đã được BE cộng vào
+  // buyQty rồi - field này chỉ để FE giải thích vì sao buyQty cao hơn nhu cầu gốc.
+  purchaseWastePercentage: number | null;
   // Kho nhận hàng THẬT của riêng vật tư này (Material.warehouseId, xem BE
   // PurchaseProposalItemResponseDto) - Sếp chốt 2026-08-15: 1 đề xuất có thể gồm nhiều vật tư
   // khác kho nhau, KHÔNG còn dùng chung warehouseCode của cả đề xuất (be.warehouseCode dưới).
@@ -146,6 +150,7 @@ function toItem(item: BeItem): PurchaseProposalItem {
     unit: item.unit,
     purchaseUnit: item.purchaseUnit,
     khoUnitFactor: item.khoUnitFactor,
+    purchaseWastePercentage: item.purchaseWastePercentage,
     required: item.actualStock + item.buyQty,
     actualStock: item.actualStock,
     buyQty: item.buyQty,

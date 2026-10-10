@@ -25,9 +25,13 @@ interface Material {
   /** CHỈ có ý nghĩa với vật tư nhóm Sắt - ngưỡng hao hụt tối đa khi cắt, gửi xuống solver cắt
    *  sắt. null với mọi nhóm khác - xem MaterialsService.resolveWasteFields (BE). */
   maxCuttingWastePercentage?: number | null
-  /** CHỈ có ý nghĩa với vật tư KHÔNG thuộc nhóm Sắt - % dự trù cộng thêm vào số lượng đề xuất
-   *  mua (chưa nối vào luồng đề xuất mua nào). null với vật tư Sắt. */
+  /** CHỈ có ý nghĩa với vật tư KHÔNG thuộc nhóm Sắt phần mềm - % dự trù cộng thêm vào số lượng
+   *  đề xuất mua. null với Sắt phần mềm. */
   purchaseWastePercentage?: number | null
+  /** Tri-state (2026-10-10) - ép CÁCH làm tròn buyQty khi tính đề xuất mua. null = mỗi luồng tự
+   *  theo mặc định gốc (vật tư tiêu hao giữ thập phân, Sắt tự tính luôn ceil nguyên cây/tấm).
+   *  true = ép ceil lên nguyên (vd Đinh/Vis/Nút). false = ép GIỮ thập phân (vd Tấm sắt la). */
+  purchaseRoundUp?: boolean | null
   imageUrl?: string | null
   /** Chỉ dùng lúc TẠO MỚI (ghi 1 bút toán OPENING_BALANCE vào StockLedger) - không phải cột
    *  thật trên Material nên không hiện ở bảng, và bị bỏ qua khi sửa vật tư (xem BE update()). */
@@ -185,10 +189,9 @@ export default function MaterialsPage() {
         // CẮT do KHSX quyết định ở "Tối ưu cắt sắt" (2026-09-30) - nên cột này luôn "—" với Sắt.
         key: 'wastePercentage', label: '% hao hụt', align: 'right',
         render: (m) => {
-          if (m.purchaseWastePercentage != null) {
-            return <span>{m.purchaseWastePercentage}% <span style={{ color: 'var(--text3)', fontSize: 11 }}>· mua</span></span>
-          }
-          return '—'
+          if (m.purchaseWastePercentage == null) return '—'
+          const roundUpNote = m.purchaseRoundUp === true ? ' · làm tròn' : m.purchaseRoundUp === false ? ' · giữ lẻ' : ''
+          return <span>{m.purchaseWastePercentage}% <span style={{ color: 'var(--text3)', fontSize: 11 }}>· mua{roundUpNote}</span></span>
         },
       },
     ],
@@ -245,6 +248,17 @@ export default function MaterialsPage() {
         name: 'purchaseWastePercentage', label: '% dự trù hao hụt khi mua', type: 'number',
         showIf: (v) => !isSoftwareSteel(v),
         placeholder: 'Để trống nếu vật tư không có hao hụt',
+      },
+      // Tri-state (2026-10-10) - 3 lựa chọn rõ nghĩa hơn checkbox 2 trạng thái, vì field này ÉP
+      // CÁCH làm tròn theo CẢ 2 CHIỀU tuỳ luồng (vật tư tiêu hao mặc định thập phân, Sắt tự tính
+      // mặc định ceil nguyên) - để trống = giữ đúng mặc định của luồng đang xử lý vật tư đó.
+      {
+        name: 'purchaseRoundUp', label: 'Làm tròn khi mua', type: 'select',
+        showIf: (v) => !isSoftwareSteel(v),
+        options: [
+          { value: 'true', label: 'Ép làm tròn LÊN số nguyên (vd Đinh/Vis/Nút)' },
+          { value: 'false', label: 'Ép GIỮ số thập phân (vd Tấm sắt la)' },
+        ],
       },
       { name: 'imageUrl', label: 'Ảnh vật tư', type: 'image' },
     ],

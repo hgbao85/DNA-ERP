@@ -298,6 +298,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
                     fields={[
                       { label: 'Tồn thực', value: <span style={{ color: 'var(--fg-dc2626)' }}>{item.actualStock}</span> },
                       { label: 'Cần mua', value: <><b style={{ color: 'var(--fg-d97706)' }}>{item.buyQty}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{item.unit}</span></> },
+                      { label: 'Hao hụt', value: item.purchaseWastePercentage ? `+${item.purchaseWastePercentage}%` : '—' },
                       { label: 'Hàng về kho', value: warehouseName(item.warehouseCode, item.khoLabel) },
                     ]}
                   />
@@ -314,6 +315,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
                     <th style={{ ...th, textAlign: 'right' }}>Chiều dài</th>
                     <th style={{ ...th, textAlign: 'right' }}>Tồn thực</th>
                     <th style={{ ...th, textAlign: 'right' }}>Cần mua</th>
+                    <th style={{ ...th, textAlign: 'right' }}>Hao hụt</th>
                     <th style={th}>ĐVT</th>
                   </tr>
                 </thead>
@@ -328,6 +330,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
                       </td>
                       <td style={{ ...td, textAlign: 'right', color: 'var(--fg-dc2626)' }}>{item.actualStock}</td>
                       <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: 'var(--fg-d97706)' }}>{item.buyQty}</td>
+                      <td style={{ ...td, textAlign: 'right', fontSize: 12, color: 'var(--text3)' }}>{item.purchaseWastePercentage ? `+${item.purchaseWastePercentage}%` : '—'}</td>
                       <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
                     </tr>
                   ))}
