@@ -14,7 +14,9 @@ function articleText(a: GuideArticle): string {
   const errs = (a.commonErrors ?? []).map(e => `${e.issue} ${e.cause} ${e.fix}`).join(' ');
   const warns = (a.warnings ?? []).join(' ');
   const statuses = (a.statuses ?? []).map(s => `${s.name} ${s.meaning}`).join(' ');
-  return [a.title, a.purpose, steps, a.result, warns, errs, statuses, (a.tags ?? []).join(' ')].join(' ');
+  const tables = (a.tables ?? []).map(t => [t.title, t.intro ?? '', t.columns.join(' '), t.rows.flat().join(' '), t.note ?? ''].join(' ')).join(' ');
+  const highlight = a.highlight ? `${a.highlight.label} ${a.highlight.text} ${a.highlight.note ?? ''}` : '';
+  return [a.title, a.purpose, highlight, tables, steps, a.result, warns, errs, statuses, (a.tags ?? []).join(' ')].join(' ');
 }
 
 export interface SearchHit {

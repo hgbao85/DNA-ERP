@@ -16,6 +16,8 @@ export default function AdminGuidePage() {
       note="Phần này chỉ tài khoản Quản trị xem được. Hướng dẫn của các vai trò khác nằm ở trang hướng dẫn chung (/guide)."
       linkFor={linkFor}
       accent="var(--fg-3949ab)"
+      accentBg="var(--bg-e8eaf6)"
+      tocMinWidth={1620}
     />
   )
 }

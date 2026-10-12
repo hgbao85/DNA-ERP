@@ -81,6 +81,7 @@ export default function MaterialsManagerApp({ onBack }: Props) {
             title="Hướng dẫn quản lý vật tư"
             note="Phần này chỉ tài khoản Quản lý vật tư xem được."
             linkFor={guideLinkFor}
+            tocMinWidth={1400}
           />
         )}
       </div>

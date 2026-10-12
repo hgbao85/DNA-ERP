@@ -54,11 +54,13 @@ function CopyLinkButton({ articleId, linkFor }: { articleId: string; linkFor?: (
   );
 }
 
-function estimateReadMinutes(article: GuideArticle): number {
+export function estimateReadMinutes(article: GuideArticle): number {
   const steps = article.steps.map(s => (typeof s === 'string' ? s : s.text)).join(' ');
   const errs = (article.commonErrors ?? []).map(e => `${e.issue} ${e.cause} ${e.fix}`).join(' ');
   const text = [
     article.purpose, steps, article.result,
+    (article.tables ?? []).map(t => `${t.intro ?? ''} ${t.rows.flat().join(' ')} ${t.note ?? ''}`).join(' '),
+    article.highlight ? `${article.highlight.text} ${article.highlight.note ?? ''}` : '',
     (article.warnings ?? []).join(' '), errs,
     (article.statuses ?? []).map(s => s.meaning).join(' '),
   ].join(' ');
@@ -185,7 +187,8 @@ export default function ArticleView({ article, group, prev, next, onNavigate, sc
   const sections = useMemo<TocSection[]>(() => {
     const list: TocSection[] = [{ id: 'sec-purpose', label: 'Giới thiệu' }];
     if (article.preconditions?.length) list.push({ id: 'sec-preconditions', label: 'Cần có trước khi làm' });
-    list.push({ id: 'sec-steps', label: 'Các bước thực hiện' });
+    (article.tables ?? []).forEach((t, i) => list.push({ id: `sec-table-${i}`, label: t.title }));
+    if (article.steps.length > 0) list.push({ id: 'sec-steps', label: article.stepsTitle ?? 'Các bước thực hiện' });
     list.push({ id: 'sec-result', label: 'Làm xong sẽ thấy gì' });
     if (article.warnings?.length) list.push({ id: 'sec-warnings', label: 'Cần lưu ý' });
     return list;
@@ -287,6 +290,21 @@ export default function ArticleView({ article, group, prev, next, onNavigate, sc
               <ScreenMock mock={article.mock} />
             ) : null}
 
+            {article.highlight && (
+              <div style={{
+                margin: '26px 0 0', padding: '16px 20px', borderRadius: 'var(--radius-lg)',
+                background: 'var(--blue-bg)', border: '1px solid var(--border)', borderLeft: '3px solid var(--blue)',
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--blue-text)', marginBottom: 6 }}>
+                  {article.highlight.label}
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 700, lineHeight: 1.55, color: 'var(--text)' }}>{article.highlight.text}</div>
+                {article.highlight.note && (
+                  <div style={{ marginTop: 6, fontSize: 14, lineHeight: 1.65, color: 'var(--text2)' }}>{article.highlight.note}</div>
+                )}
+              </div>
+            )}
+
             {article.preconditions && article.preconditions.length > 0 && (
               <>
                 <SectionTitle id="sec-preconditions">Cần có trước khi làm</SectionTitle>
@@ -296,21 +314,64 @@ export default function ArticleView({ article, group, prev, next, onNavigate, sc
               </>
             )}
 
-            <SectionTitle id="sec-steps">Các bước thực hiện</SectionTitle>
-            <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {(article.tables ?? []).map((t, ti) => (
+              <div key={ti}>
+                <SectionTitle id={`sec-table-${ti}`}>{t.title}</SectionTitle>
+                {t.intro && <p style={{ margin: '0 0 12px', fontSize: BODY_FONT, lineHeight: 1.7, color: 'var(--text2)' }}>{t.intro}</p>}
+                {/* overflowX: bảng nhiều cột vẫn cuộn ngang được trong khung của nó trên màn hẹp, không
+                   đẩy cả trang tràn ngang. */}
+                <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', overflowX: 'auto', background: 'var(--surface)' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14.5, lineHeight: 1.6 }}>
+                    <thead>
+                      <tr>
+                        {t.columns.map((c, ci) => (
+                          <th key={ci} style={{
+                            textAlign: 'left', padding: '10px 14px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)',
+                            fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text3)', whiteSpace: 'nowrap',
+                          }}>{c}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {t.rows.map((r, ri) => (
+                        <tr key={ri}>
+                          {r.map((cell, ci) => (
+                            <td key={ci} style={{
+                              padding: '11px 14px', verticalAlign: 'top', borderTop: ri === 0 ? 'none' : '1px solid var(--border)',
+                              color: ci === 0 ? 'var(--text)' : 'var(--text2)', fontWeight: ci === 0 ? 600 : 400,
+                              minWidth: ci === 0 ? 130 : undefined,
+                            }}>{cell}</td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {t.note && <p style={{ margin: '10px 0 0', fontSize: 13.5, lineHeight: 1.65, color: 'var(--text3)' }}>{t.note}</p>}
+              </div>
+            ))}
+
+            {article.steps.length > 0 && (
+            <>
+            <SectionTitle id="sec-steps">{article.stepsTitle ?? 'Các bước thực hiện'}</SectionTitle>
+            <ol style={{ margin: 0, padding: 0, listStyle: 'none', display: 'flex', flexDirection: 'column', gap: article.stepsStyle === 'bullets' ? 10 : 16 }}>
               {article.steps.map((s, i) => {
                 const step = typeof s === 'string' ? { text: s, critical: false } : s;
                 return (
                   <li key={i} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                    {article.stepsStyle === 'bullets' ? (
+                      <span aria-hidden style={{ flexShrink: 0, width: 6, height: 6, borderRadius: '50%', background: 'var(--text3)', marginTop: 12, marginLeft: 6 }} />
+                    ) : (
                     <span style={{
                       flexShrink: 0, width: 26, height: 26, borderRadius: '50%', fontSize: 13, fontWeight: 700,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       border: '1.5px solid var(--border)', color: 'var(--text2)', background: 'var(--surface)',
                     }}>{i + 1}</span>
+                    )}
                     <div style={{ paddingTop: 2, fontSize: BODY_FONT, lineHeight: 1.75, color: 'var(--text)' }}>
                       {step.critical && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 700, color: 'var(--amber)', marginBottom: 2 }}>
-                          <AlertTriangle size={13} /> Bước quan trọng
+                          <AlertTriangle size={13} /> {article.stepsStyle === 'bullets' ? 'Quan trọng' : 'Bước quan trọng'}
                         </div>
                       )}
                       <span style={{ fontWeight: step.critical ? 600 : 400 }}>{step.text}</span>
@@ -319,6 +380,8 @@ export default function ArticleView({ article, group, prev, next, onNavigate, sc
                 );
               })}
             </ol>
+            </>
+            )}
 
             <SectionTitle id="sec-result">Làm xong sẽ thấy gì</SectionTitle>
             <p style={{ margin: 0, fontSize: BODY_FONT, lineHeight: 1.75, color: 'var(--text)' }}>

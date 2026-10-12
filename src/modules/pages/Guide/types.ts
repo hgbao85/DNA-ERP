@@ -62,6 +62,25 @@ export interface GuideMock {
   buttons?: string[];
 }
 
+/** Bảng tra cứu trong bài (2026-10-12) - cho nội dung dạng "từng ô / từng cột / từng lựa chọn nghĩa
+ * là gì", vốn đọc rất khó khi bị ép thành danh sách bước 1-2-3. Cột đầu tiên được in đậm. */
+export interface GuideTable {
+  title: string;
+  /** Câu dẫn ngắn phía trên bảng */
+  intro?: string;
+  columns: string[];
+  rows: string[][];
+  /** Ghi chú nhỏ phía dưới bảng */
+  note?: string;
+}
+
+/** Khối nổi bật ngay đầu bài - 1 công thức hoặc 1 quy tắc cốt lõi người đọc phải nhớ. */
+export interface GuideHighlight {
+  label: string;
+  text: string;
+  note?: string;
+}
+
 export interface GuideArticle {
   id: string;
   title: string;
@@ -76,7 +95,14 @@ export interface GuideArticle {
    * hiển thị thay cho `mock` khi có. Dữ liệu trong ảnh là dữ liệu demo minh hoạ, không phải
    * dữ liệu thật của khách hàng. */
   screenshot?: string;
+  /** Để mảng rỗng nếu bài thuần tra cứu (chỉ có `tables`) - khi đó mục các bước không hiện. */
   steps: (string | GuideStep)[];
+  /** Tiêu đề mục các bước - mặc định "Các bước thực hiện". Đổi khi nội dung không phải quy trình. */
+  stepsTitle?: string;
+  /** 'bullets' = gạch đầu dòng thay cho số thứ tự, dùng khi các ý không phải trình tự phải làm lần lượt. */
+  stepsStyle?: 'numbered' | 'bullets';
+  highlight?: GuideHighlight;
+  tables?: GuideTable[];
   result: string;
   warnings?: string[];
   commonErrors?: GuideErrorCase[];

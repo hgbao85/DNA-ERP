@@ -138,7 +138,7 @@
   </section>
 
   <section id="guide">
-    <div class="sec-head"><h2>Hướng dẫn sử dụng</h2><span class="sec-count">5 mục</span></div>
+    <div class="sec-head"><h2>Hướng dẫn sử dụng</h2><span class="sec-count">7 mục</span></div>
 
     <article class="feature">
       <div class="f-head"><span class="badge ui">Giao diện</span><span class="badge date">12/10</span><span class="f-title">Tách hướng dẫn của Admin và Quản lý vật tư khỏi <code>/guide</code></span></div>
@@ -148,13 +148,13 @@
       </div>
       <div class="f-field"><span class="k">Vị trí mới</span><div class="v"><table class="t">
             <tr><th>Vai trò</th><th>Nơi đọc</th><th>URL</th><th>Số bài</th></tr>
-            <tr><td>Admin</td><td>Sidebar › "Hướng dẫn quản trị"</td><td><code>/?m=admin&amp;p=guide&amp;a=&lt;id&gt;</code></td><td>10</td></tr>
-            <tr><td>Quản lý vật tư</td><td>Thanh tiêu đề › tab "Hướng dẫn"</td><td><code>/?m=materials_manager&amp;p=guide&amp;a=&lt;id&gt;</code></td><td>2</td></tr>
+            <tr><td>Admin</td><td>Sidebar › "Hướng dẫn quản trị"</td><td><code>/?m=admin&amp;p=guide&amp;a=&lt;id&gt;</code></td><td>18</td></tr>
+            <tr><td>Quản lý vật tư</td><td>Thanh tiêu đề › tab "Hướng dẫn"</td><td><code>/?m=materials_manager&amp;p=guide&amp;a=&lt;id&gt;</code></td><td>9</td></tr>
           </table></div></div>
       <div class="f-field"><span class="k">Cách làm</span><div class="v"><ul>
-            <li>Khối hiển thị dùng chung <code>Guide\EmbeddedGuide.tsx</code> (danh sách bài bên trái, <code>ArticleView</code> bên phải, bài đang mở lưu ở query <code>a</code>). <code>Admin\AdminGuidePage.tsx</code> và <code>MaterialsManager\MaterialsManagerApp.tsx</code> chỉ truyền nhóm bài vào.</li>
+            <li>Khối hiển thị dùng chung <code>Guide\EmbeddedGuide.tsx</code> (mục lục bên trái, trang tổng quan hoặc <code>ArticleView</code> bên phải, bài đang mở lưu ở query <code>a</code> — giao diện xem mục "Làm lại giao diện hướng dẫn nhúng" bên dưới). <code>Admin\AdminGuidePage.tsx</code> và <code>MaterialsManager\MaterialsManagerApp.tsx</code> chỉ truyền nhóm bài vào.</li>
             <li><code>Guide\content\index.ts</code> <b>cố ý không import</b> <code>admin.ts</code>, <code>materials.ts</code>, <code>materialsShared.ts</code>. Import là nội dung đó sẽ nằm trong gói JS gửi cho mọi người mở <code>/guide</code>. Đã kiểm trên app: không file JS nào của <code>/guide</code> chứa bài quản trị.</li>
-            <li>Hai bài về danh mục Vật tư dùng chung cho cả Admin và Quản lý vật tư, nằm ở <code>content\materialsShared.ts</code>; <code>materials.ts</code> ghi đè ảnh riêng (<code>materials-*.png</code>, chụp bằng tài khoản Quản lý vật tư).</li>
+            <li>Các bài về danh mục Vật tư (9 bài, xem mục bên dưới) dùng chung cho cả Admin và Quản lý vật tư, nằm ở <code>content\materialsShared.ts</code>. Bài không khai ảnh; mỗi nơi nhúng tự gắn bộ ảnh chụp đúng giao diện của mình: <code>materials.ts</code> dùng <code>materials-*.png</code>, <code>admin.ts</code> dùng <code>admin-vat-tu*.png</code>.</li>
             <li><code>ArticleView</code> thêm prop <code>linkFor</code> để nút "Sao chép link" cho ra đường dẫn mở lại bài trong phân hệ đang nhúng.</li>
             <li>Nút hướng dẫn nổi (góc phải dưới) ẩn với hai loại tài khoản này: <code>GUIDE_FAB_HIDDEN_MODULES</code> trong <code>src\app\page.tsx</code>, xét theo phân hệ mặc định của tài khoản nên Giám đốc vẫn thấy nút.</li>
             <li>Link cũ dạng <code>/guide?a=admin-…</code> giờ hiện thông báo "Không tìm thấy bài viết".</li>
@@ -190,7 +190,7 @@
 
     <article class="feature">
       <div class="f-head"><span class="badge ui">Nội dung</span><span class="badge date">12/10</span><span class="f-title">Chụp lại ảnh minh hoạ</span></div>
-      <div class="f-field"><span class="k">Kết quả</span><div class="v"><code>public\guide-screens\</code> có 55 ảnh, mọi ảnh được tham chiếu đều có file và không file nào thừa. Chụp ở 1440×900, đã ẩn huy hiệu dev của Next.js. Còn đúng 1 ảnh là bản 23/09: <code>mfg-han-son-nhan-vattu.png</code>, vì sản phẩm demo chưa khai vật tư tiêu hao cho Hàn/Sơn nên không có đợt nào để nhận.</div></div>
+      <div class="f-field"><span class="k">Kết quả</span><div class="v"><code>public\guide-screens\</code> có 62 ảnh, mọi ảnh được tham chiếu đều có file và không file nào thừa. Chụp ở 1440×900, đã ẩn huy hiệu dev của Next.js. Còn đúng 1 ảnh là bản 23/09: <code>mfg-han-son-nhan-vattu.png</code>, vì sản phẩm demo chưa khai vật tư tiêu hao cho Hàn/Sơn nên không có đợt nào để nhận.</div></div>
       <div class="f-field"><span class="k">Cách chụp lại</span><div class="v">Playwright trong <code>node_modules</code> của FE, đăng nhập bằng tài khoản seed (mật khẩu <code>demo1234</code>). BE giới hạn đăng nhập 8 lần/phút nên phải giãn khoảng 9 giây giữa các tài khoản; phải chờ trang đăng nhập hydrate xong mới gõ. Nút Bắt đầu/Kết thúc của QLSX dùng <code>window.confirm</code>.</div></div>
     </article>
 
@@ -200,6 +200,47 @@
             <li>Bỏ khai báo <code>GuideArticle</code> bị lặp trong <code>Guide\types.ts</code>.</li>
             <li>Mục "Dành cho bạn" ở trang chủ <code>/guide</code> ẩn hẳn khi tài khoản không khớp nhóm nào (Admin, Quản lý vật tư), thay vì hiện tiêu đề trống.</li>
           </ul></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Nội dung</span><span class="badge date">12/10</span><span class="f-title">Viết lại chi tiết hướng dẫn màn Vật tư (1 bài thành 8 bài)</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Một bài "Khai báo danh mục Vật tư &amp; Nhóm vật tư" gói cả form 14 ô vào 3 bước. Không nói ô nào để làm gì, bỏ trống thì sao, % hao hụt được tính thế nào.</div>
+        <div class="ba-box after"><span class="k">Sau</span>8 bài, mỗi bài một phần của màn hình, đọc theo thứ tự: đọc bảng → thêm mới (từng ô) → nhóm / phân loại / nhóm con Sắt → đơn vị mua và hệ số quy đổi → % hao hụt và làm tròn → sửa hao hụt hàng loạt → kho và người mua → sửa và xoá.</div>
+      </div>
+      <div class="f-field"><span class="k">Nội dung đáng chú ý (đều đối chiếu từ code)</span><div class="v"><ul>
+            <li>Mã tự sinh: tiền tố theo nhóm (SAT, DAY, DINH, TR, NN, VTK; chưa chọn nhóm là VT) + số lớn nhất đã dùng cộng 1.</li>
+            <li>Tên vật tư và Đơn vị tính là hai ô bắt buộc thật ở BE dù form không đánh dấu sao. (Bản guide trước đó đã ghi nhầm là "không bắt buộc" — đã sửa.)</li>
+            <li>Công thức: <code>Số cần mua = (Số cần − Tồn khả dụng) × (1 + % hao hụt / 100)</code>, kèm 4 ví dụ và bảng % đang áp dụng (0% / 1% / 1,5%, chốt 08/10).</li>
+            <li>Làm tròn mặc định ngược nhau theo loại: vật tư tiêu hao giữ số thập phân, Sắt "Tự tính" / "Vật tư thành phẩm" làm tròn lên; ô "Làm tròn khi mua" ép được cả hai chiều.</li>
+            <li>Vật tư chưa giao cho nhân viên mua hàng nào thì mọi nhân viên mua hàng đều thấy và xử lý được.</li>
+            <li>Điều kiện xoá: không xoá được khi vật tư còn nằm trong định mức (hệ thống liệt kê tối đa 5 chỗ) hoặc đã phát sinh tồn kho / phiếu kho / đề xuất mua / sản xuất.</li>
+            <li>Những thứ dễ làm sai mà form vẫn cho lưu: đổi Đơn vị tính không quy đổi số cũ; đổi Kho không chuyển hàng theo; đổi nhóm tự xoá Phân loại / Nhóm con Sắt / % hao hụt.</li>
+          </ul></div></div>
+      <div class="f-field"><span class="k">Kèm theo</span><div class="v">Admin có thêm bài riêng "Nhóm vật tư — tạo, sửa, xoá nhóm" (<code>admin-nhom-vat-tu</code>), vì tạo nhóm là việc chỉ Admin làm được. Sửa câu chú thích trong cửa sổ "Sửa hao hụt hàng loạt" (<code>MaterialsBulkWasteModal.tsx</code>) còn nhắc nhóm "Sắt tự tính" đã gỡ từ 30/09: giờ ghi đúng là Sắt nhóm con "Phần mềm" không có % để sửa, còn "Tự tính" / "Vật tư thành phẩm" sửa được ở "Theo từng vật tư".</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>Guide\content\materialsShared.ts</code> (<code>materialsCatalogArticles</code>) · id bài cũ <code>admin-vat-tu</code> không còn, thay bằng các id <code>vt-*</code></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Giao diện</span><span class="badge date">12/10</span><span class="f-title">Làm lại giao diện hướng dẫn nhúng (Admin và Quản lý vật tư)</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Một danh sách chữ cạnh bài viết. Chưa chọn bài thì tự mở bài đầu. Nội dung dạng tra cứu (từng ô, từng cột, công thức) bị dồn vào danh sách "bước 1, 2, 3…" dài tới 13 bước.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Bố cục kiểu trang tài liệu: mục lục đánh số có ô tìm, thanh "Tiến độ đọc" và dấu tích bài đã đọc; trang "Tổng quan" với nút "Bắt đầu đọc / Đọc tiếp"; bài viết nằm trong khung riêng có đường dẫn "Bài 06/09". Nội dung tra cứu chuyển thành bảng, công thức thành khối nổi bật.</div>
+      </div>
+      <div class="f-field"><span class="k">Khối nội dung mới cho bài viết</span><div class="v"><ul>
+            <li><code>tables</code> — bảng tra cứu (tiêu đề, câu dẫn, cột, dòng, ghi chú). Mỗi bảng là một mục trong "Trong bài này". Bảng rộng tự cuộn ngang trong khung của nó.</li>
+            <li><code>highlight</code> — khối nổi bật cho một công thức hoặc quy tắc cốt lõi.</li>
+            <li><code>stepsTitle</code>, <code>stepsStyle: 'bullets'</code> — đổi tiêu đề mục các bước, hoặc dùng gạch đầu dòng khi các ý không phải trình tự. <code>steps: []</code> thì mục này không hiện.</li>
+            <li>Cả ba đều tuỳ chọn và được đưa vào tìm kiếm. Bài nào không khai thì hiển thị y như cũ, nên trang <code>/guide</code> công khai không đổi.</li>
+          </ul></div></div>
+      <div class="f-field"><span class="k">9 bài Vật tư dùng khối mới</span><div class="v">17 bảng và 2 khối công thức, ví dụ: "Ý nghĩa từng cột" (15 cột), "Từng ô trên form" (Ô / Bắt buộc / Điền gì / Ví dụ), ba bảng nhóm – phân loại – nhóm con Sắt, "Ví dụ tính" + "Bảng % đang áp dụng" + "Ba lựa chọn Làm tròn khi mua", "Khi nào không xoá được". Các bước chỉ còn giữ đúng thao tác phải làm lần lượt.</div></div>
+      <div class="f-field"><span class="k">Chi tiết</span><div class="v"><ul>
+            <li>Dấu "đã đọc" lưu trên trình duyệt của từng người (cùng cơ chế với <code>/guide</code>), không lưu lên máy chủ.</li>
+            <li>Cột "Trong bài này" chỉ hiện khi đủ rộng: từ 1400px với Quản lý vật tư, 1620px với Admin (vì có thêm sidebar quản trị) — tham số <code>tocMinWidth</code>.</li>
+            <li>Màn hẹp: hai màn nối tiếp, Tổng quan → bài, có nút "Mục lục" để quay lại.</li>
+            <li>Đã kiểm trên trình duyệt thật: 9 bài (Quản lý vật tư) và 18 bài (Admin) mở không lỗi, không tràn ngang ở 1440px và 390px, giao diện sáng và tối.</li>
+          </ul></div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>Guide\EmbeddedGuide.tsx</code> · <code>Guide\ArticleView.tsx</code> · <code>Guide\types.ts</code> · <code>Guide\search.ts</code> · <code>Guide\content\materialsShared.ts</code></div></div>
     </article>
   </section>
 
@@ -326,8 +367,7 @@
       <p>· Hai đơn cũ thiếu hạn giao (WASTE-TEST, PO-HD-2026-01): màn Bán hàng chưa có chỗ sửa hạn cho đơn đã tạo.</p>
       <p><b>Việc nhỏ chưa làm:</b></p>
       <p>· Gỡ <code>Sku.exportOrder</code> (FE) và <code>salesOrderDeliveryDate</code> (BE) vì không còn ai đọc.</p>
-      <p>· Cửa sổ "Sửa hao hụt hàng loạt" còn nhắc nhóm "Sắt tự tính" đã bị gỡ từ 30/09.</p>
-      <p>· Nút hướng dẫn nổi đè nhẹ lên nút "Tính phương án cắt" ở màn Tối ưu cắt sắt.</p>
+            <p>· Nút hướng dẫn nổi đè nhẹ lên nút "Tính phương án cắt" ở màn Tối ưu cắt sắt.</p>
       <p>· Ảnh bài Thông báo đang hiện các thông báo test "E2E-NEG…" bị lỗi font.</p>
       <p>· Mỗi lần mở <code>/guide</code> vẫn gọi ngầm danh sách đề xuất mua hàng và số thông báo dù guide không dùng tới.</p>
     </div>

@@ -132,8 +132,9 @@ export default function MaterialsBulkWasteModal({
       <Modal open={open} onClose={close} maxWidth={620}>
         <h3 style={{ margin: '0 0 var(--space-5)', fontSize: 17, fontWeight: 700 }}>Sửa % hao hụt hàng loạt</h3>
         <div style={{ fontSize: 12, color: 'var(--text2)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', marginBottom: 14, lineHeight: 1.5 }}>
-          Nhóm <b>Sắt</b> không có % hao hụt để sửa ở đây — ngưỡng hao hụt khi cắt do <b>KHSX</b> quyết định ở màn
-          “Tối ưu cắt sắt”. Nhóm <b>Sắt tự tính</b> và các nhóm khác vẫn sửa được (% dự trù hao hụt khi mua).
+          Sắt nhóm con <b>Phần mềm</b> không có % hao hụt để sửa ở đây — ngưỡng hao hụt khi cắt do <b>KHSX</b> quyết
+          định ở màn “Tối ưu cắt sắt”. Sắt <b>Tự tính</b>, <b>Vật tư thành phẩm</b> và các nhóm khác vẫn sửa được
+          (chọn ở “Theo từng vật tư”).
         </div>
 
         {/* Segmented control - 2 nút chia đều chiều rộng, rõ ràng hơn 2 pill trôi nổi bên trái. */}

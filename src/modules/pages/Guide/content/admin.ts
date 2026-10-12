@@ -1,5 +1,19 @@
 import type { GuideGroup } from '../types';
-import { materialsCatalogArticle, materialsRoleArticle } from './materialsShared';
+import type { GuideArticle } from '../types';
+import { materialsCatalogArticles, materialsRoleArticle } from './materialsShared';
+
+// Ảnh của các bài Vật tư dùng chung - chụp trong phân hệ Admin (có sidebar quản trị). Bên Quản lý
+// vật tư gắn bộ ảnh riêng, xem materials.ts.
+const MATERIAL_SCREENSHOTS: Record<string, string> = {
+  'admin-quan-ly-vat-tu-role': '/guide-screens/admin-quan-ly-vat-tu-role.png',
+  'vt-bang-vat-tu': '/guide-screens/admin-vat-tu.png',
+  'vt-them-vat-tu': '/guide-screens/admin-vat-tu-them.png',
+  'vt-nhom-phan-loai': '/guide-screens/admin-vat-tu-nhom-con-sat.png',
+  'vt-hao-hut-hang-loat': '/guide-screens/admin-vat-tu-hao-hut-hang-loat.png',
+  'vt-sua-xoa': '/guide-screens/admin-vat-tu-sua.png',
+};
+const withMaterialShot = (a: GuideArticle): GuideArticle =>
+  MATERIAL_SCREENSHOTS[a.id] ? { ...a, screenshot: MATERIAL_SCREENSHOTS[a.id] } : a;
 
 // Nguồn: AdminApp.tsx, UsersPage.tsx, MfgWarehousesPage.tsx (chế độ isAdmin=true),
 // OfficeSuppliesAdminPage.tsx, PhoiSkuAdminPage.tsx, AuditLogPage.tsx, MasterDataPage.tsx
@@ -88,8 +102,35 @@ export const adminGroup: GuideGroup = {
       tags: ['tạo kho', 'xoá kho', 'quản lý kho', 'sao chép vật tư'],
       sourceRefs: ['src/modules/pages/Manufacturing/MfgWarehousesPage.tsx'],
     },
-    materialsCatalogArticle,
-    materialsRoleArticle,
+    {
+      id: 'admin-nhom-vat-tu',
+      title: 'Nhóm vật tư — tạo, sửa, xoá nhóm',
+      roles: ['admin'],
+      purpose: 'Nhóm vật tư là khung phân loại mà mọi vật tư phải thuộc về. Chỉ Admin tạo/sửa/xoá được nhóm; tài khoản Quản lý vật tư chỉ chọn nhóm có sẵn khi khai vật tư.',
+      mock: {
+        title: 'Thêm nhóm vật tư',
+        formFields: ['Tên nhóm vật tư *', 'Tiền tố mã vật tư *'],
+        buttons: ['Hủy', 'Lưu'],
+      },
+      steps: [
+        'Vào Danh mục hệ thống > tab "Nhóm vật tư", bấm "Thêm nhóm vật tư".',
+        'Nhập "Tên nhóm vật tư". Ô "Tiền tố mã vật tư" tự gợi ý theo tên, sửa được: 2-8 ký tự, chỉ chữ IN HOA A-Z và số, không trùng nhóm khác.',
+        'Tiền tố dùng để tự sinh mã cho vật tư trong nhóm (VD tiền tố SAT → SAT-001, SAT-002...).',
+        'Bấm "Lưu".',
+      ],
+      result: 'Nhóm mới xuất hiện ở ô chọn "Nhóm vật tư" của form Vật tư và ở dãy nút lọc phía trên bảng Vật tư.',
+      warnings: [
+        '6 nhóm hệ thống (Sắt, Dây, Đinh, Tán rút, Nút nhựa, Vật tư khác) gắn với các luồng định mức và mua hàng — vật tư thuộc nhóm tự tạo sẽ KHÔNG hiện ở các tab định mức đó. Chỉ tạo nhóm mới khi thật sự cần một cách phân loại khác.',
+        'Xoá một nhóm không xoá vật tư trong nhóm, nhưng các vật tư đó trở thành "không có nhóm" và biến mất khỏi mọi ô chọn định mức cho tới khi được gán nhóm khác.',
+      ],
+      commonErrors: [
+        { issue: '"Tiền tố mã phải 2-8 ký tự, chỉ chữ IN HOA A-Z và số"', cause: 'Tiền tố có chữ thường, dấu hoặc ký tự đặc biệt.', fix: 'Sửa lại đúng định dạng.' },
+      ],
+      tags: ['nhóm vật tư', 'tiền tố mã', 'material group'],
+      sourceRefs: ['src/modules/pages/Admin/masterData/MaterialGroupsPage.tsx'],
+    },
+    ...materialsCatalogArticles.map(withMaterialShot),
+    withMaterialShot(materialsRoleArticle),
     {
       id: 'admin-danh-muc-khac',
       title: 'Danh mục hệ thống khác: Nhà cung cấp, Khách hàng, Định mức vật tư thành phẩm, Điểm đan, Lý do lỗi',
