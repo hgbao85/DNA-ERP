@@ -176,7 +176,11 @@ export default function EmbeddedGuide({ group, title, note, linkFor, accent = 'v
       <div style={{ fontSize: 10.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--text3)', padding: '8px 10px 6px' }}>
         {q ? `Kết quả (${shown.length})` : 'Các bài hướng dẫn'}
       </div>
-      {navList}
+      {/* Chỉ danh sách bài cuộn; tiêu đề, ô tìm và tiến độ đọc luôn đứng yên phía trên (mục lục của
+         Admin dài 18 bài, trước đây cuộn xuống là mất ô tìm). */}
+      <div className="dna-eg-scroll" style={{ flex: 1, minHeight: 0, overflowY: 'auto', margin: '0 -6px', padding: '0 6px 2px' }}>
+        {navList}
+      </div>
     </>
   )
 
@@ -251,6 +255,7 @@ export default function EmbeddedGuide({ group, title, note, linkFor, accent = 'v
       <style>{`
         @keyframes dnaEmbeddedGuideFade { from { opacity: 0; } to { opacity: 1; } }
         .dna-embedded-guide .dna-guide-tab-in { animation: dnaEmbeddedGuideFade 0.16s ease both; }
+        .dna-embedded-guide .dna-eg-scroll { scrollbar-width: thin; }
         .dna-embedded-guide .dna-eg-nav:hover { background: var(--surface2) !important; }
         .dna-embedded-guide .dna-eg-nav[aria-current="page"]:hover { background: ${accentBg} !important; }
         .dna-embedded-guide .dna-eg-card { transition: border-color .15s ease, box-shadow .15s ease; }
@@ -281,7 +286,7 @@ export default function EmbeddedGuide({ group, title, note, linkFor, accent = 'v
         )
       ) : (
         <div style={{ display: 'flex', gap: 28, alignItems: 'flex-start' }}>
-          <aside style={{ width: 288, flexShrink: 0, position: 'sticky', top: 0, maxHeight: 'calc(100dvh - 120px)', overflowY: 'auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 14 }}>
+          <aside style={{ width: 288, flexShrink: 0, position: 'sticky', top: 0, maxHeight: 'calc(100dvh - 120px)', display: 'flex', flexDirection: 'column', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: 14 }}>
             {sidebarInner}
           </aside>
           <div style={{ flex: 1, minWidth: 0 }}>

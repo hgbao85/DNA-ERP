@@ -42,16 +42,46 @@ export const adminGroup: GuideGroup = {
         formFields: ['Họ tên *', 'Tên đăng nhập *', 'Email *', 'Mật khẩu *', 'Vai trò *', 'Loại nhân viên'],
         buttons: ['Hủy', 'Lưu'],
       },
+      tables: [
+        {
+          title: 'Từng ô trên form "Thêm tài khoản"',
+          columns: ['Ô', 'Bắt buộc', 'Quy tắc'],
+          rows: [
+            ['Họ tên', 'Có', 'Tên hiển thị của người dùng.'],
+            ['Tên đăng nhập', 'Có', 'Tối thiểu 3 ký tự, chỉ chữ, số và các dấu . _ -. Chỉ nhập được lúc tạo — khi sửa tài khoản ô này chỉ hiển thị.'],
+            ['Email', 'Có', 'Chỉ nhập được lúc tạo — khi sửa tài khoản ô này chỉ hiển thị.'],
+            ['Mật khẩu', 'Có', 'Tối thiểu 8 ký tự. Sau này đổi bằng nút "Đặt lại mật khẩu", không sửa trong form sửa thông tin.'],
+            ['Vai trò', 'Có', 'Quản trị viên / Giám đốc / Nhân viên.'],
+            ['Loại nhân viên', 'Có, khi Vai trò là Nhân viên', 'Văn phòng / Kho / Định mức / Sản xuất — xem bảng dưới.'],
+          ],
+        },
+        {
+          title: 'Loại nhân viên và ô phải chọn kèm',
+          intro: 'Loại nhân viên quyết định người đó dùng phân hệ nào sau khi đăng nhập.',
+          columns: ['Loại nhân viên', 'Ô chọn kèm', 'Các lựa chọn'],
+          rows: [
+            ['Văn phòng', 'Chức năng', 'Sales / KH Sản xuất (KHSX) / Quản lý sản xuất (QLSX) / Mua hàng / Quản lý vật tư.'],
+            ['Kho', 'Kho phụ trách', 'Không bắt buộc chọn ngay, có thể gán sau.'],
+            ['Định mức', 'Vị trí', 'NV Định mức mảnh / NV Định mức chi tiết.'],
+            ['Sản xuất', 'Công đoạn và Kho phụ trách', 'Công đoạn: Phôi/Hàn/Sơn hoặc KCS. Kho phụ trách mặc định là Kho gốc Phôi Sơn Hàn.'],
+          ],
+        },
+        {
+          title: 'Các nút trên mỗi dòng tài khoản',
+          columns: ['Nút', 'Dùng để', 'Lưu ý'],
+          rows: [
+            ['Khóa / Mở khóa', 'Chặn hoặc cho phép tài khoản đăng nhập.', 'Không tự khoá được chính mình.'],
+            ['Đặt lại mật khẩu', 'Đặt mật khẩu mới cho người dùng.', 'Nhập mật khẩu mới 2 lần.'],
+            ['Chuyển giao vật tư mua hàng', 'Chuyển toàn bộ vật tư một nhân viên Mua hàng đang phụ trách sang người khác: chọn người nhận ở "Chuyển cho", bấm "Chuyển N vật tư".', 'Chỉ có với nhân viên Mua hàng. Làm TRƯỚC khi khoá tài khoản cũ.'],
+          ],
+        },
+      ],
+      stepsTitle: 'Tạo tài khoản mới',
       steps: [
-        'Bấm "Thêm tài khoản": nhập Họ tên, Tên đăng nhập (tối thiểu 3 ký tự, chỉ chữ/số . _ -), Email, Mật khẩu (tối thiểu 8 ký tự), chọn Vai trò (Quản trị viên / Giám đốc / Nhân viên). Tên đăng nhập và Email chỉ nhập được lúc tạo — khi sửa tài khoản hai ô này chỉ hiển thị.',
-        { text: 'Nếu Vai trò = Nhân viên, bắt buộc chọn thêm 1 trong 4 "Loại nhân viên": Văn phòng / Kho / Định mức / Sản xuất — mỗi loại có dropdown con riêng.', critical: true },
-        '— Văn phòng: chọn Chức năng (Sales / KH Sản xuất (KHSX) / Quản lý sản xuất (QLSX) / Mua hàng / Quản lý vật tư).',
-        '— Kho: chọn Kho phụ trách (không bắt buộc chọn ngay, có thể gán sau).',
-        '— Định mức: chọn Vị trí (NV Định mức mảnh / NV Định mức chi tiết).',
-        '— Sản xuất: chọn Công đoạn (Phôi/Hàn/Sơn hoặc KCS) + Kho phụ trách (mặc định Kho gốc Phôi Sơn Hàn).',
+        'Bấm "Thêm tài khoản".',
+        'Nhập Họ tên, Tên đăng nhập, Email, Mật khẩu và chọn Vai trò theo bảng trên.',
+        { text: 'Nếu Vai trò là Nhân viên: chọn "Loại nhân viên", rồi chọn ô kèm theo của loại đó.', critical: true },
         'Bấm "Lưu".',
-        'Trên mỗi dòng tài khoản có các nút: Khóa/Mở khóa, "Đặt lại mật khẩu" (nhập mật khẩu mới 2 lần — mật khẩu không sửa trong form sửa thông tin), và với nhân viên Mua hàng có thêm "Chuyển giao vật tư mua hàng".',
-        { text: 'Nhân viên Mua hàng nghỉ việc/đổi vị trí: bấm "Chuyển giao vật tư mua hàng", chọn người nhận ở "Chuyển cho", bấm "Chuyển N vật tư" — SAU ĐÓ mới khoá tài khoản cũ.', critical: true },
       ],
       result: 'Tài khoản mới có thể đăng nhập và tự động vào đúng module tương ứng với loại nhân viên đã chọn.',
       warnings: [
@@ -83,11 +113,34 @@ export const adminGroup: GuideGroup = {
         formFields: ['Loại kho *', 'Tên kho *', 'Thủ kho phụ trách'],
         buttons: ['Tạo kho'],
       },
+      tables: [
+        {
+          title: 'Từng ô khi tạo kho',
+          columns: ['Ô', 'Bắt buộc', 'Điền gì'],
+          rows: [
+            ['Loại kho', 'Có', 'Một trong 3 gia đình: Phôi Sơn Hàn / Vật tư thành phẩm / Thành phẩm.'],
+            ['Tên kho', 'Có', 'Có gợi ý sẵn, sửa được.'],
+            ['Thủ kho phụ trách', 'Không', 'Chọn một tài khoản Kho có sẵn để gán ngay. Danh sách chỉ gồm người CHƯA phụ trách kho nào.'],
+          ],
+        },
+        {
+          title: 'Trong chi tiết một kho',
+          columns: ['Chỗ', 'Có gì', 'Lưu ý'],
+          rows: [
+            ['Tab "Tồn kho"', 'Mã vật tư / Tên / Nhóm / Quy cách / ĐVT / Tồn / Khả dụng.', 'Kho Phôi Sơn Hàn có thêm cột "Chiều dài" theo cỡ cây.'],
+            ['Tab "Lịch sử Nhập/Xuất"', 'Mọi lần nhập, xuất, điều chỉnh của kho.', '—'],
+            ['"Thêm vật tư" / "Sao chép vật tư từ kho khác"', 'Đưa vật tư vào kho mới mà không phải khai lại danh mục từ đầu.', '—'],
+            ['Con số ở cột "Tồn" (gạch chân chấm)', 'Sửa nhanh số tồn: bấm vào số, nhập số mới và xác nhận.', 'Hệ thống ghi một bút toán điều chỉnh vào lịch sử kho.'],
+            ['"Xoá kho"', 'Xoá một kho phụ không còn dùng.', 'Chỉ hiện với kho không phải 1 trong 3 kho gốc. Không hoàn tác được.'],
+          ],
+        },
+      ],
+      stepsTitle: 'Tạo kho mới',
       steps: [
-        'Bấm "Tạo kho mới": chọn Loại kho (một trong 3 gia đình: Phôi Sơn Hàn / Vật tư thành phẩm / Thành phẩm), đặt Tên kho (có gợi ý sẵn), tuỳ chọn chọn 1 tài khoản Thủ kho có sẵn (chỉ hiện người CHƯA phụ trách kho nào) để gán ngay.',
-        'Mở chi tiết một kho: tab "Tồn kho" (Mã vật tư / Tên / Nhóm / Quy cách / ĐVT / Tồn / Khả dụng; kho Phôi Sơn Hàn có thêm cột "Chiều dài" theo cỡ cây) và tab "Lịch sử Nhập/Xuất". Dùng "Thêm vật tư" hoặc "Sao chép vật tư từ kho khác" để không phải khai lại danh mục từ đầu cho kho mới.',
-        { text: 'Sửa nhanh số tồn: bấm vào con số ở cột "Tồn" (gạch chân chấm), nhập số mới và xác nhận — hệ thống ghi một bút toán điều chỉnh vào lịch sử kho.', critical: true },
-        { text: 'Bấm "Xoá kho" (chỉ hiện với kho không phải 1 trong 3 kho gốc) để xoá một kho phụ không còn dùng.', critical: true },
+        'Bấm "Tạo kho mới".',
+        'Chọn Loại kho, đặt Tên kho, tuỳ chọn chọn Thủ kho phụ trách.',
+        { text: 'Bấm "Tạo kho".', critical: true },
+        'Mở kho vừa tạo, dùng "Sao chép vật tư từ kho khác" hoặc "Thêm vật tư" để có danh mục vật tư cho kho.',
       ],
       result: 'Tạo: kho mới hoạt động độc lập như kho gốc cùng gia đình. Xoá: kho và (các) tài khoản đang được gán phụ trách kho đó bị xoá cùng lúc — không thể hoàn tác.',
       warnings: [
@@ -112,10 +165,19 @@ export const adminGroup: GuideGroup = {
         formFields: ['Tên nhóm vật tư *', 'Tiền tố mã vật tư *'],
         buttons: ['Hủy', 'Lưu'],
       },
+      tables: [
+        {
+          title: 'Hai ô trên form',
+          columns: ['Ô', 'Bắt buộc', 'Quy tắc', 'Ví dụ'],
+          rows: [
+            ['Tên nhóm vật tư', 'Có', 'Tên hiển thị của nhóm.', 'Keo dán'],
+            ['Tiền tố mã vật tư', 'Có', 'Tự gợi ý theo tên, sửa được. 2-8 ký tự, chỉ chữ IN HOA A-Z và số, không trùng nhóm khác. Dùng để tự sinh mã cho vật tư trong nhóm.', 'SAT → SAT-001, SAT-002...'],
+          ],
+        },
+      ],
       steps: [
         'Vào Danh mục hệ thống > tab "Nhóm vật tư", bấm "Thêm nhóm vật tư".',
-        'Nhập "Tên nhóm vật tư". Ô "Tiền tố mã vật tư" tự gợi ý theo tên, sửa được: 2-8 ký tự, chỉ chữ IN HOA A-Z và số, không trùng nhóm khác.',
-        'Tiền tố dùng để tự sinh mã cho vật tư trong nhóm (VD tiền tố SAT → SAT-001, SAT-002...).',
+        'Nhập "Tên nhóm vật tư" và kiểm tra "Tiền tố mã vật tư".',
         'Bấm "Lưu".',
       ],
       result: 'Nhóm mới xuất hiện ở ô chọn "Nhóm vật tư" của form Vật tư và ở dãy nút lọc phía trên bảng Vật tư.',
@@ -142,13 +204,20 @@ export const adminGroup: GuideGroup = {
         formFields: ['Tên nhà cung cấp *', 'Điện thoại', 'Đang hoạt động'],
         buttons: ['Lưu'],
       },
-      steps: [
-        '"Nhà cung cấp": Tên*, Điện thoại, trạng thái hoạt động.',
-        '"Khách hàng bán hàng" / "Khách hàng xuất khẩu": khai báo khách hàng (2 màn dùng chung 1 bảng dữ liệu nhưng khai báo field khác nhau — cần lưu ý khi tra cứu chéo).',
-        '"Định mức vật tư thành phẩm": khai "1 vật tư vào cắt ra N vật tư ra" (ví dụ thanh nhôm → chân nhôm) — xem bài "Định mức vật tư thành phẩm" ở nhóm Sản xuất của trang hướng dẫn chung (/guide).',
-        '"Điểm đan": Mã/Tên điểm đan*, Tên đầy đủ, điện thoại, địa chỉ, trạng thái hoạt động — dùng khi Thủ kho xuất/nhập đan (Thủ kho Vật tư thành phẩm cũng tự thêm được ở "Quản lý điểm đan").',
-        '"Lý do lỗi": nội dung lỗi + công đoạn (Phôi/Hàn/Sơn) — danh mục cho KCS chọn khi chấm lỗi.',
+      tables: [
+        {
+          title: 'Năm danh mục',
+          columns: ['Danh mục', 'Khai gì', 'Dùng ở đâu'],
+          rows: [
+            ['Nhà cung cấp', 'Tên (bắt buộc), Điện thoại, trạng thái hoạt động.', 'Mua hàng chọn nhà cung cấp.'],
+            ['Khách hàng bán hàng / Khách hàng xuất khẩu', 'Thông tin khách hàng. Hai màn dùng chung một bảng dữ liệu nhưng khai các ô khác nhau — lưu ý khi tra cứu chéo.', 'Sales chọn khách hàng khi tạo đơn.'],
+            ['Định mức vật tư thành phẩm', '"1 vật tư vào cắt ra N vật tư ra" (VD thanh nhôm → chân nhôm).', 'Tính nguyên liệu cho Sắt nhóm con "Vật tư thành phẩm". Xem bài cùng tên ở nhóm Sản xuất của trang hướng dẫn chung (/guide).'],
+            ['Điểm đan', 'Mã/Tên điểm đan (bắt buộc), Tên đầy đủ, điện thoại, địa chỉ, trạng thái hoạt động.', 'Thủ kho chọn khi xuất/nhập đan. Thủ kho Vật tư thành phẩm cũng tự thêm được ở "Quản lý điểm đan".'],
+            ['Lý do lỗi', 'Nội dung lỗi và công đoạn (Phôi/Hàn/Sơn).', 'KCS chọn khi chấm lỗi.'],
+          ],
+        },
       ],
+      steps: [],
       result: 'Các danh mục này sẵn sàng để chọn ở đúng màn nghiệp vụ tương ứng (Mua hàng chọn NCC, Sales chọn khách hàng, Kho chọn điểm đan, KCS chọn lý do lỗi).',
       warnings: ['Đây là dữ liệu nền dùng chung — sửa/xoá tại đây ảnh hưởng tới mọi phân hệ đang tham chiếu.'],
       commonErrors: [
@@ -189,13 +258,23 @@ export const adminGroup: GuideGroup = {
       purpose: 'Sửa sai khi lỡ tải nhầm ảnh/file bằng chứng ở 3 nơi vốn chỉ tạo mới, không tự sửa/xoá được trong luồng nghiệp vụ bình thường: ảnh lỗi KCS, ảnh lỗi chuyền kiểm kho, phiếu Giám đốc đã ký duyệt mua hàng.',
       screenshot: '/guide-screens/admin-tep-dinh-kem.png',
       mock: { title: 'Quản lý tệp đính kèm', buttons: ['KCS', 'Kho', 'Mua hàng', 'Thay file', 'Xóa file'] },
+      tables: [
+        {
+          title: 'Ba tab',
+          columns: ['Tab', 'Chứa gì', 'Xoá thì ảnh hưởng gì'],
+          rows: [
+            ['KCS', 'Ảnh lỗi kiểm chất lượng.', 'Mất ảnh bằng chứng của lần chấm lỗi đó.'],
+            ['Kho', 'Ảnh lỗi chuyền kiểm.', 'Mất ảnh bằng chứng của lần chuyền kiểm đó.'],
+            ['Mua hàng', 'File phiếu Giám đốc đã ký duyệt mua.', 'Chỉ mất bằng chứng lịch sử. Không ảnh hưởng việc Kho nhận hàng, vì bước nhận hàng không đọc file này.'],
+          ],
+        },
+      ],
       steps: [
-        'Chọn đúng tab: "KCS" (ảnh lỗi kiểm chất lượng) / "Kho" (ảnh lỗi chuyền kiểm) / "Mua hàng" (file Giám đốc đã ký).',
+        'Chọn đúng tab theo bảng trên.',
         { text: 'Bấm "Đổi ảnh/Thay file" để thay bằng file mới, hoặc "Xóa ảnh/Xóa file" để xoá hẳn — xác nhận trong hộp thoại "Không thể hoàn tác".', critical: true },
       ],
       result: 'Bằng chứng được cập nhật hoặc xoá; mọi thao tác được ghi lại vào nhật ký thật của hệ thống.',
       warnings: [
-        'Xoá file phiếu Giám đốc đã ký (tab "Mua hàng") CHỈ mất bằng chứng lịch sử — không ảnh hưởng tới việc Kho nhận hàng, vì bước nhận hàng không đọc file này.',
         'Chỉ dùng tính năng này khi thật sự cần — hành động không thể hoàn tác.',
       ],
       tags: ['tệp đính kèm', 'xoá ảnh lỗi', 'xoá file duyệt mua'],
@@ -253,14 +332,21 @@ export const adminGroup: GuideGroup = {
       id: 'admin-nhat-ky-canh-bao',
       title: 'Lưu ý về "Tổng quan", "Nhật ký hoạt động", "Văn phòng phẩm" và "Tình trạng hệ thống"',
       roles: ['admin'],
-      purpose: 'Hiểu đúng phạm vi và giới hạn của 2 màn quản trị dễ gây hiểu nhầm nhất.',
-      steps: [
-        '"Tổng quan": số liệu tham khảo — tổng người dùng theo vai trò, hoạt động gần đây, số đơn hàng bán / lệnh sản xuất (PI) / nhà cung cấp. Không thao tác gì ở đây.',
-        '"Văn phòng phẩm": chọn một kho ở ô "Chọn kho" để xem và quản lý vật tư văn phòng của đúng kho đó — thao tác giống hệt tab "Văn phòng phẩm" của Thủ kho.',
-        '"Nhật ký hoạt động": ghi lại các thao tác thêm/sửa/xoá ở Admin (Người dùng, Danh mục hệ thống...). Đây KHÔNG phải nhật ký kỹ thuật của máy chủ — dữ liệu lưu trong trình duyệt hiện tại, không đồng bộ giữa các máy/trình duyệt khác nhau và sẽ mất nếu xoá bộ nhớ đệm. Việc sửa/xoá tệp đính kèm (ảnh lỗi KCS/Kho, phiếu duyệt mua) KHÔNG hiện ở đây — được ghi vào nhật ký phía máy chủ mà trang này chưa đọc; việc đổi SKU đợt Phôi có bảng "Lịch sử đổi SKU" riêng ngay dưới bảng thao tác của nó.',
-        '"Tình trạng hệ thống" > "Reset dữ liệu demo": CHỈ xoá dữ liệu mẫu còn sót trong trình duyệt (chủ yếu ảnh hưởng Nhật ký hoạt động) — KHÔNG xoá dữ liệu thật đã lưu trên máy chủ (người dùng, đơn hàng, vật tư, kho... đã hoạt động thật không bị ảnh hưởng), dù dòng xác nhận của nút này liệt kê như thể sẽ mất toàn bộ.',
+      purpose: 'Hiểu đúng phạm vi và giới hạn của các màn quản trị dễ gây hiểu nhầm nhất.',
+      tables: [
+        {
+          title: 'Bốn màn và giới hạn của từng màn',
+          columns: ['Màn', 'Để làm gì', 'Giới hạn cần biết'],
+          rows: [
+            ['Tổng quan', 'Số liệu tham khảo: tổng người dùng theo vai trò, hoạt động gần đây, số đơn hàng bán / lệnh sản xuất (PI) / nhà cung cấp.', 'Không thao tác gì ở đây.'],
+            ['Văn phòng phẩm', 'Chọn một kho ở ô "Chọn kho" để xem và quản lý vật tư văn phòng của đúng kho đó.', 'Thao tác giống hệt tab "Văn phòng phẩm" của Thủ kho.'],
+            ['Nhật ký hoạt động', 'Ghi lại các thao tác thêm/sửa/xoá ở Admin (Người dùng, Danh mục hệ thống...).', 'KHÔNG phải nhật ký kỹ thuật của máy chủ: dữ liệu lưu trong trình duyệt hiện tại, không đồng bộ giữa các máy và sẽ mất nếu xoá bộ nhớ đệm. Việc sửa/xoá tệp đính kèm không hiện ở đây; việc đổi SKU đợt Phôi có bảng "Lịch sử đổi SKU" riêng.'],
+            ['Tình trạng hệ thống > "Reset dữ liệu demo"', 'Xoá dữ liệu mẫu còn sót trong trình duyệt (chủ yếu ảnh hưởng Nhật ký hoạt động).', 'KHÔNG xoá dữ liệu thật trên máy chủ (người dùng, đơn hàng, vật tư, kho...), dù dòng xác nhận của nút liệt kê như thể sẽ mất toàn bộ.'],
+          ],
+        },
       ],
-      result: 'Tránh hoang mang hoặc chủ quan sai khi thao tác 2 màn này.',
+      steps: [],
+      result: 'Tránh hoang mang hoặc chủ quan sai khi thao tác các màn này.',
       warnings: [
         'Đừng dựa vào "Nhật ký hoạt động" làm bằng chứng pháp lý/kiểm toán chính thức — nó không đầy đủ và không đồng bộ đa thiết bị.',
         '"Cấu hình hệ thống" (thông tin công ty) hiện chỉ mang tính hiển thị tham khảo — chưa có nghiệp vụ nào trong hệ thống tự động đọc và sử dụng các giá trị này.',

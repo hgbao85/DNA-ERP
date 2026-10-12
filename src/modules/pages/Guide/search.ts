@@ -82,6 +82,8 @@ function countOccurrences(haystack: string, needle: string): number {
 interface IndexedArticle {
   title: string; tags: string; body: string;
   titleList: string[]; tagList: string[]; bodyList: string[];
+  /** Các từ nối lại bằng 1 dấu cách, đã bỏ hết dấu câu - để dò cả CỤM mà không vướng ngoặc kép, dấu chấm. */
+  flat: string;
   titleWords: Set<string>; tagWords: Set<string>; bodyWords: Set<string>;
   /** Bản CÒN DẤU (chỉ hạ chữ thường) - để ưu tiên kết quả khớp đúng dấu khi người dùng gõ có dấu. */
   accentedTitle: string; accentedBody: string;
@@ -98,9 +100,11 @@ function indexOf(article: GuideArticle): IndexedArticle {
   const body = normalize(rawBody);
   const titleList = wordsOf(title);
   const tagList = wordsOf(tags);
-  const bodyList = [...new Set(wordsOf(body))];
+  const bodyAll = wordsOf(body);
+  const bodyList = [...new Set(bodyAll)];
   const entry: IndexedArticle = {
     title, tags, body, titleList, tagList, bodyList,
+    flat: ` ${titleList.join(' ')} | ${tagList.join(' ')} | ${bodyAll.join(' ')} `,
     titleWords: new Set(titleList), tagWords: new Set(tagList), bodyWords: new Set(bodyList),
     accentedTitle: article.title.normalize('NFC').toLowerCase(), accentedBody: rawBody.normalize('NFC').toLowerCase(),
   };
@@ -115,6 +119,7 @@ function indexOf(article: GuideArticle): IndexedArticle {
  *  - Khớp theo TỪ, không theo chuỗi con (xem wordHit); tiêu đề/tag chịu được lỗi gõ nhẹ.
  *  - Bài phải khớp MỌI từ khoá. Chỉ khi không bài nào khớp đủ mới nới về "khớp ít nhất 1 từ", để
  *    người dùng vẫn có gì đó để bấm thay vì màn trắng.
+ *  - Có bài chứa nguyên cụm từ khoá đứng liền nhau thì bỏ các bài chỉ có từ rời rạc.
  *  - Điểm: tiêu đề > tag > nội dung; cộng thêm khi cả CỤM từ khoá đứng liền nhau (đếm số lần xuất
  *    hiện trong bài, có trần) và khi khớp đúng cả dấu tiếng Việt người dùng đã gõ.
  */
@@ -127,12 +132,13 @@ export function searchArticles(groups: GuideGroup[], query: string): SearchHit[]
   const accentedQuery = query.trim().normalize('NFC').toLowerCase().replace(/\s+/g, ' ');
   const hasAccent = normalize(accentedQuery) !== accentedQuery;
 
-  const all: (SearchHit & { matched: number })[] = [];
+  const all: (SearchHit & { matched: number; phraseHit: boolean })[] = [];
   for (const group of groups) {
     for (const article of group.articles) {
       const ix = indexOf(article);
       let score = 0;
       let matched = 0;
+      let phraseHit = false;
       for (const t of terms) {
         let termScore = 0;
         if (wordHit(ix.titleWords, ix.titleList, t)) termScore += 5;
@@ -154,17 +160,22 @@ export function searchArticles(groups: GuideGroup[], query: string): SearchHit[]
         // nhắc tới ở cuối tiêu đề ("… → Chuyền kiểm → Đóng gói").
         if (ix.titleList.slice(0, terms.length).join(' ') === phrase) score += 3;
         if (` ${ix.tags} `.includes(` ${phrase} `)) score += 5;
-        score += Math.min(countOccurrences(ix.body, phrase), 6) * 1.5;
+        const inBody = countOccurrences(` ${ix.body} `, ` ${phrase} `);
+        score += Math.min(Math.max(inBody, countOccurrences(ix.body, phrase)), 6) * 1.5;
+        phraseHit = ix.flat.includes(` ${phrase} `);
       }
       if (hasAccent) {
         if (ix.accentedTitle.includes(accentedQuery)) score += 4;
         score += Math.min(countOccurrences(ix.accentedBody, accentedQuery), 4);
       }
-      all.push({ group, article, score, matched });
+      all.push({ group, article, score, matched, phraseHit });
     }
   }
   const full = all.filter(h => h.matched === terms.length);
-  return (full.length > 0 ? full : all)
+  // Gõ nhiều từ mà có bài chứa đúng CẢ CỤM đứng liền nhau thì chỉ giữ các bài đó: bài chỉ có các từ
+  // nằm rải rác ("làm" một nơi, "tròn" một nơi) gần như chắc chắn không phải thứ người dùng tìm.
+  const exact = full.filter(h => h.phraseHit);
+  return (exact.length > 0 ? exact : full.length > 0 ? full : all)
     .sort((a, b) => b.score - a.score)
     .map(({ group, article, score }) => ({ group, article, score }));
 }

@@ -219,11 +219,11 @@ export const manufacturingGroup: GuideGroup = {
       id: 'mfg-han-son-nhan-vattu',
       title: 'Tổ Hàn / Tổ Sơn — xác nhận nhận vật tư tiêu hao (tab "Xác nhận sản lượng")',
       roles: ['han', 'son'],
-      purpose: 'Xác nhận đã nhận vật tư tiêu hao (khí CO2, dây hàn, bột sơn...) do Thủ kho cấp — khác hẳn Sắt, không qua KCS.',
+      purpose: 'Xác nhận đã nhận vật tư tiêu hao của công đoạn (VD sơn bột cho tổ Sơn) do Thủ kho cấp — khác hẳn Sắt, không qua KCS.',
       mock: {
         title: 'Xác nhận sản lượng',
         columns: ['PO', 'Vật tư', 'SL kho xuất', 'Thời gian xuất', 'Xác nhận nhận'],
-        rows: [['PO-2026-014', 'Khí CO2', '25', '09:10 01/10/2026', '___']],
+        rows: [['PO-2026-014', 'Sơn bột (VTK-004)', '0,9', '09:10 01/10/2026', '___']],
         buttons: ['Nhận thiếu', 'Xác nhận đã nhận'],
       },
       screenshot: '/guide-screens/mfg-han-son-nhan-vattu.png',
@@ -237,7 +237,7 @@ export const manufacturingGroup: GuideGroup = {
       commonErrors: [
         { issue: '"Không thể xác nhận nhận vật tư"', cause: 'Lỗi chung từ máy chủ (PI chưa Bắt đầu, hoặc lỗi khác).', fix: 'Kiểm tra trạng thái PI với QLSX rồi thử lại.' },
       ],
-      tags: ['nhận vật tư tiêu hao', 'khí co2', 'dây hàn', 'bột sơn'],
+      tags: ['nhận vật tư tiêu hao', 'sơn bột', 'bột sơn', 'xác nhận đã nhận', 'nhận thiếu'],
       sourceRefs: ['src/modules/pages/Manufacturing/XacNhanVatTuPage.tsx'],
     },
     {

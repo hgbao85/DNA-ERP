@@ -51,7 +51,8 @@ export default function MaterialsManagerApp({ onBack }: Props) {
               aria-selected={on}
               onClick={() => setUrlTab(t.id === 'materials' ? null : t.id)}
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 13, cursor: 'pointer',
+                display: 'inline-flex', alignItems: 'center', gap: 6, padding: isCompact ? '6px 9px' : '6px 12px', fontSize: 13, cursor: 'pointer',
+                whiteSpace: 'nowrap', flexShrink: 0,
                 border: 'none', borderRadius: 'var(--radius)',
                 background: on ? 'var(--surface2)' : 'transparent',
                 color: on ? 'var(--text)' : 'var(--text2)', fontWeight: on ? 600 : 500,

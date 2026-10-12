@@ -233,12 +233,15 @@
             <li><code>stepsTitle</code>, <code>stepsStyle: 'bullets'</code> — đổi tiêu đề mục các bước, hoặc dùng gạch đầu dòng khi các ý không phải trình tự. <code>steps: []</code> thì mục này không hiện.</li>
             <li>Cả ba đều tuỳ chọn và được đưa vào tìm kiếm. Bài nào không khai thì hiển thị y như cũ, nên trang <code>/guide</code> công khai không đổi.</li>
           </ul></div></div>
-      <div class="f-field"><span class="k">9 bài Vật tư dùng khối mới</span><div class="v">17 bảng và 2 khối công thức, ví dụ: "Ý nghĩa từng cột" (15 cột), "Từng ô trên form" (Ô / Bắt buộc / Điền gì / Ví dụ), ba bảng nhóm – phân loại – nhóm con Sắt, "Ví dụ tính" + "Bảng % đang áp dụng" + "Ba lựa chọn Làm tròn khi mua", "Khi nào không xoá được". Các bước chỉ còn giữ đúng thao tác phải làm lần lượt.</div></div>
+      <div class="f-field"><span class="k">Bài dùng khối mới</span><div class="v">9 bài Vật tư: 17 bảng và 2 khối công thức, ví dụ: "Ý nghĩa từng cột" (15 cột), "Từng ô trên form" (Ô / Bắt buộc / Điền gì / Ví dụ), ba bảng nhóm – phân loại – nhóm con Sắt, "Ví dụ tính" + "Bảng % đang áp dụng" + "Ba lựa chọn Làm tròn khi mua", "Khi nào không xoá được". Các bước chỉ còn giữ đúng thao tác phải làm lần lượt. 6 bài riêng của Admin cũng chuyển sang bảng (9 bảng): Người dùng (từng ô, loại nhân viên, các nút trên dòng), Kho, Nhóm vật tư, Danh mục khác, Tệp đính kèm, và bài Lưu ý về các màn quản trị. Ba bài thuần thao tác (Sửa SKU đợt Phôi, Tính lại cắt sắt, Gửi thông báo) giữ dạng bước.</div></div>
       <div class="f-field"><span class="k">Chi tiết</span><div class="v"><ul>
             <li>Dấu "đã đọc" lưu trên trình duyệt của từng người (cùng cơ chế với <code>/guide</code>), không lưu lên máy chủ.</li>
             <li>Cột "Trong bài này" chỉ hiện khi đủ rộng: từ 1400px với Quản lý vật tư, 1620px với Admin (vì có thêm sidebar quản trị) — tham số <code>tocMinWidth</code>.</li>
+            <li>Trong mục lục chỉ danh sách bài cuộn; tiêu đề, ô tìm và tiến độ đọc đứng yên (mục lục Admin dài 18 bài).</li>
+            <li>Tìm kiếm (dùng chung với <code>/guide</code>): gõ nhiều từ mà có bài chứa nguyên cụm đứng liền nhau thì chỉ giữ các bài đó. "làm tròn" trước ra 8/9 bài, giờ ra 3.</li>
+            <li>Hai tab "Vật tư" / "Hướng dẫn" của Quản lý vật tư không còn xuống hai dòng trên điện thoại.</li>
             <li>Màn hẹp: hai màn nối tiếp, Tổng quan → bài, có nút "Mục lục" để quay lại.</li>
-            <li>Đã kiểm trên trình duyệt thật: 9 bài (Quản lý vật tư) và 18 bài (Admin) mở không lỗi, không tràn ngang ở 1440px và 390px, giao diện sáng và tối.</li>
+            <li>Đã kiểm trên trình duyệt thật: 9 bài (Quản lý vật tư) và 18 bài (Admin) mở không lỗi, không tràn ngang ở 1440px và 390px, giao diện sáng và tối. Trang <code>/guide</code> chung: mở lần lượt cả 59 bài, không lỗi.</li>
           </ul></div></div>
       <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>Guide\EmbeddedGuide.tsx</code> · <code>Guide\ArticleView.tsx</code> · <code>Guide\types.ts</code> · <code>Guide\search.ts</code> · <code>Guide\content\materialsShared.ts</code></div></div>
     </article>

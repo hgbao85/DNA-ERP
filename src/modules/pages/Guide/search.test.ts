@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { GUIDE_GROUPS } from './content';
 import { searchArticles } from './search';
+import { materialsGroup } from './content/materials';
 
 // 2026-10-12: bản cũ khớp chuỗi con sau khi bỏ dấu ("han" khớp cả "hàng") nên gần như truy vấn nào
 // cũng ra đủ mọi bài và bài đúng không đứng đầu. Test chạy trên NỘI DUNG THẬT của guide.
@@ -47,6 +48,17 @@ describe('searchArticles (nội dung guide thật)', () => {
     expect(GUIDE_GROUPS.map((g) => g.id)).not.toContain('admin');
     expect(GUIDE_GROUPS.map((g) => g.id)).not.toContain('materials');
     expect(ids('tao tai khoan').some((id) => id.startsWith('admin-'))).toBe(false);
+  });
+
+  it('có bài chứa nguyên cụm từ khoá thì bỏ bài chỉ có các từ rời rạc (kể cả khi cụm nằm trong ngoặc kép)', () => {
+    const ids = (q: string) => searchArticles([materialsGroup], q).map(h => h.article.id);
+    const tonDau = ids('tồn kho ban đầu');
+    expect(tonDau[0]).toBe('vt-them-vat-tu');
+    expect(tonDau).toContain('vt-sua-xoa'); // nhắc tới ô "Tồn kho ban đầu" trong ngoặc kép
+    expect(tonDau).not.toContain('vt-don-vi-mua');
+    const lamTron = ids('làm tròn');
+    expect(lamTron[0]).toBe('vt-hao-hut');
+    expect(lamTron.length).toBeLessThan(materialsGroup.articles.length);
   });
 
   it('rỗng hoặc không khớp gì thì trả mảng rỗng', () => {
