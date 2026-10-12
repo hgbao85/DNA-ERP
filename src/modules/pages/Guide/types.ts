@@ -7,7 +7,8 @@ export type GuideRole =
   | 'sales'        // isSale — Kinh doanh
   | 'khsx'         // isProductPlanner — Kế hoạch sản xuất
   | 'purchasing'   // isPurchaser — Mua hàng
-  | 'warehouse'    // WAREHOUSE_STAFF không mfgRole/isPurchaser/isProductPlanner/isSale — Thủ kho
+  | 'materials'    // isMaterialsManager — Quản lý vật tư
+  | 'warehouse'    // WAREHOUSE_STAFF không mfgRole/isPurchaser/isProductPlanner/isSale/isMaterialsManager — Thủ kho
   | 'qlsx'         // mfgRole = PRODUCTION_MANAGER — Quản lý sản xuất
   | 'phoi'         // mfgRole = PHOI — Tổ Phôi
   | 'han'          // mfgRole = HAN — Tổ Hàn
@@ -86,24 +87,6 @@ export interface GuideArticle {
   sourceRefs?: string[];
 }
 
-export interface GuideArticle {
-  id: string;
-  title: string;
-  /** Vai trò thực hiện chính */
-  roles: GuideRole[];
-  purpose: string;
-  preconditions?: string[];
-  steps: (string | GuideStep)[];
-  result: string;
-  warnings?: string[];
-  commonErrors?: GuideErrorCase[];
-  statuses?: GuideStatus[];
-  /** Từ khoá phụ để tìm kiếm (đồng nghĩa nghiệp vụ, tên nút cũ, viết tắt...) */
-  tags?: string[];
-  /** Nguồn tham chiếu trong code — CHỈ dành cho người bảo trì tài liệu, KHÔNG hiển thị cho người đọc */
-  sourceRefs?: string[];
-}
-
 export interface GuideGroup {
   id: string;
   title: string;
@@ -120,6 +103,7 @@ export const GUIDE_ROLES: GuideRoleInfo[] = [
   { id: 'sales',       label: 'Kinh doanh (Sales)',                 short: 'Sales',    color: 'var(--fg-2e7d32)', bg: 'var(--bg-e8f5e9)' },
   { id: 'khsx',        label: 'Kế hoạch sản xuất (KHSX)',           short: 'KHSX',     color: 'var(--fg-2e7d32)', bg: 'var(--bg-e8f5e9)' },
   { id: 'purchasing',  label: 'Mua hàng',                           short: 'Mua hàng', color: 'var(--fg-4527a0)', bg: 'var(--bg-ede7f6)' },
+  { id: 'materials',   label: 'Quản lý vật tư',                     short: 'QL vật tư', color: 'var(--fg-4527a0)', bg: 'var(--bg-ede7f6)' },
   { id: 'warehouse',   label: 'Thủ kho',                            short: 'Thủ kho',  color: 'var(--fg-4527a0)', bg: 'var(--bg-ede7f6)' },
   { id: 'qlsx',        label: 'Quản lý sản xuất (QLSX)',            short: 'QLSX',     color: 'var(--fg-e65100)', bg: 'var(--bg-fff3e0)' },
   { id: 'phoi',        label: 'Tổ Phôi (cắt sắt)',                  short: 'Phôi',     color: 'var(--fg-e65100)', bg: 'var(--bg-fff3e0)' },

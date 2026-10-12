@@ -3,7 +3,7 @@ import type { GuideGroup } from '../types';
 // Nhóm "Hành trình một đơn hàng" — tổng hợp theo đúng chuỗi nghiệp vụ thật (không phải liệt kê
 // tính năng theo module). Nội dung dựa trên docs/quy-trinh-2026-08-15-hanh-trinh-don-hang.html
 // và docs/quy-trinh-2026-08-15-tao-dinh-muc-moi.html, đối chiếu lại với source code tới
-// 22/09/2026. Đây là bức tranh toàn cảnh; chi tiết thao tác từng màn hình nằm ở nhóm theo
+// 12/10/2026. Đây là bức tranh toàn cảnh; chi tiết thao tác từng màn hình nằm ở nhóm theo
 // phân hệ bên dưới trong sidebar — mỗi bước ở đây có thể trỏ người đọc sang đó.
 
 export const journeyGroup: GuideGroup = {
@@ -24,15 +24,16 @@ export const journeyGroup: GuideGroup = {
         'Đây là nhà máy sản xuất đồ nội thất khung sắt (ghế, bàn...): cắt sắt thành từng đoạn, hàn thành khung, sơn, rồi gửi phần khung/mảnh ra các điểm đan bên ngoài để đan mặt ghế, sau đó nhận về kiểm tra và đóng gói. Gần như mọi quyết định quan trọng — duyệt công thức sản phẩm, duyệt lệnh sản xuất — đều qua tay Giám đốc ký cuối cùng (riêng việc chọn nhà cung cấp khi mua hàng do Giám đốc ký tay ngoài hệ thống).',
       steps: [
         'Đơn hàng (Kinh doanh) → Duyệt định mức sản phẩm (KHSX + chuyên viên định mức + Giám đốc)',
-        'Lệnh sản xuất (KHSX → QLSX → Giám đốc duyệt)',
-        'Cắt sắt tự động → Mua hàng (chỉ khi thiếu vật tư)',
+        'Tối ưu cắt sắt: KHSX cho hệ thống tính phương án cắt rồi tạo lệnh sản xuất',
+        'Lệnh sản xuất (KHSX → QLSX → Giám đốc duyệt) → Mua hàng (chỉ khi thiếu vật tư)',
         'Xuất vật tư xuống xưởng → Phôi → Hàn → Sơn',
         'Đan (gia công ngoài) → Chuyền kiểm → Đóng gói',
       ],
       result: 'Nắm được bức tranh tổng thể trước khi đi vào từng phân hệ.',
       warnings: [
-        'Các mốc tiến độ hiển thị trên đơn hàng (Lên kế hoạch → Mua hàng → Khung cơ khí → Đan → Chuyền kiểm → Đóng gói → Hoàn thành) không tự cập nhật theo tiến độ thực tế dưới xưởng — phải có người cập nhật tay.',
-        'Hệ thống chưa có nút/trạng thái nào tự động đánh dấu "đơn hàng đã hoàn thành 100%". Muốn biết phải tự so sánh số đã đóng gói với tổng số cần giao.',
+        'Các mốc tiến độ hiển thị trên đơn hàng (Lên kế hoạch → Mua hàng → Khung cơ khí → Đan → Chuyền kiểm → Đóng gói → Hoàn thành) được hệ thống TỰ SUY từ dữ liệu sản xuất thật (đã duyệt lệnh chưa, xưởng đã báo sản lượng chưa, đã xuất đan/chuyền kiểm/đóng gói chưa) — không ai phải cập nhật tay và cũng không sửa tay được.',
+        'Một dòng SKU chỉ lên mốc "Hoàn thành" khi ĐỦ CẢ HAI điều kiện: số thùng đã đóng gói ≥ số lượng của lệnh, VÀ QLSX đã bấm "Kết thúc" lệnh đó. Thiếu một trong hai thì vẫn ở mốc đang làm.',
+        'Từng bước đều có thông báo tự động gửi cho người ở bước kế tiếp — xem bài "Thông báo & việc đang chờ bạn xử lý".',
       ],
       tags: ['tổng quan', 'vai trò', 'quy trình', 'sơ đồ'],
       sourceRefs: ['docs/quy-trinh-2026-08-15-hanh-trinh-don-hang.html'],
@@ -50,16 +51,41 @@ export const journeyGroup: GuideGroup = {
       result: 'Hiểu đúng các từ viết tắt sẽ gặp lại nhiều lần trong tài liệu và trên phần mềm.',
       statuses: [
         { name: 'PO', meaning: 'Mã đơn hàng của khách (Kinh doanh tạo). Một PO có thể có nhiều dòng SKU.' },
-        { name: 'PI', meaning: 'Phiếu/lệnh sản xuất — tập hợp một hoặc nhiều SKU dùng chung một đợt cắt sắt. Do KHSX tạo ra ở bước "Tối ưu cắt sắt".' },
+        { name: 'PI', meaning: 'Phiếu/lệnh sản xuất — tập hợp một hoặc nhiều SKU dùng chung một đợt cắt sắt. Do KHSX tạo ra ở bước "Tối ưu cắt sắt" sau khi đã tính xong phương án cắt.' },
         { name: 'SKU', meaning: 'Mã một sản phẩm cụ thể (ví dụ một mẫu ghế) — mỗi SKU có công thức/định mức vật tư riêng.' },
         { name: 'Định mức', meaning: 'Công thức: một sản phẩm cần bao nhiêu vật tư (sắt, dây, sơn, phụ kiện, bao bì...) mới làm ra được. Chia làm 2 phần: định mức mảnh và định mức chi tiết.' },
         { name: 'Mảnh', meaning: 'Một bộ phận cấu thành sản phẩm (ví dụ: mảnh tựa, mảnh chân, mảnh mặt ghế) — mỗi mảnh cắt/hàn/sơn riêng theo định mức của nó.' },
-        { name: 'KHSX', meaning: 'Kế hoạch sản xuất — tạo SKU, gộp đợt cắt sắt, lập và trình lệnh sản xuất.' },
+        { name: 'KHSX', meaning: 'Kế hoạch sản xuất — tạo SKU, tính phương án cắt sắt, lập và trình lệnh sản xuất.' },
+        { name: 'Khả dụng', meaning: 'Số tồn kho còn dùng được = Tồn kho trừ phần đang được giữ chỗ (cho phương án cắt sắt hoặc phiếu chuyển kho đang chờ).' },
+        { name: 'Nhóm con Sắt', meaning: 'Vật tư nhóm Sắt chia 3 loại: "Phần mềm" (cắt theo phương án do hệ thống tính), "Tự tính" (cắt theo tỷ lệ cố định, ví dụ tấm sắt la → pat), "Vật tư thành phẩm" (gia công từ nguyên liệu mua về, ví dụ thanh nhôm → chân nhôm).' },
         { name: 'QLSX', meaning: 'Quản lý sản xuất — chọn kho thành phẩm nhận hàng, bấm Bắt đầu/Kết thúc cho xưởng hoạt động.' },
         { name: 'KCS', meaning: 'Kiểm tra chất lượng sau mỗi công đoạn cắt/hàn/sơn.' },
         { name: 'NCC', meaning: 'Nhà cung cấp — nơi bán vật tư cho công ty.' },
       ],
       tags: ['glossary', 'từ điển', 'giải thích', 'po là gì', 'pi là gì', 'sku là gì', 'viết tắt'],
+    },
+    {
+      id: 'journey-notifications',
+      title: 'Thông báo & việc đang chờ bạn xử lý',
+      roles: ['sales', 'khsx', 'qlsx', 'boss', 'purchasing', 'materials', 'warehouse', 'phoi', 'han', 'son', 'kcs', 'spec_steel', 'spec_detail', 'admin'],
+      screenshot: '/guide-screens/journey-notifications.png',
+      purpose:
+        'Hệ thống tự gửi thông báo cho đúng người ở bước kế tiếp (ví dụ: SKU cần nhập định mức, định mức chờ duyệt, lệnh sản xuất chờ QLSX/Giám đốc, có hàng mua về chờ nhận, đợt cắt/hàn/sơn chờ KCS, kho vừa xuất vật tư cho tổ...). Không cần tự vào từng màn để dò xem có việc mới hay không.',
+      steps: [
+        'Bấm icon chuông (cạnh tên bạn ở cuối thanh menu; trên điện thoại nằm ở thanh trên cùng) để mở danh sách thông báo — có 2 tab "Cần xử lý" và "Tất cả".',
+        'Bấm vào một thông báo: hệ thống mở đúng phân hệ, đúng tab và làm nổi bật đúng dòng cần xử lý.',
+        'Số đỏ cạnh một mục menu (ví dụ "Nhập kho", "Duyệt SKU", "Xử lý lệnh sản xuất", "Xác nhận nhận sắt", KCS Phôi/Hàn/Sơn) = số việc đang chờ bạn ở mục đó.',
+        'Bấm "Xem tất cả" để mở trang "Thông báo của tôi": tìm theo tiêu đề/nội dung, lọc theo loại (Cần xử lý / Kết quả / Cảnh báo / Thông tin / Thông báo chung) và theo đã đọc/chưa đọc.',
+        'Bấm "Đọc tất cả" để đánh dấu đã đọc toàn bộ.',
+      ],
+      result: 'Biết ngay khi có việc tới lượt mình; các bảng danh sách cũng tự làm mới khi người khác vừa thao tác, không cần tải lại trang.',
+      warnings: [
+        'Thông báo ghi "Chỉ để xem" = nó trỏ tới màn hình của phân hệ khác mà vai trò của bạn không mở được — chỉ để nắm thông tin.',
+        'Thông báo ghi "Đã xử lý" = việc đó đã có người làm xong, không cần thao tác nữa.',
+        '"Thông báo chung" (lịch nghỉ, thay đổi quy trình...) do Admin soạn tay; các thông báo còn lại do hệ thống tự phát theo nghiệp vụ.',
+      ],
+      tags: ['thông báo', 'chuông', 'việc chờ xử lý', 'notification', 'badge'],
+      sourceRefs: ['src/components/NotificationCenter.tsx', 'src/components/MyNotificationsPage.tsx', 'DNA-ERP-BE/src/modules/notifications/notification-types.ts'],
     },
     {
       id: 'journey-1-order',
@@ -72,21 +98,21 @@ export const journeyGroup: GuideGroup = {
       ],
       mock: {
         title: 'Tạo PO mới',
-        formFields: ['Mã đơn hàng *', 'Khách hàng *', 'Ngày đặt'],
-        columns: ['SKU', 'Hạn giao', 'Tổng số'],
+        formFields: ['Mã đơn hàng *', 'Khách hàng *', 'Ngày đặt', 'File đính kèm (PO, hợp đồng...)', 'Ghi chú'],
+        columns: ['SKU', 'Hạn giao *', 'Tổng số *'],
         rows: [['GHE-001', '30/09/2026', '200']],
         buttons: ['Thêm SKU', 'Lưu'],
       },
       steps: [
         'Chọn khách hàng cho đơn hàng.',
-        'Thêm từng dòng sản phẩm: chọn SKU đã duyệt, nhập số lượng và ngày cần giao.',
+        'Thêm từng dòng sản phẩm: chọn SKU đã duyệt, nhập số lượng và hạn giao (bắt buộc cho từng dòng — hạn này đi theo xuống lệnh sản xuất của đúng đơn đó).',
         'Lưu đơn hàng.',
-        { text: 'Đánh dấu đã nhận cọc và ghi nhận từng đợt xuất hàng khi có.', critical: false },
+        { text: 'Đánh dấu đã nhận cọc khi có. Số lượng đã xuất hàng do Thủ kho ghi nhận ở "Xuất theo đơn hàng", Kinh doanh chỉ theo dõi.', critical: false },
       ],
       result:
         'Đơn hàng được tạo; hệ thống tự sinh một "lệnh sản xuất" tương ứng phía sau cho bộ phận Kế hoạch sản xuất xử lý tiếp — Kinh doanh không thấy và không cần thao tác phần đó.',
       warnings: [
-        'Mốc tiến độ trên đơn hàng là thủ công, không tự động đồng bộ với xưởng.',
+        'Mốc tiến độ trên đơn hàng do hệ thống tự suy từ dữ liệu sản xuất thật — Kinh doanh chỉ xem, không sửa tay.',
         'Việc theo dõi tiền dừng ở mức "đã nhận cọc / chưa nhận cọc" — chưa tính được đã thanh toán bao nhiêu, còn nợ bao nhiêu.',
       ],
       commonErrors: [
@@ -105,14 +131,14 @@ export const journeyGroup: GuideGroup = {
         'Vật tư (sắt, dây, đinh, sơn, phụ kiện, bao bì...) đã được Admin khai báo sẵn trong danh mục — hai chuyên viên chỉ chọn được từ danh mục có sẵn, không gõ tự do.',
       ],
       mock: {
-        title: 'Duyệt SKU — Định mức mảnh',
-        columns: ['Mảnh', 'Sắt', 'Dây', 'Đinh'],
-        rows: [['Mảnh tựa', 'Ø14 x 400mm', '2m', '8']],
+        title: 'Duyệt SKU — Định mức mảnh (thẻ "Mảnh tựa ×1 / SKU")',
+        columns: ['Nhóm', 'Vật tư', 'Quy cách', 'Chiều dài / Số lượng/ĐVT', 'Số lượng', 'ĐVT'],
+        rows: [['Sắt', 'SAT-003 — Sắt hộp 20x20', '20x20x0.8', '400', '2', 'cây'], ['Dây', 'DAY-011 — Dây nhựa giả mây', '—', '—', '0.5', 'kg']],
         buttons: ['Từ chối', 'Duyệt', 'Xác nhận hoàn tất'],
       },
       steps: [
-        'KHSX tạo hồ sơ SKU mới (ở màn "Duyệt SKU"): nhập mã SKU (bắt buộc) + Mã khách hàng (tuỳ chọn).',
-        { text: 'Nhánh mảnh (chuyên viên định mức mảnh): chia sản phẩm thành từng "mảnh" (VD: mảnh tựa, mảnh chân), khai chiều dài sắt cần cắt + số đoạn, và vật tư phụ (dây, đinh, tán rút, nút nhựa) cho từng mảnh.', critical: false },
+        'KHSX tạo hồ sơ SKU mới (ở màn "Duyệt SKU"): nhập mã SKU (bắt buộc) + Mã khách hàng và Ảnh sản phẩm (tuỳ chọn).',
+        { text: 'Nhánh mảnh (chuyên viên định mức mảnh): chia sản phẩm thành từng "mảnh" (VD: mảnh tựa, mảnh chân), đánh dấu mảnh có Cần Hàn / Cần Sơn hay không, khai chiều dài sắt cần cắt + số đoạn, và vật tư phụ (dây, đinh, tán rút, nút nhựa) cho từng mảnh.', critical: false },
         { text: 'Nhánh chi tiết (chuyên viên định mức chi tiết): khai sơn, phụ kiện, bao bì cho cả sản phẩm — làm song song, không cần chờ nhánh mảnh.', critical: false },
         'KHSX mở chi tiết SKU, xem 2 tab "Định mức mảnh" và "Định mức chi tiết": mỗi tab chỉ có MỘT quyết định Duyệt/Từ chối duy nhất cho toàn bộ nhánh đó (không duyệt riêng từng nhóm vật tư con).',
         'Sau khi Duyệt một nhánh, bấm thêm "Xác nhận hoàn tất" cho nhánh đó để chính thức chốt (duyệt xong chưa tự chốt).',
@@ -125,15 +151,15 @@ export const journeyGroup: GuideGroup = {
         'Mỗi lần chuyên viên bấm lưu/gửi là GHI ĐÈ TOÀN BỘ danh sách mảnh (hoặc dòng chi tiết) của SKU đó — không phải sửa từng dòng. Gửi thiếu là mất dữ liệu cũ, không có bản khôi phục.',
         'Nếu chuyên viên nhập lại dữ liệu sau khi KHSX đã duyệt, quyết định duyệt cũ của nhánh đó bị xoá — KHSX phải duyệt lại dù nút "Xác nhận" từng ghi "không thể sửa lại quyết định này".',
         'Nếu Giám đốc từ chối ở bước cuối, quyết định duyệt của KHSX ở CẢ HAI nhánh đều bị xoá (không riêng nhánh có lỗi) và SKU quay về "Đang làm định mức" — KHSX phải duyệt và chốt lại từ đầu cả hai nhánh. Số liệu định mức đã nhập không mất, chỉ mất quyết định duyệt.',
-        'Hệ thống không tự bắn thông báo cho bước kế tiếp — mỗi người phải tự vào kiểm tra màn hình danh sách của mình để biết có hồ sơ mới cần xử lý.',
-        'Nếu mã SKU trùng với một hồ sơ khác chưa được duyệt xong, hệ thống chỉ cảnh báo mềm ("Sản phẩm đã có hồ sơ định mức" kèm nút "Vẫn tạo mới") chứ không chặn.',
+        'Mỗi bước đều có thông báo tự động cho người kế tiếp (chuyên viên được báo có SKU cần nhập, KHSX được báo có định mức chờ duyệt, Giám đốc được báo có SKU chờ duyệt, và ngược lại khi bị từ chối) kèm số đỏ trên menu — xem bài "Thông báo & việc đang chờ bạn xử lý".',
+        'Hệ thống không chặn và không cảnh báo khi mã SKU trùng với SKU đã có: mỗi lần "Tạo SKU mới" là một sản phẩm riêng với định mức riêng (hai khách hàng có thể dùng cùng một mã). Hãy tự kiểm tra ở "Danh sách SKU" trước khi tạo.',
         'Xoá SKU (ở màn "Danh sách SKU") là xoá cứng, không thể hoàn tác — kể cả SKU đã được duyệt.',
       ],
       commonErrors: [
         { issue: 'Nút Duyệt/Từ chối bị khoá', cause: 'Chuyên viên phụ trách nhánh đó chưa nhập gì (không có dữ liệu để duyệt).', fix: 'Chờ chuyên viên nhập xong (hoặc liên hệ trực tiếp) rồi duyệt lại.' },
         { issue: 'Sản phẩm báo "chưa có định mức đang active" (active = đang có hiệu lực) khi tạo đơn hàng/lệnh sản xuất', cause: 'SKU chưa từng được Giám đốc duyệt định mức, hoặc bản duyệt cũ đã bị thay thế bởi một hồ sơ khác đang chờ duyệt.', fix: 'Kiểm tra trạng thái SKU ở màn "Duyệt SKU"; hoàn tất quy trình duyệt định mức trước.' },
         { issue: '"Chưa duyệt đủ nhóm mảnh: còn thiếu SAT" (hoặc tương tự cho chi tiết)', cause: 'Bấm "Xác nhận hoàn tất" khi nhóm vật tư đó của nhánh chưa có dữ liệu/chưa duyệt xong.', fix: 'Kiểm tra đủ dữ liệu cho mọi nhóm vật tư trong nhánh trước khi xác nhận hoàn tất.' },
-        { issue: '"Plan form ... đang ở trạng thái ... - chỉ có thể sửa khi đang làm định mức"', cause: 'Cố sửa tên/mã SKU khi hồ sơ đã gửi chờ Giám đốc duyệt hoặc đã duyệt xong.', fix: 'Chỉ sửa được thông tin SKU khi đang ở trạng thái "Đang làm định mức".' },
+        { issue: '"Plan form ... đang ở trạng thái ... - chỉ có thể sửa khi đang làm định mức (chưa gửi Sếp duyệt)"', cause: 'Cố sửa tên/mã SKU khi hồ sơ đã gửi chờ Giám đốc duyệt hoặc đã duyệt xong.', fix: 'Chỉ sửa được thông tin SKU khi đang ở trạng thái "Đang làm định mức".' },
       ],
       statuses: [
         { name: 'Đang làm định mức', meaning: 'SKU vừa tạo hoặc vừa bị Giám đốc từ chối — đang chờ chuyên viên nhập/KHSX duyệt từng nhánh.' },
@@ -192,9 +218,10 @@ export const journeyGroup: GuideGroup = {
       purpose: 'Các trường hợp ngoại lệ lặp lại nhiều lần trong hệ thống — biết trước để không bối rối khi gặp.',
       steps: [
         'Từ chối ở bất kỳ cổng duyệt nào (định mức, lệnh sản xuất, gộp đợt cắt...): hồ sơ quay lại đúng người phụ trách kèm lý do, dữ liệu đã nhập không mất.',
-        'Lỗi chất lượng (KCS) luôn tách "sửa được" và "phế bỏ hẳn" — không chỉ đạt/không đạt.',
+        'Lỗi chất lượng (KCS) chỉ ghi hai kết quả Đạt / Không đạt (kèm nguyên nhân). Phần không đạt KHÔNG tự sinh lô làm lại — tổ sản xuất tự báo một đợt mới để bù (nút "Bù đủ").',
         'Nhận thiếu vẫn được ghi nhận — cả khi nhận hàng mua về lẫn khi nhận vật tư xuống xưởng, không bắt buộc khớp tuyệt đối.',
-        'Gộp đợt cắt sắt (nhiều sản phẩm dùng chung loại sắt) chỉ thực hiện được TRƯỚC khi Giám đốc duyệt lệnh sản xuất.',
+        'Gộp đợt cắt sắt (nhiều sản phẩm dùng chung loại sắt) và tính lại phương án cắt chỉ thực hiện được TRƯỚC khi Giám đốc duyệt lệnh sản xuất.',
+        'QLSX hoặc Giám đốc từ chối lệnh sản xuất = lệnh bị XOÁ, SKU quay về màn "Tối ưu cắt sắt" để KHSX tính và tạo lệnh lại từ đầu.',
       ],
       result: 'Hiểu đúng các quy tắc chung, tránh nhầm lẫn khi thao tác thực tế.',
       tags: ['ngoại lệ', 'từ chối', 'reject', 'sửa được', 'phế'],

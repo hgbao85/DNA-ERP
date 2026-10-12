@@ -119,6 +119,10 @@ export interface ProductionInvoiceItemRef {
  *  undefined/items/.../packaging" - trước đó ít lộ vì getPackaging chỉ gọi tương tác theo 1 SKU
  *  được chọn, không lặp qua mọi SKU như VatTuDashboardPage. */
 export async function resolveProductionInvoiceRef(pf: Sku): Promise<ProductionInvoiceItemRef | null> {
+  // Dòng dựng từ lệnh sản xuất cụ thể đã mang sẵn đúng (PI, item) của nó - không dò lại theo sản phẩm.
+  if (pf.productionInvoiceId && pf.productionInvoiceItemId) {
+    return { productionInvoiceId: pf.productionInvoiceId, itemId: pf.productionInvoiceItemId };
+  }
   if (pf.productionInvoiceId) {
     const pi = await fetchProductionInvoiceCached(pf.productionInvoiceId);
     const item = pi.items.find((it) => it.mfgProductId === pf.mfgProductId);
@@ -139,6 +143,7 @@ export async function resolveProductionInvoiceRef(pf: Sku): Promise<ProductionIn
  * packaging-api.ts).
  */
 export async function resolveProductionOrderId(pf: Sku): Promise<string | null> {
+  if (pf.productionOrderId) return pf.productionOrderId;
   const itemId = await resolveProductionInvoiceItemId(pf);
   if (!itemId) return null;
   const list = await fetchProductionOrdersCached();
@@ -203,10 +208,62 @@ export async function buildProductionOrderInfoByMfgProduct(): Promise<Map<string
       warehouseCode: o.warehouseCode,
       bomOutOfDate: o.bomOutOfDate,
     };
+    // Khoá theo id lệnh - chính xác tuyệt đối kể cả khi 1 PI gộp chứa 2 lệnh CÙNG sản phẩm (2 đơn
+    // hàng khác nhau), điều mà khoá (PI, mfgProduct) bên dưới không phân biệt được.
+    map.set(`order:${o.id}`, info);
     map.set(`${o.productionInvoiceId}:${o.mfgProductId}`, info);
     if (!map.has(o.mfgProductId)) map.set(o.mfgProductId, info);
   }
   return map;
+}
+
+/**
+ * Dựng danh sách "mỗi LỆNH SẢN XUẤT 1 dòng" cho các trang kho (Chuyền kiểm/Đóng gói/Xuất-Nhập đan/
+ * Xuất vật tư TP-hàn-sơn) - thay cho lọc thẳng trên danh sách Sku.
+ *
+ * Vì sao (2026-10-12): Sku danh mục (KHSX tạo, dùng lại cho mọi đơn) không gắn PI nào, nên
+ * lookupProductionOrderInfo() rơi về khoá mfgProductId đơn = lệnh ĐẦU TIÊN trong danh sách. 1 sản
+ * phẩm có nhiều lệnh thì CHỈ lệnh đó được xét: PI-2026-007 đang chạy bị ẩn hoàn toàn khỏi các trang
+ * kho vì PI-2026-008 (cùng sản phẩm, mới hơn) chưa được QLSX bấm "Bắt đầu"; sau khi 008 chạy thì
+ * các trang chỉ hiện 008, 007 vẫn không vào được.
+ *
+ * Mỗi dòng là bản sao Sku của sản phẩm đó, gắn thêm productionOrderId/productionInvoiceItemId/
+ * productionInvoiceId của ĐÚNG lệnh - mọi adapter nhận `Sku` (transfer-check/packaging/weaving/
+ * material-issues/material-yield-issues) tự resolve đúng lệnh qua 2 hàm resolve*() ở trên, không
+ * phải sửa từng adapter. Lệnh có sản phẩm không tìm thấy Sku nào thì bỏ qua (không có gì để hiện
+ * tên/mã) - cùng kết quả với cách lọc cũ.
+ */
+export function expandSkusByProductionOrder(skus: Sku[], orders: BeProductionOrderRaw[]): Sku[] {
+  const byProduct = new Map<string, Sku[]>();
+  for (const s of skus) {
+    const list = byProduct.get(s.mfgProductId);
+    if (list) list.push(s);
+    else byProduct.set(s.mfgProductId, [s]);
+  }
+  const rows: Sku[] = [];
+  for (const o of orders) {
+    const candidates = byProduct.get(o.mfgProductId);
+    if (!candidates) continue;
+    // Ưu tiên Sku đã tự gắn đúng PI này, rồi tới bản đã duyệt (bản đang dùng), cuối cùng bản bất kỳ.
+    const base =
+      candidates.find((s) => s.productionInvoiceId === o.productionInvoiceId) ??
+      candidates.find((s) => s.status === 'APPROVED') ??
+      candidates[0];
+    rows.push({
+      ...base,
+      productionInvoiceId: o.productionInvoiceId,
+      productionInvoiceItemId: o.productionInvoiceItemId,
+      productionOrderId: o.id,
+      piCode: o.piCode,
+    });
+  }
+  return rows;
+}
+
+/** Khoá React/khoá refetch cho 1 dòng - `pf.id` KHÔNG còn duy nhất khi 1 Sku tách thành nhiều lệnh. */
+export function productionOrderRowKey(pf: Sku | null | undefined): string {
+  if (!pf) return '';
+  return pf.productionOrderId ? `order:${pf.productionOrderId}` : `sku:${pf.id}`;
 }
 
 /**
@@ -220,6 +277,10 @@ export function lookupProductionOrderInfo(
   map: Map<string, ProductionOrderInfo>,
   pf: Sku,
 ): ProductionOrderInfo | undefined {
+  if (pf.productionOrderId) {
+    const byOrder = map.get(`order:${pf.productionOrderId}`);
+    if (byOrder) return byOrder;
+  }
   if (pf.productionInvoiceId) {
     const exact = map.get(`${pf.productionInvoiceId}:${pf.mfgProductId}`);
     if (exact) return exact;

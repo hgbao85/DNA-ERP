@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Hướng dẫn tách theo vai trò, kho theo lệnh sản xuất, hạn giao bắt buộc (12/10/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --infra: #6B4FA0; --infra-bg: #EDE7F6; --infra-border: #CBB9E8;
+    --ui: #1D5C99; --ui-bg: #E3EEF8; --ui-border: #AECBE8;
+    --decided: #66748A; --decided-bg: #EEF0F3; --decided-border: #CBD2DB;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+      --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+      --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --infra: #C7B3EE; --infra-bg: rgba(199,179,238,0.12); --infra-border: rgba(199,179,238,0.35);
+    --ui: #8FC1EE; --ui-bg: rgba(143,193,238,0.12); --ui-border: rgba(143,193,238,0.35);
+    --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code, .mono { font-family: 'IBM Plex Mono', ui-monospace, monospace; }
+  a { color: var(--accent-strong); }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 900px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 68ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 20px; }
+  .sec-count { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; color: var(--text-muted); }
+
+  .feature { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px 22px; margin-bottom: 16px; box-shadow: var(--shadow); }
+  .f-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.infra { color: var(--infra); background: var(--infra-bg); border-color: var(--infra-border); }
+  .badge.ui { color: var(--ui); background: var(--ui-bg); border-color: var(--ui-border); }
+  .badge.decided { color: var(--decided); background: var(--decided-bg); border-color: var(--decided-border); }
+  .badge.date { color: var(--text-muted); background: var(--surface-alt); border-color: var(--border); }
+  .f-title { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 17px; }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 12px 14px; font-size: 14.3px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 5px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .f-field { margin-top: 12px; }
+  .f-field .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); display: block; margin-bottom: 4px; }
+  .f-field .v { font-size: 14.5px; }
+  .f-field .v code { background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .f-field ul { margin: 4px 0 0; padding-left: 20px; }
+  .f-field li { margin-bottom: 3px; }
+  .f-field ol { margin: 4px 0 0; padding-left: 22px; }
+  table.t { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 6px; }
+  table.t th, table.t td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  table.t th { font-family: 'Be Vietnam Pro', sans-serif; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text-muted); }
+  .toc { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 18px; font-size: 13.5px; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 18px 20px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 14.7px; }
+  .prose-card p { margin: 6px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Changelog phiên làm việc — 12/10/2026</span>
+    <h1 class="title">Hướng dẫn tách theo vai trò, kho theo lệnh sản xuất, hạn giao bắt buộc</h1>
+    <p class="subtitle">Bắt đầu từ việc đối chiếu trang Hướng dẫn sử dụng (<code>/guide</code>) với hệ thống thật, phiên này sửa nội dung và ảnh của guide, tách hướng dẫn của Admin và Quản lý vật tư ra khỏi trang công khai, sửa lỗi các màn kho chỉ thấy được một lệnh sản xuất cho mỗi sản phẩm, và bắt buộc nhập hạn giao khi tạo đơn hàng.</p>
+    <div class="meta-row">
+      <span><strong>Phạm vi:</strong> FE <code>D:\DNA-ERP</code> · BE <code>D:\DNA-ERP-BE</code> (2 file)</span>
+      <span><strong>Trạng thái:</strong> chưa commit ở cả hai repo tại thời điểm viết</span>
+    </div>
+    <div class="toc">
+      <a href="#guide">Hướng dẫn sử dụng</a><a href="#fix">Sửa lỗi</a><a href="#rule">Quy tắc mới</a><a href="#decided">Quyết định</a><a href="#data">Dữ liệu demo</a><a href="#test">Kiểm tra</a><a href="#open">Việc còn mở</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="context">
+    <div class="sec-head"><h2>Bối cảnh</h2></div>
+    <div class="prose-card">
+      <p>Trang <code>/guide</code> là tài liệu tĩnh viết tay trong <code>src\modules\pages\Guide\content\*.ts</code>. Lần cập nhật gần nhất là 25/09/2026, trong khi hệ thống đã đổi nhiều từ đó: Tối ưu cắt sắt chuyển sang "tính trước, tạo lệnh sau", thêm vai trò Quản lý vật tư, thông báo tự động, Sắt chia 3 nhóm con, % dự trù hao hụt khi mua.</p>
+      <p>Nguyên tắc dùng xuyên suốt: <b>code là nguồn đúng</b>, guide sửa theo code. Mọi nhận định được kiểm lại trên app đang chạy (FE <code>:3000</code>, BE <code>:3001</code>, DB dev chung) bằng Playwright có sẵn của dự án.</p>
+    </div>
+  </section>
+
+  <section id="guide">
+    <div class="sec-head"><h2>Hướng dẫn sử dụng</h2><span class="sec-count">5 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Giao diện</span><span class="badge date">12/10</span><span class="f-title">Tách hướng dẫn của Admin và Quản lý vật tư khỏi <code>/guide</code></span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span><code>/guide</code> là trang công khai (mở được cả khi chưa đăng nhập) và chứa luôn hướng dẫn quản trị: tạo tài khoản, xoá kho, sửa tồn, xoá bằng chứng.</div>
+        <div class="ba-box after"><span class="k">Sau</span><code>/guide</code> chỉ còn 7 nhóm nghiệp vụ (59 bài). Hai vai trò có hướng dẫn riêng ngay trong phân hệ của mình, chỉ ai vào được phân hệ đó mới đọc được.</div>
+      </div>
+      <div class="f-field"><span class="k">Vị trí mới</span><div class="v"><table class="t">
+            <tr><th>Vai trò</th><th>Nơi đọc</th><th>URL</th><th>Số bài</th></tr>
+            <tr><td>Admin</td><td>Sidebar › "Hướng dẫn quản trị"</td><td><code>/?m=admin&amp;p=guide&amp;a=&lt;id&gt;</code></td><td>10</td></tr>
+            <tr><td>Quản lý vật tư</td><td>Thanh tiêu đề › tab "Hướng dẫn"</td><td><code>/?m=materials_manager&amp;p=guide&amp;a=&lt;id&gt;</code></td><td>2</td></tr>
+          </table></div></div>
+      <div class="f-field"><span class="k">Cách làm</span><div class="v"><ul>
+            <li>Khối hiển thị dùng chung <code>Guide\EmbeddedGuide.tsx</code> (danh sách bài bên trái, <code>ArticleView</code> bên phải, bài đang mở lưu ở query <code>a</code>). <code>Admin\AdminGuidePage.tsx</code> và <code>MaterialsManager\MaterialsManagerApp.tsx</code> chỉ truyền nhóm bài vào.</li>
+            <li><code>Guide\content\index.ts</code> <b>cố ý không import</b> <code>admin.ts</code>, <code>materials.ts</code>, <code>materialsShared.ts</code>. Import là nội dung đó sẽ nằm trong gói JS gửi cho mọi người mở <code>/guide</code>. Đã kiểm trên app: không file JS nào của <code>/guide</code> chứa bài quản trị.</li>
+            <li>Hai bài về danh mục Vật tư dùng chung cho cả Admin và Quản lý vật tư, nằm ở <code>content\materialsShared.ts</code>; <code>materials.ts</code> ghi đè ảnh riêng (<code>materials-*.png</code>, chụp bằng tài khoản Quản lý vật tư).</li>
+            <li><code>ArticleView</code> thêm prop <code>linkFor</code> để nút "Sao chép link" cho ra đường dẫn mở lại bài trong phân hệ đang nhúng.</li>
+            <li>Nút hướng dẫn nổi (góc phải dưới) ẩn với hai loại tài khoản này: <code>GUIDE_FAB_HIDDEN_MODULES</code> trong <code>src\app\page.tsx</code>, xét theo phân hệ mặc định của tài khoản nên Giám đốc vẫn thấy nút.</li>
+            <li>Link cũ dạng <code>/guide?a=admin-…</code> giờ hiện thông báo "Không tìm thấy bài viết".</li>
+          </ul></div></div>
+      <div class="f-field"><span class="k">Thêm bài mới sau này</span><div class="v">Bài của Admin thêm vào <code>content\admin.ts</code>; bài của Quản lý vật tư thêm vào <code>content\materials.ts</code>. Không đưa hai nhóm này vào <code>GUIDE_GROUPS</code> — <code>search.test.ts</code> có test chặn.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Sửa lỗi</span><span class="badge date">12/10</span><span class="f-title">Tìm kiếm trong guide trả về gần như mọi bài</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Tìm theo chuỗi con sau khi bỏ dấu, nên "han" khớp cả "hàng", "khách hàng". Gõ <i>han giao</i> ra 69/69 bài, bài đầu là "Giao thành phẩm cho khách".</div>
+        <div class="ba-box after"><span class="k">Sau</span>Tìm theo <b>từ</b>, bài phải khớp đủ mọi từ khoá (không bài nào khớp đủ mới nới về khớp 1 từ). <i>han giao</i> ra 9 bài, đầu là "Tạo đơn hàng (PO) mới".</div>
+      </div>
+      <div class="f-field"><span class="k">Chi tiết</span><div class="v">Cộng điểm khi cả cụm từ đứng liền nhau (đếm số lần xuất hiện, có trần), khi tiêu đề mở đầu bằng cụm đó, và khi khớp đúng dấu tiếng Việt người dùng đã gõ. Vẫn chịu lỗi gõ nhẹ ở tiêu đề/tag và gõ dở từ (≥ 4 ký tự). Ô tìm nhanh Ctrl+K dùng chung.</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>Guide\search.ts</code> · test mới <code>Guide\search.test.ts</code> (11 test, chạy trên nội dung guide thật)</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Nội dung</span><span class="badge date">12/10</span><span class="f-title">Đối chiếu toàn bộ bài viết với hệ thống</span></div>
+      <div class="f-field"><span class="k">Những chỗ lệch lớn đã sửa</span><div class="v"><ul>
+            <li><b>Tối ưu cắt sắt</b> (viết lại cả bài): chọn SKU → "Tính phương án cắt" → tab "Kết quả đã tính" → "Tạo lệnh sản xuất". QLSX và Giám đốc duyệt đúng phương án đã tính, hệ thống không tính lại sau khi duyệt.</li>
+            <li><b>Tiến độ đơn hàng</b>: guide ghi "phải cập nhật tay"; thực tế BE tự suy từ dữ liệu sản xuất, "Hoàn thành" cần đóng gói đủ <b>và</b> QLSX bấm Kết thúc.</li>
+            <li><b>Thông báo</b>: guide ghi "hệ thống không tự báo bước kế tiếp"; đã thêm bài về chuông thông báo, số đỏ trên menu, trang "Thông báo của tôi".</li>
+            <li><b>Vật tư</b>: bỏ ô "Ngưỡng hao hụt cắt" đã gỡ; thêm Nhóm con Sắt, Đơn vị mua, Hệ số quy đổi, Làm tròn khi mua, "Sửa hao hụt hàng loạt".</li>
+            <li><b>Người dùng</b>: chức năng "Quản lý vật tư", "Đặt lại mật khẩu", "Chuyển giao vật tư mua hàng"; Tên đăng nhập và Email chỉ nhập lúc tạo.</li>
+            <li><b>Tạo SKU</b>: bỏ cảnh báo "Vẫn tạo mới" (không còn tồn tại — trùng mã giữa hai khách được phép), thêm Ảnh sản phẩm và nút Sửa SKU.</li>
+            <li><b>Mua hàng</b>: cột "Hao hụt"; số "Cần mua" đã cộng sẵn % dự trù.</li>
+            <li><b>KCS</b>: chỉ còn Đạt / Không đạt, không còn tách "sửa được / phế".</li>
+            <li>Giám đốc có 5 tab chứ không phải 6; tên tab, tên cột và sơ đồ mock ở hầu hết các bài còn lại.</li>
+          </ul></div></div>
+      <div class="f-field"><span class="k">Bài mới</span><div class="v">Kho: "Tổng hợp vật tư &amp; Lịch sử kho", "Quản lý điểm đan". Sản xuất: bảng tab theo từng vai trò, tra cứu của Tổ Hàn/Sơn, "Định mức vật tư thành phẩm". Hành trình: "Thông báo &amp; việc đang chờ bạn xử lý". Thêm vai trò <code>materials</code> vào <code>Guide\types.ts</code> và <code>guideRolesOf()</code>.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Nội dung</span><span class="badge date">12/10</span><span class="f-title">Chụp lại ảnh minh hoạ</span></div>
+      <div class="f-field"><span class="k">Kết quả</span><div class="v"><code>public\guide-screens\</code> có 55 ảnh, mọi ảnh được tham chiếu đều có file và không file nào thừa. Chụp ở 1440×900, đã ẩn huy hiệu dev của Next.js. Còn đúng 1 ảnh là bản 23/09: <code>mfg-han-son-nhan-vattu.png</code>, vì sản phẩm demo chưa khai vật tư tiêu hao cho Hàn/Sơn nên không có đợt nào để nhận.</div></div>
+      <div class="f-field"><span class="k">Cách chụp lại</span><div class="v">Playwright trong <code>node_modules</code> của FE, đăng nhập bằng tài khoản seed (mật khẩu <code>demo1234</code>). BE giới hạn đăng nhập 8 lần/phút nên phải giãn khoảng 9 giây giữa các tài khoản; phải chờ trang đăng nhập hydrate xong mới gõ. Nút Bắt đầu/Kết thúc của QLSX dùng <code>window.confirm</code>.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge infra">Dọn dẹp</span><span class="badge date">12/10</span><span class="f-title">Việc nhỏ trong guide</span></div>
+      <div class="f-field"><span class="k">Chi tiết</span><div class="v"><ul>
+            <li>Bỏ khai báo <code>GuideArticle</code> bị lặp trong <code>Guide\types.ts</code>.</li>
+            <li>Mục "Dành cho bạn" ở trang chủ <code>/guide</code> ẩn hẳn khi tài khoản không khớp nhóm nào (Admin, Quản lý vật tư), thay vì hiện tiêu đề trống.</li>
+          </ul></div></div>
+    </article>
+  </section>
+
+  <section id="fix">
+    <div class="sec-head"><h2>Sửa lỗi</h2><span class="sec-count">4 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Sửa lỗi</span><span class="badge date">12/10</span><span class="f-title">Các màn kho chỉ thấy được một lệnh sản xuất cho mỗi sản phẩm</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Chuyền kiểm, Đóng gói, Xuất/Nhập đan, Xuất vật tư TP/hàn/sơn liệt kê theo SKU rồi tra ngược ra lệnh. SKU danh mục không gắn PI nên rơi về lệnh <b>đầu tiên</b> của sản phẩm. PI-2026-007 đang chạy bị ẩn hoàn toàn vì PI-2026-008 (cùng sản phẩm, mới hơn) chưa Bắt đầu.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Mỗi <b>lệnh sản xuất</b> là một dòng. Hai lệnh cùng sản phẩm hiện thành hai dòng, mở ra đúng số liệu riêng (007: tổng cần 80, đã kiểm 2 · 008: tổng cần 3, đã kiểm 3).</div>
+      </div>
+      <div class="f-field"><span class="k">Cách làm</span><div class="v"><ul>
+            <li><code>expandSkusByProductionOrder()</code> trong <code>src\services\production-invoice-item.ts</code> dựng danh sách theo lệnh; mỗi dòng là bản sao <code>Sku</code> mang thêm <code>productionOrderId</code>, <code>productionInvoiceItemId</code>, <code>productionInvoiceId</code> của đúng lệnh.</li>
+            <li><code>resolveProductionInvoiceRef()</code>, <code>resolveProductionOrderId()</code>, <code>lookupProductionOrderInfo()</code> dùng thẳng các id đó, nên các adapter nhận <code>Sku</code> không phải sửa.</li>
+            <li>Hook <code>usePoInfoFloorGate()</code> trả thêm <code>orderRows(skus)</code>. Sáu trang kho lọc trên <code>orderRows(skus)</code> và dùng <code>productionOrderRowKey()</code> làm key (vì <code>pf.id</code> không còn duy nhất).</li>
+          </ul></div></div>
+      <div class="f-field"><span class="k">Lưu ý cho trang kho mới</span><div class="v">Lọc trên <code>orderRows(skus)</code>, đừng lọc thẳng <code>skus</code>. Danh sách lệnh vẫn lấy tối đa 100 lệnh gần nhất (BE chặn <code>limit</code> ở 100).</div></div>
+      <div class="f-field"><span class="k">Test</span><div class="v"><code>src\services\production-invoice-item.test.ts</code> — 7 test cho đúng ca hai lệnh cùng sản phẩm.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Sửa lỗi</span><span class="badge date">12/10</span><span class="f-title">Cột "Hạn giao" ở màn kho lấy nhầm hạn của đơn khác</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Chuyền kiểm, Đóng gói, Nhập đan, Xuất đan đọc <code>Sku.exportOrder.deliveryDate</code> — hạn của đúng một đơn mà hồ sơ SKU đang ghim. Mọi lệnh của GHE-FULL-DEMO-07 đều hiện 25/10/2026.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Đọc <code>poInfoFor(pf)?.deliveryDate</code>, tức hạn của chính lệnh sản xuất. Lệnh chưa khai hạn hiện "—".</div>
+      </div>
+      <div class="f-field"><span class="k">Ghi chú</span><div class="v">Sau thay đổi này không màn nào còn đọc <code>Sku.exportOrder</code>. Trường này (và <code>salesOrderDeliveryDate</code> bên BE) là dữ liệu thừa, chưa gỡ.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Sửa lỗi</span><span class="badge date">12/10</span><span class="f-title">Màn Bán hàng hiện hạn giao giả cho đơn không có hạn</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span><code>toSalesOrder()</code> lấy ngày đặt hàng thay cho hạn giao khi đơn bỏ trống hạn. Đơn WASTE-TEST hiện "Hạn giao 08/10/2026" dù chưa ai nhập.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Đơn không có hạn hiện "—". Trang Admin › Đơn hàng bán cũng hiện "—" thay vì "Invalid Date".</div>
+      </div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>src\services\sales-orders-api.ts</code> · <code>Admin\businessData\SalesPOsPage.tsx</code></div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge fix">Sửa lỗi</span><span class="badge date">12/10</span><span class="f-title">Admin › Thông báo không tải được danh sách</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Trang gọi <code>getSentAnnouncements(1, 200)</code>, BE chặn <code>limit</code> tối đa 100 nên luôn báo "limit must not be greater than 100".</div>
+        <div class="ba-box after"><span class="k">Sau</span>Đổi thành 100, trang hiển thị bình thường.</div>
+      </div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>Admin\NotificationsPage.tsx</code></div></div>
+    </article>
+  </section>
+
+  <section id="rule">
+    <div class="sec-head"><h2>Quy tắc mới</h2><span class="sec-count">2 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge new">Tính năng mới</span><span class="badge date">12/10</span><span class="f-title">Bắt buộc nhập Hạn giao cho từng dòng SKU khi tạo đơn hàng</span></div>
+      <div class="f-field"><span class="k">Vì sao</span><div class="v">Hạn giao của dòng đơn (<code>SalesOrderItem.deliveryDate</code>) được chép xuống <code>ProductionInvoiceItem.deliveryDeadline</code> rồi tới lệnh sản xuất. Bỏ trống thì lệnh sinh ra không có hạn. Hai đơn cùng đặt một mẫu vẫn có hạn riêng — hạn đi theo đơn, không theo sản phẩm.</div></div>
+      <div class="f-field"><span class="k">Chặn ở hai lớp</span><div class="v"><ul>
+            <li><b>BE:</b> <code>CreateSalesOrderItemDto.deliveryDate</code> thành bắt buộc; thiếu thì trả 400 "Hạn giao của từng dòng SKU là bắt buộc".</li>
+            <li><b>FE:</b> form Tạo PO khoá nút "Lưu" và hiện dòng nhắc khi còn dòng SKU thiếu Hạn giao hoặc Tổng số ≤ 0 (<code>canSave</code> trong <code>Sales\OrderManagementPage.tsx</code>). Cột đánh dấu "Hạn giao *", "Tổng số *".</li>
+          </ul></div></div>
+      <div class="f-field"><span class="k">Ảnh hưởng tới code khác</span><div class="v">Mọi nơi tạo đơn hàng (test, seed, script) phải truyền <code>deliveryDate</code> cho từng item. Đã sửa 6 chỗ trong <code>sales-orders.service.spec.ts</code>.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge ui">Giao diện</span><span class="badge date">12/10</span><span class="f-title">Giao diện chỉ còn Sáng và Tối, bỏ "Theo hệ thống"</span></div>
+      <div class="ba-grid">
+        <div class="ba-box before"><span class="k">Trước</span>Nút đổi giao diện xoay 3 nấc Sáng → Tối → Theo hệ thống. Thiết bị chưa chọn gì thì theo hệ điều hành: máy để chế độ tối sẽ thấy giao diện tối ngay lần đầu.</div>
+        <div class="ba-box after"><span class="k">Sau</span>Chỉ còn Sáng ↔ Tối. Thiết bị chưa chọn gì <b>luôn là giao diện sáng</b>, kể cả khi hệ điều hành đang để tối. Lựa chọn lưu theo từng trình duyệt (<code>localStorage</code>, khoá <code>dna-theme</code>).</div>
+      </div>
+      <div class="f-field"><span class="k">Ảnh hưởng tới người đang dùng</span><div class="v">Ai trước đây để "Theo hệ thống" trên máy đang ở chế độ tối sẽ thấy giao diện chuyển sang sáng; bấm nút một lần để về tối và từ đó được nhớ. Ai đã chọn hẳn Sáng hoặc Tối thì không đổi gì.</div></div>
+      <div class="f-field"><span class="k">Vị trí</span><div class="v"><code>src\context\ThemeContext.tsx</code> (kiểu <code>ThemeMode</code> còn <code>'light' | 'dark'</code>, script chống nháy không còn đọc <code>prefers-color-scheme</code>) · <code>src\components\ThemeToggle.tsx</code></div></div>
+    </article>
+  </section>
+
+  <section id="decided">
+    <div class="sec-head"><h2>Quyết định</h2><span class="sec-count">4 mục</span></div>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Đã chốt</span><span class="badge date">12/10</span><span class="f-title">Admin và Quản lý vật tư có hướng dẫn riêng, tách khỏi các vai trò còn lại</span></div>
+      <div class="f-field"><span class="k">Lý do</span><div class="v">Chủ dự án yêu cầu để phần của Admin tách khỏi các vai trò khác; sau đó yêu cầu làm tương tự cho Quản lý vật tư và ẩn nút hướng dẫn chung với hai loại tài khoản này. Vai trò nào sau này cần tách riêng thì làm theo đúng mẫu <code>EmbeddedGuide</code>.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Đã chốt</span><span class="badge date">12/10</span><span class="f-title">Hạn giao bắt buộc theo từng dòng đơn</span></div>
+      <div class="f-field"><span class="k">Lý do</span><div class="v">Chủ dự án khẳng định mỗi đơn dùng cùng một sản phẩm phải có hạn riêng, và yêu cầu bắt buộc nhập.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Đã chốt</span><span class="badge date">12/10</span><span class="f-title">Màn kho liệt kê theo lệnh sản xuất (mức sửa tận gốc)</span></div>
+      <div class="f-field"><span class="k">Lý do</span><div class="v">Phương án nhẹ hơn (ưu tiên lệnh đang chạy khi tra theo sản phẩm) vẫn chỉ hiện được một lệnh khi hai lệnh cùng sản phẩm cùng đang chạy — đúng tình trạng của DB dev hiện tại.</div></div>
+    </article>
+
+    <article class="feature">
+      <div class="f-head"><span class="badge decided">Giữ nguyên</span><span class="badge date">12/10</span><span class="f-title">File ảnh của bài Admin vẫn nằm ở thư mục công khai</span></div>
+      <div class="f-field"><span class="k">Lý do</span><div class="v">Ai biết đúng tên file vẫn mở được ảnh bằng URL. Chặn hẳn cần phục vụ ảnh qua đường có kiểm tra đăng nhập, lớn hơn yêu cầu nên chưa làm. Nội dung chữ thì đã tách thật.</div></div>
+    </article>
+  </section>
+
+  <section id="data">
+    <div class="sec-head"><h2>Dữ liệu demo đã tạo trên DB dev chung</h2></div>
+    <div class="prose-card">
+      <p>Để chụp các màn cần dữ liệu ở trạng thái giữa chừng, phiên này đã thao tác thật qua giao diện (chủ dự án đồng ý trước):</p>
+      <p><b>PI-2026-008</b> (GHE-FULL-DEMO-07 × 3): hai nhân viên mua hàng <code>hieu</code> và <code>nhan</code> bấm "Sếp đã duyệt" kèm một file phiếu minh hoạ → kho nhận 2 cây sắt và 6,12 kg dây đen → QLSX Bắt đầu → xuất 4 cây sắt, Phôi cắt đủ, KCS đạt → Hàn 5 mảnh, Sơn 4 mảnh, KCS đạt → chuyển 5 mảnh sang kho Vật tư TP (CK-2026-017 đến 021) → xuất và nhập đan đủ 4 mảnh qua DAN-TEST-01 → chuyền kiểm đủ → đóng gói 2/3 thùng. <b>Chưa Kết thúc.</b></p>
+      <p><b>PO-HD-2026-01</b> (GOPLUS, GHE-FULL-DEMO-01 × 10) và <b>PI-2026-009</b> tạo từ đơn này, đang ở "Lệnh sản xuất mới" của KHSX, dùng chế độ "chấp nhận hao hụt cao hơn". Đơn này tạo trước khi có quy tắc bắt buộc nên <b>không có hạn giao</b>.</p>
+      <p><b>Văn phòng phẩm</b> kho Phôi Sơn Hàn: Bút bi Thiên Long (30), Giấy A4 (12).</p>
+    </div>
+  </section>
+
+  <section id="test">
+    <div class="sec-head"><h2>Kiểm tra</h2></div>
+    <div class="prose-card">
+      <p><b>Tự động:</b> FE type-check sạch, lint không có lỗi, 98/98 test (18 test mới: 11 tìm kiếm guide, 7 dựng dòng theo lệnh sản xuất). BE: 36/36 test của <code>sales-orders</code>.</p>
+      <p><b>Trên app thật:</b> mở lần lượt mọi bài của <code>/guide</code> (không link hỏng, ảnh tải đủ, không tràn ngang; thử thêm ở cỡ điện thoại); <code>/guide</code> khi chưa đăng nhập không còn nhóm Admin và Quản lý vật tư; hai tab hướng dẫn riêng mở bài, F5 giữ đúng bài; nút nổi ẩn với <code>admin</code> và <code>qlvt</code>, còn với <code>sales</code> và <code>boss</code>; sáu màn kho hiện cả PI-2026-007 lẫn PI-2026-008; BE từ chối đơn thiếu hạn giao; form Tạo PO khoá nút Lưu khi thiếu hạn.</p>
+      <p><b>Chưa kiểm:</b> tạo trọn một đơn có đủ hạn giao sau khi thêm quy tắc (mới thử chiều bị chặn); màn Xuất vật tư sơn sau khi sửa (dùng chung trang với Xuất vật tư hàn, màn hàn đã kiểm).</p>
+      <p><b>Có từ trước, không liên quan:</b> BE type-check còn 2 lỗi ở <code>prisma\seed-ghe-j55-full-bom.ts</code> và <code>prisma\seed-real-products.ts</code>, do mã sản phẩm không còn là duy nhất.</p>
+    </div>
+  </section>
+
+  <section id="open">
+    <div class="sec-head"><h2>Việc còn mở</h2></div>
+    <div class="prose-card">
+      <p><b>Chờ chủ dự án quyết:</b></p>
+      <p>· Giữ hay dọn dữ liệu demo ở mục trên (ảnh trong guide đang chụp từ chính dữ liệu này).</p>
+      <p>· Gợi ý SKU khi tạo đơn: hiện mẫu đã từng vào một đơn thì không được tự điền cho đơn sau của cùng khách (do <code>PlanForm.salesOrderId</code> chỉ ghim được một đơn). Giữ, hay luôn gợi ý mọi mẫu đã duyệt của khách.</p>
+      <p>· Hai đơn cũ thiếu hạn giao (WASTE-TEST, PO-HD-2026-01): màn Bán hàng chưa có chỗ sửa hạn cho đơn đã tạo.</p>
+      <p><b>Việc nhỏ chưa làm:</b></p>
+      <p>· Gỡ <code>Sku.exportOrder</code> (FE) và <code>salesOrderDeliveryDate</code> (BE) vì không còn ai đọc.</p>
+      <p>· Cửa sổ "Sửa hao hụt hàng loạt" còn nhắc nhóm "Sắt tự tính" đã bị gỡ từ 30/09.</p>
+      <p>· Nút hướng dẫn nổi đè nhẹ lên nút "Tính phương án cắt" ở màn Tối ưu cắt sắt.</p>
+      <p>· Ảnh bài Thông báo đang hiện các thông báo test "E2E-NEG…" bị lỗi font.</p>
+      <p>· Mỗi lần mở <code>/guide</code> vẫn gọi ngầm danh sách đề xuất mua hàng và số thông báo dù guide không dùng tới.</p>
+    </div>
+  </section>
+
+  <footer>DNA-ERP · Changelog phiên làm việc 12/10/2026 · Được ghi lại bởi Claude Code</footer>
+</main>
+
+</body>
+</html>

@@ -18,6 +18,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeMaterialIssuePlanItem, MaterialIssueStage } from '../../../services/material-issues-api'
 import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
+import { productionOrderRowKey } from '../../../services/production-invoice-item'
 import { errMsg } from '../../../utils/errors'
 import { backBtn } from '../../../styles/buttons'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle, tableScrollBox, stickyHeaderRow } from '../../../styles/table'
@@ -52,13 +53,13 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
   // danh sách, backend cũng chặn cứng, đây chỉ là lớp UI khớp theo. Trước đây liệt kê MỌI Sku
   // non-draft kể cả chưa có lệnh sản xuất nào - giờ đồng thời cũng đòi hỏi phải có ProductionOrder
   // thật (poInfoFor tồn tại).
-  const { poInfoFor, activePiIds } = usePoInfoFloorGate()
-  const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT' && activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? ''))
+  const { poInfoFor, activePiIds, orderRows } = usePoInfoFloorGate()
+  const active = orderRows(skus as Sku[]).filter(p => p.status !== 'DRAFT' && activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? ''))
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const { data: planData, isLoading: planLoading, refetch } = useFetch<BeMaterialIssuePlanItem[]>(
     () => (selectedPf ? api.getMaterialIssuePlan(selectedPf, stage) : Promise.resolve([])),
-    [selectedPf?.id, stage],
+    [productionOrderRowKey(selectedPf), stage],
   )
   const plan = planData ?? []
 
@@ -181,7 +182,7 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
       <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>{desc}</div>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
-        <MobileListCards emptyText="Không có PO nào" items={active.map(pf => ({ key: String(pf.id), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? 'Chưa gắn đơn hàng' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? '—' }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
+        <MobileListCards emptyText="Không có PO nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? 'Chưa gắn đơn hàng' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? '—' }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
       ) : (
         <div style={{ ...tableWrap, ...tableScrollBox }}>
           <table style={tbl}>
@@ -203,7 +204,7 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
               {active.map(pf => {
                 const poInfo = poInfoFor(pf)
                 return (
-                  <tr key={pf.id} onClick={() => setSelectedPf(pf)} style={row}>
+                  <tr key={productionOrderRowKey(pf)} onClick={() => setSelectedPf(pf)} style={row}>
                     <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {poInfo?.poCode ?? 'Chưa gắn đơn hàng'}
                     </td>

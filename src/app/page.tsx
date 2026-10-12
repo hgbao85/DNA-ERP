@@ -42,7 +42,8 @@ function LoadingScreen() {
   );
 }
 
-/** Nút nổi mở trang Hướng dẫn sử dụng ở tab mới — hiện trên mọi phân hệ, mọi role. */
+/** Nút nổi mở trang Hướng dẫn sử dụng CHUNG (/guide) ở tab mới — hiện trên mọi phân hệ, TRỪ 2 vai trò
+ * có hướng dẫn riêng nhúng ngay trong phân hệ của họ (xem GUIDE_FAB_HIDDEN_MODULES bên dưới). */
 function GuideFab() {
   return (
     <a
@@ -63,6 +64,12 @@ function GuideFab() {
     </a>
   );
 }
+
+// Admin và Quản lý vật tư có tab hướng dẫn RIÊNG trong phân hệ (Guide/EmbeddedGuide.tsx) và hướng dẫn
+// của họ đã tách hẳn khỏi /guide (2026-10-12, theo yêu cầu) - nút nổi chỉ dẫn tới tài liệu của vai
+// trò khác nên ẩn đi. Xét theo phân hệ MẶC ĐỊNH của tài khoản (không theo phân hệ đang mở) để Giám
+// đốc ghé qua các phân hệ khác vẫn thấy nút.
+const GUIDE_FAB_HIDDEN_MODULES = ['admin', 'materials_manager']
 
 function MainERP() {
   const { user, logout } = useAuth();
@@ -144,7 +151,7 @@ function MainERP() {
       {content}
       {notifPage === 'all' && <MyNotificationsPage onClose={() => setNotifPage(null)} />}
       <NotificationFocus />
-      <GuideFab />
+      {!GUIDE_FAB_HIDDEN_MODULES.includes(resolveDefaultModule(user) ?? '') && <GuideFab />}
     </>
   );
 }

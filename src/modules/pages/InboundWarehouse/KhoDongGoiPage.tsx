@@ -4,6 +4,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BePackagingProgress } from '../../../services/packaging-api'
 import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
+import { productionOrderRowKey } from '../../../services/production-invoice-item'
 import { format } from 'date-fns'
 import { ChevronLeft, X } from 'lucide-react'
 import type { Sku } from '../../../types/sku'
@@ -26,7 +27,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
 
   const { data: progress, isLoading: progressLoading, refetch: refetchProgress } = useFetch<BePackagingProgress>(
     () => (selectedPf ? api.getPackaging(selectedPf) : Promise.resolve({ totalQty: 0, packedQty: 0, remainingQty: 0 })),
-    [selectedPf?.id],
+    [productionOrderRowKey(selectedPf)],
   )
 
   const [popupOpen, setPopupOpen]   = useState(false)
@@ -36,7 +37,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
 
   // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho ghi nhận đóng gói cho BẤT KỲ
   // SKU nào cùng PI đó (2026-08-31) - cùng quy tắc/gate ở KhoXuatDanPage/ProductionInvoicesService.
-  const { poInfoFor, activePiIds } = usePoInfoFloorGate()
+  const { poInfoFor, activePiIds, orderRows } = usePoInfoFloorGate()
   // Lọc đúng instance kho thành phẩm (2026-09-05) - xem comment cùng tên ở KhoChuyenKiemPage.tsx.
   const inWarehouseScope = (p: Sku): boolean => {
     if (!warehouseScope) return true
@@ -44,7 +45,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
     if (!wc) return true
     return wc === warehouseScope
   }
-  const active = ((skus ?? []) as Sku[]).filter(p =>
+  const active = orderRows(skus as Sku[]).filter(p =>
     p.status !== 'DRAFT' &&
     (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId) &&
     activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? '') &&
@@ -113,8 +114,8 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
               PO: {poInfoFor(selectedPf)?.poCode ?? '—'} · PI: {poInfoFor(selectedPf)?.piCode ?? 'Chưa gắn đơn hàng'}
-              {selectedPf.exportOrder?.deliveryDate && (
-                <> · Hạn giao: {format(new Date(selectedPf.exportOrder.deliveryDate), 'dd/MM/yyyy')}</>
+              {poInfoFor(selectedPf)?.deliveryDate && (
+                <> · Hạn giao: {format(new Date(poInfoFor(selectedPf)!.deliveryDate!), 'dd/MM/yyyy')}</>
               )}
             </div>
           </div>
@@ -237,7 +238,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
       </p>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
-        <MobileListCards emptyText="Không có PI nào" items={active.map(pf => ({ key: String(pf.id), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng' }, { label: 'Hạn giao', value: pf.exportOrder?.deliveryDate ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy') : '—' }] }))} />
+        <MobileListCards emptyText="Không có PI nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng' }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
       ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
@@ -259,7 +260,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
               <tbody>
                 {active.map(pf => (
                   <tr
-                    key={pf.id}
+                    key={productionOrderRowKey(pf)}
                     onClick={() => setSelectedPf(pf)}
                     style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
@@ -278,8 +279,8 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
                       )}
                     </td>
                     <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--text2)' }}>
-                      {pf.exportOrder?.deliveryDate
-                        ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy')
+                      {poInfoFor(pf)?.deliveryDate
+                        ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy')
                         : '—'}
                     </td>
                   </tr>

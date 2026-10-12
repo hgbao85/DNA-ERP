@@ -33,6 +33,7 @@ function guideRolesOf(user: User | null): GuideRole[] {
   if (user.isSale) roles.push('sales');
   if (user.isProductPlanner) roles.push('khsx');
   if (user.isPurchaser) roles.push('purchasing');
+  if (user.isMaterialsManager) roles.push('materials');
   switch (user.mfgRole) {
     case 'PRODUCTION_MANAGER': roles.push('qlsx'); break;
     case 'PHOI': roles.push('phoi'); break;
@@ -45,7 +46,7 @@ function guideRolesOf(user: User | null): GuideRole[] {
       roles.push('spec_detail');
       break;
   }
-  if (user.role === 'WAREHOUSE_STAFF' && !user.mfgRole && !user.isPurchaser && !user.isProductPlanner && !user.isSale) {
+  if (user.role === 'WAREHOUSE_STAFF' && !user.mfgRole && !user.isPurchaser && !user.isProductPlanner && !user.isSale && !user.isMaterialsManager) {
     roles.push('warehouse');
   }
   return roles;
@@ -155,7 +156,9 @@ function BrokenLinkBanner({ onDismiss }: { onDismiss: () => void }) {
 }
 
 function WelcomePane({ myRoles, onOpenArticle }: { myRoles: GuideRole[]; onOpenArticle: (id: string) => void }) {
-  const forMe = GUIDE_GROUPS.filter(g => myRoles.length === 0 || g.roles.some(r => myRoles.includes(r)));
+  // Admin và Quản lý vật tư có hướng dẫn riêng trong phân hệ của họ (không nằm ở /guide) nên có thể
+  // không khớp nhóm nào ở đây - khi đó ẩn hẳn mục "Dành cho bạn" thay vì hiện tiêu đề trống.
+  const forMe = myRoles.length === 0 ? [] : GUIDE_GROUPS.filter(g => g.roles.some(r => myRoles.includes(r)));
   const totalArticles = useMemo(() => GUIDE_GROUPS.reduce((n, g) => n + g.articles.length, 0), []);
   const journeyFirst = GUIDE_GROUPS[0]?.articles[0];
 
@@ -203,7 +206,7 @@ function WelcomePane({ myRoles, onOpenArticle }: { myRoles: GuideRole[]; onOpenA
 
       <ContinueReadingCard onOpen={onOpenArticle} />
 
-      {myRoles.length > 0 && (
+      {myRoles.length > 0 && forMe.length > 0 && (
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text3)', marginBottom: 13 }}>
             Dành cho bạn ({myRoles.map(r => roleInfo(r).label).join(', ')})
@@ -221,7 +224,7 @@ function WelcomePane({ myRoles, onOpenArticle }: { myRoles: GuideRole[]; onOpenA
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 14 }}>
         {GUIDE_GROUPS.map((g, i) => (
-          <GroupCard key={g.id} group={g} onOpen={() => g.articles[0] && onOpenArticle(g.articles[0].id)} delayMs={(myRoles.length > 0 ? forMe.length : 0) * 30 + i * 30} />
+          <GroupCard key={g.id} group={g} onOpen={() => g.articles[0] && onOpenArticle(g.articles[0].id)} delayMs={forMe.length * 30 + i * 30} />
         ))}
       </div>
     </div>

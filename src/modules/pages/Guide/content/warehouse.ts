@@ -3,7 +3,7 @@ import type { GuideGroup } from '../types';
 // Nguồn: InboundWarehouseApp.tsx và toàn bộ trang con (NhapKhoPage, InternalTransferSections,
 // WarehouseXuatPage, ChuyenKhoTuDoPage, PhanPhoiNoiBoPage + 4 sub-tab, KhoXuatDanPage,
 // KhoNhapDanPage, KhoChuyenKiemPage, KhoDongGoiPage, OfficeSuppliesPage) + BE tương ứng —
-// đọc trực tiếp mã nguồn 22/09/2026.
+// đọc trực tiếp mã nguồn 22/09/2026, đối chiếu lại 12/10/2026.
 // Mỗi thủ kho chỉ thấy đúng 1 kho (warehouseScope) và đúng bộ tab của "gia đình" kho đó:
 // phoi-son-han (khung cơ khí) → vat-tu-tp (vật tư thành phẩm) → thanh-pham (thành phẩm).
 
@@ -23,17 +23,43 @@ export const warehouseGroup: GuideGroup = {
       purpose:
         'Hệ thống có 3 "gia đình" kho vật lý nối tiếp nhau: Phôi Sơn Hàn (khung cơ khí) → Vật tư thành phẩm → Thành phẩm. Mỗi tài khoản Thủ kho chỉ được gán phụ trách đúng 1 kho, và chỉ thấy bộ tab tương ứng với gia đình của kho đó.',
       steps: [
-        'Kho Phôi Sơn Hàn: Vật tư, Nhập kho, Xuất theo đơn hàng, Lịch sử kho, Phân phối nội bộ, Văn phòng phẩm. (Không có "Chuyển kho ngoài đơn hàng".)',
-        'Kho Vật tư thành phẩm: Vật tư, Nhập kho, Xuất theo đơn hàng, Chuyển kho ngoài đơn hàng, Lịch sử kho, Theo dõi xuất đan, Điểm đan, Văn phòng phẩm.',
-        'Kho Thành phẩm: Vật tư, Nhập kho, Xuất theo đơn hàng, Chuyển kho ngoài đơn hàng, Lịch sử kho, Chuyền kiểm, Đóng gói, Theo dõi nhập đan, Văn phòng phẩm.',
+        'Kho Phôi Sơn Hàn: Tổng hợp vật tư, Nhập kho, Xuất theo đơn hàng, Lịch sử kho, Phân phối nội bộ, Văn phòng phẩm. (Không có "Chuyển kho ngoài đơn hàng".)',
+        'Kho Vật tư thành phẩm: Tổng hợp vật tư, Nhập kho, Xuất theo đơn hàng, Chuyển kho ngoài đơn hàng, Lịch sử kho, Theo dõi xuất đan, Quản lý điểm đan, Văn phòng phẩm.',
+        'Kho Thành phẩm: Tổng hợp vật tư, Nhập kho, Xuất theo đơn hàng, Chuyển kho ngoài đơn hàng, Lịch sử kho, Chuyền kiểm, Đóng gói, Theo dõi nhập đan, Văn phòng phẩm.',
+        'Tab "Nhập kho" có 2 tab con: "Nhập kho" (nhận hàng mua về) và "Nhập nội bộ" (xác nhận phiếu chuyển từ kho khác). Số đỏ cạnh "Nhập kho" trên menu = tổng số việc đang chờ bạn ở cả hai tab con.',
       ],
       result: 'Biết chính xác mình cần thao tác ở tab nào, tránh tìm nhầm sang tab của kho khác.',
       warnings: [
         'Có thể có nhiều kho cùng một "gia đình" (ví dụ 2 kho Thành phẩm khác nhau) — mỗi kho là một kho vật lý độc lập, tồn kho KHÔNG gộp chung dù cùng gia đình.',
+        'Ở các màn Chuyền kiểm, Đóng gói, Theo dõi xuất đan / nhập đan và Xuất vật tư TP / hàn / sơn, mỗi LỆNH SẢN XUẤT là một dòng riêng. Cùng một mẫu sản phẩm đang chạy nhiều lệnh thì sẽ thấy nhiều dòng trùng mã SKU — nhìn cột PI (và PO) để chọn đúng lệnh; số liệu bên trong tính riêng cho từng lệnh.',
+        'Cột "Hạn giao" ở các màn này là hạn giao của chính đơn hàng/lệnh đó; hiện "—" nếu đơn không khai hạn hoặc lệnh không gắn đơn hàng nào.',
         'Tab "Xuất kho" đã đổi tên thành "Xuất theo đơn hàng" để phân biệt với "Chuyển kho ngoài đơn hàng" — xuất theo đơn hàng luôn gắn với một PO/PI cụ thể.',
       ],
       tags: ['tổng quan kho', 'gia đình kho', 'warehouse scope'],
       sourceRefs: ['src/modules/pages/InboundWarehouse/InboundWarehouseApp.tsx'],
+    },
+    {
+      id: 'wh-tra-cuu',
+      title: 'Tổng hợp vật tư & Lịch sử kho',
+      roles: ['warehouse'],
+      screenshot: '/guide-screens/wh-tra-cuu.png',
+      purpose: 'Hai tab tra cứu của chính kho bạn phụ trách: tồn kho hiện tại và sổ nhập/xuất thật.',
+      mock: {
+        title: 'Tổng hợp vật tư',
+        columns: ['Mã vật tư', 'Tên vật tư', 'Quy cách', 'Nhóm vật tư', 'Chiều dài', 'Tồn kho', 'Khả dụng'],
+        rows: [['SAT-003', 'Sắt hộp 20x20', '20x20x0.8 · cây', 'Sắt', '6.000 mm', '120', '80'], ['SAT-003', 'Sắt hộp 20x20', '20x20x0.8 · cây', 'Sắt', '5.850 mm', '40', '40']],
+      },
+      steps: [
+        '"Tổng hợp vật tư": chọn tab nhóm vật tư hoặc gõ tìm theo tên/mã; xem Tồn kho và Khả dụng (= tồn đã trừ phần đang giữ chỗ cho cắt sắt/phiếu chuyển kho đang chờ). Bấm một dòng để xem chi tiết.',
+        'Riêng kho Phôi Sơn Hàn có thêm cột "Chiều dài": vật tư sắt tồn ở nhiều cỡ cây khác nhau sẽ hiện mỗi cỡ một dòng.',
+        '"Lịch sử kho": sổ nhập/xuất thật của kho mình — lọc Tất cả / Nhập kho / Xuất kho và theo khoảng ngày; mỗi dòng ghi thời gian, lệnh sản xuất, mã đơn hàng, đi từ đâu tới đâu.',
+      ],
+      result: 'Đối chiếu được tồn kho và truy lại được từng lần nhập/xuất mà không cần hỏi Admin.',
+      warnings: [
+        'Đây là hai màn CHỈ XEM. Sửa số tồn kho (điều chỉnh tay) chỉ Admin làm được ở Admin > Quản lý kho.',
+      ],
+      tags: ['tổng hợp vật tư', 'lịch sử kho', 'tồn kho', 'khả dụng', 'sổ kho'],
+      sourceRefs: ['src/modules/pages/ProductionPlan/VatTuDashboardPage.tsx', 'src/components/WarehouseLedgerHistory.tsx'],
     },
     {
       id: 'wh-nhap-kho',
@@ -43,19 +69,20 @@ export const warehouseGroup: GuideGroup = {
       preconditions: ['Đề xuất mua đã ở trạng thái "Đang mua hàng" (Mua hàng đã bấm "Sếp đã duyệt").'],
       mock: {
         title: 'Nhập kho',
-        columns: ['Vật tư', 'Cần mua', 'Đã nhận', 'Nhập thêm'],
-        rows: [['Sắt hộp 20x20', '480', '300', '___']],
+        columns: ['Tên vật tư', 'Quy cách', 'ĐVT', 'SL cần mua', 'Đã nhận', 'Nhập thêm'],
+        rows: [['Sắt hộp 20x20 · cây 6000mm', '20x20x0.8', 'cây', '480', '300', '___']],
         buttons: ['Xác nhận'],
       },
       screenshot: '/guide-screens/wh-nhap-kho.png',
       steps: [
-        'Mở tab "Nhập kho", chọn dòng vật tư cần nhận (chỉ hiện vật tư thuộc đúng kho mình phụ trách).',
-        'Nhập số lượng nhận thực tế (hệ thống tự quy đổi theo đơn vị mua nếu khác đơn vị kho).',
-        { text: 'Bấm "Xác nhận". Nếu số nhận vượt số đã đặt mua, hệ thống hỏi lại xác nhận nhưng vẫn cho ghi nhận.', critical: false },
+        'Mở tab "Nhập kho", chọn một đề xuất mua đang chờ nhập (chỉ hiện vật tư thuộc đúng kho mình phụ trách). Bấm "Xem file Sếp duyệt" để đối chiếu phiếu Giám đốc đã ký trước khi nhận.',
+        'Với sắt, tên vật tư ghi kèm "cây ...mm" — đối chiếu hàng về đúng chiều dài cây đã đặt (có thể là cây đặt riêng, khác cây chuẩn).',
+        'Nhập số lượng nhận thực tế ở cột "Nhập thêm". Vật tư có đơn vị mua khác đơn vị kho (ví dụ mua theo kg, kho tính theo cái): nhập số theo đơn vị mua, hệ thống tự quy đổi ra đơn vị kho — số quy đổi vẫn sửa tay được.',
+        { text: 'Bấm "Xác nhận". Nếu tổng số nhận vượt số đã đặt mua, hệ thống hỏi lại "Xác nhận đã nhận N ...?" nhưng vẫn cho ghi nhận.', critical: false },
       ],
       result: 'Tồn kho tăng lên đúng số đã nhận; nếu nhận đủ, đề xuất chuyển sang "Đã mua" bên Mua hàng.',
       warnings: [
-        'Nếu số nhập lệch quá 5% so với gợi ý quy đổi, hệ thống cảnh báo nhưng KHÔNG chặn — vẫn ghi nhận theo số bạn nhập.',
+        'Nếu số nhập lệch nhiều so với gợi ý quy đổi, hệ thống hiện cảnh báo "⚠ Lệch nhiều so với gợi ý ..." nhưng KHÔNG chặn — vẫn ghi nhận theo số bạn nhập.',
         'Có thể nhận thành nhiều đợt (nhận thiếu vẫn ghi nhận được, nhận sau bù tiếp).',
       ],
       tags: ['nhập kho', 'nhận hàng mua', 'receive'],
@@ -69,8 +96,8 @@ export const warehouseGroup: GuideGroup = {
       preconditions: ['Có phiếu chuyển kho đang ở trạng thái chờ xác nhận gửi tới kho của bạn.'],
       mock: {
         title: 'Nhập nội bộ',
-        columns: ['Phiếu', 'Từ kho', 'Vật tư', 'Số lượng'],
-        rows: [['CK-0142', 'Phôi Sơn Hàn', 'Mảnh tựa đã sơn', '50']],
+        columns: ['Vật tư', 'Quy cách', 'Số lượng', 'ĐVT'],
+        rows: [['M-TUA — Mảnh tựa', '—', '50', 'mảnh']],
         buttons: ['Từ chối', 'Xác nhận nhận hàng'],
       },
       screenshot: '/guide-screens/wh-nhap-noi-bo.png',
@@ -100,15 +127,15 @@ export const warehouseGroup: GuideGroup = {
       preconditions: ['Mảnh đã có kết quả KCS đạt ("Đã qua KCS").'],
       mock: {
         title: 'Xuất theo đơn hàng — chuyển mảnh',
-        columns: ['Mảnh', 'Đã qua KCS', 'Có thể chuyển', 'Đã chuyển'],
-        rows: [['Mảnh tựa', '200', '150', '50']],
+        columns: ['Mảnh / Vật tư TP', 'Loại', 'Đã qua KCS', 'Có thể chuyển', 'Đã chuyển', 'Còn lại', 'Xuất'],
+        rows: [['M-TUA — Mảnh tựa', 'Mảnh', '200', '150', '50', '150', '___']],
         buttons: ['Xác nhận'],
       },
       screenshot: '/guide-screens/wh-xuat-theo-don-piece.png',
       steps: [
-        'Chọn đơn hàng/mảnh cần chuyển — xem cột "Đã qua KCS", "Có thể chuyển" (đã trừ phần đang nằm trong phiếu chờ khác), "Đã chuyển".',
+        'Chọn lệnh cần chuyển — mỗi dòng là một Mảnh hoặc một Vật tư TP (cột "Loại"); xem "Đã qua KCS", "Có thể chuyển" (đã trừ phần đang nằm trong phiếu chờ khác), "Đã chuyển", "Còn lại".',
         'Nếu có ≥2 kho Vật tư thành phẩm, chọn kho đích ở dropdown.',
-        { text: 'Bấm "Xác nhận" để tạo phiếu chuyển kho nội bộ.', critical: false },
+        { text: 'Nhập số lượng ở cột "Xuất" rồi bấm "Xác nhận" để tạo phiếu chuyển kho nội bộ.', critical: false },
       ],
       result: 'Tạo một phiếu chuyển kho ở trạng thái chờ xác nhận — tồn kho CHƯA đổi ngay, chỉ đổi khi kho Vật tư thành phẩm xác nhận nhận (xem bài "Nhập kho — Nhập nội bộ").',
       warnings: ['Chỉ được chuyển đúng 1 bước theo đúng chuỗi Phôi Sơn Hàn → Vật tư thành phẩm → Thành phẩm — không được nhảy cóc.'],
@@ -129,8 +156,8 @@ export const warehouseGroup: GuideGroup = {
       ],
       mock: {
         title: 'Xuất theo đơn hàng — Xuất vật tư đóng gói',
-        columns: ['Vật tư đóng gói', 'Định mức', 'Đã xuất', 'Còn được xuất'],
-        rows: [['Thùng carton 60x40', '200', '120', '80']],
+        columns: ['Vật tư', 'ĐVT', 'Kế hoạch', 'Thực có', 'Đã xuất', 'Còn lại', 'Xuất'],
+        rows: [['BB-004 — Thùng carton 60x40', 'cái', '200', '350', '120', '80', '___']],
         buttons: ['Xác nhận'],
       },
       screenshot: '/guide-screens/wh-xuat-theo-don-packaging.png',
@@ -159,8 +186,8 @@ export const warehouseGroup: GuideGroup = {
       purpose: 'Ghi nhận đã giao bao nhiêu thành phẩm cho khách hàng theo đúng đơn hàng bán.',
       mock: {
         title: 'Xuất theo đơn hàng — Giao cho khách',
-        columns: ['Sản phẩm', 'Kế hoạch', 'Thực có', 'Đã xuất'],
-        rows: [['Ghế ăn mây nhựa', '200', '80', '120']],
+        columns: ['Vật tư', 'ĐVT', 'Kế hoạch', 'Thực có', 'Đã xuất', 'Còn lại', 'Xuất'],
+        rows: [['GHE-001 — Ghế ăn mây nhựa', 'cái', '200', '80', '120', '80', '___']],
         buttons: ['Xác nhận'],
       },
       screenshot: '/guide-screens/wh-xuat-theo-don-ship.png',
@@ -193,6 +220,7 @@ export const warehouseGroup: GuideGroup = {
         'Chọn Kho đích (không chọn được kho Phôi Sơn Hàn — kho này chỉ nhận vật tư qua mua hàng/nhập kho).',
         'Chọn Vật tư (hiện kèm số lượng khả dụng), nhập Số lượng (không vượt khả dụng), Ghi chú (tuỳ chọn).',
         { text: 'Bấm "Tạo phiếu chuyển kho".', critical: false },
+        'Theo dõi các phiếu mình đã tạo ở bảng "Phiếu đang chờ kho đích xác nhận" ngay bên dưới.',
       ],
       result: 'Tạo phiếu chuyển kho ở trạng thái chờ xác nhận, chờ kho đích xác nhận (xem bài "Nhập kho — Nhập nội bộ") mới thật sự đổi tồn kho.',
       warnings: [
@@ -226,14 +254,14 @@ export const warehouseGroup: GuideGroup = {
       },
       screenshot: '/guide-screens/wh-phan-phoi-noi-bo-sat.png',
       steps: [
-        'Chọn PI cần cấp sắt, chọn dòng vật tư sắt trong bảng (Cần / Đã xuất / Còn được xuất / Tồn kho).',
+        'Ở tab con "Xuất sắt trong phôi" (tiêu đề "Xuất sắt cho Phôi"), bấm PI cần cấp sắt để xem từng loại sắt: Cần / Đã xuất / Còn được xuất / Tồn kho.',
         'Nhập "Dài cây (mm)" (mặc định lấy theo phương án đã duyệt) và "Số cây".',
         { text: 'Bấm "Xuất" — xác nhận "Xuất {n} cây {vật tư} (dài {…}mm) cho Phôi?".', critical: true },
       ],
-      result: 'Tồn kho sắt bị trừ ngay theo đúng bucket chiều dài cây; Tổ Phôi nhận được cây sắt để bắt đầu cắt.',
+      result: 'Tồn kho sắt bị trừ ngay theo đúng cỡ chiều dài cây; Tổ Phôi thấy đợt xuất ở "Xác nhận nhận sắt" để xác nhận rồi bắt đầu cắt. Các lần đã xuất hiện ở bảng lịch sử bên dưới (Thời gian / Vật tư / Dài / Số cây / Trạng thái).',
       warnings: ['Cột "Cần" lấy từ phương án cắt đã duyệt (số cây thực sự cần), KHÔNG phải suy trực tiếp từ định mức (công thức sản xuất).'],
       commonErrors: [
-        { issue: '"Chưa có phương án cắt sắt đã duyệt cho PI này..."', cause: 'KHSX chưa tính/chưa duyệt xong phương án cắt cho PI này.', fix: 'Báo KHSX tính và duyệt phương án cắt trước khi xuất sắt.' },
+        { issue: '"Chưa có phương án cắt sắt đã duyệt cho PI này..."', cause: 'PI chưa có phương án cắt dùng được (thường chỉ gặp ở lệnh cũ còn đang tính, hoặc phương án bị lỗi).', fix: 'Báo KHSX/Admin kiểm tra phương án cắt của PI trước khi xuất sắt.' },
         { issue: '"Tồn kho vật lý cây dài ...mm (... cây) không đủ xuất ... cây..."', cause: 'Không đủ cây sắt đúng chiều dài đó trong kho (có thể kho chỉ còn chiều dài khác, hoặc bị điều chỉnh tay).', fix: 'Kiểm tra lại tồn kho theo đúng chiều dài, báo Admin nếu nghi ngờ số liệu sai.' },
       ],
       statuses: [
@@ -259,8 +287,9 @@ export const warehouseGroup: GuideGroup = {
       steps: [
         'Chọn PO/SKU cần xuất, xem bảng Cần / Đã xuất / Còn phải xuất.',
         { text: 'Nhập số lượng xuất (không vượt "Còn phải xuất"), bấm "Xuất".', critical: false },
+        'Riêng "Xuất vật tư TP" có 2 chế độ: "Theo mảnh" (ví dụ sắt la cắt pat — chọn theo PO/SKU như trên) và "Không gắn mảnh (chân nhôm)" — chọn theo PI, bảng hiện Vật tư ra / Vật tư vào / Cần SX thêm / Cần nguyên liệu / Đã xuất, bấm "Xuất" để cấp nguyên liệu vào (ví dụ thanh nhôm).',
       ],
-      result: 'Tồn kho vật tư giảm ngay; vật tư sẵn sàng cho tổ sản xuất tương ứng nhận và báo cáo sản lượng.',
+      result: 'Tồn kho vật tư giảm ngay. Vật tư TP: Tổ Phôi xác nhận nhận ở "Xác nhận nhận sắt"; vật tư hàn/sơn: Tổ Hàn/Sơn xác nhận nhận ở "Xác nhận sản lượng".',
       commonErrors: [
         { issue: '"Vật tư ... chưa được gán kho (Material.warehouseId) - báo Admin cấu hình trước khi xuất"', cause: 'Admin chưa gán vật tư này vào kho nào.', fix: 'Liên hệ Admin cấu hình kho cho vật tư.' },
         { issue: '"Số lượng xuất ... vượt quá số lượng còn có thể xuất ..."', cause: 'Vượt định mức cho phép.', fix: 'Kiểm tra lại định mức và số đã xuất.' },
@@ -278,15 +307,16 @@ export const warehouseGroup: GuideGroup = {
       preconditions: ['Mảnh đã thực nhận đủ tại kho Vật tư thành phẩm (từ bước "Xuất theo đơn hàng — chuyển mảnh").'],
       mock: {
         title: 'Theo dõi xuất đan',
-        columns: ['Mảnh', 'Điểm đan', 'Cần', 'Đã xuất', 'Còn phải xuất'],
-        rows: [['Mảnh tay', 'Điểm đan Bình An', '558', '300', '258']],
+        columns: ['Mảnh', 'Cần', 'Đã xuất', 'Còn phải xuất', 'Có thể xuất'],
+        rows: [['Mảnh tay', '558', '300', '258', '200']],
+        formFields: ['Điểm đan', 'Số lượng', 'Vật tư mang kèm — nhập số lượng thực tế'],
         buttons: ['Xuất đan'],
       },
       screenshot: '/guide-screens/wh-xuat-dan.png',
       steps: [
         'Chọn mảnh cần gửi đan, xem Cần / Đã xuất / Còn phải xuất / Có thể xuất (số thực đã nhận về kho).',
         'Chọn Điểm đan (bắt buộc).',
-        'Nhập Số lượng mảnh; hệ thống tự điền theo định mức số lượng Vật tư mang kèm (Dây/Đinh/Nút nhựa) — có thể sửa tay nhưng phải điền đủ mọi dòng.',
+        'Nhập Số lượng mảnh; hệ thống tự điền theo định mức số lượng Vật tư mang kèm (Dây/Đinh luôn đi kèm; Nút nhựa/Vật tư thành phẩm đi kèm nếu định mức có đánh dấu "Đan") — có thể sửa tay nhưng phải điền đủ mọi dòng. Mỗi dòng ghi sẵn "Đã xuất ... · Tồn ..." để đối chiếu.',
         { text: 'Bấm "Xuất đan".', critical: false },
       ],
       result: 'Ghi nhận đã gửi bao nhiêu mảnh cho điểm đan nào; vật tư mang kèm bị trừ tồn kho ngay. Bản thân mảnh KHÔNG bị trừ tồn kho (chỉ tạm "đi vắng" để gia công).',
@@ -298,6 +328,28 @@ export const warehouseGroup: GuideGroup = {
       ],
       tags: ['xuất đan', 'gửi đan', 'điểm đan', 'weaving issue'],
       sourceRefs: ['src/modules/pages/InboundWarehouse/KhoXuatDanPage.tsx'],
+    },
+    {
+      id: 'wh-diem-dan',
+      title: 'Quản lý điểm đan (chỉ kho Vật tư thành phẩm)',
+      roles: ['warehouse'],
+      screenshot: '/guide-screens/wh-diem-dan.png',
+      purpose: 'Khai báo các điểm đan gia công ngoài và xem mỗi điểm đang giữ bao nhiêu mảnh chưa trả về.',
+      mock: {
+        title: 'Quản lý điểm đan — Mảnh tại điểm đan',
+        columns: ['Mảnh', 'Lệnh SX / PO', 'Đã giao', 'Đã về', 'Đang giữ'],
+        rows: [['Mảnh tay', 'PO-2026-014', '300', '250', '50']],
+      },
+      steps: [
+        'Tab "Thông tin điểm đan": bấm "Thêm điểm đan", nhập Mã / Tên điểm đan (bắt buộc), Tên đầy đủ, Điện thoại, Địa chỉ, tick "Đang hoạt động".',
+        'Tab "Mảnh tại điểm đan": xem từng điểm đan đang giữ những mảnh nào — Đã giao / Đã về / Đang giữ; tick "Chỉ điểm đang giữ hàng" để lọc.',
+      ],
+      result: 'Điểm đan mới chọn được ngay ở "Theo dõi xuất đan"; biết điểm nào còn nợ hàng để đôn đốc.',
+      warnings: [
+        'Điểm đan đã bỏ tick "Đang hoạt động" thì không xuất đan mới cho điểm đó được nữa.',
+      ],
+      tags: ['điểm đan', 'quản lý điểm đan', 'mảnh tại điểm đan'],
+      sourceRefs: ['src/modules/pages/Manufacturing/QuanLyDiemDanPage.tsx'],
     },
     {
       id: 'wh-nhap-dan',
@@ -391,8 +443,8 @@ export const warehouseGroup: GuideGroup = {
       purpose: 'Quản lý vật tư sinh hoạt/văn phòng (bút, giấy...) của kho mình — hoàn toàn tách biệt khỏi vật tư sản xuất.',
       mock: {
         title: 'Văn phòng phẩm',
-        columns: ['Tên vật tư', 'ĐVT', 'Tồn kho'],
-        rows: [['Giấy A4', 'ram', '12'], ['Bút bi', 'cây', '30']],
+        columns: ['Tên vật tư', 'Đơn vị', 'Tồn hiện tại', 'Ghi chú', 'Thao tác'],
+        rows: [['Giấy A4', 'ram', '12', '—', 'Nhập · Xuất · Lịch sử · Sửa · Xóa'], ['Bút bi', 'cây', '30', '—', 'Nhập · Xuất · Lịch sử · Sửa · Xóa']],
         buttons: ['Thêm vật tư'],
       },
       screenshot: '/guide-screens/wh-van-phong-pham.png',
@@ -400,7 +452,7 @@ export const warehouseGroup: GuideGroup = {
         'Bấm "Thêm vật tư": nhập Tên vật tư, Đơn vị tính (bắt buộc), Ghi chú, Tồn ban đầu.',
         'Trên mỗi dòng: bấm icon Nhập/Xuất để điều chỉnh số lượng (nhập Số lượng + Ghi chú, bấm "Xác nhận nhập/xuất").',
         'Bấm icon Lịch sử để xem lại toàn bộ lần nhập/xuất/điều chỉnh của vật tư đó.',
-        { text: 'Bấm icon Sửa để đổi tên/đơn vị/ghi chú; bấm icon Xoá để xoá vật tư (vẫn giữ lịch sử để tra cứu).', critical: false },
+        { text: 'Bấm icon Sửa để đổi tên/đơn vị/ghi chú; bấm icon Xoá để xoá vật tư (vẫn giữ lịch sử để tra cứu). Tick "Hiện vật tư đã xóa (để tra lịch sử)" để xem lại các dòng đã xoá.', critical: false },
       ],
       result: 'Tồn kho văn phòng phẩm được theo dõi riêng theo từng kho vật lý, không ảnh hưởng tới tồn kho sản xuất.',
       commonErrors: [

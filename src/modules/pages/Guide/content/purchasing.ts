@@ -1,7 +1,7 @@
 import type { GuideGroup } from '../types';
 
 // Nguồn: LenhMuaNCCPage.tsx, TheoDoiMuaHangPage.tsx, LichSuMuaHangPage.tsx, PurchasingApp.tsx,
-// BE purchase-proposals.service.ts — đọc trực tiếp mã nguồn 22/09/2026.
+// BE purchase-proposals.service.ts — đọc trực tiếp mã nguồn 22/09/2026, đối chiếu lại 12/10/2026.
 // Lưu ý: luồng "báo giá nhiều nhà cung cấp, Giám đốc so sánh chọn" đã bị GỠ BỎ từ 27/08/2026.
 // Từ nay Giám đốc ký duyệt TAY trên giấy/Excel ngoài hệ thống; phần mềm chỉ lưu ảnh/PDF phiếu
 // đã ký làm bằng chứng, không còn lưu giá hay nhà cung cấp nào trong hệ thống.
@@ -31,6 +31,7 @@ export const purchasingGroup: GuideGroup = {
       result: 'Vật tư còn thiếu được mua về đúng theo số lượng đề xuất, có bằng chứng chữ ký Giám đốc lưu lại trong hệ thống.',
       warnings: [
         'Phần mềm KHÔNG còn lưu giá cả hay nhà cung cấp nào — toàn bộ nằm trong file Excel/giấy Giám đốc ký tay bên ngoài. Nút "Sếp đã duyệt" chỉ ghi nhận việc đã xin chữ ký, không phải nút tự duyệt giá trong hệ thống.',
+        'Số "Cần mua" đã CỘNG SẴN phần dự trù hao hụt khi mua của từng vật tư (cột "Hao hụt" ghi rõ +N%) — % này do Admin/Quản lý vật tư khai ở danh mục Vật tư, Mua hàng không cần tự cộng thêm. Vật tư sắt cắt qua phần mềm không có % này (số cây lấy theo phương án cắt).',
         'Một đề xuất mua có thể gộp nhiều dòng vật tư do nhiều nhân viên Mua hàng khác nhau phụ trách (theo người mua gán sẵn cho từng vật tư ở Admin > Vật tư) — mỗi người chỉ thấy và thao tác đúng phần vật tư mình phụ trách, phần của đồng nghiệp chỉ hiện để tham khảo.',
       ],
       statuses: [
@@ -53,19 +54,20 @@ export const purchasingGroup: GuideGroup = {
       screenshot: '/guide-screens/purchasing-lenh-mua-ncc.png',
       mock: {
         title: 'Lệnh mua vật tư — chi tiết đề xuất',
-        columns: ['Hàng về kho', 'Vật tư', 'Quy cách', 'Chiều dài', 'Tồn thực', 'Cần mua', 'ĐVT'],
-        rows: [['Kho Phôi Sơn Hàn', 'Sắt hộp 20x20 · cây 6000mm', '120', '480', 'cây'], ['Kho Vật tư TP', 'Sơn xám RAL7035', '5', '40', 'lít']],
+        columns: ['Hàng về kho', 'Vật tư', 'Quy cách', 'Chiều dài', 'Tồn thực', 'Cần mua', 'Hao hụt', 'ĐVT'],
+        rows: [['Kho Phôi Sơn Hàn', 'Sắt hộp 20x20', '20x20x0.8', '6000mm', '120', '480', '—', 'cây'], ['Kho Vật tư TP', 'Sơn xám RAL7035', '—', '—', '5', '42', '+5%', 'kg']],
         buttons: ['Sếp đã duyệt'],
       },
       steps: [
-        'Chọn 1 đề xuất trong danh sách (cột PO/PI/Mã nhà máy/Deadline/Trạng thái) để mở chi tiết.',
-        'Xem bảng "Chờ Sếp duyệt": Hàng về kho, Vật tư, Quy cách, Chiều dài (chiều dài cây, chỉ vật tư sắt), Tồn thực, Cần mua, ĐVT.',
+        'Chọn 1 đề xuất trong danh sách "Đề xuất mua từ Quản lý SX" (cột PO/PI/Mã nhà máy/Deadline/Trạng thái) để mở chi tiết.',
+        'Xem bảng "Chờ Sếp duyệt": Hàng về kho, Vật tư, Quy cách, Chiều dài (chiều dài cây, chỉ vật tư sắt), Tồn thực, Cần mua, Hao hụt (% dự trù đã cộng vào số Cần mua), ĐVT.',
         { text: 'Bấm "Sếp đã duyệt" → chọn 1 file ảnh/PDF/Excel phiếu đã ký (tối đa 10MB) → bấm "Xác nhận".', critical: true },
       ],
       result: 'Các dòng vật tư của bạn trong đề xuất này chuyển sang "Đang mua hàng"; đề xuất chuyển sang tab "Theo dõi mua hàng".',
       warnings: [
         'File chỉ thực sự được tải lên khi bấm "Xác nhận" — đóng popup giữa chừng sẽ không tạo rác trên hệ thống lưu trữ, nhưng cũng không lưu lại gì.',
         'Nếu đề xuất có vật tư của đồng nghiệp khác phụ trách, phần đó chỉ hiển thị để xem, không thao tác được.',
+        'Các dòng bạn đã bấm "Sếp đã duyệt" chuyển xuống khối "Đã xử lý" ngay trong đề xuất — theo dõi tiếp ở "Theo dõi mua hàng" / "Lịch sử đã mua".',
       ],
       commonErrors: [
         { issue: 'File vượt quá 10MB, không chọn được', cause: 'Giới hạn dung lượng file đính kèm.', fix: 'Nén ảnh/PDF hoặc chụp lại ở độ phân giải thấp hơn trước khi tải lên.' },
@@ -84,11 +86,11 @@ export const purchasingGroup: GuideGroup = {
       screenshot: '/guide-screens/purchasing-theo-doi.png',
       mock: {
         title: 'Theo dõi mua hàng',
-        columns: ['PO', 'Vật tư', 'Quy cách', 'Chiều dài', 'Tổng SL', 'Đã mua', 'Còn lại', 'Hạn giao'],
-        rows: [['PO-2026-014', 'Sắt hộp 20x20', '480', '300', '180', '05/10/2026']],
+        columns: ['PO', 'Tên vật tư', 'Quy cách', 'Chiều dài', 'Tổng SL', 'Hao hụt', 'ĐVT', 'Đã mua', 'Còn lại', 'Hàng về kho', 'Hạn giao', 'Phiếu duyệt'],
+        rows: [['PO-2026-014', 'Sắt hộp 20x20', '20x20x0.8', '6000mm', '480', '—', 'cây', '300', '180', 'Kho Phôi Sơn Hàn', '05/10/2026', 'Xem file Sếp duyệt']],
       },
       steps: [
-        'Chọn 1 đề xuất để xem chi tiết: PO, tên vật tư, tổng số lượng, Đã mua (luỹ kế Kho đã xác nhận), Còn lại, hạn giao, phiếu duyệt.',
+        'Chọn 1 đề xuất để xem chi tiết: PO, tên vật tư, quy cách, chiều dài, Tổng SL, Hao hụt, Đã mua (luỹ kế Kho đã xác nhận nhận), Còn lại, Hàng về kho, Hạn giao, Phiếu duyệt ("Xem file Sếp duyệt").',
         { text: 'Nếu cần sửa/xoá lại file phiếu đã ký: dùng ô "Phiếu duyệt" — "Tải file"/"Đổi file" hoặc "Xóa".', critical: false },
       ],
       result: 'Nắm được lệnh mua nào đang chờ hàng về và còn thiếu bao nhiêu.',
@@ -111,8 +113,8 @@ export const purchasingGroup: GuideGroup = {
       screenshot: '/guide-screens/purchasing-lich-su.png',
       mock: {
         title: 'Lịch sử đã mua',
-        columns: ['PO', 'Vật tư', 'Quy cách', 'Chiều dài', 'Đã mua', 'ĐVT', 'Hàng về kho'],
-        rows: [['PO-2026-009', 'Sơn xám RAL7035', '40', 'lít', 'Kho Vật tư TP']],
+        columns: ['PO', 'Tên vật tư', 'Quy cách', 'Chiều dài', 'Đã mua', 'ĐVT', 'Hàng về kho', 'Phiếu duyệt'],
+        rows: [['PO-2026-009', 'Sơn xám RAL7035', '—', '—', '42', 'kg', 'Kho Vật tư TP', 'Xem file Sếp duyệt']],
       },
       steps: [
         'Chọn 1 dòng lịch sử để xem chi tiết: vật tư, số đã mua, ĐVT, hàng về kho nào, phiếu duyệt.',

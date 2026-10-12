@@ -4,7 +4,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
 import type { BeTransferCheckPiece, BeTransferCheckDefect } from '../../../services/transfer-check-api'
-import { resolveProductionInvoiceRef } from '../../../services/production-invoice-item'
+import { resolveProductionInvoiceRef, productionOrderRowKey } from '../../../services/production-invoice-item'
 import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
 import { format } from 'date-fns'
 import { ChevronLeft, Plus, X, Image as ImageIcon, Upload, Trash2, ChevronDown, ChevronUp } from 'lucide-react'
@@ -104,7 +104,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
 
   const { data: piecesData, isLoading: piecesLoading, refetch: refetchPieces } = useFetch<BeTransferCheckPiece[]>(
     () => (selectedPf ? api.getTransferCheckPieces(selectedPf) : Promise.resolve([])),
-    [selectedPf?.id],
+    [productionOrderRowKey(selectedPf)],
   )
   const pieces = piecesData ?? []
 
@@ -113,7 +113,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
   // nhiều PI khác nhau - lọc riêng theo mảnh sẽ lẫn dữ liệu PI khác cùng loại mảnh).
   const { data: itemRef } = useFetch(
     () => (selectedPf ? resolveProductionInvoiceRef(selectedPf) : Promise.resolve(null)),
-    [selectedPf?.id],
+    [productionOrderRowKey(selectedPf)],
   )
   const { data: allDefects, refetch: refetchDefects } = useFetch(() => api.getTransferCheckDefects(), [])
   const [expandedPieceId, setExpandedPieceId] = useState<string | null>(null)
@@ -129,7 +129,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
 
   // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho ghi nhận chuyền kiểm cho BẤT
   // KỲ SKU nào cùng PI đó (2026-08-31) - cùng quy tắc/gate ở KhoXuatDanPage/ProductionInvoicesService.
-  const { poInfoFor, activePiIds } = usePoInfoFloorGate()
+  const { poInfoFor, activePiIds, orderRows } = usePoInfoFloorGate()
   // Lọc đúng instance kho thành phẩm (2026-09-05) - trước đây mọi thủ kho cùng "gia đình" thanh-pham
   // (vd "thanh-pham" và "thanh-pham-2") đều thấy chung 1 danh sách toàn bộ SKU active, phát hiện qua
   // browser thật với 2 tài khoản khác instance cùng thấy y hệt PO-50/40/42. warehouseCode (kho QLSX
@@ -141,7 +141,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
     if (!wc) return true
     return wc === warehouseScope
   }
-  const active = ((skus ?? []) as Sku[]).filter(p =>
+  const active = orderRows(skus as Sku[]).filter(p =>
     p.status !== 'DRAFT' &&
     (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId) &&
     activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? '') &&
@@ -229,8 +229,8 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
               PO: {poInfoFor(selectedPf)?.poCode ?? '—'} · PI: {poInfoFor(selectedPf)?.piCode ?? 'Chưa gắn đơn hàng'}
-              {selectedPf.exportOrder?.deliveryDate && (
-                <> · Hạn giao: {format(new Date(selectedPf.exportOrder.deliveryDate), 'dd/MM/yyyy')}</>
+              {poInfoFor(selectedPf)?.deliveryDate && (
+                <> · Hạn giao: {format(new Date(poInfoFor(selectedPf)!.deliveryDate!), 'dd/MM/yyyy')}</>
               )}
             </div>
           </div>
@@ -419,7 +419,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
       </p>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
-        <MobileListCards emptyText="Không có PI nào" items={active.map(pf => ({ key: String(pf.id), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng' }, { label: 'Hạn giao', value: pf.exportOrder?.deliveryDate ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy') : '—' }] }))} />
+        <MobileListCards emptyText="Không có PI nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng' }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
       ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
@@ -441,7 +441,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
               <tbody>
                 {active.map(pf => (
                   <tr
-                    key={pf.id}
+                    key={productionOrderRowKey(pf)}
                     onClick={() => setSelectedPf(pf)}
                     style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
@@ -460,8 +460,8 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                       )}
                     </td>
                     <td style={{ ...td, whiteSpace: 'nowrap', color: 'var(--text2)' }}>
-                      {pf.exportOrder?.deliveryDate
-                        ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy')
+                      {poInfoFor(pf)?.deliveryDate
+                        ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy')
                         : '—'}
                     </td>
                   </tr>

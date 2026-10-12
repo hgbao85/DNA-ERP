@@ -91,8 +91,16 @@ export default function OrderManagementPage() {
   const addItem = () => setForm((f) => ({ ...f, items: [...f.items, { ...EMPTY_ITEM }] }))
   const removeItem = (i: number) => setForm((f) => ({ ...f, items: f.items.filter((_, idx) => idx !== i) }))
 
+  // Hạn giao BẮT BUỘC cho từng dòng SKU (2026-10-12, theo yêu cầu): hạn này chép xuống lệnh sản xuất
+  // của đúng đơn đó - bỏ trống thì lệnh sinh ra không có hạn, các màn kho/sản xuất hiện "—". BE cũng
+  // chặn (CreateSalesOrderItemDto.deliveryDate), đây là lớp báo sớm ngay trên form.
+  const filledItems = form.items.filter((it) => it.skuCode.trim())
+  const missingDeliveryDate = filledItems.some((it) => !it.deliveryDate)
+  const missingQty = filledItems.some((it) => !(Number(it.totalQty) > 0))
+  const canSave = !!form.orderCode.trim() && !!form.customerId && filledItems.length > 0 && !missingDeliveryDate && !missingQty
+
   const handleSave = async () => {
-    if (!form.orderCode.trim() || !form.customerId || form.items.length === 0) return
+    if (!canSave) return
     setSaving(true)
     setFormError(null)
     try {
@@ -362,7 +370,7 @@ export default function OrderManagementPage() {
             <div style={{ ...sectionLabel, marginBottom: 'var(--space-2)' }}>SKU trong PO</div>
             {!isMobile && (
               <div style={{ display: 'grid', gridTemplateColumns: '1.6fr 135px 100px 28px', gap: 6, marginBottom: 6 }}>
-                {['SKU', 'Hạn giao', 'Tổng số', ''].map(h => (
+                {['SKU', 'Hạn giao *', 'Tổng số *', ''].map(h => (
                   <div key={h} style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)' }}>{h}</div>
                 ))}
               </div>
@@ -385,8 +393,8 @@ export default function OrderManagementPage() {
                     emptyText="Không tìm thấy SKU đã duyệt"
                   />
                   </div>
-                  <DatePicker value={it.deliveryDate} onChange={v => setItem(i, { deliveryDate: v })} title="Hạn giao" placeholder="Hạn giao" clearable />
-                  <input type="number" value={it.totalQty} onChange={e => setItem(i, { totalQty: e.target.value })} placeholder="Tổng số" />
+                  <DatePicker value={it.deliveryDate} onChange={v => setItem(i, { deliveryDate: v })} title="Hạn giao" placeholder="Hạn giao *" clearable />
+                  <input type="number" value={it.totalQty} onChange={e => setItem(i, { totalQty: e.target.value })} placeholder="Tổng số *" />
                   <button onClick={() => removeItem(i)} disabled={form.items.length === 1} style={{ padding: 4, background: 'transparent', border: 'none', cursor: form.items.length === 1 ? 'not-allowed' : 'pointer', opacity: form.items.length === 1 ? 0.3 : 1, display: 'flex' }}>
                     <Trash2 size={13} color="var(--fg-e24b4a)" />
                   </button>
@@ -397,13 +405,19 @@ export default function OrderManagementPage() {
               <Plus size={12} /> Thêm SKU
             </button>
 
+            {filledItems.length > 0 && (missingDeliveryDate || missingQty) && (
+              <div style={{ fontSize: 12, color: 'var(--fg-b45309)', marginTop: 8 }}>
+                Nhập {[missingDeliveryDate && 'Hạn giao', missingQty && 'Tổng số (lớn hơn 0)'].filter(Boolean).join(' và ')} cho mọi dòng SKU thì mới lưu được.
+              </div>
+            )}
+
             <Field label="Ghi chú">
               <input value={form.note} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} placeholder="Ghi chú" />
             </Field>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: isMobile ? 'var(--space-5)' : 'var(--space-6)' }}>
               <button onClick={() => setShowCreate(false)} style={btnSecondary}>Hủy</button>
-              <button className="primary" onClick={handleSave} disabled={saving || !form.orderCode.trim() || !form.customerId || form.items.every(it => !it.skuCode.trim())}>
+              <button className="primary" onClick={handleSave} disabled={saving || !canSave}>
                 {saving ? 'Đang lưu...' : 'Lưu'}
               </button>
             </div>

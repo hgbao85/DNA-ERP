@@ -5,7 +5,7 @@ import type { GuideGroup } from '../types';
 // XacNhanVatTuPage.tsx, KcsPhoiPage.tsx, KcsHanPage.tsx/KcsSonPage.tsx (kcsCore.tsx),
 // SpecSteelPage.tsx, SpecDetailQuotaPage.tsx, SpecAccessoryCatalogPage.tsx +
 // BE production-orders/floor-gate/steel-issues/qc-reviews/production-batches —
-// đọc trực tiếp mã nguồn 22/09/2026.
+// đọc trực tiếp mã nguồn 22/09/2026, đối chiếu lại 12/10/2026.
 
 export const manufacturingGroup: GuideGroup = {
   id: 'manufacturing',
@@ -17,6 +17,27 @@ export const manufacturingGroup: GuideGroup = {
   description: 'Điều hành xưởng: bấm Bắt đầu/Kết thúc lệnh, cắt sắt, hàn, sơn, kiểm tra chất lượng, nhập định mức.',
   articles: [
     {
+      id: 'mfg-overview',
+      title: 'Mỗi vai trò trong phân hệ Sản xuất thấy những tab nào',
+      roles: ['qlsx', 'phoi', 'han', 'son', 'kcs', 'spec_steel', 'spec_detail'],
+      purpose: 'Phân hệ Sản xuất dùng chung cho nhiều vai trò; mỗi tài khoản chỉ thấy đúng bộ tab của công việc mình.',
+      steps: [
+        'QLSX: Tổng hợp lệnh SX, Xử lý lệnh sản xuất, Danh sách SKU (chỉ xem), Tổng hợp vật tư, Tổng hợp kho.',
+        'Tổ Phôi: Lệnh sản xuất, Hướng dẫn cắt, Xác nhận nhận sắt, Danh sách định mức mảnh, Kho phôi.',
+        'Tổ Hàn: Lệnh sản xuất, Xác nhận sản lượng, Danh sách định mức mảnh, Khung hàn.',
+        'Tổ Sơn: Lệnh sản xuất, Xác nhận sản lượng, Danh sách định mức mảnh, Mảnh chờ đan.',
+        'KCS: Phôi, Hàn, Sơn (tab Phôi gồm 3 mục con: Cắt sắt / Vật tư TP / VT không gắn mảnh).',
+        'Chuyên viên định mức mảnh: Quản lý định mức > Định mức mảnh, Tổng hợp vật tư, Định mức vật tư thành phẩm.',
+        'Chuyên viên định mức chi tiết: Quản lý định mức > Định mức mới, Tổng hợp vật tư.',
+      ],
+      result: 'Biết đúng tab cần mở cho từng việc; số đỏ cạnh tên tab là số việc đang chờ bạn.',
+      warnings: [
+        'Tab "Xác nhận sản lượng" của Tổ Hàn/Sơn thực chất là nơi XÁC NHẬN ĐÃ NHẬN VẬT TƯ kho vừa cấp (khí CO2, dây hàn, bột sơn...) — còn báo số lượng đã hàn/sơn thì làm ở tab "Lệnh sản xuất".',
+      ],
+      tags: ['tab sản xuất', 'menu sản xuất', 'vai trò sản xuất'],
+      sourceRefs: ['src/modules/pages/Manufacturing/MfgApp.tsx'],
+    },
+    {
       id: 'mfg-floor-gate',
       title: 'Nguyên tắc chung: gate "Bắt đầu" / "Kết thúc" của QLSX',
       roles: ['qlsx', 'phoi', 'han', 'son', 'kcs'],
@@ -25,7 +46,7 @@ export const manufacturingGroup: GuideGroup = {
       mock: { title: 'Tổng hợp lệnh SX', buttons: ['Tạm dừng', 'Bắt đầu', 'Kết thúc'] },
       screenshot: '/guide-screens/mfg-floor-gate.png',
       steps: [
-        'QLSX mở "Tổng hợp lệnh SX", tìm PI cần xử lý.',
+        'QLSX mở "Tổng hợp lệnh SX", bấm vào PI cần xử lý để xem từng SKU (cột "Xưởng" hiện trạng thái và các nút thao tác).',
         { text: 'Bấm "Bắt đầu" — xác nhận trong hộp thoại. Trạng thái chuyển sang "Đang chạy", mọi thao tác dưới xưởng cho PI này được mở khoá.', critical: true },
         'Trong lúc đang chạy, có thể bấm "Tạm dừng" (khoá lại tạm thời) rồi "Tiếp tục" khi cần.',
         { text: 'Khi xong toàn bộ, bấm "Kết thúc" — xác nhận "Không thể hoàn tác thao tác này".', critical: true },
@@ -33,6 +54,7 @@ export const manufacturingGroup: GuideGroup = {
       result: 'PI ở đúng trạng thái phản ánh việc xưởng có đang được phép làm việc hay không.',
       warnings: [
         'Quy tắc mở khoá tính theo CẢ PI: chỉ cần ít nhất 1 SKU bất kỳ trong PI đang "Đang chạy" là mọi thao tác thuộc PI đó đều được phép — không cần đúng SKU đang thao tác phải ở trạng thái đó riêng.',
+        '"Kết thúc" KHÔNG kiểm tra tiến độ — bấm được cả khi chưa đóng gói đủ. Đơn hàng bên Kinh doanh chỉ lên mốc "Hoàn thành" khi vừa đã Kết thúc vừa đóng gói đủ số lượng.',
         '"Kết thúc" không thể hoàn tác. "Tạm dừng" sẽ khoá lại TOÀN BỘ PI (không riêng SKU đang tạm dừng) nếu đó là SKU cuối cùng đang chạy.',
         'Nếu PI có định mức mới hơn bản đang áp dụng, nút "Nạp lại định mức" chỉ dùng được khi PI còn ở trạng thái "Chưa bắt đầu" (chưa bấm Bắt đầu lần nào) và chưa có phương án cắt nào đã duyệt.',
       ],
@@ -42,7 +64,7 @@ export const manufacturingGroup: GuideGroup = {
       statuses: [
         { name: 'Chưa bắt đầu', meaning: 'Mọi thao tác dưới xưởng cho PI này bị khoá.' },
         { name: 'Đang chạy', meaning: 'Xưởng được phép thao tác.' },
-        { name: 'Tạm dừng', meaning: 'Khoá lại tạm thời.' },
+        { name: 'Đang tạm dừng', meaning: 'Khoá lại tạm thời.' },
         { name: 'Đã kết thúc', meaning: 'Trạng thái cuối, không thể quay lại.' },
       ],
       tags: ['bắt đầu', 'kết thúc', 'floor stage', 'gate qlsx', 'tạm dừng'],
@@ -59,21 +81,25 @@ export const manufacturingGroup: GuideGroup = {
       ],
       mock: {
         title: 'Lệnh sản xuất — Phôi',
-        columns: ['Cỡ đoạn', 'Cần', 'Đã cắt', 'Nhập đợt này'],
-        rows: [['400mm', '200', '120', '___'], ['700mm', '150', '90', '___']],
+        columns: ['Cỡ đoạn', 'Cần', 'Đã làm', 'Lỗi', 'Còn lại', 'Nhập đợt này'],
+        rows: [['400mm', '200', '120', '—', '80', '___'], ['700mm', '150', '90', '2', '62', '___']],
         buttons: ['Lưu đợt cắt', 'Gửi KCS'],
       },
       screenshot: '/guide-screens/mfg-phoi-cat.png',
       steps: [
-        'Ở "Lệnh sản xuất", chọn SKU đang cắt (bắt buộc chọn đúng SKU — hệ thống chỉ cho khai cỡ đoạn có trong định mức của chính SKU đó).',
+        'Ở "Lệnh sản xuất", bấm PI cần làm rồi chọn tab "Cắt sắt" (cạnh đó là "Vật tư TP" và "VT không gắn mảnh"), bấm vào loại sắt cần cắt.',
+        'Ở dòng "Phôi cho SKU:", chọn SKU đang cắt (bắt buộc chọn đúng SKU — hệ thống chỉ cho khai cỡ đoạn có trong định mức của chính SKU đó).',
         'Nhập số đoạn đã cắt được cho từng cỡ vào ô "Nhập đợt này", bấm "Lưu đợt cắt" — có thể lưu nhiều đợt, cộng dồn dần.',
         { text: 'Khi đã cắt xong đủ (hoặc muốn báo một phần), bấm "Gửi KCS".', critical: true },
         'Nếu lỡ nhập sai, dùng "Hoàn tác" — CHỈ hoàn tác được lần lưu gần nhất.',
+        'Loại sắt có công đoạn phụ (Uốn, Dập...): sau Cắt, mở tab công đoạn tương ứng, nhập số đoạn đã làm và bấm "Gửi KCS" cho từng công đoạn.',
+        'Bấm "Xem hướng dẫn cắt đầy đủ" để nhảy sang đúng bảng cắt của PI này.',
       ],
       result: 'Đợt cắt chuyển sang chờ KCS kiểm tra; sau khi KCS duyệt, phần đạt chuyển tiếp cho Tổ Hàn.',
       warnings: [
         'Hệ thống KHÔNG chặn nhập vượt số "Còn lại" theo định mức — số liệu chỉ mang tính tham khảo, việc kiểm soát dồn hết về bước KCS duyệt.',
-        '"Hoàn tác" chỉ nhớ đúng 1 bước gần nhất — lưu thêm một đợt khác hoặc rời trang là mất khả năng hoàn tác đợt trước đó.',
+        '"Hoàn tác" chỉ nhớ đúng 1 bước gần nhất — lưu thêm một đợt khác, đổi SKU, bấm "Gửi KCS" hoặc rời trang là nút biến mất, không hoàn tác được nữa.',
+        'Đợt cắt cũ (trước khi hệ thống ghi theo SKU) hiện "Chưa phân SKU" — Tổ Phôi gán được cho một SKU đúng 1 lần bằng nút "Gán"; gán nhầm thì nhờ Admin sửa ở "Sửa SKU đợt Phôi".',
         'Nếu KCS "trả về", đợt đó không tự sinh lô làm lại — bạn sẽ thấy badge "KCS trả về · cắt lại" và tự cắt bù một đợt mới, dùng nút "Bù đủ" để tự điền sẵn số lượng cần bù.',
       ],
       commonErrors: [
@@ -82,9 +108,9 @@ export const manufacturingGroup: GuideGroup = {
         { issue: '"Cỡ đoạn ... không có trong định mức của SKU đã chọn"', cause: 'Khai một cỡ đoạn không có trong công thức sản xuất (định mức) của SKU.', fix: 'Kiểm tra lại định mức đúng của SKU trước khi khai, hoặc chọn đúng mảnh/cỡ đoạn.' },
       ],
       statuses: [
-        { name: 'Đang mở', meaning: 'Có thể tiếp tục lưu thêm đợt cắt.' },
-        { name: 'Chờ KCS duyệt', meaning: 'Đã gửi, chờ KCS kiểm tra.' },
-        { name: 'KCS đã duyệt', meaning: 'Đã có kết quả kiểm tra chất lượng.' },
+        { name: 'đang cắt', meaning: 'Đợt còn mở, có thể tiếp tục lưu thêm.' },
+        { name: 'chờ KCS', meaning: 'Đã gửi, chờ KCS kiểm tra.' },
+        { name: 'đã duyệt / Lỗi N đoạn', meaning: 'KCS đã kiểm xong; nếu có lỗi thì ghi rõ số đoạn không đạt cần cắt bù.' },
       ],
       tags: ['cắt sắt', 'phôi', 'lưu đợt cắt', 'gửi kcs'],
       sourceRefs: ['src/modules/pages/Phoi/LenhSanXuatPhoi.tsx'],
@@ -96,14 +122,14 @@ export const manufacturingGroup: GuideGroup = {
       purpose: 'Xác nhận đã nhận đợt sắt (hoặc vật tư thành phẩm) mà Thủ kho vừa xuất, trước khi cắt.',
       mock: {
         title: 'Xác nhận nhận sắt',
-        columns: ['Vật tư', 'Số lượng đã xuất', 'Trạng thái'],
-        rows: [['Sắt hộp 20x20 · dài 6000mm', '200 cây', 'Đã xuất']],
+        columns: ['PO/PI', 'Loại', 'Chiều dài (mm)', 'Số lượng', 'Thời gian xuất', 'Trạng thái'],
+        rows: [['PO-2026-014', 'Sắt hộp 20x20', '6.000', '200', '09:10 01/10/2026', 'Xác nhận đã nhận']],
         buttons: ['Xác nhận đã nhận'],
       },
       screenshot: '/guide-screens/mfg-phoi-nhan-sat.png',
       steps: [
-        { text: 'Ở tab "Xác nhận", bấm "Xác nhận đã nhận" cho từng đợt Thủ kho đã xuất.', critical: true },
-        'Xem lại lịch sử đã xác nhận ở tab "Lịch sử".',
+        { text: 'Ở tab "Xác nhận", bấm "Xác nhận đã nhận" cho từng đợt Thủ kho đã xuất — gồm cả Sắt, Sắt la (làm pat) và Thanh nhôm (làm chân nhôm).', critical: true },
+        'Xem lại ở tab "Lịch sử": bấm một PI để xem kho đã xuất bao nhiêu cây theo từng chiều dài.',
       ],
       result: 'Đợt xuất chuyển từ "Đã xuất" sang "Đã nhận" — chỉ sau bước này mới nhập đợt cắt được cho lô sắt tương ứng.',
       commonErrors: [
@@ -127,6 +153,7 @@ export const manufacturingGroup: GuideGroup = {
       steps: [
         'Với mảnh không có nhiều bước gia công: nhập số lượng, bấm "Lưu đợt" rồi "Gửi KCS".',
         'Với mảnh có khai nhiều bước (VD: cắt → dập): báo từng bước riêng, mỗi bước tự "Lưu đợt"/"Gửi KCS".',
+        'Vật tư không gắn mảnh (tab "VT không gắn mảnh", ví dụ chân nhôm): nhập số lượng từng công đoạn rồi bấm "Báo & gửi KCS" — phải xác nhận nhận nguyên liệu (thanh nhôm) ở "Xác nhận nhận sắt" trước.',
       ],
       result: 'Ở bước cuối cùng, khi hoàn tất, hệ thống tự động chốt và gửi KCS — không cần thao tác "Chốt & gửi KCS" thủ công riêng nữa.',
       tags: ['vật tư thành phẩm', 'chân nhôm', 'pat'],
@@ -141,10 +168,13 @@ export const manufacturingGroup: GuideGroup = {
       steps: [
         '"Kho phôi": xem tồn đoạn sắt thật tại kho (Đoạn chuẩn chờ chuyển Hàn / Đoạn thừa chờ xử lý).',
         '"Hướng dẫn cắt": xem bảng cắt bắt buộc theo phương án đã duyệt cho PO/PI, có thể bấm "In" (Excel/PDF).',
-        '"Danh sách định mức mảnh": tra nhanh định mức sắt của từng mảnh theo SKU.',
+        '"Danh sách định mức mảnh": tra nhanh định mức sắt của từng mảnh theo SKU (Tên mảnh / Loại sắt / Quy cách / Chiều dài cắt).',
       ],
       result: 'Có đủ thông tin tham khảo khi cắt, không cần hỏi lại KHSX.',
-      warnings: ['"Hướng dẫn cắt" hiện thông báo "Chưa có phương án cắt nào đã duyệt cho PO/PI này" nếu KHSX chưa duyệt xong phương án.'],
+      warnings: [
+        '"Hướng dẫn cắt" hiện thông báo "Chưa có phương án cắt nào đã duyệt cho PO/PI này" nếu lệnh chưa có phương án cắt dùng được.',
+        'Loại sắt có dòng "⚠ Cỡ đặt riêng ...mm — không phải cây chuẩn" = phải cắt trên cây đặt riêng, đừng lấy nhầm cây chuẩn.',
+      ],
       tags: ['kho phôi', 'hướng dẫn cắt', 'định mức mảnh'],
       sourceRefs: ['src/modules/pages/Phoi/KhoPhoiPage.tsx', 'src/modules/pages/Phoi/HuongDanCatPage.tsx'],
     },
@@ -156,13 +186,13 @@ export const manufacturingGroup: GuideGroup = {
       preconditions: ['PI đã được QLSX bấm "Bắt đầu".'],
       mock: {
         title: 'Lệnh sản xuất — Hàn/Sơn',
-        columns: ['Mảnh', 'Cần', 'Đã báo', 'Còn lại'],
-        rows: [['Mảnh tựa', '200', '150', '50']],
+        columns: ['Mảnh', 'Cần', 'Đã báo', 'Lỗi', 'Còn lại', 'Nhập đợt này'],
+        rows: [['Mảnh tựa', '200', '150', '—', '50', '___']],
         buttons: ['Lưu đợt', 'Gửi KCS'],
       },
       screenshot: '/guide-screens/mfg-han-son.png',
       steps: [
-        'Mở "Lệnh sản xuất", chọn PI → SKU → mảnh cần báo.',
+        'Mở "Lệnh sản xuất", chọn PI → SKU → mảnh cần báo. Trong một PI các SKU làm TUẦN TỰ: SKU sau có icon khoá và chỉ mở khi SKU trước đủ 100%.',
         'Nhập số lượng vào ô, bấm "Lưu đợt" — cộng dồn vào đợt đang mở.',
         { text: 'Bấm "Gửi KCS" khi muốn chuyển đợt đang mở sang chờ kiểm tra.', critical: true },
       ],
@@ -170,6 +200,7 @@ export const manufacturingGroup: GuideGroup = {
       warnings: [
         'Không chặn nhập vượt số "Còn lại" theo định mức — số liệu chỉ mang tính tham khảo.',
         'Nếu KCS chấm có lỗi, KCS KHÔNG tự tạo lô làm lại cho Hàn/Sơn — phải tự báo một đợt hoàn toàn mới (dùng "Bù đủ" để tự điền số cần bù) và gửi KCS lại như bình thường.',
+        'Cột "Đã hàn"/"Đã sơn" ở danh sách SKU = số sản phẩm ráp được đủ mọi mảnh (tính theo mảnh thiếu nhất), không phải tổng số mảnh đã báo.',
         'Banner đỏ "chưa cân đối" xuất hiện khi các mảnh của cùng một SKU chưa cắt/hàn/sơn đều số lượng với nhau — cần chú ý để tránh lệch dây chuyền.',
       ],
       commonErrors: [
@@ -186,19 +217,21 @@ export const manufacturingGroup: GuideGroup = {
     },
     {
       id: 'mfg-han-son-nhan-vattu',
-      title: 'Tổ Hàn / Tổ Sơn — xác nhận nhận vật tư tiêu hao',
+      title: 'Tổ Hàn / Tổ Sơn — xác nhận nhận vật tư tiêu hao (tab "Xác nhận sản lượng")',
       roles: ['han', 'son'],
       purpose: 'Xác nhận đã nhận vật tư tiêu hao (khí CO2, dây hàn, bột sơn...) do Thủ kho cấp — khác hẳn Sắt, không qua KCS.',
       mock: {
-        title: 'Xác nhận nhận vật tư',
-        columns: ['Vật tư', 'Đã xuất', 'Trạng thái'],
-        rows: [['Khí CO2', '25', 'Đã xuất']],
+        title: 'Xác nhận sản lượng',
+        columns: ['PO', 'Vật tư', 'SL kho xuất', 'Thời gian xuất', 'Xác nhận nhận'],
+        rows: [['PO-2026-014', 'Khí CO2', '25', '09:10 01/10/2026', '___']],
         buttons: ['Nhận thiếu', 'Xác nhận đã nhận'],
       },
       screenshot: '/guide-screens/mfg-han-son-nhan-vattu.png',
       steps: [
+        'Mở tab "Xác nhận sản lượng" trên menu (tên tab là vậy, nhưng nội dung là xác nhận nhận vật tư kho cấp).',
         { text: 'Bấm "Xác nhận đã nhận" nếu nhận đủ.', critical: false },
         { text: 'Hoặc bấm "Nhận thiếu" để sửa số thực nhận, rồi "Lưu & xác nhận".', critical: false },
+        'Xem lại các lần đã nhận ở tab "Lịch sử" (SL đã nhận / Thời gian xuất / Thời gian nhận).',
       ],
       result: 'Đợt xuất vật tư chuyển từ "Đã xuất" sang "Đã nhận".',
       commonErrors: [
@@ -208,10 +241,31 @@ export const manufacturingGroup: GuideGroup = {
       sourceRefs: ['src/modules/pages/Manufacturing/XacNhanVatTuPage.tsx'],
     },
     {
+      id: 'mfg-han-son-kho',
+      title: 'Tổ Hàn / Tổ Sơn — tra cứu (Khung hàn, Mảnh chờ đan, Danh sách định mức mảnh)',
+      roles: ['han', 'son'],
+      screenshot: '/guide-screens/mfg-han-son-kho.png',
+      purpose: 'Các màn chỉ xem cho biết mảnh nào đã làm xong và đã được KCS duyệt đạt, đang chờ chuyển sang công đoạn sau.',
+      mock: {
+        title: 'Khung hàn',
+        columns: ['SKU / Sản phẩm', 'Số lượng'],
+        rows: [['GHE-001 — Ghế ăn mây nhựa · 3 loại mảnh', '450']],
+      },
+      steps: [
+        '"Khung hàn" (Tổ Hàn): các mảnh/khung đã hàn và KCS duyệt đạt, chờ chuyển sang Sơn. Bấm một sản phẩm để xem từng mảnh (Tên mảnh / Số lượng / ĐVT).',
+        '"Mảnh chờ đan" (Tổ Sơn): các mảnh đã sơn và KCS duyệt đạt, chờ chuyển sang Đan.',
+        '"Danh sách định mức mảnh": tra định mức theo SKU — Tổ Hàn xem tên mảnh, loại sắt, quy cách, chiều dài cắt; Tổ Sơn xem loại sơn, mã sơn, đơn vị tính của từng SKU.',
+      ],
+      result: 'Nắm được lượng hàng đã qua công đoạn của mình mà không cần hỏi KCS hay thủ kho.',
+      warnings: ['Đây là các màn CHỈ XEM — việc chuyển mảnh sang kho Vật tư thành phẩm do Thủ kho Phôi Sơn Hàn làm ở "Xuất theo đơn hàng".'],
+      tags: ['khung hàn', 'mảnh chờ đan', 'danh sách định mức mảnh'],
+      sourceRefs: ['src/modules/pages/Han/KhungHanPage.tsx', 'src/modules/pages/Son/ManhChoDanPage.tsx', 'src/modules/pages/Manufacturing/PhoiDinhMucManhPage.tsx'],
+    },
+    {
       id: 'mfg-kcs-han-son',
-      title: 'KCS — duyệt Hàn / Sơn / Vật tư TP',
+      title: 'KCS — duyệt Hàn / Sơn',
       roles: ['kcs'],
-      purpose: 'Kiểm tra chất lượng các đợt Hàn/Sơn/Vật tư TP đang chờ, chấm đạt/không đạt.',
+      purpose: 'Kiểm tra chất lượng các đợt Hàn/Sơn đang chờ, chấm đạt/không đạt. (Vật tư TP và VT không gắn mảnh duyệt trong tab KCS "Phôi" — xem bài kế tiếp.)',
       preconditions: ['Có đợt đang ở trạng thái chờ KCS kiểm tra.'],
       mock: {
         title: 'KCS — duyệt Hàn/Sơn',
@@ -220,7 +274,7 @@ export const manufacturingGroup: GuideGroup = {
       },
       screenshot: '/guide-screens/mfg-kcs-han-son.png',
       steps: [
-        'Chọn dòng có số lượng chờ duyệt, bấm "Tiến hành duyệt".',
+        'Ở tab "Hàn" hoặc "Sơn", bấm PI có hàng chờ kiểm, rồi ở dòng có số lượng chờ duyệt bấm "Tiến hành duyệt".',
         'Nhập "Số lượng chưa đạt" (0 nếu đạt hết).',
         { text: 'Nếu có số chưa đạt: bắt buộc chọn "Nguyên nhân không đạt" (có thể thêm loại lỗi mới nếu chưa có sẵn), có thể ghi chú và đính kèm ảnh.', critical: false },
         { text: 'Bấm "Xác nhận duyệt".', critical: true },
@@ -250,8 +304,9 @@ export const manufacturingGroup: GuideGroup = {
       },
       screenshot: '/guide-screens/mfg-kcs-phoi.png',
       steps: [
-        'Chọn tab công đoạn (Cắt, Uốn, Dập...) — mỗi tab có badge số đang chờ duyệt.',
-        'Mở đợt cần duyệt: với mỗi cỡ đoạn, nhập số "Không đạt" riêng.',
+        'Ở tab "Phôi", chọn mục con: "Cắt sắt" / "Vật tư TP" / "VT không gắn mảnh". Với Cắt sắt: bấm PI có đợt chờ kiểm, chọn tab công đoạn (Cắt, Uốn, Dập...) — mỗi tab có badge số đang chờ duyệt.',
+        'Bấm "Tiến hành duyệt" ở đợt cần duyệt: với mỗi cỡ đoạn, nhập số "Không đạt" riêng (bảng Cỡ đoạn / Đã cắt (đợt này) / Không đạt).',
+        'Vật tư TP và VT không gắn mảnh: duyệt theo từng đợt gửi, nhập tổng số không đạt (không chia theo cỡ đoạn).',
         { text: 'Nếu có lỗi: chọn nguyên nhân (bắt buộc), bấm "Xác nhận duyệt".', critical: true },
       ],
       result: 'Đợt cắt đóng lại (coi như đã kiểm xong) ngay cả khi còn lỗi — giống nguyên tắc chung của KCS, không tự sinh đợt cắt lại; Tổ Phôi tự cắt bù bằng một đợt mới.',
@@ -265,37 +320,66 @@ export const manufacturingGroup: GuideGroup = {
     },
     {
       id: 'mfg-spec-steel',
-      title: 'Chuyên viên định mức mảnh — nhập định mức Sắt/Dây/Đinh',
+      title: 'Chuyên viên định mức mảnh — nhập định mức mảnh (Sắt, Dây, Đinh, Tán rút, Nút nhựa...)',
       roles: ['spec_steel'],
       purpose: 'Nhập định mức vật tư cho từng mảnh của một SKU: sắt cần cắt, dây, đinh, tán rút, nút nhựa.',
       preconditions: ['SKU đã được KHSX tạo (ở màn "Duyệt SKU").'],
       mock: {
         title: 'Định mức mảnh',
-        columns: ['Mảnh', 'Chiều dài sắt', 'Số đoạn', 'Dây', 'Đinh'],
-        rows: [['Mảnh tựa', '400mm', '2', '2m', '8']],
+        columns: ['Nhóm', 'Vật tư', 'Quy cách', 'Chiều dài (mm) / Số lượng/ĐVT', 'Công đoạn phôi', 'Số lượng', 'ĐVT', 'Ảnh'],
+        rows: [['Sắt', 'SAT-003 — Sắt hộp 20x20', '20x20x0.8', '400', 'Cắt', '2', 'cây', '—'], ['Dây', 'DAY-011 — Dây nhựa giả mây', '—', '—', '—', '0.5', 'kg', '—']],
         buttons: ['Gửi phê duyệt'],
       },
       screenshot: '/guide-screens/mfg-spec-steel.png',
       steps: [
-        'Mở SKU, bấm thêm mảnh mới nếu cần.',
-        'Với mỗi mảnh: khai chiều dài sắt cần cắt + số đoạn, và các vật tư phụ (dây/đinh/tán rút/nút nhựa) — chọn vật tư từ danh mục có sẵn (do Admin khai báo trước, không gõ tự do).',
+        'Mở "Quản lý định mức" > "Định mức mảnh", chọn SKU, bấm "Thêm mảnh mới": nhập Tên mảnh, Số lượng / SKU, tick "Cần Hàn" / "Cần Sơn" nếu mảnh phải qua công đoạn đó.',
+        'Với mỗi mảnh bấm "Thêm vật tư" và chọn nhóm: Sắt (nhập Chiều dài cắt + Công đoạn phôi: Cắt, Uốn, Dập...), Dây, Đinh, Tán rút, Nút nhựa, Tự tính (sắt cắt theo tỷ lệ cố định — nhập Số lượng/đơn vị), Vật tư thành phẩm. Vật tư chọn từ danh mục có sẵn (không gõ tự do), nhập Số lượng (Dây tính theo KG).',
+        'Với Nút nhựa / Vật tư thành phẩm: tick "Đan" nếu vật tư này phải gửi kèm khi xuất đan (Dây và Đinh luôn tự đi kèm).',
         { text: 'Bấm "Gửi phê duyệt" khi đã nhập xong.', critical: true },
       ],
       result: 'Dữ liệu định mức mảnh chuyển sang chờ KHSX duyệt.',
       warnings: [
         'Mỗi lần bấm "Gửi phê duyệt" là GHI ĐÈ TOÀN BỘ danh sách mảnh của SKU đó — không phải sửa từng dòng.',
         'Ảnh minh hoạ (nếu có) chỉ thực sự tải lên khi bấm "Gửi phê duyệt" — chọn ảnh trước đó chỉ là xem trước.',
+        'Mảnh chỉ được tính là "✓ Có đan" khi có ĐỦ CẢ nhóm Dây VÀ nhóm Đinh; thiếu một trong hai sẽ hiện "Không đan" và mảnh đó bỏ qua bước Xuất đan, đi thẳng Chuyền kiểm.',
+        'Tab "Tổng hợp vật tư" liệt kê vật tư đang chọn được theo từng nhóm — nhóm nào trống thì báo Admin/Quản lý vật tư khai thêm ở danh mục Vật tư.',
       ],
       commonErrors: [
         { issue: '"Không thể gửi phê duyệt"', cause: 'Lỗi chung khi gửi thất bại.', fix: 'Kiểm tra lại dữ liệu đã nhập và thử lại.' },
       ],
       statuses: [
         { name: 'Có thể nhập', meaning: 'Chưa từng gửi, hoặc KHSX vừa từ chối — có thể nhập/sửa.' },
-        { name: 'Đang chờ', meaning: 'Đã gửi, chờ KHSX duyệt.' },
-        { name: 'Đã duyệt / Từ chối', meaning: 'KHSX đã xử lý xong.' },
+        { name: '⏳ Đã gửi phê duyệt — đang chờ quản lý xác nhận', meaning: 'Đã gửi, chờ KHSX duyệt.' },
+        { name: '✓ Đã được duyệt', meaning: 'KHSX đã duyệt nhánh mảnh.' },
+        { name: '⚠ KHSX đã từ chối — vui lòng chỉnh sửa và gửi lại', meaning: 'Bị trả lại, sửa rồi gửi phê duyệt lại.' },
       ],
       tags: ['định mức mảnh', 'spec steel', 'nhập bom sắt'],
       sourceRefs: ['src/modules/pages/Manufacturing/SpecSteelPage.tsx'],
+    },
+    {
+      id: 'mfg-spec-yield-recipe',
+      title: 'Định mức vật tư thành phẩm (1 vật tư vào → N vật tư ra)',
+      roles: ['spec_steel', 'admin'],
+      screenshot: '/guide-screens/mfg-spec-yield-recipe.png',
+      purpose: 'Khai công thức gia công cho "vật tư thành phẩm" không gắn mảnh — ví dụ 1 thanh nhôm cắt được 12 chân nhôm — để hệ thống tính cần cấp bao nhiêu nguyên liệu cho Tổ Phôi.',
+      preconditions: ['Vật tư ra đã được khai ở danh mục Vật tư, thuộc nhóm Sắt với Nhóm con Sắt = "Vật tư thành phẩm"; vật tư vào là nguyên liệu mua về.'],
+      mock: {
+        title: 'Thêm định mức',
+        formFields: ['Vật tư ra (phải thuộc nhóm Sắt — Vật tư thành phẩm)', 'Vật tư vào (nguyên liệu mua)', 'Số vật tư ra / 1 đơn vị vào *', 'Công đoạn'],
+        buttons: ['Hủy', 'Lưu'],
+      },
+      steps: [
+        'Mở "Quản lý định mức" > "Định mức vật tư thành phẩm" (Admin: Danh mục hệ thống > Định mức vật tư thành phẩm).',
+        'Bấm "Thêm định mức": chọn Vật tư ra, Vật tư vào, nhập "Số vật tư ra / 1 đơn vị vào" (ví dụ 12), tick các Công đoạn Tổ Phôi phải làm (Cắt, Uốn, Dập...).',
+        'Bấm "Lưu".',
+      ],
+      result: 'Thủ kho thấy nhu cầu nguyên liệu ở "Phân phối nội bộ > Xuất vật tư TP > Không gắn mảnh"; Tổ Phôi báo công đoạn ở "Lệnh sản xuất" > "VT không gắn mảnh"; KCS duyệt ở tab Phôi > "VT không gắn mảnh".',
+      warnings: [
+        'Định mức chưa khai công đoạn nào thì Tổ Phôi không báo sản lượng được (màn hình nhắc "Định mức này chưa khai công đoạn nào").',
+        'Chỉ Admin thấy và đổi được ô "Hoạt động" của một định mức; chuyên viên định mức mảnh chỉ thêm/sửa/xoá.',
+      ],
+      tags: ['định mức vật tư thành phẩm', 'chân nhôm', 'thanh nhôm', 'yield recipe'],
+      sourceRefs: ['src/modules/pages/Admin/masterData/MaterialYieldRecipesPage.tsx'],
     },
     {
       id: 'mfg-spec-detail',
@@ -311,12 +395,13 @@ export const manufacturingGroup: GuideGroup = {
       },
       screenshot: '/guide-screens/mfg-spec-detail.png',
       steps: [
-        'Mở SKU, thêm dòng định mức cho từng nhóm: Sơn / Phụ kiện / Bao bì — chọn vật tư từ danh mục có sẵn.',
+        'Mở "Quản lý định mức" > "Định mức mới", chọn SKU, thêm dòng định mức cho từng nhóm: Sơn (nhập Khối lượng kg) / Phụ kiện / Bao bì (nhập Số lượng) — chọn vật tư từ danh mục có sẵn.',
         { text: 'Bấm "Gửi phê duyệt".', critical: true },
       ],
       result: 'Dữ liệu định mức chi tiết chuyển sang chờ KHSX duyệt, độc lập với nhánh định mức mảnh.',
       warnings: [
-        'Một vật tư chỉ thuộc đúng một trong ba nhóm (Sơn/Phụ kiện/Bao bì) ngay từ khi Admin khai báo — muốn đổi nhóm phải sửa ở danh mục gốc (Admin), không sửa được từ màn này.',
+        'Một vật tư chỉ thuộc đúng một trong ba nhóm (Sơn/Phụ kiện/Bao bì) theo ô "Phân loại" ở danh mục Vật tư (nhóm "Vật tư khác") — muốn đổi nhóm phải nhờ Admin/Quản lý vật tư sửa ở danh mục gốc, không sửa được từ màn này.',
+        'Tab "Tổng hợp vật tư" cho xem danh mục Sơn/Phụ kiện/Bao bì đang chọn được và các dòng bị KHSX từ chối kèm lý do.',
         'Mỗi lần "Gửi phê duyệt" là ghi đè toàn bộ danh sách dòng chi tiết của SKU đó.',
       ],
       tags: ['định mức chi tiết', 'spec accessory', 'sơn', 'phụ kiện', 'bao bì'],

@@ -112,7 +112,7 @@ function CreateAnnouncementModal({ open, onClose, onCreated }: { open: boolean; 
 }
 
 export default function NotificationsPage() {
-  const { data, isLoading, error, refetch } = useFetch(() => getSentAnnouncements(1, 200))
+  const { data, isLoading, error, refetch } = useFetch(() => getSentAnnouncements(1, 100))
   const announcements = useMemo(() => data?.data ?? [], [data])
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)

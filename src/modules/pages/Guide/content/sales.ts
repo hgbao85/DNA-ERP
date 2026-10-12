@@ -1,7 +1,7 @@
 import type { GuideGroup } from '../types';
 
 // Nguồn: SalesApp.tsx, OrderManagementPage.tsx, CustomerManagementPage.tsx, PurchaseHistoryPage.tsx,
-// BE sales-orders.service.ts, customers.service.ts — đọc trực tiếp mã nguồn 22/09/2026.
+// BE sales-orders.service.ts, customers.service.ts — đọc trực tiếp mã nguồn 22/09/2026, đối chiếu lại 12/10/2026.
 
 export const salesGroup: GuideGroup = {
   id: 'sales',
@@ -24,8 +24,8 @@ export const salesGroup: GuideGroup = {
       screenshot: '/guide-screens/sales-tao-po.png',
       mock: {
         title: 'Tạo PO mới',
-        formFields: ['Mã đơn hàng *', 'Khách hàng *', 'Ngày đặt', 'File đính kèm (PO, hợp đồng...)'],
-        columns: ['SKU', 'Hạn giao', 'Tổng số'],
+        formFields: ['Mã đơn hàng *', 'Khách hàng *', 'Ngày đặt', 'File đính kèm (PO, hợp đồng...)', 'Ghi chú'],
+        columns: ['SKU', 'Hạn giao *', 'Tổng số *'],
         rows: [['GHE-001', '30/09/2026', '200'], ['BAN-014', '05/10/2026', '50']],
         buttons: ['Thêm SKU', 'Hủy', 'Lưu'],
       },
@@ -33,21 +33,23 @@ export const salesGroup: GuideGroup = {
         'Bấm "Tạo PO" ở tab Quản lí đơn hàng.',
         'Nhập Mã đơn hàng (bắt buộc, không được trùng với đơn khác).',
         'Chọn Khách hàng (bắt buộc). Nếu khách đã có sẵn SKU đã duyệt gắn riêng và chưa gắn PO nào, hệ thống tự điền vào bảng SKU bên dưới.',
-        'Với mỗi dòng: chọn SKU (chỉ chọn được SKU đã duyệt), nhập Hạn giao và Tổng số lượng. Bấm "Thêm SKU" nếu đơn có nhiều sản phẩm.',
-        'Tải lên File đính kèm (PO/hợp đồng...) nếu có.',
+        'Với mỗi dòng: chọn SKU (chỉ chọn được SKU đã duyệt; danh sách hiện kèm tên khách hàng vì hai khách có thể trùng mã SKU — chọn đúng dòng của khách mình), nhập Hạn giao và Tổng số — cả hai đều BẮT BUỘC cho từng dòng. Bấm "Thêm SKU" nếu đơn có nhiều sản phẩm.',
+        'Tải lên File đính kèm (PO/hợp đồng...) và nhập Ghi chú nếu có.',
         { text: 'Bấm "Lưu" để tạo đơn hàng.', critical: true },
       ],
       result:
         'Đơn hàng được tạo; hệ thống tự sinh hồ sơ lệnh sản xuất tương ứng phía sau cho từng dòng SKU (chưa gộp lệnh sản xuất) — Kế hoạch sản xuất sẽ xử lý tiếp từ đây.',
       warnings: [
-        'Nút "Lưu" chỉ bật khi đã nhập Mã đơn hàng, chọn Khách hàng, và ít nhất một dòng SKU đã chọn sản phẩm.',
+        'Nút "Lưu" chỉ bật khi đã nhập Mã đơn hàng, chọn Khách hàng, có ít nhất một dòng SKU, và MỌI dòng SKU đều có Hạn giao + Tổng số lớn hơn 0 — thiếu thì ngay dưới bảng SKU có dòng nhắc "Nhập Hạn giao ... cho mọi dòng SKU thì mới lưu được".',
+        'Hạn giao nhập theo TỪNG dòng SKU của TỪNG đơn và được chép xuống lệnh sản xuất của đúng đơn đó (hai đơn cùng đặt một mẫu vẫn có hạn riêng). Cột "Hạn giao" của cả đơn = hạn xa nhất trong các dòng.',
         'File đính kèm chỉ thực sự tải lên khi bấm "Lưu" thành công — không tạo rác nếu đóng form giữa chừng.',
       ],
       commonErrors: [
         { issue: 'Không tìm thấy sản phẩm cần bán trong danh sách chọn SKU', cause: 'Sản phẩm chưa có định mức được Giám đốc duyệt.', fix: 'Liên hệ KHSX để hoàn tất quy trình duyệt định mức trước.' },
+        { issue: '"Hạn giao của từng dòng SKU là bắt buộc"', cause: 'Có dòng SKU chưa nhập Hạn giao.', fix: 'Nhập Hạn giao cho mọi dòng SKU rồi lưu lại.' },
         { issue: '"Mã đơn hàng ... đã được dùng cho đơn khác"', cause: 'Mã đơn hàng bị trùng với một PO đã tồn tại.', fix: 'Đổi sang mã khác chưa dùng.' },
       ],
-      tags: ['tạo đơn hàng', 'po', 'sales order', 'đơn đặt hàng'],
+      tags: ['tạo đơn hàng', 'po', 'sales order', 'đơn đặt hàng', 'hạn giao', 'deadline'],
       sourceRefs: ['src/modules/pages/Sales/OrderManagementPage.tsx'],
     },
     {
@@ -57,18 +59,20 @@ export const salesGroup: GuideGroup = {
       purpose: 'Theo dõi tiến độ sản xuất/giao hàng của từng đơn, đánh dấu đã nhận cọc.',
       screenshot: '/guide-screens/sales-theo-doi-po.png',
       mock: {
-        title: 'Chi tiết PO — Chi tiết xuất hàng',
-        columns: ['SKU', 'Tổng số lượng', 'Đã xuất hàng', 'Còn lại'],
-        rows: [['GHE-001', '200', '120', '80']],
-        buttons: ['Chi tiết sản xuất', 'Chi tiết xuất hàng'],
+        title: 'Quản lí đơn hàng',
+        columns: ['PO', 'Khách hàng', 'SKU', 'Số lượng', 'Hạn giao', 'Trạng thái', 'Xác nhận cọc'],
+        rows: [['PO-2026-014', 'Công ty ABC', '2 SKU', '250', '30/09/2026', '1 xong · 1 chưa xong', 'Đã xác nhận cọc']],
+        buttons: ['Tạo PO'],
       },
       steps: [
-        'Ở danh sách đơn hàng, bấm nút pill "Đã xác nhận cọc"/"Chưa xác nhận" trên mỗi dòng để đánh dấu đã nhận cọc.',
+        'Ở danh sách đơn hàng, bấm nút pill "Đã xác nhận cọc"/"Chưa xác nhận" trên mỗi dòng để đánh dấu đã nhận cọc. Cột "Trạng thái" cho biết bao nhiêu SKU của đơn đã xong / chưa xong.',
         'Mở chi tiết một PO để xem 2 tab: "Chi tiết sản xuất" (dải bước tiến độ: Lên kế hoạch → Mua hàng → Khung cơ khí → Đan → Chuyền kiểm → Đóng gói → Hoàn thành) và "Chi tiết xuất hàng" (Tổng số lượng/Đã xuất/Còn lại từng dòng).',
       ],
       result: 'Nắm được đơn nào đã nhận cọc, đơn nào đang ở giai đoạn nào của sản xuất.',
       warnings: [
-        'Dải tiến độ sản xuất là màn CHỈ XEM — Kinh doanh không có nút tự đổi trạng thái này, trạng thái do các bộ phận sản xuất/mua hàng cập nhật và KHÔNG tự động đồng bộ theo thời gian thực, có thể có độ trễ so với thực tế xưởng.',
+        'Dải tiến độ sản xuất là màn CHỈ XEM và được hệ thống TỰ SUY từ dữ liệu sản xuất thật: chưa duyệt lệnh sản xuất = "Lên kế hoạch"; đã duyệt nhưng xưởng chưa làm = "Mua hàng"; QLSX đã Bắt đầu hoặc đã có đợt cắt/hàn/sơn = "Khung cơ khí"; đã xuất/nhập đan = "Đan"; đã có kết quả chuyền kiểm = "Chuyền kiểm"; đã đóng thùng hoặc xuất vật tư đóng gói = "Đóng gói". Không ai sửa tay được.',
+        '"Hoàn thành" chỉ hiện khi đã đóng gói ĐỦ số lượng VÀ QLSX đã bấm "Kết thúc" lệnh — đóng gói đủ mà QLSX chưa bấm Kết thúc thì vẫn hiện "Đóng gói".',
+        'Đơn tạo trước 12/10/2026 có thể chưa có hạn giao — cột "Hạn giao" của các đơn đó hiện "—" (hệ thống không còn lấy ngày đặt hàng thay thế).',
         'Mục "Đã thanh toán (trừ cọc)" và "Số tiền còn lại" hiện luôn hiển thị 0đ — đây là tính năng theo dõi công nợ CHƯA được hoàn thiện trong hệ thống, không phải lỗi hiển thị. Việc theo dõi tiền hiện chỉ dừng ở mức đã/chưa nhận cọc.',
       ],
       tags: ['tiến độ', 'cọc', 'xác nhận cọc', 'trạng thái đơn hàng'],
@@ -109,9 +113,10 @@ export const salesGroup: GuideGroup = {
         buttons: ['Hủy', 'Lưu'],
       },
       steps: [
+        'Xem danh sách: Mã khách hàng, SĐT, Email, Địa chỉ, Tổng PO đã mua.',
         'Bấm "Thêm khách hàng", nhập Mã khách hàng và Số điện thoại (bắt buộc), Email/Địa chỉ/Ghi chú (tuỳ chọn), bấm "Lưu".',
         'Bấm icon bút chì trên một dòng để sửa thông tin.',
-        { text: 'Bấm icon thùng rác để xoá khách hàng — xác nhận qua hộp thoại "Xóa khách hàng này?".', critical: true },
+        { text: 'Bấm icon thùng rác để xoá khách hàng — xác nhận trong hộp thoại "Xoá khách hàng ...? Hành động này không thể hoàn tác."', critical: true },
       ],
       result: 'Danh mục khách hàng được cập nhật, dùng ngay khi tạo đơn hàng mới.',
       warnings: [
@@ -132,10 +137,10 @@ export const salesGroup: GuideGroup = {
       mock: {
         title: 'Lịch sử mua hàng',
         columns: ['PO', 'Ngày đặt', 'SKU', 'Tổng số', 'Đã xuất', 'Còn lại', 'Trạng thái'],
-        rows: [['GHE-001', '15/08/2026', 'GHE-001', '200', '120', '80', 'Đang sản xuất']],
+        rows: [['PO-2026-014', '15/08/2026', 'GHE-001', '200', '120', '80', 'Khung cơ khí']],
       },
       steps: [
-        'Chọn một khách hàng từ danh sách thả xuống.',
+        'Gõ tìm hoặc chọn một khách hàng ở ô "Tìm hoặc chọn khách hàng".',
         'Xem thông tin khách và bảng chi tiết từng dòng SKU của mọi đơn hàng: PO, ngày đặt, SKU, tổng số, đã xuất, còn lại, trạng thái.',
       ],
       result: 'Có cái nhìn tổng hợp lịch sử mua hàng của một khách hàng để tư vấn/chăm sóc.',

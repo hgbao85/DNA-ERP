@@ -7,6 +7,7 @@ import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
 import type { BeWeavingIssuePlanItem } from '../../../services/weaving-issues-api'
 import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
+import { productionOrderRowKey } from '../../../services/production-invoice-item'
 import { errMsg } from '../../../utils/errors'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle, tableScrollBox, stickyHeaderRow } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
@@ -37,13 +38,13 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const { data: planData, isLoading: planLoading, refetch } = useFetch<BeWeavingIssuePlanItem[]>(
     () => (selectedPf ? api.getWeavingIssuePlan(selectedPf) : Promise.resolve([])),
-    [selectedPf?.id],
+    [productionOrderRowKey(selectedPf)],
   )
   const plan = (planData ?? []).filter(piece => piece.allocations.length > 0)
 
   // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho được nhập đan cho BẤT KỲ SKU
   // nào cùng PI đó (2026-08-31) - cùng quy tắc/gate ở KhoXuatDanPage/WeavingIssuesService.
-  const { poInfoFor, activePiIds } = usePoInfoFloorGate()
+  const { poInfoFor, activePiIds, orderRows } = usePoInfoFloorGate()
   // Lọc đúng instance kho thành phẩm (2026-09-05) - xem comment cùng tên ở KhoChuyenKiemPage.tsx.
   const inWarehouseScope = (p: Sku): boolean => {
     if (!warehouseScope) return true
@@ -51,7 +52,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
     if (!wc) return true
     return wc === warehouseScope
   }
-  const active = ((skus ?? []) as Sku[]).filter(p =>
+  const active = orderRows(skus as Sku[]).filter(p =>
     p.status !== 'DRAFT' &&
     (filterExportOrderId === undefined || p.exportOrderId === filterExportOrderId) &&
     activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? '') &&
@@ -196,7 +197,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
       </p>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
-        <MobileListCards emptyText="Không có PI nào" items={active.map(pf => ({ key: String(pf.id), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng' }, { label: 'Hạn giao', value: pf.exportOrder?.deliveryDate ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy') : '—' }] }))} />
+        <MobileListCards emptyText="Không có PI nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng' }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
       ) : (
         <div style={{ ...tableWrap, ...tableScrollBox }}>
           <table style={tbl}>
@@ -216,7 +217,7 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
             </thead>
             <tbody>
               {active.map(pf => (
-                <tr key={pf.id} onClick={() => setSelectedPf(pf)} style={row}>
+                <tr key={productionOrderRowKey(pf)} onClick={() => setSelectedPf(pf)} style={row}>
                   <td style={{ ...tdStyle, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {poInfoFor(pf)?.poCode ?? '—'}
                   </td>
@@ -230,8 +231,8 @@ export default function KhoNhapDanPage({ readOnly = false, filterExportOrderId, 
                     )}
                   </td>
                   <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: 'var(--text2)' }}>
-                    {pf.exportOrder?.deliveryDate
-                      ? format(new Date(pf.exportOrder.deliveryDate), 'dd/MM/yyyy')
+                    {poInfoFor(pf)?.deliveryDate
+                      ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy')
                       : '—'}
                   </td>
                 </tr>

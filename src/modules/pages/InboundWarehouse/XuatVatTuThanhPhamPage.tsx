@@ -21,6 +21,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeMaterialYieldIssuePlanItem } from '../../../services/material-yield-issues-api'
 import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
+import { productionOrderRowKey } from '../../../services/production-invoice-item'
 import { errMsg } from '../../../utils/errors'
 import { backBtn } from '../../../styles/buttons'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle, tableScrollBox, stickyHeaderRow } from '../../../styles/table'
@@ -54,13 +55,13 @@ export default function XuatVatTuThanhPhamPage() {
   const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
   // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập.
   const skuChange = useRealtimeChangeNotice(['skus'])
-  const { poInfoFor, activePiIds } = usePoInfoFloorGate()
-  const active = ((skus ?? []) as Sku[]).filter(p => p.status !== 'DRAFT' && activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? ''))
+  const { poInfoFor, activePiIds, orderRows } = usePoInfoFloorGate()
+  const active = orderRows(skus as Sku[]).filter(p => p.status !== 'DRAFT' && activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? ''))
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const { data: planData, isLoading: planLoading, error: planError, refetch } = useFetch<BeMaterialYieldIssuePlanItem[]>(
     () => (selectedPf ? api.getMaterialYieldIssuePlan(selectedPf) : Promise.resolve([])),
-    [selectedPf?.id],
+    [productionOrderRowKey(selectedPf)],
   )
   const plan = planData ?? []
 
@@ -203,7 +204,7 @@ export default function XuatVatTuThanhPhamPage() {
       </div>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
-        <MobileListCards emptyText="Không có PO nào" items={active.map(pf => ({ key: String(pf.id), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? 'Chưa gắn đơn hàng' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? '—' }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
+        <MobileListCards emptyText="Không có PO nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? 'Chưa gắn đơn hàng' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? '—' }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
       ) : (
         <div style={{ ...tableWrap, ...tableScrollBox }}>
           <table style={tbl}>
@@ -225,7 +226,7 @@ export default function XuatVatTuThanhPhamPage() {
               {active.map(pf => {
                 const poInfo = poInfoFor(pf)
                 return (
-                  <tr key={pf.id} onClick={() => setSelectedPf(pf)} style={row}>
+                  <tr key={productionOrderRowKey(pf)} onClick={() => setSelectedPf(pf)} style={row}>
                     <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {poInfo?.poCode ?? 'Chưa gắn đơn hàng'}
                     </td>

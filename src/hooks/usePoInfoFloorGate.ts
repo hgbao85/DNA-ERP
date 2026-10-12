@@ -1,6 +1,9 @@
+import { useCallback } from 'react'
 import { useFetch } from './useFetch'
 import {
   buildProductionOrderInfoByMfgProduct,
+  expandSkusByProductionOrder,
+  listProductionOrdersLite,
   lookupProductionOrderInfo,
   type ProductionOrderInfo,
 } from '../services/production-invoice-item'
@@ -23,5 +26,14 @@ export function usePoInfoFloorGate() {
       .filter(info => info.floorStage === 'ACTIVE')
       .map(info => info.productionInvoiceId),
   )
-  return { poInfoByProduct, poInfoFor, activePiIds, isLoading }
+  // "Mỗi lệnh sản xuất 1 dòng" (2026-10-12) - các trang kho phải lọc trên orderRows(skus) thay vì
+  // thẳng trên skus, nếu không 1 sản phẩm có nhiều PI chỉ hiện được đúng 1 lệnh (xem
+  // expandSkusByProductionOrder). listProductionOrdersLite() dùng chung cache với
+  // buildProductionOrderInfoByMfgProduct() ở trên nên không phát sinh thêm request.
+  const { data: orders } = useFetch(() => listProductionOrdersLite(), [])
+  const orderRows = useCallback(
+    (skus: Sku[] | null | undefined): Sku[] => expandSkusByProductionOrder(skus ?? [], orders ?? []),
+    [orders],
+  )
+  return { poInfoByProduct, poInfoFor, activePiIds, orderRows, isLoading }
 }

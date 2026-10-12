@@ -1,10 +1,12 @@
 import type { GuideGroup } from '../types';
+import { materialsCatalogArticle, materialsRoleArticle } from './materialsShared';
 
 // Nguồn: AdminApp.tsx, UsersPage.tsx, MfgWarehousesPage.tsx (chế độ isAdmin=true),
 // OfficeSuppliesAdminPage.tsx, PhoiSkuAdminPage.tsx, AuditLogPage.tsx, MasterDataPage.tsx
 // (SuppliersPage/SalesCustomersPage/ExportCustomersPage/MaterialGroupsPage/MaterialsPage/
 // WeavingPointsPage/DefectReasonsPage), BusinessDataPage.tsx, AttachmentsPage.tsx,
-// NotificationsPage.tsx, SystemConfigPage.tsx, SystemStatusPage.tsx — đọc mã nguồn 22/09/2026.
+// NotificationsPage.tsx, SystemConfigPage.tsx, SystemStatusPage.tsx — đọc mã nguồn 22/09/2026,
+// đối chiếu lại 12/10/2026.
 
 export const adminGroup: GuideGroup = {
   id: 'admin',
@@ -12,7 +14,7 @@ export const adminGroup: GuideGroup = {
   icon: 'Shield',
   color: 'var(--fg-334155)',
   bg: 'var(--bg-e2e8f0)',
-  roles: ['admin'],
+  roles: ['admin', 'materials'],
   description: 'Tạo tài khoản và kho, khai báo danh mục nền (vật tư, khách hàng, NCC...), xử lý sự cố kỹ thuật.',
   articles: [
     {
@@ -27,18 +29,21 @@ export const adminGroup: GuideGroup = {
         buttons: ['Hủy', 'Lưu'],
       },
       steps: [
-        'Bấm "Thêm tài khoản": nhập Họ tên, Tên đăng nhập (không sửa được sau khi tạo), Email, Mật khẩu (tối thiểu 8 ký tự), chọn Vai trò (Quản trị viên / Giám đốc / Nhân viên).',
+        'Bấm "Thêm tài khoản": nhập Họ tên, Tên đăng nhập (tối thiểu 3 ký tự, chỉ chữ/số . _ -), Email, Mật khẩu (tối thiểu 8 ký tự), chọn Vai trò (Quản trị viên / Giám đốc / Nhân viên). Tên đăng nhập và Email chỉ nhập được lúc tạo — khi sửa tài khoản hai ô này chỉ hiển thị.',
         { text: 'Nếu Vai trò = Nhân viên, bắt buộc chọn thêm 1 trong 4 "Loại nhân viên": Văn phòng / Kho / Định mức / Sản xuất — mỗi loại có dropdown con riêng.', critical: true },
-        '— Văn phòng: chọn Chức năng (Sales / KHSX / QLSX / Mua hàng).',
+        '— Văn phòng: chọn Chức năng (Sales / KH Sản xuất (KHSX) / Quản lý sản xuất (QLSX) / Mua hàng / Quản lý vật tư).',
         '— Kho: chọn Kho phụ trách (không bắt buộc chọn ngay, có thể gán sau).',
         '— Định mức: chọn Vị trí (NV Định mức mảnh / NV Định mức chi tiết).',
         '— Sản xuất: chọn Công đoạn (Phôi/Hàn/Sơn hoặc KCS) + Kho phụ trách (mặc định Kho gốc Phôi Sơn Hàn).',
         'Bấm "Lưu".',
+        'Trên mỗi dòng tài khoản có các nút: Khóa/Mở khóa, "Đặt lại mật khẩu" (nhập mật khẩu mới 2 lần — mật khẩu không sửa trong form sửa thông tin), và với nhân viên Mua hàng có thêm "Chuyển giao vật tư mua hàng".',
+        { text: 'Nhân viên Mua hàng nghỉ việc/đổi vị trí: bấm "Chuyển giao vật tư mua hàng", chọn người nhận ở "Chuyển cho", bấm "Chuyển N vật tư" — SAU ĐÓ mới khoá tài khoản cũ.', critical: true },
       ],
       result: 'Tài khoản mới có thể đăng nhập và tự động vào đúng module tương ứng với loại nhân viên đã chọn.',
       warnings: [
         'Mỗi tài khoản Kho chỉ phụ trách được đúng 1 kho tại 1 thời điểm — muốn đổi thủ kho của một kho, phải gỡ người cũ (đặt về trống) trước rồi mới gán được người mới.',
         'Không thể tự khoá/xoá/đổi vai trò của chính tài khoản đang đăng nhập.',
+        'Hệ thống CHẶN khoá, xoá hoặc bỏ chức năng Mua hàng của một tài khoản khi người đó còn đang phụ trách vật tư — phải chuyển giao hết vật tư trước. Đừng đổi tên tài khoản cũ để giao cho người mới: lịch sử duyệt mua lưu theo tài khoản, đổi tên sẽ ghi việc người cũ đã làm sang tên người mới.',
         'Việc phân công vật tư cho từng nhân viên Mua hàng làm ở Admin > Vật tư (cột "Nhân viên mua hàng"), không còn gán theo kho.',
       ],
       commonErrors: [
@@ -66,13 +71,15 @@ export const adminGroup: GuideGroup = {
       },
       steps: [
         'Bấm "Tạo kho mới": chọn Loại kho (một trong 3 gia đình: Phôi Sơn Hàn / Vật tư thành phẩm / Thành phẩm), đặt Tên kho (có gợi ý sẵn), tuỳ chọn chọn 1 tài khoản Thủ kho có sẵn (chỉ hiện người CHƯA phụ trách kho nào) để gán ngay.',
-        'Mở chi tiết một kho để xem tồn kho, hoặc dùng "Sao chép vật tư từ kho khác" để không phải khai lại danh mục từ đầu cho kho mới.',
+        'Mở chi tiết một kho: tab "Tồn kho" (Mã vật tư / Tên / Nhóm / Quy cách / ĐVT / Tồn / Khả dụng; kho Phôi Sơn Hàn có thêm cột "Chiều dài" theo cỡ cây) và tab "Lịch sử Nhập/Xuất". Dùng "Thêm vật tư" hoặc "Sao chép vật tư từ kho khác" để không phải khai lại danh mục từ đầu cho kho mới.',
+        { text: 'Sửa nhanh số tồn: bấm vào con số ở cột "Tồn" (gạch chân chấm), nhập số mới và xác nhận — hệ thống ghi một bút toán điều chỉnh vào lịch sử kho.', critical: true },
         { text: 'Bấm "Xoá kho" (chỉ hiện với kho không phải 1 trong 3 kho gốc) để xoá một kho phụ không còn dùng.', critical: true },
       ],
-      result: 'Tạo: kho mới hoạt động độc lập như kho gốc cùng gia đình. Xoá: kho và tài khoản thủ kho đang gắn với nó biến mất cùng lúc.',
+      result: 'Tạo: kho mới hoạt động độc lập như kho gốc cùng gia đình. Xoá: kho và (các) tài khoản đang được gán phụ trách kho đó bị xoá cùng lúc — không thể hoàn tác.',
       warnings: [
         '3 kho gốc (Phôi Sơn Hàn, Vật tư thành phẩm, Thành phẩm) và các kho ảo hệ thống được bảo vệ — không xoá/đổi mã được.',
         'Nếu kho còn vật tư/tồn kho tham chiếu, thao tác xoá sẽ thất bại toàn bộ (không xoá dở dang) — phải xử lý hết dữ liệu liên quan trước.',
+        'Một tài khoản Kho chỉ phụ trách 1 kho: chọn một thủ kho đang phụ trách kho khác làm "Thủ kho phụ trách" của kho mới sẽ CHUYỂN họ khỏi kho hiện tại (form có cảnh báo trước khi tạo).',
       ],
       commonErrors: [
         { issue: '"Warehouse ... already exists"', cause: 'Mã kho bị trùng (hiếm gặp vì mã tự sinh).', fix: 'Thử tạo lại.' },
@@ -81,40 +88,11 @@ export const adminGroup: GuideGroup = {
       tags: ['tạo kho', 'xoá kho', 'quản lý kho', 'sao chép vật tư'],
       sourceRefs: ['src/modules/pages/Manufacturing/MfgWarehousesPage.tsx'],
     },
-    {
-      id: 'admin-vat-tu',
-      title: 'Khai báo danh mục Vật tư & Nhóm vật tư',
-      roles: ['admin'],
-      purpose: 'Khai báo toàn bộ vật tư mà KHSX và các chuyên viên định mức sẽ chọn khi nhập định mức sản phẩm — họ chỉ chọn được từ danh mục này, không tự tạo mới.',
-      preconditions: ['Nên tạo Nhóm vật tư trước (Sắt, Dây, Đinh, Sơn, Phụ kiện, Bao bì...) vì mỗi Nhóm có tiền tố mã dùng để tự sinh mã vật tư.'],
-      screenshot: '/guide-screens/admin-vat-tu.png',
-      mock: {
-        title: 'Thêm vật tư',
-        formFields: ['Mã vật tư', 'Tên vật tư *', 'Đơn vị tính *', 'Quy cách', 'Nhóm vật tư *', 'Kho', 'Tồn kho ban đầu'],
-        buttons: ['Lưu'],
-      },
-      steps: [
-        'Ở "Nhóm vật tư": bấm "Thêm mới", nhập Tên nhóm, xác nhận/sửa "Tiền tố mã vật tư" (2-8 ký tự in hoa/số, hệ thống tự gợi ý theo tên).',
-        'Ở "Vật tư": bấm "Thêm mới" — để trống Mã vật tư để tự sinh theo nhóm, nhập Tên, Đơn vị tính, Quy cách, chọn Nhóm vật tư (bắt buộc — để trống thì vật tư "vô hình" ở mọi nơi chọn định mức), chọn Kho, nhập Tồn kho ban đầu (chỉ lúc tạo mới), chọn Nhân viên mua hàng phụ trách.',
-        { text: 'Nếu Nhóm = "Vật tư khác", bắt buộc chọn thêm Phân loại (Sơn/Phụ kiện/Bao bì) để định mức chi tiết nhận diện đúng.', critical: true },
-      ],
-      result: 'Vật tư sẵn sàng để chọn khi nhập định mức mảnh/chi tiết ở Kế hoạch SX và Manufacturing.',
-      warnings: [
-        'Sửa nhanh số tồn kho hiện tại KHÔNG làm ở trang Vật tư nữa — đã chuyển hẳn sang Admin > Quản lý kho (cột Tồn kho ở trang Vật tư chỉ đọc).',
-        'Vật tư sắt dùng ô "Ngưỡng hao hụt cắt cho phép (%)" (áp dụng cho công cụ tính phương án cắt), các nhóm khác dùng "% dự trù hao hụt khi mua" — chỉ hiện đúng 1 trong 2 tuỳ theo nhóm.',
-      ],
-      commonErrors: [
-        { issue: '"Thiếu Tên vật tư / Đơn vị tính..."', cause: 'Bỏ trống 1 trong 2 trường bắt buộc.', fix: 'Điền đầy đủ.' },
-        { issue: '"Phải chọn Kho trước khi nhập Tồn kho ban đầu"', cause: 'Nhập số tồn ban đầu nhưng chưa chọn Kho.', fix: 'Chọn Kho trước.' },
-        { issue: '"Vật tư thuộc nhóm \'Vật tư khác\' phải chọn Phân loại..."', cause: 'Thiếu Phân loại Sơn/Phụ kiện/Bao bì cho nhóm "Vật tư khác".', fix: 'Chọn đúng Phân loại.' },
-        { issue: '"Material ... already exists"', cause: 'Mã vật tư trùng.', fix: 'Đổi mã khác hoặc để trống cho hệ thống tự sinh.' },
-      ],
-      tags: ['vật tư', 'nhóm vật tư', 'danh mục', 'material'],
-      sourceRefs: ['src/modules/pages/Admin/MasterDataPage.tsx'],
-    },
+    materialsCatalogArticle,
+    materialsRoleArticle,
     {
       id: 'admin-danh-muc-khac',
-      title: 'Danh mục hệ thống khác: Nhà cung cấp, Khách hàng, Điểm đan, Lý do lỗi',
+      title: 'Danh mục hệ thống khác: Nhà cung cấp, Khách hàng, Định mức vật tư thành phẩm, Điểm đan, Lý do lỗi',
       roles: ['admin'],
       purpose: 'Khai báo các danh mục nền còn lại dùng chung cho nhiều phân hệ nghiệp vụ.',
       screenshot: '/guide-screens/admin-danh-muc-khac.png',
@@ -126,7 +104,8 @@ export const adminGroup: GuideGroup = {
       steps: [
         '"Nhà cung cấp": Tên*, Điện thoại, trạng thái hoạt động.',
         '"Khách hàng bán hàng" / "Khách hàng xuất khẩu": khai báo khách hàng (2 màn dùng chung 1 bảng dữ liệu nhưng khai báo field khác nhau — cần lưu ý khi tra cứu chéo).',
-        '"Điểm đan": Mã/Tên điểm đan*, điện thoại, địa chỉ, trạng thái hoạt động — dùng khi Thủ kho xuất/nhập đan.',
+        '"Định mức vật tư thành phẩm": khai "1 vật tư vào cắt ra N vật tư ra" (ví dụ thanh nhôm → chân nhôm) — xem bài "Định mức vật tư thành phẩm" ở nhóm Sản xuất của trang hướng dẫn chung (/guide).',
+        '"Điểm đan": Mã/Tên điểm đan*, Tên đầy đủ, điện thoại, địa chỉ, trạng thái hoạt động — dùng khi Thủ kho xuất/nhập đan (Thủ kho Vật tư thành phẩm cũng tự thêm được ở "Quản lý điểm đan").',
         '"Lý do lỗi": nội dung lỗi + công đoạn (Phôi/Hàn/Sơn) — danh mục cho KCS chọn khi chấm lỗi.',
       ],
       result: 'Các danh mục này sẵn sàng để chọn ở đúng màn nghiệp vụ tương ứng (Mua hàng chọn NCC, Sales chọn khách hàng, Kho chọn điểm đan, KCS chọn lý do lỗi).',
@@ -190,11 +169,12 @@ export const adminGroup: GuideGroup = {
       screenshot: '/guide-screens/admin-cat-sat-tinh-lai.png',
       mock: {
         title: 'Cắt sắt',
-        columns: ['PO/PI', 'Trạng thái'],
-        rows: [['PO-2026-014', 'Cần xử lý']],
+        columns: ['Mã PO', 'SKU / Sản phẩm', 'Trạng thái', 'Tổng số cây', 'Hao hụt %', 'Ngày yêu cầu', 'Thao tác'],
+        rows: [['PO-2026-014', 'GHE-001 — Ghế ăn mây nhựa', 'Cần xử lý', '—', '—', '01/10/2026 09:10', 'Tính lại']],
         buttons: ['Tính lại'],
       },
       steps: [
+        'Bấm một dòng để mở "Chi tiết đề xuất cắt sắt": từng loại sắt Khả thi/Không khả thi, Số cây, Hao hụt %, Chiều dài (có nhãn "⚠ đặt riêng" nếu không phải cây chuẩn), thời gian giải.',
         { text: 'Bấm "Tính lại" trên dòng cần xử lý — xác nhận "Gọi lại solver cho ... — kết quả cũ (nếu có) sẽ được thay thế bằng phương án mới."', critical: true },
       ],
       result: 'Hệ thống tính lại phương án cắt sắt mới cho PO/PI đó, thay thế kết quả cũ.',
@@ -209,31 +189,34 @@ export const adminGroup: GuideGroup = {
     },
     {
       id: 'admin-thong-bao',
-      title: 'Gửi thông báo',
+      title: 'Gửi thông báo chung',
       roles: ['admin'],
-      purpose: 'Gửi thông báo tới một nhóm người dùng trong hệ thống.',
+      purpose: 'Soạn tay một thông báo chung (lịch nghỉ, thay đổi quy trình...) gửi tới một nhóm người dùng. Thông báo về từng lệnh sản xuất/đơn hàng cụ thể do hệ thống tự phát, không tạo ở đây.',
       screenshot: '/guide-screens/admin-thong-bao.png',
       mock: {
-        title: 'Tạo thông báo',
-        formFields: ['Tiêu đề *', 'Nội dung *', 'Đối tượng nhận *'],
-        buttons: ['Gửi'],
+        title: 'Tạo thông báo chung',
+        formFields: ['Tiêu đề', 'Nội dung', 'Đối tượng nhận'],
+        buttons: ['Hủy', 'Gửi thông báo'],
       },
       steps: [
         'Bấm "Tạo thông báo", nhập Tiêu đề, Nội dung, chọn Đối tượng nhận (Tất cả / Giám đốc / Nhân viên kho / Quản lý sản xuất).',
-        { text: 'Bấm gửi.', critical: false },
+        { text: 'Bấm "Gửi thông báo".', critical: false },
+        'Theo dõi ở bảng bên dưới: Tiêu đề / Nội dung / Đối tượng / Đã đọc / Thời gian.',
       ],
-      result: 'Người dùng thuộc đối tượng nhận sẽ thấy thông báo.',
+      result: 'Người dùng thuộc đối tượng nhận thấy thông báo ở chuông thông báo của họ (loại "Thông báo chung").',
       warnings: ['Không có nút Sửa/Xoá thông báo sau khi đã gửi.'],
       tags: ['thông báo', 'notification'],
       sourceRefs: ['src/modules/pages/Admin/NotificationsPage.tsx'],
     },
     {
       id: 'admin-nhat-ky-canh-bao',
-      title: 'Lưu ý về "Nhật ký hoạt động" và "Tình trạng hệ thống"',
+      title: 'Lưu ý về "Tổng quan", "Nhật ký hoạt động", "Văn phòng phẩm" và "Tình trạng hệ thống"',
       roles: ['admin'],
       purpose: 'Hiểu đúng phạm vi và giới hạn của 2 màn quản trị dễ gây hiểu nhầm nhất.',
       steps: [
-        '"Nhật ký hoạt động": ghi lại các thao tác thêm/sửa/xoá ở Admin (Người dùng, Danh mục hệ thống...). Đây KHÔNG phải nhật ký kỹ thuật của máy chủ — dữ liệu lưu trong trình duyệt hiện tại, không đồng bộ giữa các máy/trình duyệt khác nhau và sẽ mất nếu xoá bộ nhớ đệm. Việc sửa/xoá ảnh lỗi KCS/Kho hay đổi SKU đợt Phôi KHÔNG hiện ở đây — 2 việc đó có nhật ký riêng, xem ngay bên dưới bảng thao tác của chính chúng.',
+        '"Tổng quan": số liệu tham khảo — tổng người dùng theo vai trò, hoạt động gần đây, số đơn hàng bán / lệnh sản xuất (PI) / nhà cung cấp. Không thao tác gì ở đây.',
+        '"Văn phòng phẩm": chọn một kho ở ô "Chọn kho" để xem và quản lý vật tư văn phòng của đúng kho đó — thao tác giống hệt tab "Văn phòng phẩm" của Thủ kho.',
+        '"Nhật ký hoạt động": ghi lại các thao tác thêm/sửa/xoá ở Admin (Người dùng, Danh mục hệ thống...). Đây KHÔNG phải nhật ký kỹ thuật của máy chủ — dữ liệu lưu trong trình duyệt hiện tại, không đồng bộ giữa các máy/trình duyệt khác nhau và sẽ mất nếu xoá bộ nhớ đệm. Việc sửa/xoá tệp đính kèm (ảnh lỗi KCS/Kho, phiếu duyệt mua) KHÔNG hiện ở đây — được ghi vào nhật ký phía máy chủ mà trang này chưa đọc; việc đổi SKU đợt Phôi có bảng "Lịch sử đổi SKU" riêng ngay dưới bảng thao tác của nó.',
         '"Tình trạng hệ thống" > "Reset dữ liệu demo": CHỈ xoá dữ liệu mẫu còn sót trong trình duyệt (chủ yếu ảnh hưởng Nhật ký hoạt động) — KHÔNG xoá dữ liệu thật đã lưu trên máy chủ (người dùng, đơn hàng, vật tư, kho... đã hoạt động thật không bị ảnh hưởng), dù dòng xác nhận của nút này liệt kê như thể sẽ mất toàn bộ.',
       ],
       result: 'Tránh hoang mang hoặc chủ quan sai khi thao tác 2 màn này.',

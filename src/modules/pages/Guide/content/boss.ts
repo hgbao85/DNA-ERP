@@ -2,7 +2,7 @@ import type { GuideGroup } from '../types';
 
 // Nguồn: BossApp.tsx, SKUDetail.tsx (chế độ isBoss), LenhSXPage.tsx (chế độ isBoss),
 // ThongKePagePlan.tsx, SKUListPage.tsx (readOnly), VatTuDashboardPage.tsx,
-// MfgWarehousesPage.tsx (chế độ isAdmin=false) — đọc trực tiếp mã nguồn 22/09/2026.
+// MfgWarehousesPage.tsx (chế độ isAdmin=false) — đọc trực tiếp mã nguồn 22/09/2026, đối chiếu lại 12/10/2026.
 
 export const bossGroup: GuideGroup = {
   id: 'boss',
@@ -18,7 +18,7 @@ export const bossGroup: GuideGroup = {
       title: 'Tổng quan: Giám đốc chạm vào đâu trong hệ thống',
       roles: ['boss'],
       purpose:
-        'Sau đăng nhập, tài khoản Giám đốc (role Giám đốc, không kiêm công đoạn sản xuất) vào thẳng màn hình riêng gồm 6 tab: Tổng hợp chờ duyệt, Tổng hợp lệnh SX, Danh sách SKU, Tổng hợp vật tư, Tổng hợp kho.',
+        'Sau đăng nhập, tài khoản Giám đốc (role Giám đốc, không kiêm công đoạn sản xuất) vào thẳng màn hình riêng gồm 5 tab: Tổng hợp chờ duyệt, Tổng hợp lệnh SX, Danh sách SKU, Tổng hợp vật tư, Tổng hợp kho.',
       steps: [
         'Duyệt cuối cùng công thức sản phẩm (SKU/định mức) ở tab "Tổng hợp chờ duyệt".',
         'Duyệt cuối cùng lệnh sản xuất (bấm là xưởng chạy ngay) ở cùng tab "Tổng hợp chờ duyệt".',
@@ -74,20 +74,22 @@ export const bossGroup: GuideGroup = {
       },
       steps: [
         'Ở tab "Tổng hợp chờ duyệt" > "Lệnh sản xuất", chọn một PI đang chờ duyệt.',
-        'Nếu KHSX từng xin cắt đặc cách (chấp nhận hao hụt cao hơn bình thường), xem kỹ khối cảnh báo màu vàng nêu rõ % xin và lý do trước khi quyết định — không sửa được số này, chỉ Duyệt hoặc Từ chối.',
+        'Xem khối "Phương án cắt đã tính" (số cây sắt, % hao hụt — bấm "Xem chi tiết" để xem từng loại sắt): duyệt lệnh này là duyệt đúng con số đó.',
+        'Nếu KHSX xin cắt đặc cách (chấp nhận hao hụt cao hơn mức mặc định), có thêm khối cảnh báo màu vàng "Kế hoạch SX xin cắt đặc cách" kèm lý do — không sửa được, chỉ Duyệt hoặc Từ chối.',
         { text: 'Bấm "Duyệt" / "Duyệt cả đợt (N SKU)" — xác nhận "sẽ tạo lệnh sản xuất ... và bắt đầu sản xuất ngay — không thể hoàn tác."', critical: true },
         { text: 'Hoặc bấm "Từ chối" / "Từ chối cả đợt" — bắt buộc nhập lý do — "sẽ xoá lệnh sản xuất ... và trả SKU về đơn hàng gốc".', critical: true },
       ],
-      result: 'Duyệt: lệnh sản xuất chính thức mở tại xưởng, hệ thống tự động chạy tính phương án cắt sắt ngay (badge "Đang tính phương án cắt..." hiện tới khi xong, khoảng 5-15 phút).',
+      result: 'Duyệt: lệnh sản xuất chính thức mở tại xưởng theo ĐÚNG phương án cắt KHSX đã tính trước ở màn "Tối ưu cắt sắt" — hệ thống không tính lại sau khi duyệt. Từ chối: lệnh bị xoá, SKU quay về "Tối ưu cắt sắt".',
       warnings: [
         'Nếu PI là đợt gộp nhiều SKU, phải Duyệt hoặc Từ chối CẢ CỤM cùng lúc — không duyệt lẻ được từng SKU.',
         'Từ chối = xoá toàn bộ PI, SKU quay lại danh sách "Tối ưu cắt sắt" để KHSX gộp lại từ đầu.',
+        'Riêng các PI cũ tạo trước khi có bước "tính phương án cắt trước" thì chưa có phương án sẵn — hệ thống mới tính sau khi duyệt và hiện badge "Đang tính phương án cắt..." tới khi xong.',
       ],
       commonErrors: [
         { issue: '"Lỗi duyệt sản xuất" / "Lỗi từ chối sản xuất"', cause: 'Thường do có 2 người cùng thao tác trên một lệnh cùng lúc, hoặc PI đã được người khác xử lý trước.', fix: 'Tải lại trang, kiểm tra trạng thái mới nhất.' },
       ],
       statuses: [
-        { name: 'Chờ QLSX xử lý → Chờ Giám đốc duyệt → Đã duyệt', meaning: 'Vòng đời duyệt bình thường của một PI.' },
+        { name: 'Chờ QLSX xử lý → Chờ sếp duyệt → Đang sản xuất', meaning: 'Vòng đời duyệt bình thường của một PI (đúng nhãn hiện trên màn hình).' },
       ],
       tags: ['duyệt lệnh sản xuất', 'boss approve production'],
       sourceRefs: ['src/modules/pages/ProductionPlan/LenhSXPage.tsx'],
@@ -101,8 +103,8 @@ export const bossGroup: GuideGroup = {
       steps: [
         '"Tổng hợp lệnh SX": bảng theo dõi tiến độ từng SKU trong từng PI qua mọi công đoạn (Mua hàng, Khung cơ khí, Đan, Chuyền kiểm, Đóng gói).',
         '"Danh sách SKU": tra cứu toàn bộ SKU mọi trạng thái, xem lại chi tiết định mức đã duyệt.',
-        '"Tổng hợp vật tư": tra tồn kho thật của mọi vật tư trên toàn hệ thống (gộp mọi kho).',
-        '"Tổng hợp kho": xem tổng số kho hiện có và tồn từng kho.',
+        '"Tổng hợp vật tư": tra Tồn kho và Khả dụng (đã trừ phần đang giữ chỗ) của mọi vật tư trên toàn hệ thống, mỗi dòng ghi rõ thuộc kho nào.',
+        '"Tổng hợp kho": xem danh sách kho theo 3 nhóm (Phôi Sơn Hàn / Vật tư thành phẩm / Thành phẩm); mở một kho để xem tab "Tồn kho" và "Lịch sử Nhập/Xuất".',
       ],
       result: 'Có đầy đủ thông tin để giám sát mà không cần hỏi qua các bộ phận khác.',
       warnings: [

@@ -25,13 +25,14 @@ function SectionTitle({ id, children }: { id: string; children: React.ReactNode 
   );
 }
 
-function CopyLinkButton({ articleId }: { articleId: string }) {
+function CopyLinkButton({ articleId, linkFor }: { articleId: string; linkFor?: (id: string) => string }) {
   const [copied, setCopied] = useState(false);
   return (
     <button
       onClick={async () => {
         try {
-          const url = `${window.location.origin}${window.location.pathname}?a=${articleId}`;
+          const path = linkFor ? linkFor(articleId) : `${window.location.pathname}?a=${articleId}`;
+          const url = `${window.location.origin}${path}`;
           await navigator.clipboard.writeText(url);
           setCopied(true);
           setTimeout(() => setCopied(false), 1600);
@@ -145,9 +146,12 @@ interface Props {
   /** Tab muốn mở sẵn khi vào bài (vd đến từ trang "Tra cứu lỗi toàn hệ thống" — nhảy thẳng
    * vào tab "Lỗi thường gặp" thay vì luôn mặc định "Cách làm"). */
   initialTab?: TabKey;
+  /** Đường dẫn (không gồm origin) tới 1 bài, dùng cho nút "Sao chép link" khi bài KHÔNG nằm ở
+   * /guide - vd hướng dẫn quản trị nhúng trong phân hệ Quản trị. Bỏ trống = link /guide như cũ. */
+  linkFor?: (id: string) => string;
 }
 
-export default function ArticleView({ article, group, prev, next, onNavigate, scrollContainerRef, initialTab }: Props) {
+export default function ArticleView({ article, group, prev, next, onNavigate, scrollContainerRef, initialTab, linkFor }: Props) {
   const tabs = useMemo<TabDef[]>(() => {
     const list: TabDef[] = [{ key: 'main', label: 'Cách làm' }];
     if (article.commonErrors?.length) list.push({ key: 'errors', label: 'Lỗi thường gặp', count: article.commonErrors.length });
@@ -235,7 +239,7 @@ export default function ArticleView({ article, group, prev, next, onNavigate, sc
             <span style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, color: 'var(--text3)' }}>
               <Clock size={12} /> Khoảng {readMinutes} phút đọc
             </span>
-            <CopyLinkButton articleId={article.id} />
+            <CopyLinkButton articleId={article.id} linkFor={linkFor} />
           </div>
         </div>
 

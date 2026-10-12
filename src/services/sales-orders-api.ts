@@ -60,7 +60,10 @@ function toSalesOrder(o: BeSalesOrder): SalesOrder {
     customerId: o.customerId,
     customerName: o.customerName,
     orderDate: o.orderDate,
-    deliveryDate: o.deliveryDate ?? o.orderDate,
+    // KHÔNG rơi về orderDate khi đơn chưa có hạn giao (2026-10-12): trước đây đơn bỏ trống hạn vẫn
+    // hiện "Hạn giao = ngày đặt" ở màn Bán hàng, Kinh doanh tưởng đơn đã có hạn trong khi lệnh sản
+    // xuất bên dưới không có hạn nào. Rỗng -> các màn tự hiện "—".
+    deliveryDate: o.deliveryDate ?? '',
     items: o.items.map(toSalesOrderItem),
     totalValue: 0, // BE chưa tính (mock cũng chưa từng tính thật, xem finding #9)
     depositAmount: o.depositAmount,

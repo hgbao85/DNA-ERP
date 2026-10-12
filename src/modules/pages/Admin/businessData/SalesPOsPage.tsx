@@ -5,7 +5,7 @@ import type { SalesOrder } from '../../../../types/sales'
 import AdminReadOnlyList, { type AdminReadOnlyListConfig } from '../shared/AdminReadOnlyList'
 
 const fmtMoney = (n: number) => n.toLocaleString('vi-VN') + 'đ'
-const fmtDate = (d: string) => new Date(d).toLocaleDateString('vi-VN')
+const fmtDate = (d: string) => (d ? new Date(d).toLocaleDateString('vi-VN') : '—')
 
 export default function SalesPOsPage() {
   const config: AdminReadOnlyListConfig<SalesOrder> = {

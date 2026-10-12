@@ -1,7 +1,7 @@
 'use client'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
 import { useEffect, useState, useCallback } from 'react'
-import { LayoutDashboard, Users, History, Database, Bell, Settings, Briefcase, Activity, LogOut, Warehouse, Image as ImageIcon, PenLine, Wrench, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Users, History, Database, Bell, Settings, Briefcase, Activity, LogOut, Warehouse, Image as ImageIcon, PenLine, Wrench, Menu, X, BookOpen } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
@@ -18,14 +18,15 @@ import SystemStatusPage from './SystemStatusPage'
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import OfficeSuppliesAdminPage from './OfficeSuppliesAdminPage'
 import PhoiSkuAdminPage from './PhoiSkuAdminPage'
+import AdminGuidePage from './AdminGuidePage'
 import ThemeToggle from '../../../components/ThemeToggle'
 
 const ACCENT    = 'var(--fg-3949ab)'
 const ACCENT_BG = 'var(--bg-e8eaf6)'
 
-type AdminPage = 'dashboard' | 'users' | 'warehouses' | 'office-supplies' | 'phoi-sku' | 'audit-log' | 'master-data' | 'business-data' | 'attachments' | 'notifications' | 'system-config' | 'system-status'
+type AdminPage = 'dashboard' | 'users' | 'warehouses' | 'office-supplies' | 'phoi-sku' | 'audit-log' | 'master-data' | 'business-data' | 'attachments' | 'notifications' | 'system-config' | 'system-status' | 'guide'
 
-const ADMIN_PAGE_VALUES: AdminPage[] = ['dashboard', 'users', 'warehouses', 'office-supplies', 'phoi-sku', 'audit-log', 'master-data', 'business-data', 'attachments', 'notifications', 'system-config', 'system-status']
+const ADMIN_PAGE_VALUES: AdminPage[] = ['dashboard', 'users', 'warehouses', 'office-supplies', 'phoi-sku', 'audit-log', 'master-data', 'business-data', 'attachments', 'notifications', 'system-config', 'system-status', 'guide']
 const isAdminPage = (v: string | null): v is AdminPage => !!v && (ADMIN_PAGE_VALUES as string[]).includes(v)
 
 const NAV_ITEMS: { id: AdminPage; label: string; icon: React.ReactNode; enabled: boolean }[] = [
@@ -41,6 +42,8 @@ const NAV_ITEMS: { id: AdminPage; label: string; icon: React.ReactNode; enabled:
   { id: 'notifications',  label: 'Thông báo',                icon: <Bell size={16} />,            enabled: true },
   { id: 'system-config',  label: 'Cấu hình hệ thống',        icon: <Settings size={16} />,        enabled: true },
   { id: 'system-status',  label: 'Tình trạng hệ thống',      icon: <Activity size={16} />,        enabled: true },
+  // Hướng dẫn riêng của Admin (2026-10-12) - tách khỏi /guide công khai, xem AdminGuidePage.tsx.
+  { id: 'guide',          label: 'Hướng dẫn quản trị',       icon: <BookOpen size={16} />,        enabled: true },
 ]
 
 export default function AdminApp() {
@@ -146,6 +149,7 @@ export default function AdminApp() {
       {page === 'notifications'  && <NotificationsPage />}
       {page === 'system-config'  && <SystemConfigPage />}
       {page === 'system-status'  && <SystemStatusPage />}
+      {page === 'guide'          && <AdminGuidePage />}
     </>
   )
 

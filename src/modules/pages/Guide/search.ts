@@ -57,35 +57,112 @@ function fuzzyMatchWords(words: string[], term: string): boolean {
   return words.some(w => Math.abs(w.length - term.length) <= tol && levenshtein(w, term) <= tol);
 }
 
-/** Tìm kiếm client-side: khớp theo từ khoá đã bỏ dấu, ưu tiên tiêu đề/tag; nếu 1 từ khoá không
- * khớp chính xác thì thử khớp gần đúng (chịu lỗi gõ) trên tiêu đề/tag — KHÔNG áp dụng fuzzy cho
- * toàn bộ nội dung bài (body) vì quá dài, dễ khớp nhiễu và tốn chi phí không cần thiết. */
+/** Tách chuỗi (đã bỏ dấu) thành các từ - mọi ký tự không phải chữ/số đều là dấu ngăn. */
+function wordsOf(normalized: string): string[] {
+  return normalized.split(/[^a-z0-9]+/).filter(Boolean);
+}
+
+/** Từ khoá khớp 1 từ trong danh sách: đúng nguyên từ, hoặc là phần đầu của từ khi đã gõ ≥ 4 ký tự
+ * (đang gõ dở "chuy" vẫn ra "chuyền"). KHÔNG khớp chuỗi con tuỳ ý: trước đây "han" (hạn) khớp cả
+ * "hang" (hàng/khách hàng) nên gần như truy vấn nào cũng ra đủ mọi bài. */
+function wordHit(words: Set<string>, list: string[], term: string): boolean {
+  if (words.has(term)) return true;
+  return term.length >= 4 && list.some(w => w.startsWith(term));
+}
+
+function countOccurrences(haystack: string, needle: string): number {
+  if (!needle) return 0;
+  let n = 0;
+  for (let at = haystack.indexOf(needle); at !== -1; at = haystack.indexOf(needle, at + needle.length)) n++;
+  return n;
+}
+
+interface IndexedArticle {
+  title: string; tags: string; body: string;
+  titleList: string[]; tagList: string[]; bodyList: string[];
+  titleWords: Set<string>; tagWords: Set<string>; bodyWords: Set<string>;
+  /** Bản CÒN DẤU (chỉ hạ chữ thường) - để ưu tiên kết quả khớp đúng dấu khi người dùng gõ có dấu. */
+  accentedTitle: string; accentedBody: string;
+}
+
+// Nội dung là dữ liệu tĩnh nên chỉ cần lập chỉ mục 1 lần cho mỗi bài, không lặp lại mỗi phím gõ.
+const INDEX = new WeakMap<GuideArticle, IndexedArticle>();
+function indexOf(article: GuideArticle): IndexedArticle {
+  const hit = INDEX.get(article);
+  if (hit) return hit;
+  const rawBody = articleText(article);
+  const title = normalize(article.title);
+  const tags = normalize((article.tags ?? []).join(' '));
+  const body = normalize(rawBody);
+  const titleList = wordsOf(title);
+  const tagList = wordsOf(tags);
+  const bodyList = [...new Set(wordsOf(body))];
+  const entry: IndexedArticle = {
+    title, tags, body, titleList, tagList, bodyList,
+    titleWords: new Set(titleList), tagWords: new Set(tagList), bodyWords: new Set(bodyList),
+    accentedTitle: article.title.normalize('NFC').toLowerCase(), accentedBody: rawBody.normalize('NFC').toLowerCase(),
+  };
+  INDEX.set(article, entry);
+  return entry;
+}
+
+/**
+ * Tìm kiếm client-side trên nội dung đã bỏ dấu (gõ không dấu vẫn ra).
+ *
+ * Quy tắc (viết lại 2026-10-12 - bản cũ khớp chuỗi con nên "han giao" ra 69/69 bài):
+ *  - Khớp theo TỪ, không theo chuỗi con (xem wordHit); tiêu đề/tag chịu được lỗi gõ nhẹ.
+ *  - Bài phải khớp MỌI từ khoá. Chỉ khi không bài nào khớp đủ mới nới về "khớp ít nhất 1 từ", để
+ *    người dùng vẫn có gì đó để bấm thay vì màn trắng.
+ *  - Điểm: tiêu đề > tag > nội dung; cộng thêm khi cả CỤM từ khoá đứng liền nhau (đếm số lần xuất
+ *    hiện trong bài, có trần) và khi khớp đúng cả dấu tiếng Việt người dùng đã gõ.
+ */
 export function searchArticles(groups: GuideGroup[], query: string): SearchHit[] {
   const q = normalize(query.trim());
   if (!q) return [];
-  const terms = q.split(/\s+/).filter(Boolean);
+  const terms = wordsOf(q);
+  if (terms.length === 0) return [];
+  const phrase = terms.join(' ');
+  const accentedQuery = query.trim().normalize('NFC').toLowerCase().replace(/\s+/g, ' ');
+  const hasAccent = normalize(accentedQuery) !== accentedQuery;
 
-  const hits: SearchHit[] = [];
+  const all: (SearchHit & { matched: number })[] = [];
   for (const group of groups) {
     for (const article of group.articles) {
-      const title = normalize(article.title);
-      const tags = normalize((article.tags ?? []).join(' '));
-      const body = normalize(articleText(article));
-      const titleWords = title.split(/\s+/);
-      const tagWords = tags.split(/\s+/).filter(Boolean);
-
+      const ix = indexOf(article);
       let score = 0;
+      let matched = 0;
       for (const t of terms) {
-        if (title.includes(t)) score += 5;
-        else if (fuzzyMatchWords(titleWords, t)) score += 3;
+        let termScore = 0;
+        if (wordHit(ix.titleWords, ix.titleList, t)) termScore += 5;
+        else if (fuzzyMatchWords(ix.titleList, t)) termScore += 3;
 
-        if (tags.includes(t)) score += 3;
-        else if (fuzzyMatchWords(tagWords, t)) score += 1.5;
+        if (wordHit(ix.tagWords, ix.tagList, t)) termScore += 3;
+        else if (fuzzyMatchWords(ix.tagList, t)) termScore += 1.5;
 
-        if (body.includes(t)) score += 1;
+        if (wordHit(ix.bodyWords, ix.bodyList, t)) termScore += 1;
+        if (termScore > 0) matched++;
+        score += termScore;
       }
-      if (score > 0) hits.push({ group, article, score });
+      if (matched === 0) continue;
+
+      if (terms.length > 1) {
+        // Khoảng trắng 2 đầu để "han giao" không khớp giữa chừng "…khach hang giao…".
+        if (` ${ix.title} `.includes(` ${phrase} `)) score += 8;
+        // Tiêu đề MỞ ĐẦU bằng cụm đó = bài nói thẳng về nó ("Đóng gói (đếm thùng)"), xếp trên bài chỉ
+        // nhắc tới ở cuối tiêu đề ("… → Chuyền kiểm → Đóng gói").
+        if (ix.titleList.slice(0, terms.length).join(' ') === phrase) score += 3;
+        if (` ${ix.tags} `.includes(` ${phrase} `)) score += 5;
+        score += Math.min(countOccurrences(ix.body, phrase), 6) * 1.5;
+      }
+      if (hasAccent) {
+        if (ix.accentedTitle.includes(accentedQuery)) score += 4;
+        score += Math.min(countOccurrences(ix.accentedBody, accentedQuery), 4);
+      }
+      all.push({ group, article, score, matched });
     }
   }
-  return hits.sort((a, b) => b.score - a.score);
+  const full = all.filter(h => h.matched === terms.length);
+  return (full.length > 0 ? full : all)
+    .sort((a, b) => b.score - a.score)
+    .map(({ group, article, score }) => ({ group, article, score }));
 }

@@ -158,6 +158,12 @@ export interface Sku {
    *  hiện đúng dữ liệu của SKU đó. */
   piCode: string;
   productionInvoiceId?: string;
+  /** CHỈ có trên dòng dựng từ 1 lệnh sản xuất cụ thể (expandSkusByProductionOrder(),
+   *  production-invoice-item.ts) - BE không trả 2 field này. 1 sản phẩm chạy nhiều PI cùng lúc thì
+   *  mỗi lệnh là 1 dòng riêng mang đúng id lệnh của nó, để các hàm resolve*() không phải đoán lệnh
+   *  theo mfgProductId (luôn ra lệnh đầu tiên trong danh sách, sai với mọi lệnh còn lại). */
+  productionOrderId?: string;
+  productionInvoiceItemId?: string;
   /** Sku tạo tự động khi PM xác nhận sản xuất 1 SKU trong PI (LenhSXPage) — chỉ phục vụ
    *  "Lệnh kiểm tra vật tư" (prodmgr@demo.com), không phải SKU do KHSX tạo nên phải ẩn khỏi
    *  "Danh sách SKU" / "Duyệt SKU". */
