@@ -61,9 +61,23 @@ export interface BeMaterialSupplier {
   leadTimeDays: number | null;
 }
 
+/** BE giới hạn `limit` tối đa 100 (PaginationQueryDto @Max(100)) - gọi lần lượt từng trang rồi gộp
+ *  để danh mục > 100 vật tư không bị cắt (trước đây chỉ lấy 100 vật tư mới nhất). */
+const MATERIALS_PAGE_SIZE = 100;
+const MATERIALS_MAX_PAGES = 50; // chặn vòng lặp vô hạn nếu BE trả meta sai
+
 export async function getMaterials(): Promise<BeMaterial[]> {
-  const res = await http.get<BeMaterial[] | { data: BeMaterial[] }>('/materials?limit=100');
-  return Array.isArray(res) ? res : res.data;
+  const all: BeMaterial[] = [];
+  for (let page = 1; page <= MATERIALS_MAX_PAGES; page += 1) {
+    const res = await http.get<BeMaterial[] | { data: BeMaterial[]; meta?: { totalPages?: number } }>(
+      `/materials?limit=${MATERIALS_PAGE_SIZE}&page=${page}`,
+    );
+    if (Array.isArray(res)) return res;
+    all.push(...res.data);
+    const totalPages = res.meta?.totalPages ?? 1;
+    if (page >= totalPages || res.data.length === 0) break;
+  }
+  return all;
 }
 
 // AdminEntityPage's <select> cho purchaseRoundUp chỉ gửi được string ("true"/"false") hoặc
