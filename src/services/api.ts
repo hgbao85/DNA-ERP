@@ -90,7 +90,7 @@
 export * from '../lib/mock/services';
 export { getUsers, createUser, updateUser, deleteUser, resetUserPassword, setUserActive, getBuyerMaterials, transferBuyerMaterials } from './users-api';
 export type { BuyerMaterials } from './users-api';
-export { loginUser, getProfile, logoutUser } from './auth-api';
+export { loginUser, getProfile, logoutUser, setupWorkerPin, getPinStatus, PIN_SETUP_REQUIRED } from './auth-api';
 export { getMaterials, createMaterial, updateMaterial, bulkUpdateMaterialWaste, deleteMaterial, getMaterialSuppliers, createMaterialSupplier, updateMaterialSupplier, deleteMaterialSupplier } from './materials-api';
 export { getMaterialGroups, createMaterialGroup, updateMaterialGroup, deleteMaterialGroup } from './material-groups-api';
 export { getMaterialYieldRecipes, createMaterialYieldRecipe, updateMaterialYieldRecipe, deleteMaterialYieldRecipe } from './material-yield-recipes-api';
@@ -108,7 +108,7 @@ export {
 } from './customers-api';
 export { getDefectReasons, createDefectReason, updateDefectReason, deleteDefectReason } from './defect-reasons-api';
 export { getWeavingPoints, createWeavingPoint, updateWeavingPoint, deleteWeavingPoint } from './weaving-points-api';
-export { getSystemConfig, updateSystemConfig } from './system-config-api';
+export { getNetworkInfo, getSystemConfig, updateSystemConfig } from './system-config-api';
 export { getMfgProducts, createMfgProduct, findMfgProductByCode } from './products-api';
 export { getSalesOrders, createSalesOrder, updateSalesOrder, shipSalesOrderItem, deleteSalesOrder } from './sales-orders-api';
 export {

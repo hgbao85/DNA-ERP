@@ -9,7 +9,7 @@ import type { User } from '../context/AuthContext';
 interface NormalizableUser {
   id?: string | number;
   name?: string;
-  email?: string;
+  email?: string | null;
   role?: User['role'];
   roles?: string[];
   firstName?: string;
@@ -20,6 +20,7 @@ interface NormalizableUser {
   isProductPlanner?: boolean;
   isSale?: boolean;
   isMaterialsManager?: boolean;
+  isFloorWorker?: boolean;
 }
 
 /**
@@ -36,7 +37,7 @@ export function normalizeUser(raw: NormalizableUser): User {
   return {
     id: raw.id as number,
     name,
-    email: raw.email as string,
+    email: (raw.email ?? '') as string,
     role,
     mfgRole: (raw.mfgRole as User['mfgRole']) ?? null,
     warehouseScope: (raw.warehouseScope as User['warehouseScope']) ?? null,
@@ -44,5 +45,6 @@ export function normalizeUser(raw: NormalizableUser): User {
     isProductPlanner: !!raw.isProductPlanner,
     isSale: !!raw.isSale,
     isMaterialsManager: !!raw.isMaterialsManager,
+    isFloorWorker: !!raw.isFloorWorker || roles.includes('FLOOR_WORKER'),
   };
 }

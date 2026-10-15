@@ -402,6 +402,10 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
                   <td style={{ ...td, fontWeight: 600, color: orderIdOf(x) ? 'var(--text)' : 'var(--text3)' }}>{skuLabelOf(x)}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>
                     {segments.map((s) => `${s.qty}×${s.cutLengthMm.toLocaleString('vi-VN')}mm`).join(' + ')}
+                    {/* Ai báo đợt cắt này (2026-10-12) - để KCS biết đợt lỗi do ai báo */}
+                    {x.kind === 'cut' && (x.bundle.reportedByNames?.length ?? 0) > 0 && (
+                      <div style={{ fontSize: 11, marginTop: 2 }}>Người báo: {x.bundle.reportedByNames!.join(', ')}</div>
+                    )}
                   </td>
                   <td style={{ ...td, color: 'var(--text3)' }}>{new Date(completedAtOf(x)).toLocaleString('vi-VN')}</td>
                   <td style={{ ...td, textAlign: 'center' }}>{statusBadge(status, totalFailed)}</td>

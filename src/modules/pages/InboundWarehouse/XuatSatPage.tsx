@@ -264,7 +264,15 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
                       <td style={tdStyle}>{plan.find(it => it.materialId === h.materialId)?.materialName ?? h.materialId}</td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>{h.barLengthMm.toLocaleString('vi-VN')}</td>
                       <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{h.barCount}</td>
-                      <td style={tdStyle}>{statusLabel(h.status)}</td>
+                      <td style={tdStyle}>
+                        {statusLabel(h.status)}
+                        {/* Phôi đếm thực nhận lệch số kho xuất (2026-10-12) - kho kiểm lại, hệ thống không tự sửa tồn. */}
+                        {h.receivedBarCount != null && h.receivedBarCount !== h.barCount && (
+                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-d97706)' }}>
+                            Phôi nhận {h.receivedBarCount}/{h.barCount} cây{h.receivedByName ? ` · ${h.receivedByName}` : ''}
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

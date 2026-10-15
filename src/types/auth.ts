@@ -15,7 +15,8 @@ export interface BeRole {
 export interface BeUserProfile {
   id: string;
   username: string;
-  email: string;
+  /** NULL với tài khoản công nhân xưởng (không có email, 2026-10-13). */
+  email: string | null;
   firstName: string;
   lastName: string;
   isActive: boolean;

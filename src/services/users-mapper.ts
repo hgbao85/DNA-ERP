@@ -38,7 +38,7 @@ export function mapBeToFe(u: BeUserProfile): SystemUser {
     id: u.id as unknown as number,
     username: u.username,
     name: `${u.firstName} ${u.lastName}`.trim(),
-    email: u.email,
+    email: u.email ?? u.username, // công nhân xưởng không có email - hiện tên đăng nhập thay vì "null"
     password: '',
     role: toFeRole(u.roles),
     mfgRole: (u.mfgRole as SystemUser['mfgRole']) ?? null,

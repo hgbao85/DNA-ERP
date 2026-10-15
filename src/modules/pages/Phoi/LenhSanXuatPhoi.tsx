@@ -51,6 +51,7 @@ import {
   ChevronLeft, ChevronRight, ChevronDown, Wrench, Clock, Check, AlertTriangle, RotateCcw, Plus, Ruler, X, Send,
 } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
+import { useRetrySafeKey } from '../../../hooks/useRetrySafeKey'
 import * as api from '../../../services/api'
 import type {
   BeSteelIssue, BeQcReview, BePhoiProgressItem, BeCutBundle, BePiOrderSummary,
@@ -160,6 +161,15 @@ function sumRemaining(progress: BePhoiProgressItem | null | undefined): number {
 interface MaterialGroup {
   key: string; materialId: string; materialName: string; barLengthMm: number
   issues: BeSteelIssue[]; bundles: BeCutBundle[]; totalBarCount: number
+  /** Số cây Phôi đếm lúc nhận (phần nền QR, 2026-10-13); lần giao chưa nhận/không ghi số tính theo
+   *  số kho xuất. Khác totalBarCount = có lần giao bị lệch - thẻ hiện cả 2 số cho khớp màn Nhận sắt. */
+  receivedBarCount: number
+}
+
+function BarCountLabel({ g }: { g: MaterialGroup }) {
+  const len = g.barLengthMm.toLocaleString('vi-VN')
+  if (g.receivedBarCount === g.totalBarCount) return <>{g.totalBarCount} cây × {len}mm</>
+  return <>{g.receivedBarCount} cây × {len}mm <span style={{ color: 'var(--amber)', fontWeight: 600 }}>· kho xuất {g.totalBarCount}</span></>
 }
 
 function buildMaterialGroups(issues: BeSteelIssue[], bundles: BeCutBundle[]): MaterialGroup[] {
@@ -180,6 +190,7 @@ function buildMaterialGroups(issues: BeSteelIssue[], bundles: BeCutBundle[]): Ma
       issues: groupIssues,
       bundles: bundles.filter(b => issueIds.has(b.steelIssueId)),
       totalBarCount: groupIssues.reduce((s, i) => s + i.barCount, 0),
+      receivedBarCount: groupIssues.reduce((s, i) => s + (i.receivedBarCount ?? i.barCount), 0),
     }
   })
 }
@@ -599,7 +610,7 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
                     {isReturn && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: RED, marginLeft: 8 }}><RotateCcw size={11} /> KCS trả về</span>}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                    {g.totalBarCount} cây × {g.barLengthMm.toLocaleString('vi-VN')}mm
+                    <BarCountLabel g={g} />
                     {g.bundles.length > 0 && <> · {g.bundles.length} đợt cắt</>}
                   </div>
                 </div>
@@ -826,7 +837,7 @@ function MaterialGroupDetail({
             {isReturn && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 700, color: RED }}><RotateCcw size={11} /> KCS trả về</span>}
           </h2>
           <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-            {group.totalBarCount} cây × {group.barLengthMm.toLocaleString('vi-VN')}mm
+            <BarCountLabel g={group} />
           </div>
         </div>
       </div>
@@ -1067,6 +1078,7 @@ function NewCutBundleForm({ targetIssue, progress, readOnly, bundles, orders, se
   const [rowInputs, setRowInputs] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const retryKey = useRetrySafeKey()
   const [finishBusy, setFinishBusy] = useState(false)
   const [finishErr, setFinishErr] = useState('')
   // "Hoàn tác" lần "Lưu đợt cắt" GẦN NHẤT (2026-09-07) - chỉ 1 cấp, tự mất khi lưu lần tiếp theo
@@ -1093,8 +1105,10 @@ function NewCutBundleForm({ targetIssue, progress, readOnly, bundles, orders, se
       .filter(r => r.qty > 0)
     if (rows.length === 0) { setErr('Nhập ít nhất 1 cỡ đoạn đã cắt được'); return }
     setBusy(true); setErr(''); setUndoErr('')
+    const payload = { productionOrderId: selOrder.productionOrderId, segments: rows }
     try {
-      const bundle = await api.recordCutBatch(targetIssue.id, { productionOrderId: selOrder.productionOrderId, segments: rows })
+      const bundle = await api.recordCutBatch(targetIssue.id, payload, retryKey.take([targetIssue.id, payload]))
+      retryKey.settle()
       setRowInputs({})
       setLastSaved({
         bundleId: bundle.id,
@@ -1103,7 +1117,7 @@ function NewCutBundleForm({ targetIssue, progress, readOnly, bundles, orders, se
         })),
       })
       onCreated()
-    } catch (e) { setErr(errMsg(e, 'Không lưu được đợt cắt - kiểm lại số liệu')) }
+    } catch (e) { retryKey.settle(e); setErr(errMsg(e, 'Không lưu được đợt cắt - kiểm lại số liệu')) }
     finally { setBusy(false) }
   }
 
@@ -1220,6 +1234,8 @@ function CutBundleCard({ bundle, orderIndex, review, skuLabel, assign }: {
           <div style={{ fontSize: 13, fontWeight: 700 }}>Đợt {orderIndex} · {skuLabel}</div>
           <div style={{ fontSize: 11, color: 'var(--text3)' }}>
             {bundle.segments.length} cỡ đoạn · {totalQty} đoạn · {new Date(bundle.createdAt).toLocaleString('vi-VN')}
+            {/* Ai đã báo vào đợt này (sổ ghi từng lần báo, 2026-10-12) - rỗng với đợt cũ */}
+            {(bundle.reportedByNames?.length ?? 0) > 0 && <> · Người báo: {bundle.reportedByNames!.join(', ')}</>}
           </div>
         </div>
         {bundle.status === 'CUTTING' ? (
@@ -1293,6 +1309,7 @@ function StepBundleForm({ productionInvoiceId, materialId, step, readOnly, stepB
   const [rowInputs, setRowInputs] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
+  const retryKey = useRetrySafeKey()
 
   const send = async () => {
     if (!selOrder) return
@@ -1302,10 +1319,14 @@ function StepBundleForm({ productionInvoiceId, materialId, step, readOnly, stepB
     if (segs.length === 0) { setErr(`Nhập số đoạn đã ${PROCESS_STEP_LABELS[step].toLowerCase()}`); return }
     setBusy(true); setErr('')
     try {
-      await api.recordStepBatch(productionInvoiceId, { materialId, step, productionOrderId: selOrder.productionOrderId, segments: segs })
+      // Khoá giữ nguyên nếu bấm lại sau khi mất phản hồi: lần trước đã ghi thì BE trả lại đúng đợt đó, không
+      // ghi trùng rồi mới gửi KCS (2 lệnh gọi liền nhau, lỗi ở lệnh thứ 2 từng làm bấm lại = báo 2 lần).
+      const payload = { materialId, step, productionOrderId: selOrder.productionOrderId, segments: segs }
+      await api.recordStepBatch(productionInvoiceId, payload, retryKey.take([productionInvoiceId, payload]))
       await api.submitStepBundle(productionInvoiceId, materialId, step, selOrder.productionOrderId)
+      retryKey.settle()
       setRowInputs({}); refetchProgress(); onRefetch()
-    } catch (e) { setErr(errMsg(e, 'Không gửi KCS được')) }
+    } catch (e) { retryKey.settle(e); setErr(errMsg(e, 'Không gửi KCS được')) }
     finally { setBusy(false) }
   }
 

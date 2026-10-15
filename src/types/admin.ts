@@ -46,6 +46,11 @@ export interface SystemConfig {
   companyEmail?: string;
   taxCode?: string;
   defaultCurrency: string;
+  /** Địa chỉ ERP in lên tem QR máy xưởng (vd https://erpdna.vercel.app); null/trống = dùng địa chỉ trình duyệt đang mở.
+   *  Theo từng môi trường - máy local để trống, điền khi đưa lên hệ thống thật. */
+  floorPublicUrl?: string | null;
+  /** Mạng công ty được phép đăng nhập (IP / dải IPv4 CIDR). Rỗng = không giới hạn. Áp cho công nhân + tài khoản tổ Phôi/Hàn/Sơn. */
+  floorAllowedIps?: string[];
   /** Mặc định toàn hệ thống: có cho solver đặt cây sắt ngoài các chiều dài chuẩn không. Từng đợt
    *  cắt đè lại được — KHSX đề nghị ở "Tối ưu cắt sắt", Sếp duyệt cùng lệnh sản xuất. */
   solverAllowCustomLength: boolean;

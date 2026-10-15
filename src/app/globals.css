@@ -209,3 +209,9 @@ textarea { resize: vertical; min-height: 80px; }
    chỉ giữ khi cuộn, không kéo khối về vùng nhìn thấy) + rộng tối đa bằng khung nhìn, chữ căn giữa trong
    khối nhờ text-align của ô. Desktop: khung nhìn rộng hơn bảng nên khối = cả ô, vẫn căn giữa như cũ. */
 .table-empty-msg { position: sticky; left: 0; max-width: calc(100vw - 50px); }
+
+/* Màn công nhân (/floor): token riêng để chữ phụ/nút đạt tương phản >= 4.5:1 ngoài xưởng (ánh sáng gắt) -
+   --text3 chung (#9a9a94) chỉ ~2.6:1 trên nền sáng. Chỉ có hiệu lực trong .floor-root, KHÔNG đổi token
+   toàn ERP. Có test giữ ngưỡng này: src/modules/pages/Floor/floorTheme.test.ts. */
+.floor-root { --floor-hint: #66665f; --floor-primary: var(--blue); --floor-tab-active: var(--blue); }
+:root[data-theme="dark"] .floor-root { --floor-hint: #a3a29b; --floor-primary: #2b68ad; --floor-tab-active: var(--blue-text); }

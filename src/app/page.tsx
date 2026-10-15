@@ -166,8 +166,13 @@ export default function Page() {
     }
   }, [loading, token, user, router]);
 
+  // Công nhân xưởng (2026-10-13) chỉ có màn quét QR - vào `/` (vd bấm logo, gõ địa chỉ) thì chuyển sang.
+  useEffect(() => {
+    if (user?.isFloorWorker) router.replace('/floor');
+  }, [user?.isFloorWorker, router]);
+
   if (loading) return <LoadingScreen />;
-  if (!token || !user) return null;
+  if (!token || !user || user.isFloorWorker) return null;
 
   // MainERP (và NotificationCenter/ProductionPlanApp bên trong nó) dùng useSearchParams() - Next.js
   // App Router đòi hỏi 1 Suspense boundary bao quanh, nếu không `next build` báo lỗi.
