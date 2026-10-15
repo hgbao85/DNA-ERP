@@ -14,6 +14,7 @@ import { ChevronLeft, ChevronRight, FileSpreadsheet } from 'lucide-react'
 import { floorAdmin, type BeFloorStats, type FloorStage, type StatOp } from '../../../services/floor-api'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import DatePicker from '../../../components/DatePicker'
+import { MonthPicker, YearPicker } from '../../../components/MonthYearPicker'
 import RefreshButton from '../../../components/RefreshButton'
 import LoadErrorState from '../../../components/LoadErrorState'
 import LoadingState from '../../../components/LoadingState'
@@ -30,7 +31,6 @@ const MODES: { id: PeriodMode; label: string }[] = [
   { id: 'day', label: 'Ngày' }, { id: 'month', label: 'Tháng' }, { id: 'year', label: 'Năm' }, { id: 'range', label: 'Khoảng' },
 ]
 const STAGES: FloorStage[] = ['PHOI', 'HAN', 'SON']
-const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
 
 const pill = (on: boolean): React.CSSProperties => ({
   minHeight: 36, padding: '0 14px', borderRadius: 999, fontSize: 13, fontWeight: on ? 700 : 500, cursor: 'pointer',
@@ -39,11 +39,24 @@ const pill = (on: boolean): React.CSSProperties => ({
 })
 // CSS toàn cục đặt `width: 100%` cho input/select - ô chọn nằm trong hàng bộ lọc phải co theo nội dung.
 const selectStyle: React.CSSProperties = { ...input, width: 'auto' }
-const stepBtn = (disabled: boolean): React.CSSProperties => ({
-  width: 36, height: 36, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8,
-  border: '1px solid var(--border2)', background: 'var(--surface)', color: 'var(--text)',
-  cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.45 : 1,
-})
+// DatePicker tự đặt `width: 100%` nên phải bọc trong ô có bề rộng cố định, nếu không nó chiếm cả hàng và đẩy ◀ ▶ xuống dòng khác.
+const pickerBox: React.CSSProperties = { width: 150 }
+// Nút ◀ ▶ lùi/tiến một kỳ. CSS toàn cục cho mọi <button> `padding: 7px 14px` nên nút 36px chỉ còn 6px cho icon (mũi tên bị bóp
+// còn một vạch nhỏ) - phải đặt `padding: 0` và không cho icon co lại.
+const STEP_UNIT: Record<'day' | 'month' | 'year', string> = { day: 'ngày', month: 'tháng', year: 'năm' }
+function StepButton({ dir, unit, disabled, onClick }: { dir: -1 | 1; unit: string; disabled: boolean; onClick: () => void }) {
+  const label = `${unit.charAt(0).toUpperCase()}${unit.slice(1)} ${dir < 0 ? 'trước' : 'sau'}`
+  const Icon = dir < 0 ? ChevronLeft : ChevronRight
+  return (
+    <button type="button" aria-label={label} title={disabled ? undefined : label} disabled={disabled} onClick={onClick} style={{
+      width: 36, height: 36, padding: 0, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: 8,
+      border: '1px solid var(--border2)', background: 'var(--surface)', color: 'var(--text)',
+      cursor: disabled ? 'default' : 'pointer', opacity: disabled ? 0.4 : 1, pointerEvents: disabled ? 'none' : 'auto',
+    }}>
+      <Icon size={18} strokeWidth={2.25} style={{ flexShrink: 0 }} aria-hidden />
+    </button>
+  )
+}
 
 // ─── biểu đồ cột (HTML thuần, theo dataviz: mảnh, hở 2px, lưới mờ, tooltip + bảng thay thế) ───
 
@@ -224,10 +237,6 @@ export default function QlsxStats() {
     setPeriod({ mode: m, day: anchor, month: anchor.slice(0, 7), year: Number(anchor.slice(0, 4)), from: r.from > anchor ? anchor : r.from, to: anchor })
   }
   const thisYear = Number(today.slice(0, 4))
-  const years = Array.from({ length: 4 }, (_, i) => thisYear - 3 + i)
-  const [pm, py] = [Number(period.month.slice(5, 7)), Number(period.month.slice(0, 4))]
-  if (period.mode === 'month' && !years.includes(py)) years.unshift(py)
-  if (period.mode === 'year' && !years.includes(period.year)) years.unshift(period.year)
 
   // Máy chủ trả số của mọi công nhân; lọc theo người làm ngay tại đây nên đổi người không phải gọi lại. Người đang chọn mà kỳ
   // này không có số vẫn nằm trong ô chọn (không bị trống khi đổi kỳ).
@@ -276,36 +285,31 @@ export default function QlsxStats() {
           ))}
         </div>
 
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+        {/* ◀ [kỳ] ▶ luôn nằm cùng một hàng (không tách nhau khi màn hẹp); chế độ Khoảng có 2 ô ngày nên được phép xuống dòng */}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: period.mode === 'range' ? 'wrap' : 'nowrap' }}>
           {period.mode !== 'range' && (
-            <button type="button" aria-label="Kỳ trước" style={stepBtn(false)} onClick={() => setPeriod(stepPeriod(period, -1))}><ChevronLeft size={18} /></button>
+            <StepButton dir={-1} unit={STEP_UNIT[period.mode]} disabled={false} onClick={() => setPeriod(stepPeriod(period, -1))} />
           )}
-          {period.mode === 'day' && <DatePicker value={period.day} onChange={(v) => v && setPeriod({ ...period, day: v })} title="Chọn ngày" />}
+          {period.mode === 'day' && (
+            <div style={pickerBox}><DatePicker value={period.day} onChange={(v) => v && setPeriod({ ...period, day: v })} title="Chọn ngày" minHeight={36} /></div>
+          )}
           {period.mode === 'month' && (
-            <>
-              <select aria-label="Tháng" style={selectStyle} value={pm} onChange={(e) => setPeriod({ ...period, month: `${py}-${String(e.target.value).padStart(2, '0')}` })}>
-                {MONTHS.map((m) => <option key={m} value={m}>Tháng {m}</option>)}
-              </select>
-              <select aria-label="Năm" style={selectStyle} value={py} onChange={(e) => setPeriod({ ...period, month: `${e.target.value}-${String(pm).padStart(2, '0')}` })}>
-                {years.map((y) => <option key={y} value={y}>{y}</option>)}
-              </select>
-            </>
+            <MonthPicker value={period.month} max={today.slice(0, 7)} current={today.slice(0, 7)} title="Chọn tháng"
+              onChange={(v) => setPeriod({ ...period, month: v })} />
           )}
           {period.mode === 'year' && (
-            <select aria-label="Năm" style={selectStyle} value={period.year} onChange={(e) => setPeriod({ ...period, year: Number(e.target.value) })}>
-              {years.map((y) => <option key={y} value={y}>Năm {y}</option>)}
-            </select>
+            <YearPicker value={period.year} max={thisYear} current={thisYear} title="Chọn năm"
+              onChange={(v) => setPeriod({ ...period, year: v })} />
           )}
           {period.mode === 'range' && (
             <>
-              <DatePicker value={period.from} onChange={(v) => v && setPeriod({ ...period, from: v })} title="Từ ngày" />
+              <div style={pickerBox}><DatePicker value={period.from} onChange={(v) => v && setPeriod({ ...period, from: v })} title="Từ ngày" minHeight={36} /></div>
               <span aria-hidden style={{ color: 'var(--text2)' }}>–</span>
-              <DatePicker value={period.to} onChange={(v) => v && setPeriod({ ...period, to: v })} title="Đến ngày" />
+              <div style={pickerBox}><DatePicker value={period.to} onChange={(v) => v && setPeriod({ ...period, to: v })} title="Đến ngày" minHeight={36} /></div>
             </>
           )}
           {period.mode !== 'range' && (
-            <button type="button" aria-label="Kỳ sau" disabled={!canStepForward(period, today)} style={stepBtn(!canStepForward(period, today))}
-              onClick={() => setPeriod(stepPeriod(period, 1))}><ChevronRight size={18} /></button>
+            <StepButton dir={1} unit={STEP_UNIT[period.mode]} disabled={!canStepForward(period, today)} onClick={() => setPeriod(stepPeriod(period, 1))} />
           )}
         </div>
 

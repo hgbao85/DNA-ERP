@@ -10,6 +10,8 @@ interface DatePickerProps {
   /** Hiện nút "Xoá" - chỉ bật cho ô không bắt buộc. */
   clearable?: boolean
   title?: string
+  /** Chiều cao tối thiểu của ô bấm (px) - để ngang hàng với nút/ô chọn cao hơn bên cạnh; mặc định theo nội dung. */
+  minHeight?: number
 }
 
 const WEEKDAYS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN']
@@ -22,7 +24,7 @@ const EDGE = 8
  * không theo layout trang nên tràn ra ngoài khung màn hình hẹp. Lịch ở đây dùng position: fixed,
  * tự dịch trái/lật lên để luôn nằm trong viewport, kể cả khi ô nằm trong modal có cuộn.
  */
-export default function DatePicker({ value, onChange, placeholder = 'dd/mm/yyyy', clearable = false, title }: DatePickerProps) {
+export default function DatePicker({ value, onChange, placeholder = 'dd/mm/yyyy', clearable = false, title, minHeight }: DatePickerProps) {
   const selected = value ? parse(value, 'yyyy-MM-dd', new Date()) : null
   const selectedValid = selected && isValid(selected) ? selected : null
   const [open, setOpen] = useState(false)
@@ -89,7 +91,7 @@ export default function DatePicker({ value, onChange, placeholder = 'dd/mm/yyyy'
         aria-expanded={open}
         style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, width: '100%',
-          padding: '7px 10px', fontSize: 13, textAlign: 'left',
+          padding: '7px 10px', fontSize: 13, textAlign: 'left', minHeight,
           border: `1px solid ${open ? 'var(--blue)' : 'var(--border)'}`, borderRadius: 'var(--radius)',
           background: 'var(--surface)', color: selectedValid ? 'var(--text)' : 'var(--text3)',
         }}
