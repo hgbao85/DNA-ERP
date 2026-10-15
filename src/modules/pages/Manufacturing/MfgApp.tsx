@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import FloorStoppedBanner from '../../../components/FloorStoppedBanner'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
-import { ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, ClipboardCheck, Box, CalendarClock, Wrench, Flame, SprayCan, Check, Frame, Layers, Play, PackageCheck, Ruler, Menu, X } from 'lucide-react'
+import { QrCode, ClipboardList, Settings, LogOut, Grid, Package, Boxes, Warehouse, ClipboardCheck, Box, CalendarClock, Wrench, Flame, SprayCan, Check, Frame, Layers, Play, PackageCheck, Ruler, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
@@ -30,6 +30,10 @@ import KcsPhoiPage from '../Kcs/KcsPhoiPage'
 import KcsHanPage from '../Kcs/KcsHanPage'
 import KcsSonPage from '../Kcs/KcsSonPage'
 import ThemeToggle from '../../../components/ThemeToggle'
+import QlsxFloorPage from '../Floor/QlsxFloorPage'
+import { floorAdmin } from '../../../services/floor-api'
+import { useFetch } from '../../../hooks/useFetch'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 // ── Module-level constants (không tạo lại mỗi render) ───────────────────────
 
@@ -39,13 +43,14 @@ type TabId =
   | 'weaving-points' | 'sku-list'
   | 'materials' | 'warehouses' | 'setup'
   | 'kcs-phoi' | 'kcs-han' | 'kcs-son'
+  | 'san-luong-xuong'
 
 const TAB_VALUES: TabId[] = [
   'lenh-sx', 'ke-hoach', 'phoi-xac-nhan-nhan-sat', 'phoi-lenh-sx', 'phoi-huong-dan-cat', 'phoi-dinh-muc-manh', 'phoi-kho-phoi',
   'han-khung-han', 'son-manh-cho-dan', 'han-son-xac-nhan-vat-tu',
   'weaving-points', 'sku-list',
   'materials', 'warehouses', 'setup',
-  'kcs-phoi', 'kcs-han', 'kcs-son',
+  'kcs-phoi', 'kcs-han', 'kcs-son', 'san-luong-xuong',
 ]
 const isTabId = (v: string | null): v is TabId => !!v && (TAB_VALUES as string[]).includes(v)
 
@@ -164,6 +169,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...(isDirector ? [{ id: 'ke-hoach' as TabId, label: 'Kế hoạch SX', icon: <CalendarClock size={16} /> }] : []),
     ...(isProdMgr ? [{ id: 'ke-hoach' as TabId, label: 'Tổng hợp lệnh SX', icon: <CalendarClock size={16} /> }] : []),
     ...(isProdMgr ? [{ id: 'lenh-sx' as TabId, label: 'Xử lý lệnh sản xuất', icon: <Play size={16} /> }] : []),
+    ...(isProdMgr ? [{ id: 'san-luong-xuong' as TabId, label: 'Sản lượng xưởng', icon: <QrCode size={16} /> }] : []),
     ...((isPhoi || isHan || isSon || isDirector) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-huong-dan-cat' as TabId, label: 'Hướng dẫn cắt', icon: <Ruler size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-xac-nhan-nhan-sat' as TabId, label: 'Xác nhận nhận sắt', icon: <Check size={16} /> }] : []),
@@ -188,8 +194,14 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   // riêng Spec đọc trực tiếp `specQuotaBadge` (gắn vào sub-item 'dinh-muc', không phải tab 'setup'
   // cha - xem nhánh render riêng của SPEC_SETUP_ITEMS bên dưới).
   const { counts: workQueue } = useWorkQueue()
+  // Chấm số "Sản lượng xưởng" = số đợt công nhân đã báo mà QLSX chưa gửi KCS (QR tại máy, 2026-10-13).
+  const floorSummary = useFetch(() => (isProdMgr ? floorAdmin.summary() : Promise.resolve(null)), [isProdMgr])
+  const { refetch: refetchFloorSummary } = floorSummary
+  useRealtimeRefetch(isProdMgr ? ['floor', 'production-batches', 'steel-issues'] : [], () => { void refetchFloorSummary() })
+  const floorOpen = floorSummary.data ? floorSummary.data.PHOI.open + floorSummary.data.HAN.open + floorSummary.data.SON.open : 0
   const badgeByTab: Partial<Record<TabId, number>> = {
     'lenh-sx': workQueue.qlsxProductionQueue,
+    'san-luong-xuong': floorOpen,
     'phoi-xac-nhan-nhan-sat': workQueue.phoiSteelReceiving,
     'kcs-phoi': workQueue.kcsPhoi,
     'kcs-han': workQueue.kcsHan,
@@ -316,6 +328,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
       <>
         {(isPhoi || isHan || isSon || isKcs) && <FloorStoppedBanner />}
         {tab === 'lenh-sx' && (isDirector || isProdMgr) && <LenhSXPage />}
+        {tab === 'san-luong-xuong' && isProdMgr && <QlsxFloorPage />}
         {tab === 'ke-hoach' && (isProdMgr || isDirector) && <ThongKePagePlan />}
         {tab === 'phoi-xac-nhan-nhan-sat' && (isPhoi || isDirector) && <XacNhanNhanSatPage readOnly={isDirector} />}
         {tab === 'phoi-lenh-sx' && (isPhoi || isHan || isSon || isDirector) && (isHan ? <LenhSanXuatHan readOnly={isDirector} /> : isSon ? <LenhSanXuatSon readOnly={isDirector} /> : <LenhSanXuatPhoi readOnly={isDirector} onOpenCuttingGuide={openHuongDanCat} />)}

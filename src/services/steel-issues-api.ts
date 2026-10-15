@@ -95,6 +95,8 @@ export interface BeCutBundle {
   productionOrderId: string | null;
   createdAt: string;
   segments: BeCutPatternSegment[];
+  /** Những người đã báo số vào đợt (sổ ghi từng lần báo, 2026-10-12). Rỗng với đợt cũ. */
+  reportedByNames?: string[];
 }
 
 export interface BeSteelIssue {
@@ -111,6 +113,10 @@ export interface BeSteelIssue {
   barCount: number;
   status: SteelIssueStatus;
   actualBarCount: number | null;
+  /** Số cây Phôi đếm thực nhận (2026-10-12) - null = chưa nhận / nhận trước khi có cột này. */
+  receivedBarCount?: number | null;
+  receivedAt?: string | null;
+  receivedByName?: string | null;
   issuedAt: string;
   issuedById: string;
   completedAt: string | null;
@@ -266,9 +272,16 @@ export async function finishCutBundle(bundleId: string): Promise<BeCutBundle> {
   return http.post<BeCutBundle>(`/cut-bundles/${bundleId}/finish`, {});
 }
 
-export async function receiveSteelIssue(id: string): Promise<void> {
-  await http.post(`/steel-issues/${id}/receive`, {});
+/** Xác nhận đã nhận (2026-10-12): `receivedBarCount` = số cây người nhận ĐẾM được (bỏ trống = đúng số
+ *  kho xuất). Lệch thì BE báo kho + QLSX, không chặn. */
+export async function receiveSteelIssue(id: string, receivedBarCount?: number): Promise<void> {
+  await http.post(`/steel-issues/${id}/receive`, receivedBarCount != null ? { receivedBarCount } : {});
 }
+
+/** Header Idempotency-Key do màn gọi giữ qua các lần bấm lại (useRetrySafeKey) - KHÁC withIdempotencyKey()
+ *  luôn sinh khoá mới mỗi lần gọi (không chống được bấm lại sau khi mất phản hồi). */
+const keyHeader = (idempotencyKey?: string) =>
+  idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined
 
 /** 1 dòng nhập đợt cắt - segments phải khớp cỡ trong định mức của PI (BE chặn cỡ lạ). Không còn
  *  bắt buộc barCount/mauNguyenMm từ 2026-09-05 (bỏ 2 ô nhập theo yêu cầu nghiệp vụ - 1 loại sắt
@@ -284,8 +297,12 @@ export interface RecordCutBatchInput {
 /** Nhập 1 đợt cắt (cộng dồn, KHÔNG đổi trạng thái SteelIssue). Thay `completeCutting` cũ
  *  (2026-08-22) - route đó vừa nhận số liệu (chép từ pattern) vừa chuyển sang chờ KCS trong cùng
  *  1 lần bấm; giờ tách hẳn 2 việc, xem finishCutting(). */
-export async function recordCutBatch(id: string, data: RecordCutBatchInput): Promise<BeCutBundle> {
-  return http.post<BeCutBundle>(`/steel-issues/${id}/cut-batches`, data);
+export async function recordCutBatch(
+  id: string,
+  data: RecordCutBatchInput,
+  idempotencyKey?: string,
+): Promise<BeCutBundle> {
+  return http.post<BeCutBundle>(`/steel-issues/${id}/cut-batches`, data, keyHeader(idempotencyKey));
 }
 
 /** Hoàn tác ĐÚNG lần recordCutBatch() gần nhất (2026-09-07) - gửi lại chính xác `segments` vừa
@@ -333,6 +350,9 @@ export interface BePhoiProgressItem {
   segments: BePhoiProgressSegment[];
   /** Các công đoạn phụ SAU Cắt (Uốn/Dập/...) của loại sắt này - CHỈ có ở getPhoiProgressBatch (2026-09-21). */
   steps?: { step: ProcessStep; segments: BePhoiProgressSegment[] }[];
+  /** Đối chiếu sắt vào - đoạn ra cả PI (2026-10-12). overMm > 0 = đoạn đã báo vượt sắt đã nhận (chỉ
+   *  cảnh báo - có thể do cắt bù bằng sắt thừa dưới xưởng). null = chưa nhận đợt nào. */
+  steelBalance?: { receivedBarCount: number; usableMm: number; reportedMm: number; overMm: number } | null;
 }
 
 export async function getPhoiProgress(productionInvoiceId: string): Promise<BePhoiProgressItem[]> {
@@ -367,8 +387,16 @@ export interface BeStepBatch {
 /** Nhập 1 đợt "đã gia công" cho công đoạn chi tiết CỦA CẢ PI + loại sắt (cộng dồn, KHÔNG tự gửi
  *  KCS - xem submitStepBundle() để gửi). Route `/production-invoices/:id/step-batches`
  *  (2026-09-07 lần 2, đổi từ `/cut-bundles/:id/step-batches`). */
-export async function recordStepBatch(productionInvoiceId: string, data: RecordStepBatchInput): Promise<BeStepBatch> {
-  return http.post<BeStepBatch>(`/production-invoices/${productionInvoiceId}/step-batches`, data);
+export async function recordStepBatch(
+  productionInvoiceId: string,
+  data: RecordStepBatchInput,
+  idempotencyKey?: string,
+): Promise<BeStepBatch> {
+  return http.post<BeStepBatch>(
+    `/production-invoices/${productionInvoiceId}/step-batches`,
+    data,
+    keyHeader(idempotencyKey),
+  );
 }
 
 /** Gom mọi StepBatch CHƯA gửi (của 1 công đoạn phụ, CẢ PI + loại sắt) thành 1 "đợt gửi KCS" mới -

@@ -15,6 +15,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { ChevronRight, ChevronLeft, ChevronDown, Check, Clock, AlertTriangle, Plus, Send, CalendarClock, CheckCircle2, Lock, Wrench, Flame, SprayCan, type LucideIcon } from 'lucide-react'
 import LenhSanXuatBoard, { type BoardColumn } from './LenhSanXuatBoard'
 import { useFetch } from '../../hooks/useFetch'
+import { useRetrySafeKey } from '../../hooks/useRetrySafeKey'
 import * as api from '../../services/api'
 import type {
   BeProductionOrderSummary, ProductionBatchStage as SanLuongStage,
@@ -988,13 +989,18 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   // LineDetailCard.submit()/sendToKcs() await promise này rồi mới clear ô nhập/tắt busy - alert()
   // báo lỗi ngay, sau đó NÉM LẠI lỗi để caller biết thất bại (không tự xoá ô nhập/không coi như đã
   // xong khi thật ra chưa lưu được - 2026-09-09, sửa cùng lúc với bug thiếu await ở LineDetailCard).
+  const retryKey = useRetrySafeKey()
   const recordQty = async (po: ProcRow, line: ProcLine, qty: number) => {
     if (!stage || !po.realOrderId || !line.realPieceId) return
+    const payload = { stage, pieceId: line.realPieceId, qty }
     try {
-      const res = await api.recordProductionBatch(po.realOrderId, { stage, pieceId: line.realPieceId, qty })
+      // Khoá giữ nguyên khi bấm lại sau lần mất phản hồi - BE không cộng 2 lần (2026-10-12).
+      const res = await api.recordProductionBatch(po.realOrderId, payload, retryKey.take([po.realOrderId, payload]))
+      retryKey.settle()
       refetch(); refetchReviews()
       if (res?.overPlanWarning) alert(res.overPlanWarning)
     } catch (e) {
+      retryKey.settle(e)
       alert(errMsg(e, 'Không lưu được đợt'))
       throw e
     }

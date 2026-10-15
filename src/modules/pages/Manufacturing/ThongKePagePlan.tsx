@@ -199,6 +199,8 @@ interface PhoiSegmentView { cutLengthMm: number; required: number; done: number;
 interface PhoiStepView { step: 'CAT' | ProcessStep; label: string; segments: PhoiSegmentView[]; need: number; done: number }
 interface PhoiMaterialView {
   materialId: string; materialCode: string; materialName: string; issuedBarCount: number
+  /** Đối chiếu sắt vào - đoạn ra CẢ PI (2026-10-12) - null = Phôi chưa nhận đợt nào. */
+  steelBalance: BePhoiProgressItem['steelBalance'] | null
   /** Cắt + các công đoạn phụ loại sắt này cần đi qua. */
   steps: PhoiStepView[]
   /** Σ các công đoạn: mỗi đoạn tính 1 lần cho MỖI công đoạn nó phải qua (Cắt, Uốn, ...). */
@@ -245,6 +247,7 @@ function mapPhoiProgress(items: BePhoiProgressItem[], orderId: string | null): P
     if (steps.length === 0) continue
     views.push({
       materialId: it.materialId, materialCode: it.materialCode, materialName: it.materialName, issuedBarCount: it.issuedBarCount,
+      steelBalance: it.steelBalance ?? null,
       steps,
       need: steps.reduce((a, st) => a + st.need, 0),
       done: steps.reduce((a, st) => a + st.done, 0),
@@ -790,7 +793,25 @@ function PhoiMaterialBoard({ materials }: { materials: PhoiMaterialView[] }) {
         <div style={{ fontSize: 11, color: 'var(--text3)' }}>{m.materialCode}</div>
       </div>
     ) },
-    { key: 'issued', header: 'Kho đã xuất cả PI (cây)', align: 'right', width: 150, cell: m => m.issuedBarCount.toLocaleString('vi-VN') },
+    { key: 'issued', header: 'Kho đã xuất cả PI (cây)', align: 'right', width: 150, cell: m => {
+      const b = m.steelBalance
+      return (
+        <div>
+          <div>{m.issuedBarCount.toLocaleString('vi-VN')}</div>
+          {/* Phôi đếm thực nhận khác số kho xuất (2026-10-12) */}
+          {b && b.receivedBarCount !== m.issuedBarCount && (
+            <div style={{ fontSize: 11, color: 'var(--text3)' }}>Phôi đã nhận {b.receivedBarCount.toLocaleString('vi-VN')}</div>
+          )}
+          {/* Đoạn đã báo vượt lượng sắt đã nhận: chỉ cảnh báo - có thể do cắt bù bằng sắt thừa dưới xưởng */}
+          {b && b.overMm > 0 && (
+            <div title={`Đoạn đã báo cần ${(b.reportedMm / 1000).toLocaleString('vi-VN')} m sắt (tính cả mạch cắt), Phôi mới nhận ${(b.usableMm / 1000).toLocaleString('vi-VN')} m dùng được (đã trừ tề đầu). Kiểm lại số báo hoặc hỏi Phôi có cắt bù bằng sắt ngoài không.`}
+              style={{ fontSize: 11, fontWeight: 700, color: 'var(--amber)', cursor: 'help' }}>
+              ⚠ Đoạn báo vượt sắt nhận {(b.overMm / 1000).toLocaleString('vi-VN', { maximumFractionDigits: 2 })} m
+            </div>
+          )}
+        </div>
+      )
+    } },
     { key: 'steps', header: 'Công đoạn', cell: m => <span style={{ fontSize: 12, color: 'var(--text2)' }}>{m.steps.map(st => st.label).join(' → ')}</span> },
     { key: 'need', header: 'Cần', align: 'right', width: 120, cell: m => m.need.toLocaleString('vi-VN') },
     { key: 'done', header: 'Đã xong (đạt)', align: 'right', width: 150, cell: m => <span style={{ fontWeight: 700 }}>{m.done.toLocaleString('vi-VN')}</span> },

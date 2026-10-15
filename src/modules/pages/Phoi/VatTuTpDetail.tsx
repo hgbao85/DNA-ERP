@@ -24,6 +24,7 @@ import { useState } from 'react'
 import { ChevronLeft, Check, Clock, Plus, Send } from 'lucide-react'
 import * as api from '../../../services/api'
 import { useFetch } from '../../../hooks/useFetch'
+import { useRetrySafeKey } from '../../../hooks/useRetrySafeKey'
 import type { ProcessStep } from '../../../types/sku'
 import type {
   BePieceStepProgress, BePieceStepBundle, BePieceStepBundleQcReview,
@@ -382,15 +383,18 @@ function ChotPanel({ item, readOnly, onRefetch }: {
 
   const refetchAll = () => { refetchBatches(); onRefetch() }
 
+  const retryKey = useRetrySafeKey()
   const submit = async () => {
     const q = Math.floor(Number(qty) || 0)
     if (q <= 0) { setErr('Nhập số mảnh đã hoàn thiện'); return }
     setBusy(true); setErr('')
+    const payload = { stage: 'PHOI' as const, pieceId: item.pieceId, qty: q }
     try {
-      const res = await api.recordProductionBatch(item.orderId, { stage: 'PHOI', pieceId: item.pieceId, qty: q })
+      const res = await api.recordProductionBatch(item.orderId, payload, retryKey.take([item.orderId, payload]))
+      retryKey.settle()
       setQty(''); refetchAll()
       if (res?.overPlanWarning) alert(res.overPlanWarning)
-    } catch (e) { setErr(errMsg(e, 'Không lưu được đợt - kiểm lại số liệu')) }
+    } catch (e) { retryKey.settle(e); setErr(errMsg(e, 'Không lưu được đợt - kiểm lại số liệu')) }
     finally { setBusy(false) }
   }
 

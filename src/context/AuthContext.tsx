@@ -63,6 +63,8 @@ export interface User {
   isProductPlanner?: boolean;
   isSale?: boolean;
   isMaterialsManager?: boolean;
+  /** Tài khoản công nhân xưởng (role BE FLOOR_WORKER, 2026-10-13) - chỉ dùng màn quét QR `/floor`. */
+  isFloorWorker?: boolean;
 }
 
 interface AuthContextType {

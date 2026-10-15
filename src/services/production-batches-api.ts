@@ -361,9 +361,15 @@ export async function reportProductionBatch(
 export async function recordProductionBatch(
   productionOrderId: string,
   data: { stage: ProductionBatchStage; pieceId: string; qty: number },
+  /** Giữ qua các lần bấm lại khi mất phản hồi (useRetrySafeKey) - BE không cộng 2 lần (2026-10-12). */
+  idempotencyKey?: string,
 ): Promise<{ overPlanWarning?: string | null }> {
   // overPlanWarning: báo vượt nhu cầu (không chặn) - màn gọi hiện cảnh báo sau khi đã lưu
-  return http.post<{ overPlanWarning?: string | null }>(`/production-orders/${productionOrderId}/production-batches/record`, data)
+  return http.post<{ overPlanWarning?: string | null }>(
+    `/production-orders/${productionOrderId}/production-batches/record`,
+    data,
+    idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined,
+  )
 }
 
 /** "Gửi KCS" ChotPanel - đóng ProductionBatch đang OPEN, chuyển AWAITING_QC (mirror finishCutBundle()). */

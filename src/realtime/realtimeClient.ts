@@ -2,6 +2,7 @@ import { io, type Socket } from 'socket.io-client';
 import { ApiError } from '../services/core/apiError';
 import { API_BASE_URL, refreshSession } from '../services/core/http';
 import { tokenStorage } from '../services/core/tokenStorage';
+import { newUuid } from '../services/core/uuid';
 import { REALTIME_EVENTS } from './contract';
 import { createEventBus, type EventBus } from './eventBus';
 
@@ -144,9 +145,7 @@ class RealtimeClient {
 }
 
 function newCorrelationId(): string {
-  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return newUuid();
 }
 
 export const realtime = new RealtimeClient();

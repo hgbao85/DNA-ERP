@@ -106,6 +106,53 @@ function PiPoCell({ piCode, poCode }: { piCode: string; poCode: string | null })
   )
 }
 
+// Ô điền số cây thực nhận (2026-10-12) - mặc định điền sẵn số kho xuất, người nhận đếm rồi sửa nếu khác.
+function ReceiveCountInput({ barCount, value, busy, onChange, onConfirm, onCancel }: {
+  barCount: number; value: string; busy: boolean
+  onChange: (v: string) => void; onConfirm: () => void; onCancel: () => void
+}) {
+  const n = Math.floor(Number(value))
+  const diff = Number.isFinite(n) && n > 0 ? n - barCount : 0
+  return (
+    <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+        <span style={{ fontSize: 12, color: 'var(--text3)' }}>Đếm được</span>
+        <input type="number" min={1} value={value} onChange={e => onChange(e.target.value)} autoFocus
+          aria-label="Số cây thực nhận" style={{ width: 64, padding: '4px 6px', fontSize: 13, textAlign: 'right' }} />
+        <span style={{ fontSize: 12, color: 'var(--text3)' }}>/ {barCount} cây</span>
+      </div>
+      {diff !== 0 && (
+        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-d97706)' }}>
+          {diff < 0 ? `Thiếu ${-diff}` : `Thừa ${diff}`} cây · kho và QLSX sẽ được báo
+        </span>
+      )}
+      <div style={{ display: 'inline-flex', gap: 6 }}>
+        <button onClick={onConfirm} disabled={busy}
+          style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-e65100)', color: '#fff', cursor: busy ? 'not-allowed' : 'pointer' }}>
+          {busy ? '...' : 'Xác nhận'}
+        </button>
+        <button onClick={onCancel} disabled={busy}
+          style={{ padding: '4px 10px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
+          Huỷ
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// Ai nhận, nhận bao nhiêu (2026-10-12) - chỉ hiện số khi LỆCH số kho xuất, cho đỡ rối dòng khớp.
+function ReceivedNote({ issue }: { issue: BeSteelIssue }) {
+  const r = issue.receivedBarCount
+  if (r == null && !issue.receivedByName) return null
+  const mismatch = r != null && r !== issue.barCount
+  return (
+    <div style={{ fontSize: 11, marginTop: 3, color: mismatch ? 'var(--fg-d97706)' : 'var(--text3)', fontWeight: mismatch ? 600 : 400 }}>
+      {mismatch ? `Nhận ${r}/${issue.barCount} cây` : 'Đã nhận đủ'}
+      {issue.receivedByName ? ` · ${issue.receivedByName}` : ''}
+    </div>
+  )
+}
+
 // ── Tab "Xác nhận" — CHỈ còn xác nhận đã nhận (2026-08-22, chốt lại lần 2). Báo cắt xong + đánh
 // dấu công đoạn chi tiết đã chuyển sang "Lệnh sản xuất" (LenhSanXuatPhoi.tsx) - đợt sau khi nhận
 // xong hiện trạng thái tham khảo ở đây, thao tác làm bên đó.
@@ -127,9 +174,18 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
     return m
   }, [reviews])
 
+  // Đang đếm để xác nhận nhận (2026-10-12): id đợt -> số cây người nhận điền (mặc định = số kho xuất).
+  // Người nhận tự đếm, tự điền - lệch thì BE báo kho + QLSX, vẫn cho nhận.
+  const [counting, setCounting] = useState<Record<string, string>>({})
   const doReceive = async (l: BeSteelIssue) => {
+    const n = Math.floor(Number(counting[l.id]))
+    if (!Number.isFinite(n) || n < 1) { setErr(p => ({ ...p, [l.id]: 'Nhập số cây thực nhận (ít nhất 1). Không nhận được cây nào thì báo kho, đừng xác nhận.' })); return }
     setBusy(l.id); setErr(p => ({ ...p, [l.id]: '' }))
-    try { await api.receiveSteelIssue(l.id); refetch() }
+    try {
+      await api.receiveSteelIssue(l.id, n)
+      setCounting(p => { const q = { ...p }; delete q[l.id]; return q })
+      refetch()
+    }
     catch (e) { setErr(p => ({ ...p, [l.id]: errMsg(e, 'Không xác nhận được') })) }
     finally { setBusy(null) }
   }
@@ -223,11 +279,18 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
                     <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{new Date(l.issuedAt).toLocaleString('vi-VN')}</td>
                     <td style={{ ...td, textAlign: 'center' }}>
                       {l.status === 'ISSUED' ? (
-                        readOnly ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>chờ xác nhận nhận</span> : (
-                          <button onClick={() => doReceive(l)} disabled={busy === l.id}
-                            style={{ padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-e65100)', color: '#fff', cursor: busy === l.id ? 'not-allowed' : 'pointer' }}>
-                            {busy === l.id ? '...' : 'Xác nhận đã nhận'}
+                        readOnly ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>chờ xác nhận nhận</span> : counting[l.id] == null ? (
+                          <button onClick={() => setCounting(p => ({ ...p, [l.id]: String(l.barCount) }))}
+                            style={{ padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-e65100)', color: '#fff', cursor: 'pointer' }}>
+                            Xác nhận đã nhận
                           </button>
+                        ) : (
+                          <ReceiveCountInput
+                            barCount={l.barCount} value={counting[l.id]} busy={busy === l.id}
+                            onChange={v => setCounting(p => ({ ...p, [l.id]: v }))}
+                            onConfirm={() => doReceive(l)}
+                            onCancel={() => setCounting(p => { const q = { ...p }; delete q[l.id]; return q })}
+                          />
                         )
                       ) : l.status === 'RECEIVED' ? (
                         <span style={{ fontSize: 12, color: 'var(--text3)' }}>đã nhận · chờ cắt</span>
@@ -249,6 +312,7 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
                           <Check size={14} /> KCS: ĐẠT
                         </span>
                       )}
+                      {l.status !== 'ISSUED' && <ReceivedNote issue={l} />}
                     </td>
                   </tr>
                   {err[l.id] && (

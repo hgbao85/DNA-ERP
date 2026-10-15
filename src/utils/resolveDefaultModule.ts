@@ -8,6 +8,8 @@ interface ModuleStrategy {
 
 const MODULE_STRATEGIES: ModuleStrategy[] = [
   { matches: (u) => u.role === 'ADMIN',                       module: 'admin'             },
+  // Công nhân xưởng có mfgRole (PHOI/HAN/SON) nhưng KHÔNG dùng MfgApp - chỉ màn quét QR `/floor`.
+  { matches: (u) => !!u.isFloorWorker,                       module: 'floor'             },
   { matches: (u) => !!u.mfgRole,                             module: 'production'        },
   { matches: (u) => !!u.isProductPlanner,                    module: 'production_plan'   },
   { matches: (u) => !!u.isSale,                              module: 'sales'             },
