@@ -71,6 +71,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
 }) {
   const { user } = useAuth()
+  // Admin được sửa định mức ngay cả khi KHSX/Sếp đã duyệt (ghi đè trực tiếp, không cần duyệt
+  // lại - BE chặn mọi role khác, xem SkusService.resolveNonDraftOrAdminOverride, 2026-10-15).
+  const isAdmin = user?.role === 'ADMIN'
   const { logAction } = useAuditLog()
   // Điện thoại: bảng dòng vật tư 7 cột -> thẻ; ô nhập form co giãn thay vì rộng cố định.
   const isMobile = useIsMobile()
@@ -172,7 +175,8 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   }
 
   const bomSt = selectedBom ? bomStatus(selectedBom.id) : 'canInput'
-  const isSubmitted = bomSt === 'pending' || bomSt === 'approved'
+  // Admin không bị khoá ở đây - vẫn sửa/nộp lại được dù KHSX/Sếp đã duyệt xong (xem isAdmin).
+  const isSubmitted = (bomSt === 'pending' || bomSt === 'approved') && !isAdmin
 
   // ─── Render ────────────────────────────────────────────────────────────
   // Gate CHỈ áp cho subTab 'dinh-muc' (cần skus) - 'catalog' (SpecAccessoryCatalogPage) không đụng
@@ -213,7 +217,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                 </tr>
               </thead>
               <tbody>
-                {boms.filter(b => `${b.ten} ${b.maKhachHang}`.toLowerCase().includes(bomSearch.toLowerCase()) && bomStatus(b.id) !== 'approved').map(item => {
+                {boms.filter(b => `${b.ten} ${b.maKhachHang}`.toLowerCase().includes(bomSearch.toLowerCase()) && (bomStatus(b.id) !== 'approved' || isAdmin)).map(item => {
                   const st = bomStatus(item.id)
                   const rejectReason = st === 'rejected' ? findPf(item.id)?.quotaManagement?.reviewStatus?.reason : undefined
                   return (
@@ -232,7 +236,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.maKhachHang || '—'}</td>
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
                     <td style={{ padding: '12px 14px' }}>
-                      {st === 'pending'
+                      {st === 'approved'
+                        ? <span style={{ background: 'var(--bg-e8f5e9)', color: 'var(--fg-2e7d32)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✓ Đã duyệt (Admin ghi đè)</span>
+                        : st === 'pending'
                         ? <span style={{ background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
                         : st === 'rejected'
                         ? <span style={{ background: 'var(--bg-ffebee)', color: 'var(--fg-c62828)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
@@ -425,13 +431,13 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
               padding: '12px 16px', background: 'var(--surface)',
 
               border: `1px solid ${
-                bomSt === 'approved' ? 'var(--fg-a5d6a7)'
-                : bomSt === 'pending' ? 'var(--fg-ffe082)'
+                bomSt === 'approved' && !isAdmin ? 'var(--fg-a5d6a7)'
+                : bomSt === 'pending' && !isAdmin ? 'var(--fg-ffe082)'
                 : 'var(--border)'
               }`,
               borderRadius: 'var(--radius-lg)',
             }}>
-              {bomSt === 'approved' ? (
+              {bomSt === 'approved' && !isAdmin ? (
                 <>
                   <span style={{ fontSize: 13, color: 'var(--fg-2e7d32)', fontWeight: 600 }}>✓ Đã được duyệt</span>
                   <button onClick={() => setSelectedBom(null)} style={{
@@ -439,7 +445,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                     background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
                   }}>Quay lại danh sách</button>
                 </>
-              ) : bomSt === 'pending' ? (
+              ) : bomSt === 'pending' && !isAdmin ? (
                 <>
                   <span style={{ fontSize: 13, color: 'var(--fg-e65100)', fontWeight: 600 }}>⏳ Đã gửi phê duyệt — đang chờ quản lý xác nhận</span>
                   <button onClick={() => setSelectedBom(null)} style={{
@@ -452,6 +458,11 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                   {submitDetailError && (
                     <span style={{ fontSize: 12, color: 'var(--fg-c62828)', flex: '1 1 100%' }}>{submitDetailError}</span>
                   )}
+                  {isAdmin && (bomSt === 'approved' || bomSt === 'pending') && (
+                    <span style={{ fontSize: 12, color: 'var(--fg-e65100)', flex: '1 1 100%' }}>
+                      ⚠ SKU này đã {bomSt === 'approved' ? 'được duyệt' : 'nộp, đang chờ duyệt'} — sửa và gửi sẽ ghi đè trực tiếp, không cần duyệt lại.
+                    </span>
+                  )}
                   <span style={{ fontSize: 13, color: 'var(--text2)' }}>{lines.length} vật tư</span>
                   <button
                     onClick={submitAll}
@@ -461,7 +472,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                       background: 'var(--bg-1565c0)', color: '#fff', fontWeight: 700, fontSize: 13,
                       cursor: savingDetail ? 'not-allowed' : 'pointer', opacity: savingDetail ? 0.7 : 1,
                     }}
-                  >{savingDetail ? 'Đang gửi...' : 'Gửi phê duyệt →'}</button>
+                  >{savingDetail ? 'Đang gửi...' : (bomSt === 'approved' && isAdmin) ? 'Ghi đè định mức →' : 'Gửi phê duyệt →'}</button>
                 </>
               )}
             </div>

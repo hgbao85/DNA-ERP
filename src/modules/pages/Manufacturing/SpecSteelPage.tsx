@@ -145,6 +145,10 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
 }) {
   const { user } = useAuth()
+  // Admin được sửa định mức ngay cả khi KHSX/Sếp đã duyệt (ghi đè trực tiếp, không cần duyệt
+  // lại - BE chặn mọi role khác bằng BomRevisionsService/SkusService.resolveNonDraftOrAdminOverride,
+  // xem backend 2026-10-15). Dưới đây chỉ là mở lại UI cho đúng role này, BE vẫn tự kiểm độc lập.
+  const isAdmin = user?.role === 'ADMIN'
   const { logAction } = useAuditLog()
   // Điện thoại: bảng vật tư con 10 cột -> thẻ; ô nhập form thêm vật tư co giãn thay vì rộng cố định.
   const isMobile = useIsMobile()
@@ -363,7 +367,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const totalChildren = manhs.reduce((s, m) => s + m.children.length, 0)
   const manhSt = selectedBom ? manhBomStatus(selectedBom.id) : 'canInput'
   // Bị từ chối vẫn phải cho sửa/nộp lại — chỉ khoá khi đã nộp và đang chờ duyệt hoặc đã duyệt.
-  const isSubmitted = manhSt === 'pending' || manhSt === 'approved'
+  // Admin không bị khoá ở đây (xem isAdmin) - vẫn sửa/nộp lại được dù KHSX/Sếp đã duyệt xong.
+  const isSubmitted = (manhSt === 'pending' || manhSt === 'approved') && !isAdmin
 
   const catalogGroupId = groupIdOf(catalogGroup)
   const catalogSteelSubGroup = steelSubGroupOf(catalogGroup)
@@ -412,7 +417,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                 </tr>
               </thead>
               <tbody>
-                {manhBoms.filter(b => `${b.ten} ${b.maKhachHang}`.toLowerCase().includes(manhBomSearch.toLowerCase()) && manhBomStatus(b.id) !== 'approved').map(item => {
+                {manhBoms.filter(b => `${b.ten} ${b.maKhachHang}`.toLowerCase().includes(manhBomSearch.toLowerCase()) && (manhBomStatus(b.id) !== 'approved' || isAdmin)).map(item => {
                   const st = manhBomStatus(item.id)
                   const rejectReason = st === 'rejected' ? findPf(item.id)?.manhReviewStatus?.reason : undefined
                   return (
@@ -431,7 +436,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.maKhachHang || '—'}</td>
                     <td style={{ padding: '12px 14px', color: 'var(--text2)' }}>{item.thoiGian}</td>
                     <td style={{ padding: '12px 14px' }}>
-                      {st === 'pending'
+                      {st === 'approved'
+                        ? <span style={{ background: 'var(--bg-e8f5e9)', color: 'var(--fg-2e7d32)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✓ Đã duyệt (Admin ghi đè)</span>
+                        : st === 'pending'
                         ? <span style={{ background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
                         : st === 'rejected'
                         ? <span style={{ background: 'var(--bg-ffebee)', color: 'var(--fg-c62828)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
@@ -904,13 +911,13 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10,
               padding: '12px 16px', background: 'var(--surface)',
               border: `1px solid ${
-                manhSt === 'approved' ? 'var(--fg-a5d6a7)'
-                : manhSt === 'pending' ? 'var(--fg-ffe082)'
+                manhSt === 'approved' && !isAdmin ? 'var(--fg-a5d6a7)'
+                : manhSt === 'pending' && !isAdmin ? 'var(--fg-ffe082)'
                 : 'var(--border)'
               }`,
               borderRadius: 'var(--radius-lg)',
             }}>
-              {manhSt === 'approved' ? (
+              {manhSt === 'approved' && !isAdmin ? (
                 <>
                   <span style={{ fontSize: 13, color: 'var(--fg-2e7d32)', fontWeight: 600 }}>
                     ✓ Đã được duyệt
@@ -920,7 +927,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
                   }}>Quay lại danh sách</button>
                 </>
-              ) : manhSt === 'pending' ? (
+              ) : manhSt === 'pending' && !isAdmin ? (
                 <>
                   <span style={{ fontSize: 13, color: 'var(--fg-e65100)', fontWeight: 600 }}>
                     ⏳ Đã gửi phê duyệt — đang chờ quản lý xác nhận
@@ -935,6 +942,11 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   {submitManhError && (
                     <span style={{ fontSize: 12, color: 'var(--fg-c62828)', flex: '1 1 100%' }}>{submitManhError}</span>
                   )}
+                  {isAdmin && (manhSt === 'approved' || manhSt === 'pending') && (
+                    <span style={{ fontSize: 12, color: 'var(--fg-e65100)', flex: '1 1 100%' }}>
+                      ⚠ SKU này đã {manhSt === 'approved' ? 'được duyệt' : 'nộp, đang chờ duyệt'} — sửa và gửi sẽ ghi đè trực tiếp, không cần duyệt lại.
+                    </span>
+                  )}
                   <span style={{ fontSize: 13, color: 'var(--text2)' }}>
                     {manhs.length} mảnh · {totalChildren} dòng vật tư
                   </span>
@@ -948,7 +960,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       cursor: totalChildren > 0 && !savingManh ? 'pointer' : 'not-allowed',
                       opacity: savingManh ? 0.7 : 1,
                     }}
-                  >{savingManh ? 'Đang gửi...' : 'Gửi phê duyệt →'}</button>
+                  >{savingManh ? 'Đang gửi...' : (manhSt === 'approved' && isAdmin) ? 'Ghi đè định mức →' : 'Gửi phê duyệt →'}</button>
                 </>
               )}
             </div>

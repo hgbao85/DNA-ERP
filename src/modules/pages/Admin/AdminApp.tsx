@@ -1,7 +1,7 @@
 'use client'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
 import { useEffect, useState, useCallback } from 'react'
-import { LayoutDashboard, Users, History, Database, Bell, Settings, Briefcase, Activity, LogOut, Warehouse, Image as ImageIcon, PenLine, Wrench, Menu, X, BookOpen } from 'lucide-react'
+import { LayoutDashboard, Users, History, Database, Bell, Settings, Briefcase, Activity, LogOut, Warehouse, Image as ImageIcon, PenLine, Wrench, Ruler, Menu, X, BookOpen } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
@@ -18,15 +18,16 @@ import SystemStatusPage from './SystemStatusPage'
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import OfficeSuppliesAdminPage from './OfficeSuppliesAdminPage'
 import PhoiSkuAdminPage from './PhoiSkuAdminPage'
+import SkuQuotaAdminPage from './SkuQuotaAdminPage'
 import AdminGuidePage from './AdminGuidePage'
 import ThemeToggle from '../../../components/ThemeToggle'
 
 const ACCENT    = 'var(--fg-3949ab)'
 const ACCENT_BG = 'var(--bg-e8eaf6)'
 
-type AdminPage = 'dashboard' | 'users' | 'warehouses' | 'office-supplies' | 'phoi-sku' | 'audit-log' | 'master-data' | 'business-data' | 'attachments' | 'notifications' | 'system-config' | 'system-status' | 'guide'
+type AdminPage = 'dashboard' | 'users' | 'warehouses' | 'office-supplies' | 'phoi-sku' | 'sku-quota' | 'audit-log' | 'master-data' | 'business-data' | 'attachments' | 'notifications' | 'system-config' | 'system-status' | 'guide'
 
-const ADMIN_PAGE_VALUES: AdminPage[] = ['dashboard', 'users', 'warehouses', 'office-supplies', 'phoi-sku', 'audit-log', 'master-data', 'business-data', 'attachments', 'notifications', 'system-config', 'system-status', 'guide']
+const ADMIN_PAGE_VALUES: AdminPage[] = ['dashboard', 'users', 'warehouses', 'office-supplies', 'phoi-sku', 'sku-quota', 'audit-log', 'master-data', 'business-data', 'attachments', 'notifications', 'system-config', 'system-status', 'guide']
 const isAdminPage = (v: string | null): v is AdminPage => !!v && (ADMIN_PAGE_VALUES as string[]).includes(v)
 
 const NAV_ITEMS: { id: AdminPage; label: string; icon: React.ReactNode; enabled: boolean }[] = [
@@ -35,6 +36,7 @@ const NAV_ITEMS: { id: AdminPage; label: string; icon: React.ReactNode; enabled:
   { id: 'warehouses',     label: 'Quản lý kho',           icon: <Warehouse size={16} />,       enabled: true },
   { id: 'office-supplies', label: 'Văn phòng phẩm',        icon: <PenLine size={16} />,         enabled: true },
   { id: 'phoi-sku',       label: 'Sửa SKU đợt Phôi',         icon: <Wrench size={16} />,          enabled: true },
+  { id: 'sku-quota',      label: 'Sửa định mức SKU',         icon: <Ruler size={16} />,           enabled: true },
   { id: 'audit-log',      label: 'Nhật ký hoạt động',        icon: <History size={16} />,         enabled: true },
   { id: 'master-data',    label: 'Danh mục hệ thống',        icon: <Database size={16} />,        enabled: true },
   { id: 'business-data',  label: 'Module nghiệp vụ',         icon: <Briefcase size={16} />,       enabled: true },
@@ -142,6 +144,7 @@ export default function AdminApp() {
       {page === 'warehouses'     && <MfgWarehousesPage />}
       {page === 'office-supplies' && <OfficeSuppliesAdminPage />}
       {page === 'phoi-sku'       && <PhoiSkuAdminPage />}
+      {page === 'sku-quota'      && <SkuQuotaAdminPage />}
       {page === 'audit-log'      && <AuditLogPage />}
       {page === 'master-data'    && <MasterDataPage />}
       {page === 'business-data'  && <BusinessDataPage />}
