@@ -4,11 +4,13 @@ import { useFetch } from '../../../../hooks/useFetch'
 import { useAuditLog } from '../../../../context/AuditLogContext'
 import {
   getMaterialYieldRecipes, createMaterialYieldRecipe, updateMaterialYieldRecipe, deleteMaterialYieldRecipe,
-  getMaterials,
+  getMaterials, getMaterialGroups,
 } from '../../../../services/api'
+import { MATERIAL_GROUP_SYSTEM_KEYS } from '../../../../constants/materialGroupSystemKeys'
 import { PROCESS_STEPS, PROCESS_STEP_LABELS } from '../../../../constants/processSteps'
 import type { ProcessStep } from '../../../../types/sku'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
+import SearchableSelect from '../../../../components/SearchableSelect'
 
 interface MaterialYieldRecipe {
   id: number
@@ -39,15 +41,17 @@ interface MaterialYieldRecipe {
 export default function MaterialYieldRecipesPage({ canManageActive = true }: { canManageActive?: boolean } = {}) {
   const { logAction } = useAuditLog()
   const { data: materialsData } = useFetch(() => getMaterials(), [])
+  const { data: groupsData } = useFetch(() => getMaterialGroups(), [])
   const materials = materialsData ?? []
-  const outputMaterialOptions = materials
-    .filter(m => m.steelSubGroup === 'FINISHED_COMPONENT')
-    .map(m => ({ value: String(m.id), label: `${m.code} — ${m.name}` }))
-  const inputMaterialOptions = materials
-    .map(m => ({ value: String(m.id), label: `${m.code} — ${m.name}` }))
-  const materialLabel = (id: string) => materials.find(m => String(m.id) === id)
-    ? `${materials.find(m => String(m.id) === id)!.code} — ${materials.find(m => String(m.id) === id)!.name}`
-    : id
+  const groups = groupsData ?? []
+  const steelGroupId = groups.find(g => g.systemKey === MATERIAL_GROUP_SYSTEM_KEYS.STEEL_BAR)?.id
+  const materialDisplayLabel = (m: { name: string; spec?: string | null }) => m.spec ? `${m.name} — ${m.spec}` : m.name
+  const outputMaterials = materials.filter(m => m.steelSubGroup === 'FINISHED_COMPONENT')
+  const inputMaterials = materials.filter(m => m.materialGroupId === steelGroupId)
+  const materialLabel = (id: string, fallback?: string) => {
+    const m = materials.find(m => String(m.id) === id)
+    return m ? materialDisplayLabel(m) : (fallback ?? id)
+  }
 
   const config: AdminEntityConfig<MaterialYieldRecipe> = {
     title: 'Định mức vật tư thành phẩm',
@@ -55,11 +59,11 @@ export default function MaterialYieldRecipesPage({ canManageActive = true }: { c
     searchFields: ['outputMaterialCode', 'outputMaterialName', 'inputMaterialCode', 'inputMaterialName'],
     searchPlaceholder: 'Tìm theo mã hoặc tên vật tư...',
     emptyMessage: 'Chưa có định mức nào — vào đây khai "1 vật tư vào cắt ra N vật tư ra" (vd thanh nhôm → chân nhôm)',
-    addLabel: 'Thêm định mức',
+    addLabel: 'Thêm định mức VTTP',
     pageSize: 10,
     columns: [
-      { key: 'outputMaterialCode', label: 'Vật tư ra', render: m => `${m.outputMaterialCode} — ${m.outputMaterialName}` },
-      { key: 'inputMaterialCode', label: 'Vật tư vào', render: m => `${m.inputMaterialCode} — ${m.inputMaterialName}` },
+      { key: 'outputMaterialCode', label: 'Vật tư ra', render: m => materialLabel(m.outputMaterialId, m.outputMaterialName) },
+      { key: 'inputMaterialCode', label: 'Vật tư vào', render: m => materialLabel(m.inputMaterialId, m.inputMaterialName) },
       { key: 'piecesPerBar', label: 'Số vật tư ra / 1 đơn vị vào', align: 'right' },
       {
         key: 'processSteps', label: 'Công đoạn',
@@ -71,12 +75,52 @@ export default function MaterialYieldRecipesPage({ canManageActive = true }: { c
     ],
     formFields: [
       {
-        name: 'outputMaterialId', label: 'Vật tư ra (phải thuộc nhóm Sắt — Vật tư thành phẩm)', type: 'select',
-        required: true, options: outputMaterialOptions,
+        name: 'outputMaterialId', label: 'Vật tư ra (phải thuộc nhóm Sắt — Vật tư thành phẩm)', type: 'custom',
+        required: true,
+        Render: ({ value, setField }) => {
+          const selected = outputMaterials.find(m => String(m.id) === String(value ?? ''))
+          return (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>
+                Vật tư ra (phải thuộc nhóm Sắt — Vật tư thành phẩm) <span style={{ color: 'var(--fg-c62828)' }}>*</span>
+              </div>
+              <SearchableSelect
+                displayValue={selected ? materialDisplayLabel(selected) : ''}
+                options={outputMaterials}
+                getKey={m => String(m.id)}
+                getSearchText={m => `${m.name} ${m.spec ?? ''}`}
+                renderOption={m => <span>{materialDisplayLabel(m)}</span>}
+                onSelect={m => setField('outputMaterialId', String(m.id))}
+                placeholder="Nhập để tìm hoặc chọn…"
+                emptyText="Không tìm thấy — vật tư phải thuộc nhóm Sắt, nhóm con Vật tư thành phẩm"
+              />
+            </div>
+          )
+        },
       },
       {
-        name: 'inputMaterialId', label: 'Vật tư vào (nguyên liệu mua)', type: 'select',
-        required: true, options: inputMaterialOptions,
+        name: 'inputMaterialId', label: 'Vật tư vào (nguyên liệu mua)', type: 'custom',
+        required: true,
+        Render: ({ value, setField }) => {
+          const selected = inputMaterials.find(m => String(m.id) === String(value ?? ''))
+          return (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>
+                Vật tư vào (nguyên liệu mua) <span style={{ color: 'var(--fg-c62828)' }}>*</span>
+              </div>
+              <SearchableSelect
+                displayValue={selected ? materialDisplayLabel(selected) : ''}
+                options={inputMaterials}
+                getKey={m => String(m.id)}
+                getSearchText={m => `${m.name} ${m.spec ?? ''}`}
+                renderOption={m => <span>{materialDisplayLabel(m)}</span>}
+                onSelect={m => setField('inputMaterialId', String(m.id))}
+                placeholder="Nhập để tìm hoặc chọn…"
+                emptyText="Không tìm thấy — vật tư phải thuộc nhóm Sắt"
+              />
+            </div>
+          )
+        },
       },
       {
         name: 'piecesPerBar', label: 'Số vật tư ra / 1 đơn vị vào', type: 'number', required: true,
@@ -113,9 +157,9 @@ export default function MaterialYieldRecipesPage({ canManageActive = true }: { c
     ],
     deleteConfirm: m => ({
       title: 'Xóa định mức',
-      message: `Xóa định mức "${materialLabel(m.outputMaterialId)}" ← "${materialLabel(m.inputMaterialId)}"? Hành động này không thể hoàn tác.`,
+      message: `Xóa định mức "${materialLabel(m.outputMaterialId, m.outputMaterialName)}" ← "${materialLabel(m.inputMaterialId, m.inputMaterialName)}"? Hành động này không thể hoàn tác.`,
     }),
-    guardSave: () => (materialsData == null ? 'Chưa tải được danh sách Vật tư - thử lại' : undefined),
+    guardSave: () => (materialsData == null || groupsData == null ? 'Chưa tải được danh sách Vật tư - thử lại' : undefined),
     onMutate: (action, m) => {
       const label = `${m.outputMaterialCode} ← ${m.inputMaterialCode}`
       if (action === 'create') logAction('material-yield-recipe', String(m.id), 'masterdata.created', label)
