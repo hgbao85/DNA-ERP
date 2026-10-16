@@ -23,16 +23,25 @@ export type KhoKey = 'phoiSonHan' | 'vatTuTP' | 'thanhPham'
 // chung 1 định nghĩa thay vì PurchaseProposalItem phải tham chiếu ngược PurchaseProposal['status'].
 export type ProposalStatus = 'new' | 'quoting' | 'submitted' | 'purchasing' | 'purchased' | 'rejected'
 
+/** 1 lần nhận hàng thực tế (2026-10-16) - thay cho hệ số quy đổi cố định Material.purchaseUnit/
+ *  khoUnitFactor đã xoá: Ô1 (unitRateQty) × Ô2 (supplierUnitQty) nhập tay mỗi lô, backend tự
+ *  nhân ra receivedQty. Xem NhapKhoPage.tsx. */
+export interface PurchaseReceiptLog {
+  id: string
+  unitRateQty: number
+  supplierUnitQty: number
+  receivedQty: number
+  receiptFileUrl?: string | null
+  receivedByName?: string | null
+  receivedAt: string
+}
+
 export interface PurchaseProposalItem {
   name: string
   /** Quy cách vật tư (Material.spec, vd "10x29x0.8") - đối chiếu hàng về đúng quy cách đã đặt,
    *  nhất là vật tư trùng tên khác kích cỡ (2026-09-15). */
   spec?: string | null
   unit: string
-  // Đơn vị mua hàng từ NCC (vd "kg") khi khác `unit` + hệ số quy đổi (số unit / 1 purchaseUnit,
-  // vd 250 = 250 cái/kg) - null nếu vật tư chỉ có 1 đơn vị. Xem Material.purchaseUnit (BE).
-  purchaseUnit?: string | null
-  khoUnitFactor?: number | null
   /** % dự trù hao hụt khi mua (Material.purchaseWastePercentage) - LIVE theo Material hiện tại,
    *  không snapshot (2026-10-08). Đã được BE cộng vào `buyQty` rồi - field này chỉ để hiển thị
    *  giải thích vì sao buyQty cao hơn nhu cầu gốc. null = chưa cấu hình % (hoặc Sắt phần mềm). */
@@ -57,7 +66,9 @@ export interface PurchaseProposalItem {
    *  D.a5-n-plus-one). Optional để tương thích ngược, mọi item đọc từ BE thật đều có. */
   itemId?: string
   receivedQty?: number // luỹ kế thủ kho đã xác nhận nhận về, so với buyQty để biết đã đủ chưa
-  receivedQtyPurchaseUnit?: number | null // luỹ kế theo purchaseUnit (vd kg) - chỉ để đối chiếu
+  /** Luỹ kế "Ô2" (supplierUnitQty) qua các lần nhận - chỉ để đối chiếu/audit tổng số lượng theo
+   *  đơn vị bên bán. Xem receiptLogs bên dưới để biết chi tiết từng lô. */
+  receivedQtyPurchaseUnit?: number | null
   /** Trạng thái CỦA RIÊNG DÒNG NÀY (2026-08-25) - nguồn sự thật cho mọi gate nghiệp vụ (báo giá,
    *  gửi Sếp, duyệt, từ chối, nhận hàng). `PurchaseProposal.status` giờ chỉ còn là rollup hiển thị
    *  tổng quát - KHÔNG dùng để quyết định 1 dòng vật tư cụ thể làm được gì, vì 1 đề xuất gộp có
@@ -75,6 +86,8 @@ export interface PurchaseProposalItem {
    *  nằm trong chính file, cố ý không tách ra field riêng (Sếp chốt). undefined = dòng duyệt theo
    *  luồng cũ (qua màn So sánh giá của Sếp, đã gỡ). */
   approvalFileUrl?: string
+  /** Lịch sử từng lần nhận hàng (2026-10-16), mới nhất trước - xem PurchaseReceiptLog. */
+  receiptLogs?: PurchaseReceiptLog[]
 }
 
 export interface PurchaseProposal {
@@ -158,7 +171,10 @@ interface InspCtxType {
   /** Mua hàng xác nhận "Sếp đã duyệt" kèm file phiếu đã ký (2026-08-27) - thay cho cả chuỗi
    *  acknowledge/báo giá/gửi Sếp/Sếp duyệt đã gỡ. BE tự lọc đúng phần vật tư của actor. */
   bossApproveProposal:     (proposalId: string, approvalFileUrl: string) => Promise<void>
-  receiveProposalItem:     (proposalId: string, itemKey: string, qty: number, receivedQtyPurchaseUnit?: number) => Promise<void>
+  /** Ô1 (unitRateQty) × Ô2 (supplierUnitQty, mặc định 1) = số lượng thật cộng vào tồn kho - backend
+   *  tự nhân (2026-10-16, thay cho hệ số quy đổi cố định Material.khoUnitFactor đã xoá). Xem
+   *  NhapKhoPage.tsx. */
+  receiveProposalItem:     (proposalId: string, itemKey: string, input: { unitRateQty: number, supplierUnitQty?: number, receiptFileUrl?: string }) => Promise<void>
   /** Admin "Quản lý tệp đính kèm" (2026-09-11) - thay/xóa file duyệt của 1 item (`approvalFileUrl:
    *  null` = xóa hẳn, xem services/purchasing-api.ts#updateProposalItemApprovalFile). */
   updateApprovalFile:      (proposalId: string, itemId: string, approvalFileUrl: string | null) => Promise<void>
@@ -243,11 +259,11 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
   // Thủ kho xác nhận đã nhận hàng — cộng dồn qua nhiều lần nhập (hàng có thể về nhiều đợt) ở
   // tầng BE (xem PurchaseProposalsService.receiveItem), tự chuyển 'purchasing' -> 'purchased'
   // khi mọi item đã nhận đủ buyQty.
-  const receiveProposalItem = useCallback((proposalId: string, itemKey: string, qty: number, receivedQtyPurchaseUnit?: number) =>
+  const receiveProposalItem = useCallback((proposalId: string, itemKey: string, input: { unitRateQty: number, supplierUnitQty?: number, receiptFileUrl?: string }) =>
     runAction('Xác nhận nhận hàng', async () => {
       const current = proposals.find(p => p.id === proposalId)
       if (!current) throw new Error('Không tìm thấy đề xuất trong danh sách - hãy tải lại trang')
-      const updated = await receiveProposalItemApi(current, itemKey, qty, receivedQtyPurchaseUnit)
+      const updated = await receiveProposalItemApi(current, itemKey, input)
       setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
     }), [proposals, runAction])
 

@@ -78,6 +78,7 @@ test.describe('Golden path', () => {
     const qty = 5;
     let salesOrderId = '';
     let salesOrderCode = '';
+    let poCode = '';
 
     // ── 1. Sales tạo PO cho SKU đã duyệt "test" (UI thật) ──────────────────────
     await test.step('Sales tạo PO mới', async () => {
@@ -89,6 +90,12 @@ test.describe('Golden path', () => {
       await page.getByRole('button', { name: 'Tạo PO' }).click();
       await expect(page.getByText('Tạo PO mới')).toBeVisible();
 
+      // "Mã đơn hàng" (SalesOrder.orderCode, Sales tự gõ tay từ 2026-09-10) - field bắt buộc mới
+      // chưa có lúc viết test gốc, và từ nay chính là mã "PO" hiển thị khắp UI thay cho
+      // SalesOrder.code tự sinh cũ (pre-existing gap, không liên quan thay đổi lần này).
+      poCode = `E2E-${Date.now()}`;
+      await page.getByPlaceholder('Mã đơn hàng (vd mã PO giấy của khách) *').fill(poCode);
+
       const customerInput = page.getByPlaceholder('Tìm hoặc chọn khách hàng *');
       await customerInput.click();
       await customerInput.fill('MEIJING');
@@ -99,8 +106,16 @@ test.describe('Golden path', () => {
       await skuInput.fill('test');
       await page.getByRole('button', { name: /^test/ }).click();
 
-      const deliveryDate = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
-      await page.locator('input[title="Hạn giao"]').fill(deliveryDate);
+      // 2026-10-16: DatePicker (src/components/DatePicker.tsx) tự vẽ lịch bằng <button> + popup
+      // calendar, KHÔNG còn là <input type="date"> - `input[title="Hạn giao"]` không khớp gì nữa
+      // (pre-existing, không liên quan thay đổi lần này). Click nút mở lịch rồi chọn đúng ngày qua
+      // aria-label "dd/MM/yyyy" của ô ngày trong popup.
+      const deliveryDateObj = new Date(Date.now() + 7 * 86_400_000);
+      const dd = String(deliveryDateObj.getDate()).padStart(2, '0');
+      const mm = String(deliveryDateObj.getMonth() + 1).padStart(2, '0');
+      const yyyy = deliveryDateObj.getFullYear();
+      await page.locator('button[title="Hạn giao"]').click();
+      await page.getByRole('button', { name: `${dd}/${mm}/${yyyy}` }).click();
       await page.getByPlaceholder('Tổng số').fill(String(qty));
       await page.getByPlaceholder('Ghi chú').fill(marker);
 
@@ -110,7 +125,9 @@ test.describe('Golden path', () => {
       ]);
       const json = await resp.json();
       salesOrderId = json.data.id;
-      salesOrderCode = json.data.code;
+      // orderCode (gõ tay) là mã "PO" hiển thị trên UI (xem comment ở trên) - .code (tự sinh,
+      // id-based) chỉ còn là tra cứu nội bộ, KHÔNG hiện ở bảng Quản lí đơn hàng nữa.
+      salesOrderCode = json.data.orderCode ?? poCode;
       expect(salesOrderId).toBeTruthy();
 
       await expect(page.getByText(salesOrderCode)).toBeVisible();
@@ -131,20 +148,79 @@ test.describe('Golden path', () => {
       await ctx.close();
     });
 
-    // ── 3. KHSX gửi QLSX xử lý (UI thật) ────────────────────────────────────────
-    await test.step('KHSX gửi lệnh sản xuất cho QLSX', async () => {
+    // ── 3. KHSX tính phương án cắt sắt rồi tạo lệnh sản xuất (UI thật) ─────────
+    // 2026-09-30 ("Solve trước -> tạo lệnh sản xuất"): kiến trúc đổi hẳn so với kịch bản gốc của
+    // test này - PI không còn tự sinh khi Boss duyệt nữa. KHSX phải tự tính phương án cắt (tab
+    // "Chọn và tính" của "Tối ưu cắt sắt") TRƯỚC, rồi mới "Tạo lệnh sản xuất" từ đúng phương án đã
+    // tính (claim-solo, vì chỉ 1 SKU - không gộp). cuttingProposalId/piCode lấy thẳng từ response
+    // claim-solo, không cần dò lại qua /production-invoices, /production-orders như kịch bản cũ
+    // (pre-existing drift, không liên quan thay đổi Nhập kho lần này - xem GomDotCatPage.tsx,
+    // CuttingSolvePanel.tsx, cutting-batch-api.ts).
+    let piCode = '';
+    let cuttingProposalId = '';
+    await test.step('KHSX tính phương án cắt sắt và tạo lệnh sản xuất', async () => {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
       await uiLogin(page, 'khsx');
 
-      await page.getByRole('button', { name: 'Lệnh sản xuất mới' }).click();
-      await page.getByPlaceholder('Tìm mã PO...').fill(salesOrderCode);
-      await page.getByRole('button', { name: new RegExp(salesOrderCode) }).click();
+      await Promise.all([
+        page.waitForResponse((r) => r.url().includes('/cutting-batch-solves') && r.request().method() === 'GET'),
+        page.getByRole('button', { name: 'Tối ưu cắt sắt' }).click(),
+      ]);
+      // Trang tự chuyển sang tab "Kết quả đã tính" NGAY SAU KHI loadSolves() xong nếu đã có lượt
+      // tính nào đó từ trước (vd lượt thất bại còn sót của lần chạy test trước, xem openedOnce ở
+      // GomDotCatPage.tsx) - bấm "Chọn và tính" TRƯỚC khi response trên về sẽ bị ghi đè ngược lại
+      // 'results' (race đã gặp thật). Đợi response xong rồi mới bấm thì chắc ăn.
+      await page.getByRole('button', { name: 'Chọn và tính' }).click();
+      // DB dev tích luỹ nhiều SKU ứng viên qua các lần chạy test trước - danh sách có thể tải chậm
+      // hơn bình thường, đợi dài hơn mặc định (15s) thay vì chỉ riêng phần "Đang tải...".
+      const row = page.getByRole('row').filter({ hasText: poCode });
+      await expect(row).toBeVisible({ timeout: 30_000 });
+      await row.getByRole('checkbox').check();
 
+      // Đơn lẻ test (1 SKU, không gộp) không lấp đầy nổi 1 cây chuẩn 6000mm nên luôn vượt ngưỡng
+      // hao hụt mặc định (1%) - chọn chế độ "Chấp nhận hao hụt cao hơn (đơn gấp)" kèm lý do, đúng
+      // lối thoát hệ thống đã thiết kế sẵn cho ca này (không phải lỗi, xem cutModePanel trong
+      // GomDotCatPage.tsx).
+      await page.getByRole('button', { name: /^Chế độ cắt:/ }).click();
+      await page.getByText('Chấp nhận hao hụt cao hơn (đơn gấp)').click();
+      await page.getByPlaceholder(/^Lý do để Sếp duyệt/).fill('E2E test - đơn lẻ không gộp, chấp nhận hao hụt cao để test luồng');
+
+      const [solveResp] = await Promise.all([
+        page.waitForResponse((r) => r.url().includes('/cutting-batch-solve') && r.request().method() === 'POST'),
+        page.getByRole('button', { name: /^Tính phương án cắt/ }).click(),
+      ]);
+      expect(solveResp.ok(), `POST cutting-batch-solve -> ${solveResp.status()}`).toBeTruthy();
+
+      await page.getByRole('button', { name: 'Kết quả đã tính' }).click();
+      // Solver stub chạy nền, trang tự poll lại mỗi 4s (xem GomDotCatPage.tsx) - đợi nút "Tạo lệnh
+      // sản xuất" xuất hiện (chỉ hiện khi phương án dùng được) thay vì tự poll API.
+      const createBtn = page.getByRole('button', { name: 'Tạo lệnh sản xuất', exact: true });
+      await expect(createBtn).toBeVisible({ timeout: 30_000 });
+
+      const [claimResp] = await Promise.all([
+        page.waitForResponse((r) => /\/production-invoices\/items\/\d+\/claim-solo$/.test(r.url()) && r.request().method() === 'POST'),
+        createBtn.click(),
+      ]);
+      expect(claimResp.ok(), `POST claim-solo -> ${claimResp.status()}`).toBeTruthy();
+      cuttingProposalId = (claimResp.request().postDataJSON() as { cuttingProposalId: string }).cuttingProposalId;
+      const claimJson = await claimResp.json();
+      piCode = claimJson.data.code;
+      expect(cuttingProposalId).toBeTruthy();
+      expect(piCode).toBeTruthy();
+
+      // onDone() tự chuyển sang tab "Lệnh sản xuất mới" (ProductionPlanApp.tsx) - PI vừa tạo đã
+      // nằm sẵn trong danh sách, gửi QLSX ngay không cần "Sửa thời hạn" (hạn đã ước tính sẵn từ PO).
+      await expect(page.getByText('Tạo lệnh sản xuất')).toBeVisible();
+      await page.getByPlaceholder('Tìm mã PI...').fill(piCode);
+      await page.getByText(piCode).first().click();
+
+      // 2026-10-16: modal xác nhận đổi tên/nội dung từ "Chọn SKU để sản xuất" sang "Gửi QLSX xử lý"
+      // (pre-existing drift, không liên quan thay đổi Nhập kho lần này - xem LenhSXPage.tsx).
       await page.getByRole('button', { name: 'Gửi QLSX', exact: true }).click();
-      await expect(page.getByText('Chọn SKU để sản xuất')).toBeVisible();
+      await expect(page.getByText('Gửi QLSX xử lý')).toBeVisible();
       await page.getByRole('button', { name: 'Gửi QLSX', exact: true }).last().click();
-      await expect(page.getByText('Chọn SKU để sản xuất')).toBeHidden();
+      await expect(page.getByText('Gửi QLSX xử lý')).toBeHidden();
       await ctx.close();
     });
 
@@ -155,20 +231,29 @@ test.describe('Golden path', () => {
       await uiLogin(page, 'qlsx');
 
       await page.getByRole('button', { name: 'Xử lý lệnh sản xuất' }).click();
-      await page.getByPlaceholder('Tìm mã PO...').fill(salesOrderCode);
-      await expect(page.getByText(salesOrderCode)).toBeVisible();
+      await page.getByPlaceholder('Tìm mã PI...').fill(piCode);
+      await expect(page.getByText(piCode)).toBeVisible();
+      // Danh sách chỉ hiện dòng tóm tắt - phải mở vào trang chi tiết PI mới thấy nút "Chọn kho sản
+      // xuất" (pre-existing, cùng pattern với "Lệnh sản xuất mới" ở bước KHSX trên).
+      await page.getByText(piCode).first().click();
 
       await page.getByRole('button', { name: 'Chọn kho sản xuất' }).click();
       await expect(page.getByText('Chọn kho thành phẩm')).toBeVisible();
+      // Options của SearchableSelect là <button> thật (src/components/SearchableSelect.tsx) - chọn
+      // kho thành phẩm nào cũng được, không ảnh hưởng tới bước Nhập kho sắt sau này (2 khái niệm
+      // kho khác nhau: đây là kho THÀNH PHẨM, Nhập kho sắt đọc Material.warehouseId riêng).
       await page.getByPlaceholder('Chọn kho thành phẩm cho SKU này...').click();
-      await page.locator('div').filter({ hasText: /^Kho/ }).getByRole('button').first().click();
+      await page.getByRole('button', { name: 'Kho thành phẩm 2' }).click();
 
       await page.getByRole('button', { name: 'Gửi sếp duyệt' }).click();
       await expect(page.getByText('Chọn kho thành phẩm')).toBeHidden();
       await ctx.close();
     });
 
-    // ── 5. Boss duyệt -> tạo PI/ProductionOrder + trigger đề xuất cắt sắt (UI thật) ──
+    // ── 5. Boss duyệt -> tạo ProductionOrder chính thức THEO ĐÚNG phương án cắt KHSX đã tính
+    //      trước (UI thật) - không còn trigger/tính lại cutting proposal ở bước này nữa (xem
+    //      comment bước 3) nên cũng không còn bước "QLSX duyệt đề xuất cắt sắt" riêng như kịch bản
+    //      gốc - PurchaseProposal tự sinh thẳng từ cuttingProposalId đã có.
     await test.step('Boss duyệt lệnh sản xuất', async () => {
       const ctx = await browser.newContext();
       const page = await ctx.newPage();
@@ -176,8 +261,9 @@ test.describe('Golden path', () => {
 
       await expect(page.getByText('Tổng hợp chờ duyệt')).toBeVisible();
       await page.getByRole('button', { name: 'Lệnh sản xuất' }).click();
-      await page.getByPlaceholder('Tìm mã PO...').fill(salesOrderCode);
-      await expect(page.getByText(salesOrderCode)).toBeVisible();
+      await page.getByPlaceholder('Tìm mã PI...').fill(piCode);
+      await expect(page.getByText(piCode)).toBeVisible();
+      await page.getByText(piCode).first().click();
 
       await page.getByRole('button', { name: 'Duyệt', exact: true }).click();
       await expect(page.getByText('Duyệt sản xuất — Tạo lệnh sản xuất')).toBeVisible();
@@ -186,56 +272,10 @@ test.describe('Golden path', () => {
       await ctx.close();
     });
 
-    // ── 6. Đề xuất cắt sắt: tìm ProductionOrder, đợi solver (stub) tính xong, QLSX duyệt (API — không có UI, xem đầu file) ──
-    const qlsxToken = await apiLogin(request, 'qlsx');
-    const khsxToken = await apiLogin(request, 'khsx');
     // qlsx thiếu PURCHASE_PROPOSAL:VIEW trên DB demo hiện tại dù role-permissions.constant.ts đã
     // khai (có thể do seed chưa đồng bộ) - dùng khopsh (WAREHOUSE_STAFF, đã xác nhận có quyền)
     // để đọc purchase-proposals thay vì qlsx.
     const khopshToken = await apiLogin(request, 'khopsh');
-
-    const { piItemId, piCode }: { piItemId: string; piCode: string } = await test.step(
-      'Tìm PI item vừa duyệt',
-      async () => {
-        const pis = await apiCall(request, khsxToken, 'GET', '/production-invoices?limit=100');
-        const pi = pis.data.find((p: any) => p.salesOrderId === salesOrderId);
-        expect(pi, `PI cho sales order ${salesOrderId}`).toBeTruthy();
-        const item = pi.items.find((it: any) => it.prodApprovalStatus === 'APPROVED');
-        expect(item, 'PI item ở trạng thái APPROVED').toBeTruthy();
-        return { piItemId: item.id, piCode: pi.code };
-      },
-    );
-
-    const productionOrderId: string = await test.step('Tìm ProductionOrder tự sinh', async () => {
-      for (let i = 0; i < 10; i++) {
-        const orders = await apiCall(request, qlsxToken, 'GET', '/production-orders?limit=100');
-        const order = orders.data.find((o: any) => o.productionInvoiceItemId === piItemId);
-        if (order) return order.id;
-        await new Promise((r) => setTimeout(r, 500));
-      }
-      throw new Error('ProductionOrder không tự sinh sau khi Boss duyệt');
-    });
-
-    const cuttingProposalId: string = await test.step('Đợi đề xuất cắt sắt tính xong (solver stub)', async () => {
-      for (let i = 0; i < 20; i++) {
-        const list = await apiCall(
-          request, qlsxToken, 'GET',
-          `/production-orders/${productionOrderId}/cutting-proposals?limit=5`,
-        );
-        const proposal = list.data[0];
-        if (proposal && proposal.status !== 'CALCULATING') {
-          expect(proposal.status, `cutting proposal: ${proposal.errorMessage ?? ''}`).toBe('DRAFT');
-          return proposal.id;
-        }
-        await new Promise((r) => setTimeout(r, 500));
-      }
-      throw new Error('Đề xuất cắt sắt không tính xong sau 10s - solver-stub có đang chạy? (xem e2e/solver-stub.js)');
-    });
-
-    await test.step('QLSX duyệt đề xuất cắt sắt', async () => {
-      const approved = await apiCall(request, qlsxToken, 'POST', `/cutting-proposals/${cuttingProposalId}/approve`);
-      expect(approved.status).toBe('APPROVED');
-    });
 
     // ── 7. Mua hàng: PurchaseProposal tự sinh từ đề xuất cắt sắt đã duyệt ──────
     // "nhan" là tài khoản THẬT khớp Material.buyerId của các vật tư sắt dùng trong BOM test này
@@ -268,7 +308,7 @@ test.describe('Golden path', () => {
         const ctx = await browser.newContext();
         const page = await ctx.newPage();
         await uiLogin(page, 'nhan');
-        await expect(page.getByText('Lệnh mua vật tư')).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Lệnh mua vật tư' })).toBeVisible();
 
         await page.getByRole('cell', { name: piCode, exact: true }).click();
         await page.getByRole('button', { name: 'Sếp đã duyệt' }).click();
@@ -286,7 +326,7 @@ test.describe('Golden path', () => {
           confirmBtn.click(),
         ]);
         expect(approveResp.ok(), `POST boss-approve -> ${approveResp.status()}`).toBeTruthy();
-        await expect(page.getByText('Lệnh mua vật tư')).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Lệnh mua vật tư' })).toBeVisible();
         await ctx.close();
       });
 
@@ -306,26 +346,44 @@ test.describe('Golden path', () => {
         await page.getByRole('button', { name: 'Nhập kho', exact: true }).click();
         await page.getByRole('cell', { name: piCode, exact: true }).click();
 
+        // 2026-10-16: màn Nhập kho bỏ hệ số quy đổi cố định (Material.khoUnitFactor) - ô "SL" duy
+        // nhất trước đây thay bằng 2 ô Ô1 "Số lượng/1 đơn vị tính" (placeholder "Số lượng") × Ô2
+        // "Số lượng đơn vị tính bên bán" (placeholder "1", để trống = BE tự mặc định 1). Vật tư
+        // không chênh lệch đơn vị (ca test này) chỉ cần nhập Ô1 = số lượng cần mua, giữ Ô2 trống -
+        // backend tính receivedQty = Ô1 × 1, giữ nguyên hành vi cũ. Đợt đầu tiên đính kèm luôn ảnh
+        // phiếu nhập kho (fixture có sẵn) để xác nhận cả luồng upload lẫn "Lịch sử nhận hàng" hoạt
+        // động qua UI thật, không chỉ qua test backend.
+        //
         // Sau mỗi lần "Xác nhận", dòng đó re-render (input+nút -> "✓ Đã nhận đủ") và cả bảng có
         // thể re-render theo state proposal mới - không lặp theo index cố định (dễ trật dòng qua
         // mỗi vòng, đã gặp thật: dòng cuối cùng bị bỏ sót). Luôn truy vấn lại nút "Xác nhận" ĐẦU
         // TIÊN còn hiển thị, xử lý xong mới tìm tiếp, tới khi không còn nút nào.
         const deadline = Date.now() + 20_000;
+        let firstRound = true;
         for (;;) {
           // Đợi 1 nhịp mỗi vòng để React kịp re-render sau lần "Xác nhận" trước - count() không tự
           // chờ như expect(), lỡ đọc trúng khung hình cũ (nút vừa bấm chưa kịp biến mất) sẽ bấm
           // trùng 1 dòng đã nhận đủ, ăn 409 khi đề xuất vừa chuyển PURCHASED (đã gặp thật). Đi từ
-          // ô nhập "SL" (duy nhất/dòng) lên <tr> cha bằng xpath - .filter({has}) trên nút "Xác
-          // nhận" khớp NHIỀU dòng cùng lúc (mọi dòng còn nút, không riêng dòng đầu), gây strict-mode
-          // violation khi truy vấn tiếp getByPlaceholder('SL') bên trong (đã gặp thật).
+          // ô nhập Ô1 (duy nhất/dòng, placeholder "Số lượng") lên <tr> cha bằng xpath - .filter({has})
+          // trên nút "Xác nhận" khớp NHIỀU dòng cùng lúc (mọi dòng còn nút, không riêng dòng đầu),
+          // gây strict-mode violation khi truy vấn tiếp bên trong (đã gặp thật).
           await page.waitForTimeout(250);
-          const slInput = page.getByPlaceholder('SL').first();
-          if ((await slInput.count()) === 0) break;
+          const unitRateInput = page.getByPlaceholder('Số lượng').first();
+          if ((await unitRateInput.count()) === 0) break;
           if (Date.now() > deadline) throw new Error('Nhận hàng qua UI không xong sau 20s');
 
-          const row = slInput.locator('xpath=ancestor::tr[1]');
-          const buyQtyText = (await row.locator('td').nth(2).innerText()).trim();
-          await slInput.fill(buyQtyText);
+          const row = unitRateInput.locator('xpath=ancestor::tr[1]');
+          // Cột "SL cần mua" là cột thứ 4 (0-indexed: Tên vật tư/Quy cách/ĐVT/SL cần mua/Đã nhận/
+          // Nhập thêm) - bảng hiện có thêm cột "Quy cách" so với lúc viết test gốc (pre-existing
+          // drift, không liên quan thay đổi Nhập kho lần này).
+          const buyQtyText = (await row.locator('td').nth(3).innerText()).trim();
+          await unitRateInput.fill(buyQtyText);
+          // Xác nhận live-preview "→ <kết quả> <đơn vị>" tính đúng = buyQty, không chỉ tin input đã điền.
+          await expect(row.getByText(new RegExp(`→\\s*${buyQtyText}\\b`))).toBeVisible();
+          if (firstRound) {
+            await row.locator('input[type="file"]').setInputFiles('e2e/fixtures/phieu-da-ky.png');
+            firstRound = false;
+          }
           const confirmBtn = row.getByRole('button', { name: 'Xác nhận' });
           // confirmItem() cũng fire-and-forget (chỉ clear input ngay, không đợi resolve) - đợi
           // đúng response POST .../receive trước khi qua dòng kế tiếp/đóng context, cùng lý do
@@ -336,6 +394,14 @@ test.describe('Golden path', () => {
           ]);
           expect(receiveResp.ok(), `POST receive -> ${receiveResp.status()}`).toBeTruthy();
         }
+
+        // "Lịch sử nhận hàng" phải còn xem được SAU khi dòng đã "✓ Đã nhận đủ" (bug đã sửa 2026-10-16:
+        // trước đó khối lịch sử bị ẩn theo luôn khi done=true).
+        const historyToggle = page.getByText(/Lịch sử nhận hàng/).first();
+        await expect(historyToggle).toBeVisible();
+        await historyToggle.click();
+        await expect(page.getByRole('link', { name: 'ảnh' }).first()).toBeVisible();
+
         await ctx.close();
       });
 

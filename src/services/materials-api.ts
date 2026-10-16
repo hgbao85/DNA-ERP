@@ -31,10 +31,6 @@ export interface BeMaterial {
   warehouseCode: string | null;
   warehouseName: string | null;
   buyerId: string | null;
-  /** Đơn vị mua hàng từ NCC khi khác `unit` (đơn vị tồn kho/sản xuất) — vd NCC bán theo "kg"
-   *  nhưng sản xuất dùng "cái". null nếu vật tư chỉ có 1 đơn vị duy nhất. */
-  purchaseUnit: string | null;
-  khoUnitFactor: number | null;
   /** CHỈ có ý nghĩa với vật tư nhóm Sắt (systemKey STEEL_BAR) - ngưỡng hao hụt tối đa chấp
    *  nhận được khi cắt, gửi xuống solver cắt sắt (ghi đè mặc định hệ thống). null với mọi
    *  nhóm khác - xem MaterialsService.resolveWasteFields (BE). */
@@ -100,8 +96,6 @@ export async function createMaterial(data: Record<string, unknown>): Promise<BeM
     steelSubGroup: data.steelSubGroup || undefined,
     warehouseId: data.warehouseId || undefined,
     buyerId: data.buyerId || undefined,
-    purchaseUnit: data.purchaseUnit || undefined,
-    khoUnitFactor: data.khoUnitFactor,
     // Truyền thẳng (KHÔNG `|| undefined`) - 0 là giá trị hợp lệ cho purchaseWastePercentage
     // (vật tư không có hao hụt mua), `|| undefined` sẽ vô tình nuốt mất nó.
     // maxCuttingWastePercentage KHÔNG gửi nữa (2026-09-30): Sắt không còn ngưỡng cắt riêng theo vật tư.
@@ -129,12 +123,6 @@ export async function updateMaterial(id: number | string, data: Record<string, u
     steelSubGroup: data.steelSubGroup || undefined,
     warehouseId: data.warehouseId ?? null,
     buyerId: data.buyerId ?? null,
-    purchaseUnit: data.purchaseUnit,
-    // `?? null` (không `|| undefined`) - cùng lỗi/cùng cách sửa với materialGroupId/warehouseId ở
-    // trên: field này bị bỏ sót khỏi đợt fix audit 09/09 (Cao/H1) - xoá trắng ô "Hệ số quy đổi" ở
-    // form sửa vật tư set state về `undefined`, JSON.stringify xoá hẳn key khỏi body PATCH, BE
-    // tưởng "không đụng field" nên giữ nguyên giá trị cũ dù báo lưu thành công.
-    khoUnitFactor: data.khoUnitFactor ?? null,
     purchaseWastePercentage: data.purchaseWastePercentage ?? null,
     purchaseRoundUp: decodeRoundUp(data.purchaseRoundUp),
     imageUrl: data.imageUrl,

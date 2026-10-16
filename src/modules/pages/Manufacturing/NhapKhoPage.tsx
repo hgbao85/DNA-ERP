@@ -1,13 +1,14 @@
 ﻿'use client'
 import { focusAttr } from '../../../utils/notificationLink'
 import { useEffect, useState } from 'react'
-import { ArrowDownToLine, ArrowLeftRight, ChevronLeft, Paperclip } from 'lucide-react'
+import { ArrowDownToLine, ArrowLeftRight, ChevronLeft, HelpCircle, Paperclip } from 'lucide-react'
 import { format } from 'date-fns'
 import { canReceiveAt } from '../../../types/warehouse-transfer'
 import { useUrlState } from '../../../hooks/useUrlState'
 import { NhapNoiBoSection } from '../InboundWarehouse/InternalTransferSections'
 import { useInspection, PROPOSAL_STATUS_LABELS, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
 import { useConfirm } from '../../../hooks/useConfirm'
+import { uploadImage } from '../../../services/api'
 
 // Key theo itemId (2026-08-26, L6) - KHÔNG phải materialId: 1 vật tư đã PURCHASED mà lại phát
 // sinh thiếu thêm tách thành DÒNG MỚI cùng materialId (xem purchasing-api.ts đầu file), key theo
@@ -33,11 +34,18 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
   const { proposals, receiveProposalItem } = useInspection()
   const { ask, confirmModal } = useConfirm()
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  // inputs[`${proposalId}:${itemName}`] = số lượng đang nhập dở (theo unit, vd cái)
-  const [inputs, setInputs] = useState<Record<string, string>>({})
-  // kgInputs[`${proposalId}:${itemName}`] = số lượng đang nhập dở theo purchaseUnit (vd kg) -
-  // chỉ dùng để gợi ý auto-fill `inputs` (cái), người dùng vẫn sửa tay được sau khi auto-fill.
-  const [kgInputs, setKgInputs] = useState<Record<string, string>>({})
+  // unitRateInputs[`${proposalId}:${itemId}`] = Ô1 "Số lượng/1 đơn vị tính" đang nhập dở (2026-10-16,
+  // thay cho hệ số quy đổi cố định Material.khoUnitFactor đã xoá - vật tư không chênh lệch đơn vị
+  // thì đây chính là số lượng nhận thực tế).
+  const [unitRateInputs, setUnitRateInputs] = useState<Record<string, string>>({})
+  // supplierUnitInputs[...] = Ô2 "Số lượng đơn vị tính bên bán" đang nhập dở - để trống = BE tự
+  // mặc định 1 (vật tư không chênh lệch đơn vị không cần sửa ô này).
+  const [supplierUnitInputs, setSupplierUnitInputs] = useState<Record<string, string>>({})
+  // fileInputs[...] = ảnh phiếu nhập kho đã chọn, CHƯA upload - chỉ upload lúc bấm Xác nhận (tránh
+  // rác Cloudinary nếu thủ kho đổi ý), cùng idiom SpecSteelPage.tsx#photoFile.
+  const [fileInputs, setFileInputs] = useState<Record<string, File | null>>({})
+  // expandedHistory[...] = có đang mở khối "Lịch sử nhận hàng" của dòng này không.
+  const [expandedHistory, setExpandedHistory] = useState<Record<string, boolean>>({})
 
   // Dòng vật tư chưa gán kho (BE trả '—', xem purchasing-api.ts#toItem) vẫn hiện cho mọi thủ kho
   // để không "mồ côi" tới khi có người nhận - cùng nguyên tắc đã áp dụng cho routing Mua hàng
@@ -74,14 +82,18 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
   const confirmItem = async (p: PurchaseProposal, itemId: string) => {
     const key = inputKey(p.id, itemId)
     if (pending[key]) return
-    const qty = Math.max(0, Number(inputs[key]) || 0)
-    if (qty <= 0) return
-    const kgVal = Math.max(0, Number(kgInputs[key]) || 0)
+    const unitRateQty = Math.max(0, Number(unitRateInputs[key]) || 0)
+    if (unitRateQty <= 0) return
+    const supplierUnitRaw = Number(supplierUnitInputs[key])
+    const supplierUnitQty = supplierUnitRaw > 0 ? supplierUnitRaw : undefined
     setPending(prev => ({ ...prev, [key]: true }))
     try {
-      await receiveProposalItem(p.id, itemId, qty, kgVal > 0 ? kgVal : undefined)
-      setInputs(prev => ({ ...prev, [key]: '' }))
-      setKgInputs(prev => ({ ...prev, [key]: '' }))
+      const file = fileInputs[key]
+      const receiptFileUrl = file ? await uploadImage(file) : undefined
+      await receiveProposalItem(p.id, itemId, { unitRateQty, supplierUnitQty, receiptFileUrl })
+      setUnitRateInputs(prev => ({ ...prev, [key]: '' }))
+      setSupplierUnitInputs(prev => ({ ...prev, [key]: '' }))
+      setFileInputs(prev => ({ ...prev, [key]: null }))
     } catch {
       // Banner đã hiện ở InspectionProvider - ở đây chỉ cần KHÔNG xoá ô nhập.
     } finally {
@@ -94,7 +106,12 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
   // (không phải window.confirm - dùng ConfirmModal chung của app) trước khi gọi API, không vượt
   // thì xác nhận thẳng như cũ. Popup cố ý ngắn gọn, KHÔNG dùng `danger` (icon/nút đỏ) - góp ý người
   // dùng 19/09: đây chỉ là hỏi lại số liệu, không phải cảnh báo lỗi nghiêm trọng.
-  const handleConfirmClick = (p: PurchaseProposal, item: PurchaseProposalItem, qty: number) => {
+  const handleConfirmClick = (p: PurchaseProposal, item: PurchaseProposalItem) => {
+    const key = inputKey(p.id, itemKey(item))
+    const unitRateQty = Math.max(0, Number(unitRateInputs[key]) || 0)
+    const supplierUnitRaw = Number(supplierUnitInputs[key])
+    const supplierUnitQty = supplierUnitRaw > 0 ? supplierUnitRaw : 1
+    const qty = unitRateQty * supplierUnitQty
     const received = item.receivedQty ?? 0
     const total = received + qty
     if (total > item.buyQty) {
@@ -159,14 +176,14 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
         </div>
 
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: 600, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+          <table style={{ width: '100%', minWidth: 1020, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
-              <col />
-              <col style={{ width: 120 }} />
-              <col style={{ width: 90 }} />
-              <col style={{ width: 110 }} />
-              <col style={{ width: 90 }} />
               <col style={{ width: 240 }} />
+              <col style={{ width: 130 }} />
+              <col style={{ width: 80 }} />
+              <col style={{ width: 110 }} />
+              <col style={{ width: 100 }} />
+              <col style={{ width: 360 }} />
             </colgroup>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
@@ -184,19 +201,19 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                 const done = received >= item.buyQty
                 const partial = received > 0 && !done
                 const key = inputKey(selected.id, itemKey(item))
-                const inputVal = inputs[key] ?? ''
-                const kgVal = kgInputs[key] ?? ''
+                const unitRateVal = unitRateInputs[key] ?? ''
+                const supplierUnitVal = supplierUnitInputs[key] ?? ''
+                const fileVal = fileInputs[key] ?? null
                 const isPending = !!pending[key]
-                const canConfirm = !done && !!inputVal && Number(inputVal) > 0 && !isPending
-                const hasConversion = !!item.purchaseUnit && !!item.khoUnitFactor
-                // Vấn đề M4 audit 26/08 - ô SL cho sửa tay tự do, trước đây không đối chiếu gì với
-                // số gợi ý tính từ ô kg (dòng dưới). Chỉ CẢNH BÁO (không chặn Xác nhận) vì lệch có
-                // thể hợp lý (làm tròn theo quy cách đóng gói thật) - lệch >5% mới coi là "đáng kể".
-                const expectedQty = hasConversion && Number(kgVal) > 0 ? Number(kgVal) * item.khoUnitFactor! : null
-                const qtyMismatch =
-                  expectedQty != null && !!inputVal && Number(inputVal) > 0
-                    ? Math.abs(Number(inputVal) - expectedQty) / expectedQty > 0.05
-                    : false
+                const canConfirm = !done && !!unitRateVal && Number(unitRateVal) > 0 && !isPending
+                // Ô1 × Ô2 (mặc định Ô2=1 khi để trống) - công thức GIỐNG NHAU cho mọi vật tư, thay
+                // cho hệ số quy đổi cố định Material.khoUnitFactor đã xoá (2026-10-16): vật tư
+                // không chênh lệch đơn vị chỉ cần nhập Ô1, giữ Ô2 trống.
+                const computedQty =
+                  Number(unitRateVal) > 0
+                    ? Number(unitRateVal) * (Number(supplierUnitVal) > 0 ? Number(supplierUnitVal) : 1)
+                    : null
+                const logs = item.receiptLogs ?? []
                 return (
                   <tr key={itemKey(item)} style={{ borderTop: '1px solid var(--border)' }}>
                     <td style={{ ...td, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -215,51 +232,74 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                       {received}
                     </td>
                     <td style={td}>
-                      {done ? (
-                        <span style={{ fontSize: 12, color: 'var(--fg-16a34a)', fontWeight: 600 }}>✓ Đã nhận đủ</span>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                          {hasConversion && (
-                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                        {done ? (
+                          <span style={{ fontSize: 12, color: 'var(--fg-16a34a)', fontWeight: 600 }}>✓ Đã nhận đủ</span>
+                        ) : (
+                          <>
+                            <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
                               <input
                                 type="number" min={0} step="any"
-                                value={kgVal}
-                                onChange={e => {
-                                  const v = e.target.value
-                                  setKgInputs(prev => ({ ...prev, [key]: v }))
-                                  const kg = Number(v)
-                                  if (kg > 0 && item.khoUnitFactor) {
-                                    setInputs(prev => ({ ...prev, [key]: String(Math.round(kg * item.khoUnitFactor!)) }))
-                                  }
-                                }}
-                                placeholder={`Số ${item.purchaseUnit} nhận`}
-                                style={{ width: 84, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                                value={unitRateVal}
+                                onChange={e => setUnitRateInputs(prev => ({ ...prev, [key]: e.target.value }))}
+                                placeholder="Số lượng"
+                                title="Không có quy đổi: nhập thẳng số lượng thực nhận. Có quy đổi (vd bì zip 1kg = 130 cái): nhập tỷ lệ của lô này, vd 130."
+                                style={{ width: 76, padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
                               />
-                              <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.purchaseUnit} → tự quy đổi {item.unit}</span>
+                              <span style={{ fontSize: 12, color: 'var(--text3)' }}>×</span>
+                              <input
+                                type="number" min={0} step="any"
+                                value={supplierUnitVal}
+                                onChange={e => setSupplierUnitInputs(prev => ({ ...prev, [key]: e.target.value }))}
+                                placeholder="1"
+                                title="Chỉ cần nhập khi có quy đổi: số lượng theo đơn vị bên bán, vd 50 nếu nhận 50kg. Không có quy đổi thì để trống (mặc định 1)."
+                                style={{ width: 48, padding: '4px 6px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                              />
+                              <span
+                                title="Không quy đổi: chỉ cần nhập số lượng ở ô trước, để trống ô sau. Có quy đổi (vd bì zip 1kg = 130 cái, nhận 50kg): ô trước nhập 130, ô sau nhập 50."
+                                style={{ display: 'inline-flex', cursor: 'help', flexShrink: 0 }}
+                              >
+                                <HelpCircle size={15} color="var(--text3)" />
+                              </span>
+                              <button
+                                onClick={() => handleConfirmClick(selected, item)}
+                                disabled={!canConfirm}
+                                style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: canConfirm ? 'var(--bg-2e7d32)' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
+                              >{isPending ? 'Đang ghi…' : 'Xác nhận'}</button>
+                              {computedQty != null && (
+                                <span style={{ fontSize: 11, color: 'var(--text3)' }}>→ <b style={{ color: 'var(--text)' }}>{computedQty.toLocaleString('vi-VN')}</b> {item.unit}</span>
+                              )}
                             </div>
-                          )}
-                          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                            <input
-                              type="number" min={1}
-                              value={inputVal}
-                              onChange={e => setInputs(prev => ({ ...prev, [key]: e.target.value }))}
-                              placeholder="SL"
-                              style={{ width: 64, padding: '4px 8px', border: `1px solid ${qtyMismatch ? 'var(--fg-d97706)' : 'var(--border)'}`, borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
-                            />
-                            <span style={{ fontSize: 12, color: 'var(--text3)' }}>{item.unit}{hasConversion ? ' (có thể sửa tay)' : ''}</span>
-                            <button
-                              onClick={() => handleConfirmClick(selected, item, Number(inputVal))}
-                              disabled={!canConfirm}
-                              style={{ padding: '4px 10px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: canConfirm ? 'var(--bg-2e7d32)' : 'var(--surface2)', color: canConfirm ? '#fff' : 'var(--text3)', cursor: canConfirm ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}
-                            >{isPending ? 'Đang ghi…' : 'Xác nhận'}</button>
+                            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--fg-2563eb)', cursor: 'pointer', width: 'fit-content' }}>
+                              <Paperclip size={12} />
+                              {fileVal ? fileVal.name : 'Ảnh phiếu nhập kho'}
+                              <input
+                                type="file" accept="image/*" hidden
+                                onChange={e => setFileInputs(prev => ({ ...prev, [key]: e.target.files?.[0] ?? null }))}
+                              />
+                            </label>
+                          </>
+                        )}
+                        {logs.length > 0 && (
+                          <button
+                            onClick={() => setExpandedHistory(prev => ({ ...prev, [key]: !prev[key] }))}
+                            style={{ fontSize: 11, color: 'var(--text3)', background: 'none', border: 'none', padding: 0, textAlign: 'left', cursor: 'pointer', width: 'fit-content' }}
+                          >
+                            {expandedHistory[key] ? '▾' : '▸'} Lịch sử nhận hàng ({logs.length})
+                          </button>
+                        )}
+                        {expandedHistory[key] && logs.length > 0 && (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, borderLeft: '2px solid var(--border)', paddingLeft: 6, fontSize: 11, color: 'var(--text3)' }}>
+                            {logs.map(r => (
+                              <div key={r.id}>
+                                {format(new Date(r.receivedAt), 'dd/MM HH:mm')} · {r.unitRateQty} × {r.supplierUnitQty} = {r.receivedQty} {item.unit}
+                                {r.receivedByName ? ` · ${r.receivedByName}` : ''}
+                                {r.receiptFileUrl && <> · <a href={r.receiptFileUrl} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--fg-2563eb)' }}>ảnh</a></>}
+                              </div>
+                            ))}
                           </div>
-                          {qtyMismatch && (
-                            <div style={{ fontSize: 11, color: 'var(--fg-d97706)' }}>
-                              ⚠ Lệch nhiều so với gợi ý ({Math.round(expectedQty!)} {item.unit} theo {kgVal} {item.purchaseUnit}) — kiểm tra lại trước khi xác nhận
-                            </div>
-                          )}
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )

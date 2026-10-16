@@ -20,8 +20,6 @@ interface Material {
   steelSubGroup?: 'SOFTWARE' | 'SELF_CALC' | 'FINISHED_COMPONENT' | null
   warehouseId?: string | null
   buyerId?: string | null
-  purchaseUnit?: string | null
-  khoUnitFactor?: number | null
   /** CHỈ có ý nghĩa với vật tư nhóm Sắt - ngưỡng hao hụt tối đa khi cắt, gửi xuống solver cắt
    *  sắt. null với mọi nhóm khác - xem MaterialsService.resolveWasteFields (BE). */
   maxCuttingWastePercentage?: number | null
@@ -152,7 +150,6 @@ export default function MaterialsPage() {
       { key: 'code', label: 'Mã vật tư' },
       { key: 'name', label: 'Tên vật tư' },
       { key: 'unit', label: 'Đơn vị' },
-      { key: 'purchaseUnit', label: 'Đơn vị mua', render: (m) => m.purchaseUnit || '—' },
       { key: 'spec', label: 'Quy cách', render: (m) => m.spec || '—' },
       { key: 'materialGroupId', label: 'Nhóm vật tư', render: (m) => groupName(m.materialGroupId) },
       { key: 'detailKind', label: 'Phân loại', render: (m) => m.detailKind ? DETAIL_KIND_LABEL[m.detailKind] : '—' },
@@ -183,7 +180,6 @@ export default function MaterialsPage() {
         },
       },
       { key: 'buyerId', label: 'Nhân viên mua hàng', render: (m) => buyerName(m.buyerId) },
-      { key: 'khoUnitFactor', label: 'Hệ số quy đổi', align: 'right' },
       {
         // % dự trù hao hụt khi MUA. Nhóm Sắt (STEEL_BAR) không có % hao hụt ở đây: ngưỡng hao hụt khi
         // CẮT do KHSX quyết định ở "Tối ưu cắt sắt" (2026-09-30) - nên cột này luôn "—" với Sắt.
@@ -232,14 +228,6 @@ export default function MaterialsPage() {
       {
         name: 'buyerId', label: 'Nhân viên mua hàng', type: 'select',
         options: buyerList.map((u) => ({ value: String(u.id), label: u.name })),
-      },
-      {
-        name: 'purchaseUnit', label: 'Đơn vị mua (nếu khác Đơn vị tính)', type: 'text',
-        placeholder: 'VD: kg — để trống nếu vật tư chỉ có 1 đơn vị',
-      },
-      {
-        name: 'khoUnitFactor', label: 'Hệ số quy đổi (số Đơn vị tính / 1 Đơn vị mua)', type: 'number',
-        placeholder: 'VD: 250 = 250 cái/kg',
       },
       // % dự trù hao hụt khi mua - ẨN với nhóm con "Phần mềm" của Sắt (2026-09-30: ngưỡng hao hụt
       // khi cắt do KHSX quyết ở "Tối ưu cắt sắt", Admin không đặt riêng theo vật tư). Tự tính/Vật

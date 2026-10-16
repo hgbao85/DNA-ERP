@@ -398,7 +398,6 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
               <InfoRow label="Quy cách" value={selected.material.spec ?? '—'} />
               <InfoRow label="ĐVT" value={selected.material.unit} />
-              {selected.material.purchaseUnit && <InfoRow label="ĐVT mua" value={selected.material.purchaseUnit} />}
               <InfoRow label="Kho" value={selected.material.warehouseName ?? '—'} />
               {showLengthColumn && (
                 <InfoRow label="Chiều dài" value={selected.stockLengthMm ? `${selected.stockLengthMm.toLocaleString('vi-VN')} mm` : '—'} />

@@ -51,6 +51,9 @@ function beProposal(overrides: Record<string, unknown> = {}) {
         // 2026-08-27 - giữ trong fixture để mirror đúng response thật, không phải để assert.
         quotes: [],
         approvalFileUrl: null,
+        // toItem() map thẳng field này (2026-10-16, thay cho hệ số quy đổi cố định
+        // purchaseUnit/khoUnitFactor đã xoá) - mảng rỗng mặc định để mirror response thật.
+        receiptLogs: [],
       },
     ],
     ...overrides,
@@ -244,15 +247,15 @@ describe('bossApproveProposal — Sếp duyệt ngoài hệ thống bằng file 
 });
 
 describe('receiveProposalItem', () => {
-  it('nhận itemId thật, POST receive trực tiếp KHÔNG qua dịch (L6, 2026-08-26) với đúng receivedQty kèm header Idempotency-Key', async () => {
+  it('nhận itemId thật, POST receive trực tiếp KHÔNG qua dịch (L6, 2026-08-26) với đúng Ô1/Ô2 kèm header Idempotency-Key', async () => {
     post.mockResolvedValueOnce(undefined);
     get.mockResolvedValueOnce(beProposal({ status: 'PURCHASED' }));
 
-    const result = await receiveProposalItem(feProposal(), '400', 8);
+    const result = await receiveProposalItem(feProposal(), '400', { unitRateQty: 8 });
 
     expect(post).toHaveBeenCalledWith(
       '/purchase-proposals/300/items/400/receive',
-      { receivedQty: 8 },
+      { unitRateQty: 8 },
       { headers: { 'Idempotency-Key': expect.any(String) as string } },
     );
     expect(result.status).toBe('purchased');
@@ -265,11 +268,11 @@ describe('receiveProposalItem', () => {
     post.mockResolvedValueOnce(undefined);
     get.mockResolvedValueOnce(beProposal({ status: 'PURCHASING' }));
 
-    await receiveProposalItem(feProposal(), '402', 3);
+    await receiveProposalItem(feProposal(), '402', { unitRateQty: 3 });
 
     expect(post).toHaveBeenCalledWith(
       '/purchase-proposals/300/items/402/receive',
-      { receivedQty: 3 },
+      { unitRateQty: 3 },
       expect.anything(),
     );
   });

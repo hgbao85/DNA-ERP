@@ -78,8 +78,6 @@ interface BeItem {
   materialName: string;
   materialSpec: string | null;
   unit: string;
-  purchaseUnit: string | null;
-  khoUnitFactor: number | null;
   // % dự trù hao hụt khi mua (Material.purchaseWastePercentage) - LIVE theo Material hiện tại,
   // KHÔNG snapshot (xem BE PurchaseProposalItemResponseDto, 2026-10-08). Đã được BE cộng vào
   // buyQty rồi - field này chỉ để FE giải thích vì sao buyQty cao hơn nhu cầu gốc.
@@ -106,6 +104,19 @@ interface BeItem {
   // File phiếu Sếp đã ký duyệt lô mua này (2026-08-27) - null cho dòng duyệt theo luồng cũ.
   // BE vẫn trả thêm `quotes` (báo giá luồng cũ) nhưng FE KHÔNG còn đọc: giá/NCC nay nằm trong file.
   approvalFileUrl: string | null;
+  // Lịch sử từng lần nhận hàng (2026-10-16) - thay cho hệ số quy đổi cố định đã xoá, xem
+  // BE PurchaseReceiptLog.
+  receiptLogs: BeReceiptLog[];
+}
+
+interface BeReceiptLog {
+  id: string;
+  unitRateQty: number;
+  supplierUnitQty: number;
+  receivedQty: number;
+  receiptFileUrl: string | null;
+  receivedByName: string | null;
+  receivedAt: string;
 }
 
 interface BeProposal {
@@ -148,8 +159,6 @@ function toItem(item: BeItem): PurchaseProposalItem {
     name: item.materialName,
     spec: item.materialSpec,
     unit: item.unit,
-    purchaseUnit: item.purchaseUnit,
-    khoUnitFactor: item.khoUnitFactor,
     purchaseWastePercentage: item.purchaseWastePercentage,
     required: item.actualStock + item.buyQty,
     actualStock: item.actualStock,
@@ -172,6 +181,15 @@ function toItem(item: BeItem): PurchaseProposalItem {
     rejectionReason: item.rejectionReason ?? undefined,
     purchasedAt: item.purchasedAt ?? undefined,
     approvalFileUrl: item.approvalFileUrl ?? undefined,
+    receiptLogs: item.receiptLogs.map((r) => ({
+      id: r.id,
+      unitRateQty: r.unitRateQty,
+      supplierUnitQty: r.supplierUnitQty,
+      receivedQty: r.receivedQty,
+      receiptFileUrl: r.receiptFileUrl,
+      receivedByName: r.receivedByName,
+      receivedAt: r.receivedAt,
+    })),
   };
 }
 
@@ -273,14 +291,15 @@ export async function updateProposalItemApprovalFile(
 export async function receiveProposalItem(
   proposal: PurchaseProposal,
   itemId: string,
-  qty: number,
-  receivedQtyPurchaseUnit?: number,
+  input: { unitRateQty: number; supplierUnitQty?: number; receiptFileUrl?: string },
 ): Promise<PurchaseProposal> {
   // BE ghi StockLedger (PURCHASE) mỗi lần nhận hàng - bắt buộc header này vì 1 item có thể nhận
   // nhiều đợt nên không có key tất định từ dữ liệu (xem PurchaseProposalsService.receiveItem()).
+  // Ô1 (unitRateQty) × Ô2 (supplierUnitQty) = receivedQty - BE tự nhân (2026-10-16, thay cho
+  // hệ số quy đổi cố định Material.khoUnitFactor đã xoá).
   await http.post(
     `/purchase-proposals/${proposal.id}/items/${itemId}/receive`,
-    { receivedQty: qty, receivedQtyPurchaseUnit },
+    input,
     withIdempotencyKey(),
   );
   return getPurchaseProposal(proposal.id);
