@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DNA-ERP — Tạm lưu định mức (16/10/2026)</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@500;600;700;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --bg: #F1F3F5; --surface: #FFFFFF; --surface-alt: #E7EBEF;
+    --text: #1A2230; --text-muted: #5C6673; --border: #D7DCE2;
+    --accent: #2A5C8A; --accent-strong: #1D4266; --accent-soft: #E1ECF5;
+    --new: #1E7A6B; --new-bg: #E3F3EF; --new-border: #A9D6CB;
+    --fix: #A85400; --fix-bg: #FBEEDF; --fix-border: #E8C39B;
+    --decided: #66748A; --decided-bg: #EEF0F3; --decided-border: #CBD2DB;
+    --before: #B0332B; --before-bg: #FAE4E2;
+    --after: #1E7A34; --after-bg: #E6F4EA;
+    --shadow: 0 1px 2px rgba(20,30,45,0.06), 0 1px 1px rgba(20,30,45,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+      --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+      --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+      --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+      --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+      --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+      --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+      --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+      --shadow: 0 1px 2px rgba(0,0,0,0.4);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12161C; --surface: #1A1F27; --surface-alt: #212832;
+    --text: #E7EBEF; --text-muted: #9AA5B1; --border: #2C3440;
+    --accent: #7FB3DE; --accent-strong: #A9CEEA; --accent-soft: rgba(127,179,222,0.12);
+    --new: #6FD9C3; --new-bg: rgba(111,217,195,0.12); --new-border: rgba(111,217,195,0.35);
+    --fix: #FFB74D; --fix-bg: rgba(255,183,77,0.12); --fix-border: rgba(255,183,77,0.35);
+    --decided: #AEB8C4; --decided-bg: rgba(174,184,196,0.12); --decided-border: rgba(174,184,196,0.3);
+    --before: #E0776D; --before-bg: rgba(224,119,109,0.12);
+    --after: #7FD99A; --after-bg: rgba(127,217,154,0.12);
+    --shadow: 0 1px 2px rgba(0,0,0,0.4);
+  }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Public Sans', system-ui, sans-serif; font-size: 16px; line-height: 1.65; -webkit-font-smoothing: antialiased; }
+  h1, h2, h3 { font-family: 'Be Vietnam Pro', system-ui, sans-serif; font-weight: 800; letter-spacing: -0.01em; text-wrap: balance; margin: 0; color: var(--text); }
+  code { font-family: 'IBM Plex Mono', ui-monospace, monospace; background: var(--surface-alt); padding: 1px 5px; border-radius: 3px; font-size: 0.9em; }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 0 24px; }
+
+  header.hero { background: var(--surface); border-bottom: 1px solid var(--border); }
+  .hero-inner { max-width: 820px; margin: 0 auto; padding: 52px 24px 30px; }
+  .eyebrow { font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-strong); background: var(--accent-soft); display: inline-block; padding: 4px 10px; border-radius: 4px; margin-bottom: 18px; }
+  h1.title { font-size: clamp(26px, 4vw, 36px); line-height: 1.15; }
+  .subtitle { margin-top: 12px; color: var(--text-muted); font-size: 16px; max-width: 64ch; }
+  .meta-row { display: flex; flex-wrap: wrap; gap: 8px 22px; margin-top: 20px; font-size: 13.5px; color: var(--text-muted); }
+  .meta-row strong { color: var(--text); font-weight: 600; }
+
+  main { padding: 40px 0 20px; }
+  section { margin-bottom: 44px; scroll-margin-top: 20px; }
+  .sec-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+  .sec-head h2 { font-size: 21px; }
+
+  .prose-card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 22px 24px; margin-bottom: 14px; box-shadow: var(--shadow); font-size: 15.3px; }
+  .prose-card p { margin: 10px 0; }
+  .prose-card p:first-child { margin-top: 0; }
+  .prose-card p:last-child { margin-bottom: 0; }
+  .prose-card ul, .prose-card ol { margin: 10px 0; padding-left: 22px; }
+  .prose-card li { margin-bottom: 10px; }
+  .prose-card li:last-child { margin-bottom: 0; }
+
+  .badge { font-family: 'IBM Plex Mono', monospace; font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; border: 1px solid; }
+  .badge.new { color: var(--new); background: var(--new-bg); border-color: var(--new-border); }
+  .badge.fix { color: var(--fix); background: var(--fix-bg); border-color: var(--fix-border); }
+  .badge.decided { color: var(--decided); background: var(--decided-bg); border-color: var(--decided-border); }
+
+  .ba-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px; }
+  @media (max-width: 640px) { .ba-grid { grid-template-columns: 1fr; } }
+  .ba-box { border-radius: 6px; padding: 14px 16px; font-size: 14.5px; }
+  .ba-box.before { background: var(--before-bg); border-left: 3px solid var(--before); }
+  .ba-box.after { background: var(--after-bg); border-left: 3px solid var(--after); }
+  .ba-box .k { font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; display: block; margin-bottom: 6px; }
+  .ba-box.before .k { color: var(--before); }
+  .ba-box.after .k { color: var(--after); }
+
+  .step-list { counter-reset: step; list-style: none; padding-left: 0; margin: 14px 0 0; }
+  .step-list li { counter-increment: step; position: relative; padding-left: 38px; margin-bottom: 14px; }
+  .step-list li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 26px; height: 26px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-strong); font-family: 'Be Vietnam Pro', sans-serif; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .step-list li:last-child { margin-bottom: 0; }
+
+  .clear-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px; }
+  @media (max-width: 640px) { .clear-grid { grid-template-columns: 1fr; } }
+  .clear-item { background: var(--surface-alt); border-radius: 6px; padding: 12px 14px; font-size: 14px; }
+  .clear-item b { display: block; color: var(--text); margin-bottom: 3px; }
+
+  footer { text-align: center; color: var(--text-muted); font-size: 12.5px; padding: 30px 24px 50px; }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="hero-inner">
+    <span class="eyebrow">Giải thích dễ hiểu — 16/10/2026</span>
+    <h1 class="title">Tạm lưu định mức — không còn sợ mất dữ liệu đang nhập dở</h1>
+    <p class="subtitle">Dành cho người dùng không rành kỹ thuật: giải thích vấn đề mà nhóm Định mức mảnh/Định mức chi tiết gặp phải, và cách hệ thống xử lý.</p>
+    <div class="meta-row">
+      <span><strong>Màn hình liên quan:</strong> Quản lý định mức — Mảnh · Quản lý định mức chi tiết (Sơn/Phụ kiện/Bao bì)</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section id="van-de">
+    <div class="sec-head"><span class="badge fix">Vấn đề</span><h2>Nhập xong hết mà vẫn mất trắng</h2></div>
+    <div class="prose-card">
+      <p>Trang "Nhập định mức mảnh" (và trang "Định mức chi tiết" — Sơn/Phụ kiện/Bao bì) trước đây chỉ <b>lưu thật</b> khi người nhập bấm nút "Gửi phê duyệt". Trước lúc đó, mọi thứ gõ vào chỉ nằm tạm trong bộ nhớ của trình duyệt.</p>
+      <p>Hậu quả: nếu giữa chừng bị mất mạng, rớt nguồn, lỡ tay thoát hoặc reload trang — toàn bộ công sức nhập (có thể rất nhiều mảnh, nhiều dòng vật tư) <b>mất sạch</b>, phải gõ lại từ đầu. Đây đúng là tình huống mà nhóm Định mức mảnh đã gặp và phản ánh trong nhóm chat nội bộ.</p>
+    </div>
+  </section>
+
+  <section id="giai-phap">
+    <div class="sec-head"><span class="badge new">Giải pháp</span><h2>Thêm chức năng "Tạm lưu"</h2></div>
+    <div class="prose-card">
+      <ol class="step-list">
+        <li>Hệ thống <b>tự động lưu tạm</b> sau mỗi lần sửa (khoảng 1 giây sau khi ngừng gõ) — không cần người dùng nhớ bấm gì cả.</li>
+        <li>Có thêm nút <b>"Tạm lưu"</b> để chủ động bấm khi muốn yên tâm trước khi rời máy, kèm dòng chữ báo "Đã tạm lưu lúc ..." để biết chắc là đã lưu.</li>
+        <li>Lúc đầu tính lưu ngay trên máy/trình duyệt đang dùng (kiểu lưu file tạm), nhưng vì nhân viên có thể dùng <b>cả máy tính lẫn điện thoại</b> để nhập, nên đã đổi sang lưu <b>trên server</b> (giống như lưu lên "đám mây" chung của hệ thống) — mở bằng máy nào, trình duyệt nào, cùng tài khoản đó cũng thấy lại đúng dữ liệu đang nhập dở.</li>
+        <li>Khi mở lại đúng sản phẩm đó, hệ thống tự nhận ra có bản nháp và khôi phục lại, kèm thông báo rõ ràng "Đã khôi phục bản nháp lúc ..." để người dùng biết đây là bản <b>chưa gửi duyệt</b>, có thể bấm "Bỏ bản nháp" nếu không muốn dùng.</li>
+        <li>Bản nháp này <b>không phải là dữ liệu chính thức</b> — nó chỉ là chỗ giữ tạm, không ảnh hưởng gì tới số liệu đã duyệt cho tới khi người dùng chủ động bấm "Gửi phê duyệt".</li>
+      </ol>
+    </div>
+  </section>
+
+  <section id="khi-nao-xoa">
+    <div class="sec-head"><span class="badge decided">Dọn dẹp</span><h2>Bản nháp có bị dồn đống trong hệ thống không?</h2></div>
+    <div class="prose-card">
+      <p>Không. Bản nháp tự động biến mất ở các mốc sau:</p>
+      <div class="clear-grid">
+        <div class="clear-item"><b>Gửi phê duyệt thành công</b>Nộp xong là nháp bị xoá ngay, không còn giữ lại bản cũ.</div>
+        <div class="clear-item"><b>Admin ghi đè định mức</b>Admin sửa trực tiếp trên sản phẩm đã duyệt cũng xoá luôn nháp cũ của người nhập trước đó.</div>
+        <div class="clear-item"><b>Xoá hết rồi lưu lại</b>Người dùng xoá sạch các dòng đã nhập (dọn trống form) thì bản nháp trên server cũng được dọn theo, không "sống lại" sau này.</div>
+        <div class="clear-item"><b>Bấm "Bỏ bản nháp"</b>Trên thông báo khôi phục, có nút để chủ động bỏ, quay về đúng dữ liệu đã lưu chính thức gần nhất.</div>
+      </div>
+      <p style="margin-top:16px">Trường hợp duy nhất bản nháp còn nằm lại một thời gian: người dùng tạm lưu rồi đóng tab, không bao giờ quay lại sản phẩm đó nữa — nháp nằm im cho tới khi có ai mở lại đúng sản phẩm đó (lúc đó mới bị thay bằng lần tạm lưu/nộp tiếp theo, hoặc bị bỏ). Về dung lượng: mỗi bản nháp rất nhỏ, không đáng lo.</p>
+    </div>
+  </section>
+
+  <section id="tom-tat">
+    <div class="sec-head"><h2>Tóm tắt</h2></div>
+    <div class="ba-grid">
+      <div class="ba-box before">
+        <span class="k">Trước đây</span>
+        Công sức nhập liệu chỉ "sống" trong lúc màn hình còn mở — mất mạng, sập nguồn, lỡ tay thoát là mất hết, phải gõ lại từ đầu.
+      </div>
+      <div class="ba-box after">
+        <span class="k">Bây giờ</span>
+        Sau mỗi giây gõ, dữ liệu đã được cất giữ an toàn ở nơi trung tâm (server) — mở lại ở máy nào, trình duyệt nào cũng lấy lại được, và tự dọn dẹp đúng lúc không còn cần nữa.
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>DNA-ERP · Giải thích tính năng 16/10/2026 · Được ghi lại bởi Claude Code</footer>
+
+</body>
+</html>

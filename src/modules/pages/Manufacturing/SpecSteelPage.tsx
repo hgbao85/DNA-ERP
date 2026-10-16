@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { focusAttr } from '../../../utils/notificationLink'
 import { format } from 'date-fns'
 import { ChevronRight, ChevronLeft, Plus, X, Pencil, Upload } from 'lucide-react'
@@ -117,6 +117,30 @@ const toManhRow = (m: Manh): ManhRow => ({
   })),
 })
 
+// ─── Tạm lưu (nháp) ───────────────────────────────────────────────────
+// Trang này chỉ ghi thật lên server lúc "Gửi phê duyệt" (xem submitManh) - nếu đổi máy/trình
+// duyệt, mất mạng hay sập nguồn giữa chừng thì toàn bộ mảnh đang nhập (chưa gửi) sẽ mất, vì chỉ
+// tồn tại trong React state. Lưu định kỳ lên server (PlanForm.manhDraft, qua
+// api.saveSkuManhDraft) để khôi phục lại được DÙ ĐỔI MÁY - vừa tự động (debounce mỗi lần đổi)
+// vừa có nút "Tạm lưu" thủ công (yêu cầu thực tế từ account Sắt, 2026-10-16). Dùng lại đúng
+// shape ManhRow[] (qua toManh/toManhRow) đã có sẵn cho manhData thật - server không parse, chỉ
+// lưu/trả nguyên văn.
+//
+// Ảnh Dây chọn tại chỗ (blob, chưa upload Cloudinary) được upload thật NGAY lúc tạm lưu (khác
+// submitManh - vốn hoãn upload tới lúc gửi phê duyệt) để bản nháp đồng bộ được qua máy khác;
+// đánh đổi là ảnh có thể "mồ côi" trên Cloudinary nếu sau đó người dùng đổi/xoá ảnh trước khi
+// gửi phê duyệt thật (chấp nhận được, dọn sau nếu cần).
+async function resolvePendingPhotos(manhs: Manh[]): Promise<Manh[]> {
+  return Promise.all(manhs.map(async (m) => ({
+    ...m,
+    children: await Promise.all(m.children.map(async (c) => {
+      if (!c.photoFile) return c
+      const photoUrl = await api.uploadImage(c.photoFile)
+      return { ...c, photoUrl, photoFile: null }
+    })),
+  })))
+}
+
 // ─── FieldLabel ───────────────────────────────────────────────────────
 function FL({ children }: { children: React.ReactNode }) {
   return (
@@ -153,7 +177,12 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   // Điện thoại: bảng vật tư con 10 cột -> thẻ; ô nhập form thêm vật tư co giãn thay vì rộng cố định.
   const isMobile = useIsMobile()
   const fieldW = (w: number): React.CSSProperties => isMobile ? { flex: '1 1 130px', minWidth: 0 } : { width: w }
-  const { data: skusData, isLoading: skusLoading, error: skusError, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
+  const { data: skusData, isLoading: skusLoading, error: skusError, refetch: refetchSkus, mutate: mutateSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
+  // Vá lại đúng 1 dòng SKU trong cache bằng response vừa nhận - KHÔNG gọi refetchSkus() (tải lại
+  // cả danh sách) cho thao tác tạm lưu vì nó chạy mỗi giây lúc đang gõ, sẽ rất tốn mạng. Thiếu
+  // bước này là nguyên nhân bug thật (2026-10-16): tạm lưu xong, quay lại danh sách rồi mở lại
+  // CÙNG PHIÊN (chưa reload trang) sẽ đọc phải `skus` cũ tải lúc mở trang - không thấy nháp vừa lưu.
+  const patchSku = (updated: Sku) => mutateSkus(prev => prev ? prev.map(s => s.id === updated.id ? updated : s) : prev)
   // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập định mức.
   const skuChange = useRealtimeChangeNotice(['skus'])
   const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
@@ -221,16 +250,98 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [manhBomSearch, setManhBomSearch] = useState('')
   const [catalogSearch, setCatalogSearch] = useState('')
   const [catalogGroup, setCatalogGroup] = useState<ManhChildGroup>('sat')
+  // Tạm lưu (nháp trên server) - xem saveDraftNow/resolvePendingPhotos phía trên.
+  const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null)
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  const [savingDraft, setSavingDraft] = useState(false)
 
   // ── BOM helpers (mảnh) ─────────────────────────────────────────────────
   const openBom = (item: BomItem) => {
     const existing = (findPf(item.id)?.manhData?.pieces ?? []).map(toManh)
     const maxId = existing.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
-    setSelectedBom(item); setManhs(existing); setNextId(maxId + 1)
+    setSelectedBom(item)
     setShowManhForm(false); setFormTenManh('')
     setAddingTo(null); resetChildForm()
     setSubmitManhError(null)
+    setLastSavedAt(null)
+    setDraftRestoredAt(null)
+
+    // Bản nháp tạm lưu (trên server) chỉ còn giá trị nếu mới hơn lần "Gửi phê duyệt" gần nhất
+    // (nếu chưa từng gửi thì mọi bản nháp đều mới hơn) - tránh ghi đè dữ liệu đã nộp thật bằng
+    // nháp cũ còn sót (vd nộp thật từ máy khác sau khi tạm lưu trên máy này).
+    const pf = findPf(item.id)
+    const entryAt = pf?.manhEntryMeta?.enteredAt
+    const draftSavedAt = pf?.manhDraftSavedAt
+    if (draftSavedAt && (!entryAt || new Date(draftSavedAt) > new Date(entryAt))) {
+      const draftManhs = (pf?.manhDraft?.pieces ?? []).map(toManh)
+      const draftMaxId = draftManhs.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
+      setManhs(draftManhs)
+      setNextId(Math.max(maxId, draftMaxId) + 1)
+      setDraftRestoredAt(draftSavedAt)
+    } else {
+      setManhs(existing)
+      setNextId(maxId + 1)
+    }
   }
+
+  // Bỏ bản nháp, quay về đúng dữ liệu đã nộp thật gần nhất (manhData, không đổi khi xoá nháp) -
+  // vá cache bằng patchSku() thay vì chờ refetchSkus() round-trip mạng.
+  const discardDraft = () => {
+    if (!selectedBom) return
+    void api.clearSkuManhDraft(selectedBom.id).then(patchSku).catch(() => {})
+    const existing = (findPf(selectedBom.id)?.manhData?.pieces ?? []).map(toManh)
+    const maxId = existing.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
+    setManhs(existing)
+    setNextId(maxId + 1)
+    setDraftRestoredAt(null)
+    // Bản nháp bị thay hẳn - đóng mọi form đang mở dở (Thêm mảnh/Thêm vật tư) vì có thể đang trỏ
+    // tới 1 mảnh chỉ có trong nháp, không còn trong `existing` vừa load lại.
+    setShowManhForm(false); setFormTenManh(''); setFormSoLuong('1'); setFormNeedsHan(true); setFormNeedsSon(true)
+    setAddingTo(null); resetChildForm()
+  }
+
+  const saveDraftNow = async (current: Manh[]) => {
+    if (!selectedBom) return
+    // Chỉ upload lại khi thật sự có ảnh mới chọn (photoFile) - resolvePendingPhotos() luôn tạo
+    // object mới dù không đổi gì, setManhs vô điều kiện sẽ làm effect tự lưu bên dưới chạy lại
+    // vô hạn (mảng manhs đổi identity -> effect chạy -> saveDraftNow -> setManhs -> effect...).
+    const hasPendingPhoto = current.some(m => m.children.some(c => c.photoFile))
+    const resolved = hasPendingPhoto ? await resolvePendingPhotos(current) : current
+    if (hasPendingPhoto) setManhs(resolved)
+    const updated = await api.saveSkuManhDraft(selectedBom.id, resolved.map(toManhRow), user?.name ?? 'Không rõ')
+    setLastSavedAt(updated.manhDraftSavedAt ?? new Date().toISOString())
+    patchSku(updated)
+  }
+
+  const manualSaveDraft = async () => {
+    if (!selectedBom) return
+    setSavingDraft(true)
+    try {
+      await saveDraftNow(manhs)
+    } catch {
+      // Tạm lưu lỗi mạng - best-effort, không chặn luồng nhập liệu chính (vẫn còn trong RAM).
+    } finally {
+      setSavingDraft(false)
+    }
+  }
+
+  // Tự động tạm lưu mỗi khi dữ liệu đổi (debounce 1s) - bảo vệ cả khi người dùng quên bấm nút.
+  // Tính "đã nộp" trực tiếp ở đây (không dùng isSubmitted khai báo phía dưới) vì effect này đứng
+  // trước trong thứ tự khai báo của component.
+  useEffect(() => {
+    if (!selectedBom) return
+    const st = manhBomStatus(selectedBom.id)
+    if ((st === 'pending' || st === 'approved') && !isAdmin) return
+    if (manhs.length === 0) {
+      // Xoá hết mảnh (dọn sạch form) - xoá luôn nháp trên server, không thì lần mở sau sẽ bị
+      // "sống lại" đúng những mảnh vừa xoá (đè lên form rỗng người dùng cố ý để lại).
+      void api.clearSkuManhDraft(selectedBom.id).then(patchSku).catch(() => {})
+      return
+    }
+    const t = setTimeout(() => { void saveDraftNow(manhs).catch(() => {}) }, 1000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manhs, selectedBom?.id])
 
   const submitManh = async () => {
     if (!selectedBom || totalChildren === 0) return
@@ -241,17 +352,13 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
       // trước khi gửi, để khớp đúng nguyên tắc "mọi thứ ở trang này chỉ ghi lên server lúc Gửi
       // phê duyệt". Giữ lại state đã upload (setManhs) để gửi lại lần 2 (vd sau khi KHSX từ chối)
       // không upload trùng file cũ.
-      const resolvedManhs = await Promise.all(manhs.map(async (m) => ({
-        ...m,
-        children: await Promise.all(m.children.map(async (c) => {
-          if (!c.photoFile) return c
-          const photoUrl = await api.uploadImage(c.photoFile)
-          return { ...c, photoUrl, photoFile: null }
-        })),
-      })))
+      const resolvedManhs = await resolvePendingPhotos(manhs)
       setManhs(resolvedManhs)
       await api.updateSkuManhQuota(selectedBom.id, resolvedManhs.map(toManhRow), user?.name ?? 'Không rõ')
       logAction(SKU_ENTITY, String(selectedBom.id), 'sku.manh_submitted', `${manhs.length} mảnh · ${totalChildren} dòng vật tư`)
+      // Nộp thật thành công - BE đã tự xoá manhDraft (xem SkusService.updateManhQuota).
+      setDraftRestoredAt(null)
+      setLastSavedAt(null)
       await refetchSkus()
     } catch (e: unknown) {
       setSubmitManhError(e instanceof Error ? e.message : 'Không thể gửi phê duyệt')
@@ -487,6 +594,18 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               {findPf(selectedBom.id)?.manhReviewStatus?.reason && (
                 <div style={{ fontSize: 12, color: 'var(--fg-dc2626)', fontStyle: 'italic', marginTop: 2 }}>{findPf(selectedBom.id)!.manhReviewStatus!.reason}</div>
               )}
+            </div>
+          )}
+
+          {draftRestoredAt && (
+            <div style={{ padding: '10px 16px', background: 'var(--bg-fff8e1)', border: '1px solid var(--fg-ffca28)', borderRadius: 'var(--radius-lg)', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, color: 'var(--fg-8d6e00)' }}>
+                📝 Đã khôi phục bản nháp tạm lưu lúc {new Date(draftRestoredAt).toLocaleString('vi-VN')} (chưa gửi phê duyệt).
+              </span>
+              <button onClick={discardDraft} style={{
+                padding: '5px 10px', border: '1px solid var(--fg-ffca28)', borderRadius: 'var(--radius)',
+                background: 'var(--surface)', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--fg-8d6e00)',
+              }}>Bỏ bản nháp</button>
             </div>
           )}
 
@@ -860,7 +979,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                               <img src={childPhotoUrl || childPhotoPreview} alt="Dây" style={{ height: 32, borderRadius: 4, border: '1px solid var(--border)' }} />
                             )}
                             {childPhotoPreview && !childPhotoUrl && (
-                              <span style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>Chưa tải lên - tải khi "Gửi phê duyệt"</span>
+                              <span style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>Chưa tải lên - tải khi &quotGửi phê duyệt&quot</span>
                             )}
                           </div>
                         </div>
@@ -950,17 +1069,34 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   <span style={{ fontSize: 13, color: 'var(--text2)' }}>
                     {manhs.length} mảnh · {totalChildren} dòng vật tư
                   </span>
-                  <button
-                    onClick={submitManh}
-                    disabled={totalChildren === 0 || savingManh}
-                    style={{
-                      padding: '7px 20px', border: 'none', borderRadius: 'var(--radius)',
-                      background: totalChildren > 0 ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
-                      color: '#fff', fontWeight: 700, fontSize: 13,
-                      cursor: totalChildren > 0 && !savingManh ? 'pointer' : 'not-allowed',
-                      opacity: savingManh ? 0.7 : 1,
-                    }}
-                  >{savingManh ? 'Đang gửi...' : (manhSt === 'approved' && isAdmin) ? 'Ghi đè định mức →' : 'Gửi phê duyệt →'}</button>
+                  {/* Giờ tạm lưu + 2 nút gom sát nhau 1 cụm (thay vì rải đều theo space-between
+                      của cha) - theo yêu cầu người dùng, dễ liên hệ "tạm lưu" với "gửi phê duyệt". */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    {lastSavedAt && (
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>Đã tạm lưu lúc {new Date(lastSavedAt).toLocaleTimeString('vi-VN')}</span>
+                    )}
+                    <button
+                      onClick={manualSaveDraft}
+                      disabled={savingDraft}
+                      title="Lưu tạm trên máy này - chưa gửi phê duyệt, mở lại trang là thấy lại ngay"
+                      style={{
+                        padding: '7px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                        background: 'var(--surface)', color: 'var(--text2)', fontWeight: 600, fontSize: 13,
+                        cursor: savingDraft ? 'not-allowed' : 'pointer', opacity: savingDraft ? 0.7 : 1,
+                      }}
+                    >{savingDraft ? 'Đang lưu...' : 'Tạm lưu'}</button>
+                    <button
+                      onClick={submitManh}
+                      disabled={totalChildren === 0 || savingManh}
+                      style={{
+                        padding: '7px 20px', border: 'none', borderRadius: 'var(--radius)',
+                        background: totalChildren > 0 ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
+                        color: '#fff', fontWeight: 700, fontSize: 13,
+                        cursor: totalChildren > 0 && !savingManh ? 'pointer' : 'not-allowed',
+                        opacity: savingManh ? 0.7 : 1,
+                      }}
+                    >{savingManh ? 'Đang gửi...' : (manhSt === 'approved' && isAdmin) ? 'Ghi đè định mức →' : 'Gửi phê duyệt →'}</button>
+                  </div>
                 </>
               )}
             </div>

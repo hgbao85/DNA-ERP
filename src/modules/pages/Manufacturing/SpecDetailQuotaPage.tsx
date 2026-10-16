@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { focusAttr } from '../../../utils/notificationLink'
 import { format } from 'date-fns'
 import { ChevronRight, ChevronLeft, X } from 'lucide-react'
@@ -11,7 +11,7 @@ import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import { SKU_ENTITY } from '../../../constants/skuStatus'
 import SpecAccessoryCatalogPage from './SpecAccessoryCatalogPage'
-import type { Sku } from '../../../types/sku'
+import type { BaoBiDongGoiItem, DaySonItem, Sku, VatTuPhuKienItem } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
@@ -42,6 +42,31 @@ const GROUP_BADGE_COLORS: Record<DetailLineGroup, { bg: string; fg: string }> = 
   daySon: { bg: 'var(--bg-eff6ff)', fg: 'var(--fg-1d4ed8)' },
   vatTuPhuKien: { bg: 'var(--bg-ede9fe)', fg: 'var(--fg-6d28d9)' },
   baoBiDongGoi: { bg: 'var(--bg-d1fae5)', fg: 'var(--fg-065f46)' },
+}
+
+type DetailQuotaPayload = { daySon: DaySonItem[]; vatTuPhuKien: VatTuPhuKienItem[]; baoBiDongGoi: BaoBiDongGoiItem[] }
+
+/** DetailLine[] (state form) -> shape BE nhận ở updateSkuDetailQuota/saveSkuDetailDraft - dùng
+ *  chung cho cả nộp thật (submitAll) lẫn tạm lưu (xem "Tạm lưu" dưới) để khỏi lặp logic gom nhóm. */
+function toDetailQuotaPayload(lines: DetailLine[]): DetailQuotaPayload {
+  const toLine = (l: DetailLine) => ({ materialId: String(l.materialId), name: l.name, unit: l.unit || undefined })
+  return {
+    daySon: lines.filter(l => l.group === 'daySon').map(l => ({ ...toLine(l), kg: l.soLuong.trim() !== '' ? Number(l.soLuong) : undefined })),
+    vatTuPhuKien: lines.filter(l => l.group === 'vatTuPhuKien').map(l => ({ ...toLine(l), quantity: l.soLuong.trim() !== '' ? Number(l.soLuong) : undefined })),
+    baoBiDongGoi: lines.filter(l => l.group === 'baoBiDongGoi').map(l => ({ ...toLine(l), quantity: l.soLuong.trim() !== '' ? Number(l.soLuong) : undefined })),
+  }
+}
+
+/** Chiều ngược lại - dùng cho cả openBom (từ quotaManagement.materialType đã duyệt/đang chờ)
+ *  lẫn khôi phục nháp tạm lưu (từ detailDraft, cùng shape). */
+function toDetailLines(mt: DetailQuotaPayload | undefined, startId: number): { lines: DetailLine[]; nextId: number } {
+  let id = startId
+  const lines: DetailLine[] = [
+    ...(mt?.daySon ?? []).map((it): DetailLine => ({ id: id++, group: 'daySon', materialId: Number(it.materialId) || 0, name: it.name, specs: it.specifications ?? '', unit: it.unit ?? '', soLuong: it.kg != null ? String(it.kg) : '' })),
+    ...(mt?.vatTuPhuKien ?? []).map((it): DetailLine => ({ id: id++, group: 'vatTuPhuKien', materialId: Number(it.materialId) || 0, name: it.name, specs: it.specifications ?? '', unit: it.unit ?? '', soLuong: it.quantity != null ? String(it.quantity) : '' })),
+    ...(mt?.baoBiDongGoi ?? []).map((it): DetailLine => ({ id: id++, group: 'baoBiDongGoi', materialId: Number(it.materialId) || 0, name: it.name, specs: it.specifications ?? '', unit: it.unit ?? '', soLuong: it.quantity != null ? String(it.quantity) : '' })),
+  ]
+  return { lines, nextId: id }
 }
 
 function FL({ children }: { children: React.ReactNode }) {
@@ -78,7 +103,10 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   // Điện thoại: bảng dòng vật tư 7 cột -> thẻ; ô nhập form co giãn thay vì rộng cố định.
   const isMobile = useIsMobile()
   const fieldW = (w: number): React.CSSProperties => isMobile ? { flex: '1 1 130px', minWidth: 0 } : { width: w }
-  const { data: skusData, isLoading: skusLoading, error: skusError, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
+  const { data: skusData, isLoading: skusLoading, error: skusError, refetch: refetchSkus, mutate: mutateSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
+  // Vá lại đúng 1 dòng SKU trong cache bằng response vừa nhận - không gọi refetchSkus() (tải lại
+  // cả danh sách) cho thao tác tạm lưu vì nó chạy mỗi giây lúc đang gõ (xem SpecSteelPage.tsx).
+  const patchSku = (updated: Sku) => mutateSkus(prev => prev ? prev.map(s => s.id === updated.id ? updated : s) : prev)
   // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập định mức.
   const skuChange = useRealtimeChangeNotice(['skus'])
   // Mảnh và chi tiết là 2 nhánh độc lập (tiến song song, không bắt buộc theo thứ tự) - chuyên viên
@@ -122,6 +150,12 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   const [unit, setUnit] = useState('')
   const [soLuong, setSoLuong] = useState('')
   const [bomSearch, setBomSearch] = useState('')
+  // Tạm lưu (nháp trên server, CHƯA gửi phê duyệt) - cùng cơ chế với "định mức mảnh"
+  // (SpecSteelPage.tsx): khôi phục được khi đổi máy/trình duyệt, mất mạng hay sập nguồn giữa
+  // chừng. Không có khái niệm ảnh ở trang này nên không cần resolvePendingPhotos.
+  const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null)
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
+  const [savingDraft, setSavingDraft] = useState(false)
 
   const resetForm = () => {
     setGroup('daySon'); setMaterial(null); setSpec(''); setUnit(''); setSoLuong('')
@@ -129,17 +163,71 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
 
   const openBom = (item: BomItem) => {
     const pf = findPf(item.id)
-    const mt = pf?.quotaManagement?.materialType
-    let id = 1
-    const existing: DetailLine[] = [
-      ...(mt?.daySon ?? []).map((it): DetailLine => ({ id: id++, group: 'daySon', materialId: Number(it.materialId) || 0, name: it.name, specs: it.specifications ?? '', unit: it.unit ?? '', soLuong: it.kg != null ? String(it.kg) : '' })),
-      ...(mt?.vatTuPhuKien ?? []).map((it): DetailLine => ({ id: id++, group: 'vatTuPhuKien', materialId: Number(it.materialId) || 0, name: it.name, specs: it.specifications ?? '', unit: it.unit ?? '', soLuong: it.quantity != null ? String(it.quantity) : '' })),
-      ...(mt?.baoBiDongGoi ?? []).map((it): DetailLine => ({ id: id++, group: 'baoBiDongGoi', materialId: Number(it.materialId) || 0, name: it.name, specs: it.specifications ?? '', unit: it.unit ?? '', soLuong: it.quantity != null ? String(it.quantity) : '' })),
-    ]
-    setSelectedBom(item); setLines(existing); setNextId(id)
+    setSelectedBom(item)
     resetForm()
     setSubmitDetailError(null)
+    setLastSavedAt(null)
+    setDraftRestoredAt(null)
+
+    // Bản nháp tạm lưu chỉ còn giá trị nếu mới hơn lần "Gửi phê duyệt" gần nhất - tránh ghi đè
+    // dữ liệu đã nộp thật bằng nháp cũ còn sót (vd nộp thật từ máy khác sau khi tạm lưu ở đây).
+    const entryAt = pf?.quotaManagement?.entryMeta?.enteredAt
+    const draftSavedAt = pf?.detailDraftSavedAt
+    if (draftSavedAt && (!entryAt || new Date(draftSavedAt) > new Date(entryAt))) {
+      const { lines: draftLines, nextId: draftNextId } = toDetailLines(pf?.detailDraft, 1)
+      setLines(draftLines); setNextId(draftNextId)
+      setDraftRestoredAt(draftSavedAt)
+    } else {
+      const { lines: existing, nextId: id } = toDetailLines(pf?.quotaManagement?.materialType, 1)
+      setLines(existing); setNextId(id)
+    }
   }
+
+  // Bỏ bản nháp, quay về đúng dữ liệu đã nộp thật gần nhất - vá cache bằng patchSku() thay vì
+  // chờ refetchSkus() round-trip mạng (xem SpecSteelPage.discardDraft).
+  const discardDraft = () => {
+    if (!selectedBom) return
+    void api.clearSkuDetailDraft(selectedBom.id).then(patchSku).catch(() => {})
+    const { lines: existing, nextId: id } = toDetailLines(findPf(selectedBom.id)?.quotaManagement?.materialType, 1)
+    setLines(existing); setNextId(id)
+    setDraftRestoredAt(null)
+    resetForm()
+  }
+
+  const saveDraftNow = async (currentLines: DetailLine[]) => {
+    if (!selectedBom) return
+    const updated = await api.saveSkuDetailDraft(selectedBom.id, toDetailQuotaPayload(currentLines), user?.name ?? 'Không rõ')
+    setLastSavedAt(updated.detailDraftSavedAt ?? new Date().toISOString())
+    patchSku(updated)
+  }
+
+  const manualSaveDraft = async () => {
+    if (!selectedBom) return
+    setSavingDraft(true)
+    try {
+      await saveDraftNow(lines)
+    } catch {
+      // Tạm lưu lỗi mạng - best-effort, không chặn luồng nhập liệu chính (vẫn còn trong RAM).
+    } finally {
+      setSavingDraft(false)
+    }
+  }
+
+  // Tự động tạm lưu mỗi khi dữ liệu đổi (debounce 1s) - bảo vệ cả khi người dùng quên bấm nút.
+  useEffect(() => {
+    if (!selectedBom) return
+    const st = bomStatus(selectedBom.id)
+    if ((st === 'pending' || st === 'approved') && !isAdmin) return
+    if (lines.length === 0) {
+      // Xoá hết dòng (dọn sạch form) - xoá luôn nháp trên server, không thì lần mở sau sẽ bị
+      // "sống lại" đúng những dòng vừa xoá (đè lên form rỗng người dùng cố ý để lại).
+      void api.clearSkuDetailDraft(selectedBom.id).then(patchSku).catch(() => {})
+      return
+    }
+    const t = setTimeout(() => { void saveDraftNow(lines).catch(() => {}) }, 1000)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lines, selectedBom?.id])
 
   const addLine = () => {
     if (!material) return
@@ -159,13 +247,11 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     setSavingDetail(true)
     setSubmitDetailError(null)
     try {
-      const toLine = (l: DetailLine) => ({ materialId: String(l.materialId), name: l.name, unit: l.unit || undefined })
-      await api.updateSkuDetailQuota(selectedBom.id, {
-        daySon: lines.filter(l => l.group === 'daySon').map(l => ({ ...toLine(l), kg: l.soLuong.trim() !== '' ? Number(l.soLuong) : undefined })),
-        vatTuPhuKien: lines.filter(l => l.group === 'vatTuPhuKien').map(l => ({ ...toLine(l), quantity: l.soLuong.trim() !== '' ? Number(l.soLuong) : undefined })),
-        baoBiDongGoi: lines.filter(l => l.group === 'baoBiDongGoi').map(l => ({ ...toLine(l), quantity: l.soLuong.trim() !== '' ? Number(l.soLuong) : undefined })),
-      }, user?.name ?? 'Không rõ')
+      await api.updateSkuDetailQuota(selectedBom.id, toDetailQuotaPayload(lines), user?.name ?? 'Không rõ')
       logAction(SKU_ENTITY, String(selectedBom.id), 'sku.detail_submitted', `${lines.length} vật tư (Sơn/Phụ kiện/Bao bì)`)
+      // Nộp thật thành công - BE đã tự xoá detailDraft (xem SkusService.updateDetailQuota).
+      setDraftRestoredAt(null)
+      setLastSavedAt(null)
       await refetchSkus()
     } catch (e) {
       setSubmitDetailError(e instanceof Error ? e.message : 'Không thể gửi phê duyệt')
@@ -287,6 +373,18 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
               {findPf(selectedBom.id)?.quotaManagement?.reviewStatus?.reason && (
                 <div style={{ fontSize: 12, color: 'var(--fg-dc2626)', fontStyle: 'italic', marginTop: 2 }}>{findPf(selectedBom.id)!.quotaManagement!.reviewStatus!.reason}</div>
               )}
+            </div>
+          )}
+
+          {draftRestoredAt && (
+            <div style={{ padding: '10px 16px', background: 'var(--bg-fff8e1)', border: '1px solid var(--fg-ffca28)', borderRadius: 'var(--radius-lg)', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 13, color: 'var(--fg-8d6e00)' }}>
+                📝 Đã khôi phục bản nháp tạm lưu lúc {new Date(draftRestoredAt).toLocaleString('vi-VN')} (chưa gửi phê duyệt).
+              </span>
+              <button onClick={discardDraft} style={{
+                padding: '5px 10px', border: '1px solid var(--fg-ffca28)', borderRadius: 'var(--radius)',
+                background: 'var(--surface)', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--fg-8d6e00)',
+              }}>Bỏ bản nháp</button>
             </div>
           )}
 
@@ -464,15 +562,32 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                     </span>
                   )}
                   <span style={{ fontSize: 13, color: 'var(--text2)' }}>{lines.length} vật tư</span>
-                  <button
-                    onClick={submitAll}
-                    disabled={savingDetail}
-                    style={{
-                      padding: '7px 20px', border: 'none', borderRadius: 'var(--radius)',
-                      background: 'var(--bg-1565c0)', color: '#fff', fontWeight: 700, fontSize: 13,
-                      cursor: savingDetail ? 'not-allowed' : 'pointer', opacity: savingDetail ? 0.7 : 1,
-                    }}
-                  >{savingDetail ? 'Đang gửi...' : (bomSt === 'approved' && isAdmin) ? 'Ghi đè định mức →' : 'Gửi phê duyệt →'}</button>
+                  {/* Giờ tạm lưu + 2 nút gom sát nhau 1 cụm (thay vì rải đều theo space-between
+                      của cha) - theo yêu cầu người dùng, dễ liên hệ "tạm lưu" với "gửi phê duyệt". */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    {lastSavedAt && (
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>Đã tạm lưu lúc {new Date(lastSavedAt).toLocaleTimeString('vi-VN')}</span>
+                    )}
+                    <button
+                      onClick={manualSaveDraft}
+                      disabled={savingDraft}
+                      title="Lưu tạm trên máy chủ - chưa gửi phê duyệt, mở lại trang (kể cả máy khác) là thấy lại ngay"
+                      style={{
+                        padding: '7px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                        background: 'var(--surface)', color: 'var(--text2)', fontWeight: 600, fontSize: 13,
+                        cursor: savingDraft ? 'not-allowed' : 'pointer', opacity: savingDraft ? 0.7 : 1,
+                      }}
+                    >{savingDraft ? 'Đang lưu...' : 'Tạm lưu'}</button>
+                    <button
+                      onClick={submitAll}
+                      disabled={savingDetail}
+                      style={{
+                        padding: '7px 20px', border: 'none', borderRadius: 'var(--radius)',
+                        background: 'var(--bg-1565c0)', color: '#fff', fontWeight: 700, fontSize: 13,
+                        cursor: savingDetail ? 'not-allowed' : 'pointer', opacity: savingDetail ? 0.7 : 1,
+                      }}
+                    >{savingDetail ? 'Đang gửi...' : (bomSt === 'approved' && isAdmin) ? 'Ghi đè định mức →' : 'Gửi phê duyệt →'}</button>
+                  </div>
                 </>
               )}
             </div>

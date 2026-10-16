@@ -139,6 +139,14 @@ interface BeSku {
   updatedAt: string;
   manhReviews: BeReview[];
   detailReviews: BeReview[];
+  /** Nháp tạm lưu - BE lưu/trả nguyên văn JSON FE gửi lên (xem SaveQuotaDraftDto), không tái
+   *  dựng như manhData/detailQuota - nên đã đúng sẵn shape ManhRow[]/DaySonItem[]... */
+  manhDraft: { pieces: ManhRow[] } | null;
+  manhDraftSavedAt: string | null;
+  manhDraftSavedBy: string | null;
+  detailDraft: { daySon: DaySonItem[]; vatTuPhuKien: VatTuPhuKienItem[]; baoBiDongGoi: BaoBiDongGoiItem[] } | null;
+  detailDraftSavedAt: string | null;
+  detailDraftSavedBy: string | null;
 }
 
 /** Mảnh giờ luôn nhập/duyệt 1 lần duy nhất (group SAT ở BE, không còn DAY/DINH riêng). */
@@ -278,6 +286,12 @@ function toSku(pf: BeSku): Sku {
     },
     manhEntryMeta: toSingleEntryMeta(pf.manhReviews, MANH_REVIEW_GROUP),
     manhReviewStatus: toSingleReviewStatus(pf.manhReviews, MANH_REVIEW_GROUP),
+    manhDraft: pf.manhDraft ?? undefined,
+    manhDraftSavedAt: pf.manhDraftSavedAt ?? undefined,
+    manhDraftSavedBy: pf.manhDraftSavedBy ?? undefined,
+    detailDraft: pf.detailDraft ?? undefined,
+    detailDraftSavedAt: pf.detailDraftSavedAt ?? undefined,
+    detailDraftSavedBy: pf.detailDraftSavedBy ?? undefined,
   };
 }
 
@@ -400,6 +414,34 @@ export async function updateSkuDetailQuota(
   ]
   const updated = await http.post<BeSku>(`/skus/${id}/detail-quota`, { detailLines, enteredBy });
   return toSku(updated);
+}
+
+/**
+ * Nháp tạm lưu (CHƯA gửi phê duyệt) - lưu trên server để khôi phục được khi đổi máy/trình
+ * duyệt, mất mạng hay sập nguồn giữa chừng (xem SpecSteelPage.tsx/SpecDetailQuotaPage.tsx).
+ * Gửi nguyên `rows`/`payload` (shape ManhRow[]/DaySonItem[]...) làm `data` - BE không parse,
+ * chỉ lưu lại y nguyên rồi trả về đúng shape đó ở `pf.manhDraft`/`pf.detailDraft`.
+ */
+export async function saveSkuManhDraft(id: number | string, rows: ManhRow[], savedBy: string): Promise<Sku> {
+  const updated = await http.patch<BeSku>(`/skus/${id}/manh-quota/draft`, { data: { pieces: rows }, savedBy });
+  return toSku(updated);
+}
+
+export async function clearSkuManhDraft(id: number | string): Promise<Sku> {
+  return toSku(await http.del<BeSku>(`/skus/${id}/manh-quota/draft`));
+}
+
+export async function saveSkuDetailDraft(
+  id: number | string,
+  payload: { daySon: DaySonItem[]; vatTuPhuKien: VatTuPhuKienItem[]; baoBiDongGoi: BaoBiDongGoiItem[] },
+  savedBy: string,
+): Promise<Sku> {
+  const updated = await http.patch<BeSku>(`/skus/${id}/detail-quota/draft`, { data: payload, savedBy });
+  return toSku(updated);
+}
+
+export async function clearSkuDetailDraft(id: number | string): Promise<Sku> {
+  return toSku(await http.del<BeSku>(`/skus/${id}/detail-quota/draft`));
 }
 
 export async function reviewSkuManhQuota(

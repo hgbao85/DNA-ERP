@@ -114,6 +114,7 @@ export { getSalesOrders, createSalesOrder, updateSalesOrder, shipSalesOrderItem,
 export {
   getSkus, getSku, getSkuOptions, createSku, deleteSkus, updateSku,
   updateSkuManhQuota, updateSkuDetailQuota, reviewSkuManhQuota, reviewSkuDetailQuota,
+  saveSkuManhDraft, clearSkuManhDraft, saveSkuDetailDraft, clearSkuDetailDraft,
   approvePartsSku, approveDetailSku, rejectSkuByBoss, approveFullSku,
 } from './sku-api';
 export {

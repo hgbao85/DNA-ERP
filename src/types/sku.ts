@@ -192,6 +192,16 @@ export interface Sku {
   /** KHSX duyệt/từ chối định mức mảnh — tách biệt khỏi status vì status không còn phân biệt được
    *  "đang ở nhánh mảnh" hay "đang ở nhánh chi tiết" (2 nhánh độc lập, xem manhForwardedAt). */
   manhReviewStatus?: QuotaReviewStatus;
+  /** Nháp tạm lưu mảnh (CHƯA gửi phê duyệt) - lưu trên server (PlanForm.manhDraft) để khôi phục
+   *  được khi đổi máy/trình duyệt, mất mạng hay sập nguồn giữa chừng (xem SpecSteelPage.tsx). */
+  manhDraft?: { pieces: ManhRow[] };
+  manhDraftSavedAt?: string;
+  manhDraftSavedBy?: string;
+  /** Nháp tạm lưu định mức chi tiết (Sơn/Phụ kiện/Bao bì) - cùng cơ chế với manhDraft (xem
+   *  SpecDetailQuotaPage.tsx). */
+  detailDraft?: { daySon: DaySonItem[]; vatTuPhuKien: VatTuPhuKienItem[]; baoBiDongGoi: BaoBiDongGoiItem[] };
+  detailDraftSavedAt?: string;
+  detailDraftSavedBy?: string;
 }
 
 export interface CreateSkuPayload {

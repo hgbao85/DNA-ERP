@@ -44,5 +44,13 @@ export function useFetch<T>(fetchFn: () => Promise<T>, deps?: unknown[]) {
 
   const refetch = useCallback(() => setTick(t => t + 1), []);
 
-  return { data, isLoading, error, refetch };
+  // Vá cache tại chỗ bằng kết quả đã có sẵn trong tay (vd response của 1 lần ghi vừa gọi) -
+  // tránh phải gọi lại refetch() (round-trip mạng + tải lại CẢ danh sách) chỉ để đồng bộ 1 bản
+  // ghi vừa đổi. Cần cho các thao tác gọi liên tục (vd tạm lưu debounce mỗi giây) - refetch()
+  // mỗi lần sẽ tốn mạng vô ích, mutate() chỉ cập nhật state cục bộ.
+  const mutate = useCallback((updater: (prev: T | null) => T | null) => {
+    setData(updater);
+  }, []);
+
+  return { data, isLoading, error, refetch, mutate };
 }
