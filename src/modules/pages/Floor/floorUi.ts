@@ -90,7 +90,7 @@ export interface OutputTotal {
   qty: number
 }
 
-const OP_ORDER = ['CAT', 'UON', 'DAP', 'DUC_LO', 'TAN', 'TOP_DAU', 'XE', 'STEP', 'PIECE']
+const OP_ORDER = ['CAT', 'UON', 'DAP', 'DUC_LO', 'TAN', 'TOP_DAU', 'XE', 'NHAN', 'STEP', 'PIECE']
 
 /**
  * Cộng số đã báo theo LOẠI VIỆC, bỏ lần báo đã bị QLSX đảo. KHÔNG cộng chung Cắt với Uốn... (cùng 1 đoạn đi qua nhiều

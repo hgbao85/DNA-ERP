@@ -6,7 +6,7 @@ import type { CSSProperties, ReactNode } from 'react'
 
 export const STAGE_LABEL: Record<string, string> = { PHOI: 'Phôi', HAN: 'Hàn', SON: 'Sơn' }
 export const STEP_LABEL: Record<string, string> = {
-  CAT: 'Cắt', UON: 'Uốn', DAP: 'Dập', DUC_LO: 'Đục lỗ', TAN: 'Tán', TOP_DAU: 'Tóp đầu', XE: 'Xẻ',
+  CAT: 'Cắt', UON: 'Uốn', DAP: 'Dập', DUC_LO: 'Đục lỗ', TAN: 'Tán', TOP_DAU: 'Tóp đầu', XE: 'Xẻ', NHAN: 'Nhấn',
 }
 export const KIND_LABEL: Record<string, string> = {
   CUT: 'Máy cắt laser', STEP: 'Máy công đoạn phụ', PIECE: 'Điểm làm việc (Hàn/Sơn)', STEEL_RECEIVE: 'Khu nhận sắt',

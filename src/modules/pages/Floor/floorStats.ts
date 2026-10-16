@@ -10,18 +10,18 @@ import type { OutputRange } from './floorUi'
 // ─── loại việc ───────────────────────────────────────────────────────────────
 
 /** Thứ tự theo quy trình: Cắt → công đoạn phụ → mảnh Phôi/Hàn/Sơn. */
-export const OP_ORDER: StatOp[] = ['CAT', 'UON', 'DAP', 'DUC_LO', 'TAN', 'TOP_DAU', 'XE', 'PHOI', 'HAN', 'SON']
+export const OP_ORDER: StatOp[] = ['CAT', 'UON', 'DAP', 'DUC_LO', 'TAN', 'TOP_DAU', 'XE', 'NHAN', 'PHOI', 'HAN', 'SON']
 export const OP_LABEL: Record<StatOp, string> = {
-  CAT: 'Cắt', UON: 'Uốn', DAP: 'Dập', DUC_LO: 'Đục lỗ', TAN: 'Tán', TOP_DAU: 'Tóp đầu', XE: 'Xẻ',
+  CAT: 'Cắt', UON: 'Uốn', DAP: 'Dập', DUC_LO: 'Đục lỗ', TAN: 'Tán', TOP_DAU: 'Tóp đầu', XE: 'Xẻ', NHAN: 'Nhấn',
   PHOI: 'Phôi', HAN: 'Hàn', SON: 'Sơn',
 }
 /** Cắt và công đoạn phụ đếm ĐOẠN sắt; Phôi (mảnh thành phẩm) / Hàn / Sơn đếm MẢNH - không cộng chung hai đơn vị. */
 export const OP_UNIT: Record<StatOp, 'đoạn' | 'mảnh'> = {
-  CAT: 'đoạn', UON: 'đoạn', DAP: 'đoạn', DUC_LO: 'đoạn', TAN: 'đoạn', TOP_DAU: 'đoạn', XE: 'đoạn',
+  CAT: 'đoạn', UON: 'đoạn', DAP: 'đoạn', DUC_LO: 'đoạn', TAN: 'đoạn', TOP_DAU: 'đoạn', XE: 'đoạn', NHAN: 'đoạn',
   PHOI: 'mảnh', HAN: 'mảnh', SON: 'mảnh',
 }
 export const OP_STAGE: Record<StatOp, 'PHOI' | 'HAN' | 'SON'> = {
-  CAT: 'PHOI', UON: 'PHOI', DAP: 'PHOI', DUC_LO: 'PHOI', TAN: 'PHOI', TOP_DAU: 'PHOI', XE: 'PHOI',
+  CAT: 'PHOI', UON: 'PHOI', DAP: 'PHOI', DUC_LO: 'PHOI', TAN: 'PHOI', TOP_DAU: 'PHOI', XE: 'PHOI', NHAN: 'PHOI',
   PHOI: 'PHOI', HAN: 'HAN', SON: 'SON',
 }
 const STAGE_NAME = { PHOI: 'Phôi', HAN: 'Hàn', SON: 'Sơn' } as const

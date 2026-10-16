@@ -2,7 +2,7 @@ import QRCode from 'qrcode'
 import type { BeWorkstation } from '../../../services/floor-api'
 
 const STAGE = { PHOI: 'PHÔI', HAN: 'HÀN', SON: 'SƠN' } as const
-const STEP: Record<string, string> = { UON: 'Uốn', DAP: 'Dập', DUC_LO: 'Đục lỗ', TAN: 'Tán', TOP_DAU: 'Tóp đầu', XE: 'Xẻ' }
+const STEP: Record<string, string> = { UON: 'Uốn', DAP: 'Dập', DUC_LO: 'Đục lỗ', TAN: 'Tán', TOP_DAU: 'Tóp đầu', XE: 'Xẻ', NHAN: 'Nhấn' }
 
 /** Link trên tem: trang quét của công nhân. Mã chỉ định danh MÁY (không chứa PI). */
 export const workstationLink = (qrToken: string, origin: string = window.location.origin) =>

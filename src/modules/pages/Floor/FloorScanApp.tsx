@@ -39,7 +39,7 @@ const LAST_WS_KEY = 'floor.lastWs'
 const LAST_USER_KEY = 'floor.lastUsername'
 const STAGE_LABEL: Record<string, string> = { PHOI: 'Phôi', HAN: 'Hàn', SON: 'Sơn' }
 const STEP_LABEL: Record<string, string> = {
-  CAT: 'Cắt', UON: 'Uốn', DAP: 'Dập', DUC_LO: 'Đục lỗ', TAN: 'Tán', TOP_DAU: 'Tóp đầu', XE: 'Xẻ',
+  CAT: 'Cắt', UON: 'Uốn', DAP: 'Dập', DUC_LO: 'Đục lỗ', TAN: 'Tán', TOP_DAU: 'Tóp đầu', XE: 'Xẻ', NHAN: 'Nhấn',
 }
 
 function safeGet(k: string): string | null {

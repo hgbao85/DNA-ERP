@@ -21,7 +21,7 @@ import { btn, card, input, KIND_LABEL, Notice, Pill, STAGE_LABEL, STEP_LABEL, td
 import { isLocalOrigin, kindCaption, printTems, qrDataUrl, workstationLink } from './qrPrint'
 
 const STAGES: FloorStage[] = ['PHOI', 'HAN', 'SON']
-const STEPS = ['UON', 'DAP', 'DUC_LO', 'TAN', 'TOP_DAU', 'XE']
+const STEPS = ['UON', 'DAP', 'DUC_LO', 'TAN', 'TOP_DAU', 'XE', 'NHAN']
 
 const wsTitle = (w: BeWorkstation) => `${w.code} · ${w.name}`
 

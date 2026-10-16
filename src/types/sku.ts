@@ -75,7 +75,7 @@ export type ManhChildGroup = 'sat' | 'day' | 'dinh' | 'tanRut' | 'nutNhua' | 'va
 
 /** 7 công đoạn phôi chi tiết có thể áp dụng cho 1 thanh sắt (group='sat') - đa chọn, vd 1 thanh
  *  vừa tán vừa dập. Khớp enum ProcessStep ở BE (schema.prisma). */
-export type ProcessStep = 'CAT' | 'UON' | 'DAP' | 'DUC_LO' | 'TAN' | 'TOP_DAU' | 'XE';
+export type ProcessStep = 'CAT' | 'UON' | 'DAP' | 'DUC_LO' | 'TAN' | 'TOP_DAU' | 'XE' | 'NHAN';
 
 /** Ai nhập 1 nhóm định mức (chi tiết hoặc mảnh) và khi nào — phục vụ luồng account chuyên trách nhập liệu. */
 export interface QuotaEntryMeta {

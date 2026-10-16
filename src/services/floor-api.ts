@@ -139,7 +139,7 @@ export function getMyOutput(from?: string, to?: string) {
 // ─── QLSX: "Báo cáo sản lượng đạt KCS" (2026-10-15) ───────────────────────────
 
 /** Loại việc trong báo cáo: CAT..XE đếm ĐOẠN (theo cỡ), PHOI/HAN/SON đếm MẢNH. */
-export type StatOp = 'CAT' | 'UON' | 'DAP' | 'DUC_LO' | 'TAN' | 'TOP_DAU' | 'XE' | 'PHOI' | 'HAN' | 'SON'
+export type StatOp = 'CAT' | 'UON' | 'DAP' | 'DUC_LO' | 'TAN' | 'TOP_DAU' | 'XE' | 'NHAN' | 'PHOI' | 'HAN' | 'SON'
 export type StatsGroupBy = 'day' | 'month' | 'year'
 
 export interface BeStatRow {
