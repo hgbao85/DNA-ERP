@@ -5,6 +5,7 @@ import { ChevronRight, ChevronLeft, Plus, X, Pencil, Upload, Copy } from 'lucide
 import SkuImageThumb from '../../../components/SkuImageThumb'
 import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
 import { useFetch } from '../../../hooks/useFetch'
+import { useConfirm } from '../../../hooks/useConfirm'
 import { useMaterialGroupIds } from '../../../hooks/useMaterialGroupIds'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
@@ -168,6 +169,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
 }) {
   const { user } = useAuth()
+  const { ask, confirmModal } = useConfirm()
   // Admin được sửa định mức ngay cả khi KHSX/Sếp đã duyệt (ghi đè trực tiếp, không cần duyệt
   // lại - BE chặn mọi role khác bằng BomRevisionsService/SkusService.resolveNonDraftOrAdminOverride,
   // xem backend 2026-10-15). Dưới đây chỉ là mở lại UI cho đúng role này, BE vẫn tự kiểm độc lập.
@@ -297,9 +299,10 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
 
   // Bỏ bản nháp, quay về đúng dữ liệu đã nộp thật gần nhất (manhData, không đổi khi xoá nháp) -
   // vá cache bằng patchSku() thay vì chờ refetchSkus() round-trip mạng.
-  const discardDraft = () => {
+  const discardDraft = async () => {
     if (!selectedBom) return
-    void api.clearSkuManhDraft(selectedBom.id).then(patchSku).catch(() => {})
+    const updated = await api.clearSkuManhDraft(selectedBom.id)
+    patchSku(updated)
     const existing = (findPf(selectedBom.id)?.manhData?.pieces ?? []).map(toManh)
     const maxId = existing.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
     setManhs(existing)
@@ -329,12 +332,25 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     setSavingDraft(true)
     try {
       await saveDraftNow(manhs)
-    } catch {
-      // Tạm lưu lỗi mạng - best-effort, không chặn luồng nhập liệu chính (vẫn còn trong RAM).
     } finally {
       setSavingDraft(false)
     }
   }
+
+  const confirmDiscardDraft = () => ask({
+    title: 'Bỏ bản nháp?',
+    message: 'Bản nháp hiện tại sẽ bị xóa và dữ liệu đã gửi phê duyệt gần nhất sẽ được khôi phục. Bạn có chắc muốn tiếp tục?',
+    confirmLabel: 'Bỏ bản nháp',
+    cancelLabel: 'Quay lại',
+    danger: true,
+  }, discardDraft)
+
+  const confirmSaveDraft = () => ask({
+    title: 'Tạm lưu định mức?',
+    message: 'Dữ liệu hiện tại sẽ được lưu thành bản nháp và chưa được gửi phê duyệt. Bạn có muốn tiếp tục?',
+    confirmLabel: 'Tạm lưu',
+    cancelLabel: 'Hủy',
+  }, manualSaveDraft)
 
   // Tự động tạm lưu mỗi khi dữ liệu đổi (debounce 1s) - bảo vệ cả khi người dùng quên bấm nút.
   // Tính "đã nộp" trực tiếp ở đây (không dùng isSubmitted khai báo phía dưới) vì effect này đứng
@@ -650,7 +666,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               <span style={{ fontSize: 13, color: 'var(--fg-8d6e00)' }}>
                 📝 Đã khôi phục bản nháp tạm lưu lúc {new Date(draftRestoredAt).toLocaleString('vi-VN')} (chưa gửi phê duyệt).
               </span>
-              <button onClick={discardDraft} style={{
+              <button onClick={confirmDiscardDraft} style={{
                 padding: '5px 10px', border: '1px solid var(--fg-ffca28)', borderRadius: 'var(--radius)',
                 background: 'var(--surface)', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--fg-8d6e00)',
               }}>Bỏ bản nháp</button>
@@ -1139,7 +1155,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                       <span style={{ fontSize: 11, color: 'var(--text3)' }}>Đã tạm lưu lúc {new Date(lastSavedAt).toLocaleTimeString('vi-VN')}</span>
                     )}
                     <button
-                      onClick={manualSaveDraft}
+                      onClick={confirmSaveDraft}
                       disabled={savingDraft}
                       title="Lưu tạm trên máy này - chưa gửi phê duyệt, mở lại trang là thấy lại ngay"
                       style={{
@@ -1230,6 +1246,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
           </div>
         </div>
       )}
+      {confirmModal}
     </div>
   )
 }
