@@ -34,8 +34,7 @@ import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
-import { useRealtimeChangeNotice, useRealtimeRefetch } from '../../../realtime/hooks'
-import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 const ACCENT = 'var(--fg-4527a0)'
 
@@ -99,8 +98,19 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
   // Realtime: chỉ làm mới LỊCH SỬ xuất (danh sách đã xuất). Không refetch kế hoạch đang chọn để không đổi dòng người dùng đang nhập.
   useRealtimeRefetch(['steel-issues'], () => { void refetchHistory() })
   const history = historyData && historyData.piId === selPiId ? historyData.items : []
-  // Kế hoạch có thể đã đổi do người khác (xuất/nhận sắt, tồn kho): báo, KHÔNG tự tải lại để không mất dòng đang nhập.
-  const planChange = useRealtimeChangeNotice(['steel-issues', 'stock'])
+  // Kế hoạch tự tải lại NGẦM (2026-10-17, đổi từ banner thủ công) - barLen/barCount đang gõ tách
+  // biệt khỏi `plan` (state riêng theo key vật tư), nút "Xuất" không bị ẩn/khoá do dữ liệu tải về -
+  // tải ngầm an toàn. Lọc theo PI đang mở - sự kiện STEEL_ISSUE mang kèm `parentId` =
+  // productionInvoiceId (xem steel-issues.service.ts publishRealtime()), so trực tiếp. STOCK không
+  // có PI để so (tồn kho dùng chung mọi PI cùng vật tư) - coi như luôn liên quan, chỉ khi ĐANG mở 1
+  // PI (màn danh sách không có kế hoạch nào để tải lại).
+  useRealtimeRefetch(['steel-issues', 'stock'], () => { void refetch() }, {
+    filter: payload => {
+      if (!selectedPi) return false
+      if (payload.entity === 'STEEL_ISSUE') return payload.parentId === selectedPi.productionInvoiceId
+      return true
+    },
+  })
   // Chiều dài cây mặc định — ưu tiên đúng chiều dài phương án cắt sắt đã chốt cho vật tư này
   // (item.bestStockLengthMm, nay lấy thẳng từ CuttingProposalLine, xem steel-issues-api.ts), vẫn sửa
   // được vì kho vật lý có thể đang có cây dài khác. Fallback 6000mm (chuẩn duy nhất đang dùng) khi
@@ -166,7 +176,6 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
           </div>
         </div>
 
-        <RealtimeUpdateNotice visible={planChange.changed} onReload={() => { planChange.clear(); void refetch() }} />
         {planError ? (
           <div style={{ ...emptyBox, color: 'var(--fg-dc2626)' }}>Lỗi tải kế hoạch xuất sắt: {planError}</div>
         ) : !planReady ? <LoadingState /> : plan.length === 0 ? (

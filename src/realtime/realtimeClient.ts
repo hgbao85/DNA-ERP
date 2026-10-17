@@ -21,7 +21,15 @@ import { createEventBus, type EventBus } from './eventBus';
  * sẽ đăng xuất qua luồng REST sẵn có.
  *
  * Kết nối lại: sau lần connect thứ 2 trở đi, phát `resync` để mọi màn hình refetch - sự kiện phát
- * trong lúc mất mạng không được replay, nên phải tải lại dữ liệu thật từ REST.
+ * trong lúc mất mạng không được replay, nên phải tải lại dữ liệu thật từ REST. NGOẠI TRỪ khoảng
+ * ngắt < `RESYNC_GAP_MS` (2026-10-17): access token hết hạn sau 15 phút khiến BE chủ động ngắt
+ * socket (`realtime.gateway.ts`), FE `recover()` ngay sau đó (1 lượt refreshSession() + connect()
+ * lại, thường dưới 1-2 giây) - gần như KHÔNG BAO GIỜ có sự kiện nào lọt vào khoảng hở đó, nhưng
+ * vẫn phát `resync` y hệt 1 lần mất mạng thật, khiến `useRealtimeChangeNotice` bật banner "dữ liệu
+ * vừa đổi" đều đặn mỗi ~15 phút dù chẳng ai sửa gì (phát hiện qua SpecSteelPage, người dùng báo
+ * thấy banner tự hiện dù không ai thao tác). Đo khoảng cách disconnect->connect: dưới ngưỡng thì
+ * coi là ngắt-kết-nối-vì-đổi-token (vô hại, bỏ qua), từ ngưỡng trở lên mới coi là CÓ THỂ đã lỡ sự
+ * kiện thật (mất mạng/server restart/máy ngủ...) và phát resync như cũ.
  */
 
 export type RealtimeStatus = 'idle' | 'connecting' | 'connected' | 'disconnected';
@@ -32,6 +40,13 @@ const SOCKET_PATH = '/socket.io';
 const RETRY_REFRESH_MS = 5_000;
 /** Chu kỳ refetch dự phòng khi đang connected (event có thể lỡ trong lúc Redis/mạng chập chờn). */
 const SAFETY_TICK_MS = 5 * 60 * 1000;
+/**
+ * Ngưỡng phân biệt "ngắt vì đổi token" (recover() xong trong 1 round-trip refreshSession(), thực
+ * nghiệm thường dưới 1-2s kể cả mạng chậm) với "ngắt thật" (mất mạng/server restart/máy ngủ...,
+ * luôn dài hơn hẳn). Cao hơn nhiều so với round-trip thường để không bỏ sót resync thật trên mạng
+ * yếu - chỉ cần luôn NGẮN hơn hẳn mọi khoảng ngắt thật là đủ tác dụng.
+ */
+const RESYNC_GAP_MS = 5_000;
 
 class RealtimeClient {
   readonly bus: EventBus = createEventBus({
@@ -41,6 +56,8 @@ class RealtimeClient {
   private socket: Socket | null = null;
   private status: RealtimeStatus = 'idle';
   private everConnected = false;
+  /** Mốc thời điểm RỚT kết nối gần nhất - xem RESYNC_GAP_MS. null = chưa từng rớt (hoặc vừa nối lại). */
+  private disconnectedAt: number | null = null;
   private retryTimer: ReturnType<typeof setTimeout> | null = null;
   private safetyTimer: ReturnType<typeof setInterval> | null = null;
   private statusListeners = new Set<() => void>();
@@ -70,12 +87,19 @@ class RealtimeClient {
 
     socket.on('connect', () => {
       this.setStatus('connected');
-      if (this.everConnected) this.bus.resync();
+      if (this.everConnected) {
+        // disconnectedAt null (lý thuyết không nên xảy ra ở nhánh này, nhưng phòng thủ) -> coi
+        // như khoảng ngắt dài, vẫn phát resync như hành vi cũ (an toàn hơn là bỏ sót).
+        const gapMs = this.disconnectedAt == null ? Infinity : Date.now() - this.disconnectedAt;
+        if (gapMs >= RESYNC_GAP_MS) this.bus.resync();
+      }
       this.everConnected = true;
+      this.disconnectedAt = null;
     });
 
     socket.on('disconnect', (reason) => {
       this.setStatus('disconnected');
+      this.disconnectedAt ??= Date.now();
       // Server chủ động ngắt (token hết hạn / server đang tắt): socket.io KHÔNG tự kết nối lại,
       // phải tự làm sau khi có token mới.
       if (reason === 'io server disconnect') void this.recover();
@@ -83,6 +107,7 @@ class RealtimeClient {
 
     socket.on('connect_error', (error) => {
       this.setStatus('disconnected');
+      this.disconnectedAt ??= Date.now();
       // Middleware từ chối handshake: socket.io cũng không tự thử lại - phải refresh rồi connect().
       if (error.message === 'UNAUTHORIZED') void this.recover();
     });
@@ -103,6 +128,7 @@ class RealtimeClient {
     this.socket?.disconnect();
     this.socket = null;
     this.everConnected = false;
+    this.disconnectedAt = null;
     this.setStatus('idle');
   }
 

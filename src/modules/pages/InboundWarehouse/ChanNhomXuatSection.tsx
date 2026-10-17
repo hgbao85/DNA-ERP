@@ -21,8 +21,7 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 import { pageSubtitle } from '../../../styles/typography'
-import { useRealtimeChangeNotice } from '../../../realtime/hooks'
-import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 const ACCENT = 'var(--fg-4527a0)'
 
@@ -52,7 +51,9 @@ export default function ChanNhomXuatSection() {
     () => (selPi ? api.getMaterialYieldRecipeIssuesForInvoice(selPi.productionInvoiceId) : Promise.resolve([])),
     [selPi?.productionInvoiceId],
   )
-  const issueChange = useRealtimeChangeNotice(['material-yield-issues'])
+  // Tự tải lại NGẦM (2026-10-17) - banner cũ chỉ hiện ở màn DANH SÁCH (chọn PI), không đụng màn
+  // chi tiết (đang nhập qty theo dòng, early-return riêng, xem `if (selPi)` dưới).
+  useRealtimeRefetch(['material-yield-issues'], () => { void refetchDemand(); void refetchIssues() })
   const issuedByRecipe = new Map<string, number>()
   for (const i of issues ?? []) issuedByRecipe.set(i.recipeId, (issuedByRecipe.get(i.recipeId) ?? 0) + i.issuedQty)
 
@@ -166,7 +167,6 @@ export default function ChanNhomXuatSection() {
 
   return (
     <div>
-      <RealtimeUpdateNotice visible={issueChange.changed} onReload={() => { issueChange.clear(); void refetchDemand(); void refetchIssues() }} />
       <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Chọn PI để xuất nguyên liệu vào cho vật tư thành phẩm KHÔNG gắn mảnh (vd chân nhôm).
       </div>

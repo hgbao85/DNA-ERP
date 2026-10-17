@@ -21,8 +21,7 @@ import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import MobileListCards from '../../../components/MobileListCards'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
-import { useRealtimeChangeNotice } from '../../../realtime/hooks'
-import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 const ACCENT = 'var(--fg-e65100)'
 
@@ -96,8 +95,8 @@ export default function PhoiDinhMucManhPage({ stage = 'PHOI' }: { stage?: DinhMu
   const [sku, setSku] = useState('ALL')
 
   const { data: skusData, isLoading, error, refetch } = useFetch(() => api.getSkus(), [])
-  // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập.
-  const skuChange = useRealtimeChangeNotice(['skus'])
+  // SKU mới/đổi từ phòng khác: tự tải lại NGẦM (2026-10-17) - trang chỉ xem (không có form nhập).
+  useRealtimeRefetch(['skus'], () => { void refetch() })
   const skus = ((skusData ?? []) as Sku[]).filter(pf => pf.status !== 'DRAFT')
 
   const steelRows = useMemo(() => buildSteelRows(skus), [skus])
@@ -130,7 +129,6 @@ export default function PhoiDinhMucManhPage({ stage = 'PHOI' }: { stage?: DinhMu
 
   return (
     <div>
-      <RealtimeUpdateNotice visible={skuChange.changed} onReload={() => { skuChange.clear(); void refetch() }} />
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 'var(--space-4)' }}>
         <div style={{ width: 34, height: 34, borderRadius: 'var(--radius)', background: 'var(--bg-fff3e0)', color: ACCENT, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
           <Layers size={18} />

@@ -33,8 +33,7 @@ import MobileListCards from '../../../components/MobileListCards'
 import { pageSubtitle } from '../../../styles/typography'
 import ChanNhomXuatSection from './ChanNhomXuatSection'
 import { subFilterBtn } from '../Phoi/phoiStyles'
-import { useRealtimeChangeNotice } from '../../../realtime/hooks'
-import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 const ACCENT = 'var(--fg-4527a0)'
 
@@ -53,8 +52,8 @@ export default function XuatVatTuThanhPhamPage() {
   // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
   const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
-  // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập.
-  const skuChange = useRealtimeChangeNotice(['skus'])
+  // SKU mới/đổi từ phòng khác: tự tải lại NGẦM (2026-10-17) - banner cũ chỉ hiện ở màn DANH SÁCH.
+  useRealtimeRefetch(['skus'], () => { void refetchSkus() })
   const { poInfoFor, activePiIds, orderRows } = usePoInfoFloorGate()
   const active = orderRows(skus as Sku[]).filter(p => p.status !== 'DRAFT' && activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? ''))
 
@@ -197,7 +196,6 @@ export default function XuatVatTuThanhPhamPage() {
   // ── List view ─────────────────────────────────────────────────────────────────
   return (
     <div>
-      <RealtimeUpdateNotice visible={skuChange.changed} onReload={() => { skuChange.clear(); void refetchSkus() }} />
       {modeToggle}
       <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Xuất Sắt La (Pat) cho Phôi theo lệnh sản xuất.

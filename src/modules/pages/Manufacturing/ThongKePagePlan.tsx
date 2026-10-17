@@ -25,8 +25,7 @@ import type { BeProductionBatchPlan } from '../../../services/production-batches
 import type { BeWeavingIssuePlanItem } from '../../../services/weaving-issues-api'
 import type { BeTransferCheckPiece } from '../../../services/transfer-check-api'
 import type { BePackagingProgress } from '../../../services/packaging-api'
-import { useRealtimeChangeNotice } from '../../../realtime/hooks'
-import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -1522,11 +1521,12 @@ function DeadlineText({ deadline, overdue, overdueLabel }: { deadline?: string; 
 export default function ThongKePagePlan() {
 
   const { data: skusData, isLoading, error: skusError, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
-  // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập.
+  const { data: pisData, refetch: refetchPis } = useFetch<PIStatusRow[]>(() => api.getProductionInvoices(), [])
+  // SKU mới/đổi từ phòng khác: tự tải lại NGẦM (2026-10-17) - trang bảng thống kê/nút bấm
+  // (Bắt đầu/Tạm dừng/Kết thúc), không có form nhập văn bản nào bị đè khi tải lại.
   // 'production-orders': nút "Bắt đầu"/"Tạm dừng"/"Kết thúc" (floor-gate) cũng đổi dữ liệu ở đúng
   // bảng này - nhiều vai (QLSX/Hàn/Sơn/Phôi) có thể cùng xem trang này.
-  const skuChange = useRealtimeChangeNotice(['skus', 'production-orders'])
-  const { data: pisData, refetch: refetchPis } = useFetch<PIStatusRow[]>(() => api.getProductionInvoices(), [])
+  useRealtimeRefetch(['skus', 'production-orders'], () => { void refetchSkus(); void refetchPis() })
   const { data: weavingPointsData } = useFetch<WeavingPointLite[]>(() => (api as any).getWeavingPoints(), [])
   const { proposals } = useInspection()
   // Mã khách hàng cho các lệnh KHÔNG có Sku (PlanForm) đi kèm — xem buildSyntheticSku(). Sku thật
@@ -1865,7 +1865,6 @@ export default function ThongKePagePlan() {
   // Lớp 1: danh sách PI.
   return (
     <div>
-      <RealtimeUpdateNotice visible={skuChange.changed} onReload={() => { skuChange.clear(); void refetchSkus(); void refetchPis() }} />
       {failedBanner}
       <div style={{ marginBottom: 'var(--space-5)' }}>
         <h2 style={{ ...pageTitle, margin: 0 }}>Tổng hợp lệnh SX</h2>

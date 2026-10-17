@@ -69,6 +69,8 @@ export interface EntityChangedPayload {
   entityId: string;
   action: RealtimeEntityAction;
   topics: string[];
+  /** TUỲ CHỌN (2026-10-17) - id bản ghi cha (vd PI cho STEEL_ISSUE), xem realtime.contract.ts (BE). */
+  parentId?: string;
 }
 
 export interface NotificationChangedPayload {

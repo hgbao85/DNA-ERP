@@ -25,8 +25,7 @@ import { errMsg } from '../../utils/errors'
 import { useIsMobile } from '../../hooks/useMediaQuery'
 import LoadingState from '../LoadingState'
 import LoadErrorState from '../LoadErrorState'
-import { useRealtimeChangeNotice } from '../../realtime/hooks'
-import RealtimeUpdateNotice from '../../realtime/RealtimeUpdateNotice'
+import { useRealtimeRefetch } from '../../realtime/hooks'
 
 const ACCENT = 'var(--fg-e65100)'
 const REMIND_MINUTES = 60
@@ -944,11 +943,6 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   // "Lỗi" theo đợt (2026-09-09, đồng bộ Sắt/VTTP) - fetch 1 lần, lọc theo batchesByLine ở
   // VatTuDetailBoard (cùng idiom ChotPanel/StepPanel, VatTuTpDetail.tsx).
   const { data: reviews, refetch: refetchReviews } = useFetch(() => stage ? api.getQcReviewsForProductionBatches() : Promise.resolve([]), [stage])
-  // Component dùng chung cho nhiều màn Hàn/Sơn/KCS - `rows` đang sửa dở được đồng bộ từ `fetched`
-  // qua useEffect bên dưới, nên KHÔNG tự refetch khi có thay đổi từ người khác (sẽ đè số đang nhập
-  // dở). Chỉ báo, người dùng tự bấm tải lại. Rỗng khi stage=undefined (màn Phôi không dùng 2 fetch này).
-  const dataChange = useRealtimeChangeNotice(stage ? ['production-batches', 'qc-reviews', 'production-orders'] : [])
-
   const [rows, setRows] = useState<ProcRow[]>(() => seed?.() ?? [])
   useEffect(() => {
     if (!stage) return
@@ -982,6 +976,37 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
     return m
   }, [selPo, fetched?.batchesByLine])
   const scopedChoKcsFor = (id: number) => rawAwaitingByLine.get(`${selPo?.realOrderId}:${id}`) ?? 0
+
+  // Component dùng chung cho nhiều màn Hàn/Sơn/KCS - `rows` đang sửa dở được đồng bộ từ `fetched`
+  // qua useEffect bên trên, nên KHÔNG tự refetch khi có thay đổi từ người khác (sẽ đè số đang nhập
+  // dở). Chỉ báo, người dùng tự bấm tải lại. Rỗng khi stage=undefined (màn Phôi không dùng 2 fetch này).
+  // Lọc theo tầng đang xem (2026-10-17, cùng bug/fix với SpecSteelPage.tsx): tầng "danh sách PI"
+  // (selPo/selPiGroup null) thì đổi gì cũng đáng báo; đã chọn 1 PI hoặc 1 PO/SKU cụ thể thì chỉ báo
+  // đổi liên quan tới (các) lệnh SX đang xem - trước đây PO/batch/review BẤT KỲ ở đâu đó đổi cũng
+  // bật banner trên màn chi tiết, dù không liên quan gì tới PO đang xem.
+  // ĐÍNH CHÍNH cùng ngày: bản đầu lọc PRODUCTION_BATCH/QC_REVIEW bằng cách tra qua `fetched`/`reviews`
+  // đã tải sẵn - sai, vì 2 danh sách đó KHÔNG tự làm mới (cố ý, tránh đè số đang nhập dở), nên lô/đợt
+  // MỚI tạo cho đúng PO đang xem sẽ không có trong đó -> bị lọc nhầm thành "không liên quan", im
+  // lặng bỏ sót đúng cái cần báo nhất (nặng hơn bug gốc). Sửa đúng gốc: BE giờ gắn kèm
+  // `parentId`=productionOrderId cho cả 2 loại sự kiện này (ProductionBatchesService.publishRealtime,
+  // QcReviewsService.publishRealtime) - so trực tiếp, không cần tra qua dữ liệu con nào nữa.
+  // Tự tải lại NGẦM (2026-10-17) - ô nhập sản lượng (`draft`) tách biệt khỏi `rows`/`fetched`, và
+  // input/nút "Lưu đợt" KHÔNG BAO GIỜ bị ẩn/khoá do dữ liệu tải về (xem comment "manualInput" ở
+  // VatTuDetailBoard) - tải ngầm an toàn ở cả 3 tầng, không có gì bị đè/khoá dưới tay người đang gõ.
+  useRealtimeRefetch(stage ? ['production-batches', 'qc-reviews', 'production-orders'] : [], () => {
+    void refetch(); void refetchReviews()
+  }, {
+    filter: payload => {
+      if (!selPo && !selPiGroup) return true
+      const orderIds = new Set(
+        (selPo ? [selPo] : selPiGroup?.rows ?? [])
+          .map(r => r.realOrderId)
+          .filter((x): x is string => !!x),
+      )
+      if (payload.entity === 'PRODUCTION_ORDER') return orderIds.has(payload.entityId)
+      return payload.parentId != null && orderIds.has(payload.parentId)
+    },
+  })
 
   const updateLineFlat = (poId: number, ul: ProcLine) =>
     setRows(rs => rs.map(r => r.id !== poId ? r : { ...r, lines: r.lines?.map(l => l.id === ul.id ? ul : l) }))
@@ -1022,13 +1047,8 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
   if (stage && fetchedLoading) return <LoadingState />
   if (stage && (fetchedError || !fetched)) return <LoadErrorState error={fetchedError ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
 
-  const notice = <RealtimeUpdateNotice
-    visible={dataChange.changed}
-    onReload={() => { dataChange.clear(); void refetch(); void refetchReviews() }}
-  />
   if (selPo) {
-    return <>
-      {notice}
+    return (
       <VatTuDetailBoard
         lines={selPo.lines ?? []} cfg={cfg} readOnly={readOnly}
         title={selPo.sku}
@@ -1044,20 +1064,16 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
         reviews={stage ? (reviews ?? []) : undefined}
         manualInput
       />
-    </>
+    )
   }
   if (selPiGroup) {
-    return <>
-      {notice}
+    return (
       <PoListBoard
         rows={selPiGroup.rows} cfg={cfg} isPhoi={false} sequential={!stage}
         onEnter={id => setSelPoId(id)}
         onBack={() => setSelPiId(null)} piCode={selPiGroup.piCode}
       />
-    </>
+    )
   }
-  return <>
-    {notice}
-    <PiListBoard groups={piGroups} cfg={cfg} onEnter={id => setSelPiId(id)} />
-  </>
+  return <PiListBoard groups={piGroups} cfg={cfg} onEnter={id => setSelPiId(id)} />
 }

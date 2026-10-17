@@ -16,8 +16,7 @@ import { useIsMobile } from '../../../hooks/useMediaQuery'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
-import { useRealtimeChangeNotice } from '../../../realtime/hooks'
-import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 // ─── Types ────────────────────────────────────────────────────────────
 // "Định mức chi tiết" (Sơn/Phụ kiện/Bao bì) — 1 account nhập cả 3 nhóm trong 1 trang, gửi
@@ -107,8 +106,6 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   // Vá lại đúng 1 dòng SKU trong cache bằng response vừa nhận - không gọi refetchSkus() (tải lại
   // cả danh sách) cho thao tác tạm lưu vì nó chạy mỗi giây lúc đang gõ (xem SpecSteelPage.tsx).
   const patchSku = (updated: Sku) => mutateSkus(prev => prev ? prev.map(s => s.id === updated.id ? updated : s) : prev)
-  // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập định mức.
-  const skuChange = useRealtimeChangeNotice(['skus'])
   // Mảnh và chi tiết là 2 nhánh độc lập (tiến song song, không bắt buộc theo thứ tự) - chuyên viên
   // chi tiết thấy SKU ngay khi KHSX tạo, không cần chờ mảnh xong. Cùng điều kiện với SpecSteelPage.tsx.
   const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
@@ -140,6 +137,15 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   }
 
   const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)
+  // SKU mới/đổi từ phòng khác: tự tải lại NGẦM, không cần banner/bấm tay (2026-10-17, cùng đổi với
+  // SpecSteelPage.tsx - xem comment đầy đủ ở đó). `lines` (state đang gõ) chỉ được set trong
+  // openBom()/discardDraft() (hành động bấm tay), không có effect nào đồng bộ lại từ skusData, nên
+  // refetch ngầm không xoá nội dung đang nhập. Khung sửa chỉ khoá (isSubmitted) khi CHÍNH người
+  // đang xem tự bấm "Gửi phê duyệt" (submitAll() tự refetchSkus() ngay sau, không phải bị người
+  // khác âm thầm đổi dưới tay) - đã xác nhận lại với user trước khi đổi.
+  useRealtimeRefetch(['skus'], () => { void refetchSkus() }, {
+    filter: payload => selectedBom == null || payload.entityId === selectedBom.id,
+  })
   const [lines, setLines] = useState<DetailLine[]>([])
   const [nextId, setNextId] = useState(1)
   const [savingDetail, setSavingDetail] = useState(false)
@@ -272,7 +278,6 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
 
   return (
     <div>
-      <RealtimeUpdateNotice visible={skuChange.changed} onReload={() => { skuChange.clear(); void refetchSkus() }} />
       {/* Page header - chuông "đã duyệt định mức" cục bộ (NotifBell, không nối BE, F5 mất trạng
           thái đã xem) đã gỡ 2026-09-25: thông báo thật cho luồng duyệt SKU/định mức thuộc Phase 3
           (nối sự kiện theo luồng) của changelog notification 2026-09-25, chưa có ở BE - xem

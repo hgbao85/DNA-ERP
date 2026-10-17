@@ -36,8 +36,7 @@ import {
   ACCENT, GREEN, RED, AMBER, th, thR, td, tdR, card, smallBtn, inp, subFilterBtn,
 } from './phoiStyles'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
-import { useRealtimeChangeNotice } from '../../../realtime/hooks'
-import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 export interface VatTuTpItem {
   orderId: string
@@ -172,7 +171,14 @@ function StepPanel({ item, step, progress, readOnly, onRefetch }: {
     () => api.getPieceStepBundlesForOrder(item.orderId), [item.orderId],
   )
   const { data: bundleReviews, refetch: refetchBundleReviews } = useFetch(() => api.getQcReviewsForPieceStepBundles(), [])
-  const qcChange = useRealtimeChangeNotice(['qc-reviews'])
+  // Tự tải lại NGẦM (2026-10-17, đổi từ banner thủ công) - `qty` đang gõ tách biệt khỏi
+  // `bundles`/`bundleReviews`, nút "Lưu đợt" không bị ẩn/khoá do dữ liệu tải về. Lọc đúng order
+  // đang xem - BE gắn kèm `parentId`=productionOrderId cho QC_REVIEW nhánh reviewPieceStep
+  // (QcReviewsService), không tách được tới từng mảnh (BE chỉ có productionOrderId ở tầng này) nên
+  // lọc rộng hơn 1 chút: mảnh KHÁC trong CÙNG order cũng tải lại - vô hại vì chỉ đọc lại dữ liệu.
+  useRealtimeRefetch(['qc-reviews'], () => { void refetchBundles(); void refetchBundleReviews() }, {
+    filter: payload => payload.parentId === item.orderId,
+  })
   const [qty, setQty] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -220,7 +226,6 @@ function StepPanel({ item, step, progress, readOnly, onRefetch }: {
 
   return (
     <div>
-      <RealtimeUpdateNotice visible={qcChange.changed} onReload={() => { qcChange.clear(); void refetchBundles(); void refetchBundleReviews() }} />
       {isMobile ? (
         <MobileQtyRow doneLabel={'Đã ' + stepLabel.toLowerCase()} required={required} done={done} failed={failed} remaining={remaining} readOnly={readOnly} qty={qty} setQty={setQty} />
       ) : (
@@ -356,7 +361,14 @@ function ChotPanel({ item, readOnly, onRefetch }: {
     () => api.getProductionBatchesForOrder(item.orderId, 'PHOI'), [item.orderId],
   )
   const { data: reviews, refetch: refetchReviews } = useFetch(() => api.getQcReviewsForProductionBatches(), [])
-  const batchChange = useRealtimeChangeNotice(['production-batches', 'qc-reviews'])
+  // Tự tải lại NGẦM (2026-10-17, đổi từ banner thủ công) - `qty` đang gõ tách biệt khỏi
+  // `batches`/`reviews`, nút "Lưu đợt" không bị ẩn/khoá do dữ liệu tải về. Lọc đúng order đang xem -
+  // BE gắn kèm `parentId`=productionOrderId cho cả PRODUCTION_BATCH (ProductionBatchesService) và
+  // QC_REVIEW nhánh reviewProductionBatch (QcReviewsService), không tách được tới từng mảnh (BE chỉ
+  // có productionOrderId ở tầng này) nên lọc rộng hơn 1 chút - vô hại vì chỉ đọc lại dữ liệu.
+  useRealtimeRefetch(['production-batches', 'qc-reviews'], () => { void refetchBatches(); void refetchReviews() }, {
+    filter: payload => payload.parentId === item.orderId,
+  })
   const [qty, setQty] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -410,7 +422,6 @@ function ChotPanel({ item, readOnly, onRefetch }: {
 
   return (
     <div>
-      <RealtimeUpdateNotice visible={batchChange.changed} onReload={() => { batchChange.clear(); void refetchBatches(); void refetchReviews() }} />
       {isMobile ? (
         <MobileQtyRow doneLabel="Đã báo" required={required} done={done} failed={failed} remaining={remaining} readOnly={readOnly} qty={qty} setQty={setQty} />
       ) : (

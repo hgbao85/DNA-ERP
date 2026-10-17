@@ -17,8 +17,7 @@ import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import type { Sku } from '../../../types/sku'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
-import { useRealtimeChangeNotice } from '../../../realtime/hooks'
-import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 /**
  * Xuất đan = xuất mảnh chưa đan (của 1 SKU, tại kho vật tư thành phẩm) cho điểm đan gia công bên
@@ -31,10 +30,6 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
   // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
   const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
-  // SKU mới/đổi từ phòng khác, hoặc có ai khác vừa xuất/nhập đan (weaving-issues - BE bắn event
-  // nhưng trước 2026-10-08 chưa màn nào nghe, xem đồng bộ với KhoNhapDanPage) - chỉ báo, KHÔNG tự
-  // tải lại để không mất dữ liệu đang nhập (qty/pointId/materialQty theo dòng).
-  const skuChange = useRealtimeChangeNotice(['skus', 'weaving-issues'])
   const { data: pointsData } = useFetch<BeWeavingPoint[]>(() => api.getWeavingPoints(), [])
   const points = pointsData ?? []
   const pointLabel = (id: string) => {
@@ -48,6 +43,10 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
     [productionOrderRowKey(selectedPf)],
   )
   const plan = planData ?? []
+  // SKU mới/đổi từ phòng khác, hoặc có ai khác vừa xuất/nhập đan - tự tải lại NGẦM (2026-10-17),
+  // banner cũ chỉ hiện ở màn DANH SÁCH (xem đồng bộ với KhoNhapDanPage) - KHÔNG đụng màn chi tiết
+  // (qty/pointId/materialQty theo dòng, early-return riêng, xem `if (selectedPf)` dưới).
+  useRealtimeRefetch(['skus', 'weaving-issues'], () => { void refetchSkus(); void refetch() })
 
   // PO/PI thật (từ ProductionOrder Sếp đã duyệt) - xem comment ở buildProductionOrderInfoByMfgProduct().
   // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho được xuất đan cho BẤT KỲ SKU
@@ -333,7 +332,6 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
   // ── List view ─────────────────────────────────────────────────────────────────
   return (
     <div>
-      <RealtimeUpdateNotice visible={skuChange.changed} onReload={() => { skuChange.clear(); void refetchSkus(); void refetch() }} />
       <h2 style={{ ...pageTitle, margin: 0 }}>Theo dõi xuất đan</h2>
       <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
         Nhấn vào dòng để xuất mảnh cho điểm đan gia công bên ngoài

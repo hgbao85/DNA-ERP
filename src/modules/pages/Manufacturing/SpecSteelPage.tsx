@@ -16,8 +16,7 @@ import { useIsMobile } from '../../../hooks/useMediaQuery'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
-import { useRealtimeChangeNotice } from '../../../realtime/hooks'
-import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 // ─── Types ────────────────────────────────────────────────────────────
 // "Định mức mảnh" (Manh/children) đọc/ghi thẳng Sku thật (manhData.pieces) — quy đổi sang/từ
@@ -183,8 +182,6 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   // bước này là nguyên nhân bug thật (2026-10-16): tạm lưu xong, quay lại danh sách rồi mở lại
   // CÙNG PHIÊN (chưa reload trang) sẽ đọc phải `skus` cũ tải lúc mở trang - không thấy nháp vừa lưu.
   const patchSku = (updated: Sku) => mutateSkus(prev => prev ? prev.map(s => s.id === updated.id ? updated : s) : prev)
-  // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập định mức.
-  const skuChange = useRealtimeChangeNotice(['skus'])
   const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
   const { data: materialsData } = useFetch(() => api.getMaterials(), [])
   const materials = materialsData ?? []
@@ -224,6 +221,19 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     return (pf?.manhData?.pieces?.length ?? 0) > 0 ? 'pending' : 'canInput'
   }
   const [selectedBom, setSelectedBom] = useState<BomItem | null>(null)
+  // SKU mới/đổi từ phòng khác: tự tải lại NGẦM, không cần banner/bấm tay (2026-10-17, đổi từ
+  // useRealtimeChangeNotice sang useRealtimeRefetch theo yêu cầu người dùng). Trang này KHÔNG đụng
+  // `manhs` (state đang gõ) khi refetchSkus() chạy - `manhs` chỉ được set lại trong openBom() (bấm
+  // chọn SKU), không có effect nào đồng bộ lại từ skusData - nên refetch ngầm không xoá nội dung
+  // đang nhập. Rủi ro còn lại: nếu refetch trùng đúng lúc submit khiến `isSubmitted` chuyển true,
+  // khung thêm/sửa sẽ ẩn đi - nhưng việc này chỉ xảy ra khi CHÍNH người đang xem bấm "Gửi phê
+  // duyệt" (tự mình refetchSkus() ngay sau, xem submitManh) hoặc 1 tài khoản khác cùng sửa đúng
+  // SKU đó - cả 2 đều là ca hiếm, đã xác nhận lại với người dùng trước khi đổi.
+  // Đang ở màn DANH SÁCH (selectedBom null) thì SKU nào đổi cũng đáng tải lại; đang mở CHI TIẾT 1
+  // SKU thì chỉ tải lại khi ĐÚNG SKU đang mở đổi.
+  useRealtimeRefetch(['skus'], () => { void refetchSkus() }, {
+    filter: payload => selectedBom == null || payload.entityId === selectedBom.id,
+  })
   const [manhs, setManhs] = useState<Manh[]>([])
   const [nextId, setNextId] = useState(1)
   const [savingManh, setSavingManh] = useState(false)
@@ -493,7 +503,6 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
 
   return (
     <div>
-      <RealtimeUpdateNotice visible={skuChange.changed} onReload={() => { skuChange.clear(); void refetchSkus() }} />
       {/* Page header - chuông "đã duyệt định mức" cục bộ (NotifBell, không nối BE, F5 mất trạng
           thái đã xem) đã gỡ 2026-09-25: thông báo thật cho luồng duyệt SKU/định mức thuộc Phase 3
           (nối sự kiện theo luồng) của changelog notification 2026-09-25, chưa có ở BE - xem

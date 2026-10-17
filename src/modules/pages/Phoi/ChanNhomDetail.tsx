@@ -27,8 +27,6 @@ import {
   ACCENT, GREEN, RED, AMBER, th, thR, td, tdR, card, smallBtn, inp, subFilterBtn,
 } from './phoiStyles'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
-import { useRealtimeChangeNotice } from '../../../realtime/hooks'
-import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 export interface ChanNhomRecipeItem {
@@ -154,7 +152,14 @@ function StepPanel({ item, step, readOnly, onRefetch }: {
     () => api.getMaterialYieldStepBundlesForInvoice(item.productionInvoiceId), [item.productionInvoiceId],
   )
   const { data: bundleReviews, refetch: refetchBundleReviews } = useFetch(() => api.getQcReviewsForMaterialYieldStepBundles(), [])
-  const qcChange = useRealtimeChangeNotice(['qc-reviews'])
+  // Tự tải lại NGẦM (2026-10-17, đổi từ banner thủ công) - `qty` đang gõ tách biệt khỏi
+  // `bundles`/`bundleReviews`, nút "Lưu đợt" không bị ẩn/khoá do dữ liệu tải về. Lọc đúng PI đang
+  // xem - BE gắn kèm `parentId`=productionInvoiceId cho QC_REVIEW nhánh reviewMaterialYieldStep
+  // (QcReviewsService), không tách được tới từng recipe (BE chỉ có productionInvoiceId ở tầng này)
+  // nên lọc rộng hơn 1 chút: recipe KHÁC trong CÙNG PI cũng tải lại - vô hại vì chỉ đọc lại dữ liệu.
+  useRealtimeRefetch(['qc-reviews'], () => { void refetchBundles(); void refetchBundleReviews() }, {
+    filter: payload => payload.parentId === item.productionInvoiceId,
+  })
   const [qty, setQty] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
@@ -192,7 +197,6 @@ function StepPanel({ item, step, readOnly, onRefetch }: {
 
   return (
     <div>
-      <RealtimeUpdateNotice visible={qcChange.changed} onReload={() => { qcChange.clear(); void refetchBundles(); void refetchBundleReviews() }} />
       {isMobile ? (
         <MobileQtyRow doneLabel={'Đã ' + stepLabel.toLowerCase()} required={required} done={done} failed={failed} remaining={remaining} readOnly={readOnly} qty={qty} setQty={setQty} />
       ) : (

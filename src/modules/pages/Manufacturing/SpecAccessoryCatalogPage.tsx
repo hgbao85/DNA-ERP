@@ -6,8 +6,7 @@ import type { Sku } from '../../../types/sku'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
-import { useRealtimeChangeNotice } from '../../../realtime/hooks'
-import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 // ─── Gộp 3 trang "Danh sách vật tư" (Sơn + Phụ kiện + Bao bì) — cùng cấu trúc dữ liệu,
 // chỉ khác group key trong MaterialType. Tab để chuyển giữa 3 nhóm, không đổi route/menu riêng.
@@ -52,8 +51,8 @@ function qtyOf(it: { quantity?: number | null; kg?: number | null }): number | n
 
 export default function SpecAccessoryCatalogPage() {
   const { data: skusData, isLoading: skusLoading, error: skusError, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
-  // SKU mới/đổi từ phòng khác: chỉ báo, KHÔNG tự tải lại để không mất dữ liệu đang nhập.
-  const skuChange = useRealtimeChangeNotice(['skus'])
+  // SKU mới/đổi từ phòng khác: tự tải lại NGẦM (2026-10-17) - trang danh mục thuần, không có form nhập.
+  useRealtimeRefetch(['skus'], () => { void refetchSkus() })
   const skus = (skusData ?? []).filter(pf => pf.status !== 'DRAFT')
   const { data: materialsData, isLoading: materialsLoading, error: materialsError, refetch: refetchMaterials } = useFetch(() => api.getMaterials(), [])
   const materials = materialsData ?? []
@@ -91,7 +90,6 @@ export default function SpecAccessoryCatalogPage() {
 
   return (
     <div>
-      <RealtimeUpdateNotice visible={skuChange.changed} onReload={() => { skuChange.clear(); void refetchSkus() }} />
       <div style={{ marginBottom: 'var(--space-5)' }}>
         <h2 style={{ ...pageTitle, margin: 0 }}>Tổng hợp vật tư</h2>
         <p style={{ ...pageSubtitle, margin: '2px 0 0' }}>{labels.hint}</p>

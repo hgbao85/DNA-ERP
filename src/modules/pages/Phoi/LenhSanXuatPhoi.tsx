@@ -73,8 +73,7 @@ import {
 } from './phoiStyles'
 import MobileListCards from '../../../components/MobileListCards'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
-import { useRealtimeChangeNotice } from '../../../realtime/hooks'
-import RealtimeUpdateNotice from '../../../realtime/RealtimeUpdateNotice'
+import { useRealtimeRefetch } from '../../../realtime/hooks'
 
 // '—' cho phoiDeadline null (KHSX chưa đặt mốc Phôi cho SKU này) - mirror dateVN() ở
 // components/sanxuat/core.tsx (Hàn/Sơn), không import chéo vì file này cố ý độc lập (nối BE thật
@@ -211,7 +210,6 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
   // cho toàn bộ danh sách PI (không theo từng PI riêng) - danh sách chưa lớn, cùng idiom "fetch
   // hết rồi lọc/gộp client" đã dùng cho issues/reviews ở trên.
   const { data: allBundles, refetch: refetchBundles } = useFetch<BeCutBundle[]>(() => api.getAllCutBundles(), [])
-  const dataChange = useRealtimeChangeNotice(['steel-issues', 'qc-reviews', 'production-batches', 'material-yield-recipes', 'production-orders'])
   // Vật tư thành phẩm (2026-09-04, gộp màn - trước đây tab riêng "Vật tư thành phẩm", xem
   // VatTuTpDetail.tsx). listProductionOrdersForStage() trả MỌI order active (dùng chung Hàn/Sơn/
   // Phôi, không lọc theo needsHan) - lọc còn lại dựa vào plan.items rỗng hay không bên dưới.
@@ -262,6 +260,11 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
     [chanNhomPiIdsKey],
   )
   const { data: allRecipes, refetch: refetchAllRecipes } = useFetch(() => api.getMaterialYieldRecipes(), [])
+  // Tự tải lại NGẦM (2026-10-17) - banner cũ chỉ hiện ở màn DANH SÁCH PI (early-return trước khi
+  // vào PiDetail/VatTuTpDetail/ChanNhomDetail - 3 nơi đó có hook riêng, không đụng ở đây).
+  useRealtimeRefetch(['steel-issues', 'qc-reviews', 'production-batches', 'material-yield-recipes', 'production-orders'], () => {
+    void refetch(); void refetchReviews(); void refetchBundles(); void refetchAllRecipes()
+  })
   const recipeById = useMemo(() => new Map((allRecipes ?? []).map(r => [String(r.id), r])), [allRecipes])
   const piCodeByPiId = useMemo(() => {
     const m = new Map<string, string>()
@@ -330,7 +333,6 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
 
   return (
     <div>
-      <RealtimeUpdateNotice visible={dataChange.changed} onReload={() => { dataChange.clear(); void refetch(); void refetchReviews(); void refetchBundles(); void refetchAllRecipes() }} />
       <h2 style={{ ...pageTitle, marginBottom: 2, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
         <Wrench size={20} /> Lệnh sản xuất — Công đoạn Phôi
       </h2>
