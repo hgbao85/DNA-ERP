@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { focusAttr } from '../../../utils/notificationLink'
 import { format } from 'date-fns'
-import { ChevronRight, ChevronLeft, Plus, X, Pencil, Upload } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Plus, X, Pencil, Upload, Copy } from 'lucide-react'
 import SkuImageThumb from '../../../components/SkuImageThumb'
 import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
 import { useFetch } from '../../../hooks/useFetch'
@@ -239,6 +239,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [savingManh, setSavingManh] = useState(false)
   const [submitManhError, setSubmitManhError] = useState<string | null>(null)
   const [showManhForm, setShowManhForm] = useState(false)
+  const [copyingFrom, setCopyingFrom] = useState<Manh | null>(null)
   const [formTenManh, setFormTenManh] = useState('')
   const [formSoLuong, setFormSoLuong] = useState('1')
   const [formNeedsHan, setFormNeedsHan] = useState(true)
@@ -380,12 +381,50 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const addManh = () => {
     if (!formTenManh.trim() || !selectedBom) return
     const sl = String(Math.max(1, Math.floor(Number(formSoLuong)) || 1))
+    const copiedChildren = copyingFrom?.children.map((child, index) => ({
+      ...child,
+      id: nextId + index + 1,
+      processSteps: [...child.processSteps],
+    })) ?? []
     setManhs(m => [...m, {
-      id: nextId, tenManh: formTenManh.trim(), soLuong: sl,
-      needsHan: formNeedsHan, needsSon: formNeedsSon, children: [],
+      id: nextId,
+      tenManh: formTenManh.trim(),
+      soLuong: sl,
+      needsHan: formNeedsHan,
+      needsSon: formNeedsSon,
+      children: copiedChildren,
     }])
-    setNextId(n => n + 1)
-    setShowManhForm(false); setFormTenManh(''); setFormSoLuong('1'); setFormNeedsHan(true); setFormNeedsSon(true)
+    setNextId(n => n + 1 + copiedChildren.length)
+    setShowManhForm(false); setCopyingFrom(null); setFormTenManh(''); setFormSoLuong('1'); setFormNeedsHan(true); setFormNeedsSon(true)
+  }
+
+  const startCopyManh = (source: Manh) => {
+    setCopyingFrom(source)
+    setFormTenManh(`${source.tenManh} (bản sao)`)
+    setFormSoLuong(source.soLuong)
+    setFormNeedsHan(source.needsHan)
+    setFormNeedsSon(source.needsSon)
+    setShowManhForm(true)
+    setAddingTo(null)
+    resetChildForm()
+  }
+
+  const startNewManh = () => {
+    setCopyingFrom(null)
+    setFormTenManh('')
+    setFormSoLuong('1')
+    setFormNeedsHan(true)
+    setFormNeedsSon(true)
+    setShowManhForm(true)
+  }
+
+  const cancelManhForm = () => {
+    setShowManhForm(false)
+    setCopyingFrom(null)
+    setFormTenManh('')
+    setFormSoLuong('1')
+    setFormNeedsHan(true)
+    setFormNeedsSon(true)
   }
 
   const toggleManhFlag = (manhId: number, flag: 'needsHan' | 'needsSon') => {
@@ -621,7 +660,14 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
           {/* Form tạo mảnh */}
           {showManhForm && (
             <div style={{ background: 'var(--bg-e3f2fd)', border: '1px solid var(--fg-90caf9)', borderRadius: 'var(--radius-lg)', padding: '14px 16px', marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, color: 'var(--fg-1565c0)', marginBottom: 10, fontSize: 14 }}>Tạo mảnh mới</div>
+              <div style={{ fontWeight: 700, color: 'var(--fg-1565c0)', marginBottom: 10, fontSize: 14 }}>
+                {copyingFrom ? `Sao chép mảnh: ${copyingFrom.tenManh}` : 'Tạo mảnh mới'}
+              </div>
+              {copyingFrom && (
+                <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 10 }}>
+                  Đã sao chép {copyingFrom.children.length} dòng vật tư và thuộc tính mảnh. Có thể đổi tên hoặc chỉnh sửa sau khi tạo.
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 10, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div>
                   <FL>SKU</FL>
@@ -662,8 +708,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     background: formTenManh.trim() ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
                     color: '#fff', fontWeight: 700, fontSize: 13,
                     cursor: formTenManh.trim() ? 'pointer' : 'not-allowed',
-                  }}>Tạo mảnh</button>
-                  <button onClick={() => { setShowManhForm(false); setFormTenManh(''); setFormSoLuong('1'); setFormNeedsHan(true); setFormNeedsSon(true) }} style={{
+                  }}>{copyingFrom ? 'Tạo bản sao' : 'Tạo mảnh'}</button>
+                  <button onClick={cancelManhForm} style={{
                     padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
                     background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
                   }}>Hủy</button>
@@ -676,7 +722,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
           {manhs.length === 0 && !showManhForm && (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)', padding: '40px', textAlign: 'center', color: 'var(--text3)', fontSize: 14 }}>
               Chưa có mảnh nào —{' '}
-              <button onClick={() => setShowManhForm(true)} style={{ background: 'none', border: 'none', color: 'var(--fg-1565c0)', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
+              <button onClick={startNewManh} style={{ background: 'none', border: 'none', color: 'var(--fg-1565c0)', fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>
                 + Nhập mảnh đầu tiên
               </button>
             </div>
@@ -744,6 +790,14 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                             cursor: 'pointer', fontSize: 12, fontWeight: 600,
                           }}>
                           <Plus size={13} /> Thêm vật tư
+                        </button>
+                        <button onClick={() => startCopyManh(m)} style={{
+                          display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
+                          border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                          background: 'var(--surface)', color: 'var(--text2)',
+                          cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                        }}>
+                          <Copy size={13} /> Sao chép
                         </button>
                         <button onClick={() => deleteManh(m.id)} style={{
                           padding: '5px 10px', border: '1px solid var(--fg-ffcdd2)', borderRadius: 'var(--radius)',
@@ -1020,7 +1074,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
 
             {/* Thêm mảnh mới */}
             {!isSubmitted && !showManhForm && manhs.length > 0 && (
-              <button onClick={() => setShowManhForm(true)} style={{
+              <button onClick={startNewManh} style={{
                 display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '10px 16px',
                 background: 'var(--surface)', border: '1px dashed var(--border)',
                 borderRadius: 'var(--radius-lg)', cursor: 'pointer', color: 'var(--text2)', fontWeight: 600, fontSize: 13,

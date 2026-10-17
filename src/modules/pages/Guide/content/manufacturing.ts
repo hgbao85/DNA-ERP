@@ -333,6 +333,7 @@ export const manufacturingGroup: GuideGroup = {
       screenshot: '/guide-screens/mfg-spec-steel.png',
       steps: [
         'Mở "Quản lý định mức" > "Định mức mảnh", chọn SKU, bấm "Thêm mảnh mới": nhập Tên mảnh, Số lượng / SKU, tick "Cần Hàn" / "Cần Sơn" nếu mảnh phải qua công đoạn đó.',
+        'Nếu có mảnh tương tự (ví dụ tay trái/tay phải), bấm "Sao chép" trên mảnh nguồn, đổi tên bản sao rồi chỉnh các vật tư hoặc thuộc tính khác biệt.',
         'Với mỗi mảnh bấm "Thêm vật tư" và chọn nhóm: Sắt (nhập Chiều dài cắt + Công đoạn phôi: Cắt, Uốn, Dập...), Dây, Đinh, Tán rút, Nút nhựa, Tự tính (sắt cắt theo tỷ lệ cố định — nhập Số lượng/đơn vị), Vật tư thành phẩm. Vật tư chọn từ danh mục có sẵn (không gõ tự do), nhập Số lượng (Dây tính theo KG).',
         'Với Nút nhựa / Vật tư thành phẩm: tick "Đan" nếu vật tư này phải gửi kèm khi xuất đan (Dây và Đinh luôn tự đi kèm).',
         'Có thể bấm "Tạm lưu" bất cứ lúc nào (hệ thống cũng tự tạm lưu sau mỗi lần sửa) — dữ liệu chưa gửi phê duyệt vẫn được giữ an toàn trên hệ thống, mở lại ở máy khác/trình duyệt khác vẫn thấy lại đúng dữ liệu đang nhập dở.',
