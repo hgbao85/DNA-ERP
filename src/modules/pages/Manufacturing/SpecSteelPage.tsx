@@ -394,13 +394,8 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     }
   }
 
-  // Trùng tên mảnh (không phân biệt hoa/thường, đã trim) khiến BE báo lỗi khi "Gửi phê duyệt"
-  // (2 mảnh cùng tên resolve về cùng 1 Piece, vi phạm unique bomRevisionId+pieceId) - chặn ngay
-  // lúc nhập để không phải đợi tới lúc submit mới biết.
-  const isDuplicateManhName = manhs.some(m => m.tenManh.trim().toLowerCase() === formTenManh.trim().toLowerCase())
-
   const addManh = () => {
-    if (!formTenManh.trim() || !selectedBom || isDuplicateManhName) return
+    if (!formTenManh.trim() || !selectedBom) return
     const sl = String(Math.max(1, Math.floor(Number(formSoLuong)) || 1))
     const copiedChildren = copyingFrom?.children.map((child, index) => ({
       ...child,
@@ -702,11 +697,6 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     onChange={e => setFormTenManh(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && addManh()}
                     style={inputStyle} />
-                  {isDuplicateManhName && (
-                    <div style={{ fontSize: 11, color: 'var(--fg-c62828)', marginTop: 4 }}>
-                      Đã có mảnh tên này trong SKU - đổi tên khác.
-                    </div>
-                  )}
                 </div>
                 <div style={{ width: 110 }}>
                   <FL>Số lượng / SKU</FL>
@@ -729,11 +719,11 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={addManh} disabled={!formTenManh.trim() || isDuplicateManhName} style={{
+                  <button onClick={addManh} disabled={!formTenManh.trim()} style={{
                     padding: '7px 16px', border: 'none', borderRadius: 'var(--radius)',
-                    background: formTenManh.trim() && !isDuplicateManhName ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
+                    background: formTenManh.trim() ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
                     color: '#fff', fontWeight: 700, fontSize: 13,
-                    cursor: formTenManh.trim() && !isDuplicateManhName ? 'pointer' : 'not-allowed',
+                    cursor: formTenManh.trim() ? 'pointer' : 'not-allowed',
                   }}>{copyingFrom ? 'Tạo bản sao' : 'Tạo mảnh'}</button>
                   <button onClick={cancelManhForm} style={{
                     padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
