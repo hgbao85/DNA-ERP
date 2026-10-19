@@ -40,7 +40,8 @@ type ManChild = {
   processSteps: ProcessStep[]
   /** Chỉ dùng khi group='vatTuTP' - số vật tư thành phẩm cắt được từ 1 đơn vị material. */
   piecesPerBar: string
-  /** Ảnh đính kèm - UI chỉ mở ô upload cho group='day', nhưng field dùng chung được cho mọi nhóm.
+  /** Ảnh đính kèm - UI chỉ mở ô upload cho group='day' hoặc 'vatTuThanhPham' (2026-10-19, theo
+   *  yêu cầu người dùng), nhưng field dùng chung được cho mọi nhóm (BE không giới hạn group).
    *  URL THẬT (đã upload Cloudinary) - chỉ có khi: (a) dòng đã có sẵn từ BE, hoặc (b) vừa
    *  upload xong lúc bấm "Gửi phê duyệt" (xem submitManh). */
   photoUrl: string
@@ -567,9 +568,9 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
         unit: childMaterial.unit,
         processSteps: (childGroup === 'sat' || childGroup === 'vatTuTP') ? childProcessSteps : [],
         piecesPerBar: childGroup === 'vatTuTP' ? childPiecesPerBar : '',
-        photoUrl: childGroup === 'day' ? childPhotoUrl : '',
-        photoFile: childGroup === 'day' ? childPhotoFile : null,
-        photoPreview: childGroup === 'day' ? childPhotoPreview : '',
+        photoUrl: (childGroup === 'day' || childGroup === 'vatTuThanhPham') ? childPhotoUrl : '',
+        photoFile: (childGroup === 'day' || childGroup === 'vatTuThanhPham') ? childPhotoFile : null,
+        photoPreview: (childGroup === 'day' || childGroup === 'vatTuThanhPham') ? childPhotoPreview : '',
         includeInWeaving: (childGroup === 'nutNhua' || childGroup === 'vatTuThanhPham') ? childIncludeInWeaving : false,
       }
       if (editing) {
@@ -1169,7 +1170,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                           </label>
                         </div>
                       )}
-                      {childGroup === 'day' && (
+                      {(childGroup === 'day' || childGroup === 'vatTuThanhPham') && (
                         <div>
                           <FL>Hình ảnh</FL>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -1183,11 +1184,13 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                               <input type="file" accept="image/*" hidden onChange={e => onPickChildPhoto(e.target.files?.[0])} />
                             </label>
                             {(childPhotoUrl || childPhotoPreview) && (
-                              <img src={childPhotoUrl || childPhotoPreview} alt="Dây" style={{ height: 32, borderRadius: 4, border: '1px solid var(--border)' }} />
+                              <a href={childPhotoUrl || childPhotoPreview} target="_blank" rel="noopener noreferrer" title="Bấm để xem ảnh cỡ lớn">
+                                <img src={childPhotoUrl || childPhotoPreview} alt={GROUP_LABELS[childGroup]} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--border)', cursor: 'zoom-in', display: 'block' }} />
+                              </a>
                             )}
-                            {childPhotoPreview && !childPhotoUrl && (
-                              <span style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>Chưa tải lên - tải khi &quotGửi phê duyệt&quot</span>
-                            )}
+                            {/* {childPhotoPreview && !childPhotoUrl && (
+                              <span style={{ fontSize: 11, color: 'var(--text3)', fontStyle: 'italic' }}>Chưa tải lên - tải khi &quot;Gửi phê duyệt&quot;</span>
+                            )} */}
                           </div>
                         </div>
                       )}
