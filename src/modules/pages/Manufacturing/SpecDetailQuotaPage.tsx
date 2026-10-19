@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { focusAttr } from '../../../utils/notificationLink'
 import { format } from 'date-fns'
-import { ChevronRight, ChevronLeft, X } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Copy, X } from 'lucide-react'
 import SkuImageThumb from '../../../components/SkuImageThumb'
 import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
+import SearchableSelect from '../../../components/SearchableSelect'
+import Modal from '../../../components/Modal'
 import { useFetch } from '../../../hooks/useFetch'
+import { useConfirm } from '../../../hooks/useConfirm'
 import { useMaterialGroupIds } from '../../../hooks/useMaterialGroupIds'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
@@ -68,6 +71,24 @@ function toDetailLines(mt: DetailQuotaPayload | undefined, startId: number): { l
   return { lines, nextId: id }
 }
 
+/** "Sao chép từ SKU khác" phải lấy đúng bản MỚI NHẤT của SKU nguồn - nếu nguồn đang có nháp tạm
+ *  lưu mới hơn lần gửi phê duyệt gần nhất (hoặc chưa từng gửi), ưu tiên nháp đó thay vì
+ *  quotaManagement.materialType (dữ liệu đã nộp, có thể cũ hơn) - cùng logic resolve đã dùng ở
+ *  openBom() cho CHÍNH SKU đang mở, áp dụng lại cho SKU KHÁC khi nó đóng vai trò nguồn copy
+ *  (2026-10-19, theo yêu cầu người dùng - trước đó chỉ cho chọn SKU đã GỬI PHÊ DUYỆT làm nguồn). */
+function resolveDetailSource(pf: Sku): { payload: DetailQuotaPayload | undefined; isDraft: boolean } {
+  const entryAt = pf.quotaManagement?.entryMeta?.enteredAt
+  const draftSavedAt = pf.detailDraftSavedAt
+  if (draftSavedAt && (!entryAt || new Date(draftSavedAt) > new Date(entryAt))) {
+    return { payload: pf.detailDraft, isDraft: true }
+  }
+  return { payload: pf.quotaManagement?.materialType, isDraft: false }
+}
+
+function totalDetailItems(payload: DetailQuotaPayload | undefined): number {
+  return (payload?.daySon.length ?? 0) + (payload?.vatTuPhuKien.length ?? 0) + (payload?.baoBiDongGoi.length ?? 0)
+}
+
 function FL({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 4, textTransform: 'uppercase' as const }}>
@@ -95,6 +116,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
 }) {
   const { user } = useAuth()
+  const { ask, confirmModal } = useConfirm()
   // Admin được sửa định mức ngay cả khi KHSX/Sếp đã duyệt (ghi đè trực tiếp, không cần duyệt
   // lại - BE chặn mọi role khác, xem SkusService.resolveNonDraftOrAdminOverride, 2026-10-15).
   const isAdmin = user?.role === 'ADMIN'
@@ -162,6 +184,25 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null)
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
   const [savingDraft, setSavingDraft] = useState(false)
+  // Sao chép định mức chi tiết từ 1 SKU KHÁC đã có sẵn dữ liệu - cùng cơ chế với "định mức mảnh"
+  // (SpecSteelPage.tsx), dùng cho case nhiều SKU cùng mẫu sản phẩm, chỉ khác khách hàng/số lượng.
+  const [showCopySkuModal, setShowCopySkuModal] = useState(false)
+  const [copySkuSource, setCopySkuSource] = useState<{ id: string; ten: string } | null>(null)
+  // Nguồn tính từ quotaManagement.materialType (đã gửi phê duyệt) HOẶC detailDraft (mới tạm lưu,
+  // chưa gửi) - lấy đúng bản mới nhất qua resolveDetailSource(), KHÁC totalItemsOf() (chỉ đọc dữ
+  // liệu đã nộp thật, dùng cho bomStatus() ở trên - không đổi, vẫn phải phản ánh đúng trạng thái
+  // duyệt thật).
+  const copySkuCandidates = skus
+    .filter(pf => pf.id !== selectedBom?.id)
+    .map(pf => ({ pf, source: resolveDetailSource(pf) }))
+    .filter(({ source }) => totalDetailItems(source.payload) > 0)
+    .map(({ pf, source }) => ({
+      id: pf.id,
+      ten: [...new Set([pf.mfgProduct?.factoryCode, pf.mfgProduct?.name].filter(Boolean))].join(' — '),
+      maKhachHang: pf.customerName ?? '',
+      itemCount: totalDetailItems(source.payload),
+      isDraft: source.isDraft,
+    }))
 
   const resetForm = () => {
     setGroup('daySon'); setMaterial(null); setSpec(''); setUnit(''); setSoLuong('')
@@ -217,6 +258,32 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     } finally {
       setSavingDraft(false)
     }
+  }
+
+  // Chép toàn bộ dòng Sơn/Phụ kiện/Bao bì của 1 SKU khác vào form đang mở - cấp id mới cho mọi
+  // dòng (không giữ id thật của SKU nguồn). Kết quả chỉ là NHÁP trong RAM, giống hệt vừa gõ tay.
+  const applyCopySku = (sourceId: string) => {
+    const pf = findPf(sourceId)
+    const { lines: copied, nextId: id } = toDetailLines(pf ? resolveDetailSource(pf).payload : undefined, nextId)
+    if (copied.length === 0) return
+    setLines(copied)
+    setNextId(id)
+    resetForm()
+    setDraftRestoredAt(null)
+    setShowCopySkuModal(false)
+    setCopySkuSource(null)
+  }
+
+  // Đã có dòng đang nhập dở thì hỏi lại trước khi ghi đè hẳn - tránh bấm nhầm mất dữ liệu đang có.
+  const confirmCopySku = (sourceId: string) => {
+    if (lines.length === 0) { applyCopySku(sourceId); return }
+    ask({
+      title: 'Ghi đè dữ liệu đang có?',
+      message: 'SKU này đang có dữ liệu chi tiết (chưa gửi phê duyệt) - sao chép sẽ THAY THẾ TOÀN BỘ bằng dữ liệu của SKU được chọn, dữ liệu hiện tại sẽ mất. Bạn có chắc muốn tiếp tục?',
+      confirmLabel: 'Ghi đè, sao chép',
+      cancelLabel: 'Hủy',
+      danger: true,
+    }, () => applyCopySku(sourceId))
   }
 
   // Tự động tạm lưu mỗi khi dữ liệu đổi (debounce 1s) - bảo vệ cả khi người dùng quên bấm nút.
@@ -364,7 +431,61 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
               )}
               <span style={{ marginLeft: 10, fontSize: 12, color: 'var(--text3)' }}>{selectedBom.thoiGian}</span>
             </div>
+            {!isSubmitted && (
+              <button onClick={() => setShowCopySkuModal(true)} style={{
+                marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', flexShrink: 0, whiteSpace: 'nowrap',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)', fontWeight: 600,
+              }}><Copy size={14} /> Sao chép từ SKU khác</button>
+            )}
           </div>
+
+          <Modal open={showCopySkuModal} onClose={() => { setShowCopySkuModal(false); setCopySkuSource(null) }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Sao chép định mức chi tiết từ SKU khác</div>
+            <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 14 }}>
+              Chọn 1 SKU đã có sẵn định mức Sơn/Phụ kiện/Bao bì (đã gửi phê duyệt, hoặc đang có bản nháp tạm lưu — đánh dấu &quot;NHÁP, chưa gửi&quot;) — toàn bộ dòng của SKU đó sẽ được chép vào đây dưới dạng nháp, có thể sửa lại trước khi gửi phê duyệt.
+            </div>
+            <FL>SKU nguồn</FL>
+            <SearchableSelect
+              displayValue={copySkuSource?.ten ?? ''}
+              options={copySkuCandidates}
+              getKey={s => s.id}
+              getSearchText={s => `${s.ten} ${s.maKhachHang}`}
+              renderOption={s => (
+                <span>
+                  <strong>{s.ten}</strong> <span style={{ color: 'var(--text3)' }}>— {s.maKhachHang || '—'} · {s.itemCount} vật tư</span>
+                  {s.isDraft && (
+                    <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--fg-8d6e00)', background: 'var(--bg-fff8e1)', borderRadius: 4, padding: '1px 6px' }}>NHÁP, chưa gửi</span>
+                  )}
+                </span>
+              )}
+              onSelect={s => setCopySkuSource({ id: s.id, ten: s.ten })}
+              placeholder="Tìm theo tên SKU, mã khách hàng…"
+              emptyText="Chưa có SKU nào khác từng nhập định mức chi tiết"
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 24 }}>
+              <button onClick={() => { setShowCopySkuModal(false); setCopySkuSource(null) }} style={{
+                padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
+              }}>Hủy</button>
+              <button
+                onClick={() => {
+                  if (!copySkuSource) return
+                  const sourceId = copySkuSource.id
+                  setShowCopySkuModal(false)
+                  setCopySkuSource(null)
+                  confirmCopySku(sourceId)
+                }}
+                disabled={!copySkuSource}
+                style={{
+                  padding: '7px 16px', border: 'none', borderRadius: 'var(--radius)',
+                  background: copySkuSource ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
+                  color: '#fff', fontWeight: 700, fontSize: 13,
+                  cursor: copySkuSource ? 'pointer' : 'not-allowed',
+                }}
+              >Sao chép</button>
+            </div>
+          </Modal>
 
           {findPf(selectedBom.id)?.quotaManagement?.entryMeta && (
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>
@@ -384,7 +505,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
           {draftRestoredAt && (
             <div style={{ padding: '10px 16px', background: 'var(--bg-fff8e1)', border: '1px solid var(--fg-ffca28)', borderRadius: 'var(--radius-lg)', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 13, color: 'var(--fg-8d6e00)' }}>
-                📝 Đã khôi phục bản nháp tạm lưu lúc {new Date(draftRestoredAt).toLocaleString('vi-VN')} (chưa gửi phê duyệt).
+                Đã khôi phục bản nháp tạm lưu lúc {new Date(draftRestoredAt).toLocaleString('vi-VN')} (chưa gửi phê duyệt).
               </span>
               <button onClick={discardDraft} style={{
                 padding: '5px 10px', border: '1px solid var(--fg-ffca28)', borderRadius: 'var(--radius)',
@@ -602,6 +723,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
 
       {/* ══ DANH SÁCH VẬT TƯ (gộp Sơn + Phụ kiện + Bao bì) ══ */}
       {subTab === 'catalog' && <SpecAccessoryCatalogPage />}
+      {confirmModal}
     </div>
   )
 }

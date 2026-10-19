@@ -4,6 +4,8 @@ import { format } from 'date-fns'
 import { ChevronRight, ChevronLeft, Plus, X, Pencil, Upload, Copy } from 'lucide-react'
 import SkuImageThumb from '../../../components/SkuImageThumb'
 import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
+import SearchableSelect from '../../../components/SearchableSelect'
+import Modal from '../../../components/Modal'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import { useMaterialGroupIds } from '../../../hooks/useMaterialGroupIds'
@@ -57,6 +59,10 @@ type Manh = { id: number; tenManh: string; soLuong: string; needsHan: boolean; n
 type BomItem = { id: string; ten: string; maKhachHang: string; thoiGian: string }
 
 const CHILD_GROUPS: ManhChildGroup[] = ['sat', 'day', 'dinh', 'tanRut', 'nutNhua', 'vatTuTP', 'vatTuThanhPham']
+// Form "Thêm vật tư" (nhập mới dòng vào 1 mảnh) ẩn tab "Tự tính" (vatTuTP) theo yêu cầu người
+// dùng, 2026-10-19 - CHỈ ẩn ở đây, không đụng CHILD_GROUPS gốc (vẫn dùng cho tab catalog "Danh
+// sách vật tư" và cho editing dòng Tự tính đã có sẵn - startEditChild() không phụ thuộc list này).
+const ADD_CHILD_GROUPS: ManhChildGroup[] = CHILD_GROUPS.filter(g => g !== 'vatTuTP')
 const GROUP_LABELS: Record<ManhChildGroup, string> = {
   sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa',
   // 2026-10-01: Sắt chia 3 nhóm con - 'sat' = Phần mềm (đi solver), 'vatTuTP' đổi nhãn thành "Tự
@@ -116,6 +122,20 @@ const toManhRow = (m: Manh): ManhRow => ({
     includeInWeaving: (c.group === 'nutNhua' || c.group === 'vatTuThanhPham') ? c.includeInWeaving : undefined,
   })),
 })
+
+/** "Sao chép từ SKU khác" (xem applyCopySku) phải lấy đúng bản MỚI NHẤT của SKU nguồn - nếu nguồn
+ *  đang có nháp tạm lưu mới hơn lần gửi phê duyệt gần nhất (hoặc chưa từng gửi), ưu tiên nháp đó
+ *  thay vì manhData (dữ liệu đã nộp, có thể cũ hơn) - cùng logic resolve đã dùng ở openBom() cho
+ *  CHÍNH SKU đang mở, áp dụng lại cho SKU KHÁC khi nó đóng vai trò nguồn copy (2026-10-19, theo
+ *  yêu cầu người dùng - trước đó chỉ cho chọn SKU đã GỬI PHÊ DUYỆT làm nguồn). */
+function resolveManhSource(pf: Sku): { pieces: ManhRow[]; isDraft: boolean } {
+  const entryAt = pf.manhEntryMeta?.enteredAt
+  const draftSavedAt = pf.manhDraftSavedAt
+  if (draftSavedAt && (!entryAt || new Date(draftSavedAt) > new Date(entryAt))) {
+    return { pieces: pf.manhDraft?.pieces ?? [], isDraft: true }
+  }
+  return { pieces: pf.manhData?.pieces ?? [], isDraft: false }
+}
 
 // ─── Tạm lưu (nháp) ───────────────────────────────────────────────────
 // Trang này chỉ ghi thật lên server lúc "Gửi phê duyệt" (xem submitManh) - nếu đổi máy/trình
@@ -267,6 +287,25 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
   const [draftRestoredAt, setDraftRestoredAt] = useState<string | null>(null)
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null)
   const [savingDraft, setSavingDraft] = useState(false)
+  // Sao chép mảnh từ 1 SKU KHÁC đã có sẵn định mức (khác hẳn "Sao chép" ở startCopyManh - cái đó
+  // nhân bản 1 mảnh TRONG CÙNG SKU đang mở). Dùng cho case nhiều SKU cùng mẫu sản phẩm, chỉ khác
+  // khách hàng/số lượng - copy nhanh hơn gõ lại từ đầu (yêu cầu thực tế từ account Sắt, 2026-10-19).
+  const [showCopySkuModal, setShowCopySkuModal] = useState(false)
+  const [copySkuSource, setCopySkuSource] = useState<{ id: string; ten: string } | null>(null)
+  // Chỉ gợi ý SKU KHÁC (không phải chính nó) và có sẵn ít nhất 1 mảnh - từ manhData (đã gửi phê
+  // duyệt) HOẶC manhDraft (mới tạm lưu, chưa gửi) đều tính, lấy đúng bản mới nhất qua
+  // resolveManhSource() - copy 1 SKU rỗng chẳng để làm gì.
+  const copySkuCandidates = skus
+    .filter(pf => pf.id !== selectedBom?.id)
+    .map(pf => ({ pf, source: resolveManhSource(pf) }))
+    .filter(({ source }) => source.pieces.length > 0)
+    .map(({ pf, source }) => ({
+      id: pf.id,
+      ten: [...new Set([pf.mfgProduct?.factoryCode, pf.mfgProduct?.name].filter(Boolean))].join(' — '),
+      maKhachHang: pf.customerName ?? '',
+      pieceCount: source.pieces.length,
+      isDraft: source.isDraft,
+    }))
 
   // ── BOM helpers (mảnh) ─────────────────────────────────────────────────
   const openBom = (item: BomItem) => {
@@ -351,6 +390,41 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
     confirmLabel: 'Tạm lưu',
     cancelLabel: 'Hủy',
   }, manualSaveDraft)
+
+  // Chép toàn bộ mảnh (kèm vật tư) của 1 SKU khác vào form đang mở - cấp id mới cho mọi
+  // mảnh/dòng vật tư (không giữ id thật của SKU nguồn, tránh đụng nhầm khi submit sau này).
+  // Kết quả chỉ là NHÁP trong RAM, giống hệt vừa gõ tay - vẫn phải Tạm lưu/Gửi phê duyệt như
+  // bình thường, không tự động lưu gì thêm ở đây.
+  const applyCopySku = (sourceId: string) => {
+    const pf = findPf(sourceId)
+    const sourcePieces = pf ? resolveManhSource(pf).pieces : []
+    if (sourcePieces.length === 0) return
+    let id = nextId
+    const copied: Manh[] = sourcePieces.map(toManh).map(m => ({
+      ...m,
+      id: id++,
+      children: m.children.map(c => ({ ...c, id: id++ })),
+    }))
+    setManhs(copied)
+    setNextId(id)
+    setShowManhForm(false); setCopyingFrom(null); setFormTenManh(''); setFormSoLuong('1'); setFormNeedsHan(true); setFormNeedsSon(true)
+    setAddingTo(null); resetChildForm()
+    setDraftRestoredAt(null)
+    setShowCopySkuModal(false)
+    setCopySkuSource(null)
+  }
+
+  // Đã có mảnh đang nhập dở thì hỏi lại trước khi ghi đè hẳn - tránh bấm nhầm mất dữ liệu đang có.
+  const confirmCopySku = (sourceId: string) => {
+    if (manhs.length === 0) { applyCopySku(sourceId); return }
+    ask({
+      title: 'Ghi đè mảnh đang có?',
+      message: 'SKU này đang có dữ liệu mảnh (chưa gửi phê duyệt) - sao chép sẽ THAY THẾ TOÀN BỘ bằng dữ liệu của SKU được chọn, dữ liệu hiện tại sẽ mất. Bạn có chắc muốn tiếp tục?',
+      confirmLabel: 'Ghi đè, sao chép',
+      cancelLabel: 'Hủy',
+      danger: true,
+    }, () => applyCopySku(sourceId))
+  }
 
   // Tự động tạm lưu mỗi khi dữ liệu đổi (debounce 1s) - bảo vệ cả khi người dùng quên bấm nút.
   // Tính "đã nộp" trực tiếp ở đây (không dùng isSubmitted khai báo phía dưới) vì effect này đứng
@@ -644,7 +718,61 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
               )}
               <span style={{ marginLeft: 10, fontSize: 12, color: 'var(--text3)' }}>{selectedBom.thoiGian}</span>
             </div>
+            {!isSubmitted && (
+              <button onClick={() => setShowCopySkuModal(true)} style={{
+                marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', flexShrink: 0, whiteSpace: 'nowrap',
+                background: 'var(--surface)', border: '1px solid var(--border)',
+                borderRadius: 'var(--radius)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)', fontWeight: 600,
+              }}><Copy size={14} /> Sao chép từ SKU khác</button>
+            )}
           </div>
+
+          <Modal open={showCopySkuModal} onClose={() => { setShowCopySkuModal(false); setCopySkuSource(null) }}>
+            <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 4 }}>Sao chép mảnh từ SKU khác</div>
+            <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 14 }}>
+              Chọn 1 SKU đã có sẵn định mức mảnh (đã gửi phê duyệt, hoặc đang có bản nháp tạm lưu) — toàn bộ mảnh và vật tư của SKU đó sẽ được chép vào đây dưới dạng nháp, có thể sửa lại trước khi gửi phê duyệt.
+            </div>
+            <FL>SKU nguồn</FL>
+            <SearchableSelect
+              displayValue={copySkuSource?.ten ?? ''}
+              options={copySkuCandidates}
+              getKey={s => s.id}
+              getSearchText={s => `${s.ten} ${s.maKhachHang}`}
+              renderOption={s => (
+                <span>
+                  <strong>{s.ten}</strong> <span style={{ color: 'var(--text3)' }}>— {s.maKhachHang || '—'} · {s.pieceCount} mảnh</span>
+                  {s.isDraft && (
+                    <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--fg-8d6e00)', background: 'var(--bg-fff8e1)', borderRadius: 4, padding: '1px 6px' }}>NHÁP, chưa gửi</span>
+                  )}
+                </span>
+              )}
+              onSelect={s => setCopySkuSource({ id: s.id, ten: s.ten })}
+              placeholder="Tìm theo tên SKU, mã khách hàng…"
+              emptyText="Chưa có SKU nào khác từng nhập định mức mảnh"
+            />
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 24 }}>
+              <button onClick={() => { setShowCopySkuModal(false); setCopySkuSource(null) }} style={{
+                padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
+              }}>Hủy</button>
+              <button
+                onClick={() => {
+                  if (!copySkuSource) return
+                  const sourceId = copySkuSource.id
+                  setShowCopySkuModal(false)
+                  setCopySkuSource(null)
+                  confirmCopySku(sourceId)
+                }}
+                disabled={!copySkuSource}
+                style={{
+                  padding: '7px 16px', border: 'none', borderRadius: 'var(--radius)',
+                  background: copySkuSource ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
+                  color: '#fff', fontWeight: 700, fontSize: 13,
+                  cursor: copySkuSource ? 'pointer' : 'not-allowed',
+                }}
+              >Sao chép</button>
+            </div>
+          </Modal>
 
           {findPf(selectedBom.id)?.manhEntryMeta && (
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>
@@ -664,7 +792,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
           {draftRestoredAt && (
             <div style={{ padding: '10px 16px', background: 'var(--bg-fff8e1)', border: '1px solid var(--fg-ffca28)', borderRadius: 'var(--radius-lg)', marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
               <span style={{ fontSize: 13, color: 'var(--fg-8d6e00)' }}>
-                📝 Đã khôi phục bản nháp tạm lưu lúc {new Date(draftRestoredAt).toLocaleString('vi-VN')} (chưa gửi phê duyệt).
+                Đã khôi phục bản nháp tạm lưu lúc {new Date(draftRestoredAt).toLocaleString('vi-VN')} (chưa gửi phê duyệt).
               </span>
               <button onClick={confirmDiscardDraft} style={{
                 padding: '5px 10px', border: '1px solid var(--fg-ffca28)', borderRadius: 'var(--radius)',
@@ -957,7 +1085,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                     {/* Chọn nhóm vật tư — quyết định materialGroupId lọc MaterialPicker và có hiện
                         Chiều dài cắt hay không (chỉ nhóm Sắt có khái niệm đoạn cắt). */}
                     <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap' }}>
-                      {CHILD_GROUPS.map(g => (
+                      {ADD_CHILD_GROUPS.map(g => (
                         <button key={g}
                           onClick={() => { setChildGroup(g); setChildMaterial(null); setChildSpec(''); setChildCutLengthMm(''); setChildProcessSteps((g === 'sat' || g === 'vatTuTP') ? ['CAT'] : []); setChildPiecesPerBar(''); setChildSoLuong(''); setChildPhotoUrl(''); setChildPhotoFile(null); setChildPhotoPreview(''); setChildIncludeInWeaving(false) }}
                           style={{
