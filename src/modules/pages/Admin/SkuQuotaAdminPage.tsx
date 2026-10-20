@@ -53,7 +53,7 @@ export default function SkuQuotaAdminPage() {
       {/* subTab cố định 'dinh-muc' - tab 'catalog' (danh mục vật tư) đã có riêng ở Admin > Danh
           mục hệ thống, không cần lặp lại ở đây. */}
       {section === 'manh'
-        ? <SpecSteelPage subTab="dinh-muc" onSubTabChange={() => {}} />
+        ? <SpecSteelPage subTab="dinh-muc" />
         : <SpecDetailQuotaPage subTab="dinh-muc" onSubTabChange={() => {}} />}
     </div>
   )

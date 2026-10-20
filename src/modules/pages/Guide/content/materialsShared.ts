@@ -57,7 +57,8 @@ const bangVatTu: GuideArticle = {
   id: 'vt-bang-vat-tu',
   title: 'Đọc bảng Vật tư: từng cột nghĩa là gì',
   roles: ['materials', 'admin'],
-  purpose: 'Bảng Vật tư có 15 cột. Bài này giải thích từng cột theo thứ tự từ trái sang phải, và cách lọc/tìm để ra đúng vật tư cần xem.',
+  purpose: 'Bảng Vật tư có 13 cột. Bài này giải thích từng cột theo thứ tự từ trái sang phải, và cách lọc/tìm để ra đúng vật tư cần xem.',
+  screenshot: '/guide-screens/vt-bang-vat-tu.png',
   mock: {
     title: 'Vật tư',
     columns: ['Mã vật tư', 'Tên vật tư', 'Đơn vị', 'Nhóm vật tư', 'Phân loại', 'Kho', 'Tồn kho', 'Khả dụng', 'Nhân viên mua hàng', '% hao hụt'],
@@ -73,8 +74,7 @@ const bangVatTu: GuideArticle = {
         ['Mã vật tư', 'Mã duy nhất của vật tư, dạng TIỀN TỐ-SỐ.', 'VD SAT-003, DAY-001, VTK-065. Không hai vật tư nào trùng mã; mọi bộ phận khác nhận ra vật tư qua mã này.'],
         ['Tên vật tư', 'Tên gọi.', 'Hệ thống không chặn trùng tên — hai dòng cùng tên vẫn có thể là hai vật tư khác nhau.'],
         ['Quy cách', 'Kích thước hoặc chủng loại.', 'VD 4x20, 10x29x0.8, Ø25. Cùng tên khác quy cách là hai vật tư khác nhau.'],
-        ['Đơn vị', 'Đơn vị KHO dùng để đếm tồn và xuất cho sản xuất.', 'Cái, con, kg, cuộn, tấm, cây...'],
-        ['Đơn vị mua', 'Đơn vị khi MUA về, nếu khác đơn vị kho.', 'Dấu "—" = mua và đếm cùng một đơn vị.'],
+        ['Đơn vị', 'Đơn vị KHO dùng để đếm tồn và xuất cho sản xuất — vật tư chỉ có đúng một đơn vị này.', 'Cái, con, kg, cuộn, tấm, cây...'],
         ['Nhóm vật tư', 'Vật tư hiện ở ô chọn nào khi nhập định mức.', 'Sắt, Dây, Đinh, Tán rút, Nút nhựa, Vật tư khác.'],
         ['Phân loại', 'Chỉ có với nhóm "Vật tư khác".', 'Sơn / Phụ kiện / Bao bì.'],
         ['Nhóm con Sắt', 'Chỉ có với nhóm "Sắt".', 'Phần mềm / Tự tính / Vật tư thành phẩm.'],
@@ -82,7 +82,6 @@ const bangVatTu: GuideArticle = {
         ['Tồn kho', 'Số đang có thật trong kho ở cột "Kho".', 'Số đỏ = bằng 0 hoặc âm.'],
         ['Khả dụng', 'Số còn dùng được.', 'Bằng Tồn kho trừ phần đã giữ chỗ cho một lệnh cắt sắt hoặc một phiếu chuyển kho đang chờ.'],
         ['Nhân viên mua hàng', 'Người chịu trách nhiệm mua vật tư này.', 'Dấu "—" = chưa giao cho ai.'],
-        ['Hệ số quy đổi', '1 đơn vị mua bằng bao nhiêu đơn vị kho.', 'VD 250 = 1 kg được 250 cái. Chỉ có ý nghĩa khi có Đơn vị mua.'],
         ['% hao hụt', 'Phần cộng thêm khi hệ thống tính số cần mua.', '"1.5% · mua" = mua dư 1,5%. Thêm "· làm tròn" hoặc "· giữ lẻ" = vật tư đang bị ép cách làm tròn riêng. "—" = không cộng gì.'],
         ['Thao tác', 'Sửa và xoá.', 'Bút chì = sửa, thùng rác = xoá.'],
       ],
@@ -108,14 +107,15 @@ const themVatTu: GuideArticle = {
   id: 'vt-them-vat-tu',
   title: 'Thêm vật tư mới — giải thích từng ô',
   roles: ['materials', 'admin'],
-  purpose: 'Form "Thêm vật tư" có tới 14 ô, một số ô chỉ hiện tuỳ theo nhóm đã chọn. Bài này đi qua từng ô theo đúng thứ tự trên form: ô đó để làm gì, bỏ trống thì sao, ví dụ điền thế nào.',
+  purpose: 'Form "Thêm vật tư" có tới 12 ô, một số ô chỉ hiện tuỳ theo nhóm đã chọn. Bài này đi qua từng ô theo đúng thứ tự trên form: ô đó để làm gì, bỏ trống thì sao, ví dụ điền thế nào.',
   preconditions: [
     'Nhóm vật tư cần dùng đã có sẵn (Sắt, Dây, Đinh, Tán rút, Nút nhựa, Vật tư khác...). Thiếu nhóm thì nhờ Admin tạo trước.',
     'Kiểm tra vật tư chưa có trong danh mục: gõ tên hoặc mã vào ô tìm trước khi thêm, tránh tạo trùng.',
   ],
+  screenshot: '/guide-screens/vt-them-vat-tu.png',
   mock: {
     title: 'Thêm vật tư',
-    formFields: ['Mã vật tư', 'Tên vật tư', 'Đơn vị tính', 'Quy cách', 'Nhóm vật tư', 'Phân loại * / Nhóm con Sắt *', 'Kho', 'Tồn kho ban đầu', 'Nhân viên mua hàng', 'Đơn vị mua (nếu khác Đơn vị tính)', 'Hệ số quy đổi', '% dự trù hao hụt khi mua', 'Làm tròn khi mua', 'Ảnh vật tư'],
+    formFields: ['Mã vật tư', 'Tên vật tư', 'Đơn vị tính', 'Quy cách', 'Nhóm vật tư', 'Phân loại * / Nhóm con Sắt *', 'Kho', 'Tồn kho ban đầu', 'Nhân viên mua hàng', '% dự trù hao hụt khi mua', 'Làm tròn khi mua', 'Ảnh vật tư'],
     buttons: ['Hủy', 'Lưu'],
   },
   tables: [
@@ -134,8 +134,6 @@ const themVatTu: GuideArticle = {
         ['Kho', 'Không, nhưng nên chọn', 'Kho sẽ giữ vật tư này. Chỉ liệt kê kho thật, không có kho ảo dùng cho sổ sách.', 'Kho Phôi Sơn Hàn'],
         ['Tồn kho ban đầu', 'Không', 'Chỉ hiện sau khi đã chọn Kho, và chỉ có lúc tạo mới. Điền số đang có sẵn ngoài thực tế; để trống nếu chưa có. Được ghi vào lịch sử kho như một lần nhập "tồn ban đầu".', '120'],
         ['Nhân viên mua hàng', 'Không', 'Người sẽ mua vật tư này. Danh sách chỉ gồm tài khoản có chức năng Mua hàng.', '—'],
-        ['Đơn vị mua', 'Không', 'Chỉ điền khi mua theo đơn vị khác đơn vị kho.', 'kg'],
-        ['Hệ số quy đổi', 'Đi cặp với Đơn vị mua', '1 đơn vị mua bằng bao nhiêu đơn vị kho.', '250'],
         ['% dự trù hao hụt khi mua', 'Không', 'Phần mua dư để bù rách, hỏng, thất thoát. Không hiện với Sắt nhóm con "Phần mềm".', '1.5'],
         ['Làm tròn khi mua', 'Không', 'Để trống = theo quy tắc sẵn có của loại vật tư. Không hiện với Sắt nhóm con "Phần mềm".', 'Ép làm tròn LÊN số nguyên'],
         ['Ảnh vật tư', 'Không', 'Ảnh minh hoạ. Chỉ thật sự tải lên khi bấm Lưu, nên bấm Hủy giữa chừng không để lại gì.', '—'],
@@ -149,7 +147,7 @@ const themVatTu: GuideArticle = {
     { text: 'Điền "Tên vật tư" và "Đơn vị tính" — hai ô bắt buộc.', critical: true },
     { text: 'Chọn "Nhóm vật tư", rồi chọn ô phụ hiện ra theo nhóm (Phân loại hoặc Nhóm con Sắt). Cách chọn xem bài "Nhóm vật tư, Phân loại, Nhóm con Sắt".', critical: true },
     'Chọn "Kho" và "Nhân viên mua hàng"; nhập "Tồn kho ban đầu" nếu vật tư đã có sẵn trong kho.',
-    'Điền "Đơn vị mua" + "Hệ số quy đổi" nếu mua khác đơn vị kho, và "% dự trù hao hụt khi mua" theo bảng % của công ty.',
+    'Điền "% dự trù hao hụt khi mua" theo bảng % của công ty.',
     'Bấm "Lưu". Vật tư xuất hiện ngay trong bảng và ở các ô chọn của bộ phận định mức.',
   ],
   result: 'Vật tư mới có mã, sẵn sàng để chuyên viên định mức chọn khi khai định mức sản phẩm, và để hệ thống tính đề xuất mua khi thiếu.',
@@ -175,6 +173,7 @@ const nhomPhanLoai: GuideArticle = {
   title: 'Nhóm vật tư, Phân loại, Nhóm con Sắt — chọn thế nào cho đúng',
   roles: ['materials', 'admin'],
   purpose: 'Ba ô này quyết định vật tư đi theo luồng nào trong hệ thống: hiện ở tab định mức nào, có qua phần mềm cắt sắt không, có được cộng % hao hụt khi mua không. Chọn sai nhóm là lỗi khó thấy nhất vì form vẫn lưu được bình thường.',
+  screenshot: '/guide-screens/vt-nhom-phan-loai.png',
   mock: {
     title: 'Thêm vật tư — phần chọn nhóm',
     formFields: ['Nhóm vật tư', 'Phân loại * (chỉ khi nhóm = Vật tư khác)', 'Nhóm con Sắt * (chỉ khi nhóm = Sắt)'],
@@ -242,38 +241,21 @@ const nhomPhanLoai: GuideArticle = {
 
 const donViMua: GuideArticle = {
   id: 'vt-don-vi-mua',
-  title: 'Đơn vị tính, Đơn vị mua và Hệ số quy đổi',
+  title: 'Vật tư mua theo đơn vị khác với đơn vị kho (vd mua theo kg, đếm theo cái)',
   roles: ['materials', 'admin'],
-  purpose: 'Nhiều vật tư được MUA theo một đơn vị nhưng ĐẾM trong kho theo đơn vị khác (mua đinh theo kg, đếm theo cây). Ba ô này cho hệ thống biết cách đổi qua lại, để Thủ kho nhập hàng theo đúng đơn vị trên hoá đơn.',
-  highlight: {
-    label: 'Cách quy đổi',
-    text: 'Số nhập kho = Số theo đơn vị mua × Hệ số quy đổi',
-    note: 'Ví dụ: vít đếm theo "cái", mua theo "kg", 1 kg được khoảng 250 cái. Hàng về 2 kg → hệ thống tự điền 500 cái.',
-  },
-  tables: [
-    {
-      title: 'Ba ô liên quan',
-      columns: ['Ô', 'Là gì', 'Khi nào điền', 'Ví dụ'],
-      rows: [
-        ['Đơn vị tính', 'Đơn vị của KHO. Mọi con số tồn kho, định mức, số cần mua đều tính theo đơn vị này.', 'Luôn luôn (bắt buộc).', 'cái'],
-        ['Đơn vị mua', 'Đơn vị nhà cung cấp bán.', 'Chỉ khi khác Đơn vị tính. Mua và đếm cùng đơn vị thì để trống.', 'kg'],
-        ['Hệ số quy đổi', 'Số Đơn vị tính trong 1 Đơn vị mua.', 'Cùng lúc với Đơn vị mua — hai ô đi thành cặp.', '250'],
-      ],
-    },
-  ],
-  stepsTitle: 'Khi hàng về kho',
+  purpose: 'Vật tư chỉ có đúng MỘT "Đơn vị tính", dùng cho mọi số liệu (tồn kho, định mức, số cần mua). Không có ô nào trên vật tư để đặt sẵn tỷ lệ quy đổi với đơn vị bên bán — việc quy đổi do Thủ kho tự khai ngay tại từng lần nhận hàng, vì tỷ lệ có thể khác nhau giữa các lô (nhất là hàng cân ký).',
+  stepsTitle: 'Khi vật tư có chênh lệch đơn vị với nhà cung cấp',
   steps: [
-    'Thủ kho nhập số lượng theo đơn vị mua, đúng như trên hoá đơn (VD 2 kg).',
-    'Hệ thống tự đổi ra đơn vị kho (500 cái) và điền sẵn.',
-    'Thủ kho vẫn sửa tay được con số đã đổi nếu đếm thực tế khác.',
+    'Khai vật tư bình thường, chỉ cần đúng một "Đơn vị tính" (đơn vị kho thật sự đếm, vd "cái").',
+    'Khi hàng về, Thủ kho mở "Nhập kho": nếu lô này có chênh lệch đơn vị, nhập tỷ lệ quy đổi của ĐÚNG lô đang nhận ở ô đầu (vd 250 nếu "1kg = 250 cái") và số lượng theo đơn vị bên bán ở ô sau (vd 2 nếu nhận 2kg) — hệ thống tự nhân ra số lượng thật cộng vào tồn kho.',
   ],
-  result: 'Thủ kho nhập kho theo đúng đơn vị trên hoá đơn mà tồn kho vẫn được tính theo đơn vị xưởng dùng.',
+  result: 'Tồn kho luôn cộng đúng theo "Đơn vị tính" của vật tư, dù mỗi lô hàng về có thể quy đổi khác nhau.',
   warnings: [
-    'Hệ số sai là sai số nhập kho mỗi lần nhận hàng. Hệ thống có cảnh báo khi số Thủ kho nhập lệch nhiều so với số quy đổi, nhưng KHÔNG chặn.',
-    'Hệ số quy đổi chỉ là con số gần đúng với những thứ cân ký (số cái trong 1 kg thay đổi theo lô). Chọn con số trung bình; Thủ kho chỉnh số thực tế khi nhập.',
+    'Tỷ lệ quy đổi không lưu sẵn trên vật tư — Thủ kho phải đọc đúng số ghi trên phiếu nhập kho giấy của từng lô, không dùng lại số của lần nhận trước.',
+    'Chi tiết thao tác xem bài "Nhập kho — nhận hàng mua" (phần Thủ kho).',
   ],
   tags: ['đơn vị tính', 'đơn vị mua', 'hệ số quy đổi', 'kg', 'quy đổi'],
-  sourceRefs: ['src/modules/pages/Admin/masterData/MaterialsPage.tsx', 'src/modules/pages/Manufacturing/NhapKhoPage.tsx'],
+  sourceRefs: ['src/modules/pages/Manufacturing/NhapKhoPage.tsx'],
 };
 
 const haoHut: GuideArticle = {
@@ -281,6 +263,7 @@ const haoHut: GuideArticle = {
   title: '% dự trù hao hụt và Làm tròn khi mua',
   roles: ['materials', 'admin'],
   purpose: 'Khi một lệnh sản xuất thiếu vật tư, hệ thống tự lập đề xuất mua. Hai ô này quyết định hệ thống đề xuất mua DƯ bao nhiêu (để bù rách, hỏng, thất thoát) và có làm tròn lên số nguyên hay không. Sửa hai ô này là sửa trực tiếp con số Mua hàng nhìn thấy.',
+  screenshot: '/guide-screens/vt-hao-hut.png',
   highlight: {
     label: 'Công thức',
     text: 'Số cần mua = (Số cần − Tồn khả dụng) × (1 + % hao hụt / 100)',
@@ -345,6 +328,7 @@ const haoHutHangLoat: GuideArticle = {
   roles: ['materials', 'admin'],
   purpose: 'Đặt cùng một % dự trù hao hụt cho nhiều vật tư trong một lần, thay vì mở từng vật tư. Dùng khi công ty chốt lại bảng % hoặc vừa nhập một loạt vật tư mới.',
   preconditions: ['Đã hiểu % hao hụt ảnh hưởng thế nào tới số cần mua — xem bài "% dự trù hao hụt và Làm tròn khi mua".'],
+  screenshot: '/guide-screens/vt-hao-hut-hang-loat.png',
   mock: {
     title: 'Sửa % hao hụt hàng loạt',
     formFields: ['Theo từng vật tư | Theo cả nhóm vật tư', 'Tìm theo mã hoặc tên vật tư...', '% hao hụt mới'],
@@ -387,6 +371,7 @@ const khoNguoiMua: GuideArticle = {
   title: 'Kho và Nhân viên mua hàng — ai thấy, hàng về đâu',
   roles: ['materials', 'admin'],
   purpose: 'Hai ô "Kho" và "Nhân viên mua hàng" không ảnh hưởng tới định mức, nhưng quyết định ai nhìn thấy vật tư trong công việc hằng ngày: thủ kho nào nhận và xuất nó, nhân viên mua hàng nào xử lý đề xuất mua nó.',
+  screenshot: '/guide-screens/vt-kho-nguoi-mua.png',
   tables: [
     {
       title: 'Ba loại kho và vật tư nên đặt ở đâu',
@@ -442,9 +427,10 @@ const suaXoa: GuideArticle = {
   title: 'Sửa và xoá vật tư',
   roles: ['materials', 'admin'],
   purpose: 'Sửa thông tin một vật tư đã có, hoặc xoá hẳn vật tư khai nhầm. Sửa thì gần như lúc nào cũng làm được; xoá thì chỉ được với vật tư chưa từng được dùng ở đâu.',
+  screenshot: '/guide-screens/vt-sua-xoa.png',
   mock: {
     title: 'Sửa vật tư',
-    formFields: ['Mã vật tư', 'Tên vật tư', 'Đơn vị tính', 'Quy cách', 'Nhóm vật tư', 'Kho', 'Nhân viên mua hàng', 'Đơn vị mua', 'Hệ số quy đổi', '% dự trù hao hụt khi mua', 'Làm tròn khi mua', 'Ảnh vật tư'],
+    formFields: ['Mã vật tư', 'Tên vật tư', 'Đơn vị tính', 'Quy cách', 'Nhóm vật tư', 'Kho', 'Nhân viên mua hàng', '% dự trù hao hụt khi mua', 'Làm tròn khi mua', 'Ảnh vật tư'],
     buttons: ['Hủy', 'Lưu'],
   },
   tables: [

@@ -38,6 +38,7 @@ export const bossGroup: GuideGroup = {
       roles: ['boss'],
       purpose: 'Cổng duyệt cuối cùng cho công thức một sản phẩm, sau khi KHSX đã duyệt xong cả hai nhánh Mảnh và Chi tiết.',
       preconditions: ['SKU đang ở trạng thái "Chờ sếp duyệt".'],
+      screenshot: '/guide-screens/boss-duyet-sku.png',
       mock: { title: 'Duyệt SKU (Giám đốc)', buttons: ['Từ chối', 'Duyệt'] },
       steps: [
         'Ở tab "Tổng hợp chờ duyệt" > "SKU mới", chọn 1 SKU — xem gộp cả hai nhánh (Định mức mảnh + Định mức chi tiết) trên cùng một màn.',
@@ -66,6 +67,7 @@ export const bossGroup: GuideGroup = {
       roles: ['boss'],
       purpose: 'Cổng duyệt quan trọng nhất hệ thống — bấm Duyệt là xưởng bắt đầu sản xuất ngay lập tức, không thể hoàn tác.',
       preconditions: ['QLSX đã chọn kho thành phẩm và trình lệnh sản xuất lên chờ Giám đốc duyệt.'],
+      screenshot: '/guide-screens/boss-duyet-lenh-sx.png',
       mock: {
         title: 'Duyệt lệnh sản xuất',
         columns: ['SKU', 'Sản phẩm', 'Số lượng', 'Hạn giao'],

@@ -160,6 +160,7 @@ export const adminGroup: GuideGroup = {
       title: 'Nhóm vật tư — tạo, sửa, xoá nhóm',
       roles: ['admin'],
       purpose: 'Nhóm vật tư là khung phân loại mà mọi vật tư phải thuộc về. Chỉ Admin tạo/sửa/xoá được nhóm; tài khoản Quản lý vật tư chỉ chọn nhóm có sẵn khi khai vật tư.',
+      screenshot: '/guide-screens/admin-nhom-vat-tu.png',
       mock: {
         title: 'Thêm nhóm vật tư',
         formFields: ['Tên nhóm vật tư *', 'Tiền tố mã vật tư *'],
@@ -252,6 +253,28 @@ export const adminGroup: GuideGroup = {
       sourceRefs: ['src/modules/pages/Admin/PhoiSkuAdminPage.tsx'],
     },
     {
+      id: 'admin-sua-dinh-muc-sku',
+      title: '"Sửa định mức SKU" — ghi đè định mức của SKU đã duyệt',
+      roles: ['admin'],
+      purpose: 'Sửa định mức mảnh hoặc định mức chi tiết (Sơn/Phụ kiện/Bao bì) của 1 SKU ngay cả khi đã qua KHSX/Sếp duyệt — không cần gửi lại và chờ duyệt lại như luồng bình thường.',
+      preconditions: ['Chỉ Admin thấy menu này và ghi đè được — Chuyên viên định mức mảnh/chi tiết vẫn theo đúng luồng duyệt bình thường.'],
+      screenshot: '/guide-screens/admin-sua-dinh-muc-sku.png',
+      mock: { title: 'Sửa định mức SKU', buttons: ['Định mức mảnh', 'Định mức chi tiết'] },
+      steps: [
+        'Mở Admin > "Sửa định mức SKU", chọn "Định mức mảnh" hoặc "Định mức chi tiết" — 2 màn này tái dùng nguyên giao diện nhập định mức của Chuyên viên định mức (Sắt / Chi tiết), chỉ khác là không bị khoá khi SKU đã duyệt.',
+        'Chọn SKU cần sửa — kể cả SKU mang nhãn "✓ Đã duyệt (Admin ghi đè)" cũng hiện ở đây (tài khoản Chuyên viên định mức không thấy SKU đã duyệt trong danh sách của họ).',
+        'Sửa mảnh/vật tư như bình thường.',
+        { text: 'Bấm nút ở cuối trang — với SKU đã duyệt, nút ghi rõ "Ghi đè định mức →" (khác "Gửi phê duyệt →" của luồng thường) để tránh bấm nhầm.', critical: true },
+      ],
+      result: 'Định mức được ghi đè ngay lập tức, không qua bước chờ KHSX/Sếp duyệt lại; SKU vẫn mang nhãn "Admin ghi đè" để phân biệt với định mức duyệt theo luồng thường.',
+      warnings: [
+        'Hành động ghi đè không có bước "từ chối" để lùi lại như luồng duyệt thường — sửa sai thì phải vào sửa lại lần nữa.',
+        'SKU chưa từng duyệt (đang "Có thể nhập", "Chờ duyệt" hoặc "Bị từ chối") thì màn này hoạt động y hệt tài khoản Chuyên viên định mức, không có gì khác biệt.',
+      ],
+      tags: ['ghi đè định mức', 'sửa định mức sku', 'sku đã duyệt'],
+      sourceRefs: ['src/modules/pages/Admin/SkuQuotaAdminPage.tsx'],
+    },
+    {
       id: 'admin-tep-dinh-kem',
       title: 'Quản lý tệp đính kèm — sửa/xoá bằng chứng đã tải lên',
       roles: ['admin'],
@@ -329,6 +352,25 @@ export const adminGroup: GuideGroup = {
       sourceRefs: ['src/modules/pages/Admin/NotificationsPage.tsx'],
     },
     {
+      id: 'admin-cau-hinh-qr-ip',
+      title: '"Cấu hình hệ thống" — địa chỉ tem QR và giới hạn mạng công nhân',
+      roles: ['admin'],
+      purpose: '2 cài đặt có tác dụng thật (khác các trường thông tin công ty khác, chỉ mang tính hiển thị): địa chỉ in trên tem QR của xưởng, và giới hạn mạng được phép cho tài khoản công nhân/tổ Phôi-Hàn-Sơn.',
+      screenshot: '/guide-screens/admin-cau-hinh-qr-ip.png',
+      steps: [
+        'Mở Admin > "Cấu hình hệ thống". Ở "Địa chỉ ERP dùng cho tem QR máy xưởng": điền đúng địa chỉ thật mà điện thoại ở xưởng mở được (vd https://erpdna.vercel.app) — để trống thì tem dùng địa chỉ trình duyệt đang mở lúc QLSX in tem.',
+        'Ở "Mạng công ty được phép đăng nhập (công nhân)": mỗi dòng 1 địa chỉ IP công cộng (hoặc dải IP) của công ty, có thể ghi chú sau dấu #. Mở màn này từ đúng mạng công ty rồi bấm "Thêm IP hiện tại của tôi" để điền nhanh.',
+      ],
+      result: 'Tem QR dẫn đúng về hệ thống thật; nếu có khai ít nhất 1 IP, tài khoản công nhân và tổ Phôi/Hàn/Sơn chỉ đăng nhập và thao tác được khi đang nối đúng mạng đó (dùng 4G hoặc mạng ngoài sẽ bị chặn ngay, kể cả người đang đăng nhập dở).',
+      warnings: [
+        'Đã dán tem rồi thì đừng đổi địa chỉ tem QR nếu không thật sự cần — tem cũ chỉ còn quét được nếu địa chỉ cũ vẫn hoạt động.',
+        'Giới hạn mạng CHỈ áp dụng cho công nhân/tổ Phôi-Hàn-Sơn — Sếp, QLSX, KCS, Admin không bị giới hạn bởi cài đặt này.',
+        'Để trống ô giới hạn mạng = không giới hạn gì (đăng nhập được từ bất kỳ đâu).',
+      ],
+      tags: ['tem qr', 'địa chỉ tem qr', 'giới hạn ip', 'mạng công ty', 'cấu hình hệ thống'],
+      sourceRefs: ['src/modules/pages/Admin/SystemConfigPage.tsx'],
+    },
+    {
       id: 'admin-nhat-ky-canh-bao',
       title: 'Lưu ý về "Tổng quan", "Nhật ký hoạt động", "Văn phòng phẩm" và "Tình trạng hệ thống"',
       roles: ['admin'],
@@ -349,7 +391,7 @@ export const adminGroup: GuideGroup = {
       result: 'Tránh hoang mang hoặc chủ quan sai khi thao tác các màn này.',
       warnings: [
         'Đừng dựa vào "Nhật ký hoạt động" làm bằng chứng pháp lý/kiểm toán chính thức — nó không đầy đủ và không đồng bộ đa thiết bị.',
-        '"Cấu hình hệ thống" (thông tin công ty) hiện chỉ mang tính hiển thị tham khảo — chưa có nghiệp vụ nào trong hệ thống tự động đọc và sử dụng các giá trị này.',
+        '"Cấu hình hệ thống": các trường thông tin công ty (tên, địa chỉ, điện thoại, email, mã số thuế, đơn vị tiền tệ) chỉ mang tính hiển thị tham khảo. Riêng "Địa chỉ ERP dùng cho tem QR" và "Mạng công ty được phép đăng nhập" có tác dụng thật — xem bài riêng.',
       ],
       tags: ['nhật ký hoạt động', 'reset dữ liệu demo', 'tình trạng hệ thống', 'cấu hình hệ thống'],
       sourceRefs: ['src/modules/pages/Admin/AuditLogPage.tsx', 'src/modules/pages/Admin/SystemStatusPage.tsx', 'src/modules/pages/Admin/SystemConfigPage.tsx'],

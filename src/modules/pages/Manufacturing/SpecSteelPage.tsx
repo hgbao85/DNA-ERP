@@ -185,9 +185,8 @@ const specInputStyle: React.CSSProperties = {
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────
-export default function SpecSteelPage({ subTab, onSubTabChange }: {
+export default function SpecSteelPage({ subTab }: {
   subTab: 'dinh-muc' | 'catalog'
-  onSubTabChange: (t: 'dinh-muc' | 'catalog') => void
 }) {
   const { user } = useAuth()
   const { ask, confirmModal } = useConfirm()
@@ -989,6 +988,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                                 <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-2e7d32)', background: 'var(--bg-e8f5e9)', borderRadius: 4, padding: '1px 6px' }}>✓ Đi kèm xuất đan</span>
                               )}
                               {(c.photoUrl || c.photoPreview) && (
+                                // eslint-disable-next-line @next/next/no-img-element -- URL Cloudinary/blob động (ảnh người dùng chọn/đã upload), không hợp với tối ưu tĩnh của next/image
                                 <img src={c.photoUrl || c.photoPreview} alt={c.loaiSatName} style={{ height: 32, borderRadius: 4, border: '1px solid var(--border)' }} />
                               )}
                             </div>
@@ -1057,6 +1057,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                             <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{c.unit || '—'}</td>
                             <td style={{ padding: '9px 14px' }}>
                               {(c.photoUrl || c.photoPreview) ? (
+                                // eslint-disable-next-line @next/next/no-img-element -- URL Cloudinary/blob động (ảnh người dùng chọn/đã upload), không hợp với tối ưu tĩnh của next/image
                                 <img src={c.photoUrl || c.photoPreview} alt={c.loaiSatName} style={{ height: 28, borderRadius: 4, border: '1px solid var(--border)' }} />
                               ) : (
                                 <span style={{ color: 'var(--text3)' }}>—</span>
@@ -1185,6 +1186,7 @@ export default function SpecSteelPage({ subTab, onSubTabChange }: {
                             </label>
                             {(childPhotoUrl || childPhotoPreview) && (
                               <a href={childPhotoUrl || childPhotoPreview} target="_blank" rel="noopener noreferrer" title="Bấm để xem ảnh cỡ lớn">
+                                {/* eslint-disable-next-line @next/next/no-img-element -- URL Cloudinary/blob động (ảnh vừa chọn/đã upload), không hợp với tối ưu tĩnh của next/image */}
                                 <img src={childPhotoUrl || childPhotoPreview} alt={GROUP_LABELS[childGroup]} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--border)', cursor: 'zoom-in', display: 'block' }} />
                               </a>
                             )}

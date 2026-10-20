@@ -348,7 +348,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
         {tab === 'materials' && canSeeWarehouses && <MfgAllMaterialsPage />}
         {tab === 'warehouses' && canSeeWarehouses && <MfgWarehousesPage />}
         {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL' && setupSubTab === 'vat-tu' && <MaterialYieldRecipesPage canManageActive={false} />}
-        {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL' && setupSubTab !== 'vat-tu' && <SpecSteelPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
+        {tab === 'setup' && user?.mfgRole === 'SPEC_STEEL' && setupSubTab !== 'vat-tu' && <SpecSteelPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} />}
         {tab === 'setup' && user?.mfgRole === 'SPEC_ACCESSORY' && <SpecDetailQuotaPage subTab={setupSubTab as 'dinh-muc' | 'catalog'} onSubTabChange={setSetupSubTab} />}
       </>
   )

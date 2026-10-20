@@ -1010,7 +1010,7 @@ function ManhPiecesSection({
               </div>
               {children.length > 0 && (
                 <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', minWidth: 760, borderCollapse: 'collapse', fontSize: 13 }}>
+                <table style={{ width: '100%', minWidth: 820, borderCollapse: 'collapse', fontSize: 13 }}>
                   <thead>
                     <tr style={{ background: 'var(--surface2)' }}>
                       <th style={{ width: 36, padding: '7px', textAlign: 'center', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>#</th>
@@ -1021,6 +1021,7 @@ function ManhPiecesSection({
                       <th style={{ padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Công đoạn phôi</th>
                       <th style={{ width: 90, padding: '7px 14px', textAlign: 'right', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Số lượng</th>
                       <th style={{ width: 60, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>ĐVT</th>
+                      <th style={{ width: 60, padding: '7px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', fontSize: 11 }}>Ảnh</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1068,6 +1069,17 @@ function ManhPiecesSection({
                         </td>
                         <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.qty || '—'}</td>
                         <td style={{ padding: '9px 14px', color: 'var(--text3)', fontSize: 12 }}>{c.unit || '—'}</td>
+                        <td style={{ padding: '9px 14px' }}>
+                          {c.photoUrl ? (
+                            // KHSX cần xem ảnh để duyệt đúng (vd ảnh mẫu Dây/Vật tư thành phẩm) - trước đây
+                            // bảng này không có cột Ảnh dù SpecSteelPage.tsx đã cho upload từ lâu (2026-10-19).
+                            <a href={c.photoUrl} target="_blank" rel="noopener noreferrer" title="Bấm để xem ảnh cỡ lớn">
+                              <img src={c.photoUrl} alt={c.name} style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 4, border: '1px solid var(--border)', cursor: 'zoom-in', display: 'block' }} />
+                            </a>
+                          ) : (
+                            <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>
+                          )}
+                        </td>
                       </tr>
                       )
                     })}

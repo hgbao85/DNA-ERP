@@ -260,7 +260,10 @@ export const warehouseGroup: GuideGroup = {
         { text: 'Bấm "Xuất" — xác nhận "Xuất {n} cây {vật tư} (dài {…}mm) cho Phôi?".', critical: true },
       ],
       result: 'Tồn kho sắt bị trừ ngay theo đúng cỡ chiều dài cây; Tổ Phôi thấy đợt xuất ở "Xác nhận nhận sắt" để xác nhận rồi bắt đầu cắt. Các lần đã xuất hiện ở bảng lịch sử bên dưới (Thời gian / Vật tư / Dài / Số cây / Trạng thái).',
-      warnings: ['Cột "Cần" lấy từ phương án cắt đã duyệt (số cây thực sự cần), KHÔNG phải suy trực tiếp từ định mức (công thức sản xuất).'],
+      warnings: [
+        'Cột "Cần" lấy từ phương án cắt đã duyệt (số cây thực sự cần), KHÔNG phải suy trực tiếp từ định mức (công thức sản xuất).',
+        'Nếu Tổ Phôi xác nhận nhận với số đếm được khác số đã xuất, bảng lịch sử hiện thêm dòng "Phôi nhận N/M cây" — hệ thống không tự sửa lại tồn kho theo số lệch này, cần đối chiếu thủ công nếu nghi sai sót.',
+      ],
       commonErrors: [
         { issue: '"Chưa có phương án cắt sắt đã duyệt cho PI này..."', cause: 'PI chưa có phương án cắt dùng được (thường chỉ gặp ở lệnh cũ còn đang tính, hoặc phương án bị lỗi).', fix: 'Báo KHSX/Admin kiểm tra phương án cắt của PI trước khi xuất sắt.' },
         { issue: '"Tồn kho vật lý cây dài ...mm (... cây) không đủ xuất ... cây..."', cause: 'Không đủ cây sắt đúng chiều dài đó trong kho (có thể kho chỉ còn chiều dài khác, hoặc bị điều chỉnh tay).', fix: 'Kiểm tra lại tồn kho theo đúng chiều dài, báo Admin nếu nghi ngờ số liệu sai.' },

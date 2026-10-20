@@ -96,6 +96,7 @@ export const journeyGroup: GuideGroup = {
         'Khách hàng đã tồn tại trong danh mục (hoặc tạo mới ngay khi lập đơn).',
         'Sản phẩm muốn bán đã có "công thức sản xuất" (định mức) được Giám đốc duyệt — xem bài "2. Duyệt định mức sản phẩm". Sản phẩm chưa duyệt sẽ không chọn được vào đơn.',
       ],
+      screenshot: '/guide-screens/sales-tao-po.png',
       mock: {
         title: 'Tạo PO mới',
         formFields: ['Mã đơn hàng *', 'Khách hàng *', 'Ngày đặt', 'File đính kèm (PO, hợp đồng...)', 'Ghi chú'],
@@ -177,6 +178,7 @@ export const journeyGroup: GuideGroup = {
       preconditions: [
         'Mảnh đã cắt/hàn/sơn xong và kiểm đạt đã được chuyển sang kho Vật tư thành phẩm (thủ kho khu vực khung cơ khí chuyển, thủ kho Vật tư thành phẩm xác nhận nhận).',
       ],
+      screenshot: '/guide-screens/wh-chuyen-kiem.png',
       mock: {
         title: 'Chuyền kiểm',
         columns: ['Mảnh', 'Tổng cần', 'Hiện có', 'Đã kiểm', 'Lỗi'],

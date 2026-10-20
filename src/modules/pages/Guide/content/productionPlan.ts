@@ -117,6 +117,7 @@ export const productionPlanGroup: GuideGroup = {
       roles: ['boss'],
       purpose: 'Là cổng duyệt cuối cùng cho một công thức sản phẩm trước khi đưa vào sử dụng.',
       preconditions: ['KHSX đã "Xác nhận hoàn tất" cả hai nhánh Mảnh và Chi tiết.'],
+      screenshot: '/guide-screens/pp-duyet-sku-boss.png',
       mock: { title: 'Duyệt SKU (Giám đốc)', buttons: ['Từ chối', 'Duyệt'] },
       steps: [
         'Vào mục "Chờ sếp duyệt", mở một SKU — xem gộp cả hai nhánh trên cùng một màn.',
@@ -219,6 +220,7 @@ export const productionPlanGroup: GuideGroup = {
       roles: ['qlsx'],
       purpose: 'Chọn kho thành phẩm sẽ nhận sản phẩm khi hoàn tất, trước khi trình Giám đốc duyệt cuối.',
       preconditions: ['KHSX đã gửi PI sang cho QLSX.'],
+      screenshot: '/guide-screens/pp-lenh-sx-qlsx.png',
       mock: {
         title: 'Chọn kho sản xuất',
         columns: ['SKU', 'Kho thành phẩm'],
@@ -246,6 +248,7 @@ export const productionPlanGroup: GuideGroup = {
       roles: ['boss'],
       purpose: 'Cổng duyệt quan trọng nhất trong toàn hệ thống — bấm Duyệt là xưởng bắt đầu sản xuất ngay lập tức.',
       preconditions: ['QLSX đã chọn kho thành phẩm và gửi PI lên chờ duyệt.'],
+      screenshot: '/guide-screens/pp-lenh-sx-boss.png',
       mock: {
         title: 'Duyệt lệnh sản xuất',
         columns: ['SKU', 'Sản phẩm', 'Số lượng', 'Hạn giao'],
