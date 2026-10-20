@@ -50,6 +50,9 @@ export interface ProcLine {
   /** Vật tư thành phẩm (stage=PHOI, vd chân nhôm) - tồn nguyên liệu thô (thanh nhôm) hiện có tại
    *  kho, từ BeProductionBatchPlanItem.rawMaterialOnHand. null/undefined ngoài stage=PHOI. */
   rawMaterialOnHand?: number | null
+  /** Phần của `doneQty` (Đã báo) đang chờ KCS chấm / chưa gửi KCS - chỉ màn xem tổng hợp ("Tổng hợp lệnh SX") đặt,
+   *  để cột "Đã báo" hiện "chờ KCS n · chưa gửi n" mà không cần `choKcsFor` (2026-10-19). */
+  kcs?: { awaiting: number; open: number }
 }
 export interface ProcManh {
   id: number
@@ -329,8 +332,10 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, pi
 }
 
 // ── Tầng chi tiết vật tư (dùng chung Phôi/Hàn/Sơn) ─────────────────
-export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, manualInput, showThucCo, showSpec = true, aligned = false, onRecord, onFinishBatch, choKcsFor, partStock, batchesByLine, reviews }: {
+export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, bannerLabel, dbUnit = 'bộ', backLabel, onBack, onUpdateLine, manualInput, showThucCo, showSpec = true, aligned = false, onRecord, onFinishBatch, choKcsFor, partStock, batchesByLine, reviews, fullHeight }: {
   lines: ProcLine[]; cfg: StageCfg; readOnly: boolean
+  /** Bảng cao theo nội dung (không cuộn trong khung 70vh) - khi nhúng vào trang đã cuộn. Xem LenhSanXuatBoard.fullHeight. */
+  fullHeight?: boolean
   title: string; subtitle: string; bannerLabel: string
   /** Bỏ trống khi board được nhúng làm 1 tab con (vd chi tiết Khung cơ khí bên KHSX) — không cần điều hướng "quay lại". */
   backLabel?: string; onBack?: () => void
@@ -431,9 +436,14 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
       key: 'done', header: `Đã báo (${cfg.unit})`, align: 'right', width: aligned ? 150 : undefined, cell: l => {
         const short = shortOf(l)
         const pend = choKcsFor?.(l.id) ?? 0
+        // Màn tổng hợp: `doneQty` đã gồm chờ KCS + chưa gửi, `kcs` cho biết bao nhiêu trong đó chưa chấm.
+        const kcsParts = !choKcsFor && l.kcs
+          ? [l.kcs.awaiting > 0 ? `chờ KCS ${fmt(l.kcs.awaiting)}` : null, l.kcs.open > 0 ? `chưa gửi ${fmt(l.kcs.open)}` : null].filter(Boolean)
+          : []
         return <>
           {fmt(l.doneQty)}
           {pend > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--amber)' }}>chờ KCS: {fmt(pend)} {cfg.unit}</span>}
+          {kcsParts.length > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--amber)' }}>{kcsParts.join(' · ')}</span>}
           {short > 0 && <span style={{ display: 'block', fontSize: 11, fontWeight: 400, color: 'var(--red)' }}>cần {cfg.verb} thêm {fmt(short)} {cfg.unit}</span>}
           {/* Vật tư thành phẩm (vd chân nhôm) - còn nguyên liệu thô (thanh nhôm) chưa cắt hết ở
               kho. Chỉ hiển thị, không chặn thao tác (quyết định nghiệp vụ 2026-08-22) - xem
@@ -553,7 +563,7 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
 
   return (
     <LenhSanXuatBoard<ProcLine>
-      onBack={onBack} backLabel={backLabel} fixedLayout={aligned}
+      onBack={onBack} backLabel={backLabel} fixedLayout={aligned} fullHeight={fullHeight}
       title={title}
       subtitle={<>{subtitle}<div style={{ marginTop: 2 }}>{manualInput
         ? (onRecord

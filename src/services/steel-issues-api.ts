@@ -327,6 +327,10 @@ export interface BePhoiProgressSegment {
    *  chế report-done/recheck). "Còn lại" tự tính = required - (done - failed), KHÔNG lấy thẳng từ
    *  BE - tự đúng khi Phôi làm thêm rồi gửi KCS như đợt mới (done tăng), KHÔNG cần "failed" giảm. */
   failed: number;
+  /** Phần của `done` CHƯA gửi KCS (đợt cắt CUTTING / dòng công đoạn phụ chưa vào đợt) - 2026-10-16. */
+  openQty?: number;
+  /** Phần của `done` đã gửi KCS, đang chờ chấm - 2026-10-16. */
+  awaitingQcQty?: number;
   /** Tách theo SKU (2026-09-21) - Σ các phần tử = required/done/failed ở trên. productionOrderId null =
    *  đợt cắt CŨ chưa gắn SKU ("Chưa phân SKU", required luôn 0). */
   byOrder: BePhoiProgressOrderSegment[];
@@ -337,6 +341,8 @@ export interface BePhoiProgressOrderSegment {
   required: number;
   done: number;
   failed: number;
+  openQty?: number;
+  awaitingQcQty?: number;
 }
 
 /** Tiến độ cắt theo (loại sắt -> cỡ đoạn) cho cả 1 PI - nguồn dữ liệu bảng "Cần / Đã cắt / Còn

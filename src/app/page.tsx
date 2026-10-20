@@ -53,8 +53,10 @@ function GuideFab() {
       title="Hướng dẫn sử dụng"
       aria-label="Mở hướng dẫn sử dụng ở tab mới"
       style={{
-        position: 'fixed', right: 20, bottom: 20, zIndex: 1000,
-        width: 44, height: 44, borderRadius: '50%',
+        // 2026-10-20 (changelog BE 10-08 mục 53): nhỏ hơn + sát mép để bớt đè nút/dòng cuối bảng ở góc phải dưới; phần cuộn của
+        // phân hệ Sản xuất chừa thêm đệm đáy (xem MfgApp) nên dòng cuối không nằm dưới nút.
+        position: 'fixed', right: 12, bottom: 12, zIndex: 1000,
+        width: 38, height: 38, borderRadius: '50%', opacity: 0.85,
         background: 'var(--blue)', color: '#fff',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         boxShadow: '0 4px 14px rgba(0,0,0,0.25)', textDecoration: 'none',

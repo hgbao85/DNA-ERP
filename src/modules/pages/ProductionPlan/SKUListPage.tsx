@@ -160,14 +160,14 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: 48 }} /><col />
+              {/* Cột "#" (id trong DB) bỏ 2026-10-20 (changelog BE 10-08 mục 53) - không có nghĩa với người dùng. */}
+              <col />
               <col style={{ width: 130 }} />
               <col style={{ width: 160 }} /><col style={{ width: 150 }} />
               {deleteMode && <col style={{ width: 44 }} />}
             </colgroup>
             <thead>
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                <th style={thStyle}>#</th>
                 <th style={thStyle}>SKU</th>
                 <th style={thStyle}>Khách hàng</th>
                 <th style={thStyle}>Trạng thái</th>
@@ -196,8 +196,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
                       onMouseEnter={e => { if (!isChecked) e.currentTarget.style.background = deleteMode ? 'var(--bg-fff5f5)' : 'var(--bg-f0fdf4)' }}
                       onMouseLeave={e => { if (!isChecked) e.currentTarget.style.background = '' }}
                     >
-                      <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)' }}>{pf.id}</td>
-                      <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${pf.mfgProduct?.factoryCode ?? ''}${pf.mfgProduct?.name && pf.mfgProduct.name !== pf.mfgProduct.factoryCode ? ` — ${pf.mfgProduct.name}` : ''}`}>
                         <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>
                         {/* Form tạo SKU gán cùng 1 giá trị cho factoryCode lẫn name - trùng thì chỉ hiện 1 lần (như thẻ mobile ở SKUDetail.tsx). */}
                         {pf.mfgProduct?.name && pf.mfgProduct.name !== pf.mfgProduct.factoryCode && (

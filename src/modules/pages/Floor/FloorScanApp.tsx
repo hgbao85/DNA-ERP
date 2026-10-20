@@ -282,7 +282,7 @@ function PinLogin() {
         <div style={form}>
           <h2 style={{ fontSize: 20, fontWeight: 700 }}>Chưa đặt được PIN</h2>
           {who}
-          <Banner tone="warn">Đã quá hạn đặt PIN lần đầu - báo QLSX cho đặt lại, rồi mở lại màn này.</Banner>
+          <Banner tone="warn">Hết hạn đặt PIN. Báo quản lý cho đặt lại, rồi mở lại màn này.</Banner>
         </div>
       )
     }
@@ -291,7 +291,7 @@ function PinLogin() {
         <h2 style={{ fontSize: 20, fontWeight: 700 }}>Đặt PIN lần đầu</h2>
         {who}
         <div style={{ fontSize: 14, color: 'var(--text2)' }}>
-          Tài khoản này chưa có PIN. Chọn 1 PIN gồm 6 số, chỉ bạn biết - không ai khác (kể cả QLSX) xem được. Mọi số bạn báo sẽ ghi theo tên bạn.
+          Bạn chưa có PIN. Hãy chọn 6 số làm PIN. Chỉ mình bạn biết PIN này, quản lý cũng không xem được. Số bạn báo sẽ ghi theo tên bạn.
         </div>
         <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <span style={label}>PIN mới (6 số)</span>
@@ -307,7 +307,7 @@ function PinLogin() {
           <input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} style={{ width: 22, height: 22 }} />
           Hiện PIN
         </label>
-        <div style={{ fontSize: 14, color: 'var(--floor-hint)' }}>Tránh PIN dễ đoán như 123456, 000000, 121212. Nhớ PIN - quên thì báo QLSX cho đặt lại.</div>
+        <div style={{ fontSize: 14, color: 'var(--floor-hint)' }}>Đừng chọn số dễ đoán như 123456, 000000. Quên PIN thì báo quản lý cho đặt lại.</div>
         {error && <Banner tone="err">{error}</Banner>}
         <button type="submit" disabled={busy} style={btn(true, busy)}>{busy ? 'Đang lưu…' : 'Lưu PIN và đăng nhập'}</button>
       </form>
@@ -326,7 +326,7 @@ function PinLogin() {
         </label>
         {error && <Banner tone="err">{error}</Banner>}
         <button type="submit" disabled={busy} style={btn(true, busy)}>{busy ? 'Đang đăng nhập…' : 'Đăng nhập'}</button>
-        <div style={{ fontSize: 14, color: 'var(--floor-hint)' }}>Quên PIN hoặc chưa có tài khoản: báo QLSX. Nhập sai PIN 5 lần sẽ bị khoá tạm 15 phút.</div>
+        <div style={{ fontSize: 14, color: 'var(--floor-hint)' }}>Quên PIN: báo quản lý. Nhập sai 5 lần sẽ bị khoá 15 phút.</div>
       </form>
     )
   }
@@ -337,11 +337,11 @@ function PinLogin() {
       <label style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <span style={label}>Tên đăng nhập</span>
         <input value={username} onChange={(e) => setUsername(e.target.value)} autoCapitalize="none" autoCorrect="off"
-          autoComplete="username" style={field} placeholder="vd phoi.tuan" />
+          autoComplete="username" style={field} placeholder="ví dụ: phoi.tuan" />
       </label>
       {error && <Banner tone="err">{error}</Banner>}
       <button type="submit" disabled={busy} style={btn(true, busy)}>{busy ? 'Đang kiểm tra…' : 'Tiếp tục'}</button>
-      <div style={{ fontSize: 14, color: 'var(--floor-hint)' }}>Chưa có tài khoản: báo QLSX.</div>
+      <div style={{ fontSize: 14, color: 'var(--floor-hint)' }}>Chưa có tài khoản: báo quản lý.</div>
     </form>
   )
 }
@@ -356,18 +356,19 @@ function PiPicker({ ctx, selectedPi, onSelect }: {
   if (!running && rework.length === 0) return null
   return (
     <div>
-      <div style={label}>PI</div>
+      {/* 2026-10-20 (changelog BE 10-08 mục 54): chữ cho công nhân ít chữ - "PI" → "Lệnh", "bù lỗi" → "làm bù", không viết tắt. */}
+      <div style={label}>Lệnh sản xuất</div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {running && (
           <button type="button" aria-pressed={selectedPi === running.productionInvoiceId} style={chip(selectedPi === running.productionInvoiceId)}
             onClick={() => onSelect(running.productionInvoiceId)}>
-            {running.code} · đang chạy
+            {running.code} · đang làm
           </button>
         )}
         {rework.map((r) => (
           <button key={r.productionInvoiceId} type="button" aria-pressed={selectedPi === r.productionInvoiceId} style={chip(selectedPi === r.productionInvoiceId)}
             onClick={() => onSelect(r.productionInvoiceId)}>
-            {r.code} · bù lỗi
+            {r.code} · làm bù
           </button>
         ))}
       </div>
@@ -382,25 +383,25 @@ function PiPicker({ ctx, selectedPi, onSelect }: {
 function SkuPicker({ orders, value, onChange, piCode }: {
   orders: BeScanOrder[]; value: string | null; onChange: (id: string) => void; piCode?: string
 }) {
-  const piText = piCode ? <>PI <b style={{ color: 'var(--text)' }}>{piCode}</b> (đang chạy)</> : null
+  const piText = piCode ? <>Lệnh <b style={{ color: 'var(--text)' }}>{piCode}</b></> : null
   if (orders.length <= 1) {
     const o = orders[0]
     if (!o) return piText ? <div style={{ fontSize: 14, color: 'var(--text2)' }}>{piText}</div> : null
     return (
       <div style={{ fontSize: 14, color: 'var(--text2)' }}>
-        {piText}{piText ? ' · ' : ''}SKU <b style={{ color: 'var(--text)' }}>{o.sku}</b> · {o.productName} · {o.quantity} cái
+        {piText}{piText ? ' · ' : ''}Sản phẩm <b style={{ color: 'var(--text)' }}>{o.productName}</b> ({o.sku}) · {o.quantity} cái
       </div>
     )
   }
   return (
     <div>
       {piText && <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 8 }}>{piText}</div>}
-      <div style={label}>SKU</div>
+      <div style={label}>Sản phẩm</div>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {orders.map((o) => (
           <button key={o.productionOrderId} type="button" aria-pressed={value === o.productionOrderId} style={chip(value === o.productionOrderId)}
-            onClick={() => onChange(o.productionOrderId)}>
-            {o.sku} · {o.quantity}
+            onClick={() => onChange(o.productionOrderId)} title={o.sku}>
+            {o.productName} · {o.quantity} cái
           </button>
         ))}
       </div>
@@ -442,7 +443,7 @@ function SegmentForm({ materials, orderId, kindLabel, context, onSubmit }: {
   const waiting = forSku.filter((m) => needsReceived && !m.hasReceivedSteel)
   const current = usable.find((m) => m.materialId === materialId) ?? usable[0] ?? forSku[0] ?? null
 
-  if (!current) return <Banner tone="info">SKU này không có đoạn nào cần {kindLabel.toLowerCase()}.</Banner>
+  if (!current) return <Banner tone="info">Sản phẩm này không có đoạn nào cần {kindLabel.toLowerCase()}.</Banner>
 
   const lines = current.segments
     .map((s) => ({ s, n: Number(qty[s.segmentSpecId] || 0) }))
@@ -495,12 +496,12 @@ function SegmentForm({ materials, orderId, kindLabel, context, onSubmit }: {
           </button>
           {showWaiting && (
             <div style={{ marginTop: 8, fontSize: 14, color: 'var(--text2)' }}>
-              {waiting.map((m) => m.materialName).join(', ')}. Quét mã khu nhận sắt để xác nhận trước khi báo cắt.
+              {waiting.map((m) => m.materialName).join(', ')}. Quét mã ở khu nhận sắt để nhận sắt trước, rồi mới báo cắt.
             </div>
           )}
         </div>
       )}
-      {blocked && <Banner tone="warn">Loại sắt này chưa nhận - quét mã khu nhận sắt để xác nhận trước khi báo cắt.</Banner>}
+      {blocked && <Banner tone="warn">Loại sắt này chưa nhận. Quét mã ở khu nhận sắt để nhận sắt trước, rồi mới báo cắt.</Banner>}
       <div style={{ ...card, padding: 0 }}>
         {current.segments.map((s, i) => {
           const left = s.required - s.done
@@ -538,7 +539,7 @@ function SegmentForm({ materials, orderId, kindLabel, context, onSubmit }: {
           context={`${current.materialName} · ${context}`}
           rows={confirmRows}
           total={`Tổng ${total} đoạn`}
-          notes={anyOver ? ['Có cỡ vượt kế hoạch - đếm lại cho chắc. QLSX sẽ thấy cảnh báo vượt khi kiểm.'] : undefined}
+          notes={anyOver ? ['Có cỡ báo nhiều hơn số cần. Đếm lại cho chắc. Quản lý sẽ thấy cảnh báo này.'] : undefined}
           confirmLabel={`Đúng, lưu ${total} đoạn`}
           busy={busy}
           onConfirm={() => void submit()}
@@ -565,7 +566,7 @@ function PieceForm({ items, context, stageLabel, onSubmit }: {
   const piece = items.find((p) => p.pieceId === pieceId) ?? null
   const n = Number(qty || 0)
 
-  if (!items.length) return <Banner tone="info">SKU này không có mảnh nào qua công đoạn này.</Banner>
+  if (!items.length) return <Banner tone="info">Sản phẩm này không có mảnh nào làm ở đây.</Banner>
   const ask = () => { if (piece && n) setConfirming(true) }
   const submit = async () => {
     if (!piece || !n) return
@@ -593,8 +594,8 @@ function PieceForm({ items, context, stageLabel, onSubmit }: {
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 18, fontWeight: 600 }}>{p.pieceName}</div>
                 <div style={{ fontSize: 14, color: 'var(--text2)' }}>
-                  Đã gửi KCS {done}/{p.plannedQty}
-                  {p.openQty > 0 && <> · <span style={{ color: 'var(--amber)' }}>chờ QLSX gửi {p.openQty}</span></>}
+                  Đã báo {done + p.openQty}/{p.plannedQty}
+                  {p.openQty > 0 && <> · <span style={{ color: 'var(--amber)' }}>{p.openQty} chờ quản lý kiểm</span></>}
                 </div>
               </div>
               <span aria-hidden style={{ fontSize: 20, color: on ? 'var(--blue)' : 'var(--floor-hint)' }}>{on ? '●' : '○'}</span>
@@ -624,7 +625,7 @@ function PieceForm({ items, context, stageLabel, onSubmit }: {
             value: `${n} mảnh`,
             warn: over > 0 ? `vượt ${over} so với kế hoạch (cần ${piece.plannedQty}, đã báo ${reported})` : undefined,
           }]}
-          notes={over > 0 ? ['Vượt kế hoạch - đếm lại cho chắc. QLSX sẽ thấy cảnh báo vượt khi kiểm.'] : undefined}
+          notes={over > 0 ? ['Báo nhiều hơn số cần. Đếm lại cho chắc. Quản lý sẽ thấy cảnh báo này.'] : undefined}
           confirmLabel={`Đúng, lưu ${n} mảnh`}
           busy={busy}
           onConfirm={() => void submit()}
@@ -673,10 +674,10 @@ function SteelReceiveRow({ issue, onReceive }: {
       {confirming && verdict.kind !== 'empty' ? (
         <>
           {verdict.kind === 'exact' ? (
-            <Banner tone="info">Bạn đếm <b>{n} cây</b>, kho xuất {issue.barCount} cây: khớp. Xác nhận đã nhận?</Banner>
+            <Banner tone="info">Bạn đếm <b>{n} cây</b>, kho xuất {issue.barCount} cây: đúng số. Xác nhận đã nhận?</Banner>
           ) : (
             <Banner tone="warn">
-              Bạn đếm <b>{n} cây</b>, kho xuất {issue.barCount} cây: <b>{diffText} cây</b>. Kho và QLSX sẽ được báo. Đã đếm kỹ chưa?
+              Bạn đếm <b>{n} cây</b>, kho xuất {issue.barCount} cây: <b>{diffText} cây</b>. Kho và quản lý sẽ được báo. Bạn đã đếm kỹ chưa?
             </Banner>
           )}
           <button type="button" disabled={busy} style={btn(true, busy)} onClick={() => void send()}>
@@ -753,13 +754,13 @@ function ReportTab({ ws }: { ws: string }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 16 }}>
       <div>
         <h2 style={{ fontSize: 22, fontWeight: 700 }}>{title}</h2>
-        <div style={{ fontSize: 14, color: 'var(--text2)' }}>{w.name} · {w.code} · tổ {STAGE_LABEL[w.stage]}</div>
+        <div style={{ fontSize: 14, color: 'var(--text2)' }} title={`Mã máy ${w.code}`}>{w.name} · tổ {STAGE_LABEL[w.stage]}</div>
       </div>
       {flash && <div ref={flashRef} style={{ scrollMarginTop: 120 }}><Banner tone={flash.tone} alert={flash.alert}>{flash.text}</Banner></div>}
 
       {w.kind === 'STEEL_RECEIVE' ? (
         (ctx.steelToReceive ?? []).length === 0
-          ? <Banner tone="info">Không có đợt sắt nào đang chờ nhận.</Banner>
+          ? <Banner tone="info">Chưa có sắt nào chờ bạn nhận.</Banner>
           : (ctx.steelToReceive ?? []).map((iss) => (
             <SteelReceiveRow key={iss.steelIssueId} issue={iss} onReceive={async (issue, count) => {
               setFlash(null)
@@ -776,19 +777,19 @@ function ReportTab({ ws }: { ws: string }) {
             }} />
           ))
       ) : !ctx.pi ? (
-        <Banner tone="info">Tổ {STAGE_LABEL[w.stage]} chưa có PI đang chạy - báo QLSX bấm “Chuyển PI tiếp”.</Banner>
+        <Banner tone="info">Tổ {STAGE_LABEL[w.stage]} chưa có lệnh nào để làm. Báo quản lý xếp lệnh cho tổ.</Banner>
       ) : (
         <>
           {!onlyRunning && (
             <PiPicker ctx={ctx} selectedPi={selectedPi} onSelect={(id) => { setSelectedPi(id); setOrderId(null); setFlash(null); void load(id) }} />
           )}
           {selectedPi && selectedPi !== ctx.runningPi?.productionInvoiceId && (
-            <Banner tone="warn">Đang báo BÙ LỖI cho {ctx.pi.code} (PI tổ đã chuyển qua).</Banner>
+            <Banner tone="warn">Đang báo LÀM BÙ cho lệnh {ctx.pi.code} (lệnh này tổ đã làm qua rồi).</Banner>
           )}
           <SkuPicker orders={orders} value={effectiveOrder?.productionOrderId ?? null} onChange={setOrderId}
             piCode={onlyRunning ? ctx.pi.code : undefined} />
           {effectiveOrder && effectiveOrder.floorStage !== 'ACTIVE' && (
-            <Banner tone="warn">SKU này QLSX chưa bấm “Bắt đầu” (hoặc đang tạm dừng) - chưa báo được.</Banner>
+            <Banner tone="warn">Sản phẩm này quản lý chưa cho làm (hoặc đang tạm dừng). Chưa báo được.</Banner>
           )}
           {effectiveOrder && (w.kind === 'PIECE' ? (
             <PieceForm
@@ -823,9 +824,10 @@ function ReportTab({ ws }: { ws: string }) {
 // ─── tab Sản lượng của tôi ───────────────────────────────────────────────────
 
 const STATE_LABEL: Record<string, [string, string, string]> = {
-  OPEN: ['Chưa gửi KCS', 'var(--surface2)', 'var(--text2)'],
-  AWAITING_QC: ['Chờ KCS', 'var(--amber-bg)', 'var(--amber)'],
-  QC_DONE: ['Đã KCS', 'var(--green-bg)', 'var(--green)'],
+  // Chữ cho công nhân (2026-10-20, mục 54): không dùng "KCS"/"QLSX" - "quản lý kiểm" = QLSX kiểm rồi gửi; "kiểm hàng" = KCS chấm.
+  OPEN: ['Chờ quản lý kiểm', 'var(--surface2)', 'var(--text2)'],
+  AWAITING_QC: ['Đang kiểm hàng', 'var(--amber-bg)', 'var(--amber)'],
+  QC_DONE: ['Đã kiểm xong', 'var(--green-bg)', 'var(--green)'],
   REMOVED: ['—', 'var(--surface2)', 'var(--floor-hint)'],
 }
 
@@ -874,7 +876,10 @@ function MyOutputTab() {
   const periodLabel = rangeBounds(range).label
   const kcsNow = kcs && kcs.range === range ? kcs : null
   const kcsTotals = kcsNow?.data ? totalsByOp(kcsNow.data.rows) : []
-  const kcsWait = kcsNow?.data ? pendingText(kcsNow.data.pending) : ''
+  // pendingText dùng chung với màn QLSX ("chưa gửi" / "chờ KCS") - đổi sang chữ của công nhân (mục 54).
+  const kcsWait = kcsNow?.data
+    ? pendingText(kcsNow.data.pending).replace(/chưa gửi/g, 'chờ quản lý kiểm').replace(/chờ KCS/g, 'đang kiểm hàng')
+    : ''
 
   let body: React.ReactNode
   if (!cur) {
@@ -927,7 +932,7 @@ function MyOutputTab() {
                           </b>
                           {r.piCode ? ` · ${r.piCode}` : ''}
                           {r.kind === 'CUT' ? ' · Cắt' : r.step ? ` · ${STEP_LABEL[r.step] ?? r.step}` : ''}
-                          {r.workstation ? ` · ${r.workstation.code}` : ' · màn thống kê'}
+                          {r.workstation ? ` · ${r.workstation.name}` : ' · báo trên máy tính'}
                         </div>
                         {!r.reversed && (
                           <span style={{ fontSize: 12, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: st[1], color: st[2], whiteSpace: 'nowrap' }}>{st[0]}</span>
@@ -948,7 +953,7 @@ function MyOutputTab() {
                       {r.reversed && (
                         <div style={{ marginTop: 6 }}>
                           <Banner tone="warn">
-                            Đã bị đảo{r.reversed.byName ? ` bởi ${r.reversed.byName}` : ''}: {r.reversed.reason ?? 'không ghi lý do'}
+                            {r.reversed.byName ? `${r.reversed.byName} đã hủy lần này` : 'Quản lý đã hủy lần này'}. Lý do: {r.reversed.reason ?? 'không ghi'}
                           </Banner>
                         </div>
                       )}
@@ -975,29 +980,30 @@ function MyOutputTab() {
           </button>
         ))}
       </div>
-      <section aria-label="Số đã KCS duyệt" style={card}>
-        <div style={label}>Đã KCS duyệt · {periodLabel}</div>
+      <section aria-label="Số đã kiểm xong" style={card}>
+        <div style={label}>Đã kiểm xong · {periodLabel}</div>
+        <div style={{ fontSize: 14, color: 'var(--text2)', marginBottom: 8 }}>Đây là số được tính cho bạn.</div>
         {!kcsNow ? (
           <div style={{ color: 'var(--text2)' }}>Đang tải…</div>
         ) : !kcsNow.data ? (
-          <div style={{ fontSize: 14, color: 'var(--text2)' }}>Chưa xem được số KCS lúc này.</div>
+          <div style={{ fontSize: 14, color: 'var(--text2)' }}>Chưa xem được số đã kiểm lúc này.</div>
         ) : kcsTotals.length === 0 ? (
-          <div style={{ fontSize: 14, color: 'var(--text2)' }}>Chưa có số nào của bạn được KCS duyệt trong {periodLabel}.</div>
+          <div style={{ fontSize: 14, color: 'var(--text2)' }}>Trong {periodLabel} chưa có số nào của bạn được kiểm xong.</div>
         ) : (
           <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
             {kcsTotals.map((t) => (
               <div key={t.op}>
                 <div style={{ fontSize: 14, color: 'var(--text2)', fontWeight: 600 }}>{opTitle(t.op)} đạt</div>
                 <div style={{ fontSize: 28, fontWeight: 700 }}>{fmtQty(t.passed)}</div>
-                <div style={{ fontSize: 14, color: 'var(--text2)' }}>Lỗi {fmtQty(t.failed)} {OP_UNIT[t.op]} · tỷ lệ đạt {fmtRate(passRate(t))}</div>
+                <div style={{ fontSize: 14, color: 'var(--text2)' }}>Lỗi {fmtQty(t.failed)} {OP_UNIT[t.op]} · đạt {fmtRate(passRate(t))}</div>
               </div>
             ))}
           </div>
         )}
-        {kcsWait && <div style={{ marginTop: 10, fontSize: 14, color: 'var(--text2)' }}>Đang chờ KCS: {kcsWait}</div>}
+        {kcsWait && <div style={{ marginTop: 10, fontSize: 14, color: 'var(--text2)' }}>Chưa kiểm xong: {kcsWait}</div>}
       </section>
       <div style={{ fontSize: 14, color: 'var(--text2)' }}>
-        Số bạn ĐÃ BÁO trong {periodLabel} (chưa phải số đạt KCS). Lần bị QLSX đảo có ghi lý do.
+        Dưới đây là số bạn <b>đã báo</b> trong {periodLabel}. Số được tính là số đã kiểm xong ở trên. Lần nào quản lý hủy sẽ có ghi lý do.
       </div>
       {body}
     </div>

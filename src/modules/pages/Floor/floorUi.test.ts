@@ -15,7 +15,16 @@ describe('describeError', () => {
   it('mất mạng ở màn khác (đăng nhập...): câu ngắn, không nhắc số', () => {
     const r = describeError(new ApiError('x', 0, 'NetworkError'))
     expect(r.offline).toBe(true)
-    expect(r.text).toBe('Mất kết nối - kiểm tra mạng rồi thử lại.')
+    expect(r.text).toBe('Mất mạng. Kiểm tra lại Wi-Fi rồi thử lại.')
+  })
+
+  it('máy chủ lỗi 500: câu tiếng Việt + việc phải làm, không lộ "Internal server error" (mục 42b/54)', () => {
+    const r = describeError(new ApiError('Internal server error', 500, 'InternalServerError'), true)
+    expect(r.tone).toBe('err')
+    expect(r.text).not.toMatch(/Internal server error/i)
+    expect(r.text).toContain('còn nguyên')
+    expect(r.text).toContain('báo quản lý')
+    expect(describeError(new ApiError('Bad Gateway', 502, 'BadGateway')).text).toContain('Hệ thống đang lỗi')
   })
 
   it('máy chủ từ chối: lỗi đỏ, giữ nguyên lý do tiếng Việt từ BE', () => {
@@ -30,7 +39,7 @@ describe('describeError', () => {
   })
 
   it('lỗi lạ (không phải ApiError)', () => {
-    expect(describeError(new Error('boom'))).toEqual({ tone: 'err', offline: false, text: 'Có lỗi, thử lại' })
+    expect(describeError(new Error('boom'))).toEqual({ tone: 'err', offline: false, text: 'Có lỗi. Bấm thử lại; vẫn lỗi thì báo quản lý.' })
     expect(describeError(undefined).tone).toBe('err')
   })
 })

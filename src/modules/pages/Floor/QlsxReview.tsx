@@ -3,7 +3,7 @@
 /**
  * Khối "Chờ gửi KCS" của 1 tổ (màn QLSX "Sản lượng xưởng", 2026-10-13, mục 15 plan QR): các đợt công nhân đã báo
  * mà QLSX chưa gửi KCS, kèm TỪNG lần báo (ai / máy nào / lúc nào / bao nhiêu). QLSX kiểm rồi "Gửi KCS" (từng đợt
- * hoặc tất cả), hoặc đảo 1 lần báo sai kèm lý do. Gửi KCS gọi đúng luồng cũ - KCS không đổi.
+ * hoặc tất cả), hoặc hủy 1 lần báo sai kèm lý do (BE gọi là "đảo": ghi dòng sổ âm, không xoá). Gửi KCS gọi đúng luồng cũ.
  *
  * Mỗi đợt hiện số "đã báo / cần" của SKU và cảnh báo VƯỢT (cỡ đoạn / mảnh báo quá số cần; đoạn báo vượt sắt đã nhận) - chỉ
  * để QLSX kiểm trước khi gửi, KHÔNG chặn gửi (quy tắc "không cap lúc báo, KCS mới là chốt kiểm soát").
@@ -151,7 +151,7 @@ export default function QlsxReview({ data, onChanged }: {
         message: [
           `Gửi KCS: ${it.title} (${it.sub}) - ${it.total}.`,
           ...(warns.length ? [`⚠ Cảnh báo: ${warns.join('; ')}. Kiểm lại số thật trước khi gửi.`] : []),
-          'Sau khi gửi không đảo được lần báo nào của đợt này nữa.',
+          'Sau khi gửi không hủy được lần báo nào của đợt này nữa.',
         ].join('\n'),
         confirmLabel: 'Gửi KCS',
         danger: warns.length > 0,
@@ -191,7 +191,7 @@ export default function QlsxReview({ data, onChanged }: {
     setRevBusy(true); setRevErr(null)
     try {
       await floorAdmin.reverse(rev.report.floorReportId, reason.trim())
-      setMsg({ tone: 'ok', text: `Đã đảo lần báo ${rev.label}` })
+      setMsg({ tone: 'ok', text: `Đã hủy lần báo ${rev.label}` })
       setRev(null); setReason(''); onChanged()
     } catch (e) { setRevErr(errMsg(e)) } finally { setRevBusy(false) }
   }
@@ -200,10 +200,10 @@ export default function QlsxReview({ data, onChanged }: {
     <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }} aria-label="Chờ gửi KCS">
       {confirmModal}
       <ReasonModal
-        open={!!rev} title="Đảo lần báo" busy={revBusy} error={revErr}
-        description={rev ? `Đảo ${rev.label}. Số này được trừ khỏi đợt; dòng báo vẫn lưu lại kèm lý do và công nhân sẽ thấy lý do này.` : undefined}
-        reason={reason} onReasonChange={setReason} placeholder="Vd: đếm lại tại máy chỉ có 40 đoạn"
-        confirmLabel="Đảo lần báo" confirmDisabled={reason.trim().length < 3}
+        open={!!rev} title="Hủy lần báo này?" busy={revBusy} error={revErr}
+        description={rev ? `Hủy ${rev.label}. Số này được trừ khỏi đợt; lần báo vẫn được lưu lại kèm lý do hủy và công nhân sẽ thấy lý do này.` : undefined}
+        reason={reason} onReasonChange={setReason} placeholder="Lý do hủy - vd: đếm lại tại máy chỉ có 40 đoạn"
+        confirmLabel="Hủy lần báo" cancelLabel="Không hủy" confirmDisabled={reason.trim().length < 3}
         onCancel={() => { setRev(null); setReason(''); setRevErr(null) }} onConfirm={() => void doReverse()}
       />
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -229,27 +229,25 @@ export default function QlsxReview({ data, onChanged }: {
         const known = it.lines.filter((l) => l.required > 0)
         return (
           <article key={it.key} style={{ ...card, padding: 0, borderColor: warns.length ? 'var(--amber)' : undefined }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', flexWrap: 'wrap' }}>
-              <button type="button" aria-expanded={open} aria-label={open ? 'Thu gọn các lần báo' : 'Xem từng lần báo'}
-                onClick={() => toggle(it.key)} style={{ ...btn('ghost'), minHeight: 44, minWidth: 44 }}>
+            {/* 2026-10-20 (mục 53, "gọn thẻ"): cả đầu thẻ bấm được để mở/đóng; nút "Gửi KCS" chuyển xuống phần mở ra (QLSX phải
+                xem từng lần báo rồi mới gửi) - hết cảnh mỗi thẻ một nút xanh. "Gửi KCS tất cả" vẫn ở đầu danh sách. */}
+            <div role="button" tabIndex={0} aria-expanded={open} onClick={() => toggle(it.key)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(it.key) } }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px', flexWrap: 'wrap', cursor: 'pointer' }}>
+              <span aria-hidden style={{ display: 'inline-flex', color: 'var(--text2)' }}>
                 {open ? <ChevronDown size={18} /> : <ChevronRight size={18} />}
-              </button>
+              </span>
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ fontSize: 14, fontWeight: 700 }}>{it.title}</div>
                 <div style={{ fontSize: 12, color: 'var(--text2)' }}>{it.sub}{it.who ? ` · ${it.who}` : ''}</div>
-                <div style={{ fontSize: 13, marginTop: 2 }}>{it.total}</div>
+                <div style={{ fontSize: 13, marginTop: 2 }}>{it.total} · <span style={{ color: 'var(--text3)' }}>{live.length} lần báo</span></div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontSize: 12, color: stale ? 'var(--amber)' : 'var(--text3)', fontWeight: stale ? 700 : 400 }}
-                  title="Tính từ lần báo đầu tiên chưa gửi KCS">
-                  chờ {ageText(it.since, now)}{stale ? ' ⚠' : ''}
-                </div>
-                <div style={{ fontSize: 11, color: 'var(--text3)' }}>{live.length} lần báo</div>
+              <div style={{ fontSize: 12, color: stale ? 'var(--amber)' : 'var(--text3)', fontWeight: stale ? 700 : 400, whiteSpace: 'nowrap' }}
+                title="Tính từ lần báo đầu tiên chưa gửi KCS">
+                {stale ? '⚠ ' : ''}chờ {ageText(it.since, now)}
               </div>
-              <button type="button" disabled={busyKey === it.key || !!it.blocked} title={it.blocked ?? undefined}
-                style={btn('primary', busyKey === it.key || !!it.blocked)} onClick={() => sendOne(it)}>
-                <Send size={14} /> Gửi KCS
-              </button>
+              {warns.length > 0 && <Pill tone="amber">vượt</Pill>}
+              <span style={{ fontSize: 12, color: 'var(--blue-text)', fontWeight: 600, whiteSpace: 'nowrap' }}>{open ? 'Thu gọn' : 'Kiểm & gửi'}</span>
             </div>
             {(known.length > 0 || warns.length > 0 || it.blocked) && (
               <div style={{ padding: '0 14px 12px 68px', display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -258,7 +256,7 @@ export default function QlsxReview({ data, onChanged }: {
                     aria-label="Đã báo so với số cần">
                     {known.map((l) => (
                       <li key={l.label} style={{ color: l.over > 0 ? 'var(--amber)' : 'var(--text2)', fontWeight: l.over > 0 ? 700 : 400 }}>
-                        {l.label}: đã {l.done}/{l.required}{l.over > 0 ? ` · vượt ${l.over}` : l.done >= l.required ? ' · đủ' : ''}
+                        {l.label}: đã báo {l.done}/{l.required}{l.over > 0 ? ` · vượt ${l.over}` : l.done >= l.required ? ' · đủ' : ''}
                       </li>
                     ))}
                   </ul>
@@ -283,14 +281,16 @@ export default function QlsxReview({ data, onChanged }: {
                           {lineText(r)}
                         </td>
                         <td style={{ padding: '9px 8px', fontSize: 12, color: 'var(--text2)' }}>
-                          {r.reportedByName ?? '—'} · {r.workstation ? r.workstation.code : <span title="Báo từ màn thống kê cũ, không qua QR">màn cũ</span>}
+                          {r.reportedByName ?? '—'} · {r.workstation ? <span title={`Mã máy ${r.workstation.code}`}>{r.workstation.name}</span> : <span title="Báo từ màn thống kê cũ, không qua QR">màn cũ</span>}
                         </td>
                         <td style={{ padding: '9px 14px', textAlign: 'right' }}>
                           {r.reversed ? (
-                            <span style={{ fontSize: 12, color: 'var(--amber)' }}>Đã đảo: {r.reversed.reason ?? '—'}</span>
+                            <span style={{ fontSize: 12, color: 'var(--amber)' }}>Đã hủy: {r.reversed.reason ?? '—'}</span>
                           ) : (
-                            <button type="button" style={btn('danger')} onClick={() => { setRev({ report: r, label: `${lineText(r)} (${r.reportedByName ?? '—'}, ${fmtTime(r.createdAt)})` }); setReason(''); setRevErr(null) }}>
-                              <Undo2 size={14} /> Đảo
+                            <button type="button" style={btn('danger')} title="Hủy lần báo sai này (phải ghi lý do, công nhân sẽ thấy)"
+                              aria-label={`Hủy lần báo ${lineText(r)} của ${r.reportedByName ?? 'công nhân'}`}
+                              onClick={() => { setRev({ report: r, label: `${lineText(r)} (${r.reportedByName ?? '—'}, ${fmtTime(r.createdAt)})` }); setReason(''); setRevErr(null) }}>
+                              <Undo2 size={14} /> Hủy
                             </button>
                           )}
                         </td>
@@ -298,6 +298,15 @@ export default function QlsxReview({ data, onChanged }: {
                     ))}
                   </tbody>
                 </table>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: '1px solid var(--border)', flexWrap: 'wrap' }}>
+                  <span style={{ flex: 1, fontSize: 12, color: 'var(--text3)' }}>
+                    {it.blocked ?? (warns.length ? 'Có cảnh báo vượt - kiểm số thật trước khi gửi.' : 'Đã kiểm xong thì gửi KCS đợt này.')}
+                  </span>
+                  <button type="button" disabled={busyKey === it.key || !!it.blocked} title={it.blocked ?? undefined}
+                    style={btn('primary', busyKey === it.key || !!it.blocked)} onClick={() => sendOne(it)}>
+                    <Send size={14} /> Gửi KCS đợt này
+                  </button>
+                </div>
               </div>
             )}
           </article>

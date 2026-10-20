@@ -39,6 +39,10 @@ export function useNotificationsState() {
   const [tab, setTab] = useState<NotificationTab>('action')
   const [toast, setToast] = useState<Notification | null>(null)
   const prevTotalRef = useRef(0)
+  // Lần poll ĐẦU sau khi mở app/đăng nhập chỉ lấy mốc, KHÔNG toast (2026-10-20, changelog BE 10-08 mục 51): trước đây
+  // mỗi lần tải lại trang prevTotal = 0 nên "số chưa đọc tăng" → bật lại thông báo cũ (vd "đợt chờ quá 4 giờ" từ nhiều
+  // ngày trước) ở MỌI màn, che ô tìm kiếm/nút lọc góc phải. Thông báo cũ vẫn thấy ở chuông + "Cần xử lý".
+  const baselineDoneRef = useRef(false)
   const toastedIdsRef = useRef<Set<string>>(new Set())
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const tabRef = useRef<NotificationTab>('action')
@@ -57,7 +61,9 @@ export function useNotificationsState() {
     if (!token) return
     try {
       const next = await getUnreadCount()
-      if (next.total > prevTotalRef.current) {
+      if (!baselineDoneRef.current) {
+        baselineDoneRef.current = true
+      } else if (next.total > prevTotalRef.current) {
         // Có gì đó mới - tải vài dòng chưa đọc gần nhất để biết có đáng toast không.
         const res = await getNotifications({ status: 'unread', limit: 5 })
         const worthy = res.data.find(
@@ -74,6 +80,12 @@ export function useNotificationsState() {
       // Best-effort - lỗi mạng lúc poll không được làm hỏng phần còn lại của app.
     }
   }, [showToast, token])
+
+  // Đổi người đăng nhập (đăng xuất → đăng nhập tài khoản khác) = lấy mốc lại, không toast thông báo cũ của người mới.
+  useEffect(() => {
+    baselineDoneRef.current = false
+    prevTotalRef.current = 0
+  }, [token])
 
   // Tải ngay khi mount và khi trạng thái kết nối đổi (kết nối lại = có thể đã lỡ thông báo).
   useEffect(() => {

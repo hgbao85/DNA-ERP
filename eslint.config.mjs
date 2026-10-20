@@ -9,6 +9,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
  */
 export default [
   ...nextConfig,
+  { ignores: ['.next-e2e/**', 'test-results-floor/**', 'playwright-report-floor/**'] },
   {
     files: ['**/*.ts', '**/*.tsx'],
     plugins: { '@typescript-eslint': tseslint.plugin },

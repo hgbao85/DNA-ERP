@@ -123,6 +123,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const onSessionExpired = () => {
       setToken(null);
       setUser(null);
+      // Màn công nhân /floor (2026-10-20, changelog BE 10-08 mục 42a/54): không đẩy sang /login của ERP (tên + mật khẩu) -
+      // chỉ xoá phiên, FloorScanApp tự hiện lại màn nhập PIN của đúng máy đã quét (mã máy nhớ trong localStorage).
+      if (typeof window !== 'undefined' && window.location.pathname.startsWith('/floor')) return;
       router.replace('/login');
     };
     window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired);

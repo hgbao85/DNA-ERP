@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
+import { monthKey, YEAR_PAGE, yearPageEnd } from './monthYearLogic'
 
 /**
  * Ô chọn THÁNG và ô chọn NĂM cùng kiểu với `DatePicker` (ô bấm + lịch nổi tự dịch vào trong màn hình) thay cho hai ô
@@ -10,9 +11,7 @@ import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react'
 const POPUP_WIDTH = 264
 const GAP = 4
 const EDGE = 8
-const YEAR_PAGE = 12
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
-const pad2 = (n: number) => String(n).padStart(2, '0')
 
 interface MonthPickerProps {
   /** 'yyyy-MM' */
@@ -52,7 +51,7 @@ export function YearPicker({ value, onChange, max, current, title }: YearPickerP
 function MonthGrid({ value, max, current, onPick }: { value: string; max?: string; current?: string; onPick: (v: string) => void }) {
   const [year, setYear] = useState(Number(value.slice(0, 4)))
   const maxYear = max ? Number(max.slice(0, 4)) : Infinity
-  const keyOf = (m: number) => `${year}-${pad2(m)}`
+  const keyOf = (m: number) => monthKey(year, m)
   return (
     <>
       <Header label={String(year)} prevLabel="Năm trước" nextLabel="Năm sau" nextDisabled={year >= maxYear}
@@ -69,9 +68,7 @@ function MonthGrid({ value, max, current, onPick }: { value: string; max?: strin
 }
 
 function YearGrid({ value, max, current, onPick }: { value: number; max?: number; current?: number; onPick: (v: number) => void }) {
-  // Trang cuối kết thúc đúng ở `max` (năm mới nhất nằm cuối); không có `max` thì đặt năm đang chọn gần cuối trang.
-  const anchorEnd = max ?? value + 3
-  const [end, setEnd] = useState(anchorEnd - YEAR_PAGE * Math.floor((anchorEnd - value) / YEAR_PAGE))
+  const [end, setEnd] = useState(() => yearPageEnd(value, max))
   const years = Array.from({ length: YEAR_PAGE }, (_, i) => end - YEAR_PAGE + 1 + i)
   return (
     <>

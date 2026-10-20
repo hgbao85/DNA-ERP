@@ -26,16 +26,25 @@ export function describeError(e: unknown, withNumbers = false): ErrorInfo {
         tone: 'warn',
         offline: true,
         text: withNumbers
-          ? 'Chưa gửi được vì mất kết nối. Số bạn nhập vẫn còn nguyên - có mạng thì bấm lưu lại, sẽ không bị cộng 2 lần.'
-          : 'Mất kết nối - kiểm tra mạng rồi thử lại.',
+          ? 'Mất mạng, chưa gửi được. Số bạn nhập vẫn còn nguyên. Có mạng thì bấm Lưu lại, không bị cộng 2 lần.'
+          : 'Mất mạng. Kiểm tra lại Wi-Fi rồi thử lại.',
       }
     }
     if (e.statusCode === 429) {
-      return { tone: 'err', offline: false, text: 'Bạn thao tác quá nhanh - đợi khoảng 1 phút rồi thử lại.' }
+      return { tone: 'err', offline: false, text: 'Bấm nhanh quá. Đợi khoảng 1 phút rồi thử lại.' }
+    }
+    // 5xx: BE trả "Internal server error" tiếng Anh (phát hiện mục 42b) - công nhân cần câu tiếng Việt + việc phải làm.
+    if (e.statusCode >= 500) {
+      return {
+        tone: 'err', offline: false,
+        text: withNumbers
+          ? 'Hệ thống đang lỗi, chưa lưu được. Số bạn nhập vẫn còn nguyên. Đợi một lát rồi bấm Lưu lại; vẫn lỗi thì báo quản lý.'
+          : 'Hệ thống đang lỗi. Đợi một lát rồi thử lại; vẫn lỗi thì báo quản lý.',
+      }
     }
     return { tone: 'err', offline: false, text: e.message }
   }
-  return { tone: 'err', offline: false, text: 'Có lỗi, thử lại' }
+  return { tone: 'err', offline: false, text: 'Có lỗi. Bấm thử lại; vẫn lỗi thì báo quản lý.' }
 }
 
 export type ReceiveVerdict =

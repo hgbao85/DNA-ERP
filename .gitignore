@@ -1,9 +1,12 @@
 node_modules
 .next
+.next-e2e
 .env
 *.log
 
 # Playwright
 /test-results/
+/test-results-floor/
 /playwright-report/
+/playwright-report-floor/
 /playwright/.cache/

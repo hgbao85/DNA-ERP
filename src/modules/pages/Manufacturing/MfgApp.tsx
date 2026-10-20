@@ -357,7 +357,8 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     return (
       <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
         {sidebar}
-        <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: 'var(--space-6) var(--space-7)' }}>{content}</div>
+        {/* Đệm đáy 72px để nút nổi "Hướng dẫn" (góc phải dưới) không đè dòng cuối bảng khi cuộn hết trang (2026-10-20, mục 53). */}
+        <div style={{ flex: 1, minWidth: 0, overflow: 'auto', padding: 'var(--space-6) var(--space-7) 72px' }}>{content}</div>
       </div>
     )
   }

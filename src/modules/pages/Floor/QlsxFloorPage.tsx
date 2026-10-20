@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { floorAdmin, type BeFloorReview, type BeFloorSummary, type BeQueueEntry, type FloorStage } from '../../../services/floor-api'
 import { useFetch } from '../../../hooks/useFetch'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import { useMaxWidth } from '../../../hooks/useMediaQuery'
 import { tabBtn } from '../../../styles/buttons'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
@@ -27,6 +28,9 @@ const TOPICS = ['floor', 'steel-issues', 'production-batches', 'qc-reviews'] as 
 const LAST_STAGE_KEY = 'qlsx.floor.stage'
 
 function StageView({ stage, summary, refreshSummary }: { stage: FloorStage; summary: BeFloorSummary | null; refreshSummary: () => void }) {
+  // Lưới 2 cột (mỗi cột ≥ 420px) chỉ đủ chỗ khi phần nội dung ≥ ~860px = màn ≥ ~1180px (trừ thanh bên + đệm); dưới đó lưới
+  // tự xếp 1 cột → coi là "hẹp" để đưa "Chờ gửi KCS" lên trước (1024px của laptop vẫn là 1 cột).
+  const compact = useMaxWidth(1180)
   const queue = useFetch<BeQueueEntry[]>(() => floorAdmin.queue(stage), [stage])
   const review = useFetch<BeFloorReview>(() => floorAdmin.review(stage), [stage])
   const refetchAll = useCallback(() => { void queue.refetch(); void review.refetch(); refreshSummary() }, [queue, review, refreshSummary])
@@ -43,10 +47,26 @@ function StageView({ stage, summary, refreshSummary }: { stage: FloorStage; summ
   if (queue.error || review.error || !queue.data || !review.data) {
     return <LoadErrorState error={queue.error ?? review.error ?? 'Không có dữ liệu'} onRetry={refetchAll} />
   }
+  const reviewId = `qlsx-review-${stage}`
+  const goToReview = () => {
+    const el = document.getElementById(reviewId)
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    el?.focus({ preventScroll: true })
+  }
+  // Màn hẹp (< 900px, 1 cột): "Chờ gửi KCS" là việc hằng ngày của QLSX nên lên TRƯỚC thẻ PI + hàng đợi (2026-10-20, mục 53);
+  // màn rộng giữ 2 cột như cũ (thẻ PI trái, chờ gửi KCS phải).
+  const queueBlock = (
+    <QlsxQueue stage={stage} entries={queue.data} openCount={summary?.[stage].open ?? 0} review={review.data}
+      onChanged={refetchAll} onGoToReview={goToReview} />
+  )
+  const reviewBlock = (
+    <div id={reviewId} tabIndex={-1} style={{ outline: 'none', scrollMarginTop: 16 }}>
+      <QlsxReview stage={stage} data={review.data} onChanged={refetchAll} />
+    </div>
+  )
   return (
     <div style={{ display: 'grid', gap: 20, gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 420px), 1fr))', alignItems: 'start' }}>
-      <QlsxQueue stage={stage} entries={queue.data} openCount={summary?.[stage].open ?? 0} onChanged={refetchAll} />
-      <QlsxReview stage={stage} data={review.data} onChanged={refetchAll} />
+      {compact ? <>{reviewBlock}{queueBlock}</> : <>{queueBlock}{reviewBlock}</>}
     </div>
   )
 }

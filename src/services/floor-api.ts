@@ -4,6 +4,8 @@
  * `/floor?ws=<qrToken>`; PI KHÔNG nằm trong mã - BE tự lấy PI đang chạy của tổ.
  */
 import { http } from './core/http'
+import type { BePhoiProgressItem } from './steel-issues-api'
+import type { BeProductionBatchPlan } from './production-batches-api'
 
 export type FloorStage = 'PHOI' | 'HAN' | 'SON'
 export type WorkstationKind = 'CUT' | 'STEP' | 'PIECE' | 'STEEL_RECEIVE'
@@ -230,9 +232,49 @@ export interface BeQueueEntry {
   endedAt: string | null
   endedByName: string | null
   hasActiveFloor: boolean
-  progress: { required: number; reported: number; percent: number; complete: boolean } | null
+  progress: BeFloorProgress | null
   /** Chỉ true ở dòng DONE đóng gần nhất của tổ và "Mở lại" làm được (PI đang chạy chưa có lần báo nào). */
   canReopen: boolean
+}
+
+/** Ngăn số của tiến độ (BE floor-progress.util): reported = passed + awaiting + open = Σ min(Đã báo − Lỗi, Cần). */
+export interface BeFloorProgressBuckets {
+  required: number
+  reported: number
+  passed: number
+  awaiting: number
+  open: number
+  failed: number
+}
+
+/** Tiến độ tổ trên PI đang chạy (2026-10-19): Phôi = Cắt + công đoạn phụ + mảnh Phôi, cùng % với "Tổng hợp lệnh SX". */
+export interface BeFloorProgress extends BeFloorProgressBuckets {
+  percent: number
+  complete: boolean
+  /** `step`: 'CAT' | công đoạn phụ (UON/DAP/...) | 'PIECE' (mảnh/vật tư thành phẩm). */
+  breakdown: (BeFloorProgressBuckets & { step: string; percent: number })[]
+  missing: {
+    /** Số dòng (cỡ đoạn × công đoạn / mảnh) còn thiếu. */
+    lines: number
+    /** Phôi: số loại sắt còn thiếu; trong đó `materialsNotReceived` loại Phôi chưa nhận đợt sắt nào. */
+    materials: number
+    materialsNotReceived: number
+    /** Số mảnh / vật tư thành phẩm còn thiếu. */
+    pieces: number
+  }
+}
+
+/** GET /floor/queue/:stage/detail/:piId - ngăn "còn thiếu gì" của thẻ PI: tiến độ + đúng dữ liệu gốc BE đã dùng để tính. */
+export interface BeStageDetail {
+  productionInvoiceId: string
+  piCode: string
+  stage: FloorStage
+  progress: BeFloorProgress
+  orders: { productionOrderId: string; poNumber: string; productName: string }[]
+  /** Chỉ tổ Phôi (null với Hàn/Sơn). */
+  phoi: BePhoiProgressItem[] | null
+  /** batch-plan của tổ theo từng SKU (khoá = productionOrderId). */
+  plans: Record<string, BeProductionBatchPlan>
 }
 
 export interface BeQueueCandidate {
@@ -353,6 +395,8 @@ export const floorAdmin = {
     http.post<unknown>(`/floor/reports/${floorReportId}/reverse`, { reason }),
 
   queue: (stage?: FloorStage) => http.get<BeQueueEntry[]>(`/floor/queue${stage ? `?stage=${stage}` : ''}`),
+  stageDetail: (stage: FloorStage, productionInvoiceId: string) =>
+    http.get<BeStageDetail>(`/floor/queue/${stage}/detail/${productionInvoiceId}`),
   queueCandidates: (stage: FloorStage) => http.get<BeQueueCandidate[]>(`/floor/queue/candidates?stage=${stage}`),
   enqueue: (stage: FloorStage, productionInvoiceId: string) =>
     http.post<BeQueueEntry[]>('/floor/queue', { stage, productionInvoiceId }),

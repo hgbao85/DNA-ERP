@@ -49,6 +49,9 @@ export interface LenhSanXuatBoardProps<T> {
   expandedRow?: (row: T) => ReactNode | null   // trả nội dung để bung dòng chi tiết dưới mỗi dòng
   emptyText?: string
   footer?: ReactNode
+  /** Bảng cao theo nội dung, không tự cuộn trong khung 70vh - dùng khi nhúng vào trang đã cuộn (chi tiết SKU ở
+   *  "Tổng hợp lệnh SX", ngăn chi tiết PI) để khỏi "cuộn lồng cuộn" (2026-10-20, changelog BE 10-08 mục 53). */
+  fullHeight?: boolean
 }
 
 const toneBg: Record<RowTone, string> = { default: 'transparent', alert: 'var(--red-bg)', muted: 'transparent' }
@@ -131,7 +134,7 @@ export default function LenhSanXuatBoard<T>(p: LenhSanXuatBoardProps<T>) {
           )}
         </div>
       ) : (
-      <div style={{ ...tableScrollBox, border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: 'var(--space-5)' }}>
+      <div style={{ ...tableScrollBox, ...(p.fullHeight ? { maxHeight: 'none', overflowY: 'visible' } : {}), border: '1px solid var(--border)', borderRadius: 'var(--radius)', marginTop: 'var(--space-5)' }}>
         <table style={{ ...tbl, ...(p.fixedLayout ? { tableLayout: 'fixed' as const, minWidth: 0 } : {}) }}>
           <thead><tr style={{ ...trh, ...stickyHeaderRow }}>
             {p.columns.map(c => (

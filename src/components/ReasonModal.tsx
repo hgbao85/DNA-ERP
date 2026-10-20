@@ -11,6 +11,8 @@ interface ReasonModalProps {
   onCancel: () => void
   onConfirm: () => void
   confirmLabel?: string
+  /** Nhãn nút đóng (mặc định "Hủy") - đổi khi chính thao tác cũng là "hủy" để 2 nút không cùng chữ. */
+  cancelLabel?: string
   confirmColor?: string
   busy?: boolean
   confirmDisabled?: boolean
@@ -32,6 +34,7 @@ export default function ReasonModal({
   onCancel,
   onConfirm,
   confirmLabel = 'Xác nhận từ chối',
+  cancelLabel = 'Hủy',
   confirmColor = 'var(--fg-c62828)',
   busy = false,
   confirmDisabled = false,
@@ -59,7 +62,7 @@ export default function ReasonModal({
         </div>
       )}
       <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
-        <button onClick={onCancel} disabled={busy} style={btnSecondary}>Hủy</button>
+        <button onClick={onCancel} disabled={busy} style={btnSecondary}>{cancelLabel}</button>
         <button
           onClick={onConfirm}
           disabled={busy || confirmDisabled}

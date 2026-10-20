@@ -1,0 +1,6 @@
+{
+  // Chỉ dùng khi build bản FE cho bài thử điện thoại (NEXT_DIST_DIR=.next-e2e, xem next.config.mjs): Next tự ghi thư mục build vào
+  // "include" của tsconfig - tách file riêng để không sửa tsconfig.json của dự án.
+  "extends": "./tsconfig.json",
+  "include": ["src", ".next-e2e/types/**/*.ts"]
+}

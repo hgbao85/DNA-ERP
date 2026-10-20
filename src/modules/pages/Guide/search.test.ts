@@ -25,6 +25,11 @@ describe('searchArticles (nội dung guide thật)', () => {
     ['thong bao', 'journey-notifications'],
     ['van phong pham', 'wh-van-phong-pham'],
     ['dong goi', 'wh-dong-goi'],
+    // 2026-10-20 (changelog BE 10-08 mục 56-57): các bài QLSX / QR tại máy (đã gộp với bài có ảnh của nhánh mới).
+    ['san luong xuong', 'mfg-qlsx-luong'],
+    ['gui kcs', 'mfg-qr-qlsx-hang-doi'],
+    ['tem qr', 'mfg-qr-qlsx-thiet-lap'],
+    ['quet qr', 'mfg-qr-bao-san-luong'],
   ])('"%s" -> %s đứng trong 2 kết quả đầu', (q, id) => {
     expect(ids(q).slice(0, 2)).toContain(id);
   });

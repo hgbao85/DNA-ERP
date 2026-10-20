@@ -1,5 +1,9 @@
 'use client'
 import { useMemo, useState } from 'react'
+
+// Chưa có dòng tồn kho = tồn 0 - hiện "0" như màn chi tiết kho (2026-10-20, changelog BE 10-08 mục 53; trước hiện "—" nên 2 màn
+// cùng vật tư ra 2 ký hiệu khác nhau).
+const fmtQty = (n: number | null | undefined) => (n ?? 0).toLocaleString('vi-VN')
 import { format } from 'date-fns'
 import { Search, X } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
@@ -289,8 +293,8 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
                 </div>
                 <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 13, flexWrap: 'wrap' }}>
                   {!warehouseCode && <span style={{ color: 'var(--text2)', flex: '1 1 auto', minWidth: 0 }}>{m.warehouseName ?? '—'}</span>}
-                  <span style={{ marginLeft: 'auto' }}><span style={{ color: 'var(--text3)', fontSize: 11 }}>Tồn </span><b>{row.qty != null ? row.qty.toLocaleString('vi-VN') : '—'}</b></span>
-                  <span><span style={{ color: 'var(--text3)', fontSize: 11 }}>Khả dụng </span><b style={{ color: row.availableQty != null && row.availableQty <= 0 ? 'var(--fg-c62828)' : 'var(--fg-2563eb)' }}>{row.availableQty != null ? row.availableQty.toLocaleString('vi-VN') : '—'}</b></span>
+                  <span style={{ marginLeft: 'auto' }}><span style={{ color: 'var(--text3)', fontSize: 11 }}>Tồn </span><b>{fmtQty(row.qty)}</b></span>
+                  <span><span style={{ color: 'var(--text3)', fontSize: 11 }}>Khả dụng </span><b style={{ color: row.availableQty != null && row.availableQty <= 0 ? 'var(--fg-c62828)' : 'var(--fg-2563eb)' }}>{fmtQty(row.availableQty)}</b></span>
                 </div>
               </div>
             )
@@ -303,15 +307,18 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
         </div>
       ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
-          <table style={{ width: '100%', minWidth: 780, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
+          {/* 2026-10-20 (changelog BE 10-08 mục 50/51): các cột phụ từng chiếm cố định 700px nên ở màn ~1024px cột "Tên
+              vật tư" (cột quan trọng nhất, không đặt độ rộng) chỉ còn 80px ("Sơn E…") và cột "Khả dụng" bị cắt. Thu hẹp
+              cột phụ để tên vật tư luôn còn ≥ ~150px ở khung 750px. */}
+          <table style={{ width: '100%', minWidth: 720, borderCollapse: 'collapse', fontSize: 13, tableLayout: 'fixed' }}>
             <colgroup>
-              <col style={{ width: 100 }} />
+              <col style={{ width: 92 }} />
               <col />
-              <col style={{ width: 150 }} />
-              <col style={{ width: 140 }} />
-              {!warehouseCode && <col style={{ width: 150 }} />}
-              {showLengthColumn && <col style={{ width: 100 }} />}
-              <col style={{ width: 80 }} />
+              <col style={{ width: 120 }} />
+              <col style={{ width: 110 }} />
+              {!warehouseCode && <col style={{ width: 128 }} />}
+              {showLengthColumn && <col style={{ width: 90 }} />}
+              <col style={{ width: 76 }} />
               <col style={{ width: 80 }} />
             </colgroup>
             <thead>
@@ -339,7 +346,7 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
                     onMouseLeave={e => (e.currentTarget.style.background = '')}
                   >
                     <td style={{ ...tdStyle, color: 'var(--text3)' }}>{m.code}</td>
-                    <td style={{ ...tdStyle, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</td>
+                    <td title={m.name} style={{ ...tdStyle, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</td>
                     <td style={{ ...tdStyle, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {[m.spec, m.unit].filter(Boolean).join(' · ') || '—'}
                     </td>
@@ -348,15 +355,15 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
                         {m.materialGroupName ?? 'Chưa phân nhóm'}
                       </span>
                     </td>
-                    {!warehouseCode && <td style={{ ...tdStyle, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.warehouseName ?? '—'}</td>}
+                    {!warehouseCode && <td title={m.warehouseName ?? undefined} style={{ ...tdStyle, color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.warehouseName ?? '—'}</td>}
                     {showLengthColumn && (
                       <td style={{ ...tdStyle, color: 'var(--text3)' }}>
                         {row.stockLengthMm ? `${row.stockLengthMm.toLocaleString('vi-VN')} mm` : '—'}
                       </td>
                     )}
-                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600 }}>{row.qty != null ? row.qty.toLocaleString('vi-VN') : '—'}</td>
+                    <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: row.qty ? undefined : 'var(--text3)' }}>{fmtQty(row.qty)}</td>
                     <td style={{ ...tdStyle, textAlign: 'right', fontWeight: 600, color: row.availableQty != null && row.availableQty <= 0 ? 'var(--fg-c62828)' : 'var(--fg-2563eb)' }}>
-                      {row.availableQty != null ? row.availableQty.toLocaleString('vi-VN') : '—'}
+                      {fmtQty(row.availableQty)}
                     </td>
                   </tr>
                 )
@@ -403,7 +410,7 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
                 <InfoRow label="Chiều dài" value={selected.stockLengthMm ? `${selected.stockLengthMm.toLocaleString('vi-VN')} mm` : '—'} />
               )}
               <InfoRow label="Tồn kho" value={selected.qty != null ? selected.qty.toLocaleString('vi-VN') : '—'} />
-              <InfoRow label="Khả dụng" value={selected.availableQty != null ? selected.availableQty.toLocaleString('vi-VN') : '—'} />
+              <InfoRow label="Khả dụng" value={fmtQty(selected.availableQty)} />
               <InfoRow label="Ngày tạo" value={format(new Date(selected.material.createdAt), 'dd/MM/yyyy')} />
             </div>
           </div>
