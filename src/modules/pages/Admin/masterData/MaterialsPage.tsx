@@ -254,6 +254,7 @@ export default function MaterialsPage() {
       title: 'Xóa vật tư',
       message: `Xóa vật tư "${m.name}" (${m.code})? Hành động này không thể hoàn tác.`,
     }),
+    bulkDelete: { label: (m) => `${m.code} — ${m.name}` },
     // Chặn lưu nếu chưa tải được danh sách nhóm vật tư - nếu không, isSteelGroup/isOtherGroup
     // đều trả false (groupList rỗng) -> CẢ 2 field hao hụt lẫn detailKind bị showIf ẩn hết ->
     // form gửi null cho toàn bộ, xoá sạch ngưỡng Sếp đã đặt ở bất kỳ vật tư nào bị sửa lúc đó.

@@ -49,7 +49,7 @@ export default function ConfirmModal({
             color: 'var(--fg-c62828)', fontSize: 12.5, fontWeight: 500,
           }}>
             <AlertTriangle size={15} style={{ flexShrink: 0 }} />
-            <span>{error}</span>
+            <span style={{ whiteSpace: 'pre-line' }}>{error}</span>
           </div>
         )}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>

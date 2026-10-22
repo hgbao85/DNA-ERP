@@ -103,6 +103,11 @@ export interface AdminEntityConfig<T extends { id: number | string }> {
    *  hàng loạt" ở Vật tư). Nhận `refetch` để tự làm mới danh sách sau khi tự thao tác xong -
    *  trang cha tự quản lý modal/luồng riêng, AdminEntityPage không biết gì về nội dung bên trong. */
   toolbarExtra?: (helpers: { refetch: () => void }) => ReactNode
+  /** Bật cột checkbox + thanh "Xóa đã chọn" (chỉ trên bảng desktop, cần `api.remove`). BE chỉ có
+   *  API xóa từng bản ghi nên FE xóa tuần tự rồi gom lỗi - bản ghi nào BE từ chối (vd vật tư còn
+   *  trong định mức) được báo rõ lý do, các bản ghi còn lại vẫn xóa bình thường.
+   *  `label` là tên hiển thị của 1 dòng trong thông báo lỗi (vd "VTK-338 — Nệm màu 700"). */
+  bulkDelete?: { label: (row: T) => string }
 }
 
 // Namespaced để không bao giờ trùng với 1 filter key nghiệp vụ thật (vd Notification's
@@ -196,6 +201,38 @@ export default function AdminEntityPage<T extends { id: number | string }>({
   const canUpdate = !readOnly && !!config.api.update
   const canRemove = !readOnly && !!config.api.remove
   const hasRowActions = !!(canUpdate || canRemove || (!readOnly && config.rowActions))
+  const canBulkDelete = canRemove && !!config.bulkDelete
+
+  // Chọn nhiều dòng để xóa - giữ nguyên khi đổi trang/bộ lọc/tìm kiếm; chỉ những id còn tồn tại
+  // trong `items` mới tính (đã xóa/refetch xong thì tự rơi khỏi selectedRows).
+  const [selectedIds, setSelectedIds] = useState<Set<number | string>>(new Set())
+  const selectedRows = useMemo(() => items.filter(r => selectedIds.has(r.id)), [items, selectedIds])
+  const pageAllSelected = paged.length > 0 && paged.every(r => selectedIds.has(r.id))
+  const pageSomeSelected = !pageAllSelected && paged.some(r => selectedIds.has(r.id))
+
+  const toggleSelected = (id: number | string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const togglePageSelected = () => {
+    setSelectedIds(prev => {
+      const next = new Set(prev)
+      if (pageAllSelected) paged.forEach(r => next.delete(r.id))
+      else paged.forEach(r => next.add(r.id))
+      return next
+    })
+  }
+
+  const selectAllFiltered = () => setSelectedIds(prev => {
+    const next = new Set(prev)
+    filtered.forEach(r => next.add(r.id))
+    return next
+  })
 
   // Revoke toàn bộ object URL đang preview - gọi khi đóng modal (Hủy/Lưu xong/mở lại) để
   // không rò rỉ bộ nhớ trình duyệt giữ ảnh đã chọn nhưng không còn dùng tới nữa.
@@ -344,6 +381,51 @@ export default function AdminEntityPage<T extends { id: number | string }>({
     })
   }
 
+  const handleBulkDelete = () => {
+    if (!canBulkDelete || selectedRows.length === 0) return
+    // Giữ danh sách còn lại trong closure: nếu có dòng bị từ chối, modal vẫn mở (useConfirm giữ
+    // modal khi action ném lỗi) và bấm "Xóa" lần nữa chỉ thử lại đúng những dòng chưa xóa được.
+    let remaining = [...selectedRows]
+    ask(
+      {
+        title: 'Xóa nhiều',
+        message: `Xóa ${remaining.length} ${config.title.toLowerCase()} đã chọn? Hành động này không thể hoàn tác.`,
+        danger: true,
+        confirmLabel: `Xóa ${remaining.length}`,
+      },
+      async () => {
+        const failed: { row: T; reason: string }[] = []
+        const deletedIds: (number | string)[] = []
+        for (const row of remaining) {
+          const guardErr = config.guardDelete?.(row)
+          if (guardErr) {
+            failed.push({ row, reason: guardErr })
+            continue
+          }
+          try {
+            await config.api.remove!(row.id)
+            config.onMutate?.('delete', row)
+            deletedIds.push(row.id)
+          } catch (e) {
+            failed.push({ row, reason: e instanceof Error ? e.message : 'Không thể xóa' })
+          }
+        }
+        remaining = failed.map(f => f.row)
+        setSelectedIds(prev => {
+          const next = new Set(prev)
+          deletedIds.forEach(id => next.delete(id))
+          return next
+        })
+        await refetch()
+        if (failed.length > 0) {
+          const shown = failed.slice(0, 5).map(f => `• ${config.bulkDelete!.label(f.row)}: ${f.reason}`).join('\n')
+          const more = failed.length > 5 ? `\n… và ${failed.length - 5} dòng khác` : ''
+          throw new Error(`Đã xóa ${deletedIds.length}, không xóa được ${failed.length}:\n${shown}${more}`)
+        }
+      },
+    )
+  }
+
   const renderCell = (item: T, col: AdminColumn<T>) => (col.render ? col.render(item) : defaultCell(item, col.key))
 
   const renderActions = (item: T) => (
@@ -418,6 +500,36 @@ export default function AdminEntityPage<T extends { id: number | string }>({
         </div>
       )}
 
+      {canBulkDelete && selectedRows.length > 0 && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+          background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8,
+          padding: '8px 14px', marginBottom: 'var(--space-4)', fontSize: 13,
+        }}>
+          <span style={{ fontWeight: 600 }}>Đã chọn {selectedRows.length}</span>
+          {selectedRows.length < filtered.length && (
+            <button
+              onClick={selectAllFiltered}
+              style={{ padding: 0, fontSize: 13, color: 'var(--fg-2563eb)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+            >
+              Chọn tất cả {filtered.length}
+            </button>
+          )}
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            style={{ padding: 0, fontSize: 13, color: 'var(--text2)', background: 'transparent', border: 'none', cursor: 'pointer' }}
+          >
+            Bỏ chọn
+          </button>
+          <button
+            onClick={handleBulkDelete}
+            style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 14px', fontSize: 13, fontWeight: 600, color: '#fff', background: 'var(--fg-c62828)', border: 'none', borderRadius: 8, cursor: 'pointer' }}
+          >
+            <Trash2 size={14} /> Xóa đã chọn
+          </button>
+        </div>
+      )}
+
       {isLoading ? (
         <LoadingState />
       ) : filtered.length === 0 ? (
@@ -427,14 +539,39 @@ export default function AdminEntityPage<T extends { id: number | string }>({
       ) : isMobile ? (
         // Điện thoại: thẻ thay bảng - cột đầu làm tiêu đề thẻ, các cột còn lại thành lưới nhãn/giá trị.
         <>
+          {canBulkDelete && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>
+              <input
+                type="checkbox"
+                checked={pageAllSelected}
+                ref={el => { if (el) el.indeterminate = pageSomeSelected }}
+                onChange={togglePageSelected}
+              />
+              Chọn cả trang này
+            </label>
+          )}
           <MobileListCards
             emptyText=""
             items={paged.map(item => {
               const [first, ...rest] = config.columns
+              const titleText = <span style={{ fontWeight: 600 }}>{first ? renderCell(item, first) : String(item.id)}</span>
               return {
                 key: String(item.id),
                 onClick: canUpdate ? () => openEdit(item) : undefined,
-                title: <span style={{ fontWeight: 600 }}>{first ? renderCell(item, first) : String(item.id)}</span>,
+                // Checkbox nằm trong tiêu đề thẻ; stopPropagation để chạm vào ô chọn không mở form sửa.
+                title: canBulkDelete ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+                    <input
+                      type="checkbox"
+                      aria-label="Chọn thẻ này"
+                      checked={selectedIds.has(item.id)}
+                      onClick={e => e.stopPropagation()}
+                      onChange={() => toggleSelected(item.id)}
+                      style={{ width: 18, height: 18, flexShrink: 0 }}
+                    />
+                    {titleText}
+                  </span>
+                ) : titleText,
                 meta: rest.map(col => ({ label: col.label, value: renderCell(item, col) })),
                 footer: hasRowActions ? <div style={{ display: 'flex', justifyContent: 'flex-end' }}>{renderActions(item)}</div> : undefined,
               }
@@ -447,9 +584,20 @@ export default function AdminEntityPage<T extends { id: number | string }>({
       ) : (
         <div style={tableWrap}>
           <div style={tableScrollBox}>
-            <table style={isCompact ? { ...tbl, minWidth: compactTableMinWidth(config.columns, hasRowActions ? actionsColWidth : 0) } : tbl}>
+            <table style={isCompact ? { ...tbl, minWidth: compactTableMinWidth(config.columns, (hasRowActions ? actionsColWidth : 0) + (canBulkDelete ? 40 : 0)) } : tbl}>
               <thead>
                 <tr style={stickyHeaderRow}>
+                  {canBulkDelete && (
+                    <th style={{ ...th, width: 40, textAlign: 'center' }}>
+                      <input
+                        type="checkbox"
+                        aria-label="Chọn tất cả dòng ở trang này"
+                        checked={pageAllSelected}
+                        ref={el => { if (el) el.indeterminate = pageSomeSelected }}
+                        onChange={togglePageSelected}
+                      />
+                    </th>
+                  )}
                   {config.columns.map(col => (
                     <th key={col.key} style={{ ...th, textAlign: col.align ?? 'left', width: col.width }}>{col.label}</th>
                   ))}
@@ -467,6 +615,16 @@ export default function AdminEntityPage<T extends { id: number | string }>({
                     onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                     onClick={() => canUpdate && openEdit(item)}
                   >
+                    {canBulkDelete && (
+                      <td style={{ ...td, textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          aria-label="Chọn dòng này"
+                          checked={selectedIds.has(item.id)}
+                          onChange={() => toggleSelected(item.id)}
+                        />
+                      </td>
+                    )}
                     {config.columns.map(col => (
                       <td key={col.key} style={{ ...td, textAlign: col.align ?? 'left' }}>
                         {renderCell(item, col)}
