@@ -34,7 +34,7 @@ export interface PickedMaterial {
  * SpecSteelPage.tsx. Bỏ trống cho các picker không phải Sắt.
  */
 export default function MaterialPicker({
-  value, onSelect, materialGroupId, detailKind, steelSubGroup, placeholder = 'Chọn vật tư…', hideCodeInValue = false,
+  value, onSelect, materialGroupId, detailKind, steelSubGroup, placeholder = 'Chọn vật tư…', hideCodeInValue = false, filter,
 }: {
   value: PickedMaterial | null
   onSelect: (m: PickedMaterial | null) => void
@@ -45,6 +45,8 @@ export default function MaterialPicker({
   placeholder?: string
   /** true = ô hiển thị vật tư ĐÃ CHỌN chỉ ghi tên (không ghi mã). Danh sách thả xuống vẫn kèm mã để phân biệt các vật tư trùng tên và tìm theo mã. */
   hideCodeInValue?: boolean
+  /** Lọc thêm sau các điều kiện nhóm/phân loại ở trên (vd tab Phụ kiện chỉ nhận nệm thuộc màu đã tick). */
+  filter?: (m: { id: number | string; detailKind?: string | null }) => boolean
 }) {
   const { data } = useFetch(() => api.getMaterials(), [])
   const options = materialGroupId == null ? [] : (data ?? []).filter((m) =>
@@ -52,6 +54,7 @@ export default function MaterialPicker({
     && (detailKind == null || (m.detailKind != null && [detailKind].flat().includes(m.detailKind)))
     && (steelSubGroup == null || m.steelSubGroup === steelSubGroup
         || (steelSubGroup === 'SOFTWARE' && m.steelSubGroup == null))
+    && (filter == null || filter(m))
   )
 
   return (

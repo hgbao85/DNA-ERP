@@ -68,7 +68,10 @@ const CHILD_GROUPS: ManhChildGroup[] = ['sat', 'day', 'dinh', 'tanRut', 'nutNhua
 // Form "Thêm vật tư" (nhập mới dòng vào 1 mảnh) ẩn tab "Tự tính" (vatTuTP) theo yêu cầu người
 // dùng, 2026-10-19 - CHỈ ẩn ở đây, không đụng CHILD_GROUPS gốc (vẫn dùng cho tab catalog "Danh
 // sách vật tư" và cho editing dòng Tự tính đã có sẵn - startEditChild() không phụ thuộc list này).
-const ADD_CHILD_GROUPS: ManhChildGroup[] = CHILD_GROUPS.filter(g => g !== 'vatTuTP')
+// Tab "Dây" cũng ẩn ở đây (2026-10-24): mọi dòng dây BẮT BUỘC là màu đã tick ở khối "Danh sách màu dây
+// SKU" - không có "dây cố định" ngoài danh sách. Dòng dây chỉ vào mảnh qua tick (tự thêm) hoặc nút "Thêm
+// dây đã tick"; BE cũng chặn dòng dây không tick (SkusService.assertWireLinesAreTicked).
+const ADD_CHILD_GROUPS: ManhChildGroup[] = CHILD_GROUPS.filter(g => g !== 'vatTuTP' && g !== 'day')
 const GROUP_LABELS: Record<ManhChildGroup, string> = {
   sat: 'Sắt', day: 'Dây', dinh: 'Đinh', tanRut: 'Tán rút', nutNhua: 'Nút nhựa',
   // 2026-10-01: Sắt chia 3 nhóm con - 'sat' = Phần mềm (đi solver), 'vatTuTP' đổi nhãn thành "Tự
@@ -460,7 +463,7 @@ export default function SpecSteelPage({ subTab }: {
   }, [manhs, wireOptions, selectedBom?.id])
 
   const submitManh = async () => {
-    if (!selectedBom || totalChildren === 0 || wiresMissingQty.length > 0) return
+    if (!selectedBom || totalChildren === 0 || wiresMissingQty.length > 0 || unlistedWires.length > 0) return
     setSavingManh(true)
     setSubmitManhError(null)
     try {
@@ -634,6 +637,13 @@ export default function SpecSteelPage({ subTab }: {
   // Loại dây đã tick nhưng không mảnh nào có số lượng > 0: Sales chọn được mà định mức không có
   // dòng nào -> mua/xuất đan thiếu dây. Chặn gửi duyệt cho tới khi nhập.
   const wiresMissingQty = tickedWiresWithoutQty(manhs, wireOptions)
+  // Dòng dây nằm NGOÀI danh sách tick (dòng cũ / bản nháp cũ từ thời còn "dây cố định"): BE từ chối, nên
+  // chặn luôn ở đây và chỉ rõ tên để người nhập tick màu đó hoặc xoá dòng.
+  const unlistedWires = [...new Set(
+    manhs.flatMap(m => m.children)
+      .filter(c => c.group === 'day' && !wireIdSet.has(String(c.materialId)))
+      .map(c => c.loaiSatName.replace(/^[A-Z]+-\d+\s+—\s+/, '')),
+  )]
   // Cảnh báo hiện TÊN dây (không hiện mã) - util trả mã nên đổi lại theo danh sách dây đã tick.
   const wireNameOf = (code: string) => wireOptions.find(w => w.materialCode === code)?.materialName ?? code
   // Ảnh hiển thị của 1 dòng: ảnh riêng của dòng (đã/đang upload) nếu có, không thì ảnh mẫu của chính vật
@@ -1393,6 +1403,11 @@ export default function SpecSteelPage({ subTab }: {
                       Màu dây {wiresMissingQty.map(wireNameOf).join(', ')} đã tick nhưng chưa nhập số lượng ở mảnh nào - nhập số lượng (hoặc bỏ tick) rồi mới gửi phê duyệt được.
                     </span>
                   )}
+                  {unlistedWires.length > 0 && (
+                    <span style={{ fontSize: 12, color: 'var(--fg-b45309)', flex: '1 1 100%' }}>
+                      Dây {unlistedWires.join(', ')} chưa nằm trong danh sách màu dây của SKU - tick màu đó ở khối &quot;Danh sách màu dây SKU&quot; hoặc xoá dòng dây này, rồi mới gửi phê duyệt được.
+                    </span>
+                  )}
                   <span style={{ fontSize: 13, color: 'var(--text2)' }}>
                     {manhs.length} mảnh · {totalChildren} dòng vật tư
                   </span>
@@ -1414,12 +1429,12 @@ export default function SpecSteelPage({ subTab }: {
                     >{savingDraft ? 'Đang lưu...' : 'Tạm lưu'}</button>
                     <button
                       onClick={submitManh}
-                      disabled={totalChildren === 0 || savingManh || wiresMissingQty.length > 0}
+                      disabled={totalChildren === 0 || savingManh || wiresMissingQty.length > 0 || unlistedWires.length > 0}
                       style={{
                         padding: '7px 20px', border: 'none', borderRadius: 'var(--radius)',
-                        background: totalChildren > 0 && wiresMissingQty.length === 0 ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
+                        background: totalChildren > 0 && wiresMissingQty.length === 0 && unlistedWires.length === 0 ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
                         color: '#fff', fontWeight: 700, fontSize: 13,
-                        cursor: totalChildren > 0 && !savingManh && wiresMissingQty.length === 0 ? 'pointer' : 'not-allowed',
+                        cursor: totalChildren > 0 && !savingManh && wiresMissingQty.length === 0 && unlistedWires.length === 0 ? 'pointer' : 'not-allowed',
                         opacity: savingManh ? 0.7 : 1,
                       }}
                     >{savingManh ? 'Đang gửi...' : (manhSt === 'approved' && isAdmin) ? 'Ghi đè định mức →' : 'Gửi phê duyệt →'}</button>

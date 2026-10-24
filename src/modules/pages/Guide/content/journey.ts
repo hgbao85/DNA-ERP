@@ -183,7 +183,7 @@ export const journeyGroup: GuideGroup = {
       highlight: {
         label: 'Quy tắc cốt lõi',
         text: 'Định mức khai TẤT CẢ các màu được phép (tick). Sales chọn ĐÚNG 1 màu dây và 1 màu nệm cho TỪNG dòng đơn. Từ đó mua hàng và xuất đan chỉ tính đúng màu đã chọn.',
-        note: 'Chỉ dây và nệm có lựa chọn màu. Đinh, tán rút, nút nhựa, sắt, sơn, bao bì không đổi theo màu — luôn tính như cũ. SKU không tick màu nào thì chạy y như trước.',
+        note: 'Chỉ dây và nệm có lựa chọn màu. Đinh, tán rút, nút nhựa, sắt, sơn, bao bì không đổi theo màu — luôn tính như cũ. Không có "dây cố định" hay "nệm cố định": mọi dòng dây và mọi dòng nệm trong định mức bắt buộc là một màu đã tick (SKU chỉ dùng một màu vẫn phải tick màu đó; SKU không dùng dây/nệm thì không cần tick).',
       },
       mock: {
         title: 'Tạo PO mới — dòng SKU có lựa chọn màu',
@@ -223,7 +223,8 @@ export const journeyGroup: GuideGroup = {
           rows: [
             ['SKU có tick màu nhưng dòng đơn chưa chọn', 'Không lưu được đơn; dưới bảng SKU có dòng nhắc "chọn đủ Màu dây và Màu nệm".'],
             ['SKU chỉ có đúng một màu', 'Hệ thống chọn sẵn, Sales khỏi bấm.'],
-            ['SKU không tick màu nào', 'Hai ô màu không hiện; mọi thứ chạy như trước.'],
+            ['SKU không tick màu nào', 'Hai ô màu không hiện; mọi thứ chạy như trước (SKU này không có dây/nệm, hoặc là SKU cũ chưa có tick).'],
+            ['Dòng dây hoặc dòng nệm trong định mức không thuộc màu đã tick', 'Không gửi phê duyệt được (máy chủ cũng từ chối, 400) — tick màu đó hoặc xoá dòng.'],
             ['Đơn tạo trước khi có tính năng này (chưa chọn màu)', 'Chạy như trước, không lọc gì.'],
             ['Duyệt lệnh mà màu đã chọn không khớp bản định mức sắp áp dụng', 'Bị chặn ngay lúc duyệt (409), kèm lý do — chưa ghi gì.'],
             ['Xuất đan mang kèm dây khác màu đã chọn', 'Bị từ chối (400), không tạo phiếu xuất.'],

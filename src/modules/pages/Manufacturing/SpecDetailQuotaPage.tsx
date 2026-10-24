@@ -373,7 +373,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   }
 
   const submitAll = async () => {
-    if (!selectedBom || lines.length === 0 || cushionsMissingQty.length > 0) return
+    if (!selectedBom || lines.length === 0 || cushionsMissingQty.length > 0 || unlistedCushions.length > 0) return
     setSavingDetail(true)
     setSubmitDetailError(null)
     try {
@@ -398,6 +398,13 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   // Loại nệm đã tick nhưng chưa có số lượng > 0: Sales chọn được mà định mức không có số liệu -> mua
   // thiếu nệm. Chặn gửi duyệt cho tới khi nhập.
   const cushionsMissingQty = tickedCushionsWithoutQty(lines, cushionOptions)
+  // Dòng nệm nằm NGOÀI danh sách tick (dòng cũ / bản nháp cũ từ thời còn "nệm cố định"): BE từ chối, nên chặn
+  // luôn ở đây và chỉ rõ tên để người nhập tick màu đó hoặc xoá dòng.
+  const unlistedCushions = [...new Set(
+    lines
+      .filter(l => l.group === 'vatTuPhuKien' && l.isCushion && !cushionIdSet.has(String(l.materialId)))
+      .map(l => lineLabel(l.name)),
+  )]
   // Cảnh báo hiện TÊN nệm (không hiện mã) - util trả mã nên đổi lại theo danh sách nệm đã tick.
   const cushionNameOf = (code: string) => cushionOptions.find(c => c.materialCode === code)?.materialName ?? code
 
@@ -636,6 +643,12 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                   >{GROUP_LABELS[g]}</button>
                 ))}
               </div>
+              {group === 'vatTuPhuKien' && (
+                <div style={{ fontSize: 12, color: 'var(--text3)', margin: '-4px 0 12px' }}>
+                  Nệm chỉ chọn được màu đã tick ở khối &quot;Danh sách màu nệm SKU&quot; phía trên (tick xong dòng nệm tự xuất hiện).
+                  Muốn thêm một dòng nữa của cùng màu nhưng khác quy cách thì chọn lại đúng màu đó ở đây.
+                </div>
+              )}
               <div style={{ display: 'flex', gap: isMobile ? 12 : 25, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                 <div style={{ flex: 1, minWidth: isMobile ? '100%' : 220 }}>
                   <FL>{GROUP_CODE_LABELS[group]}</FL>
@@ -645,6 +658,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                     onSelect={m => { setMaterial(m); setSpec(m?.detailKind === 'CUSHION' ? '' : (m?.spec ?? '')); setUnit(m?.unit ?? '') }}
                     materialGroupId={otherGroupId}
                     detailKind={GROUP_DETAIL_KIND[group]}
+                    // Nệm chỉ chọn được màu đã tick (không có "nệm cố định" ngoài danh sách) - muốn thêm 1 dòng nữa
+                    // của cùng màu nhưng khác quy cách thì chọn lại đúng màu đó ở đây.
+                    filter={m => m.detailKind !== 'CUSHION' || cushionIdSet.has(String(m.id))}
                     placeholder={`Chọn ${GROUP_CODE_LABELS[group].toLowerCase()}…`}
                   />
                 </div>
@@ -829,6 +845,11 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                       Màu nệm {cushionsMissingQty.map(cushionNameOf).join(', ')} đã tick nhưng chưa nhập số lượng - nhập số lượng (hoặc bỏ tick) rồi mới gửi phê duyệt được.
                     </span>
                   )}
+                  {unlistedCushions.length > 0 && (
+                    <span style={{ fontSize: 12, color: 'var(--fg-b45309)', flex: '1 1 100%' }}>
+                      Nệm {unlistedCushions.join(', ')} chưa nằm trong danh sách màu nệm của SKU - tick màu đó ở khối &quot;Danh sách màu nệm SKU&quot; hoặc xoá dòng nệm này, rồi mới gửi phê duyệt được.
+                    </span>
+                  )}
                   <span style={{ fontSize: 13, color: 'var(--text2)' }}>{lines.length} vật tư</span>
                   {/* Giờ tạm lưu + 2 nút gom sát nhau 1 cụm (thay vì rải đều theo space-between
                       của cha) - theo yêu cầu người dùng, dễ liên hệ "tạm lưu" với "gửi phê duyệt". */}
@@ -848,11 +869,11 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                     >{savingDraft ? 'Đang lưu...' : 'Tạm lưu'}</button>
                     <button
                       onClick={submitAll}
-                      disabled={savingDetail || cushionsMissingQty.length > 0}
+                      disabled={savingDetail || cushionsMissingQty.length > 0 || unlistedCushions.length > 0}
                       style={{
                         padding: '7px 20px', border: 'none', borderRadius: 'var(--radius)',
-                        background: cushionsMissingQty.length > 0 ? 'var(--bg-cccccc)' : 'var(--bg-1565c0)', color: '#fff', fontWeight: 700, fontSize: 13,
-                        cursor: savingDetail || cushionsMissingQty.length > 0 ? 'not-allowed' : 'pointer', opacity: savingDetail ? 0.7 : 1,
+                        background: cushionsMissingQty.length > 0 || unlistedCushions.length > 0 ? 'var(--bg-cccccc)' : 'var(--bg-1565c0)', color: '#fff', fontWeight: 700, fontSize: 13,
+                        cursor: savingDetail || cushionsMissingQty.length > 0 || unlistedCushions.length > 0 ? 'not-allowed' : 'pointer', opacity: savingDetail ? 0.7 : 1,
                       }}
                     >{savingDetail ? 'Đang gửi...' : (bomSt === 'approved' && isAdmin) ? 'Ghi đè định mức →' : 'Gửi phê duyệt →'}</button>
                   </div>
