@@ -20,6 +20,7 @@
  * Số ước tính nhanh (dấu ≥) ở bảng trên vẫn giữ nguyên để KHSX chọn tổ hợp trước khi bấm Tính.
  */
 
+import MaterialChoiceTags from '../../../components/MaterialChoiceTags'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AlertTriangle, Check, ChevronDown, ChevronUp, Info, Layers, Loader2, RefreshCw, Settings } from 'lucide-react'
 import {
@@ -968,6 +969,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                     <div style={{ flex: 1, minWidth: 0, fontSize: 13 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                         <b style={{ wordBreak: 'break-word' }}>{it.mfgProductCode}</b>
+                        <MaterialChoiceTags wire={it.wireMaterial} cushion={it.cushionMaterial} />
                         {recommended.has(it.productionInvoiceItemId) && (
                           <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: 'var(--bg-dbeafe)', color: 'var(--fg-1e40af)' }}>ĐỀ XUẤT</span>
                         )}
@@ -1036,6 +1038,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                       </td>
                       <td style={TD}>
                         <b>{it.mfgProductCode}</b>
+                        <span style={{ marginLeft: 6 }}><MaterialChoiceTags wire={it.wireMaterial} cushion={it.cushionMaterial} /></span>
                         {recommended.has(it.productionInvoiceItemId) && (
                           <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 20, background: 'var(--bg-dbeafe)', color: 'var(--fg-1e40af)' }}>
                             ĐỀ XUẤT

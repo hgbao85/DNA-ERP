@@ -14,7 +14,11 @@ import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import { SKU_ENTITY } from '../../../constants/skuStatus'
 import SpecAccessoryCatalogPage from './SpecAccessoryCatalogPage'
-import type { BaoBiDongGoiItem, DaySonItem, Sku, VatTuPhuKienItem } from '../../../types/sku'
+import type { BaoBiDongGoiItem, DaySonItem, Sku, SkuMaterialOption, VatTuPhuKienItem } from '../../../types/sku'
+import MaterialOptionsPanel from '../../../components/MaterialOptionsPanel'
+import {
+  countCushionLinesWithQty, dropBlankTickedCushionLines, syncTickedCushionLines, tickedCushionsWithoutQty,
+} from '../../../utils/cushionOptions'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
@@ -28,7 +32,8 @@ import { useRealtimeRefetch } from '../../../realtime/hooks'
 // materialId (chọn từ MaterialPicker theo nhóm đang chọn), số lượng quy đổi sang/từ
 // DaySonItem (field `kg`) hoặc VatTuPhuKienItem/BaoBiDongGoiItem (field `quantity`) khi đọc/ghi.
 type DetailLineGroup = 'daySon' | 'vatTuPhuKien' | 'baoBiDongGoi'
-type DetailLine = { id: number; group: DetailLineGroup; materialId: number; name: string; specs: string; unit: string; soLuong: string }
+/** `isCushion` = dòng nệm: quy cách (`specs`) nhập tay theo SKU, lưu vào dòng định mức chứ không phải vật tư. */
+type DetailLine = { id: number; group: DetailLineGroup; materialId: number; name: string; specs: string; unit: string; soLuong: string; isCushion?: boolean }
 type BomItem = { id: string; ten: string; maKhachHang: string; thoiGian: string }
 
 const GROUPS: DetailLineGroup[] = ['daySon', 'vatTuPhuKien', 'baoBiDongGoi']
@@ -37,14 +42,19 @@ const GROUP_CODE_LABELS: Record<DetailLineGroup, string> = { daySon: 'Mã sơn',
 const GROUP_QTY_LABELS: Record<DetailLineGroup, string> = { daySon: 'Khối lượng (kg)', vatTuPhuKien: 'Số lượng', baoBiDongGoi: 'Số lượng' }
 // Cả 3 tab đều chọn vật tư từ chung 1 nhóm hệ thống "Vật tư khác" — lọc riêng từng tab qua
 // Material.detailKind (gán ở Admin > Vật tư), không còn qua nhóm vật tư nữa (xem MaterialPicker.tsx).
-const GROUP_DETAIL_KIND: Record<DetailLineGroup, 'PAINT' | 'ACCESSORY' | 'PACKAGING'> = {
-  daySon: 'PAINT', vatTuPhuKien: 'ACCESSORY', baoBiDongGoi: 'PACKAGING',
+// Tab Phụ kiện nhận cả phân loại "Nệm" (nệm vẫn là phụ kiện, có phân loại riêng để Sales chọn theo SKU).
+const GROUP_DETAIL_KIND: Record<DetailLineGroup, 'PAINT' | 'ACCESSORY' | 'CUSHION' | 'PACKAGING' | Array<'PAINT' | 'ACCESSORY' | 'CUSHION' | 'PACKAGING'>> = {
+  daySon: 'PAINT', vatTuPhuKien: ['ACCESSORY', 'CUSHION'], baoBiDongGoi: 'PACKAGING',
 }
 const GROUP_BADGE_COLORS: Record<DetailLineGroup, { bg: string; fg: string }> = {
   daySon: { bg: 'var(--bg-eff6ff)', fg: 'var(--fg-1d4ed8)' },
   vatTuPhuKien: { bg: 'var(--bg-ede9fe)', fg: 'var(--fg-6d28d9)' },
   baoBiDongGoi: { bg: 'var(--bg-d1fae5)', fg: 'var(--fg-065f46)' },
 }
+
+/** Tên dòng hiển thị: chỉ TÊN vật tư, không hiện mã. Bản nháp lưu từ trước đây ghép sẵn "MÃ — tên" vào `name` nên lọc bỏ phần mã
+ *  ở đầu khi hiển thị (dòng tải từ máy chủ và dòng mới thêm giờ chỉ chứa tên). */
+const lineLabel = (name: string) => name.replace(/^[A-Z]+-\d+\s+—\s+/, '')
 
 type DetailQuotaPayload = { daySon: DaySonItem[]; vatTuPhuKien: VatTuPhuKienItem[]; baoBiDongGoi: BaoBiDongGoiItem[] }
 
@@ -54,7 +64,11 @@ function toDetailQuotaPayload(lines: DetailLine[]): DetailQuotaPayload {
   const toLine = (l: DetailLine) => ({ materialId: String(l.materialId), name: l.name, unit: l.unit || undefined })
   return {
     daySon: lines.filter(l => l.group === 'daySon').map(l => ({ ...toLine(l), kg: l.soLuong.trim() !== '' ? Number(l.soLuong) : undefined })),
-    vatTuPhuKien: lines.filter(l => l.group === 'vatTuPhuKien').map(l => ({ ...toLine(l), quantity: l.soLuong.trim() !== '' ? Number(l.soLuong) : undefined })),
+    vatTuPhuKien: lines.filter(l => l.group === 'vatTuPhuKien').map(l => ({
+      ...toLine(l),
+      ...(l.isCushion ? { isCushion: true, specifications: l.specs.trim() || undefined } : {}),
+      quantity: l.soLuong.trim() !== '' ? Number(l.soLuong) : undefined,
+    })),
     baoBiDongGoi: lines.filter(l => l.group === 'baoBiDongGoi').map(l => ({ ...toLine(l), quantity: l.soLuong.trim() !== '' ? Number(l.soLuong) : undefined })),
   }
 }
@@ -65,7 +79,7 @@ function toDetailLines(mt: DetailQuotaPayload | undefined, startId: number): { l
   let id = startId
   const lines: DetailLine[] = [
     ...(mt?.daySon ?? []).map((it): DetailLine => ({ id: id++, group: 'daySon', materialId: Number(it.materialId) || 0, name: it.name, specs: it.specifications ?? '', unit: it.unit ?? '', soLuong: it.kg != null ? String(it.kg) : '' })),
-    ...(mt?.vatTuPhuKien ?? []).map((it): DetailLine => ({ id: id++, group: 'vatTuPhuKien', materialId: Number(it.materialId) || 0, name: it.name, specs: it.specifications ?? '', unit: it.unit ?? '', soLuong: it.quantity != null ? String(it.quantity) : '' })),
+    ...(mt?.vatTuPhuKien ?? []).map((it): DetailLine => ({ id: id++, group: 'vatTuPhuKien', materialId: Number(it.materialId) || 0, name: it.name, specs: it.specifications ?? '', unit: it.unit ?? '', soLuong: it.quantity != null ? String(it.quantity) : '', ...(it.isCushion ? { isCushion: true } : {}) })),
     ...(mt?.baoBiDongGoi ?? []).map((it): DetailLine => ({ id: id++, group: 'baoBiDongGoi', materialId: Number(it.materialId) || 0, name: it.name, specs: it.specifications ?? '', unit: it.unit ?? '', soLuong: it.quantity != null ? String(it.quantity) : '' })),
   ]
   return { lines, nextId: id }
@@ -76,13 +90,21 @@ function toDetailLines(mt: DetailQuotaPayload | undefined, startId: number): { l
  *  quotaManagement.materialType (dữ liệu đã nộp, có thể cũ hơn) - cùng logic resolve đã dùng ở
  *  openBom() cho CHÍNH SKU đang mở, áp dụng lại cho SKU KHÁC khi nó đóng vai trò nguồn copy
  *  (2026-10-19, theo yêu cầu người dùng - trước đó chỉ cho chọn SKU đã GỬI PHÊ DUYỆT làm nguồn). */
-function resolveDetailSource(pf: Sku): { payload: DetailQuotaPayload | undefined; isDraft: boolean } {
+function resolveDetailSource(pf: Sku): {
+  payload: DetailQuotaPayload | undefined
+  cushionOptions: SkuMaterialOption[]
+  isDraft: boolean
+} {
   const entryAt = pf.quotaManagement?.entryMeta?.enteredAt
   const draftSavedAt = pf.detailDraftSavedAt
   if (draftSavedAt && (!entryAt || new Date(draftSavedAt) > new Date(entryAt))) {
-    return { payload: pf.detailDraft, isDraft: true }
+    return { payload: pf.detailDraft, cushionOptions: pf.detailDraft?.cushionOptions ?? [], isDraft: true }
   }
-  return { payload: pf.quotaManagement?.materialType, isDraft: false }
+  return {
+    payload: pf.quotaManagement?.materialType,
+    cushionOptions: pf.quotaManagement?.cushionOptions ?? [],
+    isDraft: false,
+  }
 }
 
 function totalDetailItems(payload: DetailQuotaPayload | undefined): number {
@@ -104,8 +126,8 @@ const inputStyle: React.CSSProperties = {
   outline: 'none', boxSizing: 'border-box',
 }
 
-// Quy cách chỉ đọc — luôn lấy từ Material.spec (catalog Admin > Vật tư) qua MaterialPicker,
-// không cho gõ tay để tránh lệch với vật tư đang chọn.
+// Quy cách chỉ đọc — lấy từ Material.spec (catalog Admin > Vật tư) qua MaterialPicker, không cho gõ tay để tránh
+// lệch với vật tư đang chọn. NGOẠI LỆ: nệm - quy cách nhập tay theo từng SKU (xem DetailLine.isCushion).
 const specInputStyle: React.CSSProperties = {
   ...inputStyle, background: 'var(--surface2)', color: 'var(--text3)', cursor: 'not-allowed',
 }
@@ -134,6 +156,10 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   // Sơn/Phụ kiện/Bao bì đều chọn vật tư từ chung 1 nhóm hệ thống "Vật tư khác" (OTHER) - BE
   // phân biệt 3 tab qua ConsumableBom.stage / BomAccessoryItem.kind, không phải qua nhóm vật tư.
   const { other: otherGroupId } = useMaterialGroupIds()
+  const { data: materialsData } = useFetch(() => api.getMaterials(), [])
+  // Nệm = vật tư nhóm "Vật tư khác" có Phân loại "Nệm" (gán ở Admin > Vật tư). Nệm vẫn là phụ kiện trong định
+  // mức (BomAccessoryItem) nhưng có phân loại riêng để lọc ra đúng các loại nệm, không lẫn hàng trăm phụ kiện khác.
+  const cushionCandidates = (materialsData ?? []).filter(m => otherGroupId != null && m.materialGroupId === otherGroupId && m.detailKind === 'CUSHION')
 
   const findPf = (id: string) => skus.find(pf => pf.id === id)
 
@@ -169,6 +195,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     filter: payload => selectedBom == null || payload.entityId === selectedBom.id,
   })
   const [lines, setLines] = useState<DetailLine[]>([])
+  // Các loại nệm (phụ kiện) Sales được chọn khi lên đơn cho SKU đang mở - tick xong tự có sẵn 1 dòng
+  // Phụ kiện cho từng loại (xem changeCushionOptions). Lưu cùng lines (nháp + gửi duyệt).
+  const [cushionOptions, setCushionOptions] = useState<SkuMaterialOption[]>([])
   const [nextId, setNextId] = useState(1)
   const [savingDetail, setSavingDetail] = useState(false)
   const [submitDetailError, setSubmitDetailError] = useState<string | null>(null)
@@ -223,10 +252,12 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     if (draftSavedAt && (!entryAt || new Date(draftSavedAt) > new Date(entryAt))) {
       const { lines: draftLines, nextId: draftNextId } = toDetailLines(pf?.detailDraft, 1)
       setLines(draftLines); setNextId(draftNextId)
+      setCushionOptions(pf?.detailDraft?.cushionOptions ?? [])
       setDraftRestoredAt(draftSavedAt)
     } else {
       const { lines: existing, nextId: id } = toDetailLines(pf?.quotaManagement?.materialType, 1)
       setLines(existing); setNextId(id)
+      setCushionOptions(pf?.quotaManagement?.cushionOptions ?? [])
     }
   }
 
@@ -237,13 +268,14 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     void api.clearSkuDetailDraft(selectedBom.id).then(patchSku).catch(() => {})
     const { lines: existing, nextId: id } = toDetailLines(findPf(selectedBom.id)?.quotaManagement?.materialType, 1)
     setLines(existing); setNextId(id)
+    setCushionOptions(findPf(selectedBom.id)?.quotaManagement?.cushionOptions ?? [])
     setDraftRestoredAt(null)
     resetForm()
   }
 
   const saveDraftNow = async (currentLines: DetailLine[]) => {
     if (!selectedBom) return
-    const updated = await api.saveSkuDetailDraft(selectedBom.id, toDetailQuotaPayload(currentLines), user?.name ?? 'Không rõ')
+    const updated = await api.saveSkuDetailDraft(selectedBom.id, toDetailQuotaPayload(currentLines), user?.name ?? 'Không rõ', cushionOptions)
     setLastSavedAt(updated.detailDraftSavedAt ?? new Date().toISOString())
     patchSku(updated)
   }
@@ -260,13 +292,33 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     }
   }
 
+  // Hỏi lại trước khi bỏ bản nháp / tạm lưu - cùng nội dung với "định mức mảnh" (SpecSteelPage): bỏ nháp là xoá dữ
+  // liệu đang nhập, tạm lưu ghi đè bản nháp trên máy chủ nên đều cần xác nhận.
+  const confirmDiscardDraft = () => ask({
+    title: 'Bỏ bản nháp?',
+    message: 'Bản nháp hiện tại sẽ bị xóa và dữ liệu đã gửi phê duyệt gần nhất sẽ được khôi phục. Bạn có chắc muốn tiếp tục?',
+    confirmLabel: 'Bỏ bản nháp',
+    cancelLabel: 'Quay lại',
+    danger: true,
+  }, discardDraft)
+
+  const confirmSaveDraft = () => ask({
+    title: 'Tạm lưu định mức?',
+    message: 'Dữ liệu hiện tại sẽ được lưu thành bản nháp và chưa được gửi phê duyệt. Bạn có muốn tiếp tục?',
+    confirmLabel: 'Tạm lưu',
+    cancelLabel: 'Hủy',
+  }, manualSaveDraft)
+
   // Chép toàn bộ dòng Sơn/Phụ kiện/Bao bì của 1 SKU khác vào form đang mở - cấp id mới cho mọi
   // dòng (không giữ id thật của SKU nguồn). Kết quả chỉ là NHÁP trong RAM, giống hệt vừa gõ tay.
   const applyCopySku = (sourceId: string) => {
     const pf = findPf(sourceId)
-    const { lines: copied, nextId: id } = toDetailLines(pf ? resolveDetailSource(pf).payload : undefined, nextId)
+    const source = pf ? resolveDetailSource(pf) : null
+    const { lines: copied, nextId: id } = toDetailLines(source?.payload, nextId)
     if (copied.length === 0) return
     setLines(copied)
+    // Chép luôn danh sách loại nệm đã tick - các dòng Phụ kiện vừa chép đã khớp với tick này.
+    setCushionOptions(source?.cushionOptions ?? [])
     setNextId(id)
     resetForm()
     setDraftRestoredAt(null)
@@ -291,21 +343,26 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     if (!selectedBom) return
     const st = bomStatus(selectedBom.id)
     if ((st === 'pending' || st === 'approved') && !isAdmin) return
-    if (lines.length === 0) {
+    if (lines.length === 0 && cushionOptions.length === 0) {
       // Xoá hết dòng (dọn sạch form) - xoá luôn nháp trên server, không thì lần mở sau sẽ bị
-      // "sống lại" đúng những dòng vừa xoá (đè lên form rỗng người dùng cố ý để lại).
+      // "sống lại" đúng những dòng vừa xoá (đè lên form rỗng người dùng cố ý để lại). Còn tick nệm
+      // mà chưa có dòng nào thì vẫn là dữ liệu cần giữ.
       void api.clearSkuDetailDraft(selectedBom.id).then(patchSku).catch(() => {})
       return
     }
     const t = setTimeout(() => { void saveDraftNow(lines).catch(() => {}) }, 1000)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines, selectedBom?.id])
+  }, [lines, cushionOptions, selectedBom?.id])
+
+  // Vật tư đang chọn ở form thêm là nệm -> ô Quy cách nhập tay (theo SKU), không lấy từ vật tư.
+  const isCushionPick = material?.detailKind === 'CUSHION'
 
   const addLine = () => {
     if (!material) return
     setLines(ls => [...ls, {
-      id: nextId, group, materialId: material.id, name: `${material.code} — ${material.name}`, specs: spec, unit, soLuong,
+      id: nextId, group, materialId: material.id, name: material.name, specs: spec, unit, soLuong,
+      ...(isCushionPick ? { isCushion: true } : {}),
     }])
     setNextId(n => n + 1)
     resetForm()
@@ -316,11 +373,13 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   }
 
   const submitAll = async () => {
-    if (!selectedBom || lines.length === 0) return
+    if (!selectedBom || lines.length === 0 || cushionsMissingQty.length > 0) return
     setSavingDetail(true)
     setSubmitDetailError(null)
     try {
-      await api.updateSkuDetailQuota(selectedBom.id, toDetailQuotaPayload(lines), user?.name ?? 'Không rõ')
+      // Dòng của loại nệm đã tick mà chưa nhập số lượng không gửi lên (BE từ chối số lượng <= 0).
+      const linesToSend = dropBlankTickedCushionLines(lines, cushionIdSet)
+      await api.updateSkuDetailQuota(selectedBom.id, toDetailQuotaPayload(linesToSend), user?.name ?? 'Không rõ', cushionOptions)
       logAction(SKU_ENTITY, String(selectedBom.id), 'sku.detail_submitted', `${lines.length} vật tư (Sơn/Phụ kiện/Bao bì)`)
       // Nộp thật thành công - BE đã tự xoá detailDraft (xem SkusService.updateDetailQuota).
       setDraftRestoredAt(null)
@@ -332,6 +391,42 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
       setSavingDetail(false)
     }
   }
+
+  // ── Tick loại nệm Sales được chọn ───────────────────────────────────────
+  const cushionIdSet = new Set(cushionOptions.map(c => c.materialId))
+  const isTickedCushion = (l: DetailLine) => l.group === 'vatTuPhuKien' && cushionIdSet.has(String(l.materialId))
+  // Loại nệm đã tick nhưng chưa có số lượng > 0: Sales chọn được mà định mức không có số liệu -> mua
+  // thiếu nệm. Chặn gửi duyệt cho tới khi nhập.
+  const cushionsMissingQty = tickedCushionsWithoutQty(lines, cushionOptions)
+  // Cảnh báo hiện TÊN nệm (không hiện mã) - util trả mã nên đổi lại theo danh sách nệm đã tick.
+  const cushionNameOf = (code: string) => cushionOptions.find(c => c.materialCode === code)?.materialName ?? code
+
+  const buildCushionLine = (c: SkuMaterialOption, id: number): DetailLine => ({
+    id, group: 'vatTuPhuKien', materialId: c.materialId as unknown as number,
+    // Nệm: quy cách nhập tay theo SKU, không lấy từ vật tư.
+    name: c.materialName, specs: '', unit: c.materialUnit ?? '', soLuong: '', isCushion: true,
+  })
+  const applyCushionOptions = (next: SkuMaterialOption[]) => {
+    let id = nextId
+    setLines(syncTickedCushionLines(lines, cushionOptions, next, c => buildCushionLine(c, id++)))
+    setNextId(id)
+    setCushionOptions(next)
+  }
+  const changeCushionOptions = (next: SkuMaterialOption[]) => {
+    const nextIds = new Set(next.map(c => c.materialId))
+    const removedIds = cushionOptions.filter(c => !nextIds.has(c.materialId)).map(c => c.materialId)
+    const lost = countCushionLinesWithQty(lines, removedIds)
+    if (lost === 0) { applyCushionOptions(next); return }
+    ask({
+      title: 'Bỏ màu nệm đã nhập số lượng?',
+      message: `Có ${lost} dòng nệm đã nhập số lượng thuộc các màu vừa bỏ tick - những dòng này sẽ bị xoá. Bạn có chắc muốn tiếp tục?`,
+      confirmLabel: 'Bỏ tick, xoá dòng',
+      cancelLabel: 'Hủy',
+      danger: true,
+    }, () => applyCushionOptions(next))
+  }
+  const setLineQty = (id: number, value: string) => setLines(ls => ls.map(l => l.id === id ? { ...l, soLuong: value } : l))
+  const setLineSpec = (id: number, value: string) => setLines(ls => ls.map(l => l.id === id ? { ...l, specs: value } : l))
 
   const bomSt = selectedBom ? bomStatus(selectedBom.id) : 'canInput'
   // Admin không bị khoá ở đây - vẫn sửa/nộp lại được dù KHSX/Sếp đã duyệt xong (xem isAdmin).
@@ -507,12 +602,22 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
               <span style={{ fontSize: 13, color: 'var(--fg-8d6e00)' }}>
                 Đã khôi phục bản nháp tạm lưu lúc {new Date(draftRestoredAt).toLocaleString('vi-VN')} (chưa gửi phê duyệt).
               </span>
-              <button onClick={discardDraft} style={{
+              <button onClick={confirmDiscardDraft} style={{
                 padding: '5px 10px', border: '1px solid var(--fg-ffca28)', borderRadius: 'var(--radius)',
                 background: 'var(--surface)', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: 'var(--fg-8d6e00)',
               }}>Bỏ bản nháp</button>
             </div>
           )}
+
+          {/* Tick các loại nệm Sales được chọn khi lên đơn cho SKU này */}
+          <MaterialOptionsPanel
+            title="Danh sách màu nệm SKU"
+            noun="nệm"
+            candidates={cushionCandidates}
+            selected={cushionOptions}
+            onChange={changeCushionOptions}
+            disabled={isSubmitted}
+          />
 
           {/* Add line */}
           {!isSubmitted && (
@@ -535,8 +640,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                 <div style={{ flex: 1, minWidth: isMobile ? '100%' : 220 }}>
                   <FL>{GROUP_CODE_LABELS[group]}</FL>
                   <MaterialPicker
+                    hideCodeInValue
                     value={material}
-                    onSelect={m => { setMaterial(m); setSpec(m?.spec ?? ''); setUnit(m?.unit ?? '') }}
+                    onSelect={m => { setMaterial(m); setSpec(m?.detailKind === 'CUSHION' ? '' : (m?.spec ?? '')); setUnit(m?.unit ?? '') }}
                     materialGroupId={otherGroupId}
                     detailKind={GROUP_DETAIL_KIND[group]}
                     placeholder={`Chọn ${GROUP_CODE_LABELS[group].toLowerCase()}…`}
@@ -544,9 +650,16 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                 </div>
                 <div style={fieldW(150)}>
                   <FL>Quy cách</FL>
-                  <input placeholder="Theo vật tư đã chọn" value={spec}
-                    disabled
-                    style={specInputStyle} />
+                  {isCushionPick ? (
+                    <input placeholder="VD: Đôi 870x450x50 (tuỳ chọn)" value={spec} maxLength={200}
+                      onChange={e => setSpec(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && addLine()}
+                      style={inputStyle} />
+                  ) : (
+                    <input placeholder="Theo vật tư đã chọn" value={spec}
+                      disabled
+                      style={specInputStyle} />
+                  )}
                 </div>
                 <div style={fieldW(110)}>
                   <FL>Đơn vị tính</FL>
@@ -590,14 +703,26 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                   <div key={l.id} style={{ borderTop: i > 0 ? '1px solid var(--border)' : undefined, padding: '10px 12px', fontSize: 13 }}>
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: badge.fg, background: badge.bg, borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap', flexShrink: 0 }}>{GROUP_LABELS[l.group]}</span>
-                      <div style={{ flex: 1, minWidth: 0, fontWeight: 500, wordBreak: 'break-word' }}>{l.name}</div>
+                      <div style={{ flex: 1, minWidth: 0, fontWeight: 500, wordBreak: 'break-word' }}>{lineLabel(l.name)}</div>
                       {!isSubmitted && (
                         <button onClick={() => deleteLine(l.id)} aria-label="Xóa" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 6, flexShrink: 0 }}><X size={16} /></button>
                       )}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 6, fontSize: 12, color: 'var(--text3)' }}>
-                      {l.specs && <span>Quy cách: <b style={{ color: 'var(--text2)', fontWeight: 600 }}>{l.specs}</b></span>}
-                      <span>{GROUP_QTY_LABELS[l.group]}: <b style={{ color: 'var(--text)', fontWeight: 700 }}>{l.soLuong || '—'}</b> {l.unit}</span>
+                      {l.isCushion && !isSubmitted ? (
+                        <span>Quy cách: <input value={l.specs} maxLength={200} placeholder="Tuỳ chọn"
+                          onChange={e => setLineSpec(l.id, e.target.value)}
+                          style={{ ...inputStyle, width: 160, padding: '3px 6px', display: 'inline-block' }} /></span>
+                      ) : (
+                        l.specs && <span>Quy cách: <b style={{ color: 'var(--text2)', fontWeight: 600 }}>{l.specs}</b></span>
+                      )}
+                      {isTickedCushion(l) && !isSubmitted ? (
+                        <span>{GROUP_QTY_LABELS[l.group]}: <input type="number" min={0} step="any" value={l.soLuong} placeholder="Nhập SL"
+                          onChange={e => setLineQty(l.id, e.target.value)}
+                          style={{ ...inputStyle, width: 96, padding: '3px 6px', display: 'inline-block' }} /> {l.unit}</span>
+                      ) : (
+                        <span>{GROUP_QTY_LABELS[l.group]}: <b style={{ color: 'var(--text)', fontWeight: 700 }}>{l.soLuong || '—'}</b> {l.unit}</span>
+                      )}
                     </div>
                   </div>
                 )
@@ -629,9 +754,21 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                             {GROUP_LABELS[l.group]}
                           </span>
                         </td>
-                        <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>{l.name}</td>
-                        <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{l.specs || '—'}</td>
-                        <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{l.soLuong || '—'}</td>
+                        <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>{lineLabel(l.name)}</td>
+                        <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>
+                          {l.isCushion && !isSubmitted ? (
+                            <input value={l.specs} maxLength={200} placeholder="Tuỳ chọn - vd Đôi 870x450x50"
+                              onChange={e => setLineSpec(l.id, e.target.value)}
+                              style={{ ...inputStyle, minWidth: 180, padding: '4px 6px' }} />
+                          ) : (l.specs || '—')}
+                        </td>
+                        <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>
+                          {isTickedCushion(l) && !isSubmitted ? (
+                            <input type="number" min={0} step="any" value={l.soLuong} placeholder="Nhập SL"
+                              onChange={e => setLineQty(l.id, e.target.value)}
+                              style={{ ...inputStyle, width: 100, padding: '4px 6px', textAlign: 'right' }} />
+                          ) : (l.soLuong || '—')}
+                        </td>
                         <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{l.unit || '—'}</td>
                         {!isSubmitted && (
                           <td style={{ textAlign: 'center', padding: '4px', whiteSpace: 'nowrap' }}>
@@ -687,6 +824,11 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                       ⚠ SKU này đã {bomSt === 'approved' ? 'được duyệt' : 'nộp, đang chờ duyệt'} — sửa và gửi sẽ ghi đè trực tiếp, không cần duyệt lại.
                     </span>
                   )}
+                  {cushionsMissingQty.length > 0 && (
+                    <span style={{ fontSize: 12, color: 'var(--fg-b45309)', flex: '1 1 100%' }}>
+                      Màu nệm {cushionsMissingQty.map(cushionNameOf).join(', ')} đã tick nhưng chưa nhập số lượng - nhập số lượng (hoặc bỏ tick) rồi mới gửi phê duyệt được.
+                    </span>
+                  )}
                   <span style={{ fontSize: 13, color: 'var(--text2)' }}>{lines.length} vật tư</span>
                   {/* Giờ tạm lưu + 2 nút gom sát nhau 1 cụm (thay vì rải đều theo space-between
                       của cha) - theo yêu cầu người dùng, dễ liên hệ "tạm lưu" với "gửi phê duyệt". */}
@@ -695,7 +837,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                       <span style={{ fontSize: 11, color: 'var(--text3)' }}>Đã tạm lưu lúc {new Date(lastSavedAt).toLocaleTimeString('vi-VN')}</span>
                     )}
                     <button
-                      onClick={manualSaveDraft}
+                      onClick={confirmSaveDraft}
                       disabled={savingDraft}
                       title="Lưu tạm trên máy chủ - chưa gửi phê duyệt, mở lại trang (kể cả máy khác) là thấy lại ngay"
                       style={{
@@ -706,11 +848,11 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                     >{savingDraft ? 'Đang lưu...' : 'Tạm lưu'}</button>
                     <button
                       onClick={submitAll}
-                      disabled={savingDetail}
+                      disabled={savingDetail || cushionsMissingQty.length > 0}
                       style={{
                         padding: '7px 20px', border: 'none', borderRadius: 'var(--radius)',
-                        background: 'var(--bg-1565c0)', color: '#fff', fontWeight: 700, fontSize: 13,
-                        cursor: savingDetail ? 'not-allowed' : 'pointer', opacity: savingDetail ? 0.7 : 1,
+                        background: cushionsMissingQty.length > 0 ? 'var(--bg-cccccc)' : 'var(--bg-1565c0)', color: '#fff', fontWeight: 700, fontSize: 13,
+                        cursor: savingDetail || cushionsMissingQty.length > 0 ? 'not-allowed' : 'pointer', opacity: savingDetail ? 0.7 : 1,
                       }}
                     >{savingDetail ? 'Đang gửi...' : (bomSt === 'approved' && isAdmin) ? 'Ghi đè định mức →' : 'Gửi phê duyệt →'}</button>
                   </div>

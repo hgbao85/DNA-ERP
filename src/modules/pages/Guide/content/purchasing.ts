@@ -68,6 +68,7 @@ export const purchasingGroup: GuideGroup = {
         'File chỉ thực sự được tải lên khi bấm "Xác nhận" — đóng popup giữa chừng sẽ không tạo rác trên hệ thống lưu trữ, nhưng cũng không lưu lại gì.',
         'Nếu đề xuất có vật tư của đồng nghiệp khác phụ trách, phần đó chỉ hiển thị để xem, không thao tác được.',
         'Các dòng bạn đã bấm "Sếp đã duyệt" chuyển xuống khối "Đã xử lý" ngay trong đề xuất — theo dõi tiếp ở "Theo dõi mua hàng" / "Lịch sử đã mua".',
+        'Với dây và nệm, đề xuất chỉ có đúng màu Sales đã chọn cho từng lệnh — không cộng thêm các màu khác của cùng SKU. Nệm cùng màu nhưng khác quy cách ra các dòng riêng; cột "Quy cách" của dòng cho biết quy cách nào. Thủ kho nhận hàng ở "Nhập kho" cũng theo từng dòng quy cách đó.',
       ],
       commonErrors: [
         { issue: 'File vượt quá 10MB, không chọn được', cause: 'Giới hạn dung lượng file đính kèm.', fix: 'Nén ảnh/PDF hoặc chụp lại ở độ phân giải thấp hơn trước khi tải lên.' },

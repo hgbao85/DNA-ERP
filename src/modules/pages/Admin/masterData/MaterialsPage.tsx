@@ -14,7 +14,7 @@ interface Material {
   unit: string
   spec?: string | null
   materialGroupId?: number | null
-  detailKind?: 'PAINT' | 'ACCESSORY' | 'PACKAGING' | null
+  detailKind?: 'PAINT' | 'ACCESSORY' | 'CUSHION' | 'PACKAGING' | null
   /** Nhóm con của Sắt (2026-10-01) - CHỈ có ý nghĩa khi materialGroupId thuộc nhóm systemKey
    *  STEEL_BAR. Xem MaterialsService.resolveSteelSubGroup (BE). */
   steelSubGroup?: 'SOFTWARE' | 'SELF_CALC' | 'FINISHED_COMPONENT' | null
@@ -45,9 +45,10 @@ interface MaterialGroup {
 const DETAIL_KIND_OPTIONS = [
   { value: 'PAINT', label: 'Sơn' },
   { value: 'ACCESSORY', label: 'Phụ kiện' },
+  { value: 'CUSHION', label: 'Nệm' },
   { value: 'PACKAGING', label: 'Bao bì' },
 ]
-const DETAIL_KIND_LABEL: Record<string, string> = { PAINT: 'Sơn', ACCESSORY: 'Phụ kiện', PACKAGING: 'Bao bì' }
+const DETAIL_KIND_LABEL: Record<string, string> = { PAINT: 'Sơn', ACCESSORY: 'Phụ kiện', CUSHION: 'Nệm', PACKAGING: 'Bao bì' }
 
 // 3 nhóm con của Sắt (2026-10-01) - KHÔNG phải nhóm vật tư ngang hàng (xem comment enum
 // SteelSubGroup, schema.prisma BE): Phần mềm (đi qua solver cắt sắt), Tự tính (tỷ lệ cắt cố định,
@@ -77,6 +78,8 @@ interface Purchaser {
 interface QuantRow {
   materialId: string | null
   warehouseId: string
+  /** Quy cách của bucket tồn (nệm), '' = không quy cách - xem BeStockQuant.spec. */
+  spec?: string
   qty: number
   /** Vấn đề #13 audit 26/08 - tồn còn dùng được (đã trừ phần giữ chỗ cắt sắt/chuyển kho), BE tính
    *  sẵn qua getAvailableQty() dùng chung với màn Xuất sắt - xem stock-api.ts. */
@@ -133,6 +136,23 @@ export default function MaterialsPage() {
     if (acc) { acc.qty += q.qty; acc.availableQty += q.availableQty }
     else quantByMaterialId.set(key, { qty: q.qty, availableQty: q.availableQty })
   }
+  // Tồn tách theo QUY CÁCH của từng (kho, vật tư) - chỉ để hiện dòng chú thích dưới số tổng (nệm cùng màu khác quy cách
+  // là các bucket tồn riêng, số tổng ở trên cộng dồn nên dễ gây hiểu nhầm). Bucket cùng quy cách (khác chiều dài) gộp lại.
+  const specBreakdownByKey = new Map<string, Map<string, number>>()
+  for (const q of (quants ?? []).filter((q) => q.materialId && q.qty !== 0)) {
+    const key = `${q.materialId}:${q.warehouseId}`
+    const bySpec = specBreakdownByKey.get(key) ?? new Map<string, number>()
+    bySpec.set(q.spec ?? '', (bySpec.get(q.spec ?? '') ?? 0) + q.qty)
+    specBreakdownByKey.set(key, bySpec)
+  }
+  /** null khi vật tư không có tồn theo quy cách nào (đa số vật tư) - không hiện thêm gì. */
+  const specBreakdownOf = (m: Material): { label: string; qty: number }[] | null => {
+    const bySpec = m.warehouseId ? specBreakdownByKey.get(`${m.id}:${m.warehouseId}`) : undefined
+    if (!bySpec || ![...bySpec.keys()].some((k) => k !== '')) return null
+    return [...bySpec.entries()]
+      .sort(([a], [b]) => (a === '' ? 1 : b === '' ? -1 : a.localeCompare(b, 'vi')))
+      .map(([spec, qty]) => ({ label: spec || 'không quy cách', qty }))
+  }
   const stockQtyOf = (m: Material): number | null =>
     m.warehouseId ? quantByMaterialId.get(`${m.id}:${m.warehouseId}`)?.qty ?? 0 : null
   const availableQtyOf = (m: Material): number | null =>
@@ -166,7 +186,19 @@ export default function MaterialsPage() {
         render: (m) => {
           const qty = stockQtyOf(m)
           if (qty == null) return <span style={{ color: 'var(--text3)' }}>—</span>
-          return <span style={{ fontWeight: 700, color: qty <= 0 ? 'var(--fg-c62828)' : 'var(--text)' }}>{qty.toLocaleString('vi-VN')}</span>
+          const breakdown = specBreakdownOf(m)
+          return (
+            <div>
+              <span style={{ fontWeight: 700, color: qty <= 0 ? 'var(--fg-c62828)' : 'var(--text)' }}>{qty.toLocaleString('vi-VN')}</span>
+              {breakdown && (
+                <div style={{ fontSize: 11, color: 'var(--text3)', lineHeight: 1.4, marginTop: 2 }}>
+                  {breakdown.map((b) => (
+                    <div key={b.label} style={{ whiteSpace: 'nowrap' }}>{b.label}: {b.qty.toLocaleString('vi-VN')}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
         },
       },
       {
@@ -199,7 +231,8 @@ export default function MaterialsPage() {
       { name: 'code', label: 'Mã vật tư', type: 'text', placeholder: 'Để trống sẽ tự sinh theo Nhóm vật tư' },
       { name: 'name', label: 'Tên vật tư', type: 'text' },
       { name: 'unit', label: 'Đơn vị tính', type: 'text' },
-      { name: 'spec', label: 'Quy cách', type: 'text', placeholder: 'VD: 10x29x0.8' },
+      // Nệm KHÔNG có quy cách ở danh mục vật tư (2026-10-23): quy cách nệm linh hoạt theo từng SKU, nhập ở Định mức chi tiết.
+      { name: 'spec', label: 'Quy cách', type: 'text', placeholder: 'VD: 10x29x0.8', showIf: (v) => v.detailKind !== 'CUSHION' },
       {
         name: 'materialGroupId', label: 'Nhóm vật tư', type: 'select',
         options: groupList.map((g) => ({ value: String(g.id), label: g.name })),

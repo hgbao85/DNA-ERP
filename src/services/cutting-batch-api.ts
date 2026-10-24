@@ -4,6 +4,7 @@
  * Chỉ đọc - endpoint không ghi gì, không gọi solver, không đụng tồn kho. Tính lại mỗi lần gọi
  * (BE cố ý không cache) nên luôn phản ánh đúng các đơn Sales vừa tạo.
  */
+import type { MaterialChoice } from '../types/sku';
 import { http } from './core/http';
 
 /**
@@ -145,6 +146,10 @@ export interface CuttingBatchCandidate {
   productionInvoiceItemId: string;
   mfgProductCode: string;
   mfgProductName: string | null;
+  /** Loại dây (mã SHT)/loại nệm Sales chọn cho dòng này - CHỈ để phân biệt 2 dòng cùng SKU khác dây
+   *  (dây/nệm không ảnh hưởng cắt sắt nên vẫn gộp chung được). */
+  wireMaterial?: MaterialChoice | null;
+  cushionMaterial?: MaterialChoice | null;
   quantity: number;
   salesOrderCode: string | null;
   /** null = chưa được KHSX gom vào PI nào (2026-08-20 - PI không còn tự sinh lúc Sales tạo PO). */

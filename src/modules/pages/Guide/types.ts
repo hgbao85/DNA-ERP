@@ -95,6 +95,9 @@ export interface GuideArticle {
    * hiển thị thay cho `mock` khi có. Dữ liệu trong ảnh là dữ liệu demo minh hoạ, không phải
    * dữ liệu thật của khách hàng. */
   screenshot?: string;
+  /** Ảnh chụp phụ (cùng khuôn 1440×900) hiện ngay sau ảnh chính, mỗi ảnh một chú thích riêng — dùng khi bài cần
+   * cho thấy thêm một màn nữa (ví dụ màn danh sách cạnh màn chi tiết). */
+  extraScreenshots?: { src: string; caption: string }[];
   /** Để mảng rỗng nếu bài thuần tra cứu (chỉ có `tables`) - khi đó mục các bước không hiện. */
   steps: (string | GuideStep)[];
   /** Tiêu đề mục các bước - mặc định "Các bước thực hiện". Đổi khi nội dung không phải quy trình. */

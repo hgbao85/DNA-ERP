@@ -21,7 +21,7 @@ export interface BeMaterial {
   /** Sơn/Phụ kiện/Bao bì — chỉ có ý nghĩa khi materialGroupId thuộc nhóm systemKey OTHER
    *  ("Vật tư khác"), null với mọi nhóm khác. Dùng để lọc riêng từng tab ở SpecDetailQuotaPage
    *  vì 3 tab đó giờ dùng chung 1 nhóm vật tư — xem MaterialPicker.tsx. */
-  detailKind: 'PAINT' | 'ACCESSORY' | 'PACKAGING' | null;
+  detailKind: 'PAINT' | 'ACCESSORY' | 'CUSHION' | 'PACKAGING' | null;
   /** Nhóm con của Sắt (2026-10-01) - chỉ có ý nghĩa khi materialGroupId thuộc nhóm systemKey
    *  STEEL_BAR, null với mọi nhóm khác. Dùng để lọc riêng Sắt/Tự tính/Vật tư thành phẩm ở
    *  SpecSteelPage.tsx - xem MaterialPicker.tsx (steelSubGroup prop). */

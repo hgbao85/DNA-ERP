@@ -105,9 +105,12 @@ function itemOf(e: BeStockLedgerEntry): { code: string; name: string; unit: stri
     return {
       code: e.materialCode ?? '—',
       // Sắt cây cùng mã nhưng khác chiều dài là 2 lô tồn RIÊNG - phải hiện chiều dài mới đọc đúng.
-      name: e.stockLengthMm > 0
-        ? `${e.materialName ?? ''} · cây ${e.stockLengthMm.toLocaleString('vi-VN')}mm`
-        : (e.materialName ?? ''),
+      // Nệm cùng màu khác quy cách cũng là các lô riêng - ghi quy cách để đọc đúng lần nhập/xuất nào là quy cách nào.
+      name: [
+        e.materialName ?? '',
+        e.stockLengthMm > 0 ? `cây ${e.stockLengthMm.toLocaleString('vi-VN')}mm` : null,
+        e.spec ? e.spec : null,
+      ].filter(Boolean).join(' · '),
       unit: e.materialUnit ?? '',
     }
   }

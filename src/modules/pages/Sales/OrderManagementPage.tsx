@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { focusAttr } from '../../../utils/notificationLink'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
@@ -8,7 +8,10 @@ import { format } from 'date-fns'
 import { Plus, Trash2, X, Check, ChevronLeft, Paperclip, ClipboardList } from 'lucide-react'
 import type { SalesOrder, SalesOrderStatus, SalesCustomer } from '../../../types/sales'
 import { SALES_ORDER_STATUS_LABEL, SALES_PRODUCTION_STAGES } from '../../../types/sales'
-import type { Sku } from '../../../types/sku'
+import type { Sku, SkuMaterialOption } from '../../../types/sku'
+import type { SkuOrderOptions } from '../../../services/sku-api'
+import MaterialChoiceTags from '../../../components/MaterialChoiceTags'
+import ZoomableImage from '../../../components/ZoomableImage'
 import { StatusBadge } from './StatusBadge'
 import SearchableSelect from '../../../components/SearchableSelect'
 import DatePicker from '../../../components/DatePicker'
@@ -25,8 +28,13 @@ const fmtMoney = (n: number) => n.toLocaleString('vi-VN')
 
 /** `mfgProductId` là khoá thật của dòng — `skuCode` KHÔNG unique (2 khách có thể dùng cùng mã SKU
  *  cho 2 kết cấu khác nhau), chỉ để hiển thị. */
-type ItemDraft = { mfgProductId: string; skuCode: string; skuName: string; totalQty: string; deliveryDate: string }
-const EMPTY_ITEM: ItemDraft = { mfgProductId: '', skuCode: '', skuName: '', totalQty: '', deliveryDate: '' }
+type ItemDraft = {
+  mfgProductId: string; skuCode: string; skuName: string; totalQty: string; deliveryDate: string
+  /** Loại dây (mã SHT)/loại nệm chọn trong số tick của định mức đã duyệt - '' = chưa chọn. Chỉ bắt
+   *  buộc khi SKU có tick loại đó (xem optionsByProduct). */
+  wireMaterialId: string; cushionMaterialId: string
+}
+const EMPTY_ITEM: ItemDraft = { mfgProductId: '', skuCode: '', skuName: '', totalQty: '', deliveryDate: '', wireMaterialId: '', cushionMaterialId: '' }
 type FormState = {
   orderCode: string; customerId: string; orderDate: string; note: string
   /** File chọn tại chỗ, CHƯA upload - chỉ lên Cloudinary thật lúc bấm "Tạo PO" (handleSave), cùng
@@ -54,13 +62,51 @@ export default function OrderManagementPage() {
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
   const isMobile = useIsMobile()
+  // Loại dây/nệm Sales được chọn theo từng sản phẩm (định mức ACTIVE) - nạp 1 lần/sản phẩm khi SKU
+  // xuất hiện trên form. Chưa có key = đang nạp (chặn lưu cho tới khi biết SKU có bắt chọn không).
+  const [optionsByProduct, setOptionsByProduct] = useState<Map<string, SkuOrderOptions>>(new Map())
+  const [requestedProducts] = useState<Set<string>>(() => new Set())
+
+  // SKU chỉ có đúng 1 loại dây/nệm thì chọn sẵn - khỏi bắt Sales bấm cho lựa chọn duy nhất.
+  const singlePick = (list: SkuMaterialOption[] | undefined) => (list && list.length === 1 ? list[0].materialId : '')
+
+  useEffect(() => {
+    for (const it of form.items) {
+      const id = it.mfgProductId
+      if (!id || requestedProducts.has(id)) continue
+      requestedProducts.add(id)
+      const store = (opts: SkuOrderOptions) => {
+        setOptionsByProduct((prev) => new Map(prev).set(id, opts))
+        // Điền lựa chọn duy nhất cho mọi dòng của sản phẩm này đang để trống (nạp xong mới biết).
+        setForm((f) => ({
+          ...f,
+          items: f.items.map((row) => row.mfgProductId !== id ? row : {
+            ...row,
+            wireMaterialId: row.wireMaterialId || singlePick(opts.wireOptions),
+            cushionMaterialId: row.cushionMaterialId || singlePick(opts.cushionOptions),
+          }),
+        }))
+      }
+      api.getSkuOrderOptions(id)
+        .then(store)
+        // Nạp lỗi: coi như không có lựa chọn - BE vẫn kiểm lại khi lưu và báo rõ nếu SKU bắt buộc chọn.
+        .catch(() => store({ bomRevisionId: null, wireOptions: [], cushionOptions: [] }))
+    }
+  }, [form.items, requestedProducts])
 
   // SKU đã duyệt (danh sách SKU của productplan@demo.com) — nguồn chọn SKU khi tạo PO
   // Gom theo mfgProductId (không theo mã — mã có thể trùng giữa 2 khách), kèm tên khách để phân biệt.
+  // Lọc theo KHÁCH HÀNG đã chọn ở trên (2026-10-23): chỉ SKU gán cho khách đó (SKU chưa gán khách nào vẫn hiện để
+  // không bị mồ côi). Chưa chọn khách thì chưa liệt kê gì - form đặt Khách hàng trước SKU.
+  const selectedCustomerName = ((customers ?? []).find(c => String(c.id) === form.customerId)?.name ?? '').trim().toLowerCase()
+  const skuBelongsToCustomer = (pf: Sku, customerKey: string) => {
+    const owner = (pf.customerName ?? '').trim().toLowerCase()
+    return !!customerKey && (owner === '' || owner === customerKey)
+  }
   const skuOptions = (() => {
     const byId = new Map<string, { id: string; code: string; name: string; customerName: string }>()
     for (const pf of skus ?? []) {
-      if (pf.status === 'APPROVED' && pf.mfgProduct) {
+      if (pf.status === 'APPROVED' && pf.mfgProduct && skuBelongsToCustomer(pf, selectedCustomerName)) {
         byId.set(pf.mfgProduct.id, {
           id: pf.mfgProduct.id,
           code: pf.mfgProduct.factoryCode,
@@ -83,6 +129,14 @@ export default function OrderManagementPage() {
     )
   }
 
+  // Đổi khách hàng thì bỏ các dòng đã chọn SKU của khách khác (dòng trống giữ nguyên) - tránh lên đơn lẫn SKU giữa 2 khách.
+  const keepItemsOfCustomer = (items: ItemDraft[], customerName: string): ItemDraft[] => {
+    const key = customerName.trim().toLowerCase()
+    const allowed = new Set((skus ?? []).filter(pf => pf.status === 'APPROVED' && pf.mfgProduct && skuBelongsToCustomer(pf, key)).map(pf => pf.mfgProduct!.id))
+    const kept = items.filter(it => !it.mfgProductId || allowed.has(it.mfgProductId))
+    return kept.length > 0 ? kept : [{ ...EMPTY_ITEM }]
+  }
+
   const openNew = () => { setForm(emptyForm()); setFormError(null); setShowCreate(true) }
 
   const setItem = (i: number, patch: Partial<ItemDraft>) => {
@@ -97,7 +151,14 @@ export default function OrderManagementPage() {
   const filledItems = form.items.filter((it) => it.skuCode.trim())
   const missingDeliveryDate = filledItems.some((it) => !it.deliveryDate)
   const missingQty = filledItems.some((it) => !(Number(it.totalQty) > 0))
-  const canSave = !!form.orderCode.trim() && !!form.customerId && filledItems.length > 0 && !missingDeliveryDate && !missingQty
+  // Loại dây/nệm: chưa nạp xong danh sách (undefined) hoặc SKU có tick mà chưa chọn -> chưa lưu được.
+  const pendingOptions = filledItems.some((it) => it.mfgProductId && !optionsByProduct.has(it.mfgProductId))
+  const missingChoice = filledItems.some((it) => {
+    const opts = optionsByProduct.get(it.mfgProductId)
+    if (!opts) return false
+    return (opts.wireOptions.length > 0 && !it.wireMaterialId) || (opts.cushionOptions.length > 0 && !it.cushionMaterialId)
+  })
+  const canSave = !!form.orderCode.trim() && !!form.customerId && filledItems.length > 0 && !missingDeliveryDate && !missingQty && !pendingOptions && !missingChoice
 
   const handleSave = async () => {
     if (!canSave) return
@@ -111,6 +172,8 @@ export default function OrderManagementPage() {
           mfgProductId: it.mfgProductId || undefined,
           skuCode: it.skuCode.trim(),
           skuName: it.skuName.trim() || undefined,
+          wireMaterialId: it.wireMaterialId || undefined,
+          cushionMaterialId: it.cushionMaterialId || undefined,
           totalQty: Number(it.totalQty) || 0,
           shippedQty: 0,
           status: 'LEN_KE_HOACH' as SalesOrderStatus,
@@ -319,8 +382,10 @@ export default function OrderManagementPage() {
                             skuName: pf.mfgProduct!.name,
                             totalQty: '',
                             deliveryDate: '',
+                            wireMaterialId: singlePick(optionsByProduct.get(pf.mfgProduct!.id)?.wireOptions),
+                            cushionMaterialId: singlePick(optionsByProduct.get(pf.mfgProduct!.id)?.cushionOptions),
                           }))
-                        : f.items,
+                        : keepItemsOfCustomer(f.items, c.name),
                     }
                   })}
                   placeholder="Tìm hoặc chọn khách hàng *"
@@ -388,9 +453,14 @@ export default function OrderManagementPage() {
                     getKey={o => o.id}
                     getSearchText={o => `${o.code} ${o.name} ${o.customerName}`}
                     renderOption={o => <><strong>{o.code}</strong> <span style={{ color: 'var(--text3)' }}>— {o.name}{o.customerName ? ` · ${o.customerName}` : ''}</span></>}
-                    onSelect={o => setItem(i, { mfgProductId: o.id, skuCode: o.code, skuName: o.name })}
+                    // Đổi SKU thì bỏ lựa chọn dây/nệm cũ - danh sách của SKU mới khác hoàn toàn.
+                    onSelect={o => setItem(i, {
+                      mfgProductId: o.id, skuCode: o.code, skuName: o.name,
+                      wireMaterialId: singlePick(optionsByProduct.get(o.id)?.wireOptions),
+                      cushionMaterialId: singlePick(optionsByProduct.get(o.id)?.cushionOptions),
+                    })}
                     placeholder="Tìm hoặc chọn SKU đã duyệt *"
-                    emptyText="Không tìm thấy SKU đã duyệt"
+                    emptyText={selectedCustomerName ? 'Khách hàng này chưa có SKU đã duyệt' : 'Chọn khách hàng trước để xem SKU của khách đó'}
                   />
                   </div>
                   <DatePicker value={it.deliveryDate} onChange={v => setItem(i, { deliveryDate: v })} title="Hạn giao" placeholder="Hạn giao *" clearable />
@@ -398,6 +468,13 @@ export default function OrderManagementPage() {
                   <button onClick={() => removeItem(i)} disabled={form.items.length === 1} style={{ padding: 4, background: 'transparent', border: 'none', cursor: form.items.length === 1 ? 'not-allowed' : 'pointer', opacity: form.items.length === 1 ? 0.3 : 1, display: 'flex' }}>
                     <Trash2 size={13} color="var(--fg-e24b4a)" />
                   </button>
+                  <ItemOptionPickers
+                    options={optionsByProduct.get(it.mfgProductId)}
+                    wireMaterialId={it.wireMaterialId}
+                    cushionMaterialId={it.cushionMaterialId}
+                    onChange={(patch) => setItem(i, patch)}
+                    isMobile={isMobile}
+                  />
                 </div>
               ))}
             </div>
@@ -405,6 +482,11 @@ export default function OrderManagementPage() {
               <Plus size={12} /> Thêm SKU
             </button>
 
+            {filledItems.length > 0 && missingChoice && (
+              <div style={{ fontSize: 12, color: 'var(--fg-b45309)', marginTop: 8 }}>
+                SKU có nhiều màu dây/nệm - chọn đủ Màu dây và Màu nệm cho từng dòng thì mới lưu được.
+              </div>
+            )}
             {filledItems.length > 0 && (missingDeliveryDate || missingQty) && (
               <div style={{ fontSize: 12, color: 'var(--fg-b45309)', marginTop: 8 }}>
                 Nhập {[missingDeliveryDate && 'Hạn giao', missingQty && 'Tổng số (lớn hơn 0)'].filter(Boolean).join(' và ')} cho mọi dòng SKU thì mới lưu được.
@@ -524,6 +606,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
               <div key={item.id}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12, marginBottom: 10 }}>
                   <strong>{item.skuCode}</strong>{item.skuName ? <span style={{ color: 'var(--text3)' }}> — {item.skuName}</span> : ''}
+                  <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
                   <StatusBadge status={item.status} />
                 </div>
                 <ProductionStepper status={item.status} vertical={isMobile} />
@@ -542,6 +625,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
                 <div key={item.id}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 8 }}>
                     <strong>{item.skuCode}</strong>{item.skuName ? <span style={{ color: 'var(--text3)' }}> — {item.skuName}</span> : ''}
+                    <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: isMobile ? 6 : 10 }}>
                     <StatTile label="Tổng số lượng" value={item.totalQty.toLocaleString()} />
@@ -561,6 +645,58 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
       )}
 
       {confirmModal}
+    </div>
+  )
+}
+
+/** Hai ô "Loại dây" / "Loại nệm" của 1 dòng đơn - lấy từ tick của định mức đã duyệt. Không hiện gì
+ *  khi SKU không có lựa chọn loại nào (hoặc chưa chọn SKU). */
+function ItemOptionPickers({ options, wireMaterialId, cushionMaterialId, onChange, isMobile }: {
+  options: SkuOrderOptions | undefined
+  wireMaterialId: string
+  cushionMaterialId: string
+  onChange: (patch: { wireMaterialId?: string; cushionMaterialId?: string }) => void
+  isMobile: boolean
+}) {
+  if (!options || (options.wireOptions.length === 0 && options.cushionOptions.length === 0)) return null
+  const renderOption = (o: SkuMaterialOption) => (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+      {o.imageUrl
+        // eslint-disable-next-line @next/next/no-img-element -- URL Cloudinary động (ảnh mẫu vật tư), không hợp với tối ưu tĩnh của next/image
+        ? <img src={o.imageUrl} alt="" width={28} height={28} style={{ borderRadius: 4, objectFit: 'cover', flexShrink: 0 }} />
+        : <span style={{ width: 28, height: 28, borderRadius: 4, background: 'var(--surface2)', flexShrink: 0 }} />}
+      <span><strong>{o.materialCode}</strong> <span style={{ color: 'var(--text3)' }}>— {o.materialName}</span></span>
+    </span>
+  )
+  const picker = (label: string, list: SkuMaterialOption[], value: string, onPick: (id: string) => void) => {
+    if (list.length === 0) return null
+    const selected = list.find((o) => o.materialId === value)
+    return (
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 4 }}>{label} *</div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* Ảnh loại đã chọn - bấm để xem lớn (ảnh trong danh sách xổ xuống chỉ để nhận diện lúc chọn). */}
+          <ZoomableImage url={selected?.imageUrl} size={40} title={selected ? `${selected.materialCode} — ${selected.materialName}` : undefined} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+        <SearchableSelect
+          displayValue={selected ? `${selected.materialCode} — ${selected.materialName}` : ''}
+          options={list}
+          getKey={(o) => o.materialId}
+          getSearchText={(o) => `${o.materialCode} ${o.materialName} ${o.materialSpec ?? ''}`}
+          renderOption={renderOption}
+          onSelect={(o) => onPick(o.materialId)}
+          placeholder={`Chọn ${label.toLowerCase()} *`}
+          emptyText="Không có lựa chọn"
+        />
+          </div>
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
+      {picker('Màu dây', options.wireOptions, wireMaterialId, (id) => onChange({ wireMaterialId: id }))}
+      {picker('Màu nệm', options.cushionOptions, cushionMaterialId, (id) => onChange({ cushionMaterialId: id }))}
     </div>
   )
 }

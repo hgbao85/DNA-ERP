@@ -149,7 +149,8 @@ export async function createWarehouseTransfer(data: {
   note?: string;
   // materialId bắt buộc (audit toàn diện 09/09/2026, mục Trung bình "phiếu ghi tự do") - BE giờ
   // từ chối (400) dòng nào thiếu materialId, không còn kiểu "ghi tự do" chỉ có materialName gõ tay.
-  items: Array<{ materialId: string | number; materialName: string; unit: string; quantity: number; note?: string }>;
+  /** `spec` = quy cách của bucket tồn muốn lấy (nệm có nhiều quy cách cùng 1 vật tư); bỏ trống = bucket "không quy cách". */
+  items: Array<{ materialId: string | number; materialName: string; unit: string; quantity: number; note?: string; spec?: string }>;
 }): Promise<WarehouseTransfer> {
   const created = await http.post<BeWarehouseTransfer>(
     '/warehouse-transfers',
@@ -163,6 +164,7 @@ export async function createWarehouseTransfer(data: {
         unit: it.unit,
         quantity: it.quantity,
         note: it.note,
+        spec: it.spec || undefined,
       })),
     },
     // Vấn đề #11 audit 26/08 (phần còn thiếu) - BE giờ bắt buộc header này.

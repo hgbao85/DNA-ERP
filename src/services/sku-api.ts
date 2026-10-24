@@ -24,6 +24,7 @@ import type {
   MaterialType,
   ProcessStep,
   Sku,
+  SkuMaterialOption,
   QuotaEntryMeta,
   QuotaReviewStatus,
   VatTuPhuKienItem,
@@ -58,7 +59,10 @@ interface BeMaterialLine {
   materialId: string;
   materialCode: string;
   materialName: string;
+  /** Dòng nệm: quy cách riêng của SKU; còn lại: Material.spec. */
   materialSpec: string | null;
+  /** Phân loại vật tư (chỉ có ở dòng phụ kiện/bao bì) - 'CUSHION' = nệm. */
+  materialDetailKind?: string | null;
   materialUnit: string;
   qtyPerUnit: number;
 }
@@ -110,6 +114,10 @@ interface BePiece {
   materialYields: BePieceMaterialYieldLine[];
 }
 
+/** Loại dây/nệm tick trong định mức, đúng shape BE trả (SkusService.toOptionRef) - trùng
+ *  SkuMaterialOption nên dùng thẳng, không cần map. */
+type BeMaterialOption = SkuMaterialOption;
+
 interface BeSku {
   id: string;
   salesOrderId: string | null;
@@ -125,11 +133,12 @@ interface BeSku {
   status: Sku['status'];
   note: string | null;
   origin: string | null;
-  manhData: { pieces: BePiece[] } | null;
+  manhData: { pieces: BePiece[]; wireOptions?: BeMaterialOption[] } | null;
   detailQuota: {
     daySon: BeMaterialLine[];
     vatTuPhuKien: BeMaterialLine[];
     baoBiDongGoi: BeMaterialLine[];
+    cushionOptions?: BeMaterialOption[];
   } | null;
   manhForwardedAt: string | null;
   detailForwardedAt: string | null;
@@ -141,10 +150,15 @@ interface BeSku {
   detailReviews: BeReview[];
   /** Nháp tạm lưu - BE lưu/trả nguyên văn JSON FE gửi lên (xem SaveQuotaDraftDto), không tái
    *  dựng như manhData/detailQuota - nên đã đúng sẵn shape ManhRow[]/DaySonItem[]... */
-  manhDraft: { pieces: ManhRow[] } | null;
+  manhDraft: { pieces: ManhRow[]; wireOptions?: SkuMaterialOption[] } | null;
   manhDraftSavedAt: string | null;
   manhDraftSavedBy: string | null;
-  detailDraft: { daySon: DaySonItem[]; vatTuPhuKien: VatTuPhuKienItem[]; baoBiDongGoi: BaoBiDongGoiItem[] } | null;
+  detailDraft: {
+    daySon: DaySonItem[];
+    vatTuPhuKien: VatTuPhuKienItem[];
+    baoBiDongGoi: BaoBiDongGoiItem[];
+    cushionOptions?: SkuMaterialOption[];
+  } | null;
   detailDraftSavedAt: string | null;
   detailDraftSavedBy: string | null;
 }
@@ -233,7 +247,11 @@ function toDaySonItem(l: BeMaterialLine): DaySonItem {
 }
 
 function toAccessoryLine(l: BeMaterialLine): VatTuPhuKienItem | BaoBiDongGoiItem {
-  return { id: l.id, materialId: l.materialId, name: l.materialName, specifications: l.materialSpec ?? undefined, quantity: l.qtyPerUnit, unit: l.materialUnit };
+  return {
+    id: l.id, materialId: l.materialId, name: l.materialName, specifications: l.materialSpec ?? undefined,
+    isCushion: l.materialDetailKind === 'CUSHION' || undefined,
+    quantity: l.qtyPerUnit, unit: l.materialUnit,
+  };
 }
 
 /** Mảnh/Định mức chi tiết chỉ còn 1 quyết định duyệt duy nhất (không còn Record theo nhóm như
@@ -280,9 +298,11 @@ function toSku(pf: BeSku): Sku {
       },
       entryMeta: toSingleEntryMeta(pf.detailReviews, DETAIL_REVIEW_GROUP),
       reviewStatus: toSingleReviewStatus(pf.detailReviews, DETAIL_REVIEW_GROUP),
+      cushionOptions: pf.detailQuota?.cushionOptions ?? [],
     },
     manhData: {
       pieces: (pf.manhData?.pieces ?? []).map(toManhRow),
+      wireOptions: pf.manhData?.wireOptions ?? [],
     },
     manhEntryMeta: toSingleEntryMeta(pf.manhReviews, MANH_REVIEW_GROUP),
     manhReviewStatus: toSingleReviewStatus(pf.manhReviews, MANH_REVIEW_GROUP),
@@ -313,6 +333,18 @@ export async function getSkuOptions(): Promise<{
   const products = await http.get<{ id: string; factoryCode: string; name: string }[] | { data: { id: string; factoryCode: string; name: string }[] }>('/products?limit=100');
   const productList = Array.isArray(products) ? products : products.data;
   return { mfgProducts: productList };
+}
+
+/** Loại dây/nệm Sales chọn được cho 1 sản phẩm - lấy từ bản định mức ĐÃ DUYỆT (ACTIVE) của nó.
+ *  Rỗng ở loại nào nghĩa là SKU không có lựa chọn loại đó (dòng đơn không cần/không được chọn). */
+export interface SkuOrderOptions {
+  bomRevisionId: string | null;
+  wireOptions: SkuMaterialOption[];
+  cushionOptions: SkuMaterialOption[];
+}
+
+export async function getSkuOrderOptions(mfgProductId: string): Promise<SkuOrderOptions> {
+  return http.get<SkuOrderOptions>(`/skus/order-options?mfgProductId=${encodeURIComponent(mfgProductId)}`);
 }
 
 export async function createSku(payload: CreateSkuPayload): Promise<Sku> {
@@ -350,8 +382,12 @@ export async function updateSkuManhQuota(
   id: number | string,
   rows: ManhRow[],
   enteredBy: string,
+  /** Loại dây (mã SHT) tick cho SKU. Bỏ trống (undefined) = BE giữ nguyên danh sách cũ; [] = xoá
+   *  hết tick. */
+  wireOptions?: SkuMaterialOption[],
 ): Promise<Sku> {
   const body = {
+    wireOptions: wireOptions?.map((o) => o.materialId),
     pieces: rows.map((r) => ({
       name: r.name,
       qtyPerUnit: Number(r.qtyPerSku) || 1,
@@ -406,13 +442,23 @@ export async function updateSkuDetailQuota(
   id: number | string,
   payload: { daySon: DaySonItem[]; vatTuPhuKien: VatTuPhuKienItem[]; baoBiDongGoi: BaoBiDongGoiItem[] },
   enteredBy: string,
+  /** Loại nệm (phụ kiện) tick cho SKU - cùng quy ước với wireOptions ở updateSkuManhQuota. */
+  cushionOptions?: SkuMaterialOption[],
 ): Promise<Sku> {
   const detailLines = [
     ...payload.daySon.map((it) => ({ group: 'DAY_SON', materialId: String(it.materialId ?? ''), qtyPerUnit: it.kg ?? 0 })),
-    ...payload.vatTuPhuKien.map((it) => ({ group: 'VAT_TU_PHU_KIEN', materialId: String(it.materialId ?? ''), qtyPerUnit: it.quantity ?? 0 })),
+    // Quy cách riêng theo SKU chỉ gửi cho dòng nệm (BE cũng bỏ qua ở vật tư khác).
+    ...payload.vatTuPhuKien.map((it) => ({
+      group: 'VAT_TU_PHU_KIEN', materialId: String(it.materialId ?? ''), qtyPerUnit: it.quantity ?? 0,
+      spec: it.isCushion ? (it.specifications?.trim() || undefined) : undefined,
+    })),
     ...payload.baoBiDongGoi.map((it) => ({ group: 'BAO_BI_DONG_GOI', materialId: String(it.materialId ?? ''), qtyPerUnit: it.quantity ?? 0 })),
   ]
-  const updated = await http.post<BeSku>(`/skus/${id}/detail-quota`, { detailLines, enteredBy });
+  const updated = await http.post<BeSku>(`/skus/${id}/detail-quota`, {
+    detailLines,
+    enteredBy,
+    cushionOptions: cushionOptions?.map((o) => o.materialId),
+  });
   return toSku(updated);
 }
 
@@ -422,8 +468,16 @@ export async function updateSkuDetailQuota(
  * Gửi nguyên `rows`/`payload` (shape ManhRow[]/DaySonItem[]...) làm `data` - BE không parse,
  * chỉ lưu lại y nguyên rồi trả về đúng shape đó ở `pf.manhDraft`/`pf.detailDraft`.
  */
-export async function saveSkuManhDraft(id: number | string, rows: ManhRow[], savedBy: string): Promise<Sku> {
-  const updated = await http.patch<BeSku>(`/skus/${id}/manh-quota/draft`, { data: { pieces: rows }, savedBy });
+export async function saveSkuManhDraft(
+  id: number | string,
+  rows: ManhRow[],
+  savedBy: string,
+  wireOptions?: SkuMaterialOption[],
+): Promise<Sku> {
+  const updated = await http.patch<BeSku>(`/skus/${id}/manh-quota/draft`, {
+    data: { pieces: rows, wireOptions },
+    savedBy,
+  });
   return toSku(updated);
 }
 
@@ -435,8 +489,12 @@ export async function saveSkuDetailDraft(
   id: number | string,
   payload: { daySon: DaySonItem[]; vatTuPhuKien: VatTuPhuKienItem[]; baoBiDongGoi: BaoBiDongGoiItem[] },
   savedBy: string,
+  cushionOptions?: SkuMaterialOption[],
 ): Promise<Sku> {
-  const updated = await http.patch<BeSku>(`/skus/${id}/detail-quota/draft`, { data: payload, savedBy });
+  const updated = await http.patch<BeSku>(`/skus/${id}/detail-quota/draft`, {
+    data: { ...payload, cushionOptions },
+    savedBy,
+  });
   return toSku(updated);
 }
 

@@ -139,6 +139,7 @@ export const productionPlanGroup: GuideGroup = {
         'SKU đã có định mức đang áp dụng (dòng nào hiện "Chưa có định mức đang áp dụng — không tính được" thì phải hoàn tất duyệt định mức trước).',
       ],
       screenshot: '/guide-screens/pp-gom-dot-cat.png',
+      extraScreenshots: [{ src: '/guide-screens/pp-gom-dot-cat-mau.png', caption: 'Hai dòng cùng một SKU nhưng khác màu dây/màu nệm: nhãn màu cạnh mã SKU giúp phân biệt, và vẫn tick gộp chung được. Số liệu trong ảnh là dữ liệu mẫu.' }],
       mock: {
         title: 'Tối ưu cắt sắt — tab "Chọn và tính"',
         columns: ['Đơn hàng', 'SKU', 'Sản phẩm', 'Hạn', 'Loại sắt · hao hụt khi cắt riêng'],
@@ -162,6 +163,7 @@ export const productionPlanGroup: GuideGroup = {
         'Đợt vượt ngưỡng hao hụt vẫn tính và tạo lệnh được, nhưng QLSX/Giám đốc sẽ thấy cảnh báo khi duyệt.',
         'Loại sắt có nhãn "đặt riêng" ở cột Chiều dài cây = cây không phải cỡ chuẩn có sẵn, phải chờ nhà cung cấp cán.',
         'SKU đã được Giám đốc duyệt thì không gộp/tính lại được nữa.',
+        'Hai dòng cùng một SKU nhưng khác màu dây/màu nệm (do Sales chọn ở đơn) vẫn gộp chung một đợt cắt được, vì dây và nệm không ảnh hưởng cắt sắt. Cạnh mã SKU có nhãn màu (ví dụ "Dây nâu SHT08 · Nệm màu be") để phân biệt hai dòng.',
       ],
       commonErrors: [
         { issue: '"Chưa tạo được lệnh sản xuất: ..." hiện ngay trong thẻ kết quả', cause: 'Phương án vừa tính chưa dùng được (ví dụ có loại sắt không cắt được, hoặc phương án đã lỗi thời vì SKU/định mức đổi sau khi tính).', fix: 'Bấm "Quay lại chỉnh" để đổi lựa chọn/chế độ cắt rồi tính lại.' },
@@ -186,6 +188,7 @@ export const productionPlanGroup: GuideGroup = {
       purpose: 'Đặt hạn cho từng công đoạn của một Phiếu sản xuất (PI), sau đó gửi cho QLSX xử lý tiếp.',
       preconditions: ['Đã có Phiếu sản xuất (PI) — tạo ra từ bước "Tối ưu cắt sắt" sau khi đã tính xong phương án cắt.'],
       screenshot: '/guide-screens/pp-lenh-sx-khsx.png',
+      extraScreenshots: [{ src: '/guide-screens/pp-lenh-sx-khsx-mau.png', caption: 'PI có hai dòng cùng SKU khác màu: mỗi dòng ghi kèm màu dây và màu nệm Sales đã chọn. Số liệu trong ảnh là dữ liệu mẫu.' }],
       mock: {
         title: 'Sửa thời hạn',
         formFields: ['Hạn giao hàng', 'Mua hàng', 'Đan', 'Đóng gói', 'Khung cơ khí'],
@@ -207,6 +210,7 @@ export const productionPlanGroup: GuideGroup = {
       warnings: [
         'Ô hạn nào chưa từng được đặt tay sẽ hiển thị nhạt kèm "(ước tính)"/"(từ PO)" — nếu bấm Lưu mà không sửa, hệ thống KHÔNG ghi đè giá trị ước tính này thành ngày chính thức.',
         'Từ 2026-08-24, không gửi lẻ từng SKU được nữa — luôn gửi cả PI một lần (hệ thống tự lọc SKU đủ điều kiện, ví dụ SKU vừa bị QLSX từ chối cần gửi lại).',
+        'Dòng SKU có màu dây/màu nệm hiện kèm nhãn màu Sales đã chọn. Màu này được CHỐT vào lệnh khi Giám đốc duyệt; từ đó mua hàng và xuất đan chỉ tính đúng màu đó (xem bài "Màu dây & màu nệm theo từng dòng đơn").',
       ],
       commonErrors: [
         { issue: '"... không còn SKU nào ở trạng thái gửi được (chưa gửi / bị QLSX trả lại)"', cause: 'Mọi SKU trong PI đã được gửi và đang chờ xử lý ở bước sau, không còn gì để gửi thêm.', fix: 'Kiểm tra lại trạng thái PI — có thể đã gửi thành công trước đó rồi.' },
@@ -265,8 +269,10 @@ export const productionPlanGroup: GuideGroup = {
       warnings: [
         'Đây là hành động không thể hoàn tác — một khi đã Duyệt, xưởng bắt đầu chạy ngay.',
         'Nếu PI là đợt gộp nhiều SKU, phải Duyệt hoặc Từ chối CẢ CỤM cùng lúc — không duyệt lẻ được từng SKU trong đợt gộp.',
+        'Khi duyệt, hệ thống kiểm màu dây/màu nệm Sales đã chọn có khớp bản định mức sắp áp dụng không rồi chốt vào lệnh; lệch thì bị chặn ngay lúc bấm Duyệt, chưa ghi gì.',
       ],
       commonErrors: [
+        { issue: '"... chưa chọn màu dây (bản định mức ... có ... lựa chọn) - Sales cần chọn trước khi duyệt" (hoặc màu nệm; hoặc "màu dây đã chọn không nằm trong bản định mức ...")', cause: 'Dòng đơn chưa có màu, hoặc màu đã chọn không còn trong danh sách tick của bản định mức sắp áp dụng.', fix: 'Từ chối để trả SKU về đơn hàng, nhờ Sales xoá đơn và tạo lại với đủ màu (nếu còn xoá được); không được thì báo Admin.' },
         { issue: '"... là đợt gộp - phải duyệt CẢ CỤM một lần"', cause: 'Cố duyệt/từ chối lẻ một SKU trong khi PI này là đợt gộp nhiều SKU.', fix: 'Duyệt hoặc từ chối toàn bộ đợt gộp cùng lúc.' },
         { issue: '"Không duyệt được - phương án cắt của lệnh này: ..."', cause: 'Phương án cắt đã tính không còn dùng được (ví dụ định mức hoặc chiều dài cây đã đổi sau khi tính).', fix: 'Từ chối để KHSX tính lại phương án ở "Tối ưu cắt sắt" rồi trình lại.' },
         { issue: '"Item ... đã được xử lý bởi 1 request khác ... - không ghi đè"', cause: '2 người cùng thao tác duyệt một PI gần như đồng thời.', fix: 'Tải lại trang để xem trạng thái mới nhất.' },

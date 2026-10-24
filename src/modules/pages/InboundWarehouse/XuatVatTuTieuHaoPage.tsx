@@ -11,6 +11,7 @@
  * họ xác nhận đã nhận.
  */
 
+import MaterialChoiceTags from '../../../components/MaterialChoiceTags'
 import { useState } from 'react'
 import { ChevronLeft, Check } from 'lucide-react'
 import { format } from 'date-fns'
@@ -99,6 +100,7 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
               {selectedPf.mfgProduct?.name && (
                 <span style={{ fontWeight: 400, color: 'var(--text2)', marginLeft: 6 }}>— {selectedPf.mfgProduct.name}</span>
               )}
+              <span style={{ marginLeft: 8 }}><MaterialChoiceTags wire={selectedPf.wireMaterial} cushion={selectedPf.cushionMaterial} /></span>
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
               PO: {poInfoFor(selectedPf)?.poCode ?? 'Chưa gắn đơn hàng'}
@@ -180,7 +182,7 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
       <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>{desc}</div>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
-        <MobileListCards emptyText="Không có PO nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>}</>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? 'Chưa gắn đơn hàng' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? '—' }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
+        <MobileListCards emptyText="Không có PO nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>} <MaterialChoiceTags wire={pf.wireMaterial} cushion={pf.cushionMaterial} /></>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? 'Chưa gắn đơn hàng' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? '—' }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
       ) : (
         <div style={{ ...tableWrap, ...tableScrollBox }}>
           <table style={tbl}>
@@ -211,6 +213,7 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
                       {pf.mfgProduct?.name && (
                         <><span style={{ color: 'var(--text3)', margin: '0 4px' }}>—</span>{pf.mfgProduct.name}</>
                       )}
+                    <span style={{ marginLeft: 6 }}><MaterialChoiceTags wire={pf.wireMaterial} cushion={pf.cushionMaterial} /></span>
                     </td>
                     <td style={{ ...tdStyle, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {poInfo?.piCode ?? '—'}

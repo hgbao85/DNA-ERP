@@ -35,7 +35,10 @@ export interface VatTuPhuKienItem {
   id?: number;
   materialId?: string;
   name: string;
+  /** Nệm: quy cách RIÊNG của SKU (nhập ở Định mức chi tiết); phụ kiện khác: lấy từ vật tư. */
   specifications?: string | null;
+  /** true = dòng nệm (vật tư phân loại Nệm) - chỉ dòng này nhận quy cách theo SKU. */
+  isCushion?: boolean;
   unit?: string | null;
   quantity?: number | null;
   imageUrl?: string | null;
@@ -119,6 +122,21 @@ export interface ManhChildRow {
   includeInWeaving?: boolean;
 }
 
+/** Loại dây (mã SHT) hoặc loại nệm được tick trong định mức của SKU - Sales chọn 1 loại dây + 1
+ *  loại nệm cho mỗi dòng đơn trong số này (xem getSkuOrderOptions, sku-api.ts). `imageUrl` là ảnh
+ *  mẫu của vật tư (Material.imageUrl) để người chọn nhận ra đúng mẫu. */
+export interface SkuMaterialOption {
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  materialSpec?: string | null;
+  materialUnit?: string;
+  imageUrl?: string | null;
+}
+
+/** Loại dây/nệm Sales đã chọn cho 1 dòng đơn / 1 lệnh sản xuất - đủ để hiển thị (mã SHT, tên, ảnh mẫu). */
+export type MaterialChoice = Pick<SkuMaterialOption, 'materialId' | 'materialCode' | 'materialName' | 'imageUrl'>;
+
 /** 1 mảnh phôi (vd "Mảnh tựa", "Chân ghế") gồm vật tư con thuộc 5 nhóm (Sắt/Dây/Đinh/Tán
  *  rút/Nút nhựa) — do account Sắt nhập theo 2 bước: tạo mảnh -> nhập vật tư. `needsHan`/
  *  `needsSon` áp dụng cho CẢ mảnh (không phải từng thanh sắt riêng lẻ). */
@@ -164,6 +182,10 @@ export interface Sku {
    *  theo mfgProductId (luôn ra lệnh đầu tiên trong danh sách, sai với mọi lệnh còn lại). */
   productionOrderId?: string;
   productionInvoiceItemId?: string;
+  /** Loại dây (mã SHT)/nệm Sales đã chọn cho lệnh sản xuất này - CHỈ có trên dòng dựng từ lệnh cụ thể
+   *  (expandSkusByProductionOrder), để phân biệt 2 lệnh cùng SKU khác dây/nệm. */
+  wireMaterial?: MaterialChoice | null;
+  cushionMaterial?: MaterialChoice | null;
   /** Sku tạo tự động khi PM xác nhận sản xuất 1 SKU trong PI (LenhSXPage) — chỉ phục vụ
    *  "Lệnh kiểm tra vật tư" (prodmgr@demo.com), không phải SKU do KHSX tạo nên phải ẩn khỏi
    *  "Danh sách SKU" / "Duyệt SKU". */
@@ -180,12 +202,16 @@ export interface Sku {
     entryMeta?: QuotaEntryMeta;
     /** KHSX duyệt/từ chối định mức chi tiết — 1 quyết định duy nhất cho cả 3 nhóm. */
     reviewStatus?: QuotaReviewStatus;
+    /** Các loại nệm (phụ kiện) tick cho SKU - rỗng = SKU không có lựa chọn nệm. */
+    cushionOptions?: SkuMaterialOption[];
   };
   /** Định mức mảnh — nhánh ĐỘC LẬP với định mức chi tiết (xem quotaManagement), không còn bắt
    *  buộc theo thứ tự nào. Danh sách mảnh, mỗi mảnh gồm children thuộc 5 nhóm vật tư (Sắt/Dây/
    *  Đinh/Tán rút/Nút nhựa), do 1 acc Sắt nhập chung 1 lần và gửi duyệt 1 lần. */
   manhData?: {
     pieces: ManhRow[];
+    /** Các loại dây (mã SHT) tick cho SKU - rỗng = SKU không có lựa chọn dây. */
+    wireOptions?: SkuMaterialOption[];
   };
   /** Ai/khi nào nhập định mức mảnh (nhập 1 lần cho cả 5 nhóm). */
   manhEntryMeta?: QuotaEntryMeta;
@@ -194,12 +220,17 @@ export interface Sku {
   manhReviewStatus?: QuotaReviewStatus;
   /** Nháp tạm lưu mảnh (CHƯA gửi phê duyệt) - lưu trên server (PlanForm.manhDraft) để khôi phục
    *  được khi đổi máy/trình duyệt, mất mạng hay sập nguồn giữa chừng (xem SpecSteelPage.tsx). */
-  manhDraft?: { pieces: ManhRow[] };
+  manhDraft?: { pieces: ManhRow[]; wireOptions?: SkuMaterialOption[] };
   manhDraftSavedAt?: string;
   manhDraftSavedBy?: string;
   /** Nháp tạm lưu định mức chi tiết (Sơn/Phụ kiện/Bao bì) - cùng cơ chế với manhDraft (xem
    *  SpecDetailQuotaPage.tsx). */
-  detailDraft?: { daySon: DaySonItem[]; vatTuPhuKien: VatTuPhuKienItem[]; baoBiDongGoi: BaoBiDongGoiItem[] };
+  detailDraft?: {
+    daySon: DaySonItem[];
+    vatTuPhuKien: VatTuPhuKienItem[];
+    baoBiDongGoi: BaoBiDongGoiItem[];
+    cushionOptions?: SkuMaterialOption[];
+  };
   detailDraftSavedAt?: string;
   detailDraftSavedBy?: string;
 }

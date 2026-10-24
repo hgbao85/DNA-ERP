@@ -13,7 +13,12 @@ import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import { SKU_ENTITY } from '../../../constants/skuStatus'
-import type { Sku, ManhRow, ManhChildRow, ManhChildGroup, ProcessStep } from '../../../types/sku'
+import type { Sku, ManhRow, ManhChildRow, ManhChildGroup, ProcessStep, SkuMaterialOption } from '../../../types/sku'
+import MaterialOptionsPanel from '../../../components/MaterialOptionsPanel'
+import ZoomableImage from '../../../components/ZoomableImage'
+import {
+  countRowsWithQty, dropBlankTickedWireRows, missingTickedWires, syncTickedWireRows, tickedWiresWithoutQty,
+} from '../../../utils/wireOptions'
 import { PROCESS_STEPS, PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import LoadingState from '../../../components/LoadingState'
@@ -129,13 +134,13 @@ const toManhRow = (m: Manh): ManhRow => ({
  *  thay vì manhData (dữ liệu đã nộp, có thể cũ hơn) - cùng logic resolve đã dùng ở openBom() cho
  *  CHÍNH SKU đang mở, áp dụng lại cho SKU KHÁC khi nó đóng vai trò nguồn copy (2026-10-19, theo
  *  yêu cầu người dùng - trước đó chỉ cho chọn SKU đã GỬI PHÊ DUYỆT làm nguồn). */
-function resolveManhSource(pf: Sku): { pieces: ManhRow[]; isDraft: boolean } {
+function resolveManhSource(pf: Sku): { pieces: ManhRow[]; wireOptions: SkuMaterialOption[]; isDraft: boolean } {
   const entryAt = pf.manhEntryMeta?.enteredAt
   const draftSavedAt = pf.manhDraftSavedAt
   if (draftSavedAt && (!entryAt || new Date(draftSavedAt) > new Date(entryAt))) {
-    return { pieces: pf.manhDraft?.pieces ?? [], isDraft: true }
+    return { pieces: pf.manhDraft?.pieces ?? [], wireOptions: pf.manhDraft?.wireOptions ?? [], isDraft: true }
   }
-  return { pieces: pf.manhData?.pieces ?? [], isDraft: false }
+  return { pieces: pf.manhData?.pieces ?? [], wireOptions: pf.manhData?.wireOptions ?? [], isDraft: false }
 }
 
 // ─── Tạm lưu (nháp) ───────────────────────────────────────────────────
@@ -257,6 +262,9 @@ export default function SpecSteelPage({ subTab }: {
     filter: payload => selectedBom == null || payload.entityId === selectedBom.id,
   })
   const [manhs, setManhs] = useState<Manh[]>([])
+  // Các loại dây (mã SHT) Sales được chọn khi lên đơn cho SKU đang mở - tick xong mỗi mảnh "có thể
+  // đan" tự có sẵn 1 dòng Dây cho từng loại (xem changeWireOptions). Lưu cùng manhs (nháp + gửi duyệt).
+  const [wireOptions, setWireOptions] = useState<SkuMaterialOption[]>([])
   const [nextId, setNextId] = useState(1)
   const [savingManh, setSavingManh] = useState(false)
   const [submitManhError, setSubmitManhError] = useState<string | null>(null)
@@ -328,10 +336,12 @@ export default function SpecSteelPage({ subTab }: {
       const draftManhs = (pf?.manhDraft?.pieces ?? []).map(toManh)
       const draftMaxId = draftManhs.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
       setManhs(draftManhs)
+      setWireOptions(pf?.manhDraft?.wireOptions ?? [])
       setNextId(Math.max(maxId, draftMaxId) + 1)
       setDraftRestoredAt(draftSavedAt)
     } else {
       setManhs(existing)
+      setWireOptions(pf?.manhData?.wireOptions ?? [])
       setNextId(maxId + 1)
     }
   }
@@ -345,6 +355,7 @@ export default function SpecSteelPage({ subTab }: {
     const existing = (findPf(selectedBom.id)?.manhData?.pieces ?? []).map(toManh)
     const maxId = existing.flatMap(m => [m.id, ...m.children.map(c => c.id)]).reduce((a, b) => Math.max(a, b), 0)
     setManhs(existing)
+    setWireOptions(findPf(selectedBom.id)?.manhData?.wireOptions ?? [])
     setNextId(maxId + 1)
     setDraftRestoredAt(null)
     // Bản nháp bị thay hẳn - đóng mọi form đang mở dở (Thêm mảnh/Thêm vật tư) vì có thể đang trỏ
@@ -361,7 +372,7 @@ export default function SpecSteelPage({ subTab }: {
     const hasPendingPhoto = current.some(m => m.children.some(c => c.photoFile))
     const resolved = hasPendingPhoto ? await resolvePendingPhotos(current) : current
     if (hasPendingPhoto) setManhs(resolved)
-    const updated = await api.saveSkuManhDraft(selectedBom.id, resolved.map(toManhRow), user?.name ?? 'Không rõ')
+    const updated = await api.saveSkuManhDraft(selectedBom.id, resolved.map(toManhRow), user?.name ?? 'Không rõ', wireOptions)
     setLastSavedAt(updated.manhDraftSavedAt ?? new Date().toISOString())
     patchSku(updated)
   }
@@ -397,7 +408,8 @@ export default function SpecSteelPage({ subTab }: {
   // bình thường, không tự động lưu gì thêm ở đây.
   const applyCopySku = (sourceId: string) => {
     const pf = findPf(sourceId)
-    const sourcePieces = pf ? resolveManhSource(pf).pieces : []
+    const source = pf ? resolveManhSource(pf) : null
+    const sourcePieces = source?.pieces ?? []
     if (sourcePieces.length === 0) return
     let id = nextId
     const copied: Manh[] = sourcePieces.map(toManh).map(m => ({
@@ -406,6 +418,8 @@ export default function SpecSteelPage({ subTab }: {
       children: m.children.map(c => ({ ...c, id: id++ })),
     }))
     setManhs(copied)
+    // Chép luôn danh sách loại dây đã tick - các dòng dây trong mảnh vừa chép đã khớp với tick này.
+    setWireOptions(source?.wireOptions ?? [])
     setNextId(id)
     setShowManhForm(false); setCopyingFrom(null); setFormTenManh(''); setFormSoLuong('1'); setFormNeedsHan(true); setFormNeedsSon(true)
     setAddingTo(null); resetChildForm()
@@ -433,19 +447,20 @@ export default function SpecSteelPage({ subTab }: {
     if (!selectedBom) return
     const st = manhBomStatus(selectedBom.id)
     if ((st === 'pending' || st === 'approved') && !isAdmin) return
-    if (manhs.length === 0) {
+    if (manhs.length === 0 && wireOptions.length === 0) {
       // Xoá hết mảnh (dọn sạch form) - xoá luôn nháp trên server, không thì lần mở sau sẽ bị
-      // "sống lại" đúng những mảnh vừa xoá (đè lên form rỗng người dùng cố ý để lại).
+      // "sống lại" đúng những mảnh vừa xoá (đè lên form rỗng người dùng cố ý để lại). Còn tick dây
+      // mà chưa có mảnh nào thì vẫn là dữ liệu cần giữ (người nhập có thể tick trước, thêm mảnh sau).
       void api.clearSkuManhDraft(selectedBom.id).then(patchSku).catch(() => {})
       return
     }
     const t = setTimeout(() => { void saveDraftNow(manhs).catch(() => {}) }, 1000)
     return () => clearTimeout(t)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manhs, selectedBom?.id])
+  }, [manhs, wireOptions, selectedBom?.id])
 
   const submitManh = async () => {
-    if (!selectedBom || totalChildren === 0) return
+    if (!selectedBom || totalChildren === 0 || wiresMissingQty.length > 0) return
     setSavingManh(true)
     setSubmitManhError(null)
     try {
@@ -455,7 +470,10 @@ export default function SpecSteelPage({ subTab }: {
       // không upload trùng file cũ.
       const resolvedManhs = await resolvePendingPhotos(manhs)
       setManhs(resolvedManhs)
-      await api.updateSkuManhQuota(selectedBom.id, resolvedManhs.map(toManhRow), user?.name ?? 'Không rõ')
+      // Dòng của loại dây đã tick mà chưa nhập số lượng nghĩa là "mảnh này không dùng loại dây đó" -
+      // không gửi lên (BE từ chối số lượng <= 0). Giữ nguyên trên form để còn nhập tiếp lần sau.
+      const rowsToSend = dropBlankTickedWireRows(resolvedManhs, wireIdSet)
+      await api.updateSkuManhQuota(selectedBom.id, rowsToSend.map(toManhRow), user?.name ?? 'Không rõ', wireOptions)
       logAction(SKU_ENTITY, String(selectedBom.id), 'sku.manh_submitted', `${manhs.length} mảnh · ${totalChildren} dòng vật tư`)
       // Nộp thật thành công - BE đã tự xoá manhDraft (xem SkusService.updateManhQuota).
       setDraftRestoredAt(null)
@@ -608,6 +626,67 @@ export default function SpecSteelPage({ subTab }: {
     setManhs(ms => ms.filter(m => m.id !== manhId))
     if (addingTo === manhId) setAddingTo(null)
     if (editingChild && editingChild.manhId === manhId) resetChildForm()
+  }
+
+  // ── Tick loại dây Sales được chọn ───────────────────────────────────────
+  const wireIdSet = new Set(wireOptions.map(w => w.materialId))
+  const isTickedWire = (c: ManChild) => c.group === 'day' && wireIdSet.has(String(c.materialId))
+  // Loại dây đã tick nhưng không mảnh nào có số lượng > 0: Sales chọn được mà định mức không có
+  // dòng nào -> mua/xuất đan thiếu dây. Chặn gửi duyệt cho tới khi nhập.
+  const wiresMissingQty = tickedWiresWithoutQty(manhs, wireOptions)
+  // Cảnh báo hiện TÊN dây (không hiện mã) - util trả mã nên đổi lại theo danh sách dây đã tick.
+  const wireNameOf = (code: string) => wireOptions.find(w => w.materialCode === code)?.materialName ?? code
+  // Ảnh hiển thị của 1 dòng: ảnh riêng của dòng (đã/đang upload) nếu có, không thì ảnh mẫu của chính vật
+  // tư trong danh mục - dòng dây tự thêm từ tick chưa có ảnh riêng nhưng phải thấy được mẫu dây.
+  const rowImage = (c: ManChild): string =>
+    c.photoUrl || c.photoPreview || (materials.find(m => String(m.id) === String(c.materialId))?.imageUrl ?? '')
+  // Tên hiển thị của dòng: MỌI nhóm chỉ hiện TÊN (vd "Dây xám bông SHT01", "Sắt vuông 6zem") - mã nội bộ (DAY-xxx,
+  // SAT-xxx...) không có ý nghĩa với người nhập, tên mới là thứ họ nhận ra. loaiSatName vẫn giữ nguyên "mã — tên"
+  // làm dữ liệu (dòng mới thêm); dòng tải từ máy chủ chỉ có tên nên lọc không làm đổi gì. Chỉ cắt phần mã dạng
+  // "ABC-123 — " ở đầu để không chặt nhầm tên có chứa dấu "—".
+  const rowLabel = (c: ManChild): string => c.loaiSatName.replace(/^[A-Z]+-\d+\s+—\s+/, '')
+  const wireCandidates = materials.filter(m => wireGroupId != null && m.materialGroupId === wireGroupId)
+
+  const buildWireRow = (w: SkuMaterialOption, id: number): ManChild => ({
+    id, group: 'day', materialId: w.materialId as unknown as number,
+    loaiSatName: `${w.materialCode} — ${w.materialName}`,
+    specs: w.materialSpec ?? '', cutLengthMm: '', soLuong: '', note: '', unit: w.materialUnit ?? '',
+    processSteps: [], piecesPerBar: '', photoUrl: '', photoFile: null, photoPreview: '', includeInWeaving: false,
+  })
+
+  const applyWireOptions = (next: SkuMaterialOption[]) => {
+    let id = nextId
+    setManhs(syncTickedWireRows(manhs, wireOptions, next, w => buildWireRow(w, id++)))
+    setNextId(id)
+    setWireOptions(next)
+  }
+  const changeWireOptions = (next: SkuMaterialOption[]) => {
+    const nextIds = new Set(next.map(w => w.materialId))
+    const removedIds = wireOptions.filter(w => !nextIds.has(w.materialId)).map(w => w.materialId)
+    const lost = countRowsWithQty(manhs, removedIds)
+    if (lost === 0) { applyWireOptions(next); return }
+    ask({
+      title: 'Bỏ màu dây đã nhập số lượng?',
+      message: `Có ${lost} dòng dây đã nhập số lượng thuộc các màu vừa bỏ tick - những dòng này sẽ bị xoá khỏi các mảnh. Bạn có chắc muốn tiếp tục?`,
+      confirmLabel: 'Bỏ tick, xoá dòng',
+      cancelLabel: 'Hủy',
+      danger: true,
+    }, () => applyWireOptions(next))
+  }
+  // Mảnh chưa đan (chưa có Đinh/Dây) không được tự thêm dây lúc tick - nút này thêm tay các loại còn thiếu.
+  const addTickedWiresTo = (manhId: number) => {
+    let id = nextId
+    setManhs(ms => ms.map(m => {
+      if (m.id !== manhId) return m
+      const missing = missingTickedWires(m, wireOptions)
+      return missing.length === 0 ? m : { ...m, children: [...m.children, ...missing.map(w => buildWireRow(w, id++))] }
+    }))
+    setNextId(id)
+  }
+  const setChildQty = (manhId: number, childId: number, value: string) => {
+    setManhs(ms => ms.map(m => m.id === manhId
+      ? { ...m, children: m.children.map(c => c.id === childId ? { ...c, soLuong: value } : c) }
+      : m))
   }
 
   const totalChildren = manhs.reduce((s, m) => s + m.children.length, 0)
@@ -801,6 +880,16 @@ export default function SpecSteelPage({ subTab }: {
             </div>
           )}
 
+          {/* Tick các loại dây Sales được chọn khi lên đơn cho SKU này */}
+          <MaterialOptionsPanel
+            title="Danh sách màu dây SKU"
+            noun="dây"
+            candidates={wireCandidates}
+            selected={wireOptions}
+            onChange={changeWireOptions}
+            disabled={isSubmitted}
+          />
+
           {/* Form tạo mảnh */}
           {showManhForm && (
             <div style={{ background: 'var(--bg-e3f2fd)', border: '1px solid var(--fg-90caf9)', borderRadius: 'var(--radius-lg)', padding: '14px 16px', marginBottom: 14 }}>
@@ -935,6 +1024,16 @@ export default function SpecSteelPage({ subTab }: {
                           }}>
                           <Plus size={13} /> Thêm vật tư
                         </button>
+                        {wireOptions.length > 0 && missingTickedWires(m, wireOptions).length > 0 && (
+                          <button onClick={() => addTickedWiresTo(m.id)} title="Thêm dòng cho các màu dây đã tick mà mảnh này chưa có" style={{
+                            display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
+                            border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                            background: 'var(--surface)', color: 'var(--fg-e65100)',
+                            cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                          }}>
+                            <Plus size={13} /> Thêm dây đã tick
+                          </button>
+                        )}
                         <button onClick={() => startCopyManh(m)} style={{
                           display: 'flex', alignItems: 'center', gap: 4, padding: '5px 10px',
                           border: '1px solid var(--border)', borderRadius: 'var(--radius)',
@@ -964,7 +1063,7 @@ export default function SpecSteelPage({ subTab }: {
                           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                             <span style={{ fontSize: 11, fontWeight: 700, color: badge.fg, background: badge.bg, borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap', flexShrink: 0 }}>{GROUP_LABELS[c.group]}</span>
                             <div style={{ flex: 1, minWidth: 0, fontWeight: 500, wordBreak: 'break-word' }}>
-                              {c.loaiSatName}
+                              {rowLabel(c)}
                               {c.note && <span style={{ color: 'var(--text3)', fontWeight: 400 }}> ({c.note})</span>}
                             </div>
                             {!isSubmitted && (
@@ -977,9 +1076,15 @@ export default function SpecSteelPage({ subTab }: {
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px', marginTop: 6, fontSize: 12, color: 'var(--text3)' }}>
                             {c.specs && <span>Quy cách: <b style={{ color: 'var(--text2)', fontWeight: 600 }}>{c.specs}</b></span>}
                             {lenOrPerBar && <span>{c.group === 'sat' ? 'Dài' : 'SL/đơn vị'}: <b style={{ color: 'var(--text2)', fontWeight: 600 }}>{lenOrPerBar}{c.group === 'sat' ? ' mm' : ''}</b></span>}
-                            <span>SL: <b style={{ color: 'var(--text)', fontWeight: 700 }}>{c.soLuong || '—'}</b> {c.unit}</span>
+                            {isTickedWire(c) && !isSubmitted ? (
+                              <span>SL: <input type="number" min={0} step="any" value={c.soLuong} placeholder="Nhập SL"
+                                onChange={e => setChildQty(m.id, c.id, e.target.value)}
+                                style={{ ...inputStyle, width: 96, padding: '3px 6px', display: 'inline-block' }} /> {c.unit}</span>
+                            ) : (
+                              <span>SL: <b style={{ color: 'var(--text)', fontWeight: 700 }}>{c.soLuong || '—'}</b> {c.unit}</span>
+                            )}
                           </div>
-                          {((c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.length > 0 || ((c.group === 'nutNhua' || c.group === 'vatTuThanhPham') && c.includeInWeaving) || c.photoUrl || c.photoPreview) && (
+                          {((c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.length > 0 || ((c.group === 'nutNhua' || c.group === 'vatTuThanhPham') && c.includeInWeaving) || rowImage(c)) && (
                             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 4, marginTop: 6 }}>
                               {(c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.map(step => (
                                 <span key={step} style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-5e35b1)', background: 'var(--bg-ede7f6)', borderRadius: 4, padding: '2px 6px' }}>{PROCESS_STEP_LABELS[step]}</span>
@@ -987,9 +1092,8 @@ export default function SpecSteelPage({ subTab }: {
                               {(c.group === 'nutNhua' || c.group === 'vatTuThanhPham') && c.includeInWeaving && (
                                 <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-2e7d32)', background: 'var(--bg-e8f5e9)', borderRadius: 4, padding: '1px 6px' }}>✓ Đi kèm xuất đan</span>
                               )}
-                              {(c.photoUrl || c.photoPreview) && (
-                                // eslint-disable-next-line @next/next/no-img-element -- URL Cloudinary/blob động (ảnh người dùng chọn/đã upload), không hợp với tối ưu tĩnh của next/image
-                                <img src={c.photoUrl || c.photoPreview} alt={c.loaiSatName} style={{ height: 32, borderRadius: 4, border: '1px solid var(--border)' }} />
+                              {rowImage(c) && (
+                                <ZoomableImage url={rowImage(c)} alt={rowLabel(c)} title={rowLabel(c)} height={32} />
                               )}
                             </div>
                           )}
@@ -1028,7 +1132,7 @@ export default function SpecSteelPage({ subTab }: {
                               </span>
                             </td>
                             <td style={{ padding: '9px 14px', color: 'var(--text)', fontWeight: 500 }}>
-                              {c.loaiSatName}
+                              {rowLabel(c)}
                               {c.note && <span style={{ color: 'var(--text3)', fontWeight: 400 }}> ({c.note})</span>}
                               {(c.group === 'nutNhua' || c.group === 'vatTuThanhPham') && c.includeInWeaving && (
                                 <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 700, color: 'var(--fg-2e7d32)', background: 'var(--bg-e8f5e9)', borderRadius: 4, padding: '1px 6px', whiteSpace: 'nowrap' }}>
@@ -1053,12 +1157,17 @@ export default function SpecSteelPage({ subTab }: {
                                 <span style={{ color: 'var(--text3)' }}>—</span>
                               )}
                             </td>
-                            <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>{c.soLuong || '—'}</td>
+                            <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>
+                              {isTickedWire(c) && !isSubmitted ? (
+                                <input type="number" min={0} step="any" value={c.soLuong} placeholder="Nhập SL"
+                                  onChange={e => setChildQty(m.id, c.id, e.target.value)}
+                                  style={{ ...inputStyle, width: 84, padding: '4px 6px', textAlign: 'right' }} />
+                              ) : (c.soLuong || '—')}
+                            </td>
                             <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{c.unit || '—'}</td>
                             <td style={{ padding: '9px 14px' }}>
-                              {(c.photoUrl || c.photoPreview) ? (
-                                // eslint-disable-next-line @next/next/no-img-element -- URL Cloudinary/blob động (ảnh người dùng chọn/đã upload), không hợp với tối ưu tĩnh của next/image
-                                <img src={c.photoUrl || c.photoPreview} alt={c.loaiSatName} style={{ height: 28, borderRadius: 4, border: '1px solid var(--border)' }} />
+                              {rowImage(c) ? (
+                                <ZoomableImage url={rowImage(c)} alt={rowLabel(c)} title={rowLabel(c)} height={28} />
                               ) : (
                                 <span style={{ color: 'var(--text3)' }}>—</span>
                               )}
@@ -1103,6 +1212,7 @@ export default function SpecSteelPage({ subTab }: {
                       <div style={isMobile ? { width: '100%' } : { width: 240 }}>
                         <FL>Vật tư (nhóm {GROUP_LABELS[childGroup]})</FL>
                         <MaterialPicker
+                          hideCodeInValue
                           value={childMaterial}
                           onSelect={m => { setChildMaterial(m); setChildSpec(m?.spec ?? '') }}
                           materialGroupId={groupIdOf(childGroup)}
@@ -1278,6 +1388,11 @@ export default function SpecSteelPage({ subTab }: {
                       ⚠ SKU này đã {manhSt === 'approved' ? 'được duyệt' : 'nộp, đang chờ duyệt'} — sửa và gửi sẽ ghi đè trực tiếp, không cần duyệt lại.
                     </span>
                   )}
+                  {wiresMissingQty.length > 0 && (
+                    <span style={{ fontSize: 12, color: 'var(--fg-b45309)', flex: '1 1 100%' }}>
+                      Màu dây {wiresMissingQty.map(wireNameOf).join(', ')} đã tick nhưng chưa nhập số lượng ở mảnh nào - nhập số lượng (hoặc bỏ tick) rồi mới gửi phê duyệt được.
+                    </span>
+                  )}
                   <span style={{ fontSize: 13, color: 'var(--text2)' }}>
                     {manhs.length} mảnh · {totalChildren} dòng vật tư
                   </span>
@@ -1299,12 +1414,12 @@ export default function SpecSteelPage({ subTab }: {
                     >{savingDraft ? 'Đang lưu...' : 'Tạm lưu'}</button>
                     <button
                       onClick={submitManh}
-                      disabled={totalChildren === 0 || savingManh}
+                      disabled={totalChildren === 0 || savingManh || wiresMissingQty.length > 0}
                       style={{
                         padding: '7px 20px', border: 'none', borderRadius: 'var(--radius)',
-                        background: totalChildren > 0 ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
+                        background: totalChildren > 0 && wiresMissingQty.length === 0 ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
                         color: '#fff', fontWeight: 700, fontSize: 13,
-                        cursor: totalChildren > 0 && !savingManh ? 'pointer' : 'not-allowed',
+                        cursor: totalChildren > 0 && !savingManh && wiresMissingQty.length === 0 ? 'pointer' : 'not-allowed',
                         opacity: savingManh ? 0.7 : 1,
                       }}
                     >{savingManh ? 'Đang gửi...' : (manhSt === 'approved' && isAdmin) ? 'Ghi đè định mức →' : 'Gửi phê duyệt →'}</button>

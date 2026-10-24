@@ -47,6 +47,8 @@ interface DisplayRow {
   key: string
   material: BeMaterial
   stockLengthMm: number | null
+  /** Quy cách của bucket tồn (nệm), '' = không quy cách - cùng vật tư khác quy cách là các dòng RIÊNG. */
+  spec: string
   qty: number | null
   availableQty: number | null
 }
@@ -204,9 +206,23 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
   // xem giải thích ở JSDoc DisplayRow.
   const displayRows = useMemo((): DisplayRow[] => {
     if (!showLengthColumn) {
-      return filtered.map(m => {
+      return filtered.flatMap((m): DisplayRow[] => {
+        // Nệm khác quy cách là các bucket tồn RIÊNG (2026-10-23): đang xem 1 kho cụ thể và vật tư có tồn ở ít nhất
+        // 1 bucket CÓ quy cách thì tách 1 dòng/quy cách (gộp các bucket cùng quy cách) thay vì 1 số tổng gây hiểu nhầm.
+        const live = currentWarehouse ? (bucketsByMaterialId.get(String(m.id)) ?? []).filter(b => b.qty !== 0) : []
+        if (live.some(b => b.spec)) {
+          const bySpec = new Map<string, { qty: number; availableQty: number }>()
+          for (const b of live) {
+            const acc = bySpec.get(b.spec)
+            if (acc) { acc.qty += b.qty; acc.availableQty += b.availableQty }
+            else bySpec.set(b.spec, { qty: b.qty, availableQty: b.availableQty })
+          }
+          return [...bySpec.entries()]
+            .sort(([a], [b]) => a.localeCompare(b, 'vi'))
+            .map(([spec, v]) => ({ key: `${m.id}-spec-${spec}`, material: m, stockLengthMm: null, spec, qty: v.qty, availableQty: v.availableQty }))
+        }
         const quant = quantFor(m)
-        return { key: String(m.id), material: m, stockLengthMm: null, qty: quant?.qty ?? null, availableQty: quant?.availableQty ?? null }
+        return [{ key: String(m.id), material: m, stockLengthMm: null, spec: '', qty: quant?.qty ?? null, availableQty: quant?.availableQty ?? null }]
       })
     }
     const rows: DisplayRow[] = []
@@ -220,10 +236,10 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
         // khiến 1 vật tư Sắt đã hết sạch tồn (từng có giao dịch) hiện nhầm thành "—" giống hệt vật
         // tư chưa hề nhập hàng lần nào - phát hiện khi user hỏi "dùng hết thì mất hay hiện 0".
         const quant = quantFor(m)
-        rows.push({ key: String(m.id), material: m, stockLengthMm: null, qty: quant?.qty ?? null, availableQty: quant?.availableQty ?? null })
+        rows.push({ key: String(m.id), material: m, stockLengthMm: null, spec: '', qty: quant?.qty ?? null, availableQty: quant?.availableQty ?? null })
       } else {
         for (const b of buckets) {
-          rows.push({ key: `${m.id}-${b.stockLengthMm}`, material: m, stockLengthMm: b.stockLengthMm || null, qty: b.qty, availableQty: b.availableQty })
+          rows.push({ key: `${m.id}-${b.stockLengthMm}`, material: m, stockLengthMm: b.stockLengthMm || null, spec: '', qty: b.qty, availableQty: b.availableQty })
         }
       }
     }
@@ -283,7 +299,7 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
                   <div style={{ minWidth: 0 }}>
                     <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>{m.name}</div>
                     <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2, wordBreak: 'break-word' }}>
-                      {[m.code, m.spec, m.unit].filter(Boolean).join(' · ')}
+                      {[m.code, row.spec || m.spec, m.unit].filter(Boolean).join(' · ')}
                       {showLengthColumn && row.stockLengthMm ? ` · ${row.stockLengthMm.toLocaleString('vi-VN')} mm` : ''}
                     </div>
                   </div>
@@ -348,7 +364,7 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
                     <td style={{ ...tdStyle, color: 'var(--text3)' }}>{m.code}</td>
                     <td title={m.name} style={{ ...tdStyle, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{m.name}</td>
                     <td style={{ ...tdStyle, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {[m.spec, m.unit].filter(Boolean).join(' · ') || '—'}
+                      {[row.spec || m.spec, m.unit].filter(Boolean).join(' · ') || '—'}
                     </td>
                     <td style={tdStyle}>
                       <span style={{ display: 'inline-block', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, color: meta.color, background: meta.bg, whiteSpace: 'nowrap' }}>
@@ -403,7 +419,7 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
             <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>{selected.material.code}</div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <InfoRow label="Quy cách" value={selected.material.spec ?? '—'} />
+              <InfoRow label="Quy cách" value={selected.spec || selected.material.spec || '—'} />
               <InfoRow label="ĐVT" value={selected.material.unit} />
               <InfoRow label="Kho" value={selected.material.warehouseName ?? '—'} />
               {showLengthColumn && (

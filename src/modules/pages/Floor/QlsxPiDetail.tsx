@@ -16,6 +16,7 @@ import { useIsCompact } from '../../../hooks/useMediaQuery'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
+import MaterialChoiceTags, { describeMaterialChoices } from '../../../components/MaterialChoiceTags'
 import { PhoiMaterialBoard } from '../../../components/sanxuat/PhoiMaterialBoard'
 import { HAN_CFG, SON_CFG, VAT_TU_TP_CFG, VatTuDetailBoard, type ProcLine } from '../../../components/sanxuat/core'
 import {
@@ -95,12 +96,17 @@ export default function QlsxPiDetail({ stage, productionInvoiceId, piCode, revie
             <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
               {orders.length === 1 ? `${orders[0].productName} · ${orders[0].poNumber}` : orders.length > 1 ? `${orders.length} SKU` : ''}
             </div>
+            {orders.length === 1 && (orders[0].wireMaterial || orders[0].cushionMaterial) && (
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 4 }}>
+                <MaterialChoiceTags wire={orders[0].wireMaterial} cushion={orders[0].cushionMaterial} />
+              </div>
+            )}
           </div>
           {orders.length > 1 && (
             <select aria-label="Xem theo SKU" value={orderId ?? ''} onChange={(e) => setOrderId(e.target.value || null)}
               style={{ padding: '6px 8px', fontSize: 13, border: '1px solid var(--border2)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', maxWidth: 220 }}>
               <option value="">Cả PI</option>
-              {orders.map((o) => <option key={o.productionOrderId} value={o.productionOrderId}>{o.productName} · {o.poNumber}</option>)}
+              {orders.map((o) => <option key={o.productionOrderId} value={o.productionOrderId}>{[`${o.productName} · ${o.poNumber}`, describeMaterialChoices(o)].filter(Boolean).join(' · ')}</option>)}
             </select>
           )}
           <button ref={closeRef} type="button" aria-label="Đóng" onClick={onClose} style={btn('ghost')}><X size={20} /></button>

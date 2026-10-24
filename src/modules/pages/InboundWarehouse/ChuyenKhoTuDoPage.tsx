@@ -19,6 +19,8 @@ interface MaterialOption {
   code: string
   name: string
   unit: string
+  /** Quy cách của bucket tồn (nệm có nhiều quy cách cùng 1 vật tư -> mỗi quy cách 1 lựa chọn), '' = không quy cách. */
+  spec: string
   availableQty: number
 }
 
@@ -65,12 +67,28 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
       api.getStockQuants({ warehouseId: effectiveFromId }),
       api.getMaterials(),
     ])
-    const byMaterial = new Map<string, number>()
+    // Tồn tách theo QUY CÁCH (nệm, 2026-10-23): cộng dồn availableQty theo (vật tư, quy cách) - mọi bucket chiều dài
+    // của cùng quy cách vẫn gộp như cũ.
+    const byMaterial = new Map<string, Map<string, number>>()
     for (const q of quants) {
       if (!q.materialId) continue
-      byMaterial.set(q.materialId, (byMaterial.get(q.materialId) ?? 0) + q.availableQty)
+      const bySpec = byMaterial.get(q.materialId) ?? new Map<string, number>()
+      bySpec.set(q.spec, (bySpec.get(q.spec) ?? 0) + q.availableQty)
+      byMaterial.set(q.materialId, bySpec)
     }
-    return materials.map(m => ({ id: m.id, code: m.code, name: m.name, unit: m.unit, availableQty: byMaterial.get(String(m.id)) ?? 0 }))
+    return materials.flatMap((m): MaterialOption[] => {
+      const base = { id: m.id, code: m.code, name: m.name, unit: m.unit }
+      const bySpec = byMaterial.get(String(m.id))
+      // Vật tư có tồn ở bucket CÓ quy cách -> mỗi quy cách (kèm bucket "không quy cách" nếu còn) là 1 lựa chọn riêng;
+      // còn lại giữ 1 lựa chọn như trước.
+      if (bySpec && [...bySpec.keys()].some(k => k !== '')) {
+        return [...bySpec.entries()]
+          .filter(([spec, avail]) => spec !== '' || avail > 0)
+          .sort(([a], [b]) => a.localeCompare(b, 'vi'))
+          .map(([spec, avail]) => ({ ...base, spec, availableQty: avail }))
+      }
+      return [{ ...base, spec: '', availableQty: bySpec?.get('') ?? 0 }]
+    })
   }, [effectiveFromId])
 
   const [material, setMaterial] = useState<MaterialOption | null>(null)
@@ -109,7 +127,7 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
         fromWarehouseId: fromWarehouse.id,
         toWarehouseId: toWarehouse.id,
         note: note.trim() || undefined,
-        items: [{ materialId: material.id, materialName: material.name, unit: material.unit, quantity: qtyNum }],
+        items: [{ materialId: material.id, materialName: material.name, unit: material.unit, quantity: qtyNum, spec: material.spec || undefined }],
       })
       setSuccessCode(created.code)
       // Phiếu tạo thành công KHÔNG đồng nghĩa đủ số lượng đã nhập - nếu 1 phiếu khác giành mất
@@ -179,13 +197,13 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
         <div style={{ marginBottom: 14 }}>
           <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Vật tư</label>
           <SearchableSelect
-            displayValue={material ? material.name : ''}
+            displayValue={material ? `${material.name}${material.spec ? ` · ${material.spec}` : ''}` : ''}
             options={safeArr(materialOptions)}
-            getKey={m => String(m.id)}
-            getSearchText={m => `${m.code} ${m.name}`}
+            getKey={m => `${m.id}|${m.spec}`}
+            getSearchText={m => `${m.code} ${m.name} ${m.spec}`}
             renderOption={m => (
               <span>
-                <span>{m.name} <span style={{ color: 'var(--text3)' }}>({m.unit})</span></span>
+                <span>{m.name}{m.spec ? <span style={{ color: 'var(--text2)' }}> · {m.spec}</span> : null} <span style={{ color: 'var(--text3)' }}>({m.unit})</span></span>
                 <span style={{ float: 'right', color: m.availableQty > 0 ? 'var(--fg-2563eb)' : 'var(--text3)', fontWeight: 600 }}>{m.availableQty.toLocaleString('vi-VN')}</span>
               </span>
             )}

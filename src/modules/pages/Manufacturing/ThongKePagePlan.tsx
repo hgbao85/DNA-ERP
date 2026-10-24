@@ -10,7 +10,9 @@ import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { errMsg } from '../../../utils/errors'
 import * as api from '../../../services/api'
 import { useInspection, type PurchaseProposal } from '../../../context/InspectionContext'
-import type { Sku } from '../../../types/sku'
+import type { Sku, MaterialChoice } from '../../../types/sku'
+import MaterialChoiceTags from '../../../components/MaterialChoiceTags'
+import { scopePurchasingRows } from '../../../utils/purchaseScope'
 import LenhSanXuatBoard, { type BoardColumn } from '../../../components/sanxuat/LenhSanXuatBoard'
 import { PROCESS_STEP_LABELS } from '../../../constants/processSteps'
 import type { ProcessStep } from '../../../types/sku'
@@ -46,6 +48,10 @@ interface MaterialItem {
   qty: number      // Tổng SL
   unit: string
   boughtQty: number // Đã mua
+  /** Material.id - để lọc dây/nệm theo lựa chọn của từng SKU (xem scopePurchasingRows). */
+  materialId?: string
+  /** true = mua CHUNG cho cả PI (nhiều SKU) - số lượng là tổng của mọi SKU trong PI, không phải riêng SKU đang xem. */
+  sharedPi?: boolean
 }
 
 // Công đoạn Đan dùng chung cấu trúc ManhLine/ManhAllocation + component ManhSkuDetail với "Theo dõi
@@ -54,7 +60,8 @@ interface MaterialItem {
 interface WeavingPointLite { id: number; code: string; fullName?: string }
 
 interface StageDetails {
-  purchasing: { materials: MaterialItem[] }
+  /** `materials` = phần hiển thị cho RIÊNG dòng/SKU này; `piMaterials` = toàn bộ đề xuất mua của PI (chế độ xem cả PI). */
+  purchasing: { materials: MaterialItem[]; piMaterials: MaterialItem[] }
   frame: {
     phoi: SubStatus; han: SubStatus; son: SubStatus
     // Dữ liệu chi tiết từng công đoạn nhỏ — cùng cấu trúc ProcLine dùng ở màn
@@ -87,6 +94,8 @@ interface MfgOrder {
   piCode: string       // Mã PI — 1 SKU trong 1 PO chỉ có đúng 1 PI (xem skus.service.ts)
   sku: string
   productName: string
+  /** Số lượng của dòng lệnh (ProductionInvoiceItem.quantity). */
+  quantity: number
   customer: string
   deadline?: string
   approvedAt: string
@@ -100,6 +109,9 @@ interface MfgOrder {
   floorStage: FloorStage | null
   /** Việc 3b (2026-09-21) - true thì hiện nút "Nạp lại định mức" cạnh FloorStageCell. */
   bomOutOfDate: boolean | null
+  /** Loại dây/nệm Sales đã chọn cho dòng đơn (2026-10-22) - phân biệt các dòng cùng SKU khác dây/nệm. */
+  wireMaterial: MaterialChoice | null
+  cushionMaterial: MaterialChoice | null
 }
 
 // ─── Stage config ─────────────────────────────────────────────────────────────
@@ -131,14 +143,18 @@ const STAGE_TRACKER_ICONS: Record<MfgStage, LucideIcon> = {
 // cuttingProposalId) với Sku.id nên KHÔNG BAO GIỜ khớp -> bước Mua hàng luôn "xong". Đề xuất mua vốn
 // gộp theo PI nên PI có nhiều lệnh sẽ dùng chung danh sách vật tư (cùng cách Phôi đang gộp theo PI).
 function getPurchasingRows(piCode: string, proposals: PurchaseProposal[]): MaterialItem[] {
-  return proposals
-    .filter(p => p.piCode === piCode)
-    .flatMap(p => p.items.map(item => ({
-      name: item.name,
+  const items = proposals.filter(p => p.piCode === piCode).flatMap(p => p.items)
+  // Cùng 1 vật tư ra nhiều dòng mua (nệm khác quy cách giữa các SKU/dòng định mức) thì ghi thêm quy cách để phân biệt.
+  const lineCount = new Map<number | undefined, number>()
+  for (const item of items) lineCount.set(item.materialId, (lineCount.get(item.materialId) ?? 0) + 1)
+  return items
+    .map(item => ({
+      name: item.spec && item.materialId != null && (lineCount.get(item.materialId) ?? 0) > 1 ? `${item.name} · ${item.spec}` : item.name,
       qty: item.buyQty,
       unit: item.unit,
       boughtQty: item.receivedQty ?? 0,
-    })))
+      materialId: item.materialId != null ? String(item.materialId) : undefined,
+    }))
 }
 
 function getPurchasingPercent(materials: MaterialItem[]): number {
@@ -405,16 +421,19 @@ function buildExecutionStages(row: ApprovedRow, skuQty: number, batch: BatchProg
 // poCode/piCode/deadline) lấy thẳng từ `row` (ProductionInvoiceItem thật), KHÔNG qua pf.exportOrder/
 // pf.piCode tĩnh nữa - chính xác hơn cả cách "H6 fix" trước đây (poInfoMap dò theo mfgProductId,
 // "lấy ProductionOrder đầu tiên tìm thấy") vì đây là đúng-1-1 theo chính item đang xét.
-function buildOrderRow(row: ApprovedRow, proposals: PurchaseProposal[], batch: BatchProgressData): { order: MfgOrder; details: StageDetails } {
+function buildOrderRow(row: ApprovedRow, proposals: PurchaseProposal[], batch: BatchProgressData, piRows: ApprovedRow[] = []): { order: MfgOrder; details: StageDetails } {
   const { pf, skuQty } = row
-  const materials = getPurchasingRows(row.piCode, proposals)
+  // Đề xuất mua gộp theo PI: dây/nệm chỉ giữ loại của RIÊNG dòng này, vật tư còn lại là số mua chung cả PI.
+  const choiceIds = (r: ApprovedRow) => [r.wireMaterial, r.cushionMaterial].flatMap(m => (m ? [m.materialId] : []))
+  const piMaterials = getPurchasingRows(row.piCode, proposals)
+  const materials = scopePurchasingRows(piMaterials, choiceIds(row), piRows.filter(r => r.itemId !== row.itemId).map(choiceIds))
   const purchPct = getPurchasingPercent(materials)
   // Luôn dựng tiến độ thực thi từ dữ liệu thật, KHÔNG còn ẩn khi Mua hàng <100% (2026-09-19): mua hàng
   // giờ đã ghép đúng nên có thể <100% trong khi Phôi/Đan... đã chạy (các công đoạn song song); dữ liệu
   // thật tự nói lên việc đã làm, ẩn đi chỉ khiến Giám đốc thấy sai lệch.
   const stages = row.orderId ? buildExecutionStages(row, skuQty, batch) : emptyExecutionStages(skuQty)
   const { frame, weaving, chuyenKiem, packaging } = stages
-  const details: StageDetails = { purchasing: { materials }, frame, weaving, chuyenKiem, packaging }
+  const details: StageDetails = { purchasing: { materials, piMaterials }, frame, weaving, chuyenKiem, packaging }
   // "Đã kết thúc" của xưởng (QLSX bấm Kết thúc, không hoàn tác được - xem FloorStageCell) cũng là hoàn thành:
   // nhiều lệnh không có phiếu xuất sắt/mảnh đan nên các bước con không bao giờ tự "xong" (audit N2).
   const done = row.floorStage === 'FINISHED' || isAllDone(details)
@@ -426,6 +445,7 @@ function buildOrderRow(row: ApprovedRow, proposals: PurchaseProposal[], batch: B
     piCode: row.piCode,
     sku: pf.mfgProduct?.factoryCode ?? '—',
     productName: pf.mfgProduct?.name ?? '',
+    quantity: skuQty,
     customer: pf.customerName ?? '—',
     deadline: row.deliveryDeadline,
     approvedAt: pf.createdAt,
@@ -436,6 +456,8 @@ function buildOrderRow(row: ApprovedRow, proposals: PurchaseProposal[], batch: B
     orderId: row.orderId,
     floorStage: row.floorStage,
     bomOutOfDate: row.bomOutOfDate,
+    wireMaterial: row.wireMaterial,
+    cushionMaterial: row.cushionMaterial,
   }
   return { order, details }
 }
@@ -596,7 +618,7 @@ function PurchasingContent({ materials, deadline }: { materials: MaterialItem[];
           const remaining = Math.max(0, m.qty - m.boughtQty)
           return (
             <tr key={i}>
-              <td style={{ ...tdS, fontWeight: 600 }}>{m.name}</td>
+              <td style={{ ...tdS, fontWeight: 600 }}>{m.name}{m.sharedPi && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 600, color: 'var(--text3)' }}>(mua chung)</span>}</td>
               <td style={{ ...tdS, textAlign: 'right' }}>{m.qty.toLocaleString('vi-VN')}</td>
               <td style={{ ...tdS, color: 'var(--text3)' }}>{m.unit}</td>
               <td style={{ ...tdS, textAlign: 'right', fontWeight: 700, color: m.boughtQty > 0 ? 'var(--fg-16a34a)' : 'var(--text3)' }}>{m.boughtQty.toLocaleString('vi-VN')}</td>
@@ -607,6 +629,11 @@ function PurchasingContent({ materials, deadline }: { materials: MaterialItem[];
       </tbody>
     </table>
     </div>
+    {materials.some(m => m.sharedPi) && (
+      <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text3)' }}>
+        <b>Mua chung:</b> các vật tư ghi “(mua chung)” được mua gộp cho cả PI - số lượng là tổng của tất cả SKU trong PI, không phải riêng SKU này. Chỉ dây và nệm được tách riêng theo từng SKU.
+      </div>
+    )}
     </div>
   )
 }
@@ -1152,6 +1179,7 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
               <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: 'var(--fg-1d4ed8)' }}>{order.sku}</span>
               <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>{order.piCode}</span>
+              <MaterialChoiceTags wire={order.wireMaterial} cushion={order.cushionMaterial} />
             </div>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>PO: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text2)' }}>{order.code}</span></div>
           </div>
@@ -1162,6 +1190,7 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
 
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 28px', marginTop: 14, paddingTop: 14, borderTop: '1px solid var(--border)', fontSize: 13, color: 'var(--text3)' }}>
           <span>Khách hàng: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{order.customer}</span></span>
+          <span>Số lượng: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{order.quantity.toLocaleString('vi-VN')}</span></span>
           <span>Ngày tạo: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{format(new Date(order.approvedAt), 'dd/MM/yyyy')}</span></span>
           <span>
             Hạn giao: <span style={{ fontWeight: 600, color: isOverdue ? 'var(--fg-dc2626)' : 'var(--text)' }}>
@@ -1208,6 +1237,8 @@ interface PIApprovalItem {
   /** true = định mức đã ghim cho SKU này KHÁC bản ACTIVE hiện tại - hiện nút "Nạp lại định mức"
    *  (2026-09-21, Việc 3b). Cùng idiom floorStage - null khi chưa có ProductionOrder. */
   bomOutOfDate?: boolean | null
+  wireMaterial?: MaterialChoice | null
+  cushionMaterial?: MaterialChoice | null
   prodApproval?: { status?: string }
   quantity?: number
   salesOrderId?: string
@@ -1235,6 +1266,8 @@ interface ApprovedRow {
   deliveryDeadline?: string
   floorStage: FloorStage | null
   bomOutOfDate: boolean | null
+  wireMaterial: MaterialChoice | null
+  cushionMaterial: MaterialChoice | null
 }
 
 // SKU nào cũng được duyệt qua đúng 1 ProductionInvoiceItem, nhưng không phải SKU nào cũng có bản
@@ -1298,7 +1331,7 @@ function aggregateDetails(items: StageDetails[], phoiProgress: BePhoiProgressIte
   const phoiNeed = phoiMaterials.reduce((a, m) => a + m.need, 0) + vt.need
   const phoiDone = phoiMaterials.reduce((a, m) => a + m.done, 0) + vt.done
   return {
-    purchasing: items[0].purchasing, // đề xuất mua gộp theo PI - mọi SKU cùng 1 danh sách
+    purchasing: { materials: items[0].purchasing.piMaterials, piMaterials: items[0].purchasing.piMaterials }, // cả PI = toàn bộ đề xuất mua gộp theo PI
     frame: {
       phoi: subStatusOf(phoiNeed, phoiDone, phoiProgress !== null && phoiVtTpKnown),
       han: combineSubStatus(items.map(d => d.frame.han)),
@@ -1484,6 +1517,8 @@ export default function ThongKePagePlan() {
           deliveryDeadline: item.deliveryDeadline,
           floorStage: item.floorStage ?? null,
           bomOutOfDate: item.bomOutOfDate ?? null,
+          wireMaterial: item.wireMaterial ?? null,
+          cushionMaterial: item.cushionMaterial ?? null,
         })
       }
     }
@@ -1513,9 +1548,15 @@ export default function ThongKePagePlan() {
   // nếu không bảng kẹt "Đang tải..." vĩnh viễn thay vì báo lỗi + cho Thử lại.
   const rowsLoading = !batchError && (batchLoading || !batchFresh)
   const rowsError = skusError ?? batchError ?? null
+  // Các dòng cùng PI - để mỗi dòng biết dây/nệm của dòng khác mà ẩn khỏi bảng Mua hàng (xem buildOrderRow).
+  const rowsByPi = useMemo(() => {
+    const m = new Map<string, ApprovedRow[]>()
+    for (const r of approvedRows) m.set(r.piCode, [...(m.get(r.piCode) ?? []), r])
+    return m
+  }, [approvedRows])
   const orderRows = useMemo(
-    () => approvedRows.map(row => buildOrderRow(row, proposals, batchData ?? EMPTY_BATCH_DATA)),
-    [approvedRows, proposals, batchData],
+    () => approvedRows.map(row => buildOrderRow(row, proposals, batchData ?? EMPTY_BATCH_DATA, rowsByPi.get(row.piCode))),
+    [approvedRows, proposals, batchData, rowsByPi],
   )
 
   const [filter, setFilter]         = useState<FilterStatus>('all')
@@ -1613,6 +1654,9 @@ export default function ThongKePagePlan() {
           variance={o.hasVariance}
           meta={[
             { label: 'Mã PO', value: <span style={{ fontFamily: 'monospace' }}>{o.code}</span> },
+            ...(o.wireMaterial || o.cushionMaterial
+              ? [{ label: 'Dây / Nệm', value: <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><MaterialChoiceTags wire={o.wireMaterial} cushion={o.cushionMaterial} /></span> }]
+              : []),
             { label: 'Khách hàng', value: o.customer },
             { label: 'Hạn giao', value: <DeadlineText deadline={o.deadline} overdue={isOrderOverdue(o.deadline, o.status === 'DONE')} overdueLabel="Quá hạn" /> },
           ]}
@@ -1652,6 +1696,11 @@ export default function ThongKePagePlan() {
                 <td style={{ ...td, maxWidth: 0 }}>
                   <div style={{ fontWeight: 600 }}>{o.productName}</div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{o.sku}</div>
+                  {(o.wireMaterial || o.cushionMaterial) && (
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 3 }}>
+                      <MaterialChoiceTags wire={o.wireMaterial} cushion={o.cushionMaterial} />
+                    </div>
+                  )}
                   <div title={`PO ${o.code} · ${o.customer}`} style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     <span style={{ fontFamily: 'monospace' }}>{o.code}</span> · {o.customer}
                   </div>

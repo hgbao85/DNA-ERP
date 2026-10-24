@@ -1,3 +1,4 @@
+import MaterialChoiceTags from '../../../components/MaterialChoiceTags'
 import { useEffect, useState } from 'react'
 import { focusAttr } from '../../../utils/notificationLink'
 import { useFetch } from '../../../hooks/useFetch'
@@ -603,6 +604,9 @@ export default function LenhSXPage() {
                             {item.status && <StatusBadge status={item.status as SalesOrderStatus} />}
                           </div>
                           {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
+                          {(item.wireMaterial || item.cushionMaterial) && (
+                            <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:4 }}><MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} /></div>
+                          )}
                           {item.customerName && (
                             <div style={{ display:'flex', alignItems:'center', gap:4, fontSize:12, color:'var(--text3)', marginTop:3 }}>
                               <User size={11} />
@@ -847,6 +851,9 @@ export default function LenhSXPage() {
                             )}
                           </div>
                           {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
+                          {(item.wireMaterial || item.cushionMaterial) && (
+                            <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:4 }}><MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} /></div>
+                          )}
                           <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap' }}>
                             {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                             {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
@@ -1008,6 +1015,7 @@ export default function LenhSXPage() {
                           <div style={{ display:'flex', alignItems:'center', gap:8, overflow:'hidden' }}>
                             <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'var(--fg-0369a1)', flexShrink:0 }}>{code}</span>
                             {name && <span style={{ fontSize:13, color:'var(--text2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</span>}
+                            <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
                           </div>
                           <div style={{ display:'flex', gap:5, marginTop:3 }}>
                             {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
@@ -1143,6 +1151,7 @@ export default function LenhSXPage() {
                           {item.productVariant?.mfgProduct?.factoryCode ?? '—'}
                         </span>
                         {item.productVariant?.mfgProduct?.name && <span style={{ fontSize:12, color:'var(--text2)' }}>{item.productVariant.mfgProduct.name}</span>}
+                        <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
                       </div>
                       <div style={{ display:'flex', gap:6, marginTop:4, marginBottom:8 }}>
                         {item.quantity != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{item.quantity.toLocaleString('vi-VN')}</span>}
@@ -1242,6 +1251,7 @@ export default function LenhSXPage() {
                         {item.productVariant?.mfgProduct?.factoryCode ?? '—'}
                       </span>
                       {item.productVariant?.mfgProduct?.name && <span style={{ fontSize:13, color:'var(--text2)' }}>{item.productVariant.mfgProduct.name}</span>}
+                      <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
                     </div>
                     <div style={{ display:'flex', gap:6, marginTop:5 }}>
                       {item.quantity != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{item.quantity.toLocaleString('vi-VN')}</span>}
@@ -1389,6 +1399,7 @@ export default function LenhSXPage() {
                     <div style={{ background:'var(--surface2)', padding:'7px 12px', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                       <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'var(--fg-0369a1)' }}>{code}</span>
                       {name && <span style={{ fontSize:12, color:'var(--text2)' }}>{name}</span>}
+                      <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
                       {qty != null && <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text3)', background:'var(--surface)', padding:'1px 8px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                     </div>
                     <div style={{ padding:'12px', display:'flex', flexDirection:'column', gap:10 }}>

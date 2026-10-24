@@ -34,22 +34,25 @@ export const salesGroup: GuideGroup = {
         'Nhập Mã đơn hàng (bắt buộc, không được trùng với đơn khác).',
         'Chọn Khách hàng (bắt buộc). Nếu khách đã có sẵn SKU đã duyệt gắn riêng và chưa gắn PO nào, hệ thống tự điền vào bảng SKU bên dưới.',
         'Với mỗi dòng: chọn SKU (chỉ chọn được SKU đã duyệt; danh sách hiện kèm tên khách hàng vì hai khách có thể trùng mã SKU — chọn đúng dòng của khách mình), nhập Hạn giao và Tổng số — cả hai đều BẮT BUỘC cho từng dòng. Bấm "Thêm SKU" nếu đơn có nhiều sản phẩm.',
+        'Nếu SKU có nhiều màu dây hoặc màu nệm (do chuyên viên định mức đã tick), ngay dưới dòng SKU hiện thêm hai ô bắt buộc "Màu dây" và "Màu nệm": chọn đúng màu khách đặt (danh sách có ảnh mẫu; bấm vào ảnh nhỏ bên cạnh để xem lớn). SKU chỉ có một màu thì hệ thống chọn sẵn; SKU không có màu nào để chọn thì hai ô này không hiện. Muốn hai màu khác nhau của cùng một SKU thì bấm "Thêm SKU" thêm một dòng.',
         'Tải lên File đính kèm (PO/hợp đồng...) và nhập Ghi chú nếu có.',
         { text: 'Bấm "Lưu" để tạo đơn hàng.', critical: true },
       ],
       result:
         'Đơn hàng được tạo; hệ thống tự sinh hồ sơ lệnh sản xuất tương ứng phía sau cho từng dòng SKU (chưa gộp lệnh sản xuất) — Kế hoạch sản xuất sẽ xử lý tiếp từ đây.',
       warnings: [
-        'Nút "Lưu" chỉ bật khi đã nhập Mã đơn hàng, chọn Khách hàng, có ít nhất một dòng SKU, và MỌI dòng SKU đều có Hạn giao + Tổng số lớn hơn 0 — thiếu thì ngay dưới bảng SKU có dòng nhắc "Nhập Hạn giao ... cho mọi dòng SKU thì mới lưu được".',
+        'Nút "Lưu" chỉ bật khi đã nhập Mã đơn hàng, chọn Khách hàng, có ít nhất một dòng SKU, và MỌI dòng SKU đều có Hạn giao + Tổng số lớn hơn 0 — thiếu thì ngay dưới bảng SKU có dòng nhắc "Nhập Hạn giao ... cho mọi dòng SKU thì mới lưu được". Dòng SKU có hiện ô "Màu dây"/"Màu nệm" thì phải chọn đủ các ô đó nữa, nếu không dưới bảng có dòng nhắc "chọn đủ Màu dây và Màu nệm cho từng dòng".',
+        'Màu dây và màu nệm chọn xong đi theo xuống lệnh sản xuất và được CHỐT khi Giám đốc duyệt lệnh — mua hàng và xuất đan chỉ tính đúng màu này. Giao diện hiện chưa có chỗ sửa màu của một đơn đã tạo: chọn nhầm thì xoá đơn (nếu còn xoá được, xem bài "Xoá đơn hàng") rồi tạo lại.',
         'Hạn giao nhập theo TỪNG dòng SKU của TỪNG đơn và được chép xuống lệnh sản xuất của đúng đơn đó (hai đơn cùng đặt một mẫu vẫn có hạn riêng). Cột "Hạn giao" của cả đơn = hạn xa nhất trong các dòng.',
         'File đính kèm chỉ thực sự tải lên khi bấm "Lưu" thành công — không tạo rác nếu đóng form giữa chừng.',
       ],
       commonErrors: [
         { issue: 'Không tìm thấy sản phẩm cần bán trong danh sách chọn SKU', cause: 'Sản phẩm chưa có định mức được Giám đốc duyệt.', fix: 'Liên hệ KHSX để hoàn tất quy trình duyệt định mức trước.' },
         { issue: '"Hạn giao của từng dòng SKU là bắt buộc"', cause: 'Có dòng SKU chưa nhập Hạn giao.', fix: 'Nhập Hạn giao cho mọi dòng SKU rồi lưu lại.' },
+        { issue: 'Nút "Lưu" mờ, dưới bảng SKU có dòng "SKU có nhiều màu dây/nệm - chọn đủ Màu dây và Màu nệm cho từng dòng thì mới lưu được"', cause: 'Có dòng SKU chưa chọn Màu dây hoặc Màu nệm.', fix: 'Chọn đủ hai ô cho mọi dòng SKU đang hiện chúng. Xem thêm bài "Màu dây & màu nệm theo từng dòng đơn".' },
         { issue: '"Mã đơn hàng ... đã được dùng cho đơn khác"', cause: 'Mã đơn hàng bị trùng với một PO đã tồn tại.', fix: 'Đổi sang mã khác chưa dùng.' },
       ],
-      tags: ['tạo đơn hàng', 'po', 'sales order', 'đơn đặt hàng', 'hạn giao', 'deadline'],
+      tags: ['tạo đơn hàng', 'po', 'sales order', 'đơn đặt hàng', 'hạn giao', 'deadline', 'màu dây', 'màu nệm', 'loại dây', 'loại nệm', 'sht', 'chọn màu'],
       sourceRefs: ['src/modules/pages/Sales/OrderManagementPage.tsx'],
     },
     {

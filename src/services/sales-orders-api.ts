@@ -16,6 +16,7 @@
 import { http } from './core/http';
 import { resolveMfgProduct } from './products-api';
 import type { SalesOrder, SalesOrderItem, SalesOrderStatus } from '../types/sales';
+import type { MaterialChoice } from '../types/sku';
 
 interface BeSalesOrderItem {
   id: string;
@@ -27,6 +28,8 @@ interface BeSalesOrderItem {
   shippedQty: number;
   status: SalesOrderStatus;
   deliveryDate: string | null;
+  wireMaterial?: MaterialChoice | null;
+  cushionMaterial?: MaterialChoice | null;
 }
 
 interface BeSalesOrder {
@@ -86,6 +89,8 @@ function toSalesOrderItem(it: BeSalesOrderItem): SalesOrderItem {
     shippedQty: it.shippedQty,
     status: it.status,
     deliveryDate: it.deliveryDate ?? '',
+    wireMaterial: it.wireMaterial ?? null,
+    cushionMaterial: it.cushionMaterial ?? null,
   };
 }
 
@@ -121,6 +126,9 @@ export async function createSalesOrder(data: Record<string, unknown>): Promise<S
         skuName: it.skuName,
         totalQty: it.totalQty,
         deliveryDate: it.deliveryDate || undefined,
+        // Loại dây/nệm chọn từ định mức đã duyệt của SKU - BE bắt buộc khi SKU có tick loại đó.
+        wireMaterialId: it.wireMaterialId || undefined,
+        cushionMaterialId: it.cushionMaterialId || undefined,
       };
     }),
   );

@@ -15,7 +15,7 @@
  * 1 SKU tái sử dụng cho nhiều lệnh sản xuất song song).
  */
 import { http } from './core/http';
-import type { Sku } from '../types/sku';
+import type { MaterialChoice, Sku } from '../types/sku';
 
 // ─── Cache chung GET /production-orders?limit=100 ────────────────────────────
 // 3 hàm dưới đây (resolveProductionInvoiceRef/resolveProductionOrderId/
@@ -41,6 +41,9 @@ export interface BeProductionOrderRaw {
   /** Kho thành phẩm QLSX chọn làm điểm cuối trước khi gửi Sếp duyệt (warehouseScope cụ thể, vd
    *  'thanh-pham-2') - dùng để lọc đúng instance kho ở các trang kho phía thành phẩm. */
   warehouseCode: string | null;
+  /** Loại dây (mã SHT)/loại nệm Sales đã chọn, chốt lúc duyệt - null khi SKU không có lựa chọn. */
+  wireMaterial?: MaterialChoice | null;
+  cushionMaterial?: MaterialChoice | null;
   /** true nếu định mức (BOM) của sản phẩm đã được sửa/duyệt lại SAU KHI lệnh này được tạo -
    *  ProductionOrder.bomRevisionId ghim tại thời điểm duyệt, không tự đồng bộ theo bản mới (xem
    *  changelog 2026-09-11-bom-revision-ghim-cu-canh-bao.md). Vật tư mới khai ở bản BOM mới sẽ
@@ -255,6 +258,8 @@ export function expandSkusByProductionOrder(skus: Sku[], orders: BeProductionOrd
       productionInvoiceItemId: o.productionInvoiceItemId,
       productionOrderId: o.id,
       piCode: o.piCode,
+      wireMaterial: o.wireMaterial ?? null,
+      cushionMaterial: o.cushionMaterial ?? null,
     });
   }
   return rows;

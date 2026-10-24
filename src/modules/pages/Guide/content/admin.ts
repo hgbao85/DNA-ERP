@@ -270,6 +270,7 @@ export const adminGroup: GuideGroup = {
       warnings: [
         'Hành động ghi đè không có bước "từ chối" để lùi lại như luồng duyệt thường — sửa sai thì phải vào sửa lại lần nữa.',
         'SKU chưa từng duyệt (đang "Có thể nhập", "Chờ duyệt" hoặc "Bị từ chối") thì màn này hoạt động y hệt tài khoản Chuyên viên định mức, không có gì khác biệt.',
+        'Với SKU có tick màu dây/màu nệm: không gỡ được tick của một màu đang nằm trên dòng đơn chưa giao hết — hệ thống chặn (409) và nêu mã vật tư cùng mã đơn đang dùng. Chờ các đơn đó giao xong rồi mới gỡ.',
       ],
       tags: ['ghi đè định mức', 'sửa định mức sku', 'sku đã duyệt'],
       sourceRefs: ['src/modules/pages/Admin/SkuQuotaAdminPage.tsx'],

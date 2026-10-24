@@ -1,3 +1,5 @@
+import type { MaterialChoice } from './sku';
+
 export interface SalesCustomer {
   id: number;
   name: string;
@@ -19,6 +21,9 @@ export interface SalesOrderItem {
   shippedQty: number;
   status: SalesOrderStatus;
   deliveryDate: string;
+  /** Loại dây (mã SHT) / loại nệm Sales đã chọn cho dòng này - null khi SKU không có lựa chọn. */
+  wireMaterial?: MaterialChoice | null;
+  cushionMaterial?: MaterialChoice | null;
 }
 
 export interface SalesOrder {

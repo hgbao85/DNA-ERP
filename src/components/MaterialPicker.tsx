@@ -8,6 +8,8 @@ export interface PickedMaterial {
   name: string
   unit: string
   spec: string | null
+  /** Phân loại của vật tư (PAINT/ACCESSORY/CUSHION/PACKAGING) - null nếu chưa gán. */
+  detailKind?: string | null
 }
 
 /**
@@ -32,26 +34,29 @@ export interface PickedMaterial {
  * SpecSteelPage.tsx. Bỏ trống cho các picker không phải Sắt.
  */
 export default function MaterialPicker({
-  value, onSelect, materialGroupId, detailKind, steelSubGroup, placeholder = 'Chọn vật tư…',
+  value, onSelect, materialGroupId, detailKind, steelSubGroup, placeholder = 'Chọn vật tư…', hideCodeInValue = false,
 }: {
   value: PickedMaterial | null
   onSelect: (m: PickedMaterial | null) => void
   materialGroupId: number | undefined
-  detailKind?: 'PAINT' | 'ACCESSORY' | 'PACKAGING'
+  /** Một phân loại, hoặc nhiều (vd tab Phụ kiện nhận cả "Phụ kiện" lẫn "Nệm"). */
+  detailKind?: 'PAINT' | 'ACCESSORY' | 'CUSHION' | 'PACKAGING' | Array<'PAINT' | 'ACCESSORY' | 'CUSHION' | 'PACKAGING'>
   steelSubGroup?: 'SOFTWARE' | 'SELF_CALC' | 'FINISHED_COMPONENT'
   placeholder?: string
+  /** true = ô hiển thị vật tư ĐÃ CHỌN chỉ ghi tên (không ghi mã). Danh sách thả xuống vẫn kèm mã để phân biệt các vật tư trùng tên và tìm theo mã. */
+  hideCodeInValue?: boolean
 }) {
   const { data } = useFetch(() => api.getMaterials(), [])
   const options = materialGroupId == null ? [] : (data ?? []).filter((m) =>
     m.materialGroupId === materialGroupId
-    && (detailKind == null || m.detailKind === detailKind)
+    && (detailKind == null || (m.detailKind != null && [detailKind].flat().includes(m.detailKind)))
     && (steelSubGroup == null || m.steelSubGroup === steelSubGroup
         || (steelSubGroup === 'SOFTWARE' && m.steelSubGroup == null))
   )
 
   return (
     <SearchableSelect
-      displayValue={value ? `${value.code} — ${value.name}` : ''}
+      displayValue={value ? (hideCodeInValue ? value.name : `${value.code} — ${value.name}`) : ''}
       options={options}
       getKey={(m) => String(m.id)}
       getSearchText={(m) => `${m.code} ${m.name}`}
@@ -60,7 +65,7 @@ export default function MaterialPicker({
           <strong>{m.code}</strong> <span style={{ color: 'var(--text3)' }}>— {m.name} ({m.unit}){m.spec ? ` · ${m.spec}` : ''}</span>
         </span>
       )}
-      onSelect={(m) => onSelect({ id: m.id, code: m.code, name: m.name, unit: m.unit, spec: m.spec })}
+      onSelect={(m) => onSelect({ id: m.id, code: m.code, name: m.name, unit: m.unit, spec: m.spec, detailKind: m.detailKind })}
       placeholder={placeholder}
       emptyText={
         materialGroupId == null

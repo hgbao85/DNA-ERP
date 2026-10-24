@@ -6,6 +6,7 @@
 import { http } from './core/http'
 import type { BePhoiProgressItem } from './steel-issues-api'
 import type { BeProductionBatchPlan } from './production-batches-api'
+import type { MaterialChoice } from '../types/sku'
 
 export type FloorStage = 'PHOI' | 'HAN' | 'SON'
 export type WorkstationKind = 'CUT' | 'STEP' | 'PIECE' | 'STEEL_RECEIVE'
@@ -270,7 +271,7 @@ export interface BeStageDetail {
   piCode: string
   stage: FloorStage
   progress: BeFloorProgress
-  orders: { productionOrderId: string; poNumber: string; productName: string }[]
+  orders: { productionOrderId: string; poNumber: string; productName: string; wireMaterial?: MaterialChoice | null; cushionMaterial?: MaterialChoice | null }[]
   /** Chỉ tổ Phôi (null với Hàn/Sơn). */
   phoi: BePhoiProgressItem[] | null
   /** batch-plan của tổ theo từng SKU (khoá = productionOrderId). */

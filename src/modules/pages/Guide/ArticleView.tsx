@@ -290,6 +290,23 @@ export default function ArticleView({ article, group, prev, next, onNavigate, sc
               <ScreenMock mock={article.mock} />
             ) : null}
 
+            {article.extraScreenshots?.map((shot) => (
+              <figure key={shot.src} style={{ margin: '18px 0 8px' }}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={shot.src}
+                  alt={shot.caption}
+                  style={{
+                    display: 'block', width: '100%', height: 'auto', aspectRatio: '1440 / 900',
+                    background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)',
+                  }}
+                />
+                <figcaption style={{ marginTop: 8, fontSize: 12.5, color: 'var(--text3)', textAlign: 'center' }}>
+                  {shot.caption}
+                </figcaption>
+              </figure>
+            ))}
+
             {article.highlight && (
               <div style={{
                 margin: '26px 0 0', padding: '16px 20px', borderRadius: 'var(--radius-lg)',

@@ -113,7 +113,7 @@ export { getMfgProducts, createMfgProduct, findMfgProductByCode } from './produc
 export { getSalesOrders, createSalesOrder, updateSalesOrder, shipSalesOrderItem, deleteSalesOrder } from './sales-orders-api';
 export {
   getSkus, getSku, getSkuOptions, createSku, deleteSkus, updateSku,
-  updateSkuManhQuota, updateSkuDetailQuota, reviewSkuManhQuota, reviewSkuDetailQuota,
+  updateSkuManhQuota, updateSkuDetailQuota, getSkuOrderOptions, reviewSkuManhQuota, reviewSkuDetailQuota,
   saveSkuManhDraft, clearSkuManhDraft, saveSkuDetailDraft, clearSkuDetailDraft,
   approvePartsSku, approveDetailSku, rejectSkuByBoss, approveFullSku,
 } from './sku-api';

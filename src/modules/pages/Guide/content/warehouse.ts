@@ -288,12 +288,16 @@ export const warehouseGroup: GuideGroup = {
         buttons: ['Xuất'],
       },
       screenshot: '/guide-screens/wh-phan-phoi-noi-bo-khac.png',
+      extraScreenshots: [{ src: '/guide-screens/wh-phan-phoi-noi-bo-khac-ds.png', caption: 'Xuất vật tư TP, chế độ "Theo mảnh": hai dòng cùng SKU khác màu dây/màu nệm phân biệt bằng nhãn cạnh mã SKU. Số liệu trong ảnh là dữ liệu mẫu.' }],
       steps: [
         'Chọn PO/SKU cần xuất, xem bảng Cần / Đã xuất / Còn phải xuất.',
         { text: 'Nhập số lượng xuất (không vượt "Còn phải xuất"), bấm "Xuất".', critical: false },
         'Riêng "Xuất vật tư TP" có 2 chế độ: "Theo mảnh" (ví dụ sắt la cắt pat — chọn theo PO/SKU như trên) và "Không gắn mảnh (chân nhôm)" — chọn theo PI, bảng hiện Vật tư ra / Vật tư vào / Cần SX thêm / Cần nguyên liệu / Đã xuất, bấm "Xuất" để cấp nguyên liệu vào (ví dụ thanh nhôm).',
       ],
       result: 'Tồn kho vật tư giảm ngay. Vật tư TP: Tổ Phôi xác nhận nhận ở "Xác nhận nhận sắt"; vật tư hàn/sơn: Tổ Hàn/Sơn xác nhận nhận ở "Xác nhận sản lượng".',
+      warnings: [
+        'Mỗi LỆNH sản xuất một dòng. Hai dòng cùng một SKU nhưng khác màu dây/màu nệm hiện thành hai dòng riêng, kèm nhãn màu cạnh mã SKU — chọn đúng dòng.',
+      ],
       commonErrors: [
         { issue: '"Vật tư ... chưa được gán kho (Material.warehouseId) - báo Admin cấu hình trước khi xuất"', cause: 'Admin chưa gán vật tư này vào kho nào.', fix: 'Liên hệ Admin cấu hình kho cho vật tư.' },
         { issue: '"Số lượng xuất ... vượt quá số lượng còn có thể xuất ..."', cause: 'Vượt định mức cho phép.', fix: 'Kiểm tra lại định mức và số đã xuất.' },
@@ -317,6 +321,7 @@ export const warehouseGroup: GuideGroup = {
         buttons: ['Xuất đan'],
       },
       screenshot: '/guide-screens/wh-xuat-dan.png',
+      extraScreenshots: [{ src: '/guide-screens/wh-xuat-dan-ds.png', caption: 'Màn danh sách: mỗi lệnh một dòng, hai dòng cùng SKU khác màu dây/màu nệm phân biệt bằng nhãn cạnh mã SKU. Số liệu trong ảnh là dữ liệu mẫu.' }],
       steps: [
         'Chọn mảnh cần gửi đan, xem Cần / Đã xuất / Còn phải xuất / Có thể xuất (số thực đã nhận về kho).',
         'Chọn Điểm đan (bắt buộc).',
@@ -324,8 +329,13 @@ export const warehouseGroup: GuideGroup = {
         { text: 'Bấm "Xuất đan".', critical: false },
       ],
       result: 'Ghi nhận đã gửi bao nhiêu mảnh cho điểm đan nào; vật tư mang kèm bị trừ tồn kho ngay. Bản thân mảnh KHÔNG bị trừ tồn kho (chỉ tạm "đi vắng" để gia công).',
-      warnings: ['Bắt buộc điền đủ số lượng cho mọi vật tư mang kèm trước khi xuất được — không được bỏ trống dòng nào.'],
+      warnings: [
+        'Bắt buộc điền đủ số lượng cho mọi vật tư mang kèm trước khi xuất được — không được bỏ trống dòng nào.',
+        'Mỗi LỆNH sản xuất một dòng. Hai dòng cùng một SKU nhưng khác màu dây/màu nệm hiện thành hai dòng riêng, kèm nhãn màu (ví dụ "Dây nâu SHT08 · Nệm màu be") cạnh mã SKU — chọn đúng dòng.',
+        'Vật tư mang kèm chỉ gồm dây đúng màu đã chọn cho lệnh đó; các màu dây khác của cùng SKU không hiện ở đây.',
+      ],
       commonErrors: [
+        { issue: '"Vật tư ... không thuộc màu dây/nệm đã chọn cho lệnh sản xuất này - không thể mang kèm"', cause: 'Phiếu xuất đan mang kèm một dây khác màu đã chọn cho lệnh (ví dụ màn hình chưa tải lại sau khi định mức đổi).', fix: 'Tải lại trang, chỉ nhập số lượng cho đúng các dây hiện sẵn trong kế hoạch của lệnh.' },
         { issue: '"Vượt số mảnh thực tế đã nhận từ kho phôi-sơn-hàn (chỉ còn ... có thể xuất)"', cause: 'Số muốn gửi đan vượt số mảnh thực đã về kho Vật tư thành phẩm.', fix: 'Kiểm tra lại số đã nhận thực tế trước khi gửi đan.' },
         { issue: '"Điểm đan ... đã ngừng hoạt động - không thể xuất đan mới cho điểm này"', cause: 'Điểm đan đã bị vô hiệu hoá.', fix: 'Chọn điểm đan khác đang hoạt động.' },
         { issue: '"Số lượng xuất đan ... vượt quá số lượng còn có thể xuất cho mảnh ..."', cause: 'Vượt định mức đan cho phép.', fix: 'Kiểm tra lại định mức đan của mảnh.' },
@@ -367,6 +377,7 @@ export const warehouseGroup: GuideGroup = {
         buttons: ['Nhận'],
       },
       screenshot: '/guide-screens/wh-nhap-dan.png',
+      extraScreenshots: [{ src: '/guide-screens/wh-nhap-dan-ds.png', caption: 'Màn danh sách: hai dòng cùng SKU khác màu dây/màu nệm phân biệt bằng nhãn cạnh mã SKU. Số liệu trong ảnh là dữ liệu mẫu.' }],
       steps: [
         'Chọn dòng (mảnh, điểm đan) cần nhận — xem Đã xuất / Đã nhận / Còn phải nhận.',
         { text: 'Nhập số lượng nhận về, bấm "Nhận" — xác nhận "Tồn kho thành phẩm sẽ được cộng ngay".', critical: false },
@@ -375,6 +386,7 @@ export const warehouseGroup: GuideGroup = {
       warnings: [
         'Đây chỉ là bước ĐỐI CHIẾU số liệu với điểm đan (đã gửi bao nhiêu / đã nhận lại bao nhiêu), không phải nhập kho thành phẩm thật sự trên sổ sách — mảnh vẫn được tính thuộc kho Vật tư thành phẩm cho tới khi Xuất vật tư đóng gói.',
         'Kiểm đếm hàng đan diễn ra hoàn toàn bằng tay ngoài phần mềm; hệ thống chỉ ghi nhận số bạn nhập.',
+        'Hai dòng cùng một SKU nhưng khác màu dây/màu nệm hiện thành hai dòng riêng, kèm nhãn màu cạnh mã SKU — chọn đúng dòng.',
       ],
       commonErrors: [
         { issue: '"Số lượng nhập đan ... vượt quá số lượng điểm đan ... còn giữ cho mảnh ..."', cause: 'Số nhận vượt số điểm đan đó đang thực giữ (đã xuất trừ đã nhận trước đó).', fix: 'Đối chiếu lại sổ sách xuất đan trước khi nhập.' },
@@ -395,6 +407,7 @@ export const warehouseGroup: GuideGroup = {
         buttons: ['Kiểm'],
       },
       screenshot: '/guide-screens/wh-chuyen-kiem.png',
+      extraScreenshots: [{ src: '/guide-screens/wh-chuyen-kiem-ds.png', caption: 'Màn danh sách: hai dòng cùng SKU khác màu dây/màu nệm phân biệt bằng nhãn cạnh mã SKU. Số liệu trong ảnh là dữ liệu mẫu.' }],
       steps: [
         'Xem bảng: Tổng cần / Hiện có / Đã kiểm / Lỗi cho từng mảnh.',
         { text: 'Bấm "Kiểm" (mờ nếu Đã kiểm ≥ Hiện có) → nhập Số lượng đã kiểm (không vượt phần còn lại có thể kiểm).', critical: false },
@@ -405,6 +418,7 @@ export const warehouseGroup: GuideGroup = {
       warnings: [
         'Số kiểm tối đa còn lại = Hiện có − Đã kiểm, và không được vượt Tổng cần − Đã kiểm — nhập vượt sẽ bị chặn cả trên giao diện lẫn khi gửi lên máy chủ.',
         'Việc chặn vượt ở máy chủ là kiểu "đọc rồi mới ghi" chứ không khoá cứng — 2 người kiểm cùng một mảnh cùng lúc có thể vượt vài đơn vị trong trường hợp hiếm.',
+        'Hai dòng cùng một SKU nhưng khác màu dây/màu nệm hiện thành hai dòng riêng, kèm nhãn màu cạnh mã SKU — chọn đúng dòng để kiểm.',
       ],
       commonErrors: [
         { issue: '"Vượt quá số lượng còn lại có thể kiểm"', cause: 'Nhập số kiểm vượt phần Hiện có − Đã kiểm.', fix: 'Kiểm tra lại số liệu, nhập không vượt phần còn lại.' },
@@ -425,6 +439,7 @@ export const warehouseGroup: GuideGroup = {
         buttons: ['Đóng gói'],
       },
       screenshot: '/guide-screens/wh-dong-goi.png',
+      extraScreenshots: [{ src: '/guide-screens/wh-dong-goi-ds.png', caption: 'Màn danh sách: hai dòng cùng SKU khác màu dây/màu nệm phân biệt bằng nhãn cạnh mã SKU. Số liệu trong ảnh là dữ liệu mẫu.' }],
       steps: [
         'Xem Tổng thùng / Đã đóng gói / Còn lại cho từng sản phẩm.',
         { text: 'Bấm "Đóng gói", nhập Số thùng đã đóng, bấm "Xác nhận".', critical: false },
@@ -433,6 +448,7 @@ export const warehouseGroup: GuideGroup = {
       warnings: [
         'Không bắt buộc phải chờ Chuyền kiểm xong hết mới được đếm thùng — đây là lựa chọn có chủ đích, không phải thiếu sót.',
         'Đừng nhầm màn này với nút "Xác nhận" ở "Xuất theo đơn hàng > Xuất vật tư đóng gói" — đó mới là bước thật sự ghi hàng "về" kho thành phẩm trên sổ sách.',
+        'Hai dòng cùng một SKU nhưng khác màu dây/màu nệm hiện thành hai dòng riêng, kèm nhãn màu cạnh mã SKU — chọn đúng dòng để ghi số thùng.',
       ],
       commonErrors: [
         { issue: '"Vượt quá số lượng còn lại cần đóng gói"', cause: 'Số thùng nhập vượt phần còn lại của lệnh sản xuất.', fix: 'Kiểm tra lại số đã đóng trước đó.' },

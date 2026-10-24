@@ -36,7 +36,7 @@ interface MaterialRow {
   spec: string | null
   materialGroupId: number | null
   /** Sơn/Phụ kiện/Bao bì - BE bắt buộc với nhóm "Vật tư khác", PHẢI mang theo khi sao chép. */
-  detailKind: 'PAINT' | 'ACCESSORY' | 'PACKAGING' | null
+  detailKind: 'PAINT' | 'ACCESSORY' | 'CUSHION' | 'PACKAGING' | null
   warehouseId: string | null
   warehouseCode: string | null
 }
@@ -62,6 +62,8 @@ interface QuantRow {
   /** Chiều dài cây (mm) với sắt bán theo chiều dài, 0 cho loại khác - cùng mã sắt khác chiều dài
    *  là 2 lô tồn RIÊNG (unique index warehouseId+materialId+stockLengthMm). */
   stockLengthMm: number
+  /** Quy cách (nệm), '' = không quy cách - cùng vật tư khác quy cách là các dòng tồn RIÊNG. */
+  spec?: string
   qty: number
   /** Vấn đề #13 audit 26/08 - tồn còn dùng được (đã trừ phần giữ chỗ cắt sắt/chuyển kho), BE tính
    *  sẵn qua getAvailableQty() dùng chung với màn Xuất sắt - xem stock-api.ts. */
@@ -80,6 +82,9 @@ export interface StockItem {
    *  chiều dài vật lý thật. >0 = chiều dài cây thật (mm). 1 vật tư Sắt có thể sinh NHIỀU StockItem
    *  (1 dòng/bucket) khi tồn ở nhiều chiều dài khác nhau cùng lúc - xem itemsOf(). */
   stockLengthMm: number | null
+  /** Quy cách của bucket tồn này (nệm), '' / bỏ trống = không quy cách. Cùng vật tư khác quy cách sinh các StockItem
+   *  RIÊNG (như bucket chiều dài) - khác `spec` (quy cách ghi ở danh mục vật tư). */
+  bucketSpec?: string
   qty: number
   /** Xem QuantRow.availableQty - mặc định === qty nếu vật tư này không có dòng stock_quant nào
    *  (chưa từng phát sinh giao dịch, tồn = 0 = khả dụng). */
@@ -185,7 +190,7 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
         result.push({ ...base, stockLengthMm: null, qty: 0, availableQty: 0 })
       } else {
         for (const r of buckets) {
-          result.push({ ...base, stockLengthMm: r.stockLengthMm || null, qty: r.qty, availableQty: r.availableQty })
+          result.push({ ...base, stockLengthMm: r.stockLengthMm || null, bucketSpec: r.spec ?? '', qty: r.qty, availableQty: r.availableQty })
         }
       }
     }
@@ -482,7 +487,7 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
     !search || it.name.toLowerCase().includes(search.toLowerCase()) || it.code.toLowerCase().includes(search.toLowerCase()),
   )
 
-  const rowKey = (it: StockItem) => `${it.materialId}:${it.stockLengthMm ?? 'none'}`
+  const rowKey = (it: StockItem) => `${it.materialId}:${it.stockLengthMm ?? 'none'}:${it.bucketSpec ?? ''}`
 
   const startEdit = (it: StockItem) => {
     setEditingKey(rowKey(it))
@@ -520,6 +525,8 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
         // (chưa từng phát sinh hoặc vật tư không bán theo chiều dài) -> bỏ trống, BE ghi vào
         // bucket chung (0) - đúng hành vi cũ.
         stockLengthMm: it.stockLengthMm ?? undefined,
+        // Dòng tồn đã tách theo quy cách (nệm) -> sửa ĐÚNG bucket quy cách đó ('' = bucket không quy cách).
+        spec: it.bucketSpec ?? '',
         note: reason,
         expectedWarehouseId: String(wh.id),
         expectedCurrentQty: it.qty,
@@ -624,7 +631,7 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
             <div key={rowKey(it)} className="card" style={{ padding: '11px 13px' }}>
               <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>{it.name}</div>
               <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2, wordBreak: 'break-word' }}>
-                {[it.code, it.groupName !== '—' ? it.groupName : null, it.spec, showLengthColumn && it.stockLengthMm ? `${it.stockLengthMm.toLocaleString('vi-VN')} mm` : null].filter(Boolean).join(' · ')}
+                {[it.code, it.groupName !== '—' ? it.groupName : null, it.bucketSpec || it.spec, showLengthColumn && it.stockLengthMm ? `${it.stockLengthMm.toLocaleString('vi-VN')} mm` : null].filter(Boolean).join(' · ')}
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'baseline', gap: 16, marginTop: 8, fontSize: 13 }}>
                 <span><span style={{ color: 'var(--text3)', fontSize: 11 }}>Tồn </span><b style={{ color: it.qty <= 0 ? 'var(--fg-c62828)' : 'var(--text)' }}>{qtyCell(it)}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{it.unit}</span></span>
@@ -662,7 +669,7 @@ function WarehouseDetail({ wh, items, canWrite, isDeletable, openingBalanceWareh
                   <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{it.code}</td>
                   <td style={{ ...td, fontWeight: 500 }}>{it.name}</td>
                   <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{it.groupName}</td>
-                  <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{it.spec || '—'}</td>
+                  <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>{it.bucketSpec || it.spec || '—'}</td>
                   <td style={td}>{it.unit}</td>
                   {showLengthColumn && (
                     <td style={{ ...td, color: 'var(--text3)', fontSize: 12 }}>

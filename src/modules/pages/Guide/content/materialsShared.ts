@@ -76,7 +76,7 @@ const bangVatTu: GuideArticle = {
         ['Quy cách', 'Kích thước hoặc chủng loại.', 'VD 4x20, 10x29x0.8, Ø25. Cùng tên khác quy cách là hai vật tư khác nhau.'],
         ['Đơn vị', 'Đơn vị KHO dùng để đếm tồn và xuất cho sản xuất — vật tư chỉ có đúng một đơn vị này.', 'Cái, con, kg, cuộn, tấm, cây...'],
         ['Nhóm vật tư', 'Vật tư hiện ở ô chọn nào khi nhập định mức.', 'Sắt, Dây, Đinh, Tán rút, Nút nhựa, Vật tư khác.'],
-        ['Phân loại', 'Chỉ có với nhóm "Vật tư khác".', 'Sơn / Phụ kiện / Bao bì.'],
+        ['Phân loại', 'Chỉ có với nhóm "Vật tư khác".', 'Sơn / Phụ kiện / Nệm / Bao bì.'],
         ['Nhóm con Sắt', 'Chỉ có với nhóm "Sắt".', 'Phần mềm / Tự tính / Vật tư thành phẩm.'],
         ['Kho', 'Kho đang giữ vật tư này.', 'Dấu "—" = chưa gán kho.'],
         ['Tồn kho', 'Số đang có thật trong kho ở cột "Kho".', 'Số đỏ = bằng 0 hoặc âm.'],
@@ -127,9 +127,9 @@ const themVatTu: GuideArticle = {
         ['Mã vật tư', 'Không — nên để trống', 'Để trống thì hệ thống tự sinh mã theo nhóm, lấy số lớn nhất đã dùng cộng 1. Chỉ tự gõ khi công ty đã có sẵn mã riêng.', 'Nhóm Sắt đã có tới SAT-015 → mã mới là SAT-016'],
         ['Tên vật tư', 'Có', 'Tên gọi. Form không đánh dấu sao nhưng thiếu là không lưu được.', 'Vis 7 màu'],
         ['Đơn vị tính', 'Có', 'Đơn vị KHO đếm và xuất cho sản xuất. Chọn đơn vị nhỏ nhất mà xưởng thật sự đếm.', 'cái, con, kg, cuộn, tấm, cây'],
-        ['Quy cách', 'Không', 'Kích thước hoặc chủng loại, gõ tự do. Nên điền để phân biệt các vật tư trùng tên.', '10x29x0.8 · 4x20 · Ø25'],
+        ['Quy cách', 'Không', 'Kích thước hoặc chủng loại, gõ tự do. Nên điền để phân biệt các vật tư trùng tên. Ô này ẩn khi Phân loại là "Nệm": kích thước nệm khác nhau theo từng sản phẩm nên được nhập ở Định mức chi tiết.', '10x29x0.8 · 4x20 · Ø25'],
         ['Nhóm vật tư', 'Không, nhưng đừng bỏ trống', 'Vật tư không có nhóm sẽ không hiện ở bất kỳ ô chọn nào khi nhập định mức.', 'Sắt, Dây, Vật tư khác'],
-        ['Phân loại', 'Có, khi nhóm là "Vật tư khác"', 'Ô chỉ hiện sau khi chọn nhóm "Vật tư khác".', 'Sơn / Phụ kiện / Bao bì'],
+        ['Phân loại', 'Có, khi nhóm là "Vật tư khác"', 'Ô chỉ hiện sau khi chọn nhóm "Vật tư khác". Nệm (mỗi màu là một vật tư) phải chọn "Nệm", không để là "Phụ kiện".', 'Sơn / Phụ kiện / Nệm / Bao bì'],
         ['Nhóm con Sắt', 'Có, khi nhóm là "Sắt"', 'Ô chỉ hiện sau khi chọn nhóm "Sắt".', 'Phần mềm / Tự tính / Vật tư thành phẩm'],
         ['Kho', 'Không, nhưng nên chọn', 'Kho sẽ giữ vật tư này. Chỉ liệt kê kho thật, không có kho ảo dùng cho sổ sách.', 'Kho Phôi Sơn Hàn'],
         ['Tồn kho ban đầu', 'Không', 'Chỉ hiện sau khi đã chọn Kho, và chỉ có lúc tạo mới. Điền số đang có sẵn ngoài thực tế; để trống nếu chưa có. Được ghi vào lịch sử kho như một lần nhập "tồn ban đầu".', '120'],
@@ -158,7 +158,7 @@ const themVatTu: GuideArticle = {
   ],
   commonErrors: [
     { issue: '"Thiếu Tên vật tư / Đơn vị tính - đây là 2 trường bắt buộc ở DB, không thể để trống"', cause: 'Bỏ trống Tên vật tư hoặc Đơn vị tính.', fix: 'Điền cả hai rồi bấm Lưu lại.' },
-    { issue: '"Bắt buộc" hiện dưới ô Phân loại hoặc Nhóm con Sắt', cause: 'Đã chọn nhóm "Vật tư khác" hoặc "Sắt" nhưng chưa chọn ô phụ đi kèm.', fix: 'Chọn Phân loại (Sơn/Phụ kiện/Bao bì) hoặc Nhóm con Sắt (Phần mềm/Tự tính/Vật tư thành phẩm).' },
+    { issue: '"Bắt buộc" hiện dưới ô Phân loại hoặc Nhóm con Sắt', cause: 'Đã chọn nhóm "Vật tư khác" hoặc "Sắt" nhưng chưa chọn ô phụ đi kèm.', fix: 'Chọn Phân loại (Sơn/Phụ kiện/Nệm/Bao bì) hoặc Nhóm con Sắt (Phần mềm/Tự tính/Vật tư thành phẩm).' },
     { issue: '"Material ... already exists"', cause: 'Mã tự gõ trùng với một vật tư đã có.', fix: 'Xoá trắng ô Mã vật tư để hệ thống tự sinh, hoặc gõ mã khác.' },
     { issue: 'Không thấy ô "Tồn kho ban đầu"', cause: 'Chưa chọn Kho, hoặc đang SỬA vật tư có sẵn (ô này chỉ có lúc tạo mới).', fix: 'Chọn Kho trước. Với vật tư đã có, nhờ Admin sửa tồn ở Quản lý kho.' },
     { issue: '"Chưa tải được danh sách Nhóm vật tư - thử lại"', cause: 'Bấm Lưu khi danh sách nhóm chưa tải xong (hệ thống chặn để không xoá nhầm các ô phụ thuộc nhóm).', fix: 'Chờ vài giây hoặc tải lại trang rồi lưu lại.' },
@@ -184,7 +184,7 @@ const nhomPhanLoai: GuideArticle = {
       intro: 'Sáu nhóm hệ thống. Nhóm quyết định ai khai định mức cho vật tư và khai ở tab nào.',
       columns: ['Nhóm', 'Dùng cho', 'Ai khai định mức', 'Ô phụ phải chọn thêm'],
       rows: [
-        ['Dây', 'Dây đan gắn theo từng MẢNH của sản phẩm.', 'Chuyên viên định mức mảnh, tab Dây', '—'],
+        ['Dây', 'Dây đan gắn theo từng MẢNH của sản phẩm. Mỗi màu/mã dây (ví dụ SHT08) là một vật tư riêng — nên thêm ảnh mẫu ở ô Ảnh vật tư để chuyên viên và Sales dễ chọn.', 'Chuyên viên định mức mảnh, tab Dây (và tick các màu cho Sales chọn)', '—'],
         ['Đinh', 'Đinh gắn theo từng mảnh.', 'Chuyên viên định mức mảnh, tab Đinh', '—'],
         ['Tán rút', 'Tán rút gắn theo từng mảnh.', 'Chuyên viên định mức mảnh, tab Tán rút', '—'],
         ['Nút nhựa', 'Nút nhựa gắn theo từng mảnh.', 'Chuyên viên định mức mảnh, tab Nút nhựa', '—'],
@@ -199,6 +199,7 @@ const nhomPhanLoai: GuideArticle = {
       rows: [
         ['Sơn', 'Bột sơn, sơn dặm...', 'Tab Sơn của định mức chi tiết.'],
         ['Phụ kiện', 'Vít, bu lông, long đền, nhãn, tem, gói hút ẩm...', 'Tab Phụ kiện của định mức chi tiết.'],
+        ['Nệm', 'Các màu nệm, mỗi màu một vật tư (ví dụ "Nệm màu be"). Chưa có quy cách ở danh mục — mỗi SKU tự nhập.', 'Tab Phụ kiện của định mức chi tiết, và hộp "Chọn các màu nệm" để Sales chọn màu nệm cho từng dòng đơn.'],
         ['Bao bì', 'Thùng, bao nylon, màng PE, xốp...', 'Tab Bao bì, và là thứ Thủ kho xuất ở bước "Xuất vật tư đóng gói".'],
       ],
     },
@@ -226,16 +227,16 @@ const nhomPhanLoai: GuideArticle = {
   steps: [],
   result: 'Vật tư hiện đúng tab khi bộ phận định mức chọn, và đi đúng luồng mua hàng / cắt sắt / đóng gói.',
   warnings: [
-    'Phân loại sai giữa Sơn / Phụ kiện / Bao bì: vật tư hiện nhầm tab ở định mức chi tiết. Riêng nhầm sang hoặc khỏi "Bao bì" còn làm sai bước xuất vật tư đóng gói của kho.',
+    'Phân loại sai giữa Sơn / Phụ kiện / Nệm / Bao bì: vật tư hiện nhầm tab ở định mức chi tiết. Riêng nhầm sang hoặc khỏi "Bao bì" còn làm sai bước xuất vật tư đóng gói của kho; nệm để nhầm là "Phụ kiện" thì không hiện trong hộp "Chọn các màu nệm" nên Sales không chọn được màu đó.',
     'Chọn nhầm Sắt "Phần mềm" cho thứ không phải sắt cây: vật tư sẽ bị đưa vào phần mềm cắt sắt và mất ô % hao hụt. Ngược lại, sắt cây mà chọn "Tự tính" thì không được tối ưu cắt.',
     'Vật tư đã nằm trong định mức của sản phẩm thì hạn chế đổi nhóm — định mức cũ vẫn trỏ tới vật tư này dưới nhóm cũ.',
   ],
   commonErrors: [
-    { issue: '"Vật tư thuộc nhóm "Vật tư khác" phải chọn Phân loại (Sơn/Phụ kiện/Bao bì)"', cause: 'Nhóm là "Vật tư khác" nhưng chưa có Phân loại.', fix: 'Chọn một trong ba Phân loại.' },
+    { issue: '"Vật tư thuộc nhóm "Vật tư khác" phải chọn Phân loại (Sơn/Phụ kiện/Nệm/Bao bì)"', cause: 'Nhóm là "Vật tư khác" nhưng chưa có Phân loại.', fix: 'Chọn một trong bốn Phân loại.' },
     { issue: '"Vật tư thuộc nhóm "Sắt" phải chọn nhóm con (Phần mềm/Tự tính/Vật tư thành phẩm)"', cause: 'Nhóm là "Sắt" nhưng chưa có Nhóm con Sắt.', fix: 'Chọn một trong ba nhóm con.' },
     { issue: 'Chuyên viên định mức báo "không tìm thấy vật tư" dù đã thêm', cause: 'Vật tư chưa có Nhóm, hoặc sai Phân loại / Nhóm con nên đang nằm ở tab khác.', fix: 'Mở vật tư, kiểm tra ba ô nhóm theo bài này.' },
   ],
-  tags: ['nhóm vật tư', 'phân loại', 'nhóm con sắt', 'phần mềm', 'tự tính', 'vật tư thành phẩm', 'sơn', 'phụ kiện', 'bao bì'],
+  tags: ['nhóm vật tư', 'phân loại', 'nhóm con sắt', 'phần mềm', 'tự tính', 'vật tư thành phẩm', 'sơn', 'phụ kiện', 'bao bì', 'nệm', 'màu nệm', 'màu dây'],
   sourceRefs: ['src/modules/pages/Admin/masterData/MaterialsPage.tsx', 'DNA-ERP-BE/src/modules/materials/materials.service.ts'],
 };
 

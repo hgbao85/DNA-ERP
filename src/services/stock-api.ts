@@ -21,6 +21,9 @@ export interface BeStockQuant {
    *  phân biệt được, không được gộp/lấy 1 dòng đại diện (bug thật đã gặp, xem
    *  VatTuDashboardPage.tsx/MaterialsPage.tsx/MfgWarehousesPage.tsx). */
   stockLengthMm: number;
+  /** Quy cách (nệm), '' = không quy cách - cùng vật tư khác quy cách là các dòng tồn RIÊNG (unique index
+   *  kho+vật tư+độ dài+quy cách) nên cũng không được gộp/lấy 1 dòng đại diện. */
+  spec: string;
   qty: number;
   /** Vấn đề #13 audit 26/08 - tồn thật (qty) trừ phần đang bị giữ chỗ (cắt sắt/chuyển kho nội bộ
    *  ACTIVE), BE tính qua ĐÚNG hàm StockReservationsService.getAvailableQty() dùng chung với màn
@@ -77,6 +80,8 @@ export interface BeStockLedgerEntry {
   /** Chiều dài cây (mm) với sắt bán theo chiều dài, 0 cho loại khác - cùng mã sắt khác chiều dài là
    *  2 lô tồn RIÊNG nên sổ phải hiện ra mới đọc đúng. */
   stockLengthMm: number;
+  /** Quy cách của hàng (nệm), '' = không quy cách - nhập/xuất khác quy cách là các lô riêng. */
+  spec: string;
 }
 
 export async function getStockQuants(params?: { warehouseId?: string; materialId?: string; segmentSpecId?: string }): Promise<BeStockQuant[]> {
@@ -105,6 +110,9 @@ export async function adjustStock(input: {
    *  chỉ hiện 1 số tổng, vd Admin > Vật tư). Có giá trị = điều chỉnh ĐÚNG bucket đó (dùng khi UI đã
    *  tách hiển thị theo từng chiều dài, vd MfgWarehousesPage.tsx "Quản lý kho"). */
   stockLengthMm?: number;
+  /** Quy cách của bucket cần chỉnh (nệm). Bỏ trống = bucket "không quy cách"; kèm expectedCurrentQty thì BE chỉ
+   *  khoá/so đúng bucket này (UI đã tách hiển thị theo quy cách phải truyền). */
+  spec?: string;
   /** Vấn đề #25 audit 26/08 - bắt buộc (khớp BE), phải là lý do thật do người dùng gõ (xem
    *  AdjustReasonModal), không phải text mẫu cố định như trước. */
   note: string;

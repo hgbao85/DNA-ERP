@@ -40,8 +40,9 @@ const GROUP_LABELS: Record<Group, { tab: string; hint: string; maHeader: string;
   },
 }
 
-const GROUP_DETAIL_KIND: Record<Group, 'PAINT' | 'ACCESSORY' | 'PACKAGING'> = {
-  daySon: 'PAINT', vatTuPhuKien: 'ACCESSORY', baoBiDongGoi: 'PACKAGING',
+// Phụ kiện gồm cả phân loại "Nệm" (nệm vẫn là phụ kiện, chỉ có phân loại riêng để Sales chọn theo SKU).
+const GROUP_DETAIL_KIND: Record<Group, Array<'PAINT' | 'ACCESSORY' | 'CUSHION' | 'PACKAGING'>> = {
+  daySon: ['PAINT'], vatTuPhuKien: ['ACCESSORY', 'CUSHION'], baoBiDongGoi: ['PACKAGING'],
 }
 
 // Số lượng hiển thị ở bảng "Từ chối" — Sơn dùng field `kg`, Phụ kiện/Bao bì dùng `quantity`.
@@ -67,7 +68,7 @@ export default function SpecAccessoryCatalogPage() {
   const labels = GROUP_LABELS[group]
   const detailKind = GROUP_DETAIL_KIND[group]
   const catalog = materials.filter(m =>
-    otherGroupId != null && m.materialGroupId === otherGroupId && m.detailKind === detailKind
+    otherGroupId != null && m.materialGroupId === otherGroupId && m.detailKind != null && detailKind.includes(m.detailKind)
   )
 
   const rejectedGroups = skus

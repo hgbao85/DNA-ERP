@@ -12,6 +12,7 @@
  * `MfgStage.SON`=Sơn/painting thật để khỏi trùng nghĩa).
  */
 import { http } from './core/http';
+import type { MaterialChoice } from '../types/sku';
 
 /** FRAME_PHOI/FRAME_HAN/FRAME_SON (2026-09-09): mốc kế hoạch RIÊNG cho Phôi/Hàn/Sơn - xem
  *  LenhSXPage "Sửa thời hạn". Mỗi giá trị enum chỉ có 1 `deadline` như FRAME/WEAVING/PACKAGING
@@ -31,6 +32,9 @@ interface BeProductionInvoiceItem {
   productName: string;
   productVariantId: string | null;
   colorCode: string | null;
+  /** Loại dây (mã SHT)/loại nệm Sales chọn cho dòng này - null khi SKU không có lựa chọn. */
+  wireMaterial?: MaterialChoice | null;
+  cushionMaterial?: MaterialChoice | null;
   quantity: number;
   materialDeadline: string | null;
   deliveryDeadline: string | null;
@@ -104,6 +108,8 @@ function toItem(it: BeProductionInvoiceItem) {
     salesOrderId: it.salesOrderId ?? undefined,
     salesOrderCode: it.salesOrderCode ?? undefined,
     customerName: it.customerName ?? undefined,
+    wireMaterial: it.wireMaterial ?? null,
+    cushionMaterial: it.cushionMaterial ?? null,
     quantity: it.quantity,
     productVariant: {
       colorCode: it.colorCode,
