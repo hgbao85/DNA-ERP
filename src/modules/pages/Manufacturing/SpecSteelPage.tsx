@@ -108,12 +108,16 @@ const GROUP_BADGE_COLORS: Record<ManhChildGroup, { bg: string; fg: string }> = {
 const toManh = (r: ManhRow): Manh => ({
   id: r.id, tenManh: r.name, soLuong: r.qtyPerSku ?? '1',
   needsHan: r.needsHan ?? true, needsSon: r.needsSon ?? true,
-  children: r.children.map(c => ({
+  children: r.children.map((c, i) => ({
+    // id dòng chỉ là khoá React/thao tác trong form (BE không đọc lại) - đánh lại theo thứ tự trong mảnh vì
+    // id từ BE lấy từ 3 bảng khác nhau (PieceBom/PieceMaterialItem/PieceMaterialYield) nên Sắt và Dây có thể
+    // trùng id; setChildQty/sửa/xoá khớp theo id sẽ động nhầm cả 2 dòng. Các chỗ cấp id mới (nextId) luôn
+    // tính max SAU khi toManh chạy nên không đụng nhau.
     // KHÔNG Number(c.materialId): id BE là bigint-as-string, khai `number` chỉ để khớp interface
     // cũ (xem comment đầu materials-api.ts) - ép qua Number() biến "5" thành 5 thật, làm
     // startEditChild() không bao giờ khớp lại được với materials[].id (vẫn là chuỗi "5"), ô chọn
     // vật tư trống trơn và nút Lưu khoá cứng mỗi khi sửa dòng đã lưu. Giữ nguyên giá trị gốc.
-    id: c.id, group: c.group, materialId: (c.materialId ?? '') as unknown as number, loaiSatName: c.name,
+    id: i + 1, group: c.group, materialId: (c.materialId ?? '') as unknown as number, loaiSatName: c.name,
     specs: c.specs ?? '', cutLengthMm: c.length ?? '', soLuong: c.qty ?? '', note: c.note ?? '', unit: c.unit ?? '',
     processSteps: c.processSteps ?? [], piecesPerBar: c.piecesPerBar ?? '', photoUrl: c.photoUrl ?? '',
     photoFile: null, photoPreview: '', includeInWeaving: c.includeInWeaving ?? false,
@@ -685,8 +689,11 @@ export default function SpecSteelPage({ subTab }: {
   }
   // Mảnh chưa đan (chưa có Đinh/Dây) không được tự thêm dây lúc tick - nút này thêm tay các loại còn thiếu.
   const addTickedWiresTo = (manhId: number) => {
+    // Tính id ngay trên `manhs` hiện tại (như applyWireOptions), KHÔNG cấp id trong updater của setManhs:
+    // updater chạy trễ nên setNextId(id) bên dưới đọc id CHƯA tăng -> nextId không nhích, lần tick/thêm
+    // sau cấp lại đúng id đó -> 2 dòng dây cùng id, sửa SL dòng này thì dòng kia đổi theo.
     let id = nextId
-    setManhs(ms => ms.map(m => {
+    setManhs(manhs.map(m => {
       if (m.id !== manhId) return m
       const missing = missingTickedWires(m, wireOptions)
       return missing.length === 0 ? m : { ...m, children: [...m.children, ...missing.map(w => buildWireRow(w, id++))] }
