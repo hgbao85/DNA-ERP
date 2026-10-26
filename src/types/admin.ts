@@ -38,6 +38,10 @@ export interface AuditLogEntry {
   qcReviewId?: string;
 }
 
+/** Máy cắt của bộ giải "Đề xuất thanh sắt": 'laser' = MC Laser (cắt từng cây), 'tu_dong' = MC Tự động
+ *  (cắt theo bó nhiều cây một lần, phần lẻ cắt tay). Nhãn hiển thị: xem utils/cutMachine.ts. */
+export type SolverMachine = 'laser' | 'tu_dong';
+
 /** Cấu hình chung của công ty — hiện chỉ để Admin xem/sửa, chưa có nghiệp vụ nào đọc động. */
 export interface SystemConfig {
   companyName: string;
@@ -57,6 +61,25 @@ export interface SystemConfig {
   /** Mặc định toàn hệ thống: số giây solver được giải CHO MỖI LOẠI SẮT. Từng đợt cắt đề nghị riêng
    *  được ở "Tối ưu cắt sắt" (ô "Thời gian chạy tối đa") — không cần Sếp duyệt. */
   solverTimeLimitSeconds: number;
+  /** Máy cắt mặc định cho đợt cắt KHSX không chọn riêng ở "Tối ưu cắt sắt". Mặc định 'laser'. */
+  solverMachine: SolverMachine;
+  /** MC Tự động: bề dày lưỡi cắt (mm) mất đi sau mỗi nhát cắt. Mặc định 2,5. */
+  solverMctdBladeWidthMm: number;
+  /** MC Tự động: phần đầu cây cắt bỏ (tề đầu, mm) trước khi cắt đoạn đầu tiên. Mặc định 0. */
+  solverMctdTrimStartMm: number;
+  /** MC Tự động: các hệ số bó (số cây cắt một lần). Mặc định [14, 16, 18, 20]. */
+  solverBundleFactors: number[];
+  /** MC Tự động: tổng số cây được cắt tay (cắt từng cây, phần lẻ không đủ bó) cho mỗi loại sắt. Mặc định 5. */
+  solverMaxManualCuts: number;
+  /** MC Tự động: mỗi kiểu cắt có tối đa bao nhiêu cỡ đoạn. Mặc định 5. */
+  solverMaxSizesPerPattern: number;
+  /** KHUNG gộp (ngày) của lệnh gộp, số nguyên 1-365 (2026-10-24, Sếp chốt): LUẬT CỨNG - mốc cần sắt của các SKU gộp chung
+   *  phải nằm trong khung này TÍNH CẢ HAI ĐẦU, tức chênh nhau tối đa N-1 ngày (N=3: ngày 1 gộp được ngày 3, không gộp ngày 4;
+   *  N=1: chỉ cùng ngày). Xa hơn thì KHSX không gộp/tính/lưu mốc thời gian được; màn Tối ưu cắt sắt cũng gợi ý gộp theo khung này.
+   *  Mặc định 3 (trước là 7, và cho phép 0). */
+  solverMergeWindowDays: number;
+  /** Lệnh gộp (và một đợt tính phương án cắt) có tối đa chừng này SKU, số nguyên 1-50 (2026-10-24). Mặc định 2. */
+  solverMergeMaxSkus: number;
 }
 
 export type NotificationCategory = 'ANNOUNCEMENT' | 'ACTION_REQUIRED' | 'RESULT' | 'ALERT' | 'INFO';

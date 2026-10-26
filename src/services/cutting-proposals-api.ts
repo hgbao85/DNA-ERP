@@ -7,6 +7,7 @@
  * cắt vẫn chỉ làm qua API (POST /cutting-proposals/:id/approve), chưa có UI.
  */
 import { http, withIdempotencyKey } from './core/http';
+import type { SolverMachine } from '../types/admin';
 
 export type CuttingProposalStatus = 'CALCULATING' | 'DRAFT' | 'FAILED' | 'APPROVED' | 'SUPERSEDED';
 
@@ -22,12 +23,27 @@ export interface CuttingProposalSegment {
   countPerBar: number;
 }
 
+/** Cách cắt theo bó của MỘT kiểu cắt (MC Tự động): khoá là hệ số bó ("14","16","18","20") -> số bó;
+ *  khoá "1" -> số CÂY cắt tay. Σ (hệ số × số bó) = barCount của kiểu cắt. */
+export type PatternBundles = Record<string, number>;
+
+/** Tóm tắt theo bó của cả một loại sắt (MC Tự động) - "x bó + y cây cắt tay = z lần cắt". */
+export interface CuttingBundleSummary {
+  factors: number[];
+  totalBundles: number;
+  manualBars: number;
+  totalCuts: number;
+  maxSizesPerPattern: number;
+}
+
 export interface CuttingProposalPattern {
   id: string;
   patternIndex: number;
   barCount: number;
   wastePerBarMm: number | null;
   segments: CuttingProposalSegment[];
+  /** Có khi tính bằng MC Tự động; null/thiếu = cắt từng cây (MC Laser) hoặc phương án cũ -> hiện như cũ. */
+  bundles?: PatternBundles | null;
 }
 
 /** 1 dòng bảng "TỔNG KẾT CẮT" của bản in hướng dẫn cắt (layout "In kết quả" của MC Laser).
@@ -79,6 +95,10 @@ export interface CuttingProposalLine {
    *  cho tổng cả đợt. null với phương án tính trước khi có field này (2026-09-22). */
   solveSeconds: number | null;
   patterns: CuttingProposalPattern[];
+  /** Máy cắt đã dùng để tính dòng này. null/thiếu = phương án cũ (trước khi có lựa chọn máy). */
+  machine?: SolverMachine | null;
+  /** Chỉ có khi machine='tu_dong'. */
+  bundleSummary?: CuttingBundleSummary | null;
 }
 
 export interface CuttingProposal {

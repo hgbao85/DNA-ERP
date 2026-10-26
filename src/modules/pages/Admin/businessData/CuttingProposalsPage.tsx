@@ -15,6 +15,7 @@ import { tableWrap, tbl, th, td, row, badge, tableScrollBox, stickyHeaderRow } f
 import { cardTitle } from '../../../../styles/typography'
 import { buildCuttingGuideTable, exportCuttingGuideExcel, printCuttingGuide } from '../../../../utils/cuttingGuide'
 import PrintExportButton from '../../../../components/PrintExportButton'
+import { fmtBundles, fmtBundleSummary, fmtPercent, linesMachine, machineLabel } from '../../../../utils/cutMachine'
 import {
   getCuttingProposals,
   getCuttingProposal,
@@ -38,7 +39,7 @@ const DISPLAY_LABELS: Record<Exclude<CuttingProposalDisplayStatus, 'SUPERSEDED'>
 
 const ALL_KEY = '__all__'
 const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleString('vi-VN') : '—')
-const fmtPct = (n: number | null) => (n == null ? '—' : `${n.toFixed(2)}%`)
+const fmtPct = (n: number | null) => (n == null ? '—' : `${fmtPercent(n)}%`)
 
 /** "Đang tính... (đã chạy X phút)" - thời gian solve dao động rất lớn (đo thật: 4,7 -> hơn 15
  *  phút tuỳ vật tư). Tự đếm bằng interval riêng (không phụ thuộc refetch cha) để số luôn đúng dù
@@ -165,6 +166,9 @@ export default function CuttingProposalsPage() {
       setBusy(false)
     }
   }
+
+  // Dòng khả thi chưa ghi máy = phương án cũ = MC Laser (quy tắc chung ở cutMachine.ts).
+  const detailMachine = machineLabel(linesMachine(detail?.lines))
 
   const renderStatus = (p: CuttingProposal) => {
     if (p.displayStatus === 'CALCULATING') return <CalculatingBadge requestedAt={p.requestedAt} />
@@ -294,6 +298,7 @@ export default function CuttingProposalsPage() {
                 {detail && (
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>
                     {detail.salesOrderCode ?? '—'} — {detail.mfgProductCode}
+                    {detailMachine && <span> · Máy cắt: {detailMachine}</span>}
                     {/* Tổng thời gian giải THẬT cộng dồn mọi loại sắt (2026-09-22) - mức tổng quan
                         "ở ngoài", tách bạch với thời gian riêng từng dòng hiện trong bảng bên dưới. */}
                     {detail.totalSolveSeconds != null && (
@@ -314,7 +319,7 @@ export default function CuttingProposalsPage() {
                 <button
                   onClick={() => { setDetailId(null); setDetail(null) }}
                   aria-label="Đóng"
-                  style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 4, color: 'var(--text3)' }}
+                  style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: 4, color: 'var(--text3)', minWidth: isMobile ? 40 : undefined, minHeight: isMobile ? 40 : undefined }}
                 >
                   <X size={18} />
                 </button>
@@ -356,11 +361,18 @@ export default function CuttingProposalsPage() {
                         style={{ ...row, cursor: hasGuide ? 'pointer' : 'default' }}
                         onClick={() => hasGuide && toggleLine(l.materialId)}
                       >
-                        <td style={{ ...td, width: 24 }}>
+                        <td style={{ ...td, width: 24 }} aria-hidden="true">
                           {hasGuide && (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
                         </td>
                         <td style={td}>
-                          {l.materialCode} — {l.materialName}
+                          {hasGuide ? (
+                            // Nút thật cho bàn phím/trình đọc màn hình; click/Enter nổi bọt lên onClick của hàng nên không cần onClick riêng.
+                            <button type="button" aria-expanded={expanded} style={{ padding: 0, border: 'none', background: 'none', color: 'inherit', font: 'inherit', textAlign: 'left', cursor: 'pointer' }}>
+                              {l.materialCode} — {l.materialName}
+                            </button>
+                          ) : (
+                            <>{l.materialCode} — {l.materialName}</>
+                          )}
                           {l.displayReason && (
                             <div style={{ fontSize: 11, color: 'var(--fg-c62828)', marginTop: 4, maxWidth: 320 }}>{l.displayReason}</div>
                           )}
@@ -370,7 +382,13 @@ export default function CuttingProposalsPage() {
                             {l.feasible ? 'Khả thi' : 'Không khả thi'}
                           </span>
                         </td>
-                        <td style={{ ...td, textAlign: 'right' }}>{l.totalBars ?? '—'}</td>
+                        <td style={{ ...td, textAlign: 'right' }}>
+                          {l.totalBars ?? '—'}
+                          {/* MC Tự động: nói luôn số bó / cây cắt tay / lần cắt ngay dưới số cây. */}
+                          {l.machine === 'tu_dong' && fmtBundleSummary(l.bundleSummary) && (
+                            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2, whiteSpace: isMobile ? 'normal' : 'nowrap' }}>{fmtBundleSummary(l.bundleSummary)}</div>
+                          )}
+                        </td>
                         <td style={{ ...td, textAlign: 'right' }}>
                           {fmtPct(l.wastePercentage)}
                           {/* Chỉ đích danh dòng đã tiêu tới ngưỡng đặc cách của đợt: một con số
@@ -378,7 +396,7 @@ export default function CuttingProposalsPage() {
                               tới, nên phải thấy được tiền sắt chi thêm nằm ở đâu. */}
                           {l.usedWasteOverride && (
                             <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--fg-b45309)', marginTop: 2, whiteSpace: 'nowrap' }}>
-                              ⚠ dùng đặc cách (thường ≤{l.normalWastePctThreshold}%)
+                              ⚠ Cao hơn mức mặc định {l.normalWastePctThreshold}%
                             </div>
                           )}
                         </td>
@@ -428,8 +446,11 @@ export default function CuttingProposalsPage() {
                                   >
                                     <div style={{ fontSize: 12, marginBottom: 6 }}>
                                       Thanh <b>{l.bestStockLengthMm ?? '—'}mm</b> × <b>{r.barCount} cây</b>
-                                      <span style={{ color: 'var(--text3)' }}> · hao hụt {r.wastePerBarMm ?? '—'}mm/cây</span>
+                                      <span style={{ color: 'var(--text3)' }}> · phần thừa {r.wastePerBarMm != null ? r.wastePerBarMm.toLocaleString('vi-VN') : '—'}mm/cây</span>
                                     </div>
+                                    {fmtBundles(r.bundles) && (
+                                      <div style={{ fontSize: 12, marginBottom: 6, fontWeight: 600 }}>{fmtBundles(r.bundles)}</div>
+                                    )}
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                                       {chips.map(c => (
                                         <span

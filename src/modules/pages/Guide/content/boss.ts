@@ -76,7 +76,7 @@ export const bossGroup: GuideGroup = {
       },
       steps: [
         'Ở tab "Tổng hợp chờ duyệt" > "Lệnh sản xuất", chọn một PI đang chờ duyệt.',
-        'Xem khối "Phương án cắt đã tính" (số cây sắt, % hao hụt — bấm "Xem chi tiết" để xem từng loại sắt): duyệt lệnh này là duyệt đúng con số đó.',
+        'Xem khối "Phương án cắt đã tính" (số cây sắt, % hao hụt — bấm "Xem chi tiết" để xem từng loại sắt): duyệt lệnh này là duyệt đúng con số đó. Khối này cũng ghi "Máy cắt: MC Laser / MC Tự động" (máy dùng để tính) và nhãn "hao hụt cao hơn mức mặc định" (màu vàng) hoặc "vượt ngưỡng" (màu đỏ) nếu có.',
         'Nếu KHSX xin cắt đặc cách (chấp nhận hao hụt cao hơn mức mặc định), có thêm khối cảnh báo màu vàng "Kế hoạch SX xin cắt đặc cách" kèm lý do — không sửa được, chỉ Duyệt hoặc Từ chối.',
         { text: 'Bấm "Duyệt" / "Duyệt cả đợt (N SKU)" — xác nhận "sẽ tạo lệnh sản xuất ... và bắt đầu sản xuất ngay — không thể hoàn tác."', critical: true },
         { text: 'Hoặc bấm "Từ chối" / "Từ chối cả đợt" — bắt buộc nhập lý do — "sẽ xoá lệnh sản xuất ... và trả SKU về đơn hàng gốc".', critical: true },

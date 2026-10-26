@@ -18,6 +18,7 @@ import { focusAttr } from '../../../utils/notificationLink'
 import { Fragment, useEffect, useState } from 'react'
 import { AlertTriangle, Check, ChevronDown, ChevronRight, ChevronUp, Loader2 } from 'lucide-react'
 import type { CuttingBatchSolve, CuttingSolveLine } from '../../../services/cutting-batch-api'
+import { fmtBundles, fmtBundleSummary, fmtPercent, linesMachine, machineLabel } from '../../../utils/cutMachine'
 
 const TH: React.CSSProperties = {
   textAlign: 'left', fontSize: 11, fontWeight: 700, letterSpacing: '.04em',
@@ -124,7 +125,7 @@ export type SolveLineLike = Pick<
   | 'materialId' | 'materialCode' | 'feasible' | 'bestStockLengthMm' | 'lengthSource' | 'totalBars'
   | 'wastePercentage' | 'maxWastePctThreshold' | 'overThreshold' | 'timedOut' | 'displayReason'
 >
-  & Partial<Pick<CuttingSolveLine, 'normalWastePctThreshold' | 'usedWasteOverride' | 'pieceSummary' | 'patterns'>>
+  & Partial<Pick<CuttingSolveLine, 'normalWastePctThreshold' | 'usedWasteOverride' | 'pieceSummary' | 'patterns' | 'machine' | 'bundleSummary'>>
 
 
 /** "470 mm" - cỡ đoạn nói bằng mm (khác chiều dài cây nói bằng mét) để không lẫn với nhau. */
@@ -139,7 +140,9 @@ function LineDetail({ line }: { line: SolveLineLike }) {
   const sizes = [...(line.pieceSummary ?? [])].sort((a, b) => b.size - a.size)
   const patterns = [...(line.patterns ?? [])].sort((a, b) => b.barCount - a.barCount || a.patternIndex - b.patternIndex)
   const sub: React.CSSProperties = { fontSize: 12, fontWeight: 700, color: 'var(--text2)', margin: '2px 0 6px' }
-  const box: React.CSSProperties = { overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)' }
+  const box: React.CSSProperties = { overflowX: 'auto', maxWidth: '100%', border: '1px solid var(--border)', borderRadius: 'var(--radius)', background: 'var(--surface)' }
+  // MC Tự động: mỗi kiểu cắt có thêm cách cắt theo bó ("16 cây × 12 bó + 5 cây cắt tay"); MC Laser/phương án cũ không có cột này.
+  const hasBundles = patterns.some((pt) => fmtBundles(pt.bundles) !== null)
   if (sizes.length === 0 && patterns.length === 0) {
     return <div style={{ fontSize: 12.5, color: 'var(--text3)' }}>Phương án này chưa lưu chi tiết các đoạn cắt. Bấm “Tính lại” để có.</div>
   }
@@ -188,6 +191,7 @@ function LineDetail({ line }: { line: SolveLineLike }) {
                   <th style={{ ...TH, textAlign: 'right' }}>Số cây</th>
                   <th style={TH}>Các đoạn trên 1 cây</th>
                   <th style={{ ...TH, textAlign: 'right' }}>Phần thừa/cây</th>
+                  {hasBundles && <th style={TH}>Cách cắt theo bó</th>}
                 </tr>
               </thead>
               <tbody>
@@ -203,6 +207,8 @@ function LineDetail({ line }: { line: SolveLineLike }) {
                         .join('  +  ')}
                     </td>
                     <td style={NUM}>{pt.wastePerBarMm != null ? fmtMm(pt.wastePerBarMm) : '—'}</td>
+                    {/* Cho xuống dòng (không nowrap) + minWidth: nowrap làm cột tràn mép phải khung ở màn rộng, mất chữ. */}
+                    {hasBundles && <td style={{ ...TD, minWidth: 150, whiteSpace: 'normal', overflowWrap: 'anywhere' }}>{fmtBundles(pt.bundles) ?? '—'}</td>}
                   </tr>
                 ))}
               </tbody>
@@ -250,15 +256,31 @@ export function SolveLinesTable({
               title={hasDetail ? 'Bấm để xem các đoạn cắt của loại sắt này' : undefined}
             >
               <td style={TD}>
-                <b style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  {hasDetail && (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />)}
-                  {l.materialCode}
-                </b>
+                {hasDetail ? (
+                  // Nút thật (bàn phím + trình đọc màn hình); không cần onClick riêng - click/Enter nổi bọt lên onClick của hàng.
+                  <button
+                    type="button"
+                    aria-expanded={open}
+                    aria-label={`${l.materialCode}: ${open ? 'thu gọn' : 'xem'} các đoạn cắt`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: 0, border: 'none', background: 'none', color: 'inherit', font: 'inherit', fontWeight: 700, textAlign: 'left', cursor: 'pointer', minHeight: isMobile ? 40 : undefined }}
+                  >
+                    {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    {l.materialCode}
+                  </button>
+                ) : (
+                  <b>{l.materialCode}</b>
+                )}
                 {l.displayReason && (
                   <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 3, maxWidth: 420 }}>{l.displayReason}</div>
                 )}
               </td>
-              <td style={NUM}>{l.feasible && l.totalBars != null ? <b>{l.totalBars}</b> : '—'}</td>
+              <td style={NUM}>
+                {l.feasible && l.totalBars != null ? <b>{l.totalBars}</b> : '—'}
+                {/* MC Tự động: cây cắt theo bó + cây cắt tay = số lần cắt máy phải làm. */}
+                {l.feasible && l.machine === 'tu_dong' && fmtBundleSummary(l.bundleSummary) && (
+                  <div style={{ fontSize: 12, color: 'var(--text2)', whiteSpace: isMobile ? 'normal' : 'nowrap', maxWidth: isMobile ? 150 : undefined, marginLeft: 'auto' }}>{fmtBundleSummary(l.bundleSummary)}</div>
+                )}
+              </td>
               <td style={TD}>
                 {l.bestStockLengthMm != null ? (
                   <>
@@ -272,7 +294,7 @@ export function SolveLinesTable({
                 ) : '—'}
               </td>
               <td style={NUM}>
-                {l.feasible && l.wastePercentage != null ? `${Number(l.wastePercentage).toFixed(2)}%` : '—'}
+                {l.feasible && l.wastePercentage != null ? `${fmtPercent(l.wastePercentage)}%` : '—'}
                 {/* Ngưỡng MẶC ĐỊNH của công ty, không phải trần đã gửi solver (đợt đơn gấp là 100% - vô nghĩa với người đọc). */}
                 {(l.normalWastePctThreshold ?? l.maxWastePctThreshold) != null && (
                   <div style={{ fontSize: 11, color: 'var(--text3)' }}>ngưỡng {l.normalWastePctThreshold ?? l.maxWastePctThreshold}%</div>
@@ -298,7 +320,7 @@ export function SolveLinesTable({
               <td style={{ ...NUM, fontWeight: 700 }}>{totalBarsAll}</td>
               <td style={TD} />
               <td style={{ ...NUM, fontWeight: 700 }}>
-                {wastePercentage != null ? `${Number(wastePercentage).toFixed(2)}%` : '—'}
+                {wastePercentage != null ? `${fmtPercent(wastePercentage)}%` : '—'}
               </td>
               <td style={{ ...TD, fontSize: 11.5, color: 'var(--text3)' }}>
                 {totalSolveSeconds != null ? `giải ${Number(totalSolveSeconds).toFixed(1)}s` : ''}
@@ -329,10 +351,18 @@ interface Props {
   isMobile: boolean
 }
 
+/** Máy cắt đã dùng cho lượt tính: ưu tiên máy BE ghi trên từng loại sắt (đã quy đổi theo mặc định), rồi tới máy KHSX chọn. */
+export function solveMachine(s: CuttingBatchSolve) {
+  // Dòng khả thi chưa ghi máy = phương án cũ = MC Laser (quy tắc chung ở utils/cutMachine.ts).
+  return linesMachine(s.lines) ?? s.solverOptions?.solverMachine ?? null
+}
+
 /** "Hao hụt tối đa 1%, chỉ cây chuẩn" - để KHSX biết lượt này chạy với cài đặt nào trước khi đổi. */
 function settingsSummary(s: CuttingBatchSolve): string {
   const thresholds = (s.lines ?? []).map((l) => l.maxWastePctThreshold).filter((n): n is number => n != null)
   const parts: string[] = []
+  const machine = machineLabel(solveMachine(s))
+  if (machine) parts.push(`máy cắt: ${machine}`)
   const over = s.solverOptions?.solverMaxWastePctOverride
   // Chế độ đơn gấp không đặt trần (trần gửi solver = 100% chỉ là quy ước) - đừng in "hao hụt tối đa 100%".
   if (over != null) parts.push('chế độ: chấp nhận hao hụt cao hơn (đơn gấp, không đặt trần)')
@@ -348,11 +378,16 @@ function settingsSummary(s: CuttingBatchSolve): string {
 
 /** Tóm tắt 1 dòng của thẻ: "387 cây · hao hụt 0,27%". */
 function summaryText(s: CuttingBatchSolve): string {
-  if (s.displayStatus === 'CALCULATING') return ''
+  if (s.displayStatus === 'CALCULATING') {
+    // Đang tính chưa có dòng nào: chỉ biết máy KHSX đã chọn (nếu có chọn riêng).
+    const m = machineLabel(solveMachine(s))
+    return m ? `${m} · đang tính` : ''
+  }
   if (s.status === 'FAILED') return 'Solver lỗi'
   if (s.totalBarsAll == null) return ''
-  const pct = s.wastePercentage != null ? ` · hao hụt ${Number(s.wastePercentage).toFixed(2)}%` : ''
-  return `${s.totalBarsAll} cây${pct}`
+  const pct = s.wastePercentage != null ? ` · hao hụt ${fmtPercent(s.wastePercentage)}%` : ''
+  const machine = machineLabel(solveMachine(s))
+  return `${s.totalBarsAll} cây${pct}${machine ? ` · ${machine}` : ''}`
 }
 
 /**
@@ -408,18 +443,19 @@ export default function CuttingSolvePanel({
               <div style={{ borderTop: '1px solid var(--border)' }}>
                 {s.displayStatus !== 'CALCULATING' && (
                   <div style={{ padding: '9px 14px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', borderBottom: '1px solid var(--border)', background: 'var(--surface2)' }}>
-                    <span style={{ fontSize: 12, color: 'var(--text2)', flex: 1, minWidth: 0 }}>
+                    {/* flex-basis 260px: nếu để flex:1 + minWidth:0 thì ở điện thoại chữ bị ép thành cột 19px, 2 nút không xuống dòng. */}
+                    <span style={{ fontSize: 12, color: 'var(--text2)', flex: '1 1 260px', minWidth: 0 }}>
                       Cài đặt đã dùng: <b>{settingsSummary(s)}</b>
                     </span>
                     <button
                       onClick={() => onRecalc(s)}
-                      style={{ fontSize: 12, fontWeight: 600, padding: '4px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text)' }}
+                      style={{ fontSize: 12, fontWeight: 600, padding: '4px 12px', minHeight: isMobile ? 40 : undefined, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--text)' }}
                     >
                       Tính lại với chế độ khác
                     </button>
                     <button
                       onClick={() => onDiscard(s)}
-                      style={{ fontSize: 12, fontWeight: 600, padding: '4px 12px', background: 'var(--surface)', border: '1px solid var(--fg-fca5a5)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--fg-991b1b)' }}
+                      style={{ fontSize: 12, fontWeight: 600, padding: '4px 12px', minHeight: isMobile ? 40 : undefined, background: 'var(--surface)', border: '1px solid var(--fg-fca5a5)', borderRadius: 'var(--radius)', cursor: 'pointer', color: 'var(--fg-991b1b)' }}
                     >
                       Xóa lượt tính này
                     </button>

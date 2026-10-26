@@ -12,6 +12,7 @@
  * `MfgStage.SON`=Sơn/painting thật để khỏi trùng nghĩa).
  */
 import { http } from './core/http';
+import type { SolverMachine } from '../types/admin';
 import type { MaterialChoice } from '../types/sku';
 
 /** FRAME_PHOI/FRAME_HAN/FRAME_SON (2026-09-09): mốc kế hoạch RIÊNG cho Phôi/Hàn/Sơn - xem
@@ -78,6 +79,8 @@ interface BeProductionInvoice {
    *  xuất và chấp thuận bằng chính nút Duyệt. null hết = không xin gì đặc biệt. */
   solverMaxWastePctOverride: number | null;
   solverAllowCustomLength: boolean | null;
+  /** Máy cắt KHSX chọn cho đợt này ở "Tối ưu cắt sắt". null = theo mặc định của hệ thống. */
+  solverMachine?: SolverMachine | null;
   solverOverrideReason: string | null;
   /** Bằng chứng chụp lúc KHSX xin — loại sắt vướng nhất, ước tính hao hụt, ngưỡng thường. Để Sếp
    *  thấy con số xin hợp lý hay thừa ngay trên màn duyệt (solver chưa chạy nên chưa có số thật). */
@@ -85,6 +88,10 @@ interface BeProductionInvoice {
     materialCode: string;
     estimatedWastePct: number;
     normalThresholdPct: number;
+    /** Cây mà estimatedWastePct được tính trên đó. Thiếu (bản ghi cũ) = cây chuẩn công ty. */
+    stockLengthMm?: number | null;
+    /** true = hao hụt THẬT của phương án đã tính (PI tạo từ phương án, 2026-10-24); thiếu/false = ước tính cận dưới. */
+    fromProposal?: boolean;
   } | null;
   /** Phương án cắt neo PI (luồng "Solve trước → tạo PI", 2026-09-30): có sẵn từ lúc tạo PI nên
    *  QLSX/Sếp duyệt trên số thật. null = chưa có (PI theo luồng cũ, solver chạy sau khi Sếp duyệt). */
@@ -95,6 +102,8 @@ interface BeProductionInvoice {
     wastePercentage: number | null;
     /** Có loại sắt vượt ngưỡng hao hụt - QLSX/Sếp phải thấy cảnh báo trước khi duyệt. */
     hasOverThreshold?: boolean;
+    /** Máy cắt đã dùng tính phương án (đã quy đổi theo mặc định) - để Sếp thấy dù KHSX không chọn riêng. */
+    machine?: SolverMachine | null;
   } | null;
   createdAt: string;
   updatedAt: string;
@@ -151,6 +160,23 @@ function piDisplayDeadline(pi: BeProductionInvoice): string {
   return dls[0] ?? pi.deadline ?? pi.createdAt
 }
 
+/** Ngày lịch (giờ máy) của 1 mốc ISO - so "khác ngày" theo lịch chứ không theo từng mili-giây. */
+function localDayKey(iso: string): string {
+  const d = new Date(iso)
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`
+}
+
+/** Hạn giao MUỘN NHẤT trong các SKU của PI (2026-10-24) - đi cặp với `piDisplayDeadline` (sớm nhất) để
+ *  đợt gộp hiện KHOẢNG "12/11 → 14/11" thay vì một ngày che mất độ lệch giữa các SKU. null khi các SKU
+ *  chỉ có <2 ngày giao khác nhau (không có khoảng nào để hiện). */
+function piLatestDeliveryDeadline(pi: BeProductionInvoice): string | null {
+  const dls = pi.items.map((it) => it.deliveryDeadline).filter((d): d is string => !!d).sort()
+  if (dls.length < 2) return null
+  const earliest = dls[0]
+  const latest = dls[dls.length - 1]
+  return localDayKey(earliest) === localDayKey(latest) ? null : latest
+}
+
 function toPI(pi: BeProductionInvoice) {
   return {
     id: pi.id,
@@ -160,8 +186,11 @@ function toPI(pi: BeProductionInvoice) {
     exportOrderId: pi.salesOrderId ?? undefined,
     exportOrder: pi.salesOrderCode ? { poNumber: pi.salesOrderCode } : undefined,
     deadline: piDisplayDeadline(pi),
+    /** Hạn giao MUỘN NHẤT của các SKU, null khi <2 ngày khác nhau - xem piLatestDeliveryDeadline. */
+    deadlineLatest: piLatestDeliveryDeadline(pi),
     solverMaxWastePctOverride: pi.solverMaxWastePctOverride ?? null,
     solverAllowCustomLength: pi.solverAllowCustomLength ?? null,
+    solverMachine: pi.solverMachine ?? null,
     solverOverrideReason: pi.solverOverrideReason ?? null,
     solverOverrideEvidence: pi.solverOverrideEvidence ?? null,
     cuttingPlan: pi.cuttingPlan ?? null,
@@ -208,6 +237,26 @@ export async function updateProductionInvoiceItem(
       stages: data.stages,
     }),
   );
+}
+
+/** Lưu hạn của cả PI + mốc của TẤT CẢ SKU trong MỘT giao dịch (LenhSXPage "Sửa thời hạn", 2026-10-24) -
+ *  thay cho `updateProductionInvoice` + từng `updateProductionInvoiceItem` song song. Lý do: luật "mốc
+ *  cần sắt của SKU trong đợt gộp nằm trong khung N ngày, chênh tối đa N-1" chỉ kiểm được trên TOÀN BỘ mốc sau khi sửa; lưu
+ *  lẻ từng SKU thì trạng thái giữa chừng luôn vi phạm. Vi phạm -> BE trả 400 kèm câu tiếng Việt (nêu SKU
+ *  sớm nhất/muộn nhất) và KHÔNG lưu gì; ném ApiError như mọi lời gọi khác, `.message` là câu đó. */
+export async function updateProductionInvoiceItemsDeadlines(
+  piId: number | string,
+  body: {
+    deadline?: string;
+    items: {
+      itemId: string;
+      materialDeadline?: string;
+      deliveryDeadline?: string;
+      stages?: { stageType: StageType; deadline: string }[];
+    }[];
+  },
+) {
+  return toPI(await http.patch<BeProductionInvoice>(`/production-invoices/${piId}/items-deadlines`, body));
 }
 
 /** itemId = ProductionInvoiceItem.id thật (KHÔNG phải index trong mảng như mock cũ). */

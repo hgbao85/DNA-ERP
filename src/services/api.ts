@@ -119,6 +119,7 @@ export {
 } from './sku-api';
 export {
   getProductionInvoices, getProductionInvoice, updateProductionInvoice, updateProductionInvoiceItem,
+  updateProductionInvoiceItemsDeadlines,
   sendItemToQlsx, sendItemToBoss, sendPiToQlsx, sendPiToBoss,
   approveItemByBoss, rejectProdItem, rejectProdItemByQlsx, rejectPiByQlsx,
   approveBatchByBoss, rejectBatchByBoss,

@@ -395,7 +395,7 @@ export const manufacturingGroup: GuideGroup = {
       screenshot: '/guide-screens/mfg-phoi-tra-cuu.png',
       steps: [
         '"Kho phôi": xem tồn đoạn sắt thật tại kho (Đoạn chuẩn chờ chuyển Hàn / Đoạn thừa chờ xử lý).',
-        '"Hướng dẫn cắt": xem bảng cắt bắt buộc theo phương án đã duyệt cho PO/PI, có thể bấm "In" (Excel/PDF).',
+        '"Hướng dẫn cắt": xem bảng cắt bắt buộc theo phương án đã duyệt cho PO/PI, có thể bấm "In" (Excel/PDF). Dòng "Máy cắt: …" cho biết phương án tính cho máy nào; nếu là MC Tự động, cột "Cách cắt theo bó cây" ghi cách cắt từng kiểu, vd "16 cây × 12 bó cây + 5 cây cắt tay" = cắt 12 bó, mỗi bó 16 cây, thêm 5 cây cắt tay (từng cây).',
         '"Danh sách định mức mảnh": tra nhanh định mức sắt của từng mảnh theo SKU (Tên mảnh / Loại sắt / Quy cách / Chiều dài cắt).',
       ],
       result: 'Có đủ thông tin tham khảo khi cắt, không cần hỏi lại KHSX.',

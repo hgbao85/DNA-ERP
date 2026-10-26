@@ -8,6 +8,7 @@
  */
 import { useState } from 'react'
 import { Printer, FileSpreadsheet, ChevronDown } from 'lucide-react'
+import { useIsMobile } from '../hooks/useMediaQuery'
 
 export default function PrintExportButton({ label, color, variant = 'outline', onExcel, onPdf }: {
   label: string
@@ -21,14 +22,17 @@ export default function PrintExportButton({ label, color, variant = 'outline', o
 }) {
   const [open, setOpen] = useState(false)
   const solid = variant === 'solid'
+  const isMobile = useIsMobile()
+  // Nút đặc: chữ trắng cần nền ĐẬM. Token --fg-* đổi sáng ở chế độ tối (cam nhạt -> chữ trắng chỉ 2,4:1) nên lấy token --bg-* cùng màu (luôn đậm).
+  const solidBg = color.startsWith('var(--fg-') ? color.replace('var(--fg-', 'var(--bg-') : color
   return (
     <div style={{ position: 'relative', display: 'inline-block' }}>
       <button onClick={() => setOpen(o => !o)}
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600,
+          display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, minHeight: isMobile ? 40 : undefined,
           borderRadius: 8, cursor: 'pointer',
           border: solid ? 'none' : `1px solid ${color}`,
-          background: solid ? color : 'var(--surface)',
+          background: solid ? solidBg : 'var(--surface)',
           color: solid ? '#fff' : color,
         }}>
         <Printer size={14} /> {label} <ChevronDown size={12} />
@@ -36,11 +40,11 @@ export default function PrintExportButton({ label, color, variant = 'outline', o
       {open && (
         <div style={{ position: 'absolute', right: 0, top: 'calc(100% + 4px)', minWidth: 170, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, boxShadow: '0 8px 30px rgba(0,0,0,.15)', zIndex: 50, overflow: 'hidden' }}>
           <button onClick={() => { setOpen(false); onExcel() }}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', fontSize: 12.5, fontWeight: 500, border: 'none', background: 'none', color: 'var(--text)', cursor: 'pointer', textAlign: 'left' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', minHeight: isMobile ? 40 : undefined, fontSize: 12.5, fontWeight: 500, border: 'none', background: 'none', color: 'var(--text)', cursor: 'pointer', textAlign: 'left' }}>
             <FileSpreadsheet size={14} /> Xuất Excel
           </button>
           <button onClick={() => { setOpen(false); onPdf() }}
-            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', fontSize: 12.5, fontWeight: 500, border: 'none', borderTop: '1px solid var(--border)', background: 'none', color: 'var(--text)', cursor: 'pointer', textAlign: 'left' }}>
+            style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', padding: '9px 12px', minHeight: isMobile ? 40 : undefined, fontSize: 12.5, fontWeight: 500, border: 'none', borderTop: '1px solid var(--border)', background: 'none', color: 'var(--text)', cursor: 'pointer', textAlign: 'left' }}>
             <Printer size={14} /> Xem trước &amp; In (PDF)
           </button>
         </div>

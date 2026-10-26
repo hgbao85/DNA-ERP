@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { buildCuttingGuideTable, buildPieceSummary, printCuttingGuide } from './cuttingGuide';
+import { buildCuttingGuideTable, buildPieceSummary, buildPrintSectionHtml, buildSheetAoa, machineSummaryText, printCuttingGuide } from './cuttingGuide';
 import type { CuttingProposalLine } from '../services/cutting-proposals-api';
 
 // Fixture tối giản khớp số liệu ví dụ "500 bộ J55" đã đối chiếu với MC Laser
@@ -73,9 +73,63 @@ describe('buildCuttingGuideTable — cột theo cỡ đoạn, dài trước (kh�
   it('dựng đúng số ô theo cỡ cho từng kiểu cắt', () => {
     const { rows } = buildCuttingGuideTable(makeLine());
     expect(rows).toEqual([
-      { patternIndex: 0, counts: [4, 1], barCount: 200, wastePerBarMm: 10 },
-      { patternIndex: 1, counts: [0, 6], barCount: 67, wastePerBarMm: 15 },
+      { patternIndex: 0, counts: [4, 1], barCount: 200, wastePerBarMm: 10, bundles: null },
+      { patternIndex: 1, counts: [0, 6], barCount: 67, wastePerBarMm: 15, bundles: null },
     ]);
+  });
+
+  it('MC Tự động: kiểu cắt mang theo bundles, chữ in/Excel dùng "bó cây"', () => {
+    const line = makeLine({
+      machine: 'tu_dong',
+      bundleSummary: { factors: [14, 16], totalBundles: 12, manualBars: 5, totalCuts: 17, maxSizesPerPattern: 5 },
+    });
+    line.patterns[0].bundles = { '16': 12, '1': 5 };
+    const { rows } = buildCuttingGuideTable(line);
+    expect(rows[0].bundles).toEqual({ '16': 12, '1': 5 });
+    expect(rows[1].bundles).toBeNull();
+    expect(machineSummaryText(line)).toBe('MC Tự động · 12 bó cây + 5 cây cắt tay = 17 lần cắt');
+    // Phương án cũ (khả thi, chưa ghi máy) = MC Laser; dòng không khả thi chưa ghi máy thì không nêu.
+    expect(machineSummaryText(makeLine())).toBe('MC Laser');
+    expect(machineSummaryText(makeLine({ feasible: false }))).toBeNull();
+  });
+});
+
+describe('Hướng dẫn cắt MC Tự động - bản Excel và bản in có cột "Cách cắt theo bó cây"', () => {
+  const bundled = () => {
+    const line = makeLine({
+      machine: 'tu_dong',
+      bundleSummary: { factors: [16], totalBundles: 12, manualBars: 5, totalCuts: 17, maxSizesPerPattern: 5 },
+    });
+    line.patterns[0].bundles = { '16': 12, '1': 5 };
+    return line;
+  };
+
+  it('Excel: thêm cột cuối + dòng Máy cắt', () => {
+    const aoa = buildSheetAoa(bundled());
+    const header = aoa.find((r) => r[0] === 'STT')!;
+    expect(header[header.length - 1]).toBe('Cách cắt theo bó cây');
+    const row1 = aoa[aoa.indexOf(header) + 1];
+    expect(row1[row1.length - 1]).toBe('16 cây × 12 bó cây + 5 cây cắt tay');
+    expect(aoa.some((r) => r[0] === 'Máy cắt: MC Tự động · 12 bó cây + 5 cây cắt tay = 17 lần cắt')).toBe(true);
+  });
+
+  it('Bản in: thêm cột + dòng Máy cắt', () => {
+    const html = buildPrintSectionHtml(bundled(), false);
+    expect(html).toContain('<th>Cách cắt theo bó cây</th>');
+    expect(html).toContain('<td>16 cây × 12 bó cây + 5 cây cắt tay</td>');
+    expect(html).toContain('Máy cắt: <b>MC Tự động');
+    // Bản in chia cột đều (table-layout: fixed) -> cột bó có colgroup ~18%, STT 5%.
+    expect(html).toContain('<colgroup><col style="width:5%"><col><col>');
+    expect(html).toContain('<col style="width:18%">');
+  });
+
+  it('MC Laser / phương án cũ: không có cột bó, dòng máy ghi MC Laser', () => {
+    const aoa = buildSheetAoa(makeLine());
+    const header = aoa.find((r) => r[0] === 'STT')!;
+    expect(header).not.toContain('Cách cắt theo bó cây');
+    expect(buildPrintSectionHtml(makeLine(), false)).not.toContain('Cách cắt theo bó');
+    expect(buildPrintSectionHtml(makeLine(), false)).not.toContain('<colgroup>');
+    expect(buildPrintSectionHtml(makeLine(), false)).toContain('Máy cắt: <b>MC Laser</b>');
   });
 });
 

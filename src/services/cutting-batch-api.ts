@@ -6,6 +6,8 @@
  */
 import type { MaterialChoice } from '../types/sku';
 import { http } from './core/http';
+import type { SolverMachine } from '../types/admin';
+import type { CuttingBundleSummary, PatternBundles } from './cutting-proposals-api';
 
 /**
  * Chiều dài cây sắt KHSX chọn cho riêng đợt này, theo TỪNG QUY CÁCH: `{ "<materialId>": <mm> }`.
@@ -47,6 +49,9 @@ export interface SolverOverrideInput {
    *  (SystemConfig.solverTimeLimitSeconds). Không cần lý do/duyệt - thuần ngân sách thời gian tính
    *  toán, không đổi kết quả cắt hay chi phí sắt. */
   solverTimeLimitSecondsOverride?: number;
+  /** Máy cắt cho đợt này: 'laser' = MC Laser (từng cây), 'tu_dong' = MC Tự động (theo bó). Bỏ trống/null =
+   *  theo mặc định của hệ thống (SystemConfig.solverMachine). Đứng độc lập với chế độ cắt - áp cho cả hai chế độ. */
+  solverMachine?: SolverMachine | null;
 }
 
 /** Trạng thái duyệt sản xuất của SKU. null = Sales vừa tạo, KHSX chưa gửi QLSX. */
@@ -97,9 +102,9 @@ export interface CuttingBatchSuggestion {
   levels: CuttingBatchLevel[];
 }
 
-export async function getCuttingBatchSuggestions(): Promise<CuttingBatchSuggestion[]> {
+export async function getCuttingBatchSuggestions(solverMachine?: SolverMachine | null): Promise<CuttingBatchSuggestion[]> {
   const res = await http.get<CuttingBatchSuggestion[] | { data: CuttingBatchSuggestion[] }>(
-    '/cutting-batch-suggestions',
+    solverMachine ? `/cutting-batch-suggestions?solverMachine=${solverMachine}` : '/cutting-batch-suggestions',
   );
   return Array.isArray(res) ? res : res.data;
 }
@@ -165,7 +170,8 @@ export interface CuttingBatchCandidate {
 
 export interface CuttingBatchCandidateList {
   items: CuttingBatchCandidate[];
-  /** Tổ hợp hệ thống tự đề xuất - tick sẵn, KHSX vẫn sửa được. */
+  /** Tổ hợp hệ thống tự đề xuất - tick sẵn, KHSX vẫn sửa được. Từ 2026-10-24 = đúng 1 SKU (đơn có mốc cần sắt sớm nhất đang có
+   *  chip đỏ); trang tự thêm các đơn gợi ý gộp của getCuttingBatchFixOptions cho đợt đó. */
   recommendedItemIds: string[];
   /** Ngân sách thời gian tối đa cho CẢ đợt tính (giây). Dùng để tính "tối đa bao nhiêu phút/loại"
    *  rồi chặn ngay tại ô "Thời gian chạy tối đa" - xem GomDotCatPage (2026-09-23). */
@@ -204,17 +210,32 @@ export interface CuttingBatchPreview {
  */
 export async function getCuttingBatchCandidates(
   stockLengths?: StockLengthsByMaterial,
+  solverMachine?: SolverMachine | null,
+  /** deepVerify = lượt KIỂM BÙ chạy nền (2026-10-24): BE xác minh bằng bộ giải cả các chip lượt nhanh chưa kịp - lâu hơn (tới ~90 s). */
+  opts?: { deepVerify?: boolean },
 ): Promise<CuttingBatchCandidateList> {
   const q = toStockLengthsQuery(stockLengths);
+  // Máy KHSX chọn cho đợt: số ước tính + số xác minh phải tính theo đúng máy đó. "Theo mặc định" (null) thì không gửi.
+  const params = [
+    q ? `stockLengthsByMaterial=${encodeURIComponent(q)}` : null,
+    solverMachine ? `solverMachine=${solverMachine}` : null,
+    opts?.deepVerify ? 'deepVerify=true' : null,
+  ].filter(Boolean);
   return http.get<CuttingBatchCandidateList>(
-    q ? `/cutting-batch-candidates?stockLengthsByMaterial=${encodeURIComponent(q)}` : '/cutting-batch-candidates',
+    params.length > 0 ? `/cutting-batch-candidates?${params.join('&')}` : '/cutting-batch-candidates',
+    // Lượt kiểm bù chạy lâu hơn trần 20 s chung của http client (BE ngân sách 120 s) - không nới thì axios tự huỷ giữa chừng.
+    opts?.deepVerify ? { timeout: DEEP_VERIFY_TIMEOUT_MS } : undefined,
   );
 }
+
+/** Trần chờ lượt kiểm bù chip (BE EXACT_CHECK_DEEP_BATCH_BUDGET_MS = 120 s + dư cho bài đang chạy dở). */
+const DEEP_VERIFY_TIMEOUT_MS = 150_000;
 
 /** Tính thử theo tổ hợp đang tick. POST vì danh sách id có thể dài - vẫn là thao tác CHỈ ĐỌC. */
 export async function previewCuttingBatch(
   productionInvoiceItemIds: string[],
   stockLengths?: StockLengthsByMaterial,
+  solverMachine?: SolverMachine | null,
 ): Promise<CuttingBatchPreview> {
   // POST nên gửi thẳng object: body là JSON, không đi qua bộ parse query nên không dính bẫy
   // mảng đã mô tả ở toStockLengthsQuery().
@@ -223,6 +244,7 @@ export async function previewCuttingBatch(
     ...(stockLengths && Object.keys(stockLengths).length > 0
       ? { stockLengthsByMaterial: stockLengths }
       : {}),
+    ...(solverMachine ? { solverMachine } : {}),
   });
 }
 
@@ -281,6 +303,8 @@ export interface CuttingSolvePattern {
   barCount: number;
   wastePerBarMm: number | null;
   segments: { segmentSpecId: string; cutLengthMm: number; countPerBar: number }[];
+  /** Cách cắt theo bó (MC Tự động) - xem PatternBundles. null/thiếu = cắt từng cây. */
+  bundles?: PatternBundles | null;
 }
 
 /** 1 cỡ đoạn của loại sắt: cần bao nhiêu, phương án cắt ra bao nhiêu, và là mảnh gì. */
@@ -318,6 +342,10 @@ export interface CuttingSolveLine {
   pieceSummary?: CuttingSolvePieceSummary[] | null;
   /** Cách cắt từng cây. */
   patterns?: CuttingSolvePattern[];
+  /** Máy cắt đã dùng tính dòng này. null/thiếu = lượt tính cũ. */
+  machine?: SolverMachine | null;
+  /** Chỉ có khi machine='tu_dong': tóm tắt số bó / cây cắt tay / lần cắt. */
+  bundleSummary?: CuttingBundleSummary | null;
 }
 
 export interface CuttingBatchSolve {
@@ -373,6 +401,24 @@ export interface CuttingDefaults {
   /** Số trước lần đổi vừa rồi (null khi chỉ đọc). */
   previous: number | null;
   updatedAt: string;
+  /** Máy cắt mặc định (SystemConfig.solverMachine) - KHSX không có quyền đọc /system-config nên cần BE trả kèm ở đây
+   *  để ô chọn máy ghi được "Theo mặc định (MC …)". Thiếu = chưa biết, ô chỉ ghi "Theo mặc định". */
+  solverMachine?: SolverMachine;
+  /** Thông số máy cắt hiện tại (2026-10-24) - KHSX CHỈ XEM ở khối "Thông số máy cắt" (đóng sẵn); Admin sửa ở Cấu hình hệ thống.
+   *  Cùng tên cột SystemConfig. Thiếu (BE cũ) = không hiện khối đó. */
+  solverStockLengths?: number[];
+  solverMaxSurplus?: number;
+  solverTrimStartMm?: number;
+  solverBladeWidthMm?: number;
+  solverMctdTrimStartMm?: number;
+  solverMctdBladeWidthMm?: number;
+  solverBundleFactors?: number[];
+  solverMaxManualCuts?: number;
+  solverMaxSizesPerPattern?: number;
+  /** Luật gộp (Sếp Nhân 2026-10-24): mốc cần sắt các SKU trong 1 đợt nằm trong khung N ngày TÍNH CẢ NGÀY ĐẦU (chênh ≤ N−1). */
+  solverMergeWindowDays?: number;
+  /** Luật gộp: tối đa M SKU mỗi đợt / lệnh gộp (mặc định 2). */
+  solverMergeMaxSkus?: number;
 }
 
 export async function getCuttingDefaults(): Promise<CuttingDefaults> {
@@ -391,4 +437,76 @@ export async function updateMaxWastePercentage(
     solverMaxWastePercentage,
     ...(reason && reason.trim() !== '' ? { reason: reason.trim() } : {}),
   });
+}
+
+// ── Khối "Đợt đang chọn" (2026-10-24) ─────────────────────────────────────────
+
+/** 1 kết quả bộ giải gọn cho 1 cách xử lý. */
+export interface CuttingBatchFixResult {
+  wastePct: number;
+  bars: number;
+  lengthMm: number;
+}
+
+/** Gợi ý gộp thêm đơn cho 1 loại sắt vượt ngưỡng ở cây chuẩn (ít hao hụt nhất trong luật gộp). */
+export interface CuttingBatchFixAdd {
+  itemIds: string[];
+  wastePct: number;
+  bars: number;
+  meetsThreshold: boolean;
+  spanDaysAfter: number | null;
+}
+
+export interface CuttingBatchFixMaterial {
+  materialId: string;
+  materialCode: string;
+  thresholdPct: number;
+  stockLengthMm: number | null;
+  status: 'ok' | 'over' | 'unknown';
+  wastePct: number | null;
+  bars: number | null;
+  verifiedLengthSource: 'fixed' | 'scan' | null;
+  itemIds: string[];
+  addSuggestion: CuttingBatchFixAdd | null;
+  addReason: string | null;
+  /** không gộp: chế độ Bình thường tự đặt cây riêng */
+  customLength: CuttingBatchFixResult | null;
+  /** đơn gấp: vẫn mua cây chuẩn, không trần hao hụt */
+  urgent: CuttingBatchFixResult | null;
+}
+
+export interface CuttingBatchFixOptions {
+  windowDays: number;
+  maxSkus: number;
+  count: number;
+  spanDays: number | null;
+  ruleOk: boolean;
+  ruleReason: string | null;
+  materials: CuttingBatchFixMaterial[];
+  addAllItemIds: string[] | null;
+  addAllReason: string | null;
+  incomplete: boolean;
+}
+
+/** BE ngân sách 60 s + dư cho bài đang chạy dở (http chung chỉ chờ 20 s). */
+const FIX_OPTIONS_TIMEOUT_MS = 90_000;
+
+/**
+ * Khối "Đợt đang chọn": từng loại sắt của tổ hợp đang tick ở cây chuẩn (bộ giải thật) + cách xử lý khi vượt ngưỡng (gộp thêm đơn trong
+ * luật gộp / đặt cây riêng / đơn gấp). CHỈ ĐỌC dù là POST.
+ */
+export async function getCuttingBatchFixOptions(
+  productionInvoiceItemIds: string[],
+  stockLengths?: StockLengthsByMaterial,
+  solverMachine?: SolverMachine | null,
+): Promise<CuttingBatchFixOptions> {
+  return http.post<CuttingBatchFixOptions>(
+    '/cutting-batch-fix-options',
+    {
+      productionInvoiceItemIds,
+      ...(stockLengths && Object.keys(stockLengths).length > 0 ? { stockLengthsByMaterial: stockLengths } : {}),
+      ...(solverMachine ? { solverMachine } : {}),
+    },
+    { timeout: FIX_OPTIONS_TIMEOUT_MS },
+  );
 }

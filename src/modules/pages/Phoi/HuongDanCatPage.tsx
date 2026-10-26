@@ -24,14 +24,14 @@ import {
   getCuttingProposalsForInvoice, getCuttingProposal,
   type CuttingProposal, type CuttingProposalLine,
 } from '../../../services/cutting-proposals-api'
-import { buildCuttingGuideTable, buildPieceSummary, exportCuttingGuideExcel, exportCuttingGuideExcelAll, printCuttingGuide } from '../../../utils/cuttingGuide'
+import { buildCuttingGuideTable, buildPieceSummary, exportCuttingGuideExcel, exportCuttingGuideExcelAll, machineSummaryText, printCuttingGuide } from '../../../utils/cuttingGuide'
+import { fmtBundles, fmtPercent } from '../../../utils/cutMachine'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import PrintExportButton from '../../../components/PrintExportButton'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 
-const ACCENT = 'var(--fg-e65100)'
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
 const td: React.CSSProperties = { padding: '11px 14px', fontSize: 13, verticalAlign: 'middle' }
@@ -138,7 +138,9 @@ function PiCuttingGuide({ pi, onBack }: { pi: PiOption; onBack: () => void }) {
           <div style={{ marginLeft: 'auto' }}>
             <PrintExportButton
               label={`In (${lines.length} vật tư)`}
-              color={ACCENT}
+              // Nền cam ĐẬM riêng cho nút này (2026-10-24, UX-9): chữ trắng 12px đậm trên #e65100 chỉ 3,79:1 (< 4,5:1);
+              // #bf360c ~5,6:1. Không đổi --bg-e65100 vì đó là màu nút cam chung toàn app (người dùng chốt chỉ đổi nút này).
+              color="var(--bg-bf360c)"
               variant="solid"
               onExcel={() => exportCuttingGuideExcelAll(pi.poNumber, lines)}
               onPdf={() => printCuttingGuide(pi.poNumber, lines)}
@@ -171,6 +173,14 @@ function PiCuttingGuide({ pi, onBack }: { pi: PiOption; onBack: () => void }) {
 function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProposalLine }) {
   const { columns, columnLabels, rows } = buildCuttingGuideTable(line)
   const pieces = buildPieceSummary(line)
+  // Cột "Cách cắt theo bó" chỉ hiện khi phương án tính bằng MC Tự động; MC Laser/phương án cũ giữ nguyên bảng. Ở màn Phôi đã có
+  // "bó đoạn" (CutBundle: bó đoạn đã cắt giao Hàn) nên bó sắt cây ghi là "bó cây" cho khỏi lẫn.
+  const hasBundles = rows.some(r => fmtBundles(r.bundles) !== null)
+  const machineText = machineSummaryText(line, 'bó cây')
+  // Cột "Cách cắt theo bó cây" LUÔN đứng ngay sau STT trên màn hình (2026-10-24): trước chỉ làm vậy ở điện thoại, nhưng tablet 768
+  // và cả máy tính với loại nhiều cỡ đoạn (SAT-HOP-10X20: bảng 1331 px trong khung 1167 px) cũng cuộn ngang làm khuất cột cuối.
+  // Bản in/Excel (utils/cuttingGuide.ts) vẫn để cột này ở cuối như bản in MC Laser.
+  const bundleFirst = hasBundles
   return (
     <div style={card}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', gap: 8 }}>
@@ -178,8 +188,11 @@ function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProp
           <div style={{ fontWeight: 700, fontSize: 14 }}>{line.materialCode} — {line.materialName}</div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>
             Mua {line.bestStockLengthMm ?? '—'}mm × {line.totalBars ?? '—'} cây
-            {line.wastePercentage != null && <> · hao hụt {line.wastePercentage.toFixed(2)}%</>}
+            {line.wastePercentage != null && <> · hao hụt {fmtPercent(line.wastePercentage)}%</>}
           </div>
+          {machineText && (
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>Máy cắt: <b>{machineText}</b></div>
+          )}
           {/* Cỡ đặt riêng (auto_scan mở lại 2026-08-26) - PHẢI nổi bật, không để thợ/Mua hàng
               tưởng nhầm đây là cây chuẩn 6000mm vẫn hay đặt. */}
           {line.lengthSource === 'scan' && (
@@ -190,7 +203,8 @@ function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProp
         </div>
         <PrintExportButton
           label="In"
-          color={ACCENT}
+          // Nút viền: chữ cam #e65100 trên nền trắng chỉ 3,79:1 (chữ 12px) -> dùng cam đậm hơn --fg-c2410c (~5,2:1; chế độ tối tự sáng lên).
+          color="var(--fg-c2410c)"
           onExcel={() => exportCuttingGuideExcel(poNumber, line)}
           onPdf={() => printCuttingGuide(poNumber, [line])}
         />
@@ -226,20 +240,27 @@ function MaterialGuide({ poNumber, line }: { poNumber: string; line: CuttingProp
           <thead>
             <tr style={{ background: 'var(--surface)' }}>
               <th style={{ ...th, width: 40 }}>STT</th>
-              {columnLabels.map((label, i) => <th key={columns[i]} style={thR}>{label}</th>)}
+              {bundleFirst && <th style={th}>Cách cắt theo bó cây</th>}
+              {/* Tiêu đề cỡ đoạn dài ("Tay trái, Tay phải (445mm)") được xuống dòng - để nowrap thì 1 loại nhiều cỡ đã rộng hơn màn hình. */}
+              {columnLabels.map((label, i) => <th key={columns[i]} style={{ ...thR, whiteSpace: 'normal', minWidth: 72 }}>{label}</th>)}
               <th style={thR}>HH/cây</th>
               <th style={thR}>Số cây</th>
+              {hasBundles && !bundleFirst && <th style={th}>Cách cắt theo bó cây</th>}
             </tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={r.patternIndex} style={{ borderTop: '1px solid var(--border)' }}>
                 <td style={{ ...td, fontWeight: 600 }}>{i + 1}</td>
+                {bundleFirst && <td style={{ ...td, minWidth: 150 }}>{fmtBundles(r.bundles, 'bó cây') ?? <span style={{ color: 'var(--text3)' }}>—</span>}</td>}
                 {r.counts.map((c, ci) => (
                   <td key={columns[ci]} style={{ ...tdR, fontWeight: c > 0 ? 700 : 400, color: c > 0 ? 'var(--text)' : 'var(--text3)' }}>{c > 0 ? c : '—'}</td>
                 ))}
-                <td style={tdR}>{r.wastePerBarMm ?? '—'}</td>
+                <td style={tdR}>{r.wastePerBarMm != null ? r.wastePerBarMm.toLocaleString('vi-VN') : '—'}</td>
                 <td style={{ ...tdR, fontWeight: 700 }}>{r.barCount}</td>
+                {hasBundles && !bundleFirst && (
+                  <td style={{ ...td, whiteSpace: 'nowrap' }}>{fmtBundles(r.bundles, 'bó cây') ?? <span style={{ color: 'var(--text3)' }}>—</span>}</td>
+                )}
               </tr>
             ))}
           </tbody>

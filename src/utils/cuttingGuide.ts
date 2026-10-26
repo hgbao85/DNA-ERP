@@ -13,13 +13,16 @@
  * cỡ đoạn, đúng 2 bảng MC Laser in ra.
  */
 import * as XLSX from 'xlsx';
-import type { CuttingProposalLine, CuttingProposalPieceSummary } from '../services/cutting-proposals-api';
+import type { CuttingProposalLine, CuttingProposalPieceSummary, PatternBundles } from '../services/cutting-proposals-api';
+import { fmtBundles, fmtBundleSummary, lineMachine, machineLabel } from './cutMachine';
 
 export interface CuttingGuideRow {
   patternIndex: number;
   counts: number[];
   barCount: number;
   wastePerBarMm: number | null;
+  /** Cách cắt theo bó (MC Tự động); null = cắt từng cây (MC Laser / phương án cũ). Định dạng chữ: fmtBundles(). */
+  bundles: PatternBundles | null;
 }
 
 /** cột = mọi cỡ đoạn xuất hiện trong bất kỳ kiểu cắt nào (dài trước, khớp thứ tự thợ nên cắt: cỡ
@@ -44,6 +47,7 @@ export function buildCuttingGuideTable(
       counts: columns.map((c) => bySize.get(c) ?? 0),
       barCount: p.barCount,
       wastePerBarMm: p.wastePerBarMm,
+      bundles: p.bundles ?? null,
     };
   });
   return { columns, columnLabels, rows };
@@ -66,9 +70,20 @@ export function buildPieceSummary(line: CuttingProposalLine): CuttingProposalPie
     .map(([size, produced]) => ({ size, demand: NaN, produced, names: [] }));
 }
 
+/** "MC Tự động · 12 bó cây + 5 cây cắt tay = 17 lần cắt" - dòng máy cắt của bản hướng dẫn (màn Phôi, in, Excel). null khi
+ *  dòng không khả thi chưa ghi máy; MC Laser không có tóm tắt bó thì chỉ nêu tên máy. */
+export function machineSummaryText(line: CuttingProposalLine, bundleWord = 'bó cây'): string | null {
+  // Dòng khả thi mà chưa ghi máy = phương án cũ, từ trước khi có MC Tự động -> MC Laser (quy tắc chung: lineMachine).
+  const machine = lineMachine(line);
+  const name = machineLabel(machine);
+  if (!name) return null;
+  const sum = machine === 'tu_dong' ? fmtBundleSummary(line.bundleSummary, bundleWord) : null;
+  return sum ? `${name} · ${sum}` : name;
+}
+
 const fmtDemand = (n: number): string | number => (Number.isNaN(n) ? '—' : n);
 
-function buildSheetAoa(line: CuttingProposalLine): (string | number)[][] {
+export function buildSheetAoa(line: CuttingProposalLine): (string | number)[][] {
   const { columnLabels, rows } = buildCuttingGuideTable(line);
   const pieces = buildPieceSummary(line);
   const summaryHeader = ['Tên sắt', 'Đoạn (mm)', 'SL cần', 'SL cắt'];
@@ -78,16 +93,20 @@ function buildSheetAoa(line: CuttingProposalLine): (string | number)[][] {
     fmtDemand(p.demand),
     p.produced,
   ]);
-  const header = ['STT', ...columnLabels, 'HH/cây (mm)', 'Số cây'];
+  // Cột "Cách cắt theo bó cây" chỉ có khi phương án tính bằng MC Tự động - MC Laser/phương án cũ giữ nguyên bảng như cũ.
+  const hasBundles = rows.some((r) => fmtBundles(r.bundles) !== null);
+  const header = ['STT', ...columnLabels, 'HH/cây (mm)', 'Số cây', ...(hasBundles ? ['Cách cắt theo bó cây'] : [])];
   const dataRows = rows.map((r, i) => [
     i + 1,
     ...r.counts.map((c) => (c > 0 ? c : '')),
     r.wastePerBarMm ?? '',
     r.barCount,
+    ...(hasBundles ? [fmtBundles(r.bundles, 'bó cây') ?? ''] : []),
   ]);
   return [
     [`${line.materialCode} — ${line.materialName}`],
     [`Mua ${line.bestStockLengthMm ?? '—'}mm × ${line.totalBars ?? '—'} cây, hao hụt ${line.wastePercentage != null ? `${line.wastePercentage.toFixed(2)}%` : '—'}`],
+    ...(machineSummaryText(line) ? [[`Máy cắt: ${machineSummaryText(line)}`]] : []),
     // Cỡ đặt riêng (auto_scan mở lại 2026-08-26) - phải in rõ trên giấy, thợ/Mua hàng không được
     // tưởng nhầm đây là cây chuẩn 6000mm.
     ...(line.lengthSource === 'scan'
@@ -115,7 +134,7 @@ function escapeHtml(s: string): string {
  *  (cat_laser_roi/templates/cat_laser_roi/index.html::printDiv, D:\DNA-DEXUAT) để thợ cắt quen mắt:
  *  bảng viền #ccc, header nền #f2f2f2, chữ giữa ô, font-size 0.8rem. `pageBreakBefore` chỉ dùng khi
  *  in nhiều vật tư trong 1 lần (mỗi vật tư 1 trang), vật tư đầu tiên không set. */
-function buildPrintSectionHtml(line: CuttingProposalLine, pageBreakBefore: boolean): string {
+export function buildPrintSectionHtml(line: CuttingProposalLine, pageBreakBefore: boolean): string {
   const { columnLabels, rows } = buildCuttingGuideTable(line);
   const pieces = buildPieceSummary(line);
   const summaryRows = pieces
@@ -124,18 +143,26 @@ function buildPrintSectionHtml(line: CuttingProposalLine, pageBreakBefore: boole
         `<td>${Number.isNaN(p.demand) ? '—' : p.demand}</td><td>${p.produced}</td></tr>`,
     )
     .join('');
+  const hasBundles = rows.some((r) => fmtBundles(r.bundles) !== null);
   const detailRows = rows
     .map((r, i) => {
       const counts = r.counts.map((c) => `<td>${c > 0 ? c : ''}</td>`).join('');
       return `<tr><td>${i + 1}</td>${counts}` +
-        `<td>${r.wastePerBarMm ?? '—'}</td><td>${r.barCount}</td></tr>`;
+        `<td>${r.wastePerBarMm ?? '—'}</td><td>${r.barCount}</td>` +
+        (hasBundles ? `<td>${escapeHtml(fmtBundles(r.bundles, 'bó cây') ?? '')}</td>` : '') +
+        `</tr>`;
     })
     .join('');
+  // Bản in dùng table-layout: fixed (các cột chia đều) -> có cột "Cách cắt theo bó cây" thì cho nó ~18% để chữ không bị bẻ vụn.
+  const colgroup = hasBundles
+    ? `<colgroup><col style="width:5%">${columnLabels.map(() => '<col>').join('')}<col style="width:8%"><col style="width:8%"><col style="width:18%"></colgroup>`
+    : '';
   return `
     <div${pageBreakBefore ? ' style="page-break-before: always"' : ''}>
       <h3>${escapeHtml(line.materialCode)} — ${escapeHtml(line.materialName)}</h3>
       <p>Mua <b>${line.bestStockLengthMm ?? '—'}mm</b> × <b>${line.totalBars ?? '—'} cây</b>
         ${line.wastePercentage != null ? `· hao hụt ${line.wastePercentage.toFixed(2)}%` : ''}</p>
+      ${machineSummaryText(line) ? `<p>Máy cắt: <b>${escapeHtml(machineSummaryText(line)!)}</b></p>` : ''}
       ${line.lengthSource === 'scan'
         ? `<div style="background:#fff3e0;color:#e65100;font-weight:700;padding:8px 12px;margin-bottom:8px;border-left:4px solid #e65100">⚠ CỠ ĐẶT RIÊNG ${line.bestStockLengthMm}mm — KHÔNG PHẢI CÂY CHUẨN</div>`
         : ''}
@@ -143,8 +170,8 @@ function buildPrintSectionHtml(line: CuttingProposalLine, pageBreakBefore: boole
       <table><thead><tr><th>Tên sắt</th><th>Đoạn (mm)</th><th>SL cần</th><th>SL cắt</th></tr></thead>
         <tbody>${summaryRows}</tbody></table>
       <h4>KẾ HOẠCH CẮT CHI TIẾT</h4>
-      <table><thead><tr><th>STT</th>${columnLabels.map((l) => `<th>${escapeHtml(l)}</th>`).join('')}` +
-        `<th>HH/cây</th><th>Số cây</th></tr></thead>
+      <table>${colgroup}<thead><tr><th>STT</th>${columnLabels.map((l) => `<th>${escapeHtml(l)}</th>`).join('')}` +
+        `<th>HH/cây</th><th>Số cây</th>${hasBundles ? '<th>Cách cắt theo bó cây</th>' : ''}</tr></thead>
         <tbody>${detailRows}</tbody></table>
     </div>`;
 }

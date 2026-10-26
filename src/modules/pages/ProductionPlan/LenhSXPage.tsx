@@ -18,9 +18,19 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useRealtimeRefetch, useRealtimeStatus } from '../../../realtime/hooks'
 import { overdueDays } from '../../../utils/overdue'
+import { fmtPercent } from '../../../utils/cutMachine'
+import { getCuttingDefaults } from '../../../services/cutting-batch-api'
+import { DEFAULT_MERGE_WINDOW_DAYS, maxGapDays, steelNeedDate, steelNeedSpan, steelNeedSpanMessage } from '../../../utils/steelNeedWindow'
 
 // Nhãn các cột mốc thời gian SKU - trên điện thoại hiện kèm từng ô ngày (không còn hàng tiêu đề bảng).
 const DATE_COL_LABELS = ['Mua hàng', 'Khung CK', 'Đan', 'Đóng gói', 'Hạn giao']
+
+// Mốc "ước tính" lùi N ngày từ hạn giao CỦA CHÍNH SKU (2026-10-24): lệnh gộp có nhiều hạn giao, pi.deadline chỉ là hạn SỚM
+// NHẤT - lùi từ đó thì SKU giao muộn hiện mốc sớm hơn thật (đã gặp PI-2026-016: SKU giao 10/12 hiện "Mua hàng 14/11"
+// = lùi từ 05/12). SKU chưa có hạn giao riêng mới dùng hạn lệnh.
+const estimateFrom = (item: { deliveryDeadline?: string | null } | null | undefined, piDeadline: Date | string) => (days: number) => {
+  const d = new Date(item?.deliveryDeadline ?? piDeadline); d.setDate(d.getDate() - days); return d
+}
 
 /** Nhãn đỏ "Quá hạn N ngày" - có chữ, không chỉ dựa vào màu. */
 function OverdueBadge({ days }: { days: number }) {
@@ -28,6 +38,31 @@ function OverdueBadge({ days }: { days: number }) {
     <span style={{ fontSize:11, fontWeight:700, color:'var(--red)', background:'var(--red-bg)', padding:'2px 8px', borderRadius:10, whiteSpace:'nowrap' }}>
       Quá hạn {days} ngày
     </span>
+  )
+}
+
+/**
+ * "Hạn hoàn thành" của 1 PI. PI thường hiện MỘT ngày (hạn giao sớm nhất của các SKU). Đợt gộp mà các SKU
+ * có hạn giao khác nhau (2026-10-24) hiện KHOẢNG "sớm nhất → muộn nhất" + số SKU, để KHSX/QLSX/Sếp thấy
+ * độ lệch thay vì một ngày che mất nó. Màu quá hạn do nơi gọi truyền qua `style` và LUÔN theo ngày SỚM
+ * NHẤT (SKU gấp nhất mới là cái trễ trước). `showCount=false` ở dòng danh sách đã có sẵn chip "N SKU"
+ * ngay cạnh - khỏi ghi số SKU hai lần.
+ */
+function PiDeadlineText({ pi, style, showCount = true }: { pi: any; style?: React.CSSProperties; showCount?: boolean }) {
+  const earliest = new Date(pi.deadline)
+  const latest = pi.isMerged && pi.deadlineLatest ? new Date(pi.deadlineLatest) : null
+  const isRange = !!latest && format(latest, 'yyyy-MM-dd') !== format(earliest, 'yyyy-MM-dd')
+  const skuCount = Array.isArray(pi.items) ? pi.items.length : 0
+  return (
+    <>
+      <span style={style} title={isRange ? 'Hạn giao sớm nhất → muộn nhất của các SKU trong đợt gộp' : undefined}>
+        {format(earliest, 'dd/MM/yyyy')}
+        {isRange && latest && <> → {format(latest, 'dd/MM/yyyy')}</>}
+      </span>
+      {isRange && showCount && skuCount > 0 && (
+        <span style={{ fontSize:11, fontWeight:400, color:'var(--text3)', whiteSpace:'nowrap' }}>({skuCount} SKU)</span>
+      )}
+    </>
   )
 }
 
@@ -81,6 +116,10 @@ export default function LenhSXPage() {
     PHOI: string; HAN: string; SON: string
   }[] }>({ deadline: '', items: [] })
   const [editError, setEditError] = useState('')
+  // Khung gộp N ngày (tính cả hai đầu: chênh tối đa N-1) của lệnh gộp (SystemConfig.solverMergeWindowDays, đọc ở
+  // openPIEdit khi PI là đợt gộp). null = chưa đọc được -> KHÔNG tự kiểm ở FE (đoán sai N sẽ chặn oan);
+  // BE vẫn chặn khi lưu và câu báo lỗi hiện ngay trong hộp (editError).
+  const [mergeWindowDays, setMergeWindowDays] = useState<number | null>(null)
   // Field nào lúc mở modal chỉ là ngày "ước tính" (chưa có giá trị thật lưu ở SKU) — map vào ô
   // nhập để tham khảo, nhưng KHÔNG được tự "chốt" thành ngày chính thức nếu người dùng không đụng
   // vào (xem editTouched bên dưới) — bấm Lưu mà không sửa gì thì SKU vẫn giữ trạng thái ước tính.
@@ -221,8 +260,16 @@ export default function LenhSXPage() {
             này, khi đó "cây chuẩn" vẫn đúng. */}
         {ev && (
           <div style={{ fontSize:12, color:'var(--fg-a16207)', lineHeight:1.55, marginTop:9 }}>
-            <b>{ev.materialCode}</b> ở {ev.stockLengthMm != null ? <>cây <b>{ev.stockLengthMm}mm</b></> : <>cây chuẩn</>} ước tính hao <b>≥{ev.estimatedWastePct.toFixed(2)}%</b>
-            {!onlyStandard && ' — đợt này còn được thử cây riêng nên thực tế có thể thấp hơn'}
+            {/* fromProposal (2026-10-24, UX-6): PI tạo từ phương án đã tính thì số là hao hụt THẬT của phương án, không
+                còn là cận dưới ước tính - ghi "≥ ước tính" là nói sai với Sếp. Bản ghi cũ thiếu trường = ước tính. */}
+            {ev.fromProposal ? (
+              <><b>{ev.materialCode}</b> ở {ev.stockLengthMm != null ? <>cây <b>{ev.stockLengthMm}mm</b></> : <>cây chuẩn</>} hao hụt <b>{fmtPercent(ev.estimatedWastePct)}%</b> theo phương án đã tính</>
+            ) : (
+              <>
+                <b>{ev.materialCode}</b> ở {ev.stockLengthMm != null ? <>cây <b>{ev.stockLengthMm}mm</b></> : <>cây chuẩn</>} ước tính hao <b>≥{fmtPercent(ev.estimatedWastePct)}%</b>
+                {!onlyStandard && ' — đợt này còn được thử cây riêng nên thực tế có thể thấp hơn'}
+              </>
+            )}
           </div>
         )}
 
@@ -383,18 +430,16 @@ export default function LenhSXPage() {
     // những gì người dùng đang thấy trên bảng ngay phía sau modal.
     // pi.deadline đã là hạn giao SỚM NHẤT của các SKU (piDisplayDeadline, 2026-10-09) - trước tự tính
     // lại hạn MUỘN NHẤT ở đây, lệch với danh sách.
-    const computedDeadline = piDeadline
-    const fb = (days: number) => { const d = new Date(computedDeadline); d.setDate(d.getDate() - days); return d }
     const stgDate = (item: any, type: string, fallbackDays: number) => {
       const s = Array.isArray(item.stages) ? item.stages.find((x: any) => x.stageType === type) : null
-      return format(s?.deadline ? new Date(s.deadline) : fb(fallbackDays), 'yyyy-MM-dd')
+      return format(s?.deadline ? new Date(s.deadline) : estimateFrom(item, piDeadline)(fallbackDays), 'yyyy-MM-dd')
     }
     const hasStage = (item: any, type: string) =>
       Array.isArray(item.stages) && item.stages.some((x: any) => x.stageType === type && x.deadline)
     setEditingPI(pi)
     const itemValues = items.map((item: any) => ({
       values: {
-        materialDeadline: format(item.materialDeadline ? new Date(item.materialDeadline) : fb(21), 'yyyy-MM-dd'),
+        materialDeadline: format(item.materialDeadline ? new Date(item.materialDeadline) : estimateFrom(item, piDeadline)(21), 'yyyy-MM-dd'),
         deliveryDeadline: format(item.deliveryDeadline  ? new Date(item.deliveryDeadline)  : piDeadline, 'yyyy-MM-dd'),
         FRAME: stgDate(item, 'FRAME', 14),
         WEAVING: stgDate(item, 'WEAVING', 8),
@@ -421,6 +466,13 @@ export default function LenhSXPage() {
     setEditEstimated(itemValues.map((v) => v.estimated))
     setEditTouched(new Set())
     setEditError('')
+    // Đợt gộp: đọc ngưỡng N để báo ngay trong hộp khi các mốc cần sắt cách quá xa. BE cũ chưa trả
+    // field này thì dùng 3 (mặc định); đọc lỗi thì giữ nguyên giá trị trước (xem mergeWindowDays).
+    if (pi.isMerged) {
+      getCuttingDefaults()
+        .then((d) => setMergeWindowDays(d.solverMergeWindowDays ?? DEFAULT_MERGE_WINDOW_DAYS))
+        .catch(() => { /* không chặn việc sửa hạn; BE vẫn kiểm khi lưu */ })
+    }
     setExpandedFrame(Object.fromEntries(items.map((item: any, idx: number) => [
       idx, hasStage(item, 'FRAME_PHOI') || hasStage(item, 'FRAME_HAN') || hasStage(item, 'FRAME_SON'),
     ])))
@@ -435,17 +487,37 @@ export default function LenhSXPage() {
     { stageType: 'FRAME_SON'  as const, field: 'SON'  as const, label: 'Sơn' },
   ]
 
+  // Field chỉ mang giá trị "ước tính" map sẵn để tham khảo (editEstimated) và người dùng
+  // chưa thật sự đụng vào (editTouched) thì KHÔNG được gửi lên — tránh biến ước tính thành
+  // ngày chính thức chỉ vì bấm Lưu mà không sửa gì (xem openPIEdit).
+  const isCommittable = (idx: number, field: keyof (typeof editEstimated)[number]) =>
+    !editEstimated[idx]?.[field] || editTouched.has(`${idx}:${field}`)
+
+  // Luật cứng đợt gộp (Sếp chốt 2026-10-24): mốc cần sắt (Mua hàng, chưa có thì Khung cơ khí) của các
+  // SKU nằm trong khung N ngày tính cả hai đầu (chênh tối đa N-1, vd ngày 1 gộp được ngày 3, không gộp ngày 4). Chỉ tính các ô SẼ ĐƯỢC LƯU (isCommittable): ô còn là "ước tính" chưa
+  // đụng tới không gửi lên nên BE coi như trống - tính cả chúng thì FE chặn mà BE không hề thấy vi phạm.
+  // PI thường không kiểm; chưa biết N (mergeWindowDays null) thì để BE kiểm khi lưu.
+  const steelNeedError = (() => {
+    if (!editingPI?.isMerged || mergeWindowDays == null) return null
+    const items: any[] = Array.isArray(editingPI.items) ? editingPI.items : []
+    const entries = items.map((item, idx) => {
+      const vals = editValues.items[idx]
+      const committed = (field: 'materialDeadline' | 'FRAME') => (vals && isCommittable(idx, field) ? vals[field] : '')
+      return {
+        code: item.productVariant?.mfgProduct?.factoryCode ?? '—',
+        date: steelNeedDate(committed('materialDeadline'), committed('FRAME')),
+      }
+    })
+    return steelNeedSpanMessage(steelNeedSpan(entries), mergeWindowDays)
+  })()
+
   const handleSavePI = async () => {
     if (!editingPI || !editValues.deadline) return
+    if (steelNeedError) { setEditError(steelNeedError); return }
     setEditError('')
 
     setSavingPI(true)
     try {
-      // Field chỉ mang giá trị "ước tính" map sẵn để tham khảo (editEstimated) và người dùng
-      // chưa thật sự đụng vào (editTouched) thì KHÔNG được gửi lên — tránh biến ước tính thành
-      // ngày chính thức chỉ vì bấm Lưu mà không sửa gì (xem openPIEdit).
-      const isCommittable = (idx: number, field: keyof (typeof editEstimated)[number]) =>
-        !editEstimated[idx]?.[field] || editTouched.has(`${idx}:${field}`)
       const itemDls = editValues.items
         .map((it, idx) => it.deliveryDeadline && isCommittable(idx, 'deliveryDeadline') ? new Date(it.deliveryDeadline) : null)
         .filter(Boolean) as Date[]
@@ -453,12 +525,14 @@ export default function LenhSXPage() {
       const piDeadlineComputed = itemDls.length > 0
         ? itemDls.reduce((min, d) => d < min ? d : min, itemDls[0])
         : new Date(editValues.deadline)
-      await api.updateProductionInvoice(editingPI.id, { deadline: piDeadlineComputed.toISOString() })
 
+      // MỘT lời gọi lưu cả hạn PI + mọi SKU trong cùng giao dịch (2026-10-24): luật mốc cần sắt chỉ
+      // kiểm được trên toàn bộ mốc sau khi sửa, lưu lẻ từng SKU thì trạng thái giữa chừng luôn vi
+      // phạm; BE vi phạm -> 400 và không lưu gì (câu báo lỗi hiện ngay trong hộp, xem catch).
       const items: any[] = Array.isArray(editingPI.items) ? editingPI.items : []
-      await Promise.all(items.map((item, idx) => {
+      const itemsOut = items.flatMap((item, idx) => {
         const vals = editValues.items[idx]
-        if (!vals) return null
+        if (!vals) return []
         type StageOut = { stageType: 'FRAME' | 'WEAVING' | 'PACKAGING' | 'FRAME_PHOI' | 'FRAME_HAN' | 'FRAME_SON'; deadline: string }
         const payload: { materialDeadline?: string; deliveryDeadline?: string; stages?: StageOut[] } = {}
         if (vals.materialDeadline && isCommittable(idx, 'materialDeadline')) payload.materialDeadline = new Date(vals.materialDeadline).toISOString()
@@ -472,14 +546,19 @@ export default function LenhSXPage() {
           }
         }
         if (stages.length > 0) payload.stages = stages
-        if (!payload.materialDeadline && !payload.deliveryDeadline && !payload.stages) return null
-        return api.updateProductionInvoiceItem(editingPI.id, item.id, payload)
-      }))
+        if (!payload.materialDeadline && !payload.deliveryDeadline && !payload.stages) return []
+        return [{ itemId: String(item.id), ...payload }]
+      })
+      await api.updateProductionInvoiceItemsDeadlines(editingPI.id, {
+        deadline: piDeadlineComputed.toISOString(),
+        items: itemsOut,
+      })
 
       refetch()
       setEditingPI(null)
     } catch (e: any) {
-      alert(errMsg(e, 'Lỗi lưu thời hạn'))
+      // Hiện ngay trong hộp (không alert): hộp còn mở để người dùng dời mốc rồi bấm Lưu lại.
+      setEditError(errMsg(e, 'Lỗi lưu thời hạn'))
     } finally {
       setSavingPI(false)
     }
@@ -498,7 +577,6 @@ export default function LenhSXPage() {
           (() => {
             const { pi, items } = viewingApprovalGroup as { pi: any; items: any[] }
             const piDeadline = new Date(pi.deadline)
-            const fb = (days: number) => { const d = new Date(piDeadline); d.setDate(d.getDate() - days); return d }
             const busy = approvingKey === String(pi.id)
             return (
               <div>
@@ -522,7 +600,7 @@ export default function LenhSXPage() {
                   <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                     <CalendarClock size={14} color={overdueDays(piDeadline) > 0 ? 'var(--red)' : 'var(--text3)'}/>
                     <span style={{ fontSize:13, color:'var(--text3)' }}>Hạn hoàn thành:</span>
-                    <span style={{ fontWeight:700, fontSize:15, color: overdueDays(piDeadline) > 0 ? 'var(--red)' : undefined }}>{format(piDeadline, 'dd/MM/yyyy')}</span>
+                    <PiDeadlineText pi={pi} style={{ fontWeight:700, fontSize:15, color: overdueDays(piDeadline) > 0 ? 'var(--red)' : undefined }} />
                     {overdueDays(piDeadline) > 0 && <OverdueBadge days={overdueDays(piDeadline)} />}
                   </div>
                   {!isMobile && <div style={{ flex:1 }} />}
@@ -554,7 +632,7 @@ export default function LenhSXPage() {
                 </div>
 
                 {solverOverrideNote(pi)}
-                <CuttingPlanNote plan={pi.cuttingPlan} isMobile={isMobile} />
+                <CuttingPlanNote plan={pi.cuttingPlan} isMobile={isMobile} machine={pi.solverMachine} />
 
                 {/* Danh sách SKU trong PI */}
                 <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
@@ -575,6 +653,7 @@ export default function LenhSXPage() {
                     const iFrame  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'FRAME')     : null
                     const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
                     const iPackaging  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'PACKAGING')     : null
+                    const fb = estimateFrom(item, piDeadline)
                     const iMat      = item.materialDeadline ? new Date(item.materialDeadline) : fb(21)
                     const iFrameDate  = iFrame  ? new Date(iFrame.deadline)  : fb(14)
                     const iWeavDate = iWeav ? new Date(iWeav.deadline) : fb(8)
@@ -687,7 +766,7 @@ export default function LenhSXPage() {
                       <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap', justifyContent:'flex-end' }}>
                         <CalendarClock size={13} color={late > 0 ? 'var(--red)' : 'var(--text3)'}/>
                         {!isMobile && <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>}
-                        <span style={{ fontWeight:700, fontSize:13, color: late > 0 ? 'var(--red)' : 'var(--text)' }}>{format(new Date(pi.deadline), 'dd/MM/yyyy')}</span>
+                        <PiDeadlineText pi={pi} showCount={false} style={{ fontWeight:700, fontSize:13, color: late > 0 ? 'var(--red)' : 'var(--text)' }} />
                         {late > 0 && <OverdueBadge days={late} />}
                       </div>
                     )
@@ -713,7 +792,6 @@ export default function LenhSXPage() {
           const canConfirmProd = pi.status !== 'PRODUCING' && pi.status !== 'DONE' && pi.status !== 'CANCELLED'
           // Còn SKU nào chưa gửi duyệt / bị từ chối (có thể gửi lại).
           const hasSendableItems = items.some((it: any) => !it.prodApproval || it.prodApproval.status === 'REJECTED')
-          const fb = (days: number) => { const d = new Date(computedDeadline); d.setDate(d.getDate() - days); return d }
           // Nhóm SKU theo PO gốc (item.salesOrderCode) - PI gộp chứa SKU của nhiều PO khác nhau,
           // PI cắt riêng chỉ có đúng 1 nhóm. Giữ thứ tự xuất hiện đầu tiên của mỗi PO.
           const poGroupsMap = new Map<string, any[]>()
@@ -758,7 +836,7 @@ export default function LenhSXPage() {
                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                   <CalendarClock size={14} color="var(--text3)"/>
                   <span style={{ fontSize:13, color:'var(--text3)' }}>Hạn hoàn thành:</span>
-                  <span style={{ fontWeight:700, fontSize:15 }}>{format(computedDeadline, 'dd/MM/yyyy')}</span>
+                  <PiDeadlineText pi={pi} style={{ fontWeight:700, fontSize:15 }} />
                 </div>
                 <div style={{ marginLeft:'auto', fontSize:12, color:'var(--text3)', background:'var(--surface2)', padding:'4px 12px', borderRadius:12, border:'1px solid var(--border)' }}>
                   {items.length} SKU
@@ -799,6 +877,7 @@ export default function LenhSXPage() {
                   const iFrame  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'FRAME')     : null
                   const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
                   const iPackaging  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'PACKAGING')     : null
+                  const fb = estimateFrom(item, computedDeadline)
                   const iMat      = item.materialDeadline ? new Date(item.materialDeadline) : fb(21)
                   const iFrameDate  = iFrame  ? new Date(iFrame.deadline)  : fb(14)
                   const iWeavDate = iWeav ? new Date(iWeav.deadline) : fb(8)
@@ -924,7 +1003,7 @@ export default function LenhSXPage() {
                   <div style={{ display:'flex', alignItems:'center', gap:5 }}>
                     <CalendarClock size={13} color="var(--text3)"/>
                     {!isMobile && <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>}
-                    <span style={{ fontWeight:700, fontSize:13, color:'var(--text)' }}>{format(new Date(pi.deadline), 'dd/MM/yyyy')}</span>
+                    <PiDeadlineText pi={pi} showCount={false} style={{ fontWeight:700, fontSize:13, color:'var(--text)' }} />
                   </div>
                   <span style={{ fontSize:12, color:'var(--text3)', background:'var(--surface2)', border:'1px solid var(--border)', padding:'3px 10px', borderRadius:12, whiteSpace:'nowrap' }}>
                     {items.length} SKU
@@ -967,7 +1046,7 @@ export default function LenhSXPage() {
                 </div>
                 <div style={{ flex:1, minWidth:0, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
                   <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Hạn hoàn thành</div>
-                  <div style={{ fontWeight:700, fontSize:14 }}>{format(new Date(confirmProdTarget.deadline), 'dd/MM/yyyy')}</div>
+                  <div style={{ fontWeight:700, fontSize:14, display:'flex', alignItems:'baseline', gap:6, flexWrap:'wrap' }}><PiDeadlineText pi={confirmProdTarget} /></div>
                 </div>
               </div>
 
@@ -988,7 +1067,7 @@ export default function LenhSXPage() {
                   const clr  = item.productVariant?.colorCode
                   const qty  = item.quantity
                   const pDl  = new Date(confirmProdTarget.deadline)
-                  const fb   = (days: number) => { const d = new Date(pDl); d.setDate(d.getDate() - days); return d }
+                  const fb   = estimateFrom(item, pDl)
                   const iFrame  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'FRAME')     : null
                   const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
                   const iPackaging  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'PACKAGING')     : null
@@ -1109,7 +1188,7 @@ export default function LenhSXPage() {
                 </div>
                 <div style={{ flex:1, minWidth:0, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
                   <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Hạn hoàn thành</div>
-                  <div style={{ fontWeight:700, fontSize:14, color:'var(--fg-1d4ed8)' }}>{format(new Date(pi.deadline), 'dd/MM/yyyy')}</div>
+                  <div style={{ fontWeight:700, fontSize:14, color:'var(--fg-1d4ed8)', display:'flex', alignItems:'baseline', gap:6, flexWrap:'wrap' }}><PiDeadlineText pi={pi} /></div>
                 </div>
               </div>
 
@@ -1217,7 +1296,7 @@ export default function LenhSXPage() {
               {/* Đợt gộp: bấm Duyệt là duyệt TẤT CẢ SKU trong đợt cùng lúc. */}
               {pi.isMerged && (
                 <div style={{ background:'var(--bg-f5f3ff)', border:'1px solid var(--fg-ddd6fe)', borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:12.5, color:'var(--fg-5b21b6)' }}>
-                  <b>Đợt gộp {pi.code}</b> — duyệt sẽ cho sản xuất <b>cả {items.length} SKU</b> trong
+                  <b>Đợt gộp {pi.code}</b> — duyệt sẽ cho sản xuất <b>cả {items.length} SKU</b> trong{' '}
                   {/* Luồng "Solve trước" (2026-09-30): phương án đã tính sẵn, duyệt KHÔNG chạy solver lại. */}
                   đợt và {pi.cuttingPlan ? 'dùng chung phương án cắt đã tính bên dưới' : 'tính phương án cắt chung một lần'} cho cả nhóm:
                   <div style={{ marginTop:5, fontFamily:'monospace', fontSize:12 }}>
@@ -1228,7 +1307,7 @@ export default function LenhSXPage() {
 
               {/* Nhắc lại ngay trước nút bấm - đây là thứ Sếp đang thật sự chấp thuận về mặt tiền. */}
               {solverOverrideNote(pi, true)}
-              <CuttingPlanNote plan={pi.cuttingPlan} isMobile={isMobile} />
+              <CuttingPlanNote plan={pi.cuttingPlan} isMobile={isMobile} machine={pi.solverMachine} />
 
               {/* PI + hạn hoàn thành */}
               <div style={{ display:'flex', gap:10, marginBottom:14 }}>
@@ -1238,7 +1317,7 @@ export default function LenhSXPage() {
                 </div>
                 <div style={{ flex:1, minWidth:0, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
                   <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Hạn hoàn thành</div>
-                  <div style={{ fontWeight:700, fontSize:14, color:'var(--fg-1d4ed8)' }}>{format(piDeadline, 'dd/MM/yyyy')}</div>
+                  <div style={{ fontWeight:700, fontSize:14, color:'var(--fg-1d4ed8)', display:'flex', alignItems:'baseline', gap:6, flexWrap:'wrap' }}><PiDeadlineText pi={pi} /></div>
                 </div>
               </div>
 
@@ -1379,6 +1458,8 @@ export default function LenhSXPage() {
                     items: prev.items.map((it, i) => i !== idx ? it : { ...it, [field]: val }),
                   }))
                   setEditTouched(prev => new Set(prev).add(`${idx}:${field}`))
+                  // Câu lỗi BE của lần lưu trước nói về giá trị CŨ - sửa tiếp thì bỏ đi, khỏi đọc nhầm.
+                  setEditError('')
                 }
                 // Ô còn là ước tính (chưa sửa) hiện viền/nền nhạt hơn + nhãn "ước tính" — cùng quy
                 // ước với bảng SKU timeline, để người dùng biết giá trị nào là gợi ý, giá trị nào
@@ -1445,6 +1526,20 @@ export default function LenhSXPage() {
               })}
             </div>
 
+            {/* Đợt gộp: luật mốc cần sắt. Vi phạm -> câu đỏ nêu SKU sớm/muộn nhất + khoá nút Lưu; đang
+                đúng luật -> nhắc luật bằng dòng mờ để người dùng biết trước khi sửa. */}
+            {editingPI.isMerged && mergeWindowDays != null && (
+              steelNeedError ? (
+                <div role="alert" style={{ marginBottom:16, padding:'8px 12px', background:'var(--bg-fef2f2)', border:'1px solid var(--fg-fca5a5)', borderRadius:6, fontSize:12, color:'var(--fg-b91c1c)' }}>
+                  {steelNeedError}
+                </div>
+              ) : (
+                <div style={{ marginBottom:16, fontSize:11.5, color:'var(--text3)' }}>
+                  Đợt gộp: mốc cần sắt (Mua hàng, chưa có thì Khung cơ khí) của các SKU chỉ được gộp trong khung {mergeWindowDays} ngày (chênh tối đa {maxGapDays(mergeWindowDays)} ngày).
+                </div>
+              )
+            )}
+
             {editError && (
               <div style={{ marginBottom:16, padding:'8px 12px', background:'var(--bg-fef2f2)', border:'1px solid var(--fg-fca5a5)', borderRadius:6, fontSize:12, color:'var(--fg-b91c1c)' }}>
                 {editError}
@@ -1457,8 +1552,9 @@ export default function LenhSXPage() {
                 style={{ padding:'9px 18px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor: savingPI ? 'not-allowed' : 'pointer', color:'var(--text2)' }}>
                 Hủy
               </button>
-              <button onClick={handleSavePI} disabled={savingPI}
-                style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background:'var(--bg-1976d2)', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: savingPI ? 'not-allowed' : 'pointer', color:'#fff', opacity: savingPI ? 0.7 : 1 }}>
+              <button onClick={handleSavePI} disabled={savingPI || !!steelNeedError}
+                title={steelNeedError ?? undefined}
+                style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background:'var(--bg-1976d2)', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (savingPI || steelNeedError) ? 'not-allowed' : 'pointer', color:'#fff', opacity: (savingPI || steelNeedError) ? 0.5 : 1 }}>
                 {savingPI ? 'Đang lưu...' : 'Lưu'}
               </button>
             </div>

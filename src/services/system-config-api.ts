@@ -18,6 +18,18 @@ export async function updateSystemConfig(data: Partial<SystemConfig>): Promise<S
     floorPublicUrl: data.floorPublicUrl === undefined ? undefined : (data.floorPublicUrl ?? ''),
     // Bỏ dòng trống; mảng rỗng = tắt giới hạn mạng công ty.
     floorAllowedIps: data.floorAllowedIps?.map((l) => l.trim()).filter(Boolean),
+    // Nhóm "Máy cắt" (Tối ưu cắt sắt). Không có trong draft -> undefined thì BE giữ nguyên.
+    solverMachine: data.solverMachine,
+    solverMctdBladeWidthMm: data.solverMctdBladeWidthMm,
+    solverMctdTrimStartMm: data.solverMctdTrimStartMm,
+    solverBundleFactors: data.solverBundleFactors,
+    solverMaxManualCuts: data.solverMaxManualCuts,
+    solverMaxSizesPerPattern: data.solverMaxSizesPerPattern,
+    // Cỡ lệnh gộp (2026-10-24): mốc/hạn cách nhau tối đa N ngày + tối đa M SKU mỗi lệnh. Hàm này chỉ
+    // chuyển các field được liệt kê tên; solverMergeWindowDays trước đây THIẾU ở đây nên Admin sửa
+    // ở màn Cấu hình hệ thống mà BE không bao giờ nhận được - thêm field mới phải thêm ở cả đây.
+    solverMergeWindowDays: data.solverMergeWindowDays,
+    solverMergeMaxSkus: data.solverMergeMaxSkus,
   });
 }
 

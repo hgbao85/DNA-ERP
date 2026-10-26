@@ -142,15 +142,16 @@ export const productionPlanGroup: GuideGroup = {
       extraScreenshots: [{ src: '/guide-screens/pp-gom-dot-cat-mau.png', caption: 'Hai dòng cùng một SKU nhưng khác màu dây/màu nệm: nhãn màu cạnh mã SKU giúp phân biệt, và vẫn tick gộp chung được. Số liệu trong ảnh là dữ liệu mẫu.' }],
       mock: {
         title: 'Tối ưu cắt sắt — tab "Chọn và tính"',
-        columns: ['Đơn hàng', 'SKU', 'Sản phẩm', 'Hạn', 'Loại sắt · hao hụt khi cắt riêng'],
+        columns: ['Đơn hàng', 'SKU', 'Sản phẩm', 'Hạn', 'Loại sắt · hao hụt khi cắt riêng ở cây 6m'],
         rows: [['PO-2026-014', 'GHE-001', 'Ghế ăn mây nhựa', '30/09', 'SAT-003 ≥8,00%'], ['PO-2026-015', 'GHE-002', 'Ghế bành', '05/10', 'SAT-003 ≥11,20%']],
         buttons: ['Tải lại', 'Tính phương án cắt (2 SKU)'],
       },
       steps: [
-        'Ở tab "Chọn và tính": xem bảng SKU, mỗi dòng hiện từng loại sắt kèm % hao hụt ước tính nếu cắt riêng (chip đỏ = vượt ngưỡng, dấu "≥" = ước tính nhanh, dấu "?" = mới có vài cây nên chưa đáng tin). SKU hệ thống gợi ý gộp có nhãn "ĐỀ XUẤT" và được tick sẵn — sửa được.',
+        'Ở tab "Chọn và tính": mỗi dòng SKU chỉ hiện loại sắt có cảnh báo khi cắt riêng ở cây 6m (đỏ = vượt ngưỡng, xám = chưa kiểm xong, hệ thống tự kiểm tiếp ở nền); loại đạt gom vào "✓ n loại đạt". Khối "Loại sắt có cảnh báo" trên bảng ghi với mỗi loại: nhóm đơn gộp ít hao hụt nhất (chỉ gộp đơn có hạn giao cách nhau tối đa số ngày Admin đặt) và % hao hụt khi gộp — bấm "Chọn nhóm này" để tick đúng nhóm đó. SKU hệ thống gợi ý có nhãn "ĐỀ XUẤT" và được tick sẵn — sửa được; bấm "Chọn lại đề xuất" để quay về.',
         'Tick SKU muốn tính: chọn đúng 1 SKU = cắt riêng; chọn từ 2 SKU = gộp. Khi chọn ≥2, khối "Nếu gộp N SKU đã chọn" cho biết "Bớt N cây sắt" (hoặc "Không bớt được cây nào") và bảng Loại sắt / SKU dùng / Số cây cần / Hao hụt.',
         'Tuỳ chọn: bấm "Đổi" ở dòng "Chiều dài cây sắt" để nhập chiều dài cây (mm) riêng cho từng loại sắt — bỏ trống = dùng cây chuẩn của công ty, bấm "Về cây chuẩn" để xoá hết.',
-        'Tuỳ chọn: mở khối "Chế độ cắt" — "Bình thường (mặc định)" hoặc "Chấp nhận hao hụt cao hơn (đơn gấp)". Chọn chế độ đơn gấp thì bắt buộc nhập lý do để Giám đốc có căn cứ duyệt; có thể tick thêm "Giữ đúng chiều dài đã định, không cho hệ thống tự dò cây khác".',
+        'Tuỳ chọn: ở ô "Máy cắt" chọn "Theo mặc định" (máy Admin đã đặt), "MC Laser" (cắt từng cây) hoặc "MC Tự động" (cắt theo bó nhiều cây một lần, phần lẻ cắt tay). Máy chọn riêng cho từng đợt; kết quả MC Tự động có thêm dòng "x bó + y cây cắt tay = z lần cắt" và cách cắt theo bó của từng kiểu cắt. Bấm "Xem thông số máy cắt" ngay dưới ô để xem lưỡi cắt, tề đầu, số cây mỗi bó, số cây cắt tay tối đa… của máy sẽ dùng (chỉ xem — cần đổi thì liên hệ Admin).',
+        'Tuỳ chọn: mở khối "Chế độ cắt" — "Bình thường (mặc định)" hoặc "Chấp nhận hao hụt cao hơn (đơn gấp)". Chế độ đơn gấp chỉ cắt trên đúng chiều dài cây đã định (cây chuẩn, hoặc chiều dài đặt ở ô "Chiều dài cây sắt"), không dò cây khác và không đặt trần hao hụt — hệ thống tự tìm phương án hao hụt nhỏ nhất trên cây đó; bắt buộc nhập lý do để Giám đốc có căn cứ duyệt. Muốn hệ thống tự dò chiều dài khác thì dùng chế độ "Bình thường".',
         { text: 'Bấm "Tính phương án cắt (N SKU)" — màn hình tự chuyển sang tab "Kết quả đã tính", lượt tính chạy nền (từ vài giây tới vài phút). Có thể rời màn này, kết quả vẫn được giữ và có thông báo khi xong.', critical: true },
         'Ở thẻ kết quả: xem bảng Loại sắt / Số cây mua / Chiều dài cây / Hao hụt / Kết quả (Đạt, Cao hơn mức mặc định, Vượt ngưỡng, Không cắt được, Hết giờ chưa kết luận). Bấm vào một loại sắt để xem "Các đoạn cần cắt" và "Cách cắt từng cây".',
         { text: 'Kết quả dùng được thì bấm "Tạo lệnh sản xuất" (1 SKU) hoặc "Tạo lệnh sản xuất (gộp N SKU)".', critical: true },
@@ -209,6 +210,7 @@ export const productionPlanGroup: GuideGroup = {
       ],
       warnings: [
         'Ô hạn nào chưa từng được đặt tay sẽ hiển thị nhạt kèm "(ước tính)"/"(từ PO)" — nếu bấm Lưu mà không sửa, hệ thống KHÔNG ghi đè giá trị ước tính này thành ngày chính thức.',
+        'Với PI gộp ("ĐỢT GỘP"): mốc cần sắt (ngày Mua hàng, chưa có thì ngày Khung cơ khí) của các SKU chỉ được gộp trong khung 3 ngày (Admin đổi được; ngày 1 gộp được ngày 3, không gộp được ngày 4) — xa hơn thì nút Lưu bị khoá và hộp báo SKU sớm/muộn nhất; dời mốc lại hoặc tách SKU ra lệnh riêng.',
         'Từ 2026-08-24, không gửi lẻ từng SKU được nữa — luôn gửi cả PI một lần (hệ thống tự lọc SKU đủ điều kiện, ví dụ SKU vừa bị QLSX từ chối cần gửi lại).',
         'Dòng SKU có màu dây/màu nệm hiện kèm nhãn màu Sales đã chọn. Màu này được CHỐT vào lệnh khi Giám đốc duyệt; từ đó mua hàng và xuất đan chỉ tính đúng màu đó (xem bài "Màu dây & màu nệm theo từng dòng đơn").',
       ],

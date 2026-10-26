@@ -392,7 +392,7 @@ export const adminGroup: GuideGroup = {
       result: 'Tránh hoang mang hoặc chủ quan sai khi thao tác các màn này.',
       warnings: [
         'Đừng dựa vào "Nhật ký hoạt động" làm bằng chứng pháp lý/kiểm toán chính thức — nó không đầy đủ và không đồng bộ đa thiết bị.',
-        '"Cấu hình hệ thống": các trường thông tin công ty (tên, địa chỉ, điện thoại, email, mã số thuế, đơn vị tiền tệ) chỉ mang tính hiển thị tham khảo. Riêng "Địa chỉ ERP dùng cho tem QR" và "Mạng công ty được phép đăng nhập" có tác dụng thật — xem bài riêng.',
+        '"Cấu hình hệ thống": các trường thông tin công ty (tên, địa chỉ, điện thoại, email, mã số thuế, đơn vị tiền tệ) chỉ mang tính hiển thị tham khảo. Riêng "Địa chỉ ERP dùng cho tem QR" và "Mạng công ty được phép đăng nhập" có tác dụng thật — xem bài riêng. Nhóm "Máy cắt" cũng có tác dụng thật: máy mặc định MC Laser / MC Tự động và thông số bó (lưỡi cắt, tề đầu, hệ số bó, số cây cắt tay tối đa, số cỡ đoạn tối đa mỗi kiểu cắt) do màn Tối ưu cắt sắt đọc; ô nào nhập sai sẽ báo đỏ ngay dưới ô đó. Khối "Gợi ý gộp đơn" đặt cỡ lệnh gộp: các SKU trong một lệnh gộp phải có mốc cần sắt nằm trong khung bao nhiêu ngày (luật cứng, mặc định 3 = ngày 1 gộp được ngày 3, không gộp được ngày 4) và tối đa bao nhiêu SKU mỗi lệnh (mặc định 2).',
       ],
       tags: ['nhật ký hoạt động', 'reset dữ liệu demo', 'tình trạng hệ thống', 'cấu hình hệ thống'],
       sourceRefs: ['src/modules/pages/Admin/AuditLogPage.tsx', 'src/modules/pages/Admin/SystemStatusPage.tsx', 'src/modules/pages/Admin/SystemConfigPage.tsx'],
