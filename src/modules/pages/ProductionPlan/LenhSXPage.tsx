@@ -21,15 +21,26 @@ import { overdueDays } from '../../../utils/overdue'
 import { fmtPercent } from '../../../utils/cutMachine'
 import { getCuttingDefaults } from '../../../services/cutting-batch-api'
 import { DEFAULT_MERGE_WINDOW_DAYS, maxGapDays, steelNeedDate, steelNeedSpan, steelNeedSpanMessage } from '../../../utils/steelNeedWindow'
+import { FINISHED_MATERIAL_OFFSET_LABEL, MATERIAL_MILESTONES, PHU_AN_FIELDS, finishedMaterialDate, fmtDayVN, materialArrivalFrom, phuAnAnchor, phuAnDate, phuAnOffsetLabel, toInputDate, type PhuAnField } from '../../../utils/phuAnTimeline'
 
-// Nhãn các cột mốc thời gian SKU - trên điện thoại hiện kèm từng ô ngày (không còn hàng tiêu đề bảng).
-const DATE_COL_LABELS = ['Mua hàng', 'Khung CK', 'Đan', 'Đóng gói', 'Hạn giao']
+// Nhãn các cột mốc thời gian SKU - trên điện thoại hiện kèm từng ô ngày (không còn hàng tiêu đề bảng). Sếp duyệt 2026-10-27:
+// "Mua hàng" đổi thành "Mua VT khung & đan", thêm "Mua VT còn lại" GIỮA Đan và Đóng gói (vật tư đứng trước công đoạn dùng nó,
+// không theo thứ tự ngày - ĐG−7 thường sớm hơn ngày Đan).
+const DATE_COL_LABELS = [MATERIAL_MILESTONES.materialDeadline.short, 'Khung CK', 'Đan', MATERIAL_MILESTONES.finishedMaterialDeadline.short, 'Đóng gói', 'Hạn giao']
+const DATE_COL_HINTS: (string | undefined)[] = [MATERIAL_MILESTONES.materialDeadline.hint, undefined, undefined, MATERIAL_MILESTONES.finishedMaterialDeadline.hint, undefined, undefined]
+const HEADER_DATE_COLS = DATE_COL_LABELS.slice(0, 5).map((label, i) => ({ label, hint: DATE_COL_HINTS[i] }))
 
-// Mốc "ước tính" lùi N ngày từ hạn giao CỦA CHÍNH SKU (2026-10-24): lệnh gộp có nhiều hạn giao, pi.deadline chỉ là hạn SỚM
-// NHẤT - lùi từ đó thì SKU giao muộn hiện mốc sớm hơn thật (đã gặp PI-2026-016: SKU giao 10/12 hiện "Mua hàng 14/11"
-// = lùi từ 05/12). SKU chưa có hạn giao riêng mới dùng hạn lệnh.
-const estimateFrom = (item: { deliveryDeadline?: string | null } | null | undefined, piDeadline: Date | string) => (days: number) => {
-  const d = new Date(item?.deliveryDeadline ?? piDeadline); d.setDate(d.getDate() - days); return d
+// Mua VT còn lại: đã lưu thì lấy, chưa thì đề xuất Đóng gói − 7 (ĐG = Đóng gói đang hiện, đã lưu hoặc đề xuất).
+const finishedFor = (item: { finishedMaterialDeadline?: string | null } | null | undefined, packaging: Date) =>
+  item?.finishedMaterialDeadline ? new Date(item.finishedMaterialDeadline) : (finishedMaterialDate(packaging) ?? packaging)
+
+// Mốc "đề xuất" theo quy tắc Phú An (Sếp chốt 2026-10-27, utils/phuAnTimeline): N = Khung cơ khí đã lưu − 2, chưa có thì từ hạn
+// giao CỦA CHÍNH SKU - lệnh gộp có nhiều hạn giao, pi.deadline chỉ là hạn SỚM NHẤT, tính từ đó thì SKU giao muộn hiện mốc sớm hơn
+// thật (đã gặp PI-2026-016). SKU chưa có hạn giao riêng mới dùng hạn lệnh. Chỉ là đề xuất: KHSX tự sửa ngày thật.
+const proposeFor = (item: { deliveryDeadline?: string | null; stages?: { stageType: string; deadline?: string | null }[] } | null | undefined, piDeadline: Date | string) => {
+  const frame = Array.isArray(item?.stages) ? item.stages.find((s) => s.stageType === 'FRAME')?.deadline : null
+  const anchor = phuAnAnchor(frame, item?.deliveryDeadline ?? piDeadline)
+  return (field: PhuAnField) => (anchor ? phuAnDate(anchor, field) : new Date(piDeadline))
 }
 
 /** Nhãn đỏ "Quá hạn N ngày" - có chữ, không chỉ dựa vào màu. */
@@ -89,7 +100,7 @@ function CalculatingBadge({ requestedAt }: { requestedAt: string }) {
 export default function LenhSXPage() {
   const { user, isBoss } = useAuth()
   const isQlsx = user?.mfgRole === 'PRODUCTION_MANAGER'
-  // Điện thoại: bảng SKU dạng lưới 6-7 cột cố định không vừa - xếp chồng SKU + dải 5 ô ngày có nhãn.
+  // Điện thoại: bảng SKU dạng lưới 7-8 cột cố định không vừa - xếp chồng SKU + dải 6 ô ngày có nhãn (2 hàng × 3).
   const isMobile = useIsMobile()
   const [confirmingProdId, setConfirmingProdId] = useState<number | null>(null)
   const [confirmProdTarget, setConfirmProdTarget] = useState<any | null>(null)
@@ -112,7 +123,7 @@ export default function LenhSXPage() {
   // PACKAGING - đã thử làm "khoảng thời gian" (FRAME_START + ràng buộc nằm trong khung cha) rồi
   // đổi ý (xem doc comment schema.prisma ProdItemStageType) vì chưa PI nào từng dùng tính năng đó.
   const [editValues, setEditValues] = useState<{ deadline: string; items: {
-    materialDeadline: string; deliveryDeadline: string; FRAME: string; WEAVING: string; PACKAGING: string
+    materialDeadline: string; finishedMaterialDeadline: string; deliveryDeadline: string; FRAME: string; WEAVING: string; PACKAGING: string
     PHOI: string; HAN: string; SON: string
   }[] }>({ deadline: '', items: [] })
   const [editError, setEditError] = useState('')
@@ -124,7 +135,7 @@ export default function LenhSXPage() {
   // nhập để tham khảo, nhưng KHÔNG được tự "chốt" thành ngày chính thức nếu người dùng không đụng
   // vào (xem editTouched bên dưới) — bấm Lưu mà không sửa gì thì SKU vẫn giữ trạng thái ước tính.
   const [editEstimated, setEditEstimated] = useState<{
-    materialDeadline: boolean; deliveryDeadline: boolean; FRAME: boolean; WEAVING: boolean; PACKAGING: boolean
+    materialDeadline: boolean; finishedMaterialDeadline: boolean; deliveryDeadline: boolean; FRAME: boolean; WEAVING: boolean; PACKAGING: boolean
     PHOI: boolean; HAN: boolean; SON: boolean
   }[]>([])
   const [editTouched, setEditTouched] = useState<Set<string>>(new Set())
@@ -139,13 +150,20 @@ export default function LenhSXPage() {
   // bấm vào 1 PI mới chuyển sang trang chi tiết (2026-08-24, KHÔNG xổ tại chỗ) - danh sách SKU +
   // 2 nút Duyệt/Từ chối (hoặc Chọn kho/Từ chối) đều nằm trong trang chi tiết đó.
   const [viewingApprovalPiId, setViewingApprovalPiId] = useState<number | null>(null)
-  // Desktop: các ô ngày là con trực tiếp của lưới dòng (display: contents); điện thoại: lưới 5 ô riêng dưới SKU.
+  // Desktop: các ô ngày là con trực tiếp của lưới dòng (display: contents); điện thoại: lưới 6 ô riêng dưới SKU, 2 hàng × 3
+  // (hàng 1 VT khung & đan - Khung - Đan, hàng 2 VT còn lại - Đóng gói - Hạn giao).
   const dateStrip: React.CSSProperties = isMobile
-    ? { display:'grid', gridTemplateColumns:'repeat(5, minmax(0, 1fr))', gap:4, marginTop:10, paddingTop:8, borderTop:'1px dashed var(--border)' }
+    ? { display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))', rowGap:8, columnGap:4, marginTop:10, paddingTop:8, borderTop:'1px dashed var(--border)' }
     : { display:'contents' }
+  // Nhãn "MUA VT KHUNG & ĐAN" xuống 2 dòng ở khổ điện thoại - chừa sẵn 2 dòng cho MỌI nhãn để ngày cùng hàng thẳng nhau.
   const mobileLabel = (i: number) => isMobile && (
-    <div style={{ fontSize:9.5, fontWeight:700, color: i === 4 ? 'var(--fg-1d4ed8)' : 'var(--text3)', textTransform:'uppercase', marginBottom:2 }}>{DATE_COL_LABELS[i]}</div>
+    <div title={DATE_COL_HINTS[i]} style={{ fontSize:9.5, fontWeight:700, color: i === 5 ? 'var(--fg-1d4ed8)' : 'var(--text3)', textTransform:'uppercase', marginBottom:2, lineHeight:'12px', minHeight:24, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>{DATE_COL_LABELS[i]}</div>
   )
+  // Dòng nhỏ "từ dd/mm" dưới ô hạn vật tư - ngày sớm nhất hàng được về (hạn − 4), chỉ hiển thị.
+  const arrivalLine = (deadline: Date) => {
+    const from = materialArrivalFrom(deadline)
+    return from && <div style={{ fontSize:10, color:'var(--text3)' }} title="Ngày sớm nhất hàng được về (hạn chót − 4)">từ {format(from, 'dd/MM')}</div>
+  }
   const searchBox = (
     <div style={{ position:'relative', width: isMobile ? '100%' : undefined }}>
       <Search size={14} style={{ position:'absolute', left:10, top:'50%', transform:'translateY(-50%)', color:'var(--text3)', pointerEvents:'none' }} />
@@ -425,43 +443,47 @@ export default function LenhSXPage() {
   const openPIEdit = (pi: any) => {
     const piDeadline = new Date(pi.deadline)
     const items = Array.isArray(pi.items) ? pi.items : []
-    // Cùng công thức "ước tính" đang hiển thị ở bảng SKU timeline (computedDeadline + fb theo
-    // số ngày lùi 21/14/8/3) — map luôn giá trị ước tính vào ô nhập thay vì để trống, khớp với
-    // những gì người dùng đang thấy trên bảng ngay phía sau modal.
+    // Cùng công thức "đề xuất" đang hiển thị ở bảng SKU timeline (proposeFor, mốc Phú An) — map luôn giá trị
+    // đề xuất vào ô nhập thay vì để trống, khớp với những gì người dùng đang thấy trên bảng ngay phía sau modal.
     // pi.deadline đã là hạn giao SỚM NHẤT của các SKU (piDisplayDeadline, 2026-10-09) - trước tự tính
     // lại hạn MUỘN NHẤT ở đây, lệch với danh sách.
-    const stgDate = (item: any, type: string, fallbackDays: number) => {
+    const stgDate = (item: any, type: string, field: PhuAnField) => {
       const s = Array.isArray(item.stages) ? item.stages.find((x: any) => x.stageType === type) : null
-      return format(s?.deadline ? new Date(s.deadline) : estimateFrom(item, piDeadline)(fallbackDays), 'yyyy-MM-dd')
+      return format(s?.deadline ? new Date(s.deadline) : proposeFor(item, piDeadline)(field), 'yyyy-MM-dd')
     }
     const hasStage = (item: any, type: string) =>
       Array.isArray(item.stages) && item.stages.some((x: any) => x.stageType === type && x.deadline)
     setEditingPI(pi)
-    const itemValues = items.map((item: any) => ({
-      values: {
-        materialDeadline: format(item.materialDeadline ? new Date(item.materialDeadline) : estimateFrom(item, piDeadline)(21), 'yyyy-MM-dd'),
-        deliveryDeadline: format(item.deliveryDeadline  ? new Date(item.deliveryDeadline)  : piDeadline, 'yyyy-MM-dd'),
-        FRAME: stgDate(item, 'FRAME', 14),
-        WEAVING: stgDate(item, 'WEAVING', 8),
-        PACKAGING: stgDate(item, 'PACKAGING', 3),
-        // Phôi/Hàn/Sơn (2026-09-09, đơn giản hoá lại 2026-09-11 lần 2 - chỉ 1 mốc như các công
-        // đoạn khác) - mặc định lùi 25/20/16 ngày trước hạn giao, đúng thứ tự dây chuyền thật
-        // (Phôi làm trước, rồi Hàn, rồi Sơn, rồi mới tới Khung cơ khí hoàn tất ở -14).
-        PHOI: stgDate(item, 'FRAME_PHOI', 25),
-        HAN: stgDate(item, 'FRAME_HAN', 20),
-        SON: stgDate(item, 'FRAME_SON', 16),
-      },
-      estimated: {
-        materialDeadline: !item.materialDeadline,
-        deliveryDeadline: !item.deliveryDeadline,
-        FRAME: !hasStage(item, 'FRAME'),
-        WEAVING: !hasStage(item, 'WEAVING'),
-        PACKAGING: !hasStage(item, 'PACKAGING'),
-        PHOI: !hasStage(item, 'FRAME_PHOI'),
-        HAN: !hasStage(item, 'FRAME_HAN'),
-        SON: !hasStage(item, 'FRAME_SON'),
-      },
-    }))
+    const itemValues = items.map((item: any) => {
+      const packaging = stgDate(item, 'PACKAGING', 'PACKAGING')
+      return {
+        values: {
+          materialDeadline: format(item.materialDeadline ? new Date(item.materialDeadline) : proposeFor(item, piDeadline)('materialDeadline'), 'yyyy-MM-dd'),
+          // Mua VT còn lại đề xuất từ ô Đóng gói (đã lưu hoặc đề xuất N+14) − 7, không từ N.
+          finishedMaterialDeadline: format(finishedFor(item, new Date(packaging)), 'yyyy-MM-dd'),
+          deliveryDeadline: format(item.deliveryDeadline  ? new Date(item.deliveryDeadline)  : piDeadline, 'yyyy-MM-dd'),
+          FRAME: stgDate(item, 'FRAME', 'FRAME'),
+          WEAVING: stgDate(item, 'WEAVING', 'WEAVING'),
+          PACKAGING: packaging,
+          // Phôi/Hàn/Sơn (2026-09-09, đơn giản hoá lại 2026-09-11 lần 2 - chỉ 1 mốc như các công
+          // đoạn khác) - đề xuất N / N+1 / N+2, Khung cơ khí (xuất đan đủ) cũng N+2.
+          PHOI: stgDate(item, 'FRAME_PHOI', 'PHOI'),
+          HAN: stgDate(item, 'FRAME_HAN', 'HAN'),
+          SON: stgDate(item, 'FRAME_SON', 'SON'),
+        },
+        estimated: {
+          materialDeadline: !item.materialDeadline,
+          finishedMaterialDeadline: !item.finishedMaterialDeadline,
+          deliveryDeadline: !item.deliveryDeadline,
+          FRAME: !hasStage(item, 'FRAME'),
+          WEAVING: !hasStage(item, 'WEAVING'),
+          PACKAGING: !hasStage(item, 'PACKAGING'),
+          PHOI: !hasStage(item, 'FRAME_PHOI'),
+          HAN: !hasStage(item, 'FRAME_HAN'),
+          SON: !hasStage(item, 'FRAME_SON'),
+        },
+      }
+    })
     setEditValues({ deadline: format(piDeadline, 'yyyy-MM-dd'), items: itemValues.map((v) => v.values) })
     setEditEstimated(itemValues.map((v) => v.estimated))
     setEditTouched(new Set())
@@ -493,7 +515,7 @@ export default function LenhSXPage() {
   const isCommittable = (idx: number, field: keyof (typeof editEstimated)[number]) =>
     !editEstimated[idx]?.[field] || editTouched.has(`${idx}:${field}`)
 
-  // Luật cứng đợt gộp (Sếp chốt 2026-10-24): mốc cần sắt (Mua hàng, chưa có thì Khung cơ khí) của các
+  // Luật cứng đợt gộp (Sếp chốt 2026-10-24): mốc cần sắt (Mua VT khung & đan, chưa có thì Khung cơ khí) của các
   // SKU nằm trong khung N ngày tính cả hai đầu (chênh tối đa N-1, vd ngày 1 gộp được ngày 3, không gộp ngày 4). Chỉ tính các ô SẼ ĐƯỢC LƯU (isCommittable): ô còn là "ước tính" chưa
   // đụng tới không gửi lên nên BE coi như trống - tính cả chúng thì FE chặn mà BE không hề thấy vi phạm.
   // PI thường không kiểm; chưa biết N (mergeWindowDays null) thì để BE kiểm khi lưu.
@@ -534,8 +556,9 @@ export default function LenhSXPage() {
         const vals = editValues.items[idx]
         if (!vals) return []
         type StageOut = { stageType: 'FRAME' | 'WEAVING' | 'PACKAGING' | 'FRAME_PHOI' | 'FRAME_HAN' | 'FRAME_SON'; deadline: string }
-        const payload: { materialDeadline?: string; deliveryDeadline?: string; stages?: StageOut[] } = {}
+        const payload: { materialDeadline?: string; finishedMaterialDeadline?: string; deliveryDeadline?: string; stages?: StageOut[] } = {}
         if (vals.materialDeadline && isCommittable(idx, 'materialDeadline')) payload.materialDeadline = new Date(vals.materialDeadline).toISOString()
+        if (vals.finishedMaterialDeadline && isCommittable(idx, 'finishedMaterialDeadline')) payload.finishedMaterialDeadline = new Date(vals.finishedMaterialDeadline).toISOString()
         if (vals.deliveryDeadline && isCommittable(idx, 'deliveryDeadline')) payload.deliveryDeadline = new Date(vals.deliveryDeadline).toISOString()
         const stages: StageOut[] = (['FRAME', 'WEAVING', 'PACKAGING'] as const)
           .filter(field => vals[field] && isCommittable(idx, field))
@@ -546,7 +569,7 @@ export default function LenhSXPage() {
           }
         }
         if (stages.length > 0) payload.stages = stages
-        if (!payload.materialDeadline && !payload.deliveryDeadline && !payload.stages) return []
+        if (!payload.materialDeadline && !payload.finishedMaterialDeadline && !payload.deliveryDeadline && !payload.stages) return []
         return [{ itemId: String(item.id), ...payload }]
       })
       await api.updateProductionInvoiceItemsDeadlines(editingPI.id, {
@@ -636,11 +659,11 @@ export default function LenhSXPage() {
 
                 {/* Danh sách SKU trong PI */}
                 <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
-                  {!isMobile && <div style={{ display:'grid', gridTemplateColumns:'100px 1fr 95px 95px 95px 95px 100px', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
+                  {!isMobile && <div style={{ display:'grid', gridTemplateColumns:'100px 1fr 95px 95px 95px 95px 95px 100px', alignItems:'center', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
                     <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>PO</span>
                     <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>SKU</span>
-                    {['Mua hàng','Khung CK','Đan','Đóng gói'].map(h => (
-                      <span key={h} style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>{h}</span>
+                    {HEADER_DATE_COLS.map(({ label, hint }) => (
+                      <span key={label} title={hint} style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>{label}</span>
                     ))}
                     <span style={{ fontSize:11, fontWeight:700, color:'var(--fg-1d4ed8)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>Hạn giao</span>
                   </div>}
@@ -653,27 +676,29 @@ export default function LenhSXPage() {
                     const iFrame  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'FRAME')     : null
                     const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
                     const iPackaging  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'PACKAGING')     : null
-                    const fb = estimateFrom(item, piDeadline)
-                    const iMat      = item.materialDeadline ? new Date(item.materialDeadline) : fb(21)
-                    const iFrameDate  = iFrame  ? new Date(iFrame.deadline)  : fb(14)
-                    const iWeavDate = iWeav ? new Date(iWeav.deadline) : fb(8)
-                    const iPackagingDate  = iPackaging  ? new Date(iPackaging.deadline)  : fb(3)
-                    // Mốc đã qua: chữ đỏ + "đã qua" (mốc ước tính: "ước tính · đã qua") - lệnh chưa duyệt mà mốc đã qua là cần
-                    // xử lý gấp hoặc sửa thời hạn.
-                    const dc = (d: Date, own: boolean, i: number) => {
+                    const fb = proposeFor(item, piDeadline)
+                    const iMat      = item.materialDeadline ? new Date(item.materialDeadline) : fb('materialDeadline')
+                    const iFrameDate  = iFrame  ? new Date(iFrame.deadline)  : fb('FRAME')
+                    const iWeavDate = iWeav ? new Date(iWeav.deadline) : fb('WEAVING')
+                    const iPackagingDate  = iPackaging  ? new Date(iPackaging.deadline)  : fb('PACKAGING')
+                    const iFinished = finishedFor(item, iPackagingDate)
+                    // Mốc đã qua: chữ đỏ + "đã qua" (mốc đề xuất: "đề xuất · đã qua") - lệnh chưa duyệt mà mốc đã qua là cần
+                    // xử lý gấp hoặc sửa thời hạn. Ô hạn vật tư có thêm dòng "từ dd/mm" (material=true).
+                    const dc = (d: Date, own: boolean, i: number, material = false) => {
                       const past = overdueDays(d) > 0
                       return (
                         <div style={{ textAlign:'center' }}>
                           {mobileLabel(i)}
                           <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: own || past ? 700 : 400, color: past ? 'var(--red)' : own ? 'var(--text)' : 'var(--text3)' }}>{format(d, 'dd/MM/yyyy')}</div>
-                          {(!own || past) && <div style={{ fontSize:10, color: past ? 'var(--red)' : 'var(--text3)' }}>{!own ? 'ước tính' : ''}{!own && past ? ' · ' : ''}{past ? 'đã qua' : ''}</div>}
+                          {material && arrivalLine(d)}
+                          {(!own || past) && <div style={{ fontSize:10, color: past ? 'var(--red)' : 'var(--text3)' }}>{!own ? 'đề xuất' : ''}{!own && past ? ' · ' : ''}{past ? 'đã qua' : ''}</div>}
                         </div>
                       )
                     }
                     const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                     const deliveryPast = overdueDays(iDelivery ?? piDeadline) > 0
                     return (
-                      <div key={item.id ?? idx} style={{ ...(isMobile ? { padding:'12px 14px' } : { display:'grid', gridTemplateColumns:'100px 1fr 95px 95px 95px 95px 100px', padding:'12px 18px', alignItems:'center' }), borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
+                      <div key={item.id ?? idx} style={{ ...(isMobile ? { padding:'12px 14px' } : { display:'grid', gridTemplateColumns:'100px 1fr 95px 95px 95px 95px 95px 100px', padding:'12px 18px', alignItems:'center' }), borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
                         <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'var(--fg-0369a1)', display: isMobile ? 'block' : undefined, marginBottom: isMobile ? 4 : undefined }}>
                           {item.salesOrderCode ?? getDisplayCode(pi)}
                         </span>
@@ -703,12 +728,13 @@ export default function LenhSXPage() {
                           </div>
                         </div>
                         <div style={dateStrip}>
-                        {dc(iMat,      !!item.materialDeadline, 0)}
+                        {dc(iMat,      !!item.materialDeadline, 0, true)}
                         {dc(iFrameDate,  !!iFrame, 1)}
                         {dc(iWeavDate, !!iWeav, 2)}
-                        {dc(iPackagingDate,  !!iPackaging, 3)}
+                        {dc(iFinished, !!item.finishedMaterialDeadline, 3, true)}
+                        {dc(iPackagingDate,  !!iPackaging, 4)}
                         <div style={{ textAlign:'center' }}>
-                          {mobileLabel(4)}
+                          {mobileLabel(5)}
                           <div style={{ fontSize: isMobile ? 12 : 13, fontWeight:700, color: deliveryPast ? 'var(--red)' : iDelivery ? 'var(--fg-1d4ed8)' : 'var(--text3)' }}>
                             {format(iDelivery ?? piDeadline, 'dd/MM/yyyy')}
                           </div>
@@ -804,7 +830,7 @@ export default function LenhSXPage() {
           return (
             <div>
               {/* Back + actions */}
-              <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:20, flexWrap:'wrap', rowGap:8 }}>
+              <div style={{ display:'flex', alignItems:'center', gap:'8px 10px', marginBottom:20, flexWrap:'wrap' }}>
                 <button onClick={() => setViewingPIId(null)}
                   style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:13, cursor:'pointer', color:'var(--text2)', fontWeight:500 }}>
                   <ChevronLeft size={15}/> Danh sách PI
@@ -861,10 +887,10 @@ export default function LenhSXPage() {
                   )}
                   <span style={{ marginLeft:'auto', fontSize:11, fontWeight:600, color:'var(--fg-7c3aed)', background:'var(--surface)', padding:'2px 9px', borderRadius:10 }}>{groupItems.length} SKU</span>
                 </div>
-                {!isMobile && <div style={{ display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 110px', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
+                {!isMobile && <div style={{ display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 105px 110px', alignItems:'center', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
                   <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>SKU</span>
-                  {['Mua hàng','Khung CK','Đan','Đóng gói'].map(h => (
-                    <span key={h} style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>{h}</span>
+                  {HEADER_DATE_COLS.map(({ label, hint }) => (
+                    <span key={label} title={hint} style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>{label}</span>
                   ))}
                   <span style={{ fontSize:11, fontWeight:700, color:'var(--fg-1d4ed8)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>Hạn giao</span>
                 </div>}
@@ -877,22 +903,24 @@ export default function LenhSXPage() {
                   const iFrame  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'FRAME')     : null
                   const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
                   const iPackaging  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'PACKAGING')     : null
-                  const fb = estimateFrom(item, computedDeadline)
-                  const iMat      = item.materialDeadline ? new Date(item.materialDeadline) : fb(21)
-                  const iFrameDate  = iFrame  ? new Date(iFrame.deadline)  : fb(14)
-                  const iWeavDate = iWeav ? new Date(iWeav.deadline) : fb(8)
-                  const iPackagingDate  = iPackaging  ? new Date(iPackaging.deadline)  : fb(3)
-                  const dc = (d: Date, own: boolean, i: number) => (
+                  const fb = proposeFor(item, computedDeadline)
+                  const iMat      = item.materialDeadline ? new Date(item.materialDeadline) : fb('materialDeadline')
+                  const iFrameDate  = iFrame  ? new Date(iFrame.deadline)  : fb('FRAME')
+                  const iWeavDate = iWeav ? new Date(iWeav.deadline) : fb('WEAVING')
+                  const iPackagingDate  = iPackaging  ? new Date(iPackaging.deadline)  : fb('PACKAGING')
+                  const iFinished = finishedFor(item, iPackagingDate)
+                  const dc = (d: Date, own: boolean, i: number, material = false) => (
                     <div style={{ textAlign:'center' }}>
                       {mobileLabel(i)}
                       <div style={{ fontSize: isMobile ? 12 : 14, fontWeight: own ? 700 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>{fmt(d)}</div>
-                      {!own && <div style={{ fontSize:10, color:'var(--text3)' }}>ước tính</div>}
+                      {material && arrivalLine(d)}
+                      {!own && <div style={{ fontSize:10, color:'var(--text3)' }}>đề xuất</div>}
                     </div>
                   )
                   const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                   return (
                     <div key={item.id ?? idx} style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
-                      <div style={isMobile ? { padding:'12px 14px' } : { display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 110px', padding:'14px 18px', alignItems:'center' }}>
+                      <div style={isMobile ? { padding:'12px 14px' } : { display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 105px 110px', padding:'14px 18px', alignItems:'center' }}>
                         <div>
                           <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                             <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'var(--fg-0369a1)' }}>{code}</span>
@@ -944,12 +972,13 @@ export default function LenhSXPage() {
                           </div>
                         </div>
                         <div style={dateStrip}>
-                        {dc(iMat,      !!item.materialDeadline, 0)}
+                        {dc(iMat,      !!item.materialDeadline, 0, true)}
                         {dc(iFrameDate,  !!iFrame, 1)}
                         {dc(iWeavDate, !!iWeav, 2)}
-                        {dc(iPackagingDate,  !!iPackaging, 3)}
+                        {dc(iFinished, !!item.finishedMaterialDeadline, 3, true)}
+                        {dc(iPackagingDate,  !!iPackaging, 4)}
                         <div style={{ textAlign:'center' }}>
-                          {mobileLabel(4)}
+                          {mobileLabel(5)}
                           <div style={{ fontSize: isMobile ? 12 : 14, fontWeight:700, color: iDelivery ? 'var(--fg-1d4ed8)' : 'var(--text3)' }}>
                             {fmt(iDelivery ?? new Date(pi.deadline))}
                           </div>
@@ -1067,15 +1096,17 @@ export default function LenhSXPage() {
                   const clr  = item.productVariant?.colorCode
                   const qty  = item.quantity
                   const pDl  = new Date(confirmProdTarget.deadline)
-                  const fb   = estimateFrom(item, pDl)
+                  const fb   = proposeFor(item, pDl)
                   const iFrame  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'FRAME')     : null
                   const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
                   const iPackaging  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'PACKAGING')     : null
+                  const iPackagingDate = iPackaging ? new Date(iPackaging.deadline) : fb('PACKAGING')
                   const cols = [
-                    { label:'Mua hàng', val: item.materialDeadline ? new Date(item.materialDeadline) : fb(21), own: !!item.materialDeadline },
-                    { label:'Khung CK', val: iFrame  ? new Date(iFrame.deadline)  : fb(14), own: !!iFrame },
-                    { label:'Đan',      val: iWeav ? new Date(iWeav.deadline) : fb(8),  own: !!iWeav },
-                    { label:'Đóng gói', val: iPackaging  ? new Date(iPackaging.deadline)  : fb(3),  own: !!iPackaging },
+                    { label: DATE_COL_LABELS[0], hint: DATE_COL_HINTS[0], val: item.materialDeadline ? new Date(item.materialDeadline) : fb('materialDeadline'), own: !!item.materialDeadline, material: true },
+                    { label:'Khung CK', val: iFrame  ? new Date(iFrame.deadline)  : fb('FRAME'), own: !!iFrame },
+                    { label:'Đan',      val: iWeav ? new Date(iWeav.deadline) : fb('WEAVING'),  own: !!iWeav },
+                    { label: DATE_COL_LABELS[3], hint: DATE_COL_HINTS[3], val: finishedFor(item, iPackagingDate), own: !!item.finishedMaterialDeadline, material: true },
+                    { label:'Đóng gói', val: iPackagingDate,  own: !!iPackaging },
                   ]
                   const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                   return (
@@ -1113,13 +1144,14 @@ export default function LenhSXPage() {
                         )}
                       </div>
                       {/* Timeline dates row */}
-                      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', borderTop:'1px solid', borderColor: !locked ? 'var(--fg-bbf7d0)' : 'var(--border)', background: !locked ? 'var(--bg-dcfce7)' : 'var(--surface2)' }}>
-                        {cols.map(({ label, val, own }, ci) => (
-                          <div key={label} style={{ padding:'5px 10px', borderRight: ci < 3 ? '1px solid' : undefined, borderRightColor: !locked ? 'var(--fg-bbf7d0)' : 'var(--border)', textAlign:'center' }}>
-                            <div style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:1 }}>{label}</div>
+                      <div style={{ display:'grid', gridTemplateColumns:'repeat(5,minmax(0,1fr))', borderTop:'1px solid', borderColor: !locked ? 'var(--fg-bbf7d0)' : 'var(--border)', background: !locked ? 'var(--bg-dcfce7)' : 'var(--surface2)' }}>
+                        {cols.map(({ label, hint, val, own, material }, ci) => (
+                          <div key={label} style={{ padding:'5px 6px', borderRight: ci < cols.length - 1 ? '1px solid' : undefined, borderRightColor: !locked ? 'var(--fg-bbf7d0)' : 'var(--border)', textAlign:'center' }}>
+                            <div title={hint} style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:1, lineHeight:'12px', minHeight:24, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>{label}</div>
                             <div style={{ fontSize:11, fontWeight: own ? 600 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>
                               {format(val, 'dd/MM/yyyy')}
-                              {!own && <span style={{ display:'block', fontSize:9 }}>ước tính</span>}
+                              {material && <span style={{ display:'block', fontSize:9 }}>từ {format(materialArrivalFrom(val) ?? val, 'dd/MM')}</span>}
+                              {!own && <span style={{ display:'block', fontSize:9 }}>đề xuất</span>}
                             </div>
                           </div>
                         ))}
@@ -1448,31 +1480,88 @@ export default function LenhSXPage() {
                 const name = item.productVariant?.mfgProduct?.name ?? ''
                 const qty  = item.quantity
                 const vals = editValues.items[idx] ?? {
-                  materialDeadline:'', deliveryDeadline:'', FRAME:'', WEAVING:'', PACKAGING:'',
+                  materialDeadline:'', finishedMaterialDeadline:'', deliveryDeadline:'', FRAME:'', WEAVING:'', PACKAGING:'',
                   PHOI:'', HAN:'', SON:'',
                 }
                 const est = editEstimated[idx]
+                // Ô còn là đề xuất (chưa sửa) hiện viền/nền nhạt hơn + nhãn "đề xuất" — cùng quy ước với bảng SKU
+                // timeline, để người dùng biết giá trị nào là gợi ý, giá trị nào đã chốt thật.
+                const isEstimate = (field: string, touched: Set<string> = editTouched) =>
+                  !!est?.[field as keyof typeof est] && !touched.has(`${idx}:${field}`)
+                // N theo mốc Phú An: Khung cơ khí đã chốt (đã lưu hoặc vừa sửa) thì N = Khung − 2, không thì từ hạn giao.
+                const anchorOf = (v: typeof vals, touched: Set<string> = editTouched) =>
+                  phuAnAnchor(isEstimate('FRAME', touched) ? null : v.FRAME, v.deliveryDeadline)
+                const anchor = anchorOf(vals)
+                // Mua VT còn lại đề xuất theo ô Đóng gói đang có (ĐG−7), các ô khác theo N.
+                const finishedProposal = (packaging: string) => {
+                  const f = finishedMaterialDate(packaging)
+                  return f ? toInputDate(f) : ''
+                }
+                const proposal = (field: string) =>
+                  field === 'finishedMaterialDeadline' ? finishedProposal(vals.PACKAGING)
+                    : anchor && (PHU_AN_FIELDS as string[]).includes(field) ? toInputDate(phuAnDate(anchor, field as PhuAnField)) : ''
                 const setField = (field: string, val: string) => {
+                  const touched = new Set(editTouched).add(`${idx}:${field}`)
                   setEditValues(prev => ({
                     ...prev,
-                    items: prev.items.map((it, i) => i !== idx ? it : { ...it, [field]: val }),
+                    items: prev.items.map((it, i) => {
+                      if (i !== idx) return it
+                      const next = { ...it, [field]: val }
+                      // Đổi Khung hoặc hạn giao thì N đổi: ô còn là đề xuất (chưa ai sửa) tính lại theo N mới, ô đã chốt giữ nguyên.
+                      if (field === 'FRAME' || field === 'deliveryDeadline') {
+                        const a = anchorOf(next, touched)
+                        if (a) for (const f of PHU_AN_FIELDS) if (isEstimate(f, touched)) next[f] = toInputDate(phuAnDate(a, f))
+                      }
+                      // Đóng gói đổi (sửa tay hoặc vừa tính lại theo N) thì Mua VT còn lại còn là đề xuất cũng tính lại.
+                      if ((field === 'FRAME' || field === 'deliveryDeadline' || field === 'PACKAGING') && isEstimate('finishedMaterialDeadline', touched)) {
+                        const f = finishedProposal(next.PACKAGING)
+                        if (f) next.finishedMaterialDeadline = f
+                      }
+                      return next
+                    }),
                   }))
-                  setEditTouched(prev => new Set(prev).add(`${idx}:${field}`))
+                  setEditTouched(touched)
                   // Câu lỗi BE của lần lưu trước nói về giá trị CŨ - sửa tiếp thì bỏ đi, khỏi đọc nhầm.
                   setEditError('')
                 }
-                // Ô còn là ước tính (chưa sửa) hiện viền/nền nhạt hơn + nhãn "ước tính" — cùng quy
-                // ước với bảng SKU timeline, để người dùng biết giá trị nào là gợi ý, giá trị nào
-                // đã chốt thật.
-                const isEstimate = (field: string) => !!est?.[field as keyof typeof est] && !editTouched.has(`${idx}:${field}`)
-                const dateInput = (label: string, field: string, opts?: { min?: string; max?: string }) => (
-                  <div style={{ flex:'1 1 110px', minWidth:0 }}>
-                    <div style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:4 }}>{label}{isEstimate(field) && <span style={{ fontStyle:'italic' }}> (ước tính)</span>}</div>
+                // Dòng dưới ô: ngày kiểu ngày/tháng kèm thứ (ô chọn ngày hiện theo ngôn ngữ trình duyệt, có máy ra tháng/ngày).
+                // Ô đã chốt mà khác ngày đề xuất thì có nút "đề xuất …" để điền nhanh - vẫn phải bấm Lưu mới ghi.
+                const dayLine = (field: string) => {
+                  const value = vals[field as keyof typeof vals] ?? ''
+                  const p = proposal(field)
+                  const showHint = !isEstimate(field) && !!value && !!p && p !== value
+                  const isFinished = field === 'finishedMaterialDeadline'
+                  // Hạn vật tư: thêm dòng "về từ" = hạn − 4 (chỉ hiển thị, đi theo ngày trong ô kể cả khi sửa tay).
+                  const arrival = field === 'materialDeadline' || isFinished ? materialArrivalFrom(value) : null
+                  return (
+                    <div style={{ flex:1, minWidth:0, fontSize:10.5, color:'var(--text3)', lineHeight:'16px' }}>
+                      {fmtDayVN(value)}
+                      {isEstimate(field) && p && <> · {isFinished ? FINISHED_MATERIAL_OFFSET_LABEL : phuAnOffsetLabel(field as PhuAnField)}</>}
+                      {showHint && <> · <button type="button" onClick={() => setField(field, p)}
+                        title={isFinished ? 'Điền ngày đề xuất Đóng gói − 7 (vẫn phải bấm Lưu)' : 'Điền ngày đề xuất theo mốc Phú An (vẫn phải bấm Lưu)'}
+                        style={{ border:'none', background:'none', padding:0, color:'var(--fg-1d4ed8)', fontSize:10.5, cursor:'pointer', textDecoration:'underline', textUnderlineOffset:2 }}>
+                        đề xuất {p.slice(8, 10)}/{p.slice(5, 7)}
+                      </button></>}
+                      {arrival && <div title="Ngày sớm nhất hàng được về (hạn chót − 4)">về từ {fmtDayVN(arrival)}</div>}
+                    </div>
+                  )
+                }
+                // Nút phụ (Phôi/Hàn/Sơn của Khung) nằm ở dòng ngày DƯỚI ô, không chung dòng nhãn: chung dòng thì khung hẹp
+                // nhãn "Khung cơ khí" bị đẩy xuống 2 dòng, ô lệch hàng với các ô bên cạnh. Nhãn dài (2 mốc vật tư) được xuống
+                // 2 dòng: chừa sẵn chiều cao 2 dòng cho MỌI nhãn để các ô cùng hàng vẫn thẳng nhau.
+                const dateInput = (label: string, field: string, extra?: React.ReactNode, hint?: string) => (
+                  <div style={{ flex:'1 1 120px', minWidth:0 }}>
+                    <div title={hint} style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:4, lineHeight:'13px', minHeight:26, display:'flex', alignItems:'flex-end' }}>
+                      <span>{label}{isEstimate(field) && <span style={{ fontStyle:'italic' }}> (đề xuất)</span>}</span>
+                    </div>
                     <input type="date" value={vals[field as keyof typeof vals] ?? ''}
-                      min={opts?.min || undefined} max={opts?.max || undefined}
                       onChange={e => setField(field, e.target.value)}
                       style={{ width:'100%', padding:'5px 6px', border:`1px solid ${isEstimate(field) ? 'var(--border)' : 'var(--fg-1d4ed8)'}`, borderRadius:5, fontSize:12, background:'var(--surface)', color: isEstimate(field) ? 'var(--text3)' : 'var(--text)', boxSizing:'border-box' }}
                     />
+                    <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:3, minHeight:18 }}>
+                      {dayLine(field)}
+                      {extra}
+                    </div>
                   </div>
                 )
                 return (
@@ -1491,34 +1580,42 @@ export default function LenhSXPage() {
                           onChange={e => setField('deliveryDeadline', e.target.value)}
                           style={{ width:'100%', padding:'5px 8px', border:`1px solid ${isEstimate('deliveryDeadline') ? 'var(--border)' : 'var(--fg-1d4ed8)'}`, borderRadius:5, fontSize:12, background:'var(--surface)', color: isEstimate('deliveryDeadline') ? 'var(--text3)' : 'var(--text)', boxSizing:'border-box' }}
                         />
+                        <div style={{ display:'flex', marginTop:3 }}>{dayLine('deliveryDeadline')}</div>
                       </div>
-                      {/* Các công đoạn sản xuất (Khung cơ khí tách riêng bên dưới, kèm nút bật
-                          Phôi/Hàn/Sơn) */}
-                      <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
-                        {dateInput('Mua hàng', 'materialDeadline')}
-                        {dateInput('Đan',       'WEAVING')}
-                        {dateInput('Đóng gói',  'PACKAGING')}
-                      </div>
-
-                      {/* Khung cơ khí + nút bật/tắt Phôi/Hàn/Sơn (2026-09-11 lần 2: mỗi mốc con
-                          chỉ còn 1 deadline, không còn "khoảng" như trước - xem SUB_STAGE_DEFS) */}
-                      <div>
-                        <div style={{ display:'flex', alignItems:'flex-end', gap:8 }}>
-                          <div style={{ flex:1 }}>{dateInput('Khung cơ khí', 'FRAME')}</div>
+                      {anchor && (
+                        <div style={{ fontSize:11.5, color:'var(--text2)', background:'var(--surface2)', borderRadius:6, padding:'6px 10px' }}>
+                          Bắt đầu phôi đề xuất (N): <b>{fmtDayVN(anchor.n)}</b>, tính từ {anchor.source === 'frame'
+                            ? <>Khung cơ khí {format(anchor.from, 'dd/MM')}</>
+                            : <>hạn giao {format(anchor.from, 'dd/MM')} (đóng gói xong trước 3 ngày)</>}.
+                          {' Ô "đề xuất" theo mốc Phú An; Mua vật tư còn lại tính từ Đóng gói (ĐG−7). Sửa ô nào thì lưu ô đó.'}
+                        </div>
+                      )}
+                      {/* Cùng thứ tự với thẻ SKU (Sếp duyệt 2026-10-27): Mua VT khung & đan → Khung cơ khí (nút bật Phôi/Hàn/Sơn) → Đan
+                          → Mua VT còn lại → Đóng gói. 2026-09-11 lần 2: mỗi mốc con chỉ còn 1 deadline - xem SUB_STAGE_DEFS. */}
+                      {/* 2 lưới cố định 3 cột (điện thoại 2 cột), cùng số cột nên ô thẳng hàng; ô Phôi/Hàn/Sơn mở ra NGAY DƯỚI hàng có
+                          Khung cơ khí, không rớt xuống sau Đóng gói. Modal rộng 560 không đủ chỗ 5 ô ngày một hàng. */}
+                      <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', gap:8 }}>
+                        {dateInput(MATERIAL_MILESTONES.materialDeadline.full, 'materialDeadline', undefined, MATERIAL_MILESTONES.materialDeadline.hint)}
+                        {dateInput('Khung cơ khí', 'FRAME', (
                           <button type="button"
                             onClick={() => setExpandedFrame(prev => ({ ...prev, [idx]: !prev[idx] }))}
-                            style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'5px 8px', border:'1px solid var(--border)', borderRadius:5, background:'var(--surface)', color:'var(--text2)', fontSize:11, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>
-                            Phôi/Hàn/Sơn {expandedFrame[idx] ? <ChevronUp size={13}/> : <ChevronDown size={13}/>}
+                            aria-expanded={!!expandedFrame[idx]}
+                            style={{ display:'inline-flex', alignItems:'center', gap:2, flex:'none', padding:'1px 6px', border:'1px solid var(--border)', borderRadius:4, background:'var(--surface)', color:'var(--text2)', fontSize:10, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>
+                            Phôi/Hàn/Sơn {expandedFrame[idx] ? <ChevronUp size={11}/> : <ChevronDown size={11}/>}
                           </button>
+                        ))}
+                        {dateInput('Đan',      'WEAVING')}
+                      </div>
+                      {expandedFrame[idx] && (
+                        <div style={{ display:'flex', gap:8, flexWrap:'wrap', paddingLeft:12, borderLeft:'2px solid var(--border)' }}>
+                          {SUB_STAGE_DEFS.map(({ field, label }) => (
+                            <div key={field} style={{ flex:'1 1 110px', minWidth:0, display:'flex' }}>{dateInput(label, field)}</div>
+                          ))}
                         </div>
-                        {expandedFrame[idx] && (
-                          <div style={{ display:'flex', gap:8, flexWrap:'wrap', marginTop:8, paddingLeft:12, borderLeft:'2px solid var(--border)' }}>
-                            {SUB_STAGE_DEFS.map(({ field, label }) => (
-                              <div key={field} style={{ flex:'1 1 110px', minWidth:0, display:'flex' }}>{dateInput(label, field)}</div>
-                            ))}
-
-                          </div>
-                        )}
+                      )}
+                      <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', gap:8 }}>
+                        {dateInput(MATERIAL_MILESTONES.finishedMaterialDeadline.full, 'finishedMaterialDeadline', undefined, MATERIAL_MILESTONES.finishedMaterialDeadline.hint)}
+                        {dateInput('Đóng gói', 'PACKAGING')}
                       </div>
                     </div>
                   </div>
@@ -1535,7 +1632,7 @@ export default function LenhSXPage() {
                 </div>
               ) : (
                 <div style={{ marginBottom:16, fontSize:11.5, color:'var(--text3)' }}>
-                  Đợt gộp: mốc cần sắt (Mua hàng, chưa có thì Khung cơ khí) của các SKU chỉ được gộp trong khung {mergeWindowDays} ngày (chênh tối đa {maxGapDays(mergeWindowDays)} ngày).
+                  Đợt gộp: mốc cần sắt (Mua VT khung & đan, chưa có thì Khung cơ khí) của các SKU chỉ được gộp trong khung {mergeWindowDays} ngày (chênh tối đa {maxGapDays(mergeWindowDays)} ngày).
                 </div>
               )
             )}

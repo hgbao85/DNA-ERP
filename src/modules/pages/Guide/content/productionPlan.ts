@@ -192,12 +192,12 @@ export const productionPlanGroup: GuideGroup = {
       extraScreenshots: [{ src: '/guide-screens/pp-lenh-sx-khsx-mau.png', caption: 'PI có hai dòng cùng SKU khác màu: mỗi dòng ghi kèm màu dây và màu nệm Sales đã chọn. Số liệu trong ảnh là dữ liệu mẫu.' }],
       mock: {
         title: 'Sửa thời hạn',
-        formFields: ['Hạn giao hàng', 'Mua hàng', 'Đan', 'Đóng gói', 'Khung cơ khí'],
+        formFields: ['Hạn giao hàng', 'Mua vật tư khung cơ khí và đan', 'Khung cơ khí', 'Đan', 'Mua vật tư còn lại', 'Đóng gói'],
         buttons: ['Phôi/Hàn/Sơn', 'Gửi QLSX'],
       },
       steps: [
         'Vào menu "Lệnh sản xuất mới" (tiêu đề trang là "Tạo lệnh sản xuất"), mở một PI trong danh sách (SKU được nhóm theo đơn hàng gốc; PI gộp có nhãn "ĐỢT GỘP").',
-        'Bấm "Sửa thời hạn" để đặt hạn cho từng SKU: Hạn giao hàng, Mua hàng, Đan, Đóng gói, Khung cơ khí; bấm thêm nút "Phôi/Hàn/Sơn" để mở 3 ô hạn con nếu cần. Bấm "Lưu".',
+        'Bấm "Sửa thời hạn" để đặt hạn cho từng SKU: Hạn giao hàng, Mua vật tư khung cơ khí và đan, Khung cơ khí, Đan, Mua vật tư còn lại, Đóng gói; bấm thêm nút "Phôi/Hàn/Sơn" để mở 3 ô hạn con nếu cần. Bấm "Lưu".',
         { text: 'Bấm "Gửi QLSX" — xem lại danh sách SKU rồi xác nhận "Gửi QLSX (N SKU)".', critical: true },
       ],
       result: 'PI chuyển sang chờ QLSX xử lý (chọn kho thành phẩm rồi gửi Giám đốc duyệt).',
@@ -209,8 +209,10 @@ export const productionPlanGroup: GuideGroup = {
         { name: 'Lỗi tính phương án cắt', meaning: 'Chỉ gặp ở lệnh cũ tính phương án sau khi duyệt mà bị lỗi — báo Admin dùng nút "Tính lại".' },
       ],
       warnings: [
-        'Ô hạn nào chưa từng được đặt tay sẽ hiển thị nhạt kèm "(ước tính)"/"(từ PO)" — nếu bấm Lưu mà không sửa, hệ thống KHÔNG ghi đè giá trị ước tính này thành ngày chính thức.',
-        'Với PI gộp ("ĐỢT GỘP"): mốc cần sắt (ngày Mua hàng, chưa có thì ngày Khung cơ khí) của các SKU chỉ được gộp trong khung 3 ngày (Admin đổi được; ngày 1 gộp được ngày 3, không gộp được ngày 4) — xa hơn thì nút Lưu bị khoá và hộp báo SKU sớm/muộn nhất; dời mốc lại hoặc tách SKU ra lệnh riêng.',
+        'Ô hạn nào chưa từng được đặt tay sẽ hiển thị nhạt kèm "(đề xuất)"/"(từ PO)" — nếu bấm Lưu mà không sửa, hệ thống KHÔNG ghi đè giá trị đề xuất này thành ngày chính thức.',
+        'Ngày đề xuất theo mốc Phú An, tính từ N = ngày bắt đầu phôi: Mua vật tư khung cơ khí và đan N−1, Phôi N, Hàn N+1, Sơn N+2, Khung cơ khí (xuất đan đủ) N+2, Đan (thu mảnh về đủ) N+12, Đóng gói N+14. N = Khung cơ khí − 2 nếu Khung đã có ngày; chưa có thì N = hạn giao − 17 (đóng gói xong trước hạn giao 3 ngày). Riêng Mua vật tư còn lại tính từ ngày Đóng gói: Đóng gói − 7. Đổi Khung, hạn giao hoặc Đóng gói thì các ô đề xuất tự tính lại. Đây chỉ là đề xuất — KHSX sửa ngày thật theo thực tế; ô đã chốt mà khác đề xuất có nút "đề xuất dd/mm" để điền nhanh.',
+        'Với PI gộp ("ĐỢT GỘP"): mốc cần sắt (ngày Mua vật tư khung cơ khí và đan, chưa có thì ngày Khung cơ khí) của các SKU chỉ được gộp trong khung 3 ngày (Admin đổi được; ngày 1 gộp được ngày 3, không gộp được ngày 4) — xa hơn thì nút Lưu bị khoá và hộp báo SKU sớm/muộn nhất; dời mốc lại hoặc tách SKU ra lệnh riêng.',
+        'Hai mốc vật tư (Sếp chốt 2026-10-27): Mua vật tư khung cơ khí và đan — sắt, la, tán rút, đá cắt, dây hàn, CO2, sơn bột, hoá chất, dây đan, đinh, nút; Mua vật tư còn lại — thùng, xốp, nệm, gỗ, phụ kiện, nhãn. Ô ngày là HẠN CHÓT hàng về kho; dòng "về từ" bên dưới là ngày sớm nhất hàng được về (hạn chót − 4 ngày), chỉ để xem, không lưu. Trên thẻ SKU, cột Mua vật tư còn lại nằm giữa Đan và Đóng gói nên ngày của nó thường SỚM hơn ngày Đan — đó là đúng, không phải lỗi.',
         'Từ 2026-08-24, không gửi lẻ từng SKU được nữa — luôn gửi cả PI một lần (hệ thống tự lọc SKU đủ điều kiện, ví dụ SKU vừa bị QLSX từ chối cần gửi lại).',
         'Dòng SKU có màu dây/màu nệm hiện kèm nhãn màu Sales đã chọn. Màu này được CHỐT vào lệnh khi Giám đốc duyệt; từ đó mua hàng và xuất đan chỉ tính đúng màu đó (xem bài "Màu dây & màu nệm theo từng dòng đơn").',
       ],

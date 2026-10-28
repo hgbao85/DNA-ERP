@@ -60,9 +60,9 @@ const MC_NUM_FIELDS: { name: McNumName; label: string; help: string; integer: bo
  *  Cùng khối với trần số SKU mỗi lệnh gộp: hai con số này cùng định ra "một lệnh gộp được to đến đâu". */
 const MERGE_WINDOW_FIELD: (typeof MC_NUM_FIELDS)[number] = {
   name: 'solverMergeWindowDays', label: 'Gộp lệnh có mốc cần sắt trong khung (ngày)', integer: true, min: 1, max: 365,
-  // 2026-10-24 (Sếp chốt): từ gợi ý mềm thành LUẬT CỨNG, mặc định 7 -> 3. "Mốc cần sắt" = ngày Mua hàng của SKU (chưa có thì ngày Khung cơ khí).
+  // 2026-10-24 (Sếp chốt): từ gợi ý mềm thành LUẬT CỨNG, mặc định 7 -> 3. "Mốc cần sắt" = ngày Mua VT khung & đan của SKU (chưa có thì ngày Khung cơ khí; tên cũ "Mua hàng", đổi 2026-10-27).
   // Làm rõ cùng ngày: khung tính CẢ HAI ĐẦU (3 = ngày 1 gộp được ngày 3, không gộp ngày 4) nên chênh tối đa N-1 ngày; min 1 (không còn 0).
-  help: 'Luật cứng của lệnh gộp: các SKU gộp chung phải có “mốc cần sắt” (ngày Mua hàng, chưa có thì ngày Khung cơ khí) nằm trong một khung chừng này ngày, tính cả ngày đầu và ngày cuối. ' +
+  help: 'Luật cứng của lệnh gộp: các SKU gộp chung phải có “mốc cần sắt” (ngày Mua VT khung & đan, chưa có thì ngày Khung cơ khí) nằm trong một khung chừng này ngày, tính cả ngày đầu và ngày cuối. ' +
     'Ví dụ khung 3 ngày: ngày 1 gộp được với ngày 2 và ngày 3, KHÔNG gộp được với ngày 4 (chênh tối đa 2 ngày). ' +
     'Vi phạm thì KHSX không tính được phương án, không gộp được và không lưu được mốc thời gian — phải dời mốc hoặc tách SKU ra lệnh riêng. ' +
     'Màn Tối ưu cắt sắt cũng chỉ gợi ý gộp trong khung này. SKU chưa có mốc không bị chặn. Mặc định 3; nhập 1 = chỉ gộp SKU cùng ngày.',

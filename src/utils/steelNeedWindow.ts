@@ -6,7 +6,7 @@
  * Cắt/mua sắt đi theo PI nên cả nhóm mua một lần; mốc cách xa thì SKU sớm phải chờ hoặc SKU muộn phải mua sớm.
  * BE chặn khi lưu (400) - file này là bản tính cùng công thức ở FE để báo NGAY trong hộp "Sửa thời hạn".
  *
- * Mốc cần sắt của 1 SKU = ngày "Mua hàng" (materialDeadline); chưa có thì lấy ngày "Khung cơ khí"
+ * Mốc cần sắt của 1 SKU = ngày "Mua VT khung & đan" (materialDeadline, tên cũ "Mua hàng" - đổi 2026-10-27); chưa có thì lấy ngày "Khung cơ khí"
  * (stage FRAME); cả hai đều trống thì SKU đó BỊ BỎ QUA khi kiểm tra (đúng như BE).
  *
  * Ngày ở đây là chuỗi lịch 'yyyy-MM-dd' (đúng giá trị ô <input type="date">), tính khoảng cách bằng
@@ -37,7 +37,7 @@ export interface SteelNeedSpan {
   latest: SteelNeedEntry
 }
 
-/** Mốc cần sắt của 1 SKU: "Mua hàng", không có thì "Khung cơ khí"; cả hai trống = null (bỏ qua). */
+/** Mốc cần sắt của 1 SKU: "Mua VT khung & đan", không có thì "Khung cơ khí"; cả hai trống = null (bỏ qua). */
 export function steelNeedDate(materialDeadline?: string | null, frameDeadline?: string | null): string | null {
   return materialDeadline || frameDeadline || null
 }

@@ -38,6 +38,8 @@ interface BeProductionInvoiceItem {
   cushionMaterial?: MaterialChoice | null;
   quantity: number;
   materialDeadline: string | null;
+  /** "Mua VT còn lại" (2026-10-27) - BE cũ chưa có cột thì thiếu hẳn field. */
+  finishedMaterialDeadline?: string | null;
   deliveryDeadline: string | null;
   stages: { stageType: StageType; deadline: string }[];
   prodApprovalStatus: 'WAITING_QLSX' | 'WAITING_BOSS' | 'APPROVED' | 'REJECTED' | null;
@@ -125,6 +127,7 @@ function toItem(it: BeProductionInvoiceItem) {
       mfgProduct: { name: it.productName, factoryCode: it.factoryCode },
     },
     materialDeadline: it.materialDeadline ?? undefined,
+    finishedMaterialDeadline: it.finishedMaterialDeadline ?? undefined,
     deliveryDeadline: it.deliveryDeadline ?? undefined,
     status: undefined as string | undefined, // stage sản xuất/giao hàng — ngoài phạm vi domain này
     stages: it.stages.map((s) => ({ stageType: s.stageType, deadline: s.deadline })),
@@ -226,6 +229,7 @@ export async function updateProductionInvoiceItem(
   itemId: number | string,
   data: {
     materialDeadline?: string;
+    finishedMaterialDeadline?: string;
     deliveryDeadline?: string;
     stages?: { stageType: StageType; deadline: string }[];
   },
@@ -233,6 +237,7 @@ export async function updateProductionInvoiceItem(
   return toItem(
     await http.patch<BeProductionInvoiceItem>(`/production-invoices/${piId}/items/${itemId}`, {
       materialDeadline: data.materialDeadline,
+      finishedMaterialDeadline: data.finishedMaterialDeadline,
       deliveryDeadline: data.deliveryDeadline,
       stages: data.stages,
     }),
@@ -251,6 +256,7 @@ export async function updateProductionInvoiceItemsDeadlines(
     items: {
       itemId: string;
       materialDeadline?: string;
+      finishedMaterialDeadline?: string;
       deliveryDeadline?: string;
       stages?: { stageType: StageType; deadline: string }[];
     }[];

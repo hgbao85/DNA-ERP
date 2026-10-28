@@ -1,5 +1,7 @@
 # Changelog 2026-10-23 — Chọn máy cắt (MC Laser / MC Tự động) cho "Tối ưu cắt sắt"
 
+> **2026-10-26: ĐÃ COMMIT + PUSH + LÊN PRODUCTION** (BE `4cf4078` trên `main`, FE `d70be5e` trên `demo`; CI xanh, Render và Vercel đã chạy bản mới — changelog BE `docs/changelog-2026-10-06-review-commit-big-update.md` mục 5.8). Các chữ "CHƯA commit/CHƯA deploy" bên dưới là trạng thái lúc viết từng mục.
+
 Phạm vi: FE (D:\DNA-ERP). Phần BE (bộ giải HiGHS theo bó, SystemConfig, ProductionInvoice, CuttingProposal) làm song song ở D:\DNA-ERP-BE
 — FE bám đúng tên trường trong hợp đồng dưới đây, **chưa test với BE thật**.
 
