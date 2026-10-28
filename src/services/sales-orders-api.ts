@@ -50,6 +50,8 @@ interface BeSalesOrder {
   /** null = xoá được. Có giá trị = lý do không xoá được (đã gộp PI/đã giao hàng một phần) - dùng
    *  thẳng làm tooltip cho nút Xoá, xem SalesOrdersService.buildDeleteBlockReason() ở BE. */
   deleteBlockedReason: string | null;
+  /** Mã các PI đơn đã gộp vào (BE: SalesOrdersService.resolvePiCodes). */
+  piCodes?: string[];
   createdAt: string;
   updatedAt: string;
   items: BeSalesOrderItem[];
@@ -76,6 +78,7 @@ function toSalesOrder(o: BeSalesOrder): SalesOrder {
     attachmentUrl: o.attachmentUrl ?? undefined,
     note: o.note ?? undefined,
     deleteBlockedReason: o.deleteBlockedReason,
+    piCodes: o.piCodes ?? [],
     createdAt: o.createdAt,
   };
 }

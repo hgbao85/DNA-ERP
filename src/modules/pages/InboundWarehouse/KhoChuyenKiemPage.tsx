@@ -283,6 +283,9 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                     <td style={td}>
                       {readOnly ? (
                         <span style={{ color: 'var(--text3)', fontSize: 12 }}>—</span>
+                      ) : piece.totalQty > 0 && piece.checkedQty >= piece.totalQty ? (
+                        // Đã kiểm đủ toàn bộ số cần - không còn gì để kiểm, thay nút bằng nhãn thay vì để nút "Kiểm" mờ.
+                        <span style={{ color: 'var(--fg-16a34a)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}>Đã kiểm đủ</span>
                       ) : (
                         <button
                           onClick={() => openPopup(piece)}

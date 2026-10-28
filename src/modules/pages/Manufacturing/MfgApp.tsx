@@ -173,7 +173,7 @@ export default function MfgApp({ onBack }: MfgAppProps) {
     ...((isPhoi || isHan || isSon || isDirector) ? [{ id: 'phoi-lenh-sx' as TabId, label: 'Lệnh sản xuất', icon: <ClipboardCheck size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-huong-dan-cat' as TabId, label: 'Hướng dẫn cắt', icon: <Ruler size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-xac-nhan-nhan-sat' as TabId, label: 'Xác nhận nhận sắt', icon: <Check size={16} /> }] : []),
-    ...((isHan || isSon) ? [{ id: 'han-son-xac-nhan-vat-tu' as TabId, label: 'Xác nhận sản lượng', icon: <PackageCheck size={16} /> }] : []),
+    ...((isHan || isSon) ? [{ id: 'han-son-xac-nhan-vat-tu' as TabId, label: 'Xác nhận nhận vật tư', icon: <PackageCheck size={16} /> }] : []),
     ...((isPhoi || isHan || isSon) ? [{ id: 'phoi-dinh-muc-manh' as TabId, label: 'Danh sách định mức mảnh', icon: <Box size={16} /> }] : []),
     ...(isPhoi ? [{ id: 'phoi-kho-phoi' as TabId, label: 'Kho phôi', icon: <Warehouse size={16} /> }] : []),
     ...(isHan ? [{ id: 'han-khung-han' as TabId, label: 'Khung hàn', icon: <Frame size={16} /> }] : []),

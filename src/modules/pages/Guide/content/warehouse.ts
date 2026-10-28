@@ -294,7 +294,7 @@ export const warehouseGroup: GuideGroup = {
         { text: 'Nhập số lượng xuất (không vượt "Còn phải xuất"), bấm "Xuất".', critical: false },
         'Riêng "Xuất vật tư TP" có 2 chế độ: "Theo mảnh" (ví dụ sắt la cắt pat — chọn theo PO/SKU như trên) và "Không gắn mảnh (chân nhôm)" — chọn theo PI, bảng hiện Vật tư ra / Vật tư vào / Cần SX thêm / Cần nguyên liệu / Đã xuất, bấm "Xuất" để cấp nguyên liệu vào (ví dụ thanh nhôm).',
       ],
-      result: 'Tồn kho vật tư giảm ngay. Vật tư TP: Tổ Phôi xác nhận nhận ở "Xác nhận nhận sắt"; vật tư hàn/sơn: Tổ Hàn/Sơn xác nhận nhận ở "Xác nhận sản lượng".',
+      result: 'Tồn kho vật tư giảm ngay. Vật tư TP: Tổ Phôi xác nhận nhận ở "Xác nhận nhận sắt"; vật tư hàn/sơn: Tổ Hàn/Sơn xác nhận nhận ở "Xác nhận nhận vật tư".',
       warnings: [
         'Mỗi LỆNH sản xuất một dòng. Hai dòng cùng một SKU nhưng khác màu dây/màu nệm hiện thành hai dòng riêng, kèm nhãn màu cạnh mã SKU — chọn đúng dòng.',
       ],

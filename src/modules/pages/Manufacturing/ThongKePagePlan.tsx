@@ -436,7 +436,10 @@ function buildOrderRow(row: ApprovedRow, proposals: PurchaseProposal[], batch: B
   const details: StageDetails = { purchasing: { materials, piMaterials }, frame, weaving, chuyenKiem, packaging }
   // "Đã kết thúc" của xưởng (QLSX bấm Kết thúc, không hoàn tác được - xem FloorStageCell) cũng là hoàn thành:
   // nhiều lệnh không có phiếu xuất sắt/mảnh đan nên các bước con không bao giờ tự "xong" (audit N2).
-  const done = row.floorStage === 'FINISHED' || isAllDone(details)
+  // Ngược lại, lệnh ĐÃ CÓ trạng thái xưởng thì đóng gói đủ vẫn CHƯA là hoàn thành - phải chờ QLSX bấm
+  // Kết thúc (khớp BE: "Hoàn thành = đóng gói đủ VÀ QLSX bấm Kết thúc"). Chỉ lệnh chưa có xưởng
+  // (không có nút Kết thúc để bấm) mới tự suy ra từ các bước con.
+  const done = row.floorStage ? row.floorStage === 'FINISHED' : isAllDone(details)
   const anyExecProgress = Array.from(PARALLEL_STAGE_KEYS).some(k => !isStageNA(k, details) && getStagePercent(k, details) > 0)
   const hasVariance = aggLineStats(frame.hanLines).lech || aggLineStats(frame.sonLines).lech
   const order: MfgOrder = {
@@ -1106,8 +1109,10 @@ function MfgStageTracker({
 
 function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgOrder; details: StageDetails; onBack: () => void; pointLabel: (id: number) => string }) {
   const isMobile  = useIsMobile()
-  const allDone   = isAllDone(details)
-  const isDone    = order.status === 'DONE' || allDone
+  // order.status đã gộp sẵn quy tắc hoàn thành (xem buildOrderAndDetails: có trạng thái xưởng thì phải
+  // Kết thúc) - không tự suy lại từ isAllDone() ở đây, nếu không chi tiết PI sẽ hiện "Hoàn thành" ngay
+  // khi đóng gói đủ dù lệnh chưa Kết thúc.
+  const isDone    = order.status === 'DONE'
   const isOverdue = isOrderOverdue(order.deadline, isDone)
   const meta      = STATUS_META[isDone ? 'DONE' : 'PRODUCING']
 

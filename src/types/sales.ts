@@ -52,6 +52,8 @@ export interface SalesOrder {
   /** null = xoá được. Có giá trị = lý do không xoá được (đã gộp PI/đã giao hàng một phần) — dùng
    *  làm tooltip disable nút Xoá, xem OrderManagementPage.tsx (PODetailView). */
   deleteBlockedReason: string | null;
+  /** Mã các PI mà đơn đã được gộp vào (rỗng/vắng = chưa vào PI nào) — 1 đơn có thể nằm trong nhiều PI. */
+  piCodes?: string[];
   createdAt: string;
 }
 

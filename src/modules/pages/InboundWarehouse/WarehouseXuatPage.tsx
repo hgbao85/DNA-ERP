@@ -185,6 +185,8 @@ function salesOrdersToOrders(salesOrders: SalesOrder[]): Order[] {
       counterpart: so.customerName,
       date: so.orderDate,
       poNumber: so.orderCode,
+      // Đơn có thể nằm trong nhiều PI - hiện đủ các mã, ngăn bằng dấu phẩy.
+      piCode: so.piCodes?.length ? so.piCodes.join(', ') : undefined,
       skuCode: so.items[0]?.skuCode,
       skuName: so.items[0]?.skuName,
       lines: so.items
@@ -225,6 +227,8 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
 
   const [orders, setOrders]         = useState<Order[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  // Đơn xuất thẳng cho khách (kind 'ship') là SalesOrder - không có PI, mỗi "dòng" là 1 SKU.
+  const allShip = orders.length > 0 && orders.every(o => o.kind === 'ship')
 
   const { data: warehouses } = useFetch<Wh[]>(() => api.getWarehouses(), [])
   const myWarehouse = safeArr(warehouses).find(w => w.code === scope) ?? null
@@ -547,11 +551,12 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
         ) : orders.length === 0 ? (
           <div style={emptyBox}>Không có lệnh xuất nào đang chờ xử lý</div>
         ) : isMobile ? (
-          <MobileListCards emptyText="Không có lệnh xuất nào" items={orders.map(order => { const cfg = STATUS[getStatus(order)]; return { key: String(order.id), onClick: () => setSelectedId(order.id), title: <><b>{order.skuCode ?? '—'}</b>{order.skuName && <span style={{ color: 'var(--text3)' }}> — {order.skuName}</span>}</>, badge: <span style={{ ...badge, color: cfg.color, background: cfg.bg }}>{cfg.label}</span>, meta: [{ label: 'PO', value: order.poNumber ?? order.ref }, { label: 'PI', value: order.piCode ?? '—' }, { label: 'Số lượng vật tư', value: order.lines.length }] } })} />
+          <MobileListCards emptyText="Không có lệnh xuất nào" items={orders.map(order => { const cfg = STATUS[getStatus(order)]; return { key: String(order.id), onClick: () => setSelectedId(order.id), title: <><b>{order.skuCode ?? '—'}</b>{order.skuName && <span style={{ color: 'var(--text3)' }}> — {order.skuName}</span>}</>, badge: <span style={{ ...badge, color: cfg.color, background: cfg.bg }}>{cfg.label}</span>, meta: [{ label: 'PO', value: order.poNumber ?? order.ref }, { label: 'PI', value: order.piCode ?? '—' }, { label: order.kind === 'ship' ? 'Số SKU' : 'Số lượng vật tư', value: order.lines.length }] } })} />
         ) : (
           // PO | PI | SKU | Số lượng vật tư | Trạng thái — mọi kho (không có hạn giao). Đơn nội bộ
           // (piece/packaging) có cả PO lẫn PI thật; đơn ship (xuất thẳng cho khách) chỉ có PO (mã
-          // đơn hàng bán) - không có khái niệm PI.
+          // đơn hàng bán) - PI lấy từ BE (SalesOrder.piCodes = các PI đơn đã gộp vào, '—' nếu chưa vào PI nào).
+          // "Số lượng vật tư" của đơn ship thật ra là số dòng SKU nên đổi nhãn thành "Số SKU".
           <div style={{ ...tableWrap, ...tableScrollBox }}>
             <table style={tbl}>
               <colgroup>
@@ -561,7 +566,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                 <th style={th}>PO</th>
                 <th style={th}>PI</th>
                 <th style={th}>SKU</th>
-                <th style={{ ...th, textAlign: 'right' }}>Số lượng vật tư</th>
+                <th style={{ ...th, textAlign: 'right' }}>{allShip ? 'Số SKU' : 'Số lượng vật tư'}</th>
                 <th style={th}>Trạng thái</th>
               </tr></thead>
               <tbody>

@@ -93,7 +93,7 @@ export default function XacNhanVatTuPage({ stage, readOnly = false }: { stage: M
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-5)', flexWrap: 'wrap', gap: 12 }}>
         <h2 style={{ ...pageTitle, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <PackageCheck size={20} /> Xác nhận sản lượng
+          <PackageCheck size={20} /> Xác nhận nhận vật tư
         </h2>
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
           <button onClick={() => setView('confirm')} style={tabBtn(view === 'confirm', ACCENT)}>

@@ -319,18 +319,17 @@ export default function LenhSXPage() {
     ? piGroups.find((g: { pi: any }) => g.pi.id === viewingApprovalPiId) ?? null
     : null
 
-  // Kho thành phẩm — QLSX chọn làm điểm cuối trước khi gửi sếp duyệt. Mỗi kho thành phẩm (1, 2, 3...)
-  // gắn với 1 tài khoản thủ kho riêng (warehouseScope) — đây mới là danh sách kho thành phẩm thật
-  // (có thể tạo thêm ở trang "Tổng hợp kho"), khác với `getMfgWarehouses()` chỉ có đúng 1 bản ghi cố định.
-  const { data: warehouseUsers } = useFetch(
-    () => (isQlsx ? api.getUsers() : Promise.resolve([])),
+  // Kho thành phẩm — QLSX chọn làm điểm cuối trước khi gửi sếp duyệt. Lấy thẳng từ bảng kho thật
+  // (kho gốc 'thanh-pham' + các kho phụ 'thanh-pham-N' Admin tạo ở trang "Tổng hợp kho") để hiện ĐÚNG
+  // tên kho. Trước đây suy ra từ tên tài khoản thủ kho (bỏ tiền tố "Thủ kho ") nên kho hiện thành
+  // tên tài khoản (vd "khotp khotp") thay vì "Kho thành phẩm 2/3".
+  const { data: allWarehouses } = useFetch(
+    () => (isQlsx ? api.getWarehouses() : Promise.resolve([])),
     []
   )
-  const finishedGoodsWarehouses = (Array.isArray(warehouseUsers) ? warehouseUsers : [])
-    // Nhân viên mua hàng (isPurchaser) cũng được gán warehouseScope 'thanh-pham' để theo dõi mua hàng
-    // theo phạm vi kho — không phải thủ kho, phải loại ra khỏi danh sách kho thành phẩm thật.
-    .filter((u: any) => u.role === 'WAREHOUSE_STAFF' && !u.isPurchaser && isThanhPhamScope(u.warehouseScope))
-    .map((u: any) => ({ code: u.warehouseScope as string, name: (u.name as string).replace(/^Thủ kho /, 'Kho ') }))
+  const finishedGoodsWarehouses = (Array.isArray(allWarehouses) ? allWarehouses : [])
+    .filter((w: any) => w.isActive && !w.isVirtual && isThanhPhamScope(w.code))
+    .map((w: any) => ({ code: w.code as string, name: w.name as string }))
 
   // KHSX gửi CẢ PHIẾU (mọi SKU đang tick) cho QLSX xử lý trong 1 lần gọi — chưa cho sản xuất, QLSX
   // sẽ chọn kho thành phẩm rồi mới trình sếp. Trước 2026-08-18 phải gửi lẻ từng SKU: phiếu gộp 5
