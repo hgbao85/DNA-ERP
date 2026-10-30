@@ -8,6 +8,7 @@ import type { SystemStats } from '../../../lib/mock/services/system.service'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
+import DataHealthSection from './DataHealthSection'
 
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
@@ -48,7 +49,15 @@ export default function SystemStatusPage() {
         <h2 style={{ ...pageTitle, margin: 0 }}>Tình trạng hệ thống</h2>
       </div>
       <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
-        Toàn bộ dữ liệu là mock lưu trong trình duyệt (localStorage) — không có backend thật nên không có nhật ký lỗi server.
+        Kiểm tra dữ liệu thật trên máy chủ, và số liệu dữ liệu demo lưu trong trình duyệt.
+      </div>
+
+      <DataHealthSection />
+
+      {/* Phần dưới là dữ liệu MOCK trong localStorage (màn có từ thời chưa có backend) - KHÔNG phải dữ liệu máy chủ ở trên. */}
+      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Dữ liệu demo trong trình duyệt</div>
+      <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
+        Dữ liệu mock lưu trong localStorage của trình duyệt này, không phải dữ liệu trên máy chủ.
       </div>
 
       <div style={{ display: 'flex', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>

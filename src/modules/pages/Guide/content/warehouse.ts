@@ -85,8 +85,9 @@ export const warehouseGroup: GuideGroup = {
       warnings: [
         'Tỷ lệ quy đổi (nếu có) KHÔNG còn khai sẵn trên vật tư nữa — mỗi lô hàng có thể có tỷ lệ khác nhau tuỳ nhà cung cấp, phải nhập đúng theo phiếu giấy của lô đang nhận, không dùng lại số của lần nhận trước.',
         'Có thể nhận thành nhiều đợt (nhận thiếu vẫn ghi nhận được, nhận sau bù tiếp) — mỗi đợt là 1 dòng riêng trong Lịch sử nhận hàng, có thể có tỷ lệ quy đổi khác nhau giữa các đợt.',
+        'Mỗi sáng từ 7 giờ thủ kho nhận 1 thông báo "Vật tư cần về" gồm hàng về đúng kho mình (kể cả bao bì QLSX cho về kho thành phẩm) mà hôm nay phải về hoặc đã trễ chưa về đủ; bấm vào mở màn Nhập kho. Không có gì cần về thì không có tin.',
       ],
-      tags: ['nhập kho', 'nhận hàng mua', 'receive', 'quy đổi', 'lịch sử nhận hàng'],
+      tags: ['nhập kho', 'nhận hàng mua', 'receive', 'quy đổi', 'lịch sử nhận hàng', 'tin sáng'],
       sourceRefs: ['src/modules/pages/Manufacturing/NhapKhoPage.tsx'],
     },
     {

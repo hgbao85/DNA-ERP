@@ -53,6 +53,9 @@ export interface PurchaseProposalItem {
    *  solver có thể đề xuất cây KHÁC 6000mm mặc định). undefined/null cho nhánh kiểm tra vật tư
    *  thường - không có khái niệm chiều dài cây. Xem BE PurchaseProposalItem.stockLengthMm. */
   stockLengthMm?: number | null
+  /** Hạn hàng phải về của RIÊNG dòng này theo nhóm vật tư (VT khung & đan / VT còn lại) - cùng hạn với Bảng mốc / tin sáng
+   *  (2026-10-29, BE changelog 2026-09-25 mục 32.27). Thiếu thì dùng hạn cấp đề xuất. */
+  deadline?: string
   khoKey: KhoKey
   khoLabel: string
   /** Mã kho THẬT nhận hàng của riêng dòng này (BE PurchaseProposalItemResponseDto.warehouseCode,

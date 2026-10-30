@@ -13,6 +13,44 @@ export const productionPlanGroup: GuideGroup = {
   roles: ['khsx', 'qlsx', 'boss'],
   description: 'Tạo sản phẩm mới, duyệt định mức, tính phương án cắt sắt, lập và trình duyệt lệnh sản xuất.',
   articles: [
+    // ─── Bảng mốc + tin sáng (2026-10-29, changelog BE 2026-09-25 mục 32.24-32.27; chuyển từ nhóm Sản xuất sang đây) ────
+    {
+      id: 'mfg-bang-moc',
+      title: 'Bảng mốc: SKU nào đang trễ, trễ ở đâu, vì sao',
+      roles: ['khsx', 'qlsx', 'boss'],
+      purpose:
+        'Xem nhanh mọi SKU đang chạy với 9 mốc (Mua VT khung & đan, Phôi, Hàn, Sơn, Khung CK, Đan, Mua VT còn lại, Đóng gói, Hạn giao) tô màu theo thực tế so với hạn - thay vì mở từng PI.',
+      mock: { title: 'Tổng hợp lệnh SX', buttons: ['Theo lệnh', 'Bảng mốc', 'Cần chú ý', 'Tải lại'] },
+      steps: [
+        'Mở "Tổng hợp lệnh SX" → bấm "Bảng mốc" cạnh tiêu đề (bấm thông báo "tin sáng" hoặc "nguy cơ trễ hạn giao" cũng mở thẳng vào đây).',
+        'Mỗi dòng 1 SKU, mỗi ô 1 mốc: đỏ = Trễ, vàng = Sắp tới hạn (còn ≤ 2 ngày), xanh dương = Đúng hạn, xanh lá = Xong, xám = Chưa đặt hạn, viền vàng đứt = Chưa biết. Dòng cần chú ý nhất nằm trên cùng.',
+        'Rê chuột vào ô để xem lý do: mốc mua hàng ghi vật tư nào chưa về đủ (đã về/cần), mốc công đoạn ghi đã làm bao nhiêu. Trên điện thoại mỗi SKU là 1 thẻ, chỉ liệt kê mốc còn việc.',
+        'Bấm "Cần chú ý" để chỉ còn SKU có mốc trễ hoặc sắp tới hạn.',
+      ],
+      result: 'Biết ngay SKU nào sắp trễ, ở công đoạn nào, thiếu vật tư gì - để hối đúng bộ phận.',
+      warnings: [
+        'Hạn theo ngày ĐÃ LƯU (KHSX lưu ở "Sửa thời hạn") - không dùng ngày đề xuất để báo trễ. Mốc chưa lưu hiện "Chưa đặt hạn", trừ: "Mua VT khung & đan" chưa lưu thì theo hạn Khung CK; "Mua VT còn lại" chưa lưu thì theo hạn Đóng gói; không có nữa thì theo hạn PI. "Hạn giao" chưa lưu thì theo hạn PI. "Theo dõi mua hàng" hiện đúng hạn này cho từng dòng vật tư.',
+        '% Khung CK = trung bình % của 3 tổ Phôi, Hàn, Sơn (giống "Theo lệnh"). % Đan tính theo số mảnh đã NHẬN về. Số "đã làm" của Hàn/Sơn tính cả phần đang chờ KCS và chưa gửi KCS. Chuyền kiểm chưa có ô hạn nên không có cột riêng.',
+        'Mỗi sáng từ 7 giờ hệ thống gửi tin tóm tắt, mỗi người nhận 1 tin riêng: mỗi NV mua nhận "vật tư phải về hôm nay / đã trễ" chỉ gồm vật tư mình phụ trách, mỗi thủ kho nhận phần hàng về kho mình; KHSX + QLSX nhận "mốc trễ, sắp tới hạn, lệnh tới ngày Phôi mà chưa Bắt đầu". Sếp không nhận tin tóm tắt.',
+        'Hạn giao còn ≤ 2 ngày (hoặc đã qua) mà chưa đóng gói đủ: KHSX, QLSX và Sếp nhận cảnh báo đỏ "nguy cơ trễ hạn giao" cho từng SKU; chỉ báo lại khi sang ngày mới, tự đóng khi đóng gói đủ hoặc lệnh Kết thúc.',
+        'Bảng tự tải lại khi có nhận hàng, báo sản lượng, KCS chấm, Kết thúc lệnh... Riêng đóng thùng chưa tự cập nhật - bấm "Tải lại".',
+      ],
+      statuses: [
+        { name: 'Trễ', meaning: 'Đã qua hạn mà chưa xong.' },
+        { name: 'Sắp tới hạn', meaning: 'Còn 0-2 ngày mà chưa xong.' },
+        { name: 'Đúng hạn', meaning: 'Chưa xong nhưng còn hơn 2 ngày.' },
+        { name: 'Xong', meaning: 'Đã đủ số (mua hàng: mọi vật tư đã về đủ). Ô "Hạn giao" ghi "Đã đóng đủ" - app chưa theo dõi việc giao.' },
+        { name: 'Chưa đặt hạn', meaning: 'Chưa lưu ngày cho mốc này - không báo trễ.' },
+        { name: 'Chưa biết', meaning: 'Không tải được số tiến độ của mốc này (bảng hiện băng vàng) - bấm "Tải lại". Không báo trễ cho tới khi có số.' },
+        { name: 'Không cần', meaning: 'SKU không có việc ở mốc này (vd không đan).' },
+      ],
+      tags: ['bảng mốc', 'trễ hạn', 'sắp tới hạn', 'tin sáng', 'nguy cơ trễ hạn giao', 'tiến độ'],
+      sourceRefs: [
+        'src/modules/pages/Manufacturing/MilestoneBoardView.tsx',
+        'DNA-ERP-BE/src/modules/milestone-board/milestone-board.service.ts',
+        'DNA-ERP-BE/src/modules/daily-jobs/daily-jobs.service.ts',
+      ],
+    },
     {
       id: 'pp-danh-sach-sku',
       title: 'Danh sách SKU',

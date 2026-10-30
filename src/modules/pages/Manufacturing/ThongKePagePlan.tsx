@@ -32,6 +32,8 @@ import type { BeWeavingIssuePlanItem } from '../../../services/weaving-issues-ap
 import type { BeTransferCheckPiece } from '../../../services/transfer-check-api'
 import type { BePackagingProgress } from '../../../services/packaging-api'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import { useUrlState } from '../../../hooks/useUrlState'
+import MilestoneBoardView from './MilestoneBoardView'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -149,7 +151,11 @@ function getPurchasingRows(piCode: string, proposals: PurchaseProposal[]): Mater
   for (const item of items) lineCount.set(item.materialId, (lineCount.get(item.materialId) ?? 0) + 1)
   return items
     .map(item => ({
-      name: item.spec && item.materialId != null && (lineCount.get(item.materialId) ?? 0) > 1 ? `${item.name} · ${item.spec}` : item.name,
+      // Sắt mua theo cây: ghi chiều dài cây để 2 dòng cùng vật tư khác chiều dài không trông như nhau (test thật 32.27 - cùng
+      // cách Bảng mốc). Đơn vị "cây" đã đổi sẵn ở purchasing-api.
+      name: item.stockLengthMm != null
+        ? `${item.name} (${item.stockLengthMm.toLocaleString('vi-VN')} mm)`
+        : item.spec && item.materialId != null && (lineCount.get(item.materialId) ?? 0) > 1 ? `${item.name} · ${item.spec}` : item.name,
       qty: item.buyQty,
       unit: item.unit,
       boughtQty: item.receivedQty ?? 0,
@@ -161,7 +167,10 @@ function getPurchasingPercent(materials: MaterialItem[]): number {
   if (materials.length === 0) return 100 // không có gì cần mua → coi như xong bước mua hàng
   // qty<=0 = không có gì cần mua ở dòng này -> coi như đủ (trước đây tính 0 làm % kẹt vĩnh viễn)
   const w = (m: MaterialItem) => m.qty <= 0 ? 1 : Math.min(1, m.boughtQty / m.qty)
-  return Math.round(materials.reduce((s, m) => s + w(m), 0) / materials.length * 100)
+  // Làm tròn XUỐNG như pctOf / Bảng mốc (test thật 32.27): Math.round đưa 99,67% thành 100% -> isAllDone coi mua hàng xong
+  // trong khi còn 1 kg chưa về. Đã về chút ít thì tối thiểu 1%.
+  const sum = materials.reduce((s, m) => s + w(m), 0)
+  return Math.min(100, Math.max(sum > 0 ? 1 : 0, Math.floor(sum / materials.length * 100)))
 }
 
 // ─── Dữ liệu chi tiết Khung cơ khí/Đan/Chuyền kiểm/Đóng gói: API thật, tải theo BATCH ────────
@@ -602,7 +611,8 @@ function PurchasingContent({ materials, deadline }: { materials: MaterialItem[];
     <div>
     {deadline && (
       <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 8 }}>
-        Hạn giao vật tư: <span style={{ fontWeight: 600, color: 'var(--text2)' }}>{format(new Date(deadline), 'dd/MM/yyyy')}</span>
+        {/* Đây là hạn GIAO HÀNG của lệnh, không phải hạn vật tư về (test thật 32.27) - hạn vật tư từng dòng xem ở Bảng mốc. */}
+        Hạn giao hàng: <span style={{ fontWeight: 600, color: 'var(--text2)' }}>{format(new Date(deadline), 'dd/MM/yyyy')}</span>
       </div>
     )}
     <div style={{ overflowX: 'auto' }}>
@@ -1463,7 +1473,21 @@ function DeadlineText({ deadline, overdue, overdueLabel }: { deadline?: string; 
   )
 }
 
+// Trang "Tổng hợp lệnh SX" có 2 chế độ xem (2026-10-29, changelog BE 2026-09-25 mục 32.24): "Theo lệnh" (danh sách PI cũ) và
+// "Bảng mốc" (mỗi SKU × 9 mốc tô màu trễ/sắp tới hạn). Chọn qua ?view=moc để link tin sáng/cảnh báo hạn giao mở thẳng Bảng mốc.
 export default function ThongKePagePlan() {
+  const [view, setView] = useUrlState('view')
+  const isBoard = view === 'moc'
+  const viewSwitch = (
+    <div style={{ display: 'inline-flex', borderBottom: '1px solid var(--border)' }}>
+      <button type="button" onClick={() => setView(null)} style={tabBtn(!isBoard, 'var(--fg-1d4ed8)')}>Theo lệnh</button>
+      <button type="button" onClick={() => setView('moc')} style={tabBtn(isBoard, 'var(--fg-1d4ed8)')}>Bảng mốc</button>
+    </div>
+  )
+  return isBoard ? <MilestoneBoardView viewSwitch={viewSwitch} /> : <OrderSummaryView viewSwitch={viewSwitch} />
+}
+
+function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
 
   const { data: skusData, isLoading, error: skusError, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
   const { data: pisData, refetch: refetchPis } = useFetch<PIStatusRow[]>(() => api.getProductionInvoices(), [])
@@ -1506,6 +1530,8 @@ export default function ThongKePagePlan() {
   const approvedRows = useMemo(() => {
     const rows: ApprovedRow[] = []
     for (const pi of pisData ?? []) {
+      // PI đã huỷ không còn là việc phải làm - Bảng mốc cũng bỏ (BE milestone-board, test thật 32.27).
+      if (pi.status === 'CANCELLED') continue
       for (const item of pi.items ?? []) {
         if (item.prodApproval?.status !== 'APPROVED') continue
         const pf = skuByPiAndProduct.get(`${pi.id}:${item.mfgProductId}`)
@@ -1546,6 +1572,13 @@ export default function ThongKePagePlan() {
   const { data: batchDataRaw, isLoading: batchLoading, error: batchError, refetch: refetchBatch } = useFetch(
     () => buildBatchProgressData(approvedRows),
     [batchKey],
+  )
+  // Tiến độ xưởng / KCS / kho đan đổi -> tải lại NGẦM phần tiến độ (6 request batch), gom 5 giây như Bảng mốc. Test thật
+  // 32.27: trước đây màn này chỉ nghe 'skus' / 'production-orders' nên số Hàn/Sơn/KCS đứng yên tới khi tải lại trang.
+  useRealtimeRefetch(
+    ['production-batches', 'qc-reviews', 'floor', 'steel-issues', 'weaving-issues', 'material-yield-issues'],
+    () => { void refetchBatch() },
+    { debounceMs: 5000 },
   )
   const batchFresh = !!batchDataRaw && batchDataRaw.key === batchKey
   const batchData = batchFresh ? batchDataRaw : null
@@ -1844,7 +1877,10 @@ export default function ThongKePagePlan() {
     <div>
       {failedBanner}
       <div style={{ marginBottom: 'var(--space-5)' }}>
-        <h2 style={{ ...pageTitle, margin: 0 }}>Tổng hợp lệnh SX</h2>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+          <h2 style={{ ...pageTitle, margin: 0 }}>Tổng hợp lệnh SX</h2>
+          {viewSwitch}
+        </div>
         <p style={{ ...pageSubtitle, margin: '2px 0 0' }}>
           Tổng {counts.all} PI · Đang sản xuất {counts.PRODUCING} · Hoàn thành {counts.DONE}
           {counts.OVERDUE > 0 && <span style={{ color: 'var(--fg-dc2626)', fontWeight: 700 }}> · ⚠ Quá hạn {counts.OVERDUE}</span>}

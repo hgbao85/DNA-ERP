@@ -384,6 +384,7 @@ export const adminGroup: GuideGroup = {
             ['Tổng quan', 'Số liệu tham khảo: tổng người dùng theo vai trò, hoạt động gần đây, số đơn hàng bán / lệnh sản xuất (PI) / nhà cung cấp.', 'Không thao tác gì ở đây.'],
             ['Văn phòng phẩm', 'Chọn một kho ở ô "Chọn kho" để xem và quản lý vật tư văn phòng của đúng kho đó.', 'Thao tác giống hệt tab "Văn phòng phẩm" của Thủ kho.'],
             ['Nhật ký hoạt động', 'Ghi lại các thao tác thêm/sửa/xoá ở Admin (Người dùng, Danh mục hệ thống...).', 'KHÔNG phải nhật ký kỹ thuật của máy chủ: dữ liệu lưu trong trình duyệt hiện tại, không đồng bộ giữa các máy và sẽ mất nếu xoá bộ nhớ đệm. Việc sửa/xoá tệp đính kèm không hiện ở đây; việc đổi SKU đợt Phôi có bảng "Lịch sử đổi SKU" riêng.'],
+            ['Tình trạng hệ thống > "Kiểm tra dữ liệu"', 'Máy chủ tự kiểm DỮ LIỆU THẬT mỗi ngày 1 lần (lần đầu máy chủ chạy trong ngày - thường là khi người đầu tiên mở app) và khi bấm "Kiểm ngay": tồn kho lệch sổ cái, tồn âm, hàng đang giữ nhiều hơn tồn, PI đã Kết thúc còn giữ hàng dư hoặc còn đơn mua nhận dở, PI có lệnh mà thiếu đề xuất mua, mốc thời gian sai thứ tự, vật tư mua chưa gán "Nhân viên mua hàng" (không tính vật tư thành phẩm như Chân nhôm). Mỗi phép kiểm có giải thích và cách xử lý; dòng mới phát sinh tô đỏ.', 'CHỈ ĐỌC, không tự sửa gì - xử lý theo dòng "Cách xử lý". Có dòng mới hoặc phép kiểm bị lỗi thì Admin nhận 1 thông báo/ngày (số dòng mới cộng dồn trong ngày); hết sạch bất thường thì thông báo tự đóng. Lần kiểm dừng giữa chừng thì trang vẫn hiện kết quả lần trước kèm băng đỏ. Đợt đầu chỉ kiểm vật tư, chưa kiểm đoạn cắt/mảnh.'],
             ['Tình trạng hệ thống > "Reset dữ liệu demo"', 'Xoá dữ liệu mẫu còn sót trong trình duyệt (chủ yếu ảnh hưởng Nhật ký hoạt động).', 'KHÔNG xoá dữ liệu thật trên máy chủ (người dùng, đơn hàng, vật tư, kho...), dù dòng xác nhận của nút liệt kê như thể sẽ mất toàn bộ.'],
           ],
         },
@@ -394,8 +395,8 @@ export const adminGroup: GuideGroup = {
         'Đừng dựa vào "Nhật ký hoạt động" làm bằng chứng pháp lý/kiểm toán chính thức — nó không đầy đủ và không đồng bộ đa thiết bị.',
         '"Cấu hình hệ thống": các trường thông tin công ty (tên, địa chỉ, điện thoại, email, mã số thuế, đơn vị tiền tệ) chỉ mang tính hiển thị tham khảo. Riêng "Địa chỉ ERP dùng cho tem QR" và "Mạng công ty được phép đăng nhập" có tác dụng thật — xem bài riêng. Nhóm "Máy cắt" cũng có tác dụng thật: máy mặc định MC Laser / MC Tự động và thông số bó (lưỡi cắt, tề đầu, hệ số bó, số cây cắt tay tối đa, số cỡ đoạn tối đa mỗi kiểu cắt) do màn Tối ưu cắt sắt đọc; ô nào nhập sai sẽ báo đỏ ngay dưới ô đó. Khối "Gợi ý gộp đơn" đặt cỡ lệnh gộp: các SKU trong một lệnh gộp phải có mốc cần sắt nằm trong khung bao nhiêu ngày (luật cứng, mặc định 3 = ngày 1 gộp được ngày 3, không gộp được ngày 4) và tối đa bao nhiêu SKU mỗi lệnh (mặc định 2).',
       ],
-      tags: ['nhật ký hoạt động', 'reset dữ liệu demo', 'tình trạng hệ thống', 'cấu hình hệ thống'],
-      sourceRefs: ['src/modules/pages/Admin/AuditLogPage.tsx', 'src/modules/pages/Admin/SystemStatusPage.tsx', 'src/modules/pages/Admin/SystemConfigPage.tsx'],
+      tags: ['nhật ký hoạt động', 'reset dữ liệu demo', 'tình trạng hệ thống', 'cấu hình hệ thống', 'kiểm tra dữ liệu'],
+      sourceRefs: ['src/modules/pages/Admin/AuditLogPage.tsx', 'src/modules/pages/Admin/SystemStatusPage.tsx', 'src/modules/pages/Admin/DataHealthSection.tsx', 'src/modules/pages/Admin/SystemConfigPage.tsx'],
     },
   ],
 };

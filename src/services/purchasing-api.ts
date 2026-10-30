@@ -91,6 +91,8 @@ interface BeItem {
   // Chiều dài cây phải đặt (mm) - CHỈ có ở vật tư sắt, null cho nhánh kiểm tra vật tư thường
   // (2026-08-26, xem BE PurchaseProposalItem.stockLengthMm).
   stockLengthMm: number | null;
+  // Hạn riêng của dòng theo nhóm vật tư (2026-10-29, BE PurchaseProposalItemResponseDto.deadline) - cùng hạn với Bảng mốc.
+  deadline?: string | null;
   receivedQty: number;
   receivedQtyPurchaseUnit: number | null;
   // Trạng thái CỦA RIÊNG DÒNG NÀY (2026-08-25, "duyệt riêng từng người mua hàng") - xem
@@ -158,12 +160,15 @@ function toItem(item: BeItem): PurchaseProposalItem {
   return {
     name: item.materialName,
     spec: item.materialSpec,
-    unit: item.unit,
+    // Dòng sắt mua theo CÂY (`stockLengthMm` = chiều dài cây, `buyQty` = số cây) - đơn vị danh mục của sắt trên production là
+    // "Mm" (test thật 2026-10-29, BE changelog 2026-09-25 mục 32.27). Đổi 1 chỗ ở đây cho mọi màn mua / nhập kho.
+    unit: item.stockLengthMm != null ? 'cây' : item.unit,
     purchaseWastePercentage: item.purchaseWastePercentage,
     required: item.actualStock + item.buyQty,
     actualStock: item.actualStock,
     buyQty: item.buyQty,
     stockLengthMm: item.stockLengthMm,
+    deadline: item.deadline ?? undefined,
     khoKey,
     khoLabel: (family ? KHO_LABELS[family] : undefined) ?? warehouseCode,
     warehouseCode,

@@ -98,6 +98,8 @@ export const purchasingGroup: GuideGroup = {
       warnings: [
         'Chỉ chính người đã bấm "Sếp đã duyệt" (hoặc Admin/Giám đốc) mới sửa/xoá được file phiếu duyệt của dòng đó.',
         'Xoá file phiếu duyệt CHỈ mất bằng chứng lịch sử — không đổi trạng thái, không chặn Kho nhận hàng.',
+        '"Hạn giao" là hạn hàng phải về của RIÊNG từng dòng theo nhóm vật tư: sắt, dây, đinh, sơn... theo hạn Mua VT khung & đan; phụ kiện, nệm, bao bì theo hạn Mua VT còn lại (chưa lưu thì theo hạn Khung / Đóng gói, rồi hạn PI). Cùng hạn với Bảng mốc của KHSX.',
+        'Mỗi sáng từ 7 giờ bạn nhận 1 thông báo "Vật tư cần về" chỉ gồm vật tư bạn phụ trách mà hôm nay phải về hoặc đã trễ chưa về đủ; bấm vào mở thẳng màn này. Không có gì cần về thì không có tin.',
       ],
       commonErrors: [
         { issue: 'Không sửa/xoá được file phiếu duyệt của một dòng', cause: 'Bạn không phải người đã duyệt dòng đó và cũng không phải Admin/Giám đốc.', fix: 'Nhờ đúng người đã duyệt, hoặc Admin/Giám đốc, thực hiện thay.' },

@@ -16,6 +16,21 @@ import { pageTitle, pageSubtitle } from '../../../styles/typography'
 const th: React.CSSProperties = { padding: '9px 12px', fontWeight: 600, fontSize: 12, color: 'var(--text2)' }
 const td: React.CSSProperties = { padding: '9px 12px' }
 
+const vnDay = (d: Date) => d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Ho_Chi_Minh' })
+/** Màu cột Hạn giao: đã qua = đỏ, hôm nay = vàng, còn hạn = chữ thường - phân biệt như tin sáng "trễ N ngày" / "hôm nay"
+ *  (test thật 2026-10-29: trước đây mọi hạn đều tô đỏ). */
+function deadlineTone(iso?: string): React.CSSProperties {
+  if (!iso) return { color: 'var(--text3)', fontWeight: 400 }
+  const due = vnDay(new Date(iso))
+  const today = vnDay(new Date())
+  if (due < today) return { color: 'var(--fg-dc2626)', fontWeight: 600 }
+  if (due === today) return { color: 'var(--amber)', fontWeight: 600 }
+  return { color: 'var(--text)', fontWeight: 600 }
+}
+/** Ngày hạn dạng dd/MM/yyyy (có số 0 đầu) như các màn khác. */
+const fmtDay = (iso: string) =>
+  new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
 // 3 cột NCC / Đơn giá / NCC hẹn giao đã gỡ 2026-08-27: cả 3 lấy từ báo giá đã chọn, mà luồng báo
 // giá trong phần mềm đã bỏ - giá và NCC nay nằm trong file Excel Sếp ký (item.approvalFileUrl).
 interface Row {
@@ -62,7 +77,8 @@ function buildRows(p: PurchaseProposal): Row[] {
       warehouseCode: item.warehouseCode,
       boughtQty,
       remaining: Math.max(0, item.buyQty - boughtQty),
-      deadline: p.deadline,
+      // Hạn RIÊNG của dòng theo nhóm vật tư (bao bì theo hạn Đóng gói...) - cùng hạn với Bảng mốc và tin sáng mở vào đây.
+      deadline: item.deadline ?? p.deadline,
       approvalFileUrl: item.approvalFileUrl,
     }
   })
@@ -193,7 +209,7 @@ export default function TheoDoiMuaHangPage() {
                   { label: 'Đã mua', value: <b style={{ color: r.boughtQty > 0 ? 'var(--fg-16a34a)' : 'var(--text3)' }}>{r.boughtQty}</b> },
                   { label: 'Còn lại', value: <b style={{ color: r.remaining > 0 ? 'var(--fg-d97706)' : 'var(--fg-16a34a)' }}>{r.remaining}</b> },
                   { label: 'Hàng về kho', value: warehouseName(r.warehouseCode, r.khoLabel) },
-                  { label: 'Hạn giao', value: r.deadline ? <span style={{ color: 'var(--fg-dc2626)', fontWeight: 600 }}>{new Date(r.deadline).toLocaleDateString('vi-VN')}</span> : '—' },
+                  { label: 'Hạn giao', value: r.deadline ? <span style={deadlineTone(r.deadline)}>{fmtDay(r.deadline)}</span> : '—' },
                 ]}
                 footer={<ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} />}
               />
@@ -233,8 +249,8 @@ export default function TheoDoiMuaHangPage() {
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: r.boughtQty > 0 ? 'var(--fg-16a34a)' : 'var(--text3)' }}>{r.boughtQty}</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: r.remaining > 0 ? 'var(--fg-d97706)' : 'var(--fg-16a34a)' }}>{r.remaining}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{warehouseName(r.warehouseCode, r.khoLabel)}</td>
-                  <td style={{ ...td, color: r.deadline ? 'var(--fg-dc2626)' : 'var(--text3)', fontWeight: r.deadline ? 600 : 400, whiteSpace: 'nowrap' }}>
-                    {r.deadline ? new Date(r.deadline).toLocaleDateString('vi-VN') : '—'}
+                  <td style={{ ...td, ...deadlineTone(r.deadline), whiteSpace: 'nowrap' }}>
+                    {r.deadline ? fmtDay(r.deadline) : '—'}
                   </td>
                   {/* Giá + NCC nằm TRONG file này (2026-08-27) - phần mềm không lưu tách ra. */}
                   <td style={td}>
@@ -275,7 +291,7 @@ export default function TheoDoiMuaHangPage() {
               proposals={proposals}
               onSelect={setSelectedId}
               badge={statusTag}
-              meta={p => p.deadline && <span style={{ color: 'var(--fg-dc2626)', fontWeight: 600 }}>Deadline: {new Date(p.deadline).toLocaleDateString('vi-VN')}</span>}
+              meta={p => p.deadline && <span style={deadlineTone(p.deadline)}>Deadline: {fmtDay(p.deadline)}</span>}
             />
           ) : (
           <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflowX: 'auto', background: 'var(--surface)' }}>
@@ -305,8 +321,8 @@ export default function TheoDoiMuaHangPage() {
                         <span style={{ fontWeight: 600 }}>{p.skuCode}</span>
                         {p.skuName && <span style={{ marginLeft: 6, color: 'var(--text3)', fontSize: 12 }}>{p.skuName}</span>}
                       </td>
-                      <td style={{ ...td, color: p.deadline ? 'var(--fg-dc2626)' : 'var(--text3)', fontSize: 12, fontWeight: p.deadline ? 600 : 400 }}>
-                        {p.deadline ? new Date(p.deadline).toLocaleDateString('vi-VN') : '—'}
+                      <td style={{ ...td, ...deadlineTone(p.deadline), fontSize: 12 }}>
+                        {p.deadline ? fmtDay(p.deadline) : '—'}
                       </td>
                       <td style={td}>{statusTag(p)}</td>
                     </tr>
