@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { focusAttr } from '../../../utils/notificationLink'
 import { format } from 'date-fns'
-import { ChevronRight, ChevronLeft, Copy, X } from 'lucide-react'
+import { ChevronRight, ChevronLeft, Copy, Pencil, X } from 'lucide-react'
 import SkuImageThumb from '../../../components/SkuImageThumb'
 import MaterialPicker, { type PickedMaterial } from '../../../components/MaterialPicker'
 import SearchableSelect from '../../../components/SearchableSelect'
@@ -206,6 +206,8 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   const [spec, setSpec] = useState('')
   const [unit, setUnit] = useState('')
   const [soLuong, setSoLuong] = useState('')
+  // Dòng đang sửa (đổ ngược vào form thêm) - null = form đang ở chế độ thêm mới.
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [bomSearch, setBomSearch] = useState('')
   // Tạm lưu (nháp trên server, CHƯA gửi phê duyệt) - cùng cơ chế với "định mức mảnh"
   // (SpecSteelPage.tsx): khôi phục được khi đổi máy/trình duyệt, mất mạng hay sập nguồn giữa
@@ -234,7 +236,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     }))
 
   const resetForm = () => {
-    setGroup('daySon'); setMaterial(null); setSpec(''); setUnit(''); setSoLuong('')
+    setGroup('daySon'); setMaterial(null); setSpec(''); setUnit(''); setSoLuong(''); setEditingId(null)
   }
 
   const openBom = (item: BomItem) => {
@@ -358,17 +360,41 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
   // Vật tư đang chọn ở form thêm là nệm -> ô Quy cách nhập tay (theo SKU), không lấy từ vật tư.
   const isCushionPick = material?.detailKind === 'CUSHION'
 
+  // Quy cách của vật tư thường KHÔNG được lưu theo dòng (BE chỉ lưu quy cách riêng cho nệm) nên dòng tải
+  // từ nháp/dữ liệu đã nộp có `specs` rỗng - đọc lại từ catalog vật tư (Admin > Vật tư) để hiển thị.
+  const catalogById = new Map((materialsData ?? []).map(m => [String(m.id), m]))
+  const specOf = (l: DetailLine) => l.isCushion ? l.specs : (catalogById.get(String(l.materialId))?.spec ?? l.specs)
+
   const addLine = () => {
     if (!material) return
-    setLines(ls => [...ls, {
-      id: nextId, group, materialId: material.id, name: material.name, specs: spec, unit, soLuong,
+    const built = {
+      group, materialId: material.id, name: material.name, specs: spec, unit, soLuong,
       ...(isCushionPick ? { isCushion: true } : {}),
-    }])
-    setNextId(n => n + 1)
+    }
+    if (editingId != null) {
+      // Sửa tại chỗ: giữ nguyên id + vị trí dòng (không có isCushion thì phải bỏ cờ cũ nếu đổi sang vật tư không phải nệm).
+      setLines(ls => ls.map(l => l.id === editingId ? { id: l.id, ...built } : l))
+    } else {
+      setLines(ls => [...ls, { id: nextId, ...built }])
+      setNextId(n => n + 1)
+    }
     resetForm()
   }
 
+  const startEdit = (l: DetailLine) => {
+    const cat = catalogById.get(String(l.materialId))
+    setGroup(l.group)
+    setMaterial({
+      id: l.materialId, code: cat?.code ?? '', name: l.name, unit: l.unit, spec: cat?.spec ?? (l.specs || null),
+      detailKind: cat?.detailKind ?? (l.isCushion ? 'CUSHION' : null),
+    })
+    setSpec(specOf(l)); setUnit(l.unit); setSoLuong(l.soLuong)
+    setEditingId(l.id)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   const deleteLine = (id: number) => {
+    if (id === editingId) resetForm()
     setLines(ls => ls.filter(l => l.id !== id))
   }
 
@@ -643,6 +669,11 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                   >{GROUP_LABELS[g]}</button>
                 ))}
               </div>
+              {editingId != null && (
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg-1d4ed8)', margin: '-4px 0 12px' }}>
+                  Đang sửa dòng #{lines.findIndex(l => l.id === editingId) + 1} — chỉnh xong bấm &quot;Cập nhật&quot; (hoặc &quot;Hủy&quot; để bỏ qua).
+                </div>
+              )}
               {group === 'vatTuPhuKien' && (
                 <div style={{ fontSize: 12, color: 'var(--text3)', margin: '-4px 0 12px' }}>
                   Nệm chỉ chọn được màu đã tick ở khối &quot;Danh sách màu nệm SKU&quot; phía trên (tick xong dòng nệm tự xuất hiện).
@@ -692,12 +723,18 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                     style={inputStyle} />
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
+                  {editingId != null && (
+                    <button onClick={resetForm} style={{
+                      padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
+                      background: 'var(--surface)', color: 'var(--text2)', fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                    }}>Hủy</button>
+                  )}
                   <button onClick={addLine} disabled={!material} style={{
                     padding: '7px 16px', border: 'none', borderRadius: 'var(--radius)',
                     background: material ? 'var(--bg-1565c0)' : 'var(--bg-cccccc)',
                     color: '#fff', fontWeight: 700, fontSize: 13,
                     cursor: material ? 'pointer' : 'not-allowed',
-                  }}>+ Thêm</button>
+                  }}>{editingId != null ? 'Cập nhật' : '+ Thêm'}</button>
                 </div>
               </div>
             </div>
@@ -720,6 +757,9 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                     <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: badge.fg, background: badge.bg, borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap', flexShrink: 0 }}>{GROUP_LABELS[l.group]}</span>
                       <div style={{ flex: 1, minWidth: 0, fontWeight: 500, wordBreak: 'break-word' }}>{lineLabel(l.name)}</div>
+                      {!isSubmitted && !isTickedCushion(l) && (
+                        <button onClick={() => startEdit(l)} aria-label="Sửa" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 6, flexShrink: 0 }}><Pencil size={15} /></button>
+                      )}
                       {!isSubmitted && (
                         <button onClick={() => deleteLine(l.id)} aria-label="Xóa" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 6, flexShrink: 0 }}><X size={16} /></button>
                       )}
@@ -730,7 +770,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                           onChange={e => setLineSpec(l.id, e.target.value)}
                           style={{ ...inputStyle, width: 160, padding: '3px 6px', display: 'inline-block' }} /></span>
                       ) : (
-                        l.specs && <span>Quy cách: <b style={{ color: 'var(--text2)', fontWeight: 600 }}>{l.specs}</b></span>
+                        specOf(l) && <span>Quy cách: <b style={{ color: 'var(--text2)', fontWeight: 600 }}>{specOf(l)}</b></span>
                       )}
                       {isTickedCushion(l) && !isSubmitted ? (
                         <span>{GROUP_QTY_LABELS[l.group]}: <input type="number" min={0} step="any" value={l.soLuong} placeholder="Nhập SL"
@@ -763,7 +803,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                   {lines.map((l, i) => {
                     const badge = GROUP_BADGE_COLORS[l.group]
                     return (
-                      <tr key={l.id} style={{ borderTop: '1px solid var(--border)' }}>
+                      <tr key={l.id} style={{ borderTop: '1px solid var(--border)', background: l.id === editingId ? 'var(--bg-eff6ff)' : undefined }}>
                         <td style={{ textAlign: 'center', color: 'var(--text3)', fontSize: 12, padding: '9px 7px' }}>{i + 1}</td>
                         <td style={{ padding: '9px 14px' }}>
                           <span style={{ fontSize: 11, fontWeight: 700, color: badge.fg, background: badge.bg, borderRadius: 4, padding: '2px 7px', whiteSpace: 'nowrap' }}>
@@ -776,7 +816,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                             <input value={l.specs} maxLength={200} placeholder="Tuỳ chọn - vd Đôi 870x450x50"
                               onChange={e => setLineSpec(l.id, e.target.value)}
                               style={{ ...inputStyle, minWidth: 180, padding: '4px 6px' }} />
-                          ) : (l.specs || '—')}
+                          ) : (specOf(l) || '—')}
                         </td>
                         <td style={{ padding: '9px 14px', textAlign: 'right', fontFamily: 'monospace', color: 'var(--text)' }}>
                           {isTickedCushion(l) && !isSubmitted ? (
@@ -788,6 +828,11 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                         <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{l.unit || '—'}</td>
                         {!isSubmitted && (
                           <td style={{ textAlign: 'center', padding: '4px', whiteSpace: 'nowrap' }}>
+                            {!isTickedCushion(l) && (
+                              <button onClick={() => startEdit(l)} title="Sửa dòng này" style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}>
+                                <Pencil size={14} />
+                              </button>
+                            )}
                             <button onClick={() => deleteLine(l.id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 4 }}>
                               <X size={14} />
                             </button>
