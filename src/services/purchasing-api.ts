@@ -88,6 +88,9 @@ interface BeItem {
   warehouseCode: string | null;
   actualStock: number;
   buyQty: number;
+  // "Số mua" người mua chốt + số thực mua = max(buyQty, orderQty) (2026-11-04, YC7 mục 7.2).
+  orderQty: number | null;
+  purchaseQty: number;
   // Chiều dài cây phải đặt (mm) - CHỈ có ở vật tư sắt, null cho nhánh kiểm tra vật tư thường
   // (2026-08-26, xem BE PurchaseProposalItem.stockLengthMm).
   stockLengthMm: number | null;
@@ -167,6 +170,8 @@ function toItem(item: BeItem): PurchaseProposalItem {
     required: item.actualStock + item.buyQty,
     actualStock: item.actualStock,
     buyQty: item.buyQty,
+    orderQty: item.orderQty,
+    purchaseQty: item.purchaseQty,
     stockLengthMm: item.stockLengthMm,
     deadline: item.deadline ?? undefined,
     khoKey,
@@ -288,6 +293,19 @@ export async function updateProposalItemApprovalFile(
   await http.patch(`/purchase-proposals/${proposalId}/items/${itemId}/approval-file`, {
     approvalFileUrl,
   });
+  return getPurchaseProposal(proposalId);
+}
+
+/**
+ * Người mua chốt "số mua" cho 1 dòng (2026-11-04, YC7 mục 7.2) - chỉ được tăng so với số cần mua,
+ * BE chặn số nhỏ hơn và khoá khi dòng đã "Sếp đã duyệt". `orderQty: null` = mua đúng số cần mua.
+ */
+export async function updateProposalItemOrderQty(
+  proposalId: string,
+  itemId: string,
+  orderQty: number | null,
+): Promise<PurchaseProposal> {
+  await http.patch(`/purchase-proposals/${proposalId}/items/${itemId}/order-qty`, { orderQty });
   return getPurchaseProposal(proposalId);
 }
 

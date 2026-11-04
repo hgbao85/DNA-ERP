@@ -46,6 +46,8 @@ function beProposal(overrides: Record<string, unknown> = {}) {
         warehouseCode: 'phoi-son-han',
         actualStock: 0,
         buyQty: 8,
+        orderQty: null,
+        purchaseQty: 8,
         receivedQty: 0,
         // BE vẫn trả `quotes` (32 báo giá cũ, tra cứu lịch sử) nhưng FE KHÔNG map nữa từ
         // 2026-08-27 - giữ trong fixture để mirror đúng response thật, không phải để assert.
@@ -84,6 +86,8 @@ function feProposal(overrides: Partial<PurchaseProposal> = {}): PurchaseProposal
         required: 8,
         actualStock: 0,
         buyQty: 8,
+        orderQty: null,
+        purchaseQty: 8,
         khoKey: 'phoiSonHan',
         khoLabel: 'Kho Phôi Sơn Hàn',
         warehouseCode: 'phoi-son-han',

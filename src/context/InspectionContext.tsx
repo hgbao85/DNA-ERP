@@ -8,6 +8,7 @@ import {
   bossApproveProposal as bossApproveProposalApi,
   receiveProposalItem as receiveProposalItemApi,
   updateProposalItemApprovalFile as updateProposalItemApprovalFileApi,
+  updateProposalItemOrderQty as updateProposalItemOrderQtyApi,
 } from '../services/purchasing-api'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -49,6 +50,11 @@ export interface PurchaseProposalItem {
   required: number
   actualStock: number
   buyQty: number
+  /** "Số mua" người mua đã chốt (2026-11-04, YC7 mục 7.2) - chỉ được tăng so với `buyQty` (cần mua)
+   *  cho tròn số tối thiểu NCC bán; null = mua đúng số cần mua. Khoá sau khi "Sếp đã duyệt". */
+  orderQty?: number | null
+  /** Số thực mua = max(buyQty, orderQty) - dòng đóng hồ sơ khi nhận đủ số này. Mua dư = purchaseQty − buyQty. */
+  purchaseQty: number
   /** Chiều dài cây phải đặt (mm) - CHỈ có ở vật tư sắt (2026-08-26, sau khi Sếp mở lại auto_scan:
    *  solver có thể đề xuất cây KHÁC 6000mm mặc định). undefined/null cho nhánh kiểm tra vật tư
    *  thường - không có khái niệm chiều dài cây. Xem BE PurchaseProposalItem.stockLengthMm. */
@@ -181,6 +187,8 @@ interface InspCtxType {
   /** Admin "Quản lý tệp đính kèm" (2026-09-11) - thay/xóa file duyệt của 1 item (`approvalFileUrl:
    *  null` = xóa hẳn, xem services/purchasing-api.ts#updateProposalItemApprovalFile). */
   updateApprovalFile:      (proposalId: string, itemId: string, approvalFileUrl: string | null) => Promise<void>
+  /** Người mua chốt "số mua" (2026-11-04, YC7 mục 7.2) - null = mua đúng số cần mua. */
+  updateOrderQty:          (proposalId: string, itemId: string, orderQty: number | null) => Promise<void>
 }
 
 // ── Context ────────────────────────────────────────────────────────────────────
@@ -281,8 +289,15 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
       setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
     }), [runAction])
 
+  // Người mua chốt "số mua" (2026-11-04, YC7 mục 7.2) - cùng idiom updateApprovalFile ở trên.
+  const updateOrderQty = useCallback((proposalId: string, itemId: string, orderQty: number | null) =>
+    runAction('Sửa số mua', async () => {
+      const updated = await updateProposalItemOrderQtyApi(proposalId, itemId, orderQty)
+      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
+    }), [runAction])
+
   return (
-    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, bossApproveProposal, receiveProposalItem, updateApprovalFile }}>
+    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, bossApproveProposal, receiveProposalItem, updateApprovalFile, updateOrderQty }}>
       <ActionErrorBanner message={actionError} onDismiss={dismissActionError} />
       {children}
     </InspCtx.Provider>
