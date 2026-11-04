@@ -9,6 +9,8 @@ import AuditLogTimeline from '../../../components/AuditLogTimeline'
 import RefreshButton from '../../../components/RefreshButton'
 import { reviewSkuManhQuota, reviewSkuDetailQuota } from '../../../services/sku-api'
 import { useAuth } from '../../../context/AuthContext'
+import ContainerLoadEditor from '../../../components/ContainerLoadEditor'
+import type { ContainerLoad } from '../../../types/containerLoad'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import type { ManhChildGroup, ManhRow, MaterialType, Sku } from '../../../types/sku'
 import { STATUS_MAP, SKU_ENTITY } from '../../../constants/skuStatus'
@@ -87,7 +89,14 @@ export function SKUDetail({
    *  trạng thái khác, xem SkusService.update()). */
   onEdit?: (e: React.MouseEvent) => void
 }) {
-  const { isBoss } = useAuth()
+  const { isBoss, user } = useAuth()
+  // Load cont (Phần A YC9): KHSX + Admin nhập được cho SKU cũ chưa có kích thước thùng; lưu ngay vào sản phẩm, không qua duyệt
+  // nên không phụ thuộc readOnly/trạng thái SKU. Vai trò khác chỉ xem.
+  const canEditContainerLoad = user?.role === 'ADMIN' || !!user?.isProductPlanner
+  // Số vừa lưu chỉ giữ cho đúng SKU đang mở - đổi sang SKU khác thì lấy lại số của SKU đó (không dùng useEffect+setState).
+  const [savedLoad, setSavedLoad] = useState<{ skuId: string; cl: ContainerLoad } | null>(null)
+  const containerLoad = savedLoad?.skuId === pf.id ? savedLoad.cl : (pf.containerLoad ?? null)
+  const setContainerLoad = (cl: ContainerLoad) => setSavedLoad({ skuId: pf.id, cl })
   const { logAction, getLogsFor } = useAuditLog()
   // Màn hẹp: cột nhật ký (300px) chuyển xuống dưới nội dung thay vì ép nội dung còn vài chục px.
   const isCompact = useIsCompact()
@@ -335,6 +344,10 @@ export function SKUDetail({
         <span><span style={{ color: 'var(--text3)' }}>Mã nhà máy: </span><strong>{pf.mfgProduct?.factoryCode ?? '—'}</strong></span>
         <span><span style={{ color: 'var(--text3)' }}>Khách hàng: </span><strong>{pf.customerName || '—'}</strong></span>
         {pf.proposedAt && <span><span style={{ color: 'var(--text3)' }}>Thời gian tạo: </span><strong>{format(new Date(pf.proposedAt), 'dd/MM/yyyy')}</strong></span>}
+      </div>
+
+      <div style={{ marginBottom: 20 }}>
+        <ContainerLoadEditor skuId={pf.id} value={containerLoad} canEdit={canEditContainerLoad} onSaved={setContainerLoad} />
       </div>
 
       {/* Lý do Sếp từ chối lần gần nhất — BE tự xoá field này khi SKU được duyệt xong (xem

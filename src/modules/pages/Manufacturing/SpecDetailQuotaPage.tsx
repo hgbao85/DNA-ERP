@@ -16,6 +16,7 @@ import { SKU_ENTITY } from '../../../constants/skuStatus'
 import SpecAccessoryCatalogPage from './SpecAccessoryCatalogPage'
 import type { BaoBiDongGoiItem, DaySonItem, Sku, SkuMaterialOption, VatTuPhuKienItem } from '../../../types/sku'
 import MaterialOptionsPanel from '../../../components/MaterialOptionsPanel'
+import ContainerLoadEditor from '../../../components/ContainerLoadEditor'
 import {
   countCushionLinesWithQty, dropBlankTickedCushionLines, syncTickedCushionLines, tickedCushionsWithoutQty,
 } from '../../../utils/cushionOptions'
@@ -651,6 +652,18 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
             onChange={changeCushionOptions}
             disabled={isSubmitted}
           />
+
+          {/* Thùng & load cont (Phần A YC9) - thuộc bao bì nhưng KHÔNG đi qua nháp / gửi phê duyệt: lưu thẳng vào sản phẩm
+              và sửa được cả khi định mức đã nộp/duyệt, nên đứng riêng ngoài khung nhập dòng (khung đó ẩn khi đã nộp). */}
+          <div style={{ marginBottom: 14 }}>
+            <ContainerLoadEditor
+              skuId={selectedBom.id}
+              value={findPf(selectedBom.id)?.containerLoad ?? null}
+              canEdit
+              onSaved={cl => mutateSkus(prev => prev ? prev.map(s => s.id === selectedBom.id ? { ...s, containerLoad: cl } : s) : prev)}
+            />
+            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Thùng & load cont thuộc bao bì: lưu ngay vào sản phẩm, không cần gửi phê duyệt.</div>
+          </div>
 
           {/* Add line */}
           {!isSubmitted && (

@@ -29,6 +29,7 @@ import type {
   QuotaReviewStatus,
   VatTuPhuKienItem,
 } from '../types/sku';
+import type { ContainerLoad, UpdateContainerLoadBody } from '../types/containerLoad';
 
 type ReviewDecision = 'APPROVED' | 'REJECTED';
 
@@ -133,6 +134,8 @@ interface BeSku {
   status: Sku['status'];
   note: string | null;
   origin: string | null;
+  /** Phần A YC9: thùng & load cont. */
+  containerLoad?: ContainerLoad | null;
   manhData: { pieces: BePiece[]; wireOptions?: BeMaterialOption[] } | null;
   detailQuota: {
     daySon: BeMaterialLine[];
@@ -282,6 +285,7 @@ function toSku(pf: BeSku): Sku {
     piCode: pf.piCode ?? '',
     productionInvoiceId: pf.productionInvoiceId ?? undefined,
     origin: (pf.origin as 'PRODUCTION_CONFIRM' | undefined) ?? undefined,
+    containerLoad: pf.containerLoad ?? null,
     createdAt: pf.createdAt,
     exportOrder:
       pf.salesOrderId != null
@@ -323,6 +327,15 @@ export async function getSkus(): Promise<Sku[]> {
 
 export async function getSku(id: number | string): Promise<Sku> {
   return toSku(await http.get<BeSku>(`/skus/${id}`));
+}
+
+/** Lưu thùng & load cont của SKU (Phần A YC9) - lưu ngay vào sản phẩm, không qua nháp/phê duyệt, sửa được cả khi
+ *  định mức đã nộp/duyệt. Bỏ field = giữ nguyên, null = xoá. */
+export async function updateSkuContainerLoad(
+  skuId: number | string,
+  body: UpdateContainerLoadBody,
+): Promise<ContainerLoad> {
+  return http.patch<ContainerLoad>(`/skus/${skuId}/container-load`, body);
 }
 
 /** mfgProducts để chọn khi tạo SKU mới — SKU không còn bắt buộc gắn Sales Order (xem

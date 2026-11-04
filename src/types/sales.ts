@@ -1,4 +1,5 @@
 import type { MaterialChoice } from './sku';
+import type { ContainerLoad } from './containerLoad';
 
 export interface SalesCustomer {
   id: number;
@@ -24,6 +25,8 @@ export interface SalesOrderItem {
   /** Loại dây (mã SHT) / loại nệm Sales đã chọn cho dòng này - null khi SKU không có lựa chọn. */
   wireMaterial?: MaterialChoice | null;
   cushionMaterial?: MaterialChoice | null;
+  /** Load cont của SKU (Phần A YC9) - null/thiếu = SKU chưa có. */
+  containerLoad?: ContainerLoad | null;
 }
 
 export interface SalesOrder {

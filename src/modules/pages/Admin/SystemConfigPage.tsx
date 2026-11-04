@@ -36,7 +36,7 @@ const FIELDS: { name: TextField | 'floorPublicUrl'; label: string; required?: bo
 
 /** Nhóm "Máy cắt" - cấu hình thật cho bộ giải Đề xuất thanh sắt (màn Tối ưu cắt sắt đọc). Các tham số số nhập dạng
  *  chữ (giữ được lúc đang gõ dở "2,"), chỉ đổi thành số + kiểm tra khi bấm Lưu. */
-type McNumName = 'solverMctdBladeWidthMm' | 'solverMctdTrimStartMm' | 'solverMaxManualCuts' | 'solverMaxSizesPerPattern' | 'solverMergeWindowDays' | 'solverMergeMaxSkus'
+type McNumName = 'solverMctdBladeWidthMm' | 'solverMctdTrimStartMm' | 'solverMaxManualCuts' | 'solverMaxSizesPerPattern' | 'solverMergeWindowDays' | 'solverMergeMaxSkus' | 'containerVolumeM3'
 type McKey = McNumName | 'solverBundleFactors'
 const MC_NUM_FIELDS: { name: McNumName; label: string; help: string; integer: boolean; min: number; max: number }[] = [
   {
@@ -72,6 +72,11 @@ const MERGE_MAX_SKUS_FIELD: (typeof MC_NUM_FIELDS)[number] = {
   help: 'Một lệnh gộp (và một đợt tính phương án cắt) có tối đa chừng này SKU. Mặc định 2.',
 }
 const MERGE_FIELDS = [MERGE_WINDOW_FIELD, MERGE_MAX_SKUS_FIELD]
+/** Thể tích cont 40HC (Phần A YC9): mẫu số của load cont mọi SKU. 2 số lẻ; lưu xong BE tính lại load cont của mọi SKU. */
+const CONTAINER_VOLUME_FIELD: (typeof MC_NUM_FIELDS)[number] = {
+  name: 'containerVolumeM3', label: 'Thể tích cont 40HC (m³)', integer: false, min: 1, max: 200,
+  help: 'Dùng tính load cont của SKU. Đổi số này thì hệ thống tính lại load cont của mọi SKU. Mặc định 68.',
+}
 const MC_FACTORS_HELP = 'Số cây cắt cùng lúc trong một bó. Nhập các số cách nhau bằng dấu cách, vd: 14 16 18 20. Mỗi số là số nguyên lớn hơn 1, tối đa 8 số. Mặc định 14 16 18 20.'
 const fmtMcNum = (n: number | undefined) => (n == null ? '' : String(n).replace('.', ','))
 
@@ -126,7 +131,7 @@ export default function SystemConfigPage() {
     // Nhóm "Máy cắt": đổi chữ đang gõ thành số, báo lỗi ngay tại đây thay vì để BE trả 400.
     const next: SystemConfig = { ...values }
     const errs: Partial<Record<McKey, string>> = {}
-    for (const f of [...MC_NUM_FIELDS, ...MERGE_FIELDS]) {
+    for (const f of [...MC_NUM_FIELDS, ...MERGE_FIELDS, CONTAINER_VOLUME_FIELD]) {
       const raw = mcText[f.name]
       if (raw === undefined) continue
       const n = Number(raw.trim().replace(',', '.'))
@@ -134,7 +139,8 @@ export default function SystemConfigPage() {
         errs[f.name] = `Phải là ${f.integer ? 'số nguyên' : 'số'} từ ${f.min} đến ${f.max}`
         continue
       }
-      next[f.name] = n
+      // Thể tích cont giữ 2 số lẻ (BE cũng làm tròn 2 số lẻ).
+      next[f.name] = f.name === 'containerVolumeM3' ? Math.round(n * 100) / 100 : n
     }
     if (mcText.solverBundleFactors !== undefined) {
       const parts = mcText.solverBundleFactors.split(/[\s,;]+/).filter(Boolean).map(Number)
@@ -146,7 +152,7 @@ export default function SystemConfigPage() {
     }
     setMcErrors(errs)
     if (Object.keys(errs).length > 0) {
-      setError('Nhóm “Máy cắt” có ô chưa hợp lệ — xem thông báo màu đỏ dưới từng ô.')
+      setError('Có ô chưa hợp lệ — xem thông báo màu đỏ dưới từng ô.')
       return
     }
     setError(null)
@@ -343,6 +349,22 @@ export default function SystemConfigPage() {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Container 40HC: mẫu số của load cont (Phần A YC9) - không thuộc "Máy cắt" nên đứng khối riêng. */}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-4)' }}>
+          <label htmlFor={`mc-${CONTAINER_VOLUME_FIELD.name}`} style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>{CONTAINER_VOLUME_FIELD.label}</label>
+          <input
+            id={`mc-${CONTAINER_VOLUME_FIELD.name}`}
+            value={mcText.containerVolumeM3 ?? fmtMcNum(values.containerVolumeM3 ?? 68)}
+            onChange={e => { setMcText(t => ({ ...t, containerVolumeM3: e.target.value })); setMcErrors(er => ({ ...er, containerVolumeM3: undefined })) }}
+            inputMode="decimal"
+            aria-invalid={mcErrors.containerVolumeM3 ? true : undefined}
+            aria-describedby={`mc-containerVolumeM3-help${mcErrors.containerVolumeM3 ? ' mc-containerVolumeM3-error' : ''}`}
+            style={{ ...inputStyle, maxWidth: 230, ...(mcErrors.containerVolumeM3 ? { borderColor: 'var(--fg-c62828)' } : null) }}
+          />
+          {mcErrors.containerVolumeM3 && <div id="mc-containerVolumeM3-error" role="alert" style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 4 }}>{mcErrors.containerVolumeM3}</div>}
+          <div id="mc-containerVolumeM3-help" style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, lineHeight: 1.5 }}>{CONTAINER_VOLUME_FIELD.help}</div>
         </div>
 
         {error && <div style={{ color: 'var(--fg-c62828)', fontSize: 12 }}>{error}</div>}
