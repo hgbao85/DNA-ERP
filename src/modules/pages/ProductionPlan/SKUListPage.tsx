@@ -5,6 +5,7 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { Trash2 } from 'lucide-react'
 import type { Sku } from '../../../types/sku'
+import ContainerLoadHint from '../../../components/ContainerLoadHint'
 import { SKUDetail, SkuMobileCard, StatusBadge, STATUS_MAP } from './SKUDetail'
 import SearchInput from '../../../components/SearchInput'
 import FilterPills from '../../../components/FilterPills'
@@ -146,7 +147,8 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
           )}
           {displayed.map(pf => (
             <SkuMobileCard key={pf.id} pf={pf} selectable={deleteMode} checked={selectedIds.has(pf.id)}
-              onClick={() => deleteMode ? toggleSelect(pf.id) : setSelectedPf(pf)} />
+              onClick={() => deleteMode ? toggleSelect(pf.id) : setSelectedPf(pf)}
+              note={<div style={{ marginTop: 4 }}><ContainerLoadHint containerLoad={pf.containerLoad} /></div>} />
           ))}
 
           {displayed.length === 0 && (
@@ -163,6 +165,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
               {/* Cột "#" (id trong DB) bỏ 2026-10-20 (changelog BE 10-08 mục 53) - không có nghĩa với người dùng. */}
               <col />
               <col style={{ width: 130 }} />
+              <col style={{ width: 100 }} />
               <col style={{ width: 160 }} /><col style={{ width: 150 }} />
               {deleteMode && <col style={{ width: 44 }} />}
             </colgroup>
@@ -170,6 +173,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={thStyle}>SKU</th>
                 <th style={thStyle}>Khách hàng</th>
+                <th style={thStyle}>Load cont</th>
                 <th style={thStyle}>Trạng thái</th>
                 <th style={thStyle}>Thời gian tạo</th>
                 {deleteMode && (
@@ -209,6 +213,9 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
                       <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text2)' }}>
                         {pf.customerName ?? '—'}
                       </td>
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: pf.containerLoad?.loadCont != null ? 'var(--text2)' : 'var(--text3)' }}>
+                        {pf.containerLoad?.loadCont != null ? <>{pf.containerLoad.loadCont} <span style={{ fontSize: 11, color: 'var(--text3)' }}>bộ/cont</span></> : '—'}
+                      </td>
                       <td style={tdStyle}><StatusBadge status={pf.status} /></td>
                       <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: 'var(--text3)', fontSize: 12 }}>
                         {format(new Date(pf.createdAt), 'HH:mm · dd/MM/yyyy')}
@@ -227,7 +234,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
               })}
               {displayed.length === 0 && (
                 <tr>
-                  <td colSpan={deleteMode ? 6 : 5} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
+                  <td colSpan={deleteMode ? 7 : 6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
                     {q ? 'Không tìm thấy kết quả' : 'Chưa có SKU nào'}
                   </td>
                 </tr>

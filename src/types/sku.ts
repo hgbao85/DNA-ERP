@@ -1,3 +1,5 @@
+import type { ContainerLoad } from './containerLoad';
+
 /** Mảnh và chi tiết giờ là 2 nhánh độc lập, tiến song song (xem Sku.manhForwardedAt/
  *  detailForwardedAt) - status chỉ còn 3 giá trị pipeline thật sự dùng, không còn mã hoá "đang ở
  *  giai đoạn nào" theo thứ tự tuyến tính như trước (WAITING_PARTS/APPROVED_PARTS/WAITING_DETAIL/
@@ -186,6 +188,8 @@ export interface Sku {
    *  (expandSkusByProductionOrder), để phân biệt 2 lệnh cùng SKU khác dây/nệm. */
   wireMaterial?: MaterialChoice | null;
   cushionMaterial?: MaterialChoice | null;
+  /** Thùng & load cont của SKU (Phần A YC9) - null = chưa có kích thước/số nhập tay. */
+  containerLoad?: ContainerLoad | null;
   /** Sku tạo tự động khi PM xác nhận sản xuất 1 SKU trong PI (LenhSXPage) — chỉ phục vụ
    *  "Lệnh kiểm tra vật tư" (prodmgr@demo.com), không phải SKU do KHSX tạo nên phải ẩn khỏi
    *  "Danh sách SKU" / "Duyệt SKU". */

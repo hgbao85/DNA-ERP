@@ -11,6 +11,7 @@ import { SALES_ORDER_STATUS_LABEL, SALES_PRODUCTION_STAGES } from '../../../type
 import type { Sku, SkuMaterialOption } from '../../../types/sku'
 import type { SkuOrderOptions } from '../../../services/sku-api'
 import MaterialChoiceTags from '../../../components/MaterialChoiceTags'
+import ContainerLoadHint from '../../../components/ContainerLoadHint'
 import ZoomableImage from '../../../components/ZoomableImage'
 import { StatusBadge } from './StatusBadge'
 import SearchableSelect from '../../../components/SearchableSelect'
@@ -627,6 +628,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
                     <strong>{item.skuCode}</strong>{item.skuName ? <span style={{ color: 'var(--text3)' }}> — {item.skuName}</span> : ''}
                     <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
                   </div>
+                  <div style={{ marginBottom: 8 }}><ContainerLoadHint containerLoad={item.containerLoad} qty={item.totalQty} /></div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: isMobile ? 6 : 10 }}>
                     <StatTile label="Tổng số lượng" value={item.totalQty.toLocaleString()} />
                     <StatTile label="Đã xuất hàng" value={item.shippedQty.toLocaleString()} />

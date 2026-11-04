@@ -10,6 +10,9 @@ import { MACHINE_LABEL } from '../../../utils/cutMachine'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
+// Phần A – Đợt 2: tiền tố số LSX
+import { LSX_PREFIX_PATTERN, parseLsxPrefixes } from '../../../utils/lenhCode'
+import { invalidateLsxPrefixes } from '../../../hooks/useLsxPrefixes'
 
 /** Card này là form nhập chữ — chỉ nhận các field chữ của SystemConfig, không nhận field boolean
  *  (vd solverAllowCustomLength, thuộc nghiệp vụ cắt sắt chứ không phải thông tin công ty). */
@@ -36,7 +39,7 @@ const FIELDS: { name: TextField | 'floorPublicUrl'; label: string; required?: bo
 
 /** Nhóm "Máy cắt" - cấu hình thật cho bộ giải Đề xuất thanh sắt (màn Tối ưu cắt sắt đọc). Các tham số số nhập dạng
  *  chữ (giữ được lúc đang gõ dở "2,"), chỉ đổi thành số + kiểm tra khi bấm Lưu. */
-type McNumName = 'solverMctdBladeWidthMm' | 'solverMctdTrimStartMm' | 'solverMaxManualCuts' | 'solverMaxSizesPerPattern' | 'solverMergeWindowDays' | 'solverMergeMaxSkus'
+type McNumName = 'solverMctdBladeWidthMm' | 'solverMctdTrimStartMm' | 'solverMaxManualCuts' | 'solverMaxSizesPerPattern' | 'solverMergeWindowDays' | 'solverMergeMaxSkus' | 'containerVolumeM3'
 type McKey = McNumName | 'solverBundleFactors'
 const MC_NUM_FIELDS: { name: McNumName; label: string; help: string; integer: boolean; min: number; max: number }[] = [
   {
@@ -72,6 +75,11 @@ const MERGE_MAX_SKUS_FIELD: (typeof MC_NUM_FIELDS)[number] = {
   help: 'Một lệnh gộp (và một đợt tính phương án cắt) có tối đa chừng này SKU. Mặc định 2.',
 }
 const MERGE_FIELDS = [MERGE_WINDOW_FIELD, MERGE_MAX_SKUS_FIELD]
+/** Thể tích cont 40HC (Phần A YC9): mẫu số của load cont mọi SKU. 2 số lẻ; lưu xong BE tính lại load cont của mọi SKU. */
+const CONTAINER_VOLUME_FIELD: (typeof MC_NUM_FIELDS)[number] = {
+  name: 'containerVolumeM3', label: 'Thể tích cont 40HC (m³)', integer: false, min: 1, max: 200,
+  help: 'Dùng tính load cont của SKU. Đổi số này thì hệ thống tính lại load cont của mọi SKU. Mặc định 68.',
+}
 const MC_FACTORS_HELP = 'Số cây cắt cùng lúc trong một bó. Nhập các số cách nhau bằng dấu cách, vd: 14 16 18 20. Mỗi số là số nguyên lớn hơn 1, tối đa 8 số. Mặc định 14 16 18 20.'
 const fmtMcNum = (n: number | undefined) => (n == null ? '' : String(n).replace('.', ','))
 
@@ -97,6 +105,13 @@ export default function SystemConfigPage() {
   const [mcErrors, setMcErrors] = useState<Partial<Record<McKey, string>>>({})
 
   const values: SystemConfig | null = data ? { ...data, ...draft } : null
+
+  // Phần A – Đợt 2: chữ đang gõ ở ô "Tiền tố số LSX" (undefined = chưa sửa); lỗi hiện dưới ô. Về rỗng sau mỗi lần lưu thành công.
+  const [lsxText, setLsxText] = useState<string | undefined>(undefined)
+  const lsxPrefixError = (text: string): string | null => {
+    const bad = parseLsxPrefixes(text).filter((p) => !LSX_PREFIX_PATTERN.test(p))
+    return bad.length > 0 ? `Tiền tố sai: ${bad.join(', ')} - mỗi tiền tố gồm 1 đến 6 chữ cái (không số, không dấu gạch)` : null
+  }
 
   const ipLines = values?.floorAllowedIps ?? []
   const addMyIp = async () => {
@@ -126,7 +141,7 @@ export default function SystemConfigPage() {
     // Nhóm "Máy cắt": đổi chữ đang gõ thành số, báo lỗi ngay tại đây thay vì để BE trả 400.
     const next: SystemConfig = { ...values }
     const errs: Partial<Record<McKey, string>> = {}
-    for (const f of [...MC_NUM_FIELDS, ...MERGE_FIELDS]) {
+    for (const f of [...MC_NUM_FIELDS, ...MERGE_FIELDS, CONTAINER_VOLUME_FIELD]) {
       const raw = mcText[f.name]
       if (raw === undefined) continue
       const n = Number(raw.trim().replace(',', '.'))
@@ -134,7 +149,8 @@ export default function SystemConfigPage() {
         errs[f.name] = `Phải là ${f.integer ? 'số nguyên' : 'số'} từ ${f.min} đến ${f.max}`
         continue
       }
-      next[f.name] = n
+      // Thể tích cont giữ 2 số lẻ (BE cũng làm tròn 2 số lẻ).
+      next[f.name] = f.name === 'containerVolumeM3' ? Math.round(n * 100) / 100 : n
     }
     if (mcText.solverBundleFactors !== undefined) {
       const parts = mcText.solverBundleFactors.split(/[\s,;]+/).filter(Boolean).map(Number)
@@ -144,9 +160,14 @@ export default function SystemConfigPage() {
         next.solverBundleFactors = [...new Set(parts)].sort((a, b) => a - b)
       }
     }
+    // Phần A – Đợt 2: tiền tố số LSX
+    if (lsxText !== undefined) {
+      if (lsxPrefixError(lsxText)) { setError('Ô “Tiền tố số LSX” chưa hợp lệ — xem thông báo màu đỏ dưới ô.'); return }
+      next.lsxPrefixes = parseLsxPrefixes(lsxText)
+    }
     setMcErrors(errs)
     if (Object.keys(errs).length > 0) {
-      setError('Nhóm “Máy cắt” có ô chưa hợp lệ — xem thông báo màu đỏ dưới từng ô.')
+      setError('Có ô chưa hợp lệ — xem thông báo màu đỏ dưới từng ô.')
       return
     }
     setError(null)
@@ -159,6 +180,8 @@ export default function SystemConfigPage() {
       setDraft({})
       setMcText({})
       setMcErrors({})
+      setLsxText(undefined)
+      invalidateLsxPrefixes()
       await refetch()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không thể lưu cấu hình')
@@ -195,6 +218,34 @@ export default function SystemConfigPage() {
             {f.help && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, lineHeight: 1.5 }}>{f.help}</div>}
           </div>
         ))}
+
+        {/* Phần A – Đợt 2: nhóm "Lệnh sản xuất" - tiền tố số LSX nhà máy (MY-313, GP-176) */}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-4)' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Lệnh sản xuất</div>
+          {(() => {
+            const text = lsxText ?? (values.lsxPrefixes ?? []).join(', ')
+            const err = lsxPrefixError(text)
+            return (
+              <>
+                <label htmlFor="lsx-prefixes" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>Tiền tố số LSX</label>
+                <input
+                  id="lsx-prefixes"
+                  value={text}
+                  onChange={e => setLsxText(e.target.value)}
+                  placeholder="MY, GP"
+                  spellCheck={false}
+                  aria-invalid={!!err}
+                  aria-describedby="lsx-prefixes-help"
+                  style={{ ...inputStyle, ...(err ? { borderColor: 'var(--fg-c62828)' } : {}) }}
+                />
+                {err && <div role="alert" style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 4 }}>{err}</div>}
+                <div id="lsx-prefixes-help" style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, lineHeight: 1.5 }}>
+                  Nhập nhiều tiền tố, cách nhau dấu phẩy (vd MY, GP). Để trống = chấp nhận mọi tiền tố. Số LSX có dạng TIỀN TỐ-SỐ, vd MY-313.
+                </div>
+              </>
+            )
+          })()}
+        </div>
 
         <div>
           <label htmlFor="allowed-ips" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
@@ -343,6 +394,22 @@ export default function SystemConfigPage() {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* Container 40HC: mẫu số của load cont (Phần A YC9) - không thuộc "Máy cắt" nên đứng khối riêng. */}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-4)' }}>
+          <label htmlFor={`mc-${CONTAINER_VOLUME_FIELD.name}`} style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>{CONTAINER_VOLUME_FIELD.label}</label>
+          <input
+            id={`mc-${CONTAINER_VOLUME_FIELD.name}`}
+            value={mcText.containerVolumeM3 ?? fmtMcNum(values.containerVolumeM3 ?? 68)}
+            onChange={e => { setMcText(t => ({ ...t, containerVolumeM3: e.target.value })); setMcErrors(er => ({ ...er, containerVolumeM3: undefined })) }}
+            inputMode="decimal"
+            aria-invalid={mcErrors.containerVolumeM3 ? true : undefined}
+            aria-describedby={`mc-containerVolumeM3-help${mcErrors.containerVolumeM3 ? ' mc-containerVolumeM3-error' : ''}`}
+            style={{ ...inputStyle, maxWidth: 230, ...(mcErrors.containerVolumeM3 ? { borderColor: 'var(--fg-c62828)' } : null) }}
+          />
+          {mcErrors.containerVolumeM3 && <div id="mc-containerVolumeM3-error" role="alert" style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 4 }}>{mcErrors.containerVolumeM3}</div>}
+          <div id="mc-containerVolumeM3-help" style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, lineHeight: 1.5 }}>{CONTAINER_VOLUME_FIELD.help}</div>
         </div>
 
         {error && <div style={{ color: 'var(--fg-c62828)', fontSize: 12 }}>{error}</div>}

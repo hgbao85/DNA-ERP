@@ -86,7 +86,7 @@ export const manufacturingGroup: GuideGroup = {
       },
       mock: { title: 'Sản lượng xưởng — PI đang chạy · tổ Phôi', buttons: ['Thêm PI', 'Xem còn thiếu gì', 'Chuyển PI tiếp'] },
       steps: [
-        'Bước 1 — "Xử lý lệnh sản xuất": mở PI → "Chọn kho sản xuất" cho từng SKU → gửi Sếp duyệt (hoặc "Từ chối"). PI quá hạn hiện chữ đỏ "Quá hạn N ngày" — làm những PI này trước. Sếp duyệt xong PI mới có lệnh sản xuất.',
+        'Bước 1 — "Xử lý lệnh sản xuất": mở PI → "Chọn kho & xưởng" (kho thành phẩm cho từng SKU + 1 xưởng cơ khí cho cả lệnh) → gửi Sếp duyệt (hoặc "Từ chối"). PI quá hạn hiện chữ đỏ "Quá hạn N ngày" — làm những PI này trước. Sếp duyệt xong PI mới có lệnh sản xuất.',
         { text: 'Bước 2 — "Tổng hợp lệnh SX": bấm vào PI → ở bảng SKU, cột "Xưởng" bấm "Bắt đầu" cho SKU sẽ làm (cổng 1).', critical: true },
         { text: 'Bước 3 — "Sản lượng xưởng" → tab "Sản lượng & gửi KCS" → chọn tổ (Phôi / Hàn / Sơn) → "Thêm PI" vào hàng đợi → nếu tổ chưa chạy PI nào thì bấm "Bắt đầu PI đầu hàng đợi" (cổng 2). Làm lần lượt cho cả 3 tổ.', critical: true },
         'Bước 4 — Hằng ngày: ở khối "Chờ gửi KCS", bấm vào từng đợt ("Kiểm & gửi") xem từng lần công nhân báo; lần nào sai thì "Hủy" (ghi lý do), đúng thì "Gửi KCS đợt này" (hoặc "Gửi KCS tất cả" khi đã kiểm hết).',
@@ -659,6 +659,40 @@ export const manufacturingGroup: GuideGroup = {
       ],
       tags: ['định mức chi tiết', 'spec accessory', 'sơn', 'phụ kiện', 'bao bì', 'tạm lưu', 'khôi phục bản nháp', 'mất dữ liệu', 'nệm', 'màu vải nệm', 'loại nệm', 'quy cách nệm', 'tick nệm'],
       sourceRefs: ['src/modules/pages/Manufacturing/SpecDetailQuotaPage.tsx', 'src/modules/pages/Manufacturing/SpecAccessoryCatalogPage.tsx'],
+    },
+    {
+      id: 'mfg-container-load',
+      title: 'Load cont của SKU — thùng bao nhiêu bộ thì đầy một cont',
+      roles: ['spec_detail', 'khsx'],
+      purpose: 'Load cont là số bộ của một SKU xếp vừa trong một container 40HC. Kế hoạch dùng số này để đổi số bộ của đơn/lệnh sản xuất ra "cont tương đương" (ví dụ 200 bộ, load cont 80 thì khoảng 2,5 cont).',
+      preconditions: ['SKU đã có. Chuyên viên định mức chi tiết nhập kích thước thùng khi nhập định mức bao bì; SKU cũ chưa có thì KHSX nhập.'],
+      steps: [
+        'Chuyên viên định mức chi tiết: mở "Quản lý định mức" > "Định mức mới", chọn SKU, ở khối "Thùng & load cont" nhập Dài / Rộng / Cao của thùng (cm) và "Số thùng / bộ" (bộ có 2 thùng thì nhập 2).',
+        'KHSX: với SKU cũ chưa có số liệu, mở SKU từ "Danh sách SKU" hoặc "Duyệt SKU" và nhập ở khối "Thùng & load cont".',
+        'Dòng kết quả dưới các ô tự tính khi gõ, ví dụ "Thể tích thùng 0,8438 m³ · Load cont = 68 ÷ (0,8438 × 1) = 80 bộ/cont". Muốn dùng số khác công thức thì nhập vào ô "Load cont nhập tay"; để trống = theo công thức.',
+        { text: 'Bấm "Lưu". Số liệu lưu ngay vào sản phẩm, không cần gửi phê duyệt.', critical: true },
+      ],
+      tables: [
+        {
+          title: 'Công thức và ví dụ',
+          columns: ['Thùng (cm)', 'Số thùng / bộ', 'Thể tích thùng', 'Load cont'],
+          rows: [
+            ['90 × 75 × 125 (J55)', '1', '0,8438 m³', '68 ÷ 0,8438 = 80 bộ/cont'],
+            ['90 × 75 × 125', '2', '0,8438 m³', '68 ÷ (0,8438 × 2) = 40 bộ/cont'],
+            ['90 × 75 × 125, nhập tay 75', '1', '0,8438 m³', '75 (số nhập tay thắng công thức)'],
+          ],
+        },
+      ],
+      result: 'SKU có load cont; màn đơn hàng, lệnh sản xuất và danh sách SKU hiện "Load cont 80 · ≈ 2,5 cont". SKU chưa có thì hiện "Chưa có load cont".',
+      warnings: [
+        'Công thức: load cont = thể tích cont ÷ (thể tích 1 thùng × số thùng / bộ), làm tròn XUỐNG số nguyên. Bộ gồm nhiều thùng thì phải nhập đúng "Số thùng / bộ", nếu không load cont sẽ bị tính gấp nhiều lần.',
+        'Có số nhập tay thì dùng số nhập tay, không dùng công thức (công thức vẫn hiện bên cạnh để đối chiếu).',
+        'Nhập kích thước hoặc sửa load cont được cả khi định mức bao bì của SKU đã gửi hoặc đã duyệt — không cần duyệt lại.',
+        'Thể tích cont mặc định 68 m³; Admin đổi ở "Cấu hình hệ thống" > "Thể tích cont 40HC (m³)". Đổi số này thì load cont của mọi SKU được tính lại.',
+        'Thiếu một trong ba kích thước và không nhập tay thì chưa tính được load cont.',
+      ],
+      tags: ['load cont', 'container', 'cont 40HC', 'thùng', 'kích thước thùng', 'số thùng bộ', 'cont tương đương', 'bộ/cont'],
+      sourceRefs: ['src/components/ContainerLoadEditor.tsx', 'src/utils/containerLoad.ts', 'src/modules/pages/Manufacturing/SpecDetailQuotaPage.tsx', 'src/modules/pages/ProductionPlan/SKUDetail.tsx'],
     },
   ],
 };

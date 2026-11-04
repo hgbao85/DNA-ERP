@@ -11,9 +11,13 @@
  * Phôi→Hàn→Sơn, không phải riêng công đoạn Hàn); `PACKAGING` = "Đóng gói" (đặt tên khác
  * `MfgStage.SON`=Sơn/painting thật để khỏi trùng nghĩa).
  */
+// Phần A – Đợt 2: số LSX + xưởng cơ khí.
+import { lenhDisplayCode, lenhLsxCodes } from '../utils/lenhCode';
+import type { WorkshopRef } from '../types/workshop';
 import { http } from './core/http';
 import type { SolverMachine } from '../types/admin';
 import type { MaterialChoice } from '../types/sku';
+import type { ContainerLoad } from '../types/containerLoad';
 
 /** FRAME_PHOI/FRAME_HAN/FRAME_SON (2026-09-09): mốc kế hoạch RIÊNG cho Phôi/Hàn/Sơn - xem
  *  LenhSXPage "Sửa thời hạn". Mỗi giá trị enum chỉ có 1 `deadline` như FRAME/WEAVING/PACKAGING
@@ -29,6 +33,8 @@ interface BeProductionInvoiceItem {
   salesOrderCode: string | null;
   customerName: string | null;
   mfgProductId: string;
+  /** Phần A YC9: load cont của SKU. */
+  containerLoad?: ContainerLoad | null;
   factoryCode: string;
   productName: string;
   productVariantId: string | null;
@@ -52,6 +58,10 @@ interface BeProductionInvoiceItem {
   decidedAt: string | null;
   decidedById: string | null;
   rejectReason: string | null;
+  /** Phần A – Đợt 2: số LSX nhà máy của dòng (vd "MY-313"); null = lệnh cũ chưa có. BE cũ thiếu field. */
+  lsxCode?: string | null;
+  /** Phần A – Đợt 2: xưởng cơ khí QLSX chọn lúc gửi Sếp; null = chưa chọn. */
+  workshop?: WorkshopRef | null;
   /** null = chưa từng tính (SKU chưa duyệt). Có giá trị CALCULATING = đang chờ solver, xem toItem(). */
   cuttingProposalStatus?: 'CALCULATING' | 'DRAFT' | 'FAILED' | 'APPROVED' | null;
   cuttingProposalRequestedAt?: string | null;
@@ -110,6 +120,11 @@ interface BeProductionInvoice {
   createdAt: string;
   updatedAt: string;
   items: BeProductionInvoiceItem[];
+  /** Phần A – Đợt 2: mã lệnh hiển thị (LSX các dòng nối " + ", chưa có thì mã PI) - BE cũ thiếu thì FE tự tính cùng luật. */
+  displayCode?: string;
+  lsxCodes?: string[];
+  /** Phần A – Đợt 2: lệnh đã xuất sắt hoặc vật tư định mức cân ra xưởng -> không đổi xưởng được. Chỉ danh sách/chi tiết có. */
+  hasMaterialIssue?: boolean;
 }
 
 function toItem(it: BeProductionInvoiceItem) {
@@ -122,6 +137,7 @@ function toItem(it: BeProductionInvoiceItem) {
     wireMaterial: it.wireMaterial ?? null,
     cushionMaterial: it.cushionMaterial ?? null,
     quantity: it.quantity,
+    containerLoad: it.containerLoad ?? null,
     productVariant: {
       colorCode: it.colorCode,
       mfgProduct: { name: it.productName, factoryCode: it.factoryCode },
@@ -136,6 +152,8 @@ function toItem(it: BeProductionInvoiceItem) {
     productionOrderId: it.productionOrderId ?? null,
     floorStage: it.floorStage ?? null,
     bomOutOfDate: it.bomOutOfDate ?? null,
+    lsxCode: it.lsxCode ?? null,
+    workshop: it.workshop ?? null,
     prodApproval: it.prodApprovalStatus
       ? {
           status: it.prodApprovalStatus,
@@ -184,6 +202,9 @@ function toPI(pi: BeProductionInvoice) {
   return {
     id: pi.id,
     code: pi.code,
+    displayCode: pi.displayCode ?? lenhDisplayCode(pi, pi.items),
+    lsxCodes: pi.lsxCodes ?? lenhLsxCodes(pi.items),
+    hasMaterialIssue: pi.hasMaterialIssue ?? false,
     status: pi.status,
     isMerged: pi.isMerged,
     exportOrderId: pi.salesOrderId ?? undefined,
@@ -280,32 +301,61 @@ export async function sendPiToQlsx(piId: number | string, itemIds?: string[]) {
   );
 }
 
+/** Phần A – Đợt 2: `workshopId` (xưởng cơ khí) BẮT BUỘC - BE thiếu thì 400 "phiên bản cũ, tải lại trang". */
 export async function sendItemToBoss(
   piId: number | string,
   itemId: number | string,
   warehouse: { code: string; name: string },
+  workshopId: string,
   _sentBy?: string,
 ) {
   return toItem(
     await http.post<BeProductionInvoiceItem>(`/production-invoices/${piId}/items/${itemId}/send-to-boss`, {
       warehouseCode: warehouse.code,
       warehouseName: warehouse.name,
+      workshopId,
     }),
   );
 }
 
 /** Gửi CẢ phiếu lên Sếp — mọi SKU đang chờ QLSX, dùng CHUNG 1 kho thành phẩm. Ca hiếm cần kho
- *  khác nhau theo từng SKU thì vẫn dùng sendItemToBoss() lẻ như cũ. */
+ *  khác nhau theo từng SKU thì vẫn dùng sendItemToBoss() lẻ như cũ. Phần A – Đợt 2: kèm `workshopId` bắt buộc - mọi SKU
+ *  của 1 lệnh cùng 1 xưởng (BE chặn 409 nếu SKU đã gửi trước đó của lệnh ở xưởng khác). */
 export async function sendPiToBoss(
   piId: number | string,
   warehouse: { code: string; name: string },
+  workshopId: string,
   itemIds?: string[],
 ) {
   return http.post<BeProductionInvoice>(`/production-invoices/${piId}/send-to-boss-batch`, {
     warehouseCode: warehouse.code,
     warehouseName: warehouse.name,
+    workshopId,
     ...(itemIds?.length ? { itemIds } : {}),
   });
+}
+
+// ─── Phần A – Đợt 2: số LSX + đổi xưởng ────────────────────────────────────────────────
+
+/**
+ * KHSX/Admin nhập/sửa số LSX của 1 dòng SKU (`PATCH /production-invoices/:id/items/:itemId/lsx`). `null` = xoá. BE chuẩn hoá in
+ * hoa và kiểm: dạng TIỀN TỐ-SỐ (400), tiền tố có trong Cấu hình (400), trùng toàn hệ thống (409 nêu lệnh đang dùng); dòng đã
+ * được Sếp duyệt thì KHSX chỉ được ĐIỀN khi đang trống, đổi/xoá phải Admin (403). Trả dòng đã cập nhật.
+ */
+export async function updateItemLsx(piId: number | string, itemId: number | string, lsxCode: string | null) {
+  return toItem(
+    await http.patch<BeProductionInvoiceItem>(`/production-invoices/${piId}/items/${itemId}/lsx`, { lsxCode }),
+  );
+}
+
+/**
+ * QLSX đổi xưởng cơ khí cho MỌI SKU của lệnh (`PATCH /production-invoices/:id/workshop`) - chỉ khi mọi SKU đã gửi Sếp/đã duyệt
+ * và lệnh chưa xuất sắt/vật tư (409 nếu đã xuất). BE báo Sếp + KHSX. Trả PI đã cập nhật.
+ */
+export async function changePiWorkshop(piId: number | string, workshopId: string, reason: string) {
+  return toPI(
+    await http.patch<BeProductionInvoice>(`/production-invoices/${piId}/workshop`, { workshopId, reason }),
+  );
 }
 
 export async function approveItemByBoss(piId: number | string, itemId: number | string, _decidedBy?: string) {
