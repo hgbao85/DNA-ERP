@@ -284,12 +284,12 @@ const haoHut: GuideArticle = {
     },
     {
       title: 'Bảng % đang áp dụng',
-      intro: 'Chốt ngày 08/10/2026. Vật tư mới nên theo đúng bảng này trừ khi có chỉ đạo khác.',
+      intro: 'Anh Nhân chốt (bản yêu cầu v8, mục 7.9), đã nạp cho toàn bộ vật tư ngày 04/11/2026. Vật tư mới nên theo đúng bảng này trừ khi có chỉ đạo khác.',
       columns: ['% hao hụt', 'Áp cho'],
       rows: [
-        ['0%', 'Dây đan, dây hàn, khí CO2, nhãn số, HDLR, poster.'],
-        ['1%', 'Sắt nhóm con "Tự tính" và "Vật tư thành phẩm"; bì zipper.'],
-        ['1,5%', 'Mọi thứ còn lại: đinh, vít, nút nhựa, tán rút, long đền, bu lông, sơn, xốp, bao bì...'],
+        ['0%', 'Carton, thùng, tem, nhãn, gối, HDLR (và poster, barcode, tờ label đi kèm).'],
+        ['1%', 'Sắt nhóm con "Tự tính" và "Vật tư thành phẩm", la tấm, thép dây; dây đan.'],
+        ['1,5%', 'Bu lông, đinh, nút, tán; sơn, xốp, vải nệm và mọi thứ còn lại (dây hàn, khí CO2, hoá chất, kính, gỗ, bì zipper, bao nylon, lót, góc...).'],
         ['Không có', 'Sắt nhóm con "Phần mềm" — hai ô này không hiện.'],
       ],
     },
