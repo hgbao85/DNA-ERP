@@ -86,7 +86,7 @@ export const manufacturingGroup: GuideGroup = {
       },
       mock: { title: 'Sản lượng xưởng — PI đang chạy · tổ Phôi', buttons: ['Thêm PI', 'Xem còn thiếu gì', 'Chuyển PI tiếp'] },
       steps: [
-        'Bước 1 — "Xử lý lệnh sản xuất": mở PI → "Chọn kho sản xuất" cho từng SKU → gửi Sếp duyệt (hoặc "Từ chối"). PI quá hạn hiện chữ đỏ "Quá hạn N ngày" — làm những PI này trước. Sếp duyệt xong PI mới có lệnh sản xuất.',
+        'Bước 1 — "Xử lý lệnh sản xuất": mở PI → "Chọn kho & xưởng" (kho thành phẩm cho từng SKU + 1 xưởng cơ khí cho cả lệnh) → gửi Sếp duyệt (hoặc "Từ chối"). PI quá hạn hiện chữ đỏ "Quá hạn N ngày" — làm những PI này trước. Sếp duyệt xong PI mới có lệnh sản xuất.',
         { text: 'Bước 2 — "Tổng hợp lệnh SX": bấm vào PI → ở bảng SKU, cột "Xưởng" bấm "Bắt đầu" cho SKU sẽ làm (cổng 1).', critical: true },
         { text: 'Bước 3 — "Sản lượng xưởng" → tab "Sản lượng & gửi KCS" → chọn tổ (Phôi / Hàn / Sơn) → "Thêm PI" vào hàng đợi → nếu tổ chưa chạy PI nào thì bấm "Bắt đầu PI đầu hàng đợi" (cổng 2). Làm lần lượt cho cả 3 tổ.', critical: true },
         'Bước 4 — Hằng ngày: ở khối "Chờ gửi KCS", bấm vào từng đợt ("Kiểm & gửi") xem từng lần công nhân báo; lần nào sai thì "Hủy" (ghi lý do), đúng thì "Gửi KCS đợt này" (hoặc "Gửi KCS tất cả" khi đã kiểm hết).',

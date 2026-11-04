@@ -129,7 +129,7 @@ export default function MilestoneBoardView({ viewSwitch }: { viewSwitch: ReactNo
     const q = search.trim().toLowerCase()
     return rows.filter(r =>
       (!onlyAttention || ATTENTION.has(r.worst)) &&
-      (!q || `${r.piCode} ${r.skuCode} ${r.skuName ?? ''}`.toLowerCase().includes(q)))
+      (!q || `${r.piCode} ${r.lsxCode ?? ''} ${r.displayCode ?? ''} ${r.skuCode} ${r.skuName ?? ''}`.toLowerCase().includes(q)))
   }, [rows, onlyAttention, search])
   const columns = rows[0]?.milestones.map(m => ({ key: m.key, label: m.label })) ?? []
 
@@ -182,7 +182,7 @@ export default function MilestoneBoardView({ viewSwitch }: { viewSwitch: ReactNo
         </div>
         <div style={{ position: 'relative', width: isMobile ? '100%' : 260 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
-          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm mã PI, SKU..."
+          <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm mã lệnh, LSX, SKU..."
             style={{ width: '100%', paddingLeft: 32, paddingRight: 10, paddingTop: 6, paddingBottom: 6, fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box', outline: 'none' }} />
         </div>
       </div>
@@ -208,7 +208,7 @@ export default function MilestoneBoardView({ viewSwitch }: { viewSwitch: ReactNo
           <table style={{ width: '100%', minWidth: 170 + columns.length * 92, borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={stickyHeaderRow}>
-                <th style={{ padding: '9px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text2)', minWidth: 170 }}>PI · SKU</th>
+                <th style={{ padding: '9px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text2)', minWidth: 170 }}>Mã lệnh · SKU</th>
                 {columns.map(c => (
                   <th key={c.key} style={{ padding: '9px 4px', textAlign: 'center', fontSize: 11.5, fontWeight: 600, color: 'var(--text2)', width: 92 }}>{c.label}</th>
                 ))}
@@ -219,7 +219,8 @@ export default function MilestoneBoardView({ viewSwitch }: { viewSwitch: ReactNo
                 // Cảnh báo "nguy cơ trễ hạn giao" (entity PRODUCTION_INVOICE_ITEM) mở vào đây thì nháy đúng dòng SKU.
                 <tr key={r.itemId} {...focusAttr('PRODUCTION_INVOICE_ITEM', r.itemId)} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ padding: '8px 12px', verticalAlign: 'middle' }}>
-                    <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--fg-1d4ed8)' }}>{r.piCode}</div>
+                    <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--fg-1d4ed8)' }}>{r.lsxCode ?? r.piCode}</div>
+                    {r.lsxCode && <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text3)' }}>{r.piCode}</div>}
                     <div style={{ fontWeight: 600 }}>{r.skuCode}</div>
                     <div style={{ fontSize: 11.5, color: 'var(--text3)' }}>
                       ×{r.quantity.toLocaleString('vi-VN')}{r.floorStage === 'PENDING' ? ' · chưa bắt đầu' : r.floorStage === 'PAUSED' ? ' · tạm dừng' : ''}
@@ -249,7 +250,8 @@ function MobileCard({ row }: { row: MilestoneRow }) {
     <div {...focusAttr('PRODUCTION_INVOICE_ITEM', row.itemId)} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--fg-1d4ed8)' }}>{row.piCode}</div>
+          <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--fg-1d4ed8)' }}>{row.lsxCode ?? row.piCode}</div>
+          {row.lsxCode && <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text3)' }}>{row.piCode}</div>}
           <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>
             {row.skuCode} <span style={{ color: 'var(--text3)', fontWeight: 400 }}>×{row.quantity.toLocaleString('vi-VN')}{floorNote ? ` · ${floorNote}` : ''}</span>
           </div>

@@ -10,6 +10,9 @@ import { MACHINE_LABEL } from '../../../utils/cutMachine'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
+// Phần A – Đợt 2: tiền tố số LSX
+import { LSX_PREFIX_PATTERN, parseLsxPrefixes } from '../../../utils/lenhCode'
+import { invalidateLsxPrefixes } from '../../../hooks/useLsxPrefixes'
 
 /** Card này là form nhập chữ — chỉ nhận các field chữ của SystemConfig, không nhận field boolean
  *  (vd solverAllowCustomLength, thuộc nghiệp vụ cắt sắt chứ không phải thông tin công ty). */
@@ -103,6 +106,13 @@ export default function SystemConfigPage() {
 
   const values: SystemConfig | null = data ? { ...data, ...draft } : null
 
+  // Phần A – Đợt 2: chữ đang gõ ở ô "Tiền tố số LSX" (undefined = chưa sửa); lỗi hiện dưới ô. Về rỗng sau mỗi lần lưu thành công.
+  const [lsxText, setLsxText] = useState<string | undefined>(undefined)
+  const lsxPrefixError = (text: string): string | null => {
+    const bad = parseLsxPrefixes(text).filter((p) => !LSX_PREFIX_PATTERN.test(p))
+    return bad.length > 0 ? `Tiền tố sai: ${bad.join(', ')} - mỗi tiền tố gồm 1 đến 6 chữ cái (không số, không dấu gạch)` : null
+  }
+
   const ipLines = values?.floorAllowedIps ?? []
   const addMyIp = async () => {
     setNetBusy(true); setNetError(null)
@@ -150,6 +160,11 @@ export default function SystemConfigPage() {
         next.solverBundleFactors = [...new Set(parts)].sort((a, b) => a - b)
       }
     }
+    // Phần A – Đợt 2: tiền tố số LSX
+    if (lsxText !== undefined) {
+      if (lsxPrefixError(lsxText)) { setError('Ô “Tiền tố số LSX” chưa hợp lệ — xem thông báo màu đỏ dưới ô.'); return }
+      next.lsxPrefixes = parseLsxPrefixes(lsxText)
+    }
     setMcErrors(errs)
     if (Object.keys(errs).length > 0) {
       setError('Có ô chưa hợp lệ — xem thông báo màu đỏ dưới từng ô.')
@@ -165,6 +180,8 @@ export default function SystemConfigPage() {
       setDraft({})
       setMcText({})
       setMcErrors({})
+      setLsxText(undefined)
+      invalidateLsxPrefixes()
       await refetch()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không thể lưu cấu hình')
@@ -201,6 +218,34 @@ export default function SystemConfigPage() {
             {f.help && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, lineHeight: 1.5 }}>{f.help}</div>}
           </div>
         ))}
+
+        {/* Phần A – Đợt 2: nhóm "Lệnh sản xuất" - tiền tố số LSX nhà máy (MY-313, GP-176) */}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-4)' }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Lệnh sản xuất</div>
+          {(() => {
+            const text = lsxText ?? (values.lsxPrefixes ?? []).join(', ')
+            const err = lsxPrefixError(text)
+            return (
+              <>
+                <label htmlFor="lsx-prefixes" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>Tiền tố số LSX</label>
+                <input
+                  id="lsx-prefixes"
+                  value={text}
+                  onChange={e => setLsxText(e.target.value)}
+                  placeholder="MY, GP"
+                  spellCheck={false}
+                  aria-invalid={!!err}
+                  aria-describedby="lsx-prefixes-help"
+                  style={{ ...inputStyle, ...(err ? { borderColor: 'var(--fg-c62828)' } : {}) }}
+                />
+                {err && <div role="alert" style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 4 }}>{err}</div>}
+                <div id="lsx-prefixes-help" style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, lineHeight: 1.5 }}>
+                  Nhập nhiều tiền tố, cách nhau dấu phẩy (vd MY, GP). Để trống = chấp nhận mọi tiền tố. Số LSX có dạng TIỀN TỐ-SỐ, vd MY-313.
+                </div>
+              </>
+            )
+          })()}
+        </div>
 
         <div>
           <label htmlFor="allowed-ips" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>

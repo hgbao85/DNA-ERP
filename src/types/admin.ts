@@ -55,6 +55,8 @@ export interface SystemConfig {
   floorPublicUrl?: string | null;
   /** Mạng công ty được phép đăng nhập (IP / dải IPv4 CIDR). Rỗng = không giới hạn. Áp cho công nhân + tài khoản tổ Phôi/Hàn/Sơn. */
   floorAllowedIps?: string[];
+  /** Phần A – Đợt 2: tiền tố số LSX được phép (vd ["MY","GP"]), in hoa. Rỗng = mọi tiền tố đúng dạng (1–6 chữ cái). */
+  lsxPrefixes?: string[];
   /** Mặc định toàn hệ thống: có cho solver đặt cây sắt ngoài các chiều dài chuẩn không. Từng đợt
    *  cắt đè lại được — KHSX đề nghị ở "Tối ưu cắt sắt", Sếp duyệt cùng lệnh sản xuất. */
   solverAllowCustomLength: boolean;

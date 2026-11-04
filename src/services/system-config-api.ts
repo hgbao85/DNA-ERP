@@ -19,6 +19,8 @@ export async function updateSystemConfig(data: Partial<SystemConfig>): Promise<S
     floorPublicUrl: data.floorPublicUrl === undefined ? undefined : (data.floorPublicUrl ?? ''),
     // Bỏ dòng trống; mảng rỗng = tắt giới hạn mạng công ty.
     floorAllowedIps: data.floorAllowedIps?.map((l) => l.trim()).filter(Boolean),
+    // Phần A – Đợt 2: tiền tố số LSX (in hoa, bỏ trùng ở BE). Không có trong draft -> undefined thì BE giữ nguyên; [] = mọi tiền tố.
+    lsxPrefixes: data.lsxPrefixes,
     // Nhóm "Máy cắt" (Tối ưu cắt sắt). Không có trong draft -> undefined thì BE giữ nguyên.
     solverMachine: data.solverMachine,
     solverMctdBladeWidthMm: data.solverMctdBladeWidthMm,
