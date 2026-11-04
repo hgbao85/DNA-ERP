@@ -34,6 +34,13 @@ import type { BePackagingProgress } from '../../../services/packaging-api'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import { useUrlState } from '../../../hooks/useUrlState'
 import MilestoneBoardView from './MilestoneBoardView'
+import LenhCodeText from '../../../components/LenhCodeText'
+// Phần A – Đợt 2: số LSX + xưởng cơ khí
+import { lineCode, matchesLenhSearch } from '../../../utils/lenhCode'
+import type { WorkshopRef } from '../../../types/workshop'
+import { useLsxPrefixes } from '../../../hooks/useLsxPrefixes'
+import LsxCodeInput from '../../../components/LsxCodeInput'
+import ChangeWorkshopDialog from '../../../components/ChangeWorkshopDialog'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -94,6 +101,9 @@ interface MfgOrder {
   id: string
   code: string        // Mã PO — lấy từ exportOrder.poNumber (dữ liệu thật)
   piCode: string       // Mã PI — 1 SKU trong 1 PO chỉ có đúng 1 PI (xem skus.service.ts)
+  /** Phần A – Đợt 2: số LSX của CHÍNH dòng SKU này (null = lệnh cũ chưa có) và xưởng cơ khí của dòng. */
+  lsxCode: string | null
+  workshop: WorkshopRef | null
   sku: string
   productName: string
   /** Số lượng của dòng lệnh (ProductionInvoiceItem.quantity). */
@@ -455,6 +465,8 @@ function buildOrderRow(row: ApprovedRow, proposals: PurchaseProposal[], batch: B
     id: row.itemId,
     code: row.poCode ?? 'Chưa gắn đơn hàng',
     piCode: row.piCode,
+    lsxCode: row.lsxCode,
+    workshop: row.workshop,
     sku: pf.mfgProduct?.factoryCode ?? '—',
     productName: pf.mfgProduct?.name ?? '',
     quantity: skuQty,
@@ -1193,7 +1205,8 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
             <div style={{ fontSize: isMobile ? 17 : 20, fontWeight: 800, wordBreak: 'break-word' }}>{order.productName}</div>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
               <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: 'var(--fg-1d4ed8)' }}>{order.sku}</span>
-              <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>{order.piCode}</span>
+              <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>{lineCode(order, order.piCode)}</span>
+              {order.lsxCode && <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text3)' }}>{order.piCode}</span>}
               <MaterialChoiceTags wire={order.wireMaterial} cushion={order.cushionMaterial} />
             </div>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>PO: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text2)' }}>{order.code}</span></div>
@@ -1256,6 +1269,9 @@ interface PIApprovalItem {
   cushionMaterial?: MaterialChoice | null
   prodApproval?: { status?: string }
   quantity?: number
+  /** Phần A – Đợt 2 */
+  lsxCode?: string | null
+  workshop?: WorkshopRef | null
   salesOrderId?: string
   salesOrderCode?: string
   productVariant?: { mfgProduct?: { name?: string; factoryCode?: string } }
@@ -1263,7 +1279,7 @@ interface PIApprovalItem {
   decidedAt?: string
   requestedAt?: string
 }
-interface PIStatusRow { id: string; code: string; status: string; items?: PIApprovalItem[] }
+interface PIStatusRow { id: string; code: string; status: string; items?: PIApprovalItem[]; displayCode?: string; lsxCodes?: string[]; hasMaterialIssue?: boolean }
 
 // 1 dòng đã duyệt trong "Bảng thống kê" - định danh CHUẨN (piId/itemId/orderId/poCode/piCode/
 // deliveryDeadline) lấy THẲNG từ chính ProductionInvoiceItem đang duyệt, không suy ngược qua Sku
@@ -1278,6 +1294,11 @@ interface ApprovedRow {
   orderId: string | null
   poCode: string | null
   piCode: string
+  /** Phần A – Đợt 2: mã hiển thị của cả lệnh (LSX các dòng nối " + ", chưa có thì mã PI), LSX của dòng, xưởng, đã xuất sắt chưa. */
+  piDisplayCode: string
+  lsxCode: string | null
+  workshop: WorkshopRef | null
+  hasMaterialIssue: boolean
   deliveryDeadline?: string
   floorStage: FloorStage | null
   bomOutOfDate: boolean | null
@@ -1322,6 +1343,11 @@ function buildSyntheticSku(pi: PIStatusRow, item: PIApprovalItem, customerName: 
 interface PiRow {
   piId: string
   piCode: string
+  /** Phần A – Đợt 2 */
+  displayCode: string
+  lsxCodes: string[]
+  hasMaterialIssue: boolean
+  workshop: WorkshopRef | null
   rows: { order: MfgOrder; details: StageDetails }[]
   order: { status: OrderStatus; mfgStage?: MfgStage }
   details: StageDetails
@@ -1399,6 +1425,10 @@ function buildPiRows(approvedRows: ApprovedRow[], orderRows: { order: MfgOrder; 
     return {
       piId,
       piCode: list[0].row.piCode,
+      displayCode: list[0].row.piDisplayCode,
+      lsxCodes: Array.from(new Set(rows.flatMap(r => (r.order.lsxCode ? [r.order.lsxCode] : [])))),
+      hasMaterialIssue: list[0].row.hasMaterialIssue,
+      workshop: rows.find(r => r.order.workshop)?.order.workshop ?? null,
       rows,
       order: { status: done ? 'DONE' : 'PRODUCING', mfgStage: done ? undefined : (purchPct < 100 && !anyExecProgress ? 'PURCHASING' : 'FRAME') },
       details,
@@ -1545,6 +1575,10 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
           orderId: item.productionOrderId ?? null,
           poCode: item.salesOrderCode ?? null,
           piCode: pi.code,
+          piDisplayCode: pi.displayCode || pi.code,
+          lsxCode: item.lsxCode ?? null,
+          workshop: item.workshop ?? null,
+          hasMaterialIssue: !!pi.hasMaterialIssue,
           deliveryDeadline: item.deliveryDeadline,
           floorStage: item.floorStage ?? null,
           bomOutOfDate: item.bomOutOfDate ?? null,
@@ -1608,6 +1642,11 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
   // @RequireRole(BUSINESS_ROLES.PRODUCTION_MANAGER) ở BE production-orders.controller.ts).
   const { user } = useAuth()
   const canManageFloor = user?.mfgRole === 'PRODUCTION_MANAGER'
+  // Phần A – Đợt 2: KHSX điền số LSX cho dòng đã duyệt còn trống ('fill'); Admin sửa tự do ('edit'); vai khác chỉ xem.
+  const lsxMode: 'edit' | 'fill' | null = user?.role === 'ADMIN' ? 'edit' : user?.isProductPlanner ? 'fill' : null
+  const lsxPrefixes = useLsxPrefixes()
+  const [changeWorkshopPi, setChangeWorkshopPi] = useState<string | null>(null)
+  const reloadPis = () => { void refetchPis() }
   // Điện thoại (< 640px): thẻ thay bảng ở cả 2 lớp danh sách PI/SKU - cùng idiom Sales/Mua hàng.
   const isMobile = useIsMobile()
   const [floorPending, setFloorPending] = useState<Set<string>>(new Set())
@@ -1680,7 +1719,21 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
     )
   }
 
-  const renderSkuTable = (rows: { order: MfgOrder; details: StageDetails }[]) => isMobile ? (
+  // Phần A – Đợt 2: số LSX của dòng SKU (+ ô nhập cho KHSX/Admin) và chip xưởng. Nằm trong dòng bấm được -> chặn nổi bọt.
+  const renderLsxCell = (o: MfgOrder, piId: string | undefined) => (
+    <div onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4, minWidth: 0 }}>
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+        {o.lsxCode && lsxMode === null && <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: 'var(--fg-1d4ed8)' }}>LSX {o.lsxCode}</span>}
+        {o.lsxCode && <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text3)' }}>{o.piCode}</span>}
+        {o.workshop && <span style={{ fontSize: 11, color: 'var(--text2)', background: 'var(--surface2)', padding: '1px 8px', borderRadius: 10 }}>{o.workshop.name}</span>}
+      </div>
+      {lsxMode && piId && (
+        <LsxCodeInput piId={piId} itemId={o.id} value={o.lsxCode} mode={lsxMode} prefixes={lsxPrefixes} onSaved={reloadPis} />
+      )}
+    </div>
+  )
+
+  const renderSkuTable = (rows: { order: MfgOrder; details: StageDetails }[], piId?: string) => isMobile ? (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {rows.map(({ order: o, details }) => (
         <MobileRowCard
@@ -1691,6 +1744,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
           stage={currentStageLabel(o, details)}
           variance={o.hasVariance}
           meta={[
+            ...(piId ? [{ label: 'Số LSX / xưởng', value: renderLsxCell(o, piId) }] : []),
             { label: 'Mã PO', value: <span style={{ fontFamily: 'monospace' }}>{o.code}</span> },
             ...(o.wireMaterial || o.cushionMaterial
               ? [{ label: 'Dây / Vải nệm', value: <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><MaterialChoiceTags wire={o.wireMaterial} cushion={o.cushionMaterial} /></span> }]
@@ -1734,6 +1788,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
                 <td style={{ ...td, maxWidth: 0 }}>
                   <div style={{ fontWeight: 600 }}>{o.productName}</div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{o.sku}</div>
+                  {piId && renderLsxCell(o, piId)}
                   {(o.wireMaterial || o.cushionMaterial) && (
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 3 }}>
                       <MaterialChoiceTags wire={o.wireMaterial} cushion={o.cushionMaterial} />
@@ -1769,7 +1824,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
   const q = search.trim().toLowerCase()
   const filtered = piRows
     .filter(p => filter === 'all' || p.order.status === filter)
-    .filter(p => !q || [p.piCode, ...p.rows.flatMap(({ order }) => [order.code, order.sku, order.productName, order.customer])].some(v => v.toLowerCase().includes(q)))
+    .filter(p => !q || matchesLenhSearch({ code: p.piCode, displayCode: p.displayCode, items: p.rows.map(r => ({ lsxCode: r.order.lsxCode })) }, q) || [...p.rows.flatMap(({ order }) => [order.code, order.sku, order.productName, order.customer])].some(v => v.toLowerCase().includes(q)))
 
   const counts = {
     all:       piRows.length,
@@ -1836,8 +1891,16 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: isMobile ? 14 : '16px 24px', marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: isMobile ? 17 : 20, wordBreak: 'break-word', color: 'var(--fg-1d4ed8)', letterSpacing: '0.02em' }}>{selectedPi.piCode}</div>
+              <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: isMobile ? 17 : 20, wordBreak: 'break-word', color: 'var(--fg-1d4ed8)', letterSpacing: '0.02em' }}><LenhCodeText code={selectedPi.displayCode} /></div>
+              {selectedPi.displayCode !== selectedPi.piCode && <div style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{selectedPi.piCode}</div>}
               <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4, wordBreak: 'break-word' }}>{selectedPi.rows.length} SKU · PO: {selectedPi.poCodes}</div>
+              {/* Phần A – Đợt 2: xưởng cơ khí của cả lệnh + nút Đổi xưởng (QLSX, chỉ khi chưa xuất sắt) */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 6, fontSize: 13, color: 'var(--text3)' }}>
+                <span>Xưởng: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{selectedPi.workshop?.name ?? 'Chưa chọn'}</span></span>
+                {canManageFloor && (selectedPi.hasMaterialIssue
+                  ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>Đã xuất sắt — không đổi xưởng được</span>
+                  : <button type="button" onClick={() => setChangeWorkshopPi(selectedPi.piId)} style={{ ...btnSecondary, padding: '4px 10px', fontSize: 12 }}>Đổi xưởng</button>)}
+              </div>
             </div>
             <span style={{ display: 'inline-block', padding: '5px 16px', borderRadius: 20, fontSize: 13, fontWeight: 700, background: piMeta.bg, color: piMeta.color, border: `1px solid ${piMeta.border}`, whiteSpace: 'nowrap' }}>
               {piMeta.label}
@@ -1867,7 +1930,14 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
         </div>
 
         <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Tiến độ từng SKU ({selectedPi.rows.length})</div>
-        {renderSkuTable(selectedPi.rows)}
+        {renderSkuTable(selectedPi.rows, selectedPi.piId)}
+        {changeWorkshopPi === selectedPi.piId && (
+          <ChangeWorkshopDialog
+            pi={{ id: selectedPi.piId, code: selectedPi.piCode, displayCode: selectedPi.displayCode, items: selectedPi.rows.map(r => ({ workshop: r.order.workshop })) }}
+            onClose={() => setChangeWorkshopPi(null)}
+            onDone={() => { setChangeWorkshopPi(null); reloadPis() }}
+          />
+        )}
       </div>
     )
   }
@@ -1906,7 +1976,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
             type="text"
             value={search}
             onChange={e => { setSearch(e.target.value); setPage(1) }}
-            placeholder="Tìm mã PI, mã PO, SKU, sản phẩm, khách hàng..."
+            placeholder="Tìm mã lệnh, LSX, mã PO, SKU, sản phẩm, khách hàng..."
             style={{ width: '100%', paddingLeft: 32, paddingRight: 10, paddingTop: 6, paddingBottom: 6, fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', boxSizing: 'border-box', outline: 'none' }}
           />
         </div>
@@ -1926,8 +1996,8 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
               key={p.piId}
               focusKeys={[focusKey('PRODUCTION_INVOICE', p.piId), focusKey('PI_CODE', p.piCode)]}
               onClick={() => setSelectedPiId(p.piId)}
-              title={<span style={{ fontFamily: 'monospace' }}>{p.piCode}</span>}
-              subtitle={p.rows.length + ' SKU · ' + p.customers}
+              title={<span style={{ fontFamily: 'monospace' }}><LenhCodeText code={p.displayCode} /></span>}
+              subtitle={(p.displayCode !== p.piCode ? p.piCode + ' · ' : '') + p.rows.length + ' SKU · ' + p.customers}
               stage={currentStageLabel(p.order, p.details)}
               variance={p.rows.some(r => r.order.hasVariance)}
               meta={[
@@ -1945,7 +2015,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
             {/* 2026-10-20 (changelog BE 10-08 mục 51): ở màn ~1024px bảng 7 cột tràn (cột "Xưởng" bị cắt, mã PI xuống 3
                 dòng) → gộp "Số SKU" vào ô Mã PI và "Mã PO" vào ô Khách hàng; mã không bẻ dòng giữa chừng. */}
             <tr>
-              <th style={{ ...th, width: 120 }}>Mã PI</th>
+              <th style={{ ...th, width: 120 }}>Mã lệnh</th>
               <th style={th}>Khách hàng · Mã PO</th>
               <th style={{ ...th, width: 190 }}>Công đoạn hiện tại</th>
               <th style={{ ...th, width: 130 }} title="Hạn giao sớm nhất trong các SKU của PI">Hạn giao</th>
@@ -1973,7 +2043,8 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
                   onMouseLeave={e => { e.currentTarget.style.background = '' }}
                 >
                   <td style={td}>
-                    <div style={{ fontFamily: 'monospace', fontWeight: 700, whiteSpace: 'nowrap' }}>{p.piCode}</div>
+                    <div style={{ fontFamily: 'monospace', fontWeight: 700 }}><LenhCodeText code={p.displayCode} /></div>
+                    {p.displayCode !== p.piCode && <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text3)' }}>{p.piCode}</div>}
                     <div style={{ fontSize: 12, color: 'var(--text3)' }}>{p.rows.length} SKU</div>
                   </td>
                   <td style={{ ...td, maxWidth: 0 }}>

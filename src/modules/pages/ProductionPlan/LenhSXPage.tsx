@@ -8,7 +8,7 @@ import { errMsg } from '../../../utils/errors'
 import { StatusBadge } from '../Sales/StatusBadge'
 import type { SalesOrderStatus } from '../../../types/sales'
 import { format } from 'date-fns'
-import { AlertTriangle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2, User } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2, User, Factory } from 'lucide-react'
 import SearchableSelect from '../../../components/SearchableSelect'
 import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
@@ -19,6 +19,14 @@ import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useRealtimeRefetch, useRealtimeStatus } from '../../../realtime/hooks'
 import { overdueDays } from '../../../utils/overdue'
 import ContainerLoadHint from '../../../components/ContainerLoadHint'
+// Phần A – Đợt 2: số LSX + chọn xưởng cơ khí
+import { lineCode, matchesLenhSearch } from '../../../utils/lenhCode'
+import { useLsxPrefixes } from '../../../hooks/useLsxPrefixes'
+import LsxCodeInput from '../../../components/LsxCodeInput'
+import ChangeWorkshopDialog from '../../../components/ChangeWorkshopDialog'
+import LenhCodeText from '../../../components/LenhCodeText'
+import { getWorkshops } from '../../../services/workshops-api'
+import type { Workshop, WorkshopRef } from '../../../types/workshop'
 import { fmtPercent } from '../../../utils/cutMachine'
 import { getCuttingDefaults } from '../../../services/cutting-batch-api'
 import { DEFAULT_MERGE_WINDOW_DAYS, maxGapDays, steelNeedDate, steelNeedSpan, steelNeedSpanMessage } from '../../../utils/steelNeedWindow'
@@ -78,6 +86,29 @@ function PiDeadlineText({ pi, style, showCount = true }: { pi: any; style?: Reac
   )
 }
 
+/** Phần A – Đợt 2: mã lệnh hiển thị (số LSX; lệnh cũ chưa có số = mã PI). Mã PI gốc nhỏ, nhạt ngay dưới khi khác mã hiển thị. */
+function LenhCode({ pi, size = 14, inline = false }: { pi: any; size?: number; inline?: boolean }) {
+  const shown: string = pi.displayCode || pi.code
+  return (
+    <span style={{ display: inline ? 'inline' : 'block', minWidth: 0 }}>
+      <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:size, color:'var(--text)', wordBreak:'normal' }}><LenhCodeText code={shown} /></span>
+      {shown !== pi.code && (
+        <span style={{ display: inline ? 'inline' : 'block', marginLeft: inline ? 6 : 0, fontFamily:'monospace', fontSize:11, fontWeight:400, color:'var(--text3)', whiteSpace:'nowrap' }}>{pi.code}</span>
+      )}
+    </span>
+  )
+}
+
+/** Phần A – Đợt 2: chip tên xưởng cơ khí của dòng SKU (chỉ đọc). */
+function WorkshopChip({ workshop }: { workshop?: WorkshopRef | null }) {
+  if (!workshop) return null
+  return (
+    <span title="Xưởng cơ khí" style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, color:'var(--fg-1d4ed8)', background:'var(--bg-dbeafe)', padding:'2px 8px', borderRadius:10 }}>
+      <Factory size={10}/> {workshop.name}
+    </span>
+  )
+}
+
 /**
  * "Đang tính phương án cắt... (đã chạy X phút)" - thời gian solve dao động rất lớn (đo thật:
  * 4,7 phút -> hơn 15 phút tuỳ vật tư), không hiện gì thì Sếp/KHSX/QLSX duyệt xong không biết đang
@@ -118,6 +149,11 @@ export default function LenhSXPage() {
   // luôn cùng đích đến, nhưng thực tế người dùng cần tách).
   const [qlsxWarehouseByItemId, setQlsxWarehouseByItemId] = useState<Record<string, string>>({})
   const [sendingToBoss, setSendingToBoss] = useState(false)
+  // Phần A – Đợt 2: số LSX + xưởng cơ khí. Xưởng chọn MỘT lần cho cả lệnh (xuất sắt theo lệnh).
+  const lsxPrefixes = useLsxPrefixes()
+  const isAdmin = user?.role === 'ADMIN'
+  const [qlsxWorkshopId, setQlsxWorkshopId] = useState('')
+  const [changeWorkshopPi, setChangeWorkshopPi] = useState<any | null>(null)
   const [editingPI, setEditingPI] = useState<any | null>(null)
   // 2026-09-11 lần 2: đồng bộ lại - FRAME + 3 mốc con Phôi/Hàn/Sơn (FRAME_PHOI/FRAME_HAN/
   // FRAME_SON, thêm 2026-09-09) quay về CHỈ 1 mốc `deadline` mỗi cái, giống hệt WEAVING/
@@ -171,7 +207,7 @@ export default function LenhSXPage() {
       <input
         value={search}
         onChange={e => setSearch(e.target.value)}
-        placeholder="Tìm mã PI..."
+        placeholder="Tìm mã PI hoặc số LSX..."
         style={{ padding:'7px 10px 7px 32px', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, background:'var(--surface)', color:'var(--text)', width: isMobile ? '100%' : 200, outline:'none' }}
       />
     </div>
@@ -206,7 +242,7 @@ export default function LenhSXPage() {
   // Tìm theo mã PI (2026-08-24) - danh sách giờ chỉ hiện mã PI, không còn hiện mã PO ở dòng thu
   // gọn nữa nên tìm theo PO sẽ không khớp được gì trên màn hình, dễ gây tưởng nhầm "không tìm ra".
   const filteredList = search.trim()
-    ? safeList.filter((p: any) => (p.code ?? '').toLowerCase().includes(search.trim().toLowerCase()))
+    ? safeList.filter((p: any) => matchesLenhSearch(p, search))
     : safeList
   const viewingPI = viewingPIId ? (Array.isArray(pis) ? pis : []).find((p: any) => p.id === viewingPIId) ?? null : null
   const getDisplayCode = (item: any) => item?.exportOrder?.poNumber || item?.poNumber || item?.code || '—'
@@ -316,6 +352,10 @@ export default function LenhSXPage() {
         }))
         .filter((g: { items: any[] }) => g.items.length > 0)
     : []
+  // Phần A – Đợt 2: QLSX xem lại các lệnh đã gửi Sếp (còn SKU WAITING_BOSS) để đổi xưởng khi cần.
+  const sentToBossList: any[] = isQlsx && !isBoss
+    ? (Array.isArray(pis) ? pis : []).filter((p: any) => p.status === 'PLANNING' && hasItemWithStatus(p, 'WAITING_BOSS') && matchesLenhSearch(p, search))
+    : []
   const viewingApprovalGroup = viewingApprovalPiId
     ? piGroups.find((g: { pi: any }) => g.pi.id === viewingApprovalPiId) ?? null
     : null
@@ -328,6 +368,12 @@ export default function LenhSXPage() {
     () => (isQlsx ? api.getWarehouses() : Promise.resolve([])),
     []
   )
+  // Phần A – Đợt 2: danh sách xưởng cơ khí (QLSX chọn ở hộp "Chọn kho & xưởng").
+  const { data: workshopsData, error: workshopsError } = useFetch<Workshop[]>(
+    () => (isQlsx ? getWorkshops() : Promise.resolve([] as Workshop[])),
+    []
+  )
+  const workshops: Workshop[] = Array.isArray(workshopsData) ? workshopsData : []
   const finishedGoodsWarehouses = (Array.isArray(allWarehouses) ? allWarehouses : [])
     .filter((w: any) => w.isActive && !w.isVirtual && isThanhPhamScope(w.code))
     .map((w: any) => ({ code: w.code as string, name: w.name as string }))
@@ -357,7 +403,7 @@ export default function LenhSXPage() {
   const handleQlsxSendToBoss = async () => {
     if (!qlsxTarget) return
     const items: any[] = (qlsxTarget.items ?? []).filter((it: any) => it.prodApproval?.status === 'WAITING_QLSX')
-    if (items.length === 0) return
+    if (items.length === 0 || !qlsxWorkshopId) return
     const groups = new Map<string, string[]>()
     for (const it of items) {
       const code = qlsxWarehouseByItemId[String(it.id)]
@@ -370,10 +416,11 @@ export default function LenhSXPage() {
       for (const [code, itemIds] of groups) {
         const wh = finishedGoodsWarehouses.find((w: any) => w.code === code)
         if (!wh) continue
-        await api.sendPiToBoss(qlsxTarget.id, { code: wh.code, name: wh.name }, itemIds)
+        await api.sendPiToBoss(qlsxTarget.id, { code: wh.code, name: wh.name }, qlsxWorkshopId, itemIds)
       }
       setQlsxTarget(null)
       setQlsxWarehouseByItemId({})
+      setQlsxWorkshopId('')
       setViewingApprovalPiId(null)
     } catch (e: any) {
       alert(errMsg(e, 'Lỗi gửi sếp duyệt'))
@@ -611,14 +658,25 @@ export default function LenhSXPage() {
 
                 {/* PI header + 2 nút thao tác cho CẢ khối */}
                 <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 10 : 16, marginBottom:20, padding: isMobile ? '12px 14px' : '14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', flexWrap:'wrap' }}>
-                  <div>
-                    <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:18 }}>{pi.code}</span>
+                  <div style={{ minWidth:0 }}>
+                    <LenhCode pi={pi} size={18} />
                     {pi.isMerged && (
                       <div style={{ fontSize:11, fontWeight:700, color:'var(--fg-6b21a8)', marginTop:3 }}>
                         ĐỢT GỘP · {items.length} SKU
                       </div>
                     )}
                   </div>
+                  {/* Phần A – Đợt 2: xưởng cơ khí của lệnh (mọi SKU cùng 1 xưởng) */}
+                  {(() => {
+                    const ws = (Array.isArray(pi.items) ? pi.items : []).find((it: any) => it.workshop)?.workshop
+                    return ws ? (
+                      <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                        <Factory size={14} color="var(--fg-1d4ed8)"/>
+                        <span style={{ fontSize:13, color:'var(--text3)' }}>Xưởng:</span>
+                        <span style={{ fontWeight:700, fontSize:14 }}>{ws.name}</span>
+                      </div>
+                    ) : null
+                  })()}
                   {!isMobile && <div style={{ width:1, height:36, background:'var(--border)' }} />}
                   <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
                     <CalendarClock size={14} color={overdueDays(piDeadline) > 0 ? 'var(--red)' : 'var(--text3)'}/>
@@ -641,9 +699,13 @@ export default function LenhSXPage() {
                       </>
                     ) : (
                       <>
-                        <button onClick={() => { setQlsxTarget(pi); setQlsxWarehouseByItemId({}) }}
+                        <button onClick={() => {
+                          setQlsxTarget(pi); setQlsxWarehouseByItemId({})
+                          // Phần A – Đợt 2: gửi một phần trước đó thì chọn sẵn xưởng đã có (mọi SKU cùng 1 xưởng).
+                          setQlsxWorkshopId((Array.isArray(pi.items) ? pi.items : []).find((it: any) => it.workshop)?.workshop?.id ?? '')
+                        }}
                           style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'var(--bg-2e7d32)', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
-                          <Warehouse size={13}/> Chọn kho sản xuất{items.length > 1 ? ` (${items.length} SKU)` : ''}
+                          <Warehouse size={13}/> Chọn kho & xưởng{items.length > 1 ? ` (${items.length} SKU)` : ''}
                         </button>
                         <button onClick={() => { setRejectTarget(pi); setRejectReason('') }}
                           style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'transparent', border:'1px solid var(--fg-fca5a5)', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'var(--fg-b91c1c)' }}>
@@ -709,6 +771,9 @@ export default function LenhSXPage() {
                           </div>
                           {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
                           <div style={{ marginTop:3 }}><ContainerLoadHint containerLoad={item.containerLoad} qty={qty} /></div>
+                          {item.lsxCode && (
+                            <div style={{ marginTop:4 }}><span style={{ fontFamily:'monospace', fontSize:12, fontWeight:700, color:'var(--fg-1d4ed8)', background:'var(--bg-dbeafe)', padding:'2px 8px', borderRadius:10, wordBreak:'break-word' }} title="Số lệnh sản xuất của nhà máy">LSX {item.lsxCode}</span></div>
+                          )}
                           {(item.wireMaterial || item.cushionMaterial) && (
                             <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:4 }}><MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} /></div>
                           )}
@@ -779,7 +844,7 @@ export default function LenhSXPage() {
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}>
                   <div style={{ minWidth:0 }}>
-                    <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'var(--text)' }}>{pi.code}</span>
+                    <LenhCode pi={pi} inline />
                     {pi.isMerged && (
                       <span style={{ marginLeft:8, fontSize:10, fontWeight:700, padding:'1px 7px', borderRadius:20, background:'var(--bg-f3e8ff)', color:'var(--fg-6b21a8)' }}>
                         ĐỢT GỘP
@@ -805,6 +870,43 @@ export default function LenhSXPage() {
                 </button>
               ))}
             </div>
+
+            {/* Phần A – Đợt 2: lệnh đã gửi Sếp - chờ duyệt, QLSX đổi xưởng được khi chưa xuất sắt */}
+            {sentToBossList.length > 0 && (
+              <div style={{ marginTop: isMobile ? 18 : 'var(--space-5)' }}>
+                <h3 style={{ margin:'0 0 8px', fontSize:14, fontWeight:700, color:'var(--text)' }}>
+                  Đã gửi Sếp — chờ duyệt <span style={{ fontWeight:500, color:'var(--text3)' }}>({sentToBossList.length})</span>
+                </h3>
+                <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
+                  {sentToBossList.map((pi: any, i: number) => {
+                    const ws = (Array.isArray(pi.items) ? pi.items : []).find((it: any) => it.workshop)?.workshop
+                    return (
+                      <div key={pi.id} style={{ display:'flex', alignItems:'center', flexWrap:'wrap', gap: isMobile ? 8 : 14, padding: isMobile ? '12px' : '13px 16px', background:'var(--surface)', borderBottom: i === sentToBossList.length - 1 ? 'none' : '1px solid var(--border)' }}>
+                        <div style={{ minWidth:0, flex: isMobile ? '1 1 100%' : '1 1 200px' }}>
+                          <LenhCode pi={pi} />
+                        </div>
+                        <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                          <Factory size={13} color="var(--fg-1d4ed8)"/>
+                          <span style={{ fontSize:12, color:'var(--text3)' }}>Xưởng:</span>
+                          <span style={{ fontWeight:700, fontSize:13 }}>{ws?.name ?? 'Chưa có'}</span>
+                        </div>
+                        <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
+                          <CalendarClock size={13} color="var(--text3)"/>
+                          {!isMobile && <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>}
+                          <PiDeadlineText pi={pi} showCount={false} style={{ fontWeight:700, fontSize:13, color:'var(--text)' }} />
+                        </div>
+                        {!pi.hasMaterialIssue && (
+                          <button onClick={() => setChangeWorkshopPi(pi)}
+                            style={{ marginLeft: isMobile ? 0 : 'auto', display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:12.5, fontWeight:600, cursor:'pointer', color:'var(--text2)' }}>
+                            <Factory size={12}/> Đổi xưởng
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         )
       ) : viewingPI ? (
@@ -851,8 +953,8 @@ export default function LenhSXPage() {
 
               {/* PI header info */}
               <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 10 : 16, flexWrap:'wrap', marginBottom:20, padding: isMobile ? '12px 14px' : '14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)' }}>
-                <div>
-                  <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:18 }}>{pi.code}</div>
+                <div style={{ minWidth:0 }}>
+                  <LenhCode pi={pi} size={18} />
                   {pi.isMerged && (
                     <div style={{ fontSize:11, fontWeight:700, color:'var(--fg-6b21a8)', marginTop:3 }}>
                       ĐỢT GỘP · cắt chung {items.length} SKU
@@ -971,6 +1073,12 @@ export default function LenhSXPage() {
                                 <Warehouse size={10}/> {item.prodApproval.warehouseName}
                               </span>
                             )}
+                            {/* Phần A – Đợt 2 */}<WorkshopChip workshop={item.workshop} />
+                          </div>
+                          {/* Phần A – Đợt 2: số LSX của dòng SKU. Dòng đã được Sếp duyệt: KHSX chỉ điền khi trống, đổi phải Admin. */}
+                          <div style={{ marginTop:8 }}>
+                            <LsxCodeInput piId={pi.id} itemId={item.id} value={item.lsxCode} prefixes={lsxPrefixes} onSaved={() => refetch()}
+                              mode={item.prodApproval?.status === 'APPROVED' ? (isAdmin ? 'edit' : 'fill') : 'edit'} />
                           </div>
                         </div>
                         <div style={dateStrip}>
@@ -1028,7 +1136,16 @@ export default function LenhSXPage() {
                   onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2)' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface)' }}>
                   <div style={{ minWidth:0 }}>
-                    <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'var(--text)' }}>{pi.code}</div>
+                    <LenhCode pi={pi} />
+                    {/* Phần A – Đợt 2: SKU chưa gửi mà thiếu số LSX */}
+                    {(() => {
+                      const missing = items.filter((it: any) => (!it.prodApproval || it.prodApproval.status === 'REJECTED') && !it.lsxCode?.trim()).length
+                      return missing > 0 ? (
+                        <span style={{ display:'inline-block', marginTop:3, fontSize:10.5, fontWeight:700, color:'var(--fg-b45309)', background:'var(--bg-fef3c7)', padding:'1px 8px', borderRadius:10 }}>
+                          Thiếu số LSX ({missing} SKU)
+                        </span>
+                      ) : null
+                    })()}
                   </div>
                   <div style={{ flex:1 }} />
                   <div style={{ display:'flex', alignItems:'center', gap:5 }}>
@@ -1049,10 +1166,13 @@ export default function LenhSXPage() {
 
       {/* Gửi QLSX xử lý */}
       {confirmProdTarget && (() => {
-        const items: any[] = confirmProdTarget.items ?? []
-        const sendableIds: string[] = items
-          .filter((it: any) => !it.prodApproval || it.prodApproval.status === 'REJECTED')
-          .map((it: any) => String(it.id))
+        // Phần A – Đợt 2: đọc PI MỚI NHẤT theo id (lưu số LSX xong danh sách tải lại; bản chụp cũ sẽ không thấy số vừa nhập).
+        const latestPi: any = (Array.isArray(pis) ? pis : []).find((p: any) => p.id === confirmProdTarget.id) ?? confirmProdTarget
+        const items: any[] = latestPi.items ?? []
+        const sendableItems = items.filter((it: any) => !it.prodApproval || it.prodApproval.status === 'REJECTED')
+        const sendableIds: string[] = sendableItems.map((it: any) => String(it.id))
+        const missingLsx = sendableItems.filter((it: any) => !it.lsxCode?.trim())
+        const canSend = sendableIds.length > 0 && missingLsx.length === 0
         return (
           <div onClick={() => { if (!confirmingProdId) setConfirmProdTarget(null) }}
             style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
@@ -1129,7 +1249,7 @@ export default function LenhSXPage() {
                             {name && <span style={{ fontSize:13, color:'var(--text2)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{name}</span>}
                             <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
                           </div>
-                          <div style={{ display:'flex', gap:5, marginTop:3 }}>
+                          <div style={{ display:'flex', gap:5, marginTop:3, flexWrap:'wrap' }}>
                             {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                             {clr && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'1px 7px', borderRadius:10 }}>{clr}</span>}
                             {approvalStatus === 'APPROVED' && <span style={{ fontSize:11, color:'var(--fg-2e7d32)', fontWeight:600, background:'var(--bg-dcfce7)', padding:'1px 7px', borderRadius:10 }}>Đang sản xuất</span>}
@@ -1138,6 +1258,12 @@ export default function LenhSXPage() {
                             {approvalStatus === 'REJECTED' && <span style={{ fontSize:11, color:'var(--fg-b91c1c)', fontWeight:600, background:'var(--bg-fee2e2)', padding:'1px 7px', borderRadius:10 }}>Bị từ chối - Cập nhật thông tin để gửi lại</span>}
                           </div>
                           <div style={{ marginTop:3 }}><ContainerLoadHint containerLoad={item.containerLoad} qty={qty} /></div>
+                          {/* Phần A – Đợt 2: số LSX bắt buộc trước khi gửi QLSX */}
+                          {!locked && (
+                            <div style={{ marginTop:6, userSelect:'text' }}>
+                              <LsxCodeInput piId={latestPi.id} itemId={item.id} value={item.lsxCode} mode="edit" prefixes={lsxPrefixes} onSaved={() => refetch()} />
+                            </div>
+                          )}
                         </div>
                         {iDelivery && (
                           <div style={{ textAlign:'right', flexShrink:0 }}>
@@ -1164,6 +1290,13 @@ export default function LenhSXPage() {
                 })}
               </div>
 
+              {/* Phần A – Đợt 2: thiếu số LSX -> khoá nút gửi */}
+              {missingLsx.length > 0 && (
+                <div role="alert" style={{ marginTop:10, padding:'8px 12px', background:'var(--bg-fef2f2)', border:'1px solid var(--fg-fecaca)', borderRadius:8, fontSize:12.5, color:'var(--fg-b91c1c)', flexShrink:0, wordBreak:'break-word' }}>
+                  Chưa nhập số LSX: {missingLsx.map((it: any) => it.productVariant?.mfgProduct?.factoryCode ?? '—').join(', ')} - nhập ở ô Số LSX từng dòng
+                </div>
+              )}
+
               {/* Footer */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap', marginTop:14, paddingTop:14, borderTop:'1px solid var(--border)', flexShrink:0 }}>
                 <div style={{ fontSize:13, minWidth:0, overflow:'hidden' }}>
@@ -1178,8 +1311,8 @@ export default function LenhSXPage() {
                   </button>
                   <button
                     onClick={() => handleSendForApproval(confirmProdTarget.id)}
-                    disabled={!!confirmingProdId || sendableIds.length === 0}
-                    style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background: sendableIds.length > 0 ? 'var(--bg-2e7d32)' : 'var(--bg-e5e7eb)', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (confirmingProdId || sendableIds.length === 0) ? 'not-allowed' : 'pointer', color: sendableIds.length > 0 ? '#fff' : 'var(--fg-9ca3af)', opacity: confirmingProdId ? 0.7 : 1 }}>
+                    disabled={!!confirmingProdId || !canSend}
+                    style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background: canSend ? 'var(--bg-2e7d32)' : 'var(--bg-e5e7eb)', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (confirmingProdId || !canSend) ? 'not-allowed' : 'pointer', color: canSend ? '#fff' : 'var(--fg-9ca3af)', opacity: confirmingProdId ? 0.7 : 1 }}>
                     <CheckCircle2 size={15}/>
                     {confirmingProdId
                       ? 'Đang gửi...'
@@ -1196,8 +1329,10 @@ export default function LenhSXPage() {
       {qlsxTarget && (() => {
         const pi = qlsxTarget
         const items: any[] = (pi.items ?? []).filter((it: any) => it.prodApproval?.status === 'WAITING_QLSX')
-        const allChosen = items.length > 0 && items.every((it: any) => !!qlsxWarehouseByItemId[String(it.id)])
-        const closeModal = () => { setQlsxTarget(null); setQlsxWarehouseByItemId({}) }
+        // Phần A – Đợt 2: cần đủ kho từng SKU + xưởng cơ khí (một xưởng cho cả lệnh).
+        const chosenWorkshop = workshops.find((w) => w.id === qlsxWorkshopId) ?? null
+        const allChosen = items.length > 0 && !!qlsxWorkshopId && items.every((it: any) => !!qlsxWarehouseByItemId[String(it.id)])
+        const closeModal = () => { setQlsxTarget(null); setQlsxWarehouseByItemId({}); setQlsxWorkshopId('') }
         return (
           <div onClick={() => { if (!sendingToBoss) closeModal() }}
             style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1100, padding:16 }}>
@@ -1207,7 +1342,7 @@ export default function LenhSXPage() {
               {/* Header */}
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
                 <h3 id="qlsx-send-boss-title" style={{ margin:0, fontSize:16, fontWeight:700, display:'flex', alignItems:'center', gap:8 }}>
-                  <Warehouse size={16} color="var(--fg-2e7d32)"/> Chọn kho thành phẩm
+                  <Warehouse size={16} color="var(--fg-2e7d32)"/> Chọn kho thành phẩm &amp; xưởng cơ khí
                 </h3>
                 <button onClick={closeModal} disabled={sendingToBoss} aria-label="Đóng"
                   style={{ padding:4, background:'transparent', border:'none', cursor: sendingToBoss ? 'not-allowed' : 'pointer' }}>
@@ -1216,15 +1351,32 @@ export default function LenhSXPage() {
               </div>
 
               {/* PI + hạn hoàn thành */}
-              <div style={{ display:'flex', gap:10, marginBottom:14 }}>
-                <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
-                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Mã PI</div>
-                  <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14 }}>{pi.code}</div>
+              <div style={{ display:'flex', gap:10, marginBottom:14, flexWrap:'wrap' }}>
+                <div style={{ flex:1, minWidth:0, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Mã lệnh</div>
+                  <LenhCode pi={pi} />
                 </div>
                 <div style={{ flex:1, minWidth:0, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
                   <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Hạn hoàn thành</div>
                   <div style={{ fontWeight:700, fontSize:14, color:'var(--fg-1d4ed8)', display:'flex', alignItems:'baseline', gap:6, flexWrap:'wrap' }}><PiDeadlineText pi={pi} /></div>
                 </div>
+              </div>
+
+              {/* Phần A – Đợt 2: MỘT ô chọn xưởng cơ khí cho cả lệnh (xuất sắt theo lệnh) */}
+              <div style={{ marginBottom:10 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:0.5, marginBottom:6 }}>
+                  Xưởng cơ khí (cả lệnh)
+                </div>
+                {workshopsError ? (
+                  <div role="alert" style={{ fontSize:12, color:'var(--fg-b91c1c)' }}>Không tải được danh sách xưởng cơ khí: {String(workshopsError)}</div>
+                ) : (
+                  <select aria-label="Xưởng cơ khí cho cả lệnh" value={qlsxWorkshopId} onChange={e => setQlsxWorkshopId(e.target.value)} disabled={sendingToBoss}
+                    style={{ width:'100%', padding:'8px 10px', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, background:'var(--surface)', color:'var(--text)' }}>
+                    <option value="" disabled>Chọn xưởng cơ khí...</option>
+                    {workshops.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                )}
+                <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>Mọi SKU của một lệnh làm cùng 1 xưởng (xuất sắt theo lệnh).</div>
               </div>
 
               {/* Áp dụng nhanh 1 kho cho mọi SKU - tiện cho ca thường (cùng đích đến), vẫn sửa lại
@@ -1267,9 +1419,12 @@ export default function LenhSXPage() {
                         {item.productVariant?.mfgProduct?.name && <span style={{ fontSize:12, color:'var(--text2)' }}>{item.productVariant.mfgProduct.name}</span>}
                         <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
                       </div>
-                      <div style={{ display:'flex', gap:6, marginTop:4, marginBottom:8 }}>
+                      <div style={{ display:'flex', gap:6, marginTop:4, marginBottom:8, flexWrap:'wrap', alignItems:'center' }}>
+                        {/* Phần A – Đợt 2: mã LSX của dòng + xưởng đã chọn (chỉ đọc) */}
+                        <span style={{ fontFamily:'monospace', fontSize:11, fontWeight:700, color:'var(--fg-1d4ed8)', background:'var(--bg-dbeafe)', padding:'2px 8px', borderRadius:10, wordBreak:'break-word' }} title="Mã lệnh của dòng SKU">{lineCode(item, pi.code)}</span>
                         {item.quantity != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{item.quantity.toLocaleString('vi-VN')}</span>}
                         {item.productVariant?.colorCode && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{item.productVariant.colorCode}</span>}
+                        <WorkshopChip workshop={chosenWorkshop ?? item.workshop} />
                       </div>
                       <div style={{ marginBottom:8 }}><ContainerLoadHint containerLoad={item.containerLoad} qty={item.quantity} /></div>
                       <SearchableSelect
@@ -1332,7 +1487,7 @@ export default function LenhSXPage() {
               {/* Đợt gộp: bấm Duyệt là duyệt TẤT CẢ SKU trong đợt cùng lúc. */}
               {pi.isMerged && (
                 <div style={{ background:'var(--bg-f5f3ff)', border:'1px solid var(--fg-ddd6fe)', borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:12.5, color:'var(--fg-5b21b6)' }}>
-                  <b>Đợt gộp {pi.code}</b> — duyệt sẽ cho sản xuất <b>cả {items.length} SKU</b> trong{' '}
+                  <b>Đợt gộp {pi.displayCode || pi.code}</b>{(pi.displayCode || pi.code) !== pi.code && <span style={{ color:'var(--text3)', fontSize:11 }}> ({pi.code})</span>} — duyệt sẽ cho sản xuất <b>cả {items.length} SKU</b> trong{' '}
                   {/* Luồng "Solve trước" (2026-09-30): phương án đã tính sẵn, duyệt KHÔNG chạy solver lại. */}
                   đợt và {pi.cuttingPlan ? 'dùng chung phương án cắt đã tính bên dưới' : 'tính phương án cắt chung một lần'} cho cả nhóm:
                   <div style={{ marginTop:5, fontFamily:'monospace', fontSize:12 }}>
@@ -1347,9 +1502,9 @@ export default function LenhSXPage() {
 
               {/* PI + hạn hoàn thành */}
               <div style={{ display:'flex', gap:10, marginBottom:14 }}>
-                <div style={{ flex:1, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
-                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Mã PI</div>
-                  <div style={{ fontFamily:'monospace', fontWeight:700, fontSize:14 }}>{pi.code}</div>
+                <div style={{ flex:1, minWidth:0, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
+                  <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Mã lệnh</div>
+                  <LenhCode pi={pi} />
                 </div>
                 <div style={{ flex:1, minWidth:0, background:'var(--surface2)', borderRadius:8, padding:'8px 14px' }}>
                   <div style={{ fontSize:11, color:'var(--text3)', fontWeight:600, marginBottom:2 }}>Hạn hoàn thành</div>
@@ -1368,9 +1523,12 @@ export default function LenhSXPage() {
                       {item.productVariant?.mfgProduct?.name && <span style={{ fontSize:13, color:'var(--text2)' }}>{item.productVariant.mfgProduct.name}</span>}
                       <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
                     </div>
-                    <div style={{ display:'flex', gap:6, marginTop:5 }}>
+                    <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap', alignItems:'center' }}>
+                      {/* Phần A – Đợt 2 */}
+                      {item.lsxCode && <span style={{ fontFamily:'monospace', fontSize:11, fontWeight:700, color:'var(--fg-1d4ed8)', background:'var(--bg-dbeafe)', padding:'2px 8px', borderRadius:10, wordBreak:'break-word' }} title="Số lệnh sản xuất của nhà máy">LSX {item.lsxCode}</span>}
                       {item.quantity != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{item.quantity.toLocaleString('vi-VN')}</span>}
                       {item.productVariant?.colorCode && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{item.productVariant.colorCode}</span>}
+                      <WorkshopChip workshop={item.workshop} />
                     </div>
                     <div style={{ marginTop:4 }}><ContainerLoadHint containerLoad={item.containerLoad} qty={item.quantity} /></div>
                   </div>
@@ -1428,7 +1586,7 @@ export default function LenhSXPage() {
               return (
                 <div style={{ fontSize:13, color:'var(--text2)', marginBottom:10 }}>
                   <div style={{ background:'var(--bg-fef2f2)', border:'1px solid var(--fg-fecaca)', borderRadius:8, padding:'10px 12px', color:'var(--fg-991b1b)' }}>
-                    Từ chối sẽ <b>xoá lệnh sản xuất {rejectTarget.code}</b> và trả{' '}
+                    Từ chối sẽ <b>xoá lệnh sản xuất {rejectTarget.displayCode || rejectTarget.code}</b> và trả{' '}
                     {pending.length > 1 ? <b>{pending.length} SKU</b> : '1 SKU'} về đơn hàng gốc kèm
                     lý do. KHSX sẽ thấy{' '}
                     {pending.length > 1 ? 'chúng' : 'nó'}{' '}
@@ -1662,6 +1820,15 @@ export default function LenhSXPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Phần A – Đợt 2: QLSX đổi xưởng cơ khí cho cả lệnh */}
+      {changeWorkshopPi && (
+        <ChangeWorkshopDialog
+          pi={changeWorkshopPi}
+          onClose={() => setChangeWorkshopPi(null)}
+          onDone={() => { setChangeWorkshopPi(null); refetch() }}
+        />
       )}
 
     </div>

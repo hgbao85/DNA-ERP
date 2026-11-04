@@ -35,4 +35,6 @@ export interface UpdateContainerLoadBody {
 /** `GET /system-config/planning-params` - thông số kế hoạch mọi người đăng nhập đều đọc được (Phần A). */
 export interface PlanningParams {
   containerVolumeM3: number
+  /** Phần A – Đợt 2: tiền tố số LSX Admin khai (vd ["MY","GP"]); rỗng = mọi tiền tố đúng dạng. BE cũ thiếu field. */
+  lsxPrefixes?: string[]
 }

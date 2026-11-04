@@ -212,8 +212,19 @@ test.describe('Golden path', () => {
       // onDone() tự chuyển sang tab "Lệnh sản xuất mới" (ProductionPlanApp.tsx) - PI vừa tạo đã
       // nằm sẵn trong danh sách, gửi QLSX ngay không cần "Sửa thời hạn" (hạn đã ước tính sẵn từ PO).
       await expect(page.getByText('Tạo lệnh sản xuất')).toBeVisible();
-      await page.getByPlaceholder('Tìm mã PI...').fill(piCode);
+      await page.getByPlaceholder('Tìm mã PI hoặc số LSX...').fill(piCode);
       await page.getByText(piCode).first().click();
+
+      // Phần A – Đợt 2: số LSX (duy nhất) là BẮT BUỘC trước khi Gửi QLSX. Tiền tố: Cấu hình có tiền tố thì ô là <select>
+      // (chọn mục đầu), chưa có thì ô chữ (gõ EE). Số = 6 chữ số cuối của Date.now() để không trùng giữa các lần chạy.
+      const lsxPrefix = page.getByLabel('Tiền tố số LSX').first();
+      const lsxPrefixTag = await lsxPrefix.evaluate((el) => el.tagName);
+      if (lsxPrefixTag === 'SELECT') await lsxPrefix.selectOption({ index: 0 });
+      else await lsxPrefix.fill('EE');
+      const lsxNumber = String(Date.now()).slice(-6);
+      await page.getByLabel('Số LSX', { exact: true }).first().fill(lsxNumber);
+      await page.getByRole('button', { name: 'Lưu', exact: true }).first().click();
+      await expect(page.getByText(new RegExp(`LSX\\s+[A-Z]{1,6}-${lsxNumber}`)).first()).toBeVisible();
 
       // 2026-10-16: modal xác nhận đổi tên/nội dung từ "Chọn SKU để sản xuất" sang "Gửi QLSX xử lý"
       // (pre-existing drift, không liên quan thay đổi Nhập kho lần này - xem LenhSXPage.tsx).
@@ -231,19 +242,21 @@ test.describe('Golden path', () => {
       await uiLogin(page, 'qlsx');
 
       await page.getByRole('button', { name: 'Xử lý lệnh sản xuất' }).click();
-      await page.getByPlaceholder('Tìm mã PI...').fill(piCode);
-      await expect(page.getByText(piCode)).toBeVisible();
+      await page.getByPlaceholder('Tìm mã PI hoặc số LSX...').fill(piCode);
+      await expect(page.getByText(piCode).first()).toBeVisible();
       // Danh sách chỉ hiện dòng tóm tắt - phải mở vào trang chi tiết PI mới thấy nút "Chọn kho sản
       // xuất" (pre-existing, cùng pattern với "Lệnh sản xuất mới" ở bước KHSX trên).
       await page.getByText(piCode).first().click();
 
-      await page.getByRole('button', { name: 'Chọn kho sản xuất' }).click();
-      await expect(page.getByText('Chọn kho thành phẩm')).toBeVisible();
+      await page.getByRole('button', { name: 'Chọn kho & xưởng' }).click();
+      await expect(page.getByText('Chọn kho thành phẩm').first()).toBeVisible();
       // Options của SearchableSelect là <button> thật (src/components/SearchableSelect.tsx) - chọn
       // kho thành phẩm nào cũng được, không ảnh hưởng tới bước Nhập kho sắt sau này (2 khái niệm
       // kho khác nhau: đây là kho THÀNH PHẨM, Nhập kho sắt đọc Material.warehouseId riêng).
       await page.getByPlaceholder('Chọn kho thành phẩm cho SKU này...').click();
       await page.getByRole('button', { name: 'Kho thành phẩm 2' }).click();
+      // Phần A – Đợt 2: chọn xưởng cơ khí cho cả lệnh (bắt buộc trước khi Gửi sếp duyệt).
+      await page.getByLabel('Xưởng cơ khí cho cả lệnh').selectOption({ label: 'Xưởng Phú An' });
 
       await page.getByRole('button', { name: 'Gửi sếp duyệt' }).click();
       await expect(page.getByText('Chọn kho thành phẩm')).toBeHidden();
@@ -261,8 +274,8 @@ test.describe('Golden path', () => {
 
       await expect(page.getByText('Tổng hợp chờ duyệt')).toBeVisible();
       await page.getByRole('button', { name: 'Lệnh sản xuất' }).click();
-      await page.getByPlaceholder('Tìm mã PI...').fill(piCode);
-      await expect(page.getByText(piCode)).toBeVisible();
+      await page.getByPlaceholder('Tìm mã PI hoặc số LSX...').fill(piCode);
+      await expect(page.getByText(piCode).first()).toBeVisible();
       await page.getByText(piCode).first().click();
 
       await page.getByRole('button', { name: 'Duyệt', exact: true }).click();

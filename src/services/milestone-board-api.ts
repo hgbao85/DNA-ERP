@@ -33,6 +33,9 @@ export interface MilestoneRow {
   itemId: string;
   piId: string;
   piCode: string;
+  /** Phần A – Đợt 2: số LSX của chính dòng SKU (null = lệnh cũ) và mã lệnh hiển thị của PI. */
+  lsxCode?: string | null;
+  displayCode?: string;
   productionOrderId: string;
   skuCode: string;
   skuName: string | null;
