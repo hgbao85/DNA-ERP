@@ -17,6 +17,7 @@ import { http } from './core/http';
 import { resolveMfgProduct } from './products-api';
 import type { SalesOrder, SalesOrderItem, SalesOrderStatus } from '../types/sales';
 import type { MaterialChoice } from '../types/sku';
+import type { ContainerLoad } from '../types/containerLoad';
 
 interface BeSalesOrderItem {
   id: string;
@@ -30,6 +31,7 @@ interface BeSalesOrderItem {
   deliveryDate: string | null;
   wireMaterial?: MaterialChoice | null;
   cushionMaterial?: MaterialChoice | null;
+  containerLoad?: ContainerLoad | null;
 }
 
 interface BeSalesOrder {
@@ -94,6 +96,7 @@ function toSalesOrderItem(it: BeSalesOrderItem): SalesOrderItem {
     deliveryDate: it.deliveryDate ?? '',
     wireMaterial: it.wireMaterial ?? null,
     cushionMaterial: it.cushionMaterial ?? null,
+    containerLoad: it.containerLoad ?? null,
   };
 }
 

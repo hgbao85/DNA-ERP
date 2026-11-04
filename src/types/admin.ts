@@ -80,6 +80,8 @@ export interface SystemConfig {
   solverMergeWindowDays: number;
   /** Lệnh gộp (và một đợt tính phương án cắt) có tối đa chừng này SKU, số nguyên 1-50 (2026-10-24). Mặc định 2. */
   solverMergeMaxSkus: number;
+  /** Thể tích container 40HC (m³, 2 số lẻ) dùng tính load cont của SKU (Phần A YC9). Mặc định 68. */
+  containerVolumeM3?: number;
 }
 
 export type NotificationCategory = 'ANNOUNCEMENT' | 'ACTION_REQUIRED' | 'RESULT' | 'ALERT' | 'INFO';

@@ -1,6 +1,7 @@
 /** Adapter SYSTEM CONFIG: FE ⇄ BE thật (module `system-config` — bản ghi cấu hình duy nhất). */
 import { http } from './core/http';
 import type { SystemConfig } from '../types/admin';
+import type { PlanningParams } from '../types/containerLoad';
 
 export async function getSystemConfig(): Promise<SystemConfig> {
   return http.get<SystemConfig>('/system-config');
@@ -30,7 +31,14 @@ export async function updateSystemConfig(data: Partial<SystemConfig>): Promise<S
     // ở màn Cấu hình hệ thống mà BE không bao giờ nhận được - thêm field mới phải thêm ở cả đây.
     solverMergeWindowDays: data.solverMergeWindowDays,
     solverMergeMaxSkus: data.solverMergeMaxSkus,
+    // Thể tích cont 40HC (Phần A YC9) - cùng lý do: không liệt kê ở đây thì Admin sửa mà BE không nhận.
+    containerVolumeM3: data.containerVolumeM3,
   });
+}
+
+/** Thông số kế hoạch mọi người đăng nhập đều đọc được (Admin mới sửa được, ở /system-config). */
+export async function getPlanningParams(): Promise<PlanningParams> {
+  return http.get<PlanningParams>('/system-config/planning-params');
 }
 
 export interface NetworkInfo {

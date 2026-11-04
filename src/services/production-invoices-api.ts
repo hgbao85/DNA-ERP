@@ -14,6 +14,7 @@
 import { http } from './core/http';
 import type { SolverMachine } from '../types/admin';
 import type { MaterialChoice } from '../types/sku';
+import type { ContainerLoad } from '../types/containerLoad';
 
 /** FRAME_PHOI/FRAME_HAN/FRAME_SON (2026-09-09): mốc kế hoạch RIÊNG cho Phôi/Hàn/Sơn - xem
  *  LenhSXPage "Sửa thời hạn". Mỗi giá trị enum chỉ có 1 `deadline` như FRAME/WEAVING/PACKAGING
@@ -29,6 +30,8 @@ interface BeProductionInvoiceItem {
   salesOrderCode: string | null;
   customerName: string | null;
   mfgProductId: string;
+  /** Phần A YC9: load cont của SKU. */
+  containerLoad?: ContainerLoad | null;
   factoryCode: string;
   productName: string;
   productVariantId: string | null;
@@ -122,6 +125,7 @@ function toItem(it: BeProductionInvoiceItem) {
     wireMaterial: it.wireMaterial ?? null,
     cushionMaterial: it.cushionMaterial ?? null,
     quantity: it.quantity,
+    containerLoad: it.containerLoad ?? null,
     productVariant: {
       colorCode: it.colorCode,
       mfgProduct: { name: it.productName, factoryCode: it.factoryCode },

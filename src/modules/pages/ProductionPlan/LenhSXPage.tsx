@@ -18,6 +18,7 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useRealtimeRefetch, useRealtimeStatus } from '../../../realtime/hooks'
 import { overdueDays } from '../../../utils/overdue'
+import ContainerLoadHint from '../../../components/ContainerLoadHint'
 import { fmtPercent } from '../../../utils/cutMachine'
 import { getCuttingDefaults } from '../../../services/cutting-batch-api'
 import { DEFAULT_MERGE_WINDOW_DAYS, maxGapDays, steelNeedDate, steelNeedSpan, steelNeedSpanMessage } from '../../../utils/steelNeedWindow'
@@ -707,6 +708,7 @@ export default function LenhSXPage() {
                             {item.status && <StatusBadge status={item.status as SalesOrderStatus} />}
                           </div>
                           {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
+                          <div style={{ marginTop:3 }}><ContainerLoadHint containerLoad={item.containerLoad} qty={qty} /></div>
                           {(item.wireMaterial || item.cushionMaterial) && (
                             <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:4 }}><MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} /></div>
                           )}
@@ -957,6 +959,7 @@ export default function LenhSXPage() {
                             )}
                           </div>
                           {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
+                          <div style={{ marginTop:3 }}><ContainerLoadHint containerLoad={item.containerLoad} qty={qty} /></div>
                           {(item.wireMaterial || item.cushionMaterial) && (
                             <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:4 }}><MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} /></div>
                           )}
@@ -1134,6 +1137,7 @@ export default function LenhSXPage() {
                             {approvalStatus === 'WAITING_BOSS' && <span style={{ fontSize:11, color:'var(--fg-0369a1)', fontWeight:600, background:'var(--bg-e0f2fe)', padding:'1px 7px', borderRadius:10 }}>Chờ sếp duyệt</span>}
                             {approvalStatus === 'REJECTED' && <span style={{ fontSize:11, color:'var(--fg-b91c1c)', fontWeight:600, background:'var(--bg-fee2e2)', padding:'1px 7px', borderRadius:10 }}>Bị từ chối - Cập nhật thông tin để gửi lại</span>}
                           </div>
+                          <div style={{ marginTop:3 }}><ContainerLoadHint containerLoad={item.containerLoad} qty={qty} /></div>
                         </div>
                         {iDelivery && (
                           <div style={{ textAlign:'right', flexShrink:0 }}>
@@ -1267,6 +1271,7 @@ export default function LenhSXPage() {
                         {item.quantity != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{item.quantity.toLocaleString('vi-VN')}</span>}
                         {item.productVariant?.colorCode && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{item.productVariant.colorCode}</span>}
                       </div>
+                      <div style={{ marginBottom:8 }}><ContainerLoadHint containerLoad={item.containerLoad} qty={item.quantity} /></div>
                       <SearchableSelect
                         displayValue={itemWh?.name ?? ''}
                         options={finishedGoodsWarehouses}
@@ -1367,6 +1372,7 @@ export default function LenhSXPage() {
                       {item.quantity != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{item.quantity.toLocaleString('vi-VN')}</span>}
                       {item.productVariant?.colorCode && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{item.productVariant.colorCode}</span>}
                     </div>
+                    <div style={{ marginTop:4 }}><ContainerLoadHint containerLoad={item.containerLoad} qty={item.quantity} /></div>
                   </div>
                 ))}
               </div>
