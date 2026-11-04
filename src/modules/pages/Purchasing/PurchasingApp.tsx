@@ -1,12 +1,13 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
-import { LogOut, Grid, ClipboardList, Truck, History, Menu, X } from 'lucide-react'
+import { LogOut, Grid, ClipboardList, FileStack, Truck, History, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
 import { useWorkQueue } from '../../../context/WorkQueueContext'
 import NotificationCenter from '../../../components/NotificationCenter'
 import LenhMuaNCCPage from './LenhMuaNCCPage'
+import DonDatHangPage from './DonDatHangPage'
 import TheoDoiMuaHangPage from './TheoDoiMuaHangPage'
 import LichSuMuaHangPage from './LichSuMuaHangPage'
 import ThemeToggle from '../../../components/ThemeToggle'
@@ -16,8 +17,8 @@ interface Props { onBack?: () => void }
 // Tab "Vật tư – NCC" đã gỡ 2026-08-27 cùng luồng báo giá: nó chỉ phục vụ việc gắn NCC + giá tham
 // khảo cho SupplierPicker lúc nhập báo giá, mà giá/NCC nay nằm trong file Excel Sếp ký. Danh mục
 // NCC vẫn quản lý ở Admin › Nhà cung cấp, gán người mua vẫn ở Admin › Vật tư - không mất chức năng.
-type TabId = 'lenh-mua-ncc' | 'theo-doi-mua-hang' | 'lich-su-mua-hang'
-const TAB_VALUES: TabId[] = ['lenh-mua-ncc', 'theo-doi-mua-hang', 'lich-su-mua-hang']
+type TabId = 'lenh-mua-ncc' | 'don-dat-hang' | 'theo-doi-mua-hang' | 'lich-su-mua-hang'
+const TAB_VALUES: TabId[] = ['lenh-mua-ncc', 'don-dat-hang', 'theo-doi-mua-hang', 'lich-su-mua-hang']
 const isTabId = (v: string | null): v is TabId => !!v && (TAB_VALUES as string[]).includes(v)
 
 export default function PurchasingApp({ onBack }: Props) {
@@ -38,6 +39,8 @@ export default function PurchasingApp({ onBack }: Props) {
   const { counts: workQueue } = useWorkQueue()
   const TABS: { id: TabId; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'lenh-mua-ncc',      label: 'Lệnh mua vật tư',   icon: <ClipboardList size={16} /> },
+    // Gộp nhiều lệnh vào 1 đơn đặt hàng NCC, in phiếu, thay phiếu (2026-11-04, Đợt 5c).
+    { id: 'don-dat-hang',      label: 'Đơn đặt hàng',      icon: <FileStack size={16} /> },
     { id: 'theo-doi-mua-hang', label: 'Theo dõi mua hàng', icon: <Truck size={16} />, badge: workQueue.purchaserPending },
     { id: 'lich-su-mua-hang',  label: 'Lịch sử đã mua',    icon: <History size={16} /> },
   ]
@@ -112,6 +115,7 @@ export default function PurchasingApp({ onBack }: Props) {
   const content = (
     <>
       {tab === 'lenh-mua-ncc'      && <LenhMuaNCCPage />}
+      {tab === 'don-dat-hang'      && <DonDatHangPage />}
       {tab === 'theo-doi-mua-hang' && <TheoDoiMuaHangPage />}
       {tab === 'lich-su-mua-hang'  && <LichSuMuaHangPage />}
     </>

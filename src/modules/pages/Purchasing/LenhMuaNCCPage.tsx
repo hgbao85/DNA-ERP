@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { focusAttr } from '../../../utils/notificationLink'
-import { Check, ChevronLeft, ClipboardList, FileCheck2, Paperclip, Pencil, X } from 'lucide-react'
+import { Check, ChevronLeft, ClipboardList, FileCheck2, Pencil, Printer, X } from 'lucide-react'
 import { useInspection, PROPOSAL_STATUS_LABELS, itemStatusLabel, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
 import { useAuth, type User } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
@@ -10,7 +10,7 @@ import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { visibleProposalsFor, buildBuyerByMaterialId, splitItemsByOwner, rollupStatusOf, type MaterialBuyerMap } from '../../../utils/purchasingRouting'
 import PurchaseProposalAuditTrail from '../../../components/PurchaseProposalAuditTrail'
 import { ItemCard, ProposalCards } from './mobileCards'
-import { CancelSupplierOrderModal, CreateSupplierOrderModal } from './SupplierOrderModals'
+import { BossApproveModal, CancelSupplierOrderModal, CreateSupplierOrderModal, printSupplierOrderFile } from './SupplierOrderModals'
 import EmptyState from '../../../components/EmptyState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
@@ -176,137 +176,6 @@ function OrderQtyCell({ item, onSave }: {
       </span>
       {err && <span style={{ fontSize: 11, color: 'var(--fg-dc2626)', maxWidth: 220, textAlign: 'right' }}>{err}</span>}
     </span>
-  )
-}
-
-const ACCEPT_ATTR = 'image/*,application/pdf,.pdf,.xls,.xlsx'
-const MAX_FILE_BYTES = 10 * 1024 * 1024
-
-/**
- * Popup "Sếp đã duyệt" - chọn file phiếu Sếp đã ký tay rồi xác nhận (2026-08-27).
- *
- * Upload HOÃN tới lúc bấm Xác nhận (không upload ngay lúc chọn file) - cùng idiom
- * AdminEntityPage.tsx: người dùng chọn nhầm file rồi đóng popup là chuyện thường, upload ngay sẽ
- * để lại file rác vĩnh viễn trên Cloudinary vì không có đường xoá.
- */
-function BossApproveModal({ itemCount, orderLabel, onClose, onConfirm }: {
-  itemCount: number
-  /** Đơn đặt hàng đang duyệt, vd "Kim Phát – Số 53/2026" (2026-11-04: duyệt theo đơn). */
-  orderLabel: string
-  onClose: () => void
-  onConfirm: (file: File) => Promise<void>
-}) {
-  const [file, setFile] = useState<File | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-
-  // Chỉ ảnh mới xem trước được; PDF/Excel hiện tên file. Tính URL đồng bộ theo `file` (không qua
-  // state riêng - tránh setState trong effect) - effect chỉ lo THU HỒI object URL khi đổi/đóng để
-  // không giữ blob trong bộ nhớ tab.
-  const previewUrl = file && file.type.startsWith('image/') ? URL.createObjectURL(file) : null
-  useEffect(() => {
-    return () => { if (previewUrl) URL.revokeObjectURL(previewUrl) }
-  }, [previewUrl])
-
-  const pick = (f: File | undefined) => {
-    setErr('')
-    if (!f) return
-    if (f.size > MAX_FILE_BYTES) {
-      setErr(`File ${(f.size / 1024 / 1024).toFixed(1)}MB - vượt giới hạn 10MB`)
-      return
-    }
-    setFile(f)
-  }
-
-  const confirm = async () => {
-    if (!file || busy) return
-    setBusy(true)
-    setErr('')
-    try {
-      await onConfirm(file)
-      onClose()
-    } catch (e) {
-      // Giữ popup mở kèm lỗi tại chỗ - đóng popup ở đây sẽ khiến người dùng mất file vừa chọn và
-      // chỉ còn banner chung chung ở đầu trang, không rõ thao tác nào hỏng.
-      setErr(e instanceof Error ? e.message : String(e))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div
-      onClick={onClose}
-      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}
-    >
-      <div
-        onClick={e => e.stopPropagation()}
-        style={{ width: '100%', maxWidth: 460, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '14px 16px', borderBottom: '1px solid var(--border)' }}>
-          <FileCheck2 size={17} color="var(--fg-2563eb)" />
-          <span style={{ fontSize: 15, fontWeight: 700 }}>Sếp đã duyệt</span>
-          <div style={{ flex: 1 }} />
-          <button onClick={onClose} style={{ display: 'flex', padding: 4, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text3)' }}>
-            <X size={17} />
-          </button>
-        </div>
-
-        <div style={{ padding: 16 }}>
-          <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14 }}>
-            Tải lên phiếu <strong>đã có chữ ký của Sếp</strong> cho đơn đặt hàng <strong>{orderLabel}</strong> để xác nhận {itemCount} vật tư trong đơn được duyệt mua.
-            Sau bước này Kho mới nhận hàng được.
-          </div>
-
-          <label
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '20px 16px', border: '1.5px dashed var(--border)', borderRadius: 10, cursor: busy ? 'default' : 'pointer', background: 'var(--surface2)' }}
-          >
-            {previewUrl ? (
-              <img src={previewUrl} alt="" style={{ maxHeight: 160, maxWidth: '100%', borderRadius: 6 }} />
-            ) : (
-              <Paperclip size={22} color="var(--text3)" />
-            )}
-            <span style={{ fontSize: 13, fontWeight: 600, color: file ? 'var(--text)' : 'var(--text3)', wordBreak: 'break-all', textAlign: 'center' }}>
-              {file ? file.name : 'Chọn file từ máy tính'}
-            </span>
-            <span style={{ fontSize: 11, color: 'var(--text3)' }}>Ảnh, PDF hoặc Excel · tối đa 10MB</span>
-            <input
-              type="file"
-              accept={ACCEPT_ATTR}
-              hidden
-              disabled={busy}
-              onChange={e => {
-                pick(e.target.files?.[0])
-                e.target.value = ''
-              }}
-            />
-          </label>
-
-          {err && (
-            <div style={{ marginTop: 12, padding: '8px 10px', fontSize: 12, color: 'var(--fg-991b1b)', background: 'var(--bg-fee2e2)', border: '1px solid var(--fg-fca5a5)', borderRadius: 8 }}>
-              {err}
-            </div>
-          )}
-        </div>
-
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
-          <button
-            onClick={onClose}
-            disabled={busy}
-            style={{ padding: '7px 16px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: busy ? 'default' : 'pointer' }}
-          >
-            Huỷ
-          </button>
-          <button
-            onClick={() => void confirm()}
-            disabled={!file || busy}
-            style={{ padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: !file || busy ? 'var(--bg-93c5fd)' : 'var(--bg-2563eb)', color: '#fff', cursor: !file || busy ? 'default' : 'pointer' }}
-          >
-            {busy ? 'Đang tải lên…' : 'Xác nhận'}
-          </button>
-        </div>
-      </div>
-    </div>
   )
 }
 
@@ -548,6 +417,12 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onCreateOrder, on
                 </div>
                 {renderItems(order.items, { orderId: order.id })}
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '10px 14px', borderTop: '1px solid var(--fg-fde68a)', background: 'var(--bg-fffbeb)', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => void printSupplierOrderFile(order.id)}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '7px 14px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}
+                  >
+                    <Printer size={14} /> In phiếu
+                  </button>
                   <button
                     onClick={() => setCancellingOrder(order)}
                     style={{ padding: '7px 14px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}

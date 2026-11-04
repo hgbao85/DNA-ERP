@@ -15,6 +15,7 @@ import {
   cancelSupplierOrder as cancelSupplierOrderApi,
   createSupplierOrder as createSupplierOrderApi,
   removeSupplierOrderItem as removeSupplierOrderItemApi,
+  reviseSupplierOrder as reviseSupplierOrderApi,
 } from '../services/supplier-orders-api'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -197,6 +198,8 @@ interface InspCtxType {
   approveSupplierOrder:    (orderId: string, approvalFileUrl: string, proposalIds: string[]) => Promise<void>
   cancelSupplierOrder:     (orderId: string, reason: string, proposalIds: string[]) => Promise<void>
   removeSupplierOrderItem: (orderId: string, itemId: string, proposalIds: string[]) => Promise<void>
+  /** THAY PHIẾU (bản v8 mục 7.11) - đơn đã ký về chờ duyệt, dòng chưa nhận quay về chờ duyệt. */
+  reviseSupplierOrder:     (orderId: string, reason: string, proposalIds: string[]) => Promise<void>
   /** Ô1 (unitRateQty) × Ô2 (supplierUnitQty, mặc định 1) = số lượng thật cộng vào tồn kho - backend
    *  tự nhân (2026-10-16, thay cho hệ số quy đổi cố định Material.khoUnitFactor đã xoá). Xem
    *  NhapKhoPage.tsx. */
@@ -309,6 +312,12 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
       await refreshProposals(proposalIds)
     }), [runAction, refreshProposals])
 
+  const reviseSupplierOrder = useCallback((orderId: string, reason: string, proposalIds: string[]) =>
+    runAction('Thay phiếu', async () => {
+      await reviseSupplierOrderApi(orderId, reason)
+      await refreshProposals(proposalIds)
+    }), [runAction, refreshProposals])
+
   // Thủ kho xác nhận đã nhận hàng — cộng dồn qua nhiều lần nhập (hàng có thể về nhiều đợt) ở
   // tầng BE (xem PurchaseProposalsService.receiveItem), tự chuyển 'purchasing' -> 'purchased'
   // khi mọi item đã nhận đủ buyQty.
@@ -339,7 +348,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     }), [runAction])
 
   return (
-    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, createSupplierOrder, approveSupplierOrder, cancelSupplierOrder, removeSupplierOrderItem, receiveProposalItem, updateApprovalFile, updateOrderQty }}>
+    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, createSupplierOrder, approveSupplierOrder, cancelSupplierOrder, removeSupplierOrderItem, reviseSupplierOrder, receiveProposalItem, updateApprovalFile, updateOrderQty }}>
       <ActionErrorBanner message={actionError} onDismiss={dismissActionError} />
       {children}
     </InspCtx.Provider>
