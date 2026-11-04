@@ -31,7 +31,7 @@ export default function MaterialChoiceTags({ wire, cushion }: { wire?: MaterialC
         </span>
       )}
       {cushion && (
-        <span style={chip} title={`Màu nệm: ${cushion.materialName}`}>
+        <span style={chip} title={`Màu vải nệm: ${cushion.materialName}`}>
           {cushion.imageUrl && <ZoomableImage url={cushion.imageUrl} size={14} title={cushion.materialName} />}
           {cushion.materialName}
         </span>

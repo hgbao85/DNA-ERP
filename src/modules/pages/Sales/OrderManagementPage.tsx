@@ -484,7 +484,7 @@ export default function OrderManagementPage() {
 
             {filledItems.length > 0 && missingChoice && (
               <div style={{ fontSize: 12, color: 'var(--fg-b45309)', marginTop: 8 }}>
-                SKU có nhiều màu dây/nệm - chọn đủ Màu dây và Màu nệm cho từng dòng thì mới lưu được.
+                SKU có nhiều màu dây/vải nệm - chọn đủ Màu dây và Màu vải nệm cho từng dòng thì mới lưu được.
               </div>
             )}
             {filledItems.length > 0 && (missingDeliveryDate || missingQty) && (
@@ -696,7 +696,7 @@ function ItemOptionPickers({ options, wireMaterialId, cushionMaterialId, onChang
   return (
     <div style={{ gridColumn: '1 / -1', display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: 8 }}>
       {picker('Màu dây', options.wireOptions, wireMaterialId, (id) => onChange({ wireMaterialId: id }))}
-      {picker('Màu nệm', options.cushionOptions, cushionMaterialId, (id) => onChange({ cushionMaterialId: id }))}
+      {picker('Màu vải nệm', options.cushionOptions, cushionMaterialId, (id) => onChange({ cushionMaterialId: id }))}
     </div>
   )
 }

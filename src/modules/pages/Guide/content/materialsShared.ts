@@ -11,7 +11,7 @@ import type { GuideArticle } from '../types';
 // `tables`, công thức đặt trong `highlight`; `steps` chỉ còn giữ đúng các thao tác phải làm lần lượt. Mọi con số/quy tắc đối chiếu với:
 //   FE  Admin/masterData/MaterialsPage.tsx, MaterialsBulkWasteModal.tsx, Admin/shared/AdminEntityPage.tsx
 //   BE  modules/materials/materials.service.ts (create/update/remove/bulkUpdateWaste/generateMaterialCode),
-//       production-invoices/*-purchase.service.ts (công thức cộng % hao hụt + làm tròn),
+//       production-invoices/*-purchase.service.ts + common/utils/purchase-waste.util.ts (công thức cộng % hao hụt + làm tròn),
 //       purchase-proposals.service.ts (ai thấy vật tư nào theo Material.buyerId)
 //   Bảng % hao hụt: docs BE changelog-2026-10-10-hao-hut-mua-hang-that.html
 // KHÔNG khai `screenshot` ở đây: mỗi nơi nhúng tự gắn ảnh chụp đúng giao diện của mình (xem
@@ -199,7 +199,7 @@ const nhomPhanLoai: GuideArticle = {
       rows: [
         ['Sơn', 'Bột sơn, sơn dặm...', 'Tab Sơn của định mức chi tiết.'],
         ['Phụ kiện', 'Vít, bu lông, long đền, nhãn, tem, gói hút ẩm...', 'Tab Phụ kiện của định mức chi tiết.'],
-        ['Nệm', 'Các màu nệm, mỗi màu một vật tư (ví dụ "Nệm màu be"). Chưa có quy cách ở danh mục — mỗi SKU tự nhập.', 'Tab Phụ kiện của định mức chi tiết, và hộp "Chọn các màu nệm" để Sales chọn màu nệm cho từng dòng đơn.'],
+        ['Vải nệm', 'Các màu vải nệm, mỗi màu một vật tư (ví dụ "Nệm màu be"). Chưa có quy cách ở danh mục — mỗi SKU tự nhập.', 'Tab Phụ kiện của định mức chi tiết, và hộp "Chọn các màu vải nệm" để Sales chọn màu vải nệm cho từng dòng đơn.'],
         ['Bao bì', 'Thùng, bao nylon, màng PE, xốp...', 'Tab Bao bì, và là thứ Thủ kho xuất ở bước "Xuất vật tư đóng gói".'],
       ],
     },
@@ -227,7 +227,7 @@ const nhomPhanLoai: GuideArticle = {
   steps: [],
   result: 'Vật tư hiện đúng tab khi bộ phận định mức chọn, và đi đúng luồng mua hàng / cắt sắt / đóng gói.',
   warnings: [
-    'Phân loại sai giữa Sơn / Phụ kiện / Nệm / Bao bì: vật tư hiện nhầm tab ở định mức chi tiết. Riêng nhầm sang hoặc khỏi "Bao bì" còn làm sai bước xuất vật tư đóng gói của kho; nệm để nhầm là "Phụ kiện" thì không hiện trong hộp "Chọn các màu nệm" nên Sales không chọn được màu đó.',
+    'Phân loại sai giữa Sơn / Phụ kiện / Nệm / Bao bì: vật tư hiện nhầm tab ở định mức chi tiết. Riêng nhầm sang hoặc khỏi "Bao bì" còn làm sai bước xuất vật tư đóng gói của kho; nệm để nhầm là "Phụ kiện" thì không hiện trong hộp "Chọn các màu vải nệm" nên Sales không chọn được màu đó.',
     'Chọn nhầm Sắt "Phần mềm" cho thứ không phải sắt cây: vật tư sẽ bị đưa vào phần mềm cắt sắt và mất ô % hao hụt. Ngược lại, sắt cây mà chọn "Tự tính" thì không được tối ưu cắt.',
     'Vật tư đã nằm trong định mức của sản phẩm thì hạn chế đổi nhóm — định mức cũ vẫn trỏ tới vật tư này dưới nhóm cũ.',
   ],
@@ -236,7 +236,7 @@ const nhomPhanLoai: GuideArticle = {
     { issue: '"Vật tư thuộc nhóm "Sắt" phải chọn nhóm con (Phần mềm/Tự tính/Vật tư thành phẩm)"', cause: 'Nhóm là "Sắt" nhưng chưa có Nhóm con Sắt.', fix: 'Chọn một trong ba nhóm con.' },
     { issue: 'Chuyên viên định mức báo "không tìm thấy vật tư" dù đã thêm', cause: 'Vật tư chưa có Nhóm, hoặc sai Phân loại / Nhóm con nên đang nằm ở tab khác.', fix: 'Mở vật tư, kiểm tra ba ô nhóm theo bài này.' },
   ],
-  tags: ['nhóm vật tư', 'phân loại', 'nhóm con sắt', 'phần mềm', 'tự tính', 'vật tư thành phẩm', 'sơn', 'phụ kiện', 'bao bì', 'nệm', 'màu nệm', 'màu dây'],
+  tags: ['nhóm vật tư', 'phân loại', 'nhóm con sắt', 'phần mềm', 'tự tính', 'vật tư thành phẩm', 'sơn', 'phụ kiện', 'bao bì', 'nệm', 'màu vải nệm', 'màu dây'],
   sourceRefs: ['src/modules/pages/Admin/masterData/MaterialsPage.tsx', 'DNA-ERP-BE/src/modules/materials/materials.service.ts'],
 };
 
@@ -267,18 +267,19 @@ const haoHut: GuideArticle = {
   screenshot: '/guide-screens/vt-hao-hut.png',
   highlight: {
     label: 'Công thức',
-    text: 'Số cần mua = (Số cần − Tồn khả dụng) × (1 + % hao hụt / 100)',
-    note: 'Phần trăm chỉ cộng vào số CÒN THIẾU, sau khi đã trừ tồn kho — không cộng vào số đang có.',
+    text: 'Số cần mua = Số cần × (1 + % hao hụt / 100) − Tồn khả dụng',
+    note: 'Phần trăm cộng vào TOÀN BỘ số cần của lệnh, rồi mới trừ tồn kho chưa giữ cho lệnh khác (công thức anh Nhân chốt, áp dụng từ 04/11/2026). Kết quả âm thì không mua.',
   },
   tables: [
     {
       title: 'Ví dụ tính',
-      columns: ['Vật tư', 'Còn thiếu', '% hao hụt', 'Làm tròn', 'Cần mua'],
+      columns: ['Vật tư', 'Số cần', 'Tồn khả dụng', '% hao hụt', 'Làm tròn', 'Cần mua'],
       rows: [
-        ['Đinh F 10 đen', '48 cây', '1,5%', 'Mặc định (giữ số thập phân)', '48,72 cây'],
-        ['Dây đen', '6 kg', '0%', 'Mặc định (giữ số thập phân)', '6 kg'],
-        ['Sắt phi', '1 cuộn', '1%', 'Mặc định (làm tròn lên)', '1,01 → 2 cuộn'],
-        ['Tấm sắt la', '1 tấm', '1%', 'Ép giữ số thập phân', '1,01 tấm'],
+        ['Đinh F 10 đen', '48 cây', '0', '1,5%', 'Mặc định (giữ số thập phân)', '48,72 cây'],
+        ['Sơn đen', '100 kg', '50 kg', '1,5%', 'Mặc định (giữ số thập phân)', '101,5 − 50 = 51,5 kg'],
+        ['Dây đen', '6 kg', '2 kg', '0%', 'Mặc định (giữ số thập phân)', '4 kg'],
+        ['Sắt phi', '1 cuộn', '0', '1%', 'Mặc định (làm tròn lên)', '1,01 → 2 cuộn'],
+        ['Tấm sắt la', '1 tấm', '0', '1%', 'Ép giữ số thập phân', '1,01 tấm'],
       ],
     },
     {

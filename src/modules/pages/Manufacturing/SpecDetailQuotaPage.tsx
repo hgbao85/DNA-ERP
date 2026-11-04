@@ -451,8 +451,8 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
     const lost = countCushionLinesWithQty(lines, removedIds)
     if (lost === 0) { applyCushionOptions(next); return }
     ask({
-      title: 'Bỏ màu nệm đã nhập số lượng?',
-      message: `Có ${lost} dòng nệm đã nhập số lượng thuộc các màu vừa bỏ tick - những dòng này sẽ bị xoá. Bạn có chắc muốn tiếp tục?`,
+      title: 'Bỏ màu vải nệm đã nhập số lượng?',
+      message: `Có ${lost} dòng vải nệm đã nhập số lượng thuộc các màu vừa bỏ tick - những dòng này sẽ bị xoá. Bạn có chắc muốn tiếp tục?`,
       confirmLabel: 'Bỏ tick, xoá dòng',
       cancelLabel: 'Hủy',
       danger: true,
@@ -644,8 +644,8 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
 
           {/* Tick các loại nệm Sales được chọn khi lên đơn cho SKU này */}
           <MaterialOptionsPanel
-            title="Danh sách màu nệm SKU"
-            noun="nệm"
+            title="Danh sách màu vải nệm SKU"
+            noun="vải nệm"
             candidates={cushionCandidates}
             selected={cushionOptions}
             onChange={changeCushionOptions}
@@ -676,7 +676,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
               )}
               {group === 'vatTuPhuKien' && (
                 <div style={{ fontSize: 12, color: 'var(--text3)', margin: '-4px 0 12px' }}>
-                  Nệm chỉ chọn được màu đã tick ở khối &quot;Danh sách màu nệm SKU&quot; phía trên (tick xong dòng nệm tự xuất hiện).
+                  Vải nệm chỉ chọn được màu đã tick ở khối &quot;Danh sách màu vải nệm SKU&quot; phía trên (tick xong dòng vải nệm tự xuất hiện).
                   Muốn thêm một dòng nữa của cùng màu nhưng khác quy cách thì chọn lại đúng màu đó ở đây.
                 </div>
               )}
@@ -887,12 +887,12 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                   )}
                   {cushionsMissingQty.length > 0 && (
                     <span style={{ fontSize: 12, color: 'var(--fg-b45309)', flex: '1 1 100%' }}>
-                      Màu nệm {cushionsMissingQty.map(cushionNameOf).join(', ')} đã tick nhưng chưa nhập số lượng - nhập số lượng (hoặc bỏ tick) rồi mới gửi phê duyệt được.
+                      Màu vải nệm {cushionsMissingQty.map(cushionNameOf).join(', ')} đã tick nhưng chưa nhập số lượng - nhập số lượng (hoặc bỏ tick) rồi mới gửi phê duyệt được.
                     </span>
                   )}
                   {unlistedCushions.length > 0 && (
                     <span style={{ fontSize: 12, color: 'var(--fg-b45309)', flex: '1 1 100%' }}>
-                      Nệm {unlistedCushions.join(', ')} chưa nằm trong danh sách màu nệm của SKU - tick màu đó ở khối &quot;Danh sách màu nệm SKU&quot; hoặc xoá dòng nệm này, rồi mới gửi phê duyệt được.
+                      Vải nệm {unlistedCushions.join(', ')} chưa nằm trong danh sách màu vải nệm của SKU - tick màu đó ở khối &quot;Danh sách màu vải nệm SKU&quot; hoặc xoá dòng nệm này, rồi mới gửi phê duyệt được.
                     </span>
                   )}
                   <span style={{ fontSize: 13, color: 'var(--text2)' }}>{lines.length} vật tư</span>

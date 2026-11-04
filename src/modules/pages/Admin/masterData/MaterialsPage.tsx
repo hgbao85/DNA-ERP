@@ -45,10 +45,10 @@ interface MaterialGroup {
 const DETAIL_KIND_OPTIONS = [
   { value: 'PAINT', label: 'Sơn' },
   { value: 'ACCESSORY', label: 'Phụ kiện' },
-  { value: 'CUSHION', label: 'Nệm' },
+  { value: 'CUSHION', label: 'Vải nệm' },
   { value: 'PACKAGING', label: 'Bao bì' },
 ]
-const DETAIL_KIND_LABEL: Record<string, string> = { PAINT: 'Sơn', ACCESSORY: 'Phụ kiện', CUSHION: 'Nệm', PACKAGING: 'Bao bì' }
+const DETAIL_KIND_LABEL: Record<string, string> = { PAINT: 'Sơn', ACCESSORY: 'Phụ kiện', CUSHION: 'Vải nệm', PACKAGING: 'Bao bì' }
 
 // 3 nhóm con của Sắt (2026-10-01) - KHÔNG phải nhóm vật tư ngang hàng (xem comment enum
 // SteelSubGroup, schema.prisma BE): Phần mềm (đi qua solver cắt sắt), Tự tính (tỷ lệ cắt cố định,

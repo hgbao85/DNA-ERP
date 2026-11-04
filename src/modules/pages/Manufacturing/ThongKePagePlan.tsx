@@ -1693,7 +1693,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
           meta={[
             { label: 'Mã PO', value: <span style={{ fontFamily: 'monospace' }}>{o.code}</span> },
             ...(o.wireMaterial || o.cushionMaterial
-              ? [{ label: 'Dây / Nệm', value: <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><MaterialChoiceTags wire={o.wireMaterial} cushion={o.cushionMaterial} /></span> }]
+              ? [{ label: 'Dây / Vải nệm', value: <span style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap' }}><MaterialChoiceTags wire={o.wireMaterial} cushion={o.cushionMaterial} /></span> }]
               : []),
             { label: 'Khách hàng', value: o.customer },
             { label: 'Hạn giao', value: <DeadlineText deadline={o.deadline} overdue={isOrderOverdue(o.deadline, o.status === 'DONE')} overdueLabel="Quá hạn" /> },
