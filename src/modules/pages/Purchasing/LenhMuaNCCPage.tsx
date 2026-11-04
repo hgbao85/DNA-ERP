@@ -10,12 +10,13 @@ import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { visibleProposalsFor, buildBuyerByMaterialId, splitItemsByOwner, rollupStatusOf, type MaterialBuyerMap } from '../../../utils/purchasingRouting'
 import PurchaseProposalAuditTrail from '../../../components/PurchaseProposalAuditTrail'
 import { ItemCard, ProposalCards } from './mobileCards'
+import { CancelSupplierOrderModal, CreateSupplierOrderModal } from './SupplierOrderModals'
 import EmptyState from '../../../components/EmptyState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 export default function LenhMuaNCCPage() {
   const { user } = useAuth()
-  const { proposals: allProposals, bossApproveProposal, updateOrderQty } = useInspection()
+  const { proposals: allProposals, createSupplierOrder, approveSupplierOrder, cancelSupplierOrder, removeSupplierOrderItem, updateOrderQty } = useInspection()
   const { data: materials, isLoading: materialsLoading } = useFetch(getMaterials)
   const buyerByMaterialId = buildBuyerByMaterialId(materials ?? [])
   // Purchasing chỉ thấy đề xuất chứa vật tư mình được gán mua (Material.buyerId) — xem purchasingRouting.ts
@@ -47,7 +48,10 @@ export default function LenhMuaNCCPage() {
           user={user}
           buyerByMaterialId={buyerByMaterialId}
           proposals={proposals}
-          onBossApprove={bossApproveProposal}
+          onCreateOrder={createSupplierOrder}
+          onApproveOrder={approveSupplierOrder}
+          onCancelOrder={cancelSupplierOrder}
+          onRemoveOrderItem={removeSupplierOrderItem}
           onUpdateOrderQty={updateOrderQty}
         />
       ) : (
@@ -185,8 +189,10 @@ const MAX_FILE_BYTES = 10 * 1024 * 1024
  * AdminEntityPage.tsx: người dùng chọn nhầm file rồi đóng popup là chuyện thường, upload ngay sẽ
  * để lại file rác vĩnh viễn trên Cloudinary vì không có đường xoá.
  */
-function BossApproveModal({ itemCount, onClose, onConfirm }: {
+function BossApproveModal({ itemCount, orderLabel, onClose, onConfirm }: {
   itemCount: number
+  /** Đơn đặt hàng đang duyệt, vd "Kim Phát – Số 53/2026" (2026-11-04: duyệt theo đơn). */
+  orderLabel: string
   onClose: () => void
   onConfirm: (file: File) => Promise<void>
 }) {
@@ -248,7 +254,7 @@ function BossApproveModal({ itemCount, onClose, onConfirm }: {
 
         <div style={{ padding: 16 }}>
           <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14 }}>
-            Tải lên phiếu so sánh giá <strong>đã có chữ ký của Sếp</strong> để xác nhận {itemCount} vật tư dưới đây được duyệt mua.
+            Tải lên phiếu <strong>đã có chữ ký của Sếp</strong> cho đơn đặt hàng <strong>{orderLabel}</strong> để xác nhận {itemCount} vật tư trong đơn được duyệt mua.
             Sau bước này Kho mới nhận hàng được.
           </div>
 
@@ -304,11 +310,36 @@ function BossApproveModal({ itemCount, onClose, onConfirm }: {
   )
 }
 
-function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove, onUpdateOrderQty }: {
+/** Đơn đặt hàng NCC CHƯA duyệt có dòng trong đề xuất đang mở - gom từ các dòng (2026-11-04). */
+interface DraftOrderGroup {
+  id: string
+  label: string
+  items: PurchaseProposalItem[]
+}
+
+function draftOrdersOf(items: PurchaseProposalItem[]): DraftOrderGroup[] {
+  const map = new Map<string, DraftOrderGroup>()
+  for (const item of items) {
+    if (!item.supplierOrderId) continue
+    const g = map.get(item.supplierOrderId) ?? {
+      id: item.supplierOrderId,
+      label: `${item.supplierName ?? 'NCC'} – Số ${item.supplierOrderCode ?? '?'}`,
+      items: [],
+    }
+    g.items.push(item)
+    map.set(item.supplierOrderId, g)
+  }
+  return [...map.values()]
+}
+
+function ProposalSection({ user, buyerByMaterialId, proposals, onCreateOrder, onApproveOrder, onCancelOrder, onRemoveOrderItem, onUpdateOrderQty }: {
   user: User | null
   buyerByMaterialId: MaterialBuyerMap
   proposals: PurchaseProposal[]
-  onBossApprove: (id: string, approvalFileUrl: string) => Promise<void>
+  onCreateOrder: (supplierId: string, itemIds: string[], proposalIds: string[]) => Promise<void>
+  onApproveOrder: (orderId: string, approvalFileUrl: string, proposalIds: string[]) => Promise<void>
+  onCancelOrder: (orderId: string, reason: string, proposalIds: string[]) => Promise<void>
+  onRemoveOrderItem: (orderId: string, itemId: string, proposalIds: string[]) => Promise<void>
   onUpdateOrderQty: (proposalId: string, itemId: string, orderQty: number | null) => Promise<void>
 }) {
   const warehouseName = useWarehouseName()
@@ -316,7 +347,15 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove, on
   const isMobile = useIsMobile()
   const canViewAudit = user?.role === 'BOSS' || user?.role === 'ADMIN'
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [approvingId, setApprovingId] = useState<string | null>(null)
+  // Đơn đặt hàng NCC (2026-11-04): dòng được tick để gom đơn, popup tạo/duyệt/huỷ đơn.
+  const [checked, setChecked] = useState<Set<string>>(new Set())
+  const [creatingOrder, setCreatingOrder] = useState(false)
+  const [approvingOrder, setApprovingOrder] = useState<DraftOrderGroup | null>(null)
+  const [cancellingOrder, setCancellingOrder] = useState<DraftOrderGroup | null>(null)
+  const openProposal = (id: string | null) => {
+    setChecked(new Set())
+    setSelectedId(id)
+  }
 
   // Đếm theo ITEM của mình (2026-08-25) - p.status (rollup) không còn phản ánh đúng "còn việc gì
   // của TÔI chưa làm" khi đề xuất gộp nhiều người mua.
@@ -351,6 +390,95 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove, on
     const { mine, others } = splitItemsByOwner(user, p.items, buyerByMaterialId)
     const pendingItems = mine.filter(isPending)
     const doneItems = mine.filter(item => !isPending(item))
+    const looseItems = pendingItems.filter(item => !item.supplierOrderId)
+    const draftOrders = draftOrdersOf(pendingItems)
+    const checkedLoose = looseItems.filter(item => item.itemId && checked.has(item.itemId))
+    const toggle = (itemId: string) => setChecked(prev => {
+      const next = new Set(prev)
+      if (next.has(itemId)) next.delete(itemId)
+      else next.add(itemId)
+      return next
+    })
+
+    // Bảng dòng chờ duyệt - dùng chung cho khối "Chưa vào đơn" (có ô tick) và từng đơn chưa duyệt
+    // (có nút gỡ dòng khỏi đơn). Số mua vẫn sửa được tới lúc "Sếp đã duyệt" (YC7 mục 7.2).
+    const renderItems = (items: PurchaseProposalItem[], opts: { selectable?: boolean; orderId?: string }) => {
+      const removeBtn = (item: PurchaseProposalItem) => opts.orderId && item.itemId ? (
+        <button
+          onClick={() => void onRemoveOrderItem(opts.orderId!, item.itemId!, [p.id])}
+          title="Gỡ khỏi đơn"
+          aria-label={`Gỡ ${item.name} khỏi đơn`}
+          style={{ display: 'inline-flex', padding: 4, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', cursor: 'pointer', color: 'var(--text3)' }}
+        >
+          <X size={12} />
+        </button>
+      ) : null
+      const checkbox = (item: PurchaseProposalItem) => opts.selectable && item.itemId ? (
+        <input type="checkbox" aria-label={`Chọn ${item.name}`} checked={checked.has(item.itemId)} onChange={() => toggle(item.itemId!)} />
+      ) : null
+      if (isMobile) {
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 10 }}>
+            {items.map((item, idx) => (
+              <ItemCard
+                key={idx}
+                name={item.name}
+                spec={item.spec}
+                stockLengthMm={item.stockLengthMm}
+                fields={[
+                  { label: 'Tồn thực', value: <span style={{ color: 'var(--fg-dc2626)' }}>{item.actualStock}</span> },
+                  { label: 'Cần mua', value: <><b style={{ color: 'var(--fg-d97706)' }}>{item.buyQty}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{item.unit}</span></> },
+                  { label: 'Số mua', value: item.itemId ? <OrderQtyCell item={item} onSave={q => onUpdateOrderQty(p.id, item.itemId!, q)} /> : item.purchaseQty },
+                  { label: 'Hao hụt', value: item.purchaseWastePercentage ? `+${item.purchaseWastePercentage}%` : '—' },
+                  { label: 'Hàng về kho', value: warehouseName(item.warehouseCode, item.khoLabel) },
+                ]}
+                footer={opts.selectable ? <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12 }}>{checkbox(item)} Chọn vào đơn</label> : removeBtn(item)}
+              />
+            ))}
+          </div>
+        )
+      }
+      return (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                {(opts.selectable || opts.orderId) && <th style={{ ...th, width: 32 }} />}
+                <th style={th}>Hàng về kho</th>
+                <th style={th}>Vật tư</th>
+                <th style={th}>Quy cách</th>
+                <th style={{ ...th, textAlign: 'right' }}>Chiều dài</th>
+                <th style={{ ...th, textAlign: 'right' }}>Tồn thực</th>
+                <th style={{ ...th, textAlign: 'right' }}>Cần mua</th>
+                <th style={{ ...th, textAlign: 'right' }}>Hao hụt</th>
+                <th style={{ ...th, textAlign: 'right' }} title="Được tăng cho tròn số tối thiểu nhà cung cấp bán; Giám đốc duyệt bằng chữ ký trên phiếu">Số mua</th>
+                <th style={th}>ĐVT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item, idx) => (
+                <tr key={idx} style={{ borderTop: '1px solid var(--border)' }}>
+                  {(opts.selectable || opts.orderId) && <td style={td}>{opts.selectable ? checkbox(item) : removeBtn(item)}</td>}
+                  <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{warehouseName(item.warehouseCode, item.khoLabel)}</td>
+                  <td style={{ ...td, fontWeight: 600 }}>{item.name}</td>
+                  <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{item.spec || '—'}</td>
+                  <td style={{ ...td, textAlign: 'right', fontSize: 12, fontWeight: item.stockLengthMm != null ? 700 : 400, color: item.stockLengthMm != null ? 'var(--fg-e65100)' : 'var(--text3)' }}>
+                    {item.stockLengthMm != null ? `${item.stockLengthMm}mm` : '—'}
+                  </td>
+                  <td style={{ ...td, textAlign: 'right', color: 'var(--fg-dc2626)' }}>{item.actualStock}</td>
+                  <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: 'var(--fg-d97706)' }}>{item.buyQty}</td>
+                  <td style={{ ...td, textAlign: 'right', fontSize: 12, color: 'var(--text3)' }}>{item.purchaseWastePercentage ? `+${item.purchaseWastePercentage}%` : '—'}</td>
+                  <td style={{ ...td, textAlign: 'right' }}>
+                    {item.itemId ? <OrderQtyCell item={item} onSave={q => onUpdateOrderQty(p.id, item.itemId!, q)} /> : item.purchaseQty}
+                  </td>
+                  <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )
+    }
 
     return (
       <div style={{ marginBottom: 24, display: 'flex', flexDirection: isCompact ? 'column' : 'row', gap: 20, alignItems: isCompact ? 'stretch' : 'flex-start' }}>
@@ -358,7 +486,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove, on
         {/* Back bar */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 'var(--space-4)', flexWrap: 'wrap' }}>
           <button
-            onClick={() => setSelectedId(null)}
+            onClick={() => openProposal(null)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 12px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)' }}
           >
             <ChevronLeft size={14} /> Danh sách
@@ -391,72 +519,50 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove, on
             </div>
           )}
 
-          {/* ── Chờ Sếp duyệt (của mình) ── */}
+          {/* ── Chờ Sếp duyệt (của mình) ── 2026-11-04: dòng phải vào 1 đơn đặt hàng NCC (chọn NCC, hệ
+              thống cấp số đơn) rồi mới "Sếp đã duyệt" được - duyệt theo từng đơn, 1 phiếu ký cho 1 đơn. */}
           {pendingItems.length > 0 && (<div style={{ borderTop: others.length > 0 ? '1px solid var(--border)' : 'none' }}>
-            {isMobile ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, padding: 10 }}>
-                {pendingItems.map((item, idx) => (
-                  <ItemCard
-                    key={idx}
-                    name={item.name}
-                    spec={item.spec}
-                    stockLengthMm={item.stockLengthMm}
-                    fields={[
-                      { label: 'Tồn thực', value: <span style={{ color: 'var(--fg-dc2626)' }}>{item.actualStock}</span> },
-                      { label: 'Cần mua', value: <><b style={{ color: 'var(--fg-d97706)' }}>{item.buyQty}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{item.unit}</span></> },
-                      { label: 'Số mua', value: item.itemId ? <OrderQtyCell item={item} onSave={q => onUpdateOrderQty(p.id, item.itemId!, q)} /> : item.purchaseQty },
-                      { label: 'Hao hụt', value: item.purchaseWastePercentage ? `+${item.purchaseWastePercentage}%` : '—' },
-                      { label: 'Hàng về kho', value: warehouseName(item.warehouseCode, item.khoLabel) },
-                    ]}
-                  />
-                ))}
+            {looseItems.length > 0 && (<div>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', padding: '10px 14px', background: 'var(--surface2)' }}>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>Chưa vào đơn đặt hàng</span>
+                <span style={{ fontSize: 12, color: 'var(--text3)' }}>Tick các vật tư mua cùng 1 nhà cung cấp rồi bấm &quot;Tạo đơn đặt hàng&quot;.</span>
               </div>
-            ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                <thead>
-                  <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
-                    <th style={th}>Hàng về kho</th>
-                    <th style={th}>Vật tư</th>
-                    <th style={th}>Quy cách</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Chiều dài</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Tồn thực</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Cần mua</th>
-                    <th style={{ ...th, textAlign: 'right' }}>Hao hụt</th>
-                    <th style={{ ...th, textAlign: 'right' }} title="Được tăng cho tròn số tối thiểu nhà cung cấp bán; Giám đốc duyệt bằng chữ ký trên phiếu">Số mua</th>
-                    <th style={th}>ĐVT</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingItems.map((item, idx) => (
-                    <tr key={idx} style={{ borderTop: '1px solid var(--border)' }}>
-                      <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{warehouseName(item.warehouseCode, item.khoLabel)}</td>
-                      <td style={{ ...td, fontWeight: 600 }}>{item.name}</td>
-                      <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{item.spec || '—'}</td>
-                      <td style={{ ...td, textAlign: 'right', fontSize: 12, fontWeight: item.stockLengthMm != null ? 700 : 400, color: item.stockLengthMm != null ? 'var(--fg-e65100)' : 'var(--text3)' }}>
-                        {item.stockLengthMm != null ? `${item.stockLengthMm}mm` : '—'}
-                      </td>
-                      <td style={{ ...td, textAlign: 'right', color: 'var(--fg-dc2626)' }}>{item.actualStock}</td>
-                      <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: 'var(--fg-d97706)' }}>{item.buyQty}</td>
-                      <td style={{ ...td, textAlign: 'right', fontSize: 12, color: 'var(--text3)' }}>{item.purchaseWastePercentage ? `+${item.purchaseWastePercentage}%` : '—'}</td>
-                      <td style={{ ...td, textAlign: 'right' }}>
-                        {item.itemId ? <OrderQtyCell item={item} onSave={q => onUpdateOrderQty(p.id, item.itemId!, q)} /> : item.purchaseQty}
-                      </td>
-                      <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '10px 14px', borderTop: '1px solid var(--fg-fde68a)', background: 'var(--bg-fffbeb)' }}>
-              <button
-                onClick={() => setApprovingId(p.id)}
-                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? '100%' : undefined, gap: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: 'var(--bg-2563eb)', color: '#fff', cursor: 'pointer' }}
-              >
-                <FileCheck2 size={14} /> Sếp đã duyệt
-              </button>
-            </div>
+              {renderItems(looseItems, { selectable: true })}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, padding: '10px 14px', borderTop: '1px solid var(--border)' }}>
+                {checkedLoose.length > 0 && <span style={{ fontSize: 12, color: 'var(--text3)' }}>Đã chọn {checkedLoose.length}</span>}
+                <button
+                  onClick={() => setCreatingOrder(true)}
+                  disabled={checkedLoose.length === 0}
+                  style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: isMobile ? '100%' : undefined, gap: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: checkedLoose.length === 0 ? 'var(--bg-93c5fd)' : 'var(--bg-2563eb)', color: '#fff', cursor: checkedLoose.length === 0 ? 'default' : 'pointer' }}
+                >
+                  <ClipboardList size={14} /> Tạo đơn đặt hàng
+                </button>
+              </div>
+            </div>)}
+
+            {draftOrders.map(order => (
+              <div key={order.id} style={{ borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', padding: '10px 14px', background: 'var(--bg-fffbeb)' }}>
+                  <span style={{ fontSize: 13, fontWeight: 700 }}>Đơn đặt hàng {order.label}</span>
+                  <span style={{ fontSize: 12, color: 'var(--text3)' }}>chờ phiếu Sếp ký</span>
+                </div>
+                {renderItems(order.items, { orderId: order.id })}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '10px 14px', borderTop: '1px solid var(--fg-fde68a)', background: 'var(--bg-fffbeb)', flexWrap: 'wrap' }}>
+                  <button
+                    onClick={() => setCancellingOrder(order)}
+                    style={{ padding: '7px 14px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}
+                  >
+                    Huỷ đơn
+                  </button>
+                  <button
+                    onClick={() => setApprovingOrder(order)}
+                    style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: 'var(--bg-2563eb)', color: '#fff', cursor: 'pointer' }}
+                  >
+                    <FileCheck2 size={14} /> Sếp đã duyệt
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>)}
 
           {/* ── Đã duyệt mua / đủ tồn kho (của mình) ── */}
@@ -518,15 +624,32 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove, on
         </div>
       )}
 
-      {approvingId === p.id && (
+      {creatingOrder && (
+        <CreateSupplierOrderModal
+          itemNames={checkedLoose.map(item => item.name)}
+          onClose={() => setCreatingOrder(false)}
+          onConfirm={async supplierId => {
+            await onCreateOrder(supplierId, checkedLoose.map(item => item.itemId!), [p.id])
+            setChecked(new Set())
+          }}
+        />
+      )}
+      {approvingOrder && (
         <BossApproveModal
-          itemCount={pendingItems.length}
-          onClose={() => setApprovingId(null)}
+          itemCount={approvingOrder.items.length}
+          orderLabel={approvingOrder.label}
+          onClose={() => setApprovingOrder(null)}
           onConfirm={async file => {
             const url = await uploadDocument(file)
-            await onBossApprove(p.id, url)
-            setSelectedId(null)
+            await onApproveOrder(approvingOrder.id, url, [p.id])
           }}
+        />
+      )}
+      {cancellingOrder && (
+        <CancelSupplierOrderModal
+          orderLabel={cancellingOrder.label}
+          onClose={() => setCancellingOrder(null)}
+          onConfirm={reason => onCancelOrder(cancellingOrder.id, reason, [p.id])}
         />
       )}
       </div>
@@ -549,7 +672,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove, on
       {isMobile ? (
         <ProposalCards
           proposals={proposals}
-          onSelect={setSelectedId}
+          onSelect={openProposal}
           badge={statusTag}
           meta={p => p.deadline && <span style={{ color: 'var(--fg-dc2626)', fontWeight: 600 }}>Deadline: {new Date(p.deadline).toLocaleDateString('vi-VN')}</span>}
         />
@@ -571,7 +694,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove, on
                 <tr
                   key={p.id}
                   {...focusAttr('PURCHASE_PROPOSAL', p.id)}
-                  onClick={() => setSelectedId(p.id)}
+                  onClick={() => openProposal(p.id)}
                   style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}

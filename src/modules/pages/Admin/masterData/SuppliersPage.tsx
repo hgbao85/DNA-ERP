@@ -1,8 +1,10 @@
 'use client'
+import { useState } from 'react'
 import { Truck } from 'lucide-react'
 import { useAuditLog } from '../../../../context/AuditLogContext'
 import { getSuppliers, createSupplier, updateSupplier, deleteSupplier } from '../../../../services/api'
 import AdminEntityPage, { type AdminEntityConfig } from '../shared/AdminEntityPage'
+import SupplierOrderCountersPanel from './SupplierOrderCountersPanel'
 
 interface Supplier {
   id: number
@@ -13,6 +15,8 @@ interface Supplier {
 
 export default function SuppliersPage() {
   const { logAction } = useAuditLog()
+  // Thêm/sửa/xoá NCC thì tải lại khung số đơn đặt hàng (2026-11-04) - NCC mới hiện ngay, không cần F5.
+  const [countersKey, setCountersKey] = useState(0)
 
   const config: AdminEntityConfig<Supplier> = {
     title: 'Nhà cung cấp',
@@ -51,6 +55,7 @@ export default function SuppliersPage() {
       message: `Xóa nhà cung cấp "${s.name}"? Các liên kết vật tư — nhà cung cấp hiện có sẽ không còn hiển thị NCC này. Hành động này không thể hoàn tác.`,
     }),
     onMutate: (action, s) => {
+      setCountersKey(k => k + 1)
       if (action === 'create') logAction('supplier', String(s.id), 'masterdata.created', s.name)
       else if (action === 'update') logAction('supplier', String(s.id), 'masterdata.updated', s.name)
       else logAction('supplier', String(s.id), 'masterdata.deleted', s.name)
@@ -63,5 +68,11 @@ export default function SuppliersPage() {
     },
   }
 
-  return <AdminEntityPage config={config} />
+  return (
+    <>
+      <AdminEntityPage config={config} />
+      {/* Số đơn đặt hàng theo NCC + năm (2026-11-04, bản v8 mục 4.13) - nạp số cuối năm trước khi dùng. */}
+      <SupplierOrderCountersPanel key={countersKey} />
+    </>
+  )
 }

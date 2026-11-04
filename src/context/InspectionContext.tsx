@@ -5,11 +5,17 @@ import type { WarehouseScope } from './AuthContext'
 import { useAuth } from './AuthContext'
 import {
   getPurchaseProposals as fetchPurchaseProposals,
-  bossApproveProposal as bossApproveProposalApi,
+  getPurchaseProposal,
   receiveProposalItem as receiveProposalItemApi,
   updateProposalItemApprovalFile as updateProposalItemApprovalFileApi,
   updateProposalItemOrderQty as updateProposalItemOrderQtyApi,
 } from '../services/purchasing-api'
+import {
+  approveSupplierOrder as approveSupplierOrderApi,
+  cancelSupplierOrder as cancelSupplierOrderApi,
+  createSupplierOrder as createSupplierOrderApi,
+  removeSupplierOrderItem as removeSupplierOrderItemApi,
+} from '../services/supplier-orders-api'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -55,6 +61,13 @@ export interface PurchaseProposalItem {
   orderQty?: number | null
   /** Số thực mua = max(buyQty, orderQty) - dòng đóng hồ sơ khi nhận đủ số này. Mua dư = purchaseQty − buyQty. */
   purchaseQty: number
+  /** Đơn đặt hàng NCC chứa dòng này (2026-11-04, bản v8 mục 4.10) - null = chưa vào đơn nào.
+   *  "Sếp đã duyệt" làm theo đơn, nên dòng phải vào đơn (chọn NCC) trước. */
+  supplierOrderId?: string | null
+  /** "Số đơn đặt hàng" dạng "52/2026", đánh theo từng NCC + năm. */
+  supplierOrderCode?: string | null
+  supplierOrderStatus?: string | null
+  supplierName?: string | null
   /** Chiều dài cây phải đặt (mm) - CHỈ có ở vật tư sắt (2026-08-26, sau khi Sếp mở lại auto_scan:
    *  solver có thể đề xuất cây KHÁC 6000mm mặc định). undefined/null cho nhánh kiểm tra vật tư
    *  thường - không có khái niệm chiều dài cây. Xem BE PurchaseProposalItem.stockLengthMm. */
@@ -177,9 +190,13 @@ interface InspCtxType {
   /** Lỗi của thao tác ghi gần nhất - `ActionErrorBanner` đọc, `dismissActionError()` xoá. */
   actionError: string | null
   dismissActionError:      () => void
-  /** Mua hàng xác nhận "Sếp đã duyệt" kèm file phiếu đã ký (2026-08-27) - thay cho cả chuỗi
-   *  acknowledge/báo giá/gửi Sếp/Sếp duyệt đã gỡ. BE tự lọc đúng phần vật tư của actor. */
-  bossApproveProposal:     (proposalId: string, approvalFileUrl: string) => Promise<void>
+  /** Đơn đặt hàng NCC (2026-11-04, bản v8 mục 4.10): gom dòng chờ duyệt vào 1 đơn (chọn NCC, hệ
+   *  thống cấp số đơn); "Sếp đã duyệt" theo đơn kèm file phiếu đã ký; huỷ / gỡ dòng khi đơn chưa
+   *  duyệt. `proposalIds` = các đề xuất có dòng trong đơn, để tải lại đúng các đề xuất đó. */
+  createSupplierOrder:     (supplierId: string, itemIds: string[], proposalIds: string[]) => Promise<void>
+  approveSupplierOrder:    (orderId: string, approvalFileUrl: string, proposalIds: string[]) => Promise<void>
+  cancelSupplierOrder:     (orderId: string, reason: string, proposalIds: string[]) => Promise<void>
+  removeSupplierOrderItem: (orderId: string, itemId: string, proposalIds: string[]) => Promise<void>
   /** Ô1 (unitRateQty) × Ô2 (supplierUnitQty, mặc định 1) = số lượng thật cộng vào tồn kho - backend
    *  tự nhân (2026-10-16, thay cho hệ số quy đổi cố định Material.khoUnitFactor đã xoá). Xem
    *  NhapKhoPage.tsx. */
@@ -258,14 +275,39 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     }
   }, [])
 
-  // Mua hàng bấm "Sếp đã duyệt" sau khi upload phiếu Sếp ký tay (2026-08-27). BE đẩy đúng phần vật
-  // tư của actor sang 'purchasing' - kể cả dòng còn kẹt ở trạng thái của luồng báo giá cũ, xem
-  // PurchaseProposalsService.bossApprove().
-  const bossApproveProposal = useCallback((proposalId: string, approvalFileUrl: string) =>
+  // Đơn đặt hàng NCC (2026-11-04) - gọi API rồi tải lại ĐÚNG các đề xuất có dòng trong đơn (1 đơn
+  // có thể gom dòng của nhiều đề xuất), cùng idiom cập nhật state cục bộ như các thao tác khác.
+  const refreshProposals = useCallback(async (proposalIds: string[]) => {
+    const fresh = await Promise.all([...new Set(proposalIds)].map(id => getPurchaseProposal(id)))
+    const byId = new Map(fresh.map(p => [p.id, p]))
+    setProposals(prev => prev.map(p => byId.get(p.id) ?? p))
+  }, [])
+
+  const createSupplierOrder = useCallback((supplierId: string, itemIds: string[], proposalIds: string[]) =>
+    runAction('Tạo đơn đặt hàng', async () => {
+      await createSupplierOrderApi(supplierId, itemIds)
+      await refreshProposals(proposalIds)
+    }), [runAction, refreshProposals])
+
+  // "Sếp đã duyệt" theo đơn: BE đẩy đúng các dòng của đơn sang 'purchasing' (PurchaseProposalsService.
+  // bossApprove() lọc theo dòng của đơn) - Kho mới nhận hàng được.
+  const approveSupplierOrder = useCallback((orderId: string, approvalFileUrl: string, proposalIds: string[]) =>
     runAction('Xác nhận Sếp đã duyệt', async () => {
-      const updated = await bossApproveProposalApi(proposalId, approvalFileUrl)
-      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
-    }), [runAction])
+      await approveSupplierOrderApi(orderId, approvalFileUrl)
+      await refreshProposals(proposalIds)
+    }), [runAction, refreshProposals])
+
+  const cancelSupplierOrder = useCallback((orderId: string, reason: string, proposalIds: string[]) =>
+    runAction('Huỷ đơn đặt hàng', async () => {
+      await cancelSupplierOrderApi(orderId, reason)
+      await refreshProposals(proposalIds)
+    }), [runAction, refreshProposals])
+
+  const removeSupplierOrderItem = useCallback((orderId: string, itemId: string, proposalIds: string[]) =>
+    runAction('Gỡ dòng khỏi đơn', async () => {
+      await removeSupplierOrderItemApi(orderId, itemId)
+      await refreshProposals(proposalIds)
+    }), [runAction, refreshProposals])
 
   // Thủ kho xác nhận đã nhận hàng — cộng dồn qua nhiều lần nhập (hàng có thể về nhiều đợt) ở
   // tầng BE (xem PurchaseProposalsService.receiveItem), tự chuyển 'purchasing' -> 'purchased'
@@ -278,7 +320,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
       setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
     }), [proposals, runAction])
 
-  // Admin "Quản lý tệp đính kèm" (2026-09-11) - cùng idiom bossApproveProposal/receiveProposalItem
+  // Admin "Quản lý tệp đính kèm" (2026-09-11) - cùng idiom approveSupplierOrder/receiveProposalItem
   // ở trên: gọi API rồi cập nhật lại state cục bộ, KHÔNG được gọi thẳng
   // services/purchasing-api.ts#updateProposalItemApprovalFile() từ ngoài context (làm vậy BE ghi
   // đúng nhưng `proposals` ở đây không đổi, UI vẫn hiện dữ liệu cũ tới khi tải lại trang - bug thật
@@ -297,7 +339,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     }), [runAction])
 
   return (
-    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, bossApproveProposal, receiveProposalItem, updateApprovalFile, updateOrderQty }}>
+    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, createSupplierOrder, approveSupplierOrder, cancelSupplierOrder, removeSupplierOrderItem, receiveProposalItem, updateApprovalFile, updateOrderQty }}>
       <ActionErrorBanner message={actionError} onDismiss={dismissActionError} />
       {children}
     </InspCtx.Provider>

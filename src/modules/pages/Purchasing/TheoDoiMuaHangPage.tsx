@@ -50,6 +50,8 @@ interface Row {
   remaining: number
   deadline?: string
   approvalFileUrl?: string
+  /** "Kim Phát – Số 53/2026" (2026-11-04, bản v8 mục 4.10) - null với dòng duyệt trước khi có đơn đặt hàng NCC. */
+  orderLabel: string | null
 }
 
 // Chỉ liệt kê đúng các dòng ĐANG purchasing (2026-08-25) - không phải toàn bộ p.items: 1 đề xuất
@@ -81,6 +83,7 @@ function buildRows(p: PurchaseProposal): Row[] {
       // Hạn RIÊNG của dòng theo nhóm vật tư (bao bì theo hạn Đóng gói...) - cùng hạn với Bảng mốc và tin sáng mở vào đây.
       deadline: item.deadline ?? p.deadline,
       approvalFileUrl: item.approvalFileUrl,
+      orderLabel: item.supplierOrderCode ? `${item.supplierName ?? 'NCC'} – Số ${item.supplierOrderCode}` : null,
     }
   })
 }
@@ -205,6 +208,7 @@ export default function TheoDoiMuaHangPage() {
                 spec={r.spec}
                 stockLengthMm={r.stockLengthMm}
                 fields={[
+                  { label: 'Đơn đặt hàng', value: r.orderLabel ?? '—' },
                   { label: 'Tổng SL', value: <>{r.buyQty} <span style={{ color: 'var(--text3)', fontSize: 11 }}>{r.unit}</span></> },
                   { label: 'Hao hụt', value: r.purchaseWastePercentage ? `+${r.purchaseWastePercentage}%` : '—' },
                   { label: 'Đã mua', value: <b style={{ color: r.boughtQty > 0 ? 'var(--fg-16a34a)' : 'var(--text3)' }}>{r.boughtQty}</b> },
@@ -223,6 +227,7 @@ export default function TheoDoiMuaHangPage() {
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 <th style={th}>PO</th>
                 <th style={th}>Tên vật tư</th>
+                <th style={th}>Đơn đặt hàng</th>
                 <th style={th}>Quy cách</th>
                 <th style={{ ...th, textAlign: 'right' }}>Chiều dài</th>
                 <th style={{ ...th, textAlign: 'right' }}>Tổng SL</th>
@@ -240,6 +245,7 @@ export default function TheoDoiMuaHangPage() {
                 <tr key={r.key} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace', color: 'var(--text3)' }}>{r.poNumber ?? '—'}</td>
                   <td style={{ ...td, fontWeight: 600 }}>{r.itemName}</td>
+                  <td style={{ ...td, fontSize: 12, whiteSpace: 'nowrap' }}>{r.orderLabel ?? '—'}</td>
                   <td style={{ ...td, fontSize: 12, color: 'var(--text3)' }}>{r.spec || '—'}</td>
                   <td style={{ ...td, textAlign: 'right', fontSize: 12, fontWeight: r.stockLengthMm != null ? 700 : 400, color: r.stockLengthMm != null ? 'var(--fg-e65100)' : 'var(--text3)' }}>
                     {r.stockLengthMm != null ? `${r.stockLengthMm}mm` : '—'}

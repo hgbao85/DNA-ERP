@@ -91,6 +91,11 @@ interface BeItem {
   // "Số mua" người mua chốt + số thực mua = max(buyQty, orderQty) (2026-11-04, YC7 mục 7.2).
   orderQty: number | null;
   purchaseQty: number;
+  // Đơn đặt hàng NCC chứa dòng này (2026-11-04, bản v8 mục 4.10) - null = chưa vào đơn nào.
+  supplierOrderId: string | null;
+  supplierOrderCode: string | null;
+  supplierOrderStatus: string | null;
+  supplierName: string | null;
   // Chiều dài cây phải đặt (mm) - CHỈ có ở vật tư sắt, null cho nhánh kiểm tra vật tư thường
   // (2026-08-26, xem BE PurchaseProposalItem.stockLengthMm).
   stockLengthMm: number | null;
@@ -172,6 +177,10 @@ function toItem(item: BeItem): PurchaseProposalItem {
     buyQty: item.buyQty,
     orderQty: item.orderQty,
     purchaseQty: item.purchaseQty,
+    supplierOrderId: item.supplierOrderId ?? null,
+    supplierOrderCode: item.supplierOrderCode ?? null,
+    supplierOrderStatus: item.supplierOrderStatus ?? null,
+    supplierName: item.supplierName ?? null,
     stockLengthMm: item.stockLengthMm,
     deadline: item.deadline ?? undefined,
     khoKey,
@@ -237,7 +246,7 @@ function toProposal(be: BeProposal): PurchaseProposal {
   };
 }
 
-async function getPurchaseProposal(id: string): Promise<PurchaseProposal> {
+export async function getPurchaseProposal(id: string): Promise<PurchaseProposal> {
   const detail = await http.get<BeProposal>(`/purchase-proposals/${id}`);
   return toProposal(detail);
 }
@@ -262,21 +271,6 @@ export async function getPurchaseProposals(opts?: { activeOnly?: boolean }): Pro
   const res = await http.get<BeProposal[] | { data: BeProposal[] }>(url);
   const list = Array.isArray(res) ? res : res.data;
   return list.map(toProposal);
-}
-
-/**
- * Mua hàng xác nhận "Sếp đã duyệt" kèm file phiếu Sếp đã ký tay (2026-08-27) - thay cho CẢ chuỗi
- * acknowledge -> báo giá nhiều NCC -> gửi Sếp -> Sếp duyệt (đã gỡ hết cùng màn So sánh giá).
- *
- * BE tự lọc đúng phần vật tư của actor trong đề xuất, và nhận LUÔN dòng còn kẹt ở trạng thái của
- * luồng cũ (QUOTING/SUBMITTED/REJECTED) - xem PurchaseProposalsService.bossApprove().
- */
-export async function bossApproveProposal(
-  id: string,
-  approvalFileUrl: string,
-): Promise<PurchaseProposal> {
-  await http.post(`/purchase-proposals/${id}/boss-approve`, { approvalFileUrl });
-  return getPurchaseProposal(id);
 }
 
 /**
