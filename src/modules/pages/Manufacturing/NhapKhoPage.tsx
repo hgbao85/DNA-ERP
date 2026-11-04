@@ -225,6 +225,10 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                       {item.stockLengthMm != null && (
                         <span style={{ marginLeft: 6, fontSize: 11, fontWeight: 700, color: 'var(--fg-e65100)' }}>· cây {item.stockLengthMm}mm</span>
                       )}
+                      {/* Số đơn đặt hàng NCC (2026-11-04, bản v8 mục 4.10) - Thủ kho ghi lên phiếu nhập. */}
+                      {item.supplierOrderCode && (
+                        <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>Đơn {item.supplierName ?? 'NCC'} – Số {item.supplierOrderCode}</div>
+                      )}
                     </td>
                     <td style={{ ...td, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.spec || '—'}</td>
                     <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>

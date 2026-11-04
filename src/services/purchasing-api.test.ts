@@ -9,7 +9,7 @@ vi.mock('./core/http', () => ({
 
 import { http } from './core/http';
 import type { PurchaseProposal } from '../context/InspectionContext';
-import { getPurchaseProposals, bossApproveProposal, receiveProposalItem } from './purchasing-api';
+import { getPurchaseProposals, getPurchaseProposal, receiveProposalItem } from './purchasing-api';
 
 const get = http.get as ReturnType<typeof vi.fn>;
 const post = http.post as ReturnType<typeof vi.fn>;
@@ -207,46 +207,45 @@ describe('getPurchaseProposals — tải danh sách kèm sẵn items, không cò
   });
 });
 
-describe('bossApproveProposal — Sếp duyệt ngoài hệ thống bằng file đã ký (2026-08-27)', () => {
-  it('POST /purchase-proposals/:id/boss-approve kèm approvalFileUrl rồi trả về bản ghi mới nhất', async () => {
-    const url = 'https://res.cloudinary.com/x/image/upload/v1/dna-erp/approvals/ky.jpg';
-    post.mockResolvedValueOnce(undefined);
-    get.mockResolvedValueOnce(beProposal({ status: 'PURCHASING' }));
-
-    const result = await bossApproveProposal('300', url);
-
-    expect(post).toHaveBeenCalledWith('/purchase-proposals/300/boss-approve', {
-      approvalFileUrl: url,
-    });
-    expect(get).toHaveBeenCalledWith('/purchase-proposals/300');
-    expect(result.status).toBe('purchasing');
-  });
-
-  // BE tự lọc đúng phần vật tư của actor + nhận cả dòng kẹt ở trạng thái luồng cũ - FE KHÔNG gửi
-  // danh sách itemId nào, chỉ gửi đúng file. Chốt lại bằng test để không ai thêm tham số vào body.
-  it('không gửi kèm itemIds/quote nào - BE tự quyết định dòng nào được duyệt', async () => {
-    post.mockResolvedValueOnce(undefined);
-    get.mockResolvedValueOnce(beProposal());
-
-    await bossApproveProposal('300', 'https://x/y.pdf');
-
-    expect(post).toHaveBeenCalledWith('/purchase-proposals/300/boss-approve', {
-      approvalFileUrl: 'https://x/y.pdf',
-    });
-  });
-
-  it('map approvalFileUrl của từng dòng về FE để hiện link "Xem file Sếp duyệt"', async () => {
+// "Sếp đã duyệt" theo cả đề xuất đã gỡ 2026-11-04 - duyệt theo đơn đặt hàng NCC (supplier-orders-api).
+describe('getPurchaseProposal — map đơn đặt hàng NCC + file Sếp duyệt của từng dòng', () => {
+  it('map số đơn đặt hàng, NCC và approvalFileUrl của từng dòng', async () => {
     const url = 'https://res.cloudinary.com/x/raw/upload/v1/dna-erp/approvals/phieu.pdf';
-    post.mockResolvedValueOnce(undefined);
     get.mockResolvedValueOnce(
       beProposal({
-        items: [{ ...beProposal().items[0], status: 'PURCHASING', approvalFileUrl: url }],
+        items: [
+          {
+            ...beProposal().items[0],
+            status: 'PURCHASING',
+            approvalFileUrl: url,
+            supplierOrderId: '90',
+            supplierOrderCode: '53/2026',
+            supplierOrderStatus: 'APPROVED',
+            supplierName: 'Kim Phát',
+          },
+        ],
       }),
     );
 
-    const result = await bossApproveProposal('300', url);
+    const result = await getPurchaseProposal('300');
 
-    expect(result.items[0].approvalFileUrl).toBe(url);
+    expect(get).toHaveBeenCalledWith('/purchase-proposals/300');
+    expect(result.items[0]).toMatchObject({
+      approvalFileUrl: url,
+      supplierOrderId: '90',
+      supplierOrderCode: '53/2026',
+      supplierOrderStatus: 'APPROVED',
+      supplierName: 'Kim Phát',
+    });
+  });
+
+  it('dòng chưa vào đơn nào -> các trường đơn đặt hàng là null', async () => {
+    get.mockResolvedValueOnce(beProposal());
+
+    const result = await getPurchaseProposal('300');
+
+    expect(result.items[0].supplierOrderId).toBeNull();
+    expect(result.items[0].supplierOrderCode).toBeNull();
   });
 });
 
