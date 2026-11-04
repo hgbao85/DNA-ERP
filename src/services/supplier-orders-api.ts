@@ -16,6 +16,9 @@ export interface SupplierOrderItem {
   buyQty: number;
   purchaseQty: number;
   status: string;
+  receivedQty: number;
+  /** Mã lệnh sản xuất của dòng. */
+  orderCode: string | null;
 }
 
 export interface SupplierOrder {
@@ -34,6 +37,10 @@ export interface SupplierOrder {
   approvedAt: string | null;
   cancelledAt: string | null;
   cancelReason: string | null;
+  /** Số lần THAY PHIẾU (0 = phiếu gốc). */
+  revision: number;
+  revisedAt: string | null;
+  reviseReason: string | null;
   items: SupplierOrderItem[];
 }
 
@@ -45,6 +52,18 @@ export interface SupplierOrderCounter {
   lastSeq: number;
   /** Số lớn nhất hệ thống đã thực sự cấp - không nạp được số nhỏ hơn. */
   maxIssuedSeq: number;
+}
+
+export function getSupplierOrders(status?: SupplierOrderStatus): Promise<SupplierOrder[]> {
+  return http.get<SupplierOrder[]>(`/supplier-orders${status ? `?status=${status}` : ''}`);
+}
+
+export function printSupplierOrder(id: string): Promise<{ fileName: string; base64: string }> {
+  return http.get<{ fileName: string; base64: string }>(`/supplier-orders/${id}/print`);
+}
+
+export function reviseSupplierOrder(id: string, reason: string): Promise<SupplierOrder> {
+  return http.post<SupplierOrder>(`/supplier-orders/${id}/revise`, { reason });
 }
 
 export function createSupplierOrder(supplierId: string, itemIds: string[]): Promise<SupplierOrder> {

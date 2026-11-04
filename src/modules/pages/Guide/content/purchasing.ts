@@ -91,6 +91,41 @@ export const purchasingGroup: GuideGroup = {
       sourceRefs: ['src/modules/pages/Purchasing/LenhMuaNCCPage.tsx'],
     },
     {
+      id: 'purchasing-don-dat-hang',
+      title: 'Tab "Đơn đặt hàng" — gộp nhiều lệnh, in phiếu, thay phiếu',
+      roles: ['purchasing'],
+      purpose: 'Gộp vật tư của nhiều lệnh sản xuất vào 1 đơn đặt hàng cho cùng nhà cung cấp (vd khí hàn mỗi lệnh cần ít, gộp lại cho đủ số tối thiểu NCC bán), in phiếu đề xuất theo mẫu để Giám đốc ký, và thay phiếu khi đơn đã ký cần sửa.',
+      preconditions: [
+        'Vật tư đã được Admin gán người mua phụ trách — chỉ thấy vật tư của mình.',
+        'Nhà cung cấp đã có trong Danh mục hệ thống > Nhà cung cấp.',
+      ],
+      mock: {
+        title: 'Đơn đặt hàng',
+        columns: ['', 'Vật tư', 'Quy cách', 'Lệnh', 'Cần mua', 'Số mua', 'ĐVT', 'Cần về'],
+        rows: [['☑', 'Khí CO2', '—', 'MY-313', '2', '2', 'bình', '08/11/2026'], ['☑', 'Khí CO2', '—', 'GP-176', '1', '1', 'bình', '10/11/2026']],
+        buttons: ['Tạo đơn đặt hàng', 'In phiếu', 'Sếp đã duyệt', 'Thay phiếu'],
+      },
+      steps: [
+        'Khối "Vật tư chờ vào đơn" liệt kê vật tư chưa vào đơn của MỌI lệnh, xếp theo tên vật tư rồi ngày cần về — cùng vật tư nằm cạnh nhau để dễ gộp. Gõ vào ô lọc để tìm theo vật tư hoặc mã lệnh.',
+        'Tick các dòng mua cùng 1 nhà cung cấp (được chọn dòng của nhiều lệnh) → "Tạo đơn đặt hàng" → chọn nhà cung cấp → "Tạo đơn, cấp số". Hệ thống cấp số đơn đặt hàng tiếp theo của nhà cung cấp đó.',
+        'Ở "Đơn của tôi", bấm "In phiếu" để tải file Excel phiếu đề xuất theo mẫu công ty: mỗi vật tư 1 dòng (cộng các lệnh), cột "Số lệnh sản xuất" ghi "lệnh: số cần", vật tư có mua dư thêm dòng "Mua dư → nhập tồn"; quá 15 dòng thì sang trang 2, cùng số đơn.',
+        { text: 'Xin Giám đốc ký phiếu → bấm "Sếp đã duyệt" ở đúng đơn đó → chọn file phiếu đã ký → "Xác nhận".', critical: true },
+        'Đơn đã ký mà cần gỡ vật tư hoặc sửa số mua: bấm "Thay phiếu", ghi lý do. Đơn quay về chờ duyệt (vật tư chưa nhận hàng tạm dừng nhận), sửa xong bấm "In phiếu" — phiếu ghi "THAY PHIẾU lần n", cùng số đơn — xin ký lại và bấm "Sếp đã duyệt" lần nữa.',
+      ],
+      result: 'Vật tư trong đơn đã duyệt chuyển sang "Đang mua hàng"; Kho nhận hàng theo từng dòng, thấy nhà cung cấp và số đơn ở màn Nhập kho.',
+      warnings: [
+        'Màn "Lệnh mua vật tư" vẫn tạo được đơn trong phạm vi 1 lệnh; màn này dùng khi cần gộp nhiều lệnh.',
+        'Vật tư đã nhận hàng (kể cả một phần) thì không gỡ khỏi đơn được, và đơn có vật tư đã nhận thì không huỷ được cả đơn.',
+        'Thay phiếu không đổi số đơn. Số mua sửa ở màn "Lệnh mua vật tư" (bút chì cột Số mua) khi đơn đang chờ duyệt.',
+      ],
+      commonErrors: [
+        { issue: 'Không thấy nút "Thay phiếu"', cause: 'Đơn chưa có phiếu ký (đang "Chờ phiếu Sếp ký").', fix: 'Đơn chưa ký thì gỡ dòng hoặc huỷ đơn trực tiếp, không cần thay phiếu.' },
+        { issue: '"Mọi vật tư trong đơn đã nhận hàng - không còn gì để thay phiếu"', cause: 'Kho đã nhận hàng cho mọi dòng của đơn.', fix: 'Không sửa được nữa; phần thiếu (nếu có) xử lý theo "Đóng phần thiếu" khi có.' },
+      ],
+      tags: ['đơn đặt hàng', 'gộp mua', 'gộp lệnh', 'in phiếu', 'phiếu đề xuất', 'thay phiếu', 'số đơn', 'nhà cung cấp'],
+      sourceRefs: ['src/modules/pages/Purchasing/DonDatHangPage.tsx', 'DNA-ERP-BE/src/modules/purchase-proposals/supplier-orders.service.ts'],
+    },
+    {
       id: 'purchasing-theo-doi',
       title: 'Tab "Theo dõi mua hàng"',
       roles: ['purchasing'],
