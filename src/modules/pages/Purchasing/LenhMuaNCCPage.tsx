@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { focusAttr } from '../../../utils/notificationLink'
-import { ChevronLeft, ClipboardList, FileCheck2, Paperclip, X } from 'lucide-react'
+import { Check, ChevronLeft, ClipboardList, FileCheck2, Paperclip, Pencil, X } from 'lucide-react'
 import { useInspection, PROPOSAL_STATUS_LABELS, itemStatusLabel, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
 import { useAuth, type User } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
@@ -15,7 +15,7 @@ import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 export default function LenhMuaNCCPage() {
   const { user } = useAuth()
-  const { proposals: allProposals, bossApproveProposal } = useInspection()
+  const { proposals: allProposals, bossApproveProposal, updateOrderQty } = useInspection()
   const { data: materials, isLoading: materialsLoading } = useFetch(getMaterials)
   const buyerByMaterialId = buildBuyerByMaterialId(materials ?? [])
   // Purchasing chỉ thấy đề xuất chứa vật tư mình được gán mua (Material.buyerId) — xem purchasingRouting.ts
@@ -39,7 +39,7 @@ export default function LenhMuaNCCPage() {
     <div>
       <h2 style={pageTitle}>Lệnh mua vật tư</h2>
       <div style={{ ...pageSubtitle, marginBottom: 'var(--space-6)' }}>
-        Dựa vào số lượng cần mua dưới đây để làm phiếu so sánh giá, xin Sếp ký duyệt, rồi tải file đã ký lên để Kho được phép nhận hàng.
+        Dựa vào số lượng cần mua dưới đây để làm phiếu so sánh giá, xin Sếp ký duyệt, rồi tải file đã ký lên để Kho được phép nhận hàng. Nhà cung cấp bán theo số tối thiểu thì sửa ô &quot;Số mua&quot; trước khi in phiếu (chỉ được tăng).
       </div>
 
       {proposals.length > 0 ? (
@@ -48,6 +48,7 @@ export default function LenhMuaNCCPage() {
           buyerByMaterialId={buyerByMaterialId}
           proposals={proposals}
           onBossApprove={bossApproveProposal}
+          onUpdateOrderQty={updateOrderQty}
         />
       ) : (
         <EmptyState icon={<ClipboardList size={28} />} message="Không có lệnh mua nào cần xử lý" />
@@ -69,6 +70,110 @@ const td: React.CSSProperties = { padding: '9px 12px' }
  */
 const isPending = (item: PurchaseProposalItem) =>
   item.status !== 'purchasing' && item.status !== 'purchased'
+
+/**
+ * Ô "Số mua" của 1 dòng chờ duyệt (2026-11-04, YC7 mục 7.2): người mua được TĂNG số mua cho tròn
+ * số tối thiểu NCC bán, không được giảm dưới số cần mua (BE chặn lại lần nữa). Phần dư hiện
+ * "Mua dư" để Giám đốc thấy rõ khi ký phiếu; sau "Sếp đã duyệt" dòng rời khỏi bảng này nên không
+ * còn sửa được ở đây.
+ */
+function OrderQtyCell({ item, onSave }: {
+  item: PurchaseProposalItem
+  onSave: (orderQty: number | null) => Promise<void>
+}) {
+  const [editing, setEditing] = useState(false)
+  const [value, setValue] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const isSteel = item.stockLengthMm != null
+  const extra = item.purchaseQty - item.buyQty
+
+  const start = () => {
+    setValue(String(item.purchaseQty))
+    setErr('')
+    setEditing(true)
+  }
+
+  const save = async () => {
+    const n = Number(value.replace(',', '.'))
+    if (value.trim() === '' || !Number.isFinite(n)) { setErr('Nhập một con số'); return }
+    if (n < item.buyQty) { setErr(`Không được nhỏ hơn số cần mua (${item.buyQty})`); return }
+    if (isSteel && !Number.isInteger(n)) { setErr('Sắt mua theo cây - nhập số nguyên'); return }
+    setBusy(true)
+    setErr('')
+    try {
+      await onSave(n > item.buyQty ? n : null)
+      setEditing(false)
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!editing) {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end', whiteSpace: 'nowrap' }}>
+        <b>{item.purchaseQty}</b>
+        {extra > 0 && (
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-2563eb)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, padding: '1px 6px' }}>
+            Mua dư +{Math.round(extra * 10000) / 10000}
+          </span>
+        )}
+        <button
+          onClick={start}
+          title="Sửa số mua (tăng cho tròn số tối thiểu nhà cung cấp bán)"
+          aria-label="Sửa số mua"
+          style={{ display: 'inline-flex', padding: 3, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', cursor: 'pointer', color: 'var(--text2)' }}
+        >
+          <Pencil size={12} />
+        </button>
+      </span>
+    )
+  }
+
+  return (
+    <span style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <input
+          type="number"
+          inputMode="decimal"
+          aria-label="Số mua"
+          min={item.buyQty}
+          step={isSteel ? 1 : 'any'}
+          value={value}
+          autoFocus
+          disabled={busy}
+          onChange={e => setValue(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') void save()
+            if (e.key === 'Escape') setEditing(false)
+          }}
+          style={{ width: 90, padding: '4px 6px', fontSize: 13, textAlign: 'right', border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text)' }}
+        />
+        <button
+          onClick={() => void save()}
+          disabled={busy}
+          title="Lưu"
+          aria-label="Lưu số mua"
+          style={{ display: 'inline-flex', padding: 5, border: 'none', borderRadius: 6, background: 'var(--bg-2563eb)', color: '#fff', cursor: busy ? 'default' : 'pointer' }}
+        >
+          <Check size={13} />
+        </button>
+        <button
+          onClick={() => setEditing(false)}
+          disabled={busy}
+          title="Huỷ"
+          aria-label="Huỷ sửa số mua"
+          style={{ display: 'inline-flex', padding: 5, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: busy ? 'default' : 'pointer' }}
+        >
+          <X size={13} />
+        </button>
+      </span>
+      {err && <span style={{ fontSize: 11, color: 'var(--fg-dc2626)', maxWidth: 220, textAlign: 'right' }}>{err}</span>}
+    </span>
+  )
+}
 
 const ACCEPT_ATTR = 'image/*,application/pdf,.pdf,.xls,.xlsx'
 const MAX_FILE_BYTES = 10 * 1024 * 1024
@@ -199,11 +304,12 @@ function BossApproveModal({ itemCount, onClose, onConfirm }: {
   )
 }
 
-function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: {
+function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove, onUpdateOrderQty }: {
   user: User | null
   buyerByMaterialId: MaterialBuyerMap
   proposals: PurchaseProposal[]
   onBossApprove: (id: string, approvalFileUrl: string) => Promise<void>
+  onUpdateOrderQty: (proposalId: string, itemId: string, orderQty: number | null) => Promise<void>
 }) {
   const warehouseName = useWarehouseName()
   const isCompact = useIsCompact()
@@ -298,6 +404,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
                     fields={[
                       { label: 'Tồn thực', value: <span style={{ color: 'var(--fg-dc2626)' }}>{item.actualStock}</span> },
                       { label: 'Cần mua', value: <><b style={{ color: 'var(--fg-d97706)' }}>{item.buyQty}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{item.unit}</span></> },
+                      { label: 'Số mua', value: item.itemId ? <OrderQtyCell item={item} onSave={q => onUpdateOrderQty(p.id, item.itemId!, q)} /> : item.purchaseQty },
                       { label: 'Hao hụt', value: item.purchaseWastePercentage ? `+${item.purchaseWastePercentage}%` : '—' },
                       { label: 'Hàng về kho', value: warehouseName(item.warehouseCode, item.khoLabel) },
                     ]}
@@ -316,6 +423,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
                     <th style={{ ...th, textAlign: 'right' }}>Tồn thực</th>
                     <th style={{ ...th, textAlign: 'right' }}>Cần mua</th>
                     <th style={{ ...th, textAlign: 'right' }}>Hao hụt</th>
+                    <th style={{ ...th, textAlign: 'right' }} title="Được tăng cho tròn số tối thiểu nhà cung cấp bán; Giám đốc duyệt bằng chữ ký trên phiếu">Số mua</th>
                     <th style={th}>ĐVT</th>
                   </tr>
                 </thead>
@@ -331,6 +439,9 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onBossApprove }: 
                       <td style={{ ...td, textAlign: 'right', color: 'var(--fg-dc2626)' }}>{item.actualStock}</td>
                       <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: 'var(--fg-d97706)' }}>{item.buyQty}</td>
                       <td style={{ ...td, textAlign: 'right', fontSize: 12, color: 'var(--text3)' }}>{item.purchaseWastePercentage ? `+${item.purchaseWastePercentage}%` : '—'}</td>
+                      <td style={{ ...td, textAlign: 'right' }}>
+                        {item.itemId ? <OrderQtyCell item={item} onSave={q => onUpdateOrderQty(p.id, item.itemId!, q)} /> : item.purchaseQty}
+                      </td>
                       <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
                     </tr>
                   ))}

@@ -50,7 +50,8 @@ function buildRows(p: PurchaseProposal): Row[] {
       itemId: item.itemId,
       poNumber: p.salesOrderCode,
       itemName: item.name,
-      buyQty: item.buyQty,
+      // Số MUA (cần mua + mua dư đã chốt, 2026-11-04).
+      buyQty: item.purchaseQty,
       unit: item.unit,
       spec: item.spec,
       stockLengthMm: item.stockLengthMm,

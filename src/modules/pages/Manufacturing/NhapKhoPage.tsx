@@ -114,7 +114,8 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
     const qty = unitRateQty * supplierUnitQty
     const received = item.receivedQty ?? 0
     const total = received + qty
-    if (total > item.buyQty) {
+    // So với SỐ MUA (purchaseQty = cần mua + mua dư người mua đã chốt, 2026-11-04), không phải số cần mua.
+    if (total > item.purchaseQty) {
       ask(
         {
           message: `Xác nhận đã nhận ${total} ${item.unit} "${item.name}"?`,
@@ -190,7 +191,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                 <th style={th}>Tên vật tư</th>
                 <th style={th}>Quy cách</th>
                 <th style={th}>ĐVT</th>
-                <th style={{ ...th, textAlign: 'right' }}>SL cần mua</th>
+                <th style={{ ...th, textAlign: 'right' }}>SL đặt mua</th>
                 <th style={{ ...th, textAlign: 'right' }}>Đã nhận</th>
                 <th style={th}>Nhập thêm</th>
               </tr>
@@ -198,7 +199,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
             <tbody>
               {visibleItems.map(item => {
                 const received = item.receivedQty ?? 0
-                const done = received >= item.buyQty
+                const done = received >= item.purchaseQty
                 const partial = received > 0 && !done
                 const key = inputKey(selected.id, itemKey(item))
                 const unitRateVal = unitRateInputs[key] ?? ''
@@ -227,7 +228,7 @@ function NhapKhoSection({ lockedGroup }: { lockedGroup?: string | null }) {
                     </td>
                     <td style={{ ...td, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.spec || '—'}</td>
                     <td style={{ ...td, color: 'var(--text3)' }}>{item.unit}</td>
-                    <td style={{ ...td, textAlign: 'right' }}>{item.buyQty}</td>
+                    <td style={{ ...td, textAlign: 'right' }}>{item.purchaseQty}</td>
                     <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: done ? 'var(--fg-16a34a)' : partial ? 'var(--fg-d97706)' : 'var(--text)' }}>
                       {received}
                     </td>

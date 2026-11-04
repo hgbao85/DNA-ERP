@@ -68,7 +68,8 @@ function buildRows(p: PurchaseProposal): Row[] {
       itemId: item.itemId,
       poNumber: p.salesOrderCode,
       itemName: item.name,
-      buyQty: item.buyQty,
+      // Số MUA (cần mua + mua dư đã chốt, 2026-11-04) - số đặt NCC và chờ về.
+      buyQty: item.purchaseQty,
       purchaseWastePercentage: item.purchaseWastePercentage,
       unit: item.unit,
       spec: item.spec,
@@ -76,7 +77,7 @@ function buildRows(p: PurchaseProposal): Row[] {
       khoLabel: item.khoLabel,
       warehouseCode: item.warehouseCode,
       boughtQty,
-      remaining: Math.max(0, item.buyQty - boughtQty),
+      remaining: Math.max(0, item.purchaseQty - boughtQty),
       // Hạn RIÊNG của dòng theo nhóm vật tư (bao bì theo hạn Đóng gói...) - cùng hạn với Bảng mốc và tin sáng mở vào đây.
       deadline: item.deadline ?? p.deadline,
       approvalFileUrl: item.approvalFileUrl,
