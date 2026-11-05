@@ -71,7 +71,7 @@ export default function DonDatHangPage() {
       const { mine } = splitItemsByOwner(user, p.items, buyerByMaterialId)
       for (const item of mine) {
         if (isPending(item) && !item.supplierOrderId && item.itemId) {
-          rows.push({ proposalId: p.id, piCode: p.piCode, deadline: item.deadline ?? p.deadline, item })
+          rows.push({ proposalId: p.id, piCode: p.lenhCode, deadline: item.deadline ?? p.deadline, item })
         }
       }
     }

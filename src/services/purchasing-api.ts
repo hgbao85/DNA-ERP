@@ -137,6 +137,8 @@ interface BeProposal {
   poNumber: string;
   salesOrderCode: string | null;
   piCode: string;
+  // Mã lệnh hiển thị - số LSX (2026-11-05, BE PurchaseProposalResponseDto.lenhCode).
+  lenhCode?: string;
   mfgProductCode: string;
   mfgProductName: string | null;
   // Hạn Mua hàng nên ưu tiên (A3, 2026-08-15) - BE tính từ materialDeadline/mốc Khung cơ khí/hạn
@@ -231,6 +233,7 @@ function toProposal(be: BeProposal): PurchaseProposal {
     poNumber: be.poNumber,
     salesOrderCode: be.salesOrderCode,
     piCode: be.piCode,
+    lenhCode: be.lenhCode ?? be.piCode,
     skuCode: be.mfgProductCode,
     skuName: be.mfgProductName ?? undefined,
     createdAt: be.createdAt,

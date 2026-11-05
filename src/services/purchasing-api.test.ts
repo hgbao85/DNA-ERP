@@ -75,6 +75,7 @@ function feProposal(overrides: Partial<PurchaseProposal> = {}): PurchaseProposal
     poNumber: 'PO-9',
     salesOrderCode: 'PO-31',
     piCode: 'PI-2026-001',
+    lenhCode: 'PI-2026-001',
     skuCode: 'JSE-55',
     skuName: 'Ghế J55',
     createdAt: '2026-08-07T00:00:00.000Z',
@@ -237,6 +238,15 @@ describe('getPurchaseProposal — map đơn đặt hàng NCC + file Sếp duyệ
       supplierOrderStatus: 'APPROVED',
       supplierName: 'Kim Phát',
     });
+  });
+
+  it('2026-11-05: lenhCode lấy số LSX từ BE; BE cũ chưa trả thì bằng piCode (piCode giữ nguyên để so khớp)', async () => {
+    get.mockResolvedValueOnce(beProposal({ lenhCode: 'MY-313' }));
+    const withLsx = await getPurchaseProposal('300');
+    expect(withLsx).toMatchObject({ piCode: 'PI-2026-001', lenhCode: 'MY-313' });
+
+    get.mockResolvedValueOnce(beProposal());
+    expect((await getPurchaseProposal('300')).lenhCode).toBe('PI-2026-001');
   });
 
   it('dòng chưa vào đơn nào -> các trường đơn đặt hàng là null', async () => {

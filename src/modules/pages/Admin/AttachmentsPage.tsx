@@ -236,7 +236,7 @@ function ApprovalFilesTab() {
 
   const rows = useMemo(() => proposals.flatMap(p => p.items
     .filter(it => it.approvalFileUrl && it.itemId)
-    .map(it => ({ proposalId: p.id, piCode: p.piCode, skuCode: p.skuCode, skuName: p.skuName, item: it }))),
+    .map(it => ({ proposalId: p.id, piCode: p.lenhCode, skuCode: p.skuCode, skuName: p.skuName, item: it }))),
     [proposals])
 
   // GỌI QUA CONTEXT (updateApprovalFile), KHÔNG gọi thẳng services/purchasing-api.ts - context tự

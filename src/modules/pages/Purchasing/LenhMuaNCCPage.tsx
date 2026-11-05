@@ -557,7 +557,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onCreateOrder, on
           <thead>
             <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
               <th style={th}>PO</th>
-              <th style={th}>PI</th>
+              <th style={th}>Lệnh</th>
               <th style={th}>Mã nhà máy</th>
               <th style={th}>Deadline</th>
               <th style={th}>Trạng thái</th>
@@ -575,7 +575,7 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onCreateOrder, on
                   onMouseLeave={e => (e.currentTarget.style.background = '')}
                 >
                   <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{p.salesOrderCode ?? '—'}</td>
-                  <td style={{ ...td, fontFamily: 'monospace', color: 'var(--text3)' }}>{p.piCode}</td>
+                  <td style={{ ...td, fontFamily: 'monospace', color: 'var(--text3)' }}>{p.lenhCode}</td>
                   <td style={td}>
                     <span style={{ fontWeight: 600 }}>{p.skuCode}</span>
                     {p.skuName && <span style={{ marginLeft: 6, color: 'var(--text3)', fontSize: 12 }}>{p.skuName}</span>}

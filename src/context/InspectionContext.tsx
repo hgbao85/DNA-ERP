@@ -127,6 +127,9 @@ export interface PurchaseProposal {
   /** Mã ProductionInvoice ("PI-2026-001") lệnh SX/PI gộp phía trên thuộc về - KHÁC poNumber (2 bộ
    *  đếm độc lập, ProductionOrder vs ProductionInvoice) dù cùng hiển thị cạnh nhau trên UI. */
   piCode: string
+  /** Mã lệnh hiển thị (2026-11-05): số LSX nhà máy (lệnh gộp nối " + "), lệnh cũ chưa có LSX thì bằng piCode.
+   *  CHỈ để hiển thị - so khớp với lệnh vẫn dùng piCode. */
+  lenhCode: string
   skuCode: string
   skuName?: string
   createdAt: string
