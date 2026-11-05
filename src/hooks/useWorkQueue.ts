@@ -83,7 +83,8 @@ export function useWorkQueueState() {
     }
   }, [poll, connected, token])
 
-  return { counts }
+  // Phần A – Đợt 9: `refresh` để màn vừa xử lý việc (vd Sếp duyệt đổi mốc) tải lại số nhắc việc ngay, không chờ lượt poll 30–120 s.
+  return { counts, refresh: poll }
 }
 
 export type WorkQueueState = ReturnType<typeof useWorkQueueState>

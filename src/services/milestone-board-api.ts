@@ -46,6 +46,8 @@ export interface MilestoneRow {
   /** Phần A – Đợt 3 (YC10): ngày đã lưu của mốc "Bắt đầu Phôi" / "Bắt đầu đóng gói" ('YYYY-MM-DD'), null = chưa lưu. */
   phoiStart?: string | null;
   packagingStart?: string | null;
+  /** Phần A – Đợt 9 (YC2): dòng này có yêu cầu đổi mốc đang chờ Sếp duyệt (xưởng vẫn chạy theo mốc cũ). */
+  pendingDeadlineChange?: boolean;
   worst: MilestoneStatus;
 }
 
