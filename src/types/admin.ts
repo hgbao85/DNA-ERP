@@ -84,6 +84,10 @@ export interface SystemConfig {
   solverMergeMaxSkus: number;
   /** Thể tích container 40HC (m³, 2 số lẻ) dùng tính load cont của SKU (Phần A YC9). Mặc định 68. */
   containerVolumeM3?: number;
+  /** Phần A – Đợt 3 (YC10): trần cont/ngày của mỗi xưởng Phú An và mỗi kho đóng gói (0,1–20). Mặc định 1,3. Chỉ để cảnh báo. */
+  capacityContPerDay: number;
+  /** Phần A – Đợt 3: số ngày cho 1 cont ở Phôi, Hàn của xưởng Phước An (1–60). Mặc định 4. */
+  daysPerContPhuocAn: number;
 }
 
 export type NotificationCategory = 'ANNOUNCEMENT' | 'ACTION_REQUIRED' | 'RESULT' | 'ALERT' | 'INFO';

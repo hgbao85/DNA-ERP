@@ -13,6 +13,7 @@ import { pageTitle, pageSubtitle } from '../../../styles/typography'
 // Phần A – Đợt 2: tiền tố số LSX
 import { LSX_PREFIX_PATTERN, parseLsxPrefixes } from '../../../utils/lenhCode'
 import { invalidateLsxPrefixes } from '../../../hooks/useLsxPrefixes'
+import { invalidatePlanningParams } from '../../../hooks/usePlanningParams'
 
 /** Card này là form nhập chữ — chỉ nhận các field chữ của SystemConfig, không nhận field boolean
  *  (vd solverAllowCustomLength, thuộc nghiệp vụ cắt sắt chứ không phải thông tin công ty). */
@@ -39,7 +40,7 @@ const FIELDS: { name: TextField | 'floorPublicUrl'; label: string; required?: bo
 
 /** Nhóm "Máy cắt" - cấu hình thật cho bộ giải Đề xuất thanh sắt (màn Tối ưu cắt sắt đọc). Các tham số số nhập dạng
  *  chữ (giữ được lúc đang gõ dở "2,"), chỉ đổi thành số + kiểm tra khi bấm Lưu. */
-type McNumName = 'solverMctdBladeWidthMm' | 'solverMctdTrimStartMm' | 'solverMaxManualCuts' | 'solverMaxSizesPerPattern' | 'solverMergeWindowDays' | 'solverMergeMaxSkus' | 'containerVolumeM3'
+type McNumName = 'solverMctdBladeWidthMm' | 'solverMctdTrimStartMm' | 'solverMaxManualCuts' | 'solverMaxSizesPerPattern' | 'solverMergeWindowDays' | 'solverMergeMaxSkus' | 'containerVolumeM3' | 'capacityContPerDay' | 'daysPerContPhuocAn'
 type McKey = McNumName | 'solverBundleFactors'
 const MC_NUM_FIELDS: { name: McNumName; label: string; help: string; integer: boolean; min: number; max: number }[] = [
   {
@@ -80,6 +81,17 @@ const CONTAINER_VOLUME_FIELD: (typeof MC_NUM_FIELDS)[number] = {
   name: 'containerVolumeM3', label: 'Thể tích cont 40HC (m³)', integer: false, min: 1, max: 200,
   help: 'Dùng tính load cont của SKU. Đổi số này thì hệ thống tính lại load cont của mọi SKU. Mặc định 68.',
 }
+/** Phần A – Đợt 3 (YC10): năng lực sản xuất - chỉ để CẢNH BÁO (tab "Năng lực" ở Tổng hợp lệnh SX, hộp QLSX), không khoá việc nào. */
+const CAPACITY_FIELDS: (typeof MC_NUM_FIELDS)[number][] = [
+  {
+    name: 'capacityContPerDay', label: 'Cont/ngày mỗi xưởng Phú An và mỗi kho đóng gói', integer: false, min: 0.1, max: 20,
+    help: 'Trần số cont làm trong 1 ngày ở mỗi công đoạn của xưởng Phú An và ở mỗi kho đóng gói. Vượt thì chỉ báo, không chặn. Mặc định 1,3.',
+  },
+  {
+    name: 'daysPerContPhuocAn', label: 'Xưởng Phước An: số ngày cho 1 cont (Phôi, Hàn)', integer: true, min: 1, max: 60,
+    help: 'Phước An làm theo khối: 1 cont chiếm chừng này ngày; 2 lệnh cùng chiếm 1 ngày thì báo. Mặc định 4.',
+  },
+]
 const MC_FACTORS_HELP = 'Số cây cắt cùng lúc trong một bó. Nhập các số cách nhau bằng dấu cách, vd: 14 16 18 20. Mỗi số là số nguyên lớn hơn 1, tối đa 8 số. Mặc định 14 16 18 20.'
 const fmtMcNum = (n: number | undefined) => (n == null ? '' : String(n).replace('.', ','))
 
@@ -141,7 +153,7 @@ export default function SystemConfigPage() {
     // Nhóm "Máy cắt": đổi chữ đang gõ thành số, báo lỗi ngay tại đây thay vì để BE trả 400.
     const next: SystemConfig = { ...values }
     const errs: Partial<Record<McKey, string>> = {}
-    for (const f of [...MC_NUM_FIELDS, ...MERGE_FIELDS, CONTAINER_VOLUME_FIELD]) {
+    for (const f of [...MC_NUM_FIELDS, ...MERGE_FIELDS, CONTAINER_VOLUME_FIELD, ...CAPACITY_FIELDS]) {
       const raw = mcText[f.name]
       if (raw === undefined) continue
       const n = Number(raw.trim().replace(',', '.'))
@@ -150,7 +162,7 @@ export default function SystemConfigPage() {
         continue
       }
       // Thể tích cont giữ 2 số lẻ (BE cũng làm tròn 2 số lẻ).
-      next[f.name] = f.name === 'containerVolumeM3' ? Math.round(n * 100) / 100 : n
+      next[f.name] = f.name === 'containerVolumeM3' || f.name === 'capacityContPerDay' ? Math.round(n * 100) / 100 : n
     }
     if (mcText.solverBundleFactors !== undefined) {
       const parts = mcText.solverBundleFactors.split(/[\s,;]+/).filter(Boolean).map(Number)
@@ -182,6 +194,7 @@ export default function SystemConfigPage() {
       setMcErrors({})
       setLsxText(undefined)
       invalidateLsxPrefixes()
+      invalidatePlanningParams()
       await refetch()
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không thể lưu cấu hình')
@@ -410,6 +423,29 @@ export default function SystemConfigPage() {
           />
           {mcErrors.containerVolumeM3 && <div id="mc-containerVolumeM3-error" role="alert" style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 4 }}>{mcErrors.containerVolumeM3}</div>}
           <div id="mc-containerVolumeM3-help" style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, lineHeight: 1.5 }}>{CONTAINER_VOLUME_FIELD.help}</div>
+        </div>
+
+        {/* Phần A – Đợt 3 (YC10): năng lực sản xuất, chỉ cảnh báo. */}
+        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-4)' }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Năng lực sản xuất (chỉ cảnh báo)</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: 'var(--space-3)', alignItems: 'start' }}>
+            {CAPACITY_FIELDS.map((f) => (
+              <div key={f.name}>
+                <label htmlFor={`mc-${f.name}`} style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>{f.label}</label>
+                <input
+                  id={`mc-${f.name}`}
+                  value={mcText[f.name] ?? fmtMcNum(values[f.name] ?? (f.name === 'capacityContPerDay' ? 1.3 : 4))}
+                  onChange={e => { setMcText(t => ({ ...t, [f.name]: e.target.value })); setMcErrors(er => ({ ...er, [f.name]: undefined })) }}
+                  inputMode={f.integer ? 'numeric' : 'decimal'}
+                  aria-invalid={mcErrors[f.name] ? true : undefined}
+                  aria-describedby={`mc-${f.name}-help${mcErrors[f.name] ? ` mc-${f.name}-error` : ''}`}
+                  style={{ ...inputStyle, ...(mcErrors[f.name] ? { borderColor: 'var(--fg-c62828)' } : null) }}
+                />
+                {mcErrors[f.name] && <div id={`mc-${f.name}-error`} role="alert" style={{ color: 'var(--fg-c62828)', fontSize: 12, marginTop: 4 }}>{mcErrors[f.name]}</div>}
+                <div id={`mc-${f.name}-help`} style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4, lineHeight: 1.5 }}>{f.help}</div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {error && <div style={{ color: 'var(--fg-c62828)', fontSize: 12 }}>{error}</div>}

@@ -450,6 +450,8 @@ export interface BePiOrderSummary {
   /** Mốc kế hoạch Phôi (LenhSXPage "Sửa thời hạn", ProdItemStageType.FRAME_PHOI) của đúng SKU này -
    *  null nếu KHSX chưa từng đặt. Thêm 2026-09-12 để màn Lệnh sản xuất Phôi hiện được deadline. */
   phoiDeadline: string | null;
+  /** Phần A – Đợt 3 (YC10): mốc "Bắt đầu Phôi" (PHOI_START) của SKU - null nếu chưa lưu. BE cũ thiếu field. */
+  phoiStart?: string | null;
 }
 
 export async function getPiOrderSummary(productionInvoiceId: string): Promise<BePiOrderSummary[]> {

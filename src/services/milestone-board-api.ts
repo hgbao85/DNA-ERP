@@ -9,6 +9,7 @@ export type MilestoneKey =
   | 'SON'
   | 'KHUNG'
   | 'DAN'
+  | 'CHUYEN_KIEM'
   | 'MUA_VT_CON_LAI'
   | 'DONG_GOI'
   | 'HAN_GIAO';
@@ -42,6 +43,9 @@ export interface MilestoneRow {
   quantity: number;
   floorStage: 'PENDING' | 'ACTIVE' | 'PAUSED' | 'FINISHED';
   milestones: MilestoneCell[];
+  /** Phần A – Đợt 3 (YC10): ngày đã lưu của mốc "Bắt đầu Phôi" / "Bắt đầu đóng gói" ('YYYY-MM-DD'), null = chưa lưu. */
+  phoiStart?: string | null;
+  packagingStart?: string | null;
   worst: MilestoneStatus;
 }
 

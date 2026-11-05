@@ -34,6 +34,7 @@ import type { BePackagingProgress } from '../../../services/packaging-api'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import { useUrlState } from '../../../hooks/useUrlState'
 import MilestoneBoardView from './MilestoneBoardView'
+import CapacityView from './CapacityView'
 import LenhCodeText from '../../../components/LenhCodeText'
 // Phần A – Đợt 2: số LSX + xưởng cơ khí
 import { lineCode, matchesLenhSearch } from '../../../utils/lenhCode'
@@ -1508,12 +1509,15 @@ function DeadlineText({ deadline, overdue, overdueLabel }: { deadline?: string; 
 export default function ThongKePagePlan() {
   const [view, setView] = useUrlState('view')
   const isBoard = view === 'moc'
+  const isCapacity = view === 'nang-luc' // Phần A – Đợt 3 (YC10): năng lực 1,3 cont/ngày
   const viewSwitch = (
     <div style={{ display: 'inline-flex', borderBottom: '1px solid var(--border)' }}>
-      <button type="button" onClick={() => setView(null)} style={tabBtn(!isBoard, 'var(--fg-1d4ed8)')}>Theo lệnh</button>
+      <button type="button" onClick={() => setView(null)} style={tabBtn(!isBoard && !isCapacity, 'var(--fg-1d4ed8)')}>Theo lệnh</button>
       <button type="button" onClick={() => setView('moc')} style={tabBtn(isBoard, 'var(--fg-1d4ed8)')}>Bảng mốc</button>
+      <button type="button" onClick={() => setView('nang-luc')} style={tabBtn(isCapacity, 'var(--fg-1d4ed8)')}>Năng lực</button>
     </div>
   )
+  if (isCapacity) return <CapacityView viewSwitch={viewSwitch} />
   return isBoard ? <MilestoneBoardView viewSwitch={viewSwitch} /> : <OrderSummaryView viewSwitch={viewSwitch} />
 }
 

@@ -12,6 +12,7 @@ import {
   getMilestoneBoard,
   type MilestoneBoard,
   type MilestoneCell,
+  type MilestoneKey,
   type MilestoneRow,
   type MilestoneStatus,
 } from '../../../services/milestone-board-api'
@@ -66,7 +67,14 @@ function cellTitle(c: MilestoneCell): string {
   return parts.join(' · ') + (c.reason ? `\n${c.reason}` : '')
 }
 
-function StatusCell({ cell }: { cell: MilestoneCell }) {
+/** Phần A – Đợt 3: ô Phôi / Đóng gói ghi thêm ngày BẮT ĐẦU đã lưu (chữ nhỏ mờ), chỉ khi có. */
+function startOf(row: MilestoneRow, key: MilestoneKey): string | null {
+  if (key === 'PHOI') return row.phoiStart ?? null
+  if (key === 'DONG_GOI') return row.packagingStart ?? null
+  return null
+}
+
+function StatusCell({ cell, start }: { cell: MilestoneCell; start?: string | null }) {
   const meta = STATUS_META[cell.status]
   const showPct = cell.status !== 'DONE' && cell.status !== 'NA' && cell.status !== 'UNKNOWN' && cell.percent > 0
   // Mốc "Không cần" có ngày lưu sẵn cũng không hiện - ngày đó không có ý nghĩa gì.
@@ -79,6 +87,7 @@ function StatusCell({ cell }: { cell: MilestoneCell }) {
           {showDate ? ddmm(cell.deadline!) : ''}{showDate && showPct ? ' · ' : ''}{showPct ? `${cell.percent}%` : ''}
         </div>
       )}
+      {start && <div style={{ fontSize: 10, opacity: 0.7, whiteSpace: 'nowrap' }}>Bắt đầu {ddmm(start)}</div>}
     </div>
   )
 }
@@ -227,7 +236,7 @@ export default function MilestoneBoardView({ viewSwitch }: { viewSwitch: ReactNo
                     </div>
                   </td>
                   {r.milestones.map(c => (
-                    <td key={c.key} style={{ padding: '6px 4px', verticalAlign: 'middle' }}><StatusCell cell={c} /></td>
+                    <td key={c.key} style={{ padding: '6px 4px', verticalAlign: 'middle' }}><StatusCell cell={c} start={startOf(r, c.key)} /></td>
                   ))}
                 </tr>
               ))}
@@ -265,7 +274,10 @@ function MobileCard({ row }: { row: MilestoneRow }) {
               {c.label}
               {c.reason && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text3)', wordBreak: 'break-word' }}>{c.reason}</span>}
             </span>
-            <Chip status={c.status}>{cellText(c)}{c.deadline ? ` · ${ddmm(c.deadline)}` : ''}</Chip>
+            <span style={{ textAlign: 'right' }}>
+              <Chip status={c.status}>{cellText(c)}{c.deadline ? ` · ${ddmm(c.deadline)}` : ''}</Chip>
+              {startOf(row, c.key) && <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)' }}>Bắt đầu {ddmm(startOf(row, c.key)!)}</span>}
+            </span>
           </div>
         ))}
         {noDeadline.length > 0 && (
