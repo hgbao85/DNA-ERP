@@ -9,7 +9,7 @@ vi.mock('./core/http', () => ({
 
 import { http } from './core/http';
 import type { PurchaseProposal } from '../context/InspectionContext';
-import { getPurchaseProposals, getPurchaseProposal, receiveProposalItem } from './purchasing-api';
+import { getPurchaseProposals, getPurchaseProposal } from './purchasing-api';
 
 const get = http.get as ReturnType<typeof vi.fn>;
 const post = http.post as ReturnType<typeof vi.fn>;
@@ -256,37 +256,5 @@ describe('getPurchaseProposal — map đơn đặt hàng NCC + file Sếp duyệ
 
     expect(result.items[0].supplierOrderId).toBeNull();
     expect(result.items[0].supplierOrderCode).toBeNull();
-  });
-});
-
-describe('receiveProposalItem', () => {
-  it('nhận itemId thật, POST receive trực tiếp KHÔNG qua dịch (L6, 2026-08-26) với đúng Ô1/Ô2 kèm header Idempotency-Key', async () => {
-    post.mockResolvedValueOnce(undefined);
-    get.mockResolvedValueOnce(beProposal({ status: 'PURCHASED' }));
-
-    const result = await receiveProposalItem(feProposal(), '400', { unitRateQty: 8 });
-
-    expect(post).toHaveBeenCalledWith(
-      '/purchase-proposals/300/items/400/receive',
-      { unitRateQty: 8 },
-      { headers: { 'Idempotency-Key': expect.any(String) as string } },
-    );
-    expect(result.status).toBe('purchased');
-  });
-
-  // L6 (2026-08-26): 2 DÒNG CÙNG materialId (đã PURCHASED + shortfall mới) - trước đây tra theo
-  // materialId sẽ luôn khớp NHẦM vào dòng ĐẦU TIÊN trong proposal.items, khiến thủ kho không thể
-  // nào xác nhận nhận hàng riêng cho dòng shortfall. itemId thật không có ca này.
-  it('2 DÒNG CÙNG materialId - vẫn nhận đúng dòng shortfall (itemId khác), không lẫn sang dòng đã purchased', async () => {
-    post.mockResolvedValueOnce(undefined);
-    get.mockResolvedValueOnce(beProposal({ status: 'PURCHASING' }));
-
-    await receiveProposalItem(feProposal(), '402', { unitRateQty: 3 });
-
-    expect(post).toHaveBeenCalledWith(
-      '/purchase-proposals/300/items/402/receive',
-      { unitRateQty: 3 },
-      expect.anything(),
-    );
   });
 });

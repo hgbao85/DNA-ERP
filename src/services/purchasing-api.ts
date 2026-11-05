@@ -46,7 +46,7 @@
  * thiếu thêm sẽ tách thành DÒNG MỚI cùng materialId, khoá theo materialId khiến thao tác của dòng
  * này ghi đè/lẫn sang dòng kia.
  */
-import { http, withIdempotencyKey } from './core/http';
+import { http } from './core/http';
 import type { KhoKey, PurchaseProposal, PurchaseProposalItem } from '../context/InspectionContext';
 import { warehouseFamilyOf } from '../utils/warehouseFamily';
 
@@ -82,6 +82,9 @@ interface BeItem {
   // KHÔNG snapshot (xem BE PurchaseProposalItemResponseDto, 2026-10-08). Đã được BE cộng vào
   // buyQty rồi - field này chỉ để FE giải thích vì sao buyQty cao hơn nhu cầu gốc.
   purchaseWastePercentage: number | null;
+  /** Vật tư nhóm Sắt - nhận hàng bắt buộc ảnh phiếu cân xe (Đợt 5d). Thiếu (BE cũ) coi như không. */
+  isSteel?: boolean;
+  supplierOrderApprovalFileUrl?: string | null;
   // Kho nhận hàng THẬT của riêng vật tư này (Material.warehouseId, xem BE
   // PurchaseProposalItemResponseDto) - Sếp chốt 2026-08-15: 1 đề xuất có thể gồm nhiều vật tư
   // khác kho nhau, KHÔNG còn dùng chung warehouseCode của cả đề xuất (be.warehouseCode dưới).
@@ -127,6 +130,13 @@ interface BeReceiptLog {
   receiptFileUrl: string | null;
   receivedByName: string | null;
   receivedAt: string;
+  receiptId?: string | null;
+  receiptTotalQty?: number | null;
+  allocationAdjusted?: boolean;
+  supplierSlipUrls?: string[];
+  approvalFileUrls?: string[];
+  receiptSlipUrls?: string[];
+  weighSlipUrls?: string[];
 }
 
 interface BeProposal {
@@ -174,6 +184,8 @@ function toItem(item: BeItem): PurchaseProposalItem {
     // "Mm" (test thật 2026-10-29, BE changelog 2026-09-25 mục 32.27). Đổi 1 chỗ ở đây cho mọi màn mua / nhập kho.
     unit: item.stockLengthMm != null ? 'cây' : item.unit,
     purchaseWastePercentage: item.purchaseWastePercentage,
+    isSteel: item.isSteel ?? false,
+    supplierOrderApprovalFileUrl: item.supplierOrderApprovalFileUrl ?? null,
     required: item.actualStock + item.buyQty,
     actualStock: item.actualStock,
     buyQty: item.buyQty,
@@ -210,6 +222,13 @@ function toItem(item: BeItem): PurchaseProposalItem {
       receiptFileUrl: r.receiptFileUrl,
       receivedByName: r.receivedByName,
       receivedAt: r.receivedAt,
+      receiptId: r.receiptId ?? null,
+      receiptTotalQty: r.receiptTotalQty ?? null,
+      allocationAdjusted: r.allocationAdjusted ?? false,
+      supplierSlipUrls: r.supplierSlipUrls ?? [],
+      approvalFileUrls: r.approvalFileUrls ?? [],
+      receiptSlipUrls: r.receiptSlipUrls ?? [],
+      weighSlipUrls: r.weighSlipUrls ?? [],
     })),
   };
 }
@@ -304,23 +323,4 @@ export async function updateProposalItemOrderQty(
 ): Promise<PurchaseProposal> {
   await http.patch(`/purchase-proposals/${proposalId}/items/${itemId}/order-qty`, { orderQty });
   return getPurchaseProposal(proposalId);
-}
-
-/** `itemId` (2026-08-26, L6) là PurchaseProposalItem.id thật - gửi thẳng lên BE, không cần tra
- *  ngược qua proposal.items nữa (trước đây dịch qua materialId, xem comment đầu file). */
-export async function receiveProposalItem(
-  proposal: PurchaseProposal,
-  itemId: string,
-  input: { unitRateQty: number; supplierUnitQty?: number; receiptFileUrl?: string },
-): Promise<PurchaseProposal> {
-  // BE ghi StockLedger (PURCHASE) mỗi lần nhận hàng - bắt buộc header này vì 1 item có thể nhận
-  // nhiều đợt nên không có key tất định từ dữ liệu (xem PurchaseProposalsService.receiveItem()).
-  // Ô1 (unitRateQty) × Ô2 (supplierUnitQty) = receivedQty - BE tự nhân (2026-10-16, thay cho
-  // hệ số quy đổi cố định Material.khoUnitFactor đã xoá).
-  await http.post(
-    `/purchase-proposals/${proposal.id}/items/${itemId}/receive`,
-    input,
-    withIdempotencyKey(),
-  );
-  return getPurchaseProposal(proposal.id);
 }

@@ -6,10 +6,16 @@ import { useAuth } from './AuthContext'
 import {
   getPurchaseProposals as fetchPurchaseProposals,
   getPurchaseProposal,
-  receiveProposalItem as receiveProposalItemApi,
   updateProposalItemApprovalFile as updateProposalItemApprovalFileApi,
   updateProposalItemOrderQty as updateProposalItemOrderQtyApi,
 } from '../services/purchasing-api'
+import {
+  createPurchaseReceipt as createPurchaseReceiptApi,
+  rejectPurchaseReceipt as rejectPurchaseReceiptApi,
+  type CreatePurchaseReceiptInput,
+  type PurchaseReceiptResult,
+  type RejectPurchaseReceiptInput,
+} from '../services/purchase-receipts-api'
 import {
   approveSupplierOrder as approveSupplierOrderApi,
   cancelSupplierOrder as cancelSupplierOrderApi,
@@ -42,6 +48,16 @@ export interface PurchaseReceiptLog {
   receiptFileUrl?: string | null
   receivedByName?: string | null
   receivedAt: string
+  /** Phiếu nhận chứa lần nhận này (Đợt 5d) - null với lịch sử nhận trước Đợt 5d. */
+  receiptId?: string | null
+  /** Tổng của cả phiếu - đơn gộp thì lần nhận của dòng này chỉ là 1 phần chia. */
+  receiptTotalQty?: number | null
+  allocationAdjusted?: boolean
+  /** 4 ô chứng từ (YC4): phiếu giao NCC, phiếu đề xuất Giám đốc ký, phiếu nhập kho, phiếu cân xe. */
+  supplierSlipUrls?: string[]
+  approvalFileUrls?: string[]
+  receiptSlipUrls?: string[]
+  weighSlipUrls?: string[]
 }
 
 export interface PurchaseProposalItem {
@@ -54,6 +70,10 @@ export interface PurchaseProposalItem {
    *  không snapshot (2026-10-08). Đã được BE cộng vào `buyQty` rồi - field này chỉ để hiển thị
    *  giải thích vì sao buyQty cao hơn nhu cầu gốc. null = chưa cấu hình % (hoặc Sắt phần mềm). */
   purchaseWastePercentage?: number | null
+  /** Vật tư nhóm Sắt - nhận hàng bắt buộc thêm ảnh phiếu cân xe (Đợt 5d, bản v8 4.6). */
+  isSteel?: boolean
+  /** File phiếu đề xuất Giám đốc ký của đơn đặt hàng chứa dòng này - Nhập kho tự dùng làm chứng từ (Đợt 5d). */
+  supplierOrderApprovalFileUrl?: string | null
   required: number
   actualStock: number
   buyQty: number
@@ -206,7 +226,9 @@ interface InspCtxType {
   /** Ô1 (unitRateQty) × Ô2 (supplierUnitQty, mặc định 1) = số lượng thật cộng vào tồn kho - backend
    *  tự nhân (2026-10-16, thay cho hệ số quy đổi cố định Material.khoUnitFactor đã xoá). Xem
    *  NhapKhoPage.tsx. */
-  receiveProposalItem:     (proposalId: string, itemKey: string, input: { unitRateQty: number, supplierUnitQty?: number, receiptFileUrl?: string }) => Promise<void>
+  /** Đợt 5d: nhận 1 lần hàng về (đơn gộp tự chia cho các lệnh) - `idempotencyKey` giữ nguyên khi bấm lại cùng 1 lần nhận. */
+  receivePurchase: (input: CreatePurchaseReceiptInput, idempotencyKey: string, proposalIds: string[]) => Promise<PurchaseReceiptResult>
+  rejectPurchase:  (input: RejectPurchaseReceiptInput, idempotencyKey: string, proposalIds: string[]) => Promise<void>
   /** Admin "Quản lý tệp đính kèm" (2026-09-11) - thay/xóa file duyệt của 1 item (`approvalFileUrl:
    *  null` = xóa hẳn, xem services/purchasing-api.ts#updateProposalItemApprovalFile). */
   updateApprovalFile:      (proposalId: string, itemId: string, approvalFileUrl: string | null) => Promise<void>
@@ -321,16 +343,19 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
       await refreshProposals(proposalIds)
     }), [runAction, refreshProposals])
 
-  // Thủ kho xác nhận đã nhận hàng — cộng dồn qua nhiều lần nhập (hàng có thể về nhiều đợt) ở
-  // tầng BE (xem PurchaseProposalsService.receiveItem), tự chuyển 'purchasing' -> 'purchased'
-  // khi mọi item đã nhận đủ buyQty.
-  const receiveProposalItem = useCallback((proposalId: string, itemKey: string, input: { unitRateQty: number, supplierUnitQty?: number, receiptFileUrl?: string }) =>
-    runAction('Xác nhận nhận hàng', async () => {
-      const current = proposals.find(p => p.id === proposalId)
-      if (!current) throw new Error('Không tìm thấy đề xuất trong danh sách - hãy tải lại trang')
-      const updated = await receiveProposalItemApi(current, itemKey, input)
-      setProposals(prev => prev.map(p => p.id === proposalId ? updated : p))
-    }), [proposals, runAction])
+  // Thủ kho nhận hàng theo phiếu (Đợt 5d) - BE ghi cả phiếu trong 1 transaction rồi tải lại các đề xuất liên quan.
+  const receivePurchase = useCallback((input: CreatePurchaseReceiptInput, idempotencyKey: string, proposalIds: string[]) =>
+    runAction('Nhập kho', async () => {
+      const result = await createPurchaseReceiptApi(input, idempotencyKey)
+      await refreshProposals(proposalIds)
+      return result
+    }), [runAction, refreshProposals])
+
+  const rejectPurchase = useCallback((input: RejectPurchaseReceiptInput, idempotencyKey: string, proposalIds: string[]) =>
+    runAction('Từ chối nhận', async () => {
+      await rejectPurchaseReceiptApi(input, idempotencyKey)
+      await refreshProposals(proposalIds)
+    }), [runAction, refreshProposals])
 
   // Admin "Quản lý tệp đính kèm" (2026-09-11) - cùng idiom approveSupplierOrder/receiveProposalItem
   // ở trên: gọi API rồi cập nhật lại state cục bộ, KHÔNG được gọi thẳng
@@ -351,7 +376,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     }), [runAction])
 
   return (
-    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, createSupplierOrder, approveSupplierOrder, cancelSupplierOrder, removeSupplierOrderItem, reviseSupplierOrder, receiveProposalItem, updateApprovalFile, updateOrderQty }}>
+    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, createSupplierOrder, approveSupplierOrder, cancelSupplierOrder, removeSupplierOrderItem, reviseSupplierOrder, receivePurchase, rejectPurchase, updateApprovalFile, updateOrderQty }}>
       <ActionErrorBanner message={actionError} onDismiss={dismissActionError} />
       {children}
     </InspCtx.Provider>
