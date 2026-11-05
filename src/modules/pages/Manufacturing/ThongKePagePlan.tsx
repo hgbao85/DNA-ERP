@@ -1207,7 +1207,6 @@ function ThongKeDetailPage({ order, details, onBack, pointLabel }: { order: MfgO
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap', marginTop: 4 }}>
               <span style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14, color: 'var(--fg-1d4ed8)' }}>{order.sku}</span>
               <span style={{ fontFamily: 'monospace', fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>{lineCode(order, order.piCode)}</span>
-              {order.lsxCode && <span style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text3)' }}>{order.piCode}</span>}
               <MaterialChoiceTags wire={order.wireMaterial} cushion={order.cushionMaterial} />
             </div>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>PO: <span style={{ fontFamily: 'monospace', fontWeight: 600, color: 'var(--text2)' }}>{order.code}</span></div>
