@@ -97,6 +97,28 @@ export const bossGroup: GuideGroup = {
       sourceRefs: ['src/modules/pages/ProductionPlan/LenhSXPage.tsx'],
     },
     {
+      id: 'boss-duyet-doi-moc',
+      title: 'Duyệt đổi mốc lệnh SX',
+      roles: ['boss'],
+      purpose: 'Khi Kế hoạch SX xin đổi các mốc (Phôi, Hàn, Sơn, Đóng gói...) của một lệnh Giám đốc đã duyệt, yêu cầu về đây chờ Giám đốc quyết. Trong lúc chờ, xưởng vẫn chạy theo mốc cũ.',
+      preconditions: ['Kế hoạch SX đã sửa mốc của lệnh đã duyệt (sửa tay hoặc nạp Excel) và gửi chờ duyệt.'],
+      steps: [
+        'Vào tab "Tổng hợp chờ duyệt" > "Đổi mốc lệnh SX" (số đỏ cho biết có bao nhiêu lô đang chờ). Bấm vào thông báo cũng mở thẳng mục này.',
+        'Mỗi lô là một khối: nguồn (Sửa tay hoặc Excel), người gửi, lúc gửi, số SKU. Bảng liệt kê từng lệnh, SKU, số lượng và các mốc đổi, ví dụ "Phôi 10/11 → 13/11". Ô vàng ở cột "Cảnh báo" nhắc những điểm cần để ý, ví dụ thứ tự mốc bị ngược.',
+        'Muốn duyệt hết: bấm "Duyệt" rồi xác nhận. Mốc mới có hiệu lực ngay, Mua hàng, QLSX và Kho nhận thông báo.',
+        'Muốn duyệt một phần: bỏ tick các dòng chưa đồng ý rồi bấm "Duyệt". Các dòng bỏ tick bị từ chối nên phải ghi lý do.',
+        'Muốn từ chối cả lô: bấm "Từ chối…", ghi lý do (ít nhất 3 ký tự). Mốc cũ được giữ, Kế hoạch SX nhận được lý do.',
+        'Xem lại những lô đã quyết ở nút "Đã quyết" (chỉ xem: dòng nào duyệt, dòng nào từ chối, lý do, ai quyết).',
+      ],
+      result: 'Duyệt: mốc mới có hiệu lực và các bộ phận liên quan được báo. Từ chối: mốc cũ giữ nguyên.',
+      warnings: [
+        'Nếu báo lỗi mốc đã đổi từ lúc gửi, nghĩa là có người đã sửa mốc của lệnh đó sau khi yêu cầu được gửi. Tải lại trang và xem lại.',
+        'Trên Bảng mốc, dòng SKU đang chờ Giám đốc duyệt có nhãn vàng "Chờ Sếp duyệt đổi mốc".',
+      ],
+      tags: ['duyệt đổi mốc', 'đổi mốc lệnh', 'sửa kế hoạch', 'boss deadline change'],
+      sourceRefs: ['src/modules/pages/Boss/DuyetDoiMocPage.tsx'],
+    },
+    {
       id: 'boss-tra-cuu',
       title: 'Tra cứu: Tổng hợp lệnh SX, Danh sách SKU, Tổng hợp vật tư, Tổng hợp kho',
       roles: ['boss'],

@@ -233,6 +233,7 @@ export default function MilestoneBoardView({ viewSwitch }: { viewSwitch: ReactNo
                     <div style={{ fontSize: 11.5, color: 'var(--text3)' }}>
                       ×{r.quantity.toLocaleString('vi-VN')}{r.floorStage === 'PENDING' ? ' · chưa bắt đầu' : r.floorStage === 'PAUSED' ? ' · tạm dừng' : ''}
                     </div>
+                    {r.pendingDeadlineChange && <PendingChangeTag />}
                   </td>
                   {r.milestones.map(c => (
                     <td key={c.key} style={{ padding: '6px 4px', verticalAlign: 'middle' }}><StatusCell cell={c} start={startOf(r, c.key)} /></td>
@@ -244,6 +245,15 @@ export default function MilestoneBoardView({ viewSwitch }: { viewSwitch: ReactNo
         </div>
       )}
     </div>
+  )
+}
+
+// Phần A – Đợt 9 (YC2): nhãn vàng trên dòng SKU có yêu cầu đổi mốc đang chờ Sếp duyệt.
+function PendingChangeTag() {
+  return (
+    <span style={{ display: 'inline-block', marginTop: 3, fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 20, background: 'var(--amber-bg)', color: 'var(--amber)', whiteSpace: 'nowrap' }}>
+      Chờ Sếp duyệt đổi mốc
+    </span>
   )
 }
 
@@ -265,6 +275,7 @@ function MobileCard({ row }: { row: MilestoneRow }) {
         </div>
         <Chip status={row.worst}>{STATUS_META[row.worst].label}</Chip>
       </div>
+      {row.pendingDeadlineChange && <PendingChangeTag />}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 10 }}>
         {open.map(c => (
           <div key={c.key} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', fontSize: 13 }}>

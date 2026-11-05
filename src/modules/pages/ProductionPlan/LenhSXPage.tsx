@@ -1,5 +1,5 @@
 import MaterialChoiceTags from '../../../components/MaterialChoiceTags'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { focusAttr } from '../../../utils/notificationLink'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
@@ -8,7 +8,7 @@ import { errMsg } from '../../../utils/errors'
 import { StatusBadge } from '../Sales/StatusBadge'
 import type { SalesOrderStatus } from '../../../types/sales'
 import { format } from 'date-fns'
-import { AlertTriangle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2, User, Factory } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2, User, Factory, History, Download, Upload } from 'lucide-react'
 import SearchableSelect from '../../../components/SearchableSelect'
 import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
@@ -34,6 +34,11 @@ import { DEFAULT_MERGE_WINDOW_DAYS, maxGapDays, steelNeedDate, steelNeedSpan, st
 import { FINISHED_MATERIAL_OFFSET_LABEL, MATERIAL_MILESTONES, finishedMaterialDate, fmtDayVN, frameDaysOf, materialArrivalFrom, offsetLabels, suggestTimeline, timelineWarnings, toDayKey, toInputDate, type TimelineCapacityMode, type TimelineDates, type TimelineField, type TimelineParams } from '../../../utils/phuAnTimeline'
 import { checkCapacity, type CapacityCheckItemInput, type CapacityWarning } from '../../../services/production-capacity-api'
 import { useCapacityParams } from '../../../hooks/usePlanningParams'
+// Phần A – Đợt 9 (YC2): sửa kế hoạch ở mọi giai đoạn + Excel + Sếp duyệt lại
+import DeadlinePlanImportModal from './DeadlinePlanImportModal'
+import DeadlineHistoryModal from './DeadlineHistoryModal'
+import { cancelDeadlineChangeRequest, downloadDeadlinePlan } from '../../../services/deadline-changes-api'
+import { TONE_STYLE, fmtChange, fmtDateTime, isRunningPi, itemDeadlineState, planFileName, summarizeSave, type SaveSummary } from './deadlineChange'
 
 // Nhãn các cột mốc thời gian SKU - trên điện thoại hiện kèm từng ô ngày (không còn hàng tiêu đề bảng). Sếp duyệt 2026-10-27:
 // "Mua hàng" đổi thành "Mua VT khung & đan", thêm "Mua VT còn lại" GIỮA Đan và Đóng gói (vật tư đứng trước công đoạn dùng nó,
@@ -106,6 +111,11 @@ const EMPTY_EDIT_VALS: EditVals = {
   materialDeadline: '', finishedMaterialDeadline: '', deliveryDeadline: '',
   PHOI_START: '', PHOI: '', HAN: '', SON: '', FRAME: '', WEAVING: '', TRANSFER_CHECK: '', PACKAGING_START: '', PACKAGING: '',
 }
+/** Phần A – Đợt 9: ô của form -> loại mốc công đoạn khi so với giá trị đã lưu (dòng Sếp đã duyệt chỉ gửi ô đã đổi). */
+const APPROVED_STAGE_FIELDS: [EditField, 'FRAME' | 'WEAVING' | 'TRANSFER_CHECK' | 'PACKAGING' | 'FRAME_PHOI' | 'FRAME_HAN' | 'FRAME_SON' | 'PHOI_START' | 'PACKAGING_START'][] = [
+  ['PHOI_START', 'PHOI_START'], ['PHOI', 'FRAME_PHOI'], ['HAN', 'FRAME_HAN'], ['SON', 'FRAME_SON'], ['FRAME', 'FRAME'],
+  ['WEAVING', 'WEAVING'], ['TRANSFER_CHECK', 'TRANSFER_CHECK'], ['PACKAGING_START', 'PACKAGING_START'], ['PACKAGING', 'PACKAGING'],
+]
 /** Ô của form -> khoá ngày của suggestTimeline. */
 const FORM_TO_DATE: Partial<Record<EditField, keyof TimelineDates>> = {
   materialDeadline: 'materialDeadline', finishedMaterialDeadline: 'finishedMaterialDeadline',
@@ -261,6 +271,16 @@ export default function LenhSXPage() {
   const [expandedFrame, setExpandedFrame] = useState<Record<number, boolean>>({})
   const [savingPI, setSavingPI] = useState(false)
   const [viewingPIId, setViewingPIId] = useState<number | null>(null)
+  // Phần A – Đợt 9 (YC2): tab "Đang lập" (PI PLANNING) / "Đang chạy" (có SKU Sếp đã duyệt, chưa Kết thúc) của KHSX; thông báo sau
+  // Lưu / Xác nhận Excel; hộp Lịch sử đổi mốc; file Excel đang xem trước; hộp xác nhận Huỷ yêu cầu chờ Sếp.
+  const [listTab, setListTab] = useState<'planning' | 'running'>('planning')
+  const [saveNotice, setSaveNotice] = useState<SaveSummary | null>(null)
+  const [historyTarget, setHistoryTarget] = useState<{ itemId: string; title: string } | null>(null)
+  const [importFile, setImportFile] = useState<File | null>(null)
+  const [downloadingPlan, setDownloadingPlan] = useState(false)
+  const [cancelReqTarget, setCancelReqTarget] = useState<{ requestId: string; label: string } | null>(null)
+  const [cancellingReq, setCancellingReq] = useState(false)
+  const planFileInputRef = useRef<HTMLInputElement>(null)
   const [search, setSearch] = useState('')
   // Màn duyệt Boss/QLSX: danh sách chỉ hiện PI thu gọn (không hiện SKU, không có nút thao tác) -
   // bấm vào 1 PI mới chuyển sang trang chi tiết (2026-08-24, KHÔNG xổ tại chỗ) - danh sách SKU +
@@ -320,9 +340,12 @@ export default function LenhSXPage() {
   ))
   // Tìm theo mã PI (2026-08-24) - danh sách giờ chỉ hiện mã PI, không còn hiện mã PO ở dòng thu
   // gọn nữa nên tìm theo PO sẽ không khớp được gì trên màn hình, dễ gây tưởng nhầm "không tìm ra".
+  // Phần A – Đợt 9 (YC2): tab "Đang chạy" (chỉ KHSX, Sếp/QLSX không có) = mọi PI còn SKU đã duyệt mà lệnh chưa Kết thúc.
+  const runningList = (isBoss || isQlsx) ? [] : (Array.isArray(pis) ? pis : []).filter((p: any) => isRunningPi(p))
+  const baseList = !isBoss && !isQlsx && listTab === 'running' ? runningList : safeList
   const filteredList = search.trim()
-    ? safeList.filter((p: any) => matchesLenhSearch(p, search))
-    : safeList
+    ? baseList.filter((p: any) => matchesLenhSearch(p, search))
+    : baseList
   const viewingPI = viewingPIId ? (Array.isArray(pis) ? pis : []).find((p: any) => p.id === viewingPIId) ?? null : null
   const getDisplayCode = (item: any) => item?.exportOrder?.poNumber || item?.poNumber || item?.code || '—'
 
@@ -671,8 +694,11 @@ export default function LenhSXPage() {
 
     setSavingPI(true)
     try {
+      const srcItems: any[] = Array.isArray(editingPI.items) ? editingPI.items : []
+      // Phần A – Đợt 9: có dòng đã duyệt / đang chờ / Kết thúc thì KHÔNG gửi hạn PI (hạn giao của dòng đã duyệt không sửa được; BE bỏ qua).
+      const hasLockedItem = srcItems.some((it) => itemDeadlineState(it) !== 'FREE')
       const itemDls = editValues.items
-        .map((it, idx) => it.deliveryDeadline && isCommittable(idx, 'deliveryDeadline') ? new Date(it.deliveryDeadline) : null)
+        .map((it, idx) => itemDeadlineState(srcItems[idx]) === 'FREE' && it.deliveryDeadline && isCommittable(idx, 'deliveryDeadline') ? new Date(it.deliveryDeadline) : null)
         .filter(Boolean) as Date[]
       // Hạn của cả PI = hạn giao SỚM NHẤT (2026-10-09, cùng quy ước piDisplayDeadline) - trước lấy muộn nhất.
       const piDeadlineComputed = itemDls.length > 0
@@ -688,6 +714,22 @@ export default function LenhSXPage() {
         if (!vals) return []
         type StageOut = { stageType: 'FRAME' | 'WEAVING' | 'TRANSFER_CHECK' | 'PACKAGING' | 'FRAME_PHOI' | 'FRAME_HAN' | 'FRAME_SON' | 'PHOI_START' | 'PACKAGING_START'; deadline: string }
         const payload: { materialDeadline?: string; finishedMaterialDeadline?: string; deliveryDeadline?: string; stages?: StageOut[] } = {}
+        // Phần A – Đợt 9 (YC2): dòng Kết thúc / đang chờ Sếp duyệt lại bị khoá, không gửi. Dòng Sếp đã duyệt: CHỈ gửi ô KHSX đã sửa mà khác
+        // giá trị đã lưu (không gửi Bắt đầu Phôi / Bắt đầu đóng gói đang là đề xuất - tránh tự tạo yêu cầu chờ Sếp), KHÔNG gửi hạn giao.
+        const lockState = itemDeadlineState(item)
+        if (lockState === 'ENDED' || lockState === 'PENDING') return []
+        if (lockState === 'APPROVED') {
+          const changed = (field: EditField, savedDay: string | null) => !!vals[field] && editTouched.has(`${idx}:${field}`) && vals[field] !== (savedDay ?? '')
+          if (changed('materialDeadline', toDayKey(item.materialDeadline))) payload.materialDeadline = new Date(vals.materialDeadline).toISOString()
+          if (changed('finishedMaterialDeadline', toDayKey(item.finishedMaterialDeadline))) payload.finishedMaterialDeadline = new Date(vals.finishedMaterialDeadline).toISOString()
+          const approvedStages: StageOut[] = []
+          for (const [field, stageType] of APPROVED_STAGE_FIELDS) {
+            if (changed(field, savedStageDay(item, stageType))) approvedStages.push({ stageType, deadline: new Date(vals[field]).toISOString() })
+          }
+          if (approvedStages.length > 0) payload.stages = approvedStages
+          if (!payload.materialDeadline && !payload.finishedMaterialDeadline && !payload.stages) return []
+          return [{ itemId: String(item.id), ...payload }]
+        }
         if (vals.materialDeadline && isCommittable(idx, 'materialDeadline')) payload.materialDeadline = new Date(vals.materialDeadline).toISOString()
         if (vals.finishedMaterialDeadline && isCommittable(idx, 'finishedMaterialDeadline')) payload.finishedMaterialDeadline = new Date(vals.finishedMaterialDeadline).toISOString()
         if (vals.deliveryDeadline && isCommittable(idx, 'deliveryDeadline')) payload.deliveryDeadline = new Date(vals.deliveryDeadline).toISOString()
@@ -707,11 +749,19 @@ export default function LenhSXPage() {
         if (!payload.materialDeadline && !payload.finishedMaterialDeadline && !payload.deliveryDeadline && !payload.stages) return []
         return [{ itemId: String(item.id), ...payload }]
       })
-      await api.updateProductionInvoiceItemsDeadlines(editingPI.id, {
-        deadline: piDeadlineComputed.toISOString(),
+      // Chỉ còn dòng bị khoá / không sửa gì -> khỏi gọi BE.
+      if (itemsOut.length === 0 && hasLockedItem) {
+        setEditingPI(null)
+        setSaveNotice({ message: 'Không có mốc nào thay đổi.', warnings: [], tone: 'green' })
+        return
+      }
+      const { deadlineSave } = await api.updateProductionInvoiceItemsDeadlines(editingPI.id, {
+        deadline: hasLockedItem ? undefined : piDeadlineComputed.toISOString(),
         items: itemsOut,
       })
 
+      // Phần A – Đợt 9: "Đã lưu N SKU. M SKU đã gửi Sếp duyệt lại." + cảnh báo thứ tự mốc (vàng, không chặn).
+      setSaveNotice(summarizeSave(deadlineSave))
       refetch()
       setEditingPI(null)
     } catch (e: any) {
@@ -719,6 +769,52 @@ export default function LenhSXPage() {
       setEditError(errMsg(e, 'Lỗi lưu thời hạn'))
     } finally {
       setSavingPI(false)
+    }
+  }
+
+  // Phần A – Đợt 9 (YC2): tải Excel kế hoạch (BE dựng). Blob không bị interceptor bóc `{data}` (không có thuộc tính `data`).
+  const handleDownloadPlan = async () => {
+    setDownloadingPlan(true)
+    try {
+      const blob = await downloadDeadlinePlan('all')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = planFileName()
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch {
+      // Lỗi trả về dạng blob nên không đọc được câu của BE - nói chung chung.
+      alert('Không tải được Excel kế hoạch. Thử lại; nếu vẫn lỗi, kiểm tra tài khoản có quyền Kế hoạch sản xuất.')
+    } finally {
+      setDownloadingPlan(false)
+    }
+  }
+  const handlePickPlanFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    e.target.value = '' // chọn lại cùng file vẫn kích hoạt
+    if (!f) return
+    if (!/\.xlsx$/i.test(f.name)) { alert('Chỉ nhận file Excel .xlsx (tải từ nút "Tải Excel kế hoạch").'); return }
+    setImportFile(f)
+  }
+  // KHSX huỷ yêu cầu đổi mốc đang chờ Sếp (đã xác nhận ở hộp riêng) - dòng sửa lại được ngay.
+  const handleCancelRequest = async () => {
+    if (!cancelReqTarget) return
+    const { requestId } = cancelReqTarget
+    setCancellingReq(true)
+    try {
+      await cancelDeadlineChangeRequest(requestId)
+      // editingPI là bản chụp lúc mở hộp -> gỡ nhãn chờ ngay trong bản chụp để các ô mở khoá; danh sách tải lại ở nền.
+      setEditingPI((prev: any) => prev ? { ...prev, items: (prev.items ?? []).map((it: any) => it.pendingDeadlineChange?.requestId === requestId ? { ...it, pendingDeadlineChange: null } : it) } : prev)
+      setEditError('')
+      refetch()
+    } catch (e: any) {
+      setEditError(errMsg(e, 'Lỗi huỷ yêu cầu'))
+    } finally {
+      setCancellingReq(false)
+      setCancelReqTarget(null)
     }
   }
 
@@ -768,6 +864,27 @@ export default function LenhSXPage() {
 
   return (
     <div>
+
+      {/* Phần A – Đợt 9 (YC2): kết quả lần Lưu / Xác nhận Excel gần nhất - đóng bằng nút X. */}
+      {saveNotice && (
+        <div role="status" style={{ display:'flex', alignItems:'flex-start', gap:8, marginBottom:14, padding:'10px 14px', borderRadius:8, fontSize:13,
+          background: TONE_STYLE[saveNotice.tone].background, color: TONE_STYLE[saveNotice.tone].color }}>
+          {saveNotice.tone === 'green' ? <CheckCircle2 size={16} style={{ flexShrink:0, marginTop:1 }}/> : <AlertTriangle size={16} style={{ flexShrink:0, marginTop:1 }}/>}
+          <div style={{ flex:1, minWidth:0, overflowWrap:'anywhere' }}>
+            <b>{saveNotice.message}</b>
+            {saveNotice.warnings.length > 0 && (
+              <div style={{ marginTop:4, fontSize:12, color:'var(--fg-b45309)' }}>
+                <div style={{ fontWeight:700 }}>Cảnh báo (không chặn):</div>
+                {saveNotice.warnings.slice(0, 10).map((w) => <div key={w}>{w}</div>)}
+                {saveNotice.warnings.length > 10 && <div>… và {saveNotice.warnings.length - 10} cảnh báo khác</div>}
+              </div>
+            )}
+          </div>
+          <button onClick={() => setSaveNotice(null)} aria-label="Đóng thông báo" style={{ padding:2, background:'transparent', border:'none', cursor:'pointer', flexShrink:0 }}>
+            <X size={15} color="currentColor"/>
+          </button>
+        </div>
+      )}
 
       {isBoss || isQlsx ? (
         viewingApprovalGroup ? (
@@ -1159,6 +1276,15 @@ export default function LenhSXPage() {
                           <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                             <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'var(--fg-0369a1)' }}>{code}</span>
                             {item.status && <StatusBadge status={item.status as SalesOrderStatus} />}
+                            {/* Phần A – Đợt 9 (YC2): trạng thái đổi mốc của dòng */}
+                            {item.pendingDeadlineChange && (
+                              <span title={item.pendingDeadlineChange.changes.map(fmtChange).join('; ')} style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:700, color:'var(--fg-b45309)', background:'var(--bg-fef3c7)', padding:'2px 8px', borderRadius:10 }}>
+                                <Clock size={10}/> Chờ Sếp duyệt lại
+                              </span>
+                            )}
+                            {item.floorStage === 'FINISHED' && (
+                              <span style={{ fontSize:11, fontWeight:600, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>Đã kết thúc</span>
+                            )}
                             {item.prodApproval?.status === 'APPROVED' && (
                               <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'var(--fg-2e7d32)', background:'var(--bg-dcfce7)', padding:'2px 8px', borderRadius:10 }}>
                                 <Play size={10}/> Đang sản xuất
@@ -1246,16 +1372,44 @@ export default function LenhSXPage() {
           <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:10, flexWrap:'wrap', marginBottom: isMobile ? 14 : 'var(--space-5)' }}>
             <div>
               <h2 style={{ ...pageTitle, margin: 0 }}>Tạo lệnh sản xuất</h2>
-              <p style={{ ...pageSubtitle, margin: '2px 0 0' }}>{safeList.length} lệnh</p>
+              <p style={{ ...pageSubtitle, margin: '2px 0 0' }}>{baseList.length} lệnh{listTab === 'running' ? ' đang chạy' : ''}</p>
             </div>
-            {searchBox}
+            {/* Phần A – Đợt 9 (YC2): Excel kế hoạch (chỉ KHSX) */}
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', width: isMobile ? '100%' : undefined }}>
+              <button onClick={handleDownloadPlan} disabled={downloadingPlan}
+                title="Tải file Excel gồm mọi lệnh chưa Kết thúc - sửa ngày mốc rồi tải lên lại"
+                style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'7px 12px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, fontWeight:600, cursor: downloadingPlan ? 'wait' : 'pointer', color:'var(--text2)', opacity: downloadingPlan ? 0.7 : 1 }}>
+                {downloadingPlan ? <Loader2 size={13} className="spin"/> : <Download size={13}/>} Tải Excel kế hoạch
+              </button>
+              <button onClick={() => planFileInputRef.current?.click()}
+                title="Chọn file Excel kế hoạch đã sửa - xem trước rồi mới xác nhận ghi"
+                style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'7px 12px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, fontWeight:600, cursor:'pointer', color:'var(--text2)' }}>
+                <Upload size={13}/> Tải lên Excel
+              </button>
+              <input ref={planFileInputRef} type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={handlePickPlanFile} style={{ display:'none' }} />
+              {searchBox}
+            </div>
+          </div>
+
+          {/* Phần A – Đợt 9 (YC2): "Đang lập" = PI chưa chạy · "Đang chạy" = có SKU Sếp đã duyệt, lệnh chưa Kết thúc (sửa mốc → Sếp duyệt lại) */}
+          <div role="tablist" style={{ display:'flex', gap:6, marginBottom:12, flexWrap:'wrap' }}>
+            {([['planning', 'Đang lập', safeList.length], ['running', 'Đang chạy', runningList.length]] as const).map(([key, label, n]) => {
+              const active = listTab === key
+              return (
+                <button key={key} role="tab" aria-selected={active} onClick={() => setListTab(key)}
+                  style={{ padding:'6px 14px', borderRadius:16, fontSize:13, fontWeight:600, cursor:'pointer',
+                    border: `1px solid ${active ? 'var(--fg-1d4ed8)' : 'var(--border)'}`, background: active ? 'var(--bg-dbeafe)' : 'var(--surface)', color: active ? 'var(--fg-1d4ed8)' : 'var(--text2)' }}>
+                  {label} <span style={{ fontWeight:500, opacity:0.8 }}>({n})</span>
+                </button>
+              )
+            })}
           </div>
 
           {/* PI List */}
           <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
             {filteredList.length === 0 && (
               <div style={{ padding:40, textAlign:'center', color:'var(--text3)', background:'var(--surface)' }}>
-                {search.trim() ? `Không tìm thấy lệnh sản xuất "${search.trim()}"` : 'Chưa có lệnh sản xuất nào'}
+                {search.trim() ? `Không tìm thấy lệnh sản xuất "${search.trim()}"` : listTab === 'running' ? 'Chưa có lệnh nào đang chạy' : 'Chưa có lệnh sản xuất nào'}
               </div>
             )}
             {filteredList.map((pi: any, i: number) => {
@@ -1279,6 +1433,15 @@ export default function LenhSXPage() {
                     })()}
                   </div>
                   <div style={{ flex:1 }} />
+                  {/* Phần A – Đợt 9: SKU đang chờ Sếp duyệt lại mốc */}
+                  {(() => {
+                    const waiting = items.filter((it: any) => it.pendingDeadlineChange).length
+                    return waiting > 0 ? (
+                      <span style={{ fontSize:11, fontWeight:700, color:'var(--fg-b45309)', background:'var(--bg-fef3c7)', padding:'2px 9px', borderRadius:10, whiteSpace:'nowrap' }}>
+                        {waiting} SKU chờ Sếp duyệt lại
+                      </span>
+                    ) : null
+                  })()}
                   <div style={{ display:'flex', alignItems:'center', gap:5 }}>
                     <CalendarClock size={13} color="var(--text3)"/>
                     {!isMobile && <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>}
@@ -1795,6 +1958,8 @@ export default function LenhSXPage() {
                 const qty  = item.quantity
                 const vals: EditVals = editValues.items[idx] ?? EMPTY_EDIT_VALS
                 const est = editEstimated[idx]
+                const lockedAll = itemDeadlineState(item) === 'ENDED' || itemDeadlineState(item) === 'PENDING'
+                const lockDelivery = lockedAll || itemDeadlineState(item) === 'APPROVED'
                 // Ô còn là đề xuất (chưa lưu, chưa sửa) hiện viền/nền nhạt hơn + nhãn "đề xuất" — cùng quy ước với bảng SKU
                 // timeline, để người dùng biết giá trị nào là gợi ý, giá trị nào đã chốt thật.
                 const isEstimate = (field: string, touched: Set<string> = editTouched) =>
@@ -1839,7 +2004,7 @@ export default function LenhSXPage() {
                 const dayLine = (field: EditField) => {
                   const value = vals[field] ?? ''
                   const p = proposal(field)
-                  const showHint = !isEstimate(field) && !!value && !!p && p !== value
+                  const showHint = !lockedAll && !isEstimate(field) && !!value && !!p && p !== value
                   const isFinished = field === 'finishedMaterialDeadline'
                   const dateKey = FORM_TO_DATE[field]
                   const offsetText = isFinished ? FINISHED_MATERIAL_OFFSET_LABEL : dateKey ? labels[dateKey] : undefined
@@ -1866,9 +2031,9 @@ export default function LenhSXPage() {
                     <div title={hint} style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:4, lineHeight:'13px', minHeight:26, display:'flex', alignItems:'flex-end' }}>
                       <span>{label}{isEstimate(field) && <span style={{ fontStyle:'italic' }}> (đề xuất)</span>}</span>
                     </div>
-                    <input type="date" value={vals[field] ?? ''}
+                    <input type="date" value={vals[field] ?? ''} disabled={lockedAll}
                       onChange={e => setField(field, e.target.value)}
-                      style={{ width:'100%', padding:'5px 6px', border:`1px solid ${isEstimate(field) ? 'var(--border)' : 'var(--fg-1d4ed8)'}`, borderRadius:5, fontSize:12, background:'var(--surface)', color: isEstimate(field) ? 'var(--text3)' : 'var(--text)', boxSizing:'border-box' }}
+                      style={{ width:'100%', padding:'5px 6px', border:`1px solid ${isEstimate(field) || lockedAll ? 'var(--border)' : 'var(--fg-1d4ed8)'}`, borderRadius:5, fontSize:12, background: lockedAll ? 'var(--surface2)' : 'var(--surface)', color: isEstimate(field) || lockedAll ? 'var(--text3)' : 'var(--text)', boxSizing:'border-box', cursor: lockedAll ? 'not-allowed' : undefined }}
                     />
                     <div style={{ display:'flex', alignItems:'center', gap:6, marginTop:3, minHeight:18 }}>
                       {dayLine(field)}
@@ -1879,6 +2044,9 @@ export default function LenhSXPage() {
                 // Dòng thông tin số ngày dưới hạn giao (v8 10.16) + nguồn của N.
                 const loadCont: number | null | undefined = item.containerLoad?.loadCont
                 const hasLoad = typeof loadCont === 'number' && loadCont > 0
+                // Phần A – Đợt 9 (YC2): Kết thúc / đang chờ Sếp duyệt lại -> khoá mọi ô; Sếp đã duyệt -> chỉ khoá hạn giao (lưu sẽ gửi Sếp duyệt lại).
+                const dlState = itemDeadlineState(item)
+                const pend = item.pendingDeadlineChange as { requestId: string; requestedAt: string; changes: { key: string; label: string; from: string | null; to: string | null }[] } | null | undefined
                 const mode = modeOfWorkshop(item.workshop, workshops)
                 const wsName: string = item.workshop?.name ?? DEFAULT_WORKSHOP_NAME
                 const capText = mode === 'DAYS_PER_CONT' ? `${fmtVN(capParams.daysPerContPhuocAn)} ngày/cont` : `${fmtVN(capParams.capacityContPerDay)} cont/ngày`
@@ -1899,15 +2067,50 @@ export default function LenhSXPage() {
                       <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'var(--fg-0369a1)' }}>{code}</span>
                       {name && <span style={{ fontSize:12, color:'var(--text2)' }}>{name}</span>}
                       <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
+                      {item.lsxCode && <span title="Số lệnh sản xuất của nhà máy" style={{ fontFamily:'monospace', fontSize:11, fontWeight:700, color:'var(--fg-1d4ed8)', background:'var(--bg-dbeafe)', padding:'1px 8px', borderRadius:10 }}>LSX {item.lsxCode}</span>}
                       {qty != null && <span style={{ marginLeft:'auto', fontSize:11, color:'var(--text3)', background:'var(--surface)', padding:'1px 8px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
+                      {item.id != null && (
+                        <button type="button" onClick={() => setHistoryTarget({ itemId: String(item.id), title: [item.lsxCode, code].filter(Boolean).join(' · ') })}
+                          title="Xem các lần đổi mốc của dòng này"
+                          style={{ display:'inline-flex', alignItems:'center', gap:4, padding:'2px 8px', border:'1px solid var(--border)', borderRadius:10, background:'var(--surface)', color:'var(--text2)', fontSize:11, fontWeight:600, cursor:'pointer', marginLeft: qty != null ? 0 : 'auto' }}>
+                          <History size={11}/> Lịch sử đổi mốc
+                        </button>
+                      )}
                     </div>
                     <div style={{ padding:'12px', display:'flex', flexDirection:'column', gap:10 }}>
+                      {/* Phần A – Đợt 9 (YC2): trạng thái đổi mốc của dòng */}
+                      {dlState === 'ENDED' && (
+                        <div role="status" style={{ fontSize:12, fontWeight:600, color:'var(--text3)', background:'var(--surface2)', borderRadius:6, padding:'7px 10px' }}>
+                          Đã kết thúc — lệnh này không sửa mốc được nữa.
+                        </div>
+                      )}
+                      {dlState === 'APPROVED' && (
+                        <div role="status" style={{ fontSize:12, color:'var(--fg-1d4ed8)', background:'var(--bg-dbeafe)', borderRadius:6, padding:'7px 10px', overflowWrap:'anywhere' }}>
+                          Lệnh đã Sếp duyệt – lưu sẽ gửi Sếp duyệt lại, mốc cũ vẫn chạy tới khi Sếp duyệt. Hạn giao không sửa được.
+                        </div>
+                      )}
+                      {dlState === 'PENDING' && pend && (
+                        <div role="status" style={{ fontSize:12, color:'var(--fg-b45309)', background:'var(--bg-fef3c7)', borderRadius:6, padding:'8px 10px', overflowWrap:'anywhere' }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                            <b>Chờ Sếp duyệt lại</b>
+                            <span style={{ fontSize:11 }}>gửi lúc {fmtDateTime(pend.requestedAt)}</span>
+                            <button type="button" onClick={() => setCancelReqTarget({ requestId: pend.requestId, label: [item.lsxCode, code].filter(Boolean).join(' · ') })}
+                              style={{ marginLeft:'auto', padding:'3px 10px', border:'1px solid var(--fg-b45309)', borderRadius:6, background:'var(--surface)', color:'var(--fg-b45309)', fontSize:11.5, fontWeight:700, cursor:'pointer' }}>
+                              Huỷ yêu cầu
+                            </button>
+                          </div>
+                          <ul style={{ margin:'6px 0 0', paddingLeft:18, lineHeight:1.55 }}>
+                            {pend.changes.map((c) => <li key={c.key}>{fmtChange(c)}</li>)}
+                          </ul>
+                          <div style={{ marginTop:4, fontSize:11 }}>Mốc cũ vẫn chạy tới khi Sếp duyệt. Muốn sửa tiếp thì Huỷ yêu cầu trước.</div>
+                        </div>
+                      )}
                       {/* Hạn giao hàng riêng cho SKU này */}
                       <div>
-                        <div style={{ fontSize:10, color:'var(--fg-1d4ed8)', fontWeight:700, marginBottom:4 }}>Hạn giao hàng{isEstimate('deliveryDeadline') && <span style={{ fontStyle:'italic', fontWeight:400 }}> (từ PO)</span>}</div>
-                        <input type="date" value={vals.deliveryDeadline ?? ''}
+                        <div style={{ fontSize:10, color:'var(--fg-1d4ed8)', fontWeight:700, marginBottom:4 }}>Hạn giao hàng{isEstimate('deliveryDeadline') && <span style={{ fontStyle:'italic', fontWeight:400 }}> (từ PO)</span>}{lockDelivery && <span style={{ fontWeight:400, color:'var(--text3)' }}> (chỉ xem)</span>}</div>
+                        <input type="date" value={vals.deliveryDeadline ?? ''} disabled={lockDelivery}
                           onChange={e => setField('deliveryDeadline', e.target.value)}
-                          style={{ width:'100%', padding:'5px 8px', border:`1px solid ${isEstimate('deliveryDeadline') ? 'var(--border)' : 'var(--fg-1d4ed8)'}`, borderRadius:5, fontSize:12, background:'var(--surface)', color: isEstimate('deliveryDeadline') ? 'var(--text3)' : 'var(--text)', boxSizing:'border-box' }}
+                          style={{ width:'100%', padding:'5px 8px', border:`1px solid ${isEstimate('deliveryDeadline') || lockDelivery ? 'var(--border)' : 'var(--fg-1d4ed8)'}`, borderRadius:5, fontSize:12, background: lockDelivery ? 'var(--surface2)' : 'var(--surface)', color: isEstimate('deliveryDeadline') || lockDelivery ? 'var(--text3)' : 'var(--text)', boxSizing:'border-box', cursor: lockDelivery ? 'not-allowed' : undefined }}
                         />
                         <div style={{ display:'flex', marginTop:3 }}>{dayLine('deliveryDeadline')}</div>
                       </div>
@@ -2009,6 +2212,40 @@ export default function LenhSXPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Phần A – Đợt 9 (YC2): xác nhận Huỷ yêu cầu đổi mốc đang chờ Sếp */}
+      {cancelReqTarget && (
+        <div onClick={() => { if (!cancellingReq) setCancelReqTarget(null) }}
+          style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1200, padding:16 }}>
+          <div onClick={e => e.stopPropagation()} role="alertdialog" aria-label="Huỷ yêu cầu đổi mốc"
+            style={{ background:'var(--surface)', borderRadius:'var(--radius-lg)', padding: isMobile ? 16 : 22, width:420, maxWidth:'100%', boxShadow:'0 8px 32px rgba(0,0,0,0.22)' }}>
+            <h3 style={{ margin:'0 0 10px', fontSize:15, fontWeight:700 }}>Huỷ yêu cầu đổi mốc?</h3>
+            <p style={{ margin:'0 0 16px', fontSize:13, color:'var(--text2)', lineHeight:1.5 }}>
+              Yêu cầu của <b>{cancelReqTarget.label}</b> sẽ bị rút lại, Sếp không còn thấy nữa. Mốc hiện tại giữ nguyên và dòng này sửa lại được ngay.
+            </p>
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
+              <button onClick={() => setCancelReqTarget(null)} disabled={cancellingReq}
+                style={{ padding:'8px 16px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor:'pointer', color:'var(--text2)' }}>
+                Giữ yêu cầu
+              </button>
+              <button onClick={handleCancelRequest} disabled={cancellingReq}
+                style={{ padding:'8px 16px', background:'var(--fg-b91c1c)', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: cancellingReq ? 'not-allowed' : 'pointer', color:'#fff', opacity: cancellingReq ? 0.6 : 1 }}>
+                {cancellingReq ? 'Đang huỷ...' : 'Huỷ yêu cầu'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phần A – Đợt 9 (YC2): lịch sử đổi mốc 1 dòng + xem trước Excel */}
+      {historyTarget && <DeadlineHistoryModal itemId={historyTarget.itemId} title={historyTarget.title} onClose={() => setHistoryTarget(null)} />}
+      {importFile && (
+        <DeadlinePlanImportModal
+          file={importFile}
+          onClose={() => setImportFile(null)}
+          onCommitted={(summary) => { setSaveNotice(summary); refetch() }}
+        />
       )}
 
       {/* Phần A – Đợt 2: QLSX đổi xưởng cơ khí cho cả lệnh */}

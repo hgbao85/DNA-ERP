@@ -13,6 +13,7 @@ import VatTuDashboardPage from '../ProductionPlan/VatTuDashboardPage'
 import ThongKePagePlan from '../Manufacturing/ThongKePagePlan'
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import LenhSXPage from '../ProductionPlan/LenhSXPage'
+import DuyetDoiMocPage from './DuyetDoiMocPage' // Phần A – Đợt 9
 import ThemeToggle from '../../../components/ThemeToggle'
 
 
@@ -20,8 +21,9 @@ const ACCENT    = 'var(--fg-2e7d32)'
 const ACCENT_BG = 'var(--bg-e8f5e9)'
 
 type Page           = 'cho-duyet' | 'thong-ke' | 'sku-list' | 'vat-tu' | 'kho'
-type ChoDuyetFilter = 'sku-moi' | 'lenh-sx'
+type ChoDuyetFilter = 'sku-moi' | 'lenh-sx' | 'doi-moc' // Phần A – Đợt 9: thêm 'doi-moc'
 const PAGE_VALUES: Page[] = ['cho-duyet', 'thong-ke', 'sku-list', 'vat-tu', 'kho']
+const isChoDuyetFilter = (v: string | null): v is ChoDuyetFilter => v === 'sku-moi' || v === 'lenh-sx' || v === 'doi-moc'
 const isPage = (v: string | null): v is Page => !!v && (PAGE_VALUES as string[]).includes(v)
 
 
@@ -33,10 +35,15 @@ const isPage = (v: string | null): v is Page => !!v && (PAGE_VALUES as string[])
 const CHO_DUYET_FILTERS: { key: ChoDuyetFilter; label: string }[] = [
   { key: 'sku-moi',    label: 'SKU mới'       },
   { key: 'lenh-sx',     label: 'Lệnh sản xuất'  },
+  { key: 'doi-moc',     label: 'Đổi mốc lệnh SX' }, // Phần A – Đợt 9
 ]
 
-function ChoDuyetSection({ skuBadge, lenhSxBadge }: { skuBadge?: number; lenhSxBadge?: number }) {
-  const [filter, setFilter] = useState<ChoDuyetFilter>('sku-moi')
+function ChoDuyetSection({ skuBadge, lenhSxBadge, doiMocBadge }: { skuBadge?: number; lenhSxBadge?: number; doiMocBadge?: number }) {
+  // Phần A – Đợt 9: nút lọc đọc / ghi URL (`filter`) để link thông báo `filter=doi-moc` mở đúng mục.
+  const [urlFilter, setUrlFilter] = useUrlState('filter')
+  const [filter, setFilterState] = useState<ChoDuyetFilter>(isChoDuyetFilter(urlFilter) ? urlFilter : 'sku-moi')
+  const setFilter = (f: ChoDuyetFilter) => { setFilterState(f); setUrlFilter(f) }
+  useEffect(() => { if (isChoDuyetFilter(urlFilter)) setFilterState(urlFilter) }, [urlFilter])
   // Bấm thông báo mở thẳng đúng mục (focus=<entityType>:<id>): mục nằm ở tab con nào thì mở tab đó, không thì
   // dòng cần nháy sáng không được render. SKU chờ duyệt -> 'SKU mới'; PI chờ duyệt -> 'Lệnh sản xuất'.
   const focusHint = useUrlParamValue('focus')
@@ -44,7 +51,7 @@ function ChoDuyetSection({ skuBadge, lenhSxBadge }: { skuBadge?: number; lenhSxB
     if (focusHint?.startsWith('PRODUCTION_INVOICE')) setFilter('lenh-sx')
     else if (focusHint?.startsWith('SKU')) setFilter('sku-moi')
   }, [focusHint])
-  const badgeByKey: Record<ChoDuyetFilter, number | undefined> = { 'sku-moi': skuBadge, 'lenh-sx': lenhSxBadge }
+  const badgeByKey: Record<ChoDuyetFilter, number | undefined> = { 'sku-moi': skuBadge, 'lenh-sx': lenhSxBadge, 'doi-moc': doiMocBadge }
 
   return (
     <div>
@@ -79,6 +86,7 @@ function ChoDuyetSection({ skuBadge, lenhSxBadge }: { skuBadge?: number; lenhSxB
 
       {filter === 'sku-moi'    && <SKUReviewPage />}
       {filter === 'lenh-sx'     && <LenhSXPage />}
+      {filter === 'doi-moc'     && <DuyetDoiMocPage />}
     </div>
   )
 }
@@ -104,7 +112,7 @@ export default function BossApp() {
   // (SKU mới + Lệnh SX) vì đây là 1 mục menu DUY NHẤT, tách lại thành 2 badge riêng ở đúng 2 nút lọc
   // bên trong (xem ChoDuyetSection/CHO_DUYET_FILTERS).
   const { counts: workQueue } = useWorkQueue()
-  const choDuyetBadge = (workQueue.bossSkuApproval ?? 0) + (workQueue.bossProductionApproval ?? 0)
+  const choDuyetBadge = (workQueue.bossSkuApproval ?? 0) + (workQueue.bossProductionApproval ?? 0) + (workQueue.bossDeadlineChange ?? 0) // Phần A – Đợt 9
   const badgeByPage: Partial<Record<Page, number>> = { 'cho-duyet': choDuyetBadge }
   // Màn hình hẹp (< 900px): sidebar ẩn thành drawer mở qua nút ☰ - cùng idiom SalesApp/PurchasingApp/ProductionPlanApp.
   const isCompact = useIsCompact()
@@ -188,7 +196,7 @@ export default function BossApp() {
 
   const content = (
     <>
-      {page === 'cho-duyet' && <ChoDuyetSection skuBadge={workQueue.bossSkuApproval} lenhSxBadge={workQueue.bossProductionApproval} />}
+      {page === 'cho-duyet' && <ChoDuyetSection skuBadge={workQueue.bossSkuApproval} lenhSxBadge={workQueue.bossProductionApproval} doiMocBadge={workQueue.bossDeadlineChange} />}
       {page === 'thong-ke'  && <ThongKePagePlan />}
       {page === 'sku-list'  && <SKUListPage readOnly />}
       {page === 'vat-tu'    && <VatTuDashboardPage />}

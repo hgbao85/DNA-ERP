@@ -18,6 +18,8 @@ import { http } from './core/http';
 import type { SolverMachine } from '../types/admin';
 import type { MaterialChoice } from '../types/sku';
 import type { ContainerLoad } from '../types/containerLoad';
+// Phần A – Đợt 9 (YC2): sửa kế hoạch ở mọi giai đoạn + Sếp duyệt lại.
+import type { DeadlineSaveResult, PendingDeadlineChangeRef } from './deadline-changes-api';
 
 /** FRAME_PHOI/FRAME_HAN/FRAME_SON (2026-09-09): mốc kế hoạch RIÊNG cho Phôi/Hàn/Sơn - xem
  *  LenhSXPage "Sửa thời hạn". Mỗi giá trị enum chỉ có 1 `deadline` như FRAME/WEAVING/PACKAGING
@@ -77,6 +79,8 @@ interface BeProductionInvoiceItem {
    *  lại định mức" (resyncProductionOrderBom() ở production-batches-api.ts). Cùng idiom
    *  floorStage - null cùng lúc với productionOrderId null. */
   bomOutOfDate?: boolean | null;
+  /** Phần A – Đợt 9: dòng đang có yêu cầu đổi mốc chờ Sếp duyệt lại (mốc hiện tại vẫn là mốc cũ); null/thiếu = không có. BE cũ thiếu field. */
+  pendingDeadlineChange?: PendingDeadlineChangeRef | null;
 }
 
 interface BeProductionInvoice {
@@ -153,6 +157,7 @@ function toItem(it: BeProductionInvoiceItem) {
     productionOrderId: it.productionOrderId ?? null,
     floorStage: it.floorStage ?? null,
     bomOutOfDate: it.bomOutOfDate ?? null,
+    pendingDeadlineChange: it.pendingDeadlineChange ?? null,
     lsxCode: it.lsxCode ?? null,
     workshop: it.workshop ?? null,
     prodApproval: it.prodApprovalStatus
@@ -284,7 +289,9 @@ export async function updateProductionInvoiceItemsDeadlines(
     }[];
   },
 ) {
-  return toPI(await http.patch<BeProductionInvoice>(`/production-invoices/${piId}/items-deadlines`, body));
+  const res = await http.patch<BeProductionInvoice & { deadlineSave?: DeadlineSaveResult }>(`/production-invoices/${piId}/items-deadlines`, body);
+  // Phần A – Đợt 9: `deadlineSave` = dòng ghi thẳng (applied) / dòng gửi Sếp duyệt lại (batch) - null khi BE cũ chưa trả.
+  return { pi: toPI(res), deadlineSave: res.deadlineSave ?? null };
 }
 
 /** itemId = ProductionInvoiceItem.id thật (KHÔNG phải index trong mảng như mock cũ). */

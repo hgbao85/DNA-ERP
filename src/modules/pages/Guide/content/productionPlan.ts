@@ -452,5 +452,47 @@ export const productionPlanGroup: GuideGroup = {
       tags: ['vật tư cần về', 'hạn chót', 'quá hạn', 'chốt mua', 'lệnh gộp'],
       sourceRefs: ['src/modules/pages/MaterialsDue/VatTuCanVePage.tsx'],
     },
+    // Phần A – Đợt 9 (YC2)
+    {
+      id: 'pp-sua-ke-hoach-dang-chay',
+      title: 'Sửa kế hoạch lệnh đang chạy và Excel',
+      roles: ['khsx'],
+      purpose: 'Đổi ngày mốc của lệnh đã được Giám đốc duyệt (đang chạy) hoặc đổi hàng loạt bằng file Excel. Lệnh chưa duyệt sửa thẳng như cũ; lệnh đã duyệt thì gửi Giám đốc duyệt lại, mốc cũ vẫn chạy tới khi Giám đốc duyệt.',
+      preconditions: ['Tài khoản Kế hoạch sản xuất.', 'Lệnh chưa Kết thúc (lệnh đã Kết thúc không sửa mốc được nữa).'],
+      mock: {
+        title: 'Tạo lệnh sản xuất',
+        buttons: ['Đang lập', 'Đang chạy', 'Tải Excel kế hoạch', 'Tải lên Excel', 'Sửa thời hạn', 'Lịch sử đổi mốc', 'Huỷ yêu cầu'],
+      },
+      steps: [
+        'Vào menu "Lệnh sản xuất mới". Trên danh sách có hai nhóm: "Đang lập" (lệnh chưa chạy) và "Đang chạy" (lệnh có SKU Giám đốc đã duyệt mà chưa Kết thúc). Bấm "Đang chạy" để tìm lệnh cần sửa.',
+        'Bấm vào lệnh rồi bấm "Sửa thời hạn". SKU nào đã được Giám đốc duyệt có dải xanh "Lệnh đã Sếp duyệt – lưu sẽ gửi Sếp duyệt lại, mốc cũ vẫn chạy tới khi Sếp duyệt"; ô "Hạn giao hàng" của SKU đó chỉ xem, không sửa được.',
+        'Sửa các ngày mốc cần đổi (chỉ ô nào bạn sửa mới được gửi đi), bấm "Lưu".',
+        'Đọc thông báo ở đầu trang, ví dụ "Đã lưu 2 SKU. 1 SKU đã gửi Sếp duyệt lại": SKU chưa duyệt được ghi ngay; SKU đã duyệt chuyển sang trạng thái "Chờ Sếp duyệt lại". Nếu có cảnh báo vàng (ví dụ mốc sau đứng trước mốc trước) thì xem lại, cảnh báo không chặn việc lưu.',
+        'SKU đang "Chờ Sếp duyệt lại" hiện nhãn vàng cùng danh sách mốc cũ → mới, các ô ngày bị khoá. Muốn sửa tiếp phải bấm "Huỷ yêu cầu" (có hỏi lại trước khi huỷ) rồi sửa lại và lưu.',
+        'Muốn xem một SKU từng đổi mốc ra sao: bấm "Lịch sử đổi mốc" ở đầu thẻ SKU — hiện thời điểm, người làm, loại (sửa thẳng, gửi Giám đốc, Giám đốc duyệt, Giám đốc từ chối kèm lý do, huỷ), nguồn (sửa tay hay Excel) và mốc cũ → mới.',
+        'Đổi nhiều SKU một lần bằng Excel: bấm "Tải Excel kế hoạch" (file ke-hoach-san-xuat-ngày-giờ.xlsx, gồm mọi lệnh chưa Kết thúc), mở bằng Excel, chỉ sửa các ô ngày rồi lưu file.',
+        { text: 'Bấm "Tải lên Excel", chọn file đã sửa. Màn xem trước hiện 4 số (Ghi ngay / Chờ Sếp duyệt lại / Lỗi / Không đổi) và bảng từng dòng: dòng Excel, lệnh, SKU, loại, mốc cũ → mới, lỗi (đỏ) hoặc cảnh báo (vàng). Chưa có gì được ghi ở bước này.', critical: true },
+        { text: 'Kiểm tra bảng rồi bấm "Xác nhận" mới ghi. Dòng lỗi bị bỏ qua, các dòng còn lại vẫn xác nhận được. Xong hệ thống báo đã ghi N dòng, gửi Giám đốc M dòng, bỏ K dòng.', critical: true },
+      ],
+      result: 'Mốc của lệnh chưa duyệt đổi ngay; mốc của lệnh đã duyệt đổi sau khi Giám đốc duyệt, trong lúc chờ các màn vẫn chạy theo mốc cũ.',
+      statuses: [
+        { name: 'Chờ Sếp duyệt lại', meaning: 'Đã gửi yêu cầu đổi mốc cho Giám đốc; mốc cũ vẫn là mốc đang chạy. Mỗi SKU chỉ có một yêu cầu chờ.' },
+        { name: 'Đã kết thúc', meaning: 'Lệnh đã Kết thúc, khoá mọi ô mốc.' },
+        { name: 'Ghi ngay (Excel)', meaning: 'Dòng chưa được duyệt, ngày mới được ghi luôn khi bấm Xác nhận.' },
+      ],
+      warnings: [
+        'Chỉ đổi được ngày mốc, không đổi số lượng. Hạn giao của SKU đã được Giám đốc duyệt không sửa được.',
+        'Trong file Excel chỉ sửa các ô ngày (dd/mm/yyyy); đừng xoá cột ẩn và đừng sắp xếp lại dòng. Ô để trống nghĩa là giữ nguyên mốc, không xoá mốc bằng Excel.',
+        'File Excel là bản chụp tại lúc tải. Nếu sau đó mốc của SKU đã bị đổi bằng cách khác thì dòng đó báo lỗi — hãy tải file mới rồi sửa lại.',
+        'Giám đốc có thể từ chối yêu cầu kèm lý do; khi đó mốc cũ được giữ nguyên và bạn xem lý do trong "Lịch sử đổi mốc".',
+      ],
+      commonErrors: [
+        { issue: 'Báo lỗi "đang chờ Sếp duyệt lại"', cause: 'SKU đó đã có một yêu cầu đổi mốc chưa được Giám đốc quyết.', fix: 'Bấm "Huỷ yêu cầu" ở SKU đó rồi sửa và lưu lại, hoặc chờ Giám đốc quyết.' },
+        { issue: 'Dòng Excel báo lỗi mốc đã bị đổi sau lúc tải file', cause: 'Mốc hiện tại khác với mốc lúc bạn tải file.', fix: 'Tải lại "Tải Excel kế hoạch", sửa trên file mới.' },
+        { issue: 'Không tải được file Excel', cause: 'Tài khoản không có quyền Kế hoạch sản xuất hoặc mất kết nối.', fix: 'Đăng nhập đúng tài khoản Kế hoạch sản xuất rồi thử lại.' },
+      ],
+      tags: ['sửa kế hoạch', 'lệnh đang chạy', 'đang chạy', 'excel', 'tải excel kế hoạch', 'chờ sếp duyệt lại', 'huỷ yêu cầu', 'lịch sử đổi mốc', 'đổi mốc'],
+      sourceRefs: ['src/modules/pages/ProductionPlan/LenhSXPage.tsx', 'src/modules/pages/ProductionPlan/DeadlinePlanImportModal.tsx', 'src/modules/pages/ProductionPlan/DeadlineHistoryModal.tsx'],
+    },
   ],
 };
