@@ -38,6 +38,8 @@ export async function updateSystemConfig(data: Partial<SystemConfig>): Promise<S
     // Phần A – Đợt 3 (YC10): năng lực sản xuất (chỉ cảnh báo) - cùng lý do: phải liệt kê tên ở đây.
     capacityContPerDay: data.capacityContPerDay,
     daysPerContPhuocAn: data.daysPerContPhuocAn,
+    // Phần A – Đợt 4 (YC6): N ngày được về sớm nhất - phải liệt kê tên ở đây thì BE mới nhận.
+    materialEarliestArrivalDays: data.materialEarliestArrivalDays,
   });
 }
 

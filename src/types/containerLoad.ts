@@ -41,4 +41,6 @@ export interface PlanningParams {
   capacityContPerDay?: number
   /** Phần A – Đợt 3: số ngày/cont ở Phôi, Hàn của xưởng Phước An (mặc định 4). BE cũ thiếu field. */
   daysPerContPhuocAn?: number
+  /** Phần A – Đợt 4 (YC6): hàng vật tư được về sớm nhất N ngày trước hạn chót (0–30, mặc định 4). BE cũ thiếu field. */
+  materialEarliestArrivalDays?: number
 }

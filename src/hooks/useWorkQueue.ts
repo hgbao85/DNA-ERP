@@ -65,7 +65,9 @@ export function useWorkQueueState() {
     } catch {
       // Best-effort - lỗi mạng lúc poll không được làm hỏng phần còn lại của app.
     }
-  }, [])
+    // Phần A – Đợt 4 (2026-11-05): PHẢI phụ thuộc `token`. Trước đây deps `[]` giữ `token = null` của lần vẽ đầu (token khôi phục
+    // bất đồng bộ / đăng nhập sau) nên poll luôn return sớm - số nhắc việc trên menu không bao giờ hiện, ở mọi phân hệ.
+  }, [token])
 
   useRealtimeRefetch(WORK_QUEUE_TOPICS, poll)
 

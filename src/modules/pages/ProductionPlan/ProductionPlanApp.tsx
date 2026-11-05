@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
-import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Warehouse, FilePlus, Layers, Menu, X } from 'lucide-react'
+import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Warehouse, FilePlus, Layers, PackageCheck, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
@@ -15,11 +15,12 @@ import SKUListPage from './SKUListPage'
 import ThongKePagePlan from '../Manufacturing/ThongKePagePlan'
 import LenhSXPage from './LenhSXPage'
 import GomDotCatPage from './GomDotCatPage'
+import VatTuCanVePage from '../MaterialsDue/VatTuCanVePage'
 import ThemeToggle from '../../../components/ThemeToggle'
 
-type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'thongke' | 'lenh-sx' | 'gom-cat' | 'warehouses'
+type Page = 'planforms' | 'duyet-sku' | 'vattu' | 'thongke' | 'lenh-sx' | 'gom-cat' | 'warehouses' | 'vat-tu-can-ve'
 
-const PAGE_VALUES: Page[] = ['planforms', 'duyet-sku', 'vattu', 'thongke', 'lenh-sx', 'gom-cat', 'warehouses']
+const PAGE_VALUES: Page[] = ['planforms', 'duyet-sku', 'vattu', 'thongke', 'lenh-sx', 'gom-cat', 'warehouses', 'vat-tu-can-ve']
 const isPage = (v: string | null): v is Page => !!v && (PAGE_VALUES as string[]).includes(v)
 
 interface Props { onBack?: () => void }
@@ -65,6 +66,8 @@ export default function ProductionPlanApp({ onBack }: Props) {
     { page: 'gom-cat',    icon: <Layers size={16} />,          label: 'Tối ưu cắt sắt', badge: batchCount },
     { page: 'vattu',      icon: <Package size={16} />,         label: 'Tổng hợp vật tư' },
     { page: 'warehouses', icon: <Warehouse size={16} />,       label: 'Tổng hợp kho' },
+    // Phần A – Đợt 4: chỉ xem, KHÔNG badge (Sếp 05/11).
+    { page: 'vat-tu-can-ve', icon: <PackageCheck size={16} />, label: 'Vật tư cần về' },
   ]
 
   const selectPage = (page: Page) => { setActivePage(page); setDrawerOpen(false) }
@@ -145,6 +148,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
       {activePage === 'lenh-sx'    && <LenhSXPage />}
       {activePage === 'gom-cat'    && <GomDotCatPage onDone={() => setActivePage('lenh-sx')} />}
       {activePage === 'warehouses' && <MfgWarehousesPage />}
+      {activePage === 'vat-tu-can-ve' && <VatTuCanVePage />}
     </>
   )
 

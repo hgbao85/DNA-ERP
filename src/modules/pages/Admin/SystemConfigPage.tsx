@@ -40,7 +40,7 @@ const FIELDS: { name: TextField | 'floorPublicUrl'; label: string; required?: bo
 
 /** Nhóm "Máy cắt" - cấu hình thật cho bộ giải Đề xuất thanh sắt (màn Tối ưu cắt sắt đọc). Các tham số số nhập dạng
  *  chữ (giữ được lúc đang gõ dở "2,"), chỉ đổi thành số + kiểm tra khi bấm Lưu. */
-type McNumName = 'solverMctdBladeWidthMm' | 'solverMctdTrimStartMm' | 'solverMaxManualCuts' | 'solverMaxSizesPerPattern' | 'solverMergeWindowDays' | 'solverMergeMaxSkus' | 'containerVolumeM3' | 'capacityContPerDay' | 'daysPerContPhuocAn'
+type McNumName = 'solverMctdBladeWidthMm' | 'solverMctdTrimStartMm' | 'solverMaxManualCuts' | 'solverMaxSizesPerPattern' | 'solverMergeWindowDays' | 'solverMergeMaxSkus' | 'containerVolumeM3' | 'capacityContPerDay' | 'daysPerContPhuocAn' | 'materialEarliestArrivalDays'
 type McKey = McNumName | 'solverBundleFactors'
 const MC_NUM_FIELDS: { name: McNumName; label: string; help: string; integer: boolean; min: number; max: number }[] = [
   {
@@ -90,6 +90,11 @@ const CAPACITY_FIELDS: (typeof MC_NUM_FIELDS)[number][] = [
   {
     name: 'daysPerContPhuocAn', label: 'Xưởng Phước An: số ngày cho 1 cont (Phôi, Hàn)', integer: true, min: 1, max: 60,
     help: 'Phước An làm theo khối: 1 cont chiếm chừng này ngày; 2 lệnh cùng chiếm 1 ngày thì báo. Mặc định 4.',
+  },
+  // Phần A – Đợt 4 (YC6): khoảng được về của màn "Vật tư cần về" và dòng "về từ" ở form Sửa thời hạn.
+  {
+    name: 'materialEarliestArrivalDays', label: 'Vật tư được về sớm nhất trước hạn chót (ngày)', integer: true, min: 0, max: 30,
+    help: 'Vật tư chỉ được về trong khoảng từ (hạn chót trừ chừng này ngày) đến hạn chót; hạn chót hôm nay mà chưa về đủ thì báo đỏ. Mặc định 4; nhập 0 = chỉ về đúng ngày hạn chót.',
   },
 ]
 const MC_FACTORS_HELP = 'Số cây cắt cùng lúc trong một bó. Nhập các số cách nhau bằng dấu cách, vd: 14 16 18 20. Mỗi số là số nguyên lớn hơn 1, tối đa 8 số. Mặc định 14 16 18 20.'
