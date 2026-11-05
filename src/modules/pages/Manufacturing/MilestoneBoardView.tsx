@@ -220,7 +220,6 @@ export default function MilestoneBoardView({ viewSwitch }: { viewSwitch: ReactNo
                 <tr key={r.itemId} {...focusAttr('PRODUCTION_INVOICE_ITEM', r.itemId)} style={{ borderTop: '1px solid var(--border)' }}>
                   <td style={{ padding: '8px 12px', verticalAlign: 'middle' }}>
                     <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--fg-1d4ed8)' }}>{r.lsxCode ?? r.piCode}</div>
-                    {r.lsxCode && <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text3)' }}>{r.piCode}</div>}
                     <div style={{ fontWeight: 600 }}>{r.skuCode}</div>
                     <div style={{ fontSize: 11.5, color: 'var(--text3)' }}>
                       ×{r.quantity.toLocaleString('vi-VN')}{r.floorStage === 'PENDING' ? ' · chưa bắt đầu' : r.floorStage === 'PAUSED' ? ' · tạm dừng' : ''}
@@ -251,7 +250,6 @@ function MobileCard({ row }: { row: MilestoneRow }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--fg-1d4ed8)' }}>{row.lsxCode ?? row.piCode}</div>
-          {row.lsxCode && <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text3)' }}>{row.piCode}</div>}
           <div style={{ fontWeight: 600, wordBreak: 'break-word' }}>
             {row.skuCode} <span style={{ color: 'var(--text3)', fontWeight: 400 }}>×{row.quantity.toLocaleString('vi-VN')}{floorNote ? ` · ${floorNote}` : ''}</span>
           </div>

@@ -17,6 +17,7 @@ import MobileListCards from '../../../components/MobileListCards'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle } from '../../../styles/typography'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import LenhCode from '../../../components/LenhCode'
 
 interface Wh { id: string; name: string; code: string }
 
@@ -398,7 +399,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                   <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
                     <span style={{ fontFamily: 'monospace', color: 'var(--text3)' }}>
                       {selected.poNumber}
-                      {selected.piCode && <> <span style={{ color: 'var(--border)' }}>·</span> {selected.piCode}</>}
+                      {selected.piCode && <> <span style={{ color: 'var(--border)' }}>·</span> <LenhCode piCode={selected.piCode} /></>}
                     </span>
                     <span style={{ fontWeight: 600, marginLeft: 10 }}>{selected.skuCode}</span>
                     {selected.skuName && <span style={{ fontWeight: 400, color: 'var(--text2)', marginLeft: 6, fontSize: 15 }}>— {selected.skuName}</span>}
@@ -551,7 +552,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
         ) : orders.length === 0 ? (
           <div style={emptyBox}>Không có lệnh xuất nào đang chờ xử lý</div>
         ) : isMobile ? (
-          <MobileListCards emptyText="Không có lệnh xuất nào" items={orders.map(order => { const cfg = STATUS[getStatus(order)]; return { key: String(order.id), onClick: () => setSelectedId(order.id), title: <><b>{order.skuCode ?? '—'}</b>{order.skuName && <span style={{ color: 'var(--text3)' }}> — {order.skuName}</span>}</>, badge: <span style={{ ...badge, color: cfg.color, background: cfg.bg }}>{cfg.label}</span>, meta: [{ label: 'PO', value: order.poNumber ?? order.ref }, { label: 'PI', value: order.piCode ?? '—' }, { label: order.kind === 'ship' ? 'Số SKU' : 'Số lượng vật tư', value: order.lines.length }] } })} />
+          <MobileListCards emptyText="Không có lệnh xuất nào" items={orders.map(order => { const cfg = STATUS[getStatus(order)]; return { key: String(order.id), onClick: () => setSelectedId(order.id), title: <><b>{order.skuCode ?? '—'}</b>{order.skuName && <span style={{ color: 'var(--text3)' }}> — {order.skuName}</span>}</>, badge: <span style={{ ...badge, color: cfg.color, background: cfg.bg }}>{cfg.label}</span>, meta: [{ label: 'PO', value: order.poNumber ?? order.ref }, { label: 'Lệnh', value: <LenhCode piCode={order.piCode} /> }, { label: order.kind === 'ship' ? 'Số SKU' : 'Số lượng vật tư', value: order.lines.length }] } })} />
         ) : (
           // PO | PI | SKU | Số lượng vật tư | Trạng thái — mọi kho (không có hạn giao). Đơn nội bộ
           // (piece/packaging) có cả PO lẫn PI thật; đơn ship (xuất thẳng cho khách) chỉ có PO (mã
@@ -564,7 +565,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
               </colgroup>
               <thead><tr style={{ ...stickyHeaderRow, textAlign: 'left' }}>
                 <th style={th}>PO</th>
-                <th style={th}>PI</th>
+                <th style={th}>Lệnh</th>
                 <th style={th}>SKU</th>
                 <th style={{ ...th, textAlign: 'right' }}>{allShip ? 'Số SKU' : 'Số lượng vật tư'}</th>
                 <th style={th}>Trạng thái</th>
@@ -577,7 +578,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                       onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                       onMouseLeave={e => (e.currentTarget.style.background = '')}>
                       <td style={{ ...td, color: 'var(--text3)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{order.poNumber ?? order.ref}</td>
-                      <td style={{ ...td, fontWeight: 700, color: 'var(--text3)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{order.piCode ?? '—'}</td>
+                      <td style={{ ...td, fontWeight: 700, color: 'var(--text3)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}><LenhCode piCode={order.piCode} /></td>
                       <td style={{ ...td, overflow: 'hidden' }}>
                         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                           <span style={{ fontWeight: 600 }}>{order.skuCode ?? '—'}</span>

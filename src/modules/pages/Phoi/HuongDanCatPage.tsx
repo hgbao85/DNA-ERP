@@ -31,6 +31,7 @@ import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import PrintExportButton from '../../../components/PrintExportButton'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import { useLenhCodeLookup } from '../../../components/LenhCode'
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -55,7 +56,11 @@ export default function HuongDanCatPage({ initialPiId, onConsumeInitialPi }: {
 }) {
   const { data: issues, isLoading, error, refetch } = useFetch<BeSteelIssue[]>(() => api.getSteelIssuesByStatus(), [])
   useRealtimeRefetch(['steel-issues'], refetch)
-  const piOptions = useMemo(() => buildPiOptions(issues ?? []), [issues])
+  const lenhOf = useLenhCodeLookup((issues ?? []).map(i => i.piCode))
+  const piOptions = useMemo(
+    () => buildPiOptions(issues ?? []).map(p => ({ ...p, poNumber: lenhOf(p.poNumber) })),
+    [issues, lenhOf],
+  )
   // Đọc initialPiId NGAY lúc khởi tạo (không đợi issues tải xong) - component này mount lại từ
   // đầu mỗi lần chuyển sang tab "Hướng dẫn cắt" (MfgApp chỉ render tab đang chọn), nên state khởi
   // tạo 1 lần là đủ, không cần effect để đồng bộ theo prop đổi sau khi đã mount.

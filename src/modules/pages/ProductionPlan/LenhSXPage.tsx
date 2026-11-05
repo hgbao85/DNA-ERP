@@ -92,9 +92,6 @@ function LenhCode({ pi, size = 14, inline = false }: { pi: any; size?: number; i
   return (
     <span style={{ display: inline ? 'inline' : 'block', minWidth: 0 }}>
       <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:size, color:'var(--text)', wordBreak:'normal' }}><LenhCodeText code={shown} /></span>
-      {shown !== pi.code && (
-        <span style={{ display: inline ? 'inline' : 'block', marginLeft: inline ? 6 : 0, fontFamily:'monospace', fontSize:11, fontWeight:400, color:'var(--text3)', whiteSpace:'nowrap' }}>{pi.code}</span>
-      )}
     </span>
   )
 }
@@ -1487,7 +1484,7 @@ export default function LenhSXPage() {
               {/* Đợt gộp: bấm Duyệt là duyệt TẤT CẢ SKU trong đợt cùng lúc. */}
               {pi.isMerged && (
                 <div style={{ background:'var(--bg-f5f3ff)', border:'1px solid var(--fg-ddd6fe)', borderRadius:8, padding:'10px 14px', marginBottom:14, fontSize:12.5, color:'var(--fg-5b21b6)' }}>
-                  <b>Đợt gộp {pi.displayCode || pi.code}</b>{(pi.displayCode || pi.code) !== pi.code && <span style={{ color:'var(--text3)', fontSize:11 }}> ({pi.code})</span>} — duyệt sẽ cho sản xuất <b>cả {items.length} SKU</b> trong{' '}
+                  <b>Đợt gộp {pi.displayCode || pi.code}</b> — duyệt sẽ cho sản xuất <b>cả {items.length} SKU</b> trong{' '}
                   {/* Luồng "Solve trước" (2026-09-30): phương án đã tính sẵn, duyệt KHÔNG chạy solver lại. */}
                   đợt và {pi.cuttingPlan ? 'dùng chung phương án cắt đã tính bên dưới' : 'tính phương án cắt chung một lần'} cho cả nhóm:
                   <div style={{ marginTop:5, fontFamily:'monospace', fontSize:12 }}>

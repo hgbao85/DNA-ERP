@@ -69,7 +69,6 @@ export default function ChangeWorkshopDialog({ pi, onClose, onDone }: ChangeWork
           <div style={{ flex: 1, minWidth: 140, background: 'var(--surface2)', borderRadius: 8, padding: '8px 14px' }}>
             <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginBottom: 2 }}>Lệnh</div>
             <div style={{ fontFamily: 'monospace', fontWeight: 700, fontSize: 14 }}><LenhCodeText code={label} /></div>
-            {label !== pi.code && <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text3)' }}>{pi.code}</div>}
           </div>
           <div style={{ flex: 1, minWidth: 140, background: 'var(--surface2)', borderRadius: 8, padding: '8px 14px' }}>
             <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 600, marginBottom: 2 }}>Xưởng hiện tại</div>

@@ -35,6 +35,7 @@ import { pageSubtitle } from '../../../styles/typography'
 import ChanNhomXuatSection from './ChanNhomXuatSection'
 import { subFilterBtn } from '../Phoi/phoiStyles'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import LenhCode from '../../../components/LenhCode'
 
 const ACCENT = 'var(--fg-4527a0)'
 
@@ -119,7 +120,7 @@ export default function XuatVatTuThanhPhamPage() {
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
               PO: {poInfoFor(selectedPf)?.poCode ?? 'Chưa gắn đơn hàng'}
-              {poInfoFor(selectedPf)?.piCode && <> · PI: {poInfoFor(selectedPf)!.piCode}</>}
+              {poInfoFor(selectedPf)?.piCode && <> · Lệnh: <LenhCode piCode={poInfoFor(selectedPf)!.piCode} /></>}
             </div>
           </div>
         </div>
@@ -204,7 +205,7 @@ export default function XuatVatTuThanhPhamPage() {
       </div>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
-        <MobileListCards emptyText="Không có PO nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>} <MaterialChoiceTags wire={pf.wireMaterial} cushion={pf.cushionMaterial} /></>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? 'Chưa gắn đơn hàng' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? '—' }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
+        <MobileListCards emptyText="Không có PO nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>} <MaterialChoiceTags wire={pf.wireMaterial} cushion={pf.cushionMaterial} /></>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? 'Chưa gắn đơn hàng' }, { label: 'Lệnh', value: <LenhCode piCode={poInfoFor(pf)?.piCode} /> }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
       ) : (
         <div style={{ ...tableWrap, ...tableScrollBox }}>
           <table style={tbl}>
@@ -218,7 +219,7 @@ export default function XuatVatTuThanhPhamPage() {
               <tr style={{ ...stickyHeaderRow, textAlign: 'left' }}>
                 <th style={thStyle}>PO</th>
                 <th style={thStyle}>SKU</th>
-                <th style={thStyle}>PI</th>
+                <th style={thStyle}>Lệnh</th>
                 <th style={thStyle}>Hạn giao</th>
               </tr>
             </thead>
@@ -238,7 +239,7 @@ export default function XuatVatTuThanhPhamPage() {
                     <span style={{ marginLeft: 6 }}><MaterialChoiceTags wire={pf.wireMaterial} cushion={pf.cushionMaterial} /></span>
                     </td>
                     <td style={{ ...tdStyle, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {poInfo?.piCode ?? '—'}
+                      <LenhCode piCode={poInfo?.piCode} />
                     </td>
                     <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: 'var(--text2)' }}>
                       {poInfo?.deliveryDate ? format(new Date(poInfo.deliveryDate), 'dd/MM/yyyy') : '—'}

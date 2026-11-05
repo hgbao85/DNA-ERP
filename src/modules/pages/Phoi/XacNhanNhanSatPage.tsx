@@ -35,6 +35,7 @@ import { errMsg } from '../../../utils/errors'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import LenhCode from '../../../components/LenhCode'
 
 const th: React.CSSProperties = { padding: '10px 14px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const thR: React.CSSProperties = { ...th, textAlign: 'right' }
@@ -100,7 +101,7 @@ function SubTabBtn({ active, onClick, icon, children }: { active: boolean; onCli
 function PiPoCell({ piCode, poCode }: { piCode: string; poCode: string | null }) {
   return (
     <td style={{ ...td, whiteSpace: 'nowrap' }}>
-      <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text2)' }}>{piCode}</div>
+      <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text2)' }}><LenhCode piCode={piCode} /></div>
       <div style={{ fontSize: 11, color: 'var(--text3)' }}>{poCode ?? 'PI gộp nhiều đơn'}</div>
     </td>
   )
@@ -357,7 +358,7 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
                 <tr {...focusAttr('MATERIAL_YIELD_RECIPE_ISSUE', y.id)} style={{ borderTop: '1px solid var(--border)', opacity: y.status === 'RECEIVED' ? 0.75 : 1 }}>
                   {/* Không gắn PO/SKU - thuộc về cả PI, hiện mã PI thay PO. */}
                   <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>
-                    {y.piCode}
+                    <LenhCode piCode={y.piCode} />
                   </td>
                   <td style={{ ...td, fontWeight: 600 }}>{y.inputMaterialName}</td>
                   <td style={{ ...tdR, color: 'var(--text3)' }}>—</td>
@@ -442,7 +443,7 @@ function LichSuTab({ lines }: { lines: BeSteelIssue[] }) {
                 style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                 onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                 onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{g.po}</td>
+                <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)', whiteSpace: 'nowrap' }}><LenhCode piCode={g.po} /></td>
                 <td style={{ ...td, color: 'var(--text2)', whiteSpace: 'nowrap' }}>
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><Clock size={13} />{new Date(g.thoiGianNhan).toLocaleString('vi-VN')}</span>
                 </td>
@@ -477,7 +478,7 @@ function LichSuDetail({ g, onBack }: { g: PiGroup; onBack: () => void }) {
           <ChevronLeft size={15} /> Quay lại
         </button>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-          <span style={{ fontFamily: 'monospace' }}>{g.po}</span>
+          <span style={{ fontFamily: 'monospace' }}><LenhCode piCode={g.po} /></span>
         </h2>
       </div>
       <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16, marginLeft: 2 }}>
