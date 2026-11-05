@@ -25,6 +25,7 @@ import MobileListCards from '../../../components/MobileListCards'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { pageSubtitle } from '../../../styles/typography'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import LenhCode from '../../../components/LenhCode'
 
 const ACCENT = 'var(--fg-e65100)'
 const GREEN = 'var(--fg-16a34a)'
@@ -93,7 +94,7 @@ export default function KcsChanNhomSection() {
             title: <b>{b.outputMaterialName}</b>,
             badge: statusBadge(b, failed),
             meta: [
-              { label: 'PI', value: b.piCode },
+              { label: 'Lệnh', value: <LenhCode piCode={b.piCode} /> },
               { label: 'Công đoạn', value: PROCESS_STEP_LABELS[b.step] },
               { label: 'Số lượng', value: String(b.qty) },
               { label: 'Gửi KCS lúc', value: new Date(b.submittedAt).toLocaleString('vi-VN') },
@@ -106,7 +107,7 @@ export default function KcsChanNhomSection() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
-              <th style={th}>PI</th>
+              <th style={th}>Lệnh</th>
               <th style={th}>Vật tư</th>
               <th style={th}>Công đoạn</th>
               <th style={thR}>Số lượng</th>
@@ -120,7 +121,7 @@ export default function KcsChanNhomSection() {
               const failed = reviewByBundle.get(b.id)?.failedQty ?? 0
               return (
                 <tr key={b.id} {...focusAttr('MATERIAL_YIELD_STEP_BUNDLE', b.id)} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)' }}>{b.piCode}</td>
+                  <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--text3)' }}><LenhCode piCode={b.piCode} /></td>
                   <td style={{ ...td, fontWeight: 600 }}>{b.outputMaterialName}</td>
                   <td style={td}>{PROCESS_STEP_LABELS[b.step]}</td>
                   <td style={tdR}>{b.qty}</td>
@@ -210,7 +211,7 @@ function QcReviewModal({ bundle, onClose, onDone }: {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Tiến hành duyệt — {bundle.outputMaterialName}</h3>
-            <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>{bundle.piCode} · {PROCESS_STEP_LABELS[bundle.step]}</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4 }}><LenhCode piCode={bundle.piCode} /> · {PROCESS_STEP_LABELS[bundle.step]}</div>
           </div>
           <button onClick={onClose} style={{ padding: 4, background: 'transparent', border: 'none', cursor: 'pointer', display: 'inline-flex' }}><X size={18} /></button>
         </div>

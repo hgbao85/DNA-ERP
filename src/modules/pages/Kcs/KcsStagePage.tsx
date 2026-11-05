@@ -31,6 +31,7 @@ import type { AuditLogEntry } from '../../../context/AuditLogContext'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import { useLenhCodeLookup } from '../../../components/LenhCode'
 
 /** Đích của 1 dòng KCS - "chốt cuối" (ProductionBatch) hoặc "theo công đoạn" (PieceStepBundle,
  *  2026-09-07) - cần phân biệt để gọi ĐÚNG API duyệt (2 nhánh QcReview khác nhau, xem
@@ -58,6 +59,7 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
   // productionOrderId (luôn duy nhất) chứ KHÔNG theo mã hiển thị salesOrderCode - nhiều
   // ProductionOrder có thể cùng chung 1 salesOrderCode (nhiều SKU/đơn), hoặc cùng null (SKU
   // không gắn đơn Sales nào) - gom theo mã hiển thị sẽ gộp nhầm các lô khác nhau vào 1 dòng.
+  const lenhOf = useLenhCodeLookup([...(batches ?? []).map(b => b.piCode), ...(bundles ?? []).map(b => b.piCode)])
   const { rows, map } = useMemo(() => {
     const map = new Map<number, LineTarget>()
     // Lô có thể có NHIỀU review qua các lần duyệt/bù đủ (mỗi lần bù đủ = 1 lô MỚI, mỗi lô ứng
@@ -87,7 +89,7 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
       // đang kiểm), KHÔNG hiện mã PO (đơn hàng Sales) - trước đây ưu tiên PO nếu có, dễ nhầm với
       // "PO" ở màn Mua hàng/Kho (2 mã khác nhau cùng gọi là "PO"). piCode luôn có giá trị thật
       // (ProductionOrder luôn sinh từ 1 ProductionInvoiceItem đã duyệt) - "—" chỉ là chốt an toàn.
-      const po = batchList[0]?.piCode ?? bundleList[0]?.piCode ?? '—'
+      const po = lenhOf(batchList[0]?.piCode ?? bundleList[0]?.piCode) || '—'
       const poHasWork =
         batchList.some(b => b.status === 'AWAITING_QC') || bundleList.some(bd => bd.status === 'AWAITING_QC')
       if (!poHasWork) continue   // chỉ PO còn việc
@@ -168,7 +170,7 @@ export default function KcsStagePage({ cfg, stage, showPieceSteps }: {
       })
     }
     return { rows, map }
-  }, [batches, reviews, bundles, cfg.label, cfg.unit])
+  }, [batches, reviews, bundles, cfg.label, cfg.unit, lenhOf])
 
   if (isLoading) return <LoadingState />
   if (error || !batches) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />

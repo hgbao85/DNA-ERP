@@ -22,6 +22,7 @@ import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 import { pageSubtitle } from '../../../styles/typography'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import LenhCode from '../../../components/LenhCode'
 
 const ACCENT = 'var(--fg-4527a0)'
 
@@ -87,7 +88,7 @@ export default function ChanNhomXuatSection() {
           <button onClick={() => setSelPi(null)} style={backBtn}>
             <ChevronLeft size={15} /> Quay lại
           </button>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>{selPi.piCode}</h2>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}><LenhCode piCode={selPi.piCode} /></h2>
         </div>
         <div style={{ color: 'var(--text3)', fontSize: 13, margin: '0 0 16px' }}>
           Xuất nguyên liệu vào (vd Thanh nhôm) theo nhu cầu vật tư thành phẩm của cả PI này. Bấm Xuất → Phôi xác nhận nhận ở <b>Xác nhận nhận sắt</b>.
@@ -172,13 +173,13 @@ export default function ChanNhomXuatSection() {
       </div>
 
       {isLoading ? <LoadingState /> : error ? <LoadErrorState error={error} onRetry={refetch} /> : isMobile ? (
-        <MobileListCards emptyText="Không có PI nào" items={piOptions.map(p => ({ key: p.productionInvoiceId, onClick: () => setSelPi(p), title: <b style={{ fontFamily: 'monospace' }}>{p.piCode}</b>, meta: [] }))} />
+        <MobileListCards emptyText="Không có lệnh nào" items={piOptions.map(p => ({ key: p.productionInvoiceId, onClick: () => setSelPi(p), title: <b style={{ fontFamily: 'monospace' }}><LenhCode piCode={p.piCode} /></b>, meta: [] }))} />
       ) : (
         <div style={card}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: 'var(--surface2)' }}>
-                <th style={th}>PI</th>
+                <th style={th}>Lệnh</th>
               </tr>
             </thead>
             <tbody>
@@ -186,7 +187,7 @@ export default function ChanNhomXuatSection() {
                 <tr key={p.productionInvoiceId} onClick={() => setSelPi(p)} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                  <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}>{p.piCode}</td>
+                  <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700 }}><LenhCode piCode={p.piCode} /></td>
                 </tr>
               ))}
               {piOptions.length === 0 && (

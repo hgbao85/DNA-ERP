@@ -16,6 +16,7 @@ import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import LenhCode from '../../../components/LenhCode'
 
 interface LoiEntry { id: number; lyDo: string; file: File | null }
 
@@ -230,7 +231,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
               <span style={{ marginLeft: 8 }}><MaterialChoiceTags wire={selectedPf.wireMaterial} cushion={selectedPf.cushionMaterial} /></span>
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
-              PO: {poInfoFor(selectedPf)?.poCode ?? '—'} · PI: {poInfoFor(selectedPf)?.piCode ?? 'Chưa gắn đơn hàng'}
+              PO: {poInfoFor(selectedPf)?.poCode ?? '—'} · Lệnh: <LenhCode piCode={poInfoFor(selectedPf)?.piCode} fallback="Chưa gắn đơn hàng" />
               {poInfoFor(selectedPf)?.deliveryDate && (
                 <> · Hạn giao: {format(new Date(poInfoFor(selectedPf)!.deliveryDate!), 'dd/MM/yyyy')}</>
               )}
@@ -423,7 +424,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
       </p>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
-        <MobileListCards emptyText="Không có PI nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>} <MaterialChoiceTags wire={pf.wireMaterial} cushion={pf.cushionMaterial} /></>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'PI', value: poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng' }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
+        <MobileListCards emptyText="Không có lệnh nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>} <MaterialChoiceTags wire={pf.wireMaterial} cushion={pf.cushionMaterial} /></>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'Lệnh', value: <LenhCode piCode={poInfoFor(pf)?.piCode} fallback="Chưa gắn đơn hàng" /> }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
       ) : (
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
@@ -437,7 +438,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
               <thead>
                 <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                   <th style={th}>PO</th>
-                  <th style={th}>PI</th>
+                  <th style={th}>Lệnh</th>
                   <th style={th}>SKU</th>
                   <th style={th}>Hạn giao</th>
                 </tr>
@@ -455,7 +456,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                       {poInfoFor(pf)?.poCode ?? '—'}
                     </td>
                     <td style={{ ...td, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {poInfoFor(pf)?.piCode ?? 'Chưa gắn đơn hàng'}
+                      <LenhCode piCode={poInfoFor(pf)?.piCode} fallback="Chưa gắn đơn hàng" />
                     </td>
                     <td style={{ ...td, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       <span style={{ fontWeight: 600 }}>{pf.mfgProduct?.factoryCode}</span>

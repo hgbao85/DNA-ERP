@@ -1724,7 +1724,6 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
     <div onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 4, minWidth: 0 }}>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
         {o.lsxCode && lsxMode === null && <span style={{ fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: 'var(--fg-1d4ed8)' }}>LSX {o.lsxCode}</span>}
-        {o.lsxCode && <span style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text3)' }}>{o.piCode}</span>}
         {o.workshop && <span style={{ fontSize: 11, color: 'var(--text2)', background: 'var(--surface2)', padding: '1px 8px', borderRadius: 10 }}>{o.workshop.name}</span>}
       </div>
       {lsxMode && piId && (
@@ -1892,7 +1891,6 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontFamily: 'monospace', fontWeight: 800, fontSize: isMobile ? 17 : 20, wordBreak: 'break-word', color: 'var(--fg-1d4ed8)', letterSpacing: '0.02em' }}><LenhCodeText code={selectedPi.displayCode} /></div>
-              {selectedPi.displayCode !== selectedPi.piCode && <div style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>{selectedPi.piCode}</div>}
               <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4, wordBreak: 'break-word' }}>{selectedPi.rows.length} SKU · PO: {selectedPi.poCodes}</div>
               {/* Phần A – Đợt 2: xưởng cơ khí của cả lệnh + nút Đổi xưởng (QLSX, chỉ khi chưa xuất sắt) */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 6, fontSize: 13, color: 'var(--text3)' }}>
@@ -1997,7 +1995,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
               focusKeys={[focusKey('PRODUCTION_INVOICE', p.piId), focusKey('PI_CODE', p.piCode)]}
               onClick={() => setSelectedPiId(p.piId)}
               title={<span style={{ fontFamily: 'monospace' }}><LenhCodeText code={p.displayCode} /></span>}
-              subtitle={(p.displayCode !== p.piCode ? p.piCode + ' · ' : '') + p.rows.length + ' SKU · ' + p.customers}
+              subtitle={p.rows.length + ' SKU · ' + p.customers}
               stage={currentStageLabel(p.order, p.details)}
               variance={p.rows.some(r => r.order.hasVariance)}
               meta={[
@@ -2044,7 +2042,6 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
                 >
                   <td style={td}>
                     <div style={{ fontFamily: 'monospace', fontWeight: 700 }}><LenhCodeText code={p.displayCode} /></div>
-                    {p.displayCode !== p.piCode && <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--text3)' }}>{p.piCode}</div>}
                     <div style={{ fontSize: 12, color: 'var(--text3)' }}>{p.rows.length} SKU</div>
                   </td>
                   <td style={{ ...td, maxWidth: 0 }}>

@@ -74,6 +74,7 @@ import {
 import MobileListCards from '../../../components/MobileListCards'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import LenhCode from '../../../components/LenhCode'
 
 // '—' cho phoiDeadline null (KHSX chưa đặt mốc Phôi cho SKU này) - mirror dateVN() ở
 // components/sanxuat/core.tsx (Hàn/Sơn), không import chéo vì file này cố ý độc lập (nối BE thật
@@ -341,9 +342,9 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
       </div>
 
       {isMobile ? (
-        <MobileListCards emptyText="Chưa có PI nào được xuất sắt" items={piRows.map(r => ({
+        <MobileListCards emptyText="Chưa có lệnh nào được xuất sắt" items={piRows.map(r => ({
           key: r.productionInvoiceId, onClick: () => setSelPi(r.productionInvoiceId),
-          title: <b style={{ fontFamily: 'monospace' }}>{r.poNumber}</b>,
+          title: <b style={{ fontFamily: 'monospace' }}><LenhCode piCode={r.poNumber} /></b>,
           meta: [
             { label: 'Đã xuất (cây)', value: <b>{r.issues.length > 0 ? r.totalIssued : '—'}</b> },
             { label: 'Cắt sắt', value: cutCell(r) },
@@ -355,7 +356,7 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
-              <th style={th}>PI</th>
+              <th style={th}>Lệnh</th>
               <th style={thR}>Đã xuất (cây)</th>
               <th style={thR}>Cắt sắt</th>
               <th style={thR}>Vật tư TP</th>
@@ -372,7 +373,7 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
                 <tr key={r.productionInvoiceId} {...focusAttrAny([focusKey('PRODUCTION_INVOICE', r.productionInvoiceId), focusKey('PI_CODE', r.poNumber)])} onClick={() => setSelPi(r.productionInvoiceId)} style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
                   onMouseLeave={e => (e.currentTarget.style.background = '')}>
-                  <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{r.poNumber}</td>
+                  <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}><LenhCode piCode={r.poNumber} /></td>
                   <td style={{ ...tdR, fontWeight: 700 }}>{r.issues.length > 0 ? r.totalIssued : '—'}</td>
                   {/* "đã phôi" ở CỘT NÀY nghĩa là CẢ PO đã cắt xong (không phải 1 đợt) - 2026-09-10,
                       theo góp ý người dùng: trước đây tách riêng cột "Đã phôi (đợt)" hiện SỐ đợt đã
@@ -388,7 +389,7 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
               )
             })}
             {piRows.length === 0 && (
-              <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} /> Chưa có PI nào được xuất sắt</span></div></td></tr>
+              <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg"><span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={14} /> Chưa có lệnh nào được xuất sắt</span></div></td></tr>
             )}
           </tbody>
         </table>
@@ -520,7 +521,7 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
         <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
           <ChevronLeft size={15} /> Quay lại
         </button>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>{pi.poNumber}</h2>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}><LenhCode piCode={pi.poNumber} /></h2>
       </div>
 
       <div style={{ ...card, padding: '12px 16px', marginBottom: 14 }}>
@@ -536,7 +537,7 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
           <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
             {orderSummary.map((o, i) => (
               <div key={i} style={{ fontSize: 13, display: 'flex', alignItems: 'baseline', gap: 8 }}>
-                <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{o.poNumber}</span>
+                <span style={{ fontFamily: 'monospace', fontWeight: 700 }}><LenhCode piCode={o.poNumber} /></span>
                 <span>{o.productName}</span>
                 <span style={{ color: 'var(--text3)', marginLeft: 'auto' }}>Deadline {dateVN(o.phoiDeadline)}</span>
                 <span style={{ color: 'var(--text3)' }}>SL {o.quantity.toLocaleString('vi-VN')}</span>
@@ -684,7 +685,7 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 700, fontSize: 14 }}>{v.pieceName}</div>
                       <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-                        {v.poNumber} · Cần {v.plannedQty} mảnh{v.qtyPerPiece != null && v.qtyPerPiece > 1 ? ` (= ${v.plannedQty * v.qtyPerPiece} miếng)` : ''}
+                        <LenhCode piCode={v.poNumber} /> · Cần {v.plannedQty} mảnh{v.qtyPerPiece != null && v.qtyPerPiece > 1 ? ` (= ${v.plannedQty * v.qtyPerPiece} miếng)` : ''}
                       </div>
                     </div>
                     {v.processSteps.length === 0 ? (
@@ -944,7 +945,7 @@ function SkuPicker({ orders, selOrderId, onSelect }: { orders: BePiOrderSummary[
       <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)' }}>Phôi cho SKU:</span>
       {orders.map(o => (
         <button key={o.productionOrderId} onClick={() => onSelect(o.productionOrderId)} style={subFilterBtn(o.productionOrderId === selOrderId)}>
-          {o.poNumber} · {o.sku}
+          <LenhCode piCode={o.poNumber} /> · {o.sku}
         </button>
       ))}
     </div>

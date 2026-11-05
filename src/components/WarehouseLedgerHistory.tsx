@@ -51,6 +51,7 @@ import { useFetch } from '../hooks/useFetch'
 import { getStockLedger, type BeStockLedgerEntry } from '../services/stock-api'
 import LoadingState from './LoadingState'
 import { tableWrap, tbl, compactTh as th, compactTd as td, emptyBox, tableScrollBox, stickyHeaderRow } from '../styles/table'
+import LenhCode from './LenhCode'
 
 type Dir = 'ALL' | 'IN' | 'OUT'
 
@@ -214,7 +215,7 @@ export default function WarehouseLedgerHistory({ warehouseId, warehouseCode }: {
                       điều chỉnh tay...). KHÔNG kèm nhãn loại nghiệp vụ (bỏ hẳn 2026-09-12, theo
                       yêu cầu người dùng - thấy không cần thiết). */}
                   <td style={{ ...td, fontWeight: 700, fontFamily: (e.refCode ?? e.piCode) ? 'monospace' : undefined, whiteSpace: 'nowrap', color: (e.refCode ?? e.piCode) ? undefined : 'var(--text3)' }}>
-                    {e.refCode ?? e.piCode ?? '—'}
+                    {e.refCode ?? <LenhCode piCode={e.piCode} />}
                   </td>
                   <td style={{ ...td, fontFamily: e.poCode ? 'monospace' : undefined, whiteSpace: 'nowrap', color: e.poCode ? undefined : 'var(--text3)' }}>
                     {e.poCode ?? '—'}

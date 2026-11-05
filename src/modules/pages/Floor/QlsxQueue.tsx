@@ -15,6 +15,7 @@ import { errMsg } from '../../../utils/errors'
 import QlsxPiDetail from './QlsxPiDetail'
 import { missingText, openBatchesOf, phoiMaterialsOf, piecesOf, shortMaterials, shortPieces, stepLabel } from './piDetailModel'
 import { btn, card, fmtTime, input, Notice, Pill, STAGE_LABEL, STEP_LABEL, StackedProgress } from './qlsxUi'
+import LenhCode, { useLenhCodeLookup } from '../../../components/LenhCode'
 
 /** PI đang mở trong ngăn "còn thiếu gì". */
 interface DetailTarget { productionInvoiceId: string; piCode: string }
@@ -109,10 +110,10 @@ export default function QlsxQueue({ stage, entries, openCount, review, onChanged
       <div style={card}>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: 220 }}>
-            <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>PI đang chạy · tổ {STAGE_LABEL[stage]}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 600 }}>Lệnh đang chạy · tổ {STAGE_LABEL[stage]}</div>
             {running ? (
               <>
-                <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}>{running.piCode}</div>
+                <div style={{ fontSize: 22, fontWeight: 700, marginTop: 2 }}><LenhCode piCode={running.piCode} /></div>
                 <div style={{ fontSize: 12, color: 'var(--text3)' }}>
                   Bắt đầu {running.startedAt ? fmtTime(running.startedAt) : '—'}{running.startedByName ? ` · ${running.startedByName}` : ''}
                 </div>
@@ -235,6 +236,7 @@ export default function QlsxQueue({ stage, entries, openCount, review, onChanged
 
 function AddPi({ stage, onAdded }: { stage: FloorStage; onAdded: () => void }) {
   const { data, isLoading, error } = useFetch<BeQueueCandidate[]>(() => floorAdmin.queueCandidates(stage), [stage])
+  const lenhOf = useLenhCodeLookup((data ?? []).map(c => c.code))
   const [sel, setSel] = useState('')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -248,10 +250,10 @@ function AddPi({ stage, onAdded }: { stage: FloorStage; onAdded: () => void }) {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         <select aria-label="Chọn PI" value={sel} onChange={(e) => setSel(e.target.value)} disabled={isLoading}
           style={{ ...input, flex: 1, minWidth: 200 }}>
-          <option value="">{isLoading ? 'Đang tải…' : (data ?? []).length ? 'Chọn PI…' : 'Không còn PI nào để thêm'}</option>
+          <option value="">{isLoading ? 'Đang tải…' : (data ?? []).length ? 'Chọn lệnh…' : 'Không còn lệnh nào để thêm'}</option>
           {(data ?? []).map((c) => (
             <option key={c.productionInvoiceId} value={c.productionInvoiceId}>
-              {c.code} · {c.orderCount} SKU{c.activeOrderCount ? ` (${c.activeOrderCount} đã Bắt đầu)` : ' (chưa Bắt đầu)'}
+              {lenhOf(c.code)} · {c.orderCount} SKU{c.activeOrderCount ? ` (${c.activeOrderCount} đã Bắt đầu)` : ' (chưa Bắt đầu)'}
             </option>
           ))}
         </select>

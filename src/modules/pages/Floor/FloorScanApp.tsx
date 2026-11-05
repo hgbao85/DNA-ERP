@@ -34,6 +34,7 @@ import {
   dayKey, describeError, hhmm, outputTotals, overBy, RANGE_LABEL, rangeBounds, receiveVerdict,
   type OutputRange, type OutputTotal,
 } from './floorUi'
+import LenhCode, { useLenhCodeLookup } from '../../../components/LenhCode'
 
 const LAST_WS_KEY = 'floor.lastWs'
 const LAST_USER_KEY = 'floor.lastUsername'
@@ -362,13 +363,13 @@ function PiPicker({ ctx, selectedPi, onSelect }: {
         {running && (
           <button type="button" aria-pressed={selectedPi === running.productionInvoiceId} style={chip(selectedPi === running.productionInvoiceId)}
             onClick={() => onSelect(running.productionInvoiceId)}>
-            {running.code} · đang làm
+            <LenhCode piCode={running.code} /> · đang làm
           </button>
         )}
         {rework.map((r) => (
           <button key={r.productionInvoiceId} type="button" aria-pressed={selectedPi === r.productionInvoiceId} style={chip(selectedPi === r.productionInvoiceId)}
             onClick={() => onSelect(r.productionInvoiceId)}>
-            {r.code} · làm bù
+            <LenhCode piCode={r.code} /> · làm bù
           </button>
         ))}
       </div>
@@ -383,7 +384,7 @@ function PiPicker({ ctx, selectedPi, onSelect }: {
 function SkuPicker({ orders, value, onChange, piCode }: {
   orders: BeScanOrder[]; value: string | null; onChange: (id: string) => void; piCode?: string
 }) {
-  const piText = piCode ? <>Lệnh <b style={{ color: 'var(--text)' }}>{piCode}</b></> : null
+  const piText = piCode ? <>Lệnh <b style={{ color: 'var(--text)' }}><LenhCode piCode={piCode} /></b></> : null
   if (orders.length <= 1) {
     const o = orders[0]
     if (!o) return piText ? <div style={{ fontSize: 14, color: 'var(--text2)' }}>{piText}</div> : null
@@ -704,6 +705,8 @@ function ReportTab({ ws }: { ws: string }) {
   const [flash, setFlash] = useState<{ tone: 'ok' | 'err' | 'warn'; text: string; alert?: boolean } | null>(null)
   const flashRef = useRef<HTMLDivElement>(null)
   const retryKey = useRetrySafeKey()
+  // Mã lệnh (số LSX) cho chuỗi context của phiếu báo - hook đặt trước mọi return sớm.
+  const lenhOf = useLenhCodeLookup([ctx?.pi?.code])
 
   const load = useCallback(async (piId?: string | null) => {
     try {
@@ -795,7 +798,7 @@ function ReportTab({ ws }: { ws: string }) {
             <PieceForm
               key={effectiveOrder.productionOrderId}
               items={ctx.pi.piecePlans?.[effectiveOrder.productionOrderId]?.items ?? []}
-              context={`${ctx.pi.code} · ${effectiveOrder.sku}`}
+              context={`${lenhOf(ctx.pi.code)} · ${effectiveOrder.sku}`}
               stageLabel={STAGE_LABEL[w.stage].toLowerCase()}
               onSubmit={(pieceId, qty, summary) => send({
                 productionInvoiceId: ctx.pi!.productionInvoiceId,
@@ -808,7 +811,7 @@ function ReportTab({ ws }: { ws: string }) {
               materials={ctx.pi.materials ?? []}
               orderId={effectiveOrder.productionOrderId}
               kindLabel={w.kind === 'CUT' ? 'Cắt' : STEP_LABEL[w.processStep ?? ''] ?? 'Làm'}
-              context={`${ctx.pi.code} · ${effectiveOrder.sku}`}
+              context={`${lenhOf(ctx.pi.code)} · ${effectiveOrder.sku}`}
               onSubmit={(materialId, segments, summary) => send({
                 productionInvoiceId: ctx.pi!.productionInvoiceId,
                 productionOrderId: effectiveOrder.productionOrderId, materialId, segments,
@@ -930,7 +933,7 @@ function MyOutputTab() {
                           <b style={{ fontSize: 16, color: 'var(--text)' }}>
                             {new Date(r.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                           </b>
-                          {r.piCode ? ` · ${r.piCode}` : ''}
+                          {r.piCode ? <> · <LenhCode piCode={r.piCode} /></> : null}
                           {r.kind === 'CUT' ? ' · Cắt' : r.step ? ` · ${STEP_LABEL[r.step] ?? r.step}` : ''}
                           {r.workstation ? ` · ${r.workstation.name}` : ' · báo trên máy tính'}
                         </div>

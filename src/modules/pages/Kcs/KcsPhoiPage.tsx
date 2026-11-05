@@ -69,6 +69,7 @@ import MobileListCards from '../../../components/MobileListCards'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import LenhCode from '../../../components/LenhCode'
 
 const ACCENT = 'var(--fg-e65100)'
 const GREEN = 'var(--fg-16a34a)'
@@ -211,7 +212,7 @@ function KcsSatSection() {
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
-              <th style={th}>PI</th>
+              <th style={th}>Lệnh</th>
               <th style={thR}>Đợt chờ kiểm</th>
               <th style={{ ...th, width: 40 }}></th>
             </tr>
@@ -222,7 +223,7 @@ function KcsSatSection() {
                 style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface2)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = '')}>
-                <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{r.poNumber}</td>
+                <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}><LenhCode piCode={r.poNumber} /></td>
                 <td style={tdR}>
                   {r.pendingCount > 0
                     ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: AMBER, fontWeight: 700 }}><Clock size={12} /> {r.pendingCount}</span>

@@ -35,6 +35,7 @@ import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import LenhCode from '../../../components/LenhCode'
 
 const ACCENT = 'var(--fg-4527a0)'
 
@@ -167,7 +168,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
           </button>
           <div>
             <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
-              PI: {selectedPi.piCode}
+              Lệnh: <LenhCode piCode={selectedPi.piCode} />
             </h2>
             <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 2 }}>
               PO: {poLabel(selectedPi)}
@@ -307,7 +308,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
       </p>
 
       {isLoading ? <LoadingState /> : listError ? <LoadErrorState error={listError} onRetry={() => { refetchSkus(); refetchOrders() }} /> : isMobile ? (
-        <MobileListCards emptyText="Không có PI nào" items={piGroups.map(g => ({ key: String(g.productionInvoiceId), onClick: () => setSelectedPi(g), title: <b>{g.products.join(', ') || '—'}</b>, meta: [{ label: 'PI', value: g.piCode }, { label: 'PO', value: poLabel(g) }] }))} />
+        <MobileListCards emptyText="Không có lệnh nào" items={piGroups.map(g => ({ key: String(g.productionInvoiceId), onClick: () => setSelectedPi(g), title: <b>{g.products.join(', ') || '—'}</b>, meta: [{ label: 'Lệnh', value: <LenhCode piCode={g.piCode} /> }, { label: 'PO', value: poLabel(g) }] }))} />
       ) : (
         <div style={{ ...tableWrap, ...tableScrollBox }}>
           <table style={tbl}>
@@ -318,7 +319,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
             </colgroup>
             <thead>
               <tr style={{ ...stickyHeaderRow, textAlign: 'left' }}>
-                <th style={thStyle}>PI</th>
+                <th style={thStyle}>Lệnh</th>
                 <th style={thStyle}>PO</th>
                 <th style={thStyle}>Sản phẩm</th>
               </tr>
@@ -327,7 +328,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
               {piGroups.map(g => (
                 <tr key={g.productionInvoiceId} {...focusAttr('PI_CODE', g.piCode)} onClick={() => setSelectedPi(g)} style={row}>
                   <td style={{ ...tdStyle, fontWeight: 600, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {g.piCode}
+                    <LenhCode piCode={g.piCode} />
                   </td>
                   <td style={{ ...tdStyle, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {poLabel(g)}
@@ -338,7 +339,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
                 </tr>
               ))}
               {piGroups.length === 0 && (
-                <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Không có PI nào</div></td></tr>
+                <tr><td colSpan={3} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Không có lệnh nào</div></td></tr>
               )}
             </tbody>
           </table>

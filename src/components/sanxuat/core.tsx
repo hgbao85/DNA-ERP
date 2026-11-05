@@ -26,6 +26,7 @@ import { useIsMobile } from '../../hooks/useMediaQuery'
 import LoadingState from '../LoadingState'
 import LoadErrorState from '../LoadErrorState'
 import { useRealtimeRefetch } from '../../realtime/hooks'
+import LenhCode, { useLenhCodeLookup } from '../LenhCode'
 
 const ACCENT = 'var(--fg-e65100)'
 const REMIND_MINUTES = 60
@@ -226,8 +227,8 @@ function PiListBoard({ groups, cfg, onEnter }: { groups: PiGroup[]; cfg: StageCf
       // CHỈ hiện mã PI (KHÔNG PO) - 2026-09-10, đồng bộ màn KCS (xem KcsStagePage.tsx): Hàn/Sơn làm
       // việc theo PI (lệnh sản xuất nội bộ), PO là khái niệm bên Sales, dễ nhầm với "PO" ở màn Mua
       // hàng/Kho (2 mã khác nhau cùng gọi là "PO").
-      key: 'pi', header: 'PI', cell: v => (
-        <div style={{ fontWeight: 700, fontFamily: 'monospace' }}>{v.g.piCode}</div>
+      key: 'pi', header: 'Lệnh', cell: v => (
+        <div style={{ fontWeight: 700, fontFamily: 'monospace' }}><LenhCode piCode={v.g.piCode} /></div>
       ),
     },
     { key: 'skuCount', header: 'Số SKU', align: 'right', cell: v => v.g.rows.length },
@@ -267,6 +268,7 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, pi
   onBack?: () => void
   piCode?: string
 }) {
+  const lenhOf = useLenhCodeLookup([piCode])
   const sumOf = (r: ProcRow) => isPhoi ? poSummaryCay(r) : poSummary(r)
   const views: PoView[] = rows.map((r, i) => {
     const s = sumOf(r)
@@ -307,7 +309,7 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, pi
   return (
     <LenhSanXuatBoard<PoView>
       icon={<Icon size={18} />}
-      title={onBack ? `PI ${piCode ?? ''}` : `Lệnh sản xuất — Công đoạn ${cfg.label}`}
+      title={onBack ? `Lệnh ${lenhOf(piCode)}` : `Lệnh sản xuất — Công đoạn ${cfg.label}`}
       subtitle={isPhoi
         ? `Theo dõi tiến độ ${cfg.verb} theo SKU · bấm SKU để xem mảnh & xác nhận cắt theo đợt`
         : `Theo dõi tiến độ ${cfg.verb} theo SKU · nhập sản lượng theo ${cfg.itemLabel.toLowerCase()}`}

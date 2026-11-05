@@ -28,6 +28,7 @@ import {
 } from './phoiStyles'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
+import LenhCode from '../../../components/LenhCode'
 
 export interface ChanNhomRecipeItem {
   productionInvoiceId: string
@@ -70,7 +71,7 @@ export default function ChanNhomDetail({ item, readOnly, onBack, onRefetch }: {
         <div>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{item.outputMaterialName}</h2>
           <div style={{ fontSize: 12, color: 'var(--text3)' }}>
-            {item.piCode} · Cần sản xuất thêm {item.shortfallOutputQty.toLocaleString('vi-VN')} (tồn sẵn {item.onHandOutputQty.toLocaleString('vi-VN')})
+            <LenhCode piCode={item.piCode} /> · Cần sản xuất thêm {item.shortfallOutputQty.toLocaleString('vi-VN')} (tồn sẵn {item.onHandOutputQty.toLocaleString('vi-VN')})
           </div>
         </div>
       </div>
