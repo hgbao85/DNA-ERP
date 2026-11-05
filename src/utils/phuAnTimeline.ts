@@ -379,9 +379,10 @@ export function finishedMaterialDate(packagingStart: DateLike): Date | null {
 // hạn chót thì ngày "về từ" đi theo.
 export const MATERIAL_ARRIVAL_WINDOW_DAYS = 4
 
-export function materialArrivalFrom(deadline: DateLike): Date | null {
+// Phần A – Đợt 4 (YC6): N lấy từ cấu hình `materialEarliestArrivalDays` (mặc định 4 = hằng trên khi không truyền).
+export function materialArrivalFrom(deadline: DateLike, windowDays: number = MATERIAL_ARRIVAL_WINDOW_DAYS): Date | null {
   const d = dayOf(deadline)
-  return d ? addDaysDate(d, -MATERIAL_ARRIVAL_WINDOW_DAYS) : null
+  return d ? addDaysDate(d, -windowDays) : null
 }
 
 /** Tên 2 mốc vật tư (Sếp duyệt 2026-10-27): ngắn cho thẻ/tiêu đề bảng, đầy đủ + danh sách vật tư cho chú thích rê chuột. */

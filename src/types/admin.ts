@@ -88,6 +88,8 @@ export interface SystemConfig {
   capacityContPerDay: number;
   /** Phần A – Đợt 3: số ngày cho 1 cont ở Phôi, Hàn của xưởng Phước An (1–60). Mặc định 4. */
   daysPerContPhuocAn: number;
+  /** Phần A – Đợt 4 (YC6): hàng vật tư được về sớm nhất N ngày trước hạn chót, số nguyên 0-30. Mặc định 4. */
+  materialEarliestArrivalDays: number;
 }
 
 export type NotificationCategory = 'ANNOUNCEMENT' | 'ACTION_REQUIRED' | 'RESULT' | 'ALERT' | 'INFO';

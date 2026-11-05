@@ -10,9 +10,11 @@ import type { PlanningParams } from '../types/containerLoad'
 export interface CapacityParams {
   capacityContPerDay: number
   daysPerContPhuocAn: number
+  /** Phần A – Đợt 4 (YC6): hàng vật tư được về sớm nhất N ngày trước hạn chót (số nguyên 0–30, mặc định 4). */
+  materialEarliestArrivalDays: number
 }
 
-export const DEFAULT_CAPACITY_PARAMS: CapacityParams = { capacityContPerDay: 1.3, daysPerContPhuocAn: 4 }
+export const DEFAULT_CAPACITY_PARAMS: CapacityParams = { capacityContPerDay: 1.3, daysPerContPhuocAn: 4, materialEarliestArrivalDays: 4 }
 
 let cache: Promise<PlanningParams | null> | null = null
 
@@ -33,7 +35,9 @@ export function invalidatePlanningParams() {
 export function capacityParamsOf(p: PlanningParams | null | undefined): CapacityParams {
   const cap = Number(p?.capacityContPerDay)
   const days = Number(p?.daysPerContPhuocAn)
+  const early = Number(p?.materialEarliestArrivalDays)
   return {
+    materialEarliestArrivalDays: Number.isInteger(early) && early >= 0 && early <= 30 ? early : DEFAULT_CAPACITY_PARAMS.materialEarliestArrivalDays,
     capacityContPerDay: Number.isFinite(cap) && cap > 0 ? cap : DEFAULT_CAPACITY_PARAMS.capacityContPerDay,
     daysPerContPhuocAn: Number.isFinite(days) && days > 0 ? days : DEFAULT_CAPACITY_PARAMS.daysPerContPhuocAn,
   }

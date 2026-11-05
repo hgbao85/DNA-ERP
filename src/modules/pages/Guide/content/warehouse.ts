@@ -486,5 +486,40 @@ export const warehouseGroup: GuideGroup = {
       tags: ['văn phòng phẩm', 'office supplies'],
       sourceRefs: ['src/modules/pages/InboundWarehouse/OfficeSuppliesPage.tsx'],
     },
+    // Phần A – Đợt 4 (YC6)
+    {
+      id: 'wh-vat-tu-can-ve',
+      title: 'Màn "Vật tư cần về"',
+      roles: ['warehouse'],
+      purpose: 'Xem vật tư đã chốt mua mà chưa về đủ, vật tư nào đang trong khoảng được về, vật tư nào đã đến hạn chót hoặc quá hạn. Màn này chỉ để xem; nhận hàng vẫn làm ở tab "Nhập kho".',
+      mock: {
+        title: 'Vật tư cần về',
+        columns: ['Trạng thái', 'Được về từ – Hạn chót', 'Vật tư', 'Cần / Chốt mua', 'Đã nhận', 'Còn thiếu', 'Lệnh', 'NCC', 'Người mua', 'Kho nhận'],
+        rows: [['HẠN CHÓT HÔM NAY', '06/11 – 10/11/2026', 'Sắt hộp 20x20 (VT khung & đan)', 'Cần 100 · chốt mua 120 kg', '40', '80 kg', 'MY-313 · hạn 10/11, MY-314 · hạn 12/11', 'Kim Phát · Đơn 52/2026', 'An', 'Phôi Sơn Hàn']],
+        buttons: ['Quá hạn', 'Hôm nay', 'Theo ngày', 'Tất cả', 'Làm mới'],
+      },
+      steps: [
+        'Vào menu "Vật tư cần về". Mặc định mở bộ lọc "Hôm nay" (mọi vật tư đang trong khoảng được về, kể cả vật tư có hạn chót hôm nay). Các nút lọc khác: "Quá hạn", "Theo ngày" (chọn một ngày bất kỳ) và "Tất cả"; số nhỏ cạnh mỗi nút là số dòng.',
+        'Màn chỉ hiện vật tư nhận về kho của bạn; góc trên ghi "Kho: ..." và không đổi được.',
+        'Mỗi dòng ghi: trạng thái, khoảng được về (từ ngày nào đến hạn chót), vật tư, số cần và số chốt mua, số đã nhận, số CÒN THIẾU (in đậm), các lệnh dùng vật tư đó, nhà cung cấp, người mua và kho nhận.',
+        'Dòng đỏ ghi "HẠN CHÓT HÔM NAY" là vật tư phải về trong hôm nay; dòng đỏ ghi "Quá hạn N ngày" là đã trễ N ngày chưa về đủ; dòng vàng "Còn N ngày tới hạn" là đang trong khoảng được về; dòng xám "Về từ dd/mm" là chưa tới ngày được về.',
+        'Một vật tư dùng chung cho nhiều SKU (lệnh gộp) chỉ hiện MỘT dòng; cột "Lệnh" liệt kê từng SKU kèm hạn riêng của nó, ví dụ "MY-313 · hạn 10/11, MY-314 · hạn 12/11". Hạn chót của dòng là hạn sớm nhất trong số đó.',
+        'Bấm "Làm mới" để tải lại. Đổi bộ lọc thì danh sách tự tải lại.',
+      ],
+      result: 'Biết ngay hôm nay vật tư nào phải về, vật tư nào đã trễ và còn thiếu bao nhiêu.',
+      warnings: [
+        'Số theo dõi là số CHỐT MUA (đã gồm phần mua dư nếu có), không phải số hệ thống tính ban đầu. Khi chốt mua lớn hơn số cần, dòng ghi "Cần 100 · chốt mua 120 kg"; chưa về đủ số chốt mua thì vẫn còn thiếu.',
+        'Vật tư chỉ được về sớm nhất vài ngày trước hạn chót (Admin đặt số ngày này ở Cấu hình hệ thống, mặc định 4 ngày); trên đầu màn có ghi rõ "được về sớm nhất N ngày trước hạn chót".',
+        'Đến hạn chót mà vật tư chưa về đủ thì dòng đó đỏ, đồng thời Kế hoạch sản xuất và Giám đốc nhận cảnh báo đỏ.',
+        'Mỗi sáng 7 giờ, người mua và thủ kho nhận một tin tóm tắt vật tư cần về của mình; bấm vào tin sẽ mở đúng bộ lọc trong màn này.',
+        'Nút "Vật tư cần về" trên menu có số đỏ là số dòng đang đến hạn hoặc quá hạn của kho bạn.',
+      ],
+      commonErrors: [
+        { issue: 'Thấy ít vật tư hơn đồng nghiệp', cause: 'Màn chỉ hiện vật tư thuộc phạm vi của bạn (người mua: vật tư mình phụ trách; thủ kho: kho của mình).', fix: 'Người mua bấm "Mọi người mua" ở ô Phạm vi để xem vật tư của mọi người; thủ kho nhờ quản lý hoặc Admin nếu cần xem kho khác.' },
+        { issue: 'Ghi "Chưa đặt NCC"', cause: 'Dòng mua chưa được duyệt hoặc chưa vào đơn đặt hàng nhà cung cấp.', fix: 'Người mua kiểm tra lại ở tab "Lệnh mua vật tư" và "Đơn đặt hàng".' },
+      ],
+      tags: ['vật tư cần về', 'hạn chót', 'quá hạn', 'chốt mua', 'lệnh gộp'],
+      sourceRefs: ['src/modules/pages/MaterialsDue/VatTuCanVePage.tsx'],
+    },
   ],
 };

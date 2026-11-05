@@ -275,10 +275,10 @@ export default function LenhSXPage() {
   const mobileLabel = (i: number) => isMobile && (
     <div title={DATE_COL_HINTS[i]} style={{ fontSize:9.5, fontWeight:700, color: i === 5 ? 'var(--fg-1d4ed8)' : 'var(--text3)', textTransform:'uppercase', marginBottom:2, lineHeight:'12px', minHeight:24, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>{DATE_COL_LABELS[i]}</div>
   )
-  // Dòng nhỏ "từ dd/mm" dưới ô hạn vật tư - ngày sớm nhất hàng được về (hạn − 4), chỉ hiển thị.
+  // Dòng nhỏ "từ dd/mm" dưới ô hạn vật tư - ngày sớm nhất hàng được về (hạn − N, N lấy từ cấu hình), chỉ hiển thị.
   const arrivalLine = (deadline: Date) => {
-    const from = materialArrivalFrom(deadline)
-    return from && <div style={{ fontSize:10, color:'var(--text3)' }} title="Ngày sớm nhất hàng được về (hạn chót − 4)">từ {format(from, 'dd/MM')}</div>
+    const from = materialArrivalFrom(deadline, capParams.materialEarliestArrivalDays)
+    return from && <div style={{ fontSize:10, color:'var(--text3)' }} title={`Ngày sớm nhất hàng được về (hạn chót − ${capParams.materialEarliestArrivalDays})`}>từ {format(from, 'dd/MM')}</div>
   }
   const searchBox = (
     <div style={{ position:'relative', width: isMobile ? '100%' : undefined }}>
@@ -1411,7 +1411,7 @@ export default function LenhSXPage() {
                             <div title={hint} style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:1, lineHeight:'12px', minHeight:24, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>{label}</div>
                             <div style={{ fontSize:11, fontWeight: own ? 600 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>
                               {format(val, 'dd/MM/yyyy')}
-                              {material && <span style={{ display:'block', fontSize:9 }}>từ {format(materialArrivalFrom(val) ?? val, 'dd/MM')}</span>}
+                              {material && <span style={{ display:'block', fontSize:9 }}>từ {format(materialArrivalFrom(val, capParams.materialEarliestArrivalDays) ?? val, 'dd/MM')}</span>}
                               {!own && <span style={{ display:'block', fontSize:9 }}>đề xuất</span>}
                             </div>
                           </div>
@@ -1843,8 +1843,8 @@ export default function LenhSXPage() {
                   const isFinished = field === 'finishedMaterialDeadline'
                   const dateKey = FORM_TO_DATE[field]
                   const offsetText = isFinished ? FINISHED_MATERIAL_OFFSET_LABEL : dateKey ? labels[dateKey] : undefined
-                  // Hạn vật tư: thêm dòng "về từ" = hạn − 4 (chỉ hiển thị, đi theo ngày trong ô kể cả khi sửa tay).
-                  const arrival = field === 'materialDeadline' || isFinished ? materialArrivalFrom(value) : null
+                  // Hạn vật tư: thêm dòng "về từ" = hạn − N (N = cấu hình, mặc định 4; chỉ hiển thị, đi theo ngày trong ô kể cả khi sửa tay).
+                  const arrival = field === 'materialDeadline' || isFinished ? materialArrivalFrom(value, capParams.materialEarliestArrivalDays) : null
                   return (
                     <div style={{ flex:1, minWidth:0, fontSize:10.5, color:'var(--text3)', lineHeight:'16px' }}>
                       {fmtDayVN(value)}
@@ -1854,7 +1854,7 @@ export default function LenhSXPage() {
                         style={{ border:'none', background:'none', padding:0, color:'var(--fg-1d4ed8)', fontSize:10.5, cursor:'pointer', textDecoration:'underline', textUnderlineOffset:2 }}>
                         đề xuất {p.slice(8, 10)}/{p.slice(5, 7)}
                       </button></>}
-                      {arrival && <div title="Ngày sớm nhất hàng được về (hạn chót − 4)">về từ {fmtDayVN(arrival)}</div>}
+                      {arrival && <div title={`Ngày sớm nhất hàng được về (hạn chót − ${capParams.materialEarliestArrivalDays})`}>về từ {fmtDayVN(arrival)}</div>}
                     </div>
                   )
                 }
