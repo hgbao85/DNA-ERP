@@ -1,20 +1,21 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
-import { ClipboardList, Users, History, LogOut, Grid, Menu, X } from 'lucide-react'
+import { ClipboardList, Users, History, LogOut, Grid, Menu, X, CalendarDays } from 'lucide-react' // Phần A – Đợt 10a: + CalendarDays
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
 import { useWorkQueue } from '../../../context/WorkQueueContext'
 import NotificationCenter from '../../../components/NotificationCenter'
 import OrderManagementPage from './OrderManagementPage'
+import BookingSchedulePage from './BookingSchedulePage' // Phần A – Đợt 10a
 import CustomerManagementPage from './CustomerManagementPage'
 import PurchaseHistoryPage from './PurchaseHistoryPage'
 import ThemeToggle from '../../../components/ThemeToggle'
 
 interface Props { onBack?: () => void }
 
-type TabId = 'orders' | 'customers' | 'history'
-const TAB_VALUES: TabId[] = ['orders', 'customers', 'history']
+type TabId = 'orders' | 'bookings' | 'customers' | 'history' // Phần A – Đợt 10a: + bookings
+const TAB_VALUES: TabId[] = ['orders', 'bookings', 'customers', 'history']
 const isTabId = (v: string | null): v is TabId => !!v && (TAB_VALUES as string[]).includes(v)
 
 export default function SalesApp({ onBack }: Props) {
@@ -38,6 +39,7 @@ export default function SalesApp({ onBack }: Props) {
   const { counts: workQueue } = useWorkQueue()
   const TABS: { id: TabId; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'orders',    label: 'Quản lí đơn hàng',  icon: <ClipboardList size={16} />, badge: workQueue.salesReadyToShip },
+    { id: 'bookings',  label: 'Lịch xuất hàng',     icon: <CalendarDays size={16} /> }, // Phần A – Đợt 10a
     { id: 'customers', label: 'Quản lí khách hàng', icon: <Users size={16} /> },
     { id: 'history',   label: 'Lịch sử mua hàng',   icon: <History size={16} /> },
   ]
@@ -109,6 +111,7 @@ export default function SalesApp({ onBack }: Props) {
   const content = (
     <>
       {tab === 'orders'    && <OrderManagementPage />}
+      {tab === 'bookings'  && <BookingSchedulePage />}{/* Phần A – Đợt 10a */}
       {tab === 'customers' && <CustomerManagementPage />}
       {tab === 'history'   && <PurchaseHistoryPage />}
     </>
