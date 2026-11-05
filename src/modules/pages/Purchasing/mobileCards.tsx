@@ -22,7 +22,7 @@ export function ProposalCards({ proposals, onSelect, badge, meta }: {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontWeight: 700, fontFamily: 'monospace', wordBreak: 'break-word' }}>{p.salesOrderCode ?? '—'}</div>
-              <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text3)', marginTop: 2, wordBreak: 'break-word' }}>{p.piCode}</div>
+              <div style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text3)', marginTop: 2, wordBreak: 'break-word' }}>{p.lenhCode}</div>
             </div>
             {badge?.(p)}
           </div>
