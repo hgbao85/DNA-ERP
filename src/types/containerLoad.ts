@@ -37,4 +37,8 @@ export interface PlanningParams {
   containerVolumeM3: number
   /** Phần A – Đợt 2: tiền tố số LSX Admin khai (vd ["MY","GP"]); rỗng = mọi tiền tố đúng dạng. BE cũ thiếu field. */
   lsxPrefixes?: string[]
+  /** Phần A – Đợt 3 (YC10): cont/ngày của xưởng Phú An và mỗi kho đóng gói (mặc định 1,3). BE cũ thiếu field. */
+  capacityContPerDay?: number
+  /** Phần A – Đợt 3: số ngày/cont ở Phôi, Hàn của xưởng Phước An (mặc định 4). BE cũ thiếu field. */
+  daysPerContPhuocAn?: number
 }

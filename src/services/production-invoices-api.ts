@@ -23,7 +23,8 @@ import type { ContainerLoad } from '../types/containerLoad';
  *  LenhSXPage "Sửa thời hạn". Mỗi giá trị enum chỉ có 1 `deadline` như FRAME/WEAVING/PACKAGING
  *  (2026-09-11 lần 2, đồng bộ lại - bỏ hẳn `startDate`/khái niệm "khoảng thời gian" đã thử trước
  *  đó, xem doc comment schema.prisma BE ProdItemStageType). */
-type StageType = 'FRAME' | 'WEAVING' | 'PACKAGING' | 'FRAME_PHOI' | 'FRAME_HAN' | 'FRAME_SON';
+/** Phần A – Đợt 3 (YC10): thêm PHOI_START (M2 Bắt đầu Phôi), TRANSFER_CHECK (Chuyền kiểm), PACKAGING_START (M4 Bắt đầu đóng gói). */
+type StageType = 'FRAME' | 'WEAVING' | 'PACKAGING' | 'FRAME_PHOI' | 'FRAME_HAN' | 'FRAME_SON' | 'TRANSFER_CHECK' | 'PHOI_START' | 'PACKAGING_START';
 
 interface BeProductionInvoiceItem {
   id: string;

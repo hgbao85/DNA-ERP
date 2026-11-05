@@ -35,6 +35,9 @@ export async function updateSystemConfig(data: Partial<SystemConfig>): Promise<S
     solverMergeMaxSkus: data.solverMergeMaxSkus,
     // Thể tích cont 40HC (Phần A YC9) - cùng lý do: không liệt kê ở đây thì Admin sửa mà BE không nhận.
     containerVolumeM3: data.containerVolumeM3,
+    // Phần A – Đợt 3 (YC10): năng lực sản xuất (chỉ cảnh báo) - cùng lý do: phải liệt kê tên ở đây.
+    capacityContPerDay: data.capacityContPerDay,
+    daysPerContPhuocAn: data.daysPerContPhuocAn,
   });
 }
 
