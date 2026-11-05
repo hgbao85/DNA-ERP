@@ -84,6 +84,13 @@ const dateVN = (iso: string | null): string => {
   return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN')
 }
 
+// dd/MM cho ngày bắt đầu/xong (Phần A – Đợt 3).
+const dateShort = (iso: string | null): string => {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+}
+
 interface PiAgg {
   productionInvoiceId: string; poNumber: string; issues: BeSteelIssue[]; bundles: BeCutBundle[]
   totalIssued: number
@@ -538,7 +545,10 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
               <div key={i} style={{ fontSize: 13, display: 'flex', alignItems: 'baseline', gap: 8 }}>
                 <span style={{ fontFamily: 'monospace', fontWeight: 700 }}>{o.poNumber}</span>
                 <span>{o.productName}</span>
-                <span style={{ color: 'var(--text3)', marginLeft: 'auto' }}>Deadline {dateVN(o.phoiDeadline)}</span>
+                {/* Phần A – Đợt 3: ngày Phôi XONG (phoiDeadline) + ngày bắt đầu khi KHSX đã lưu. */}
+                <span style={{ color: 'var(--text3)', marginLeft: 'auto' }}>
+                  {o.phoiStart ? `Bắt đầu ${dateShort(o.phoiStart)} · Xong ${dateShort(o.phoiDeadline)}` : `Xong ${dateVN(o.phoiDeadline)}`}
+                </span>
                 <span style={{ color: 'var(--text3)' }}>SL {o.quantity.toLocaleString('vi-VN')}</span>
               </div>
             ))}

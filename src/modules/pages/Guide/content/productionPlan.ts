@@ -19,8 +19,8 @@ export const productionPlanGroup: GuideGroup = {
       title: 'Bảng mốc: SKU nào đang trễ, trễ ở đâu, vì sao',
       roles: ['khsx', 'qlsx', 'boss'],
       purpose:
-        'Xem nhanh mọi SKU đang chạy với 9 mốc (Mua VT khung & đan, Phôi, Hàn, Sơn, Khung CK, Đan, Mua VT còn lại, Đóng gói, Hạn giao) tô màu theo thực tế so với hạn - thay vì mở từng PI.',
-      mock: { title: 'Tổng hợp lệnh SX', buttons: ['Theo lệnh', 'Bảng mốc', 'Cần chú ý', 'Tải lại'] },
+        'Xem nhanh mọi SKU đang chạy với 10 mốc (Mua VT khung & đan, Phôi, Hàn, Sơn, Khung CK, Nhập đan, Chuyền kiểm, Mua VT còn lại, Đóng gói, Hạn giao) tô màu theo thực tế so với hạn - thay vì mở từng PI.',
+      mock: { title: 'Tổng hợp lệnh SX', buttons: ['Theo lệnh', 'Bảng mốc', 'Năng lực', 'Cần chú ý', 'Tải lại'] },
       steps: [
         'Mở "Tổng hợp lệnh SX" → bấm "Bảng mốc" cạnh tiêu đề (bấm thông báo "tin sáng" hoặc "nguy cơ trễ hạn giao" cũng mở thẳng vào đây).',
         'Mỗi dòng 1 SKU, mỗi ô 1 mốc: đỏ = Trễ, vàng = Sắp tới hạn (còn ≤ 2 ngày), xanh dương = Đúng hạn, xanh lá = Xong, xám = Chưa đặt hạn, viền vàng đứt = Chưa biết. Dòng cần chú ý nhất nằm trên cùng.',
@@ -30,7 +30,7 @@ export const productionPlanGroup: GuideGroup = {
       result: 'Biết ngay SKU nào sắp trễ, ở công đoạn nào, thiếu vật tư gì - để hối đúng bộ phận.',
       warnings: [
         'Hạn theo ngày ĐÃ LƯU (KHSX lưu ở "Sửa thời hạn") - không dùng ngày đề xuất để báo trễ. Mốc chưa lưu hiện "Chưa đặt hạn", trừ: "Mua VT khung & đan" chưa lưu thì theo hạn Khung CK; "Mua VT còn lại" chưa lưu thì theo hạn Đóng gói; không có nữa thì theo hạn PI. "Hạn giao" chưa lưu thì theo hạn PI. "Theo dõi mua hàng" hiện đúng hạn này cho từng dòng vật tư.',
-        '% Khung CK = trung bình % của 3 tổ Phôi, Hàn, Sơn (giống "Theo lệnh"). % Đan tính theo số mảnh đã NHẬN về. Số "đã làm" của Hàn/Sơn tính cả phần đang chờ KCS và chưa gửi KCS. Chuyền kiểm chưa có ô hạn nên không có cột riêng.',
+        '% Khung CK = trung bình % của 3 tổ Phôi, Hàn, Sơn (giống "Theo lệnh"). % Nhập đan tính theo số mảnh đã NHẬN về. Số "đã làm" của Hàn/Sơn tính cả phần đang chờ KCS và chưa gửi KCS. Dưới ô Phôi và ô Đóng gói có thêm "Bắt đầu dd/MM" nếu KHSX đã lưu ngày bắt đầu.',
         'Mỗi sáng từ 7 giờ hệ thống gửi tin tóm tắt, mỗi người nhận 1 tin riêng: mỗi NV mua nhận "vật tư phải về hôm nay / đã trễ" chỉ gồm vật tư mình phụ trách, mỗi thủ kho nhận phần hàng về kho mình; KHSX + QLSX nhận "mốc trễ, sắp tới hạn, lệnh tới ngày Phôi mà chưa Bắt đầu". Sếp không nhận tin tóm tắt.',
         'Hạn giao còn ≤ 2 ngày (hoặc đã qua) mà chưa đóng gói đủ: KHSX, QLSX và Sếp nhận cảnh báo đỏ "nguy cơ trễ hạn giao" cho từng SKU; chỉ báo lại khi sang ngày mới, tự đóng khi đóng gói đủ hoặc lệnh Kết thúc.',
         'Bảng tự tải lại khi có nhận hàng, báo sản lượng, KCS chấm, Kết thúc lệnh... Riêng đóng thùng chưa tự cập nhật - bấm "Tải lại".',
@@ -49,6 +49,38 @@ export const productionPlanGroup: GuideGroup = {
         'src/modules/pages/Manufacturing/MilestoneBoardView.tsx',
         'DNA-ERP-BE/src/modules/milestone-board/milestone-board.service.ts',
         'DNA-ERP-BE/src/modules/daily-jobs/daily-jobs.service.ts',
+      ],
+    },
+    // ─── Mốc thời gian + năng lực 1,3 cont/ngày (Phần A – Đợt 3, YC10) ────
+    {
+      id: 'pp-moc-nang-luc',
+      title: 'Mốc thời gian và năng lực 1,3 cont/ngày',
+      roles: ['khsx', 'qlsx', 'boss'],
+      purpose: 'Hiểu 4 mốc neo, cách hệ thống đề xuất ngày cho từng công đoạn theo số cont, và xem tab "Năng lực" để biết ngày nào xưởng/kho bị quá tải.',
+      steps: [
+        '4 mốc neo của mỗi dòng SKU: M1 = Mua VT khung & đan (vật tư Phôi, Hàn, Sơn, dây đan, đinh, nút về đủ), M2 = Bắt đầu Phôi, M3 = Mua VT còn lại (thùng, nệm/vải, phụ kiện, nhãn về đủ), M4 = Bắt đầu đóng gói. Các mốc công đoạn khác (Phôi, Hàn, Sơn, Khung CK, Nhập đan, Chuyền kiểm, Đóng gói) là ngày phải XONG.',
+        'Số ngày mỗi công đoạn Phôi, Hàn, Sơn (X): xưởng Phú An = làm tròn lên của (số cont ÷ 1,3); xưởng Phước An = 4 ngày × số cont. Tối thiểu 1 ngày. Đóng gói cũng làm tròn lên của (số cont ÷ 1,3). Số cont lấy từ load cont của SKU (lệnh gộp thì cộng cont từng SKU).',
+        'Ví dụ 240 bộ, load cont 80 bộ/cont (3 cont), xưởng Phú An: X = 3 ngày. Bắt đầu Phôi 09/11 thì Phôi xong 11/11, Hàn xong 12/11, Sơn xong và Khung CK 13/11; Mua VT khung & đan 08/11.',
+        'Phần còn lại tính tiếp từ ngày Bắt đầu Phôi (N): Nhập đan N + 12 (21/11), Chuyền kiểm N + 13 (22/11), Bắt đầu đóng gói N + 14 (23/11). Bắt đầu đóng gói KHÔNG tự lùi theo ngày Khung CK. Đóng gói xong = Bắt đầu đóng gói + số ngày đóng gói − 1 (25/11); Mua VT còn lại = Bắt đầu đóng gói − 7 (16/11).',
+        'Ô nào KHSX gõ rồi thì giữ nguyên, hệ thống chỉ đề xuất ô còn trống. Lúc KHSX gửi QLSX, ô nào còn trống hệ thống tự lưu ngày đề xuất. Bắt đầu Phôi và Bắt đầu đóng gói luôn được lưu khi bấm Lưu ở "Sửa thời hạn".',
+        'SKU chưa có load cont thì tạm tính 1 ngày mỗi công đoạn và được ghi vào dòng vàng "Chưa tính được" ở tab Năng lực - bổ sung load cont để tính đúng.',
+        'QLSX chọn xưởng khác (ví dụ chuyển sang Phước An) làm số ngày đổi so với lúc đề xuất: hộp QLSX hiện cảnh báo và KHSX nhận tin để đặt lại mốc.',
+        'Xem năng lực: "Tổng hợp lệnh SX" > bấm "Năng lực". Mỗi dòng là xưởng hoặc kho đóng gói × công đoạn, mỗi cột là một ngày (14 ngày; dùng "‹ 7 ngày", "Hôm nay", "7 ngày ›" để đổi khoảng). Mỗi ô là số cont làm trong ngày; bấm ô để xem các lệnh đang chiếm ngày đó.',
+        'Ô ĐỎ = vượt 1,3 cont/ngày (hoặc, ở Phước An, từ 2 lệnh cùng chiếm 1 ngày). Phía trên bảng liệt kê các cảnh báo; SKU chưa có load cont nằm ở dòng vàng.',
+        'Tin sáng 7 giờ nhắc thêm: lệnh tới ngày Bắt đầu Phôi mà chưa bắt đầu, lệnh tới Bắt đầu đóng gói mà chưa đóng thùng nào, và công đoạn hôm qua làm chưa đủ 1 cont (Phôi ước tính theo đoạn cắt). Chỉ tính lệnh đã có ngày Bắt đầu Phôi.',
+      ],
+      result: 'Mỗi công đoạn có ngày đề xuất sát số cont thật, và thấy ngay ngày nào xưởng/kho bị dồn việc.',
+      warnings: [
+        'Năng lực và thứ tự ngày CHỈ để cảnh báo, không khoá: vẫn lưu và gửi bình thường. Ví dụ Nhập đan sớm hơn Sơn xong, Chuyền kiểm sớm hơn Nhập đan, Bắt đầu đóng gói sớm hơn Chuyền kiểm, ngày xong sớm hơn ngày bắt đầu, Đóng gói xong sau hạn giao.',
+        'Sơn của Phước An được cộng vào Sơn của Phú An (Sơn làm ở xưởng Phú An). Nhập đan, Chuyền kiểm, Đóng gói tính theo kho đóng gói.',
+        'Đổi con số 1,3 hoặc 4 ngày/cont: Admin sửa ở "Cấu hình hệ thống" > "Năng lực sản xuất (chỉ cảnh báo)".',
+      ],
+      tags: ['năng lực', '1,3 cont', 'cont/ngày', 'mốc thời gian', 'bắt đầu phôi', 'bắt đầu đóng gói', 'nhập đan', 'chuyền kiểm', 'phước an', 'tin sáng'],
+      sourceRefs: [
+        'src/modules/pages/Manufacturing/CapacityView.tsx',
+        'src/utils/phuAnTimeline.ts',
+        'DNA-ERP-BE/src/common/utils/timeline-suggest.util.ts',
+        'DNA-ERP-BE/src/modules/production-capacity/',
       ],
     },
     {

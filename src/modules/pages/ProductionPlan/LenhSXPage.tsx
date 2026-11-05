@@ -30,27 +30,115 @@ import type { Workshop, WorkshopRef } from '../../../types/workshop'
 import { fmtPercent } from '../../../utils/cutMachine'
 import { getCuttingDefaults } from '../../../services/cutting-batch-api'
 import { DEFAULT_MERGE_WINDOW_DAYS, maxGapDays, steelNeedDate, steelNeedSpan, steelNeedSpanMessage } from '../../../utils/steelNeedWindow'
-import { FINISHED_MATERIAL_OFFSET_LABEL, MATERIAL_MILESTONES, PHU_AN_FIELDS, finishedMaterialDate, fmtDayVN, materialArrivalFrom, phuAnAnchor, phuAnDate, phuAnOffsetLabel, toInputDate, type PhuAnField } from '../../../utils/phuAnTimeline'
+// Phần A – Đợt 3 (YC10): mốc + năng lực 1,3 cont/ngày
+import { FINISHED_MATERIAL_OFFSET_LABEL, MATERIAL_MILESTONES, finishedMaterialDate, fmtDayVN, frameDaysOf, materialArrivalFrom, offsetLabels, suggestTimeline, timelineWarnings, toDayKey, toInputDate, type TimelineCapacityMode, type TimelineDates, type TimelineField, type TimelineParams } from '../../../utils/phuAnTimeline'
+import { checkCapacity, type CapacityCheckItemInput, type CapacityWarning } from '../../../services/production-capacity-api'
+import { useCapacityParams } from '../../../hooks/usePlanningParams'
 
 // Nhãn các cột mốc thời gian SKU - trên điện thoại hiện kèm từng ô ngày (không còn hàng tiêu đề bảng). Sếp duyệt 2026-10-27:
 // "Mua hàng" đổi thành "Mua VT khung & đan", thêm "Mua VT còn lại" GIỮA Đan và Đóng gói (vật tư đứng trước công đoạn dùng nó,
 // không theo thứ tự ngày - ĐG−7 thường sớm hơn ngày Đan).
-const DATE_COL_LABELS = [MATERIAL_MILESTONES.materialDeadline.short, 'Khung CK', 'Đan', MATERIAL_MILESTONES.finishedMaterialDeadline.short, 'Đóng gói', 'Hạn giao']
+const DATE_COL_LABELS = [MATERIAL_MILESTONES.materialDeadline.short, 'Khung CK', 'Nhập đan', MATERIAL_MILESTONES.finishedMaterialDeadline.short, 'Đóng gói', 'Hạn giao']
 const DATE_COL_HINTS: (string | undefined)[] = [MATERIAL_MILESTONES.materialDeadline.hint, undefined, undefined, MATERIAL_MILESTONES.finishedMaterialDeadline.hint, undefined, undefined]
 const HEADER_DATE_COLS = DATE_COL_LABELS.slice(0, 5).map((label, i) => ({ label, hint: DATE_COL_HINTS[i] }))
 
-// Mua VT còn lại: đã lưu thì lấy, chưa thì đề xuất Đóng gói − 7 (ĐG = Đóng gói đang hiện, đã lưu hoặc đề xuất).
-const finishedFor = (item: { finishedMaterialDeadline?: string | null } | null | undefined, packaging: Date) =>
-  item?.finishedMaterialDeadline ? new Date(item.finishedMaterialDeadline) : (finishedMaterialDate(packaging) ?? packaging)
+// Mua VT còn lại (M3): đã lưu thì lấy, chưa thì đề xuất Bắt đầu đóng gói (M4) − 7 (M4 = đã lưu hoặc đề xuất).
+const finishedFor = (item: { finishedMaterialDeadline?: string | null } | null | undefined, packagingStart: Date) =>
+  item?.finishedMaterialDeadline ? new Date(item.finishedMaterialDeadline) : (finishedMaterialDate(packagingStart) ?? packagingStart)
 
-// Mốc "đề xuất" theo quy tắc Phú An (Sếp chốt 2026-10-27, utils/phuAnTimeline): N = Khung cơ khí đã lưu − 2, chưa có thì từ hạn
-// giao CỦA CHÍNH SKU - lệnh gộp có nhiều hạn giao, pi.deadline chỉ là hạn SỚM NHẤT, tính từ đó thì SKU giao muộn hiện mốc sớm hơn
-// thật (đã gặp PI-2026-016). SKU chưa có hạn giao riêng mới dùng hạn lệnh. Chỉ là đề xuất: KHSX tự sửa ngày thật.
-const proposeFor = (item: { deliveryDeadline?: string | null; stages?: { stageType: string; deadline?: string | null }[] } | null | undefined, piDeadline: Date | string) => {
-  const frame = Array.isArray(item?.stages) ? item.stages.find((s) => s.stageType === 'FRAME')?.deadline : null
-  const anchor = phuAnAnchor(frame, item?.deliveryDeadline ?? piDeadline)
-  return (field: PhuAnField) => (anchor ? phuAnDate(anchor, field) : new Date(piDeadline))
+// Phần A – Đợt 3 (YC10): mốc "đề xuất" theo năng lực (utils/phuAnTimeline = bản FE của BE timeline-suggest.util). Số ngày X mỗi công
+// đoạn Phôi/Hàn/Sơn theo số cont (SKU: số lượng ÷ load cont) và xưởng của dòng - chưa chọn xưởng thì "xưởng dự kiến" Phú An
+// (CONT_PER_DAY). Hạn giao là hạn CỦA CHÍNH SKU - lệnh gộp có nhiều hạn giao, pi.deadline chỉ là hạn SỚM NHẤT (đã gặp PI-2026-016).
+const DEFAULT_WORKSHOP_NAME = 'Xưởng Phú An (dự kiến)'
+
+type TimelineCtx = { workshops: Workshop[]; params: TimelineParams }
+type TimelineItemLike = {
+  quantity?: number | null
+  deliveryDeadline?: string | null
+  workshop?: WorkshopRef | null
+  containerLoad?: { loadCont?: number | null } | null
+  stages?: { stageType: string; deadline?: string | null }[]
 }
+
+/** Chế độ năng lực của xưởng dòng đang dùng (hoặc `workshopId` chỉ định); chưa có xưởng / chưa tra được -> Phú An CONT_PER_DAY. */
+const modeOfWorkshop = (ws: WorkshopRef | null | undefined, workshops: Workshop[]): TimelineCapacityMode =>
+  (ws && workshops.find((w) => w.id === ws.id)?.capacityMode) || 'CONT_PER_DAY'
+
+const savedStageDay = (item: TimelineItemLike | null | undefined, type: string) =>
+  toDayKey(Array.isArray(item?.stages) ? item.stages.find((s) => s.stageType === type)?.deadline : null)
+
+/** Mốc đề xuất của 1 dòng từ dữ liệu đã lưu (danh sách / thẻ SKU / hộp duyệt). null khi chưa tính được. */
+const suggestFor = (item: TimelineItemLike | null | undefined, piDeadline: Date | string, ctx: TimelineCtx) =>
+  suggestTimeline({
+    quantity: item?.quantity ?? 0,
+    loadCont: item?.containerLoad?.loadCont,
+    capacityMode: modeOfWorkshop(item?.workshop, ctx.workshops),
+    saved: {
+      PHOI_START: savedStageDay(item, 'PHOI_START'),
+      FRAME_PHOI: savedStageDay(item, 'FRAME_PHOI'),
+      FRAME: savedStageDay(item, 'FRAME'),
+      PACKAGING_START: savedStageDay(item, 'PACKAGING_START'),
+      PACKAGING: savedStageDay(item, 'PACKAGING'),
+    },
+    delivery: toDayKey(item?.deliveryDeadline ?? piDeadline),
+  }, ctx.params)
+
+const proposeFor = (item: TimelineItemLike | null | undefined, piDeadline: Date | string, ctx: TimelineCtx) => {
+  const s = suggestFor(item, piDeadline, ctx)
+  return (field: TimelineField) => (s ? new Date(`${s.dates[field]}T00:00:00`) : new Date(piDeadline))
+}
+
+/** Ngày mốc đã lưu của dòng, chưa có thì ngày đề xuất `fb(field)`. */
+const stageDateOr = (item: TimelineItemLike, type: 'PHOI_START' | 'PACKAGING_START', fb: (field: TimelineField) => Date): Date => {
+  const d = savedStageDay(item, type)
+  return d ? new Date(`${d}T00:00:00`) : fb(type)
+}
+
+/** Ô ngày của form "Sửa thời hạn" (PHOI/HAN/SON = mốc FRAME_PHOI/FRAME_HAN/FRAME_SON). */
+type EditVals = {
+  materialDeadline: string; finishedMaterialDeadline: string; deliveryDeadline: string
+  PHOI_START: string; PHOI: string; HAN: string; SON: string; FRAME: string
+  WEAVING: string; TRANSFER_CHECK: string; PACKAGING_START: string; PACKAGING: string
+}
+type EditField = keyof EditVals
+type EditEst = Record<EditField, boolean>
+const EMPTY_EDIT_VALS: EditVals = {
+  materialDeadline: '', finishedMaterialDeadline: '', deliveryDeadline: '',
+  PHOI_START: '', PHOI: '', HAN: '', SON: '', FRAME: '', WEAVING: '', TRANSFER_CHECK: '', PACKAGING_START: '', PACKAGING: '',
+}
+/** Ô của form -> khoá ngày của suggestTimeline. */
+const FORM_TO_DATE: Partial<Record<EditField, keyof TimelineDates>> = {
+  materialDeadline: 'materialDeadline', finishedMaterialDeadline: 'finishedMaterialDeadline',
+  PHOI_START: 'PHOI_START', PHOI: 'FRAME_PHOI', HAN: 'FRAME_HAN', SON: 'FRAME_SON', FRAME: 'FRAME',
+  WEAVING: 'WEAVING', TRANSFER_CHECK: 'TRANSFER_CHECK', PACKAGING_START: 'PACKAGING_START', PACKAGING: 'PACKAGING',
+}
+/** Ô KHSX đổi thì mốc đề xuất của các ô còn lại phải tính lại (hạn giao cũng tính). */
+const RECALC_TRIGGERS: EditField[] = ['PHOI_START', 'PHOI', 'FRAME', 'PACKAGING_START', 'PACKAGING', 'deliveryDeadline']
+/** Ô chốt đưa vào suggestTimeline (khoá của form -> khoá `saved`). */
+const SAVED_KEYS: [EditField, 'PHOI_START' | 'FRAME_PHOI' | 'FRAME' | 'PACKAGING_START' | 'PACKAGING'][] = [
+  ['PHOI_START', 'PHOI_START'], ['PHOI', 'FRAME_PHOI'], ['FRAME', 'FRAME'], ['PACKAGING_START', 'PACKAGING_START'], ['PACKAGING', 'PACKAGING'],
+]
+
+/**
+ * Tính lại mốc cho 1 dòng. `isEst(ô)` = ô còn là đề xuất (chưa lưu, chưa sửa) -> KHÔNG đưa vào `saved`;
+ * `exclude` bỏ thêm 1 ô khỏi `saved` (để tính "đề xuất" cho chính ô đã chốt đó).
+ */
+function recalcDates(
+  item: TimelineItemLike, vals: EditVals, isEst: (f: EditField) => boolean, ctx: TimelineCtx, exclude?: EditField,
+) {
+  const saved: Record<string, string | null> = {}
+  for (const [formKey, savedKey] of SAVED_KEYS) saved[savedKey] = !isEst(formKey) && formKey !== exclude && vals[formKey] ? vals[formKey] : null
+  return suggestTimeline({
+    quantity: item.quantity ?? 0,
+    loadCont: item.containerLoad?.loadCont,
+    capacityMode: modeOfWorkshop(item.workshop, ctx.workshops),
+    saved,
+    delivery: vals.deliveryDeadline || null,
+  }, ctx.params)
+}
+
+/** Số kiểu VN (dấu phẩy thập phân). */
+const fmtVN = (n: number, max = 2) => n.toLocaleString('vi-VN', { maximumFractionDigits: max })
 
 /** Nhãn đỏ "Quá hạn N ngày" - có chữ, không chỉ dựa vào màu. */
 function OverdueBadge({ days }: { days: number }) {
@@ -159,10 +247,7 @@ export default function LenhSXPage() {
   // FRAME_SON, thêm 2026-09-09) quay về CHỈ 1 mốc `deadline` mỗi cái, giống hệt WEAVING/
   // PACKAGING - đã thử làm "khoảng thời gian" (FRAME_START + ràng buộc nằm trong khung cha) rồi
   // đổi ý (xem doc comment schema.prisma ProdItemStageType) vì chưa PI nào từng dùng tính năng đó.
-  const [editValues, setEditValues] = useState<{ deadline: string; items: {
-    materialDeadline: string; finishedMaterialDeadline: string; deliveryDeadline: string; FRAME: string; WEAVING: string; PACKAGING: string
-    PHOI: string; HAN: string; SON: string
-  }[] }>({ deadline: '', items: [] })
+  const [editValues, setEditValues] = useState<{ deadline: string; items: EditVals[] }>({ deadline: '', items: [] })
   const [editError, setEditError] = useState('')
   // Khung gộp N ngày (tính cả hai đầu: chênh tối đa N-1) của lệnh gộp (SystemConfig.solverMergeWindowDays, đọc ở
   // openPIEdit khi PI là đợt gộp). null = chưa đọc được -> KHÔNG tự kiểm ở FE (đoán sai N sẽ chặn oan);
@@ -171,10 +256,7 @@ export default function LenhSXPage() {
   // Field nào lúc mở modal chỉ là ngày "ước tính" (chưa có giá trị thật lưu ở SKU) — map vào ô
   // nhập để tham khảo, nhưng KHÔNG được tự "chốt" thành ngày chính thức nếu người dùng không đụng
   // vào (xem editTouched bên dưới) — bấm Lưu mà không sửa gì thì SKU vẫn giữ trạng thái ước tính.
-  const [editEstimated, setEditEstimated] = useState<{
-    materialDeadline: boolean; finishedMaterialDeadline: boolean; deliveryDeadline: boolean; FRAME: boolean; WEAVING: boolean; PACKAGING: boolean
-    PHOI: boolean; HAN: boolean; SON: boolean
-  }[]>([])
+  const [editEstimated, setEditEstimated] = useState<EditEst[]>([])
   const [editTouched, setEditTouched] = useState<Set<string>>(new Set())
   // Phôi/Hàn/Sơn gộp lại dưới Khung cơ khí, ẩn mặc định sau 1 nút bật/tắt (idx -> đang mở hay
   // không) - đỡ rối màn khi không cần sửa riêng từng mốc con. Tự mở sẵn nếu SKU đã có ít nhất 1
@@ -369,11 +451,14 @@ export default function LenhSXPage() {
     []
   )
   // Phần A – Đợt 2: danh sách xưởng cơ khí (QLSX chọn ở hộp "Chọn kho & xưởng").
+  // Phần A – Đợt 3: tải cho cả KHSX (số ngày mỗi công đoạn tính theo chế độ năng lực của xưởng); vai khác lỗi thì im lặng (xem workshopsError chỉ ở hộp QLSX).
   const { data: workshopsData, error: workshopsError } = useFetch<Workshop[]>(
-    () => (isQlsx ? getWorkshops() : Promise.resolve([] as Workshop[])),
+    () => (isQlsx ? getWorkshops() : getWorkshops().catch(() => [] as Workshop[])),
     []
   )
   const workshops: Workshop[] = Array.isArray(workshopsData) ? workshopsData : []
+  const capParams = useCapacityParams()
+  const tlCtx: TimelineCtx = { workshops, params: capParams }
   const finishedGoodsWarehouses = (Array.isArray(allWarehouses) ? allWarehouses : [])
     .filter((w: any) => w.isActive && !w.isVirtual && isThanhPhamScope(w.code))
     .map((w: any) => ({ code: w.code as string, name: w.name as string }))
@@ -490,51 +575,53 @@ export default function LenhSXPage() {
   const openPIEdit = (pi: any) => {
     const piDeadline = new Date(pi.deadline)
     const items = Array.isArray(pi.items) ? pi.items : []
-    // Cùng công thức "đề xuất" đang hiển thị ở bảng SKU timeline (proposeFor, mốc Phú An) — map luôn giá trị
-    // đề xuất vào ô nhập thay vì để trống, khớp với những gì người dùng đang thấy trên bảng ngay phía sau modal.
-    // pi.deadline đã là hạn giao SỚM NHẤT của các SKU (piDisplayDeadline, 2026-10-09) - trước tự tính
-    // lại hạn MUỘN NHẤT ở đây, lệch với danh sách.
-    const stgDate = (item: any, type: string, field: PhuAnField) => {
-      const s = Array.isArray(item.stages) ? item.stages.find((x: any) => x.stageType === type) : null
-      return format(s?.deadline ? new Date(s.deadline) : proposeFor(item, piDeadline)(field), 'yyyy-MM-dd')
-    }
+    // Phần A – Đợt 3: ô đã lưu giữ nguyên; ô chưa lưu = mốc đề xuất theo năng lực (suggestTimeline qua recalcDates), khớp với
+    // proposeFor ở danh sách ngay phía sau hộp. pi.deadline đã là hạn giao SỚM NHẤT của các SKU (piDisplayDeadline, 2026-10-09);
+    // mỗi ô dùng hạn giao CỦA CHÍNH SKU.
     const hasStage = (item: any, type: string) =>
       Array.isArray(item.stages) && item.stages.some((x: any) => x.stageType === type && x.deadline)
     setEditingPI(pi)
     const itemValues = items.map((item: any) => {
-      const packaging = stgDate(item, 'PACKAGING', 'PACKAGING')
-      return {
-        values: {
-          materialDeadline: format(item.materialDeadline ? new Date(item.materialDeadline) : proposeFor(item, piDeadline)('materialDeadline'), 'yyyy-MM-dd'),
-          // Mua VT còn lại đề xuất từ ô Đóng gói (đã lưu hoặc đề xuất N+14) − 7, không từ N.
-          finishedMaterialDeadline: format(finishedFor(item, new Date(packaging)), 'yyyy-MM-dd'),
-          deliveryDeadline: format(item.deliveryDeadline  ? new Date(item.deliveryDeadline)  : piDeadline, 'yyyy-MM-dd'),
-          FRAME: stgDate(item, 'FRAME', 'FRAME'),
-          WEAVING: stgDate(item, 'WEAVING', 'WEAVING'),
-          PACKAGING: packaging,
-          // Phôi/Hàn/Sơn (2026-09-09, đơn giản hoá lại 2026-09-11 lần 2 - chỉ 1 mốc như các công
-          // đoạn khác) - đề xuất N / N+1 / N+2, Khung cơ khí (xuất đan đủ) cũng N+2.
-          PHOI: stgDate(item, 'FRAME_PHOI', 'PHOI'),
-          HAN: stgDate(item, 'FRAME_HAN', 'HAN'),
-          SON: stgDate(item, 'FRAME_SON', 'SON'),
-        },
-        estimated: {
-          materialDeadline: !item.materialDeadline,
-          finishedMaterialDeadline: !item.finishedMaterialDeadline,
-          deliveryDeadline: !item.deliveryDeadline,
-          FRAME: !hasStage(item, 'FRAME'),
-          WEAVING: !hasStage(item, 'WEAVING'),
-          PACKAGING: !hasStage(item, 'PACKAGING'),
-          PHOI: !hasStage(item, 'FRAME_PHOI'),
-          HAN: !hasStage(item, 'FRAME_HAN'),
-          SON: !hasStage(item, 'FRAME_SON'),
-        },
+      const estimated: EditEst = {
+        materialDeadline: !item.materialDeadline,
+        finishedMaterialDeadline: !item.finishedMaterialDeadline,
+        deliveryDeadline: !item.deliveryDeadline,
+        PHOI_START: !hasStage(item, 'PHOI_START'),
+        PHOI: !hasStage(item, 'FRAME_PHOI'),
+        HAN: !hasStage(item, 'FRAME_HAN'),
+        SON: !hasStage(item, 'FRAME_SON'),
+        FRAME: !hasStage(item, 'FRAME'),
+        WEAVING: !hasStage(item, 'WEAVING'),
+        TRANSFER_CHECK: !hasStage(item, 'TRANSFER_CHECK'),
+        PACKAGING_START: !hasStage(item, 'PACKAGING_START'),
+        PACKAGING: !hasStage(item, 'PACKAGING'),
       }
+      const values: EditVals = {
+        materialDeadline: toDayKey(item.materialDeadline) ?? '',
+        finishedMaterialDeadline: toDayKey(item.finishedMaterialDeadline) ?? '',
+        deliveryDeadline: toDayKey(item.deliveryDeadline ?? piDeadline) ?? '',
+        PHOI_START: savedStageDay(item, 'PHOI_START') ?? '',
+        PHOI: savedStageDay(item, 'FRAME_PHOI') ?? '',
+        HAN: savedStageDay(item, 'FRAME_HAN') ?? '',
+        SON: savedStageDay(item, 'FRAME_SON') ?? '',
+        FRAME: savedStageDay(item, 'FRAME') ?? '',
+        WEAVING: savedStageDay(item, 'WEAVING') ?? '',
+        TRANSFER_CHECK: savedStageDay(item, 'TRANSFER_CHECK') ?? '',
+        PACKAGING_START: savedStageDay(item, 'PACKAGING_START') ?? '',
+        PACKAGING: savedStageDay(item, 'PACKAGING') ?? '',
+      }
+      const sug = recalcDates(item, values, (f) => estimated[f], tlCtx)
+      for (const f of Object.keys(values) as EditField[]) {
+        const dateKey = FORM_TO_DATE[f]
+        if (estimated[f] && dateKey) values[f] = sug ? sug.dates[dateKey] : toInputDate(piDeadline)
+      }
+      return { values, estimated }
     })
     setEditValues({ deadline: format(piDeadline, 'yyyy-MM-dd'), items: itemValues.map((v) => v.values) })
     setEditEstimated(itemValues.map((v) => v.estimated))
     setEditTouched(new Set())
     setEditError('')
+    setEditCapWarnings([]) // Phần A – Đợt 3: không hiện cảnh báo năng lực của lệnh mở trước
     // Đợt gộp: đọc ngưỡng N để báo ngay trong hộp khi các mốc cần sắt cách quá xa. BE cũ chưa trả
     // field này thì dùng 3 (mặc định); đọc lỗi thì giữ nguyên giá trị trước (xem mergeWindowDays).
     if (pi.isMerged) {
@@ -559,7 +646,7 @@ export default function LenhSXPage() {
   // Field chỉ mang giá trị "ước tính" map sẵn để tham khảo (editEstimated) và người dùng
   // chưa thật sự đụng vào (editTouched) thì KHÔNG được gửi lên — tránh biến ước tính thành
   // ngày chính thức chỉ vì bấm Lưu mà không sửa gì (xem openPIEdit).
-  const isCommittable = (idx: number, field: keyof (typeof editEstimated)[number]) =>
+  const isCommittable = (idx: number, field: EditField) =>
     !editEstimated[idx]?.[field] || editTouched.has(`${idx}:${field}`)
 
   // Luật cứng đợt gộp (Sếp chốt 2026-10-24): mốc cần sắt (Mua VT khung & đan, chưa có thì Khung cơ khí) của các
@@ -602,14 +689,18 @@ export default function LenhSXPage() {
       const itemsOut = items.flatMap((item, idx) => {
         const vals = editValues.items[idx]
         if (!vals) return []
-        type StageOut = { stageType: 'FRAME' | 'WEAVING' | 'PACKAGING' | 'FRAME_PHOI' | 'FRAME_HAN' | 'FRAME_SON'; deadline: string }
+        type StageOut = { stageType: 'FRAME' | 'WEAVING' | 'TRANSFER_CHECK' | 'PACKAGING' | 'FRAME_PHOI' | 'FRAME_HAN' | 'FRAME_SON' | 'PHOI_START' | 'PACKAGING_START'; deadline: string }
         const payload: { materialDeadline?: string; finishedMaterialDeadline?: string; deliveryDeadline?: string; stages?: StageOut[] } = {}
         if (vals.materialDeadline && isCommittable(idx, 'materialDeadline')) payload.materialDeadline = new Date(vals.materialDeadline).toISOString()
         if (vals.finishedMaterialDeadline && isCommittable(idx, 'finishedMaterialDeadline')) payload.finishedMaterialDeadline = new Date(vals.finishedMaterialDeadline).toISOString()
         if (vals.deliveryDeadline && isCommittable(idx, 'deliveryDeadline')) payload.deliveryDeadline = new Date(vals.deliveryDeadline).toISOString()
-        const stages: StageOut[] = (['FRAME', 'WEAVING', 'PACKAGING'] as const)
+        const stages: StageOut[] = (['FRAME', 'WEAVING', 'TRANSFER_CHECK', 'PACKAGING'] as const)
           .filter(field => vals[field] && isCommittable(idx, field))
           .map(field => ({ stageType: field, deadline: new Date(vals[field]).toISOString() }))
+        // Phần A – Đợt 3 (V4-4): Bắt đầu Phôi (M2) và Bắt đầu đóng gói (M4) LUÔN được lưu khi bấm Lưu, kể cả đang là đề xuất.
+        for (const field of ['PHOI_START', 'PACKAGING_START'] as const) {
+          if (vals[field]) stages.push({ stageType: field, deadline: new Date(vals[field]).toISOString() })
+        }
         for (const { stageType, field } of SUB_STAGE_DEFS) {
           if (vals[field] && isCommittable(idx, field)) {
             stages.push({ stageType, deadline: new Date(vals[field]).toISOString() })
@@ -633,6 +724,47 @@ export default function LenhSXPage() {
       setSavingPI(false)
     }
   }
+
+  // Phần A – Đợt 3 (YC10): cảnh báo năng lực CHỈ để báo, không chặn Lưu/Gửi. Gọi BE sau ~600 ms từ lần đổi cuối; lỗi gọi -> im lặng.
+  const [editCapWarnings, setEditCapWarnings] = useState<CapacityWarning[]>([])
+  const editCapKey = editingPI ? JSON.stringify(editValues.items) : ''
+  useEffect(() => {
+    if (!editingPI) return
+    const srcItems: any[] = Array.isArray(editingPI.items) ? editingPI.items : []
+    const payload: CapacityCheckItemInput[] = srcItems.flatMap((item, idx) => {
+      const v = editValues.items[idx]
+      if (!v) return []
+      const stages: CapacityCheckItemInput['stages'] = {}
+      const put = (k: keyof NonNullable<CapacityCheckItemInput['stages']>, d: string) => { if (d) stages[k] = d }
+      put('PHOI_START', v.PHOI_START); put('FRAME_PHOI', v.PHOI); put('FRAME_HAN', v.HAN); put('FRAME_SON', v.SON)
+      put('WEAVING', v.WEAVING); put('TRANSFER_CHECK', v.TRANSFER_CHECK); put('PACKAGING_START', v.PACKAGING_START); put('PACKAGING', v.PACKAGING)
+      return [{ itemId: String(item.id), stages }]
+    })
+    if (payload.length === 0) return
+    let alive = true
+    const t = setTimeout(() => {
+      checkCapacity(payload).then((r) => { if (alive) setEditCapWarnings(r.warnings ?? []) }).catch(() => { if (alive) setEditCapWarnings([]) })
+    }, 600)
+    return () => { alive = false; clearTimeout(t) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingPI, editCapKey])
+
+  // Hộp QLSX: thử xưởng + kho đang chọn của từng SKU (chưa gửi) - cũng chỉ cảnh báo.
+  const [qlsxCapWarnings, setQlsxCapWarnings] = useState<CapacityWarning[]>([])
+  const qlsxCapKey = qlsxTarget ? JSON.stringify([qlsxTarget.id, qlsxWorkshopId, qlsxWarehouseByItemId]) : ''
+  useEffect(() => {
+    if (!qlsxTarget || !qlsxWorkshopId) return
+    const payload: CapacityCheckItemInput[] = (qlsxTarget.items ?? [])
+      .filter((it: any) => it.prodApproval?.status === 'WAITING_QLSX')
+      .map((it: any) => ({ itemId: String(it.id), workshopId: qlsxWorkshopId, warehouseCode: qlsxWarehouseByItemId[String(it.id)] || null }))
+    if (payload.length === 0) return
+    let alive = true
+    const t = setTimeout(() => {
+      checkCapacity(payload).then((r) => { if (alive) setQlsxCapWarnings(r.warnings ?? []) }).catch(() => { if (alive) setQlsxCapWarnings([]) })
+    }, 600)
+    return () => { alive = false; clearTimeout(t) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qlsxTarget, qlsxCapKey])
 
   if (isLoading) return <LoadingState />
   if (error || !pis) return <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
@@ -738,12 +870,13 @@ export default function LenhSXPage() {
                     const iFrame  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'FRAME')     : null
                     const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
                     const iPackaging  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'PACKAGING')     : null
-                    const fb = proposeFor(item, piDeadline)
+                    const fb = proposeFor(item, piDeadline, tlCtx)
                     const iMat      = item.materialDeadline ? new Date(item.materialDeadline) : fb('materialDeadline')
                     const iFrameDate  = iFrame  ? new Date(iFrame.deadline)  : fb('FRAME')
                     const iWeavDate = iWeav ? new Date(iWeav.deadline) : fb('WEAVING')
                     const iPackagingDate  = iPackaging  ? new Date(iPackaging.deadline)  : fb('PACKAGING')
-                    const iFinished = finishedFor(item, iPackagingDate)
+                    const iPkgStartDate = stageDateOr(item, 'PACKAGING_START', fb)
+                    const iFinished = finishedFor(item, iPkgStartDate)
                     // Mốc đã qua: chữ đỏ + "đã qua" (mốc đề xuất: "đề xuất · đã qua") - lệnh chưa duyệt mà mốc đã qua là cần
                     // xử lý gấp hoặc sửa thời hạn. Ô hạn vật tư có thêm dòng "từ dd/mm" (material=true).
                     const dc = (d: Date, own: boolean, i: number, material = false) => {
@@ -1006,12 +1139,13 @@ export default function LenhSXPage() {
                   const iFrame  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'FRAME')     : null
                   const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
                   const iPackaging  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'PACKAGING')     : null
-                  const fb = proposeFor(item, computedDeadline)
+                  const fb = proposeFor(item, computedDeadline, tlCtx)
                   const iMat      = item.materialDeadline ? new Date(item.materialDeadline) : fb('materialDeadline')
                   const iFrameDate  = iFrame  ? new Date(iFrame.deadline)  : fb('FRAME')
                   const iWeavDate = iWeav ? new Date(iWeav.deadline) : fb('WEAVING')
                   const iPackagingDate  = iPackaging  ? new Date(iPackaging.deadline)  : fb('PACKAGING')
-                  const iFinished = finishedFor(item, iPackagingDate)
+                  const iPkgStartDate = stageDateOr(item, 'PACKAGING_START', fb)
+                  const iFinished = finishedFor(item, iPkgStartDate)
                   const dc = (d: Date, own: boolean, i: number, material = false) => (
                     <div style={{ textAlign:'center' }}>
                       {mobileLabel(i)}
@@ -1218,16 +1352,17 @@ export default function LenhSXPage() {
                   const clr  = item.productVariant?.colorCode
                   const qty  = item.quantity
                   const pDl  = new Date(confirmProdTarget.deadline)
-                  const fb   = proposeFor(item, pDl)
+                  const fb   = proposeFor(item, pDl, tlCtx)
                   const iFrame  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'FRAME')     : null
                   const iWeav = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'WEAVING') : null
                   const iPackaging  = Array.isArray(item.stages) ? item.stages.find((s: any) => s.stageType === 'PACKAGING')     : null
                   const iPackagingDate = iPackaging ? new Date(iPackaging.deadline) : fb('PACKAGING')
+                  const iPkgStartDate = stageDateOr(item, 'PACKAGING_START', fb)
                   const cols = [
                     { label: DATE_COL_LABELS[0], hint: DATE_COL_HINTS[0], val: item.materialDeadline ? new Date(item.materialDeadline) : fb('materialDeadline'), own: !!item.materialDeadline, material: true },
                     { label:'Khung CK', val: iFrame  ? new Date(iFrame.deadline)  : fb('FRAME'), own: !!iFrame },
-                    { label:'Đan',      val: iWeav ? new Date(iWeav.deadline) : fb('WEAVING'),  own: !!iWeav },
-                    { label: DATE_COL_LABELS[3], hint: DATE_COL_HINTS[3], val: finishedFor(item, iPackagingDate), own: !!item.finishedMaterialDeadline, material: true },
+                    { label:'Nhập đan', val: iWeav ? new Date(iWeav.deadline) : fb('WEAVING'),  own: !!iWeav },
+                    { label: DATE_COL_LABELS[3], hint: DATE_COL_HINTS[3], val: finishedFor(item, iPkgStartDate), own: !!item.finishedMaterialDeadline, material: true },
                     { label:'Đóng gói', val: iPackagingDate,  own: !!iPackaging },
                   ]
                   const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
@@ -1427,6 +1562,18 @@ export default function LenhSXPage() {
                         <WorkshopChip workshop={chosenWorkshop ?? item.workshop} />
                       </div>
                       <div style={{ marginBottom:8 }}><ContainerLoadHint containerLoad={item.containerLoad} qty={item.quantity} /></div>
+                      {/* Phần A – Đợt 3 (V4-5): xưởng đang chọn cho số ngày Phôi/Hàn/Sơn khác xưởng đã dùng để đề xuất mốc -> báo, KHÔNG chặn gửi. */}
+                      {chosenWorkshop && (() => {
+                        const usedName: string = item.workshop?.name ?? 'Xưởng Phú An'
+                        const xUsed = frameDaysOf(item.quantity ?? 0, item.containerLoad?.loadCont, modeOfWorkshop(item.workshop, workshops), tlCtx.params)
+                        const xNew = frameDaysOf(item.quantity ?? 0, item.containerLoad?.loadCont, chosenWorkshop.capacityMode, tlCtx.params)
+                        if (xUsed === xNew) return null
+                        return (
+                          <div role="status" style={{ marginBottom:8, fontSize:11.5, color:'var(--fg-b45309)', background:'var(--bg-fef3c7)', borderRadius:6, padding:'6px 10px', overflowWrap:'anywhere' }}>
+                            {item.productVariant?.mfgProduct?.factoryCode ?? '—'}: ở {chosenWorkshop.name} Phôi/Hàn/Sơn cần {xNew} ngày mỗi công đoạn, mốc đang đặt theo {usedName} {xUsed} ngày - gửi Sếp thì KHSX được báo để đặt lại mốc.
+                          </div>
+                        )
+                      })()}
                       <SearchableSelect
                         displayValue={itemWh?.name ?? ''}
                         options={finishedGoodsWarehouses}
@@ -1441,6 +1588,13 @@ export default function LenhSXPage() {
                   )
                 })}
               </div>
+
+              {qlsxWorkshopId && qlsxCapWarnings.length > 0 && (
+                <div role="status" style={{ marginBottom:14, fontSize:11.5, color:'var(--fg-b45309)', background:'var(--bg-fef3c7)', borderRadius:6, padding:'8px 12px', overflowWrap:'anywhere' }}>
+                  <div style={{ fontWeight:700, marginBottom:2 }}>Năng lực (chỉ cảnh báo)</div>
+                  {Array.from(new Set(qlsxCapWarnings.map((w) => w.message))).slice(0, 8).map((m) => <div key={m}>{m}</div>)}
+                </div>
+              )}
 
               {/* Actions */}
               <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
@@ -1637,48 +1791,44 @@ export default function LenhSXPage() {
             </div>
 
             {/* SKU timelines */}
-            <div style={{ display:'flex', flexDirection:'column', gap:12, marginBottom:24 }}>
+            <div style={{ display:'flex', flexDirection:'column', gap:12, marginBottom:16 }}>
               {(Array.isArray(editingPI.items) ? editingPI.items : []).map((item: any, idx: number) => {
                 const code = item.productVariant?.mfgProduct?.factoryCode ?? '—'
                 const name = item.productVariant?.mfgProduct?.name ?? ''
                 const qty  = item.quantity
-                const vals = editValues.items[idx] ?? {
-                  materialDeadline:'', finishedMaterialDeadline:'', deliveryDeadline:'', FRAME:'', WEAVING:'', PACKAGING:'',
-                  PHOI:'', HAN:'', SON:'',
-                }
+                const vals: EditVals = editValues.items[idx] ?? EMPTY_EDIT_VALS
                 const est = editEstimated[idx]
-                // Ô còn là đề xuất (chưa sửa) hiện viền/nền nhạt hơn + nhãn "đề xuất" — cùng quy ước với bảng SKU
+                // Ô còn là đề xuất (chưa lưu, chưa sửa) hiện viền/nền nhạt hơn + nhãn "đề xuất" — cùng quy ước với bảng SKU
                 // timeline, để người dùng biết giá trị nào là gợi ý, giá trị nào đã chốt thật.
                 const isEstimate = (field: string, touched: Set<string> = editTouched) =>
-                  !!est?.[field as keyof typeof est] && !touched.has(`${idx}:${field}`)
-                // N theo mốc Phú An: Khung cơ khí đã chốt (đã lưu hoặc vừa sửa) thì N = Khung − 2, không thì từ hạn giao.
-                const anchorOf = (v: typeof vals, touched: Set<string> = editTouched) =>
-                  phuAnAnchor(isEstimate('FRAME', touched) ? null : v.FRAME, v.deliveryDeadline)
-                const anchor = anchorOf(vals)
-                // Mua VT còn lại đề xuất theo ô Đóng gói đang có (ĐG−7), các ô khác theo N.
-                const finishedProposal = (packaging: string) => {
-                  const f = finishedMaterialDate(packaging)
-                  return f ? toInputDate(f) : ''
+                  !!est?.[field as EditField] && !touched.has(`${idx}:${field}`)
+                const estOf = (touched: Set<string>) => (f: EditField) => isEstimate(f, touched)
+                // Phần A – Đợt 3: mốc đề xuất theo năng lực từ CÁC Ô ĐÃ CHỐT (đã lưu hoặc vừa sửa tay) + hạn giao trong ô.
+                const sug = recalcDates(item, vals, estOf(editTouched), tlCtx)
+                const x = sug?.frameDays ?? 1
+                const xPack = sug?.packagingDays ?? 1
+                const labels = offsetLabels(x, xPack)
+                // Ô đã chốt: "đề xuất" tính bỏ chính ô đó ra (tính theo các ô chốt còn lại); ô chưa chốt: chính là giá trị đang hiện.
+                const proposal = (field: EditField): string => {
+                  const dateKey = FORM_TO_DATE[field]
+                  if (!dateKey) return ''
+                  const s = SAVED_KEYS.some(([k]) => k === field) ? recalcDates(item, vals, estOf(editTouched), tlCtx, field) : sug
+                  return s ? s.dates[dateKey] : ''
                 }
-                const proposal = (field: string) =>
-                  field === 'finishedMaterialDeadline' ? finishedProposal(vals.PACKAGING)
-                    : anchor && (PHU_AN_FIELDS as string[]).includes(field) ? toInputDate(phuAnDate(anchor, field as PhuAnField)) : ''
-                const setField = (field: string, val: string) => {
+                const setField = (field: EditField, val: string) => {
                   const touched = new Set(editTouched).add(`${idx}:${field}`)
                   setEditValues(prev => ({
                     ...prev,
                     items: prev.items.map((it, i) => {
                       if (i !== idx) return it
-                      const next = { ...it, [field]: val }
-                      // Đổi Khung hoặc hạn giao thì N đổi: ô còn là đề xuất (chưa ai sửa) tính lại theo N mới, ô đã chốt giữ nguyên.
-                      if (field === 'FRAME' || field === 'deliveryDeadline') {
-                        const a = anchorOf(next, touched)
-                        if (a) for (const f of PHU_AN_FIELDS) if (isEstimate(f, touched)) next[f] = toInputDate(phuAnDate(a, f))
-                      }
-                      // Đóng gói đổi (sửa tay hoặc vừa tính lại theo N) thì Mua VT còn lại còn là đề xuất cũng tính lại.
-                      if ((field === 'FRAME' || field === 'deliveryDeadline' || field === 'PACKAGING') && isEstimate('finishedMaterialDeadline', touched)) {
-                        const f = finishedProposal(next.PACKAGING)
-                        if (f) next.finishedMaterialDeadline = f
+                      const next: EditVals = { ...it, [field]: val }
+                      // Đổi ô chốt (Bắt đầu Phôi, Phôi xong, Khung, Bắt đầu đóng gói, Đóng gói xong, hạn giao): mọi ô còn là đề xuất tính lại.
+                      if (RECALC_TRIGGERS.includes(field)) {
+                        const s = recalcDates(item, next, estOf(touched), tlCtx)
+                        if (s) for (const f of Object.keys(next) as EditField[]) {
+                          const k = FORM_TO_DATE[f]
+                          if (k && isEstimate(f, touched)) next[f] = s.dates[k]
+                        }
                       }
                       return next
                     }),
@@ -1689,19 +1839,21 @@ export default function LenhSXPage() {
                 }
                 // Dòng dưới ô: ngày kiểu ngày/tháng kèm thứ (ô chọn ngày hiện theo ngôn ngữ trình duyệt, có máy ra tháng/ngày).
                 // Ô đã chốt mà khác ngày đề xuất thì có nút "đề xuất …" để điền nhanh - vẫn phải bấm Lưu mới ghi.
-                const dayLine = (field: string) => {
-                  const value = vals[field as keyof typeof vals] ?? ''
+                const dayLine = (field: EditField) => {
+                  const value = vals[field] ?? ''
                   const p = proposal(field)
                   const showHint = !isEstimate(field) && !!value && !!p && p !== value
                   const isFinished = field === 'finishedMaterialDeadline'
+                  const dateKey = FORM_TO_DATE[field]
+                  const offsetText = isFinished ? FINISHED_MATERIAL_OFFSET_LABEL : dateKey ? labels[dateKey] : undefined
                   // Hạn vật tư: thêm dòng "về từ" = hạn − 4 (chỉ hiển thị, đi theo ngày trong ô kể cả khi sửa tay).
                   const arrival = field === 'materialDeadline' || isFinished ? materialArrivalFrom(value) : null
                   return (
                     <div style={{ flex:1, minWidth:0, fontSize:10.5, color:'var(--text3)', lineHeight:'16px' }}>
                       {fmtDayVN(value)}
-                      {isEstimate(field) && p && <> · {isFinished ? FINISHED_MATERIAL_OFFSET_LABEL : phuAnOffsetLabel(field as PhuAnField)}</>}
+                      {isEstimate(field) && p && offsetText && <> · {offsetText}</>}
                       {showHint && <> · <button type="button" onClick={() => setField(field, p)}
-                        title={isFinished ? 'Điền ngày đề xuất Đóng gói − 7 (vẫn phải bấm Lưu)' : 'Điền ngày đề xuất theo mốc Phú An (vẫn phải bấm Lưu)'}
+                        title="Điền ngày đề xuất theo năng lực (vẫn phải bấm Lưu)"
                         style={{ border:'none', background:'none', padding:0, color:'var(--fg-1d4ed8)', fontSize:10.5, cursor:'pointer', textDecoration:'underline', textUnderlineOffset:2 }}>
                         đề xuất {p.slice(8, 10)}/{p.slice(5, 7)}
                       </button></>}
@@ -1712,12 +1864,12 @@ export default function LenhSXPage() {
                 // Nút phụ (Phôi/Hàn/Sơn của Khung) nằm ở dòng ngày DƯỚI ô, không chung dòng nhãn: chung dòng thì khung hẹp
                 // nhãn "Khung cơ khí" bị đẩy xuống 2 dòng, ô lệch hàng với các ô bên cạnh. Nhãn dài (2 mốc vật tư) được xuống
                 // 2 dòng: chừa sẵn chiều cao 2 dòng cho MỌI nhãn để các ô cùng hàng vẫn thẳng nhau.
-                const dateInput = (label: string, field: string, extra?: React.ReactNode, hint?: string) => (
+                const dateInput = (label: string, field: EditField, extra?: React.ReactNode, hint?: string) => (
                   <div style={{ flex:'1 1 120px', minWidth:0 }}>
                     <div title={hint} style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:4, lineHeight:'13px', minHeight:26, display:'flex', alignItems:'flex-end' }}>
                       <span>{label}{isEstimate(field) && <span style={{ fontStyle:'italic' }}> (đề xuất)</span>}</span>
                     </div>
-                    <input type="date" value={vals[field as keyof typeof vals] ?? ''}
+                    <input type="date" value={vals[field] ?? ''}
                       onChange={e => setField(field, e.target.value)}
                       style={{ width:'100%', padding:'5px 6px', border:`1px solid ${isEstimate(field) ? 'var(--border)' : 'var(--fg-1d4ed8)'}`, borderRadius:5, fontSize:12, background:'var(--surface)', color: isEstimate(field) ? 'var(--text3)' : 'var(--text)', boxSizing:'border-box' }}
                     />
@@ -1727,6 +1879,23 @@ export default function LenhSXPage() {
                     </div>
                   </div>
                 )
+                // Dòng thông tin số ngày dưới hạn giao (v8 10.16) + nguồn của N.
+                const loadCont: number | null | undefined = item.containerLoad?.loadCont
+                const hasLoad = typeof loadCont === 'number' && loadCont > 0
+                const mode = modeOfWorkshop(item.workshop, workshops)
+                const wsName: string = item.workshop?.name ?? DEFAULT_WORKSHOP_NAME
+                const capText = mode === 'DAYS_PER_CONT' ? `${fmtVN(capParams.daysPerContPhuocAn)} ngày/cont` : `${fmtVN(capParams.capacityContPerDay)} cont/ngày`
+                const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`
+                const nFrom = !sug ? '' : sug.nSource === 'PHOI_START'
+                  ? (editTouched.has(`${idx}:PHOI_START`) ? 'Bắt đầu Phôi vừa nhập' : 'Bắt đầu Phôi đã lưu')
+                  : sug.nSource === 'FRAME_PHOI' ? `Phôi xong ${ddmm(vals.PHOI)}`
+                  : sug.nSource === 'FRAME' ? `Khung cơ khí ${ddmm(vals.FRAME)}`
+                  : `hạn giao ${ddmm(vals.deliveryDeadline)} (đóng gói xong trước 3 ngày)`
+                const warns = timelineWarnings({
+                  PHOI_START: vals.PHOI_START, FRAME_PHOI: vals.PHOI, FRAME_SON: vals.SON, FRAME: vals.FRAME,
+                  WEAVING: vals.WEAVING, TRANSFER_CHECK: vals.TRANSFER_CHECK, PACKAGING_START: vals.PACKAGING_START,
+                  PACKAGING: vals.PACKAGING, delivery: vals.deliveryDeadline,
+                })
                 return (
                   <div key={idx} style={{ border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
                     <div style={{ background:'var(--surface2)', padding:'7px 12px', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
@@ -1745,20 +1914,26 @@ export default function LenhSXPage() {
                         />
                         <div style={{ display:'flex', marginTop:3 }}>{dayLine('deliveryDeadline')}</div>
                       </div>
-                      {anchor && (
-                        <div style={{ fontSize:11.5, color:'var(--text2)', background:'var(--surface2)', borderRadius:6, padding:'6px 10px' }}>
-                          Bắt đầu phôi đề xuất (N): <b>{fmtDayVN(anchor.n)}</b>, tính từ {anchor.source === 'frame'
-                            ? <>Khung cơ khí {format(anchor.from, 'dd/MM')}</>
-                            : <>hạn giao {format(anchor.from, 'dd/MM')} (đóng gói xong trước 3 ngày)</>}.
-                          {' Ô "đề xuất" theo mốc Phú An; Mua vật tư còn lại tính từ Đóng gói (ĐG−7). Sửa ô nào thì lưu ô đó.'}
-                        </div>
-                      )}
-                      {/* Cùng thứ tự với thẻ SKU (Sếp duyệt 2026-10-27): Mua VT khung & đan → Khung cơ khí (nút bật Phôi/Hàn/Sơn) → Đan
-                          → Mua VT còn lại → Đóng gói. 2026-09-11 lần 2: mỗi mốc con chỉ còn 1 deadline - xem SUB_STAGE_DEFS. */}
-                      {/* 2 lưới cố định 3 cột (điện thoại 2 cột), cùng số cột nên ô thẳng hàng; ô Phôi/Hàn/Sơn mở ra NGAY DƯỚI hàng có
-                          Khung cơ khí, không rớt xuống sau Đóng gói. Modal rộng 560 không đủ chỗ 5 ô ngày một hàng. */}
+                      <div style={{ fontSize:11.5, color: hasLoad ? 'var(--text2)' : 'var(--fg-b45309)', background: hasLoad ? 'var(--surface2)' : 'var(--bg-fef3c7)', borderRadius:6, padding:'6px 10px', overflowWrap:'anywhere' }}>
+                        {hasLoad ? (
+                          <div>
+                            {fmtVN(qty ?? 0, 0)} bộ · load cont {fmtVN(loadCont!)} = {fmtVN((qty ?? 0) / loadCont!)} cont → Phôi, Hàn, Sơn mỗi công đoạn <b>{x} ngày</b> ({wsName}, {capText}) · Đóng gói <b>{xPack} ngày</b>
+                          </div>
+                        ) : (
+                          <div>SKU chưa có load cont - số ngày tạm tính 1 (nhập load cont ở Chi tiết SKU / tab Bao bì định mức)</div>
+                        )}
+                        {sug && (
+                          <div style={{ marginTop:4 }}>
+                            Bắt đầu Phôi{sug.nSource === 'PHOI_START' ? '' : ' đề xuất'} (N): <b>{fmtDayVN(sug.n)}</b>, tính từ {nFrom}. Sửa ô nào thì lưu ô đó; Bắt đầu Phôi và Bắt đầu đóng gói luôn được lưu.
+                          </div>
+                        )}
+                      </div>
+                      {/* Thứ tự đọc: [Mua VT khung & đan, Bắt đầu Phôi, Khung cơ khí (nút mở Phôi/Hàn/Sơn xong)] / [Nhập đan, Chuyền kiểm, Mua VT còn lại] /
+                          [Bắt đầu đóng gói, Đóng gói xong]. Mỗi lưới cố định 3 cột (điện thoại 2 cột) nên ô thẳng hàng; ô Phôi/Hàn/Sơn xong mở ra
+                          NGAY DƯỚI hàng có Khung cơ khí. 2026-09-11 lần 2: mỗi mốc con chỉ còn 1 deadline - xem SUB_STAGE_DEFS. */}
                       <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', gap:8 }}>
-                        {dateInput(MATERIAL_MILESTONES.materialDeadline.full, 'materialDeadline', undefined, MATERIAL_MILESTONES.materialDeadline.hint)}
+                        {dateInput(MATERIAL_MILESTONES.materialDeadline.short, 'materialDeadline', undefined, MATERIAL_MILESTONES.materialDeadline.hint)}
+                        {dateInput('Bắt đầu Phôi', 'PHOI_START')}
                         {dateInput('Khung cơ khí', 'FRAME', (
                           <button type="button"
                             onClick={() => setExpandedFrame(prev => ({ ...prev, [idx]: !prev[idx] }))}
@@ -1767,24 +1942,41 @@ export default function LenhSXPage() {
                             Phôi/Hàn/Sơn {expandedFrame[idx] ? <ChevronUp size={11}/> : <ChevronDown size={11}/>}
                           </button>
                         ))}
-                        {dateInput('Đan',      'WEAVING')}
                       </div>
                       {expandedFrame[idx] && (
                         <div style={{ display:'flex', gap:8, flexWrap:'wrap', paddingLeft:12, borderLeft:'2px solid var(--border)' }}>
                           {SUB_STAGE_DEFS.map(({ field, label }) => (
-                            <div key={field} style={{ flex:'1 1 110px', minWidth:0, display:'flex' }}>{dateInput(label, field)}</div>
+                            <div key={field} style={{ flex:'1 1 110px', minWidth:0, display:'flex' }}>{dateInput(`${label} xong`, field)}</div>
                           ))}
                         </div>
                       )}
                       <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', gap:8 }}>
-                        {dateInput(MATERIAL_MILESTONES.finishedMaterialDeadline.full, 'finishedMaterialDeadline', undefined, MATERIAL_MILESTONES.finishedMaterialDeadline.hint)}
-                        {dateInput('Đóng gói', 'PACKAGING')}
+                        {dateInput('Nhập đan', 'WEAVING')}
+                        {dateInput('Chuyền kiểm', 'TRANSFER_CHECK')}
+                        {dateInput(MATERIAL_MILESTONES.finishedMaterialDeadline.short, 'finishedMaterialDeadline', undefined, MATERIAL_MILESTONES.finishedMaterialDeadline.hint)}
                       </div>
+                      <div style={{ display:'grid', gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))', gap:8 }}>
+                        {dateInput('Bắt đầu đóng gói', 'PACKAGING_START')}
+                        {dateInput('Đóng gói xong', 'PACKAGING')}
+                      </div>
+                      {warns.length > 0 && (
+                        <div role="status" style={{ fontSize:11.5, color:'var(--fg-b45309)', background:'var(--bg-fef3c7)', borderRadius:6, padding:'6px 10px', overflowWrap:'anywhere' }}>
+                          {warns.map((w) => <div key={w.code}>{w.message}</div>)}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )
               })}
             </div>
+
+            {editingPI && editCapWarnings.length > 0 && (
+              <div role="status" style={{ marginBottom:16, fontSize:11.5, color:'var(--fg-b45309)', background:'var(--bg-fef3c7)', borderRadius:6, padding:'8px 12px', overflowWrap:'anywhere' }}>
+                <div style={{ fontWeight:700, marginBottom:2 }}>Năng lực (chỉ cảnh báo)</div>
+                {Array.from(new Set(editCapWarnings.map((w) => w.message))).slice(0, 8).map((m) => <div key={m}>{m}</div>)}
+                {new Set(editCapWarnings.map((w) => w.message)).size > 8 && <div>… và {new Set(editCapWarnings.map((w) => w.message)).size - 8} cảnh báo khác</div>}
+              </div>
+            )}
 
             {/* Đợt gộp: luật mốc cần sắt. Vi phạm -> câu đỏ nêu SKU sớm/muộn nhất + khoá nút Lưu; đang
                 đúng luật -> nhắc luật bằng dòng mờ để người dùng biết trước khi sửa. */}
