@@ -31,6 +31,8 @@ import MobileListCards from '../../../components/MobileListCards'
 import { pageSubtitle } from '../../../styles/typography'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import LenhCode from '../../../components/LenhCode'
+import { resolveProductionOrderId } from '../../../services/production-invoice-item'
+import { useIssueSlipCart } from './IssueSlipCart'
 
 const ACCENT = 'var(--fg-4527a0)'
 
@@ -58,7 +60,7 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
   const active = orderRows(skus as Sku[]).filter(p => p.status !== 'DRAFT' && activePiIds.has(poInfoFor(p)?.productionInvoiceId ?? ''))
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
-  const { data: planData, isLoading: planLoading, refetch } = useFetch<BeMaterialIssuePlanItem[]>(
+  const { data: planData, isLoading: planLoading } = useFetch<BeMaterialIssuePlanItem[]>(
     () => (selectedPf ? api.getMaterialIssuePlan(selectedPf, stage) : Promise.resolve([])),
     [productionOrderRowKey(selectedPf), stage],
   )
@@ -67,6 +69,7 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
   const [qty, setQty] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<string | null>(null)
   const [msgs, setMsgs] = useState<Record<string, string>>({})
+  const cart = useIssueSlipCart()
 
   const clampN = (d: BeMaterialIssuePlanItem) =>
     Math.max(0, Math.min(d.remainingToIssue, Math.floor(Number(qty[d.materialId] ?? d.remainingToIssue) || 0)))
@@ -77,9 +80,17 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
     setBusy(d.materialId)
     setMsgs(p => ({ ...p, [d.materialId]: '' }))
     try {
-      await api.issueMaterial(selectedPf, { stage, materialId: d.materialId, issuedQty: n })
+      // Đợt 6 (YC4): không xuất thẳng nữa - thêm vào "Phiếu đang lập", tạo phiếu XK ở tab "Phiếu xuất", ký, tải ảnh rồi mới
+      // xác nhận xuất (lúc đó mới trừ tồn).
+      const orderId = await resolveProductionOrderId(selectedPf)
+      if (!orderId) throw new Error('SKU chưa có Lệnh sản xuất (chưa được Sếp duyệt) — chưa thể xuất vật tư')
+      cart.add({
+        kind: 'CONSUMABLE', materialId: d.materialId, productionOrderId: orderId, stage, qty: n,
+        materialName: `${d.materialName} (${d.materialCode})`, unit: '',
+        lenhLabel: poInfoFor(selectedPf)?.piCode ?? selectedPf.mfgProduct?.factoryCode ?? '',
+      })
       setQty(q => { const { [d.materialId]: _, ...rest } = q; return rest })
-      await refetch()
+      setMsgs(p => ({ ...p, [d.materialId]: `Đã thêm ${n} vào phiếu đang lập - sang tab "Phiếu xuất" để tạo phiếu.` }))
     } catch (e) {
       setMsgs(p => ({ ...p, [d.materialId]: errMsg(e, 'Không thể xuất vật tư') }))
     } finally {
@@ -159,10 +170,10 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
                                 style={{ width: 70, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }} />
                               <button onClick={() => xuat(d)} disabled={busy === d.materialId}
                                 style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: ACCENT, color: '#fff', cursor: busy === d.materialId ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
-                                {busy === d.materialId ? '...' : 'Xuất'}
+                                {busy === d.materialId ? '...' : 'Thêm vào phiếu'}
                               </button>
                             </div>
-                            {msgs[d.materialId] && <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)' }}>{msgs[d.materialId]}</div>}
+                            {msgs[d.materialId] && <div style={{ marginTop: 4, fontSize: 11, color: msgs[d.materialId].startsWith('Đã thêm') ? 'var(--fg-16a34a)' : 'var(--fg-dc2626)' }}>{msgs[d.materialId]}</div>}
                           </div>
                         )}
                       </td>

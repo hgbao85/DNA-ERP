@@ -147,7 +147,7 @@ export {
 } from './transfer-check-api';
 export { getPackaging, getPackagingBatch, recordPackaging } from './packaging-api';
 export { getWeavingIssuePlan, getWeavingIssuePlanBatch, issueWeaving, receiveWeaving, getWeavingByPoint } from './weaving-issues-api';
-export { getMaterialIssuePlan, getMaterialIssuesByStage, issueMaterial, receiveMaterialIssue } from './material-issues-api';
+export { getMaterialIssuePlan, getMaterialIssuesByStage, receiveMaterialIssue } from './material-issues-api';
 export {
   getMaterialYieldIssuePlan, getMaterialYieldIssuesForOrder, getMaterialYieldIssuesByStatus,
   issueMaterialYield, receiveMaterialYieldIssue,
@@ -165,7 +165,7 @@ export {
   reviewPieceStepQc,
 } from './production-batches-api';
 export {
-  getSteelIssuePlan, getSteelIssuesForInvoice, getSteelIssuesForInvoiceBatch, getPhoiProgressBatch, issueSteel,
+  getSteelIssuePlan, getSteelIssuesForInvoice, getSteelIssuesForInvoiceBatch, getPhoiProgressBatch,
   getSteelIssuesByStatus, getSteelIssue, getCutBundles, receiveSteelIssue,
   recordCutBatch, getPhoiProgress, getStepProgress, recordStepBatch, getPiOrderSummary,
   reviewSteelIssueQc, getQcReviewsForSteelIssues, getAllQcReviews, updateQcReviewPhoto,

@@ -8,7 +8,8 @@ import MobileListCards from '../../../components/MobileListCards'
 import { compactTh as th, compactTd as td } from '../../../styles/table'
 import { uploadDocument } from '../../../services/uploads-api'
 import { newUuid } from '../../../services/core/uuid'
-import { previewPurchaseReceipt, type ReceiptAllocationLine } from '../../../services/purchase-receipts-api'
+import { previewPurchaseReceipt, reserveReceiptSlipCode, type ReceiptAllocationLine } from '../../../services/purchase-receipts-api'
+import { printReceiptSlip } from './printReceiptSlip'
 
 /**
  * Nhập kho hàng mua theo phiếu (Đợt 5d, 2026-11-05 - bản v8 YC8, YC4 4.3-4.6):
@@ -230,6 +231,10 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
   // Nhận vượt (Đợt 5e, 4.12): lý do bắt buộc, ảnh bằng chứng nếu có.
   const [overReason, setOverReason] = useState('')
   const [overFiles, setOverFiles] = useState<File[]>([])
+  // Số phiếu nhập NK (Đợt 6, 4.2/4.8): giữ lúc bấm "In phiếu nhập"; in lại giữ số cũ. Số lượng đổi sau khi in thì phải in lại.
+  const [slipCode, setSlipCode] = useState('')
+  const [printedTotal, setPrintedTotal] = useState<number | null>(null)
+  const [slipErr, setSlipErr] = useState('')
   // Giữ nguyên key giữa các lần bấm lại của CÙNG 1 lần nhận (lỗi mạng mà BE đã ghi thì không nhập 2 lần); đổi sau khi xong.
   const [receiveKey, setReceiveKey] = useState(() => newUuid())
   const [rejectKey, setRejectKey] = useState(() => newUuid())
@@ -275,7 +280,9 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
   // Vượt tổng số còn lại của đơn (BE tính lại sau khoá theo số đã nhận mới nhất, cùng công thức).
   const overQty = round4(Math.max(0, total - remaining))
   const overReasonMissing = overQty > 0 && overReason.trim() === ''
-  const canConfirm = total > 0 && delivered !== '' && !deliveredMismatch && missingDocs.length === 0 && allocOk && !!preview && !overReasonMissing && !busy
+  const slipStale = !!slipCode && printedTotal !== total
+  const canPrint = total > 0 && delivered !== '' && !deliveredMismatch && allocOk && !!preview && !busy
+  const canConfirm = canPrint && missingDocs.length === 0 && !overReasonMissing && !!slipCode && !slipStale
 
   const uploadAll = async (files: File[]) => {
     const urls: string[] = []
@@ -302,6 +309,7 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
         receiptSlipUrls: s3,
         weighSlipUrls: s4.length > 0 ? s4 : undefined,
         allocation: editing ? allocation.map(a => ({ itemId: a.itemId, qty: a.final })) : undefined,
+        slipCode,
         overReason: overQty > 0 ? overReason.trim() : undefined,
         overFileUrls: overUrls.length > 0 ? overUrls : undefined,
       }, receiveKey, proposalIds)
@@ -309,6 +317,7 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
       setUnitRate(''); setSupplierUnit(''); setDelivered('')
       setSupplierSlips([]); setApprovalFiles([]); setReceiptSlips([]); setWeighSlips([])
       setOverReason(''); setOverFiles([])
+      setSlipCode(''); setPrintedTotal(null)
       setEditing(false); setManual({}); setPreview(null)
       setReceiveKey(newUuid())
     } catch {
@@ -319,6 +328,32 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
   }
 
   const onConfirm = () => { void doReceive() }
+
+  const printSlip = async () => {
+    setSlipErr('')
+    try {
+      const { code } = await reserveReceiptSlipCode(slipCode || undefined)
+      setSlipCode(code)
+      setPrintedTotal(total)
+      printReceiptSlip({
+        code,
+        warehouseCode: it.warehouseCode,
+        warehouseName: it.khoLabel || it.warehouseCode,
+        supplierName: it.supplierName ?? '',
+        orderCode: it.supplierOrderCode ? `${it.supplierName ?? 'NCC'} – Số ${it.supplierOrderCode}` : '',
+        materialCode: it.materialCode ?? '',
+        materialName: it.name,
+        spec: [it.spec, it.stockLengthMm != null ? `Cây ${it.stockLengthMm}mm` : null].filter(Boolean).join(' · '),
+        unit: it.unit,
+        isSteel: !!it.isSteel,
+        deliveredQty: deliveredNum,
+        receivedQty: total,
+        parts: allocation.map(a => ({ lenhCode: a.lenhCode, qty: a.final })),
+      })
+    } catch (e) {
+      setSlipErr(e instanceof Error ? e.message : String(e))
+    }
+  }
 
   const doReject = async () => {
     setBusy(true)
@@ -455,12 +490,17 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
       </div>
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 20 }}>
+        <button onClick={() => void printSlip()} disabled={!canPrint} style={{ ...btn(canPrint, 'var(--bg-2563eb)') }}>{slipCode ? 'In lại phiếu nhập' : 'In phiếu nhập'}</button>
+        {slipCode && <span style={{ fontSize: 12 }}>Số phiếu <b style={{ fontFamily: 'monospace' }}>{slipCode}</b></span>}
         <button onClick={onConfirm} disabled={!canConfirm} style={btn(canConfirm, 'var(--bg-2e7d32)')}>{busy ? 'Đang ghi…' : 'Xác nhận nhập kho'}</button>
         <button onClick={() => setRejecting(r => !r)} disabled={busy} style={{ padding: '7px 14px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--fg-dc2626, #dc2626)', cursor: 'pointer' }}>Từ chối nhận</button>
         {!canConfirm && total > 0 && missingDocs.length > 0 && (
           <span style={{ fontSize: 12, color: 'var(--text3)' }}>Còn thiếu ảnh: {missingDocs.join(', ')}</span>
         )}
         {overReasonMissing && <span style={{ fontSize: 12, color: 'var(--fg-d97706)' }}>Ghi lý do nhận vượt</span>}
+        {canPrint && !slipCode && <span style={{ fontSize: 12, color: 'var(--text3)' }}>In phiếu nhập → người giao ký → chụp tải vào ô (3) rồi mới nhập được</span>}
+        {slipStale && <span style={{ fontSize: 12, color: 'var(--fg-d97706)' }}>Số lượng đã đổi sau khi in - bấm “In lại phiếu nhập”</span>}
+        {slipErr && <span style={{ fontSize: 12, color: 'var(--fg-dc2626, #dc2626)' }}>{slipErr}</span>}
       </div>
 
       {rejecting && (

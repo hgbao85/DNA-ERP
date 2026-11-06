@@ -22,11 +22,10 @@ import { focusAttr } from '../../../utils/notificationLink'
 import { useState } from 'react'
 import { ArrowUpFromLine, ChevronLeft, Check } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
-import { useConfirm } from '../../../hooks/useConfirm'
+import { useIssueSlipCart } from './IssueSlipCart'
 import * as api from '../../../services/api'
 import type { BeSteelIssuePlanItem, BeSteelIssue } from '../../../services/steel-issues-api'
 import { listProductionOrdersLite } from '../../../services/production-invoice-item'
-import { errMsg } from '../../../utils/errors'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle, tableScrollBox, stickyHeaderRow } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
@@ -121,9 +120,8 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
 
   const [barLen, setBarLen] = useState<Record<string, string>>({})
   const [barCount, setBarCount] = useState<Record<string, string>>({})
-  const [busy, setBusy] = useState<string | null>(null)
   const [msgs, setMsgs] = useState<Record<string, string>>({})
-  const { ask, confirmModal } = useConfirm()
+  const cart = useIssueSlipCart()
 
   const issuedForMaterial = (materialId: string) =>
     history.filter(h => h.materialId === materialId).reduce((s, h) => s + h.barCount, 0)
@@ -135,24 +133,17 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
     const n = Number(barCount[key])
     if (!len || len <= 0) { setMsgs(p => ({ ...p, [key]: 'Nhập chiều dài cây hợp lệ' })); return }
     if (!n || n <= 0) { setMsgs(p => ({ ...p, [key]: 'Nhập số cây hợp lệ' })); return }
-    ask(
-      { message: `Xuất ${n} cây ${item.materialName} (dài ${len}mm) cho Phôi?` },
-      async () => {
-        if (!selectedPi) return
-        setBusy(key)
-        setMsgs(p => ({ ...p, [key]: '' }))
-        try {
-          await api.issueSteel(selectedPi.productionInvoiceId, { materialId: item.materialId, barLengthMm: len, barCount: n })
-          setBarLen(p => ({ ...p, [key]: '' }))
-          setBarCount(p => ({ ...p, [key]: '' }))
-          await Promise.all([refetch(), refetchHistory()])
-        } catch (e) {
-          setMsgs(p => ({ ...p, [key]: errMsg(e, 'Không thể xuất sắt') }))
-        } finally {
-          setBusy(null)
-        }
-      }
-    )
+    if (!Number.isInteger(n)) { setMsgs(p => ({ ...p, [key]: 'Số cây phải là số nguyên' })); return }
+    if (!selectedPi) return
+    // Đợt 6 (YC4): không xuất thẳng nữa - thêm vào "Phiếu đang lập", sang tab "Phiếu xuất" tạo phiếu XK, in, ký, tải ảnh rồi
+    // mới xác nhận xuất (lúc đó mới trừ tồn).
+    cart.add({
+      kind: 'STEEL', materialId: item.materialId, productionInvoiceId: selectedPi.productionInvoiceId, barLengthMm: len, qty: n,
+      materialName: item.materialName, unit: 'cây', lenhLabel: selectedPi.piCode,
+    })
+    setBarLen(p => ({ ...p, [key]: '' }))
+    setBarCount(p => ({ ...p, [key]: '' }))
+    setMsgs(p => ({ ...p, [key]: `Đã thêm ${n} cây vào phiếu đang lập - sang tab "Phiếu xuất" để tạo phiếu.` }))
   }
 
   // ── Detail view ───────────────────────────────────────────────────────────────
@@ -242,13 +233,12 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
                           </div>
                           <button
                             onClick={() => handleXuat(item)}
-                            disabled={busy === key}
-                            style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: ACCENT, color: '#fff', cursor: busy === key ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                            style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: ACCENT, color: '#fff', cursor: 'pointer', whiteSpace: 'nowrap' }}
                           >
-                            {busy === key ? '...' : 'Xuất'}
+                            Thêm vào phiếu
                           </button>
                         </div>
-                        {msgs[key] && <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)' }}>{msgs[key]}</div>}
+                        {msgs[key] && <div style={{ marginTop: 4, fontSize: 11, color: msgs[key].startsWith('Đã thêm') ? 'var(--fg-16a34a)' : 'var(--fg-dc2626)' }}>{msgs[key]}</div>}
                       </td>
                     </tr>
                   )
@@ -290,7 +280,6 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
             )}
           </div>
         )}
-        {confirmModal}
       </div>
     )
   }

@@ -182,6 +182,7 @@ function toItem(item: BeItem): PurchaseProposalItem {
   const khoKey = (family ? WAREHOUSE_SCOPE_TO_KHO_KEY[family] : undefined) ?? (warehouseCode as KhoKey);
   return {
     name: item.materialName,
+    materialCode: item.materialCode,
     spec: item.materialSpec,
     // Dòng sắt mua theo CÂY (`stockLengthMm` = chiều dài cây, `buyQty` = số cây) - đơn vị danh mục của sắt trên production là
     // "Mm" (test thật 2026-10-29, BE changelog 2026-09-25 mục 32.27). Đổi 1 chỗ ở đây cho mọi màn mua / nhập kho.

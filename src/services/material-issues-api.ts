@@ -16,7 +16,7 @@
  *    Dùng getMaterialIssuesByStage() gọi thẳng GET /material-issues?stage=X (flat, không cần biết
  *    PO nào) - endpoint riêng cho đúng trường hợp này, xem ListMaterialIssuesQueryDto (BE).
  */
-import { http, withIdempotencyKey } from './core/http';
+import { http } from './core/http';
 import type { Sku } from '../types/sku';
 import { resolveProductionOrderId } from './production-invoice-item';
 
@@ -74,14 +74,8 @@ export async function getMaterialIssuesByStage(stage: MaterialIssueStage): Promi
   return Array.isArray(res) ? res : res.data;
 }
 
-export async function issueMaterial(
-  pf: Sku,
-  data: { stage: MaterialIssueStage; materialId: string; issuedQty: number },
-): Promise<void> {
-  const orderId = await resolveProductionOrderId(pf);
-  if (!orderId) throw new Error('SKU chưa có Lệnh sản xuất (chưa được Sếp duyệt) — chưa thể xuất vật tư');
-  await http.post(`/production-orders/${orderId}/material-issues`, data, withIdempotencyKey());
-}
+// Xuất vật tư tiêu hao từng dòng (POST /production-orders/:id/material-issues) đã gỡ ở Đợt 6 - xuất qua phiếu XK, xem
+// issue-slips-api.ts.
 
 export async function receiveMaterialIssue(issueId: string, receivedQty?: number): Promise<void> {
   await http.post(`/material-issues/${issueId}/receive`, { receivedQty });

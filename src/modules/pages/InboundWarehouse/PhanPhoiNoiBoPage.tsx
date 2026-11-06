@@ -14,26 +14,39 @@
  */
 
 import { useState } from 'react'
-import { Share2, Scissors, Wrench, Flame, SprayCan } from 'lucide-react'
+import { Share2, Scissors, Wrench, Flame, SprayCan, FileText } from 'lucide-react'
 import XuatSatPage from './XuatSatPage'
 import XuatVatTuThanhPhamPage from './XuatVatTuThanhPhamPage'
 import XuatVatTuTieuHaoPage from './XuatVatTuTieuHaoPage'
+import PhieuXuatPage from './PhieuXuatPage'
+import { IssueSlipCartProvider, useIssueSlipCart } from './IssueSlipCart'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 const ACCENT = 'var(--fg-4527a0)'
 const ACCENT_BG = 'var(--bg-ede7f6)'
 
-type Sub = 'sat' | 'vat-tu-tp' | 'han' | 'son'
+type Sub = 'sat' | 'vat-tu-tp' | 'han' | 'son' | 'phieu'
 
 const SUBS: { id: Sub; label: string; icon: React.ReactNode }[] = [
   { id: 'sat', label: 'Xuất sắt trong phôi', icon: <Scissors size={15} /> },
   { id: 'vat-tu-tp', label: 'Xuất vật tư TP', icon: <Wrench size={15} /> },
   { id: 'han', label: 'Xuất vật tư hàn',     icon: <Flame size={15} /> },
   { id: 'son', label: 'Xuất vật tư sơn',     icon: <SprayCan size={15} /> },
+  // Đợt 6 (YC4): mọi lần xuất sắt / vật tư hàn, sơn đi qua phiếu xuất XK có số, ký, tải ảnh.
+  { id: 'phieu', label: 'Phiếu xuất',       icon: <FileText size={15} /> },
 ]
 
 export default function PhanPhoiNoiBoPage() {
+  return (
+    <IssueSlipCartProvider>
+      <PhanPhoiNoiBo />
+    </IssueSlipCartProvider>
+  )
+}
+
+function PhanPhoiNoiBo() {
   const [sub, setSub] = useState<Sub>('sat')
+  const cart = useIssueSlipCart()
 
   return (
     <div style={{ maxWidth: 1280, margin: '0 auto' }}>
@@ -56,6 +69,9 @@ export default function PhanPhoiNoiBoPage() {
                 background: active ? ACCENT_BG : 'var(--surface)', color: active ? ACCENT : 'var(--text2)',
               }}>
               {s.icon}{s.label}
+              {s.id === 'phieu' && cart.lines.length > 0 && (
+                <span style={{ minWidth: 18, height: 18, padding: '0 5px', borderRadius: 20, background: 'var(--bg-c62828)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>{cart.lines.length}</span>
+              )}
             </button>
           )
         })}
@@ -64,9 +80,10 @@ export default function PhanPhoiNoiBoPage() {
       {sub === 'sat' && <XuatSatPage embedded />}
       {sub === 'vat-tu-tp' && <XuatVatTuThanhPhamPage />}
       {sub === 'han' && <XuatVatTuTieuHaoPage stage="HAN"
-        desc="Vật tư tiêu hao cấp cho Tổ Hàn theo lệnh sản xuất (khí CO₂, dây hàn, đá cắt…). Bấm Xuất → tổ Hàn xác nhận nhận." />}
+        desc="Vật tư tiêu hao cấp cho Tổ Hàn theo lệnh sản xuất (khí CO₂, dây hàn, đá cắt…). Bấm “Thêm vào phiếu” → tạo phiếu xuất ở tab Phiếu xuất → ký, tải ảnh, xác nhận xuất → tổ Hàn xác nhận nhận." />}
       {sub === 'son' && <XuatVatTuTieuHaoPage stage="SON"
-        desc="Vật tư tiêu hao cấp cho Tổ Sơn theo lệnh sản xuất (bột sơn, dung môi, băng keo che…). Bấm Xuất → tổ Sơn xác nhận nhận." />}
+        desc="Vật tư tiêu hao cấp cho Tổ Sơn theo lệnh sản xuất (bột sơn, dung môi, băng keo che…). Bấm “Thêm vào phiếu” → tạo phiếu xuất ở tab Phiếu xuất → ký, tải ảnh, xác nhận xuất → tổ Sơn xác nhận nhận." />}
+      {sub === 'phieu' && <PhieuXuatPage />}
     </div>
   )
 }
