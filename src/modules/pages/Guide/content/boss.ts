@@ -104,9 +104,10 @@ export const bossGroup: GuideGroup = {
       preconditions: ['Kế hoạch SX đã sửa mốc của lệnh đã duyệt (sửa tay hoặc nạp Excel) và gửi chờ duyệt.'],
       steps: [
         'Vào tab "Tổng hợp chờ duyệt" > "Đổi mốc lệnh SX" (số đỏ cho biết có bao nhiêu lô đang chờ). Bấm vào thông báo cũng mở thẳng mục này.',
-        'Mỗi lô là một khối: nguồn (Sửa tay hoặc Excel), người gửi, lúc gửi, số SKU. Bảng liệt kê từng lệnh, SKU, số lượng và các mốc đổi, ví dụ "Phôi 10/11 → 13/11". Ô vàng ở cột "Cảnh báo" nhắc những điểm cần để ý, ví dụ thứ tự mốc bị ngược.',
+        'Mỗi lô là một khối: nguồn (Sửa tay hoặc Excel), người gửi, lúc gửi, số SKU. Bảng liệt kê từng lệnh, SKU, số lượng và các mốc đổi, ví dụ "Phôi 10/11 → 13/11". Một yêu cầu có thể có nhiều dòng mốc vì khi dời một mốc thì các mốc sau tự dời theo cùng số ngày. Ô vàng ở cột "Cảnh báo" nhắc những điểm cần để ý.',
         'Muốn duyệt hết: bấm "Duyệt" rồi xác nhận. Mốc mới có hiệu lực ngay, Mua hàng, QLSX và Kho nhận thông báo.',
         'Muốn duyệt một phần: bỏ tick các dòng chưa đồng ý rồi bấm "Duyệt". Các dòng bỏ tick bị từ chối nên phải ghi lý do.',
+        'Lệnh đã bắt đầu cắt phôi thì không đổi mốc được nữa: dòng đó có chữ đỏ giải thích, ô tick bị khoá và nút "Duyệt" không tính dòng đó, chỉ từ chối được. Nếu cả lô đều như vậy thì nút "Duyệt" bị khoá, bạn chỉ bấm "Từ chối…" (lý do được điền sẵn, sửa được).',
         'Muốn từ chối cả lô: bấm "Từ chối…", ghi lý do (ít nhất 3 ký tự). Mốc cũ được giữ, Kế hoạch SX nhận được lý do.',
         'Xem lại những lô đã quyết ở nút "Đã quyết" (chỉ xem: dòng nào duyệt, dòng nào từ chối, lý do, ai quyết).',
       ],

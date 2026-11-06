@@ -109,6 +109,10 @@ export default function DeadlinePlanImportModal({ file, onClose, onCommitted }: 
                 <Count label="Không đổi" value={counts.noChange} tone="gray"/>
               </div>
 
+              {rows.some((r) => r.changes.some((c) => c.auto)) && (
+                <div style={{ fontSize:12, color:'var(--text3)' }}>(tự dời) = mốc dời theo mốc trước, không phải ô sửa trong file.</div>
+              )}
+
               {counts.error > 0 && (
                 <div style={{ fontSize:12.5, color:'var(--fg-b91c1c)' }}>Dòng lỗi sẽ bị bỏ qua — các dòng còn lại vẫn xác nhận được.</div>
               )}
@@ -149,6 +153,7 @@ export default function DeadlinePlanImportModal({ file, onClose, onCommitted }: 
                                 <div key={c.key} style={{ whiteSpace:'nowrap' }}>
                                   <span style={{ color:'var(--text3)' }}>{c.label}: </span>
                                   {fmtDayShort(c.from)} → <b>{fmtDayShort(c.to)}</b>
+                                  {c.auto && <span style={{ color:'var(--text3)', fontStyle:'italic' }}> (tự dời)</span>}
                                 </div>
                               ))}
                             </td>

@@ -49,21 +49,77 @@ export interface DecisionPlan {
   approveRequestIds: string[]
   approveCount: number
   rejectCount: number
+  /** Trong số bị từ chối, bao nhiêu yêu cầu là yêu cầu bị chặn (lệnh đã cắt phôi / Kết thúc / huỷ). */
+  rejectBlockedCount: number
   /** Có ít nhất 1 yêu cầu bị từ chối -> bắt buộc lý do. */
   needsReason: boolean
+  /** Lý do điền sẵn khi MỌI yêu cầu bị từ chối đều là yêu cầu bị chặn; '' nếu không có gợi ý. */
+  suggestedReason: string
 }
 
-/** Kế hoạch khi bấm "Duyệt": yêu cầu được chọn -> duyệt, yêu cầu chờ không chọn -> từ chối. `partial=false`: luôn duyệt hết. */
+/** Phần A – Đợt 9 phần 2 (Q9-3): yêu cầu CHỜ mà BE báo Sếp không duyệt được (lệnh đã bắt đầu cắt phôi / Kết thúc / huỷ), chỉ từ chối được. BE cũ chưa trả blockedReason -> coi như không chặn. */
+export function isBlocked(r: DeadlineChangeRequestDto): boolean {
+  return r.status === 'PENDING' && !!r.blockedReason && r.blockedReason.trim().length > 0
+}
+
+/** Yêu cầu chờ mà Sếp duyệt được (không bị chặn). */
+export function approvablePending(batch: DeadlineChangeBatchDto): DeadlineChangeRequestDto[] {
+  return pendingRequests(batch).filter(r => !isBlocked(r))
+}
+
+/** Lô còn ít nhất 1 yêu cầu duyệt được không. */
+export function canApproveAny(batch: DeadlineChangeBatchDto): boolean {
+  return approvablePending(batch).length > 0
+}
+
+/** Lựa chọn mặc định khi mở lô: mọi yêu cầu chờ trừ yêu cầu bị chặn. */
+export function defaultSelection(batch: DeadlineChangeBatchDto): Set<string> {
+  return new Set(approvablePending(batch).map(r => r.id))
+}
+
+/** Lý do điền sẵn khi mọi yêu cầu sẽ bị từ chối đều là yêu cầu bị chặn. */
+export const BLOCKED_REJECT_REASON = 'Lệnh đã bắt đầu sản xuất (cắt phôi)'
+
+function buildPlan(pending: DeadlineChangeRequestDto[], approveIds: string[]): DecisionPlan {
+  const ids = new Set(approveIds)
+  const rejected = pending.filter(r => !ids.has(r.id))
+  const blocked = rejected.filter(isBlocked).length
+  return {
+    approveRequestIds: approveIds,
+    approveCount: approveIds.length,
+    rejectCount: rejected.length,
+    rejectBlockedCount: blocked,
+    needsReason: rejected.length > 0,
+    suggestedReason: rejected.length > 0 && blocked === rejected.length ? BLOCKED_REJECT_REASON : '',
+  }
+}
+
+/** Kế hoạch khi bấm "Duyệt": yêu cầu được chọn -> duyệt, yêu cầu chờ không chọn -> từ chối. Yêu cầu bị chặn LUÔN bị từ chối (kể cả lỡ nằm trong `selected`). `partial=false`: duyệt hết yêu cầu duyệt được. */
 export function planApprove(batch: DeadlineChangeBatchDto, selected: ReadonlySet<string>, partial: boolean): DecisionPlan {
   const pending = pendingRequests(batch)
-  const ids = partial ? pending.filter(r => selected.has(r.id)).map(r => r.id) : pending.map(r => r.id)
-  return { approveRequestIds: ids, approveCount: ids.length, rejectCount: pending.length - ids.length, needsReason: pending.length - ids.length > 0 }
+  const ok = pending.filter(r => !isBlocked(r))
+  const ids = (partial ? ok.filter(r => selected.has(r.id)) : ok).map(r => r.id)
+  return buildPlan(pending, ids)
 }
 
 /** Kế hoạch khi bấm "Từ chối…": từ chối cả lô. */
 export function planRejectAll(batch: DeadlineChangeBatchDto): DecisionPlan {
-  const n = pendingRequests(batch).length
-  return { approveRequestIds: [], approveCount: 0, rejectCount: n, needsReason: true }
+  return buildPlan(pendingRequests(batch), [])
+}
+
+/** " (1 yêu cầu của lệnh đã bắt đầu sản xuất, không duyệt được)" hoặc chuỗi rỗng. */
+function blockedNote(plan: DecisionPlan): string {
+  return plan.rejectBlockedCount > 0 ? ` (${plan.rejectBlockedCount} yêu cầu của lệnh đã bắt đầu sản xuất, không duyệt được)` : ''
+}
+
+/** Mô tả trong hộp nhập lý do. */
+export function reasonDescription(plan: DecisionPlan): string {
+  const hint = `Nhập lý do để Kế hoạch SX biết (ít nhất ${MIN_REASON_LENGTH} ký tự).`
+  if (plan.approveCount === 0) return `Cả lô giữ mốc cũ, xưởng chạy như trước. ${hint}`
+  const unchecked = plan.rejectCount - plan.rejectBlockedCount
+  const who = plan.rejectBlockedCount > 0 && unchecked > 0 ? 'yêu cầu bỏ chọn và yêu cầu không duyệt được'
+    : plan.rejectBlockedCount > 0 ? 'yêu cầu không duyệt được (lệnh đã bắt đầu cắt phôi)' : 'yêu cầu bỏ chọn'
+  return `${plan.rejectCount} ${who} sẽ bị từ chối và giữ mốc cũ. ${hint}`
 }
 
 export function reasonValid(reason: string): boolean {
@@ -72,15 +128,15 @@ export function reasonValid(reason: string): boolean {
 
 /** Câu kết quả sau khi quyết xong. */
 export function resultMessage(plan: DecisionPlan): string {
-  if (plan.approveCount > 0 && plan.rejectCount > 0) return `Đã duyệt ${plan.approveCount} yêu cầu, từ chối ${plan.rejectCount} yêu cầu.`
+  if (plan.approveCount > 0 && plan.rejectCount > 0) return `Đã duyệt ${plan.approveCount} yêu cầu, từ chối ${plan.rejectCount} yêu cầu${blockedNote(plan)}.`
   if (plan.approveCount > 0) return `Đã duyệt ${plan.approveCount} yêu cầu. Mốc mới có hiệu lực, Mua hàng, QLSX và Kho sẽ được báo.`
-  return `Đã từ chối ${plan.rejectCount} yêu cầu. Giữ mốc cũ, Kế hoạch SX nhận được lý do.`
+  return `Đã từ chối ${plan.rejectCount} yêu cầu${blockedNote(plan)}. Giữ mốc cũ, Kế hoạch SX nhận được lý do.`
 }
 
 /** Câu xác nhận ngắn trước khi duyệt. */
 export function confirmApproveText(plan: DecisionPlan): string {
   return plan.rejectCount > 0
-    ? `Duyệt ${plan.approveCount} yêu cầu và từ chối ${plan.rejectCount} yêu cầu bỏ chọn?`
+    ? `Duyệt ${plan.approveCount} yêu cầu, từ chối ${plan.rejectCount} yêu cầu${blockedNote(plan)}?`
     : `Duyệt ${plan.approveCount} yêu cầu đổi mốc? Mốc mới có hiệu lực ngay và Mua hàng, QLSX, Kho sẽ được báo.`
 }
 
