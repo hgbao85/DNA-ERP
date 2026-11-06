@@ -18,7 +18,7 @@
  * Khác weaving-issues/material-issues: KHÔNG ghi StockLedger (CuttingProposalsService.approve() đã
  * trừ tồn 1 lần lúc duyệt phương án cắt) — xem comment đầu SteelIssuesService (BE).
  */
-import { http, withIdempotencyKey } from './core/http';
+import { http } from './core/http';
 import type { ProcessStep } from '../types/sku';
 
 export type SteelIssueStatus = 'ISSUED' | 'RECEIVED' | 'IN_PROCESS' | 'AWAITING_QC' | 'QC_PASSED';
@@ -184,16 +184,7 @@ export async function getSteelIssuesForInvoiceBatch(
   );
 }
 
-export async function issueSteel(
-  productionInvoiceId: string,
-  data: { materialId: string; barLengthMm: number; barCount: number },
-): Promise<BeSteelIssue> {
-  return http.post<BeSteelIssue>(
-    `/production-invoices/${productionInvoiceId}/steel-issues`,
-    data,
-    withIdempotencyKey(),
-  );
-}
+// Xuất sắt từng dòng (POST /production-invoices/:id/steel-issues) đã gỡ ở Đợt 6 - xuất qua phiếu XK, xem issue-slips-api.ts.
 
 // ── Tổ Phôi (PHOI_STAFF) / KCS (KCS_STAFF) — flat, không cần biết PO trước ─────
 

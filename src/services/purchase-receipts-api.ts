@@ -18,6 +18,8 @@ export interface ReceiptAllocationLine {
 
 export interface PurchaseReceiptResult {
   id: string;
+  /** Số phiếu nhập NK-yymmdd-NNN (Đợt 6). */
+  code: string | null;
   status: 'RECEIVED' | 'REJECTED';
   receivedQty: number;
   /** Phần vượt số còn lại của đơn (Đợt 5e, 4.12). */
@@ -27,6 +29,8 @@ export interface PurchaseReceiptResult {
 }
 
 export interface CreatePurchaseReceiptInput {
+  /** Số phiếu nhập NK đã giữ lúc in (Đợt 6). */
+  slipCode: string;
   itemIds: string[];
   unitRateQty: number;
   supplierUnitQty?: number;
@@ -46,6 +50,11 @@ export interface RejectPurchaseReceiptInput {
   deliveredQty: number;
   reason: string;
   fileUrls: string[];
+}
+
+/** "In phiếu nhập" (Đợt 6): giữ 1 số NK-yymmdd-NNN; `reuse` = số đã giữ trước đó của chính mình (in lại thì giữ số cũ). */
+export function reserveReceiptSlipCode(reuse?: string): Promise<{ code: string }> {
+  return http.post<{ code: string }>('/purchase-receipts/slip-code', { reuse });
 }
 
 export function previewPurchaseReceipt(itemIds: string[], qty: number): Promise<ReceiptAllocationLine[]> {
