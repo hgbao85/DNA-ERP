@@ -3,7 +3,6 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, HelpCircle, Paperclip, X } from 'lucide-react'
 import { format } from 'date-fns'
 import { useInspection, type PurchaseProposal, type PurchaseProposalItem, type PurchaseReceiptLog } from '../../../context/InspectionContext'
-import { useConfirm } from '../../../hooks/useConfirm'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 import { compactTh as th, compactTd as td } from '../../../styles/table'
@@ -204,7 +203,6 @@ function DocSlot({ label, required, files, onChange, existing }: {
 // ── Chi tiết 1 lần nhận ─────────────────────────────────────────────────────
 function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) {
   const { receivePurchase, rejectPurchase } = useInspection()
-  const { ask, confirmModal } = useConfirm()
   const it = group.first
   const itemIds = group.lines.map(l => l.item.itemId!)
   const proposalIds = [...new Set(group.lines.map(l => l.proposal.id))]
@@ -229,6 +227,9 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
   const [rejecting, setRejecting] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
   const [rejectFiles, setRejectFiles] = useState<File[]>([])
+  // Nhận vượt (Đợt 5e, 4.12): lý do bắt buộc, ảnh bằng chứng nếu có.
+  const [overReason, setOverReason] = useState('')
+  const [overFiles, setOverFiles] = useState<File[]>([])
   // Giữ nguyên key giữa các lần bấm lại của CÙNG 1 lần nhận (lỗi mạng mà BE đã ghi thì không nhập 2 lần); đổi sau khi xong.
   const [receiveKey, setReceiveKey] = useState(() => newUuid())
   const [rejectKey, setRejectKey] = useState(() => newUuid())
@@ -270,9 +271,11 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
     receiptSlips.length === 0 && 'phiếu nhập kho',
     it.isSteel && weighSlips.length === 0 && 'phiếu cân xe',
   ].filter(Boolean) as string[]
-  const canConfirm = total > 0 && delivered !== '' && !deliveredMismatch && missingDocs.length === 0 && allocOk && !!preview && !busy
-
   const remaining = round4(group.purchaseQty - group.receivedQty)
+  // Vượt tổng số còn lại của đơn (BE tính lại sau khoá theo số đã nhận mới nhất, cùng công thức).
+  const overQty = round4(Math.max(0, total - remaining))
+  const overReasonMissing = overQty > 0 && overReason.trim() === ''
+  const canConfirm = total > 0 && delivered !== '' && !deliveredMismatch && missingDocs.length === 0 && allocOk && !!preview && !overReasonMissing && !busy
 
   const uploadAll = async (files: File[]) => {
     const urls: string[] = []
@@ -288,6 +291,7 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
     setBusy(true)
     try {
       const [s1, s2, s3, s4] = [await uploadAll(supplierSlips), await uploadAll(approvalFiles), await uploadAll(receiptSlips), await uploadAll(weighSlips)]
+      const overUrls = overQty > 0 ? await uploadAll(overFiles) : []
       const result = await receivePurchase({
         itemIds,
         unitRateQty: rate,
@@ -298,10 +302,13 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
         receiptSlipUrls: s3,
         weighSlipUrls: s4.length > 0 ? s4 : undefined,
         allocation: editing ? allocation.map(a => ({ itemId: a.itemId, qty: a.final })) : undefined,
+        overReason: overQty > 0 ? overReason.trim() : undefined,
+        overFileUrls: overUrls.length > 0 ? overUrls : undefined,
       }, receiveKey, proposalIds)
-      setDone(`Đã nhập ${fmtQty(result.receivedQty)} ${it.unit}: ` + result.allocation.filter(a => a.qty > 0).map(a => `${a.lenhCode} ${fmtQty(a.qty)}`).join(', ') + (result.allocationAdjusted ? ' (đã chỉnh phân bổ)' : ''))
+      setDone(`Đã nhập ${fmtQty(result.receivedQty)} ${it.unit}: ` + result.allocation.filter(a => a.qty > 0).map(a => `${a.lenhCode} ${fmtQty(a.qty)}`).join(', ') + (result.allocationAdjusted ? ' (đã chỉnh phân bổ)' : '') + (result.overQty > 0 ? ` · nhận vượt ${fmtQty(result.overQty)} ${it.unit} vào tồn chưa giữ, đã báo người mua` : ''))
       setUnitRate(''); setSupplierUnit(''); setDelivered('')
       setSupplierSlips([]); setApprovalFiles([]); setReceiptSlips([]); setWeighSlips([])
+      setOverReason(''); setOverFiles([])
       setEditing(false); setManual({}); setPreview(null)
       setReceiveKey(newUuid())
     } catch {
@@ -311,13 +318,7 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
     }
   }
 
-  const onConfirm = () => {
-    if (total > remaining) {
-      ask({ message: `Số nhận (${fmtQty(total)} ${it.unit}) vượt số còn chờ nhận của đơn (${fmtQty(remaining)} ${it.unit}). Vẫn nhập?`, confirmLabel: 'Vẫn nhập' }, () => void doReceive())
-      return
-    }
-    void doReceive()
-  }
+  const onConfirm = () => { void doReceive() }
 
   const doReject = async () => {
     setBusy(true)
@@ -434,6 +435,17 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
         )}
       </div>
 
+      {overQty > 0 && (
+        <div style={{ border: '1px solid var(--fg-d97706)', borderRadius: 10, padding: 12, marginBottom: 16, display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 560 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--fg-d97706)' }}>
+            Nhận vượt {fmtQty(overQty)} {it.unit} so với số còn chờ nhận của đơn ({fmtQty(remaining)} {it.unit})
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Phần vượt vào tồn chưa giữ cho lệnh nào, hệ thống báo người mua phụ trách. Bắt buộc ghi lý do.</div>
+          <textarea value={overReason} onChange={e => setOverReason(e.target.value)} rows={2} placeholder="Lý do nhận vượt (vd: NCC giao nguyên bó, không tách lẻ)" style={{ padding: 8, border: `1px solid ${overReasonMissing ? 'var(--fg-dc2626, #dc2626)' : 'var(--border)'}`, borderRadius: 6, fontSize: 13, background: 'var(--surface)', color: 'var(--text)' }} />
+          <DocSlot label="Ảnh bằng chứng (nếu có)" required={false} files={overFiles} onChange={setOverFiles} />
+        </div>
+      )}
+
       {/* Chứng từ */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginBottom: 16 }}>
         <DocSlot label="(1) Phiếu giao hàng của NCC" required files={supplierSlips} onChange={setSupplierSlips} />
@@ -448,6 +460,7 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
         {!canConfirm && total > 0 && missingDocs.length > 0 && (
           <span style={{ fontSize: 12, color: 'var(--text3)' }}>Còn thiếu ảnh: {missingDocs.join(', ')}</span>
         )}
+        {overReasonMissing && <span style={{ fontSize: 12, color: 'var(--fg-d97706)' }}>Ghi lý do nhận vượt</span>}
       </div>
 
       {rejecting && (
@@ -466,7 +479,6 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
       )}
 
       <ReceiptHistory lines={group.lines} unit={it.unit} />
-      {confirmModal}
     </div>
   )
 }
@@ -501,6 +513,10 @@ function ReceiptHistory({ lines, unit }: { lines: Line[]; unit: string }) {
             {' · '}<b style={{ color: 'var(--text)' }}>{fmtQty(log.receiptTotalQty ?? parts.reduce((s, p) => s + p.qty, 0))} {unit}</b>
             {parts.length > 1 || log.receiptTotalQty != null ? ` → ${parts.map(p => `${p.lenhCode} ${fmtQty(p.qty)}`).join(', ')}` : ''}
             {log.allocationAdjusted && <span style={{ color: 'var(--fg-d97706)' }}> (thủ kho chỉnh phân bổ)</span>}
+            {(log.overQty ?? 0) > 0 && <span style={{ color: 'var(--fg-d97706)' }}> · nhận vượt {fmtQty(log.overQty!)} {unit}{log.overReason ? `: ${log.overReason}` : ''}</span>}
+            {(log.overFileUrls ?? []).map((u, i) => (
+              <span key={u}> · <a href={u} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--fg-2563eb)' }}>Ảnh nhận vượt{(log.overFileUrls ?? []).length > 1 ? ` ${i + 1}` : ''}</a></span>
+            ))}
             {log.receivedByName ? ` · ${log.receivedByName}` : ''}
             {docs(log).map(([label, urls]) => (urls ?? []).map((u, i) => (
               <span key={u}> · <a href={u} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--fg-2563eb)' }}>{label}{(urls ?? []).length > 1 ? ` ${i + 1}` : ''}</a></span>

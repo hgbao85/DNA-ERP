@@ -347,3 +347,97 @@ export function ReviseSupplierOrderModal({ orderLabel, onClose, onConfirm }: {
     </ModalShell>
   )
 }
+
+const r4 = (n: number) => Math.round(n * 10_000) / 10_000
+
+/** Dòng còn chờ nhận của 1 đơn đã ký - đầu vào "Đóng phần thiếu". */
+export interface ShortageLine {
+  id: string
+  proposalId: string
+  materialName: string
+  orderCode: string | null
+  unit: string
+  buyQty: number
+  purchaseQty: number
+  receivedQty: number
+}
+
+/**
+ * "Đóng phần thiếu" (Đợt 5e, bản v8 7.13): NCC không giao nốt. Dòng chọn được đóng kèm lý do; phần CẦN mua còn thiếu
+ * (cần mua − đã nhận) quay lại "Vật tư chờ vào đơn" để đặt NCC khác bằng đơn + phiếu ký mới; phần mua dư chưa về thì bỏ.
+ */
+export function CloseShortageModal({ orderLabel, lines, onClose, onConfirm }: {
+  orderLabel: string
+  lines: ShortageLine[]
+  onClose: () => void
+  onConfirm: (itemIds: string[], reason: string) => Promise<void>
+}) {
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(lines.map(l => l.id)))
+  const [reason, setReason] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+  const ok = picked.size > 0 && reason.trim().length >= 3 && !busy
+
+  const toggle = (id: string) => setPicked(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    return next
+  })
+
+  const confirm = async () => {
+    if (!ok) return
+    setBusy(true)
+    setErr('')
+    try {
+      await onConfirm([...picked], reason.trim())
+      onClose()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <ModalShell
+      title="Đóng phần thiếu"
+      onClose={onClose}
+      footer={<>
+        <button onClick={onClose} disabled={busy} style={secondaryBtn}>Không</button>
+        <button onClick={() => void confirm()} disabled={!ok} style={primaryBtn(!ok)}>
+          {busy ? 'Đang xử lý…' : 'Đóng phần thiếu'}
+        </button>
+      </>}
+    >
+      <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>
+        Đơn <strong>{orderLabel}</strong>: NCC không giao nốt. Dòng được chọn sẽ đóng lại, Kho không nhận tiếp. Phần cần mua còn thiếu
+        quay lại &quot;Vật tư chờ vào đơn&quot; để đặt nhà cung cấp khác (đơn mới, phiếu Giám đốc ký mới); phần mua dư chưa về thì bỏ.
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
+        {lines.map(l => {
+          const short = r4(l.purchaseQty - l.receivedQty)
+          const reorder = r4(Math.max(0, l.buyQty - l.receivedQty))
+          return (
+            <label key={l.id} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 13, cursor: 'pointer' }}>
+              <input type="checkbox" checked={picked.has(l.id)} disabled={busy} onChange={() => toggle(l.id)} style={{ marginTop: 3 }} />
+              <span>
+                <b>{l.materialName}</b>
+                {l.orderCode && <span style={{ fontFamily: 'monospace', fontSize: 12 }}> · {l.orderCode}</span>}
+                <span style={{ display: 'block', fontSize: 12, color: 'var(--text3)' }}>
+                  Đã nhận {l.receivedQty}/{l.purchaseQty} {l.unit} · thiếu {short} {l.unit}
+                  {reorder > 0 ? ` → mua lại ${reorder} ${l.unit}` : ' → đã đủ số cần, không mua lại'}
+                </span>
+              </span>
+            </label>
+          )
+        })}
+      </div>
+      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }} htmlFor="so-short-reason">
+        Lý do <span style={{ color: 'var(--fg-dc2626)' }}>*</span>
+      </label>
+      <textarea id="so-short-reason" rows={3} value={reason} disabled={busy} onChange={e => setReason(e.target.value)} placeholder="Vd: NCC báo hết hàng, không giao nốt" style={{ ...fieldStyle, resize: 'vertical' }} />
+      {err && <div style={errBox}>{err}</div>}
+    </ModalShell>
+  )
+}

@@ -20,6 +20,8 @@ export interface PurchaseReceiptResult {
   id: string;
   status: 'RECEIVED' | 'REJECTED';
   receivedQty: number;
+  /** Phần vượt số còn lại của đơn (Đợt 5e, 4.12). */
+  overQty: number;
   allocation: ReceiptAllocationLine[];
   allocationAdjusted: boolean;
 }
@@ -34,6 +36,9 @@ export interface CreatePurchaseReceiptInput {
   receiptSlipUrls: string[];
   weighSlipUrls?: string[];
   allocation?: { itemId: string; qty: number }[];
+  /** Bắt buộc khi nhận vượt số còn lại của đơn (4.12). */
+  overReason?: string;
+  overFileUrls?: string[];
 }
 
 export interface RejectPurchaseReceiptInput {
@@ -61,4 +66,37 @@ export function rejectPurchaseReceipt(
   idempotencyKey: string,
 ): Promise<PurchaseReceiptResult> {
   return http.post<PurchaseReceiptResult>('/purchase-receipts/reject', input, { headers: { 'Idempotency-Key': idempotencyKey } });
+}
+
+export interface OverReceiptRow {
+  id: string;
+  createdAt: string;
+  supplierName: string;
+  orderCode: string | null;
+  materialCode: string;
+  materialName: string;
+  unit: string;
+  receivedQty: number;
+  overQty: number;
+  overReason: string;
+  overFileUrls: string[];
+  createdByName: string;
+}
+
+export interface OverReceiptStats {
+  from: string;
+  to: string;
+  items: OverReceiptRow[];
+  bySupplier: { name: string; count: number }[];
+  byMaterial: { code: string; name: string; unit: string; count: number; overQty: number }[];
+  byUser: { name: string; count: number }[];
+}
+
+/** Thống kê nhận vượt (Đợt 5e, 4.12) - ngày theo giờ VN, dạng YYYY-MM-DD; bỏ trống = 30 ngày gần nhất. */
+export function getOverReceiptStats(from?: string, to?: string): Promise<OverReceiptStats> {
+  const q = new URLSearchParams();
+  if (from) q.set('from', from);
+  if (to) q.set('to', to);
+  const qs = q.toString();
+  return http.get<OverReceiptStats>(`/purchase-receipts/over-stats${qs ? `?${qs}` : ''}`);
 }
