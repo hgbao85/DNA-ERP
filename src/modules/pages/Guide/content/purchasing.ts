@@ -103,7 +103,7 @@ export const purchasingGroup: GuideGroup = {
         title: 'Đơn đặt hàng',
         columns: ['', 'Vật tư', 'Quy cách', 'Lệnh', 'Cần mua', 'Số mua', 'ĐVT', 'Cần về'],
         rows: [['☑', 'Khí CO2', '—', 'MY-313', '2', '2', 'bình', '08/11/2026'], ['☑', 'Khí CO2', '—', 'GP-176', '1', '1', 'bình', '10/11/2026']],
-        buttons: ['Tạo đơn đặt hàng', 'In phiếu', 'Sếp đã duyệt', 'Thay phiếu'],
+        buttons: ['Tạo đơn đặt hàng', 'In phiếu', 'Sếp đã duyệt', 'Thay phiếu', 'Đóng phần thiếu'],
       },
       steps: [
         'Khối "Vật tư chờ vào đơn" liệt kê vật tư chưa vào đơn của MỌI lệnh, xếp theo tên vật tư rồi ngày cần về — cùng vật tư nằm cạnh nhau để dễ gộp. Gõ vào ô lọc để tìm theo vật tư hoặc mã lệnh.',
@@ -111,6 +111,7 @@ export const purchasingGroup: GuideGroup = {
         'Ở "Đơn của tôi", bấm "In phiếu" để tải file Excel phiếu đề xuất theo mẫu công ty: mỗi vật tư 1 dòng (cộng các lệnh), cột "Số lệnh sản xuất" ghi "lệnh: số cần", vật tư có mua dư thêm dòng "Mua dư → nhập tồn"; quá 15 dòng thì sang trang 2, cùng số đơn.',
         { text: 'Xin Giám đốc ký phiếu → bấm "Sếp đã duyệt" ở đúng đơn đó → chọn file phiếu đã ký → "Xác nhận".', critical: true },
         'Đơn đã ký mà cần gỡ vật tư hoặc sửa số mua: bấm "Thay phiếu", ghi lý do. Đơn quay về chờ duyệt (vật tư chưa nhận hàng tạm dừng nhận), sửa xong bấm "In phiếu" — phiếu ghi "THAY PHIẾU lần n", cùng số đơn — xin ký lại và bấm "Sếp đã duyệt" lần nữa.',
+        'NCC không giao nốt phần còn thiếu: bấm "Đóng phần thiếu" ở đơn đó, tick vật tư cần đóng, ghi lý do. Dòng đó đóng lại (Kho không nhận tiếp); phần CẦN mua còn thiếu quay lại khối "Vật tư chờ vào đơn" để đặt nhà cung cấp khác bằng đơn mới (số đơn mới, phiếu Giám đốc ký mới chỉ gồm phần thiếu). Phần mua dư chưa về thì bỏ, không mua lại.',
       ],
       result: 'Vật tư trong đơn đã duyệt chuyển sang "Đang mua hàng"; Kho nhận hàng theo từng dòng, thấy nhà cung cấp và số đơn ở màn Nhập kho.',
       warnings: [
@@ -120,9 +121,10 @@ export const purchasingGroup: GuideGroup = {
       ],
       commonErrors: [
         { issue: 'Không thấy nút "Thay phiếu"', cause: 'Đơn chưa có phiếu ký (đang "Chờ phiếu Sếp ký").', fix: 'Đơn chưa ký thì gỡ dòng hoặc huỷ đơn trực tiếp, không cần thay phiếu.' },
-        { issue: '"Mọi vật tư trong đơn đã nhận hàng - không còn gì để thay phiếu"', cause: 'Kho đã nhận hàng cho mọi dòng của đơn.', fix: 'Không sửa được nữa; phần thiếu (nếu có) xử lý theo "Đóng phần thiếu" khi có.' },
+        { issue: '"Mọi vật tư trong đơn đã nhận hàng - không còn gì để thay phiếu"', cause: 'Kho đã nhận hàng cho mọi dòng của đơn.', fix: 'Không sửa được nữa; NCC không giao nốt phần thiếu thì bấm "Đóng phần thiếu".' },
+        { issue: 'Không thấy nút "Đóng phần thiếu"', cause: 'Đơn chưa có phiếu ký, hoặc mọi vật tư trong đơn đã nhận đủ / đã đóng.', fix: 'Đơn chưa ký thì gỡ dòng hoặc sửa số mua trực tiếp.' },
       ],
-      tags: ['đơn đặt hàng', 'gộp mua', 'gộp lệnh', 'in phiếu', 'phiếu đề xuất', 'thay phiếu', 'số đơn', 'nhà cung cấp'],
+      tags: ['đơn đặt hàng', 'gộp mua', 'gộp lệnh', 'in phiếu', 'phiếu đề xuất', 'thay phiếu', 'số đơn', 'nhà cung cấp', 'đóng phần thiếu', 'giao thiếu'],
       sourceRefs: ['src/modules/pages/Purchasing/DonDatHangPage.tsx', 'DNA-ERP-BE/src/modules/purchase-proposals/supplier-orders.service.ts'],
     },
     {

@@ -137,6 +137,9 @@ interface BeReceiptLog {
   approvalFileUrls?: string[];
   receiptSlipUrls?: string[];
   weighSlipUrls?: string[];
+  overQty?: number;
+  overReason?: string | null;
+  overFileUrls?: string[];
 }
 
 interface BeProposal {
@@ -229,6 +232,9 @@ function toItem(item: BeItem): PurchaseProposalItem {
       approvalFileUrls: r.approvalFileUrls ?? [],
       receiptSlipUrls: r.receiptSlipUrls ?? [],
       weighSlipUrls: r.weighSlipUrls ?? [],
+      overQty: r.overQty ?? 0,
+      overReason: r.overReason ?? null,
+      overFileUrls: r.overFileUrls ?? [],
     })),
   };
 }

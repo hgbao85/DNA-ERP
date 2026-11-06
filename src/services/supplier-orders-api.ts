@@ -19,6 +19,10 @@ export interface SupplierOrderItem {
   receivedQty: number;
   /** Mã lệnh sản xuất của dòng. */
   orderCode: string | null;
+  /** "Đóng phần thiếu" (Đợt 5e, 7.13): số đặt − đã nhận lúc đóng, lý do, lúc đóng. null = chưa đóng. */
+  shortClosedQty?: number | null;
+  shortCloseReason?: string | null;
+  shortClosedAt?: string | null;
 }
 
 export interface SupplierOrder {
@@ -72,6 +76,11 @@ export function createSupplierOrder(supplierId: string, itemIds: string[]): Prom
 
 export function approveSupplierOrder(id: string, approvalFileUrl: string): Promise<SupplierOrder> {
   return http.post<SupplierOrder>(`/supplier-orders/${id}/boss-approve`, { approvalFileUrl });
+}
+
+/** "Đóng phần thiếu" (7.13): NCC không giao nốt - đóng các dòng, phần CẦN mua còn thiếu quay lại "Lệnh mua vật tư" để đặt NCC khác. */
+export function closeSupplierOrderShortage(id: string, itemIds: string[], reason: string): Promise<SupplierOrder> {
+  return http.post<SupplierOrder>(`/supplier-orders/${id}/close-shortage`, { itemIds, reason });
 }
 
 export function cancelSupplierOrder(id: string, reason: string): Promise<SupplierOrder> {

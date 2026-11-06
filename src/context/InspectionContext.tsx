@@ -22,6 +22,7 @@ import {
   createSupplierOrder as createSupplierOrderApi,
   removeSupplierOrderItem as removeSupplierOrderItemApi,
   reviseSupplierOrder as reviseSupplierOrderApi,
+  closeSupplierOrderShortage as closeSupplierOrderShortageApi,
 } from '../services/supplier-orders-api'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -58,6 +59,10 @@ export interface PurchaseReceiptLog {
   approvalFileUrls?: string[]
   receiptSlipUrls?: string[]
   weighSlipUrls?: string[]
+  /** Nhận vượt của cả phiếu (Đợt 5e, 4.12). */
+  overQty?: number
+  overReason?: string | null
+  overFileUrls?: string[]
 }
 
 export interface PurchaseProposalItem {
@@ -223,6 +228,8 @@ interface InspCtxType {
   removeSupplierOrderItem: (orderId: string, itemId: string, proposalIds: string[]) => Promise<void>
   /** THAY PHIẾU (bản v8 mục 7.11) - đơn đã ký về chờ duyệt, dòng chưa nhận quay về chờ duyệt. */
   reviseSupplierOrder:     (orderId: string, reason: string, proposalIds: string[]) => Promise<void>
+  /** "Đóng phần thiếu" (Đợt 5e, 7.13) - NCC không giao nốt; phần CẦN mua còn thiếu thành dòng mới chờ vào đơn. */
+  closeSupplierOrderShortage: (orderId: string, itemIds: string[], reason: string, proposalIds: string[]) => Promise<void>
   /** Ô1 (unitRateQty) × Ô2 (supplierUnitQty, mặc định 1) = số lượng thật cộng vào tồn kho - backend
    *  tự nhân (2026-10-16, thay cho hệ số quy đổi cố định Material.khoUnitFactor đã xoá). Xem
    *  NhapKhoPage.tsx. */
@@ -343,6 +350,12 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
       await refreshProposals(proposalIds)
     }), [runAction, refreshProposals])
 
+  const closeSupplierOrderShortage = useCallback((orderId: string, itemIds: string[], reason: string, proposalIds: string[]) =>
+    runAction('Đóng phần thiếu', async () => {
+      await closeSupplierOrderShortageApi(orderId, itemIds, reason)
+      await refreshProposals(proposalIds)
+    }), [runAction, refreshProposals])
+
   // Thủ kho nhận hàng theo phiếu (Đợt 5d) - BE ghi cả phiếu trong 1 transaction rồi tải lại các đề xuất liên quan.
   const receivePurchase = useCallback((input: CreatePurchaseReceiptInput, idempotencyKey: string, proposalIds: string[]) =>
     runAction('Nhập kho', async () => {
@@ -376,7 +389,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     }), [runAction])
 
   return (
-    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, createSupplierOrder, approveSupplierOrder, cancelSupplierOrder, removeSupplierOrderItem, reviseSupplierOrder, receivePurchase, rejectPurchase, updateApprovalFile, updateOrderQty }}>
+    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, createSupplierOrder, approveSupplierOrder, cancelSupplierOrder, removeSupplierOrderItem, reviseSupplierOrder, closeSupplierOrderShortage, receivePurchase, rejectPurchase, updateApprovalFile, updateOrderQty }}>
       <ActionErrorBanner message={actionError} onDismiss={dismissActionError} />
       {children}
     </InspCtx.Provider>

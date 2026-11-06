@@ -6,13 +6,14 @@ import { useFetch } from '../../../hooks/useFetch'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import { getMaterials, uploadDocument } from '../../../services/api'
-import { getSupplierOrders, type SupplierOrder } from '../../../services/supplier-orders-api'
+import { getSupplierOrders, type SupplierOrder, type SupplierOrderItem } from '../../../services/supplier-orders-api'
 import { buildBuyerByMaterialId, splitItemsByOwner, visibleProposalsFor } from '../../../utils/purchasingRouting'
 import EmptyState from '../../../components/EmptyState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import {
   BossApproveModal,
   CancelSupplierOrderModal,
+  CloseShortageModal,
   CreateSupplierOrderModal,
   ReviseSupplierOrderModal,
   printSupplierOrderFile,
@@ -24,6 +25,8 @@ const btn: React.CSSProperties = { display: 'inline-flex', alignItems: 'center',
 const primary: React.CSSProperties = { ...btn, border: 'none', background: 'var(--bg-2563eb)', color: '#fff' }
 
 const isPending = (item: PurchaseProposalItem) => item.status !== 'purchasing' && item.status !== 'purchased'
+// Dòng của đơn đã ký mà NCC còn nợ hàng - đối tượng của "Đóng phần thiếu" (Đợt 5e, 7.13).
+const isShort = (it: SupplierOrderItem) => it.status === 'PURCHASING' && it.receivedQty < it.purchaseQty
 const fmtDay = (iso?: string) => (iso ? new Date(iso).toLocaleDateString('vi-VN') : '—')
 
 interface LooseRow {
@@ -48,7 +51,7 @@ const STATUS_LABEL: Record<SupplierOrder['status'], string> = {
 export default function DonDatHangPage() {
   const { user } = useAuth()
   const isMobile = useIsMobile()
-  const { proposals, createSupplierOrder, approveSupplierOrder, cancelSupplierOrder, removeSupplierOrderItem, reviseSupplierOrder } = useInspection()
+  const { proposals, createSupplierOrder, approveSupplierOrder, cancelSupplierOrder, removeSupplierOrderItem, reviseSupplierOrder, closeSupplierOrderShortage } = useInspection()
   const { data: materials, isLoading: materialsLoading } = useFetch(getMaterials)
   const { data: orders, refetch: refetchOrders } = useFetch(() => getSupplierOrders())
   useRealtimeRefetch(['purchase-proposals'], refetchOrders)
@@ -60,6 +63,7 @@ export default function DonDatHangPage() {
   const [approving, setApproving] = useState<SupplierOrder | null>(null)
   const [cancelling, setCancelling] = useState<SupplierOrder | null>(null)
   const [revising, setRevising] = useState<SupplierOrder | null>(null)
+  const [closingShort, setClosingShort] = useState<SupplierOrder | null>(null)
   const [printErr, setPrintErr] = useState('')
 
   // Vật tư CỦA TÔI chờ vào đơn, của MỌI lệnh - sắp theo ngày cần về (7.1: hệ thống gợi ý dòng cùng
@@ -201,6 +205,7 @@ export default function DonDatHangPage() {
               {draft && <button onClick={() => setCancelling(o)} style={btn}>Huỷ đơn</button>}
               {draft && <button onClick={() => setApproving(o)} style={primary}><FileCheck2 size={13} /> Sếp đã duyệt</button>}
               {!draft && <button onClick={() => setRevising(o)} style={btn}><RotateCcw size={13} /> Thay phiếu</button>}
+              {!draft && o.items.some(isShort) && <button onClick={() => setClosingShort(o)} style={btn}>Đóng phần thiếu</button>}
             </div>
             <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -225,7 +230,14 @@ export default function DonDatHangPage() {
                         {it.purchaseQty}
                         {it.purchaseQty > it.buyQty && <span style={{ marginLeft: 6, fontSize: 11, color: 'var(--fg-2563eb)' }}>mua dư +{Math.round((it.purchaseQty - it.buyQty) * 10000) / 10000}</span>}
                       </td>
-                      <td style={{ ...td, textAlign: 'right' }}>{it.receivedQty}</td>
+                      <td style={{ ...td, textAlign: 'right' }}>
+                        {it.receivedQty}
+                        {it.shortClosedQty != null && (
+                          <span title={it.shortCloseReason ?? ''} style={{ display: 'block', fontSize: 11, color: 'var(--fg-dc2626)' }}>
+                            đã đóng thiếu {it.shortClosedQty}{it.shortCloseReason ? `: ${it.shortCloseReason}` : ''}
+                          </span>
+                        )}
+                      </td>
                       <td style={{ ...td, color: 'var(--text3)' }}>{it.unit}</td>
                       {draft && (
                         <td style={td}>
@@ -282,6 +294,17 @@ export default function DonDatHangPage() {
           onClose={() => setCancelling(null)}
           onConfirm={async reason => {
             await cancelSupplierOrder(cancelling.id, reason, proposalIdsOf(cancelling))
+            afterOrderChange()
+          }}
+        />
+      )}
+      {closingShort && (
+        <CloseShortageModal
+          orderLabel={labelOf(closingShort)}
+          lines={closingShort.items.filter(isShort)}
+          onClose={() => setClosingShort(null)}
+          onConfirm={async (itemIds, reason) => {
+            await closeSupplierOrderShortage(closingShort.id, itemIds, reason, proposalIdsOf(closingShort))
             afterOrderChange()
           }}
         />
