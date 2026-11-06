@@ -10,7 +10,10 @@ import type {
   DeadlineHistoryEntry,
   DeadlineSaveResult,
   PendingDeadlineChangeRef,
+  DeadlineFieldKey,
+  DeadlineValues,
 } from '../../../services/deadline-changes-api'
+import { daysBetween, isFloorStarted, milestoneOrderErrors, resolveAutoShift } from './deadlineRules'
 
 /** Màu nhãn - ánh xạ sang biến CSS ở nơi hiển thị. */
 export type DeadlineTone = 'green' | 'yellow' | 'red' | 'blue' | 'gray'
@@ -32,20 +35,24 @@ export interface DeadlineItemLike {
   pendingDeadlineChange?: PendingDeadlineChangeRef | null
 }
 
-/** FREE chưa Sếp duyệt (sửa thẳng) · APPROVED Sếp đã duyệt (sửa phải gửi duyệt lại) · PENDING đang chờ Sếp duyệt lại · ENDED lệnh đã Kết thúc. */
-export type DeadlineItemState = 'FREE' | 'APPROVED' | 'PENDING' | 'ENDED'
+/**
+ * FREE chưa Sếp duyệt (sửa thẳng) · APPROVED Sếp đã duyệt (sửa phải gửi duyệt lại) · PENDING đang chờ Sếp duyệt lại · ENDED lệnh đã Kết thúc ·
+ * STARTED (Phần A – Đợt 9 phần 2, Q9-3) lệnh đã bắt đầu sản xuất (cắt phôi) - khoá như ENDED.
+ */
+export type DeadlineItemState = 'FREE' | 'APPROVED' | 'PENDING' | 'ENDED' | 'STARTED'
 
 export function itemDeadlineState(item: DeadlineItemLike | null | undefined): DeadlineItemState {
   if (item?.floorStage === 'FINISHED') return 'ENDED'
   if (item?.pendingDeadlineChange) return 'PENDING'
+  if (isFloorStarted(item?.floorStage)) return 'STARTED'
   if (item?.prodApproval?.status === 'APPROVED') return 'APPROVED'
   return 'FREE'
 }
 
-/** Dòng Sếp đã duyệt và lệnh chưa Kết thúc (kể cả đang chờ duyệt lại). */
+/** Dòng Sếp đã duyệt và lệnh chưa Kết thúc (kể cả đang chờ duyệt lại và đã bắt đầu sản xuất). */
 export const isRunningItem = (item: DeadlineItemLike | null | undefined): boolean => {
   const s = itemDeadlineState(item)
-  return s === 'APPROVED' || s === 'PENDING'
+  return s === 'APPROVED' || s === 'PENDING' || s === 'STARTED'
 }
 
 /** PI thuộc tab "Đang chạy": có ít nhất 1 dòng SKU đã duyệt mà lệnh chưa Kết thúc, PI chưa huỷ / xong. */
@@ -166,3 +173,87 @@ export function summarizeSave(res: DeadlineSaveResult | null | undefined): SaveS
 /** Dòng NEEDS_APPROVAL / APPLY có cảnh báo: tên hiển thị "MY-313 · SKU123". */
 export const entryLabel = (e: Pick<DeadlineEntryCheck, 'lenhCode' | 'skuCode'>): string =>
   [e.lenhCode, e.skuCode].filter(Boolean).join(' · ')
+
+// ─── Phần A – Đợt 9 phần 2: tự dời mốc + chặn thứ tự ngược trên form "Sửa thời hạn" ─────────────────────────────────
+
+/** Ô ngày của form (trừ hạn giao) - khớp EditVals ở LenhSXPage. */
+export type DeadlineFormField =
+  | 'materialDeadline' | 'finishedMaterialDeadline'
+  | 'PHOI_START' | 'PHOI' | 'HAN' | 'SON' | 'FRAME' | 'WEAVING' | 'TRANSFER_CHECK' | 'PACKAGING_START' | 'PACKAGING'
+
+/** Ô của form → khoá mốc của luật (deadlineRules). Hạn giao không thuộc luật. */
+export const FORM_FIELD_KEY: Record<DeadlineFormField, DeadlineFieldKey> = {
+  materialDeadline: 'materialDeadline',
+  finishedMaterialDeadline: 'finishedMaterialDeadline',
+  PHOI_START: 'stage.PHOI_START',
+  PHOI: 'stage.FRAME_PHOI',
+  HAN: 'stage.FRAME_HAN',
+  SON: 'stage.FRAME_SON',
+  FRAME: 'stage.FRAME',
+  WEAVING: 'stage.WEAVING',
+  TRANSFER_CHECK: 'stage.TRANSFER_CHECK',
+  PACKAGING_START: 'stage.PACKAGING_START',
+  PACKAGING: 'stage.PACKAGING',
+}
+export const DEADLINE_FORM_FIELDS = Object.keys(FORM_FIELD_KEY) as DeadlineFormField[]
+
+export interface FormAutoShiftResult<V> {
+  /** Giá trị các ô sau khi áp tự dời (ô khác giữ nguyên). */
+  vals: V
+  /** Ô đang TỰ DỜI → số ngày dời so với mốc đã lưu (khác 0). */
+  auto: Partial<Record<DeadlineFormField, number>>
+}
+
+/**
+ * Q9-1: áp luật tự dời lên 1 dòng của form. `saved` = mốc ĐÃ LƯU (null nếu chưa lưu - ô chỉ là đề xuất thì không bao giờ tự dời);
+ * `touched` = ô KHSX đã chạm (giá trị ô; chạm mà để trống = gõ lại ngày đã lưu, dời 0); `prevAuto` = ô đang tự dời ở lần trước - nay không
+ * còn tự dời (vd KHSX gõ lại mốc trước về ngày cũ) thì trả về ngày đã lưu. Ô KHSX vừa chạm không bao giờ bị ghi đè.
+ */
+export function applyFormAutoShift<V extends Record<DeadlineFormField, string>>(args: {
+  saved: Record<DeadlineFormField, string | null>
+  vals: V
+  touched: ReadonlySet<DeadlineFormField>
+  prevAuto: ReadonlySet<DeadlineFormField>
+}): FormAutoShiftResult<V> {
+  const { saved, vals, touched, prevAuto } = args
+  const old: DeadlineValues = {}
+  const explicit: DeadlineValues = {}
+  for (const f of DEADLINE_FORM_FIELDS) {
+    const key = FORM_FIELD_KEY[f]
+    old[key] = saved[f] ?? null
+    if (touched.has(f)) explicit[key] = vals[f] || (saved[f] ?? null)
+  }
+  const { values, autoKeys } = resolveAutoShift(old, explicit)
+  const out = { ...vals }
+  const auto: Partial<Record<DeadlineFormField, number>> = {}
+  for (const f of DEADLINE_FORM_FIELDS) {
+    if (touched.has(f)) continue
+    const key = FORM_FIELD_KEY[f]
+    if (autoKeys.includes(key)) {
+      const to = values[key]
+      const from = saved[f]
+      if (to && from) {
+        out[f] = to as V[DeadlineFormField]
+        auto[f] = daysBetween(from, to)
+      }
+    } else if (prevAuto.has(f)) {
+      out[f] = (saved[f] ?? '') as V[DeadlineFormField]
+    }
+  }
+  return { vals: out, auto }
+}
+
+/** "(tự dời +3)" / "(tự dời −2)". */
+export const autoShiftLabel = (days: number): string => `tự dời ${days > 0 ? '+' : '−'}${Math.abs(days)}`
+
+/**
+ * Q9-2: thứ tự mốc ngược của 1 dòng SẼ GỬI ĐI. `saved` = mốc đã lưu, `sent` = giá trị sẽ gửi (chồng lên mốc đã lưu), `delivery` = hạn giao
+ * dùng để so. Dòng không đổi thật so với đã lưu thì không kiểm (trả []).
+ */
+export function projectedOrderErrors(saved: DeadlineValues, sent: DeadlineValues, delivery: string | null): string[] {
+  const keys = Object.keys(sent) as DeadlineFieldKey[]
+  if (!keys.some((k) => !!sent[k] && sent[k] !== (saved[k] ?? null))) return []
+  const projected: DeadlineValues = { ...saved }
+  for (const k of keys) if (sent[k]) projected[k] = sent[k]
+  return milestoneOrderErrors({ ...projected, deliveryDeadline: delivery })
+}

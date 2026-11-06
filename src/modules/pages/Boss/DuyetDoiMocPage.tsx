@@ -23,8 +23,8 @@ import RefreshButton from '../../../components/RefreshButton'
 import { th, td, tableWrap } from '../../../styles/table'
 import { errMsg } from '../../../utils/errors'
 import {
-  changeText, confirmApproveText, fmtDateTimeVN, pendingRequests, planApprove, planRejectAll, reasonValid, resultMessage, skuCount,
-  sortOldestFirst, sourceLabel, statusText, MIN_REASON_LENGTH, type DecisionPlan,
+  approvablePending, canApproveAny, changeText, confirmApproveText, defaultSelection, fmtDateTimeVN, isBlocked, pendingRequests, planApprove,
+  planRejectAll, reasonDescription, reasonValid, resultMessage, skuCount, sortOldestFirst, sourceLabel, statusText, type DecisionPlan,
 } from './duyetDoiMoc'
 
 type View = 'PENDING' | 'DECIDED'
@@ -39,18 +39,22 @@ function pillStyle(active: boolean): React.CSSProperties {
   }
 }
 
-function ChangesCell({ r }: { r: DeadlineChangeRequestDto }) {
+// Đợt 9 phần 2 (Q9-1): 1 yêu cầu có thể có nhiều dòng mốc (mốc sau tự dời theo) -> điện thoại cho xuống dòng, không tràn ngang.
+function ChangesCell({ r, wrap }: { r: DeadlineChangeRequestDto; wrap?: boolean }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {r.changes.map(c => <div key={c.key} style={{ fontSize: 13, whiteSpace: 'nowrap' }}>{changeText(c)}</div>)}
+      {r.changes.map(c => <div key={c.key} style={{ fontSize: 13, whiteSpace: wrap ? 'normal' : 'nowrap', overflowWrap: 'anywhere' }}>{changeText(c)}</div>)}
     </div>
   )
 }
 
 function WarningsCell({ r }: { r: DeadlineChangeRequestDto }) {
-  if (r.warnings.length === 0) return <span style={{ color: 'var(--text3)' }}>-</span>
+  const blocked = isBlocked(r)
+  if (r.warnings.length === 0 && !blocked) return <span style={{ color: 'var(--text3)' }}>-</span>
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      {/* Đợt 9 phần 2 (Q9-3): yêu cầu bị chặn chỉ từ chối được -> nói rõ ngay trong thẻ. */}
+      {blocked && <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg-c62828)', overflowWrap: 'anywhere' }}>{r.blockedReason}</span>}
       {r.warnings.map((w, i) => <span key={i} style={AMBER_BOX}>{w}</span>)}
     </div>
   )
@@ -82,7 +86,7 @@ function DecidedCell({ r, batch }: { r: DeadlineChangeRequestDto; batch: Deadlin
 function BatchBlock({ batch, readOnly, onDone }: { batch: DeadlineChangeBatchDto; readOnly: boolean; onDone: (msg: string) => void }) {
   const isMobile = useIsMobile()
   const pending = useMemo(() => pendingRequests(batch), [batch])
-  const [selected, setSelected] = useState<Set<string>>(() => new Set(pending.map(r => r.id)))
+  const [selected, setSelected] = useState<Set<string>>(() => defaultSelection(batch))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [plan, setPlan] = useState<DecisionPlan | null>(null)
@@ -93,11 +97,19 @@ function BatchBlock({ batch, readOnly, onDone }: { batch: DeadlineChangeBatchDto
     if (next.has(id)) next.delete(id); else next.add(id)
     return next
   })
-  const allChosen = pending.length > 0 && pending.every(r => selected.has(r.id))
-  const toggleAll = () => setSelected(allChosen ? new Set() : new Set(pending.map(r => r.id)))
+  // Chọn hết chỉ tính yêu cầu duyệt được (bỏ qua yêu cầu bị chặn).
+  const selectable = useMemo(() => approvablePending(batch), [batch])
+  const blockedCount = pending.length - selectable.length
+  const allChosen = selectable.length > 0 && selectable.every(r => selected.has(r.id))
+  const toggleAll = () => setSelected(allChosen ? new Set() : defaultSelection(batch))
 
   const approvePlan = planApprove(batch, selected, DEADLINE_PARTIAL_APPROVAL)
   const canApprove = approvePlan.approveCount > 0 && pending.length > 0
+  const approveHint = canApprove ? undefined
+    : !canApproveAny(batch) && pending.length > 0 ? 'Lệnh đã bắt đầu cắt phôi (hoặc đã kết thúc) nên không duyệt đổi mốc được nữa, chỉ từ chối được'
+    : 'Chọn ít nhất 1 yêu cầu để duyệt'
+  // Mở hộp quyết định: điền sẵn lý do khi mọi yêu cầu bị từ chối đều là yêu cầu bị chặn (không ghi đè chữ Sếp đã gõ).
+  const openPlan = (p: DecisionPlan) => { if (!reason.trim() && p.suggestedReason) setReason(p.suggestedReason); setPlan(p) }
 
   const close = () => { if (!busy) { setPlan(null); setReason(''); setError(null) } }
   const submit = async () => {
@@ -137,7 +149,7 @@ function BatchBlock({ batch, readOnly, onDone }: { batch: DeadlineChangeBatchDto
           {batch.requests.map(r => (
             <div key={r.id} style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               {showCheck && r.status === 'PENDING' && (
-                <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)} aria-label={`Chọn ${r.lenhCode} ${r.skuCode}`} style={{ marginTop: 4, width: 18, height: 18 }} />
+                <input type="checkbox" checked={!isBlocked(r) && selected.has(r.id)} disabled={isBlocked(r)} onChange={() => toggle(r.id)} aria-label={`Chọn ${r.lenhCode} ${r.skuCode}`} style={{ marginTop: 4, width: 18, height: 18 }} />
               )}
               <div style={{ minWidth: 0, flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
                 <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--fg-1d4ed8)' }}>{r.lenhCode}</div>
@@ -145,8 +157,8 @@ function BatchBlock({ batch, readOnly, onDone }: { batch: DeadlineChangeBatchDto
                   <SkuCell r={r} />
                   <span style={{ fontSize: 12, color: 'var(--text3)' }}>×{r.quantity.toLocaleString('vi-VN')}</span>
                 </div>
-                <ChangesCell r={r} />
-                {readOnly ? <DecidedCell r={r} batch={batch} /> : r.warnings.length > 0 && <WarningsCell r={r} />}
+                <ChangesCell r={r} wrap />
+                {readOnly ? <DecidedCell r={r} batch={batch} /> : (r.warnings.length > 0 || isBlocked(r)) && <WarningsCell r={r} />}
               </div>
             </div>
           ))}
@@ -158,7 +170,7 @@ function BatchBlock({ batch, readOnly, onDone }: { batch: DeadlineChangeBatchDto
               <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                 {showCheck && (
                   <th style={{ ...th, width: 36 }}>
-                    <input type="checkbox" checked={allChosen} onChange={toggleAll} aria-label="Chọn hết" />
+                    <input type="checkbox" checked={allChosen} disabled={selectable.length === 0} onChange={toggleAll} aria-label="Chọn hết" />
                   </th>
                 )}
                 {colSpanHeads.map(h => <th key={h} style={{ ...th, textAlign: h === 'SL' ? 'right' : 'left' }}>{h}</th>)}
@@ -169,7 +181,7 @@ function BatchBlock({ batch, readOnly, onDone }: { batch: DeadlineChangeBatchDto
                 <tr key={r.id} style={{ borderTop: '1px solid var(--border)', verticalAlign: 'top' }}>
                   {showCheck && (
                     <td style={td}>
-                      {r.status === 'PENDING' && <input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)} aria-label={`Chọn ${r.lenhCode} ${r.skuCode}`} />}
+                      {r.status === 'PENDING' && <input type="checkbox" checked={!isBlocked(r) && selected.has(r.id)} disabled={isBlocked(r)} onChange={() => toggle(r.id)} aria-label={`Chọn ${r.lenhCode} ${r.skuCode}`} />}
                     </td>
                   )}
                   <td style={{ ...td, fontFamily: 'monospace', fontWeight: 700, color: 'var(--fg-1d4ed8)', whiteSpace: 'nowrap' }}>{r.lenhCode}</td>
@@ -188,19 +200,26 @@ function BatchBlock({ batch, readOnly, onDone }: { batch: DeadlineChangeBatchDto
         <div style={{ padding: '12px 16px', display: 'flex', flexWrap: 'wrap', gap: 10, alignItems: 'center', justifyContent: 'flex-end', borderTop: '1px solid var(--border)' }}>
           {DEADLINE_PARTIAL_APPROVAL && pending.length > 1 && (
             <span style={{ fontSize: 12, color: 'var(--text3)', marginRight: 'auto' }}>
-              Đã chọn {approvePlan.approveCount}/{pending.length}. Yêu cầu bỏ chọn sẽ bị từ chối (phải ghi lý do).
+              {selectable.length > 0
+                ? `Đã chọn ${approvePlan.approveCount}/${selectable.length}. Yêu cầu bỏ chọn sẽ bị từ chối (phải ghi lý do).`
+                : 'Không có yêu cầu nào duyệt được, chỉ từ chối được.'}
+              {blockedCount > 0 && selectable.length > 0 && ` ${blockedCount} yêu cầu của lệnh đã bắt đầu cắt phôi không duyệt được, sẽ bị từ chối.`}
             </span>
           )}
+          {pending.length === 1 && blockedCount === 1 && (
+            <span style={{ fontSize: 12, color: 'var(--text3)', marginRight: 'auto' }}>Yêu cầu này không duyệt được, chỉ từ chối được.</span>
+          )}
           <button
-            onClick={() => setPlan(planRejectAll(batch))}
+            onClick={() => openPlan(planRejectAll(batch))}
             disabled={busy || pending.length === 0}
             style={{ padding: '8px 18px', background: 'transparent', border: '1px solid var(--fg-c62828)', borderRadius: 8, fontSize: 13, fontWeight: 600, color: 'var(--fg-c62828)', cursor: 'pointer' }}
           >
             Từ chối…
           </button>
           <button
-            onClick={() => setPlan(approvePlan)}
+            onClick={() => openPlan(approvePlan)}
             disabled={busy || !canApprove}
+            title={approveHint}
             style={{ padding: '8px 18px', background: 'var(--bg-2e7d32)', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, color: '#fff', cursor: canApprove ? 'pointer' : 'not-allowed', opacity: canApprove ? 1 : 0.6 }}
           >
             Duyệt ({approvePlan.approveCount})
@@ -212,9 +231,7 @@ function BatchBlock({ batch, readOnly, onDone }: { batch: DeadlineChangeBatchDto
       <ReasonModal
         open={!!plan && plan.needsReason}
         title={plan && plan.approveCount > 0 ? `Duyệt ${plan.approveCount}, từ chối ${plan.rejectCount} yêu cầu` : 'Từ chối đổi mốc'}
-        description={plan && plan.approveCount > 0
-          ? `${plan.rejectCount} yêu cầu bỏ chọn sẽ bị từ chối và giữ mốc cũ. Nhập lý do để Kế hoạch SX biết (ít nhất ${MIN_REASON_LENGTH} ký tự).`
-          : `Cả lô giữ mốc cũ, xưởng chạy như trước. Nhập lý do để Kế hoạch SX biết (ít nhất ${MIN_REASON_LENGTH} ký tự).`}
+        description={plan ? reasonDescription(plan) : ''}
         reason={reason}
         onReasonChange={setReason}
         placeholder="Lý do từ chối (bắt buộc)..."

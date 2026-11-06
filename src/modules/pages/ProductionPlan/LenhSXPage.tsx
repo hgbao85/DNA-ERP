@@ -31,14 +31,16 @@ import { fmtPercent } from '../../../utils/cutMachine'
 import { getCuttingDefaults } from '../../../services/cutting-batch-api'
 import { DEFAULT_MERGE_WINDOW_DAYS, maxGapDays, steelNeedDate, steelNeedSpan, steelNeedSpanMessage } from '../../../utils/steelNeedWindow'
 // Phần A – Đợt 3 (YC10): mốc + năng lực 1,3 cont/ngày
-import { FINISHED_MATERIAL_OFFSET_LABEL, MATERIAL_MILESTONES, finishedMaterialDate, fmtDayVN, frameDaysOf, materialArrivalFrom, offsetLabels, suggestTimeline, timelineWarnings, toDayKey, toInputDate, type TimelineCapacityMode, type TimelineDates, type TimelineField, type TimelineParams } from '../../../utils/phuAnTimeline'
+import { FINISHED_MATERIAL_OFFSET_LABEL, MATERIAL_MILESTONES, finishedMaterialDate, fmtDayVN, frameDaysOf, materialArrivalFrom, offsetLabels, suggestTimeline, toDayKey, toInputDate, type TimelineCapacityMode, type TimelineDates, type TimelineField, type TimelineParams } from '../../../utils/phuAnTimeline'
 import { checkCapacity, type CapacityCheckItemInput, type CapacityWarning } from '../../../services/production-capacity-api'
 import { useCapacityParams } from '../../../hooks/usePlanningParams'
 // Phần A – Đợt 9 (YC2): sửa kế hoạch ở mọi giai đoạn + Excel + Sếp duyệt lại
 import DeadlinePlanImportModal from './DeadlinePlanImportModal'
 import DeadlineHistoryModal from './DeadlineHistoryModal'
 import { cancelDeadlineChangeRequest, downloadDeadlinePlan } from '../../../services/deadline-changes-api'
-import { TONE_STYLE, fmtChange, fmtDateTime, isRunningPi, itemDeadlineState, planFileName, summarizeSave, type SaveSummary } from './deadlineChange'
+import { DEADLINE_FORM_FIELDS, FORM_FIELD_KEY, TONE_STYLE, applyFormAutoShift, autoShiftLabel, fmtChange, fmtDateTime, isRunningPi, itemDeadlineState, planFileName, projectedOrderErrors, summarizeSave, type DeadlineFormField, type SaveSummary } from './deadlineChange'
+import { FLOOR_STARTED_TEXT, isFloorStarted } from './deadlineRules'
+import type { DeadlineValues } from '../../../services/deadline-changes-api'
 
 // Nhãn các cột mốc thời gian SKU - trên điện thoại hiện kèm từng ô ngày (không còn hàng tiêu đề bảng). Sếp duyệt 2026-10-27:
 // "Mua hàng" đổi thành "Mua VT khung & đan", thêm "Mua VT còn lại" GIỮA Đan và Đóng gói (vật tư đứng trước công đoạn dùng nó,
@@ -71,6 +73,21 @@ const modeOfWorkshop = (ws: WorkshopRef | null | undefined, workshops: Workshop[
 
 const savedStageDay = (item: TimelineItemLike | null | undefined, type: string) =>
   toDayKey(Array.isArray(item?.stages) ? item.stages.find((s) => s.stageType === type)?.deadline : null)
+
+/** Phần A – Đợt 9 phần 2: mốc ĐÃ LƯU của dòng theo ô form (null = chưa lưu - ô trên form chỉ là đề xuất). */
+const savedFormValues = (item: any): Record<DeadlineFormField, string | null> => ({
+  materialDeadline: toDayKey(item?.materialDeadline) ?? null,
+  finishedMaterialDeadline: toDayKey(item?.finishedMaterialDeadline) ?? null,
+  PHOI_START: savedStageDay(item, 'PHOI_START') ?? null,
+  PHOI: savedStageDay(item, 'FRAME_PHOI') ?? null,
+  HAN: savedStageDay(item, 'FRAME_HAN') ?? null,
+  SON: savedStageDay(item, 'FRAME_SON') ?? null,
+  FRAME: savedStageDay(item, 'FRAME') ?? null,
+  WEAVING: savedStageDay(item, 'WEAVING') ?? null,
+  TRANSFER_CHECK: savedStageDay(item, 'TRANSFER_CHECK') ?? null,
+  PACKAGING_START: savedStageDay(item, 'PACKAGING_START') ?? null,
+  PACKAGING: savedStageDay(item, 'PACKAGING') ?? null,
+})
 
 /** Mốc đề xuất của 1 dòng từ dữ liệu đã lưu (danh sách / thẻ SKU / hộp duyệt). null khi chưa tính được. */
 const suggestFor = (item: TimelineItemLike | null | undefined, piDeadline: Date | string, ctx: TimelineCtx) =>
@@ -265,6 +282,8 @@ export default function LenhSXPage() {
   // vào (xem editTouched bên dưới) — bấm Lưu mà không sửa gì thì SKU vẫn giữ trạng thái ước tính.
   const [editEstimated, setEditEstimated] = useState<EditEst[]>([])
   const [editTouched, setEditTouched] = useState<Set<string>>(new Set())
+  // Phần A – Đợt 9 phần 2 (Q9-1): ô đang TỰ DỜI theo mốc sản xuất phía trước ('idx:ô' -> số ngày dời so với ngày đã lưu). Reset khi mở hộp.
+  const [editAuto, setEditAuto] = useState<Record<string, number>>({})
   // Phôi/Hàn/Sơn gộp lại dưới Khung cơ khí, ẩn mặc định sau 1 nút bật/tắt (idx -> đang mở hay
   // không) - đỡ rối màn khi không cần sửa riêng từng mốc con. Tự mở sẵn nếu SKU đã có ít nhất 1
   // mốc con nào lưu thật (không phải "ước tính") - không giấu dữ liệu thật đã có.
@@ -640,6 +659,7 @@ export default function LenhSXPage() {
     setEditValues({ deadline: format(piDeadline, 'yyyy-MM-dd'), items: itemValues.map((v) => v.values) })
     setEditEstimated(itemValues.map((v) => v.estimated))
     setEditTouched(new Set())
+    setEditAuto({})
     setEditError('')
     setEditCapWarnings([]) // Phần A – Đợt 3: không hiện cảnh báo năng lực của lệnh mở trước
     // Đợt gộp: đọc ngưỡng N để báo ngay trong hộp khi các mốc cần sắt cách quá xa. BE cũ chưa trả
@@ -687,15 +707,84 @@ export default function LenhSXPage() {
     return steelNeedSpanMessage(steelNeedSpan(entries), mergeWindowDays)
   })()
 
+  // Phần A – Đợt 9 phần 2: dựng payload từng dòng SẼ GỬI - dùng chung cho Lưu và cho việc kiểm thứ tự mốc ngược (Q9-2) ngay trên form.
+  type StageOut = { stageType: 'FRAME' | 'WEAVING' | 'TRANSFER_CHECK' | 'PACKAGING' | 'FRAME_PHOI' | 'FRAME_HAN' | 'FRAME_SON' | 'PHOI_START' | 'PACKAGING_START'; deadline: string }
+  type ItemOut = { itemId: string; materialDeadline?: string; finishedMaterialDeadline?: string; deliveryDeadline?: string; stages?: StageOut[] }
+  const buildItemsOut = (): { idx: number; out: ItemOut; sent: DeadlineValues; delivery: string | null }[] => {
+    if (!editingPI) return []
+    const items: any[] = Array.isArray(editingPI.items) ? editingPI.items : []
+    return items.flatMap((item, idx) => {
+      const vals = editValues.items[idx]
+      if (!vals) return []
+      // Phần A – Đợt 9 (YC2): dòng Kết thúc / đang chờ Sếp duyệt lại / đã bắt đầu sản xuất (Đợt 9 phần 2, Q9-3) bị khoá, không gửi.
+      const lockState = itemDeadlineState(item)
+      if (lockState === 'ENDED' || lockState === 'PENDING' || lockState === 'STARTED') return []
+      const out: ItemOut = { itemId: String(item.id) }
+      const sent: DeadlineValues = {}
+      const iso = (d: string) => new Date(d).toISOString()
+      const savedDelivery = toDayKey(item.deliveryDeadline) ?? toDayKey(editingPI.deadline) ?? null
+      let delivery = savedDelivery
+      const putTop = (field: 'materialDeadline' | 'finishedMaterialDeadline') => { out[field] = iso(vals[field]); sent[field] = vals[field] }
+      const putStage = (field: EditField, stageType: StageOut['stageType']) => {
+        out.stages = [...(out.stages ?? []), { stageType, deadline: iso(vals[field]) }]
+        sent[FORM_FIELD_KEY[field as DeadlineFormField]] = vals[field]
+      }
+      if (lockState === 'APPROVED') {
+        // Dòng Sếp đã duyệt: CHỈ gửi ô KHSX đã sửa HOẶC ô tự dời (Đợt 9 phần 2) mà khác giá trị đã lưu (không gửi Bắt đầu Phôi / Bắt đầu đóng gói
+        // đang là đề xuất - tránh tự tạo yêu cầu chờ Sếp), KHÔNG gửi hạn giao.
+        const changed = (field: EditField, savedDay: string | null) =>
+          !!vals[field] && (editTouched.has(`${idx}:${field}`) || editAuto[`${idx}:${field}`] !== undefined) && vals[field] !== (savedDay ?? '')
+        if (changed('materialDeadline', toDayKey(item.materialDeadline))) putTop('materialDeadline')
+        if (changed('finishedMaterialDeadline', toDayKey(item.finishedMaterialDeadline))) putTop('finishedMaterialDeadline')
+        for (const [field, stageType] of APPROVED_STAGE_FIELDS) {
+          if (changed(field, savedStageDay(item, stageType))) putStage(field, stageType)
+        }
+        if (!out.materialDeadline && !out.finishedMaterialDeadline && !out.stages) return []
+        return [{ idx, out, sent, delivery }]
+      }
+      if (vals.materialDeadline && isCommittable(idx, 'materialDeadline')) putTop('materialDeadline')
+      if (vals.finishedMaterialDeadline && isCommittable(idx, 'finishedMaterialDeadline')) putTop('finishedMaterialDeadline')
+      if (vals.deliveryDeadline && isCommittable(idx, 'deliveryDeadline')) { out.deliveryDeadline = iso(vals.deliveryDeadline); delivery = vals.deliveryDeadline }
+      for (const field of ['FRAME', 'WEAVING', 'TRANSFER_CHECK', 'PACKAGING'] as const) {
+        if (vals[field] && isCommittable(idx, field)) putStage(field, field)
+      }
+      // Phần A – Đợt 3 (V4-4): Bắt đầu Phôi (M2) và Bắt đầu đóng gói (M4) LUÔN được lưu khi bấm Lưu, kể cả đang là đề xuất.
+      for (const field of ['PHOI_START', 'PACKAGING_START'] as const) {
+        if (vals[field]) putStage(field, field)
+      }
+      for (const { stageType, field } of SUB_STAGE_DEFS) {
+        if (vals[field] && isCommittable(idx, field)) putStage(field, stageType)
+      }
+      if (!out.materialDeadline && !out.finishedMaterialDeadline && !out.deliveryDeadline && !out.stages) return []
+      return [{ idx, out, sent, delivery }]
+    })
+  }
+
+  // Phần A – Đợt 9 phần 2 (Q9-2 = B): thứ tự mốc ngược -> KHÔNG cho lưu dòng đó. idx -> các câu lỗi của dòng (chỉ dòng sẽ gửi và có đổi thật).
+  const orderErrorsByRow: Record<number, string[]> = {}
+  if (editingPI) {
+    const srcItems: any[] = Array.isArray(editingPI.items) ? editingPI.items : []
+    for (const { idx, sent, delivery } of buildItemsOut()) {
+      const saved: DeadlineValues = {}
+      const sf = savedFormValues(srcItems[idx])
+      for (const f of DEADLINE_FORM_FIELDS) saved[FORM_FIELD_KEY[f]] = sf[f]
+      const errs = projectedOrderErrors(saved, sent, delivery)
+      if (errs.length > 0) orderErrorsByRow[idx] = errs
+    }
+  }
+  const hasOrderError = Object.keys(orderErrorsByRow).length > 0
+  const saveBlockedReason = steelNeedError ?? (hasOrderError ? 'Có dòng thứ tự mốc ngược - sửa lại mới lưu được.' : null)
+
   const handleSavePI = async () => {
     if (!editingPI || !editValues.deadline) return
     if (steelNeedError) { setEditError(steelNeedError); return }
+    if (hasOrderError) return
     setEditError('')
 
     setSavingPI(true)
     try {
       const srcItems: any[] = Array.isArray(editingPI.items) ? editingPI.items : []
-      // Phần A – Đợt 9: có dòng đã duyệt / đang chờ / Kết thúc thì KHÔNG gửi hạn PI (hạn giao của dòng đã duyệt không sửa được; BE bỏ qua).
+      // Phần A – Đợt 9: có dòng đã duyệt / đang chờ / Kết thúc / đã bắt đầu sản xuất thì KHÔNG gửi hạn PI (hạn giao của dòng đã duyệt không sửa được; BE bỏ qua).
       const hasLockedItem = srcItems.some((it) => itemDeadlineState(it) !== 'FREE')
       const itemDls = editValues.items
         .map((it, idx) => itemDeadlineState(srcItems[idx]) === 'FREE' && it.deliveryDeadline && isCommittable(idx, 'deliveryDeadline') ? new Date(it.deliveryDeadline) : null)
@@ -708,47 +797,7 @@ export default function LenhSXPage() {
       // MỘT lời gọi lưu cả hạn PI + mọi SKU trong cùng giao dịch (2026-10-24): luật mốc cần sắt chỉ
       // kiểm được trên toàn bộ mốc sau khi sửa, lưu lẻ từng SKU thì trạng thái giữa chừng luôn vi
       // phạm; BE vi phạm -> 400 và không lưu gì (câu báo lỗi hiện ngay trong hộp, xem catch).
-      const items: any[] = Array.isArray(editingPI.items) ? editingPI.items : []
-      const itemsOut = items.flatMap((item, idx) => {
-        const vals = editValues.items[idx]
-        if (!vals) return []
-        type StageOut = { stageType: 'FRAME' | 'WEAVING' | 'TRANSFER_CHECK' | 'PACKAGING' | 'FRAME_PHOI' | 'FRAME_HAN' | 'FRAME_SON' | 'PHOI_START' | 'PACKAGING_START'; deadline: string }
-        const payload: { materialDeadline?: string; finishedMaterialDeadline?: string; deliveryDeadline?: string; stages?: StageOut[] } = {}
-        // Phần A – Đợt 9 (YC2): dòng Kết thúc / đang chờ Sếp duyệt lại bị khoá, không gửi. Dòng Sếp đã duyệt: CHỈ gửi ô KHSX đã sửa mà khác
-        // giá trị đã lưu (không gửi Bắt đầu Phôi / Bắt đầu đóng gói đang là đề xuất - tránh tự tạo yêu cầu chờ Sếp), KHÔNG gửi hạn giao.
-        const lockState = itemDeadlineState(item)
-        if (lockState === 'ENDED' || lockState === 'PENDING') return []
-        if (lockState === 'APPROVED') {
-          const changed = (field: EditField, savedDay: string | null) => !!vals[field] && editTouched.has(`${idx}:${field}`) && vals[field] !== (savedDay ?? '')
-          if (changed('materialDeadline', toDayKey(item.materialDeadline))) payload.materialDeadline = new Date(vals.materialDeadline).toISOString()
-          if (changed('finishedMaterialDeadline', toDayKey(item.finishedMaterialDeadline))) payload.finishedMaterialDeadline = new Date(vals.finishedMaterialDeadline).toISOString()
-          const approvedStages: StageOut[] = []
-          for (const [field, stageType] of APPROVED_STAGE_FIELDS) {
-            if (changed(field, savedStageDay(item, stageType))) approvedStages.push({ stageType, deadline: new Date(vals[field]).toISOString() })
-          }
-          if (approvedStages.length > 0) payload.stages = approvedStages
-          if (!payload.materialDeadline && !payload.finishedMaterialDeadline && !payload.stages) return []
-          return [{ itemId: String(item.id), ...payload }]
-        }
-        if (vals.materialDeadline && isCommittable(idx, 'materialDeadline')) payload.materialDeadline = new Date(vals.materialDeadline).toISOString()
-        if (vals.finishedMaterialDeadline && isCommittable(idx, 'finishedMaterialDeadline')) payload.finishedMaterialDeadline = new Date(vals.finishedMaterialDeadline).toISOString()
-        if (vals.deliveryDeadline && isCommittable(idx, 'deliveryDeadline')) payload.deliveryDeadline = new Date(vals.deliveryDeadline).toISOString()
-        const stages: StageOut[] = (['FRAME', 'WEAVING', 'TRANSFER_CHECK', 'PACKAGING'] as const)
-          .filter(field => vals[field] && isCommittable(idx, field))
-          .map(field => ({ stageType: field, deadline: new Date(vals[field]).toISOString() }))
-        // Phần A – Đợt 3 (V4-4): Bắt đầu Phôi (M2) và Bắt đầu đóng gói (M4) LUÔN được lưu khi bấm Lưu, kể cả đang là đề xuất.
-        for (const field of ['PHOI_START', 'PACKAGING_START'] as const) {
-          if (vals[field]) stages.push({ stageType: field, deadline: new Date(vals[field]).toISOString() })
-        }
-        for (const { stageType, field } of SUB_STAGE_DEFS) {
-          if (vals[field] && isCommittable(idx, field)) {
-            stages.push({ stageType, deadline: new Date(vals[field]).toISOString() })
-          }
-        }
-        if (stages.length > 0) payload.stages = stages
-        if (!payload.materialDeadline && !payload.finishedMaterialDeadline && !payload.deliveryDeadline && !payload.stages) return []
-        return [{ itemId: String(item.id), ...payload }]
-      })
+      const itemsOut = buildItemsOut().map((r) => r.out)
       // Chỉ còn dòng bị khoá / không sửa gì -> khỏi gọi BE.
       if (itemsOut.length === 0 && hasLockedItem) {
         setEditingPI(null)
@@ -1285,6 +1334,10 @@ export default function LenhSXPage() {
                             {item.floorStage === 'FINISHED' && (
                               <span style={{ fontSize:11, fontWeight:600, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>Đã kết thúc</span>
                             )}
+                            {/* Phần A – Đợt 9 phần 2 (Q9-3): lệnh đã cắt phôi - không sửa mốc được nữa */}
+                            {itemDeadlineState(item) === 'STARTED' && (
+                              <span title={FLOOR_STARTED_TEXT} style={{ fontSize:11, fontWeight:600, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>Đã bắt đầu SX</span>
+                            )}
                             {item.prodApproval?.status === 'APPROVED' && (
                               <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'var(--fg-2e7d32)', background:'var(--bg-dcfce7)', padding:'2px 8px', borderRadius:10 }}>
                                 <Play size={10}/> Đang sản xuất
@@ -1377,7 +1430,7 @@ export default function LenhSXPage() {
             {/* Phần A – Đợt 9 (YC2): Excel kế hoạch (chỉ KHSX) */}
             <div style={{ display:'flex', gap:8, flexWrap:'wrap', alignItems:'center', width: isMobile ? '100%' : undefined }}>
               <button onClick={handleDownloadPlan} disabled={downloadingPlan}
-                title="Tải file Excel gồm mọi lệnh chưa Kết thúc - sửa ngày mốc rồi tải lên lại"
+                title="Gồm các lệnh chưa bắt đầu sản xuất (chưa cắt phôi) - sửa ngày mốc rồi tải lên lại"
                 style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'7px 12px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, fontWeight:600, cursor: downloadingPlan ? 'wait' : 'pointer', color:'var(--text2)', opacity: downloadingPlan ? 0.7 : 1 }}>
                 {downloadingPlan ? <Loader2 size={13} className="spin"/> : <Download size={13}/>} Tải Excel kế hoạch
               </button>
@@ -1958,7 +2011,7 @@ export default function LenhSXPage() {
                 const qty  = item.quantity
                 const vals: EditVals = editValues.items[idx] ?? EMPTY_EDIT_VALS
                 const est = editEstimated[idx]
-                const lockedAll = itemDeadlineState(item) === 'ENDED' || itemDeadlineState(item) === 'PENDING'
+                const lockedAll = itemDeadlineState(item) === 'ENDED' || itemDeadlineState(item) === 'PENDING' || itemDeadlineState(item) === 'STARTED'
                 const lockDelivery = lockedAll || itemDeadlineState(item) === 'APPROVED'
                 // Ô còn là đề xuất (chưa lưu, chưa sửa) hiện viền/nền nhạt hơn + nhãn "đề xuất" — cùng quy ước với bảng SKU
                 // timeline, để người dùng biết giá trị nào là gợi ý, giá trị nào đã chốt thật.
@@ -1979,22 +2032,30 @@ export default function LenhSXPage() {
                 }
                 const setField = (field: EditField, val: string) => {
                   const touched = new Set(editTouched).add(`${idx}:${field}`)
-                  setEditValues(prev => ({
-                    ...prev,
-                    items: prev.items.map((it, i) => {
-                      if (i !== idx) return it
-                      const next: EditVals = { ...it, [field]: val }
-                      // Đổi ô chốt (Bắt đầu Phôi, Phôi xong, Khung, Bắt đầu đóng gói, Đóng gói xong, hạn giao): mọi ô còn là đề xuất tính lại.
-                      if (RECALC_TRIGGERS.includes(field)) {
-                        const s = recalcDates(item, next, estOf(touched), tlCtx)
-                        if (s) for (const f of Object.keys(next) as EditField[]) {
-                          const k = FORM_TO_DATE[f]
-                          if (k && isEstimate(f, touched)) next[f] = s.dates[k]
-                        }
-                      }
-                      return next
-                    }),
-                  }))
+                  let next: EditVals = { ...vals, [field]: val }
+                  // Phần A – Đợt 9 phần 2 (Q9-1): dời 1 mốc sản xuất thì các mốc sản xuất sau tự dời cùng số ngày (chỉ dòng sửa được; mốc chưa lưu không tự dời).
+                  let autoNow: Partial<Record<DeadlineFormField, number>> = {}
+                  const prevAuto = new Set(DEADLINE_FORM_FIELDS.filter((f) => editAuto[`${idx}:${f}`] !== undefined))
+                  if (!lockedAll) {
+                    const touchedFields = new Set(DEADLINE_FORM_FIELDS.filter((f) => touched.has(`${idx}:${f}`)))
+                    const shifted = applyFormAutoShift({ saved: savedFormValues(item), vals: next, touched: touchedFields, prevAuto })
+                    next = shifted.vals
+                    autoNow = shifted.auto
+                  }
+                  // Đổi ô chốt (Bắt đầu Phôi, Phôi xong, Khung, Bắt đầu đóng gói, Đóng gói xong, hạn giao) hoặc có ô tự dời đổi: mọi ô còn là đề xuất tính lại.
+                  if (RECALC_TRIGGERS.includes(field) || Object.keys(autoNow).length > 0 || prevAuto.size > 0) {
+                    const sg = recalcDates(item, next, estOf(touched), tlCtx)
+                    if (sg) for (const f of Object.keys(next) as EditField[]) {
+                      const k = FORM_TO_DATE[f]
+                      if (k && isEstimate(f, touched)) next[f] = sg.dates[k]
+                    }
+                  }
+                  setEditValues(prev => ({ ...prev, items: prev.items.map((it, i) => (i === idx ? next : it)) }))
+                  setEditAuto(prev => {
+                    const rest = Object.fromEntries(Object.entries(prev).filter(([k]) => !k.startsWith(`${idx}:`)))
+                    for (const [f, d] of Object.entries(autoNow)) rest[`${idx}:${f}`] = d as number
+                    return rest
+                  })
                   setEditTouched(touched)
                   // Câu lỗi BE của lần lưu trước nói về giá trị CŨ - sửa tiếp thì bỏ đi, khỏi đọc nhầm.
                   setEditError('')
@@ -2029,7 +2090,7 @@ export default function LenhSXPage() {
                 const dateInput = (label: string, field: EditField, extra?: React.ReactNode, hint?: string) => (
                   <div style={{ flex:'1 1 120px', minWidth:0 }}>
                     <div title={hint} style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:4, lineHeight:'13px', minHeight:26, display:'flex', alignItems:'flex-end' }}>
-                      <span>{label}{isEstimate(field) && <span style={{ fontStyle:'italic' }}> (đề xuất)</span>}</span>
+                      <span>{label}{isEstimate(field) && <span style={{ fontStyle:'italic' }}> (đề xuất)</span>}{editAuto[`${idx}:${field}`] !== undefined && <span style={{ fontStyle:'italic', fontWeight:400, color:'var(--fg-1d4ed8)', opacity:0.85 }}> ({autoShiftLabel(editAuto[`${idx}:${field}`])})</span>}</span>
                     </div>
                     <input type="date" value={vals[field] ?? ''} disabled={lockedAll}
                       onChange={e => setField(field, e.target.value)}
@@ -2056,11 +2117,7 @@ export default function LenhSXPage() {
                   : sug.nSource === 'FRAME_PHOI' ? `Phôi xong ${ddmm(vals.PHOI)}`
                   : sug.nSource === 'FRAME' ? `Khung cơ khí ${ddmm(vals.FRAME)}`
                   : `hạn giao ${ddmm(vals.deliveryDeadline)} (đóng gói xong trước 3 ngày)`
-                const warns = timelineWarnings({
-                  PHOI_START: vals.PHOI_START, FRAME_PHOI: vals.PHOI, FRAME_SON: vals.SON, FRAME: vals.FRAME,
-                  WEAVING: vals.WEAVING, TRANSFER_CHECK: vals.TRANSFER_CHECK, PACKAGING_START: vals.PACKAGING_START,
-                  PACKAGING: vals.PACKAGING, delivery: vals.deliveryDeadline,
-                })
+                const orderErrs = orderErrorsByRow[idx] ?? []
                 return (
                   <div key={idx} style={{ border:'1px solid var(--border)', borderRadius:8, overflow:'hidden' }}>
                     <div style={{ background:'var(--surface2)', padding:'7px 12px', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
@@ -2084,6 +2141,11 @@ export default function LenhSXPage() {
                           Đã kết thúc — lệnh này không sửa mốc được nữa.
                         </div>
                       )}
+                      {dlState === 'STARTED' && (
+                        <div role="status" style={{ fontSize:12, fontWeight:600, color:'var(--text3)', background:'var(--surface2)', borderRadius:6, padding:'7px 10px' }}>
+                          {FLOOR_STARTED_TEXT}
+                        </div>
+                      )}
                       {dlState === 'APPROVED' && (
                         <div role="status" style={{ fontSize:12, color:'var(--fg-1d4ed8)', background:'var(--bg-dbeafe)', borderRadius:6, padding:'7px 10px', overflowWrap:'anywhere' }}>
                           Lệnh đã Sếp duyệt – lưu sẽ gửi Sếp duyệt lại, mốc cũ vẫn chạy tới khi Sếp duyệt. Hạn giao không sửa được.
@@ -2102,6 +2164,7 @@ export default function LenhSXPage() {
                           <ul style={{ margin:'6px 0 0', paddingLeft:18, lineHeight:1.55 }}>
                             {pend.changes.map((c) => <li key={c.key}>{fmtChange(c)}</li>)}
                           </ul>
+                          {isFloorStarted(item.floorStage) && <div style={{ marginTop:4, fontWeight:700 }}>Lệnh đã bắt đầu cắt phôi – Sếp không duyệt được nữa, nên Huỷ yêu cầu.</div>}
                           <div style={{ marginTop:4, fontSize:11 }}>Mốc cũ vẫn chạy tới khi Sếp duyệt. Muốn sửa tiếp thì Huỷ yêu cầu trước.</div>
                         </div>
                       )}
@@ -2122,9 +2185,14 @@ export default function LenhSXPage() {
                         ) : (
                           <div>SKU chưa có load cont - số ngày tạm tính 1 (nhập load cont ở Chi tiết SKU / tab Bao bì định mức)</div>
                         )}
+                        {!lockedAll && (
+                          <div style={{ marginTop:4 }}>
+                            Dời 1 mốc sản xuất thì các mốc sau tự dời cùng số ngày (Mua VT, hạn giao không dời). Muốn giữ mốc nào thì sửa lại ô đó.
+                          </div>
+                        )}
                         {sug && (
                           <div style={{ marginTop:4 }}>
-                            Bắt đầu Phôi{sug.nSource === 'PHOI_START' ? '' : ' đề xuất'} (N): <b>{fmtDayVN(sug.n)}</b>, tính từ {nFrom}. Sửa ô nào thì lưu ô đó; Bắt đầu Phôi và Bắt đầu đóng gói luôn được lưu.
+                            Bắt đầu Phôi{sug.nSource === 'PHOI_START' ? '' : ' đề xuất'} (N): <b>{fmtDayVN(sug.n)}</b>, tính từ {nFrom}.{dlState === 'FREE' && ' Sửa ô nào thì lưu ô đó; Bắt đầu Phôi và Bắt đầu đóng gói luôn được lưu.'}{dlState === 'APPROVED' && ' Chỉ ô bạn sửa (và ô tự dời theo) mới được gửi Sếp duyệt.'}
                           </div>
                         )}
                       </div>
@@ -2159,9 +2227,10 @@ export default function LenhSXPage() {
                         {dateInput('Bắt đầu đóng gói', 'PACKAGING_START')}
                         {dateInput('Đóng gói xong', 'PACKAGING')}
                       </div>
-                      {warns.length > 0 && (
-                        <div role="status" style={{ fontSize:11.5, color:'var(--fg-b45309)', background:'var(--bg-fef3c7)', borderRadius:6, padding:'6px 10px', overflowWrap:'anywhere' }}>
-                          {warns.map((w) => <div key={w.code}>{w.message}</div>)}
+                      {orderErrs.length > 0 && (
+                        <div role="alert" style={{ fontSize:11.5, color:'var(--fg-b91c1c)', background:'var(--bg-fef2f2)', border:'1px solid var(--fg-fca5a5)', borderRadius:6, padding:'6px 10px', overflowWrap:'anywhere' }}>
+                          <div style={{ fontWeight:700 }}>Thứ tự mốc ngược – sửa lại mới lưu được:</div>
+                          {orderErrs.map((m) => <div key={m}>{m}</div>)}
                         </div>
                       )}
                     </div>
@@ -2193,7 +2262,7 @@ export default function LenhSXPage() {
             )}
 
             {editError && (
-              <div style={{ marginBottom:16, padding:'8px 12px', background:'var(--bg-fef2f2)', border:'1px solid var(--fg-fca5a5)', borderRadius:6, fontSize:12, color:'var(--fg-b91c1c)' }}>
+              <div style={{ marginBottom:16, padding:'8px 12px', background:'var(--bg-fef2f2)', border:'1px solid var(--fg-fca5a5)', borderRadius:6, fontSize:12, color:'var(--fg-b91c1c)', whiteSpace:'pre-line', overflowWrap:'anywhere' }}>
                 {editError}
               </div>
             )}
@@ -2204,9 +2273,9 @@ export default function LenhSXPage() {
                 style={{ padding:'9px 18px', background:'transparent', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, cursor: savingPI ? 'not-allowed' : 'pointer', color:'var(--text2)' }}>
                 Hủy
               </button>
-              <button onClick={handleSavePI} disabled={savingPI || !!steelNeedError}
-                title={steelNeedError ?? undefined}
-                style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background:'var(--bg-1976d2)', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (savingPI || steelNeedError) ? 'not-allowed' : 'pointer', color:'#fff', opacity: (savingPI || steelNeedError) ? 0.5 : 1 }}>
+              <button onClick={handleSavePI} disabled={savingPI || !!saveBlockedReason}
+                title={saveBlockedReason ?? undefined}
+                style={{ display:'inline-flex', alignItems:'center', gap:6, padding:'9px 20px', background:'var(--bg-1976d2)', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (savingPI || saveBlockedReason) ? 'not-allowed' : 'pointer', color:'#fff', opacity: (savingPI || saveBlockedReason) ? 0.5 : 1 }}>
                 {savingPI ? 'Đang lưu...' : 'Lưu'}
               </button>
             </div>

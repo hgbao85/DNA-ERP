@@ -1,12 +1,12 @@
 /**
  * Phần A – Đợt 9 (YC2): adapter "Sửa kế hoạch + Excel + Sếp duyệt lại" ⇄ BE `/deadline-changes`, `/deadline-plan`. Kiểu dưới đây CHÉP Y HỆT
- * hợp đồng BE `src/modules/production-invoices/deadline-changes/deadline-changes.types.ts` (BE là nguồn đúng; chú thích 4 câu đang chờ Sếp ở
+ * hợp đồng BE `src/modules/production-invoices/deadline-changes/deadline-changes.types.ts` (BE là nguồn đúng; Sếp đã trả lời 4 câu 06/11 - chú thích ở
  * đầu file BE). FE không tự quyết dòng nào sửa thẳng / chờ duyệt - BE trả `kind`.
  */
 import { http, withIdempotencyKey } from './core/http';
 
-/** Q9-2: true = thứ tự mốc ngược là LỖI (chặn dòng); false = chỉ cảnh báo (IT đề xuất, chờ Sếp). */
-export const ORDER_VIOLATION_BLOCKS = false;
+/** Q9-2 (Sếp chọn B): true = thứ tự mốc ngược là LỖI (chặn dòng); false = chỉ cảnh báo. */
+export const ORDER_VIOLATION_BLOCKS = true;
 
 /** Các mốc sửa được, ĐÚNG thứ tự cột Excel / form (Phú An). Hạn giao KHÔNG nằm ở đây (2.4). */
 export const DEADLINE_FIELDS = [
@@ -32,6 +32,8 @@ export interface DeadlineFieldChange {
   label: string;
   from: string | null;
   to: string | null;
+  /** Q9-1: true = mốc TỰ DỜI theo mốc sản xuất phía trước (không phải ô KHSX gõ). Chỉ bản xem trước Excel gắn; vắng = KHSX gõ. */
+  auto?: boolean;
 }
 
 export type DeadlineChangeSource = 'MANUAL' | 'EXCEL';
@@ -62,6 +64,11 @@ export interface DeadlineChangeRequestDto {
   warnings: string[];
   /** Lý do khi REJECTED (= decisionNote của lô). */
   rejectReason: string | null;
+  /**
+   * Q9-3: yêu cầu PENDING mà Sếp KHÔNG duyệt được nữa (tính lúc đọc) - lệnh đã bắt đầu sản xuất (cắt phôi) / Kết thúc / huỷ. Có giá trị → khoá
+   * ô chọn, chỉ từ chối được (BE `decide` cũng chặn). null = duyệt được. BE cũ chưa trả → coi như null.
+   */
+  blockedReason?: string | null;
 }
 
 export interface DeadlineChangeBatchDto {
@@ -135,6 +142,7 @@ export interface DeadlineHistoryEntry {
 
 // ─── Excel (`/deadline-plan`) ─────────────────────────────────────────────────────────────────────
 
+/** Q9-3: 'all' = mọi lệnh CHƯA BẮT ĐẦU sản xuất (chưa duyệt + đã duyệt chưa cắt) · 'approved' = chỉ phần đã duyệt chưa cắt. */
 export type DeadlinePlanScope = 'all' | 'approved';
 
 export interface DeadlineImportRow extends DeadlineEntryCheck {
@@ -153,7 +161,7 @@ export interface DeadlineImportPreview {
   commitPayload: { fileName: string; items: DeadlineEntryInput[] };
 }
 
-/** Q9-4 (chờ Sếp): true = Sếp được bỏ chọn từng yêu cầu trong lô (IT đề xuất); false = chỉ Duyệt / Từ chối cả lô (đúng v8). */
+/** Q9-4 (Sếp chọn B 06/11): true = Sếp được bỏ chọn từng yêu cầu trong lô; false = chỉ Duyệt / Từ chối cả lô (đúng v8). */
 export const DEADLINE_PARTIAL_APPROVAL = true;
 
 // ─── Sếp duyệt / KHSX xem lô ─────────────────────────────────────────────────────────────────────
