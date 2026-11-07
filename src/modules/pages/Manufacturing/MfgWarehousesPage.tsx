@@ -103,7 +103,8 @@ const WAREHOUSE_GROUPS: WhGroup[] = [
   { key: 'thanh-pham',   label: 'Kho thành phẩm',         desc: 'Thành phẩm và bao bì đóng gói hoàn chỉnh' },
 ]
 
-const BASE_CODES = new Set(['phoi-son-han', 'vat-tu-tp', 'thanh-pham'])
+// Đợt 7: 4 kho chia từ kho chung Phôi-Sơn-Hàn cũng là kho cố định (BE PROTECTED_WAREHOUSE_CODES) - không cho xoá.
+const BASE_CODES = new Set(['phoi-son-han', 'vat-tu-tp', 'thanh-pham', 'phoi-son-han-han-pa', 'phoi-son-han-son-pa', 'phoi-son-han-phoi-pha', 'phoi-son-han-han-pha'])
 
 // ── Main page ─────────────────────────────────────────────────────────────────
 

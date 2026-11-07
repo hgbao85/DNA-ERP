@@ -203,7 +203,7 @@ export const journeyGroup: GuideGroup = {
             ['4. Gộp & tạo lệnh sản xuất', 'KHSX', 'Tối ưu cắt sắt', 'Hai dòng cùng SKU khác màu vẫn gộp chung một đợt cắt được (dây và nệm không ảnh hưởng cắt sắt). Nhãn màu hiện cạnh mã SKU để phân biệt.'],
             ['5. Duyệt lệnh', 'QLSX, rồi Giám đốc', 'Lệnh sản xuất', 'Khi duyệt, hệ thống kiểm màu đã chọn có khớp bản định mức sắp áp dụng không, rồi CHỐT màu vào lệnh. Từ đây mua hàng và xuất đan đọc màu từ lệnh, không đọc lại đơn.'],
             ['6. Mua hàng & nhập kho', 'Mua hàng, Thủ kho', 'Lệnh mua vật tư, Nhập kho', 'Đề xuất mua chỉ gồm dây/vải nệm của màu đã chọn, tính riêng cho từng lệnh. Nệm khác quy cách ra dòng riêng, Thủ kho nhận hàng đúng dòng đó.'],
-            ['7. Xuất đan', 'Thủ kho Vật tư thành phẩm', 'Theo dõi xuất đan', 'Vật tư mang kèm chỉ có dây đúng màu đã chọn cho lệnh đó.'],
+            ['7. Xuất đan', 'Thủ kho Phụ kiện', 'Theo dõi xuất đan', 'Vật tư mang kèm chỉ có dây đúng màu đã chọn cho lệnh đó.'],
           ],
         },
         {
@@ -260,7 +260,7 @@ export const journeyGroup: GuideGroup = {
       roles: ['warehouse'],
       purpose: 'Đoạn cuối hành trình một mảnh sản phẩm: rời khung cơ khí, ra điểm đan (nếu cần), quay về kiểm tra, rồi đóng gói thành phẩm.',
       preconditions: [
-        'Mảnh đã cắt/hàn/sơn xong và kiểm đạt đã được chuyển sang kho Vật tư thành phẩm (thủ kho khu vực khung cơ khí chuyển, thủ kho Vật tư thành phẩm xác nhận nhận).',
+        'Mảnh đã cắt/hàn/sơn xong và kiểm đạt đã được chuyển sang kho Phụ kiện (thủ kho khu vực khung cơ khí chuyển, thủ kho Phụ kiện xác nhận nhận).',
       ],
       screenshot: '/guide-screens/wh-chuyen-kiem.png',
       mock: {
@@ -270,15 +270,15 @@ export const journeyGroup: GuideGroup = {
         buttons: ['Kiểm'],
       },
       steps: [
-        { text: 'Mảnh cần đan (có Dây và Đinh): thủ kho Vật tư thành phẩm "Xuất đan" — chọn mảnh, chọn điểm đan, ghi số lượng gửi. Mảnh không cần đan bỏ qua bước này, đi thẳng sang Chuyền kiểm.', critical: false },
-        'Khi điểm đan trả hàng: thủ kho THÀNH PHẨM (khác thủ kho Vật tư thành phẩm) "Nhập đan" — ghi nhận số nhận về, không vượt quá số điểm đan đang giữ.',
+        { text: 'Mảnh cần đan (có Dây và Đinh): thủ kho Phụ kiện "Xuất đan" — chọn mảnh, chọn điểm đan, ghi số lượng gửi. Mảnh không cần đan bỏ qua bước này, đi thẳng sang Chuyền kiểm.', critical: false },
+        'Khi điểm đan trả hàng: thủ kho THÀNH PHẨM (khác thủ kho Phụ kiện) "Nhập đan" — ghi nhận số nhận về, không vượt quá số điểm đan đang giữ.',
         { text: 'Chuyền kiểm (bắt buộc cho MỌI mảnh, kể cả mảnh không đan): kiểm từng mảnh, ghi số đạt; nếu lỗi thì chọn nguyên nhân, có thể đính kèm ảnh.', critical: true },
         { text: 'Xuất vật tư đóng gói: thủ kho đang giữ vật tư đóng gói (tem, màng bọc, thùng...) bấm Xác nhận xuất — đây là bước DUY NHẤT thực sự ghi nhận hàng "về" kho thành phẩm trên sổ sách.', critical: true },
         'Đóng thùng: đếm và ghi nhận số thùng đã đóng xong (không bắt buộc chờ Chuyền kiểm xong hết mới đếm được).',
       ],
       result: 'Hàng thành phẩm sẵn sàng giao cho khách; số liệu cập nhật lại cho Kinh doanh.',
       warnings: [
-        'Xuất đan/Nhập đan chỉ là GHI CHÉP đối chiếu với điểm đan — KHÔNG làm thay đổi tồn kho chính thức. Trên sổ sách, mảnh vẫn tính là thuộc kho Vật tư thành phẩm cho tới khi Xuất vật tư đóng gói.',
+        'Xuất đan/Nhập đan chỉ là GHI CHÉP đối chiếu với điểm đan — KHÔNG làm thay đổi tồn kho chính thức. Trên sổ sách, mảnh vẫn tính là thuộc kho Phụ kiện cho tới khi Xuất vật tư đóng gói.',
         'Có 3 màn hình dễ nhầm là một vì đều nằm trong khu vực Kho: (1) "Đóng gói" trên menu chỉ đếm thùng, không đổi tồn kho; (2) nút "Xác nhận" ở "Xuất kho" khi xuất vật tư đóng gói — đây mới là bước hàng thật sự "về" kho thành phẩm, hiển thị theo TÊN VẬT TƯ chứ không theo tên sản phẩm; (3) màn xuất hàng cho khách — hiển thị theo tên sản phẩm, không liên quan Chuyền kiểm.',
         'Muốn xuất vật tư đóng gói phải thoả cả 3 điều kiện: không vượt định mức, không vượt số đã qua đủ Chuyền kiểm, không vượt tồn kho thực tế.',
         'Hiếm khi xảy ra: nếu 2 lệnh sản xuất cùng xin xuất gần hết một vật tư đóng gói vào đúng cùng một lúc, tồn kho có thể bị âm. Khi thấy tồn kho âm, báo ngay cho Admin để kiểm tra.',

@@ -402,7 +402,7 @@ export const productionPlanGroup: GuideGroup = {
       mock: {
         title: 'Tổng hợp vật tư',
         columns: ['Mã vật tư', 'Tên vật tư', 'Quy cách', 'Nhóm vật tư', 'Kho', 'Tồn kho', 'Khả dụng'],
-        rows: [['SAT-004', 'Sắt hộp 20x20', '20x20x0.8 · cây', 'Sắt', 'Phôi Sơn Hàn', '480', '350'], ['SON-011', 'Sơn xám RAL7035', 'kg', 'Vật tư khác', 'Vật tư TP', '5', '0']],
+        rows: [['SAT-004', 'Sắt hộp 20x20', '20x20x0.8 · cây', 'Sắt', 'Phôi Phú An', '480', '350'], ['SON-011', 'Sơn xám RAL7035', 'kg', 'Vật tư khác', 'Sơn Phú An', '5', '0']],
       },
       steps: [
         'Chọn tab nhóm vật tư (theo danh mục Admin đã khai báo) hoặc gõ tìm theo tên/mã/quy cách.',
@@ -412,7 +412,7 @@ export const productionPlanGroup: GuideGroup = {
       result: 'Biết chính xác vật tư nào còn/hết ở kho nào, phục vụ việc lập kế hoạch và đối chiếu khi cần mua thêm.',
       warnings: [
         'Đây là màn CHỈ XEM — Kế hoạch SX không sửa được số liệu trực tiếp ở đây.',
-        'Với vật tư sắt có thể tồn ở nhiều cỡ chiều dài cây khác nhau — ở màn này con số Tồn kho đã được cộng dồn mọi cỡ. Riêng thủ kho Phôi Sơn Hàn xem cùng màn này trong phân hệ Kho thì có thêm cột "Chiều dài", mỗi cỡ cây một dòng.',
+        'Với vật tư sắt có thể tồn ở nhiều cỡ chiều dài cây khác nhau — ở màn này con số Tồn kho đã được cộng dồn mọi cỡ. Riêng thủ kho kho Phôi/Hàn/Sơn xem cùng màn này trong phân hệ Kho thì có thêm cột "Chiều dài", mỗi cỡ cây một dòng.',
       ],
       tags: ['tổng hợp vật tư', 'tồn kho', 'vattu dashboard'],
       sourceRefs: ['src/modules/pages/ProductionPlan/VatTuDashboardPage.tsx'],
@@ -426,7 +426,7 @@ export const productionPlanGroup: GuideGroup = {
       mock: {
         title: 'Vật tư cần về',
         columns: ['Trạng thái', 'Được về từ – Hạn chót', 'Vật tư', 'Cần / Chốt mua', 'Đã nhận', 'Còn thiếu', 'Lệnh', 'NCC', 'Người mua', 'Kho nhận'],
-        rows: [['HẠN CHÓT HÔM NAY', '06/11 – 10/11/2026', 'Sắt hộp 20x20 (VT khung & đan)', 'Cần 100 · chốt mua 120 kg', '40', '80 kg', 'MY-313 · hạn 10/11, MY-314 · hạn 12/11', 'Kim Phát · Đơn 52/2026', 'An', 'Phôi Sơn Hàn']],
+        rows: [['HẠN CHÓT HÔM NAY', '06/11 – 10/11/2026', 'Sắt hộp 20x20 (VT khung & đan)', 'Cần 100 · chốt mua 120 kg', '40', '80 kg', 'MY-313 · hạn 10/11, MY-314 · hạn 12/11', 'Kim Phát · Đơn 52/2026', 'An', 'Phôi Phú An']],
         buttons: ['Quá hạn', 'Hôm nay', 'Theo ngày', 'Tất cả', 'Làm mới'],
       },
       steps: [

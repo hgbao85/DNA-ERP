@@ -485,7 +485,7 @@ export const manufacturingGroup: GuideGroup = {
         '"Danh sách định mức mảnh": tra định mức theo SKU — Tổ Hàn xem tên mảnh, loại sắt, quy cách, chiều dài cắt; Tổ Sơn xem loại sơn, mã sơn, đơn vị tính của từng SKU.',
       ],
       result: 'Nắm được lượng hàng đã qua công đoạn của mình mà không cần hỏi KCS hay thủ kho.',
-      warnings: ['Đây là các màn CHỈ XEM — việc chuyển mảnh sang kho Vật tư thành phẩm do Thủ kho Phôi Sơn Hàn làm ở "Xuất theo đơn hàng".'],
+      warnings: ['Đây là các màn CHỈ XEM — việc chuyển mảnh sang kho Phụ kiện do thủ kho kho Phôi/Hàn/Sơn (thường là kho Sơn) làm ở "Xuất theo đơn hàng".'],
       tags: ['khung hàn', 'mảnh chờ đan', 'danh sách định mức mảnh'],
       sourceRefs: ['src/modules/pages/Han/KhungHanPage.tsx', 'src/modules/pages/Son/ManhChoDanPage.tsx', 'src/modules/pages/Manufacturing/PhoiDinhMucManhPage.tsx'],
     },

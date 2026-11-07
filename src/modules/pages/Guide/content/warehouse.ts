@@ -21,21 +21,46 @@ export const warehouseGroup: GuideGroup = {
       title: 'Kho của bạn thấy những tab nào',
       roles: ['warehouse'],
       purpose:
-        'Hệ thống có 3 "gia đình" kho vật lý nối tiếp nhau: Phôi Sơn Hàn (khung cơ khí) → Vật tư thành phẩm → Thành phẩm. Mỗi tài khoản Thủ kho chỉ được gán phụ trách đúng 1 kho, và chỉ thấy bộ tab tương ứng với gia đình của kho đó.',
+        'Có 9 kho. Phú An 7 kho: Phôi, Hàn, Sơn, Phụ kiện, Thành phẩm 1, 2, 3. Phước An 2 kho: Phôi, Hàn. Hàng đi theo dòng sản xuất: kho Phôi/Hàn/Sơn (khung cơ khí) → kho Phụ kiện (đan, lắp) → kho Thành phẩm. Mỗi tài khoản thủ kho làm ở 1 kho tại một thời điểm và chỉ thấy bộ tab của kho đó.',
       steps: [
-        'Kho Phôi Sơn Hàn: Tổng hợp vật tư, Nhập kho, Xuất theo đơn hàng, Lịch sử kho, Phân phối nội bộ, Văn phòng phẩm. (Không có "Chuyển kho ngoài đơn hàng".)',
-        'Kho Vật tư thành phẩm: Tổng hợp vật tư, Nhập kho, Xuất theo đơn hàng, Chuyển kho ngoài đơn hàng, Lịch sử kho, Theo dõi xuất đan, Quản lý điểm đan, Văn phòng phẩm.',
+        'Kho Phôi (Phú An, Phước An): Tổng hợp vật tư, Nhập kho, Xuất theo đơn hàng, Chuyển kho ngoài đơn hàng (chỉ để chuyển đá cắt sang kho Hàn cùng xưởng), Lịch sử kho, Phân phối nội bộ (xuất sắt, xuất vật tư TP, phiếu xuất), Văn phòng phẩm.',
+        'Kho Hàn (Phú An, Phước An) và Kho Sơn: Tổng hợp vật tư, Nhập kho, Xuất theo đơn hàng, Lịch sử kho, Phân phối nội bộ (chỉ xuất vật tư hàn — hoặc sơn — và phiếu xuất), Văn phòng phẩm.',
+        'Kho Phụ kiện: Tổng hợp vật tư, Nhập kho, Xuất theo đơn hàng, Chuyển kho ngoài đơn hàng, Lịch sử kho, Theo dõi xuất đan, Quản lý điểm đan, Văn phòng phẩm.',
         'Kho Thành phẩm: Tổng hợp vật tư, Nhập kho, Xuất theo đơn hàng, Chuyển kho ngoài đơn hàng, Lịch sử kho, Chuyền kiểm, Đóng gói, Theo dõi nhập đan, Văn phòng phẩm.',
         'Tab "Nhập kho" có 2 tab con: "Nhập kho" (nhận hàng mua về) và "Nhập nội bộ" (xác nhận phiếu chuyển từ kho khác). Số đỏ cạnh "Nhập kho" trên menu = tổng số việc đang chờ bạn ở cả hai tab con.',
       ],
       result: 'Biết chính xác mình cần thao tác ở tab nào, tránh tìm nhầm sang tab của kho khác.',
       warnings: [
-        'Có thể có nhiều kho cùng một "gia đình" (ví dụ 2 kho Thành phẩm khác nhau) — mỗi kho là một kho vật lý độc lập, tồn kho KHÔNG gộp chung dù cùng gia đình.',
+        'Mỗi kho là một kho vật lý độc lập, tồn kho KHÔNG gộp chung (kể cả 3 kho Thành phẩm, hay kho Phôi Phú An với kho Phôi Phước An).',
+        'Sắt và vật tư Hàn của lệnh làm ở xưởng nào thì mua về, nhập, giữ chỗ và xuất ở kho Phôi/Hàn của đúng xưởng đó — lệnh Phước An dùng kho Phước An, hệ thống tự chọn. Thủ kho chỉ xuất được hàng của đúng kho mình.',
+        'Người giữ 2 kho (ví dụ kho Phôi và kho Hàn) đổi kho đang làm ở ô "Kho đang làm" — xem bài "Đổi kho đang làm (người giữ 2 kho)".',
         'Ở các màn Chuyền kiểm, Đóng gói, Theo dõi xuất đan / nhập đan và Xuất vật tư TP / hàn / sơn, mỗi LỆNH SẢN XUẤT là một dòng riêng. Cùng một mẫu sản phẩm đang chạy nhiều lệnh thì sẽ thấy nhiều dòng trùng mã SKU — nhìn cột PI (và PO) để chọn đúng lệnh; số liệu bên trong tính riêng cho từng lệnh.',
         'Cột "Hạn giao" ở các màn này là hạn giao của chính đơn hàng/lệnh đó; hiện "—" nếu đơn không khai hạn hoặc lệnh không gắn đơn hàng nào.',
         'Tab "Xuất kho" đã đổi tên thành "Xuất theo đơn hàng" để phân biệt với "Chuyển kho ngoài đơn hàng" — xuất theo đơn hàng luôn gắn với một PO/PI cụ thể.',
       ],
-      tags: ['tổng quan kho', 'gia đình kho', 'warehouse scope'],
+      tags: ['tổng quan kho', 'gia đình kho', 'warehouse scope', '9 kho'],
+      sourceRefs: ['src/modules/pages/InboundWarehouse/InboundWarehouseApp.tsx'],
+    },
+    {
+      id: 'wh-kho-dang-lam',
+      title: 'Đổi kho đang làm (người giữ 2 kho)',
+      roles: ['warehouse'],
+      purpose: 'Một người giữ nhiều kho (ví dụ kho Phôi và kho Hàn của cùng xưởng) chuyển qua lại giữa các kho mà không phải đăng xuất.',
+      preconditions: ['Admin đã tick thêm kho cho tài khoản ở Admin > Người dùng (ô "Giữ thêm kho"). Tài khoản chỉ có 1 kho thì không thấy ô này.'],
+      steps: [
+        'Nhìn cuối thanh bên trái, phía trên tên tài khoản: ô "Kho đang làm" hiện kho bạn đang thao tác.',
+        'Chọn kho cần làm trong danh sách.',
+        'Trang tự tải lại theo kho mới: dòng dưới tên đổi thành "Thủ kho · <tên kho>", các tab và dữ liệu là của kho vừa chọn.',
+      ],
+      result: 'Mọi thao tác nhập, xuất, chuyển kho sau đó tính cho kho vừa chọn.',
+      warnings: [
+        'Kiểm tra dòng "Thủ kho · ..." trước khi nhập/xuất để chắc đang ở đúng kho.',
+        'Thông báo của TẤT CẢ các kho bạn giữ vẫn về chuông, kể cả kho không đang làm — bấm vào thông báo của kho kia thì đổi kho trước rồi mới thao tác.',
+      ],
+      commonErrors: [
+        { issue: '"Tài khoản không được giao kho ..."', cause: 'Kho đó chưa được Admin tick cho tài khoản.', fix: 'Báo Admin tick thêm kho ở Admin > Người dùng.' },
+      ],
+      tags: ['kho đang làm', 'đổi kho', 'giữ 2 kho', 'nhiều kho'],
       sourceRefs: ['src/modules/pages/InboundWarehouse/InboundWarehouseApp.tsx'],
     },
     {
@@ -51,7 +76,7 @@ export const warehouseGroup: GuideGroup = {
       },
       steps: [
         '"Tổng hợp vật tư": chọn tab nhóm vật tư hoặc gõ tìm theo tên/mã; xem Tồn kho và Khả dụng (= tồn đã trừ phần đang giữ chỗ cho cắt sắt/phiếu chuyển kho đang chờ). Bấm một dòng để xem chi tiết.',
-        'Riêng kho Phôi Sơn Hàn có thêm cột "Chiều dài": vật tư sắt tồn ở nhiều cỡ cây khác nhau sẽ hiện mỗi cỡ một dòng.',
+        'Riêng các kho Phôi, Hàn, Sơn có thêm cột "Chiều dài": vật tư sắt tồn ở nhiều cỡ cây khác nhau sẽ hiện mỗi cỡ một dòng.',
         '"Lịch sử kho": sổ nhập/xuất thật của kho mình — lọc Tất cả / Nhập kho / Xuất kho và theo khoảng ngày; mỗi dòng ghi thời gian, lệnh sản xuất, mã đơn hàng, đi từ đâu tới đâu.',
       ],
       result: 'Đối chiếu được tồn kho và truy lại được từng lần nhập/xuất mà không cần hỏi Admin.',
@@ -128,9 +153,9 @@ export const warehouseGroup: GuideGroup = {
     },
     {
       id: 'wh-xuat-theo-don-piece',
-      title: 'Xuất theo đơn hàng — chuyển mảnh sang Vật tư thành phẩm (kho Phôi Sơn Hàn)',
+      title: 'Xuất theo đơn hàng — chuyển mảnh sang kho Phụ kiện (kho Phôi / Hàn / Sơn)',
       roles: ['warehouse'],
-      purpose: 'Chuyển mảnh đã cắt/hàn/sơn và đã qua KCS sang kho Vật tư thành phẩm.',
+      purpose: 'Chuyển mảnh đã cắt/hàn/sơn và đã qua KCS sang kho Phụ kiện để đi đan / lắp. Thường do thủ kho kho Sơn làm khi mảnh sơn xong (mảnh Phước An hàn xong chở về sơn ở Phú An); thủ kho kho Phôi hoặc Hàn cũng tạo được.',
       preconditions: ['Mảnh đã có kết quả KCS đạt ("Đã qua KCS").'],
       mock: {
         title: 'Xuất theo đơn hàng — chuyển mảnh',
@@ -141,11 +166,11 @@ export const warehouseGroup: GuideGroup = {
       screenshot: '/guide-screens/wh-xuat-theo-don-piece.png',
       steps: [
         'Chọn lệnh cần chuyển — mỗi dòng là một Mảnh hoặc một Vật tư TP (cột "Loại"); xem "Đã qua KCS", "Có thể chuyển" (đã trừ phần đang nằm trong phiếu chờ khác), "Đã chuyển", "Còn lại".',
-        'Nếu có ≥2 kho Vật tư thành phẩm, chọn kho đích ở dropdown.',
+        'Nếu có ≥2 kho Phụ kiện, chọn kho đích ở dropdown.',
         { text: 'Nhập số lượng ở cột "Xuất" rồi bấm "Xác nhận" để tạo phiếu chuyển kho nội bộ.', critical: false },
       ],
-      result: 'Tạo một phiếu chuyển kho ở trạng thái chờ xác nhận — tồn kho CHƯA đổi ngay, chỉ đổi khi kho Vật tư thành phẩm xác nhận nhận (xem bài "Nhập kho — Nhập nội bộ").',
-      warnings: ['Chỉ được chuyển đúng 1 bước theo đúng chuỗi Phôi Sơn Hàn → Vật tư thành phẩm → Thành phẩm — không được nhảy cóc.'],
+      result: 'Tạo một phiếu chuyển kho ở trạng thái chờ xác nhận — tồn kho CHƯA đổi ngay, chỉ đổi khi kho Phụ kiện xác nhận nhận (xem bài "Nhập kho — Nhập nội bộ").',
+      warnings: ['Chỉ được chuyển đúng 1 bước: kho Phôi/Hàn/Sơn → kho Phụ kiện → kho Thành phẩm — không được nhảy cóc.'],
       commonErrors: [
         { issue: '"Không có mảnh nào đủ số lượng đã qua KCS ... để tạo phiếu chuyển kho"', cause: 'Số mảnh đã qua KCS không đủ, hoặc toàn bộ đã nằm trong một phiếu chuyển khác đang chờ xác nhận.', fix: 'Kiểm tra lại số liệu KCS và các phiếu chuyển đang chờ trước khi tạo phiếu mới.' },
       ],
@@ -215,7 +240,7 @@ export const warehouseGroup: GuideGroup = {
       title: 'Chuyển kho ngoài đơn hàng',
       roles: ['warehouse'],
       purpose: 'Chuyển bất kỳ vật tư nào, số lượng tuỳ ý, giữa 2 kho — không cần gắn với đơn hàng/lệnh sản xuất cụ thể nào.',
-      preconditions: ['Không áp dụng cho kho Phôi Sơn Hàn (tab này không có ở kho đó).'],
+      preconditions: ['Kho Hàn, kho Sơn không có tab này. Kho Phôi có tab nhưng CHỈ chuyển được sang kho Hàn cùng xưởng (dùng cho đá cắt).'],
       mock: {
         title: 'Tạo phiếu chuyển kho',
         formFields: ['Kho nguồn', 'Kho đích', 'Vật tư', 'Số lượng', 'Ghi chú'],
@@ -224,19 +249,20 @@ export const warehouseGroup: GuideGroup = {
       screenshot: '/guide-screens/wh-chuyen-kho-tu-do.png',
       steps: [
         'Kho nguồn tự khoá theo kho của bạn.',
-        'Chọn Kho đích (không chọn được kho Phôi Sơn Hàn — kho này chỉ nhận vật tư qua mua hàng/nhập kho).',
+        'Chọn Kho đích. Kho Phôi chỉ thấy kho Hàn cùng xưởng. Các kho khác không chọn được kho Phôi/Hàn/Sơn — các kho này chỉ nhận vật tư qua mua hàng/nhập kho.',
         'Chọn Vật tư (hiện kèm số lượng khả dụng), nhập Số lượng (không vượt khả dụng), Ghi chú (tuỳ chọn).',
         { text: 'Bấm "Tạo phiếu chuyển kho".', critical: false },
         'Theo dõi các phiếu mình đã tạo ở bảng "Phiếu đang chờ kho đích xác nhận" ngay bên dưới.',
       ],
       result: 'Tạo phiếu chuyển kho ở trạng thái chờ xác nhận, chờ kho đích xác nhận (xem bài "Nhập kho — Nhập nội bộ") mới thật sự đổi tồn kho.',
       warnings: [
+        'Đá cắt dùng ở cả kho Phôi và kho Hàn: mua về nhập kho Phôi; cần dùng ở Hàn thì thủ kho Phôi tạo phiếu chuyển sang kho Hàn, thủ kho Hàn xác nhận ở "Nhập kho > Nhập nội bộ", rồi xuất cho tổ Hàn bằng dòng "Dùng chung" trên phiếu xuất. Phần đá cắt đã giữ cho một lệnh thì không chuyển được.',
         'Nếu vật tư có tồn kho chia theo từng loại chiều dài cây (đặc thù của sắt), tab này KHÔNG hỗ trợ — phải dùng đúng luồng "Phân phối nội bộ > Xuất sắt".',
         'Nếu giữa lúc mở form và lúc bấm tạo phiếu, một phiếu khác đã giữ chỗ trước một phần số lượng, hệ thống tự động GIẢM (clamp) số lượng thực tạo — kiểm tra lại thông báo sau khi tạo để biết số thực tế đã chuyển.',
       ],
       commonErrors: [
         { issue: '"... là kho ảo ... - không dùng được cho chuyển kho tự do"', cause: 'Chọn nhầm một kho ảo (điểm ghi sổ kỹ thuật) làm kho đích.', fix: 'Chỉ chọn kho vật lý thật.' },
-        { issue: '"Không được chuyển kho tự do tới ... - kho Phôi Sơn Hàn chỉ nhận vật tư qua mua hàng/nhập kho"', cause: 'Cố chọn kho Phôi Sơn Hàn làm đích.', fix: 'Không chuyển tự do vào kho này — dùng đúng luồng mua hàng/nhập kho.' },
+        { issue: '"Không được chuyển kho tự do tới ... - kho Phôi Sơn Hàn chỉ nhận vật tư qua mua hàng/nhập kho"', cause: 'Chọn kho Phôi/Hàn/Sơn làm đích (trừ trường hợp kho Phôi chuyển sang kho Hàn cùng xưởng).', fix: 'Không chuyển tự do vào các kho này — dùng đúng luồng mua hàng/nhập kho.' },
         { issue: '"Vật tư ... đã có tồn kho phân theo cỡ cây (...mm) - chuyển kho nội bộ chưa hỗ trợ chọn cỡ cây..."', cause: 'Vật tư là sắt có tồn theo nhiều chiều dài cây khác nhau.', fix: 'Dùng tab "Phân phối nội bộ > Xuất sắt trong phôi" thay vì tab này.' },
         { issue: '"Không đủ tồn kho khả dụng để tạo phiếu chuyển kho..."', cause: 'Vật tư không còn đủ số lượng khả dụng.', fix: 'Kiểm tra lại tồn kho thực tế, giảm số lượng chuyển.' },
       ],
@@ -245,7 +271,7 @@ export const warehouseGroup: GuideGroup = {
     },
     {
       id: 'wh-phan-phoi-noi-bo-sat',
-      title: 'Phân phối nội bộ — Xuất sắt trong phôi (chỉ kho Phôi Sơn Hàn)',
+      title: 'Phân phối nội bộ — Xuất sắt trong phôi (kho Phôi)',
       roles: ['warehouse'],
       purpose: 'Cấp cây sắt cho Tổ Phôi cắt, theo đúng phương án cắt sắt đã được duyệt cho lệnh sản xuất (PI).',
       preconditions: [
@@ -321,7 +347,7 @@ export const warehouseGroup: GuideGroup = {
     },
     {
       id: 'wh-phan-phoi-noi-bo-khac',
-      title: 'Phân phối nội bộ — Xuất vật tư TP / Hàn / Sơn (chỉ kho Phôi Sơn Hàn)',
+      title: 'Phân phối nội bộ — Xuất vật tư TP / Hàn / Sơn (kho Phôi / Hàn / Sơn)',
       roles: ['warehouse'],
       purpose: 'Cấp vật tư cho Tổ Phôi (vật tư thành phẩm như sắt la, thanh nhôm) hoặc Tổ Hàn/Sơn (vật tư tiêu hao: khí CO2, dây hàn, bột sơn...).',
       preconditions: ['SKU đã được Sếp duyệt lệnh sản xuất và (với vật tư TP) đã có định mức cắt theo tỷ lệ cho mảnh đó.'],
@@ -353,10 +379,10 @@ export const warehouseGroup: GuideGroup = {
     },
     {
       id: 'wh-xuat-dan',
-      title: 'Theo dõi xuất đan (chỉ kho Vật tư thành phẩm)',
+      title: 'Theo dõi xuất đan (chỉ kho Phụ kiện)',
       roles: ['warehouse'],
       purpose: 'Gửi mảnh cần đan (có Dây và Đinh) ra điểm gia công đan bên ngoài.',
-      preconditions: ['Mảnh đã thực nhận đủ tại kho Vật tư thành phẩm (từ bước "Xuất theo đơn hàng — chuyển mảnh").'],
+      preconditions: ['Mảnh đã thực nhận đủ tại kho Phụ kiện (từ bước "Xuất theo đơn hàng — chuyển mảnh").'],
       mock: {
         title: 'Theo dõi xuất đan',
         columns: ['Mảnh', 'Cần', 'Đã xuất', 'Còn phải xuất', 'Có thể xuất'],
@@ -380,7 +406,7 @@ export const warehouseGroup: GuideGroup = {
       ],
       commonErrors: [
         { issue: '"Vật tư ... không thuộc màu dây/vải nệm đã chọn cho lệnh sản xuất này - không thể mang kèm"', cause: 'Phiếu xuất đan mang kèm một dây khác màu đã chọn cho lệnh (ví dụ màn hình chưa tải lại sau khi định mức đổi).', fix: 'Tải lại trang, chỉ nhập số lượng cho đúng các dây hiện sẵn trong kế hoạch của lệnh.' },
-        { issue: '"Vượt số mảnh thực tế đã nhận từ kho phôi-sơn-hàn (chỉ còn ... có thể xuất)"', cause: 'Số muốn gửi đan vượt số mảnh thực đã về kho Vật tư thành phẩm.', fix: 'Kiểm tra lại số đã nhận thực tế trước khi gửi đan.' },
+        { issue: '"Vượt số mảnh thực tế đã nhận từ kho phôi-sơn-hàn (chỉ còn ... có thể xuất)"', cause: 'Số muốn gửi đan vượt số mảnh thực đã về kho Phụ kiện.', fix: 'Kiểm tra lại số đã nhận thực tế trước khi gửi đan.' },
         { issue: '"Điểm đan ... đã ngừng hoạt động - không thể xuất đan mới cho điểm này"', cause: 'Điểm đan đã bị vô hiệu hoá.', fix: 'Chọn điểm đan khác đang hoạt động.' },
         { issue: '"Số lượng xuất đan ... vượt quá số lượng còn có thể xuất cho mảnh ..."', cause: 'Vượt định mức đan cho phép.', fix: 'Kiểm tra lại định mức đan của mảnh.' },
       ],
@@ -389,7 +415,7 @@ export const warehouseGroup: GuideGroup = {
     },
     {
       id: 'wh-diem-dan',
-      title: 'Quản lý điểm đan (chỉ kho Vật tư thành phẩm)',
+      title: 'Quản lý điểm đan (chỉ kho Phụ kiện)',
       roles: ['warehouse'],
       screenshot: '/guide-screens/wh-diem-dan.png',
       purpose: 'Khai báo các điểm đan gia công ngoài và xem mỗi điểm đang giữ bao nhiêu mảnh chưa trả về.',
@@ -428,7 +454,7 @@ export const warehouseGroup: GuideGroup = {
       ],
       result: 'Có bằng chứng đối chiếu đã nhận đủ hàng từ điểm đan — làm căn cứ cho bước Chuyền kiểm tiếp theo.',
       warnings: [
-        'Đây chỉ là bước ĐỐI CHIẾU số liệu với điểm đan (đã gửi bao nhiêu / đã nhận lại bao nhiêu), không phải nhập kho thành phẩm thật sự trên sổ sách — mảnh vẫn được tính thuộc kho Vật tư thành phẩm cho tới khi Xuất vật tư đóng gói.',
+        'Đây chỉ là bước ĐỐI CHIẾU số liệu với điểm đan (đã gửi bao nhiêu / đã nhận lại bao nhiêu), không phải nhập kho thành phẩm thật sự trên sổ sách — mảnh vẫn được tính thuộc kho Phụ kiện cho tới khi Xuất vật tư đóng gói.',
         'Kiểm đếm hàng đan diễn ra hoàn toàn bằng tay ngoài phần mềm; hệ thống chỉ ghi nhận số bạn nhập.',
         'Hai dòng cùng một SKU nhưng khác màu dây/màu vải nệm hiện thành hai dòng riêng, kèm nhãn màu cạnh mã SKU — chọn đúng dòng.',
       ],
@@ -535,7 +561,7 @@ export const warehouseGroup: GuideGroup = {
       mock: {
         title: 'Vật tư cần về',
         columns: ['Trạng thái', 'Được về từ – Hạn chót', 'Vật tư', 'Cần / Chốt mua', 'Đã nhận', 'Còn thiếu', 'Lệnh', 'NCC', 'Người mua', 'Kho nhận'],
-        rows: [['HẠN CHÓT HÔM NAY', '06/11 – 10/11/2026', 'Sắt hộp 20x20 (VT khung & đan)', 'Cần 100 · chốt mua 120 kg', '40', '80 kg', 'MY-313 · hạn 10/11, MY-314 · hạn 12/11', 'Kim Phát · Đơn 52/2026', 'An', 'Phôi Sơn Hàn']],
+        rows: [['HẠN CHÓT HÔM NAY', '06/11 – 10/11/2026', 'Sắt hộp 20x20 (VT khung & đan)', 'Cần 100 · chốt mua 120 kg', '40', '80 kg', 'MY-313 · hạn 10/11, MY-314 · hạn 12/11', 'Kim Phát · Đơn 52/2026', 'An', 'Phôi Phú An']],
         buttons: ['Quá hạn', 'Hôm nay', 'Theo ngày', 'Tất cả', 'Làm mới'],
       },
       steps: [

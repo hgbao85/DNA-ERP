@@ -129,7 +129,7 @@ export const bossGroup: GuideGroup = {
         '"Tổng hợp lệnh SX": bảng theo dõi tiến độ từng SKU trong từng PI qua mọi công đoạn (Mua hàng, Khung cơ khí, Đan, Chuyền kiểm, Đóng gói).',
         '"Danh sách SKU": tra cứu toàn bộ SKU mọi trạng thái, xem lại chi tiết định mức đã duyệt.',
         '"Tổng hợp vật tư": tra Tồn kho và Khả dụng (đã trừ phần đang giữ chỗ) của mọi vật tư trên toàn hệ thống, mỗi dòng ghi rõ thuộc kho nào.',
-        '"Tổng hợp kho": xem danh sách kho theo 3 nhóm (Phôi Sơn Hàn / Vật tư thành phẩm / Thành phẩm); mở một kho để xem tab "Tồn kho" và "Lịch sử Nhập/Xuất".',
+        '"Tổng hợp kho": xem danh sách kho theo 3 nhóm (Phôi-Hàn-Sơn của 2 xưởng / Phụ kiện / Thành phẩm); mở một kho để xem tab "Tồn kho" và "Lịch sử Nhập/Xuất".',
       ],
       result: 'Có đầy đủ thông tin để giám sát mà không cần hỏi qua các bộ phận khác.',
       warnings: [

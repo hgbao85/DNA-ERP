@@ -55,7 +55,7 @@ export const purchasingGroup: GuideGroup = {
       mock: {
         title: 'Lệnh mua vật tư — chi tiết đề xuất',
         columns: ['Hàng về kho', 'Vật tư', 'Quy cách', 'Chiều dài', 'Tồn thực', 'Cần mua', 'Hao hụt', 'Số mua', 'ĐVT'],
-        rows: [['Kho Phôi Sơn Hàn', 'Sắt hộp 20x20', '20x20x0.8', '6000mm', '120', '480', '—', '480', 'cây'], ['Kho Vật tư TP', 'Sơn xám RAL7035', '—', '—', '5', '42', '+5%', '50 · Mua dư +8', 'kg']],
+        rows: [['Kho Phôi Phú An', 'Sắt hộp 20x20', '20x20x0.8', '6000mm', '120', '480', '—', '480', 'cây'], ['Kho Sơn Phú An', 'Sơn xám RAL7035', '—', '—', '5', '42', '+5%', '50 · Mua dư +8', 'kg']],
         buttons: ['Tạo đơn đặt hàng', 'Huỷ đơn', 'Sếp đã duyệt'],
       },
       steps: [
@@ -136,7 +136,7 @@ export const purchasingGroup: GuideGroup = {
       mock: {
         title: 'Theo dõi mua hàng',
         columns: ['PO', 'Tên vật tư', 'Quy cách', 'Chiều dài', 'Tổng SL', 'Hao hụt', 'ĐVT', 'Đã mua', 'Còn lại', 'Hàng về kho', 'Hạn giao', 'Phiếu duyệt'],
-        rows: [['PO-2026-014', 'Sắt hộp 20x20', '20x20x0.8', '6000mm', '480', '—', 'cây', '300', '180', 'Kho Phôi Sơn Hàn', '05/10/2026', 'Xem file Sếp duyệt']],
+        rows: [['PO-2026-014', 'Sắt hộp 20x20', '20x20x0.8', '6000mm', '480', '—', 'cây', '300', '180', 'Kho Phôi Phú An', '05/10/2026', 'Xem file Sếp duyệt']],
       },
       steps: [
         'Chọn 1 đề xuất để xem chi tiết: PO, tên vật tư, quy cách, chiều dài, Tổng SL, Hao hụt, Đã mua (luỹ kế Kho đã xác nhận nhận), Còn lại, Hàng về kho, Hạn giao, Phiếu duyệt ("Xem file Sếp duyệt").',
@@ -165,7 +165,7 @@ export const purchasingGroup: GuideGroup = {
       mock: {
         title: 'Lịch sử đã mua',
         columns: ['PO', 'Tên vật tư', 'Quy cách', 'Chiều dài', 'Đã mua', 'ĐVT', 'Hàng về kho', 'Phiếu duyệt'],
-        rows: [['PO-2026-009', 'Sơn xám RAL7035', '—', '—', '42', 'kg', 'Kho Vật tư TP', 'Xem file Sếp duyệt']],
+        rows: [['PO-2026-009', 'Sơn xám RAL7035', '—', '—', '42', 'kg', 'Kho Phụ kiện', 'Xem file Sếp duyệt']],
       },
       steps: [
         'Chọn 1 dòng lịch sử để xem chi tiết: vật tư, số đã mua, ĐVT, hàng về kho nào, phiếu duyệt.',
@@ -183,7 +183,7 @@ export const purchasingGroup: GuideGroup = {
       mock: {
         title: 'Vật tư cần về',
         columns: ['Trạng thái', 'Được về từ – Hạn chót', 'Vật tư', 'Cần / Chốt mua', 'Đã nhận', 'Còn thiếu', 'Lệnh', 'NCC', 'Người mua', 'Kho nhận'],
-        rows: [['HẠN CHÓT HÔM NAY', '06/11 – 10/11/2026', 'Sắt hộp 20x20 (VT khung & đan)', 'Cần 100 · chốt mua 120 kg', '40', '80 kg', 'MY-313 · hạn 10/11, MY-314 · hạn 12/11', 'Kim Phát · Đơn 52/2026', 'An', 'Phôi Sơn Hàn']],
+        rows: [['HẠN CHÓT HÔM NAY', '06/11 – 10/11/2026', 'Sắt hộp 20x20 (VT khung & đan)', 'Cần 100 · chốt mua 120 kg', '40', '80 kg', 'MY-313 · hạn 10/11, MY-314 · hạn 12/11', 'Kim Phát · Đơn 52/2026', 'An', 'Phôi Phú An']],
         buttons: ['Quá hạn', 'Hôm nay', 'Theo ngày', 'Tất cả', 'Làm mới'],
       },
       steps: [

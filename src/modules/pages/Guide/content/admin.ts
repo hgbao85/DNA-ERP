@@ -61,9 +61,9 @@ export const adminGroup: GuideGroup = {
           columns: ['Loại nhân viên', 'Ô chọn kèm', 'Các lựa chọn'],
           rows: [
             ['Văn phòng', 'Chức năng', 'Sales / KH Sản xuất (KHSX) / Quản lý sản xuất (QLSX) / Mua hàng / Quản lý vật tư.'],
-            ['Kho', 'Kho phụ trách', 'Không bắt buộc chọn ngay, có thể gán sau.'],
+            ['Kho', 'Kho phụ trách + Giữ thêm kho', 'Kho phụ trách = kho chính, không bắt buộc chọn ngay. Người giữ 2 kho (ví dụ chị giữ cả kho Phôi và kho Hàn Phú An) tick thêm kho ở "Giữ thêm kho" — người đó tự đổi ở ô "Kho đang làm" trên màn kho, không phải đăng xuất.'],
             ['Định mức', 'Vị trí', 'NV Định mức mảnh / NV Định mức chi tiết.'],
-            ['Sản xuất', 'Công đoạn và Kho phụ trách', 'Công đoạn: Phôi/Hàn/Sơn hoặc KCS. Kho phụ trách mặc định là Kho gốc Phôi Sơn Hàn.'],
+            ['Sản xuất', 'Công đoạn và Kho phụ trách', 'Công đoạn: Phôi/Hàn/Sơn hoặc KCS. Kho phụ trách mặc định là Kho Phôi Phú An.'],
           ],
         },
         {
@@ -118,7 +118,7 @@ export const adminGroup: GuideGroup = {
           title: 'Từng ô khi tạo kho',
           columns: ['Ô', 'Bắt buộc', 'Điền gì'],
           rows: [
-            ['Loại kho', 'Có', 'Một trong 3 gia đình: Phôi Sơn Hàn / Vật tư thành phẩm / Thành phẩm.'],
+            ['Loại kho', 'Có', 'Một trong 3 nhóm: Phôi-Hàn-Sơn / Phụ kiện / Thành phẩm. Thường chỉ cần tạo thêm kho Thành phẩm — 9 kho chính đã có sẵn.'],
             ['Tên kho', 'Có', 'Có gợi ý sẵn, sửa được.'],
             ['Thủ kho phụ trách', 'Không', 'Chọn một tài khoản Kho có sẵn để gán ngay. Danh sách chỉ gồm người CHƯA phụ trách kho nào.'],
           ],
@@ -127,7 +127,7 @@ export const adminGroup: GuideGroup = {
           title: 'Trong chi tiết một kho',
           columns: ['Chỗ', 'Có gì', 'Lưu ý'],
           rows: [
-            ['Tab "Tồn kho"', 'Mã vật tư / Tên / Nhóm / Quy cách / ĐVT / Tồn / Khả dụng.', 'Kho Phôi Sơn Hàn có thêm cột "Chiều dài" theo cỡ cây.'],
+            ['Tab "Tồn kho"', 'Mã vật tư / Tên / Nhóm / Quy cách / ĐVT / Tồn / Khả dụng.', 'Các kho Phôi, Hàn, Sơn có thêm cột "Chiều dài" theo cỡ cây.'],
             ['Tab "Lịch sử Nhập/Xuất"', 'Mọi lần nhập, xuất, điều chỉnh của kho.', '—'],
             ['"Thêm vật tư" / "Sao chép vật tư từ kho khác"', 'Đưa vật tư vào kho mới mà không phải khai lại danh mục từ đầu.', '—'],
             ['Con số ở cột "Tồn" (gạch chân chấm)', 'Sửa nhanh số tồn: bấm vào số, nhập số mới và xác nhận.', 'Hệ thống ghi một bút toán điều chỉnh vào lịch sử kho.'],
@@ -144,9 +144,9 @@ export const adminGroup: GuideGroup = {
       ],
       result: 'Tạo: kho mới hoạt động độc lập như kho gốc cùng gia đình. Xoá: kho và (các) tài khoản đang được gán phụ trách kho đó bị xoá cùng lúc — không thể hoàn tác.',
       warnings: [
-        '3 kho gốc (Phôi Sơn Hàn, Vật tư thành phẩm, Thành phẩm) và các kho ảo hệ thống được bảo vệ — không xoá/đổi mã được.',
+        '7 kho cố định (Phôi, Hàn, Sơn Phú An; Phôi, Hàn Phước An; Phụ kiện; Thành phẩm gốc) và các kho ảo hệ thống được bảo vệ — không xoá/đổi mã được.',
         'Nếu kho còn vật tư/tồn kho tham chiếu, thao tác xoá sẽ thất bại toàn bộ (không xoá dở dang) — phải xử lý hết dữ liệu liên quan trước.',
-        'Một tài khoản Kho chỉ phụ trách 1 kho: chọn một thủ kho đang phụ trách kho khác làm "Thủ kho phụ trách" của kho mới sẽ CHUYỂN họ khỏi kho hiện tại (form có cảnh báo trước khi tạo).',
+        'Chọn một thủ kho đang phụ trách kho khác làm "Thủ kho phụ trách" của kho mới sẽ CHUYỂN kho chính của họ sang kho mới (form có cảnh báo trước khi tạo). Muốn họ giữ cả 2 kho thì dùng ô "Giữ thêm kho" ở Admin > Người dùng.',
       ],
       commonErrors: [
         { issue: '"Warehouse ... already exists"', cause: 'Mã kho bị trùng (hiếm gặp vì mã tự sinh).', fix: 'Thử tạo lại.' },
@@ -213,7 +213,7 @@ export const adminGroup: GuideGroup = {
             ['Nhà cung cấp', 'Tên (bắt buộc), Điện thoại, trạng thái hoạt động. Khung "Số đơn đặt hàng theo nhà cung cấp" bên dưới: nhập số đơn cuối cùng phòng mua đã dùng với từng nhà cung cấp trong năm (vd đã tới đơn 52 thì nhập 52), đơn tạo tiếp trên hệ thống sẽ là 53. Không nhập được số nhỏ hơn số hệ thống đã cấp.', 'Mua hàng chọn nhà cung cấp khi tạo đơn đặt hàng; hệ thống cấp số đơn theo từng nhà cung cấp.'],
             ['Khách hàng bán hàng / Khách hàng xuất khẩu', 'Thông tin khách hàng. Hai màn dùng chung một bảng dữ liệu nhưng khai các ô khác nhau — lưu ý khi tra cứu chéo.', 'Sales chọn khách hàng khi tạo đơn.'],
             ['Định mức vật tư thành phẩm', '"1 vật tư vào cắt ra N vật tư ra" (VD thanh nhôm → chân nhôm).', 'Tính nguyên liệu cho Sắt nhóm con "Vật tư thành phẩm". Xem bài cùng tên ở nhóm Sản xuất của trang hướng dẫn chung (/guide).'],
-            ['Điểm đan', 'Mã/Tên điểm đan (bắt buộc), Tên đầy đủ, điện thoại, địa chỉ, trạng thái hoạt động.', 'Thủ kho chọn khi xuất/nhập đan. Thủ kho Vật tư thành phẩm cũng tự thêm được ở "Quản lý điểm đan".'],
+            ['Điểm đan', 'Mã/Tên điểm đan (bắt buộc), Tên đầy đủ, điện thoại, địa chỉ, trạng thái hoạt động.', 'Thủ kho chọn khi xuất/nhập đan. Thủ kho Phụ kiện cũng tự thêm được ở "Quản lý điểm đan".'],
             ['Lý do lỗi', 'Nội dung lỗi và công đoạn (Phôi/Hàn/Sơn).', 'KCS chọn khi chấm lỗi.'],
           ],
         },

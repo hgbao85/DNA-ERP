@@ -62,7 +62,7 @@ const bangVatTu: GuideArticle = {
   mock: {
     title: 'Vật tư',
     columns: ['Mã vật tư', 'Tên vật tư', 'Đơn vị', 'Nhóm vật tư', 'Phân loại', 'Kho', 'Tồn kho', 'Khả dụng', 'Nhân viên mua hàng', '% hao hụt'],
-    rows: [['VTK-065', 'Vis 7 màu', 'Con', 'Vật tư khác', 'Phụ kiện', 'Kho Vật tư thành phẩm', '0', '0', 'Hiếu Hiếu', '1.5% · mua'], ['CHAN-NHOM-01', 'Chân nhôm', 'Chân', 'Sắt', '—', 'Kho Phôi Sơn Hàn', '3', '3', '—', '1% · mua']],
+    rows: [['VTK-065', 'Vis 7 màu', 'Con', 'Vật tư khác', 'Phụ kiện', 'Kho Phụ kiện', '0', '0', 'Hiếu Hiếu', '1.5% · mua'], ['CHAN-NHOM-01', 'Chân nhôm', 'Chân', 'Sắt', '—', 'Kho Phôi Phú An', '3', '3', '—', '1% · mua']],
     buttons: ['Sửa hao hụt hàng loạt', 'Thêm vật tư'],
   },
   tables: [
@@ -131,7 +131,7 @@ const themVatTu: GuideArticle = {
         ['Nhóm vật tư', 'Không, nhưng đừng bỏ trống', 'Vật tư không có nhóm sẽ không hiện ở bất kỳ ô chọn nào khi nhập định mức.', 'Sắt, Dây, Vật tư khác'],
         ['Phân loại', 'Có, khi nhóm là "Vật tư khác"', 'Ô chỉ hiện sau khi chọn nhóm "Vật tư khác". Nệm (mỗi màu là một vật tư) phải chọn "Nệm", không để là "Phụ kiện".', 'Sơn / Phụ kiện / Nệm / Bao bì'],
         ['Nhóm con Sắt', 'Có, khi nhóm là "Sắt"', 'Ô chỉ hiện sau khi chọn nhóm "Sắt".', 'Phần mềm / Tự tính / Vật tư thành phẩm'],
-        ['Kho', 'Không, nhưng nên chọn', 'Kho sẽ giữ vật tư này. Chỉ liệt kê kho thật, không có kho ảo dùng cho sổ sách.', 'Kho Phôi Sơn Hàn'],
+        ['Kho', 'Không, nhưng nên chọn', 'Kho sẽ giữ vật tư này. Chỉ liệt kê kho thật, không có kho ảo dùng cho sổ sách.', 'Kho Phôi Phú An'],
         ['Tồn kho ban đầu', 'Không', 'Chỉ hiện sau khi đã chọn Kho, và chỉ có lúc tạo mới. Điền số đang có sẵn ngoài thực tế; để trống nếu chưa có. Được ghi vào lịch sử kho như một lần nhập "tồn ban đầu".', '120'],
         ['Nhân viên mua hàng', 'Không', 'Người sẽ mua vật tư này. Danh sách chỉ gồm tài khoản có chức năng Mua hàng.', '—'],
         ['% dự trù hao hụt khi mua', 'Không', 'Phần mua dư để bù rách, hỏng, thất thoát. Không hiện với Sắt nhóm con "Phần mềm".', '1.5'],
@@ -376,12 +376,14 @@ const khoNguoiMua: GuideArticle = {
   screenshot: '/guide-screens/vt-kho-nguoi-mua.png',
   tables: [
     {
-      title: 'Ba loại kho và vật tư nên đặt ở đâu',
-      intro: 'Ba kho nối tiếp nhau theo dòng sản xuất. Chọn kho theo NƠI vật tư được dùng.',
+      title: 'Các loại kho và vật tư nên đặt ở đâu',
+      intro: 'Các kho nối tiếp nhau theo dòng sản xuất. Chọn kho theo NƠI vật tư được dùng. Vật tư Phôi/Hàn chỉ khai kho Phú An — lệnh làm ở Phước An hệ thống tự dùng kho Phôi/Hàn Phước An.',
       columns: ['Kho', 'Phục vụ công đoạn', 'Vật tư nên đặt ở đây'],
       rows: [
-        ['Phôi Sơn Hàn', 'Làm khung cơ khí: cắt, hàn, sơn.', 'Sắt, vật tư hàn, sơn.'],
-        ['Vật tư thành phẩm', 'Đan và lắp.', 'Dây, đinh, nút nhựa, tán rút, vít, phụ kiện.'],
+        ['Phôi (Phú An)', 'Cắt sắt.', 'Sắt, thanh nhôm, đá cắt, tán rút.'],
+        ['Hàn (Phú An)', 'Hàn khung.', 'Dây hàn, CO2, đá mài.'],
+        ['Sơn (Phú An)', 'Sơn khung.', 'Sơn bột, hoá chất xử lý bề mặt.'],
+        ['Phụ kiện', 'Đan và lắp.', 'Dây, đinh, nút nhựa, vít, phụ kiện, chân nhôm.'],
         ['Thành phẩm', 'Đóng gói.', 'Thùng, bao, xốp, nhãn, tem.'],
       ],
       note: 'Khi công ty có nhiều kho Thành phẩm: hàng mua về theo đúng kho thành phẩm mà lệnh sản xuất đã chọn, không cố định một kho.',
