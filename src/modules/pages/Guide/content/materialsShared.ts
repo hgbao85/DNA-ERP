@@ -342,9 +342,9 @@ const haoHutHangLoat: GuideArticle = {
       columns: ['Phạm vi', 'Chọn thế nào', 'Áp cho', 'Lưu ý'],
       rows: [
         ['Theo từng vật tư', 'Tick từng dòng. Gõ ô tìm để lọc theo mã/tên rồi bấm "Chọn tất cả" để tick hết các dòng đang hiện; "Bỏ chọn" để bỏ hết.', 'Đúng các vật tư đã tick.', 'Sắt nhóm con "Phần mềm" không có trong danh sách.'],
-        ['Theo cả nhóm vật tư', 'Chọn một nhóm. Dòng dưới ô chọn cho biết nhóm có bao nhiêu vật tư.', 'MỌI vật tư trong nhóm đó.', 'Không chọn được nhóm Sắt (ghi chú "KHSX quyết định").'],
+        ['Theo cả nhóm vật tư', 'Chọn một nhóm. Dòng dưới ô chọn cho biết bao nhiêu vật tư sẽ được sửa.', 'MỌI vật tư trong nhóm đó.', 'Chọn nhóm Sắt (ghi "trừ sắt phần mềm") thì chỉ sửa Sắt "Tự tính" và "Vật tư thành phẩm"; Sắt "Phần mềm" được bỏ qua, dòng dưới ô chọn ghi số bỏ qua.'],
       ],
-      note: 'Muốn đổi % cho Sắt "Tự tính" hoặc "Vật tư thành phẩm": dùng "Theo từng vật tư" và tick đúng các vật tư đó.',
+      note: 'Đổi % cho toàn bộ Sắt "Tự tính" và "Vật tư thành phẩm": chọn nhóm Sắt. Chỉ vài vật tư thì dùng "Theo từng vật tư" và tick đúng các vật tư đó.',
     },
   ],
   steps: [
@@ -360,7 +360,7 @@ const haoHutHangLoat: GuideArticle = {
     'Thao tác này chỉ đổi %, không đổi lựa chọn "Làm tròn khi mua" của từng vật tư.',
   ],
   commonErrors: [
-    { issue: 'Nút "Áp dụng" bị mờ', cause: 'Chưa chọn vật tư/nhóm nào, hoặc đang chọn nguyên nhóm Sắt.', fix: 'Chọn ít nhất một vật tư; với Sắt thì chuyển sang "Theo từng vật tư".' },
+    { issue: 'Nút "Áp dụng" bị mờ', cause: 'Chưa chọn vật tư/nhóm nào, hoặc nhóm đã chọn không có vật tư nào sửa được (vd chỉ toàn Sắt "Phần mềm").', fix: 'Chọn ít nhất một vật tư, hoặc một nhóm có vật tư sửa được.' },
     { issue: '"Vật tư nhóm Sắt không có % hao hụt để sửa - ngưỡng hao hụt cắt do KHSX quyết định ở màn "Tối ưu cắt sắt""', cause: 'Mọi vật tư đã chọn đều là Sắt "Phần mềm".', fix: 'Không sửa được ở đây — đúng thiết kế.' },
     { issue: '"Không tìm thấy vật tư nào để cập nhật"', cause: 'Nhóm đã chọn không còn vật tư nào, hoặc các vật tư đã chọn vừa bị xoá.', fix: 'Tải lại trang rồi chọn lại.' },
   ],
