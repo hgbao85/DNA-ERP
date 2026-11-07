@@ -48,7 +48,14 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
   const toWarehouse = whList.find(w => w.id === toId) ?? null
   // Không ai được gửi tới Phôi Sơn Hàn qua tính năng này (2026-09-15, quyết định nghiệp vụ) - họ
   // chỉ nhận vật tư qua đường mua hàng/nhập kho, không nhận chuyển kho tự do từ chặng khác.
-  const toOptions = whList.filter(w => w.id !== effectiveFromId && warehouseFamilyOf(w.code) !== 'phoi-son-han')
+  // Đợt 7 (anh Nhân 07/11): ngoại lệ duy nhất - kho Phôi chuyển sang kho Hàn CÙNG XƯỞNG (đá cắt mua về kho Phôi, Hàn dùng
+  // một phần). Kho Phôi chỉ được chuyển tới đó, không chuyển đi kho khác.
+  const fromIsPhoi = fromWarehouse?.kind === 'PHOI'
+  const toOptions = whList.filter(w => {
+    if (w.id === effectiveFromId) return false
+    if (fromIsPhoi) return w.kind === 'HAN' && w.workshopId != null && w.workshopId === fromWarehouse?.workshopId
+    return warehouseFamilyOf(w.code) !== 'phoi-son-han'
+  })
 
   // Hiện TOÀN BỘ vật tư của kho nguồn đã chọn (2026-09-15, trước đây lọc chỉ còn vật tư có tồn >0
   // khiến danh sách trông "thiếu" so với Tổng hợp vật tư) - join stock_quant (tồn thật) với

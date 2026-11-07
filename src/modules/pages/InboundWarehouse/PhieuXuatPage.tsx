@@ -11,6 +11,8 @@ import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import { getMaterials } from '../../../services/materials-api'
+import { getWarehouses } from '../../../services/warehouses-api'
+import { getStockQuants } from '../../../services/stock-api'
 import { uploadDocument } from '../../../services/uploads-api'
 import { newUuid } from '../../../services/core/uuid'
 import {
@@ -59,14 +61,23 @@ export default function PhieuXuatPage() {
   const scope = user?.warehouseScope ?? null
   // Dòng "Dùng chung": vật tư không phải sắt, nằm ở kho mình phụ trách. Đợt 7: kho Phôi/Hàn Phước An lấy cả vật tư có kho
   // mặc định là kho CÙNG LOẠI ở Phú An (vật tư chỉ khai 1 kho mặc định, BE tự đổi sang kho của xưởng thủ kho).
+  // Thêm (anh Nhân 07/11): vật tư kho khác đang CÓ TỒN ở kho mình (đá cắt kho Phôi đã chuyển sang kho Hàn) - BE xuất từ
+  // chính kho của thủ kho.
   const scopeKind = warehouseKindOf(scope)
-  const sharedOptions = useMemo(
-    () => (materials ?? []).filter(m => m.isActive && m.steelSubGroup == null && m.warehouseCode && (
-      !scope || m.warehouseCode === scope || (isWorkshopBoundKind(scopeKind) && warehouseKindOf(m.warehouseCode) === scopeKind)
-    ))
-      .sort((a, b) => a.code.localeCompare(b.code)),
-    [materials, scope, scopeKind],
+  const { data: warehouses } = useFetch(getWarehouses, [])
+  const myWarehouseId = scope ? (warehouses ?? []).find(w => w.code === scope)?.id ?? null : null
+  const { data: myQuants } = useFetch(
+    () => (myWarehouseId ? getStockQuants({ warehouseId: myWarehouseId }) : Promise.resolve([])),
+    [myWarehouseId],
   )
+  const sharedOptions = useMemo(() => {
+    const stockedHere = new Set((myQuants ?? []).filter(q => q.materialId && q.qty > 0).map(q => String(q.materialId)))
+    return (materials ?? []).filter(m => m.isActive && m.steelSubGroup == null && m.warehouseCode && (
+      !scope || m.warehouseCode === scope || (isWorkshopBoundKind(scopeKind) && warehouseKindOf(m.warehouseCode) === scopeKind)
+      || stockedHere.has(String(m.id))
+    ))
+      .sort((a, b) => a.code.localeCompare(b.code))
+  }, [materials, scope, scopeKind, myQuants])
 
   const addShared = () => {
     const m = sharedOptions.find(x => String(x.id) === sharedMaterialId)

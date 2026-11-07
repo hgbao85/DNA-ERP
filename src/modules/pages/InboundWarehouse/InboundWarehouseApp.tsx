@@ -15,7 +15,7 @@ import { pageTitle, pageSubtitle } from '../../../styles/typography'
 // Tái dùng nguyên các màn kho đã có (trước đây nằm trong MES) — KHÔNG viết lại logic.
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import { isFamilyScope, isThanhPhamScope } from '../../../utils/warehouseFamily'
-import { fixedWarehouseName } from '../../../utils/warehouseKinds'
+import { fixedWarehouseName, warehouseKindOf } from '../../../utils/warehouseKinds'
 import MfgAllMaterialsPage from '../Manufacturing/MfgAllMaterialsPage'
 import NhapKhoPage from '../Manufacturing/NhapKhoPage'
 import KhoChuyenKiemPage from './KhoChuyenKiemPage'
@@ -103,7 +103,8 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
     if (isFamilyScope(scope, 'vat-tu-tp'))    return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','chuyen-tu-do','lich-su-kho','xuat-dan','diem-dan','vat-tu-van-phong','vat-tu-can-ve'].includes(t.id))
     // Phôi Sơn Hàn không được dùng "Chuyển kho tự do" (2026-09-15, quyết định nghiệp vụ) - họ chỉ
     // xuất sắt cho SX qua "Phân phối nội bộ" (xuat-sat), không tự ý chuyển vật tư đi kho khác.
-    if (isFamilyScope(scope, 'phoi-son-han')) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','lich-su-kho','xuat-sat','vat-tu-van-phong','vat-tu-can-ve'].includes(t.id))
+    // Đợt 7: riêng kho Phôi mở "Chuyển kho" để chuyển đá cắt sang kho Hàn cùng xưởng (trang tự giới hạn kho đích).
+    if (isFamilyScope(scope, 'phoi-son-han')) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho', ...(warehouseKindOf(scope) === 'PHOI' ? ['chuyen-tu-do'] : []),'lich-su-kho','xuat-sat','vat-tu-van-phong','vat-tu-can-ve'].includes(t.id))
     if (isThanhPhamScope(scope)) return ALL_TABS.filter(t => ['materials','nhap-kho','xuat-kho','chuyen-tu-do','lich-su-kho','chuyen-kiem','dong-goi','nhap-dan','vat-tu-van-phong','vat-tu-can-ve'].includes(t.id))
     if (scope) return ALL_TABS.filter(t => t.id !== 'materials')
     return ALL_TABS
