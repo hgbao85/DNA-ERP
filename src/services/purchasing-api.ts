@@ -49,6 +49,7 @@
 import { http } from './core/http';
 import type { KhoKey, PurchaseProposal, PurchaseProposalItem } from '../context/InspectionContext';
 import { warehouseFamilyOf } from '../utils/warehouseFamily';
+import { fixedWarehouseName } from '../utils/warehouseKinds';
 
 const WAREHOUSE_SCOPE_TO_KHO_KEY: Record<string, KhoKey> = {
   'phoi-son-han': 'phoiSonHan',
@@ -58,7 +59,7 @@ const WAREHOUSE_SCOPE_TO_KHO_KEY: Record<string, KhoKey> = {
 
 const KHO_LABELS: Record<string, string> = {
   'phoi-son-han': 'Kho Phôi Sơn Hàn',
-  'vat-tu-tp': 'Kho Vật tư thành phẩm',
+  'vat-tu-tp': 'Kho Phụ kiện',
   'thanh-pham': 'Kho Thành phẩm',
 };
 
@@ -202,7 +203,8 @@ function toItem(item: BeItem): PurchaseProposalItem {
     stockLengthMm: item.stockLengthMm,
     deadline: item.deadline ?? undefined,
     khoKey,
-    khoLabel: (family ? KHO_LABELS[family] : undefined) ?? warehouseCode,
+    // Đợt 7: 9 kho - kho cố định hiện đúng tên (Kho Hàn Phước An...), kho phụ khác hiện tên nhóm.
+    khoLabel: fixedWarehouseName(warehouseCode) ?? (family ? KHO_LABELS[family] : undefined) ?? warehouseCode,
     warehouseCode,
     // BE dùng bigint-as-string; PurchaseProposalItem.materialId là number (quy ước cũ) - cast
     // để tương thích, KHÔNG Number() (mất khớp key với buildBuyerByMaterialId ở purchasingRouting.ts,

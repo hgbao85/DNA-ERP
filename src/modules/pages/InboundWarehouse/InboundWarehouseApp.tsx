@@ -15,6 +15,7 @@ import { pageTitle, pageSubtitle } from '../../../styles/typography'
 // Tái dùng nguyên các màn kho đã có (trước đây nằm trong MES) — KHÔNG viết lại logic.
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
 import { isFamilyScope, isThanhPhamScope } from '../../../utils/warehouseFamily'
+import { fixedWarehouseName } from '../../../utils/warehouseKinds'
 import MfgAllMaterialsPage from '../Manufacturing/MfgAllMaterialsPage'
 import NhapKhoPage from '../Manufacturing/NhapKhoPage'
 import KhoChuyenKiemPage from './KhoChuyenKiemPage'
@@ -139,6 +140,8 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   // Nhãn chức vụ dưới chân sidebar
   const roleLabel = user?.role === 'BOSS'
     ? 'Giám đốc'
+    // Đợt 7: 9 kho - hiện đúng tên kho của thủ kho (Kho Hàn Phước An...).
+    : fixedWarehouseName(scope) ? `Thủ kho · ${fixedWarehouseName(scope)!.replace(/^Kho /, '')}`
     : isFamilyScope(scope, 'vat-tu-tp')    ? 'Thủ kho · Vật tư / TP'
     : isFamilyScope(scope, 'phoi-son-han') ? 'Thủ kho · Phôi Sơn Hàn'
     : isThanhPhamScope(scope) ? 'Thủ kho · Thành Phẩm'

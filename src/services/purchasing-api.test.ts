@@ -90,7 +90,7 @@ function feProposal(overrides: Partial<PurchaseProposal> = {}): PurchaseProposal
         orderQty: null,
         purchaseQty: 8,
         khoKey: 'phoiSonHan',
-        khoLabel: 'Kho Phôi Sơn Hàn',
+        khoLabel: 'Kho Phôi Phú An',
         warehouseCode: 'phoi-son-han',
         materialId: 30,
         itemId: '400',
@@ -147,7 +147,7 @@ describe('getPurchaseProposals — tải danh sách kèm sẵn items, không cò
 
     expect(result.status).toBe('purchasing');
     expect(result.items[0].khoKey).toBe('vatTuTP');
-    expect(result.items[0].khoLabel).toBe('Kho Vật tư thành phẩm');
+    expect(result.items[0].khoLabel).toBe('Kho Phụ kiện');
   });
 
   it('mỗi dòng vật tư giữ đúng kho riêng của nó khi 1 đề xuất gồm nhiều vật tư khác kho nhau', async () => {
@@ -164,7 +164,7 @@ describe('getPurchaseProposals — tải danh sách kèm sẵn items, không cò
 
     const [result] = await getPurchaseProposals();
 
-    expect(result.items[0].khoLabel).toBe('Kho Phôi Sơn Hàn');
+    expect(result.items[0].khoLabel).toBe('Kho Phôi Phú An');
     expect(result.items[1].khoLabel).toBe('Kho Thành phẩm');
   });
 
