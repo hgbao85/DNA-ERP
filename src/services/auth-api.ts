@@ -34,6 +34,15 @@ export async function getProfile(): Promise<BeUserProfile> {
  * xoá state cục bộ ngay, không chờ/không chặn UI — nếu request lỗi (mạng, token đã hết hạn)
  * thì bỏ qua vì người dùng vẫn coi như đã đăng xuất ở phía FE.
  */
+/** Đợt 7: người giữ nhiều kho đổi "kho đang làm" - BE cấp cặp token mới mang phạm vi kho mới, lưu lại rồi tải lại trang. */
+export async function switchWarehouse(warehouseCode: string): Promise<void> {
+  const tokens = await http.post<AuthTokens>('/auth/switch-warehouse', {
+    warehouseCode,
+    refreshToken: tokenStorage.getRefreshToken() ?? undefined,
+  });
+  tokenStorage.setTokens(tokens.accessToken, tokens.refreshToken);
+}
+
 export async function logoutUser(): Promise<void> {
   const refreshToken = tokenStorage.getRefreshToken();
   if (!refreshToken) return;

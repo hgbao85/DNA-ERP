@@ -16,6 +16,7 @@ interface NormalizableUser {
   lastName?: string;
   mfgRole?: string | null;
   warehouseScope?: string | null;
+  warehouseScopes?: string[];
   isPurchaser?: boolean;
   isProductPlanner?: boolean;
   isSale?: boolean;
@@ -41,6 +42,7 @@ export function normalizeUser(raw: NormalizableUser): User {
     role,
     mfgRole: (raw.mfgRole as User['mfgRole']) ?? null,
     warehouseScope: (raw.warehouseScope as User['warehouseScope']) ?? null,
+    warehouseScopes: Array.isArray(raw.warehouseScopes) ? raw.warehouseScopes : [],
     isPurchaser: !!raw.isPurchaser,
     isProductPlanner: !!raw.isProductPlanner,
     isSale: !!raw.isSale,

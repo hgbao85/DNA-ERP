@@ -29,6 +29,8 @@ import ChuyenKhoTuDoPage from './ChuyenKhoTuDoPage'
 import OfficeSuppliesPage from './OfficeSuppliesPage'
 import VatTuCanVePage from '../MaterialsDue/VatTuCanVePage'
 import ThemeToggle from '../../../components/ThemeToggle'
+import { switchWarehouse } from '../../../services/auth-api'
+import { errMsg } from '../../../utils/errors'
 
 interface InboundWarehouseAppProps {
   onBack?: () => void // chỉ truyền nếu user có nhiều phân hệ; thủ kho thuần → khóa trong card này
@@ -48,6 +50,9 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
   // chỉ là `code`. Kho phụ (thanh-pham-2...) là bản ghi Warehouse riêng nên khớp thẳng theo code.
   const { data: allWarehouses, isLoading: warehousesLoading } = useFetch(() => getWarehouses(), [])
   const myWarehouse = (Array.isArray(allWarehouses) ? allWarehouses : []).find(w => w.code === scope) ?? null
+  const [switchingKho, setSwitchingKho] = useState(false)
+  const safeWarehouseName = (code: string) =>
+    (Array.isArray(allWarehouses) ? allWarehouses : []).find(w => w.code === code)?.name ?? fixedWarehouseName(code) ?? code
 
   // Chuyền kiểm + Đóng gói: kho thành phẩm + tổng kho (scope null). GĐ cũng thấy.
   // 2026-09-03: so khớp theo GIA ĐÌNH (isFamilyScope) thay vì đúng 1 literal - mọi kho phụ
@@ -197,6 +202,30 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
           })}
         </nav>
         <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
+          {/* Đợt 7 (9 kho): người giữ nhiều kho (vd kho Phôi + kho Hàn) đổi kho đang làm - BE cấp token mới, tải lại trang. */}
+          {(user?.warehouseScopes?.length ?? 0) > 1 && (
+            <label style={{ display: 'block', marginBottom: 8, fontSize: 10, color: 'var(--text3)' }}>
+              Kho đang làm
+              <select value={scope ?? ''} disabled={switchingKho}
+                onChange={async e => {
+                  setSwitchingKho(true)
+                  try {
+                    await switchWarehouse(e.target.value)
+                    window.location.reload()
+                  } catch (err) {
+                    alert(errMsg(err))
+                    setSwitchingKho(false)
+                  }
+                }}
+                style={{ display: 'block', width: '100%', marginTop: 3, padding: '4px 6px', fontSize: 12, borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }}>
+                {user!.warehouseScopes!.map(code => (
+                  <option key={code} value={code}>
+                    {safeWarehouseName(code)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <div style={{
               width: 28, height: 28, flexShrink: 0, borderRadius: '50%',

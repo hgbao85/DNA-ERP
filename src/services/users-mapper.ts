@@ -43,6 +43,7 @@ export function mapBeToFe(u: BeUserProfile): SystemUser {
     role: toFeRole(u.roles),
     mfgRole: (u.mfgRole as SystemUser['mfgRole']) ?? null,
     warehouseScope: u.warehouseScope ?? null,
+    warehouseScopes: u.warehouseScopes ?? [],
     isPurchaser: u.isPurchaser,
     isProductPlanner: u.isProductPlanner,
     isSale: u.isSale,
@@ -91,5 +92,7 @@ export function mfgAttrsPayload(v: Record<string, unknown>) {
     isProductPlanner: !!v.isProductPlanner,
     isSale: !!v.isSale,
     isMaterialsManager: !!v.isMaterialsManager,
+    // Đợt 7: danh sách kho đổi qua lại - chỉ gửi khi form có ô này (thủ kho); BE tự thêm kho đang làm vào danh sách.
+    ...(Array.isArray(v.warehouseScopes) ? { warehouseScopes: v.warehouseScopes as string[] } : {}),
   };
 }

@@ -59,6 +59,8 @@ export interface User {
   role: 'BOSS' | 'WAREHOUSE_STAFF' | 'ADMIN';
   mfgRole?: MfgRole | null;
   warehouseScope?: WarehouseScope | null;
+  /** Đợt 7: các kho người này giữ, đổi qua lại bằng ô "Kho đang làm" (gồm kho đang làm); [] = chỉ 1 kho. */
+  warehouseScopes?: string[];
   isPurchaser?: boolean;
   isProductPlanner?: boolean;
   isSale?: boolean;

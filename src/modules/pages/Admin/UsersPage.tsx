@@ -205,6 +205,25 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
             <option value="">— Chọn kho —</option>
             {realWarehouses.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
           </select>
+          {/* Đợt 7 (9 kho): 1 người giữ nhiều kho (vd kho Phôi + kho Hàn) - tick thêm, người đó tự đổi "Kho đang làm" ở màn kho. */}
+          {values.warehouseScope && (
+            <div style={{ marginTop: 8 }}>
+              <label style={fieldLabel}>Giữ thêm kho (đổi qua lại không cần đăng xuất)</label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 14px' }}>
+                {realWarehouses.filter(w => w.code !== values.warehouseScope).map(w => {
+                  const extra = (values.warehouseScopes ?? []).filter(c => c !== values.warehouseScope)
+                  const checked = extra.includes(w.code)
+                  return (
+                    <label key={w.code} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, cursor: 'pointer' }}>
+                      <input type="checkbox" checked={checked}
+                        onChange={() => setField('warehouseScopes', checked ? extra.filter(c => c !== w.code) : [...extra, w.code])} />
+                      {w.name}
+                    </label>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

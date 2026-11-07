@@ -25,6 +25,8 @@ export interface BeUserProfile {
   roles: string[]; // RBAC N-N — tên role, không phải UUID
   mfgRole: string | null;
   warehouseScope: string | null;
+  /** Đợt 7: các kho được đổi qua lại (gồm kho đang làm); [] = chỉ 1 kho. */
+  warehouseScopes?: string[];
   isPurchaser: boolean;
   isProductPlanner: boolean;
   isSale: boolean;
