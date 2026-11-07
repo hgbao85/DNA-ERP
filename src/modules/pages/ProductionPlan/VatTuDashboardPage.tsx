@@ -12,6 +12,7 @@ import type { BeMaterial } from '../../../services/materials-api'
 import type { BeWarehouse } from '../../../services/warehouses-api'
 import type { BeStockQuant } from '../../../services/stock-api'
 import { warehouseFamilyOf } from '../../../utils/warehouseFamily'
+import { inWarehouseCatalog } from '../../../utils/warehouseKinds'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
@@ -156,7 +157,8 @@ export default function VatTuDashboardPage({ warehouseCode }: Props = {}) {
     if (!warehouseCode) return all
     const family = warehouseFamilyOf(warehouseCode)
     if (!family) return []
-    const byFamily = all.filter(m => warehouseFamilyOf(m.warehouseCode) === family)
+    // Đợt 7: kho Phôi/Hàn/Sơn mỗi kho 1 danh mục theo loại kho (inWarehouseCatalog), các nhóm khác như cũ.
+    const byFamily = all.filter(m => inWarehouseCatalog(warehouseCode, m.warehouseCode))
     if (!currentWarehouse) return byFamily
     const alreadyIncluded = new Set(byFamily.map(m => String(m.id)))
     const materialById = new Map(all.map(m => [String(m.id), m]))

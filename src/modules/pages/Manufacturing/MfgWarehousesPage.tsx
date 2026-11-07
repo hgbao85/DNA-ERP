@@ -14,6 +14,7 @@ import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { warehouseFamilyOf, type WarehouseFamily } from '../../../utils/warehouseFamily'
+import { inWarehouseCatalog } from '../../../utils/warehouseKinds'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 export { isThanhPhamScope } from '../../../utils/warehouseFamily'
@@ -174,7 +175,7 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
     }
     const family = warehouseFamilyOf(wh.code)
     const inCatalog = (m: MaterialRow) => family
-      ? warehouseFamilyOf(m.warehouseCode) === family
+      ? inWarehouseCatalog(wh.code, m.warehouseCode)
       : m.warehouseId === whId
     const hasStockHere = (m: MaterialRow) =>
       (rowsByMaterial.get(String(m.id)) ?? []).reduce((s, r) => s + r.qty, 0) > 0

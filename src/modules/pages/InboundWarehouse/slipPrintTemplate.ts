@@ -11,9 +11,25 @@ export const fmtQty = (n: number) => String(Math.round(n * 10_000) / 10_000)
 /** 7 kho in sẵn trên mẫu. */
 const KHO_OPTIONS = ['Phôi – sơn – hàn (Phú An)', 'Dây – gỗ', 'Phụ kiện', 'Thành phẩm 1', 'Thành phẩm 2', 'Thành phẩm 3', 'Phước An']
 
-/** Ô chọn kho: chỉ đánh dấu kho đối chiếu chắc được với mã kho hệ thống; kho khác ghi tên thật ở cuối (9 kho mới làm ở Đợt 7). */
+/** Đợt 7 - mã kho hệ thống -> ô trên mẫu in. Kho Phôi/Hàn/Sơn Phú An chung 1 ô; Sơn gộp luôn Dây - gỗ; kho Phôi/Hàn Phước An
+ *  chung ô "Phước An"; thành phẩm theo số trong tên kho (Kho thành phẩm 2 -> ô Thành phẩm 2, kho gốc -> Thành phẩm 1). */
+function khoBoxIndex(code: string, name: string): number {
+  if (code === 'phoi-son-han' || code === 'phoi-son-han-han-pa' || code === 'phoi-son-han-son-pa') return 0
+  if (code === 'phoi-son-han-phoi-pha' || code === 'phoi-son-han-han-pha') return 6
+  if (code === 'vat-tu-tp') return 2
+  if (code === 'thanh-pham') return 3
+  if (code.startsWith('thanh-pham-')) {
+    const n = name.match(/(\d+)\s*$/)?.[1]
+    if (n === '1') return 3
+    if (n === '2') return 4
+    if (n === '3') return 5
+  }
+  return -1
+}
+
+/** Ô chọn kho: đánh dấu ô của kho; kho không có ô in sẵn thì ghi tên thật ở cuối. */
 export function khoCheckboxes(warehouseCode: string, warehouseName: string): string {
-  const known = warehouseCode.startsWith('phoi-son-han') ? 0 : -1
+  const known = khoBoxIndex(warehouseCode, warehouseName)
   const boxes = KHO_OPTIONS.map((o, i) => `${i === known ? '[x]' : '[ ]'} ${esc(o)}`).join(' &nbsp;')
   return known >= 0 ? boxes : `${boxes} &nbsp;[x] ${esc(warehouseName)}`
 }

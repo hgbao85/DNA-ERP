@@ -24,6 +24,7 @@ import { errMsg } from '../../../utils/errors'
 import { useIssueSlipCart } from './IssueSlipCart'
 import { printIssueSlip } from './printIssueSlip'
 import LenhCode from '../../../components/LenhCode'
+import { isWorkshopBoundKind, warehouseKindOf } from '../../../utils/warehouseKinds'
 
 const th: React.CSSProperties = { padding: '8px 12px', fontSize: 12, fontWeight: 600, color: 'var(--text2)', textAlign: 'left', whiteSpace: 'nowrap' }
 const td: React.CSSProperties = { padding: '8px 12px', fontSize: 13, verticalAlign: 'middle' }
@@ -56,11 +57,15 @@ export default function PhieuXuatPage() {
   const [sharedNote, setSharedNote] = useState('')
 
   const scope = user?.warehouseScope ?? null
-  // Dòng "Dùng chung": vật tư không phải sắt, nằm ở kho mình phụ trách.
+  // Dòng "Dùng chung": vật tư không phải sắt, nằm ở kho mình phụ trách. Đợt 7: kho Phôi/Hàn Phước An lấy cả vật tư có kho
+  // mặc định là kho CÙNG LOẠI ở Phú An (vật tư chỉ khai 1 kho mặc định, BE tự đổi sang kho của xưởng thủ kho).
+  const scopeKind = warehouseKindOf(scope)
   const sharedOptions = useMemo(
-    () => (materials ?? []).filter(m => m.isActive && m.steelSubGroup == null && m.warehouseCode && (!scope || m.warehouseCode === scope))
+    () => (materials ?? []).filter(m => m.isActive && m.steelSubGroup == null && m.warehouseCode && (
+      !scope || m.warehouseCode === scope || (isWorkshopBoundKind(scopeKind) && warehouseKindOf(m.warehouseCode) === scopeKind)
+    ))
       .sort((a, b) => a.code.localeCompare(b.code)),
-    [materials, scope],
+    [materials, scope, scopeKind],
   )
 
   const addShared = () => {

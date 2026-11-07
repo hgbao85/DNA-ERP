@@ -21,6 +21,8 @@ import XuatVatTuTieuHaoPage from './XuatVatTuTieuHaoPage'
 import PhieuXuatPage from './PhieuXuatPage'
 import { IssueSlipCartProvider, useIssueSlipCart } from './IssueSlipCart'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
+import { useAuth } from '../../../context/AuthContext'
+import { warehouseKindOf, type WarehouseKind } from '../../../utils/warehouseKinds'
 
 const ACCENT = 'var(--fg-4527a0)'
 const ACCENT_BG = 'var(--bg-ede7f6)'
@@ -36,6 +38,14 @@ const SUBS: { id: Sub; label: string; icon: React.ReactNode }[] = [
   { id: 'phieu', label: 'Phiếu xuất',       icon: <FileText size={15} /> },
 ]
 
+/** Đợt 7 (9 kho): mỗi thủ kho chỉ thấy phần xuất của kho mình - kho Phôi: sắt + vật tư TP, kho Hàn: vật tư hàn, kho Sơn: vật tư
+ *  sơn. Tổng kho / kho chưa phân loại thấy hết. */
+const SUBS_BY_KIND: Partial<Record<WarehouseKind, Sub[]>> = {
+  PHOI: ['sat', 'vat-tu-tp', 'phieu'],
+  HAN: ['han', 'phieu'],
+  SON: ['son', 'phieu'],
+}
+
 export default function PhanPhoiNoiBoPage() {
   return (
     <IssueSlipCartProvider>
@@ -45,7 +55,10 @@ export default function PhanPhoiNoiBoPage() {
 }
 
 function PhanPhoiNoiBo() {
-  const [sub, setSub] = useState<Sub>('sat')
+  const { user } = useAuth()
+  const allowed = SUBS_BY_KIND[warehouseKindOf(user?.warehouseScope) as WarehouseKind] ?? SUBS.map(s => s.id)
+  const subs = SUBS.filter(s => allowed.includes(s.id))
+  const [sub, setSub] = useState<Sub>(allowed[0])
   const cart = useIssueSlipCart()
 
   return (
@@ -59,7 +72,7 @@ function PhanPhoiNoiBo() {
 
       {/* Subtab */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
-        {SUBS.map(s => {
+        {subs.map(s => {
           const active = sub === s.id
           return (
             <button key={s.id} onClick={() => setSub(s.id)}

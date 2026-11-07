@@ -11,6 +11,7 @@ import Modal from '../../../components/Modal'
 import LoadingState from '../../../components/LoadingState'
 import { btnSecondary } from '../../../styles/buttons'
 import { isFamilyScope } from '../../../utils/warehouseFamily'
+import { fixedWarehouseName } from '../../../utils/warehouseKinds'
 
 const ROLE_LABEL: Record<SystemUser['role'], string> = {
   ADMIN: 'Quản trị viên',
@@ -52,8 +53,8 @@ const SPEC_HINT: Record<string, string> = {
 // getWarehouses() thật 2026-09-03 - trước đó là dict tĩnh, phải sửa tay source mỗi lần Admin tạo
 // thêm kho phụ như "thanh-pham-2" mới hiện được trong form).
 const WAREHOUSE_SCOPE_LABEL: Record<string, string> = {
-  'phoi-son-han': 'Phôi - Sơn - Hàn',
-  'vat-tu-tp': 'Vật tư thành phẩm',
+  'phoi-son-han': 'Phôi Phú An',
+  'vat-tu-tp': 'Phụ kiện',
   'thanh-pham': 'Thành phẩm',
 }
 
@@ -64,7 +65,7 @@ function chucNangOf(u: SystemUser): string {
   if (u.isProductPlanner) tags.push('KH Sản xuất')
   if (u.isSale) tags.push('Sales')
   if (u.isMaterialsManager) tags.push('Quản lý vật tư')
-  if (!u.mfgRole && u.warehouseScope) tags.push(`Kho ${WAREHOUSE_SCOPE_LABEL[u.warehouseScope] ?? u.warehouseScope}`)
+  if (!u.mfgRole && u.warehouseScope) tags.push(fixedWarehouseName(u.warehouseScope) ?? `Kho ${WAREHOUSE_SCOPE_LABEL[u.warehouseScope] ?? u.warehouseScope}`)
   return tags.length > 0 ? tags.join(', ') : '—'
 }
 
@@ -235,7 +236,7 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
           <div>
             <label style={fieldLabel}>Kho phụ trách</label>
             <select value={String(values.warehouseScope ?? '')} onChange={e => setField('warehouseScope', e.target.value || undefined)} style={fieldSelect}>
-              <option value="">— Kho gốc (Phôi Sơn Hàn) —</option>
+              <option value="">— Kho gốc (Phôi Phú An) —</option>
               {phoiSonHanWarehouses.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
             </select>
           </div>
