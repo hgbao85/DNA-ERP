@@ -24,10 +24,9 @@ type Mode = 'materials' | 'group'
 
 /**
  * Sửa % hao hụt hàng loạt (Admin > Vật tư) - chọn tay từng vật tư (có thể khác nhóm nhau) hoặc
- * chọn nguyên 1 nhóm vật tư, áp 1 giá trị % cho tất cả cùng lúc. Field thật sự bị ghi
- * (maxCuttingWastePercentage cho nhóm Sắt / purchaseWastePercentage cho mọi nhóm khác) do BE tự
- * suy theo nhóm của TỪNG vật tư (xem MaterialsService.bulkUpdateWaste) - modal này không cần biết,
- * chỉ hiện gợi ý field nào áp dụng để tránh Admin tưởng nhầm % vừa nhập không có tác dụng.
+ * chọn nguyên 1 nhóm vật tư, áp 1 giá trị % cho tất cả cùng lúc. BE ghi purchaseWastePercentage
+ * ("% dự trù hao hụt khi mua") cho mọi vật tư trừ Sắt nhóm con "Phần mềm" - loại này BE bỏ qua
+ * (xem MaterialsService.bulkUpdateWaste); modal lọc sẵn để số "Áp dụng cho N vật tư" khớp số BE sửa.
  * Component tự quản lý toàn bộ state/luồng riêng - AdminEntityPage chỉ cho 1 chỗ trong toolbar
  * (config.toolbarExtra) và không biết gì về nội dung bên trong.
  */
@@ -66,6 +65,10 @@ export default function MaterialsBulkWasteModal({
 
   const selectedGroup = groups.find(g => String(g.id) === groupId)
   const materialsInGroup = groupId ? materials.filter(m => String(m.materialGroupId) === groupId) : []
+  // 07/11: chọn nguyên nhóm Sắt được - chỉ sửa Sắt Tự tính / Vật tư thành phẩm, sắt "Phần mềm" bị bỏ qua (BE bulkUpdateWaste vốn đã
+  // bỏ qua và trả skippedSteel). Trước đây khoá hẳn nhóm Sắt nên 26 vật tư Tự tính / VTTP phải tick tay từng cái.
+  const editableInGroup = materialsInGroup.filter(m => !isSoftwareSteel(m))
+  const skippedInGroup = materialsInGroup.length - editableInGroup.length
 
   const reset = () => {
     setMode('materials'); setSelectedIds(new Set()); setGroupId(''); setSearch(''); setValueStr('')
@@ -96,9 +99,8 @@ export default function MaterialsBulkWasteModal({
   // Sắt đã bị loại khỏi lựa chọn nên chỉ còn 1 loại field: % dự trù hao hụt khi mua.
   const fieldHint = mode === 'group' && !selectedGroup ? null : '% dự trù hao hụt khi mua'
 
-  const count = mode === 'group' ? materialsInGroup.length : selectedIds.size
-  const selectedSteelGroup = mode === 'group' && !!selectedGroup && isSteelGroup(selectedGroup.id)
-  const canSubmit = count > 0 && !saving && !selectedSteelGroup
+  const count = mode === 'group' ? editableInGroup.length : selectedIds.size
+  const canSubmit = count > 0 && !saving
 
   const submit = async () => {
     if (!canSubmit) return
@@ -133,8 +135,8 @@ export default function MaterialsBulkWasteModal({
         <h3 style={{ margin: '0 0 var(--space-5)', fontSize: 17, fontWeight: 700 }}>Sửa % hao hụt hàng loạt</h3>
         <div style={{ fontSize: 12, color: 'var(--text2)', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', marginBottom: 14, lineHeight: 1.5 }}>
           Sắt nhóm con <b>Phần mềm</b> không có % hao hụt để sửa ở đây — ngưỡng hao hụt khi cắt do <b>KHSX</b> quyết
-          định ở màn “Tối ưu cắt sắt”. Sắt <b>Tự tính</b>, <b>Vật tư thành phẩm</b> và các nhóm khác vẫn sửa được
-          (chọn ở “Theo từng vật tư”).
+          định ở màn “Tối ưu cắt sắt”. Sắt <b>Tự tính</b>, <b>Vật tư thành phẩm</b> và các nhóm khác vẫn sửa được;
+          chọn cả nhóm Sắt thì chỉ sửa 2 loại này.
         </div>
 
         {/* Segmented control - 2 nút chia đều chiều rộng, rõ ràng hơn 2 pill trôi nổi bên trái. */}
@@ -163,14 +165,15 @@ export default function MaterialsBulkWasteModal({
             >
               <option value="">— Chọn nhóm —</option>
               {groups.map(g => (
-                <option key={g.id} value={String(g.id)} disabled={isSteelGroup(g.id)}>
-                  {g.name}{isSteelGroup(g.id) ? ' (KHSX quyết định)' : ''}
+                <option key={g.id} value={String(g.id)}>
+                  {g.name}{isSteelGroup(g.id) ? ' (trừ sắt phần mềm)' : ''}
                 </option>
               ))}
             </select>
             {groupId && (
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 10, fontSize: 12, fontWeight: 600, color: 'var(--fg-3949ab)', background: 'var(--bg-e3f2fd)', borderRadius: 20, padding: '4px 12px' }}>
-                {materialsInGroup.length} vật tư trong nhóm này
+                {editableInGroup.length} vật tư trong nhóm này
+                {skippedInGroup > 0 && <span style={{ fontWeight: 500, color: 'var(--text3)' }}> · bỏ qua {skippedInGroup} sắt phần mềm</span>}
               </div>
             )}
           </div>
