@@ -170,7 +170,11 @@ export const warehouseGroup: GuideGroup = {
         { text: 'Nhập số lượng ở cột "Xuất" rồi bấm "Xác nhận" để tạo phiếu chuyển kho nội bộ.', critical: false },
       ],
       result: 'Tạo một phiếu chuyển kho ở trạng thái chờ xác nhận — tồn kho CHƯA đổi ngay, chỉ đổi khi kho Phụ kiện xác nhận nhận (xem bài "Nhập kho — Nhập nội bộ").',
-      warnings: ['Chỉ được chuyển đúng 1 bước: kho Phôi/Hàn/Sơn → kho Phụ kiện → kho Thành phẩm — không được nhảy cóc.'],
+      warnings: [
+        'Chỉ được chuyển đúng 1 bước: kho Phôi/Hàn/Sơn → kho Phụ kiện → kho Thành phẩm — không được nhảy cóc.',
+        'Trong cùng xưởng, mảnh đi Phôi → Hàn → Sơn KHÔNG lập phiếu: KCS đạt ở công đoạn cuối của mảnh thì phần mềm tự ghi mảnh vào kho của công đoạn đó (cần sơn → kho Sơn, chỉ hàn → kho Hàn, không hàn/sơn → kho Phôi).',
+        'Xưởng Phước An (không có kho Sơn): thủ kho Hàn Phước An mở tab này, kho đích tự là kho Sơn Phú An, số được chuyển = số mảnh cần sơn đã qua KCS Hàn. Kho Sơn Phú An xác nhận ở "Nhập kho > Nhập nội bộ" khi xe chở mảnh tới.',
+      ],
       commonErrors: [
         { issue: '"Không có mảnh nào đủ số lượng đã qua KCS ... để tạo phiếu chuyển kho"', cause: 'Số mảnh đã qua KCS không đủ, hoặc toàn bộ đã nằm trong một phiếu chuyển khác đang chờ xác nhận.', fix: 'Kiểm tra lại số liệu KCS và các phiếu chuyển đang chờ trước khi tạo phiếu mới.' },
       ],

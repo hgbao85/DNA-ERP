@@ -19,7 +19,7 @@ import XuatHangBookingSection from './XuatHangBookingSection'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import LenhCode from '../../../components/LenhCode'
 
-interface Wh { id: string; name: string; code: string }
+interface Wh { id: string; name: string; code: string; kind?: string | null; workshopId?: string | null }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -207,7 +207,11 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   // vat-tu-tp (quyết định nghiệp vụ 2026-09-03, không tự động theo cặp cố định). Mặc định chọn
   // kho vat-tu-tp đầu tiên tìm thấy, Thủ kho đổi lại nếu có nhiều kho vat-tu-tp phụ.
   const [pieceDestCode, setPieceDestCode] = useState('')
-  const pieceDestOptions = safeArr(warehouses).filter(w => isFamilyScope(w.code, 'vat-tu-tp'))
+  // Đợt 7: kho Hàn của xưởng KHÔNG có kho Sơn (Phước An) - mảnh cần sơn hàn xong chuyển sang kho Sơn Phú An (chặng 'TO_PAINT');
+  // trong cùng xưởng không lập phiếu giữa các công đoạn (user chốt 09/11).
+  const toPaint = myWarehouse?.kind === 'HAN'
+    && !safeArr(warehouses).some(w => w.kind === 'SON' && w.workshopId === myWarehouse.workshopId)
+  const pieceDestOptions = safeArr(warehouses).filter(w => (toPaint ? w.kind === 'SON' : isFamilyScope(w.code, 'vat-tu-tp')))
   const pieceDestWh = pieceDestOptions.find(w => w.code === pieceDestCode) ?? pieceDestOptions[0] ?? null
 
   // Danh sách PO + kế hoạch chuyển thật (mảnh/vật tư TP) — thay MOCK cho đúng chặng phoi-son-han.
@@ -215,9 +219,9 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
     if (!isPieceScope) return []
     const summaries = await api.listProductionOrdersForStage()
     if (summaries.length === 0) return []
-    const plan = await api.getPieceTransferPlan(summaries.map(o => o.id))
+    const plan = await api.getPieceTransferPlan(summaries.map(o => o.id), toPaint ? 'TO_PAINT' : undefined)
     return pieceItemsToOrders(summaries, plan)
-  }, [isPieceScope])
+  }, [isPieceScope, toPaint])
 
   // Danh sách PO + kế hoạch xuất vật tư đóng gói thật — KHÔNG còn gán theo 1 gia đình cố định
   // (2026-09-04, xem comment PACKAGING_SCOPE cũ ở trên) - luôn fetch rồi lọc đúng dòng mà
@@ -387,7 +391,9 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
             duy nhất thì tự chọn sẵn, không cần hỏi. */}
         {selected.kind === 'piece' && (
           <div style={{ marginBottom: 14, padding: '8px 14px', background: 'var(--bg-ede7f6)', border: '1px solid var(--fg-d1c4e9)', borderRadius: 8, fontSize: 12, color: 'var(--fg-4527a0)', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span>Bấm &quot;Xác nhận&quot; sẽ tạo phiếu chuyển kho nội bộ sang kho vật tư thành phẩm bên dưới — tồn kho chỉ cập nhật sau khi kho nhận xác nhận.</span>
+            <span>{toPaint
+              ? <>Mảnh cần sơn đã qua KCS Hàn: bấm &quot;Xác nhận&quot; sẽ tạo phiếu chuyển sang kho Sơn bên dưới (chở sang Phú An) — kho Sơn xác nhận khi nhận hàng.</>
+              : <>Bấm &quot;Xác nhận&quot; sẽ tạo phiếu chuyển kho nội bộ sang kho vật tư thành phẩm bên dưới — tồn kho chỉ cập nhật sau khi kho nhận xác nhận.</>}</span>
             {pieceDestOptions.length > 1 ? (
               <select
                 value={pieceDestWh?.code ?? ''}

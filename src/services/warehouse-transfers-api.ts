@@ -213,11 +213,13 @@ export interface BePieceTransferPlanItem {
  *  gồm nhiều PO tiến độ khác nhau, xem mục 6 tài liệu trên). */
 export async function getPieceTransferPlan(
   productionOrderIds: Array<string | number>,
+  /** Đợt 7: 'TO_PAINT' = chặng Hàn Phước An -> kho Sơn Phú An (tính theo KCS Hàn); bỏ trống = chuyển ra kho Phụ kiện. */
+  leg?: 'TO_PAINT',
 ): Promise<BePieceTransferPlanItem[]> {
   if (productionOrderIds.length === 0) return [];
   const ids = productionOrderIds.map((id) => String(id)).join(',');
   return http.get<BePieceTransferPlanItem[]>(
-    `/warehouse-transfers/piece-transfer-plan?productionOrderIds=${encodeURIComponent(ids)}`,
+    `/warehouse-transfers/piece-transfer-plan?productionOrderIds=${encodeURIComponent(ids)}${leg ? `&leg=${leg}` : ''}`,
   );
 }
 
