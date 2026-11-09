@@ -1,11 +1,13 @@
 'use client'
 import { focusAttr } from '../../../utils/notificationLink'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useFetch } from '../../../hooks/useFetch'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
-import { CheckCircle2, ChevronDown, ChevronUp, XCircle } from 'lucide-react'
+import { CheckCircle2, ChevronDown, ChevronUp, Paperclip, Printer, X, XCircle } from 'lucide-react'
+import { uploadDocument } from '../../../services/uploads-api'
+import { printTransferSlip } from './printTransferSlip'
 import type { WarehouseTransfer } from '../../../types/warehouse-transfer'
 import { canReceiveAt } from '../../../types/warehouse-transfer'
 import { safeArr } from '../../../utils/array'
@@ -60,15 +62,51 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
   const [rejectError, setRejectError] = useState<string | null>(null)
   const { ask, confirmModal } = useConfirm()
 
+  // v8 4.7 (09/11/2026): số thực nhận từng dòng (mặc định = số gửi) + ảnh phiếu đã ký bắt buộc (4.1/4.2).
+  const [received, setReceived] = useState<Record<string, string>>({})
+  const [files, setFiles] = useState<Record<string, File[]>>({})
+  const [confirmError, setConfirmError] = useState<Record<string, string>>({})
+  const uploaded = useRef(new WeakMap<File, string>())
+  const recvOf = (key: string, sent: number) => {
+    const v = received[key]
+    return v === undefined || v === '' ? sent : Number(v)
+  }
+
   const handleConfirm = (t: WarehouseTransfer) => {
+    const lines = [
+      ...t.items.map(it => ({ key: `i:${it.id}`, id: it.id, name: it.materialName, unit: it.unit, sent: it.quantity, piece: false })),
+      ...t.pieceItems.map(it => ({ key: `p:${it.id}`, id: it.id, name: `${it.pieceCode} — ${it.pieceName}`, unit: 'mảnh', sent: it.quantity, piece: true })),
+    ]
+    const bad = lines.find(l => !(recvOf(l.key, l.sent) >= 0) || recvOf(l.key, l.sent) > l.sent || (l.piece && !Number.isInteger(recvOf(l.key, l.sent))))
+    if (bad) { setConfirmError(p => ({ ...p, [t.id]: `${bad.name}: số thực nhận phải từ 0 tới ${bad.sent}${bad.piece ? ', số nguyên' : ''}` })); return }
+    const myFiles = files[t.id] ?? []
+    if (myFiles.length === 0) { setConfirmError(p => ({ ...p, [t.id]: 'Cần ảnh phiếu chuyển kho đã ký' })); return }
+    const short = lines.filter(l => recvOf(l.key, l.sent) < l.sent)
     ask(
-      { message: `Xác nhận đã nhận đủ hàng cho phiếu ${t.code} từ "${t.fromWarehouseName}"? Tồn kho của cả 2 kho sẽ được cập nhật ngay.` },
+      {
+        message: short.length === 0
+          ? `Xác nhận đã nhận ĐỦ hàng của phiếu ${t.code} từ "${t.fromWarehouseName}"? Tồn kho 2 kho cập nhật ngay.`
+          : `Nhận THIẾU ${short.length} dòng (${short.map(l => `${l.name}: ${recvOf(l.key, l.sent)}/${l.sent} ${l.unit}`).join('; ')}). Tồn kho nhận chỉ cộng số thực nhận, phần thiếu ở lại "${t.fromWarehouseName}" để lập phiếu bù. Xác nhận?`,
+      },
       async () => {
         setBusy(t.id)
+        setConfirmError(p => ({ ...p, [t.id]: '' }))
         try {
-          await api.confirmWarehouseTransfer(t.id)
+          const urls: string[] = []
+          for (const f of myFiles) {
+            let u = uploaded.current.get(f)
+            if (!u) { u = await uploadDocument(f); uploaded.current.set(f, u) }
+            urls.push(u)
+          }
+          await api.confirmWarehouseTransfer(t.id, {
+            signedSlipUrls: urls,
+            items: t.items.map(it => ({ id: it.id, receivedQty: recvOf(`i:${it.id}`, it.quantity) })),
+            pieceItems: t.pieceItems.map(it => ({ id: it.id, receivedQty: recvOf(`p:${it.id}`, it.quantity) })),
+          })
           setExpandedId(null)
           onChanged()
+        } catch (e) {
+          setConfirmError(p => ({ ...p, [t.id]: errMsg(e, 'Không xác nhận được') }))
         } finally {
           setBusy(null)
         }
@@ -125,7 +163,8 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                         <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
                           <th style={th}>Vật tư</th>
                           <th style={th}>Quy cách</th>
-                          <th style={{ ...th, textAlign: 'right' }}>Số lượng</th>
+                          <th style={{ ...th, textAlign: 'right' }}>Số gửi</th>
+                          <th style={{ ...th, textAlign: 'right' }}>Thực nhận</th>
                           <th style={th}>ĐVT</th>
                         </tr>
                       </thead>
@@ -135,6 +174,12 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                             <td style={{ ...td, fontWeight: 600 }}>{it.materialName}</td>
                             <td style={{ ...td, color: 'var(--text3)' }}>{it.materialSpec || '—'}</td>
                             <td style={{ ...td, textAlign: 'right' }}>{it.quantity}</td>
+                            <td style={{ ...td, textAlign: 'right' }}>
+                              <input type="number" min={0} max={it.quantity} step="any" value={received[`i:${it.id}`] ?? String(it.quantity)}
+                                onChange={e => setReceived(p => ({ ...p, [`i:${it.id}`]: e.target.value }))}
+                                aria-label={`Thực nhận ${it.materialName}`}
+                                style={{ width: 90, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }} />
+                            </td>
                             <td style={{ ...td, color: 'var(--text3)' }}>{it.unit}</td>
                           </tr>
                         ))}
@@ -143,6 +188,12 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                             <td style={{ ...td, fontWeight: 600 }}>{it.pieceCode} — {it.pieceName}</td>
                             <td style={{ ...td, color: 'var(--text3)' }}>—</td>
                             <td style={{ ...td, textAlign: 'right' }}>{it.quantity}</td>
+                            <td style={{ ...td, textAlign: 'right' }}>
+                              <input type="number" min={0} max={it.quantity} step={1} value={received[`p:${it.id}`] ?? String(it.quantity)}
+                                onChange={e => setReceived(p => ({ ...p, [`p:${it.id}`]: e.target.value }))}
+                                aria-label={`Thực nhận ${it.pieceName}`}
+                                style={{ width: 90, padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }} />
+                            </td>
                             <td style={{ ...td, color: 'var(--text3)' }}>mảnh</td>
                           </tr>
                         ))}
@@ -151,7 +202,21 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                     {t.note && (
                       <div style={{ padding: '8px 16px', fontSize: 12, color: 'var(--text2)', borderTop: '1px solid var(--border)' }}>Ghi chú: {t.note}</div>
                     )}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
+                      <button onClick={() => printTransferSlip(t)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 12px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
+                        <Printer size={13} /> In phiếu
+                      </button>
+                      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '7px 12px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
+                        <Paperclip size={13} /> Ảnh phiếu đã ký <span style={{ color: 'var(--fg-dc2626, #dc2626)' }}>*</span>
+                        <input type="file" accept="image/*,application/pdf" multiple hidden onChange={e => { const fl = Array.from(e.target.files ?? []); setFiles(p => ({ ...p, [t.id]: [...(p[t.id] ?? []), ...fl] })); e.target.value = '' }} />
+                      </label>
+                      {(files[t.id] ?? []).map((f, i) => (
+                        <span key={i} style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                          {f.name}
+                          <button onClick={() => setFiles(p => ({ ...p, [t.id]: (p[t.id] ?? []).filter((_, j) => j !== i) }))} aria-label={`Bỏ ${f.name}`} style={{ border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text3)', padding: 0 }}><X size={12} /></button>
+                        </span>
+                      ))}
+                      <div style={{ flex: 1 }} />
                       <button
                         onClick={() => { setRejectModal(t); setRejectReason(''); setRejectError(null) }}
                         disabled={busy === t.id}
@@ -166,6 +231,9 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                       >
                         <CheckCircle2 size={15} /> {busy === t.id ? 'Đang xử lý...' : 'Xác nhận nhận hàng'}
                       </button>
+                    </div>
+                    <div style={{ padding: '0 16px 10px', background: 'var(--surface2)', fontSize: 12, color: confirmError[t.id] ? 'var(--fg-dc2626, #dc2626)' : 'var(--text3)' }}>
+                      {confirmError[t.id] || 'Đếm hàng, ghi số thực nhận (thiếu thì sửa số), ký phiếu, chụp tải lên rồi xác nhận. Tồn kho chỉ cộng số thực nhận; phần thiếu kho giao lập phiếu bù.'}
                     </div>
                   </div>
                 )}
@@ -190,6 +258,55 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
         confirmColor="var(--fg-c62828)"
         error={rejectError}
       />
+    </div>
+  )
+}
+
+// ── Phiếu đã gửi, chờ kho nhận (bên giao) ────────────────────────────────────
+
+/**
+ * Phiếu chuyển kho mình đã lập, đang chờ kho nhận - có nút "In phiếu" (09/11/2026, v8 4.1/4.2: kho giao in phiếu, người nhận ký,
+ * kho nhận chụp tải lên khi xác nhận). Dùng ở "Chuyển kho ngoài đơn hàng" và "Xuất theo đơn hàng" (chuyển mảnh).
+ */
+export function OutgoingTransfersPanel({ warehouseId, title = 'Phiếu đã gửi — chờ kho nhận xác nhận' }: { warehouseId: string | null; title?: string }) {
+  const { data, refetch } = useFetch<WarehouseTransfer[]>(() => api.getWarehouseTransfers('PENDING'), [])
+  useRealtimeRefetch(['warehouse-transfers'], refetch)
+  const mine = safeArr(data).filter(t => t.fromWarehouseId === warehouseId)
+  return (
+    <div style={{ marginTop: 20 }}>
+      <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>{title}</h3>
+      {mine.length === 0 ? (
+        <div style={emptyBox}>Chưa có phiếu nào đang chờ</div>
+      ) : (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                <th style={th}>Số phiếu</th>
+                <th style={th}>Kho nhận</th>
+                <th style={th}>Hàng</th>
+                <th style={th}>Ngày lập</th>
+                <th style={th} />
+              </tr>
+            </thead>
+            <tbody>
+              {mine.map(t => (
+                <tr key={t.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{t.code}</td>
+                  <td style={td}>{t.toWarehouseName}</td>
+                  <td style={{ ...td, color: 'var(--text3)' }}>{[...t.items.map(it => `${it.materialName} (${it.quantity} ${it.unit})`), ...t.pieceItems.map(it => `${it.pieceName} (${it.quantity} mảnh)`)].join(', ')}</td>
+                  <td style={{ ...td, color: 'var(--text3)' }}>{new Date(t.createdAt).toLocaleDateString('vi-VN')}</td>
+                  <td style={td}>
+                    <button onClick={() => printTransferSlip(t)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      <Printer size={13} /> In phiếu
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
