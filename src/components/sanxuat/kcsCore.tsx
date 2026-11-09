@@ -18,7 +18,7 @@ import * as api from '../../services/api'
 import { errMsg } from '../../utils/errors'
 import {
   type ProcLine, type ProcRow, type StageCfg,
-  fmt, dateVN, timeVN, lechOf,
+  fmt, timeVN, lechOf,
 } from './core'
 
 const ACCENT = 'var(--fg-e65100)'
@@ -197,7 +197,7 @@ function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, onBack, o
   const poHistory = lines.flatMap(l => l.history ?? []).sort((a, b) => a.at.localeCompare(b.at))
 
   const cols: BoardColumn<KcsLine>[] = [
-    { key: 'item', header: 'Vật liệu', cell: l => <span style={{ fontWeight: 600 }}>{l.itemName}</span> },
+    { key: 'item', header: 'Mảnh', cell: l => <span style={{ fontWeight: 600 }}>{l.itemName}</span> },
     { key: 'spec', header: 'Quy cách', cell: l => <span style={{ color: 'var(--text3)' }}>{l.spec}</span> },
     {
       key: 'pending', header: 'Chờ duyệt', align: 'right', cell: l => l.pendingQty > 0
@@ -288,7 +288,7 @@ function KcsPoListBoard({ rows, cfg, onEnter }: { rows: KcsRow[]; cfg: StageCfg;
   // PieceStepBundle, cột đó chỉ lặp lại đúng giá trị cột "PI" (r.sku bị gán tạm = poNumber ở
   // KcsStagePage.tsx) - phát hiện khi người dùng hỏi "sao SKU lại trống".
   const cols: BoardColumn<KcsPoView>[] = [
-    { key: 'po', header: 'PI', cell: v => <span style={{ fontWeight: 700 }}>{v.r.poNumber}</span> },
+    { key: 'po', header: 'Lệnh', cell: v => <span style={{ fontWeight: 700 }}>{v.r.poNumber}</span> },
     {
       key: 'soLo', header: 'Số lô chờ kiểm', align: 'right', cell: v => (
         <span style={{ fontWeight: 700, color: v.soLoCho > 0 ? ACCENT : 'var(--text3)' }}>{fmt(v.soLoCho)}</span>
@@ -317,7 +317,7 @@ function KcsPoListBoard({ rows, cfg, onEnter }: { rows: KcsRow[]; cfg: StageCfg;
     <LenhSanXuatBoard<KcsPoView>
       icon={<Icon size={18} />}
       title={`Màn hình KCS — Công đoạn ${cfg.label}`}
-      subtitle="Kiểm tra chất lượng theo PI — bấm vào dòng có hàng chờ kiểm để duyệt."
+      subtitle="Kiểm tra chất lượng theo lệnh — bấm vào dòng có hàng chờ kiểm để duyệt."
       columns={cols}
       rows={views}
       rowKey={v => v.r.id}
@@ -393,7 +393,7 @@ export function KcsTwoTierScreen({ cfg, rows, onReview, onEditPhoto, onDeletePho
         <KcsVatTuReviewBoard
           lines={selPo.lines ?? []} cfg={cfg}
           title={selPo.poNumber}
-          subtitle={`${selPo.productName} · SL ${fmt(selPo.soLuong)} · hạn ${dateVN(selPo.deadline)}`}
+          subtitle={`${selPo.productName} · SL ${fmt(selPo.soLuong)} · báo lúc ${timeVN(selPo.deadline)}`}
           backLabel="Quay lại danh sách lệnh"
           onBack={() => setSelPoId(null)}
           onReview={(lineId, p) => review(selPo.id, lineId, p)}

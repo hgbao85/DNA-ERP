@@ -89,7 +89,7 @@ const dateVN = (iso: string | null): string => {
 const dateShort = (iso: string | null): string => {
   if (!iso) return '—'
   const d = new Date(iso)
-  return isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+  return isNaN(d.getTime()) ? '—' : `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 interface PiAgg {
@@ -345,7 +345,7 @@ export default function LenhSanXuatPhoi({ readOnly = false, onOpenCuttingGuide }
         <Wrench size={20} /> Lệnh sản xuất — Công đoạn Phôi
       </h2>
       <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
-        Theo dõi tiến độ cắt sắt + vật tư thành phẩm theo PO/PI — bấm để báo cắt xong / đánh dấu công đoạn theo từng đợt. Xác nhận nhận sắt làm ở <b>Xác nhận nhận sắt</b>.
+        Theo dõi tiến độ cắt sắt + vật tư thành phẩm theo PO/lệnh — bấm để báo cắt xong / đánh dấu công đoạn theo từng đợt. Xác nhận nhận sắt làm ở <b>Xác nhận nhận sắt</b>.
       </div>
 
       {isMobile ? (
@@ -532,10 +532,10 @@ function PiDetail({ pi, readOnly, reviews, onBack, onRefetch, onOpenCuttingGuide
       </div>
 
       <div style={{ ...card, padding: '12px 16px', marginBottom: 14 }}>
-        {/* "PO/SKU trong PI này" (KHÔNG phải "Đợt cắt" - 2026-09-11, QA audit C9): nội dung là
+        {/* "PO/SKU trong lệnh này" (KHÔNG phải "Đợt cắt" - 2026-09-11, QA audit C9): nội dung là
             danh sách PO/SKU của CẢ PI (getPiOrderSummary), không phải 1 đợt cắt (CutBundle) cụ thể -
             tên cũ "Đợt cắt này gồm" dễ nhầm với "Đợt N" đánh số riêng ở màn chi tiết bên dưới. */}
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 8 }}>PO/SKU trong PI này</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 8 }}>PO/SKU trong lệnh này</div>
         {!orderSummary ? (
           <div style={{ fontSize: 12, color: 'var(--text3)' }}>Đang tải...</div>
         ) : orderSummary.length === 0 ? (

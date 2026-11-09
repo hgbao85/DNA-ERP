@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
-  emptyMessage, fmtDayFull, fmtDayMonth, fmtQty, isRedState, overdueHint, parseView, pillCount, qtyNeedText, skuChip, stateInfo, supplierText, vnToday, windowText,
+  canReceiveRow, receiveUrl, emptyMessage, fmtDayFull, fmtDayMonth, fmtQty, isRedState, overdueHint, parseView, pillCount, qtyNeedText, skuChip, stateInfo, supplierText, vnToday, windowText,
 } from './vatTuCanVe'
 
 describe('định dạng ngày', () => {
@@ -86,5 +86,26 @@ describe('lọc', () => {
   it('câu rỗng theo lọc', () => {
     expect(emptyMessage('overdue', null)).toBe('Không có vật tư quá hạn.')
     expect(emptyMessage('date', '2026-11-10')).toContain('10/11/2026')
+  })
+})
+
+describe('nút Nhập kho', () => {
+  const thuKho = (warehouseScope: string | null) => ({ role: 'WAREHOUSE_STAFF' as const, warehouseScope })
+  const row = { purchaseStatus: 'PURCHASING' as const, warehouseCode: 'phoi-son-han' }
+  it('chỉ thủ kho, đúng kho mình, dòng đã đặt NCC', () => {
+    expect(canReceiveRow(thuKho('phoi-son-han'), row)).toBe(true)
+    expect(canReceiveRow(thuKho(null), row)).toBe(true)
+    expect(canReceiveRow(thuKho('vat-tu-tp'), row)).toBe(false)
+    expect(canReceiveRow(thuKho('phoi-son-han'), { ...row, purchaseStatus: 'NEW' })).toBe(false)
+  })
+  it('người mua, Sếp, KHSX, chưa đăng nhập: không có nút', () => {
+    expect(canReceiveRow({ role: 'WAREHOUSE_STAFF', warehouseScope: null, isPurchaser: true }, row)).toBe(false)
+    expect(canReceiveRow({ role: 'BOSS', warehouseScope: null }, row)).toBe(false)
+    expect(canReceiveRow({ role: 'WAREHOUSE_STAFF', warehouseScope: null, isProductPlanner: true }, row)).toBe(false)
+    expect(canReceiveRow(null, row)).toBe(false)
+  })
+  it('link: ưu tiên đơn đặt hàng NCC, không thì theo vật tư', () => {
+    expect(receiveUrl({ supplierOrderId: '52', materialId: '9' })).toBe('/?m=inbound_warehouse&p=nhap-kho&focus=SUPPLIER_ORDER%3A52')
+    expect(receiveUrl({ supplierOrderId: null, materialId: '9' })).toBe('/?m=inbound_warehouse&p=nhap-kho&focus=MATERIAL%3A9')
   })
 })

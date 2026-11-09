@@ -6,7 +6,7 @@ import * as api from '../../../services/api'
 import { Trash2 } from 'lucide-react'
 import type { Sku } from '../../../types/sku'
 import ContainerLoadHint from '../../../components/ContainerLoadHint'
-import { SKUDetail, SkuMobileCard, StatusBadge, STATUS_MAP } from './SKUDetail'
+import { SKUDetail, SkuMobileCard, SkuStatusBadge, STATUS_MAP } from './SKUDetail'
 import SearchInput from '../../../components/SearchInput'
 import FilterPills from '../../../components/FilterPills'
 import LoadingState from '../../../components/LoadingState'
@@ -216,7 +216,7 @@ export default function SKUListPage({ readOnly = false }: { readOnly?: boolean }
                       <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: pf.containerLoad?.loadCont != null ? 'var(--text2)' : 'var(--text3)' }}>
                         {pf.containerLoad?.loadCont != null ? <>{pf.containerLoad.loadCont} <span style={{ fontSize: 11, color: 'var(--text3)' }}>bộ/cont</span></> : '—'}
                       </td>
-                      <td style={tdStyle}><StatusBadge status={pf.status} /></td>
+                      <td style={tdStyle}><SkuStatusBadge pf={pf} /></td>
                       <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: 'var(--text3)', fontSize: 12 }}>
                         {format(new Date(pf.createdAt), 'HH:mm · dd/MM/yyyy')}
                       </td>

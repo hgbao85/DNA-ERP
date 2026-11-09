@@ -161,7 +161,7 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
         <ArrowLeftRight size={20} color={ACCENT} /> Chuyển kho ngoài đơn hàng
       </h2>
       <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
-        Dùng khi chuyển vật tư KHÔNG gắn với đơn hàng (PO/PI) cụ thể nào — chọn vật tư đang có tồn,
+        Dùng khi chuyển vật tư KHÔNG gắn với đơn hàng (PO/lệnh) cụ thể nào — chọn vật tư đang có tồn,
         nhập số lượng, chọn kho đích, không cần theo đúng thứ tự chuỗi kho. Nếu xuất cho 1 đơn hàng cụ
         thể (đóng gói, giao khách...), dùng tab &quot;Xuất theo đơn hàng&quot; để tiến độ đơn được cập
         nhật đúng. Tồn kho chỉ thay đổi sau khi kho đích xác nhận đã nhận hàng.

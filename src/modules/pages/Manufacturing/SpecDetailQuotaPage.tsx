@@ -236,13 +236,15 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
       isDraft: source.isDraft,
     }))
 
+  // Giữ nguyên tab (nhóm) đang dùng - thêm xong 1 dòng ở Bao bì thì ô nhập vẫn ở Bao bì.
   const resetForm = () => {
-    setGroup('daySon'); setMaterial(null); setSpec(''); setUnit(''); setSoLuong(''); setEditingId(null)
+    setMaterial(null); setSpec(''); setUnit(''); setSoLuong(''); setEditingId(null)
   }
 
   const openBom = (item: BomItem) => {
     const pf = findPf(item.id)
     setSelectedBom(item)
+    setGroup('daySon')
     resetForm()
     setSubmitDetailError(null)
     setLastSavedAt(null)
@@ -498,7 +500,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['SKU', 'Mã khách hàng', 'Thời gian', 'Trạng thái', ''].map(h => (
+                  {['SKU', 'Khách hàng', 'Thời gian', 'Trạng thái', ''].map(h => (
                     <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -529,7 +531,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                         ? <span style={{ background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
                         : st === 'rejected'
                         ? <span style={{ background: 'var(--bg-ffebee)', color: 'var(--fg-c62828)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
-                        : <span style={{ background: 'var(--bg-eef2ff)', color: 'var(--fg-3949ab)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
+                        : <span style={{ background: 'var(--bg-eef2ff)', color: 'var(--fg-3949ab)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{(() => { const pf = findPf(item.id); return !!pf && resolveDetailSource(pf).isDraft })() ? 'Đang nhập (nháp)' : 'Chờ nhập'}</span>
                       }
                     </td>
                     <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
@@ -882,7 +884,7 @@ export default function SpecDetailQuotaPage({ subTab, onSubTabChange }: {
                 </>
               ) : bomSt === 'pending' && !isAdmin ? (
                 <>
-                  <span style={{ fontSize: 13, color: 'var(--fg-e65100)', fontWeight: 600 }}>⏳ Đã gửi phê duyệt — đang chờ quản lý xác nhận</span>
+                  <span style={{ fontSize: 13, color: 'var(--fg-e65100)', fontWeight: 600 }}>⏳ Đã gửi phê duyệt — chờ KHSX duyệt</span>
                   <button onClick={() => setSelectedBom(null)} style={{
                     padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
                     background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text2)',

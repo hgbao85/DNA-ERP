@@ -124,7 +124,7 @@ export function PhoiMaterialBoard({ materials, title = 'Tiến độ Phôi theo 
         <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{m.steps.map(st => st.label).join(' → ')}</div>
       </div>
     ) },
-    { key: 'issued', header: 'Kho đã xuất cả PI (cây)', align: 'right', width: W.issued, cell: m => {
+    { key: 'issued', header: 'Kho đã xuất cả lệnh (cây)', align: 'right', width: W.issued, cell: m => {
       const b = m.steelBalance
       return (
         <div>

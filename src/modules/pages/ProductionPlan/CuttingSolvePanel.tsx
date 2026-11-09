@@ -122,7 +122,7 @@ function lineResult(l: SolveLineLike) {
  *  đã duyệt) đều thoả, nên dùng chung được cho màn Lệnh sản xuất. */
 export type SolveLineLike = Pick<
   CuttingSolveLine,
-  | 'materialId' | 'materialCode' | 'feasible' | 'bestStockLengthMm' | 'lengthSource' | 'totalBars'
+  | 'materialId' | 'materialCode' | 'materialName' | 'feasible' | 'bestStockLengthMm' | 'lengthSource' | 'totalBars'
   | 'wastePercentage' | 'maxWastePctThreshold' | 'overThreshold' | 'timedOut' | 'displayReason'
 >
   & Partial<Pick<CuttingSolveLine, 'normalWastePctThreshold' | 'usedWasteOverride' | 'pieceSummary' | 'patterns' | 'machine' | 'bundleSummary'>>
@@ -269,6 +269,9 @@ export function SolveLinesTable({
                   </button>
                 ) : (
                   <b>{l.materialCode}</b>
+                )}
+                {l.materialName && l.materialName !== l.materialCode && (
+                  <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 2 }}>{l.materialName}</div>
                 )}
                 {l.displayReason && (
                   <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 3, maxWidth: 420 }}>{l.displayReason}</div>

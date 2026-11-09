@@ -25,6 +25,32 @@ export function StatusBadge({ status }: { status: string }) {
   return <GenericStatusBadge {...(STATUS_MAP[status] ?? STATUS_MAP.IN_PROGRESS)} />
 }
 
+// Mảnh và chi tiết là 2 nhánh độc lập tiến song song (không còn gộp vào 1 vị trí tuyến tính của
+// status) - 1 SKU có thể "chờ duyệt mảnh" VÀ "chờ duyệt chi tiết" cùng lúc, nên xét theo tình
+// trạng TỪNG nhánh thay vì theo status. Dùng chung cho ô lọc/đếm ở Duyệt SKU và nhãn trạng thái.
+export const needsManhReview = (p: Sku) =>
+  (p.manhData?.pieces?.length ?? 0) > 0 && p.manhReviewStatus?.status !== 'APPROVED'
+export const needsDetailReview = (p: Sku) => {
+  const mt = p.quotaManagement?.materialType
+  const hasData = !!mt && (mt.daySon.length + mt.vatTuPhuKien.length + mt.baoBiDongGoi.length) > 0
+  return hasData && p.quotaManagement?.reviewStatus?.status !== 'APPROVED'
+}
+
+/** Nhãn trạng thái của 1 SKU: SKU còn "Đang làm định mức" mà có nhánh đã gửi chờ KHSX duyệt thì hiện
+ *  đúng nhánh đang chờ (cùng điều kiện với ô đếm "Chờ duyệt mảnh/chi tiết" ở Duyệt SKU). */
+export function SkuStatusBadge({ pf }: { pf: Sku }) {
+  if (pf.status === 'IN_PROGRESS') {
+    const m = needsManhReview(pf)
+    const d = needsDetailReview(pf)
+    if (m || d) {
+      const label = m && d ? 'Chờ duyệt mảnh + chi tiết' : m ? 'Chờ duyệt mảnh' : 'Chờ duyệt chi tiết'
+      const tone = m ? { color: 'var(--fg-c2410c)', bg: 'var(--bg-ffedd5)' } : { color: 'var(--fg-b45309)', bg: 'var(--bg-fef3c7)' }
+      return <GenericStatusBadge label={label} {...tone} />
+    }
+  }
+  return <StatusBadge status={pf.status} />
+}
+
 /** Thẻ 1 SKU thay cho dòng bảng trên điện thoại - dùng chung "Danh sách SKU" và "Duyệt SKU". */
 export function SkuMobileCard({ pf, onClick, selectable = false, checked = false, note }: {
   pf: Sku
@@ -42,7 +68,7 @@ export function SkuMobileCard({ pf, onClick, selectable = false, checked = false
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
           <div style={{ fontWeight: 700, wordBreak: 'break-word' }}>{pf.mfgProduct?.factoryCode}</div>
-          <StatusBadge status={pf.status} />
+          <SkuStatusBadge pf={pf} />
         </div>
         {pf.mfgProduct?.name && pf.mfgProduct.name !== pf.mfgProduct.factoryCode && (
           <div style={{ fontSize: 13, marginTop: 2, wordBreak: 'break-word' }}>{pf.mfgProduct.name}</div>
@@ -334,7 +360,7 @@ export function SKUDetail({
           {/* Trạng thái/dữ liệu có thể đã đổi ở phiên đăng nhập khác (vd bộ phận nhập định mức vừa
               gửi lại sau khi bị từ chối) — cho phép lấy lại bản mới nhất mà không cần tải lại cả trang. */}
           {onRefresh && <RefreshButton onRefresh={onRefresh} loading={refreshing} size="sm" />}
-          <StatusBadge status={pf.status} />
+          <SkuStatusBadge pf={pf} />
         </div>
       </div>
 

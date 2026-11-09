@@ -289,7 +289,7 @@ export default function KhoDongGoiPage({ readOnly = false, filterExportOrderId, 
                 ))}
                 {active.length === 0 && (
                   <tr>
-                    <td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Không có PI nào</div></td>
+                    <td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Không có lệnh nào</div></td>
                   </tr>
                 )}
               </tbody>

@@ -65,7 +65,7 @@ function DefectListPanel({ defects, onChanged }: {
     <div style={{ padding: '10px 14px', background: 'var(--surface2)', borderTop: '1px dashed var(--border)' }}>
       {confirmModal}
       {defects.length === 0 ? (
-        <div style={{ fontSize: 12, color: 'var(--text3)' }}>Không có lỗi nào ghi cho mảnh này (có thể do PI khác cùng loại mảnh).</div>
+        <div style={{ fontSize: 12, color: 'var(--text3)' }}>Không có lỗi nào ghi cho mảnh này (có thể do lệnh khác cùng loại mảnh).</div>
       ) : defects.map(d => (
         <div key={d.id} style={{ marginBottom: 6 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
@@ -474,7 +474,7 @@ export default function KhoChuyenKiemPage({ readOnly = false, filterExportOrderI
                 ))}
                 {active.length === 0 && (
                   <tr>
-                    <td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Không có PI nào</div></td>
+                    <td colSpan={4} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}><div className="table-empty-msg">Không có lệnh nào</div></td>
                   </tr>
                 )}
               </tbody>

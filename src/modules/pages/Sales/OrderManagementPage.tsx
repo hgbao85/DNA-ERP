@@ -159,6 +159,14 @@ export default function OrderManagementPage() {
     if (!opts) return false
     return (opts.wireOptions.length > 0 && !it.wireMaterialId) || (opts.cushionOptions.length > 0 && !it.cushionMaterialId)
   })
+  // Nhắc đúng ô còn thiếu ngay cả khi form còn trống (nút Lưu khoá mà không nói lý do thì tưởng bấm hỏng).
+  const missingFields = [
+    !form.orderCode.trim() && 'Mã đơn hàng',
+    !form.customerId && 'Khách hàng',
+    filledItems.length === 0 && 'SKU',
+    filledItems.length > 0 && missingDeliveryDate && 'Hạn giao của mọi dòng SKU',
+    filledItems.length > 0 && missingQty && 'Tổng số (lớn hơn 0) của mọi dòng SKU',
+  ].filter((x): x is string => !!x)
   const canSave = !!form.orderCode.trim() && !!form.customerId && filledItems.length > 0 && !missingDeliveryDate && !missingQty && !pendingOptions && !missingChoice
 
   const handleSave = async () => {
@@ -488,9 +496,9 @@ export default function OrderManagementPage() {
                 SKU có nhiều màu dây/vải nệm - chọn đủ Màu dây và Màu vải nệm cho từng dòng thì mới lưu được.
               </div>
             )}
-            {filledItems.length > 0 && (missingDeliveryDate || missingQty) && (
+            {missingFields.length > 0 && (
               <div style={{ fontSize: 12, color: 'var(--fg-b45309)', marginTop: 8 }}>
-                Nhập {[missingDeliveryDate && 'Hạn giao', missingQty && 'Tổng số (lớn hơn 0)'].filter(Boolean).join(' và ')} cho mọi dòng SKU thì mới lưu được.
+                Còn thiếu: {missingFields.join(', ')} - điền đủ thì mới lưu được.
               </div>
             )}
 
@@ -500,7 +508,8 @@ export default function OrderManagementPage() {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: isMobile ? 'var(--space-5)' : 'var(--space-6)' }}>
               <button onClick={() => setShowCreate(false)} style={btnSecondary}>Hủy</button>
-              <button className="primary" onClick={handleSave} disabled={saving || !canSave}>
+              <button className="primary" onClick={handleSave} disabled={saving || !canSave}
+                style={saving || !canSave ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}>
                 {saving ? 'Đang lưu...' : 'Lưu'}
               </button>
             </div>
@@ -606,8 +615,9 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
             {po.items.map((item) => (
               <div key={item.id}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', fontSize: 12, marginBottom: 10 }}>
-                  <strong>{item.skuCode}</strong>{item.skuName ? <span style={{ color: 'var(--text3)' }}> — {item.skuName}</span> : ''}
+                  <strong>{item.skuCode}</strong>{item.skuName && item.skuName !== item.skuCode ? <span style={{ color: 'var(--text3)' }}> — {item.skuName}</span> : ''}
                   <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
+                  <span style={{ color: 'var(--text2)' }}>SL {item.totalQty.toLocaleString()}</span>
                   <StatusBadge status={item.status} />
                 </div>
                 <ProductionStepper status={item.status} vertical={isMobile} />
@@ -625,7 +635,7 @@ function PODetailView({ po, onBack, onDeleted }: { po: SalesOrder; onBack: () =>
               return (
                 <div key={item.id}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginBottom: 8 }}>
-                    <strong>{item.skuCode}</strong>{item.skuName ? <span style={{ color: 'var(--text3)' }}> — {item.skuName}</span> : ''}
+                    <strong>{item.skuCode}</strong>{item.skuName && item.skuName !== item.skuCode ? <span style={{ color: 'var(--text3)' }}> — {item.skuName}</span> : ''}
                     <MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} />
                   </div>
                   <div style={{ marginBottom: 8 }}><ContainerLoadHint containerLoad={item.containerLoad} qty={item.totalQty} /></div>

@@ -263,7 +263,7 @@ export default function QlsxReview({ data, onChanged }: {
                 )}
                 {it.steel && it.steel.overMm > 0 && (
                   <div style={{ fontSize: 12, color: 'var(--amber)', fontWeight: 600 }}
-                    title={`Sắt dùng được ${meters(it.steel.usableMm)} m, đoạn đã báo ${meters(it.steel.reportedMm)} m (loại sắt này, cả PI)`}>
+                    title={`Sắt dùng được ${meters(it.steel.usableMm)} m, đoạn đã báo ${meters(it.steel.reportedMm)} m (loại sắt này, cả lệnh)`}>
                     ⚠ Đoạn báo vượt sắt đã nhận {meters(it.steel.overMm)} m (nhận {it.steel.receivedBarCount} cây)
                   </div>
                 )}

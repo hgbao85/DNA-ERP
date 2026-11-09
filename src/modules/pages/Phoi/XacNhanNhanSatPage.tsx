@@ -102,7 +102,7 @@ function PiPoCell({ piCode, poCode }: { piCode: string; poCode: string | null })
   return (
     <td style={{ ...td, whiteSpace: 'nowrap' }}>
       <div style={{ fontFamily: 'monospace', fontWeight: 700, color: 'var(--text2)' }}><LenhCode piCode={piCode} /></div>
-      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{poCode ?? 'PI gộp nhiều đơn'}</div>
+      <div style={{ fontSize: 11, color: 'var(--text3)' }}>{poCode ?? 'Lệnh gộp nhiều đơn'}</div>
     </td>
   )
 }
@@ -254,7 +254,7 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
         <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 780 }}>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
-              <th style={th}>PI / PO</th>
+              <th style={th}>Lệnh / PO</th>
               <th style={th}>Loại</th>
               <th style={thR}>Chiều dài (mm)</th>
               <th style={thR}>Số lượng</th>
@@ -423,7 +423,7 @@ function LichSuTab({ lines }: { lines: BeSteelIssue[] }) {
   return (
     <div>
       <div style={{ color: 'var(--text3)', fontSize: 13, margin: '4px 0 16px' }}>
-        Kho xuất sắt qua theo từng PI. Bấm 1 PI để xem kho đã xuất bao nhiêu cây theo từng chiều dài.
+        Kho xuất sắt qua theo từng lệnh. Bấm 1 lệnh để xem kho đã xuất bao nhiêu cây theo từng chiều dài.
       </div>
 
       <div style={card}>
@@ -431,7 +431,7 @@ function LichSuTab({ lines }: { lines: BeSteelIssue[] }) {
           <colgroup><col style={{ width: 150 }} /><col style={{ width: 190 }} /><col style={{ width: 190 }} /></colgroup>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
-              <th style={th}>PO / PI</th>
+              <th style={th}>PO / Lệnh</th>
               <th style={th}>Thời gian nhận</th>
               <th style={th}>Thời gian hoàn thành</th>
             </tr>

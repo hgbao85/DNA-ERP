@@ -7,7 +7,7 @@ import { ImagePlus, Plus, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useAuditLog } from '../../../context/AuditLogContext'
 import type { Sku, CreateSkuPayload } from '../../../types/sku'
-import { SKUDetail, SkuMobileCard, StatusBadge, STATUS_MAP, SKU_ENTITY } from './SKUDetail'
+import { SKUDetail, SkuMobileCard, SkuStatusBadge, STATUS_MAP, needsManhReview, needsDetailReview, SKU_ENTITY } from './SKUDetail'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import SearchInput from '../../../components/SearchInput'
 import SearchableSelect from '../../../components/SearchableSelect'
@@ -23,17 +23,6 @@ import { useRealtimeRefetch } from '../../../realtime/hooks'
 // duyệt cục bộ đã bị bỏ khỏi pipeline - trang này giờ chỉ còn 2 role: KHSX và Sếp.
 const isPlannerPending = (p: Sku) => p.status !== 'APPROVED' && p.status !== 'DRAFT'
 const isBossPending = (p: Sku) => p.status === 'WAITING_BOSS_APPROVAL'
-
-// Mảnh và chi tiết là 2 nhánh độc lập tiến song song (không còn gộp vào 1 vị trí tuyến tính của
-// status) - 1 SKU có thể "chờ duyệt mảnh" VÀ "chờ duyệt chi tiết" cùng lúc, nên lọc theo tình
-// trạng TỪNG nhánh thay vì theo status.
-const needsManhReview = (p: Sku) =>
-  (p.manhData?.pieces?.length ?? 0) > 0 && p.manhReviewStatus?.status !== 'APPROVED'
-const needsDetailReview = (p: Sku) => {
-  const mt = p.quotaManagement?.materialType
-  const hasData = !!mt && (mt.daySon.length + mt.vatTuPhuKien.length + mt.baoBiDongGoi.length) > 0
-  return hasData && p.quotaManagement?.reviewStatus?.status !== 'APPROVED'
-}
 
 type StatusFilter = 'all' | 'manh' | 'chitiet' | 'boss'
 const FILTER_PREDICATES: Record<Exclude<StatusFilter, 'all'>, (p: Sku) => boolean> = {
@@ -491,7 +480,7 @@ export default function SKUReviewPage() {
                   <td style={{ ...tdStyle, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text2)' }}>
                     {pf.customerName ?? '—'}
                   </td>
-                  <td style={tdStyle}><StatusBadge status={pf.status} /></td>
+                  <td style={tdStyle}><SkuStatusBadge pf={pf} /></td>
                   <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: 'var(--text3)', fontSize: 12 }}>
                     {format(new Date(pf.createdAt), 'HH:mm · dd/MM/yyyy')}
                   </td>

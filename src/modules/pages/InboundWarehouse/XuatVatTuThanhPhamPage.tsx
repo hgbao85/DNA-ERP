@@ -133,7 +133,7 @@ export default function XuatVatTuThanhPhamPage() {
         ) : plan.length === 0 ? (
           <div style={emptyBox}>
             {poInfoFor(selectedPf)
-              ? 'SKU này đã có lệnh sản xuất (PO/PI ở trên) nhưng BOM chưa khai định mức vật tư thành phẩm (PieceMaterialYield) — báo KHSX bổ sung định mức cho sản phẩm này trước khi xuất được.'
+              ? 'SKU này đã có lệnh sản xuất (PO/lệnh ở trên) nhưng BOM chưa khai định mức vật tư thành phẩm (PieceMaterialYield) — báo KHSX bổ sung định mức cho sản phẩm này trước khi xuất được.'
               : 'SKU này chưa được Sếp duyệt lệnh sản xuất — chưa có gì để xuất.'}
           </div>
         ) : (

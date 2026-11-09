@@ -325,7 +325,7 @@ export default function LenhSXPage() {
       <input
         value={search}
         onChange={e => setSearch(e.target.value)}
-        placeholder="Tìm mã PI hoặc số LSX..."
+        placeholder="Tìm số LSX..."
         style={{ padding:'7px 10px 7px 32px', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, background:'var(--surface)', color:'var(--text)', width: isMobile ? '100%' : 200, outline:'none' }}
       />
     </div>
@@ -501,6 +501,8 @@ export default function LenhSXPage() {
   const finishedGoodsWarehouses = (Array.isArray(allWarehouses) ? allWarehouses : [])
     .filter((w: any) => w.isActive && !w.isVirtual && isThanhPhamScope(w.code))
     .map((w: any) => ({ code: w.code as string, name: w.name as string }))
+    // Kho chính ("thanh-pham") lên đầu, còn lại theo tên (TP 2 trước TP 3) - tránh chọn nhầm kho phụ.
+    .sort((x, y) => (x.code === 'thanh-pham' ? -1 : 0) - (y.code === 'thanh-pham' ? -1 : 0) || x.name.localeCompare(y.name, 'vi', { numeric: true }))
 
   // KHSX gửi CẢ PHIẾU (mọi SKU đang tick) cho QLSX xử lý trong 1 lần gọi — chưa cho sản xuất, QLSX
   // sẽ chọn kho thành phẩm rồi mới trình sếp. Trước 2026-08-18 phải gửi lẻ từng SKU: phiếu gộp 5
@@ -948,7 +950,7 @@ export default function LenhSXPage() {
                 {/* Back */}
                 <button onClick={() => setViewingApprovalPiId(null)}
                   style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', marginBottom:20, background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:13, cursor:'pointer', color:'var(--text2)', fontWeight:500 }}>
-                  <ChevronLeft size={15}/> Danh sách PI
+                  <ChevronLeft size={15}/> Danh sách lệnh
                 </button>
 
                 {/* PI header + 2 nút thao tác cho CẢ khối */}
@@ -1121,7 +1123,7 @@ export default function LenhSXPage() {
               <div>
                 <h2 style={{ ...pageTitle, margin: 0 }}>{isBoss ? 'Duyệt lệnh sản xuất' : 'Xử lý lệnh sản xuất'}</h2>
                 <p style={{ ...pageSubtitle, margin: '2px 0 0' }}>
-                  {piGroups.length} PI chờ {isBoss ? 'duyệt' : 'xử lý'}
+                  {piGroups.length} lệnh chờ {isBoss ? 'duyệt' : 'xử lý'}
                   {(() => {
                     const late = piGroups.filter(({ pi }: { pi: any }) => overdueDays(new Date(pi.deadline)) > 0).length
                     return late > 0 ? <> · <span style={{ color:'var(--red)', fontWeight:700 }}>⚠ {late} quá hạn</span></> : null
@@ -1133,7 +1135,7 @@ export default function LenhSXPage() {
 
             <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
               {piGroups.length === 0 ? (
-                <div style={{ padding:40, textAlign:'center', color:'var(--text3)' }}>Không có PI chờ {isBoss ? 'duyệt' : 'xử lý'}</div>
+                <div style={{ padding:40, textAlign:'center', color:'var(--text3)' }}>Không có lệnh chờ {isBoss ? 'duyệt' : 'xử lý'}</div>
               ) : piGroups.map(({ pi, items }: { pi: any; items: any[] }, i: number) => (
                 <button key={pi.id} {...focusAttr('PRODUCTION_INVOICE', pi.id)} onClick={() => setViewingApprovalPiId(pi.id)}
                   style={{ display:'flex', alignItems:'center', gap: isMobile ? 8 : 14, padding: isMobile ? '12px' : '13px 16px', width:'100%', background:'var(--surface)', border:'none', borderBottom: i === piGroups.length - 1 ? 'none' : '1px solid var(--border)', cursor:'pointer', textAlign:'left' }}
@@ -1232,7 +1234,7 @@ export default function LenhSXPage() {
               <div style={{ display:'flex', alignItems:'center', gap:'8px 10px', marginBottom:20, flexWrap:'wrap' }}>
                 <button onClick={() => setViewingPIId(null)}
                   style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:13, cursor:'pointer', color:'var(--text2)', fontWeight:500 }}>
-                  <ChevronLeft size={15}/> Danh sách PI
+                  <ChevronLeft size={15}/> Danh sách lệnh
                 </button>
                 {!isMobile && <div style={{ flex:1 }} />}
                 <button onClick={() => openPIEdit(pi)}
@@ -1551,7 +1553,7 @@ export default function LenhSXPage() {
               {/* Section label - không còn cho chọn từng SKU (2026-08-24), gửi cả PI 1 lần */}
               <div style={{ marginBottom:8, flexShrink:0 }}>
                 <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:0.5 }}>
-                  Danh sách SKU trong PI — {sendableIds.length}/{items.length} SKU gửi được
+                  Danh sách SKU trong lệnh — {sendableIds.length}/{items.length} SKU gửi được
                 </div>
               </div>
 
@@ -1649,7 +1651,7 @@ export default function LenhSXPage() {
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:8, flexWrap:'wrap', marginTop:14, paddingTop:14, borderTop:'1px solid var(--border)', flexShrink:0 }}>
                 <div style={{ fontSize:13, minWidth:0, overflow:'hidden' }}>
                   <span style={{ color:'var(--text2)' }}>
-                    Sẽ gửi <strong style={{ color:'var(--fg-2e7d32)' }}>{sendableIds.length}</strong> SKU (cả PI)
+                    Sẽ gửi <strong style={{ color:'var(--fg-2e7d32)' }}>{sendableIds.length}</strong> SKU (cả lệnh)
                   </span>
                 </div>
                 <div style={{ display:'flex', gap:8, flexShrink:0 }}>

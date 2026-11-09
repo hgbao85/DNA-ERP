@@ -3,6 +3,8 @@
 // CHỈ XEM (mọi vai trò): không nút sửa/nhận hàng. BE (`GET /materials-due`) tính sẵn trạng thái, hạn, còn thiếu - FE chỉ trình bày.
 import { useState } from 'react'
 import { PackageCheck } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { useIsCompact } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
@@ -16,7 +18,7 @@ import EmptyState from '../../../components/EmptyState'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { th, td, tableWrap } from '../../../styles/table'
 import {
-  emptyMessage, groupLabel, isDayKey, isRedState, overdueHint, parseView, pillCount, qtyNeedText, skuChip, stateInfo, supplierText, vnToday, windowText, fmtQty,
+  canReceiveRow, emptyMessage, groupLabel, receiveUrl, isDayKey, isRedState, overdueHint, parseView, pillCount, qtyNeedText, skuChip, stateInfo, supplierText, vnToday, windowText, fmtQty,
   type DueTone,
 } from './vatTuCanVe'
 
@@ -66,6 +68,24 @@ function SkuList({ row }: { row: MaterialsDueRow }) {
   )
 }
 
+/** Lệnh gộp: 1 dòng chữ nhỏ cho biết SKU/lệnh nào được chia hàng trước (BE tính theo thứ tự ưu tiên khi xuất). */
+function PriorityNote({ row }: { row: MaterialsDueRow }) {
+  if (!row.priorityNote) return null
+  return <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6, lineHeight: 1.4 }}>{row.priorityNote}</div>
+}
+
+function ReceiveButton({ row, onOpen }: { row: MaterialsDueRow; onOpen: (r: MaterialsDueRow) => void }) {
+  return (
+    <button
+      onClick={() => onOpen(row)}
+      title="Mở màn Nhập kho đúng dòng vật tư này"
+      style={{ height: 30, padding: '0 12px', borderRadius: 8, border: 'none', cursor: 'pointer', background: 'var(--bg-ede7f6)', color: 'var(--fg-4527a0)', fontSize: 12, fontWeight: 600, whiteSpace: 'nowrap' }}
+    >
+      Nhập kho
+    </button>
+  )
+}
+
 function SupplierCell({ row }: { row: MaterialsDueRow }) {
   const s = supplierText(row)
   return (
@@ -82,6 +102,10 @@ const redRowBg = (row: MaterialsDueRow): string | undefined =>
 
 export default function VatTuCanVePage() {
   const isCompact = useIsCompact()
+  const { user } = useAuth()
+  const router = useRouter()
+  const openReceive = (r: MaterialsDueRow) => router.push(receiveUrl(r))
+  const showReceive = (r: MaterialsDueRow) => canReceiveRow(user, r)
   // Lọc nằm trên URL (`view`, `date`) để link từ thông báo mở đúng lọc và F5 giữ nguyên.
   const [urlView, setUrlView] = useUrlState('view')
   const [urlDate, setUrlDate] = useUrlState('date')
@@ -100,6 +124,7 @@ export default function VatTuCanVePage() {
   }
 
   const rows = data?.rows ?? []
+  const canReceiveAny = rows.some(showReceive)
   const redCount = rows.filter((r) => isRedState(r.state)).length
   const overdue = overdueHint(view, data?.counts)
 
@@ -150,8 +175,8 @@ export default function VatTuCanVePage() {
       )}
       {data?.warehouseScope && (
         <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', padding: '5px 12px', border: '1px solid var(--border)', borderRadius: 20, background: 'var(--surface)' }}>
-          {/* Tên kho lấy từ dòng cùng kho (BE chỉ trả mã kho của phạm vi, tên đã có chữ "Kho"); không có dòng nào thì hiện mã. */}
-          {rows.find((r) => r.warehouseCode === data.warehouseScope)?.warehouseName ?? `Kho: ${data.warehouseScope}`}
+          {/* Tên kho do BE trả (đúng ở mọi tab, kể cả tab rỗng); thiếu thì lấy từ dòng cùng kho, cuối cùng mới hiện mã. */}
+          {data.warehouseScopeName ?? rows.find((r) => r.warehouseCode === data.warehouseScope)?.warehouseName ?? `Kho: ${data.warehouseScope}`}
         </span>
       )}
     </div>
@@ -169,7 +194,7 @@ export default function VatTuCanVePage() {
   } else if (isCompact) {
     body = (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {rows.map((r) => <MaterialCard key={r.lineId} row={r} />)}
+        {rows.map((r) => <MaterialCard key={r.lineId} row={r} onReceive={showReceive(r) ? openReceive : undefined} />)}
       </div>
     )
   } else {
@@ -188,6 +213,7 @@ export default function VatTuCanVePage() {
               <th style={th}>NCC</th>
               <th style={{ ...th, width: 150 }}>Người mua</th>
               <th style={th}>Kho nhận</th>
+              {canReceiveAny && <th style={th}></th>}
             </tr>
           </thead>
           <tbody>
@@ -207,10 +233,11 @@ export default function VatTuCanVePage() {
                   <td style={td}>{qtyNeedText(r)}</td>
                   <td style={{ ...td, textAlign: 'right' }}>{fmtQty(r.receivedQty)}</td>
                   <td style={{ ...td, textAlign: 'right', fontWeight: 700, color: red ? 'var(--fg-c62828)' : 'var(--text)' }}>{fmtQty(r.remainingQty)} {r.unit}</td>
-                  <td style={td}><SkuList row={r} /></td>
+                  <td style={td}><SkuList row={r} /><PriorityNote row={r} /></td>
                   <td style={td}><SupplierCell row={r} /></td>
                   <td style={{ ...td, fontSize: 12 }}>{r.buyerName ?? <span style={{ color: 'var(--text3)' }}>—</span>}</td>
                   <td style={td}>{r.warehouseName ?? r.warehouseCode ?? <span style={{ color: 'var(--text3)' }}>—</span>}</td>
+                  {canReceiveAny && <td style={td}>{showReceive(r) && <ReceiveButton row={r} onOpen={openReceive} />}</td>}
                 </tr>
               )
             })}
@@ -257,7 +284,7 @@ export default function VatTuCanVePage() {
 }
 
 /** Thẻ cho màn hẹp: nhãn trạng thái + còn thiếu nổi lên đầu, phần đỏ vẫn rõ. */
-function MaterialCard({ row }: { row: MaterialsDueRow }) {
+function MaterialCard({ row, onReceive }: { row: MaterialsDueRow; onReceive?: (r: MaterialsDueRow) => void }) {
   const red = isRedState(row.state)
   const s = supplierText(row)
   const label: React.CSSProperties = { fontSize: 11, color: 'var(--text3)' }
@@ -288,12 +315,14 @@ function MaterialCard({ row }: { row: MaterialsDueRow }) {
       <div>
         <div style={label}>Lệnh</div>
         <SkuList row={row} />
+        <PriorityNote row={row} />
       </div>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px 16px', fontSize: 12 }}>
         <div><span style={label}>NCC </span><span style={{ color: s.placed ? 'var(--text)' : 'var(--text3)', fontStyle: s.placed ? 'normal' : 'italic' }}>{s.name}{s.order ? ` · ${s.order}` : ''}</span></div>
         <div><span style={label}>Người mua </span>{row.buyerName ?? '—'}</div>
         <div><span style={label}>Kho nhận </span>{row.warehouseName ?? row.warehouseCode ?? '—'}</div>
       </div>
+      {onReceive && <div><ReceiveButton row={row} onOpen={onReceive} /></div>}
     </div>
   )
 }
