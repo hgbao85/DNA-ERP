@@ -51,17 +51,7 @@ export interface BeMaterialYieldRecipeIssue {
   receivedById: string | null;
 }
 
-/** Thủ kho xuất nguyên liệu vào (vd thanh nhôm) cho 1 recipe theo PI - kiểm tồn + warehouseScope ở BE. */
-export async function issueMaterialYieldRecipe(
-  productionInvoiceId: string,
-  data: { recipeId: string; issuedQty: number },
-): Promise<BeMaterialYieldRecipeIssue> {
-  return http.post<BeMaterialYieldRecipeIssue>(
-    `/production-invoices/${productionInvoiceId}/material-yield-recipe-issues`,
-    data,
-    withIdempotencyKey(),
-  );
-}
+// issueMaterialYieldRecipe() (xuất thẳng, không phiếu) ĐÃ GỠ 09/11/2026 - xuất qua phiếu XK (issue-slips-api.ts).
 
 export async function getMaterialYieldRecipeIssuesForInvoice(
   productionInvoiceId: string,

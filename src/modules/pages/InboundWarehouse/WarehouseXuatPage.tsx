@@ -1,6 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { OutgoingTransfersPanel } from './InternalTransferSections'
+import PhieuXuatPage from './PhieuXuatPage'
+import { IssueSlipCartProvider } from './IssueSlipCart'
+import { createIssueSlip, type IssueSlip } from '../../../services/issue-slips-api'
+import { printIssueSlip } from './printIssueSlip'
 import { ArrowUpFromLine, ChevronLeft } from 'lucide-react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
@@ -310,20 +314,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
     // Xuất vật tư đóng gói thật (packaging-issues), ghi StockLedger ngay. Dispatch theo order.kind
     // (2026-09-04), KHÔNG còn theo cờ scope cả trang - đơn packaging có thể lẫn với đơn ship/piece
     // khác trên CÙNG 1 trang (xem comment PACKAGING_SCOPE cũ).
-    if (order.kind === 'packaging') {
-      setTransferBusyLine(lineId)
-      setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
-      try {
-        await api.issuePackaging(order.id, { materialId: line.id, issuedQty: qty })
-      } catch (e) {
-        setTransferErrors(prev => ({ ...prev, [lineId]: errMsg(e, 'Không thể xuất vật tư đóng gói') }))
-        setTransferBusyLine(null)
-        return
-      }
-      setTransferBusyLine(null)
-      refetchPackagingOrders() // đọc lại remainingToIssue/issuedQty thật từ BE thay vì tự trừ cục bộ
-      return
-    }
+    // Đóng gói (09/11/2026): không xuất từng dòng nữa - lập 1 phiếu XK cho các dòng đã nhập (createPackagingSlip bên dưới).
 
 
     // order.kind chỉ nhận 1 trong 3 giá trị ở trên (piece/packaging/ship, xem OrderKind) - cả 3
@@ -332,6 +323,30 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
     // "ghi tự do" (materialName gõ tay, không gắn materialId) - đã xác nhận dead code (không đơn
     // thật nào còn đi qua nhánh đó) và dọn hẳn cùng lúc với việc bắt buộc materialId ở BE (audit
     // toàn diện 09/09/2026, mục Trung bình "phiếu ghi tự do").
+  }
+
+  // Xuất vật tư đóng gói (09/11/2026): lập 1 phiếu XK cho mọi dòng đã nhập số của lệnh - in, người nhận ký, tải ảnh ở bảng
+  // "Phiếu chờ ký" bên dưới rồi mới trừ tồn (cùng cách phiếu xuất sắt / vật tư hàn, sơn).
+  const [slipBusy, setSlipBusy] = useState(false)
+  const [slipMsg, setSlipMsg] = useState<{ ok: boolean; text: string; slip?: IssueSlip } | null>(null)
+  const createPackagingSlip = async (order: Order) => {
+    const lines = order.lines
+      .map(l => ({ l, q: Math.min(Number(l.inputQty) || 0, l.availableQty) }))
+      .filter(x => x.q > 0)
+    if (lines.length === 0) return
+    setSlipBusy(true); setSlipMsg(null)
+    try {
+      const slip = await createIssueSlip({
+        recipientName: 'Chuyền kiểm / đóng gói',
+        lines: lines.map(({ l, q }) => ({ kind: 'PACKAGING', materialId: l.id, productionOrderId: order.id, qty: q })),
+      })
+      setOrders(prev => prev.map(o => o.id !== order.id ? o : { ...o, lines: o.lines.map(l => ({ ...l, inputQty: '' })) }))
+      setSlipMsg({ ok: true, text: `Đã lập phiếu ${slip.code} (${lines.length} dòng). In phiếu → người nhận ký → tải ảnh ở "Phiếu chờ ký" bên dưới rồi xác nhận xuất.`, slip })
+    } catch (e) {
+      setSlipMsg({ ok: false, text: errMsg(e, 'Không lập được phiếu xuất') })
+    } finally {
+      setSlipBusy(false)
+    }
   }
 
   const updateInput = (orderId: string, lineId: string, val: string) =>
@@ -476,10 +491,10 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                               disabled={transferBusyLine === l.id}
                               style={{ width: 72, padding: '4px 8px', border: `1px solid ${overAvail ? 'var(--fg-dc2626)' : 'var(--border)'}`, borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
                             />
-                            <button onClick={() => confirmLine(selected.id, l.id)} disabled={!can || transferBusyLine === l.id}
+                            {selected.kind !== 'packaging' && <button onClick={() => confirmLine(selected.id, l.id)} disabled={!can || transferBusyLine === l.id}
                               style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: can ? ACCENT : 'var(--surface2)', color: can ? '#fff' : 'var(--text3)', cursor: can && transferBusyLine !== l.id ? 'pointer' : 'not-allowed', whiteSpace: 'nowrap' }}>
                               {transferBusyLine === l.id ? 'Đang gửi...' : 'Xác nhận'}
-                            </button>
+                            </button>}
                           </div>
                           {transferErrors[l.id] && (
                             <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)' }}>{transferErrors[l.id]}</div>
@@ -493,6 +508,30 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
             </tbody>
           </table>
         </div>
+        {selected.kind === 'packaging' && (() => {
+          const n = selected.lines.filter(l => Number(l.inputQty) > 0 && Number(l.inputQty) <= l.availableQty).length
+          return (
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 12 }}>
+              <span style={{ fontSize: 12, color: 'var(--text3)' }}>Nhập số ở cột “Xuất” cho các vật tư cần cấp rồi lập 1 phiếu xuất cho cả lệnh.</span>
+              <div style={{ flex: 1 }} />
+              {slipMsg?.slip && (
+                <button onClick={() => printIssueSlip(slipMsg.slip!)} style={{ padding: '7px 12px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
+                  In {slipMsg.slip.code}
+                </button>
+              )}
+              <button onClick={() => void createPackagingSlip(selected)} disabled={n === 0 || slipBusy}
+                style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 8, background: n > 0 && !slipBusy ? ACCENT : 'var(--surface2)', color: n > 0 && !slipBusy ? '#fff' : 'var(--text3)', cursor: n > 0 && !slipBusy ? 'pointer' : 'not-allowed' }}>
+                {slipBusy ? 'Đang lập…' : `Lập phiếu xuất${n > 0 ? ` (${n} dòng)` : ''}`}
+              </button>
+              {slipMsg && <div style={{ width: '100%', fontSize: 12, color: slipMsg.ok ? 'var(--fg-2e7d32)' : 'var(--fg-dc2626)' }}>{slipMsg.text}</div>}
+            </div>
+          )
+        })()}
+        {selected.kind === 'packaging' && (
+          <div style={{ marginTop: 20 }}>
+            <IssueSlipCartProvider><PhieuXuatPage listOnly /></IssueSlipCartProvider>
+          </div>
+        )}
       </div>
     )
   }
@@ -560,6 +599,12 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
       )}
       {/* 09/11/2026: phiếu chuyển mảnh đã lập, chờ kho nhận - in phiếu để người nhận ký (v8 4.1/4.2). */}
       {isPieceScope && <OutgoingTransfersPanel warehouseId={myWarehouse?.id ?? null} />}
+      {/* Phiếu xuất đóng gói chờ ký / đã xuất của kho (09/11/2026). */}
+      {!isPieceScope && (packagingOrders ?? []).length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <IssueSlipCartProvider><PhieuXuatPage listOnly /></IssueSlipCartProvider>
+        </div>
+      )}
     </div>
   )
 }

@@ -27,7 +27,7 @@ interface CartCtx {
 const Ctx = createContext<CartCtx | null>(null)
 
 const keyOf = (l: Omit<CartLine, 'key'>) =>
-  [l.kind, l.materialId, l.productionInvoiceId ?? '', l.productionOrderId ?? '', l.stage ?? '', l.barLengthMm ?? ''].join('|')
+  [l.kind, l.materialId, l.productionInvoiceId ?? '', l.productionOrderId ?? '', l.stage ?? '', l.barLengthMm ?? '', l.recipeId ?? ''].join('|')
 
 export function IssueSlipCartProvider({ children }: { children: React.ReactNode }) {
   const [lines, setLines] = useState<CartLine[]>([])

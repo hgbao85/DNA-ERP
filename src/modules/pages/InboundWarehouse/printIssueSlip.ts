@@ -10,9 +10,9 @@ export function printIssueSlip(slip: IssueSlip): void {
   const xuatCho = [
     `${box(!!slip.weavingPointName)} Điểm đan: ${slip.weavingPointName ? `<b>${esc(slip.weavingPointName)}</b>` : '..................'}`,
     `${box(kinds.has('C-HAN'))} Tổ hàn`,
-    `${box(kinds.has('STEEL'))} Tổ phôi`,
+    `${box(kinds.has('STEEL') || kinds.has('MATERIAL_YIELD') || kinds.has('MATERIAL_YIELD_RECIPE'))} Tổ phôi`,
     `${box(kinds.has('C-SON'))} Sơn`,
-    `${box(false)} Chuyền kiểm / đóng gói`,
+    `${box(kinds.has('PACKAGING'))} Chuyền kiểm / đóng gói`,
     `${box(false)} Chuyển kho: ..................`,
     `${box(kinds.has('SHARED'))} Khác: ${kinds.has('SHARED') ? 'Dùng chung' : '..........'}`,
   ].join(' &nbsp;')
@@ -53,6 +53,7 @@ export function printIssueSlip(slip: IssueSlip): void {
       esc([
         l.kind === 'CONSUMABLE' ? (l.stage === 'HAN' ? 'Tổ hàn' : 'Tổ sơn') : '',
         l.kind === 'WEAVING_PIECE' ? 'Mảnh đi đan' : l.kind === 'WEAVING_MATERIAL' ? `Kèm mảnh ${l.pieceName ?? ''}`.trim() : '',
+        l.kind === 'PACKAGING' ? 'Đóng gói' : l.kind === 'MATERIAL_YIELD' || l.kind === 'MATERIAL_YIELD_RECIPE' ? 'Tổ phôi (vật tư TP)' : '',
         l.note,
       ].filter(Boolean).join(' - ')),
     ]),

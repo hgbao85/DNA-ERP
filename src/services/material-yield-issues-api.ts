@@ -9,7 +9,7 @@
  * bên trong - trang thủ kho (XuatVatTuThanhPhamPage) dùng chung pattern master-detail với
  * XuatVatTuTieuHaoPage (chọn SKU trước, plan/issue theo đúng productionOrderId của SKU đó).
  */
-import { http, withIdempotencyKey } from './core/http';
+import { http } from './core/http';
 import type { Sku } from '../types/sku';
 import { resolveProductionOrderId } from './production-invoice-item';
 
@@ -76,14 +76,7 @@ export async function getMaterialYieldIssuesByStatus(
   return Array.isArray(res) ? res : res.data;
 }
 
-export async function issueMaterialYield(
-  pf: Sku,
-  data: { materialId: string; issuedQty: number },
-): Promise<void> {
-  const orderId = await resolveProductionOrderId(pf);
-  if (!orderId) throw new Error('SKU chưa có Lệnh sản xuất (chưa được Sếp duyệt) — chưa thể xuất vật tư');
-  await http.post(`/production-orders/${orderId}/material-yield-issues`, data, withIdempotencyKey());
-}
+// issueMaterialYield() (xuất thẳng, không phiếu) ĐÃ GỠ 09/11/2026 - xuất qua phiếu XK (issue-slips-api.ts).
 
 export async function receiveMaterialYieldIssue(issueId: string, receivedQty?: number): Promise<void> {
   await http.post(`/material-yield-issues/${issueId}/receive`, { receivedQty });

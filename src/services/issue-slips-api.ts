@@ -6,7 +6,10 @@
 import { http } from './core/http';
 
 /** WEAVING_PIECE / WEAVING_MATERIAL: 2 phiếu xuất đan (anh Nhân 09/11/2026) - mảnh từ kho Sơn, dây/gỗ/đinh/nút từ kho Phụ kiện. */
-export type IssueSlipLineKind = 'STEEL' | 'CONSUMABLE' | 'SHARED' | 'WEAVING_PIECE' | 'WEAVING_MATERIAL';
+export type IssueSlipLineKind =
+  | 'STEEL' | 'CONSUMABLE' | 'SHARED' | 'WEAVING_PIECE' | 'WEAVING_MATERIAL'
+  /** 09/11/2026: xuất vật tư đóng gói, vật tư TP cho Phôi (theo SKU / theo công thức của lệnh) cũng đi phiếu XK. */
+  | 'PACKAGING' | 'MATERIAL_YIELD' | 'MATERIAL_YIELD_RECIPE';
 export type IssueSlipStatus = 'DRAFT' | 'ISSUED' | 'CANCELLED';
 
 export interface IssueSlipLineInput {
@@ -14,6 +17,8 @@ export interface IssueSlipLineInput {
   /** Không có ở dòng mảnh (WEAVING_PIECE). */
   materialId?: string;
   pieceId?: string;
+  /** MATERIAL_YIELD_RECIPE: công thức (cùng productionInvoiceId). */
+  recipeId?: string;
   productionInvoiceId?: string;
   productionOrderId?: string;
   stage?: 'HAN' | 'SON';
@@ -32,6 +37,7 @@ export interface IssueSlipLine {
   pieceId: string | null;
   /** Dòng vật tư kèm đan: mảnh mà vật tư đi kèm. */
   pieceName: string | null;
+  recipeId: string | null;
   unit: string;
   productionInvoiceId: string | null;
   productionOrderId: string | null;
