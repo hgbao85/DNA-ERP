@@ -8,7 +8,7 @@ import { box, esc, fmtQty, khoCheckboxes, openSlipPrint } from './slipPrintTempl
 export function printIssueSlip(slip: IssueSlip): void {
   const kinds = new Set(slip.lines.map(l => (l.kind === 'CONSUMABLE' ? `C-${l.stage}` : l.kind)))
   const xuatCho = [
-    `${box(false)} Điểm đan: ..................`,
+    `${box(!!slip.weavingPointName)} Điểm đan: ${slip.weavingPointName ? `<b>${esc(slip.weavingPointName)}</b>` : '..................'}`,
     `${box(kinds.has('C-HAN'))} Tổ hàn`,
     `${box(kinds.has('STEEL'))} Tổ phôi`,
     `${box(kinds.has('C-SON'))} Sơn`,
@@ -38,6 +38,7 @@ export function printIssueSlip(slip: IssueSlip): void {
       ['Xuất cho', xuatCho, true],
       ['Người nhận hàng', `${esc(slip.recipientName ?? '..........................................................')} &nbsp;Bộ phận: ....................`, true],
       ['Lệnh sản xuất – mã hàng', lenhLine, true],
+      ...(slip.pairedSlipCode ? [['Đi cùng phiếu', `Phiếu xuất mảnh <b>${esc(slip.pairedSlipCode)}</b> (cùng chuyến)`, false] as [string, string, boolean]] : []),
     ],
     columns: [['Mã vật tư', false], ['Tên vật tư (đúng tên file tồn)', true], ['Quy cách', false], ['ĐVT', true], ['SL yêu cầu', false], ['SL thực xuất', true], ['LSX', true], ['Mã hàng', false], ['Ghi chú', false]],
     rows: slip.lines.map(l => [
@@ -49,7 +50,11 @@ export function printIssueSlip(slip: IssueSlip): void {
       fmtQty(l.qty),
       l.kind === 'SHARED' ? 'DÙNG CHUNG' : esc(l.lenhCode),
       esc(l.sku),
-      esc([l.kind === 'CONSUMABLE' ? (l.stage === 'HAN' ? 'Tổ hàn' : 'Tổ sơn') : '', l.note].filter(Boolean).join(' - ')),
+      esc([
+        l.kind === 'CONSUMABLE' ? (l.stage === 'HAN' ? 'Tổ hàn' : 'Tổ sơn') : '',
+        l.kind === 'WEAVING_PIECE' ? 'Mảnh đi đan' : l.kind === 'WEAVING_MATERIAL' ? `Kèm mảnh ${l.pieceName ?? ''}`.trim() : '',
+        l.note,
+      ].filter(Boolean).join(' - ')),
     ]),
     signers: ['Người lập phiếu', 'Người nhận hàng', 'Thủ kho', 'Duyệt'],
   })

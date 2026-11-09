@@ -40,10 +40,13 @@ export interface BeWeavingIssuePlanItem {
   totalQty: number;
   issuedQty: number;
   remainingToIssue: number;
-  /** min(remainingToIssue theo định mức, số mảnh THỰC TẾ đã nhận về kho vật tư-TP qua Phân phối
-   *  nội bộ - đúng SKU/PO/PI này - trừ đã xuất) - 2026-09-12. Cap THẬT BE dùng để chặn khi xuất -
-   *  định mức cho phép nhiều hơn không có nghĩa kho đã có đủ hàng thật. */
+  /** Số mảnh đang nằm trên phiếu xuất đan chờ ký. */
+  onDraftQty: number;
+  /** Trần để lập phiếu xuất đan (09/11/2026): min(định mức còn lại, mảnh đã qua KCS công đoạn cuối còn ở kho giữ mảnh) - đã trừ
+   *  phiếu chờ ký. BE chặn đúng công thức này lúc lập và lúc xác nhận phiếu. */
   canIssueQty: number;
+  /** Kho đang giữ mảnh (nơi xuất đan) - thường kho Sơn. */
+  sourceWarehouseCode: string | null;
   allocations: BeWeavingAllocation[];
   /** Định mức Dây/Đinh /1 mảnh - đúng nhóm vật tư quyết định "mảnh có đan" (xem
    *  SkusService.isPieceWoven ở BE). Hiển thị tham khảo, không nhân theo số lượng đang xuất. */
@@ -90,20 +93,8 @@ async function requireOrderId(pf: Sku, action: string): Promise<string> {
   return orderId;
 }
 
-export async function issueWeaving(
-  pf: Sku,
-  data: {
-    pieceId: string
-    weavingPointId: string
-    qty: number
-    /** Dây/Đinh/Nút nhựa THẬT mang kèm lần xuất này (2026-09-11) - BE trừ tồn ngay, khác `qty`
-     *  mảnh ở trên (không trừ tồn). Bỏ trống hoặc mảng rỗng nếu không nhập dòng nào. */
-    materials?: { materialId: string; qty: number }[]
-  },
-): Promise<void> {
-  const orderId = await requireOrderId(pf, 'xuất đan');
-  await http.post(`/production-orders/${orderId}/weaving-issues`, data, withIdempotencyKey());
-}
+// Xuất đan 1 lần trừ ngay (issueWeaving) ĐÃ GỠ 09/11/2026 - xuất đan đi 2 phiếu XK có ảnh ký (issue-slips-api.ts:
+// WEAVING_PIECE từ kho giữ mảnh, WEAVING_MATERIAL từ kho Phụ kiện).
 
 export async function receiveWeaving(
   pf: Sku,

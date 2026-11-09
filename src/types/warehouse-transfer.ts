@@ -68,9 +68,9 @@ export interface WarehouseTransfer {
 // chuỗi chuyển kho nội bộ". Đổi sang so khớp theo GIA ĐÌNH (warehouseFamilyOf) - người tạo phiếu
 // tự CHỌN kho đích cụ thể trong gia đình hợp lệ (quyết định nghiệp vụ 2026-09-03), các hàm dưới
 // đây chỉ còn xác nhận "gia đình có hợp lệ" chứ không suy ra 1 kho đích duy nhất nữa.
+// 09/11/2026 (anh Nhân): mảnh không đan chuyển thẳng kho Phôi/Hàn/Sơn -> kho Thành phẩm; mảnh cần đan xuất đan bằng phiếu XK.
 export const TRANSFER_ROUTES: Record<string, string> = {
-  'phoi-son-han': 'vat-tu-tp',
-  'vat-tu-tp': 'thanh-pham',
+  'phoi-son-han': 'thanh-pham',
 }
 
 export function isValidTransferRoute(fromCode: string, toCode: string): boolean {
