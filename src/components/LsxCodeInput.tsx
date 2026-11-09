@@ -19,6 +19,9 @@ export interface LsxCodeInputProps {
   value: string | null | undefined
   mode: 'edit' | 'fill' | 'view'
   prefixes: string[]
+  /** Tiền tố gợi ý theo khách hàng (xem utils/lsxSuggest). null = không đoán được -> ô tiền tố để TRỐNG (không tự điền);
+   *  không truyền (undefined) = như cũ, điền sẵn tiền tố đầu tiên Admin khai. */
+  suggestedPrefix?: string | null
   /** Gọi sau khi BE lưu xong (để trang tải lại danh sách). */
   onSaved?: (lsxCode: string | null) => void
 }
@@ -36,8 +39,10 @@ const iconBtn: React.CSSProperties = {
   fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text2)',
 }
 
-export default function LsxCodeInput({ piId, itemId, value, mode, prefixes, onSaved }: LsxCodeInputProps) {
+export default function LsxCodeInput({ piId, itemId, value, mode, prefixes, suggestedPrefix, onSaved }: LsxCodeInputProps) {
   const current = value?.trim() || null
+  // Tiền tố điền sẵn khi chưa có số: gợi ý theo khách; không truyền gợi ý thì tiền tố đầu tiên Admin khai (như cũ).
+  const defaultPrefix = suggestedPrefix === undefined ? (prefixes[0] ?? '') : (suggestedPrefix ?? '')
   const [editing, setEditing] = useState(false)
   const [prefix, setPrefix] = useState('')
   const [num, setNum] = useState('')
@@ -46,7 +51,7 @@ export default function LsxCodeInput({ piId, itemId, value, mode, prefixes, onSa
 
   // Mở ô nhập: điền sẵn số hiện có; chưa có thì tiền tố đầu tiên Admin khai.
   const startEdit = () => {
-    setPrefix((current && lsxPrefixOf(current)) ?? prefixes[0] ?? '')
+    setPrefix((current && lsxPrefixOf(current)) ?? defaultPrefix)
     setNum((current && lsxNumberOf(current)) ?? '')
     setError(null)
     setEditing(true)
@@ -55,9 +60,9 @@ export default function LsxCodeInput({ piId, itemId, value, mode, prefixes, onSa
   const showForm = mode !== 'view' && (editing || (!current && (mode === 'edit' || mode === 'fill')))
   useEffect(() => {
     if (!current && mode !== 'view' && !editing) {
-      setPrefix((p) => p || prefixes[0] || '')
+      setPrefix((p) => p || defaultPrefix)
     }
-  }, [current, mode, editing, prefixes])
+  }, [current, mode, editing, defaultPrefix])
 
   if (!showForm) {
     if (!current) {

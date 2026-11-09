@@ -43,6 +43,7 @@ import type { WorkshopRef } from '../../../types/workshop'
 import { useLsxPrefixes } from '../../../hooks/useLsxPrefixes'
 import LsxCodeInput from '../../../components/LsxCodeInput'
 import ChangeWorkshopDialog from '../../../components/ChangeWorkshopDialog'
+import { pickCurrentStage, type ParallelStageInput } from './currentStagePick'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -522,7 +523,7 @@ const FLOOR_ACTION_CONFIRM: Record<FloorAction, { title: string; message: string
   },
   pause: {
     title: 'Tạm dừng lệnh?', confirmLabel: 'Tạm dừng', danger: true, error: 'Lỗi tạm dừng lệnh',
-    message: 'Xưởng sẽ KHÔNG báo sản lượng, xuất vật tư, KCS được cho cả PI (nếu PI không còn SKU nào khác đang chạy) cho tới khi bấm "Tiếp tục".',
+    message: 'Xưởng sẽ KHÔNG báo sản lượng, xuất vật tư, KCS được cho cả lệnh (nếu lệnh không còn SKU nào khác đang chạy) cho tới khi bấm "Tiếp tục".',
   },
   finish: {
     title: 'Kết thúc lệnh?', confirmLabel: 'Kết thúc lệnh', danger: true, error: 'Lỗi kết thúc lệnh',
@@ -658,7 +659,7 @@ function PurchasingContent({ materials, deadline }: { materials: MaterialItem[];
     </div>
     {materials.some(m => m.sharedPi) && (
       <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text3)' }}>
-        <b>Mua chung:</b> các vật tư ghi “(mua chung)” được mua gộp cho cả PI - số lượng là tổng của tất cả SKU trong PI, không phải riêng SKU này. Chỉ dây và nệm được tách riêng theo từng SKU.
+        <b>Mua chung:</b> các vật tư ghi “(mua chung)” được mua gộp cho cả lệnh - số lượng là tổng của tất cả SKU trong lệnh, không phải riêng SKU này. Chỉ dây và nệm được tách riêng theo từng SKU.
       </div>
     )}
     </div>
@@ -850,7 +851,7 @@ function FrameSubStages({ frame }: { frame: StageDetails['frame'] }) {
         <>
           {frame.phoiUnassignedDone > 0 && (
             <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>
-              PI này còn {frame.phoiUnassignedDone.toLocaleString('vi-VN')} đoạn đã làm từ trước khi Phôi ghi theo SKU — không thuộc SKU nào, chỉ tính ở mức PI.
+              Lệnh này còn {frame.phoiUnassignedDone.toLocaleString('vi-VN')} đoạn đã làm từ trước khi Phôi ghi theo SKU — không thuộc SKU nào, chỉ tính ở mức lệnh.
             </div>
           )}
           {(() => {
@@ -970,31 +971,28 @@ function isAllDone(details: StageDetails): boolean {
   )
 }
 
-// Công đoạn song song (Frame/Weaving/ChuyenKiem/Packaging) đang là "điểm nghẽn" hiện tại của lệnh —
-// công đoạn đầu tiên (theo thứ tự MFG_STAGES) có % > 0 và < 100; nếu không có công đoạn nào dở dang
-// thì trả về công đoạn cuối cùng đã có tiến độ (đã xong, công đoạn kế tiếp chưa bắt đầu).
-function getCurrentParallelStage(details: StageDetails): { stage: MfgStage; pct: number } | null {
-  let last: { stage: MfgStage; pct: number } | null = null
-  for (const s of MFG_STAGES) {
-    if (!PARALLEL_STAGE_KEYS.has(s.key) || isStageNA(s.key, details)) continue
-    const pct = getStagePercent(s.key, details)
-    if (pct > 0) last = { stage: s.key, pct }
-    if (pct > 0 && pct < 100) return { stage: s.key, pct }
-  }
-  return last
-}
-
 // Dùng cho cột "Công đoạn hiện tại" ở bảng danh sách — 1 nhãn + % duy nhất thay vì 2 cột
 // Trạng thái/Tiến độ tách rời như trước.
+// Luật (2026-11-09): công đoạn XA NHẤT đã bắt đầu làm; Đóng gói đủ số mà chưa Kết thúc -> "Đóng gói xong · chờ Kết
+// thúc" (xem currentStagePick.ts). Thanh tiến độ và % từng công đoạn không đổi.
 function currentStageLabel(order: Pick<MfgOrder, 'status' | 'mfgStage'>, details: StageDetails): { label: string; icon: React.ReactNode; pct: number } {
-  if (order.status === 'DONE') return { label: 'Hoàn thành', icon: <CheckCircle2 size={14} />, pct: 100 }
-  if (order.mfgStage === 'PURCHASING') {
-    const stage = MFG_STAGES.find(s => s.key === 'PURCHASING')!
-    return { label: stage.label, icon: stage.icon, pct: getPurchasingPercent(details.purchasing.materials) }
+  const pick = pickCurrentStage({
+    status: order.status,
+    mfgStage: order.mfgStage,
+    purchasingPct: getPurchasingPercent(details.purchasing.materials),
+    parallel: MFG_STAGES.filter(s => PARALLEL_STAGE_KEYS.has(s.key)).map(s => ({
+      key: s.key as ParallelStageInput['key'],
+      pct: getStagePercent(s.key, details),
+      na: isStageNA(s.key, details),
+    })),
+  })
+  if (pick.kind === 'DONE') return { label: 'Hoàn thành', icon: <CheckCircle2 size={14} />, pct: 100 }
+  if (pick.kind === 'PACKED_WAIT_END') {
+    const stage = MFG_STAGES.find(s => s.key === 'PACKAGING')!
+    return { label: 'Đóng gói xong · chờ Kết thúc', icon: stage.icon, pct: 100 }
   }
-  const active = getCurrentParallelStage(details)
-  const stage = MFG_STAGES.find(s => s.key === (active?.stage ?? 'FRAME'))!
-  return { label: stage.label, icon: stage.icon, pct: active?.pct ?? 0 }
+  const stage = MFG_STAGES.find(s => s.key === pick.stage)!
+  return { label: stage.label, icon: stage.icon, pct: pick.pct }
 }
 
 // ─── Stage detail card ────────────────────────────────────────────────────────
@@ -1888,10 +1886,10 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
             style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}
           >
             <ArrowLeft size={15} />
-            Quay lại danh sách PI
+            Quay lại danh sách lệnh
           </button>
           <span style={{ color: 'var(--text3)', fontSize: 13 }}>/</span>
-          <span style={{ fontSize: 13, color: 'var(--text3)' }}>Chi tiết PI</span>
+          <span style={{ fontSize: 13, color: 'var(--text3)' }}>Chi tiết lệnh</span>
         </div>
 
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: isMobile ? 14 : '16px 24px', marginBottom: 16 }}>
@@ -1922,11 +1920,11 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
         </div>
 
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: isMobile ? 14 : '16px 24px', marginBottom: 20 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Tiến độ cả PI</div>
+          <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Tiến độ cả lệnh</div>
           <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: selectedPi.details.frame.phoiUnassignedDone > 0 ? 6 : 14 }}>Cộng dồn số lượng thật của {selectedPi.rows.length} SKU — bấm 1 SKU bên dưới để xem tiến độ riêng từng SKU.</div>
           {selectedPi.details.frame.phoiUnassignedDone > 0 && (
             <div style={{ fontSize: 12, color: 'var(--amber)', marginBottom: 14 }}>
-              Lưu ý: có {selectedPi.details.frame.phoiUnassignedDone.toLocaleString('vi-VN')} đoạn Phôi đã làm từ trước khi ghi theo SKU (chưa gán SKU). Số Phôi của cả PI có tính các đoạn này, còn từng SKU thì không — nên tổng các SKU có thể thấp hơn số cả PI cho tới khi Phôi gán SKU cho các đợt cũ.
+              Lưu ý: có {selectedPi.details.frame.phoiUnassignedDone.toLocaleString('vi-VN')} đoạn Phôi đã làm từ trước khi ghi theo SKU (chưa gán SKU). Số Phôi của cả lệnh có tính các đoạn này, còn từng SKU thì không — nên tổng các SKU có thể thấp hơn số cả lệnh cho tới khi Phôi gán SKU cho các đợt cũ.
             </div>
           )}
           {piDone
@@ -1957,7 +1955,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
           {viewSwitch}
         </div>
         <p style={{ ...pageSubtitle, margin: '2px 0 0' }}>
-          Tổng {counts.all} PI · Đang sản xuất {counts.PRODUCING} · Hoàn thành {counts.DONE}
+          Tổng {counts.all} lệnh · Đang sản xuất {counts.PRODUCING} · Hoàn thành {counts.DONE}
           {counts.OVERDUE > 0 && <span style={{ color: 'var(--fg-dc2626)', fontWeight: 700 }}> · ⚠ Quá hạn {counts.OVERDUE}</span>}
         </p>
       </div>
@@ -1995,7 +1993,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
           ) : (isLoading || rowsLoading) ? (
             <div className="card" style={{ padding: 30, textAlign: 'center', color: 'var(--text3)' }}>Đang tải...</div>
           ) : filtered.length === 0 ? (
-            <div className="card" style={{ padding: 30, textAlign: 'center', color: 'var(--text3)' }}>Không có PI nào</div>
+            <div className="card" style={{ padding: 30, textAlign: 'center', color: 'var(--text3)' }}>Không có lệnh nào</div>
           ) : pageItems.map(p => (
             <MobileRowCard
               key={p.piId}
@@ -2023,7 +2021,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
               <th style={{ ...th, width: 120 }}>Mã lệnh</th>
               <th style={th}>Khách hàng · Mã PO</th>
               <th style={{ ...th, width: 190 }}>Công đoạn hiện tại</th>
-              <th style={{ ...th, width: 130 }} title="Hạn giao sớm nhất trong các SKU của PI">Hạn giao</th>
+              <th style={{ ...th, width: 130 }} title="Hạn giao sớm nhất trong các SKU của lệnh">Hạn giao</th>
               <th style={{ ...th, width: 120 }}>Xưởng</th>
             </tr>
           </thead>
@@ -2078,7 +2076,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
             {!rowsError && !isLoading && !rowsLoading && filtered.length === 0 && (
               <tr>
                 <td colSpan={5} style={{ padding: 40, textAlign: 'center', color: 'var(--text3)' }}>
-                  Không có PI nào
+                  Không có lệnh nào
                 </td>
               </tr>
             )}
@@ -2089,7 +2087,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
 
       {!rowsError && !isLoading && filtered.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, fontSize: 12, color: 'var(--text3)' }}>
-          <span>Hiển thị {pageItems.length}/{filtered.length} PI</span>
+          <span>Hiển thị {pageItems.length}/{filtered.length} lệnh</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}

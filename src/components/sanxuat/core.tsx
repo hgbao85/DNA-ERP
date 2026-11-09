@@ -243,14 +243,14 @@ function PiListBoard({ groups, cfg, onEnter }: { groups: PiGroup[]; cfg: StageCf
     <LenhSanXuatBoard<PiView>
       icon={<Icon size={18} />}
       title={`Lệnh sản xuất — Công đoạn ${cfg.label}`}
-      subtitle={`Theo dõi tiến độ ${cfg.verb} theo PI · bấm để xem từng SKU trong PI`}
+      subtitle={`Theo dõi tiến độ ${cfg.verb} theo lệnh · bấm để xem từng SKU trong lệnh`}
       columns={cols}
       rows={views}
       rowKey={v => v.g.productionInvoiceId}
       rowFocus={v => focusKey('PI_CODE', v.g.piCode)}
       clickable={() => true}
       onRowClick={v => onEnter(v.g.productionInvoiceId)}
-      rowTitle={() => 'Bấm để xem danh sách SKU trong PI này'}
+      rowTitle={() => 'Bấm để xem danh sách SKU trong lệnh này'}
     />
   )
 }
@@ -316,7 +316,7 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, pi
         ? `Theo dõi tiến độ ${cfg.verb} theo SKU · bấm SKU để xem mảnh & xác nhận cắt theo đợt`
         : `Theo dõi tiến độ ${cfg.verb} theo SKU · nhập sản lượng theo ${cfg.itemLabel.toLowerCase()}`}
       onBack={onBack}
-      backLabel="Quay lại danh sách PI"
+      backLabel="Quay lại danh sách lệnh"
       columns={cols}
       rows={views}
       rowKey={v => v.r.id}

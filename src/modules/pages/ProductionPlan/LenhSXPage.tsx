@@ -23,6 +23,7 @@ import ContainerLoadHint from '../../../components/ContainerLoadHint'
 import { lineCode, matchesLenhSearch } from '../../../utils/lenhCode'
 import { useLsxPrefixes } from '../../../hooks/useLsxPrefixes'
 import LsxCodeInput from '../../../components/LsxCodeInput'
+import { suggestLsxPrefix } from '../../../utils/lsxSuggest'
 import ChangeWorkshopDialog from '../../../components/ChangeWorkshopDialog'
 import LenhCodeText from '../../../components/LenhCodeText'
 import { getWorkshops } from '../../../services/workshops-api'
@@ -335,6 +336,9 @@ export default function LenhSXPage() {
     () => api.getProductionInvoices(),
     []
   )
+  // Gợi ý tiền tố số LSX theo khách: dựa trên mọi dòng SKU màn đang có (số LSX gần nhất cùng khách, rồi dò tên khách).
+  const lsxSuggestItems = (Array.isArray(pis) ? pis : []).flatMap((p: any) => (Array.isArray(p.items) ? p.items : []))
+  const suggestPrefixFor = (item: any) => suggestLsxPrefix(item?.customerName, lsxSuggestItems, lsxPrefixes)
   // Tự làm mới danh sách trong lúc có SKU đang CALCULATING - KHSX/Sếp không phải tự bấm F5 để biết
   // solver đã trả lời chưa. Dừng poll ngay khi không còn SKU nào đang tính (đỡ tốn request vô ích).
   const hasCalculating = (Array.isArray(pis) ? pis : []).some((p: any) =>
@@ -1389,7 +1393,7 @@ export default function LenhSXPage() {
                           </div>
                           {/* Phần A – Đợt 2: số LSX của dòng SKU. Dòng đã được Sếp duyệt: KHSX chỉ điền khi trống, đổi phải Admin. */}
                           <div style={{ marginTop:8 }}>
-                            <LsxCodeInput piId={pi.id} itemId={item.id} value={item.lsxCode} prefixes={lsxPrefixes} onSaved={() => refetch()}
+                            <LsxCodeInput piId={pi.id} itemId={item.id} value={item.lsxCode} prefixes={lsxPrefixes} suggestedPrefix={suggestPrefixFor(item)} onSaved={() => refetch()}
                               mode={item.prodApproval?.status === 'APPROVED' ? (isAdmin ? 'edit' : 'fill') : 'edit'} />
                           </div>
                         </div>
@@ -1611,7 +1615,7 @@ export default function LenhSXPage() {
                           {/* Phần A – Đợt 2: số LSX bắt buộc trước khi gửi QLSX */}
                           {!locked && (
                             <div style={{ marginTop:6, userSelect:'text' }}>
-                              <LsxCodeInput piId={latestPi.id} itemId={item.id} value={item.lsxCode} mode="edit" prefixes={lsxPrefixes} onSaved={() => refetch()} />
+                              <LsxCodeInput piId={latestPi.id} itemId={item.id} value={item.lsxCode} mode="edit" prefixes={lsxPrefixes} suggestedPrefix={suggestPrefixFor(item)} onSaved={() => refetch()} />
                             </div>
                           )}
                         </div>

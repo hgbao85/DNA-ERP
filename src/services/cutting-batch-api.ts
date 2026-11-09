@@ -160,6 +160,8 @@ export interface CuttingBatchCandidate {
   /** null = chưa được KHSX gom vào PI nào (2026-08-20 - PI không còn tự sinh lúc Sales tạo PO). */
   productionInvoiceCode: string | null;
   deadline: string | null;
+  /** Hạn giao của dòng SKU trong đơn (không có thì của cả đơn). Dùng hiện ở cột Hạn khi `deadline` (hạn khung) null. */
+  deliveryDate?: string | null;
   prodApprovalStatus: ProdApprovalStatus | null;
   /** Lý do bị từ chối lần gần nhất - SKU quay lại bảng này sau khi Sếp bác một đợt gộp. */
   rejectReason: string | null;
