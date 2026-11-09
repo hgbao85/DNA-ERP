@@ -6,7 +6,6 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BePieceTransferPlanItem } from '../../../services/warehouse-transfers-api'
 import type { BePackagingIssuePlanItem } from '../../../services/packaging-issues-api'
-import type { SalesOrder } from '../../../types/sales'
 import { isFamilyScope, warehouseFamilyOf } from '../../../utils/warehouseFamily'
 import { safeArr } from '../../../utils/array'
 import { errMsg } from '../../../utils/errors'
@@ -16,6 +15,7 @@ import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 import LoadErrorState from '../../../components/LoadErrorState'
 import { pageTitle } from '../../../styles/typography'
+import XuatHangBookingSection from './XuatHangBookingSection'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import LenhCode from '../../../components/LenhCode'
 
@@ -169,41 +169,10 @@ function packagingItemsToOrders(summaries: { id: string; poNumber: string; sales
     })
 }
 
-// Kho thành phẩm xuất trực tiếp cho khách - đơn vị là SalesOrder thật (sales-orders module), khác
-// hẳn 2 chặng nội bộ phía trên (không đi qua warehouse-transfers). "Kế hoạch" = totalQty, "Đã
-// xuất" = shippedQty, "Thực có" = phần còn lại được xuất (totalQty - shippedQty) - BE shipItem()
-// không tự đối chiếu tồn kho vật lý (chỉ là bút toán đơn hàng), nên không có nguồn thật nào khác
-// để lấy "tồn kho" - dùng luôn phần còn lại của đơn làm giới hạn nhập, đúng những gì BE thật sự
-// chặn. SalesOrderItem không có field đơn vị riêng (luôn là thành phẩm đếm theo cái).
+// Kho thành phẩm xuất hàng cho khách: Đợt 10b (YC5 5.7) bỏ nút "Xuất giao" theo từng dòng đơn - mọi lần xuất hàng đi qua
+// booking (XuatHangBookingSection).
 const SHIP_SCOPE = 'thanh-pham'
 
-function salesOrdersToOrders(salesOrders: SalesOrder[]): Order[] {
-  return salesOrders
-    .map(so => ({
-      id: so.id,
-      kind: 'ship' as const,
-      ref: so.orderCode,
-      counterpart: so.customerName,
-      date: so.orderDate,
-      poNumber: so.orderCode,
-      // Đơn có thể nằm trong nhiều PI - hiện đủ các mã, ngăn bằng dấu phẩy.
-      piCode: so.piCodes?.length ? so.piCodes.join(', ') : undefined,
-      skuCode: so.items[0]?.skuCode,
-      skuName: so.items[0]?.skuName,
-      lines: so.items
-        .filter(it => it.totalQty > it.shippedQty)
-        .map(it => ({
-          id: it.id,
-          materialName: it.skuName ? `${it.skuCode} — ${it.skuName}` : it.skuCode,
-          unit: 'cái',
-          plannedQty: it.totalQty,
-          availableQty: it.totalQty - it.shippedQty,
-          confirmedQty: it.shippedQty,
-          inputQty: '',
-        })),
-    }))
-    .filter(o => o.lines.length > 0)
-}
 
 // Giữ nguyên inputQty đang gõ dở của từng dòng khi refetch dữ liệu remote đè lên state cục bộ -
 // cùng idiom TwoTierScreen ở components/sanxuat/core.tsx.
@@ -263,24 +232,17 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
     return packagingItemsToOrders(summaries, mine)
   }, [scope])
 
-  // Danh sách đơn hàng bán + số lượng còn phải xuất thật — thay MOCK cho scope 'thanh-pham'.
-  const { data: shipOrders, error: shipOrdersError, refetch: refetchShipOrders } = useFetch<Order[]>(async () => {
-    if (!isShipScope) return []
-    const salesOrders = await api.getSalesOrders()
-    return salesOrdersToOrders(salesOrders)
-  }, [isShipScope])
 
   // Realtime: đơn xuất / đợt đóng gói / tồn đổi -> làm mới đúng danh sách tương ứng. Các hàm refetch này
   // đã gộp giữ số lượng đang gõ dở (xem comment phía trên), nên an toàn khi dữ liệu remote đổi.
-  useRealtimeRefetch(['sales-orders'], () => { void refetchShipOrders() })
   useRealtimeRefetch(['packaging-issues'], () => { void refetchPackagingOrders() })
   useRealtimeRefetch(['stock'], () => { void refetchPieceOrders() })
   // useFetch nuốt lỗi vào state `error` riêng, không throw ra ngoài — trước đây không màn nào đọc
   // field này nên 1 lỗi BE (vd ConflictException của getPieceTransferPlan) khiến danh sách chỉ
   // hiện trắng trơn "Không có lệnh xuất nào đang chờ xử lý" mà không có gợi ý gì (Critical C2).
   // packagingOrdersError giờ luôn có thể liên quan (không còn gán theo 1 scope cố định).
-  const activeListError = pieceOrdersError ?? packagingOrdersError ?? (isShipScope ? shipOrdersError : null)
-  const retryActiveList = () => { refetchPieceOrders(); refetchPackagingOrders(); if (isShipScope) refetchShipOrders() }
+  const activeListError = pieceOrdersError ?? packagingOrdersError
+  const retryActiveList = () => { refetchPieceOrders(); refetchPackagingOrders() }
 
   // Gộp CẢ 3 nguồn vào 1 state duy nhất trong CÙNG 1 effect (2026-09-04) - trước đây 3 effect
   // riêng, mỗi cái tự setOrders() ĐÈ TOÀN BỘ state bằng đúng slice của mình (mergeInputQty trả về
@@ -290,9 +252,9 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   // effect nào chạy sau cùng "thắng" và xoá mất dữ liệu của effect kia. Gộp lại + giữ nguyên inputQty
   // đang gõ dở (cùng idiom TwoTierScreen ở components/sanxuat/core.tsx).
   useEffect(() => {
-    const next = [...(pieceOrders ?? []), ...(packagingOrders ?? []), ...(shipOrders ?? [])]
+    const next = [...(pieceOrders ?? []), ...(packagingOrders ?? [])]
     setOrders(prev => mergeInputQty(prev, next))
-  }, [pieceOrders, packagingOrders, shipOrders])
+  }, [pieceOrders, packagingOrders])
 
   const [transferBusyLine, setTransferBusyLine] = useState<string | null>(null)
   const [transferErrors, setTransferErrors] = useState<Record<string, string>>({})
@@ -349,22 +311,6 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
       return
     }
 
-    // Kho thành phẩm: "Xác nhận" = ship thật cho đơn hàng (cộng dồn shippedQty), không qua
-    // warehouse-transfers vì đây là điểm cuối chuỗi, xuất thẳng cho khách ngoài.
-    if (order.kind === 'ship') {
-      setTransferBusyLine(lineId)
-      setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
-      try {
-        await api.shipSalesOrderItem(order.id, line.id, qty)
-      } catch (e) {
-        setTransferErrors(prev => ({ ...prev, [lineId]: errMsg(e, 'Không thể xuất kho') }))
-        setTransferBusyLine(null)
-        return
-      }
-      setTransferBusyLine(null)
-      refetchShipOrders() // đọc lại shippedQty thật từ BE thay vì tự trừ cục bộ
-      return
-    }
 
     // order.kind chỉ nhận 1 trong 3 giá trị ở trên (piece/packaging/ship, xem OrderKind) - cả 3
     // đều return sớm, nên không còn nhánh nào rơi xuống đây. Trước 09/09/2026 còn 1 nhánh dự phòng
@@ -545,6 +491,9 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
           <ArrowUpFromLine size={20} color={ACCENT} /> Xuất theo đơn hàng
         </h2>
       </div>
+
+      {/* Đợt 10b: kho thành phẩm (và tổng kho) xuất hàng cho khách theo booking. */}
+      {(isShipScope || scope == null) && <XuatHangBookingSection />}
 
       {(
         activeListError ? (

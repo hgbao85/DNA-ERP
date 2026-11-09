@@ -111,6 +111,10 @@ export interface Booking {
   createdAt: string
   updatedAt: string
   confirmedAt: string | null
+  /** Đợt 10b: kho thành phẩm xác nhận đã xuất. */
+  shippedAt?: string | null
+  shipSlipCode?: string | null
+  shipSlipUrls?: string[]
   cancelledAt: string | null
   cancelReason: string | null
   totals: BookingTotals
