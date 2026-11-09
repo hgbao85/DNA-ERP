@@ -1347,7 +1347,7 @@ export default function GomDotCatPage({ onDone }: Props) {
                       {it.mfgProductName && <div style={{ color: 'var(--text2)', marginTop: 2, wordBreak: 'break-word' }}>{it.mfgProductName}</div>}
                       <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                         <span>{it.salesOrderCode ?? it.productionInvoiceCode ?? '—'}{approvalLabel(it.prodApprovalStatus) && ` · ${approvalLabel(it.prodApprovalStatus)}`}</span>
-                        <span>Hạn {fmtDate(it.deadline)}</span>
+                        <span>Hạn {fmtDate(it.deadline ?? it.deliveryDate ?? null)}{!it.deadline && it.deliveryDate && <span style={{ fontSize: 10, color: 'var(--text3)' }}> hạn giao</span>}</span>
                         {isSel && selected.size >= 2 && daysEarlyOf(it) > 0 && (
                           <span style={{ color: 'var(--fg-b45309)' }}>sớm {daysEarlyOf(it)} ngày</span>
                         )}
@@ -1427,7 +1427,11 @@ export default function GomDotCatPage({ onDone }: Props) {
                       </td>
                       <td style={NUM}>{it.quantity}</td>
                       <td style={{ ...TD, whiteSpace: 'nowrap' }}>
-                        {fmtDate(it.deadline)}
+                        {fmtDate(it.deadline ?? it.deliveryDate ?? null)}
+                        {/* Chưa có hạn khung thì hiện hạn giao của đơn để KHSX biết đơn nào gấp. */}
+                        {!it.deadline && it.deliveryDate && (
+                          <div style={{ fontSize: 10, color: 'var(--text3)' }}>hạn giao</div>
+                        )}
                         {/* Chi phí cắt sớm gắn vào ĐÚNG SKU gây ra nó. Trước đây chỉ có 1 con số
                             cho cả nhóm nên không biết SKU nào đang làm đội chi phí. */}
                         {isSel && selected.size >= 2 && daysEarlyOf(it) > 0 && (
