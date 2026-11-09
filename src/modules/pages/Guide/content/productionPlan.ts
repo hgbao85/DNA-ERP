@@ -83,6 +83,37 @@ export const productionPlanGroup: GuideGroup = {
         'DNA-ERP-BE/src/modules/production-capacity/',
       ],
     },
+    // ─── Đồng bộ Phôi – Hàn (2026-11-04, changelog BE 2026-10-08 mục 59) ────
+    {
+      id: 'mfg-dong-bo-phoi-han',
+      title: 'Đồng bộ Phôi – Hàn: Phôi đã đủ bao nhiêu mảnh, Hàn còn hàn được bao nhiêu',
+      roles: ['khsx', 'qlsx', 'boss'],
+      purpose:
+        'Xem theo từng lệnh và từng mảnh: Phôi đã làm xong đủ đoạn (qua hết công đoạn và đạt KCS) cho bao nhiêu mảnh, Hàn đã hàn bao nhiêu, còn bao nhiêu mảnh phôi đang chờ hàn — giống bảng Excel theo dõi đồng bộ của xưởng.',
+      mock: { title: 'Tổng hợp lệnh SX', buttons: ['Theo lệnh', 'Bảng mốc', 'Đồng bộ Phôi – Hàn', 'Tải lại'] },
+      steps: [
+        'Mở "Tổng hợp lệnh SX" → bấm "Đồng bộ Phôi – Hàn" cạnh tiêu đề.',
+        'Bảng nhóm theo lệnh và SKU. Dòng đầu nhóm cho biết Phôi đủ bộ cho bao nhiêu bộ, mảnh nào đang nghẽn, và Hàn đã đủ bao nhiêu bộ.',
+        'Mỗi dòng 1 mảnh: SL mảnh cần, Phôi đã đồng bộ, Chưa qua KCS (số mảnh sẽ có thêm khi KCS chấm đạt phần Phôi đã báo), % đồng bộ, đã hàn luỹ kế, hàn hôm nay, còn chưa hàn (phôi đã đồng bộ), Phôi chưa đồng bộ.',
+        'Bấm vào 1 mảnh để xem từng loại sắt của mảnh: các công đoạn của sắt đó, có bao nhiêu đoạn đã qua hết công đoạn và đạt KCS, làm được bao nhiêu mảnh; dòng tô đỏ là loại sắt đang thiếu nhất, kèm công đoạn đang nghẽn (ít đoạn nhất).',
+        'Dùng bộ lọc "Phôi chưa đủ", "Hàn vượt Phôi", "Còn phôi chờ hàn" để chỉ xem dòng cần xử lý.',
+      ],
+      result:
+        'Biết ngay mảnh nào Phôi còn thiếu đoạn cắt, và Hàn còn phôi để hàn hay đang phải chờ.',
+      warnings: [
+        'Số "Phôi đã đồng bộ" là ƯỚC TÍNH: Phôi báo theo cỡ đoạn, không theo mảnh, nên khi 1 cỡ đoạn dùng cho nhiều mảnh (vd tay trái và tay phải) hệ thống tự chia đoạn cho các mảnh theo nguyên tắc đủ bộ trước. Số có thể khác sổ theo dõi của tổ Phôi.',
+        'Một đoạn chỉ được tính khi đã qua ĐỦ công đoạn theo định mức (cắt, rồi uốn, dập, tán, nhấn… nếu có) và đã được KCS chấm đạt. Phần Phôi đã báo mà KCS chưa chấm nằm ở cột "Chưa qua KCS" — chưa tính vào mảnh đồng bộ. Tiến độ từng công đoạn xem ở tab "Theo lệnh".',
+        'Chỉ để theo dõi: không chặn tổ Hàn báo sản lượng. "Hàn vượt Phôi" nghĩa là Hàn đã báo nhiều hơn số Phôi đồng bộ ước tính — kiểm tra lại số báo của 2 tổ.',
+        'Mảnh hiện "—" là mảnh chưa có định mức Phôi hoặc chưa tải được tiến độ Phôi. Lệnh nhiều SKU có đợt cắt cũ chưa gắn SKU thì phần đó chưa được tính (bảng có ghi chú).',
+        'Màn Hàn (tổ Hàn nhập sản lượng) ghi dưới mỗi mảnh "Phôi sẵn để hàn: N cái (ước tính)" = mảnh Phôi đã đồng bộ trừ số đã hàn; mở 1 mảnh thì thấy thêm loại sắt đang thiếu nhất và công đoạn đang nghẽn. Chỉ để nhắc, vẫn nhập được bình thường.',
+      ],
+      tags: ['đồng bộ', 'đồng bộ mảnh', 'phôi', 'hàn', 'thực có', 'nghẽn', 'tiến độ'],
+      sourceRefs: [
+        'src/modules/pages/Manufacturing/PieceSyncView.tsx',
+        'DNA-ERP-BE/src/modules/piece-sync-board/piece-sync-board.service.ts',
+        'DNA-ERP-BE/src/modules/piece-sync-board/piece-sync.util.ts',
+      ],
+    },
     {
       id: 'pp-danh-sach-sku',
       title: 'Danh sách SKU',
