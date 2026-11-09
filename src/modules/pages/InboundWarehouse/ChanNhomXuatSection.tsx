@@ -15,6 +15,7 @@ import * as api from '../../../services/api'
 import type { BeProductionOrderSummary } from '../../../services/production-batches-api'
 import type { BeMaterialYieldRecipeDemandItem, BeMaterialYieldRecipeIssue } from '../../../services/material-yield-recipe-production-api'
 import { errMsg } from '../../../utils/errors'
+import { useIssueSlipCart } from './IssueSlipCart'
 import { backBtn } from '../../../styles/buttons'
 import LoadingState from '../../../components/LoadingState'
 import LoadErrorState from '../../../components/LoadErrorState'
@@ -63,7 +64,9 @@ export default function ChanNhomXuatSection() {
   const [qty, setQty] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<string | null>(null)
   const [msgs, setMsgs] = useState<Record<string, string>>({})
+  const cart = useIssueSlipCart()
 
+  // 09/11/2026: thêm vào "Phiếu đang lập" thay cho xuất thẳng - xem XuatVatTuThanhPhamPage.
   const xuat = async (d: BeMaterialYieldRecipeDemandItem) => {
     const remaining = Math.max(0, d.requiredInputQty - (issuedByRecipe.get(d.recipeId) ?? 0))
     const n = Math.max(0, Math.min(remaining, Math.floor(Number(qty[d.recipeId] ?? remaining) || 0)))
@@ -71,9 +74,14 @@ export default function ChanNhomXuatSection() {
     setBusy(d.recipeId)
     setMsgs(p => ({ ...p, [d.recipeId]: '' }))
     try {
-      await api.issueMaterialYieldRecipe(selPi.productionInvoiceId, { recipeId: d.recipeId, issuedQty: n })
+      cart.add({
+        kind: 'MATERIAL_YIELD_RECIPE', materialId: d.inputMaterialId, productionInvoiceId: selPi.productionInvoiceId,
+        recipeId: d.recipeId, qty: n,
+        materialName: `${d.inputMaterialName} (${d.inputMaterialCode}) → ${d.outputMaterialName}`, unit: '',
+        lenhLabel: selPi.piCode,
+      })
       setQty(q => { const { [d.recipeId]: _, ...rest } = q; return rest })
-      await Promise.all([refetchDemand(), refetchIssues()])
+      setMsgs(p => ({ ...p, [d.recipeId]: `Đã thêm ${n} vào phiếu đang lập - sang tab "Phiếu xuất" để tạo phiếu.` }))
     } catch (e) {
       setMsgs(p => ({ ...p, [d.recipeId]: errMsg(e, 'Không thể xuất vật tư') }))
     } finally {
@@ -91,7 +99,7 @@ export default function ChanNhomXuatSection() {
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}><LenhCode piCode={selPi.piCode} /></h2>
         </div>
         <div style={{ color: 'var(--text3)', fontSize: 13, margin: '0 0 16px' }}>
-          Xuất nguyên liệu vào (vd Thanh nhôm) theo nhu cầu vật tư thành phẩm của cả lệnh này. Bấm Xuất → Phôi xác nhận nhận ở <b>Xác nhận nhận sắt</b>.
+          Xuất nguyên liệu vào (vd Thanh nhôm) theo nhu cầu vật tư thành phẩm của cả lệnh này. Bấm “Thêm vào phiếu” → tạo phiếu xuất ở tab Phiếu xuất → ký, tải ảnh, xác nhận xuất → Phôi xác nhận nhận ở <b>Xác nhận nhận sắt</b>.
         </div>
 
         {demandLoading ? <LoadingState /> : demandError ? (
@@ -148,7 +156,7 @@ export default function ChanNhomXuatSection() {
                                 style={{ width: 70, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }} />
                               <button onClick={() => xuat(d)} disabled={busy === d.recipeId}
                                 style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: ACCENT, color: '#fff', cursor: busy === d.recipeId ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
-                                {busy === d.recipeId ? '...' : 'Xuất'}
+                                {busy === d.recipeId ? '...' : 'Thêm vào phiếu'}
                               </button>
                             </div>
                             {msgs[d.recipeId] && <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)' }}>{msgs[d.recipeId]}</div>}

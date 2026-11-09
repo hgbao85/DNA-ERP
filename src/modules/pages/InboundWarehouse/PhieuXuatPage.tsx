@@ -39,7 +39,7 @@ const btn = (enabled: boolean, color = 'var(--bg-2563eb)'): React.CSSProperties 
 })
 const ghost: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }
 
-const KIND_LABEL = { STEEL: 'Sắt', CONSUMABLE: 'Tiêu hao', SHARED: 'Dùng chung', WEAVING_PIECE: 'Mảnh đan', WEAVING_MATERIAL: 'Kèm đan' } as const
+const KIND_LABEL = { STEEL: 'Sắt', CONSUMABLE: 'Tiêu hao', SHARED: 'Dùng chung', WEAVING_PIECE: 'Mảnh đan', WEAVING_MATERIAL: 'Kèm đan', PACKAGING: 'Đóng gói', MATERIAL_YIELD: 'Vật tư TP', MATERIAL_YIELD_RECIPE: 'Vật tư TP' } as const
 const fmtQty = (n: number) => String(Math.round(n * 10_000) / 10_000)
 
 /** `listOnly`: chỉ danh sách phiếu chờ ký / đã xuất, không có giỏ lập phiếu (kho Phụ kiện - phiếu vật tư kèm đan lập ở màn
@@ -98,7 +98,7 @@ export default function PhieuXuatPage({ listOnly = false }: { listOnly?: boolean
       await createIssueSlip({
         lines: cart.lines.map(l => ({
           kind: l.kind, materialId: l.materialId, productionInvoiceId: l.productionInvoiceId, productionOrderId: l.productionOrderId,
-          stage: l.stage, barLengthMm: l.barLengthMm, qty: l.qty, note: l.note,
+          stage: l.stage, barLengthMm: l.barLengthMm, recipeId: l.recipeId, qty: l.qty, note: l.note,
         })),
         recipientName: recipient.trim() || undefined,
         note: note.trim() || undefined,
@@ -119,7 +119,7 @@ export default function PhieuXuatPage({ listOnly = false }: { listOnly?: boolean
         <div style={head}>
           <FileText size={16} color="var(--fg-4527a0)" />
           <b style={{ fontSize: 14 }}>Phiếu đang lập</b>
-          <span style={{ fontSize: 12, color: 'var(--text3)' }}>Thêm dòng từ các tab xuất sắt / vật tư hàn / vật tư sơn, hoặc dòng dùng chung bên dưới. Mỗi phiếu chỉ cho một kho.</span>
+          <span style={{ fontSize: 12, color: 'var(--text3)' }}>Thêm dòng từ các tab xuất sắt / vật tư TP / vật tư hàn / vật tư sơn, hoặc dòng dùng chung bên dưới. Mỗi phiếu chỉ cho một kho.</span>
         </div>
         {cart.lines.length === 0 ? (
           <div style={{ padding: 14, fontSize: 13, color: 'var(--text3)' }}>Chưa có dòng nào.</div>

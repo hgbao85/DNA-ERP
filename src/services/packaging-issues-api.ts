@@ -4,7 +4,7 @@
  * sang kho thanh-pham theo PO). Không có state machine ISSUED->RECEIVED như material-issues-api.ts
  * (không có bước "tổ xác nhận nhận" riêng) — ghi StockLedger ngay lúc tạo.
  */
-import { http, withIdempotencyKey } from './core/http';
+import { http } from './core/http';
 
 export interface BePackagingIssuePlanItem {
   productionOrderId: string;
@@ -36,13 +36,4 @@ export async function getPackagingIssuePlan(
   );
 }
 
-export async function issuePackaging(
-  productionOrderId: string | number,
-  data: { materialId: string; issuedQty: number; note?: string },
-): Promise<void> {
-  await http.post(
-    `/production-orders/${productionOrderId}/packaging-issues`,
-    data,
-    withIdempotencyKey(),
-  );
-}
+// issuePackaging() (xuất thẳng, không phiếu) ĐÃ GỠ 09/11/2026 - xuất qua phiếu XK (issue-slips-api.ts).

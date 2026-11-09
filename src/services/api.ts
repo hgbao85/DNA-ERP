@@ -96,7 +96,7 @@ export { getMaterialGroups, createMaterialGroup, updateMaterialGroup, deleteMate
 export { getMaterialYieldRecipes, createMaterialYieldRecipe, updateMaterialYieldRecipe, deleteMaterialYieldRecipe } from './material-yield-recipes-api';
 export {
   getMaterialYieldRecipeDemand,
-  issueMaterialYieldRecipe, getMaterialYieldRecipeIssuesForInvoice, getMaterialYieldRecipeIssuesByStatus, receiveMaterialYieldRecipeIssue,
+  getMaterialYieldRecipeIssuesForInvoice, getMaterialYieldRecipeIssuesByStatus, receiveMaterialYieldRecipeIssue,
   recordMaterialYieldStepBatch, submitMaterialYieldStep, getMaterialYieldStepBundlesForInvoice, getMaterialYieldStepBundles,
   getQcReviewsForMaterialYieldStepBundles, reviewMaterialYieldStepQc,
 } from './material-yield-recipe-production-api';
@@ -150,9 +150,9 @@ export { getWeavingIssuePlan, getWeavingIssuePlanBatch, receiveWeaving, getWeavi
 export { getMaterialIssuePlan, getMaterialIssuesByStage, receiveMaterialIssue } from './material-issues-api';
 export {
   getMaterialYieldIssuePlan, getMaterialYieldIssuesForOrder, getMaterialYieldIssuesByStatus,
-  issueMaterialYield, receiveMaterialYieldIssue,
+  receiveMaterialYieldIssue,
 } from './material-yield-issues-api';
-export { getPackagingIssuePlan, issuePackaging } from './packaging-issues-api';
+export { getPackagingIssuePlan } from './packaging-issues-api';
 export {
   getProductionBatchesByStage, getProductionBatchesForOrder, reviewProductionBatch,
   listProductionOrdersForStage, getProductionBatchPlan, getProductionBatchPlanBatch, reportProductionBatch,

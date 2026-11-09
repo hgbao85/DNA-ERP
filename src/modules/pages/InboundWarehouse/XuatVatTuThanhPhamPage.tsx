@@ -22,7 +22,8 @@ import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import type { BeMaterialYieldIssuePlanItem } from '../../../services/material-yield-issues-api'
 import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
-import { productionOrderRowKey } from '../../../services/production-invoice-item'
+import { productionOrderRowKey, resolveProductionOrderId } from '../../../services/production-invoice-item'
+import { useIssueSlipCart } from './IssueSlipCart'
 import { errMsg } from '../../../utils/errors'
 import { backBtn } from '../../../styles/buttons'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle, tableScrollBox, stickyHeaderRow } from '../../../styles/table'
@@ -69,16 +70,26 @@ export default function XuatVatTuThanhPhamPage() {
   const [qty, setQty] = useState<Record<string, string>>({})
   const [busy, setBusy] = useState<string | null>(null)
   const [msgs, setMsgs] = useState<Record<string, string>>({})
+  const cart = useIssueSlipCart()
+  void refetch
 
+  // 09/11/2026: không xuất thẳng nữa - thêm vào "Phiếu đang lập", tạo phiếu XK ở tab "Phiếu xuất", ký, tải ảnh rồi mới xác nhận
+  // xuất (lúc đó mới trừ tồn), cùng cách xuất sắt / vật tư hàn, sơn.
   const xuat = async (d: BeMaterialYieldIssuePlanItem) => {
     const n = Math.max(0, Math.min(d.remainingToIssue, Math.floor(Number(qty[d.materialId] ?? d.remainingToIssue) || 0)))
     if (n <= 0 || !selectedPf) return
     setBusy(d.materialId)
     setMsgs(p => ({ ...p, [d.materialId]: '' }))
     try {
-      await api.issueMaterialYield(selectedPf, { materialId: d.materialId, issuedQty: n })
+      const orderId = await resolveProductionOrderId(selectedPf)
+      if (!orderId) throw new Error('SKU chưa có Lệnh sản xuất (chưa được Sếp duyệt) — chưa thể xuất vật tư')
+      cart.add({
+        kind: 'MATERIAL_YIELD', materialId: d.materialId, productionOrderId: orderId, qty: n,
+        materialName: `${d.materialName} (${d.materialCode})`, unit: '',
+        lenhLabel: poInfoFor(selectedPf)?.piCode ?? selectedPf.mfgProduct?.factoryCode ?? '',
+      })
       setQty(q => { const { [d.materialId]: _, ...rest } = q; return rest })
-      await refetch()
+      setMsgs(p => ({ ...p, [d.materialId]: `Đã thêm ${n} vào phiếu đang lập - sang tab "Phiếu xuất" để tạo phiếu.` }))
     } catch (e) {
       setMsgs(p => ({ ...p, [d.materialId]: errMsg(e, 'Không thể xuất vật tư') }))
     } finally {
@@ -125,7 +136,7 @@ export default function XuatVatTuThanhPhamPage() {
           </div>
         </div>
         <div style={{ color: 'var(--text3)', fontSize: 13, margin: '0 0 16px' }}>
-          Xuất Sắt La (Pat) / Thanh nhôm (chân nhôm) theo lệnh sản xuất. Bấm Xuất → Phôi xác nhận nhận ở <b>Xác nhận nhận sắt</b>.
+          Xuất Sắt La (Pat) / Thanh nhôm (chân nhôm) theo lệnh sản xuất. Bấm “Thêm vào phiếu” → tạo phiếu xuất ở tab Phiếu xuất → ký, tải ảnh, xác nhận xuất → Phôi xác nhận nhận ở <b>Xác nhận nhận sắt</b>.
         </div>
 
         {planLoading ? <LoadingState /> : planError ? (
@@ -178,7 +189,7 @@ export default function XuatVatTuThanhPhamPage() {
                                 style={{ width: 70, padding: '4px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }} />
                               <button onClick={() => xuat(d)} disabled={busy === d.materialId}
                                 style={{ padding: '5px 14px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: ACCENT, color: '#fff', cursor: busy === d.materialId ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
-                                {busy === d.materialId ? '...' : 'Xuất'}
+                                {busy === d.materialId ? '...' : 'Thêm vào phiếu'}
                               </button>
                             </div>
                             {msgs[d.materialId] && <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)' }}>{msgs[d.materialId]}</div>}
