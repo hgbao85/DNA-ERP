@@ -213,7 +213,7 @@ export const adminGroup: GuideGroup = {
             ['Nhà cung cấp', 'Tên (bắt buộc), Điện thoại, trạng thái hoạt động. Khung "Số đơn đặt hàng theo nhà cung cấp" bên dưới: nhập số đơn cuối cùng phòng mua đã dùng với từng nhà cung cấp trong năm (vd đã tới đơn 52 thì nhập 52), đơn tạo tiếp trên hệ thống sẽ là 53. Không nhập được số nhỏ hơn số hệ thống đã cấp.', 'Mua hàng chọn nhà cung cấp khi tạo đơn đặt hàng; hệ thống cấp số đơn theo từng nhà cung cấp.'],
             ['Khách hàng bán hàng / Khách hàng xuất khẩu', 'Thông tin khách hàng. Hai màn dùng chung một bảng dữ liệu nhưng khai các ô khác nhau — lưu ý khi tra cứu chéo.', 'Sales chọn khách hàng khi tạo đơn.'],
             ['Định mức vật tư thành phẩm', '"1 vật tư vào cắt ra N vật tư ra" (VD thanh nhôm → chân nhôm).', 'Tính nguyên liệu cho Sắt nhóm con "Vật tư thành phẩm". Xem bài cùng tên ở nhóm Sản xuất của trang hướng dẫn chung (/guide).'],
-            ['Điểm đan', 'Mã/Tên điểm đan (bắt buộc), Tên đầy đủ, điện thoại, địa chỉ, trạng thái hoạt động.', 'Thủ kho chọn khi xuất/nhập đan. Thủ kho Phụ kiện cũng tự thêm được ở "Quản lý điểm đan".'],
+            ['Điểm đan', 'Mã/Tên điểm đan (bắt buộc), Tên đầy đủ, điện thoại, địa chỉ, trạng thái hoạt động.', 'Thủ kho Sơn chọn khi lập phiếu xuất đan, thủ kho Thành phẩm khi nhập đan. Thủ kho Phụ kiện cũng tự thêm được ở "Quản lý điểm đan".'],
             ['Lý do lỗi', 'Nội dung lỗi và công đoạn (Phôi/Hàn/Sơn).', 'KCS chọn khi chấm lỗi.'],
           ],
         },

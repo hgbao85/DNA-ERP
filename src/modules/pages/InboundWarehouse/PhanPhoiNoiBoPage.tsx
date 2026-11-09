@@ -14,11 +14,12 @@
  */
 
 import { useState } from 'react'
-import { Share2, Scissors, Wrench, Flame, SprayCan, FileText } from 'lucide-react'
+import { Share2, Scissors, Wrench, Flame, SprayCan, FileText, Waypoints } from 'lucide-react'
 import XuatSatPage from './XuatSatPage'
 import XuatVatTuThanhPhamPage from './XuatVatTuThanhPhamPage'
 import XuatVatTuTieuHaoPage from './XuatVatTuTieuHaoPage'
 import PhieuXuatPage from './PhieuXuatPage'
+import KhoXuatDanPage from './KhoXuatDanPage'
 import { IssueSlipCartProvider, useIssueSlipCart } from './IssueSlipCart'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 import { useAuth } from '../../../context/AuthContext'
@@ -27,13 +28,15 @@ import { warehouseKindOf, type WarehouseKind } from '../../../utils/warehouseKin
 const ACCENT = 'var(--fg-4527a0)'
 const ACCENT_BG = 'var(--bg-ede7f6)'
 
-type Sub = 'sat' | 'vat-tu-tp' | 'han' | 'son' | 'phieu'
+type Sub = 'sat' | 'vat-tu-tp' | 'han' | 'son' | 'dan' | 'phieu'
 
 const SUBS: { id: Sub; label: string; icon: React.ReactNode }[] = [
   { id: 'sat', label: 'Xuất sắt trong phôi', icon: <Scissors size={15} /> },
   { id: 'vat-tu-tp', label: 'Xuất vật tư TP', icon: <Wrench size={15} /> },
   { id: 'han', label: 'Xuất vật tư hàn',     icon: <Flame size={15} /> },
   { id: 'son', label: 'Xuất vật tư sơn',     icon: <SprayCan size={15} /> },
+  // Anh Nhân 09/11/2026: mảnh xong (Sơn; mảnh chỉ hàn ở kho Hàn) xuất đan THẲNG từ kho giữ mảnh bằng phiếu XK.
+  { id: 'dan', label: 'Xuất đan',            icon: <Waypoints size={15} /> },
   // Đợt 6 (YC4): mọi lần xuất sắt / vật tư hàn, sơn đi qua phiếu xuất XK có số, ký, tải ảnh.
   { id: 'phieu', label: 'Phiếu xuất',       icon: <FileText size={15} /> },
 ]
@@ -42,8 +45,8 @@ const SUBS: { id: Sub; label: string; icon: React.ReactNode }[] = [
  *  sơn. Tổng kho / kho chưa phân loại thấy hết. */
 const SUBS_BY_KIND: Partial<Record<WarehouseKind, Sub[]>> = {
   PHOI: ['sat', 'vat-tu-tp', 'phieu'],
-  HAN: ['han', 'phieu'],
-  SON: ['son', 'phieu'],
+  HAN: ['han', 'dan', 'phieu'],
+  SON: ['son', 'dan', 'phieu'],
 }
 
 export default function PhanPhoiNoiBoPage() {
@@ -96,6 +99,7 @@ function PhanPhoiNoiBo() {
         desc="Vật tư tiêu hao cấp cho Tổ Hàn theo lệnh sản xuất (khí CO₂, dây hàn, đá cắt…). Bấm “Thêm vào phiếu” → tạo phiếu xuất ở tab Phiếu xuất → ký, tải ảnh, xác nhận xuất → tổ Hàn xác nhận nhận." />}
       {sub === 'son' && <XuatVatTuTieuHaoPage stage="SON"
         desc="Vật tư tiêu hao cấp cho Tổ Sơn theo lệnh sản xuất (bột sơn, dung môi, băng keo che…). Bấm “Thêm vào phiếu” → tạo phiếu xuất ở tab Phiếu xuất → ký, tải ảnh, xác nhận xuất → tổ Sơn xác nhận nhận." />}
+      {sub === 'dan' && <KhoXuatDanPage />}
       {sub === 'phieu' && <PhieuXuatPage />}
     </div>
   )

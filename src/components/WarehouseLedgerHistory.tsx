@@ -82,6 +82,7 @@ const TEAM_BY_REF_TYPE: Record<string, string> = {
   STEEL_ISSUE: 'Tổ Phôi',
   MATERIAL_YIELD_CONSUME: 'Tổ Phôi',
   WEAVING_ISSUE_MATERIAL: 'Điểm đan',
+  WEAVING_ISSUE: 'Điểm đan',
   PACKAGING_ISSUE: 'Tổ đóng gói',
   FRAME_OUTPUT: 'Tổ Phôi',
 }

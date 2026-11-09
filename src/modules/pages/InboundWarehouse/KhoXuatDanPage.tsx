@@ -1,15 +1,16 @@
 'use client'
 import MaterialChoiceTags from '../../../components/MaterialChoiceTags'
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Printer } from 'lucide-react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import * as api from '../../../services/api'
 import type { BeWeavingIssuePlanItem } from '../../../services/weaving-issues-api'
 import type { BeWeavingPoint } from '../../../services/weaving-points-api'
+import { createIssueSlip, type IssueSlip } from '../../../services/issue-slips-api'
 import { usePoInfoFloorGate } from '../../../hooks/usePoInfoFloorGate'
-import { productionOrderRowKey } from '../../../services/production-invoice-item'
+import { productionOrderRowKey, resolveProductionOrderId } from '../../../services/production-invoice-item'
 import { errMsg } from '../../../utils/errors'
 import { tableWrap, tbl, row, emptyBox, listTh as thStyle, listTd as tdStyle, tableScrollBox, stickyHeaderRow } from '../../../styles/table'
 import LoadingState from '../../../components/LoadingState'
@@ -20,24 +21,25 @@ import { useIsMobile } from '../../../hooks/useMediaQuery'
 import MobileListCards from '../../../components/MobileListCards'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import LenhCode from '../../../components/LenhCode'
+import { useAuth } from '../../../context/AuthContext'
+import { fixedWarehouseName } from '../../../utils/warehouseKinds'
+import { printIssueSlip } from './printIssueSlip'
 
 /**
- * Xuất đan = xuất mảnh chưa đan (của 1 SKU, tại kho vật tư thành phẩm) cho điểm đan gia công bên
- * ngoài — bắt buộc chọn điểm đan vì 1 loại mảnh có thể xuất cho nhiều điểm đan khác nhau. Số lượng
- * xuất không được vượt quá remainingToIssue (BE tự cộng dồn theo mọi điểm đan đã xuất trước đó -
- * xem WeavingIssuesService.create). Đồng bộ trực tiếp với "Theo dõi nhập đan" (KhoNhapDanPage) -
- * cùng đọc/ghi WeavingIssue/WeavingReceipt qua weaving-issues-api.ts, không phải 2 nguồn độc lập.
+ * Xuất đan - PHIẾU 1 (anh Nhân 09/11/2026): mảnh đã xong công đoạn cuối xuất THẲNG từ kho đang giữ mảnh (kho Sơn; mảnh chỉ hàn ở
+ * kho Hàn) ra điểm đan, không còn đi qua kho Phụ kiện. Thủ kho chọn điểm đan, nhập số mảnh rồi "Lập phiếu xuất mảnh" - hệ thống
+ * cấp số XK, CHƯA trừ tồn; in phiếu, điểm đan ký, tải ảnh ở tab "Phiếu xuất" rồi mới trừ.
+ *
+ * Dây, gỗ, đinh, nút KHÔNG nhập ở đây: hệ thống báo kho Phụ kiện số cần cấp kèm (định mức × số mảnh trên phiếu), thủ kho Phụ kiện
+ * lập PHIẾU 2 cho cùng điểm đan (KhoVatTuKemDanPage). "Theo dõi nhập đan" (KhoNhapDanPage) vẫn đọc cùng WeavingIssue/WeavingReceipt.
  */
 export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }: { readOnly?: boolean; filterExportOrderId?: string } = {}) {
-  // Điện thoại: danh sách PI/PO dạng thẻ (MobileListCards) thay bảng 4-5 cột chiều rộng cố định.
   const isMobile = useIsMobile()
+  const { user } = useAuth()
+  const scope = user?.warehouseScope ?? null
   const { data: skus = [], isLoading, error: skusError, refetch: refetchSkus } = useFetch(() => api.getSkus(), [])
   const { data: pointsData } = useFetch<BeWeavingPoint[]>(() => api.getWeavingPoints(), [])
-  const points = pointsData ?? []
-  const pointLabel = (id: string) => {
-    const p = points.find(w => String(w.id) === id)
-    return p?.fullName ?? p?.code ?? `#${id}`
-  }
+  const points = (pointsData ?? []).filter(p => p.isActive !== false)
 
   const [selectedPf, setSelectedPf] = useState<Sku | null>(null)
   const { data: planData, isLoading: planLoading, refetch } = useFetch<BeWeavingIssuePlanItem[]>(
@@ -45,16 +47,10 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
     [productionOrderRowKey(selectedPf)],
   )
   const plan = planData ?? []
-  // SKU mới/đổi từ phòng khác, hoặc có ai khác vừa xuất/nhập đan - tự tải lại NGẦM (2026-10-17),
-  // banner cũ chỉ hiện ở màn DANH SÁCH (xem đồng bộ với KhoNhapDanPage) - KHÔNG đụng màn chi tiết
-  // (qty/pointId/materialQty theo dòng, early-return riêng, xem `if (selectedPf)` dưới).
-  useRealtimeRefetch(['skus', 'weaving-issues'], () => { void refetchSkus(); void refetch() })
+  // Phiếu mới / ai khác vừa xác nhận / huỷ phiếu -> tải lại ngầm.
+  useRealtimeRefetch(['skus', 'weaving-issues', 'issue-slips'], () => { void refetchSkus(); void refetch() })
 
-  // PO/PI thật (từ ProductionOrder Sếp đã duyệt) - xem comment ở buildProductionOrderInfoByMfgProduct().
-  // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho được xuất đan cho BẤT KỲ SKU
-  // nào cùng PI đó (2026-08-31, gộp theo PI - cùng quy tắc XuatSatPage/XuatVatTuTieuHaoPage/
-  // WeavingIssuesService.assertItemPiHasActiveFloor() ở backend). Ẩn hẳn khỏi danh sách, backend
-  // cũng chặn cứng, đây chỉ là lớp UI khớp theo.
+  // QLSX phải bấm "Bắt đầu" cho ÍT NHẤT 1 SKU trong PI trước khi kho xuất đan (BE cũng chặn - assertItemPiHasActiveFloor).
   const { poInfoFor, activePiIds, orderRows } = usePoInfoFloorGate()
   const active = orderRows(skus as Sku[]).filter(p =>
     p.status !== 'DRAFT' &&
@@ -70,94 +66,73 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
     }
   }, [active, filterExportOrderId])
 
-  const [qty, setQty]         = useState<Record<string, string>>({})
-  const [pointId, setPointId] = useState<Record<string, string>>({})
-  const [busy, setBusy]       = useState<string | null>(null)
-  const [msgs, setMsgs]       = useState<Record<string, string>>({})
-  // Số lượng vật tư (Dây/Đinh/Nút nhựa) thủ kho mang kèm mảnh đi đan - key
-  // `${pieceId}:${materialId}`. Dữ liệu THẬT (2026-09-11) - gửi kèm lúc "Xuất", BE trừ tồn thật
-  // (WeavingIssueMaterial + StockLedger, xem WeavingIssuesService.issueMaterialsForWeaving).
-  // Tự điền sẵn theo định mức × SL mảnh đang nhập (2026-09-11, xem handleQtyChange) - vẫn sửa tay
-  // được sau khi điền, chỉ là gợi ý ban đầu chứ không khoá cứng.
-  const [materialQty, setMaterialQty] = useState<Record<string, string>>({})
+  const [qty, setQty] = useState<Record<string, string>>({})
+  const [pointId, setPointId] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [created, setCreated] = useState<IssueSlip | null>(null)
   const { ask, confirmModal } = useConfirm()
 
-  // qtyPerPiece là Decimal(14,4) ở BE - nhân trực tiếp với JS number dễ dính rác dấu phẩy động
-  // (vd 0.1 × 3 = 0.30000000000000004), làm tròn lại 4 chữ số thập phân trước khi điền vào ô.
+  // Đổi lệnh thì bỏ số đang gõ / thông báo của lệnh trước.
+  const openPf = (pf: Sku | null) => { setSelectedPf(pf); setQty({}); setMsg(''); setCreated(null) }
+
+  // Mảnh do kho khác giữ (vd kho Hàn khi mảnh không sơn) thì thủ kho này không lập được - BE cũng chặn.
+  const mine = (p: BeWeavingIssuePlanItem) => !scope || p.sourceWarehouseCode === scope
+  const capOf = (p: BeWeavingIssuePlanItem) => Math.max(0, p.canIssueQty)
   const roundQty = (n: number) => Math.round(n * 10000) / 10000
 
-  // Gõ SL mảnh -> tự điền lại CẢ 3 ô vật tư theo định mức × SL (ghi đè giá trị đang có, kể cả đã
-  // sửa tay trước đó) - đúng yêu cầu "nhập ở đây thì 3 ô tự lấy số sẵn luôn". SL rỗng/không hợp lệ
-  // thì xoá sạch gợi ý (không để lại số cũ gây hiểu nhầm).
-  // Chặn NGAY LÚC GÕ (2026-09-12, theo yêu cầu trực tiếp - chắc hơn để tới lúc bấm Xuất mới báo
-  // lỗi): gõ số vượt min(remainingToIssue, canIssueQty) thì tự kẹp về đúng số tối đa được phép,
-  // không để ô SL bao giờ giữ được số vượt trần - input HTML `max` chỉ là gợi ý thị giác, không
-  // thật sự chặn gõ tay/dán số.
   const handleQtyChange = (piece: BeWeavingIssuePlanItem, value: string) => {
-    const cap = Math.min(piece.remainingToIssue, piece.canIssueQty)
+    const cap = capOf(piece)
     const q = Number(value)
-    const clamped = value && q > cap ? String(cap) : value
-    setQty(p => ({ ...p, [piece.pieceId]: clamped }))
-    const clampedQty = Number(clamped)
-    setMaterialQty(p => {
-      const next = { ...p }
-      for (const l of [...piece.wire, ...piece.nail, ...piece.plasticButton, ...piece.finishedComponent]) {
-        const key = `${piece.pieceId}:${l.materialId}`
-        if (clamped && clampedQty > 0) next[key] = String(roundQty(l.qtyPerPiece * clampedQty))
-        else delete next[key]
-      }
-      return next
-    })
+    setQty(p => ({ ...p, [piece.pieceId]: value && q > cap ? String(cap) : value }))
   }
 
-  // Bắt buộc nhập đủ MỌI dòng vật tư đi kèm (Dây/Đinh/Nút nhựa/Vật tư thành phẩm) trước khi cho
-  // xuất - mảnh không có dòng vật tư nào thì coi như luôn "đủ", không chặn gì.
-  const allMaterialsFilled = (piece: BeWeavingIssuePlanItem) => {
-    const lines = [...piece.wire, ...piece.nail, ...piece.plasticButton, ...piece.finishedComponent]
-    return lines.every(l => Number(materialQty[`${piece.pieceId}:${l.materialId}`]) > 0)
+  const chosen = plan
+    .filter(p => mine(p) && Number(qty[p.pieceId]) > 0)
+    .map(p => ({ piece: p, q: Math.floor(Number(qty[p.pieceId])) }))
+    .filter(x => x.q > 0)
+  const totalChosen = chosen.reduce((s, x) => s + x.q, 0)
+
+  const pointLabel = (id: string) => {
+    const p = points.find(w => String(w.id) === id)
+    return p?.fullName ?? p?.code ?? `#${id}`
   }
 
-  const handleXuat = (piece: BeWeavingIssuePlanItem) => {
-    const q   = Number(qty[piece.pieceId])
-    const pid = pointId[piece.pieceId]
-    if (!q || q <= 0 || q > piece.remainingToIssue) { setMsgs(p => ({ ...p, [piece.pieceId]: 'Số lượng không hợp lệ (không được vượt quá còn phải xuất)' })); return }
-    if (q > piece.canIssueQty) { setMsgs(p => ({ ...p, [piece.pieceId]: `Vượt số mảnh thực tế đã nhận từ kho phôi-sơn-hàn (chỉ còn ${piece.canIssueQty} có thể xuất)` })); return }
-    if (!pid) { setMsgs(p => ({ ...p, [piece.pieceId]: 'Chọn điểm đan' })); return }
-    if (!allMaterialsFilled(piece)) { setMsgs(p => ({ ...p, [piece.pieceId]: 'Nhập đủ số lượng cho mọi vật tư đi kèm trước khi xuất' })); return }
-    const materials = [...piece.wire, ...piece.nail, ...piece.plasticButton, ...piece.finishedComponent]
-      .map(l => ({ materialId: l.materialId, qty: Number(materialQty[`${piece.pieceId}:${l.materialId}`]) || 0 }))
-      .filter(m => m.qty > 0)
+  const handleCreate = () => {
+    if (!selectedPf) return
+    if (!pointId) { setMsg('Chọn điểm đan'); return }
+    if (chosen.length === 0) { setMsg('Nhập số mảnh cần xuất'); return }
     ask(
-      { message: `Xuất đan ${q} "${piece.pieceName}" cho ${pointLabel(pid)}?` },
+      { message: `Lập phiếu xuất ${totalChosen} mảnh cho ${pointLabel(pointId)}? Hệ thống cấp số phiếu, chưa trừ tồn tới khi tải ảnh phiếu đã ký.` },
       async () => {
-        if (!selectedPf) return
-        setBusy(piece.pieceId)
-        setMsgs(p => ({ ...p, [piece.pieceId]: '' }))
+        setBusy(true); setMsg('')
         try {
-          await api.issueWeaving(selectedPf, { pieceId: piece.pieceId, weavingPointId: pid, qty: q, materials })
-          setQty(p => ({ ...p, [piece.pieceId]: '' }))
-          setMaterialQty(p => {
-            const next = { ...p }
-            for (const m of materials) delete next[`${piece.pieceId}:${m.materialId}`]
-            return next
+          const orderId = await resolveProductionOrderId(selectedPf)
+          if (!orderId) throw new Error('SKU chưa có lệnh sản xuất')
+          const slip = await createIssueSlip({
+            weavingPointId: pointId,
+            lines: chosen.map(x => ({ kind: 'WEAVING_PIECE', productionOrderId: orderId, pieceId: x.piece.pieceId, qty: x.q })),
           })
+          setCreated(slip)
+          setQty({})
           await refetch()
         } catch (e) {
-          setMsgs(p => ({ ...p, [piece.pieceId]: errMsg(e, 'Không thể xuất đan') }))
+          setMsg(errMsg(e, 'Không lập được phiếu xuất đan'))
         } finally {
-          setBusy(null)
+          setBusy(false)
         }
-      }
+      },
     )
   }
 
   // ── Detail view ───────────────────────────────────────────────────────────────
   if (selectedPf) {
+    const canCreate = !readOnly && plan.some(p => mine(p) && capOf(p) > 0)
     return (
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
           <button
-            onClick={() => setSelectedPf(null)}
+            onClick={() => openPf(null)}
             style={{ flexShrink: 0, whiteSpace: 'nowrap', display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}
           >
             <ChevronLeft size={15} /> Quay lại
@@ -176,10 +151,47 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
           </div>
         </div>
 
+        {created && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 14px', marginBottom: 14, borderRadius: 10, background: 'var(--bg-e8f5e9)', color: 'var(--fg-2e7d32)', fontSize: 13 }}>
+            <span>Đã lập phiếu <b style={{ fontFamily: 'monospace' }}>{created.code}</b> cho {created.weavingPointName}. In phiếu → điểm đan ký → tải ảnh ở tab <b>Phiếu xuất</b> rồi xác nhận xuất. Kho Phụ kiện đã được báo để lập phiếu vật tư kèm.</span>
+            <button onClick={() => printIssueSlip(created)} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
+              <Printer size={13} /> In phiếu
+            </button>
+          </div>
+        )}
+
         {planLoading ? <LoadingState /> : plan.length === 0 ? (
-          <div style={emptyBox}>Chưa có mảnh nào để xuất đan (SKU chưa được Sếp duyệt lệnh sản xuất)</div>
+          <div style={emptyBox}>Chưa có mảnh nào để xuất đan (SKU chưa được Sếp duyệt lệnh sản xuất hoặc không có mảnh đan)</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {canCreate && (
+              <div style={{ ...tableWrap, padding: '12px 16px', display: 'flex', gap: 14, alignItems: 'flex-end', flexWrap: 'wrap', background: 'var(--surface2)' }}>
+                <div>
+                  <FieldLabel>Điểm đan nhận</FieldLabel>
+                  <select
+                    value={pointId}
+                    onChange={e => setPointId(e.target.value)}
+                    aria-label="Điểm đan nhận"
+                    style={{ padding: '7px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--surface)', color: 'var(--text)', minWidth: 200 }}
+                  >
+                    <option value="">Chọn điểm đan…</option>
+                    {points.map(w => <option key={w.id} value={String(w.id)}>{w.fullName ?? w.code}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: 1, minWidth: 200, fontSize: 12, color: 'var(--text3)' }}>
+                  Nhập số mảnh ở từng thẻ bên dưới rồi lập 1 phiếu cho cả chuyến. Dây, gỗ, đinh, nút do kho Phụ kiện lập phiếu riêng.
+                </div>
+                <button
+                  onClick={handleCreate}
+                  disabled={busy || chosen.length === 0 || !pointId}
+                  style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 6, background: busy || chosen.length === 0 || !pointId ? 'var(--border)' : 'var(--bg-d97706)', color: busy || chosen.length === 0 || !pointId ? 'var(--text3)' : '#fff', cursor: busy || chosen.length === 0 || !pointId ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
+                >
+                  {busy ? 'Đang lập…' : `Lập phiếu xuất mảnh${totalChosen > 0 ? ` (${totalChosen})` : ''}`}
+                </button>
+                {msg && <div style={{ width: '100%', fontSize: 12, color: 'var(--fg-dc2626)' }}>{msg}</div>}
+              </div>
+            )}
+
             {plan.map(piece => {
               const materialLines = [
                 ...piece.wire.map(l => ({ ...l, group: 'Dây' as const })),
@@ -187,116 +199,69 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
                 ...piece.plasticButton.map(l => ({ ...l, group: 'Nút nhựa' as const })),
                 ...piece.finishedComponent.map(l => ({ ...l, group: 'Vật tư thành phẩm' as const })),
               ]
-              const cap = Math.min(piece.remainingToIssue, piece.canIssueQty)
-              // Chỉ cho thao tác khi: chưa xuất đủ theo định mức, VÀ kho đã thực nhận đủ hàng từ
-              // Phân phối nội bộ - 2 điều kiện tách biệt nên cần 2 thông báo khác nhau (xem statusMsg).
-              const canAct = !readOnly && piece.remainingToIssue > 0 && piece.canIssueQty > 0
+              const cap = capOf(piece)
+              const isMine = mine(piece)
+              const q = Number(qty[piece.pieceId]) || 0
               const statusMsg = piece.remainingToIssue <= 0
                 ? { text: 'Đã xuất đủ', tone: 'ok' as const }
-                : piece.canIssueQty <= 0
-                  ? { text: 'Chưa đủ mảnh đã nhận từ kho phôi-sơn-hàn', tone: 'blocked' as const }
-                  : null
+                : !isMine
+                  ? { text: `Mảnh này do ${fixedWarehouseName(piece.sourceWarehouseCode) ?? piece.sourceWarehouseCode ?? 'kho khác'} xuất`, tone: 'ok' as const }
+                  : cap <= 0
+                    ? { text: piece.onDraftQty > 0 ? 'Phần còn lại đang nằm trên phiếu chờ ký' : 'Chưa có mảnh qua KCS ở kho để xuất', tone: 'blocked' as const }
+                    : null
 
               return (
               <div key={piece.pieceId} style={{ ...tableWrap, overflow: 'hidden' }}>
-                {/* Tên mảnh */}
-                <div style={{ padding: '14px 16px 10px' }}>
+                <div style={{ padding: '14px 16px 10px', display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
                   <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{piece.pieceName}</div>
+                  {piece.sourceWarehouseCode && (
+                    <span style={{ fontSize: 12, color: 'var(--text3)' }}>xuất từ {fixedWarehouseName(piece.sourceWarehouseCode) ?? piece.sourceWarehouseCode}</span>
+                  )}
                 </div>
 
-                {/* Lưới thống kê - thay dòng chữ nối dấu chấm bằng ô số liệu rõ ràng, dễ quét mắt */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', borderTop: '1px solid var(--border)' }}>
                   <StatCell label="Cần" value={piece.totalQty} />
                   <StatCell label="Đã xuất" value={piece.issuedQty} bordered />
-                  <StatCell label="Còn phải xuất" value={piece.remainingToIssue} color={piece.remainingToIssue > 0 ? 'var(--fg-b45309)' : 'var(--fg-15803d)'} bordered />
-                  <StatCell label="Có thể xuất" value={piece.canIssueQty} color={piece.canIssueQty > 0 ? 'var(--fg-15803d)' : 'var(--fg-dc2626)'} bordered />
+                  <StatCell label="Chờ ký" value={piece.onDraftQty} color={piece.onDraftQty > 0 ? 'var(--fg-b45309)' : undefined} bordered />
+                  <StatCell label="Có thể xuất" value={cap} color={cap > 0 ? 'var(--fg-15803d)' : 'var(--fg-dc2626)'} bordered />
                 </div>
 
-                {/* Khu vực thao tác - form có nhãn rõ ràng thay vì nhồi 1 hàng ngang, hoặc thông báo trạng thái khi không thao tác được */}
                 {!readOnly && (
                   <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
                     {statusMsg ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 600, color: statusMsg.tone === 'ok' ? 'var(--text3)' : 'var(--fg-dc2626)' }}>
-                        {statusMsg.text}
-                        {statusMsg.tone === 'blocked' && (
-                          <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text3)' }} title="Kho vật tư-TP chưa nhận đủ mảnh từ Phân phối nội bộ (phôi-sơn-hàn) để xuất đan tiếp">
-                            (định mức còn cho phép, nhưng kho chưa nhận đủ hàng thật)
-                          </span>
-                        )}
-                      </div>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: statusMsg.tone === 'ok' ? 'var(--text3)' : 'var(--fg-dc2626)' }}>{statusMsg.text}</div>
                     ) : (
-                      <div>
-                        <div style={{ display: 'flex', gap: 14, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                          <div>
-                            <FieldLabel>Điểm đan</FieldLabel>
-                            <select
-                              value={pointId[piece.pieceId] ?? ''}
-                              onChange={e => setPointId(p => ({ ...p, [piece.pieceId]: e.target.value }))}
-                              style={{ padding: '7px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--surface)', color: 'var(--text)', minWidth: 160 }}
-                            >
-                              <option value="">Chọn điểm đan…</option>
-                              {points.map(w => <option key={w.id} value={String(w.id)}>{w.fullName ?? w.code}</option>)}
-                            </select>
-                          </div>
-                          <div>
-                            <FieldLabel>Số lượng</FieldLabel>
-                            <input
-                              type="number" min={1} max={cap}
-                              value={qty[piece.pieceId] ?? ''}
-                              onChange={e => handleQtyChange(piece, e.target.value)}
-                              placeholder={`tối đa ${cap}`}
-                              style={{ width: 100, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
-                            />
-                          </div>
-                          <button
-                            onClick={() => handleXuat(piece)}
-                            disabled={busy === piece.pieceId || !allMaterialsFilled(piece)}
-                            title={!allMaterialsFilled(piece) ? 'Nhập đủ số lượng cho mọi vật tư đi kèm trước khi xuất' : undefined}
-                            style={{ padding: '8px 20px', fontSize: 13, fontWeight: 600, border: 'none', borderRadius: 6, background: busy === piece.pieceId || !allMaterialsFilled(piece) ? 'var(--border)' : 'var(--bg-d97706)', color: busy === piece.pieceId || !allMaterialsFilled(piece) ? 'var(--text3)' : '#fff', cursor: busy === piece.pieceId || !allMaterialsFilled(piece) ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}
-                          >
-                            {busy === piece.pieceId ? 'Đang xuất…' : 'Xuất đan'}
-                          </button>
-                        </div>
-                        {msgs[piece.pieceId] && <div style={{ marginTop: 8, fontSize: 12, color: 'var(--fg-dc2626)' }}>{msgs[piece.pieceId]}</div>}
+                      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <FieldLabel>Số mảnh xuất</FieldLabel>
+                        <input
+                          type="number" min={1} max={cap}
+                          value={qty[piece.pieceId] ?? ''}
+                          onChange={e => handleQtyChange(piece, e.target.value)}
+                          placeholder={`tối đa ${cap}`}
+                          aria-label={`Số mảnh xuất ${piece.pieceName}`}
+                          style={{ width: 110, padding: '7px 10px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
+                        />
                       </div>
                     )}
                   </div>
                 )}
 
-                {/* Vật tư đi kèm mảnh (Dây/Đinh/Nút nhựa) - danh sách gọn thay vì nhiều "viên kẹo"
-                    màu sặc sỡ. Ô nhập số lượng THẬT chỉ hiện khi còn thao tác được (canAct) - hết
-                    hạn mức thì không có gì để gửi nên chỉ hiển thị tham khảo, không cho gõ số vô
-                    nghĩa. Số nhập gửi kèm lúc "Xuất", BE trừ tồn ngay (WeavingIssueMaterial +
-                    StockLedger). "Đã xuất"/"Tồn" là dữ liệu thật từ BE, không phải suy diễn ở FE. */}
+                {/* Vật tư kèm: chỉ để biết - kho Phụ kiện lập phiếu riêng theo số mảnh trên phiếu này. */}
                 {materialLines.length > 0 && (
                   <div style={{ borderTop: '1px solid var(--border)' }}>
                     <div style={{ padding: '10px 16px 2px', fontSize: 11, fontWeight: 700, letterSpacing: 0.4, textTransform: 'uppercase', color: 'var(--text3)' }}>
-                      Vật tư mang kèm{canAct ? ' — nhập số lượng thực tế' : ''}
+                      Vật tư kèm — kho Phụ kiện cấp theo phiếu riêng
                     </div>
-                    <div>
-                      {materialLines.map((l, i) => (
-                        <div key={`${l.group}-${l.materialId}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 16px', borderTop: i > 0 ? '1px solid var(--border)' : undefined }}>
-                          <span style={{ ...GROUP_BADGE[l.group], flexShrink: 0, fontSize: 11, fontWeight: 700, borderRadius: 4, padding: '2px 8px', width: 64, textAlign: 'center' }}>{l.group}</span>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.materialName}</div>
-                            <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 1 }}>Đã xuất {l.issuedQty} · Tồn {l.onHandQty} {l.materialUnit}</div>
-                          </div>
-                          {canAct ? (
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-                              <input
-                                type="number" min={0}
-                                value={materialQty[`${piece.pieceId}:${l.materialId}`] ?? ''}
-                                onChange={e => setMaterialQty(p => ({ ...p, [`${piece.pieceId}:${l.materialId}`]: e.target.value }))}
-                                style={{ width: 72, padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }}
-                              />
-                              <span style={{ fontSize: 12, color: 'var(--text3)', width: 34 }}>{l.materialUnit}</span>
-                            </div>
-                          ) : (
-                            <span style={{ fontSize: 13, color: 'var(--text3)', flexShrink: 0 }}>—</span>
-                          )}
+                    {materialLines.map((l, i) => (
+                      <div key={`${l.group}-${l.materialId}`} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '9px 16px', borderTop: i > 0 ? '1px solid var(--border)' : undefined }}>
+                        <span style={{ ...GROUP_BADGE[l.group], flexShrink: 0, fontSize: 11, fontWeight: 700, borderRadius: 4, padding: '2px 8px', width: 64, textAlign: 'center' }}>{l.group}</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{l.materialName}</div>
+                          <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 1 }}>{roundQty(l.qtyPerPiece)} {l.materialUnit}/mảnh · đã cấp {roundQty(l.issuedQty)} {l.materialUnit}</div>
                         </div>
-                      ))}
-                    </div>
+                        {q > 0 && <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)', flexShrink: 0 }}>≈ {roundQty(l.qtyPerPiece * q)} {l.materialUnit}</span>}
+                      </div>
+                    ))}
                   </div>
                 )}
 
@@ -335,13 +300,13 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
   // ── List view ─────────────────────────────────────────────────────────────────
   return (
     <div>
-      <h2 style={{ ...pageTitle, margin: 0 }}>Theo dõi xuất đan</h2>
+      <h2 style={{ ...pageTitle, margin: 0 }}>Xuất đan</h2>
       <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
-        Nhấn vào dòng để xuất mảnh cho điểm đan gia công bên ngoài
+        Nhấn vào dòng để lập phiếu xuất mảnh cho điểm đan — dây, gỗ, đinh, nút do kho Phụ kiện lập phiếu riêng
       </p>
 
       {isLoading ? <LoadingState /> : skusError ? <LoadErrorState error={skusError} onRetry={refetchSkus} /> : isMobile ? (
-        <MobileListCards emptyText="Không có lệnh nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => setSelectedPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>} <MaterialChoiceTags wire={pf.wireMaterial} cushion={pf.cushionMaterial} /></>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'Lệnh', value: <LenhCode piCode={poInfoFor(pf)?.piCode} fallback="Chưa gắn đơn hàng" /> }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
+        <MobileListCards emptyText="Không có lệnh nào" items={active.map(pf => ({ key: productionOrderRowKey(pf), onClick: () => openPf(pf), title: <><b>{pf.mfgProduct?.factoryCode}</b>{pf.mfgProduct?.name && <span style={{ color: 'var(--text3)' }}> — {pf.mfgProduct.name}</span>} <MaterialChoiceTags wire={pf.wireMaterial} cushion={pf.cushionMaterial} /></>, meta: [{ label: 'PO', value: poInfoFor(pf)?.poCode ?? '—' }, { label: 'Lệnh', value: <LenhCode piCode={poInfoFor(pf)?.piCode} fallback="Chưa gắn đơn hàng" /> }, { label: 'Hạn giao', value: poInfoFor(pf)?.deliveryDate ? format(new Date(poInfoFor(pf)!.deliveryDate!), 'dd/MM/yyyy') : '—' }] }))} />
       ) : (
         <div style={{ ...tableWrap, ...tableScrollBox }}>
           <table style={tbl}>
@@ -361,7 +326,7 @@ export default function KhoXuatDanPage({ readOnly = false, filterExportOrderId }
             </thead>
             <tbody>
               {active.map(pf => (
-                <tr key={productionOrderRowKey(pf)} onClick={() => setSelectedPf(pf)} style={row}>
+                <tr key={productionOrderRowKey(pf)} onClick={() => openPf(pf)} style={row}>
                   <td style={{ ...tdStyle, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {poInfoFor(pf)?.poCode ?? '—'}
                   </td>
@@ -402,8 +367,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-/** 1 ô trong lưới thống kê đầu thẻ mảnh (Cần/Đã xuất/Còn phải xuất/Có thể xuất) - nhãn nhỏ phía
- *  trên, số liệu lớn phía dưới, thay cho 1 dòng chữ nối dấu chấm khó quét mắt. */
+/** 1 ô trong lưới thống kê đầu thẻ mảnh - nhãn nhỏ phía trên, số liệu lớn phía dưới. */
 function StatCell({ label, value, color, bordered }: {
   label: string
   value: number
@@ -418,8 +382,7 @@ function StatCell({ label, value, color, bordered }: {
   )
 }
 
-/** Màu nhãn nhóm vật tư - cùng quy ước GROUP_BADGE_COLORS ở SpecSteelPage.tsx (Dây/Đinh/Nút nhựa
- *  giữ đúng màu đã dùng ở màn Định mức mảnh, chỉ áp cho cái nhãn nhỏ, không loang ra cả dòng). */
+/** Màu nhãn nhóm vật tư - cùng quy ước GROUP_BADGE_COLORS ở SpecSteelPage.tsx. */
 const GROUP_BADGE: Record<'Dây' | 'Đinh' | 'Nút nhựa' | 'Vật tư thành phẩm', { background: string; color: string }> = {
   'Dây': { background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)' },
   'Đinh': { background: 'var(--bg-f3e5f5)', color: 'var(--fg-7b1fa2)' },

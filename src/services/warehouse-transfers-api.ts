@@ -207,6 +207,8 @@ export interface BePieceTransferPlanItem {
   readyQty: number;
   transferredQty: number;
   suggestedQty: number;
+  /** Kho Thành phẩm QLSX đã chọn cho SKU - đích của phiếu chuyển mảnh không đan (09/11/2026). */
+  finishedWarehouseCode: string | null;
 }
 
 /** Kế hoạch chuyển kho cho 1 hoặc nhiều PO cùng lúc — đơn vị là PO, không phải PI (1 PI có thể

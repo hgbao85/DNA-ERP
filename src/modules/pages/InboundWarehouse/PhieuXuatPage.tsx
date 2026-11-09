@@ -39,10 +39,12 @@ const btn = (enabled: boolean, color = 'var(--bg-2563eb)'): React.CSSProperties 
 })
 const ghost: React.CSSProperties = { display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 12px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }
 
-const KIND_LABEL = { STEEL: 'Sắt', CONSUMABLE: 'Tiêu hao', SHARED: 'Dùng chung' } as const
+const KIND_LABEL = { STEEL: 'Sắt', CONSUMABLE: 'Tiêu hao', SHARED: 'Dùng chung', WEAVING_PIECE: 'Mảnh đan', WEAVING_MATERIAL: 'Kèm đan' } as const
 const fmtQty = (n: number) => String(Math.round(n * 10_000) / 10_000)
 
-export default function PhieuXuatPage() {
+/** `listOnly`: chỉ danh sách phiếu chờ ký / đã xuất, không có giỏ lập phiếu (kho Phụ kiện - phiếu vật tư kèm đan lập ở màn
+ *  Vật tư kèm đan). */
+export default function PhieuXuatPage({ listOnly = false }: { listOnly?: boolean } = {}) {
   const { user } = useAuth()
   const cart = useIssueSlipCart()
   const { data: drafts, refetch: refetchDrafts } = useFetch(() => getIssueSlips('DRAFT'), [])
@@ -113,7 +115,7 @@ export default function PhieuXuatPage() {
   return (
     <div>
       {/* ── Phiếu đang lập ── */}
-      <div style={card}>
+      {!listOnly && <div style={card}>
         <div style={head}>
           <FileText size={16} color="var(--fg-4527a0)" />
           <b style={{ fontSize: 14 }}>Phiếu đang lập</b>
@@ -159,7 +161,7 @@ export default function PhieuXuatPage() {
           </button>
         </div>
         {createErr && <div style={{ padding: '0 14px 12px', fontSize: 12, color: 'var(--fg-dc2626, #dc2626)' }}>{createErr}</div>}
-      </div>
+      </div>}
 
       {/* ── Phiếu chờ ký ── */}
       <div style={{ fontSize: 14, fontWeight: 700, margin: '4px 0 10px' }}>Phiếu chờ ký ({drafts?.length ?? 0})</div>
@@ -240,7 +242,7 @@ function DraftSlip({ slip, onChanged }: { slip: IssueSlip; onChanged: () => void
     <div style={card}>
       <div style={{ ...head, background: 'var(--bg-fffbeb)' }}>
         <b style={{ fontFamily: 'monospace', fontSize: 14 }}>{slip.code}</b>
-        <span style={{ fontSize: 12, color: 'var(--text3)' }}>{slip.warehouseName} · lập {format(new Date(slip.createdAt), 'dd/MM HH:mm')}{slip.createdByName ? ` · ${slip.createdByName}` : ''}{slip.recipientName ? ` · người nhận ${slip.recipientName}` : ''}</span>
+        <span style={{ fontSize: 12, color: 'var(--text3)' }}>{slip.warehouseName} · lập {format(new Date(slip.createdAt), 'dd/MM HH:mm')}{slip.createdByName ? ` · ${slip.createdByName}` : ''}{slip.weavingPointName ? ` · điểm đan ${slip.weavingPointName}` : slip.recipientName ? ` · người nhận ${slip.recipientName}` : ''}{slip.pairedSlipCode ? ` · đi cùng phiếu mảnh ${slip.pairedSlipCode}` : ''}</span>
         <div style={{ flex: 1 }} />
         <button onClick={() => printIssueSlip(slip)} style={ghost}><Printer size={13} /> In phiếu</button>
         <button onClick={() => setCancelling(c => !c)} disabled={busy} style={ghost}>Huỷ phiếu</button>
@@ -253,7 +255,7 @@ function DraftSlip({ slip, onChanged }: { slip: IssueSlip; onChanged: () => void
               <tr key={l.id} style={{ borderTop: '1px solid var(--border)' }}>
                 <td style={td}>{KIND_LABEL[l.kind]}{l.stage ? ` ${l.stage === 'HAN' ? 'Hàn' : 'Sơn'}` : ''}</td>
                 <td style={{ ...td, fontFamily: 'monospace', fontSize: 12 }}>{l.materialCode}</td>
-                <td style={td}>{l.materialName}{l.barLengthMm ? ` · cây ${l.barLengthMm}mm` : ''}{l.note ? <span style={{ color: 'var(--text3)' }}> · {l.note}</span> : null}</td>
+                <td style={td}>{l.materialName}{l.barLengthMm ? ` · cây ${l.barLengthMm}mm` : ''}{l.kind === 'WEAVING_MATERIAL' && l.pieceName ? <span style={{ color: 'var(--text3)' }}> · kèm {l.pieceName}</span> : null}{l.note ? <span style={{ color: 'var(--text3)' }}> · {l.note}</span> : null}</td>
                 <td style={{ ...td, fontFamily: 'monospace', fontSize: 12 }}>{l.lenhCode ?? (l.kind === 'SHARED' ? 'Dùng chung' : '—')}{l.sku ? ` · ${l.sku}` : ''}</td>
                 <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>{fmtQty(l.qty)}</td>
                 <td style={{ ...td, color: 'var(--text3)' }}>{l.unit}</td>

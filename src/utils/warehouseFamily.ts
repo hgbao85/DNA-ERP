@@ -11,8 +11,7 @@ export type WarehouseFamily = (typeof WAREHOUSE_FAMILIES)[number]
 /** Chặng kế tiếp - chỉ để biết gia đình nào hợp lệ tiếp theo, KHÔNG suy ra 1 kho đích cụ thể (từ
  *  2026-09-03 người tạo phiếu tự chọn kho đích cụ thể, xem WarehouseXuatPage.tsx). */
 export const FAMILY_ROUTES: Partial<Record<WarehouseFamily, WarehouseFamily>> = {
-  'phoi-son-han': 'vat-tu-tp',
-  'vat-tu-tp': 'thanh-pham',
+  'phoi-son-han': 'thanh-pham',
 }
 
 export function warehouseFamilyOf(code?: string | null): WarehouseFamily | null {

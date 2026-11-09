@@ -23,6 +23,7 @@ import KhoDongGoiPage from './KhoDongGoiPage'
 import WarehouseXuatPage from './WarehouseXuatPage'
 import PhanPhoiNoiBoPage from './PhanPhoiNoiBoPage'
 import KhoXuatDanPage from './KhoXuatDanPage'
+import KhoVatTuKemDanPage from './KhoVatTuKemDanPage'
 import KhoNhapDanPage from './KhoNhapDanPage'
 import QuanLyDiemDanPage from '../Manufacturing/QuanLyDiemDanPage'
 import ChuyenKhoTuDoPage from './ChuyenKhoTuDoPage'
@@ -90,7 +91,8 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
       { id: 'chuyen-kiem' as TabId, label: 'Chuyền kiểm', icon: <ClipboardCheck size={16} /> },
       { id: 'dong-goi'    as TabId, label: 'Đóng gói',    icon: <Box size={16} /> },
     ] : []),
-    { id: 'xuat-dan' as TabId, label: 'Theo dõi xuất đan',  icon: <BarChart3 size={16} /> },
+    // Kho Phụ kiện (09/11/2026): chỉ còn cấp dây, gỗ, đinh, nút kèm mảnh - mảnh xuất đan từ kho Sơn.
+    { id: 'xuat-dan' as TabId, label: isFamilyScope(scope, 'vat-tu-tp') ? 'Vật tư kèm đan' : 'Theo dõi xuất đan', icon: <BarChart3 size={16} /> },
     { id: 'nhap-dan' as TabId, label: 'Theo dõi nhập đan',  icon: <ArrowDownToLine size={16} /> },
     { id: 'diem-dan' as TabId, label: 'Quản lý điểm đan',   icon: <MapPin size={16} /> },
     // Vật tư sinh hoạt/văn phòng (bút, giấy...) - 2026-09-17. RIÊNG theo ĐÚNG kho vật lý của tài
@@ -295,7 +297,10 @@ export default function InboundWarehouseApp({ onBack }: InboundWarehouseAppProps
         {tab === 'xuat-sat'   && isFamilyScope(scope, 'phoi-son-han') && <PhanPhoiNoiBoPage />}
         {tab === 'chuyen-kiem' && canSeePacking && <KhoChuyenKiemPage warehouseScope={scope} />}
         {tab === 'dong-goi'    && canSeePacking && <KhoDongGoiPage warehouseScope={scope} />}
-        {tab === 'xuat-dan'   && isFamilyScope(scope, 'vat-tu-tp')   && <KhoXuatDanPage />}
+        {/* Anh Nhân 09/11/2026: kho Phụ kiện không xuất mảnh nữa (mảnh xuất đan từ kho Sơn - Phân phối nội bộ > Xuất đan) - chỉ
+            lập phiếu dây, gỗ, đinh, nút kèm. Tổng kho xem tiến độ xuất đan (chỉ đọc). */}
+        {tab === 'xuat-dan'   && isFamilyScope(scope, 'vat-tu-tp')   && <KhoVatTuKemDanPage />}
+        {tab === 'xuat-dan'   && scope === null                      && <KhoXuatDanPage readOnly />}
         {tab === 'nhap-dan'   && isThanhPhamScope(scope) && <KhoNhapDanPage warehouseScope={scope} />}
         {tab === 'diem-dan'   && isFamilyScope(scope, 'vat-tu-tp')   && <QuanLyDiemDanPage />}
         {tab === 'vat-tu-can-ve' && <VatTuCanVePage />}
