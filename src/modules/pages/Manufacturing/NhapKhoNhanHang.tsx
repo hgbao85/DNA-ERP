@@ -10,6 +10,7 @@ import { uploadDocument } from '../../../services/uploads-api'
 import { newUuid } from '../../../services/core/uuid'
 import { previewPurchaseReceipt, reserveReceiptSlipCode, type ReceiptAllocationLine } from '../../../services/purchase-receipts-api'
 import { printReceiptSlip } from './printReceiptSlip'
+import { focusAttrAny, focusKey } from '../../../utils/notificationLink'
 
 /**
  * Nhập kho hàng mua theo phiếu (Đợt 5d, 2026-11-05 - bản v8 YC8, YC4 4.3-4.6):
@@ -126,6 +127,12 @@ export default function NhapKhoNhanHang({ lockedGroup }: { lockedGroup?: string 
               {groups.map(g => (
                 <tr
                   key={g.key}
+                  // Link mở thẳng dòng (người A, nút "Nhập kho" ở Vật tư cần về): ?p=nhap-kho&focus=MATERIAL:<id>
+                  // hoặc focus=SUPPLIER_ORDER:<id>.
+                  {...focusAttrAny([
+                    focusKey('MATERIAL', String(g.first.materialId)),
+                    g.first.supplierOrderId ? focusKey('SUPPLIER_ORDER', g.first.supplierOrderId) : null,
+                  ])}
                   onClick={() => setSelectedKey(g.key)}
                   style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
