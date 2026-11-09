@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { OutgoingTransfersPanel } from './InternalTransferSections'
 import { ArrowUpFromLine, ChevronLeft } from 'lucide-react'
 import { format } from 'date-fns'
 import { useFetch } from '../../../hooks/useFetch'
@@ -557,7 +558,8 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
           </div>
         )
       )}
+      {/* 09/11/2026: phiếu chuyển mảnh đã lập, chờ kho nhận - in phiếu để người nhận ký (v8 4.1/4.2). */}
+      {isPieceScope && <OutgoingTransfersPanel warehouseId={myWarehouse?.id ?? null} />}
     </div>
   )
 }
-

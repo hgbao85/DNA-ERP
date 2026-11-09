@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
-import { ArrowLeftRight, Send } from 'lucide-react'
+import { ArrowLeftRight, Printer, Send } from 'lucide-react'
+import { printTransferSlip } from './printTransferSlip'
 import { useFetch } from '../../../hooks/useFetch'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import * as api from '../../../services/api'
@@ -276,6 +277,7 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
                 <th style={th}>Kho đích</th>
                 <th style={th}>Vật tư</th>
                 <th style={th}>Ngày tạo</th>
+                <th style={th} />
               </tr>
             </thead>
             <tbody>
@@ -285,6 +287,12 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
                   <td style={td}>{t.toWarehouseName}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>{t.items.map(it => `${it.materialName} (${it.quantity} ${it.unit})`).join(', ')}</td>
                   <td style={{ ...td, color: 'var(--text3)' }}>{new Date(t.createdAt).toLocaleDateString('vi-VN')}</td>
+                  <td style={td}>
+                    {/* 09/11/2026 (v8 4.1/4.2): in phiếu CK để người nhận ký; kho nhận chụp tải lên khi xác nhận. */}
+                    <button onClick={() => printTransferSlip(t)} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      <Printer size={13} /> In phiếu
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>

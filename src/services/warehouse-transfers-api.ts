@@ -22,6 +22,7 @@ interface BeWarehouseTransferItem {
   materialSpec: string | null;
   unit: string;
   quantity: number;
+  sentQty: number | null;
   note: string | null;
 }
 
@@ -34,6 +35,9 @@ interface BeWarehouseTransferPieceItem {
   pieceCode: string;
   pieceName: string;
   quantity: number;
+  sentQty: number | null;
+  lenhCode: string | null;
+  sku: string;
   note: string | null;
 }
 
@@ -59,6 +63,7 @@ interface BeWarehouseTransfer {
   createdByName: string | null;
   confirmedByName: string | null;
   rejectedByName: string | null;
+  signedSlipUrls: string[];
 }
 
 interface BeWarehouseTransferDetail extends BeWarehouseTransfer {
@@ -74,6 +79,7 @@ function toItem(it: BeWarehouseTransferItem): WarehouseTransferItem {
     materialSpec: it.materialSpec,
     unit: it.unit,
     quantity: it.quantity,
+    sentQty: it.sentQty,
     note: it.note,
   };
 }
@@ -88,6 +94,9 @@ function toPieceItem(it: BeWarehouseTransferPieceItem): WarehouseTransferPieceIt
     pieceCode: it.pieceCode,
     pieceName: it.pieceName,
     quantity: it.quantity,
+    sentQty: it.sentQty,
+    lenhCode: it.lenhCode,
+    sku: it.sku,
     note: it.note,
   };
 }
@@ -107,6 +116,7 @@ function toTransfer(
     toWarehouseName: t.toWarehouseName,
     toWarehouseCode: t.toWarehouseCode,
     status: t.status,
+    signedSlipUrls: t.signedSlipUrls ?? [],
     items: items.map(toItem),
     pieceItems: pieceItems.map(toPieceItem),
     note: t.note,
@@ -177,8 +187,17 @@ export async function createWarehouseTransfer(data: {
 
 /** Trả về response phẳng của BE (không kèm items) — callers hiện tại chỉ refetch danh sách sau
  * khi gọi, không đọc items từ đây, nên không cần fetch chi tiết thêm. */
-export async function confirmWarehouseTransfer(id: string | number): Promise<WarehouseTransfer> {
-  const t = await http.post<BeWarehouseTransfer>(`/warehouse-transfers/${id}/confirm`);
+/** Kho nhận xác nhận (09/11/2026, v8 4.1/4.7): ảnh phiếu đã ký bắt buộc + số thực nhận từng dòng (dòng không gửi = nhận đủ).
+ *  Tồn kho nhận chỉ cộng số thực nhận; phần thiếu ở lại kho giao. */
+export async function confirmWarehouseTransfer(
+  id: string | number,
+  body: {
+    signedSlipUrls: string[]
+    items?: { id: string; receivedQty: number }[]
+    pieceItems?: { id: string; receivedQty: number }[]
+  },
+): Promise<WarehouseTransfer> {
+  const t = await http.post<BeWarehouseTransfer>(`/warehouse-transfers/${id}/confirm`, body);
   return toTransfer(t, []);
 }
 

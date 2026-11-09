@@ -10,7 +10,10 @@ export interface WarehouseTransferItem {
    *  cách (2026-09-15). */
   materialSpec: string | null
   unit: string
+  /** Chờ nhận: số gửi. Đã nhận: số thực nhận (v8 4.7). */
   quantity: number
+  /** Số kho giao gửi khi thực nhận ít hơn; null = nhận đủ. */
+  sentQty?: number | null
   note?: string | null
 }
 
@@ -25,7 +28,12 @@ export interface WarehouseTransferPieceItem {
   pieceId: string
   pieceCode: string
   pieceName: string
+  /** Chờ nhận: số gửi. Đã nhận: số thực nhận (v8 4.7). */
   quantity: number
+  sentQty?: number | null
+  /** Số LSX của lệnh (in phiếu). */
+  lenhCode?: string | null
+  sku?: string
   note?: string | null
 }
 
@@ -39,6 +47,8 @@ export interface WarehouseTransfer {
   toWarehouseName: string
   toWarehouseCode: string
   status: TransferStatus
+  /** Ảnh phiếu chuyển kho đã ký (bắt buộc khi kho nhận xác nhận, từ 09/11/2026). */
+  signedSlipUrls?: string[]
   items: WarehouseTransferItem[]
   pieceItems: WarehouseTransferPieceItem[]
   note?: string | null
