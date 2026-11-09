@@ -179,7 +179,7 @@ function Workstations() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: 15, fontWeight: 700 }}>Máy &amp; điểm làm việc</div>
-          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Mỗi máy 1 mã QR dán cố định. Mã không chứa PI - PI lấy từ hàng đợi của tổ.</div>
+          <div style={{ fontSize: 12, color: 'var(--text3)' }}>Mỗi máy 1 mã QR dán cố định. Mã không chứa lệnh - lệnh lấy từ hàng đợi của tổ.</div>
         </div>
         <button type="button" disabled={printing || !list.some((w) => w.isActive)} onClick={() => void printAll()} style={btn('secondary', printing)}>
           <Printer size={14} /> In tất cả tem

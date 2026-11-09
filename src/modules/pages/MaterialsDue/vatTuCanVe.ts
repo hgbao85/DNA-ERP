@@ -1,11 +1,33 @@
 // Phần A – Đợt 4 (YC6): hàm THUẦN của màn "Vật tư cần về" - định dạng ngày, nhãn trạng thái, số lượng, đếm trên nút lọc.
 // FE KHÔNG tự tính lại trạng thái / hạn / còn thiếu: mọi con số đó do BE (`GET /materials-due`) trả sẵn, ở đây chỉ trình bày.
+import type { User } from '../../../context/AuthContext'
+import { resolveDefaultModule } from '../../../utils/resolveDefaultModule'
+import { focusKey } from '../../../utils/notificationLink'
 import type {
   MaterialsDueCounts, MaterialsDueRow, MaterialsDueSku, MaterialsDueState, MaterialsDueView,
 } from '../../../services/materials-due-api'
 
 /** Mức nhấn của trạng thái: critical = đỏ đậm nổi bật (hạn chót hôm nay), red = đỏ, amber = vàng/cam, grey = xám nhạt. */
 export type DueTone = 'critical' | 'red' | 'amber' | 'grey' | 'muted'
+
+/** Nút "Nhập kho" trên dòng: CHỈ thủ kho (tài khoản vào phân hệ Kho đầu vào - người mua / KHSX / Sếp không có phân hệ này), dòng đã
+ *  đặt NCC (PURCHASING, mới có hàng để nhận), và đúng kho người đó đang làm (thủ kho tổng warehouseScope null thì mọi kho). */
+export function canReceiveRow(
+  user: Pick<User, 'role' | 'warehouseScope' | 'isPurchaser' | 'isProductPlanner' | 'isSale' | 'isMaterialsManager' | 'mfgRole' | 'isFloorWorker'> | null,
+  row: Pick<MaterialsDueRow, 'purchaseStatus' | 'warehouseCode'>,
+): boolean {
+  if (!user || user.role !== 'WAREHOUSE_STAFF') return false
+  if (resolveDefaultModule(user as User) !== 'inbound_warehouse') return false
+  if (row.purchaseStatus !== 'PURCHASING') return false
+  const scope = user.warehouseScope ?? null
+  return scope === null || row.warehouseCode === scope
+}
+
+/** Link mở thẳng dòng nhận hàng ở màn Nhập kho: ưu tiên đơn đặt hàng NCC, không có thì theo vật tư. */
+export function receiveUrl(row: Pick<MaterialsDueRow, 'supplierOrderId' | 'materialId'>): string {
+  const focus = row.supplierOrderId ? focusKey('SUPPLIER_ORDER', row.supplierOrderId) : focusKey('MATERIAL', row.materialId)
+  return `/?m=inbound_warehouse&p=nhap-kho&focus=${encodeURIComponent(focus)}`
+}
 
 /** Ngày hôm nay theo giờ VN dạng 'yyyy-MM-dd' (dùng khi chọn "Theo ngày" mà chưa chọn ngày nào). */
 export const vnToday = (now: Date = new Date()): string =>

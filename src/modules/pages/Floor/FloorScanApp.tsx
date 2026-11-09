@@ -658,7 +658,7 @@ function SteelReceiveRow({ issue, onReceive }: {
       <div>
         <div style={{ fontSize: 18, fontWeight: 700 }}>{issue.materialName}</div>
         <div style={{ fontSize: 14, color: 'var(--text2)' }}>
-          {issue.piCode} · kho xuất <b style={{ color: 'var(--text)' }}>{issue.barCount} cây</b> × {fmtMm(issue.barLengthMm)}mm
+          <LenhCode piCode={issue.piCode} /> · kho xuất <b style={{ color: 'var(--text)' }}>{issue.barCount} cây</b> × {fmtMm(issue.barLengthMm)}mm
           {issue.issuedByName ? ` · ${issue.issuedByName}` : ''}
         </div>
       </div>

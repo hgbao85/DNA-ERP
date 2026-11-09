@@ -175,6 +175,11 @@ async function resolvePendingPhotos(manhs: Manh[]): Promise<Manh[]> {
 }
 
 // ─── FieldLabel ───────────────────────────────────────────────────────
+// Dòng sắt đếm theo đoạn cắt - ĐVT của vật tư (mm) không phải đơn vị của số lượng.
+function childUnitLabel(c: { group: string; unit: string }) {
+  return c.group === 'sat' ? 'đoạn' : c.unit
+}
+
 function FL({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text3)', marginBottom: 4, textTransform: 'uppercase' as const }}>
@@ -752,7 +757,7 @@ export default function SpecSteelPage({ subTab }: {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr style={{ background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
-                  {['SKU', 'Mã khách hàng', 'Thời gian', 'Trạng thái', ''].map(h => (
+                  {['SKU', 'Khách hàng', 'Thời gian', 'Trạng thái', ''].map(h => (
                     <th key={h} style={{ padding: '10px 14px', textAlign: 'left', fontWeight: 600, color: 'var(--text2)', whiteSpace: 'nowrap' }}>{h}</th>
                   ))}
                 </tr>
@@ -783,7 +788,7 @@ export default function SpecSteelPage({ subTab }: {
                         ? <span style={{ background: 'var(--bg-fff3e0)', color: 'var(--fg-e65100)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>⏳ Chờ duyệt</span>
                         : st === 'rejected'
                         ? <span style={{ background: 'var(--bg-ffebee)', color: 'var(--fg-c62828)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>✕ Bị từ chối</span>
-                        : <span style={{ background: 'var(--bg-eef2ff)', color: 'var(--fg-3949ab)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>Chờ nhập</span>
+                        : <span style={{ background: 'var(--bg-eef2ff)', color: 'var(--fg-3949ab)', padding: '3px 10px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>{(() => { const pf = findPf(item.id); return !!pf && resolveManhSource(pf).isDraft })() ? 'Đang nhập (nháp)' : 'Chờ nhập'}</span>
                       }
                     </td>
                     <td style={{ padding: '12px 14px' }}><ChevronRight size={16} color="var(--text3)" /></td>
@@ -1098,7 +1103,7 @@ export default function SpecSteelPage({ subTab }: {
                                 onChange={e => setChildQty(m.id, c.id, e.target.value)}
                                 style={{ ...inputStyle, width: 96, padding: '3px 6px', display: 'inline-block' }} /> {c.unit}</span>
                             ) : (
-                              <span>SL: <b style={{ color: 'var(--text)', fontWeight: 700 }}>{c.soLuong || '—'}</b> {c.unit}</span>
+                              <span>SL: <b style={{ color: 'var(--text)', fontWeight: 700 }}>{c.soLuong || '—'}</b> {childUnitLabel(c)}</span>
                             )}
                           </div>
                           {((c.group === 'sat' || c.group === 'vatTuTP') && c.processSteps.length > 0 || ((c.group === 'nutNhua' || c.group === 'vatTuThanhPham') && c.includeInWeaving) || rowImage(c)) && (
@@ -1181,7 +1186,7 @@ export default function SpecSteelPage({ subTab }: {
                                   style={{ ...inputStyle, width: 84, padding: '4px 6px', textAlign: 'right' }} />
                               ) : (c.soLuong || '—')}
                             </td>
-                            <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{c.unit || '—'}</td>
+                            <td style={{ padding: '9px 14px', color: 'var(--text3)' }}>{childUnitLabel(c) || '—'}</td>
                             <td style={{ padding: '9px 14px' }}>
                               {rowImage(c) ? (
                                 <ZoomableImage url={rowImage(c)} alt={rowLabel(c)} title={rowLabel(c)} height={28} />
@@ -1388,7 +1393,7 @@ export default function SpecSteelPage({ subTab }: {
               ) : manhSt === 'pending' && !isAdmin ? (
                 <>
                   <span style={{ fontSize: 13, color: 'var(--fg-e65100)', fontWeight: 600 }}>
-                    ⏳ Đã gửi phê duyệt — đang chờ quản lý xác nhận
+                    ⏳ Đã gửi phê duyệt — chờ KHSX duyệt
                   </span>
                   <button onClick={() => setSelectedBom(null)} style={{
                     padding: '7px 14px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
@@ -1427,7 +1432,7 @@ export default function SpecSteelPage({ subTab }: {
                     <button
                       onClick={confirmSaveDraft}
                       disabled={savingDraft}
-                      title="Lưu tạm trên máy này - chưa gửi phê duyệt, mở lại trang là thấy lại ngay"
+                      title="Lưu tạm trên máy chủ - chưa gửi phê duyệt, mở lại trang (kể cả máy khác) là thấy lại ngay"
                       style={{
                         padding: '7px 16px', border: '1px solid var(--border)', borderRadius: 'var(--radius)',
                         background: 'var(--surface)', color: 'var(--text2)', fontWeight: 600, fontSize: 13,

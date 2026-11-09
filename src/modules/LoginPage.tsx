@@ -59,7 +59,9 @@ export default function LoginPage() {
       router.push('/');
     } catch (err: unknown) {
       console.error('Đăng nhập thất bại:', err);
-      setError(err instanceof Error ? err.message : 'Tên đăng nhập hoặc mật khẩu không đúng');
+      // Máy chủ lỗi kết nối DB trả câu tiếng Anh kỹ thuật ("Database error") - đổi sang lời thường.
+      const raw = err instanceof Error ? err.message : '';
+      setError(/database error/i.test(raw) ? 'Hệ thống đang lỗi kết nối, thử lại sau' : (raw || 'Tên đăng nhập hoặc mật khẩu không đúng'));
     } finally {
       setLoading(false);
     }

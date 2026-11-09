@@ -102,7 +102,7 @@ export default function QlsxFloorPage() {
       <div>
         <h1 style={{ fontSize: 20, fontWeight: 700 }}>Sản lượng xưởng</h1>
         <div style={{ fontSize: 13, color: 'var(--text2)' }}>
-          Công nhân quét mã tại máy và tự báo số; bạn kiểm rồi gửi KCS, xếp PI cho từng tổ.
+          Công nhân quét mã tại máy và tự báo số; bạn kiểm rồi gửi KCS, xếp lệnh cho từng tổ.
         </div>
       </div>
 

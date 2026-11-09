@@ -24,6 +24,7 @@ import {
   type Abnormal, type OrderFilter, type PieceView, type ShortMaterial,
 } from './piDetailModel'
 import { btn, Notice, Pill, STAGE_LABEL, StackedProgress } from './qlsxUi'
+import LenhCode from '../../../components/LenhCode'
 
 const TOPICS = ['floor', 'steel-issues', 'production-batches', 'qc-reviews'] as const
 type DetailTab = 'short' | 'all' | 'abnormal'
@@ -92,7 +93,7 @@ export default function QlsxPiDetail({ stage, productionInvoiceId, piCode, revie
         }}>
         <header style={{ padding: '14px 18px', borderBottom: '1px solid var(--border)', background: 'var(--surface)', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <h2 id={titleId} style={{ fontSize: 18, fontWeight: 700 }}>{piCode} · tổ {STAGE_LABEL[stage]}</h2>
+            <h2 id={titleId} style={{ fontSize: 18, fontWeight: 700 }}><LenhCode piCode={piCode} /> · tổ {STAGE_LABEL[stage]}</h2>
             <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>
               {orders.length === 1 ? `${orders[0].productName} · ${orders[0].poNumber}` : orders.length > 1 ? `${orders.length} SKU` : ''}
             </div>
@@ -105,7 +106,7 @@ export default function QlsxPiDetail({ stage, productionInvoiceId, piCode, revie
           {orders.length > 1 && (
             <select aria-label="Xem theo SKU" value={orderId ?? ''} onChange={(e) => setOrderId(e.target.value || null)}
               style={{ padding: '6px 8px', fontSize: 13, border: '1px solid var(--border2)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)', maxWidth: 220 }}>
-              <option value="">Cả PI</option>
+              <option value="">Cả lệnh</option>
               {orders.map((o) => <option key={o.productionOrderId} value={o.productionOrderId}>{[`${o.productName} · ${o.poNumber}`, describeMaterialChoices(o)].filter(Boolean).join(' · ')}</option>)}
             </select>
           )}
@@ -124,7 +125,7 @@ export default function QlsxPiDetail({ stage, productionInvoiceId, piCode, revie
                     {view.steps.map((s) => `${s.label} ${s.percent}%`).join(' · ')}
                   </div>
                 )}
-                {orderId !== null && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Đang xem riêng 1 SKU - % của thẻ PI là của cả PI.</div>}
+                {orderId !== null && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>Đang xem riêng 1 SKU - % của thẻ lệnh là của cả lệnh.</div>}
               </section>
 
               <div role="tablist" aria-label="Xem" style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
@@ -257,7 +258,7 @@ function AllBoards({ stage, materials, pieces }: { stage: FloorStage; materials:
         <VatTuDetailBoard lines={pieceProcLines(pieces)} cfg={VAT_TU_TP_CFG} readOnly showThucCo={false} showSpec={false} fullHeight
           title="Mảnh Phôi / vật tư thành phẩm" subtitle="Phôi tự báo theo mảnh — chỉ xem" bannerLabel="Đồng bộ" />
       )}
-      {materials.length === 0 && pieces.length === 0 && <Notice tone="info">PI này chưa có định mức nào cho tổ Phôi.</Notice>}
+      {materials.length === 0 && pieces.length === 0 && <Notice tone="info">Lệnh này chưa có định mức nào cho tổ Phôi.</Notice>}
     </div>
   )
 }

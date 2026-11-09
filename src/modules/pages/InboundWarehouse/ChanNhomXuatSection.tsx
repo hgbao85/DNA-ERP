@@ -91,14 +91,14 @@ export default function ChanNhomXuatSection() {
           <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}><LenhCode piCode={selPi.piCode} /></h2>
         </div>
         <div style={{ color: 'var(--text3)', fontSize: 13, margin: '0 0 16px' }}>
-          Xuất nguyên liệu vào (vd Thanh nhôm) theo nhu cầu vật tư thành phẩm của cả PI này. Bấm Xuất → Phôi xác nhận nhận ở <b>Xác nhận nhận sắt</b>.
+          Xuất nguyên liệu vào (vd Thanh nhôm) theo nhu cầu vật tư thành phẩm của cả lệnh này. Bấm Xuất → Phôi xác nhận nhận ở <b>Xác nhận nhận sắt</b>.
         </div>
 
         {demandLoading ? <LoadingState /> : demandError ? (
           <div style={{ color: 'var(--fg-dc2626)', fontSize: 13 }}>Lỗi tải nhu cầu: {demandError}</div>
         ) : items.length === 0 ? (
           <div style={{ ...card, padding: 24, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
-            PI này chưa cần vật tư thành phẩm không gắn mảnh nào (vd chân nhôm).
+            Lệnh này chưa cần vật tư thành phẩm không gắn mảnh nào (vd chân nhôm).
           </div>
         ) : (
           <div style={{ ...card, overflowX: 'auto' }}>
@@ -169,7 +169,7 @@ export default function ChanNhomXuatSection() {
   return (
     <div>
       <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
-        Chọn PI để xuất nguyên liệu vào cho vật tư thành phẩm KHÔNG gắn mảnh (vd chân nhôm).
+        Chọn lệnh để xuất nguyên liệu vào cho vật tư thành phẩm KHÔNG gắn mảnh (vd chân nhôm).
       </div>
 
       {isLoading ? <LoadingState /> : error ? <LoadErrorState error={error} onRetry={refetch} /> : isMobile ? (
@@ -191,7 +191,7 @@ export default function ChanNhomXuatSection() {
                 </tr>
               ))}
               {piOptions.length === 0 && (
-                <tr><td style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có PI nào</td></tr>
+                <tr><td style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>Không có lệnh nào</td></tr>
               )}
             </tbody>
           </table>

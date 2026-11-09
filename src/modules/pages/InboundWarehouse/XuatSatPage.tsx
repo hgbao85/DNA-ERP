@@ -172,7 +172,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
           <div style={{ ...emptyBox, color: 'var(--fg-dc2626)' }}>Lỗi tải kế hoạch xuất sắt: {planError}</div>
         ) : !planReady ? <LoadingState /> : plan.length === 0 ? (
           <div style={emptyBox}>
-            Chưa có phương án cắt sắt đã duyệt cho PI này — báo KHSX tính/duyệt phương án trước khi
+            Chưa có phương án cắt sắt đã duyệt cho lệnh này — báo KHSX tính/duyệt phương án trước khi
             xuất được.
           </div>
         ) : (
@@ -293,7 +293,7 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
         </h2>
       )}
       <p style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
-        Nhấn vào dòng để xem loại sắt cần xuất cho cả PI (theo phương án cắt sắt đã duyệt) và xuất theo chiều dài/số cây.
+        Nhấn vào dòng để xem loại sắt cần xuất cho cả lệnh (theo phương án cắt sắt đã duyệt) và xuất theo chiều dài/số cây.
       </p>
 
       {isLoading ? <LoadingState /> : listError ? <LoadErrorState error={listError} onRetry={() => { refetchSkus(); refetchOrders() }} /> : isMobile ? (

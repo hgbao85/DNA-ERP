@@ -206,7 +206,7 @@ function KcsSatSection() {
         <Wrench size={20} /> Màn hình KCS — Công đoạn Phôi
       </h2>
       <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
-        Kiểm tra chất lượng theo từng cỡ đoạn — bấm vào PI có đợt chờ kiểm để duyệt.
+        Kiểm tra chất lượng theo từng cỡ đoạn — bấm vào lệnh có đợt chờ kiểm để duyệt.
       </div>
       <div style={card}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -341,7 +341,7 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
         <button onClick={onBack} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
           <ChevronLeft size={15} /> Quay lại
         </button>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}>{pi.poNumber}</h2>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' }}><LenhCode piCode={pi.poNumber} /></h2>
       </div>
 
       {stepKeys.length > 1 && (

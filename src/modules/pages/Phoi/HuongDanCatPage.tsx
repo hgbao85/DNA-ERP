@@ -88,13 +88,13 @@ export default function HuongDanCatPage({ initialPiId, onConsumeInitialPi }: {
         <Ruler size={20} /> Hướng dẫn cắt
       </h2>
       <div style={{ ...pageSubtitle, marginBottom: 'var(--space-5)' }}>
-        Bảng cắt theo đúng phương án đã duyệt cho từng loại sắt — chọn PO/PI để xem chi tiết và xuất file in.
+        Bảng cắt theo đúng phương án đã duyệt cho từng loại sắt — chọn PO/lệnh để xem chi tiết và xuất file in.
       </div>
       <div style={card}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
-              <th style={th}>PO / PI</th>
+              <th style={th}>PO / Lệnh</th>
               <th style={{ ...th, width: 40 }}></th>
             </tr>
           </thead>
@@ -160,7 +160,7 @@ function PiCuttingGuide({ pi, onBack }: { pi: PiOption; onBack: () => void }) {
         <LoadErrorState error={error ?? 'Không rõ nguyên nhân'} onRetry={refetch} />
       ) : !approved ? (
         <div style={{ ...card, padding: 24, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
-          Chưa có phương án cắt nào đã duyệt cho PO/PI này.
+          Chưa có phương án cắt nào đã duyệt cho PO/lệnh này.
         </div>
       ) : lines.length === 0 ? (
         <div style={{ ...card, padding: 24, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>

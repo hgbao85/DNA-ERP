@@ -56,7 +56,7 @@ export default function FloorStoppedBanner() {
     >
       <PauseCircle size={18} color="#f59e0b" style={{ flexShrink: 0, marginTop: 1 }} />
       <span>
-        <b>Lệnh đang TẠM DỪNG — chưa thao tác được:</b> {paused.join(', ')}. Các PI này ẩn khỏi danh sách cho tới khi QLSX bấm
+        <b>Lệnh đang TẠM DỪNG — chưa thao tác được:</b> {paused.join(', ')}. Các lệnh này ẩn khỏi danh sách cho tới khi QLSX bấm
         &quot;Tiếp tục&quot;.
       </span>
     </div>

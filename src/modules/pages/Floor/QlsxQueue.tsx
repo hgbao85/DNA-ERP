@@ -39,6 +39,8 @@ export default function QlsxQueue({ stage, entries, openCount, review, onChanged
   const [detail, setDetail] = useState<DetailTarget | null>(null)
   const [confirmShort, setConfirmShort] = useState(false)
 
+  // Hiện số LSX (không hiện mã PI nội bộ) ở mọi chữ trong hộp xác nhận + hàng đợi.
+  const lenhOf = useLenhCodeLookup(entries.map((e) => e.piCode))
   const running = entries.find((e) => e.status === 'RUNNING') ?? null
   const queued = entries.filter((e) => e.status === 'QUEUED')
   const done = entries.filter((e) => e.status === 'DONE')
@@ -67,13 +69,13 @@ export default function QlsxQueue({ stage, entries, openCount, review, onChanged
   const advance = () => {
     const lines = [
       running
-        ? `${running.piCode} sẽ chuyển sang "đã xong" - tổ ${STAGE_LABEL[stage]} không báo thêm vào PI này nữa (trừ mục "Bù lỗi" khi KCS chấm lỗi).`
-        : `Tổ ${STAGE_LABEL[stage]} chưa chạy PI nào.`,
-      next ? `${next.piCode} bắt đầu chạy.` : 'Hàng đợi hết - tổ sẽ không còn PI đang chạy.',
+        ? `${lenhOf(running.piCode)} sẽ chuyển sang "đã xong" - tổ ${STAGE_LABEL[stage]} không báo thêm vào lệnh này nữa (trừ mục "Bù lỗi" khi KCS chấm lỗi).`
+        : `Tổ ${STAGE_LABEL[stage]} chưa chạy lệnh nào.`,
+      next ? `${lenhOf(next.piCode)} bắt đầu chạy.` : 'Hàng đợi hết - tổ sẽ không còn lệnh đang chạy.',
     ]
     if (openCount > 0) lines.push(`Còn ${openCount} đợt chưa gửi KCS - nên gửi trước khi chuyển.`)
     ask(
-      { title: 'Chuyển PI tiếp', message: lines.join('\n'), confirmLabel: 'Chuyển PI tiếp', danger: openCount > 0 },
+      { title: 'Chuyển lệnh tiếp', message: lines.join('\n'), confirmLabel: 'Chuyển lệnh tiếp', danger: openCount > 0 },
       async () => { await floorAdmin.advance(stage); onChanged() },
     )
   }
@@ -83,19 +85,19 @@ export default function QlsxQueue({ stage, entries, openCount, review, onChanged
   const reopen = () => {
     if (!reopenable) return
     const lines = [
-      `${reopenable.piCode} chạy lại làm PI đang chạy của tổ ${STAGE_LABEL[stage]}.`,
+      `${lenhOf(reopenable.piCode)} chạy lại làm lệnh đang chạy của tổ ${STAGE_LABEL[stage]}.`,
       running
-        ? `${running.piCode} chưa có lần báo nào nên trở về đầu hàng đợi.`
-        : 'Tổ đang không chạy PI nào nên không có PI nào bị đẩy lùi.',
+        ? `${lenhOf(running.piCode)} chưa có lần báo nào nên trở về đầu hàng đợi.`
+        : 'Tổ đang không chạy lệnh nào nên không có lệnh nào bị đẩy lùi.',
     ]
     ask(
-      { title: 'Mở lại PI vừa chuyển', message: lines.join('\n'), confirmLabel: 'Mở lại' },
+      { title: 'Mở lại lệnh vừa chuyển', message: lines.join('\n'), confirmLabel: 'Mở lại' },
       async () => { await floorAdmin.reopen(stage); onChanged() },
     )
   }
 
   return (
-    <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }} aria-label={`PI của tổ ${STAGE_LABEL[stage]}`}>
+    <section style={{ display: 'flex', flexDirection: 'column', gap: 12 }} aria-label={`Lệnh của tổ ${STAGE_LABEL[stage]}`}>
       {confirmModal}
       {detail && (
         <QlsxPiDetail stage={stage} productionInvoiceId={detail.productionInvoiceId} piCode={detail.piCode} review={review}
@@ -120,14 +122,14 @@ export default function QlsxQueue({ stage, entries, openCount, review, onChanged
               </>
             ) : (
               <div style={{ fontSize: 15, color: 'var(--text2)', marginTop: 4 }}>
-                Chưa có PI đang chạy - công nhân quét mã sẽ chưa thấy việc.
+                Chưa có lệnh đang chạy - công nhân quét mã sẽ chưa thấy việc.
               </div>
             )}
           </div>
           {/* Chỉ nổi bật khi tổ đã báo đủ số (hoặc chưa chạy PI nào) - tránh bấm nhầm khi tổ còn đang làm. */}
           <button type="button" disabled={busy || (!running && !next)} onClick={onAdvanceClick}
             style={btn(!running || p?.complete ? 'primary' : 'secondary', busy || (!running && !next))}>
-            {running ? 'Chuyển PI tiếp' : 'Bắt đầu PI đầu hàng đợi'} <ChevronRight size={16} />
+            {running ? 'Chuyển lệnh tiếp' : 'Bắt đầu lệnh đầu hàng đợi'} <ChevronRight size={16} />
           </button>
         </div>
         {running && p && (
@@ -159,22 +161,22 @@ export default function QlsxQueue({ stage, entries, openCount, review, onChanged
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: running ? 12 : 0 }}>
           {running && p?.complete && (
             <Notice tone="ok">
-              Tổ đã báo đủ số cần của {running.piCode}.
-              {openCount > 0 ? ` Còn ${openCount} đợt chờ gửi KCS - kiểm và gửi, rồi bấm “Chuyển PI tiếp”.` : ' Bấm “Chuyển PI tiếp” khi sẵn sàng.'}
+              Tổ đã báo đủ số cần của {lenhOf(running.piCode)}.
+              {openCount > 0 ? ` Còn ${openCount} đợt chờ gửi KCS - kiểm và gửi, rồi bấm “Chuyển lệnh tiếp”.` : ' Bấm “Chuyển lệnh tiếp” khi sẵn sàng.'}
             </Notice>
           )}
           {running && !running.hasActiveFloor && (
             <Notice tone="warn">
-              QLSX chưa bấm “Bắt đầu” SKU nào của {running.piCode} (ở “Tổng hợp lệnh SX”) - công nhân quét được nhưng chưa báo được.
+              QLSX chưa bấm “Bắt đầu” SKU nào của {lenhOf(running.piCode)} (ở “Tổng hợp lệnh SX”) - công nhân quét được nhưng chưa báo được.
             </Notice>
           )}
           {err && <Notice tone="err">{err}</Notice>}
           {reopenable && (
             <div>
               <button type="button" disabled={busy} onClick={reopen}
-                title="Hoàn tác lần bấm “Chuyển PI tiếp” vừa rồi - chỉ làm được khi PI đang chạy chưa có công nhân nào báo."
+                title="Hoàn tác lần bấm “Chuyển lệnh tiếp” vừa rồi - chỉ làm được khi lệnh đang chạy chưa có công nhân nào báo."
                 style={{ ...btn('ghost', busy), padding: 0, fontSize: 12 }}>
-                <Undo2 size={13} /> Chuyển nhầm? Mở lại {reopenable.piCode}
+                <Undo2 size={13} /> Chuyển nhầm? Mở lại {lenhOf(reopenable.piCode)}
               </button>
             </div>
           )}
@@ -185,24 +187,24 @@ export default function QlsxQueue({ stage, entries, openCount, review, onChanged
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
           <div style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>Hàng đợi {queued.length > 0 && <Pill tone="gray">{queued.length}</Pill>}</div>
           <button type="button" onClick={() => setAdding((v) => !v)} style={btn('secondary')}>
-            <Plus size={14} /> Thêm PI
+            <Plus size={14} /> Thêm lệnh
           </button>
         </div>
         {adding && <AddPi stage={stage} onAdded={() => { setAdding(false); onChanged() }} />}
         {queued.length === 0 ? (
-          <div style={{ fontSize: 13, color: 'var(--text3)', padding: '8px 0' }}>Không có PI nào đang chờ.</div>
+          <div style={{ fontSize: 13, color: 'var(--text3)', padding: '8px 0' }}>Không có lệnh nào đang chờ.</div>
         ) : (
           <ol style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: 6 }}>
             {queued.map((q, i) => (
               <li key={q.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 8 }}>
                 <span style={{ width: 22, fontSize: 12, color: 'var(--text3)', fontWeight: 700 }}>{i + 1}</span>
-                <span style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{q.piCode}{i === 0 && <> <Pill tone="blue">tiếp theo</Pill></>}</span>
+                <span style={{ flex: 1, fontWeight: 600, fontSize: 14 }}>{lenhOf(q.piCode)}{i === 0 && <> <Pill tone="blue">tiếp theo</Pill></>}</span>
                 <button type="button" onClick={() => setDetail({ productionInvoiceId: q.productionInvoiceId, piCode: q.piCode })}
-                  aria-label={`Xem trước ${q.piCode}`} title="Xem trước: đã nhận sắt chưa, cần làm những gì" style={{ ...btn('ghost'), fontSize: 12 }}>Xem</button>
-                <button type="button" aria-label={`Đưa ${q.piCode} lên`} disabled={busy || i === 0} onClick={() => move(i, -1)} style={btn('ghost', busy || i === 0)}><ArrowUp size={16} /></button>
-                <button type="button" aria-label={`Đưa ${q.piCode} xuống`} disabled={busy || i === queued.length - 1} onClick={() => move(i, 1)} style={btn('ghost', busy || i === queued.length - 1)}><ArrowDown size={16} /></button>
-                <button type="button" aria-label={`Bỏ ${q.piCode} khỏi hàng đợi`} disabled={busy} style={btn('ghost', busy)}
-                  onClick={() => ask({ title: 'Bỏ khỏi hàng đợi', message: `Bỏ ${q.piCode} khỏi hàng đợi tổ ${STAGE_LABEL[stage]}? Thêm lại được sau.`, confirmLabel: 'Bỏ', danger: true },
+                  aria-label={`Xem trước ${lenhOf(q.piCode)}`} title="Xem trước: đã nhận sắt chưa, cần làm những gì" style={{ ...btn('ghost'), fontSize: 12 }}>Xem</button>
+                <button type="button" aria-label={`Đưa ${lenhOf(q.piCode)} lên`} disabled={busy || i === 0} onClick={() => move(i, -1)} style={btn('ghost', busy || i === 0)}><ArrowUp size={16} /></button>
+                <button type="button" aria-label={`Đưa ${lenhOf(q.piCode)} xuống`} disabled={busy || i === queued.length - 1} onClick={() => move(i, 1)} style={btn('ghost', busy || i === queued.length - 1)}><ArrowDown size={16} /></button>
+                <button type="button" aria-label={`Bỏ ${lenhOf(q.piCode)} khỏi hàng đợi`} disabled={busy} style={btn('ghost', busy)}
+                  onClick={() => ask({ title: 'Bỏ khỏi hàng đợi', message: `Bỏ ${lenhOf(q.piCode)} khỏi hàng đợi tổ ${STAGE_LABEL[stage]}? Thêm lại được sau.`, confirmLabel: 'Bỏ', danger: true },
                     async () => { await floorAdmin.removeEntry(q.id); onChanged() })}>
                   <Trash2 size={16} color="var(--red)" />
                 </button>
@@ -213,16 +215,16 @@ export default function QlsxQueue({ stage, entries, openCount, review, onChanged
         {done.length > 0 && (
           <div style={{ marginTop: 10 }}>
             <button type="button" onClick={() => setShowDone((v) => !v)} style={{ ...btn('ghost'), padding: 0, fontSize: 12 }}>
-              {showDone ? 'Ẩn' : 'Xem'} {done.length} PI đã xong
+              {showDone ? 'Ẩn' : 'Xem'} {done.length} lệnh đã xong
             </button>
             {showDone && (
               <ul style={{ listStyle: 'none', marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 {done.map((d) => (
                   <li key={d.id} style={{ fontSize: 12, color: 'var(--text2)' }}>
-                    <b>{d.piCode}</b> · {d.startedAt ? fmtTime(d.startedAt) : '—'} → {d.endedAt ? fmtTime(d.endedAt) : '—'}
+                    <b>{lenhOf(d.piCode)}</b> · {d.startedAt ? fmtTime(d.startedAt) : '—'} → {d.endedAt ? fmtTime(d.endedAt) : '—'}
                     {d.endedByName ? ` · ${d.endedByName}` : ''}
                     {' '}<button type="button" onClick={() => setDetail({ productionInvoiceId: d.productionInvoiceId, piCode: d.piCode })}
-                      aria-label={`Xem ${d.piCode} còn thiếu gì`} title="Xem còn thiếu gì (để báo bù lỗi)" style={{ ...btn('ghost'), minHeight: 24, padding: '0 6px', fontSize: 12 }}>Xem</button>
+                      aria-label={`Xem ${lenhOf(d.piCode)} còn thiếu gì`} title="Xem còn thiếu gì (để báo bù lỗi)" style={{ ...btn('ghost'), minHeight: 24, padding: '0 6px', fontSize: 12 }}>Xem</button>
                   </li>
                 ))}
               </ul>
@@ -248,7 +250,7 @@ function AddPi({ stage, onAdded }: { stage: FloorStage; onAdded: () => void }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        <select aria-label="Chọn PI" value={sel} onChange={(e) => setSel(e.target.value)} disabled={isLoading}
+        <select aria-label="Chọn lệnh" value={sel} onChange={(e) => setSel(e.target.value)} disabled={isLoading}
           style={{ ...input, flex: 1, minWidth: 200 }}>
           <option value="">{isLoading ? 'Đang tải…' : (data ?? []).length ? 'Chọn lệnh…' : 'Không còn lệnh nào để thêm'}</option>
           {(data ?? []).map((c) => (
@@ -277,6 +279,7 @@ function AdvanceShortDialog({ stage, running, next, piOpenCount, onCancel, onSho
   onShowDetail: () => void
   onDone: () => void
 }) {
+  const lenhOf = useLenhCodeLookup([running.piCode, next?.piCode])
   const { data, error } = useFetch<BeStageDetail>(() => floorAdmin.stageDetail(stage, running.productionInvoiceId), [stage, running.productionInvoiceId])
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -308,12 +311,12 @@ function AdvanceShortDialog({ stage, running, next, piOpenCount, onCancel, onSho
       <div role="alertdialog" aria-modal="true" aria-labelledby={titleId} onKeyDown={onKeyDown} onClick={(e) => e.stopPropagation()}
         style={{ background: 'var(--surface)', borderRadius: 12, width: '100%', maxWidth: 480, padding: 20, boxShadow: '0 8px 32px rgba(0,0,0,.18)' }}>
         <h3 id={titleId} style={{ fontSize: 16, fontWeight: 700, display: 'flex', gap: 8, alignItems: 'center' }}>
-          <AlertTriangle size={18} color="var(--amber)" aria-hidden /> Chuyển PI tiếp cho tổ {STAGE_LABEL[stage]}?
+          <AlertTriangle size={18} color="var(--amber)" aria-hidden /> Chuyển lệnh tiếp cho tổ {STAGE_LABEL[stage]}?
         </h3>
         <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 10, lineHeight: 1.55 }}>
           {p
-            ? <div><b>{running.piCode}</b> mới được <b>{p.percent}%</b>. {missingText(p.missing, 0)}:</div>
-            : <div><b>{running.piCode}</b>: chưa tính được tiến độ.</div>}
+            ? <div><b>{lenhOf(running.piCode)}</b> mới được <b>{p.percent}%</b>. {missingText(p.missing, 0)}:</div>
+            : <div><b>{lenhOf(running.piCode)}</b>: chưa tính được tiến độ.</div>}
           {!data && !error && <div style={{ color: 'var(--text3)' }}>Đang tải danh sách còn thiếu…</div>}
           {error && <div style={{ color: 'var(--text3)' }}>Không tải được danh sách còn thiếu.</div>}
           {items.length > 0 && (
@@ -322,15 +325,15 @@ function AdvanceShortDialog({ stage, running, next, piOpenCount, onCancel, onSho
               {more > 0 && <li>… và {more} mục khác</li>}
             </ul>
           )}
-          {piOpenCount > 0 && <div style={{ marginTop: 6 }}>Còn <b>{piOpenCount}</b> đợt chờ gửi KCS của PI này.</div>}
+          {piOpenCount > 0 && <div style={{ marginTop: 6 }}>Còn <b>{piOpenCount}</b> đợt chờ gửi KCS của lệnh này.</div>}
           <div style={{ marginTop: 6 }}>
-            Sau khi chuyển, {next ? <><b>{next.piCode}</b> bắt đầu chạy; </> : 'hàng đợi hết; '}công nhân vẫn báo bù được cho {running.piCode} (mục “Bù lỗi”).
+            Sau khi chuyển, {next ? <><b>{lenhOf(next.piCode)}</b> bắt đầu chạy; </> : 'hàng đợi hết; '}công nhân vẫn báo bù được cho {lenhOf(running.piCode)} (mục “Bù lỗi”).
           </div>
         </div>
         {err && <div style={{ marginTop: 10 }}><Notice tone="err">{err}</Notice></div>}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 16 }}>
           <button ref={safeRef} type="button" disabled={busy} onClick={onShowDetail} style={btn('primary', busy)}>Xem còn thiếu gì</button>
-          <button type="button" disabled={busy} onClick={() => { void confirm() }} style={btn('danger', busy)}>{busy ? 'Đang chuyển…' : 'Vẫn chuyển PI tiếp'}</button>
+          <button type="button" disabled={busy} onClick={() => { void confirm() }} style={btn('danger', busy)}>{busy ? 'Đang chuyển…' : 'Vẫn chuyển lệnh tiếp'}</button>
         </div>
       </div>
     </div>
