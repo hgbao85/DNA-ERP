@@ -27,6 +27,8 @@ import LoadingState from '../LoadingState'
 import LoadErrorState from '../LoadErrorState'
 import { useRealtimeRefetch } from '../../realtime/hooks'
 import LenhCode, { useLenhCodeLookup } from '../LenhCode'
+import { getPieceSyncBoard } from '../../services/piece-sync-board-api'
+import { loadHanThucCo, hanThucCoKey, type HanThucCo } from './hanThucCo'
 
 const ACCENT = 'var(--fg-e65100)'
 const REMIND_MINUTES = 60
@@ -34,7 +36,7 @@ const REMIND_MINUTES = 60
 // ── Types ──────────────────────────────────────────────────────────
 // Thanh sắt cấu thành 1 chi tiết Hàn (vd khung tựa gồm những loại sắt nào) — để xổ ra xem.
 // 1 đoạn = quy cách (tiết diện) + chiều dài cắt (len, mm). thucCo có thể sync từ Phôi.
-export interface ProcPart { loaiSat: string; quyCach: string; len: number; perChiTiet: number; thucCo?: number }
+export interface ProcPart { loaiSat: string; quyCach: string; len: number; perChiTiet: number; thucCo?: number; nghenO?: string }
 export interface ProcLine {
   id: number
   itemName: string
@@ -459,8 +461,8 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
       }
     },
     ...((showThucCo ?? true) ? [{
-      key: 'thucCo', header: 'Thực có', align: 'right', cell: (l: ProcLine) => (
-        <span style={{ fontWeight: 600 }}>{fmt(l.thucCoQty ?? 0)}</span>
+      key: 'thucCo', header: <span title="Mảnh Phôi đã đồng bộ (ước tính) trừ số đã hàn">Thực có</span>, align: 'right', cell: (l: ProcLine) => (
+        <span style={{ fontWeight: 600 }}>{l.thucCoQty === undefined ? '—' : fmt(l.thucCoQty)}</span>
       )
     } as BoardColumn<ProcLine>] : []),
     // "Lỗi" (2026-09-09, đồng bộ Sắt/VTTP - trước phải bấm mở rộng "Các đợt đã gửi" mới thấy) -
@@ -590,7 +592,7 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
             {l.parts && (
               <div>
                 <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>
-                  Đoạn sắt cấu thành 1 {itemLabelLC} <span style={{ fontWeight: 400, color: 'var(--text3)' }}>{partStock ? '(thực có = đoạn Phôi KCS đạt − đã hàn)' : '(theo mảnh bên Phôi)'}</span>:
+                  Đoạn sắt cấu thành 1 {itemLabelLC} <span style={{ fontWeight: 400, color: 'var(--text3)' }}>{partStock ? '(thực có = đoạn Phôi KCS đạt − đã hàn)' : '(ước tính: đoạn Phôi đã chia cho mảnh này, trừ phần đã hàn)'}</span>:
                 </div>
                 <div style={{ border: '1px solid var(--border)', borderRadius: 8, overflowX: 'auto', background: 'var(--surface)' }}>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
@@ -716,6 +718,7 @@ function LineListBoard({ lines, cfg, title, subtitle, backLabel, onBack, onEnter
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{l.itemName}</div>
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>Cần {fmt(l.needQty)} {cfg.unit}</div>
+                  <ThucCoNote line={l} unit={cfg.unit} remain={remain} />
                 </div>
                 {done ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: 'var(--green)' }}><Check size={12} /> đã {cfg.verb} xong</span>
@@ -734,6 +737,22 @@ function LineListBoard({ lines, cfg, title, subtitle, backLabel, onBack, onEnter
           <div style={{ ...card, padding: 24, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Không có dữ liệu</div>
         )}
       </div>
+    </div>
+  )
+}
+
+// "Phôi sẵn để hàn" ở màn Hàn đang nhập sản lượng (2026-11-04) - cùng số cột "Thực có" (piece-sync-board, ƯỚC TÍNH).
+// Chỉ nhắc, không chặn nhập. Không có số (Sơn, lỗi API) thì không hiện gì.
+function ThucCoNote({ line, unit, remain, showBottleneck = false }: { line: ProcLine; unit: string; remain: number; showBottleneck?: boolean }) {
+  if (line.thucCoQty === undefined) return null
+  const short = remain > 0 && line.thucCoQty < remain
+  const parts = line.parts ?? []
+  const rap = (p: ProcPart) => (p.perChiTiet > 0 ? Math.floor((p.thucCo ?? 0) / p.perChiTiet) : 0)
+  const worst = showBottleneck && short && parts.length > 0 ? parts.reduce((a, p) => (rap(p) < rap(a) ? p : a)) : null
+  return (
+    <div title="Mảnh Phôi đã đồng bộ (ước tính) trừ số đã hàn" style={{ fontSize: 12, marginTop: 2, color: short ? 'var(--amber)' : 'var(--text2)' }}>
+      Phôi sẵn để hàn: <b>{fmt(line.thucCoQty)}</b> {unit} (ước tính)
+      {worst && <> · thiếu nhất: {worst.loaiSat} {worst.quyCach} · {fmt(worst.len)} mm{worst.nghenO && <> · nghẽn ở {worst.nghenO}</>}</>}
     </div>
   )
 }
@@ -799,6 +818,7 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
         <div>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{line.itemName}</h2>
           <div style={{ fontSize: 12, color: 'var(--text3)' }}>{line.spec} · Cần {fmt(line.needQty)} {cfg.unit}</div>
+          <ThucCoNote line={line} unit={cfg.unit} remain={remain} showBottleneck />
         </div>
       </div>
 
@@ -873,9 +893,9 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
 // listProductionOrdersForStage() rồi getProductionBatchPlan() từng PO — cả 2 đã aggregate sẵn
 // plannedQty/awaitingQcQty/passedQty theo MẢNH (Piece, không còn Part - xem
 // ProductionBatchesService.getBatchPlan() ở BE), không cần tự cộng dồn từ batches như bản mock cũ.
-// Bỏ hẳn tính năng "xem thanh sắt cấu thành" (ProcPart/partStock, đồng bộ tồn đoạn từ Phôi) — dữ
-// liệu này chỉ tồn tại ở mock/seed; BE nay đã có segment-level BOM theo mảnh thật (PieceBom, cùng
-// bảng Phôi dùng), nhưng nối lại tính năng này vẫn ngoài phạm vi lần đổi Part->Piece này.
+// "Thực có" + "Đoạn sắt cấu thành 1 mảnh" (ProcPart): 2026-11-04 đã nối lại cho HÀN, nguồn là
+// getPieceSyncBoard() (Đồng bộ Phôi – Hàn, số ƯỚC TÍNH) - lỗi/BE chưa có thì bỏ qua, cột hiện "—".
+// Chỉ hiển thị, KHÔNG chặn Hàn báo sản lượng. Sơn không có dữ liệu này.
 interface HanSonFetch {
   rows: ProcRow[]
   /** Khoá `${orderId}:${pieceId}` (2026-09-21, sửa bug "Gửi KCS" biến mất) - KHÔNG dùng bare pieceId:
@@ -897,6 +917,10 @@ const DEADLINE_STAGE_TYPE: Partial<Record<SanLuongStage, string>> = { HAN: 'FRAM
 async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
   const orders: BeProductionOrderSummary[] = await api.listProductionOrdersForStage()
   const deadlineStageType = DEADLINE_STAGE_TYPE[stage]
+  // Hàn: lấy "Thực có" song song (lỗi đã được nuốt trong loadHanThucCo → map rỗng).
+  const thucCoPromise = stage === 'HAN'
+    ? loadHanThucCo(orders.map(o => o.productionInvoiceId), getPieceSyncBoard)
+    : Promise.resolve(new Map<string, HanThucCo>())
   const settled = await Promise.all(orders.map(async o => {
     try {
       const [plan, batches] = await Promise.all([
@@ -908,6 +932,7 @@ async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
     catch { return null }
   }))
 
+  const thucCoMap = await thucCoPromise
   const rows: ProcRow[] = []
   const awaitingByLine = new Map<string, number>()
   const batchesByLine = new Map<string, BeProductionBatch[]>()
@@ -919,9 +944,11 @@ async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
       const key = `${o.id}:${lineId}`
       awaitingByLine.set(key, item.awaitingQcQty)
       batchesByLine.set(key, batches.filter(b => b.pieceId === item.pieceId))
+      const tc = thucCoMap.get(hanThucCoKey(o.id, item.pieceId))
       return {
         id: lineId, itemName: item.pieceName, spec: item.pieceCode,
         needQty: item.plannedQty, doneQty: item.passedQty,
+        thucCoQty: tc?.thucCoQty, parts: tc?.parts,
         lastInputAt: null, realPieceId: item.pieceId,
         rawMaterialOnHand: item.rawMaterialOnHand,
       }
@@ -1071,7 +1098,7 @@ export function TwoTierScreen({ cfg, seed, readOnly = false, stage }: {
         onRecord={stage && !readOnly ? (l, qty) => recordQty(selPo, l, qty) : undefined}
         onFinishBatch={stage && !readOnly ? finishBatch : undefined}
         choKcsFor={stage ? scopedChoKcsFor : undefined}
-        showThucCo={stage ? false : undefined}
+        showThucCo={stage ? stage === 'HAN' : undefined}
         batchesByLine={stage ? scopedBatchesByLine : undefined}
         reviews={stage ? (reviews ?? []) : undefined}
         manualInput
