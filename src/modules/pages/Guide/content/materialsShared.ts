@@ -159,7 +159,7 @@ const themVatTu: GuideArticle = {
   commonErrors: [
     { issue: '"Thiếu Tên vật tư / Đơn vị tính - đây là 2 trường bắt buộc ở DB, không thể để trống"', cause: 'Bỏ trống Tên vật tư hoặc Đơn vị tính.', fix: 'Điền cả hai rồi bấm Lưu lại.' },
     { issue: '"Bắt buộc" hiện dưới ô Phân loại hoặc Nhóm con Sắt', cause: 'Đã chọn nhóm "Vật tư khác" hoặc "Sắt" nhưng chưa chọn ô phụ đi kèm.', fix: 'Chọn Phân loại (Sơn/Phụ kiện/Nệm/Bao bì) hoặc Nhóm con Sắt (Phần mềm/Tự tính/Vật tư thành phẩm).' },
-    { issue: '"Material ... already exists"', cause: 'Mã tự gõ trùng với một vật tư đã có.', fix: 'Xoá trắng ô Mã vật tư để hệ thống tự sinh, hoặc gõ mã khác.' },
+    { issue: '"Vật tư ... đã tồn tại"', cause: 'Mã tự gõ trùng với một vật tư đã có.', fix: 'Xoá trắng ô Mã vật tư để hệ thống tự sinh, hoặc gõ mã khác.' },
     { issue: 'Không thấy ô "Tồn kho ban đầu"', cause: 'Chưa chọn Kho, hoặc đang SỬA vật tư có sẵn (ô này chỉ có lúc tạo mới).', fix: 'Chọn Kho trước. Với vật tư đã có, nhờ Admin sửa tồn ở Quản lý kho.' },
     { issue: '"Chưa tải được danh sách Nhóm vật tư - thử lại"', cause: 'Bấm Lưu khi danh sách nhóm chưa tải xong (hệ thống chặn để không xoá nhầm các ô phụ thuộc nhóm).', fix: 'Chờ vài giây hoặc tải lại trang rồi lưu lại.' },
     { issue: 'Không thấy ô "% dự trù hao hụt khi mua"', cause: 'Vật tư là Sắt nhóm con "Phần mềm" — loại này không có % hao hụt khi mua.', fix: 'Đúng thiết kế, không cần xử lý. Xem bài về % hao hụt.' },
@@ -472,7 +472,7 @@ const suaXoa: GuideArticle = {
   commonErrors: [
     { issue: '"Không xoá được: vật tư ... đang dùng trong định mức ... Gỡ vật tư khỏi các định mức này trước."', cause: 'Vật tư đang được khai trong định mức của một hoặc nhiều sản phẩm.', fix: 'Nhờ chuyên viên định mức gỡ vật tư khỏi các định mức được liệt kê, rồi xoá lại. Nếu vật tư vẫn cần dùng thì không xoá.' },
     { issue: '"Không xoá được: vật tư ... đã phát sinh dữ liệu (tồn kho, phiếu kho, đề xuất mua hoặc sản xuất)."', cause: 'Vật tư đã từng được nhập, xuất, mua hoặc sản xuất.', fix: 'Không xoá được nữa. Nếu khai nhầm, sửa lại thông tin cho đúng thay vì xoá.' },
-    { issue: '"Material ... already exists"', cause: 'Mã vừa sửa trùng với vật tư khác.', fix: 'Chọn mã khác hoặc giữ mã cũ.' },
+    { issue: '"Vật tư ... đã tồn tại"', cause: 'Mã vừa sửa trùng với vật tư khác.', fix: 'Chọn mã khác hoặc giữ mã cũ.' },
     { issue: 'Sửa xong mà ô Phân loại / % hao hụt bị trống', cause: 'Vừa đổi Nhóm vật tư hoặc Nhóm con Sắt nên các ô phụ thuộc tự xoá.', fix: 'Mở lại vật tư và điền lại ô đó theo nhóm mới.' },
   ],
   tags: ['sửa vật tư', 'xoá vật tư', 'đổi mã', 'đổi đơn vị', 'không xoá được'],

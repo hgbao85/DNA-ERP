@@ -149,7 +149,7 @@ export const warehouseGroup: GuideGroup = {
         { issue: '"Cần ảnh phiếu chuyển kho đã có chữ ký"', cause: 'Chưa tải ảnh phiếu đã ký.', fix: 'Chụp phiếu đã ký, bấm "Ảnh phiếu đã ký" để tải lên rồi xác nhận lại.' },
         { issue: '"...: thực nhận ... lớn hơn số gửi ..."', cause: 'Nhập số thực nhận vượt số trên phiếu.', fix: 'Kiểm đếm lại; hàng dư không nhận qua phiếu này.' },
         { issue: '"Phiếu chuyển kho ... đang ở trạng thái ... - chỉ phiếu đang chờ mới xác nhận được"', cause: 'Phiếu đã được xử lý (xác nhận/từ chối) trước đó rồi.', fix: 'Tải lại trang để xem trạng thái mới nhất.' },
-        { issue: '"Phiếu chuyển kho ... đã được xử lý bởi 1 request khác trong lúc xác nhận - không ghi đè"', cause: 'Thao tác trùng gần như đồng thời (2 tab, 2 người cùng xử lý 1 phiếu).', fix: 'Tải lại trang rồi thao tác lại.' },
+        { issue: '"Phiếu chuyển kho ... đã được xử lý bởi 1 yêu cầu khác trong lúc xác nhận - không ghi đè"', cause: 'Thao tác trùng gần như đồng thời (2 tab, 2 người cùng xử lý 1 phiếu).', fix: 'Tải lại trang rồi thao tác lại.' },
       ],
       statuses: [
         { name: 'Đang chờ xác nhận', meaning: 'Chờ kho đích xác nhận, chưa ảnh hưởng tồn kho.' },

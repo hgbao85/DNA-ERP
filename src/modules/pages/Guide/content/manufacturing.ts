@@ -432,7 +432,7 @@ export const manufacturingGroup: GuideGroup = {
         'Banner đỏ "chưa cân đối" xuất hiện khi các mảnh của cùng một SKU chưa cắt/hàn/sơn đều số lượng với nhau — cần chú ý để tránh lệch dây chuyền.',
       ],
       commonErrors: [
-        { issue: '"Batch ... đang ở trạng thái ... - chỉ đợt đang mở mới gửi KCS được"', cause: 'Đợt đã được gửi KCS rồi, không gửi lại được nữa.', fix: 'Mở một đợt mới nếu cần báo thêm.' },
+        { issue: '"Đợt ... đang ở trạng thái ... - chỉ đợt đang mở mới gửi KCS được"', cause: 'Đợt đã được gửi KCS rồi, không gửi lại được nữa.', fix: 'Mở một đợt mới nếu cần báo thêm.' },
         { issue: '"Chưa có gì để gửi KCS"', cause: 'Bấm "Gửi KCS" khi chưa nhập số lượng nào.', fix: 'Nhập số lượng trước khi gửi.' },
       ],
       statuses: [
@@ -513,8 +513,8 @@ export const manufacturingGroup: GuideGroup = {
         'Modal duyệt giữ nguyên dữ liệu đã nhập nếu xác nhận thất bại — không cần nhập lại từ đầu.',
       ],
       commonErrors: [
-        { issue: '"Production batch ... đang ở trạng thái ... - chỉ đợt đang chờ KCS mới duyệt được"', cause: 'Đợt đã được duyệt trước đó rồi (bấm 2 lần hoặc 2 người cùng duyệt).', fix: 'Tải lại danh sách để xem trạng thái mới nhất.' },
-        { issue: '"failedQty (...) không được vượt số lượng đã báo (...)"', cause: 'Nhập số không đạt lớn hơn tổng số đã báo của đợt đó.', fix: 'Kiểm tra lại số lượng đã báo trước khi nhập số không đạt.' },
+        { issue: '"Đợt sản xuất ... đang ở trạng thái ... - chỉ đợt đang chờ KCS mới duyệt được"', cause: 'Đợt đã được duyệt trước đó rồi (bấm 2 lần hoặc 2 người cùng duyệt).', fix: 'Tải lại danh sách để xem trạng thái mới nhất.' },
+        { issue: '"Số không đạt (...) không được vượt số lượng đã báo (...)"', cause: 'Nhập số không đạt lớn hơn tổng số đã báo của đợt đó.', fix: 'Kiểm tra lại số lượng đã báo trước khi nhập số không đạt.' },
       ],
       tags: ['kcs', 'duyệt kcs', 'chất lượng', 'qc review'],
       sourceRefs: ['src/modules/pages/Kcs/KcsHanPage.tsx', 'src/modules/pages/Kcs/KcsSonPage.tsx'],
@@ -541,7 +541,7 @@ export const manufacturingGroup: GuideGroup = {
       warnings: ['Chấm lỗi theo đúng đợt cắt hiện tại — không được chấm số lỗi vượt quá số đã cắt của CHÍNH đợt đang duyệt (không cộng dồn với các đợt khác trong cùng PI).'],
       commonErrors: [
         { issue: '"Chấm lỗi ... đoạn ...mm vượt số đã cắt (...) trong chính đợt cắt này"', cause: 'Nhập số không đạt lớn hơn số đã cắt của đúng cỡ đoạn trong đợt này.', fix: 'Kiểm tra lại số đã cắt của đúng đợt trước khi chấm.' },
-        { issue: '"Đợt cắt ... đã bị 1 request khác duyệt KCS trong lúc đang xử lý"', cause: '2 người cùng duyệt một đợt gần như đồng thời.', fix: 'Tải lại trang, kiểm tra trạng thái mới nhất.' },
+        { issue: '"Đợt cắt ... đã bị 1 yêu cầu khác duyệt KCS trong lúc đang xử lý"', cause: '2 người cùng duyệt một đợt gần như đồng thời.', fix: 'Tải lại trang, kiểm tra trạng thái mới nhất.' },
       ],
       tags: ['kcs phôi', 'duyệt cắt sắt', 'chấm theo cỡ đoạn'],
       sourceRefs: ['src/modules/pages/Kcs/KcsPhoiPage.tsx'],

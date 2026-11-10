@@ -202,7 +202,7 @@ export const productionPlanGroup: GuideGroup = {
       ],
       commonErrors: [
         { issue: '"Chưa duyệt đủ nhóm mảnh: còn thiếu SAT" (chữ viết tắt sau "thiếu" là tên nhóm vật tư còn trống — SAT = Sắt, tương tự cho Dây/Đinh/Sơn...)', cause: 'Bấm "Xác nhận hoàn tất" khi còn nhóm vật tư trong nhánh chưa có dữ liệu.', fix: 'Đảm bảo mọi nhóm vật tư của nhánh đã được chuyên viên nhập trước khi xác nhận hoàn tất.' },
-        { issue: '"Plan form ... đã được xử lý bởi 1 request khác trong lúc chờ duyệt - không ghi đè"', cause: '2 người/2 tab cùng thao tác duyệt một lúc.', fix: 'Tải lại trang, kiểm tra trạng thái mới nhất rồi thao tác lại.' },
+        { issue: '"Phiếu kế hoạch ... đã được xử lý bởi 1 yêu cầu khác trong lúc chờ duyệt - không ghi đè"', cause: '2 người/2 tab cùng thao tác duyệt một lúc.', fix: 'Tải lại trang, kiểm tra trạng thái mới nhất rồi thao tác lại.' },
       ],
       statuses: [
         { name: 'Đang làm định mức', meaning: 'SKU vừa tạo hoặc vừa bị Giám đốc từ chối.' },
@@ -414,7 +414,7 @@ export const productionPlanGroup: GuideGroup = {
         { issue: '"... chưa chọn màu dây (bản định mức ... có ... lựa chọn) - Sales cần chọn trước khi duyệt" (hoặc màu vải nệm; hoặc "màu dây đã chọn không nằm trong bản định mức ...")', cause: 'Dòng đơn chưa có màu, hoặc màu đã chọn không còn trong danh sách tick của bản định mức sắp áp dụng.', fix: 'Từ chối để trả SKU về đơn hàng, nhờ Sales xoá đơn và tạo lại với đủ màu (nếu còn xoá được); không được thì báo Admin.' },
         { issue: '"... là đợt gộp - phải duyệt CẢ CỤM một lần"', cause: 'Cố duyệt/từ chối lẻ một SKU trong khi lệnh này là đợt gộp nhiều SKU.', fix: 'Duyệt hoặc từ chối toàn bộ đợt gộp cùng lúc.' },
         { issue: '"Không duyệt được - phương án cắt của lệnh này: ..."', cause: 'Phương án cắt đã tính không còn dùng được (ví dụ định mức hoặc chiều dài cây đã đổi sau khi tính).', fix: 'Từ chối để KHSX tính lại phương án ở "Tối ưu cắt sắt" rồi trình lại.' },
-        { issue: '"Item ... đã được xử lý bởi 1 request khác ... - không ghi đè"', cause: '2 người cùng thao tác duyệt một lệnh gần như đồng thời.', fix: 'Tải lại trang để xem trạng thái mới nhất.' },
+        { issue: '"SKU ... đã được xử lý bởi 1 yêu cầu khác ... - không ghi đè"', cause: '2 người cùng thao tác duyệt một lệnh gần như đồng thời.', fix: 'Tải lại trang để xem trạng thái mới nhất.' },
       ],
       statuses: [
         { name: 'Chờ QLSX xử lý', meaning: 'Đang chờ QLSX chọn kho và xử lý.' },

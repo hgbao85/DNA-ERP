@@ -13,7 +13,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { useAuth, type User } from '../../../context/AuthContext'
 import { getPinStatus, loginUser, PIN_SETUP_REQUIRED, setupWorkerPin } from '../../../services/api'
-import { ApiError } from '../../../services/core/apiError'
+import { ApiError, isInvalidCredentials } from '../../../services/core/apiError'
 import {
   getMyOutput,
   getMyStats,
@@ -238,7 +238,7 @@ function PinLogin() {
         resetSecrets(); setStep({ kind: 'setup', expired: false })
       } else {
         // BE trả "còn N lần thử" / "khoá tạm" cho công nhân; lỗi sai chung chung thì hiện câu thân thiện.
-        setError(err instanceof ApiError && err.message === 'Invalid credentials'
+        setError(isInvalidCredentials(err)
           ? 'Sai tên đăng nhập hoặc PIN' : errText(err))
         setPin('')
       }

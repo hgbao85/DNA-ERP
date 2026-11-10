@@ -91,8 +91,8 @@ export const adminGroup: GuideGroup = {
         'Việc phân công vật tư cho từng nhân viên Mua hàng làm ở Admin > Vật tư (cột "Nhân viên mua hàng"), không còn gán theo kho.',
       ],
       commonErrors: [
-        { issue: '"Email ... is already in use" / "Username ... is already in use"', cause: 'Email hoặc tên đăng nhập đã tồn tại.', fix: 'Đổi sang giá trị khác chưa dùng.' },
-        { issue: '"You cannot change your own roles" / "...deactivate your own account" / "...delete your own account"', cause: 'Đang cố tự khoá/xoá/đổi vai trò chính mình.', fix: 'Nhờ một Admin khác thực hiện thay nếu thật sự cần.' },
+        { issue: '"Email ... đã được dùng" / "Tên đăng nhập ... đã được dùng"', cause: 'Email hoặc tên đăng nhập đã tồn tại.', fix: 'Đổi sang giá trị khác chưa dùng.' },
+        { issue: '"Bạn không thể tự đổi vai trò của mình" / "...tự vô hiệu hoá tài khoản của mình" / "...tự xoá tài khoản của mình"', cause: 'Đang cố tự khoá/xoá/đổi vai trò chính mình.', fix: 'Nhờ một Admin khác thực hiện thay nếu thật sự cần.' },
         { issue: '"Bắt buộc" hiện dưới một trường', cause: 'Trường bắt buộc bị bỏ trống.', fix: 'Điền đầy đủ các trường có dấu *.' },
       ],
       statuses: [
@@ -149,8 +149,8 @@ export const adminGroup: GuideGroup = {
         'Chọn một thủ kho đang phụ trách kho khác làm "Thủ kho phụ trách" của kho mới sẽ CHUYỂN kho chính của họ sang kho mới (form có cảnh báo trước khi tạo). Muốn họ giữ cả 2 kho thì dùng ô "Giữ thêm kho" ở Admin > Người dùng.',
       ],
       commonErrors: [
-        { issue: '"Warehouse ... already exists"', cause: 'Mã kho bị trùng (hiếm gặp vì mã tự sinh).', fix: 'Thử tạo lại.' },
-        { issue: '"Warehouse ... is protected and cannot be deleted/renamed"', cause: 'Cố xoá/đổi tên 1 trong 3 kho gốc hoặc kho ảo hệ thống.', fix: 'Không thao tác được với các kho này — đây là giới hạn có chủ đích.' },
+        { issue: '"Kho ... đã tồn tại"', cause: 'Mã kho bị trùng (hiếm gặp vì mã tự sinh).', fix: 'Thử tạo lại.' },
+        { issue: '"Kho ... là kho hệ thống, không thể xoá" / "...không thể đổi tên"', cause: 'Cố xoá/đổi tên 1 trong 3 kho gốc hoặc kho ảo hệ thống.', fix: 'Không thao tác được với các kho này — đây là giới hạn có chủ đích.' },
       ],
       tags: ['tạo kho', 'xoá kho', 'quản lý kho', 'sao chép vật tư'],
       sourceRefs: ['src/modules/pages/Manufacturing/MfgWarehousesPage.tsx'],

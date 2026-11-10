@@ -10,7 +10,7 @@
  *   SESSION_EXPIRED_EVENT để AuthContext tự logout và điều hướng về /login.
  */
 import axios, { type AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
-import { ApiError } from './apiError';
+import { ApiError, fallbackErrorMessage } from './apiError';
 import { tokenStorage } from './tokenStorage';
 import { newUuid } from './uuid';
 
@@ -68,9 +68,10 @@ function toApiError(err: AxiosError<BeEnvelope>): ApiError {
     return new ApiError('Yêu cầu quá thời gian chờ - kiểm tra kết nối mạng và thử lại', 0, 'Timeout');
   }
   const status = err.response?.status ?? 0;
-  const body = err.response?.data;
+  // Proxy/CDN có thể trả trang HTML (chuỗi) thay vì JSON của BE - khi đó không có câu lỗi để đọc.
+  const body = typeof err.response?.data === 'object' ? err.response?.data : undefined;
   const msg = body?.message;
-  const message = Array.isArray(msg) ? msg.join(', ') : (msg ?? err.message ?? `HTTP ${status}`);
+  const message = Array.isArray(msg) ? msg.join(', ') : (msg || fallbackErrorMessage(status));
   return new ApiError(message, body?.statusCode ?? status, body?.error ?? 'Error');
 }
 
