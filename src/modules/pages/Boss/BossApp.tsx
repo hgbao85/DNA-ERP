@@ -42,8 +42,16 @@ function ChoDuyetSection({ skuBadge, lenhSxBadge, doiMocBadge }: { skuBadge?: nu
   // Phần A – Đợt 9: nút lọc đọc / ghi URL (`filter`) để link thông báo `filter=doi-moc` mở đúng mục.
   const [urlFilter, setUrlFilter] = useUrlState('filter')
   const [filter, setFilterState] = useState<ChoDuyetFilter>(isChoDuyetFilter(urlFilter) ? urlFilter : 'sku-moi')
-  const setFilter = (f: ChoDuyetFilter) => { setFilterState(f); setUrlFilter(f) }
-  useEffect(() => { if (isChoDuyetFilter(urlFilter)) setFilterState(urlFilter) }, [urlFilter])
+  // Người dùng/đường link đã chọn tab thì không tự đổi nữa (test tay 09/11 điểm 16).
+  const [picked, setPicked] = useState(isChoDuyetFilter(urlFilter))
+  const setFilter = (f: ChoDuyetFilter) => { setPicked(true); setFilterState(f); setUrlFilter(f) }
+  useEffect(() => { if (isChoDuyetFilter(urlFilter)) { setPicked(true); setFilterState(urlFilter) } }, [urlFilter])
+  // Mặc định mở tab ĐẦU TIÊN có việc chờ (số đếm về trễ thì chuyển khi có số); không tab nào có việc thì giữ 'SKU mới'.
+  useEffect(() => {
+    if (picked) return
+    const first = CHO_DUYET_FILTERS.find(f => ({ 'sku-moi': skuBadge, 'lenh-sx': lenhSxBadge, 'doi-moc': doiMocBadge }[f.key] ?? 0) > 0)
+    if (first) setFilterState(first.key)
+  }, [picked, skuBadge, lenhSxBadge, doiMocBadge])
   // Bấm thông báo mở thẳng đúng mục (focus=<entityType>:<id>): mục nằm ở tab con nào thì mở tab đó, không thì
   // dòng cần nháy sáng không được render. SKU chờ duyệt -> 'SKU mới'; PI chờ duyệt -> 'Lệnh sản xuất'.
   const focusHint = useUrlParamValue('focus')

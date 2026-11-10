@@ -488,7 +488,8 @@ export default function SKUReviewPage() {
               ))}
               {displayed.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
+                  {/* colSpan khớp đúng 5 cột (test tay 09/11 điểm 9) - trước là 6 nên bảng rỗng bị hụt 1 cột. */}
+                  <td colSpan={5} style={{ padding: 32, textAlign: 'center', color: 'var(--text3)' }}>
                     {q ? 'Không tìm thấy kết quả' : 'Không có SKU nào đang chờ duyệt'}
                   </td>
                 </tr>

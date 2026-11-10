@@ -3,9 +3,29 @@
 import React, { useState } from 'react';
 import { useAuth, type User } from '../context/AuthContext';
 import { loginUser } from '../services/api';
+import { ApiError } from '../services/core/apiError';
 import { useRouter } from 'next/navigation';
 import { Shield, Mail, Lock, Ship, ArrowRight, BookOpen } from 'lucide-react';
 import { useIsCompact, useIsMobile } from '../hooks/useMediaQuery';
+
+/** Đổi lỗi đăng nhập thành câu tiếng Việt lời thường (test tay 09/11 điểm 1 + 28): máy chủ trả
+ *  "Invalid credentials" / "ThrottlerException: Too Many Requests" bằng tiếng Anh. */
+function describeLoginError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : '';
+  const status = err instanceof ApiError ? err.statusCode : undefined;
+  if (status === 0) return 'Không kết nối được máy chủ, kiểm tra mạng rồi thử lại';
+  if (status === 429 || /too many requests|throttler/i.test(raw)) return 'Đăng nhập quá nhiều lần. Đợi khoảng 1 phút rồi thử lại.';
+  // Câu tiếng Việt của máy chủ giữ nguyên TRƯỚC khi xét 401: tài khoản công nhân sai PIN / bị khoá tạm cũng
+  // trả 401 nhưng kèm câu riêng ("Sai PIN - còn 2 lần thử…", "…khoá tạm…") - không được đè thành "sai mật khẩu".
+  if (/[À-ỹ]/.test(raw) && !/database error/i.test(raw)) return raw;
+  if (status === 401 || /invalid credentials|unauthorized/i.test(raw) || !raw) return 'Tên đăng nhập hoặc mật khẩu không đúng';
+  if (/database error/i.test(raw)) return 'Hệ thống đang lỗi kết nối, thử lại sau';
+  if (/failed to fetch|network ?error|load failed/i.test(raw)) return 'Không kết nối được máy chủ, kiểm tra mạng rồi thử lại';
+  if (status !== undefined && status >= 500) return 'Hệ thống đang lỗi, thử lại sau';
+  // Câu còn lại: không có chữ có dấu tiếng Việt => coi là tiếng Anh kỹ thuật, dùng câu chung.
+  if (!/[À-ỹ]/.test(raw)) return 'Không đăng nhập được. Thử lại; vẫn lỗi thì báo quản lý.';
+  return raw;
+}
 
 /** Logo + tên công ty - dùng ở cột thương hiệu (desktop) và đầu form (màn hẹp, khi cột thương hiệu bị ẩn). */
 function Brand() {
@@ -60,8 +80,7 @@ export default function LoginPage() {
     } catch (err: unknown) {
       console.error('Đăng nhập thất bại:', err);
       // Máy chủ lỗi kết nối DB trả câu tiếng Anh kỹ thuật ("Database error") - đổi sang lời thường.
-      const raw = err instanceof Error ? err.message : '';
-      setError(/database error/i.test(raw) ? 'Hệ thống đang lỗi kết nối, thử lại sau' : (raw || 'Tên đăng nhập hoặc mật khẩu không đúng'));
+      setError(describeLoginError(err));
     } finally {
       setLoading(false);
     }

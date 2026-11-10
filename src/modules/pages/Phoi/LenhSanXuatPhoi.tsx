@@ -980,12 +980,13 @@ function ProgressBuDuTable({ segments, canInput, rowInputs, onInputChange }: {
       <div style={{ ...card, marginBottom: 12 }}>
         {segments.map((s, i) => {
           const remaining = Math.max(s.required - (s.done - s.failed), 0)
+          const vuot = Math.max((s.done - s.failed) - s.required, 0) // báo dư so với cần (test tay 09/11 điểm 32)
           return (
             <div key={s.segmentSpecId} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', borderTop: i > 0 ? '1px solid var(--border)' : undefined }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14 }}>
                   <b>{s.cutLengthMm.toLocaleString('vi-VN')}mm</b>
-                  <span style={{ marginLeft: 8, fontSize: 12, color: remaining > 0 ? ACCENT : GREEN, fontWeight: 700 }}>còn {remaining}</span>
+                  <span style={{ marginLeft: 8, fontSize: 12, color: remaining > 0 ? ACCENT : vuot > 0 ? 'var(--fg-d97706)' : GREEN, fontWeight: 700 }}>{vuot > 0 ? `vượt ${vuot}` : `còn ${remaining}`}</span>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '2px 10px', marginTop: 3, fontSize: 12, color: 'var(--text3)' }}>
                   <span>Cần <b style={{ color: 'var(--text2)' }}>{s.required}</b></span>
@@ -1030,6 +1031,7 @@ function ProgressBuDuTable({ segments, canInput, rowInputs, onInputChange }: {
         <tbody>
           {segments.map(s => {
             const remaining = Math.max(s.required - (s.done - s.failed), 0)
+            const vuot = Math.max((s.done - s.failed) - s.required, 0) // báo dư so với cần (test tay 09/11 điểm 32)
             return (
               <tr key={s.segmentSpecId} style={{ borderTop: '1px solid var(--border)' }}>
                 <td style={td}>{s.cutLengthMm.toLocaleString('vi-VN')}mm</td>
@@ -1047,7 +1049,7 @@ function ProgressBuDuTable({ segments, canInput, rowInputs, onInputChange }: {
                     )}
                   </div>
                 </td>
-                <td style={{ ...tdR, color: remaining > 0 ? ACCENT : GREEN, fontWeight: 700 }}>{remaining}</td>
+                <td style={{ ...tdR, color: remaining > 0 ? ACCENT : vuot > 0 ? 'var(--fg-d97706)' : GREEN, fontWeight: 700 }}>{vuot > 0 ? `vượt ${vuot}` : remaining}</td>
                 {canInput && (
                   <td style={{ ...td, textAlign: 'right' }}>
                     <input type="number" min={0} placeholder="0" value={rowInputs[s.segmentSpecId] ?? ''}

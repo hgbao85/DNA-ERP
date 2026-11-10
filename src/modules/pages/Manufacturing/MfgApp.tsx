@@ -193,7 +193,9 @@ export default function MfgApp({ onBack }: MfgAppProps) {
   // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27) - khoá theo TabId thường,
   // riêng Spec đọc trực tiếp `specQuotaBadge` (gắn vào sub-item 'dinh-muc', không phải tab 'setup'
   // cha - xem nhánh render riêng của SPEC_SETUP_ITEMS bên dưới).
-  const { counts: workQueue } = useWorkQueue()
+  const { counts: workQueue, refresh: refreshWorkQueue } = useWorkQueue()
+  // Đổi màn thì tải lại số đỏ ngay, khỏi chờ realtime/lượt poll 30-120 s (test tay 09/11 điểm 15).
+  useEffect(() => { void refreshWorkQueue() }, [tab, refreshWorkQueue])
   // Chấm số "Sản lượng xưởng" = số đợt công nhân đã báo mà QLSX chưa gửi KCS (QR tại máy, 2026-10-13).
   const floorSummary = useFetch(() => (isProdMgr ? floorAdmin.summary() : Promise.resolve(null)), [isProdMgr])
   const { refetch: refetchFloorSummary } = floorSummary

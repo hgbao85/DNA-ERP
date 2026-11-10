@@ -1289,11 +1289,18 @@ export default function LenhSXPage() {
                   )}
                 </div>
                 {!isMobile && <div style={{ width:1, height:36, background:'var(--border)' }} />}
-                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                  <CalendarClock size={14} color="var(--text3)"/>
-                  <span style={{ fontSize:13, color:'var(--text3)' }}>Hạn hoàn thành:</span>
-                  <PiDeadlineText pi={pi} style={{ fontWeight:700, fontSize:15 }} />
-                </div>
+                {(() => {
+                  // (test tay 09/11 điểm 14) hạn đã qua, lệnh chưa xong / chưa huỷ -> đỏ + nhãn.
+                  const late = pi.status === 'DONE' || pi.status === 'CANCELLED' ? 0 : overdueDays(new Date(pi.deadline))
+                  return (
+                    <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                      <CalendarClock size={14} color={late > 0 ? 'var(--red)' : 'var(--text3)'}/>
+                      <span style={{ fontSize:13, color:'var(--text3)' }}>Hạn hoàn thành:</span>
+                      <PiDeadlineText pi={pi} style={{ fontWeight:700, fontSize:15, color: late > 0 ? 'var(--red)' : undefined }} />
+                      {late > 0 && <OverdueBadge days={late} />}
+                    </div>
+                  )
+                })()}
                 <div style={{ marginLeft:'auto', fontSize:12, color:'var(--text3)', background:'var(--surface2)', padding:'4px 12px', borderRadius:12, border:'1px solid var(--border)' }}>
                   {items.length} SKU
                 </div>
@@ -1340,15 +1347,23 @@ export default function LenhSXPage() {
                   const iPackagingDate  = iPackaging  ? new Date(iPackaging.deadline)  : fb('PACKAGING')
                   const iPkgStartDate = stageDateOr(item, 'PACKAGING_START', fb)
                   const iFinished = finishedFor(item, iPkgStartDate)
-                  const dc = (d: Date, own: boolean, i: number, material = false) => (
+                  // Mốc đã qua: chữ đỏ + "Quá hạn N ngày" (test tay 09/11 điểm 14) - chỉ hiển thị. Lệnh đã Kết thúc /
+                  // đơn đã xong / đã huỷ thì mốc nào cũng là ngày cũ - không tô đỏ (tránh báo trễ giả).
+                  const itemClosed = item.floorStage === 'FINISHED' || pi.status === 'DONE' || pi.status === 'CANCELLED'
+                  const dc = (d: Date, own: boolean, i: number, material = false) => {
+                    const late = itemClosed ? 0 : overdueDays(d)
+                    return (
                     <div style={{ textAlign:'center' }}>
                       {mobileLabel(i)}
-                      <div style={{ fontSize: isMobile ? 12 : 14, fontWeight: own ? 700 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>{fmt(d)}</div>
+                      <div style={{ fontSize: isMobile ? 12 : 14, fontWeight: own || late > 0 ? 700 : 400, color: late > 0 ? 'var(--red)' : own ? 'var(--text)' : 'var(--text3)' }}>{fmt(d)}</div>
                       {material && arrivalLine(d)}
                       {!own && <div style={{ fontSize:10, color:'var(--text3)' }}>đề xuất</div>}
+                      {late > 0 && <OverdueBadge days={late} />}
                     </div>
-                  )
+                    )
+                  }
                   const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
+                  const deliveryLate = itemClosed ? 0 : overdueDays(iDelivery ?? new Date(pi.deadline))
                   return (
                     <div key={item.id ?? idx} style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)', minWidth: isMobile ? undefined : PLAN_MIN_W }}>
                       <div style={isMobile ? { padding:'12px 14px' } : { display:'grid', gridTemplateColumns:PLAN_COLS, padding:'14px 18px', alignItems:'center' }}>
@@ -1430,10 +1445,11 @@ export default function LenhSXPage() {
                         {dc(iPackagingDate,  !!iPackaging, 4)}
                         <div style={{ textAlign:'center' }}>
                           {mobileLabel(5)}
-                          <div style={{ fontSize: isMobile ? 12 : 14, fontWeight:700, color: iDelivery ? 'var(--fg-1d4ed8)' : 'var(--text3)' }}>
+                          <div style={{ fontSize: isMobile ? 12 : 14, fontWeight:700, color: deliveryLate > 0 ? 'var(--red)' : iDelivery ? 'var(--fg-1d4ed8)' : 'var(--text3)' }}>
                             {fmt(iDelivery ?? new Date(pi.deadline))}
                           </div>
                           {!iDelivery && <div style={{ fontSize:10, color:'var(--text3)' }}>từ PO</div>}
+                          {deliveryLate > 0 && <OverdueBadge days={deliveryLate} />}
                         </div>
                         </div>
                       </div>
@@ -1526,11 +1542,18 @@ export default function LenhSXPage() {
                       </span>
                     ) : null
                   })()}
-                  <div style={{ display:'flex', alignItems:'center', gap:5 }}>
-                    <CalendarClock size={13} color="var(--text3)"/>
-                    {!isMobile && <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>}
-                    <PiDeadlineText pi={pi} showCount={false} style={{ fontWeight:700, fontSize:13, color:'var(--text)' }} />
-                  </div>
+                  {(() => {
+                    // Hạn đã qua (lệnh chưa xong / chưa huỷ) tô đỏ + nhãn, như danh sách QLSX (test tay 09/11 điểm 14).
+                    const late = pi.status === 'DONE' || pi.status === 'CANCELLED' ? 0 : overdueDays(new Date(pi.deadline))
+                    return (
+                      <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
+                        <CalendarClock size={13} color={late > 0 ? 'var(--red)' : 'var(--text3)'}/>
+                        {!isMobile && <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>}
+                        <PiDeadlineText pi={pi} showCount={false} style={{ fontWeight:700, fontSize:13, color: late > 0 ? 'var(--red)' : 'var(--text)' }} />
+                        {late > 0 && <OverdueBadge days={late} />}
+                      </div>
+                    )
+                  })()}
                   {pi.cuttingRecheckRequired && (
                     // QLSX vừa đổi xưởng lệnh đã có phương án cắt duyệt -> KHSX vào Tối ưu cắt sắt bấm "Đã kiểm".
                     <span title="Vào Tối ưu cắt sắt xem lại phương án rồi bấm Đã kiểm"
@@ -1654,7 +1677,8 @@ export default function LenhSXPage() {
                         {iDelivery && (
                           <div style={{ textAlign:'right', flexShrink:0 }}>
                             <div style={{ fontSize:10, color:'var(--fg-1d4ed8)', fontWeight:600 }}>Hạn giao</div>
-                            <div style={{ fontSize:12, fontWeight:700, color:'var(--fg-1d4ed8)' }}>{format(iDelivery, 'dd/MM/yyyy')}</div>
+                            <div style={{ fontSize:12, fontWeight:700, color: overdueDays(iDelivery) > 0 ? 'var(--red)' : 'var(--fg-1d4ed8)' }}>{format(iDelivery, 'dd/MM/yyyy')}</div>
+                            {overdueDays(iDelivery) > 0 && <div style={{ fontSize:10, fontWeight:700, color:'var(--red)' }}>Quá hạn {overdueDays(iDelivery)} ngày</div>}
                           </div>
                         )}
                       </div>
@@ -1663,10 +1687,11 @@ export default function LenhSXPage() {
                         {cols.map(({ label, hint, val, own, material }, ci) => (
                           <div key={label} style={{ padding:'5px 6px', borderRight: ci < cols.length - 1 ? '1px solid' : undefined, borderRightColor: !locked ? 'var(--fg-bbf7d0)' : 'var(--border)', textAlign:'center' }}>
                             <div title={hint} style={{ fontSize:10, color:'var(--text3)', fontWeight:600, marginBottom:1, lineHeight:'12px', minHeight:24, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>{label}</div>
-                            <div style={{ fontSize:11, fontWeight: own ? 600 : 400, color: own ? 'var(--text)' : 'var(--text3)' }}>
+                            <div style={{ fontSize:11, fontWeight: own || overdueDays(val) > 0 ? 600 : 400, color: overdueDays(val) > 0 ? 'var(--red)' : own ? 'var(--text)' : 'var(--text3)' }}>
                               {format(val, 'dd/MM/yyyy')}
                               {material && <span style={{ display:'block', fontSize:9 }}>từ {format(materialArrivalFrom(val, capParams.materialEarliestArrivalDays) ?? val, 'dd/MM')}</span>}
                               {!own && <span style={{ display:'block', fontSize:9 }}>đề xuất</span>}
+                              {overdueDays(val) > 0 && <span style={{ display:'block', fontSize:9, fontWeight:700 }}>Quá hạn {overdueDays(val)} ngày</span>}
                             </div>
                           </div>
                         ))}
@@ -1944,7 +1969,7 @@ export default function LenhSXPage() {
               <div style={{ display:'flex', gap:8, alignItems:'flex-start', background:'var(--bg-f0fdf4)', border:'1px solid var(--fg-bbf7d0)', borderRadius:8, padding:'10px 12px', fontSize:12, color:'var(--fg-166534)' }}>
                 <CheckCircle2 size={14} style={{ flexShrink:0, marginTop:1 }}/>
                 <span>
-                  Duyệt sẽ tạo lệnh sản xuất cho {items.length > 1 ? 'cả ' + items.length + ' SKU' : 'SKU này'} và bắt đầu sản xuất ngay — không thể hoàn tác.
+                  Duyệt sẽ tạo lệnh sản xuất cho {items.length > 1 ? 'cả ' + items.length + ' SKU' : 'SKU này'} — không thể hoàn tác. Xưởng làm được sau khi QLSX bấm “Bắt đầu”.
                 </span>
               </div>
 
@@ -2109,9 +2134,12 @@ export default function LenhSXPage() {
                   const offsetText = isFinished ? FINISHED_MATERIAL_OFFSET_LABEL : dateKey ? labels[dateKey] : undefined
                   // Hạn vật tư: thêm dòng "về từ" = hạn − N (N = cấu hình, mặc định 4; chỉ hiển thị, đi theo ngày trong ô kể cả khi sửa tay).
                   const arrival = field === 'materialDeadline' || isFinished ? materialArrivalFrom(value, capParams.materialEarliestArrivalDays) : null
+                  // Ngày trong ô đã qua so với hôm nay: chữ đỏ + "Quá hạn N ngày" (test tay 09/11 điểm 14) - chỉ hiển thị, không chặn.
+                  const lateDays = value ? overdueDays(new Date(`${value}T00:00:00`)) : 0
                   return (
-                    <div style={{ flex:1, minWidth:0, fontSize:10.5, color:'var(--text3)', lineHeight:'16px' }}>
+                    <div style={{ flex:1, minWidth:0, fontSize:10.5, color: lateDays > 0 ? 'var(--red)' : 'var(--text3)', fontWeight: lateDays > 0 ? 700 : undefined, lineHeight:'16px' }}>
                       {fmtDayVN(value)}
+                      {lateDays > 0 && <> · Quá hạn {lateDays} ngày</>}
                       {isEstimate(field) && p && offsetText && <> · {offsetText}</>}
                       {showHint && <> · <button type="button" onClick={() => setField(field, p)}
                         title="Điền ngày đề xuất theo năng lực (vẫn phải bấm Lưu)"

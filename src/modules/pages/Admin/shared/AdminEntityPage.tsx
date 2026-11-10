@@ -301,17 +301,16 @@ export default function AdminEntityPage<T extends { id: number | string }>({
     fields.forEach(f => {
       const v = (values as Record<string, unknown>)[f.name]
       const hasPendingImage = f.type === 'image' && !!pendingImages[f.name]
-      if (f.required && !hasPendingImage && (v === undefined || v === null || v === '')) {
+      if (f.required && !hasPendingImage && (v === undefined || v === null || v === '' || (typeof v === 'string' && f.type !== 'password' && v.trim() === ''))) {
+        // Kiểm "bắt buộc" sau khi trim - tên toàn dấu cách coi như rỗng (test tay 09/11 điểm 19).
         nextErrors[f.name] = 'Bắt buộc'
         return
       }
       const err = f.validate?.(v, values)
       if (err) nextErrors[f.name] = err
     })
-    if (Object.keys(nextErrors).length > 0) {
-      setErrors(nextErrors)
-      return
-    }
+    setErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) return
     const guardErr = config.guardSave?.(values, isNew)
     if (guardErr) {
       setFormError(guardErr)
@@ -663,9 +662,11 @@ export default function AdminEntityPage<T extends { id: number | string }>({
               </label>
 
               {f.type === 'checkbox' ? (
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+                // Ô tick kích thước tự nhiên, sát chữ, cùng 1 dòng (test tay 09/11 điểm 18).
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer' }}>
                   <input
                     type="checkbox"
+                    style={{ width: 'auto', flex: 'none', margin: 0 }}
                     checked={!!(values as Record<string, unknown>)[f.name]}
                     onChange={e => setField(f.name, e.target.checked)}
                   />

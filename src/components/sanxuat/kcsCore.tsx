@@ -72,7 +72,10 @@ function KcsReviewModal({ stageType, line, onClose, onSubmit }: {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
-  const failed = Math.max(0, Math.min(line.pendingQty, Math.floor(Number(failedQty) || 0)))
+  // Nhập "không đạt" lớn hơn số chờ duyệt: báo đỏ + khoá nút duyệt, không kẹp im lặng (test tay 09/11 điểm 33).
+  const rawFailed = Math.max(0, Math.floor(Number(failedQty) || 0))
+  const quaSo = rawFailed > line.pendingQty
+  const failed = Math.min(line.pendingQty, rawFailed)
   const passed = line.pendingQty - failed
 
   const addReason = async () => {
@@ -96,6 +99,7 @@ function KcsReviewModal({ stageType, line, onClose, onSubmit }: {
   }
 
   const submit = async () => {
+    if (quaSo) return
     if (failed > 0 && !reasonId) { setErr('Có SL không đạt → phải chọn nguyên nhân'); return }
     setBusy(true); setErr('')
     try {
@@ -116,7 +120,9 @@ function KcsReviewModal({ stageType, line, onClose, onSubmit }: {
 
         <label style={lbl}>Số lượng chưa đạt</label>
         <input type="number" min={0} max={line.pendingQty} value={failedQty}
-          onChange={e => setFailedQty(e.target.value)} style={inp} autoFocus />
+          onChange={e => setFailedQty(e.target.value)} autoFocus
+          style={quaSo ? { ...inp, borderColor: 'var(--fg-c62828)', color: 'var(--fg-c62828)' } : inp} />
+        {quaSo && <div style={{ fontSize: 12, color: 'var(--fg-c62828)', marginTop: 4 }}>Không được lớn hơn số chờ duyệt ({fmt(line.pendingQty)})</div>}
         <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
           Đạt: <b style={{ color: 'var(--green)' }}>{fmt(passed)}</b> · Không đạt: <b style={{ color: failed > 0 ? 'var(--fg-c62828)' : 'var(--text3)' }}>{fmt(failed)}</b>
         </div>
@@ -156,7 +162,7 @@ function KcsReviewModal({ stageType, line, onClose, onSubmit }: {
           background: 'var(--surface)', borderTop: '1px solid var(--border)',
         }}>
           <button onClick={onClose} style={btnGhost} disabled={busy}>Hủy</button>
-          <button onClick={submit} disabled={uploading || busy} style={btnPrimary}>{busy ? 'Đang duyệt…' : 'Xác nhận duyệt'}</button>
+          <button onClick={submit} disabled={uploading || busy || quaSo} style={quaSo ? { ...btnPrimary, opacity: 0.5, cursor: 'not-allowed' } : btnPrimary}>{busy ? 'Đang duyệt…' : 'Xác nhận duyệt'}</button>
         </div>
       </div>
     </div>
@@ -251,6 +257,7 @@ function KcsVatTuReviewBoard({ lines, cfg, title, subtitle, backLabel, onBack, o
         rowKey={l => l.id}
         rowFocus={l => l.focusKey}
         rowTone={l => l.pendingQty > 0 ? 'alert' : 'default'}
+        emptyText="Không còn lô chờ kiểm."
       />
       {target && (
         <KcsReviewModal
@@ -326,6 +333,7 @@ function KcsPoListBoard({ rows, cfg, onEnter }: { rows: KcsRow[]; cfg: StageCfg;
       clickable={() => true}
       onRowClick={v => onEnter(v.r.id)}
       rowTitle={v => v.choKiem > 0 ? `Có ${fmt(v.choKiem)} chờ kiểm — nhấn để duyệt` : 'Nhấn để xem chi tiết'}
+      emptyText="Không còn lô chờ kiểm."
     />
   )
 }

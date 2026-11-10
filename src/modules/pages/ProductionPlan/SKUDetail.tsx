@@ -28,12 +28,16 @@ export function StatusBadge({ status }: { status: string }) {
 // Mảnh và chi tiết là 2 nhánh độc lập tiến song song (không còn gộp vào 1 vị trí tuyến tính của
 // status) - 1 SKU có thể "chờ duyệt mảnh" VÀ "chờ duyệt chi tiết" cùng lúc, nên xét theo tình
 // trạng TỪNG nhánh thay vì theo status. Dùng chung cho ô lọc/đếm ở Duyệt SKU và nhãn trạng thái.
+// Nhánh đã bị KHSX/Sếp từ chối (reviewStatus.status === 'REJECTED') là đang chờ nhân viên định mức
+// sửa, KHÔNG phải chờ duyệt (test tay 09/11 điểm 4) nên không tính vào needsManhReview/needsDetailReview.
+export const isManhRejected = (p: Sku) => p.manhReviewStatus?.status === 'REJECTED'
+export const isDetailRejected = (p: Sku) => p.quotaManagement?.reviewStatus?.status === 'REJECTED'
 export const needsManhReview = (p: Sku) =>
-  (p.manhData?.pieces?.length ?? 0) > 0 && p.manhReviewStatus?.status !== 'APPROVED'
+  (p.manhData?.pieces?.length ?? 0) > 0 && !p.manhReviewStatus
 export const needsDetailReview = (p: Sku) => {
   const mt = p.quotaManagement?.materialType
   const hasData = !!mt && (mt.daySon.length + mt.vatTuPhuKien.length + mt.baoBiDongGoi.length) > 0
-  return hasData && p.quotaManagement?.reviewStatus?.status !== 'APPROVED'
+  return hasData && !p.quotaManagement?.reviewStatus
 }
 
 /** Nhãn trạng thái của 1 SKU: SKU còn "Đang làm định mức" mà có nhánh đã gửi chờ KHSX duyệt thì hiện
@@ -46,6 +50,10 @@ export function SkuStatusBadge({ pf }: { pf: Sku }) {
       const label = m && d ? 'Chờ duyệt mảnh + chi tiết' : m ? 'Chờ duyệt mảnh' : 'Chờ duyệt chi tiết'
       const tone = m ? { color: 'var(--fg-c2410c)', bg: 'var(--bg-ffedd5)' } : { color: 'var(--fg-b45309)', bg: 'var(--bg-fef3c7)' }
       return <GenericStatusBadge label={label} {...tone} />
+    }
+    // Không nhánh nào chờ duyệt nhưng có nhánh bị từ chối -> đang chờ nhân viên định mức sửa (điểm 4).
+    if (isManhRejected(pf) || isDetailRejected(pf)) {
+      return <GenericStatusBadge label="Bị từ chối – chờ sửa" color="var(--text2)" bg="var(--surface2)" />
     }
   }
   return <StatusBadge status={pf.status} />
@@ -109,7 +117,7 @@ export function SKUDetail({
   onApproveParts?: () => Promise<void>
   onApproveBossRequest?: () => Promise<void>
   onBossReject?: (reason?: string) => Promise<void>
-  onRefresh?: () => void
+  onRefresh?: () => void | Promise<void>
   refreshing?: boolean
   /** Sửa SKU + khách hàng — chỉ hiện nút khi truyền vào VÀ SKU đang IN_PROGRESS (BE chặn mọi
    *  trạng thái khác, xem SkusService.update()). */
@@ -151,6 +159,8 @@ export function SKUDetail({
   // account Sắt nhập dữ liệu thật rồi KHSX mới duyệt được, không có đường tắt nào để coi mục rỗng
   // là "đã xong".
   const manhAllApproved = manhSecStatus?.status === 'APPROVED'
+  // Số nhóm vật tư thật sự có dòng trong định mức mảnh (không ghi cứng "cả 5 nhóm" - test tay 09/11 điểm 5).
+  const manhGroupCount = new Set((manh?.pieces ?? []).flatMap(p => p.children.map(c => c.group))).size
   const manhAnyRejected = manhSecStatus?.status === 'REJECTED'
 
   // Modal duyệt/từ chối GIỮ MỞ tới khi biết chắc kết quả (2026-09-11, cùng idiom FinalReviewAction/
@@ -167,6 +177,7 @@ export function SKUDetail({
       await reviewSkuManhQuota(pf.id, 'APPROVED')
       logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_approved', 'Định mức mảnh')
       setManhApproveModalOpen(false)
+      void onRefresh?.() // nhãn trạng thái tự cập nhật (test tay 09/11 điểm 5)
     } catch (e: unknown) {
       setManhSecStatus(null)
       setManhApproveError(e instanceof Error ? e.message : 'Không thể duyệt định mức mảnh')
@@ -188,6 +199,7 @@ export function SKUDetail({
       await reviewSkuManhQuota(pf.id, 'REJECTED', reason)
       logAction(SKU_ENTITY, String(pf.id), 'sku.parts_section_rejected', reason ? `Định mức mảnh — ${reason}` : 'Định mức mảnh')
       setManhRejectModalOpen(false)
+      void onRefresh?.() // (test tay 09/11 điểm 5)
     } catch (e: unknown) {
       setManhSecStatus(null)
       setManhRejectError(e instanceof Error ? e.message : 'Không thể từ chối định mức mảnh')
@@ -252,6 +264,7 @@ export function SKUDetail({
       await reviewSkuDetailQuota(pf.id, 'APPROVED')
       logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_approved', 'Định mức chi tiết')
       setApproveModalOpen(false)
+      void onRefresh?.() // (test tay 09/11 điểm 5)
     } catch (e: unknown) {
       setSecStatus(null)
       setApproveSectionError(e instanceof Error ? e.message : 'Không thể duyệt định mức chi tiết')
@@ -273,6 +286,7 @@ export function SKUDetail({
       await reviewSkuDetailQuota(pf.id, 'REJECTED', reason)
       logAction(SKU_ENTITY, String(pf.id), 'sku.detail_section_rejected', reason ? `Định mức chi tiết — ${reason}` : 'Định mức chi tiết')
       setRejectModalOpen(false)
+      void onRefresh?.() // (test tay 09/11 điểm 5)
     } catch (e: unknown) {
       setSecStatus(null)
       setRejectSectionError(e instanceof Error ? e.message : 'Không thể từ chối định mức chi tiết')
@@ -386,6 +400,53 @@ export function SKUDetail({
         </div>
       )}
 
+      {/* Dải nhắc đầu trang (test tay 09/11 điểm 7): nhánh đã duyệt đủ nhóm thì nút "Xác nhận hoàn tất"
+          bấm được - nhắc ngay ở đầu để KHSX không phải kéo xuống cuối. Dùng cùng hàm xử lý với nút cũ
+          ở cuối trang; KHÔNG tự gửi Sếp, KHSX vẫn phải bấm. */}
+      {((showManhActionBar && manhAllApproved && !!onApproveParts) || (showDetailActionBar && readyToForwardDetail && !!onApproveDetail)) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 20, padding: '12px 16px', background: 'var(--bg-fef3c7)', border: '1px solid var(--fg-d97706)', borderRadius: 8, fontSize: 13 }}>
+          <strong style={{ color: 'var(--fg-b45309)' }}>Bước tiếp theo: bấm nút Xác nhận hoàn tất để chốt phần đã duyệt. Khi cả mảnh và chi tiết đều chốt xong, SKU mới được gửi Sếp.</strong>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            {showManhActionBar && manhAllApproved && !!onApproveParts && (
+              <button
+                onClick={handleApproveParts}
+                disabled={approvingParts}
+                style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: approvingParts ? 'not-allowed' : 'pointer', background: 'var(--bg-2e7d32)', color: '#fff', opacity: approvingParts ? 0.7 : 1 }}
+              >{approvingParts ? 'Đang gửi...' : 'Xác nhận hoàn tất — Định mức mảnh'}</button>
+            )}
+            {showDetailActionBar && readyToForwardDetail && !!onApproveDetail && (
+              <button
+                onClick={() => setConfirmApproveDetail(true)}
+                disabled={approvingDetail}
+                style={{ padding: '8px 18px', fontSize: 13, fontWeight: 600, borderRadius: 8, border: 'none', cursor: approvingDetail ? 'not-allowed' : 'pointer', background: 'var(--bg-2e7d32)', color: '#fff', opacity: approvingDetail ? 0.7 : 1 }}
+              >{approvingDetail ? 'Đang gửi...' : 'Xác nhận hoàn tất — Định mức chi tiết'}</button>
+            )}
+          </div>
+          {approvePartsError && <span style={{ fontSize: 12, color: 'var(--fg-c62828)', flexBasis: '100%' }}>{approvePartsError}</span>}
+        </div>
+      )}
+
+      {/* Thanh nút Sếp ở đầu trang, dính khi cuộn (test tay 09/11 điểm 8) - dùng lại FinalReviewAction
+          với đúng handler + hộp xác nhận của bộ nút cuối trang. */}
+      {isBoss && !readOnly && pf.status === 'WAITING_BOSS_APPROVAL' && (
+        <div style={{ position: 'sticky', top: 0, zIndex: 5, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 20, padding: '10px 16px', background: 'var(--bg-fef3c7)', border: '1px solid var(--fg-d97706)', borderRadius: 8, fontSize: 13 }}>
+          <strong style={{ color: 'var(--fg-b45309)' }}>SKU đang chờ Sếp duyệt</strong>
+          <div style={{ marginLeft: 'auto' }}>
+            <FinalReviewAction
+              inline
+              active
+              buttonLabel="Duyệt"
+              confirmTitle="Xác nhận duyệt"
+              confirmText="Xác nhận duyệt định mức chi tiết và định mức mảnh của SKU này? Sau khi duyệt, SKU sẽ được thêm vào danh sách."
+              confirmLabel="Duyệt"
+              onConfirm={onApproveBossRequest}
+              onReject={onBossReject}
+              rejectConfirmText='Từ chối SKU này? SKU sẽ quay lại cho KHSX duyệt lại từng mục định mức (mảnh + chi tiết). Dữ liệu đã nhập vẫn được giữ nguyên, không bộ phận nào phải nhập lại.'
+            />
+          </div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', flexDirection: isCompact ? 'column' : 'row', gap: 20, alignItems: isCompact ? 'stretch' : 'flex-start' }}>
       <div style={{ flex: 1, minWidth: 0 }}>
       {finalReviewMode ? (
@@ -460,7 +521,7 @@ export function SKUDetail({
             </div>
           </div>
 
-          {/* Manh section — 1 quyết định duyệt duy nhất cho cả 5 nhóm vật tư */}
+          {/* Manh section — 1 quyết định duyệt duy nhất cho cả các nhóm vật tư */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             <ManhPiecesSection
               readOnly={!canReview} entry={manhSecStatus}
@@ -610,10 +671,11 @@ export function SKUDetail({
         </div>
       )}
 
-      {/* Sếp duyệt lần cuối — gộp cả chi tiết + mảnh, không phụ thuộc tab đang xem */}
-      {isBoss && !readOnly && (
+      {/* Sếp duyệt lần cuối — gộp cả chi tiết + mảnh, không phụ thuộc tab đang xem. Lúc đang chờ Sếp thì
+          nút nằm ở thanh dính đầu trang (điểm 8) - không hiện thêm bộ nút thứ 2 ở cuối trang. */}
+      {isBoss && !readOnly && pf.status !== 'WAITING_BOSS_APPROVAL' && (
         <FinalReviewAction
-          active={pf.status === 'WAITING_BOSS_APPROVAL'}
+          active={false}
           buttonLabel="Duyệt"
           confirmTitle="Xác nhận duyệt"
           confirmText="Xác nhận duyệt định mức chi tiết và định mức mảnh của SKU này? Sau khi duyệt, SKU sẽ được thêm vào danh sách."
@@ -638,7 +700,7 @@ export function SKUDetail({
       <Modal open={manhApproveModalOpen} onClose={manhApproveBusy ? undefined : () => { setManhApproveModalOpen(false); setManhApproveError(null) }} maxWidth={420} zIndex={2000}>
             <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Xác nhận duyệt — Định mức mảnh</h3>
             <p style={{ margin: '0 0 20px', fontSize: 13, color: 'var(--text2)' }}>
-              Xác nhận duyệt định mức mảnh (cả 5 nhóm vật tư)? Không thể sửa lại quyết định này sau khi xác nhận.
+              Xác nhận duyệt định mức mảnh ({manhGroupCount} nhóm vật tư đang có dữ liệu)? Không thể sửa lại quyết định này sau khi xác nhận.
             </p>
             {manhApproveError && <div style={modalErrorStyle}>{manhApproveError}</div>}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
@@ -727,8 +789,10 @@ export function SKUDetail({
 
 function FinalReviewAction({
   active, buttonLabel, confirmTitle, confirmText, confirmLabel, onConfirm, doneActive = false, doneLabel,
-  onReject, rejectConfirmText,
+  onReject, rejectConfirmText, inline = false,
 }: {
+  /** Bản đặt ở thanh đầu trang: bỏ khoảng cách trên (điểm 8). */
+  inline?: boolean
   active: boolean
   buttonLabel: string
   confirmTitle: string
@@ -782,7 +846,7 @@ function FinalReviewAction({
   return (
     <>
       {active && (
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: inline ? 0 : 16, flexWrap: 'wrap' }}>
           {onReject && (
 
             <button

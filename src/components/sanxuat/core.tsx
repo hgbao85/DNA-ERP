@@ -22,6 +22,7 @@ import type {
   BeProductionBatch, BeProductionBatchQcReview,
 } from '../../services/production-batches-api'
 import { errMsg } from '../../utils/errors'
+import { overdueDays } from '../../utils/overdue'
 import { useIsMobile } from '../../hooks/useMediaQuery'
 import LoadingState from '../LoadingState'
 import LoadErrorState from '../LoadErrorState'
@@ -29,6 +30,7 @@ import { useRealtimeRefetch } from '../../realtime/hooks'
 import LenhCode, { useLenhCodeLookup } from '../LenhCode'
 import { getPieceSyncBoard } from '../../services/piece-sync-board-api'
 import { loadHanThucCo, hanThucCoKey, type HanThucCo } from './hanThucCo'
+import { loadHanPassedByPiece, tinhKhungSanDeSon, sonThucCoKey } from './sonThucCo'
 
 const ACCENT = 'var(--fg-e65100)'
 const REMIND_MINUTES = 60
@@ -93,14 +95,14 @@ export interface StageCfg {
 // Cấu hình dùng chung cho công đoạn Phôi/Hàn/Sơn — dùng lại ở màn Lệnh sản xuất riêng
 // (Phoi/Han/Son@demo.com) lẫn ở màn chi tiết Khung cơ khí bên KHSX (xem ThongKePagePlan.tsx).
 export const PHOI_CFG: StageCfg = { label: 'Phôi', done: 'Đã cắt', verb: 'cắt', itemLabel: 'Loại sắt', unit: 'cây', Icon: Wrench }
-export const HAN_CFG: StageCfg = { label: 'Hàn', done: 'Đã hàn', verb: 'hàn', itemLabel: 'Mảnh', unit: 'cái', Icon: Flame }
+export const HAN_CFG: StageCfg = { label: 'Hàn', done: 'Đã hàn', verb: 'hàn', itemLabel: 'Mảnh', unit: 'mảnh', Icon: Flame }
 // itemLabel/unit đúng là 'Mảnh'/'cái' (KHÔNG phải 'Loại sơn'/'lít' như bản đầu) - Sơn báo sản
 // lượng qua ProductionBatch.reportedQty, LUÔN đếm theo MẢNH giống Hàn/Vật tư TP (xem comment
 // ProductionBatch.pieceId ở schema), không có luồng nào theo dõi lít sơn tiêu thụ qua bảng này.
 // Sửa 2026-09-12 (phát hiện qua test tay thật, KCS thấy "Tổng SL chờ kiểm: 20 lít" cho 20 CÁI chân
 // bàn) - trước đây LenhSanXuatSon.tsx tự override cục bộ đúng {itemLabel:'Mảnh',unit:'cái'} nhưng
 // KcsSonPage.tsx và ThongKePagePlan.tsx vẫn dùng thẳng SON_CFG gốc nên còn hiện sai.
-export const SON_CFG: StageCfg = { label: 'Sơn', done: 'Đã sơn', verb: 'sơn', itemLabel: 'Mảnh', unit: 'cái', Icon: SprayCan }
+export const SON_CFG: StageCfg = { label: 'Sơn', done: 'Đã sơn', verb: 'sơn', itemLabel: 'Mảnh', unit: 'mảnh', Icon: SprayCan }
 // "Vật tư thành phẩm" (needsHan=false, vd chân nhôm - cắt xong là hết, không hàn) - Phôi tự báo
 // theo MẢNH (khác PHOI_CFG ở trên, dùng cho theo dõi theo LOẠI SẮT/cây ở ThongKePagePlan.tsx).
 // stage="PHOI" cùng ProductionBatch với Hàn/Sơn (thêm 21/08/2026), chỉ khác điều kiện needsHan.
@@ -114,6 +116,13 @@ export const minsAgo = (mins: number) => new Date(Date.now() - mins * 60000).toI
 
 // ── Helpers ────────────────────────────────────────────────────────
 export const fmt = (n: number) => n.toLocaleString('vi-VN')
+// Ô "Còn lại" (test tay 09/11 điểm 32): báo > cần thì hiện "vượt N" màu cam thay vì "0" xanh; bằng nhau → "0" xanh;
+// còn thiếu → số còn lại màu cam đậm như cũ. CHỈ đổi hiển thị, không chặn nhập vượt.
+function ConLaiCell({ need, done }: { need: number; done: number }) {
+  const diff = need - done
+  if (diff < 0) return <span style={{ color: 'var(--fg-d97706)', fontWeight: 600 }}>vượt {fmt(-diff)}</span>
+  return <span style={{ color: diff > 0 ? ACCENT : 'var(--green)', fontWeight: 600 }}>{fmt(diff)}</span>
+}
 // '—' cho ProcRow.deadline rỗng (Hàn/Sơn chưa từng được KHSX đặt mốc FRAME_HAN/FRAME_SON riêng,
 // xem fetchHanSonRows() - 2026-09-12: đã nối thật, trước đó luôn hard-code '—') — tránh hiện
 // "Invalid Date" ra UI.
@@ -153,7 +162,7 @@ const poSummary = (r: ProcRow) => {
   // Math.max(0, ...) (2026-09-11, QA audit C7) - trước đây có thể ra số âm nếu daLam vượt soLuong
   // (báo dư/điều chỉnh), hiện "Còn lại -5" vẫn tô xanh vì điều kiện đổi màu chỉ so `> 0` - không
   // đồng nhất với cột "Còn lại" cấp mảnh (VatTuDetailBoard) đã clamp đúng Math.max(remain, 0).
-  return { pct, daLam, conLai: Math.max(0, r.soLuong - daLam) }
+  return { pct, daLam, conLai: Math.max(0, r.soLuong - daLam), need: r.soLuong }
 }
 // Phôi: tiến độ theo tổng CÂY (đã cắt / cần) — không dùng đồng bộ mảnh→bộ.
 const poSummaryCay = (r: ProcRow) => {
@@ -161,7 +170,7 @@ const poSummaryCay = (r: ProcRow) => {
   const need = lines.reduce((s, l) => s + l.needQty, 0)
   const done = lines.reduce((s, l) => s + l.doneQty, 0)
   const pct = need > 0 ? Math.round((done / need) * 100) : 0
-  return { pct, daLam: done, conLai: Math.max(0, need - done) }
+  return { pct, daLam: done, conLai: Math.max(0, need - done), need }
 }
 function Progress({ pct }: { pct: number }) {
   const color = pct >= 100 ? 'var(--green)' : pct >= 50 ? ACCENT : 'var(--fg-b45309)'
@@ -235,7 +244,7 @@ function PiListBoard({ groups, cfg, onEnter }: { groups: PiGroup[]; cfg: StageCf
     },
     { key: 'skuCount', header: 'Số SKU', align: 'right', cell: v => v.g.rows.length },
     { key: 'done', header: `${cfg.done} (${cfg.unit})`, align: 'right', cell: v => <span style={{ fontWeight: 700 }}>{fmt(v.stats.done)}</span> },
-    { key: 'remain', header: `Còn lại (${cfg.unit})`, align: 'right', cell: v => <span style={{ color: v.stats.need - v.stats.done > 0 ? ACCENT : 'var(--green)', fontWeight: 600 }}>{fmt(Math.max(0, v.stats.need - v.stats.done))}</span> },
+    { key: 'remain', header: `Còn lại (${cfg.unit})`, align: 'right', cell: v => <ConLaiCell need={v.stats.need} done={v.stats.done} /> },
     { key: 'progress', header: 'Tiến độ', width: 160, cell: v => <Progress pct={v.stats.pct} /> },
   ]
   const Icon = cfg.Icon
@@ -301,10 +310,19 @@ function PoListBoard({ rows, cfg, isPhoi, sequential = true, onEnter, onBack, pi
       ),
     },
     { key: 'sl', header: 'Số lượng', align: 'right', cell: v => fmt(v.r.soLuong) },
-    { key: 'done', header: isPhoi ? `${cfg.done} (${cfg.unit})` : cfg.done, align: 'right', cell: v => <span style={{ fontWeight: 700, color: v.alert ? 'var(--red)' : 'var(--text)' }}>{fmt(v.s.daLam)}</span> },
-    { key: 'remain', header: isPhoi ? `Còn lại (${cfg.unit})` : 'Còn lại', align: 'right', cell: v => <span style={{ color: v.s.conLai > 0 ? ACCENT : 'var(--green)', fontWeight: 600 }}>{fmt(v.s.conLai)}</span> },
+    // Cấp SKU đếm theo BỘ (sản phẩm ráp được), khác cấp lệnh đếm theo MẢNH (test tay 09/11 điểm 34a).
+    { key: 'done', header: isPhoi ? `${cfg.done} (${cfg.unit})` : `${cfg.done} (bộ)`, align: 'right', cell: v => <span style={{ fontWeight: 700, color: v.alert ? 'var(--red)' : 'var(--text)' }}>{fmt(v.s.daLam)}</span> },
+    { key: 'remain', header: isPhoi ? `Còn lại (${cfg.unit})` : 'Còn lại (bộ)', align: 'right', cell: v => <ConLaiCell need={v.s.need} done={v.s.daLam} /> },
     { key: 'progress', header: 'Tiến độ', width: 160, cell: v => <Progress pct={v.s.pct} /> },
-    { key: 'deadline', header: 'Deadline', cell: v => dateVN(v.r.deadline) },
+    // Hạn đã qua (SKU chưa xong) tô đỏ + "Quá hạn N ngày" (test tay 09/11 điểm 34b).
+    {
+      key: 'deadline', header: 'Deadline', cell: v => {
+        const late = v.s.pct < 100 ? overdueDays(new Date(v.r.deadline)) : 0
+        return late > 0
+          ? <span style={{ color: 'var(--red)', fontWeight: 600 }}>{dateVN(v.r.deadline)}<span style={{ display: 'block', fontSize: 11 }}>Quá hạn {late} ngày</span></span>
+          : dateVN(v.r.deadline)
+      },
+    },
   ]
 
   const Icon = cfg.Icon
@@ -461,7 +479,7 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
       }
     },
     ...((showThucCo ?? true) ? [{
-      key: 'thucCo', header: <span title="Mảnh Phôi đã đồng bộ (ước tính) trừ số đã hàn">Thực có</span>, align: 'right', cell: (l: ProcLine) => (
+      key: 'thucCo', header: <span title={cfg.verb === 'sơn' ? 'Mảnh Hàn đã được KCS duyệt đạt trừ số Sơn đã báo' : 'Mảnh Phôi đã đồng bộ (ước tính) trừ số đã hàn'}>Thực có</span>, align: 'right', cell: (l: ProcLine) => (
         <span style={{ fontWeight: 600 }}>{l.thucCoQty === undefined ? '—' : fmt(l.thucCoQty)}</span>
       )
     } as BoardColumn<ProcLine>] : []),
@@ -475,8 +493,7 @@ export function VatTuDetailBoard({ lines, cfg, readOnly, title, subtitle, banner
     } as BoardColumn<ProcLine>] : []),
     {
       key: 'remain', header: 'Còn lại', align: 'right', width: aligned ? 110 : undefined, cell: l => {
-        const remain = l.needQty - l.doneQty
-        return <span style={{ fontWeight: 600, color: remain <= 0 ? 'var(--green)' : ACCENT }}>{fmt(Math.max(remain, 0))}</span>
+        return <ConLaiCell need={l.needQty} done={l.doneQty} />
       }
     },
     {
@@ -718,7 +735,7 @@ function LineListBoard({ lines, cfg, title, subtitle, backLabel, onBack, onEnter
                 <div style={{ flex: 1 }}>
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{l.itemName}</div>
                   <div style={{ fontSize: 12, color: 'var(--text3)' }}>Cần {fmt(l.needQty)} {cfg.unit}</div>
-                  <ThucCoNote line={l} unit={cfg.unit} remain={remain} />
+                  <ThucCoNote line={l} unit={cfg.unit} remain={remain} isSon={cfg.verb === 'sơn'} />
                 </div>
                 {done ? (
                   <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: 'var(--green)' }}><Check size={12} /> đã {cfg.verb} xong</span>
@@ -743,15 +760,15 @@ function LineListBoard({ lines, cfg, title, subtitle, backLabel, onBack, onEnter
 
 // "Phôi sẵn để hàn" ở màn Hàn đang nhập sản lượng (2026-11-04) - cùng số cột "Thực có" (piece-sync-board, ƯỚC TÍNH).
 // Chỉ nhắc, không chặn nhập. Không có số (Sơn, lỗi API) thì không hiện gì.
-function ThucCoNote({ line, unit, remain, showBottleneck = false }: { line: ProcLine; unit: string; remain: number; showBottleneck?: boolean }) {
+function ThucCoNote({ line, unit, remain, showBottleneck = false, isSon = false }: { line: ProcLine; unit: string; remain: number; showBottleneck?: boolean; isSon?: boolean }) {
   if (line.thucCoQty === undefined) return null
   const short = remain > 0 && line.thucCoQty < remain
   const parts = line.parts ?? []
   const rap = (p: ProcPart) => (p.perChiTiet > 0 ? Math.floor((p.thucCo ?? 0) / p.perChiTiet) : 0)
   const worst = showBottleneck && short && parts.length > 0 ? parts.reduce((a, p) => (rap(p) < rap(a) ? p : a)) : null
   return (
-    <div title="Mảnh Phôi đã đồng bộ (ước tính) trừ số đã hàn" style={{ fontSize: 12, marginTop: 2, color: short ? 'var(--amber)' : 'var(--text2)' }}>
-      Phôi sẵn để hàn: <b>{fmt(line.thucCoQty)}</b> {unit} (ước tính)
+    <div title={isSon ? 'Mảnh Hàn đã được KCS duyệt đạt trừ số Sơn đã báo' : 'Mảnh Phôi đã đồng bộ (ước tính) trừ số đã hàn'} style={{ fontSize: 12, marginTop: 2, color: short ? 'var(--amber)' : 'var(--text2)' }}>
+      {isSon ? 'Khung sẵn để sơn' : 'Phôi sẵn để hàn'}: <b>{fmt(line.thucCoQty)}</b> {unit}{isSon ? '' : ' (ước tính)'}
       {worst && <> · thiếu nhất: {worst.loaiSat} {worst.quyCach} · {fmt(worst.len)} mm{worst.nghenO && <> · nghẽn ở {worst.nghenO}</>}</>}
     </div>
   )
@@ -818,7 +835,7 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
         <div>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>{line.itemName}</h2>
           <div style={{ fontSize: 12, color: 'var(--text3)' }}>{line.spec} · Cần {fmt(line.needQty)} {cfg.unit}</div>
-          <ThucCoNote line={line} unit={cfg.unit} remain={remain} showBottleneck />
+          <ThucCoNote line={line} unit={cfg.unit} remain={remain} showBottleneck isSon={cfg.verb === 'sơn'} />
         </div>
       </div>
 
@@ -840,7 +857,7 @@ function LineDetailCard({ line, cfg, readOnly, onBack, onRecord, onFinishBatch, 
               <td style={tdR}>{fmt(line.needQty)}</td>
               <td style={tdR}>{fmt(reported)}</td>
               <td style={{ ...tdR, color: failed > 0 ? 'var(--red)' : 'var(--text3)' }}>{failed > 0 ? fmt(failed) : '—'}</td>
-              <td style={{ ...tdR, color: remain > 0 ? ACCENT : 'var(--green)', fontWeight: 700 }}>{fmt(remain)}</td>
+              <td style={{ ...tdR, fontWeight: 700 }}><ConLaiCell need={line.needQty} done={reported} /></td>
               {!readOnly && (
                 <td style={{ ...td, textAlign: 'right' }}>
                   <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
@@ -921,6 +938,10 @@ async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
   const thucCoPromise = stage === 'HAN'
     ? loadHanThucCo(orders.map(o => o.productionInvoiceId), getPieceSyncBoard)
     : Promise.resolve(new Map<string, HanThucCo>())
+  // Sơn: số mảnh Hàn đã đạt KCS theo lệnh+mảnh (test tay 09/11 điểm 34d); lỗi → map rỗng, không hiện gì.
+  const hanPassedPromise = stage === 'SON'
+    ? loadHanPassedByPiece(orders.map(o => o.id), id => api.getProductionBatchPlan(id, 'HAN'))
+    : Promise.resolve(new Map<string, number>())
   const settled = await Promise.all(orders.map(async o => {
     try {
       const [plan, batches] = await Promise.all([
@@ -933,6 +954,7 @@ async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
   }))
 
   const thucCoMap = await thucCoPromise
+  const hanPassedMap = await hanPassedPromise
   const rows: ProcRow[] = []
   const awaitingByLine = new Map<string, number>()
   const batchesByLine = new Map<string, BeProductionBatch[]>()
@@ -948,7 +970,8 @@ async function fetchHanSonRows(stage: SanLuongStage): Promise<HanSonFetch> {
       return {
         id: lineId, itemName: item.pieceName, spec: item.pieceCode,
         needQty: item.plannedQty, doneQty: item.passedQty,
-        thucCoQty: tc?.thucCoQty, parts: tc?.parts,
+        thucCoQty: stage === 'SON' ? tinhKhungSanDeSon(hanPassedMap.get(sonThucCoKey(o.id, item.pieceId)), item) : tc?.thucCoQty,
+        parts: tc?.parts,
         lastInputAt: null, realPieceId: item.pieceId,
         rawMaterialOnHand: item.rawMaterialOnHand,
       }

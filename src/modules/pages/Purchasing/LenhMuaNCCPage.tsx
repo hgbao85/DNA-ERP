@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { focusAttr } from '../../../utils/notificationLink'
-import { Check, ChevronLeft, ClipboardList, FileCheck2, Pencil, Printer, X } from 'lucide-react'
-import { useInspection, PROPOSAL_STATUS_LABELS, itemStatusLabel, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
+import { Check, ChevronLeft, ClipboardList, FileCheck2, Pencil, Printer, Users, X } from 'lucide-react'
+import Modal from '../../../components/Modal'
+import { useInspection, PROPOSAL_STATUS_LABELS, itemStatusLabel, wasActuallyPurchased, type PurchaseProposal, type PurchaseProposalItem } from '../../../context/InspectionContext'
 import { useAuth, type User } from '../../../context/AuthContext'
 import { useFetch } from '../../../hooks/useFetch'
 import { getMaterials, uploadDocument } from '../../../services/api'
@@ -74,6 +75,108 @@ const td: React.CSSProperties = { padding: '9px 12px' }
  */
 const isPending = (item: PurchaseProposalItem) =>
   item.status !== 'purchasing' && item.status !== 'purchased'
+
+type StatusTagCfg = { label: string; color: string; bg: string; border: string }
+
+/** Dòng chờ duyệt CHƯA vào đơn đặt hàng NCC nào (2026-11-09). Trước ghi chung "Chờ Sếp duyệt" là sai nghĩa: Sếp
+ *  chỉ ký phiếu của 1 ĐƠN, dòng chưa vào đơn là đang chờ người mua gom đơn (lỗi đã thấy ở buổi chạy thử 07/11). */
+const NOT_IN_ORDER_TAG: StatusTagCfg = { label: 'Chưa vào đơn', color: 'var(--fg-475569)', bg: 'var(--bg-f1f5f9)', border: 'var(--fg-cbd5e1)' }
+
+/** Nhãn 1 dòng ở màn này: dòng chờ duyệt tách theo đã vào đơn đặt hàng (chờ phiếu Sếp ký) hay chưa; còn lại như itemStatusLabel. */
+function itemTagOf(item: PurchaseProposalItem): StatusTagCfg {
+  if (isPending(item)) return item.supplierOrderId ? PROPOSAL_STATUS_LABELS.new : NOT_IN_ORDER_TAG
+  return itemStatusLabel(item)
+}
+
+// Thứ tự nhóm ở dòng tóm tắt phần đồng nghiệp - theo đúng tiến trình mua.
+const OTHERS_GROUP_ORDER = ['Chưa vào đơn', 'Chờ Sếp duyệt', 'Đang báo giá', 'Đang mua hàng', 'Đã mua', 'Đủ tồn kho']
+
+/**
+ * Phần vật tư ĐỒNG NGHIỆP mua trong cùng 1 đề xuất (2026-11-09). Trước là 1 ô cho MỖI vật tư kèm nhãn trạng thái lặp
+ * lại (đề xuất 300 bộ: 36 ô chiếm nửa màn hình, đẩy bảng của chính mình xuống dưới). Giờ là 1 dòng tóm tắt đếm theo
+ * trạng thái, đặt DƯỚI phần của mình; bấm "Xem" mở popup có bảng (vật tư · quy cách · cần mua · ĐVT) chia nhóm theo
+ * trạng thái - bản đầu xổ tên nối dấu phẩy ngay tại chỗ, người dùng thấy khó đọc nên đổi sang popup. Chỉ để biết phần
+ * đồng nghiệp tới đâu - không thao tác được (BE chặn báo giá hộ, xem splitItemsByOwner). Màn này chỉ có buyerId của
+ * vật tư, chưa có tên người mua nên chưa chia theo người.
+ */
+function OthersSummary({ items }: { items: PurchaseProposalItem[] }) {
+  const [open, setOpen] = useState(false)
+  const groups = new Map<string, { tag: StatusTagCfg; items: PurchaseProposalItem[] }>()
+  for (const item of items) {
+    // "Đủ tồn kho (5 Cái)" mang số lượng riêng từng dòng - gom về 1 nhóm chung.
+    const base = itemTagOf(item)
+    const tag = item.status === 'purchased' && !wasActuallyPurchased(item) ? { ...base, label: 'Đủ tồn kho' } : base
+    const g = groups.get(tag.label) ?? { tag, items: [] }
+    g.items.push(item)
+    groups.set(tag.label, g)
+  }
+  const rank = (label: string) => { const i = OTHERS_GROUP_ORDER.indexOf(label); return i < 0 ? OTHERS_GROUP_ORDER.length : i }
+  const list = [...groups.values()].sort((a, b) => rank(a.tag.label) - rank(b.tag.label))
+  const cell: React.CSSProperties = { padding: '7px 10px', borderTop: '1px solid var(--border)' }
+  return (
+    <div style={{ borderTop: '1px solid var(--border)', background: 'var(--surface2)' }}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-haspopup="dialog"
+        style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', width: '100%', padding: '10px 14px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left', fontSize: 13, color: 'var(--text2)' }}
+      >
+        <Users size={14} style={{ flexShrink: 0 }} />
+        <span style={{ fontWeight: 700, color: 'var(--text)' }}>Phần đồng nghiệp mua: {items.length} vật tư</span>
+        {list.map(g => (
+          <span key={g.tag.label} style={{ fontSize: 12 }}>
+            · <b style={{ color: g.tag.color }}>{g.items.length}</b> {g.tag.label}
+          </span>
+        ))}
+        <span style={{ marginLeft: 'auto', fontSize: 12, fontWeight: 600, color: 'var(--fg-2563eb)' }}>Xem</span>
+      </button>
+      <Modal open={open} onClose={() => setOpen(false)} maxWidth={640}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginBottom: 4 }}>
+          <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Phần đồng nghiệp mua · {items.length} vật tư</h3>
+          <div style={{ flex: 1 }} />
+          <button type="button" onClick={() => setOpen(false)} aria-label="Đóng" style={{ display: 'flex', padding: 4, border: 'none', background: 'none', cursor: 'pointer', color: 'var(--text3)' }}>
+            <X size={17} />
+          </button>
+        </div>
+        <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 12 }}>Chỉ để xem - đồng nghiệp tự gom đơn và đặt hàng phần này.</div>
+        <div style={{ overflowX: 'auto', border: '1px solid var(--border)', borderRadius: 8 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ textAlign: 'left', background: 'var(--surface2)' }}>
+                <th style={th}>Vật tư</th>
+                <th style={th}>Quy cách</th>
+                <th style={{ ...th, textAlign: 'right' }}>Cần mua</th>
+                <th style={th}>ĐVT</th>
+              </tr>
+            </thead>
+            {list.map(g => (
+              <tbody key={g.tag.label}>
+                <tr>
+                  <td colSpan={4} style={{ ...cell, background: g.tag.bg }}>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: g.tag.color }}>{g.tag.label} ({g.items.length})</span>
+                  </td>
+                </tr>
+                {g.items.map((item, idx) => (
+                  <tr key={item.itemId ?? idx}>
+                    <td style={{ ...cell, fontWeight: 600 }}>{item.name}</td>
+                    <td style={{ ...cell, fontSize: 12, color: 'var(--text3)' }}>{item.spec || '—'}</td>
+                    <td style={{ ...cell, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{item.buyQty}</td>
+                    <td style={{ ...cell, fontSize: 12, color: 'var(--text3)' }}>{item.unit}</td>
+                  </tr>
+                ))}
+              </tbody>
+            ))}
+          </table>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+          <button type="button" onClick={() => setOpen(false)} style={{ padding: '7px 16px', fontSize: 13, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
+            Đóng
+          </button>
+        </div>
+      </Modal>
+    </div>
+  )
+}
 
 /**
  * Ô "Số mua" của 1 dòng chờ duyệt (2026-11-04, YC7 mục 7.2): người mua được TĂNG số mua cho tròn
@@ -244,12 +347,17 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onCreateOrder, on
   }
 
   const itemStatusTag = (item: PurchaseProposalItem) => {
-    const cfg = itemStatusLabel(item)
+    const cfg = itemTagOf(item)
     return <span style={{ fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 6, padding: '2px 8px' }}>{cfg.label}</span>
   }
 
+  // Phần của mình còn dòng chờ duyệt: còn dòng chưa vào đơn -> "Chưa vào đơn" (còn việc gom đơn), đã vào đơn hết ->
+  // "Chờ Sếp duyệt" (chờ phiếu ký) - 2026-11-09, trước luôn ghi "Chờ Sếp duyệt" kể cả khi chưa có đơn nào.
   const statusTag = (p: PurchaseProposal) => {
-    const cfg = PROPOSAL_STATUS_LABELS[myRollupStatus(p)]
+    const myPending = splitItemsByOwner(user, p.items, buyerByMaterialId).mine.filter(isPending)
+    const cfg = myPending.length > 0
+      ? (myPending.some(item => !item.supplierOrderId) ? NOT_IN_ORDER_TAG : PROPOSAL_STATUS_LABELS.new)
+      : PROPOSAL_STATUS_LABELS[myRollupStatus(p)]
     return <span style={{ fontSize: 11, fontWeight: 700, color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 6, padding: '2px 8px' }}>{cfg.label}</span>
   }
 
@@ -373,24 +481,10 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onCreateOrder, on
         </div>
 
         <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface)' }}>
-          {others.length > 0 && (
-            <div style={{ padding: '10px 14px', background: 'var(--surface2)' }}>
-              <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 6 }}>
-                {others.length} vật tư khác trong đề xuất này do đồng nghiệp phụ trách mua:
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {others.map((item, idx) => (
-                  <span key={idx} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px' }}>
-                    {item.name} {itemStatusTag(item)}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
           {/* ── Chờ Sếp duyệt (của mình) ── 2026-11-04: dòng phải vào 1 đơn đặt hàng NCC (chọn NCC, hệ
-              thống cấp số đơn) rồi mới "Sếp đã duyệt" được - duyệt theo từng đơn, 1 phiếu ký cho 1 đơn. */}
-          {pendingItems.length > 0 && (<div style={{ borderTop: others.length > 0 ? '1px solid var(--border)' : 'none' }}>
+              thống cấp số đơn) rồi mới "Sếp đã duyệt" được - duyệt theo từng đơn, 1 phiếu ký cho 1 đơn.
+              Phần đồng nghiệp mua (OthersSummary) chuyển xuống CUỐI khung từ 2026-11-09. */}
+          {pendingItems.length > 0 && (<div>
             {looseItems.length > 0 && (<div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap', padding: '10px 14px', background: 'var(--surface2)' }}>
                 <span style={{ fontSize: 13, fontWeight: 700 }}>Chưa vào đơn đặt hàng</span>
@@ -488,6 +582,8 @@ function ProposalSection({ user, buyerByMaterialId, proposals, onCreateOrder, on
             </div>
             )}
           </div>)}
+
+          {others.length > 0 && <OthersSummary items={others} />}
         </div>
       </div>
 

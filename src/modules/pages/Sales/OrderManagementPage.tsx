@@ -25,6 +25,9 @@ import { pageTitle, pageSubtitle, sectionLabel } from '../../../styles/typograph
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 
+/** Nhãn ô SKU: mã nhà máy trùng tên thì chỉ hiện 1 lần (test tay 09/11 điểm 11). */
+const skuLabel = (code: string, name: string) => (!code ? '' : !name || name === code ? code : `${code} — ${name}`)
+
 const fmtMoney = (n: number) => n.toLocaleString('vi-VN')
 
 /** `mfgProductId` là khoá thật của dòng — `skuCode` KHÔNG unique (2 khách có thể dùng cùng mã SKU
@@ -152,6 +155,14 @@ export default function OrderManagementPage() {
   const filledItems = form.items.filter((it) => it.skuCode.trim())
   const missingDeliveryDate = filledItems.some((it) => !it.deliveryDate)
   const missingQty = filledItems.some((it) => !(Number(it.totalQty) > 0))
+  // Số bộ phải nguyên (test tay 09/11 điểm 10): trước đây gõ 2,5 vẫn qua, tới khi Lưu mới hiện câu tiếng Anh của máy chủ.
+  const isFractionalQty = (it: ItemDraft) => it.totalQty.trim() !== '' && Number(it.totalQty) > 0 && !Number.isInteger(Number(it.totalQty))
+  const fractionalQty = filledItems.some(isFractionalQty)
+  // Hạn giao đã qua (test tay 09/11 điểm 12): chỉ nhắc + hỏi lại khi lưu, không chặn cứng.
+  const todayStr = format(new Date(), 'yyyy-MM-dd')
+  const isPastDelivery = (it: ItemDraft) => !!it.deliveryDate && it.deliveryDate < todayStr
+  const hasPastDelivery = filledItems.some(isPastDelivery)
+  const { ask: askPast, confirmModal: pastConfirmModal } = useConfirm()
   // Loại dây/nệm: chưa nạp xong danh sách (undefined) hoặc SKU có tick mà chưa chọn -> chưa lưu được.
   const pendingOptions = filledItems.some((it) => it.mfgProductId && !optionsByProduct.has(it.mfgProductId))
   const missingChoice = filledItems.some((it) => {
@@ -166,11 +177,23 @@ export default function OrderManagementPage() {
     filledItems.length === 0 && 'SKU',
     filledItems.length > 0 && missingDeliveryDate && 'Hạn giao của mọi dòng SKU',
     filledItems.length > 0 && missingQty && 'Tổng số (lớn hơn 0) của mọi dòng SKU',
+    filledItems.length > 0 && fractionalQty && 'Tổng số phải là số nguyên (không để số lẻ)',
   ].filter((x): x is string => !!x)
-  const canSave = !!form.orderCode.trim() && !!form.customerId && filledItems.length > 0 && !missingDeliveryDate && !missingQty && !pendingOptions && !missingChoice
+  const canSave = !!form.orderCode.trim() && !!form.customerId && filledItems.length > 0 && !missingDeliveryDate && !missingQty && !fractionalQty && !pendingOptions && !missingChoice
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (!canSave) return
+    if (hasPastDelivery) {
+      askPast(
+        { title: 'Hạn giao đã qua', message: 'Có dòng hạn giao đã qua - vẫn lưu?', confirmLabel: 'Vẫn lưu' },
+        doSave,
+      )
+      return
+    }
+    void doSave()
+  }
+
+  const doSave = async () => {
     setSaving(true)
     setFormError(null)
     try {
@@ -316,7 +339,8 @@ export default function OrderManagementPage() {
                   <td style={{ padding: '10px 12px', fontSize: 13 }}>{po.customerName}</td>
                   <td style={{ padding: '10px 12px', fontSize: 13, whiteSpace: 'nowrap' }}>{po.items.length} SKU</td>
                   <td style={{ padding: '10px 12px', fontWeight: 600, fontSize: 13 }}>{totalQty.toLocaleString()}</td>
-                  <td style={{ padding: '10px 12px', fontSize: 12, whiteSpace: 'nowrap' }}>{po.deliveryDate ? format(new Date(po.deliveryDate), 'dd/MM/yyyy') : '—'}</td>
+                  {/* Hạn giao đã qua mà đơn chưa giao xong thì tô đỏ (test tay 09/11 điểm 12). */}
+                  <td style={{ padding: '10px 12px', fontSize: 12, whiteSpace: 'nowrap', ...(po.deliveryDate && notDoneCount > 0 && format(new Date(po.deliveryDate), 'yyyy-MM-dd') < todayStr ? { color: 'var(--fg-e24b4a)', fontWeight: 600 } : null) }}>{po.deliveryDate ? format(new Date(po.deliveryDate), 'dd/MM/yyyy') : '—'}</td>
                   <td style={{ padding: '10px 12px', fontSize: 12, whiteSpace: 'nowrap' }}>
                     <span style={{ fontWeight: 700, color: 'var(--fg-15803d)' }}>{doneCount}</span>
                     <span style={{ color: 'var(--text3)' }}> xong</span>
@@ -457,11 +481,17 @@ export default function OrderManagementPage() {
                   : { display: 'grid', gridTemplateColumns: '1.6fr 135px 100px 28px', gap: 6, alignItems: 'center' }}>
                   <div style={isMobile ? { gridColumn: '1 / -1' } : undefined}>
                   <SearchableSelect
-                    displayValue={it.skuCode ? `${it.skuCode} — ${it.skuName}` : ''}
+                    displayValue={skuLabel(it.skuCode, it.skuName)}
                     options={skuOptions}
+                    // Xoá chữ / gõ khác đi thì bỏ SKU đã chọn của dòng (test tay 09/11 điểm 11) - tránh nhìn như chưa chọn mà vẫn lưu SKU cũ.
+                    onQueryChange={(text) => {
+                      if (it.skuCode && text !== skuLabel(it.skuCode, it.skuName)) {
+                        setItem(i, { mfgProductId: '', skuCode: '', skuName: '', wireMaterialId: '', cushionMaterialId: '' })
+                      }
+                    }}
                     getKey={o => o.id}
                     getSearchText={o => `${o.code} ${o.name} ${o.customerName}`}
-                    renderOption={o => <><strong>{o.code}</strong> <span style={{ color: 'var(--text3)' }}>— {o.name}{o.customerName ? ` · ${o.customerName}` : ''}</span></>}
+                    renderOption={o => <><strong>{o.code}</strong> <span style={{ color: 'var(--text3)' }}>{o.name && o.name !== o.code ? `— ${o.name}` : ''}{o.customerName ? ` · ${o.customerName}` : ''}</span></>}
                     // Đổi SKU thì bỏ lựa chọn dây/nệm cũ - danh sách của SKU mới khác hoàn toàn.
                     onSelect={o => setItem(i, {
                       mfgProductId: o.id, skuCode: o.code, skuName: o.name,
@@ -472,8 +502,18 @@ export default function OrderManagementPage() {
                     emptyText={selectedCustomerName ? 'Khách hàng này chưa có SKU đã duyệt' : 'Chọn khách hàng trước để xem SKU của khách đó'}
                   />
                   </div>
-                  <DatePicker value={it.deliveryDate} onChange={v => setItem(i, { deliveryDate: v })} title="Hạn giao" placeholder="Hạn giao *" clearable />
-                  <input type="number" value={it.totalQty} onChange={e => setItem(i, { totalQty: e.target.value })} placeholder="Tổng số *" />
+                  <div>
+                    <DatePicker value={it.deliveryDate} onChange={v => setItem(i, { deliveryDate: v })} title="Hạn giao" placeholder="Hạn giao *" clearable />
+                    {it.skuCode.trim() && isPastDelivery(it) && (
+                      <div style={{ fontSize: 11, color: 'var(--fg-b45309)', marginTop: 2 }}>Hạn giao đã qua</div>
+                    )}
+                  </div>
+                  <div>
+                    <input type="number" min={1} step={1} inputMode="numeric" value={it.totalQty} onChange={e => setItem(i, { totalQty: e.target.value })} placeholder="Tổng số *" />
+                    {it.skuCode.trim() && isFractionalQty(it) && (
+                      <div style={{ fontSize: 11, color: 'var(--fg-e24b4a)', marginTop: 2 }}>Số bộ phải là số nguyên</div>
+                    )}
+                  </div>
                   <button onClick={() => removeItem(i)} disabled={form.items.length === 1} style={{ padding: 4, background: 'transparent', border: 'none', cursor: form.items.length === 1 ? 'not-allowed' : 'pointer', opacity: form.items.length === 1 ? 0.3 : 1, display: 'flex' }}>
                     <Trash2 size={13} color="var(--fg-e24b4a)" />
                   </button>
@@ -514,6 +554,7 @@ export default function OrderManagementPage() {
               </button>
             </div>
       </Modal>
+      {pastConfirmModal}
     </div>
   )
 }

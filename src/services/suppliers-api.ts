@@ -19,10 +19,15 @@ export async function getSuppliers(): Promise<BeSupplier[]> {
   return Array.isArray(res) ? res : res.data;
 }
 
-// CreateSupplierDto (BE) chỉ nhận name/phone/address — isActive luôn mặc định true phía BE,
-// gửi kèm sẽ bị 400 (forbidNonWhitelisted) nên lọc field ở đây thay vì đẩy trách nhiệm lên UI.
+// CreateSupplierDto (BE) nhận name/phone/address/isActive; không gửi isActive thì BE mặc định true
+// (test tay 09/11 điểm 21).
 export async function createSupplier(data: Record<string, unknown>): Promise<BeSupplier> {
-  return http.post<BeSupplier>('/suppliers', { name: data.name, phone: data.phone, address: data.address });
+  return http.post<BeSupplier>('/suppliers', {
+    name: data.name,
+    phone: data.phone,
+    address: data.address,
+    isActive: data.isActive,
+  });
 }
 
 export async function updateSupplier(id: number | string, data: Record<string, unknown>): Promise<BeSupplier> {

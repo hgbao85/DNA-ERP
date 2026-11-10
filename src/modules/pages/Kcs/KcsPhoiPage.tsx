@@ -329,7 +329,7 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 700, color: GREEN }}><Check size={12} /> đạt</span>
   )
   const reviewBtn = (x: Row) => (
-    <button onClick={() => setTarget(x)}
+    <button onClick={() => { setPicked(effectiveActiveStep); setTarget(x) }} /* giữ nguyên tab đang đứng sau khi duyệt (test tay 09/11 điểm 34e) */
       style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: ACCENT, color: '#fff', cursor: 'pointer' }}>
       <ClipboardCheck size={13} /> Tiến hành duyệt
     </button>
@@ -360,7 +360,7 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
       )}
 
       {isMobile ? (
-        <MobileListCards emptyText="Không có đợt nào" items={rows.map(x => {
+        <MobileListCards emptyText="Không còn lô chờ kiểm." items={rows.map(x => {
           const totalFailed = (reviewOf(x)?.segments ?? []).reduce((s, y) => s + y.failedQty, 0)
           return {
             key: x.kind + ':' + idOf(x),
@@ -415,7 +415,7 @@ function PiDetail({ pi, reviews, onBack, onRefetch }: {
               )
             })}
             {rows.length === 0 && (
-              <tr><td colSpan={6} style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>Không có đợt nào</td></tr>
+              <tr><td colSpan={6} style={{ padding: 24, textAlign: 'center', color: 'var(--text3)' }}>Không còn lô chờ kiểm.</td></tr>
             )}
           </tbody>
         </table>
@@ -464,9 +464,11 @@ function QcReviewModal({ id, materialName, skuLabel, segments, onReview, onClose
 
   const rows = segments.map((s) => {
     const raw = Math.floor(Number(failedByseg[s.segmentSpecId]) || 0)
-    const failed = Math.max(0, Math.min(s.qty, raw))
-    return { segmentSpecId: s.segmentSpecId, cutLengthMm: s.cutLengthMm, cutQty: s.qty, failed }
+    // Không kẹp im lặng: nhập quá số đã cắt thì giữ số người dùng gõ, báo đỏ và khoá nút duyệt (test tay 09/11 điểm 33).
+    const failed = Math.max(0, raw)
+    return { segmentSpecId: s.segmentSpecId, cutLengthMm: s.cutLengthMm, cutQty: s.qty, failed, qua: failed > s.qty }
   })
+  const coQuaSo = rows.some((r) => r.qua)
   const totalFailed = rows.reduce((sum, r) => sum + r.failed, 0)
   const totalCut = rows.reduce((sum, r) => sum + r.cutQty, 0)
   const totalPassed = totalCut - totalFailed
@@ -492,6 +494,7 @@ function QcReviewModal({ id, materialName, skuLabel, segments, onReview, onClose
   }
 
   const submit = async () => {
+    if (coQuaSo) return
     if (totalFailed > 0 && !reasonId) { setErr('Có đoạn không đạt → phải chọn nguyên nhân'); return }
     setBusy(true); setErr('')
     try {
@@ -533,7 +536,8 @@ function QcReviewModal({ id, materialName, skuLabel, segments, onReview, onClose
                     <input type="number" min={0} max={s.cutQty} placeholder="0"
                       value={failedByseg[s.segmentSpecId] ?? ''}
                       onChange={(e) => setFailedByseg((p) => ({ ...p, [s.segmentSpecId]: e.target.value }))}
-                      style={{ width: 64, padding: '5px 7px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, textAlign: 'right', background: 'var(--surface)', color: 'var(--text)' }} />
+                      style={{ width: 64, padding: '5px 7px', fontSize: 12, border: `1px solid ${s.qua ? RED : 'var(--border)'}`, borderRadius: 6, textAlign: 'right', background: 'var(--surface)', color: s.qua ? RED : 'var(--text)' }} />
+                    {s.qua && <div style={{ fontSize: 11, color: RED, marginTop: 3, whiteSpace: 'nowrap' }}>Không được lớn hơn số đã cắt ({s.cutQty.toLocaleString('vi-VN')})</div>}
                   </td>
                 </tr>
               ))}
@@ -585,8 +589,8 @@ function QcReviewModal({ id, materialName, skuLabel, segments, onReview, onClose
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
           <button onClick={onClose} style={{ padding: '7px 12px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', fontSize: 13, cursor: 'pointer' }}>Hủy</button>
-          <button onClick={submit} disabled={busy || uploading}
-            style={{ padding: '7px 14px', border: 'none', borderRadius: 8, background: ACCENT, color: '#fff', fontSize: 13, fontWeight: 600, cursor: busy ? 'not-allowed' : 'pointer' }}>
+          <button onClick={submit} disabled={busy || uploading || coQuaSo}
+            style={{ padding: '7px 14px', border: 'none', borderRadius: 8, background: ACCENT, color: '#fff', fontSize: 13, fontWeight: 600, cursor: busy || coQuaSo ? 'not-allowed' : 'pointer', opacity: coQuaSo ? 0.5 : 1 }}>
             {busy ? '...' : 'Xác nhận duyệt'}
           </button>
         </div>

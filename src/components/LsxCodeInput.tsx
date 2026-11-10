@@ -101,6 +101,8 @@ export default function LsxCodeInput({ piId, itemId, value, mode, prefixes, sugg
 
   const code = normalizeLsxCode(`${prefix}-${num}`)
   const save = async () => {
+    // Thiếu số: báo ngay dưới ô thay vì im lặng (test tay 09/11 điểm 13).
+    if (!num) { setError('Chưa nhập số LSX'); return }
     const err = lsxCodeError(code, prefixes)
     if (err) { setError(err); return }
     if (code === current) { setEditing(false); return }
@@ -129,15 +131,15 @@ export default function LsxCodeInput({ piId, itemId, value, mode, prefixes, sugg
           </select>
         ) : (
           <input value={prefix} onChange={(e) => { setPrefix(e.target.value.toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6)); setError(null) }}
-            placeholder="MY" aria-label="Tiền tố số LSX" disabled={saving} style={{ ...input, width: 64 }} />
+            placeholder="Tiền tố" aria-label="Tiền tố số LSX" disabled={saving} style={{ ...input, width: 76 }} />
         )}
         <span style={{ color: 'var(--text3)' }}>-</span>
-        <input value={num} onChange={(e) => onNumChange(e.target.value)} inputMode="numeric" placeholder="313"
+        <input value={num} onChange={(e) => onNumChange(e.target.value)} inputMode="numeric" placeholder="Số"
           aria-label="Số LSX" disabled={saving}
           onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void save() } if (e.key === 'Escape' && current) setEditing(false) }}
           style={{ ...input, width: 80 }} />
-        <button type="button" onClick={() => void save()} disabled={saving || !prefix || !num}
-          style={{ ...iconBtn, background: 'var(--bg-2e7d32)', border: 'none', color: '#fff', opacity: saving || !prefix || !num ? 0.6 : 1, cursor: saving || !prefix || !num ? 'not-allowed' : 'pointer' }}>
+        <button type="button" onClick={() => void save()} disabled={saving}
+          style={{ ...iconBtn, background: 'var(--bg-2e7d32)', border: 'none', color: '#fff', opacity: saving ? 0.6 : 1, cursor: saving ? 'not-allowed' : 'pointer' }}>
           {saving ? <Loader2 size={12} className="spin" /> : <Check size={12} />} Lưu
         </button>
         {current && (

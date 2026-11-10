@@ -1476,7 +1476,7 @@ function MobileRowCard({ onClick, title, subtitle, stage, variance, meta, footer
       <div style={{ marginTop: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
           {stage.icon} {stage.label}
-          {variance && <AlertTriangle size={12} color="var(--red)" />}
+          {variance && <><AlertTriangle size={12} color="var(--red)" /><span style={{ fontSize: 11, color: 'var(--red)' }}>lệch bộ</span></>}
         </div>
         <ProgressBar value={stage.pct} max={100} />
       </div>
@@ -1805,7 +1805,8 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
                 <td style={td}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
                     {stageInfo.icon} {stageInfo.label}
-                    {o.hasVariance && <span title={VARIANCE_TITLE} style={{ display: 'inline-flex', cursor: 'help' }}><AlertTriangle size={12} color="var(--red)" aria-label="Lệch bộ" /></span>}
+                    {/* Chữ "lệch bộ" thấy ngay, không chỉ rê chuột (test tay 09/11 điểm 34c) */}
+                    {o.hasVariance && <span title={VARIANCE_TITLE} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, cursor: 'help', fontSize: 11, color: 'var(--red)' }}><AlertTriangle size={12} color="var(--red)" aria-label="Lệch bộ" />lệch bộ</span>}
                   </div>
                   <ProgressBar value={stageInfo.pct} max={100} />
                 </td>
@@ -1955,7 +1956,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
           {viewSwitch}
         </div>
         <p style={{ ...pageSubtitle, margin: '2px 0 0' }}>
-          Tổng {counts.all} lệnh · Đang sản xuất {counts.PRODUCING} · Hoàn thành {counts.DONE}
+          Tổng {counts.all} lệnh đã duyệt · Đang sản xuất {counts.PRODUCING} · Hoàn thành {counts.DONE}
           {counts.OVERDUE > 0 && <span style={{ color: 'var(--fg-dc2626)', fontWeight: 700 }}> · ⚠ Quá hạn {counts.OVERDUE}</span>}
         </p>
       </div>
@@ -2061,7 +2062,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
                   <td style={td}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
                       {stageInfo.icon} {stageInfo.label}
-                      {p.rows.some(r => r.order.hasVariance) && <span title={VARIANCE_TITLE} style={{ display: 'inline-flex', cursor: 'help' }}><AlertTriangle size={12} color="var(--red)" aria-label="Lệch bộ" /></span>}
+                      {p.rows.some(r => r.order.hasVariance) && <span title={VARIANCE_TITLE} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, cursor: 'help', fontSize: 11, color: 'var(--red)' }}><AlertTriangle size={12} color="var(--red)" aria-label="Lệch bộ" />lệch bộ</span>}
                     </div>
                     <ProgressBar value={stageInfo.pct} max={100} />
                   </td>

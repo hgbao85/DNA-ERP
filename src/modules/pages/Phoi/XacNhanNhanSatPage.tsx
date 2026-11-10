@@ -116,27 +116,26 @@ function ReceiveCountInput({ barCount, value, busy, onChange, onConfirm, onCance
   const diff = Number.isFinite(n) && n > 0 ? n - barCount : 0
   return (
     <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap' }}>
         <span style={{ fontSize: 12, color: 'var(--text3)' }}>Đếm được</span>
         <input type="number" min={1} value={value} onChange={e => onChange(e.target.value)} autoFocus
           aria-label="Số cây thực nhận" style={{ width: 64, padding: '4px 6px', fontSize: 13, textAlign: 'right' }} />
         <span style={{ fontSize: 12, color: 'var(--text3)' }}>/ {barCount} cây</span>
       </div>
-      {diff !== 0 && (
-        <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-d97706)' }}>
-          {diff < 0 ? `Thiếu ${-diff}` : `Thừa ${diff}`} cây · kho và QLSX sẽ được báo
-        </span>
-      )}
       <div style={{ display: 'inline-flex', gap: 6 }}>
         <button onClick={onConfirm} disabled={busy}
-          style={{ padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-e65100)', color: '#fff', cursor: busy ? 'not-allowed' : 'pointer' }}>
-          {busy ? '...' : 'Xác nhận'}
+          style={{ whiteSpace: 'nowrap', padding: '4px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-e65100)', color: '#fff', cursor: busy ? 'not-allowed' : 'pointer' }}>
+          {busy ? 'Đang lưu…' : 'Xác nhận'}
         </button>
         <button onClick={onCancel} disabled={busy}
-          style={{ padding: '4px 10px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
+          style={{ whiteSpace: 'nowrap', padding: '4px 10px', fontSize: 12, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
           Huỷ
         </button>
       </div>
+      {/* Cảnh báo lệch đặt DƯỚI hàng nút và giữ sẵn chỗ -> nút Xác nhận/Huỷ không nhảy khi gõ số (test tay 09/11 điểm 31). */}
+      <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--fg-d97706)', minHeight: 30, maxWidth: 190, lineHeight: 1.3, visibility: diff !== 0 ? 'visible' : 'hidden' }}>
+        {diff < 0 ? `Thiếu ${-diff}` : `Thừa ${diff}`} cây · kho và QLSX sẽ được báo
+      </span>
     </div>
   )
 }
@@ -178,6 +177,8 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
   // Đang đếm để xác nhận nhận (2026-10-12): id đợt -> số cây người nhận điền (mặc định = số kho xuất).
   // Người nhận tự đếm, tự điền - lệch thì BE báo kho + QLSX, vẫn cho nhận.
   const [counting, setCounting] = useState<Record<string, string>>({})
+  // Đã bấm nhận xong nhưng danh sách chưa tải lại kịp: hiện "đã nhận" ngay, khỏi quay về nút cũ (test tay 09/11 điểm 31).
+  const [justReceived, setJustReceived] = useState<Record<string, boolean>>({})
   const doReceive = async (l: BeSteelIssue) => {
     const n = Math.floor(Number(counting[l.id]))
     if (!Number.isFinite(n) || n < 1) { setErr(p => ({ ...p, [l.id]: 'Nhập số cây thực nhận (ít nhất 1). Không nhận được cây nào thì báo kho, đừng xác nhận.' })); return }
@@ -185,6 +186,7 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
     try {
       await api.receiveSteelIssue(l.id, n)
       setCounting(p => { const q = { ...p }; delete q[l.id]; return q })
+      setJustReceived(p => ({ ...p, [l.id]: true }))
       refetch()
     }
     catch (e) { setErr(p => ({ ...p, [l.id]: errMsg(e, 'Không xác nhận được') })) }
@@ -251,7 +253,7 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
       )}
 
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 780 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 640 }}>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>
               <th style={th}>Lệnh / PO</th>
@@ -259,7 +261,7 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
               <th style={thR}>Chiều dài (mm)</th>
               <th style={thR}>Số lượng</th>
               <th style={th}>Thời gian xuất</th>
-              <th style={{ ...th, textAlign: 'center', width: 200 }}>Trạng thái</th>
+              <th style={{ ...th, textAlign: 'center', width: 230, minWidth: 230 }}>Trạng thái</th>
             </tr>
           </thead>
           <tbody>
@@ -277,12 +279,14 @@ function XacNhanTab({ lines, yieldIssues, recipeIssues, reviews, readOnly, refet
                     </td>
                     <td style={tdR}>{l.barLengthMm.toLocaleString('vi-VN')}</td>
                     <td style={{ ...tdR, fontWeight: 700 }}>{l.status === 'ISSUED' || l.status === 'RECEIVED' ? l.barCount : baoCat}</td>
-                    <td style={{ ...td, color: 'var(--text3)', whiteSpace: 'nowrap' }}>{new Date(l.issuedAt).toLocaleString('vi-VN')}</td>
+                    <td style={{ ...td, color: 'var(--text3)' }}>{new Date(l.issuedAt).toLocaleString('vi-VN')}</td>
                     <td style={{ ...td, textAlign: 'center' }}>
                       {l.status === 'ISSUED' ? (
-                        readOnly ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>chờ xác nhận nhận</span> : counting[l.id] == null ? (
+                        readOnly ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>chờ xác nhận nhận</span> : justReceived[l.id] ? (
+                          <span style={{ fontSize: 12, color: 'var(--text3)' }}>đã nhận · đang cập nhật…</span>
+                        ) : counting[l.id] == null ? (
                           <button onClick={() => setCounting(p => ({ ...p, [l.id]: String(l.barCount) }))}
-                            style={{ padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-e65100)', color: '#fff', cursor: 'pointer' }}>
+                            style={{ whiteSpace: 'nowrap', padding: '5px 12px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 6, background: 'var(--bg-e65100)', color: '#fff', cursor: 'pointer' }}>
                             Xác nhận đã nhận
                           </button>
                         ) : (

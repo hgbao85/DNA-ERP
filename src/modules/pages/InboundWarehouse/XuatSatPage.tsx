@@ -126,6 +126,12 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
   const issuedForMaterial = (materialId: string) =>
     history.filter(h => h.materialId === materialId).reduce((s, h) => s + h.barCount, 0)
 
+  // Số cây CÙNG vật tư CÙNG lệnh đang nằm trong "Phiếu đang lập" (bỏ dòng cùng chiều dài `exceptLen` vì thêm lại sẽ thay số).
+  const cartQtyOther = (materialId: string, exceptLen?: number) =>
+    cart.lines
+      .filter(l => l.kind === 'STEEL' && l.materialId === materialId && l.productionInvoiceId === selPiId && l.barLengthMm !== exceptLen)
+      .reduce((s, l) => s + l.qty, 0)
+
   const handleXuat = (item: BeSteelIssuePlanItem) => {
     const key = item.materialId
     const lenRaw = barLen[key] ?? suggestedBarLen(item).toString()
@@ -135,13 +141,20 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
     if (!n || n <= 0) { setMsgs(p => ({ ...p, [key]: 'Nhập số cây hợp lệ' })); return }
     if (!Number.isInteger(n)) { setMsgs(p => ({ ...p, [key]: 'Số cây phải là số nguyên' })); return }
     if (!selectedPi) return
+    // Chặn sớm vượt "Còn được xuất" (test tay 09/11 điểm 30) - trước đây tới bước "Xác nhận xuất" máy chủ mới chặn, cả phiếu kẹt.
+    // Giỏ gộp theo (vật tư, lệnh, chiều dài): thêm lại cùng chiều dài thì THAY số cũ, nên chỉ cộng các dòng chiều dài khác.
+    const inCart = cartQtyOther(item.materialId, len)
+    if (item.remainingToIssue != null && n + inCart > item.remainingToIssue) {
+      setMsgs(p => ({ ...p, [key]: `Vượt số còn được xuất (${item.remainingToIssue} cây)${inCart > 0 ? ` - trong phiếu đang lập đã có ${inCart} cây` : ''}` }))
+      return
+    }
     // Đợt 6 (YC4): không xuất thẳng nữa - thêm vào "Phiếu đang lập", sang tab "Phiếu xuất" tạo phiếu XK, in, ký, tải ảnh rồi
     // mới xác nhận xuất (lúc đó mới trừ tồn).
     cart.add({
       kind: 'STEEL', materialId: item.materialId, productionInvoiceId: selectedPi.productionInvoiceId, barLengthMm: len, qty: n,
       materialName: item.materialName, unit: 'cây', lenhLabel: selectedPi.piCode,
     })
-    setBarLen(p => ({ ...p, [key]: '' }))
+    // Giữ ô "Dài cây", chỉ xoá "Số cây" (test tay 09/11 điểm 30).
     setBarCount(p => ({ ...p, [key]: '' }))
     setMsgs(p => ({ ...p, [key]: `Đã thêm ${n} cây vào phiếu đang lập - sang tab "Phiếu xuất" để tạo phiếu.` }))
   }
@@ -208,6 +221,11 @@ export default function XuatSatPage({ embedded = false }: { embedded?: boolean }
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right', color: item.remainingToIssue != null && item.remainingToIssue <= 0 ? 'var(--fg-dc2626)' : 'var(--text2)' }}>
                         {item.remainingToIssue ?? '—'}
+                        {item.remainingToIssue != null && cartQtyOther(item.materialId) > 0 && (
+                          <div style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>
+                            còn {item.remainingToIssue - cartQtyOther(item.materialId)} sau phiếu đang lập
+                          </div>
+                        )}
                       </td>
                       <td style={{ ...tdStyle, textAlign: 'right' }}>{item.physicalStockQty ?? '—'}</td>
                       <td style={{ ...tdStyle, textAlign: 'center' }}>
