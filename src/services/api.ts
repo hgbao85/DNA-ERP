@@ -123,6 +123,7 @@ export {
   sendItemToQlsx, sendItemToBoss, sendPiToQlsx, sendPiToBoss,
   approveItemByBoss, rejectProdItem, rejectProdItemByQlsx, rejectPiByQlsx,
   approveBatchByBoss, rejectBatchByBoss,
+  getCuttingRecheckPending, confirmCuttingRecheck,
 } from './production-invoices-api';
 export { getWarehouses, createWarehouse, deleteWarehouse } from './warehouses-api';
 export {

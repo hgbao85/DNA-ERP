@@ -1165,6 +1165,13 @@ export default function LenhSXPage() {
                       </div>
                     )
                   })()}
+                  {pi.cuttingRecheckRequired && (
+                    // QLSX vừa đổi xưởng lệnh đã có phương án cắt duyệt -> KHSX vào Tối ưu cắt sắt bấm "Đã kiểm".
+                    <span title="Vào Tối ưu cắt sắt xem lại phương án rồi bấm Đã kiểm"
+                      style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:10, background:'var(--bg-fef3c7)', color:'var(--fg-b45309)', whiteSpace:'nowrap' }}>
+                      Cần kiểm lại phương án cắt
+                    </span>
+                  )}
                   <span style={{ fontSize:12, color:'var(--text3)', background:'var(--surface2)', border:'1px solid var(--border)', padding:'3px 10px', borderRadius:12, whiteSpace:'nowrap' }}>
                     {items.length} SKU
                   </span>
@@ -1191,6 +1198,12 @@ export default function LenhSXPage() {
                           <Factory size={13} color="var(--fg-1d4ed8)"/>
                           <span style={{ fontSize:12, color:'var(--text3)' }}>Xưởng:</span>
                           <span style={{ fontWeight:700, fontSize:13 }}>{ws?.name ?? 'Chưa có'}</span>
+                          {pi.cuttingRecheckRequired && (
+                            <span title="Vào Tối ưu cắt sắt xem lại phương án rồi bấm Đã kiểm"
+                              style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:10, background:'var(--bg-fef3c7)', color:'var(--fg-b45309)' }}>
+                              Cần kiểm lại phương án cắt
+                            </span>
+                          )}
                         </div>
                         <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap' }}>
                           <CalendarClock size={13} color="var(--text3)"/>
@@ -1506,6 +1519,13 @@ export default function LenhSXPage() {
                     {!isMobile && <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>}
                     <PiDeadlineText pi={pi} showCount={false} style={{ fontWeight:700, fontSize:13, color:'var(--text)' }} />
                   </div>
+                  {pi.cuttingRecheckRequired && (
+                    // QLSX vừa đổi xưởng lệnh đã có phương án cắt duyệt -> KHSX vào Tối ưu cắt sắt bấm "Đã kiểm".
+                    <span title="Vào Tối ưu cắt sắt xem lại phương án rồi bấm Đã kiểm"
+                      style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:10, background:'var(--bg-fef3c7)', color:'var(--fg-b45309)', whiteSpace:'nowrap' }}>
+                      Cần kiểm lại phương án cắt
+                    </span>
+                  )}
                   <span style={{ fontSize:12, color:'var(--text3)', background:'var(--surface2)', border:'1px solid var(--border)', padding:'3px 10px', borderRadius:12, whiteSpace:'nowrap' }}>
                     {items.length} SKU
                   </span>

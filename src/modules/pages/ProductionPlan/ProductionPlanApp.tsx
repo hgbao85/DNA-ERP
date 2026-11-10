@@ -7,6 +7,7 @@ import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
 import { useWorkQueue } from '../../../context/WorkQueueContext'
 import { getCuttingBatchSuggestions } from '../../../services/cutting-batch-api'
+import { getCuttingRecheckPending } from '../../../services/production-invoices-api'
 import NotificationCenter from '../../../components/NotificationCenter'
 import VatTuDashboardPage from './VatTuDashboardPage'
 import MfgWarehousesPage from '../Manufacturing/MfgWarehousesPage'
@@ -50,7 +51,9 @@ export default function ProductionPlanApp({ onBack }: Props) {
   const { data: batchSuggestions } = useFetch(getCuttingBatchSuggestions)
   // Chỉ đếm nhóm GỘP ĐƯỢC: nhóm "gộp không cứu được" là việc của thiết kế/ngưỡng, KHSX không thao
   // tác gì được - đưa vào badge chỉ tạo con số đỏ không bao giờ về 0.
-  const batchCount = (batchSuggestions ?? []).filter((s) => s.outcome === 'FIXED_BY_MERGE').length
+  const { data: recheckPending, refetch: refetchRecheck } = useFetch(getCuttingRecheckPending)
+  // Lệnh vừa đổi xưởng chờ kiểm lại phương án cắt cũng là việc của KHSX ở "Tối ưu cắt sắt" -> cộng vào badge.
+  const batchCount = (batchSuggestions ?? []).filter((s) => s.outcome === 'FIXED_BY_MERGE').length + (recheckPending?.length ?? 0)
 
   // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27) - 'duyet-sku' = định mức
   // chờ KHSX review; 'lenh-sx' đổi khoá theo ĐÚNG role hiện đang xem (Boss ghé qua trang này vẫn
@@ -146,7 +149,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
       {activePage === 'duyet-sku'  && <SKUReviewPage />}
       {activePage === 'vattu'      && <VatTuDashboardPage />}
       {activePage === 'lenh-sx'    && <LenhSXPage />}
-      {activePage === 'gom-cat'    && <GomDotCatPage onDone={() => setActivePage('lenh-sx')} />}
+      {activePage === 'gom-cat'    && <GomDotCatPage onDone={() => setActivePage('lenh-sx')} onRecheckChanged={refetchRecheck} />}
       {activePage === 'warehouses' && <MfgWarehousesPage />}
       {activePage === 'vat-tu-can-ve' && <VatTuCanVePage />}
     </>
