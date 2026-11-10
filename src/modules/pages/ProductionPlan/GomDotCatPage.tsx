@@ -51,6 +51,7 @@ import { DEFAULT_MERGE_MAX_SKUS, DEFAULT_MERGE_WINDOW_DAYS, maxGapDays, steelNee
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { format } from 'date-fns'
 import { useConfirm } from '../../../hooks/useConfirm'
+import { confirmCuttingRecheck, getCuttingRecheckPending, type CuttingRecheckItem } from '../../../services/production-invoices-api'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 /**
@@ -185,9 +186,11 @@ const sameSet = (a: Set<string>, b: Set<string>) => a.size === b.size && [...a].
 interface Props {
   /** Chuyển sang màn "Lệnh sản xuất mới" - nơi làm bước tiếp theo sau khi chốt nhóm. */
   onDone?: () => void
+  /** Vừa bấm "Đã kiểm" 1 lệnh đổi xưởng - để số đỏ ở menu tải lại ngay. */
+  onRecheckChanged?: () => void
 }
 
-export default function GomDotCatPage({ onDone }: Props) {
+export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
   const [data, setData] = useState<CuttingBatchCandidateList | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -276,7 +279,17 @@ export default function GomDotCatPage({ onDone }: Props) {
 
   // Mỗi lần tải 1 số thứ tự: kết quả (cả lượt kiểm bù) của lần tải CŨ về muộn thì bỏ, không ghi đè bảng của cài đặt mới.
   const loadSeq = useRef(0)
+  // Lệnh vừa đổi xưởng chờ kiểm lại phương án cắt. Lỗi tải thì bỏ qua im lặng - không làm hỏng màn chính.
+  const [recheck, setRecheck] = useState<CuttingRecheckItem[]>([])
+  const [recheckBusyId, setRecheckBusyId] = useState<string | null>(null)
+  const [recheckErr, setRecheckErr] = useState<{ id: string; msg: string } | null>(null)
+  const loadRecheck = useCallback(() => {
+    getCuttingRecheckPending()
+      .then((list) => setRecheck(Array.isArray(list) ? list : []))
+      .catch((e) => { console.warn('Không tải được danh sách lệnh cần kiểm lại phương án cắt', e) })
+  }, [])
   const load = useCallback(() => {
+    loadRecheck()
     const seq = ++loadSeq.current
     setLoading(true)
     setDeepVerifying(false)
@@ -314,7 +327,7 @@ export default function GomDotCatPage({ onDone }: Props) {
       })
       .catch((e) => { if (seq === loadSeq.current) setError(errMsg(e, 'Không tải được danh sách SKU')) })
       .finally(() => { if (seq === loadSeq.current) setLoading(false) })
-  }, [stockLengths, machine])
+  }, [stockLengths, machine, loadRecheck])
 
   // Gõ chiều dài tới đâu tải lại tới đó, nhưng CHỜ 400ms: không debounce thì gõ "5850" bắn 4
   // request, và request của "5" (số vô lý) có thể về sau cùng rồi ghi đè kết quả đúng.
@@ -1129,6 +1142,61 @@ export default function GomDotCatPage({ onDone }: Props) {
           <RefreshCw size={14} /> Tải lại
         </button>
       </div>
+
+      {recheck.length > 0 && (
+        <div style={{ marginTop: 14, padding: '12px 14px', background: 'var(--bg-fef3c7)', border: '1px solid var(--fg-b45309)', borderRadius: 'var(--radius)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontWeight: 700, fontSize: 13.5, color: 'var(--fg-b45309)' }}>
+            <AlertTriangle size={16} /> Lệnh vừa đổi xưởng – cần kiểm lại phương án cắt ({recheck.length})
+          </div>
+          <div style={{ fontSize: 12.5, color: 'var(--text2)', marginTop: 4 }}>
+            Hiện 2 xưởng dùng chung chiều dài cây nên phương án cũ vẫn dùng được: xem lại rồi bấm Đã kiểm. Chưa bấm thì kho chưa được chuyển sắt và xuất sắt cho lệnh này.
+          </div>
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {recheck.map((r) => {
+              const busy = recheckBusyId === r.productionInvoiceId
+              const ws = r.workshopName ?? 'chưa rõ xưởng'
+              return (
+                <div key={r.productionInvoiceId}>
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, fontSize: 12.5 }}>
+                    <b style={{ fontSize: 13 }}>{r.displayCode}</b>
+                    <span>Xưởng mới: <b>{ws}</b></span>
+                    <span style={{ color: 'var(--text2)' }}>Đổi lúc: {format(new Date(r.requiredAt), 'dd/MM HH:mm')}</span>
+                    <button
+                      disabled={busy}
+                      onClick={() => ask(
+                        {
+                          title: 'Đã kiểm phương án cắt',
+                          message: `Xác nhận đã kiểm phương án cắt của lệnh ${r.displayCode} cho ${ws}? Sau khi bấm, kho được chuyển sắt và xuất sắt cho lệnh này.`,
+                          confirmLabel: 'Đã kiểm',
+                        },
+                        async () => {
+                          setRecheckBusyId(r.productionInvoiceId)
+                          setRecheckErr(null)
+                          try {
+                            await confirmCuttingRecheck(r.productionInvoiceId)
+                          } catch (e) {
+                            setRecheckErr({ id: r.productionInvoiceId, msg: errMsg(e, 'Không lưu được, thử lại sau') })
+                          } finally {
+                            setRecheckBusyId(null)
+                            loadRecheck()
+                            onRecheckChanged?.()
+                          }
+                        },
+                      )}
+                      style={{ marginLeft: 'auto', padding: '5px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12.5, fontWeight: 600, cursor: busy ? 'default' : 'pointer', opacity: busy ? 0.6 : 1 }}
+                    >
+                      {busy ? 'Đang lưu…' : 'Đã kiểm'}
+                    </button>
+                  </div>
+                  {recheckErr?.id === r.productionInvoiceId && (
+                    <div style={{ color: 'var(--fg-b91c1c)', fontSize: 12, marginTop: 2 }}>{recheckErr.msg}</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* 2 tab. Số trên tab kết quả = lượt đang có; chấm xanh = có lượt đã tính xong dùng được để tạo lệnh. */}
       <div style={{ display: 'flex', gap: 8, margin: '14px 0' }}>

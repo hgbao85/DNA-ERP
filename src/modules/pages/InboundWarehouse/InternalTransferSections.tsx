@@ -8,6 +8,7 @@ import * as api from '../../../services/api'
 import { CheckCircle2, ChevronDown, ChevronUp, Paperclip, Printer, X, XCircle } from 'lucide-react'
 import { uploadDocument } from '../../../services/uploads-api'
 import { printTransferSlip } from './printTransferSlip'
+import { createWorkshopMove, getWorkshopMovePlans, type WorkshopMovePlan } from '../../../services/warehouse-transfers-api'
 import type { WarehouseTransfer } from '../../../types/warehouse-transfer'
 import { canReceiveAt } from '../../../types/warehouse-transfer'
 import { safeArr } from '../../../utils/array'
@@ -172,7 +173,7 @@ function IncomingInbox({ pending, onChanged }: { pending: WarehouseTransfer[]; o
                         {t.items.map(it => (
                           <tr key={it.id} style={{ borderTop: '1px solid var(--border)' }}>
                             <td style={{ ...td, fontWeight: 600 }}>{it.materialName}</td>
-                            <td style={{ ...td, color: 'var(--text3)' }}>{it.materialSpec || '—'}</td>
+                            <td style={{ ...td, color: 'var(--text3)' }}>{[it.materialSpec, it.stockLengthMm ? `cây ${it.stockLengthMm}mm` : ''].filter(Boolean).join(' · ') || '—'}</td>
                             <td style={{ ...td, textAlign: 'right' }}>{it.quantity}</td>
                             <td style={{ ...td, textAlign: 'right' }}>
                               <input type="number" min={0} max={it.quantity} step="any" value={received[`i:${it.id}`] ?? String(it.quantity)}
@@ -310,3 +311,80 @@ export function OutgoingTransfersPanel({ warehouseId, title = 'Phiếu đã gử
     </div>
   )
 }
+
+// ── Hàng của lệnh đổi xưởng cần chuyển (bên giao) ────────────────────────────
+
+/**
+ * Đổi xưởng (anh Nhân 10/11/2026): lệnh đổi sang xưởng khác mà hàng đang giữ cho lệnh (sắt, vật tư Phôi/Hàn) còn ở kho xưởng
+ * cũ - thủ kho kho cũ lập phiếu chuyển sang kho cùng loại của xưởng mới. Sắt và vật tư khác lập 2 phiếu riêng: phiếu sắt chờ KHSX
+ * bấm "Đã kiểm" phương án cắt, phiếu vật tư khác lập ngay (anh Nhân 10/11).
+ * Kho mới nhận ở "Nhập nội bộ" (ghi thực nhận, ảnh ký) - giữ chỗ của lệnh chuyển theo.
+ */
+export function WorkshopMovePanel() {
+  const { data, refetch } = useFetch(() => getWorkshopMovePlans(), [])
+  useRealtimeRefetch(['warehouse-transfers', 'production-invoices'], refetch)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [msg, setMsg] = useState<Record<string, string>>({})
+  const plans = safeArr(data)
+  if (plans.length === 0) return null
+
+  const create = async (p: WorkshopMovePlan) => {
+    const key = `${p.productionInvoiceId}:${p.fromWarehouseId}:${p.part}`
+    setBusy(key); setMsg(m => ({ ...m, [key]: '' }))
+    try {
+      const t = await createWorkshopMove(p.productionInvoiceId, p.fromWarehouseId, p.part)
+      setMsg(m => ({ ...m, [key]: `Đã lập phiếu ${t.code} - in phiếu ở bảng "Phiếu đã gửi" bên dưới, kho nhận ký và xác nhận.` }))
+      refetch()
+    } catch (e) {
+      setMsg(m => ({ ...m, [key]: errMsg(e, 'Không lập được phiếu chuyển') }))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div style={{ marginBottom: 20 }}>
+      <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Hàng của lệnh đổi xưởng — cần chuyển sang kho xưởng mới</h3>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {plans.map(p => {
+          const key = `${p.productionInvoiceId}:${p.fromWarehouseId}:${p.part}`
+          return (
+            <div key={key} style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden', background: 'var(--surface)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', padding: '10px 14px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)' }}>
+                <b style={{ fontFamily: 'monospace' }}>{p.lenhCode}</b>
+                <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: p.part === 'STEEL' ? 'var(--bg-fef3c7, #fef3c7)' : 'var(--bg-e0f2fe, #e0f2fe)', color: p.part === 'STEEL' ? 'var(--fg-b45309)' : 'var(--fg-0369a1, #0369a1)' }}>
+                  {p.part === 'STEEL' ? 'Sắt' : 'Vật tư khác'}
+                </span>
+                <span style={{ fontSize: 12, color: 'var(--text2)' }}>{p.fromWarehouseName} → <b>{p.toWarehouseName}</b></span>
+                <div style={{ flex: 1 }} />
+                {p.recheckPending
+                  ? <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--fg-b45309)' }}>Chờ KHSX kiểm lại phương án cắt</span>
+                  : (
+                    <button onClick={() => void create(p)} disabled={busy === key}
+                      style={{ padding: '6px 14px', fontSize: 12, fontWeight: 600, border: 'none', borderRadius: 8, background: busy === key ? 'var(--surface2)' : 'var(--bg-2563eb)', color: busy === key ? 'var(--text3)' : '#fff', cursor: busy === key ? 'not-allowed' : 'pointer' }}>
+                      {busy === key ? 'Đang lập…' : 'Lập phiếu chuyển'}
+                    </button>
+                  )}
+              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead><tr style={{ textAlign: 'left' }}><th style={th}>Vật tư</th><th style={th}>Quy cách</th><th style={{ ...th, textAlign: 'right' }}>Số lượng</th><th style={th}>ĐVT</th></tr></thead>
+                <tbody>
+                  {p.lines.map(l => (
+                    <tr key={`${l.materialId}:${l.stockLengthMm}:${l.spec}`} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ ...td, fontWeight: 600 }}>{l.materialCode} <span style={{ fontWeight: 400, color: 'var(--text2)' }}>{l.materialName}</span></td>
+                      <td style={{ ...td, color: 'var(--text3)' }}>{[l.spec, l.stockLengthMm ? `cây ${l.stockLengthMm}mm` : ''].filter(Boolean).join(' · ') || '—'}</td>
+                      <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>{l.qty}</td>
+                      <td style={{ ...td, color: 'var(--text3)' }}>{l.unit}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {msg[key] && <div style={{ padding: '8px 14px', fontSize: 12, color: msg[key].startsWith('Đã lập') ? 'var(--fg-2e7d32)' : 'var(--fg-dc2626, #dc2626)' }}>{msg[key]}</div>}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+

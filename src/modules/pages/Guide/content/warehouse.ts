@@ -190,6 +190,34 @@ export const warehouseGroup: GuideGroup = {
       sourceRefs: ['src/modules/pages/InboundWarehouse/WarehouseXuatPage.tsx'],
     },
     {
+      id: 'wh-chuyen-hang-doi-xuong',
+      title: 'Chuyển hàng của lệnh đổi xưởng (kho Phôi / Hàn)',
+      roles: ['warehouse'],
+      purpose: 'Lệnh đổi sang xưởng khác (ví dụ Phú An → Phước An) mà sắt / vật tư Phôi-Hàn đang giữ cho lệnh còn ở kho xưởng cũ: thủ kho kho cũ lập phiếu chuyển sang kho cùng loại của xưởng mới. Sắt và vật tư khác đi 2 phiếu riêng.',
+      preconditions: ['QLSX đã đổi xưởng của lệnh.', 'Riêng phiếu sắt: KHSX đã kiểm lại phương án cắt cho xưởng mới (bấm "Đã kiểm").'],
+      mock: {
+        title: 'Hàng của lệnh đổi xưởng — cần chuyển sang kho xưởng mới',
+        columns: ['Vật tư', 'Quy cách', 'Số lượng', 'ĐVT'],
+        rows: [['SAT-001 Sắt hộp 20x40', 'cây 6000mm', '15', 'cây']],
+        buttons: ['Lập phiếu chuyển'],
+      },
+      steps: [
+        'Mở "Xuất theo đơn hàng": khối "Hàng của lệnh đổi xưởng" liệt kê từng lệnh, kho đích và các dòng đang giữ, tách 2 nhóm "Sắt" (theo từng chiều dài cây) và "Vật tư khác".',
+        { text: 'Bấm "Lập phiếu chuyển" ở từng nhóm → phiếu CK có số gồm toàn bộ hàng nhóm đó đang giữ cho lệnh ở kho bạn. Vật tư khác lập được ngay; sắt chờ KHSX bấm "Đã kiểm". In phiếu ở bảng "Phiếu đã gửi", giao hàng kèm phiếu.', critical: false },
+        'Kho xưởng mới đếm, ghi số thực nhận, tải ảnh phiếu đã ký và xác nhận ở "Nhập kho > Nhập nội bộ".',
+      ],
+      result: 'Tồn kho và phần giữ chỗ của lệnh chuyển sang kho xưởng mới theo đúng số thực nhận — số "Cần" ở Xuất sắt vẫn khớp. Nhận thiếu thì phần thiếu vẫn giữ ở kho cũ và hiện lại trong khối này để lập phiếu bù.',
+      warnings: [
+        'Khi KHSX chưa bấm "Đã kiểm" phương án cắt, nhóm "Sắt" hiện "Chờ KHSX kiểm lại phương án cắt" và chưa lập phiếu được; xuất sắt cho lệnh cũng bị chặn. Nhóm "Vật tư khác" không bị chặn.',
+        'Dòng mua của lệnh chưa về đã tự đổi nơi nhận sang kho xưởng mới — hàng về sẽ nhập thẳng kho mới.',
+      ],
+      commonErrors: [
+        { issue: '"Lệnh không còn hàng giữ ở ... cần chuyển sang xưởng mới"', cause: 'Hàng đã nằm hết trên phiếu chuyển đang chờ kho mới nhận.', fix: 'Chờ kho mới xác nhận; nhận thiếu thì phần thiếu hiện lại để lập phiếu bù.' },
+      ],
+      tags: ['đổi xưởng', 'chuyển sắt', 'phước an', 'giữ chỗ'],
+      sourceRefs: ['src/modules/pages/InboundWarehouse/InternalTransferSections.tsx'],
+    },
+    {
       id: 'wh-xuat-theo-don-packaging',
       title: 'Xuất theo đơn hàng — Xuất vật tư đóng gói',
       roles: ['warehouse'],

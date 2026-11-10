@@ -130,6 +130,11 @@ interface BeProductionInvoice {
   lsxCodes?: string[];
   /** Phần A – Đợt 2: lệnh đã xuất sắt hoặc vật tư định mức cân ra xưởng -> không đổi xưởng được. Chỉ danh sách/chi tiết có. */
   hasMaterialIssue?: boolean;
+  /** Đổi xưởng lệnh đã có phương án cắt duyệt -> cờ "cần kiểm lại phương án cắt" tới khi KHSX bấm Đã kiểm. BE cũ thiếu field. */
+  cuttingRecheckRequired?: boolean;
+  cuttingRecheckRequiredAt?: string | null;
+  cuttingRecheckedAt?: string | null;
+  cuttingRecheckedByName?: string | null;
 }
 
 function toItem(it: BeProductionInvoiceItem) {
@@ -211,6 +216,10 @@ function toPI(pi: BeProductionInvoice) {
     displayCode: pi.displayCode ?? lenhDisplayCode(pi, pi.items),
     lsxCodes: pi.lsxCodes ?? lenhLsxCodes(pi.items),
     hasMaterialIssue: pi.hasMaterialIssue ?? false,
+    cuttingRecheckRequired: pi.cuttingRecheckRequired ?? false,
+    cuttingRecheckRequiredAt: pi.cuttingRecheckRequiredAt ?? null,
+    cuttingRecheckedAt: pi.cuttingRecheckedAt ?? null,
+    cuttingRecheckedByName: pi.cuttingRecheckedByName ?? null,
     status: pi.status,
     isMerged: pi.isMerged,
     exportOrderId: pi.salesOrderId ?? undefined,
@@ -364,6 +373,24 @@ export async function changePiWorkshop(piId: number | string, workshopId: string
   return toPI(
     await http.patch<BeProductionInvoice>(`/production-invoices/${piId}/workshop`, { workshopId, reason }),
   );
+}
+
+/** Lệnh vừa đổi xưởng, đang chờ KHSX kiểm lại phương án cắt (mới nhất trước). displayCode = mã lệnh hiển thị (số LSX). */
+export interface CuttingRecheckItem {
+  productionInvoiceId: string;
+  piCode: string;
+  displayCode: string;
+  workshopName: string | null;
+  requiredAt: string;
+}
+
+export async function getCuttingRecheckPending() {
+  return http.get<CuttingRecheckItem[]>('/production-invoices/cutting-recheck/pending');
+}
+
+/** KHSX bấm "Đã kiểm" - 409 khi lệnh không còn cờ (người khác vừa bấm). */
+export async function confirmCuttingRecheck(piId: string) {
+  return http.post<unknown>(`/production-invoices/${piId}/cutting-recheck/confirm`);
 }
 
 export async function approveItemByBoss(piId: number | string, itemId: number | string, _decidedBy?: string) {
