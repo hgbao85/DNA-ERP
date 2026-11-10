@@ -47,11 +47,11 @@ export function printTransferSlip(t: WarehouseTransfer): void {
       ...t.items.map(l => [
         '',
         esc(l.materialName),
-        esc(l.materialSpec ?? ''),
+        esc([l.materialSpec ?? '', l.stockLengthMm ? `Cây ${l.stockLengthMm}mm` : ''].filter(Boolean).join(' · ')),
         esc(l.unit),
         fmtQty(sentOf(l.sentQty, l.quantity)),
         fmtQty(sentOf(l.sentQty, l.quantity)),
-        'DÙNG CHUNG',
+        t.productionInvoiceId ? 'Hàng của lệnh' : 'DÙNG CHUNG',
         '',
         esc([shortNote(l.sentQty, l.quantity), l.note].filter(Boolean).join(' - ')),
       ]),

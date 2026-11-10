@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { OutgoingTransfersPanel } from './InternalTransferSections'
+import { OutgoingTransfersPanel, WorkshopMovePanel } from './InternalTransferSections'
 import PhieuXuatPage from './PhieuXuatPage'
 import { IssueSlipCartProvider } from './IssueSlipCart'
 import { createIssueSlip, type IssueSlip } from '../../../services/issue-slips-api'
@@ -598,6 +598,8 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
         )
       )}
       {/* 09/11/2026: phiếu chuyển mảnh đã lập, chờ kho nhận - in phiếu để người nhận ký (v8 4.1/4.2). */}
+      {/* Đổi xưởng (10/11/2026): hàng đang giữ cho lệnh ở kho này cần chuyển sang kho xưởng mới. */}
+      {isPieceScope && <div style={{ marginTop: 24 }}><WorkshopMovePanel /></div>}
       {isPieceScope && <OutgoingTransfersPanel warehouseId={myWarehouse?.id ?? null} />}
       {/* Phiếu xuất đóng gói chờ ký / đã xuất của kho (09/11/2026). */}
       {!isPieceScope && (packagingOrders ?? []).length > 0 && (

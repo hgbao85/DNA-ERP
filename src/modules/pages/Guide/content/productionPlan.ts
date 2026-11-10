@@ -375,6 +375,7 @@ export const productionPlanGroup: GuideGroup = {
       warnings: [
         'Chỉ đổi xưởng được khi lệnh CHƯA xuất sắt. Đã xuất sắt thì nút "Đổi xưởng" ẩn và hiện chữ "Đã xuất sắt — không đổi xưởng được".',
         'Xưởng Phước An làm phần Sơn ở Xưởng Phú An.',
+        'Lệnh đã giữ sắt / đang mua sắt vẫn đổi xưởng được: dòng mua chưa về tự đổi nơi nhận sang kho Phôi/Hàn xưởng mới (người mua được báo để báo nhà cung cấp); hàng đã giữ ở kho xưởng cũ do thủ kho kho cũ lập phiếu chuyển sang (bài "Chuyển hàng của lệnh đổi xưởng"). KHSX kiểm lại phương án cắt cho xưởng mới rồi bấm "Đã kiểm" - trước đó kho chưa chuyển / xuất sắt được (vật tư khác vẫn chuyển được).',
         'Màn theo lệnh (danh sách lệnh, đầu trang chi tiết lệnh) hiện mã lệnh gộp; màn theo dòng SKU (Bảng mốc, dòng SKU trong lệnh) hiện số LSX của chính dòng đó, kèm mã PI chữ nhạt.',
       ],
       commonErrors: [

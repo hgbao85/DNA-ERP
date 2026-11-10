@@ -23,6 +23,7 @@ interface BeWarehouseTransferItem {
   unit: string;
   quantity: number;
   sentQty: number | null;
+  stockLengthMm: number;
   note: string | null;
 }
 
@@ -64,6 +65,7 @@ interface BeWarehouseTransfer {
   confirmedByName: string | null;
   rejectedByName: string | null;
   signedSlipUrls: string[];
+  productionInvoiceId: string | null;
 }
 
 interface BeWarehouseTransferDetail extends BeWarehouseTransfer {
@@ -80,6 +82,7 @@ function toItem(it: BeWarehouseTransferItem): WarehouseTransferItem {
     unit: it.unit,
     quantity: it.quantity,
     sentQty: it.sentQty,
+    stockLengthMm: it.stockLengthMm,
     note: it.note,
   };
 }
@@ -117,6 +120,7 @@ function toTransfer(
     toWarehouseCode: t.toWarehouseCode,
     status: t.status,
     signedSlipUrls: t.signedSlipUrls ?? [],
+    productionInvoiceId: t.productionInvoiceId ?? null,
     items: items.map(toItem),
     pieceItems: pieceItems.map(toPieceItem),
     note: t.note,
@@ -187,6 +191,47 @@ export async function createWarehouseTransfer(data: {
 
 /** Trả về response phẳng của BE (không kèm items) — callers hiện tại chỉ refetch danh sách sau
  * khi gọi, không đọc items từ đây, nên không cần fetch chi tiết thêm. */
+// ── Đổi xưởng (10/11/2026): hàng đang giữ cho lệnh ở kho Phôi/Hàn xưởng cũ chuyển sang kho cùng loại của xưởng mới ──
+
+export interface WorkshopMoveLine {
+  materialId: string;
+  materialCode: string;
+  materialName: string;
+  unit: string;
+  stockLengthMm: number;
+  spec: string;
+  qty: number;
+}
+
+/** STEEL = sắt (chờ KHSX "Đã kiểm" phương án cắt); OTHER = vật tư khác (chuyển ngay) - anh Nhân 10/11/2026. */
+export type WorkshopMovePart = 'STEEL' | 'OTHER';
+
+export interface WorkshopMovePlan {
+  productionInvoiceId: string;
+  part: WorkshopMovePart;
+  lenhCode: string;
+  fromWarehouseId: string;
+  fromWarehouseCode: string;
+  fromWarehouseName: string;
+  toWarehouseId: string;
+  toWarehouseCode: string;
+  toWarehouseName: string;
+  /** KHSX chưa bấm "Đã kiểm" phương án cắt - chưa lập phiếu được. */
+  recheckPending: boolean;
+  lines: WorkshopMoveLine[];
+}
+
+/** Hàng của lệnh đổi xưởng còn ở kho của tài khoản (tổng kho: mọi kho). */
+export function getWorkshopMovePlans(): Promise<WorkshopMovePlan[]> {
+  return http.get<WorkshopMovePlan[]>('/warehouse-transfers/workshop-moves');
+}
+
+/** Lập phiếu chuyển toàn bộ hàng đang giữ cho lệnh ở 1 kho cũ. */
+export async function createWorkshopMove(productionInvoiceId: string, fromWarehouseId: string, part: WorkshopMovePart): Promise<WarehouseTransfer> {
+  const t = await http.post<BeWarehouseTransfer>('/warehouse-transfers/workshop-moves', { productionInvoiceId, fromWarehouseId, part }, withIdempotencyKey());
+  return toTransfer(t, []);
+}
+
 /** Kho nhận xác nhận (09/11/2026, v8 4.1/4.7): ảnh phiếu đã ký bắt buộc + số thực nhận từng dòng (dòng không gửi = nhận đủ).
  *  Tồn kho nhận chỉ cộng số thực nhận; phần thiếu ở lại kho giao. */
 export async function confirmWarehouseTransfer(

@@ -14,6 +14,8 @@ export interface WarehouseTransferItem {
   quantity: number
   /** Số kho giao gửi khi thực nhận ít hơn; null = nhận đủ. */
   sentQty?: number | null
+  /** Chiều dài cây (sắt) - phiếu chuyển hàng của lệnh đổi xưởng; 0 = không chia theo chiều dài. */
+  stockLengthMm?: number
   note?: string | null
 }
 
@@ -49,6 +51,8 @@ export interface WarehouseTransfer {
   status: TransferStatus
   /** Ảnh phiếu chuyển kho đã ký (bắt buộc khi kho nhận xác nhận, từ 09/11/2026). */
   signedSlipUrls?: string[]
+  /** Phiếu chuyển hàng của lệnh đổi xưởng (10/11/2026): lệnh. */
+  productionInvoiceId?: string | null
   items: WarehouseTransferItem[]
   pieceItems: WarehouseTransferPieceItem[]
   note?: string | null
