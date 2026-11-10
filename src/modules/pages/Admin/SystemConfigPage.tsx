@@ -265,6 +265,9 @@ export default function SystemConfigPage() {
           })()}
         </div>
 
+        {/* Giới hạn mạng công nhân (10/11/2026): công ty không dùng nên ẩn mục này. Chỉ hiện khi DB đang có IP (bật từ trước) để
+            Admin còn xoá mà tắt; xoá hết + Lưu thì mục tự ẩn. BE vẫn giữ nguyên tính năng - cần dùng lại thì bỏ điều kiện này. */}
+        {(data?.floorAllowedIps?.length ?? 0) > 0 && (
         <div>
           <label htmlFor="allowed-ips" style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>
             Mạng công ty được phép đăng nhập (công nhân)
@@ -311,11 +314,10 @@ export default function SystemConfigPage() {
             (văn phòng và xưởng ở 2 nơi sẽ có 2 IP khác nhau - thêm cả hai). <b>Để trống = không giới hạn.</b> Khi có IP, công nhân
             và tài khoản tổ Phôi/Hàn/Sơn chỉ đăng nhập và làm việc được khi nối mạng công ty - dùng 4G hoặc mạng ngoài sẽ bị chặn (người đang mở cũng bị
             chặn ngay). Sếp, QLSX, KCS, Admin không bị giới hạn. Công ty cần IP công cộng cố định; mở màn này từ mạng công ty rồi bấm “Thêm IP hiện tại của tôi”.
-            {(data?.floorAllowedIps?.length ?? 0) > 0
-              ? <> <b style={{ color: 'var(--amber)' }}>Đang BẬT ({data?.floorAllowedIps?.length} mục).</b></>
-              : <> Đang tắt.</>}
+            {' '}<b style={{ color: 'var(--amber)' }}>Đang BẬT ({data?.floorAllowedIps?.length} mục).</b> Công ty hiện không dùng giới hạn này: xoá hết các dòng rồi bấm Lưu để tắt, mục sẽ tự ẩn.
           </div>
         </div>
+        )}
 
         {/* Máy cắt: máy mặc định cho mọi đợt tính + thông số riêng của MC Tự động. KHSX vẫn chọn máy khác cho TỪNG đợt ở Tối ưu cắt sắt. */}
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>

@@ -174,7 +174,7 @@ export const manufacturingGroup: GuideGroup = {
         { name: 'PIN do QLSX đặt', meaning: 'Tài khoản cũ, QLSX biết PIN — nên "Cho đặt lại PIN" để công nhân tự đặt.' },
       ],
       warnings: [
-        'Công nhân chỉ đăng nhập được khi điện thoại nối Wi-Fi của công ty (4G bị chặn) — nếu Admin đã bật danh sách mạng công ty ở "Cấu hình hệ thống".',
+        'Không giới hạn mạng: công nhân đăng nhập được bằng Wi-Fi công ty hay 4G đều được.',
         'Khoá / đổi tổ / cho đặt lại PIN sẽ đăng xuất công nhân khỏi mọi máy ngay lập tức.',
         'Ngày đầu nhiều người cùng đặt PIN: cho làm theo nhóm ≤ 8 người mỗi phút (giới hạn đăng nhập theo mạng của xưởng).',
       ],
@@ -281,7 +281,7 @@ export const manufacturingGroup: GuideGroup = {
         'Loại sắt "chưa nhận" thì chưa báo cắt được — quét mã ở khu nhận sắt, nhận sắt trước.',
         'Mất mạng lúc lưu: số bạn nhập vẫn còn nguyên — có mạng thì bấm Lưu lại, không bị cộng 2 lần.',
         'Nhập sai PIN 5 lần liên tiếp sẽ bị khoá tạm 15 phút. Quên PIN hoặc chưa có tài khoản: báo quản lý cho đặt lại/tạo mới.',
-        'Admin có thể giới hạn chỉ cho đăng nhập/báo khi đang nối đúng mạng Wi-Fi công ty — dùng 4G hoặc mạng ngoài sẽ bị chặn.',
+        'Dùng Wi-Fi công ty hay 4G đều đăng nhập và báo được.',
       ],
       commonErrors: [
         { issue: '"Tổ … chưa có lệnh nào để làm. Báo quản lý xếp lệnh cho tổ."', cause: 'Tổ chưa có lệnh nào trong hàng đợi, hoặc lệnh trước đã xong mà quản lý chưa chuyển lệnh mới.', fix: 'Báo quản lý xếp lệnh cho tổ (thêm vào hàng đợi / "Chuyển PI tiếp").' },

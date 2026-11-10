@@ -354,19 +354,18 @@ export const adminGroup: GuideGroup = {
     },
     {
       id: 'admin-cau-hinh-qr-ip',
-      title: '"Cấu hình hệ thống" — địa chỉ tem QR và giới hạn mạng công nhân',
+      title: '"Cấu hình hệ thống" — địa chỉ tem QR',
       roles: ['admin'],
-      purpose: '2 cài đặt có tác dụng thật (khác các trường thông tin công ty khác, chỉ mang tính hiển thị): địa chỉ in trên tem QR của xưởng, và giới hạn mạng được phép cho tài khoản công nhân/tổ Phôi-Hàn-Sơn.',
+      purpose: 'Cài đặt có tác dụng thật (khác các trường thông tin công ty, chỉ mang tính hiển thị): địa chỉ in trên tem QR của xưởng.',
       screenshot: '/guide-screens/admin-cau-hinh-qr-ip.png',
       steps: [
         'Mở Admin > "Cấu hình hệ thống". Ở "Địa chỉ ERP dùng cho tem QR máy xưởng": điền đúng địa chỉ thật mà điện thoại ở xưởng mở được (vd https://erpdna.vercel.app) — để trống thì tem dùng địa chỉ trình duyệt đang mở lúc QLSX in tem.',
-        'Ở "Mạng công ty được phép đăng nhập (công nhân)": mỗi dòng 1 địa chỉ IP công cộng (hoặc dải IP) của công ty, có thể ghi chú sau dấu #. Mở màn này từ đúng mạng công ty rồi bấm "Thêm IP hiện tại của tôi" để điền nhanh.',
+        'Giới hạn mạng cho tài khoản công nhân (chỉ cho đăng nhập khi nối Wi-Fi công ty) hiện KHÔNG dùng nên mục này được ẩn. Nếu màn vẫn hiện ô "Mạng công ty được phép đăng nhập (công nhân)" thì đang còn IP khai từ trước: xoá hết các dòng rồi bấm Lưu để tắt, mục sẽ tự ẩn.',
       ],
-      result: 'Tem QR dẫn đúng về hệ thống thật; nếu có khai ít nhất 1 IP, tài khoản công nhân và tổ Phôi/Hàn/Sơn chỉ đăng nhập và thao tác được khi đang nối đúng mạng đó (dùng 4G hoặc mạng ngoài sẽ bị chặn ngay, kể cả người đang đăng nhập dở).',
+      result: 'Tem QR dẫn đúng về hệ thống thật. Công nhân đăng nhập được từ mọi mạng (Wi-Fi công ty hay 4G).',
       warnings: [
         'Đã dán tem rồi thì đừng đổi địa chỉ tem QR nếu không thật sự cần — tem cũ chỉ còn quét được nếu địa chỉ cũ vẫn hoạt động.',
-        'Giới hạn mạng CHỈ áp dụng cho công nhân/tổ Phôi-Hàn-Sơn — Sếp, QLSX, KCS, Admin không bị giới hạn bởi cài đặt này.',
-        'Để trống ô giới hạn mạng = không giới hạn gì (đăng nhập được từ bất kỳ đâu).',
+        'Không giới hạn mạng thì tài khoản công nhân vẫn được bảo vệ bằng PIN 6 số (sai 5 lần khoá 15 phút), và số công nhân báo chỉ được tính sau khi quản lý sản xuất kiểm và KCS duyệt.',
       ],
       tags: ['tem qr', 'địa chỉ tem qr', 'giới hạn ip', 'mạng công ty', 'cấu hình hệ thống'],
       sourceRefs: ['src/modules/pages/Admin/SystemConfigPage.tsx'],
@@ -393,7 +392,7 @@ export const adminGroup: GuideGroup = {
       result: 'Tránh hoang mang hoặc chủ quan sai khi thao tác các màn này.',
       warnings: [
         'Đừng dựa vào "Nhật ký hoạt động" làm bằng chứng pháp lý/kiểm toán chính thức — nó không đầy đủ và không đồng bộ đa thiết bị.',
-        '"Cấu hình hệ thống": các trường thông tin công ty (tên, địa chỉ, điện thoại, email, mã số thuế, đơn vị tiền tệ) chỉ mang tính hiển thị tham khảo. Riêng "Địa chỉ ERP dùng cho tem QR" và "Mạng công ty được phép đăng nhập" có tác dụng thật — xem bài riêng. Nhóm "Máy cắt" cũng có tác dụng thật: máy mặc định MC Laser / MC Tự động và thông số bó (lưỡi cắt, tề đầu, hệ số bó, số cây cắt tay tối đa, số cỡ đoạn tối đa mỗi kiểu cắt) do màn Tối ưu cắt sắt đọc; ô nào nhập sai sẽ báo đỏ ngay dưới ô đó. Khối "Gợi ý gộp đơn" đặt cỡ lệnh gộp: các SKU trong một lệnh gộp phải có mốc cần sắt nằm trong khung bao nhiêu ngày (luật cứng, mặc định 3 = ngày 1 gộp được ngày 3, không gộp được ngày 4) và tối đa bao nhiêu SKU mỗi lệnh (mặc định 2).',
+        '"Cấu hình hệ thống": các trường thông tin công ty (tên, địa chỉ, điện thoại, email, mã số thuế, đơn vị tiền tệ) chỉ mang tính hiển thị tham khảo. Riêng "Địa chỉ ERP dùng cho tem QR" có tác dụng thật — xem bài riêng. Nhóm "Máy cắt" cũng có tác dụng thật: máy mặc định MC Laser / MC Tự động và thông số bó (lưỡi cắt, tề đầu, hệ số bó, số cây cắt tay tối đa, số cỡ đoạn tối đa mỗi kiểu cắt) do màn Tối ưu cắt sắt đọc; ô nào nhập sai sẽ báo đỏ ngay dưới ô đó. Khối "Gợi ý gộp đơn" đặt cỡ lệnh gộp: các SKU trong một lệnh gộp phải có mốc cần sắt nằm trong khung bao nhiêu ngày (luật cứng, mặc định 3 = ngày 1 gộp được ngày 3, không gộp được ngày 4) và tối đa bao nhiêu SKU mỗi lệnh (mặc định 2).',
       ],
       tags: ['nhật ký hoạt động', 'reset dữ liệu demo', 'tình trạng hệ thống', 'cấu hình hệ thống', 'kiểm tra dữ liệu'],
       sourceRefs: ['src/modules/pages/Admin/AuditLogPage.tsx', 'src/modules/pages/Admin/SystemStatusPage.tsx', 'src/modules/pages/Admin/DataHealthSection.tsx', 'src/modules/pages/Admin/SystemConfigPage.tsx'],
