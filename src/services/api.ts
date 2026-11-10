@@ -118,7 +118,7 @@ export {
   approvePartsSku, approveDetailSku, rejectSkuByBoss, approveFullSku,
 } from './sku-api';
 export {
-  getProductionInvoices, getProductionInvoice, updateProductionInvoice, updateProductionInvoiceItem,
+  getProductionInvoices, getProductionInvoice, updateProductionInvoice, updateProductionInvoiceItem, recomputeNonSteelPurchase,
   updateProductionInvoiceItemsDeadlines,
   sendItemToQlsx, sendItemToBoss, sendPiToQlsx, sendPiToBoss,
   approveItemByBoss, rejectProdItem, rejectProdItemByQlsx, rejectPiByQlsx,
