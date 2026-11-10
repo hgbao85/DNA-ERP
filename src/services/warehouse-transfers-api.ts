@@ -66,6 +66,7 @@ interface BeWarehouseTransfer {
   rejectedByName: string | null;
   signedSlipUrls: string[];
   productionInvoiceId: string | null;
+  lenhCode: string | null;
 }
 
 interface BeWarehouseTransferDetail extends BeWarehouseTransfer {
@@ -121,6 +122,7 @@ function toTransfer(
     status: t.status,
     signedSlipUrls: t.signedSlipUrls ?? [],
     productionInvoiceId: t.productionInvoiceId ?? null,
+    lenhCode: t.lenhCode ?? null,
     items: items.map(toItem),
     pieceItems: pieceItems.map(toPieceItem),
     note: t.note,

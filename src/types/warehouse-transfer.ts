@@ -53,6 +53,8 @@ export interface WarehouseTransfer {
   signedSlipUrls?: string[]
   /** Phiếu chuyển hàng của lệnh đổi xưởng (10/11/2026): lệnh. */
   productionInvoiceId?: string | null
+  /** Số lệnh hiển thị của productionInvoiceId. */
+  lenhCode?: string | null
   items: WarehouseTransferItem[]
   pieceItems: WarehouseTransferPieceItem[]
   note?: string | null

@@ -25,7 +25,9 @@ export function printTransferSlip(t: WarehouseTransfer): void {
   }
   const lenhLine = lenhs.size > 0
     ? [...lenhs].map(([lenh, skus]) => `LSX <b>${esc(lenh)}</b>${skus.size > 0 ? ` &nbsp;Mã hàng: <b>${esc([...skus].join(', '))}</b>` : ''}`).join(' &nbsp;·&nbsp; ')
-    : 'DÙNG CHUNG (chuyển kho ngoài đơn hàng)'
+    : t.productionInvoiceId
+      ? `LSX <b>${esc(t.lenhCode ?? '')}</b> (hàng của lệnh đổi xưởng)`
+      : 'DÙNG CHUNG (chuyển kho ngoài đơn hàng)'
   const shortNote = (sent: number | null | undefined, received: number) =>
     t.status === 'CONFIRMED' && sent != null && sent > received ? `Thực nhận ${fmtQty(received)}` : ''
   const sentOf = (sent: number | null | undefined, q: number) => (sent ?? q)
@@ -51,7 +53,7 @@ export function printTransferSlip(t: WarehouseTransfer): void {
         esc(l.unit),
         fmtQty(sentOf(l.sentQty, l.quantity)),
         fmtQty(sentOf(l.sentQty, l.quantity)),
-        t.productionInvoiceId ? 'Hàng của lệnh' : 'DÙNG CHUNG',
+        t.productionInvoiceId ? esc(t.lenhCode ?? 'Hàng của lệnh') : 'DÙNG CHUNG',
         '',
         esc([shortNote(l.sentQty, l.quantity), l.note].filter(Boolean).join(' - ')),
       ]),
