@@ -244,6 +244,15 @@ export async function getProductionInvoices() {
   return list.map(toPI);
 }
 
+/**
+ * Admin: tạo lại dòng mua ngoài sắt (vật tư tiêu hao, pat, chân nhôm) cho cả lệnh khi bước tự động sau Sếp duyệt từng lỗi
+ * (10/11/2026). Dùng route "retry-production-order" - SKU đã có lệnh sản xuất + phương án cắt đã duyệt thì BE chạy lại 3
+ * nguồn mua (không tạo dòng trùng), nguồn nào vẫn lỗi thì báo 409 nêu rõ.
+ */
+export async function recomputeNonSteelPurchase(piId: number | string, itemId: number | string) {
+  return http.post<BeProductionInvoiceItem>(`/production-invoices/${piId}/items/${itemId}/retry-production-order`);
+}
+
 export async function getProductionInvoice(id: number | string) {
   return toPI(await http.get<BeProductionInvoice>(`/production-invoices/${id}`));
 }
