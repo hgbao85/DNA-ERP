@@ -50,6 +50,18 @@ const DATE_COL_LABELS = [MATERIAL_MILESTONES.materialDeadline.short, 'Khung CK',
 const DATE_COL_HINTS: (string | undefined)[] = [MATERIAL_MILESTONES.materialDeadline.hint, undefined, undefined, MATERIAL_MILESTONES.finishedMaterialDeadline.hint, undefined, undefined]
 const HEADER_DATE_COLS = DATE_COL_LABELS.slice(0, 5).map((label, i) => ({ label, hint: DATE_COL_HINTS[i] }))
 
+// Bảng SKU của lệnh (desktop): hàng tiêu đề và TỪNG dòng là các lưới RIÊNG nên cột SKU phải có bề rộng tối thiểu CỐ ĐỊNH.
+// Trước đây là `1fr` (= minmax(auto, 1fr), tự nở theo nội dung): khi khung hẹp hơn tổng các cột ngày, cột SKU của dòng nở
+// theo tên SKU còn của tiêu đề thì không -> lệch 1 cột, "Hạn giao" nằm trên ngày Đóng gói và hạn giao thật bị cắt
+// (kiểm thử E2E 10/11, khung ~1000px - Sếp đọc sai hạn khi duyệt). Hẹp hơn tổng tối thiểu thì cả khối cuộn ngang.
+const SKU_TABLE_PAD_X = 36 // padding '… 18px' hai bên của hàng tiêu đề và dòng
+// Màn duyệt Boss/QLSX: PO | SKU | 5 mốc | Hạn giao
+const APPROVAL_COLS = '100px minmax(160px, 1fr) 95px 95px 95px 95px 95px 100px'
+const APPROVAL_MIN_W = 100 + 160 + 95 * 5 + 100 + SKU_TABLE_PAD_X
+// Màn KHSX (nhóm theo PO): SKU | 5 mốc | Hạn giao
+const PLAN_COLS = 'minmax(180px, 1fr) 105px 105px 105px 105px 105px 110px'
+const PLAN_MIN_W = 180 + 105 * 5 + 110 + SKU_TABLE_PAD_X
+
 // Mua VT còn lại (M3): đã lưu thì lấy, chưa thì đề xuất Bắt đầu đóng gói (M4) − 7 (M4 = đã lưu hoặc đề xuất).
 const finishedFor = (item: { finishedMaterialDeadline?: string | null } | null | undefined, packagingStart: Date) =>
   item?.finishedMaterialDeadline ? new Date(item.finishedMaterialDeadline) : (finishedMaterialDate(packagingStart) ?? packagingStart)
@@ -1021,8 +1033,8 @@ export default function LenhSXPage() {
                 <CuttingPlanNote plan={pi.cuttingPlan} isMobile={isMobile} machine={pi.solverMachine} />
 
                 {/* Danh sách SKU trong PI */}
-                <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden' }}>
-                  {!isMobile && <div style={{ display:'grid', gridTemplateColumns:'100px 1fr 95px 95px 95px 95px 95px 100px', alignItems:'center', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
+                <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflowX:'auto', overflowY:'hidden' }}>
+                  {!isMobile && <div style={{ display:'grid', gridTemplateColumns:APPROVAL_COLS, minWidth:APPROVAL_MIN_W, alignItems:'center', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
                     <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>PO</span>
                     <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>SKU</span>
                     {HEADER_DATE_COLS.map(({ label, hint }) => (
@@ -1062,7 +1074,7 @@ export default function LenhSXPage() {
                     const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                     const deliveryPast = overdueDays(iDelivery ?? piDeadline) > 0
                     return (
-                      <div key={item.id ?? idx} style={{ ...(isMobile ? { padding:'12px 14px' } : { display:'grid', gridTemplateColumns:'100px 1fr 95px 95px 95px 95px 95px 100px', padding:'12px 18px', alignItems:'center' }), borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
+                      <div key={item.id ?? idx} style={{ ...(isMobile ? { padding:'12px 14px' } : { display:'grid', gridTemplateColumns:APPROVAL_COLS, minWidth:APPROVAL_MIN_W, padding:'12px 18px', alignItems:'center' }), borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
                         <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'var(--fg-0369a1)', display: isMobile ? 'block' : undefined, marginBottom: isMobile ? 4 : undefined }}>
                           {item.salesOrderCode ?? getDisplayCode(pi)}
                         </span>
@@ -1291,7 +1303,7 @@ export default function LenhSXPage() {
               {items.length === 0 ? (
                 <div style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', padding:40, textAlign:'center', color:'var(--text3)' }}>Không có SKU</div>
               ) : poGroups.map(([soCode, groupItems]: [string, any[]], gi: number) => (
-              <div key={soCode + '-' + gi} style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflow:'hidden', marginBottom: gi === poGroups.length - 1 ? 0 : 16 }}>
+              <div key={soCode + '-' + gi} style={{ border:'1px solid var(--border)', borderRadius:'var(--radius-lg)', overflowX:'auto', overflowY:'hidden', marginBottom: gi === poGroups.length - 1 ? 0 : 16 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap', padding: isMobile ? '9px 14px' : '9px 18px', background:'var(--bg-f3e8ff)', borderBottom:'1px solid var(--border)' }}>
                   <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:13, color:'var(--fg-6b21a8)' }}>{soCode}</span>
                   {groupItems[0]?.customerName && (
@@ -1305,7 +1317,7 @@ export default function LenhSXPage() {
                   )}
                   <span style={{ marginLeft:'auto', fontSize:11, fontWeight:600, color:'var(--fg-7c3aed)', background:'var(--surface)', padding:'2px 9px', borderRadius:10 }}>{groupItems.length} SKU</span>
                 </div>
-                {!isMobile && <div style={{ display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 105px 110px', alignItems:'center', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
+                {!isMobile && <div style={{ display:'grid', gridTemplateColumns:PLAN_COLS, minWidth:PLAN_MIN_W, alignItems:'center', padding:'10px 18px', background:'var(--surface2)', borderBottom:'1px solid var(--border)' }}>
                   <span style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:'0.5px' }}>SKU</span>
                   {HEADER_DATE_COLS.map(({ label, hint }) => (
                     <span key={label} title={hint} style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textAlign:'center', textTransform:'uppercase', letterSpacing:'0.5px' }}>{label}</span>
@@ -1338,8 +1350,8 @@ export default function LenhSXPage() {
                   )
                   const iDelivery = item.deliveryDeadline ? new Date(item.deliveryDeadline) : null
                   return (
-                    <div key={item.id ?? idx} style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
-                      <div style={isMobile ? { padding:'12px 14px' } : { display:'grid', gridTemplateColumns:'1fr 105px 105px 105px 105px 105px 110px', padding:'14px 18px', alignItems:'center' }}>
+                    <div key={item.id ?? idx} style={{ borderBottom: isLast ? 'none' : '1px solid var(--border)', minWidth: isMobile ? undefined : PLAN_MIN_W }}>
+                      <div style={isMobile ? { padding:'12px 14px' } : { display:'grid', gridTemplateColumns:PLAN_COLS, padding:'14px 18px', alignItems:'center' }}>
                         <div>
                           <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                             <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'var(--fg-0369a1)' }}>{code}</span>
