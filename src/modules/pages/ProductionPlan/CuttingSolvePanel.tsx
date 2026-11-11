@@ -125,7 +125,7 @@ export type SolveLineLike = Pick<
   | 'materialId' | 'materialCode' | 'materialName' | 'feasible' | 'bestStockLengthMm' | 'lengthSource' | 'totalBars'
   | 'wastePercentage' | 'maxWastePctThreshold' | 'overThreshold' | 'timedOut' | 'displayReason'
 >
-  & Partial<Pick<CuttingSolveLine, 'normalWastePctThreshold' | 'usedWasteOverride' | 'pieceSummary' | 'patterns' | 'machine' | 'bundleSummary'>>
+  & Partial<Pick<CuttingSolveLine, 'normalWastePctThreshold' | 'usedWasteOverride' | 'pieceSummary' | 'patterns' | 'machine' | 'bundleSummary' | 'materialSpec'>>
 
 
 /** "470 mm" - cỡ đoạn nói bằng mm (khác chiều dài cây nói bằng mét) để không lẫn với nhau. */
@@ -234,10 +234,11 @@ export function SolveLinesTable({
   const [openMaterial, setOpenMaterial] = useState<string | null>(null)
   return (
     <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isMobile ? 640 : undefined }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: isMobile ? 720 : undefined }}>
         <thead>
           <tr>
             <th style={TH}>Loại sắt</th>
+            <th style={TH}>Quy cách</th>
             <th style={{ ...TH, textAlign: 'right' }}>Số cây mua</th>
             <th style={TH}>Chiều dài cây</th>
             <th style={{ ...TH, textAlign: 'right' }}>Hao hụt</th>
@@ -277,6 +278,7 @@ export function SolveLinesTable({
                   <div style={{ fontSize: 11.5, color: 'var(--text3)', marginTop: 3, maxWidth: 420 }}>{l.displayReason}</div>
                 )}
               </td>
+              <td style={TD}>{l.materialSpec?.trim() || '—'}</td>
               <td style={NUM}>
                 {l.feasible && l.totalBars != null ? <b>{l.totalBars}</b> : '—'}
                 {/* MC Tự động: cây cắt theo bó + cây cắt tay = số lần cắt máy phải làm. */}
@@ -307,7 +309,7 @@ export function SolveLinesTable({
             </tr>
             {open && hasDetail && (
               <tr>
-                <td colSpan={5} style={{ ...TD, background: 'var(--surface2)', padding: '12px 14px' }}>
+                <td colSpan={6} style={{ ...TD, background: 'var(--surface2)', padding: '12px 14px' }}>
                   <LineDetail line={l} />
                 </td>
               </tr>
@@ -320,6 +322,7 @@ export function SolveLinesTable({
           <tfoot>
             <tr>
               <td style={{ ...TD, fontWeight: 700 }}>Tổng</td>
+              <td style={TD} />
               <td style={{ ...NUM, fontWeight: 700 }}>{totalBarsAll}</td>
               <td style={TD} />
               <td style={{ ...NUM, fontWeight: 700 }}>

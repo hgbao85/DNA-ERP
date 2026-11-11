@@ -115,6 +115,8 @@ export interface CandidateMaterial {
   materialId: string;
   materialCode: string;
   materialName: string;
+  /** Quy cách (vd "20x20", "Ø21"); null/thiếu khi không có. Nhiều loại sắt trùng tên chỉ khác quy cách. */
+  materialSpec?: string | null;
   /** Hao hụt khi SKU này cắt loại sắt đó MỘT MÌNH. Ý nghĩa phụ thuộc `verified`:
    *  - false: cận dưới LÝ TƯỞNG (giả định nguồn đoạn vô hạn) - hiển thị kèm dấu "≥".
    *  - true: số THẬT solver vừa xác minh cho đúng nhu cầu này - KHÔNG kèm "≥" nữa (2026-09-24). */
@@ -322,6 +324,8 @@ export interface CuttingSolveLine {
   materialId: string;
   materialCode: string;
   materialName: string;
+  /** Quy cách của loại sắt; null/thiếu khi không có. */
+  materialSpec?: string | null;
   unit: string;
   feasible: boolean;
   bestStockLengthMm: number | null;

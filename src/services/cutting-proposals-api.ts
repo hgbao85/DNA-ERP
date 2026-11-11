@@ -60,6 +60,8 @@ export interface CuttingProposalLine {
   materialId: string;
   materialCode: string;
   materialName: string;
+  /** Quy cách của loại sắt (vd "20x20", "Ø21"); null/thiếu khi không có - xem bảng SolveLinesTable. */
+  materialSpec?: string | null;
   unit: string;
   feasible: boolean;
   bestStockLengthMm: number | null;

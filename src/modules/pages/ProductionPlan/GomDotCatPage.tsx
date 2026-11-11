@@ -443,15 +443,27 @@ export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
    *  Cố ý KHÔNG đặt ô ngay cạnh từng chip: một loại sắt xuất hiện ở nhiều dòng SKU, làm vậy sẽ
    *  ra nhiều ô cho cùng một giá trị - người dùng sửa ô này không hiểu sao ô kia cũng nhảy. */
   const materialsInTable = useMemo(() => {
-    const map = new Map<string, { id: string; code: string; stockLengthMm: number | null }>()
+    // Khung "Chiều dài cây sắt" hiện TÊN sắt (KHSX nhận ra "Sắt hộp 6zem" chứ không nhớ mã SAT-002 - yêu cầu 11/11);
+    // mã vẫn giữ để hiện khi rê chuột. Thiếu tên thì dùng mã.
+    // Nhiều loại sắt trùng TÊN, chỉ khác quy cách (vd "Sắt vuông 6zem" ×4) nên nhãn = "Tên · Quy cách".
+    const map = new Map<string, { id: string; code: string; name: string; spec: string | null; label: string; stockLengthMm: number | null }>()
     for (const it of items) {
       for (const m of it.materials) {
         if (!map.has(m.materialId)) {
-          map.set(m.materialId, { id: m.materialId, code: m.materialCode, stockLengthMm: m.stockLengthMm })
+          const name = m.materialName?.trim() || m.materialCode
+          const spec = m.materialSpec?.trim() || null
+          map.set(m.materialId, {
+            id: m.materialId,
+            code: m.materialCode,
+            name,
+            spec,
+            label: spec ? `${name} · ${spec}` : name,
+            stockLengthMm: m.stockLengthMm,
+          })
         }
       }
     }
-    return [...map.values()].sort((a, b) => a.code.localeCompare(b.code))
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'vi') || (a.spec ?? '').localeCompare(b.spec ?? '', 'vi') || a.code.localeCompare(b.code))
   }, [items])
 
   /** Các quy cách ĐÃ đổi khỏi cây chuẩn - dòng tóm tắt chỉ nêu đúng mấy cái này. */
@@ -1305,7 +1317,7 @@ export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
                         {lenChanged.map((m, i) => (
                           <span key={m.id}>
                             {i > 0 && ' · '}
-                            {m.code} <b>{fmtLen(stockLengths[m.id])}</b>
+                            <span title={m.code}>{m.label}</span> <b>{fmtLen(stockLengths[m.id])}</b>
                           </span>
                         ))}
                         {lenChanged.length < materialsInTable.length && (
@@ -1341,8 +1353,8 @@ export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
                     const changed = stockLengths[m.id] != null
                     return (
                       <Fragment key={m.id}>
-                        <label htmlFor={`len-${m.id}`} style={{ fontSize: 12.5, color: changed ? 'var(--text)' : 'var(--text2)', fontWeight: changed ? 600 : 400 }}>
-                          {m.code}
+                        <label htmlFor={`len-${m.id}`} title={m.code} style={{ fontSize: 12.5, color: changed ? 'var(--text)' : 'var(--text2)', fontWeight: changed ? 600 : 400 }}>
+                          {m.label}
                         </label>
                         <input
                           id={`len-${m.id}`}
@@ -1350,7 +1362,7 @@ export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
                           onChange={(e) => setStockLenInput((prev) => ({ ...prev, [m.id]: e.target.value }))}
                           inputMode="numeric"
                           placeholder={String(DEFAULT_STOCK_LENGTH_MM)}
-                          aria-label={`Chiều dài cây cho ${m.code}, tính bằng mm`}
+                          aria-label={`Chiều dài cây cho ${m.label}, tính bằng mm`}
                           title="Bỏ trống = dùng cây chuẩn của công ty. Nhập mm, vd 5850 cho cây 5m85."
                           style={{ width: 78, padding: '4px 8px', fontSize: 12.5, textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: changed ? 700 : 400, border: `1px solid ${bad ? 'var(--fg-dc2626)' : changed ? 'var(--fg-e65100)' : 'var(--border)'}`, borderRadius: 'var(--radius)', background: 'var(--surface2)', color: 'var(--text)' }}
                         />
