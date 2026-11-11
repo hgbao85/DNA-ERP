@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useMemo, useState } from 'react'
+import { CheckCircle2 } from 'lucide-react'
 import { updateSkuContainerLoad } from '../services/sku-api'
 import { getPlanningParams } from '../services/system-config-api'
 import { computeContainerLoad, fmtM3 } from '../utils/containerLoad'
@@ -62,7 +63,10 @@ export default function ContainerLoadEditor({ skuId, value, canEdit, onSaved }: 
   const [containerVolumeM3, setContainerVolumeM3] = useState(DEFAULT_CONTAINER_VOLUME_M3)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [saved, setSaved] = useState(false)
+  // Lần lưu thành công gần nhất, gắn với SKU đã lưu (đổi SKU thì tự không hiện). Giữ tới khi sửa ô: trước đây chữ
+  // "Đã lưu" tự tắt sau 2,5 giây, người dùng không kịp thấy, nút Lưu lại mờ đi nên tưởng chưa lưu (báo 11/11).
+  const [lastSave, setLastSave] = useState<{ skuId: string; at: Date } | null>(null)
+  const savedAt = lastSave?.skuId === skuId ? lastSave.at : null
 
   // Đổi SKU hoặc số liệu đã lưu thay đổi (vd vừa Lưu xong, hoặc tải lại) -> đổ lại vào ô.
   useEffect(() => {
@@ -109,7 +113,7 @@ export default function ContainerLoadEditor({ skuId, value, canEdit, onSaved }: 
 
   const set = (k: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm((f) => ({ ...f, [k]: e.target.value }))
-    setSaved(false)
+    setLastSave(null)
     setError(null)
   }
 
@@ -125,8 +129,7 @@ export default function ContainerLoadEditor({ skuId, value, canEdit, onSaved }: 
         boxesPerSet: parsed.n,
         loadContManual: parsed.m,
       })
-      setSaved(true)
-      setTimeout(() => setSaved(false), 2500)
+      setLastSave({ skuId, at: new Date() })
       onSaved?.(cl)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Không lưu được load cont')
@@ -212,7 +215,18 @@ export default function ContainerLoadEditor({ skuId, value, canEdit, onSaved }: 
           >
             {saving ? 'Đang lưu...' : 'Lưu'}
           </button>
-          {saved && <span style={{ fontSize: 12, color: 'var(--green)' }}>Đã lưu</span>}
+          {savedAt && !dirty && (
+            <span
+              role="status"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8,
+                fontSize: 13, fontWeight: 600, color: 'var(--fg-2e7d32)', background: 'var(--bg-e8f5e9)',
+              }}
+            >
+              <CheckCircle2 size={15} aria-hidden />
+              Đã lưu lúc {savedAt.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+            </span>
+          )}
         </div>
       )}
       {canEdit && (error ?? parsed.err) && dirty && (
