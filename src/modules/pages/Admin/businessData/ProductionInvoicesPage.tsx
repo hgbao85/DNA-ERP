@@ -20,6 +20,7 @@ const STATUS_LABEL: Record<string, string> = {
   PLANNING: 'Lên kế hoạch',
   PRODUCING: 'Đang sản xuất',
   DONE: 'Hoàn thành',
+  CANCELLED: 'Đã huỷ',
 }
 
 const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('vi-VN') : '—'
@@ -33,7 +34,8 @@ function RecomputeNonSteelButton({ pi }: { pi: ProductionInvoice }) {
   const [busy, setBusy] = useState(false)
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const item = (pi.items ?? []).find(it => it.prodApproval?.status === 'APPROVED' && it.productionOrderId)
-  if (!item) return <span style={{ color: 'var(--text3)' }}>—</span>
+  // Lệnh đã huỷ: BE không tính lại đề xuất mua (409), nên không hiện nút.
+  if (!item || pi.status === 'CANCELLED') return <span style={{ color: 'var(--text3)' }}>—</span>
 
   const run = async () => {
     setBusy(true); setMsg(null)
