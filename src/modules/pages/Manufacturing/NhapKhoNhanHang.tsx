@@ -24,7 +24,10 @@ import { focusAttrAny, focusKey } from '../../../utils/notificationLink'
 interface Line { proposal: PurchaseProposal; item: PurchaseProposalItem }
 interface Group {
   key: string
+  /** Dòng còn chờ nhận (status purchasing) - phần tự chia / nhận chỉ chạy trên các dòng này. */
   lines: Line[]
+  /** Mọi dòng cùng khoá (cả dòng đã nhận đủ) - để tổng "Đã nhận / Đặt mua" và Lịch sử nhận không mất phần của lệnh đã đủ. */
+  allLines: Line[]
   first: PurchaseProposalItem
   purchaseQty: number
   receivedQty: number
@@ -55,22 +58,30 @@ export default function NhapKhoNhanHang({ lockedGroup }: { lockedGroup?: string 
 
   const groups = useMemo<Group[]>(() => {
     const map = new Map<string, Line[]>()
+    // Tổng duyệt 11/11: đơn gộp nhiều lệnh, lệnh nhận đủ trước (status purchased) từng rơi khỏi nhóm -> "Đã nhận / Đặt mua" và
+    // Lịch sử nhận chỉ còn phần của lệnh đang chờ. Nay giữ cả dòng đã nhận đủ của CÙNG đơn đặt hàng (chỉ để cộng tổng / lịch sử).
+    const done = new Map<string, Line[]>()
     for (const proposal of proposals) {
       for (const item of proposal.items) {
-        if (item.status !== 'purchasing' || !item.itemId || !inScope(item)) continue
+        if (!item.itemId || !inScope(item)) continue
         const key = groupKeyOf(item)
-        map.set(key, [...(map.get(key) ?? []), { proposal, item }])
+        if (item.status === 'purchasing') map.set(key, [...(map.get(key) ?? []), { proposal, item }])
+        else if (item.status === 'purchased' && item.supplierOrderId) done.set(key, [...(done.get(key) ?? []), { proposal, item }])
       }
     }
     return [...map.entries()]
-      .map(([key, lines]) => ({
-        key,
-        lines,
-        first: lines[0].item,
-        purchaseQty: round4(lines.reduce((s, l) => s + l.item.purchaseQty, 0)),
-        receivedQty: round4(lines.reduce((s, l) => s + (l.item.receivedQty ?? 0), 0)),
-        deadline: lines.map(lineDeadline).filter((d): d is string => !!d).sort()[0] ?? null,
-      }))
+      .map(([key, lines]) => {
+        const allLines = [...lines, ...(done.get(key) ?? [])]
+        return {
+          key,
+          lines,
+          allLines,
+          first: lines[0].item,
+          purchaseQty: round4(allLines.reduce((s, l) => s + l.item.purchaseQty, 0)),
+          receivedQty: round4(allLines.reduce((s, l) => s + (l.item.receivedQty ?? 0), 0)),
+          deadline: lines.map(lineDeadline).filter((d): d is string => !!d).sort()[0] ?? null,
+        }
+      })
       .sort((a, b) => (a.deadline ?? '9999').localeCompare(b.deadline ?? '9999'))
     // eslint-disable-next-line react-hooks/exhaustive-deps -- inScope chỉ phụ thuộc lockedGroup
   }, [proposals, lockedGroup])
@@ -82,7 +93,7 @@ export default function NhapKhoNhanHang({ lockedGroup }: { lockedGroup?: string 
     it.supplierOrderCode ? `${it.supplierName ?? 'NCC'} – Số ${it.supplierOrderCode}` : '—'
   const materialLabel = (it: PurchaseProposalItem) =>
     `${it.name}${it.spec ? ` · ${it.spec}` : ''}${it.stockLengthMm != null ? ` · cây ${it.stockLengthMm}mm` : ''}`
-  const lenhLabel = (g: Group) => [...new Set(g.lines.map(l => l.proposal.lenhCode))].join(', ')
+  const lenhLabel = (g: Group) => [...new Set(g.allLines.map(l => l.proposal.lenhCode))].join(', ')
 
   return (
     <div>
@@ -453,7 +464,17 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
                 <td style={{ ...td, textAlign: 'right', fontWeight: 700 }}>
                   {editing && preview ? (
                     <input type="number" min={0} step="any" value={manual[a.itemId] ?? String(a.qty)} onChange={e => setManual(m => ({ ...m, [a.itemId]: e.target.value }))} style={{ ...inputStyle, width: 90 }} />
-                  ) : preview ? fmtQty(a.final) : '—'}
+                  ) : preview ? (
+                    <>
+                      {fmtQty(a.final)}
+                      {/* Nhận vượt: phần vượt số mua của lệnh vào tồn chung, không giữ cho lệnh (Đợt 5a/5e) - tổng duyệt 11/11 hiện cả 25 như giữ cho lệnh. */}
+                      {a.final > round4(Math.max(0, a.buyQty - a.receivedQty)) && (
+                        <div style={{ fontSize: 11, fontWeight: 400, color: 'var(--fg-d97706)' }}>
+                          giữ cho lệnh {fmtQty(round4(Math.max(0, a.buyQty - a.receivedQty)))}, {fmtQty(round4(a.final - Math.max(0, a.buyQty - a.receivedQty)))} vào tồn chung
+                        </div>
+                      )}
+                    </>
+                  ) : '—'}
                 </td>
               </tr>
             ))}
@@ -525,7 +546,7 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
         </div>
       )}
 
-      <ReceiptHistory lines={group.lines} unit={it.unit} />
+      <ReceiptHistory lines={group.allLines} unit={it.unit} />
     </div>
   )
 }
@@ -557,6 +578,7 @@ function ReceiptHistory({ lines, unit }: { lines: Line[]; unit: string }) {
         {entries.map(({ log, parts }) => (
           <div key={log.receiptId ?? log.id} style={{ borderLeft: '2px solid var(--border)', paddingLeft: 8 }}>
             <span style={{ color: 'var(--text)' }}>{format(new Date(log.receivedAt), 'dd/MM HH:mm')}</span>
+            {log.receiptCode && <> · <b style={{ fontFamily: 'monospace', color: 'var(--text)' }}>{log.receiptCode}</b></>}
             {' · '}<b style={{ color: 'var(--text)' }}>{fmtQty(log.receiptTotalQty ?? parts.reduce((s, p) => s + p.qty, 0))} {unit}</b>
             {parts.length > 1 || log.receiptTotalQty != null ? ` → ${parts.map(p => `${p.lenhCode} ${fmtQty(p.qty)}`).join(', ')}` : ''}
             {log.allocationAdjusted && <span style={{ color: 'var(--fg-d97706)' }}> (thủ kho chỉnh phân bổ)</span>}

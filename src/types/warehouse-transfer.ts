@@ -5,6 +5,8 @@ export type TransferStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED'
 export interface WarehouseTransferItem {
   id: string
   materialId: string | null
+  /** Mã vật tư - in cột "Mã vật tư" trên phiếu chuyển (11/11/2026). */
+  materialCode?: string | null
   materialName: string
   /** Quy cách vật tư (Material.spec) - null cho dòng "ghi tự do" cũ hoặc vật tư chưa khai báo quy
    *  cách (2026-09-15). */

@@ -18,6 +18,7 @@ import type { TransferStatus, WarehouseTransfer, WarehouseTransferItem, Warehous
 interface BeWarehouseTransferItem {
   id: string;
   materialId: string | null;
+  materialCode?: string | null;
   materialName: string;
   materialSpec: string | null;
   unit: string;
@@ -78,6 +79,7 @@ function toItem(it: BeWarehouseTransferItem): WarehouseTransferItem {
   return {
     id: it.id,
     materialId: it.materialId,
+    materialCode: it.materialCode ?? null,
     materialName: it.materialName,
     materialSpec: it.materialSpec,
     unit: it.unit,

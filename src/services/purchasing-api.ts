@@ -133,6 +133,7 @@ interface BeReceiptLog {
   receivedAt: string;
   receiptId?: string | null;
   receiptTotalQty?: number | null;
+  receiptCode?: string | null;
   allocationAdjusted?: boolean;
   supplierSlipUrls?: string[];
   approvalFileUrls?: string[];
@@ -230,6 +231,7 @@ function toItem(item: BeItem): PurchaseProposalItem {
       receivedAt: r.receivedAt,
       receiptId: r.receiptId ?? null,
       receiptTotalQty: r.receiptTotalQty ?? null,
+      receiptCode: r.receiptCode ?? null,
       allocationAdjusted: r.allocationAdjusted ?? false,
       supplierSlipUrls: r.supplierSlipUrls ?? [],
       approvalFileUrls: r.approvalFileUrls ?? [],

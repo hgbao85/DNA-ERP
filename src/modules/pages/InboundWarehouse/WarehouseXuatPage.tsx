@@ -275,6 +275,9 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
 
   const [transferBusyLine, setTransferBusyLine] = useState<string | null>(null)
   const [transferErrors, setTransferErrors] = useState<Record<string, string>>({})
+  // Tổng duyệt 11/11: bấm "Xác nhận" xong không có phản hồi (ô vẫn giữ số, "Có thể chuyển" chưa kịp đổi) nên người dùng
+  // bấm lại -> sinh phiếu trùng. Nay xoá ô số lượng + hiện số phiếu vừa lập ngay khi tạo xong.
+  const [transferDone, setTransferDone] = useState<Record<string, string>>({})
 
   const selected = orders.find(o => o.id === selectedId) ?? null
 
@@ -295,8 +298,10 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
     if (order.kind === 'piece' && myWarehouse && pieceDestWh) {
       setTransferBusyLine(lineId)
       setTransferErrors(prev => ({ ...prev, [lineId]: '' }))
+      setTransferDone(prev => ({ ...prev, [lineId]: '' }))
+      let created: { code: string }
       try {
-        await api.createPieceWarehouseTransfer({
+        created = await api.createPieceWarehouseTransfer({
           fromWarehouseId: myWarehouse.id,
           toWarehouseId: pieceDestWh.id,
           pieceItems: [{ productionOrderId: order.id, pieceId: line.id, quantity: qty }],
@@ -307,6 +312,8 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
         return
       }
       setTransferBusyLine(null)
+      setOrders(prev => prev.map(o => o.id !== orderId ? o : { ...o, lines: o.lines.map(l => l.id !== lineId ? l : { ...l, inputQty: '' }) }))
+      setTransferDone(prev => ({ ...prev, [lineId]: `Đã lập phiếu ${created.code} (${qty}) - in phiếu ở bảng "Phiếu đã gửi" bên dưới` }))
       refetchPieceOrders() // đọc lại suggestedQty/transferredQty thật từ BE thay vì tự trừ cục bộ
       return
     }
@@ -407,7 +414,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
             vừa có đơn packaging vừa có đơn khác (vd ship) cùng lúc. */}
         {selected.kind === 'packaging' && (
           <div style={{ marginBottom: 14, padding: '8px 14px', background: 'var(--bg-ede7f6)', border: '1px solid var(--fg-d1c4e9)', borderRadius: 8, fontSize: 12, color: 'var(--fg-4527a0)' }}>
-            Bấm &quot;Xác nhận&quot; sẽ ghi nhận đã xuất vật tư đóng gói cho <strong>Kho Thành phẩm</strong> ngay lập tức.
+            Nhập số rồi bấm &quot;Lập phiếu xuất&quot; → in phiếu, người nhận ký → tải ảnh ở &quot;Phiếu chờ ký&quot; bên dưới rồi xác nhận xuất - lúc đó mới trừ tồn. Số xuất không vượt số bộ đã qua Chuyền kiểm.
           </div>
         )}
         {/* phoi-son-han (piece transfer): mảnh không đan về kho Thành phẩm của lệnh (09/11/2026) - lệnh đã có kho thì cố định,
@@ -498,6 +505,9 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                           </div>
                           {transferErrors[l.id] && (
                             <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)' }}>{transferErrors[l.id]}</div>
+                          )}
+                          {transferDone[l.id] && (
+                            <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-2e7d32)' }}>{transferDone[l.id]}</div>
                           )}
                         </div>
                       )}
