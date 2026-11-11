@@ -47,7 +47,7 @@ export function printTransferSlip(t: WarehouseTransfer): void {
     columns: [['Mã vật tư', false], ['Tên vật tư (đúng tên file tồn)', true], ['Quy cách', false], ['ĐVT', true], ['SL yêu cầu', false], ['SL thực xuất', true], ['LSX', true], ['Mã hàng', false], ['Ghi chú', false]],
     rows: [
       ...t.items.map(l => [
-        '',
+        esc(l.materialCode ?? ''),
         esc(l.materialName),
         esc([l.materialSpec ?? '', l.stockLengthMm ? `Cây ${l.stockLengthMm}mm` : ''].filter(Boolean).join(' · ')),
         esc(l.unit),

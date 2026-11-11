@@ -53,6 +53,8 @@ export interface PurchaseReceiptLog {
   receiptId?: string | null
   /** Tổng của cả phiếu - đơn gộp thì lần nhận của dòng này chỉ là 1 phần chia. */
   receiptTotalQty?: number | null
+  /** Số phiếu nhập NK của phiếu chứa lần nhận này (11/11/2026). */
+  receiptCode?: string | null
   allocationAdjusted?: boolean
   /** 4 ô chứng từ (YC4): phiếu giao NCC, phiếu đề xuất Giám đốc ký, phiếu nhập kho, phiếu cân xe. */
   supplierSlipUrls?: string[]
