@@ -23,6 +23,18 @@ export async function updateSystemConfig(data: Partial<SystemConfig>): Promise<S
     lsxPrefixes: data.lsxPrefixes,
     // Nhóm "Máy cắt" (Tối ưu cắt sắt). Không có trong draft -> undefined thì BE giữ nguyên.
     solverMachine: data.solverMachine,
+    // Thông số MC Laser (11/11): BE có từ trước nhưng màn Cấu hình chưa có ô sửa - phải liệt kê ở đây thì BE mới nhận.
+    solverBladeWidthMm: data.solverBladeWidthMm,
+    solverTrimStartMm: data.solverTrimStartMm,
+    // Thông số chung cả hai máy (12/11) - cùng lý do: phải liệt kê tên ở đây thì BE mới nhận.
+    solverStockLengths: data.solverStockLengths,
+    solverMaxWastePercentage: data.solverMaxWastePercentage,
+    solverMaxSurplus: data.solverMaxSurplus,
+    solverMinLengthMm: data.solverMinLengthMm,
+    solverMaxLengthMm: data.solverMaxLengthMm,
+    solverLengthStepMm: data.solverLengthStepMm,
+    solverTimeLimitSeconds: data.solverTimeLimitSeconds,
+    solverAllowCustomLength: data.solverAllowCustomLength,
     solverMctdBladeWidthMm: data.solverMctdBladeWidthMm,
     solverMctdTrimStartMm: data.solverMctdTrimStartMm,
     solverBundleFactors: data.solverBundleFactors,

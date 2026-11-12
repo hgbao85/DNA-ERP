@@ -63,8 +63,22 @@ export interface SystemConfig {
   /** Mặc định toàn hệ thống: số giây solver được giải CHO MỖI LOẠI SẮT. Từng đợt cắt đề nghị riêng
    *  được ở "Tối ưu cắt sắt" (ô "Thời gian chạy tối đa") — không cần Sếp duyệt. */
   solverTimeLimitSeconds: number;
+  /** Thông số chung cả hai máy (12/11 mới có ô sửa ở Cấu hình hệ thống): chiều dài cây chuẩn NCC có sẵn (mm). Mặc định [6000]. */
+  solverStockLengths: number[];
+  /** Hao hụt tối đa mặc định (%) của một loại sắt. Mặc định 1. */
+  solverMaxWastePercentage: number;
+  /** Mỗi cỡ đoạn được cắt dư tối đa chừng này đoạn so với nhu cầu. Mặc định 10. */
+  solverMaxSurplus: number;
+  /** Cây đặt riêng: chiều dài ngắn nhất / dài nhất / bước dò (mm). Mặc định 5000 / 6000 / 10. */
+  solverMinLengthMm: number;
+  solverMaxLengthMm: number;
+  solverLengthStepMm: number;
   /** Máy cắt mặc định cho đợt cắt KHSX không chọn riêng ở "Tối ưu cắt sắt". Mặc định 'laser'. */
   solverMachine: SolverMachine;
+  /** MC Laser: bề dày lưỡi cắt (mm) mất đi sau mỗi nhát cắt. Mặc định 1,0. */
+  solverBladeWidthMm: number;
+  /** MC Laser: phần đầu cây cắt bỏ (tề đầu, mm) trước khi cắt đoạn đầu tiên. Mặc định 10. */
+  solverTrimStartMm: number;
   /** MC Tự động: bề dày lưỡi cắt (mm) mất đi sau mỗi nhát cắt. Mặc định 2,5. */
   solverMctdBladeWidthMm: number;
   /** MC Tự động: phần đầu cây cắt bỏ (tề đầu, mm) trước khi cắt đoạn đầu tiên. Mặc định 0. */
