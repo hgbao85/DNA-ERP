@@ -22,6 +22,8 @@ interface NormalizableUser {
   isSale?: boolean;
   isMaterialsManager?: boolean;
   isFloorWorker?: boolean;
+  workshopId?: string | number | null;
+  workshopName?: string | null;
 }
 
 /**
@@ -48,5 +50,7 @@ export function normalizeUser(raw: NormalizableUser): User {
     isSale: !!raw.isSale,
     isMaterialsManager: !!raw.isMaterialsManager,
     isFloorWorker: !!raw.isFloorWorker || roles.includes('FLOOR_WORKER'),
+    workshopId: raw.workshopId != null ? String(raw.workshopId) : null,
+    workshopName: raw.workshopName ?? null,
   };
 }

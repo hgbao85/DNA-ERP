@@ -48,6 +48,8 @@ export function mapBeToFe(u: BeUserProfile): SystemUser {
     isProductPlanner: u.isProductPlanner,
     isSale: u.isSale,
     isMaterialsManager: u.isMaterialsManager,
+    workshopId: u.workshopId ?? null,
+    workshopName: u.workshopName ?? null,
     isActive: u.isActive,
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
@@ -92,6 +94,9 @@ export function mfgAttrsPayload(v: Record<string, unknown>) {
     isProductPlanner: !!v.isProductPlanner,
     isSale: !!v.isSale,
     isMaterialsManager: !!v.isMaterialsManager,
+    // QLSX theo xưởng: chỉ vai QLSX mới có xưởng phụ trách (BE trả 400 nếu vai khác); '' / null = tất cả xưởng.
+    // Vai khác chỉ gửi null khi form còn giữ xưởng cũ, để gỡ gắn sau khi đổi vai.
+    ...(mfgRole === 'PRODUCTION_MANAGER' || v.workshopId ? { workshopId: mfgRole === 'PRODUCTION_MANAGER' ? ((v.workshopId as string) || null) : null } : {}),
     // Đợt 7: danh sách kho đổi qua lại - chỉ gửi khi form có ô này (thủ kho); BE tự thêm kho đang làm vào danh sách.
     ...(Array.isArray(v.warehouseScopes) ? { warehouseScopes: v.warehouseScopes as string[] } : {}),
   };

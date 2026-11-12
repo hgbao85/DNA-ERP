@@ -6,6 +6,8 @@ import { useConfirm } from '../../../hooks/useConfirm'
 import ReasonModal from '../../../components/ReasonModal'
 import { useFetch } from '../../../hooks/useFetch'
 import { useAuth } from '../../../context/AuthContext'
+import { useScopedWorkshop } from '../../../hooks/useScopedWorkshop'
+import { getWorkshops } from '../../../services/workshops-api'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { errMsg } from '../../../utils/errors'
 import * as api from '../../../services/api'
@@ -39,7 +41,7 @@ import PieceSyncView from './PieceSyncView'
 import LenhCodeText from '../../../components/LenhCodeText'
 // Phần A – Đợt 2: số LSX + xưởng cơ khí
 import { lineCode, matchesLenhSearch } from '../../../utils/lenhCode'
-import type { WorkshopRef } from '../../../types/workshop'
+import type { Workshop, WorkshopRef } from '../../../types/workshop'
 import { useLsxPrefixes } from '../../../hooks/useLsxPrefixes'
 import LsxCodeInput from '../../../components/LsxCodeInput'
 import ChangeWorkshopDialog from '../../../components/ChangeWorkshopDialog'
@@ -107,6 +109,8 @@ interface MfgOrder {
   /** Phần A – Đợt 2: số LSX của CHÍNH dòng SKU này (null = lệnh cũ chưa có) và xưởng cơ khí của dòng. */
   lsxCode: string | null
   workshop: WorkshopRef | null
+  /** QLSX theo xưởng: false = lệnh chỉ XEM (xưởng sơn nhờ), ẩn mọi nút thao tác. */
+  canManage: boolean
   sku: string
   productName: string
   /** Số lượng của dòng lệnh (ProductionInvoiceItem.quantity). */
@@ -470,6 +474,7 @@ function buildOrderRow(row: ApprovedRow, proposals: PurchaseProposal[], batch: B
     piCode: row.piCode,
     lsxCode: row.lsxCode,
     workshop: row.workshop,
+    canManage: row.canManage,
     sku: pf.mfgProduct?.factoryCode ?? '—',
     productName: pf.mfgProduct?.name ?? '',
     quantity: skuQty,
@@ -1278,7 +1283,7 @@ interface PIApprovalItem {
   decidedAt?: string
   requestedAt?: string
 }
-interface PIStatusRow { id: string; code: string; status: string; items?: PIApprovalItem[]; displayCode?: string; lsxCodes?: string[]; hasMaterialIssue?: boolean }
+interface PIStatusRow { id: string; code: string; status: string; items?: PIApprovalItem[]; displayCode?: string; lsxCodes?: string[]; hasMaterialIssue?: boolean; canManage?: boolean }
 
 // 1 dòng đã duyệt trong "Bảng thống kê" - định danh CHUẨN (piId/itemId/orderId/poCode/piCode/
 // deliveryDeadline) lấy THẲNG từ chính ProductionInvoiceItem đang duyệt, không suy ngược qua Sku
@@ -1297,6 +1302,8 @@ interface ApprovedRow {
   piDisplayCode: string
   lsxCode: string | null
   workshop: WorkshopRef | null
+  /** false = lệnh chỉ XEM (BE trả canManage theo phạm vi xưởng của QLSX); BE cũ thiếu -> true. */
+  canManage: boolean
   hasMaterialIssue: boolean
   deliveryDeadline?: string
   floorStage: FloorStage | null
@@ -1347,6 +1354,7 @@ interface PiRow {
   lsxCodes: string[]
   hasMaterialIssue: boolean
   workshop: WorkshopRef | null
+  canManage: boolean
   rows: { order: MfgOrder; details: StageDetails }[]
   order: { status: OrderStatus; mfgStage?: MfgStage }
   details: StageDetails
@@ -1428,6 +1436,7 @@ function buildPiRows(approvedRows: ApprovedRow[], orderRows: { order: MfgOrder; 
       lsxCodes: Array.from(new Set(rows.flatMap(r => (r.order.lsxCode ? [r.order.lsxCode] : [])))),
       hasMaterialIssue: list[0].row.hasMaterialIssue,
       workshop: rows.find(r => r.order.workshop)?.order.workshop ?? null,
+      canManage: list[0].row.canManage,
       rows,
       order: { status: done ? 'DONE' : 'PRODUCING', mfgStage: done ? undefined : (purchPct < 100 && !anyExecProgress ? 'PURCHASING' : 'FRAME') },
       details,
@@ -1522,6 +1531,8 @@ export default function ThongKePagePlan() {
   return isBoard ? <MilestoneBoardView viewSwitch={viewSwitch} /> : <OrderSummaryView viewSwitch={viewSwitch} />
 }
 
+const WORKSHOP_FILTER_KEY = 'tong-hop-lenh-sx:workshop'
+
 function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
 
   const { data: skusData, isLoading, error: skusError, refetch: refetchSkus } = useFetch<Sku[]>(() => api.getSkus(), [])
@@ -1583,6 +1594,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
           piDisplayCode: pi.displayCode || pi.code,
           lsxCode: item.lsxCode ?? null,
           workshop: item.workshop ?? null,
+          canManage: pi.canManage ?? true,
           hasMaterialIssue: !!pi.hasMaterialIssue,
           deliveryDeadline: item.deliveryDeadline,
           floorStage: item.floorStage ?? null,
@@ -1649,6 +1661,20 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
   // @RequireRole(BUSINESS_ROLES.PRODUCTION_MANAGER) ở BE production-orders.controller.ts).
   const { user } = useAuth()
   const canManageFloor = user?.mfgRole === 'PRODUCTION_MANAGER'
+  // QLSX theo xưởng (2026-11-12): có phạm vi thì chỉ hiện nhãn xưởng; KHÔNG giới hạn thì có ô lọc Xưởng.
+  const { scopedWorkshopId, scopedWorkshopName } = useScopedWorkshop()
+  const { data: workshopsData } = useFetch<Workshop[]>(() => (scopedWorkshopId ? Promise.resolve([] as Workshop[]) : getWorkshops().catch(() => [] as Workshop[])), [scopedWorkshopId])
+  const workshopList = Array.isArray(workshopsData) ? workshopsData : []
+  // Ô lọc xưởng nhớ trong localStorage; '' = tất cả xưởng. Danh sách xưởng tải sau nên ô lọc chưa hiện ở lần render
+  // đầu (SSR) - đọc storage ngay lúc khởi tạo không gây lệch hydrate.
+  const [workshopFilter, setWorkshopFilterState] = useState(() => {
+    try { return typeof window === 'undefined' ? '' : (window.localStorage.getItem(WORKSHOP_FILTER_KEY) ?? '') } catch { return '' }
+  })
+  const setWorkshopFilter = (v: string) => {
+    setWorkshopFilterState(v)
+    setPage(1)
+    try { window.localStorage.setItem(WORKSHOP_FILTER_KEY, v) } catch { /* không lưu được thì thôi */ }
+  }
   // Phần A – Đợt 2: KHSX điền số LSX cho dòng đã duyệt còn trống ('fill'); Admin sửa tự do ('edit'); vai khác chỉ xem.
   const lsxMode: 'edit' | 'fill' | null = user?.role === 'ADMIN' ? 'edit' : user?.isProductPlanner ? 'fill' : null
   const lsxPrefixes = useLsxPrefixes()
@@ -1711,11 +1737,15 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
   const renderFloorCell = (o: MfgOrder) => {
     const label = `${o.productName || o.sku} (${o.sku}) · PO ${o.code}`
     return (
+      <>
+      {canManageFloor && !o.canManage && (
+        <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Sơn tại xưởng bạn · chỉ xem</div>
+      )}
       <FloorStageCell
         orderId={o.orderId}
         floorStage={o.floorStage}
         bomOutOfDate={o.bomOutOfDate}
-        canManage={canManageFloor}
+        canManage={canManageFloor && o.canManage}
         pending={!!o.orderId && floorPending.has(o.orderId)}
         onStart={() => o.orderId && handleFloorAction(o.orderId, label, 'start')}
         onResume={() => o.orderId && handleFloorAction(o.orderId, label, 'resume')}
@@ -1723,6 +1753,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
         onFinish={() => o.orderId && handleFloorAction(o.orderId, label, 'finish')}
         onResync={() => { if (o.orderId) { setResyncTarget({ orderId: o.orderId, label }); setResyncReason(''); setResyncError(null) } }}
       />
+      </>
     )
   }
 
@@ -1826,7 +1857,13 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
   )
 
 
-  const piRows = useMemo(() => buildPiRows(approvedRows, orderRows, batchData), [approvedRows, orderRows, batchData])
+  const allPiRows = useMemo(() => buildPiRows(approvedRows, orderRows, batchData), [approvedRows, orderRows, batchData])
+  // Ô lọc Xưởng chỉ có ở user không giới hạn; user có phạm vi đã được BE lọc sẵn. Xưởng đã lưu mà không còn trong danh sách thì bỏ qua.
+  const activeWorkshopFilter = !scopedWorkshopId && workshopList.some(w => w.id === workshopFilter) ? workshopFilter : ''
+  const piRows = useMemo(
+    () => (activeWorkshopFilter ? allPiRows.filter(p => p.workshop?.id === activeWorkshopFilter) : allPiRows),
+    [allPiRows, activeWorkshopFilter],
+  )
 
   const q = search.trim().toLowerCase()
   const filtered = piRows
@@ -1903,7 +1940,8 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
               {/* Phần A – Đợt 2: xưởng cơ khí của cả lệnh + nút Đổi xưởng (QLSX, chỉ khi chưa xuất sắt) */}
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 6, fontSize: 13, color: 'var(--text3)' }}>
                 <span>Xưởng: <span style={{ fontWeight: 600, color: 'var(--text)' }}>{selectedPi.workshop?.name ?? 'Chưa chọn'}</span></span>
-                {canManageFloor && (selectedPi.hasMaterialIssue
+                {canManageFloor && !selectedPi.canManage && <span style={{ fontSize: 12, color: 'var(--text3)' }}>Sơn tại xưởng bạn · chỉ xem</span>}
+                {canManageFloor && selectedPi.canManage && (selectedPi.hasMaterialIssue
                   ? <span style={{ fontSize: 12, color: 'var(--text3)' }}>Đã xuất sắt — không đổi xưởng được</span>
                   : <button type="button" onClick={() => setChangeWorkshopPi(selectedPi.piId)} style={{ ...btnSecondary, padding: '4px 10px', fontSize: 12 }}>Đổi xưởng</button>)}
               </div>
@@ -1954,7 +1992,10 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
       {failedBanner}
       <div style={{ marginBottom: 'var(--space-5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-          <h2 style={{ ...pageTitle, margin: 0 }}>Tổng hợp lệnh SX</h2>
+          <h2 style={{ ...pageTitle, margin: 0 }}>
+            Tổng hợp lệnh SX
+            {scopedWorkshopName && <span style={{ marginLeft: 10, fontSize: 13, fontWeight: 600, color: 'var(--fg-1d4ed8)', background: 'var(--surface2)', padding: '2px 10px', borderRadius: 10, verticalAlign: 'middle' }}>{scopedWorkshopName}</span>}
+          </h2>
           {viewSwitch}
         </div>
         <p style={{ ...pageSubtitle, margin: '2px 0 0' }}>
@@ -1976,6 +2017,13 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
             </button>
           ))}
         </div>
+        {!scopedWorkshopId && workshopList.length > 0 && (
+          <select aria-label="Lọc theo xưởng" value={activeWorkshopFilter} onChange={e => setWorkshopFilter(e.target.value)}
+            style={{ padding: '6px 10px', fontSize: 13, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)' }}>
+            <option value="">Tất cả xưởng</option>
+            {workshopList.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+          </select>
+        )}
         <div style={{ position: 'relative', width: isMobile ? '100%' : 280 }}>
           <Search size={14} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: 'var(--text3)', pointerEvents: 'none' }} />
           <input

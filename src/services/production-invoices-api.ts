@@ -65,6 +65,9 @@ interface BeProductionInvoiceItem {
   lsxCode?: string | null;
   /** Phần A – Đợt 2: xưởng cơ khí QLSX chọn lúc gửi Sếp; null = chưa chọn. */
   workshop?: WorkshopRef | null;
+  /** Hợp đồng QLSX theo xưởng: id/tên xưởng phẳng - dự phòng khi BE không trả khối `workshop`. */
+  workshopId?: string | null;
+  workshopName?: string | null;
   /** null = chưa từng tính (SKU chưa duyệt). Có giá trị CALCULATING = đang chờ solver, xem toItem(). */
   cuttingProposalStatus?: 'CALCULATING' | 'DRAFT' | 'FAILED' | 'APPROVED' | null;
   cuttingProposalRequestedAt?: string | null;
@@ -135,6 +138,8 @@ interface BeProductionInvoice {
   cuttingRecheckRequiredAt?: string | null;
   cuttingRecheckedAt?: string | null;
   cuttingRecheckedByName?: string | null;
+  /** QLSX theo xưởng (2026-11-12): false = lệnh chỉ XEM (vd lệnh Phước An ở QLSX Phú An - sơn nhờ). BE cũ thiếu field -> coi như true. */
+  canManage?: boolean;
 }
 
 function toItem(it: BeProductionInvoiceItem) {
@@ -164,7 +169,7 @@ function toItem(it: BeProductionInvoiceItem) {
     bomOutOfDate: it.bomOutOfDate ?? null,
     pendingDeadlineChange: it.pendingDeadlineChange ?? null,
     lsxCode: it.lsxCode ?? null,
-    workshop: it.workshop ?? null,
+    workshop: it.workshop ?? (it.workshopId ? { id: String(it.workshopId), code: '', name: it.workshopName ?? '' } : null),
     prodApproval: it.prodApprovalStatus
       ? {
           status: it.prodApprovalStatus,
@@ -220,6 +225,7 @@ function toPI(pi: BeProductionInvoice) {
     cuttingRecheckRequiredAt: pi.cuttingRecheckRequiredAt ?? null,
     cuttingRecheckedAt: pi.cuttingRecheckedAt ?? null,
     cuttingRecheckedByName: pi.cuttingRecheckedByName ?? null,
+    canManage: pi.canManage ?? true,
     status: pi.status,
     isMerged: pi.isMerged,
     exportOrderId: pi.salesOrderId ?? undefined,
@@ -313,17 +319,17 @@ export async function updateProductionInvoiceItemsDeadlines(
 }
 
 /** itemId = ProductionInvoiceItem.id thật (KHÔNG phải index trong mảng như mock cũ). */
-export async function sendItemToQlsx(piId: number | string, itemId: number | string, _requestedBy?: string) {
-  return toItem(await http.post<BeProductionInvoiceItem>(`/production-invoices/${piId}/items/${itemId}/send-to-qlsx`));
+export async function sendItemToQlsx(piId: number | string, itemId: number | string, _requestedBy?: string, workshopId?: string) {
+  return toItem(await http.post<BeProductionInvoiceItem>(`/production-invoices/${piId}/items/${itemId}/send-to-qlsx`, workshopId ? { workshopId } : {}));
 }
 
 /** Gửi CẢ phiếu (mọi SKU chưa gửi / bị QLSX trả lại) trong 1 lần — thay cho việc mở hộp thoại chọn
  *  lại từng SKU. `itemIds` bỏ trống = gửi hết; truyền vào khi người dùng bỏ tick vài SKU. BE luôn
  *  bỏ qua SKU không đủ điều kiện (kể cả có trong itemIds), ném 409 nếu không còn SKU nào gửi được. */
-export async function sendPiToQlsx(piId: number | string, itemIds?: string[]) {
+export async function sendPiToQlsx(piId: number | string, itemIds?: string[], workshopId?: string) {
   return http.post<BeProductionInvoice>(
     `/production-invoices/${piId}/send-to-qlsx-batch`,
-    itemIds?.length ? { itemIds } : {},
+    { ...(itemIds?.length ? { itemIds } : {}), ...(workshopId ? { workshopId } : {}) },
   );
 }
 

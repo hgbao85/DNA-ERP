@@ -4,11 +4,12 @@ import { focusAttr } from '../../../utils/notificationLink'
 import { useFetch } from '../../../hooks/useFetch'
 import * as api from '../../../services/api'
 import { useAuth } from '../../../context/AuthContext'
+import { useScopedWorkshop } from '../../../hooks/useScopedWorkshop'
 import { errMsg } from '../../../utils/errors'
 import { StatusBadge } from '../Sales/StatusBadge'
 import type { SalesOrderStatus } from '../../../types/sales'
 import { format } from 'date-fns'
-import { AlertTriangle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2, User, Factory, History, Download, Upload } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, X, CalendarClock, Pencil, Play, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, Search, Clock, XCircle, ThumbsUp, ThumbsDown, Warehouse, Loader2, User, Factory, History, Download, Upload, Eye } from 'lucide-react'
 import SearchableSelect from '../../../components/SearchableSelect'
 import { isThanhPhamScope } from '../Manufacturing/MfgWarehousesPage'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
@@ -257,6 +258,8 @@ function CalculatingBadge({ requestedAt }: { requestedAt: string }) {
 export default function LenhSXPage() {
   const { user, isBoss } = useAuth()
   const isQlsx = user?.mfgRole === 'PRODUCTION_MANAGER'
+  // QLSX theo xưởng (2026-11-12): null = không giới hạn (như cũ). Có phạm vi thì xưởng của lệnh bị khoá, đổi bằng "Chuyển xưởng".
+  const { scopedWorkshopId } = useScopedWorkshop()
   // Điện thoại: bảng SKU dạng lưới 7-8 cột cố định không vừa - xếp chồng SKU + dải 6 ô ngày có nhãn (2 hàng × 3).
   const isMobile = useIsMobile()
   const [confirmingProdId, setConfirmingProdId] = useState<number | null>(null)
@@ -279,6 +282,8 @@ export default function LenhSXPage() {
   const isAdmin = user?.role === 'ADMIN'
   const [qlsxWorkshopId, setQlsxWorkshopId] = useState('')
   const [changeWorkshopPi, setChangeWorkshopPi] = useState<any | null>(null)
+  // KHSX chọn xưởng khi "Gửi QLSX" (bắt buộc); rỗng = chưa chọn thì lấy xưởng đã có của lệnh (xem hộp gửi QLSX).
+  const [khsxWorkshopId, setKhsxWorkshopId] = useState('')
   const [editingPI, setEditingPI] = useState<any | null>(null)
   // 2026-09-11 lần 2: đồng bộ lại - FRAME + 3 mốc con Phôi/Hàn/Sơn (FRAME_PHOI/FRAME_HAN/
   // FRAME_SON, thêm 2026-09-09) quay về CHỈ 1 mốc `deadline` mỗi cái, giống hệt WEAVING/
@@ -371,8 +376,10 @@ export default function LenhSXPage() {
   // danh sách đúng lúc cần xem "đang tính" nhất - vẫn cho KHSX bấm vào xem PI đó CHỪNG NÀO còn SKU
   // CALCULATING; tự rớt khỏi danh sách lại khi solver trả lời (DRAFT/FAILED/APPROVED).
   const safeList = (Array.isArray(pis) ? pis : []).filter((p: any) => (p.status === 'PLANNING' || hasCalculatingItem(p)) && (
-    isBoss ? hasItemWithStatus(p, 'WAITING_BOSS') : isQlsx ? hasItemWithStatus(p, 'WAITING_QLSX') : true
+    isBoss ? hasItemWithStatus(p, 'WAITING_BOSS') : isQlsx ? hasItemWithStatus(p, 'WAITING_QLSX') && p.canManage !== false : true
   ))
+  // QLSX theo xưởng (2026-11-12): lệnh xưởng khác (QLSX Phú An được XEM lệnh Phước An vì sơn nhờ) chỉ để theo dõi tiến độ ở
+  // "Tổng hợp lệnh SX" - không đưa vào danh sách việc phải xử lý ở đây, kẻo lẫn việc của QLSX xưởng kia.
   // Tìm theo mã PI (2026-08-24) - danh sách giờ chỉ hiện mã PI, không còn hiện mã PO ở dòng thu
   // gọn nữa nên tìm theo PO sẽ không khớp được gì trên màn hình, dễ gây tưởng nhầm "không tìm ra".
   // Phần A – Đợt 9 (YC2): tab "Đang chạy" (chỉ KHSX, Sếp/QLSX không có) = mọi PI còn SKU đã duyệt mà lệnh chưa Kết thúc.
@@ -491,7 +498,7 @@ export default function LenhSXPage() {
     : []
   // Phần A – Đợt 2: QLSX xem lại các lệnh đã gửi Sếp (còn SKU WAITING_BOSS) để đổi xưởng khi cần.
   const sentToBossList: any[] = isQlsx && !isBoss
-    ? (Array.isArray(pis) ? pis : []).filter((p: any) => p.status === 'PLANNING' && hasItemWithStatus(p, 'WAITING_BOSS') && matchesLenhSearch(p, search))
+    ? (Array.isArray(pis) ? pis : []).filter((p: any) => p.status === 'PLANNING' && hasItemWithStatus(p, 'WAITING_BOSS') && p.canManage !== false && matchesLenhSearch(p, search))
     : []
   const viewingApprovalGroup = viewingApprovalPiId
     ? piGroups.find((g: { pi: any }) => g.pi.id === viewingApprovalPiId) ?? null
@@ -525,12 +532,13 @@ export default function LenhSXPage() {
   // SKU = mở hộp thoại 5 lần.
   // Gửi cả PI 1 lần - không còn cho chọn từng SKU nữa (2026-08-24), itemIds bỏ trống = BE tự gửi
   // MỌI SKU đủ điều kiện (chưa gửi / bị QLSX trả lại) trong PI này.
-  const handleSendForApproval = async (id: number) => {
+  const handleSendForApproval = async (id: number, workshopId: string) => {
     setConfirmingProdId(id)
     try {
-      await api.sendPiToQlsx(id)
+      await api.sendPiToQlsx(id, undefined, workshopId)
       refetch()
       setConfirmProdTarget(null)
+      setKhsxWorkshopId('')
     } catch (e: any) {
       alert(errMsg(e, 'Lỗi gửi QLSX'))
     } finally {
@@ -1010,6 +1018,11 @@ export default function LenhSXPage() {
                           <ThumbsDown size={13}/> {pi.isMerged ? 'Từ chối cả đợt' : 'Từ chối'}
                         </button>
                       </>
+                    ) : pi.canManage === false ? (
+                      // Lệnh xưởng khác (vd Phước An sơn nhờ ở Phú An): chỉ xem, BE cũng chặn thao tác.
+                      <span title="Lệnh của xưởng khác - bạn chỉ xem được" style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:6, fontSize:13, fontWeight:600, color:'var(--text3)' }}>
+                        <Eye size={13}/> Chỉ xem
+                      </span>
                     ) : (
                       <>
                         <button onClick={() => {
@@ -1024,6 +1037,13 @@ export default function LenhSXPage() {
                           style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'transparent', border:'1px solid var(--fg-fca5a5)', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'var(--fg-b91c1c)' }}>
                           <ThumbsDown size={13}/> Từ chối{items.length > 1 ? ` (${items.length} SKU)` : ''}
                         </button>
+                        {/* QLSX có phạm vi: xưởng bị khoá trong hộp chọn kho, muốn đẩy sang xưởng kia thì Chuyển xưởng. */}
+                        {scopedWorkshopId && (
+                          <button onClick={() => setChangeWorkshopPi(pi)}
+                            style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'8px 16px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'var(--text2)' }}>
+                            <Factory size={13}/> Chuyển xưởng
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
@@ -1184,6 +1204,11 @@ export default function LenhSXPage() {
                       Cần kiểm lại phương án cắt
                     </span>
                   )}
+                  {isQlsx && pi.canManage === false && (
+                    <span title="Lệnh của xưởng khác - bạn chỉ xem được" style={{ fontSize:11, fontWeight:700, padding:'2px 8px', borderRadius:10, background:'var(--surface2)', color:'var(--text3)', whiteSpace:'nowrap' }}>
+                      Chỉ xem
+                    </span>
+                  )}
                   <span style={{ fontSize:12, color:'var(--text3)', background:'var(--surface2)', border:'1px solid var(--border)', padding:'3px 10px', borderRadius:12, whiteSpace:'nowrap' }}>
                     {items.length} SKU
                   </span>
@@ -1222,7 +1247,9 @@ export default function LenhSXPage() {
                           {!isMobile && <span style={{ fontSize:12, color:'var(--text3)' }}>Hạn hoàn thành</span>}
                           <PiDeadlineText pi={pi} showCount={false} style={{ fontWeight:700, fontSize:13, color:'var(--text)' }} />
                         </div>
-                        {!pi.hasMaterialIssue && (
+                        {pi.canManage === false ? (
+                          <span style={{ marginLeft: isMobile ? 0 : 'auto', fontSize:12.5, fontWeight:600, color:'var(--text3)' }}>Chỉ xem</span>
+                        ) : !pi.hasMaterialIssue && (
                           <button onClick={() => setChangeWorkshopPi(pi)}
                             style={{ marginLeft: isMobile ? 0 : 'auto', display:'inline-flex', alignItems:'center', gap:5, padding:'6px 12px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, fontSize:12.5, fontWeight:600, cursor:'pointer', color:'var(--text2)' }}>
                             <Factory size={12}/> Đổi xưởng
@@ -1271,7 +1298,7 @@ export default function LenhSXPage() {
                   <Pencil size={13}/> Sửa thời hạn
                 </button>
                 {canConfirmProd && hasSendableItems && (
-                  <button onClick={() => setConfirmProdTarget(pi)}
+                  <button onClick={() => { setConfirmProdTarget(pi); setKhsxWorkshopId('') }}
                     style={{ display:'inline-flex', alignItems:'center', gap:5, padding:'7px 14px', background:'var(--bg-2e7d32)', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer', color:'#fff' }}>
                     <Play size={13}/> Gửi QLSX
                   </button>
@@ -1580,7 +1607,10 @@ export default function LenhSXPage() {
         const sendableItems = items.filter((it: any) => !it.prodApproval || it.prodApproval.status === 'REJECTED')
         const sendableIds: string[] = sendableItems.map((it: any) => String(it.id))
         const missingLsx = sendableItems.filter((it: any) => !it.lsxCode?.trim())
-        const canSend = sendableIds.length > 0 && missingLsx.length === 0
+        // Xưởng bắt buộc: chọn sẵn xưởng đã có của lệnh (gửi một phần / bị trả lại), mọi SKU của lệnh cùng 1 xưởng.
+        const existingWsId: string = items.find((it: { workshop?: { id?: string } | null }) => it.workshop?.id)?.workshop?.id ?? ''
+        const sendWorkshopId = khsxWorkshopId || existingWsId
+        const canSend = sendableIds.length > 0 && missingLsx.length === 0 && !!sendWorkshopId
         return (
           <div onClick={() => { if (!confirmingProdId) setConfirmProdTarget(null) }}
             style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', display:'flex', alignItems:'center', justifyContent:'center', zIndex:1000, padding:16 }}>
@@ -1701,6 +1731,23 @@ export default function LenhSXPage() {
                 })}
               </div>
 
+              {/* QLSX theo xưởng: KHSX chọn xưởng cơ khí - lệnh chỉ hiện ở QLSX của xưởng này */}
+              <div style={{ marginTop:10, flexShrink:0 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'var(--text3)', textTransform:'uppercase', letterSpacing:0.5, marginBottom:6 }}>
+                  Xưởng cơ khí (cả lệnh) <span style={{ color:'var(--fg-b91c1c)' }}>*</span>
+                </div>
+                {workshopsError ? (
+                  <div role="alert" style={{ fontSize:12, color:'var(--fg-b91c1c)' }}>Không tải được danh sách xưởng cơ khí: {String(workshopsError)}</div>
+                ) : (
+                  <select aria-label="Xưởng cơ khí gửi QLSX" value={sendWorkshopId} onChange={e => setKhsxWorkshopId(e.target.value)} disabled={!!confirmingProdId}
+                    style={{ width:'100%', padding:'8px 10px', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, background:'var(--surface)', color:'var(--text)' }}>
+                    <option value="" disabled>Chọn xưởng cơ khí...</option>
+                    {workshops.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  </select>
+                )}
+                <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>Lệnh chỉ hiện ở QLSX của xưởng này; QLSX có thể chuyển sang xưởng khác sau.</div>
+              </div>
+
               {/* Phần A – Đợt 2: thiếu số LSX -> khoá nút gửi */}
               {missingLsx.length > 0 && (
                 <div role="alert" style={{ marginTop:10, padding:'8px 12px', background:'var(--bg-fef2f2)', border:'1px solid var(--fg-fecaca)', borderRadius:8, fontSize:12.5, color:'var(--fg-b91c1c)', flexShrink:0, wordBreak:'break-word' }}>
@@ -1721,7 +1768,7 @@ export default function LenhSXPage() {
                     Hủy
                   </button>
                   <button
-                    onClick={() => handleSendForApproval(confirmProdTarget.id)}
+                    onClick={() => handleSendForApproval(confirmProdTarget.id, sendWorkshopId)}
                     disabled={!!confirmingProdId || !canSend}
                     style={{ display:'flex', alignItems:'center', gap:6, padding:'9px 20px', background: canSend ? 'var(--bg-2e7d32)' : 'var(--bg-e5e7eb)', border:'none', borderRadius:'var(--radius)', fontSize:13, fontWeight:700, cursor: (confirmingProdId || !canSend) ? 'not-allowed' : 'pointer', color: canSend ? '#fff' : 'var(--fg-9ca3af)', opacity: confirmingProdId ? 0.7 : 1 }}>
                     <CheckCircle2 size={15}/>
@@ -1742,6 +1789,8 @@ export default function LenhSXPage() {
         const items: any[] = (pi.items ?? []).filter((it: any) => it.prodApproval?.status === 'WAITING_QLSX')
         // Phần A – Đợt 2: cần đủ kho từng SKU + xưởng cơ khí (một xưởng cho cả lệnh).
         const chosenWorkshop = workshops.find((w) => w.id === qlsxWorkshopId) ?? null
+        // QLSX có phạm vi + lệnh đã có xưởng: khoá ô (chỉ đổi bằng "Chuyển xưởng"). Lệnh chưa có xưởng thì chọn như cũ.
+        const lockWorkshop = !!scopedWorkshopId && (pi.items ?? []).some((it: { workshop?: { id?: string } | null }) => it.workshop?.id)
         const allChosen = items.length > 0 && !!qlsxWorkshopId && items.every((it: any) => !!qlsxWarehouseByItemId[String(it.id)])
         const closeModal = () => { setQlsxTarget(null); setQlsxWarehouseByItemId({}); setQlsxWorkshopId('') }
         return (
@@ -1781,13 +1830,13 @@ export default function LenhSXPage() {
                 {workshopsError ? (
                   <div role="alert" style={{ fontSize:12, color:'var(--fg-b91c1c)' }}>Không tải được danh sách xưởng cơ khí: {String(workshopsError)}</div>
                 ) : (
-                  <select aria-label="Xưởng cơ khí cho cả lệnh" value={qlsxWorkshopId} onChange={e => setQlsxWorkshopId(e.target.value)} disabled={sendingToBoss}
+                  <select aria-label="Xưởng cơ khí cho cả lệnh" value={qlsxWorkshopId} onChange={e => setQlsxWorkshopId(e.target.value)} disabled={sendingToBoss || lockWorkshop}
                     style={{ width:'100%', padding:'8px 10px', border:'1px solid var(--border)', borderRadius:'var(--radius)', fontSize:13, background:'var(--surface)', color:'var(--text)' }}>
                     <option value="" disabled>Chọn xưởng cơ khí...</option>
                     {workshops.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
                   </select>
                 )}
-                <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>Mọi SKU của một lệnh làm cùng 1 xưởng (xuất sắt theo lệnh).</div>
+                <div style={{ fontSize:11, color:'var(--text3)', marginTop:4 }}>{lockWorkshop ? 'Lệnh thuộc xưởng của bạn - muốn đổi xưởng hãy đóng hộp này và bấm "Chuyển xưởng".' : 'Mọi SKU của một lệnh làm cùng 1 xưởng (xuất sắt theo lệnh).'}</div>
               </div>
 
               {/* Áp dụng nhanh 1 kho cho mọi SKU - tiện cho ca thường (cùng đích đến), vẫn sửa lại
@@ -2387,6 +2436,7 @@ export default function LenhSXPage() {
       {changeWorkshopPi && (
         <ChangeWorkshopDialog
           pi={changeWorkshopPi}
+          waitingQlsx={hasItemWithStatus(changeWorkshopPi, 'WAITING_QLSX')}
           onClose={() => setChangeWorkshopPi(null)}
           onDone={() => { setChangeWorkshopPi(null); refetch() }}
         />

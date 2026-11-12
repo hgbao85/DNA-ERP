@@ -16,9 +16,11 @@ export interface ChangeWorkshopDialogProps {
   onClose: () => void
   /** Sau khi BE đổi xong (trang tải lại danh sách). */
   onDone: () => void
+  /** Lệnh đang chờ QLSX (chuyển xưởng trước khi gửi Sếp) - đổi lời nhắc: thông báo đi QLSX xưởng mới thay vì Sếp/KHSX. */
+  waitingQlsx?: boolean
 }
 
-export default function ChangeWorkshopDialog({ pi, onClose, onDone }: ChangeWorkshopDialogProps) {
+export default function ChangeWorkshopDialog({ pi, onClose, onDone, waitingQlsx = false }: ChangeWorkshopDialogProps) {
   const isMobile = useIsMobile()
   const [workshops, setWorkshops] = useState<Workshop[]>([])
   const [loadError, setLoadError] = useState<string | null>(null)
@@ -57,7 +59,7 @@ export default function ChangeWorkshopDialog({ pi, onClose, onDone }: ChangeWork
         style={{ background: 'var(--surface)', borderRadius: 'var(--radius-lg)', padding: isMobile ? 16 : 24, width: 440, maxWidth: '100%', maxHeight: '85dvh', overflowY: 'auto', boxShadow: '0 8px 32px rgba(0,0,0,0.22)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
           <h3 id="change-workshop-title" style={{ margin: 0, fontSize: 16, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <Factory size={16} color="var(--fg-1d4ed8)" /> Đổi xưởng cơ khí
+            <Factory size={16} color="var(--fg-1d4ed8)" /> {waitingQlsx ? 'Chuyển xưởng cơ khí' : 'Đổi xưởng cơ khí'}
           </h3>
           <button type="button" onClick={onClose} disabled={saving} aria-label="Đóng"
             style={{ padding: 4, background: 'transparent', border: 'none', cursor: saving ? 'not-allowed' : 'pointer' }}>
@@ -94,14 +96,14 @@ export default function ChangeWorkshopDialog({ pi, onClose, onDone }: ChangeWork
         )}
 
         <label htmlFor="change-workshop-reason" style={{ display: 'block', fontSize: 11, fontWeight: 700, color: 'var(--text3)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>
-          Lý do (Sếp và KHSX sẽ đọc)
+          {waitingQlsx ? 'Lý do (QLSX xưởng mới và KHSX sẽ đọc)' : 'Lý do (Sếp và KHSX sẽ đọc)'}
         </label>
         <textarea id="change-workshop-reason" value={reason} onChange={(e) => { setReason(e.target.value); setError(null) }} disabled={saving}
           rows={3} maxLength={500} placeholder="Vd: Phú An đang quá tải tuần này"
           style={{ width: '100%', boxSizing: 'border-box', padding: '8px 10px', border: '1px solid var(--border)', borderRadius: 'var(--radius)', fontSize: 13, background: 'var(--surface)', color: 'var(--text)', resize: 'vertical', marginBottom: 12 }} />
 
         <div style={{ fontSize: 12, color: 'var(--text2)', background: 'var(--bg-fffbeb)', border: '1px solid var(--fg-fcd34d)', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>
-          Đổi cho <b>{items.length > 1 ? `cả ${items.length} SKU` : 'SKU'}</b> của lệnh. Chỉ đổi được khi lệnh <b>chưa xuất sắt</b>. Sếp và KHSX sẽ nhận thông báo.
+          Đổi cho <b>{items.length > 1 ? `cả ${items.length} SKU` : 'SKU'}</b> của lệnh. Chỉ đổi được khi lệnh <b>chưa xuất sắt</b>. {waitingQlsx ? 'QLSX xưởng mới và KHSX sẽ nhận thông báo.' : 'Sếp và KHSX sẽ nhận thông báo.'}
         </div>
 
         {error && <div role="alert" style={{ fontSize: 12.5, color: 'var(--fg-b91c1c)', background: 'var(--bg-fef2f2)', border: '1px solid var(--fg-fecaca)', borderRadius: 8, padding: '8px 12px', marginBottom: 12 }}>{error}</div>}

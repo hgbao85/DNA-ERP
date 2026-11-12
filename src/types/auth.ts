@@ -31,6 +31,9 @@ export interface BeUserProfile {
   isProductPlanner: boolean;
   isSale: boolean;
   isMaterialsManager: boolean;
+  /** QLSX theo xưởng (2026-11-12): xưởng phụ trách; null = không giới hạn. Thiếu (BE cũ) coi như null. */
+  workshopId?: string | null;
+  workshopName?: string | null;
 }
 
 /** Response của POST /auth/login và POST /auth/refresh — AuthTokensDto ở BE. */

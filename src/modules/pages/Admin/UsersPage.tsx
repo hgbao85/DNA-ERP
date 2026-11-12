@@ -12,6 +12,8 @@ import LoadingState from '../../../components/LoadingState'
 import { btnSecondary } from '../../../styles/buttons'
 import { isFamilyScope } from '../../../utils/warehouseFamily'
 import { fixedWarehouseName } from '../../../utils/warehouseKinds'
+import { getWorkshops } from '../../../services/workshops-api'
+import type { Workshop } from '../../../types/workshop'
 
 const ROLE_LABEL: Record<SystemUser['role'], string> = {
   ADMIN: 'Quản trị viên',
@@ -65,6 +67,7 @@ function chucNangOf(u: SystemUser): string {
   if (u.isProductPlanner) tags.push('KH Sản xuất')
   if (u.isSale) tags.push('Sales')
   if (u.isMaterialsManager) tags.push('Quản lý vật tư')
+  if (u.mfgRole === 'PRODUCTION_MANAGER') tags.push(u.workshopName ?? 'Tất cả xưởng') // tên xưởng đã có chữ "Xưởng"
   if (!u.mfgRole && u.warehouseScope) tags.push(fixedWarehouseName(u.warehouseScope) ?? `Kho ${WAREHOUSE_SCOPE_LABEL[u.warehouseScope] ?? u.warehouseScope}`)
   return tags.length > 0 ? tags.join(', ') : '—'
 }
@@ -131,12 +134,15 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
   const { data: warehouses } = useFetch<{ code: string; name: string; isVirtual: boolean; isActive: boolean }[]>(getWarehouses)
   const realWarehouses = (warehouses ?? []).filter(w => !w.isVirtual && w.isActive)
   const phoiSonHanWarehouses = realWarehouses.filter(w => isFamilyScope(w.code, 'phoi-son-han'))
+  // Xưởng cơ khí cho ô "Xưởng phụ trách" của QLSX - lỗi tải thì chỉ còn lựa chọn "Tất cả xưởng".
+  const { data: workshops } = useFetch<Workshop[]>(() => getWorkshops().catch(() => [] as Workshop[]))
 
   const selectCategory = (next: StaffCategory) => {
     if (next === category) return
     setCategory(next)
     // Đổi loại nhân viên → dọn sạch field của loại cũ trước khi áp loại mới, tránh lẫn dữ liệu.
     setField('mfgRole', undefined)
+    setField('workshopId', undefined)
     // '' (không phải undefined) khi chuyển sang "Kho" - đánh dấu "đã chọn nhóm Kho, chưa chọn kho
     // cụ thể" để deriveStaffCategory() nhận đúng nhóm dù chưa chọn kho (xem comment ở đó) - không
     // bắt buộc phải chọn kho ngay lúc tạo tài khoản, gán sau cũng được.
@@ -154,6 +160,8 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
     setField('isPurchaser', fn === 'PURCHASE')
     setField('isMaterialsManager', fn === 'MATERIALS_MGR')
     setField('mfgRole', fn === 'PROD_MGR' ? 'PRODUCTION_MANAGER' : undefined)
+    // Xưởng phụ trách chỉ có nghĩa với QLSX - đổi sang chức năng khác thì bỏ để BE không báo lỗi.
+    if (fn !== 'PROD_MGR') setField('workshopId', undefined)
     // Không có chức năng Văn phòng nào cần warehouseScope nữa - Mua hàng giờ được gán theo
     // từng vật tư (Material.buyerId, xem Admin > Vật tư), không còn gán theo cả kho.
     setField('warehouseScope', undefined)
@@ -190,6 +198,18 @@ function EmployeeTypeField({ values, setField }: { value: unknown; values: Parti
             <option value="">— Chọn chức năng —</option>
             {OFFICE_FUNCTIONS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
           </select>
+          {officeFn === 'PROD_MGR' && (
+            <div style={{ marginTop: 8 }}>
+              <label style={fieldLabel}>Xưởng phụ trách</label>
+              <select value={String(values.workshopId ?? '')} onChange={e => setField('workshopId', e.target.value || null)} style={fieldSelect}>
+                <option value="">Tất cả xưởng (không giới hạn)</option>
+                {(workshops ?? []).map(w => <option key={w.id} value={String(w.id)}>{w.name}</option>)}
+              </select>
+              <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                Gắn xưởng thì QLSX này chỉ thao tác lệnh, kho của xưởng đó (xưởng sơn nhờ chỉ được xem).
+              </span>
+            </div>
+          )}
           {officeFn === 'PURCHASE' && (
             <span style={{ display: 'block', fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
               Vật tư nào giao cho người này mua được gán ở Admin &gt; Vật tư (cột &quot;Nhân viên mua hàng&quot;), không còn gán theo kho.
@@ -563,6 +583,7 @@ export default function UsersPage() {
       // dòng riêng (type 'hidden'), nhưng vẫn theo showIf/payload như field bình thường.
       { name: 'mfgRole', label: 'Bộ phận / Vị trí', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
       { name: 'warehouseScope', label: 'Kho phụ trách', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
+      { name: 'workshopId', label: 'Xưởng phụ trách', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
       { name: 'isPurchaser', label: 'Mua hàng', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
       { name: 'isProductPlanner', label: 'KH Sản xuất', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },
       { name: 'isSale', label: 'Sales', type: 'hidden', showIf: (v) => v.role === 'WAREHOUSE_STAFF' },

@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useAuth } from '../../../context/AuthContext'
+import { useScopedWorkshop } from '../../../hooks/useScopedWorkshop'
 import { useFetch } from '../../../hooks/useFetch'
 import { useConfirm } from '../../../hooks/useConfirm'
 import {
@@ -28,6 +29,8 @@ interface WhRow {
   name: string
   note: string | null
   isVirtual: boolean
+  /** Xưởng sở hữu kho (Phôi/Hàn/Sơn); null/thiếu = kho dùng chung. */
+  workshopId?: string | null
 }
 interface MaterialRow {
   id: number
@@ -110,6 +113,7 @@ const BASE_CODES = new Set(['phoi-son-han', 'vat-tu-tp', 'thanh-pham', 'phoi-son
 
 export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | null }) {
   const { user } = useAuth()
+  const { scopedWorkshopId } = useScopedWorkshop()
   // "Thêm vật tư"/"Sửa nhanh tồn kho" ở màn Quản lý kho CHỈ dành cho Admin (2026-09-14, theo yêu
   // cầu trực tiếp) - trước đây gán cho Thủ kho (WAREHOUSE_STAFF && !mfgRole) nhưng phát hiện qua
   // test tay: KHÔNG có tài khoản Thủ kho thật nào điều hướng tới được màn này (tab "Tổng hợp kho"
@@ -143,6 +147,8 @@ export default function MfgWarehousesPage({ groupKey }: { groupKey?: string | nu
     // vật lý". Thủ kho (groupKey=scope riêng) vốn đã không thấy kho ảo từ trước do lọc theo code ở
     // trên (SUPPLIER/PRODUCTION/SCRAP/OPENING_BALANCE không khớp bất kỳ family nào) - không đổi gì.
     .filter(w => isAdmin || !w.isVirtual)
+    // QLSX theo xưởng (2026-11-12): chỉ thấy kho của xưởng mình + kho dùng chung (không gắn xưởng); không giới hạn thì thấy hết.
+    .filter(w => !scopedWorkshopId || !w.workshopId || String(w.workshopId) === scopedWorkshopId)
 
   // Gia đình gợi ý sẵn khi mở form tạo kho - suy từ nhóm đang xem (nếu có, vd Thủ kho vào đúng tab
   // "Kho phôi sơn hàn"); về null khi xem "Tổng hợp kho" (Admin > Quản lý kho không có khái niệm
