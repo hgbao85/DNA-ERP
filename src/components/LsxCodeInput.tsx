@@ -24,6 +24,8 @@ export interface LsxCodeInputProps {
   suggestedPrefix?: string | null
   /** Gọi sau khi BE lưu xong (để trang tải lại danh sách). */
   onSaved?: (lsxCode: string | null) => void
+  /** Ẩn chip "LSX …" khi số đã hiện ở chỗ khác (vd mã lệnh 1 SKU ở đầu trang) - chỉ còn nút sửa / ghi chú. */
+  hideChip?: boolean
 }
 
 const chip: React.CSSProperties = {
@@ -39,7 +41,7 @@ const iconBtn: React.CSSProperties = {
   fontSize: 12, fontWeight: 600, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text2)',
 }
 
-export default function LsxCodeInput({ piId, itemId, value, mode, prefixes, suggestedPrefix, onSaved }: LsxCodeInputProps) {
+export default function LsxCodeInput({ piId, itemId, value, mode, prefixes, suggestedPrefix, onSaved, hideChip = false }: LsxCodeInputProps) {
   const current = value?.trim() || null
   // Tiền tố điền sẵn khi chưa có số: gợi ý theo khách; không truyền gợi ý thì tiền tố đầu tiên Admin khai (như cũ).
   const defaultPrefix = suggestedPrefix === undefined ? (prefixes[0] ?? '') : (suggestedPrefix ?? '')
@@ -70,7 +72,7 @@ export default function LsxCodeInput({ piId, itemId, value, mode, prefixes, sugg
     }
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-        <span style={chip} title="Số lệnh sản xuất của nhà máy">LSX {current}</span>
+        {!hideChip && <span style={chip} title="Số lệnh sản xuất của nhà máy">LSX {current}</span>}
         {mode === 'edit' && (
           <button type="button" onClick={startEdit} aria-label={`Sửa số LSX ${current}`} title="Sửa số LSX"
             style={{ ...iconBtn, padding: 4, border: 'none', background: 'transparent' }}>

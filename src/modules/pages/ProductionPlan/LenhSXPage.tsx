@@ -57,11 +57,14 @@ const HEADER_DATE_COLS = DATE_COL_LABELS.slice(0, 5).map((label, i) => ({ label,
 // (kiểm thử E2E 10/11, khung ~1000px - Sếp đọc sai hạn khi duyệt). Hẹp hơn tổng tối thiểu thì cả khối cuộn ngang.
 const SKU_TABLE_PAD_X = 36 // padding '… 18px' hai bên của hàng tiêu đề và dòng
 // Màn duyệt Boss/QLSX: PO | SKU | 5 mốc | Hạn giao
-const APPROVAL_COLS = '100px minmax(160px, 1fr) 95px 95px 95px 95px 95px 100px'
-const APPROVAL_MIN_W = 100 + 160 + 95 * 5 + 100 + SKU_TABLE_PAD_X
+// Cột ngày minmax(cố định, cố định): co nhẹ khi khung hẹp thay vì bắt cả khối cuộn ngang vì thiếu vài px (review UI 12/11: khung
+// 840px mà bảng tối thiểu 851px -> thanh cuộn thừa). Hai đầu đều là độ dài cố định nên mọi grid (tiêu đề + từng dòng) chia
+// cột y hệt nhau - không lệch cột như bản `1fr` cũ ở trên.
+const APPROVAL_COLS = '100px minmax(150px, 1fr) repeat(5, minmax(86px, 95px)) minmax(92px, 100px)'
+const APPROVAL_MIN_W = 100 + 150 + 86 * 5 + 92 + SKU_TABLE_PAD_X
 // Màn KHSX (nhóm theo PO): SKU | 5 mốc | Hạn giao
-const PLAN_COLS = 'minmax(180px, 1fr) 105px 105px 105px 105px 105px 110px'
-const PLAN_MIN_W = 180 + 105 * 5 + 110 + SKU_TABLE_PAD_X
+const PLAN_COLS = 'minmax(170px, 1fr) repeat(5, minmax(90px, 105px)) minmax(96px, 110px)'
+const PLAN_MIN_W = 170 + 90 * 5 + 96 + SKU_TABLE_PAD_X
 
 // Mua VT còn lại (M3): đã lưu thì lấy, chưa thì đề xuất Bắt đầu đóng gói (M4) − 7 (M4 = đã lưu hoặc đề xuất).
 const finishedFor = (item: { finishedMaterialDeadline?: string | null } | null | undefined, packagingStart: Date) =>
@@ -225,6 +228,24 @@ function LenhCode({ pi, size = 14, inline = false }: { pi: any; size?: number; i
   )
 }
 
+/** Review UI 12/11: nhãn trạng thái duyệt của CẢ lệnh ở đầu trang chi tiết (cùng kiểu nhãn ở ô SKU). */
+const PROD_APPROVAL_BADGE: Record<string, { label: string; color: string; bg: string }> = {
+  WAITING_QLSX: { label: 'Chờ QLSX xử lý', color: 'var(--fg-b45309)', bg: 'var(--bg-fef3c7)' },
+  WAITING_BOSS: { label: 'Chờ sếp duyệt', color: 'var(--fg-0369a1)', bg: 'var(--bg-e0f2fe)' },
+  APPROVED: { label: 'Đang sản xuất', color: 'var(--fg-2e7d32)', bg: 'var(--bg-dcfce7)' },
+  REJECTED: { label: 'Bị từ chối', color: 'var(--fg-b91c1c)', bg: 'var(--bg-fee2e2)' },
+}
+function ProdApprovalBadge({ status }: { status: string }) {
+  const m = PROD_APPROVAL_BADGE[status]
+  if (!m) return null
+  const Icon = status === 'APPROVED' ? Play : status === 'REJECTED' ? XCircle : Clock
+  return (
+    <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:12, fontWeight:600, color:m.color, background:m.bg, padding:'3px 10px', borderRadius:10 }}>
+      <Icon size={11}/> {m.label}
+    </span>
+  )
+}
+
 /** Phần A – Đợt 2: chip tên xưởng cơ khí của dòng SKU (chỉ đọc). */
 function WorkshopChip({ workshop }: { workshop?: WorkshopRef | null }) {
   if (!workshop) return null
@@ -328,6 +349,10 @@ export default function LenhSXPage() {
   const dateStrip: React.CSSProperties = isMobile
     ? { display:'grid', gridTemplateColumns:'repeat(3, minmax(0, 1fr))', rowGap:8, columnGap:4, marginTop:10, paddingTop:8, borderTop:'1px dashed var(--border)' }
     : { display:'contents' }
+  // Review UI 12/11: ô ngày căn giữa theo chiều dọc nên ô có dòng phụ (về từ / đề xuất / quá hạn / từ PO) cao hơn và ngày chính bị
+  // đẩy lên -> các ngày lệch hàng. Desktop: dòng phụ treo ngay dưới ngày chính (absolute), mọi ô cao đúng 1 dòng ngày -> thẳng hàng.
+  const dateCell: React.CSSProperties = isMobile ? { textAlign:'center' } : { textAlign:'center', position:'relative' }
+  const dateSub: React.CSSProperties | undefined = isMobile ? undefined : { position:'absolute', top:'100%', left:0, right:0 }
   // Nhãn "MUA VT KHUNG & ĐAN" xuống 2 dòng ở khổ điện thoại - chừa sẵn 2 dòng cho MỌI nhãn để ngày cùng hàng thẳng nhau.
   const mobileLabel = (i: number) => isMobile && (
     <div title={DATE_COL_HINTS[i]} style={{ fontSize:9.5, fontWeight:700, color: i === 5 ? 'var(--fg-1d4ed8)' : 'var(--text3)', textTransform:'uppercase', marginBottom:2, lineHeight:'12px', minHeight:24, display:'flex', alignItems:'flex-end', justifyContent:'center' }}>{DATE_COL_LABELS[i]}</div>
@@ -335,7 +360,7 @@ export default function LenhSXPage() {
   // Dòng nhỏ "từ dd/mm" dưới ô hạn vật tư - ngày sớm nhất hàng được về (hạn − N, N lấy từ cấu hình), chỉ hiển thị.
   const arrivalLine = (deadline: Date) => {
     const from = materialArrivalFrom(deadline, capParams.materialEarliestArrivalDays)
-    return from && <div style={{ fontSize:10, color:'var(--text3)' }} title={`Ngày sớm nhất hàng được về (hạn chót − ${capParams.materialEarliestArrivalDays})`}>từ {format(from, 'dd/MM')}</div>
+    return from && <div style={{ fontSize:10, color:'var(--text3)' }} title={`Ngày sớm nhất hàng được về (hạn chót − ${capParams.materialEarliestArrivalDays})`}>về từ {format(from, 'dd/MM')}</div>
   }
   const searchBox = (
     <div style={{ position:'relative', width: isMobile ? '100%' : undefined }}>
@@ -1083,11 +1108,13 @@ export default function LenhSXPage() {
                     const dc = (d: Date, own: boolean, i: number, material = false) => {
                       const past = overdueDays(d) > 0
                       return (
-                        <div style={{ textAlign:'center' }}>
+                        <div style={dateCell}>
                           {mobileLabel(i)}
                           <div style={{ fontSize: isMobile ? 12 : 13, fontWeight: own || past ? 700 : 400, color: past ? 'var(--red)' : own ? 'var(--text)' : 'var(--text3)' }}>{format(d, 'dd/MM/yyyy')}</div>
-                          {material && arrivalLine(d)}
-                          {(!own || past) && <div style={{ fontSize:10, color: past ? 'var(--red)' : 'var(--text3)' }}>{!own ? 'đề xuất' : ''}{!own && past ? ' · ' : ''}{past ? 'đã qua' : ''}</div>}
+                          <div style={dateSub}>
+                            {material && arrivalLine(d)}
+                            {(!own || past) && <div style={{ fontSize:10, color: past ? 'var(--red)' : 'var(--text3)' }}>{!own ? 'đề xuất' : ''}{!own && past ? ' · ' : ''}{past ? 'đã qua' : ''}</div>}
+                          </div>
                         </div>
                       )
                     }
@@ -1103,7 +1130,8 @@ export default function LenhSXPage() {
                             <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14 }}>{code}</span>
                             {item.status && <StatusBadge status={item.status as SalesOrderStatus} />}
                           </div>
-                          {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
+                          {/* Tên trùng y mã (thường gặp) thì khỏi in 2 lần */}
+                          {name && name.trim().toLowerCase() !== String(code).trim().toLowerCase() && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
                           <div style={{ marginTop:3 }}><ContainerLoadHint containerLoad={item.containerLoad} qty={qty} /></div>
                           {item.lsxCode && (
                             <div style={{ marginTop:4 }}><span style={{ fontFamily:'monospace', fontSize:12, fontWeight:700, color:'var(--fg-1d4ed8)', background:'var(--bg-dbeafe)', padding:'2px 8px', borderRadius:10, wordBreak:'break-word' }} title="Số lệnh sản xuất của nhà máy">LSX {item.lsxCode}</span></div>
@@ -1133,13 +1161,13 @@ export default function LenhSXPage() {
                         {dc(iWeavDate, !!iWeav, 2)}
                         {dc(iFinished, !!item.finishedMaterialDeadline, 3, true)}
                         {dc(iPackagingDate,  !!iPackaging, 4)}
-                        <div style={{ textAlign:'center' }}>
+                        <div style={dateCell}>
                           {mobileLabel(5)}
                           <div style={{ fontSize: isMobile ? 12 : 13, fontWeight:700, color: deliveryPast ? 'var(--red)' : iDelivery ? 'var(--fg-1d4ed8)' : 'var(--text3)' }}>
                             {format(iDelivery ?? piDeadline, 'dd/MM/yyyy')}
                           </div>
                           {(!iDelivery || deliveryPast) && (
-                            <div style={{ fontSize:10, color: deliveryPast ? 'var(--red)' : 'var(--text3)', fontWeight: deliveryPast ? 700 : 400 }}>
+                            <div style={{ ...dateSub, fontSize:10, color: deliveryPast ? 'var(--red)' : 'var(--text3)', fontWeight: deliveryPast ? 700 : 400 }}>
                               {deliveryPast ? `quá hạn ${overdueDays(iDelivery ?? piDeadline)} ngày` : 'từ PO'}
                             </div>
                           )}
@@ -1284,6 +1312,15 @@ export default function LenhSXPage() {
             if (arr) arr.push(it); else poGroupsMap.set(key, [it])
           }
           const poGroups = Array.from(poGroupsMap.entries())
+          // Review UI 12/11: thông tin chung của CẢ lệnh lên đầu lệnh thay vì lặp ở từng ô SKU.
+          // - Trạng thái duyệt: mọi SKU cùng 1 trạng thái thì hiện 1 lần ở đầu (lệch nhau thì vẫn hiện riêng từng SKU).
+          const approvalStatuses: (string | null)[] = items.map((it) => it.prodApproval?.status ?? null)
+          const commonStatus: string | null = approvalStatuses.length > 0 && approvalStatuses.every((s) => s && s === approvalStatuses[0]) ? approvalStatuses[0] : null
+          // - Xưởng: 1 lệnh = 1 xưởng; chỉ đưa lên đầu khi mọi SKU đã có cùng xưởng.
+          const firstWs = items.find((it) => it.workshop)?.workshop ?? null
+          const headerWorkshop = firstWs && items.every((it) => it.workshop && String(it.workshop.id) === String(firstWs.id)) ? firstWs : null
+          // - Số LSX: lệnh 1 SKU thì mã lệnh to ở đầu CHÍNH LÀ số LSX -> nút sửa đặt cạnh mã, khỏi lặp chip "LSX …" ở ô SKU.
+          const lsxInHeader = items.length === 1 && !!items[0].lsxCode && (pi.displayCode || pi.code) === items[0].lsxCode
           return (
             <div>
               {/* Back + actions */}
@@ -1305,10 +1342,18 @@ export default function LenhSXPage() {
                 )}
               </div>
 
-              {/* PI header info */}
+              {/* PI header info - review UI 12/11: trạng thái chung + xưởng + nút sửa số LSX (lệnh 1 SKU) lên đây, khỏi lặp ở ô SKU */}
               <div style={{ display:'flex', alignItems:'center', gap: isMobile ? 10 : 16, flexWrap:'wrap', marginBottom:20, padding: isMobile ? '12px 14px' : '14px 18px', background:'var(--surface)', border:'1px solid var(--border)', borderRadius:'var(--radius-lg)' }}>
                 <div style={{ minWidth:0 }}>
-                  <LenhCode pi={pi} size={18} />
+                  <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                    <LenhCode pi={pi} size={18} />
+                    {lsxInHeader && (
+                      <LsxCodeInput piId={pi.id} itemId={items[0].id} value={items[0].lsxCode} prefixes={lsxPrefixes} suggestedPrefix={suggestPrefixFor(items[0])} onSaved={() => refetch()}
+                        mode={items[0].prodApproval?.status === 'APPROVED' ? (isAdmin ? 'edit' : 'fill') : 'edit'} hideChip />
+                    )}
+                    {commonStatus && <ProdApprovalBadge status={commonStatus} />}
+                    {headerWorkshop && <WorkshopChip workshop={headerWorkshop} />}
+                  </div>
                   {pi.isMerged && (
                     <div style={{ fontSize:11, fontWeight:700, color:'var(--fg-6b21a8)', marginTop:3 }}>
                       ĐỢT GỘP · cắt chung {items.length} SKU
@@ -1328,9 +1373,11 @@ export default function LenhSXPage() {
                     </div>
                   )
                 })()}
-                <div style={{ marginLeft:'auto', fontSize:12, color:'var(--text3)', background:'var(--surface2)', padding:'4px 12px', borderRadius:12, border:'1px solid var(--border)' }}>
-                  {items.length} SKU
-                </div>
+                {poGroups.length > 1 && (
+                  <div style={{ marginLeft:'auto', fontSize:12, color:'var(--text3)', background:'var(--surface2)', padding:'4px 12px', borderRadius:12, border:'1px solid var(--border)' }}>
+                    {items.length} SKU
+                  </div>
+                )}
               </div>
 
               {/* Nhóm theo PO - mỗi PO là 1 khối, bên trong liệt kê các SKU thuộc PO đó */}
@@ -1380,12 +1427,14 @@ export default function LenhSXPage() {
                   const dc = (d: Date, own: boolean, i: number, material = false) => {
                     const late = itemClosed ? 0 : overdueDays(d)
                     return (
-                    <div style={{ textAlign:'center' }}>
+                    <div style={dateCell}>
                       {mobileLabel(i)}
                       <div style={{ fontSize: isMobile ? 12 : 14, fontWeight: own || late > 0 ? 700 : 400, color: late > 0 ? 'var(--red)' : own ? 'var(--text)' : 'var(--text3)' }}>{fmt(d)}</div>
-                      {material && arrivalLine(d)}
-                      {!own && <div style={{ fontSize:10, color:'var(--text3)' }}>đề xuất</div>}
-                      {late > 0 && <OverdueBadge days={late} />}
+                      <div style={dateSub}>
+                        {material && arrivalLine(d)}
+                        {!own && <div style={{ fontSize:10, color:'var(--text3)' }}>đề xuất</div>}
+                        {late > 0 && <OverdueBadge days={late} />}
+                      </div>
                     </div>
                     )
                   }
@@ -1397,6 +1446,8 @@ export default function LenhSXPage() {
                         <div>
                           <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
                             <span style={{ fontFamily:'monospace', fontWeight:700, fontSize:14, color:'var(--fg-0369a1)' }}>{code}</span>
+                            {/* Số lượng cạnh mã (review UI 12/11) - trước nằm lẫn trong dãy chip cuối ô */}
+                            {qty != null && <span style={{ fontSize:13, fontWeight:700, color:'var(--text)' }}>×{qty.toLocaleString('vi-VN')}</span>}
                             {item.status && <StatusBadge status={item.status as SalesOrderStatus} />}
                             {/* Phần A – Đợt 9 (YC2): trạng thái đổi mốc của dòng */}
                             {item.pendingDeadlineChange && (
@@ -1411,7 +1462,7 @@ export default function LenhSXPage() {
                             {itemDeadlineState(item) === 'STARTED' && (
                               <span title={FLOOR_STARTED_TEXT} style={{ fontSize:11, fontWeight:600, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>Đã bắt đầu SX</span>
                             )}
-                            {item.prodApproval?.status === 'APPROVED' && (
+                            {item.prodApproval?.status === 'APPROVED' && commonStatus !== 'APPROVED' && (
                               <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'var(--fg-2e7d32)', background:'var(--bg-dcfce7)', padding:'2px 8px', borderRadius:10 }}>
                                 <Play size={10}/> Đang sản xuất
                               </span>
@@ -1427,42 +1478,45 @@ export default function LenhSXPage() {
                                 <XCircle size={10}/> Lỗi tính phương án cắt
                               </span>
                             )}
-                            {item.prodApproval?.status === 'WAITING_QLSX' && (
+                            {item.prodApproval?.status === 'WAITING_QLSX' && commonStatus !== 'WAITING_QLSX' && (
                               <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'var(--fg-b45309)', background:'var(--bg-fef3c7)', padding:'2px 8px', borderRadius:10 }}>
                                 <Clock size={10}/> Chờ QLSX xử lý
                               </span>
                             )}
-                            {item.prodApproval?.status === 'WAITING_BOSS' && (
+                            {item.prodApproval?.status === 'WAITING_BOSS' && commonStatus !== 'WAITING_BOSS' && (
                               <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'var(--fg-0369a1)', background:'var(--bg-e0f2fe)', padding:'2px 8px', borderRadius:10 }}>
                                 <Clock size={10}/> Chờ sếp duyệt
                               </span>
                             )}
-                            {item.prodApproval?.status === 'REJECTED' && (
+                            {item.prodApproval?.status === 'REJECTED' && commonStatus !== 'REJECTED' && (
                               <span style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:11, fontWeight:600, color:'var(--fg-b91c1c)', background:'var(--bg-fee2e2)', padding:'2px 8px', borderRadius:10 }}>
                                 <XCircle size={10}/> Bị từ chối
                               </span>
                             )}
                           </div>
-                          {name && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
+                          {/* Tên trùng y mã (thường gặp) thì khỏi in 2 lần */}
+                          {name && name.trim().toLowerCase() !== String(code).trim().toLowerCase() && <div style={{ fontSize:13, color:'var(--text2)', marginTop:3 }}>{name}</div>}
                           <div style={{ marginTop:3 }}><ContainerLoadHint containerLoad={item.containerLoad} qty={qty} /></div>
                           {(item.wireMaterial || item.cushionMaterial) && (
                             <div style={{ display:'flex', gap:6, flexWrap:'wrap', marginTop:4 }}><MaterialChoiceTags wire={item.wireMaterial} cushion={item.cushionMaterial} /></div>
                           )}
                           <div style={{ display:'flex', gap:6, marginTop:5, flexWrap:'wrap' }}>
-                            {qty != null && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>×{qty.toLocaleString('vi-VN')}</span>}
                             {color && <span style={{ fontSize:11, color:'var(--text3)', background:'var(--surface2)', padding:'2px 8px', borderRadius:10 }}>{color}</span>}
                             {item.prodApproval?.warehouseName && (
                               <span style={{ display:'inline-flex', alignItems:'center', gap:3, fontSize:11, color:'var(--fg-0369a1)', background:'var(--bg-e0f2fe)', padding:'2px 8px', borderRadius:10 }}>
                                 <Warehouse size={10}/> {item.prodApproval.warehouseName}
                               </span>
                             )}
-                            {/* Phần A – Đợt 2 */}<WorkshopChip workshop={item.workshop} />
+                            {/* Phần A – Đợt 2 - cả lệnh cùng 1 xưởng thì đã hiện ở đầu lệnh */}{!headerWorkshop && <WorkshopChip workshop={item.workshop} />}
                           </div>
-                          {/* Phần A – Đợt 2: số LSX của dòng SKU. Dòng đã được Sếp duyệt: KHSX chỉ điền khi trống, đổi phải Admin. */}
-                          <div style={{ marginTop:8 }}>
-                            <LsxCodeInput piId={pi.id} itemId={item.id} value={item.lsxCode} prefixes={lsxPrefixes} suggestedPrefix={suggestPrefixFor(item)} onSaved={() => refetch()}
-                              mode={item.prodApproval?.status === 'APPROVED' ? (isAdmin ? 'edit' : 'fill') : 'edit'} />
-                          </div>
+                          {/* Phần A – Đợt 2: số LSX của dòng SKU. Dòng đã được Sếp duyệt: KHSX chỉ điền khi trống, đổi phải Admin.
+                              Lệnh 1 SKU mà số LSX chính là mã lệnh đang hiện to ở đầu trang: nút sửa nằm ở đó, không lặp chip ở đây. */}
+                          {!lsxInHeader && (
+                            <div style={{ marginTop:8 }}>
+                              <LsxCodeInput piId={pi.id} itemId={item.id} value={item.lsxCode} prefixes={lsxPrefixes} suggestedPrefix={suggestPrefixFor(item)} onSaved={() => refetch()}
+                                mode={item.prodApproval?.status === 'APPROVED' ? (isAdmin ? 'edit' : 'fill') : 'edit'} />
+                            </div>
+                          )}
                         </div>
                         <div style={dateStrip}>
                         {dc(iMat,      !!item.materialDeadline, 0, true)}
@@ -1470,13 +1524,15 @@ export default function LenhSXPage() {
                         {dc(iWeavDate, !!iWeav, 2)}
                         {dc(iFinished, !!item.finishedMaterialDeadline, 3, true)}
                         {dc(iPackagingDate,  !!iPackaging, 4)}
-                        <div style={{ textAlign:'center' }}>
+                        <div style={dateCell}>
                           {mobileLabel(5)}
                           <div style={{ fontSize: isMobile ? 12 : 14, fontWeight:700, color: deliveryLate > 0 ? 'var(--red)' : iDelivery ? 'var(--fg-1d4ed8)' : 'var(--text3)' }}>
                             {fmt(iDelivery ?? new Date(pi.deadline))}
                           </div>
-                          {!iDelivery && <div style={{ fontSize:10, color:'var(--text3)' }}>từ PO</div>}
-                          {deliveryLate > 0 && <OverdueBadge days={deliveryLate} />}
+                          <div style={dateSub}>
+                            {!iDelivery && <div style={{ fontSize:10, color:'var(--text3)' }}>từ PO</div>}
+                            {deliveryLate > 0 && <OverdueBadge days={deliveryLate} />}
+                          </div>
                         </div>
                         </div>
                       </div>
