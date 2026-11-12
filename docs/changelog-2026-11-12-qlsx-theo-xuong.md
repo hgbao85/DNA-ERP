@@ -24,3 +24,15 @@ và thao tác lệnh xưởng đó (QLSX Phú An xem thêm lệnh Phước An v�
 ## Chưa làm
 - "Tổng hợp vật tư" của QLSX vẫn cộng tồn mọi kho (màn tổng hợp dùng chung, chưa tách theo kho).
 - Phần quét QR (Sản lượng xưởng) chưa tách theo xưởng - giai đoạn 2.
+
+## Bổ sung 12/11: Bảng mốc - bấm vào ô để xem chi tiết (thay cho rê chuột)
+Ô mốc ở "Bảng mốc" trước đây chỉ có chú thích khi rê chuột, con trỏ hiện dấu "?" (cursor help) khó hiểu; màn cảm ứng không rê
+chuột được nên không xem được lý do. `src/modules/pages/Manufacturing/MilestoneBoardView.tsx`:
+- Ô mốc là nút (con trỏ bàn tay); bấm mở khung chi tiết neo cạnh ô: mã lệnh · SKU, tên mốc, trạng thái, Hạn, Bắt đầu, Tiến độ
+  (% đã về / đã làm / đã đóng), Lý do. Mốc "Không cần" ghi rõ là không cần.
+- Đóng khi bấm lại đúng ô, bấm ra ngoài, nhấn Esc, cuộn hoặc đổi cỡ cửa sổ; bấm ô khác thì chuyển sang ô đó. Ô đang mở có viền.
+- Dòng hướng dẫn đổi thành "Bấm vào ô để xem chi tiết."; trình đọc màn hình vẫn đọc được tóm tắt ô (aria-label).
+- Kiểm: tsc sạch, eslint 0 → 0, vitest 444/444; trình duyệt: mở đúng nội dung, 4 cách đóng / chuyển ô đều đúng.
+- Bổ sung: các ô mốc cùng 1 cỡ - bảng `tableLayout: fixed` (cột mốc rộng đều, cột "Mã lệnh · SKU" 170px), ô cao cố định 58px đủ 3
+  dòng, chữ căn giữa. Trước đây cột co giãn theo chữ và ô có dòng "Bắt đầu" cao hơn nên bảng lởm chởm. Đo trên trình duyệt: 70 ô
+  đều 96 × 58 px, không ô nào bị cắt chữ; khung chi tiết vẫn mở đúng.

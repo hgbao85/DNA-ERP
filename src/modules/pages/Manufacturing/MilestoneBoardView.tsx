@@ -1,5 +1,5 @@
-import { useMemo, useState, type CSSProperties, type ReactNode } from 'react'
-import { RefreshCw, Search } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react'
+import { RefreshCw, Search, X } from 'lucide-react'
 import { useFetch } from '../../../hooks/useFetch'
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
@@ -57,7 +57,7 @@ function percentVerb(c: MilestoneCell): string {
   return 'đã làm'
 }
 
-/** Chữ khi rê chuột: trạng thái, hạn, % và lý do (vật tư chưa về đủ / số đã làm). Lý do đã có % thì không lặp lại. */
+/** Tóm tắt 1 ô (cho trình đọc màn hình): trạng thái, hạn, % và lý do (vật tư chưa về đủ / số đã làm). Lý do đã có % thì không lặp lại. */
 function cellTitle(c: MilestoneCell): string {
   const parts = [`${c.label}: ${c.status === 'DONE' ? cellText(c) : STATUS_META[c.status].label}`]
   if (c.deadline && c.status !== 'NA') parts.push(`hạn ${ddmmyyyy(c.deadline)}`)
@@ -74,13 +74,28 @@ function startOf(row: MilestoneRow, key: MilestoneKey): string | null {
   return null
 }
 
-function StatusCell({ cell, start }: { cell: MilestoneCell; start?: string | null }) {
+// Ô mốc cùng 1 cỡ (2026-11-12): cột rộng đều (bảng tableLayout fixed) và ô cao cố định đủ 3 dòng (chữ · ngày/% · Bắt đầu) -
+// trước đây cột co giãn theo chữ và ô có dòng "Bắt đầu" cao hơn nên bảng nhìn lởm chởm.
+const CELL_COL_W = 104
+const CELL_H = 58
+
+/** Ô mốc là NÚT (2026-11-12): bấm mở khung chi tiết (CellDetail) thay cho chú thích khi rê chuột - con trỏ dấu "?" khó hiểu,
+ *  và màn cảm ứng không rê chuột được nên trước đây không xem được lý do. */
+function StatusCell({ cell, start, active, onOpen }: { cell: MilestoneCell; start?: string | null; active: boolean; onOpen: (rect: DOMRect) => void }) {
   const meta = STATUS_META[cell.status]
   const showPct = cell.status !== 'DONE' && cell.status !== 'NA' && cell.status !== 'UNKNOWN' && cell.percent > 0
   // Mốc "Không cần" có ngày lưu sẵn cũng không hiện - ngày đó không có ý nghĩa gì.
   const showDate = !!cell.deadline && cell.status !== 'NA'
   return (
-    <div title={cellTitle(cell)} style={{ background: meta.bg, color: meta.color, border: meta.border ?? 'none', borderRadius: 6, padding: '4px 6px', textAlign: 'center', lineHeight: 1.25, cursor: 'help' }}>
+    <button
+      type="button"
+      data-milestone-cell
+      aria-label={cellTitle(cell)}
+      aria-haspopup="dialog"
+      aria-expanded={active}
+      onClick={(e) => onOpen(e.currentTarget.getBoundingClientRect())}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1, width: '100%', height: CELL_H, overflow: 'hidden', font: 'inherit', background: meta.bg, color: meta.color, border: meta.border ?? 'none', borderRadius: 6, padding: '4px 6px', textAlign: 'center', lineHeight: 1.25, cursor: 'pointer', outline: active ? '2px solid var(--fg-1d4ed8)' : undefined, outlineOffset: 1 }}
+    >
       <div style={{ fontSize: 12, fontWeight: ATTENTION.has(cell.status) ? 700 : 600, whiteSpace: 'nowrap' }}>{cellText(cell)}</div>
       {(showDate || showPct) && (
         <div style={{ fontSize: 10.5, opacity: 0.85, whiteSpace: 'nowrap' }}>
@@ -88,6 +103,74 @@ function StatusCell({ cell, start }: { cell: MilestoneCell; start?: string | nul
         </div>
       )}
       {start && <div style={{ fontSize: 10, opacity: 0.7, whiteSpace: 'nowrap' }}>Bắt đầu {ddmm(start)}</div>}
+    </button>
+  )
+}
+
+type OpenDetail = { row: MilestoneRow; cell: MilestoneCell; rect: DOMRect }
+
+const DETAIL_W = 300
+
+/** Khung chi tiết 1 ô mốc, neo cạnh ô vừa bấm (position fixed để khung cuộn của bảng không cắt mất). Đóng khi bấm ra ngoài,
+ *  bấm lại đúng ô đó, nhấn Esc, cuộn hoặc đổi cỡ cửa sổ (ô đã dời chỗ thì khung neo sai). */
+function CellDetail({ detail, onClose }: { detail: OpenDetail; onClose: () => void }) {
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as Element | null
+      // Bấm vào một ô mốc: để onClick của ô tự mở / đóng (bấm lại đúng ô đang mở = đóng).
+      if (ref.current?.contains(t) || t?.closest?.('[data-milestone-cell]')) return
+      onClose()
+    }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    window.addEventListener('scroll', onClose, true)
+    window.addEventListener('resize', onClose)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+      window.removeEventListener('scroll', onClose, true)
+      window.removeEventListener('resize', onClose)
+    }
+  }, [onClose])
+
+  const { row, cell, rect } = detail
+  const start = startOf(row, cell.key)
+  const showPct = cell.status !== 'DONE' && cell.status !== 'NA' && cell.status !== 'UNKNOWN' && cell.percent > 0
+  const left = Math.max(8, Math.min(rect.left + rect.width / 2 - DETAIL_W / 2, window.innerWidth - DETAIL_W - 8))
+  // Ô nằm nửa dưới màn hình thì mở khung lên trên cho khỏi tràn đáy.
+  const below = rect.bottom < window.innerHeight * 0.6
+  const pos: CSSProperties = below ? { top: rect.bottom + 6 } : { bottom: window.innerHeight - rect.top + 6 }
+  const line = (k: string, v: ReactNode) => (
+    <div style={{ display: 'flex', gap: 8, fontSize: 13, lineHeight: 1.45 }}>
+      <span style={{ color: 'var(--text3)', minWidth: 64 }}>{k}</span>
+      <span style={{ fontWeight: 600, whiteSpace: 'pre-wrap', wordBreak: 'break-word', minWidth: 0 }}>{v}</span>
+    </div>
+  )
+  return (
+    <div
+      ref={ref}
+      role="dialog"
+      aria-label={`${cell.label} · ${row.skuCode}`}
+      style={{ position: 'fixed', left, width: DETAIL_W, zIndex: 50, ...pos, background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,.18)', padding: '10px 12px' }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 11.5, color: 'var(--text3)', wordBreak: 'break-word' }}>{row.lsxCode ?? row.piCode} · {row.skuCode}</div>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>{cell.label}</div>
+        </div>
+        <button type="button" onClick={onClose} aria-label="Đóng" style={{ border: 'none', background: 'transparent', color: 'var(--text3)', cursor: 'pointer', padding: 2, display: 'flex' }}><X size={16} /></button>
+      </div>
+      <div style={{ margin: '8px 0' }}><Chip status={cell.status}>{cellText(cell)}</Chip></div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {cell.status === 'NA'
+          ? line('Ghi chú', 'Mốc này không cần cho SKU này.')
+          : line('Hạn', cell.deadline ? ddmmyyyy(cell.deadline) : 'Chưa đặt hạn')}
+        {start && line('Bắt đầu', ddmmyyyy(start))}
+        {showPct && line('Tiến độ', `${percentVerb(cell)} ${cell.percent}%`)}
+        {cell.reason && line('Lý do', cell.reason)}
+      </div>
     </div>
   )
 }
@@ -119,6 +202,9 @@ export default function MilestoneBoardView({ viewSwitch }: { viewSwitch: ReactNo
     { debounceMs: 5000 },
   )
   const [onlyAttention, setOnlyAttention] = useState(false)
+  // Ô mốc đang mở khung chi tiết (bấm vào ô) - null = không mở.
+  const [detail, setDetail] = useState<OpenDetail | null>(null)
+  const closeDetail = useMemo(() => () => setDetail(null), [])
   const [search, setSearch] = useState('')
   const reload = () => {
     setReloading(true)
@@ -200,7 +286,7 @@ export default function MilestoneBoardView({ viewSwitch }: { viewSwitch: ReactNo
         {LEGEND.map(s => <Chip key={s} status={s}>{STATUS_META[s].label}</Chip>)}
         <span>
           · Sắp tới hạn = còn ≤ 2 ngày. Hạn theo ngày đã lưu (&quot;Sửa thời hạn&quot;); 2 mốc mua vật tư chưa lưu thì theo hạn Khung / Đóng gói rồi hạn PI, Hạn giao chưa lưu thì theo hạn PI.
-          {isMobile ? '' : ' Rê chuột vào ô để xem lý do.'}
+          {isMobile ? '' : ' Bấm vào ô để xem chi tiết.'}
         </span>
       </div>
 
@@ -214,12 +300,12 @@ export default function MilestoneBoardView({ viewSwitch }: { viewSwitch: ReactNo
         </div>
       ) : (
         <div style={{ ...tableWrap, ...tableScrollBox }}>
-          <table style={{ width: '100%', minWidth: 170 + columns.length * 92, borderCollapse: 'collapse', fontSize: 13 }}>
+          <table style={{ width: '100%', minWidth: 170 + columns.length * CELL_COL_W, tableLayout: 'fixed', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={stickyHeaderRow}>
-                <th style={{ padding: '9px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text2)', minWidth: 170 }}>Mã lệnh · SKU</th>
+                <th style={{ padding: '9px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: 'var(--text2)', width: 170 }}>Mã lệnh · SKU</th>
                 {columns.map(c => (
-                  <th key={c.key} style={{ padding: '9px 4px', textAlign: 'center', fontSize: 11.5, fontWeight: 600, color: 'var(--text2)', width: 92 }}>{c.label}</th>
+                  <th key={c.key} style={{ padding: '9px 4px', textAlign: 'center', fontSize: 11.5, fontWeight: 600, color: 'var(--text2)' }}>{c.label}</th>
                 ))}
               </tr>
             </thead>
@@ -236,7 +322,14 @@ export default function MilestoneBoardView({ viewSwitch }: { viewSwitch: ReactNo
                     {r.pendingDeadlineChange && <PendingChangeTag />}
                   </td>
                   {r.milestones.map(c => (
-                    <td key={c.key} style={{ padding: '6px 4px', verticalAlign: 'middle' }}><StatusCell cell={c} start={startOf(r, c.key)} /></td>
+                    <td key={c.key} style={{ padding: '6px 4px', verticalAlign: 'middle' }}>
+                      <StatusCell
+                        cell={c}
+                        start={startOf(r, c.key)}
+                        active={detail?.row.itemId === r.itemId && detail.cell.key === c.key}
+                        onOpen={(rect) => setDetail(cur => (cur?.row.itemId === r.itemId && cur.cell.key === c.key ? null : { row: r, cell: c, rect }))}
+                      />
+                    </td>
                   ))}
                 </tr>
               ))}
@@ -244,6 +337,7 @@ export default function MilestoneBoardView({ viewSwitch }: { viewSwitch: ReactNo
           </table>
         </div>
       )}
+      {detail && <CellDetail detail={detail} onClose={closeDetail} />}
     </div>
   )
 }
