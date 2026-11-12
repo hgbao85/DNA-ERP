@@ -99,8 +99,9 @@ const SHARED_LENGTH_FIELDS: (typeof MC_NUM_FIELDS)[number][] = [
     help: 'Chiều dài cây đặt riêng dài nhất bộ giải được chọn; không nhỏ hơn ô bên cạnh. Mặc định 6000.',
   },
   {
-    name: 'solverLengthStepMm', label: 'Bước dò chiều dài (mm)', integer: true, min: 1, max: 1000,
-    help: 'Bộ giải thử các chiều dài cây đặt riêng cách nhau chừng này mm, trong khoảng ngắn nhất – dài nhất. Mặc định 10.',
+    // BE (12/11): bước dò chỉ nhận bội 50, từ 50 trở lên - cây đặt riêng luôn tròn 5 cm (kiểm bội 50 ở handleSave).
+    name: 'solverLengthStepMm', label: 'Bước dò chiều dài (mm)', integer: true, min: 50, max: 1000,
+    help: 'Bộ giải thử các chiều dài cây đặt riêng cách nhau chừng này mm, trong khoảng ngắn nhất – dài nhất. Phải là bội 50 (50, 100, 150…) vì cây đặt riêng luôn tròn 5 cm. Mặc định 50.',
   },
 ]
 const SHARED_FIELDS = [...SHARED_WASTE_FIELDS, ...SHARED_LENGTH_FIELDS]
@@ -238,6 +239,10 @@ export default function SystemConfigPage() {
       const n = Number(raw.trim().replace(',', '.'))
       if (raw.trim() === '' || !Number.isFinite(n) || n < f.min || n > f.max || (f.integer && !Number.isInteger(n))) {
         errs[f.name] = `Phải là ${f.integer ? 'số nguyên' : 'số'} từ ${f.min} đến ${f.max}`
+        continue
+      }
+      if (f.name === 'solverLengthStepMm' && n % 50 !== 0) {
+        errs[f.name] = 'Phải là bội 50 mm (50, 100, 150…) vì cây đặt riêng luôn tròn 5 cm'
         continue
       }
       // Thể tích cont giữ 2 số lẻ (BE cũng làm tròn 2 số lẻ).

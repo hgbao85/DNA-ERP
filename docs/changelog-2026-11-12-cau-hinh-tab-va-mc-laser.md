@@ -47,3 +47,9 @@ khung **"Thông số chung (áp cho cả hai máy)"** trong tab Máy cắt:
 - Thử trên trình duyệt: giá trị DB local hiện đúng (cây chuẩn 6000, hao hụt 1, dư 10, ngắn/dài 5000/6000, bước 10, thời gian 60,
   cho đặt cây riêng bật); ngắn nhất 6500 > dài nhất → báo lỗi dưới ô dài nhất và tự chuyển sang tab Máy cắt; cây chuẩn "6000 abc"
   → báo lỗi; đổi dư tối đa 10 → 12, lưu, DB ghi 12, rồi trả về 10; không còn cảnh báo console.
+
+## Bổ sung 12/11: ô "Bước dò chiều dài" chỉ nhận bội 50
+BE (commit `379bd2e`) chỉ nhận bước dò là bội 50, từ 50 trở lên; ô ở tab Máy cắt trước đó cho nhập 1–1000 nên nhập 10 / 75 thì cả
+lần Lưu bị BE từ chối. Sửa `SystemConfigPage.tsx`: khoảng 50–1000, thêm kiểm bội 50 ngay khi bấm Lưu (báo lỗi dưới ô), chữ hướng dẫn
+ghi rõ "Phải là bội 50… Mặc định 50". Kiểm: tsc, eslint sạch, vitest 444/444; trên trình duyệt nhập 10 và 75 bị chặn tại ô, 100 lưu
+được, đã trả về 50.
