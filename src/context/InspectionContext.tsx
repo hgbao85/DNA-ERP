@@ -220,6 +220,10 @@ export function itemStatusLabel(item: PurchaseProposalItem): { label: string; co
 // chỗ có state phải rollback (vd NhapKhoPage xoá ô nhập sau khi xác nhận).
 interface InspCtxType {
   proposals: PurchaseProposal[]
+  /** false = đang tải lần đầu: `proposals` rỗng lúc này CHƯA có nghĩa là "không có đề xuất" (vd bước Mua hàng không được hiện "xong"). */
+  proposalsReady: boolean
+  /** Báo Provider có màn cần đề xuất mua - useInspection() tự gọi, màn không cần gọi tay. */
+  requestProposals: () => void
   /** Lỗi của thao tác ghi gần nhất - `ActionErrorBanner` đọc, `dismissActionError()` xoá. */
   actionError: string | null
   dismissActionError:      () => void
@@ -256,6 +260,14 @@ const InspCtx = createContext<InspCtxType | undefined>(undefined)
 export function InspectionProvider({ children }: { children: React.ReactNode }) {
   const { token, user } = useAuth()
   const [proposals, setProposals] = useState<PurchaseProposal[]>([])
+  // Chỉ tải đề xuất mua KHI CÓ MÀN CẦN (2026-11-12). Trước đây Provider bọc cả app nên mọi màn của KHSX/Sếp/Mua hàng đều tải
+  // 2 lượt (~85 KB mỗi lượt) ngay khi mở app, kể cả màn không dùng (vd Tối ưu cắt sắt). Đo trên production: 2 lượt này chậm
+  // nhất lúc mở màn (3–4 s) và kéo chậm các API khác vì máy chủ xử lý dồn. Giờ tải khi có màn gọi useInspection() lần đầu
+  // (màn nào dùng hook này cũng đọc proposals), rồi giữ và làm mới theo realtime như cũ.
+  const [wanted, setWanted] = useState(false)
+  const requestProposals = useCallback(() => setWanted(true), [])
+  // Token của lần tải đã xong gần nhất (kể cả lỗi) - để màn phân biệt "chưa tải xong" với "không có đề xuất nào".
+  const [loadedFor, setLoadedFor] = useState<string | null>(null)
   const [actionError, setActionError] = useState<string | null>(null)
   const dismissActionError = useCallback(() => setActionError(null), [])
 
@@ -268,6 +280,8 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
   // ở BE (đề xuất mua là việc của KHSX/Mua hàng/Sếp, xem role-permissions.constant.ts), nên lời
   // gọi này luôn 403 âm thầm cho toàn bộ nhóm role này - không chỉ PHOI/KCS vừa kiểm tra qua browser.
   const mfgRole = user?.mfgRole
+  const skipProposals = !token || (!!mfgRole && mfgRole !== 'PRODUCTION_MANAGER')
+  const proposalsReady = skipProposals || loadedFor === token
   const loadProposals = useCallback(() => {
     // Ngoại lệ QLSX (PRODUCTION_MANAGER): vai này ĐÃ có PURCHASE_PROPOSAL:VIEW (role-permissions.constant.ts) và màn
     // "Tổng hợp lệnh SX" của QLSX cần đề xuất mua để tính bước "Mua hàng". Bỏ qua cả vai này (như trước 2026-10-01) làm
@@ -286,8 +300,10 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
         const byId = new Map(history.map(p => [p.id, p]))
         for (const p of active) byId.set(p.id, p)
         setProposals([...byId.values()].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)))
+        setLoadedFor(token)
       })
       .catch((err: unknown) => {
+        setLoadedFor(token)
         // 403 = vai này không có PURCHASE_PROPOSAL:VIEW (Phôi/Hàn/Sơn/KCS/SPEC... - xem
         // role-permissions.constant.ts). Provider bọc TOÀN BỘ app nên request vẫn bắn cho mọi
         // vai vừa đăng nhập; đây là kết quả ĐÚNG với các vai đó, không phải lỗi -> để danh sách
@@ -296,9 +312,11 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
         console.error('getPurchaseProposals failed', err)
       })
   }, [token, mfgRole])
-  useEffect(() => { loadProposals() }, [loadProposals])
-  // Realtime: BE phát khi đề xuất đổi (duyệt/nhận hàng) - làm mới đúng danh sách này, không cần F5.
-  useRealtimeRefetch(['purchase-proposals'], loadProposals)
+  useEffect(() => { if (wanted) loadProposals() }, [wanted, loadProposals])
+  // Realtime: BE phát khi đề xuất đổi (duyệt/nhận hàng) - làm mới đúng danh sách này, không cần F5. Chưa màn nào cần thì
+  // bỏ qua: lần tải đầu (khi có màn cần) sẽ lấy bản mới nhất.
+  const refetchIfWanted = useCallback(() => { if (wanted) loadProposals() }, [wanted, loadProposals])
+  useRealtimeRefetch(['purchase-proposals'], refetchIfWanted)
 
   // Bọc mọi thao tác GHI: hiện lỗi cho người dùng rồi NÉM LẠI. Ném lại là phần quan trọng -
   // nếu chỉ nuốt thì call site không phân biệt được thành công/thất bại để rollback state cục bộ
@@ -393,7 +411,7 @@ export function InspectionProvider({ children }: { children: React.ReactNode }) 
     }), [runAction])
 
   return (
-    <InspCtx.Provider value={{ proposals, actionError, dismissActionError, createSupplierOrder, approveSupplierOrder, cancelSupplierOrder, removeSupplierOrderItem, reviseSupplierOrder, closeSupplierOrderShortage, receivePurchase, rejectPurchase, updateApprovalFile, updateOrderQty }}>
+    <InspCtx.Provider value={{ proposals, proposalsReady, requestProposals, actionError, dismissActionError, createSupplierOrder, approveSupplierOrder, cancelSupplierOrder, removeSupplierOrderItem, reviseSupplierOrder, closeSupplierOrderShortage, receivePurchase, rejectPurchase, updateApprovalFile, updateOrderQty }}>
       <ActionErrorBanner message={actionError} onDismiss={dismissActionError} />
       {children}
     </InspCtx.Provider>
@@ -431,6 +449,9 @@ function ActionErrorBanner({ message, onDismiss }: { message: string | null; onD
 
 export function useInspection(): InspCtxType {
   const ctx = useContext(InspCtx)
+  // Màn nào dùng hook này cũng đọc proposals -> báo Provider tải (chỉ lần đầu có tác dụng), xem `wanted` ở InspectionProvider.
+  const request = ctx?.requestProposals
+  useEffect(() => { request?.() }, [request])
   if (!ctx) throw new Error('useInspection must be used inside InspectionProvider')
   return ctx
 }

@@ -51,7 +51,7 @@ import { DEFAULT_MERGE_MAX_SKUS, DEFAULT_MERGE_WINDOW_DAYS, maxGapDays, steelNee
 import { useIsMobile } from '../../../hooks/useMediaQuery'
 import { format } from 'date-fns'
 import { useConfirm } from '../../../hooks/useConfirm'
-import { confirmCuttingRecheck, getCuttingRecheckPending, type CuttingRecheckItem } from '../../../services/production-invoices-api'
+import { confirmCuttingRecheck, type CuttingRecheckItem } from '../../../services/production-invoices-api'
 import { pageTitle, pageSubtitle } from '../../../styles/typography'
 
 /**
@@ -188,14 +188,19 @@ const MAX_STOCK_LENGTH_MM = 20000
 /** Hai tập id giống hệt nhau (không tính thứ tự) - nút "Chọn lại đề xuất" chỉ hiện khi lựa chọn đã khác đề xuất. */
 const sameSet = (a: Set<string>, b: Set<string>) => a.size === b.size && [...a].every((x) => b.has(x))
 
+/** Khoá của 1 tổ hợp đã chọn - cùng công thức với selectedKey trong component. */
+const keyOf = (ids: Iterable<string>) => [...ids].sort().join(',')
+
 interface Props {
   /** Chuyển sang màn "Lệnh sản xuất mới" - nơi làm bước tiếp theo sau khi chốt nhóm. */
   onDone?: () => void
   /** Vừa bấm "Đã kiểm" 1 lệnh đổi xưởng - để số đỏ ở menu tải lại ngay. */
   onRecheckChanged?: () => void
+  /** Lệnh đổi xưởng chờ kiểm lại phương án cắt - do ProductionPlanApp nạp (đã dùng cho số đỏ ở menu). */
+  recheck?: CuttingRecheckItem[] | null
 }
 
-export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
+export default function GomDotCatPage({ onDone, onRecheckChanged, recheck: recheckProp }: Props) {
   const [data, setData] = useState<CuttingBatchCandidateList | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -284,17 +289,16 @@ export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
 
   // Mỗi lần tải 1 số thứ tự: kết quả (cả lượt kiểm bù) của lần tải CŨ về muộn thì bỏ, không ghi đè bảng của cài đặt mới.
   const loadSeq = useRef(0)
-  // Lệnh vừa đổi xưởng chờ kiểm lại phương án cắt. Lỗi tải thì bỏ qua im lặng - không làm hỏng màn chính.
-  const [recheck, setRecheck] = useState<CuttingRecheckItem[]>([])
+  // Lần tải đầu gọi ngay; debounce chỉ để chống bắn dồn khi KHSX đang gõ chiều dài (lần 2 trở đi).
+  const loadedOnce = useRef(false)
+  // selectedKey do HỆ THỐNG vừa đặt (tick sẵn, tự thêm đơn gợi ý gộp, cập nhật sau kiểm bù): fix-options chạy ngay,
+  // không chờ 500 ms vì đâu có ai đang tick dở. Lựa chọn do người bấm thì khác key này -> vẫn chờ như cũ.
+  const systemKey = useRef<string | null>(null)
+  // Danh sách lệnh đổi xưởng chờ kiểm lại do ProductionPlanApp nạp (dùng chung với số đỏ ở menu) - khỏi gọi trùng.
+  const recheck = recheckProp ?? []
   const [recheckBusyId, setRecheckBusyId] = useState<string | null>(null)
   const [recheckErr, setRecheckErr] = useState<{ id: string; msg: string } | null>(null)
-  const loadRecheck = useCallback(() => {
-    getCuttingRecheckPending()
-      .then((list) => setRecheck(Array.isArray(list) ? list : []))
-      .catch((e) => { console.warn('Không tải được danh sách lệnh cần kiểm lại phương án cắt', e) })
-  }, [])
   const load = useCallback(() => {
-    loadRecheck()
     const seq = ++loadSeq.current
     setLoading(true)
     setDeepVerifying(false)
@@ -313,6 +317,7 @@ export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
               setData((prev) => (prev ? mergeVerified(prev, deep) : prev))
               // Đơn tick sẵn tính lại sau khi chip được xác minh: KHSX còn để nguyên đề xuất lúc tải thì đổi theo; đã tick tay thì giữ.
               if (autoFill.current && sameSet(autoFill.current, shownRec)) autoFill.current = new Set(deep.recommendedItemIds)
+              systemKey.current = keyOf(deep.recommendedItemIds)
               setSelected((cur) => (sameSet(cur, shownRec) ? new Set(deep.recommendedItemIds) : cur))
             })
             .catch(() => { /* kiểm bù lỗi thì chip giữ "chưa kiểm" - không phải lỗi của trang */ })
@@ -320,6 +325,7 @@ export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
         }
         if (!pickedOnce.current) {
           // Tick sẵn đơn gấp nhất có cảnh báo; khi cách xử lý của đợt đó về (fix-options) thì tự thêm đơn gợi ý gộp - xem effect dưới.
+          systemKey.current = keyOf(res.recommendedItemIds)
           setSelected(new Set(res.recommendedItemIds))
           autoFill.current = new Set(res.recommendedItemIds)
           pickedOnce.current = true
@@ -332,12 +338,15 @@ export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
       })
       .catch((e) => { if (seq === loadSeq.current) setError(errMsg(e, 'Không tải được danh sách SKU')) })
       .finally(() => { if (seq === loadSeq.current) setLoading(false) })
-  }, [stockLengths, machine, loadRecheck])
+  }, [stockLengths, machine])
 
   // Gõ chiều dài tới đâu tải lại tới đó, nhưng CHỜ 400ms: không debounce thì gõ "5850" bắn 4
   // request, và request của "5" (số vô lý) có thể về sau cùng rồi ghi đè kết quả đúng.
+  // Lần đầu vào màn thì không có ai đang gõ -> tải ngay, khỏi chờ vô ích.
   useEffect(() => {
-    const t = setTimeout(() => load(), 400)
+    // Đánh dấu khi load() THẬT SỰ chạy (trong hẹn giờ), không phải lúc effect chạy: StrictMode ở dev chạy effect 2 lần, đánh dấu
+    // sớm thì lần chạy thứ 2 lại phải chờ 400 ms.
+    const t = setTimeout(() => { loadedOnce.current = true; load() }, loadedOnce.current ? 400 : 0)
     return () => clearTimeout(t)
   }, [load])
 
@@ -358,7 +367,10 @@ export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
     const ids = selectedKey ? selectedKey.split(',') : []
     if (ids.length === 0) { setFixOpts(null); setFixKey(null); setFixError(null); return }
     let cancelled = false
+    const bySystem = systemKey.current === selectedKey
     const t = setTimeout(() => {
+      // Xoá mốc khi gọi THẬT (không phải lúc effect chạy) - lý do như hẹn giờ tải bảng ở trên.
+      if (systemKey.current === selectedKey) systemKey.current = null
       setFixLoading(true)
       setFixError(null)
       getCuttingBatchFixOptions(ids, stockLengths, machine)
@@ -372,12 +384,13 @@ export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
           if (base && sameSet(new Set(ids), base) && res.addAllItemIds?.length) {
             const next = new Set([...ids, ...res.addAllItemIds])
             setRecommendedOverride(next)
+            systemKey.current = keyOf(next)
             setSelected(next)
           }
         })
         .catch((e) => { if (!cancelled) setFixError(errMsg(e, 'Không tính được cách xử lý cho đợt này')) })
         .finally(() => { if (!cancelled) setFixLoading(false) })
-    }, 500)
+    }, bySystem ? 0 : 500)
     return () => { cancelled = true; clearTimeout(t) }
   }, [selectedKey, stockLengths, machine])
 
@@ -1195,7 +1208,6 @@ export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
                             setRecheckErr({ id: r.productionInvoiceId, msg: errMsg(e, 'Không lưu được, thử lại sau') })
                           } finally {
                             setRecheckBusyId(null)
-                            loadRecheck()
                             onRecheckChanged?.()
                           }
                         },

@@ -1532,7 +1532,7 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
   // bảng này - nhiều vai (QLSX/Hàn/Sơn/Phôi) có thể cùng xem trang này.
   useRealtimeRefetch(['skus', 'production-orders'], () => { void refetchSkus(); void refetchPis() })
   const { data: weavingPointsData } = useFetch<WeavingPointLite[]>(() => (api as any).getWeavingPoints(), [])
-  const { proposals } = useInspection()
+  const { proposals, proposalsReady } = useInspection()
   // Mã khách hàng cho các lệnh KHÔNG có Sku (PlanForm) đi kèm — xem buildSyntheticSku(). Sku thật
   // đã tự có customerName do KHSX nhập tay lúc tạo, không cần map này.
   const { data: salesOrdersData } = useFetch<{ id: string; customerName: string }[]>(() => api.getSalesOrders(), [])
@@ -1623,7 +1623,9 @@ function OrderSummaryView({ viewSwitch }: { viewSwitch: React.ReactNode }) {
   const batchData = batchFresh ? batchDataRaw : null
   // batchError khiến batchFresh mãi false (batchDataRaw không đổi) - phải tách khỏi rowsLoading,
   // nếu không bảng kẹt "Đang tải..." vĩnh viễn thay vì báo lỗi + cho Thử lại.
-  const rowsLoading = !batchError && (batchLoading || !batchFresh)
+  // Chờ cả đề xuất mua (giờ chỉ tải khi có màn cần, xem InspectionContext): chưa tải xong mà dựng bảng thì bước "Mua hàng"
+  // hiện "xong" sai trong lúc chờ.
+  const rowsLoading = (!batchError && (batchLoading || !batchFresh)) || !proposalsReady
   const rowsError = skusError ?? batchError ?? null
   // Các dòng cùng PI - để mỗi dòng biết dây/nệm của dòng khác mà ẩn khỏi bảng Mua hàng (xem buildOrderRow).
   const rowsByPi = useMemo(() => {

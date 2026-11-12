@@ -11,7 +11,7 @@
  * `useWorkQueue()` từ `context/WorkQueueContext.tsx` (1 Provider dùng chung cho cả cây, cùng lý do
  * double-poll đã sửa cho NotificationsContext) thay vì gọi thẳng hàm này.
  */
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { getWorkQueue } from '../services/api'
 import { useAuth } from '../context/AuthContext'
 import { useRealtimeRefetch, useRealtimeStatus } from '../realtime/hooks'
@@ -50,15 +50,22 @@ const WORK_QUEUE_TOPICS = [
 const POLL_INTERVAL_MS = 30_000
 // Đang kết nối realtime thì badge được đẩy về ngay khi việc đổi - polling chỉ còn là lưới an toàn.
 const POLL_INTERVAL_CONNECTED_MS = 120_000
+// Vừa poll xong với CÙNG token trong ngưỡng này thì effect không poll tức thì lần nữa (xem lastPollRef).
+const RECENT_POLL_WINDOW_MS = 2_000
 
 export function useWorkQueueState() {
   const [counts, setCounts] = useState<Record<string, number>>({})
   const connected = useRealtimeStatus() === 'connected'
   // Chưa đăng nhập thì không gọi API (tránh 401 vô ích lúc mount trên /login).
   const { token } = useAuth()
+  // Mở app: poll lần 1 ngay khi có token, vài ms sau realtime sang 'connected' làm effect chạy lại → poll lần 2 thừa.
+  // Ghi mốc lần poll gần nhất để effect bỏ qua poll tức thì đó. Chỉ chặn trong effect: realtime/refresh/interval/visibility
+  // báo thay đổi thật nên vẫn gọi poll bình thường.
+  const lastPollRef = useRef<{ token: string; at: number } | null>(null)
 
   const poll = useCallback(async () => {
     if (!token) return
+    lastPollRef.current = { token, at: Date.now() }
     try {
       const next = await getWorkQueue()
       setCounts(next.counts)
@@ -73,7 +80,9 @@ export function useWorkQueueState() {
 
   useEffect(() => {
     if (!token) return
-    poll()
+    // Đổi token luôn poll ngay; kết nối lại sau khi rớt lâu hơn ngưỡng cũng poll ngay như cũ.
+    const last = lastPollRef.current
+    if (!last || last.token !== token || Date.now() - last.at >= RECENT_POLL_WINDOW_MS) poll()
     const id = setInterval(() => { if (!document.hidden) poll() }, connected ? POLL_INTERVAL_CONNECTED_MS : POLL_INTERVAL_MS)
     const onVisibility = () => { if (!document.hidden) poll() }
     document.addEventListener('visibilitychange', onVisibility)

@@ -29,6 +29,8 @@ import { useRealtimeEvent, useRealtimeStatus } from '../realtime/hooks'
 const POLL_INTERVAL_MS = 30_000
 // Khi realtime đang kết nối, sự kiện đã đẩy badge/toast tức thì - polling chỉ còn là lưới an toàn.
 const POLL_INTERVAL_CONNECTED_MS = 120_000
+// Vừa poll xong với CÙNG token trong ngưỡng này thì effect không poll tức thì lần nữa (xem lastPollRef).
+const RECENT_POLL_WINDOW_MS = 2_000
 
 export type NotificationTab = 'action' | 'all'
 
@@ -50,6 +52,10 @@ export function useNotificationsState() {
   const connected = useRealtimeStatus() === 'connected'
   // Chưa đăng nhập (vd trang /login) thì không gọi API: tránh 401 vô ích lúc mount.
   const { token } = useAuth()
+  // Mở app: poll lần 1 ngay khi có token, vài ms sau realtime sang 'connected' làm effect chạy lại → poll lần 2 thừa.
+  // Ghi mốc lần poll gần nhất để effect bỏ qua poll tức thì đó. Chỉ chặn trong effect: sự kiện realtime/markRead/interval/
+  // visibility báo thay đổi thật nên vẫn gọi pollUnread bình thường.
+  const lastPollRef = useRef<{ token: string; at: number } | null>(null)
 
   const showToast = useCallback((n: Notification) => {
     if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
@@ -59,6 +65,7 @@ export function useNotificationsState() {
 
   const pollUnread = useCallback(async () => {
     if (!token) return
+    lastPollRef.current = { token, at: Date.now() }
     try {
       const next = await getUnreadCount()
       if (!baselineDoneRef.current) {
@@ -90,7 +97,9 @@ export function useNotificationsState() {
   // Tải ngay khi mount và khi trạng thái kết nối đổi (kết nối lại = có thể đã lỡ thông báo).
   useEffect(() => {
     if (!token) return
-    pollUnread()
+    // Đổi token luôn poll ngay; kết nối lại sau khi rớt lâu hơn ngưỡng cũng poll ngay như cũ.
+    const last = lastPollRef.current
+    if (!last || last.token !== token || Date.now() - last.at >= RECENT_POLL_WINDOW_MS) pollUnread()
     const interval = connected ? POLL_INTERVAL_CONNECTED_MS : POLL_INTERVAL_MS
     const id = setInterval(() => { if (!document.hidden) pollUnread() }, interval)
     const onVisibility = () => { if (!document.hidden) pollUnread() }
@@ -100,7 +109,7 @@ export function useNotificationsState() {
       document.removeEventListener('visibilitychange', onVisibility)
       if (toastTimerRef.current) clearTimeout(toastTimerRef.current)
     }
-  }, [pollUnread, connected])
+  }, [pollUnread, connected, token])
 
   // Tải danh sách KHÔNG bật spinner - dùng khi realtime báo có thay đổi lúc danh sách đang mở.
   const refreshListSilently = useCallback(async (forTab: NotificationTab) => {

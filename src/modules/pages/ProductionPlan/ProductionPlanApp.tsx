@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
 import { LayoutDashboard, Package, LogOut, Grid, CalendarClock, ClipboardList, Warehouse, FilePlus, Layers, PackageCheck, Menu, X } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
@@ -54,6 +54,13 @@ export default function ProductionPlanApp({ onBack }: Props) {
   const { data: recheckPending, refetch: refetchRecheck } = useFetch(getCuttingRecheckPending)
   // Lệnh vừa đổi xưởng chờ kiểm lại phương án cắt cũng là việc của KHSX ở "Tối ưu cắt sắt" -> cộng vào badge.
   const batchCount = (batchSuggestions ?? []).filter((s) => s.outcome === 'FIXED_BY_MERGE').length + (recheckPending?.length ?? 0)
+  // Màn "Tối ưu cắt sắt" dùng chung danh sách này (khỏi gọi trùng) -> mỗi lần CHUYỂN sang màn đó thì tải lại để không hiện
+  // danh sách cũ từ lúc mở phân hệ. Lần đầu (mở thẳng vào màn) thì useFetch vừa tải rồi, không gọi thêm.
+  const prevPageRef = useRef(activePage)
+  useEffect(() => {
+    if (activePage === 'gom-cat' && prevPageRef.current !== 'gom-cat') refetchRecheck()
+    prevPageRef.current = activePage
+  }, [activePage, refetchRecheck])
 
   // Badge "việc chờ tôi" (changelog notification 2026-09-25 mục 6.3/27) - 'duyet-sku' = định mức
   // chờ KHSX review; 'lenh-sx' đổi khoá theo ĐÚNG role hiện đang xem (Boss ghé qua trang này vẫn
@@ -149,7 +156,7 @@ export default function ProductionPlanApp({ onBack }: Props) {
       {activePage === 'duyet-sku'  && <SKUReviewPage />}
       {activePage === 'vattu'      && <VatTuDashboardPage />}
       {activePage === 'lenh-sx'    && <LenhSXPage />}
-      {activePage === 'gom-cat'    && <GomDotCatPage onDone={() => setActivePage('lenh-sx')} onRecheckChanged={refetchRecheck} />}
+      {activePage === 'gom-cat'    && <GomDotCatPage onDone={() => setActivePage('lenh-sx')} onRecheckChanged={refetchRecheck} recheck={Array.isArray(recheckPending) ? recheckPending : null} />}
       {activePage === 'warehouses' && <MfgWarehousesPage />}
       {activePage === 'vat-tu-can-ve' && <VatTuCanVePage />}
     </>
