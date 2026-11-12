@@ -17,8 +17,8 @@ import { focusAttrAny, focusKey } from '../../../utils/notificationLink'
  *  - 1 dòng = 1 vật tư của 1 đơn đặt hàng NCC. Đơn gộp nhiều lệnh chỉ còn 1 dòng, thủ kho nhập 1 con số theo phiếu giao,
  *    hệ thống tự chia cho các lệnh (ngày cần sớm nhất trước) và hiện bảng chia trước khi xác nhận - chỉnh tay được.
  *  - Số thực nhận phải bằng số trên phiếu giao (không dung sai); lệch thì "Từ chối nhận".
- *  - Chứng từ bắt buộc ngay lúc nhập: phiếu giao NCC, phiếu đề xuất Giám đốc ký (tự lấy từ đơn), phiếu nhập kho, phiếu
- *    cân xe (sắt).
+ *  - Chứng từ bắt buộc ngay lúc nhập (thứ tự anh Nhân ghi 11/11/2026): (1) phiếu giao NCC, (2) phiếu nhập kho nhà máy đã ký,
+ *    (3) phiếu đề xuất Giám đốc ký (tự lấy từ đơn), (4) phiếu cân xe (chỉ sắt).
  */
 
 interface Line { proposal: PurchaseProposal; item: PurchaseProposalItem }
@@ -290,8 +290,8 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
 
   const missingDocs = [
     supplierSlips.length === 0 && 'phiếu giao hàng NCC',
+    receiptSlips.length === 0 && 'phiếu nhập kho nhà máy đã ký',
     approvalExisting.length === 0 && approvalFiles.length === 0 && 'phiếu đề xuất Giám đốc ký',
-    receiptSlips.length === 0 && 'phiếu nhập kho',
     it.isSteel && weighSlips.length === 0 && 'phiếu cân xe',
   ].filter(Boolean) as string[]
   const remaining = round4(group.purchaseQty - group.receivedQty)
@@ -512,8 +512,8 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
       {/* Chứng từ */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10, marginBottom: 16 }}>
         <DocSlot label="(1) Phiếu giao hàng của NCC" required files={supplierSlips} onChange={setSupplierSlips} />
-        <DocSlot label="(2) Phiếu đề xuất Giám đốc ký" required files={approvalFiles} onChange={setApprovalFiles} existing={approvalExisting} />
-        <DocSlot label="(3) Phiếu nhập kho" required files={receiptSlips} onChange={setReceiptSlips} />
+        <DocSlot label="(2) Phiếu nhập kho nhà máy đã ký" required files={receiptSlips} onChange={setReceiptSlips} />
+        <DocSlot label="(3) Phiếu đề xuất Giám đốc ký" required files={approvalFiles} onChange={setApprovalFiles} existing={approvalExisting} />
         {it.isSteel && <DocSlot label="(4) Phiếu cân xe" required files={weighSlips} onChange={setWeighSlips} />}
       </div>
 
@@ -526,7 +526,7 @@ function ReceiveDetail({ group, onBack }: { group: Group; onBack: () => void }) 
           <span style={{ fontSize: 12, color: 'var(--text3)' }}>Còn thiếu ảnh: {missingDocs.join(', ')}</span>
         )}
         {overReasonMissing && <span style={{ fontSize: 12, color: 'var(--fg-d97706)' }}>Ghi lý do nhận vượt</span>}
-        {canPrint && !slipCode && <span style={{ fontSize: 12, color: 'var(--text3)' }}>In phiếu nhập → người giao ký → chụp tải vào ô (3) rồi mới nhập được</span>}
+        {canPrint && !slipCode && <span style={{ fontSize: 12, color: 'var(--text3)' }}>In phiếu nhập → người giao ký → chụp tải vào ô (2) rồi mới nhập được</span>}
         {slipStale && <span style={{ fontSize: 12, color: 'var(--fg-d97706)' }}>Số lượng đã đổi sau khi in - bấm “In lại phiếu nhập”</span>}
         {slipErr && <span style={{ fontSize: 12, color: 'var(--fg-dc2626, #dc2626)' }}>{slipErr}</span>}
       </div>

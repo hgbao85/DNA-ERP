@@ -55,7 +55,7 @@ export default function SupplierOrderCountersPanel() {
         delete next[row.supplierId]
         return next
       })
-      setMsg({ id: row.supplierId, text: `Đã lưu - đơn tiếp theo là ${saved.lastSeq + 1}/${year}`, ok: true })
+      setMsg({ id: row.supplierId, text: `Đã lưu - đơn tiếp theo là ${saved.nextSeq}/${year}`, ok: true })
     } catch (e) {
       setMsg({ id: row.supplierId, text: e instanceof Error ? e.message : String(e), ok: false })
     } finally {
@@ -75,7 +75,7 @@ export default function SupplierOrderCountersPanel() {
         </select>
       </div>
       <div style={{ padding: '10px 14px', fontSize: 12, color: 'var(--text3)' }}>
-        Nhập số đơn cuối cùng phòng mua đã dùng với từng nhà cung cấp trong năm (vd Kim Phát đã tới đơn 52 thì nhập 52). Đơn người mua tạo tiếp theo trên hệ thống sẽ là số đó + 1. Nhà cung cấp chưa có đơn nào trong năm để 0.
+        Nhập số đơn cuối cùng phòng mua đã dùng với từng nhà cung cấp trong năm (vd Kim Phát đã tới đơn 52 thì nhập 52). Đơn người mua tạo tiếp theo trên hệ thống sẽ là số đó + 1. Đơn huỷ khi chưa có phiếu Giám đốc ký thì số của nó được cấp lại cho đơn kế tiếp (cột &quot;Đơn tiếp theo&quot;); số từ mốc nạp trở xuống không cấp lại. Nhà cung cấp chưa có đơn nào trong năm để 0.
       </div>
       <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -84,14 +84,15 @@ export default function SupplierOrderCountersPanel() {
               <th style={th}>Nhà cung cấp</th>
               <th style={{ ...th, textAlign: 'right' }}>Số đơn cuối cùng</th>
               <th style={{ ...th, textAlign: 'right' }}>Hệ thống đã cấp tới</th>
+              <th style={{ ...th, textAlign: 'right' }}>Đơn tiếp theo</th>
               <th style={th} />
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td style={{ ...td, color: 'var(--text3)' }} colSpan={4}>Đang tải…</td></tr>
+              <tr><td style={{ ...td, color: 'var(--text3)' }} colSpan={5}>Đang tải…</td></tr>
             ) : rows.length === 0 ? (
-              <tr><td style={{ ...td, color: 'var(--text3)' }} colSpan={4}>Chưa có nhà cung cấp nào</td></tr>
+              <tr><td style={{ ...td, color: 'var(--text3)' }} colSpan={5}>Chưa có nhà cung cấp nào</td></tr>
             ) : rows.map(row => {
               const draft = drafts[row.supplierId]
               const dirty = draft !== undefined && draft !== String(row.lastSeq)
@@ -111,6 +112,7 @@ export default function SupplierOrderCountersPanel() {
                     />
                   </td>
                   <td style={{ ...td, textAlign: 'right', color: 'var(--text3)' }}>{row.maxIssuedSeq > 0 ? `${row.maxIssuedSeq}/${year}` : '—'}</td>
+                  <td style={{ ...td, textAlign: 'right' }}>{`${row.nextSeq}/${year}`}{row.nextSeq <= row.lastSeq && <span style={{ fontSize: 11, color: 'var(--text3)' }}> (cấp lại số đơn huỷ)</span>}</td>
                   <td style={td}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <button

@@ -106,8 +106,10 @@ export function CreateSupplierOrderModal({ itemNames, onClose, onConfirm }: {
   )
 }
 
-export function CancelSupplierOrderModal({ orderLabel, onClose, onConfirm }: {
+export function CancelSupplierOrderModal({ orderLabel, everSigned, onClose, onConfirm }: {
   orderLabel: string
+  /** Đơn đã từng có phiếu Giám đốc ký (revision > 0) thì giữ số; chưa biết (undefined) thì nói chung cả 2 trường hợp. */
+  everSigned?: boolean
   onClose: () => void
   onConfirm: (reason: string) => Promise<void>
 }) {
@@ -141,7 +143,11 @@ export function CancelSupplierOrderModal({ orderLabel, onClose, onConfirm }: {
       </>}
     >
       <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 12 }}>
-        Huỷ <strong>{orderLabel}</strong>: các vật tư quay về &quot;Chưa vào đơn đặt hàng&quot;. Số đơn này giữ nguyên, không cấp lại cho đơn khác.
+        Huỷ <strong>{orderLabel}</strong>: các vật tư quay về &quot;Chưa vào đơn đặt hàng&quot;. {everSigned === true
+          ? 'Đơn đã từng có phiếu Giám đốc ký nên số đơn này giữ nguyên, không cấp lại.'
+          : everSigned === false
+            ? 'Số đơn này sẽ được cấp lại cho đơn kế tiếp của cùng nhà cung cấp.'
+            : 'Đơn chưa từng có phiếu Giám đốc ký thì số đơn được cấp lại cho đơn kế tiếp của cùng nhà cung cấp; đơn đã ký rồi Thay phiếu thì giữ số.'}
       </div>
       <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }} htmlFor="so-cancel-reason">
         Lý do <span style={{ color: 'var(--fg-dc2626)' }}>*</span>
