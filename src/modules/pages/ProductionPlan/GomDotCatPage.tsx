@@ -121,6 +121,11 @@ const NUM: React.CSSProperties = { ...TD, textAlign: 'right', fontVariantNumeric
  * Trước đây chip chưa xác minh hiện XANH "≥x%" (kèm "?" khi ít cây) - đo 2026-10-24 (changelog BE mục 28) có ca "≥0,17%" xanh mà
  * thật ra cây 6m tốt nhất 19,67 % (SAT-PHI-6), MC Tự động "≥0%" mà thật 57 %: cận dưới chưa vượt ngưỡng KHÔNG nói được là đạt.
  */
+/** Cây đặt riêng luôn tròn 5 cm - BE làm tròn lên bội 50 mm cả số KHSX gõ (stock-length-grid.ts), hiện đúng số sẽ tính: 5830 -> 5850. */
+function roundUp5cm(mm: number): number {
+  return Math.ceil(mm / 50 - 1e-9) * 50
+}
+
 /** 5850 -> "5m85", 6000 -> "6m". Người ở xưởng gọi cây sắt theo mét, không theo mm. */
 function fmtLen(mm: number): string {
   const m = Math.floor(mm / 1000)
@@ -1317,7 +1322,7 @@ export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
                         {lenChanged.map((m, i) => (
                           <span key={m.id}>
                             {i > 0 && ' · '}
-                            <span title={m.code}>{m.label}</span> <b>{fmtLen(stockLengths[m.id])}</b>
+                            <span title={m.code}>{m.label}</span> <b>{fmtLen(roundUp5cm(stockLengths[m.id]))}</b>
                           </span>
                         ))}
                         {lenChanged.length < materialsInTable.length && (
@@ -1369,14 +1374,26 @@ export default function GomDotCatPage({ onDone, onRecheckChanged }: Props) {
                       </Fragment>
                     )
                   })}
-                  <span style={{ gridColumn: '1 / -1', fontSize: 11.5, color: 'var(--text3)' }}>
-                    Bỏ trống = cây chuẩn {fmtLen(DEFAULT_STOCK_LENGTH_MM)}.
-                  </span>
+                </div>
+              )}
+              {/* Câu ghi chú/lỗi để NGOÀI lưới: câu dài nằm trong lưới (span 2 cột) kéo giãn cột ô nhập, bóp cột tên sắt xuống dòng. */}
+              {lenOpen && (
+                <div style={{ marginTop: 6, fontSize: 11.5, color: 'var(--text3)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span>Bỏ trống = cây chuẩn {fmtLen(DEFAULT_STOCK_LENGTH_MM)}.</span>
                   {materialsInTable.some((m) => stockLenBad(m.id)) && (
-                    <span style={{ gridColumn: '1 / -1', fontSize: 11.5, color: 'var(--fg-b91c1c)' }}>
+                    <span style={{ color: 'var(--fg-b91c1c)' }}>
                       Chiều dài phải từ {MIN_STOCK_LENGTH_MM} đến {MAX_STOCK_LENGTH_MM}mm — nhập theo mm (6000, không phải 6).
                     </span>
                   )}
+                  {lenChanged.map((m) => {
+                    const mm = stockLengths[m.id]
+                    return roundUp5cm(mm) !== mm ? (
+                      <span key={m.id} style={{ color: 'var(--fg-b45309)' }}>
+                        {m.label}: {mm} mm sẽ tính và đặt mua là {fmtLen(roundUp5cm(mm))} (cây luôn tròn 5 cm).
+                      </span>
+                    ) : null
+                  })}
+                  <span>Số gõ không tròn 5 cm được làm tròn lên khi tính, vd 5830 → 5m85.</span>
                 </div>
               )}
             </div>

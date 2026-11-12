@@ -30,11 +30,10 @@ const TD: React.CSSProperties = {
 }
 const NUM: React.CSSProperties = { ...TD, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }
 
-/** 5850 -> "5m85", 6000 -> "6m" - người ở xưởng gọi cây sắt theo mét, không theo mm. */
+/** 5850 -> "5850 mm", 6000 -> "6000 mm". Kết quả đã tính hiện chiều dài cây theo mm (yêu cầu 12/11/2026), cùng đơn vị
+ *  với cỡ đoạn cắt trong bảng chi tiết và số KHSX gõ ở ô "Chiều dài cây sắt". */
 function fmtLen(mm: number): string {
-  const m = Math.floor(mm / 1000)
-  const cm = Math.round((mm % 1000) / 10)
-  return cm === 0 ? `${m}m` : `${m}m${String(cm).padStart(2, '0')}`
+  return `${Math.round(mm)} mm`
 }
 
 /** "3 phút 20 giây" - thời gian solve dao động rất lớn (vài giây tới hơn 15 phút tuỳ vật tư) nên
