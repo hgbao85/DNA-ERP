@@ -9,6 +9,8 @@ export interface BeSupplier {
   name: string;
   phone: string | null;
   address: string | null;
+  taxCode: string | null;
+  contactName: string | null;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -19,13 +21,15 @@ export async function getSuppliers(): Promise<BeSupplier[]> {
   return Array.isArray(res) ? res : res.data;
 }
 
-// CreateSupplierDto (BE) nhận name/phone/address/isActive; không gửi isActive thì BE mặc định true
+// CreateSupplierDto (BE) nhận name/phone/address/taxCode/contactName/isActive; không gửi isActive thì BE mặc định true
 // (test tay 09/11 điểm 21).
 export async function createSupplier(data: Record<string, unknown>): Promise<BeSupplier> {
   return http.post<BeSupplier>('/suppliers', {
     name: data.name,
     phone: data.phone,
     address: data.address,
+    taxCode: data.taxCode,
+    contactName: data.contactName,
     isActive: data.isActive,
   });
 }
@@ -35,6 +39,8 @@ export async function updateSupplier(id: number | string, data: Record<string, u
     name: data.name,
     phone: data.phone,
     address: data.address,
+    taxCode: data.taxCode,
+    contactName: data.contactName,
     isActive: data.isActive,
   });
 }

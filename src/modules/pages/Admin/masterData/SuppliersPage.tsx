@@ -10,10 +10,18 @@ interface Supplier {
   id: number
   name: string
   phone?: string | null
+  address?: string | null
+  taxCode?: string | null
+  contactName?: string | null
   isActive: boolean
 }
 
-export default function SuppliersPage() {
+/**
+ * Danh sách NCC = "sheet quản lý NCC" (12/11/2026, anh Nhân): người mua chọn tên NCC từ đây khi tạo đơn đặt hàng.
+ * Dùng chung cho Admin › Danh mục hệ thống › Nhà cung cấp và Mua hàng › Nhà cung cấp (`purchasingView`): người mua tự
+ * thêm/sửa NCC, CHỈ Admin xoá (BE chặn DELETE theo vai trò) và chỉ Admin nạp khung số đơn.
+ */
+export default function SuppliersPage({ purchasingView = false }: { purchasingView?: boolean } = {}) {
   const { logAction } = useAuditLog()
   // Thêm/sửa/xoá NCC thì tải lại khung số đơn đặt hàng (2026-11-04) - NCC mới hiện ngay, không cần F5.
   const [countersKey, setCountersKey] = useState(0)
@@ -21,14 +29,17 @@ export default function SuppliersPage() {
   const config: AdminEntityConfig<Supplier> = {
     title: 'Nhà cung cấp',
     icon: <Truck size={18} color="var(--fg-3949ab)" />,
-    searchFields: ['name', 'phone'],
-    searchPlaceholder: 'Tìm theo tên hoặc SĐT...',
+    searchFields: ['name', 'phone', 'taxCode', 'contactName'],
+    searchPlaceholder: 'Tìm theo tên, SĐT, mã số thuế, người liên hệ...',
     emptyMessage: 'Chưa có nhà cung cấp nào',
     addLabel: 'Thêm nhà cung cấp',
     pageSize: 10,
     columns: [
       { key: 'name', label: 'Tên nhà cung cấp' },
+      { key: 'contactName', label: 'Người liên hệ' },
       { key: 'phone', label: 'Điện thoại' },
+      { key: 'taxCode', label: 'Mã số thuế' },
+      { key: 'address', label: 'Địa chỉ' },
       {
         key: 'isActive', label: 'Trạng thái', align: 'center', render: (s) => (
           <span style={{
@@ -47,7 +58,10 @@ export default function SuppliersPage() {
     ],
     formFields: [
       { name: 'name', label: 'Tên nhà cung cấp', type: 'text', required: true },
+      { name: 'contactName', label: 'Người liên hệ', type: 'text' },
       { name: 'phone', label: 'Điện thoại', type: 'text' },
+      { name: 'taxCode', label: 'Mã số thuế', type: 'text' },
+      { name: 'address', label: 'Địa chỉ', type: 'text' },
       { name: 'isActive', label: 'Trạng thái', type: 'checkbox', placeholder: 'Đang hoạt động', defaultValue: true },
     ],
     deleteConfirm: (s) => ({
@@ -64,15 +78,16 @@ export default function SuppliersPage() {
       list: getSuppliers as () => Promise<Supplier[]>,
       create: (data) => createSupplier(data) as unknown as Promise<Supplier>,
       update: (id, data) => updateSupplier(id, data) as Promise<Supplier | undefined>,
-      remove: (id) => deleteSupplier(id),
+      // Mua hàng không có nút Xóa - chỉ Admin xoá NCC (12/11/2026).
+      remove: purchasingView ? undefined : (id) => deleteSupplier(id),
     },
   }
 
   return (
     <>
       <AdminEntityPage config={config} />
-      {/* Số đơn đặt hàng theo NCC + năm (2026-11-04, bản v8 mục 4.13) - nạp số cuối năm trước khi dùng. */}
-      <SupplierOrderCountersPanel key={countersKey} />
+      {/* Số đơn đặt hàng theo NCC + năm (2026-11-04, bản v8 mục 4.13) - Admin nạp số cuối năm trước khi dùng. */}
+      {!purchasingView && <SupplierOrderCountersPanel key={countersKey} />}
     </>
   )
 }

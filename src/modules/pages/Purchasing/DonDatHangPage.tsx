@@ -291,6 +291,7 @@ export default function DonDatHangPage() {
       {cancelling && (
         <CancelSupplierOrderModal
           orderLabel={labelOf(cancelling)}
+          everSigned={cancelling.revision > 0}
           onClose={() => setCancelling(null)}
           onConfirm={async reason => {
             await cancelSupplierOrder(cancelling.id, reason, proposalIdsOf(cancelling))

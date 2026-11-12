@@ -72,7 +72,7 @@ export const purchasingGroup: GuideGroup = {
         'Nếu đề xuất có vật tư của đồng nghiệp khác phụ trách, phần đó chỉ hiển thị để xem, không thao tác được.',
         'Các dòng bạn đã bấm "Sếp đã duyệt" chuyển xuống khối "Đã xử lý" ngay trong đề xuất — theo dõi tiếp ở "Theo dõi mua hàng" / "Lịch sử đã mua".',
         'Không còn nút "Sếp đã duyệt" cho cả đề xuất: vật tư phải vào 1 đơn đặt hàng (đã chọn nhà cung cấp) mới duyệt được. Mỗi đơn 1 phiếu ký.',
-        'Số đơn đặt hàng đánh riêng theo từng nhà cung cấp, đánh lại từ 1 mỗi năm. Đơn huỷ vẫn giữ số của nó, số đó không cấp lại cho đơn khác. Số bắt đầu của năm do Admin nạp ở Danh mục > Nhà cung cấp.',
+        'Số đơn đặt hàng đánh riêng theo từng nhà cung cấp, đánh lại từ 1 mỗi năm. Đơn huỷ khi CHƯA có phiếu Giám đốc ký thì số đó được cấp lại cho đơn kế tiếp của cùng nhà cung cấp (số đơn không nhảy cóc); đơn đã ký rồi Thay phiếu mới huỷ thì giữ số. Số bắt đầu của năm do Admin nạp ở Danh mục > Nhà cung cấp.',
         'Số mua KHOÁ sau khi bấm "Sếp đã duyệt" (phiếu đã có chữ ký). Kho nhận đủ số mua thì dòng mới đóng; phần mua dư về kho thành tồn chưa giữ cho lệnh nào, lần tính đề xuất mua sau tự trừ.',
         'Muốn mua ÍT hơn số cần mua thì không sửa ở đây — phải sửa nhu cầu (định mức hoặc số lượng lệnh).',
         'Với dây và nệm, đề xuất chỉ có đúng màu Sales đã chọn cho từng lệnh — không cộng thêm các màu khác của cùng SKU. Nệm cùng màu nhưng khác quy cách ra các dòng riêng; cột "Quy cách" của dòng cho biết quy cách nào. Thủ kho nhận hàng ở "Nhập kho" cũng theo từng dòng quy cách đó.',

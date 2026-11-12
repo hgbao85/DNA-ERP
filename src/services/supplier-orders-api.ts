@@ -56,6 +56,8 @@ export interface SupplierOrderCounter {
   lastSeq: number;
   /** Số lớn nhất hệ thống đã thực sự cấp - không nạp được số nhỏ hơn. */
   maxIssuedSeq: number;
+  /** Số đơn tạo tiếp theo sẽ nhận: số của đơn huỷ chưa từng ký được cấp lại trước (12/11/2026), không có thì lastSeq + 1. */
+  nextSeq: number;
 }
 
 export function getSupplierOrders(status?: SupplierOrderStatus): Promise<SupplierOrder[]> {

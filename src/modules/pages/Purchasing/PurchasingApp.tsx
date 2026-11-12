@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useCloseNavOnNotification } from '../../../hooks/useCloseNavOnNotification'
-import { LogOut, Grid, ClipboardList, FileStack, Truck, History, PackageCheck, PackagePlus, Menu, X } from 'lucide-react'
+import { LogOut, Grid, ClipboardList, FileStack, Truck, History, PackageCheck, PackagePlus, Menu, X, Building2 } from 'lucide-react'
 import { useAuth } from '../../../context/AuthContext'
 import { useIsCompact, useIsMobile } from '../../../hooks/useMediaQuery'
 import { useUrlState } from '../../../hooks/useUrlState'
@@ -12,6 +12,7 @@ import TheoDoiMuaHangPage from './TheoDoiMuaHangPage'
 import LichSuMuaHangPage from './LichSuMuaHangPage'
 import NhanVuotPage from './NhanVuotPage'
 import VatTuCanVePage from '../MaterialsDue/VatTuCanVePage'
+import SuppliersPage from '../Admin/masterData/SuppliersPage'
 import ThemeToggle from '../../../components/ThemeToggle'
 
 interface Props { onBack?: () => void }
@@ -19,8 +20,10 @@ interface Props { onBack?: () => void }
 // Tab "Vật tư – NCC" đã gỡ 2026-08-27 cùng luồng báo giá: nó chỉ phục vụ việc gắn NCC + giá tham
 // khảo cho SupplierPicker lúc nhập báo giá, mà giá/NCC nay nằm trong file Excel Sếp ký. Danh mục
 // NCC vẫn quản lý ở Admin › Nhà cung cấp, gán người mua vẫn ở Admin › Vật tư - không mất chức năng.
-type TabId = 'lenh-mua-ncc' | 'don-dat-hang' | 'theo-doi-mua-hang' | 'vat-tu-can-ve' | 'nhan-vuot' | 'lich-su-mua-hang'
-const TAB_VALUES: TabId[] = ['lenh-mua-ncc', 'don-dat-hang', 'theo-doi-mua-hang', 'vat-tu-can-ve', 'nhan-vuot', 'lich-su-mua-hang']
+// 12/11/2026 (anh Nhân): thêm tab "Nhà cung cấp" - người mua tự thêm/sửa NCC (tên, người liên hệ, SĐT, MST, địa chỉ);
+// xoá NCC và nạp khung số đơn vẫn chỉ ở Admin.
+type TabId = 'lenh-mua-ncc' | 'don-dat-hang' | 'theo-doi-mua-hang' | 'vat-tu-can-ve' | 'nhan-vuot' | 'lich-su-mua-hang' | 'nha-cung-cap'
+const TAB_VALUES: TabId[] = ['lenh-mua-ncc', 'don-dat-hang', 'theo-doi-mua-hang', 'vat-tu-can-ve', 'nhan-vuot', 'lich-su-mua-hang', 'nha-cung-cap']
 const isTabId = (v: string | null): v is TabId => !!v && (TAB_VALUES as string[]).includes(v)
 
 export default function PurchasingApp({ onBack }: Props) {
@@ -49,6 +52,7 @@ export default function PurchasingApp({ onBack }: Props) {
     // Đợt 5e (bản v8 4.12): thống kê các lần Kho nhận vượt đơn đặt hàng.
     { id: 'nhan-vuot',         label: 'Nhận vượt',         icon: <PackagePlus size={16} /> },
     { id: 'lich-su-mua-hang',  label: 'Lịch sử đã mua',    icon: <History size={16} /> },
+    { id: 'nha-cung-cap',      label: 'Nhà cung cấp',      icon: <Building2 size={16} /> },
   ]
 
   const setTab = (id: TabId) => { setTabState(id); setUrlTab(id) }
@@ -126,6 +130,7 @@ export default function PurchasingApp({ onBack }: Props) {
       {tab === 'vat-tu-can-ve'     && <VatTuCanVePage />}
       {tab === 'nhan-vuot'         && <NhanVuotPage />}
       {tab === 'lich-su-mua-hang'  && <LichSuMuaHangPage />}
+      {tab === 'nha-cung-cap'      && <SuppliersPage purchasingView />}
     </>
   )
 
