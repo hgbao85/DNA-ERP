@@ -86,7 +86,7 @@ export default function XuatVatTuTieuHaoPage({ stage, desc }: { stage: MaterialI
       if (!orderId) throw new Error('SKU chưa có Lệnh sản xuất (chưa được Sếp duyệt) — chưa thể xuất vật tư')
       cart.add({
         kind: 'CONSUMABLE', materialId: d.materialId, productionOrderId: orderId, stage, qty: n,
-        materialName: `${d.materialName} (${d.materialCode})`, unit: '',
+        materialName: `${d.materialName} (${d.materialCode})`, unit: d.unit ?? '',
         lenhLabel: poInfoFor(selectedPf)?.piCode ?? selectedPf.mfgProduct?.factoryCode ?? '',
       })
       setQty(q => { const { [d.materialId]: _, ...rest } = q; return rest })

@@ -17,6 +17,8 @@ export interface BeMaterialYieldIssuePlanItem {
   materialId: string;
   materialCode: string;
   materialName: string;
+  /** ĐVT (13/11/2026); bản BE cũ chưa có thì undefined. */
+  unit?: string;
   requiredQty: number;
   issuedQty: number;
   remainingToIssue: number;

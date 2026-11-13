@@ -55,7 +55,8 @@ export interface SlipPrintInput {
   signers: string[]
 }
 
-export function openSlipPrint(p: SlipPrintInput): void {
+/** `target`: cửa sổ đã mở sẵn NGAY lúc bấm (khi phải tải dữ liệu trước rồi mới in - mở sau await sẽ bị chặn popup). */
+export function openSlipPrint(p: SlipPrintInput, target?: Window | null): void {
   const minRows = 9
   const body = [...p.rows]
   while (body.length < minRows) body.push(p.columns.map(() => ''))
@@ -91,7 +92,8 @@ export function openSlipPrint(p: SlipPrintInput): void {
 <div class="sign">${p.signers.map(s => `<div><b>${esc(s)}</b><br><i>(Ký, ghi rõ họ tên)</i></div>`).join('')}</div>
 <script>window.onload = () => window.print()</script>
 </body></html>`
-  const w = window.open('', '_blank')
+  // target === null: đã thử mở lúc bấm nhưng bị chặn - không mở lần 2.
+  const w = target !== undefined ? target : window.open('', '_blank')
   if (!w) return
   w.document.write(html)
   w.document.close()

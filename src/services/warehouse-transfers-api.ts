@@ -161,6 +161,16 @@ export async function getWarehouseTransfers(status?: TransferStatus): Promise<Wa
   return Promise.all(list.map((t) => getWarehouseTransfer(t.id)));
 }
 
+/** Danh sách phiếu đã nhận (CONFIRMED) gần nhất - chỉ thông tin đầu phiếu, KHÔNG gọi chi tiết từng phiếu (khác
+ *  getWarehouseTransfers). In lại thì gọi getWarehouseTransfer(id) cho đúng phiếu đó (13/11/2026). BE lọc theo kho của thủ kho. */
+export async function getConfirmedTransfers(limit = 30): Promise<WarehouseTransfer[]> {
+  const res = await http.get<BeWarehouseTransfer[] | { data: BeWarehouseTransfer[] }>('/warehouse-transfers', {
+    params: { status: 'CONFIRMED', limit },
+  });
+  const list = Array.isArray(res) ? res : res.data;
+  return list.map((t) => toTransfer(t, []));
+}
+
 export async function createWarehouseTransfer(data: {
   fromWarehouseId: string | number;
   toWarehouseId: string | number;

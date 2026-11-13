@@ -85,7 +85,7 @@ export default function XuatVatTuThanhPhamPage() {
       if (!orderId) throw new Error('SKU chưa có Lệnh sản xuất (chưa được Sếp duyệt) — chưa thể xuất vật tư')
       cart.add({
         kind: 'MATERIAL_YIELD', materialId: d.materialId, productionOrderId: orderId, qty: n,
-        materialName: `${d.materialName} (${d.materialCode})`, unit: '',
+        materialName: `${d.materialName} (${d.materialCode})`, unit: d.unit ?? '',
         lenhLabel: poInfoFor(selectedPf)?.piCode ?? selectedPf.mfgProduct?.factoryCode ?? '',
       })
       setQty(q => { const { [d.materialId]: _, ...rest } = q; return rest })

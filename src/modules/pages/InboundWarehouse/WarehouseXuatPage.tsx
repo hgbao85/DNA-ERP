@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { OutgoingTransfersPanel, WorkshopMovePanel } from './InternalTransferSections'
+import { DoneTransfersPanel, OutgoingTransfersPanel, WorkshopMovePanel } from './InternalTransferSections'
 import PhieuXuatPage from './PhieuXuatPage'
 import { IssueSlipCartProvider } from './IssueSlipCart'
 import { createIssueSlip, type IssueSlip } from '../../../services/issue-slips-api'
@@ -337,9 +337,10 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
   const [slipBusy, setSlipBusy] = useState(false)
   const [slipMsg, setSlipMsg] = useState<{ ok: boolean; text: string; slip?: IssueSlip } | null>(null)
   const createPackagingSlip = async (order: Order) => {
+    // Cùng điều kiện với số "(n dòng)" trên nút: dòng nhập vượt không vào phiếu (trước bị hạ ngầm về mức tối đa - 13/11/2026).
     const lines = order.lines
-      .map(l => ({ l, q: Math.min(Number(l.inputQty) || 0, l.availableQty) }))
-      .filter(x => x.q > 0)
+      .map(l => ({ l, q: Number(l.inputQty) || 0 }))
+      .filter(x => x.q > 0 && x.q <= x.l.availableQty)
     if (lines.length === 0) return
     setSlipBusy(true); setSlipMsg(null)
     try {
@@ -347,7 +348,8 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
         recipientName: 'Chuyền kiểm / đóng gói',
         lines: lines.map(({ l, q }) => ({ kind: 'PACKAGING', materialId: l.id, productionOrderId: order.id, qty: q })),
       })
-      setOrders(prev => prev.map(o => o.id !== order.id ? o : { ...o, lines: o.lines.map(l => ({ ...l, inputQty: '' })) }))
+      const issued = new Set(lines.map(x => x.l.id))
+      setOrders(prev => prev.map(o => o.id !== order.id ? o : { ...o, lines: o.lines.map(l => issued.has(l.id) ? { ...l, inputQty: '' } : l) }))
       setSlipMsg({ ok: true, text: `Đã lập phiếu ${slip.code} (${lines.length} dòng). In phiếu → người nhận ký → tải ảnh ở "Phiếu chờ ký" bên dưới rồi xác nhận xuất.`, slip })
     } catch (e) {
       setSlipMsg({ ok: false, text: errMsg(e, 'Không lập được phiếu xuất') })
@@ -503,6 +505,12 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
                               {transferBusyLine === l.id ? 'Đang gửi...' : 'Xác nhận'}
                             </button>}
                           </div>
+                          {/* 13/11/2026 (tổng duyệt 11/11): nhập vượt thì trước chỉ viền đỏ + nút khoá, không nói vì sao. */}
+                          {overAvail && (
+                            <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)' }}>
+                              Tối đa {l.availableQty.toLocaleString('vi-VN')}{selected.kind === 'packaging' ? ' (theo số bộ đã qua Chuyền kiểm và tồn kho)' : ''}
+                            </div>
+                          )}
                           {transferErrors[l.id] && (
                             <div style={{ marginTop: 4, fontSize: 11, color: 'var(--fg-dc2626)' }}>{transferErrors[l.id]}</div>
                           )}
@@ -520,9 +528,14 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
         </div>
         {selected.kind === 'packaging' && (() => {
           const n = selected.lines.filter(l => Number(l.inputQty) > 0 && Number(l.inputQty) <= l.availableQty).length
+          const nOver = selected.lines.filter(l => Number(l.inputQty) > l.availableQty).length
           return (
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginTop: 12 }}>
-              <span style={{ fontSize: 12, color: 'var(--text3)' }}>Nhập số ở cột “Xuất” cho các vật tư cần cấp rồi lập 1 phiếu xuất cho cả lệnh.</span>
+              <span style={{ fontSize: 12, color: nOver > 0 ? 'var(--fg-dc2626)' : 'var(--text3)' }}>
+                {nOver > 0
+                  ? `${nOver} dòng nhập vượt số có thể xuất (tối đa ghi dưới ô) - dòng đó không vào phiếu, sửa lại số.`
+                  : 'Nhập số ở cột “Xuất” cho các vật tư cần cấp rồi lập 1 phiếu xuất cho cả lệnh.'}
+              </span>
               <div style={{ flex: 1 }} />
               {slipMsg?.slip && (
                 <button onClick={() => printIssueSlip(slipMsg.slip!)} style={{ padding: '7px 12px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: 'pointer' }}>
@@ -611,6 +624,7 @@ export default function WarehouseXuatPage({ scope }: { scope: string }) {
       {/* Đổi xưởng (10/11/2026): hàng đang giữ cho lệnh ở kho này cần chuyển sang kho xưởng mới. */}
       {isPieceScope && <div style={{ marginTop: 24 }}><WorkshopMovePanel /></div>}
       {isPieceScope && <OutgoingTransfersPanel warehouseId={myWarehouse?.id ?? null} />}
+      {isPieceScope && <DoneTransfersPanel warehouseId={myWarehouse?.id ?? null} />}
       {/* Phiếu xuất đóng gói chờ ký / đã xuất của kho (09/11/2026). */}
       {!isPieceScope && (packagingOrders ?? []).length > 0 && (
         <div style={{ marginTop: 24 }}>
