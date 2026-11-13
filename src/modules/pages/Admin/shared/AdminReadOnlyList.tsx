@@ -13,6 +13,7 @@ import { useIsCompact, useIsMobile } from '../../../../hooks/useMediaQuery'
 import { tableWrap, tbl, th, td, row, tableScrollBox, stickyHeaderRow } from '../../../../styles/table'
 import { cardTitle } from '../../../../styles/typography'
 import { compactTableMinWidth } from './AdminEntityPage'
+import { focusAttr } from '../../../../utils/notificationLink'
 
 export interface AdminReadOnlyColumn<T> {
   key: string
@@ -46,6 +47,9 @@ export interface AdminReadOnlyListConfig<T extends { id: number | string }> {
   fetch: () => Promise<T[]>
   /** Topic realtime làm mới danh sách này khi có thay đổi (xem realtime.contract.ts). */
   realtimeTopics?: readonly string[]
+  /** entityType của thông báo trỏ tới dòng này (vd 'PRODUCTION_INVOICE') - gắn data-focus-id để bấm thông báo thì nháy
+   *  sáng đúng dòng (chỉ khi dòng nằm ở trang đang xem). */
+  focusEntityType?: string
 }
 
 /**
@@ -170,7 +174,7 @@ export default function AdminReadOnlyList<T extends { id: number | string }>({ c
               </thead>
               <tbody>
                 {paged.map(item => (
-                  <tr key={item.id} style={row}>
+                  <tr key={item.id} style={row} {...(config.focusEntityType ? focusAttr(config.focusEntityType, item.id) : {})}>
                     {config.columns.map(col => (
                       <td key={col.key} style={{ ...td, textAlign: col.align ?? 'left' }}>
                         {renderCell(item, col)}
