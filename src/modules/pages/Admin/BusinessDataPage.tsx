@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useUrlState } from '../../../hooks/useUrlState'
 import { Briefcase, ClipboardList, FileText, Layers3, Factory, Truck, Scissors } from 'lucide-react'
 import AdminTabs from './shared/AdminTabs'
 import SalesPOsPage from './businessData/SalesPOsPage'
@@ -23,8 +23,13 @@ const TABS: { id: Tab; label: string; icon: React.ReactNode }[] = [
   { id: 'cutting-proposals',    label: 'Cắt sắt',             icon: <Scissors size={14} /> },
 ]
 
+const isTab = (v: string | null): v is Tab => !!v && TABS.some(t => t.id === v)
+
 export default function BusinessDataPage() {
-  const [tab, setTab] = useState<Tab>('sales-po')
+  // Tab theo URL (?tab=...) - thông báo "thiếu dòng mua ngoài sắt" (13/11/2026) mở thẳng tab Lệnh sản xuất.
+  const [urlTab, setUrlTab] = useUrlState('tab')
+  const tab: Tab = isTab(urlTab) ? urlTab : 'sales-po'
+  const setTab = (t: Tab) => setUrlTab(t)
 
   return (
     <div>

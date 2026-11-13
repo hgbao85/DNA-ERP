@@ -68,6 +68,8 @@ export default function ProductionInvoicesPage() {
     searchFields: ['code', 'displayCode'],
     searchPlaceholder: 'Tìm theo mã PI / số LSX...',
     emptyMessage: 'Chưa có lệnh sản xuất nào',
+    // Thông báo "thiếu dòng mua ngoài sắt" (NON_STEEL_PURCHASE_FAILED, 13/11/2026) trỏ tới đúng dòng lệnh.
+    focusEntityType: 'PRODUCTION_INVOICE',
     pageSize: 10,
     columns: [
       { key: 'code', label: 'Mã PI' },
