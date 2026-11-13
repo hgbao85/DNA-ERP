@@ -89,7 +89,7 @@ function itemTagOf(item: PurchaseProposalItem): StatusTagCfg {
 }
 
 // Thứ tự nhóm ở dòng tóm tắt phần đồng nghiệp - theo đúng tiến trình mua.
-const OTHERS_GROUP_ORDER = ['Chưa vào đơn', 'Chờ Sếp duyệt', 'Đang báo giá', 'Đang mua hàng', 'Đã mua', 'Đủ tồn kho']
+const OTHERS_GROUP_ORDER = ['Chưa vào đơn', 'Chờ Sếp duyệt', 'Đang mua một phần', 'Đang mua hàng', 'Đã mua', 'Đủ tồn kho']
 
 /**
  * Phần vật tư ĐỒNG NGHIỆP mua trong cùng 1 đề xuất (2026-11-09). Trước là 1 ô cho MỖI vật tư kèm nhãn trạng thái lặp

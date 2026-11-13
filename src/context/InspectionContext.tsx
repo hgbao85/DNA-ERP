@@ -178,11 +178,12 @@ export interface PurchaseProposal {
 // Nhãn + màu hiển thị theo status — cấu hình dùng chung cho mọi màn đọc PurchaseProposal.status
 // (ProposalSection, màn theo dõi của KHSX...), tránh mỗi nơi tự hardcode 1 bảng if-chain riêng.
 // 'quoting' là rollup BE đang sinh thật (recomputeProposalStatus: có dòng đã rời NEW nhưng chưa xong
-// hết) - nghĩa là "đang báo giá/đang xử lý", KHÔNG phải "chờ Sếp duyệt" (2026-10-05, sửa nhãn sai).
+// hết) - KHÔNG phải "chờ Sếp duyệt" (2026-10-05, sửa nhãn sai). 13/11/2026: không còn báo giá trong phần mềm nên đổi nhãn
+// "Đang báo giá" -> "Đang mua một phần" (vd lệnh có dòng sắt đã đặt, dòng khác chưa vào đơn - lỗi thấy ở tổng duyệt 11/11).
 // 'submitted'/'rejected' chỉ còn xuất hiện ở DỮ LIỆU CŨ (luồng báo giá gỡ 2026-08-27).
 export const PROPOSAL_STATUS_LABELS: Record<PurchaseProposal['status'], { label: string; color: string; bg: string; border: string }> = {
   new:        { label: 'Chờ Sếp duyệt', color: 'var(--fg-92400e)', bg: 'var(--bg-fef3c7)', border: 'var(--fg-fde68a)' },
-  quoting:    { label: 'Đang báo giá', color: 'var(--fg-92400e)', bg: 'var(--bg-fef3c7)', border: 'var(--fg-fde68a)' },
+  quoting:    { label: 'Đang mua một phần', color: 'var(--fg-92400e)', bg: 'var(--bg-fef3c7)', border: 'var(--fg-fde68a)' },
   submitted:  { label: 'Chờ Sếp duyệt', color: 'var(--fg-92400e)', bg: 'var(--bg-fef3c7)', border: 'var(--fg-fde68a)' },
   purchasing: { label: 'Đang mua hàng', color: 'var(--fg-92400e)', bg: 'var(--bg-fef3c7)', border: 'var(--fg-fde68a)' },
   purchased:  { label: 'Đã mua',        color: 'var(--fg-166534)', bg: 'var(--bg-dcfce7)', border: 'var(--fg-86efac)' },

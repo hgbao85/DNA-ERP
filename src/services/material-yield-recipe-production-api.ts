@@ -21,6 +21,8 @@ export interface BeMaterialYieldRecipeDemandItem {
   inputMaterialId: string;
   inputMaterialCode: string;
   inputMaterialName: string;
+  /** ĐVT nguyên liệu vào (13/11/2026); bản BE cũ chưa có thì undefined. */
+  inputMaterialUnit?: string;
   requiredInputQty: number;
 }
 

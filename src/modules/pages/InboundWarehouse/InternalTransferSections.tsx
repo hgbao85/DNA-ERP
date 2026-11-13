@@ -8,7 +8,7 @@ import * as api from '../../../services/api'
 import { CheckCircle2, ChevronDown, ChevronUp, Paperclip, Printer, X, XCircle } from 'lucide-react'
 import { uploadDocument } from '../../../services/uploads-api'
 import { printTransferSlip } from './printTransferSlip'
-import { createWorkshopMove, getWorkshopMovePlans, type WorkshopMovePlan } from '../../../services/warehouse-transfers-api'
+import { createWorkshopMove, getConfirmedTransfers, getWarehouseTransfer, getWorkshopMovePlans, type WorkshopMovePlan } from '../../../services/warehouse-transfers-api'
 import type { WarehouseTransfer } from '../../../types/warehouse-transfer'
 import { canReceiveAt } from '../../../types/warehouse-transfer'
 import { safeArr } from '../../../utils/array'
@@ -49,7 +49,70 @@ export function NhapNoiBoSection({ warehouseCode }: { warehouseCode: string }) {
 
   const pending = safeArr(pendingData).filter(t => t.toWarehouseId === myWarehouse.id)
 
-  return <IncomingInbox pending={pending} onChanged={refetchPending} />
+  return (
+    <>
+      <IncomingInbox pending={pending} onChanged={refetchPending} />
+      <DoneTransfersPanel warehouseId={myWarehouse.id} />
+    </>
+  )
+}
+
+/**
+ * Phiếu chuyển kho ĐÃ NHẬN gần đây (gửi đi hoặc nhận về kho này) + nút In lại (13/11/2026, sau tổng duyệt 11/11: phiếu đã
+ * xác nhận chỉ xem được ở lịch sử kho, không in lại được). Bản in lấy chi tiết phiếu lúc bấm (số thực nhận đã ghi).
+ */
+export function DoneTransfersPanel({ warehouseId }: { warehouseId: string | null }) {
+  const { data, refetch } = useFetch<WarehouseTransfer[]>(() => getConfirmedTransfers(30), [])
+  useRealtimeRefetch(['warehouse-transfers'], refetch)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const mine = safeArr(data).filter(t => t.fromWarehouseId === warehouseId || t.toWarehouseId === warehouseId)
+  const reprint = async (id: string) => {
+    // Mở cửa sổ in NGAY lúc bấm rồi mới tải chi tiết phiếu - mở sau await thì trình duyệt chặn popup.
+    const w = window.open('', '_blank')
+    setBusy(id); setErr(null)
+    try { printTransferSlip(await getWarehouseTransfer(id), w) }
+    catch (e) { w?.close(); setErr(errMsg(e)) }
+    finally { setBusy(null) }
+  }
+  return (
+    <div style={{ marginTop: 20 }}>
+      <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Phiếu chuyển kho đã nhận gần đây</h3>
+      {err && <div style={{ fontSize: 12, color: 'var(--fg-dc2626, #dc2626)', marginBottom: 8 }}>{err}</div>}
+      {mine.length === 0 ? (
+        <div style={emptyBox}>Chưa có phiếu nào đã nhận</div>
+      ) : (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflowX: 'auto' }}>
+          <table style={{ width: '100%', minWidth: 560, borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr style={{ background: 'var(--surface2)', textAlign: 'left' }}>
+                <th style={th}>Số phiếu</th>
+                <th style={th}>Từ kho</th>
+                <th style={th}>Đến kho</th>
+                <th style={th}>Ngày nhận</th>
+                <th style={th} />
+              </tr>
+            </thead>
+            <tbody>
+              {mine.map(t => (
+                <tr key={t.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ ...td, fontWeight: 700, fontFamily: 'monospace' }}>{t.code}</td>
+                  <td style={td}>{t.fromWarehouseName}</td>
+                  <td style={td}>{t.toWarehouseName}</td>
+                  <td style={{ ...td, color: 'var(--text3)' }}>{t.confirmedAt ? new Date(t.confirmedAt).toLocaleDateString('vi-VN') : '—'}</td>
+                  <td style={td}>
+                    <button onClick={() => void reprint(t.id)} disabled={busy === t.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '5px 10px', fontSize: 12, fontWeight: 600, border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', cursor: busy === t.id ? 'wait' : 'pointer', whiteSpace: 'nowrap' }}>
+                      <Printer size={13} /> {busy === t.id ? 'Đang mở…' : 'In lại'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── Hộp thư chờ nhận (bên nhận) ──────────────────────────────────────────────

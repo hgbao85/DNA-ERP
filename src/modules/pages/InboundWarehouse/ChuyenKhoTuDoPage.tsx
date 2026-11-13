@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import { ArrowLeftRight, Printer, Send } from 'lucide-react'
 import { printTransferSlip } from './printTransferSlip'
+import { DoneTransfersPanel } from './InternalTransferSections'
 import { useFetch } from '../../../hooks/useFetch'
 import { useRealtimeRefetch } from '../../../realtime/hooks'
 import * as api from '../../../services/api'
@@ -299,6 +300,8 @@ export default function ChuyenKhoTuDoPage({ scope }: { scope: string | null }) {
           </table>
         </div>
       )}
+      {/* 13/11/2026: phiếu đã nhận - in lại được. */}
+      <DoneTransfersPanel warehouseId={effectiveFromId || null} />
     </div>
   )
 }

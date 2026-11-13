@@ -6,7 +6,7 @@ import { box, esc, fmtQty, khoCheckboxes, openSlipPrint } from './slipPrintTempl
  * nhận>". Kho giao in, người nhận ký; kho nhận ghi số thực nhận và chụp phiếu đã ký khi xác nhận nhận hàng. Phiếu đã nhận thiếu
  * in lại thì cột Ghi chú ghi "Thực nhận ...".
  */
-export function printTransferSlip(t: WarehouseTransfer): void {
+export function printTransferSlip(t: WarehouseTransfer, target?: Window | null): void {
   const xuatCho = [
     `${box(false)} Điểm đan: ..................`,
     `${box(false)} Tổ hàn`,
@@ -70,5 +70,5 @@ export function printTransferSlip(t: WarehouseTransfer): void {
       ]),
     ],
     signers: ['Người lập phiếu', 'Người nhận hàng', 'Thủ kho', 'Duyệt'],
-  })
+  }, target)
 }

@@ -77,7 +77,7 @@ export default function ChanNhomXuatSection() {
       cart.add({
         kind: 'MATERIAL_YIELD_RECIPE', materialId: d.inputMaterialId, productionInvoiceId: selPi.productionInvoiceId,
         recipeId: d.recipeId, qty: n,
-        materialName: `${d.inputMaterialName} (${d.inputMaterialCode}) → ${d.outputMaterialName}`, unit: '',
+        materialName: `${d.inputMaterialName} (${d.inputMaterialCode}) → ${d.outputMaterialName}`, unit: d.inputMaterialUnit ?? '',
         lenhLabel: selPi.piCode,
       })
       setQty(q => { const { [d.recipeId]: _, ...rest } = q; return rest })
