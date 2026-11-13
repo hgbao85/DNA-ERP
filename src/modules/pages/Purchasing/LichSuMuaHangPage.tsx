@@ -32,6 +32,7 @@ interface Row {
   khoLabel: string
   warehouseCode: string
   approvalFileUrl?: string
+  inOrder: boolean
 }
 
 // Chỉ liệt kê đúng các dòng ĐÃ purchased VÀ thật sự có mua (2026-08-25, sửa 2026-09-23) - không
@@ -58,6 +59,7 @@ function buildRows(p: PurchaseProposal): Row[] {
       khoLabel: item.khoLabel,
       warehouseCode: item.warehouseCode,
       approvalFileUrl: item.approvalFileUrl,
+      inOrder: !!item.supplierOrderId,
     }
   })
 }
@@ -112,7 +114,7 @@ export default function LichSuMuaHangPage() {
                     { label: 'Đã mua', value: <><b style={{ color: 'var(--fg-166534)' }}>{r.buyQty}</b> <span style={{ color: 'var(--text3)', fontSize: 11 }}>{r.unit}</span></> },
                     { label: 'Hàng về kho', value: warehouseName(r.warehouseCode, r.khoLabel) },
                   ]}
-                  footer={<ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} />}
+                  footer={<ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} inOrder={r.inOrder} />}
                 />
               ))}
             </div>
@@ -145,7 +147,7 @@ export default function LichSuMuaHangPage() {
                   <td style={{ ...td, fontWeight: 600 }}>{warehouseName(r.warehouseCode, r.khoLabel)}</td>
                   {/* Giá + NCC nằm TRONG file này (2026-08-27) - phần mềm không lưu tách ra. */}
                   <td style={td}>
-                    <ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} />
+                    <ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} inOrder={r.inOrder} />
                   </td>
                 </tr>
               ))}

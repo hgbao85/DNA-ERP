@@ -50,6 +50,7 @@ interface Row {
   remaining: number
   deadline?: string
   approvalFileUrl?: string
+  inOrder: boolean
   /** "Kim Phát – Số 53/2026" (2026-11-04, bản v8 mục 4.10) - null với dòng duyệt trước khi có đơn đặt hàng NCC. */
   orderLabel: string | null
 }
@@ -83,6 +84,7 @@ function buildRows(p: PurchaseProposal): Row[] {
       // Hạn RIÊNG của dòng theo nhóm vật tư (bao bì theo hạn Đóng gói...) - cùng hạn với Bảng mốc và tin sáng mở vào đây.
       deadline: item.deadline ?? p.deadline,
       approvalFileUrl: item.approvalFileUrl,
+      inOrder: !!item.supplierOrderId,
       orderLabel: item.supplierOrderCode ? `${item.supplierName ?? 'NCC'} – Số ${item.supplierOrderCode}` : null,
     }
   })
@@ -96,8 +98,11 @@ function buildRows(p: PurchaseProposal): Row[] {
  * duyệt (`approvedById`) hay Admin/Sếp không - FE không cần đoán trước, cứ hiện nút, lỗi 403 (nếu
  * có) hiện qua `runAction` (banner đỏ có sẵn ở InspectionContext).
  */
-export function ApprovalFileCell({ proposalId, itemId, approvalFileUrl }: {
+export function ApprovalFileCell({ proposalId, itemId, approvalFileUrl, inOrder }: {
   proposalId: string; itemId?: string; approvalFileUrl?: string
+  /** Dòng thuộc đơn đặt hàng (13/11/2026): 1 file phiếu ký dùng chung cả đơn và là chứng từ khi nhận hàng - đổi file là
+   *  đổi cho cả đơn, không cho xoá (BE cũng chặn). */
+  inOrder?: boolean
 }) {
   const { updateApprovalFile } = useInspection()
   const { ask, confirmModal } = useConfirm()
@@ -140,11 +145,11 @@ export function ApprovalFileCell({ proposalId, itemId, approvalFileUrl }: {
         <span style={{ color: 'var(--text3)' }}>—</span>
       )}
       <label style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 7px', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
-        <Upload size={11} /> {busy ? '…' : (approvalFileUrl ? 'Đổi file' : 'Tải file')}
+        <Upload size={11} /> {busy ? '…' : (approvalFileUrl ? (inOrder ? 'Đổi file (cả đơn)' : 'Đổi file') : 'Tải file')}
         <input type="file" accept="image/*,.pdf,.xls,.xlsx" hidden disabled={busy}
           onChange={e => { const f = e.target.files?.[0]; if (f) replace(f); e.target.value = '' }} />
       </label>
-      {approvalFileUrl && (
+      {approvalFileUrl && !inOrder && (
         <button onClick={remove} disabled={busy} style={{ display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 11, fontWeight: 600, color: 'var(--fg-c62828)', border: '1px solid rgba(198,40,40,.35)', borderRadius: 6, padding: '2px 7px', background: 'none', cursor: busy ? 'not-allowed' : 'pointer', opacity: busy ? 0.6 : 1 }}>
           <Trash2 size={11} /> Xóa
         </button>
@@ -216,7 +221,7 @@ export default function TheoDoiMuaHangPage() {
                   { label: 'Hàng về kho', value: warehouseName(r.warehouseCode, r.khoLabel) },
                   { label: 'Hạn giao', value: r.deadline ? <span style={deadlineTone(r.deadline)}>{fmtDay(r.deadline)}</span> : '—' },
                 ]}
-                footer={<ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} />}
+                footer={<ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} inOrder={r.inOrder} />}
               />
             ))}
           </div>
@@ -261,7 +266,7 @@ export default function TheoDoiMuaHangPage() {
                   </td>
                   {/* Giá + NCC nằm TRONG file này (2026-08-27) - phần mềm không lưu tách ra. */}
                   <td style={td}>
-                    <ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} />
+                    <ApprovalFileCell proposalId={r.proposalId} itemId={r.itemId} approvalFileUrl={r.approvalFileUrl} inOrder={r.inOrder} />
                   </td>
                 </tr>
               ))}
